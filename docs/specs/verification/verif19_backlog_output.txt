@@ -1,0 +1,152 @@
+stories 178
+stories deplacees declarees (19 §1.1): ['US-036', 'US-044', 'US-045']
+ref ADR: 31 distincts, inconnus: []
+ref T: 52 distincts, inconnus: []
+ref C: 20 distincts, inconnus: []
+ref OQ: 36 distincts, inconnus: []
+ref L0: 10 distincts, inconnus: []
+ref EC: 29 distincts, inconnus: []
+ref BR: 101 distincts, inconnus: []
+ref RLS: 14 distincts, inconnus: []
+ref DEC: 7 distincts, inconnus: []
+ref TA: 11 distincts, inconnus: []
+ref UXQ: 11 distincts, inconnus: []
+ref SM: 8 distincts, inconnus: []
+P0-A: 166 lignes, non couvertes: []
+P0-B: 13 lignes, non couvertes: []
+features P0-A dont la 1re story est APRES le lot_p0a de 04 : 15
+    ('HDB-001', '1', ['L5'])
+    ('SRC-002', '2', ['L5'])
+    ('SRC-012', '2', ['L5'])
+    ('LST-008', '2', ['L5'])
+    ('LST-020', '2', ['L5'])
+    ('BKG-016', '2', ['L5'])
+    ('PAY-002', '2', ['L5'])
+    ('PAY-006', '2', ['L5'])
+    ('PAY-017', '2', ['L5'])
+    ('PAY-018', '2', ['L5'])
+    ('PAY-004', '2', ['L5'])
+    ('TRP-057', '3', ['L5'])
+    ('NTF-002', '1', ['L5'])
+    ('NTF-011', '3', ['L5'])
+    ('ADM-007', '2', ['L5'])
+  L0: 49 stories 222 pts
+  L1: 25 stories 103 pts
+  L2: 22 stories 105 pts
+  L3: 13 stories 55 pts
+  L4: 9 stories 37 pts
+  L5: 40 stories 215 pts
+  LC: 8 stories 52 pts
+  LB: 12 stories 64 pts
+  total 178 853
+Beta pts 522 P0-A L0-L5 737
+
+L0:
+  US-001  3 Dépôt, monolithe modulaire et conventions | deps []
+  US-002  5 Intégration continue | deps ['US-001']
+  US-003  5 Environnements, infrastructure as code et déploiement réversible | deps ['US-002']
+  US-004  5 Sauvegardes, supervision et journal d'accès aux données personnelles | deps ['US-003']
+  US-005  5 Banc PostgreSQL, rôles de production et horloge de la base | deps ['US-002']
+  US-006  5 Preuves L0-01, L0-03, L0-08 : exclusion, ré-acquisition, triggers I-OCC, index u | deps ['US-005']
+  US-007  5 Preuves L0-02, L0-04 : concurrence, verrou par véhicule, plan de l'expiration | deps ['US-006']
+  US-008  3 Outbox transactionnelle, événements et tâches planifiées | deps ['US-005']
+  US-009  5 Journal d'audit chaîné, magasin de preuves et clés par sujet | deps ['US-005']
+  US-010  5 Comptes, sessions et port d'authentification | deps ['US-005']
+  US-011  8 RLS par type d'acteur et par pays, commandes `SECURITY DEFINER` | deps ['US-006', 'US-010']
+  US-012  5 Console interne : authentification forte, rôles et journal | deps ['US-009', 'US-011', 'US-032']
+  US-013  5 Configuration pays Panama et Paraguay | deps ['US-005']
+  US-014  3 Internationalisation espagnol / anglais et formats | deps ['US-001']
+  US-015  3 Primitives monétaires | deps ['US-001']
+  US-016  5 Oracle indépendant et harnais des vecteurs dorés | deps ['US-015']
+  US-017  8 Moteur de règlement des annulations, sous-ensemble Bêta (test-first) | deps ['US-013', 'US-015', 'US-016']
+  US-018  5 Règlements persistés, versions, supersession et commission due | deps ['US-011', 'US-017']
+  US-019  8 Port `PaymentProvider`, adaptateur `FAKE` et idempotence | deps ['US-008', 'US-011', 'US-013']
+  US-020  3 Autres ports et adaptateurs `FAKE` | deps ['US-008']
+  US-021  5 Moteur de notifications e-mail et SMS | deps ['US-008', 'US-014', 'US-020']
+  US-022  5 Table d'occupation unique | deps ['US-007', 'US-011']
+  US-023  8 Holds de checkout et de lien de paiement, commandes de réservation | deps ['US-019', 'US-022']
+  US-024  8 Conversion gardée, ré-acquisition et compensation | deps ['US-018', 'US-023']
+  US-025  5 Fuzz d'entrelacements C11 et oracle de production C12 | deps ['US-024']
+  US-026  3 Évaluation PWA sur iOS | deps ['US-001']
+  US-027  2 Rapport des preuves du lot 0 et recalage | deps ['US-007', 'US-011', 'US-017', 'US-025', 'US-049']
+  US-028  3 Naming et identité : propositions et choix du fondateur | deps []
+  US-030  5 Jetons de design comme source unique et thème | deps ['US-028']
+  US-031  2 Règles de mouvement, de micro-interactions et de photos d'annonce | deps ['US-030']
+  US-032  8 Bibliothèque de composants vivante | deps ['US-014', 'US-030']
+  US-033  8 Maquettes et prototypes des écrans clés de la Bêta | deps ['US-030']
+  US-034  5 Socle de marque modifiable : thème versionné et contenus | deps ['US-009', 'US-012', 'US-030']
+  US-035  3 Guide d'installation depuis zéro et README par module | deps ['US-013', 'US-019', 'US-020']
+  US-037  2 Inventaires : variables et secrets (noms), comptes et propriété | deps ['US-003']
+  US-038  5 Documentation d'architecture, API, schéma et glossaire synchronisés | deps ['US-002']
+  US-039  3 Stratégie de test, conventions et flux de revue documentés | deps ['US-002', 'US-016']
+  US-040  2 CHANGELOG et notes de version | deps ['US-002']
+  US-029  3 Artefacts de coordination de l'équipe d'agents et rapport de santé | deps ['US-001']
+  US-041  5 Tests de contrat d'API et e2e Playwright mobiles et PWA | deps ['US-038', 'US-035']
+  US-042  5 Propriétés monétaires et tests de mutation | deps ['US-016', 'US-017']
+  US-043  5 Tests de sécurité automatisés et matrice d'autorisations | deps ['US-011', 'US-012']
+  US-046  3 Tests de migrations et de données personnelles | deps ['US-009', 'US-038']
+  US-047  3 Régression nocturne, contrôles de rapprochement et tableau de bord QA | deps ['US-041', 'US-042', 'US-029']
+  US-048  3 Coquille web mobile-first et PWA installable | deps ['US-032', 'US-026', 'US-034']
+  US-049  5 Porte du lot 0 : pré-mortem, red team argent / RLS / concurrence et post-mortem | deps ['US-011', 'US-012', 'US-018', 'US-019', 'US-025']
+  US-050  3 Règles d'exploitation des agents : accès, déploiement, usage, modèles, branches, | deps ['US-002', 'US-003', 'US-029']
+  US-051  3 Restauration testée et rotation de secret dès le lot 0 | deps ['US-004', 'US-018']
+  US-052  3 Limitation de débit et anti-abus : OTP, SMS / e-mail, recherche publique, API | deps ['US-010', 'US-021', 'US-043']
+
+stories L0 sans dependant: ['US-027', 'US-031', 'US-040', 'US-046', 'US-048', 'US-050', 'US-051']
+
+ERREURS 0
+
+AVERTISSEMENTS 53
+ - US-036: deplacee sans renumerotation L0 -> L1 (19 §1.1)
+ - US-044: deplacee sans renumerotation L0 -> L1 (19 §1.1)
+ - US-045: deplacee sans renumerotation L0 -> L1 (19 §1.1)
+ - US-028: Revue design OUI sans ecran cite (Naming et identité : propositions et choix du fond)
+ - US-030: Revue design OUI sans ecran cite (Jetons de design comme source unique et thème)
+ - US-031: Revue design OUI sans ecran cite (Règles de mouvement, de micro-interactions et de p)
+ - US-032: Revue design OUI sans ecran cite (Bibliothèque de composants vivante)
+ - US-048: Revue design OUI sans ecran cite (Coquille web mobile-first et PWA installable)
+ - US-103: Revue design OUI sans ecran cite (Nom légal identique au permis)
+ - US-106: Revue design OUI sans ecran cite (Décision KYC de la Bêta par l'ops)
+ - US-209: Revue design OUI sans ecran cite (Contrôles bloquants et revue de chaque réservation)
+ - US-211: Revue design OUI sans ecran cite (Contrat de location par trip et signature horodaté)
+ - US-212: Revue design OUI sans ecran cite (Constancia bilingue, centre légal, positionnement )
+ - US-303: Revue design OUI sans ecran cite (Capture photo guidée, horodatage serveur et emprei)
+ - US-403: Revue design OUI sans ecran cite (Recette interne PA et PY et tests d'utilisabilité)
+ - US-501: Revue design OUI sans ecran cite (Liveness, face match et file de revue KYC complète)
+ - US-503: Revue design OUI sans ecran cite (Contrôle des 90 jours du permis étranger)
+ - US-507: Revue design OUI sans ecran cite (Police flotte et documents du véhicule en libre-se)
+ - US-509: Revue design OUI sans ecran cite (Soumission, éligibilité, revue et cycle de vie des)
+ - US-510: Revue design OUI sans ecran cite (Préavis par lieu et synchronisation iCal)
+ - US-511: Revue design OUI sans ecran cite (Tableau de bord de l'agence)
+ - US-512: Revue design OUI sans ecran cite (Autocomplétion des lieux et tri des résultats)
+ - US-513: Revue design OUI sans ecran cite (Dates indisponibles et bloc agence sur la fiche)
+ - US-514: Revue design OUI sans ecran cite (Lieux de prise et de retour)
+ - US-515: Revue design OUI sans ecran cite (Mode (a) sous mandat contre `FAKE` : cartes, autor)
+ - US-516: Revue design OUI sans ecran cite (Yappy via le PSP de l'agence)
+ - US-520: Revue design OUI sans ecran cite (Annulation par l'agence en libre-service)
+ - US-522: Revue design OUI sans ecran cite (No-show et refus du véhicule en libre-service)
+ - US-524: Revue design OUI sans ecran cite (Check-in et check-out hors ligne)
+ - US-526: Revue design OUI sans ecran cite (WhatsApp avec repli et notifications de trip)
+ - US-529: Revue design OUI sans ecran cite (Instruction des dossiers, arbitrage et exécution d)
+ - US-534: Revue design OUI sans ecran cite (Console à 12 rôles)
+ - US-535: Revue design OUI sans ecran cite (Écran de paramètres pays)
+ - US-536: Revue design OUI sans ecran cite (Outil d'effacement et registre Ley 81 dans la cons)
+ - US-537: Revue design OUI sans ecran cite (Contrat-cadre, mandat et mandat PSP signés en lign)
+ - US-606: Revue design OUI sans ecran cite (Intégration des avis juridiques et des valeurs déf)
+ - US-701: Revue design OUI sans ecran cite (Caution plateforme et fenêtre de rétention)
+ - US-703: Revue design OUI sans ecran cite (Carte enregistrée, MIT et débits post-trip conform)
+ - US-704: Revue design OUI sans ecran cite (Frais de service guest)
+ - US-706: Revue design OUI sans ecran cite (Factures annexes : paiement ou contestation par le)
+ - US-707: Revue design OUI sans ecran cite (Compte de versement vérifié)
+ - US-017: GWT desequilibre 8/6/8
+ - US-046: GWT desequilibre 2/3/3
+ - US-102: GWT desequilibre 4/2/4
+ - US-210: GWT desequilibre 6/3/6
+ - US-211: GWT desequilibre 4/3/4
+ - US-212: GWT desequilibre 3/2/3
+ - US-301: GWT desequilibre 3/2/3
+ - US-302: GWT desequilibre 4/3/4
+ - US-305: GWT desequilibre 3/2/3
+ - US-307: GWT desequilibre 4/3/4
+ - US-513: GWT desequilibre 2/1/2
+ - US-526: GWT desequilibre 2/1/2

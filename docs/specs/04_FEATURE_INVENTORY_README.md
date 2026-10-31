@@ -1,0 +1,408 @@
+# 04 — Inventaire des fonctionnalités : mode d'emploi
+
+> Fichier de données : `04_FEATURE_INVENTORY.csv` (UTF-8 sans BOM, séparateur virgule, tous les champs entre guillemets, fins de ligne `\n`).
+> **Révision 2 du 2026-10-30** : application de l'audit `verification/VERIF_07_FEATURE_INVENTORY.md` (P0 réduit, nouvelles lignes, dépendances), du découpage P0-A / P0-B issu de `12_PANAMA_MARKET.md` §10.3 (« l'agence encaisse » en Phase 0), de `verification/VERIF_06_IMPROVEMENTS.md` et de `09b_PAYMENT_PARTNERS_PA_PY.md` / `verification/VERIF_08_PAYMENTS.md` (piles PSP, règle de caution). Nouvelle colonne `phase_mvp`. Contrôle automatique : `tools/check_inventory.py` (§7). Feuille de route correspondante : `18_MVP_AND_ROADMAP.md`. `08_BUSINESS_RULES.md` n'a pas été modifié (audit en cours) : les écarts sont signalés dans les notes des lignes (ex. PAY-036, PAY-037).
+> Version 1 rédigée le 2026-10-30 à partir de RESUME_HERE, 02, 03, 05, 06, 08, 09, 10, 11, 21, sources/SRC_GUEST_DOCS, SRC_HOST_DOCS, SRC_TOS_NOTES et 12 §9–§10. Turo n'a pas été consulté à nouveau : chaque fonctionnalité Turo cite son fichier source. Tout ce qui n'existe pas chez Turo est marqué PROPOSÉ. La révision 2 ajoute comme sources 09b, 15, 20, VERIF_06, VERIF_07 et VERIF_08.
+> **Révision 3 du 2026-10-30 (corrigé VERIF_10)** : application de `verification/VERIF_10_MVP_ROADMAP.md`. Trois colonnes ajoutées (`lot_p0a`, `beta_pilote`, `risque_legal_financier`, §1) ; barème de complexité, d'effort ops et de risque (§1 bis, VERIF_07 F11) ; 9 nouvelles lignes P0-A (LEG-027 mandat d'opérations PSP, FIN-019 rapprochement des revenus, SUP-020 dotation du support, ADM-033 revue de sécurité, ADM-034 préproduction, ADM-035 RPO/RTO, TRP-056 risque PWA iOS, TRP-057 hors ligne scindé de TRP-002, PAY-041 porte PSP) et LEG-010 promue (Ley 81) ; 41 lignes à mentions non déclarées traitées (§6 bis) ; 4 lignes P0 « DIRECTEMENT TESTÉ » requalifiées ; contrôle automatique étendu (§7). Chaque modification de ligne est marquée « (corrigé VERIF_10-<ID>) » dans `notes`.
+> **Révision 4 du 2026-10-30 (consolidation 04/08/16/17)** : report des 13 changements de l'annexe C de `17_DATA_MODEL_AND_ARCHITECTURE.md` (C04-1 à C04-13) et des 6 changements de `10b_UX_UI_ANALYSIS.md` §7 dans 22 lignes du CSV (descriptions, un nom, notes) ; aucune ligne ajoutée ni supprimée, aucune phase, lot, valeur `beta_pilote` ou dépendance modifiés ; 19 colonnes inchangées. Détail et sortie du contrôle : §10.
+> **Révision 5 du 2026-10-30 (passe de cohérence finale VERIF_18 + DEC-FONDATEUR-04 à 10)** : application de `verification/VERIF_18_GLOBAL_CONSISTENCY.md` (F-01 lot `C` des connecteurs réels, F-02 Paraguay dès le départ, F-04/F-05 caution, F-07 critères C1–C20 / RLS-1–20 / L0, F-08 comptes et sortie d'outil régénérés une seule fois) et des décisions fondateur DEC-FONDATEUR-05 à 10 : 15 lignes créées (DSN-001 à DSN-007 « Fondations design », PLT-001 à PLT-005 « Transmissibilité, qualité et gouvernance multi-agents », PAY-042, FIN-020, VER-029 « connecteurs réels » au lot C), 2 lignes promues P2 → P0-A (I18N-005 PYG, FIN-003 SIFEN en interface), PAY-041 passée au lot C. Détail : §11. Le script `tools/check_inventory.py` accepte désormais la valeur de lot `C` (ordonnée après le lot 4) et libelle l'estimation en unités d'effort de 10 jours-agent (modification structurelle signalée).
+> Cadre produit : marketplace **pro-first** (agences de location professionnelles d'abord, P2P vérifié ensuite) construite pour le **Panama et le Paraguay en même temps** (DEC-FONDATEUR-04, deux configurations de premier rang, USD et PYG) ; le **choix du pays de lancement reste en attente** (12 §10.3, 22). Build par une équipe multi-agents Claude Code, le fondateur étant le seul humain (DEC-FONDATEUR-05).
+
+## 1. Colonnes
+
+| Colonne | Contenu |
+|---|---|
+| `feature_id` | `MOD-NNN`. Identifiant stable, réutilisable dans le PRD et le backlog. Les nouvelles lignes continuent la numérotation du module (ex. `PAY-033`). |
+| `module` | Code + libellé (26 modules ; DSN et PLT ajoutés en révision 5). |
+| `sous_module` | Regroupement fonctionnel dans le module. |
+| `nom` | Nom court de la fonctionnalité. |
+| `persona` | Guest, Hôte, Hôte pro (loueur), Co-hôte, Admin / Ops, Support, Finance, Visiteur, Tous. |
+| `description_courte` | Ce que fait la fonctionnalité. Pour les lignes P0 réécrites : acteur, déclencheur, règle, données et critère d'acceptation (CA). La description d'origine est conservée dans `notes`. |
+| `turo_statut_preuve` | DIRECTEMENT TESTÉ / OBSERVÉ / DOCUMENTÉ / INFÉRÉ / PROPOSÉ / BLOQUÉ / NON EXPLORÉ. |
+| `source` | Référence (`05 G-…`, `06 H-…`, `EV-xxxx`, `SRC_G x.y`, `SRC_H §x`, `TOS-xxx`, `11 EC-xx`, `12 §x`, `VERIF_07 NEW-xx`, `15 IMP-xx`). |
+| `regles_liees` | Règles métier de `08_BUSINESS_RULES.md` (`BR-…`, `SM-…`). |
+| `dependances` | Autres `feature_id` nécessaires. Contrôle automatique : toutes existent, aucune ne pointe vers une phase plus tardive, aucun cycle (§6–§7). |
+| `priorite_produit` | **P0** = MVP sûr et légal du lancement pro-first, Panama et Paraguay construits (P0-A + P0-B). **P1** = version concurrentielle complète. **P2** = différenciation, ouverture P2P vérifiée et Paraguay. **P3** = futur ou non applicable au Panama. |
+| `complexite_tech` | faible / moyenne / élevée. |
+| `effort_ops` | faible / moyen / élevé (charge humaine récurrente). |
+| `pertinence_latam` | élevée / moyenne / faible / non applicable. |
+| `notes` | Écart volontaire par rapport à Turo (`[NOUS]`), point à valider, et **journal des changements** de la révision 2 : rétrogradation, fusion (« FUSIONNÉ dans X »), promotion, réécriture (description initiale), dépendances corrigées (« avant … »), phase P0-B (porte juridique). |
+| **`phase_mvp`** | **P0-A**, **P0-B**, **P1**, **P2**, **P3** (définitions §3). Une ligne `priorite_produit = P0` est P0-A ou P0-B ; sinon `phase_mvp = priorite_produit`. |
+| **`lot_p0a`** (révision 3 ; `C` en révision 5) | Lot de construction du P0-A, `0` à `4` (18 §6), ou `C` = lot des **connecteurs réels** (PSP, e-facture, KYC) livré après le choix du pays de lancement et avant la mise en service (DEC-FONDATEUR-03, VERIF_18-F01) ; une intégration se livre en deux temps : port + adaptateur `FAKE` dans le lot de sa ligne, connecteur réel au lot C. Vide hors P0-A. Contrôle : aucune ligne n'est dans un lot antérieur à celui d'une ligne dont elle dépend (corrigé VERIF_10-V10-08). |
+| **`beta_pilote`** (révision 3) | Traitement de la ligne dans la **Bêta pilote** (tranche mince, 18 §1.0) ; vide hors P0-A. **OUI** = construite telle que décrite ; **SIMPLIFIÉ** = version réduite, décrite en note « Bêta pilote SIMPLIFIÉ : … » ; **MANUEL** = non construite, remplacée par une opération manuelle décrite en note ; **DIFFÉRÉ** = non construite ni remplacée (sans objet pour le pilote ou assurée par la page du PSP), livrée avec le P0-A complet. Contrôle : une ligne OUI ou SIMPLIFIÉ ne dépend jamais d'une ligne DIFFÉRÉ (corrigé VERIF_10-V10-01). |
+| **`risque_legal_financier`** (révision 3) | faible / moyen / élevé (barème §1 bis), évalué pour les 179 lignes P0 et les lignes citées par VERIF_07 F11 ; « non évalué » ailleurs (corrigé VERIF_10-V10-13, VERIF_07 F11). |
+
+Choix documenté (corrigé VERIF_10-V10-01) : la Bêta pilote est portée par une **colonne** plutôt que par une étiquette dans `notes`, pour être contrôlable par script (valeurs fermées, dépendances, estimation) ; la raison de chaque valeur autre que OUI est écrite dans `notes`.
+
+### 1 bis. Barèmes (corrigé VERIF_10-V10-13, VERIF_07 F11)
+
+| Colonne | faible | moyenne / moyen | élevée / élevé |
+|---|---|---|---|
+| `complexite_tech` (effort de build par ligne, en jours-développeur assistés par Claude Code, tests et relecture compris) | 0,5–1,5 j-dev | 1,5–2,5 j-dev | 3–8 j-dev (intégration tierce, contrainte forte, hors ligne) |
+| `effort_ops` (charge humaine **récurrente** pour 5 à 10 agences ; ne mesure pas le risque) | < 1 h/semaine | 1–5 h/semaine | > 5 h/semaine |
+| `risque_legal_financier` (conséquence d'une erreur) | sans conséquence juridique ni monétaire directe | réparable à coût limité (remboursement, plainte individuelle) | qualification réglementaire, fonds de tiers, données sensibles (biométrie), responsabilité contractuelle ou perte non plafonnée |
+
+**Unité (révision 5, DEC-FONDATEUR-05)** : il n'y a plus de développeurs humains ; « j-dev » se lit **jour-agent** (une journée de travail d'un agent d'implémentation Claude Code, tests et revue indépendante compris) et **1 unité d'effort = 10 jours-agent** (ex-« semaine-équipe » = 2 développeurs × 5 jours, conservée comme contexte historique). Aucune unité n'a de valeur calendaire : la durée sera mesurée après le lot 0 (18 §5). Historique : le barème de complexité a été **calibré** pour que la somme des 147 lignes P0-A de la révision 3, plus les forfaits de socle (1,5–3) et de durcissement et recette interne (1–2), redonne la fourchette par epic de 18 §5 (21–42) : il ne mesure rien et sera remplacé par la vélocité observée au recalage de fin de lot 1 (18 §5). Pour la Bêta pilote, une ligne SIMPLIFIÉ compte un niveau de complexité en dessous (élevée → moyenne, moyenne → faible, faible → 0,25–0,75 j-dev) et une ligne MANUEL ou DIFFÉRÉ compte 0 ; forfaits réduits : socle 1–2, recette interne 0,5–1. Recodage F11 : `effort_ops` de FIN-014, PRT-003, PRT-014, MKT-017 et CLM-015 passe d'« élevé » à « moyen » (le niveau élevé exprimait un risque, désormais dans `risque_legal_financier`) ; contrôles manuels de PRT-009 et HST-019 décrits en note ; TRP-002 scindée (hors ligne → TRP-057, TRP-002 passe en complexité moyenne).
+
+Conventions : `[NOUS]` signale notre recommandation. Les montants Turo sont donnés pour référence ; les valeurs de lancement du Panama sont dans `ADM-031` (annexe des paramètres, « À DÉCIDER » tant qu'elles ne sont pas arrêtées) et chargées dans `ADM-014`. Une ligne « FUSIONNÉ dans X » reste dans le fichier (identifiant stable) mais son besoin P0 est décrit dans X ; elle ne garde que son reliquat P1.
+
+## 2. Comptes
+
+**Total : 676 fonctionnalités** (613 + 36 nouvelles en révision 2 + 9 en révision 3 + 3 du catalogue véhicules en v4 + 15 en révision 5) dans 26 modules. Comptes régénérés par `tools/check_inventory.py` (sortie complète au §7).
+
+| Phase | Lignes | Lecture |
+|---|---|---|
+| **P0-A** | **166** | bêta fermée, l'agence encaisse ; Panama et Paraguay construits (149 en v4 + 15 lignes créées + I18N-005 et FIN-003 promues, révision 5) |
+| **P0-B** | **13** | la plateforme encaisse et reverse, après avis |
+| P1 | 342 | |
+| P2 | 108 | (I18N-005 et FIN-003 promues en P0-A) |
+| P3 | 47 | |
+| **Total** | **676** | P0 = 179 (162 en v4, 150 en révision 2, 275 en version 1) |
+
+**Lots du P0-A** : lot 0 = 22, lot 1 = 50, lot 2 = 65, lot 3 = 24, lot 4 = 1, **lot C = 4** (PAY-041, PAY-042, FIN-020, VER-029). **Bêta pilote** (colonne `beta_pilote`, 166 lignes P0-A) : OUI 25, SIMPLIFIÉ 71, MANUEL 58, DIFFÉRÉ 12, soit **96 lignes construites** (82 en v4 ; + DSN-001 à 007, PLT-001 à 005, I18N-005 et PAY-042 ; FIN-003, FIN-020 et VER-029 en MANUEL). Historique : 76 construites en révision 3, 80 après C-v3-01/02, 82 avec HST-050 et ADM-036 (v4).
+
+Passage de 275 à 150 lignes P0 (révision 2) : 275 − 143 rétrogradations de VERIF_07 appliquées (sur 146 ; 3 rejetées, §5.2) + 5 promotions (PAY-004, NTF-011, VER-028, LEG-020 de VERIF_07 ; FLT-011 par jugement) − 1 rétrogradation propre (REV-004) + 14 nouvelles lignes P0 = **150**. VERIF_07 visait 141 : l'écart de +9 vient des 3 rejets, de FLT-011, des 6 lignes P0 ajoutées en plus de NEW-01 à NEW-08 (PAY-034 à PAY-038, ADM-032) et de REV-004 en moins.
+
+### Par module et par phase
+
+| Module | Total | P0-A | P0-B | P1 | P2 | P3 |
+|---|---|---|---|---|---|---|
+| ACC — Comptes & identité | 35 | 5 | 0 | 24 | 4 | 2 |
+| VER — Vérification / KYC | 29 | 12 | 0 | 14 | 2 | 1 |
+| SRC — Recherche & découverte | 46 | 6 | 0 | 26 | 12 | 2 |
+| LST — Fiche véhicule | 29 | 9 | 0 | 17 | 3 | 0 |
+| BKG — Réservation & checkout | 43 | 16 | 0 | 23 | 3 | 1 |
+| PAY — Paiements | 42 | 13 | 6 | 12 | 8 | 3 |
+| PRC — Tarification | 26 | 4 | 1 | 13 | 3 | 5 |
+| TRP — Cycle de vie du trip | 57 | 11 | 0 | 37 | 7 | 2 |
+| MSG — Messagerie | 14 | 2 | 0 | 6 | 6 | 0 |
+| NTF — Notifications | 22 | 4 | 0 | 14 | 3 | 1 |
+| REV — Avis & réputation | 14 | 2 | 0 | 9 | 3 | 0 |
+| HST — Onboarding hôte & annonces | 51 | 9 | 0 | 28 | 8 | 6 |
+| CAL — Calendrier & disponibilité | 13 | 6 | 0 | 5 | 1 | 1 |
+| HDB — Tableau de bord & performance hôte | 18 | 2 | 0 | 8 | 5 | 3 |
+| PYO — Versements hôtes | 17 | 1 | 3 | 10 | 3 | 0 |
+| FLT — Flotte / pro / co-hôtes | 19 | 3 | 0 | 11 | 2 | 3 |
+| CLM — Réclamations, dommages & factures annexes | 36 | 4 | 1 | 17 | 10 | 4 |
+| PRT — Protection & assurance | 19 | 4 | 0 | 7 | 6 | 2 |
+| SUP — Support, aide & trust & safety | 20 | 3 | 0 | 15 | 2 | 0 |
+| ADM — Back-office / admin [NOUS] | 36 | 17 | 0 | 16 | 3 | 0 |
+| FIN — Finance, comptabilité & fiscalité | 20 | 6 | 2 | 8 | 2 | 2 |
+| I18N — Multi-pays, devise & langue | 13 | 3 | 0 | 8 | 1 | 1 |
+| MKT — Marketing, parrainage, fidélité & cartes cadeaux | 18 | 0 | 0 | 3 | 9 | 6 |
+| LEG — Légal, consentements & données | 27 | 12 | 0 | 11 | 2 | 2 |
+| DSN — Design, marque & contenus | 7 | 7 | 0 | 0 | 0 | 0 |
+| PLT — Plateforme, qualité & transmissibilité | 5 | 5 | 0 | 0 | 0 | 0 |
+| **Total** | **676** | **166** | **13** | **342** | **108** | **47** |
+
+### Par statut de preuve
+
+| Statut | Nombre |
+|---|---|
+| DIRECTEMENT TESTÉ | 6 (12 en révision 2 ; aucune ligne P0) |
+| OBSERVÉ | 132 |
+| DOCUMENTÉ | 324 |
+| INFÉRÉ | 21 |
+| PROPOSÉ | 188 (125 + 36 + 9 nouvelles lignes, + 3 en v4, + 15 en révision 5) |
+| BLOQUÉ | 4 |
+| NON EXPLORÉ | 1 |
+
+Requalifications de preuve (corrigé VERIF_10-V10-13, VERIF_07 F04–F05) : les 4 lignes P0 encore « DIRECTEMENT TESTÉ » passent en OBSERVÉ (BKG-002 et BKG-006 : champs relevés sans soumission, EV-0007 ; PRC-012 : taux de 22–24 % recalculé sur des montants observés, EV-0007 et EV-0026 ; PRC-020 : seule la formule de Floride a été recalculée, l'ITBMS Panama est PROPOSÉ) ; PRC-018 et HST-002 (recalcul, outil consulté) aussi ; BKG-005, PAY-007 et PRC-010 citent désormais EV-0026 (retest connecté) et restent DIRECTEMENT TESTÉ. F06 et F07 (OBSERVÉ sans EV, DOCUMENTÉ de seconde main, lignes hors P0 pour l'essentiel) restent non appliqués (§9) ; le type d'EV-0025 dans `20_EVIDENCE_REGISTER.csv` n'est pas modifié (hors périmètre de cette passe).
+
+## 3. Phases MVP et préconditions juridiques
+
+| Phase | Définition | Préconditions (questions de `22_OPEN_QUESTIONS.md`) |
+|---|---|---|
+| **P0-A** | Bêta fermée avec quelques agences. **Chaque agence encaisse elle-même** le loyer sur son propre compte PSP (Tilopay de préférence, cartes + Yappy ; Clave si confirmée), la plateforme crée l'ordre sur ce compte et synchronise le statut (PAY-033, PAY-034) ; **la caution est prise et restituée par l'agence** selon une politique déclarée, y compris sans carte de crédit (PAY-035) ; **la plateforme facture sa commission** mensuellement (FIN-018, PYO-013) ; **aucune détention de fonds** par la plateforme ; pas de frais de service guest. | **OQ-MK-01** (art. 288, « representación o agencia » : si négatif sans montage, le Paraguay, déjà construit, devient le pays de lancement), **OQ-MK-02 lecture b** (le flux « l'agence encaisse, la plateforme facture sa commission » n'est pas une activité de casa de remesas : condition de GO Panama de 12 §10.3 ; corrigé VERIF_10-V10-04), **OQ-MK-05** (polices flotte couvrant la distribution par plateforme, bloquant pour publier), **OQ-MK-06** (ITBMS, retenue 12,5 %, facture de l'agence), **OQ-MK-07** (commission acceptée : viabilité), **OQ-PAY-03** (Tilopay : ordre sur le compte de l'agence, Clave, tarifs, entité ; porte PAY-041), **OQ-PAY-22** et **OQ-PAY-07** (remboursement Yappy, P0 depuis VERIF_10-V10-05), **OQ-BR-24** (clauses CGU, contrat et mandat LEG-027), **OQ-MK-09** (Ley 81 : transferts hors Panama, registre, notification de violation ; corrigé VERIF_10-V10-09) ; **OQ-BR-21** et **OQ-BR-25** (P0 depuis VERIF_10, en mode dégradé tant qu'elles ne sont pas tranchées : revue manuelle des permis, durées prudentes) ; OQ-PAY-06 (caution Yappy/virement prise par l'agence). Prérequis opérationnels : dotation du support (SUP-020), revue de sécurité (ADM-033). |
+| **P0-B** | **La plateforme encaisse** (loyer et éventuels frais de service guest), **détient et libère la caution** (pré-autorisation unique si `H_requise` = pose + durée + 72 h + marge 0 h, calculée en heures, tient dans la validité du PSP ; repère : trips ≤ 3 j à 7 j de validité, 3 j + 25 min échoue, T59 ; PAY-036, 08 BR-PAY-06), **débite les frais post-trip** selon les règles réseaux (PAY-037), **reverse aux agences** (PYO-001/002/007), collecte l'ITBMS (FIN-004) et rapproche (FIN-005) ; ou split de commission à la source (PAY-038). | **OQ-MK-02** (casa de remesas, Ley 48/2003), **OQ-MK-03** (MTL si l'entité US encaisse), **OQ-PAY-05** (split/payout PSP et remesas), **OQ-PAY-04** (dLocal Platforms : couverture, détenteur des fonds), **OQ-PAY-02** (validité réelle des pré-autorisations, MCC 7512), **OQ-PAY-13** (débit local et MIT), **OQ-PAY-15** (facture et split), **OQ-BR-12** (a–d), **OQ-BR-14** (fiscalité), OQ-MK-06 ; **OQ-PAY-17** (ré-autorisation d'une caution longue), **OQ-PAY-18** (règles Visa/Mastercard LAC sur les débits de dommages), **OQ-PAY-21** (préfinancement des payouts = détention de fonds), OQ-PAY-19 (frais PSP restitués), OQ-PAY-22 (remboursement Yappy via Tilopay, déjà requise au P0-A) ; VERIF_08 V8-01, V8-03. |
+| P1 | Version concurrentielle complète dans le pays de lancement (automatisations, modifications de trip, P1 de support 24/7, API, marque blanche, livraison, protections guest si OQ-BR-16). | OQ-BR-16 (protections), OQ-MK-08 (aéroport), OQ-BR-17, OQ-BR-19. |
+| P2 | Ouverture P2P vérifiée, ouverture commerciale du second pays (déjà construit, DEC-FONDATEUR-04), différenciation. | OQ-BR-35, OQ-BR-16, OQ-BR-28 (P2P) ; OQ-MK-04, OQ-PAY-08 à 12 (Paraguay, s'il n'est pas retenu au lancement). |
+| P3 | Futur ou non applicable. | — |
+
+**Décisions fondateur du 2026-10-30 (consolidation, révision 4)** :
+- **DEC-FONDATEUR-02** : on construit d'abord ; les avis juridiques de la colonne « Préconditions » ci-dessus (OQ-MK-01, OQ-MK-02, OQ-MK-05, OQ-MK-06, OQ-MK-09, OQ-BR-21, OQ-BR-24, OQ-BR-25, OQ-PAY-06…) deviennent un **préalable à la mise en service avec de vrais clients** (Bêta pilote comprise), plus un préalable au build. Les lots se construisent ; leur ouverture reste bloquée.
+- **DEC-FONDATEUR-03** : intégration d'un PSP réel reportée au choix du pays ; PAY-001 est construit avec un adaptateur fictif / bac à sable (`FAKE`) ; PAY-041 et les adaptateurs Tilopay, Yappy, Bancard vPOS, upay, dLocal sont différés (ils bloquent l'ouverture, pas le build). Aucune phase, aucun lot ni aucune valeur `beta_pilote` n'est modifié par cette décision.
+- **DEC-FONDATEUR-04** : Panama **et** Paraguay sont construits en même temps ; le pays est une configuration (USD / PYG, fuseaux `America/Panama` / `America/Asuncion`, ITBMS 7 % / IVA 10 %, pièces d'identité, langues `es-PA`, `es-PY`, `en`). Les lignes P0 sont communes aux deux pays (aucun doublon). **Appliqué en révision 5 (VERIF_18-F02)** : I18N-005 (PYG) → P0-A, lot 0 ; FIN-003 (SIFEN) → P0-A en interface (port + `FAKE`, lot 2 ; connecteur réel au lot C, FIN-020) ; les besoins P0 du fuseau (I18N-006) et des forfaits par devise (I18N-007) restent fusionnés dans I18N-003 et ADM-014, désormais explicitement bi-pays ; I18N-013 (guaraní) reste P3.
+- **DEC-FONDATEUR-05** : aucun développeur humain ; build par une équipe multi-agents Claude Code (orchestrateur, agents d'implémentation, vérificateurs indépendants) ; le fondateur est product owner, recette, comptes et juridique. Effet sur 04 : unités d'effort en jours-agent (§1 bis) ; PLT-005.
+- **DEC-FONDATEUR-06 / 07** : agent DESIGN dédié et relecteur UX/design indépendant ; web mobile-first + PWA installable dans le MVP, apps natives plus tard ; design modifiable à tout moment par le fondateur (tokens pilotés par les données, back-office « Apparence / Marque », blocs de contenu es/en, bibliothèque de composants) ; pas encore de nom : DSN-001 « Naming et identité » d'abord. Epic E16 (DSN-001 à DSN-007).
+- **DEC-FONDATEUR-08 / 09 / 10** : transmissibilité totale (IaC, conteneurs, portabilité, comptes au nom du fondateur, runbooks, checklist de passation ; « documentation à jour » dans la Definition of Done), tests exhaustifs et portes CI bloquantes avec agent QA indépendant, autonomie des agents par artefacts versionnés avec valeur par défaut pour chaque décision et point fondateur hebdomadaire. Epic transverse E17 (PLT-001 à PLT-005).
+
+**Choix du pays de lancement (en attente, 12 §10.3, 22)** : les deux pays étant construits (DEC-FONDATEUR-04), l'issue des avis (OQ-MK-01 au Panama ; OQ-MK-04, OQ-PAY-08 à 12 au Paraguay) ne détermine plus que le **pays ouvert en premier** et donc les connecteurs réels du lot C (PSP, e-facture PAC ou SIFEN, KYC) ; aucune ligne ne change de phase à ce moment.
+
+## 4. Epics du P0
+
+Chaque ligne P0 appartient à un seul epic ; le tableau est lu par `tools/check_inventory.py` (couverture exacte contrôlée).
+
+| Epic | Phase | Lignes | IDs |
+|---|---|---|---|
+| E1 Comptes, identité, KYC et KYB | P0-A | 16 | ACC-001, ACC-006, ACC-008, ACC-014, ACC-029, VER-001, VER-002, VER-003, VER-004, VER-005, VER-006, VER-007, VER-013, VER-015, VER-027, VER-028 |
+| E2 Recherche et fiche véhicule | P0-A | 15 | SRC-001, SRC-002, SRC-008, SRC-011, SRC-012, SRC-042, LST-002, LST-003, LST-006, LST-007, LST-008, LST-010, LST-012, LST-013, LST-020 |
+| E3 Disponibilité, calendrier et flotte | P0-A | 9 | CAL-001, CAL-002, CAL-003, CAL-004, CAL-009, CAL-011, FLT-001, FLT-003, BKG-014 |
+| E4 Réservation, contrat et checkout | P0-A | 13 | BKG-001, BKG-002, BKG-006, BKG-008, BKG-012, BKG-016, BKG-018, BKG-019, BKG-022, BKG-023, BKG-025, BKG-027, LEG-026 |
+| E5 Devis, taxes, commission et facturation | P0-A | 10 | PRC-001, PRC-020, PRC-021, PRC-025, FIN-001, FIN-002, FIN-003, FIN-018, PYO-013, FIN-019 |
+| E6 Paiements « agence encaisse » et caution chez l'agence | P0-A | 11 | PAY-001, PAY-002, PAY-004, PAY-006, PAY-017, PAY-018, PAY-019, PAY-021, PAY-033, PAY-034, PAY-035 |
+| E7 Onboarding agence, polices flotte et annonces | P0-A | 15 | HST-050, ADM-036, HST-005, HST-011, HST-012, HST-016, HST-019, HST-026, HST-033, HST-039, HDB-001, HDB-002, FLT-011, LEG-025, PRT-019 |
+| E8 Trip : remise, retour et preuves | P0-A | 12 | TRP-002, TRP-004, TRP-007, TRP-015, TRP-033, TRP-035, TRP-038, TRP-045, TRP-052, CLM-034, TRP-056, TRP-057 |
+| E9 Annulations et protection (police flotte) | P0-A | 6 | BKG-028, BKG-032, BKG-035, PRT-003, PRT-009, PRT-013 |
+| E10 Messagerie, notifications et avis | P0-A | 8 | MSG-001, MSG-007, NTF-001, NTF-002, NTF-007, NTF-011, REV-001, REV-010 |
+| E11 Dommages et litiges de base | P0-A | 5 | CLM-001, CLM-002, CLM-006, ADM-008, LEG-024 |
+| E12 Back-office, support, risque et exploitation | P0-A | 18 | ADM-001, ADM-002, ADM-003, ADM-004, ADM-005, ADM-006, ADM-007, ADM-014, ADM-022, ADM-029, ADM-031, ADM-032, SUP-004, SUP-011, SUP-020, ADM-033, ADM-034, ADM-035 |
+| E13 Légal, consentements, langues et pays | P0-A | 12 | LEG-001, LEG-002, LEG-009, LEG-011, LEG-014, LEG-015, LEG-020, I18N-003, I18N-004, LEG-010, LEG-027, I18N-005 |
+| E14 Encaissement plateforme, caution et débits post-trip | P0-B | 8 | PAY-011, PAY-012, PAY-015, PAY-036, PAY-037, PAY-038, PRC-012, CLM-021 |
+| E15 Versements, ITBMS collecté et rapprochement | P0-B | 5 | PYO-001, PYO-002, PYO-007, FIN-004, FIN-005 |
+| E16 Fondations design, marque et contenus (DEC-FONDATEUR-06/07) | P0-A | 7 | DSN-001, DSN-002, DSN-003, DSN-004, DSN-005, DSN-006, DSN-007 |
+| E17 Transmissibilité, qualité et gouvernance multi-agents (DEC-FONDATEUR-05/08/09/10, transverse) | P0-A | 5 | PLT-001, PLT-002, PLT-003, PLT-004, PLT-005 |
+| E18 Connecteurs réels — lot C, après le choix du pays de lancement (DEC-FONDATEUR-03, VERIF_18-F01) | P0-A | 4 | PAY-041, PAY-042, FIN-020, VER-029 |
+
+Révision 3 (corrigé VERIF_10) : E5 + FIN-019, E6 + PAY-041, E8 + TRP-056 et TRP-057, E12 + SUP-020, ADM-033, ADM-034, ADM-035, E13 + LEG-010 et LEG-027 ; E1 à E13 = 147 lignes. Révision 5 (VERIF_18) : E5 + FIN-003, E13 + I18N-005, PAY-041 déplacée de E6 vers E18 ; nouveaux epics E16 (design, 7), E17 (transmissibilité et qualité, 5), E18 (connecteurs réels, lot C, 4) ; E1 à E13 + E16 à E18 = 166 lignes P0-A.
+
+Les 13 epics de VERIF_07 §3.2 sont conservés pour le P0-A (E1 à E13, recomposés : les lignes de paiement plateforme passent en E14/E15, les nouvelles lignes NEW-01 à NEW-08 sont réparties dans leur epic au lieu d'un « E14 Nouvelles lignes »).
+
+**Paiements locaux en P0-A** : un résident sans carte de crédit peut réserver grâce à PAY-004 (Yappy via le compte PSP de l'agence, Clave si confirmée), PAY-034 (paiement non réversible confirmé par webhook avant la remise des clés) et PAY-035 (caution chez l'agence par débit, espèces ou Yappy restitué, filtre « sin tarjeta de crédito »). ACH Xpress est exclu du P0-A (virement plafonné, rapprochement manuel ; VERIF_06 V6-15).
+
+## 5. Application de VERIF_07
+
+### 5.1 Appliqué
+
+- **Rétrogradations §3.3** : 143 lignes sur 146 passent P0 → P1 (Fusion 69, Reportable 43, Manuel bêta 22, Juridique/auto 9 ; les 3 rejets, §5.2 : HST-033 et NTF-002 « Reportable », FIN-005 « Manuel bêta »). Chaque ligne porte la raison dans `notes`. Les 69 lignes fusionnées portent « FUSIONNÉ dans X » et leur cible porte « Absorbe (fusion VERIF_07) : … » ; le besoin P0 absorbé est repris dans la description de la cible lorsqu'il était utile (ex. BKG-012 reprend l'âge minimum de VER-025 et SRC-026, TRP-002 l'ouverture à T−24 h de TRP-001, TRP-004 les photos de TRP-003/005/006, BKG-018 les règles de conduite de LST-021, SUP-004 l'assistance routière de PRT-005 et le signalement de TRP-050, I18N-003 les formats et fuseaux d'I18N-006/008/009/011).
+- **Promotions §3.4** : PAY-004 (conditionnel PSP), NTF-011, VER-028, LEG-020.
+- **Nouvelles lignes §5** (identifiants dans le module concerné) :
+
+| VERIF_07 | ID | Phase | Fonctionnalité |
+|---|---|---|---|
+| NEW-01 | PAY-033 | P0-A | Mode « agence encaisse » |
+| NEW-02 | FIN-018 | P0-A | Facturation de la commission aux agences |
+| NEW-03 | LEG-025 | P0-A | Contrat-cadre plateforme–loueur |
+| NEW-04 | PRT-019 | P0-A | Dépôt et contrôle de la police flotte |
+| NEW-05 | LEG-026 | P0-A | Constancia de arrendamiento |
+| NEW-06 | TRP-052 | P0-A | Interface agent comptoir |
+| NEW-07 | ADM-031 | P0-A | Paramètres Panama par défaut |
+| NEW-08 | CLM-034 | P0-A | Dossier de preuve exportable |
+| NEW-09 | FLT-017 | P1 | Marque blanche |
+| NEW-10 | FLT-018 | P1 | API ouverte et connecteurs |
+| NEW-11 | FLT-019 | P1 | Onboarding express 48 h (l'import CSV est P0-A via FLT-011) |
+| NEW-12 | REV-014 | P1 | Badge « Agencia verificada » |
+| NEW-13 | PAY-039 | P1 | Caution modulée / caution-assurance |
+| NEW-14 | PAY-040 | P1 | Remboursement multi-rails |
+| NEW-15 | PRC-026 | P1 | Prix tout compris avec protection minimale |
+| NEW-16 | TRP-053 | P1 | Clé perdue ; guest suspendu avec trip à venir |
+| NEW-17 | ADM-032 | **P0-A** | Sauvegardes, monitoring, journal d'accès |
+| NEW-18 | PYO-017 | P1 | Rails de versement alternatifs, plafond ACH Xpress |
+| NEW-19 | CLM-035 | P2 | Inspection IA |
+| NEW-20 | TRP-054 | P2 | Géofencing défini par véhicule |
+| NEW-21 | TRP-055 | **P1** | Intégration des GPS existants |
+| NEW-22 | BKG-041 | **P1** | Livraison aéroport via points homologués |
+| NEW-23 | CLM-036 | **P1** | Refacturation Panapass / ATTT |
+| NEW-24 | ACC-034 + ACC-035 | **P1** + P2 | B2B minimal ; comptes entreprises complets |
+| NEW-25 | BKG-042 | P2 | Locations de 1 à 3 mois |
+| NEW-26 | SRC-046 | P2 | Recherche par usage |
+| NEW-27 | HST-049 | **P2** | Éligibilité P2P et onboarding fiscal de l'hôte |
+| NEW-28 | BKG-043 | P3 | Option avec chauffeur |
+
+Lignes ajoutées en plus de VERIF_07 : **PAY-034** (preuve de paiement non réversible, VERIF_06 §3 idées 4–5, P0-A), **PAY-035** (politique de caution de l'agence et options sans carte de crédit, VERIF_07 F02 / VERIF_06 §3 idée 9, P0-A), **PAY-036** (fenêtre de rétention de la caution, VERIF_08 V8-01, P0-B), **PAY-037** (débits post-trip conformes aux réseaux, VERIF_08 V8-03, P0-B), **PAY-038** (split de commission à la source, 09b §5.2, P0-B), **SUP-019** (fraude LATAM, VERIF_06 §3 idée 4, P1), **MKT-018** (distribution via agrégateurs, VERIF_06 §3 idée 8, P2).
+
+### 5.2 Rejeté ou modifié (jugement, avec raison)
+
+| Ligne | Proposition VERIF_07 | Décision | Raison |
+|---|---|---|---|
+| HST-033 | P0 → P1 | **maintenu P0-A** | LST-012 (P0) affiche la distance incluse et PRC-019 y est fusionné ; sans cette configuration simple, la fiche, le contrat et la facture n'ont pas de valeur. |
+| NTF-002 | P0 → P1 | **maintenu P0-A** | WhatsApp est le canal transactionnel principal au Panama (15 IMP-06, P0 minimal de VERIF_06 §4) et porte les OTP de VER-013. |
+| FIN-005 | P0 → P1 | **maintenu P0, en P0-B** | Dès que la plateforme détient des fonds de tiers, le rapprochement quotidien est un contrôle de base ; sans objet en P0-A. |
+| REV-004 | maintenu P0 | **P1** | Le double aveugle suppose deux avis ; l'avis de l'hôte (REV-002) est P1. |
+| FLT-011 | P1 (NEW-11) | **P0-A** (import CSV seul) | 5 à 10 agences de 10 à 300 véhicules ne se saisissent pas une à une dans le wizard ; dépendance à l'API FLT-010 retirée. |
+| NEW-17 | P1 | **P0-A** (ADM-032) | Une bêta qui stocke KYC, photos et identifiants PSP doit avoir sauvegardes, alertes et journal d'accès. |
+| NEW-21, NEW-22, NEW-23 | P2 | **P1** | Alignement sur VERIF_06 (V6-07 connecteurs GPS en P1, V6-09 aéroport en P1) et sur 15 IMP-26 (P1). |
+| NEW-24 | P2 | **scindé** P1 / P2 | VERIF_06 §3 idée 10 : un B2B minimal (facture au RUC, conducteur additionnel) peut être P1. |
+| NEW-27 | P3 | **P2** | L'ouverture P2P est P2 dans 04 ; ses prérequis d'éligibilité ne peuvent pas être plus tardifs. |
+| SUP-004 | maintenu P0 | **maintenu P0-A, rescopé** | Ligne d'urgence + horaires étendus ; support humain 24/7 en P1 (VERIF_06 V6-08). |
+| PAY-011, PAY-012, PAY-015, PRC-012, PYO-001, PYO-002, PYO-007, FIN-004, CLM-021 | maintenus P0 | **P0-B** | Encaissement, caution, débits ou versements par la plateforme : conditionnés aux avis (§3). |
+| HST-048, PRT-008, PRT-015 | (P1, inversion signalée) | **P2** | Dépendent des plans de gains hôte P2P (PRT-007, P2) : reclassés avec lui au lieu de couper la dépendance. |
+
+## 6. Dépendances : inversions et cycles
+
+**État initial** (version 1) : 22 dépendances inversées (16 depuis des lignes P0), 36 cycles (35 paires bilatérales + 1 triangle BKG-005 → PRC-011 → PRC-010 → BKG-005), 0 dépendance inconnue.
+
+**Corrections** (84 modifications de dépendances, chacune notée « Dépendances corrigées (18) : avant … » dans `notes`) :
+
+- *Redirection vers la cible de fusion* : une ligne P0 qui dépendait d'une ligne fusionnée dépend désormais de la cible (ex. LST-006 → CAL-003 au lieu de CAL-006 ; HST-039 → VER-027 au lieu de HST-018 ; NTF-011 → TRP-002 au lieu de TRP-001) ; une auto-dépendance créée par la fusion est supprimée (BKG-027, TRP-015, HST-011, BKG-025, LEG-011).
+- *Inversions de VERIF_07 §4* : dépendance de confort retirée ou remplacée par une ligne P0 (ACC-008 → ACC-029 ; BKG-002 sans ACC-011 ; LST-007 et BKG-016 → HST-011 au lieu de la livraison HST-034 ; LST-010 → BKG-028 ; BKG-032 sans HDB-011 ; TRP-038 sans TRP-042 ; CLM-006 sans ADM-009 ; LST-012 → HST-033 ; VER-015 → VER-001 ; PAY-004 sans PAY-022 ; PAY-011 sans VER-019) ou ligne reclassée avec sa dépendance (PRC-011, TRP-016, TRP-027, HST-042, CLM-012 rétrogradés par VERIF_07 ; HST-048, PRT-008, PRT-015 en P2).
+- *Inversions nées du nouveau découpage* : LST-013 → PRT-009/PRT-019/PAY-035 au lieu des plans guest PRT-001 ; BKG-012 → ADM-005/ADM-029 au lieu d'ACC-025 ; VER-013 → NTF-002 au lieu d'ACC-004 ; FLT-003 → FLT-001 ; ADM-029 → ADM-001 (règles codées en dur) au lieu du moteur ADM-011 ; LEG-009 → LEG-002 ; LST-020 → ACC-008/REV-010 ; SUP-004 et SUP-011 sans ADM-010 ; PRC-020 sans FIN-004 (P0-B) ; P1 → P2/P3 : VER-022, LST-009, HDB-006.
+- *Cycles rompus* en gardant un seul sens, celui de la ligne dérivée vers la ligne de base : VER-001 → ACC-006 ; VER-003 → VER-002 ; VER-027 → ACC-029 et ADM-004 → VER-027 ; ADM-002 → VER-001 ; ADM-003 → HST-016 ; ADM-022 → TRP-038 ; FIN-004 → PRC-020 ; ADM-008 → CLM-006 ; ADM-025 → ACC-015 ; REV-012 → ACC-017 ; PAY-025 et PAY-028 → ACC-025 ; NTF-008 → VER-011 ; NTF-009 → VER-017 ; PAY-008 → BKG-020 ; NTF-012 → TRP-021 ; ADM-018 → LST-014 ; REV-006 → LST-019 ; PRC-018 → PRT-001 ; PRC-010 → BKG-005 et PRC-011 → PRC-010 (BKG-005 ne dépend plus de PRC-011) ; FIN-013 → MKT-002 ; LEG-012 → PAY-026 ; ADM-021 → PAY-027 ; FLT-013 → TRP-027 ; ADM-020 → HST-023 ; SUP-017 → LEG-013 ; LEG-008 → ADM-026. Les paires internes à une fusion (BKG-001↔LST-023, BKG-023↔LST-027, ACC-028↔HDB-001, VER-010↔ADM-002, ADM-008↔CLM-022, TRP-014↔TRP-015, I18N-010↔LEG-011) disparaissent avec la redirection.
+
+**État final (révision 2)** : 0 dépendance inversée (toutes phases), 0 cycle parmi les lignes P0 et 0 cycle sur tout le graphe ; plus longue chaîne de dépendances P0 : 11 niveaux.
+
+### 6 bis. Révision 3 : mentions non déclarées et ordre des lots (corrigé VERIF_10-V10-08)
+
+VERIF_10 a trouvé **41 lignes P0-A** dont la description cite une autre ligne P0-A absente de `dependances`, dont **16 inversions d'ordre de lot** dans le séquencement de 18 v1 (ex. PRT-019 et E7 au lot 1 « revue par l'ops (ADM-004) », ADM-004 au lot 3 ; VER-007/VER-013 vers ADM-029 au lot 3 ; HST-005 vers CAL-003 et PRC-001 au lot 2 ; TRP-002 sans TRP-004 ni PAY-034). Traitement, ligne par ligne (journal « Dépendances corrigées (corrigé VERIF_10-V10-08) » ou « Réf. non bloquante : … (corrigé VERIF_10-V10-08) » dans `notes`) :
+
+- **Dépendance ajoutée** quand la mention est bloquante et ne crée pas de cycle (ex. VER-007 → ADM-029 ; VER-013 → ACC-014, ADM-029 ; SRC-008, SRC-011 → SRC-042 ; LST-006 → CAL-011, PRC-025 ; BKG-012 → ADM-031 ; BKG-018 → LEG-014, LEG-002 ; BKG-032 → PAY-021, FIN-018 ; PAY-004 → PAY-035 ; PAY-006 → ADM-029 ; PAY-018 → BKG-014, PAY-017 ; PAY-021 → PRC-025 ; **TRP-002 → VER-015, PAY-034** ; NTF-007 → LEG-026, PAY-035 ; HST-005 → HST-039 ; HST-019 → HST-039, ADM-031 ; CAL-001 → CAL-011, FLT-003 ; HDB-002 → FLT-003 ; CLM-006 → ADM-005 ; PRT-003, SUP-004 → PRT-019 ; SUP-011 → SUP-004 ; ADM-007 → ADM-031 ; LEG-015 → LEG-002 ; PAY-033 → PAY-034, PAY-035 ; FIN-018 → FIN-002 ; LEG-025 → BKG-019, PRT-019 ; TRP-052 → PAY-035, TRP-004 ; CLM-034 → LEG-009).
+- **Sens inversé documenté** quand la ligne citée dépend déjà de la ligne qui la cite (ex. VER-015 cite TRP-052, qui dépend de VER-015) : « Réf. non bloquante » avec le sens retenu.
+- **Référence non bloquante** quand l'ajout créerait un cycle ou ne bloque pas la construction (ex. HST-005 cite CAL-003, en aval via CAL-001 → HST-026 → HST-016 → HST-012 → HST-005 ; LST-013 cite le contrat BKG-018, qui reprend son texte ; LEG-015 cite l'outil ADM-008).
+- **Sens d'onboarding retourné** : ADM-004 (file d'onboarding et KYB) ne dépend plus de PAY-033 ni de LEG-025 ; ce sont PAY-033 et LEG-025 qui dépendent d'ADM-004 et ajoutent leurs étapes à la file. ADM-004 et une version minimale d'ADM-029 passent au **lot 1** ; une agence n'est activée qu'avec contrat signé et compte PSP (lot 2).
+- **WhatsApp non bloquant** : VER-013 dépend de NTF-001 (canal avec repli SMS) et non plus de NTF-002 (corrigé VERIF_10-§2.3).
+
+Les lots du P0-A sont désormais une **colonne** (`lot_p0a`) calculée à partir d'un lot minimal par ligne (18 §6) relevé au lot maximal de ses dépendances : 0 inversion de lot. Le contrôle des mentions (§7) porte sur toutes les lignes P0 : 0 mention non documentée, 54 « Réf. non bloquante » documentées. Plus longue chaîne P0 : 13 niveaux (11 en révision 2) : ACC-029 → VER-027 → PRT-019 → BKG-018 → BKG-019 → LEG-026 → NTF-007 → BKG-022 → MSG-001 → CLM-034 → CLM-006 → ADM-008 → LEG-024 (l'arête ajoutée BKG-018 → PRT-019 fait partir la chaîne du KYB de l'agence).
+
+## 7. Contrôle automatique
+
+Commande (depuis le dossier `turo-audit`) : `python -I tools/check_inventory.py`. Le script vérifie l'encodage, les 19 colonnes, les guillemets, l'unicité et le format des IDs, la cohérence `priorite_produit` / `phase_mvp`, l'existence des dépendances, l'absence d'inversion et de cycle, la couverture des epics du §4 et, depuis la révision 3 (corrigé VERIF_10-V10-08, V10-01, V10-13) : **les identifiants P0 cités dans une description P0 sans figurer dans `dependances`** (chacun doit être une dépendance ou une « Réf. non bloquante » documentée dans `notes`), l'ordre des lots (`lot_p0a`), les valeurs de `beta_pilote` (aucune ligne construite ne dépend d'une ligne DIFFÉRÉ), les valeurs de `risque_legal_financier`, l'estimation au barème du §1 bis et le nombre de descriptions P0 courtes (avertissement). Sortie du 2026-10-30 après la révision 3 :
+
+Sortie à jour (révision 5, 2026-10-30) :
+
+```
+Fichier : 04_FEATURE_INVENTORY.csv — 676 lignes de données
+Colonnes : 19 (attendu 19) ; lignes au mauvais format : 0
+Tous les champs entre guillemets : oui
+Identifiants uniques : oui ; mal formés : 0 ; module/préfixe incohérents : 0
+Cohérence priorite_produit / phase_mvp : oui
+Dépendances : 765 au total ; inconnues : 0 ; auto-dépendances : 0 ; inversées (toutes phases) : 0
+Cycles parmi les lignes P0 : 0 ; cycles sur tout le graphe : 0
+Plus longue chaîne de dépendances P0 : 13 niveaux
+
+Répartition par phase_mvp :
+  P0-A   166
+  P0-B    13
+  P1     342
+  P2     108
+  P3      47
+  total 676
+
+P0 par module (P0-A / P0-B) :
+  ACC     5 /  0
+  ADM    17 /  0
+  BKG    16 /  0
+  CAL     6 /  0
+  CLM     4 /  1
+  DSN     7 /  0
+  FIN     6 /  2
+  FLT     3 /  0
+  HDB     2 /  0
+  HST     9 /  0
+  I18N    3 /  0
+  LEG    12 /  0
+  LST     9 /  0
+  MSG     2 /  0
+  NTF     4 /  0
+  PAY    13 /  6
+  PLT     5 /  0
+  PRC     4 /  1
+  PRT     4 /  0
+  PYO     1 /  3
+  REV     2 /  0
+  SRC     6 /  0
+  SUP     3 /  0
+  TRP    11 /  0
+  VER    12 /  0
+
+Statut de preuve (toutes lignes) :
+  DOCUMENTÉ          324
+  PROPOSÉ            188
+  OBSERVÉ            132
+  INFÉRÉ             21
+  DIRECTEMENT TESTÉ  6
+  BLOQUÉ             4
+  NON EXPLORÉ        1
+
+Epics lus dans le README : 18 ; lignes P0 couvertes : 179/179
+
+Mentions d'un ID P0 dans une description P0 hors `dependances` : 0 non documentée(s) ; 59 documentées « Réf. non bloquante »
+Lots du P0-A : lot 0 = 22, lot 1 = 50, lot 2 = 65, lot 3 = 24, lot 4 = 1, lot C = 4 ; inversions de lot : 0
+Bêta pilote : OUI 25, SIMPLIFIÉ 71, MANUEL 58, DIFFÉRÉ 12 ; dépendances vers DIFFÉRÉ : 0
+Risque juridique / financier des lignes P0 : faible 67, moyen 62, élevé 50
+
+Estimation par barème (unités d'effort : 1 unité = 10 jours-agent, ex-« semaine-équipe » ; ordre de grandeur, barème calibré, non mesuré, sans valeur calendaire) :
+  P0-A complet (166 lignes) : lignes 21.9–44.9 + socle 1,5–3 + durcissement et recette interne 1–2 = 24.4–49.9
+  Bêta pilote (96 lignes construites) : lignes 6.0–14.5 + socle réduit 1–2 + recette interne 0,5–1 = 7.5–17.5
+  P0-B (lignes seules, hors certification PSP et conformité) : 2.0–3.7
+  P1 (342 lignes, même barème que le P0-A, lignes seules) : 35.0–76.0
+Avertissement (non bloquant) : 43 descriptions P0 de moins de 80 caractères, à compléter avant leur lot
+
+RÉSULTAT : OK
+```
+
+## 8. Fonctionnalités structurantes du P0-A
+
+| # | ID | Fonctionnalité | Pourquoi |
+|---|---|---|---|
+| 1 | PAY-033 | Mode « agence encaisse » | Fonde la bêta sans casa de remesas (12 §10.3) |
+| 2 | FIN-018 | Facturation de la commission | Seul revenu de la Phase 0 ; viabilité OQ-MK-07 |
+| 3 | LEG-025 | Contrat-cadre loueur | Relation juridique, non-contournement, mandat |
+| 4 | PRT-019 | Contrôle de la police flotte | Condition 6 de 12 §10.3 : aucune annonce sans police valide |
+| 5 | PAY-004 | Yappy via le PSP de l'agence | Clientèle locale sans carte de crédit |
+| 6 | PAY-035 | Caution chez l'agence, options sans carte | Évite la caution plateforme (pré-autorisation ≤ 3 j environ) |
+| 7 | PAY-034 | Paiement non réversible confirmé par webhook | Faux justificatifs Yappy |
+| 8 | BKG-014 | Hold de checkout et anti-double réservation | Flottes multi-canal |
+| 9 | CAL-011 | Table d'occupation unique | Source de vérité de la disponibilité |
+| 10 | CAL-009 | iCal entrant et sortant | Les agences gèrent leur flotte ailleurs |
+| 11 | PRC-025 | Devis versionné | Même calcul pour affichage, contrat, remboursement, commission |
+| 12 | ACC-029 / VER-027 | Compte société et KYB | Modèle pro-first |
+| 13 | VER-002 | Selfie + liveness | Fraude d'identité (EC-43) |
+| 14 | VER-007 | 90 jours du permis étranger, en mode signalement | Art. 110 ; refus automatique après OQ-BR-21 |
+| 15 | BKG-018 / LEG-026 | Contrat par trip et constancia | Autorisation de conduite, amendes |
+| 16 | TRP-004 / TRP-052 | Photos horodatées et interface comptoir | Preuve des retenues de l'agence |
+| 17 | CLM-034 | Dossier de preuve | Plaintes ACODECO, chargebacks, assureur |
+| 18 | ADM-029 | Revue des réservations à risque | Règles codées en dur, revue humaine |
+| 19 | ADM-001 / ADM-032 | Console, audit, sauvegardes | Exploitation sûre de la bêta |
+| 20 | TRP-038 | Non-restitution graduée (manuelle) | Vol et exfiltration |
+| 21 | LEG-027 | Mandat écrit limité d'opérations sur le compte PSP | Sans mandat ni accord du PSP, la plateforme n'initie aucune opération sur le compte d'une agence (corrigé VERIF_10-V10-05) |
+| 22 | PAY-041 | Porte de validation du PSP du pays de lancement et secours (lot C) | Tilopay non validé pour le Panama, Bancard vPOS / upay non validés pour le Paraguay, PSP unique (corrigé VERIF_10-V10-05, VERIF_18-F01) |
+| 23 | FIN-019 | Rapprochement léger des revenus | Seule recette du P0-A, sinon déclarative (corrigé VERIF_10-V10-06) |
+| 24 | LEG-010 | Registre Ley 81 et procédure de violation | Biométrie collectée dès le P0-A (corrigé VERIF_10-V10-09) |
+| 25 | SUP-020 / ADM-033 / ADM-034 / ADM-035 / TRP-056 | Dotation du support, sécurité, préproduction, RPO/RTO, risque PWA iOS | Prérequis d'exploitation et de qualité absents de la révision 2 (corrigé VERIF_10-V10-10 à V10-12) |
+
+Choix volontaires : preuves photo = **pratique recommandée** face aux plaintes ACODECO (précédent de 2018, pas une exigence : VERIF_07 F08, VERIF_06 V6-05 ; LEG-024 renommée) ; pas de plans de protection guest au P0 (police flotte du loueur, OQ-BR-16) ; géofencing réduit à la clause + GPS déclaré (TRP-043 en P1, TRP-054 en P2) ; support humain 24/7 en P1 ; livraison aéroport en P1 (OQ-MK-08).
+
+## 9. Limites et suites
+
+- Appliqué en révision 3 (corrigé VERIF_10-V10-13) : F04–F05 pour les lignes « DIRECTEMENT TESTÉ » (§2), F11 (colonne `risque_legal_financier`, barèmes §1 bis, recodage, scission de TRP-002).
+- Non traité (VERIF_07) : F06–F07 (OBSERVÉ sans EV, DOCUMENTÉ de seconde main), F13 au-delà des fusions de §3.3 (doublons FIN-002 / PAY-029 / PYO-013 traités, autres non), F14 (réaffectation de modules), F15 (liens vers EC et BR manquants).
+- IMP-33 et IMP-34 sont désormais en P2 dans 15 comme BKG-042 et SRC-046 ici (corrigé VERIF_10-V10-14) ; **04 et 18 font foi pour le build**.
+- `08_BUSINESS_RULES.md` n'a pas été modifié (hors périmètre de cette passe ; le bandeau d'avertissement proposé par VERIF_10-V10-18 reste à poser lors de sa révision) : BR-PAY-06 (seuil de pré-autorisation) et BR-REIMB-03 (48 h) sont contredits par VERIF_08 et remplacés, pour le build, par PAY-036 et PAY-037.
+- 22 est repriorisé (corrigé VERIF_10) : OQ-BR-21, OQ-BR-25, OQ-PAY-07 et OQ-PAY-22 passent en P0 ; OQ-MK-09 (Ley 81 : transferts, enregistrement, violation) est ajoutée en P0.
+- Reste (VERIF_10-V10-13, non bloquant) : 43 descriptions P0 (51 avant la révision 4) font moins de 80 caractères sans critère d'acceptation ; règle : chacune est complétée avant le début de son lot (`lot_p0a`), le script les compte à chaque passage.
+
+## 10. Révision 4 — consolidation avec 17 v2 et 10b v2 (2026-10-30)
+
+Chaque ligne modifiée porte dans `notes` la mention « Consolidation 04/08/16/17 du 2026-10-30 (origine) » et, quand la description a été réécrite, la description précédente.
+
+| Origine | Ligne(s) | Changement |
+|---|---|---|
+| 17-C04-1 (A8, ADR-025) | PAY-033 | mode (b) : « sinon annulation automatique » → hold `AGENCY_LINK` (TTL `agency_link_hold_minutes` PROPOSÉ 120 min, **décision produit UXQ-09**), libération du hold, aucun trip ni contrat avant la preuve |
+| 17-C04-2 ; 10b §7 BKG-014 | BKG-014 | état « paiement en cours » (`PAYMENT_IN_FLIGHT`, borne 20 min), hold `AGENCY_LINK`, conversion gardée, ré-acquisition, compensation par capacité (void, remboursement API, remboursement par l'agence, Yappy par virement), critère C1–C12 |
+| 17-C04-3 | PAY-019 | clé d'idempotence par tentative `hold:{hold_id}:…:a{n}` |
+| 17-C04-4 ; 10b §7 PAY-021/LEG-025 | PAY-021, LEG-025 | tâche de remboursement exécutée par l'agence (échéance par rail, vue « remboursements à exécuter », preuve, confirmation, pénalité) ; délai contractuel pour tous les rails (UXQ-10) ; liste « couvre / ne couvre pas » reprise au contrat-cadre |
+| 17-C04-5 | PAY-034 | confirmation de l'agence réservée à `AGENCY_OWNER` / `AGENCY_MANAGER`, double confirmation au-delà d'un seuil |
+| 17-C04-6 (A7) | CLM-021 | nom « sous 72 h » ; paramètre `invoice_guest_response_h` |
+| 17-C04-7 (A10) | ADM-001 | extension à 12 rôles (2 en Bêta pilote) |
+| 17-C04-8 | FLT-001, FLT-003 | `vehicle_scope` des co-hôtes, `AGENCY_OWNER`, RLS obligatoire |
+| 17-C04-9 | VER-002, VER-003, VER-004 | zéro copie d'image, rétention chez le fournisseur, « ≤ 3 ans » = plafond, scores en C3 |
+| 17-C04-10 ; 10b §7 LEG-010 | LEG-009, LEG-010 | crypto-shredding ; registres `data_subject_request`, `security_incident`, `subprocessor` ; finalité « remboursement par virement » (UXQ-11) |
+| 17-C04-11 | ADM-035 | registre des incidents, Multi-AZ, astreinte |
+| 17-C04-12 (A1, A2) | PRC-021, PAY-012 | arrondi au plus proche (pas un plus grand reste) ; libération à fin + 72 h, jamais suspendue par une réclamation |
+| 17-C04-13 (A12) ; VERIF_15-F4 | PAY-006 | compensation Bêta = remboursement, jamais un void ; vecteur P0-A 16 TA10 |
+| 10b §7 PAY-035 | PAY-035 | liste fermée « couvre / ne couvre pas », dont « dommages : oui / non » ; sans elle, aucune promesse de couverture affichée |
+| 10b §7 BKG-012 / ADM-029 | BKG-012, ADM-029 | option « lien de paiement après la décision de l'ops » liée à **UXQ-08, décision ouverte** (rédigée comme option, non appliquée) |
+| 10b §7 VER-007 | VER-007 (notes) | option Bêta « deux champs au checkout » conditionnée à UXQ-03 |
+
+Non reporté : aucun point de l'annexe A de 17 ne demande d'autre changement dans 04 (A3–A6, A8–A9, A11, A13–A15 concernent 08, 09b ou 17).
+
+Sortie de `python -I tools/check_inventory.py` après la révision 4 (2026-10-30) :
+
+(sortie de la révision 4 retirée en révision 5, VERIF_18-F08 : la sortie à jour figure une seule fois au §7)
+
+## 11. Révision 5 — passe de cohérence finale VERIF_18 et décisions fondateur 05 à 10 (2026-10-30)
+
+Chaque ligne modifiée porte dans `notes` la mention « Passe de cohérence finale VERIF_18 du 2026-10-30 (constat) » et, quand la description a été réécrite, la description précédente.
+
+| Constat / décision | Ligne(s) | Changement |
+|---|---|---|
+| VERIF_18-F01 (lot des connecteurs réels) | PAY-041, PAY-033, PAY-001, FIN-002, VER-001 ; PAY-042, FIN-020, VER-029 créées | valeur de lot `C` (après le choix du pays, avant la mise en service) ; PAY-041 au lot C et généralisée au PSP du pays retenu (Bancard vPOS / upay au Paraguay, OQ-PAY-08/10/12) ; PAY-033 ne dépend plus de PAY-041 (référence non bloquante) ; un connecteur réel par famille (PSP, e-facture, KYC) au lot C |
+| VERIF_18-F02 (DEC-FONDATEUR-04) | I18N-005, FIN-003, PRC-021, I18N-003, ADM-014 | I18N-005 et FIN-003 promues P0-A ; « phase PY » retiré ; `es-PY`, fuseau `America/Asuncion`, forfaits PYG explicités |
+| VERIF_18-F04, F05 | PAY-036, PAY-011, PAY-012 | forme en heures, marge 0 h, T59 ; marge d'un jour supprimée ; caution limitée aux frais annexes de la liste fermée, jamais suspendue, dommage recouvré sur la carte enregistrée (REQ-PAY-DMG-02 à 07) |
+| VERIF_18-F07 | BKG-014, ADM-033 | CA : C1–C20, RLS-1 à RLS-20, L0-01 à L0-10 sous les rôles de production |
+| VERIF_18-F08 | README §2, §4, §7, §10 | comptes régénérés ; sortie d'outil unique |
+| VERIF_18-F15, F17, F20, F24 | BKG-012, HST-050, ADM-031, TRP-046 | EC-44 / EC-05 cités ; BR-LIST-04 cité ; jalon ADM-031 lu « avant la mise en service » ; « 80 h » étiqueté valeur Turo |
+| DEC-FONDATEUR-06 / 07 | DSN-001 à DSN-007 (E16) | naming et identité d'abord, tokens pilotés par les données, back-office « Apparence / Marque » (prévisualisation, brouillon / publication, historique, retour arrière), blocs de contenu es/en, bibliothèque de composants, web mobile-first + PWA, revue UX indépendante ; cœur en Bêta SIMPLIFIÉ |
+| DEC-FONDATEUR-05 / 08 / 09 / 10 | PLT-001 à PLT-005 (E17, transverse) | IaC, conteneurs et portabilité ; comptes et secrets au nom du fondateur ; documentation et checklist de passation ; stratégie de tests et portes CI ; gouvernance multi-agents par artefacts |
+
+Effort (barème, unités de 10 jours-agent, sans valeur calendaire) : P0-A complet 24,4–49,9 ; Bêta pilote 7,5–17,5. Ces sommes de lignes ne couvrent pas les éléments non négociables de 17 : l'énoncé à communiquer est celui de 18 §5.

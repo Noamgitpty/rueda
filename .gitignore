@@ -1,0 +1,16 @@
+﻿node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+coverage/
+.turbo/
+*.log
+.env
+.env.*
+!.env.example
+*.secret
+local-dev/
+__pycache__/
+.DS_Store
+Thumbs.db
