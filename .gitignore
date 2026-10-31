@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 .pnpm-store/
 dist/
 build/
@@ -23,3 +23,7 @@ next-env.d.ts
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Worktrees et réglages locaux de Claude Code
+.claude/worktrees/
+.claude/settings.local.json
