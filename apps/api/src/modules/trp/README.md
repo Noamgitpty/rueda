@@ -1,0 +1,1 @@
+**TRP — Trip operations** : check-in, check-out, inspections, hors ligne, retards et non-restitution. Dépendances autorisées : AVL, KYC, PAY, AUD (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 TRP --> AVL, AUD).

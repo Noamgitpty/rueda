@@ -1,0 +1,1 @@
+**PRC — Pricing & Quotes** : devis versionné, jours facturables, lignes, taxes, versions de prix du trip. Dépendances autorisées : CAT, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 PRC --> CFG, CAT).

@@ -1,0 +1,1 @@
+**CTR — Contracts & Documents** : gabarits juridiques, génération PDF, signature électronique, consentements, mandats. Dépendances autorisées : IAM, CFG, AUD (socle implicite : CFG, AUD, BUS ; source : 17 §2.2).

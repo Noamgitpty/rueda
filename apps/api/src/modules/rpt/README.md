@@ -1,0 +1,1 @@
+**RPT — Reporting** : vues de lecture (tableaux de bord, KPI), exports CSV. Dépendances autorisées : IAM, KYC, CAT, AVL, PRC, CTR, PAY, STL, PYO, TRP, CLM, MSG, NTF, REV, SUP, FIN, RISK (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 (« lecture seule de tous »)).

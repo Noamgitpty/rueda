@@ -1,0 +1,1 @@
+**FIN — Finance & Tax** : configuration fiscale, documents fiscaux, relevés de commission, rapprochements. Dépendances autorisées : STL, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 FIN --> STL).

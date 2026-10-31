@@ -1,0 +1,1 @@
+**AVL — Availability & Booking** : occupation unique, holds TTL, réservation, trip, annulations et no-shows. Dépendances autorisées : PRC, PAY, CTR, KYC, RISK, CAT, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 AVL --> PRC, PAY, CTR, RISK, KYC).

@@ -1,0 +1,1 @@
+**CFG — Country configuration** : pays, devises, fuseaux, locales, paramètres versionnés, fériés, entités juridiques. Dépendances autorisées : aucune (module du socle, ne dépend de personne ; source : 17 §2.2 (socle : aucune dépendance, §2.1)).

@@ -1,0 +1,1 @@
+**PAY — Payments abstraction** : adaptateurs PSP, opérations de paiement, commandes monétaires, webhooks, remboursements. Dépendances autorisées : CFG, CTR, AUD (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 (CTR : mandat)).

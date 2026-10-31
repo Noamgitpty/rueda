@@ -14,3 +14,12 @@ local-dev/
 __pycache__/
 .DS_Store
 Thumbs.db
+
+# Ajouts US-001
+out/
+*.tsbuildinfo
+next-env.d.ts
+.eslintcache
+.idea/
+.vscode/*
+!.vscode/extensions.json

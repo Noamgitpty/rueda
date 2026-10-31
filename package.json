@@ -1,0 +1,28 @@
+{
+  "name": "rueda",
+  "private": true,
+  "description": "Place de marché de location de voitures (Panama, Paraguay) — monorepo (nom de code provisoire).",
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=26.13 <27"
+  },
+  "scripts": {
+    "lint": "eslint . && node packages/config/sql-clock/cli.ts",
+    "lint:sql": "node packages/config/sql-clock/cli.ts",
+    "typecheck": "turbo run typecheck",
+    "test:unit": "turbo run test:unit",
+    "test:int": "node scripts/not-yet-implemented.mjs test:int US-005",
+    "test:l0": "node scripts/not-yet-implemented.mjs test:l0 US-005",
+    "build": "turbo run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@rueda/config": "workspace:*",
+    "eslint": "10.13.0",
+    "prettier": "3.9.10",
+    "turbo": "2.11.9",
+    "typescript": "6.0.3"
+  }
+}

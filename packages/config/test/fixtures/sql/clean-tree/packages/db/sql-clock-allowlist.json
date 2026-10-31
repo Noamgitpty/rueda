@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "path": "packages/db/migrations/0000_platform_now.sql",
+      "allow": ["clock_timestamp()"],
+      "justification": "Définition de platform.now() : seule horloge autorisée (17 §1.3 point 1, ADR-030)."
+    }
+  ]
+}

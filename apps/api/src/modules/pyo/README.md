@@ -1,0 +1,1 @@
+**PYO — Payouts** : comptes de versement, lots de versement, compensation des débits (P0-B). Dépendances autorisées : STL, PAY, KYC (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 PYO --> STL).

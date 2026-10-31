@@ -1,0 +1,1 @@
+**NTF — Notifications** : règles événement → destinataires → canaux → gabarit, repli, idempotence, préférences. Dépendances autorisées : CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 NTF --> CFG).

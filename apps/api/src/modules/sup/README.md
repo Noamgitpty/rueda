@@ -1,0 +1,1 @@
+**SUP — Support & back-office** : console interne, fiche 360°, files de revue, dossiers de support, actions manuelles. Dépendances autorisées : IAM, KYC, CAT, AVL, PRC, CTR, PAY, STL, PYO, TRP, CLM, MSG, NTF, REV, FIN, RISK (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 (« tous (lecture), IAM ») ; §2.1 SUP --> CLM).

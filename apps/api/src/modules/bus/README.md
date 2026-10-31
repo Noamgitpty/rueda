@@ -1,0 +1,1 @@
+**BUS — Outbox et bus d'événements** : outbox transactionnelle et diffusion des événements de domaine (17 §4). Dépendances autorisées : aucune (module du socle, ne dépend de personne ; source : 17 §2.1 (socle, absent de la table §2.2)).

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "//": "Base stricte du dépôt. Le contenu vit dans packages/config/tsconfig/base.json (source unique, référencée par les paquets via @rueda/config) ; ce fichier sert aux outils et scripts de la racine.",
+  "extends": "./packages/config/tsconfig/base.json"
+}
