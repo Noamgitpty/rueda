@@ -1,0 +1,59 @@
+{
+  "defaultLocale": "es-PA",
+  "locales": [
+    {
+      "tag": "es-PA",
+      "language": "es",
+      "displayName": "Español (Panamá)",
+      "number": { "group": ".", "decimal": ",", "minimumGroupingDigits": 1 },
+      "currency": {
+        "symbols": { "USD": "US$", "PYG": "₲" },
+        "pattern": "{symbol} {amount}",
+        "negativePattern": "-{symbol} {amount}"
+      },
+      "date": {
+        "datePattern": "{day}/{month}/{year}",
+        "timePattern": "{hour}:{minute}",
+        "dateTimePattern": "{date} {time}",
+        "hourCycle": "h23",
+        "hour": "2-digit"
+      }
+    },
+    {
+      "tag": "es-PY",
+      "language": "es",
+      "displayName": "Español (Paraguay)",
+      "number": { "group": ".", "decimal": ",", "minimumGroupingDigits": 1 },
+      "currency": {
+        "symbols": { "USD": "US$", "PYG": "₲" },
+        "pattern": "{symbol} {amount}",
+        "negativePattern": "-{symbol} {amount}"
+      },
+      "date": {
+        "datePattern": "{day}/{month}/{year}",
+        "timePattern": "{hour}:{minute}",
+        "dateTimePattern": "{date} {time}",
+        "hourCycle": "h23",
+        "hour": "2-digit"
+      }
+    },
+    {
+      "tag": "en",
+      "language": "en",
+      "displayName": "English",
+      "number": { "group": ",", "decimal": ".", "minimumGroupingDigits": 1 },
+      "currency": {
+        "symbols": { "USD": "$", "PYG": "₲" },
+        "pattern": "{symbol}{amount}",
+        "negativePattern": "-{symbol}{amount}"
+      },
+      "date": {
+        "datePattern": "{day}/{month}/{year}",
+        "timePattern": "{hour}:{minute} {dayPeriod}",
+        "dateTimePattern": "{date} {time}",
+        "hourCycle": "h12",
+        "hour": "numeric"
+      }
+    }
+  ]
+}

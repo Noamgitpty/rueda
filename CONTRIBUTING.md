@@ -79,6 +79,7 @@ apps/
 packages/
   config/               ESLint partagé (règles maison), tsconfig partagés, contrôle d'horloge SQL
   db/                   schémas par module (schemas.ts), migrations SQL (US-005), liste blanche de l'horloge
+  i18n/                 catalogues es / en, profils de locale (config/locales.json), formats d'affichage (US-014)
 docs/adr/               ADR du dépôt (report dans 17 §8.1)
 docs/specs/             spécification figée : ne pas modifier
 docs/team/              artefacts entre agents (US-029)
