@@ -1,8 +1,51 @@
 // Tests du job « revues » (node --test scripts/ci/), contournements compris.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { evaluateBranch, requiredRoles, storiesFromBranch } from './check-story-reviews.mjs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import {
+  changedFiles,
+  evaluateBranch,
+  requiredRoles,
+  storiesFromBranch,
+} from './check-story-reviews.mjs';
+
+// Dépôt git temporaire : `files` commités sur main, puis `moves` (git mv) commités sur `branch`.
+function repoWithRename(branch, files, moves) {
+  const root = mkdtempSync(join(tmpdir(), 'rueda-rename-'));
+  const git = (...args) =>
+    execFileSync(
+      'git',
+      [
+        '-C',
+        root,
+        '-c',
+        'user.name=t',
+        '-c',
+        'user.email=t@t.invalid',
+        '-c',
+        'diff.renames=copies',
+        ...args,
+      ],
+      { stdio: 'pipe' },
+    );
+  git('init', '-q', '-b', 'main');
+  for (const f of files) {
+    mkdirSync(dirname(join(root, f)), { recursive: true });
+    writeFileSync(join(root, f), `contenu de ${f}\n`.repeat(20));
+  }
+  git('add', '-A');
+  git('commit', '-q', '-m', 'base');
+  git('switch', '-q', '-c', branch);
+  for (const [from, to] of moves) {
+    mkdirSync(dirname(join(root, to)), { recursive: true });
+    git('mv', from, to);
+  }
+  git('commit', '-q', '-m', 'renommage');
+  return root;
+}
 
 const config = JSON.parse(
   readFileSync(new URL('../../docs/team/review-requirements.json', import.meta.url), 'utf8'),
@@ -121,4 +164,45 @@ test('graphe des dépendances ou packages/db touchés : + architecture', () => {
 
 test('rôles propres à une story ajoutés au défaut', () => {
   assert.deepEqual(requiredRoles('US-001', [], config), ['architecture', 'code']);
+});
+
+test('renommage réel vers docs/team/ : les deux chemins sont vus, la branche à préfixe échoue', () => {
+  const cases = [
+    ['packages/db/schema.ts', 'docs/team/schema.ts', /packages\/db\/schema.ts : hors des chemins/],
+    [
+      'docs/team/reviews/US-005/x.md',
+      'docs/team/x.md',
+      /reviews\/US-005\/x.md : interdit hors branche de story/,
+    ],
+  ];
+  for (const [from, to, expected] of cases) {
+    // diff.renames=copies dans le dépôt : --no-renames doit l'emporter sur la configuration.
+    const root = repoWithRename('chore/x', [from], [[from, to]]);
+    try {
+      const files = changedFiles(root, 'main');
+      assert.deepEqual([...files].sort(), [from, to].sort());
+      const r = evaluateBranch({ branch: 'chore/x', changedFiles: files, config });
+      assert.ok(
+        r.errors.some((e) => expected.test(e)),
+        r.errors.join('\n'),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test('renommage réel hors de la story : le chemin de départ est recoupé', () => {
+  const from = 'docs/team/handoffs/US-005.md';
+  const root = repoWithRename('story/US-002-x', [from], [[from, 'docs/team/handoffs/notes.md']]);
+  try {
+    const r = evaluateBranch({
+      branch: 'story/US-002-x',
+      changedFiles: changedFiles(root, 'main'),
+      config,
+    });
+    assert.match(r.errors[0], /US-005.md : appartient à US-005/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
