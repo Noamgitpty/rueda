@@ -150,7 +150,7 @@ jobs:
           fi
 
   diagrammes:
-    name: rendu mmdc des diagrammes (non bloquant)
+    name: rendu mmdc des diagrammes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -172,10 +172,15 @@ jobs:
             --prefix "$RUNNER_TEMP/mmdc" "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}"
           chrome="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           printf '{"executablePath":"%s","args":["--no-sandbox"]}\n' "$chrome" > "$RUNNER_TEMP/puppeteer.json"
+      # Contrôle du contrôle : un diagramme invalide doit échouer (sinon mmdc ne vérifie rien).
+      - name: témoin invalide refusé
+        run: |
+          if node scripts/ci/render-mermaid.mjs --mmdc "$RUNNER_TEMP/mmdc/node_modules/.bin/mmdc" \
+            --puppeteer "$RUNNER_TEMP/puppeteer.json" scripts/ci/fixtures/mermaid-invalide.md; then
+            echo "::error title=mmdc::le témoin invalide a été rendu sans erreur"
+            exit 1
+          fi
       - name: rendu des blocs mermaid de docs/
-        # Non bloquant : les diagrammes de docs/specs/ ne se corrigent que par une demande de
-        # fusion approuvée (CLAUDE.md) ; voir docs/ops/CI.md, section « Diagrammes ».
-        continue-on-error: true
         run: |
           mapfile -t files < <(grep -rl --include='*.md' '^\s*```mermaid' docs | sort)
           node scripts/ci/render-mermaid.mjs --mmdc "$RUNNER_TEMP/mmdc/node_modules/.bin/mmdc" \
