@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Contrôle « revues présentes, relecteur ≠ auteur » (US-029 critère 2, US-050).
-// Usage : node scripts/team/check-reviews.mjs US-001 --require code,qa [--author-model claude-opus-5-5] [--root .]
-// Sans --author-model, le modèle de l'auteur est lu dans les pieds `Agent-Model:` des commits `main..HEAD`.
+// Usage : node scripts/team/check-reviews.mjs US-001 --require code,qa [--author-model claude-opus-5-5] [--root .] [--base main]
+// Sans --author-model, le modèle de l'auteur est lu dans les pieds `Agent-Model:` des commits `<base>..HEAD`
+// (`--base` vaut `main` par défaut ; la CI passe `--base origin/main`, US-002).
 // Code de sortie 0 si tout est conforme, 1 sinon (bloque la fusion quand US-002 le branche en CI).
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -100,7 +101,7 @@ export function checkReviews({ story, required, authorModels, root = '.', isAnce
   return errors;
 }
 
-// Modèles des commits d'auteur (hors rôles de vérification) sur main..HEAD.
+// Modèles des commits d'auteur (hors rôles de vérification) sur <base>..HEAD.
 export function authorModelsFromLog(log) {
   const models = new Set();
   for (const msg of log.split('\u0000')) {
@@ -111,9 +112,9 @@ export function authorModelsFromLog(log) {
   return [...models];
 }
 
-function authorModelsFromGit(root) {
+function authorModelsFromGit(root, base) {
   try {
-    const log = execFileSync('git', ['-C', root, 'log', 'main..HEAD', '--format=%B%x00'], {
+    const log = execFileSync('git', ['-C', root, 'log', `${base}..HEAD`, '--format=%B%x00'], {
       encoding: 'utf8',
     });
     return authorModelsFromLog(log);
@@ -135,21 +136,32 @@ function gitIsAncestor(root) {
   };
 }
 
-function main(argv) {
-  const story = argv[0];
+// Lecture des arguments de la ligne de commande (exportée pour les tests).
+export function parseArgs(argv) {
   const opt = (name) => {
     const i = argv.indexOf(`--${name}`);
     return i >= 0 ? argv[i + 1] : undefined;
   };
-  if (!story || !/^US-\d{3}$/.test(story)) {
+  const base = opt('base') ?? 'main';
+  return {
+    story: argv[0],
+    root: opt('root') ?? '.',
+    required: (opt('require') ?? '').split(',').filter(Boolean),
+    authorModel: opt('author-model'),
+    // Une base qui commence par « - » serait lue par git comme une option : refusée.
+    base: /^[A-Za-z0-9._/-]+$/.test(base) && !base.startsWith('-') ? base : null,
+  };
+}
+
+function main(argv) {
+  const { story, root, required, authorModel, base } = parseArgs(argv);
+  if (!story || !/^US-\d{3}$/.test(story) || !base) {
     console.error(
-      'usage : check-reviews.mjs US-xxx --require code,qa [--author-model m] [--root .]',
+      'usage : check-reviews.mjs US-xxx --require code,qa [--author-model m] [--root .] [--base main]',
     );
     return 2;
   }
-  const root = opt('root') ?? '.';
-  const required = (opt('require') ?? '').split(',').filter(Boolean);
-  const authorModels = opt('author-model') ? [opt('author-model')] : authorModelsFromGit(root);
+  const authorModels = authorModel ? [authorModel] : authorModelsFromGit(root, base);
   const errors = checkReviews({
     story,
     required,

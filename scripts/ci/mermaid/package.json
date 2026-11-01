@@ -1,0 +1,8 @@
+{
+  "name": "rueda-ci-mermaid",
+  "private": true,
+  "description": "Outil de CI (US-002) : mermaid-cli pour le job diagrammes, hors espace de travail pnpm. Dépendances figées par package-lock.json (npm ci).",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "12.0.0"
+  }
+}

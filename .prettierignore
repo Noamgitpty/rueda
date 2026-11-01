@@ -8,3 +8,4 @@ coverage/
 next-env.d.ts
 packages/config/test/fixtures/
 .claude/
+scripts/ci/mermaid/package-lock.json

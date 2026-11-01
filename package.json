@@ -11,7 +11,7 @@
     "lint": "eslint . && node packages/config/sql-clock/cli.ts",
     "lint:sql": "node packages/config/sql-clock/cli.ts",
     "typecheck": "turbo run typecheck",
-    "test:unit": "turbo run test:unit && node --test scripts/team/",
+    "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/",
     "test:int": "node scripts/not-yet-implemented.mjs test:int US-005",
     "test:l0": "node scripts/not-yet-implemented.mjs test:l0 US-005",
     "build": "turbo run build",
