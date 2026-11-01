@@ -22,12 +22,12 @@ Règles communes :
 | `oracles`               | tests du contrôle, puis [`scripts/ci/check-spec-tools.py`](../../scripts/ci/check-spec-tools.py) : les contrôles de `docs/specs/00_README.md` §4, exécutés avec `python -I -X utf8`                                                                | oui                                             |
 | `revues` (PR seulement) | [`scripts/ci/check-story-reviews.mjs`](../../scripts/ci/check-story-reviews.mjs) → `scripts/team/check-reviews.mjs US-xxx --require <rôles> --base origin/main`                                                                                    | oui sur une PR prête ; informatif en brouillon  |
 | `secrets`               | gitleaks (`gitleaks/gitleaks-action` v3.0.0) : commits de la PR, ou du push ; tout l'historique la nuit                                                                                                                                            | oui                                             |
-| `dependances`           | `pnpm audit --prod --audit-level high`                                                                                                                                                                                                             | **non** (voir « Dépendances »)                  |
+| `dependances`           | [`scripts/ci/audit-gate.mjs`](../../scripts/ci/audit-gate.mjs) : `pnpm audit --prod`, gravité élevée et critique, exceptions GHSA datées                                                                                                           | oui (voir « Dépendances »)                      |
 | `diagrammes`            | rendu `mmdc` (mermaid-cli 12.0.0) de chaque bloc ` ```mermaid ` de `docs/` ([`scripts/ci/render-mermaid.mjs`](../../scripts/ci/render-mermaid.mjs)), après un témoin invalide qui doit échouer                                                     | oui                                             |
 
-« Bloquant » signifie que le job passe au rouge. Pour qu'un job rouge **empêche la fusion**, il faut que la protection de `main` exige ces statuts. C'est le rôle d'US-050 ; le dépôt n'est pas encore protégé. Statuts à exiger : `qualité (lint, types, unitaires, build, format)`, `base de données (PostgreSQL 16 réel, test:int, test:l0)`, `oracles de la spécification (Python 3.12)`, `revues indépendantes (check-reviews)`, `analyse des secrets (gitleaks)` et `rendu mmdc des diagrammes`.
+« Bloquant » signifie que le job passe au rouge. Pour qu'un job rouge **empêche la fusion**, il faut que la protection de `main` exige ces statuts. C'est le rôle d'US-050 ; le dépôt n'est pas encore protégé. Statuts à exiger : `qualité (lint, types, unitaires, build, format)`, `base de données (PostgreSQL 16 réel, test:int, test:l0)`, `oracles de la spécification (Python 3.12)`, `revues indépendantes (check-reviews)`, `analyse des secrets (gitleaks)`, `analyse des dépendances (pnpm audit)` et `rendu mmdc des diagrammes`.
 
-Les jobs non bloquants sont faits avec `continue-on-error` **sur l'étape** : l'étape échoue, le job reste vert, et une annotation (`::warning`) apparaît dans le résumé du run.
+Seule exception : en brouillon, l'étape du job `revues` porte `continue-on-error`. L'étape échoue, mais le job reste vert.
 
 ### Base de données : comment le job devient une vraie preuve
 
@@ -48,30 +48,59 @@ Le job attend ce qu'US-005 apportera. Le harnais lit `RUEDA_PG_TESTCONTAINERS=1`
 
 ### Revues
 
-Les stories sont déduites du nom de branche (`story/US-002-…` → `US-002` ; `story/US-001-US-029-…` → les deux). Une branche hors convention ne contrôle rien et le dit dans le journal.
+Depuis la revue sécurité du 2026-11-01 (constat MAJEUR 1), le nom de branche ne suffit plus : c'est l'auteur de la PR qui le choisit. [`check-story-reviews.mjs`](../../scripts/ci/check-story-reviews.mjs) applique donc les règles suivantes, dans l'ordre.
 
-Les rôles exigés sont lus dans [`docs/team/review-requirements.json`](../team/review-requirements.json) : `default` (`code`), plus les rôles propres à la story (`stories`), plus `architecture` si le diff `origin/main...HEAD` touche `apps/api/src/modules/dependency-graph.ts` ou `packages/db/`.
+1. **Liste blanche de branches.**
+   - Sont acceptées : `story/US-xxx-<slug>` (minuscules, chiffres, tirets ; plusieurs stories : `story/US-001-US-029-…`) et les préfixes déclarés dans `branchPrefixes` (`docs/team-`, `chore/`).
+   - **Toute autre branche échoue** : `fix/x`, `story/us-002-x`, `story/US-002-x;rm`…
+2. **Branche à préfixe déclaré.**
+   - Le diff ne touche que ses `allowedPaths` (`docs/team/`).
+   - Il ne touche jamais les `nonStoryForbiddenPaths` : rapports de revue, passations, `gates/`, et la règle elle-même.
+   - Aucune revue de story n'est alors exigée.
+3. **Branche de story, recoupée avec le diff `origin/main...HEAD`.**
+   - Un fichier de `docs/team/` qui nomme une autre story (`handoffs/US-yyy.md`, `reviews/US-yyy/`) fait échouer le job, sauf si `stories.US-xxx.related` déclare cette story (cas US-001 ↔ US-029).
+   - Les `sharedPaths` sont tolérés : BOARD, RESUME_HERE, DECISIONS, QUESTIONS, RISKS, sessions, health, weekly, incidents.
+   - Un fichier sous `packages/<x>/` exige que la story figure dans `pathOwners[packages/<x>/]`.
+   - Un paquet absent de `pathOwners` fait échouer le job (fail-closed). Une story qui crée un paquet le fait donc d'abord déclarer sur `main` par l'orchestrateur.
+4. **Rôles exigés.**
+   - Ils valent `default` (`code`), plus `stories.US-xxx.require`, plus `architecture` si le diff touche `dependency-graph.ts` ou `packages/db/`.
+   - Le job lance ensuite `scripts/team/check-reviews.mjs US-xxx --require <rôles> --base origin/main`.
 
-Le job se place sur la pointe de la branche (`head.sha`), avec tout l'historique (`fetch-depth: 0`). `check-reviews.mjs` prend `--base` (défaut `main`) pour lire `origin/main..HEAD` en CI.
+Les règles de [`docs/team/review-requirements.json`](../team/review-requirements.json) sont **lues sur la branche de base** (`git show origin/main:…`). Une PR ne peut donc pas affaiblir son propre contrôle (constat MINEUR 2).
 
-En brouillon, l'échec est seulement informatif. Quand la PR passe en « prête », le job est relancé et devient bloquant.
+- Tant que `main` n'a pas ce fichier, c'est celui de HEAD qui sert, avec un avertissement. C'est l'amorçage, le cas de la PR d'US-002.
+- Les scripts eux-mêmes viennent encore de la PR. Les protéger par un CODEOWNERS sur `.github/`, `scripts/ci/`, `scripts/team/` et ce JSON relève d'US-050.
+
+Le job se place sur la pointe de la branche (`head.sha`), avec tout l'historique (`fetch-depth: 0`). En brouillon, son échec reste informatif. Quand la PR passe en « prête », le job est relancé et devient bloquant. Les contournements sont couverts par `scripts/ci/check-story-reviews.test.mjs`.
 
 ### Dépendances
 
-Choix : **non bloquant pour l'instant.** Le 2026-10-31, `pnpm audit --prod --audit-level high` remonte 2 vulnérabilités élevées, toutes deux transitives par `@nestjs/platform-express` :
+Le job est **bloquant** depuis la revue sécurité du 2026-11-01 (constat 9). [`audit-gate.mjs`](../../scripts/ci/audit-gate.mjs) lit la sortie de `pnpm audit --prod --json` et applique les règles suivantes :
 
-- `body-parser` 2.3.0 : corrigé en 2.4.0, publié le 2026-10-22 ;
-- `multer` 2.4.0 : corrigé en 2.5.0, publié le 2026-10-22.
+- toute vulnérabilité de gravité élevée ou critique fait échouer le job, sauf si une exception **nommée et datée** de [`docs/ops/audit-exceptions.json`](audit-exceptions.json) la couvre (GHSA, paquet, date d'expiration au sens du dernier jour toléré en UTC, justification) ;
+- une exception expirée fait échouer le job, même si la vulnérabilité a disparu : il faut alors la retirer du fichier ;
+- une sortie d'audit illisible, par exemple quand le registre est indisponible, fait échouer le job (fail-closed) ;
+- une vulnérabilité modérée ou faible ne bloque pas.
 
-La politique `minimumReleaseAge` (14 jours) interdit ces correctifs avant le **2026-11-05**. À partir de cette date, la suite est la suivante :
+Deux exceptions sont en vigueur. Les deux vulnérabilités sont transitives par `@nestjs/platform-express`. Leurs correctifs ont été publiés le 2026-10-22, et `minimumReleaseAge` (14 jours) les interdit avant le 2026-11-05.
 
-1. monter `@nestjs/platform-express`, ou ajouter un `overrides` dans `pnpm-workspace.yaml` ;
-2. vérifier que l'audit est vert ;
-3. retirer `continue-on-error` de l'étape, pour atteindre « 0 vulnérabilité critique ou élevée » (handoff §7).
+| GHSA                  | Paquet                        | Expire le  |
+| --------------------- | ----------------------------- | ---------- |
+| `GHSA-27r3-jxmh-p828` | `body-parser` 2.3.0 (→ 2.4.0) | 2026-11-06 |
+| `GHSA-q7qp-rjg7-q26m` | `multer` 2.4.0 (→ 2.5.0)      | 2026-11-06 |
+
+Le 2026-11-05 ou le 2026-11-06, il faut monter `@nestjs/platform-express` ou ajouter un `overrides` dans `pnpm-workspace.yaml`, puis retirer les deux exceptions. Sinon, la CI sera rouge à partir du 2026-11-07.
+
+Toute nouvelle exception est une décision : elle est consignée dans `docs/team/DECISIONS.md` et passe en revue sécurité.
 
 ### Diagrammes
 
-mermaid-cli est installé hors de l'espace de travail pnpm, en version exacte, avec `--ignore-scripts`, et utilise le Chrome du runner sans bac à sable. Il n'est pas ajouté aux dépendances, car puppeteer est trop lourd pour l'installation de chacun.
+mermaid-cli 12.0.0 et **toutes ses dépendances** sont figés par [`scripts/ci/mermaid/package-lock.json`](../../scripts/ci/mermaid/package-lock.json). Ils sont installés par `npm ci --ignore-scripts`, hors de l'espace de travail pnpm.
+
+- Le lockfile a été généré avec `npm install --package-lock-only --before=2026-10-17` : chaque version a plus de 14 jours.
+- Pour monter la version : modifier `scripts/ci/mermaid/package.json`, puis lancer `npm install --prefix scripts/ci/mermaid --package-lock-only --ignore-scripts --before=<aujourd'hui moins 14 jours>`.
+- mmdc utilise le Chrome du runner, sans bac à sable.
+- mermaid-cli n'est pas ajouté aux dépendances du dépôt : puppeteer serait trop lourd pour l'installation de chacun.
 
 Le premier run (2026-11-01) a rendu les **31 diagrammes sur 31** (08, 09b, 10b, 17, 18 et 19). Cela clôt le contrôle `mmdc` resté ouvert dans 08 (A31, m10) et 17 ; le report dans la spécification revient à l'orchestrateur. Le job est donc bloquant.
 
@@ -92,7 +121,7 @@ pnpm test:int && pnpm test:l0        # en local : PostgreSQL natif (RUEDA_PG_ADM
 python -I -X utf8 -m unittest discover -s scripts/ci -p "test_*.py"
 python -I -X utf8 scripts/ci/check-spec-tools.py              # oracles (copie temporaire de docs/specs)
 node scripts/ci/check-story-reviews.mjs --branch "$(git branch --show-current)" --base main
-pnpm audit --prod --audit-level high
+node scripts/ci/audit-gate.mjs                                # pnpm audit, exceptions datées
 ```
 
 `scripts/ci/pg-smoke.sh`, gitleaks et `mmdc` demandent Docker, un binaire gitleaks ou Chrome. Ils ne tournent qu'en CI : le poste du fondateur n'a pas Docker (ADR-043).

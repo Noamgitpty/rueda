@@ -1,5 +1,5 @@
 {
-  "$comment": "Revues exigées par la CI (US-002, job « revues »), lues par scripts/ci/check-story-reviews.mjs. Rôles = préfixes des rapports docs/team/reviews/US-xxx/<rôle>-<date>.md. Rôles exigés = default ∪ stories[US-xxx] ∪ pathRules touchées par le diff <base>...HEAD. Modifier ce fichier = décision de l'orchestrateur (relu en revue code).",
+  "$comment": "Règles du job CI « revues » (US-002), lues par scripts/ci/check-story-reviews.mjs DEPUIS LA BRANCHE DE BASE (origin/main) : une PR ne peut pas affaiblir son propre contrôle. Voir docs/ops/CI.md, section « Revues ». Modifier ce fichier = décision de l'orchestrateur, revue sécurité.",
   "default": ["code"],
   "pathRules": [
     {
@@ -14,7 +14,41 @@
     }
   ],
   "stories": {
-    "US-001": ["code", "architecture"],
-    "US-029": ["code"]
-  }
+    "US-001": { "require": ["code", "architecture"], "related": ["US-029"] },
+    "US-029": { "require": ["code"], "related": ["US-001"] }
+  },
+  "pathOwners": {
+    "$comment": "Chaque répertoire packages/<x>/ modifié doit avoir ici la story de la branche ; un paquet absent de la liste fait échouer (fail-closed).",
+    "packages/config/": ["US-001"],
+    "packages/db/": ["US-001", "US-005"]
+  },
+  "sharedPaths": [
+    "docs/team/BOARD.md",
+    "docs/team/RESUME_HERE.md",
+    "docs/team/DECISIONS.md",
+    "docs/team/QUESTIONS.md",
+    "docs/team/RISKS.md",
+    "docs/team/sessions/",
+    "docs/team/health/",
+    "docs/team/weekly/",
+    "docs/team/incidents/"
+  ],
+  "branchPrefixes": [
+    {
+      "prefix": "docs/team-",
+      "allowedPaths": ["docs/team/"],
+      "why": "artefacts de coordination de l'orchestrateur, sans revue de story"
+    },
+    {
+      "prefix": "chore/",
+      "allowedPaths": ["docs/team/"],
+      "why": "entretien des artefacts d'équipe, sans revue de story"
+    }
+  ],
+  "nonStoryForbiddenPaths": [
+    "docs/team/reviews/",
+    "docs/team/handoffs/",
+    "docs/team/gates/",
+    "docs/team/review-requirements.json"
+  ]
 }

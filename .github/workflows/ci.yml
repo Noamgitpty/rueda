@@ -128,7 +128,7 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: 'false'
 
   dependances:
-    name: analyse des dépendances (pnpm audit, non bloquant)
+    name: analyse des dépendances (pnpm audit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -139,23 +139,15 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - name: pnpm audit --prod --audit-level high
-        # Non bloquant tant que les correctifs connus sont plus récents que minimumReleaseAge
-        # (14 jours) : voir docs/ops/CI.md, section « Dépendances ».
-        continue-on-error: true
-        run: |
-          if ! pnpm audit --prod --audit-level high; then
-            echo "::warning title=pnpm audit::vulnérabilité élevée ou critique dans les dépendances de production (voir le journal)"
-            exit 1
-          fi
+      # Bloquant : toute vulnérabilité élevée ou critique échoue, sauf exception nommée (GHSA)
+      # et datée de docs/ops/audit-exceptions.json ; une exception expirée échoue aussi.
+      - name: pnpm audit --prod (élevée et critique, exceptions datées)
+        run: node scripts/ci/audit-gate.mjs --exceptions docs/ops/audit-exceptions.json
 
   diagrammes:
     name: rendu mmdc des diagrammes
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      # Version exacte, publiée depuis plus de 14 jours (politique minimumReleaseAge d'US-001).
-      MERMAID_CLI_VERSION: '12.0.0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -164,18 +156,19 @@ jobs:
         with:
           node-version-file: .nvmrc
       # Hors espace de travail pnpm : mmdc tire puppeteer, trop lourd pour l'installation de tous.
+      # npm ci : mermaid-cli 12.0.0 et toutes ses dépendances figées par scripts/ci/mermaid/package-lock.json.
       # --ignore-scripts : aucun script d'installation ; Chrome du runner, sans bac à sable
       # (rendu de nos propres diagrammes ; AppArmor d'Ubuntu interdit le bac à sable non privilégié).
       - name: installation de mmdc
         run: |
-          npm install --no-save --no-audit --no-fund --ignore-scripts \
-            --prefix "$RUNNER_TEMP/mmdc" "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}"
+          npm ci --prefix scripts/ci/mermaid --ignore-scripts --no-audit --no-fund
           chrome="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           printf '{"executablePath":"%s","args":["--no-sandbox"]}\n' "$chrome" > "$RUNNER_TEMP/puppeteer.json"
+          echo "MMDC=$PWD/scripts/ci/mermaid/node_modules/.bin/mmdc" >> "$GITHUB_ENV"
       # Contrôle du contrôle : un diagramme invalide doit échouer (sinon mmdc ne vérifie rien).
       - name: témoin invalide refusé
         run: |
-          if node scripts/ci/render-mermaid.mjs --mmdc "$RUNNER_TEMP/mmdc/node_modules/.bin/mmdc" \
+          if node scripts/ci/render-mermaid.mjs --mmdc "$MMDC" \
             --puppeteer "$RUNNER_TEMP/puppeteer.json" scripts/ci/fixtures/mermaid-invalide.md; then
             echo "::error title=mmdc::le témoin invalide a été rendu sans erreur"
             exit 1
@@ -183,5 +176,5 @@ jobs:
       - name: rendu des blocs mermaid de docs/
         run: |
           mapfile -t files < <(grep -rl --include='*.md' '^\s*```mermaid' docs | sort)
-          node scripts/ci/render-mermaid.mjs --mmdc "$RUNNER_TEMP/mmdc/node_modules/.bin/mmdc" \
+          node scripts/ci/render-mermaid.mjs --mmdc "$MMDC" \
             --puppeteer "$RUNNER_TEMP/puppeteer.json" "${files[@]}"
