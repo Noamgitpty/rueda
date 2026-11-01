@@ -97,3 +97,10 @@ test('parseReview lit relecteur, modèle, sha et verdict', () => {
   assert.equal(r.reviewerModel, 'claude-sonnet-5-5');
   assert.equal(r.reviewedSha, 'abc1234');
 });
+
+test('CRITIQUE « non corrigé » ou en gras : échec ; modèle suffixé d’une date : même modèle', () => {
+  const notFixed = '| 1 | **CRITIQUE** | fuite | a.ts:1 | non corrigé |';
+  assert.match(run({ 'code-2026-10-31.md': report({ rows: notFixed }) })[0], /CRITIQUE non clos/);
+  const dated = report({ who: 'Claude-Opus-5-5-20260101', family: '' });
+  assert.match(run({ 'code-2026-10-31.md': dated })[0], /même modèle/);
+});

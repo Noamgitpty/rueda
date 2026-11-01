@@ -6,4 +6,6 @@ Entrées : diff <sha de base>..<sha revu>, story US-xxx de 19, vecteurs, critèr
 | #   | Gravité (CRITIQUE/MAJEUR/MINEUR) | Constat | Preuve (fichier:ligne, test) | Décision |
 | --- | -------------------------------- | ------- | ---------------------------- | -------- |
 
+<!-- Laisser une ligne vide avant « Verdict » : sinon prettier l’absorbe dans le tableau. -->
+
 Verdict : APPROUVÉ | CHANGEMENTS DEMANDÉS

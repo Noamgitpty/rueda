@@ -25,7 +25,7 @@ export const REVIEW_ROLES = new Set([
 export function parseReview(text) {
   const reviewer = /^Relecteur\s*:\s*(.+)$/m.exec(text)?.[1]?.trim() ?? null;
   // Modèle du relecteur = premier mot après « rôle / » (le reste de la ligne peut citer l'auteur).
-  const reviewerModel = /^[^/]+\/\s*([^\s(,]+)/.exec(reviewer ?? '')?.[1] ?? null;
+  const reviewerModel = /^[^/]+\/\s*\**([^\s(,*]+)/.exec(reviewer ?? '')?.[1] ?? null;
   const inputs = /^Entrées\s*:\s*(.+)$/m.exec(text)?.[1]?.trim() ?? null;
   const reviewedSha = /\.\.([0-9a-f]{7,40})\b/.exec(inputs ?? '')?.[1] ?? null;
   const hasTable = /^\|\s*#\s*\|/m.test(text);
@@ -34,7 +34,11 @@ export function parseReview(text) {
   // Constat CRITIQUE non clos : ligne de tableau gravité CRITIQUE dont la décision ne dit pas corrigé / résolu.
   const openCritical = text
     .split(/\r?\n/)
-    .filter((l) => /^\|[^|]*\|\s*CRITIQUE\s*\|/.test(l) && !/corrigé|résolu/i.test(l)).length;
+    .filter(
+      (l) =>
+        /^\|[^|]*\|\s*\**CRITIQUE\**\s*\|/.test(l) &&
+        !/(?<!non\s)(?<!pas\s)(corrigé|résolu)/i.test(l),
+    ).length;
   const degraded = /revue dégradée/i.test(text);
   const familyB = /famille\s*B/i.test(reviewer ?? '') && !degraded;
   return {
@@ -79,7 +83,7 @@ export function checkReviews({ story, required, authorModels, root = '.', isAnce
     if (r.verdict === 'APPROUVÉ' && r.openCritical)
       errors.push(`${latest} : APPROUVÉ avec ${r.openCritical} constat(s) CRITIQUE non clos`);
     for (const m of authorModels) {
-      if (r.reviewerModel && r.reviewerModel.toLowerCase() === m.toLowerCase()) {
+      if (r.reviewerModel && r.reviewerModel.toLowerCase().startsWith(m.toLowerCase())) {
         errors.push(`${latest} : le relecteur utilise le même modèle que l'auteur (${m})`);
       }
     }
