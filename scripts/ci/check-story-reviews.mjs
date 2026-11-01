@@ -107,6 +107,16 @@ function git(root, args) {
   });
 }
 
+// Fichiers touchés par <base>...HEAD. `--no-renames` : un renommage compte comme suppression
+// de l'ancien chemin + ajout du nouveau, et les deux chemins sont contrôlés (sinon déplacer
+// packages/db/x vers docs/team/ ne montrerait que l'arrivée ; seconde revue sécurité).
+// `-z` : noms bruts, sans guillemets ni échappement de core.quotePath.
+export function changedFiles(root, base) {
+  return git(root, ['diff', '--name-only', '--no-renames', '-z', `${base}...HEAD`])
+    .split('\0')
+    .filter(Boolean);
+}
+
 export function loadConfig(root, base) {
   try {
     return { config: JSON.parse(git(root, ['show', `${base}:${CONFIG_PATH}`])), from: base };
@@ -133,9 +143,7 @@ function main(argv) {
       `::warning title=revues::${CONFIG_PATH} absent de ${base} : règles lues sur HEAD (amorçage)`,
     );
   }
-  const changed = git(root, ['diff', '--name-only', `${base}...HEAD`])
-    .split(/\r?\n/)
-    .filter(Boolean);
+  const changed = changedFiles(root, base);
   const { stories, errors, note } = evaluateBranch({ branch, changedFiles: changed, config });
   for (const e of errors) console.error(`ÉCHEC ${e}`);
   if (errors.length) return 1;
