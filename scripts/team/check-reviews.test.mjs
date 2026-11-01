@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { authorModelsFromLog, checkReviews, parseReview } from './check-reviews.mjs';
+import { authorModelsFromLog, checkReviews, parseArgs, parseReview } from './check-reviews.mjs';
 
 function repoWith(files) {
   const root = mkdtempSync(join(tmpdir(), 'reviews-'));
@@ -103,4 +103,12 @@ test('CRITIQUE « non corrigé » ou en gras : échec ; modèle suffixé d’une
   assert.match(run({ 'code-2026-10-31.md': report({ rows: notFixed }) })[0], /CRITIQUE non clos/);
   const dated = report({ who: 'Claude-Opus-5-5-20260101', family: '' });
   assert.match(run({ 'code-2026-10-31.md': dated })[0], /même modèle/);
+});
+
+test('--base : main par défaut, origin/main en CI, option déguisée refusée', () => {
+  assert.equal(parseArgs(['US-001', '--require', 'code']).base, 'main');
+  const ci = parseArgs(['US-002', '--require', 'code,architecture', '--base', 'origin/main']);
+  assert.equal(ci.base, 'origin/main');
+  assert.deepEqual(ci.required, ['code', 'architecture']);
+  assert.equal(parseArgs(['US-001', '--base', '--output=x']).base, null);
 });
