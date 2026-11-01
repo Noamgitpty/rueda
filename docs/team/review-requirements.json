@@ -14,13 +14,39 @@
     }
   ],
   "stories": {
-    "US-001": { "require": ["code", "architecture"], "related": ["US-029"] },
-    "US-029": { "require": ["code"], "related": ["US-001"] }
+    "US-001": {
+      "require": ["code", "architecture"],
+      "related": ["US-029"]
+    },
+    "US-029": {
+      "require": ["code"],
+      "related": ["US-001"]
+    },
+    "US-002": {
+      "require": ["code", "securite"]
+    },
+    "US-005": {
+      "require": ["code", "architecture", "securite", "qa"]
+    },
+    "US-014": {
+      "require": ["code", "ux"]
+    },
+    "US-015": {
+      "require": ["code", "qa", "argent"]
+    },
+    "US-026": {
+      "require": ["code", "securite", "ux"]
+    },
+    "US-050": {
+      "require": ["code", "securite"]
+    }
   },
   "pathOwners": {
     "$comment": "Chaque répertoire packages/<x>/ modifié doit avoir ici la story de la branche ; un paquet absent de la liste fait échouer (fail-closed).",
     "packages/config/": ["US-001"],
-    "packages/db/": ["US-001", "US-005"]
+    "packages/db/": ["US-001", "US-005"],
+    "packages/money/": ["US-015"],
+    "packages/i18n/": ["US-014"]
   },
   "sharedPaths": [
     "docs/team/BOARD.md",
