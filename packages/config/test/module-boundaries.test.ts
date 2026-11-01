@@ -52,6 +52,14 @@ describe('rueda/module-boundaries sur fixtures (configuration réelle)', () => {
     ]);
   });
 
+  it('échoue : createRequire et import() avec gabarit', async () => {
+    const result = await lintFixture('modules/avl/internal/bad-dynamic-forms.ts');
+    expect(boundaryMessages(result)).toEqual([
+      expect.stringContaining("l'intérieur du module PAY"),
+      expect.stringContaining("l'intérieur du module PRC"),
+    ]);
+  });
+
   it('échoue : module absent du graphe', async () => {
     const result = await lintFixture('modules/zzz/index.ts');
     expect(boundaryMessages(result)).toEqual([expect.stringContaining('Module inconnu « zzz »')]);
@@ -115,6 +123,24 @@ describe('rueda/module-boundaries (RuleTester : formes d’import)', () => {
           filename: file,
           options,
           code: "const m = require('../../prc/internal/q.js');",
+          errors: [{ messageId: 'internalImport' }],
+        },
+        {
+          filename: file,
+          options,
+          code: "const m = require.resolve('../../prc/internal/q.js');",
+          errors: [{ messageId: 'internalImport' }],
+        },
+        {
+          filename: file,
+          options,
+          code: "const m = createRequire(import.meta.url)('../../prc/internal/q.js');",
+          errors: [{ messageId: 'internalImport' }],
+        },
+        {
+          filename: file,
+          options,
+          code: 'const m = await import(`../../prc/internal/q.js`);',
           errors: [{ messageId: 'internalImport' }],
         },
         {

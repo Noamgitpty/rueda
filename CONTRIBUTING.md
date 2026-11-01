@@ -51,7 +51,7 @@ Avant toute demande de fusion : `pnpm install --frozen-lockfile && pnpm lint && 
   Agent-Model: claude-opus-5-5
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
   ```
-  `Agent-Role` vaut le rôle de 19 §1.5 (valeurs PROPOSÉES par US-001, à confirmer par US-029 / US-050 : `orchestrator`, `back-end`, `data`, `front-end`, `integrations`, `design`, `review-code`, `qa`, `security`, `money`, `architecture`, `red-team`, `ux`) ; `Agent-Model` l'identifiant exact du modèle.
+  `Agent-Role` vaut le rôle de 19 §1.5 : c'est le nom d'un fichier de `docs/team/roles/` sans `.md`, soit `orchestrateur`, `back-end`, `donnees`, `front-end`, `integrations`, `design`, `revue-code`, `qa`, `securite`, `argent`, `architecture`, `ux` ou `red-team` ; `Agent-Model` l'identifiant exact du modèle.
 - Jamais `--no-verify`, jamais de réécriture de l'historique d'une branche partagée.
 
 ## 5. Cycle d'une story (19 §1.5, handoff §4.3)
@@ -78,7 +78,7 @@ apps/
   backoffice/           Next.js séparé : back-office interne (domaine distinct)
 packages/
   config/               ESLint partagé (règles maison), tsconfig partagés, contrôle d'horloge SQL
-  db/                   migrations SQL (US-005), liste blanche de l'horloge
+  db/                   schémas par module (schemas.ts), migrations SQL (US-005), liste blanche de l'horloge
 docs/adr/               ADR du dépôt (report dans 17 §8.1)
 docs/specs/             spécification figée : ne pas modifier
 docs/team/              artefacts entre agents (US-029)
@@ -93,7 +93,7 @@ docs/team/              artefacts entre agents (US-029)
   - `README.md` : une ligne, responsabilité et dépendances autorisées.
 - **Règle `rueda/module-boundaries`** (dans `pnpm lint`) :
   - importer `modules/<x>/internal/…`, `modules/<x>/<x>.module.ts` ou tout autre fichier que `index.ts` depuis l'extérieur du module `<x>` est une erreur, y compris depuis `app.module.ts` ;
-  - un module ne peut importer que les modules autorisés par `dependency-graph.ts` (colonne « Dépend de » de 17 §2.2 et flèches pleines de §2.1). Tout module hors socle peut aussi dépendre du **socle CFG, AUD, BUS**, qui lui ne dépend de personne ;
+  - un module ne peut importer que les modules autorisés par `dependency-graph.ts` (colonne « Dépend de » de 17 §2.2 et flèches pleines de §2.1). Tout module hors socle peut aussi dépendre du **socle CFG, AUD, BUS**. Dans le socle, BUS ne dépend de personne ; CFG et AUD ne dépendent que de BUS, pour publier leurs événements par l'outbox ;
   - un répertoire de module absent du graphe est une erreur.
 - Le graphe est **acyclique** (test `dependency-graph.test.ts`). Ajouter une dépendance = décision d'architecture : ADR, report dans 17 §2.2, revue de l'agent architecture.
 - Les données d'un autre module ne se lisent que par son interface (requête exposée ou événement) ; aucune écriture SQL dans les tables d'un autre module ; jointures inter-schémas en lecture seulement dans RPT (17 §2.1).
@@ -101,17 +101,31 @@ docs/team/              artefacts entre agents (US-029)
 
 ## 8. SQL et horloge (17 §1.3, ADR-030)
 
-- L'horloge qui fait foi est celle de la base : **`platform.now()`**, et elle seule. Interdits dans le SQL métier : `now()`, `current_timestamp` (`CURRENT_TIMESTAMP`), `localtimestamp`, `transaction_timestamp()`, `statement_timestamp()`, `current_date`, `current_time`, `localtime`, les littéraux `'now'`, `'today'`, `'tomorrow'`, `'yesterday'`, et `clock_timestamp()`.
+- L'horloge qui fait foi est celle de la base : **`platform.now()`**, et elle seule. Interdits dans le SQL métier : `now()`, `current_timestamp` (`CURRENT_TIMESTAMP`), `localtimestamp`, `transaction_timestamp()`, `statement_timestamp()`, `timeofday()`, `current_date`, `current_time`, `localtime`, les littéraux `'now'`, `'today'`, `'tomorrow'`, `'yesterday'`, et `clock_timestamp()`.
 - **Exception unique** : le fichier qui définit `platform.now()` (`clock_timestamp()` en production) figure dans `packages/db/sql-clock-allowlist.json`, avec une justification. Seul `clock_timestamp()` peut y être toléré ; toute entrée nouvelle passe par l'agent architecture.
 - Contrôle : `pnpm lint` analyse tous les fichiers `.sql` (`packages/config/sql-clock/cli.ts`) et, dans le TypeScript, les gabarits étiquetés `sql` et les chaînes qui ressemblent à du SQL (`rueda/no-sql-clock`).
-- Les commentaires (`--`, `/* */` imbriqués), les chaînes `'…'` et les identifiants `"…"` ne déclenchent pas l'erreur. Le contenu des chaînes dollar (`$$…$$`, `$tag$…$tag$`) est analysé comme du code (corps de fonctions).
+- Les commentaires (`--`, `/* */` imbriqués) et les chaînes `'…'` ne déclenchent pas l'erreur. Un identifiant `"…"` non plus, sauf s'il est appelé ou qualifié : `"now"()` et `"pg_catalog"."now"()` sont détectés. Le contenu des chaînes dollar (`$$…$$`, `$tag$…$tag$`) est analysé comme du code (corps de fonctions).
 - Le serveur applicatif ne calcule jamais un instant d'expiration et ne passe jamais « l'heure courante » en paramètre (17 §1.3).
 
 ## 9. Base de données : schémas et tables (17 §2.1, §10 point 3)
 
-- **Cible** : un schéma PostgreSQL par module, nommé par le code du module en minuscules (`iam`, `avl`, `pay`…).
-- **Bêta pilote (D1)** : un schéma unique et un **préfixe de table** égal au code du module en minuscules : `avl_trip`, `avl_checkout_hold`, `cfg_country`, `pay_payment_operation`. Les noms d'entités et de colonnes restent ceux de 17 §3 (aucune table « bêta » jetable, 17 §10 principe 1) ; le passage au schéma par module sera une migration de renommage.
-- Fonctions de plateforme : schéma `platform` (`platform.now()`).
+- **Cible** : un schéma PostgreSQL par module, **avec les noms qu'utilise le SQL de 17**. La donnée de référence est `packages/db/schemas.ts` (`MODULE_SCHEMAS`). Un test vérifie que chaque module du graphe y a un schéma.
+
+  | Module                        | Schéma                                                            | Origine                                                 |
+  | ----------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------- |
+  | AVL                           | `booking`                                                         | 17 (`booking.checkout_hold`, `booking.trip`…)           |
+  | CAT                           | `catalog`                                                         | 17 (`catalog.vehicle_is_free`…)                         |
+  | PAY                           | `payment`                                                         | 17 (`payment.payment_operation`)                        |
+  | FIN                           | `finance`                                                         | 17 (`finance.commission_statement`)                     |
+  | CFG                           | `config`                                                          | 17 (`config.currency`)                                  |
+  | IAM, KYC, PRC, CTR, STL, PYO  | `iam`, `kyc`, `pricing`, `contract`, `settlement`, `payout`       | PROPOSÉ (préfixe des événements de 17 §2.2)             |
+  | TRP                           | `trip_ops`                                                        | PROPOSÉ (pas `trip` : la table `trip` appartient à AVL) |
+  | CLM, MSG, NTF, REV, SUP, RISK | `claim`, `messaging`, `notification`, `review`, `support`, `risk` | PROPOSÉ                                                 |
+  | AUD, RPT, BUS                 | `audit`, `reporting`, `outbox`                                    | PROPOSÉ                                                 |
+
+- **Schémas transverses** (17) : `platform` pour les fonctions de plateforme (`platform.now()`, `platform.guest_hold_guard()`) ; `app` pour le contexte de session et les aides RLS (`app.org_id()`, `app.has_permission()`).
+- **Bêta pilote (D1, 17 §10 point 3)** : un schéma unique `core` (PROPOSÉ, car 17 ne le nomme pas). Chaque table y est **préfixée par son schéma cible** : `booking_checkout_hold`, `booking_trip`, `catalog_listing`, `config_currency`, `payment_payment_operation` (`betaTableName()`). Les noms d'entités et de colonnes restent ceux de 17 §3 : aucune table « bêta » jetable (17 §10 principe 1). Le passage au schéma par module sera un renommage mécanique (`core.booking_trip` → `booking.trip`). Le préfixe exact est à reporter dans 17 §10 point 3 par l'orchestrateur.
+- Un nom PROPOSÉ peut être changé par US-005 tant qu'aucune migration ne l'utilise. Un nom d'origine 17 ne change pas sans ADR.
 - Migrations dans `packages/db/migrations/`, additives et réversibles ; outil et format fixés par US-005.
 
 ## 10. Nommage

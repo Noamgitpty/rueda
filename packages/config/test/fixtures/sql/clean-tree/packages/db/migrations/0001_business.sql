@@ -13,3 +13,5 @@ VALUES ('Il est now() : texte, pas du SQL', 'current_timestamp en texte');
 
 SELECT e.current_date_label, h.snowfall FROM cfg_holiday_calendar h, cfg_event e; -- now()
 SELECT PLATFORM . now ();
+SELECT "platform"."now"();
+SELECT "now", "timeofday" FROM t;

@@ -3,12 +3,13 @@
  *
  * Règle : la seule horloge autorisée est `platform.now()`. Sont interdits `now()`,
  * `current_timestamp`, `localtimestamp`, `transaction_timestamp()`, `statement_timestamp()`,
- * `current_date`, `current_time`, `localtime`, les littéraux spéciaux `'now'`, `'today'`,
- * `'tomorrow'`, `'yesterday'`, et `clock_timestamp()` hors liste blanche (seul le fichier qui
- * définit `platform.now()` y a droit).
+ * `timeofday()`, `current_date`, `current_time`, `localtime`, les littéraux spéciaux `'now'`,
+ * `'today'`, `'tomorrow'`, `'yesterday'`, et `clock_timestamp()` hors liste blanche (seul le
+ * fichier qui définit `platform.now()` y a droit).
  *
  * Les commentaires (`--`, `/* *\/` imbriqués), les littéraux chaîne et les identifiants entre
- * guillemets sont masqués avant la recherche. Le contenu des chaînes dollar (`$$…$$`,
+ * guillemets sont masqués avant la recherche ; un identifiant entre guillemets suivi de `(` ou
+ * de `.` reste visible (`"now"()`, `"pg_catalog"."now"()`). Le contenu des chaînes dollar (`$$…$$`,
  * `$body$…$body$`) est analysé comme du code : ce sont presque toujours des corps de fonctions.
  */
 
@@ -18,6 +19,7 @@ export const CLOCK_TOKENS = [
   'localtimestamp',
   'transaction_timestamp()',
   'statement_timestamp()',
+  'timeofday()',
   'clock_timestamp()',
   'current_date',
   'current_time',
@@ -54,6 +56,7 @@ interface MaskedSql {
 }
 
 const IDENT_CHAR = /[A-Za-z0-9_$]/;
+const QUOTED_CALLABLE = /^[A-Za-z_][A-Za-z0-9_$]*$/;
 const DOLLAR_TAG = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/;
 
 function blank(chars: string[], from: number, to: number): void {
@@ -150,6 +153,12 @@ export function maskSql(source: string): MaskedSql {
         j++;
       }
       blank(chars, i, Math.min(j + 1, n));
+      // Un identifiant entre guillemets appelé ou qualifié (`"now"()`, `"pg_catalog"."now"()`,
+      // `"platform"."now"()`) reste visible sans ses guillemets : c'est un appel de fonction.
+      const content = source.slice(i + 1, j);
+      if (QUOTED_CALLABLE.test(content) && /^\s*[(.]/.test(source.slice(j + 1, j + 64))) {
+        for (let k = 0; k < content.length; k++) chars[i + 1 + k] = content[k] ?? ' ';
+      }
       i = j + 1;
       continue;
     }
@@ -189,6 +198,7 @@ const PATTERNS: readonly Pattern[] = [
   { token: 'localtime', regex: /(?<![\w$.])localtime(?![\w$])/gi },
   { token: 'transaction_timestamp()', regex: /(?<![\w$.])transaction_timestamp\s*\(/gi },
   { token: 'statement_timestamp()', regex: /(?<![\w$.])statement_timestamp\s*\(/gi },
+  { token: 'timeofday()', regex: /(?<![\w$.])timeofday\s*\(/gi },
   { token: 'clock_timestamp()', regex: /(?<![\w$.])clock_timestamp\s*\(/gi },
 ];
 

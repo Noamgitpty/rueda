@@ -9,7 +9,11 @@
  *    racine (`forbiddenDependency`).
  * 3. Un répertoire de module absent du graphe est une erreur (`unknownModule`).
  *
- * Seuls les imports relatifs sont analysés (le dépôt n'utilise pas d'alias de chemin).
+ * Formes analysées : `import`, `export … from`, `import()` et `require()` / `require.resolve()`
+ * / alias de `createRequire` avec un littéral ou un gabarit sans expression.
+ * Limites connues (passation US-001) : spécificateur calculé (`import(variable)`, gabarit avec
+ * expression), alias de chemin ou paquet nu (aucun dans le dépôt), `createRequire` réaffecté.
+ * Seuls les imports relatifs sont analysés.
  */
 import { dirname, posix } from 'node:path';
 import type { Rule } from 'eslint';
@@ -36,6 +40,22 @@ interface ModuleLocation {
 }
 
 const PUBLIC_ENTRY = new Set(['', 'index']);
+
+/** Valeur d'un littéral chaîne ou d'un gabarit sans expression (`\`…\``), sinon `undefined`. */
+function staticSpecifier(node: unknown): string | undefined {
+  const n = node as {
+    type?: string;
+    value?: unknown;
+    expressions?: unknown[];
+    quasis?: Array<{ value: { cooked?: string | null; raw: string } }>;
+  };
+  if (n?.type === 'Literal' && typeof n.value === 'string') return n.value;
+  if (n?.type === 'TemplateLiteral' && n.expressions?.length === 0) {
+    const quasi = n.quasis?.[0];
+    return quasi ? (quasi.value.cooked ?? quasi.value.raw) : undefined;
+  }
+  return undefined;
+}
 
 function toPosix(p: string): string {
   return p.replace(/\\/g, '/');
@@ -88,6 +108,8 @@ const rule: Rule.RuleModule = {
     const filename = toPosix(context.filename);
     const source = locate(filename, options.modulesPath);
     const sourceModule = source?.dir ? options.modules[source.dir] : undefined;
+
+    const requireAliases = new Set<string>(['require']);
 
     function check(node: Rule.Node, specifier: unknown): void {
       if (typeof specifier !== 'string' || !specifier.startsWith('.')) return;
@@ -142,17 +164,33 @@ const rule: Rule.RuleModule = {
         check(node as Rule.Node, node.source.value);
       },
       ImportExpression(node) {
-        if (node.source.type === 'Literal') check(node as Rule.Node, node.source.value);
+        check(node as Rule.Node, staticSpecifier(node.source));
+      },
+      VariableDeclarator(node) {
+        // `const req = createRequire(import.meta.url)` : `req(…)` est traité comme `require(…)`.
+        if (
+          node.id.type === 'Identifier' &&
+          node.init?.type === 'CallExpression' &&
+          node.init.callee.type === 'Identifier' &&
+          node.init.callee.name === 'createRequire'
+        ) {
+          requireAliases.add(node.id.name);
+        }
       },
       CallExpression(node) {
-        const arg = node.arguments[0];
-        if (
-          node.callee.type === 'Identifier' &&
-          node.callee.name === 'require' &&
-          arg?.type === 'Literal'
-        ) {
-          check(node as Rule.Node, arg.value);
-        }
+        const callee = node.callee;
+        const isRequire =
+          // require('…'), req('…') (alias de createRequire)
+          (callee.type === 'Identifier' && requireAliases.has(callee.name)) ||
+          // require.resolve('…')
+          (callee.type === 'MemberExpression' &&
+            callee.object.type === 'Identifier' &&
+            requireAliases.has(callee.object.name)) ||
+          // createRequire(import.meta.url)('…')
+          (callee.type === 'CallExpression' &&
+            callee.callee.type === 'Identifier' &&
+            callee.callee.name === 'createRequire');
+        if (isRequire) check(node as Rule.Node, staticSpecifier(node.arguments[0]));
       },
     };
   },

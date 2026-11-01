@@ -1,1 +1,1 @@
-**AUD — Audit & Evidence store** : journal d'audit chaîné, accès aux données, fichiers, clés par sujet, incidents. Dépendances autorisées : aucune (module du socle, ne dépend de personne ; source : 17 §2.2 (socle : aucune dépendance, §2.1)).
+**AUD — Audit & Evidence store** : journal d'audit chaîné, accès aux données, fichiers, clés par sujet, incidents. Dépendances autorisées : BUS seulement (socle : publie ses événements par l’outbox ; source : 17 §2.2, revue architecture US-001).

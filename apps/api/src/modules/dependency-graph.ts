@@ -5,10 +5,14 @@
  * Source : 17 §2.1 (carte, flèches pleines = appels d'interface) et §2.2 (colonne « Dépend de »).
  * Les deux sont fusionnés ; la table de §2.2 est la plus complète.
  *
- * Socle implicite : tout module hors socle peut dépendre de CFG, AUD et BUS. 17 §2.1 dit que
- * « les modules du socle (CFG, AUD, BUS) ne dépendent de personne » : l'ajout implicite ne peut
- * donc pas créer de cycle. BUS (outbox et bus d'événements) figure dans la carte de §2.1 mais
- * pas dans la table de §2.2 ; il est créé comme module du socle.
+ * Socle implicite : tout module hors socle peut dépendre de CFG, AUD et BUS. Dans le socle,
+ * BUS ne dépend de personne ; CFG et AUD ne dépendent que de BUS, car ils publient des
+ * événements par l'outbox (`config.param.changed`, `privacy.dsr.status_changed`,
+ * `security.incident.opened`, 17 §2.2). 17 §2.1 dit « le socle ne dépend de personne » :
+ * lecture corrigée par la revue d'architecture US-001 (« le socle ne dépend que de BUS »,
+ * à reporter dans 17). Aucun cycle possible : BUS est un puits. BUS (outbox et bus
+ * d'événements) figure dans la carte de §2.1 mais pas dans la table de §2.2 ; il est créé
+ * comme module du socle.
  *
  * Toute modification de ce fichier est une décision d'architecture : ADR + report dans 17 §2.2,
  * revue de l'agent architecture (19 §1.4 point 4). Le test `dependency-graph.test.ts` garantit
@@ -43,7 +47,7 @@ export const MODULE_CODES = [
 
 export type ModuleCode = (typeof MODULE_CODES)[number];
 
-/** Modules du socle : aucune dépendance, dépendance implicite de tous les autres. */
+/** Modules du socle : dépendance implicite de tous les autres ; entre eux, seulement vers BUS. */
 export const SOCLE_MODULES: readonly ModuleCode[] = ['CFG', 'AUD', 'BUS'];
 
 export interface ModuleSpec {
@@ -199,16 +203,17 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: 'Country configuration',
     responsibility:
       'pays, devises, fuseaux, locales, paramètres versionnés, fériés, entités juridiques',
-    dependsOn: [],
-    source: '17 §2.2 (socle : aucune dépendance, §2.1)',
+    dependsOn: ['BUS'],
+    source: '17 §2.2 (« — » ; BUS pour publier config.param.changed, revue architecture US-001)',
   },
   AUD: {
     code: 'AUD',
     name: 'Audit & Evidence store',
     responsibility:
       "journal d'audit chaîné, accès aux données, fichiers, clés par sujet, incidents",
-    dependsOn: [],
-    source: '17 §2.2 (socle : aucune dépendance, §2.1)',
+    dependsOn: ['BUS'],
+    source:
+      '17 §2.2 (« — » ; BUS pour publier privacy.dsr.*, security.incident.*, revue architecture US-001)',
   },
   RPT: {
     code: 'RPT',
@@ -223,7 +228,7 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: "Outbox et bus d'événements",
     responsibility: 'outbox transactionnelle et diffusion des événements de domaine (17 §4)',
     dependsOn: [],
-    source: '17 §2.1 (socle, absent de la table §2.2)',
+    source: '17 §2.1 (socle, absent de la table §2.2 ; ne dépend de personne)',
   },
 };
 
@@ -232,7 +237,10 @@ export function moduleDir(code: ModuleCode): string {
   return code.toLowerCase();
 }
 
-/** Dépendances autorisées : explicites + socle implicite (hors socle). Triées, sans doublon. */
+/**
+ * Dépendances autorisées : explicites + socle implicite (modules hors socle seulement ; dans le
+ * socle, seules les dépendances explicites vers BUS valent). Triées, sans doublon.
+ */
 export function allowedDependencies(code: ModuleCode): ModuleCode[] {
   const spec = MODULES[code];
   const implicit = SOCLE_MODULES.includes(code) ? [] : SOCLE_MODULES;
