@@ -148,3 +148,35 @@ jobs:
             echo "::warning title=pnpm audit::vulnérabilité élevée ou critique dans les dépendances de production (voir le journal)"
             exit 1
           fi
+
+  diagrammes:
+    name: rendu mmdc des diagrammes (non bloquant)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Version exacte, publiée depuis plus de 14 jours (politique minimumReleaseAge d'US-001).
+      MERMAID_CLI_VERSION: '12.0.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Hors espace de travail pnpm : mmdc tire puppeteer, trop lourd pour l'installation de tous.
+      # --ignore-scripts : aucun script d'installation ; Chrome du runner, sans bac à sable
+      # (rendu de nos propres diagrammes ; AppArmor d'Ubuntu interdit le bac à sable non privilégié).
+      - name: installation de mmdc
+        run: |
+          npm install --no-save --no-audit --no-fund --ignore-scripts \
+            --prefix "$RUNNER_TEMP/mmdc" "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}"
+          chrome="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          printf '{"executablePath":"%s","args":["--no-sandbox"]}\n' "$chrome" > "$RUNNER_TEMP/puppeteer.json"
+      - name: rendu des blocs mermaid de docs/
+        # Non bloquant : les diagrammes de docs/specs/ ne se corrigent que par une demande de
+        # fusion approuvée (CLAUDE.md) ; voir docs/ops/CI.md, section « Diagrammes ».
+        continue-on-error: true
+        run: |
+          mapfile -t files < <(grep -rl --include='*.md' '^\s*```mermaid' docs | sort)
+          node scripts/ci/render-mermaid.mjs --mmdc "$RUNNER_TEMP/mmdc/node_modules/.bin/mmdc" \
+            --puppeteer "$RUNNER_TEMP/puppeteer.json" "${files[@]}"
