@@ -1,0 +1,43 @@
+# Régression de nuit (US-002) : rejoue toute la CI sur main, plus les emplacements de nuit.
+# Documentation : docs/ops/CI.md.
+name: nightly
+
+on:
+  schedule:
+    # 03:17 UTC chaque nuit (heure décalée de l'heure pleine, moins chargée).
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+  # Autocontrôle : une PR qui modifie ce fichier le rejoue (schedule et workflow_dispatch
+  # ne s'appliquent qu'à la branche par défaut).
+  pull_request:
+    paths: ['.github/workflows/nightly.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  suite-complete:
+    name: suite complète
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  fuzz-c11:
+    name: fuzz C11 (10 000 exécutions) — emplacement
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Emplacement documenté, sans faux test : le fuzz d'entrelacements C11 est livré par US-025
+      # (17 §2.5 C11, 19 US-025) sous la commande `pnpm test:concurrency` (1 000 en CI) et
+      # `pnpm test:nightly` (≥ 10 000, graine de chaque échec conservée en artefact).
+      # Quand US-025 est fusionnée, remplacer cette étape par :
+      #   checkout, pnpm/action-setup, setup-node (mêmes SHA que ci.yml), pnpm install --frozen-lockfile,
+      #   RUEDA_PG_TESTCONTAINERS=1 pnpm test:nightly (nombre d'exécutions et nom du paramètre fixés par US-025),
+      #   actions/upload-artifact des graines d'échec (if: failure()).
+      - name: C11 non encore implémenté (US-025)
+        run: echo "::notice title=fuzz C11::pas encore implémenté (US-025) ; aucune exécution"

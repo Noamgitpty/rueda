@@ -1,0 +1,20 @@
+{
+  "$comment": "Revues exigées par la CI (US-002, job « revues »), lues par scripts/ci/check-story-reviews.mjs. Rôles = préfixes des rapports docs/team/reviews/US-xxx/<rôle>-<date>.md. Rôles exigés = default ∪ stories[US-xxx] ∪ pathRules touchées par le diff <base>...HEAD. Modifier ce fichier = décision de l'orchestrateur (relu en revue code).",
+  "default": ["code"],
+  "pathRules": [
+    {
+      "paths": ["apps/api/src/modules/dependency-graph.ts"],
+      "require": ["architecture"],
+      "why": "graphe des dépendances entre modules (17 §2.2) : décision d'architecture"
+    },
+    {
+      "paths": ["packages/db/"],
+      "require": ["architecture"],
+      "why": "schémas, migrations, liste blanche de l'horloge SQL"
+    }
+  ],
+  "stories": {
+    "US-001": ["code", "architecture"],
+    "US-029": ["code"]
+  }
+}

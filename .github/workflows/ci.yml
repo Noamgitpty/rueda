@@ -1,0 +1,150 @@
+# Intégration continue (US-002). Documentation : docs/ops/CI.md.
+# Actions tierces épinglées par SHA de commit (tag en commentaire) ; permissions minimales.
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Rejoué par la nuit (nightly.yml) avec les mêmes tâches.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  # github.workflow vaut « nightly » quand ce fichier est appelé par nightly.yml : groupes distincts.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Pas de télémétrie Turborepo ni de bannière de mise à jour en CI.
+  TURBO_TELEMETRY_DISABLED: '1'
+
+jobs:
+  qualite:
+    name: qualité (lint, types, unitaires, build, format)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Version de pnpm lue dans `packageManager` (package.json).
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:unit
+      - run: pnpm build
+      - run: pnpm format:check
+
+  base-de-donnees:
+    name: base de données (PostgreSQL 16 réel, test:int, test:l0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Le harnais d'US-005 démarre postgres:16 par Testcontainers sur le Docker du runner (ADR-043).
+      RUEDA_PG_TESTCONTAINERS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Fumée du banc : prouve que le runner fournit un PostgreSQL 16 réel avec btree_gist,
+      # en connexion directe (sans pooler). Ce n'est pas un test applicatif.
+      - name: fumée du banc PostgreSQL 16
+        run: bash scripts/ci/pg-smoke.sh
+      - run: pnpm test:int
+      - run: pnpm test:l0
+
+  oracles:
+    name: oracles de la spécification (Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: tests du contrôle des oracles
+        run: python -I -X utf8 -m unittest discover -s scripts/ci -p "test_*.py" -v
+      - name: oracles et vérificateurs de docs/specs/00_README.md §4
+        run: python -I -X utf8 scripts/ci/check-spec-tools.py --specs docs/specs
+
+  revues:
+    name: revues indépendantes (check-reviews)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Pointe de la branche (pas le commit de fusion) et tout l'historique (origin/main..HEAD).
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: revues exigées présentes et approuvées
+        # Brouillon : informatif (étape en échec, job vert). PR prête : bloquant.
+        continue-on-error: ${{ github.event.pull_request.draft }}
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: node scripts/ci/check-story-reviews.mjs --branch "$HEAD_REF" --base "origin/$BASE_REF"
+
+  secrets:
+    name: analyse des secrets (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # gitleaks-action liste les commits de la PR par l'API.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Dépôt d'un compte personnel : aucune licence requise. Pas de commentaire de PR.
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  dependances:
+    name: analyse des dépendances (pnpm audit, non bloquant)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: pnpm audit --prod --audit-level high
+        # Non bloquant tant que les correctifs connus sont plus récents que minimumReleaseAge
+        # (14 jours) : voir docs/ops/CI.md, section « Dépendances ».
+        continue-on-error: true
+        run: |
+          if ! pnpm audit --prod --audit-level high; then
+            echo "::warning title=pnpm audit::vulnérabilité élevée ou critique dans les dépendances de production (voir le journal)"
+            exit 1
+          fi
