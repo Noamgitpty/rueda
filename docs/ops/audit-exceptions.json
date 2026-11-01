@@ -1,0 +1,17 @@
+{
+  "$comment": "Exceptions nommées de la porte « dépendances » (scripts/ci/audit-gate.mjs, US-002). Chaque entrée : ghsa, package, expires (AAAA-MM-JJ, dernier jour toléré, UTC), why. Au-delà de expires, le job échoue. Ajouter une exception = décision consignée dans docs/team/DECISIONS.md, revue sécurité.",
+  "exceptions": [
+    {
+      "ghsa": "GHSA-27r3-jxmh-p828",
+      "package": "body-parser",
+      "expires": "2026-11-06",
+      "why": "DoS transitif par @nestjs/platform-express ; correctif 2.4.0 publié le 2026-10-22, interdit par minimumReleaseAge (14 j) avant le 2026-11-05 ; API non déployée."
+    },
+    {
+      "ghsa": "GHSA-q7qp-rjg7-q26m",
+      "package": "multer",
+      "expires": "2026-11-06",
+      "why": "DoS transitif par @nestjs/platform-express ; correctif 2.5.0 publié le 2026-10-22, interdit par minimumReleaseAge (14 j) avant le 2026-11-05 ; API non déployée."
+    }
+  ]
+}

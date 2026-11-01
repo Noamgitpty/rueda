@@ -1,40 +1,118 @@
 #!/usr/bin/env node
-// Job CI « revues » (US-002) : déduit les stories US-xxx du nom de branche `story/US-xxx-…`,
-// calcule les rôles de revue exigés (docs/team/review-requirements.json) et lance
-// `node scripts/team/check-reviews.mjs US-xxx --require <rôles> --base <base>` pour chacune.
-// Usage : node scripts/ci/check-story-reviews.mjs --branch story/US-002-x [--base origin/main] [--root .]
-// Code de sortie : 0 si conforme (ou branche hors story : rien à contrôler), 1 sinon, 2 si usage invalide.
+// Job CI « revues » (US-002). Ne fait pas confiance au seul nom de branche :
+// 1. liste blanche de branches : `story/US-xxx-<slug>` ou un préfixe déclaré dans
+//    docs/team/review-requirements.json (`branchPrefixes`) ; toute autre branche échoue ;
+// 2. branche à préfixe déclaré : le diff ne touche que ses `allowedPaths`, jamais les
+//    `nonStoryForbiddenPaths` (rapports de revue, passations, la règle elle-même) ;
+// 3. branche de story : le diff est recoupé avec la story. Un fichier de docs/team/ qui nomme
+//    une autre story (passation, revue) échoue, sauf story déclarée `related` ; un répertoire
+//    packages/<x>/ doit lister la story dans `pathOwners` (paquet absent : échec) ;
+//    les `sharedPaths` (BOARD, RESUME_HERE…) sont tolérés ;
+// 4. pour chaque story, `node scripts/team/check-reviews.mjs US-xxx --require <rôles> --base <base>`.
+// Les règles sont lues sur la branche de base (une PR ne peut pas affaiblir son propre contrôle) ;
+// si la base n'a pas encore le fichier (amorçage), celui de HEAD est utilisé, avec un avertissement.
+// Usage : node scripts/ci/check-story-reviews.mjs --branch <nom> [--base origin/main] [--root .]
+// Code de sortie : 0 si conforme, 1 sinon, 2 si usage invalide.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-// `story/US-001-US-029-integration` → ['US-001', 'US-029'] ; hors `story/` → [].
+const CONFIG_PATH = 'docs/team/review-requirements.json';
+// story/US-002-integration-continue, story/US-001-US-029-socle, story/US-005 (minuscules, chiffres, tirets).
+const STORY_BRANCH = /^story\/(US-\d{3}(?:-US-\d{3})*)(?:-[a-z0-9]+)*$/;
+
+// Stories d'une branche de story conforme ; [] sinon.
 export function storiesFromBranch(branch) {
-  const m = /^story\/((?:US-\d{3}-)+)/.exec(`${branch ?? ''}-`);
-  if (!m) return [];
-  return [...new Set(m[1].match(/US-\d{3}/g))];
+  const m = STORY_BRANCH.exec(branch ?? '');
+  return m ? [...new Set(m[1].match(/US-\d{3}/g))] : [];
 }
 
-// Un chemin de règle finissant par « / » couvre le répertoire ; sinon correspondance exacte.
-const touches = (file, path) => (path.endsWith('/') ? file.startsWith(path) : file === path);
+// Un chemin finissant par « / » couvre le répertoire ; sinon correspondance exacte.
+const under = (file, path) => (path.endsWith('/') ? file.startsWith(path) : file === path);
+const anyUnder = (file, paths = []) => paths.some((p) => under(file, p));
+
+const storyRule = (config, story) => {
+  const r = config.stories?.[story];
+  return Array.isArray(r) ? { require: r, related: [] } : (r ?? {});
+};
 
 export function requiredRoles(story, changedFiles, config) {
   const roles = new Set(config.default ?? []);
-  for (const r of config.stories?.[story] ?? []) roles.add(r);
+  for (const r of storyRule(config, story).require ?? []) roles.add(r);
   for (const rule of config.pathRules ?? []) {
-    if (changedFiles.some((f) => rule.paths.some((p) => touches(f, p)))) {
+    if (changedFiles.some((f) => anyUnder(f, rule.paths))) {
       for (const r of rule.require) roles.add(r);
     }
   }
   return [...roles].sort();
 }
 
-function changedFilesFromGit(root, base) {
-  const out = execFileSync('git', ['-C', root, 'diff', '--name-only', `${base}...HEAD`], {
+// Décide quoi contrôler pour une branche et son diff. Retourne { stories, errors, note }.
+export function evaluateBranch({ branch, changedFiles, config }) {
+  const errors = [];
+  const stories = storiesFromBranch(branch);
+  if (!stories.length) {
+    const p = (config.branchPrefixes ?? []).find((x) => (branch ?? '').startsWith(x.prefix));
+    if (!p) {
+      errors.push(
+        `branche « ${branch} » hors liste blanche (story/US-xxx-<slug> ou préfixe de ${CONFIG_PATH})`,
+      );
+      return { stories, errors };
+    }
+    if (!/^[a-z0-9/-]+$/.test(branch.slice(p.prefix.length)) || branch === p.prefix) {
+      errors.push(`branche « ${branch} » : suffixe invalide après « ${p.prefix} »`);
+    }
+    for (const f of changedFiles) {
+      if (anyUnder(f, config.nonStoryForbiddenPaths)) {
+        errors.push(`${f} : interdit hors branche de story (préfixe « ${p.prefix} »)`);
+      } else if (!anyUnder(f, p.allowedPaths)) {
+        errors.push(`${f} : hors des chemins permis au préfixe « ${p.prefix} »`);
+      }
+    }
+    return { stories, errors, note: `préfixe « ${p.prefix} » : aucune revue de story exigée` };
+  }
+  const allowed = new Set(stories);
+  for (const s of stories) for (const r of storyRule(config, s).related ?? []) allowed.add(r);
+  for (const f of changedFiles) {
+    if (anyUnder(f, config.sharedPaths)) continue;
+    if (f.startsWith('docs/team/')) {
+      for (const other of new Set(f.match(/US-\d{3}/g) ?? [])) {
+        if (!allowed.has(other)) {
+          errors.push(
+            `${f} : appartient à ${other}, absente de la branche (${stories.join(', ')})`,
+          );
+        }
+      }
+    }
+    const pkg = /^packages\/[^/]+\//.exec(f)?.[0];
+    if (pkg) {
+      const owners = config.pathOwners?.[pkg];
+      if (!Array.isArray(owners)) {
+        errors.push(`${f} : paquet ${pkg} absent de pathOwners (${CONFIG_PATH})`);
+      } else if (!stories.some((s) => owners.includes(s))) {
+        errors.push(
+          `${f} : ${pkg} réservé à ${owners.join(', ')} (branche : ${stories.join(', ')})`,
+        );
+      }
+    }
+  }
+  return { stories, errors };
+}
+
+function git(root, args) {
+  return execFileSync('git', ['-C', root, ...args], {
     encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
   });
-  return out.split(/\r?\n/).filter(Boolean);
+}
+
+export function loadConfig(root, base) {
+  try {
+    return { config: JSON.parse(git(root, ['show', `${base}:${CONFIG_PATH}`])), from: base };
+  } catch {
+    return { config: JSON.parse(readFileSync(join(root, CONFIG_PATH), 'utf8')), from: 'HEAD' };
+  }
 }
 
 function main(argv) {
@@ -49,15 +127,22 @@ function main(argv) {
     console.error('usage : check-story-reviews.mjs --branch <nom> [--base origin/main] [--root .]');
     return 2;
   }
-  const stories = storiesFromBranch(branch);
-  if (!stories.length) {
-    console.log(`branche « ${branch} » hors convention story/US-xxx-… : aucune revue contrôlée`);
+  const { config, from } = loadConfig(root, base);
+  if (from !== base) {
+    console.log(
+      `::warning title=revues::${CONFIG_PATH} absent de ${base} : règles lues sur HEAD (amorçage)`,
+    );
+  }
+  const changed = git(root, ['diff', '--name-only', `${base}...HEAD`])
+    .split(/\r?\n/)
+    .filter(Boolean);
+  const { stories, errors, note } = evaluateBranch({ branch, changedFiles: changed, config });
+  for (const e of errors) console.error(`ÉCHEC ${e}`);
+  if (errors.length) return 1;
+  if (note) {
+    console.log(`OK ${branch} : ${note} (${changed.length} fichier(s) dans les chemins permis)`);
     return 0;
   }
-  const config = JSON.parse(
-    readFileSync(join(root, 'docs', 'team', 'review-requirements.json'), 'utf8'),
-  );
-  const changed = changedFilesFromGit(root, base);
   let failed = 0;
   for (const story of stories) {
     const roles = requiredRoles(story, changed, config);
