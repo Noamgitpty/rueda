@@ -1,0 +1,7 @@
+{
+  "//": "Fixture : exposants de la table config.currency (17 §1.2). USD = 2, PYG = 0.",
+  "currencies": [
+    { "code": "USD", "exponent": 2 },
+    { "code": "PYG", "exponent": 0 }
+  ]
+}

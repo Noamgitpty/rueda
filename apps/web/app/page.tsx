@@ -1,11 +1,7 @@
-import { BRAND_NAME, HOME_TAGLINE } from '../brand';
+import { getRequestI18n } from '../i18n.ts';
+import { HomeContent } from './home-content.tsx';
 
-// Page d'accueil minimale (US-001). Textes provisoires : le catalogue i18n arrive avec US-014.
-export default function HomePage() {
-  return (
-    <main>
-      <h1>{BRAND_NAME}</h1>
-      <p>{HOME_TAGLINE}</p>
-    </main>
-  );
+// Page d'accueil minimale : textes du catalogue i18n (US-014), dans la locale de la requête.
+export default async function HomePage() {
+  return <HomeContent i18n={await getRequestI18n()} />;
 }

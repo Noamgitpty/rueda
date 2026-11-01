@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 // IndexedDB, géolocalisation réelles) se testent sur téléphone (docs/qa/US-026-protocole-pwa-ios.md).
 export default defineConfig({
   test: {
-    include: ['device/**/*.test.ts', 'app/**/*.test.ts'],
+    include: ['device/**/*.test.ts', 'app/**/*.test.{ts,tsx}', '*.test.ts'],
     environment: 'node',
   },
 });
