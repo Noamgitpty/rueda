@@ -11,6 +11,16 @@
     },
     "test:unit": {
       "outputs": []
+    },
+    "test:int": {
+      "cache": false,
+      "passThroughEnv": ["RUEDA_PG_*", "DOCKER_*", "TESTCONTAINERS_*"],
+      "outputs": []
+    },
+    "test:l0": {
+      "cache": false,
+      "passThroughEnv": ["RUEDA_PG_*", "DOCKER_*", "TESTCONTAINERS_*"],
+      "outputs": []
     }
   }
 }

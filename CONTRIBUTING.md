@@ -23,7 +23,7 @@ Ce dépôt est développé **à 100 % par des agents** Claude Code (19 §1.5) ; 
 | `pnpm lint:sql`                     | contrôle d'horloge des fichiers `.sql` seul                                                                                   |
 | `pnpm typecheck`                    | `tsc --noEmit` dans chaque paquet (Turborepo)                                                                                 |
 | `pnpm test:unit`                    | Vitest dans chaque paquet (dont les tests à fixtures des règles de lint)                                                      |
-| `pnpm test:int`, `pnpm test:l0`     | emplacements réservés : « pas encore implémenté (US-005) », code de sortie 0                                                  |
+| `pnpm test:int`, `pnpm test:l0`     | PostgreSQL réel (US-005) : intégration et preuves L0 sous les rôles de production ; voir `packages/db/README.md`              |
 | `pnpm build`                        | build de l'API (`tsc`) et des deux applications Next.js                                                                       |
 | `pnpm format` / `pnpm format:check` | Prettier                                                                                                                      |
 
@@ -78,7 +78,7 @@ apps/
   backoffice/           Next.js séparé : back-office interne (domaine distinct)
 packages/
   config/               ESLint partagé (règles maison), tsconfig partagés, contrôle d'horloge SQL
-  db/                   migrations SQL (US-005), liste blanche de l'horloge
+  db/                   migrations SQL, amorçage des rôles, exécuteur et harnais de tests (US-005), liste blanche de l'horloge
 docs/adr/               ADR du dépôt (report dans 17 §8.1)
 docs/specs/             spécification figée : ne pas modifier
 docs/team/              artefacts entre agents (US-029)
@@ -112,7 +112,7 @@ docs/team/              artefacts entre agents (US-029)
 - **Cible** : un schéma PostgreSQL par module, nommé par le code du module en minuscules (`iam`, `avl`, `pay`…).
 - **Bêta pilote (D1)** : un schéma unique et un **préfixe de table** égal au code du module en minuscules : `avl_trip`, `avl_checkout_hold`, `cfg_country`, `pay_payment_operation`. Les noms d'entités et de colonnes restent ceux de 17 §3 (aucune table « bêta » jetable, 17 §10 principe 1) ; le passage au schéma par module sera une migration de renommage.
 - Fonctions de plateforme : schéma `platform` (`platform.now()`).
-- Migrations dans `packages/db/migrations/`, additives et réversibles ; outil et format fixés par US-005.
+- Migrations dans `packages/db/migrations/`, additives et réversibles ; outil et format fixés par US-005 (ADR-044, `packages/db/README.md`).
 
 ## 10. Nommage
 
