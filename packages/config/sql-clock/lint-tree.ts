@@ -30,6 +30,8 @@ const SKIPPED_DIRS = new Set([
   'dist',
   'coverage',
   'out',
+  // Worktrees des agents Claude Code : copies d'autres branches, lintées dans leur propre worktree.
+  '.claude',
 ]);
 /** Chemins (relatifs à la racine) exclus : fixtures volontairement fautives des tests de lint. */
 const SKIPPED_PATHS = ['packages/config/test/fixtures'];

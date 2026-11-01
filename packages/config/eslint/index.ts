@@ -32,6 +32,8 @@ export const GLOBAL_IGNORES: readonly string[] = [
   '**/coverage/**',
   '**/next-env.d.ts',
   'docs/specs/**',
+  // Worktrees des agents Claude Code (autres branches).
+  '.claude/**',
   // Fixtures volontairement fautives : lintées seulement par les tests de packages/config.
   'packages/config/test/fixtures/**',
 ];

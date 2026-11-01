@@ -8,13 +8,13 @@
 
 **Aucun agent ne détient de secret de production.**
 
-| Acteur | Dépôt | Préproduction | Production | Secrets |
-|---|---|---|---|---|
-| Agents d'implémentation, de design et vérificateurs | branche de story seulement (aucun push sur `main`) | déploiement automatique depuis `main` ; base en lecture via `app_api` sur graines synthétiques PA / PY ; jamais `migrator` en interactif | **aucun accès** (ni console cloud, ni base, ni journaux bruts avec données personnelles) | secrets de test et clés `FAKE` seulement, injectés par la CI, jamais affichés |
-| Red team | lecture seule | comptes de test, préproduction seulement | aucun | aucun |
-| Orchestrateur | fusion par demande de fusion sur la branche protégée | idem agents + relance des déploiements de préproduction | **déclenche** le pipeline de production (§2) ; aucune session interactive sur la base | aucun secret de production (OIDC à durée courte côté pipeline) |
-| Pipeline CI / CD | — | — | seul détenteur du droit de déployer ; `migrator` utilisé seulement par le job de migration | lecture au coffre au moment du job |
-| Fondateur | propriétaire et administrateur (MFA) | — | propriétaire des comptes ; bris de glace journalisé (runbook US-405) | propriétaire du coffre et du séquestre (F-13) |
+| Acteur                                              | Dépôt                                                | Préproduction                                                                                                                            | Production                                                                                 | Secrets                                                                       |
+| --------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Agents d'implémentation, de design et vérificateurs | branche de story seulement (aucun push sur `main`)   | déploiement automatique depuis `main` ; base en lecture via `app_api` sur graines synthétiques PA / PY ; jamais `migrator` en interactif | **aucun accès** (ni console cloud, ni base, ni journaux bruts avec données personnelles)   | secrets de test et clés `FAKE` seulement, injectés par la CI, jamais affichés |
+| Red team                                            | lecture seule                                        | comptes de test, préproduction seulement                                                                                                 | aucun                                                                                      | aucun                                                                         |
+| Orchestrateur                                       | fusion par demande de fusion sur la branche protégée | idem agents + relance des déploiements de préproduction                                                                                  | **déclenche** le pipeline de production (§2) ; aucune session interactive sur la base      | aucun secret de production (OIDC à durée courte côté pipeline)                |
+| Pipeline CI / CD                                    | —                                                    | —                                                                                                                                        | seul détenteur du droit de déployer ; `migrator` utilisé seulement par le job de migration | lecture au coffre au moment du job                                            |
+| Fondateur                                           | propriétaire et administrateur (MFA)                 | —                                                                                                                                        | propriétaire des comptes ; bris de glace journalisé (runbook US-405)                       | propriétaire du coffre et du séquestre (F-13)                                 |
 
 **Aucune donnée réelle** n'entre dans un environnement accessible aux agents.
 
@@ -23,6 +23,7 @@
 ## 2. Porte de déploiement en production
 
 Un déploiement de production est **déclenché seulement par l'orchestrateur**, via le pipeline, et seulement si toutes ces conditions sont réunies :
+
 - (a) toutes les portes CI sont vertes sur le commit exact ;
 - (b) la version est passée par la préproduction ;
 - (c) le rapport « go » de re-vérification existe (US-408) ;
@@ -44,17 +45,17 @@ L'orchestrateur peut lancer un retour arrière sans accord préalable ; il le no
   - (b) à l'avertissement de limite, finir ou annuler l'étape atomique en cours (jamais une migration à moitié appliquée), pousser, puis passer la story en `PAUSED_USAGE_LIMIT` avec l'heure de reprise ;
   - (c) la session qui reprend lit `docs/team/RESUME_HERE.md`, `BOARD.md` et les passations, et **relance les tests de la branche** avant de continuer ;
   - (d) le rapport de santé consigne l'interruption.
-  
+
   Une revue interrompue est relancée en entier. Les sous-agents d'une session interrompue sont considérés comme perdus : on repart de leur dernier commit poussé.
 
 ## 4. Modèles par rôle (`team.model.*`)
 
-| Rôles | Famille par défaut (PROPOSÉ) | Paramètre | En vigueur au 2026-10-31 |
-|---|---|---|---|
-| Orchestrateur, back-end, données, front-end, intégrations, design | famille A : Claude, modèle le plus capable | `team.model.implementation` | `claude-opus-5-5` |
-| Revue de code, QA, architecture, UX / design | famille A, autre instance sans contexte partagé, de préférence un autre modèle | `team.model.review` | `claude-sonnet-5-5` |
-| Argent, sécurité (RLS, rôles, `SECURITY DEFINER`), concurrence, re-vérification US-408, red team | **famille B** : autre fournisseur, approuvé par le fondateur (F-15) | `team.model.independent_review` | **indisponible** : `claude-sonnet-5-5`, marqué « **revue dégradée** », rejoué en famille B avant toute production ; au-delà de 5 jours ouvrés, escalade au point hebdomadaire |
-| Oracle de règlement (US-016) | famille A, agent distinct de celui du moteur (US-017) ; revu par la famille B | — | — |
+| Rôles                                                                                            | Famille par défaut (PROPOSÉ)                                                   | Paramètre                       | En vigueur au 2026-10-31                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Orchestrateur, back-end, données, front-end, intégrations, design                                | famille A : Claude, modèle le plus capable                                     | `team.model.implementation`     | `claude-opus-5-5`                                                                                                                                                             |
+| Revue de code, QA, architecture, UX / design                                                     | famille A, autre instance sans contexte partagé, de préférence un autre modèle | `team.model.review`             | `claude-sonnet-5-5`                                                                                                                                                           |
+| Argent, sécurité (RLS, rôles, `SECURITY DEFINER`), concurrence, re-vérification US-408, red team | **famille B** : autre fournisseur, approuvé par le fondateur (F-15)            | `team.model.independent_review` | **indisponible** : `claude-sonnet-5-5`, marqué « **revue dégradée** », rejoué en famille B avant toute production ; au-delà de 5 jours ouvrés, escalade au point hebdomadaire |
+| Oracle de règlement (US-016)                                                                     | famille A, agent distinct de celui du moteur (US-017) ; revu par la famille B  | —                               | —                                                                                                                                                                             |
 
 Cible : la revue famille B est un **job de CI** déclenché sur la demande de fusion, avec l'étiquette `review:money` ou `review:security`. La clé d'API est un secret de CI que les agents ne lisent pas. Ce job sera mis en place par US-050 après F-15.
 

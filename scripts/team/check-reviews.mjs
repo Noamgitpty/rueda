@@ -33,7 +33,8 @@ export function checkReviews({ story, required, authorModels, root = '.' }) {
     const latest = matches[matches.length - 1];
     const r = parseReview(readFileSync(join(dir, latest), 'utf8'));
     if (!r.reviewer) errors.push(`${latest} : ligne « Relecteur : » absente`);
-    if (r.verdict !== 'APPROUVÉ') errors.push(`${latest} : verdict « ${r.verdict ?? 'absent'} » (APPROUVÉ requis)`);
+    if (r.verdict !== 'APPROUVÉ')
+      errors.push(`${latest} : verdict « ${r.verdict ?? 'absent'} » (APPROUVÉ requis)`);
     const reviewerLine = (r.reviewer ?? '').toLowerCase();
     for (const m of authorModels) {
       if (m && reviewerLine.includes(m.toLowerCase())) {
@@ -49,7 +50,9 @@ export function checkReviews({ story, required, authorModels, root = '.' }) {
 
 function authorModelsFromGit(root) {
   try {
-    const log = execFileSync('git', ['-C', root, 'log', 'main..HEAD', '--format=%B'], { encoding: 'utf8' });
+    const log = execFileSync('git', ['-C', root, 'log', 'main..HEAD', '--format=%B'], {
+      encoding: 'utf8',
+    });
     return [...new Set([...log.matchAll(/^Agent-Model:\s*(\S+)/gm)].map((m) => m[1]))];
   } catch {
     return [];
@@ -63,7 +66,9 @@ function main(argv) {
     return i >= 0 ? argv[i + 1] : undefined;
   };
   if (!story || !/^US-\d{3}$/.test(story)) {
-    console.error('usage : check-reviews.mjs US-xxx --require code,qa [--author-model m] [--root .]');
+    console.error(
+      'usage : check-reviews.mjs US-xxx --require code,qa [--author-model m] [--root .]',
+    );
     return 2;
   }
   const root = opt('root') ?? '.';
@@ -74,7 +79,9 @@ function main(argv) {
     for (const e of errors) console.error(`ÉCHEC ${e}`);
     return 1;
   }
-  console.log(`OK ${story} : revues ${required.join(', ')} présentes, approuvées, relecteur ≠ auteur`);
+  console.log(
+    `OK ${story} : revues ${required.join(', ')} présentes, approuvées, relecteur ≠ auteur`,
+  );
   return 0;
 }
 
