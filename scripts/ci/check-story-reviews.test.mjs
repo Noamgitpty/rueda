@@ -141,7 +141,7 @@ test('packages/<x> : la story doit en être propriétaire ; paquet inconnu : éc
   );
   assert.deepEqual(ev('story/US-005-banc', ['packages/db/migrations/0001.sql']).errors, []);
   assert.match(
-    ev('story/US-015-money', ['packages/money/src/a.ts']).errors[0],
+    ev('story/US-098-zzz', ['packages/zzz/src/a.ts']).errors[0],
     /absent de pathOwners/,
   );
   // packages/dbx/ n'est pas packages/db/.
@@ -149,17 +149,17 @@ test('packages/<x> : la story doit en être propriétaire ; paquet inconnu : éc
 });
 
 test('défaut : code seul', () => {
-  assert.deepEqual(requiredRoles('US-002', ['README.md', '.github/workflows/ci.yml'], config), [
+  assert.deepEqual(requiredRoles('US-099', ['README.md', '.github/workflows/ci.yml'], config), [
     'code',
   ]);
 });
 
 test('graphe des dépendances ou packages/db touchés : + architecture', () => {
   const graph = ['apps/api/src/modules/dependency-graph.ts'];
-  assert.deepEqual(requiredRoles('US-002', graph, config), ['architecture', 'code']);
+  assert.deepEqual(requiredRoles('US-099', graph, config), ['architecture', 'code']);
   const db = ['packages/db/migrations/0001.sql'];
   assert.deepEqual(requiredRoles('US-005', db, config), ['architecture', 'code']);
-  assert.deepEqual(requiredRoles('US-002', ['packages/dbx/a.ts'], config), ['code']);
+  assert.deepEqual(requiredRoles('US-099', ['packages/dbx/a.ts'], config), ['code']);
 });
 
 test('rôles propres à une story ajoutés au défaut', () => {
