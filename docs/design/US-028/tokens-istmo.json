@@ -1,0 +1,703 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "US-028 - direction « Istmo ». Format DTCG (brouillon). Proposition, non choisie : source pour US-030 après DEC-MARQUE.",
+  "meta": {
+    "direction": "istmo",
+    "status": "PROPOSÉ",
+    "story": "US-028",
+    "version": "0.1.0",
+    "date": "2026-10-31",
+    "wcag": "2.2 AA, ratios calculés (formule WCAG de luminance relative), voir contrastChecks",
+    "notes": "Le nom et le logo sont des données de thème (US-034) : remplacer brand.name et brand.logo ne demande aucun développement."
+  },
+  "brand": {
+    "name": {
+      "$value": "{brand_name}",
+      "$type": "string",
+      "$description": "Paramètre. Nom d'exemple dans les maquettes : Volante"
+    },
+    "exampleName": {
+      "$value": "Volante",
+      "$type": "string"
+    },
+    "logo": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><circle cx=\"24\" cy=\"24\" r=\"19\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"5\"/><path d=\"M13 17l11 17 11-17\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+      "$type": "string",
+      "$description": "SVG esquissé ; currentColor = color.primary (clair) ou color.text (sombre)"
+    }
+  },
+  "color": {
+    "light": {
+      "primary": {
+        "$value": "#0F5C4A",
+        "$type": "color",
+        "$description": "Action principale, liens, éléments actifs"
+      },
+      "on-primary": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "Texte et icônes sur primary"
+      },
+      "surface": {
+        "$value": "#FFFBF5",
+        "$type": "color",
+        "$description": "Fond de page"
+      },
+      "surface-raised": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "Cartes, feuilles, barre d'action"
+      },
+      "surface-sunken": {
+        "$value": "#F4EDE2",
+        "$type": "color",
+        "$description": "Zones en retrait (champs, groupes)"
+      },
+      "text": {
+        "$value": "#13221D",
+        "$type": "color",
+        "$description": "Texte principal"
+      },
+      "text-muted": {
+        "$value": "#4D5E58",
+        "$type": "color",
+        "$description": "Texte secondaire (reste >= 4.5:1)"
+      },
+      "border": {
+        "$value": "#E2DDD3",
+        "$type": "color",
+        "$description": "Séparateurs décoratifs uniquement (jamais seule limite d'un composant)"
+      },
+      "border-strong": {
+        "$value": "#7A8A84",
+        "$type": "color",
+        "$description": "Contour des champs et composants (>= 3:1)"
+      },
+      "accent": {
+        "$value": "#F2873A",
+        "$type": "color",
+        "$description": "Mise en avant ; en clair, uniquement en aplat sous on-accent, jamais comme seul indicateur"
+      },
+      "on-accent": {
+        "$value": "#1B120B",
+        "$type": "color",
+        "$description": "Texte sur accent"
+      },
+      "success": {
+        "$value": "#2B6A1E",
+        "$type": "color",
+        "$description": "Statut positif (texte + icône)"
+      },
+      "success-soft": {
+        "$value": "#E6F2E1",
+        "$type": "color",
+        "$description": "Fond de pastille succès"
+      },
+      "danger": {
+        "$value": "#B3261E",
+        "$type": "color",
+        "$description": "Erreur, alerte bloquante (texte + icône)"
+      },
+      "danger-soft": {
+        "$value": "#FBE7E4",
+        "$type": "color",
+        "$description": "Fond de pastille danger"
+      },
+      "warning": {
+        "$value": "#855300",
+        "$type": "color",
+        "$description": "En attente, à vérifier (texte + icône)"
+      },
+      "warning-soft": {
+        "$value": "#FCEFD6",
+        "$type": "color",
+        "$description": "Fond de pastille attention"
+      },
+      "focus": {
+        "$value": "#0F5C4A",
+        "$type": "color",
+        "$description": "Anneau de focus 2px + décalage 2px"
+      }
+    },
+    "dark": {
+      "primary": {
+        "$value": "#5FD0AE",
+        "$type": "color",
+        "$description": "Action principale, liens, éléments actifs"
+      },
+      "on-primary": {
+        "$value": "#0C1613",
+        "$type": "color",
+        "$description": "Texte et icônes sur primary"
+      },
+      "surface": {
+        "$value": "#0C1613",
+        "$type": "color",
+        "$description": "Fond de page"
+      },
+      "surface-raised": {
+        "$value": "#15231F",
+        "$type": "color",
+        "$description": "Cartes, feuilles, barre d'action"
+      },
+      "surface-sunken": {
+        "$value": "#08100D",
+        "$type": "color",
+        "$description": "Zones en retrait (champs, groupes)"
+      },
+      "text": {
+        "$value": "#EEF5F1",
+        "$type": "color",
+        "$description": "Texte principal"
+      },
+      "text-muted": {
+        "$value": "#A9BBB4",
+        "$type": "color",
+        "$description": "Texte secondaire (reste >= 4.5:1)"
+      },
+      "border": {
+        "$value": "#283A35",
+        "$type": "color",
+        "$description": "Séparateurs décoratifs uniquement (jamais seule limite d'un composant)"
+      },
+      "border-strong": {
+        "$value": "#667A73",
+        "$type": "color",
+        "$description": "Contour des champs et composants (>= 3:1)"
+      },
+      "accent": {
+        "$value": "#FFA45C",
+        "$type": "color",
+        "$description": "Mise en avant ; en clair, uniquement en aplat sous on-accent, jamais comme seul indicateur"
+      },
+      "on-accent": {
+        "$value": "#1B120B",
+        "$type": "color",
+        "$description": "Texte sur accent"
+      },
+      "success": {
+        "$value": "#86D97A",
+        "$type": "color",
+        "$description": "Statut positif (texte + icône)"
+      },
+      "success-soft": {
+        "$value": "#16281A",
+        "$type": "color",
+        "$description": "Fond de pastille succès"
+      },
+      "danger": {
+        "$value": "#FF8A80",
+        "$type": "color",
+        "$description": "Erreur, alerte bloquante (texte + icône)"
+      },
+      "danger-soft": {
+        "$value": "#36191A",
+        "$type": "color",
+        "$description": "Fond de pastille danger"
+      },
+      "warning": {
+        "$value": "#F5B94A",
+        "$type": "color",
+        "$description": "En attente, à vérifier (texte + icône)"
+      },
+      "warning-soft": {
+        "$value": "#2E2410",
+        "$type": "color",
+        "$description": "Fond de pastille attention"
+      },
+      "focus": {
+        "$value": "#FFA45C",
+        "$type": "color",
+        "$description": "Anneau de focus 2px + décalage 2px"
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "heading": {
+        "$value": [
+          "Bricolage Grotesque",
+          "system-ui",
+          "sans-serif"
+        ],
+        "$type": "fontFamily"
+      },
+      "body": {
+        "$value": [
+          "Atkinson Hyperlegible",
+          "system-ui",
+          "sans-serif"
+        ],
+        "$type": "fontFamily"
+      },
+      "mono": {
+        "$value": [
+          "ui-monospace",
+          "monospace"
+        ],
+        "$type": "fontFamily"
+      }
+    },
+    "weight": {
+      "heading": {
+        "$value": 700,
+        "$type": "fontWeight"
+      },
+      "body": {
+        "$value": 400,
+        "$type": "fontWeight"
+      },
+      "strong": {
+        "$value": 700,
+        "$type": "fontWeight"
+      }
+    },
+    "size": {
+      "xs": {
+        "$value": "13px",
+        "$type": "dimension"
+      },
+      "sm": {
+        "$value": "15px",
+        "$type": "dimension"
+      },
+      "md": {
+        "$value": "17px",
+        "$type": "dimension"
+      },
+      "lg": {
+        "$value": "20px",
+        "$type": "dimension"
+      },
+      "xl": {
+        "$value": "24px",
+        "$type": "dimension"
+      },
+      "2xl": {
+        "$value": "30px",
+        "$type": "dimension"
+      },
+      "3xl": {
+        "$value": "36px",
+        "$type": "dimension"
+      }
+    },
+    "lineHeight": {
+      "body": {
+        "$value": 1.5,
+        "$type": "number"
+      },
+      "heading": {
+        "$value": 1.15,
+        "$type": "number"
+      }
+    },
+    "source": {
+      "$value": "Google Fonts, licence SIL Open Font License 1.1",
+      "$type": "string"
+    }
+  },
+  "space": {
+    "1": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "2": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "3": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "4": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "5": {
+      "$value": "20px",
+      "$type": "dimension"
+    },
+    "6": {
+      "$value": "24px",
+      "$type": "dimension"
+    },
+    "8": {
+      "$value": "32px",
+      "$type": "dimension"
+    },
+    "10": {
+      "$value": "40px",
+      "$type": "dimension"
+    }
+  },
+  "size": {
+    "touchTarget": {
+      "$value": "48px",
+      "$type": "dimension",
+      "$description": "Cible tactile minimale visée (WCAG 2.5.8 exige 24px, 10b vise 44px)"
+    },
+    "actionBar": {
+      "$value": "72px",
+      "$type": "dimension"
+    }
+  },
+  "radius": {
+    "sm": {
+      "$value": "10px",
+      "$type": "dimension"
+    },
+    "md": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "lg": {
+      "$value": "22px",
+      "$type": "dimension"
+    },
+    "pill": {
+      "$value": "999px",
+      "$type": "dimension"
+    }
+  },
+  "shadow": {
+    "raised": {
+      "$value": "0 2px 4px rgba(19,34,29,.06), 0 12px 28px rgba(19,34,29,.10)",
+      "$type": "string"
+    }
+  },
+  "motion": {
+    "duration": {
+      "fast": {
+        "$value": "180ms",
+        "$type": "duration"
+      },
+      "base": {
+        "$value": "260ms",
+        "$type": "duration"
+      },
+      "slow": {
+        "$value": "420ms",
+        "$type": "duration"
+      }
+    },
+    "easing": {
+      "standard": {
+        "$value": [
+          0.2,
+          0.8,
+          0.2,
+          1
+        ],
+        "$type": "cubicBezier"
+      },
+      "emphasis": {
+        "$value": [
+          0.34,
+          1.3,
+          0.64,
+          1
+        ],
+        "$type": "cubicBezier"
+      }
+    },
+    "reducedMotion": {
+      "$value": "Si prefers-reduced-motion: reduce, durées à 0ms sauf fondus d'opacité <= 120ms",
+      "$type": "string"
+    }
+  },
+  "contrastChecks": {
+    "light": [
+      {
+        "pair": "texte / surface",
+        "fg": "#13221D",
+        "bg": "#FFFBF5",
+        "ratio": 15.99,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / carte",
+        "fg": "#13221D",
+        "bg": "#FFFFFF",
+        "ratio": 16.48,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / surface",
+        "fg": "#4D5E58",
+        "bg": "#FFFBF5",
+        "ratio": 6.66,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / carte",
+        "fg": "#4D5E58",
+        "bg": "#FFFFFF",
+        "ratio": 6.87,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire",
+        "fg": "#FFFFFF",
+        "bg": "#0F5C4A",
+        "ratio": 7.92,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / surface",
+        "fg": "#0F5C4A",
+        "bg": "#FFFBF5",
+        "ratio": 7.69,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / carte",
+        "fg": "#0F5C4A",
+        "bg": "#FFFFFF",
+        "ratio": 7.92,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / accent",
+        "fg": "#1B120B",
+        "bg": "#F2873A",
+        "ratio": 7.3,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès (texte) / carte",
+        "fg": "#2B6A1E",
+        "bg": "#FFFFFF",
+        "ratio": 6.6,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger (texte) / carte",
+        "fg": "#B3261E",
+        "bg": "#FFFFFF",
+        "ratio": 6.54,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention (texte) / carte",
+        "fg": "#855300",
+        "bg": "#FFFFFF",
+        "ratio": 6.49,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès / fond succès",
+        "fg": "#2B6A1E",
+        "bg": "#E6F2E1",
+        "ratio": 5.7,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger / fond danger",
+        "fg": "#B3261E",
+        "bg": "#FBE7E4",
+        "ratio": 5.49,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention / fond attention",
+        "fg": "#855300",
+        "bg": "#FCEFD6",
+        "ratio": 5.71,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "bordure de champ / carte",
+        "fg": "#7A8A84",
+        "bg": "#FFFFFF",
+        "ratio": 3.62,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / surface",
+        "fg": "#0F5C4A",
+        "bg": "#FFFBF5",
+        "ratio": 7.69,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / carte",
+        "fg": "#0F5C4A",
+        "bg": "#FFFFFF",
+        "ratio": 7.92,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "composant primaire / surface (1.4.11)",
+        "fg": "#0F5C4A",
+        "bg": "#FFFBF5",
+        "ratio": 7.69,
+        "min": 3.0,
+        "pass": true
+      }
+    ],
+    "dark": [
+      {
+        "pair": "texte / surface",
+        "fg": "#EEF5F1",
+        "bg": "#0C1613",
+        "ratio": 16.64,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / carte",
+        "fg": "#EEF5F1",
+        "bg": "#15231F",
+        "ratio": 14.68,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / surface",
+        "fg": "#A9BBB4",
+        "bg": "#0C1613",
+        "ratio": 9.17,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / carte",
+        "fg": "#A9BBB4",
+        "bg": "#15231F",
+        "ratio": 8.09,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire",
+        "fg": "#0C1613",
+        "bg": "#5FD0AE",
+        "ratio": 9.76,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / surface",
+        "fg": "#5FD0AE",
+        "bg": "#0C1613",
+        "ratio": 9.76,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / carte",
+        "fg": "#5FD0AE",
+        "bg": "#15231F",
+        "ratio": 8.61,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / accent",
+        "fg": "#1B120B",
+        "bg": "#FFA45C",
+        "ratio": 9.42,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès (texte) / carte",
+        "fg": "#86D97A",
+        "bg": "#15231F",
+        "ratio": 9.46,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger (texte) / carte",
+        "fg": "#FF8A80",
+        "bg": "#15231F",
+        "ratio": 7.12,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention (texte) / carte",
+        "fg": "#F5B94A",
+        "bg": "#15231F",
+        "ratio": 9.23,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès / fond succès",
+        "fg": "#86D97A",
+        "bg": "#16281A",
+        "ratio": 9.03,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger / fond danger",
+        "fg": "#FF8A80",
+        "bg": "#36191A",
+        "ratio": 7.02,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention / fond attention",
+        "fg": "#F5B94A",
+        "bg": "#2E2410",
+        "ratio": 8.66,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "bordure de champ / carte",
+        "fg": "#667A73",
+        "bg": "#15231F",
+        "ratio": 3.56,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / surface",
+        "fg": "#FFA45C",
+        "bg": "#0C1613",
+        "ratio": 9.4,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / carte",
+        "fg": "#FFA45C",
+        "bg": "#15231F",
+        "ratio": 8.29,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "composant primaire / surface (1.4.11)",
+        "fg": "#5FD0AE",
+        "bg": "#0C1613",
+        "ratio": 9.76,
+        "min": 3.0,
+        "pass": true
+      }
+    ]
+  }
+}
