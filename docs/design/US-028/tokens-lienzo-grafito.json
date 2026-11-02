@@ -473,7 +473,7 @@
   "motion": {
     "duration": {
       "fast": {
-        "$value": "120ms",
+        "$value": "150ms",
         "$type": "duration"
       },
       "base": {
