@@ -3,11 +3,86 @@
 - **Story** : US-028 (epic E16, DSN-001), lot 0
 - **Rôle** : agent DESIGN
 - **Date** : 2026-10-31
-- **Statut** : PROPOSÉ. Rien n'est choisi tant que le fondateur n'a pas tranché (DEC-MARQUE).
+- **Statut** : nom **Kmino** tranché par le fondateur le 2026-11-02 (DEC-MARQUE) ; direction **Señal** retenue par défaut, PROPOSÉ, à confirmer. Voir « Choix du fondateur (2026-11-02) ».
 - **Références** : 19 §1.6 et US-028 ; 10b §2, §3.0 (principe 8 « identité propre »), §3.3, §3.10, §4 (S01, S03, A02), §8 ; 12 §1.5 et §10 ; 13 (concurrence).
 - **Fichiers** : ce document ; `presentation.html` (page visuelle avec les maquettes) ; `tokens-tierra-firme.json`, `tokens-senal.json` et `tokens-istmo.json` (jetons prêts pour US-030).
 
 > **En 30 secondes.** Nous recommandons le nom **Yave** (la clé remise au comptoir), suivi de **Tramo** puis de **Volante**. Trois directions visuelles sont proposées : **Tierra firme** (chaleureuse), **Señal** (précise, pensée pour le comptoir) et **Istmo** (tropicale et très lisible). Toutes les combinaisons sont possibles. Pour voir les écrans, ouvrez `presentation.html`. La grille de choix se trouve à la fin de ce document.
+
+---
+
+## Choix du fondateur (2026-11-02)
+
+| Décision           | Valeur                             | Statut                                                                                                                                                                                                             |
+| ------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Nom (DEC-MARQUE)   | **Kmino** (de _camino_ et de _km_) | **Tranché par le fondateur** le 2026-11-02 (« je veux partir sur K-mino au pire je rechangerais après »), puis corrigé le même jour en « Kmino », sans tiret. Révisable : le nom est une donnée de thème (US-034). |
+| Direction visuelle | **Señal** (§4.2)                   | **PROPOSÉ** : le fondateur n'a pas choisi de direction. Señal est retenue par défaut parce qu'elle sert le mieux le comptoir (A02) et les loueurs. À confirmer par le fondateur.                                   |
+| Publication du nom | Bloquée jusqu'à F-20               | La recherche d'antériorité DIGERPI (Panama) et DINAPI (Paraguay), en classes 39, 35 et 42, reste à faire **par le fondateur** avant toute publication.                                                             |
+
+Kmino ne figurait pas parmi les dix noms du §3. Il remplace Yave, Tramo et Volante, qui restent dans ce document pour mémoire.
+
+### Graphie retenue (règle)
+
+| Usage                                    | Forme                                                                             | Règle                                                                                                                                                                                                   |
+| ---------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nom officiel, dans le texte (es, en, fr) | **Kmino**                                                                         | Un seul mot, _K_ majuscule, le reste en minuscules. Jamais « K-mino », « K·mino », « KMino » ni « kmino » dans une phrase. En capitales (signalétique, libellés en Plex Mono) : « KMINO ».              |
+| Logotype (direction Señal)               | _K_ en `primary` et « mino » en `text`, Space Grotesk 700, précédé du pictogramme | La coupure _K_ / _mino_ n'est montrée **que par le dessin** (la couleur ; la graisse peut aussi servir). Aucun tiret ni point médian dans le logotype : le mot écrit et le mot dessiné sont identiques. |
+| Identifiant technique                    | `kmino`                                                                           | Domaines, comptes de réseaux, noms de paquets, clés de thème et de traduction. Minuscules, sans tiret.                                                                                                  |
+| Paramètre                                | `{brand_name}` = `Kmino`                                                          | Le code n'écrit jamais le nom en dur (`tokens-senal.json → brand`).                                                                                                                                     |
+| Prononciation                            | « ka-MI-no » (en : _kah-MEE-no_)                                                  | Accent sur la deuxième syllabe, comme dans _camino_.                                                                                                                                                    |
+
+**Pictogramme** : un panneau routier carré porte un _K_ ; dessous, une ligne de voie en pointillés rappelle la borne kilométrique. En thème clair, le _K_ est blanc sur pétrole et la ligne est citron (6,80:1 sur `primary`). En thème sombre, le _K_ et la ligne sont en `on-primary` (9,41:1) : le citron n'y est pas utilisé, car il n'atteint que 1,50:1 sur le pétrole clair. Le JSON contient les deux variantes (`brand.logo` et `brand.logoDark`), ce qui règle aussi la remarque 5 de la revue UX du 2026-10-31.
+
+### Risques connus et parades
+
+Le fondateur connaît ces risques et a choisi le nom en les acceptant.
+
+| Risque                                          | Parade proposée                                                                                                                                                                                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lecture « que-mino » (en SMS, _k_ se lit _que_) | Donner la prononciation là où le nom apparaît pour la première fois (accueil, page « Quiénes somos », dossier de presse) ; pictogramme qui isole le _K_ ; tout message parlé (vidéo, comptoir) dit « ka-MI-no ».                                    |
+| Recherche orale de « camino »                   | _Camino_ est un mot du dictionnaire, impossible à protéger : viser plutôt le référencement sur « camino alquiler de autos » et sur les fautes « kamino » et « k-mino ». Rediriger les domaines `k-mino.*` vers `kmino.*`.                           |
+| Le tiret embrouille domaines et pseudos         | Un seul identifiant, `kmino`, partout. Acheter aussi les variantes `k-mino` disponibles et les rediriger.                                                                                                                                           |
+| Le nom évoque la route plus que la location     | Un slogan qui dit la location, en espagnol neutre et au tutoiement, par exemple « Kmino · Alquila tu auto, precio final » ou « Kmino · Alquiler de autos en Panamá y Paraguay ». À relire par une personne panaméenne et une personne paraguayenne. |
+| Homonymes existants (voir ci-dessous)           | Aucun conflit trouvé dans la location de véhicules. Les homonymes sont dans d'autres secteurs, mais l'un d'eux (une application de sport avec suivi GPS) touche à la mobilité : à examiner pendant F-20.                                            |
+
+### Recherche rapide d'homonymes (2026-11-02)
+
+Recherche web en lecture seule, sans compte ni identifiant. Elle est **indicative** et ne remplace pas F-20.
+
+| Nom trouvé                | Secteur, pays                                                                                                                                                        | Proximité                                                                                          | Risque estimé                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Kmino** (`kmino.app`)   | Application sur invitation pour marcher, courir et pédaler (suivi GPS, partage de parcours) ; site en portugais, pays non indiqué. Domaine enregistré le 2026-09-30. | Nom identique ; secteur voisin (mobilité personnelle, classes 9 et 42 probables), pas la location. | **Moyen**. Projet très récent : vérifier s'il dépose une marque, et dans quels pays.    |
+| **k-mino** (`k-mino.com`) | Éditeur français de logiciels d'études et de sondages (Paris).                                                                                                       | Nom identique avec tiret ; autre secteur (classes 9 et 42).                                        | Faible en classe 39, mais le `.com` avec tiret est pris.                                |
+| **Kamino**                | Fintech américano-brésilienne (`kamino.com`) ; jeton crypto KMNO (Kamino Finance, Solana) ; application de balades « Kamino » de 2014, apparemment inactive.         | Même son, autre graphie, autres secteurs.                                                          | Faible. Brouille la recherche « kamino ».                                               |
+| **Camino** (applications) | _Camino Maps_ (App Store du Paraguay), _Caminos_ (App Store du Honduras), _Camino Nomad_ ; nombreuses applications du chemin de Compostelle.                         | Même racine ; navigation et voyage.                                                                | Faible à moyen : bruit sur la recherche « camino ». Aucun acteur de la location trouvé. |
+| **Kinto** (Toyota)        | Location et autopartage, présent en Amérique latine.                                                                                                                 | Ressemblance visuelle seulement (« K…ino »).                                                       | Faible. À garder en tête pour la couleur et le ton.                                     |
+
+Aucune entreprise de location de véhicules nommée Kmino, K-mino, Kamino ou Camino n'a été trouvée au Panama, au Paraguay ou ailleurs en Amérique latine. **Incertitude** : la recherche web couvre mal les petites entreprises locales et ne consulte aucune base de marques. DIGERPI et DINAPI (F-20) font foi.
+
+### Domaines (contrôle du 2026-11-02, même méthode qu'au §2)
+
+| Domaine                                           | Résultat   | Détail                                                                                                                                                                                                | Certitude                       |
+| ------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `kmino.com`                                       | **pris**   | Enregistré en 2004 ; serveurs de noms Afternic ; le site redirige vers une page « à vendre » de GoDaddy (prix non affiché). Rachat possible sur le marché secondaire, sans doute au prix « premium ». | Bonne (RDAP Verisign)           |
+| `k-mino.com`                                      | **pris**   | Enregistré en 2016 ; utilisé par l'éditeur français cité plus haut.                                                                                                                                   | Bonne                           |
+| `kmino.app`                                       | **pris**   | Enregistré le 2026-09-30 ; utilisé par l'application de sport citée plus haut.                                                                                                                        | Bonne (RDAP Google Registry)    |
+| `k-mino.app`                                      | **libre**  | RDAP 404                                                                                                                                                                                              | Bonne                           |
+| `kmino.lat`                                       | **libre**  | RDAP 404                                                                                                                                                                                              | Bonne (RDAP CentralNic)         |
+| `k-mino.lat`                                      | **libre**  | RDAP 404                                                                                                                                                                                              | Bonne                           |
+| `kmino.com.pa`, `k-mino.com.pa`                   | sans DNS   | aucun serveur de noms                                                                                                                                                                                 | Faible : à confirmer sur nic.pa |
+| `kmino.com.py`, `k-mino.com.py`                   | sans DNS   | aucun serveur de noms                                                                                                                                                                                 | Faible : à confirmer sur nic.py |
+| `kminoapp.com`, `kminoautos.com`, `kminorent.com` | **libres** | RDAP 404                                                                                                                                                                                              | Bonne                           |
+
+Contrôles témoins refaits : `qzxwvk9.com` renvoie 404 et `google.com` renvoie 200 ; `qzxwvk9.com.pa` et `qzxwvk9.com.py` n'ont pas de DNS.
+
+**Domaines à acheter (F-20, fondateur)** : `kmino.lat`, `kmino.com.pa`, `kmino.com.py` et un repli en `.com` (`kminoapp.com` ou `kminoautos.com`), plus les variantes `k-mino.lat`, `k-mino.app`, `k-mino.com.pa` et `k-mino.com.py` à rediriger. En option : une offre pour `kmino.com` sur le marché secondaire. Réseaux sociaux (`@kmino`) : **non vérifiés**, pour la même raison qu'au §2.
+
+### Points pour le fondateur
+
+1. Confirmer la direction **Señal**, ou en choisir une autre : le nom fonctionne avec les trois.
+2. F-20, avant toute publication : DIGERPI et DINAPI (classes 39, 35 et 42), achat des domaines ci-dessus, pseudos Instagram et TikTok `kmino`.
+3. Choisir un slogan qui dit la location (deux propositions plus haut), puis le faire relire au Panama et au Paraguay.
+4. Décider s'il faut tenter de racheter `kmino.com` (à vendre, prix inconnu).
 
 ---
 

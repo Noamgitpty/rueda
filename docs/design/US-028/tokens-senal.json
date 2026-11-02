@@ -1,29 +1,55 @@
 {
   "$schema": "https://design-tokens.github.io/community-group/format/",
-  "$description": "US-028 - direction « Señal ». Format DTCG (brouillon). Proposition, non choisie : source pour US-030 après DEC-MARQUE.",
+  "$description": "US-028 - direction « Señal ». Format DTCG (brouillon). Direction retenue par défaut (PROPOSÉ, à confirmer par le fondateur) avec le nom Kmino (DEC-MARQUE, 2026-11-02) : source pour US-030.",
   "meta": {
     "direction": "senal",
-    "status": "PROPOSÉ",
+    "status": "PROPOSÉ (direction par défaut, à confirmer) ; nom Kmino tranché par le fondateur le 2026-11-02",
     "story": "US-028",
-    "version": "0.1.0",
-    "date": "2026-10-31",
+    "version": "0.2.0",
+    "date": "2026-11-02",
     "wcag": "2.2 AA, ratios calculés (formule WCAG de luminance relative), voir contrastChecks",
     "notes": "Le nom et le logo sont des données de thème (US-034) : remplacer brand.name et brand.logo ne demande aucun développement."
   },
   "brand": {
     "name": {
+      "$value": "Kmino",
+      "$type": "string",
+      "$description": "Valeur du paramètre {brand_name} (DEC-MARQUE, tranchée par le fondateur le 2026-11-02). Donnée de thème, révisable sans développement (US-034). Toujours en un seul mot, K majuscule, sans tiret ni point."
+    },
+    "parameter": {
       "$value": "{brand_name}",
       "$type": "string",
-      "$description": "Paramètre. Nom d'exemple dans les maquettes : Tramo"
+      "$description": "Le code n'écrit jamais le nom en dur : il lit ce paramètre."
     },
-    "exampleName": {
-      "$value": "Tramo",
-      "$type": "string"
+    "slug": {
+      "$value": "kmino",
+      "$type": "string",
+      "$description": "Identifiant technique (domaines, comptes, paquets, clés) : minuscules, sans tiret."
+    },
+    "pronunciation": {
+      "$value": "ka-MI-no",
+      "$type": "string",
+      "$description": "De camino et de km. En anglais : kah-MEE-no."
+    },
+    "wordmark": {
+      "$value": "Kmino",
+      "$type": "string",
+      "$description": "Space Grotesk 700. Le K prend color.primary et « mino » color.text : la coupure K / mino n'est marquée que par la couleur, jamais par un tiret ou un point dans le texte."
     },
     "logo": {
-      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\"><rect x=\"2\" y=\"2\" width=\"44\" height=\"44\" rx=\"8\" fill=\"currentColor\"/><path d=\"M12 14h24\" stroke=\"#FFFFFF\" stroke-width=\"5\" stroke-linecap=\"round\"/><path d=\"M24 22v4M24 31v4M24 40v2\" stroke=\"#C8F03C\" stroke-width=\"5\" stroke-linecap=\"round\"/></svg>",
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"2\" y=\"2\" width=\"44\" height=\"44\" rx=\"8\" fill=\"#0B4F6C\"/><path d=\"M16 10v24M32 10L17.5 23.5M21.5 20L32.5 34\" fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 40.5h5M21.5 40.5h5M31 40.5h5\" stroke=\"#C8F03C\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>",
       "$type": "string",
-      "$description": "SVG esquissé ; currentColor = color.primary (clair) ou color.text (sombre)"
+      "$description": "Pictogramme, thème clair : panneau primary, K en on-primary, ligne de voie en accent (6,80:1 sur primary)."
+    },
+    "logoDark": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"2\" y=\"2\" width=\"44\" height=\"44\" rx=\"8\" fill=\"#6FC3E6\"/><path d=\"M16 10v24M32 10L17.5 23.5M21.5 20L32.5 34\" fill=\"none\" stroke=\"#0B141A\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 40.5h5M21.5 40.5h5M31 40.5h5\" stroke=\"#0B141A\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>",
+      "$type": "string",
+      "$description": "Pictogramme, thème sombre : panneau primary, K et ligne de voie en on-primary (9,41:1). L'accent citron n'est pas utilisé ici (1,50:1 sur primary sombre). Corrige la remarque 5 de la revue UX du 2026-10-31 (traits en dur illisibles en sombre)."
+    },
+    "logoMono": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"2\" y=\"2\" width=\"44\" height=\"44\" rx=\"8\" fill=\"currentColor\"/><path d=\"M16 10v24M32 10L17.5 23.5M21.5 20L32.5 34\" fill=\"none\" stroke=\"var(--on-primary, #FFFFFF)\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 40.5h5M21.5 40.5h5M31 40.5h5\" stroke=\"var(--on-primary, #FFFFFF)\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>",
+      "$type": "string",
+      "$description": "Variante monochrome : panneau en currentColor ; à n'utiliser que si currentColor contraste à 3:1 au moins avec on-primary."
     }
   },
   "color": {
