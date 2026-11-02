@@ -8,7 +8,7 @@
     "version": "0.1.0",
     "date": "2026-11-02",
     "wcag": "2.2 AA, ratios calculés (formule WCAG 2.x de luminance relative), voir contrastChecks",
-    "concept": "Le port et la marine marchande : un bleu marine profond pour la confiance, posé sur un blanc cassé chaud couleur sable. Une élégance discrète, qui inspire le sérieux aux loueurs et aux voyageurs d'affaires.",
+    "concept": "Le port et la marine marchande : un bleu marine profond pour la confiance, posé sur un blanc cassé chaud couleur sable. Une élégance discrète, qui inspire le sérieux aux hôtes et aux voyageurs d'affaires.",
     "paletteLogic": "Complémentaire doux : un bleu marine froid (≈ 214°) équilibré par des neutres sable chauds (≈ 40°) ; le sable reste en aplats clairs, le marine porte toute l'action.",
     "notes": "Le nom et le logo sont des données de thème (US-034) : remplacer brand.name et brand.logo ne demande aucun développement. Le thème clair est la vitrine ; le thème sombre est obligatoire pour l'accessibilité."
   },

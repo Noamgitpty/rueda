@@ -8,7 +8,7 @@
     "version": "0.1.0",
     "date": "2026-11-02",
     "wcag": "2.2 AA, ratios calculés (formule WCAG 2.x de luminance relative), voir contrastChecks",
-    "concept": "Le blanc pur d'un écran bien réglé, un bleu électrique pour chaque action et le noir pour la structure : contraste maximal, lecture immédiate au soleil comme au comptoir.",
+    "concept": "Le blanc pur d'un écran bien réglé, un bleu électrique pour chaque action et le noir pour la structure : contraste maximal, lecture immédiate au soleil, au moment de la remise des clés.",
     "paletteLogic": "Achromatique + une seule couleur saturée : blanc, gris et noir neutres (sans teinte) et un bleu électrique (≈ 220°) réservé à l'action ; le noir sert de contraste fort (onglet actif, numéros, focus).",
     "notes": "Le nom et le logo sont des données de thème (US-034) : remplacer brand.name et brand.logo ne demande aucun développement. Le thème clair est la vitrine ; le thème sombre est obligatoire pour l'accessibilité."
   },

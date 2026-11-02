@@ -8,7 +8,7 @@
     "version": "0.1.0",
     "date": "2026-11-02",
     "wcag": "2.2 AA, ratios calculés (formule WCAG 2.x de luminance relative), voir contrastChecks",
-    "concept": "Le ciel clair du Pacifique et des grandes plaines du Chaco : beaucoup de blanc, un bleu ciel franc qui ne sert qu'à agir, une encre bleu nuit pour lire. Le voyageur se sent attendu, l'agence garde un outil net.",
+    "concept": "Le ciel clair du Pacifique et des grandes plaines du Chaco : beaucoup de blanc, un bleu ciel franc qui ne sert qu'à agir, une encre bleu nuit pour lire. Le voyageur se sent attendu, l'hôte garde un outil net.",
     "paletteLogic": "Monochrome nuancé : une seule teinte (bleu ciel, ≈ 203°) déclinée du blanc bleuté (50) à l'encre bleu nuit (900), sans couleur concurrente ; les états gardent leurs couleurs propres.",
     "notes": "Le nom et le logo sont des données de thème (US-034) : remplacer brand.name et brand.logo ne demande aucun développement. Le thème clair est la vitrine ; le thème sombre est obligatoire pour l'accessibilité."
   },

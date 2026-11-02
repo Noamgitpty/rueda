@@ -39,7 +39,7 @@ Le fondateur connaît ces risques et a choisi le nom en les acceptant.
 
 | Risque                                          | Parade proposée                                                                                                                                                                                                                                                                               |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lecture « que-mino » (en SMS, _k_ se lit _que_) | Donner la prononciation là où le nom apparaît pour la première fois (accueil, page « Quiénes somos », dossier de presse) ; pictogramme qui isole le _K_ ; tout message parlé (vidéo, comptoir) dit « ka-MI-no ».                                                                              |
+| Lecture « que-mino » (en SMS, _k_ se lit _que_) | Donner la prononciation là où le nom apparaît pour la première fois (accueil, page « Quiénes somos », dossier de presse) ; pictogramme qui isole le _K_ ; tout message parlé (vidéo, support client) dit « ka-MI-no ».                                                                        |
 | Recherche orale de « camino »                   | _Camino_ est un mot du dictionnaire, impossible à protéger : viser plutôt le référencement sur « camino alquiler de autos » et sur les fautes « kamino » et « k-mino ». Rediriger les domaines `k-mino.*` vers `kmino.*`.                                                                     |
 | Le tiret embrouille domaines et pseudos         | Un seul identifiant, `kmino`, partout. Acheter aussi les variantes `k-mino` disponibles et les rediriger.                                                                                                                                                                                     |
 | Le nom évoque la route plus que la location     | Une signature qui dit la location entre particuliers : « Kmino · Alquila el auto de un vecino. » / « Rent a car from a neighbor. » (voir « Positionnement entre particuliers »). Les idées « Alquila tu auto… » et « Compara agencias… » sont abandonnées. À relire au Panama et au Paraguay. |
@@ -99,11 +99,11 @@ Règles communes aux quatre : beaucoup de blanc et des surfaces très claires (l
 | **Voltio**              | `#0A5CFF` / `#5C8DFF`           | Achromatique + une seule couleur saturée : blanc, gris et noir neutres (sans teinte) et un bleu électrique (≈ 220°) réservé à l'action ; le noir sert de contraste fort (onglet actif, numéros, focus). | Archivo + JetBrains Mono |
 | **Lagune**              | `#0A6F94` / `#89D9F5`           | Complémentaire : un bleu lagon (≈ 196°) et un corail doux (≈ 12°), opposés sur le cercle ; le corail reste un aplat clair de mise en avant, le bleu porte l'action.                                     | Outfit + Source Sans 3   |
 
-**Recommandation (PROPOSÉ) : Cielo.** C'est la plus claire et la plus simple à tenir : une seule teinte, donc le bleu ne sert qu'à agir et rien ne lui fait concurrence ; elle est accueillante pour les voyageurs et nette au comptoir (A02) ; elle laisse la place aux photos de véhicules. Marina est plus haut de gamme, Voltio plus contrastée et plus « tech », Lagune plus souriante. Le choix revient au fondateur.
+**Recommandation (PROPOSÉ) : Cielo.** C'est la plus claire et la plus simple à tenir : une seule teinte, donc le bleu ne sert qu'à agir et rien ne lui fait concurrence ; elle est accueillante pour les voyageurs et nette dans l'espace hôte (A02) ; elle laisse la place aux photos de véhicules. Marina est plus haut de gamme, Voltio plus contrastée et plus « tech », Lagune plus souriante. Le choix revient au fondateur.
 
 ### D — « Cielo » (lumineux, aérien, accueillant)
 
-- **Concept** : Le ciel clair du Pacifique et des grandes plaines du Chaco : beaucoup de blanc, un bleu ciel franc qui ne sert qu'à agir, une encre bleu nuit pour lire. Le voyageur se sent attendu, l'agence garde un outil net.
+- **Concept** : Le ciel clair du Pacifique et des grandes plaines du Chaco : beaucoup de blanc, un bleu ciel franc qui ne sert qu'à agir, une encre bleu nuit pour lire. Le voyageur se sent attendu, l'hôte garde un outil net.
 - **Logique de la palette** : Monochrome nuancé : une seule teinte (bleu ciel, ≈ 203°) déclinée du blanc bleuté (50) à l'encre bleu nuit (900), sans couleur concurrente ; les états gardent leurs couleurs propres.
 - **Logo esquissé** : Un disque bleu ciel porte un K blanc ; dessous, une courbe d'horizon (la route qui s'ouvre). Le mot « Kmino » en Plus Jakarta Sans 800, le K en bleu. SVG clair et sombre dans `tokens-cielo.json → brand.logo` et `brand.logoDark`.
 - **Nuances du bleu** (50 → 900) : 50 `#F0F9FE` · 100 `#DDF1FD` · 200 `#B6E1FB` · 300 `#86CDF9` · 400 `#4CB4F6` · 500 `#169EF3` · 600 `#0B85D0` · 700 `#096CAA` · 800 `#075383` · 900 `#053B5C`.
@@ -133,8 +133,8 @@ Règles communes aux quatre : beaucoup de blanc et des surfaces très claires (l
 
 - **Règle d'accent** : L'accent est le bleu 100 (#DDF1FD) : un aplat clair sous texte bleu nuit pour les bandeaux et les sélections, jamais un indicateur seul (1,12:1 avec la surface).
 - **Typographie** : Plus Jakarta Sans 800 (titres) · 400/600 (texte) · chiffres tabulaires.
-- **Ton** (es, tutoiement) : « Tu precio final ya incluye ITBMS. » · « Listo: tu auto te espera el vie. 14 ene. a las 10:00. » · « No pudimos cargar los mostradores. Revisa tu conexión y vuelve a intentarlo. »
-- **Style photo** : Lumière de matin, ciel dégagé, beaucoup d'air autour du véhicule ; vraies personnes au comptoir ; tons naturels, sans filtre bleu ajouté.
+- **Ton** (es, tutoiement) : « Tu precio final ya incluye ITBMS. » · « Listo: tu auto te espera el vie. 14 ene. a las 10:00. » · « No pudimos cargar los autos cercanos. Revisa tu conexión y vuelve a intentarlo. »
+- **Style photo** : Lumière de matin, ciel dégagé, beaucoup d'air autour du véhicule ; vraies scènes de remise entre voisins (sans visage reconnaissable) ; tons naturels, sans filtre bleu ajouté.
 - **Mouvement** : Doux et bref : 140 à 260 ms, courbe ease-out. Les feuilles montent de 12 px en fondu ; aucun rebond. Tout s'arrête avec prefers-reduced-motion.
 - **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 10 contrôles complémentaires dans `contrastChecks`) :
 
@@ -173,7 +173,7 @@ _Info : accent / surface = 1.12:1 (clair) et 1.43:1 (sombre) ; border décoratif
 
 ### E — « Marina » (sobre, premium, rassurant)
 
-- **Concept** : Le port et la marine marchande : un bleu marine profond pour la confiance, posé sur un blanc cassé chaud couleur sable. Une élégance discrète, qui inspire le sérieux aux loueurs et aux voyageurs d'affaires.
+- **Concept** : Le port et la marine marchande : un bleu marine profond pour la confiance, posé sur un blanc cassé chaud couleur sable. Une élégance discrète, qui inspire le sérieux aux hôtes et aux voyageurs d'affaires.
 - **Logique de la palette** : Complémentaire doux : un bleu marine froid (≈ 214°) équilibré par des neutres sable chauds (≈ 40°) ; le sable reste en aplats clairs, le marine porte toute l'action.
 - **Logo esquissé** : Un carré marine aux angles à peine arrondis porte un K fin, souligné d'un trait sable (la ligne de flottaison). « Kmino » en Newsreader 600. SVG clair et sombre dans `tokens-marina.json → brand.logo` et `brand.logoDark`.
 - **Nuances du bleu** (50 → 900) : 50 `#F3F7FC` · 100 `#E2ECF8` · 200 `#C1D6F0` · 300 `#98BAE7` · 400 `#6699DB` · 500 `#397AD0` · 600 `#2A65B2` · 700 `#225291` · 800 `#1A3F70` · 900 `#122C4E`.
@@ -203,7 +203,7 @@ _Info : accent / surface = 1.12:1 (clair) et 1.43:1 (sombre) ; border décoratif
 
 - **Règle d'accent** : Le sable (#EBD9B0) sert d'aplat sous texte marine pour mettre en avant une information (prix final, nouveauté) ; il n'est jamais seul indicateur (1,32:1 avec la surface).
 - **Typographie** : Newsreader 600 (titres) · Inter 400/600 (texte, chiffres tabulaires).
-- **Ton** (es, tutoiement) : « El precio que ves es el que pagas. » · « Tu reserva está confirmada. La agencia te espera el vie. 14 ene. » · « Falta firmar el contrato. Ábrelo y pide la firma al cliente. »
+- **Ton** (es, tutoiement) : « El precio que ves es el que pagas. » · « Tu reserva está confirmada. Carlos te espera el vie. 14 ene. » · « Falta firmar el contrato. Ábrelo y pide la firma al cliente. »
 - **Style photo** : Lumière douce et dorée, cadrages calmes et symétriques ; matières (cuir, tableau de bord) ; fonds urbains réels, peu saturés.
 - **Mouvement** : Posé : 150 à 300 ms, courbe standard, sans rebond ; fondus et glissements courts. Réduit à des fondus si l'utilisateur le demande.
 - **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 10 contrôles complémentaires dans `contrastChecks`) :
@@ -243,7 +243,7 @@ _Info : accent / surface = 1.32:1 (clair) et 10.14:1 (sombre) ; border décorati
 
 ### F — « Voltio » (graphique, rapide, tech)
 
-- **Concept** : Le blanc pur d'un écran bien réglé, un bleu électrique pour chaque action et le noir pour la structure : contraste maximal, lecture immédiate au soleil comme au comptoir.
+- **Concept** : Le blanc pur d'un écran bien réglé, un bleu électrique pour chaque action et le noir pour la structure : contraste maximal, lecture immédiate au soleil, au moment de la remise des clés.
 - **Logique de la palette** : Achromatique + une seule couleur saturée : blanc, gris et noir neutres (sans teinte) et un bleu électrique (≈ 220°) réservé à l'action ; le noir sert de contraste fort (onglet actif, numéros, focus).
 - **Logo esquissé** : Un carré bleu électrique porte un K blanc épais ; un petit carré noir dans l'angle marque la borne (km). « Kmino » en Archivo 800, le K en bleu. SVG clair et sombre dans `tokens-voltio.json → brand.logo` et `brand.logoDark`.
 - **Nuances du bleu** (50 → 900) : 50 `#F0F5FF` · 100 `#DBE7FF` · 200 `#B2CCFF` · 300 `#80AAFF` · 400 `#4281FF` · 500 `#0A5CFF` · 600 `#0049DB` · 700 `#003BB2` · 800 `#002E8A` · 900 `#002061`.
@@ -343,7 +343,7 @@ _Info : accent / surface = 19.79:1 (clair) et 18.00:1 (sombre) ; border décorat
 
 - **Règle d'accent** : Le corail (#FFB8A6) sert d'aplat sous texte foncé pour les badges (« Nuevo », « ITBMS incluido ») ; il n'est jamais seul indicateur (1,59:1 avec la surface).
 - **Typographie** : Outfit 600 (titres) · Source Sans 3 400/700 (texte, chiffres tabulaires).
-- **Ton** (es, tutoiement) : « Elige tu mostrador y sal a la ruta. » · « Cancelación gratuita hasta el jue. 13 ene., 10:00. » · « ¡Listo! Tu reserva está confirmada. »
+- **Ton** (es, tutoiement) : « Elige el auto de un vecino y sal a la ruta. » · « Cancelación gratuita hasta el jue. 13 ene., 10:00. » · « ¡Listo! Tu reserva está confirmada. »
 - **Style photo** : Lumière tropicale du matin, eau et végétation en arrière-plan ; la voiture en situation (route côtière, Asunción en fin de journée) ; saturation naturelle.
 - **Mouvement** : Vivant mais bref : 160 à 280 ms ; un léger rebond réservé aux confirmations. Réduit à des fondus si l'utilisateur le demande.
 - **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 10 contrôles complémentaires dans `contrastChecks`) :
@@ -397,11 +397,11 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 
 **Nom** : « Lienzo » est un mot courant de l'espagnol ; nous ne connaissons pas de marque notoire de ce nom dans la location, le voyage ou la mobilité. Ce n'est qu'un nom de travail de la palette (la marque reste Kmino) ; aucune recherche en base de marques n'a été faite, et il n'y en a pas besoin tant qu'il ne sort pas de ce dossier.
 
-| Variante             | Couleur d'action (clair / sombre) | Liens, onglet actif, focus | Logique de la palette                                                                                                                                                                                                                        | Police                                                                               |
-| -------------------- | --------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Lienzo · Tinta**   | `#1D3461` / `#A9C1EA`             | `#1D3461` / `#A9C1EA`      | Blanc + gris neutres + une encre bleu nuit (≈ 220°, désaturée) : la couleur n'apparaît que là où l'on agit ; les zones sont séparées par des filets gris de 1 px et de l'espace, pas par des aplats.                                         | Manrope seule : 700 (titres) · 400/600 (texte) · chiffres tabulaires                 |
-| **Lienzo · Azur**    | `#1E6AC2` / `#7DB4F5`             | `#1E6AC2` / `#7DB4F5`      | Blanc + gris neutres + un bleu azur moyen (≈ 213°, saturation modérée) : un seul bleu pour l'action, ses nuances pâles pour les pastilles ; aucun fond teinté, aucun noir en aplat.                                                          | Manrope seule : 600 (titres) · 400/600 (texte) · chiffres tabulaires                 |
-| **Lienzo · Grafito** | `#2A2C30` / `#E8E9EB`             | `#2563C9` / `#7FAEF5`      | Monochrome : blanc, gris et graphite (#2A2C30) pour le bouton ; un seul bleu (≈ 217°) réduit à des traits (liens, soulignement de l'onglet actif, anneau de focus, point du logo). La hiérarchie vient de la typographie, pas de la couleur. | Source Serif 4 600 (titres seulement) · Manrope 400/600 (texte, chiffres tabulaires) |
+| Variante             | Couleur d'action (clair / sombre) | Liens, onglet actif, focus | Logique de la palette                                                                                                                                                                                                                        | Police                            |
+| -------------------- | --------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **Lienzo · Tinta**   | `#1D3461` / `#A9C1EA`             | `#1D3461` / `#A9C1EA`      | Blanc + gris neutres + une encre bleu nuit (≈ 220°, désaturée) : la couleur n'apparaît que là où l'on agit ; les zones sont séparées par des filets gris de 1 px et de l'espace, pas par des aplats.                                         | Bricolage Grotesque 600 + Manrope |
+| **Lienzo · Azur**    | `#1E6AC2` / `#7DB4F5`             | `#1E6AC2` / `#7DB4F5`      | Blanc + gris neutres + un bleu azur moyen (≈ 213°, saturation modérée) : un seul bleu pour l'action, ses nuances pâles pour les pastilles ; aucun fond teinté, aucun noir en aplat.                                                          | Bricolage Grotesque 700 + Manrope |
+| **Lienzo · Grafito** | `#2A2C30` / `#E8E9EB`             | `#2563C9` / `#7FAEF5`      | Monochrome : blanc, gris et graphite (#2A2C30) pour le bouton ; un seul bleu (≈ 217°) réduit à des traits (liens, soulignement de l'onglet actif, anneau de focus, point du logo). La hiérarchie vient de la typographie, pas de la couleur. | Instrument Serif + Manrope        |
 
 **Pourquoi elles diffèrent de Cielo et de Voltio** : Cielo teinte tout en bleu ciel (fond `#F7FBFE`, gris bleutés, bandeau bleu `#DDF1FD` sous le titre) ; Lienzo n'a **aucun fond teinté** et des gris neutres, et le bleu n'apparaît que sur ce qui se touche. Voltio crie (bleu électrique `#0A5CFF` à 100 % de saturation, bordures et onglet noirs en aplat, chiffres monospace) ; Lienzo chuchote (bleus désaturés, filets gris de 1 px, aucun aplat noir). **Entre elles** : Tinta est la plus élégante (encre bleu nuit, presque noire, 12,24:1) ; Azur est la plus fraîche et la plus proche de l'esprit Cielo, mais sur blanc pur ; Grafito est presque monochrome (bouton graphite) et tient sa voix par des titres en serif, avec un bleu réduit à des traits. Tinta reste proche du marine de **Marina** par la teinte (220° contre 214°), mais sans sable ni serif et sur blanc pur.
 
@@ -409,7 +409,7 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 
 - **Concept** : La page blanche et l'encre : un fond blanc pur, du texte noir doux et une seule encre bleu nuit, rare, posée sur le bouton Reservar, les liens et la sélection. Le calme d'un document bien composé.
 - **Logique de la palette** : Blanc + gris neutres + une encre bleu nuit (≈ 220°, désaturée) : la couleur n'apparaît que là où l'on agit ; les zones sont séparées par des filets gris de 1 px et de l'espace, pas par des aplats.
-- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est à l'encre bleu nuit, K et point blancs. « Kmino » en Manrope 700, le K à l'encre. SVG clair et sombre dans `tokens-lienzo-tinta.json → brand.logo` et `brand.logoDark`.
+- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est à l'encre bleu nuit, K et point blancs. « Kmino » en Bricolage Grotesque 600, le K à l'encre. SVG clair et sombre dans `tokens-lienzo-tinta.json → brand.logo` et `brand.logoDark`.
 - **Nuances du bleu** (50 → 900) : 50 `#EEF2F9` · 100 `#E5EAF5` · 200 `#C8D3EA` · 300 `#A9C1EA` · 400 `#7692CB` · 500 `#4E72BC` · 600 `#3C5D9F` · 700 `#314C81` · 800 `#1D3461` · 900 `#1B2946`.
 - **Nuances neutres** (50 → 900, communes à la famille) : 50 `#F6F7F8` · 100 `#F1F2F3` · 200 `#E6E7E9` · 300 `#D0D2D5` · 400 `#8A8D93` · 500 `#6E7177` · 600 `#575A60` · 700 `#3E4146` · 800 `#2A2C30` · 900 `#17181B`.
 - **Palette fonctionnelle** :
@@ -436,8 +436,8 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 | focus          | `#1D3461` | `#A9C1EA` |
 
 - **Règle d'accent** : L'accent est le bleu 50 (#EEF2F9) : un voile à peine visible sous texte encre, réservé aux pastilles et au surlignage ; jamais un aplat de section ni un indicateur seul.
-- **Typographie** : Manrope seule : 700 (titres) · 400/600 (texte) · chiffres tabulaires.
-- **Ton** (es, tutoiement) : « Precio final, con ITBMS incluido. » · « Reserva confirmada. Te esperamos el vie. 14 ene., 10:00. » · « Falta el pago. Cóbralo antes de entregar las llaves. »
+- **Typographie** : Bricolage Grotesque 600 (titres d'affichage, serrés) · Manrope 400/600 (texte, chiffres tabulaires).
+- **Ton** (es, tutoiement) : « Precio final, con ITBMS incluido. » · « Reserva confirmada. Te esperamos el vie. 14 ene., 10:00. » · « Ana aceptó tu solicitud. Ya puedes escribirle. »
 - **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 13 contrôles complémentaires dans `contrastChecks`) :
 
 | Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
@@ -478,7 +478,7 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 
 - **Concept** : Le même blanc pur, avec un bleu azur vif mais doux : l'air d'un matin clair. Plus accueillant que Tinta, plus calme que Voltio ; le bleu reste rare et signale ce qui se touche.
 - **Logique de la palette** : Blanc + gris neutres + un bleu azur moyen (≈ 213°, saturation modérée) : un seul bleu pour l'action, ses nuances pâles pour les pastilles ; aucun fond teinté, aucun noir en aplat.
-- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est azur, K et point blancs. « Kmino » en Manrope 600, le K en azur. SVG clair et sombre dans `tokens-lienzo-azur.json → brand.logo` et `brand.logoDark`.
+- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est azur, K et point blancs. « Kmino » en Bricolage Grotesque 700, le K en azur. SVG clair et sombre dans `tokens-lienzo-azur.json → brand.logo` et `brand.logoDark`.
 - **Nuances du bleu** (50 → 900) : 50 `#EAF2FC` · 100 `#E0ECFA` · 200 `#BDD6F4` · 300 `#7DB4F5` · 400 `#5D9AE5` · 500 `#2C7CDD` · 600 `#1F66BD` · 700 `#1E6AC2` · 800 `#134076` · 900 `#0E2D53`.
 - **Nuances neutres** (50 → 900, communes à la famille) : 50 `#F6F7F8` · 100 `#F1F2F3` · 200 `#E6E7E9` · 300 `#D0D2D5` · 400 `#8A8D93` · 500 `#6E7177` · 600 `#575A60` · 700 `#3E4146` · 800 `#2A2C30` · 900 `#17181B`.
 - **Palette fonctionnelle** :
@@ -505,8 +505,8 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 | focus          | `#1E6AC2` | `#7DB4F5` |
 
 - **Règle d'accent** : L'accent est le bleu 50 (#EAF2FC) : un voile azur très pâle sous texte bleu profond, réservé aux pastilles et au surlignage ; jamais un aplat de section ni un indicateur seul.
-- **Typographie** : Manrope seule : 600 (titres) · 400/600 (texte) · chiffres tabulaires.
-- **Ton** (es, tutoiement) : « Tu precio final ya incluye ITBMS. » · « ¡Listo! Tu auto te espera el vie. 14 ene. a las 10:00. » · « No pudimos cargar los mostradores. Vuelve a intentarlo. »
+- **Typographie** : Bricolage Grotesque 700 (titres d'affichage, serrés) · Manrope 400/600 (texte, chiffres tabulaires).
+- **Ton** (es, tutoiement) : « Tu precio final ya incluye ITBMS. » · « ¡Listo! Tu auto te espera el vie. 14 ene. a las 10:00. » · « No pudimos cargar los autos cercanos. Vuelve a intentarlo. »
 - **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 13 contrôles complémentaires dans `contrastChecks`) :
 
 | Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
@@ -547,7 +547,7 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 
 - **Concept** : Le blanc et le crayon graphite : presque monochrome, comme une belle mise en page de revue. Les titres en serif donnent la voix ; un bleu minuscule n'apparaît que sur les liens, l'onglet actif et le focus.
 - **Logique de la palette** : Monochrome : blanc, gris et graphite (#2A2C30) pour le bouton ; un seul bleu (≈ 217°) réduit à des traits (liens, soulignement de l'onglet actif, anneau de focus, point du logo). La hiérarchie vient de la typographie, pas de la couleur.
-- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est graphite, K blanc et point bleu (le seul bleu du logo). « Kmino » en Source Serif 4 600, le K en graphite. SVG clair et sombre dans `tokens-lienzo-grafito.json → brand.logo` et `brand.logoDark`.
+- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est graphite, K blanc et point bleu (le seul bleu du logo). « Kmino » en Instrument Serif, le K en graphite. SVG clair et sombre dans `tokens-lienzo-grafito.json → brand.logo` et `brand.logoDark`.
 - **Nuances du bleu** (50 → 900) : 50 `#F2F6FD` · 100 `#E1EAFA` · 200 `#BED3F4` · 300 `#7FAEF5` · 400 `#4A86E8` · 500 `#2F71DA` · 600 `#2563C9` · 700 `#1B4B98` · 800 `#153A75` · 900 `#0F2952`.
 - **Nuances neutres** (50 → 900, communes à la famille) : 50 `#F6F7F8` · 100 `#F1F2F3` · 200 `#E6E7E9` · 300 `#D0D2D5` · 400 `#8A8D93` · 500 `#6E7177` · 600 `#575A60` · 700 `#3E4146` · 800 `#2A2C30` · 900 `#17181B`.
 - **Palette fonctionnelle** :
@@ -574,7 +574,7 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 | focus          | `#2563C9` | `#7FAEF5` |
 
 - **Règle d'accent** : L'accent est le gris 100 (#F1F2F3) : un fond à peine marqué sous texte noir doux pour les pastilles. Le bleu n'est pas l'accent : il est porté par le jeton focus (liens, onglet actif, focus), en traits seulement.
-- **Typographie** : Source Serif 4 600 (titres seulement) · Manrope 400/600 (texte, chiffres tabulaires).
+- **Typographie** : Instrument Serif 400 (titres d'affichage seulement) · Manrope 400/600 (texte, chiffres tabulaires).
 - **Ton** (es, tutoiement) : « El precio que ves es el que pagas. » · « Tu reserva está confirmada. » · « Falta firmar el contrato. Ábrelo y pide la firma al cliente. »
 - **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 13 contrôles complémentaires dans `contrastChecks`) :
 
@@ -617,9 +617,34 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 - **Contrastes** : 3 × (18 paires + 13 contrôles complémentaires) × 2 thèmes = **186 paires, toutes conformes**. Les trois contrôles ajoutés à la famille portent sur la couleur des liens et de l'onglet actif (`focus`, ≥ 4,5:1 sur carte et sur fond en retrait, car elle sert de texte de lien) et sur le point du logo. Pires cas : contour de champ `#8A8D93` sur blanc **3,33:1** (seuil 3) ; point bleu du logo Grafito **3,91:1** (clair) et **4,66:1** (sombre) ; lien Azur sur fond en retrait **5,03:1**.
 - **Rendu réel** : voir « Positionnement entre particuliers », garde-fou « Contrôles » (375 et 360 px, es et en, clair et sombre : 0 débordement, 0 cible sous 48 px, 0 échec de contraste).
 - **Teintes** : couleurs d'action entre 212° et 220°, liens Grafito à 217° ; aucun jeton saturé dans la zone 230° à 300° (les gris neutres ont une teinte nominale de 220° à 225° pour 4 à 8 % de saturation).
-- **Anti-Turo** : Encre bleu nuit #1D3461 (≈ 220°), hors de la zone 230°–300°. Carré doux et point. Page blanche, filets fins, sans photo plein écran ni bandeau coloré. Azur #1E6AC2 (≈ 213°, saturation 73 %), ni l'électrique de Voltio ni le bleu ciel de Cielo. Carré doux et point. Page blanche, sans photo plein écran. Graphite #2A2C30 et un bleu #2563C9 (≈ 217°) en traits, hors de la zone 230°–300°. Titres en serif libre (Source Serif 4). Page blanche, sans photo plein écran ni aplat noir. Aucun badge de statut d'hôte (voir « Positionnement entre particuliers » pour l'étoile de la note).
+- **Anti-Turo** : Encre bleu nuit #1D3461 (≈ 220°), hors de la zone 230°–300°. Carré doux et point. Page blanche, filets fins, sans photo plein écran ni bandeau coloré. Azur #1E6AC2 (≈ 213°, saturation 73 %), ni l'électrique de Voltio ni le bleu ciel de Cielo. Carré doux et point. Page blanche, sans photo plein écran. Graphite #2A2C30 et un bleu #2563C9 (≈ 217°) en traits, hors de la zone 230°–300°. Titres en serif libre (Instrument Serif). Page blanche, sans photo plein écran ni aplat noir. Aucun badge de statut d'hôte (voir « Positionnement entre particuliers » pour l'étoile de la note).
 
 ---
+
+## Langage visuel (2026-11-02, base pour US-030)
+
+**Intention** : « waouh », mais propre et épuré. Une page blanche, une auto dessinée comme un produit, un grand titre, et un seul fil conducteur graphique : le _camino_.
+
+### Principes
+
+- **La typographie est le héros.** Titres d'affichage grands et serrés : Bricolage Grotesque (Azur 700, Tinta 600) ou Instrument Serif (Grafito), 44 px environ sur l'accueil (38 px sous 400 px de large), interlettrage de -0,045 à -0,02 em, interligne 0,96 à 1. Le texte reste en Manrope 16 à 17 px. Contraste d'échelle franc : environ 2,6 entre le titre et le texte ; peu de tailles (44 / 30 / 21 / 17 / 14 / 12,5).
+- **Grille de 8 px**, rythmes verticaux généreux : 32 px entre sections, 16 à 24 px dans les cartes, marges de 16 px.
+- **Blanc d'abord, couleur rare.** La couleur d'action ne sert qu'aux boutons, liens, numéros d'étape et au tracé ; les fonds sont blancs ou gris très pâles ; le sombre reprend la même hiérarchie (fond #111214, cartes #191A1D).
+- **Profondeur douce.** Cartes à 20 px de rayon, filet de 1 px, ombre double très diffuse (0 1 2 à 4 % et 0 10 28 à 10 %, 50 % en sombre). Verre dépoli (fond à 86 %, flou 18 px) pour ce qui flotte : barre de recherche collante, carte de prix sur l'accueil, boutons sur la galerie, barre d'action.
+- **Visuels maison.** Autos en illustrations SVG originales (silhouettes citadine, berline et SUV, dégradés de carrosserie, vitrages, jantes, ombre portée), bord à bord sur la fiche ; hôtes en monogrammes sur quatre tons doux, déclinés en sombre. Aucune photo de personne, aucune image téléchargée.
+- **États soignés.** Survol : la carte monte de 2 px et son ombre s'élargit ; appui : échelle 0,98 ; focus : anneau de 2 px dans la couleur `focus`, décalé de 2 px ; contrôles personnalisés (radios, interrupteur) dont la cible couvre toute la ligne (48 px au moins).
+
+### Motif signature : le _camino_
+
+Un tracé de route en pointillés ronds, dans la couleur `focus`, qui évoque le nom (_camino_). Utilisé avec parcimonie, quatre fois : il **se dessine** sous l'auto de l'accueil, **relie** les trois étapes de « Cómo funciona », **trace l'itinéraire** sur la mini-carte (de « vous » à l'auto, et jusqu'au lieu de remise), et **ponctue** le squelette de chargement. Jamais en décor de fond, jamais plus d'une fois par écran visible.
+
+### Mouvement
+
+150 à 300 ms, courbe `cubic-bezier(.2, .7, .2, 1)`, sans rebond : apparition au défilement (12 px + fondu, 280 ms), appui (160 ms), transition carte → fiche (300 ms, l'auto glisse de 24 px). Exceptions assumées : le tracé du _camino_ se dessine en 700 ms une seule fois, et le compteur de revenus monte en 700 ms. Les squelettes scintillent en boucle (1,4 s). **Tout s'arrête avec `prefers-reduced-motion`** : contenu affiché directement, valeurs finales.
+
+### Passage à US-030
+
+Jetons à créer en plus des couleurs : `font.display` (famille, graisse, interlettrage, interligne par variante), `radius.card` (20 px), `shadow.card` et `shadow.float` (clair et sombre), `glass` (opacité 86 %, flou 18 px), `motion.*` (durées 160 / 280 / 300 / 700 ms, courbe), `avatar.tone.1-4` (clair et sombre), et le motif `camino` (tracé, pointillé 0,006 / 0,018, épaisseur 2,5 px).
 
 ## Positionnement entre particuliers (2026-11-02)
 
@@ -631,26 +656,25 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 
 Le produit sort en espagnol et en anglais en même temps : chaque signature est écrite pour sonner juste dans les deux langues, pas traduite mot à mot.
 
-| #               | Espagnol (es)                              | Anglais (en)                            | Traduction française                           | Ce qu'elle fait passer                                                                                                                                                                     |
-| --------------- | ------------------------------------------ | --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1 (recommandée) | **« Alquila el auto de un vecino. »**      | **« Rent a car from a neighbor. »**     | Louez la voiture d'un voisin.                  | Tout le modèle en six mots : une personne proche, son auto à elle. « Vecino » est chaleureux et compris partout en Amérique latine ; « neighbor » (anglais américain) garde la même image. |
-| 2               | « Autos de personas reales, cerca de ti. » | « Real people's cars, near you. »       | Des voitures de vrais gens, près de chez vous. | Le contraste avec la flotte d'une agence (« personas reales ») et la proximité. Plus descriptive, moins chaleureuse. Utilisée comme sous-titre de l'accueil.                               |
-| 3               | « Tu vecino tiene el auto que buscas. »    | « Your neighbor has the car you need. » | Votre voisin a la voiture qu'il vous faut.     | La même idée que la 1, sous forme de promesse ; plus longue.                                                                                                                               |
+| #               | Espagnol (es)                              | Anglais (en)                            | Traduction française                           | Ce qu'elle fait passer                                                                                                                                                                                                                                                                              |
+| --------------- | ------------------------------------------ | --------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 (recommandée) | **« Alquila el auto de un vecino. »**      | **« Rent a car from a neighbor. »**     | Louez la voiture d'un voisin.                  | Tout le modèle en six mots : une personne proche, son auto à elle. « Vecino » est chaleureux et compris partout en Amérique latine ; « neighbor » (anglais américain) garde la même image.                                                                                                          |
+| 2               | « Autos de personas reales, cerca de ti. » | « Real people's cars, near you. »       | Des voitures de vrais gens, près de chez vous. | « Personas reales » et la proximité. Plus descriptive, moins chaleureuse. Sert de base au sous-titre de l'accueil, élargi aux visiteurs : « Autos de personas reales cerca de ti, vivas aquí o estés de visita. » / « Real people's cars near you, whether you live here or you're just visiting. » |
+| 3               | « Tu vecino tiene el auto que buscas. »    | « Your neighbor has the car you need. » | Votre voisin a la voiture qu'il vous faut.     | La même idée que la 1, sous forme de promesse ; plus longue.                                                                                                                                                                                                                                        |
 
-La signature 1 est le titre de l'accueil (S01) dans toutes les directions. **Allégation à valider juridiquement avant la mise en ligne** : le surtitre « La primera plataforma de alquiler entre particulares de {country} » / « {country}'s first peer-to-peer car rental platform ». `{country}` est une donnée de pays, pas du texte en dur : PA → « Panamá » / « Panama », PY → « Paraguay ». À retirer si l'antériorité n'est pas démontrée.
+La signature 1 est le titre de l'accueil (S01) dans toutes les directions. « Vecino » parle d'abord aux habitants : le sous-titre ajoute les visiteurs. **Allégation à valider juridiquement avant la mise en ligne**, donc **non affichée** dans les maquettes (le surtitre par défaut est neutre : « Alquiler entre particulares · {country} » / « Peer-to-peer car rental · {country} ») : le surtitre « La primera plataforma de alquiler entre particulares de {country} » / « {country}'s first peer-to-peer car rental platform ». `{country}` est une donnée de pays, pas du texte en dur : PA → « Panamá » / « Panama », PY → « Paraguay ». À retirer si l'antériorité n'est pas démontrée.
 
 **Bascule ES / EN dans `presentation.html`** : un sélecteur « ES / EN » dans la barre du haut et le bouton de langue (globe) de l'en-tête des maquettes changent tous les textes des quatre écrans. Les textes viennent de deux catalogues de **mêmes clés** (`es`, `en`) dans le script de la page, comme le paquet i18n ; au chargement, un contrôle de parité écrit `console.error` pour toute clé absente d'une langue, ou utilisée dans la page sans exister dans les deux. Ce n'est qu'un aperçu : la source de vérité sera le catalogue du produit.
 
-### Ce qui change dans les maquettes (les sept directions)
+### Ce qui change dans les maquettes (Lienzo en premier ; les quatre autres palettes partagent les mêmes écrans)
 
-| Écran               | Repères « entre particuliers »                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S01 Accueil**     | Titre « Alquila el auto de un vecino. » ; sous-titre « Autos de personas reales, cerca de ti. Tú eliges el auto y a su dueño. » ; recherche « ¿Dónde? Cerca de mí », bouton « Buscar autos cerca » ; **visages** : « Anfitriones cerca de ti », trois hôtes fictifs (initiales, prénom, auto et année, note, nombre de locations, quartier, distance, prix par jour) ; « Cómo funciona » : Encuentra un auto cerca → Reserva con su dueño → Recógelo y disfruta ; **côté propriétaire** : « Gana dinero con tu auto » avec un estimateur d'exemple (Toyota Corolla 2019, 8 días al mes, ≈ US$ 280 al mes, « no es una promesa de ingresos ») et le bouton « Calcula con tu auto ». |
-| **S02 Résultats**   | « 26 autos cerca de ti » ; tris Cercanía / Precio / Valoración ; **mini-carte** avec la position de l'utilisateur et quatre autos à leur prix par jour ; cartes centrées sur **l'auto précise** (photo, modèle et année), avec l'hôte (avatar, prénom), la note et le nombre de locations, le quartier et la distance, le prix par jour et le total pour 3 jours ; pied « Cada auto es de su anfitrión: casi siempre una persona, a veces una pequeña empresa. »                                                                                                                                                                                                                   |
-| **S03 Fiche**       | L'auto d'abord : galerie (« 1 / 9 fotos de María »), « Kia Picanto 2021 », caractéristiques, **règles de l'hôte** ; puis **« Tu anfitriona »** (en : « Your host ») : avatar, « Miembro desde marzo de 2024 », taux de réponse, délai, note, pastille « Identidad verificada », lien vers le profil ; puis **« Dónde recoges el auto »** : un point de rendez-vous public ou chez l'hôte (adresse exacte après la réservation) ; puis le prix total détaillé et l'annulation. **Aucune mention de qui encaisse** (voir plus bas).                                                                                                                                                  |
-| **A02 Espace hôte** | « Hola, María » ; revenus du mois (« Ingresos de enero · US$ 312.00 · 4 alquileres · 11 días ») ; deux **demandes de réservation** avec le profil du locataire et les boutons Aceptar / Rechazar ; **« Mis autos »** : une auto publiée et réservée, une auto en pause ; lien « Publicar otro auto ».                                                                                                                                                                                                                                                                                                                                                                              |
-
-Retiré de la version « agences » : « Ofrecido por <agencia> », « Cobra <agencia> », « 12 agencias verificadas », « Compara agencias », les loueurs Pacífico Rent, Bahía Azul et Móvil Ancón, et l'écran comptoir d'agence (A02 devient l'espace hôte). La page s'ouvre désormais en thème clair sur Lienzo · Azur, avec en tête l'encadré « Ce qui montre que c'est entre particuliers ».
+| Écran               | Repères « entre particuliers »                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S01 Accueil**     | Surtitre neutre « Alquiler entre particulares · Panamá » ; grand titre « Alquila el auto de un vecino. » ; sous-titre pour habitants et visiteurs ; illustration d'auto bord à bord sur le tracé du _camino_ qui se dessine ; carte flottante en verre « María · Kia Picanto 2021 · 4.9 · US$ 28/día » ; barre de recherche flottante en verre, collante au défilement ; « Protección incluida en cada viaje » marqué **Por confirmar** ; rail « Autos de vecinos cerca de ti » (auto, monogramme de l'hôte, note, quartier, prix) ; « Cómo funciona » en 3 étapes reliées par le _camino_ ; « Gana dinero con tu auto » avec un **estimateur à curseur** (2 à 20 jours par mois, US$ 35 par jour, « no es una promesa de ingresos »). |
+| **S02 Résultats**   | Barre de recherche en verre collante ; « 26 autos cerca de ti » ; tri segmenté Cercanía / Precio / Valoración ; mini-carte avec la position et le tracé jusqu'à l'auto choisie ; cartes d'**auto précise** (grande illustration, modèle et année, monogramme et prénom de l'hôte, note, quartier, distance, prix par jour et total), bouton « Guardar » ; **squelette de chargement**. Un toucher sur une carte ouvre la fiche avec une transition.                                                                                                                                                                                                                                                                                    |
+| **S02 · filtres**   | **Feuillet bas** : histogramme et curseur de prix, types d'auto, interrupteur « Solo anfitriones con identidad verificada », « Borrar » / « Ver 26 autos ».                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **S03 Fiche**       | Galerie bord à bord avec boutons en verre (retour, partager, guardar) ; grand titre « Kia Picanto » ; 4 caractéristiques à icônes ; **« Tu anfitriona »** (monogramme, membre depuis, réponses, « Identidad verificada ») ; règles de l'hôte à icônes ; **lieu de remise** sur la mini-carte, deux choix (point de rencontre ou chez l'hôte) ; prix total, annulation et protection « Por confirmar » ; barre d'action en verre. **Aucune mention de qui encaisse.**                                                                                                                                                                                                                                                                   |
+| **A02 Espace hôte** | « Hola, María » ; revenus du mois avec **compteur animé** et histogramme sur 6 mois ; demandes de réservation (Rechazar / Aceptar) ; « Mis autos » avec vignettes illustrées et statuts ; « Publicar otro auto ».                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ### À trancher : qui encaisse
 
@@ -658,15 +682,16 @@ Le modèle d'encaissement entre particuliers n'est **pas tranché**. CLAUDE.md d
 
 ### Garde-fous
 
-- **Hôtes fictifs** : María G., Carlos R., Ana P., Luis M. (hôtes), Diego L. et Sarah K. (locataires), prénoms courants ; **avatars en initiales**, aucune photo de personne réelle. Quartiers réels de Ciudad de Panamá (San Francisco, El Cangrejo, Costa del Este, Bella Vista), autos de modèles courants, prix d'exemple.
-- **Agences** : possibles comme hôtes (pastille « Empresa » prévue), jamais mises en avant ; aucun nom de vrai loueur.
-- **Notes** : une petite étoile pleine et la note chiffrée (« 4.9 · 54 alquileres »), à la demande du fondateur. C'est un écart assumé avec la règle du 31 octobre (« aucune note en étoiles », §5) : l'étoile est une convention générale, pas un emprunt, mais **aucun badge de statut d'hôte** ; seul « Identidad verificada », un fait vérifiable. Le relecteur UX doit confirmer ce point ; repli possible : la note seule, sans étoile.
+- **Hôtes fictifs** : María G., Carlos R., Ana P., Luis M. (hôtes), Diego L. et Sarah K. (locataires), prénoms courants ; **avatars en monogrammes**, aucune photo de personne réelle ; autos dessinées par nous en SVG, aucune image téléchargée. Quartiers réels de Ciudad de Panamá (San Francisco, El Cangrejo, Costa del Este, Bella Vista), autos de modèles courants, prix d'exemple.
+- **Professionnels** : une petite entreprise peut être hôte (pastille « Empresa » prévue), jamais mise en avant ; aucun nom réel.
+- **Notes** : une petite étoile pleine (SVG générique en `currentColor`) et la note chiffrée, validée par la revue du 2026-11-03c ; **aucun badge de statut d'hôte**, seul « Identidad verificada ».
+- **Protection** : « Protección incluida en cada viaje » / « Every trip is protected » est un **contenu à confirmer** (modèle d'assurance non tranché) : il porte la pastille « Por confirmar » dans les maquettes.
 - **Rien de Turo** : formulations, mise en page et vocabulaire sont les nôtres ; palettes hors de la zone 230° à 300°.
-- **Contrôles** : à 375 × 812 et à 360 × 800, en espagnol et en anglais, en clair et en sombre (8 combinaisons), les sept directions affichées : `scrollWidth` égal à la largeur, aucun élément hors de son écran, **0 cible interactive sous 48 × 48 px** (les choix et boutons des maquettes compris), audit de contraste du texte visible sur son fond effectif : 4 340 nœuds par combinaison, **0 échec**.
+- **Contrôles** (2026-11-02, version « langage visuel ») : à 375 × 812 et à 360 × 800, en espagnol et en anglais, en clair et en sombre (8 combinaisons), les sept directions dépliées : `scrollWidth` égal à la largeur, aucun élément hors de son écran, aucun écran qui défile en largeur ; **0 cible interactive sous 48 × 48 px** ; contraste du texte visible sur son fond effectif (dégradés : pire couleur) : 4 459 nœuds par combinaison, **0 échec**, minimum 4,59:1 dans Lienzo ; console vide au chargement ; contrôle de parité vérifié (une clé « en » retirée produit les `console.error` attendus).
 
 ---
 
-## 1. Brief retenu
+## 1. Brief retenu (31 octobre, historique : modèle de loueurs professionnels, remplacé le 2026-11-02 par la location entre particuliers)
 
 | Contrainte                                                                 | Ce qu'elle implique pour le nom et l'identité                                                                                                                                                                         |
 | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -922,7 +947,7 @@ _Info (sombre) : accent / surface = 9.40:1 ; border décoratif / carte = 1.35:1.
 
 ---
 
-## 5. Contrôle anti-Turo
+## 5. Contrôle anti-Turo (31 octobre, avec la mise à jour du 2026-11-02)
 
 **Ce que nous savons de l'identité de Turo** (de mémoire et de sources secondaires, sans consulter sa charte officielle ; nous n'avons téléchargé ni copié aucun visuel) : refonte de 2015 par DesignStudio, avec un mot-symbole en lettrage propriétaire sans-serif, en minuscules ; couleur signature dans la famille **violet-indigo** depuis plusieurs années (non confirmé sur source primaire) ; accueil avec une grande photo et une recherche superposée ; cartes de véhicule avec note en étoiles et badges d'hôte (« All-Star Host »). Par prudence, **nous excluons toute teinte entre 230° et 300°** (violets et indigos) des trois palettes.
 
@@ -936,6 +961,8 @@ _Info (sombre) : accent / surface = 9.40:1 ; border décoratif / carte = 1.35:1.
 | Fiche véhicule               | Aucune note en étoiles ni badge d'hôte ; prix final et caution **avant** les avis (10b AM13). **Conforme**                                          | Idem. **Conforme**                                                                               | Idem. **Conforme**                                                                                                                |
 
 Le relecteur UX indépendant devra confirmer ce contrôle visuellement.
+
+**Mise à jour du 2026-11-02 (location entre particuliers).** La règle « aucune note en étoiles » du tableau ci-dessus est levée à la demande du fondateur, et la revue du 2026-11-03c l'a validée : la note est affichée avec une petite étoile pleine, dessinée par nous en SVG générique (`currentColor`), et un chiffre (« 4.9 · 54 alquileres »). Restent exclus : les badges de statut d'hôte et les noms de programme ; seule la pastille « Identidad verificada », un fait vérifiable, est montrée. La zone violet-indigo reste exclue ; la mise en page, les textes et le vocabulaire sont les nôtres (voir « Langage visuel »).
 
 ---
 

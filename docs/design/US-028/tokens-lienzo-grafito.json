@@ -36,12 +36,12 @@
     "wordmark": {
       "$value": "Kmino",
       "$type": "string",
-      "$description": "Source Serif 4 600. Le K prend color.primary et « mino » color.text : la coupure K / mino n'est marquée que par la couleur, jamais par un tiret ou un point dans le texte."
+      "$description": "Instrument Serif 400. Le K prend color.primary et « mino » color.text : la coupure K / mino n'est marquée que par la couleur, jamais par un tiret ou un point dans le texte."
     },
     "logo": {
       "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"3\" y=\"3\" width=\"42\" height=\"42\" rx=\"12\" fill=\"#2A2C30\"/><path d=\"M16 12v24M29 12L17.5 23.5M21.5 20L30 34\" fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"37\" cy=\"37\" r=\"2.6\" fill=\"#4A86E8\"/></svg>",
       "$type": "string",
-      "$description": "Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est graphite, K blanc et point bleu (le seul bleu du logo). « Kmino » en Source Serif 4 600, le K en graphite. Thème clair : K en on-primary (13.99:1 sur primary), repère #4A86E8 (3.91:1)."
+      "$description": "Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est graphite, K blanc et point bleu (le seul bleu du logo). « Kmino » en Instrument Serif, le K en graphite. Thème clair : K en on-primary (13.99:1 sur primary), repère #4A86E8 (3.91:1)."
     },
     "logoDark": {
       "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"3\" y=\"3\" width=\"42\" height=\"42\" rx=\"12\" fill=\"#E8E9EB\"/><path d=\"M16 12v24M29 12L17.5 23.5M21.5 20L30 34\" fill=\"none\" stroke=\"#111214\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"37\" cy=\"37\" r=\"2.6\" fill=\"#2563C9\"/></svg>",
@@ -330,7 +330,7 @@
   "font": {
     "family": {
       "heading": {
-        "$value": ["Source Serif 4", "Georgia", "serif"],
+        "$value": ["Instrument Serif", "Georgia", "serif"],
         "$type": "fontFamily"
       },
       "body": {
@@ -344,7 +344,7 @@
     },
     "weight": {
       "heading": {
-        "$value": 600,
+        "$value": 400,
         "$type": "fontWeight"
       },
       "body": {
