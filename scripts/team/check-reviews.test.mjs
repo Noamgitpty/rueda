@@ -112,3 +112,18 @@ test('--base : main par défaut, origin/main en CI, option déguisée refusée',
   assert.deepEqual(ci.required, ['code', 'architecture']);
   assert.equal(parseArgs(['US-001', '--base', '--output=x']).base, null);
 });
+
+test('alias revue-<rôle> : pas un auteur ; rôle inconnu ou absent : auteur', () => {
+  const sonnet = 'Agent-Model: claude-sonnet-5-5\n\u0000';
+  const log =
+    'feat\n\nAgent-Role: design\nAgent-Model: claude-opus-5-5\n\u0000' +
+    'docs(review)\n\nAgent-Role: revue-ux\n' +
+    sonnet +
+    'docs(review)\n\nAgent-Role: revue-architecture\n' +
+    sonnet;
+  assert.deepEqual(authorModelsFromLog(log), ['claude-opus-5-5']);
+  assert.deepEqual(authorModelsFromLog('x\n\nAgent-Role: revue-design\n' + sonnet), [
+    'claude-sonnet-5-5',
+  ]);
+  assert.deepEqual(authorModelsFromLog('x\n\n' + sonnet), ['claude-sonnet-5-5']);
+});
