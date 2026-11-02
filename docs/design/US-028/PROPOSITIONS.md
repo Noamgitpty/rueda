@@ -3,11 +3,11 @@
 - **Story** : US-028 (epic E16, DSN-001), lot 0
 - **Rôle** : agent DESIGN
 - **Date** : 2026-10-31
-- **Statut** : nom **Kmino** tranché par le fondateur le 2026-11-02 (DEC-MARQUE) ; direction **Señal** retenue par défaut, PROPOSÉ, à confirmer. Voir « Choix du fondateur (2026-11-02) ».
+- **Statut** : nom **Kmino** tranché par le fondateur le 2026-11-02 (DEC-MARQUE). Direction : **à choisir** parmi les quatre palettes claires du 2026-11-02 (Cielo, Marina, Voltio, Lagune) ; **Cielo** est le défaut **PROPOSÉ** en attendant. Tierra firme, Señal et Istmo ont été écartées par le fondateur le 2026-11-02 (« trop sombre »). Voir « Choix du fondateur (2026-11-02) » et « Palettes claires (2026-11-02) ».
 - **Références** : 19 §1.6 et US-028 ; 10b §2, §3.0 (principe 8 « identité propre »), §3.3, §3.10, §4 (S01, S03, A02), §8 ; 12 §1.5 et §10 ; 13 (concurrence).
-- **Fichiers** : ce document ; `presentation.html` (page visuelle avec les maquettes) ; `tokens-tierra-firme.json`, `tokens-senal.json` et `tokens-istmo.json` (jetons prêts pour US-030).
+- **Fichiers** : ce document ; `presentation.html` (page visuelle avec les maquettes) ; `tokens-cielo.json`, `tokens-marina.json`, `tokens-voltio.json` et `tokens-lagune.json` (palettes claires, jetons prêts pour US-030) ; `tokens-tierra-firme.json`, `tokens-senal.json` et `tokens-istmo.json` (anciennes directions, écartées, gardées pour mémoire).
 
-> **En 30 secondes.** Nous recommandons le nom **Yave** (la clé remise au comptoir), suivi de **Tramo** puis de **Volante**. Trois directions visuelles sont proposées : **Tierra firme** (chaleureuse), **Señal** (précise, pensée pour le comptoir) et **Istmo** (tropicale et très lisible). Toutes les combinaisons sont possibles. Pour voir les écrans, ouvrez `presentation.html`. La grille de choix se trouve à la fin de ce document.
+> **En 30 secondes.** Le nom est choisi : **Kmino**. Il reste à choisir la direction visuelle. Après le retour du fondateur du 2026-11-02 (« trop sombre »), quatre palettes claires sont proposées : **Cielo** (monochrome bleu ciel, lumineux), **Marina** (bleu marine et sable, sobre et premium), **Voltio** (blanc, bleu électrique et noir, graphique) et **Lagune** (bleu lagon et corail, frais). Nous recommandons **Cielo** (PROPOSÉ). Pour voir les écrans, ouvrez `presentation.html` : un sélecteur passe d'une direction à l'autre. Les dix noms et les trois anciennes directions restent plus bas pour mémoire.
 
 ---
 
@@ -16,22 +16,22 @@
 | Décision           | Valeur                             | Statut                                                                                                                                                                                                             |
 | ------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Nom (DEC-MARQUE)   | **Kmino** (de _camino_ et de _km_) | **Tranché par le fondateur** le 2026-11-02 (« je veux partir sur K-mino au pire je rechangerais après »), puis corrigé le même jour en « Kmino », sans tiret. Révisable : le nom est une donnée de thème (US-034). |
-| Direction visuelle | **Señal** (§4.2)                   | **PROPOSÉ** : le fondateur n'a pas choisi de direction. Señal est retenue par défaut parce qu'elle sert le mieux le comptoir (A02) et les loueurs. À confirmer par le fondateur.                                   |
+| Direction visuelle | **Cielo** (« Palettes claires »)   | **PROPOSÉ**, en attente du choix du fondateur parmi Cielo, Marina, Voltio et Lagune. Le 2026-11-02, le fondateur a écarté Tierra firme, Señal et Istmo, jugées trop sombres ; Señal n'est plus le défaut.          |
 | Publication du nom | Bloquée jusqu'à F-20               | La recherche d'antériorité DIGERPI (Panama) et DINAPI (Paraguay), en classes 39, 35 et 42, reste à faire **par le fondateur** avant toute publication.                                                             |
 
 Kmino ne figurait pas parmi les dix noms du §3. Il remplace Yave, Tramo et Volante, qui restent dans ce document pour mémoire.
 
 ### Graphie retenue (règle)
 
-| Usage                                    | Forme                                                                             | Règle                                                                                                                                                                                                   |
-| ---------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nom officiel, dans le texte (es, en, fr) | **Kmino**                                                                         | Un seul mot, _K_ majuscule, le reste en minuscules. Jamais « K-mino », « K·mino », « KMino » ni « kmino » dans une phrase. En capitales (signalétique, libellés en Plex Mono) : « KMINO ».              |
-| Logotype (direction Señal)               | _K_ en `primary` et « mino » en `text`, Space Grotesk 700, précédé du pictogramme | La coupure _K_ / _mino_ n'est montrée **que par le dessin** (la couleur ; la graisse peut aussi servir). Aucun tiret ni point médian dans le logotype : le mot écrit et le mot dessiné sont identiques. |
-| Identifiant technique                    | `kmino`                                                                           | Domaines, comptes de réseaux, noms de paquets, clés de thème et de traduction. Minuscules, sans tiret.                                                                                                  |
-| Paramètre                                | `{brand_name}` = `Kmino`                                                          | Le code n'écrit jamais le nom en dur (`tokens-senal.json → brand`).                                                                                                                                     |
-| Prononciation                            | « ka-MI-no » (en : _kah-MEE-no_)                                                  | Accent sur la deuxième syllabe, comme dans _camino_.                                                                                                                                                    |
+| Usage                                    | Forme                                                                           | Règle                                                                                                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nom officiel, dans le texte (es, en, fr) | **Kmino**                                                                       | Un seul mot, _K_ majuscule, le reste en minuscules. Jamais « K-mino », « K·mino », « KMino » ni « kmino » dans une phrase. En capitales (signalétique, libellés en Plex Mono) : « KMINO ».              |
+| Logotype (toutes directions)             | _K_ en `primary` et « mino » en `text`, police de titre, précédé du pictogramme | La coupure _K_ / _mino_ n'est montrée **que par le dessin** (la couleur ; la graisse peut aussi servir). Aucun tiret ni point médian dans le logotype : le mot écrit et le mot dessiné sont identiques. |
+| Identifiant technique                    | `kmino`                                                                         | Domaines, comptes de réseaux, noms de paquets, clés de thème et de traduction. Minuscules, sans tiret.                                                                                                  |
+| Paramètre                                | `{brand_name}` = `Kmino`                                                        | Le code n'écrit jamais le nom en dur (`tokens-senal.json → brand`).                                                                                                                                     |
+| Prononciation                            | « ka-MI-no » (en : _kah-MEE-no_)                                                | Accent sur la deuxième syllabe, comme dans _camino_.                                                                                                                                                    |
 
-**Pictogramme** : un panneau routier carré porte un _K_ ; dessous, une ligne de voie en pointillés rappelle la borne kilométrique. En thème clair, le _K_ est blanc sur pétrole et la ligne est citron (6,80:1 sur `primary`). En thème sombre, le _K_ et la ligne sont en `on-primary` (9,41:1) : le citron n'y est pas utilisé, car il n'atteint que 1,50:1 sur le pétrole clair. Le JSON contient les deux variantes (`brand.logo` et `brand.logoDark`), ce qui règle aussi la remarque 5 de la revue UX du 2026-10-31.
+**Pictogramme (ancienne direction Señal, pour mémoire ; chaque palette claire a le sien, voir plus bas)** : un panneau routier carré porte un _K_ ; dessous, une ligne de voie en pointillés rappelle la borne kilométrique. En thème clair, le _K_ est blanc sur pétrole et la ligne est citron (6,80:1 sur `primary`). En thème sombre, le _K_ et la ligne sont en `on-primary` (9,41:1) : le citron n'y est pas utilisé, car il n'atteint que 1,50:1 sur le pétrole clair. Le JSON contient les deux variantes (`brand.logo` et `brand.logoDark`), ce qui règle aussi la remarque 5 de la revue UX du 2026-10-31.
 
 ### Risques connus et parades
 
@@ -79,10 +79,315 @@ Contrôles témoins refaits : `qzxwvk9.com` renvoie 404 et `google.com` renvoie 
 
 ### Points pour le fondateur
 
-1. Confirmer la direction **Señal**, ou en choisir une autre : le nom fonctionne avec les trois.
+1. Choisir la direction parmi les quatre palettes claires (**Cielo** recommandée) : le nom fonctionne avec les quatre.
 2. F-20, avant toute publication : DIGERPI et DINAPI (classes 39, 35 et 42), achat des domaines ci-dessus, pseudos Instagram et TikTok `kmino`.
 3. Choisir un slogan qui dit la location (deux propositions plus haut), puis le faire relire au Panama et au Paraguay.
 4. Décider s'il faut tenter de racheter `kmino.com` (à vendre, prix inconnu).
+
+---
+
+## Palettes claires (2026-11-02) : quatre nouvelles directions
+
+**Retour du fondateur (2026-11-02)** : les trois directions du 31 octobre sont « trop sombres ». Il veut des palettes **claires**, avec des variations, dans l'esprit du blanc, du bleu et du noir, mais **sans obligation de combiner ces trois couleurs** : un code couleur joli et logique, au ton clair. Nous proposons quatre directions nettement différentes ; chacune a sa logique de palette en une phrase.
+
+Règles communes aux quatre : beaucoup de blanc et des surfaces très claires (le thème clair est la vitrine) ; **le bleu porte l'action** (bouton principal, liens, focus en clair) ; aucun accent purement décoratif (l'accent marque une mise en avant ou une sélection, toujours en aplat sous un texte qui contraste) ; bleus francs entre 195° et 225°, rien dans la zone violet-indigo (230° à 300°) ; statuts toujours avec icône et texte ; cibles tactiles de 48 px ; thème sombre fourni pour l'accessibilité. Polices Google Fonts sous licence SIL OFL 1.1.
+
+| Direction               | Bleu principal (clair / sombre) | Logique de la palette                                                                                                                                                                                   | Police                   |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| **Cielo** (recommandée) | `#096CAA` / `#86CDF9`           | Monochrome nuancé : une seule teinte (bleu ciel, ≈ 203°) déclinée du blanc bleuté (50) à l'encre bleu nuit (900), sans couleur concurrente ; les états gardent leurs couleurs propres.                  | Plus Jakarta Sans        |
+| **Marina**              | `#1A3F70` / `#98BAE7`           | Complémentaire doux : un bleu marine froid (≈ 214°) équilibré par des neutres sable chauds (≈ 40°) ; le sable reste en aplats clairs, le marine porte toute l'action.                                   | Newsreader + Inter       |
+| **Voltio**              | `#0A5CFF` / `#5C8DFF`           | Achromatique + une seule couleur saturée : blanc, gris et noir neutres (sans teinte) et un bleu électrique (≈ 220°) réservé à l'action ; le noir sert de contraste fort (onglet actif, numéros, focus). | Archivo + JetBrains Mono |
+| **Lagune**              | `#0A6F94` / `#89D9F5`           | Complémentaire : un bleu lagon (≈ 196°) et un corail doux (≈ 12°), opposés sur le cercle ; le corail reste un aplat clair de mise en avant, le bleu porte l'action.                                     | Outfit + Source Sans 3   |
+
+**Recommandation (PROPOSÉ) : Cielo.** C'est la plus claire et la plus simple à tenir : une seule teinte, donc le bleu ne sert qu'à agir et rien ne lui fait concurrence ; elle est accueillante pour les voyageurs et nette au comptoir (A02) ; elle laisse la place aux photos de véhicules. Marina est plus haut de gamme, Voltio plus contrastée et plus « tech », Lagune plus souriante. Le choix revient au fondateur.
+
+### D — « Cielo » (lumineux, aérien, accueillant)
+
+- **Concept** : Le ciel clair du Pacifique et des grandes plaines du Chaco : beaucoup de blanc, un bleu ciel franc qui ne sert qu'à agir, une encre bleu nuit pour lire. Le voyageur se sent attendu, l'agence garde un outil net.
+- **Logique de la palette** : Monochrome nuancé : une seule teinte (bleu ciel, ≈ 203°) déclinée du blanc bleuté (50) à l'encre bleu nuit (900), sans couleur concurrente ; les états gardent leurs couleurs propres.
+- **Logo esquissé** : Un disque bleu ciel porte un K blanc ; dessous, une courbe d'horizon (la route qui s'ouvre). Le mot « Kmino » en Plus Jakarta Sans 800, le K en bleu. SVG clair et sombre dans `tokens-cielo.json → brand.logo` et `brand.logoDark`.
+- **Nuances du bleu** (50 → 900) : 50 `#F0F9FE` · 100 `#DDF1FD` · 200 `#B6E1FB` · 300 `#86CDF9` · 400 `#4CB4F6` · 500 `#169EF3` · 600 `#0B85D0` · 700 `#096CAA` · 800 `#075383` · 900 `#053B5C`.
+- **Nuances neutres** (50 → 900) : 50 `#F7FBFE` · 100 `#EAF4FB` · 200 `#D6E4EE` · 300 `#B4C7D5` · 400 `#7890A2` · 500 `#5E7587` · 600 `#4A6072` · 700 `#344A5B` · 800 `#1E3242` · 900 `#0B1E2D`.
+- **Palette fonctionnelle** :
+
+| Jeton          | Clair     | Sombre    |
+| -------------- | --------- | --------- |
+| primary        | `#096CAA` | `#86CDF9` |
+| on-primary     | `#FFFFFF` | `#06121C` |
+| surface        | `#F7FBFE` | `#0A1622` |
+| surface-raised | `#FFFFFF` | `#112130` |
+| surface-sunken | `#EAF4FB` | `#06101A` |
+| text           | `#0B1E2D` | `#EAF4FB` |
+| text-muted     | `#4A6072` | `#A9BED0` |
+| border         | `#D6E4EE` | `#22374A` |
+| border-strong  | `#7890A2` | `#64819A` |
+| accent         | `#DDF1FD` | `#0E3552` |
+| on-accent      | `#053B5C` | `#D6EEFD` |
+| success        | `#1B6B39` | `#5FD38A` |
+| success-soft   | `#E3F4E9` | `#10271A` |
+| danger         | `#B42318` | `#FF8B7E` |
+| danger-soft    | `#FDE8E6` | `#33171A` |
+| warning        | `#855300` | `#F5B94A` |
+| warning-soft   | `#FCEFD6` | `#2E2410` |
+| focus          | `#096CAA` | `#86CDF9` |
+
+- **Règle d'accent** : L'accent est le bleu 100 (#DDF1FD) : un aplat clair sous texte bleu nuit pour les bandeaux et les sélections, jamais un indicateur seul (1,12:1 avec la surface).
+- **Typographie** : Plus Jakarta Sans 800 (titres) · 400/600 (texte) · chiffres tabulaires.
+- **Ton** (es, tutoiement) : « Tu precio final ya incluye ITBMS. » · « Listo: tu auto te espera el vie. 14 ene. a las 10:00. » · « No pudimos cargar los mostradores. Revisa tu conexión y vuelve a intentarlo. »
+- **Style photo** : Lumière de matin, ciel dégagé, beaucoup d'air autour du véhicule ; vraies personnes au comptoir ; tons naturels, sans filtre bleu ajouté.
+- **Mouvement** : Doux et bref : 140 à 260 ms, courbe ease-out. Les feuilles montent de 12 px en fondu ; aucun rebond. Tout s'arrête avec prefers-reduced-motion.
+- **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 10 contrôles complémentaires dans `contrastChecks`) :
+
+| Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
+| ---------------------------------------------------- | ----- | --------------------- | ------------ | --------------------- | ------------ |
+| texte / surface                                      | 4.5:1 | `#0B1E2D` / `#F7FBFE` | **16.31** OK | `#EAF4FB` / `#0A1622` | **16.36** OK |
+| texte / carte                                        | 4.5:1 | `#0B1E2D` / `#FFFFFF` | **16.97** OK | `#EAF4FB` / `#112130` | **14.67** OK |
+| texte secondaire / surface                           | 4.5:1 | `#4A6072` / `#F7FBFE` | **6.29** OK  | `#A9BED0` / `#0A1622` | **9.53** OK  |
+| texte secondaire / carte                             | 4.5:1 | `#4A6072` / `#FFFFFF` | **6.55** OK  | `#A9BED0` / `#112130` | **8.54** OK  |
+| texte du bouton / primaire                           | 4.5:1 | `#FFFFFF` / `#096CAA` | **5.62** OK  | `#06121C` / `#86CDF9` | **10.90** OK |
+| lien primaire / surface                              | 4.5:1 | `#096CAA` / `#F7FBFE` | **5.40** OK  | `#86CDF9` / `#0A1622` | **10.53** OK |
+| lien primaire / carte                                | 4.5:1 | `#096CAA` / `#FFFFFF` | **5.62** OK  | `#86CDF9` / `#112130` | **9.43** OK  |
+| texte / accent                                       | 4.5:1 | `#053B5C` / `#DDF1FD` | **10.12** OK | `#D6EEFD` / `#0E3552` | **10.61** OK |
+| succès (texte) / carte                               | 4.5:1 | `#1B6B39` / `#FFFFFF` | **6.54** OK  | `#5FD38A` / `#112130` | **8.70** OK  |
+| danger (texte) / carte                               | 4.5:1 | `#B42318` / `#FFFFFF` | **6.57** OK  | `#FF8B7E` / `#112130` | **7.20** OK  |
+| attention (texte) / carte                            | 4.5:1 | `#855300` / `#FFFFFF` | **6.49** OK  | `#F5B94A` / `#112130` | **9.28** OK  |
+| succès / fond succès                                 | 4.5:1 | `#1B6B39` / `#E3F4E9` | **5.73** OK  | `#5FD38A` / `#10271A` | **8.42** OK  |
+| danger / fond danger                                 | 4.5:1 | `#B42318` / `#FDE8E6` | **5.59** OK  | `#FF8B7E` / `#33171A` | **7.23** OK  |
+| attention / fond attention                           | 4.5:1 | `#855300` / `#FCEFD6` | **5.71** OK  | `#F5B94A` / `#2E2410` | **8.66** OK  |
+| bordure de champ / carte                             | 3.0:1 | `#7890A2` / `#FFFFFF` | **3.33** OK  | `#64819A` / `#112130` | **4.01** OK  |
+| anneau de focus / surface                            | 3.0:1 | `#096CAA` / `#F7FBFE` | **5.40** OK  | `#86CDF9` / `#0A1622` | **10.53** OK |
+| anneau de focus / carte                              | 3.0:1 | `#096CAA` / `#FFFFFF` | **5.62** OK  | `#86CDF9` / `#112130` | **9.43** OK  |
+| composant primaire / surface (1.4.11)                | 3.0:1 | `#096CAA` / `#F7FBFE` | **5.40** OK  | `#86CDF9` / `#0A1622` | **10.53** OK |
+| logo : K / pictogramme                               | 3.0:1 | `#FFFFFF` / `#096CAA` | **5.62** OK  | `#06121C` / `#86CDF9` | **10.90** OK |
+| logo : repère / pictogramme                          | 3.0:1 | `#FFFFFF` / `#096CAA` | **5.62** OK  | `#06121C` / `#86CDF9` | **10.90** OK |
+| logotype : K / surface                               | 3.0:1 | `#096CAA` / `#F7FBFE` | **5.40** OK  | `#86CDF9` / `#0A1622` | **10.53** OK |
+| texte / fond en retrait                              | 4.5:1 | `#0B1E2D` / `#EAF4FB` | **15.21** OK | `#EAF4FB` / `#06101A` | **17.17** OK |
+| texte secondaire / fond en retrait                   | 4.5:1 | `#4A6072` / `#EAF4FB` | **5.87** OK  | `#A9BED0` / `#06101A` | **10.00** OK |
+| lien primaire / fond en retrait                      | 4.5:1 | `#096CAA` / `#EAF4FB` | **5.04** OK  | `#86CDF9` / `#06101A` | **11.05** OK |
+| texte / bandeau d'accueil                            | 4.5:1 | `#0B1E2D` / `#DDF1FD` | **14.60** OK | `#EAF4FB` / `#0E3552` | **11.41** OK |
+| lien primaire / bandeau d'accueil                    | 4.5:1 | `#096CAA` / `#DDF1FD` | **4.84** OK  | `#86CDF9` / `#0E3552` | **7.34** OK  |
+| surface / texte (onglet actif)                       | 4.5:1 | `#F7FBFE` / `#0B1E2D` | **16.31** OK | `#0A1622` / `#EAF4FB` | **16.36** OK |
+| texte du bouton / primaire sur fond en retrait (3:1) | 3.0:1 | `#096CAA` / `#EAF4FB` | **5.04** OK  | `#86CDF9` / `#06101A` | **11.05** OK |
+
+_Info : accent / surface = 1.12:1 (clair) et 1.43:1 (sombre) ; border décoratif / carte = 1.30:1 et 1.33:1 (jamais utilisé comme contour)._
+
+### E — « Marina » (sobre, premium, rassurant)
+
+- **Concept** : Le port et la marine marchande : un bleu marine profond pour la confiance, posé sur un blanc cassé chaud couleur sable. Une élégance discrète, qui inspire le sérieux aux loueurs et aux voyageurs d'affaires.
+- **Logique de la palette** : Complémentaire doux : un bleu marine froid (≈ 214°) équilibré par des neutres sable chauds (≈ 40°) ; le sable reste en aplats clairs, le marine porte toute l'action.
+- **Logo esquissé** : Un carré marine aux angles à peine arrondis porte un K fin, souligné d'un trait sable (la ligne de flottaison). « Kmino » en Newsreader 600. SVG clair et sombre dans `tokens-marina.json → brand.logo` et `brand.logoDark`.
+- **Nuances du bleu** (50 → 900) : 50 `#F3F7FC` · 100 `#E2ECF8` · 200 `#C1D6F0` · 300 `#98BAE7` · 400 `#6699DB` · 500 `#397AD0` · 600 `#2A65B2` · 700 `#225291` · 800 `#1A3F70` · 900 `#122C4E`.
+- **Nuances sable** (50 → 900) : 50 `#FBF9F5` · 100 `#F3EEE4` · 200 `#EBD9B0` · 300 `#D9BC7E` · 400 `#BE9A55` · 500 `#9C7A3A` · 600 `#7A5E2B` · 700 `#5A451F` · 800 `#3C2E15` · 900 `#211A0C`.
+- **Palette fonctionnelle** :
+
+| Jeton          | Clair     | Sombre    |
+| -------------- | --------- | --------- |
+| primary        | `#1A3F70` | `#98BAE7` |
+| on-primary     | `#FFFFFF` | `#0B1320` |
+| surface        | `#FBF9F5` | `#0B1320` |
+| surface-raised | `#FFFFFF` | `#141E2E` |
+| surface-sunken | `#F3EEE4` | `#070D17` |
+| text           | `#141B26` | `#F1EEE8` |
+| text-muted     | `#545B66` | `#B5B2AA` |
+| border         | `#E6DFD2` | `#283244` |
+| border-strong  | `#8A8478` | `#757C88` |
+| accent         | `#EBD9B0` | `#D9BC7E` |
+| on-accent      | `#122C4E` | `#0B1320` |
+| success        | `#1B6B39` | `#5FD38A` |
+| success-soft   | `#E3F4E9` | `#10271A` |
+| danger         | `#B42318` | `#FF8B7E` |
+| danger-soft    | `#FDE8E6` | `#33171A` |
+| warning        | `#855300` | `#F5B94A` |
+| warning-soft   | `#FCEFD6` | `#2E2410` |
+| focus          | `#1A3F70` | `#D9BC7E` |
+
+- **Règle d'accent** : Le sable (#EBD9B0) sert d'aplat sous texte marine pour mettre en avant une information (prix final, nouveauté) ; il n'est jamais seul indicateur (1,32:1 avec la surface).
+- **Typographie** : Newsreader 600 (titres) · Inter 400/600 (texte, chiffres tabulaires).
+- **Ton** (es, tutoiement) : « El precio que ves es el que pagas. » · « Tu reserva está confirmada. La agencia te espera el vie. 14 ene. » · « Falta firmar el contrato. Ábrelo y pide la firma al cliente. »
+- **Style photo** : Lumière douce et dorée, cadrages calmes et symétriques ; matières (cuir, tableau de bord) ; fonds urbains réels, peu saturés.
+- **Mouvement** : Posé : 150 à 300 ms, courbe standard, sans rebond ; fondus et glissements courts. Réduit à des fondus si l'utilisateur le demande.
+- **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 10 contrôles complémentaires dans `contrastChecks`) :
+
+| Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
+| ---------------------------------------------------- | ----- | --------------------- | ------------ | --------------------- | ------------ |
+| texte / surface                                      | 4.5:1 | `#141B26` / `#FBF9F5` | **16.44** OK | `#F1EEE8` / `#0B1320` | **16.07** OK |
+| texte / carte                                        | 4.5:1 | `#141B26` / `#FFFFFF` | **17.29** OK | `#F1EEE8` / `#141E2E` | **14.45** OK |
+| texte secondaire / surface                           | 4.5:1 | `#545B66` / `#FBF9F5` | **6.52** OK  | `#B5B2AA` / `#0B1320` | **8.79** OK  |
+| texte secondaire / carte                             | 4.5:1 | `#545B66` / `#FFFFFF` | **6.85** OK  | `#B5B2AA` / `#141E2E` | **7.90** OK  |
+| texte du bouton / primaire                           | 4.5:1 | `#FFFFFF` / `#1A3F70` | **10.56** OK | `#0B1320` / `#98BAE7` | **9.32** OK  |
+| lien primaire / surface                              | 4.5:1 | `#1A3F70` / `#FBF9F5` | **10.04** OK | `#98BAE7` / `#0B1320` | **9.32** OK  |
+| lien primaire / carte                                | 4.5:1 | `#1A3F70` / `#FFFFFF` | **10.56** OK | `#98BAE7` / `#141E2E` | **8.38** OK  |
+| texte / accent                                       | 4.5:1 | `#122C4E` / `#EBD9B0` | **10.08** OK | `#0B1320` / `#D9BC7E` | **10.14** OK |
+| succès (texte) / carte                               | 4.5:1 | `#1B6B39` / `#FFFFFF` | **6.54** OK  | `#5FD38A` / `#141E2E` | **8.90** OK  |
+| danger (texte) / carte                               | 4.5:1 | `#B42318` / `#FFFFFF` | **6.57** OK  | `#FF8B7E` / `#141E2E` | **7.37** OK  |
+| attention (texte) / carte                            | 4.5:1 | `#855300` / `#FFFFFF` | **6.49** OK  | `#F5B94A` / `#141E2E` | **9.50** OK  |
+| succès / fond succès                                 | 4.5:1 | `#1B6B39` / `#E3F4E9` | **5.73** OK  | `#5FD38A` / `#10271A` | **8.42** OK  |
+| danger / fond danger                                 | 4.5:1 | `#B42318` / `#FDE8E6` | **5.59** OK  | `#FF8B7E` / `#33171A` | **7.23** OK  |
+| attention / fond attention                           | 4.5:1 | `#855300` / `#FCEFD6` | **5.71** OK  | `#F5B94A` / `#2E2410` | **8.66** OK  |
+| bordure de champ / carte                             | 3.0:1 | `#8A8478` / `#FFFFFF` | **3.72** OK  | `#757C88` / `#141E2E` | **3.98** OK  |
+| anneau de focus / surface                            | 3.0:1 | `#1A3F70` / `#FBF9F5` | **10.04** OK | `#D9BC7E` / `#0B1320` | **10.14** OK |
+| anneau de focus / carte                              | 3.0:1 | `#1A3F70` / `#FFFFFF` | **10.56** OK | `#D9BC7E` / `#141E2E` | **9.12** OK  |
+| composant primaire / surface (1.4.11)                | 3.0:1 | `#1A3F70` / `#FBF9F5` | **10.04** OK | `#98BAE7` / `#0B1320` | **9.32** OK  |
+| logo : K / pictogramme                               | 3.0:1 | `#FFFFFF` / `#1A3F70` | **10.56** OK | `#0B1320` / `#98BAE7` | **9.32** OK  |
+| logo : repère / pictogramme                          | 3.0:1 | `#EBD9B0` / `#1A3F70` | **7.58** OK  | `#0B1320` / `#98BAE7` | **9.32** OK  |
+| logotype : K / surface                               | 3.0:1 | `#1A3F70` / `#FBF9F5` | **10.04** OK | `#98BAE7` / `#0B1320` | **9.32** OK  |
+| texte / fond en retrait                              | 4.5:1 | `#141B26` / `#F3EEE4` | **14.95** OK | `#F1EEE8` / `#070D17` | **16.81** OK |
+| texte secondaire / fond en retrait                   | 4.5:1 | `#545B66` / `#F3EEE4` | **5.92** OK  | `#B5B2AA` / `#070D17` | **9.19** OK  |
+| lien primaire / fond en retrait                      | 4.5:1 | `#1A3F70` / `#F3EEE4` | **9.13** OK  | `#98BAE7` / `#070D17` | **9.74** OK  |
+| texte / bandeau d'accueil                            | 4.5:1 | `#141B26` / `#F3EEE4` | **14.95** OK | `#F1EEE8` / `#070D17` | **16.81** OK |
+| lien primaire / bandeau d'accueil                    | 4.5:1 | `#1A3F70` / `#F3EEE4` | **9.13** OK  | `#98BAE7` / `#070D17` | **9.74** OK  |
+| surface / texte (onglet actif)                       | 4.5:1 | `#FBF9F5` / `#141B26` | **16.44** OK | `#0B1320` / `#F1EEE8` | **16.07** OK |
+| texte du bouton / primaire sur fond en retrait (3:1) | 3.0:1 | `#1A3F70` / `#F3EEE4` | **9.13** OK  | `#98BAE7` / `#070D17` | **9.74** OK  |
+
+_Info : accent / surface = 1.32:1 (clair) et 10.14:1 (sombre) ; border décoratif / carte = 1.32:1 et 1.30:1 (jamais utilisé comme contour)._
+
+### F — « Voltio » (graphique, rapide, tech)
+
+- **Concept** : Le blanc pur d'un écran bien réglé, un bleu électrique pour chaque action et le noir pour la structure : contraste maximal, lecture immédiate au soleil comme au comptoir.
+- **Logique de la palette** : Achromatique + une seule couleur saturée : blanc, gris et noir neutres (sans teinte) et un bleu électrique (≈ 220°) réservé à l'action ; le noir sert de contraste fort (onglet actif, numéros, focus).
+- **Logo esquissé** : Un carré bleu électrique porte un K blanc épais ; un petit carré noir dans l'angle marque la borne (km). « Kmino » en Archivo 800, le K en bleu. SVG clair et sombre dans `tokens-voltio.json → brand.logo` et `brand.logoDark`.
+- **Nuances du bleu** (50 → 900) : 50 `#F0F5FF` · 100 `#DBE7FF` · 200 `#B2CCFF` · 300 `#80AAFF` · 400 `#4281FF` · 500 `#0A5CFF` · 600 `#0049DB` · 700 `#003BB2` · 800 `#002E8A` · 900 `#002061`.
+- **Nuances neutres** (50 → 900) : 50 `#FFFFFF` · 100 `#F2F3F5` · 200 `#E3E4E8` · 300 `#C6C7CD` · 400 `#8A8B93` · 500 `#6C6D74` · 600 `#55565C` · 700 `#3A3B40` · 800 `#202124` · 900 `#0A0A0B`.
+- **Palette fonctionnelle** :
+
+| Jeton          | Clair     | Sombre    |
+| -------------- | --------- | --------- |
+| primary        | `#0A5CFF` | `#5C8DFF` |
+| on-primary     | `#FFFFFF` | `#0A0A0B` |
+| surface        | `#FFFFFF` | `#0A0A0B` |
+| surface-raised | `#FFFFFF` | `#151517` |
+| surface-sunken | `#F2F3F5` | `#000000` |
+| text           | `#0A0A0B` | `#F4F4F5` |
+| text-muted     | `#55565C` | `#A8A9B0` |
+| border         | `#E3E4E8` | `#2A2B30` |
+| border-strong  | `#0A0A0B` | `#8A8B93` |
+| accent         | `#0A0A0B` | `#F4F4F5` |
+| on-accent      | `#FFFFFF` | `#0A0A0B` |
+| success        | `#1B6B39` | `#5FD38A` |
+| success-soft   | `#E3F4E9` | `#10271A` |
+| danger         | `#B42318` | `#FF8B7E` |
+| danger-soft    | `#FDE8E6` | `#33171A` |
+| warning        | `#855300` | `#F5B94A` |
+| warning-soft   | `#FCEFD6` | `#2E2410` |
+| focus          | `#0A0A0B` | `#5C8DFF` |
+
+- **Règle d'accent** : L'accent est le noir (#0A0A0B) : aplat sous texte blanc pour l'onglet actif et les numéros d'étape. Ce n'est pas une décoration : il marque la sélection et l'ordre.
+- **Typographie** : Archivo 800 (titres) · Archivo 400/600 (texte) · JetBrains Mono 600 (heures, codes).
+- **Ton** (es, tutoiement) : « Total: US$ 181.90. Sin cargos al llegar. » · « Pago confirmado. Entrega las llaves. » · « Falta el contrato. Ábrelo y pide la firma. »
+- **Style photo** : Lumière nette de studio ou de plein jour, fond blanc ou gris réel ; cadrages frontaux et de profil ; contraste franc, plaque floutée.
+- **Mouvement** : Vif et mécanique : 100 à 220 ms, sans rebond ; les états changent par un fondu de couleur. Réduit à des fondus si l'utilisateur le demande.
+- **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 10 contrôles complémentaires dans `contrastChecks`) :
+
+| Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
+| ---------------------------------------------------- | ----- | --------------------- | ------------ | --------------------- | ------------ |
+| texte / surface                                      | 4.5:1 | `#0A0A0B` / `#FFFFFF` | **19.79** OK | `#F4F4F5` / `#0A0A0B` | **18.00** OK |
+| texte / carte                                        | 4.5:1 | `#0A0A0B` / `#FFFFFF` | **19.79** OK | `#F4F4F5` / `#151517` | **16.59** OK |
+| texte secondaire / surface                           | 4.5:1 | `#55565C` / `#FFFFFF` | **7.31** OK  | `#A8A9B0` / `#0A0A0B` | **8.45** OK  |
+| texte secondaire / carte                             | 4.5:1 | `#55565C` / `#FFFFFF` | **7.31** OK  | `#A8A9B0` / `#151517` | **7.79** OK  |
+| texte du bouton / primaire                           | 4.5:1 | `#FFFFFF` / `#0A5CFF` | **5.27** OK  | `#0A0A0B` / `#5C8DFF` | **6.32** OK  |
+| lien primaire / surface                              | 4.5:1 | `#0A5CFF` / `#FFFFFF` | **5.27** OK  | `#5C8DFF` / `#0A0A0B` | **6.32** OK  |
+| lien primaire / carte                                | 4.5:1 | `#0A5CFF` / `#FFFFFF` | **5.27** OK  | `#5C8DFF` / `#151517` | **5.83** OK  |
+| texte / accent                                       | 4.5:1 | `#FFFFFF` / `#0A0A0B` | **19.79** OK | `#0A0A0B` / `#F4F4F5` | **18.00** OK |
+| succès (texte) / carte                               | 4.5:1 | `#1B6B39` / `#FFFFFF` | **6.54** OK  | `#5FD38A` / `#151517` | **9.70** OK  |
+| danger (texte) / carte                               | 4.5:1 | `#B42318` / `#FFFFFF` | **6.57** OK  | `#FF8B7E` / `#151517` | **8.03** OK  |
+| attention (texte) / carte                            | 4.5:1 | `#855300` / `#FFFFFF` | **6.49** OK  | `#F5B94A` / `#151517` | **10.35** OK |
+| succès / fond succès                                 | 4.5:1 | `#1B6B39` / `#E3F4E9` | **5.73** OK  | `#5FD38A` / `#10271A` | **8.42** OK  |
+| danger / fond danger                                 | 4.5:1 | `#B42318` / `#FDE8E6` | **5.59** OK  | `#FF8B7E` / `#33171A` | **7.23** OK  |
+| attention / fond attention                           | 4.5:1 | `#855300` / `#FCEFD6` | **5.71** OK  | `#F5B94A` / `#2E2410` | **8.66** OK  |
+| bordure de champ / carte                             | 3.0:1 | `#0A0A0B` / `#FFFFFF` | **19.79** OK | `#8A8B93` / `#151517` | **5.38** OK  |
+| anneau de focus / surface                            | 3.0:1 | `#0A0A0B` / `#FFFFFF` | **19.79** OK | `#5C8DFF` / `#0A0A0B` | **6.32** OK  |
+| anneau de focus / carte                              | 3.0:1 | `#0A0A0B` / `#FFFFFF` | **19.79** OK | `#5C8DFF` / `#151517` | **5.83** OK  |
+| composant primaire / surface (1.4.11)                | 3.0:1 | `#0A5CFF` / `#FFFFFF` | **5.27** OK  | `#5C8DFF` / `#0A0A0B` | **6.32** OK  |
+| logo : K / pictogramme                               | 3.0:1 | `#FFFFFF` / `#0A5CFF` | **5.27** OK  | `#0A0A0B` / `#5C8DFF` | **6.32** OK  |
+| logo : repère / pictogramme                          | 3.0:1 | `#0A0A0B` / `#0A5CFF` | **3.76** OK  | `#0A0A0B` / `#5C8DFF` | **6.32** OK  |
+| logotype : K / surface                               | 3.0:1 | `#0A5CFF` / `#FFFFFF` | **5.27** OK  | `#5C8DFF` / `#0A0A0B` | **6.32** OK  |
+| texte / fond en retrait                              | 4.5:1 | `#0A0A0B` / `#F2F3F5` | **17.82** OK | `#F4F4F5` / `#000000` | **19.11** OK |
+| texte secondaire / fond en retrait                   | 4.5:1 | `#55565C` / `#F2F3F5` | **6.59** OK  | `#A8A9B0` / `#000000` | **8.97** OK  |
+| lien primaire / fond en retrait                      | 4.5:1 | `#0A5CFF` / `#F2F3F5` | **4.74** OK  | `#5C8DFF` / `#000000` | **6.71** OK  |
+| texte / bandeau d'accueil                            | 4.5:1 | `#0A0A0B` / `#F2F3F5` | **17.82** OK | `#F4F4F5` / `#000000` | **19.11** OK |
+| lien primaire / bandeau d'accueil                    | 4.5:1 | `#0A5CFF` / `#F2F3F5` | **4.74** OK  | `#5C8DFF` / `#000000` | **6.71** OK  |
+| surface / texte (onglet actif)                       | 4.5:1 | `#FFFFFF` / `#0A0A0B` | **19.79** OK | `#0A0A0B` / `#F4F4F5` | **18.00** OK |
+| texte du bouton / primaire sur fond en retrait (3:1) | 3.0:1 | `#0A5CFF` / `#F2F3F5` | **4.74** OK  | `#5C8DFF` / `#000000` | **6.71** OK  |
+
+_Info : accent / surface = 19.79:1 (clair) et 18.00:1 (sombre) ; border décoratif / carte = 1.27:1 et 1.29:1 (jamais utilisé comme contour)._
+
+### G — « Lagune » (frais, tropical, souriant)
+
+- **Concept** : L'eau claire des lagons de Bocas del Toro et un corail tendre : une palette fraîche et souriante, très claire, qui parle aux voyageurs sans faire carte postale.
+- **Logique de la palette** : Complémentaire : un bleu lagon (≈ 196°) et un corail doux (≈ 12°), opposés sur le cercle ; le corail reste un aplat clair de mise en avant, le bleu porte l'action.
+- **Logo esquissé** : Un carré très arrondi bleu lagon porte un K blanc ; dessous, une vague corail. « Kmino » en Outfit 600, le K en bleu. SVG clair et sombre dans `tokens-lagune.json → brand.logo` et `brand.logoDark`.
+- **Nuances du bleu** (50 → 900) : 50 `#F1FAFE` · 100 `#DEF4FC` · 200 `#B8E8F9` · 300 `#89D9F5` · 400 `#50C6F1` · 500 `#1DB5ED` · 600 `#1099CB` · 700 `#0A6F94` · 800 `#0A607F` · 900 `#07445A`.
+- **Nuances corail** (50 → 900) : 50 `#FFF4F1` · 100 `#FFE2DA` · 200 `#FFB8A6` · 300 `#FF9C85` · 400 `#F47A5E` · 500 `#DB5A3D` · 600 `#B5432A` · 700 `#8C321F` · 800 `#5E2214` · 900 `#3A140C`.
+- **Palette fonctionnelle** :
+
+| Jeton          | Clair     | Sombre    |
+| -------------- | --------- | --------- |
+| primary        | `#0A6F94` | `#89D9F5` |
+| on-primary     | `#FFFFFF` | `#06161C` |
+| surface        | `#F5FBFC` | `#08171D` |
+| surface-raised | `#FFFFFF` | `#10242C` |
+| surface-sunken | `#E6F4F7` | `#041015` |
+| text           | `#0E2228` | `#E9F6F8` |
+| text-muted     | `#48626A` | `#A6C1C7` |
+| border         | `#D2E6EA` | `#20383F` |
+| border-strong  | `#6F8C93` | `#5E8088` |
+| accent         | `#FFB8A6` | `#FF9C85` |
+| on-accent      | `#3A140C` | `#2A0D07` |
+| success        | `#1B6B39` | `#5FD38A` |
+| success-soft   | `#E3F4E9` | `#10271A` |
+| danger         | `#B42318` | `#FF8B7E` |
+| danger-soft    | `#FDE8E6` | `#33171A` |
+| warning        | `#855300` | `#F5B94A` |
+| warning-soft   | `#FCEFD6` | `#2E2410` |
+| focus          | `#0A6F94` | `#FF9C85` |
+
+- **Règle d'accent** : Le corail (#FFB8A6) sert d'aplat sous texte foncé pour les badges (« Nuevo », « ITBMS incluido ») ; il n'est jamais seul indicateur (1,59:1 avec la surface).
+- **Typographie** : Outfit 600 (titres) · Source Sans 3 400/700 (texte, chiffres tabulaires).
+- **Ton** (es, tutoiement) : « Elige tu mostrador y sal a la ruta. » · « Cancelación gratuita hasta el jue. 13 ene., 10:00. » · « ¡Listo! Tu reserva está confirmada. »
+- **Style photo** : Lumière tropicale du matin, eau et végétation en arrière-plan ; la voiture en situation (route côtière, Asunción en fin de journée) ; saturation naturelle.
+- **Mouvement** : Vivant mais bref : 160 à 280 ms ; un léger rebond réservé aux confirmations. Réduit à des fondus si l'utilisateur le demande.
+- **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 10 contrôles complémentaires dans `contrastChecks`) :
+
+| Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
+| ---------------------------------------------------- | ----- | --------------------- | ------------ | --------------------- | ------------ |
+| texte / surface                                      | 4.5:1 | `#0E2228` / `#F5FBFC` | **15.72** OK | `#E9F6F8` / `#08171D` | **16.51** OK |
+| texte / carte                                        | 4.5:1 | `#0E2228` / `#FFFFFF` | **16.43** OK | `#E9F6F8` / `#10242C` | **14.50** OK |
+| texte secondaire / surface                           | 4.5:1 | `#48626A` / `#F5FBFC` | **6.22** OK  | `#A6C1C7` / `#08171D` | **9.62** OK  |
+| texte secondaire / carte                             | 4.5:1 | `#48626A` / `#FFFFFF` | **6.50** OK  | `#A6C1C7` / `#10242C` | **8.45** OK  |
+| texte du bouton / primaire                           | 4.5:1 | `#FFFFFF` / `#0A6F94` | **5.65** OK  | `#06161C` / `#89D9F5` | **11.68** OK |
+| lien primaire / surface                              | 4.5:1 | `#0A6F94` / `#F5FBFC` | **5.41** OK  | `#89D9F5` / `#08171D` | **11.57** OK |
+| lien primaire / carte                                | 4.5:1 | `#0A6F94` / `#FFFFFF` | **5.65** OK  | `#89D9F5` / `#10242C` | **10.15** OK |
+| texte / accent                                       | 4.5:1 | `#3A140C` / `#FFB8A6` | **9.85** OK  | `#2A0D07` / `#FF9C85` | **8.93** OK  |
+| succès (texte) / carte                               | 4.5:1 | `#1B6B39` / `#FFFFFF` | **6.54** OK  | `#5FD38A` / `#10242C` | **8.52** OK  |
+| danger (texte) / carte                               | 4.5:1 | `#B42318` / `#FFFFFF` | **6.57** OK  | `#FF8B7E` / `#10242C` | **7.05** OK  |
+| attention (texte) / carte                            | 4.5:1 | `#855300` / `#FFFFFF` | **6.49** OK  | `#F5B94A` / `#10242C` | **9.09** OK  |
+| succès / fond succès                                 | 4.5:1 | `#1B6B39` / `#E3F4E9` | **5.73** OK  | `#5FD38A` / `#10271A` | **8.42** OK  |
+| danger / fond danger                                 | 4.5:1 | `#B42318` / `#FDE8E6` | **5.59** OK  | `#FF8B7E` / `#33171A` | **7.23** OK  |
+| attention / fond attention                           | 4.5:1 | `#855300` / `#FCEFD6` | **5.71** OK  | `#F5B94A` / `#2E2410` | **8.66** OK  |
+| bordure de champ / carte                             | 3.0:1 | `#6F8C93` / `#FFFFFF` | **3.59** OK  | `#5E8088` / `#10242C` | **3.75** OK  |
+| anneau de focus / surface                            | 3.0:1 | `#0A6F94` / `#F5FBFC` | **5.41** OK  | `#FF9C85` / `#08171D` | **8.99** OK  |
+| anneau de focus / carte                              | 3.0:1 | `#0A6F94` / `#FFFFFF` | **5.65** OK  | `#FF9C85` / `#10242C` | **7.89** OK  |
+| composant primaire / surface (1.4.11)                | 3.0:1 | `#0A6F94` / `#F5FBFC` | **5.41** OK  | `#89D9F5` / `#08171D` | **11.57** OK |
+| logo : K / pictogramme                               | 3.0:1 | `#FFFFFF` / `#0A6F94` | **5.65** OK  | `#06161C` / `#89D9F5` | **11.68** OK |
+| logo : repère / pictogramme                          | 3.0:1 | `#FFB8A6` / `#0A6F94` | **3.41** OK  | `#06161C` / `#89D9F5` | **11.68** OK |
+| logotype : K / surface                               | 3.0:1 | `#0A6F94` / `#F5FBFC` | **5.41** OK  | `#89D9F5` / `#08171D` | **11.57** OK |
+| texte / fond en retrait                              | 4.5:1 | `#0E2228` / `#E6F4F7` | **14.59** OK | `#E9F6F8` / `#041015` | **17.43** OK |
+| texte secondaire / fond en retrait                   | 4.5:1 | `#48626A` / `#E6F4F7` | **5.77** OK  | `#A6C1C7` / `#041015` | **10.16** OK |
+| lien primaire / fond en retrait                      | 4.5:1 | `#0A6F94` / `#E6F4F7` | **5.02** OK  | `#89D9F5` / `#041015` | **12.21** OK |
+| texte / bandeau d'accueil                            | 4.5:1 | `#0E2228` / `#E6F4F7` | **14.59** OK | `#E9F6F8` / `#041015` | **17.43** OK |
+| lien primaire / bandeau d'accueil                    | 4.5:1 | `#0A6F94` / `#E6F4F7` | **5.02** OK  | `#89D9F5` / `#041015` | **12.21** OK |
+| surface / texte (onglet actif)                       | 4.5:1 | `#F5FBFC` / `#0E2228` | **15.72** OK | `#08171D` / `#E9F6F8` | **16.51** OK |
+| texte du bouton / primaire sur fond en retrait (3:1) | 3.0:1 | `#0A6F94` / `#E6F4F7` | **5.02** OK  | `#89D9F5` / `#041015` | **12.21** OK |
+
+_Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif / carte = 1.29:1 et 1.30:1 (jamais utilisé comme contour)._
+
+### Contrôle des palettes claires
+
+- **Contrastes** : 4 × (18 paires + 10 contrôles complémentaires) × 2 thèmes = **224 paires, toutes conformes** (4,5:1 pour le texte ; 3:1 pour contours, focus et logo). Les contrôles complémentaires couvrent le logo (K et repère sur le pictogramme, K du logotype sur la surface), les fonds en retrait, le bandeau d'accueil et l'onglet actif.
+- **Teintes** : bleus principaux entre 196° et 222° (clair et sombre) ; aucun jeton dans la zone 230° à 300°.
+- **Anti-Turo** : Cielo : Bleu ciel #096CAA (≈ 203°) : ni violet ni indigo. Disque et courbe d'horizon. Recherche dans une carte posée sur un bandeau clair, sans photo plein écran. Marina : Marine #1A3F70 (≈ 214°) et sable (≈ 40°) : ni violet ni indigo. Carré à trait fin et mot-symbole serif. Titre éditorial, sans photo plein écran ni barre en pilule. Voltio : Bleu électrique #0A5CFF (≈ 220°), en dehors de la zone 230°–300° exclue. Carré à angles vifs. Étapes numérotées, sans photo plein écran ni barre en pilule. Lagune : Bleu lagon #0A6F94 (≈ 196°) et corail (≈ 12°) : ni violet ni indigo. Carré arrondi et vague. Carte de recherche sur fond d'eau claire, sans photo plein écran. Aucune note en étoiles ni badge d'hôte ; prix final et caution avant les avis.
+- **Proximités à vérifier** : Marina est dans la famille du marine de grands sites de voyage (Booking, par exemple) et Voltio près de leur bleu d'action ; Lagune s'éloigne du vert de Localiza, Europcar et Enterprise. À regarder côte à côte avant de choisir, sans rien copier.
+- **Cibles tactiles** : la page `presentation.html` passe à 48 px au moins pour ses onglets, ses boutons de thème, ses puces de lieu, ses liens « ver condiciones » et ses résumés dépliables (remarque 3 de la revue UX du 2026-11-02) ; mesure à 360 px : aucun élément interactif sous 48 × 48 px.
 
 ---
 
@@ -148,7 +453,7 @@ Réseaux sociaux : **non vérifiés pour les dix noms**, voir le §2. Marques : 
 - **Puente** et **Norte** : `.com.pa` est actif, et les mots sont trop génériques.
 - **Rueda** : nom de code ; c'est aussi une appellation de vin espagnole, et la marque serait faible.
 
-### 3.1 Classement et recommandation
+### 3.1 Classement et recommandation (31 octobre, pour mémoire : le fondateur a choisi Kmino le 2026-11-02)
 
 Notes sur 5 (5 = meilleur). La « disponibilité » considère qu'un `.lat`, un ccTLD sans DNS et un repli `.com` libres valent mieux que l'absence de domaine.
 
@@ -173,7 +478,9 @@ Notes sur 5 (5 = meilleur). La « disponibilité » considère qu'un `.lat`, un 
 
 ---
 
-## 4. Trois directions visuelles
+## 4. Trois directions visuelles (31 octobre, écartées par le fondateur le 2026-11-02)
+
+> **Écartées** : le fondateur a jugé ces trois directions trop sombres le 2026-11-02. Elles restent ici pour mémoire ; les directions en cours sont dans « Palettes claires (2026-11-02) ».
 
 Chaque direction est montrée dans `presentation.html` sur **S01** (accueil et recherche), **S03** (fiche véhicule) et **A02** (« Hoy en mostrador »), dans des cadres de téléphone de 360 px, en thème clair et en thème sombre (bouton en haut de la page). Les maquettes appliquent 10b : prix final avec ITBMS dès le départ, bloc « Depósito de garantía » qui nomme l'agence (UX-21, version Bêta), annulation en dates (UX-54), règle des 90 jours en texte fixe (UX-35 Bêta), une seule barre d'action en bas (UX-05), quatre statuts de comptoir (UX-39), aucun bouton désactivé (le bouton « Ver qué falta » remplace un bouton grisé, conformément à UX-50), cibles tactiles de 48 px au moins, et des statuts toujours accompagnés d'une icône et d'un texte (UX-48). Les noms d'agence et de client et les montants sont fictifs.
 
@@ -367,21 +674,22 @@ Le relecteur UX indépendant devra confirmer ce contrôle visuellement.
 
 ## 7. Grille de choix du fondateur
 
-**Choisir 1 nom + 1 direction.** Les combinaisons sont libres.
+**Le nom est choisi (Kmino). Il reste à choisir 1 direction** parmi les quatre palettes claires.
 
-| Choix       | Options                                                                                        | Recommandation                                                                                                                                                                                                |
-| ----------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nom         | Yave · Tramo · Volante · Pista · Senda · Faro · Rumbo · Tranqui · Marcha · Jaha · un autre nom | **Yave**                                                                                                                                                                                                      |
-| Direction   | A « Tierra firme » · B « Señal » · C « Istmo »                                                 | Selon votre préférence. **Señal** sert le mieux le comptoir et les loueurs ; **Istmo** est la plus mémorable pour les voyageurs et la plus forte en accessibilité ; **Tierra firme** est la plus chaleureuse. |
-| Ajustements | Couleur, police, nom en minuscules ou en capitales, etc.                                       | Possibles sans développement après US-030 et US-034                                                                                                                                                           |
+| Choix       | Options                                                     | Recommandation                                                                                                                                                                  |
+| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nom         | **Kmino** (tranché le 2026-11-02)                           | Acquis ; F-20 avant publication                                                                                                                                                 |
+| Direction   | D « Cielo » · E « Marina » · F « Voltio » · G « Lagune »    | **Cielo** (PROPOSÉ) : la plus claire, une seule teinte, le bleu ne sert qu'à agir. **Marina** est la plus premium, **Voltio** la plus contrastée, **Lagune** la plus souriante. |
+| Ajustements | Nuance du bleu, police, accent, rayons, etc.                | Possibles sans développement après US-030 et US-034                                                                                                                             |
+| Écartées    | A « Tierra firme » · B « Señal » · C « Istmo » (31 octobre) | Écartées par le fondateur le 2026-11-02 (trop sombres)                                                                                                                          |
 
-**Défaut en attendant le choix (DEC-MARQUE)** : le nom reste le paramètre **`{brand_name}`** et l'application utilise un **thème neutre accessible**. US-030 peut démarrer avec ce thème et basculer ensuite sans développement.
+**Défaut en attendant le choix (DEC-MARQUE)** : `{brand_name}` = `Kmino` ; direction **Cielo** (PROPOSÉ, `tokens-cielo.json`). US-030 peut démarrer avec ces jetons et basculer ensuite vers une autre palette sans développement.
 
 **Après le choix** :
 
-1. Consigner le choix dans le journal des décisions (DEC-MARQUE, alimente US-030).
+1. Consigner la direction dans le journal des décisions (DEC-MARQUE, alimente US-030).
 2. **F-20 (fondateur)** : recherche d'antériorité DIGERPI et DINAPI (classes 39, 35 et 42), achat des domaines (`.lat`, `.com.pa`, `.com.py` et le repli `.com`), réservation des comptes Instagram et TikTok, **avant** toute publication du nom.
-3. Faire relire le nom et la microcopie par une personne panaméenne et une personne paraguayenne (et, pour Jaha, par un locuteur guarani).
+3. Faire relire la microcopie et la prononciation de Kmino par une personne panaméenne et une personne paraguayenne.
 
 ---
 
@@ -392,3 +700,4 @@ Le relecteur UX indépendant devra confirmer ce contrôle visuellement.
 - Identité de Turo décrite de mémoire et d'après des sources secondaires. L'exclusion de toute la zone violet-indigo couvre ce doute.
 - Le sens de « Jaha » et la prononciation de « Yave » au Paraguay restent à valider auprès de locuteurs.
 - Maquettes : elles ne sont pas testées avec un lecteur d'écran, et le rendu des polices dépend du chargement de Google Fonts.
+- Palettes claires : les contrastes des états de survol et d'appui, de la photo sous le badge « 1 / 12 fotos » et du texte agrandi à 200 % restent à vérifier (US-030, US-032). La proximité de Marina et de Voltio avec les bleus de grands sites de voyage est une impression, pas une étude.
