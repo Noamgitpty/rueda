@@ -3,11 +3,11 @@
 - **Story** : US-028 (epic E16, DSN-001), lot 0
 - **Rôle** : agent DESIGN
 - **Date** : 2026-10-31
-- **Statut** : nom **Kmino** tranché par le fondateur le 2026-11-02 (DEC-MARQUE). Direction : **à choisir** parmi les quatre palettes claires du 2026-11-02 (Cielo, Marina, Voltio, Lagune) ; **Cielo** est le défaut **PROPOSÉ** en attendant. Tierra firme, Señal et Istmo ont été écartées par le fondateur le 2026-11-02 (« trop sombre »). Voir « Choix du fondateur (2026-11-02) » et « Palettes claires (2026-11-02) ».
+- **Statut** : nom **Kmino** tranché par le fondateur le 2026-11-02 (DEC-MARQUE). Direction : **à choisir** parmi les quatre palettes claires du 2026-11-02 (Cielo, Marina, Voltio, Lagune) et les trois variantes « blanc épuré » Lienzo (Tinta, Azur, Grafito) ; **Cielo** est le défaut **PROPOSÉ** en attendant. Tierra firme, Señal et Istmo ont été écartées par le fondateur le 2026-11-02 (« trop sombre »). Voir « Choix du fondateur (2026-11-02) » et « Palettes claires (2026-11-02) ».
 - **Références** : 19 §1.6 et US-028 ; 10b §2, §3.0 (principe 8 « identité propre »), §3.3, §3.10, §4 (S01, S03, A02), §8 ; 12 §1.5 et §10 ; 13 (concurrence).
-- **Fichiers** : ce document ; `presentation.html` (page visuelle avec les maquettes) ; `tokens-cielo.json`, `tokens-marina.json`, `tokens-voltio.json` et `tokens-lagune.json` (palettes claires, jetons prêts pour US-030) ; `tokens-tierra-firme.json`, `tokens-senal.json` et `tokens-istmo.json` (anciennes directions, écartées, gardées pour mémoire).
+- **Fichiers** : ce document ; `presentation.html` (page visuelle avec les maquettes) ; `tokens-cielo.json`, `tokens-marina.json`, `tokens-voltio.json` et `tokens-lagune.json` (palettes claires, jetons prêts pour US-030) ; `tokens-lienzo-tinta.json`, `tokens-lienzo-azur.json` et `tokens-lienzo-grafito.json` (famille blanc épuré) ; `tokens-tierra-firme.json`, `tokens-senal.json` et `tokens-istmo.json` (anciennes directions, écartées, gardées pour mémoire).
 
-> **En 30 secondes.** Le nom est choisi : **Kmino**. Il reste à choisir la direction visuelle. Après le retour du fondateur du 2026-11-02 (« trop sombre »), quatre palettes claires sont proposées : **Cielo** (monochrome bleu ciel, lumineux), **Marina** (bleu marine et sable, sobre et premium), **Voltio** (blanc, bleu électrique et noir, graphique) et **Lagune** (bleu lagon et corail, frais). Nous recommandons **Cielo** (PROPOSÉ). Pour voir les écrans, ouvrez `presentation.html` : un sélecteur passe d'une direction à l'autre. Les dix noms et les trois anciennes directions restent plus bas pour mémoire.
+> **En 30 secondes.** Le nom est choisi : **Kmino**. Il reste à choisir la direction visuelle. Après le retour du fondateur du 2026-11-02 (« trop sombre »), quatre palettes claires sont proposées : **Cielo** (monochrome bleu ciel, lumineux), **Marina** (bleu marine et sable, sobre et premium), **Voltio** (blanc, bleu électrique et noir, graphique) et **Lagune** (bleu lagon et corail, frais). À la demande du fondateur, trois variantes **blanc épuré** s'y ajoutent : **Lienzo · Tinta** (encre bleu nuit), **Lienzo · Azur** (bleu azur doux) et **Lienzo · Grafito** (graphite et titres serif). Nous recommandons **Cielo** par défaut (PROPOSÉ). Les maquettes montrent aussi que Kmino est une **place de marché** (voir « Positionnement marketplace »). Pour voir les écrans, ouvrez `presentation.html` : un sélecteur passe d'une direction à l'autre. Les dix noms et les trois anciennes directions restent plus bas pour mémoire.
 
 ---
 
@@ -37,13 +37,13 @@ Kmino ne figurait pas parmi les dix noms du §3. Il remplace Yave, Tramo et Vola
 
 Le fondateur connaît ces risques et a choisi le nom en les acceptant.
 
-| Risque                                          | Parade proposée                                                                                                                                                                                                                                     |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lecture « que-mino » (en SMS, _k_ se lit _que_) | Donner la prononciation là où le nom apparaît pour la première fois (accueil, page « Quiénes somos », dossier de presse) ; pictogramme qui isole le _K_ ; tout message parlé (vidéo, comptoir) dit « ka-MI-no ».                                    |
-| Recherche orale de « camino »                   | _Camino_ est un mot du dictionnaire, impossible à protéger : viser plutôt le référencement sur « camino alquiler de autos » et sur les fautes « kamino » et « k-mino ». Rediriger les domaines `k-mino.*` vers `kmino.*`.                           |
-| Le tiret embrouille domaines et pseudos         | Un seul identifiant, `kmino`, partout. Acheter aussi les variantes `k-mino` disponibles et les rediriger.                                                                                                                                           |
-| Le nom évoque la route plus que la location     | Un slogan qui dit la location, en espagnol neutre et au tutoiement, par exemple « Kmino · Alquila tu auto, precio final » ou « Kmino · Alquiler de autos en Panamá y Paraguay ». À relire par une personne panaméenne et une personne paraguayenne. |
-| Homonymes existants (voir ci-dessous)           | Aucun conflit trouvé dans la location de véhicules. Les homonymes sont dans d'autres secteurs, mais l'un d'eux (une application de sport avec suivi GPS) touche à la mobilité : à examiner pendant F-20.                                            |
+| Risque                                          | Parade proposée                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lecture « que-mino » (en SMS, _k_ se lit _que_) | Donner la prononciation là où le nom apparaît pour la première fois (accueil, page « Quiénes somos », dossier de presse) ; pictogramme qui isole le _K_ ; tout message parlé (vidéo, comptoir) dit « ka-MI-no ».                                                                            |
+| Recherche orale de « camino »                   | _Camino_ est un mot du dictionnaire, impossible à protéger : viser plutôt le référencement sur « camino alquiler de autos » et sur les fautes « kamino » et « k-mino ». Rediriger les domaines `k-mino.*` vers `kmino.*`.                                                                   |
+| Le tiret embrouille domaines et pseudos         | Un seul identifiant, `kmino`, partout. Acheter aussi les variantes `k-mino` disponibles et les rediriger.                                                                                                                                                                                   |
+| Le nom évoque la route plus que la location     | Une signature qui dit la place de marché, en espagnol neutre : « Kmino · Compara agencias. Reserva con una. » (voir « Positionnement marketplace »). Les anciennes idées « Alquila tu auto… » sont abandonnées : elles laissaient croire que Kmino loue. À relire au Panama et au Paraguay. |
+| Homonymes existants (voir ci-dessous)           | Aucun conflit trouvé dans la location de véhicules. Les homonymes sont dans d'autres secteurs, mais l'un d'eux (une application de sport avec suivi GPS) touche à la mobilité : à examiner pendant F-20.                                                                                    |
 
 ### Recherche rapide d'homonymes (2026-11-02)
 
@@ -79,9 +79,9 @@ Contrôles témoins refaits : `qzxwvk9.com` renvoie 404 et `google.com` renvoie 
 
 ### Points pour le fondateur
 
-1. Choisir la direction parmi les quatre palettes claires (**Cielo** recommandée) : le nom fonctionne avec les quatre.
+1. Choisir la direction parmi les quatre palettes claires et les trois variantes Lienzo (**Cielo** reste le défaut PROPOSÉ) : le nom fonctionne avec les sept.
 2. F-20, avant toute publication : DIGERPI et DINAPI (classes 39, 35 et 42), achat des domaines ci-dessus, pseudos Instagram et TikTok `kmino`.
-3. Choisir un slogan qui dit la location (deux propositions plus haut), puis le faire relire au Panama et au Paraguay.
+3. Choisir la signature parmi les trois options de « Positionnement marketplace » (la 1 est recommandée), puis la faire relire au Panama et au Paraguay.
 4. Décider s'il faut tenter de racheter `kmino.com` (à vendre, prix inconnu).
 
 ---
@@ -384,10 +384,279 @@ _Info : accent / surface = 1.59:1 (clair) et 8.99:1 (sombre) ; border décoratif
 ### Contrôle des palettes claires
 
 - **Contrastes** : 4 × (18 paires + 10 contrôles complémentaires) × 2 thèmes = **224 paires, toutes conformes** (4,5:1 pour le texte ; 3:1 pour contours, focus et logo). Les contrôles complémentaires couvrent le logo (K et repère sur le pictogramme, K du logotype sur la surface), les fonds en retrait, le bandeau d'accueil et l'onglet actif.
-- **Teintes** : bleus principaux entre 196° et 222° (clair et sombre) ; aucun jeton dans la zone 230° à 300°.
+- **Teintes** : bleus principaux entre 196° et 222° (clair et sombre) ; aucun jeton saturé dans la zone 230° à 300° (les gris quasi neutres de Voltio y ont une teinte nominale, à 4 ou 5 % de saturation ; revue code du 2026-11-03, remarque 7).
 - **Anti-Turo** : Cielo : Bleu ciel #096CAA (≈ 203°) : ni violet ni indigo. Disque et courbe d'horizon. Recherche dans une carte posée sur un bandeau clair, sans photo plein écran. Marina : Marine #1A3F70 (≈ 214°) et sable (≈ 40°) : ni violet ni indigo. Carré à trait fin et mot-symbole serif. Titre éditorial, sans photo plein écran ni barre en pilule. Voltio : Bleu électrique #0A5CFF (≈ 220°), en dehors de la zone 230°–300° exclue. Carré à angles vifs. Étapes numérotées, sans photo plein écran ni barre en pilule. Lagune : Bleu lagon #0A6F94 (≈ 196°) et corail (≈ 12°) : ni violet ni indigo. Carré arrondi et vague. Carte de recherche sur fond d'eau claire, sans photo plein écran. Aucune note en étoiles ni badge d'hôte ; prix final et caution avant les avis.
 - **Proximités à vérifier** : Marina est dans la famille du marine de grands sites de voyage (Booking, par exemple) et Voltio près de leur bleu d'action ; Lagune s'éloigne du vert de Localiza, Europcar et Enterprise. À regarder côte à côte avant de choisir, sans rien copier.
 - **Cibles tactiles** : la page `presentation.html` passe à 48 px au moins pour ses onglets, ses boutons de thème, ses puces de lieu, ses liens « ver condiciones » et ses résumés dépliables (remarque 3 de la revue UX du 2026-11-02) ; mesure à 360 px : aucun élément interactif sous 48 × 48 px.
+
+## Blanc épuré (2026-11-02) : famille « Lienzo », trois variantes
+
+**Retour du fondateur (2026-11-02)** : « pourquoi t'en as fait aucun sur fond blanc épuré ? », puis « je veux plusieurs variations de blanc épuré ». C'est exact : Cielo, Marina et Lagune ont un fond teinté, et Voltio a un fond blanc, mais saturé (bleu électrique, aplats noirs). La famille **Lienzo** (« toile » en espagnol : la toile blanche avant la première touche de couleur) répond à cette demande avec trois variantes.
+
+**Base commune aux trois** : fond **blanc pur `#FFFFFF`** partout (page, cartes, barre d'action) ; gris neutres très pâles seulement pour séparer (`#F6F7F8` en retrait, filets `#E6E7E9` de 1 px) ; texte **noir doux `#17181B`** (pas `#000`) et texte secondaire `#575A60` ; contours de champs `#8A8D93` (3,33:1) ; ombres quasi nulles ; beaucoup d'espace ; une seule couleur, rare, réservée à l'action (bouton Reservar, liens, élément sélectionné). L'onglet actif est un **soulignement** de 2 px dans la couleur d'action, pas un aplat. Les états (succès, danger, attention) gardent les couleurs communes à toutes les directions. Thème sombre fourni (fond `#111214`, cartes `#191A1D`, texte `#EDEEF0`).
+
+**Nom** : « Lienzo » est un mot courant de l'espagnol ; nous ne connaissons pas de marque notoire de ce nom dans la location, le voyage ou la mobilité. Ce n'est qu'un nom de travail de la palette (la marque reste Kmino) ; aucune recherche en base de marques n'a été faite, et il n'y en a pas besoin tant qu'il ne sort pas de ce dossier.
+
+| Variante             | Couleur d'action (clair / sombre) | Liens, onglet actif, focus | Logique de la palette                                                                                                                                                                                                                        | Police                                                                               |
+| -------------------- | --------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Lienzo · Tinta**   | `#1D3461` / `#A9C1EA`             | `#1D3461` / `#A9C1EA`      | Blanc + gris neutres + une encre bleu nuit (≈ 220°, désaturée) : la couleur n'apparaît que là où l'on agit ; les zones sont séparées par des filets gris de 1 px et de l'espace, pas par des aplats.                                         | Manrope seule : 700 (titres) · 400/600 (texte) · chiffres tabulaires                 |
+| **Lienzo · Azur**    | `#1E6AC2` / `#7DB4F5`             | `#1E6AC2` / `#7DB4F5`      | Blanc + gris neutres + un bleu azur moyen (≈ 213°, saturation modérée) : un seul bleu pour l'action, ses nuances pâles pour les pastilles ; aucun fond teinté, aucun noir en aplat.                                                          | Manrope seule : 600 (titres) · 400/600 (texte) · chiffres tabulaires                 |
+| **Lienzo · Grafito** | `#2A2C30` / `#E8E9EB`             | `#2563C9` / `#7FAEF5`      | Monochrome : blanc, gris et graphite (#2A2C30) pour le bouton ; un seul bleu (≈ 217°) réduit à des traits (liens, soulignement de l'onglet actif, anneau de focus, point du logo). La hiérarchie vient de la typographie, pas de la couleur. | Source Serif 4 600 (titres seulement) · Manrope 400/600 (texte, chiffres tabulaires) |
+
+**Pourquoi elles diffèrent de Cielo et de Voltio** : Cielo teinte tout en bleu ciel (fond `#F7FBFE`, gris bleutés, bandeau bleu `#DDF1FD` sous le titre) ; Lienzo n'a **aucun fond teinté** et des gris neutres, et le bleu n'apparaît que sur ce qui se touche. Voltio crie (bleu électrique `#0A5CFF` à 100 % de saturation, bordures et onglet noirs en aplat, chiffres monospace) ; Lienzo chuchote (bleus désaturés, filets gris de 1 px, aucun aplat noir). **Entre elles** : Tinta est la plus élégante (encre bleu nuit, presque noire, 12,24:1) ; Azur est la plus fraîche et la plus proche de l'esprit Cielo, mais sur blanc pur ; Grafito est presque monochrome (bouton graphite) et tient sa voix par des titres en serif, avec un bleu réduit à des traits. Tinta reste proche du marine de **Marina** par la teinte (220° contre 214°), mais sans sable ni serif et sur blanc pur.
+
+### H1 — « Lienzo · Tinta » (élégant, sûr)
+
+- **Concept** : La page blanche et l'encre : un fond blanc pur, du texte noir doux et une seule encre bleu nuit, rare, posée sur le bouton Reservar, les liens et la sélection. Le calme d'un document bien composé.
+- **Logique de la palette** : Blanc + gris neutres + une encre bleu nuit (≈ 220°, désaturée) : la couleur n'apparaît que là où l'on agit ; les zones sont séparées par des filets gris de 1 px et de l'espace, pas par des aplats.
+- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est à l'encre bleu nuit, K et point blancs. « Kmino » en Manrope 700, le K à l'encre. SVG clair et sombre dans `tokens-lienzo-tinta.json → brand.logo` et `brand.logoDark`.
+- **Nuances du bleu** (50 → 900) : 50 `#EEF2F9` · 100 `#E5EAF5` · 200 `#C8D3EA` · 300 `#A9C1EA` · 400 `#7692CB` · 500 `#4E72BC` · 600 `#3C5D9F` · 700 `#314C81` · 800 `#1D3461` · 900 `#1B2946`.
+- **Nuances neutres** (50 → 900, communes à la famille) : 50 `#F6F7F8` · 100 `#F1F2F3` · 200 `#E6E7E9` · 300 `#D0D2D5` · 400 `#8A8D93` · 500 `#6E7177` · 600 `#575A60` · 700 `#3E4146` · 800 `#2A2C30` · 900 `#17181B`.
+- **Palette fonctionnelle** :
+
+| Jeton          | Clair     | Sombre    |
+| -------------- | --------- | --------- |
+| primary        | `#1D3461` | `#A9C1EA` |
+| on-primary     | `#FFFFFF` | `#111214` |
+| surface        | `#FFFFFF` | `#111214` |
+| surface-raised | `#FFFFFF` | `#191A1D` |
+| surface-sunken | `#F6F7F8` | `#0B0C0D` |
+| text           | `#17181B` | `#EDEEF0` |
+| text-muted     | `#575A60` | `#A4A7AD` |
+| border         | `#E6E7E9` | `#2A2C30` |
+| border-strong  | `#8A8D93` | `#767A80` |
+| accent         | `#EEF2F9` | `#1A2438` |
+| on-accent      | `#1D3461` | `#DCE6F7` |
+| success        | `#1B6B39` | `#5FD38A` |
+| success-soft   | `#E3F4E9` | `#10271A` |
+| danger         | `#B42318` | `#FF8B7E` |
+| danger-soft    | `#FDE8E6` | `#33171A` |
+| warning        | `#855300` | `#F5B94A` |
+| warning-soft   | `#FCEFD6` | `#2E2410` |
+| focus          | `#1D3461` | `#A9C1EA` |
+
+- **Règle d'accent** : L'accent est le bleu 50 (#EEF2F9) : un voile à peine visible sous texte encre, réservé aux pastilles et au surlignage ; jamais un aplat de section ni un indicateur seul.
+- **Typographie** : Manrope seule : 700 (titres) · 400/600 (texte) · chiffres tabulaires.
+- **Ton** (es, tutoiement) : « Precio final, con ITBMS incluido. » · « Reserva confirmada. Te esperamos el vie. 14 ene., 10:00. » · « Falta el pago. Cóbralo antes de entregar las llaves. »
+- **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 13 contrôles complémentaires dans `contrastChecks`) :
+
+| Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
+| ---------------------------------------------------- | ----- | --------------------- | ------------ | --------------------- | ------------ |
+| texte / surface                                      | 4.5:1 | `#17181B` / `#FFFFFF` | **17.75** OK | `#EDEEF0` / `#111214` | **16.14** OK |
+| texte / carte                                        | 4.5:1 | `#17181B` / `#FFFFFF` | **17.75** OK | `#EDEEF0` / `#191A1D` | **14.99** OK |
+| texte secondaire / surface                           | 4.5:1 | `#575A60` / `#FFFFFF` | **6.92** OK  | `#A4A7AD` / `#111214` | **7.77** OK  |
+| texte secondaire / carte                             | 4.5:1 | `#575A60` / `#FFFFFF` | **6.92** OK  | `#A4A7AD` / `#191A1D` | **7.22** OK  |
+| texte du bouton / primaire                           | 4.5:1 | `#FFFFFF` / `#1D3461` | **12.24** OK | `#111214` / `#A9C1EA` | **10.27** OK |
+| lien primaire / surface                              | 4.5:1 | `#1D3461` / `#FFFFFF` | **12.24** OK | `#A9C1EA` / `#111214` | **10.27** OK |
+| lien primaire / carte                                | 4.5:1 | `#1D3461` / `#FFFFFF` | **12.24** OK | `#A9C1EA` / `#191A1D` | **9.53** OK  |
+| texte / accent                                       | 4.5:1 | `#1D3461` / `#EEF2F9` | **10.90** OK | `#DCE6F7` / `#1A2438` | **12.34** OK |
+| succès (texte) / carte                               | 4.5:1 | `#1B6B39` / `#FFFFFF` | **6.54** OK  | `#5FD38A` / `#191A1D` | **9.26** OK  |
+| danger (texte) / carte                               | 4.5:1 | `#B42318` / `#FFFFFF` | **6.57** OK  | `#FF8B7E` / `#191A1D` | **7.66** OK  |
+| attention (texte) / carte                            | 4.5:1 | `#855300` / `#FFFFFF` | **6.49** OK  | `#F5B94A` / `#191A1D` | **9.88** OK  |
+| succès / fond succès                                 | 4.5:1 | `#1B6B39` / `#E3F4E9` | **5.73** OK  | `#5FD38A` / `#10271A` | **8.42** OK  |
+| danger / fond danger                                 | 4.5:1 | `#B42318` / `#FDE8E6` | **5.59** OK  | `#FF8B7E` / `#33171A` | **7.23** OK  |
+| attention / fond attention                           | 4.5:1 | `#855300` / `#FCEFD6` | **5.71** OK  | `#F5B94A` / `#2E2410` | **8.66** OK  |
+| bordure de champ / carte                             | 3.0:1 | `#8A8D93` / `#FFFFFF` | **3.33** OK  | `#767A80` / `#191A1D` | **4.03** OK  |
+| anneau de focus / surface                            | 3.0:1 | `#1D3461` / `#FFFFFF` | **12.24** OK | `#A9C1EA` / `#111214` | **10.27** OK |
+| anneau de focus / carte                              | 3.0:1 | `#1D3461` / `#FFFFFF` | **12.24** OK | `#A9C1EA` / `#191A1D` | **9.53** OK  |
+| composant primaire / surface (1.4.11)                | 3.0:1 | `#1D3461` / `#FFFFFF` | **12.24** OK | `#A9C1EA` / `#111214` | **10.27** OK |
+| logo : K / pictogramme                               | 3.0:1 | `#FFFFFF` / `#1D3461` | **12.24** OK | `#111214` / `#A9C1EA` | **10.27** OK |
+| logo : repère / pictogramme                          | 3.0:1 | `#FFFFFF` / `#1D3461` | **12.24** OK | `#111214` / `#A9C1EA` | **10.27** OK |
+| logotype : K / surface                               | 3.0:1 | `#1D3461` / `#FFFFFF` | **12.24** OK | `#A9C1EA` / `#111214` | **10.27** OK |
+| texte / fond en retrait                              | 4.5:1 | `#17181B` / `#F6F7F8` | **16.55** OK | `#EDEEF0` / `#0B0C0D` | **16.86** OK |
+| texte secondaire / fond en retrait                   | 4.5:1 | `#575A60` / `#F6F7F8` | **6.45** OK  | `#A4A7AD` / `#0B0C0D` | **8.12** OK  |
+| lien primaire / fond en retrait                      | 4.5:1 | `#1D3461` / `#F6F7F8` | **11.41** OK | `#A9C1EA` / `#0B0C0D` | **10.72** OK |
+| texte / bandeau d'accueil                            | 4.5:1 | `#17181B` / `#F6F7F8` | **16.55** OK | `#EDEEF0` / `#0B0C0D` | **16.86** OK |
+| lien primaire / bandeau d'accueil                    | 4.5:1 | `#1D3461` / `#F6F7F8` | **11.41** OK | `#A9C1EA` / `#0B0C0D` | **10.72** OK |
+| surface / texte (onglet actif)                       | 4.5:1 | `#FFFFFF` / `#17181B` | **17.75** OK | `#111214` / `#EDEEF0` | **16.14** OK |
+| texte du bouton / primaire sur fond en retrait (3:1) | 3.0:1 | `#1D3461` / `#F6F7F8` | **11.41** OK | `#A9C1EA` / `#0B0C0D` | **10.72** OK |
+| lien et onglet actif (focus) / carte                 | 4.5:1 | `#1D3461` / `#FFFFFF` | **12.24** OK | `#A9C1EA` / `#191A1D` | **9.53** OK  |
+| lien et onglet actif (focus) / fond en retrait       | 4.5:1 | `#1D3461` / `#F6F7F8` | **11.41** OK | `#A9C1EA` / `#0B0C0D` | **10.72** OK |
+| logo : point / pictogramme (rappel)                  | 3.0:1 | `#FFFFFF` / `#1D3461` | **12.24** OK | `#111214` / `#A9C1EA` | **10.27** OK |
+
+### H2 — « Lienzo · Azur » (frais, ouvert)
+
+- **Concept** : Le même blanc pur, avec un bleu azur vif mais doux : l'air d'un matin clair. Plus accueillant que Tinta, plus calme que Voltio ; le bleu reste rare et signale ce qui se touche.
+- **Logique de la palette** : Blanc + gris neutres + un bleu azur moyen (≈ 213°, saturation modérée) : un seul bleu pour l'action, ses nuances pâles pour les pastilles ; aucun fond teinté, aucun noir en aplat.
+- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est azur, K et point blancs. « Kmino » en Manrope 600, le K en azur. SVG clair et sombre dans `tokens-lienzo-azur.json → brand.logo` et `brand.logoDark`.
+- **Nuances du bleu** (50 → 900) : 50 `#EAF2FC` · 100 `#E0ECFA` · 200 `#BDD6F4` · 300 `#7DB4F5` · 400 `#5D9AE5` · 500 `#2C7CDD` · 600 `#1F66BD` · 700 `#1E6AC2` · 800 `#134076` · 900 `#0E2D53`.
+- **Nuances neutres** (50 → 900, communes à la famille) : 50 `#F6F7F8` · 100 `#F1F2F3` · 200 `#E6E7E9` · 300 `#D0D2D5` · 400 `#8A8D93` · 500 `#6E7177` · 600 `#575A60` · 700 `#3E4146` · 800 `#2A2C30` · 900 `#17181B`.
+- **Palette fonctionnelle** :
+
+| Jeton          | Clair     | Sombre    |
+| -------------- | --------- | --------- |
+| primary        | `#1E6AC2` | `#7DB4F5` |
+| on-primary     | `#FFFFFF` | `#0B0C0D` |
+| surface        | `#FFFFFF` | `#111214` |
+| surface-raised | `#FFFFFF` | `#191A1D` |
+| surface-sunken | `#F6F7F8` | `#0B0C0D` |
+| text           | `#17181B` | `#EDEEF0` |
+| text-muted     | `#575A60` | `#A4A7AD` |
+| border         | `#E6E7E9` | `#2A2C30` |
+| border-strong  | `#8A8D93` | `#767A80` |
+| accent         | `#EAF2FC` | `#10294A` |
+| on-accent      | `#0F3F7A` | `#D6E8FD` |
+| success        | `#1B6B39` | `#5FD38A` |
+| success-soft   | `#E3F4E9` | `#10271A` |
+| danger         | `#B42318` | `#FF8B7E` |
+| danger-soft    | `#FDE8E6` | `#33171A` |
+| warning        | `#855300` | `#F5B94A` |
+| warning-soft   | `#FCEFD6` | `#2E2410` |
+| focus          | `#1E6AC2` | `#7DB4F5` |
+
+- **Règle d'accent** : L'accent est le bleu 50 (#EAF2FC) : un voile azur très pâle sous texte bleu profond, réservé aux pastilles et au surlignage ; jamais un aplat de section ni un indicateur seul.
+- **Typographie** : Manrope seule : 600 (titres) · 400/600 (texte) · chiffres tabulaires.
+- **Ton** (es, tutoiement) : « Tu precio final ya incluye ITBMS. » · « ¡Listo! Tu auto te espera el vie. 14 ene. a las 10:00. » · « No pudimos cargar los mostradores. Vuelve a intentarlo. »
+- **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 13 contrôles complémentaires dans `contrastChecks`) :
+
+| Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
+| ---------------------------------------------------- | ----- | --------------------- | ------------ | --------------------- | ------------ |
+| texte / surface                                      | 4.5:1 | `#17181B` / `#FFFFFF` | **17.75** OK | `#EDEEF0` / `#111214` | **16.14** OK |
+| texte / carte                                        | 4.5:1 | `#17181B` / `#FFFFFF` | **17.75** OK | `#EDEEF0` / `#191A1D` | **14.99** OK |
+| texte secondaire / surface                           | 4.5:1 | `#575A60` / `#FFFFFF` | **6.92** OK  | `#A4A7AD` / `#111214` | **7.77** OK  |
+| texte secondaire / carte                             | 4.5:1 | `#575A60` / `#FFFFFF` | **6.92** OK  | `#A4A7AD` / `#191A1D` | **7.22** OK  |
+| texte du bouton / primaire                           | 4.5:1 | `#FFFFFF` / `#1E6AC2` | **5.39** OK  | `#0B0C0D` / `#7DB4F5` | **9.06** OK  |
+| lien primaire / surface                              | 4.5:1 | `#1E6AC2` / `#FFFFFF` | **5.39** OK  | `#7DB4F5` / `#111214` | **8.67** OK  |
+| lien primaire / carte                                | 4.5:1 | `#1E6AC2` / `#FFFFFF` | **5.39** OK  | `#7DB4F5` / `#191A1D` | **8.05** OK  |
+| texte / accent                                       | 4.5:1 | `#0F3F7A` / `#EAF2FC` | **9.25** OK  | `#D6E8FD` / `#10294A` | **11.70** OK |
+| succès (texte) / carte                               | 4.5:1 | `#1B6B39` / `#FFFFFF` | **6.54** OK  | `#5FD38A` / `#191A1D` | **9.26** OK  |
+| danger (texte) / carte                               | 4.5:1 | `#B42318` / `#FFFFFF` | **6.57** OK  | `#FF8B7E` / `#191A1D` | **7.66** OK  |
+| attention (texte) / carte                            | 4.5:1 | `#855300` / `#FFFFFF` | **6.49** OK  | `#F5B94A` / `#191A1D` | **9.88** OK  |
+| succès / fond succès                                 | 4.5:1 | `#1B6B39` / `#E3F4E9` | **5.73** OK  | `#5FD38A` / `#10271A` | **8.42** OK  |
+| danger / fond danger                                 | 4.5:1 | `#B42318` / `#FDE8E6` | **5.59** OK  | `#FF8B7E` / `#33171A` | **7.23** OK  |
+| attention / fond attention                           | 4.5:1 | `#855300` / `#FCEFD6` | **5.71** OK  | `#F5B94A` / `#2E2410` | **8.66** OK  |
+| bordure de champ / carte                             | 3.0:1 | `#8A8D93` / `#FFFFFF` | **3.33** OK  | `#767A80` / `#191A1D` | **4.03** OK  |
+| anneau de focus / surface                            | 3.0:1 | `#1E6AC2` / `#FFFFFF` | **5.39** OK  | `#7DB4F5` / `#111214` | **8.67** OK  |
+| anneau de focus / carte                              | 3.0:1 | `#1E6AC2` / `#FFFFFF` | **5.39** OK  | `#7DB4F5` / `#191A1D` | **8.05** OK  |
+| composant primaire / surface (1.4.11)                | 3.0:1 | `#1E6AC2` / `#FFFFFF` | **5.39** OK  | `#7DB4F5` / `#111214` | **8.67** OK  |
+| logo : K / pictogramme                               | 3.0:1 | `#FFFFFF` / `#1E6AC2` | **5.39** OK  | `#0B0C0D` / `#7DB4F5` | **9.06** OK  |
+| logo : repère / pictogramme                          | 3.0:1 | `#FFFFFF` / `#1E6AC2` | **5.39** OK  | `#0B0C0D` / `#7DB4F5` | **9.06** OK  |
+| logotype : K / surface                               | 3.0:1 | `#1E6AC2` / `#FFFFFF` | **5.39** OK  | `#7DB4F5` / `#111214` | **8.67** OK  |
+| texte / fond en retrait                              | 4.5:1 | `#17181B` / `#F6F7F8` | **16.55** OK | `#EDEEF0` / `#0B0C0D` | **16.86** OK |
+| texte secondaire / fond en retrait                   | 4.5:1 | `#575A60` / `#F6F7F8` | **6.45** OK  | `#A4A7AD` / `#0B0C0D` | **8.12** OK  |
+| lien primaire / fond en retrait                      | 4.5:1 | `#1E6AC2` / `#F6F7F8` | **5.03** OK  | `#7DB4F5` / `#0B0C0D` | **9.06** OK  |
+| texte / bandeau d'accueil                            | 4.5:1 | `#17181B` / `#F6F7F8` | **16.55** OK | `#EDEEF0` / `#0B0C0D` | **16.86** OK |
+| lien primaire / bandeau d'accueil                    | 4.5:1 | `#1E6AC2` / `#F6F7F8` | **5.03** OK  | `#7DB4F5` / `#0B0C0D` | **9.06** OK  |
+| surface / texte (onglet actif)                       | 4.5:1 | `#FFFFFF` / `#17181B` | **17.75** OK | `#111214` / `#EDEEF0` | **16.14** OK |
+| texte du bouton / primaire sur fond en retrait (3:1) | 3.0:1 | `#1E6AC2` / `#F6F7F8` | **5.03** OK  | `#7DB4F5` / `#0B0C0D` | **9.06** OK  |
+| lien et onglet actif (focus) / carte                 | 4.5:1 | `#1E6AC2` / `#FFFFFF` | **5.39** OK  | `#7DB4F5` / `#191A1D` | **8.05** OK  |
+| lien et onglet actif (focus) / fond en retrait       | 4.5:1 | `#1E6AC2` / `#F6F7F8` | **5.03** OK  | `#7DB4F5` / `#0B0C0D` | **9.06** OK  |
+| logo : point / pictogramme (rappel)                  | 3.0:1 | `#FFFFFF` / `#1E6AC2` | **5.39** OK  | `#0B0C0D` / `#7DB4F5` | **9.06** OK  |
+
+### H3 — « Lienzo · Grafito » (éditorial, minimal)
+
+- **Concept** : Le blanc et le crayon graphite : presque monochrome, comme une belle mise en page de revue. Les titres en serif donnent la voix ; un bleu minuscule n'apparaît que sur les liens, l'onglet actif et le focus.
+- **Logique de la palette** : Monochrome : blanc, gris et graphite (#2A2C30) pour le bouton ; un seul bleu (≈ 217°) réduit à des traits (liens, soulignement de l'onglet actif, anneau de focus, point du logo). La hiérarchie vient de la typographie, pas de la couleur.
+- **Logo esquissé** : Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est graphite, K blanc et point bleu (le seul bleu du logo). « Kmino » en Source Serif 4 600, le K en graphite. SVG clair et sombre dans `tokens-lienzo-grafito.json → brand.logo` et `brand.logoDark`.
+- **Nuances du bleu** (50 → 900) : 50 `#F2F6FD` · 100 `#E1EAFA` · 200 `#BED3F4` · 300 `#7FAEF5` · 400 `#4A86E8` · 500 `#2F71DA` · 600 `#2563C9` · 700 `#1B4B98` · 800 `#153A75` · 900 `#0F2952`.
+- **Nuances neutres** (50 → 900, communes à la famille) : 50 `#F6F7F8` · 100 `#F1F2F3` · 200 `#E6E7E9` · 300 `#D0D2D5` · 400 `#8A8D93` · 500 `#6E7177` · 600 `#575A60` · 700 `#3E4146` · 800 `#2A2C30` · 900 `#17181B`.
+- **Palette fonctionnelle** :
+
+| Jeton          | Clair     | Sombre    |
+| -------------- | --------- | --------- |
+| primary        | `#2A2C30` | `#E8E9EB` |
+| on-primary     | `#FFFFFF` | `#111214` |
+| surface        | `#FFFFFF` | `#111214` |
+| surface-raised | `#FFFFFF` | `#191A1D` |
+| surface-sunken | `#F6F7F8` | `#0B0C0D` |
+| text           | `#17181B` | `#EDEEF0` |
+| text-muted     | `#575A60` | `#A4A7AD` |
+| border         | `#E6E7E9` | `#2A2C30` |
+| border-strong  | `#8A8D93` | `#767A80` |
+| accent         | `#F1F2F3` | `#232428` |
+| on-accent      | `#17181B` | `#EDEEF0` |
+| success        | `#1B6B39` | `#5FD38A` |
+| success-soft   | `#E3F4E9` | `#10271A` |
+| danger         | `#B42318` | `#FF8B7E` |
+| danger-soft    | `#FDE8E6` | `#33171A` |
+| warning        | `#855300` | `#F5B94A` |
+| warning-soft   | `#FCEFD6` | `#2E2410` |
+| focus          | `#2563C9` | `#7FAEF5` |
+
+- **Règle d'accent** : L'accent est le gris 100 (#F1F2F3) : un fond à peine marqué sous texte noir doux pour les pastilles. Le bleu n'est pas l'accent : il est porté par le jeton focus (liens, onglet actif, focus), en traits seulement.
+- **Typographie** : Source Serif 4 600 (titres seulement) · Manrope 400/600 (texte, chiffres tabulaires).
+- **Ton** (es, tutoiement) : « El precio que ves es el que pagas. » · « Tu reserva está confirmada. » · « Falta firmar el contrato. Ábrelo y pide la firma al cliente. »
+- **Contrastes WCAG 2.2 AA** (calculés par script ; détail des 18 paires et des 13 contrôles complémentaires dans `contrastChecks`) :
+
+| Paire                                                | Seuil | Clair (couleurs)      | Clair        | Sombre (couleurs)     | Sombre       |
+| ---------------------------------------------------- | ----- | --------------------- | ------------ | --------------------- | ------------ |
+| texte / surface                                      | 4.5:1 | `#17181B` / `#FFFFFF` | **17.75** OK | `#EDEEF0` / `#111214` | **16.14** OK |
+| texte / carte                                        | 4.5:1 | `#17181B` / `#FFFFFF` | **17.75** OK | `#EDEEF0` / `#191A1D` | **14.99** OK |
+| texte secondaire / surface                           | 4.5:1 | `#575A60` / `#FFFFFF` | **6.92** OK  | `#A4A7AD` / `#111214` | **7.77** OK  |
+| texte secondaire / carte                             | 4.5:1 | `#575A60` / `#FFFFFF` | **6.92** OK  | `#A4A7AD` / `#191A1D` | **7.22** OK  |
+| texte du bouton / primaire                           | 4.5:1 | `#FFFFFF` / `#2A2C30` | **13.99** OK | `#111214` / `#E8E9EB` | **15.43** OK |
+| lien primaire / surface                              | 4.5:1 | `#2A2C30` / `#FFFFFF` | **13.99** OK | `#E8E9EB` / `#111214` | **15.43** OK |
+| lien primaire / carte                                | 4.5:1 | `#2A2C30` / `#FFFFFF` | **13.99** OK | `#E8E9EB` / `#191A1D` | **14.32** OK |
+| texte / accent                                       | 4.5:1 | `#17181B` / `#F1F2F3` | **15.84** OK | `#EDEEF0` / `#232428` | **13.36** OK |
+| succès (texte) / carte                               | 4.5:1 | `#1B6B39` / `#FFFFFF` | **6.54** OK  | `#5FD38A` / `#191A1D` | **9.26** OK  |
+| danger (texte) / carte                               | 4.5:1 | `#B42318` / `#FFFFFF` | **6.57** OK  | `#FF8B7E` / `#191A1D` | **7.66** OK  |
+| attention (texte) / carte                            | 4.5:1 | `#855300` / `#FFFFFF` | **6.49** OK  | `#F5B94A` / `#191A1D` | **9.88** OK  |
+| succès / fond succès                                 | 4.5:1 | `#1B6B39` / `#E3F4E9` | **5.73** OK  | `#5FD38A` / `#10271A` | **8.42** OK  |
+| danger / fond danger                                 | 4.5:1 | `#B42318` / `#FDE8E6` | **5.59** OK  | `#FF8B7E` / `#33171A` | **7.23** OK  |
+| attention / fond attention                           | 4.5:1 | `#855300` / `#FCEFD6` | **5.71** OK  | `#F5B94A` / `#2E2410` | **8.66** OK  |
+| bordure de champ / carte                             | 3.0:1 | `#8A8D93` / `#FFFFFF` | **3.33** OK  | `#767A80` / `#191A1D` | **4.03** OK  |
+| anneau de focus / surface                            | 3.0:1 | `#2563C9` / `#FFFFFF` | **5.67** OK  | `#7FAEF5` / `#111214` | **8.28** OK  |
+| anneau de focus / carte                              | 3.0:1 | `#2563C9` / `#FFFFFF` | **5.67** OK  | `#7FAEF5` / `#191A1D` | **7.69** OK  |
+| composant primaire / surface (1.4.11)                | 3.0:1 | `#2A2C30` / `#FFFFFF` | **13.99** OK | `#E8E9EB` / `#111214` | **15.43** OK |
+| logo : K / pictogramme                               | 3.0:1 | `#FFFFFF` / `#2A2C30` | **13.99** OK | `#111214` / `#E8E9EB` | **15.43** OK |
+| logo : repère / pictogramme                          | 3.0:1 | `#4A86E8` / `#2A2C30` | **3.91** OK  | `#2563C9` / `#E8E9EB` | **4.66** OK  |
+| logotype : K / surface                               | 3.0:1 | `#2A2C30` / `#FFFFFF` | **13.99** OK | `#E8E9EB` / `#111214` | **15.43** OK |
+| texte / fond en retrait                              | 4.5:1 | `#17181B` / `#F6F7F8` | **16.55** OK | `#EDEEF0` / `#0B0C0D` | **16.86** OK |
+| texte secondaire / fond en retrait                   | 4.5:1 | `#575A60` / `#F6F7F8` | **6.45** OK  | `#A4A7AD` / `#0B0C0D` | **8.12** OK  |
+| lien primaire / fond en retrait                      | 4.5:1 | `#2A2C30` / `#F6F7F8` | **13.04** OK | `#E8E9EB` / `#0B0C0D` | **16.12** OK |
+| texte / bandeau d'accueil                            | 4.5:1 | `#17181B` / `#F6F7F8` | **16.55** OK | `#EDEEF0` / `#0B0C0D` | **16.86** OK |
+| lien primaire / bandeau d'accueil                    | 4.5:1 | `#2A2C30` / `#F6F7F8` | **13.04** OK | `#E8E9EB` / `#0B0C0D` | **16.12** OK |
+| surface / texte (onglet actif)                       | 4.5:1 | `#FFFFFF` / `#17181B` | **17.75** OK | `#111214` / `#EDEEF0` | **16.14** OK |
+| texte du bouton / primaire sur fond en retrait (3:1) | 3.0:1 | `#2A2C30` / `#F6F7F8` | **13.04** OK | `#E8E9EB` / `#0B0C0D` | **16.12** OK |
+| lien et onglet actif (focus) / carte                 | 4.5:1 | `#2563C9` / `#FFFFFF` | **5.67** OK  | `#7FAEF5` / `#191A1D` | **7.69** OK  |
+| lien et onglet actif (focus) / fond en retrait       | 4.5:1 | `#2563C9` / `#F6F7F8` | **5.28** OK  | `#7FAEF5` / `#0B0C0D` | **8.65** OK  |
+| logo : point / pictogramme (rappel)                  | 3.0:1 | `#4A86E8` / `#2A2C30` | **3.91** OK  | `#2563C9` / `#E8E9EB` | **4.66** OK  |
+
+### Contrôle de la famille Lienzo
+
+- **Contrastes** : 3 × (18 paires + 13 contrôles complémentaires) × 2 thèmes = **186 paires, toutes conformes**. Les trois contrôles ajoutés à la famille portent sur la couleur des liens et de l'onglet actif (`focus`, ≥ 4,5:1 sur carte et sur fond en retrait, car elle sert de texte de lien) et sur le point du logo. Pires cas : contour de champ `#8A8D93` sur blanc **3,33:1** (seuil 3) ; point bleu du logo Grafito **3,91:1** (clair) et **4,66:1** (sombre) ; lien Azur sur fond en retrait **5,03:1**.
+- **Rendu réel** (navigateur, 375 × 812, en espagnol puis en anglais, thèmes clair et sombre, les sept directions affichées avec les quatre écrans S01, S02, S03 et A02, détails dépliés) : `scrollWidth` = 375, aucun débordement de la page ni d'un écran de maquette ; **0 élément interactif sous 48 × 48 px** ; audit de contraste du texte visible sur son fond effectif (4 168 nœuds par langue et par thème) : **0 échec**. En anglais, seuls les noms propres (agences, personnes, lieux) restent en espagnol.
+- **Teintes** : couleurs d'action entre 212° et 220°, liens Grafito à 217° ; aucun jeton saturé dans la zone 230° à 300° (les gris neutres ont une teinte nominale de 220° à 225° pour 4 à 8 % de saturation).
+- **Anti-Turo** : Encre bleu nuit #1D3461 (≈ 220°), hors de la zone 230°–300°. Carré doux et point. Page blanche, filets fins, sans photo plein écran ni bandeau coloré. Azur #1E6AC2 (≈ 213°, saturation 73 %), ni l'électrique de Voltio ni le bleu ciel de Cielo. Carré doux et point. Page blanche, sans photo plein écran. Graphite #2A2C30 et un bleu #2563C9 (≈ 217°) en traits, hors de la zone 230°–300°. Titres en serif libre (Source Serif 4). Page blanche, sans photo plein écran ni aplat noir. Aucune note en étoiles ni badge d'hôte.
+
+---
+
+## Positionnement marketplace (2026-11-02)
+
+**Demande du fondateur** : « Il faut qu'on comprenne que c'est pas une agence de location de voiture, mais un marketplace. » Kmino met en relation des voyageurs avec **plusieurs loueurs professionnels** ; c'est l'agence choisie qui loue, **encaisse** (avec son propre prestataire de paiement) et remet les clés à son comptoir ; Kmino prend une commission et ne détient aucun fonds. L'identité doit le dire dès le premier écran.
+
+### Signature de marque (3 options, PROPOSÉ)
+
+Le produit sort en espagnol et en anglais en même temps : chaque signature est écrite pour sonner juste dans les deux langues, pas traduite mot à mot.
+
+| #               | Espagnol (es)                              | Anglais (en)                                  | Traduction française                     | Ce qu'elle fait passer                                                                                                                                                                                |
+| --------------- | ------------------------------------------ | --------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 (recommandée) | **« Compara agencias. Reserva con una. »** | **« Compare agencies. Book the right one. »** | Comparez les agences. Réservez la bonne. | Le geste du marché (comparer) et le rôle de l'agence (c'est elle qui loue). En anglais, « Book with one » sonnait bancal : « the right one » garde le rythme en deux temps et ajoute l'idée de choix. |
+| 2               | « Todas las agencias, en un solo lugar. »  | « Every local agency, one place. »            | Toutes les agences, au même endroit.     | L'idée de catalogue, d'après l'exemple du fondateur. En anglais, « local » dit qu'il s'agit de loueurs du pays, pas d'une chaîne. Moins active que la 1.                                              |
+| 3               | « Tú eliges la agencia. »                  | « Your trip, your agency. »                   | Votre voyage, votre agence.              | Le choix laissé au voyageur. Très courte. L'anglais « You choose the agency » sonnait comme une consigne, d'où la forme en miroir. Ne dit pas « comparer ».                                           |
+
+La signature 1 est utilisée dans les maquettes (surtitre de l'accueil S01, toutes directions), en espagnol et en anglais.
+
+**Bascule ES / EN dans `presentation.html`** : un sélecteur « ES / EN » dans la barre du haut de la page, et le bouton de langue (globe) de l'en-tête de chaque maquette, changent tous les textes des quatre écrans (S01, S02, S03, A02) grâce à un dictionnaire JavaScript dans la page. Ce dictionnaire n'est qu'un aperçu : la source de vérité sera le catalogue i18n (`es` et `en`, une clé ajoutée dans les deux le même jour). Contrôle à 375 px dans les deux langues : aucun débordement, aucune cible tactile sous 48 px (voir « Contrôle de la famille Lienzo »). Elle remplace les slogans « Alquila tu auto, precio final » proposés plus haut, qui laissaient croire que Kmino loue. À faire relire au Panama et au Paraguay, comme le reste de la microcopie.
+
+### Ce qui change dans les maquettes (`presentation.html`, les sept directions)
+
+| Écran                            | Repère « place de marché »                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S01 Accueil**                  | Surtitre « Compara agencias. Reserva con una. » ; bouton « Comparar agencias » ; carte « 12 agencias verificadas en Panamá » avec les initiales des loueurs (PR, BA, MA, +9) et « Compara sus precios finales y elige la que prefieras » ; promesse « Agencias verificadas… Kmino no alquila autos: tú eliges la agencia ».                                                                                                                                                                    |
+| **S02 Résultats** (nouvel écran) | Compteur « 12 agencias en Ciudad de Panamá » ; une catégorie (Económico, Toyota Yaris o similar) proposée par **3 loueurs**, chacun avec initiales, nom, note numérique (« 4.9/5 · 95 alquileres »), comptoir et prix final total ; pastille « Precio más bajo » (icône et texte) ; seconde catégorie « SUV compacto · 5 agencias desde US$ 214.00 » ; pied « Kmino compara. Cada agencia alquila, cobra y entrega en su mostrador. »                                                          |
+| **S03 Fiche d'une offre**        | Bloc **« Ofrecido por Agencia Pacífico Rent »** en tête : initiales, nom, « 4.8/5 · 312 alquileres con Kmino · verificada », adresse du comptoir et lien « Ver perfil de la agencia » ; sous le prix : « Cobra Agencia Pacífico Rent, con su propio sistema de pago. Kmino no cobra el alquiler. » ; lien « Otras 2 agencias desde US$ 144.45 » ; barre d'action « Total · cobra Pacífico Rent ». La pastille « Nuevo · sin reseñas » du véhicule est retirée (la note est celle de l'agence). |
+| A02 Comptoir (agence)            | Inchangé : c'est l'outil de l'agence elle-même.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+
+Les trois loueurs sont **fictifs** (Agencia Pacífico Rent, Autos Bahía Azul, Movil Ancón) ; les prix suivent la règle de S03 (3 jours, cargo de aeropuerto US$ 14.00 sauf au comptoir en ville, ITBMS 7 %%) et ne sont que des exemples.
+
+### Garde-fous
+
+- **Ne jamais laisser croire que Kmino loue ou encaisse** : pas de « nuestros autos », « nuestra flota » ni « alquila con Kmino » ; le verbe « alquilar » a toujours l'agence pour sujet.
+- **Nommer l'agence au moment de payer** : sur la fiche (S03), dans la barre d'action et, plus tard, sur l'écran de paiement et le justificatif (US-030 et suivantes), « Cobra <agence> ».
+- **Aucun nom de vrai loueur** dans les maquettes, les jeux de données de démonstration ni le marketing ; les initiales sont des pastilles neutres, jamais des logos inventés qui imitent une marque.
+- **Note des loueurs** : chiffre et nombre de locations, sans étoiles ni badge d'hôte ; toujours après le prix final et la caution (contrôle anti-Turo du §5).
+- **Rien de Turo** : ni identité, ni libellés, ni mise en page de ses résultats ; et rien des grands comparateurs de vols ou d'hôtels.
 
 ---
 
@@ -674,14 +943,15 @@ Le relecteur UX indépendant devra confirmer ce contrôle visuellement.
 
 ## 7. Grille de choix du fondateur
 
-**Le nom est choisi (Kmino). Il reste à choisir 1 direction** parmi les quatre palettes claires.
+**Le nom est choisi (Kmino). Il reste à choisir 1 direction** parmi les quatre palettes claires et les trois variantes blanc épuré.
 
-| Choix       | Options                                                     | Recommandation                                                                                                                                                                  |
-| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nom         | **Kmino** (tranché le 2026-11-02)                           | Acquis ; F-20 avant publication                                                                                                                                                 |
-| Direction   | D « Cielo » · E « Marina » · F « Voltio » · G « Lagune »    | **Cielo** (PROPOSÉ) : la plus claire, une seule teinte, le bleu ne sert qu'à agir. **Marina** est la plus premium, **Voltio** la plus contrastée, **Lagune** la plus souriante. |
-| Ajustements | Nuance du bleu, police, accent, rayons, etc.                | Possibles sans développement après US-030 et US-034                                                                                                                             |
-| Écartées    | A « Tierra firme » · B « Señal » · C « Istmo » (31 octobre) | Écartées par le fondateur le 2026-11-02 (trop sombres)                                                                                                                          |
+| Choix       | Options                                                                                                                           | Recommandation                                                                                                                                                                                                                                                 |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nom         | **Kmino** (tranché le 2026-11-02)                                                                                                 | Acquis ; F-20 avant publication                                                                                                                                                                                                                                |
+| Direction   | D « Cielo » · E « Marina » · F « Voltio » · G « Lagune » · H1 « Lienzo · Tinta » · H2 « Lienzo · Azur » · H3 « Lienzo · Grafito » | **Cielo** (PROPOSÉ) : la plus claire, une seule teinte, le bleu ne sert qu'à agir. **Marina** est la plus premium, **Voltio** la plus contrastée, **Lagune** la plus souriante. Pour un vrai fond blanc : **Lienzo · Azur** (fraîche) ou **Tinta** (élégante). |
+| Ajustements | Nuance du bleu, police, accent, rayons, etc.                                                                                      | Possibles sans développement après US-030 et US-034                                                                                                                                                                                                            |
+| Signature   | 3 options (« Positionnement marketplace »)                                                                                        | « Compara agencias. Reserva con una. » (PROPOSÉ)                                                                                                                                                                                                               |
+| Écartées    | A « Tierra firme » · B « Señal » · C « Istmo » (31 octobre)                                                                       | Écartées par le fondateur le 2026-11-02 (trop sombres)                                                                                                                                                                                                         |
 
 **Défaut en attendant le choix (DEC-MARQUE)** : `{brand_name}` = `Kmino` ; direction **Cielo** (PROPOSÉ, `tokens-cielo.json`). US-030 peut démarrer avec ces jetons et basculer ensuite vers une autre palette sans développement.
 
