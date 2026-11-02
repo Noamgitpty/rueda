@@ -6,17 +6,19 @@
 
 ## 1. Décisions du fondateur déjà prises (22 « Décisions prises », 2026-10-30)
 
-| ID               | Contenu                                                                                | Statut   | Tranché par / date    |
-| ---------------- | -------------------------------------------------------------------------------------- | -------- | --------------------- |
-| DEC-FONDATEUR-02 | construire d'abord ; avis juridiques avant la mise en service                          | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-03 | PSP réel après le choix du pays ; build contre `PaymentProvider` + `FAKE`              | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-04 | Panama et Paraguay en parallèle dès le premier jour                                    | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-05 | aucun développeur humain ; équipe multi-agents ; aucune fusion sans revue indépendante | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-06 | agent DESIGN + relecteur UX ; web mobile-first + PWA ; pas d'app native au MVP         | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-07 | design modifiable par le fondateur (jetons en données, « Apparence / Marque »)         | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-08 | transmissibilité totale ; documentation dans la DoD                                    | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-09 | tests exhaustifs, portes CI bloquantes, QA indépendante                                | TRANCHÉE | fondateur, 2026-10-30 |
-| DEC-FONDATEUR-10 | autonomie maximale, escalade minimale avec défauts, point hebdomadaire                 | TRANCHÉE | fondateur, 2026-10-30 |
+| ID               | Contenu                                                                                                                                              | Statut   | Tranché par / date    |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
+| DEC-FONDATEUR-02 | construire d'abord ; avis juridiques avant la mise en service                                                                                        | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-03 | PSP réel après le choix du pays ; build contre `PaymentProvider` + `FAKE`                                                                            | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-04 | Panama et Paraguay en parallèle dès le premier jour                                                                                                  | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-05 | aucun développeur humain ; équipe multi-agents ; aucune fusion sans revue indépendante                                                               | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-06 | agent DESIGN + relecteur UX ; web mobile-first + PWA ; pas d'app native au MVP                                                                       | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-07 | design modifiable par le fondateur (jetons en données, « Apparence / Marque »)                                                                       | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-08 | transmissibilité totale ; documentation dans la DoD                                                                                                  | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-09 | tests exhaustifs, portes CI bloquantes, QA indépendante                                                                                              | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-10 | autonomie maximale, escalade minimale avec défauts, point hebdomadaire                                                                               | TRANCHÉE | fondateur, 2026-10-30 |
+| DEC-FONDATEUR-11 | produit bilingue : espagnol ET anglais livrés ensemble dans chaque story (code, maquettes, accroches) ; jamais de traduction reportée                | TRANCHÉE | fondateur, 2026-11-02 |
+| DEC-FONDATEUR-12 | positionnement marketplace visible : Kmino compare des loueurs, il n'apparaît jamais comme l'agence ; l'agence est nommée sur l'offre et au paiement | TRANCHÉE | fondateur, 2026-11-02 |
 
 ## 2. Décisions ouvertes du fondateur (handoff §9 ; 22 fait foi)
 
