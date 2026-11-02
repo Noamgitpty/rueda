@@ -1,28 +1,33 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-10-31, fin de la session 01.**
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-01, session 01 (PR #1 à #6 fusionnées).**
 
 ## Pour reprendre
 
 1. Lis `CLAUDE.md`, ce fichier, puis `docs/team/BOARD.md`, les passations `docs/team/handoffs/US-xxx.md` des stories `IN_PROGRESS`, `IN_REVIEW` ou `PAUSED_USAGE_LIMIT`, et les questions ouvertes de `docs/team/QUESTIONS.md`. Ne relis pas tout `docs/specs/`.
-2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
+2. Sous Git Bash : `export PATH="/c/Program Files/nodejs:/c/Users/noamm/AppData/Roaming/npm:/c/Program Files/GitHub CLI:$PATH"`. Vérifie `node -v`, qui doit donner v26.13.0 (ADR-041).
 3. `git fetch`, `git worktree list`, puis relance les tests de chaque branche en cours **avant** de continuer (OPERATING_RULES §3).
 
 ## État des stories (détail dans BOARD.md)
 
-| Story                       | Statut      | Branche                                                             | Où en est-on                                                                                                                                                                                                                              |
-| --------------------------- | ----------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| US-001 dépôt et conventions | IN_REVIEW   | `story/US-001-029-socle`                                            | Revue de code APPROUVÉE. La revue d'architecture a demandé des changements, corrigés après coup, et une seconde revue a été faite (voir `docs/team/reviews/US-001/`). **Fusion en attente de l'accord explicite du fondateur (EXC-001).** |
-| US-029 artefacts d'équipe   | IN_REVIEW   | `story/US-001-029-socle` (même branche)                             | Revue de code avec changements demandés, corrigés, puis seconde revue (voir `docs/team/reviews/US-029/`). Le contrôle `scripts/team/check-reviews.mjs` sera branché en CI par US-002.                                                     |
-| US-028 naming et identité   | IN_REVIEW   | `story/US-028-naming-identite`                                      | Livrée au fondateur : `docs/design/US-028/PROPOSITIONS.md` et `presentation.html`. Revue UX APPROUVÉE. **En attente du choix du fondateur (DEC-MARQUE, F-05).**                                                                           |
-| US-005 banc PostgreSQL      | IN_PROGRESS | `story/US-005-banc-postgres` (à partir de `story/US-001-029-socle`) | Démarrée sur le PostgreSQL natif (P-07, ADR-043). Ne sera fusionnée qu'après US-002, quand ses tests tourneront en CI (TECH-008). Voir `docs/team/handoffs/US-005.md`.                                                                    |
+| Story                  | Statut                | Où                             | Où en est-on                                                                                                                                                                        |
+| ---------------------- | --------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| US-001, US-029         | MERGED                | `main` (PR #1, f66304f)        | EXC-001 tranchée.                                                                                                                                                                   |
+| US-002 CI              | MERGED                | `main` (PR #2, e4df2c5)        | Le job « revues » lit `docs/team/review-requirements.json` depuis `origin/main`.                                                                                                    |
+| US-026 PWA iOS         | MERGED                | `main` (PR #5, 5342feb)        | Protocole de test sur iPhone pour le fondateur : `docs/qa/US-026-protocole-pwa-ios.md`.                                                                                             |
+| US-050 règles          | IN_PROGRESS (partiel) | `main` (PR #6, 0677156)        | Seules les règles des paquets `money` et `i18n` sont livrées. Reste : protection de branche, accès, usage (F-15).                                                                   |
+| US-015 Money           | MERGED                | `main` (PR #4, d722227)        | —                                                                                                                                                                                   |
+| US-014 i18n            | MERGED                | `main` (PR #3, 62b2cc5)        | Conflit `apps/web/vitest.config.ts` avec US-026 résolu par fusion (motifs des deux stories).                                                                                        |
+| US-028 naming          | IN_REVIEW             | `story/US-028-naming-identite` | **Attend le choix du fondateur (DEC-MARQUE).**                                                                                                                                      |
+| US-005 banc PostgreSQL | IN_PROGRESS           | `story/US-005-banc-postgres`   | Partie de l'ancien socle : conflits avec `main` sur `CONTRIBUTING.md`, `package.json` et `packages/db/*`. À mettre à jour, puis revues architecture, sécurité, code et QA, puis CI. |
 
 ## Prochaine action exacte (orchestrateur)
 
-1. Si le fondateur a approuvé EXC-001 : fusionner `story/US-001-029-socle` dans `main` (fusion rapide, sans force-push), pousser, puis consigner la date dans `DECISIONS.md` (EXC-001 → TRANCHÉE).
-2. Lancer en parallèle, chacune dans son worktree, depuis `main` : US-002 (CI : intégrer `check-reviews.mjs`, Testcontainers et `postgres:16`), US-015 (`Money`), US-014 (i18n), US-026 (PWA iOS).
-3. Rebaser `story/US-005-banc-postgres` sur `main`, la terminer, puis faire tourner ses tests en CI une fois US-002 fusionnée.
+1. **Avant le 2026-11-06** : monter `@nestjs/platform-express` (ou `overrides`) et retirer les deux exceptions de `docs/ops/audit-exceptions.json` (`docs/ops/CI.md` §audit). Sinon la CI devient rouge.
+2. US-005 : fusionner `main` dans la branche (pas de force-push), résoudre les conflits, puis les 4 revues et la CI.
+3. Lancer les stories suivantes débloquées (US-016 après US-015, US-003 après US-002, etc. : voir BOARD).
 4. Après le choix DEC-MARQUE : fusionner US-028 et démarrer US-030.
+5. Les branches réécrites par rebase ne se force-pushent pas : une attestation `git range-diff` d'un relecteur indépendant certifie les nouveaux SHA (dernier rapport de chaque rôle dans `docs/team/reviews/US-0xx/`). Pour mettre une PR à jour, préférer `gh pr update-branch` (fusion).
 
 ## Reports à faire dans `docs/specs/17` (par demande de fusion approuvée)
 
