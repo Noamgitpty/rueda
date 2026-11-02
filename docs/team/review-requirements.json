@@ -1,0 +1,80 @@
+{
+  "$comment": "Règles du job CI « revues » (US-002), lues par scripts/ci/check-story-reviews.mjs DEPUIS LA BRANCHE DE BASE (origin/main) : une PR ne peut pas affaiblir son propre contrôle. Voir docs/ops/CI.md, section « Revues ». Modifier ce fichier = décision de l'orchestrateur, revue sécurité.",
+  "default": ["code"],
+  "pathRules": [
+    {
+      "paths": ["apps/api/src/modules/dependency-graph.ts"],
+      "require": ["architecture"],
+      "why": "graphe des dépendances entre modules (17 §2.2) : décision d'architecture"
+    },
+    {
+      "paths": ["packages/db/"],
+      "require": ["architecture"],
+      "why": "schémas, migrations, liste blanche de l'horloge SQL"
+    }
+  ],
+  "stories": {
+    "US-001": {
+      "require": ["code", "architecture"],
+      "related": ["US-029"]
+    },
+    "US-029": {
+      "require": ["code"],
+      "related": ["US-001"]
+    },
+    "US-002": {
+      "require": ["code", "securite"]
+    },
+    "US-005": {
+      "require": ["code", "architecture", "securite", "qa"]
+    },
+    "US-014": {
+      "require": ["code", "ux"]
+    },
+    "US-015": {
+      "require": ["code", "qa", "argent"]
+    },
+    "US-026": {
+      "require": ["code", "securite", "ux"]
+    },
+    "US-050": {
+      "require": ["code", "securite"]
+    }
+  },
+  "pathOwners": {
+    "$comment": "Chaque répertoire packages/<x>/ modifié doit avoir ici la story de la branche ; un paquet absent de la liste fait échouer (fail-closed).",
+    "packages/config/": ["US-001"],
+    "packages/db/": ["US-001", "US-005"],
+    "packages/money/": ["US-015"],
+    "packages/i18n/": ["US-014"]
+  },
+  "sharedPaths": [
+    "docs/team/BOARD.md",
+    "docs/team/RESUME_HERE.md",
+    "docs/team/DECISIONS.md",
+    "docs/team/QUESTIONS.md",
+    "docs/team/RISKS.md",
+    "docs/team/sessions/",
+    "docs/team/health/",
+    "docs/team/weekly/",
+    "docs/team/incidents/"
+  ],
+  "branchPrefixes": [
+    {
+      "prefix": "docs/team-",
+      "allowedPaths": ["docs/team/"],
+      "why": "artefacts de coordination de l'orchestrateur, sans revue de story"
+    },
+    {
+      "prefix": "chore/",
+      "allowedPaths": ["docs/team/"],
+      "why": "entretien des artefacts d'équipe, sans revue de story"
+    }
+  ],
+  "nonStoryForbiddenPaths": [
+    "docs/team/reviews/",
+    "docs/team/handoffs/",
+    "docs/team/gates/",
+    "docs/team/review-requirements.json"
+  ]
+}

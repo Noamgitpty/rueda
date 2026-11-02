@@ -1,0 +1,1 @@
+**KYC — KYC / KYB** : vérification du conducteur, pièces, liveness, KYB des agences, sanctions, police flotte. Dépendances autorisées : IAM, CFG, AUD (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 KYC --> IAM).

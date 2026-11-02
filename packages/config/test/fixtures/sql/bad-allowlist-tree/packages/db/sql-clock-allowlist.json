@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "path": "packages/db/migrations/0001_cheat.sql",
+      "allow": ["now()"],
+      "justification": "Tentative de tolérer now() : doit être refusée par la validation."
+    },
+    {
+      "path": "packages/db/migrations/0002_no_reason.sql",
+      "allow": ["clock_timestamp()"],
+      "justification": ""
+    }
+  ]
+}

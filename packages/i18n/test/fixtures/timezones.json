@@ -1,0 +1,26 @@
+{
+  "//": "Fixture : fuseaux IANA des véhicules (17 §1.3) et décalages attendus. America/Asuncion = UTC−3 permanent (Ley 7354/2024, 08 BR-CXL-00, OQ-BR-20) ; America/Panama = UTC−5 sans heure d'été. Les instants après 2024 encadrent les anciennes bascules d'heure d'été paraguayennes (1er dimanche d'octobre, 4e dimanche de mars) : non-régression EC-33.",
+  "vehicleTimeZones": ["America/Panama", "America/Asuncion"],
+  "expectations": [
+    { "timeZone": "America/Asuncion", "instant": "2025-01-15T12:00:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2025-03-23T02:30:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2025-03-23T04:30:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2025-07-15T12:00:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2025-10-05T03:30:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2025-10-05T04:30:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2026-03-22T02:30:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2026-07-01T12:00:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2026-10-04T04:30:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Asuncion", "instant": "2027-03-28T02:30:00Z", "offsetMinutes": -180 },
+    { "timeZone": "America/Panama", "instant": "2025-01-15T12:00:00Z", "offsetMinutes": -300 },
+    { "timeZone": "America/Panama", "instant": "2026-07-01T12:00:00Z", "offsetMinutes": -300 }
+  ],
+  "historical": [
+    {
+      "//": "Avant la loi : UTC−4 en hiver austral. Vérifie que la tzdata embarquée est historisée et non un UTC−3 « partout ».",
+      "timeZone": "America/Asuncion",
+      "instant": "2023-07-15T12:00:00Z",
+      "offsetMinutes": -240
+    }
+  ]
+}

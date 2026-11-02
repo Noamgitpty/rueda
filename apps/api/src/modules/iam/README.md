@@ -1,0 +1,1 @@
+**IAM — Identity & Access** : comptes, authentification, sessions, organisations, rôles et permissions, restrictions. Dépendances autorisées : CFG, NTF (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 (NTF : envoi OTP)).

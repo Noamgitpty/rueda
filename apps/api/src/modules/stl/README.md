@@ -1,0 +1,1 @@
+**STL — Settlement engine & Ledger** : règlement économique pur, grand livre en partie double, host_ledger, commission. Dépendances autorisées : PRC, PAY, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 STL --> PAY, PRC (rupture du cycle STL ↔ PAY)).

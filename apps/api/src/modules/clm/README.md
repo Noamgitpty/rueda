@@ -1,0 +1,1 @@
+**CLM — Claims & Disputes** : dommages et incidents, factures annexes, litiges, dossiers de preuve, décisions. Dépendances autorisées : TRP, STL, PAY, AUD (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 CLM --> TRP, STL).

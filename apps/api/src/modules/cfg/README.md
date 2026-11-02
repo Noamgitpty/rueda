@@ -1,0 +1,1 @@
+**CFG — Country configuration** : pays, devises, fuseaux, locales, paramètres versionnés, fériés, entités juridiques. Dépendances autorisées : BUS seulement (socle : publie ses événements par l’outbox ; source : 17 §2.2, revue architecture US-001).

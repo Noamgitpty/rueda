@@ -1,0 +1,11 @@
+docs/specs/
+pnpm-lock.yaml
+node_modules/
+.turbo/
+.next/
+dist/
+coverage/
+next-env.d.ts
+packages/config/test/fixtures/
+.claude/
+scripts/ci/mermaid/package-lock.json

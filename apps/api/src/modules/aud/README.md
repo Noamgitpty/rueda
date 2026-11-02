@@ -1,0 +1,1 @@
+**AUD — Audit & Evidence store** : journal d'audit chaîné, accès aux données, fichiers, clés par sujet, incidents. Dépendances autorisées : BUS seulement (socle : publie ses événements par l’outbox ; source : 17 §2.2, revue architecture US-001).

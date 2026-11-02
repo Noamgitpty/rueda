@@ -1,0 +1,1 @@
+**RISK — Fraud / Risk** : règles de risque, évaluation à la réservation, file de revue, journal explicable. Dépendances autorisées : IAM, KYC, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2).

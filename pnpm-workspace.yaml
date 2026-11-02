@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Politique de fraîcheur (US-001) : aucune version publiée depuis moins de 14 jours
+# (14 j × 24 h × 60 min = 20160 minutes).
+minimumReleaseAge: 20160
