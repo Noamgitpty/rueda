@@ -215,27 +215,15 @@
   "font": {
     "family": {
       "heading": {
-        "$value": [
-          "Space Grotesk",
-          "system-ui",
-          "sans-serif"
-        ],
+        "$value": ["Space Grotesk", "system-ui", "sans-serif"],
         "$type": "fontFamily"
       },
       "body": {
-        "$value": [
-          "IBM Plex Sans",
-          "system-ui",
-          "sans-serif"
-        ],
+        "$value": ["IBM Plex Sans", "system-ui", "sans-serif"],
         "$type": "fontFamily"
       },
       "mono": {
-        "$value": [
-          "IBM Plex Mono",
-          "ui-monospace",
-          "monospace"
-        ],
+        "$value": ["IBM Plex Mono", "ui-monospace", "monospace"],
         "$type": "fontFamily"
       }
     },
@@ -384,21 +372,11 @@
     },
     "easing": {
       "standard": {
-        "$value": [
-          0.3,
-          0,
-          0.2,
-          1
-        ],
+        "$value": [0.3, 0, 0.2, 1],
         "$type": "cubicBezier"
       },
       "emphasis": {
-        "$value": [
-          0.3,
-          0,
-          0.2,
-          1
-        ],
+        "$value": [0.3, 0, 0.2, 1],
         "$type": "cubicBezier"
       }
     },

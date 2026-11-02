@@ -215,26 +215,15 @@
   "font": {
     "family": {
       "heading": {
-        "$value": [
-          "Fraunces",
-          "Georgia",
-          "serif"
-        ],
+        "$value": ["Fraunces", "Georgia", "serif"],
         "$type": "fontFamily"
       },
       "body": {
-        "$value": [
-          "Figtree",
-          "system-ui",
-          "sans-serif"
-        ],
+        "$value": ["Figtree", "system-ui", "sans-serif"],
         "$type": "fontFamily"
       },
       "mono": {
-        "$value": [
-          "ui-monospace",
-          "monospace"
-        ],
+        "$value": ["ui-monospace", "monospace"],
         "$type": "fontFamily"
       }
     },
@@ -383,21 +372,11 @@
     },
     "easing": {
       "standard": {
-        "$value": [
-          0.2,
-          0.7,
-          0.2,
-          1
-        ],
+        "$value": [0.2, 0.7, 0.2, 1],
         "$type": "cubicBezier"
       },
       "emphasis": {
-        "$value": [
-          0.2,
-          0.7,
-          0.2,
-          1
-        ],
+        "$value": [0.2, 0.7, 0.2, 1],
         "$type": "cubicBezier"
       }
     },
