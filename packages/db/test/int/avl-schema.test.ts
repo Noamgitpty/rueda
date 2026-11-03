@@ -62,6 +62,14 @@ const PAY_PORT_TABLES = [
   'payment_psp_submerchant',
 ] as const;
 
+// Socle de marque (US-034, 0042) : même socle RLS ; lecture publique d'app_api et commandes sous
+// iam_staff_owner vérifiées par test/l0/l0-brand.test.ts.
+const BRAND_TABLES = [
+  'config_brand_asset',
+  'config_brand_version',
+  'config_content_block',
+] as const;
+
 const INTEGRITY_FUNCTIONS = [
   'core.booking_assert_trip_occupancy()',
   'core.booking_assert_conversion_disposition()',
@@ -95,7 +103,13 @@ describe('schéma core (US-006)', () => {
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
-        [...CORE_TABLES, ...CONFIG_TABLES, ...SUPPORT_TABLES, ...PAY_PORT_TABLES].sort(),
+        [
+          ...CORE_TABLES,
+          ...CONFIG_TABLES,
+          ...SUPPORT_TABLES,
+          ...PAY_PORT_TABLES,
+          ...BRAND_TABLES,
+        ].sort(),
       );
       for (const r of rows) {
         expect(r, r.relname).toMatchObject({

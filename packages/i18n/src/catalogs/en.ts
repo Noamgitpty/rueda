@@ -222,4 +222,21 @@ export const EN_MESSAGES = {
     'Hi {first_name}. Your payout of {amount} is on hold for now. Your earnings page shows why and what to do.',
   'ntf.payoutOnHold.sms.body':
     '{brand}: your payout of {amount} is on hold. Reason in your earnings.',
+  'common.brand.tokensInvalid': 'The theme format is invalid. Check the reported values.',
+  'common.brand.fontNotApproved': 'The font {font} is not on the approved list.',
+  'common.brand.contrastInsufficient':
+    'Not published: the pair {pair} does not reach WCAG 2.2 AA contrast.',
+  'common.brand.versionNotFound': 'This version does not exist.',
+  'common.brand.versionUnavailable':
+    'The published theme is unavailable; the default theme is shown.',
+  'common.brand.versionConflict': 'This version has already changed. Reload and try again.',
+  'common.brand.assetInvalid':
+    'Invalid file: PNG, JPEG or WebP (WOFF2 for a font), alt text in Spanish, English and French, and a stated license.',
+  'common.brand.assetUnavailable': 'File storage is unavailable. Try again later.',
+  'common.brand.contentLocaleMissing':
+    'Text missing in {locale}: a block is published in Spanish, English and French.',
+  'common.brand.contentKeyForbidden': 'Legal texts are not edited here.',
+  'common.brand.contentMarkdownForbidden':
+    'The text contains HTML or an external link. Only internal links are allowed.',
+  'common.brand.contentNotFound': 'This block or version does not exist.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

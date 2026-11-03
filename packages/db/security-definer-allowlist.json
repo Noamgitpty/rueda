@@ -108,6 +108,62 @@
       "story": "US-062"
     },
     {
+      "signature": "core.cfg_brand_cmd_publish(bytea,uuid,uuid,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
+      "signature": "core.cfg_brand_cmd_register_asset(bytea,uuid,uuid,text,text,bigint,bytea,text,text,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
+      "signature": "core.cfg_brand_cmd_rollback(bytea,uuid,uuid,uuid,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
+      "signature": "core.cfg_brand_cmd_save_draft(bytea,uuid,uuid,text,jsonb,integer,uuid,uuid,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
+      "signature": "core.cfg_brand_staff_versions(bytea,uuid,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
+      "signature": "core.cfg_content_cmd_publish(bytea,uuid,text,text,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
+      "signature": "core.cfg_content_cmd_rollback(bytea,uuid,text,text,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
+      "signature": "core.cfg_content_cmd_save_draft(bytea,uuid,text,text,jsonb,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-034"
+    },
+    {
       "signature": "core.iam_auth_lookup(text)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",

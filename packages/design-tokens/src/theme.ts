@@ -32,6 +32,17 @@ export class UnknownPaletteError extends Error {
 export const PALETTE_IDS: readonly string[] = Object.keys(PALETTE_SOURCES);
 
 /**
+ * Copie du document DTCG d'une palette du registre (US-034) : point de départ d'une version de
+ * marque en brouillon (« revenir à une ancienne palette »). Copie profonde : la modifier ne touche
+ * pas le registre.
+ */
+export function paletteDocument(paletteId: string): Record<string, unknown> {
+  const source = Object.hasOwn(PALETTE_SOURCES, paletteId) ? PALETTE_SOURCES[paletteId] : undefined;
+  if (source === undefined) throw new UnknownPaletteError(paletteId);
+  return structuredClone(source) as Record<string, unknown>;
+}
+
+/**
  * Thème validé et conforme au contraste AA, ou exception (fail-closed).
  * `overrides` : jetons partiels au format DTCG appliqués par-dessus la palette (retouche publiée).
  */

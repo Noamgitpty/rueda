@@ -16,6 +16,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import pg from 'pg';
 import { ApiModule } from './api.module.js';
+import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from './modules/cfg/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
 import { PgManualActionStore } from './modules/sup/index.js';
@@ -35,8 +36,15 @@ async function bootstrap(): Promise<void> {
     process.env,
     process.env['RUEDA_STAFF_TOTP_ISSUER'] ?? 'staff-console',
   );
+  // Socle de marque (US-034) : lecture et commandes en base ; stockage objet des actifs
+  // indisponible tant qu'US-003 ne l'a pas livré (fail-closed, aucun FAKE en production).
+  const brand = {
+    store: new PgBrandStore(pool),
+    files: new UnavailableBrandFileStore(),
+    params: loadBrandParams(),
+  };
   const app = await NestFactory.create<NestExpressApplication>(
-    ApiModule.register(iam, pay.webhooks, staff, { store: new PgManualActionStore(pool) }),
+    ApiModule.register(iam, pay.webhooks, staff, { store: new PgManualActionStore(pool) }, brand),
     { rawBody: true },
   );
   app.set('trust proxy', trustProxy);

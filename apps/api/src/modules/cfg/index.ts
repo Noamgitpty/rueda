@@ -42,3 +42,34 @@ export {
   timeZoneExpectations,
 } from './internal/tzdata.js';
 export type { OffsetQuery, TimeZoneExpectation } from './internal/tzdata.js';
+
+// Socle de marque modifiable (US-034, ADR-067) : thème versionné, actifs, blocs de contenu.
+// Montage par le processus API (api.module.ts) ; écritures appelées par la console SUP.
+export { BrandModule } from './internal/brand/brand.module.js';
+export {
+  BrandAccessError,
+  BrandConsoleService,
+  BrandReadService,
+  sniffBrandMime,
+  UnavailableBrandFileStore,
+} from './internal/brand/brand.service.js';
+export type {
+  AssetUpload,
+  BrandFileStore,
+  BrandOptions,
+  ContentView,
+  DraftInput,
+  PublishedTheme,
+} from './internal/brand/brand.service.js';
+export {
+  BrandError,
+  BrandHttpError,
+  brandErrorBody,
+  BRAND_MESSAGES,
+} from './internal/brand/errors.js';
+export type { BrandErrorCode } from './internal/brand/errors.js';
+export { loadBrandParams, parseBrandParams } from './internal/brand/params.js';
+export type { BrandParams } from './internal/brand/params.js';
+export { PgBrandStore } from './internal/brand/store.js';
+export type { BrandStore, StaffVersion } from './internal/brand/store.js';
+export { CONTENT_LOCALES, CONTRAST_CHECKER } from './internal/brand/checks.js';

@@ -15,6 +15,7 @@ export type { Mode, SemanticColor, Theme, ThemeToken } from './build.ts';
 export { checkContrast, CONTRAST_RULES, GLASS_TEXT, ThemeContrastError } from './contrast.ts';
 export type { ContrastFailure, ContrastRule } from './contrast.ts';
 export { BASE_CSS, themeStyleSheet } from './css.ts';
+export { themeFontFamilies } from './fonts.ts';
 export type { StyleSheetOptions } from './css.ts';
 export {
   assertContrast,
@@ -23,6 +24,7 @@ export {
   listPalettes,
   loadTheme,
   PALETTE_IDS,
+  paletteDocument,
   resolveSelection,
   UnknownPaletteError,
 } from './theme.ts';

@@ -237,4 +237,22 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Ton versement de {amount} est retenu pour l’instant. Tes gains indiquent la raison et la marche à suivre.',
   'ntf.payoutOnHold.sms.body':
     '{brand} : ton versement de {amount} est retenu. Raison dans tes gains.',
+  'common.brand.tokensInvalid': 'Le format du thème est invalide. Vérifiez les valeurs signalées.',
+  'common.brand.fontNotApproved': 'La police {font} ne figure pas dans la liste approuvée.',
+  'common.brand.contrastInsufficient':
+    'Non publiée : la paire {pair} n’atteint pas le contraste WCAG 2.2 AA.',
+  'common.brand.versionNotFound': 'Cette version n’existe pas.',
+  'common.brand.versionUnavailable':
+    'Le thème publié est indisponible ; le thème par défaut s’affiche.',
+  'common.brand.versionConflict': 'Cette version a déjà changé. Rechargez puis réessayez.',
+  'common.brand.assetInvalid':
+    'Fichier invalide : PNG, JPEG ou WebP (WOFF2 pour une police), texte alternatif en espagnol, anglais et français, et licence indiquée.',
+  'common.brand.assetUnavailable':
+    'Le stockage des fichiers est indisponible. Réessayez plus tard.',
+  'common.brand.contentLocaleMissing':
+    'Texte manquant en {locale} : un bloc est publié en espagnol, anglais et français.',
+  'common.brand.contentKeyForbidden': 'Les textes juridiques ne se modifient pas ici.',
+  'common.brand.contentMarkdownForbidden':
+    'Le texte contient du HTML ou un lien externe. Seuls les liens internes sont permis.',
+  'common.brand.contentNotFound': 'Ce bloc ou cette version n’existe pas.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

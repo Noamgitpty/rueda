@@ -1,0 +1,76 @@
+{
+  "$comment": "Paramètres du socle de marque (US-034, ADR-067), PROPOSÉS. Communs à tous les pays : le thème est commun en Bêta (16 DSN-002 SIMPLIFIÉ, surcharges par pays en P1). approvedFonts = liste des polices approuvées (DEC-FONDATEUR-07 « polices (liste approuvée) ») : une police nommée d'une version de marque hors de cette liste est refusée (FONT_NOT_APPROVED) ; les familles génériques (system-ui, sans-serif…) ne sont pas des polices à approuver. Ajouter une police = vérifier sa licence (license) puis l'inscrire ici par une demande de fusion. Initialement : les polices des palettes US-028 (retour à une ancienne palette possible). readCacheTtlSeconds = durée maximale de cache de l'API de lecture entre instances (invalidée aussitôt dans l'instance qui publie ; 16 DSN-003 « moins d'une minute »). assetMaxBytes = taille maximale d'un actif téléversé par la console (borne aussi par la limite JSON de l'API).",
+  "version": 1,
+  "approvedFonts": [
+    {
+      "family": "Archivo",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Atkinson Hyperlegible",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Bricolage Grotesque",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Figtree",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Fraunces",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Georgia",
+      "license": "police système du lecteur, jamais servie par Kmino"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "IBM Plex Sans",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Instrument Serif",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Inter",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "JetBrains Mono",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Manrope",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Newsreader",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Outfit",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Plus Jakarta Sans",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Source Sans 3",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    },
+    {
+      "family": "Space Grotesk",
+      "license": "SIL Open Font License 1.1 (à vérifier avant publication)"
+    }
+  ],
+  "readCacheTtlSeconds": 30,
+  "assetMaxBytes": 65536
+}
