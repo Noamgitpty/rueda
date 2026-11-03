@@ -228,6 +228,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   payment_method_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
   conversion_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   conversion_review_pending: [SQLSTATE.objectNotInPrerequisiteState, 'BOOKING_UNDER_REVIEW'],
+  // oracle C12 (US-025, 0042) : contexte autre que le travailleur booking_oracle
+  oracle_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   payment_command_idem_unique: [SQLSTATE.uniqueViolation, 'DISPOSITION_EXISTS'],
   payment_operation_provider_reference_unique: [
     SQLSTATE.uniqueViolation,

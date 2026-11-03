@@ -40,7 +40,9 @@ export type Worker =
   // relais de l'outbox (US-008) : seul lecteur des événements, pour vérifier ceux d'une commande
   | 'outbox_relay'
   // travailleur de commandes monétaires (US-019) : statuts appliqués, boîte d'envoi (US-024)
-  | 'payment_command';
+  | 'payment_command'
+  // oracle de production C12 (US-025, 0042) : lecture seule
+  | 'booking_oracle';
 
 export const uuid = (): string => randomUUID();
 

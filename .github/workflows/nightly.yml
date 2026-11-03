@@ -28,16 +28,37 @@ jobs:
       pull-requests: read
 
   fuzz-c11:
-    name: fuzz C11 (10 000 exécutions) — emplacement
+    name: fuzz C11 (10 000 exécutions, mode long)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 150
+    env:
+      # Le harnais d'US-005 démarre postgres:16 par Testcontainers sur le Docker du runner (ADR-043).
+      RUEDA_PG_TESTCONTAINERS: '1'
+      # Mode long explicite (US-025, ADR-068) : 10 000 exécutions ; la CI de chaque fusion garde
+      # le mode court par défaut (1 000, `pnpm test:l0`).
+      RUEDA_C11_RUNS: nightly
+      RUEDA_C11_FAILURES: ${{ github.workspace }}/c11-failures.jsonl
     steps:
-      # Emplacement documenté, sans faux test : le fuzz d'entrelacements C11 est livré par US-025
-      # (17 §2.5 C11, 19 US-025) sous la commande `pnpm test:concurrency` (1 000 en CI) et
-      # `pnpm test:nightly` (≥ 10 000, graine de chaque échec conservée en artefact).
-      # Quand US-025 est fusionnée, remplacer cette étape par :
-      #   checkout, pnpm/action-setup, setup-node (mêmes SHA que ci.yml), pnpm install --frozen-lockfile,
-      #   RUEDA_PG_TESTCONTAINERS=1 pnpm test:nightly (nombre d'exécutions et nom du paramètre fixés par US-025),
-      #   actions/upload-artifact des graines d'échec (if: failure()).
-      - name: C11 non encore implémenté (US-025)
-        run: echo "::notice title=fuzz C11::pas encore implémenté (US-025) ; aucune exécution"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Graine de la nuit = date UTC (AAAAMMJJ) : chaque nuit explore d'autres entrelacements ; elle
+      # est consignée dans le journal (`[C11] graine`) et chaque échec donne RUEDA_C11_REPLAY.
+      - name: graine de la nuit
+        run: echo "RUEDA_C11_SEED=$(date -u +%Y%m%d)" >> "$GITHUB_ENV"
+      - name: fuzz C11 (pnpm --filter @rueda/db test:c11)
+        run: pnpm --filter @rueda/db test:c11
+      - name: graines d'échec
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: c11-failures
+          path: c11-failures.jsonl
+          if-no-files-found: ignore
+          retention-days: 30

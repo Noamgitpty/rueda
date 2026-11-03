@@ -17,8 +17,11 @@ import type { AppRole, LoginRole } from '../roles.ts';
 import { redactError } from '../secrets.ts';
 import type { BenchInfo } from './bench.ts';
 
-/** `injection` : réservée au cas « sans verrou » de L0-02 (ADR-056). */
-export type BenchDatabase = 'main' | 'production' | 'injection';
+/**
+ * `injection` : réservée au cas « sans verrou » de L0-02 (ADR-056) ; `fuzz` : réservée au fuzz C11
+ * et à l'oracle C12 (US-025, ADR-068).
+ */
+export type BenchDatabase = 'main' | 'production' | 'injection' | 'fuzz';
 
 let roleAssertions = 0;
 
@@ -99,7 +102,9 @@ async function openClient(
         ? info.database
         : database === 'production'
           ? info.productionDatabase
-          : info.injectionDatabase,
+          : database === 'injection'
+            ? info.injectionDatabase
+            : info.fuzzDatabase,
     application_name: `rueda-test-${user}`,
   });
   try {

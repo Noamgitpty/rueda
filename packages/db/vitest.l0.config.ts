@@ -11,7 +11,13 @@ import { databaseTestOptions } from './vitest.shared.ts';
 // US-024 : la conversion gardée lance la tâche d'expiration et les balayages, qui portent sur toute la
 // base ; ses preuves tournent donc aussi seules, après les autres fichiers (aucun hold d'un fichier en
 // cours n'est touché).
-const ISOLATED = ['test/l0/l0-02-concurrency.test.ts', 'test/l0/l0-us024-conversion.test.ts'];
+// US-025 : le fuzz C11 tourne sur sa propre base (`fuzz`, copie de la base principale, ADR-068) ; il
+// est isolé lui aussi, pour que sa charge continue ne fausse aucune mesure de temps d'un autre fichier.
+const ISOLATED = [
+  'test/l0/l0-02-concurrency.test.ts',
+  'test/l0/l0-us024-conversion.test.ts',
+  'test/l0/l0-c11-fuzz.test.ts',
+];
 
 export default defineConfig({
   test: {

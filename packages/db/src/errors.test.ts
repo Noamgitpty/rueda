@@ -64,6 +64,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'payment_method_unavailable', 'PAYMENT_METHOD_UNAVAILABLE'],
     ['42501', 'conversion_forbidden', 'FORBIDDEN'],
     ['55000', 'conversion_review_pending', 'BOOKING_UNDER_REVIEW'],
+    ['42501', 'oracle_forbidden', 'FORBIDDEN'],
     ['23505', 'payment_command_idem_unique', 'DISPOSITION_EXISTS'],
     ['23505', 'payment_operation_provider_reference_unique', 'PAYMENT_SUBJECT_MISMATCH'],
   ])('%s sur %s → %s, sans détail', (code, constraint, expected) => {
