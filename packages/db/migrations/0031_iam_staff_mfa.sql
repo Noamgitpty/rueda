@@ -299,14 +299,14 @@ REVOKE ALL ON FUNCTION core.iam_hmac_sha256(bytea, bytea), core.iam_mfa_proof(by
 GRANT EXECUTE ON FUNCTION core.iam_hmac_sha256(bytea, bytea), core.iam_mfa_proof(bytea, bytea, uuid, bigint),
   core.iam_totp_step_now() TO iam_staff_owner;
 
-GRANT SELECT (key) ON core.iam_mfa_proof_key TO iam_staff_owner;
+GRANT SELECT (id, key) ON core.iam_mfa_proof_key TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.iam_mfa_proof_key FOR SELECT TO iam_staff_owner USING (true);
 
 GRANT SELECT (id, status) ON core.iam_user_account TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.iam_user_account FOR SELECT TO iam_staff_owner USING (true);
 
 -- sessions : lecture ; élévation NONE -> TOTP ; révocation (suspension, réinitialisation, 0032)
-GRANT SELECT (id, user_id, token_hash, expires_at, revoked_at, mfa_level) ON core.iam_session
+GRANT SELECT (id, user_id, token_hash, expires_at, revoked_at, revoked_reason, mfa_level) ON core.iam_session
   TO iam_staff_owner;
 GRANT UPDATE (mfa_level, revoked_at, revoked_reason) ON core.iam_session TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.iam_session FOR SELECT TO iam_staff_owner USING (true);
