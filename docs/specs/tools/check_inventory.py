@@ -13,6 +13,9 @@ bloquante » documentée dans `notes`) ; ordre des lots du P0-A (aucune ligne av
 dépend) ; valeurs de `beta_pilote` (une ligne construite dans la Bêta pilote ne dépend jamais d'une ligne
 DIFFÉRÉ) ; valeurs de `risque_legal_financier` (évalué pour toute ligne P0) ; estimation par barème
 (P0-A, Bêta pilote, P0-B, P1) ; avertissement sur les descriptions P0 de moins de 80 caractères.
+Révision 6 (US-058, pivot P2P) : valeur `HORS` de `phase_mvp` et de `priorite_produit` pour les lignes hors produit
+(DEC-FONDATEUR-13) ; ordonnée après P3 : aucune ligne du produit ne peut dépendre d'une ligne `HORS` (inversion) ; une
+ligne `HORS` n'entre dans aucun epic, aucune estimation ni aucun contrôle propre au P0.
 Sortie : rapport texte ; code retour 1 si un contrôle échoue.
 """
 import csv
@@ -31,7 +34,7 @@ EXPECTED = ["feature_id", "module", "sous_module", "nom", "persona", "descriptio
             "turo_statut_preuve", "source", "regles_liees", "dependances", "priorite_produit",
             "complexite_tech", "effort_ops", "pertinence_latam", "notes", "phase_mvp",
             "lot_p0a", "beta_pilote", "risque_legal_financier"]
-ORDER = {"P0-A": 0, "P0-B": 1, "P1": 2, "P2": 3, "P3": 4}
+ORDER = {"P0-A": 0, "P0-B": 1, "P1": 2, "P2": 3, "P3": 4, "HORS": 5}
 errors = []
 
 

@@ -24,12 +24,12 @@
 | `source` | Référence (`05 G-…`, `06 H-…`, `EV-xxxx`, `SRC_G x.y`, `SRC_H §x`, `TOS-xxx`, `11 EC-xx`, `12 §x`, `VERIF_07 NEW-xx`, `15 IMP-xx`). |
 | `regles_liees` | Règles métier de `08_BUSINESS_RULES.md` (`BR-…`, `SM-…`). |
 | `dependances` | Autres `feature_id` nécessaires. Contrôle automatique : toutes existent, aucune ne pointe vers une phase plus tardive, aucun cycle (§6–§7). |
-| `priorite_produit` | **P0** = MVP sûr et légal : la bêta P2P, Panama et Paraguay construits (révision 6 : toutes les lignes P0 sont P0-A). **P1** = version concurrentielle complète. **P2** = différenciation. **P3** = futur ou non applicable, et lignes **HORS PRODUIT (DEC-FONDATEUR-13)** (révision 6 : faute d'une valeur dédiée acceptée par `tools/check_inventory.py`, voir §12). |
+| `priorite_produit` | **P0** = MVP sûr et légal : la bêta P2P, Panama et Paraguay construits (révision 6 : toutes les lignes P0 sont P0-A). **P1** = version concurrentielle complète. **P2** = différenciation. **P3** = futur ou non applicable. **HORS** = ligne **HORS PRODUIT (DEC-FONDATEUR-13)**, gardée pour la traçabilité, sans story (valeur ajoutée par US-058, voir §12). |
 | `complexite_tech` | faible / moyenne / élevée. |
 | `effort_ops` | faible / moyen / élevé (charge humaine récurrente). |
 | `pertinence_latam` | élevée / moyenne / faible / non applicable. |
 | `notes` | Écart volontaire par rapport à Turo (`[NOUS]`), point à valider, et **journal des changements** de la révision 2 : rétrogradation, fusion (« FUSIONNÉ dans X »), promotion, réécriture (description initiale), dépendances corrigées (« avant … »), phase P0-B (porte juridique). |
-| **`phase_mvp`** | **P0-A**, **P0-B**, **P1**, **P2**, **P3** (définitions §3). Une ligne `priorite_produit = P0` est P0-A ou P0-B ; sinon `phase_mvp = priorite_produit`. Révision 6 : `P0-A` = MVP (bêta P2P) ; `P0-B` est vide (le lot LB est supprimé). |
+| **`phase_mvp`** | **P0-A**, **P0-B**, **P1**, **P2**, **P3**, **HORS** (définitions §3). Une ligne `priorite_produit = P0` est P0-A ou P0-B ; sinon `phase_mvp = priorite_produit`. Révision 6 : `P0-A` = MVP (bêta P2P) ; `P0-B` est vide (le lot LB est supprimé). |
 | **`lot_p0a`** (révision 3 ; `C` en révision 5) | Lot de construction du P0-A, `0` à `4` (18 §6), ou `C` = lot des **connecteurs réels** (PSP, e-facture, KYC) livré après le choix du pays de lancement et avant la mise en service (DEC-FONDATEUR-03, VERIF_18-F01) ; une intégration se livre en deux temps : port + adaptateur `FAKE` dans le lot de sa ligne, connecteur réel au lot C. Vide hors P0-A. Contrôle : aucune ligne n'est dans un lot antérieur à celui d'une ligne dont elle dépend (corrigé VERIF_10-V10-08). |
 | **`beta_pilote`** (révision 3 ; relu en révision 6) | Traitement de la ligne dans la **tranche des lots 0 à 4 de la bêta P2P** (première ouverture, 18 §1.0 ; nom de colonne historique) ; vide hors P0-A. **OUI** = construite telle que décrite ; **SIMPLIFIÉ** = version réduite, décrite en note « Bêta pilote SIMPLIFIÉ : … » (libellé historique des notes) ; **MANUEL** = non construite, remplacée par une opération manuelle décrite en note ; **DIFFÉRÉ** = non construite ni remplacée (sans objet pour la tranche des lots 0 à 4 ou assurée par la page du PSP), livrée au lot 5 (reste de la bêta fermée). Contrôle : une ligne OUI ou SIMPLIFIÉ ne dépend jamais d'une ligne DIFFÉRÉ (corrigé VERIF_10-V10-01). |
 | **`risque_legal_financier`** (révision 3) | faible / moyen / élevé (barème §1 bis), évalué pour toutes les lignes P0 (178 en révision 6 ; les lignes remontées sont évaluées en révision 6) et les lignes citées par VERIF_07 F11 ; « non évalué » ailleurs (corrigé VERIF_10-V10-13, VERIF_07 F11). |
@@ -58,7 +58,8 @@ Conventions : `[NOUS]` signale notre recommandation. Les montants Turo sont donn
 | P0-B | 0 | vide depuis la révision 6 (lot LB supprimé ; était 13 : 12 intégrées au P0-A, PAY-038 hors produit) |
 | P1 | 327 | (342 − 9 remontées − 7 hors produit + FLT-001) |
 | P2 | 100 | (108 − 7 remontées − FLT-012 hors produit) |
-| P3 | 71 | **47 options** + **24 lignes HORS PRODUIT (DEC-FONDATEUR-13)** (notes commençant par « HORS PRODUIT ») |
+| P3 | 47 | options |
+| HORS | 24 | lignes **HORS PRODUIT (DEC-FONDATEUR-13)** (notes commençant par « HORS PRODUIT ») ; rangées en P3 par US-054, passées à `HORS` par US-058 sans suppression |
 | **Total** | **676** | P0 = 178 (179 en révision 5, 162 en v4, 150 en révision 2, 275 en version 1) |
 
 **Lots du P0-A** (révision 6) : lot 0 = 22, lot 1 = 47, lot 2 = 72, lot 3 = 32, lot 4 = 1, **lot C = 4** (PAY-041, PAY-042, FIN-020, VER-029). **Tranche des lots 0 à 4 de la bêta P2P** (colonne `beta_pilote`, 178 lignes P0-A) : OUI 31, SIMPLIFIÉ 111, MANUEL 28, DIFFÉRÉ 8, soit **142 lignes construites**. Historique : 96 construites en révision 5 (modèle agence), 82 en v4, 76 en révision 3.
@@ -67,9 +68,9 @@ Passage de 275 à 150 lignes P0 (révision 2) : 275 − 143 rétrogradations de 
 
 ### Par module et par phase
 
-Révision 6 : la colonne P0-B est vide et la colonne « hors produit » isole, dans le P3, les lignes HORS PRODUIT.
+Révision 6 : la colonne P0-B est vide et la colonne « hors produit » isole les lignes `HORS` (rangées en P3 jusqu'à US-058).
 
-| Module | Total | P0-A | P1 | P2 | P3 (options) | Hors produit (P3) |
+| Module | Total | P0-A | P1 | P2 | P3 (options) | HORS |
 |---|---|---|---|---|---|---|
 | ACC — Comptes & identité | 35 | 3 | 24 | 4 | 2 | 2 |
 | VER — Vérification / KYC | 29 | 11 | 14 | 2 | 1 | 1 |
@@ -123,7 +124,8 @@ Requalifications de preuve (corrigé VERIF_10-V10-13, VERIF_07 F04–F05) : les 
 | P0-B | **Vide depuis la révision 6.** Historique : « la plateforme encaisse », phase ouverte après avis dans le modèle agence ; ses lignes sont intégrées au P0-A (encaissement par Kmino dès la bêta, en `FAKE`), sauf PAY-038, hors produit. | — |
 | P1 | Version concurrentielle complète dans le pays de lancement (automatisations, modifications de trip, support 24/7, livraison, co-hôtes FLT-001 / FLT-002, remise sans contact). | OQ-MK-08 (aéroport), OQ-BR-17, OQ-BR-19. |
 | P2 | Ouverture commerciale du second pays (déjà construit, DEC-FONDATEUR-04), différenciation. Le P2P n'est plus en P2 : il est le MVP. | OQ-MK-04, OQ-PAY-08 à 12 (Paraguay, s'il n'est pas retenu au lancement). |
-| P3 | Futur ou non applicable ; **lignes HORS PRODUIT (DEC-FONDATEUR-13)**, sans story. | — |
+| P3 | Futur ou non applicable. | — |
+| HORS | **Lignes HORS PRODUIT (DEC-FONDATEUR-13)**, sans story ; aucune ligne du produit ne peut en dépendre (`tools/check_inventory.py`) et aucune story active ne peut les citer (`tools/check_backlog.py`, `tools/verif19_backlog.py`). | — |
 
 **Décisions fondateur du 2026-10-30 (consolidation, révision 4 ; historique, à lire avec DEC-FONDATEUR-13 à 16 du 2026-11-02)** :
 - **DEC-FONDATEUR-02** : on construit d'abord ; les avis juridiques de la colonne « Préconditions » ci-dessus (OQ-MK-01, OQ-MK-02, OQ-MK-05, OQ-MK-06, OQ-MK-09, OQ-BR-21, OQ-BR-24, OQ-BR-25, OQ-PAY-06…) deviennent un **préalable à la mise en service avec de vrais clients** (Bêta pilote comprise), plus un préalable au build. Les lots se construisent ; leur ouverture reste bloquée.
@@ -272,7 +274,8 @@ Répartition par phase_mvp :
   P0-B     0
   P1     327
   P2     100
-  P3      71
+  P3      47
+  HORS    24
   total 676
 
 P0 par module (P0-A / P0-B) :
@@ -417,7 +420,7 @@ Effort (barème, unités de 10 jours-agent, sans valeur calendaire) : P0-A compl
 
 | Changement | Lignes | Règle appliquée |
 |---|---|---|
-| **HORS PRODUIT** (P3, sans story ; 24) | ex-P0-A : VER-027, PRT-019, PRT-009, LEG-025, LEG-020, LEG-027, PAY-033, PAY-035, ACC-029, ACC-008, FLT-003, FLT-011, CAL-009, TRP-052, FIN-019 ; ex-P0-B : PAY-038 ; ex-P1 : LST-029, REV-014, FLT-010, FLT-017, FLT-018, FLT-019, TRP-055 ; ex-P2 : FLT-012 | §e.1 et §e.2 de l'analyse : KYB, police flotte, contrat-cadre, mandats, encaissement par un tiers, caution d'agence, split de commission, comptoir, équipes et outils de flotte de loueur. **Aucune ligne supprimée** |
+| **HORS PRODUIT** (`HORS`, sans story ; 24) | ex-P0-A : VER-027, PRT-019, PRT-009, LEG-025, LEG-020, LEG-027, PAY-033, PAY-035, ACC-029, ACC-008, FLT-003, FLT-011, CAL-009, TRP-052, FIN-019 ; ex-P0-B : PAY-038 ; ex-P1 : LST-029, REV-014, FLT-010, FLT-017, FLT-018, FLT-019, TRP-055 ; ex-P2 : FLT-012 | §e.1 et §e.2 de l'analyse : KYB, police flotte, contrat-cadre, mandats, encaissement par un tiers, caution d'agence, split de commission, comptoir, équipes et outils de flotte de loueur. **Aucune ligne supprimée** |
 | P0-A → P1 (comme Turo) | FLT-001 | co-hôtes invités par un hôte, comme Turo (`docs/team/COMME_TURO.md`) ; équipes de loueur hors produit |
 | **Remontées** de P1 / P2 (16) | P2 : HST-049, PYO-003, PRT-007, PRT-008, PRT-015, HST-048, LEG-021 ; P1 : PRT-001, PRT-002, PRT-011, BKG-003, PRC-018, REV-002, REV-004, FIN-008, ADM-027 | §e.3 de l'analyse (« 19 lignes de 04 », dont PAY-011, PAY-012 et PAY-036, déjà P0) ; lot = lot de la story de §e.5 / §e.6, relevé au lot de ses dépendances |
 | **Ex-P0-B intégrées** (12) | PAY-011, PAY-012, PAY-015, PAY-036, PAY-037, PRC-012, CLM-021, PYO-001, PYO-002, PYO-007, FIN-004, FIN-005 | §e.3 (US-701 à US-704, US-706 à US-711 remontées ; LB supprimé) |
@@ -431,5 +434,5 @@ Effort (barème, unités de 10 jours-agent, sans valeur calendaire) : P0-A compl
 **Limites connues de la révision 6** (à reprendre par les demandes de fusion indiquées) :
 
 1. **Couplage avec 16 et 19** : `tools/check_prd_structure.py`, `tools/verif15_struct.py`, `tools/check_backlog.py` et `tools/verif19_backlog.py` comparent 04 aux fiches de 16 et aux stories de 19. Tant que S5 (16 : fiches des lignes remontées, matrice D.1) et S6 (19 : stories des lignes remontées ou intégrées, IDs des NOUVELLE-xx, LB supprimé) ne sont pas faits, ces quatre contrôles échouent ; `tools/check_inventory.py` passe. Détail des écarts : `docs/team/handoffs/US-054.md`.
-2. **Valeur « hors produit »** : `tools/check_inventory.py` n'accepte que P0-A à P3 ; les lignes hors produit sont donc rangées en P3 avec la marque « HORS PRODUIT » en tête de `notes`. Demandé (hors de cette story, `tools/` étant modifié en parallèle par US-055) : une valeur `HORS` de `phase_mvp` / `priorite_produit` exclue des comptes et des contrôles d'inversion, et le libellé « tranche des lots 0 à 4 » au lieu de « Bêta pilote ».
+2. **Valeur « hors produit »** : faite par US-058 (2026-11-02) : `tools/check_inventory.py`, `tools/check_backlog.py` et `tools/verif19_backlog.py` acceptent la valeur `HORS` de `phase_mvp` / `priorite_produit` ; les 24 lignes HORS PRODUIT y sont passées (aucune ligne supprimée, marque « HORS PRODUIT » gardée en tête de `notes`) ; une ligne du produit qui dépendrait d'une ligne `HORS` est une inversion. Reste demandé : le libellé « tranche des lots 0 à 4 » au lieu de « Bêta pilote » dans la sortie de `check_inventory.py` et la suppression de sa ligne d'estimation « P0-B » (non faits : sortie inchangée pour ne pas modifier les motifs attendus de `scripts/ci/check-spec-tools.py`).
 3. Les lignes P1 à P3 ne sont pas réécrites (seuls leur persona, quelques dépendances et les lignes HORS PRODUIT changent) ; celles qui citent une agence, un loueur ou un comptoir portent la marque de lecture historique.

@@ -2,18 +2,26 @@
 
 Vérifie :
   1. structure de chaque story (rubriques obligatoires, valeurs admises, préfixe d'ID cohérent avec le lot,
-     sauf stories listées comme déplacées vers un lot postérieur sans renumérotation, 19 §1.1) ;
-  2. couverture : chaque feature_id P0-A et P0-B de 04 est portée par au moins une story ;
-  3. features citées : existent dans 04 ;
+     sauf stories listées comme déplacées vers un lot postérieur, ou remontées vers un lot antérieur,
+     sans renumérotation, 19 §1.1) ;
+  2. couverture : chaque feature_id P0-A (et P0-B s'il en reste) de 04 est portée par au moins une story active ;
+  3. features citées : existent dans 04 ; aucune story active ne cite une ligne `HORS` de 04 ;
   4. dépendances : existent, sans auto-dépendance, graphe acyclique ;
   5. ordre des lots : aucune story ne dépend d'une story d'un lot postérieur ;
   6. règles Bêta : OUI seulement en L0-L4, une story OUI ne dépend que de stories OUI,
      PRÉALABLE (LC) ne dépend que de L0-L4, toute ligne Bêta construite (OUI / SIMPLIFIÉ de 04)
      est portée par au moins une story Bêta ;
   7. règle design : toute story « Revue design : OUI » hors E0-D dépend (transitivement) de US-032 ;
-  8. références : vecteurs T01-T68, TA01-TA11, tests C1-C20, RLS-1..20, L0-01..10,
+  8. références : vecteurs T01-T68, TJ01-TJ21 (lignes de la table TJ de 08), TA01-TA11, tests C1-C20, RLS-1..28, L0-01..10,
      identifiants OQ/UXQ (22), BR (08), EC (11), ADR (17), SM (08) existent.
 Affiche ensuite les comptes par lot, les points et le chemin critique (plus long chemin pondéré).
+
+Révision P2P (US-058, 2026-11-02) : lot `HORS` pour les stories hors produit (DEC-FONDATEUR-13) : elles gardent
+leur identifiant, n'ont ni estimation, ni feature, ni dépendance ; elles sont ignorées par la couverture, les points
+et le graphe, et aucune story active ne peut en dépendre. L'ancien lot LB (P0-B) est supprimé : ses stories sont
+remontées (liste « Stories remontées sans renumérotation » de 19 §1.1) ou hors produit. Les lignes `HORS` de 04
+(`phase_mvp`) sont ignorées par la couverture, et une story active ne peut pas en citer. La rubrique « Bêta pilote »
+devient « Tranche bêta ».
 """
 import csv
 import os
@@ -30,16 +38,21 @@ def read(name):
         return f.read()
 
 
-LOTS = ["L0", "L1", "L2", "L3", "L4", "L5", "LC", "LB"]
+LOTS = ["L0", "L1", "L2", "L3", "L4", "L5", "LC", "HORS"]
 RANK = {l: i for i, l in enumerate(LOTS)}
-PREFIX = {"L0": "0", "L1": "1", "L2": "2", "L3": "3", "L4": "4", "L5": "5", "LC": "6", "LB": "7"}
+# lot de naissance d'un identifiant (centaine) ; « LB » (US-7xx) n'est plus un lot valide, mais reste le lot de
+# naissance des stories remontées de l'ancien lot P0-B (rang le plus tardif).
+BORN = {"0": "L0", "1": "L1", "2": "L2", "3": "L3", "4": "L4", "5": "L5", "6": "LC", "7": "LB"}
+BORN_RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3, "L4": 4, "L5": 5, "LC": 6, "LB": 7}
 FIELDS = ["Epic", "Récit", "Features", "Références", "Critères d'acceptation", "Notes techniques",
-          "Dépendances", "Estimation", "Lot", "Bêta pilote", "Revue design", "Bloqué par (défaut)"]
+          "Dépendances", "Estimation", "Lot", "Tranche bêta", "Revue design", "Bloqué par (défaut)"]
 
 errors, warnings = [], []
 doc = read("19_DEVELOPMENT_BACKLOG.md")
 _mv = re.search(r"^- \*\*Stories déplacées sans renumérotation\*\* :(.*)$", doc, re.M)
 MOVED = set(re.findall(r"US-\d{3}", _mv.group(1))) if _mv else set()
+_up = re.search(r"^- \*\*Stories remontées sans renumérotation\*\* :(.*)$", doc, re.M)
+RAISED = set(re.findall(r"US-\d{3}", _up.group(1))) if _up else set()
 
 # ---------- parsing ----------
 stories = {}
@@ -74,12 +87,31 @@ for sid in order:
         errors.append(f"{sid} : lot inconnu « {lot} »")
         lot = "L5"
     s["lot"] = lot
-    if sid[3] != PREFIX[lot]:
-        # 19 §1.1 : une story déplacée vers un lot postérieur garde son identifiant si elle est listée
-        # dans « Stories déplacées sans renumérotation » (VERIF_19) ; jamais vers un lot antérieur.
-        born = [l for l, p in PREFIX.items() if p == sid[3]][0]
-        if sid in MOVED and RANK[lot] > RANK[born]:
+    s["hors"] = lot == "HORS"
+    born = BORN[sid[3]]
+    if s["hors"]:
+        # story hors produit : rubriques présentes, mais ni estimation, ni feature, ni dépendance
+        s["pts"] = 0
+        s["beta"] = f.get("Tranche bêta", "")
+        s["design"] = f.get("Revue design", "")
+        s["features"], s["deps"], s["epic"] = [], [], ""
+        if f.get("Estimation", "") != "—":
+            errors.append(f"{sid} : story HORS avec une estimation « {f.get('Estimation')} » (attendu « — »)")
+        if re.findall(r"\b[A-Z0-9]{2,4}-\d{3}\b", f.get("Features", "")) or re.findall(r"US-\d{3}", f.get("Dépendances", "")):
+            errors.append(f"{sid} : story HORS avec des features ou des dépendances")
+        if s["beta"] != "NON":
+            errors.append(f"{sid} : story HORS dont la tranche bêta n'est pas NON")
+        if "hors produit" not in (s["title"] + f.get("Récit", "")).lower():
+            errors.append(f"{sid} : story HORS sans la mention « hors produit »")
+        continue
+    if BORN_RANK[lot] != BORN_RANK[born]:
+        # 19 §1.1 : une story déplacée vers un lot postérieur (« Stories déplacées sans renumérotation », VERIF_19)
+        # ou remontée vers un lot antérieur (« Stories remontées sans renumérotation », révision P2P) garde son
+        # identifiant si elle est listée ; sinon, erreur.
+        if sid in MOVED and BORN_RANK[lot] > BORN_RANK[born]:
             warnings.append(f"{sid} : déplacée sans renumérotation de {born} vers {lot} (19 §1.1)")
+        elif sid in RAISED and BORN_RANK[lot] < BORN_RANK[born]:
+            warnings.append(f"{sid} : remontée sans renumérotation de {born} vers {lot} (19 §1.1)")
         else:
             errors.append(f"{sid} : préfixe incohérent avec le lot {lot}")
     m = re.match(r"^(\d+) pts?$", f.get("Estimation", ""))
@@ -88,7 +120,7 @@ for sid in order:
         s["pts"] = 0
     else:
         s["pts"] = int(m.group(1))
-    s["beta"] = f.get("Bêta pilote", "")
+    s["beta"] = f.get("Tranche bêta", "")
     if s["beta"] not in ("OUI", "NON", "PRÉALABLE"):
         errors.append(f"{sid} : valeur Bêta invalide « {s['beta']} »")
     s["design"] = f.get("Revue design", "")
@@ -108,11 +140,16 @@ with open(os.path.join(BASE, "04_FEATURE_INVENTORY.csv"), encoding="utf-8") as f
     inv = {r["feature_id"]: r for r in csv.DictReader(fh)}
 p0a = [k for k, r in inv.items() if r["phase_mvp"] == "P0-A"]
 p0b = [k for k, r in inv.items() if r["phase_mvp"] == "P0-B"]
+hors04 = [k for k, r in inv.items() if r["phase_mvp"] == "HORS"]
+active = [s for s in order if not stories[s]["hors"]]
+hors_st = [s for s in order if stories[s]["hors"]]
 covered = defaultdict(list)
-for sid in order:
+for sid in active:
     for fid in stories[sid]["features"]:
         if fid not in inv:
             errors.append(f"{sid} : feature inconnue de 04 : {fid}")
+        elif inv[fid]["phase_mvp"] == "HORS":
+            errors.append(f"{sid} : story active qui cite la ligne hors produit {fid}")
         else:
             covered[fid].append(sid)
             if inv[fid]["phase_mvp"] not in ("P0-A", "P0-B"):
@@ -121,15 +158,7 @@ miss_a = [x for x in p0a if x not in covered]
 miss_b = [x for x in p0b if x not in covered]
 for x in miss_a + miss_b:
     errors.append(f"feature non couverte : {x}")
-# P0-B features must be in LB, P0-A features must not be only in LB
-for fid in p0b:
-    for sid in covered.get(fid, []):
-        if stories[sid]["lot"] != "LB":
-            errors.append(f"{fid} (P0-B) portée par {sid} hors du lot LB")
-for fid in p0a:
-    lots = {stories[s]["lot"] for s in covered.get(fid, [])}
-    if lots and lots <= {"LB"}:
-        errors.append(f"{fid} (P0-A) portée seulement au lot LB")
+# Révision P2P : l'ancien lot LB est supprimé (règles « P0-B ⇒ LB » et « P0-A seulement en LB » sans objet).
 
 # Bêta construit
 beta_built = [k for k in p0a if inv[k]["beta_pilote"].startswith(("OUI", "SIMPLIFI"))]
@@ -151,12 +180,14 @@ for fid in p0a:
             early.append((fid, sid))
 
 # ---------- dépendances ----------
-for sid in order:
+for sid in active:
     for d in stories[sid]["deps"]:
         if d not in stories:
             errors.append(f"{sid} : dépendance inexistante {d}")
         elif d == sid:
             errors.append(f"{sid} : auto-dépendance")
+        elif stories[d]["hors"]:
+            errors.append(f"{sid} : dépend de la story hors produit {d}")
         else:
             if RANK[stories[d]["lot"]] > RANK[stories[sid]["lot"]]:
                 errors.append(f"inversion de lot : {sid} ({stories[sid]['lot']}) dépend de {d} ({stories[d]['lot']})")
@@ -167,7 +198,7 @@ for sid in order:
     lot, beta = stories[sid]["lot"], stories[sid]["beta"]
     exp = "OUI" if lot in ("L0", "L1", "L2", "L3", "L4") else ("PRÉALABLE" if lot == "LC" else "NON")
     if beta != exp:
-        errors.append(f"{sid} : Bêta « {beta} » incohérent avec le lot {lot} (attendu {exp})")
+        errors.append(f"{sid} : tranche bêta « {beta} » incohérente avec le lot {lot} (attendu {exp})")
 
 # cycle detection + topological order
 state, topo, cyc = {}, [], []
@@ -187,7 +218,7 @@ def visit(n, stack):
 
 
 sys.setrecursionlimit(10000)
-for n in order:
+for n in active:
     if state.get(n) is None:
         visit(n, [])
 for c in cyc:
@@ -210,7 +241,7 @@ def ancestors(n):
 
 
 if not cyc:
-    for sid in order:
+    for sid in active:
         s = stories[sid]
         if s["design"] == "OUI" and s["epic"] != "E16" and "US-032" not in ancestors(sid):
             errors.append(f"règle design : {sid} (revue design) ne dépend pas de US-032")
@@ -219,6 +250,8 @@ if not cyc:
 t22, t08, t11, t17 = read("22_OPEN_QUESTIONS.md"), read("08_BUSINESS_RULES.md"), read("11_EDGE_CASES_AND_FAILURES.md"), read("17_DATA_MODEL_AND_ARCHITECTURE.md")
 t16 = read("16_PRODUCT_REQUIREMENTS_DOCUMENT.md")
 stext = "".join(stories[s]["text"] for s in order)
+tj08 = set(re.findall(r"^\| (TJ\d{2}[a-z]?) \|", t08, re.M))
+tjbase = {x[:4] for x in tj08}
 bad = set()
 for v in re.findall(r"\bT(\d{2})\b", stext):
     if not 1 <= int(v) <= 68:
@@ -227,8 +260,11 @@ for v in re.findall(r"\bTA(\d{2})\b", stext):
     if not 1 <= int(v) <= 11:
         bad.add("TA" + v)
 for v in re.findall(r"\bRLS-(\d+)\b", stext):
-    if not 1 <= int(v) <= 20:
+    if not 1 <= int(v) <= 28:
         bad.add("RLS-" + v)
+for v in re.findall(r"\b(TJ\d{2}[a-z]?)\b", stext):
+    if (v not in tj08) if len(v) == 5 else (v not in tjbase):
+        bad.add(v)
 for v in re.findall(r"\bL0-(\d{2})\b", stext):
     if not 1 <= int(v) <= 10:
         bad.add("L0-" + v)
@@ -255,7 +291,7 @@ for v in sorted(bad):
 
 # ---------- statistiques ----------
 print("Fichier : 19_DEVELOPMENT_BACKLOG.md")
-print(f"Stories : {len(order)} ; rubriques et valeurs contrôlées")
+print(f"Stories : {len(order)} dont {len(active)} actives et {len(hors_st)} hors produit ; rubriques et valeurs contrôlées")
 print()
 print("Par lot (stories / points) :")
 tot = 0
@@ -266,15 +302,16 @@ for l in LOTS:
     print(f"  {l:3} {len(ss):3} stories  {p:4} pts")
 print(f"  total {len(order)} stories  {tot} pts")
 bp = sum(stories[s]["pts"] for s in order if stories[s]["beta"] == "OUI")
-print(f"Tranche Bêta (L0-L4) : {sum(1 for s in order if stories[s]['beta'] == 'OUI')} stories, {bp} pts ; "
-      f"P0-A complet (L0-L5) : {sum(stories[s]['pts'] for s in order if stories[s]['lot'] in LOTS[:6])} pts")
+print(f"Tranche bêta (L0-L4) : {sum(1 for s in order if stories[s]['beta'] == 'OUI')} stories, {bp} pts ; "
+      f"bêta P2P complète (L0-L5) : {sum(stories[s]['pts'] for s in order if stories[s]['lot'] in LOTS[:6])} pts")
 print(f"Stories avec revue design : {sum(1 for s in order if stories[s]['design'] == 'OUI')}")
 print()
-print(f"Couverture P0-A : {len(p0a) - len(miss_a)}/{len(p0a)} ; P0-B : {len(p0b) - len(miss_b)}/{len(p0b)}")
-print(f"Lignes Bêta construites (OUI / SIMPLIFIÉ de 04) portées par une story Bêta (ou PRÉALABLE pour le lot C) : "
+print(f"Couverture P0-A : {len(p0a) - len(miss_a)}/{len(p0a)} ; P0-B : {len(p0b) - len(miss_b)}/{len(p0b)} ; "
+      f"lignes HORS de 04 ignorées : {len(hors04)}")
+print(f"Lignes construites de la tranche (OUI / SIMPLIFIÉ de 04) portées par une story de la tranche (ou PRÉALABLE pour le lot C) : "
       f"{sum(1 for k in beta_built if any(stories[s]['beta'] in ('OUI', 'PRÉALABLE') for s in covered.get(k, [])))}/{len(beta_built)}")
-print(f"Lignes MANUEL de 04 dont l'outil de console est construit dans la Bêta : {len(manual_in_beta)}/{len(beta_manual)}")
-print(f"Dépendances : {sum(len(stories[s]['deps']) for s in order)} ; cycles : {len(cyc)}")
+print(f"Lignes MANUEL de 04 dont l'outil de console est construit dans la tranche : {len(manual_in_beta)}/{len(beta_manual)}")
+print(f"Dépendances : {sum(len(stories[s]['deps']) for s in active)} ; cycles : {len(cyc)}")
 print(f"Information : {len(early)} couples (feature, story) construits plus tôt que le lot_p0a de 04 (écarts assumés §2)")
 
 if not cyc:
@@ -286,8 +323,8 @@ if not cyc:
             best[n] = (b[0] + stories[n]["pts"], b[1] + [n])
         return best[target] if target else max(best.values(), key=lambda x: x[0])
 
-    for label, tgt in (("fin du build Bêta (US-404)", "US-404"), ("mise en service (US-607)", "US-607"),
-                       ("P0-A complet (plus long chemin)", None)):
+    for label, tgt in (("fin du build de la tranche (US-404)", "US-404"), ("mise en service (US-607)", "US-607"),
+                       ("bêta P2P complète (plus long chemin)", None)):
         if tgt is None or tgt in stories:
             p, path = longest(tgt)
             print(f"Chemin critique vers {label} : {p} pts, {len(path)} stories")
