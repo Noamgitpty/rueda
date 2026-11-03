@@ -85,9 +85,9 @@ CREATE TABLE core.payment_psp_account (
       ('SPLIT_AT_SOURCE', 'PLATFORM_MOR')),
   -- références de coffre [C4] : jamais le secret lui-même (17 §1.6)
   credentials_ref    text
-    CONSTRAINT psp_account_credentials_ref_format CHECK (credentials_ref ~ '^[a-z][a-z0-9+.-]*:[^[:space:]]{1,256}$'),
+    CONSTRAINT psp_account_credentials_ref_format CHECK (credentials_ref ~ '^[a-z][a-z0-9+.-]*:[^[:space:]]{1,255}$'),
   webhook_secret_ref text
-    CONSTRAINT psp_account_webhook_secret_ref_format CHECK (webhook_secret_ref ~ '^[a-z][a-z0-9+.-]*:[^[:space:]]{1,256}$'),
+    CONSTRAINT psp_account_webhook_secret_ref_format CHECK (webhook_secret_ref ~ '^[a-z][a-z0-9+.-]*:[^[:space:]]{1,255}$'),
   public_webhook_id  text        NOT NULL
     CONSTRAINT psp_account_public_webhook_id_format CHECK (public_webhook_id ~ '^[A-Za-z0-9_-]{16,64}$')
     CONSTRAINT psp_account_public_webhook_id_unique UNIQUE,
