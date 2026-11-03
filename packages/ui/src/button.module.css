@@ -1,0 +1,100 @@
+/*
+ * Boutons (10b UX-47, UX-50, UX-52, UX-68). Une seule couleur d'action : `primary`. Cible
+ * tactile ≥ 48 px (`--size-touch-target`). Contour visible au clavier (anneau de focus du thème).
+ */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-block-size: var(--size-touch-target);
+  min-inline-size: var(--size-touch-target);
+  padding: 0 var(--space-5);
+  border: var(--size-focus-ring) solid transparent;
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--font-line-height-heading);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--motion-duration-fast) var(--motion-easing-standard),
+    background-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 88%, var(--color-text));
+}
+
+.secondary {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+}
+
+.quiet {
+  background: transparent;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.quiet:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+}
+
+.small {
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.block {
+  display: flex;
+  inline-size: 100%;
+}
+
+/* Désactivé : exempté de contraste (WCAG 1.4.3), mais reste lisible ; jamais pour l'action principale d'un formulaire (UX-50). */
+.button:disabled {
+  cursor: not-allowed;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+.spinner {
+  inline-size: 1em;
+  block-size: 1em;
+  border-radius: 50%;
+  border: var(--size-focus-ring) solid currentColor;
+  border-inline-end-color: transparent;
+  animation: ui-spin var(--motion-duration-skeleton) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-inline-end-color: currentColor;
+    opacity: 0.6;
+  }
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}

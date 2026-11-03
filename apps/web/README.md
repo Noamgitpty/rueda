@@ -20,6 +20,10 @@ Politique de photo (TRP-002) : grand côté ≤ 1 600 px, ≤ 500 ko (500 000 oc
 
 La page reçoit dans `<head>` les variables CSS du thème actif (`theme.tsx`, paquet `@rueda/design-tokens`). Les composants n'écrivent que `var(--…)` : `pnpm lint` refuse toute couleur, police, taille, espacement, rayon, ombre ou durée en dur. Changer de palette : voir `packages/design-tokens/README.md`, « Changer de palette en 1 étape ».
 
+## Bibliothèque de composants (US-032)
+
+Les écrans utilisent les composants de `@rueda/ui` (voir `packages/ui/README.md`). La vitrine vivante est servie sur **`/ui`** (`?lang=`, `?theme=auto|light|dark`, `?width=mobile|full`) : ouverte en `next dev`, sinon seulement avec `WEB_UI_CATALOG_ENABLED=true`.
+
 ## Laboratoire PWA iOS (US-026)
 
 Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et ses icônes, tous sous `/lab/pwa-ios`). Protocole : [docs/qa/US-026-protocole-pwa-ios.md](../../docs/qa/US-026-protocole-pwa-ios.md).
@@ -29,6 +33,7 @@ Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et
 | Variable                  | Défaut  | Effet                                                                                                                                                                                                                                                   |
 | ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `WEB_LAB_PWA_IOS_ENABLED` | absente | `true` (exactement) ouvre le laboratoire US-026. Toute autre valeur, ou l'absence : la page, le manifeste, le service worker et les icônes répondent **404**. Lue à chaque requête côté serveur (pas de `NEXT_PUBLIC_`), donc rien n'est figé au build. |
+| `WEB_UI_CATALOG_ENABLED`  | absente | `true` (exactement) ouvre la vitrine `/ui` (US-032) hors développement, pour la préproduction. Sinon : **404** (toujours ouverte avec `next dev`). Page `noindex`, lue à chaque requête. Ne pas définir en production.                                  |
 | `THEME_PALETTE`           | absente | Palette du thème (US-030), par exemple `lienzo-azur`. Absente : `packages/design-tokens/config/theme.json` (Lienzo · Tinta). Inconnue : erreur au rendu (fail-closed). Lue à chaque requête, comme le back-office.                                      |
 | `THEME_COLOR_SCHEME`      | absente | `auto` (défaut : clair ou sombre selon l'appareil), `light` ou `dark`.                                                                                                                                                                                  |
 

@@ -1,0 +1,83 @@
+/* Vitrine de la bibliothèque (US-032) : mise en page seulement, jetons du thème uniquement. */
+.catalog {
+  display: grid;
+  gap: var(--space-10);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4) var(--space-10);
+  max-inline-size: 72rem;
+}
+
+/* Cadre mobile : 360 px, largeur de conception de 10b UX-01 (dimension de l'appareil, pas un style). */
+.mobile {
+  max-inline-size: 360px;
+  border-inline: 1px solid var(--color-border);
+}
+
+.header {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display-family);
+  font-weight: var(--font-display-weight);
+  font-size: var(--font-display-size-compact);
+  letter-spacing: var(--font-display-letter-spacing);
+  line-height: var(--font-display-line-height);
+}
+
+.intro {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.section {
+  display: grid;
+  gap: var(--space-5);
+  padding-block-start: var(--space-6);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.state {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.stateTitle {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+  max-inline-size: 30rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-4);
+}
+
+.mobile .grid {
+  grid-template-columns: 1fr;
+}
