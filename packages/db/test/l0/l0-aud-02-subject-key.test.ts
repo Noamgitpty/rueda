@@ -82,7 +82,7 @@ describe('US-009 — C2 chiffrées par sujet et crypto-shredding (17 §3.1.3, AD
     const actor: SubjectRef = { type: 'USER', id: uuid() };
     const requestId = uuid();
     await withRole('app_api', (client) =>
-      auditTx(client, { actor: { kind: 'GUEST' }, commit: true }, (tx) =>
+      auditTx(client, { actor: { kind: 'GUEST', actorId: actor.id }, commit: true }, (tx) =>
         appendAuditLog(tx, keys, {
           actorUserId: actor.id,
           actorRole: 'GUEST',
@@ -133,8 +133,10 @@ describe('US-009 — C2 chiffrées par sujet et crypto-shredding (17 §3.1.3, AD
     const keys = new SubjectKeyStore(new FakeKeyWrapper());
     const actor: SubjectRef = { type: 'USER', id: uuid() };
     const other: SubjectRef = { type: 'USER', id: uuid() };
-    await withRole('app_api', async (client) => {
-      await auditTx(client, { actor: { kind: 'STAFF' } }, async (tx) => {
+    // sous un travailleur nommé : depuis US-011, app_api n'accède qu'à la clé de SON sujet ; les
+    // contraintes vérifiées ici ne dépendent pas du rôle
+    await withRole('app_worker', async (client) => {
+      await auditTx(client, { actor: WRITER }, async (tx) => {
         const otherDek = await keys.dekFor(tx, other, 'create');
         await keys.dekFor(tx, actor, 'create');
         if (otherDek.status !== 'OK') throw new Error('clé attendue');
@@ -212,10 +214,11 @@ describe('US-009 — C2 chiffrées par sujet et crypto-shredding (17 §3.1.3, AD
     kms.setAvailable(false);
     const keys = new SubjectKeyStore(kms);
     const requestId = uuid();
+    const hostId = uuid();
     await withRole('app_api', (client) =>
-      auditTx(client, { actor: { kind: 'HOST' }, commit: true }, async (tx) => {
+      auditTx(client, { actor: { kind: 'HOST', actorId: hostId }, commit: true }, async (tx) => {
         const result = await appendAuditLog(tx, keys, {
-          actorUserId: uuid(),
+          actorUserId: hostId,
           actorRole: 'HOST',
           actionCode: 'LISTING_UPDATED',
           subjectType: 'LISTING',
@@ -241,7 +244,7 @@ describe('US-009 — C2 chiffrées par sujet et crypto-shredding (17 §3.1.3, AD
     const actor: SubjectRef = { type: 'USER', id: uuid() };
     const requestId = uuid();
     await withRole('app_api', (client) =>
-      auditTx(client, { actor: { kind: 'GUEST' }, commit: true }, (tx) =>
+      auditTx(client, { actor: { kind: 'GUEST', actorId: actor.id }, commit: true }, (tx) =>
         appendAuditLog(tx, keys, {
           actorUserId: actor.id,
           actorRole: 'GUEST',

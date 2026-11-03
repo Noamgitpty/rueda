@@ -3,6 +3,8 @@
 - **Statut** : PROPOSÉ (US-006, agent données, 2026-11-03). Revue architecture et **sécurité** (`SECURITY DEFINER`, RLS, concurrence) requises, sur un autre modèle que l'auteur. À reporter dans 17 §8.1 et dans la liste blanche RLS-15 (US-011).
 - **Stories** : US-006 ; s'appuient dessus US-011 (RLS-15), US-022 à US-025. **Sources** : 17 §2.3, §2.5 (I-OCC, contraintes v3 / v4), §11 (L0-01, L0-03, L0-08) ; ADR-002, ADR-035, ADR-044.
 
+> **Amendement US-011 (ADR-053)** : les trois fonctions de trigger d'intégrité `SECURITY DEFINER` appartiennent désormais à `integrity_owner` (NOLOGIN, lecture seule de cinq tables par la politique `integrity_read`), et non plus à `migrator`.
+
 ## Contexte
 
 17 §2.5 exige des triggers de contrainte **différés** (`trip_has_active_occupancy`, `occupancy_trip_guard`, `hold_conversion_matches_disposition`) qui relisent, au `COMMIT`, des lignes de plusieurs tables (`trip`, `vehicle_occupancy`, `checkout_hold`, `payment_disposition`, `payment_operation`).
