@@ -1,0 +1,145 @@
+/**
+ * Données fictives du prototype (`scenario.json`), typées. Devises, exposants, fuseaux, autorités
+ * et lieux sont des **données** (ADR-024) : aucun pays, aucune devise ni aucun fuseau n'est écrit
+ * dans le code. Le prototype ne calcule aucun montant : tout est déjà en unités mineures.
+ */
+import type { CatalogLanguage, MinorUnitAmount } from '@rueda/i18n';
+import raw from './scenario.json' with { type: 'json' };
+
+export type Tone = 1 | 2 | 3 | 4;
+export type TitleForm = 'masc' | 'fem' | 'neutral';
+export type PlanId = 'BASICA' | 'ESTANDAR' | 'TOTAL';
+
+export interface ProtoCar {
+  readonly id: string;
+  readonly title: string;
+  readonly host: {
+    readonly name: string;
+    readonly tone: Tone;
+    readonly titleForm: TitleForm;
+    readonly memberSince: number;
+    readonly responseRate: number;
+    readonly responseHours: number;
+  };
+  readonly rating?: number;
+  readonly trips: number;
+  readonly place: string;
+  readonly distanceKm: number;
+  readonly perDayMinor: string;
+  readonly totalMinor: string;
+  readonly carTone: Tone;
+  readonly manual: boolean;
+}
+
+export interface ProtoPlan {
+  readonly id: PlanId;
+  readonly priceMinor: string;
+  readonly deductibleMinor: string;
+  readonly taxMinor: string;
+  readonly totalMinor: string;
+}
+
+export type InstantName =
+  | 'start'
+  | 'end'
+  | 'freeCancelUntil'
+  | 'checkinOpens'
+  | 'holdUntil'
+  | 'releaseBy'
+  | 'refundIssuedOn'
+  | 'requestUntil'
+  | 'licenseLimit'
+  | 'unavailable'
+  | 'suggested'
+  | 'pastStart'
+  | 'pastEnd';
+
+export interface ProtoMarket {
+  readonly id: string;
+  readonly defaultForLocales: readonly string[];
+  readonly countryName: Readonly<Record<CatalogLanguage, string>>;
+  readonly city: string;
+  readonly currency: string;
+  readonly exponent: number;
+  readonly timeZone: string;
+  readonly insurerName: string;
+  readonly pspName: string;
+  readonly kycProvider: string;
+  readonly dialCode: string;
+  readonly phoneMasked: string;
+  readonly guestName: string;
+  readonly taxLabel: Readonly<Record<CatalogLanguage, string>>;
+  readonly trafficAuthority: string;
+  readonly phones: {
+    readonly support: string;
+    readonly roadside: string;
+    readonly emergency: string;
+    readonly traffic: string;
+  };
+  readonly places: readonly string[];
+  readonly notServedCity: string;
+  readonly searchSummary: { readonly place: string; readonly dates: string };
+  readonly days: number;
+  readonly instants: Readonly<Record<InstantName, string>>;
+  readonly featured: {
+    readonly carId: string;
+    readonly meetArea: string;
+    readonly meetAddress: string;
+    readonly photosTotal: number;
+    readonly seats: number;
+    readonly kmPerDay: number;
+    readonly requestHours: number;
+    readonly reviewHours: number;
+    readonly kycReviewHours: number;
+    readonly depositMaxDays: number;
+    readonly bookingCode: string;
+    readonly errorCode: string;
+    readonly depositMinor: string;
+    readonly fees: {
+      readonly smokingMinor: string;
+      readonly petsMinor: string;
+      readonly fuelMinor: string;
+    };
+    readonly lines: { readonly rentMinor: string; readonly tripFeeMinor: string };
+    readonly plans: readonly ProtoPlan[];
+    readonly changedTotalMinor: string;
+    readonly refundMinor: string;
+  };
+  readonly cars: readonly ProtoCar[];
+  readonly pastTrip: { readonly carId: string; readonly code: string };
+}
+
+export const MARKETS: readonly ProtoMarket[] = (raw as unknown as { markets: ProtoMarket[] })
+  .markets;
+
+/** Marché demandé, sinon celui de la locale, sinon le premier. */
+export function marketFor(id: string | undefined, localeTag: string): ProtoMarket {
+  const byId = MARKETS.find((m) => m.id === id);
+  if (byId) return byId;
+  const byLocale = MARKETS.find((m) => m.defaultForLocales.includes(localeTag));
+  const first = MARKETS[0];
+  if (!first) throw new Error('scenario.json : aucun marché');
+  return byLocale ?? first;
+}
+
+/** Montant d'une chaîne d'unités mineures, dans la devise du marché. */
+export function money(market: ProtoMarket, minor: string): MinorUnitAmount {
+  return { amountMinor: BigInt(minor), currency: market.currency, exponent: market.exponent };
+}
+
+export function carOf(market: ProtoMarket, id: string): ProtoCar {
+  const car = market.cars.find((c) => c.id === id);
+  if (!car) throw new Error(`scenario.json : voiture inconnue ${id}`);
+  return car;
+}
+
+export function featuredCar(market: ProtoMarket): ProtoCar {
+  return carOf(market, market.featured.carId);
+}
+
+export function planOf(market: ProtoMarket, id: string | undefined): ProtoPlan {
+  const plans = market.featured.plans;
+  const plan = plans.find((p) => p.id === id) ?? plans[0];
+  if (!plan) throw new Error('scenario.json : aucun plan');
+  return plan;
+}

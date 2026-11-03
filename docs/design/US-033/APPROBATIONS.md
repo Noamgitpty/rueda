@@ -1,0 +1,35 @@
+# US-033 — Approbation des écrans par le fondateur
+
+> **Seul le fondateur change un statut.** Valeurs : `EN ATTENTE`, `APPROUVÉ`, `CHANGEMENTS DEMANDÉS` (avec la remarque). Un écran qui n'est pas `APPROUVÉ` bloque la story qui l'implémente (19 §5, DoR point 6). Une modification d'un écran approuvé le repasse en `EN ATTENTE`.
+>
+> Captures : [`README.md`](README.md). Prototype : `/proto` (voir README).
+
+| Écran                                           | Prototype                            | Statut     | Date | Remarques du fondateur |
+| ----------------------------------------------- | ------------------------------------ | ---------- | ---- | ---------------------- |
+| S01 · Accueil et recherche                      | `/proto/s01`                         | EN ATTENTE | —    | —                      |
+| S02 · Résultats et feuillet des filtres         | `/proto/s02`                         | EN ATTENTE | —    | —                      |
+| S03 · Fiche de la voiture                       | `/proto/s03`                         | EN ATTENTE | —    | —                      |
+| S15 · Inscription et code (OTP)                 | `/proto/s15`                         | EN ATTENTE | —    | —                      |
+| S04 · Vérification d’identité                   | `/proto/s04`                         | EN ATTENTE | —    | —                      |
+| S05 · Paiement et choix de la protection        | `/proto/s05`                         | EN ATTENTE | —    | —                      |
+| S06 · Redirection et attente du paiement        | `/proto/s06`                         | EN ATTENTE | —    | —                      |
+| S07 · Confirmation                              | `/proto/s07`                         | EN ATTENTE | —    | —                      |
+| S08 · Mes voyages                               | `/proto/s08`                         | EN ATTENTE | —    | —                      |
+| S09 · Détail du voyage                          | `/proto/s09`                         | EN ATTENTE | —    | —                      |
+| S09 · check-in photo (feuillet)                 | `/proto/s09c`                        | EN ATTENTE | —    | —                      |
+| S17 · Aide et urgences                          | `/proto/s17`                         | EN ATTENTE | —    | —                      |
+| A01 · Devenir hôte : présentation et estimation | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A02 · Espace hôte : accueil                     | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A03 · Remise de la voiture                      | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A04 · Retour de la voiture                      | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A05 · Réservations de l’hôte                    | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A06 · Calendrier et disponibilité               | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A07 · Devenir hôte : liste de tâches            | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A08 · Gains et versements                       | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A09 · Dossier de dommage (hôte)                 | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A10 · Inscription d’une voiture                 | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A11 · Règles, lieu de remise et plan            | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A12 · Avis sur le voyageur                      | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| A13 · Profil public de l’hôte                   | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| O01 · Console ops : files de revue              | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
+| S14 · Compte et préférences                     | à livrer (seconde demande de fusion) | EN ATTENTE | —    | —                      |
