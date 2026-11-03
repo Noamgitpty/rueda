@@ -58,7 +58,7 @@ const IAM_COMMANDS = [
   'core.iam_session_resolve(bytea)',
 ] as const;
 
-/** Lecture des coordonnées pour NTF (US-021, migration 0030), exécutable par app_worker seul. */
+/** Lecture des coordonnées pour NTF (US-021, migration 0031), exécutable par app_worker seul. */
 const NOTIFICATION_CONTACT = 'core.iam_notification_contact(uuid)';
 
 describe('schéma IAM (US-010)', () => {

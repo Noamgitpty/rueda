@@ -1,4 +1,4 @@
--- 0029 — NTF : journal des envois de notifications (`notification_dispatch`). US-021 ; 17 §2.13,
+-- 0030 — NTF : journal des envois de notifications (`notification_dispatch`). US-021 ; 17 §2.13,
 -- §3.2.12 ; 16 NTF-001 ; ADR-061. Appliquée sous `migrator`.
 --
 -- Une ligne = un message à UN destinataire sur UN canal pour UN événement. L'unicité
@@ -17,7 +17,7 @@
 --     repli) ;
 --   - `rendered_hash` : SHA-256 du texte rendu (preuve) ; le texte lui-même n'est jamais stocké.
 --   - ni adresse, ni numéro, ni prénom : les coordonnées sont relues au moment de l'envoi par
---     `core.iam_notification_contact` (0030) et jamais écrites ici.
+--     `core.iam_notification_contact` (0031) et jamais écrites ici.
 --
 -- Droits : app_worker seulement, sous les travailleurs `ntf_dispatcher` (création) et
 -- `ntf_sender` (envoi, repli). Rien pour app_api, app_anon ni PUBLIC. Aucun DELETE (purge à 13 mois :

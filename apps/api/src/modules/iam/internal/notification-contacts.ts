@@ -1,7 +1,7 @@
 /**
  * Adaptateur PostgreSQL du port `RecipientDirectory` de NTF (US-021, ADR-061) : IAM, qui dépend
  * de NTF (17 §2.2), fournit les coordonnées d'un destinataire par la seule fonction
- * `core.iam_notification_contact` (migration 0030 : SECURITY DEFINER, EXECUTE au seul app_worker,
+ * `core.iam_notification_contact` (migration 0031 : SECURITY DEFINER, EXECUTE au seul app_worker,
  * zéro ligne hors du travailleur `ntf_sender`). Requête paramétrée, aucune donnée journalisée.
  */
 import type { RecipientContact, RecipientDirectory } from '../../ntf/index.js';

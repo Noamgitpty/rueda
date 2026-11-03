@@ -1,4 +1,4 @@
--- 0030 — IAM : coordonnées d'un destinataire de notification, pour le seul travailleur
+-- 0031 — IAM : coordonnées d'un destinataire de notification, pour le seul travailleur
 -- `ntf_sender`. US-021 ; 17 §2.2 (IAM → NTF), §2.3 (« une politique explicite par travailleur »),
 -- §3.1.4 (C2) ; ADR-061. Appliquée sous `migrator`.
 --

@@ -39,7 +39,7 @@ import { renderedHash, renderTemplate, TemplateRenderError } from './render.js';
 
 /**
  * 3 **tentatives** au plus par envoi (1 envoi + 2 réessais ; contrainte `attempts BETWEEN 0 AND 3`
- * de 0029). 17 §2.13 écrit « 3 réessais » : lu comme 3 tentatives, défaut fail-closed PROPOSÉ
+ * de 0030). 17 §2.13 écrit « 3 réessais » : lu comme 3 tentatives, défaut fail-closed PROPOSÉ
  * (ADR-061), écart à reporter dans 17 §2.13.
  */
 export const MAX_SEND_ATTEMPTS = 3;
