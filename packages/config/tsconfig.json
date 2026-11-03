@@ -6,6 +6,6 @@
     "erasableSyntaxOnly": true,
     "rootDir": "."
   },
-  "include": ["eslint/**/*.ts", "sql-clock/**/*.ts", "test/**/*.ts"],
+  "include": ["eslint/**/*.ts", "sql-clock/**/*.ts", "country-constants/**/*.ts", "test/**/*.ts"],
   "exclude": ["test/fixtures/**"]
 }

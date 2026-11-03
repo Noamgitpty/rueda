@@ -23,6 +23,19 @@ const CORE_TABLES = [
   'payment_webhook_inbox',
 ] as const;
 
+// Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),
+// mais lecture de référence pour app_api et app_worker ; leurs politiques et droits sont vérifiés
+// par config-country.test.ts. Les contrôles de politiques AVL / PAY ci-dessous portent donc sur CORE_TABLES.
+const CONFIG_TABLES = [
+  'config_currency',
+  'config_country',
+  'config_param_definition',
+  'config_param_value',
+  'config_holiday_calendar',
+  'pricing_tax_line_config',
+  'finance_legal_entity',
+] as const;
+
 const INTEGRITY_FUNCTIONS = [
   'core.booking_assert_trip_occupancy()',
   'core.booking_assert_conversion_disposition()',
@@ -30,9 +43,9 @@ const INTEGRITY_FUNCTIONS = [
 ] as const;
 
 describe('schéma core (US-006)', () => {
-  // Tables AVL / PAY seulement : les tables d'audit (US-009) ont leur propre test
+  // Tables hors audit : les tables d'audit (US-009) ont leur propre test
   // (test/int/audit-schema.test.ts, qui vérifie aussi RLS + FORCE sur TOUTES les tables de core).
-  it('tables AVL / PAY de core : RLS ENABLE + FORCE, politique migrator_all, propriétaire migrator', async () => {
+  it('tables AVL / PAY / CFG de core : RLS ENABLE + FORCE, politique migrator_all, propriétaire migrator', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         relname: string;
@@ -48,10 +61,10 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
-            AND c.relname ~ '^(booking|payment)_'
+            AND c.relname !~ '^audit_'
           ORDER BY c.relname`,
       );
-      expect(rows.map((r) => r.relname)).toEqual([...CORE_TABLES].sort());
+      expect(rows.map((r) => r.relname)).toEqual([...CORE_TABLES, ...CONFIG_TABLES].sort());
       for (const r of rows) {
         expect(r, r.relname).toMatchObject({
           rls: true,
@@ -73,8 +86,8 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_policy p
            JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core'
-            AND c.relname ~ '^(booking|payment)_'`,
+          WHERE n.nspname = 'core' AND c.relname = ANY($1::text[])`,
+        [CORE_TABLES],
       );
       for (const r of rows) {
         const expected = r.polname === 'migrator_all' ? 'migrator' : 'app_worker';
@@ -86,7 +99,9 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_policy p
            JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core' AND p.polname <> 'migrator_all' AND p.polcmd IN ('d', '*')`,
+          WHERE n.nspname = 'core' AND c.relname = ANY($1::text[])
+            AND p.polname <> 'migrator_all' AND p.polcmd IN ('d', '*')`,
+        [CORE_TABLES],
       );
       expect(cmds[0]?.n).toBe(0);
     });
