@@ -1,6 +1,7 @@
 /**
  * `pnpm lint` (étape « styles ») : échoue si un composant contient une couleur, une police, une
- * taille, une graisse, un espacement, un rayon, une ombre ou une durée codés en dur (US-030).
+ * taille, une graisse, un espacement, un rayon, une ombre ou une durée codés en dur (US-030), ou
+ * une animation qui ne s'arrête pas avec `prefers-reduced-motion` (US-031, `motion.ts`).
  *
  * Usage : node packages/design-tokens/lint/cli.ts [--root <racine du dépôt>]
  */
