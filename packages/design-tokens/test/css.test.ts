@@ -52,7 +52,9 @@ describe('feuille de style du thème', () => {
   it.each(PALETTE_IDS)('%s : ombres de carte visibles en sombre', (id) => {
     const tokens = buildTheme(PALETTE_SOURCES[id]).tokens;
     for (const name of ['shadow-card', 'shadow-float']) {
-      expect(tokens.find((t) => t.name === name)?.dark).toMatch(/^0 0 0 1px rgba\(255,255,255,\.\d+\)/);
+      expect(tokens.find((t) => t.name === name)?.dark).toMatch(
+        /^0 0 0 1px rgba\(255,255,255,\.\d+\)/,
+      );
     }
   });
 });

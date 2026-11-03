@@ -8,12 +8,12 @@ Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/design-tok
 
 L'étape : choisir l'identifiant de la palette. Ce qui suit dépend de l'endroit où l'on est.
 
-| Où                                 | Comment                                                                                                                  | Effet                                                                     |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| Développement (`next dev`)         | remplacer `"palette"` dans `packages/design-tokens/config/theme.json`                                                    | au rechargement de la page                                                |
-| Production, sans reconstruire      | définir `THEME_PALETTE=<id>` (et au besoin `THEME_COLOR_SCHEME`) dans l'environnement du serveur                         | au **redémarrage** du serveur (la variable est lue à chaque requête)      |
-| Production, par le dépôt           | modifier `config/theme.json` ou un fichier de palette, puis reconstruire                                                 | au **déploiement** : la configuration et les palettes sont compilées      |
-| Plus tard, par le fondateur seul   | publier une version de marque depuis le back-office (US-034, US-120)                                                     | au rechargement, sans déploiement                                         |
+| Où                               | Comment                                                                                          | Effet                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Développement (`next dev`)       | remplacer `"palette"` dans `packages/design-tokens/config/theme.json`                            | au rechargement de la page                                           |
+| Production, sans reconstruire    | définir `THEME_PALETTE=<id>` (et au besoin `THEME_COLOR_SCHEME`) dans l'environnement du serveur | au **redémarrage** du serveur (la variable est lue à chaque requête) |
+| Production, par le dépôt         | modifier `config/theme.json` ou un fichier de palette, puis reconstruire                         | au **déploiement** : la configuration et les palettes sont compilées |
+| Plus tard, par le fondateur seul | publier une version de marque depuis le back-office (US-034, US-120)                             | au rechargement, sans déploiement                                    |
 
 Les palettes et `config/theme.json` sont importés en JSON, donc **compilés** dans le serveur Next : en production, modifier un fichier sans reconstruire n'a aucun effet. Les lire à l'exécution (système de fichiers) a été écarté : le chemin vers `docs/design/` n'existe plus une fois l'application construite et tracée, et la vraie source « sans déploiement » sera la base (US-034).
 
@@ -21,17 +21,17 @@ Les palettes et `config/theme.json` sont importés en JSON, donc **compilés** d
 { "palette": "lienzo-grafito", "colorScheme": "auto" }
 ```
 
-| Identifiant                      | Direction (docs/design/US-028)                              | État au chargement                                       |
-| -------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------- |
-| `lienzo-tinta`                   | Lienzo · Tinta, **défaut** (choix du fondateur, 2026-11-02) | acceptée                                                 |
-| `lienzo-grafito`                 | Lienzo · Grafito                                            | acceptée                                                 |
-| `marina`                         | Marina                                                      | acceptée                                                 |
-| `lienzo-azur`                    | Lienzo · Azur                                               | **refusée** : lien `primary` sur verre 3,89:1 (clair)    |
-| `cielo`                          | Cielo                                                       | **refusée** : lien `primary` sur verre 4,05:1 (clair)    |
-| `lagune`                         | Lagune                                                      | **refusée** : lien `primary` sur verre 4,08:1 (clair)    |
-| `voltio`                         | Voltio                                                      | **refusée** : 3,80:1 (clair) et 3,85:1 (sombre)          |
-| `senal`, `istmo`                 | directions du 31 octobre, écartées, conservées              | acceptées                                                |
-| `tierra-firme`                   | direction du 31 octobre, écartée                            | **refusée** : lien `primary` sur verre 4,32:1 (sombre)   |
+| Identifiant      | Direction (docs/design/US-028)                              | État au chargement                                     |
+| ---------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `lienzo-tinta`   | Lienzo · Tinta, **défaut** (choix du fondateur, 2026-11-02) | acceptée                                               |
+| `lienzo-grafito` | Lienzo · Grafito                                            | acceptée                                               |
+| `marina`         | Marina                                                      | acceptée                                               |
+| `lienzo-azur`    | Lienzo · Azur                                               | **refusée** : lien `primary` sur verre 3,89:1 (clair)  |
+| `cielo`          | Cielo                                                       | **refusée** : lien `primary` sur verre 4,05:1 (clair)  |
+| `lagune`         | Lagune                                                      | **refusée** : lien `primary` sur verre 4,08:1 (clair)  |
+| `voltio`         | Voltio                                                      | **refusée** : 3,80:1 (clair) et 3,85:1 (sombre)        |
+| `senal`, `istmo` | directions du 31 octobre, écartées, conservées              | acceptées                                              |
+| `tierra-firme`   | direction du 31 octobre, écartée                            | **refusée** : lien `primary` sur verre 4,32:1 (sombre) |
 
 Une palette refusée ne se charge pas (le rendu échoue, fail-closed). Pour la rendre utilisable, foncer son `primary` clair (ou éclaircir le sombre) dans son fichier jusqu'à passer 4,5:1 sur le verre au pire cas ; `listPalettes()` donne l'état et les paires en échec.
 
