@@ -59,6 +59,15 @@ async function expectSqlError(
   throw new Error(`erreur attendue (${expected.code}) non levée : ${sql}`);
 }
 
+/** Hors transaction (autocommit) : l'erreur attendue n'exige pas de point de sauvegarde. */
+async function expectAutocommitError(
+  client: pg.ClientBase,
+  sql: string,
+  expected: { code: string; message?: string },
+): Promise<void> {
+  await expect(client.query(sql)).rejects.toMatchObject(expected);
+}
+
 const INSERT_VALUE = `INSERT INTO core.config_param_value
   (key, country_code, scope_type, value, valid_from, change_reason, currency)
   VALUES ($1, $2, 'COUNTRY', $3::jsonb, $4::timestamptz, 'test US-013', $5)
@@ -126,7 +135,9 @@ describe('configuration pays : structure et droits', () => {
           [TABLES],
         );
         expect(rows[0]?.w).toBe(false);
-        await expectSqlError(client, `DELETE FROM core.config_param_value`, [], { code: '42501' });
+        await expectAutocommitError(client, `DELETE FROM core.config_param_value`, {
+          code: '42501',
+        });
       },
       { database: 'production' },
     );
@@ -134,7 +145,7 @@ describe('configuration pays : structure et droits', () => {
 
   it('app_anon n’a aucun accès', async () => {
     await withRole('app_anon', async (client) => {
-      await expectSqlError(client, 'SELECT * FROM core.config_country', [], { code: '42501' });
+      await expectAutocommitError(client, 'SELECT * FROM core.config_country', { code: '42501' });
     });
   });
 });
@@ -245,7 +256,7 @@ describe('interrupteurs : core.config_go_live (17 §0.1, §2.3)', () => {
 
   it('app_anon ne peut pas l’exécuter', async () => {
     await withRole('app_anon', async (client) => {
-      await expectSqlError(client, `SELECT core.config_go_live('payouts_enabled', 'PA')`, [], {
+      await expectAutocommitError(client, `SELECT core.config_go_live('payouts_enabled', 'PA')`, {
         code: '42501',
       });
     });
