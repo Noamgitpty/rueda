@@ -47,7 +47,10 @@
         "^P0 missing from sheets: \\[\\]$",
         "^dup ids \\[\\]$",
         "^feature refs unknown \\[\\]$",
-        "^sheets with non GWT-balanced AC 0$"
+        "^sheets with non GWT-balanced AC 0$",
+        "^non-P0 in sheets: \\[\\]$",
+        "^HORS without marker: \\[\\]$",
+        "^HORS with sheet: \\[\\]$"
       ],
       "forbid": [
         "unknown \\{[^}]",

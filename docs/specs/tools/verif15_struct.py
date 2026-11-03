@@ -25,6 +25,11 @@ print('sheets with heading problems',len(bad))
 for b in bad[:40]: print(' ',b)
 print('P0 missing from sheets:',sorted(set(p0)-cov))
 print('non-P0 in sheets:',sorted(cov-set(p0)))
+# Revue du bloc S2/S5/S6 (US-057, 2026-11-03) : une ligne HORS doit porter le marqueur « HORS PRODUIT » en tete de notes,
+# et une ligne qui a une fiche dans 16 ne peut pas etre HORS (ligne P0 passee en HORS sans retirer sa fiche).
+allrows={r['feature_id']:r for r in rows}
+print('HORS without marker:',sorted(i for i,r in allrows.items() if (r['priorite_produit']=='HORS')!=r['notes'].startswith('HORS PRODUIT')))
+print('HORS with sheet:',sorted(i for i in cov if i in allrows and allrows[i]['priorite_produit']=='HORS'))
 # duplicates
 cnt=collections.Counter(i for v in sheetids.values() for i in v)
 print('dup ids',[k for k,v in cnt.items() if v>1])

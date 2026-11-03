@@ -38,7 +38,7 @@ Statuts des documents : **PROPOSÉ** = conception de notre produit, non validée
 | `16_PRODUCT_REQUIREMENTS_DOCUMENT.md` | **PRD faisant foi pour les fonctionnalités** : partie A (vision, personas, NFR, vecteurs TA01–TA11), partie B (134 fiches P0), partie C (P1–P3), partie D (traçabilité) | PROPOSÉ v4 ; audité VERIF_15, 18, 19 ; `check_prd_structure.py` OK |
 | `17_DATA_MODEL_AND_ARCHITECTURE.md` | **Architecture faisant foi** : modules, rôles et RLS, verrouillage hold / trip, entités, événements, pile technique, paramètres (§7.2), ADR, preuves L0 (§11), tests (§12), gouvernance (§13) | PROPOSÉ v5 ; audité VERIF_14, 16, 17, 18, 19 ; **DDL jamais exécuté** |
 | `18_MVP_AND_ROADMAP.md` | MVP (Bêta pilote, P0-A, P0-B), hors périmètre, préconditions C1–C19, chemin critique, effort en jours-agent, risques | PROPOSÉ v4 ; audité VERIF_10, 18, 19 |
-| `19_DEVELOPMENT_BACKLOG.md` | **Backlog faisant foi** : 178 stories / 853 points, lots L0–L5, LC, LB ; modèle d'équipe IA, DoR / DoD, tests, règles d'exploitation, portes de lot, décisions et tâches fondateur F-01..F-21, charge du fondateur (§6.1) | v2 ; audité VERIF_19 ; `check_backlog.py` et `verif19_backlog.py` OK |
+| `19_DEVELOPMENT_BACKLOG.md` | **Backlog faisant foi** : 205 stories (186 actives, 19 hors produit) / 921 points, lots L0–L5, LC (lot LB supprimé par la révision P2P) ; modèle d'équipe IA, DoR / DoD, tests, règles d'exploitation, portes de lot, décisions et tâches fondateur F-01..F-21, charge du fondateur (§6.1) | v3 (révision P2P, US-058) ; audité VERIF_19 (v2) ; `check_backlog.py` et `verif19_backlog.py` OK |
 | `20_EVIDENCE_REGISTER.csv` | Registre des preuves EV-0001… (observations, lectures) | à jour au 2026-10-30 |
 | `21_COVERAGE_MATRIX.csv` | Matrice de couverture (parcours observés, puis statut final par epic et par domaine, lignes `FINAL-*`) | mise à jour finale le 2026-10-30 |
 | `22_OPEN_QUESTIONS.md` | **Décisions et questions ouvertes faisant foi** (OQ-*, UXQ-*, DEC-FONDATEUR-01..10, DEC-PAYS, DEC-MARQUE, DEC-NATIVE) avec valeur par défaut et échéance | à jour ; audité VERIF_04, 18, 19 |
@@ -81,13 +81,13 @@ Depuis le dossier du projet, sous Windows (Git Bash ou PowerShell). `-I` isole P
 ```bash
 cd "C:/Users/noamm/Documents/turo-audit-latam/research/turo-audit"
 # Structure des documents
-python -I -X utf8 tools/check_inventory.py          # 04 : colonnes, phases, epics, dépendances, lots, barèmes -> RÉSULTAT : OK
-python -I -X utf8 tools/check_prd_structure.py      # 16 : 179 lignes P0 couvertes par 134 fiches, références, D.1 -> RÉSULTAT : OK
-python -I -X utf8 tools/check_backlog.py            # 19 : 178 stories, couverture P0, dépendances, chemins critiques -> RÉSULTAT : OK
+python -I -X utf8 tools/check_inventory.py          # 04 : colonnes, phases (HORS avec marqueur « HORS PRODUIT », P0-B refusée), epics, dépendances, lots, barèmes -> RÉSULTAT : OK
+python -I -X utf8 tools/check_prd_structure.py      # 16 v5 : 178 lignes P0 couvertes par 128 fiches, partie C (dont 24 HORS), références, D.1 -> RÉSULTAT : OK
+python -I -X utf8 tools/check_backlog.py            # 19 : 205 stories (lot HORS), couverture P0, dépendances, chemins critiques ; comptes de 21 (FINAL-FEAT-INV, FINAL-E0 à E18) contre 04 et 19 -> RÉSULTAT : OK
 python -I -X utf8 tools/verif19_backlog.py          # 19 (contrôle indépendant de l'auditeur) -> ERREURS 0
 python -I -X utf8 tools/verif18_crossref.py         # identifiants cités et définis entre documents -> 0 cité sans définition, hors 2 faux positifs connus (« SM-x » dans 17, « SHA-256 » pris pour une feature)
 python -I -X utf8 tools/verif18_stale.py            # restes de noms obsolètes (écrit verification/verif18_stale_output.txt) ; lecture humaine
-python -I -X utf8 tools/verif15_struct.py           # 04 / 16 : comptes et équilibre Given/When/Then (auditeur VERIF_15)
+python -I -X utf8 tools/verif15_struct.py           # 04 / 16 : comptes et équilibre Given/When/Then ; lignes HORS : marqueur « HORS PRODUIT », aucune fiche (auditeur VERIF_15)
 python -I -X utf8 tools/verif15_conf.py             # 16 : statuts de preuve par fiche (auditeur VERIF_15)
 # Oracles monétaires (valeurs attendues des vecteurs de 08 et 16)
 python -I -X utf8 tools/verif11_settlement.py              # T01–T48, oracle indépendant de l'auditeur VERIF_11 -> 48 vecteurs, 0 écart (+ fuzz informatif)
@@ -96,9 +96,9 @@ python -I -X utf8 tools/verif12_t49plus.py                 # T49–T65, oracle d
 python -I -X utf8 tools/check_t49plus.py                   # T49–T65 (rédacteur) -> écarts = 0
 python -I -X utf8 tools/check_verif12_fixes.py             # corrections VERIF_12 (E2 incrémental, T66–T68 partiels) -> 0 écart
 python -I -X utf8 tools/check_t66_68.py                    # T66–T68 -> RÉSULTAT : OK
-python -I -X utf8 tools/check_ta_consolidation.py          # TA10, TA11 de 16 -> RÉSULTAT : OK
+python -I -X utf8 tools/check_ta_consolidation.py          # TA01–TA11 de 16 v5 (jambes, renvois aux TJ de 08) -> RÉSULTAT : OK
 python -I -X utf8 tools/check_legs.py                      # TJ01–TJ21, jambes explicites (08 E7, US-055, US-056) -> RÉSULTAT : OK
-python -I -X utf8 tools/verif15_ta.py                      # TA01–TA09 de 16 (auditeur VERIF_15) -> OK
+python -I -X utf8 tools/verif15_ta.py                      # TA01–TA07, TA09 de 16 v5, jambes (auditeur) -> OK
 python -I -X utf8 tools/verify_cxl_tests.py                # historique (T01–T27) : imprime, n'asserte rien (déclassé) ; ne pas compter comme contrôle
 ```
 
