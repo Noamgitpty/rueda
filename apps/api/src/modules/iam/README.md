@@ -1,1 +1,1 @@
-**IAM — Identity & Access** : comptes, authentification, sessions, organisations, rôles et permissions, restrictions. Dépendances autorisées : CFG, NTF (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 (NTF : envoi OTP)).
+**IAM — Identity & Access** : comptes, authentification, sessions, organisations, rôles et permissions, restrictions. Dépendances autorisées : CFG, NTF (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 (NTF : envoi OTP)). Port d’authentification, sessions et routes `/auth` (US-010) : voir `AUTH.md` et ADR-052.
