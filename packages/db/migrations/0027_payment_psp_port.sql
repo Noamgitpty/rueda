@@ -385,7 +385,8 @@ GRANT SELECT, INSERT ON core.payment_payment_operation TO cmd_money_owner;
 GRANT UPDATE (status, provider_reference, proof_type) ON core.payment_payment_operation TO cmd_money_owner;
 GRANT SELECT, INSERT ON core.payment_payment_operation_leg TO cmd_money_owner;
 GRANT SELECT, INSERT ON core.payment_payment_operation_event TO cmd_money_owner;
-GRANT SELECT (id) ON core.payment_webhook_inbox TO cmd_money_owner;
+-- colonnes de l'arbitre webhook_inbox_dedup (ON CONFLICT) et identifiant rendu
+GRANT SELECT (id, provider, psp_account_id, dedup_key) ON core.payment_webhook_inbox TO cmd_money_owner;
 GRANT INSERT (id, provider, psp_account_id, provider_event_id, dedup_key, signature_valid, headers,
               processing_status, error, normalized_events)
   ON core.payment_webhook_inbox TO cmd_money_owner;

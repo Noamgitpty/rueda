@@ -264,7 +264,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('triggers I-OCC et disposition : contraintes DEFERRABLE INITIALLY DEFERRED', async () => {
+  it('triggers I-OCC, disposition et jambes : contraintes DEFERRABLE INITIALLY DEFERRED', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         tgname: string;
@@ -284,6 +284,9 @@ describe('schéma core (US-006)', () => {
           'hold_conversion_matches_disposition',
           'occupancy_trip_guard',
           'occupancy_trip_ref_valid',
+          // US-019 (0027) : jambes d'une opération, sur payment_operation et payment_operation_leg
+          'payment_operation_legs_check',
+          'payment_operation_legs_check',
           'trip_has_active_occupancy',
         ].map((tgname) => ({ tgname, deferrable: true, deferred: true })),
       );
