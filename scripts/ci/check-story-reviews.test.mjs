@@ -1,7 +1,7 @@
 // Tests du job « revues » (node --test scripts/ci/), contournements compris.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -219,7 +219,7 @@ test('graphe des dépendances ou packages/db touchés : + architecture', () => {
   const graph = ['apps/api/src/modules/dependency-graph.ts'];
   assert.deepEqual(requiredRoles('US-099', graph, config), ['architecture', 'code']);
   const db = ['packages/db/migrations/0001.sql'];
-  assert.deepEqual(requiredRoles('US-099', db, config), ['architecture', 'code']);
+  assert.deepEqual(requiredRoles('US-099', db, config), ['architecture', 'code', 'securite']);
   assert.deepEqual(requiredRoles('US-099', ['packages/dbx/a.ts'], config), ['code']);
 });
 
@@ -312,4 +312,134 @@ test('docs/specs/ ou CLAUDE.md touchés : + architecture ; stories de révision 
     'code',
     'securite',
   ]);
+});
+
+test('lot 0 : paquets déclarés pour les stories qui les créent ou les modifient (US-050)', () => {
+  assert.deepEqual(ev('story/US-006-preuves-l0', ['packages/db/migrations/0002.sql']).errors, []);
+  assert.deepEqual(ev('story/US-016-oracle', ['packages/money/test/golden.test.ts']).errors, []);
+  assert.deepEqual(ev('story/US-030-jetons', ['packages/design-tokens/tokens.json']).errors, []);
+  assert.deepEqual(ev('story/US-019-psp', ['packages/fake-adapters/src/psp.ts']).errors, []);
+  // Propriété exacte : US-030 ne touche pas packages/db/, US-016 ne touche pas les jetons.
+  assert.match(ev('story/US-030-jetons', ['packages/db/a.sql']).errors[0], /réservé à/);
+  assert.match(ev('story/US-016-x', ['packages/design-tokens/a.json']).errors[0], /réservé à/);
+  // packages/design-tokensx/ n'est pas packages/design-tokens/.
+  assert.match(
+    ev('story/US-030-x', ['packages/design-tokensx/a.json']).errors[0],
+    /absent de pathOwners/,
+  );
+});
+
+test('lot 0 : revues exigées par story (19 Revue design, contrainte 1)', () => {
+  assert.deepEqual(requiredRoles('US-006', ['packages/db/migrations/0002.sql'], config), [
+    'architecture',
+    'code',
+    'qa',
+    'securite',
+  ]);
+  assert.deepEqual(requiredRoles('US-016', ['packages/money/src/a.ts'], config), [
+    'argent',
+    'code',
+    'qa',
+  ]);
+  assert.deepEqual(requiredRoles('US-030', ['packages/design-tokens/a.json'], config), [
+    'code',
+    'ux',
+  ]);
+  assert.deepEqual(requiredRoles('US-011', [], config), ['architecture', 'code', 'qa', 'securite']);
+  assert.deepEqual(requiredRoles('US-062', [], config), [
+    'architecture',
+    'argent',
+    'code',
+    'qa',
+    'securite',
+  ]);
+});
+
+test('lot 0 : chaque story US-0xx de 19 §3.1 a ses revues ; chaque paquet du dépôt a ses propriétaires', () => {
+  const backlog = readFileSync(
+    new URL('../../docs/specs/19_DEVELOPMENT_BACKLOG.md', import.meta.url),
+    'utf8',
+  );
+  const lot0 = backlog.split('### 3.1 Lot 0')[1].split('### 3.2 ')[0];
+  const ids = [...lot0.matchAll(/^#### (US-\d{3}) /gm)].map((m) => m[1]);
+  assert.ok(ids.length >= 50, `stories du lot 0 lues : ${ids.length}`);
+  for (const id of ['US-061', 'US-062', ...ids]) {
+    const r = config.stories[id];
+    assert.ok(Array.isArray(r?.require) && r.require.includes('code'), id);
+    const story = lot0.split(`#### ${id} `)[1].split('\n#### ')[0];
+    if (/\*\*Revue design\*\* : OUI/.test(story)) assert.ok(r.require.includes('ux'), `${id} : ux`);
+  }
+  const pkgs = readdirSync(new URL('../../packages/', import.meta.url), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => `packages/${d.name}/`);
+  for (const p of pkgs) assert.ok(Array.isArray(config.pathOwners[p]), p);
+});
+
+test('paquets sensibles : revues exigées pour toute story, documentation comprise (US-050 03i)', () => {
+  // US-035 (README) et US-038 (documentation) sont propriétaires, mais la règle de chemin l'emporte.
+  const cases = [
+    ['US-035', 'packages/money/README.md', ['argent', 'code']],
+    ['US-035', 'packages/money/src/money.ts', ['argent', 'code']],
+    ['US-035', 'packages/db/README.md', ['architecture', 'code', 'securite']],
+    ['US-038', 'packages/db/migrations/0009.sql', ['architecture', 'code', 'securite']],
+    ['US-035', 'packages/fake-adapters/src/psp.ts', ['code', 'securite']],
+    ['US-035', 'packages/config/sql-clock/cli.ts', ['code', 'securite']],
+    ['US-030', 'packages/config/eslint/index.js', ['code', 'securite', 'ux']],
+    ['US-099', 'packages/moneyx/a.ts', ['code']],
+    ['US-099', 'packages/fake-adaptersx/a.ts', ['code']],
+  ];
+  for (const [story, file, roles] of cases) {
+    assert.deepEqual(requiredRoles(story, [file], config), roles, `${story} ${file}`);
+    if (!file.includes('x/')) {
+      assert.deepEqual(
+        ev(`story/${story}-x`, [file]).errors,
+        [],
+        `${story} propriétaire de ${file}`,
+      );
+    }
+  }
+});
+
+test('lot 0 : rôles exacts des stories sensibles (argent, sécurité, qa, architecture)', () => {
+  const A = 'architecture',
+    M = 'argent',
+    C = 'code',
+    Q = 'qa',
+    S = 'securite',
+    U = 'ux';
+  const expected = {
+    'US-003': [A, C, S],
+    'US-004': [A, C, S],
+    'US-006': [A, C, Q, S],
+    'US-007': [A, C, Q, S],
+    'US-008': [A, C, Q],
+    'US-009': [A, C, S],
+    'US-010': [A, C, S],
+    'US-011': [A, C, Q, S],
+    'US-012': [C, S, U],
+    'US-013': [A, M, C, Q],
+    'US-016': [M, C, Q],
+    'US-017': [M, C, Q],
+    'US-018': [A, M, C, Q, S],
+    'US-019': [A, M, C, Q, S],
+    'US-020': [A, C, S],
+    'US-022': [A, C, Q, S],
+    'US-023': [A, C, Q, S],
+    'US-024': [A, M, C, Q, S],
+    'US-025': [A, C, Q, S],
+    'US-034': [A, C, S],
+    'US-037': [C, S],
+    'US-042': [M, C, Q],
+    'US-043': [C, Q, S],
+    'US-046': [A, C, Q, S],
+    'US-047': [M, C, Q],
+    'US-049': [A, M, C, S],
+    'US-051': [C, S],
+    'US-052': [C, S],
+    'US-061': [A, M, C, Q, S],
+    'US-062': [A, M, C, Q, S],
+  };
+  for (const [story, roles] of Object.entries(expected)) {
+    assert.deepEqual(requiredRoles(story, [], config), roles, story);
+  }
 });
