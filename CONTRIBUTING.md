@@ -128,6 +128,7 @@ docs/team/              artefacts entre agents (US-029)
 - **Bêta pilote (D1, 17 §10 point 3)** : un schéma unique `core` (PROPOSÉ, car 17 ne le nomme pas). Chaque table y est **préfixée par son schéma cible** : `booking_checkout_hold`, `booking_trip`, `catalog_listing`, `config_currency`, `payment_payment_operation` (`betaTableName()`). Les noms d'entités et de colonnes restent ceux de 17 §3 : aucune table « bêta » jetable (17 §10 principe 1). Le passage au schéma par module sera un renommage mécanique (`core.booking_trip` → `booking.trip`). Le préfixe exact est à reporter dans 17 §10 point 3 par l'orchestrateur.
 - Un nom PROPOSÉ peut être changé par US-005 tant qu'aucune migration ne l'utilise. Un nom d'origine 17 ne change pas sans ADR.
 - Migrations dans `packages/db/migrations/`, additives et réversibles ; outil et format fixés par US-005 (ADR-044, `packages/db/README.md`).
+- **Numérotation des migrations** : numéro strictement supérieur au plus grand de `origin/main` au moment de la fusion ; renuméroter à chaque mise à jour de la branche ; aucune plage réservée ; production contiguë depuis `0000`, tests ≥ `9000`. Contrôle : `packages/db/src/numbering.test.ts`. Détail : `packages/db/migrations/README.md`.
 
 ## 10. Nommage
 
