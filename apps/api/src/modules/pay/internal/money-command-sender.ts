@@ -1,7 +1,7 @@
 /**
  * Envoi d'une commande monétaire au PSP (17 §4.3 points 2 à 4 ; 08 E4 ; T51, T52, T68).
  *
- * L'appelant (travailleur de commandes `money_command`) a déjà créé, sous le verrou du trip,
+ * L'appelant (travailleur de commandes `payment_command`) a déjà créé, sous le verrou du trip,
  * l'instance, puis l'opération `PENDING` avec ses jambes et sa clé (`core.payment_cmd_record_
  * operation`). Ce service ne lit que des clés déjà stockées et ne calcule aucun montant.
  *

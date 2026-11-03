@@ -1,7 +1,7 @@
 /**
  * US-019 — module PAY de bout en bout sur PostgreSQL réel, sous les rôles de production
  * (CLAUDE.md point 6 : `connectAs` exécute l'assertion L0-05 en tête de chaque test) :
- * opération enregistrée par le travailleur `money_command` (jambes des vecteurs TJ), paiement sur
+ * opération enregistrée par le travailleur `payment_command` (jambes des vecteurs TJ), paiement sur
  * le PSP simulé, webhooks hostiles (doublons, ordre inversé) reçus par l'API (`app_api`), traités
  * par le travailleur `webhook_ingest` ; statut final SUCCEEDED quel que soit l'ordre ; C19 : un
  * webhook FAKE quand la base est en production ne laisse aucune trace.
@@ -101,7 +101,7 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
     const legs = { ...capture.legsMinor };
 
     const pool = asPool(worker);
-    const operationId = await withPaymentWorker(pool, 'money_command', async (tx) => {
+    const operationId = await withPaymentWorker(pool, 'payment_command', async (tx) => {
       const recorder = new PgOperationRecorder(tx);
       const rec = await recorder.record({
         id: randomUUID(),
@@ -168,7 +168,7 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
     );
     expect(report).toMatchObject({ processed: 2, quarantined: 0, failed: 0, conflicts: 0 });
 
-    await withPaymentWorker(pool, 'money_command', async (tx) => {
+    await withPaymentWorker(pool, 'payment_command', async (tx) => {
       const op = await tx.query<{ status: string; proof_type: string | null }>(
         `SELECT status, proof_type FROM core.payment_payment_operation WHERE id = $1`,
         [operationId],

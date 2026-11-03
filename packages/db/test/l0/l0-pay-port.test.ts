@@ -245,7 +245,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
   describe('opérations : idempotence et jambes (08 E4, E7 règle 1)', () => {
     it('même clé, même contenu ⇒ rejeu ; montant ou jambes différents ⇒ IDEMPOTENCY_CONFLICT', async () => {
       await withRole('app_worker', async (client) => {
-        await payTx(client, { worker: 'money_command' }, async (tx) => {
+        await payTx(client, { worker: 'payment_command' }, async (tx) => {
           const account = await insertAccount(tx, { country: c.country });
           const trip = await insertTrip(tx, c);
           const idem = `${trip}:1:v1:CAPTURE:card:i1:a1`;
@@ -309,7 +309,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
 
     it('Σ jambes ≠ montant ⇒ LEG_SUM_MISMATCH ; jambe négative ⇒ LEG_AMOUNT_NEGATIVE ; jambes manquantes ⇒ 22023', async () => {
       await withRole('app_worker', async (client) => {
-        await payTx(client, { worker: 'money_command' }, async (tx) => {
+        await payTx(client, { worker: 'payment_command' }, async (tx) => {
           const account = await insertAccount(tx, { country: c.country });
           const trip = await insertTrip(tx, c);
           const base = { tripId: trip, accountId: account, currency: c.currency };
@@ -379,7 +379,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
 
     it('idem_sent ni clé ni SHA-256 ⇒ refus ; SHA-256 de la clé ⇒ accepté ; devise du trip exigée', async () => {
       await withRole('app_worker', async (client) => {
-        await payTx(client, { worker: 'money_command' }, async (tx) => {
+        await payTx(client, { worker: 'payment_command' }, async (tx) => {
           const account = await insertAccount(tx, { country: c.country });
           const trip = await insertTrip(tx, c);
           const idem = `${trip}:1:v1:CAPTURE:card:i1:a1`;
@@ -408,7 +408,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
       });
     });
 
-    it('réservée au travailleur money_command ; compte inactif ⇒ PSP_ACCOUNT_INACTIVE ; app_api n’a pas EXECUTE', async () => {
+    it('réservée au travailleur payment_command ; compte inactif ⇒ PSP_ACCOUNT_INACTIVE ; app_api n’a pas EXECUTE', async () => {
       await withRole('app_worker', async (client) => {
         await payTx(client, { worker: 'booking_conversion' }, async (tx) => {
           const account = await insertAccount(tx, { country: c.country });
@@ -424,7 +424,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
           );
           expect(err?.code).toBe('42501');
         });
-        await payTx(client, { worker: 'money_command' }, async (tx) => {
+        await payTx(client, { worker: 'payment_command' }, async (tx) => {
           const account = await insertAccount(tx, { country: c.country, status: 'SUSPENDED' });
           const trip = await insertTrip(tx, c);
           const err = await caught(tx, () =>
@@ -450,10 +450,85 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
     });
   });
 
+  describe('contrôle différé des jambes au COMMIT (payment_operation_legs_check)', () => {
+    // écriture BRUTE (fixture 9400) qui contourne la commande : seul le trigger différé refuse
+    const rawCommit = async (
+      kind: string,
+      amountMinor: bigint,
+      legs: Record<string, bigint> | null,
+      withAccount = true,
+    ): Promise<{ code?: string; constraint?: string } | null> => {
+      try {
+        await withRole('app_worker', (client) =>
+          payTx(client, { commit: true }, async (tx) => {
+            const trip = await insertTrip(tx, c);
+            await tx.query(
+              `SELECT test_fixture.pay_insert_operation_raw($1, $2, $3, $4::bigint, $5::jsonb, $6)`,
+              [
+                uuid(),
+                trip,
+                kind,
+                amountMinor.toString(),
+                legs === null
+                  ? null
+                  : JSON.stringify(
+                      Object.fromEntries(Object.entries(legs).map(([k, v]) => [k, v.toString()])),
+                    ),
+                withAccount,
+              ],
+            );
+          }),
+        );
+      } catch (error) {
+        return error as { code?: string; constraint?: string };
+      }
+      return null;
+    };
+    const legs = capture.legs as Record<string, bigint>;
+
+    it('jambes valides : COMMIT accepté', async () => {
+      expect(await rawCommit('CAPTURE', capture.amountMinor, legs)).toBeNull();
+    });
+
+    it('Σ jambes ≠ montant ⇒ refus au COMMIT (LEG_SUM_MISMATCH)', async () => {
+      const err = await rawCommit('CAPTURE', capture.amountMinor + 1n, legs);
+      expect(err).toMatchObject({ code: '23000', constraint: 'payment_operation_leg_sum' });
+      expect(translateDbError(err).code).toBe('LEG_SUM_MISMATCH');
+    });
+
+    it('jambe négative (somme juste) ⇒ refus au COMMIT (LEG_AMOUNT_NEGATIVE)', async () => {
+      const bad = { ...legs, HOST: -1n, PLATFORM: capture.legs.PLATFORM + capture.legs.HOST + 1n };
+      const err = await rawCommit('CAPTURE', capture.amountMinor, bad);
+      expect(err).toMatchObject({ code: '23000', constraint: 'payment_operation_leg_negative' });
+      expect(translateDbError(err).code).toBe('LEG_AMOUNT_NEGATIVE');
+    });
+
+    it('jambes incomplètes, absentes, sur un VOID ou sans compte PSP ⇒ refus au COMMIT', async () => {
+      const { TAX_THIRD_PARTY: _t, ...three } = legs;
+      expect(_t).toBe(capture.legs.TAX_THIRD_PARTY);
+      for (const err of [
+        await rawCommit('CAPTURE', capture.amountMinor, three),
+        await rawCommit('CAPTURE', capture.amountMinor, {}),
+        await rawCommit('VOID', capture.amountMinor, legs),
+        await rawCommit('CAPTURE', capture.amountMinor, legs, false),
+      ]) {
+        expect(err).toMatchObject({ code: '23000', constraint: 'payment_operation_legs_complete' });
+      }
+    });
+
+    it('réaffectation : Σ ≠ 0 ⇒ refus ; Σ = 0 et montant = Σ des crédits ⇒ accepté', async () => {
+      const moved = capture.legs.PLATFORM;
+      const ok = { HOST: 0n, INSURER: 0n, TAX_THIRD_PARTY: -moved, PLATFORM: moved };
+      expect(await rawCommit('LEG_REALLOCATION', moved, ok)).toBeNull();
+      const err = await rawCommit('LEG_REALLOCATION', moved, { ...ok, PLATFORM: moved + 1n });
+      expect(err).toMatchObject({ code: '23000', constraint: 'payment_operation_leg_sum' });
+    });
+  });
+
   describe('statuts : rangs de 17 §4.4 point 7, journalisés', () => {
     it('SUBMITTED, SUCCEEDED appliqués ; SUBMITTED tardif STALE ; doublon DUPLICATE ; FAILED contradictoire CONFLICT', async () => {
       await withRole('app_worker', async (client) => {
-        await payTx(client, { worker: 'money_command' }, async (tx) => {
+        await payTx(client, { worker: 'payment_command' }, async (tx) => {
           const account = await insertAccount(tx, { country: c.country });
           const trip = await insertTrip(tx, c);
           const { operation_id: op } = await recordOperation(tx, {

@@ -40,7 +40,7 @@
 --     core.payment_startup_guard();
 --   ALTER TABLE core.payment_webhook_inbox DROP CONSTRAINT webhook_inbox_no_pan,
 --     DROP COLUMN normalized_events;
---   DROP POLICY worker_select_money_command ON core.payment_payment_operation;
+--   DROP POLICY worker_select_payment_command ON core.payment_payment_operation;
 --   DROP TABLE core.payment_payment_operation_event, core.payment_payment_operation_leg;
 --   DROP TRIGGER payment_operation_legs_check ON core.payment_payment_operation;
 --   DROP FUNCTION core.payment_assert_operation_legs();
@@ -187,6 +187,7 @@ CREATE TABLE core.payment_payment_operation_leg (
     CONSTRAINT payment_operation_leg_name CHECK (leg IN
       ('HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM')),
   org_id          uuid,                             -- compte d'hôte (portée RLS, US-062)
+  trip_id         uuid,                             -- trip (portée RLS des dossiers ; nul avant conversion)
   country_code    text        NOT NULL
     CONSTRAINT payment_operation_leg_country_code_format CHECK (country_code ~ '^[A-Z]{2}$'),
   amount_minor    bigint      NOT NULL,             -- signe : contrôle différé ci-dessous
@@ -393,24 +394,31 @@ GRANT INSERT (id, provider, psp_account_id, provider_event_id, dedup_key, signat
   ON core.payment_webhook_inbox TO cmd_money_owner;
 GRANT UPDATE (last_webhook_at) ON core.payment_psp_account TO cmd_money_owner;
 
-CREATE POLICY money_cmd_read ON core.payment_psp_account FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY money_cmd_touch ON core.payment_psp_account FOR UPDATE TO cmd_money_owner
+-- Une politique par commande SQL ; les ÉCRITURES contrôlent l'acteur et le travailleur dans la
+-- politique elle-même, pas seulement dans le corps de la fonction (17 §2.3, cmd_money_ins /
+-- cmd_money_upd). Exceptions : la boîte de réception et last_webhook_at, écrites par la commande de
+-- réception appelée par app_api pour un PSP anonyme (aucun contexte d'acteur à contrôler).
+CREATE POLICY cmd_money_sel ON core.payment_psp_account FOR SELECT TO cmd_money_owner USING (true);
+CREATE POLICY cmd_money_upd ON core.payment_psp_account FOR UPDATE TO cmd_money_owner
   USING (true) WITH CHECK (true);
-CREATE POLICY money_cmd_read ON core.booking_checkout_hold FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY money_cmd_read ON core.booking_trip FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY money_cmd_read ON core.payment_payment_operation FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY money_cmd_insert ON core.payment_payment_operation FOR INSERT TO cmd_money_owner
-  WITH CHECK (status = 'PENDING' AND psp_account_id IS NOT NULL);
-CREATE POLICY money_cmd_update ON core.payment_payment_operation FOR UPDATE TO cmd_money_owner
-  USING (psp_account_id IS NOT NULL) WITH CHECK (psp_account_id IS NOT NULL);
-CREATE POLICY money_cmd_read ON core.payment_payment_operation_leg FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY money_cmd_insert ON core.payment_payment_operation_leg FOR INSERT TO cmd_money_owner
-  WITH CHECK (true);
-CREATE POLICY money_cmd_read ON core.payment_payment_operation_event FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY money_cmd_insert ON core.payment_payment_operation_event FOR INSERT TO cmd_money_owner
-  WITH CHECK (true);
-CREATE POLICY money_cmd_read ON core.payment_webhook_inbox FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY money_cmd_insert ON core.payment_webhook_inbox FOR INSERT TO cmd_money_owner
+CREATE POLICY cmd_money_sel ON core.booking_checkout_hold FOR SELECT TO cmd_money_owner USING (true);
+CREATE POLICY cmd_money_sel ON core.booking_trip FOR SELECT TO cmd_money_owner USING (true);
+CREATE POLICY cmd_money_sel ON core.payment_payment_operation FOR SELECT TO cmd_money_owner USING (true);
+CREATE POLICY cmd_money_ins ON core.payment_payment_operation FOR INSERT TO cmd_money_owner
+  WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command'
+              AND status = 'PENDING' AND psp_account_id IS NOT NULL);
+CREATE POLICY cmd_money_upd ON core.payment_payment_operation FOR UPDATE TO cmd_money_owner
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN ('payment_command', 'webhook_ingest')
+         AND psp_account_id IS NOT NULL)
+  WITH CHECK (app.actor_kind() = 'WORKER' AND psp_account_id IS NOT NULL);
+CREATE POLICY cmd_money_sel ON core.payment_payment_operation_leg FOR SELECT TO cmd_money_owner USING (true);
+CREATE POLICY cmd_money_ins ON core.payment_payment_operation_leg FOR INSERT TO cmd_money_owner
+  WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
+CREATE POLICY cmd_money_sel ON core.payment_payment_operation_event FOR SELECT TO cmd_money_owner USING (true);
+CREATE POLICY cmd_money_ins ON core.payment_payment_operation_event FOR INSERT TO cmd_money_owner
+  WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() IN ('payment_command', 'webhook_ingest'));
+CREATE POLICY cmd_money_sel ON core.payment_webhook_inbox FOR SELECT TO cmd_money_owner USING (true);
+CREATE POLICY cmd_money_ins ON core.payment_webhook_inbox FOR INSERT TO cmd_money_owner
   WITH CHECK (psp_account_id IS NOT NULL);
 
 -- integrity_owner : lecture seule des colonnes du contrôle différé (section 4)
@@ -420,25 +428,28 @@ CREATE POLICY integrity_read ON core.payment_payment_operation_leg FOR SELECT TO
 
 -- Travailleur de commandes : lecture des opérations (statut, clé, référence PSP) ; 0007 ne le
 -- connaît pas. Aucune écriture directe : statuts par payment_cmd_apply_operation_status.
-CREATE POLICY worker_select_money_command ON core.payment_payment_operation FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'money_command');
+CREATE POLICY worker_select_payment_command ON core.payment_payment_operation FOR SELECT TO app_worker
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
 
 -- Travailleurs : lecture des jambes et des événements (travailleur de commandes, webhooks).
 GRANT SELECT ON core.payment_payment_operation_leg, core.payment_payment_operation_event TO app_worker;
 CREATE POLICY worker_select ON core.payment_payment_operation_leg FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN ('money_command', 'webhook_ingest'));
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN ('payment_command', 'webhook_ingest'));
 CREATE POLICY worker_select ON core.payment_payment_operation_event FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN ('money_command', 'webhook_ingest'));
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN ('payment_command', 'webhook_ingest'));
 
--- API (17 §3.2.7, RLS) : l'hôte TITULAIRE lit sa seule jambe HOST ; ADMIN / FINANCE du pays lisent
--- tout ; jamais le voyageur ni app_anon. Lecture par colonnes (US-011).
-GRANT SELECT (operation_id, leg, org_id, country_code, amount_minor, created_at)
+-- API (17 §3.2.7, §2.3 ; RLS) : l'hôte TITULAIRE lit sa seule jambe HOST ; ADMIN / FINANCE du pays
+-- lisent tout ; OPS / SUPPORT seulement les jambes d'un trip couvert par leur dossier ouvert (même
+-- politique que les règlements, 17 §2.3, avec trip_id et country_code dénormalisés) ; jamais le
+-- voyageur ni app_anon. Lecture par colonnes (US-011) ; beneficiary_ref n'est pas lisible.
+GRANT SELECT (operation_id, leg, org_id, trip_id, country_code, amount_minor, created_at)
   ON core.payment_payment_operation_leg TO app_api;
 CREATE POLICY leg_host_read ON core.payment_payment_operation_leg FOR SELECT TO app_api
   USING (app.actor_kind() = 'HOST' AND leg = 'HOST' AND org_id = app.org_id() AND app.is_org_holder());
 CREATE POLICY leg_staff_read ON core.payment_payment_operation_leg FOR SELECT TO app_api
   USING (app.actor_kind() = 'STAFF' AND country_code = ANY (app.country_scope())
-         AND (app.has_staff_role('ADMIN', country_code) OR app.has_staff_role('FINANCE', country_code)));
+         AND (app.has_staff_role('ADMIN', country_code) OR app.has_staff_role('FINANCE', country_code)
+              OR (trip_id IS NOT NULL AND app.staff_case_covers('TRIP', trip_id))));
 
 -- Capacités : données de référence lues par l'API (offre de moyens) et les travailleurs.
 GRANT SELECT ON core.payment_psp_capability TO app_api, app_worker;
@@ -491,8 +502,8 @@ DECLARE
                                       'CHARGEBACK_REVERSAL');
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'WORKER'
-     OR app.worker_name() IS DISTINCT FROM 'money_command' THEN
-    RAISE EXCEPTION 'payment: record_operation reserved to the money_command worker'
+     OR app.worker_name() IS DISTINCT FROM 'payment_command' THEN
+    RAISE EXCEPTION 'payment: record_operation reserved to the payment_command worker'
       USING ERRCODE = 'insufficient_privilege';
   END IF;
   IF p_idem_plain IS NULL OR length(p_idem_plain) NOT BETWEEN 1 AND 512 THEN
@@ -630,8 +641,9 @@ BEGIN
   END IF;
 
   IF NOT v_no_legs THEN
-    INSERT INTO core.payment_payment_operation_leg (operation_id, leg, org_id, country_code, amount_minor)
-    SELECT v_inserted, k, v_org, v_country, (p_legs ->> k)::bigint
+    INSERT INTO core.payment_payment_operation_leg (operation_id, leg, org_id, trip_id, country_code,
+                                                    amount_minor)
+    SELECT v_inserted, k, v_org, p_trip_id, v_country, (p_legs ->> k)::bigint
       FROM unnest(v_keys) AS k;
   END IF;
   operation_id := v_inserted;
@@ -664,7 +676,7 @@ DECLARE
   v_outcome   text;
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'WORKER' OR app.worker_name() IS NULL
-     OR app.worker_name() NOT IN ('money_command', 'webhook_ingest') THEN
+     OR app.worker_name() NOT IN ('payment_command', 'webhook_ingest') THEN
     RAISE EXCEPTION 'payment: apply_operation_status reserved to payment workers'
       USING ERRCODE = 'insufficient_privilege';
   END IF;

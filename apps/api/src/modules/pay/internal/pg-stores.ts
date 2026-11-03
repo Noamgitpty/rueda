@@ -3,7 +3,7 @@
  * `core.payment_cmd_*` (migration 0027, SECURITY DEFINER, propriétaire cmd_money_owner) :
  * - API (`app_api`) : `PgWebhookInboxStore` (résolution du compte, réception) ;
  * - travailleurs (`app_worker`, transaction ouverte par `withPaymentWorker` avec le contexte
- *   `app.actor_kind = WORKER`, `app.worker_name`) : `PgOperationRecorder` (money_command),
+ *   `app.actor_kind = WORKER`, `app.worker_name`) : `PgOperationRecorder` (payment_command),
  *   `PgWebhookWorkStore` (webhook_ingest).
  * Aucune valeur PostgreSQL brute ne remonte au client : les erreurs sont traduites par
  * `translateDbError` de `@rueda/db` côté appelant, ou rendues sous forme de code.
@@ -40,7 +40,7 @@ export interface SqlPool {
 }
 
 /** Travailleurs de PAY (17 §2.3 : une politique explicite par travailleur). */
-export type PaymentWorkerName = 'money_command' | 'webhook_ingest';
+export type PaymentWorkerName = 'payment_command' | 'webhook_ingest';
 
 /**
  * Transaction d'un travailleur de PAY : `BEGIN`, contexte posé par `SET LOCAL`
@@ -130,7 +130,7 @@ export interface RecordOperationInput {
   readonly legs: LegAmounts | null;
 }
 
-/** Travailleur `money_command` : opération planifiée et ses jambes (17 §4.3 point 1). */
+/** Travailleur `payment_command` : opération planifiée et ses jambes (17 §4.3 point 1). */
 export class PgOperationRecorder {
   readonly #tx: SqlExecutor;
 

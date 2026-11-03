@@ -97,7 +97,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('AVL / PAY : aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner, cmd_money_owner (money_cmd_*, US-019)', async () => {
+  it('AVL / PAY : aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner, cmd_money_owner (cmd_money_*, US-019)', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{ relname: string; polname: string; roles: string }>(
         `SELECT c.relname, p.polname,
@@ -116,7 +116,7 @@ describe('schéma core (US-006)', () => {
             ? 'migrator'
             : r.polname === 'integrity_read'
               ? 'integrity_owner'
-              : r.polname.startsWith('money_cmd_') // commandes d'argent (US-019, 0027)
+              : r.polname.startsWith('cmd_money_') // commandes d'argent (US-019, 0027 ; 17 §2.3)
                 ? 'cmd_money_owner'
                 : r.polname.startsWith('worker_')
                   ? 'app_worker'
