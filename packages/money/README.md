@@ -75,6 +75,19 @@ Les codes PROPOSÉS sont à reporter au catalogue de 16 A.8 par une demande de f
 
 Tests (`test/settlement/`) : vecteurs T et TJ de la story rejoués par `replay` / `compareSettlement` / `compareLegs` sur l'export des oracles, en USD et en PYG ; T61, T62 par les contrôles des oracles ; invariants de 08 par vecteur ; propriétés fast-check en PA et PY ; entrées refusées. Aucun montant attendu n'est écrit à la main.
 
+## Règlements persistés, versions et jambes (US-018)
+
+`src/settlement/record.ts`, exporté par `@rueda/money`. Décisions : [ADR-057](../../docs/adr/ADR-057-reglements-persistes-versions-jambes.md).
+
+- `buildSettlementRecord(trip, event, params, previous?)` appelle le moteur et rend la **version** à persister par `core.settlement_cmd_record` (migration 0027) : montants de l'en-tête, lignes, taxes par groupe, 4 jambes `{ keptMinor ≥ 0, advanceMinor, basisMinor, variationMinor }`, `inputsHash` et `paramSnapshotHash` (SHA-256 hexadécimal d'une sérialisation canonique, `canonicalJson`). Sans `previous` : version 1, base = jambes de capture (une jambe capturée négative ⇒ `LEG_AMOUNT_NEGATIVE`, capture refusée, TJ13 a / c). Avec `previous` : version n+1, base = jambes signées de la version n (`signedLegs`), même devise et même total payé.
+- **`PLATFORM` retenue négative** (`negativeLeg`, 08 E7 règle 5) : `keptMinor = 0`, `advanceMinor` = manque avancé par Kmino, `negativeLeg = true` (revue FIN, ordres `PLANNED`) ; le remboursement n'est jamais réduit. Une autre jambe négative ⇒ `LEG_AMOUNT_NEGATIVE`.
+- `settlementDelta(v n, v n+1)` : écart ligne par ligne et par jambe (08 E4, T36).
+- `settlementRecordPayload(record)` : charge utile JSON (format 1, montants en chaînes d'entiers).
+- `settlementOperationKey({ tripRef, segmentNo, version, operation, tenderId, instanceSeq, attemptNo })` : clé `…:v{version}:{opération}:{moyen}:i{n}:a{n}` de 08 E4 ; `pspIdempotencyValue(clé, limite)` : la clé, ou son SHA-256 si elle dépasse la limite du PSP.
+- Seule dépendance nouvelle : `node:crypto` (SHA-256), module intégré de Node ; aucune E/S.
+
+Tests (`test/settlement/record.golden.test.ts`) : TJ01 / TJ02a / TJ02b (T03, USD), TJ08a / TJ08b (T27, PYG), TJ18a, TJ18c, contrôle T36 (delta et pénalité), TJ13 a à d (N, NP refusés ; N_MAX, NP_MAX avec avance), clés de T49 / T50 ; tous les attendus viennent de l'export des oracles.
+
 ## Harnais des vecteurs dorés (US-016)
 
 Le sous-chemin `@rueda/money/golden-vectors` (`src/golden-vectors/`), **réservé aux tests**, charge les attendus exportés par les oracles Python de `docs/specs/tools/` (T01–T68, TJ01–TJ21, TA01–TA11, en USD et en PYG) et compare un moteur (US-017, US-018) à ces attendus, sans jamais les recalculer. Il n'est pas exporté par `@rueda/money`. Voir [`src/golden-vectors/README.md`](src/golden-vectors/README.md).

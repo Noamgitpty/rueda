@@ -28,7 +28,8 @@ Migrations actuelles :
 - `0012_outbox_tables` à `0015_outbox_monitoring` : outbox, reçus, lettres mortes, file de tâches, métriques (US-008, section « Outbox et file ») ; numérotation : `migrations/README.md` ;
 - `0016_audit_subject_key` à `0021_audit_grants` (US-009) : journal d'audit chaîné, clés par sujet, magasin de preuves (section « Audit… ») ;
 - `0022_security_definer_owners` à `0026_audit_owner_subject_key_scope` (US-011) : propriétaires NOLOGIN, clés étrangères AVL → IAM, contexte et fonctions de politique, lectures d'`app_api` par acteur et par pays, clés d'audit par sujet (section « RLS par acteur et par pays ») ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support).
+- `0027_settlement_versions_legs` (US-018) : règlements versionnés, lignes, taxes, jambes et soldes par jambe, commande `core.settlement_cmd_record` (section « Règlements et jambes ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -146,6 +147,19 @@ Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colon
 | `support_support_case`      | —                     | —                                        | ADMIN ; OPS / SUPPORT : dossiers qui leur sont assignés |
 
 `core.support_support_case` (0024) : sous-ensemble de 17 §3.2.13 (pays, trip, canal, catégorie dont `BREAK_GLASS` motivé, statut, `assignee_id`), écrit par la console (US-012). Clés d'audit (0026) : `app_api` n'accède qu'à la clé `USER` de la session et à la clé `ORG` du compte d'hôte de la session pour son titulaire. Limite RLS-18 et nom de travailleur déclaratif : ADR-053. Preuves : `test/l0/l0-rls-actors.test.ts` (RLS-1, 5, 6, 7 partiel, 8, 9, 12, 13, 18, 20, hôte contre hôte, pays contre pays, clés par sujet) et `test/l0/l0-rls-15-security-definer.test.ts` (RLS-15, RLS-16).
+
+## Règlements et jambes (US-018 ; 08 E4, E7 ; 17 §2.3, §2.9, §3.2.8 ; ADR-057)
+
+Migration 0027 : `core.settlement_settlement` (en-tête versionné, `UNIQUE (trip_id, segment_no, version)`, `supersedes_id`), `settlement_settlement_line`, `settlement_settlement_tax_line`, `settlement_settlement_leg` (jambe retenue `kept_minor` ≥ 0, avance `advance_minor` sur `PLATFORM` seulement, base `basis_minor`, variation signée `variation_minor = kept − advance − basis`) et `settlement_trip_leg_balance` (soldes par trip, segment et jambe, toujours ≥ 0, cumuls monotones, aucun `DELETE`).
+
+- **Immuable** : un règlement n'est jamais modifié ; la version n+1 remplace la dernière version par `supersedes_id`, la version n reste lisible (`settlement_immutable`).
+- **Écriture** : seulement `core.settlement_cmd_record(id, trip, segment, version, supersedes, trip_row_version, charge jsonb)` (`SECURITY DEFINER`, `cmd_money_owner`, `EXECUTE` au seul `app_worker`, travailleur `settlement`) : verrou `FOR UPDATE` du trip, contrôle de `row_version` (`SETTLEMENT_STALE`), version suivante exacte (`SETTLEMENT_EXISTS`, EC-54), portée relue du trip. La charge utile vient de `settlementRecordPayload` (`@rueda/money`).
+- **Invariants** : `CHECK` de l'en-tête, des lignes et des jambes, puis trigger différé `settlement_balanced` (Σ jambes = retenu TTC, Σ variations = − remboursement ou − écart, `HOST` = `hostFromGuest`, `TAX_THIRD_PARTY`, base = version n ou état capturé, drapeau `negative_leg`).
+- **`negative_leg`** : `PLATFORM` retenue négative ⇒ `kept_minor = 0` + `advance_minor`, revue FIN, remboursement jamais réduit (ordres `PLANNED`).
+- **Lectures** (par colonnes) : hôte titulaire = jambe `HOST` de ses trips (RLS-2, RLS-28) ; staff ADMIN / FINANCE du pays, OPS / SUPPORT sur dossier ; en-tête et lignes : staff seulement ; voyageur : rien ; travailleurs `settlement`, `payment_command`, `payout`, `bordereau`, `reconciliation`.
+- Codes (`translateDbError`) : `SETTLEMENT_EXISTS`, `SETTLEMENT_STALE`, `SETTLEMENT_UNBALANCED`, `LEG_AMOUNT_NEGATIVE`, `IMMUTABLE_RECORD`, `INVARIANT_VIOLATION`.
+
+Preuves : `test/l0/l0-stl-settlement.test.ts` (TJ02a / b, TJ08a / b, T36, TJ18a, TJ18c, TJ13 b / d, EC-54 avec deux connexions, falsifications, RLS-2, RLS-21, RLS-25, RLS-28, hôte contre hôte, pays contre pays) et `test/int/stl-schema.test.ts` (socle RLS, politiques, droits, triggers).
 
 ## Rôles (17 §2.3, ADR-035)
 

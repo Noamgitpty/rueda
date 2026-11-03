@@ -16,7 +16,11 @@
  * - `HOLD_ALREADY_LIVE`, `WEBHOOK_DUPLICATE`, `DISPOSITION_EXISTS`, `INTERNAL_ERROR`, `RETRY` :
  *   PROPOSÉS par US-006 (à reporter dans 16 A.8 par l'orchestrateur) ;
  * - `IMMUTABLE_RECORD`, `SUBJECT_ERASED`, `LEGAL_HOLD_ACTIVE` : PROPOSÉS par US-009 (registres en
- *   ajout seul, crypto-shredding ; migrations 0016 à 0020, ADR-051).
+ *   ajout seul, crypto-shredding ; migrations 0016 à 0020, ADR-051) ;
+ * - `SETTLEMENT_EXISTS` : 08 (règle de qualification 5, EC-54, 409) ; `LEG_AMOUNT_NEGATIVE` : 08 E7
+ *   règle 5 (nom PROPOSÉ) ; `SETTLEMENT_UNBALANCED` : PROPOSÉ par US-017 ; `SETTLEMENT_STALE` :
+ *   PROPOSÉ par US-018 (trip modifié entre le calcul et l'enregistrement, 08 E4 ; migration 0027,
+ *   ADR-057).
  */
 
 /** Codes métier produits par la traduction. */
@@ -34,6 +38,10 @@ export const DB_BUSINESS_CODES = [
   'IMMUTABLE_RECORD',
   'SUBJECT_ERASED',
   'LEGAL_HOLD_ACTIVE',
+  'SETTLEMENT_EXISTS',
+  'SETTLEMENT_STALE',
+  'SETTLEMENT_UNBALANCED',
+  'LEG_AMOUNT_NEGATIVE',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -50,13 +58,14 @@ export const SQLSTATE = {
   integrityConstraintViolation: '23000',
   uniqueViolation: '23505',
   exclusionViolation: '23P01',
+  checkViolation: '23514',
   deadlockDetected: '40P01',
   serializationFailure: '40001',
 } as const;
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006` et `0016` à `0020`.
+ * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020` et `0027`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -88,6 +97,29 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   audit_log_key_destroyed: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_not_live: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_legal_hold: [SQLSTATE.integrityConstraintViolation, 'LEGAL_HOLD_ACTIVE'],
+  // règlements versionnés et jambes (0027, US-018)
+  settlement_version_taken: [SQLSTATE.integrityConstraintViolation, 'SETTLEMENT_EXISTS'],
+  settlement_version_unique: [SQLSTATE.uniqueViolation, 'SETTLEMENT_EXISTS'],
+  settlement_supersedes_unique: [SQLSTATE.uniqueViolation, 'SETTLEMENT_EXISTS'],
+  settlement_trip_version: [SQLSTATE.integrityConstraintViolation, 'SETTLEMENT_STALE'],
+  settlement_unbalanced: [SQLSTATE.integrityConstraintViolation, 'SETTLEMENT_UNBALANCED'],
+  settlement_balance: [SQLSTATE.checkViolation, 'SETTLEMENT_UNBALANCED'],
+  settlement_earnings: [SQLSTATE.checkViolation, 'SETTLEMENT_UNBALANCED'],
+  settlement_platform_net: [SQLSTATE.checkViolation, 'SETTLEMENT_UNBALANCED'],
+  settlement_line_split: [SQLSTATE.checkViolation, 'SETTLEMENT_UNBALANCED'],
+  settlement_tax_line_split: [SQLSTATE.checkViolation, 'SETTLEMENT_UNBALANCED'],
+  settlement_leg_variation: [SQLSTATE.checkViolation, 'SETTLEMENT_UNBALANCED'],
+  settlement_leg_kept_nonneg: [SQLSTATE.checkViolation, 'LEG_AMOUNT_NEGATIVE'],
+  settlement_leg_advance_platform: [SQLSTATE.checkViolation, 'LEG_AMOUNT_NEGATIVE'],
+  trip_leg_balance_nonneg: [SQLSTATE.checkViolation, 'LEG_AMOUNT_NEGATIVE'],
+  settlement_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  trip_leg_balance_no_delete: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  trip_leg_balance_monotonic: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_trip_unknown: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_trip_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_supersession_invalid: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_basis_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_negative_leg_flag: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

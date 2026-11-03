@@ -26,6 +26,10 @@ import {
 } from '../../src/index.ts';
 import { PYG, USD } from '../fixtures.ts';
 import {
+  N,
+  NP,
+  NP_MAX,
+  N_MAX,
   TEST_INSURER_SHARES,
   T0_MS,
   at,
@@ -97,57 +101,6 @@ const K2: SettlementTrip = {
   extrasSharePct: PLAN,
   ...TEST_INSURER_SHARES,
 };
-
-/**
- * N (USD, 3 j) et NP (PYG, 3 j) de 08 E7 (TJ13a à d) : promo plateforme sur P ; taxe sur P, promo
- * et F, payée par ligne puis sommée (entrées de 08 ; la taxe de la ligne promo est négative).
- */
-function promoTrip(
-  currency: typeof USD,
-  p: bigint,
-  promo: bigint,
-  f: bigint,
-  protection: bigint,
-  taxPaid: bigint,
-): SettlementTrip {
-  const m = (x: bigint) => money(x, currency);
-  return {
-    currency,
-    days: 3,
-    rateType: 'REFUNDABLE',
-    startAtMs: T0_MS,
-    bookedAtMs: BOOKED,
-    lines: { tripPrice: m(p), promoPlatform: m(promo), tripFee: m(f), protection: m(protection) },
-    taxGroups: [
-      {
-        id: 'g',
-        lines: ['tripPrice', 'promoPlatform', 'tripFee'],
-        taxPaid: m(taxPaid),
-        thirdParty: false,
-      },
-    ],
-    totalPaid: m(p + promo + f + protection + taxPaid),
-    hostSharePctFrozen: PLAN,
-    deliverySharePct: PLAN,
-    extrasSharePct: PLAN,
-    ...TEST_INSURER_SHARES,
-  };
-}
-// TJ13a : P 100,00, promo −90,00, F 15,00, protection 30,00 ; taxe 7 % : 7,00 − 6,30 + 1,05.
-const N = promoTrip(USD, 10_000n, -9_000n, 1_500n, 3_000n, 700n - 630n + 105n);
-// TJ13b : N avec la promo maximale admise −53,32 ; taxe 7,00 − 3,73 + 1,05.
-const N_MAX = promoTrip(USD, 10_000n, -5_332n, 1_500n, 3_000n, 700n - 373n + 105n);
-// TJ13c : NP, P 1 000 000, promo −900 000, F 150 000, protection 300 000 ; IVA 10 % par ligne.
-const NP = promoTrip(PYG, 1_000_000n, -900_000n, 150_000n, 300_000n, 100_000n - 90_000n + 15_000n);
-// TJ13d : NP avec la promo maximale admise −550 000.
-const NP_MAX = promoTrip(
-  PYG,
-  1_000_000n,
-  -550_000n,
-  150_000n,
-  300_000n,
-  100_000n - 55_000n + 15_000n,
-);
 
 const guestCancelAtTMinus10h: CancellationEvent = {
   reason: 'GUEST_CANCELLED',

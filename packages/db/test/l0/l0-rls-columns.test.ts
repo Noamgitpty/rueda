@@ -130,14 +130,97 @@ const API_COLUMNS: Record<string, readonly string[]> = {
     'created_at',
     'updated_at',
   ],
+  // règlements et jambes (0027, US-018) : tout sauf row_version de trip_leg_balance
+  settlement_settlement: [
+    'id',
+    'trip_id',
+    'segment_no',
+    'version',
+    'supersedes_id',
+    'org_id',
+    'country_code',
+    'currency',
+    'kind',
+    'engine_version',
+    'requested_reason',
+    'reason',
+    'origin',
+    'qualification',
+    'target_state',
+    'host_eligible',
+    'total_paid_minor',
+    'guest_refund_minor',
+    'tax_refund_minor',
+    'retained_minor',
+    'retained_tax_minor',
+    'host_from_guest_minor',
+    'host_compensation_minor',
+    'host_earnings_minor',
+    'platform_net_minor',
+    'host_penalty_minor',
+    'negative_leg',
+    'inputs_hash',
+    'param_snapshot_hash',
+    'created_at',
+  ],
+  settlement_settlement_line: [
+    'settlement_id',
+    'line_type',
+    'amount_minor',
+    'refund_minor',
+    'retained_minor',
+  ],
+  settlement_settlement_tax_line: [
+    'settlement_id',
+    'tax_group',
+    'third_party',
+    'tax_paid_minor',
+    'tax_refund_minor',
+    'retained_tax_minor',
+  ],
+  settlement_settlement_leg: [
+    'settlement_id',
+    'trip_id',
+    'segment_no',
+    'org_id',
+    'country_code',
+    'leg',
+    'kept_minor',
+    'advance_minor',
+    'basis_minor',
+    'variation_minor',
+  ],
+  settlement_trip_leg_balance: [
+    'trip_id',
+    'segment_no',
+    'leg',
+    'org_id',
+    'country_code',
+    'currency',
+    'captured_minor',
+    'refunded_minor',
+    'reallocated_in_minor',
+    'reallocated_out_minor',
+    'released_minor',
+    'frozen',
+    'frozen_reason',
+    'release_at',
+    'created_at',
+    'updated_at',
+  ],
 };
 
-/** Tables lues en entier par les travailleurs (0007, US-006) ; aucune lecture IAM ni support. */
+/** Tables lues en entier par les travailleurs (0007, US-006 ; 0027, US-018) ; aucune lecture IAM ni support. */
 const WORKER_FULL_TABLES = [
   'booking_trip',
   'booking_checkout_hold',
   'booking_guest_occupancy',
   'payment_payment_operation',
+  'settlement_settlement',
+  'settlement_settlement_line',
+  'settlement_settlement_tax_line',
+  'settlement_settlement_leg',
+  'settlement_trip_leg_balance',
 ];
 
 const STAFF_ID_COLUMNS = ['created_by', 'updated_by', 'released_by', 'granted_by', 'approved_by'];
@@ -192,7 +275,7 @@ describe('colonnes lisibles, rôle par rôle (US-011)', () => {
     });
   });
 
-  it('aucun identifiant du personnel lisible par app_api sur les tables métier (booking, payment, iam, support, audit)', async () => {
+  it('aucun identifiant du personnel lisible par app_api sur les tables métier (booking, payment, iam, support, audit, settlement)', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{ col: string }>(
         `SELECT c.relname || '.' || a.attname AS col
@@ -200,7 +283,7 @@ describe('colonnes lisibles, rôle par rôle (US-011)', () => {
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
            JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
-            AND c.relname ~ '^(booking|payment|iam|support|audit)_'
+            AND c.relname ~ '^(booking|payment|iam|support|audit|settlement)_'
             AND a.attname = ANY ($1::name[])
             AND pg_catalog.has_column_privilege('app_api', c.oid, a.attnum, 'SELECT')`,
         [STAFF_ID_COLUMNS],

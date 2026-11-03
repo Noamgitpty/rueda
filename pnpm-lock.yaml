@@ -181,6 +181,9 @@ importers:
       '@rueda/config':
         specifier: workspace:*
         version: link:../config
+      '@rueda/money':
+        specifier: workspace:*
+        version: link:../money
       '@testcontainers/postgresql':
         specifier: 12.2.1
         version: 12.2.1
