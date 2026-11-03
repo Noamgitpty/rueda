@@ -57,8 +57,12 @@ import type { PoseTiming, Replayed } from '../support/concurrency.ts';
 
 /** C1 : 100 poses concurrentes (17 §11). */
 const C1_POSES = 100;
-/** Connexions laissées aux autres fichiers de test et au banc. */
-const RESERVED_CONNECTIONS = 30;
+/**
+ * Connexions que la course ouvre en plus des poses : l'observateur (déjà compté dans
+ * `pg_stat_activity` à la mesure), le `app_worker` de l'état final (ouvert après la fermeture des
+ * poses) et une marge pour une session du banc qui s'ouvrirait pendant la course.
+ */
+const SPARE_CONNECTIONS = 5;
 /** Courses C16 et annulation, par mode et par pays. */
 const ROUNDS = 12;
 const LONG = 240_000;
@@ -86,11 +90,62 @@ async function withClients<T>(
   }
 }
 
-/** Degré de concurrence : 100, borné par `max_connections` du banc (PostgreSQL natif local). */
+interface ConnectionBudget {
+  readonly max: number;
+  readonly reserved: number;
+  readonly used: number;
+  readonly free: number;
+}
+
+/**
+ * Créneaux de connexion réellement libres, mesurés au démarrage de la course (ADR-056, « Budget
+ * de connexions du banc ») : `max_connections`, moins les créneaux réservés
+ * (`superuser_reserved_connections`, `reserved_connections`), moins les sessions présentes dans
+ * `pg_stat_activity`. Un rôle sans `pg_read_all_stats` voit les lignes des autres sessions sans
+ * leur `backend_type` (NULL) : elles sont comptées, ce qui surestime l'occupation (prudent).
+ */
+async function connectionBudget(client: pg.ClientBase): Promise<ConnectionBudget> {
+  const r = await client.query<{ max: number; reserved: number; used: number }>(
+    `SELECT current_setting('max_connections')::int AS max,
+            current_setting('superuser_reserved_connections')::int
+              + coalesce(current_setting('reserved_connections', true), '0')::int AS reserved,
+            (SELECT count(*)::int FROM pg_catalog.pg_stat_activity
+              WHERE backend_type IS NULL OR backend_type = 'client backend') AS used`,
+  );
+  const { max, reserved, used } = r.rows[0] as { max: number; reserved: number; used: number };
+  return { max, reserved, used, free: max - reserved - used };
+}
+
+/**
+ * Degré de concurrence : 100, borné par les créneaux libres mesurés (PostgreSQL natif local). En
+ * CI, L0-02 tourne seul (vitest.l0.config.ts) sur un banc à 200 connexions : le degré vaut 100.
+ */
 async function concurrencyDegree(client: pg.ClientBase): Promise<number> {
-  const r = await client.query<{ max_connections: string }>('SHOW max_connections');
-  const max = Number(r.rows[0]?.max_connections);
-  return Math.max(2, Math.min(C1_POSES, max - RESERVED_CONNECTIONS));
+  const budget = await connectionBudget(client);
+  const degree = Math.max(2, Math.min(C1_POSES, budget.free - SPARE_CONNECTIONS));
+  log('budget de connexions', { ...budget, degree });
+  return degree;
+}
+
+/**
+ * Ouvre `n` connexions `app_api` en parallèle. Échoue **aussitôt** si une seule est refusée (par
+ * exemple `53300`, plus de créneau libre) et ferme alors toutes celles qui ont abouti : un refus
+ * ne laisse aucune connexion orpheline qui ferait échouer les cas suivants en cascade.
+ */
+async function connectMany(n: number): Promise<pg.Client[]> {
+  const settled = await Promise.allSettled(Array.from({ length: n }, () => connectAs('app_api')));
+  const clients = settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []));
+  const refused = settled.flatMap((s) => (s.status === 'rejected' ? [s.reason as unknown] : []));
+  if (refused.length === 0) return clients;
+  await Promise.all(clients.map((cl) => releaseClient(cl).catch(() => undefined)));
+  const first = refused[0];
+  const code = sqlState(first);
+  const message = first instanceof Error ? first.message : String(first);
+  throw new Error(
+    `budget de connexions : ${refused.length} connexion(s) sur ${n} refusée(s)` +
+      `${code === undefined ? '' : ` (SQLSTATE ${code})`} : ${message}`,
+    { cause: first },
+  );
 }
 
 /** Créneau sur l'horloge réelle : dans 7 jours, 2 jours, tampon 2 h. */
@@ -175,7 +230,7 @@ async function runC1(
     const timings: PoseTiming[] = [];
     let results: Replayed<unknown>[];
     try {
-      posers.push(...(await Promise.all(guests.map(() => connectAs('app_api')))));
+      posers.push(...(await connectMany(degree)));
       // Connexions chaudes, comme celles d'un pool de l'API : une pose annulée sur un autre
       // véhicule charge le cache des relations et les plans de la commande. Sans cela, chaque
       // pose de la course planifie 2a sous le verrou du véhicule (premier passage CI : p95 de
