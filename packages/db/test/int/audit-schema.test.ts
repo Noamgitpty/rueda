@@ -142,7 +142,8 @@ describe('schéma d’audit (US-009)', () => {
       expect(rows.length).toBeGreaterThan(0);
       for (const r of rows) {
         const where = `${r.relname}.${r.polname}`;
-        if (r.roles === 'iam_staff_owner') {
+        if (r.roles === 'iam_staff_owner' || r.roles === 'cmd_money_owner') {
+          // US-062 (0036) : même usage par les commandes FINANCE à deux personnes
           // US-012 (0033) : écriture au journal par les commandes de la console et relecture sans
           // C2 (core.iam_staff_audit_read) ; aucune UPDATE / DELETE
           expect(['r', 'a'], where).toContain(r.cmd);

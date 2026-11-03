@@ -674,6 +674,7 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'iam_membership',
           'payment_payment_operation_leg', // US-019 : jambe HOST du titulaire, ADMIN / FINANCE
           'settlement_settlement',
+          'settlement_platform_advance', // US-062 : créance du titulaire, FINANCE / ADMIN
           'settlement_settlement_leg',
           'settlement_trip_leg_balance',
         ]),
