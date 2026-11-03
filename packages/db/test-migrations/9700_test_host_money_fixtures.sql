@@ -22,7 +22,8 @@
 --   test_fixture.us062_set_birth_date(uuid, date), test_fixture.us062_advance_row(uuid),
 --   test_fixture.us062_bordereau_row(uuid), test_fixture.us062_approval_row(uuid),
 --   test_fixture.us062_force_decision(uuid, uuid, uuid, uuid),
---   test_fixture.us062_worker_write_off(uuid);
+--   test_fixture.us062_worker_write_off(uuid), test_fixture.us062_try_delete(text),
+--   test_fixture.us062_try_truncate(text);
 
 CREATE FUNCTION test_fixture.us062_insert_advance(p_id uuid, p_trip_id uuid, p_cause text,
                                                   p_amount bigint)
@@ -162,6 +163,46 @@ BEGIN
   RETURN v_n;
 END
 $fn$;
+
+-- DELETE / TRUNCATE sous migrator (propriétaire des tables) : les triggers money_no_delete et
+-- money_no_truncate doivent les refuser à tous les rôles. Une branche statique par table.
+CREATE FUNCTION test_fixture.us062_try_delete(p_table text)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  CASE p_table
+    WHEN 'settlement_finance_approval' THEN DELETE FROM core.settlement_finance_approval;
+    WHEN 'settlement_platform_advance' THEN DELETE FROM core.settlement_platform_advance;
+    WHEN 'settlement_insurer_ledger_state' THEN DELETE FROM core.settlement_insurer_ledger_state;
+    WHEN 'settlement_insurer_bordereau' THEN DELETE FROM core.settlement_insurer_bordereau;
+    WHEN 'settlement_insurer_bordereau_line' THEN DELETE FROM core.settlement_insurer_bordereau_line;
+  END CASE;
+END
+$fn$;
+
+-- Tables non référencées par une clé étrangère (sinon TRUNCATE est refusé avant les triggers).
+CREATE FUNCTION test_fixture.us062_try_truncate(p_table text)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  CASE p_table
+    WHEN 'settlement_platform_advance' THEN TRUNCATE core.settlement_platform_advance;
+    WHEN 'settlement_insurer_ledger_state' THEN TRUNCATE core.settlement_insurer_ledger_state;
+    WHEN 'settlement_insurer_bordereau_line' THEN TRUNCATE core.settlement_insurer_bordereau_line;
+  END CASE;
+END
+$fn$;
+
+REVOKE ALL ON FUNCTION
+  test_fixture.us062_try_delete(text), test_fixture.us062_try_truncate(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION
+  test_fixture.us062_try_delete(text), test_fixture.us062_try_truncate(text) TO app_api;
 
 REVOKE ALL ON FUNCTION
   test_fixture.us062_insert_advance(uuid, uuid, text, bigint),

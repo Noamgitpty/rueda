@@ -297,11 +297,20 @@ const WORKER_FULL_TABLES = [
   'settlement_settlement_tax_line',
   'settlement_settlement_leg',
   'settlement_trip_leg_balance',
-  'settlement_platform_advance',
   'settlement_insurer_ledger_state',
-  'settlement_insurer_bordereau',
   'settlement_insurer_bordereau_line',
 ];
+
+/** Tables lues PAR COLONNES par les travailleurs (US-062) : toutes sauf les identifiants du personnel. */
+const WORKER_EXCLUDED: Record<string, readonly string[]> = {
+  settlement_platform_advance: [
+    'decided_by',
+    'decision_second_by',
+    'written_off_by',
+    'write_off_second_by',
+  ],
+  settlement_insurer_bordereau: ['issued_by', 'second_validated_by'],
+};
 
 const STAFF_ID_COLUMNS = [
   'created_by',
@@ -351,7 +360,12 @@ describe('colonnes lisibles, rôle par rôle (US-011)', () => {
   it('app_worker : tables AVL / PAY de 0007 en entier, aucune colonne IAM ni support', async () => {
     await withRole('app_worker', async (client) => {
       for (const table of Object.keys(API_COLUMNS)) {
-        const expected = WORKER_FULL_TABLES.includes(table) ? await allColumns(client, table) : [];
+        const excluded = WORKER_EXCLUDED[table];
+        const expected = WORKER_FULL_TABLES.includes(table)
+          ? await allColumns(client, table)
+          : excluded !== undefined
+            ? (await allColumns(client, table)).filter((c) => !excluded.includes(c))
+            : [];
         expect(await readable(client, 'app_worker', table), table).toEqual(expected);
       }
     });

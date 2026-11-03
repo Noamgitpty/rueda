@@ -40,7 +40,16 @@ US-011 a livré la RLS par acteur et par pays et `app.is_org_holder()`, sans `ap
    - **Défense en profondeur** : les triggers de garde n'acceptent `decided_by` / `decision_second_by`, `written_off_*` et `issued_by` / `second_validated_by` qu'en recopie exacte d'une demande `APPROVED` de la même action, sur le même sujet, par ces deux personnes. Cela vaut même sous `migrator`.
    - La politique `cmd_advance_upd` ne laisse jamais un travailleur écrire `WRITTEN_OFF` (réserve 3).
    - `core.settlement_advance_approvers(jeton, avance)` rend les deux approbateurs à FINANCE et ADMIN de la portée seulement ; à tout autre appelant, elle ne rend aucune ligne.
-6. **Réserve 4 d'US-056.** Le `GRANT` de `platform_advance` ne cite que des colonnes existantes ; le test des colonnes compare la liste exacte. `trip_id` est déjà dénormalisé dans `settlement_leg` (0027) et `payment_operation_leg` (0028).
+6. **Droits élargis de `cmd_money_owner`** (revue code US-062). Pour réutiliser les aides de la console d'ADR-062 (`core.iam_staff_session`, `core.iam_staff_permitted`, `core.iam_staff_audit`, `core.iam_staff_audit_countries`, `SECURITY INVOKER`), le propriétaire des commandes d'argent reçoit, par politiques `cmd_money_sel` / `cmd_money_ins` à son nom :
+   - lecture par colonnes de `iam_session` (`id`, `user_id`, `token_hash`, `expires_at`, `revoked_at`, `mfa_level`), `iam_user_account` (`id`, `status`), `iam_staff_role_assignment` (`user_id`, `role`, `country_scope`, `expires_at`) et `iam_role_permission` (`role`, `permission_code`, `valid_from`, `valid_to`) ;
+   - écriture au journal d'audit en ajout seul (colonnes de `iam_staff_owner`) et lecture de la seule colonne `id` (`RETURNING`) ;
+   - `EXECUTE` sur les quatre aides et sur `app.country_scope()`.
+
+   Aucune de ces lectures ne sort de la famille : les fonctions ne rendent qu'une issue et un identifiant. Alternative écartée : un propriétaire FINANCE distinct (17 §2.3 place les commandes FINANCE sous `cmd_money_owner`). La famille `cmd_money` lit donc désormais des empreintes de jetons : toute nouvelle fonction de la famille est revue en sécurité.
+
+7. **Lecture des travailleurs.** `app_worker` lit `platform_advance` et `insurer_bordereau` par colonnes, sans identifiant du personnel (`decided_by`, `decision_second_by`, `written_off_by`, `write_off_second_by`, `issued_by`, `second_validated_by`) ; `finance_approval` lui reste illisible.
+8. **Âge de `host_guest_v`** : années révolues à la date locale du trip (`booking_trip.timezone`, fuseau du pays), jamais au fuseau de la session.
+9. **Réserve 4 d'US-056.** Le `GRANT` de `platform_advance` ne cite que des colonnes existantes ; le test des colonnes compare la liste exacte. `trip_id` est déjà dénormalisé dans `settlement_leg` (0027) et `payment_operation_leg` (0028).
 
 ## Limites et conséquences
 
@@ -50,6 +59,7 @@ US-011 a livré la RLS par acteur et par pays et `app.is_org_holder()`, sans `ap
 - **Adresse de l'hôte vue par le voyageur** jusqu'à la fin du trip + `review_window_days` : aucune table de lieux n'existe. Ce point est reporté à US-514 (lieux de prise et de retour), qui portera la vue du voyageur.
 - **`cmd_apply_leg_movement`** (RLS-25) n'existe pas : la preuve porte sur la commande d'argent existante (`settlement_cmd_record`) et sur les lectures. US-061 / US-223 rejouent la preuve.
 - **RLS-27** (interrupteurs de mise en service, réserves 1 et 2 d'US-056) relève d'**US-125** (19 : RLS-27 n'est pas dans les références d'US-062). `cmd_golive_owner` existe déjà (amorçage, `OWNER_ROLES`) ; il entrera dans la liste blanche RLS-15 avec ses fonctions.
+- **`platform_advance.org_id`** n'est pas contraint à « compte d'hôte du trip » (seules les clés étrangères composées avec le pays le sont) : la commande de création (**US-224**) le relira du trip, comme la fixture 9700 ; à prouver par sa revue.
 - **Gouvernance** : tant qu'un second approbateur n'existe pas, aucune décision FINANCE n'est possible (défaut fail-closed de la passation US-056).
 - **Reports dans 17**, par l'orchestrateur :
   - §2.3 : signature à jeton des commandes FINANCE ; `has_permission` réservée à `HOST` ; famille `host_view` ; `guest_user_id` non lisible ; `host_guest_v` réduite aux quatre champs de 19 (17 cite aussi photo, nombre de trips et téléphone masqué) ;

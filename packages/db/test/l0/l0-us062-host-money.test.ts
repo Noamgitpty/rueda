@@ -86,6 +86,8 @@ const people = {
   financeASecond: Buffer.alloc(0),
 };
 const GUEST_BIRTH = '1990-06-15';
+/** Demande DECIDE_ADVANCE APPROUVÉE (A puis B) sur l'avance `finance.decide` du premier pays. */
+let decidedApproval = '';
 
 const w = (i: number): CountryWorld => {
   const x = world.countries[i];
@@ -568,6 +570,43 @@ describe('RLS-23 / RLS-25 — OPS, SUPPORT et travailleurs hors liste', () => {
     });
   });
 
+  it('travailleurs de la liste blanche : lecture des nouvelles tables d’argent (contrôle positif), jamais des demandes FINANCE', async () => {
+    await withRole('app_worker', async (client) => {
+      for (const name of [
+        'settlement',
+        'payment_command',
+        'payout',
+        'bordereau',
+        'reconciliation',
+      ]) {
+        await withTestTransaction(client, {}, async (tx) => {
+          await setSessionContext(tx, { kind: 'WORKER', workerName: name });
+          expect(await idsOf(tx, 'settlement_platform_advance', 'id', ourAdvances()), name).toEqual(
+            sorted(ourAdvances()),
+          );
+          expect(
+            await idsOf(tx, 'settlement_insurer_bordereau', 'id', ourBordereaux()),
+            name,
+          ).toEqual(sorted(ourBordereaux()));
+          expect(
+            await idsOf(tx, 'settlement_insurer_bordereau_line', 'bordereau_id', ourBordereaux()),
+            name,
+          ).toEqual(sorted(ourBordereaux()));
+          expect(
+            await idsOf(tx, 'settlement_insurer_ledger_state', 'insurer_id', ourInsurers()),
+            name,
+          ).toEqual(sorted(ourInsurers()));
+        });
+      }
+      await expect(
+        withTestTransaction(client, {}, async (tx) => {
+          await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+          return tx.query('SELECT 1 FROM core.settlement_finance_approval');
+        }),
+      ).rejects.toMatchObject({ code: '42501' });
+    });
+  });
+
   it('RLS-25 : travailleur hors liste blanche : 0 ligne, commande d’argent refusée (42501)', async () => {
     await withRole('app_worker', async (client) => {
       for (const name of ['hold_expiry', 'booking_conversion', 'webhook_ingest']) {
@@ -717,6 +756,7 @@ describe('RLS-24 — FINANCE A puis FINANCE B de portée {premier pays}', () => 
         approval,
       ]);
       expect(ok).toEqual({ outcome: 'APPROVED', approval_id: approval });
+      decidedApproval = approval;
       const row = await advanceRow(client, adv);
       expect(row).toMatchObject({
         decided_by: people.financeA,
@@ -930,12 +970,38 @@ describe('RLS-24 — FINANCE A puis FINANCE B de portée {premier pays}', () => 
           ]),
         ),
       ).rejects.toMatchObject({ code: '23000', constraint: 'advance_two_person_rule' });
-      // une demande APPROUVÉE existe (DECIDE_ADVANCE du premier pays), mais pour un AUTRE sujet
-      const { rows } = await client.query<{ id: string }>(
-        `SELECT approval_id AS id FROM test_fixture.us062_approval_row($1)`,
-        [uuid()],
+      // une demande APPROUVÉE existe bien (DECIDE_ADVANCE du premier pays, demandée par A et
+      // approuvée par B), mais pour un AUTRE sujet : la recopier sur une autre avance est refusé
+      expect(decidedApproval).not.toBe('');
+      const { rows } = await client.query<{
+        action: string;
+        status: string;
+        requested_by: string;
+        approved_by: string;
+      }>(
+        'SELECT action, status, requested_by, approved_by FROM test_fixture.us062_approval_row($1)',
+        [decidedApproval],
       );
-      expect(rows).toEqual([]);
+      expect(rows[0]).toEqual({
+        action: 'DECIDE_ADVANCE',
+        status: 'APPROVED',
+        requested_by: people.financeA,
+        approved_by: people.financeB,
+      });
+      for (const target of [m(1).adv.b1, m(0).adv.a1]) {
+        await expect(
+          withTestTransaction(client, {}, (tx) =>
+            tx.query('SELECT test_fixture.us062_force_decision($1, $2, $3, $4)', [
+              target,
+              people.financeA,
+              people.financeB,
+              decidedApproval,
+            ]),
+          ),
+          target,
+        ).rejects.toMatchObject({ code: '23000', constraint: 'advance_two_person_rule' });
+      }
+      // identifiant inventé : refusé
       await expect(
         withTestTransaction(client, {}, (tx) =>
           tx.query('SELECT test_fixture.us062_force_decision($1, $2, $3, $4)', [
@@ -946,6 +1012,7 @@ describe('RLS-24 — FINANCE A puis FINANCE B de portée {premier pays}', () => 
           ]),
         ),
       ).rejects.toMatchObject({ code: '23000', constraint: 'advance_two_person_rule' });
+      expect(await advanceRow(client, m(1).adv.b1)).toMatchObject({ decided_by: null });
     });
   });
 });
@@ -1187,5 +1254,48 @@ describe('RLS-26 et minimisation (NOUVELLE-16) — host_guest_v et host_advance_
         },
       );
     });
+  });
+});
+
+describe('money_no_delete / money_no_truncate — aucune suppression, même par migrator', () => {
+  it('DELETE refusé sur les cinq tables (lignes présentes) ; TRUNCATE refusé sur les tables non référencées', async () => {
+    await api(async (client) => {
+      for (const t of [
+        'settlement_finance_approval',
+        'settlement_platform_advance',
+        'settlement_insurer_ledger_state',
+        'settlement_insurer_bordereau',
+        'settlement_insurer_bordereau_line',
+      ]) {
+        await expect(
+          withTestTransaction(client, {}, (tx) =>
+            tx.query('SELECT test_fixture.us062_try_delete($1)', [t]),
+          ),
+          t,
+        ).rejects.toMatchObject({ code: '23000', constraint: 'money_no_delete' });
+      }
+      for (const t of [
+        'settlement_platform_advance',
+        'settlement_insurer_ledger_state',
+        'settlement_insurer_bordereau_line',
+      ]) {
+        await expect(
+          withTestTransaction(client, {}, (tx) =>
+            tx.query('SELECT test_fixture.us062_try_truncate($1)', [t]),
+          ),
+          t,
+        ).rejects.toMatchObject({ code: '23000', constraint: 'money_no_delete' });
+      }
+    });
+    // les lignes sont toujours là
+    await api((client) =>
+      asActor(
+        client,
+        { kind: 'STAFF', actorId: world.staff.adminAll, countryScope: bothCountries() },
+        async (tx) => {
+          expect((await moneyTables(tx)).advance).toEqual(sorted(ourAdvances()));
+        },
+      ),
+    );
   });
 });

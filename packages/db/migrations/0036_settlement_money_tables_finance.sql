@@ -90,7 +90,9 @@ CREATE TABLE core.settlement_platform_advance (
   currency              text        NOT NULL
     CONSTRAINT platform_advance_currency_format CHECK (currency ~ '^[A-Z]{3}$'),
   trip_id               uuid,
-  org_id                uuid,                                   -- hôte débiteur (cause RELEASED_LEG)
+  -- hôte débiteur (cause RELEASED_LEG). Le lien « org_id = compte d'hôte du trip » n'est pas une
+  -- contrainte : la commande de création (US-224) le relira du trip, comme la fixture 9700.
+  org_id                uuid,
   insurer_id            uuid,                                   -- clé étrangère : US-227 (table insurer)
   cause                 text        NOT NULL
     CONSTRAINT platform_advance_cause_valid CHECK (cause IN
@@ -453,8 +455,18 @@ GRANT SELECT ON core.settlement_host_advance_v TO app_api;
 
 -- 5. Lectures des travailleurs (liste blanche de 17 §2.3), aucune écriture ------------------------
 
-GRANT SELECT ON core.settlement_platform_advance, core.settlement_insurer_ledger_state,
-  core.settlement_insurer_bordereau, core.settlement_insurer_bordereau_line TO app_worker;
+-- par colonnes pour les avances et les bordereaux : aucun identifiant du personnel (revue
+-- sécurité US-062) ; position de l'assureur et lignes : tables entières (aucun identifiant)
+GRANT SELECT (id, country_code, currency, trip_id, org_id, insurer_id, cause, amount_minor,
+              funded_from, receivable_minor, recovered_minor, status, decision_approval_id,
+              written_off_at, write_off_approval_id, created_at, updated_at, row_version)
+  ON core.settlement_platform_advance TO app_worker;
+GRANT SELECT (id, insurer_id, insurer_contract_id, country_code, currency, period, total_minor,
+              status, approval_id, issued_at, paid_at, psp_release_ref, created_at, updated_at,
+              row_version)
+  ON core.settlement_insurer_bordereau TO app_worker;
+GRANT SELECT ON core.settlement_insurer_ledger_state, core.settlement_insurer_bordereau_line
+  TO app_worker;
 CREATE POLICY worker_money_read ON core.settlement_platform_advance FOR SELECT TO app_worker
   USING (app.actor_kind() = 'WORKER'
          AND app.worker_name() IN ('settlement', 'payment_command', 'payout', 'bordereau', 'reconciliation'));

@@ -136,7 +136,7 @@ ALTER POLICY operation_guest_read ON core.payment_payment_operation
 GRANT USAGE ON SCHEMA core, app, platform TO host_view_owner;
 GRANT EXECUTE ON FUNCTION platform.now(), app.actor_kind(), app.org_id() TO host_view_owner;
 GRANT EXECUTE ON FUNCTION app.host_covers_vehicle(uuid) TO host_view_owner;
-GRANT SELECT (id, org_id, vehicle_id, guest_user_id) ON core.booking_trip TO host_view_owner;
+GRANT SELECT (id, org_id, vehicle_id, guest_user_id, timezone) ON core.booking_trip TO host_view_owner;
 GRANT SELECT (id, legal_first_name, date_of_birth, pseudonymized_at)
   ON core.iam_user_account TO host_view_owner;
 CREATE POLICY host_view_read ON core.booking_trip FOR SELECT TO host_view_owner USING (true);
@@ -145,7 +145,8 @@ CREATE POLICY host_view_read ON core.iam_user_account FOR SELECT TO host_view_ow
 -- Voyageurs des trips du compte d'hôte de la session, réduits à ce que 17 §2.3 autorise.
 -- Aucun paramètre ; aucune ligne pour un acteur autre que HOST ; un co-hôte ne voit que les trips
 -- des véhicules de sa portée (app.host_covers_vehicle relit membership) ; un compte pseudonymisé
--- (droit à l'effacement) ne rend plus de prénom.
+-- (droit à l'effacement) ne rend plus de prénom. L'âge est compté en années révolues à la date
+-- locale du trip (fuseau `booking_trip.timezone`, celui du pays), jamais au fuseau de la session.
 CREATE FUNCTION core.booking_host_guest_rows()
   RETURNS TABLE (trip_id uuid, first_name text, age_years integer, rating numeric,
                  verification_status text)
@@ -158,7 +159,8 @@ AS $fn$
          CASE WHEN u.pseudonymized_at IS NULL THEN u.legal_first_name END,
          CASE WHEN u.pseudonymized_at IS NULL AND u.date_of_birth IS NOT NULL
               THEN pg_catalog.date_part('year',
-                     pg_catalog.age(platform.now(), u.date_of_birth::timestamptz))::integer
+                     pg_catalog.age((platform.now() AT TIME ZONE t.timezone)::date::timestamp,
+                                    u.date_of_birth::timestamp))::integer
          END,
          NULL::numeric,      -- note du voyageur : rating_aggregate (story des avis)
          NULL::text          -- statut de vérification : identity_verification (KYC du voyageur)
