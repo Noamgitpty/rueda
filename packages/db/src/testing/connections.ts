@@ -17,7 +17,8 @@ import type { AppRole, LoginRole } from '../roles.ts';
 import { redactError } from '../secrets.ts';
 import type { BenchInfo } from './bench.ts';
 
-export type BenchDatabase = 'main' | 'production';
+/** `injection` : réservée au cas « sans verrou » de L0-02 (ADR-056). */
+export type BenchDatabase = 'main' | 'production' | 'injection';
 
 let roleAssertions = 0;
 
@@ -93,7 +94,12 @@ async function openClient(
     port: info.port,
     user,
     password,
-    database: database === 'main' ? info.database : info.productionDatabase,
+    database:
+      database === 'main'
+        ? info.database
+        : database === 'production'
+          ? info.productionDatabase
+          : info.injectionDatabase,
     application_name: `rueda-test-${user}`,
   });
   try {
