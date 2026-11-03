@@ -2,7 +2,7 @@
 // tout le reste (internal/, ctr.module.ts) est privé (règle rueda/module-boundaries).
 export { CtrModule } from './ctr.module.js';
 
-// Port SignatureService (US-020, ADR-057) : types seulement ; l'adaptateur est injecté.
+// Port SignatureService (US-020, ADR-058) : types seulement ; l'adaptateur est injecté.
 export type {
   SignatureCheckResult,
   SignatureOutcome,

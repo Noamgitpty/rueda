@@ -1,6 +1,6 @@
 # packages/fake-adapters — adaptateurs FAKE (`@rueda/fake-adapters`)
 
-Adaptateurs **FAKE** derrière les ports de 17 §5, pour les tests et le développement local (17 §6.5, §10 ; ADR-032, ADR-057). Propriétaires : US-019 (PSP), US-020 (autres ports), US-061 (place de marché).
+Adaptateurs **FAKE** derrière les ports de 17 §5, pour les tests et le développement local (17 §6.5, §10 ; ADR-032, ADR-058). Propriétaires : US-019 (PSP), US-020 (autres ports), US-061 (place de marché).
 
 ## Jamais en production (C19)
 

@@ -1,4 +1,4 @@
-/** Conformance du FAKE au port `EInvoicingProvider` (US-020, ADR-057). */
+/** Conformance du FAKE au port `EInvoicingProvider` (US-020, ADR-058). */
 import { describe, expect, it } from 'vitest';
 import { FakeClock, FakeEInvoicingProvider } from '@rueda/fake-adapters';
 import type { EInvoicingProvider } from '../index.js';

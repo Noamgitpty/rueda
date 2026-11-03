@@ -1,6 +1,6 @@
 /**
  * Port `MessagingChannel` du module NTF (utilisé aussi par MSG ; 17 §5 « SMS », « Email
- * transactionnel », §10 ; ADR-012 ; US-020, ADR-057).
+ * transactionnel », §10 ; ADR-012 ; US-020, ADR-058).
  *
  * Un adaptateur par canal (`EMAIL`, `SMS` ; WhatsApp au lot 5). Le contenu est rendu par NTF
  * (gabarits es / en / fr) : le port transporte un texte déjà rendu. Message d'un autre canal ⇒

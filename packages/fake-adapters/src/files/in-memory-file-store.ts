@@ -5,7 +5,7 @@
  *
  * Contrat du port : **création seule** (`put` sur une clé existante ⇒ `CONFLICT`, l'objet existant
  * reste intact) ; les échecs sont des valeurs (`UNAVAILABLE`, `TIMEOUT`, `NOT_FOUND`), si bien que
- * ce paquet n'importe rien de `@rueda/db` (pas de cycle de paquets, ADR-057).
+ * ce paquet n'importe rien de `@rueda/db` (pas de cycle de paquets, ADR-058).
  *
  * Cas difficiles (scénarios `put` / `get`) : panne, délai, issue inconnue (`TIMEOUT_AFTER` : l'objet
  * est déposé mais l'appelant voit `TIMEOUT`), et **doublon** sur `put` (`DUPLICATE` : la requête

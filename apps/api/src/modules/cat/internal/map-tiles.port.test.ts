@@ -1,4 +1,4 @@
-/** Conformance du FAKE au port `MapTiles` (US-020, ADR-057). */
+/** Conformance du FAKE au port `MapTiles` (US-020, ADR-058). */
 import { describe, expect, it } from 'vitest';
 import { FakeClock, FakeMapTiles } from '@rueda/fake-adapters';
 import type { MapTiles } from '../index.js';

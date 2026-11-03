@@ -1,4 +1,4 @@
-/** Conformance du FAKE au port `MessagingChannel` (US-020, ADR-057). */
+/** Conformance du FAKE au port `MessagingChannel` (US-020, ADR-058). */
 import { describe, expect, it } from 'vitest';
 import { FakeClock, FakeMessagingChannel } from '@rueda/fake-adapters';
 import type { MessagingChannel } from '../index.js';

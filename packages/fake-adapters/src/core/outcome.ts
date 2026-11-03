@@ -1,5 +1,5 @@
 /**
- * Issue d'un appel à un port (US-020 ; ADR-057). Les ports d'US-020 rendent leurs échecs comme des
+ * Issue d'un appel à un port (US-020 ; ADR-058). Les ports d'US-020 rendent leurs échecs comme des
  * **valeurs**, jamais comme des classes d'exception : un FAKE de ce paquet (feuille, sans
  * dépendance de l'espace de travail) se conforme ainsi au port par le seul typage structurel, et
  * le test de conformance du module propriétaire le vérifie à la compilation.

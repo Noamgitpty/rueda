@@ -6,7 +6,7 @@
  * Adaptateurs : FAKE `@rueda/fake-adapters/files` (`FakeUploadScanner`, tests seulement) ; réel
  * (ClamAV ou service du nuage) : à choisir, jamais de FAKE en production (C19).
  *
- * Les échecs sont des valeurs (ADR-057). Règle d'usage, **fail-closed** : seul un verdict `CLEAN`
+ * Les échecs sont des valeurs (ADR-058). Règle d'usage, **fail-closed** : seul un verdict `CLEAN`
  * libère un fichier ; `INFECTED`, `MIME_MISMATCH`, `UNSUPPORTED_TYPE`, `UNAVAILABLE` et `TIMEOUT`
  * le laissent en quarantaine (`isReleasable`).
  */

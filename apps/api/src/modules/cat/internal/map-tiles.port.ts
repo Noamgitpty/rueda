@@ -1,6 +1,6 @@
 /**
  * Port `MapTiles` du module CAT (17 §5 « Cartes / géocodage », §10, corrigé VERIF_16-M11 ; SRC-008 ;
- * US-020, ADR-057).
+ * US-020, ADR-058).
  *
  * Fonds de carte seuls (marqueurs de prix aux positions approximatives) : aucun géocodage, aucune
  * autocomplétion (`GeoProvider` différé). Le fournisseur reçoit l'IP du visiteur : il sera inscrit

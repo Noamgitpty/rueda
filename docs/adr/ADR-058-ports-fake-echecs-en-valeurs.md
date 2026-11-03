@@ -1,4 +1,4 @@
-# ADR-057 — Ports d'intégration à échecs en valeurs, FAKE dans un paquet feuille, garde centrale
+# ADR-058 — Ports d'intégration à échecs en valeurs, FAKE dans un paquet feuille, garde centrale
 
 - **Statut** : PROPOSÉ (US-020, agent integrations, 2026-11-03). Revues code, architecture et sécurité requises, sur un autre modèle que l'auteur. À reporter dans 17 §5 et §8.1.
 - **Stories** : US-020 ; s'appuient dessus US-021 (notifications), la story KYC, CTR (contrats), FIN (facture), CAT (carte), US-045 (résilience). **Sources** : 17 §5, §6.5, §10 ; ADR-007, ADR-017, ADR-032 ; C19 ; revues US-009 (architecture constat 2, sécurité constat 11).
@@ -30,4 +30,4 @@ US-020 livre les ports `IdentityProvider`, `EInvoicingProvider`, `MessagingChann
 
 ## Reports à faire (orchestrateur)
 
-17 §5 (colonne « Port » : ports d'US-020, échecs en valeurs, `UploadScanner` dans AUD), 17 §8.1 (ADR-057), ADR-051 (emplacement du FAKE `FileStore` et garde `RUEDA_ENV`).
+17 §5 (colonne « Port » : ports d'US-020, échecs en valeurs, `UploadScanner` dans AUD), 17 §8.1 (ADR-058), ADR-051 (emplacement du FAKE `FileStore` et garde `RUEDA_ENV`).

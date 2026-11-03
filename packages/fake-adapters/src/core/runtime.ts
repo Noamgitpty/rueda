@@ -1,7 +1,7 @@
 /**
  * Moteur commun des FAKE d'US-020 : scénario, horloge virtuelle, identifiants séquentiels et
  * idempotence. Chaque FAKE délègue ses opérations à `FakeRuntime.execute`, si bien que tous les
- * ports simulent les mêmes cas difficiles de la même façon (ADR-057) :
+ * ports simulent les mêmes cas difficiles de la même façon (ADR-058) :
  *
  * | étape            | effet de bord | réponse                                   |
  * |------------------|---------------|-------------------------------------------|

@@ -17,7 +17,7 @@ function harness() {
   return { runtime, effects, write };
 }
 
-describe('FakeRuntime : tableau des cas difficiles (ADR-057)', () => {
+describe('FakeRuntime : tableau des cas difficiles (ADR-058)', () => {
   it('OK : un effet, réponse OK non rejouée', async () => {
     const h = harness();
     expect(await h.write('k1', 'a')).toEqual({ status: 'OK', value: 'v-a', replayed: false });

@@ -1,4 +1,4 @@
-/** Conformance du FAKE au port `SignatureService` (US-020, ADR-057). */
+/** Conformance du FAKE au port `SignatureService` (US-020, ADR-058). */
 import { describe, expect, it } from 'vitest';
 import { FakeClock, FakeSignatureService } from '@rueda/fake-adapters';
 import type { SignatureService } from '../index.js';

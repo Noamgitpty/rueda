@@ -2,7 +2,7 @@
 // tout le reste (internal/, kyc.module.ts) est privé (règle rueda/module-boundaries).
 export { KycModule } from './kyc.module.js';
 
-// Port IdentityProvider (US-020, ADR-057) : types seulement ; l'adaptateur est injecté.
+// Port IdentityProvider (US-020, ADR-058) : types seulement ; l'adaptateur est injecté.
 export type {
   IdentityDecision,
   IdentityDecisionEvent,

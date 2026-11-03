@@ -2,7 +2,7 @@
 // tout le reste (internal/, fin.module.ts) est privé (règle rueda/module-boundaries).
 export { FinModule } from './fin.module.js';
 
-// Port EInvoicingProvider (US-020, ADR-057) : types seulement ; l'adaptateur est injecté.
+// Port EInvoicingProvider (US-020, ADR-058) : types seulement ; l'adaptateur est injecté.
 export type {
   EInvoicingOutcome,
   EInvoicingProvider,

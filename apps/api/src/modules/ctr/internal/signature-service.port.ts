@@ -1,6 +1,6 @@
 /**
  * Port `SignatureService` du module CTR (17 §2.7, §5 « Signature électronique », §10 ; ADR-017 ;
- * US-020, ADR-057).
+ * US-020, ADR-058).
  *
  * Signature électronique simple : clic après authentification et OTP récent (17 §2.7 : ≤ 10 min,
  * contrôlé par CTR et par le service) ; le service enregistre l'empreinte SHA-256 (hexadécimal

@@ -1,5 +1,5 @@
 /**
- * Port `IdentityProvider` du module KYC (17 §5 « KYC », §10 ; ADR-007 ; US-020, ADR-057).
+ * Port `IdentityProvider` du module KYC (17 §5 « KYC », §10 ; ADR-007 ; US-020, ADR-058).
  *
  * Parcours **hébergé** chez le fournisseur : l'application n'envoie ni pièce ni selfie (zéro copie
  * par défaut, F15), seulement une référence opaque du sujet et le type de pièce ; la décision

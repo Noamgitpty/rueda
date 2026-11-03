@@ -7,7 +7,7 @@
  * Le FAKE `FileStore` (`InMemoryFileStore`) est désormais dans `@rueda/fake-adapters/files`
  * (US-020). `FakeKeyWrapper` reste ici : il lève les classes d'erreur du port (`instanceof` dans
  * `subject-keys.ts`), et `@rueda/fake-adapters` ne peut pas importer `@rueda/db` sans créer un
- * cycle de paquets (ADR-057). KMS réel : US-003.
+ * cycle de paquets (ADR-058). KMS réel : US-003.
  *
  * `FakeKeyWrapper` : la clé maîtresse est tirée au hasard EN MÉMOIRE à la construction (aucune
  * clé en dur, rien sur disque, rien d'affiché). Elle meurt avec l'instance : une DEK enveloppée par

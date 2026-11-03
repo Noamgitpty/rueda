@@ -33,7 +33,7 @@ export type Classification = 'C0' | 'C1' | 'C2' | 'C3';
  * pas d'octets). Adaptateur réel (US-003) : écriture conditionnelle (`If-None-Match: *` sur S3) et
  * verrou objet du bucket `PRIVATE_EVIDENCE`.
  *
- * Les échecs sont des **valeurs** (US-020, ADR-057) : `UNAVAILABLE` (rien n'est fait), `TIMEOUT`
+ * Les échecs sont des **valeurs** (US-020, ADR-058) : `UNAVAILABLE` (rien n'est fait), `TIMEOUT`
  * (issue inconnue : l'objet a pu être déposé), `NOT_FOUND`. Ainsi le FAKE, dans un paquet feuille,
  * se conforme au port sans importer `@rueda/db` (pas de cycle de paquets).
  */

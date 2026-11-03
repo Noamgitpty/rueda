@@ -3,7 +3,7 @@
  * Dépendance de DÉVELOPPEMENT seulement : jamais dans l'image de production (17 §6.5 point 2,
  * §10 ; C19). Chaque FAKE refuse de se construire hors `RUEDA_ENV` = development | test.
  *
- * Paquet **feuille** : il n'importe aucun paquet de l'espace de travail (ADR-057) ; les FAKE
+ * Paquet **feuille** : il n'importe aucun paquet de l'espace de travail (ADR-058) ; les FAKE
  * d'US-020 se conforment aux ports des modules par typage structurel, vérifié par les tests de
  * conformance des modules propriétaires.
  */

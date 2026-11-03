@@ -1,6 +1,6 @@
 /**
  * Port `EInvoicingProvider` du module FIN (17 §5 « Facture électronique », « SIFEN », §10 ;
- * FIN-003 ; US-020, ADR-057).
+ * FIN-003 ; US-020, ADR-058).
  *
  * Soumission idempotente d'un document fiscal (facture du trip fee) à un PAC (autorisation
  * synchrone) ou à un service de type SIFEN (lot asynchrone : `PENDING` puis `AUTHORIZED` /

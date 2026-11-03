@@ -2,7 +2,7 @@
 // tout le reste (internal/, ntf.module.ts) est privé (règle rueda/module-boundaries).
 export { NtfModule } from './ntf.module.js';
 
-// Port MessagingChannel (US-020, ADR-057) : types seulement ; l'adaptateur est injecté.
+// Port MessagingChannel (US-020, ADR-058) : types seulement ; l'adaptateur est injecté.
 export type {
   DeliveryReceipt,
   DeliveryStatus,

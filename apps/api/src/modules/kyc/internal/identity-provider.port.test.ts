@@ -1,5 +1,5 @@
 /**
- * Conformance du FAKE au port `IdentityProvider` (US-020, ADR-057) : l'affectation typée échoue à
+ * Conformance du FAKE au port `IdentityProvider` (US-020, ADR-058) : l'affectation typée échoue à
  * la compilation (`pnpm typecheck`) si le FAKE et le port divergent ; le test rejoue un échec.
  */
 import { randomBytes } from 'node:crypto';
