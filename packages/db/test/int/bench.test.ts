@@ -22,7 +22,10 @@ describe('banc PostgreSQL', () => {
       expect(rows[0]?.db).toBe(info.database);
       expect(rows[0]?.db.startsWith(TEST_DATABASE_PREFIX)).toBe(true);
       // Connexion directe : le port du serveur est celui de la configuration (pas de pooler).
-      expect(Number(rows[0]?.port)).toBe(info.port);
+      // Sous Testcontainers, Docker publie le port interne 5432 du conteneur sur un port
+      // aléatoire de l'hôte : le serveur voit donc 5432, et le client le port publié.
+      const expectedPort = info.sourceKind === 'testcontainers' ? 5432 : info.port;
+      expect(Number(rows[0]?.port)).toBe(expectedPort);
       // Même version majeure que la production (17 §11) : PostgreSQL 16.
       expect(Math.floor(Number(rows[0]?.version) / 10_000)).toBe(16);
     });
