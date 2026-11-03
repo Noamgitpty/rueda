@@ -2,9 +2,11 @@
  * Intégration du schéma de preuve AVL / PAY (US-006, migrations 0002 à 0007 et test 9001).
  * Vérifie, sous les rôles de production, ce que les preuves L0 supposent :
  * - RLS ENABLE + FORCE sur toutes les tables `core`, politique `migrator_all` (CLAUDE.md point 5) ;
- * - droits : rien pour PUBLIC, app_anon, app_api ; aucun DELETE ; app_worker borné (17 §2.3, A1) ;
+ * - droits : rien pour PUBLIC ni app_anon ; app_api en lecture seule filtrée par politique (US-011,
+ *   0025) ; aucun DELETE ; app_worker borné (17 §2.3, A1) ;
  * - contexte absent ⇒ 0 ligne, sans erreur ; écriture refusée (fail-closed) ;
- * - fonctions de trigger d'intégrité : SECURITY DEFINER, search_path figé, sans EXECUTE (ADR-048) ;
+ * - fonctions de trigger d'intégrité : SECURITY DEFINER, propriétaire integrity_owner (US-011),
+ *   search_path figé, sans EXECUTE (ADR-048) ; liste blanche complète : l0-rls-15-security-definer ;
  * - triggers I-OCC différés (DEFERRABLE INITIALLY DEFERRED) ;
  * - fixtures de test absentes de la base de production.
  * Les tables `outbox_*` (US-008, migrations 0012 à 0015) ont leurs propres contrôles :
@@ -38,6 +40,10 @@ const CONFIG_TABLES = [
   'finance_legal_entity',
 ] as const;
 
+// Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
+// RLS (test/l0/l0-rls-*.test.ts).
+const SUPPORT_TABLES = ['support_support_case'] as const;
+
 const INTEGRITY_FUNCTIONS = [
   'core.booking_assert_trip_occupancy()',
   'core.booking_assert_conversion_disposition()',
@@ -65,7 +71,9 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^iam_'          -- tables IAM : test/int/iam-schema.test.ts (US-010)
           ORDER BY c.relname`,
       );
-      expect(rows.map((r) => r.relname)).toEqual([...CORE_TABLES, ...CONFIG_TABLES].sort());
+      expect(rows.map((r) => r.relname)).toEqual(
+        [...CORE_TABLES, ...CONFIG_TABLES, ...SUPPORT_TABLES].sort(),
+      );
       for (const r of rows) {
         expect(r, r.relname).toMatchObject({
           rls: true,
@@ -77,7 +85,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('aucune politique pour PUBLIC ; politiques app_worker seulement en plus de migrator_all', async () => {
+  it('aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{ relname: string; polname: string; roles: string }>(
         `SELECT c.relname, p.polname,
@@ -91,9 +99,27 @@ describe('schéma core (US-006)', () => {
         [CORE_TABLES],
       );
       for (const r of rows) {
-        const expected = r.polname === 'migrator_all' ? 'migrator' : 'app_worker';
+        const expected =
+          r.polname === 'migrator_all'
+            ? 'migrator'
+            : r.polname === 'integrity_read'
+              ? 'integrity_owner'
+              : r.polname.startsWith('worker_')
+                ? 'app_worker'
+                : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
+      // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
+      const { rows: apiCmds } = await client.query<{ pol: string }>(
+        `SELECT c.relname || '.' || p.polname AS pol
+           FROM pg_catalog.pg_policy p
+           JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
+           JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'core' AND c.relname = ANY($1::text[])
+            AND 'app_api'::regrole = ANY (p.polroles) AND p.polcmd <> 'r'`,
+        [CORE_TABLES],
+      );
+      expect(apiCmds).toEqual([]);
       // aucune politique DELETE (polcmd 'd') ni ALL ('*') hors migrator_all
       const { rows: cmds } = await client.query<{ n: number }>(
         `SELECT count(*)::int AS n
@@ -108,7 +134,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('droits : rien pour app_api ni app_anon ; aucun DELETE pour personne ; app_worker borné', async () => {
+  it('droits : rien pour app_anon ; app_api en lecture seule ; aucun DELETE pour personne ; app_worker borné', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{
         role: string;
@@ -124,7 +150,14 @@ describe('schéma core (US-006)', () => {
         [CORE_TABLES],
       );
       const granted = rows.filter((r) => r.has).map((r) => `${r.role}:${r.tbl}:${r.priv}`);
-      expect(granted.filter((g) => !g.startsWith('app_worker:'))).toEqual([]);
+      // app_api : lecture de table de trois tables seulement (payment_operation : par colonnes)
+      expect(granted.filter((g) => !g.startsWith('app_worker:')).sort()).toEqual(
+        [
+          'app_api:booking_checkout_hold:SELECT',
+          'app_api:booking_guest_occupancy:SELECT',
+          'app_api:booking_trip:SELECT',
+        ].sort(),
+      );
       expect(granted.filter((g) => /:(DELETE|TRUNCATE)$/.test(g))).toEqual([]);
       // app_worker n'insère ni occupation, ni hold, ni opération (commandes cmd_* : US-023)
       for (const tbl of [
@@ -144,10 +177,14 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('app_api : toute écriture directe refusée (42501), lecture aussi (lectures filtrées : US-011)', async () => {
+  it('app_api : toute écriture directe refusée (42501) ; lecture sans contexte = 0 ligne (US-011)', async () => {
     await withRole('app_api', async (client) => {
+      const { rows } = await client.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM core.booking_checkout_hold`,
+      );
+      expect(rows[0]?.n).toBe(0);
       for (const sql of [
-        `SELECT 1 FROM core.booking_checkout_hold LIMIT 1`,
+        `SELECT 1 FROM core.booking_vehicle_occupancy LIMIT 1`,
         `UPDATE core.booking_checkout_hold SET status = 'EXPIRED'`,
         `INSERT INTO core.booking_vehicle_occupancy (id, vehicle_id, kind, source, period, active, expires_at)
          VALUES (gen_random_uuid(), gen_random_uuid(), 'HOLD', 'CHECKOUT', '[2031-01-01,2031-01-02)', true, '2031-01-01')`,
@@ -185,7 +222,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('fonctions de trigger d’intégrité : SECURITY DEFINER, propriétaire migrator, search_path figé, sans EXECUTE', async () => {
+  it('fonctions de trigger d’intégrité : SECURITY DEFINER, propriétaire integrity_owner, search_path figé, sans EXECUTE', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         fn: string;
@@ -204,20 +241,17 @@ describe('schéma core (US-006)', () => {
       );
       expect(rows).toHaveLength(INTEGRITY_FUNCTIONS.length);
       for (const r of rows) {
-        expect(r, r.fn).toMatchObject({ secdef: true, owner: 'migrator', rettype: 'trigger' });
+        expect(r, r.fn).toMatchObject({
+          secdef: true,
+          owner: 'integrity_owner',
+          rettype: 'trigger',
+        });
         expect(r.config, r.fn).toEqual(['search_path=pg_catalog, pg_temp']);
-        // seul le propriétaire : ni PUBLIC (=X) ni rôle applicatif
-        expect(r.acl ?? '', r.fn).not.toMatch(/(^|[{,])=X|app_|cmd_|_owner=/);
+        // seul le propriétaire : ni PUBLIC (=X) ni rôle applicatif ni autre propriétaire
+        expect(r.acl, r.fn).toBe('{integrity_owner=X/integrity_owner}');
       }
-      // aucune autre fonction SECURITY DEFINER dans core (liste blanche RLS-15, US-011)
-      const { rows: others } = await client.query<{ fn: string }>(
-        `SELECT p.oid::regprocedure::text AS fn
-           FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-          WHERE n.nspname IN ('core', 'app', 'platform') AND p.prosecdef
-            AND p.proname !~ '^iam_'          -- commandes IAM : test/int/iam-schema.test.ts (US-010)
-          ORDER BY 1`,
-      );
-      expect(others.map((o) => o.fn)).toEqual([...INTEGRITY_FUNCTIONS].sort());
+      // la liste blanche complète des SECURITY DEFINER est vérifiée par RLS-15
+      // (test/l0/l0-rls-15-security-definer.test.ts, US-011)
     });
   });
 

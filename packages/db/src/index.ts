@@ -23,3 +23,12 @@ export { maskConnectionString, redactError, redactSecrets } from './secrets.ts';
 export { randomPassword, scramSha256Verifier } from './scram.ts';
 export { CONSTRAINT_CODES, DB_BUSINESS_CODES, SQLSTATE, translateDbError } from './errors.ts';
 export type { DbBusinessCode, DbBusinessError } from './errors.ts';
+export {
+  ACTOR_KINDS,
+  SESSION_SETTINGS,
+  SET_SESSION_CONTEXT_SQL,
+  SessionContextError,
+  sessionSettings,
+  setSessionContext,
+} from './session-context.ts';
+export type { ActorKind, Queryable, SessionContext, SessionSetting } from './session-context.ts';

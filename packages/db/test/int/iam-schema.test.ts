@@ -1,10 +1,13 @@
 /**
  * Intégration du schéma IAM (US-010, migrations 0010, 0011 et test 9200), sous les rôles de
  * production (assertion L0-05 par withRole) :
- * - RLS ENABLE + FORCE sur toutes les tables iam_*, seule politique migrator_all (17 §2.3, B9) ;
- * - aucun droit de table pour app_api, app_worker, app_anon (les politiques par acteur : US-011) ;
- * - commandes core.iam_* : SECURITY DEFINER, propriétaire migrator, search_path figé, EXECUTE au
- *   seul app_api (liste blanche RLS-15 à reprendre par US-011) ;
+ * - RLS ENABLE + FORCE sur toutes les tables iam_*, politique migrator_all (17 §2.3, B9), plus
+ *   (US-011) les politiques des propriétaires iam_auth_owner / policy_fn_owner et les lectures
+ *   d'app_api par acteur (0025) ;
+ * - aucun droit d'ÉCRITURE de table pour app_api, app_worker, app_anon ; lecture d'app_api bornée
+ *   à user_account (sans password_hash), organization et membership (US-011) ;
+ * - commandes core.iam_* : SECURITY DEFINER, propriétaire iam_auth_owner (US-011, ADR-053),
+ *   search_path figé, EXECUTE au seul app_api (liste blanche RLS-15 : l0-rls-15-security-definer) ;
  * - contraintes structurelles de 17 §3.2.1 utiles à US-011 (titulaire du compte d'hôte, portée
  *   par pays du staff, rôles).
  */
@@ -25,6 +28,26 @@ const IAM_TABLES = [
   'iam_user_account',
 ] as const;
 
+// Politiques attendues par table (US-010 : migrator_all ; US-011 : 0022, 0024, 0025).
+const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
+  iam_auth_factor: 'migrator_all:migrator',
+  iam_email_verification:
+    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
+  iam_membership:
+    'membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+  iam_organization:
+    'migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
+  iam_otp_challenge: 'migrator_all:migrator',
+  iam_restriction: 'migrator_all:migrator',
+  iam_role_permission: 'migrator_all:migrator',
+  iam_session:
+    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
+  iam_staff_role_assignment:
+    'iam_auth_select:iam_auth_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+  iam_user_account:
+    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator;user_account_self_read:app_api',
+};
+
 const IAM_COMMANDS = [
   'core.iam_auth_lookup(text)',
   'core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)',
@@ -36,7 +59,7 @@ const IAM_COMMANDS = [
 ] as const;
 
 describe('schéma IAM (US-010)', () => {
-  it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, seule politique migrator_all', async () => {
+  it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{
         relname: string;
@@ -63,13 +86,13 @@ describe('schéma IAM (US-010)', () => {
           rls: true,
           force: true,
           owner: 'migrator',
-          policies: 'migrator_all:migrator',
+          policies: IAM_POLICIES[r.relname as (typeof IAM_TABLES)[number]],
         });
       }
     });
   });
 
-  it('aucun droit de table IAM pour app_api, app_worker, app_anon (lecture comprise)', async () => {
+  it('aucun droit d’écriture IAM pour les rôles applicatifs ; lecture d’app_api bornée (US-011)', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{ g: string }>(
         `SELECT r.role || ':' || t.tbl || ':' || p.priv AS g
@@ -79,7 +102,18 @@ describe('schéma IAM (US-010)', () => {
           WHERE pg_catalog.has_table_privilege(r.role, 'core.' || t.tbl, p.priv)`,
         [IAM_TABLES],
       );
-      expect(rows).toEqual([]);
+      // lecture de table : organization seulement ; user_account et membership : par colonnes
+      expect(rows.map((r) => r.g)).toEqual(['app_api:iam_organization:SELECT']);
+      const { rows: cols } = await client.query<{ col: string }>(
+        `SELECT t.tbl || '.' || a.attname AS col
+           FROM unnest(ARRAY['iam_user_account', 'iam_membership']) AS t(tbl)
+           JOIN pg_catalog.pg_attribute a ON a.attrelid = ('core.' || t.tbl)::regclass
+          WHERE a.attnum > 0 AND NOT a.attisdropped
+            AND pg_catalog.has_column_privilege('app_api', ('core.' || t.tbl)::regclass, a.attnum, 'SELECT')
+          ORDER BY 1`,
+      );
+      expect(cols.map((c) => c.col)).not.toContain('iam_user_account.password_hash');
+      expect(cols.map((c) => c.col)).not.toContain('iam_user_account.pseudonymized_at');
       for (const sql of [
         'SELECT password_hash FROM core.iam_user_account LIMIT 1',
         'SELECT token_hash FROM core.iam_session LIMIT 1',
@@ -98,7 +132,7 @@ describe('schéma IAM (US-010)', () => {
     }
   });
 
-  it('commandes IAM : SECURITY DEFINER, propriétaire migrator, search_path figé, EXECUTE au seul app_api', async () => {
+  it('commandes IAM : SECURITY DEFINER, propriétaire iam_auth_owner, search_path figé, EXECUTE au seul app_api', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{
         fn: string;
@@ -125,7 +159,7 @@ describe('schéma IAM (US-010)', () => {
       for (const r of rows) {
         expect(r, r.fn).toMatchObject({
           secdef: true,
-          owner: 'migrator',
+          owner: 'iam_auth_owner',
           api: true,
           worker: false,
           anon: false,
