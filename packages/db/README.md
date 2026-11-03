@@ -155,6 +155,8 @@ Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_
 - **Barrière** (`Barrier`) : le meneur tient un verrou consultatif exclusif ; chaque concurrent le demande en mode partagé ; quand `pg_locks` montre tous les concurrents en attente, le meneur relâche. Les entrelacements forcés sont prouvés par `waitUntilBlocked` (ligne non accordée de `pg_locks` pour le pid attendu).
 - **Reprise** (`withReplay`) : `40P01` / `40001` ⇒ transaction annulée puis rejouée, au plus 3 fois, attente aléatoire de 5 à 50 ms (17 §2.5). Chaque `40P01` est compté.
 - **C1** : 100 connexions `app_api` directes, sur l'horloge réelle. Le conteneur de CI démarre avec `max_connections = 200` ; un PostgreSQL natif plus petit réduit le degré à `max_connections − 30` (valeur consignée).
+- **Forme d'appel** (ADR-056 point 4) : seuil de 300 ms sur la pose en autocommit (« un appel = une instruction ») ; seconde série C1 en forme transactionnelle de 17 §2.3, consignée sans seuil, avec la détention du verrou du véhicule mesurée côté serveur (`l0_place_hold_timed`).
+- **Interblocage déterministe** : ordre inversé (véhicule puis guest) contre ordre de 17 ; un `40P01` réel, rejoué. Tests unitaires sans base : `test/support/replay.test.ts`, `test/support/expiry-2a.test.ts` (texte unique de 2a).
 - **Mesures** : lignes `[L0-02]` et `[L0-04]` du journal CI (40P01, rejeux, p50 / p95 / max, plan et temps d'exécution de 2a), à joindre au rapport L0 (US-027).
 - **L0-04** : 10 000 holds sur 1 000 véhicules par pays (`l0_seed_expiry_bench`, puis `ANALYZE`) ; plan `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` sous `app_worker` (`hold_expiry`), RLS comprise.
 
