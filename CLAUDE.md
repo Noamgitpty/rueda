@@ -7,7 +7,7 @@
 Place de marché de location de voitures **de particulier à particulier** pour le **Panama** et le **Paraguay**, construite par une équipe d'agents Claude Code. Le fondateur est le seul humain : il est product owner, fait la recette et s'occupe des comptes, des contrats et du juridique.
 
 - Modèle : **hôtes particuliers uniquement, aucune agence ni loueur professionnel** (DEC-FONDATEUR-13) ; **par défaut, comme Turo** (DEC-FONDATEUR-14, 16) : trip fee, plans de protection vendus pour un assureur partenaire, part de l'hôte selon son plan (08). Le voyageur paie **Kmino, marchand de référence** ; un PSP de place de marché, **uniquement en `FAKE`** jusqu'au lot C, répartit chaque paiement en jambes (hôte, assureur, plateforme, taxe) ; l'hôte est versé après le trajet.
-- Remise et retour **entre personnes**, sur un lieu déclaré par l'hôte. Le client est un web mobile-first avec PWA, **trilingue es / en / fr** (DEC-FONDATEUR-17).
+- Remise et retour **entre personnes**, sur un lieu déclaré par l'hôte. Le client est un web mobile-first avec PWA, **quadrilingue es / en / fr / pt-BR** (DEC-FONDATEUR-17, 18).
 - Ordre de construction : **bêta P2P** (lots 0 à 5 révisés de `docs/specs/19_DEVELOPMENT_BACKLOG.md` v3), puis les connecteurs réels (lot C) après le choix du pays et la **porte go / no-go du PSP**.
 - Pile : monorepo pnpm + Turborepo, TypeScript, NestJS (API + travailleur pg-boss) et Next.js. PostgreSQL 16, avec un schéma par module.
 
@@ -20,7 +20,7 @@ Place de marché de location de voitures **de particulier à particulier** pour 
 5. Réservation : on écrit **uniquement par commandes**. On s'appuie sur l'exclusion GiST et la conversion gardée. L'horloge fait foi côté base (`platform.now()`). RLS `ENABLE` + `FORCE` partout, et aucun rôle applicatif `BYPASSRLS`.
 6. Les tests tournent **sous les rôles de production** (`app_api`, `app_worker`, `app_anon`), jamais sous `migrator` ni sous le superutilisateur. Chaque test commence par l'assertion L0-05.
 7. Aucune décision du fondateur n'est prise à sa place : on code le **défaut fail-closed** de `docs/specs/22_OPEN_QUESTIONS.md`, on le marque PROPOSÉ et on continue. Les **interrupteurs de mise en service par pays** (`p2p_private_hosts_enabled`, `insurer_contract_active`, `funds_holding_enabled`, `payouts_enabled`) valent `false` en production ; ils ne changent que sur décision écrite du fondateur, par la **commande à deux personnes** de 17 v6 (`cmd_request_go_live_switch` puis `cmd_approve_go_live_switch`), **jamais par du code** ni par un agent. Aucun hôte n'est activé tant que `insurer_contract_active[pays]` vaut `false`.
-8. La documentation fait partie de la DoD de chaque story (README du module, ADR, CHANGELOG, paramètres). Tout texte visible est livré **en es, en et fr** dans la même story (catalogue 10b §4.3).
+8. La documentation fait partie de la DoD de chaque story (README du module, ADR, CHANGELOG, paramètres). Tout texte visible est livré **en es, en, fr et pt-BR** dans la même story (catalogue 10b §4.3).
 9. **Comme Turo** pour toute question produit propre au P2P : on applique la solution de Turo adaptée au PA / PY, on la marque PROPOSÉ et on l'inscrit dans `docs/team/COMME_TURO.md` ; seuls les contrats, les dépenses et le juridique vont au fondateur. On ne reprend rien de Turo : ni son identité visuelle, ni ses textes, ni ses données, et on ne l'aspire pas.
 
 ## Interdits
@@ -42,7 +42,7 @@ Place de marché de location de voitures **de particulier à particulier** pour 
 | critères Given / When / Then, codes d'erreur, TA01–TA11                  | `docs/specs/16_PRODUCT_REQUIREMENTS_DOCUMENT.md` (v5)                         |
 | stories, DoR / DoD, équipe, lots                                         | `docs/specs/19_DEVELOPMENT_BACKLOG.md` (v3)                                   |
 | décisions ouvertes et défauts, OQ-P2P                                    | `docs/specs/22_OPEN_QUESTIONS.md` → `docs/team/DECISIONS.md`, `COMME_TURO.md` |
-| UX, écrans, design, textes es / en / fr                                  | `docs/specs/10b_UX_UI_ANALYSIS.md` (v3, §4.3)                                 |
+| UX, écrans, design, textes es / en / fr / pt                             | `docs/specs/10b_UX_UI_ANALYSIS.md` (v3, §4.3)                                 |
 
 Ne lire d'un gros document **que la section citée par sa story**.
 

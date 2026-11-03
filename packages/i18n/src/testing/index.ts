@@ -63,9 +63,30 @@ function fragments(message: Message, minLength: number): string[] {
     .filter((part) => part.length >= minLength);
 }
 
+const WORD_CHAR = /[\p{L}\p{N}]/u;
+
+/**
+ * Vrai si `fragment` apparaît dans `text` comme **mot entier** : ni lettre ni chiffre juste avant
+ * ni juste après. Espagnol et portugais partagent des racines : « Identidad » (es) est le début
+ * de « Identidade » (pt) sans être une chaîne espagnole (DEC-FONDATEUR-18, ADR-071).
+ */
+function containsWhole(text: string, fragment: string): boolean {
+  for (let at = text.indexOf(fragment); at !== -1; at = text.indexOf(fragment, at + 1)) {
+    const before = at > 0 ? text.charAt(at - 1) : '';
+    const after = text.charAt(at + fragment.length);
+    const startsWord = WORD_CHAR.test(fragment.charAt(0));
+    const endsWord = WORD_CHAR.test(fragment.charAt(fragment.length - 1));
+    if ((!startsWord || !WORD_CHAR.test(before)) && (!endsWord || !WORD_CHAR.test(after))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Fragments d'une **autre** langue trouvés dans un texte rendu dans la langue `view`. Un
- * fragment identique dans les deux langues (nom propre, ponctuation) n'est pas signalé.
+ * fragment identique dans les deux langues (nom propre, ponctuation) n'est pas signalé, ni un
+ * fragment qui n'est que le début ou la fin d'un mot plus long (mot entier exigé).
  * Résultat vide = aucune chaîne étrangère (« une vue = une langue », 10b UX-11).
  */
 export function findForeignStrings(
@@ -80,7 +101,7 @@ export function findForeignStrings(
     if (language === view) continue;
     for (const message of Object.values(catalog.messages)) {
       for (const fragment of fragments(message, minLength)) {
-        if (!own.has(fragment) && renderedText.includes(fragment)) found.add(fragment);
+        if (!own.has(fragment) && containsWhole(renderedText, fragment)) found.add(fragment);
       }
     }
   }

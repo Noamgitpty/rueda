@@ -1,6 +1,6 @@
 # packages/ui — bibliothèque de composants vivante (`@rueda/ui`)
 
-Livré par **US-032** (lot 0, DSN-005). Composants React de la bêta, **accessibles** (WCAG 2.2 AA, clavier, lecteurs d'écran, cibles de 48 px), **trilingues** (textes par `@rueda/i18n`, es / en / fr), **clair et sombre**, conçus d'abord pour le **mobile** (360 px). Ils sont écrits **uniquement** contre les variables CSS des jetons (`@rueda/design-tokens`, US-030) : changer de palette ou de direction ne touche pas ce paquet. Décision : ADR-055.
+Livré par **US-032** (lot 0, DSN-005). Composants React de la bêta, **accessibles** (WCAG 2.2 AA, clavier, lecteurs d'écran, cibles de 48 px), **quadrilingues** (textes par `@rueda/i18n`, es / en / fr / pt-BR, DEC-FONDATEUR-18), **clair et sombre**, conçus d'abord pour le **mobile** (360 px). Ils sont écrits **uniquement** contre les variables CSS des jetons (`@rueda/design-tokens`, US-030) : changer de palette ou de direction ne touche pas ce paquet. Décision : ADR-055.
 
 Points d'entrée : `@rueda/ui` (`src/index.ts`, composants) et `@rueda/ui/catalog` (vitrine). Publié en TypeScript source ; les applications Next le transpilent (`transpilePackages`).
 

@@ -7,9 +7,36 @@
  * au moment de la migration (jamais rétroactif). Les devises des clés liées à une devise sont
  * posées par la garde (devise du pays).
  */
-import type { CountryConfig, ParamJson } from './model.js';
+import type { CountryConfig, CountryConfigEntry, ParamJson } from './model.js';
 
 export const SEED_MIGRATION_FILE = '0009_config_seed.sql';
+
+/**
+ * Langues ajoutées APRÈS la graine 0009, dans l'ordre (ADR-044 : une migration appliquée est
+ * immuable ; ADR-071). 0009 est rendue sans elles (ni locale de cette langue, ni nom) ; chacune a
+ * sa migration de graine complémentaire, générée elle aussi depuis les données et comparée par
+ * `seed-sql.test.ts`. Une langue ajoutée aux données sans entrée ici fait échouer ce test.
+ */
+export const POST_SEED_LANGUAGES: readonly { readonly language: string; readonly file: string }[] =
+  [{ language: 'pt', file: '0044_config_country_portuguese.sql' }];
+
+const languageOf = (tag: string): string => tag.split('-')[0] ?? tag;
+
+/** Locales et noms d'un pays limités aux langues présentes à une étape de graine. */
+function countryAt(
+  c: CountryConfigEntry,
+  excluded: ReadonlySet<string>,
+): { locales: string[]; names: Record<string, string> } {
+  return {
+    locales: c.locales.filter((tag) => !excluded.has(languageOf(tag))),
+    names: Object.fromEntries(Object.entries(c.names).filter(([lang]) => !excluded.has(lang))),
+  };
+}
+
+/** Langues absentes à l'étape `index` (−1 = graine 0009 ; i = après la i-ème langue ajoutée). */
+function excludedAt(index: number): Set<string> {
+  return new Set(POST_SEED_LANGUAGES.slice(index + 1).map((l) => l.language));
+}
 export const SEED_CHANGE_REASON =
   'graine US-013 : défauts PROPOSÉS de 17 §7.2, à décider au jalon J-ADM-031';
 
@@ -43,6 +70,7 @@ function insert(table: string, columns: readonly string[], rows: readonly string
 
 export function renderSeedSql(config: CountryConfig): string {
   const countries = [...config.countries.values()].sort((a, b) => a.code.localeCompare(b.code));
+  const seedExcluded = excludedAt(-1);
   const definitions = [...config.definitions.values()].sort((a, b) => a.key.localeCompare(b.key));
   const values = [...config.values].sort(
     (a, b) =>
@@ -90,8 +118,8 @@ export function renderSeedSql(config: CountryConfig): string {
         lit(c.timeZone),
         lit(c.legalLocale),
         lit(c.defaultLocale),
-        textArray(c.locales),
-        jsonb({ ...c.names }),
+        textArray(countryAt(c, seedExcluded).locales),
+        jsonb(countryAt(c, seedExcluded).names),
         textArray(c.hostTaxIdKinds),
       ]),
     ),
@@ -185,4 +213,61 @@ export function renderSeedSql(config: CountryConfig): string {
     ),
   ];
   return parts.join('\n');
+}
+
+/**
+ * Migration de graine complémentaire d'une langue ajoutée après 0009 (`POST_SEED_LANGUAGES`) :
+ * locales et noms de chaque pays tels qu'ils sont une fois cette langue ajoutée. La table
+ * `config_country` est immuable (garde `config_country_guard`, 0008) : la garde est suspendue
+ * puis rétablie dans la même transaction, sous `migrator` (propriétaire), comme le prévoit 0008.
+ * Contrôle final fail-closed : un pays sans la langue fait échouer la migration.
+ */
+export function renderLanguageSeedSql(config: CountryConfig, language: string): string {
+  const index = POST_SEED_LANGUAGES.findIndex((l) => l.language === language);
+  const step = POST_SEED_LANGUAGES[index];
+  if (!step) throw new Error(`langue « ${language} » absente de POST_SEED_LANGUAGES`);
+  const excluded = excludedAt(index);
+  const countries = [...config.countries.values()].sort((a, b) => a.code.localeCompare(b.code));
+  const number = step.file.slice(0, 4);
+  const updates = countries.map((c) => {
+    const at = countryAt(c, excluded);
+    return (
+      `UPDATE core.config_country SET locales = ${textArray(at.locales)}, ` +
+      `names = ${jsonb(at.names)}\n WHERE code = ${lit(c.code)};\n`
+    );
+  });
+  return [
+    [
+      `-- ${number} — graine complémentaire : langue « ${language} » ajoutée aux pays (locales et noms).`,
+      '-- DEC-FONDATEUR-18 ; US-014 ; ADR-024, ADR-044, ADR-071. FICHIER GÉNÉRÉ depuis',
+      '-- apps/api/src/modules/cfg/data/countries.json par seed-sql.ts (renderLanguageSeedSql) : ne pas',
+      '-- l’éditer à la main (test seed-sql.test.ts). Appliquée sous `migrator`.',
+      `-- 0009 est immuable (ADR-044) : elle reste rendue sans la langue « ${language} ».`,
+      '--',
+      '-- Retour arrière (base sans dépendance) : rétablir locales et noms de 0009 de la même façon',
+      '-- (garde suspendue puis rétablie) ; jamais en production : nouvelle migration à la place.',
+      '',
+      'ALTER TABLE core.config_country DISABLE TRIGGER config_country_guard;',
+      '',
+    ].join('\n'),
+    ...updates,
+    [
+      '',
+      'ALTER TABLE core.config_country ENABLE TRIGGER config_country_guard;',
+      '',
+      '-- Fail-closed : chaque pays porte une locale et un nom dans la langue ajoutée (COALESCE : un',
+      '-- tableau ou un objet NULL compte comme absent).',
+      'DO $check$',
+      'BEGIN',
+      '  IF EXISTS (SELECT 1 FROM core.config_country AS c',
+      `              WHERE NOT COALESCE(EXISTS (SELECT 1 FROM pg_catalog.unnest(c.locales) AS t(tag)`,
+      `                                          WHERE pg_catalog.split_part(t.tag, '-', 1) = ${lit(language)}), false)`,
+      `                 OR COALESCE(pg_catalog.btrim(c.names ->> ${lit(language)}), '') = '') THEN`,
+      `    RAISE EXCEPTION 'graine : langue ${language} absente d''un pays' USING ERRCODE = 'check_violation';`,
+      '  END IF;',
+      'END',
+      '$check$;',
+      '',
+    ].join('\n'),
+  ].join('');
 }

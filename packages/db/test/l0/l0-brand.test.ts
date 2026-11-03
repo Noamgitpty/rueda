@@ -44,6 +44,7 @@ const BODIES = {
   es: 'Alquila el auto de un vecino.',
   en: 'Rent a car from a neighbor.',
   fr: 'Louez la voiture d’un voisin.',
+  pt: 'Alugue o carro de um vizinho.',
 };
 
 beforeAll(async () => {
@@ -534,10 +535,11 @@ async function registerAsset(
   hash: Buffer,
   kind: string,
   mime: string,
-  alt: { es: string | null; en: string | null; fr: string | null } = {
+  alt: { es: string | null; en: string | null; fr: string | null; pt: string | null } = {
     es: 'Logotipo',
     en: 'Logo',
     fr: 'Logo',
+    pt: 'Logotipo',
   },
 ): Promise<{ outcome: string; asset_id: string | null; storage_key: string | null }> {
   const body = Buffer.from(`asset ${randomUUID()}`, 'utf8');
@@ -547,7 +549,7 @@ async function registerAsset(
     storage_key: string | null;
   }>(
     `SELECT * FROM core.cfg_brand_cmd_register_asset($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-       'Licence vérifiée (test)')`,
+       $11, 'Licence vérifiée (test)')`,
     [
       hash,
       uuid(),
@@ -559,6 +561,7 @@ async function registerAsset(
       alt.es,
       alt.en,
       alt.fr,
+      alt.pt,
     ],
   );
   return rows[0] ?? { outcome: '', asset_id: null, storage_key: null };
@@ -645,14 +648,17 @@ async function content(
   return rows[0] ?? { outcome: '', version_no: null };
 }
 
-describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrière', () => {
+describe('blocs de contenu (es, en, fr, pt) : brouillon, publication, retour arrière', () => {
   it('une langue absente ou vide : LOCALE_MISSING (CONTENT_BLOCK_REQUIRED_MISSING), rien n’est créé', async () => {
     await withRole('app_api', async (client) => {
       const admin = await elevatedStaff(client, 'ADMIN', ALL);
       const key = `home.missing_${randomUUID().slice(0, 8)}.title`;
       for (const bodies of [
         { es: BODIES.es, en: BODIES.en },
+        { es: BODIES.es, en: BODIES.en, fr: BODIES.fr },
         { ...BODIES, fr: '   ' },
+        { ...BODIES, pt: '   ' },
+        { ...BODIES, pt: null },
       ]) {
         expect((await content(client, admin.hash, 'save', key, null, bodies)).outcome).toBe(
           'LOCALE_MISSING',
@@ -685,7 +691,7 @@ describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrièr
   });
 
   it.each([null, ...COUNTRIES.map((c) => c.country)])(
-    'pays %s : trois langues publiées ensemble, la précédente archivée, retour arrière par copie',
+    'pays %s : quatre langues publiées ensemble, la précédente archivée, retour arrière par copie',
     async (country) => {
       await withRole('app_api', async (client) => {
         const admin = await elevatedStaff(client, 'ADMIN', ALL);
@@ -699,11 +705,12 @@ describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrièr
           es: 'Hola [ayuda](/ayuda)',
           en: 'Hello [help](/help)',
           fr: 'Bonjour [aide](/aide)',
+          pt: 'Olá [ajuda](/ajuda)',
         };
         expect((await content(client, admin.hash, 'save', key, country, v2bodies)).version_no).toBe(
           2,
         );
-        // public : la version 1 seulement, dans les trois langues
+        // public : la version 1 seulement, dans les quatre langues
         const read = async (): Promise<
           Array<{ locale: string; version_no: number; body_md: string }>
         > =>
@@ -718,11 +725,12 @@ describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrièr
           { locale: 'en', version_no: 1, body_md: BODIES.en },
           { locale: 'es', version_no: 1, body_md: BODIES.es },
           { locale: 'fr', version_no: 1, body_md: BODIES.fr },
+          { locale: 'pt', version_no: 1, body_md: BODIES.pt },
         ]);
         expect((await content(client, admin.hash, 'publish', key, country, 2)).outcome).toBe(
           'PUBLISHED',
         );
-        expect((await read()).map((r) => r.version_no)).toEqual([2, 2, 2]);
+        expect((await read()).map((r) => r.version_no)).toEqual([2, 2, 2, 2]);
         expect((await content(client, admin.hash, 'publish', key, country, 2)).outcome).toBe(
           'NOT_DRAFT',
         );
@@ -736,6 +744,7 @@ describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrièr
           { locale: 'en', version_no: 3, body_md: BODIES.en },
           { locale: 'es', version_no: 3, body_md: BODIES.es },
           { locale: 'fr', version_no: 3, body_md: BODIES.fr },
+          { locale: 'pt', version_no: 3, body_md: BODIES.pt },
         ]);
         const rows = (
           await client.query<{ version_no: number; status: string; copied_from_id: string | null }>(
@@ -744,9 +753,9 @@ describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrièr
           )
         ).rows;
         expect(rows.map((r) => `${r.version_no}:${r.status}`)).toEqual([
-          ...['1:ARCHIVED', '1:ARCHIVED', '1:ARCHIVED'],
-          ...['2:ARCHIVED', '2:ARCHIVED', '2:ARCHIVED'],
-          ...['3:PUBLISHED', '3:PUBLISHED', '3:PUBLISHED'],
+          ...['1:ARCHIVED', '1:ARCHIVED', '1:ARCHIVED', '1:ARCHIVED'],
+          ...['2:ARCHIVED', '2:ARCHIVED', '2:ARCHIVED', '2:ARCHIVED'],
+          ...['3:PUBLISHED', '3:PUBLISHED', '3:PUBLISHED', '3:PUBLISHED'],
         ]);
         expect(rows.filter((r) => r.version_no === 3).every((r) => r.copied_from_id !== null)).toBe(
           true,
@@ -767,13 +776,13 @@ describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrièr
 });
 
 describe('revue code US-034 : textes alternatifs, rejeux, rapport lié à la version', () => {
-  it.each(['es', 'en', 'fr'] as const)(
+  it.each(['es', 'en', 'fr', 'pt'] as const)(
     'texte alternatif %s absent (NULL) ou vide : refusé par la base (23514), rien n’est écrit',
     async (locale) => {
       await withRole('app_api', async (client) => {
         const admin = await elevatedStaff(client, 'ADMIN', ALL);
         for (const value of [null, '   ']) {
-          const alt = { es: 'Logotipo', en: 'Logo', fr: 'Logo', [locale]: value };
+          const alt = { es: 'Logotipo', en: 'Logo', fr: 'Logo', pt: 'Logotipo', [locale]: value };
           await expect(
             registerAsset(client, admin.hash, 'LOGO', 'image/png', alt),
           ).rejects.toMatchObject({
@@ -785,6 +794,7 @@ describe('revue code US-034 : textes alternatifs, rejeux, rapport lié à la ver
           es: null,
           en: null,
           fr: null,
+          pt: null,
         });
         expect(font.outcome).toBe('REGISTERED');
       });

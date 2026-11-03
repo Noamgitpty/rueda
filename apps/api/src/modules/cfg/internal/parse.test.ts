@@ -60,8 +60,8 @@ describe('configuration du dépôt', () => {
       expect(entry.currency).toEqual({ code: expected.currency, exponent: expected.exponent });
       expect(entry.timeZone).toBe(expected.timeZone);
       expect(entry.legalLocale).toBe(expected.legalLocale);
-      expect([...entry.locales].sort()).toEqual([expected.legalLocale, 'en', 'fr'].sort());
-      expect(Object.keys(entry.names).sort()).toEqual(['en', 'es', 'fr']);
+      expect([...entry.locales].sort()).toEqual([expected.legalLocale, 'en', 'fr', 'pt'].sort());
+      expect(Object.keys(entry.names).sort()).toEqual(['en', 'es', 'fr', 'pt']);
     });
 
     it('taxe par ligne : tous les types de ligne ; taxables P, promos et F (08 E1, BR-PRICE-06)', () => {
@@ -163,6 +163,11 @@ describe('validation fail-closed (CONFIG_INVALID)', () => {
       'locale juridique hors du pays',
       (s) => (country(s, 'PA')['legalLocale'] = 'es-PY'),
       /legalLocale/,
+    ],
+    [
+      'nom manquant (pt)',
+      (s) => delete (country(s, 'PA')['names'] as Record<string, unknown>)['pt'],
+      /names\.pt/,
     ],
     [
       'nom manquant (fr)',

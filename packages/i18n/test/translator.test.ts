@@ -78,6 +78,30 @@ describe('createTranslator', () => {
     expect(i18n.time('2026-01-10T15:05:00Z', tz('America/Panama'))).toBe('10:05');
   });
 
+  it('pluriels du portugais du Brésil (CLDR : « one » pour 0 et 1), DEC-FONDATEUR-18', () => {
+    const pt = createTranslator(profile('pt')).t;
+    expect(new Intl.PluralRules('pt-BR').select(0)).toBe('one');
+    expect(pt('common.price.finalForDays', { count: 0 })).toBe('Preço final · 0 dia');
+    expect(pt('common.price.finalForDays', { count: 1 })).toBe('Preço final · 1 dia');
+    expect(pt('common.price.finalForDays', { count: 2 })).toBe('Preço final · 2 dias');
+    expect(pt('common.ui.rating.trips', { count: 12 })).toBe('12 viagens');
+    // « many » (1 000 000) absente du catalogue : repli sur « other ».
+    expect(pt('common.price.finalForDays', { count: 1000000 })).toBe(
+      'Preço final · 1.000.000 dias',
+    );
+  });
+
+  it('portugais du Brésil : catalogue pt, variables et formats de la locale pt (pt-BR)', () => {
+    const i18n = createTranslator(profile('pt'));
+    expect(i18n.t('backoffice.meta.description')).toBe('Painel interno.');
+    expect(i18n.t('common.locale.current', { language: 'Português (Brasil)' })).toBe(
+      'Idioma atual: Português (Brasil)',
+    );
+    expect(i18n.number(1234567)).toBe('1.234.567');
+    expect(i18n.dateTime('2026-01-10T15:05:00Z', tz('America/Asuncion'))).toBe('10/01/2026, 12:05');
+    expect(i18n.money(amount(1050000n, 'PYG'))).toBe(`₲${NBSP}1.050.000`);
+  });
+
   it('pluriel sans « count » entier : erreur', () => {
     const t = createTranslator(profile('es-PA')).t;
     expect(() => t('common.price.finalForDays')).toThrow(RangeError);

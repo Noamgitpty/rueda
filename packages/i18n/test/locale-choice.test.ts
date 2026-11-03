@@ -32,6 +32,15 @@ describe('localeChoiceResponse', () => {
     expect(response.headers.get('set-cookie')).toMatch(new RegExp(`^${LOCALE_COOKIE}=fr; `));
   });
 
+  it('mémorise le portugais du Brésil (DEC-FONDATEUR-18)', async () => {
+    const response = await localeChoiceResponse(
+      post('http://localhost/locale', 'locale=pt'),
+      CONFIG,
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get('set-cookie')).toMatch(new RegExp(`^${LOCALE_COOKIE}=pt; `));
+  });
+
   it('ajoute Secure en HTTPS', async () => {
     const response = await localeChoiceResponse(
       post('https://example.test/locale', 'locale=en'),
@@ -43,6 +52,8 @@ describe('localeChoiceResponse', () => {
   it.each([
     'locale=de',
     'locale=fr-FR',
+    'locale=pt-BR',
+    'locale=pt-PT',
     'locale=es',
     'locale=',
     'locale=en%3B%20Path%3D%2Fx',

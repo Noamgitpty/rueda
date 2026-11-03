@@ -193,7 +193,7 @@ export const EN_MESSAGES = {
   'backoffice.journal.error': "We couldn't load the activity log.",
   'backoffice.journal.scope': 'You only see actions in the countries of your roles.',
   // Gabarits de notification (US-021, NTF-001 ; catalogue réduit de la bêta). PROPOSÉS : à
-  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les trois langues.
+  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les quatre langues.
   'ntf.kycApproved.email.subject': 'Your identity is verified · {brand}',
   'ntf.kycApproved.email.body':
     'Hi {first_name}. We verified your identity: you can now book cars on {brand}.',
@@ -231,10 +231,10 @@ export const EN_MESSAGES = {
     'The published theme is unavailable; the default theme is shown.',
   'common.brand.versionConflict': 'This version has already changed. Reload and try again.',
   'common.brand.assetInvalid':
-    'Invalid file: PNG, JPEG or WebP (WOFF2 for a font), alt text in Spanish, English and French, and a stated license.',
+    'Invalid file: PNG, JPEG or WebP (WOFF2 for a font), alt text in Spanish, English, French and Portuguese, and a stated license.',
   'common.brand.assetUnavailable': 'File storage is unavailable. Try again later.',
   'common.brand.contentLocaleMissing':
-    'Text missing in {locale}: a block is published in Spanish, English and French.',
+    'Text missing in {locale}: a block is published in Spanish, English, French and Portuguese.',
   'common.brand.contentKeyForbidden': 'Legal texts are not edited here.',
   'common.brand.contentMarkdownForbidden':
     'The text contains HTML or an external link. Only internal links are allowed.',

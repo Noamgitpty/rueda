@@ -206,7 +206,7 @@ export const FR_MESSAGES = {
   'backoffice.journal.error': 'Impossible de charger le journal d’activité.',
   'backoffice.journal.scope': 'Tu ne vois que les actions des pays de tes rôles.',
   // Gabarits de notification (US-021, NTF-001 ; catalogue réduit de la bêta). PROPOSÉS : à
-  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les trois langues.
+  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les quatre langues.
   'ntf.kycApproved.email.subject': 'Ton identité est vérifiée · {brand}',
   'ntf.kycApproved.email.body':
     'Bonjour {first_name}. Nous avons vérifié ton identité : tu peux maintenant réserver des voitures sur {brand}.',
@@ -246,11 +246,11 @@ export const FR_MESSAGES = {
     'Le thème publié est indisponible ; le thème par défaut s’affiche.',
   'common.brand.versionConflict': 'Cette version a déjà changé. Rechargez puis réessayez.',
   'common.brand.assetInvalid':
-    'Fichier invalide : PNG, JPEG ou WebP (WOFF2 pour une police), texte alternatif en espagnol, anglais et français, et licence indiquée.',
+    'Fichier invalide : PNG, JPEG ou WebP (WOFF2 pour une police), texte alternatif en espagnol, anglais, français et portugais, et licence indiquée.',
   'common.brand.assetUnavailable':
     'Le stockage des fichiers est indisponible. Réessayez plus tard.',
   'common.brand.contentLocaleMissing':
-    'Texte manquant en {locale} : un bloc est publié en espagnol, anglais et français.',
+    'Texte manquant en {locale} : un bloc est publié en espagnol, anglais, français et portugais.',
   'common.brand.contentKeyForbidden': 'Les textes juridiques ne se modifient pas ici.',
   'common.brand.contentMarkdownForbidden':
     'Le texte contient du HTML ou un lien externe. Seuls les liens internes sont permis.',

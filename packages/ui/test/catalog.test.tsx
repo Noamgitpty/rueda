@@ -7,7 +7,7 @@ import { ComponentCatalog } from '../src/catalog/index.ts';
 import { LOCALES, axeViolations, describeViolations, page, render, textOf } from './helpers.tsx';
 
 // Critères US-032 : chaque composant dans ses états (normal, vide, chargement, erreur, désactivé),
-// en es, en et fr (DEC-FONDATEUR-17), à 360 px ; 0 violation WCAG 2.2 AA bloquante.
+// en es, en, fr et pt (DEC-FONDATEUR-17, 18), à 360 px ; 0 violation WCAG 2.2 AA bloquante.
 describe('vitrine : chaque locale', () => {
   it.each(LOCALES)('%s : aucune violation axe (WCAG 2.0 à 2.2, A et AA)', async (tag, _p, i18n) => {
     for (const mobile of [false, true]) {
@@ -29,12 +29,12 @@ describe('vitrine : chaque locale', () => {
     },
   );
 
-  it('les trois langues donnent trois rendus différents', () => {
+  it('les quatre langues donnent quatre rendus différents', () => {
     const texts = new Map<string, string>();
     for (const [, profile, i18n] of LOCALES) {
       texts.set(profile.language, textOf(render(<ComponentCatalog i18n={i18n} />)));
     }
-    expect(new Set(texts.values()).size).toBe(3);
+    expect(new Set(texts.values()).size).toBe(4);
   });
 
   it('montre chaque composant exporté par la bibliothèque', () => {

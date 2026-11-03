@@ -1,15 +1,15 @@
 {
-  "$comment": "Pays configurés (17 §1.1, §1.3, §1.4, §7 ; ADR-024, ADR-033, DEC-FONDATEUR-04, DEC-FONDATEUR-17). Tout ce qui dépend du pays est ici ou dans params.json, jamais dans le code. Valeurs PROPOSÉES (US-013), À DÉCIDER au jalon J-ADM-031.",
+  "$comment": "Pays configurés (17 §1.1, §1.3, §1.4, §7 ; ADR-024, ADR-033, DEC-FONDATEUR-04, DEC-FONDATEUR-17, DEC-FONDATEUR-18). Tout ce qui dépend du pays est ici ou dans params.json, jamais dans le code. Valeurs PROPOSÉES (US-013), À DÉCIDER au jalon J-ADM-031.",
   "version": 1,
   "countries": [
     {
       "code": "PA",
-      "names": { "es": "Panamá", "en": "Panama", "fr": "Panama" },
+      "names": { "es": "Panamá", "en": "Panama", "fr": "Panama", "pt": "Panamá" },
       "currency": "USD",
       "timeZone": "America/Panama",
       "legalLocale": "es-PA",
       "defaultLocale": "es-PA",
-      "locales": ["es-PA", "en", "fr"],
+      "locales": ["es-PA", "en", "fr", "pt"],
       "hostTaxIdKinds": ["CEDULA", "RUC"],
       "$taxLines": "17 §3.2 tax_line_config ; 08 fait foi pour l'argent : configuration fiscale de 08 E1 (« lignes taxables : P et ses lignes promo, et F ») et BR-PRICE-06 (trip fee soumis à ITBMS / IVA comme service de la plateforme). Taxables : TRIP_PRICE, PROMO_PLATFORM, PROMO_HOST, TRIP_FEE ; third_party = false (dette propre de Kmino, jambe PLATFORM, BR-PRICE-12). Configuration réelle À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [
@@ -60,12 +60,12 @@
     },
     {
       "code": "PY",
-      "names": { "es": "Paraguay", "en": "Paraguay", "fr": "Paraguay" },
+      "names": { "es": "Paraguay", "en": "Paraguay", "fr": "Paraguay", "pt": "Paraguai" },
       "currency": "PYG",
       "timeZone": "America/Asuncion",
       "legalLocale": "es-PY",
       "defaultLocale": "es-PY",
-      "locales": ["es-PY", "en", "fr"],
+      "locales": ["es-PY", "en", "fr", "pt"],
       "hostTaxIdKinds": ["RUC"],
       "$taxLines": "Même règle que PA (08 E1, BR-PRICE-06, BR-PRICE-12) avec l'IVA. À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [

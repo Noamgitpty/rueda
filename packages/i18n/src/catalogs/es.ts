@@ -6,7 +6,7 @@ import type { Catalog } from './types.ts';
  * le vouvoiement « usted » est réservé au contrat et aux textes juridiques (UX-12). Jamais de
  * voseo ni de « vosotros ». Termes : glossaire `docs/glossary.md` (UX-13).
  *
- * Toute clé ajoutée ici doit l'être dans `en.ts` et `fr.ts` (sinon `pnpm typecheck` et les tests
+ * Toute clé ajoutée ici doit l'être dans `en.ts`, `fr.ts` et `pt.ts` (sinon `pnpm typecheck` et les tests
  * échouent).
  */
 export const ES_MESSAGES = {
@@ -202,7 +202,7 @@ export const ES_MESSAGES = {
   'backoffice.journal.error': 'No pudimos cargar el registro de actividad.',
   'backoffice.journal.scope': 'Solo ves las acciones dentro del alcance de tus roles.',
   // Gabarits de notification (US-021, NTF-001 ; catalogue réduit de la bêta). PROPOSÉS : à
-  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les trois langues.
+  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les quatre langues.
   'ntf.kycApproved.email.subject': 'Tu identidad está verificada · {brand}',
   'ntf.kycApproved.email.body':
     'Hola, {first_name}. Verificamos tu identidad: ya puedes reservar autos en {brand}.',
@@ -241,11 +241,11 @@ export const ES_MESSAGES = {
     'El tema publicado no está disponible; se muestra el tema por defecto.',
   'common.brand.versionConflict': 'Esta versión ya cambió. Recarga e inténtalo de nuevo.',
   'common.brand.assetInvalid':
-    'El archivo no es válido: PNG, JPEG o WebP (WOFF2 para una fuente), texto alternativo en español, inglés y francés, y licencia indicada.',
+    'El archivo no es válido: PNG, JPEG o WebP (WOFF2 para una fuente), texto alternativo en español, inglés, francés y portugués, y licencia indicada.',
   'common.brand.assetUnavailable':
     'El almacenamiento de archivos no está disponible. Inténtalo más tarde.',
   'common.brand.contentLocaleMissing':
-    'Falta el texto en {locale}: un bloque se publica en español, inglés y francés.',
+    'Falta el texto en {locale}: un bloque se publica en español, inglés, francés y portugués.',
   'common.brand.contentKeyForbidden': 'Los textos legales no se editan aquí.',
   'common.brand.contentMarkdownForbidden':
     'El texto contiene HTML o un enlace externo. Solo se permiten enlaces internos.',

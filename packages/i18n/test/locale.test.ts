@@ -11,12 +11,12 @@ import type { LocaleConfig } from '../src/index.ts';
 import { CONFIG, rawConfig } from './helpers.ts';
 
 describe('configuration des locales (ADR-024 : données, pas de code)', () => {
-  it('config/locales.json est valide et déclare es-PA, es-PY, en et fr', () => {
-    expect(CONFIG.locales.map((p) => p.tag)).toEqual(['es-PA', 'es-PY', 'en', 'fr']);
-    expect(CONFIG.locales.map((p) => p.language)).toEqual(['es', 'es', 'en', 'fr']);
+  it('config/locales.json est valide et déclare es-PA, es-PY, en, fr et pt (pt-BR)', () => {
+    expect(CONFIG.locales.map((p) => p.tag)).toEqual(['es-PA', 'es-PY', 'en', 'fr', 'pt']);
+    expect(CONFIG.locales.map((p) => p.language)).toEqual(['es', 'es', 'en', 'fr', 'pt']);
   });
 
-  it('formats espagnols et français : 24 h ; anglais : 12 h ; dates jj/mm/aaaa partout (16 I18N-003)', () => {
+  it('formats espagnols, français et portugais : 24 h ; anglais : 12 h ; dates jj/mm/aaaa partout (16 I18N-003)', () => {
     for (const p of CONFIG.locales) {
       expect(p.date.datePattern).toBe('{day}/{month}/{year}');
       expect(p.date.hourCycle).toBe(p.language === 'en' ? 'h12' : 'h23');
@@ -65,7 +65,9 @@ describe('configuration des locales (ADR-024 : données, pas de code)', () => {
   });
 
   it('getProfile : locale non déclarée refusée', () => {
+    expect(() => getProfile(CONFIG, 'de-DE')).toThrow(LocaleConfigError);
     expect(() => getProfile(CONFIG, 'pt-BR')).toThrow(LocaleConfigError);
+    expect(() => getProfile(CONFIG, 'pt-PT')).toThrow(LocaleConfigError);
   });
 });
 
@@ -120,6 +122,33 @@ describe('negotiateLocale (10b UX-11)', () => {
     expect(isSupportedLocale('fr-FR', CONFIG)).toBe(false);
   });
 
+  it('portugais (DEC-FONDATEUR-18) : pt, pt-BR et pt-PT → pt (pt-BR), puis le cookie', () => {
+    expect(negotiateLocale({ acceptLanguage: 'pt' }, CONFIG)).toBe('pt');
+    expect(negotiateLocale({ acceptLanguage: 'pt-BR' }, CONFIG)).toBe('pt');
+    expect(negotiateLocale({ acceptLanguage: 'pt-br' }, CONFIG)).toBe('pt');
+    expect(negotiateLocale({ acceptLanguage: 'pt-PT' }, CONFIG)).toBe('pt');
+    expect(negotiateLocale({ acceptLanguage: 'pt-BR,pt;q=0.9,en-US;q=0.8' }, CONFIG)).toBe('pt');
+    expect(negotiateLocale({ acceptLanguage: 'de-DE,pt;q=0.8,es;q=0.5' }, CONFIG)).toBe('pt');
+    expect(negotiateLocale({ acceptLanguage: 'es-PY,pt-BR;q=0.9' }, CONFIG)).toBe('es-PY');
+    expect(negotiateLocale({ stored: 'pt', acceptLanguage: 'es-PY' }, CONFIG)).toBe('pt');
+    expect(negotiateLocale({ stored: 'es-PY', acceptLanguage: 'pt-BR' }, CONFIG)).toBe('es-PY');
+    // Le cookie porte une locale déclarée exacte : « pt-BR » ou « pt-PT » n'en sont pas, on négocie.
+    expect(negotiateLocale({ stored: 'pt-BR', acceptLanguage: 'en' }, CONFIG)).toBe('en');
+    expect(negotiateLocale({ stored: 'pt-PT', acceptLanguage: 'en' }, CONFIG)).toBe('en');
+    expect(isSupportedLocale('pt', CONFIG)).toBe(true);
+    expect(isSupportedLocale('pt-BR', CONFIG)).toBe(false);
+    expect(isSupportedLocale('pt-PT', CONFIG)).toBe(false);
+  });
+
+  it('pt suit le CLDR du portugais du Brésil (pt-BR), pas celui du Portugal (pt-PT)', () => {
+    const sample = 1234.56;
+    const fmt = (tag: string) => new Intl.NumberFormat(tag, { style: 'currency', currency: 'USD' });
+    expect(fmt('pt').format(sample)).toBe(fmt('pt-BR').format(sample));
+    expect(fmt('pt').format(sample)).not.toBe(fmt('pt-PT').format(sample));
+    expect(new Intl.PluralRules('pt').select(0)).toBe(new Intl.PluralRules('pt-BR').select(0));
+    expect(new Intl.PluralRules('pt-PT').select(0)).toBe('other');
+  });
+
   it('langue non prise en charge, joker ou rien : locale par défaut', () => {
     expect(negotiateLocale({ acceptLanguage: 'de-DE,it;q=0.8' }, CONFIG)).toBe(
       CONFIG.defaultLocale,
@@ -131,7 +160,7 @@ describe('negotiateLocale (10b UX-11)', () => {
   });
 
   it('préférence de second rang retenue si la première n’est pas prise en charge', () => {
-    expect(negotiateLocale({ acceptLanguage: 'pt-BR,en;q=0.7' }, CONFIG)).toBe('en');
+    expect(negotiateLocale({ acceptLanguage: 'it-IT,en;q=0.7' }, CONFIG)).toBe('en');
   });
 
   it('isSupportedLocale', () => {

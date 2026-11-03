@@ -72,6 +72,24 @@
         "hourCycle": "h23",
         "hour": "2-digit"
       }
+    },
+    {
+      "tag": "pt",
+      "language": "pt",
+      "displayName": "Português (Brasil)",
+      "number": { "group": ".", "decimal": ",", "minimumGroupingDigits": 1 },
+      "currency": {
+        "symbols": { "USD": "US$", "PYG": "₲" },
+        "pattern": "{symbol} {amount}",
+        "negativePattern": "-{symbol} {amount}"
+      },
+      "date": {
+        "datePattern": "{day}/{month}/{year}",
+        "timePattern": "{hour}:{minute}",
+        "dateTimePattern": "{date}, {time}",
+        "hourCycle": "h23",
+        "hour": "2-digit"
+      }
     }
   ]
 }
