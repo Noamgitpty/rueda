@@ -73,6 +73,7 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^outbox_'       -- tables BUS : test/int/outbox-schema.test.ts (US-008)
             AND c.relname !~ '^iam_'          -- tables IAM : test/int/iam-schema.test.ts (US-010)
             AND c.relname !~ '^settlement_'   -- tables STL : test/int/stl-schema.test.ts (US-018)
+            AND c.relname !~ '^ntf_'          -- tables NTF : test/l0/l0-ntf-dispatch.test.ts (US-021)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
