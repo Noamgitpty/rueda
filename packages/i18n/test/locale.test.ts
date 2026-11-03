@@ -11,15 +11,15 @@ import type { LocaleConfig } from '../src/index.ts';
 import { CONFIG, rawConfig } from './helpers.ts';
 
 describe('configuration des locales (ADR-024 : données, pas de code)', () => {
-  it('config/locales.json est valide et déclare es-PA, es-PY et en', () => {
-    expect(CONFIG.locales.map((p) => p.tag)).toEqual(['es-PA', 'es-PY', 'en']);
-    expect(CONFIG.locales.map((p) => p.language)).toEqual(['es', 'es', 'en']);
+  it('config/locales.json est valide et déclare es-PA, es-PY, en et fr', () => {
+    expect(CONFIG.locales.map((p) => p.tag)).toEqual(['es-PA', 'es-PY', 'en', 'fr']);
+    expect(CONFIG.locales.map((p) => p.language)).toEqual(['es', 'es', 'en', 'fr']);
   });
 
-  it('formats espagnols : 24 h ; anglais : 12 h ; dates jj/mm/aaaa partout (16 I18N-003)', () => {
+  it('formats espagnols et français : 24 h ; anglais : 12 h ; dates jj/mm/aaaa partout (16 I18N-003)', () => {
     for (const p of CONFIG.locales) {
       expect(p.date.datePattern).toBe('{day}/{month}/{year}');
-      expect(p.date.hourCycle).toBe(p.language === 'es' ? 'h23' : 'h12');
+      expect(p.date.hourCycle).toBe(p.language === 'en' ? 'h12' : 'h23');
     }
   });
 
@@ -30,7 +30,7 @@ describe('configuration des locales (ADR-024 : données, pas de code)', () => {
     const cases: unknown[] = [
       null,
       { ...base, locales: [] },
-      { ...base, defaultLocale: 'fr' },
+      { ...base, defaultLocale: 'de' },
       { ...base, locales: [first, first] },
       { ...base, locales: [{ ...first, tag: 'es_PA' }] },
       { ...base, locales: [{ ...first, language: 'en' }] },
@@ -106,8 +106,22 @@ describe('negotiateLocale (10b UX-11)', () => {
     expect(negotiateLocale({}, paraguayFirst)).toBe('es-PY');
   });
 
+  it('français (DEC-FONDATEUR-17) : fr et fr-FR d’après Accept-Language, puis le cookie', () => {
+    expect(negotiateLocale({ acceptLanguage: 'fr' }, CONFIG)).toBe('fr');
+    expect(negotiateLocale({ acceptLanguage: 'fr-FR' }, CONFIG)).toBe('fr');
+    expect(negotiateLocale({ acceptLanguage: 'fr-FR,fr;q=0.9,en;q=0.8' }, CONFIG)).toBe('fr');
+    expect(negotiateLocale({ acceptLanguage: 'fr-CA' }, CONFIG)).toBe('fr');
+    expect(negotiateLocale({ acceptLanguage: 'de-DE,fr;q=0.8' }, CONFIG)).toBe('fr');
+    expect(negotiateLocale({ stored: 'fr', acceptLanguage: 'es-PY' }, CONFIG)).toBe('fr');
+    expect(negotiateLocale({ stored: 'es-PY', acceptLanguage: 'fr-FR' }, CONFIG)).toBe('es-PY');
+    // Le cookie porte une locale déclarée exacte : « fr-FR » n'en est pas une, on négocie.
+    expect(negotiateLocale({ stored: 'fr-FR', acceptLanguage: 'en' }, CONFIG)).toBe('en');
+    expect(isSupportedLocale('fr', CONFIG)).toBe(true);
+    expect(isSupportedLocale('fr-FR', CONFIG)).toBe(false);
+  });
+
   it('langue non prise en charge, joker ou rien : locale par défaut', () => {
-    expect(negotiateLocale({ acceptLanguage: 'de-DE,fr;q=0.8' }, CONFIG)).toBe(
+    expect(negotiateLocale({ acceptLanguage: 'de-DE,it;q=0.8' }, CONFIG)).toBe(
       CONFIG.defaultLocale,
     );
     expect(negotiateLocale({ acceptLanguage: 'de,*;q=0.5,en;q=0.1' }, CONFIG)).toBe(

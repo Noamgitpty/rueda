@@ -23,6 +23,15 @@ describe('localeChoiceResponse', () => {
     );
   });
 
+  it('mémorise le français (DEC-FONDATEUR-17)', async () => {
+    const response = await localeChoiceResponse(
+      post('http://localhost/locale', 'locale=fr'),
+      CONFIG,
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get('set-cookie')).toMatch(new RegExp(`^${LOCALE_COOKIE}=fr; `));
+  });
+
   it('ajoute Secure en HTTPS', async () => {
     const response = await localeChoiceResponse(
       post('https://example.test/locale', 'locale=en'),
@@ -31,14 +40,19 @@ describe('localeChoiceResponse', () => {
     expect(response.headers.get('set-cookie')).toMatch(/; Secure$/);
   });
 
-  it.each(['locale=fr', 'locale=es', 'locale=', 'locale=en%3B%20Path%3D%2Fx', 'autre=en', ''])(
-    'refuse « %s » sans cookie',
-    async (body) => {
-      const response = await localeChoiceResponse(post('http://localhost/locale', body), CONFIG);
-      expect(response.status).toBe(400);
-      expect(response.headers.get('set-cookie')).toBeNull();
-    },
-  );
+  it.each([
+    'locale=de',
+    'locale=fr-FR',
+    'locale=es',
+    'locale=',
+    'locale=en%3B%20Path%3D%2Fx',
+    'autre=en',
+    '',
+  ])('refuse « %s » sans cookie', async (body) => {
+    const response = await localeChoiceResponse(post('http://localhost/locale', body), CONFIG);
+    expect(response.status).toBe(400);
+    expect(response.headers.get('set-cookie')).toBeNull();
+  });
 
   it('refuse un corps illisible', async () => {
     const request = new Request('http://localhost/locale', {

@@ -52,6 +52,43 @@ describe('formatMoney — PYG (exposant 0, aucune décimale)', () => {
   });
 });
 
+// Locale fr (DEC-FONDATEUR-17) : aucune valeur dans 08 / 16 / 17 ; oracle = CLDR du français
+// (espace fine insécable U+202F pour les milliers, espace insécable U+00A0 avant le symbole),
+// vérifié aussi contre `Intl.NumberFormat('fr')`, que `formatMoney` n'utilise pas.
+const NBSP = String.fromCodePoint(0xa0);
+const NNBSP = String.fromCodePoint(0x202f);
+
+describe('formatMoney — français (lecteur francophone, montants en USD ou en PYG)', () => {
+  it('USD : « 1 234,56 $US », deux décimales', () => {
+    expect(formatMoney(amount(123456n, 'USD'), profile('fr'))).toBe(`1${NNBSP}234,56${NBSP}$US`);
+    expect(formatMoney(amount(14500n, 'USD'), profile('fr'))).toBe(`145,00${NBSP}$US`);
+    expect(formatMoney(amount(5n, 'USD'), profile('fr'))).toBe(`0,05${NBSP}$US`);
+    expect(formatMoney(amount(-123456n, 'USD'), profile('fr'))).toBe(`-1${NNBSP}234,56${NBSP}$US`);
+  });
+
+  it('PYG : « 1 050 000 ₲ », sans décimale', () => {
+    expect(formatMoney(amount(1050000n, 'PYG'), profile('fr'))).toBe(
+      `1${NNBSP}050${NNBSP}000${NBSP}₲`,
+    );
+    expect(formatMoney(amount(7n, 'PYG'), profile('fr'))).toBe(`7${NBSP}₲`);
+    expect(formatMoney(amount(9007199254740993n, 'PYG'), profile('fr'))).toBe(
+      ['9', '007', '199', '254', '740', '993'].join(NNBSP) + `${NBSP}₲`,
+    );
+  });
+
+  it('concorde avec le CLDR du français embarqué dans Node (oracle externe)', () => {
+    const usd = new Intl.NumberFormat('fr', { style: 'currency', currency: 'USD' });
+    expect(formatMoney(amount(123456n, 'USD'), profile('fr'))).toBe(usd.format(1234.56));
+    expect(formatMoney(amount(-123456n, 'USD'), profile('fr'))).toBe(usd.format(-1234.56));
+    const pyg = new Intl.NumberFormat('fr', {
+      style: 'currency',
+      currency: 'PYG',
+      currencyDisplay: 'narrowSymbol',
+    });
+    expect(formatMoney(amount(1050000n, 'PYG'), profile('fr'))).toBe(pyg.format(1050000));
+  });
+});
+
 describe('formatMoney — adaptateur d’affichage seulement', () => {
   it('exact au-delà de 2^53 (aucun flottant)', () => {
     expect(formatMoney(amount(9007199254740993n, 'PYG'), profile('es-PY'))).toBe(
