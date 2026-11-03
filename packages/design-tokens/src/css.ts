@@ -46,6 +46,8 @@ export interface StyleSheetOptions {
 export function themeStyleSheet(theme: Theme, options: StyleSheetOptions = {}): string {
   const darkOnly = theme.tokens.filter((t) => t.dark !== t.light);
   const durations = theme.tokens.filter((t) => t.type === 'duration');
+  // US-031 : un élément pressé ne change plus d'échelle (aucun mouvement, même instantané).
+  const scales = theme.tokens.filter((t) => t.name.startsWith('motion-scale-'));
   const glass = glassDecls(theme);
   const dark = `color-scheme:dark;${decls(darkOnly, (t) => t.dark)}`;
   const css = [
@@ -54,7 +56,7 @@ export function themeStyleSheet(theme: Theme, options: StyleSheetOptions = {}): 
     ':root[data-theme="light"]{color-scheme:light}',
     `@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){${dark}}}`,
     `:root[data-theme="dark"]{${dark}}`,
-    `@media (prefers-reduced-motion:reduce){:root{${decls(durations, () => '0s')}}}`,
+    `@media (prefers-reduced-motion:reduce){:root{${decls(durations, () => '0s')}${decls(scales, () => '1')}}}`,
     `@media (prefers-reduced-transparency:reduce){:root{${glass.off}}}`,
     `@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root{${glass.off}}}`,
   ];

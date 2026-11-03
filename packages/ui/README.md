@@ -4,6 +4,22 @@ Livré par **US-032** (lot 0, DSN-005). Composants React de la bêta, **accessib
 
 Points d'entrée : `@rueda/ui` (`src/index.ts`, composants) et `@rueda/ui/catalog` (vitrine). Publié en TypeScript source ; les applications Next le transpilent (`transpilePackages`).
 
+## Responsabilité
+
+Fournir les composants React de la bêta et la vitrine vivante, écrits contre les variables des jetons et les textes de `@rueda/i18n`.
+
+## Entités
+
+Aucune entité persistée : les composants reçoivent leurs données en propriétés ; les exemples de la vitrine sont des fichiers du dépôt.
+
+## Événements
+
+Aucun événement de domaine : le paquet ne fait que du rendu.
+
+## Ports
+
+Aucun port : les seules dépendances sont `@rueda/design-tokens` et `@rueda/i18n`.
+
 ## Composants
 
 | Composant                                              | Usage (10b)                                   | Points d'accessibilité                                                                                                                               |
@@ -73,7 +89,7 @@ Le thème sombre ne demande rien aux composants : la feuille du thème change le
 
 Les données d'exemple (`src/catalog/samples.json`) sont des **données** non normatives : une voiture en USD (exposant 2), une en PYG (exposant 0), un fuseau ; le code n'en contient aucune constante de pays.
 
-## Tests
+## Commandes de test
 
 `pnpm --filter @rueda/ui test:unit` :
 

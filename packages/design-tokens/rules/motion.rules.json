@@ -1,0 +1,113 @@
+{
+  "$description": "US-031 — catalogue des micro-interactions de Kmino, en données. Chaque motif nomme ses jetons (durée, courbe) : aucune valeur en dur. « reduced » = « finalState » pour tous : avec prefers-reduced-motion, rien ne bouge et l'état final s'affiche d'emblée (durées à 0 par la feuille du thème). Aucun motif n'est essentiel au sens de WCAG 2.3.3 : tous s'arrêtent, signatures comprises (10b UX-69). Lu et validé par src/motion.ts ; document : docs/design/US-031/README.md.",
+  "meta": { "version": "0.1.0", "status": "PROPOSÉ", "story": "US-031" },
+  "budget": {
+    "maxSimultaneous": 1,
+    "maxStaggeredItems": 6,
+    "maxSignaturePerScreen": 1,
+    "loopsAllowed": false
+  },
+  "patterns": [
+    {
+      "id": "press",
+      "use": "Bouton, carte, case : retour tactile à l'appui",
+      "properties": ["transform", "background-color"],
+      "duration": "motion.duration.fast",
+      "easing": "motion.easing.standard",
+      "scale": "motion.scale.press",
+      "reduced": "finalState"
+    },
+    {
+      "id": "hover",
+      "use": "Survol et focus (souris, clavier) : ombre de carte, soulignement",
+      "properties": ["box-shadow", "color", "background-color"],
+      "duration": "motion.duration.fast",
+      "easing": "motion.easing.standard",
+      "reduced": "finalState"
+    },
+    {
+      "id": "toggle",
+      "use": "Interrupteur, case, favori : changement d'état",
+      "properties": ["transform", "background-color", "color"],
+      "duration": "motion.duration.base",
+      "easing": "motion.easing.emphasis",
+      "reduced": "finalState"
+    },
+    {
+      "id": "expand",
+      "use": "Dépliant (détail du prix, conditions) : hauteur et chevron",
+      "properties": ["grid-template-rows", "transform"],
+      "duration": "motion.duration.slow",
+      "easing": "motion.easing.standard",
+      "reduced": "finalState"
+    },
+    {
+      "id": "enter",
+      "use": "Apparition d'un bloc ou d'une feuille du bas : fondu et 12 px de montée (var(--space-3))",
+      "properties": ["opacity", "transform"],
+      "duration": "motion.duration.enter",
+      "easing": "motion.easing.emphasis",
+      "reduced": "finalState"
+    },
+    {
+      "id": "exit",
+      "use": "Fermeture d'une feuille, disparition d'un message : plus court que l'entrée",
+      "properties": ["opacity", "transform"],
+      "duration": "motion.duration.base",
+      "easing": "motion.easing.exit",
+      "reduced": "finalState"
+    },
+    {
+      "id": "stagger",
+      "use": "Résultats de recherche et listes : chaque carte entre après la précédente (6 au plus)",
+      "properties": ["opacity", "transform"],
+      "duration": "motion.duration.enter",
+      "delay": "motion.duration.stagger",
+      "easing": "motion.easing.emphasis",
+      "reduced": "finalState"
+    },
+    {
+      "id": "page",
+      "use": "Carte du véhicule vers sa fiche : la photo garde sa place (transition de vue)",
+      "properties": ["view-transition"],
+      "duration": "motion.duration.page",
+      "easing": "motion.easing.emphasis",
+      "reduced": "finalState"
+    },
+    {
+      "id": "skeleton",
+      "use": "Squelette de chargement : pulsation douce, trois fois puis arrêt",
+      "properties": ["opacity"],
+      "duration": "motion.duration.skeleton",
+      "iterations": "motion.iterations.skeleton",
+      "easing": "motion.easing.standard",
+      "reduced": "finalState"
+    },
+    {
+      "id": "photoCaptured",
+      "use": "Photo prise : la vignette rejoint sa case, la case se coche",
+      "properties": ["opacity", "transform"],
+      "duration": "motion.duration.slow",
+      "easing": "motion.easing.emphasis",
+      "reduced": "finalState"
+    },
+    {
+      "id": "camino",
+      "use": "Signature : tracé du camino (accueil, « Comment ça marche », mini-carte), une fois",
+      "properties": ["stroke-dashoffset"],
+      "duration": "motion.duration.signature",
+      "easing": "motion.easing.emphasis",
+      "signature": true,
+      "reduced": "finalState"
+    },
+    {
+      "id": "earningsCounter",
+      "use": "Signature : compteur de revenus de l'hôte (A02), une fois à l'ouverture",
+      "properties": ["content"],
+      "duration": "motion.duration.signature",
+      "easing": "motion.easing.emphasis",
+      "signature": true,
+      "reduced": "finalState"
+    }
+  ]
+}

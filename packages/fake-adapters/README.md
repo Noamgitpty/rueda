@@ -2,6 +2,22 @@
 
 Adaptateurs **FAKE** derrière les ports de 17 §5, pour les tests et le développement local (17 §6.5, §10 ; ADR-032, ADR-058, ADR-059). Propriétaires : US-019 (PSP), US-020 (autres ports), US-061 (place de marché).
 
+## Responsabilité
+
+Fournir des adaptateurs FAKE, déterministes et scriptables, derrière les ports de 17 §5, pour les tests et le développement local.
+
+## Entités
+
+Aucune entité persistée : chaque FAKE garde son état en mémoire, le temps d'un test.
+
+## Événements
+
+Aucun événement de domaine : les FAKE simulent les rappels et webhooks des fournisseurs (signés `fake-signature`), que les modules de l'API reçoivent.
+
+## Ports
+
+Ports simulés, **jamais en production (C19)** : `IdentityProvider`, `EInvoicingProvider`, `MessagingChannel`, `FileStore`, `UploadScanner`, `SignatureService`, `MapTiles` (tableau « Ports d'US-020 »), et le PSP simulé `FakePsp`, traduit vers `PaymentProvider` par l'API (section « `@rueda/fake-adapters/psp` »).
+
 ## Jamais en production (C19)
 
 1. **Construction** : chaque FAKE appelle `assertFakeAllowed` (`src/guard.ts`, garde centrale) ; `RUEDA_ENV` doit valoir explicitement `development` ou `test` (absent, `preproduction` ou `production` ⇒ `FakeForbiddenError`, code `FAKE_FORBIDDEN_IN_PRODUCTION`). Les suites de tests le posent dans leur `vitest.config.ts`. `FakeKeyWrapper` (`@rueda/db/testing`) passe par la même garde.
@@ -42,7 +58,7 @@ Les FAKE prouvent la logique interne, pas le comportement des vrais fournisseurs
 
 Le FAKE prouve la logique interne, pas le comportement des vrais PSP : la porte PAY-041 (capacités validées en bac à sable) reste un critère de mise en service (17 §6.5 point 6).
 
-## Tests
+## Commandes de test
 
 `pnpm --filter @rueda/fake-adapters test:unit` : garde centrale (chaque FAKE, sept environnements refusés), socle, chaque port (réussite, échec, doublon, retard, refus), isolement de production.
 

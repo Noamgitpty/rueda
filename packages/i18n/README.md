@@ -4,6 +4,22 @@ Internationalisation partagée (US-014) entre `apps/web`, `apps/backoffice` et, 
 
 Le paquet est publié en TypeScript source, comme `@rueda/db`. Les applications Next le transpilent (`transpilePackages`) et activent `allowImportingTsExtensions`. Aucune dépendance externe : tout repose sur `Intl` (ICU embarqué dans Node 26).
 
+## Responsabilité
+
+Traduire et formater pour les applications et les notifications : catalogues es / en / fr, pluriels, montants (affichage seulement), nombres, dates dans le fuseau du véhicule, négociation de la locale.
+
+## Entités
+
+Aucune entité persistée : catalogues et configuration des locales sont des fichiers du dépôt ; seul le choix de l'utilisateur vit dans un cookie `locale`.
+
+## Événements
+
+Aucun événement de domaine : le paquet est une bibliothèque pure, sans état.
+
+## Ports
+
+Aucun port : tout repose sur `Intl` (ICU embarqué dans Node 26), sans dépendance externe.
+
 ## Contenu
 
 | Fichier                 | Rôle                                                                                                                                          |
@@ -64,7 +80,7 @@ En `pt`, le symbole précède le montant, suivi d'une espace insécable (U+00A0)
 
 Le séparateur décimal de es-PA suit 19 US-014, 16 I18N-004 et 17 §1.2, mais contredit 10b UX-16 : voir Q-001 dans `docs/team/QUESTIONS.md`. Ces formats sont des données : seul `config/locales.json` change.
 
-## Tests
+## Commandes de test
 
 `pnpm --filter @rueda/i18n test:unit` couvre :
 

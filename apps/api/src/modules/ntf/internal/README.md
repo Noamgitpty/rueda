@@ -1,6 +1,6 @@
 # Module NTF — détail (US-020, US-021)
 
-Le `README.md` du module reste la ligne unique imposée par `dependency-graph.test.ts` (US-001) ; le détail est ici. Décisions : ADR-058 (port `MessagingChannel`), ADR-061 (moteur). Spécifications : 16 NTF-001, 17 §2.13 et §3.2.12, 10b §3.9 et §3.13.
+Le `README.md` du module donne la fiche (responsabilité, entités, événements, ports, commandes de test, US-035) ; le détail est ici. Décisions : ADR-058 (port `MessagingChannel`), ADR-061 (moteur). Spécifications : 16 NTF-001, 17 §2.13 et §3.2.12, 10b §3.9 et §3.13.
 
 ## Chaîne d'envoi
 
