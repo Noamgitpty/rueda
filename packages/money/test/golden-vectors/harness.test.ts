@@ -16,7 +16,7 @@ import {
   settlementVector,
   settlementVectors,
   type GoldenLegVector,
-} from '../src/index.ts';
+} from '../../src/golden-vectors/index.ts';
 
 const set = loadGoldenVectors();
 const ids = (n: number, prefix: string): string[] =>

@@ -13,7 +13,7 @@ l'arbre syntaxique au chargement et remplacée par un enregistreur : chaque atte
 fait échouer l'export. Aucun montant n'est calculé ici, en dehors de la conversion de la pénalité hôte des
 unités majeures (colonne de 08) en unités mineures (exposant de la devise de test, comme T62).
 
-Le fichier `golden_vectors.json` (même dossier) est le contrat lu par `packages/golden-vectors`.
+Le fichier `golden_vectors.json` (même dossier) est le contrat lu par `packages/money/src/golden-vectors` (`@rueda/money/golden-vectors`).
 Par défaut, le script régénère l'export en mémoire et le compare octet par octet au fichier commité :
 tout écart (08 modifié, oracle modifié, JSON modifié à la main) fait échouer la CI.
 

@@ -14,7 +14,7 @@ import {
   settlementVectors,
   type GoldenSettlementVector,
   type SettlementObservation,
-} from '../src/index.ts';
+} from '../../src/golden-vectors/index.ts';
 
 const set = loadGoldenVectors();
 const echo = (v: GoldenSettlementVector): SettlementObservation =>

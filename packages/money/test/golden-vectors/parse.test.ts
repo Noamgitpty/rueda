@@ -7,7 +7,7 @@ import {
   decodeValue,
   parseGoldenVectors,
   settlementVector,
-} from '../src/index.ts';
+} from '../../src/golden-vectors/index.ts';
 
 type Raw = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 

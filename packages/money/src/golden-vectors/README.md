@@ -1,8 +1,8 @@
-# packages/golden-vectors — harnais des vecteurs dorés (`@rueda/golden-vectors`)
+# Harnais des vecteurs dorés (`@rueda/money/golden-vectors`)
 
-Livré par **US-016** (lot 0, story argent). Le paquet charge les **vecteurs dorés** de la spécification et compare un résultat observé (moteur de règlement US-017, jambes US-018…) aux **attendus des oracles Python**. Il ne calcule aucun montant : les attendus ne viennent jamais du code testé (CLAUDE.md, contrainte 4 ; 19 US-016).
+Livré par **US-016** (lot 0, story argent). Le harnais charge les **vecteurs dorés** de la spécification et compare un résultat observé (moteur de règlement US-017, jambes US-018…) aux **attendus des oracles Python**. Il ne calcule aucun montant : les attendus ne viennent jamais du code testé (CLAUDE.md, contrainte 4 ; 19 US-016).
 
-Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/golden-vectors'`). TypeScript pur, sans dépendance d'exécution.
+Sous-chemin `@rueda/money/golden-vectors` du paquet monétaire (`src/golden-vectors/index.ts`), **réservé aux tests** : il n'est pas exporté par `@rueda/money` et lit le fichier de l'export avec `node:fs`. Le paquet `packages/money/` a US-015 à US-018 pour propriétaires (`docs/team/review-requirements.json`, US-050) : le harnais y côtoie les moteurs qu'il sert.
 
 ## D'où viennent les attendus
 
@@ -49,7 +49,7 @@ import {
   loadGoldenVectors,
   replay,
   settlementVectors,
-} from '@rueda/golden-vectors';
+} from '@rueda/money/golden-vectors';
 
 const set = loadGoldenVectors();
 const report = replay(
@@ -66,8 +66,8 @@ L'adaptateur `toInput` / `toObservation` (entrée et sortie du moteur) appartien
 
 - Le moteur (US-017) est écrit par un **autre agent** que celui de ce harnais et de l'oracle (19 §1.5, US-016 critère 3).
 - Une **variante PYG** d'un vecteur USD (`T…-PY`) n'est assertée qu'après avoir été produite par l'oracle **et reportée dans 08** par une demande de fusion sur la spécification (19 US-016 critère 2). Aucune n'est ajoutée par US-016.
-- Ce paquet n'importe aucun moteur et n'est importé par aucun code de production.
+- Le harnais n'importe aucun moteur ; aucun code de production ne doit importer `@rueda/money/golden-vectors`.
 
 ## Tests
 
-`pnpm --filter @rueda/golden-vectors test:unit` : couverture T01–T68, TJ01–TJ21, TA01–TA11 dans les deux devises ; ancrages recopiés de 08 et 16 ; équilibres de 08 sur les données (`remboursement + retenu HT + taxe retenue = total payé`, Σ jambes = total, signes des jambes) ; recoupements TJ ↔ T ; lecture fail-closed ; comparateurs (écart d'une unité détecté). Le `turbo.json` du paquet déclare l'export comme entrée des tâches pour que le cache se périme quand il change.
+`pnpm --filter @rueda/money test:unit` (fichiers `test/golden-vectors/`) : couverture T01–T68, TJ01–TJ21, TA01–TA11 dans les deux devises ; ancrages recopiés de 08 et 16 ; équilibres de 08 sur les données (`remboursement + retenu HT + taxe retenue = total payé`, Σ jambes = total, signes des jambes) ; recoupements TJ ↔ T ; lecture fail-closed ; comparateurs (écart d'une unité détecté). Le `turbo.json` de `packages/money` déclare l'export comme entrée des tâches pour que le cache se périme quand il change.

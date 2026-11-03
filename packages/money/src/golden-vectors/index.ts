@@ -1,5 +1,5 @@
 /**
- * `@rueda/golden-vectors` — harnais des vecteurs dorés (US-016). Seul point d'entrée public.
+ * `@rueda/money/golden-vectors` — harnais des vecteurs dorés (US-016), réservé aux tests.
  * Les attendus viennent de `docs/specs/tools/golden_vectors.json`, exporté par les oracles Python ;
  * ils ne sont jamais recalculés par le code produit. Voir README.md.
  */

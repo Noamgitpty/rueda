@@ -14,9 +14,9 @@ import type {
   LegVectorKind,
 } from './types.ts';
 
-/** Chemin de l'export dans le dépôt (le paquet est à `packages/golden-vectors/`). */
+/** Chemin de l'export dans le dépôt (ce fichier est à `packages/money/src/golden-vectors/`). */
 export const GOLDEN_VECTORS_PATH = fileURLToPath(
-  new URL('../../../docs/specs/tools/golden_vectors.json', import.meta.url),
+  new URL('../../../../docs/specs/tools/golden_vectors.json', import.meta.url),
 );
 
 let cached: GoldenVectorSet | undefined;
