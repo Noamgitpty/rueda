@@ -3,6 +3,7 @@
  * Égalité stricte de `bigint` ; un champ absent ou qui n'est pas un `bigint` est un écart (fail-closed).
  * Rien n'est recalculé : l'attendu est la valeur exportée par l'oracle.
  */
+import { GoldenVectorsError } from './parse.ts';
 import {
   LEG_NAMES,
   type GoldenLegVector,
@@ -81,13 +82,21 @@ export interface ReplayReport {
 
 /**
  * Rejoue `engine` sur chaque vecteur et agrège les écarts. Une exception du moteur est un écart
- * (champ « exception »), jamais un vecteur ignoré.
+ * (champ « exception »), jamais un vecteur ignoré. Une liste vide lève `GOLDEN_REPLAY_EMPTY` :
+ * un filtre qui ne rend rien (devise mal écrite, identifiant absent) ne passe jamais au vert
+ * sans rien comparer (revue de code US-016, constat 4).
  */
 export function replay<V extends { readonly id: string }, O>(
   vectors: readonly V[],
   engine: (vector: V) => O,
   compare: (vector: V, observed: O) => readonly Mismatch[],
 ): ReplayReport {
+  if (vectors.length === 0) {
+    throw new GoldenVectorsError(
+      'GOLDEN_REPLAY_EMPTY',
+      'aucun vecteur à rejouer : le filtre ne rend rien, la comparaison serait vide',
+    );
+  }
   const mismatches: Mismatch[] = [];
   for (const v of vectors) {
     let observed: O;
