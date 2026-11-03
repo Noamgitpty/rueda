@@ -10,9 +10,15 @@ Révision 5 (VERIF_18-F01) : valeur de lot `C` (connecteurs réels) acceptée et
 Révision 3 (corrigé VERIF_10-V10-08, V10-01, V10-13) : identifiants P0 cités dans la description d'une
 ligne P0 mais absents de `dependances` (chaque mention doit être une dépendance ou une « Réf. non
 bloquante » documentée dans `notes`) ; ordre des lots du P0-A (aucune ligne avant une ligne dont elle
-dépend) ; valeurs de `beta_pilote` (une ligne construite dans la Bêta pilote ne dépend jamais d'une ligne
+dépend) ; valeurs de `beta_pilote` (une ligne construite dans la tranche des lots 0 à 4 ne dépend jamais d'une ligne
 DIFFÉRÉ) ; valeurs de `risque_legal_financier` (évalué pour toute ligne P0) ; estimation par barème
-(P0-A, Bêta pilote, P0-B, P1) ; avertissement sur les descriptions P0 de moins de 80 caractères.
+(P0-A, tranche des lots 0 à 4, P1) ; avertissement sur les descriptions P0 de moins de 80 caractères.
+Révision 6 (US-058, pivot P2P) : valeur `HORS` de `phase_mvp` et de `priorite_produit` pour les lignes hors produit
+(DEC-FONDATEUR-13) ; ordonnée après P3 : aucune ligne du produit ne peut dépendre d'une ligne `HORS` (inversion) ; une
+ligne `HORS` n'entre dans aucun epic, aucune estimation ni aucun contrôle propre au P0.
+Revue du bloc S2 / S5 / S6 (US-057, 2026-11-03) : marqueur « HORS PRODUIT » contrôlé (toute ligne `HORS` commence ses
+`notes` par « HORS PRODUIT », et seule une ligne `HORS` le fait) ; phase P0-B refusée (supprimée) ; aucune ligne `HORS`
+dans l'estimation (contrôle explicite) ; libellés de sortie « tranche des lots 0 à 4 » au lieu de « Bêta pilote ».
 Sortie : rapport texte ; code retour 1 si un contrôle échoue.
 """
 import csv
@@ -31,7 +37,7 @@ EXPECTED = ["feature_id", "module", "sous_module", "nom", "persona", "descriptio
             "turo_statut_preuve", "source", "regles_liees", "dependances", "priorite_produit",
             "complexite_tech", "effort_ops", "pertinence_latam", "notes", "phase_mvp",
             "lot_p0a", "beta_pilote", "risque_legal_financier"]
-ORDER = {"P0-A": 0, "P0-B": 1, "P1": 2, "P2": 3, "P3": 4}
+ORDER = {"P0-A": 0, "P0-B": 1, "P1": 2, "P2": 3, "P3": 4, "HORS": 5}
 errors = []
 
 
@@ -174,16 +180,23 @@ if not c0:
 print("\nRépartition par phase_mvp :")
 cnt = Counter(r["phase_mvp"] for r in recs)
 for k in ORDER:
-    print(f"  {k:5} {cnt[k]:4}")
+    if k != "P0-B":
+        print(f"  {k:5} {cnt[k]:4}")
+if cnt["P0-B"]:
+    fail(f"phase P0-B supprimée (révision 6) : {cnt['P0-B']} ligne(s)")
+hors_bad = [r["feature_id"] for r in recs if (r["phase_mvp"] == "HORS") != r["notes"].startswith("HORS PRODUIT")]
+if hors_bad:
+    fail(f"marqueur « HORS PRODUIT » absent d'une ligne HORS, ou présent sur une ligne du produit : {hors_bad[:20]}")
+print(f"Lignes HORS avec le marqueur « HORS PRODUIT » en tête de notes : {sum(1 for r in recs if r['phase_mvp'] == 'HORS' and r['notes'].startswith('HORS PRODUIT'))}/{cnt['HORS']} ; marqueurs mal placés : {len(hors_bad)}")
 print(f"  total {len(recs)}")
 
-print("\nP0 par module (P0-A / P0-B) :")
+print("\nLignes P0-A (MVP, bêta P2P) par module :")
 mod = defaultdict(Counter)
 for r in recs:
-    if r["phase_mvp"].startswith("P0"):
+    if r["phase_mvp"] == "P0-A":
         mod[r["feature_id"].split("-")[0]][r["phase_mvp"]] += 1
 for m in sorted(mod):
-    print(f"  {m:5} {mod[m]['P0-A']:3} / {mod[m]['P0-B']:2}")
+    print(f"  {m:5} {mod[m]['P0-A']:3}")
 
 print("\nStatut de preuve (toutes lignes) :")
 for k, v in Counter(r["turo_statut_preuve"] for r in recs).most_common():
@@ -271,9 +284,9 @@ for r in recs:
 if badbeta:
     fail(f"beta_pilote absent, en trop ou invalide : {badbeta[:20]}")
 if betainv:
-    fail(f"ligne construite dans la Bêta pilote qui dépend d'une ligne DIFFÉRÉ : {betainv[:20]}")
+    fail(f"ligne construite dans la tranche des lots 0 à 4 qui dépend d'une ligne DIFFÉRÉ : {betainv[:20]}")
 bc = Counter(r["beta_pilote"] for r in recs if r["beta_pilote"])
-print("Bêta pilote : " + ", ".join(f"{k} {bc[k]}" for k in BETA) + f" ; dépendances vers DIFFÉRÉ : {len(betainv)}")
+print("Tranche des lots 0 à 4 (colonne beta_pilote) : " + ", ".join(f"{k} {bc[k]}" for k in BETA) + f" ; dépendances vers DIFFÉRÉ : {len(betainv)}")
 
 RISK = {"faible", "moyen", "élevé", "non évalué"}
 badrisk = [r["feature_id"] for r in recs if r["risque_legal_financier"] not in RISK
@@ -313,11 +326,13 @@ else:
           f" = {lo + 2.5:.1f}–{hi + 5:.1f}")
     built = [r for r in pa if r["beta_pilote"] in ("OUI", "SIMPLIFIÉ")]
     lo, hi = total(pa, beta=True)
-    print(f"  Bêta pilote ({len(built)} lignes construites) : lignes {lo:.1f}–{hi:.1f} + socle réduit 1–2"
+    print(f"  Tranche des lots 0 à 4 ({len(built)} lignes construites) : lignes {lo:.1f}–{hi:.1f} + socle réduit 1–2"
           f" + recette interne 0,5–1 = {lo + 1.5:.1f}–{hi + 3:.1f}")
-    lo, hi = total([r for r in recs if r["phase_mvp"] == "P0-B"])
-    print(f"  P0-B (lignes seules, hors certification PSP et conformité) : {lo:.1f}–{hi:.1f}")
     p1 = [r for r in recs if r["phase_mvp"] == "P1"]
+    leak = [r["feature_id"] for r in pa + built + p1 if r["phase_mvp"] == "HORS"]
+    if leak:
+        fail(f"ligne HORS comptée dans une estimation : {leak[:10]}")
+    print(f"  Lignes HORS dans les estimations : {len(leak)}")
     lo, hi = total(p1)
     print(f"  P1 ({len(p1)} lignes, même barème que le P0-A, lignes seules) : {lo:.1f}–{hi:.1f}")
 
