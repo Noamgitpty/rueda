@@ -11,9 +11,16 @@
  * du voyageur), RLS-18 (limite documentée), RLS-20 (OPS {premier pays} sur un dossier de l'autre
  * pays, ADMIN des deux pays). RLS-15 / RLS-16 : l0-rls-15-security-definer.test.ts.
  */
+import { randomBytes } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
-import { connectAs, releaseClient, withRole } from '../../src/testing/index.ts';
+import { setSessionContext } from '../../src/index.ts';
+import {
+  connectAs,
+  releaseClient,
+  withRole,
+  withTestTransaction,
+} from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import { asActor, buildWorld, ids, sorted, uuid, withRawContext } from '../support/rls.ts';
 import type { CountryWorld, World } from '../support/rls.ts';
@@ -644,6 +651,90 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           expect(r.rowCount).toBe(1); // identité d'un ADMIN réel : la RLS ne l'empêche pas
         },
       );
+    });
+  });
+});
+
+/** Exécute `sql` dans un SAVEPOINT et rend le SQLSTATE de l'erreur (ou 'OK'). */
+async function outcome(tx: pg.ClientBase, sql: string, params: unknown[]): Promise<string> {
+  await tx.query('SAVEPOINT outcome');
+  try {
+    await tx.query(sql, params);
+    await tx.query('RELEASE SAVEPOINT outcome');
+    return 'OK';
+  } catch (error) {
+    await tx.query('ROLLBACK TO SAVEPOINT outcome');
+    return (error as { code?: string }).code ?? 'ERREUR';
+  }
+}
+
+const INSERT_KEY = `INSERT INTO core.audit_subject_key (subject_type, subject_id, wrapped_dek, kms_key_id)
+                    VALUES ($1, $2, $3, 'fake:rls-test')`;
+
+describe('clés de données par sujet (report US-009) : chaque session n’accède qu’à la clé de SON sujet', () => {
+  it('USER : le compte de la session seulement ; PLATFORM : jamais app_api', async () => {
+    await api(async (client) => {
+      await asActor(client, { kind: 'GUEST', actorId: world.guest1 }, async (tx) => {
+        expect(await outcome(tx, INSERT_KEY, ['USER', world.guest1, randomBytes(48)])).toBe('OK');
+        expect(await ids(tx, 'audit_subject_key', 'subject_id')).toEqual([world.guest1]);
+        // clé « empoisonnée » pour un tiers : refusée par la politique (42501)
+        expect(await outcome(tx, INSERT_KEY, ['USER', world.guest2, randomBytes(48)])).toBe(
+          '42501',
+        );
+        expect(await outcome(tx, INSERT_KEY, ['PLATFORM', uuid(), randomBytes(48)])).toBe('42501');
+      });
+      await asActor(
+        client,
+        { kind: 'STAFF', actorId: world.staff.adminAll, countryScope: allCountries() },
+        async (tx) => {
+          expect(await outcome(tx, INSERT_KEY, ['USER', world.guest1, randomBytes(48)])).toBe(
+            '42501',
+          );
+          expect(
+            await outcome(tx, INSERT_KEY, ['USER', world.staff.adminAll, randomBytes(48)]),
+          ).toBe('OK');
+        },
+      );
+    });
+  });
+
+  it('une clé USER existante n’est lisible que par son sujet', async () => {
+    const owner = uuid();
+    await withRole('app_worker', async (client) => {
+      await withTestTransaction(client, { commit: true }, async (tx) => {
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'evidence_ingest' });
+        await tx.query(INSERT_KEY, ['USER', owner, randomBytes(48)]);
+      });
+    });
+    await api(async (client) => {
+      for (const [actorId, visible] of [
+        [owner, true],
+        [world.guest1, false],
+      ] as const) {
+        await asActor(client, { kind: 'GUEST', actorId }, async (tx) => {
+          const r = await tx.query('SELECT 1 FROM core.audit_subject_key WHERE subject_id = $1', [
+            owner,
+          ]);
+          expect(r.rowCount, actorId).toBe(visible ? 1 : 0);
+        });
+      }
+    });
+  });
+
+  it('ORG : le titulaire du compte d’hôte de la session seulement (ni co-hôte, ni hôte d’un autre compte)', async () => {
+    const x = w(0);
+    await api(async (client) => {
+      for (const [actorId, orgId, expected] of [
+        [world.holderA, x.orgA, 'OK'],
+        [world.cohost, x.orgA, '42501'],
+        [x.holderB, x.orgA, '42501'],
+      ] as const) {
+        await asActor(client, { kind: 'HOST', actorId, orgId }, async (tx) => {
+          expect(await outcome(tx, INSERT_KEY, ['ORG', x.orgA, randomBytes(48)]), actorId).toBe(
+            expected,
+          );
+        });
+      }
     });
   });
 });

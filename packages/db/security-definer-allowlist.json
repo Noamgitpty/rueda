@@ -31,6 +31,13 @@
       "story": "US-011"
     },
     {
+      "signature": "core.audit_log_chain()",
+      "family": "audit_chain",
+      "owner": "audit_chain_owner",
+      "execute": [],
+      "story": "US-009"
+    },
+    {
       "signature": "core.booking_assert_conversion_disposition()",
       "family": "integrity_trigger",
       "owner": "integrity_owner",

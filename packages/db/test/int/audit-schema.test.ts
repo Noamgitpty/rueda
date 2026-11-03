@@ -121,7 +121,7 @@ describe('schéma d’audit (US-009)', () => {
     });
   });
 
-  it('politiques : aucune pour PUBLIC ni app_anon ; aucune UPDATE / DELETE / ALL hors migrator_all', async () => {
+  it('politiques : aucune pour PUBLIC ni app_anon ; aucune UPDATE / DELETE / ALL hors migrator_all et le propriétaire de la chaîne', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         relname: string;
@@ -142,6 +142,11 @@ describe('schéma d’audit (US-009)', () => {
       expect(rows.length).toBeGreaterThan(0);
       for (const r of rows) {
         const where = `${r.relname}.${r.polname}`;
+        if (r.roles === 'audit_chain_owner') {
+          // US-011 (0026) : lecture et verrou des clés, avance de la tête ; aucun INSERT / DELETE
+          expect(['r', 'w'], where).toContain(r.cmd);
+          continue;
+        }
         expect(['app_api', 'app_worker'], where).toContain(r.roles);
         expect(['r', 'a'], where).toContain(r.cmd); // SELECT ou INSERT seulement
       }
@@ -201,7 +206,7 @@ describe('schéma d’audit (US-009)', () => {
     });
   });
 
-  it('fonction de chaîne SECURITY DEFINER sous migrator ; aucune fonction d’audit exécutable par un rôle applicatif', async () => {
+  it('fonction de chaîne SECURITY DEFINER sous audit_chain_owner (US-011) ; aucune fonction d’audit exécutable par un rôle applicatif', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         fn: string;
@@ -228,7 +233,9 @@ describe('schéma d’audit (US-009)', () => {
         ].sort(),
       );
       for (const r of rows) {
-        expect(r.owner, r.fn).toBe('migrator');
+        expect(r.owner, r.fn).toBe(
+          r.fn === 'core.audit_log_chain()' ? 'audit_chain_owner' : 'migrator',
+        );
         expect(r.config, r.fn).toEqual(['search_path=pg_catalog, pg_temp']);
         expect(r.secdef, r.fn).toBe(r.fn === 'core.audit_log_chain()');
         for (const role of APP_ROLES) {

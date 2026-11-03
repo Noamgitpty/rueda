@@ -22,6 +22,7 @@ export const OWNER_ROLES = [
   'cmd_hold_owner',
   'iam_auth_owner',
   'integrity_owner',
+  'audit_chain_owner',
   'cmd_money_owner',
   'cmd_golive_owner',
 ] as const;

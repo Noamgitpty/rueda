@@ -14,7 +14,8 @@ import { withTestTransaction } from '../../src/testing/index.ts';
 export const uuid = (): string => randomUUID();
 
 export type ActorContext =
-  | { readonly kind: 'GUEST' | 'HOST' | 'STAFF' }
+  /** `actorId` : app.actor_id ; la clé de sujet USER n'est accessible qu'à ce compte (US-011) */
+  | { readonly kind: 'GUEST' | 'HOST' | 'STAFF'; readonly actorId?: string }
   | { readonly kind: 'WORKER'; readonly worker: string }
   /** aucun `app.*` posé (fail-closed attendu) */
   | { readonly kind: 'NONE' };
@@ -49,19 +50,22 @@ export async function setActor(tx: pg.ClientBase, actor: ActorContext): Promise<
   if (actor.kind === 'NONE') {
     await tx.query(
       `SELECT pg_catalog.set_config('app.actor_kind', '', true),
+              pg_catalog.set_config('app.actor_id', '', true),
               pg_catalog.set_config('app.worker_name', '', true)`,
     );
   } else if (actor.kind === 'WORKER') {
     await tx.query(
       `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+              pg_catalog.set_config('app.actor_id', '', true),
               pg_catalog.set_config('app.worker_name', $1, true)`,
       [actor.worker],
     );
   } else {
     await tx.query(
       `SELECT pg_catalog.set_config('app.actor_kind', $1, true),
+              pg_catalog.set_config('app.actor_id', $2, true),
               pg_catalog.set_config('app.worker_name', '', true)`,
-      [actor.kind],
+      [actor.kind, actor.actorId ?? ''],
     );
   }
 }
