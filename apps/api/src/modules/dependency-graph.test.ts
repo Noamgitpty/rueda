@@ -26,8 +26,10 @@ describe('graphe des dépendances entre modules (17 §2.2)', () => {
     expect(findCycle(withCycle)).not.toBeNull();
   });
 
-  it('le socle (CFG, AUD, BUS) ne dépend de personne (17 §2.1)', () => {
-    for (const code of SOCLE_MODULES) expect(allowedDependencies(code)).toEqual([]);
+  it('BUS ne dépend de personne ; CFG et AUD ne dépendent que de BUS (outbox)', () => {
+    expect(allowedDependencies('BUS')).toEqual([]);
+    expect(allowedDependencies('CFG')).toEqual(['BUS']);
+    expect(allowedDependencies('AUD')).toEqual(['BUS']);
   });
 
   it('tout module hors socle peut dépendre de CFG, AUD et BUS', () => {

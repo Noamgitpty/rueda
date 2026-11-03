@@ -1,13 +1,17 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-import { BRAND_NAME } from '../brand';
+import { BRAND_NAME } from '../brand.ts';
+import { getRequestI18n } from '../i18n.ts';
 
 // Aucun style codé en dur : les jetons de design arrivent avec US-030.
-export const metadata: Metadata = {
-  title: `${BRAND_NAME} — back-office`,
-  description: 'Consola interna.',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const i18n = await getRequestI18n();
+  return {
+    title: i18n.t('backoffice.meta.title', { brand: BRAND_NAME }),
+    description: i18n.t('backoffice.meta.description'),
+    robots: { index: false, follow: false },
+  };
+}
 
 // Mobile-first : largeur de l'appareil, zoom utilisateur conservé (WCAG 2.2).
 export const viewport: Viewport = {
@@ -15,9 +19,11 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { readonly children: ReactNode }) {
+// `lang` = locale de la requête : une vue = une langue (10b UX-11).
+export default async function RootLayout({ children }: { readonly children: ReactNode }) {
+  const i18n = await getRequestI18n();
   return (
-    <html lang="es">
+    <html lang={i18n.profile.tag}>
       <body>{children}</body>
     </html>
   );

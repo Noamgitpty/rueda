@@ -46,6 +46,13 @@ describe('scanSql', () => {
     ["select ' TODAY '::date", "'today'"],
     ['create function f() returns timestamptz as $$ select now() $$ language sql', 'now()'],
     ['do $body$ begin perform current_timestamp; end $body$', 'current_timestamp'],
+    ['select "now"()', 'now()'],
+    ['select "NOW" ()', 'now()'],
+    ['select "pg_catalog"."now"()', 'now()'],
+    ['select pg_catalog."now"()', 'now()'],
+    ['select "other"."now"()', 'now()'],
+    ['select timeofday()', 'timeofday()'],
+    ['select "timeofday"()', 'timeofday()'],
   ])('détecte %s', (sql, token) => {
     expect(scanSql(sql).map((f) => f.token)).toEqual([token]);
   });
@@ -58,6 +65,8 @@ describe('scanSql', () => {
     "select 'now() et current_timestamp dans un texte'",
     "select E'l\\'heure : now()'",
     'select "now", "current_timestamp" from t',
+    'select "platform"."now"()',
+    'select "t"."current_date" from t',
     'select t.current_date from t',
     'select snowfall, current_date_label, nowhere from t',
     'select $1, $2::int',
@@ -94,6 +103,7 @@ describe('lint des fichiers .sql sur fixtures', () => {
       '12:current_time',
       '12:localtime',
     ]);
+    expect(byFile('0003_bad_quoted.sql')).toEqual(['2:now()', '3:now()', '4:timeofday()']);
   });
 
   it('passe sur un arbre propre (commentaires, chaînes, platform.now(), liste blanche)', () => {

@@ -1,11 +1,7 @@
-import { BRAND_NAME } from '../brand';
+import { getRequestI18n } from '../i18n.ts';
+import { HomeContent } from './home-content.tsx';
 
-// Page d'accueil minimale du back-office interne (US-001). Authentification staff + TOTP : stories IAM.
-export default function BackofficeHomePage() {
-  return (
-    <main>
-      <h1>{BRAND_NAME} — back-office</h1>
-      <p>Consola interna.</p>
-    </main>
-  );
+// Page d'accueil minimale du back-office : textes du catalogue i18n (US-014).
+export default async function BackofficeHomePage() {
+  return <HomeContent i18n={await getRequestI18n()} />;
 }

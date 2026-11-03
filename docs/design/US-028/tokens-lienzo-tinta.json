@@ -1,0 +1,1009 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "US-028 - direction « Lienzo · Tinta » (famille blanc épuré, 2026-11-02). Format DTCG (brouillon). Proposée après le retour du fondateur du 2026-11-02 ; en attente de son choix.",
+  "meta": {
+    "direction": "lienzo-tinta",
+    "status": "PROPOSÉ : en attente du choix du fondateur ; nom Kmino tranché le 2026-11-02",
+    "story": "US-028",
+    "version": "0.1.0",
+    "date": "2026-11-02",
+    "wcag": "2.2 AA, ratios calculés (formule WCAG 2.x de luminance relative), voir contrastChecks",
+    "concept": "La page blanche et l'encre : un fond blanc pur, du texte noir doux et une seule encre bleu nuit, rare, posée sur le bouton Reservar, les liens et la sélection. Le calme d'un document bien composé.",
+    "paletteLogic": "Blanc + gris neutres + une encre bleu nuit (≈ 220°, désaturée) : la couleur n'apparaît que là où l'on agit ; les zones sont séparées par des filets gris de 1 px et de l'espace, pas par des aplats.",
+    "notes": "Le nom et le logo sont des données de thème (US-034) : remplacer brand.name et brand.logo ne demande aucun développement. Le thème clair est la vitrine ; le thème sombre est obligatoire pour l'accessibilité."
+  },
+  "brand": {
+    "name": {
+      "$value": "Kmino",
+      "$type": "string",
+      "$description": "Valeur du paramètre {brand_name} (DEC-MARQUE, tranchée par le fondateur le 2026-11-02). Donnée de thème, révisable sans développement (US-034). Toujours en un seul mot, K majuscule, sans tiret ni point."
+    },
+    "parameter": {
+      "$value": "{brand_name}",
+      "$type": "string",
+      "$description": "Le code n'écrit jamais le nom en dur : il lit ce paramètre."
+    },
+    "slug": {
+      "$value": "kmino",
+      "$type": "string",
+      "$description": "Identifiant technique (domaines, comptes, paquets, clés) : minuscules, sans tiret."
+    },
+    "pronunciation": {
+      "$value": "ka-MI-no",
+      "$type": "string",
+      "$description": "De camino et de km. En anglais : kah-MEE-no."
+    },
+    "wordmark": {
+      "$value": "Kmino",
+      "$type": "string",
+      "$description": "Bricolage Grotesque 600. Le K prend color.primary et « mino » color.text : la coupure K / mino n'est marquée que par la couleur, jamais par un tiret ou un point dans le texte."
+    },
+    "logo": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"3\" y=\"3\" width=\"42\" height=\"42\" rx=\"12\" fill=\"#1D3461\"/><path d=\"M16 12v24M29 12L17.5 23.5M21.5 20L30 34\" fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"37\" cy=\"37\" r=\"2.6\" fill=\"#FFFFFF\"/></svg>",
+      "$type": "string",
+      "$description": "Un carré aux angles doux porte un K au trait fin ; un point dans l'angle marque le repère (le point sur la carte). Ici le carré est à l'encre bleu nuit, K et point blancs. « Kmino » en Bricolage Grotesque 600, le K à l'encre. Thème clair : K en on-primary (12.24:1 sur primary), repère #FFFFFF (12.24:1)."
+    },
+    "logoDark": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"3\" y=\"3\" width=\"42\" height=\"42\" rx=\"12\" fill=\"#A9C1EA\"/><path d=\"M16 12v24M29 12L17.5 23.5M21.5 20L30 34\" fill=\"none\" stroke=\"#111214\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"37\" cy=\"37\" r=\"2.6\" fill=\"#111214\"/></svg>",
+      "$type": "string",
+      "$description": "Thème sombre : pictogramme en primary sombre, K en on-primary (10.27:1), repère #111214 (10.27:1)."
+    },
+    "logoMono": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"3\" y=\"3\" width=\"42\" height=\"42\" rx=\"12\" fill=\"currentColor\"/><path d=\"M16 12v24M29 12L17.5 23.5M21.5 20L30 34\" fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"37\" cy=\"37\" r=\"2.6\" fill=\"#FFFFFF\"/></svg>",
+      "$type": "string",
+      "$description": "Variante monochrome : forme en currentColor, traits en blanc écrits en dur (fonctionne aussi en <img>) ; à n'utiliser que si currentColor contraste à 3:1 au moins avec le blanc."
+    }
+  },
+  "color": {
+    "light": {
+      "primary": {
+        "$value": "#1D3461",
+        "$type": "color",
+        "$description": "Action principale, liens, éléments actifs"
+      },
+      "on-primary": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "Texte et icônes sur primary"
+      },
+      "surface": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "Fond de page"
+      },
+      "surface-raised": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "Cartes, feuilles, barre d'action"
+      },
+      "surface-sunken": {
+        "$value": "#F6F7F8",
+        "$type": "color",
+        "$description": "Zones en retrait (champs, groupes)"
+      },
+      "text": {
+        "$value": "#17181B",
+        "$type": "color",
+        "$description": "Texte principal"
+      },
+      "text-muted": {
+        "$value": "#575A60",
+        "$type": "color",
+        "$description": "Texte secondaire (reste >= 4.5:1)"
+      },
+      "border": {
+        "$value": "#E6E7E9",
+        "$type": "color",
+        "$description": "Séparateurs décoratifs uniquement (jamais seule limite d'un composant)"
+      },
+      "border-strong": {
+        "$value": "#8A8D93",
+        "$type": "color",
+        "$description": "Contour des champs et composants (>= 3:1)"
+      },
+      "accent": {
+        "$value": "#EEF2F9",
+        "$type": "color",
+        "$description": "L'accent est le bleu 50 (#EEF2F9) : un voile à peine visible sous texte encre, réservé aux pastilles et au surlignage ; jamais un aplat de section ni un indicateur seul."
+      },
+      "on-accent": {
+        "$value": "#1D3461",
+        "$type": "color",
+        "$description": "Texte sur accent"
+      },
+      "success": {
+        "$value": "#1B6B39",
+        "$type": "color",
+        "$description": "Statut positif (texte + icône)"
+      },
+      "success-soft": {
+        "$value": "#E3F4E9",
+        "$type": "color",
+        "$description": "Fond de pastille succès"
+      },
+      "danger": {
+        "$value": "#B42318",
+        "$type": "color",
+        "$description": "Erreur, alerte bloquante (texte + icône)"
+      },
+      "danger-soft": {
+        "$value": "#FDE8E6",
+        "$type": "color",
+        "$description": "Fond de pastille danger"
+      },
+      "warning": {
+        "$value": "#855300",
+        "$type": "color",
+        "$description": "En attente, à vérifier (texte + icône)"
+      },
+      "warning-soft": {
+        "$value": "#FCEFD6",
+        "$type": "color",
+        "$description": "Fond de pastille attention"
+      },
+      "focus": {
+        "$value": "#1D3461",
+        "$type": "color",
+        "$description": "Anneau de focus 2px + décalage 2px"
+      }
+    },
+    "dark": {
+      "primary": {
+        "$value": "#A9C1EA",
+        "$type": "color",
+        "$description": "Action principale, liens, éléments actifs"
+      },
+      "on-primary": {
+        "$value": "#111214",
+        "$type": "color",
+        "$description": "Texte et icônes sur primary"
+      },
+      "surface": {
+        "$value": "#111214",
+        "$type": "color",
+        "$description": "Fond de page"
+      },
+      "surface-raised": {
+        "$value": "#191A1D",
+        "$type": "color",
+        "$description": "Cartes, feuilles, barre d'action"
+      },
+      "surface-sunken": {
+        "$value": "#0B0C0D",
+        "$type": "color",
+        "$description": "Zones en retrait (champs, groupes)"
+      },
+      "text": {
+        "$value": "#EDEEF0",
+        "$type": "color",
+        "$description": "Texte principal"
+      },
+      "text-muted": {
+        "$value": "#A4A7AD",
+        "$type": "color",
+        "$description": "Texte secondaire (reste >= 4.5:1)"
+      },
+      "border": {
+        "$value": "#2A2C30",
+        "$type": "color",
+        "$description": "Séparateurs décoratifs uniquement (jamais seule limite d'un composant)"
+      },
+      "border-strong": {
+        "$value": "#767A80",
+        "$type": "color",
+        "$description": "Contour des champs et composants (>= 3:1)"
+      },
+      "accent": {
+        "$value": "#1A2438",
+        "$type": "color",
+        "$description": "L'accent est le bleu 50 (#EEF2F9) : un voile à peine visible sous texte encre, réservé aux pastilles et au surlignage ; jamais un aplat de section ni un indicateur seul."
+      },
+      "on-accent": {
+        "$value": "#DCE6F7",
+        "$type": "color",
+        "$description": "Texte sur accent"
+      },
+      "success": {
+        "$value": "#5FD38A",
+        "$type": "color",
+        "$description": "Statut positif (texte + icône)"
+      },
+      "success-soft": {
+        "$value": "#10271A",
+        "$type": "color",
+        "$description": "Fond de pastille succès"
+      },
+      "danger": {
+        "$value": "#FF8B7E",
+        "$type": "color",
+        "$description": "Erreur, alerte bloquante (texte + icône)"
+      },
+      "danger-soft": {
+        "$value": "#33171A",
+        "$type": "color",
+        "$description": "Fond de pastille danger"
+      },
+      "warning": {
+        "$value": "#F5B94A",
+        "$type": "color",
+        "$description": "En attente, à vérifier (texte + icône)"
+      },
+      "warning-soft": {
+        "$value": "#2E2410",
+        "$type": "color",
+        "$description": "Fond de pastille attention"
+      },
+      "focus": {
+        "$value": "#A9C1EA",
+        "$type": "color",
+        "$description": "Anneau de focus 2px + décalage 2px"
+      }
+    },
+    "scale": {
+      "blue": {
+        "50": {
+          "$value": "#EEF2F9",
+          "$type": "color"
+        },
+        "100": {
+          "$value": "#E5EAF5",
+          "$type": "color"
+        },
+        "200": {
+          "$value": "#C8D3EA",
+          "$type": "color"
+        },
+        "300": {
+          "$value": "#A9C1EA",
+          "$type": "color"
+        },
+        "400": {
+          "$value": "#7692CB",
+          "$type": "color"
+        },
+        "500": {
+          "$value": "#4E72BC",
+          "$type": "color"
+        },
+        "600": {
+          "$value": "#3C5D9F",
+          "$type": "color"
+        },
+        "700": {
+          "$value": "#314C81",
+          "$type": "color"
+        },
+        "800": {
+          "$value": "#1D3461",
+          "$type": "color"
+        },
+        "900": {
+          "$value": "#1B2946",
+          "$type": "color"
+        }
+      },
+      "neutral": {
+        "50": {
+          "$value": "#F6F7F8",
+          "$type": "color"
+        },
+        "100": {
+          "$value": "#F1F2F3",
+          "$type": "color"
+        },
+        "200": {
+          "$value": "#E6E7E9",
+          "$type": "color"
+        },
+        "300": {
+          "$value": "#D0D2D5",
+          "$type": "color"
+        },
+        "400": {
+          "$value": "#8A8D93",
+          "$type": "color"
+        },
+        "500": {
+          "$value": "#6E7177",
+          "$type": "color"
+        },
+        "600": {
+          "$value": "#575A60",
+          "$type": "color"
+        },
+        "700": {
+          "$value": "#3E4146",
+          "$type": "color"
+        },
+        "800": {
+          "$value": "#2A2C30",
+          "$type": "color"
+        },
+        "900": {
+          "$value": "#17181B",
+          "$type": "color"
+        }
+      },
+      "$description": "Nuances 50 → 900. La palette fonctionnelle (light / dark) en est tirée ; seules les couleurs de light / dark sont vérifiées pour le contraste."
+    }
+  },
+  "font": {
+    "family": {
+      "heading": {
+        "$value": ["Bricolage Grotesque", "system-ui", "sans-serif"],
+        "$type": "fontFamily"
+      },
+      "body": {
+        "$value": ["Manrope", "system-ui", "sans-serif"],
+        "$type": "fontFamily"
+      },
+      "mono": {
+        "$value": ["Manrope", "system-ui", "sans-serif"],
+        "$type": "fontFamily"
+      }
+    },
+    "weight": {
+      "heading": {
+        "$value": 600,
+        "$type": "fontWeight"
+      },
+      "body": {
+        "$value": 400,
+        "$type": "fontWeight"
+      },
+      "strong": {
+        "$value": 600,
+        "$type": "fontWeight"
+      }
+    },
+    "size": {
+      "xs": {
+        "$value": "13px",
+        "$type": "dimension"
+      },
+      "sm": {
+        "$value": "15px",
+        "$type": "dimension"
+      },
+      "md": {
+        "$value": "17px",
+        "$type": "dimension"
+      },
+      "lg": {
+        "$value": "20px",
+        "$type": "dimension"
+      },
+      "xl": {
+        "$value": "24px",
+        "$type": "dimension"
+      },
+      "2xl": {
+        "$value": "30px",
+        "$type": "dimension"
+      },
+      "3xl": {
+        "$value": "36px",
+        "$type": "dimension"
+      }
+    },
+    "lineHeight": {
+      "body": {
+        "$value": 1.5,
+        "$type": "number"
+      },
+      "heading": {
+        "$value": 1.15,
+        "$type": "number"
+      }
+    },
+    "source": {
+      "$value": "Google Fonts, licence SIL Open Font License 1.1",
+      "$type": "string"
+    }
+  },
+  "space": {
+    "1": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "2": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "3": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "4": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "5": {
+      "$value": "20px",
+      "$type": "dimension"
+    },
+    "6": {
+      "$value": "24px",
+      "$type": "dimension"
+    },
+    "8": {
+      "$value": "32px",
+      "$type": "dimension"
+    },
+    "10": {
+      "$value": "40px",
+      "$type": "dimension"
+    }
+  },
+  "size": {
+    "touchTarget": {
+      "$value": "48px",
+      "$type": "dimension",
+      "$description": "Cible tactile minimale visée (WCAG 2.5.8 exige 24px, 10b vise 44px)"
+    },
+    "actionBar": {
+      "$value": "72px",
+      "$type": "dimension"
+    }
+  },
+  "radius": {
+    "sm": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "md": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "lg": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "pill": {
+      "$value": "999px",
+      "$type": "dimension"
+    }
+  },
+  "shadow": {
+    "raised": {
+      "$value": "0 1px 2px rgba(23,24,27,.04)",
+      "$type": "string"
+    }
+  },
+  "motion": {
+    "duration": {
+      "fast": {
+        "$value": "150ms",
+        "$type": "duration"
+      },
+      "base": {
+        "$value": "180ms",
+        "$type": "duration"
+      },
+      "slow": {
+        "$value": "240ms",
+        "$type": "duration"
+      }
+    },
+    "easing": {
+      "standard": {
+        "$value": [0.2, 0.6, 0.2, 1],
+        "$type": "cubicBezier"
+      },
+      "emphasis": {
+        "$value": [0.2, 0.6, 0.2, 1],
+        "$type": "cubicBezier"
+      }
+    },
+    "reducedMotion": {
+      "$value": "Si prefers-reduced-motion: reduce, durées à 0ms sauf fondus d'opacité <= 120ms",
+      "$type": "string"
+    }
+  },
+  "contrastChecks": {
+    "light": [
+      {
+        "pair": "texte / surface",
+        "fg": "#17181B",
+        "bg": "#FFFFFF",
+        "ratio": 17.75,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / carte",
+        "fg": "#17181B",
+        "bg": "#FFFFFF",
+        "ratio": 17.75,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / surface",
+        "fg": "#575A60",
+        "bg": "#FFFFFF",
+        "ratio": 6.92,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / carte",
+        "fg": "#575A60",
+        "bg": "#FFFFFF",
+        "ratio": 6.92,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire",
+        "fg": "#FFFFFF",
+        "bg": "#1D3461",
+        "ratio": 12.24,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / surface",
+        "fg": "#1D3461",
+        "bg": "#FFFFFF",
+        "ratio": 12.24,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / carte",
+        "fg": "#1D3461",
+        "bg": "#FFFFFF",
+        "ratio": 12.24,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / accent",
+        "fg": "#1D3461",
+        "bg": "#EEF2F9",
+        "ratio": 10.9,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès (texte) / carte",
+        "fg": "#1B6B39",
+        "bg": "#FFFFFF",
+        "ratio": 6.54,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger (texte) / carte",
+        "fg": "#B42318",
+        "bg": "#FFFFFF",
+        "ratio": 6.57,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention (texte) / carte",
+        "fg": "#855300",
+        "bg": "#FFFFFF",
+        "ratio": 6.49,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès / fond succès",
+        "fg": "#1B6B39",
+        "bg": "#E3F4E9",
+        "ratio": 5.73,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger / fond danger",
+        "fg": "#B42318",
+        "bg": "#FDE8E6",
+        "ratio": 5.59,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention / fond attention",
+        "fg": "#855300",
+        "bg": "#FCEFD6",
+        "ratio": 5.71,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "bordure de champ / carte",
+        "fg": "#8A8D93",
+        "bg": "#FFFFFF",
+        "ratio": 3.33,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / surface",
+        "fg": "#1D3461",
+        "bg": "#FFFFFF",
+        "ratio": 12.24,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / carte",
+        "fg": "#1D3461",
+        "bg": "#FFFFFF",
+        "ratio": 12.24,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "composant primaire / surface (1.4.11)",
+        "fg": "#1D3461",
+        "bg": "#FFFFFF",
+        "ratio": 12.24,
+        "min": 3.0,
+        "pass": true
+      }
+    ],
+    "dark": [
+      {
+        "pair": "texte / surface",
+        "fg": "#EDEEF0",
+        "bg": "#111214",
+        "ratio": 16.14,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / carte",
+        "fg": "#EDEEF0",
+        "bg": "#191A1D",
+        "ratio": 14.99,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / surface",
+        "fg": "#A4A7AD",
+        "bg": "#111214",
+        "ratio": 7.77,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / carte",
+        "fg": "#A4A7AD",
+        "bg": "#191A1D",
+        "ratio": 7.22,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire",
+        "fg": "#111214",
+        "bg": "#A9C1EA",
+        "ratio": 10.27,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / surface",
+        "fg": "#A9C1EA",
+        "bg": "#111214",
+        "ratio": 10.27,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / carte",
+        "fg": "#A9C1EA",
+        "bg": "#191A1D",
+        "ratio": 9.53,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / accent",
+        "fg": "#DCE6F7",
+        "bg": "#1A2438",
+        "ratio": 12.34,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès (texte) / carte",
+        "fg": "#5FD38A",
+        "bg": "#191A1D",
+        "ratio": 9.26,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger (texte) / carte",
+        "fg": "#FF8B7E",
+        "bg": "#191A1D",
+        "ratio": 7.66,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention (texte) / carte",
+        "fg": "#F5B94A",
+        "bg": "#191A1D",
+        "ratio": 9.88,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès / fond succès",
+        "fg": "#5FD38A",
+        "bg": "#10271A",
+        "ratio": 8.42,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger / fond danger",
+        "fg": "#FF8B7E",
+        "bg": "#33171A",
+        "ratio": 7.23,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention / fond attention",
+        "fg": "#F5B94A",
+        "bg": "#2E2410",
+        "ratio": 8.66,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "bordure de champ / carte",
+        "fg": "#767A80",
+        "bg": "#191A1D",
+        "ratio": 4.03,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / surface",
+        "fg": "#A9C1EA",
+        "bg": "#111214",
+        "ratio": 10.27,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / carte",
+        "fg": "#A9C1EA",
+        "bg": "#191A1D",
+        "ratio": 9.53,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "composant primaire / surface (1.4.11)",
+        "fg": "#A9C1EA",
+        "bg": "#111214",
+        "ratio": 10.27,
+        "min": 3.0,
+        "pass": true
+      }
+    ],
+    "extraLight": [
+      {
+        "pair": "logo : K / pictogramme",
+        "fg": "#FFFFFF",
+        "bg": "#1D3461",
+        "ratio": 12.24,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "logo : repère / pictogramme",
+        "fg": "#FFFFFF",
+        "bg": "#1D3461",
+        "ratio": 12.24,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "logotype : K / surface",
+        "fg": "#1D3461",
+        "bg": "#FFFFFF",
+        "ratio": 12.24,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "texte / fond en retrait",
+        "fg": "#17181B",
+        "bg": "#F6F7F8",
+        "ratio": 16.55,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / fond en retrait",
+        "fg": "#575A60",
+        "bg": "#F6F7F8",
+        "ratio": 6.45,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / fond en retrait",
+        "fg": "#1D3461",
+        "bg": "#F6F7F8",
+        "ratio": 11.41,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / bandeau d'accueil",
+        "fg": "#17181B",
+        "bg": "#F6F7F8",
+        "ratio": 16.55,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / bandeau d'accueil",
+        "fg": "#1D3461",
+        "bg": "#F6F7F8",
+        "ratio": 11.41,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "surface / texte (onglet actif)",
+        "fg": "#FFFFFF",
+        "bg": "#17181B",
+        "ratio": 17.75,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire sur fond en retrait (3:1)",
+        "fg": "#1D3461",
+        "bg": "#F6F7F8",
+        "ratio": 11.41,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "lien et onglet actif (focus) / carte",
+        "fg": "#1D3461",
+        "bg": "#FFFFFF",
+        "ratio": 12.24,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien et onglet actif (focus) / fond en retrait",
+        "fg": "#1D3461",
+        "bg": "#F6F7F8",
+        "ratio": 11.41,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "logo : point / pictogramme (rappel)",
+        "fg": "#FFFFFF",
+        "bg": "#1D3461",
+        "ratio": 12.24,
+        "min": 3.0,
+        "pass": true
+      }
+    ],
+    "extraDark": [
+      {
+        "pair": "logo : K / pictogramme",
+        "fg": "#111214",
+        "bg": "#A9C1EA",
+        "ratio": 10.27,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "logo : repère / pictogramme",
+        "fg": "#111214",
+        "bg": "#A9C1EA",
+        "ratio": 10.27,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "logotype : K / surface",
+        "fg": "#A9C1EA",
+        "bg": "#111214",
+        "ratio": 10.27,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "texte / fond en retrait",
+        "fg": "#EDEEF0",
+        "bg": "#0B0C0D",
+        "ratio": 16.86,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / fond en retrait",
+        "fg": "#A4A7AD",
+        "bg": "#0B0C0D",
+        "ratio": 8.12,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / fond en retrait",
+        "fg": "#A9C1EA",
+        "bg": "#0B0C0D",
+        "ratio": 10.72,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / bandeau d'accueil",
+        "fg": "#EDEEF0",
+        "bg": "#0B0C0D",
+        "ratio": 16.86,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / bandeau d'accueil",
+        "fg": "#A9C1EA",
+        "bg": "#0B0C0D",
+        "ratio": 10.72,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "surface / texte (onglet actif)",
+        "fg": "#111214",
+        "bg": "#EDEEF0",
+        "ratio": 16.14,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire sur fond en retrait (3:1)",
+        "fg": "#A9C1EA",
+        "bg": "#0B0C0D",
+        "ratio": 10.72,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "lien et onglet actif (focus) / carte",
+        "fg": "#A9C1EA",
+        "bg": "#191A1D",
+        "ratio": 9.53,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien et onglet actif (focus) / fond en retrait",
+        "fg": "#A9C1EA",
+        "bg": "#0B0C0D",
+        "ratio": 10.72,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "logo : point / pictogramme (rappel)",
+        "fg": "#111214",
+        "bg": "#A9C1EA",
+        "ratio": 10.27,
+        "min": 3.0,
+        "pass": true
+      }
+    ]
+  }
+}

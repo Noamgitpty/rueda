@@ -1,0 +1,708 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "US-028 - direction « Señal ». Format DTCG (brouillon). Direction retenue par défaut (PROPOSÉ, à confirmer par le fondateur) avec le nom Kmino (DEC-MARQUE, 2026-11-02) : source pour US-030.",
+  "meta": {
+    "direction": "senal",
+    "status": "PROPOSÉ (direction par défaut, à confirmer) ; nom Kmino tranché par le fondateur le 2026-11-02",
+    "story": "US-028",
+    "version": "0.2.0",
+    "date": "2026-11-02",
+    "wcag": "2.2 AA, ratios calculés (formule WCAG de luminance relative), voir contrastChecks",
+    "notes": "Le nom et le logo sont des données de thème (US-034) : remplacer brand.name et brand.logo ne demande aucun développement."
+  },
+  "brand": {
+    "name": {
+      "$value": "Kmino",
+      "$type": "string",
+      "$description": "Valeur du paramètre {brand_name} (DEC-MARQUE, tranchée par le fondateur le 2026-11-02). Donnée de thème, révisable sans développement (US-034). Toujours en un seul mot, K majuscule, sans tiret ni point."
+    },
+    "parameter": {
+      "$value": "{brand_name}",
+      "$type": "string",
+      "$description": "Le code n'écrit jamais le nom en dur : il lit ce paramètre."
+    },
+    "slug": {
+      "$value": "kmino",
+      "$type": "string",
+      "$description": "Identifiant technique (domaines, comptes, paquets, clés) : minuscules, sans tiret."
+    },
+    "pronunciation": {
+      "$value": "ka-MI-no",
+      "$type": "string",
+      "$description": "De camino et de km. En anglais : kah-MEE-no."
+    },
+    "wordmark": {
+      "$value": "Kmino",
+      "$type": "string",
+      "$description": "Space Grotesk 700. Le K prend color.primary et « mino » color.text : la coupure K / mino n'est marquée que par la couleur, jamais par un tiret ou un point dans le texte."
+    },
+    "logo": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"2\" y=\"2\" width=\"44\" height=\"44\" rx=\"8\" fill=\"#0B4F6C\"/><path d=\"M16 10v24M32 10L17.5 23.5M21.5 20L32.5 34\" fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 40.5h5M21.5 40.5h5M31 40.5h5\" stroke=\"#C8F03C\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>",
+      "$type": "string",
+      "$description": "Pictogramme, thème clair : panneau primary, K en on-primary, ligne de voie en accent (6,80:1 sur primary)."
+    },
+    "logoDark": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"2\" y=\"2\" width=\"44\" height=\"44\" rx=\"8\" fill=\"#6FC3E6\"/><path d=\"M16 10v24M32 10L17.5 23.5M21.5 20L32.5 34\" fill=\"none\" stroke=\"#0B141A\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 40.5h5M21.5 40.5h5M31 40.5h5\" stroke=\"#0B141A\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>",
+      "$type": "string",
+      "$description": "Pictogramme, thème sombre : panneau primary, K et ligne de voie en on-primary (9,41:1). L'accent citron n'est pas utilisé ici (1,50:1 sur primary sombre). Corrige la remarque 5 de la revue UX du 2026-10-31 (traits en dur illisibles en sombre)."
+    },
+    "logoMono": {
+      "$value": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 48 48\" role=\"img\" aria-label=\"Kmino\"><rect x=\"2\" y=\"2\" width=\"44\" height=\"44\" rx=\"8\" fill=\"currentColor\"/><path d=\"M16 10v24M32 10L17.5 23.5M21.5 20L32.5 34\" fill=\"none\" stroke=\"var(--on-primary, #FFFFFF)\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12 40.5h5M21.5 40.5h5M31 40.5h5\" stroke=\"var(--on-primary, #FFFFFF)\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>",
+      "$type": "string",
+      "$description": "Variante monochrome : panneau en currentColor ; à n'utiliser que si currentColor contraste à 3:1 au moins avec on-primary."
+    }
+  },
+  "color": {
+    "light": {
+      "primary": {
+        "$value": "#0B4F6C",
+        "$type": "color",
+        "$description": "Action principale, liens, éléments actifs"
+      },
+      "on-primary": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "Texte et icônes sur primary"
+      },
+      "surface": {
+        "$value": "#F4F6F7",
+        "$type": "color",
+        "$description": "Fond de page"
+      },
+      "surface-raised": {
+        "$value": "#FFFFFF",
+        "$type": "color",
+        "$description": "Cartes, feuilles, barre d'action"
+      },
+      "surface-sunken": {
+        "$value": "#E8EDEF",
+        "$type": "color",
+        "$description": "Zones en retrait (champs, groupes)"
+      },
+      "text": {
+        "$value": "#0E1A22",
+        "$type": "color",
+        "$description": "Texte principal"
+      },
+      "text-muted": {
+        "$value": "#4A5963",
+        "$type": "color",
+        "$description": "Texte secondaire (reste >= 4.5:1)"
+      },
+      "border": {
+        "$value": "#D5DDE1",
+        "$type": "color",
+        "$description": "Séparateurs décoratifs uniquement (jamais seule limite d'un composant)"
+      },
+      "border-strong": {
+        "$value": "#76868F",
+        "$type": "color",
+        "$description": "Contour des champs et composants (>= 3:1)"
+      },
+      "accent": {
+        "$value": "#C8F03C",
+        "$type": "color",
+        "$description": "Mise en avant ; en clair, uniquement en aplat sous on-accent, jamais comme seul indicateur"
+      },
+      "on-accent": {
+        "$value": "#0E1A22",
+        "$type": "color",
+        "$description": "Texte sur accent"
+      },
+      "success": {
+        "$value": "#1B6B39",
+        "$type": "color",
+        "$description": "Statut positif (texte + icône)"
+      },
+      "success-soft": {
+        "$value": "#E2F3E8",
+        "$type": "color",
+        "$description": "Fond de pastille succès"
+      },
+      "danger": {
+        "$value": "#B42318",
+        "$type": "color",
+        "$description": "Erreur, alerte bloquante (texte + icône)"
+      },
+      "danger-soft": {
+        "$value": "#FDE8E6",
+        "$type": "color",
+        "$description": "Fond de pastille danger"
+      },
+      "warning": {
+        "$value": "#855300",
+        "$type": "color",
+        "$description": "En attente, à vérifier (texte + icône)"
+      },
+      "warning-soft": {
+        "$value": "#FCEFD6",
+        "$type": "color",
+        "$description": "Fond de pastille attention"
+      },
+      "focus": {
+        "$value": "#0B4F6C",
+        "$type": "color",
+        "$description": "Anneau de focus 2px + décalage 2px"
+      }
+    },
+    "dark": {
+      "primary": {
+        "$value": "#6FC3E6",
+        "$type": "color",
+        "$description": "Action principale, liens, éléments actifs"
+      },
+      "on-primary": {
+        "$value": "#0B141A",
+        "$type": "color",
+        "$description": "Texte et icônes sur primary"
+      },
+      "surface": {
+        "$value": "#0B141A",
+        "$type": "color",
+        "$description": "Fond de page"
+      },
+      "surface-raised": {
+        "$value": "#132029",
+        "$type": "color",
+        "$description": "Cartes, feuilles, barre d'action"
+      },
+      "surface-sunken": {
+        "$value": "#071015",
+        "$type": "color",
+        "$description": "Zones en retrait (champs, groupes)"
+      },
+      "text": {
+        "$value": "#EAF2F5",
+        "$type": "color",
+        "$description": "Texte principal"
+      },
+      "text-muted": {
+        "$value": "#A7B6BE",
+        "$type": "color",
+        "$description": "Texte secondaire (reste >= 4.5:1)"
+      },
+      "border": {
+        "$value": "#26363F",
+        "$type": "color",
+        "$description": "Séparateurs décoratifs uniquement (jamais seule limite d'un composant)"
+      },
+      "border-strong": {
+        "$value": "#6A7F8A",
+        "$type": "color",
+        "$description": "Contour des champs et composants (>= 3:1)"
+      },
+      "accent": {
+        "$value": "#C8F03C",
+        "$type": "color",
+        "$description": "Mise en avant ; en clair, uniquement en aplat sous on-accent, jamais comme seul indicateur"
+      },
+      "on-accent": {
+        "$value": "#0B141A",
+        "$type": "color",
+        "$description": "Texte sur accent"
+      },
+      "success": {
+        "$value": "#5FD38A",
+        "$type": "color",
+        "$description": "Statut positif (texte + icône)"
+      },
+      "success-soft": {
+        "$value": "#11281B",
+        "$type": "color",
+        "$description": "Fond de pastille succès"
+      },
+      "danger": {
+        "$value": "#FF8B7E",
+        "$type": "color",
+        "$description": "Erreur, alerte bloquante (texte + icône)"
+      },
+      "danger-soft": {
+        "$value": "#33171A",
+        "$type": "color",
+        "$description": "Fond de pastille danger"
+      },
+      "warning": {
+        "$value": "#F5B94A",
+        "$type": "color",
+        "$description": "En attente, à vérifier (texte + icône)"
+      },
+      "warning-soft": {
+        "$value": "#2E2410",
+        "$type": "color",
+        "$description": "Fond de pastille attention"
+      },
+      "focus": {
+        "$value": "#C8F03C",
+        "$type": "color",
+        "$description": "Anneau de focus 2px + décalage 2px"
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "heading": {
+        "$value": ["Space Grotesk", "system-ui", "sans-serif"],
+        "$type": "fontFamily"
+      },
+      "body": {
+        "$value": ["IBM Plex Sans", "system-ui", "sans-serif"],
+        "$type": "fontFamily"
+      },
+      "mono": {
+        "$value": ["IBM Plex Mono", "ui-monospace", "monospace"],
+        "$type": "fontFamily"
+      }
+    },
+    "weight": {
+      "heading": {
+        "$value": 700,
+        "$type": "fontWeight"
+      },
+      "body": {
+        "$value": 400,
+        "$type": "fontWeight"
+      },
+      "strong": {
+        "$value": 600,
+        "$type": "fontWeight"
+      }
+    },
+    "size": {
+      "xs": {
+        "$value": "13px",
+        "$type": "dimension"
+      },
+      "sm": {
+        "$value": "15px",
+        "$type": "dimension"
+      },
+      "md": {
+        "$value": "17px",
+        "$type": "dimension"
+      },
+      "lg": {
+        "$value": "20px",
+        "$type": "dimension"
+      },
+      "xl": {
+        "$value": "24px",
+        "$type": "dimension"
+      },
+      "2xl": {
+        "$value": "30px",
+        "$type": "dimension"
+      },
+      "3xl": {
+        "$value": "36px",
+        "$type": "dimension"
+      }
+    },
+    "lineHeight": {
+      "body": {
+        "$value": 1.5,
+        "$type": "number"
+      },
+      "heading": {
+        "$value": 1.15,
+        "$type": "number"
+      }
+    },
+    "source": {
+      "$value": "Google Fonts, licence SIL Open Font License 1.1",
+      "$type": "string"
+    }
+  },
+  "space": {
+    "1": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "2": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "3": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "4": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "5": {
+      "$value": "20px",
+      "$type": "dimension"
+    },
+    "6": {
+      "$value": "24px",
+      "$type": "dimension"
+    },
+    "8": {
+      "$value": "32px",
+      "$type": "dimension"
+    },
+    "10": {
+      "$value": "40px",
+      "$type": "dimension"
+    }
+  },
+  "size": {
+    "touchTarget": {
+      "$value": "48px",
+      "$type": "dimension",
+      "$description": "Cible tactile minimale visée (WCAG 2.5.8 exige 24px, 10b vise 44px)"
+    },
+    "actionBar": {
+      "$value": "72px",
+      "$type": "dimension"
+    }
+  },
+  "radius": {
+    "sm": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "md": {
+      "$value": "6px",
+      "$type": "dimension"
+    },
+    "lg": {
+      "$value": "10px",
+      "$type": "dimension"
+    },
+    "pill": {
+      "$value": "999px",
+      "$type": "dimension"
+    }
+  },
+  "shadow": {
+    "raised": {
+      "$value": "0 1px 0 rgba(14,26,34,.10), 0 2px 8px rgba(14,26,34,.08)",
+      "$type": "string"
+    }
+  },
+  "motion": {
+    "duration": {
+      "fast": {
+        "$value": "120ms",
+        "$type": "duration"
+      },
+      "base": {
+        "$value": "200ms",
+        "$type": "duration"
+      },
+      "slow": {
+        "$value": "280ms",
+        "$type": "duration"
+      }
+    },
+    "easing": {
+      "standard": {
+        "$value": [0.3, 0, 0.2, 1],
+        "$type": "cubicBezier"
+      },
+      "emphasis": {
+        "$value": [0.3, 0, 0.2, 1],
+        "$type": "cubicBezier"
+      }
+    },
+    "reducedMotion": {
+      "$value": "Si prefers-reduced-motion: reduce, durées à 0ms sauf fondus d'opacité <= 120ms",
+      "$type": "string"
+    }
+  },
+  "contrastChecks": {
+    "light": [
+      {
+        "pair": "texte / surface",
+        "fg": "#0E1A22",
+        "bg": "#F4F6F7",
+        "ratio": 16.29,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / carte",
+        "fg": "#0E1A22",
+        "bg": "#FFFFFF",
+        "ratio": 17.65,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / surface",
+        "fg": "#4A5963",
+        "bg": "#F4F6F7",
+        "ratio": 6.68,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / carte",
+        "fg": "#4A5963",
+        "bg": "#FFFFFF",
+        "ratio": 7.24,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire",
+        "fg": "#FFFFFF",
+        "bg": "#0B4F6C",
+        "ratio": 8.94,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / surface",
+        "fg": "#0B4F6C",
+        "bg": "#F4F6F7",
+        "ratio": 8.25,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / carte",
+        "fg": "#0B4F6C",
+        "bg": "#FFFFFF",
+        "ratio": 8.94,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / accent",
+        "fg": "#0E1A22",
+        "bg": "#C8F03C",
+        "ratio": 13.44,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès (texte) / carte",
+        "fg": "#1B6B39",
+        "bg": "#FFFFFF",
+        "ratio": 6.54,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger (texte) / carte",
+        "fg": "#B42318",
+        "bg": "#FFFFFF",
+        "ratio": 6.57,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention (texte) / carte",
+        "fg": "#855300",
+        "bg": "#FFFFFF",
+        "ratio": 6.49,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès / fond succès",
+        "fg": "#1B6B39",
+        "bg": "#E2F3E8",
+        "ratio": 5.68,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger / fond danger",
+        "fg": "#B42318",
+        "bg": "#FDE8E6",
+        "ratio": 5.59,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention / fond attention",
+        "fg": "#855300",
+        "bg": "#FCEFD6",
+        "ratio": 5.71,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "bordure de champ / carte",
+        "fg": "#76868F",
+        "bg": "#FFFFFF",
+        "ratio": 3.77,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / surface",
+        "fg": "#0B4F6C",
+        "bg": "#F4F6F7",
+        "ratio": 8.25,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / carte",
+        "fg": "#0B4F6C",
+        "bg": "#FFFFFF",
+        "ratio": 8.94,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "composant primaire / surface (1.4.11)",
+        "fg": "#0B4F6C",
+        "bg": "#F4F6F7",
+        "ratio": 8.25,
+        "min": 3.0,
+        "pass": true
+      }
+    ],
+    "dark": [
+      {
+        "pair": "texte / surface",
+        "fg": "#EAF2F5",
+        "bg": "#0B141A",
+        "ratio": 16.4,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / carte",
+        "fg": "#EAF2F5",
+        "bg": "#132029",
+        "ratio": 14.62,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / surface",
+        "fg": "#A7B6BE",
+        "bg": "#0B141A",
+        "ratio": 8.92,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte secondaire / carte",
+        "fg": "#A7B6BE",
+        "bg": "#132029",
+        "ratio": 7.96,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte du bouton / primaire",
+        "fg": "#0B141A",
+        "bg": "#6FC3E6",
+        "ratio": 9.41,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / surface",
+        "fg": "#6FC3E6",
+        "bg": "#0B141A",
+        "ratio": 9.41,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "lien primaire / carte",
+        "fg": "#6FC3E6",
+        "bg": "#132029",
+        "ratio": 8.39,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "texte / accent",
+        "fg": "#0B141A",
+        "bg": "#C8F03C",
+        "ratio": 14.16,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès (texte) / carte",
+        "fg": "#5FD38A",
+        "bg": "#132029",
+        "ratio": 8.82,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger (texte) / carte",
+        "fg": "#FF8B7E",
+        "bg": "#132029",
+        "ratio": 7.3,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention (texte) / carte",
+        "fg": "#F5B94A",
+        "bg": "#132029",
+        "ratio": 9.41,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "succès / fond succès",
+        "fg": "#5FD38A",
+        "bg": "#11281B",
+        "ratio": 8.32,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "danger / fond danger",
+        "fg": "#FF8B7E",
+        "bg": "#33171A",
+        "ratio": 7.23,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "attention / fond attention",
+        "fg": "#F5B94A",
+        "bg": "#2E2410",
+        "ratio": 8.66,
+        "min": 4.5,
+        "pass": true
+      },
+      {
+        "pair": "bordure de champ / carte",
+        "fg": "#6A7F8A",
+        "bg": "#132029",
+        "ratio": 3.96,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / surface",
+        "fg": "#C8F03C",
+        "bg": "#0B141A",
+        "ratio": 14.16,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "anneau de focus / carte",
+        "fg": "#C8F03C",
+        "bg": "#132029",
+        "ratio": 12.62,
+        "min": 3.0,
+        "pass": true
+      },
+      {
+        "pair": "composant primaire / surface (1.4.11)",
+        "fg": "#6FC3E6",
+        "bg": "#0B141A",
+        "ratio": 9.41,
+        "min": 3.0,
+        "pass": true
+      }
+    ]
+  }
+}
