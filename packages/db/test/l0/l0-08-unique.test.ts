@@ -42,11 +42,16 @@ const failure = (p: Promise<unknown>): Promise<unknown> =>
 /** 23505 sur `constraint`, DETAIL présent dans l'erreur brute, absent de la traduction. */
 function expectTranslatedUnique(error: unknown, constraint: string, code: string): void {
   expect(error).toMatchObject({ code: '23505', constraint });
-  expect((error as { detail?: string }).detail).toEqual(expect.any(String));
+  // Sous RLS, PostgreSQL ne met déjà pas les valeurs de clé dans le DETAIL ; la traduction, elle,
+  // ne transmet ni message, ni DETAIL, ni nom de contrainte ou de table.
+  const raw = error as { message: string; detail?: string; table?: string };
   const translated = translateDbError(error);
   expect(translated).toEqual({ code, retryable: false });
+  expect(Object.keys(translated).sort()).toEqual(['code', 'retryable']);
   const serialized = JSON.stringify(translated);
-  expect(serialized).not.toContain((error as { detail: string }).detail);
+  for (const leak of [raw.message, raw.detail, raw.table, constraint]) {
+    if (leak) expect(serialized).not.toContain(leak);
+  }
   expect(serialized).not.toMatch(/Key|\(|=/);
 }
 

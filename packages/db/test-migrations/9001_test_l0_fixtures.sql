@@ -10,8 +10,9 @@
 --     ici réduite à l'insertion de l'occupation HOLD puis du hold (étape 2c de 17 §2.5) ;
 --   - insert_payment_operation : la commande cmd_start_payment (T1, US-023) ;
 --   - delete_occupancy : une suppression qu'AUCUN rôle applicatif ne peut faire (aucun DELETE
---     accordé), pour prouver que le trigger différé occupancy_trip_guard la refuse quand même
---     au COMMIT (défense en profondeur, L0-03).
+--     accordé), pour prouver qu'elle reste refusée même forcée par le propriétaire (L0-03 : la
+--     clé étrangère du hold refuse dès l'instruction ; le trigger différé occupancy_trip_guard
+--     couvre DELETE en défense en profondeur).
 -- SECURITY DEFINER sous migrator (propriétaire des tables, politique migrator_all) : la
 -- transaction appelante reste sous app_api / app_worker, et les triggers différés sont évalués
 -- au COMMIT de CETTE transaction. Aucun SQL dynamique, search_path figé.

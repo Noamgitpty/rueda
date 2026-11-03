@@ -123,7 +123,7 @@ describe.each(COUNTRIES)('L0-03 — I-OCC au COMMIT ($country, $currency)', (c) 
     });
   });
 
-  it('supprimer l’occupation : aucun rôle n’a DELETE (42501) ; même forcée, refus au COMMIT', async () => {
+  it('supprimer l’occupation : aucun rôle n’a DELETE (42501) ; forcée, refusée ; garde DELETE en place', async () => {
     await withClients(async (api, worker) => {
       const { hold } = await bookTrip(api, worker, newSlot(START, END), c, T0);
       await inTx(worker, { worker: 'trip_lifecycle' }, async (tx) => {
@@ -131,15 +131,27 @@ describe.each(COUNTRIES)('L0-03 — I-OCC au COMMIT ($country, $currency)', (c) 
           tx.query(`DELETE FROM core.booking_vehicle_occupancy WHERE id = $1`, [hold.occupancyId]),
         ).rejects.toMatchObject({ code: '42501' });
       });
-      // défense en profondeur : suppression forcée par la fixture (propriétaire), même transaction
-      await expectCommitRefused(
-        inTx(worker, { worker: 'trip_lifecycle', commit: true }, async (tx) => {
-          const r = await tx.query<{ n: number }>(`SELECT test_fixture.delete_occupancy($1) AS n`, [
-            hold.occupancyId,
-          ]);
-          expect(r.rows[0]?.n).toBe(1);
-        }),
-        /^occupancy_trip_guard$/,
+      // Suppression forcée par le propriétaire (fixture) : refusée dès l'instruction par la clé
+      // étrangère du hold (23503), avant même le trigger différé occupancy_trip_guard.
+      await inTx(worker, { worker: 'trip_lifecycle' }, async (tx) => {
+        await expect(
+          tx.query(`SELECT test_fixture.delete_occupancy($1) AS n`, [hold.occupancyId]),
+        ).rejects.toMatchObject({
+          code: '23503',
+          constraint: expect.stringMatching(/occupancy_id_fkey$/),
+        });
+      });
+      // le garde différé couvre aussi DELETE (défense en profondeur si la FK changeait)
+      const def = await inTx(worker, {}, (tx) =>
+        tx.query<{ def: string }>(
+          `SELECT pg_catalog.pg_get_triggerdef(t.oid) AS def
+             FROM pg_catalog.pg_trigger t
+            WHERE t.tgrelid = 'core.booking_vehicle_occupancy'::regclass
+              AND t.tgname = 'occupancy_trip_guard'`,
+        ),
+      );
+      expect(def.rows[0]?.def).toMatch(
+        /AFTER UPDATE OR DELETE .* DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN \(\(old\.kind = 'TRIP'::text\)\)/,
       );
       expect(await occupancyOf(worker, hold.occupancyId)).toMatchObject({
         kind: 'TRIP',
