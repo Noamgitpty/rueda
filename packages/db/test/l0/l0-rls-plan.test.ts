@@ -6,7 +6,7 @@
  *   les lectures (membership, staff_role_assignment, support_case) ne sont pas sous la RLS
  *   d'app_api ;
  * - nombre d'appels de fonction de politique borné par ligne (constante, indépendante des données) ;
- * - la RLS n'empêche pas l'index de la clé primaire (prédicat `id = …` étanche, poussé sous la
+ * - la RLS n'empêche pas un index sur id (clé primaire ou UNIQUE (id, country_code)) (prédicat `id = …` étanche, poussé sous la
  *   barrière de sécurité) ;
  * - index des lectures des fonctions présents ; coût mesuré par ligne, borné large (journal CI).
  */
@@ -91,7 +91,10 @@ describe('L0-05 — plan de trip_staff_read', () => {
           );
           const all = nodes(plan);
           const scan = all.find((n) => n['Relation Name'] === 'booking_trip');
-          expect(scan?.['Index Name'], who).toBe('booking_trip_pkey');
+          // index dont id est la première colonne : clé primaire ou UNIQUE (id, country_code) de 0023
+          expect(['booking_trip_pkey', 'trip_id_country_unique'], who).toContain(
+            scan?.['Index Name'],
+          );
           expect(
             all.filter((n) => n['Parent Relationship'] === 'SubPlan' || n['Subplan Name']),
             who,
