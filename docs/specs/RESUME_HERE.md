@@ -2,7 +2,19 @@
 
 > Lire ce fichier EN PREMIER à chaque nouvelle session. Puis `23_RESEARCH_LOG.md` (dernières entrées) et `21_COVERAGE_MATRIX.csv`.
 
-## DOSSIER FINAL, PRÊT POUR LE LOT 0 SOUS CONDITIONS (2026-10-30, après l'audit 24 et ses corrections) — À LIRE EN PRIORITÉ
+## RÉVISION P2P DES SPÉCIFICATIONS TERMINÉE (2026-11-03, US-053 à US-060) — À LIRE EN PRIORITÉ
+
+**Modèle** : place de marché **de particulier à particulier**, comme Turo, au Panama et au Paraguay ; **hôtes particuliers uniquement, aucune agence ni loueur professionnel** (DEC-FONDATEUR-13) ; par défaut, on fait comme Turo (DEC-FONDATEUR-14, 16 ; choix notés dans `docs/team/COMME_TURO.md`) ; le voyageur paie **Kmino, marchand de référence**, par un PSP de place de marché en `FAKE` jusqu'au lot C ; chaque paiement est réparti en jambes explicites (hôte, assureur, plateforme, taxe ; 08 E7) ; aucun fonds de tiers détenu tant que `funds_holding_enabled[pays]` = `false` ; interrupteurs de mise en service par pays à `false` en production, modifiables seulement par la commande à deux personnes de 17 v6 ; remise et retour entre personnes ; produit **trilingue es / en / fr** (DEC-FONDATEUR-17).
+
+**Documents révisés** (demandes de fusion S1 à S8 de `docs/team/impact/2026-11-02-pivot-p2p.md`) : 22 (S1, US-053), 18 v5, 04 rév. 6 et 21 (S2, US-054), 08 (S3, US-055), 17 v6 (S4, US-056 ; complément US-060), 16 v5 (S5, US-057), 19 v3 (S6, US-058), 10b v3 (S7, US-059 ; colonne `fr` par US-060), handoff §1, §2, §3, §4.1, §9, `00_README.md`, ce fichier et `CLAUDE.md` (S8, US-060). Les contrôles de `00_README.md` §4 passent (`scripts/ci/check-spec-tools.py` : RÉSULTAT : OK).
+
+**Prochaine étape** : le **développement** reprend, dans l'ordre de 19 v3 §2 : stories restantes du **lot 0** (dont les 11 ajustées par le pivot, 19 §3.1), puis le **lot 1** (identité, hôtes, véhicules). L'état du build est tenu dans `docs/team/RESUME_HERE.md` et `docs/team/BOARD.md`.
+
+**Restes connus** (passation `docs/team/handoffs/US-060.md`) : noms d'entités sans équivalent dans 17 (« S4 bis ») ; mentions « es et en » de 16 et 19, à lire « es, en et fr » ; runbook de bascule d'un interrupteur (PLT-003) ; relecture du catalogue français par un relecteur francophone.
+
+## (historique) DOSSIER FINAL, PRÊT POUR LE LOT 0 SOUS CONDITIONS (2026-10-30, après l'audit 24 et ses corrections ; avant le pivot P2P)
+
+> Section historique : elle décrit le modèle « pro-first » abandonné (agences, loueurs, entretiens de loueurs, OQ-MK-07 et OQ-MK-11, sans objet depuis DEC-FONDATEUR-13). Les lacunes 1, 3, 5, 6 et 7 restent vraies pour le P2P.
 
 **Statut** : audit contradictoire final `24_FINAL_AUDIT_AND_GAPS.md` fait (0 CRITIQUE, 12 MAJEUR, 13 MINEUR) ; corrections appliquées et suivies dans sa section « Suivi des corrections » ; les 18 scripts de `tools/` passent (`python -I -X utf8`, 00_README §4). Point d'entrée du build : `CLAUDE_BUILD_HANDOFF.md` (§12, avec §4.9 mécanique Claude Code et §4.10 identité GitHub). Fondateur : `01_EXECUTIVE_SUMMARY.md` (§9 charge estimée).
 

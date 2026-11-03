@@ -1,26 +1,28 @@
 # CLAUDE_BUILD_HANDOFF — Point d'entrée de la session de développement
 
 > **Pour qui** : une nouvelle session Claude Code (sans aucune mémoire de la recherche) ou un développeur humain qui reprend. **Lire ce fichier en entier, puis suivre le §12 « Script de la première session ».**
-> **Date** : 2026-10-30. **Statut** : PROPOSÉ, **audité (24)** et corrigé (24 « Suivi des corrections »). Ce document **n'invente rien** : il assemble et rend opérationnels 17 v5, 19 v2, 22, 18 v4, 16 v4 et 08 ; chaque règle renvoie à sa source, qui fait foi en cas d'écart. Ce qui est propre à ce document (chemins de fichiers d'équipe, gabarits, noms de commandes, prérequis du poste) est marqué **PROPOSÉ (handoff)** : l'orchestrateur le fige par un ADR dans le dépôt dès la première session.
+> **Date** : 2026-10-30 ; **révision P2P du 2026-11-03** (US-060, demande de fusion S8 de `docs/team/impact/2026-11-02-pivot-p2p.md` : §1, §2, §3, §4.1 et §9 ; les autres sections gardent leur texte du 2026-10-30 et se lisent avec la règle de lecture du §1). **Statut** : PROPOSÉ, **audité (24)** et corrigé (24 « Suivi des corrections »). Ce document **n'invente rien** : il assemble et rend opérationnels 17 v6, 19 v3, 22, 18 v5, 16 v5, 10b v3 et 08 révisée (US-055) ; chaque règle renvoie à sa source, qui fait foi en cas d'écart. Ce qui est propre à ce document (chemins de fichiers d'équipe, gabarits, noms de commandes, prérequis du poste) est marqué **PROPOSÉ (handoff)** : l'orchestrateur le fige par un ADR dans le dépôt dès la première session.
 > **Dossier de spécification** : `C:/Users/noamm/Documents/turo-audit-latam/research/turo-audit/` (appelé « dossier » ci-dessous ; voir `00_README.md`).
 
 ---
 
 ## 1. Mission et contraintes
 
-**Mission.** Construire une place de marché de location de véhicules (type Turo) pour le **Panama** et le **Paraguay**, en commençant par la **Bêta pilote** (lots 0 à 4 du backlog 19), puis le **P0-A** complet (lot 5), le **lot C** des connecteurs réels après le choix du pays, et le **P0-B** seulement après avis favorables (18 §0, 19 §2). Modèle MVP : **loueurs professionnels**, **l'agence encaisse** avec son propre PSP, **la plateforme facture une commission** et **ne détient aucun fonds** ; remise et retour au comptoir ; web mobile-first + PWA (18 §1.1, ADR-039).
+**Mission.** Construire une place de marché de location de voitures **de particulier à particulier**, comme Turo, pour le **Panama** et le **Paraguay** : la **bêta P2P** (lots 0 à 5 révisés de 19 v3 ; tranche construite = lots 0 à 4), puis le **lot C** des connecteurs réels après le choix du pays et la **porte go / no-go du PSP de place de marché** (19 §2, US-603 ; 18 v5 §0). Modèle (DEC-FONDATEUR-13, 14) : **hôtes particuliers uniquement, aucune agence ni loueur professionnel** ; par défaut **comme Turo** (trip fee, plans de protection vendus par Kmino pour un assureur partenaire, part de l'hôte selon son plan, 08) ; le voyageur paie **Kmino, marchand de référence** ; un PSP de place de marché, **uniquement en `FAKE`** jusqu'au lot C, répartit chaque paiement en **jambes explicites** (`HOST`, `INSURER`, `TAX_THIRD_PARTY`, `PLATFORM`) calculées par le règlement (08 E7) ; l'hôte est versé après le trajet ; **aucun fonds de tiers détenu** : vrai en build et en `FAKE`, et en production tant que `funds_holding_enabled[pays]` vaut `false` (17 §0.1) ; remise et retour **entre personnes**, sur un lieu déclaré par l'hôte ; web mobile-first + PWA (ADR-039), **trilingue es / en / fr** (DEC-FONDATEUR-11 et 17).
+
+**Règle de lecture** (pivot P2P) : toute mention restante d'agence, de loueur, de comptoir, de commission d'agence, de « Bêta pilote », de P0-A ou de P0-B dans les sections non révisées de ce fichier est **historique et hors produit** (DEC-FONDATEUR-13) ; « Bêta pilote » et « P0-A » se lisent « bêta P2P » ; « P0-B » se lit « fonction construite, fermée en production par un interrupteur par pays » (17 §0.1) ; « es / en » se lit « es / en / fr » (DEC-FONDATEUR-17).
 
 **Contraintes non négociables** (sources entre parenthèses) :
 1. **Aucun développeur humain** : équipe d'agents Claude Code ; le fondateur est le seul humain (product owner, recette, comptes, juridique) (DEC-FONDATEUR-05, 19 §1.5).
-2. **Aucune fusion sans revues indépendantes** ; argent, RLS / rôles, `SECURITY DEFINER` et concurrence revus par une **autre famille de modèle** (19 §1.4 point 4, §1.9 point 4).
+2. **Aucune fusion sans revues indépendantes** ; argent, RLS / rôles, `SECURITY DEFINER` et concurrence revus par une **autre famille de modèle** (19 §1.4 point 4, §1.9 point 4). L'orchestrateur fusionne seul **seulement si** toute la CI est verte et toutes les revues exigées sont APPROUVÉ ; jamais de push direct sur `main`, jamais de force-push (DEC-FONDATEUR-15, `docs/team/DECISIONS.md`).
 3. **Aucun PSP réel avant le lot C** ; tout passe par les ports et des adaptateurs `FAKE`, **jamais actifs en production** (DEC-FONDATEUR-03, ADR-032, test C19).
 4. **Deux pays de premier rang dès le premier jour** ; aucune constante propre à un pays dans le code ; tests en USD (PA) et en PYG sans décimale (PY) (DEC-FONDATEUR-04, ADR-024, ADR-033).
-5. **Argent** en `bigint` d'unités mineures, `roundHalfUp` / `allocHost` uniques, règlement = fonction pure versionnée ; une capacité PSP inconnue vaut « non » (ADR-009, ADR-010, 19 §1.7).
+5. **Argent** en `bigint` d'unités mineures, `roundHalfUp` / `allocHost` uniques, règlement = fonction pure versionnée qui calcule **chaque jambe** ; toute commande vers le PSP porte le montant explicite de chaque jambe, jamais un prorata ; une capacité PSP inconnue vaut « non », une capacité **bloquante** inconnue rend l'hôte non activable (ADR-009, ADR-010, ADR-045, 08 E7, 17 §2.8, 19 §1.7).
 6. **Réservation** : écritures par **commandes seulement** (ADR-035), occupation unique + contrainte d'exclusion GiST + conversion gardée (ADR-002), horloge = base (`platform.now()`, ADR-030) ; RLS `ENABLE` + `FORCE` sur toutes les tables ; aucun rôle applicatif `BYPASSRLS` (17 §2.3, ADR-027).
 7. **Aucun secret de production chez les agents**, aucune donnée réelle dans un environnement accessible aux agents (19 §1.9 point 1).
-8. **Aucune décision du fondateur prise à sa place** : coder la valeur par défaut fail-closed de 22, la marquer PROPOSÉ, continuer (22, DEC-FONDATEUR-10).
-9. **Documentation à jour dans la DoD de chaque story** ; comptes externes au nom du fondateur (DEC-FONDATEUR-08, 19 §1.4 point 6).
-10. **Aucune reprise de l'identité visuelle, des textes ou des données de Turo** ; aucune aspiration de Turo, d'annonces ou de sites constructeurs (02, 17 ADR-034, `sources/SRC_VEHICLE_DATA.md`).
+8. **Aucune décision du fondateur prise à sa place** : coder la valeur par défaut fail-closed de 22, la marquer PROPOSÉ, continuer (22, DEC-FONDATEUR-10). Les **interrupteurs de mise en service par pays** (`p2p_private_hosts_enabled`, `insurer_contract_active`, `funds_holding_enabled`, `payouts_enabled`) valent `false` en production ; ils ne changent que sur décision écrite du fondateur, par la commande à deux personnes `config.cmd_request_go_live_switch` puis `config.cmd_approve_go_live_switch` (17 §0.1, ADR-046, RLS-27), **jamais par du code ni par un agent** ; la procédure de bascule (runbook PLT-003) s'écrit avec la story qui construit ces commandes.
+9. **Documentation à jour dans la DoD de chaque story** ; comptes externes au nom du fondateur (DEC-FONDATEUR-08, 19 §1.4 point 6) ; tout texte visible livré **en es, en et fr** dans la même story (catalogue 10b §4.3, DEC-FONDATEUR-17).
+10. **Comme Turo, sans copier Turo** : une question produit propre au P2P se tranche par la solution de Turo adaptée au PA / PY, marquée PROPOSÉ et inscrite dans `docs/team/COMME_TURO.md` (DEC-FONDATEUR-14, 16) ; aucune reprise de l'identité visuelle, des textes ou des données de Turo ; aucune aspiration de Turo, d'annonces ou de sites constructeurs (02, 17 ADR-034, `sources/SRC_VEHICLE_DATA.md`).
 11. Les tests réduisent le risque **sans prouver l'absence de bug** : supervision, oracle de production C12 et triage après la mise en service (19 §1.8).
 
 ---
@@ -29,14 +31,14 @@
 
 | Sujet | Document qui fait foi | Quand le lire |
 |---|---|---|
-| **Règles métier, montants, machines à états, vecteurs T01–T68** | `08_BUSINESS_RULES.md` (BR-*, E1–E6, SM-1 à SM-8) | toute story qui calcule, rembourse, annule, change un état |
-| **Architecture, modules, entités, RLS, paramètres, ADR, preuves L0, tests, gouvernance** | `17_DATA_MODEL_AND_ARCHITECTURE.md` v5 (§2.3 rôles / RLS, §2.5 verrouillage, §3.2 entités, §4 événements, §6 pile, §7.2 paramètres, §8.1 ADR, §10 coupe Bêta, §11 L0, §12 tests, §13 gouvernance) | avant toute story ; noms d'entités et de paramètres |
-| **Fonctionnalités, critères Given / When / Then, codes d'erreur, NFR, vecteurs TA01–TA11** | `16_PRODUCT_REQUIREMENTS_DOCUMENT.md` v4 (partie A, fiches partie B, matrice D.1) | la fiche de chaque feature citée par la story |
-| **Ordre de construction, stories, DoR / DoD, modèle d'équipe, règles d'exploitation, portes de lot, tâches fondateur** | `19_DEVELOPMENT_BACKLOG.md` v2 (§1.1–§1.10, §2, §3, §4, §5, §6, §7) | en continu |
-| **Décisions ouvertes, valeurs par défaut, échéances** | `22_OPEN_QUESTIONS.md` (« Décisions fondateur / produit en attente », « Décisions prises ») | avant toute story « Bloqué par (défaut) » |
-| **Périmètre** (quelles lignes, phase, lot, Bêta) | `04_FEATURE_INVENTORY.csv` rév. 5 + README | pour vérifier une ligne |
-| **UX, écrans, textes, accessibilité, fondations design** | `10b_UX_UI_ANALYSIS.md` (§3 principes UX-01..63, §4 écrans S/A/O, §8 design) | toute story « Revue design : OUI » |
-| MVP, préconditions de mise en service, effort, risques | `18_MVP_AND_ROADMAP.md` v4 (§1, §3 C1–C19, §4, §5.0, §7, §11) | contexte, rapport L0 (US-027) |
+| **Règles métier, montants, trip fee, plans de protection, part de l'hôte, jambes, machines à états, vecteurs T01–T68 et TJ01–TJ21** | `08_BUSINESS_RULES.md` (BR-*, E1–E7, SM-1 à SM-8) | toute story qui calcule, rembourse, annule, change un état |
+| **Architecture, modules, entités, RLS, paramètres, ADR, preuves L0, tests, gouvernance** | `17_DATA_MODEL_AND_ARCHITECTURE.md` v6 (§0.1 argent et interrupteurs, §2.3 rôles / RLS, §2.5 verrouillage, §3.2 entités, §4 événements, §6 pile, §7.2 paramètres, §8.1 ADR, §10 coupe de la bêta P2P, §11 L0, §12 tests, §13 gouvernance) | avant toute story ; noms d'entités et de paramètres |
+| **Fonctionnalités, critères Given / When / Then, codes d'erreur, NFR, vecteurs TA01–TA11** | `16_PRODUCT_REQUIREMENTS_DOCUMENT.md` v5 (partie A, fiches partie B, matrice D.1) | la fiche de chaque feature citée par la story |
+| **Ordre de construction, stories, DoR / DoD, modèle d'équipe, règles d'exploitation, portes de lot, tâches fondateur** | `19_DEVELOPMENT_BACKLOG.md` v3 (§1.1–§1.10, §2, §3, §4, §5, §6, §7) | en continu |
+| **Décisions ouvertes, valeurs par défaut, échéances** | `22_OPEN_QUESTIONS.md` (« Décisions fondateur / produit en attente », « Décisions prises », « Pivot P2P » : OQ-P2P-01 à 12) ; choix « comme Turo » dans `docs/team/COMME_TURO.md` | avant toute story « Bloqué par (défaut) » |
+| **Périmètre** (quelles lignes, phase, lot, tranche bêta) | `04_FEATURE_INVENTORY.csv` rév. 6 + README | pour vérifier une ligne |
+| **UX, écrans, textes es / en / fr, accessibilité, fondations design** | `10b_UX_UI_ANALYSIS.md` v3 (§3 principes UX, §4 écrans S/A/O de la bêta P2P, §4.3 catalogue des textes, §8 design) | toute story « Revue design : OUI » |
+| MVP, préconditions de mise en service, effort, risques | `18_MVP_AND_ROADMAP.md` v5 (§1, §3, §4, §5.0, §7, §11) | contexte, rapport L0 (US-027) |
 | Cas limites | `11_EDGE_CASES_AND_FAILURES.md` (EC-xx) | tests de bord |
 | Paiement PA / PY (contexte du lot C) | `09b_PAYMENT_PARTNERS_PA_PY.md` | lot C, `FAKE` à capacités simulées |
 | Marchés, concurrence | 12, 13, 14 | contexte seulement |
@@ -47,21 +49,28 @@
 
 ## 3. Décisions du fondateur en vigueur
 
-**Prises (2026-10-30, 22 « Décisions prises »)** :
+**Prises (2026-10-30 à 2026-11-03, 22 « Décisions prises » et `docs/team/DECISIONS.md` §1)** :
 
 | ID | Contenu opérationnel |
 |---|---|
 | DEC-FONDATEUR-02 | construire d'abord ; les avis juridiques conditionnent la **mise en service**, pas le build ; comportements dépendant d'un avis construits en mode prudent paramétré |
 | DEC-FONDATEUR-03 | PSP réel après le choix du pays ; build contre `PaymentProvider` + `FAKE` (webhooks signés, refus, réponses inconnues, ordres Yappy de 300 s, capacités présentes / absentes) |
-| DEC-FONDATEUR-04 | PA et PY en parallèle : USD / PYG, `America/Panama` / `America/Asuncion`, ITBMS 7 % / IVA 10 % datés en paramètres, es / en |
+| DEC-FONDATEUR-04 | PA et PY en parallèle : USD / PYG, `America/Panama` / `America/Asuncion`, ITBMS 7 % / IVA 10 % datés en paramètres, es / en / fr (DEC-FONDATEUR-17) |
 | DEC-FONDATEUR-05 | aucun développeur humain ; équipe multi-agents ; aucune fusion sans revue indépendante |
 | DEC-FONDATEUR-06 | agent DESIGN + relecteur UX indépendant ; web mobile-first + PWA ; pas d'app native au MVP |
-| DEC-FONDATEUR-07 | design modifiable par le fondateur : jetons pilotés par les données, back-office « Apparence / Marque » (brouillon, publication, historique, retour arrière), blocs de contenu es / en |
+| DEC-FONDATEUR-07 | design modifiable par le fondateur : jetons pilotés par les données, back-office « Apparence / Marque » (brouillon, publication, historique, retour arrière), blocs de contenu es / en / fr |
 | DEC-FONDATEUR-08 | transmissibilité totale : IaC, conteneurs, ports, comptes au nom du fondateur, runbooks, export, checklist de passation, doc dans la DoD |
 | DEC-FONDATEUR-09 | tests exhaustifs, portes CI bloquantes, agent QA indépendant, régression nocturne |
 | DEC-FONDATEUR-10 | autonomie maximale, artefacts versionnés, escalade minimale avec défauts, point hebdomadaire, rigueur mission critique |
+| DEC-FONDATEUR-11 | produit bilingue es / en, livré ensemble dans chaque story ; complété par DEC-FONDATEUR-17 |
+| DEC-FONDATEUR-12 | positionnement visible de place de marché de particulier à particulier ; Kmino n'apparaît jamais comme un loueur |
+| DEC-FONDATEUR-13 | P2P dès la bêta, **aucune agence**, hôtes particuliers uniquement ; modèle économique de Turo (08) ; assurance par contrat Kmino avec un assureur partenaire ; avis juridiques avant la mise en service |
+| DEC-FONDATEUR-14 | **faire comme Turo** par défaut ; seuls contrats, dépenses et juridique vont au fondateur ; parcours d'argent de Turo, montage par PSP de place de marché en `FAKE` |
+| DEC-FONDATEUR-15 | fusion autonome par l'orchestrateur de **toutes** les PR, seulement si toute la CI est verte et toutes les revues exigées APPROUVÉ ; garde-fous compensatoires pour `.github/`, `scripts/ci/`, `scripts/team/` et `review-requirements.json` (revue sécurité au SHA fusionné, job `revues` vérifié dans le diff) ; jamais de push direct, de force-push ni d'interrupteur passé à `true` |
+| DEC-FONDATEUR-16 | ne jamais rester bloqué sur une question propre au P2P : solution de Turo adaptée, marquée PROPOSÉ, inscrite dans `docs/team/COMME_TURO.md` |
+| DEC-FONDATEUR-17 | produit **trilingue** es / en / fr livré ensemble dans chaque story (catalogues `es`, `en`, `fr` de `packages/i18n`, maquettes, notifications) ; textes juridiques français relus par l'avocat avant la mise en service |
 
-**En attente** : liste et défauts au §9 (copie de 22, qui fait foi).
+**En attente** : liste et défauts au §9 (copie de 22, qui fait foi). DEC-FONDATEUR-01 reste ouverte (§9).
 
 ---
 
@@ -71,14 +80,14 @@
 
 | Rôle | Responsabilités | Ne fait jamais |
 |---|---|---|
-| **Orchestrateur (tech lead)** | lit le backlog ; vérifie la DoR ; découpe ; assigne ; crée branche + worktree par story ; exige les revues ; **seul à fusionner** ; tient tableau, registre des décisions et des risques ; répond aux questions entre agents ; prépare le point hebdomadaire (démo + ≤ 5 décisions) ; déclenche les déploiements par le pipeline (§4.7) ; écrit le rapport de santé de chaque session ; limite le parallélisme à ce que vérificateurs, budget et fondateur absorbent | fusionner sans les revues ; trancher une décision du fondateur ; détenir un secret de production |
+| **Orchestrateur (tech lead)** | lit le backlog ; vérifie la DoR ; découpe ; assigne ; crée branche + worktree par story ; exige les revues ; **seul à fusionner**, sans accord PR par PR, si toute la CI est verte et toutes les revues exigées APPROUVÉ (DEC-FONDATEUR-15) ; tient tableau, registre des décisions et des risques ; répond aux questions entre agents ; prépare le point hebdomadaire (démo + ≤ 5 décisions) ; déclenche les déploiements par le pipeline (§4.7) ; écrit le rapport de santé de chaque session ; limite le parallélisme à ce que vérificateurs, budget et fondateur absorbent | fusionner sans les revues ; trancher une décision du fondateur ; détenir un secret de production |
 | **Agent back-end** | modules NestJS, commandes, travailleurs pg-boss, ports et adaptateurs | modifier RLS ou rôles sans revue sécurité |
 | **Agent données / base** | schéma, migrations SQL, contraintes, RLS, fonctions `SECURITY DEFINER`, preuves L0, tests de concurrence | écrire du SQL métier avec `now()` |
-| **Agent front-end** | Next.js (guest, console agence, comptoir, back-office), PWA, i18n | créer un composant hors bibliothèque sans l'agent design |
+| **Agent front-end** | Next.js (voyageur, espace hôte mobile, back-office), PWA, i18n es / en / fr | créer un composant hors bibliothèque sans l'agent design |
 | **Agent intégrations** | adaptateurs `FAKE` (normal et hostile), puis connecteurs réels au lot C | activer un connecteur réel avant LC |
 | **Agent DESIGN** | naming et identité (propositions), jetons, bibliothèque de composants, maquettes avant implémentation, mouvement, règles photo ; ne copie pas Turo | valider seul son travail |
-| **Vérificateurs indépendants** | revue de code ; **QA** (écrit les tests d'acceptation depuis 16 sans lire d'abord l'implémentation) ; **sécurité** ; **argent** (recalcule avec l'oracle, invariants E1–E5) ; **architecture** ; **UX / design** (WCAG 2.2 AA, 360 px, PWA, textes es) | réécrire la story ; utiliser le code testé comme oracle |
-| **Red team** | attaque à chaque porte de lot (abus, fraude, IDOR, commission contournée, données personnelles) ; lecture seule | corriger lui-même |
+| **Vérificateurs indépendants** | revue de code ; **QA** (écrit les tests d'acceptation depuis 16 sans lire d'abord l'implémentation) ; **sécurité** ; **argent** (recalcule avec l'oracle, invariants E1–E7 et jambes) ; **architecture** ; **UX / design** (WCAG 2.2 AA, 360 px, PWA, textes es, en et fr) | réécrire la story ; utiliser le code testé comme oracle |
+| **Red team** | attaque à chaque porte de lot (abus, fraude P2P, IDOR entre hôtes, jambes et interrupteurs contournés, données personnelles) ; lecture seule | corriger lui-même |
 | **Fondateur (humain)** | décisions (§9), comptes et secrets (19 §6), acceptation, juridique, identité et écrans clés | coder |
 
 ### 4.2 Familles de modèles (19 §1.9 point 4 ; paramètres `team.model.*`)
@@ -284,7 +293,7 @@ Le lot 0 compte 49 stories et 222 points (19 §7). **Les preuves PostgreSQL L0-0
 | 8 | **US-017** moteur de règlement test-first → **US-018** → **US-019** `PaymentProvider` + `FAKE` → **US-022** → **US-023** → **US-024** conversion gardée (**L0-07**, **L0-10** simulé) → **US-025** fuzz C11 et oracle C12 (**L0-09**) | — | C1–C20 verts ; fuzz C11 à 1 000 en CI |
 | 9 | Design : **US-030** → US-031, **US-032**, **US-033** (maquettes à approuver), **US-034**, **US-048** coquille PWA | **F-05** choix du nom et de la direction ; **F-20** antériorité, domaine | nom et thème publiés comme données (DEC-MARQUE, défaut `{brand_name}`) |
 | 10 | Documentation et qualité : US-035, US-038 à US-043, US-046, US-047, US-020, US-021, US-004, US-051, US-052 | **F-04** comptes SMS / e-mail, cartes, suivi d'erreurs | régression nocturne et tableau de bord QA |
-| 11 | **US-049** porte du lot 0 (pré-mortem, red team, post-mortem) ; **US-027** rapport des preuves L0 et **première mesure de vitesse** | **F-06** point hebdomadaire ; **F-16** entretiens loueurs en cours | rapport L0 lisible par le fondateur ; projection de date publiée dans 18 §5.3 ; décision G0 (OQ-MK-07) au premier point après le lot 0 |
+| 11 | **US-049** porte du lot 0 (pré-mortem, red team, post-mortem) ; **US-027** rapport des preuves L0 et **première mesure de vitesse** | **F-06** point hebdomadaire ; **F-16** premiers hôtes particuliers et second approbateur humain (19 v3 §6) | rapport L0 lisible par le fondateur ; projection de date publiée dans 18 §5.3 ; la porte G0 (OQ-MK-07) est **sans objet** (pivot P2P, 18 v5) |
 
 Démarrages parallèles possibles (19 §4.3) : jour 1 US-001, US-028 ; dès US-001 : US-002, US-014, US-015, US-026, US-029 ; dès US-002 : US-005, US-038, US-039, US-040, US-003 ; dès US-005 : US-006, US-008, US-009, US-010, US-013. Le **cœur monétaire** (US-015 → US-016 → US-017 → US-018 → US-024) avance en parallèle dès le début (presque critique). Chemin critique vers la fin du build Bêta : 122 points, 24 stories (19 §4.2).
 
@@ -298,9 +307,9 @@ Démarrages parallèles possibles (19 §4.3) : jour 1 US-001, US-028 ; dès US-0
 | Intégration | PostgreSQL **réel** en conteneur (Testcontainers), rôles de production, outbox, pg-boss | chaque story touchant la base |
 | Oracles et vecteurs dorés | T01–T68, TA01–TA11 en USD et PYG ; propriétés et fuzz (fast-check) contre l'oracle ; mutation ≥ 80 % sur règlement, `Money`, devis | chaque story argent ; 10 000 cas la nuit |
 | Concurrence | C1–C20, L0-01 à L0-09 ; fuzz C11 1 000 en CI, ≥ 10 000 la nuit | chaque fusion |
-| Isolation | RLS-1 à RLS-20, IDOR inter-agences, matrice d'autorisations | chaque fusion |
+| Isolation | RLS-1 à RLS-28, IDOR entre hôtes et entre voyageurs, matrice d'autorisations | chaque fusion |
 | Contrats | OpenAPI ; même suite de contrats pour chaque port sur `FAKE` puis sur le connecteur réel (lot C) | chaque story API |
-| E2E | Playwright 360 / 390 px, tablette comptoir, PWA installée ; parcours dorés PA / USD et PY / PYG avec `FAKE` normal et hostile | chaque story visible ; complet la nuit |
+| E2E | Playwright 360 / 390 px, téléphone de l'hôte et du voyageur, PWA installée ; parcours dorés PA / USD et PY / PYG avec `FAKE` normal et hostile | chaque story visible ; complet la nuit |
 | Sécurité, accessibilité, visuel, gabarits, migrations, données personnelles, charge, résilience, rapprochement | voir 19 §1.8 | selon 19 §1.8 |
 
 **Portes CI bloquantes** : lint (frontières de modules, `now()` interdit dans le SQL métier, pas de SQL dynamique), types, unitaires, échantillon d'oracles, intégration, RLS, C1–C20 (fuzz réduit), contrats sur `FAKE`, e2e touchés, axe et visuel touchés, secrets, dépendances ; revues indépendantes versionnées ; L0-01 à L0-10 bloquants au lot 0 puis à chaque migration du schéma de réservation. **Seuils PROPOSÉS** : STL, PRC, PAY, AVL, `Money` ≥ 95 % lignes / 90 % branches ; autres back-end ≥ 85 % ; front ≥ 75 % ; 0 violation axe bloquante ; 0 vulnérabilité critique ou élevée.
@@ -329,7 +338,8 @@ pnpm test:nightly        # régression complète (C11 10 000, propriétés, muta
 | 08 BR-CXL, E1–E6 | **T01–T48** (annulations, no-show, crédits, taxes par ligne, PYG) | `tools/verif11_settlement.py` (auditeur), `tools/independent_settlement_check.py` | 48 / 48, 0 écart |
 | 08 E1, E4, E5, SM-8 | **T49–T65** (supersession, idempotence, chargeback, caution) | `tools/verif12_t49plus.py` (auditeur), `tools/check_t49plus.py` | 38 / 38 ; 0 écart |
 | 08 E2, F2, F4 (VERIF_12) | **T66–T68** (imputation incrémentale, chargeback sur remboursement bloqué, `attempt_no`) | `tools/check_t66_68.py`, `tools/check_verif12_fixes.py` | OK ; 0 écart |
-| 16 A.8.1 | **TA01–TA11** (P0-A : l'agence encaisse, commission, no-show agence inéligible) | `tools/verif15_ta.py` (TA01–TA09), `tools/check_ta_consolidation.py` (TA10, TA11) | OK |
+| 08 E7 (US-055, US-056) | **TJ01–TJ21** (montants par jambe `HOST`, `INSURER`, `TAX_THIRD_PARTY`, `PLATFORM`, en USD et en PYG) | `tools/check_legs.py` | 58 / 58, 0 écart |
+| 16 A.8.1 (v5) | **TA01–TA11** par jambe, renvoyés aux lignes TJ de 08 | `tools/verif15_ta.py`, `tools/check_ta_consolidation.py` | OK |
 
 Règles de portage (US-016, US-015, 17 §12) :
 1. Copier le dossier de spécification **avec `tools/`** dans le dépôt (PROPOSÉ (handoff) : `docs/specs/`, instantané daté et non modifié hors demande de fusion approuvée) ; `check_t66_68.py` et `check_ta_consolidation.py` lisent 08 et 16 depuis le dossier parent de `tools/` : garder cette disposition.
@@ -342,34 +352,37 @@ Règles de portage (US-016, US-015, 17 §12) :
 
 ## 9. Décisions ouvertes et défauts que les agents doivent appliquer
 
-Copie opérationnelle de 22 (qui fait foi) et 19 §5. Chaque défaut est un **paramètre** (17 §7.2), fail-closed, marqué PROPOSÉ ; les deux branches sont testées quand c'est indiqué.
+Copie opérationnelle de 22 (qui fait foi) et de 19 v3 §5 (révision P2P, US-060). Chaque défaut est un **paramètre** (17 §7.2), fail-closed, marqué PROPOSÉ ; les deux branches sont testées quand c'est indiqué. Une question **produit** propre au P2P ne s'ajoute pas ici : elle se tranche « comme Turo » (DEC-FONDATEUR-14, 16) et s'inscrit dans `docs/team/COMME_TURO.md`.
 
 | Décision | Défaut codé | Stories | Décider avant |
 |---|---|---|---|
-| DEC-MARQUE (DSN-001) | `{brand_name}`, thème neutre accessible | US-028, US-030, toutes les UI | fin du lot 0 |
-| ADR-005 (TRP-056) repli du comptoir | PWA en ligne (ADR-039) | US-026 → US-524 | fin du lot 0 |
-| OQ-MK-07 commission | 12 % du loyer HT | US-018, US-217 | porte G0 (1er point après le lot 0) |
+| DEC-MARQUE (DSN-001) | **Kmino** (`{brand_name}`, donnée de thème) et direction Lienzo · Tinta, choisies par le fondateur et révisables sans développement (`docs/team/DECISIONS.md`) | US-028, US-030, toutes les UI | tranchée (révisable) |
+| Approbation des écrans clés (DSN-007) | la story UI attend (DoR point 6) ; les stories sans UI avancent | US-033, stories UI des lots 1 à 3 | avant chaque story UI concernée |
+| ADR-005 (TRP-056) : repli de la remise et du retour entre personnes si la PWA échoue sur iOS | PWA en ligne (ADR-039) | US-026 → US-524 | fin du lot 0 |
 | OQ-CAT-01 (g) véhicule sans variante | **décidé** : jamais publiable ; file d'ajout | US-113, US-114 | — |
 | OQ-BR-04 jours facturés | `grace_minutes` = 29 ; `overdue_detection_minutes` = 30 | US-202, US-305, US-110 | point avant le lot 2 (J-ADM-031) |
-| UXQ-08 ordre revue / paiement | `flagged_booking_payment_order = REVIEW_BEFORE_LINK` (deux branches testées) | US-209 | point avant le lot 2 |
-| UXQ-03 statut et date d'entrée | deux champs au checkout lus par l'ops | US-209, US-503 | avant le lot 2 |
-| J-ADM-031, OQ-BR-30 / 33 / 46 / 37 / 38 | valeurs PROPOSÉES de 17 §7.2 (25 h, 60 min, 1 jour, pénalités de test 25,00 / 50,00) | US-110, US-017, US-215, US-307, US-518 | point avant le lot 2 ; définitives avant la mise en service |
+| UXQ-08 ordre revue / débit | `flagged_booking_payment_order = REVIEW_BEFORE_CHARGE` (deux branches testées) | US-209, US-023 | point avant le lot 2 |
+| UXQ-03 statut et date d'entrée | contrôle par l'ops à la revue (deux champs au checkout) | US-209, US-503 | avant le lot 2 |
+| J-ADM-031, OQ-BR-30 / 33 / 46 / 37 / 38 | valeurs PROPOSÉES de 17 §7.2 (25 h, 60 min, 1 jour, pénalités de l'hôte de test 25,00 / 50,00) | US-110, US-017, US-215, US-307, US-518 | point avant le lot 2 ; définitives avant la mise en service |
 | DEC-FONDATEUR-01 (OQ-BR-41) | `platform_funded_host_compensation = false` ; T17, T18, T20 désactivés | US-017, US-110, US-215, US-518, US-521 | avant la recette du lot 2 ; au plus tard avant la mise en service |
-| UXQ-09 hold `AGENCY_LINK` | `agency_link_hold_minutes` = 120 ; `reacquire_preempts_unpaid_hold = false` | US-023, US-210 | avant la recette de la Bêta |
-| UXQ-04 tú / usted | tú (interface), usted (contrat) | US-014 | avant la recette de la Bêta |
-| UXQ-12 refus après paiement | remboursement intégral garanti, annoncé avant paiement | US-209, US-216 | avant la mise en service de la Bêta |
-| UXQ-10 délai de remboursement agence | 5 jours ouvrés, tous rails | US-117, US-216, US-537 | avant le 1er contrat-cadre |
-| UXQ-02 caution des agences pilotes | aucune promesse sans déclaration PAY-035 complète | US-206, US-118 | avant la publication des annonces pilotes |
-| UXQ-07 politique d'annulation | unique par pays | US-519 | revue en P1 |
-| OQ-BR-45 no-show agence inéligible | `p0a_ineligible_no_show_outcome = REFUND_GUEST` | US-017, US-307, US-522 | avant la mise en service |
-| DEC-PAYS | aucun pays choisi ; les deux construits ; lot C non démarré | US-601 à US-608 | avant le lot C |
+| OQ-BR-45 no-show quand l'hôte est inéligible | retenue à la jambe `PLATFORM`, comme Turo (T38, T39, TJ05) ; reste l'avis consommation | US-017, US-307, US-522 | avant la mise en service |
+| UXQ-04 tú / usted (et registre français) | « tú » interface, « usted » contrat ; en français, tutoiement dans l'interface et vouvoiement dans le contrat (10b §4.3, PROPOSÉ, US-060) | US-014 et textes | avant la recette de la bêta (test V0) |
+| UXQ-12 refus après paiement | remboursement intégral par Kmino, annoncé avant paiement | US-209, US-224 | avant la mise en service |
+| UXQ-07 politique d'annulation | unique par pays (comme Turo) | US-519 | revue en P1 |
+| OQ-BR-47 montants de caution par classe | formule frais annexes de 08 BR-PAY-06 | US-701, US-225 | avant la mise en service |
+| OQ-P2P-01 à 12 (22 « Pivot P2P ») | défauts « comme Turo » de 22, paramètres de 17 §7.2 (ex. `host_min_age_years` = 21, `p2p_default_booking_mode` = `INSTANT`, `review_window_days` = 10) | stories de 19 v3 | avis avant la mise en service, sans escalade produit |
+| DEC-PAYS | aucun pays choisi ; les deux construits sur `FAKE` ; lot C non démarré | US-601 à US-608 | avant le lot C |
 | ADR-013 / OQ-MK-06 entité qui facture | facture émise hors plateforme par le comptable | US-217, US-531, US-604 | avant LC |
-| Porte PAY-041 | `PSP_GATE_NOT_DECIDED` (aucun mode a réel) | US-220, US-603 | avant la mise en service |
-| OQ-BR-47 caution plateforme ; porte G2 | formule de 08 BR-PAY-06 ; P0-B non démarré | US-701 à US-711 | avant le P0-B |
+| Porte go / no-go du PSP de place de marché (PAY-041) | aucune capacité bloquante validée ⇒ aucun hôte activable (`HOST_PAYOUT_RAIL_UNAVAILABLE`) | US-603, US-607 | avant la mise en service |
+| Interrupteurs de mise en service par pays (`p2p_private_hosts_enabled`, `insurer_contract_active`, `funds_holding_enabled`, `payouts_enabled`) | `false` en production (absent ⇒ `false`) ; changement seulement par la commande à deux personnes (RLS-27), jamais par du code | US-125, US-607 | pays par pays, sur décision écrite, après avis, contrat de l'assureur et porte go / no-go |
+| Second approbateur humain (décisions FINANCE et interrupteurs) | aucune action à deux personnes possible : interrupteurs à `false`, aucun bordereau émis, aucune avance hors plafond | US-101, US-125, US-224, US-227, US-709 | avant la mise en service (bloque la mise en service, pas le build) |
+| `platform_reserve_minor`, `host_advance_cap_minor` par pays et devise | `BLOCK` : aucune avance au-delà de la jambe `PLATFORM` du trip | US-224, US-709 | avant la mise en service |
 | DEC-NATIVE | aucune application native | P2 / P3 | après la bêta fermée |
 | Décisions techniques (ADR-001, ADR-006, ADR-021…) | **décidées par les agents** (orchestrateur + architecture), consignées en ADR | US-001, US-003, US-010 | lot 0 |
 
-Avis juridiques (OQ-MK-01, -02, -05, -06, -09, OQ-BR-21, -24, -25, OQ-PAY-*) : **pas des décisions du fondateur** ; ils conditionnent la mise en service (DEC-FONDATEUR-02, 18 §3). En attendant : modes prudents paramétrés (ex. VER-007 et contrôle des 90 jours en signalement, ADR-023).
+**Sans objet (pivot P2P, DEC-FONDATEUR-13)**, gardées dans 22 avec leur raison : OQ-MK-05, OQ-MK-07 (remplacée par OQ-P2P-11 : part de l'hôte selon son plan), OQ-MK-11, UXQ-02, UXQ-09 (hold `AGENCY_LINK`), UXQ-10 et la variante P0-A d'OQ-BR-45.
+
+Avis juridiques (OQ-MK-01, -02, -03, -04, -06, -09, OQ-BR-14, -16, -21, -24, -25, -35, OQ-PAY-*) : **pas des décisions du fondateur** ; ils conditionnent la mise en service (DEC-FONDATEUR-02, 18 §3) et l'ouverture des interrupteurs. En attendant : modes prudents paramétrés (ex. VER-007 et contrôle des 90 jours en signalement, ADR-023).
 
 ---
 
@@ -378,7 +391,7 @@ Avis juridiques (OQ-MK-01, -02, -05, -06, -09, OQ-BR-21, -24, -25, OQ-PAY-*) : *
 1. **Aucun DDL, aucune politique RLS, aucune transaction de 17 n'a été exécuté** (aucun PostgreSQL sur les postes de rédaction et d'audit, 17 §11) : la conception de 17 §2.3 / §2.5 (exclusion GiST, ré-acquisition, triggers différés I-OCC, `SKIP LOCKED`, RLS par acteur, `SECURITY DEFINER`, `platform.now()`) n'est **qu'une hypothèse** jusqu'à L0-01..L0-09.
 2. **Concurrence** : interblocages (`40P01`), latences (p95 de pose < 300 ms) et invariants du fuzz C11 ne se mesurent que sur un PostgreSQL réel, sous les rôles de production, sans pooler.
 3. **PSP** : marges, TTL des ordres, ordre des webhooks, idempotence, unicité d'un lien, `cancelOrder` : hypothèses simulées par le `FAKE` (L0-10) jusqu'au bac à sable du PSP choisi.
-4. **PWA iOS** : capture caméra sans galerie, purge du stockage hors ligne, géolocalisation : à tester sur les appareils des agences (US-026).
+4. **PWA iOS** : capture caméra sans galerie, purge du stockage hors ligne, géolocalisation : à tester sur des téléphones d'hôtes et de voyageurs (US-026).
 5. **Vitesse de l'équipe d'agents** : inconnue ; mesurée au lot 0 (US-027). Les estimations en jours-agent (18 §5.0) sont des ordres de grandeur non mesurés.
 6. **Turo** : app native et back-office non observés ; parcours de trip seulement DOCUMENTÉS (pas de réservation réelle) ; étapes 2 à 9 du wizard hôte BLOQUÉES (02 « Limites connues », 06).
 7. **Marchés** : valeur face aux agrégateurs et commission acceptable non démontrées (12 §10.4) ; licences NHTSA / EPA du catalogue À VALIDER (OQ-CAT-01 a–b).
@@ -415,9 +428,9 @@ Avis juridiques (OQ-MK-01, -02, -05, -06, -09, OQ-BR-21, -24, -25, OQ-PAY-*) : *
 
 ## 13. Checklist : ce handoff est-il complet ? (cochée après l'audit 24 et ses corrections)
 
-- [x] Mission, modèle MVP et contraintes non négociables énoncés avec leurs sources (§1)
+- [x] Mission (P2P, comme Turo, aucune agence), modèle d'argent par jambes et contraintes non négociables énoncés avec leurs sources (§1 ; révision P2P, US-060)
 - [x] Carte des documents et document qui fait foi par sujet (§2) ; règle d'arbitrage des écarts
-- [x] Décisions prises (DEC-FONDATEUR-02 à 10) et décisions ouvertes avec défaut, paramètre et échéance (§3, §9) — identiques à 22
+- [x] Décisions prises (DEC-FONDATEUR-02 à 17) et décisions ouvertes avec défaut, paramètre et échéance (§3, §9) — identiques à 22 et à 19 v3 §5 (révision P2P, US-060)
 - [x] Rôles, familles de modèles A / B, cycle de story avec worktrees et branches (§4.1–§4.3)
 - [x] Artefacts entre agents avec chemins et gabarits (§4.4) ; US-029 les crée
 - [x] Escalade, point hebdomadaire, protocole de limite d'usage, moindre privilège, porte de déploiement, portes de lot (§4.5–§4.8)
