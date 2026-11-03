@@ -66,16 +66,18 @@ async function paidTripA(
   method: 'CARD' | 'YAPPY' = 'CARD',
 ): Promise<string> {
   const tj01 = legVector(set, 'TJ01');
-  const order = await r.stack.provider.createHostedPayment({
-    idempotencyKey: `hold:hA:CAPTURE:a1:${method}`,
+  // ordre posé directement chez le PSP simulé : certains tests retirent une capacité bloquante
+  // (recherche par clé), qui ferme `createHostedPayment` depuis US-061 (17 §2.8)
+  const order = r.stack.psp.createOrder({
+    merchantReference: `hold:hA:CAPTURE:a1:${method}`,
     currency: tj01.currency,
     method,
     capture: 'AUTO',
     amountMinor: tj01.totalMinor,
     legs: legs('TJ01'),
   });
-  r.stack.psp.customerPays(order.providerReference);
-  return order.providerReference;
+  r.stack.psp.customerPays(order.reference);
+  return order.reference;
 }
 
 function command(

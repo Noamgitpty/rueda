@@ -99,3 +99,38 @@ export function debitFromVariation(variation: LegAmounts): LegAmounts {
     }),
   ) as Record<Leg, bigint>;
 }
+
+/**
+ * Transfert du solde PLATFORM vers des jambes tierces d'un même trip (`transferFromPlatform`,
+ * 17 §2.8, §2.9 ; avance de Kmino, 08 E7 règle 3 bis) : Σ = 0, PLATFORM seule débitée, au moins une
+ * jambe créditée. Rend le montant transféré.
+ */
+export function assertTransferLegs(legs: LegAmounts): bigint {
+  checkShape(legs);
+  const sum = legSum(legs);
+  if (sum !== 0n) {
+    throw new PaymentError('LEG_SUM_MISMATCH', `transfert : Σ jambes ${sum} ≠ 0`);
+  }
+  for (const leg of LEGS) {
+    if (leg !== 'PLATFORM' && legs[leg] < 0n) {
+      throw new PaymentError('LEG_AMOUNT_NEGATIVE', `transfert : jambe ${leg} débitée`);
+    }
+  }
+  const moved = -legs.PLATFORM;
+  if (moved <= 0n) throw new PaymentError('INVALID_REQUEST', 'transfert vide');
+  return moved;
+}
+
+/** Montant strictement positif en unités mineures (libération, versement, ajustement). */
+export function assertPositiveAmount(amountMinor: bigint): void {
+  if (typeof amountMinor !== 'bigint' || amountMinor <= 0n) {
+    throw new PaymentError(
+      'INVALID_REQUEST',
+      'montant strictement positif en unités mineures attendu',
+    );
+  }
+}
+
+export function isLeg(value: unknown): value is Leg {
+  return typeof value === 'string' && (LEGS as readonly string[]).includes(value);
+}

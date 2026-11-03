@@ -7,7 +7,10 @@
  */
 import type { EnvironmentVariables } from '../guard.ts';
 
-/** Jambes d'un ordre (08 E7) : le PSP simulé n'en fait que contrôler la somme (US-019). */
+/**
+ * Jambes d'un ordre (08 E7). Le PSP simulé contrôle leur somme (US-019) et tient, comme un PSP de
+ * place de marché, un solde par trip et par jambe (US-061 : libération, gel, réaffectation).
+ */
 export const FAKE_LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
 export type FakeLeg = (typeof FAKE_LEGS)[number];
 export type FakeLegAmounts = Readonly<Record<FakeLeg, bigint>>;
@@ -24,8 +27,20 @@ export const FAKE_OPERATIONS = [
   'MIT_CHARGE',
   'REAUTHORIZE',
   'LOOKUP',
+  // place de marché (US-061 ; 17 §2.8)
+  'REGISTER_SUBMERCHANT',
+  'GET_SUBMERCHANT',
+  'RELEASE_LEG',
+  'HOLD_LEG',
+  'PAYOUT',
+  'ADJUST_PAYOUT',
+  'TRANSFER_FROM_PLATFORM',
+  'LIST_LEG_BALANCES',
 ] as const;
 export type FakeOperation = (typeof FAKE_OPERATIONS)[number];
+/** Lectures : aucune clé d'idempotence, aucun mouvement. */
+export type FakeReadOperation = 'LOOKUP' | 'GET_SUBMERCHANT' | 'LIST_LEG_BALANCES';
+export type FakeWriteOperation = Exclude<FakeOperation, FakeReadOperation>;
 
 /**
  * État d'une transaction chez le PSP simulé :
@@ -42,7 +57,7 @@ export interface FakeTransaction {
   readonly reference: string;
   /** Clé d'idempotence reçue du marchand (`idem_sent`, 08 E4). */
   readonly merchantReference: string;
-  readonly operation: Exclude<FakeOperation, 'LOOKUP'>;
+  readonly operation: FakeWriteOperation;
   readonly method: string;
   readonly amountMinor: bigint;
   readonly currency: string;
@@ -59,6 +74,10 @@ export interface FakeTransaction {
   readonly voided: boolean;
   /** Ordre : nombre de paiements reçus (lien réutilisable payé deux fois : 2). */
   readonly paidCount: number;
+  /** Trip dont les jambes sont tenues par le PSP (place de marché, US-061). */
+  readonly tripReference: string;
+  /** Sous-marchand visé (enregistrement, versement, ajustement), sinon `null`. */
+  readonly submerchantReference: string | null;
 }
 
 /**
@@ -97,6 +116,15 @@ export interface FakePspScenario {
   readonly webhooks?: FakeWebhookScenario;
   /** PSP qui ignore l'idempotence : la même clé débite une seconde fois (17 §6.5 point 5). */
   readonly ignoreIdempotency?: boolean;
+  /**
+   * PSP HOSTILE qui ventile lui-même un remboursement au prorata des jambes encaissées, au lieu des
+   * montants explicites reçus (contre-exemple TJ10c, interdit par 08 E7 règle 1) : chaque jambe
+   * non plateforme = arrondi au plus proche (demi vers le haut) de jambe × remboursé / encaissé,
+   * PLATFORM en complément. Le test de contrat doit le détecter (US-061, critère 4).
+   */
+  readonly prorata?: boolean;
+  /** Issue du KYC du PSP à l'enregistrement d'un sous-marchand (défaut : `ACTIVE`). */
+  readonly submerchantKyc?: FakeSubmerchantStatus;
 }
 
 export type FakeCapabilityStatus =
@@ -125,6 +153,8 @@ export interface FakePspOptions {
 
 export interface FakeCreateOrderRequest {
   readonly merchantReference: string;
+  /** Trip des jambes tenues (défaut : la référence de l'ordre). */
+  readonly tripReference?: string;
   readonly method: string;
   readonly amountMinor: bigint;
   readonly currency: string;
@@ -149,6 +179,7 @@ export interface FakeReallocateRequest {
 
 export interface FakeMitRequest {
   readonly merchantReference: string;
+  readonly tripReference?: string;
   readonly instrumentToken: string;
   readonly reason: string;
   readonly amountMinor: bigint;
@@ -180,4 +211,79 @@ export interface FakeWebhookDelivery {
   readonly eventId: string;
   readonly body: string;
   readonly headers: Readonly<Record<string, string>>;
+}
+
+// --- place de marché (US-061 ; 17 §2.8) -------------------------------------------------------
+
+export type FakeSubmerchantStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED';
+
+export interface FakeSubmerchant {
+  readonly reference: string;
+  /** Référence de l'hôte chez le marchand (compte d'hôte), transmise à l'enregistrement. */
+  readonly hostReference: string;
+  readonly individual: boolean;
+  readonly country: string;
+  readonly payoutCurrency: string;
+  readonly status: FakeSubmerchantStatus;
+  /** Jambes HOST libérées vers ce sous-marchand, versées, retenues (unités mineures). */
+  readonly releasedMinor: bigint;
+  readonly paidOutMinor: bigint;
+  readonly adjustedMinor: bigint;
+}
+
+export interface FakeRegisterSubmerchantRequest {
+  readonly merchantReference: string;
+  readonly hostReference: string;
+  readonly individual: boolean;
+  readonly country: string;
+  readonly payoutCurrency: string;
+}
+
+export interface FakeReleaseLegRequest {
+  readonly merchantReference: string;
+  readonly tripReference: string;
+  readonly leg: FakeLeg;
+  readonly amountMinor: bigint;
+  readonly currency: string;
+  /** Sous-marchand (jambe HOST) ou bénéficiaire (assureur, compte de Kmino). */
+  readonly beneficiaryReference: string;
+}
+
+export interface FakeHoldLegRequest {
+  readonly merchantReference: string;
+  readonly tripReference: string;
+  readonly leg: FakeLeg;
+}
+
+export interface FakePayoutRequest {
+  readonly merchantReference: string;
+  readonly submerchantReference: string;
+  readonly amountMinor: bigint;
+  readonly currency: string;
+}
+
+export interface FakeAdjustPayoutRequest extends FakePayoutRequest {
+  readonly reason: string;
+}
+
+export interface FakeTransferRequest {
+  readonly merchantReference: string;
+  readonly tripReference: string;
+  readonly currency: string;
+  /** Σ = 0 : PLATFORM débitée, jambes tierces créditées. */
+  readonly legs: FakeLegAmounts;
+  readonly reason: string;
+}
+
+/** Solde d'une jambe d'un trip tenu par le PSP (`listLegBalances`, 17 §2.8). */
+export interface FakeLegBalance {
+  readonly tripReference: string;
+  readonly leg: FakeLeg;
+  readonly currency: string;
+  readonly capturedMinor: bigint;
+  readonly refundedMinor: bigint;
+  readonly reallocatedInMinor: bigint;
+  readonly reallocatedOutMinor: bigint;
+  readonly releasedMinor: bigint;
+  readonly held: boolean;
 }
