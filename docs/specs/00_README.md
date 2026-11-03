@@ -104,6 +104,21 @@ python -I -X utf8 tools/verify_cxl_tests.py                # historique (T01–T
 
 Boucle unique (Git Bash) : `for f in tools/*.py; do echo "== $f"; python -I -X utf8 "$f" | tail -2; done`.
 
+**Registre des oracles (US-050).** La CI (`scripts/ci/check-spec-tools.py`) lit les résultats attendus ci-dessus dans [`tools/registry.json`](tools/registry.json). Pour chaque script, ce fichier donne les motifs qui doivent apparaître (`require`), ceux qui ne doivent pas apparaître (`forbid`) et, pour les oracles comptés, le nombre de vecteurs (`counts`). Pour ajouter un oracle ou un vecteur, il suffit de modifier les specs :
+
+1. ajouter le script dans `tools/` et sa ligne dans le bloc ci-dessus ;
+2. l'inscrire dans `tools/registry.json` (ou y relever le compte, par exemple `check_legs.py` : `"vecteurs": 58` et le motif `… : 58 ; vecteurs calculés : 58`) ;
+3. lancer `python -I -X utf8 scripts/ci/check-spec-tools.py --specs docs/specs`, qui doit afficher `RÉSULTAT : OK`.
+
+Ce chemin ne touche pas `scripts/ci/`. Le registre exige une revue argent et une revue sécurité (`docs/team/review-requirements.json`). Il ne contient que des attentes : il ne peut ni exclure un script, ni retirer un oracle plancher, ni annuler un compte obligatoire. Il peut en revanche relâcher un motif, d'où la revue sécurité. Ce qui suit reste dans le script et ne change qu'avec l'accord du fondateur :
+
+- la liste des scripts exclus (`EXCLUDED`) ;
+- la liste plancher des oracles qui doivent figurer au registre ;
+- les comptes obligatoires (≥ 1) ;
+- l'interdiction d'une trace Python.
+
+Un registre absent, illisible ou vide fait échouer le contrôle, de même qu'une clé inconnue ou en double, un script absent ou hors de `tools/`, un motif `require` qui accepte une sortie vide, ou un script de `tools/` qui n'est classé nulle part.
+
 État du 2026-10-30 après la passe finale : **tous les scripts ci-dessus s'exécutent sans erreur et donnent le résultat indiqué** (`verif19_backlog.py` a reçu une mise à jour **structurelle uniquement** : totaux lus dans 19 §7 et stories déplacées de 19 §1.1 acceptées ; voir 19 §7 et 23).
 
 ## 5. Ordre de lecture

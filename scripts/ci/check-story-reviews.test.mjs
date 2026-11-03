@@ -292,6 +292,18 @@ test('docs/specs/ ou CLAUDE.md touchés : + architecture ; stories de révision 
     'argent',
     'code',
   ]);
+  // Registre des oracles : relâcher un motif affaiblit un contrôle, d'où + sécurité (US-050 03g).
+  assert.deepEqual(requiredRoles('US-099', ['docs/specs/tools/registry.json'], config), [
+    'architecture',
+    'argent',
+    'code',
+    'securite',
+  ]);
+  assert.deepEqual(requiredRoles('US-099', ['docs/specs/tools/registry.json.bak'], config), [
+    'architecture',
+    'argent',
+    'code',
+  ]);
   assert.deepEqual(requiredRoles('US-099', ['docs/specs.md'], config), ['code']);
   assert.deepEqual(requiredRoles('US-055', [], config), ['argent', 'code', 'qa']);
   assert.deepEqual(requiredRoles('US-056', [], config), [
