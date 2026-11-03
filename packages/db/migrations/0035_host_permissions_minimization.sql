@@ -38,8 +38,9 @@
 --   DROP VIEW core.booking_host_guest_v; DROP FUNCTION core.booking_host_guest_rows();
 --   DROP POLICY host_view_read ON core.booking_trip, core.iam_user_account;
 --   REVOKE ALL ON core.booking_trip, core.iam_user_account FROM host_view_owner;
---   REVOKE EXECUTE ON FUNCTION app.host_covers_vehicle(uuid), app.actor_kind(), app.org_id(),
---     platform.now() FROM host_view_owner; REVOKE USAGE ON SCHEMA core, app, platform FROM host_view_owner;
+--   SET LOCAL ROLE policy_fn_owner; REVOKE EXECUTE ON FUNCTION app.host_covers_vehicle(uuid)
+--     FROM host_view_owner; RESET ROLE;
+--   REVOKE EXECUTE ON FUNCTION app.actor_kind(), app.org_id(), platform.now() FROM host_view_owner; REVOKE USAGE ON SCHEMA core, app, platform FROM host_view_owner;
 --   GRANT SELECT (guest_user_id) ON core.booking_trip TO app_api;
 --   ALTER POLICY operation_guest_read … (texte de 0025) ;
 --   ALTER POLICY settlement_leg_host_read / leg_host_read … (textes de 0027, 0028) ;
@@ -135,7 +136,11 @@ ALTER POLICY operation_guest_read ON core.payment_payment_operation
 -- 5. host_guest_v (host_view_owner) -------------------------------------------------------------
 GRANT USAGE ON SCHEMA core, app, platform TO host_view_owner;
 GRANT EXECUTE ON FUNCTION platform.now(), app.actor_kind(), app.org_id() TO host_view_owner;
+-- host_covers_vehicle appartient à policy_fn_owner : seul son propriétaire peut l'accorder
+-- (SET TRUE, INHERIT FALSE : ADR-044 amendé ; comme 0032 pour cmd_hold_owner).
+SET LOCAL ROLE policy_fn_owner;
 GRANT EXECUTE ON FUNCTION app.host_covers_vehicle(uuid) TO host_view_owner;
+RESET ROLE;
 GRANT SELECT (id, org_id, vehicle_id, guest_user_id, timezone) ON core.booking_trip TO host_view_owner;
 GRANT SELECT (id, legal_first_name, date_of_birth, pseudonymized_at)
   ON core.iam_user_account TO host_view_owner;
