@@ -16,7 +16,7 @@ AVL ne calcule ni prix (PRC) ni règlement (STL), et n'appelle jamais le PSP lui
 - US-022 : table d'occupation unique, blocages de l'hôte, tampons (ADR-060) ;
 - US-023 : commandes de pose et de libération des holds, tâche d'expiration (ADR-063) ;
 - US-024 : intention de paiement, conversion gardée, ré-acquisition, compensation, balayages (ADR-065) ;
-- US-025 : oracle de production C12 (migration 0043) et sa tâche périodique `internal/production-oracle.ts` (ADR-068) ; fuzz C11 (`packages/db/test/l0/l0-c11-fuzz.test.ts`).
+- US-025 : oracle de production C12 (migration 0045) et sa tâche périodique `internal/production-oracle.ts` (ADR-068) ; fuzz C11 (`packages/db/test/l0/l0-c11-fuzz.test.ts`).
 
 Détail des commandes : `packages/db/README.md`, sections « Table d'occupation unique », « Holds de checkout et commandes » et « Conversion gardée, ré-acquisition et compensation ». Machine à états du trip : US-207. iCal : US-510 (hors produit pour l'instant).
 
@@ -45,7 +45,7 @@ Déjà émis par le code (écrits dans `core.outbox_outbox_event` par les foncti
 - `booking.hold.payment_in_flight` (0040) ;
 - `booking.hold.converted`, `booking.hold.reacquired`, `booking.trip.booked` (0041, conversion) ;
 - `booking.hold.compensated`, `booking.hold.compensation_required`, `booking.payment.late_ignored` (0041) ;
-- `booking.alert.invariant_violation` et `booking.payment.disposition_overdue` (0041), `booking.alert.production_oracle` (0043, comptes seulement) : alertes absentes du catalogue 17 §4.5.
+- `booking.alert.invariant_violation` et `booking.payment.disposition_overdue` (0041), `booking.alert.production_oracle` (0045, comptes seulement) : alertes absentes du catalogue 17 §4.5.
 
 Cible seulement (17 §4.5) : `trip.status_changed`, `trip.cancellation.qualified`, `booking.request.*`, `booking.hold.release_requested`, `booking.hold.superseded`, `booking.ical.conflict_detected`, `booking.ical.feed_failing`, `payment.disposition.repair_alert`.
 

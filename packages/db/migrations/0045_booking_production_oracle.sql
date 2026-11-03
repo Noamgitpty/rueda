@@ -1,4 +1,4 @@
--- 0043 — AVL : oracle de production C12 (lecture seule, alerte P1) et garde d'environnement de T1
+-- 0045 — AVL : oracle de production C12 (lecture seule, alerte P1) et garde d'environnement de T1
 -- fail-closed sur NULL.
 -- US-025 ; 19 US-025 ; 17 §2.5 (plan de test C11, C12), §11 L0-09, §2.3 (« app_worker, une politique
 -- explicite par travailleur »), §6.3 (alertes), §6.5 point 1 (environnement de la base) ; ADR-035,

@@ -6,7 +6,7 @@
 --
 --   1. platform.deployment_env() (version de TEST de 9500) : le paramètre de session
 --      `app.test_deployment_env` = '__null__' la fait rendre NULL. C'est le seul moyen d'éprouver,
---      sous un rôle de production, la garde fail-closed de T1 (0043) contre un environnement NULL
+--      sous un rôle de production, la garde fail-closed de T1 (0045) contre un environnement NULL
 --      (report de la revue sécurité d'US-024). Toute autre valeur garde le comportement de 9500.
 --   2. test_fixture.us025_forge_c12(contrôle, trip) : forge, DANS LA TRANSACTION DE L'APPELANT, la
 --      violation d'un contrôle de l'oracle C12 à partir d'un trip converti de référence. Les

@@ -275,7 +275,7 @@ Preuves : `test/l0/l0-us024-conversion.test.ts` (PA et PY, groupe isolé de `vit
 
 ## Fuzz C11 et oracle de production C12 (US-025 ; 17 §2.5 C11, C12, §11 L0-09 ; ADR-068)
 
-Cherche au hasard les entrelacements dangereux et surveille la production chaque nuit (migration 0043, fixture 9880).
+Cherche au hasard les entrelacements dangereux et surveille la production chaque nuit (migration 0045, fixture 9880).
 
 - **Oracle C12** (`SECURITY INVOKER`, `app_worker`, travailleur `booking_oracle` seulement ; ajouté par `ALTER POLICY` aux politiques SELECT `worker_select` des tables lues) :
   - `core.booking_production_oracle()` (`STABLE`, transaction `READ ONLY`) rend **cinq lignes** `(check_code, violations, by_country)` : `TRIP_WITHOUT_ACTIVE_OCCUPANCY`, `SUCCEEDED_WITHOUT_DISPOSITION` (plus de 20 min après la réussite connue), `COMPENSATED_HOLD_WITH_TRIP`, `HOLD_WITH_TWO_CONVERSIONS`, `INACTIVE_TRIP_OCCUPANCY_OF_LIVE_TRIP` (codes PROPOSÉS). Aucune donnée personnelle lue ; des comptes seulement. Tout autre contexte : `42501` / `oracle_forbidden` (`FORBIDDEN`), jamais des zéros trompeurs.

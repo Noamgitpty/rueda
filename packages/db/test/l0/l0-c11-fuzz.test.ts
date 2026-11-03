@@ -1,6 +1,6 @@
 /**
  * US-025 — fuzz d'entrelacements C11 (L0-09) et oracle de production C12 (19 US-025 ; 17 §2.5
- * plan de test C11 et C12, §11 L0-09 ; migration 0043 ; ADR-068).
+ * plan de test C11 et C12, §11 L0-09 ; migration 0045 ; ADR-068).
  *
  * Monde : 2 pays (PA en USD, PY en PYG) × 2 hôtes × 3 véhicules × 4 voyageurs par pays, NEUFS à
  * chaque exécution, qui vit en outre dans sa propre période d'horloge virtuelle (2061 et après, une
@@ -1590,7 +1590,7 @@ describe('US-025 — fuzz C11 (L0-09) et oracle C12, PA (USD) et PY (PYG)', () =
   });
 
   // -----------------------------------------------------------------------------------------------
-  // Report de la revue sécurité d'US-024 : garde d'environnement de T1 fail-closed sur NULL (0043)
+  // Report de la revue sécurité d'US-024 : garde d'environnement de T1 fail-closed sur NULL (0045)
   // -----------------------------------------------------------------------------------------------
   it.each(COUNTRIES)(
     'T1 ($country) : platform.deployment_env() NULL vaut « production » (FAKE et SANDBOX refusés)',
