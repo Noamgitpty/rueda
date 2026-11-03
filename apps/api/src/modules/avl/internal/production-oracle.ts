@@ -1,6 +1,6 @@
 /**
  * Oracle de production C12 (17 §2.5 ; 19 US-025 ; ADR-068) : tâche périodique du travailleur
- * `booking_oracle`. Elle appelle `core.booking_production_oracle_alert()` (migration 0042), qui
+ * `booking_oracle`. Elle appelle `core.booking_production_oracle_alert()` (migration 0043), qui
  * rejoue les cinq contrôles de C12 sur toute la base et, si l'un est non nul, écrit **une** alerte
  * P1 `booking.alert.production_oracle` dans l'outbox (comptes seulement). Les lectures de l'oracle
  * ne portent sur aucune donnée personnelle ; la tâche ne journalise que des comptes.
@@ -11,13 +11,13 @@
  */
 import type { BusRegistry, SqlClient } from '../../bus/index.js';
 
-/** Travailleur de l'oracle (politiques `worker_select_oracle`, 0042). */
+/** Travailleur de l'oracle (politiques `worker_select_oracle`, 0043). */
 export const BOOKING_ORACLE_WORKER = 'booking_oracle';
 
 /** Période de la tâche : une fois par 24 h (PROPOSÉ, ADR-068). */
 export const PRODUCTION_ORACLE_PERIOD_SECONDS = 86_400;
 
-/** Les cinq contrôles de C12, dans l'ordre de 17 §2.5 (codes PROPOSÉS, 0042). */
+/** Les cinq contrôles de C12, dans l'ordre de 17 §2.5 (codes PROPOSÉS, 0043). */
 export const C12_CHECKS = [
   'TRIP_WITHOUT_ACTIVE_OCCUPANCY',
   'SUCCEEDED_WITHOUT_DISPOSITION',
