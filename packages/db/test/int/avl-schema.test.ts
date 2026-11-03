@@ -3,7 +3,7 @@
  * Vérifie, sous les rôles de production, ce que les preuves L0 supposent :
  * - RLS ENABLE + FORCE sur toutes les tables `core`, politique `migrator_all` (CLAUDE.md point 5) ;
  * - droits : rien pour PUBLIC ni app_anon ; app_api en lecture seule filtrée par politique (US-011,
- *   0025) ; aucun DELETE ; app_worker borné (17 §2.3, A1) ;
+ *   0025, par colonnes) ; aucun DELETE ; app_worker borné (17 §2.3, A1) ;
  * - contexte absent ⇒ 0 ligne, sans erreur ; écriture refusée (fail-closed) ;
  * - fonctions de trigger d'intégrité : SECURITY DEFINER, propriétaire integrity_owner (US-011),
  *   search_path figé, sans EXECUTE (ADR-048) ; liste blanche complète : l0-rls-15-security-definer ;
@@ -153,14 +153,9 @@ describe('schéma core (US-006)', () => {
         [CORE_TABLES],
       );
       const granted = rows.filter((r) => r.has).map((r) => `${r.role}:${r.tbl}:${r.priv}`);
-      // app_api : lecture de table de trois tables seulement (payment_operation : par colonnes)
-      expect(granted.filter((g) => !g.startsWith('app_worker:')).sort()).toEqual(
-        [
-          'app_api:booking_checkout_hold:SELECT',
-          'app_api:booking_guest_occupancy:SELECT',
-          'app_api:booking_trip:SELECT',
-        ].sort(),
-      );
+      // app_api : aucune lecture de TABLE entière ; ses lectures sont par colonnes (US-011,
+      // liste exacte dans test/l0/l0-rls-columns.test.ts)
+      expect(granted.filter((g) => !g.startsWith('app_worker:'))).toEqual([]);
       expect(granted.filter((g) => /:(DELETE|TRUNCATE)$/.test(g))).toEqual([]);
       // app_worker n'insère ni occupation, ni hold, ni opération (commandes cmd_* : US-023)
       for (const tbl of [

@@ -102,18 +102,70 @@ describe('schéma IAM (US-010)', () => {
           WHERE pg_catalog.has_table_privilege(r.role, 'core.' || t.tbl, p.priv)`,
         [IAM_TABLES],
       );
-      // lecture de table : organization seulement ; user_account et membership : par colonnes
-      expect(rows.map((r) => r.g)).toEqual(['app_api:iam_organization:SELECT']);
+      // aucune lecture de TABLE entière : app_api lit par colonnes, liste exacte (US-011)
+      expect(rows.map((r) => r.g)).toEqual([]);
       const { rows: cols } = await client.query<{ col: string }>(
         `SELECT t.tbl || '.' || a.attname AS col
-           FROM unnest(ARRAY['iam_user_account', 'iam_membership']) AS t(tbl)
+           FROM unnest($1::text[]) AS t(tbl)
            JOIN pg_catalog.pg_attribute a ON a.attrelid = ('core.' || t.tbl)::regclass
           WHERE a.attnum > 0 AND NOT a.attisdropped
-            AND pg_catalog.has_column_privilege('app_api', ('core.' || t.tbl)::regclass, a.attnum, 'SELECT')
-          ORDER BY 1`,
+            AND pg_catalog.has_column_privilege('app_api', ('core.' || t.tbl)::regclass, a.attnum, 'SELECT')`,
+        [IAM_TABLES],
       );
-      expect(cols.map((c) => c.col)).not.toContain('iam_user_account.password_hash');
-      expect(cols.map((c) => c.col)).not.toContain('iam_user_account.pseudonymized_at');
+      const of = (tbl: string, names: string[]) => names.map((n) => `${tbl}.${n}`);
+      expect(cols.map((c) => c.col).sort()).toEqual(
+        [
+          ...of('iam_user_account', [
+            'id',
+            'email',
+            'email_verified_at',
+            'phone_e164',
+            'phone_verified_at',
+            'legal_first_name',
+            'legal_last_name',
+            'display_name',
+            'date_of_birth',
+            'preferred_locale',
+            'residence_country',
+            'status',
+            'created_at',
+            'updated_at',
+          ]),
+          ...of('iam_organization', [
+            'id',
+            'kind',
+            'holder_user_id',
+            'country_code',
+            'display_name',
+            'tax_id',
+            'status',
+            'plan_code',
+            'legal_entity_id',
+            'created_at',
+            'updated_at',
+          ]),
+          ...of('iam_membership', [
+            'id',
+            'user_id',
+            'org_id',
+            'role',
+            'vehicle_scope',
+            'permission_overrides',
+            'status',
+            'invite_expires_at',
+            'created_at',
+            'updated_at',
+          ]),
+        ].sort(),
+      );
+      // ni app_worker ni app_anon : aucune colonne IAM
+      const { rows: others } = await client.query<{ n: number }>(
+        `SELECT count(*)::int AS n
+           FROM unnest($1::text[]) AS t(tbl), unnest(ARRAY['app_worker', 'app_anon']) AS r(role)
+          WHERE pg_catalog.has_any_column_privilege(r.role, ('core.' || t.tbl)::regclass, 'SELECT')`,
+        [IAM_TABLES],
+      );
+      expect(others[0]?.n).toBe(0);
       for (const sql of [
         'SELECT password_hash FROM core.iam_user_account LIMIT 1',
         'SELECT token_hash FROM core.iam_session LIMIT 1',

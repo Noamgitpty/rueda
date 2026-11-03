@@ -27,6 +27,10 @@
 -- Retour arrière :
 --   DROP FUNCTION app.has_staff_role(text, text), app.staff_case_covers(text, uuid),
 --     app.host_covers_vehicle(uuid), app.is_org_holder();
+--   DROP POLICY policy_fn_read ON core.iam_membership, core.iam_organization,
+--     core.iam_staff_role_assignment, core.iam_user_account, core.support_support_case;
+--   REVOKE ALL ON core.iam_membership, core.iam_organization, core.iam_staff_role_assignment,
+--     core.iam_user_account FROM policy_fn_owner;  REVOKE USAGE ON SCHEMA core FROM policy_fn_owner;
 --   DROP TABLE core.support_support_case;
 --   DROP FUNCTION app.actor_id(), app.org_id(), app.vehicle_scope(), app.country_scope();
 
@@ -155,14 +159,18 @@ GRANT SELECT (user_id, role, country_scope, expires_at)
   ON core.iam_staff_role_assignment TO policy_fn_owner;
 GRANT SELECT (trip_id, assignee_id, status, country_code)
   ON core.support_support_case TO policy_fn_owner;
+-- statut du compte : un membre du staff dont le compte n'est pas ACTIVE perd ses rôles
+GRANT SELECT (id, status) ON core.iam_user_account TO policy_fn_owner;
 CREATE POLICY policy_fn_read ON core.iam_membership FOR SELECT TO policy_fn_owner USING (true);
 CREATE POLICY policy_fn_read ON core.iam_organization FOR SELECT TO policy_fn_owner USING (true);
 CREATE POLICY policy_fn_read ON core.iam_staff_role_assignment FOR SELECT TO policy_fn_owner USING (true);
 CREATE POLICY policy_fn_read ON core.support_support_case FOR SELECT TO policy_fn_owner USING (true);
+CREATE POLICY policy_fn_read ON core.iam_user_account FOR SELECT TO policy_fn_owner USING (true);
 
 -- Le membre du staff de la session a-t-il le rôle p_role, en cours, sur le pays p_country ?
 -- Le pays doit être à la fois dans la portée posée (app.country_scope) et dans celle de
--- l'attribution (staff_role_assignment.country_scope) : RLS-20.
+-- l'attribution (staff_role_assignment.country_scope) : RLS-20. Le compte doit être ACTIVE : un
+-- compte suspendu (RESTRICTED), fermé ou banni perd tous ses rôles internes (revue sécurité US-011).
 CREATE FUNCTION app.has_staff_role(p_role text, p_country text)
   RETURNS boolean
   LANGUAGE sql
@@ -175,10 +183,12 @@ AS $fn$
            AND p_country = ANY (app.country_scope())
            AND EXISTS (SELECT 1
                          FROM core.iam_staff_role_assignment AS a
+                         JOIN core.iam_user_account AS u ON u.id = a.user_id
                         WHERE a.user_id = app.actor_id()
                           AND a.role = p_role
                           AND p_country = ANY (a.country_scope)
-                          AND (a.expires_at IS NULL OR a.expires_at > platform.now())),
+                          AND (a.expires_at IS NULL OR a.expires_at > platform.now())
+                          AND u.status = 'ACTIVE'),
            false)
 $fn$;
 
@@ -202,10 +212,12 @@ AS $fn$
                           AND c.country_code = ANY (app.country_scope())
                           AND EXISTS (SELECT 1
                                         FROM core.iam_staff_role_assignment AS a
+                                        JOIN core.iam_user_account AS u ON u.id = a.user_id
                                        WHERE a.user_id = c.assignee_id
                                          AND a.role IN ('OPS_AGENT', 'SUPPORT_AGENT')
                                          AND c.country_code = ANY (a.country_scope)
-                                         AND (a.expires_at IS NULL OR a.expires_at > platform.now()))),
+                                         AND (a.expires_at IS NULL OR a.expires_at > platform.now())
+                                         AND u.status = 'ACTIVE')),
            false)
 $fn$;
 

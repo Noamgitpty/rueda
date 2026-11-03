@@ -14,7 +14,7 @@
  *   - holds ACTIVE : h1 (guest1, A, v4), h2 (guest2, B, v5) ; opérations : trip a1, trip b1, hold h1.
  * Voyageurs `guest1`, `guest2` communs à tous les pays (un voyageur voit ses objets partout).
  * Staff : OPS du premier pays, SUPPORT des deux pays sans dossier, FINANCE du premier pays, ADMIN
- * des deux pays, ADMIN expiré. Dossiers : (1) a1 du premier pays assigné à l'OPS ; (2) a1 du second
+ * des deux pays, ADMIN expiré, ADMIN au compte suspendu (RESTRICTED). Dossiers : (1) a1 du premier pays assigné à l'OPS ; (2) a1 du second
  * pays assigné au MÊME OPS (RLS-20) ; (3) a2 du premier pays, CLOS, assigné à l'OPS.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -66,6 +66,7 @@ export interface World {
     readonly financeFirst: string;
     readonly adminAll: string;
     readonly adminExpired: string;
+    readonly adminSuspended: string;
   };
   readonly cases: {
     readonly firstA1: string;
@@ -92,8 +93,11 @@ async function staff(
   role: string,
   scope: readonly string[],
   expiresAt: string | null = null,
+  status = 'ACTIVE',
 ): Promise<string> {
   const id = await account(tx);
+  // un rôle interne n'a d'effet que sur un compte ACTIVE (app.has_staff_role, US-011)
+  await tx.query(`SELECT test_fixture.iam_set_account_status($1, $2)`, [id, status]);
   await tx.query(`SELECT test_fixture.iam_grant_staff_role($1, $2, $3, $4::text[], NULL, $5)`, [
     uuid(),
     id,
@@ -127,6 +131,7 @@ export async function buildWorld(
       financeFirst: await staff(tx, 'FINANCE', [first]),
       adminAll: await staff(tx, 'ADMIN', all),
       adminExpired: await staff(tx, 'ADMIN', all, '2001-01-01T00:00:00Z'),
+      adminSuspended: await staff(tx, 'ADMIN', all, null, 'RESTRICTED'),
     };
 
     const countries: CountryWorld[] = [];

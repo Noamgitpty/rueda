@@ -400,7 +400,7 @@ describe('staff : dossiers assignés et portée par pays (RLS-6, RLS-7, RLS-20)'
     });
   });
 
-  it('RLS-6 — bris de glace : un dossier BREAK_GLASS motivé ouvre l’objet ; sans motif, refusé', async () => {
+  it('RLS-6 — bris de glace léger (17 §2.3) : un dossier BREAK_GLASS motivé ouvre l’objet, le retrait le referme ; sans motif, refusé', async () => {
     const x = w(0);
     await api(async (client) => {
       await expect(
@@ -427,6 +427,14 @@ describe('staff : dossiers assignés et portée par pays (RLS-6, RLS-7, RLS-20)'
             ],
           );
           expect(await ids(tx, 'booking_trip')).toEqual(sorted([x.trips.a1.id, x.trips.b1.id]));
+        },
+      );
+      // après l'annulation, le dossier n'existe plus : l'objet redevient invisible
+      await asActor(
+        client,
+        { kind: 'STAFF', actorId: world.staff.opsFirst, countryScope: [x.c.country] },
+        async (tx) => {
+          expect(await ids(tx, 'booking_trip')).toEqual([x.trips.a1.id]);
         },
       );
     });
@@ -500,6 +508,51 @@ describe('staff : dossiers assignés et portée par pays (RLS-6, RLS-7, RLS-20)'
     });
   });
 
+  it('ADMIN : appartenances et dossiers de support de sa portée pays (lectures positives)', async () => {
+    const [x, other] = [w(0), w(1)];
+    await api(async (client) => {
+      for (const [scope, worlds] of [
+        [allCountries(), [x, other]],
+        [[x.c.country], [x]],
+      ] as const) {
+        await asActor(
+          client,
+          { kind: 'STAFF', actorId: world.staff.adminAll, countryScope: [...scope] },
+          async (tx) => {
+            const members = await tx.query<{ org_id: string }>(
+              'SELECT DISTINCT org_id::text FROM core.iam_membership WHERE org_id = ANY ($1::uuid[]) ORDER BY 1',
+              [[x.orgA, x.orgB, other.orgA, other.orgB]],
+            );
+            expect(
+              members.rows.map((r) => r.org_id),
+              scope.join(','),
+            ).toEqual(sorted(worlds.flatMap((y) => [y.orgA, y.orgB])));
+            // titulaire, co-hôte, co-hôte retiré (A) et titulaire (B), par pays
+            const n = await tx.query(
+              'SELECT 1 FROM core.iam_membership WHERE org_id = ANY ($1::uuid[])',
+              [worlds.flatMap((y) => [y.orgA, y.orgB])],
+            );
+            expect(n.rowCount, scope.join(',')).toBe(4 * worlds.length);
+            const cases = await tx.query<{ id: string }>(
+              'SELECT id::text FROM core.support_support_case WHERE id = ANY ($1::uuid[]) ORDER BY 1',
+              [[world.cases.firstA1, world.cases.secondA1, world.cases.closedA2]],
+            );
+            expect(
+              cases.rows.map((r) => r.id),
+              scope.join(','),
+            ).toEqual(
+              sorted(
+                worlds.length === 2
+                  ? [world.cases.firstA1, world.cases.secondA1, world.cases.closedA2]
+                  : [world.cases.firstA1, world.cases.closedA2],
+              ),
+            );
+          },
+        );
+      }
+    });
+  });
+
   it('RLS-7 (partiel) — FINANCE {premier pays} : trips, holds et opérations de tous les hôtes de ce pays ; rien de l’autre ; aucun compte d’autrui', async () => {
     const [x, other] = [w(0), w(1)];
     await api(async (client) => {
@@ -532,9 +585,14 @@ describe('staff : dossiers assignés et portée par pays (RLS-6, RLS-7, RLS-20)'
     });
   });
 
-  it('rôle expiré, ou acteur sans rôle interne qui se dit STAFF : 0 ligne', async () => {
+  it('rôle expiré, compte suspendu, ou acteur sans rôle interne qui se dit STAFF : 0 ligne', async () => {
     await api(async (client) => {
-      for (const actorId of [world.staff.adminExpired, world.guest1, world.holderA]) {
+      for (const actorId of [
+        world.staff.adminExpired,
+        world.staff.adminSuspended,
+        world.guest1,
+        world.holderA,
+      ]) {
         await asActor(
           client,
           { kind: 'STAFF', actorId, countryScope: allCountries() },

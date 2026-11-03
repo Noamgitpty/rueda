@@ -82,8 +82,13 @@ GRANT UPDATE (revoked_at, revoked_reason) ON core.iam_session TO iam_auth_owner;
 CREATE POLICY iam_auth_select ON core.iam_user_account FOR SELECT TO iam_auth_owner USING (true);
 CREATE POLICY iam_auth_insert ON core.iam_user_account FOR INSERT TO iam_auth_owner
   WITH CHECK (status = 'PENDING_EMAIL');               -- un compte naît toujours non vérifié
+-- seule écriture admise : la vérification d'email (email_verified_at posé ; PENDING_EMAIL -> ACTIVE,
+-- ACTIVE et RESTRICTED inchangés). Un compte CLOSED ou BANNED n'est ni modifiable ni verrouillable
+-- (le verrou FOR SHARE de l'ouverture de session ne le voit pas : même résultat NULL qu'avant),
+-- et aucune commande ne peut faire passer un compte à CLOSED, BANNED ou PENDING_EMAIL.
 CREATE POLICY iam_auth_update ON core.iam_user_account FOR UPDATE TO iam_auth_owner
-  USING (true) WITH CHECK (true);
+  USING (status IN ('PENDING_EMAIL', 'ACTIVE', 'RESTRICTED'))
+  WITH CHECK (status IN ('ACTIVE', 'RESTRICTED') AND email_verified_at IS NOT NULL);
 
 CREATE POLICY iam_auth_select ON core.iam_email_verification FOR SELECT TO iam_auth_owner USING (true);
 CREATE POLICY iam_auth_insert ON core.iam_email_verification FOR INSERT TO iam_auth_owner

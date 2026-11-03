@@ -132,7 +132,7 @@ Contexte posé par `setSessionContext` (`app.actor_kind`, `actor_id`, `org_id`, 
 | `app.host_covers_vehicle(véhicule)` | acteur `HOST` membre actif de `app.org_id()` : titulaire = tous les véhicules ; co-hôte = `membership.vehicle_scope` (RLS-9)      |
 | `app.is_org_holder()`               | acteur titulaire actif du compte d'hôte de la session (jamais un co-hôte)                                                         |
 
-Lectures d'`app_api` (0025 ; **aucune écriture de table**) :
+Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colonnes** sans colonnes d'audit `created_by` / `updated_by` / `released_by` ni drapeaux internes, liste exacte : `test/l0/l0-rls-columns.test.ts` ; rôles internes effectifs seulement pour un compte `ACTIVE`) :
 
 | Table                       | GUEST                 | HOST                                     | STAFF (toujours borné au pays)                          |
 | --------------------------- | --------------------- | ---------------------------------------- | ------------------------------------------------------- |
