@@ -11,7 +11,7 @@
 
 - **Partie A** — Vue produit : vision, personas, périmètre, non-objectifs, métriques de succès, préconditions de mise en service, exigences non fonctionnelles, conventions (modules, rôles, codes d'erreur, notifications, vecteurs de test).
 - **Partie B** — Fiches FEATURE des **178 lignes P0** de 04 révision 6 (phase technique `P0-A` = MVP, bêta P2P), epic par epic (E1 à E18 ; E14 et E15 font désormais partie de la bêta ; E18 = connecteurs réels du lot C). Quelques lignes d'un même epic sont regroupées dans une fiche ; chaque `feature_id` y est listé une fois.
-- **Partie C** — Tableau compact des lignes P1, P2 et P3, dont les 24 lignes **HORS PRODUIT** (DEC-FONDATEUR-13).
+- **Partie C** — Tableau compact des lignes P1, P2 et P3, puis des 24 lignes **`HORS`** (hors produit, DEC-FONDATEUR-13).
 - **Partie D** — Matrice de traçabilité (feature → BR → EC → vecteurs → OQ), fiches dont la **mise en service** dépend de questions ouvertes, contrôles et journaux.
 
 ---
@@ -56,7 +56,8 @@ Acteur technique supplémentaire : `SYSTEM` (tâches planifiées, webhooks du PS
 | Ouverture élargie | Bêta P2P complète ouverte à tout hôte particulier éligible du pays de lancement, après les critères S1 à S4 (18 §1.3) | — | — | Ce n'est pas le P1 |
 | P1 | Version concurrentielle complète | 327 | Co-hôtes, remise sans contact, livraison, modifications de trip en libre-service, support 24/7, automatisations | — |
 | P2 | Différenciation | 100 | — | — |
-| P3 | Futur ou non applicable, et **24 lignes HORS PRODUIT** (DEC-FONDATEUR-13) | 71 | — | Les lignes hors produit n'ont ni fiche ni story ; les réintroduire serait une décision nouvelle du fondateur |
+| P3 | Futur ou non applicable | 47 | — | — |
+| `HORS` | **Lignes hors produit** (DEC-FONDATEUR-13 ; valeur `HORS` de `phase_mvp` depuis US-058) | 24 | — | Ni fiche ni story active (partie C.4, 19 §3.9) ; les réintroduire serait une décision nouvelle du fondateur |
 
 Ancienne phase P0-B : **sans objet** (pivot P2P) ; ses lignes sont intégrées au MVP (E6, E11, E14, E15), sauf PAY-038, hors produit (18 §1.2).
 
@@ -80,7 +81,7 @@ Choix du pays de lancement (12 §10.3, **en attente**) : les deux pays étant co
 
 ## A.4 Non-objectifs (hors MVP, 18 §2)
 
-- **Agences, loueurs professionnels, comptes de société, KYB, police flotte, contrat-cadre, mandats, encaissement par un tiers, caution prise au comptoir, interface de comptoir, outils et API de flotte** : **hors produit** (DEC-FONDATEUR-13) ; les 24 lignes HORS PRODUIT de 04 (partie C.3).
+- **Agences, loueurs professionnels, comptes de société, KYB, police flotte, contrat-cadre, mandats, encaissement par un tiers, caution prise au comptoir, interface de comptoir, outils et API de flotte** : **hors produit** (DEC-FONDATEUR-13) ; les 24 lignes `HORS` de 04 (partie C.4).
 - Détention de fonds de tiers par Kmino en production tant que `funds_holding_enabled[pays]` = `false` (variante B, crédit cash, rail « débit puis remboursement » de la caution, avance au-delà du solde `PLATFORM`) : construite contre le `FAKE`, fermée en production.
 - Co-hôtes (P1, FLT-001, comme Turo) ; remise sans contact par équipements, livraison, remise en zone aéroport hors point convenu, one-way (P1 ; OQ-P2P-05, OQ-MK-08).
 - Option avec chauffeur (P3), VTC (rejeté) ; le Paraguay n'est **pas** un non-objectif : il est construit dès le départ (DEC-FONDATEUR-04).
@@ -115,7 +116,7 @@ Choix du pays de lancement (12 §10.3, **en attente**) : les deux pays étant co
 | M1 | Taux de conversion recherche → réservation confirmée | suivi, pas de cible avant 2 cycles | BKG-001 |
 | M2 | Délai de revue KYC du voyageur (SLA) | ≤ 4 h ouvrées (90e centile) | ADM-002 |
 | M3 | Délai de revue d'une réservation à risque | ≤ 2 h ouvrées | ADM-029 |
-| M4 | Durée d'une remise entre l'hôte et le voyageur (arrivée → clés remises) | ≤ 15 min (PROPOSÉ, à recaler après 4 semaines) | TRP-002 |
+| M4 | Durée de la remise entre l'hôte et le voyageur, de l'arrivée au rendez-vous à la remise des clés (10b v3 M-REM-01) | **≤ 5 écrans et ≤ 10 min** ; retour < 8 min (PROPOSÉ, recalable) | TRP-002 |
 | M5 | Délai d'envoi de la confirmation | ≤ 1 min | NTF-007 |
 | M6 | Délai de première réponse du support | mesuré, cible fixée après 4 semaines | SUP-004 |
 | M7 | Taux de faux positifs de la revue de risque | suivi | ADM-029 |
@@ -221,6 +222,10 @@ Sans objet (pivot P2P) : l'ancienne porte G0 (commission acceptée par des agenc
 | `REVIEW_TEXT_REQUIRED`, `REVIEW_ALREADY_SUBMITTED`, `MESSAGE_THREAD_CLOSED` | PROPOSÉ (BR-REVIEW, MSG-001) | avis et messagerie |
 | `GO_LIVE_SECOND_APPROVER_REQUIRED`, `GO_LIVE_DECISION_REF_REQUIRED`, `LOCAL_NOTICE_MISSING` | PROPOSÉ (ADM-027, LEG-021) | changement d'interrupteur sans second approbateur distinct ou sans référence de décision ; avertissement local manquant |
 | `INVOICE_WITHOUT_TRIP` | PROPOSÉ (FIN-018) | document fiscal sans trip rattaché |
+| `PENDING_ACTIVATION` | PROPOSÉ (19 US-123, US-058) | statut, pas un refus : dossier d'hôte approuvé alors que `p2p_private_hosts_enabled[pays]` = `false` ; l'hôte reste en attente d'activation (fail-closed), avec une explication en es et en |
+| `VEHICLE_NOT_COVERED` | PROPOSÉ (19 US-124, repris de l'ancien US-108) | véhicule hors des critères du contrat de l'assureur partenaire (âge, valeur, usage) : soumission refusée |
+
+**Action de console** (PROPOSÉ, 19 US-107, US-058) : pendant la bêta fermée, l'ops peut **créer un compte d'hôte** (`organization` `P2P_HOST_INDIVIDUAL` et `membership` `P2P_HOST` titulaire) par une `manual_action` motivée et journalisée (ADM-001, ADM-004) ; la vérification (`host_verification`, US-123) et les interrupteurs du pays s'appliquent ensuite comme pour une inscription en libre-service. Le code de cette action est à ajouter au catalogue de 17 §10.
 
 Supprimés (sans objet, pivot P2P) : `AGENCY_LINK_LIMIT` et les codes propres au paiement par lien, au mandat, au KYB et à la police de l'ancienne version.
 
@@ -375,7 +380,7 @@ Gabarits sans objet (pivot P2P, historiques) : `EVT_AGENCY_BALANCE_NEGATIVE` (�
 
 # PARTIE B — Fiches FEATURE (MVP, bêta P2P ; phase technique P0-A)
 
-Ordre : epics E1 à E18 de 04 README §4 (révision 6). Chaque fiche suit le format imposé (24 rubriques). Les fiches regroupées listent tous leurs `feature_id` dans la rubrique FEATURE ID. Les lignes HORS PRODUIT de 04 n'ont pas de fiche (partie C.3).
+Ordre : epics E1 à E18 de 04 README §4 (révision 6). Chaque fiche suit le format imposé (24 rubriques). Les fiches regroupées listent tous leurs `feature_id` dans la rubrique FEATURE ID. Les lignes `HORS` de 04 n'ont pas de fiche (partie C.4).
 
 ## E1 — Comptes, identité et KYC des voyageurs et des hôtes particuliers (P0-A, 15 lignes)
 
@@ -2406,7 +2411,7 @@ Ordre : epics E1 à E18 de 04 README §4 (révision 6). Chaque fiche suit le for
 - **Description** : motif obligatoire ; voyageur remboursé **intégralement** par Kmino, jambe par jambe (motif FULL : variation négative de toutes les jambes, TJ06), sans attendre l'hôte, et aidé à rebooker par le support. Pénalité de l'hôte selon BR-CXL-13 (`host_penalty` par palier et par devise, valeurs ADM-031 **À DÉCIDER** ; valeurs de test 25 / 50 / 150 = référence Turo) : elle n'est **pas une jambe** ; elle est **retenue sur ses gains** par ajustement de versement au `host_ledger` (08 E7 règle 7, capacité `SUPPORTS_PAYOUT_ADJUSTMENT`). Motif « à cause du guest » avec preuve validée → no-show guest (T07) ; sans preuve → annulation de l'hôte (T08). Avis automatique et recul en recherche : P1 (BR-REVIEW-06). L'éventuelle indemnisation de l'hôte par la plateforme reste ouverte (**DEC-FONDATEUR-01**, `platform_funded_host_compensation` absent = `false`, T61).
 - **Déclencheur** : action de l'hôte dans l'espace hôte (A05 « Cancelar reserva »).
 - **Prérequis** : BKG-028, ADM-031, PAY-021.
-- **Parcours principal** : motif → confirmation (montant de la pénalité affiché avant validation) → `CANCELLED_BY_HOST` → remboursement intégral par jambe → ligne de pénalité au `host_ledger`.
+- **Parcours principal** : (10b v3 §4.1 bis) A05 → détail du trip → `web.a05.cancel` « Cancelar reserva » → motif obligatoire (liste fermée + texte) → avertissement `web.a05.cancelWarning` (remboursement intégral du voyageur, pénalité calculée par BR-CXL-13 et retenue sur les prochaines gains, calendrier bloqué sur ces dates ; montant jamais écrit en dur) → confirmation explicite → `CANCELLED_BY_HOST` → remboursement intégral par jambe par Kmino → ligne de pénalité au `host_ledger`, avis automatique d'annulation sur l'annonce (BR-REVIEW-06) ; côté voyageur : notification immédiate et proposition de voitures proches. Trip déjà commencé : action indisponible, renvoi vers l'ops.
 - **Parcours alternatifs** : exemption (BR-CXL-13, portée OQ-BR-37) → décision ops avant le débit ; no-show de l'hôte (absent 30 min après le début, T26) → `NO_SHOW_HOST`, pénalité 150 (valeur de test) ; gains futurs insuffisants → solde négatif du `host_ledger` (SM-6b) et `EVT_HOST_BALANCE_NEGATIVE`.
 - **Règles métier** : BR-CXL-12, BR-CXL-13, BR-HP-03, BR-TRUST-09 ; 08 E7 règle 7.
 - **États** : SM-1 → `CANCELLED_BY_HOST` / `NO_SHOW_GUEST` / `NO_SHOW_HOST` ; SM-6b.
@@ -3465,7 +3470,7 @@ Ordre : epics E1 à E18 de 04 README §4 (révision 6). Chaque fiche suit le for
 - **Notifications** : `EVT_PAYOUT_SENT`, `EVT_PAYOUT_FAILED`, `EVT_PAYOUT_ON_HOLD`.
 - **Permissions** : `SYSTEM` ; `FINANCE` (levée de gel motivée) ; `P2P_HOST` titulaire (lecture de ses lots, A08).
 - **Dépendances** : PYO-001 ; PAY-001.
-- **Critères d'acceptation** : Given le trip A réalisé aux jambes de TJ01 et terminé un lundi, When le lot est préparé, Then un lot `FINAL` de 131,25 USD est planifié à J+2 ouvrés (J+5 s'il s'agit du premier versement de l'hôte). Given ce même hôte qui doit la pénalité de 25,00 de TJ06, When le lot est compensé, Then le lot vaut 131,25 − 25,00 = 106,25 (ajustement de versement, règle 7). Given le trip A réalisé et un chargeback ouvert puis perdu sur 256,66, When le litige est clos, Then aucune reprise sur l'hôte, le lot de 131,25 est dégelé et versé et toute la perte va à `PLATFORM` (TJ14b). Given `payouts_enabled[pays]` = `false`, When la tâche quotidienne s'exécute, Then aucun ordre de versement n'est émis et les lots restent `ON_HOLD`.
+- **Critères d'acceptation** : Given le trip A réalisé aux jambes de TJ01 et terminé un lundi, When le lot est préparé, Then un lot `FINAL` de 131,25 USD est planifié à J+2 ouvrés (J+5 s'il s'agit du premier versement de l'hôte). Given une créance de 75,00 ouverte au `host_ledger` de cet hôte par TJ18b (jambe `HOST` déjà libérée), When son lot suivant est préparé, Then le lot porte la jambe `HOST` du trip (131,25, TJ01) et une ligne d'ajustement distincte de −75,00 (compensation SM-6b, règle 7), sans montant recalculé par la fiche ; une pénalité de l'hôte (25,00, TJ06) suit la même voie, hors jambes. Given le trip A réalisé et un chargeback ouvert puis perdu sur 256,66, When le litige est clos, Then aucune reprise sur l'hôte, le lot de 131,25 est dégelé et versé et toute la perte va à `PLATFORM` (TJ14b). Given `payouts_enabled[pays]` = `false`, When la tâche quotidienne s'exécute, Then aucun ordre de versement n'est émis et les lots restent `ON_HOLD`.
 - **Source** : SRC_H §1.1 ; 08 BR-PAYOUT-01, 02, 04, E7 ; 12 §9.3 ; 17 §2.10, §3.2.9 ; écrans 10b : A08.
 - **Confiance** : proposé (calendrier documenté chez Turo, J+2 / J+5 nôtre).
 - **Priorité produit** : P0-A (lot 3)
@@ -3747,9 +3752,9 @@ Ordre : epics E1 à E18 de 04 README §4 (révision 6). Chaque fiche suit le for
 - **Complexité** : élevée ; ops moyen ; risque élevé.
 - **Améliorations possibles** : second PSP actif par pays (PAY-020, P2).
 
-# PARTIE C — Lignes P1, P2 et P3 (tableau compact)
+# PARTIE C — Lignes P1, P2, P3 et HORS PRODUIT (tableau compact)
 
-Généré depuis `04_FEATURE_INVENTORY.csv` (**révision 6**, pivot P2P). Les epics E1 à E18 ne couvrent que le P0 : pour P1 à P3, la colonne « Epic » donne le **module** de 04 (le regroupement en epics est fait dans `19_DEVELOPMENT_BACKLOG.md`). Description = début de `description_courte` (tronquée à ~150 caractères, « … »). Aucune fiche complète pour ces lignes ; elles seront spécifiées avant leur phase. **Règle de lecture** : les 24 lignes marquées « HORS PRODUIT » (phase P3, faute d'une valeur dédiée acceptée par `tools/check_inventory.py`, 04 README §12) n'ont ni fiche ni story (DEC-FONDATEUR-13) ; une description préfixée « (hist.) » reprend un libellé de 04 qui cite encore une agence, un loueur, un comptoir ou une flotte : ce libellé est **historique** et se lit « hôte » (04 README, règle de lecture de la révision 6, et colonne `notes`).
+Généré depuis `04_FEATURE_INVENTORY.csv` (**révision 6**, pivot P2P). Les epics E1 à E18 ne couvrent que le P0 : pour P1 à P3, la colonne « Epic » donne le **module** de 04 (le regroupement en epics est fait dans `19_DEVELOPMENT_BACKLOG.md`). Description = début de `description_courte` (tronquée à ~150 caractères, « … »). Aucune fiche complète pour ces lignes ; elles seront spécifiées avant leur phase. **Règle de lecture** : les **24 lignes `HORS`** de 04 (`phase_mvp` = `priorite_produit` = `HORS` depuis US-058) sont listées en C.4 : elles n'ont ni fiche ni story active (DEC-FONDATEUR-13 ; 19 §3.9) et les réintroduire serait une décision nouvelle du fondateur ; une description préfixée « (hist.) » reprend un libellé de 04 qui cite encore une agence, un loueur, un comptoir ou une flotte : ce libellé est **historique** et se lit « hôte » (04 README, règle de lecture de la révision 6, et colonne `notes`).
 
 
 ## C.1 — Phase P1 (327 lignes)
@@ -4189,19 +4194,15 @@ Généré depuis `04_FEATURE_INVENTORY.csv` (**révision 6**, pivot P2P). Les ep
 | HST-051 | Enrichissement du catalogue véhicules par source sous licence | HST — Onboarding hôte & annonces | P2 | Après mesure de la couverture du catalogue en Bêta : base sous licence (JATO, Auto Care VCdb, Teoalida) ou décodeur VIN couvrant le Panama et le Parag… | HST-050 |
 | MKT-018 | Distribution via les agrégateurs (Kayak, Rentcars) | MKT — Marketing, parrainage, fidélité & cartes cadeaux | P2 | Flux d'inventaire vers les agrégateurs comme canal, à évaluer face à la concurrence des agrégateurs (14 §a.0). | — |
 
-## C.3 — Phase P3 (dont les lignes HORS PRODUIT) (71 lignes ; dont 24 HORS PRODUIT)
+## C.3 — Phase P3 (47 lignes)
 
 | feature_id | Nom | Epic (module) | Phase | Description (une ligne) | Dépendances clés |
 |---|---|---|---|---|---|
-| ACC-008 | Nom commercial affiché par l'hôte | ACC — Comptes & identité | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'hôte peut utiliser le prénom d'usage pour afficher son nom d'entreprise aux guests. | ACC-029 |
-| ACC-029 | Compte personne morale (loueur, RUC) | ACC — Comptes & identité | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Compte au nom d'une société (RUC, représentant légal, Aviso de Operación). | — |
 | ACC-030 | Compte entreprise guest (réservation pour employés) | ACC — Comptes & identité | P3 | Une entreprise réserve pour des employés désignés conducteurs principaux. | ACC-001 |
 | ACC-031 | Connexion avec un compte Uber | ACC — Comptes & identité | P3 | Réservation depuis l'app Uber avec identifiants Uber. | — |
 | VER-021 | Validation du permis via Apple/Google Wallet | VER — Vérification / KYC | P3 | Permis numérique en wallet accepté pour vérifier, physique exigé au check-in. | — |
-| VER-027 | Vérification des loueurs professionnels (KYB) | VER — Vérification / KYC | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : RUC, Aviso de Operación, représentant légal, polices flotte, compte bancaire de la société. | ACC-029 |
 | SRC-038 | Distribution via assistants IA (app ChatGPT, connecteur Claude) | SRC — Recherche & découverte | P3 | Recherche de véhicules depuis un assistant ; réservation finalisée chez la plateforme. | SRC-039 |
 | SRC-043 | Réservation via une app partenaire (Uber) | SRC — Recherche & découverte | P3 | Réservation depuis l'app Uber (US). | ACC-031 |
-| LST-029 | Vitrine du loueur professionnel | LST — Fiche véhicule | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Page agence (logo, nom commercial, flotte, notes, conditions). | ACC-008 ; ACC-029 |
 | PAY-009 | Pay over time (BNPL) | PAY — Paiements | P3 | Affirm/Klarna/Afterpay ; ≤ 30 j, sans dépôt ; remboursements chez le financeur. | PAY-001 |
 | PAY-013 | Réduction du dépôt si assurance personnelle fournie | PAY — Paiements | P3 | −250 $ sur Deluxe/Super Deluxe si assurance perso fournie à la réservation. | PAY-011 |
 | PAY-032 | Signalement aux bureaux de crédit | PAY — Paiements | P3 | Impayés signalés aux bureaux (US : Experian, Equifax, TransUnion). | PAY-027 |
@@ -4219,15 +4220,10 @@ Généré depuis `04_FEATURE_INVENTORY.csv` (**révision 6**, pivot P2P). Les ep
 | HST-036 | Demande de permis aéroport | HST — Onboarding hôte & annonces | P3 | Formulaire pour demander un permis dans un aéroport non couvert. | HST-035 |
 | HST-038 | Liaison du compte Tesla | HST — Onboarding hôte & annonces | P3 | Factures de Supercharge automatiques. | CLM-028 |
 | HST-044 | Offres partenaires pour hôtes (Deals & discounts) | HST — Onboarding hôte & annonces | P3 | Réductions négociées (lockbox, pneus, vitrage). | HST-043 |
-| CAL-009 | Synchronisation iCal entrante et sortante | CAL — Calendrier & disponibilité | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Import : l'agence saisit une URL iCal par véhicule, lue toutes les 15 min ; chaque VEVENT devient un blocage source=ical dans CAL-011. Conflit : si un… | CAL-011 |
 | CAL-013 | Dépassement de la durée max par extensions successives | CAL — Calendrier & disponibilité | P3 | Si l'hôte accepte une extension au-delà du max, le guest peut le dépasser à nouveau. | TRP-022 |
 | HDB-005 | Code promo annuel All-Star | HDB — Tableau de bord & performance hôte | P3 | 100 $ après 4 trimestres consécutifs. | HDB-004 |
 | HDB-014 | Host insights / newsletter selon le plan | HDB — Tableau de bord & performance hôte | P3 | Fréquence trimestrielle, semestrielle ou annuelle. | PRT-007 |
 | HDB-017 | Business planner et « Top-earning cars » | HDB — Tableau de bord & performance hôte | P3 | (hist.) Outils de planification de flotte. | HST-002 |
-| FLT-003 | Rôles fins (RBAC) pour flottes | FLT — co-hôtes et hôtes multi-véhicules | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Gérant, agent de remise, comptable ; déclaration de sinistre par un gérant. Représentant légal (AGENCY_OWNER : contrat-cadre, mandat PSP, membres) dis… | FLT-001 |
-| FLT-010 | API partenaire pour loueurs | FLT — co-hôtes et hôtes multi-véhicules | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Disponibilités, prix, réservations, webhooks. | CAL-011 |
-| FLT-011 | Import en masse d'annonces | FLT — co-hôtes et hôtes multi-véhicules | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Création de véhicules par CSV ou API. | HST-011 ; ADM-003 ; HST-050 ; ADM-036 |
-| FLT-012 | Connecteur logiciels rent-a-car | FLT — co-hôtes et hôtes multi-véhicules | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Synchronisation avec les logiciels de gestion des loueurs. | FLT-010 |
 | FLT-014 | Programme « revenu passif » | FLT — co-hôtes et hôtes multi-véhicules | P3 | Associe des propriétaires sans temps à des hôtes expérimentés. | FLT-001 |
 | FLT-015 | Host Services (financement, assurance hors trajet) | FLT — co-hôtes et hôtes multi-véhicules | P3 | Services financiers et d'assurance pour hôtes. | HDB-006 |
 | FLT-016 | Capteur de qualité d'air (preuve tabac) | FLT — co-hôtes et hôtes multi-véhicules | P3 | Capteur optionnel comme preuve objective. | TRP-042 |
@@ -4235,7 +4231,6 @@ Généré depuis `04_FEATURE_INVENTORY.csv` (**révision 6**, pivot P2P). Les ep
 | CLM-028 | Barème de recharge électrique | CLM — Réclamations, dommages & factures annexes | P3 | Écart de batterie 5–25 $ + 10 $ ; 20 $ si < 20 %. | CLM-019 |
 | CLM-029 | Facturation en cours de trip (≥ 60 j) | CLM — Réclamations, dommages & factures annexes | P3 | Une facture ouverte à la fois pendant les trips longs. | CLM-019 |
 | CLM-033 | Facturation après fermeture du compte hôte | CLM — Réclamations, dommages & factures annexes | P3 | Péages et PV 90 j, autres frais 72 h. | CLM-019 |
-| PRT-009 | Mode « police flotte du loueur » | PRT — Protection & assurance | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Chaque agence couvre ses véhicules par sa propre police commerciale ; la plateforme vérifie que la police couvre une location distribuée via une plate… | PRT-019 ; VER-027 |
 | PRT-012 | Assurance RC supplémentaire (SLI) | PRT — Protection & assurance | P3 | Option jusqu'à 300 000 $ (résidents US). | PRT-003 |
 | PRT-018 | Retenue si absence de tracker (véhicules chers) | PRT — Protection & assurance | P3 | Jusqu'à 20 % de retenue si ≥ 125 000 $ sans tracker OEM actif. | TRP-042 |
 | FIN-011 | Exonération de taxe a posteriori sur justificatif | FIN — Finance, comptabilité & fiscalité | P3 | Pas d'exonération au niveau du compte ; remboursement sur justificatif. | FIN-004 |
@@ -4248,22 +4243,37 @@ Généré depuis `04_FEATURE_INVENTORY.csv` (**révision 6**, pivot P2P). Les ep
 | MKT-013 | Blog et communauté hôtes (OpenRoad) | MKT — Marketing, parrainage, fidélité & cartes cadeaux | P3 | Blog et site d'advocacy. | — |
 | MKT-015 | Segment partenaire dédié (Tesla FSD) | MKT — Marketing, parrainage, fidélité & cartes cadeaux | P3 | Page et bannière dédiées. | — |
 | LEG-006 | « Do not sell or share my personal information » | LEG — Légal, consentements & données | P3 | Lien CCPA dans le footer. | LEG-005 |
-| LEG-020 | Mandat de l'hôte à la plateforme (attorney-in-fact) | LEG — Légal, consentements & données | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Mandat donné par l'agence dans le contrat-cadre (LEG-025) : instruire les dossiers de dommage et de non-restitution, transmettre les pièces à son assu… | LEG-025 |
 | LEG-023 | Mentions des marques tierces | LEG — Légal, consentements & données | P3 | Mentions légales Apple/Google sur les équipements. | — |
-| PAY-033 | Mode « agence encaisse » (agence = marchand de référence) | PAY — Paiements | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Chaque agence est onboardée avec son propre compte PSP (Tilopay de préférence, cartes + Yappy ; sinon son PSP actuel). Mode (a) API, seulement avec un… | PAY-001 ; PAY-034 ; PAY-035 ; ADM-004 ; LEG-027 |
-| FIN-019 | Rapprochement léger des revenus (commission vs encaissements de l'agence) | FIN — Finance, comptabilité & fiscalité | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Acteur : finance plateforme. Chaque mois, avant d'émettre la facture de commission (FIN-018) : import du relevé de transactions du compte PSP de l'age… | FIN-018 ; PAY-033 ; ADM-005 ; ADM-031 ; LEG-025 ; LEG-027 |
-| LEG-025 | Contrat-cadre plateforme–loueur signé en ligne | LEG — Légal, consentements & données | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Signé avant la première annonce, versionné (LEG-002, BKG-019). Clauses : service d'intermédiation facturé au loueur ; le loueur est le loueur du véhic… | LEG-002 ; ACC-029 ; ADM-004 ; BKG-019 ; PRT-019 |
-| PRT-019 | Dépôt et contrôle de la police flotte du loueur | PRT — Protection & assurance | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'agence téléverse sa police et une attestation de l'assureur confirmant la couverture d'une location distribuée par une plateforme tierce (OQ-MK-05)… | VER-027 |
-| LEG-027 | Mandat écrit limité pour les opérations sur le compte PSP de l'agence | LEG — Légal, consentements & données | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Acteur : agence (représentant légal) et plateforme. Avant toute opération initiée par la plateforme sur le compte PSP de l'agence (création d'ordres o… | LEG-025 |
-| TRP-052 | Interface agent comptoir (liste du jour, remise, retour) | TRP — Cycle de vie du trip | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Liste du jour par lieu (retraits et retours, statut paiement et KYC) ; check-in en 1 clic ; contrôle du permis (VER-015) ; saisie de la caution prise… | TRP-002 ; VER-015 ; FLT-003 ; PAY-035 ; TRP-004 |
-| PAY-035 | Politique de caution de l'agence et options sans carte de crédit | PAY — Paiements | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'agence déclare par catégorie : montant de la caution, moyens acceptés au comptoir (pré-autorisation carte de crédit, carte de débit, espèces, Yappy… | ACC-029 |
-| PAY-038 | Split de la commission à la source par le PSP | PAY — Paiements | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'ordre reste créé sur le compte de l'agence ; la commission est reversée à la plateforme par l'endpoint de split du PSP (Tilopay orders/liquidation/s… | FIN-018 ; PAY-033 |
-| FLT-017 | Moteur de réservation en marque blanche (site et WhatsApp de l'agence) | FLT — co-hôtes et hôtes multi-véhicules | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Widget intégrable et lien aux couleurs de l'agence, branché sur le même inventaire et le même checkout ; attribution du canal pour la commission (taux… | BKG-001 ; PAY-033 |
-| FLT-018 | API ouverte et connecteurs aux logiciels de location | FLT — co-hôtes et hôtes multi-véhicules | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Au-delà de FLT-010 : connecteurs vers les logiciels de gestion des agences pilotes, identifiés en entretiens avant le build (aucun identifié à ce jour… | FLT-010 |
-| FLT-019 | Onboarding express : vérification des documents de l'entreprise en 48 h | FLT — co-hôtes et hôtes multi-véhicules | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Contrôle assisté des documents (RUC, Aviso de Operación, police) et import en masse avec photos ; objectif 48 h entre inscription et mise en ligne. | FLT-011 ; ADM-004 |
-| REV-014 | Badge « Agencia verificada » et confiance qui réduit la caution | REV — Avis & réputation | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Badge attribué après KYB, police valide et N trips sans litige ; niveaux de confiance guest qui réduisent la caution exigée. | REV-010 ; VER-027 |
-| TRP-055 | Intégration des GPS et télématiques déjà installés | TRP — Cycle de vie du trip | P3 · HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Connecteurs vers les GPS existants des agences (position, kilométrage, carburant), un connecteur par fournisseur. | TRP-042 |
 | BKG-043 | Option « avec chauffeur » par mise en relation avec des transporteurs licenciés | BKG — Réservation & checkout | P3 | Mise en relation sans chauffeur fourni par la plateforme ; conditionnée à OQ-BR-15. | BKG-001 |
+
+## C.4 — HORS PRODUIT (DEC-FONDATEUR-13) (24 lignes)
+
+| feature_id | Nom | Epic (module) | Phase | Description (une ligne) | Dépendances clés |
+|---|---|---|---|---|---|
+| ACC-008 | Nom commercial affiché par l'hôte | ACC — Comptes & identité | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'hôte peut utiliser le prénom d'usage pour afficher son nom d'entreprise aux guests. | ACC-029 |
+| ACC-029 | Compte personne morale (loueur, RUC) | ACC — Comptes & identité | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Compte au nom d'une société (RUC, représentant légal, Aviso de Operación). | — |
+| VER-027 | Vérification des loueurs professionnels (KYB) | VER — Vérification / KYC | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : RUC, Aviso de Operación, représentant légal, polices flotte, compte bancaire de la société. | ACC-029 |
+| LST-029 | Vitrine du loueur professionnel | LST — Fiche véhicule | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Page agence (logo, nom commercial, flotte, notes, conditions). | ACC-008 ; ACC-029 |
+| CAL-009 | Synchronisation iCal entrante et sortante | CAL — Calendrier & disponibilité | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Import : l'agence saisit une URL iCal par véhicule, lue toutes les 15 min ; chaque VEVENT devient un blocage source=ical dans CAL-011. Conflit : si un… | CAL-011 |
+| FLT-003 | Rôles fins (RBAC) pour flottes | FLT — co-hôtes et hôtes multi-véhicules | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Gérant, agent de remise, comptable ; déclaration de sinistre par un gérant. Représentant légal (AGENCY_OWNER : contrat-cadre, mandat PSP, membres) dis… | FLT-001 |
+| FLT-010 | API partenaire pour loueurs | FLT — co-hôtes et hôtes multi-véhicules | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Disponibilités, prix, réservations, webhooks. | CAL-011 |
+| FLT-011 | Import en masse d'annonces | FLT — co-hôtes et hôtes multi-véhicules | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Création de véhicules par CSV ou API. | HST-011 ; ADM-003 ; HST-050 ; ADM-036 |
+| FLT-012 | Connecteur logiciels rent-a-car | FLT — co-hôtes et hôtes multi-véhicules | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Synchronisation avec les logiciels de gestion des loueurs. | FLT-010 |
+| PRT-009 | Mode « police flotte du loueur » | PRT — Protection & assurance | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Chaque agence couvre ses véhicules par sa propre police commerciale ; la plateforme vérifie que la police couvre une location distribuée via une plate… | PRT-019 ; VER-027 |
+| LEG-020 | Mandat de l'hôte à la plateforme (attorney-in-fact) | LEG — Légal, consentements & données | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Mandat donné par l'agence dans le contrat-cadre (LEG-025) : instruire les dossiers de dommage et de non-restitution, transmettre les pièces à son assu… | LEG-025 |
+| PAY-033 | Mode « agence encaisse » (agence = marchand de référence) | PAY — Paiements | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Chaque agence est onboardée avec son propre compte PSP (Tilopay de préférence, cartes + Yappy ; sinon son PSP actuel). Mode (a) API, seulement avec un… | PAY-001 ; PAY-034 ; PAY-035 ; ADM-004 ; LEG-027 |
+| FIN-019 | Rapprochement léger des revenus (commission vs encaissements de l'agence) | FIN — Finance, comptabilité & fiscalité | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Acteur : finance plateforme. Chaque mois, avant d'émettre la facture de commission (FIN-018) : import du relevé de transactions du compte PSP de l'age… | FIN-018 ; PAY-033 ; ADM-005 ; ADM-031 ; LEG-025 ; LEG-027 |
+| LEG-025 | Contrat-cadre plateforme–loueur signé en ligne | LEG — Légal, consentements & données | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Signé avant la première annonce, versionné (LEG-002, BKG-019). Clauses : service d'intermédiation facturé au loueur ; le loueur est le loueur du véhic… | LEG-002 ; ACC-029 ; ADM-004 ; BKG-019 ; PRT-019 |
+| PRT-019 | Dépôt et contrôle de la police flotte du loueur | PRT — Protection & assurance | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'agence téléverse sa police et une attestation de l'assureur confirmant la couverture d'une location distribuée par une plateforme tierce (OQ-MK-05)… | VER-027 |
+| LEG-027 | Mandat écrit limité pour les opérations sur le compte PSP de l'agence | LEG — Légal, consentements & données | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Acteur : agence (représentant légal) et plateforme. Avant toute opération initiée par la plateforme sur le compte PSP de l'agence (création d'ordres o… | LEG-025 |
+| TRP-052 | Interface agent comptoir (liste du jour, remise, retour) | TRP — Cycle de vie du trip | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Liste du jour par lieu (retraits et retours, statut paiement et KYC) ; check-in en 1 clic ; contrôle du permis (VER-015) ; saisie de la caution prise… | TRP-002 ; VER-015 ; FLT-003 ; PAY-035 ; TRP-004 |
+| PAY-035 | Politique de caution de l'agence et options sans carte de crédit | PAY — Paiements | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'agence déclare par catégorie : montant de la caution, moyens acceptés au comptoir (pré-autorisation carte de crédit, carte de débit, espèces, Yappy… | ACC-029 |
+| PAY-038 | Split de la commission à la source par le PSP | PAY — Paiements | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : L'ordre reste créé sur le compte de l'agence ; la commission est reversée à la plateforme par l'endpoint de split du PSP (Tilopay orders/liquidation/s… | FIN-018 ; PAY-033 |
+| FLT-017 | Moteur de réservation en marque blanche (site et WhatsApp de l'agence) | FLT — co-hôtes et hôtes multi-véhicules | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Widget intégrable et lien aux couleurs de l'agence, branché sur le même inventaire et le même checkout ; attribution du canal pour la commission (taux… | BKG-001 ; PAY-033 |
+| FLT-018 | API ouverte et connecteurs aux logiciels de location | FLT — co-hôtes et hôtes multi-véhicules | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Au-delà de FLT-010 : connecteurs vers les logiciels de gestion des agences pilotes, identifiés en entretiens avant le build (aucun identifié à ce jour… | FLT-010 |
+| FLT-019 | Onboarding express : vérification des documents de l'entreprise en 48 h | FLT — co-hôtes et hôtes multi-véhicules | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Contrôle assisté des documents (RUC, Aviso de Operación, police) et import en masse avec photos ; objectif 48 h entre inscription et mise en ligne. | FLT-011 ; ADM-004 |
+| REV-014 | Badge « Agencia verificada » et confiance qui réduit la caution | REV — Avis & réputation | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Badge attribué après KYB, police valide et N trips sans litige ; niveaux de confiance guest qui réduisent la caution exigée. | REV-010 ; VER-027 |
+| TRP-055 | Intégration des GPS et télématiques déjà installés | TRP — Cycle de vie du trip | HORS PRODUIT | Hors produit (DEC-FONDATEUR-13), libellé historique : Connecteurs vers les GPS existants des agences (position, kilométrage, carburant), un connecteur par fournisseur. | TRP-042 |
 
 # PARTIE D — Traçabilité
 
@@ -4530,9 +4540,9 @@ Générée par script (version 5, US-057, même logique que `tools/check_prd_str
 Total : **68** lignes P0 concernées, toutes **construites** ; aucune ligne n'attend un avis pour son build. Décisions du fondateur explicitement laissées ouvertes : **DEC-FONDATEUR-01** (OQ-BR-41) et **OQ-BR-04** ; décisions produit ouvertes et paramétrées : UXQ-08 et OQ-BR-45 (avis consommation). Questions sans objet depuis le pivot (22) : UXQ-02, UXQ-09, UXQ-10, OQ-MK-05, OQ-MK-07, OQ-MK-11.
 
 
-## D.3 Contrôle automatique de couverture (2026-11-02, version 5 : révision P2P, US-057)
+## D.3 Contrôle automatique de couverture (2026-11-03, version 5 : révision P2P, US-057)
 
-Scripts **versionnés** de `tools/` (lancés par `scripts/ci/check-spec-tools.py`) : `python -I -X utf8 tools/check_prd_structure.py` (couverture des 178 lignes P0 de 04 révision 6, 24 rubriques, Given/When/Then, partie C, existence de chaque identifiant cité — feature_id, BR, SM, EC, T, TA, OQ, UXQ, écrans 10b, ADR, DEC —, absence des noms de la version 1, régénération de D.1) et `python -I -X utf8 tools/verif15_struct.py` (mêmes contrôles, plus phase, lot et `beta_pilote` de chaque fiche contre 04). Sortie de `check_prd_structure.py` :
+Scripts **versionnés** de `tools/` (lancés par `scripts/ci/check-spec-tools.py`, attentes dans `tools/registry.json`) : `python -I -X utf8 tools/check_prd_structure.py` (couverture des 178 lignes P0 de 04 révision 6, 24 rubriques, Given/When/Then, partie C dont les 24 lignes `HORS`, existence de chaque identifiant cité — feature_id, BR, SM, EC, T, TA, OQ, UXQ, écrans 10b, ADR, DEC —, absence des noms de la version 1, régénération de D.1) et `python -I -X utf8 tools/verif15_struct.py` (mêmes contrôles, plus phase, lot et `beta_pilote` de chaque fiche contre 04). Sortie de `check_prd_structure.py` :
 
 ```
 P0 dans 04 : 178 ; fiches : 128 ; feature_id couverts : 178 ; manquants : [] ; doublons : [] ; hors P0 : []
@@ -4558,16 +4568,19 @@ RÉSULTAT : OK
 
 `verif15_struct.py` : `sheets with heading problems 0`, `P0 missing from sheets: []`, `dup ids []`, `feature refs unknown []`, 0 écart de phase, de lot ou de `beta_pilote` avec 04, `sheets with non GWT-balanced AC 0`.
 
-**Contrôle en échec attendu** : `tools/check_ta_consolidation.py` recalcule les TA10 et TA11 **de la version 4** (commission de 12 %, autorisation sous mandat, trois sorties de la variante d'agence, toutes sans objet) et cherche leurs montants dans A.8.1. Les TA10 et TA11 de la version 5 renvoient aux vecteurs par jambe TJ03 et TJ05 de 08 (recalculés par `tools/check_legs.py`, qui passe) ; le script échoue donc tant qu'il n'est pas réécrit (hors périmètre de US-057, `tools/` réservé ; passation US-057). Fin de sa sortie :
+**Vecteurs TA** (réécrits le 2026-11-03 pour la version 5) : `tools/check_ta_consolidation.py` recalcule indépendamment les jambes `HOST` et `PLATFORM` de TA01 à TA06, contrôle TA04 (remboursement intégral, pénalité au `host_ledger`), relit les lignes TJ01, TJ02a, TJ02b, TJ03, TJ05a, TJ05b, TJ08a et TJ10b de 08 (Σ jambes = total, capture + void = autorisation, Σ variations = − remboursement), vérifie que chaque montant cité par TA08, TA10 et TA11 vient de ces lignes TJ et qu'aucun montant de la version 4 (commission, mandat, variante d'agence) ne subsiste ; `tools/verif15_ta.py` (auditeur, ne lit pas ce PRD) recalcule TA01 à TA07 et TA09. Sortie résumée de `check_ta_consolidation.py` :
 
 ```
-Comparaison avec le texte de 16 A.8.1
-  KO  TA10 : montants écrits ['0,00', '187,44', '24,22', '256,66', '45,00', '69,22'] ; manquants ['128,40', '2,80', '4,80', '40,00', '42,80', '85,60']
-  KO  TA11 : montants écrits ['0,00', '118,44', '131,25', '138,22', '18,53', '25,50'] ; manquants ['128,40', '2,80', '42,80', '8,40', '80,00', '85,60', '9,60']
-RÉSULTAT : ÉCHEC ['TA10', 'TA11']
+TA01–TA06 — recalcul des jambes HOST et PLATFORM (configuration PA1)
+Lignes TJ de 08 E7
+Montants cités par TA08, TA10, TA11 : tous issus des lignes TJ
+  OK  TA08 : 15 montants cités
+  OK  TA10 : 6 montants cités
+  OK  TA11 : 6 montants cités
+RÉSULTAT : OK
 ```
 
-`tools/verif15_ta.py` passe encore, mais il recalcule la commission de la version 4 sans lire ce PRD : à réécrire avec le précédent. Limites connues : les clés de gabarit `EVT_…` restent des noms de ce PRD (correspondance en A.8.2) ; une partie des noms de données descriptifs n'a pas d'équivalent exact dans 17 ; les références `TJxx` et `OQ-P2P-xx` ne sont pas contrôlées par `check_prd_structure.py` (motifs absents) : elles ont été vérifiées contre 08 et 22 par le script de l'auteur ; les vecteurs TA restent PROPOSÉS.
+Limites connues : les clés de gabarit `EVT_…` restent des noms de ce PRD (correspondance en A.8.2) ; une partie des noms de données descriptifs n'a pas d'équivalent exact dans 17 ; les références `TJxx` et `OQ-P2P-xx` des fiches ne sont pas contrôlées par `check_prd_structure.py` (motifs absents) : elles ont été vérifiées contre 08 et 22 par le script de l'auteur ; les vecteurs TA restent PROPOSÉS.
 
 > **Historique (version 5, pivot P2P)** : les journaux D.4 à D.6 et la table « Contradictions résiduelles » décrivent les versions 2 à 4 de ce PRD, écrites pour le modèle d'agences abandonné (DEC-FONDATEUR-13) ; les fiches, holds, rôles, paramètres et vecteurs qu'ils citent (`AGENCY_LINK`, `p0a_ineligible_no_show_outcome`, TA10 et TA11 de la version 4, police flotte, comptoir, contrat-cadre, mandat, commission) sont **sans objet**. Ils sont gardés pour la traçabilité.
 
@@ -4676,6 +4689,10 @@ Source : `docs/team/impact/2026-11-02-pivot-p2p.md` (§b.2, §e, §g ligne S5, �
 | S5-15 | C.1, C.2 (lignes remontées), lignes HORS PRODUIT sans place | partie C régénérée depuis 04 révision 6 ; HORS PRODUIT en C.3 ; libellés historiques marqués « (hist.) » | Appliqué |
 | S5-16 | D.1 : 29 écarts avec 04 | D.1 régénérée (178 lignes) | Appliqué |
 | S5-17 | D.2 « aucun build avant avis » (§g.1 point 2) | D.2 réécrite : build autorisé partout, mise en service fermée par les interrupteurs, aligné sur A.6 et DEC-FONDATEUR-02 | Appliqué |
-| S5-18 | `tools/check_ta_consolidation.py` et `tools/verif15_ta.py` recalculent les TA10, TA11 et TA08 de la version 4 (commission, variante d'agence) | **non modifiés** (hors périmètre de US-057, `tools/` réservé) : `check_ta_consolidation.py` échoue désormais sur TA10 et TA11 ; mise à jour à faire par une story qui a le droit de toucher `tools/` (passation US-057) | Ouvert |
+| S5-18 | `tools/check_ta_consolidation.py` et `tools/verif15_ta.py` recalculaient les TA08, TA10 et TA11 de la version 4 (commission, mandat, variante d'agence) | réécrits (2026-11-03) : recalcul indépendant des jambes de TA01 à TA06, invariants des lignes TJ de 08 pour TA08, TA10 et TA11, montants cités contrôlés contre les lignes TJ, montants de la version 4 interdits ; attentes de `registry.json` inchangées (`RÉSULTAT : OK`, `OK`) | Appliqué |
+| S5-19 | PYO-002 : lot de 106,25 composé par la fiche, sans oracle | critère réécrit sur les seules valeurs des vecteurs TJ01, TJ18b et TJ06 (lot = jambe `HOST` 131,25, ajustement distinct de −75,00) | Appliqué |
+| S5-20 | 04 : 24 lignes passées de P3 à `HORS` (US-058) | partie C.4 : les 24 lignes `HORS` ; A.3 (P3 = 47, `HORS` = 24) | Appliqué |
+| S5-21 | codes et action PROPOSÉS de US-058 | A.8 : `PENDING_ACTIVATION`, `VEHICLE_NOT_COVERED`, création d'un compte d'hôte par `manual_action` | Appliqué |
+| S5-22 | 10b v3 (US-059) : annulation par l'hôte depuis A05 (§4.1 bis), M-REM-01 | BKG-032 (parcours A05 « Cancelar reserva », avertissement, avis automatique) ; M4 = ≤ 5 écrans et ≤ 10 min, retour < 8 min | Appliqué |
 
 Contrôles (sorties en D.3) : `python -I -X utf8 tools/check_prd_structure.py` et `python -I -X utf8 tools/verif15_struct.py`.

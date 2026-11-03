@@ -224,19 +224,22 @@ flowchart LR
 
 L'écart de la tranche est plus fort que celui du MVP complet parce que la révision 6 **construit** dans la tranche ce que l'ops faisait à la place des agences (MANUEL → SIMPLIFIÉ, README de 04 §12) et parce que les lignes de l'ancien P0-B (barème 2,0–3,7) entrent dans le MVP, tandis que 15 lignes d'agence en sortent. Les surcoûts propres à l'ancien P0-B qui n'étaient pas des lignes (certification PSP, recette financière, conformité : « ≈ 5–10 » en version 4) relèvent désormais du lot C et de la mise en service, hors énoncé.
 
-2. **Points des stories de 19 (contrôle)** — à partir des estimations des stories existantes, 1 point ≈ ½ jour-agent :
+2. **Points des stories de 19 (contrôle ; recalculé le 2026-11-03 sur 19 version 3, US-057)** — même méthode que la version 5 (US-054) : 1 point ≈ ½ jour-agent (hypothèse de 19 §1.2), points lus par `tools/check_backlog.py` sur 19 v3 (US-058), qui a chiffré les 18 nouvelles stories, US-542 et les stories adaptées :
 
-| Poste | Tranche L0–L4 (pts) | MVP L0–L5 (pts) | Source |
-|---|---|---|---|
-| Backlog actuel | 522 | 737 | 19 §7 |
-| − 19 stories retirées (analyse pivot §e.2) | − 43 (L1 7, L2 18, L3 18) | − 95 (+ L5 52) | US-116, 117, 206, 210, 216, 220, 301, 302, 304 ; US-505, 506, 507, 510, 511, 515, 516, 537 (L5) ; US-705, US-712 (LB, hors des deux totaux) |
-| + stories remontées dans la tranche | + 56 | + 56 (les deux stories du lot 5 y sont déjà) | US-514, 525 (L5) ; US-701, 702, 703, 704, 706, 707, 708, 709 (LB) ; US-710 et US-711 (LB, 10 pts) vont au lot 5 |
-| + nouvelles stories estimées par les stories qu'elles remplacent (§e.2, colonne « Remplacée par ») | + 63 | + 66 | NOUVELLE-01 ← US-506 (8) ; -04 ← US-210, 220, 516, 705 (20) ; -05 ← US-216 (5) ; -08 ← US-301, 302, 304 (18) ; -12 ← US-117, 537 (7) ; -14 ← US-507 (5) ; -15 ← US-511 (3, lot 5) |
-| + nouvelles stories sans story remplacée (8 : NOUVELLE-02, 03, 10, 11, 13, 16, 17, 18) | + 24 à + 40 | + 24 à + 40 | **hypothèse** : 1ᵉʳ et 3ᵉ quartiles des stories des lots 1 à 3 de 19 (3 et 5 pts) ; à remplacer par l'estimation de S6 |
-| Les 15 stories adaptées gardent leurs points ; NOUVELLE-06, 07 et 09 sont la forme bêta de stories remontées, déjà comptées | 0 | 0 | analyse pivot §e.4, §e.5 |
-| **Total** | **≈ 622 à 638 pts ≈ 311 à 319 jours-agent** | **≈ 788 à 804 pts ≈ 394 à 402 jours-agent** | dans les fourchettes retenues |
+| Lot (19 v3) | Stories | Points |
+|---|---|---|
+| L0 | 59 | 286 |
+| L1 | 28 | 120 |
+| L2 | 27 | 140 |
+| L3 | 21 | 110 |
+| L4 | 9 | 37 |
+| **Tranche L0–L4** | **144** | **693 pts ≈ 347 jours-agent** |
+| L5 | 34 | 176 |
+| **Bêta P2P complète L0–L5** | **178** | **869 pts ≈ 435 jours-agent** |
+| LC (hors énoncé) | 8 | 52 |
+| HORS (19 stories hors produit, vidées) | 19 | 0 |
 
-Le contrôle par les points tombe dans les fourchettes de la méthode 1 ; ce n'est pas une preuve (le facteur ½ jour par point et le barème sont des hypothèses, A24-20). **S6** doit chiffrer les 18 nouvelles stories et ré-estimer les 15 stories adaptées ; ce paragraphe sera alors recalculé.
+**Écart corrigé** : la version 5 annonçait, faute de chiffrage, ≈ 622 à 638 pts pour la tranche et ≈ 788 à 804 pts pour la bêta complète (stories retirées, remontées, nouvelles estimées par les stories remplacées, 8 nouvelles bornées par les quartiles 3–5 pts). Le chiffrage de S6 donne **693 et 869 pts**, soit + 55 à + 71 pts et + 65 à + 81 pts : le lot 0 passe de 222 à 286 pts (US-061 port PSP de place de marché, US-062 rôle `P2P_HOST` et RLS de l'hôte, ajustements des 12 stories de l'analyse §d), et les nouvelles stories des lots 1 à 3 sont plus lourdes que les quartiles supposés (US-315 remise et retour à 13 pts, US-542 ajoutée). Le contrôle **reste dans les fourchettes de la méthode 1**, qui ne changent pas : 347 jours-agent dans 190–370 pour la tranche (dans son quart haut : risque de dépassement à surveiller au recalage du lot 1, §5.3) et 435 dans 340–670 pour la bêta complète. Ce n'est pas une preuve : le facteur ½ jour par point et le barème sont des hypothèses (A24-20).
 
 **Pourquoi aucune date.** La conversion jours-agent → jours calendaires dépend de facteurs inconnus avant le lot 0 : nombre d'agents en parallèle, limites d'usage, temps de revue du fondateur, mise en place externe (comptes, PSP, assureur, KYC, e-facture, avis). Ils sont mesurés au lot 0 (§5.3, US-027).
 
@@ -443,4 +446,4 @@ Restent ouverts : DEC-FONDATEUR-01 (OQ-BR-41), OQ-BR-04, OQ-BR-45, UXQ-08, UXQ-0
 | Effort | recalculé par l'écart de barème entre les révisions 5 et 6 de 04 (retenu) et contrôlé par les points de 19 | §5 |
 | Risques | R1 à R15 de l'analyse pivot ; risques d'agence sans objet | §7 |
 
-Restent ouverts : choix du pays de lancement, DEC-FONDATEUR-01 (OQ-BR-41), OQ-BR-04, et les avis, contrats et dépenses de §3 (aucune question produit n'est posée au fondateur). À reprendre : chiffrage des 18 nouvelles stories et des 15 stories adaptées (S6, 19), fiches des lignes remontées et matrice D.1 (S5, 16) ; ce document sera alors recalculé (§5).
+Restent ouverts : choix du pays de lancement, DEC-FONDATEUR-01 (OQ-BR-41), OQ-BR-04, et les avis, contrats et dépenses de §3 (aucune question produit n'est posée au fondateur). Fait depuis (2026-11-03, US-057) : S6 (19 v3, US-058) a chiffré les nouvelles et les adaptées, S5 (16 v5, US-057) a écrit les fiches des lignes remontées et régénéré D.1 ; le contrôle par les points de §5.0 est recalculé (693 et 869 pts, dans les fourchettes retenues, inchangées).

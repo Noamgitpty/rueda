@@ -96,9 +96,9 @@ python -I -X utf8 tools/verif12_t49plus.py                 # T49–T65, oracle d
 python -I -X utf8 tools/check_t49plus.py                   # T49–T65 (rédacteur) -> écarts = 0
 python -I -X utf8 tools/check_verif12_fixes.py             # corrections VERIF_12 (E2 incrémental, T66–T68 partiels) -> 0 écart
 python -I -X utf8 tools/check_t66_68.py                    # T66–T68 -> RÉSULTAT : OK
-python -I -X utf8 tools/check_ta_consolidation.py          # TA10, TA11 de 16 -> RÉSULTAT : OK
+python -I -X utf8 tools/check_ta_consolidation.py          # TA01–TA11 de 16 v5 (jambes, renvois aux TJ de 08) -> RÉSULTAT : OK
 python -I -X utf8 tools/check_legs.py                      # TJ01–TJ21, jambes explicites (08 E7, US-055, US-056) -> RÉSULTAT : OK
-python -I -X utf8 tools/verif15_ta.py                      # TA01–TA09 de 16 (auditeur VERIF_15) -> OK
+python -I -X utf8 tools/verif15_ta.py                      # TA01–TA07, TA09 de 16 v5, jambes (auditeur) -> OK
 python -I -X utf8 tools/verify_cxl_tests.py                # historique (T01–T27) : imprime, n'asserte rien (déclassé) ; ne pas compter comme contrôle
 ```
 
