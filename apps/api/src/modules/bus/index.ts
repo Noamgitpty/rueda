@@ -13,9 +13,18 @@ export type {
 } from './internal/envelope.js';
 export { JOB_RUNNER_DEFAULTS, JobRunner } from './internal/job-runner.js';
 export type { JobOutcome, JobRunnerOptions, RunResult } from './internal/job-runner.js';
+export { BusMetrics, metricsLogLine, toSnapshot } from './internal/metrics.js';
+export type { BusMetricsSnapshot, QueueDepth } from './internal/metrics.js';
+export { PeriodicScheduler } from './internal/periodic.js';
 export { publishEvent } from './internal/publisher.js';
-export { BusRegistry, OUTBOX_RELAY_WORKER } from './internal/registry.js';
-export type { EventHandler, TimerHandler } from './internal/registry.js';
+export {
+  BUS_MONITOR_WORKER,
+  BUS_SCHEDULER_WORKER,
+  BusRegistry,
+  OUTBOX_RELAY_WORKER,
+  PERIODIC_SINGLETON_KEY,
+} from './internal/registry.js';
+export type { EventHandler, PeriodicSpec, TimerHandler } from './internal/registry.js';
 export { OutboxRelay } from './internal/relay.js';
 export type { OutboxRelayOptions, RelayResult } from './internal/relay.js';
 export { scheduleJob, SPEC_MAX_ATTEMPTS } from './internal/scheduler.js';

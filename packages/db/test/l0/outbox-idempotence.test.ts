@@ -488,4 +488,71 @@ describe.each(EVENT_COUNTRIES)('outbox US-008 — $country ($currency)', (countr
       expect(due.map((j) => j.run_at.toISOString())).toEqual([at(T0, 24 * 3600)]);
     });
   });
+
+  it('tâche périodique : une occurrence vivante à la fois ; recréée après une lettre morte (la chaîne ne meurt pas)', async () => {
+    const sweeper = workerName('sweeper_test');
+    const scheduler = 'bus_scheduler';
+    await withRole('app_worker', async (client) => {
+      const ensure = (virtualNow: string) =>
+        outboxTx(client, { worker: scheduler, virtualNow, commit: true }, (tx) =>
+          enqueue(tx, sweeper, { singletonKey: 'periodic', maxAttempts: 1, delay: '60 seconds' }),
+        );
+      expect(await ensure(T0)).toBe(true);
+      expect(await ensure(at(T0, 1))).toBe(false); // occurrence vivante : rien
+      const outcome = await outboxTx(
+        client,
+        { worker: sweeper, virtualNow: at(T0, 60), commit: true },
+        async (tx) => {
+          const jobs = await claimJobs(tx);
+          expect(jobs).toHaveLength(1);
+          return failJob(tx, jobs[0]?.id ?? '');
+        },
+      );
+      expect(outcome).toBe('DEAD_LETTER');
+      // passage suivant du planificateur : nouvelle occurrence malgré la lettre morte
+      expect(await ensure(at(T0, 61))).toBe(true);
+      const next = await outboxTx(client, { worker: sweeper, virtualNow: at(T0, 121) }, (tx) =>
+        claimJobs(tx),
+      );
+      expect(next.map((j) => j.run_at.toISOString())).toEqual([at(T0, 121)]);
+    });
+  });
+
+  it("métriques (17 §6.3) : âge de l'outbox et profondeur des files, lisibles par bus_monitor seulement", async () => {
+    const queue = workerName('ntf_metrics');
+    await withRole('app_worker', async (client) => {
+      await outboxTx(client, { worker: 'booking_conversion', virtualNow: T0, commit: true }, (tx) =>
+        insertEvent(tx, country),
+      );
+      await outboxTx(client, { worker: RELAY, virtualNow: T0, commit: true }, async (tx) => {
+        await enqueue(tx, queue, { singletonKey: 'a' });
+        await enqueue(tx, queue, { singletonKey: 'b' });
+        await enqueue(tx, queue, { singletonKey: 'c', delay: '1 hour' });
+      });
+      type Row = { metric: string; queue: string | null; value: string };
+      const read = (worker: string, virtualNow: string) =>
+        outboxTx(client, { worker, virtualNow }, async (tx) => {
+          const { rows } = await tx.query<Row>(
+            'SELECT metric, queue, value::text AS value FROM core.outbox_metrics()',
+          );
+          return rows;
+        });
+      const rows = await read('bus_monitor', at(T0, 150));
+      const value = (metric: string, q: string | null = null) =>
+        Number(rows.find((r) => r.metric === metric && r.queue === q)?.value ?? NaN);
+      expect(value('outbox_unpublished')).toBeGreaterThanOrEqual(1);
+      expect(value('outbox_oldest_age_s')).toBeGreaterThanOrEqual(150);
+      expect(value('queue_ready', queue)).toBe(2);
+      expect(value('queue_scheduled', queue)).toBe(1);
+      expect(value('queue_oldest_ready_age_s', queue)).toBe(150);
+
+      // un autre travailleur ne voit rien (fail-closed) : zéros, aucune file
+      const blind = await read('booking_conversion', at(T0, 150));
+      expect(blind.filter((r) => r.queue !== null)).toEqual([]);
+      expect(blind.map((r) => [r.metric, r.value])).toEqual([
+        ['outbox_unpublished', '0'],
+        ['outbox_oldest_age_s', '0'],
+      ]);
+    });
+  });
 });

@@ -6,20 +6,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DeadLetterAlert } from './alerts.js';
 import { LogAlerter } from './alerts.js';
-import { FakeTransactions, ScriptedSql } from './doubles.test-support.js';
+import { countryCases, FakeTransactions, ScriptedSql } from './doubles.test-support.js';
 import type { DomainEvent, OutboxEventRow } from './envelope.js';
 import { EnvelopeError, rowToEnvelope } from './envelope.js';
 import { JobRunner } from './job-runner.js';
+import { metricsLogLine, toSnapshot } from './metrics.js';
+import { PeriodicScheduler } from './periodic.js';
 import { publishEvent } from './publisher.js';
-import { BusRegistry, OUTBOX_RELAY_WORKER } from './registry.js';
+import { BUS_SCHEDULER_WORKER, BusRegistry, OUTBOX_RELAY_WORKER } from './registry.js';
 import { OutboxRelay } from './relay.js';
 import { scheduleJob } from './scheduler.js';
 import { workerTransactions } from './sql.js';
 
-const CASES = [
-  { country: 'PA', currency: 'USD', amountMinor: '12000' },
-  { country: 'PY', currency: 'PYG', amountMinor: '850000' },
-] as const;
+// Pays configurés (données CFG) : USD et PYG sans décimale (CLAUDE.md point 3).
+const CASES = countryCases();
 
 const EVENT_ID = '0190a5c4-3333-7000-8000-000000000003';
 const JOB_ID = '0190a5c4-7777-7000-8000-000000000007';
@@ -440,6 +440,87 @@ describe('LogAlerter', () => {
       job_id: JOB_ID,
       attempts: 5,
       error_code: 'TypeError',
+    });
+  });
+});
+
+describe('PeriodicScheduler', () => {
+  it("garantit une occurrence vivante par tâche périodique (clé 'periodic', période, tentatives), sous bus_scheduler", async () => {
+    const registry = new BusRegistry();
+    const noop = () => Promise.resolve();
+    registry.registerPeriodic('disposition_sweeper', 60, noop);
+    registry.registerPeriodic('payment_intent_sweeper', 30, noop, { maxAttempts: 3 });
+    registry.registerTimer('trp_overdue', noop);
+    const sql = new ScriptedSql().on(/outbox_enqueue/, (params) => [
+      { added: params[0] === 'disposition_sweeper' },
+    ]);
+    const tx = new FakeTransactions(sql);
+    await expect(new PeriodicScheduler(tx, registry).tick()).resolves.toEqual([
+      'disposition_sweeper',
+    ]);
+    expect(sql.calls.map((c) => c.params)).toEqual([
+      ['disposition_sweeper', '{}', 'periodic', null, null, 60, 5],
+      ['payment_intent_sweeper', '{}', 'periodic', null, null, 30, 3],
+    ]);
+    expect(tx.log).toEqual([{ worker: BUS_SCHEDULER_WORKER, outcome: 'commit' }]);
+  });
+
+  it('aucune tâche périodique : aucune transaction', async () => {
+    const sql = new ScriptedSql();
+    const tx = new FakeTransactions(sql);
+    await expect(new PeriodicScheduler(tx, new BusRegistry()).tick()).resolves.toEqual([]);
+    expect(tx.log).toEqual([]);
+  });
+
+  it('refuse une période négative et les noms réservés du module', () => {
+    const r = new BusRegistry();
+    const noop = () => Promise.resolve();
+    expect(() => {
+      r.registerPeriodic('x_sweeper', -1, noop);
+    }).toThrow();
+    expect(() => {
+      r.registerPeriodic('bus_scheduler', 60, noop);
+    }).toThrow();
+    expect(() => {
+      r.registerTimer('bus_monitor', noop);
+    }).toThrow();
+  });
+});
+
+describe('métriques', () => {
+  it('toSnapshot : outbox et profondeur par file ; ligne JSON sans données métier', () => {
+    const snap = toSnapshot([
+      { metric: 'outbox_unpublished', queue: null, value: '3' },
+      { metric: 'outbox_oldest_age_s', queue: null, value: '125' },
+      { metric: 'queue_ready', queue: 'ntf_a', value: '2' },
+      { metric: 'queue_oldest_ready_age_s', queue: 'ntf_a', value: '40' },
+      { metric: 'dead_letter_open', queue: 'stl_b', value: '1' },
+    ]);
+    expect(snap).toEqual({
+      outboxUnpublished: 3,
+      outboxOldestAgeSeconds: 125,
+      queues: {
+        ntf_a: {
+          ready: 2,
+          scheduled: 0,
+          active: 0,
+          failed: 0,
+          deadLetters: 0,
+          oldestReadyAgeSeconds: 40,
+        },
+        stl_b: {
+          ready: 0,
+          scheduled: 0,
+          active: 0,
+          failed: 0,
+          deadLetters: 1,
+          oldestReadyAgeSeconds: 0,
+        },
+      },
+    });
+    expect(JSON.parse(metricsLogLine(snap))).toMatchObject({
+      metric: 'bus.metrics',
+      outboxOldestAgeSeconds: 125,
     });
   });
 });

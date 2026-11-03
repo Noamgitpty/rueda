@@ -1,5 +1,5 @@
 /**
- * Intégration du schéma de l'outbox (US-008, migrations 0100 à 0102 ; 17 §4.1, §4.2 ; ADR-050).
+ * Intégration du schéma de l'outbox (US-008, migrations 0010 à 0013 ; 17 §4.1, §4.2 ; ADR-050).
  * Vérifie, sous les rôles de production :
  * - RLS ENABLE + FORCE, propriétaire migrator, politique `migrator_all` (CLAUDE.md point 5) ;
  * - droits : rien pour PUBLIC ni app_anon ; aucun DELETE ni TRUNCATE ; app_api n'écrit que
@@ -26,6 +26,7 @@ const OUTBOX_FUNCTIONS = [
   'core.outbox_enqueue(text,jsonb,text,uuid,timestamp with time zone,interval,integer)',
   'core.outbox_fail_job(uuid,text,interval)',
   'core.outbox_mark_published(uuid[])',
+  'core.outbox_metrics()',
   'core.outbox_reap_expired_jobs()',
   'core.outbox_record_relay_failure(uuid[],text)',
   'core.outbox_relay_claim(integer)',

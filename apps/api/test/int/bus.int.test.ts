@@ -11,6 +11,7 @@
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
+import { countryCases } from '../support/countries.js';
 import type pg from 'pg';
 import { connectAs, releaseClient } from '@rueda/db/testing';
 import type {
@@ -21,8 +22,10 @@ import type {
   SqlClient,
 } from '../../src/modules/bus/index.js';
 import {
+  BusMetrics,
   BusRegistry,
   JobRunner,
+  PeriodicScheduler,
   OutboxRelay,
   publishEvent,
   scheduleJob,
@@ -30,10 +33,8 @@ import {
   workerTransactions,
 } from '../../src/modules/bus/index.js';
 
-const CASES = [
-  { country: 'PA', currency: 'USD', amountMinor: '12000' },
-  { country: 'PY', currency: 'PYG', amountMinor: '850000' },
-] as const;
+// Pays configurés (données CFG) : USD et PYG sans décimale (CLAUDE.md point 3).
+const CASES = countryCases();
 
 const opened: pg.Client[] = [];
 afterEach(async () => {
@@ -233,5 +234,42 @@ describe.each(CASES)('BUS sur PostgreSQL réel — $country ($currency)', (c) =>
       );
       expect(receipts.rows[0]?.n).toBe(0);
     });
+  });
+
+  it('tâche périodique : lettre morte puis nouvelle occurrence au passage suivant du planificateur ; métriques', async () => {
+    const worker = await open('app_worker');
+    const tx = workerTransactions(() => Promise.resolve(asSql(worker)));
+    const sweeper = consumerName('sweeper_it');
+    let calls = 0;
+    let failing = true;
+    const registry = new BusRegistry();
+    // période 0 s : chaque occurrence est échue tout de suite (en production : 17 §2.5, 60 s)
+    registry.registerPeriodic(
+      sweeper,
+      0,
+      () => {
+        calls++;
+        return failing ? Promise.reject(new RangeError('panne')) : Promise.resolve();
+      },
+      { maxAttempts: 1 },
+    );
+    const alerter = new RecordingAlerter();
+    const scheduler = new PeriodicScheduler(tx, registry);
+    const runner = new JobRunner(tx, registry, alerter, { backoffBaseSeconds: 0 });
+
+    expect(await scheduler.tick()).toEqual([sweeper]);
+    expect(await scheduler.tick()).toEqual([]); // occurrence vivante
+    expect((await runner.runOnce(sweeper)).outcomes.map((o) => o.outcome)).toEqual(['DEAD_LETTER']);
+    expect(alerter.alerts).toEqual([expect.objectContaining({ consumer: sweeper, eventId: null })]);
+
+    const metrics = await new BusMetrics(tx).collect();
+    expect(metrics.queues[sweeper]).toMatchObject({ failed: 1, deadLetters: 1, ready: 0 });
+
+    // la chaîne reprend : nouvelle occurrence, traitée avec succès
+    failing = false;
+    expect(await scheduler.tick()).toEqual([sweeper]);
+    expect((await runner.runOnce(sweeper)).outcomes.map((o) => o.outcome)).toEqual(['PROCESSED']);
+    expect(calls).toBe(2);
+    expect(await scheduler.tick()).toEqual([sweeper]); // occurrence suivante
   });
 });

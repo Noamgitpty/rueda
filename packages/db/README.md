@@ -11,6 +11,7 @@ Migrations SQL versionnées, exécuteur de migrations minimal et harnais de test
 | `test-migrations/9NNN_<nom>.sql`     | Migrations **de test seulement** (horloge virtuelle). Jamais appliquées hors du harnais.                                                                                                                                                                                                                                 |
 | `schemas.ts`                         | Correspondance **code de module → schéma PostgreSQL** (`MODULE_SCHEMAS`), schémas transverses (`SHARED_SCHEMAS`) et nommage Bêta (`BETA_SCHEMA`, `betaTableName()`), US-001. `schemas.test.ts` vérifie que chaque module du graphe (`apps/api/src/modules/dependency-graph.ts`) a un schéma. Export `@rueda/db/schemas`. |
 | `sql-clock-allowlist.json`           | Liste blanche de la règle d'horloge (CONTRIBUTING « SQL et horloge ») : `0000_platform_now.sql` et `9000_test_virtual_clock.sql`, `clock_timestamp()` seulement.                                                                                                                                                         |
+| `country-data-allowlist.json`        | Liste blanche du contrôle « aucune constante pays » des migrations (US-013, ADR-049) : seules les graines générées (`0009_config_seed.sql`) peuvent nommer une devise, un fuseau, un pays, une locale régionale ou une taxe.                                                                                             |
 | `src/migrate.ts`, `src/bootstrap.ts` | Exécuteur (`runMigrations`, `planMigrations`, `listMigrations`) et amorçage (`runBootstrap`, `setRolePasswords`).                                                                                                                                                                                                        |
 | `src/testing/`                       | Harnais de tests (`@rueda/db/testing`) : source de la base, banc jetable, connexions sous les rôles de production, transaction de test.                                                                                                                                                                                  |
 
@@ -19,8 +20,10 @@ Migrations actuelles :
 - `0000_platform_now` : schéma `platform`, `platform.now()` = `clock_timestamp()` `VOLATILE`, `platform.schema_migration` sous RLS `ENABLE` + `FORCE` ;
 - `0001_role_grants` : droits minimaux ;
 - `0002_app_session_context` à `0007_avl_pay_worker_grants` : schéma de preuve AVL / PAY (US-006, section « Schéma AVL / PAY ») ;
-- `0100_outbox_tables` à `0102_outbox_grants` : outbox, reçus, lettres mortes, file de tâches (US-008, section « Outbox et file »). Numéros 0100 à 0149 réservés à US-008 ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`.
+- `0008_config_country` (US-013) : tables de configuration pays dans `core` (schéma créé par `0003_core_schema`), gardes `PARAM_RETROACTIVE` / immuabilité / interrupteurs, `core.config_go_live`, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker` ;
+- `0009_config_seed` (US-013) : graines PA / PY **générées** depuis `apps/api/src/modules/cfg/data/`, ne pas éditer (ADR-049) ;
+- `0010_outbox_tables` à `0013_outbox_monitoring` : outbox, reçus, lettres mortes, file de tâches, métriques (US-008, section « Outbox et file ») ; numérotation : `migrations/README.md` ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -79,7 +82,7 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
 | `core.outbox_inbox_receipt` | PK `(consumer, event_id)` ; `consumer = app.worker_name()` imposé par la RLS.                                                                                                                                                                                                                                                                        |
 | `core.outbox_dead_letter`   | une ligne par tâche épuisée (`job_id` unique) ; `consumer = app.worker_name()`.                                                                                                                                                                                                                                                                      |
 
-Fonctions `SECURITY INVOKER` (`search_path` figé, `EXECUTE` à `app_worker` ; `app_api` : `outbox_enqueue` et `platform.uuid_v7()` seulement) : `outbox_relay_claim`, `outbox_mark_published`, `outbox_record_relay_failure`, `outbox_enqueue`, `outbox_claim_jobs`, `outbox_begin_receipt`, `outbox_complete_job`, `outbox_fail_job`, `outbox_reap_expired_jobs`. Personne n'a `DELETE`. Tests : `test/int/outbox-schema.test.ts`, `test/l0/outbox-idempotence.test.ts`.
+Fonctions `SECURITY INVOKER` (`search_path` figé, `EXECUTE` à `app_worker` ; `app_api` : `outbox_enqueue` et `platform.uuid_v7()` seulement) : `outbox_relay_claim`, `outbox_mark_published`, `outbox_record_relay_failure`, `outbox_enqueue`, `outbox_claim_jobs`, `outbox_begin_receipt`, `outbox_complete_job`, `outbox_fail_job`, `outbox_reap_expired_jobs`, `outbox_metrics` (lecture par `bus_monitor` seulement, 0013). Personne n'a `DELETE`. Tests : `test/int/outbox-schema.test.ts`, `test/l0/outbox-idempotence.test.ts`.
 
 ## Rôles (17 §2.3, ADR-035)
 

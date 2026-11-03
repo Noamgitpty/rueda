@@ -1,6 +1,6 @@
 /**
  * Enveloppe d'événement de domaine (17 §4.1). Les formats sont ceux des contraintes CHECK de
- * `core.outbox_outbox_event` (migration 0100) : le contrôle ici évite un aller-retour, la base
+ * `core.outbox_outbox_event` (migration 0010) : le contrôle ici évite un aller-retour, la base
  * reste l'arbitre.
  *
  * - `type` : `module.entité.verbe` en minuscules (ex. `booking.trip.booked`, `payment.received`) ;

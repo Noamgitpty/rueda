@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { countryCases } from './doubles.test-support.js';
 import type { NewDomainEvent } from './envelope.js';
 import {
   EnvelopeError,
@@ -8,11 +9,8 @@ import {
   validateNewEvent,
 } from './envelope.js';
 
-// Données de TEST (CLAUDE.md point 3 : USD à 2 décimales, PYG sans décimale ; unités mineures).
-const CASES = [
-  { country: 'PA', currency: 'USD', amountMinor: '12000' },
-  { country: 'PY', currency: 'PYG', amountMinor: '850000' },
-] as const;
+// Pays configurés (données CFG) : USD et PYG sans décimale (CLAUDE.md point 3).
+const CASES = countryCases();
 
 const base = (country: string, currency: string, amountMinor: string): NewDomainEvent => ({
   type: 'booking.trip.booked',
@@ -69,7 +67,8 @@ describe.each(CASES)(
 );
 
 describe('validateNewEvent : refus', () => {
-  const ok = base('PA', 'USD', '12000');
+  const first = CASES[0] as (typeof CASES)[number];
+  const ok = base(first.country, first.currency, first.amountMinor);
   it.each([
     ['type sans verbe', { ...ok, type: 'booking' }],
     ['type en majuscules', { ...ok, type: 'Booking.Trip.Booked' }],

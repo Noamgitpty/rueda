@@ -1,0 +1,41 @@
+{
+  "$comment": "Exemptions DÉCLARÉES de rueda/no-country-constants (revue code US-013). Seuls ces fichiers peuvent contenir un code pays, une devise, un fuseau, une locale régionale, une taxe ou une pièce : des tests dont les attentes PA / PY viennent des spécifications (CLAUDE.md contrainte 3), et l'outil qui décrit la règle. Tout autre fichier, test compris, est contrôlé. Ajouter une entrée exige une justification et une revue (code, sécurité). « directives » : fichiers autorisés à porter un commentaire eslint qui couperait la règle (vide : aucun).",
+  "files": [
+    {
+      "globs": ["apps/api/src/modules/cfg/internal/*.test.ts"],
+      "justification": "Tests de la configuration pays : vecteurs PA / PY tirés de 17 §1.2–§1.4, §7.2 et 08 BR-CXL-13, BR-PRICE-06."
+    },
+    {
+      "globs": [
+        "packages/config/test/country-constants.test.ts",
+        "packages/config/country-constants/**"
+      ],
+      "justification": "Outil et tests de la règle elle-même (jetons attendus, exemples fautifs)."
+    },
+    {
+      "globs": [
+        "packages/db/test/int/config-country.test.ts",
+        "packages/db/test/l0/*.test.ts",
+        "packages/db/test/support/avl.ts"
+      ],
+      "justification": "Tests PostgreSQL sous les rôles de production : graines PA / PY et jeux AVL / PAY en USD et en PYG (CLAUDE.md contrainte 3)."
+    },
+    {
+      "globs": ["packages/i18n/test/**"],
+      "justification": "Formats es-PA / es-PY / en / fr, USD et PYG (16 I18N-003 à 005) : attentes tirées des spécifications."
+    },
+    {
+      "globs": ["packages/money/test/**"],
+      "justification": "Vecteurs monétaires en USD et en PYG (08, oracles de docs/specs/tools)."
+    },
+    {
+      "globs": [
+        "apps/web/app/locale/route.test.ts",
+        "apps/backoffice/app/locale/route.test.ts",
+        "packages/design-tokens/test/lint.test.ts"
+      ],
+      "justification": "Tests de négociation de locale (es-PA, es-PY) et du lint de style : attentes de configuration."
+    }
+  ],
+  "directives": []
+}

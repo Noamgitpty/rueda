@@ -1,4 +1,4 @@
--- 0100 — BUS : outbox transactionnelle, reçus de consommation, lettres mortes, tâches planifiées.
+-- 0010 — BUS : outbox transactionnelle, reçus de consommation, lettres mortes, tâches planifiées.
 -- US-008 ; 17 §4.1 (enveloppe), §4.2 (outbox, inbox, échecs, purge), §3.1.4 (classes), tableau des
 -- entités transverses (outbox_event, inbox_receipt, dead_letter, scheduled_job) ; ADR-011, ADR-050.
 -- Appliquée sous `migrator`.
@@ -10,8 +10,8 @@
 -- explique pourquoi la Bêta la porte elle-même (RLS ENABLE + FORCE, platform.now(), rôles de
 -- production) derrière le port de file `JobQueue` ; un adaptateur pg-boss reste possible.
 --
--- Numérotation : US-008 a réservé 0100 à 0149 ; l'exécuteur (src/migrate.ts) accepte un trou mais
--- refuse une migration plus ancienne que la dernière appliquée (voir la passation US-008).
+-- Numérotation : règle de packages/db/migrations/README.md (numéro strictement supérieur au plus
+-- grand de origin/main à la fusion ; renuméroter à la mise à jour de la branche).
 --
 -- Retour arrière (tables vides) :
 --   DROP TABLE core.outbox_dead_letter, core.outbox_inbox_receipt, core.outbox_scheduled_job,

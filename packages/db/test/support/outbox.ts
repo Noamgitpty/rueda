@@ -9,15 +9,17 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { withTestTransaction } from '../../src/testing/index.ts';
+import { COUNTRIES } from './avl.ts';
 
 /**
- * Les deux pays de premier rang (CLAUDE.md point 3) : données de TEST, pas des constantes du code.
- * Montants en unités mineures (chaînes : bigint), USD à 2 décimales, PYG sans décimale.
+ * Les deux pays de premier rang (CLAUDE.md point 3) : jeux de TEST de support/avl.ts (USD à 2
+ * décimales, PYG sans décimale ; montants en unités mineures, chaînes bigint).
  */
-export const EVENT_COUNTRIES = [
-  { country: 'PA', currency: 'USD', amountMinor: '12000' },
-  { country: 'PY', currency: 'PYG', amountMinor: '850000' },
-] as const;
+export const EVENT_COUNTRIES = COUNTRIES.map((c) => ({
+  country: c.country,
+  currency: c.currency,
+  amountMinor: c.rentMinor,
+}));
 export type EventCountry = (typeof EVENT_COUNTRIES)[number];
 
 /** 17 §4.2 : « 5 tentatives avec attente exponentielle, puis dead_letter ». */

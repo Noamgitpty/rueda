@@ -2,7 +2,7 @@
   "name": "@rueda/api",
   "version": "0.0.0",
   "private": true,
-  "description": "Back-end NestJS (monolithe modulaire) : API (main.ts) et travailleur pg-boss (worker.ts), une image.",
+  "description": "Back-end NestJS (monolithe modulaire) : API (main.ts) et travailleur (worker.ts : outbox, files et tâches périodiques en SQL, ADR-050), une image.",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -16,6 +16,7 @@
     "@nestjs/common": "12.1.3",
     "@nestjs/core": "12.1.3",
     "@nestjs/platform-express": "12.1.3",
+    "@rueda/i18n": "workspace:*",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
   },
