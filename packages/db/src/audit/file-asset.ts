@@ -23,10 +23,22 @@ export type Bucket = 'PUBLIC_LISTING' | 'PRIVATE_EVIDENCE' | 'KYC' | 'DOCUMENTS'
 export type FileSource = 'IN_APP_CAMERA' | 'STAFF_UPLOAD' | 'GENERATED' | 'PROVIDER';
 export type Classification = 'C0' | 'C1' | 'C2' | 'C3';
 
-/** Port `FileStore` (17 §5, module AUD). Adaptateur FAKE : `@rueda/db/testing`. */
+/**
+ * Port `FileStore` (17 §5, module AUD). Adaptateur FAKE : `@rueda/db/testing`.
+ *
+ * Contrat de `put` : **création seule**. Si un objet existe déjà sous `(bucket, key)`, `put`
+ * lève `FileStoreConflictError` et l'objet existant reste intact ; un objet n'est JAMAIS écrasé
+ * (une preuve ne change pas d'octets). Adaptateur réel (US-003) : écriture conditionnelle
+ * (`If-None-Match: *` sur S3) et verrou objet du bucket `PRIVATE_EVIDENCE`.
+ */
 export interface FileStore {
   put(bucket: Bucket, key: string, body: Buffer): Promise<void>;
   get(bucket: Bucket, key: string): Promise<Buffer>;
+}
+
+/** Un objet existe déjà sous cette clé : refus, rien n'est écrasé (contrat de `FileStore.put`). */
+export class FileStoreConflictError extends Error {
+  override readonly name = 'FileStoreConflictError';
 }
 
 /** SHA-256 calculé en flux. */
@@ -73,9 +85,10 @@ export interface ReceivedFile {
 }
 
 /**
- * Reçoit un fichier : empreinte et taille en flux, chiffrement par sujet si C2 / C3, dépôt, puis
- * ligne `file_asset` dans la transaction de l'appelant. Fail-closed : sans clé de sujet
- * disponible, un fichier C2 / C3 n'est PAS déposé.
+ * Reçoit un fichier : empreinte et taille en flux, chiffrement par sujet si C2 / C3, ligne
+ * `file_asset` dans la transaction de l'appelant, puis dépôt en création seule. Fail-closed : sans
+ * clé de sujet disponible, un fichier C2 / C3 n'est PAS déposé ; une collision de `storage_key`
+ * est refusée (23505) sans toucher à l'objet existant.
  */
 export async function receiveFile(
   db: Queryable,
@@ -101,7 +114,9 @@ export async function receiveFile(
       key.dek.fill(0);
     }
   }
-  await store.put(input.bucket, input.storageKey, stored);
+  // La ligne D'ABORD : la contrainte UNIQUE (bucket, storage_key) refuse une collision avant que
+  // le stockage ne soit touché, et la transaction de l'appelant porte l'annulation. Le dépôt
+  // ENSUITE, en création seule : un objet existant sans ligne (orphelin) est refusé, pas écrasé.
   await db.query(
     `INSERT INTO core.audit_file_asset
             (id, bucket, storage_key, mime, bytes, sha256, uploader_user_id, source,
@@ -123,6 +138,7 @@ export async function receiveFile(
       input.encryptFor?.id ?? null,
     ],
   );
+  await store.put(input.bucket, input.storageKey, stored);
   return {
     sha256: received.sha256,
     bytes: received.bytes,

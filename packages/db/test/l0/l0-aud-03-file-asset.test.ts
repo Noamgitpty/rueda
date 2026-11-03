@@ -122,6 +122,22 @@ describe('US-009 — magasin de preuves (17 §1.7, CLM-034)', () => {
     );
   });
 
+  it('collision de storage_key : refusée (23505) avant le dépôt ; la preuve existante garde ses octets', async () => {
+    const first: Upload = { ...publicPhoto, id: uuid(), key: `listings/${uuid()}.jpg` };
+    await upload(keys, store, { kind: 'HOST' }, first);
+    const second: Upload = { ...first, id: uuid(), body: randomBytes(4096) };
+    await expect(upload(keys, store, { kind: 'HOST' }, second)).rejects.toMatchObject({
+      code: '23505',
+      constraint: 'file_asset_storage_unique',
+    });
+    expect(store.raw(first.bucket, first.key)?.equals(first.body)).toBe(true);
+    await withRole('app_worker', (client) =>
+      auditTx(client, { actor: VERIFIER }, async (tx) => {
+        expect((await verifyFileAsset(tx, store, keys, first.id)).status).toBe('MATCH');
+      }),
+    );
+  });
+
   it('objet altéré dans le stockage : empreinte différente (C0) ou déchiffrement refusé (C3)', async () => {
     const photo: Upload = { ...publicPhoto, id: uuid(), key: `listings/${uuid()}.jpg` };
     const proof: Upload = { ...evidence, id: uuid(), key: `claims/${uuid()}.jpg` };

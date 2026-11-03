@@ -1,4 +1,4 @@
--- 0150 — AUD : clés de données par sujet (crypto-shredding) et garde des registres en ajout seul.
+-- 0016 — AUD : clés de données par sujet (crypto-shredding) et garde des registres en ajout seul.
 -- US-009 ; 17 §1.5 point 4, §3.1.3 « Crypto-shredding des registres immuables » points 1, 2, 5, 9,
 -- §3.2.13 (`subject_key`) ; ADR-026 ; ADR-051. Appliquée sous `migrator`.
 --
@@ -10,7 +10,7 @@
 -- Effacement = destruction de la clé (17 §3.1.3 point 2) : `wrapped_dek` passe à NULL et
 -- `destroyed_at` est posé ; c'est la SEULE modification admise d'une ligne (trigger de garde).
 -- Les octets chiffrés des registres restent, illisibles ; aucune ligne de registre n'est modifiée.
--- La procédure de destruction (0154) n'est accordée à aucun rôle applicatif en Bêta (NN8).
+-- La procédure de destruction (0020) n'est accordée à aucun rôle applicatif en Bêta (NN8).
 --
 -- Retour arrière (base vide) :
 --   DROP TABLE core.audit_subject_key;

@@ -1,4 +1,4 @@
--- 0153 — AUD : métadonnées des fichiers (magasin de preuves) avec empreinte SHA-256 à la réception.
+-- 0019 — AUD : métadonnées des fichiers (magasin de preuves) avec empreinte SHA-256 à la réception.
 -- US-009 ; 17 §1.7 (« empreinte SHA-256 calculée à la réception et heure serveur », CLM-034),
 -- §3.1.3 points 1 et 6 (fichiers nominatifs chiffrés par la clé du sujet), §3.2.13 (`file_asset`) ;
 -- ADR-051. Appliquée sous `migrator`.
@@ -14,7 +14,7 @@
 --
 -- Classe D / E (17 §3.1.3) : la ligne n'est jamais supprimée ; seuls `retention_class`,
 -- `legal_hold_until` et `deleted_at` peuvent évoluer (trigger de garde) ; l'empreinte, la taille,
--- l'emplacement et la clé de chiffrement sont figés. Aucun droit UPDATE en Bêta (0155) : la purge
+-- l'emplacement et la clé de chiffrement sont figés. Aucun droit UPDATE en Bêta (0021) : la purge
 -- et le gel légal arrivent avec leurs stories (US-536, US-046).
 --
 -- Retour arrière (base vide) : DROP TABLE core.audit_file_asset; DROP FUNCTION core.audit_file_asset_guard();

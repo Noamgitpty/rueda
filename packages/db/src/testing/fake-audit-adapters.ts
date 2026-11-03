@@ -9,6 +9,7 @@
  * une instance ne se déroule pas avec une autre (comme deux clés KMS distinctes).
  */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { FileStoreConflictError } from '../audit/file-asset.ts';
 import type { Bucket, FileStore } from '../audit/file-asset.ts';
 import { KeyWrapperRejectedError, KeyWrapperUnavailableError } from '../audit/key-wrapper.ts';
 import type { KeyWrapper } from '../audit/key-wrapper.ts';
@@ -78,7 +79,7 @@ export class FakeKeyWrapper implements KeyWrapper {
   }
 }
 
-/** Stockage objet en mémoire. `corrupt` simule une altération des octets stockés. */
+/** Stockage objet en mémoire, en création seule. `corrupt` simule une altération des octets stockés. */
 export class InMemoryFileStore implements FileStore {
   readonly #objects = new Map<string, Buffer>();
 
@@ -86,8 +87,11 @@ export class InMemoryFileStore implements FileStore {
     assertNotProduction('InMemoryFileStore', env);
   }
 
+  /** Création seule (contrat du port) : un objet existant n'est jamais écrasé. */
   async put(bucket: Bucket, key: string, body: Buffer): Promise<void> {
-    this.#objects.set(`${bucket}/${key}`, Buffer.from(body));
+    const at = `${bucket}/${key}`;
+    if (this.#objects.has(at)) throw new FileStoreConflictError('objet déjà présent');
+    this.#objects.set(at, Buffer.from(body));
   }
 
   async get(bucket: Bucket, key: string): Promise<Buffer> {

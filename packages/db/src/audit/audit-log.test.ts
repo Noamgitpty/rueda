@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { FakeKeyWrapper } from '../testing/fake-audit-adapters.ts';
 import { appendAuditLog, AuditEntryError } from './audit-log.ts';
-import type { AuditEntry } from './audit-log.ts';
+import type { AuditEntry, AuditObject } from './audit-log.ts';
 import { columnAad, open } from './envelope.ts';
 import { SubjectKeyStore } from './subject-keys.ts';
 import type { Queryable } from './subject-keys.ts';
@@ -96,6 +96,12 @@ describe('appendAuditLog', () => {
     ['email dans after', { after: { contact: 'ana@example.com' } }],
     ['IPv4 dans before', { before: { from: '198.51.100.1' } }],
     ['IP imbriquée', { after: { list: [{ ip: '192.0.2.1' }] } }],
+    ['IPv6 compressée', { after: { from: '2001:db8::7' } }],
+    ['IPv6 boucle locale', { before: { from: 'client ::1' } }],
+    ['IPv6 complète', { after: { from: '2001:0db8:0000:0000:0000:ff00:0042:8329' } }],
+    ['email en nom de clé', { after: { 'ana@example.com': true } }],
+    ['email dans reason', { reason: 'appel de ana@example.com' }],
+    ['IPv6 dans reason', { reason: 'depuis fe80::1' }],
     ['code d’action invalide', { actionCode: 'trip cancelled' }],
     ['IP d’un acteur système', { actorUserId: null }],
   ])('refus avant écriture : %s', async (_name, over) => {
@@ -103,6 +109,31 @@ describe('appendAuditLog', () => {
     const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
     await expect(appendAuditLog(db, keys, entry(over))).rejects.toBeInstanceOf(AuditEntryError);
     expect(db.audits).toHaveLength(0);
+  });
+
+  it('pas de faux positif sur une heure, un UUID ou un instant ISO ; profondeur bornée', async () => {
+    const db = captureDb();
+    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const ok = entry({
+      after: { at: '2031-07-01T08:00:00.000Z', time: '08:00:00', ref: TRIP },
+      reason: 'à 10:30:00',
+    });
+    await expect(appendAuditLog(db, keys, ok)).resolves.toEqual({ c2Withheld: false });
+    let deep: AuditObject = { leaf: 'x' };
+    for (let i = 0; i < 40; i++) deep = { d: deep };
+    await expect(appendAuditLog(db, keys, entry({ after: deep }))).rejects.toBeInstanceOf(
+      AuditEntryError,
+    );
+  });
+
+  it('enveloppe de clé rejetée par le KMS (clé empoisonnée ou autre clé maîtresse) : c2_withheld, pas d’exception', async () => {
+    const db = captureDb();
+    await appendAuditLog(db, new SubjectKeyStore(new FakeKeyWrapper({})), entry());
+    // un autre KMS ne déroule pas la clé déjà stockée pour ce sujet
+    const other = new SubjectKeyStore(new FakeKeyWrapper({}));
+    expect(await appendAuditLog(db, other, entry())).toEqual({ c2Withheld: true });
+    const params = db.audits[1]!;
+    expect([params[8], params[9], params[10], params[11]]).toEqual([null, null, null, true]);
   });
 
   it('un message d’erreur ne recopie pas la valeur refusée', async () => {

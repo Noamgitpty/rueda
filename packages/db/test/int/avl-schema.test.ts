@@ -62,6 +62,7 @@ describe('schéma core (US-006)', () => {
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
             AND c.relname !~ '^audit_'
+            AND c.relname !~ '^iam_'          -- tables IAM : test/int/iam-schema.test.ts (US-010)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual([...CORE_TABLES, ...CONFIG_TABLES].sort());
@@ -213,6 +214,7 @@ describe('schéma core (US-006)', () => {
         `SELECT p.oid::regprocedure::text AS fn
            FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
           WHERE n.nspname IN ('core', 'app', 'platform') AND p.prosecdef
+            AND p.proname !~ '^iam_'          -- commandes IAM : test/int/iam-schema.test.ts (US-010)
           ORDER BY 1`,
       );
       // + le trigger de chaîne d'audit (US-009, ADR-051), vérifié par test/int/audit-schema.test.ts

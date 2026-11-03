@@ -103,6 +103,18 @@ describe('SubjectKeyStore', () => {
     expect(db.inserts).toBe(0);
   });
 
+  it('enveloppe rejetée (clé empoisonnée pour un sujet tiers) : WITHHELD, pas d’exception', async () => {
+    const db = memoryDb();
+    db.rows.set(`USER:${ALICE.id}`, {
+      wrapped_dek: randomBytes(48), // octets quelconques insérés par une session fautive
+      kms_key_id: 'fake-kms/000000000000',
+      destroyed_at: null,
+    });
+    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    expect(await keys.dekFor(db, ALICE, 'create')).toEqual({ status: 'WITHHELD' });
+    expect(await keys.dekFor(db, ALICE, 'read')).toEqual({ status: 'WITHHELD' });
+  });
+
   it('cache : pas de second appel au KMS avant l’échéance ; KMS en panne ⇒ cache utilisé puis WITHHELD', async () => {
     const db = memoryDb();
     const kms = new FakeKeyWrapper({});

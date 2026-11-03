@@ -1,4 +1,4 @@
--- 0154 — AUD : procédure de destruction d'une clé de sujet (crypto-shredding), tracée.
+-- 0020 — AUD : procédure de destruction d'une clé de sujet (crypto-shredding), tracée.
 -- US-009 ; 17 §3.1.3 points 2, 5 et 10 ; §3.2.13 (`subject_key` : « destruction refusée si
 -- legal_hold_until futur ») ; NN8 ; ADR-026 ; ADR-051. Appliquée sous `migrator`.
 --

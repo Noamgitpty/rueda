@@ -11,9 +11,18 @@
  *   clé n'est pas disponible (KMS injoignable) ou si le sujet est effacé, la ligne est écrite
  *   quand même, sans l'IP, avec `c2_withheld = true` (l'audit n'est jamais bloqué, la donnée
  *   personnelle n'est jamais écrite en clair, 17 §3.1.3 point 9).
- * - `before` / `after` : références et valeurs C0 / C1 seulement (17 §3.1.3 point 3). Garde-fou
- *   (défense en profondeur, non exhaustif) : refus d'une valeur qui ressemble à une adresse email
- *   ou IP.
+ *   Il en va de même si le KMS rejette l'enveloppe de la clé (clé « empoisonnée », autre clé
+ *   maîtresse, octets altérés).
+ * - `before` / `after` : références et valeurs C0 / C1 seulement (17 §3.1.3 point 3).
+ *
+ * Garde-fou C2 (défense en profondeur, HEURISTIQUE) : refus, dans `reason`, dans les valeurs ET
+ * dans les noms de clés de `before` / `after`, d'un texte qui contient une adresse email, une IPv4
+ * ou une IPv6 (forme compressée `::` ou forme complète à 8 groupes) ; profondeur bornée à 32.
+ * Limites (ADR-051) : il ne voit ni les noms propres, ni les adresses postales, ni les téléphones,
+ * ni les nombres JSON (IP entière, téléphone), ni les formes obfusquées (« a at b dot com »,
+ * base64, hexadécimal), ni une IPv6 sans `::` à moins de 8 groupes ; un texte en `1.2.3.4`
+ * (numéro de version) est refusé à tort. Il ne remplace pas la règle : n'écrire que des
+ * références et des valeurs C0 / C1.
  */
 import { columnAad, seal } from './envelope.ts';
 import type { SubjectRef } from './envelope.ts';
@@ -21,10 +30,40 @@ import type { Queryable, SubjectKeyStore } from './subject-keys.ts';
 
 const CODE = /^[A-Z][A-Z0-9_]{1,63}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const LOOKS_PERSONAL = [
-  /[^\s@]+@[^\s@]+\.[^\s@]+/, // email
-  /\b(?:\d{1,3}\.){3}\d{1,3}\b/, // IPv4 (IPv6 non détectée : trop de faux positifs, ex. heures)
-];
+const MAX_DEPTH = 32;
+const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+const IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
+/** Suites de caractères hexadécimaux et de « : » (candidates IPv6). */
+const HEX_COLON_RUN = /[0-9a-f:]{2,45}/gi;
+const HEX_GROUP = /^[0-9a-f]{1,4}$/i;
+
+/**
+ * IPv6 probable : forme compressée (`::` et au moins un groupe hexadécimal, ex. `::1`,
+ * `2001:db8::7`) ou forme complète à 8 groupes de 1 à 4 chiffres hexadécimaux. Une heure
+ * (`08:00:00`) n'a ni `::` ni 8 groupes : elle n'est pas retenue.
+ */
+function looksLikeIpv6(text: string): boolean {
+  for (const run of text.match(HEX_COLON_RUN) ?? []) {
+    const groups = run.split(':');
+    if (run.includes('::')) {
+      const filled = groups.filter((g) => g !== '');
+      if (filled.length >= 1 && filled.length <= 7 && filled.every((g) => HEX_GROUP.test(g))) {
+        return true;
+      }
+    } else if (groups.length === 8 && groups.every((g) => HEX_GROUP.test(g))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function looksPersonal(text: string): boolean {
+  if (UUID.test(text)) return false;
+  return EMAIL.test(text) || IPV4.test(text) || looksLikeIpv6(text);
+}
+
+const personalError = (path: string): AuditEntryError =>
+  new AuditEntryError(`${path} : donnée personnelle probable (C2) interdite en clair`);
 
 /** Valeur admise dans `before` / `after` : référence ou valeur C0 / C1. */
 export type AuditValue = string | number | boolean | null | readonly AuditValue[] | AuditObject;
@@ -57,15 +96,21 @@ export class AuditEntryError extends Error {
   override readonly name = 'AuditEntryError';
 }
 
-function assertNoObviousPersonalData(value: AuditValue, path: string): void {
+function assertNoObviousPersonalData(value: AuditValue, path: string, depth = 0): void {
+  if (depth > MAX_DEPTH)
+    throw new AuditEntryError(`${path} : profondeur supérieure à ${MAX_DEPTH}`);
   if (typeof value === 'string') {
-    if (LOOKS_PERSONAL.some((re) => re.test(value) && !UUID.test(value))) {
-      throw new AuditEntryError(`${path} : donnée personnelle probable (C2) interdite en clair`);
-    }
+    if (looksPersonal(value)) throw personalError(path);
   } else if (Array.isArray(value)) {
-    value.forEach((v: AuditValue, i: number) => assertNoObviousPersonalData(v, `${path}[${i}]`));
+    value.forEach((v: AuditValue, i: number) =>
+      assertNoObviousPersonalData(v, `${path}[${i}]`, depth + 1),
+    );
   } else if (value !== null && typeof value === 'object') {
-    for (const [k, v] of Object.entries(value)) assertNoObviousPersonalData(v, `${path}.${k}`);
+    for (const [k, v] of Object.entries(value)) {
+      // le nom de clé n'est pas recopié dans le message : il peut être la donnée elle-même
+      if (looksPersonal(k)) throw personalError(`${path}.<clé>`);
+      assertNoObviousPersonalData(v, `${path}.${k}`, depth + 1);
+    }
   }
 }
 
@@ -77,6 +122,7 @@ function validate(entry: AuditEntry): void {
   ] as const) {
     if (!CODE.test(v)) throw new AuditEntryError(`${name} : format invalide`);
   }
+  if (entry.reason !== undefined && looksPersonal(entry.reason)) throw personalError('reason');
   if (entry.before !== undefined) assertNoObviousPersonalData(entry.before, 'before');
   if (entry.after !== undefined) assertNoObviousPersonalData(entry.after, 'after');
   if (entry.ip !== undefined && entry.actorUserId === null) {

@@ -8,7 +8,8 @@
  * - Cache en mémoire du processus, jamais sur disque, durée `subject_dek_cache_ttl_s` (PROPOSÉ
  *   300 s, 17 §3.1.3 point 9 ; paramètre CFG à brancher avec US-013) ; une DEK évincée est
  *   remise à zéro.
- * - Fail-closed : KMS injoignable et clé absente du cache ⇒ `WITHHELD` (l'appelant écrit sa ligne
+ * - Fail-closed : KMS injoignable (ou enveloppe rejetée par le KMS) et clé absente du cache ⇒
+ *   `WITHHELD` (l'appelant écrit sa ligne
  *   sans la donnée C2) ; clé détruite ⇒ `DESTROYED` (jamais de nouvelle donnée C2 pour un sujet
  *   effacé) ; aucune DEK n'est jamais journalisée.
  */
@@ -16,7 +17,7 @@ import { randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import { DEK_BYTES, subjectLabel } from './envelope.ts';
 import type { SubjectRef } from './envelope.ts';
-import { KeyWrapperUnavailableError } from './key-wrapper.ts';
+import { KeyWrapperRejectedError, KeyWrapperUnavailableError } from './key-wrapper.ts';
 import type { KeyWrapper } from './key-wrapper.ts';
 
 /** Exécuteur SQL minimal (connexion `pg`, transaction ouverte par l'appelant). */
@@ -96,7 +97,12 @@ export class SubjectKeyStore {
       this.#remember(subject, dek);
       return { status: 'OK', dek };
     } catch (error) {
-      if (error instanceof KeyWrapperUnavailableError) return { status: 'WITHHELD' };
+      // KMS injoignable OU enveloppe rejetée (clé « empoisonnée » insérée pour un sujet tiers,
+      // autre clé maîtresse, octets altérés) : même repli, l'audit n'est jamais bloqué et la
+      // donnée C2 n'est pas écrite (revue sécurité US-009, constat 5).
+      if (error instanceof KeyWrapperUnavailableError || error instanceof KeyWrapperRejectedError) {
+        return { status: 'WITHHELD' };
+      }
       throw error;
     }
   }

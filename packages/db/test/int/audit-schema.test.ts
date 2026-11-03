@@ -1,5 +1,5 @@
 /**
- * Intégration du schéma d'audit (US-009, migrations 0150 à 0155, test 9150 ; ADR-051).
+ * Intégration du schéma d'audit (US-009, migrations 0016 à 0021, test 9150 ; ADR-051).
  * Vérifie, sous les rôles de production, ce que les preuves L0 d'audit supposent :
  * - RLS ENABLE + FORCE et politique migrator_all sur TOUTES les tables de core (CLAUDE.md point 5) ;
  * - aucun UPDATE / DELETE / TRUNCATE pour aucun rôle applicatif sur les tables d'audit, aucune
@@ -73,7 +73,7 @@ describe('schéma d’audit (US-009)', () => {
         granted.filter((g) => /:(UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)$/.test(g)),
       ).toEqual([]);
       expect(granted.filter((g) => g.startsWith('app_anon:'))).toEqual([]);
-      // ce qui reste : écriture par colonnes et lectures ciblées (0155)
+      // ce qui reste : écriture par colonnes et lectures ciblées (0021)
       expect(granted).toEqual(
         [
           'app_api:audit_audit_log:INSERT',

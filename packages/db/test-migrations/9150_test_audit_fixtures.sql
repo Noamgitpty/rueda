@@ -6,7 +6,7 @@
 --
 -- Rôle de ces fonctions (SECURITY DEFINER sous migrator, search_path figé, aucun SQL dynamique,
 -- accordées à app_worker DANS LA BASE DE TEST seulement) :
---   - destroy_subject_key : la procédure manuelle de destruction (0154), qu'aucun rôle applicatif
+--   - destroy_subject_key : la procédure manuelle de destruction (0020), qu'aucun rôle applicatif
 --     n'exécute en production ; ici pour prouver le crypto-shredding sous les rôles de production ;
 --   - set_file_legal_hold : pose d'un gel légal sur un fichier (outil : US-536 / US-046) ;
 --   - owner_tamper_audit_log : simule un PROPRIÉTAIRE malveillant (migrator) qui altère le journal,

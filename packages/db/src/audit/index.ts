@@ -48,7 +48,13 @@ export type {
   DataAccessEntry,
   DataAccessKind,
 } from './audit-log.ts';
-export { FileAssetError, receiveFile, sha256Stream, verifyFileAsset } from './file-asset.ts';
+export {
+  FileAssetError,
+  FileStoreConflictError,
+  receiveFile,
+  sha256Stream,
+  verifyFileAsset,
+} from './file-asset.ts';
 export type {
   Bucket,
   Classification,

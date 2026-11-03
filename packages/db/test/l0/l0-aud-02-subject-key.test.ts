@@ -119,13 +119,14 @@ describe('US-009 — C2 chiffrées par sujet et crypto-shredding (17 §3.1.3, AD
     if (otherDek.status !== 'OK') throw new Error('clé attendue');
     expect(() => open(otherDek.dek, row.ip_enc as Buffer, ipAad(actor))).toThrow(EnvelopeError);
     expect(() => open(dek.dek, row.ip_enc as Buffer, ipAad(other))).toThrow(EnvelopeError);
-    // un autre KMS (autre clé maîtresse) ne déroule pas la DEK
+    // un autre KMS (autre clé maîtresse) ne déroule pas la DEK : repli WITHHELD, jamais d'exception
+    // qui bloquerait l'audit (revue sécurité US-009, constat 5)
     const foreign = new SubjectKeyStore(new FakeKeyWrapper());
-    await expect(
-      withRole('app_worker', (client) =>
+    expect(
+      await withRole('app_worker', (client) =>
         auditTx(client, { actor: WRITER }, (tx) => foreign.dekFor(tx, actor, 'read')),
       ),
-    ).rejects.toThrow(/enveloppe refusée/);
+    ).toEqual({ status: 'WITHHELD' });
   });
 
   it('la base refuse un clair, une IP sans clé, ou chiffrée sous la clé d’un autre sujet', async () => {

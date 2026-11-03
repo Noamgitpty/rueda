@@ -1,4 +1,4 @@
--- 0151 — AUD : journal d'audit en ajout seul, chaîné par hachage SHA-256.
+-- 0017 — AUD : journal d'audit en ajout seul, chaîné par hachage SHA-256.
 -- US-009 ; 17 §1.7, §3.1.2 (registre immuable), §3.1.3 point 3 (chaîne sur le texte chiffré),
 -- §3.2.13 (`audit_log`) ; 16 ADM-001 ; ADR-051. Appliquée sous `migrator`.
 --
@@ -13,11 +13,11 @@
 -- prend le verrou de la ligne de tête `audit_chain_head` (FOR UPDATE), attribue id, at, prev_hash
 -- et hash, puis avance la tête. Les écrivains sont donc sérialisés jusqu'à leur COMMIT : l'ordre
 -- des id est l'ordre des validations, et un instantané voit toujours un préfixe de la chaîne.
--- Le client ne peut fournir ni id, ni at, ni prev_hash, ni hash (droits par colonne, 0155).
+-- Le client ne peut fournir ni id, ni at, ni prev_hash, ni hash (droits par colonne, 0021).
 -- SECURITY DEFINER (propriétaire migrator, search_path figé, EXECUTE retiré) : la tête est
 -- invisible des rôles applicatifs ; la fonction ne reçoit que la ligne insérée, sans SQL dynamique.
 --
--- Immuabilité : aucun droit UPDATE / DELETE / TRUNCATE (0155) ET triggers de refus, y compris
+-- Immuabilité : aucun droit UPDATE / DELETE / TRUNCATE (0021) ET triggers de refus, y compris
 -- pour le propriétaire. Un propriétaire qui désactiverait les triggers reste détecté par la
 -- vérification de la chaîne (test L0 « altération ») ; l'ancrage externe (export mensuel vers le
 -- stockage verrouillé, 17 §10) borne ce risque.

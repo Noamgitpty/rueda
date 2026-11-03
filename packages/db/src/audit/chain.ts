@@ -1,7 +1,7 @@
 /**
  * Chaîne de hachage du journal d'audit (US-009 ; 17 §1.7, §3.1.3 point 3 ; ADR-051).
  *
- * Vérificateur INDÉPENDANT du trigger SQL `zz_audit_log_chain` (migration 0151) : la forme
+ * Vérificateur INDÉPENDANT du trigger SQL `zz_audit_log_chain` (migration 0017) : la forme
  * canonique v1 est réécrite ici d'après ADR-051, sans lire `core.audit_log_canonical`. Les deux
  * implémentations doivent s'accorder sur chaque ligne ; un écart signale une altération (ou un
  * défaut de l'une des deux, ce que les tests unitaires bornent par un vecteur écrit à la main).
@@ -141,7 +141,7 @@ export function verifyAuditChain(
 
 /**
  * Requête de relecture de la chaîne, sous `app_worker` avec `app.worker_name` =
- * `audit_chain_verifier` (seul lecteur autorisé, migration 0155). Projection seulement : aucun
+ * `audit_chain_verifier` (seul lecteur autorisé, migration 0021). Projection seulement : aucun
  * calcul de hachage côté SQL. `$1` = dernier id de la tête lue JUSTE AVANT (même transaction) :
  * sous READ COMMITTED, des écritures validées entre les deux lectures ne faussent pas la
  * comparaison avec la tête (les validations suivent l'ordre des id, ADR-051). Tri sur `l.id`

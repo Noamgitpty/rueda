@@ -1,4 +1,4 @@
--- 0155 — AUD : droits et politiques RLS des rôles de production sur les tables d'audit.
+-- 0021 — AUD : droits et politiques RLS des rôles de production sur les tables d'audit.
 -- US-009 ; 17 §2.3 (rôles SQL, contexte de session, fail-closed), §3.1.2 (registre immuable :
 -- « droits SQL retirés au rôle applicatif »), §3.2.13 ; ADR-035 ; ADR-051. Appliquée sous `migrator`.
 --
@@ -24,7 +24,7 @@
 -- core.audit_subject_key ------------------------------------------------------------------------
 -- Lire la clé enveloppée de son sujet et en créer une au premier besoin (17 §3.1.3 point 1).
 -- La DEK enveloppée ne sert à rien sans le KMS (port KeyWrapper) ; la destruction n'est accordée
--- à personne (0154).
+-- à personne (0020).
 GRANT SELECT (subject_type, subject_id, wrapped_dek, kms_key_id, destroyed_at)
   ON core.audit_subject_key TO app_api, app_worker;
 GRANT INSERT (subject_type, subject_id, wrapped_dek, kms_key_id)
