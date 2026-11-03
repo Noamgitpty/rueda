@@ -63,7 +63,7 @@ EXPECTATIONS = {
     "check_verif12_fixes.py": {"require": [r"^0 ecart$"], "forbid": [r"ECART\(S\)"]},
     "check_t66_68.py": {"require": [r"^RÉSULTAT : OK\s*$"]},
     "check_ta_consolidation.py": {"require": [r"^RÉSULTAT : OK\s*$"]},
-    "check_legs.py": {"require": [r"^RÉSULTAT : OK\s*$", r"^Lignes TJ trouvées dans 08 : 47 ; vecteurs calculés : 47$"]},
+    "check_legs.py": {"require": [r"^RÉSULTAT : OK\s*$", r"^Lignes TJ trouvées dans 08 : 58 ; vecteurs calculés : 58$"]},
     "verif15_ta.py": {"require": [r"^OK$"]},
 }
 
