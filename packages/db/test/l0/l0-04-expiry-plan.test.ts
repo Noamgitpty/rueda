@@ -38,7 +38,15 @@ const LONG = 240_000;
 
 /** Instant du test (horloge virtuelle) ; les holds ciblés sont posés avant. */
 const TL = '2032-02-01T12:00:00.000Z';
-const INDEXES = ['checkout_hold_vehicle_status_idx', 'checkout_hold_guest_status_idx'];
+/** Branche « véhicule » de l'`OR` : index `(vehicle_id, status)` (17 §2.5). */
+const VEHICLE_INDEXES = ['checkout_hold_vehicle_status_idx'];
+/**
+ * Branche « guest » : `(guest_user_id, status)` (17 §2.5) ou l'index unique partiel
+ * `one_live_hold_per_guest_vehicle (guest_user_id, vehicle_id) WHERE status IN ('ACTIVE',
+ * 'PAYMENT_IN_FLIGHT')`, qui couvre aussi le filtre de statut de 2a : le planificateur de
+ * PostgreSQL 16 le préfère (constat de la CI, ADR-055).
+ */
+const GUEST_INDEXES = ['checkout_hold_guest_status_idx', 'one_live_hold_per_guest_vehicle'];
 
 interface PlanNode {
   'Node Type': string;
@@ -226,7 +234,19 @@ describe.each(COUNTRIES)('L0-04 — instruction 2a sur 10 000 holds ($country, $
               p95Ms: p95,
             })}`,
           );
-          for (const index of INDEXES) expect(usedIndexes, scans.join(', ')).toContain(index);
+          // deux index distincts, un par branche de l'OR, combinés dans un BitmapOr
+          expect(
+            nodes.some((n) => n['Node Type'] === 'BitmapOr'),
+            scans.join(', '),
+          ).toBe(true);
+          expect(
+            VEHICLE_INDEXES.some((i) => usedIndexes.has(i)),
+            scans.join(', '),
+          ).toBe(true);
+          expect(
+            GUEST_INDEXES.some((i) => usedIndexes.has(i)),
+            scans.join(', '),
+          ).toBe(true);
           expect(seqScans, scans.join(', ')).toEqual([]);
           expect(p95).toBeLessThan(POSE_P95_MS);
         } finally {

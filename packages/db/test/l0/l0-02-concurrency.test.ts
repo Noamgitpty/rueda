@@ -105,7 +105,10 @@ interface C1Report {
   readonly active: number;
 }
 
-/** C1 : `degree` poses du même créneau par autant de connexions `app_api`, départ commun. */
+/**
+ * C1 : `degree` poses du même créneau par autant de connexions `app_api`, départ commun. Le temps
+ * d'une pose va du départ commun à la réponse de la commande, rejeux compris.
+ */
 async function runC1(c: CountryCase, vehicleLock: boolean): Promise<C1Report> {
   const observer = await connectAs('app_api');
   try {
@@ -123,9 +126,9 @@ async function runC1(c: CountryCase, vehicleLock: boolean): Promise<C1Report> {
       const runs = posers.map(async (client, i) => {
         await barrier.wait(client);
         return withReplay(() =>
-          inTx(client, { commit: true }, (tx) =>
-            placeHoldLocked(tx, { slot, c, guestId: guests[i] as string, period, vehicleLock }),
-          ),
+          // un appel de commande = une instruction en autocommit, comme l'API appellera
+          // cmd_place_hold : la transaction (et ses verrous) se termine sur le serveur
+          placeHoldLocked(client, { slot, c, guestId: guests[i] as string, period, vehicleLock }),
         );
       });
       try {
