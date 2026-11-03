@@ -58,6 +58,9 @@ const IAM_COMMANDS = [
   'core.iam_session_resolve(bytea)',
 ] as const;
 
+/** Lecture des coordonnées pour NTF (US-021, migration 0029), exécutable par app_worker seul. */
+const NOTIFICATION_CONTACT = 'core.iam_notification_contact(uuid)';
+
 describe('schéma IAM (US-010)', () => {
   it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
     await withRole('app_api', async (client) => {
@@ -207,8 +210,24 @@ describe('schéma IAM (US-010)', () => {
           WHERE n.nspname = 'core' AND p.proname ~ '^iam_' AND p.prosecdef
           ORDER BY 1`,
       );
-      expect(rows.map((r) => r.fn)).toEqual([...IAM_COMMANDS].sort());
-      for (const r of rows) {
+      // US-021 (ADR-061) : une seule fonction IAM est exécutable par app_worker, et par lui seul :
+      // les coordonnées d'un destinataire de notification (0 ligne hors du travailleur ntf_sender).
+      const contact = rows.filter((r) => r.fn === NOTIFICATION_CONTACT);
+      expect(contact).toEqual([
+        {
+          fn: NOTIFICATION_CONTACT,
+          secdef: true,
+          owner: 'iam_auth_owner',
+          config: ['search_path=pg_catalog, pg_temp'],
+          api: false,
+          worker: true,
+          anon: false,
+          public_exec: false,
+        },
+      ]);
+      const commands = rows.filter((r) => r.fn !== NOTIFICATION_CONTACT);
+      expect(commands.map((r) => r.fn)).toEqual([...IAM_COMMANDS].sort());
+      for (const r of commands) {
         expect(r, r.fn).toMatchObject({
           secdef: true,
           owner: 'iam_auth_owner',
