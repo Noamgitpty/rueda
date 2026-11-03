@@ -1,0 +1,12 @@
+# Revue architecture — US-062 — 2026-11-03 (reprise b)
+
+Relecteur : architecture / claude-sonnet-5-5 (famille A, autre modèle que l'auteur claude-opus-5-5)
+Entrées : diff 1e93f54..69eb3b4 (corrections après la première revue), story US-062 de 19, passation, ADR-064, RESUME_HERE. Locaux : lint, lint:sql, typecheck, test:unit (64/64), format:check verts. Migrations et preuves L0 jamais exécutées (CI bloquée) : revue à la lecture ; la première CI verte conditionne la fusion.
+
+| #   | Gravité (CRITIQUE/MAJEUR/MINEUR) | Constat                                                                                                                                                                                                                                                                                 | Preuve (fichier:ligne, test)                         | Décision |
+| --- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------- |
+| 1   | MINEUR                           | ADR-064 complété : droits élargis de cmd_money_owner (point 6 : lectures par colonnes, ajout au journal, EXECUTE, alternative écartée), lecture des travailleurs (7), âge au fuseau du trip (8), org_id non contraint tracé vers US-224. Constat 2 précédent résolu.                    | docs/adr/ADR-064                                     | résolu   |
+| 2   | MINEUR                           | Reports tracés dans docs/team/RESUME_HERE.md (US-061 / US-223 pour RLS-25, US-514, US-224, US-227, US-101, US-125) et dans la passation ; constat 5 précédent résolu. La collision de numérotation avec US-023 (PR #53) reste à régler à la fusion, déjà signalée.                      | RESUME_HERE.md ; passation « Reprise du 2026-11-03 » | accepté  |
+| 3   | MINEUR                           | Conformité inchangée : core.settlement_*, propriétaires, liste blanche RLS-15, platform.now(), aucune constante de pays. Le lien org_id = compte d'hôte du trip n'est pas une contrainte : choix assumé, commenté en 0036 et reporté à US-224. Pas de CHANGELOG dans le dépôt (US-040). | 0036 lignes 93-95                                    | accepté  |
+
+Verdict : APPROUVÉ
