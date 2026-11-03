@@ -1,12 +1,12 @@
 {
   "$schema": "https://design-tokens.github.io/community-group/format/",
-  "$description": "US-028 - direction « Lienzo · Tinta » (famille blanc épuré, 2026-11-02). Format DTCG (brouillon). Proposée après le retour du fondateur du 2026-11-02 ; en attente de son choix.",
+  "$description": "US-028 - direction « Lienzo · Tinta » (famille blanc épuré, 2026-11-02). Format DTCG (brouillon). Choisie par le fondateur le 2026-11-02 (DEC-MARQUE), révisable ; thème par défaut de @rueda/design-tokens (US-030), qui la lit directement.",
   "meta": {
     "direction": "lienzo-tinta",
-    "status": "PROPOSÉ : en attente du choix du fondateur ; nom Kmino tranché le 2026-11-02",
-    "story": "US-028",
-    "version": "0.1.0",
-    "date": "2026-11-02",
+    "status": "CHOISI par le fondateur le 2026-11-02 (DEC-MARQUE), révisable ; jetons du langage visuel ajoutés par US-030 (0.2.0)",
+    "story": "US-028, US-030",
+    "version": "0.2.1",
+    "date": "2026-11-03",
     "wcag": "2.2 AA, ratios calculés (formule WCAG 2.x de luminance relative), voir contrastChecks",
     "concept": "La page blanche et l'encre : un fond blanc pur, du texte noir doux et une seule encre bleu nuit, rare, posée sur le bouton Reservar, les liens et la sélection. Le calme d'un document bien composé.",
     "paletteLogic": "Blanc + gris neutres + une encre bleu nuit (≈ 220°, désaturée) : la couleur n'apparaît que là où l'on agit ; les zones sont séparées par des filets gris de 1 px et de l'espace, pas par des aplats.",
@@ -145,6 +145,40 @@
         "$value": "#1D3461",
         "$type": "color",
         "$description": "Anneau de focus 2px + décalage 2px"
+      },
+      "avatar-1": {
+        "$value": "#E7EEFA",
+        "$type": "color",
+        "$description": "Fond de monogramme d'hôte, ton 1 (quatre tons doux)"
+      },
+      "on-avatar-1": {
+        "$value": "#1D3461",
+        "$type": "color",
+        "$description": "Initiales sur avatar-1"
+      },
+      "avatar-2": {
+        "$value": "#F4ECE3",
+        "$type": "color"
+      },
+      "on-avatar-2": {
+        "$value": "#5B3A1C",
+        "$type": "color"
+      },
+      "avatar-3": {
+        "$value": "#E4F1EA",
+        "$type": "color"
+      },
+      "on-avatar-3": {
+        "$value": "#1E4D35",
+        "$type": "color"
+      },
+      "avatar-4": {
+        "$value": "#F5E8EE",
+        "$type": "color"
+      },
+      "on-avatar-4": {
+        "$value": "#5C2440",
+        "$type": "color"
       }
     },
     "dark": {
@@ -237,6 +271,40 @@
         "$value": "#A9C1EA",
         "$type": "color",
         "$description": "Anneau de focus 2px + décalage 2px"
+      },
+      "avatar-1": {
+        "$value": "#1C2840",
+        "$type": "color",
+        "$description": "Fond de monogramme d'hôte, ton 1 (quatre tons doux)"
+      },
+      "on-avatar-1": {
+        "$value": "#D6E2F7",
+        "$type": "color",
+        "$description": "Initiales sur avatar-1"
+      },
+      "avatar-2": {
+        "$value": "#33271C",
+        "$type": "color"
+      },
+      "on-avatar-2": {
+        "$value": "#F0DCC6",
+        "$type": "color"
+      },
+      "avatar-3": {
+        "$value": "#17302A",
+        "$type": "color"
+      },
+      "on-avatar-3": {
+        "$value": "#CBEBDB",
+        "$type": "color"
+      },
+      "avatar-4": {
+        "$value": "#3A1E2A",
+        "$type": "color"
+      },
+      "on-avatar-4": {
+        "$value": "#F3D3E0",
+        "$type": "color"
       }
     },
     "scale": {
@@ -399,6 +467,34 @@
     "source": {
       "$value": "Google Fonts, licence SIL Open Font License 1.1",
       "$type": "string"
+    },
+    "display": {
+      "family": {
+        "$value": "{font.family.heading}",
+        "$type": "fontFamily",
+        "$description": "Titre d'affichage de l'accueil (la typographie est le héros)"
+      },
+      "weight": {
+        "$value": "{font.weight.heading}",
+        "$type": "fontWeight"
+      },
+      "size": {
+        "$value": "42px",
+        "$type": "dimension"
+      },
+      "sizeCompact": {
+        "$value": "38px",
+        "$type": "dimension",
+        "$description": "Sous 400 px de large"
+      },
+      "letterSpacing": {
+        "$value": "-0.04em",
+        "$type": "dimension"
+      },
+      "lineHeight": {
+        "$value": 1,
+        "$type": "number"
+      }
     }
   },
   "space": {
@@ -462,12 +558,42 @@
     "pill": {
       "$value": "999px",
       "$type": "dimension"
+    },
+    "card": {
+      "$value": "20px",
+      "$type": "dimension",
+      "$description": "Cartes de l'accueil, de la fiche et de l'espace hôte"
     }
   },
   "shadow": {
     "raised": {
       "$value": "0 1px 2px rgba(23,24,27,.04)",
-      "$type": "string"
+      "$type": "string",
+      "$extensions": {
+        "org.rueda": {
+          "dark": "0 0 0 1px rgba(255,255,255,.06)"
+        }
+      }
+    },
+    "card": {
+      "$value": "0 1px 2px rgba(17,18,20,.04), 0 10px 28px -14px rgba(17,18,20,.1)",
+      "$type": "shadow",
+      "$description": "Ombre double très diffuse des cartes. En sombre, une ombre noire ne se voit pas sur #111214 : un liseré clair de 1 px dessine le bord, l'ombre portée reste en dessous (revue UX US-030).",
+      "$extensions": {
+        "org.rueda": {
+          "dark": "0 0 0 1px rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.6), 0 12px 32px -12px rgba(0,0,0,.8)"
+        }
+      }
+    },
+    "float": {
+      "$value": "0 2px 4px rgba(17,18,20,.05), 0 18px 36px -14px rgba(17,18,20,.1)",
+      "$type": "shadow",
+      "$description": "Carte survolée ou flottante (recherche, barre d'action)",
+      "$extensions": {
+        "org.rueda": {
+          "dark": "0 0 0 1px rgba(255,255,255,.12), 0 2px 4px rgba(0,0,0,.6), 0 20px 40px -12px rgba(0,0,0,.85)"
+        }
+      }
     }
   },
   "motion": {
@@ -483,6 +609,26 @@
       "slow": {
         "$value": "240ms",
         "$type": "duration"
+      },
+      "enter": {
+        "$value": "280ms",
+        "$type": "duration",
+        "$description": "Apparition d'un écran, bloc au défilement (12 px + fondu)"
+      },
+      "page": {
+        "$value": "300ms",
+        "$type": "duration",
+        "$description": "Transition carte → fiche"
+      },
+      "signature": {
+        "$value": "700ms",
+        "$type": "duration",
+        "$description": "Exceptions, une seule fois : tracé du camino, compteur de revenus (UX-69)"
+      },
+      "skeleton": {
+        "$value": "1400ms",
+        "$type": "duration",
+        "$description": "Un balayage du squelette de chargement"
       }
     },
     "easing": {
@@ -491,13 +637,48 @@
         "$type": "cubicBezier"
       },
       "emphasis": {
-        "$value": [0.2, 0.6, 0.2, 1],
-        "$type": "cubicBezier"
+        "$value": [0.2, 0.7, 0.2, 1],
+        "$type": "cubicBezier",
+        "$description": "Entrées et transitions d'écran (PROPOSITIONS, « Mouvement »)"
       }
     },
     "reducedMotion": {
-      "$value": "Si prefers-reduced-motion: reduce, durées à 0ms sauf fondus d'opacité <= 120ms",
+      "$value": "Si prefers-reduced-motion: reduce, tout s'arrête : durées à 0, exceptions comprises, valeurs finales affichées (10b UX-69)",
       "$type": "string"
+    },
+    "iterations": {
+      "skeleton": {
+        "$value": 3,
+        "$type": "number",
+        "$description": "Trois balayages puis arrêt"
+      }
+    }
+  },
+  "glass": {
+    "opacity": {
+      "$value": 0.86,
+      "$type": "number",
+      "$description": "surface-raised à 86 % sous le verre ; repli opaque sans backdrop-filter ou avec prefers-reduced-transparency (UX-49)"
+    },
+    "blur": {
+      "$value": "18px",
+      "$type": "dimension"
+    },
+    "saturate": {
+      "$value": 1.6,
+      "$type": "number"
+    }
+  },
+  "camino": {
+    "strokeWidth": {
+      "$value": "2.5px",
+      "$type": "dimension",
+      "$description": "Motif signature : tracé en pointillés dans la couleur focus, une fois par écran au plus (UX-69)"
+    },
+    "dashArray": {
+      "$value": [0.006, 0.018],
+      "$type": "number",
+      "$description": "Pointillés ronds, longueur de tracé normalisée (pathLength = 1)"
     }
   },
   "contrastChecks": {

@@ -57,6 +57,9 @@ importers:
 
   apps/backoffice:
     dependencies:
+      '@rueda/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@rueda/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -91,6 +94,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@rueda/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@rueda/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -172,6 +178,21 @@ importers:
       testcontainers:
         specifier: 12.2.1
         version: 12.2.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
+
+  packages/design-tokens:
+    devDependencies:
+      '@rueda/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 26.6.5
+        version: 26.6.5
       typescript:
         specifier: 6.0.3
         version: 6.0.3

@@ -8,8 +8,9 @@
     "node": ">=26.13 <27"
   },
   "scripts": {
-    "lint": "eslint . && node packages/config/sql-clock/cli.ts",
+    "lint": "eslint . && node packages/config/sql-clock/cli.ts && node packages/design-tokens/lint/cli.ts",
     "lint:sql": "node packages/config/sql-clock/cli.ts",
+    "lint:style": "node packages/design-tokens/lint/cli.ts",
     "typecheck": "turbo run typecheck",
     "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/",
     "test:int": "turbo run test:int",

@@ -1,37 +1,30 @@
 /*
- * Prototype jetable US-026. Aucun jeton de design n'existe encore (US-030) : la page n'utilise que
- * des variables neutres déclarées ici, et les couleurs système (Canvas, CanvasText, GrayText).
- * À supprimer avec le laboratoire, ou à rebrancher sur les jetons.
+ * Prototype jetable US-026, rebranché sur les jetons de design (US-030) : couleurs, espacements et
+ * police viennent des variables du thème (`@rueda/design-tokens`). À supprimer avec le laboratoire.
  */
 .lab {
-  --lab-space: 1rem;
-  --lab-space-small: 0.5rem;
-  --lab-line: thin;
-  --lab-measure: 48rem;
-  --lab-font-mono: ui-monospace, monospace;
-
-  box-sizing: border-box;
-  max-inline-size: var(--lab-measure);
+  max-inline-size: 48rem;
   margin-inline: auto;
-  padding: var(--lab-space);
-  color: CanvasText;
-  background: Canvas;
+  padding: var(--space-4);
+  color: var(--color-text);
+  background: var(--color-surface);
 }
 
 .section {
-  margin-block: var(--lab-space);
-  padding: var(--lab-space-small);
-  border: var(--lab-line) solid GrayText;
+  margin-block: var(--space-4);
+  padding: var(--space-2);
+  border: thin solid var(--color-border-strong);
+  border-radius: var(--radius-md);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--lab-space-small);
+  gap: var(--space-2);
 }
 
 .result {
-  font-family: var(--lab-font-mono);
+  font-family: var(--font-family-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-block-size: 20rem;
@@ -45,5 +38,5 @@
 }
 
 .hint {
-  color: GrayText;
+  color: var(--color-text-muted);
 }

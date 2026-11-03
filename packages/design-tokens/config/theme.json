@@ -1,0 +1,5 @@
+{
+  "$comment": "Thème actif (US-030, ADR-047). Changer de palette = changer \"palette\" (identifiant = nom du fichier docs/design/US-028/tokens-<id>.json). Surcharge sans commit : variables THEME_PALETTE et THEME_COLOR_SCHEME. Choix du fondateur du 2026-11-02 : Lienzo · Tinta, révisable.",
+  "palette": "lienzo-tinta",
+  "colorScheme": "auto"
+}
