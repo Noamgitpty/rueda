@@ -22,11 +22,15 @@ et le graphe, et aucune story active ne peut en dépendre. L'ancien lot LB (P0-B
 remontées (liste « Stories remontées sans renumérotation » de 19 §1.1) ou hors produit. Les lignes `HORS` de 04
 (`phase_mvp`) sont ignorées par la couverture, et une story active ne peut pas en citer. La rubrique « Bêta pilote »
 devient « Tranche bêta ».
+Revue QA du bloc S2 / S5 / S6 (US-057, 2026-11-03) : contrôle aussi les comptes de 21_COVERAGE_MATRIX.csv
+(FINAL-FEAT-INV, FINAL-E0 à E18) contre 04 et 19, et lit les listes « déplacées » et « remontées » de 19 §1.1 comme
+verif19_backlog.py (la parenthèse est une justification).
 """
 import csv
 import os
 import re
 import sys
+from pathlib import Path
 from collections import defaultdict
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -50,9 +54,9 @@ FIELDS = ["Epic", "Récit", "Features", "Références", "Critères d'acceptation
 errors, warnings = [], []
 doc = read("19_DEVELOPMENT_BACKLOG.md")
 _mv = re.search(r"^- \*\*Stories déplacées sans renumérotation\*\* :(.*)$", doc, re.M)
-MOVED = set(re.findall(r"US-\d{3}", _mv.group(1))) if _mv else set()
+MOVED = set(re.findall(r"US-\d{3}", _mv.group(1).split("(")[0])) if _mv else set()
 _up = re.search(r"^- \*\*Stories remontées sans renumérotation\*\* :(.*)$", doc, re.M)
-RAISED = set(re.findall(r"US-\d{3}", _up.group(1))) if _up else set()
+RAISED = set(re.findall(r"US-\d{3}", _up.group(1).split("(")[0])) if _up else set()  # même lecture que verif19_backlog.py : la parenthèse est une justification
 
 # ---------- parsing ----------
 stories = {}
@@ -329,6 +333,73 @@ if not cyc:
             p, path = longest(tgt)
             print(f"Chemin critique vers {label} : {p} pts, {len(path)} stories")
             print("  " + " -> ".join(path))
+
+# ---------- 21_COVERAGE_MATRIX.csv : comptes recalculés depuis 04 et 19 (revue QA du bloc S2 / S5 / S6, US-057, 2026-11-03) ----------
+# Lecture indépendante du parsing ci-dessus : FINAL-FEAT-INV (total et phases de 04), FINAL-E0 à E18 (« N stories / M pts » de 19,
+# « K lignes P0 » du README de 04 §4), aucune version périmée (« 16 v4 », « 17 v5 », « 19 v2 », « à réviser (S3 à S6) »).
+def _coverage21():
+    import collections
+    S = Path(__file__).resolve().parent.parent
+    _c21_err = []
+    inv = list(csv.DictReader(open(S / "04_FEATURE_INVENTORY.csv", encoding="utf-8")))
+    ph = collections.Counter(r["phase_mvp"] for r in inv)
+    readme = (S / "04_FEATURE_INVENTORY_README.md").read_text(encoding="utf-8")
+    lines = {m.group(1): int(m.group(2)) for m in re.finditer(r"(?m)^\| (E\d+) [^|]*\| P0-A \| (\d+) \|", readme)}
+    bl = (S / "19_DEVELOPMENT_BACKLOG.md").read_text(encoding="utf-8")
+    st = collections.defaultdict(lambda: [0, 0])
+    for p in re.split(r"(?m)^(?=#### US-\d{3} )", bl)[1:]:
+        e = re.search(r"(?m)^- \*\*Epic\*\* : (E\d+)", p)
+        lot = re.search(r"(?m)^- \*\*Lot\*\* : (\S+)", p)
+        est = re.search(r"(?m)^- \*\*Estimation\*\* : (\d+)", p)
+        if lot and lot.group(1) == "HORS":
+            continue
+        if not e or not lot:
+            _c21_err.append(f"story active sans Epic ou Lot : {p.splitlines()[0][:40]}")
+            continue
+        st[e.group(1)][0] += 1
+        st[e.group(1)][1] += int(est.group(1)) if est else 0
+    cov = {r["id"]: r for r in csv.DictReader(open(S / "21_COVERAGE_MATRIX.csv", encoding="utf-8"))}
+    print(f"04 : {len(inv)} lignes ; " + ", ".join(f"{k} {ph[k]}" for k in ("P0-A", "P0-B", "P1", "P2", "P3", "HORS")))
+    print("19 (stories actives / points) : " + ", ".join(f"{k} {v[0]}/{v[1]}" for k, v in sorted(st.items(), key=lambda kv: int(kv[0][1:]))))
+    fi = cov.get("FINAL-FEAT-INV")
+    if not fi:
+        _c21_err.append("FINAL-FEAT-INV absente de 21")
+    else:
+        txt = fi["resultat"]
+        need = [f"{len(inv)} lignes"] + [f"{k} {ph[k]}" for k in ("P0-A", "P1", "P2", "P3", "HORS")]
+        miss = [n for n in need if not re.search(rf"(?<![\d]){re.escape(n)}(?![\d])", txt)]
+        stale = [s for s in ("à ajouter à check_inventory", "à aligner (S5, S6)", "dont 24 HORS PRODUIT") if s in " ".join(fi.values())]
+        if ph["P0-B"] and "P0-B" not in txt:
+            miss.append(f"P0-B {ph['P0-B']}")
+        print(f"FINAL-FEAT-INV : manquants {miss} ; tâches faites encore citées {stale}")
+        _c21_err += [f"FINAL-FEAT-INV {m}" for m in miss + stale]
+    for e in sorted(st, key=lambda x: int(x[1:])):
+        r = cov.get(f"FINAL-{e}")
+        if not r:
+            _c21_err.append(f"FINAL-{e} absente de 21")
+            continue
+        n, pts = st[e]
+        want = f"{n} stories / {pts} pts"
+        ok_s = want in r["resultat"]
+        ok_l = e == "E0" or re.search(rf"(?<!\d){lines.get(e, -1)} lignes P0", r["resultat"]) is not None
+        stale = [s for s in ("16 v4", "17 v5", "19 v2", "à réviser (S3 à S6)") if s in r["source"] + r["resultat"]]
+        if not ok_s:
+            _c21_err.append(f"FINAL-{e} : « {want} » absent")
+        if not ok_l:
+            _c21_err.append(f"FINAL-{e} : « {lines.get(e)} lignes P0 » absent")
+        if stale:
+            _c21_err.append(f"FINAL-{e} : versions périmées {stale}")
+        print(f"  FINAL-{e} : {'OK ' if ok_s and ok_l and not stale else 'KO '} {want}" + ("" if e == "E0" else f", {lines.get(e)} lignes P0"))
+    missing_e = [e for e in lines if e not in st]
+    if missing_e:
+        _c21_err.append(f"epics de 04 sans story active dans 19 : {missing_e}")
+
+    return _c21_err
+
+
+print()
+print("Matrice de couverture 21 (comptes contre 04 et 19) :")
+errors += [f"21 : {e}" for e in _coverage21()]
 
 print()
 for w in warnings:

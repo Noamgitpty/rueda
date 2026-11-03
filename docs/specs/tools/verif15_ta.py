@@ -54,7 +54,14 @@ def billed(minutes, tol=29):
 
 print("TA07", billed(3 * 1440 + 29), billed(3 * 1440 + 30), billed(240))
 assert (billed(3 * 1440 + 29), billed(3 * 1440 + 30), billed(240)) == (3, 4, 1)
-# TA09 : plafond de crédit 0 tant que non décidé ⇒ refus
-assert 1000 > 0
-print("TA09 refus si 1000 > 0 : True")
+
+
+# TA09 : plafond de crédit commercial non décidé ⇒ 0 (fail-closed, ADM-007) ; un crédit de 10,00 est refusé
+def credit_allowed(amount_minor, cap_minor=None):
+    cap = 0 if cap_minor is None else cap_minor
+    return 0 < amount_minor <= cap
+
+
+assert credit_allowed(1000) is False and credit_allowed(1000, 1000) is True and credit_allowed(1001, 1000) is False
+print("TA09 crédit 10,00 sans plafond décidé : refusé")
 print("OK")

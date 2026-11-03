@@ -81,13 +81,13 @@ Depuis le dossier du projet, sous Windows (Git Bash ou PowerShell). `-I` isole P
 ```bash
 cd "C:/Users/noamm/Documents/turo-audit-latam/research/turo-audit"
 # Structure des documents
-python -I -X utf8 tools/check_inventory.py          # 04 : colonnes, phases, epics, dépendances, lots, barèmes -> RÉSULTAT : OK
-python -I -X utf8 tools/check_prd_structure.py      # 16 : 179 lignes P0 couvertes par 134 fiches, références, D.1 -> RÉSULTAT : OK
-python -I -X utf8 tools/check_backlog.py            # 19 : 205 stories (lot HORS), couverture P0, dépendances, chemins critiques -> RÉSULTAT : OK
+python -I -X utf8 tools/check_inventory.py          # 04 : colonnes, phases (HORS avec marqueur « HORS PRODUIT », P0-B refusée), epics, dépendances, lots, barèmes -> RÉSULTAT : OK
+python -I -X utf8 tools/check_prd_structure.py      # 16 v5 : 178 lignes P0 couvertes par 128 fiches, partie C (dont 24 HORS), références, D.1 -> RÉSULTAT : OK
+python -I -X utf8 tools/check_backlog.py            # 19 : 205 stories (lot HORS), couverture P0, dépendances, chemins critiques ; comptes de 21 (FINAL-FEAT-INV, FINAL-E0 à E18) contre 04 et 19 -> RÉSULTAT : OK
 python -I -X utf8 tools/verif19_backlog.py          # 19 (contrôle indépendant de l'auditeur) -> ERREURS 0
 python -I -X utf8 tools/verif18_crossref.py         # identifiants cités et définis entre documents -> 0 cité sans définition, hors 2 faux positifs connus (« SM-x » dans 17, « SHA-256 » pris pour une feature)
 python -I -X utf8 tools/verif18_stale.py            # restes de noms obsolètes (écrit verification/verif18_stale_output.txt) ; lecture humaine
-python -I -X utf8 tools/verif15_struct.py           # 04 / 16 : comptes et équilibre Given/When/Then (auditeur VERIF_15)
+python -I -X utf8 tools/verif15_struct.py           # 04 / 16 : comptes et équilibre Given/When/Then ; lignes HORS : marqueur « HORS PRODUIT », aucune fiche (auditeur VERIF_15)
 python -I -X utf8 tools/verif15_conf.py             # 16 : statuts de preuve par fiche (auditeur VERIF_15)
 # Oracles monétaires (valeurs attendues des vecteurs de 08 et 16)
 python -I -X utf8 tools/verif11_settlement.py              # T01–T48, oracle indépendant de l'auditeur VERIF_11 -> 48 vecteurs, 0 écart (+ fuzz informatif)

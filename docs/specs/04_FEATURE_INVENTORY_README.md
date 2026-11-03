@@ -257,7 +257,7 @@ Les lots du P0-A sont désormais une **colonne** (`lot_p0a`) calculée à partir
 
 Commande (depuis le dossier `turo-audit`) : `python -I tools/check_inventory.py`. Le script vérifie l'encodage, les 19 colonnes, les guillemets, l'unicité et le format des IDs, la cohérence `priorite_produit` / `phase_mvp`, l'existence des dépendances, l'absence d'inversion et de cycle, la couverture des epics du §4 et, depuis la révision 3 (corrigé VERIF_10-V10-08, V10-01, V10-13) : **les identifiants P0 cités dans une description P0 sans figurer dans `dependances`** (chacun doit être une dépendance ou une « Réf. non bloquante » documentée dans `notes`), l'ordre des lots (`lot_p0a`), les valeurs de `beta_pilote` (aucune ligne construite ne dépend d'une ligne DIFFÉRÉ), les valeurs de `risque_legal_financier`, l'estimation au barème du §1 bis et le nombre de descriptions P0 courtes (avertissement). Sortie du 2026-10-30 après la révision 3 :
 
-Sortie à jour (révision 6, 2026-11-02) :
+Sortie à jour (révision 6 ; libellés et contrôles revus le 2026-11-03, US-057 : marqueur « HORS PRODUIT », P0-B refusée, aucune ligne HORS dans l'estimation) :
 
 ```
 Fichier : 04_FEATURE_INVENTORY.csv — 676 lignes de données
@@ -271,38 +271,38 @@ Plus longue chaîne de dépendances P0 : 14 niveaux
 
 Répartition par phase_mvp :
   P0-A   178
-  P0-B     0
   P1     327
   P2     100
   P3      47
   HORS    24
+Lignes HORS avec le marqueur « HORS PRODUIT » en tête de notes : 24/24 ; marqueurs mal placés : 0
   total 676
 
-P0 par module (P0-A / P0-B) :
-  ACC     3 /  0
-  ADM    18 /  0
-  BKG    17 /  0
-  CAL     5 /  0
-  CLM     5 /  0
-  DSN     7 /  0
-  FIN     8 /  0
-  HDB     2 /  0
-  HST    11 /  0
-  I18N    3 /  0
-  LEG    10 /  0
-  LST     9 /  0
-  MSG     2 /  0
-  NTF     4 /  0
-  PAY    16 /  0
-  PLT     5 /  0
-  PRC     6 /  0
-  PRT     8 /  0
-  PYO     5 /  0
-  REV     4 /  0
-  SRC     6 /  0
-  SUP     3 /  0
-  TRP    10 /  0
-  VER    11 /  0
+Lignes P0-A (MVP, bêta P2P) par module :
+  ACC     3
+  ADM    18
+  BKG    17
+  CAL     5
+  CLM     5
+  DSN     7
+  FIN     8
+  HDB     2
+  HST    11
+  I18N    3
+  LEG    10
+  LST     9
+  MSG     2
+  NTF     4
+  PAY    16
+  PLT     5
+  PRC     6
+  PRT     8
+  PYO     5
+  REV     4
+  SRC     6
+  SUP     3
+  TRP    10
+  VER    11
 
 Statut de preuve (toutes lignes) :
   DOCUMENTÉ          324
@@ -317,20 +317,20 @@ Epics lus dans le README : 18 ; lignes P0 couvertes : 178/178
 
 Mentions d'un ID P0 dans une description P0 hors `dependances` : 0 non documentée(s) ; 34 documentées « Réf. non bloquante »
 Lots du P0-A : lot 0 = 22, lot 1 = 47, lot 2 = 72, lot 3 = 32, lot 4 = 1, lot C = 4 ; inversions de lot : 0
-Bêta pilote : OUI 31, SIMPLIFIÉ 111, MANUEL 28, DIFFÉRÉ 8 ; dépendances vers DIFFÉRÉ : 0
+Tranche des lots 0 à 4 (colonne beta_pilote) : OUI 31, SIMPLIFIÉ 111, MANUEL 28, DIFFÉRÉ 8 ; dépendances vers DIFFÉRÉ : 0
 Risque juridique / financier des lignes P0 : moyen 68, faible 64, élevé 46
 
 Estimation par barème (unités d'effort : 1 unité = 10 jours-agent, ex-« semaine-équipe » ; ordre de grandeur, barème calibré, non mesuré, sans valeur calendaire) :
   P0-A complet (178 lignes) : lignes 23.6–48.1 + socle 1,5–3 + durcissement et recette interne 1–2 = 26.1–53.1
-  Bêta pilote (142 lignes construites) : lignes 8.4–21.1 + socle réduit 1–2 + recette interne 0,5–1 = 9.9–24.1
-  P0-B (lignes seules, hors certification PSP et conformité) : 0.0–0.0
+  Tranche des lots 0 à 4 (142 lignes construites) : lignes 8.4–21.1 + socle réduit 1–2 + recette interne 0,5–1 = 9.9–24.1
+  Lignes HORS dans les estimations : 0
   P1 (327 lignes, même barème que le P0-A, lignes seules) : 32.9–71.2
 Avertissement (non bloquant) : 47 descriptions P0 de moins de 80 caractères, à compléter avant leur lot
 
 RÉSULTAT : OK
 ```
 
-Le libellé « Bêta pilote » de la sortie désigne la tranche des lots 0 à 4 de la bêta P2P ; la ligne « P0-B » vaut 0 (phase vide) ; le changement de libellé du script est demandé (§12).
+La ligne « Tranche des lots 0 à 4 » désigne la colonne `beta_pilote` (nom technique gardé) ; la phase P0-B, vide, n'est plus imprimée et toute ligne P0-B ferait échouer le contrôle.
 
 ## 8. Fonctionnalités structurantes du MVP (bêta P2P, révision 6)
 
