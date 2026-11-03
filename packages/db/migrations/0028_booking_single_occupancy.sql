@@ -39,8 +39,9 @@
 --   REVOKE ALL ON core.booking_vehicle_occupancy, core.iam_organization, core.booking_trip,
 --     core.config_param_value FROM cmd_hold_owner;  REVOKE SELECT ON core.booking_vehicle_occupancy
 --     FROM app_api;  REVOKE USAGE ON SCHEMA core FROM cmd_hold_owner;
---   REVOKE EXECUTE ON FUNCTION app.actor_id(), app.org_id(), app.vehicle_scope(),
---     app.host_covers_vehicle(uuid) FROM cmd_hold_owner;
+--   REVOKE EXECUTE ON FUNCTION app.actor_id(), app.org_id(), app.vehicle_scope() FROM cmd_hold_owner;
+--   SET ROLE policy_fn_owner; REVOKE EXECUTE ON FUNCTION app.host_covers_vehicle(uuid)
+--     FROM cmd_hold_owner; RESET ROLE;
 --   ALTER TABLE core.booking_checkout_hold DROP CONSTRAINT checkout_hold_occupancy_party_fk;
 --   ALTER TABLE core.booking_vehicle_occupancy DROP CONSTRAINT occupancy_party_unique,
 --     DROP CONSTRAINT occupancy_vehicle_single_org, DROP CONSTRAINT occupancy_org_country_fk,
@@ -139,8 +140,13 @@ GRANT EXECUTE ON FUNCTION core.booking_occupied_period(timestamptz, timestamptz,
 GRANT USAGE ON SCHEMA core TO cmd_hold_owner;
 -- contexte de session et portée de l'hôte (les politiques et les commandes sont évaluées sous le
 -- propriétaire)
-GRANT EXECUTE ON FUNCTION app.actor_id(), app.org_id(), app.vehicle_scope(),
-  app.host_covers_vehicle(uuid) TO cmd_hold_owner;
+GRANT EXECUTE ON FUNCTION app.actor_id(), app.org_id(), app.vehicle_scope() TO cmd_hold_owner;
+-- app.host_covers_vehicle appartient à policy_fn_owner (0024) : seul son propriétaire peut en
+-- accorder l'exécution. migrator l'endosse le temps de l'octroi (SET TRUE, INHERIT FALSE : ADR-044
+-- amendé), sans hériter d'aucun de ses droits ; la liste blanche RLS-15 inscrit cmd_hold_owner.
+SET LOCAL ROLE policy_fn_owner;
+GRANT EXECUTE ON FUNCTION app.host_covers_vehicle(uuid) TO cmd_hold_owner;
+RESET ROLE;
 
 -- colonnes lues par les commandes et par leurs politiques (aucune colonne d'audit ni période)
 GRANT SELECT (id, vehicle_id, org_id, country_code, kind, source, active, expires_at,

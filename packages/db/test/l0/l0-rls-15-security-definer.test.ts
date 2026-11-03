@@ -65,7 +65,12 @@ describe('RLS-15 — liste blanche des fonctions SECURITY DEFINER (base de produ
     expect(new Set(sigs).size).toBe(sigs.length);
     for (const f of allowlist.functions) {
       expect(OWNER_ROLES as readonly string[], f.signature).toContain(f.owner);
-      for (const r of f.execute) expect(['app_api', 'app_worker'], f.signature).toContain(r);
+      // rôles applicatifs, ou propriétaire NOLOGIN dont les commandes appellent la fonction
+      // (cmd_hold_owner → app.host_covers_vehicle, US-022) ; jamais app_anon ni migrator
+      for (const r of f.execute) {
+        expect(['app_api', 'app_worker', ...OWNER_ROLES], f.signature).toContain(r);
+        expect(r, f.signature).not.toBe(f.owner);
+      }
     }
   });
 
