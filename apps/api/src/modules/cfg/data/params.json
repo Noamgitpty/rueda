@@ -1,0 +1,1245 @@
+{
+  "$comment": "Registre des paramètres (17 §7.2, source initiale de config.param_definition) et valeurs par défaut PROPOSÉES par pays (config.param_value), US-013. Les clés « historique, sans objet (pivot P2P) » de §7.2 ne sont pas reprises. Une valeur « à fixer » n'est pas chargée : son absence suit fail_mode (BLOCK : opération refusée et démarrage de production refusé ; FALSE : faux ; ZERO : zéro). Montants (MONEY, champs *Minor) : chaînes d'entiers en unités mineures de la devise du pays. Fractions : chaînes « numérateur/dénominateur » (parseRatio de @rueda/money). Valeurs de Turo jamais chargées.",
+  "version": 1,
+  "params": [
+    {
+      "key": "last_minute_threshold",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-CXL-01",
+      "status": "OQ-BR-30",
+      "values": { "PA": 25, "PY": 25 }
+    },
+    {
+      "key": "free_cancel_lead",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-CXL-01",
+      "status": "ADM-031",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "no_show_grace_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-CXL-08",
+      "status": "OQ-BR-33",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "grace_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-BOOK-03 (jours facturés seulement)",
+      "status": "OQ-BR-04 (ouverte)",
+      "values": { "PA": 29, "PY": 29 }
+    },
+    {
+      "key": "billing_boundary_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "optional": true,
+      "source": "BR-BOOK-03",
+      "status": "OQ-BR-04 : non appliqué (120 proposé) ; absent = non appliqué",
+      "values": {}
+    },
+    {
+      "key": "hold_ttl_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-BOOK-10",
+      "status": "PROPOSÉ (08)",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "hold_max_total_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-BOOK-10 test 8",
+      "status": "PROPOSÉ",
+      "values": { "PA": 20, "PY": 20 }
+    },
+    {
+      "key": "sweep_lead_s",
+      "type": "DURATION",
+      "unit": "s",
+      "scopes": ["PSP", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5 étape 3 d",
+      "status": "PROPOSÉ ; à mesurer",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "sweep_grace_s",
+      "type": "DURATION",
+      "unit": "s",
+      "scopes": ["PSP", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5 étape 3 d",
+      "status": "PROPOSÉ ; à mesurer",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "disposition_sweeper_period_s",
+      "type": "DURATION",
+      "unit": "s",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5 étape 4 (A6), portée plateforme",
+      "status": "PROPOSÉ",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "disposition_repair_after_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5 étape 4 (A6), portée plateforme",
+      "status": "PROPOSÉ",
+      "values": { "PA": 2, "PY": 2 }
+    },
+    {
+      "key": "disposition_alert_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5 étape 4 (A6), portée plateforme",
+      "status": "PROPOSÉ",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "review_hold_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5",
+      "status": "PROPOSÉ ; UXQ-08 ouverte",
+      "values": { "PA": 120, "PY": 120 }
+    },
+    {
+      "key": "availability_probe_per_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.3 (B7), portée plateforme",
+      "status": "PROPOSÉ",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "catalog_addition_sla_business_h",
+      "type": "DURATION",
+      "unit": "business_h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "ADR-034",
+      "status": "PROPOSÉ",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "payment_in_flight_margin_s",
+      "type": "DURATION",
+      "unit": "s",
+      "scopes": ["NETWORK", "PSP", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §1.3, §2.5",
+      "status": "PROPOSÉ ; à mesurer en bac à sable",
+      "values": { "PA": 120, "PY": 120 }
+    },
+    {
+      "key": "psp_call_timeout_s",
+      "type": "DURATION",
+      "unit": "s",
+      "scopes": ["PSP", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5 étape 3",
+      "status": "PROPOSÉ",
+      "values": { "PA": 20, "PY": 20 }
+    },
+    {
+      "key": "conversion_start_tolerance_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5 étape 4",
+      "status": "PROPOSÉ",
+      "values": { "PA": 0, "PY": 0 }
+    },
+    {
+      "key": "hold_creations_per_guest_vehicle_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.5",
+      "status": "PROPOSÉ",
+      "values": { "PA": 3, "PY": 3 }
+    },
+    {
+      "key": "reacquire_preempts_unpaid_hold",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "source": "17 §2.5 (M13)",
+      "status": "PROPOSÉ, non retenu",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "webhook_raw_body_retention_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §3.1.3, §3.2.2",
+      "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "values": { "PA": 90 }
+    },
+    {
+      "key": "trip_id_evidence_retention_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §3.1.3, §3.2.2",
+      "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "values": { "PA": 90 }
+    },
+    {
+      "key": "biometric_score_retention_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §3.1.3, §3.2.2",
+      "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "values": { "PA": 30 }
+    },
+    {
+      "key": "subject_dek_cache_ttl_s",
+      "type": "DURATION",
+      "unit": "s",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §3.1.3, portée plateforme",
+      "status": "PROPOSÉ",
+      "values": { "PA": 300, "PY": 300 }
+    },
+    {
+      "key": "max_active_holds_per_guest",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-BOOK-10",
+      "status": "PROPOSÉ (08)",
+      "values": { "PA": 2, "PY": 2 }
+    },
+    {
+      "key": "payment_attempts_per_hold",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "PAY-017",
+      "status": "décidé",
+      "values": { "PA": 3, "PY": 3 }
+    },
+    {
+      "key": "refund_bank_details_ttl_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "rail BANK_TRANSFER",
+      "status": "PROPOSÉ",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "overdue_occupancy_step_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "F21",
+      "status": "PROPOSÉ",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "webhook_silence_alert_hours",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["PSP", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "F12",
+      "status": "PROPOSÉ",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "invoice_guest_response_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-REIMB-02, CLM-021",
+      "status": "PROPOSÉ",
+      "values": { "PA": 72, "PY": 72 }
+    },
+    {
+      "key": "incidental_charge_deadline_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-09 bis, SM-8",
+      "status": "J-ADM-031 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "damage_overcharge_refund_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-09 bis, SM-8",
+      "status": "J-ADM-031 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "deposit_amount",
+      "type": "JSON",
+      "unit": "minor_by_category",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06, OQ-BR-47",
+      "status": "J-ADM-031 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "deposit_max",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06",
+      "status": "J-ADM-031 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "fuel_refill_max",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06",
+      "status": "J-ADM-031 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "late_fee_cap",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06",
+      "status": "J-ADM-031 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "max_reattempts",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["NETWORK"],
+      "failMode": "BLOCK",
+      "source": "08 E4",
+      "status": "OQ-PAY-18 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "unknown_escalation_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §4.3",
+      "status": "PROPOSÉ",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "soft_delete_purge_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §3.1.3",
+      "status": "PROPOSÉ",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "biometric_appeal_retention_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §1.5, SM-3",
+      "status": "OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "values": { "PA": 30 }
+    },
+    {
+      "key": "capture_max_delay_after_booking_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "PAY-006",
+      "status": "décidé",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "buffer_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-BOOK-05 (l'annonce peut porter sa propre valeur)",
+      "status": "ADM-031",
+      "values": { "PA": 120, "PY": 120 }
+    },
+    {
+      "key": "advance_notice_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["CATEGORY", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-BOOK-04 (le lieu peut porter sa propre valeur)",
+      "status": "ADM-031",
+      "values": { "PA": 180, "PY": 180 },
+      "scoped": [
+        { "country": "PA", "scopeType": "CATEGORY", "scopeId": "LUXE", "value": 1440 },
+        { "country": "PY", "scopeType": "CATEGORY", "scopeId": "LUXE", "value": 1440 }
+      ]
+    },
+    {
+      "key": "min_driver_age",
+      "type": "INT",
+      "unit": "year",
+      "scopes": ["CATEGORY", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BKG-012 ; 08 recommandation LATAM (25 ans classe Premium)",
+      "status": "ADM-031 (21 / 25)",
+      "values": { "PA": 21, "PY": 21 },
+      "scoped": [
+        { "country": "PA", "scopeType": "CATEGORY", "scopeId": "PREMIUM", "value": 25 },
+        { "country": "PY", "scopeType": "CATEGORY", "scopeId": "PREMIUM", "value": 25 }
+      ]
+    },
+    {
+      "key": "max_trip_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "ADM-031",
+      "status": "décidé (bêta)",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "segment_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-04",
+      "status": "décidé",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "host_penalty",
+      "type": "JSON",
+      "unit": "minor_by_kind",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "BR-CXL-13 ; 08 penalty() (cxlEarly / cxlLate / hostNoShow / cleanliness)",
+      "status": "OQ-BR-24 ; PY PROPOSÉ",
+      "values": {
+        "PA": {
+          "cxlEarly": "2500",
+          "cxlLate": "5000",
+          "hostNoShow": "15000",
+          "cleanliness": "5000"
+        },
+        "PY": {
+          "cxlEarly": "200000",
+          "cxlLate": "400000",
+          "hostNoShow": "1200000",
+          "cleanliness": "400000"
+        }
+      }
+    },
+    {
+      "key": "platform_funded_host_compensation",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "source": "08 ; 16 ADM-031 (absent)",
+      "status": "DEC-FONDATEUR-01 / OQ-BR-41 : absent ⇒ false",
+      "values": {}
+    },
+    {
+      "key": "goodfaith_comp_requires_support_validation",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08",
+      "status": "décidé",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "refund_protection_on_nr",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "source": "08",
+      "status": "OQ-BR-42",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "cxl_contest_window_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "E5",
+      "status": "décidé",
+      "values": { "PA": 72, "PY": 72 }
+    },
+    {
+      "key": "chargeback_window_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["NETWORK", "PSP", "COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "E5 (valeurs par PSP au lot C)",
+      "status": "OQ-BR-43",
+      "values": { "PA": 180, "PY": 180 }
+    },
+    {
+      "key": "provider_max_hold_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["NETWORK", "PSP", "COUNTRY"],
+      "failMode": "ZERO",
+      "source": "09b §5.1 bis (valeurs par PSP au lot C)",
+      "status": "OQ-PAY-02 ; absent ⇒ 0",
+      "values": {}
+    },
+    {
+      "key": "release_delay_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06",
+      "status": "OQ-PAY-02",
+      "values": { "PA": 72, "PY": 72 }
+    },
+    {
+      "key": "deposit_safety_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06",
+      "status": "OQ-PAY-02",
+      "values": { "PA": 2, "PY": 2 }
+    },
+    {
+      "key": "marge_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06",
+      "status": "OQ-PAY-02 (marge à relever)",
+      "values": { "PA": 0, "PY": 0 }
+    },
+    {
+      "key": "auth_lead_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-06",
+      "status": "OQ-PAY-02",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "deposit_charge_cap",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "ZERO",
+      "source": "BR-PAY-06",
+      "status": "OQ-PAY-06, OQ-PAY-19 ; inconnu ⇒ 0 (rail interdit)",
+      "values": {}
+    },
+    {
+      "key": "damage_notice_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-09 bis",
+      "status": "OQ-PAY-18",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "visa_objection_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAY-09 bis",
+      "status": "OQ-PAY-18",
+      "values": { "PA": 20, "PY": 20 }
+    },
+    {
+      "key": "damage_charge_deadline_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["NETWORK"],
+      "failMode": "BLOCK",
+      "source": "REQ-PAY-DMG-07",
+      "status": "OQ-PAY-18",
+      "values": {},
+      "scoped": [
+        { "country": "PA", "scopeType": "NETWORK", "network": "MASTERCARD", "value": 30 },
+        { "country": "PA", "scopeType": "NETWORK", "network": "VISA", "value": 90 },
+        { "country": "PA", "scopeType": "NETWORK", "network": "AMEX", "value": 90 },
+        { "country": "PY", "scopeType": "NETWORK", "network": "MASTERCARD", "value": 30 },
+        { "country": "PY", "scopeType": "NETWORK", "network": "VISA", "value": 90 },
+        { "country": "PY", "scopeType": "NETWORK", "network": "AMEX", "value": 90 }
+      ]
+    },
+    {
+      "key": "evidence_retention_months",
+      "type": "DURATION",
+      "unit": "month",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "REQ-PAY-DMG-11 (08) : au moins 15 mois après la dernière opération monétaire",
+      "status": "OQ-BR-25",
+      "values": { "PA": 15, "PY": 15 }
+    },
+    {
+      "key": "biometric_retention_max_years",
+      "type": "DURATION",
+      "unit": "year",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "VER-004 (17 §7.2 biometric_retention : plafond ; défaut appliqué = le plus court)",
+      "status": "OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "values": { "PA": 3 }
+    },
+    {
+      "key": "audit_log_retention_years",
+      "type": "DURATION",
+      "unit": "year",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "ADM-001",
+      "status": "OQ-BR-25",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
+      "key": "refund_reminders_days",
+      "type": "JSON",
+      "unit": "d_list",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "E3 (J+1, J+3, J+7)",
+      "status": "OQ-BR-44",
+      "values": { "PA": [1, 3, 7], "PY": [1, 3, 7] }
+    },
+    {
+      "key": "promo_reissue_min_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "E2",
+      "status": "décidé",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "payout_business_day_offset",
+      "type": "DURATION",
+      "unit": "business_d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAYOUT-02",
+      "status": "PROPOSÉ (fermé par payouts_enabled)",
+      "values": { "PA": 2, "PY": 2 }
+    },
+    {
+      "key": "first_payout_business_day",
+      "type": "DURATION",
+      "unit": "business_d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAYOUT-02",
+      "status": "PROPOSÉ (fermé par payouts_enabled)",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
+      "key": "payout_batch_local_time",
+      "type": "DURATION",
+      "unit": "min_after_local_midnight",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-PAYOUT-02 (10:00 heure locale)",
+      "status": "PROPOSÉ (fermé par payouts_enabled)",
+      "values": { "PA": 600, "PY": 600 }
+    },
+    {
+      "key": "ach_xpress_max_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "notApplicableIn": ["PY"],
+      "source": "BR-PAYOUT-01",
+      "status": "rail du PSP ; sans objet au PY",
+      "values": { "PA": "500000" }
+    },
+    {
+      "key": "trip_fee_schedule",
+      "type": "JSON",
+      "unit": "tiers_bps_and_min_minor",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "BR-PRICE-06 : 15 % (≤ 6 j), 12 % (7–29 j), 8 % (≥ 30 j), minimum",
+      "status": "PROPOSÉ ; OQ-MK-01",
+      "values": {
+        "PA": {
+          "tiers": [
+            { "maxDays": 6, "rateBps": 1500 },
+            { "maxDays": 29, "rateBps": 1200 },
+            { "maxDays": null, "rateBps": 800 }
+          ],
+          "minMinor": "500"
+        },
+        "PY": {
+          "tiers": [
+            { "maxDays": 6, "rateBps": 1500 },
+            { "maxDays": 29, "rateBps": 1200 },
+            { "maxDays": null, "rateBps": 800 }
+          ],
+          "minMinor": "35000"
+        }
+      }
+    },
+    {
+      "key": "price_display_step_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "notApplicableIn": ["PA"],
+      "source": "BR-PRICE-14, I18N-005 (17 §7.2 pyg_price_step)",
+      "status": "décidé ; sans objet au PA",
+      "values": { "PY": "1000" }
+    },
+    {
+      "key": "otp_ttl_min",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "VER-013",
+      "status": "décidé",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "otp_max_attempts",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "VER-013",
+      "status": "décidé",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
+      "key": "otp_lock_min",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "VER-013",
+      "status": "décidé",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "otp_sms_fallback_s",
+      "type": "DURATION",
+      "unit": "s",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "VER-013",
+      "status": "décidé",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "ical_poll_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "CAL-009",
+      "status": "décidé",
+      "values": { "PA": 15, "PY": 15 }
+    },
+    {
+      "key": "overdue_detection_minutes",
+      "type": "DURATION",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "TRP-035 (= grace_minutes + 1 tant qu'OQ-BR-04 est ouverte)",
+      "status": "décidé",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "overdue_escalation_hours",
+      "type": "JSON",
+      "unit": "h_list",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "TRP-038 (+2 h, +6 h, +24 h)",
+      "status": "décidé",
+      "values": { "PA": [2, 6, 24], "PY": [2, 6, 24] }
+    },
+    {
+      "key": "claim_declaration_window_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "CLM-001 (après la fin)",
+      "status": "ADM-031",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "kyc_review_sla_business_h",
+      "type": "DURATION",
+      "unit": "business_h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "ADM-002",
+      "status": "décidé",
+      "values": { "PA": 4, "PY": 4 }
+    },
+    {
+      "key": "listing_review_sla_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "ADM-003",
+      "status": "décidé",
+      "values": { "PA": 24, "PY": 24 }
+    },
+    {
+      "key": "dispute_decision_sla_business_days",
+      "type": "DURATION",
+      "unit": "business_d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "ADM-008",
+      "status": "décidé",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
+      "key": "more_info_timeout_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "SM-3",
+      "status": "décidé",
+      "values": { "PA": 15, "PY": 15 }
+    },
+    {
+      "key": "appeal_window_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "SM-3",
+      "status": "décidé",
+      "values": { "PA": 15, "PY": 15 }
+    },
+    {
+      "key": "cohost_invite_validity_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BR-COHOST",
+      "status": "décidé",
+      "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "payout_account_change_hold_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "PYO-001",
+      "status": "décidé",
+      "values": { "PA": 48, "PY": 48 }
+    },
+    {
+      "key": "reconciliation_delta_threshold_bps",
+      "type": "BPS",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "FIN-005",
+      "status": "J-ADM-031 (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "commercial_gesture_cap",
+      "type": "JSON",
+      "unit": "minor_by_role",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "notApplicableIn": ["PY"],
+      "source": "ADM-031",
+      "status": "J-ADM-031 (à fixer au PA ; sans objet au PY)",
+      "values": {}
+    },
+    {
+      "key": "photo_max_kb",
+      "type": "INT",
+      "unit": "kb",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "TRP-002",
+      "status": "décidé",
+      "values": { "PA": 500, "PY": 500 }
+    },
+    {
+      "key": "photo_max_px",
+      "type": "INT",
+      "unit": "px",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "TRP-002",
+      "status": "décidé",
+      "values": { "PA": 1600, "PY": 1600 }
+    },
+    {
+      "key": "clock_skew_flag_h",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "TRP-057",
+      "status": "décidé",
+      "values": { "PA": 2, "PY": 2 }
+    },
+    {
+      "key": "flagged_booking_payment_order",
+      "type": "ENUM",
+      "allowedValues": ["REVIEW_BEFORE_CHARGE", "PAY_THEN_REVIEW"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "ADM-029, UXQ-08",
+      "status": "UXQ-08 ouverte ; défaut fail-closed REVIEW_BEFORE_CHARGE",
+      "values": { "PA": "REVIEW_BEFORE_CHARGE", "PY": "REVIEW_BEFORE_CHARGE" }
+    },
+    {
+      "key": "host_share_pct",
+      "type": "JSON",
+      "unit": "ratio_by_plan",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PROT-06, BR-PROT-08 (figé dans host_share_pct_frozen)",
+      "status": "PROPOSÉ (OQ-P2P-11) ; absent ⇒ règlement refusé",
+      "values": {
+        "PA": { "ESTÁNDAR": "3/4" },
+        "PY": { "ESTÁNDAR": "3/4" }
+      }
+    },
+    {
+      "key": "delivery_share_pct",
+      "type": "JSON",
+      "unit": "ratio",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "optional": true,
+      "source": "08 BR-PROT-08, BR-CXL-16",
+      "status": "PROPOSÉ ; absent ⇒ host_share_pct_frozen du trip",
+      "values": {}
+    },
+    {
+      "key": "extras_share_pct",
+      "type": "JSON",
+      "unit": "ratio",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "optional": true,
+      "source": "08 BR-PROT-08",
+      "status": "PROPOSÉ ; absent ⇒ host_share_pct_frozen du trip",
+      "values": {}
+    },
+    {
+      "key": "p2p_private_hosts_enabled",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "goLiveSwitch": true,
+      "source": "17 §0.1 ; 08 Règle de blocage ; OQ-BR-35, OQ-BR-16",
+      "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "insurer_contract_active",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "goLiveSwitch": true,
+      "source": "17 §0.1 ; Q-002, OQ-P2P-03",
+      "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "funds_holding_enabled",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "goLiveSwitch": true,
+      "source": "17 §0.1 ; 08 E7 ; OQ-MK-02 / 03 / 04, OQ-PAY-05, OQ-PAY-06",
+      "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "payouts_enabled",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "goLiveSwitch": true,
+      "source": "17 §0.1 ; 08 BR-PAYOUT ; OQ-PAY-09",
+      "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "collection_mode",
+      "type": "ENUM",
+      "allowedValues": ["SPLIT_AT_SOURCE", "PLATFORM_MOR"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 E7 ; ADR-045",
+      "status": "PROPOSÉ ; PLATFORM_MOR refusé si funds_holding_enabled = false",
+      "values": { "PA": "SPLIT_AT_SOURCE", "PY": "SPLIT_AT_SOURCE" }
+    },
+    {
+      "key": "host_default_plan",
+      "type": "ENUM",
+      "allowedValues": ["ESTÁNDAR"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PROT-06 ; OQ-P2P-11",
+      "status": "PROPOSÉ",
+      "values": { "PA": "ESTÁNDAR", "PY": "ESTÁNDAR" }
+    },
+    {
+      "key": "insurer_premium_share",
+      "type": "JSON",
+      "unit": "ratio_by_level",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PRICE-11, E7",
+      "status": "contrat d'assureur (à fixer) ; absent ⇒ vente de protection refusée",
+      "values": {}
+    },
+    {
+      "key": "insurer_roadside_share",
+      "type": "JSON",
+      "unit": "ratio",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-PRICE-11, E7",
+      "status": "contrat d'assureur (à fixer)",
+      "values": {}
+    },
+    {
+      "key": "insurer_settlement_at",
+      "type": "ENUM",
+      "allowedValues": ["MONTHLY"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 E7 règle 6",
+      "status": "PROPOSÉ ; contrat d'assureur",
+      "values": { "PA": "MONTHLY", "PY": "MONTHLY" }
+    },
+    {
+      "key": "platform_release_at",
+      "type": "ENUM",
+      "allowedValues": ["TRIP_PAYOUT_AT"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 E7 règle 6 ; 17 §2.9",
+      "status": "PROPOSÉ (US-056), fail-closed",
+      "values": { "PA": "TRIP_PAYOUT_AT", "PY": "TRIP_PAYOUT_AT" }
+    },
+    {
+      "key": "platform_reserve_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "17 §2.9",
+      "status": "PROPOSÉ ; absent ⇒ aucune avance automatique",
+      "values": {}
+    },
+    {
+      "key": "host_advance_cap_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "17 §2.9 ; 08 E7 règle 3 bis, SM-6b",
+      "status": "PROPOSÉ ; absent ⇒ BLOCK",
+      "values": {}
+    },
+    {
+      "key": "host_receivable_writeoff_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.9 ; SM-6b",
+      "status": "PROPOSÉ",
+      "values": { "PA": 180, "PY": 180 }
+    },
+    {
+      "key": "credit_beyond_platform_leg_enabled",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "source": "08 E7 règle 10 ; 17 §2.9",
+      "status": "PROPOSÉ, fail-closed",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "host_min_age_years",
+      "type": "INT",
+      "unit": "year",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.4 ; OQ-P2P-01",
+      "status": "PROPOSÉ",
+      "values": { "PA": 21, "PY": 21 }
+    },
+    {
+      "key": "p2p_host_requires_tax_id",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.4 ; OQ-PAY-09, OQ-P2P-07",
+      "status": "PROPOSÉ",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "vehicle_financed_requires_lender_consent",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.4",
+      "status": "PROPOSÉ",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "self_booking_forbidden",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §2.3 ; OQ-P2P-08, portée plateforme",
+      "status": "PROPOSÉ",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "p2p_default_booking_mode",
+      "type": "ENUM",
+      "allowedValues": ["INSTANT", "REQUEST"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "22 « Pivot P2P »",
+      "status": "PROPOSÉ",
+      "values": { "PA": "INSTANT", "PY": "INSTANT" }
+    },
+    {
+      "key": "booking_request_expiry_hours",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-BOOK-01 ; 17 §2.5 ; OQ-P2P-10",
+      "status": "PROPOSÉ (US-060)",
+      "values": { "PA": 4, "PY": 4 }
+    },
+    {
+      "key": "p2p_contactless_handover_enabled",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "source": "22 « Pivot P2P »",
+      "status": "PROPOSÉ",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "review_window_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-REVIEW-01 ; OQ-P2P-06",
+      "status": "décidé (comme Turo)",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "guest_protection_min_level",
+      "type": "ENUM",
+      "allowedValues": ["BASICA"],
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "22 « Pivot P2P » ; OQ-P2P-12",
+      "status": "PROPOSÉ",
+      "values": { "PA": "BASICA", "PY": "BASICA" }
+    }
+  ]
+}
