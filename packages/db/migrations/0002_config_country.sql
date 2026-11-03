@@ -189,7 +189,8 @@ BEGIN
   END IF;
 
   v_type := jsonb_typeof(NEW.value);
-  IF NOT CASE v_def.type
+  -- Parenthèses obligatoires : PL/pgSQL lit la condition de IF jusqu’au premier THEN.
+  IF NOT (CASE v_def.type
       WHEN 'BOOL' THEN v_type = 'boolean'
       WHEN 'MONEY' THEN v_type = 'string' AND (NEW.value #>> '{}') ~ '^(0|[1-9][0-9]{0,18})$'
       WHEN 'ENUM' THEN v_type = 'string' AND (NEW.value #>> '{}') = ANY (v_def.allowed_values)
@@ -199,7 +200,7 @@ BEGIN
                                ELSE false END
       WHEN 'JSON' THEN v_type <> 'null'
       ELSE v_type = 'number' AND (NEW.value #>> '{}') ~ '^[0-9]+$'  -- INT, DURATION
-    END THEN
+    END) THEN
     RAISE EXCEPTION 'CONFIG_INVALID' USING ERRCODE = 'check_violation',
       DETAIL = format('valeur incompatible avec le type %s de %s', v_def.type, NEW.key);
   END IF;
