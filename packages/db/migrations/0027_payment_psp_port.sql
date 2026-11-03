@@ -40,6 +40,7 @@
 --     core.payment_startup_guard();
 --   ALTER TABLE core.payment_webhook_inbox DROP CONSTRAINT webhook_inbox_no_pan,
 --     DROP COLUMN normalized_events;
+--   DROP POLICY worker_select_money_command ON core.payment_payment_operation;
 --   DROP TABLE core.payment_payment_operation_event, core.payment_payment_operation_leg;
 --   DROP TRIGGER payment_operation_legs_check ON core.payment_payment_operation;
 --   DROP FUNCTION core.payment_assert_operation_legs();
@@ -416,6 +417,11 @@ CREATE POLICY money_cmd_insert ON core.payment_webhook_inbox FOR INSERT TO cmd_m
 GRANT SELECT (amount_minor, psp_account_id) ON core.payment_payment_operation TO integrity_owner;
 GRANT SELECT ON core.payment_payment_operation_leg TO integrity_owner;
 CREATE POLICY integrity_read ON core.payment_payment_operation_leg FOR SELECT TO integrity_owner USING (true);
+
+-- Travailleur de commandes : lecture des opérations (statut, clé, référence PSP) ; 0007 ne le
+-- connaît pas. Aucune écriture directe : statuts par payment_cmd_apply_operation_status.
+CREATE POLICY worker_select_money_command ON core.payment_payment_operation FOR SELECT TO app_worker
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'money_command');
 
 -- Travailleurs : lecture des jambes et des événements (travailleur de commandes, webhooks).
 GRANT SELECT ON core.payment_payment_operation_leg, core.payment_payment_operation_event TO app_worker;
