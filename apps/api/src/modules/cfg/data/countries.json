@@ -1,0 +1,125 @@
+{
+  "$comment": "Pays configurés (17 §1.1, §1.3, §1.4, §7 ; ADR-024, ADR-033, DEC-FONDATEUR-04, DEC-FONDATEUR-17). Tout ce qui dépend du pays est ici ou dans params.json, jamais dans le code. Valeurs PROPOSÉES (US-013), À DÉCIDER au jalon J-ADM-031.",
+  "version": 1,
+  "countries": [
+    {
+      "code": "PA",
+      "names": { "es": "Panamá", "en": "Panama", "fr": "Panama" },
+      "currency": "USD",
+      "timeZone": "America/Panama",
+      "legalLocale": "es-PA",
+      "defaultLocale": "es-PA",
+      "locales": ["es-PA", "en", "fr"],
+      "hostTaxIdKinds": ["CEDULA", "RUC"],
+      "$taxLines": "17 §3.2 tax_line_config ; 08 fait foi pour l'argent : configuration fiscale de 08 E1 (« lignes taxables : P et ses lignes promo, et F ») et BR-PRICE-06 (trip fee soumis à ITBMS / IVA comme service de la plateforme). Taxables : TRIP_PRICE, PROMO_PLATFORM, PROMO_HOST, TRIP_FEE ; third_party = false (dette propre de Kmino, jambe PLATFORM, BR-PRICE-12). Configuration réelle À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
+      "taxLines": [
+        {
+          "lineType": "TRIP_PRICE",
+          "taxable": true,
+          "rateGroup": "ITBMS",
+          "rateBps": 700,
+          "thirdParty": false
+        },
+        {
+          "lineType": "PROMO_PLATFORM",
+          "taxable": true,
+          "rateGroup": "ITBMS",
+          "rateBps": 700,
+          "thirdParty": false
+        },
+        {
+          "lineType": "PROMO_HOST",
+          "taxable": true,
+          "rateGroup": "ITBMS",
+          "rateBps": 700,
+          "thirdParty": false
+        },
+        {
+          "lineType": "TRIP_FEE",
+          "taxable": true,
+          "rateGroup": "ITBMS",
+          "rateBps": 700,
+          "thirdParty": false
+        },
+        { "lineType": "PROTECTION", "taxable": false },
+        { "lineType": "EXTRAS", "taxable": false },
+        { "lineType": "ENHANCED_ROADSIDE", "taxable": false },
+        { "lineType": "ADDITIONAL_DRIVER_FEE", "taxable": false },
+        { "lineType": "YOUNG_DRIVER_FEE", "taxable": false },
+        { "lineType": "DELIVERY_FEE", "taxable": false }
+      ],
+      "$legalEntity": "17 §3.2 legal_entity ; ADR-013 en attente (OQ-MK-06) : aucune entité tant que le fondateur n'a pas choisi ; la production refuse de démarrer sans elle.",
+      "legalEntity": null,
+      "$holidays": "17 §1.3, §7.1 point 8 : calendrier versionné. Aucune liste de fériés dans les spécifications : calendrier vide, la production refuse de démarrer sans fériés pour l'année en cours.",
+      "holidayCalendar": { "version": 1, "holidays": [] },
+      "$timeZoneChecks": "Contrôle tzdata de démarrage (17 §1.3, ADR-019) : America/Panama = UTC−5 sans heure d'été.",
+      "timeZoneChecks": [
+        { "instant": "2025-01-15T12:00:00Z", "offsetMinutes": -300 },
+        { "instant": "2026-07-01T12:00:00Z", "offsetMinutes": -300 }
+      ]
+    },
+    {
+      "code": "PY",
+      "names": { "es": "Paraguay", "en": "Paraguay", "fr": "Paraguay" },
+      "currency": "PYG",
+      "timeZone": "America/Asuncion",
+      "legalLocale": "es-PY",
+      "defaultLocale": "es-PY",
+      "locales": ["es-PY", "en", "fr"],
+      "hostTaxIdKinds": ["RUC"],
+      "$taxLines": "Même règle que PA (08 E1, BR-PRICE-06, BR-PRICE-12) avec l'IVA. À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
+      "taxLines": [
+        {
+          "lineType": "TRIP_PRICE",
+          "taxable": true,
+          "rateGroup": "IVA",
+          "rateBps": 1000,
+          "thirdParty": false
+        },
+        {
+          "lineType": "PROMO_PLATFORM",
+          "taxable": true,
+          "rateGroup": "IVA",
+          "rateBps": 1000,
+          "thirdParty": false
+        },
+        {
+          "lineType": "PROMO_HOST",
+          "taxable": true,
+          "rateGroup": "IVA",
+          "rateBps": 1000,
+          "thirdParty": false
+        },
+        {
+          "lineType": "TRIP_FEE",
+          "taxable": true,
+          "rateGroup": "IVA",
+          "rateBps": 1000,
+          "thirdParty": false
+        },
+        { "lineType": "PROTECTION", "taxable": false },
+        { "lineType": "EXTRAS", "taxable": false },
+        { "lineType": "ENHANCED_ROADSIDE", "taxable": false },
+        { "lineType": "ADDITIONAL_DRIVER_FEE", "taxable": false },
+        { "lineType": "YOUNG_DRIVER_FEE", "taxable": false },
+        { "lineType": "DELIVERY_FEE", "taxable": false }
+      ],
+      "legalEntity": null,
+      "holidayCalendar": { "version": 1, "holidays": [] },
+      "$timeZoneChecks": "America/Asuncion = UTC−3 permanent (Ley 7354/2024, 08 BR-CXL-00, OQ-BR-20) ; instants qui encadrent les anciennes bascules d'heure d'été (EC-33) ; 2023-07-15 : UTC−4, preuve que la tzdata est historisée.",
+      "timeZoneChecks": [
+        { "instant": "2023-07-15T12:00:00Z", "offsetMinutes": -240 },
+        { "instant": "2025-01-15T12:00:00Z", "offsetMinutes": -180 },
+        { "instant": "2025-03-23T02:30:00Z", "offsetMinutes": -180 },
+        { "instant": "2025-03-23T04:30:00Z", "offsetMinutes": -180 },
+        { "instant": "2025-07-15T12:00:00Z", "offsetMinutes": -180 },
+        { "instant": "2025-10-05T03:30:00Z", "offsetMinutes": -180 },
+        { "instant": "2025-10-05T04:30:00Z", "offsetMinutes": -180 },
+        { "instant": "2026-03-22T02:30:00Z", "offsetMinutes": -180 },
+        { "instant": "2026-07-01T12:00:00Z", "offsetMinutes": -180 },
+        { "instant": "2026-10-04T04:30:00Z", "offsetMinutes": -180 },
+        { "instant": "2027-03-28T02:30:00Z", "offsetMinutes": -180 }
+      ]
+    }
+  ]
+}

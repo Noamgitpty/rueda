@@ -1,0 +1,5 @@
+{
+  "entries": [
+    { "path": "packages/db/migrations/0002_seed.sql", "justification": "graine générée (fixture)" }
+  ]
+}
