@@ -4,13 +4,14 @@
  * Un profil décrit comment afficher les nombres, les montants et les dates d'une locale. Les
  * valeurs viennent de `config/locales.json` (ou d'une fixture de test) et sont validées ici.
  * Les formats visés sont ceux de 16 (fiche I18N-003 / I18N-004 / I18N-005) et de 17 §1.2 :
- * « US$ 1.234,56 » en es-PA, « $1,234.56 » en en, « ₲ 1.050.000 » sans décimale.
+ * « US$ 1.234,56 » en es-PA, « $1,234.56 » en en, « ₲ 1.050.000 » sans décimale. Le profil fr
+ * (DEC-FONDATEUR-17) suit le CLDR du français : « 1 234,56 $US », « 1 050 000 ₲ ».
  */
 
 /** Langue de catalogue : la locale régionale (es-PA, es-PY) hérite du catalogue de sa langue. */
-export type CatalogLanguage = 'es' | 'en';
+export type CatalogLanguage = 'es' | 'en' | 'fr';
 
-export const CATALOG_LANGUAGES: readonly CatalogLanguage[] = ['es', 'en'];
+export const CATALOG_LANGUAGES: readonly CatalogLanguage[] = ['es', 'en', 'fr'];
 
 export interface NumberProfile {
   /** Séparateur des milliers (« . » ou « , »). */
@@ -36,7 +37,7 @@ export interface CurrencyProfile {
 export interface DateProfile {
   /** Gabarit de date : `{day}`, `{month}`, `{year}` (16 I18N-003 : jj/mm/aaaa). */
   readonly datePattern: string;
-  /** Gabarit d'heure : `{hour}`, `{minute}`, `{dayPeriod}` (24 h en es, 12 h en en). */
+  /** Gabarit d'heure : `{hour}`, `{minute}`, `{dayPeriod}` (24 h en es et fr, 12 h en en). */
   readonly timePattern: string;
   /** Gabarit date + heure : `{date}`, `{time}`. */
   readonly dateTimePattern: string;
@@ -45,7 +46,7 @@ export interface DateProfile {
 }
 
 export interface LocaleProfile {
-  /** Étiquette BCP 47 (`es-PA`, `es-PY`, `en`). Sert aussi à l'attribut `lang`. */
+  /** Étiquette BCP 47 (`es-PA`, `es-PY`, `en`, `fr`). Sert aussi à l'attribut `lang`. */
   readonly tag: string;
   readonly language: CatalogLanguage;
   /** Nom de la locale dans sa propre langue (sélecteur de langue, UX-11). */

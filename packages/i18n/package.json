@@ -2,7 +2,7 @@
   "name": "@rueda/i18n",
   "version": "0.0.0",
   "private": true,
-  "description": "Internationalisation partagée (web, back-office, gabarits de l'API) : catalogues es / en, locales, formats d'affichage des montants, nombres, dates et pluriels.",
+  "description": "Internationalisation partagée (web, back-office, gabarits de l'API) : catalogues es / en / fr, locales, formats d'affichage des montants, nombres, dates et pluriels.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

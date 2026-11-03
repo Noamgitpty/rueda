@@ -54,6 +54,24 @@
         "hourCycle": "h12",
         "hour": "numeric"
       }
+    },
+    {
+      "tag": "fr",
+      "language": "fr",
+      "displayName": "Français",
+      "number": { "group": "\u202f", "decimal": ",", "minimumGroupingDigits": 1 },
+      "currency": {
+        "symbols": { "USD": "$US", "PYG": "₲" },
+        "pattern": "{amount}\u00a0{symbol}",
+        "negativePattern": "-{amount}\u00a0{symbol}"
+      },
+      "date": {
+        "datePattern": "{day}/{month}/{year}",
+        "timePattern": "{hour}:{minute}",
+        "dateTimePattern": "{date} {time}",
+        "hourCycle": "h23",
+        "hour": "2-digit"
+      }
     }
   ]
 }
