@@ -130,13 +130,15 @@ describe('schéma core (US-006)', () => {
                   ? 'iam_staff_owner'
                   : r.polname.startsWith('cmd_money_') // commandes d'argent (US-018, US-019 ; 17 §2.3)
                     ? 'cmd_money_owner'
-                    : r.polname.startsWith('cmd_') // commandes d'occupation (0034, US-022)
-                      ? 'cmd_hold_owner'
-                      : r.polname.startsWith('worker_')
-                        ? 'app_worker'
-                        : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
-                          ? 'host_view_owner'
-                          : 'app_api';
+                    : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
+                      ? 'cmd_money_owner'
+                      : r.polname.startsWith('cmd_') // commandes d'occupation (0034, US-022)
+                        ? 'cmd_hold_owner'
+                        : r.polname.startsWith('worker_')
+                          ? 'app_worker'
+                          : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
+                            ? 'host_view_owner'
+                            : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
