@@ -255,4 +255,143 @@ export const FR_MESSAGES = {
   'common.brand.contentMarkdownForbidden':
     'Le texte contient du HTML ou un lien externe. Seuls les liens internes sont permis.',
   'common.brand.contentNotFound': 'Ce bloc ou cette version n’existe pas.',
+  // Règles photo d'US-031 (ADR-069 point 7), versées depuis
+  // `packages/design-tokens/rules/photo.messages.json` sans changer clés ni textes (ADR-071) ;
+  // un test de `packages/i18n` vérifie que les deux restent identiques.
+  'web.photo.angle.extFront.hint':
+    'De face, à trois pas environ, tout le pare-chocs dans le cadre.',
+  'web.photo.angle.extFront.label': 'Avant',
+  'web.photo.angle.extFront34Driver.hint':
+    'Depuis l’angle avant côté conducteur\u00a0: on voit l’avant et le flanc.',
+  'web.photo.angle.extFront34Driver.label': 'Avant, côté conducteur',
+  'web.photo.angle.extFront34Passenger.hint':
+    'Depuis l’angle avant côté passager\u00a0: on voit l’avant et le flanc.',
+  'web.photo.angle.extFront34Passenger.label': 'Avant, côté passager',
+  'web.photo.angle.extProfileDriver.hint':
+    'Tout le flanc côté conducteur, d’une roue à l’autre, depuis le milieu.',
+  'web.photo.angle.extProfileDriver.label': 'Profil côté conducteur',
+  'web.photo.angle.extProfilePassenger.hint':
+    'Tout le flanc côté passager, d’une roue à l’autre, depuis le milieu.',
+  'web.photo.angle.extProfilePassenger.label': 'Profil côté passager',
+  'web.photo.angle.extRear.hint': 'Face au coffre, tout le pare-chocs arrière dans le cadre.',
+  'web.photo.angle.extRear.label': 'Arrière',
+  'web.photo.angle.extRear34Driver.hint':
+    'Depuis l’angle arrière côté conducteur\u00a0: on voit l’arrière et le flanc.',
+  'web.photo.angle.extRear34Driver.label': 'Arrière, côté conducteur',
+  'web.photo.angle.extRear34Passenger.hint':
+    'Depuis l’angle arrière côté passager\u00a0: on voit l’arrière et le flanc.',
+  'web.photo.angle.extRear34Passenger.label': 'Arrière, côté passager',
+  'web.photo.angle.extSideDriverFront.hint': 'Portière avant, aile et rétroviseur côté conducteur.',
+  'web.photo.angle.extSideDriverFront.label': 'Flanc conducteur, moitié avant',
+  'web.photo.angle.extSideDriverRear.hint': 'Portière arrière et aile arrière côté conducteur.',
+  'web.photo.angle.extSideDriverRear.label': 'Flanc conducteur, moitié arrière',
+  'web.photo.angle.extSidePassengerFront.hint':
+    'Portière avant, aile et rétroviseur côté passager.',
+  'web.photo.angle.extSidePassengerFront.label': 'Flanc passager, moitié avant',
+  'web.photo.angle.extSidePassengerRear.hint': 'Portière arrière et aile arrière côté passager.',
+  'web.photo.angle.extSidePassengerRear.label': 'Flanc passager, moitié arrière',
+  'web.photo.angle.extWheelDriverFront.hint': 'De près\u00a0: jante et pneu en entier.',
+  'web.photo.angle.extWheelDriverFront.label': 'Roue avant côté conducteur',
+  'web.photo.angle.extWheelDriverRear.hint': 'De près\u00a0: jante et pneu en entier.',
+  'web.photo.angle.extWheelDriverRear.label': 'Roue arrière côté conducteur',
+  'web.photo.angle.extWheelPassengerFront.hint': 'De près\u00a0: jante et pneu en entier.',
+  'web.photo.angle.extWheelPassengerFront.label': 'Roue avant côté passager',
+  'web.photo.angle.extWheelPassengerRear.hint': 'De près\u00a0: jante et pneu en entier.',
+  'web.photo.angle.extWheelPassengerRear.label': 'Roue arrière côté passager',
+  'web.photo.angle.extWindshieldRoof.hint':
+    'Lève un peu le téléphone\u00a0: tout le pare-brise et, si possible, le toit.',
+  'web.photo.angle.extWindshieldRoof.label': 'Pare-brise et toit',
+  'web.photo.angle.gaugeFuel.hint':
+    'Moteur allumé\u00a0: le niveau de carburant ou de batterie se lit bien.',
+  'web.photo.angle.gaugeFuel.label': 'Carburant ou charge',
+  'web.photo.angle.gaugeOdometer.hint':
+    'Moteur allumé\u00a0: tous les chiffres du compteur se lisent.',
+  'web.photo.angle.gaugeOdometer.label': 'Compteur kilométrique',
+  'web.photo.angle.intCenterConsole.hint': 'Levier, écran et porte-gobelets, de près.',
+  'web.photo.angle.intCenterConsole.label': 'Console centrale',
+  'web.photo.angle.intDashboard.hint':
+    'Depuis le milieu de la banquette\u00a0: tout le tableau de bord et le volant.',
+  'web.photo.angle.intDashboard.label': 'Tableau de bord',
+  'web.photo.angle.intDriverSeat.hint':
+    'Portière ouverte\u00a0: siège, plancher et panneau de porte côté conducteur.',
+  'web.photo.angle.intDriverSeat.label': 'Siège conducteur',
+  'web.photo.angle.intFrontSeats.hint':
+    'Par la portière conducteur ouverte\u00a0: les deux sièges avant.',
+  'web.photo.angle.intFrontSeats.label': 'Sièges avant',
+  'web.photo.angle.intHeadliner.hint':
+    'Vise vers le haut depuis le siège avant\u00a0: plafond et rétroviseur intérieur.',
+  'web.photo.angle.intHeadliner.label': 'Ciel de toit',
+  'web.photo.angle.intPassengerSeat.hint':
+    'Portière ouverte\u00a0: siège, plancher et panneau de porte côté passager.',
+  'web.photo.angle.intPassengerSeat.label': 'Siège passager',
+  'web.photo.angle.intRearSeats.hint':
+    'Par une portière arrière ouverte\u00a0: toute la banquette.',
+  'web.photo.angle.intRearSeats.label': 'Banquette arrière',
+  'web.photo.angle.intRearSeatsDriver.hint':
+    'Portière arrière côté conducteur ouverte\u00a0: siège, plancher et panneau.',
+  'web.photo.angle.intRearSeatsDriver.label': 'Arrière, côté conducteur',
+  'web.photo.angle.intRearSeatsPassenger.hint':
+    'Portière arrière côté passager ouverte\u00a0: siège, plancher et panneau.',
+  'web.photo.angle.intRearSeatsPassenger.label': 'Arrière, côté passager',
+  'web.photo.angle.intTrunk.hint': 'Coffre ouvert et vide, plancher visible.',
+  'web.photo.angle.intTrunk.label': 'Coffre',
+  'web.photo.check.blurry': 'La photo est floue. Tiens bien ton téléphone et reprends-la.',
+  'web.photo.check.galleryForbidden':
+    'Pour la remise, prends la photo maintenant avec l’appareil photo de l’appli.',
+  'web.photo.check.personVisible':
+    'Une personne apparaît sur la photo. Reprends-la sans personne dans le cadre.',
+  'web.photo.check.plateVisible': 'La plaque est lisible. Nous la flouterons avant la publication.',
+  'web.photo.check.portrait': 'Tourne ton téléphone à l’horizontale pour cette photo.',
+  'web.photo.check.tooDark': 'La photo est trop sombre. Trouve plus de lumière et reprends-la.',
+  'web.photo.check.tooSmall':
+    'La photo est trop petite. Utilise l’appareil photo principal du téléphone.',
+  'web.photo.handover.both':
+    'L’hôte et le voyageur prennent chacun leur série. L’une ne remplace pas l’autre.',
+  'web.photo.handover.camera':
+    'Utilise l’appareil photo de l’appli. Les photos de la galerie ne sont pas acceptées.',
+  'web.photo.handover.count':
+    'Prends {exterior} photos extérieures, {interior} intérieures, plus le carburant et le compteur.',
+  'web.photo.handover.plate':
+    'Ici, la plaque peut se voir\u00a0: ces photos servent de preuve et ne sont jamais publiées.',
+  'web.photo.handover.title': 'Photos de remise',
+  'web.photo.listing.count':
+    'Ajoute au moins {min} photos. Avec {recommended}, on voit toute la voiture.',
+  'web.photo.listing.cover':
+    'C’est la photo de couverture\u00a0: la première que voient les voyageurs.',
+  'web.photo.listing.title': 'Photos de ta voiture',
+  'web.photo.rule.forbidden.aiGenerated':
+    'Les images créées ou modifiées par intelligence artificielle sont refusées.',
+  'web.photo.rule.forbidden.contact':
+    'Ni numéro, ni QR code, ni lien\u00a0: tout passe par les messages de {brand}.',
+  'web.photo.rule.forbidden.documents':
+    'Ne photographie ni document ni écran affichant des données personnelles.',
+  'web.photo.rule.forbidden.offensive':
+    'Rien d’indécent, de violent ni de blessant pour une personne ou un groupe.',
+  'web.photo.rule.forbidden.overlay': 'Ni texte, ni logo, ni cadre, ni filigrane sur la photo.',
+  'web.photo.rule.forbidden.people': 'Aucune personne sur la photo, même dans un reflet.',
+  'web.photo.rule.forbidden.plate':
+    'Si la plaque est lisible, nous la floutons avant de publier la photo.',
+  'web.photo.rule.forbidden.stock':
+    'Seulement des photos de ta voiture, jamais d’internet ni d’un catalogue.',
+  'web.photo.rule.forbidden.unsafe':
+    'La voiture ne doit pas apparaître sur une dépanneuse, accidentée ni dans un lieu dangereux.',
+  'web.photo.rule.framing.background': 'Choisis un fond dégagé, sans autre voiture ni personne.',
+  'web.photo.rule.framing.clean':
+    'Lave la voiture et retire tes objets personnels avant les photos.',
+  'web.photo.rule.framing.fill': 'La voiture occupe presque toute la largeur, sans être coupée.',
+  'web.photo.rule.framing.height': 'Pour l’extérieur, place le téléphone à hauteur des phares.',
+  'web.photo.rule.framing.level': 'Tiens ton téléphone à l’horizontale, l’horizon bien droit.',
+  'web.photo.rule.framing.safeArea':
+    'Laisse de l’air autour de la voiture\u00a0: la couverture est un peu rognée en haut et en bas.',
+  'web.photo.rule.light.backlight': 'Garde le soleil dans ton dos, pas derrière la voiture.',
+  'web.photo.rule.light.daylight':
+    'Photographie de jour, en lumière douce\u00a0: matin, fin d’après-midi ou ciel couvert.',
+  'web.photo.rule.light.night':
+    'De nuit, seulement pour la remise\u00a0: allume une lumière et approche-toi de chaque dégât.',
+  'web.photo.rule.light.noFilter':
+    'Ni filtre ni retouche\u00a0: la photo montre la voiture telle qu’elle est.',
+  'web.photo.rule.light.reflections':
+    'Décale-toi si tu vois ton reflet sur la carrosserie ou les vitres.',
+  'web.photo.slot.damage': 'Dégât {number}',
+  'web.photo.slot.key': 'Clé',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

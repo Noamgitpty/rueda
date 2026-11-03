@@ -22,21 +22,22 @@ Aucun port : tout repose sur `Intl` (ICU embarqué dans Node 26), sans dépendan
 
 ## Contenu
 
-| Fichier                 | Rôle                                                                                                                                          |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `config/locales.json`   | **Donnée** : locales déclarées, locale par défaut, séparateurs, symboles monétaires, gabarits de date et d'heure (ADR-024)                    |
-| `src/catalogs/es.ts`    | catalogue espagnol (fait foi) ; tutoiement « tú » dans l'interface (UXQ-04, PROPOSÉ)                                                          |
-| `src/catalogs/en.ts`    | catalogue anglais, typé `Record<MessageKey, Message>` : une clé manquante ou en trop fait échouer `pnpm typecheck`                            |
-| `src/catalogs/fr.ts`    | catalogue français, typé comme `en.ts` ; tutoiement dans l'interface, vouvoiement dans les textes contractuels (COMME_TURO, PROPOSÉ)          |
-| `src/catalogs/pt.ts`    | catalogue portugais du Brésil, typé comme `en.ts` ; « você » dans l'interface, registre formel dans les textes contractuels                   |
-| `src/locale-profile.ts` | types et validation de la configuration (`parseLocaleConfig`, `getProfile`), fail-closed                                                      |
-| `src/translator.ts`     | `createTranslator(profile, overrides?)` → `t(key, values)`, pluriels CLDR, et raccourcis `money`, `number`, `date`, `time`…                   |
-| `src/money-format.ts`   | `formatMoney` : adaptateur d'**affichage seulement** (voir plus bas)                                                                          |
-| `src/number-format.ts`  | `formatNumber` pour les quantités non monétaires (km, jours, compteurs)                                                                       |
-| `src/date-format.ts`    | dates et heures dans le **fuseau du véhicule**, `utcOffsetMinutes`, `checkTimeZoneData` (contrôle tzdata de 17 §1.3)                          |
-| `src/negotiate.ts`      | `negotiateLocale` : choix mémorisé (cookie `locale`) → `Accept-Language` → locale par défaut (10b UX-11)                                      |
-| `src/locale-choice.ts`  | `localeChoiceResponse` : traitement de `POST /locale` (validation, cookie `HttpOnly; SameSite=Lax`, 303 vers `/`)                             |
-| `src/testing/index.ts`  | export `@rueda/i18n/testing` : `compareCatalogs` (parité) et `findForeignStrings` (mélange de langues dans un écran rendu, en **mot entier**) |
+| Fichier                       | Rôle                                                                                                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config/locales.json`         | **Donnée** : locales déclarées, locale par défaut, séparateurs, symboles monétaires, gabarits de date et d'heure (ADR-024)                                      |
+| `src/catalogs/es.ts`          | catalogue espagnol (fait foi) ; tutoiement « tú » dans l'interface (UXQ-04, PROPOSÉ)                                                                            |
+| `src/catalogs/en.ts`          | catalogue anglais, typé `Record<MessageKey, Message>` : une clé manquante ou en trop fait échouer `pnpm typecheck`                                              |
+| `src/catalogs/fr.ts`          | catalogue français, typé comme `en.ts` ; tutoiement dans l'interface, vouvoiement dans les textes contractuels (COMME_TURO, PROPOSÉ)                            |
+| `src/catalogs/pt.ts`          | catalogue portugais du Brésil, typé comme `en.ts` ; « você » dans l'interface, registre formel dans les textes contractuels                                     |
+| `src/locale-profile.ts`       | types et validation de la configuration (`parseLocaleConfig`, `getProfile`), fail-closed                                                                        |
+| `src/translator.ts`           | `createTranslator(profile, overrides?)` → `t(key, values)`, pluriels CLDR, et raccourcis `money`, `number`, `date`, `time`…                                     |
+| `src/money-format.ts`         | `formatMoney` : adaptateur d'**affichage seulement** (voir plus bas)                                                                                            |
+| `src/number-format.ts`        | `formatNumber` pour les quantités non monétaires (km, jours, compteurs)                                                                                         |
+| `src/date-format.ts`          | dates et heures dans le **fuseau du véhicule**, `utcOffsetMinutes`, `checkTimeZoneData` (contrôle tzdata de 17 §1.3)                                            |
+| `src/negotiate.ts`            | `negotiateLocale` : choix mémorisé (cookie `locale`) → `Accept-Language` → locale par défaut (10b UX-11)                                                        |
+| `src/locale-choice.ts`        | `localeChoiceResponse` : traitement de `POST /locale` (validation, cookie `HttpOnly; SameSite=Lax`, 303 vers `/`)                                               |
+| `test/photo-messages.test.ts` | les 95 clés `web.photo.*` d'US-031 (ADR-069 point 7) versées dans les quatre catalogues restent identiques à `packages/design-tokens/rules/photo.messages.json` |
+| `src/testing/index.ts`        | export `@rueda/i18n/testing` : `compareCatalogs` (parité) et `findForeignStrings` (mélange de langues dans un écran rendu, en **mot entier**)                   |
 
 ## Utilisation
 

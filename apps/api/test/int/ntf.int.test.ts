@@ -8,7 +8,7 @@
  *  - « Given un événement rejoué, When il est reçu, Then aucun doublon par destinataire et canal » ;
  *  - « Given un échec d'envoi, When il est remonté, Then repli sur l'autre canal et
  *    notification.fallback.triggered ».
- * (Critère 1, gabarits es / en / fr : tests unitaires `templates.test.ts`.)
+ * (Critère 1, gabarits es / en / fr / pt : tests unitaires `templates.test.ts`.)
  * Chaque cas tourne en USD (PA) et en PYG sans décimale (PY).
  */
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';

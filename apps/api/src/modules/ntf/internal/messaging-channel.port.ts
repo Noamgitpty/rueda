@@ -3,7 +3,7 @@
  * transactionnel », §10 ; ADR-012 ; US-020, ADR-058).
  *
  * Un adaptateur par canal (`EMAIL`, `SMS` ; WhatsApp au lot 5). Le contenu est rendu par NTF
- * (gabarits es / en / fr) : le port transporte un texte déjà rendu. Message d'un autre canal ⇒
+ * (gabarits es / en / fr / pt) : le port transporte un texte déjà rendu. Message d'un autre canal ⇒
  * `UNSUPPORTED_CHANNEL` (capacité inconnue = « non »). `TIMEOUT` = issue inconnue (le message a
  * pu partir) : rejouer la même clé ; NTF dédoublonne par destinataire et canal (US-021).
  * Les accusés de remise (`DeliveryReceipt`) arrivent en double, en retard ou jamais.

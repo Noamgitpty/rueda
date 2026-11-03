@@ -239,4 +239,129 @@ export const EN_MESSAGES = {
   'common.brand.contentMarkdownForbidden':
     'The text contains HTML or an external link. Only internal links are allowed.',
   'common.brand.contentNotFound': 'This block or version does not exist.',
+  // Règles photo d'US-031 (ADR-069 point 7), versées depuis
+  // `packages/design-tokens/rules/photo.messages.json` sans changer clés ni textes (ADR-071) ;
+  // un test de `packages/i18n` vérifie que les deux restent identiques.
+  'web.photo.angle.extFront.hint':
+    'Head-on, about three steps back, with the whole bumper in frame.',
+  'web.photo.angle.extFront.label': 'Front',
+  'web.photo.angle.extFront34Driver.hint':
+    'From the driver’s front corner: show the front and the side.',
+  'web.photo.angle.extFront34Driver.label': 'Front, driver’s side',
+  'web.photo.angle.extFront34Passenger.hint':
+    'From the passenger’s front corner: show the front and the side.',
+  'web.photo.angle.extFront34Passenger.label': 'Front, passenger side',
+  'web.photo.angle.extProfileDriver.hint':
+    'The whole driver’s side, wheel to wheel, from the middle.',
+  'web.photo.angle.extProfileDriver.label': 'Driver’s side profile',
+  'web.photo.angle.extProfilePassenger.hint':
+    'The whole passenger side, wheel to wheel, from the middle.',
+  'web.photo.angle.extProfilePassenger.label': 'Passenger side profile',
+  'web.photo.angle.extRear.hint': 'Facing the trunk, with the whole rear bumper in frame.',
+  'web.photo.angle.extRear.label': 'Rear',
+  'web.photo.angle.extRear34Driver.hint':
+    'From the driver’s rear corner: show the back and the side.',
+  'web.photo.angle.extRear34Driver.label': 'Rear, driver’s side',
+  'web.photo.angle.extRear34Passenger.hint':
+    'From the passenger’s rear corner: show the back and the side.',
+  'web.photo.angle.extRear34Passenger.label': 'Rear, passenger side',
+  'web.photo.angle.extSideDriverFront.hint': 'Driver’s front door, fender and mirror.',
+  'web.photo.angle.extSideDriverFront.label': 'Driver’s side, front half',
+  'web.photo.angle.extSideDriverRear.hint': 'Driver’s rear door and rear fender.',
+  'web.photo.angle.extSideDriverRear.label': 'Driver’s side, rear half',
+  'web.photo.angle.extSidePassengerFront.hint': 'Passenger front door, fender and mirror.',
+  'web.photo.angle.extSidePassengerFront.label': 'Passenger side, front half',
+  'web.photo.angle.extSidePassengerRear.hint': 'Passenger rear door and rear fender.',
+  'web.photo.angle.extSidePassengerRear.label': 'Passenger side, rear half',
+  'web.photo.angle.extWheelDriverFront.hint': 'Close up: the whole rim and tire.',
+  'web.photo.angle.extWheelDriverFront.label': 'Driver’s front wheel',
+  'web.photo.angle.extWheelDriverRear.hint': 'Close up: the whole rim and tire.',
+  'web.photo.angle.extWheelDriverRear.label': 'Driver’s rear wheel',
+  'web.photo.angle.extWheelPassengerFront.hint': 'Close up: the whole rim and tire.',
+  'web.photo.angle.extWheelPassengerFront.label': 'Passenger front wheel',
+  'web.photo.angle.extWheelPassengerRear.hint': 'Close up: the whole rim and tire.',
+  'web.photo.angle.extWheelPassengerRear.label': 'Passenger rear wheel',
+  'web.photo.angle.extWindshieldRoof.hint':
+    'Raise the phone a little: the whole windshield and, if you can, the roof.',
+  'web.photo.angle.extWindshieldRoof.label': 'Windshield and roof',
+  'web.photo.angle.gaugeFuel.hint': 'Engine on: the fuel or battery level is clearly readable.',
+  'web.photo.angle.gaugeFuel.label': 'Fuel or charge',
+  'web.photo.angle.gaugeOdometer.hint': 'Engine on: every digit of the odometer is readable.',
+  'web.photo.angle.gaugeOdometer.label': 'Mileage',
+  'web.photo.angle.intCenterConsole.hint': 'Gear lever, screen and cup holders, close up.',
+  'web.photo.angle.intCenterConsole.label': 'Center console',
+  'web.photo.angle.intDashboard.hint':
+    'From the middle of the back seat: the whole dashboard and steering wheel.',
+  'web.photo.angle.intDashboard.label': 'Dashboard',
+  'web.photo.angle.intDriverSeat.hint': 'Door open: the driver’s seat, floor and door panel.',
+  'web.photo.angle.intDriverSeat.label': 'Driver’s seat',
+  'web.photo.angle.intFrontSeats.hint': 'Through the open driver’s door: both front seats.',
+  'web.photo.angle.intFrontSeats.label': 'Front seats',
+  'web.photo.angle.intHeadliner.hint':
+    'Point up from the front seat: the ceiling and rear-view mirror.',
+  'web.photo.angle.intHeadliner.label': 'Headliner',
+  'web.photo.angle.intPassengerSeat.hint': 'Door open: the passenger seat, floor and door panel.',
+  'web.photo.angle.intPassengerSeat.label': 'Passenger seat',
+  'web.photo.angle.intRearSeats.hint': 'Through an open rear door: the whole back seat.',
+  'web.photo.angle.intRearSeats.label': 'Back seats',
+  'web.photo.angle.intRearSeatsDriver.hint': 'Driver’s rear door open: seat, floor and panel.',
+  'web.photo.angle.intRearSeatsDriver.label': 'Back seat, driver’s side',
+  'web.photo.angle.intRearSeatsPassenger.hint': 'Passenger rear door open: seat, floor and panel.',
+  'web.photo.angle.intRearSeatsPassenger.label': 'Back seat, passenger side',
+  'web.photo.angle.intTrunk.hint': 'Trunk open and empty, with the floor visible.',
+  'web.photo.angle.intTrunk.label': 'Trunk',
+  'web.photo.check.blurry': 'This photo is blurry. Hold your phone steady and retake it.',
+  'web.photo.check.galleryForbidden':
+    'For the handover, take the photo now with the in-app camera.',
+  'web.photo.check.personVisible':
+    'There is a person in this photo. Retake it with nobody in frame.',
+  'web.photo.check.plateVisible': 'The plate is readable. We will blur it before publishing.',
+  'web.photo.check.portrait': 'Turn your phone sideways for this photo.',
+  'web.photo.check.tooDark': 'This photo is too dark. Find more light and retake it.',
+  'web.photo.check.tooSmall': 'This photo is too small. Use your phone’s main camera.',
+  'web.photo.handover.both':
+    'The host and the guest each take their own set. One does not replace the other.',
+  'web.photo.handover.camera': 'Use the in-app camera. Gallery photos are not accepted.',
+  'web.photo.handover.count':
+    'Take {exterior} outside photos, {interior} inside, plus fuel and mileage.',
+  'web.photo.handover.plate':
+    'The plate may show here: these photos are evidence and are never published.',
+  'web.photo.handover.title': 'Handover photos',
+  'web.photo.listing.count':
+    'Add at least {min} photos. With {recommended}, guests see the whole car.',
+  'web.photo.listing.cover': 'This is the cover photo: the first one guests see.',
+  'web.photo.listing.title': 'Photos of your car',
+  'web.photo.rule.forbidden.aiGenerated':
+    'Images created or altered with artificial intelligence are not accepted.',
+  'web.photo.rule.forbidden.contact':
+    'No phone numbers, QR codes or links: everything goes through {brand} messages.',
+  'web.photo.rule.forbidden.documents':
+    'Do not photograph documents or screens showing personal details.',
+  'web.photo.rule.forbidden.offensive':
+    'Nothing indecent, violent or offensive to a person or a group.',
+  'web.photo.rule.forbidden.overlay': 'No text, logos, frames or watermarks on the photo.',
+  'web.photo.rule.forbidden.people': 'No people in the photo, not even in a reflection.',
+  'web.photo.rule.forbidden.plate':
+    'If the plate is readable, we blur it before the photo is published.',
+  'web.photo.rule.forbidden.stock':
+    'Only photos of your own car, never from the internet or a brochure.',
+  'web.photo.rule.forbidden.unsafe':
+    'The car must not appear on a tow truck, wrecked or in an unsafe place.',
+  'web.photo.rule.framing.background': 'Pick a clear background, with no other cars or people.',
+  'web.photo.rule.framing.clean': 'Wash the car and remove personal items before the photos.',
+  'web.photo.rule.framing.fill': 'The car fills most of the frame, without being cut off.',
+  'web.photo.rule.framing.height': 'For outside photos, hold the phone at headlight height.',
+  'web.photo.rule.framing.level': 'Hold your phone sideways and keep the horizon straight.',
+  'web.photo.rule.framing.safeArea':
+    'Leave space around the car: the cover is trimmed slightly at the top and bottom.',
+  'web.photo.rule.light.backlight': 'Keep the sun behind you, not behind the car.',
+  'web.photo.rule.light.daylight':
+    'Shoot in daylight with soft light: morning, late afternoon or overcast.',
+  'web.photo.rule.light.night':
+    'At night, for handover only: turn on a light and get close to any damage.',
+  'web.photo.rule.light.noFilter': 'No filters or edits: the photo shows the car as it is.',
+  'web.photo.rule.light.reflections':
+    'Step aside if you see your reflection on the body or windows.',
+  'web.photo.slot.damage': 'Damage {number}',
+  'web.photo.slot.key': 'Key',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

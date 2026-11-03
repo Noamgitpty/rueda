@@ -12,7 +12,7 @@ Le `README.md` du module donne la fiche (responsabilité, entités, événements
                  + une tâche ntf_sender par envoi créé
   └─ ntf_sender (minuterie, une tâche par tentative)
        coordonnées (port RecipientDirectory ← IAM, core.iam_notification_contact)
-       langue du destinataire → rendu (@rueda/i18n, es / en / fr) → MessagingChannel.send
+       langue du destinataire → rendu (@rueda/i18n, es / en / fr / pt) → MessagingChannel.send
        OK ⇒ SENT · UNAVAILABLE / TIMEOUT ⇒ nouvelle tentative (≤ 3 tentatives) · échec définitif ⇒ repli
        repli ⇒ nouvel envoi sur le canal de repli + notification.fallback.triggered (critère 3)
        sans repli ⇒ FAILED + notification.dispatch.failed
