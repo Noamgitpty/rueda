@@ -30,6 +30,11 @@
       "paths": ["docs/specs/17_DATA_MODEL_AND_ARCHITECTURE.md", "CLAUDE.md"],
       "require": ["securite"],
       "why": "RLS, rôles et consignes de tout agent : revue sécurité (contrainte 1)"
+    },
+    {
+      "paths": [".github/", "scripts/ci/", "scripts/team/", "docs/team/review-requirements.json"],
+      "require": ["securite"],
+      "why": "workflows et scripts du contrôle des revues, garde-fou de la fusion autonome (DEC-FONDATEUR-15) : revue sécurité ; ne vaut qu après fusion (règles lues sur la base)"
     }
   ],
   "stories": {

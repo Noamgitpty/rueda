@@ -1,0 +1,17 @@
+import { defineConfig } from 'vitest/config';
+import type { ViteUserConfig } from 'vitest/config';
+
+/** Configuration des suites sur PostgreSQL réel (`test:int`, `test:l0`). */
+export function databaseSuite(include: string[]): ViteUserConfig {
+  return defineConfig({
+    test: {
+      include,
+      globalSetup: ['./src/testing/global-setup.ts'],
+      setupFiles: ['./src/testing/setup-l0-05.ts'],
+      // Premier démarrage d'un conteneur (CI) ou connexion lente sous Windows.
+      testTimeout: 30_000,
+      hookTimeout: 120_000,
+      teardownTimeout: 60_000,
+    },
+  });
+}

@@ -2,18 +2,28 @@
   "name": "@rueda/db",
   "version": "0.0.0",
   "private": true,
-  "description": "Base PostgreSQL : correspondance module → schéma, migrations (US-005), liste blanche de l'horloge.",
+  "description": "Base PostgreSQL : correspondance module → schéma, migrations SQL versionnées, exécuteur de migrations, harnais de tests (US-005), liste blanche de l'horloge.",
   "type": "module",
   "exports": {
-    "./schemas": "./schemas.ts"
+    ".": "./src/index.ts",
+    "./schemas": "./schemas.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:int": "vitest run --config vitest.int.config.ts",
+    "test:l0": "vitest run --config vitest.l0.config.ts"
+  },
+  "dependencies": {
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@rueda/config": "workspace:*",
+    "@testcontainers/postgresql": "12.2.1",
     "@types/node": "26.6.5",
+    "@types/pg": "8.23.1",
+    "testcontainers": "12.2.1",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
   }

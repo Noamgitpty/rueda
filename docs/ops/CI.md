@@ -20,7 +20,7 @@ Règles communes :
 | `qualite`               | `pnpm install --frozen-lockfile`, `lint`, `typecheck`, `test:unit` (dont `node --test scripts/team/ scripts/ci/`), `build`, `format:check`                                                                                                         | oui                                             |
 | `base-de-donnees`       | fumée du banc ([`scripts/ci/pg-smoke.sh`](../../scripts/ci/pg-smoke.sh) : `postgres:16` réel, version ≥ 16, `CREATE EXTENSION btree_gist`, connexion directe sans pooler), puis `pnpm test:int` et `pnpm test:l0` avec `RUEDA_PG_TESTCONTAINERS=1` | oui (voir plus bas ce qu'il prouve aujourd'hui) |
 | `oracles`               | tests du contrôle, puis [`scripts/ci/check-spec-tools.py`](../../scripts/ci/check-spec-tools.py) : les contrôles de `docs/specs/00_README.md` §4, exécutés avec `python -I -X utf8`                                                                | oui                                             |
-| `revues` (PR seulement) | [`scripts/ci/check-story-reviews.mjs`](../../scripts/ci/check-story-reviews.mjs) → `scripts/team/check-reviews.mjs US-xxx --require <rôles> --base origin/main`                                                                                    | oui sur une PR prête ; informatif en brouillon  |
+| `revues` (PR seulement) | [`scripts/ci/check-story-reviews.mjs`](../../scripts/ci/check-story-reviews.mjs) → `scripts/team/check-reviews.mjs US-xxx --require <rôles> --base origin/main`, scripts pris **sur la base** et appliqués à la pointe de la PR                    | oui sur une PR prête ; informatif en brouillon  |
 | `secrets`               | gitleaks (`gitleaks/gitleaks-action` v3.0.0) : commits de la PR, ou du push ; tout l'historique la nuit                                                                                                                                            | oui                                             |
 | `dependances`           | [`scripts/ci/audit-gate.mjs`](../../scripts/ci/audit-gate.mjs) : `pnpm audit --prod`, gravité élevée et critique, exceptions GHSA datées                                                                                                           | oui (voir « Dépendances »)                      |
 | `diagrammes`            | rendu `mmdc` (mermaid-cli 12.0.0) de chaque bloc ` ```mermaid ` de `docs/` ([`scripts/ci/render-mermaid.mjs`](../../scripts/ci/render-mermaid.mjs)), après un témoin invalide qui doit échouer                                                     | oui                                             |
@@ -64,12 +64,41 @@ Depuis la revue sécurité du 2026-11-01 (constat MAJEUR 1), le nom de branche n
    - Un paquet absent de `pathOwners` fait échouer le job (fail-closed). Une story qui crée un paquet le fait donc d'abord déclarer sur `main` par l'orchestrateur.
 4. **Rôles exigés.**
    - Ils valent `default` (`code`), plus `stories.US-xxx.require`, plus `architecture` si le diff touche `dependency-graph.ts` ou `packages/db/`.
-   - Le job lance ensuite `scripts/team/check-reviews.mjs US-xxx --require <rôles> --base origin/main`.
+   - Depuis US-050, `securite` s'ajoute aussi dès que le diff touche `.github/`, `scripts/ci/`, `scripts/team/` ou `docs/team/review-requirements.json`.
+   - Le job lance ensuite `scripts/team/check-reviews.mjs US-xxx --require <rôles> --base origin/main --root <pointe> --exempt <chemins libres>`.
+5. **Revue à jour** (US-050, revues sécurité 03c et 03d, constat 4). Un rapport APPROUVÉ sur le sha X ne suffit plus parce que X est un ancêtre de HEAD.
+   - Un fichier **livré** par la PR, c'est-à-dire présent dans le diff `merge-base(origin/main, HEAD)..HEAD`, rend la revue périmée dans deux cas :
+     - il a changé depuis X ;
+     - la base l'a changé entre `merge-base(origin/main, X)` et `merge-base(origin/main, HEAD)`.
+   - Le message est alors « revue <rôle> périmée : <fichier> modifié après <X> ».
+   - Seuls sont libres :
+     - les rapports `docs/team/reviews/<story>/` et la passation `docs/team/handoffs/<story>.md` des stories de la branche ;
+     - les `sharedPaths`.
+   - Tous les diffs portent `--no-renames` : un renommage compte par son chemin de départ et par son chemin d'arrivée.
+   - **Fusions de main.** Un fichier que seule la base a changé (`git merge origin/main`) n'est pas livré par la PR : il ne périme pas la revue. Le second cas couvre deux situations. D'abord, une résolution de conflit qui remet un fichier dans son état revu en annulant un correctif de main. Ensuite, un rapport d'une PR déjà fusionnée, réutilisé par une nouvelle PR de la même story. Dans les deux cas, la modification livrée n'est plus celle que le relecteur a vue.
+   - Conséquence voulue (fail-closed) : si main et la PR modifient le même fichier, la fusion de main périme la revue, qu'il faut alors refaire.
+   - Si le calcul git échoue, le job échoue aussi.
+6. **Relecteur qui écrit du code** (revue sécurité 03b, constat 2). Un commit signé d'un rôle de revue (`REVIEW_ROLES`) n'est écarté des modèles d'auteur que si **tous** ses fichiers sont sous `docs/team/reviews/`.
+   - Les fichiers sont comparés au premier parent : une fusion compte avec tout ce qu'elle apporte.
+   - Sinon, son modèle compte comme auteur. C'est aussi le cas d'un commit vide, ou d'un commit dont les fichiers sont introuvables.
 
 Les règles de [`docs/team/review-requirements.json`](../team/review-requirements.json) sont **lues sur la branche de base** (`git show origin/main:…`). Une PR ne peut donc pas affaiblir son propre contrôle (constat MINEUR 2).
 
 - Tant que `main` n'a pas ce fichier, c'est celui de HEAD qui sert, avec un avertissement. C'est l'amorçage, le cas de la PR d'US-002.
-- Les scripts eux-mêmes viennent encore de la PR. Les protéger par un CODEOWNERS sur `.github/`, `scripts/ci/`, `scripts/team/` et ce JSON relève d'US-050.
+- **Les scripts aussi viennent de la base** depuis US-050 (revues sécurité 03b, 03c et 03d, constats 3 et 5).
+  - Le job copie `scripts/ci/check-story-reviews.mjs` et `scripts/team/check-reviews.mjs` par `git show origin/<base>:…` dans `$RUNNER_TEMP/revues-base/`.
+  - Il les exécute avec `--root "$GITHUB_WORKSPACE"`, la pointe de la PR. C'est elle qui fournit le diff, l'historique et les rapports.
+  - `check-story-reviews.mjs` lance le `check-reviews.mjs` **voisin de lui-même**, jamais celui de `--root`.
+  - Si un script manque sur la base, l'étape échoue.
+- **Un changement de ces scripts, comme de ce JSON, ne prend effet qu'après sa fusion.** La PR qui le porte est contrôlée par la version de `main`, et ses tests (`node --test scripts/ci/ scripts/team/`, job `qualite`) prouvent le nouveau comportement.
+- **Amorçage d'US-050.** La PR qui introduit l'exécution depuis la base est encore contrôlée par l'ancien `check-story-reviews.mjs` de `main`. Celui-ci lance le `check-reviews.mjs` **de la PR** et ne transmet pas `--exempt`, ce qui est plus strict : aucun `sharedPath` n'est libre. L'exécution de bout en bout depuis la base ne vaut donc qu'à partir de la PR suivante.
+  - La pathRule `securite` ne vaut pas pour cette PR : ses revues sécurité sont exigées par `stories.US-050`.
+  - La fraîcheur des revues est contrôlée par le code de la PR elle-même. La PR est donc fusionnée **au SHA revu**. Toute modification ultérieure de `scripts/`, `.github/` ou du JSON impose de nouvelles revues code et sécurité.
+- **Limite : `ci.yml` est lu depuis la PR** (revue sécurité 03e, constat 1). Sur `pull_request`, GitHub exécute les workflows de la branche de la PR. Seuls les deux scripts sont pris sur la base. Une PR qui touche `.github/` peut retirer le job `revues`, le passer en `continue-on-error` ou remplacer les lignes qui copient les scripts. La pathRule `securite` est évaluée par ce même job, et ne protège donc rien dans ce cas. Pour une telle PR, un « tout vert » ne prouve rien.
+- **Règle d'exploitation, retenue par l'orchestrateur.** Toute PR qui touche `.github/`, `scripts/ci/`, `scripts/team/` ou `docs/team/review-requirements.json` est **exclue de la fusion autonome**. C'est une restriction de DEC-FONDATEUR-15, inscrite dans `docs/team/DECISIONS.md` par une PR séparée.
+  - Une telle PR attend l'accord explicite du fondateur.
+  - Le relecteur sécurité vérifie à la main, dans le `ci.yml` de la PR, que le job `revues` et ses étapes existent toujours : copie des scripts depuis `origin/<base>`, exécution avec `--root`, aucun `continue-on-error` hors brouillon.
+- **Parade définitive, décision du fondateur à venir.** Une protection de branche sur `main`, avec les statuts exigés, demande GitHub Pro pour un dépôt privé. CODEOWNERS et une revue humaine sur ces chemins en font partie. La pathRule `securite` ne remplace pas cette revue humaine.
 
 Le job se place sur la pointe de la branche (`head.sha`), avec tout l'historique (`fetch-depth: 0`). En brouillon, son échec reste informatif. Quand la PR passe en « prête », le job est relancé et devient bloquant. Les contournements sont couverts par `scripts/ci/check-story-reviews.test.mjs`.
 

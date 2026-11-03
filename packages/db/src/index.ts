@@ -1,0 +1,23 @@
+// API publique de @rueda/db (US-005).
+export { BOOTSTRAP_LOCK_KEY, runBootstrap, setRolePasswords } from './bootstrap.ts';
+export {
+  checksumOf,
+  listMigrations,
+  MIGRATION_FILE_PATTERN,
+  MIGRATION_LOCK_KEY,
+  planMigrations,
+  runMigrations,
+} from './migrate.ts';
+export type { AppliedMigration, MigrationFile, RunMigrationsOptions } from './migrate.ts';
+export { BOOTSTRAP_DIR, MIGRATIONS_DIR, PACKAGE_ROOT, TEST_MIGRATIONS_DIR } from './paths.ts';
+export {
+  APP_ROLES,
+  isAppRole,
+  LOGIN_ROLES,
+  MANAGED_ROLES,
+  MIGRATOR_ROLE,
+  OWNER_ROLES,
+} from './roles.ts';
+export type { AppRole, LoginRole, OwnerRole } from './roles.ts';
+export { maskConnectionString, redactError, redactSecrets } from './secrets.ts';
+export { randomPassword, scramSha256Verifier } from './scram.ts';

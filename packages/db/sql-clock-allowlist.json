@@ -1,10 +1,15 @@
 {
-  "$comment": "Liste blanche de la règle rueda/no-sql-clock (pnpm lint). Seul clock_timestamp() peut y figurer, et seulement pour le fichier qui définit platform.now() (17 §1.3 point 1, ADR-030). Toute nouvelle entrée exige une justification et une revue de l'agent architecture.",
+  "$comment": "Liste blanche de la règle rueda/no-sql-clock (pnpm lint). Seul clock_timestamp() peut y figurer, et seulement pour les fichiers qui définissent platform.now() (17 §1.3 points 1 et 2, ADR-030). Toute nouvelle entrée exige une justification et une revue de l'agent architecture.",
   "entries": [
     {
       "path": "packages/db/migrations/0000_platform_now.sql",
       "allow": ["clock_timestamp()"],
-      "justification": "Définition de platform.now() = clock_timestamp() (instant réel de l'appel, et non now() = début de transaction), seule horloge autorisée du SQL métier (17 §1.3 point 1, ADR-030). Fichier créé par US-005 ; renommer l'entrée si US-005 choisit un autre nom."
+      "justification": "Définition de platform.now() = clock_timestamp() (instant réel de l'appel, et non now() = début de transaction), seule horloge autorisée du SQL métier (17 §1.3 point 1, ADR-030). Créé par US-005."
+    },
+    {
+      "path": "packages/db/test-migrations/9000_test_virtual_clock.sql",
+      "allow": ["clock_timestamp()"],
+      "justification": "Version de TEST de platform.now() (17 §1.3 point 2, ADR-030) : lit current_setting('app.virtual_now', true) et se replie sur clock_timestamp() quand le paramètre est absent ou vide. Jamais appliquée hors du harnais de tests (base rueda_test_*) ; le test L0-06 vérifie sur une base de production seule que le corps de platform.now() ne référence pas app.virtual_now. Créé par US-005, revue architecture requise."
     }
   ]
 }

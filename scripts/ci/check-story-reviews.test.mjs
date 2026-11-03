@@ -4,11 +4,14 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
+  CHECK_REVIEWS,
   changedFiles,
   evaluateBranch,
   requiredRoles,
+  reviewExempt,
   storiesFromBranch,
 } from './check-story-reviews.mjs';
 
@@ -146,9 +149,70 @@ test('packages/<x> : la story doit en être propriétaire ; paquet inconnu : éc
 });
 
 test('défaut : code seul', () => {
-  assert.deepEqual(requiredRoles('US-099', ['README.md', '.github/workflows/ci.yml'], config), [
+  assert.deepEqual(requiredRoles('US-099', ['README.md', 'apps/web/src/page.tsx'], config), [
     'code',
   ]);
+});
+
+test('workflows, scripts du contrôle et règle des revues touchés : + sécurité (US-050)', () => {
+  for (const f of [
+    '.github/workflows/ci.yml',
+    '.github/CODEOWNERS',
+    'scripts/ci/check-story-reviews.mjs',
+    'scripts/team/check-reviews.mjs',
+    'docs/team/review-requirements.json',
+  ]) {
+    assert.deepEqual(requiredRoles('US-099', [f], config), ['code', 'securite'], f);
+  }
+  assert.deepEqual(requiredRoles('US-099', ['scripts/not-yet-implemented.mjs'], config), ['code']);
+  assert.deepEqual(requiredRoles('US-099', ['.githubx/a.yml'], config), ['code']);
+});
+
+test('chemins libres transmis à check-reviews : sharedPaths et rapports / passations de la branche', () => {
+  const ex = reviewExempt(['US-001', 'US-029'], config);
+  for (const p of [
+    'docs/team/BOARD.md',
+    'docs/team/sessions/',
+    'docs/team/reviews/US-029/',
+    'docs/team/handoffs/US-029.md',
+    'docs/team/reviews/US-001/',
+  ]) {
+    assert.ok(ex.includes(p), p);
+  }
+  assert.ok(!ex.some((p) => p.startsWith('packages/') || p.startsWith('scripts/')));
+  assert.deepEqual(reviewExempt([], { sharedPaths: ['a,b', 'c/'] }), ['c/']);
+});
+
+test('check-reviews lancé depuis le dossier du script, jamais depuis --root (US-050)', () => {
+  assert.equal(CHECK_REVIEWS, fileURLToPath(new URL('../team/check-reviews.mjs', import.meta.url)));
+  // Dépôt contrôlé dont le check-reviews.mjs est truqué (toujours « OK ») et sans aucun rapport.
+  const root = repoWithRename(
+    'story/US-099-x',
+    ['README.md', 'docs/team/review-requirements.json', 'scripts/team/check-reviews.mjs'],
+    [['README.md', 'LISEZMOI.md']],
+  );
+  try {
+    writeFileSync(join(root, 'scripts/team/check-reviews.mjs'), 'process.exit(0);\n');
+    // Règles (JSON de la base illisible : repli sur l'arbre, comme à l'amorçage) : défaut `code`.
+    writeFileSync(join(root, 'docs/team/review-requirements.json'), '{"default":["code"]}\n');
+    const res = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL('./check-story-reviews.mjs', import.meta.url)),
+        '--branch',
+        'story/US-099-x',
+        '--base',
+        'main',
+        '--root',
+        root,
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.equal(res.status, 1, res.stdout + res.stderr);
+    assert.match(res.stderr, /rapport de revue « code » absent/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('graphe des dépendances ou packages/db touchés : + architecture', () => {
