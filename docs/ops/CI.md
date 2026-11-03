@@ -40,9 +40,21 @@ Le job attend ce qu'US-005 apportera. Le harnais lit `RUEDA_PG_TESTCONTAINERS=1`
 
 ### Oracles
 
-`check-spec-tools.py` fixe pour chaque script les motifs attendus (`RÉSULTAT : OK`, `ERREURS 0`, `Vecteurs executes: 48 | ecarts: 0`, `ECARTS sur T01-T48 : 0`, `38/38`, `T49-T65 : ecarts = 0`, `0 ecart`…) et les motifs interdits (trace Python, nouvel identifiant cité sans définition, `ECART(S)`). Le code de sortie doit aussi valoir 0.
+`check-spec-tools.py` lit dans le **registre des oracles** [`docs/specs/tools/registry.json`](../specs/tools/registry.json) les motifs attendus de chaque script (`RÉSULTAT : OK`, `ERREURS 0`, `Vecteurs executes: 48 | ecarts: 0`, `ECARTS sur T01-T48 : 0`, `38/38`, `T49-T65 : ecarts = 0`, `0 ecart`…), ses motifs interdits (nouvel identifiant cité sans définition, `ECART(S)`) et ses comptes (`counts`). Le code de sortie doit aussi valoir 0.
 
-- `verify_cxl_tests.py` (déclassé) et `verif24_stats.py` (absent de la liste de 00 §4) sont exclus et nommés comme tels dans la sortie. Si un nouveau script apparaît dans `docs/specs/tools/` sans être classé, le contrôle échoue.
+- **Pourquoi un fichier de données (US-050).** Toute PR qui touche `scripts/ci/` attend l'accord du fondateur (exclusion de DEC-FONDATEUR-15). Avec le registre, une révision des specs qui ajoute un oracle ou un vecteur ne touche que `docs/specs/tools/`, sous revue argent. La marche à suivre est dans `docs/specs/00_README.md` §4.
+- **Ce qui reste dans le script** (fail-closed). Le registre ne peut rien affaiblir ; ce qui le pourrait reste en dur et ne change donc qu'avec l'accord du fondateur :
+  - `EXCLUDED` : `verify_cxl_tests.py` (déclassé) et `verif24_stats.py` (absent de la liste de 00 §4), nommés comme tels dans la sortie ;
+  - `FLOOR_ORACLES` : les 17 oracles d'aujourd'hui, dont tous ceux d'argent. Retirer l'un d'eux du registre fait échouer le contrôle ;
+  - `REQUIRED_COUNTS` : `check_legs.py`, `verif11_settlement.py` et `verif12_t49plus.py` doivent déclarer `vecteurs` (entier ≥ 1), et ce nombre doit figurer dans un de leurs motifs `require` ;
+  - `COMMON_FORBID` : une trace Python échoue toujours.
+- **Le registre est validé avant toute exécution.** Le contrôle échoue, sans lancer aucun oracle, dans ces cas :
+  - registre absent, illisible ou vide, ou `version` différente de 1 ;
+  - clé inconnue (par exemple `skip`) ou en double ;
+  - nom qui n'est pas un simple `*.py` de `docs/specs/tools/`, ou script absent ;
+  - script à la fois inscrit au registre et exclu ;
+  - motif invalide, ou motif `require` qui accepte une sortie vide.
+- Si un script de `docs/specs/tools/` n'est ni au registre ni exclu, le contrôle échoue (« script non classé »).
 - `verif18_stale.py` et `verif15_conf.py` n'ont pas de verdict : ils sont faits pour une lecture humaine. Pour eux, seuls le code de sortie et l'absence d'erreur sont contrôlés.
 - Les scripts écrivent dans `docs/specs/verification/`. Ils tournent donc sur une **copie temporaire** de `docs/specs/`, qui n'est jamais modifiée.
 
@@ -59,7 +71,8 @@ Depuis la revue sécurité du 2026-11-01 (constat MAJEUR 1), le nom de branche n
    - Aucune revue de story n'est alors exigée.
 3. **Branche de story, recoupée avec le diff `origin/main...HEAD`.**
    - Un fichier de `docs/team/` qui nomme une autre story (`handoffs/US-yyy.md`, `reviews/US-yyy/`) fait échouer le job, sauf si `stories.US-xxx.related` déclare cette story (cas US-001 ↔ US-029).
-   - Les `sharedPaths` sont tolérés : BOARD, RESUME_HERE, DECISIONS, QUESTIONS, RISKS, sessions, health, weekly, incidents.
+   - Les `sharedPaths` sont tolérés : BOARD, RESUME_HERE, DECISIONS, QUESTIONS, RISKS, COMME_TURO, sessions, health, weekly, incidents.
+   - `docs/team/COMME_TURO.md` (journal de DEC-FONDATEUR-16) est alimenté en parallèle par toutes les stories. Sans cette tolérance, chaque fusion d'une autre story y créait un conflit, et la règle de fraîcheur (point 5) rendait toutes les revues périmées. Le journal ne contient ni code ni règle de contrôle. Le chemin libre est exact : `COMME_TURO.md.bak` ne l'est pas.
    - Un fichier sous `packages/<x>/` exige que la story figure dans `pathOwners[packages/<x>/]`.
    - Un paquet absent de `pathOwners` fait échouer le job (fail-closed). Une story qui crée un paquet le fait donc d'abord déclarer sur `main` par l'orchestrateur.
 4. **Rôles exigés.**

@@ -1,0 +1,122 @@
+{
+  "$comment": "Registre des oracles de docs/specs/tools/, lu par scripts/ci/check-spec-tools.py (US-050). Données uniquement : pour chaque script, les motifs attendus (require, regex MULTILINE, tous présents), interdits (forbid, aucun présent) et les comptes (counts, entiers >= 1, chacun cité dans un motif require). Aucune exclusion possible ici : EXCLUDED, la liste plancher des oracles et les comptes obligatoires restent dans le script. Voir 00_README.md §4 et docs/ops/CI.md, section « Oracles ».",
+  "version": 1,
+  "oracles": {
+    "check_inventory.py": {
+      "require": [
+        "^RÉSULTAT : OK\\s*$"
+      ]
+    },
+    "check_prd_structure.py": {
+      "require": [
+        "^RÉSULTAT : OK\\s*$"
+      ]
+    },
+    "check_backlog.py": {
+      "require": [
+        "^RÉSULTAT : OK\\s*$"
+      ]
+    },
+    "verif19_backlog.py": {
+      "require": [
+        "^ERREURS 0\\s*$"
+      ]
+    },
+    "verif18_crossref.py": {
+      "comment": "0 cité sans définition, hors 2 faux positifs connus (« SM-x » dans 17, « SHA-256 »).",
+      "require": [
+        "^- SM : .*, 1 cites sans definition$",
+        "^\\s+\\* SM-x : 17_:\\d+$",
+        "^- FEAT : .*, 1 cites sans definition$",
+        "^\\s+\\* SHA-256 : ",
+        "^- BR : .*, 0 cites sans definition$"
+      ],
+      "forbid": [
+        "^- (?!SM :|FEAT :).*, [1-9]\\d* cites sans definition$"
+      ]
+    },
+    "verif18_stale.py": {
+      "comment": "Lecture humaine : seuls le code de sortie et l'absence de trace d'erreur sont contrôlés.",
+      "require": [
+        "^### "
+      ]
+    },
+    "verif15_struct.py": {
+      "require": [
+        "^sheets with heading problems 0$",
+        "^P0 missing from sheets: \\[\\]$",
+        "^dup ids \\[\\]$",
+        "^feature refs unknown \\[\\]$",
+        "^sheets with non GWT-balanced AC 0$"
+      ],
+      "forbid": [
+        "unknown \\{[^}]",
+        "unknown \\[[^\\]]"
+      ]
+    },
+    "verif15_conf.py": {
+      "comment": "Statuts de preuve par fiche : sortie statistique, sans verdict ; seul le compte est contrôlé.",
+      "require": [
+        "^Counter\\(\\{"
+      ]
+    },
+    "verif11_settlement.py": {
+      "require": [
+        "^Vecteurs executes: 48 \\| ecarts: 0$"
+      ],
+      "counts": {
+        "vecteurs": 48
+      }
+    },
+    "independent_settlement_check.py": {
+      "require": [
+        "^ECARTS sur T01-T48 : 0$"
+      ]
+    },
+    "verif12_t49plus.py": {
+      "require": [
+        "^38/38$"
+      ],
+      "counts": {
+        "vecteurs": 38
+      }
+    },
+    "check_t49plus.py": {
+      "require": [
+        "^T49-T65 : ecarts = 0$"
+      ]
+    },
+    "check_verif12_fixes.py": {
+      "require": [
+        "^0 ecart$"
+      ],
+      "forbid": [
+        "ECART\\(S\\)"
+      ]
+    },
+    "check_t66_68.py": {
+      "require": [
+        "^RÉSULTAT : OK\\s*$"
+      ]
+    },
+    "check_ta_consolidation.py": {
+      "require": [
+        "^RÉSULTAT : OK\\s*$"
+      ]
+    },
+    "check_legs.py": {
+      "require": [
+        "^RÉSULTAT : OK\\s*$",
+        "^Lignes TJ trouvées dans 08 : 58 ; vecteurs calculés : 58$"
+      ],
+      "counts": {
+        "vecteurs": 58
+      }
+    },
+    "verif15_ta.py": {
+      "require": [
+        "^OK$"
+      ]
+    }
+  }
+}
