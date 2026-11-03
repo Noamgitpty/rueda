@@ -74,6 +74,24 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
 
 **Fixtures de test** (`test-migrations/9001`, base principale seulement) : `test_fixture.place_hold` remplace `cmd_place_hold` (US-023) et `test_fixture.insert_payment_operation` remplace `cmd_start_payment`. `test_fixture.delete_occupancy` force une suppression qu'aucun rôle ne peut faire : elle est refusée par la clé étrangère du hold (`23503`), et `occupancy_trip_guard` couvre aussi `DELETE`. Ces fonctions sont `SECURITY DEFINER` sous `migrator` ; la transaction appelante reste sous `app_api` ou `app_worker`.
 
+## Audit, clés par sujet et magasin de preuves (US-009 ; 17 §1.7, §3.1.3, §3.2.13 ; ADR-051)
+
+Migrations `0016` à `0021`, schéma Bêta `core` :
+
+- `audit_subject_key` : une DEK par sujet (`USER`, `ORG`, `PLATFORM`), **enveloppée** par le KMS (`wrapped_dek`, C4). Seule modification admise : la destruction (`wrapped_dek = NULL`, `destroyed_at`).
+- `audit_audit_log` : journal en ajout seul, **chaîné** par SHA-256. Le trigger `zz_audit_log_chain` (`SECURITY DEFINER`) attribue `id`, `at`, `prev_hash`, `hash` sous le verrou de `audit_chain_head`. Forme canonique v1 : ADR-051. **Écrire l'audit en dernier dans la transaction** (la tête reste verrouillée jusqu'au COMMIT).
+- `audit_data_access_log` : lectures C3, consultations C2 du support, exports (ADM-032) ; ajout seul, références seulement.
+- `audit_file_asset` : empreinte SHA-256 des octets reçus, heure serveur ; fichier C2 / C3 chiffré par la clé de son sujet ; empreinte et emplacement figés. `receiveFile` écrit la ligne avant le dépôt ; le port `FileStore` est en création seule (jamais d'écrasement).
+- `core.audit_destroy_subject_key(type, id, demande, motif)` : crypto-shredding, refusé sous gel légal ; **aucun rôle applicatif** (procédure manuelle en Bêta, NN8).
+
+Aucun `UPDATE`, `DELETE` ni `TRUNCATE` pour les rôles applicatifs ; triggers de refus pour tous, propriétaire compris. Écriture : `app_api` (contexte `GUEST`, `HOST`, `STAFF`) et `app_worker` (contexte `WORKER` nommé), par colonnes. Lecture des registres : travailleurs `audit_chain_verifier` (journal, tête) et `evidence_verifier` (fichiers) seulement (noms PROPOSÉS).
+
+Code TypeScript (`@rueda/db/audit`) : `appendAuditLog` (IP de l'acteur chiffrée, repli `c2_withheld` si le KMS est injoignable), `recordDataAccess`, `verifyAuditChain` (vérificateur indépendant du SQL), `SubjectKeyStore` (cache `subject_dek_cache_ttl_s`, PROPOSÉ 300 s), `seal` / `open` (enveloppe v1), `receiveFile` / `verifyFileAsset`, ports `KeyWrapper` et `FileStore`. Adaptateurs **FAKE** (`FakeKeyWrapper`, `InMemoryFileStore`) : `@rueda/db/testing` seulement, refusés si `NODE_ENV = production`.
+
+Codes PROPOSÉS : `audit_log_append_only`, `data_access_log_append_only`, `audit_chain_head_guard`, `subject_key_immutable`, `file_asset_immutable` → `IMMUTABLE_RECORD` ; `audit_log_key_destroyed`, `subject_key_not_live` → `SUBJECT_ERASED` ; `subject_key_legal_hold` → `LEGAL_HOLD_ACTIVE`.
+
+**Fixtures de test** (`test-migrations/9150`) : `destroy_subject_key`, `set_file_legal_hold`, `owner_tamper_audit_log` (simule un propriétaire qui altère le journal, à n'appeler que dans une transaction annulée) et `lock_audit_log` (à prendre avant toute écriture quand le trigger est désactivé, pour éviter un interblocage).
+
 ## Outbox et file (US-008 ; 17 §4.1, §4.2 ; ADR-050)
 
 | Table                       | Contraintes et droits clés                                                                                                                                                                                                                                                                                                                           |
@@ -98,6 +116,8 @@ Commandes (`0011`, `SECURITY DEFINER` sous `migrator`, `search_path` figé, `EXE
 **FK en attente** : les colonnes `guest_user_id` et `org_id` des tables AVL ne pointent pas encore vers `iam_user_account` / `iam_organization` (les fixtures L0 de US-006 posent des identifiants libres) ; `organization.legal_entity_id` attend `config` (US-008).
 
 Fixtures de test (`test-migrations/9200`) : statut d'un compte, rôle interne, compte d'hôte, appartenance, lecture brute des sessions et des comptes, écritures forcées refusées par `session_guarded_columns`.
+
+> > > > > > > origin/main
 
 ## Rôles (17 §2.3, ADR-035)
 
