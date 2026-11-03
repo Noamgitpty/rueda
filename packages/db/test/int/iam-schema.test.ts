@@ -45,7 +45,7 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_staff_role_assignment:
     'iam_auth_select:iam_auth_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_user_account:
-    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator;user_account_self_read:app_api',
+    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;user_account_self_read:app_api',
 };
 
 const IAM_COMMANDS = [
