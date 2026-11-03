@@ -2,10 +2,11 @@
   "name": "@rueda/db",
   "version": "0.0.0",
   "private": true,
-  "description": "Base PostgreSQL : correspondance module → schéma, migrations SQL versionnées, exécuteur de migrations, harnais de tests (US-005), liste blanche de l'horloge.",
+  "description": "Base PostgreSQL : correspondance module → schéma, migrations SQL versionnées, exécuteur de migrations, harnais de tests (US-005), liste blanche de l'horloge, journal d'audit chaîné, clés par sujet et magasin de preuves (US-009).",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./audit": "./src/audit/index.ts",
     "./schemas": "./schemas.ts",
     "./testing": "./src/testing/index.ts",
     "./testing/global-setup": "./src/testing/global-setup.ts",

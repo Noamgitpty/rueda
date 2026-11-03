@@ -51,7 +51,9 @@ const INTEGRITY_FUNCTIONS = [
 ] as const;
 
 describe('schéma core (US-006)', () => {
-  it('toutes les tables de core : RLS ENABLE + FORCE, politique migrator_all, propriétaire migrator', async () => {
+  // Tables hors audit : les tables d'audit (US-009) ont leur propre test
+  // (test/int/audit-schema.test.ts, qui vérifie aussi RLS + FORCE sur TOUTES les tables de core).
+  it('tables AVL / PAY / CFG de core : RLS ENABLE + FORCE, politique migrator_all, propriétaire migrator', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         relname: string;
@@ -67,6 +69,7 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
+            AND c.relname !~ '^audit_'        -- tables AUD : test/int/audit-schema.test.ts (US-009)
             AND c.relname !~ '^outbox_'       -- tables BUS : test/int/outbox-schema.test.ts (US-008)
             AND c.relname !~ '^iam_'          -- tables IAM : test/int/iam-schema.test.ts (US-010)
           ORDER BY c.relname`,
@@ -85,7 +88,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner', async () => {
+  it('AVL / PAY : aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{ relname: string; polname: string; roles: string }>(
         `SELECT c.relname, p.polname,
