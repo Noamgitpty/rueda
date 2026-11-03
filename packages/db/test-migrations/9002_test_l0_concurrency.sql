@@ -11,6 +11,8 @@
 --     spécification, (2c) insertion de l'occupation HOLD puis du hold. `p_vehicle_lock = false`
 --     est l'INJECTION de L0-02 : la même pose sans le verrou du véhicule. Renvoie les holds
 --     expirés par 2a (identifiants), pour la preuve L0-04 côté commande ;
+--   - l0_place_hold_timed : la même pose, instrumentée (instants serveur d'obtention du verrou
+--     du véhicule et de fin de commande) pour la série C1 transactionnelle ;
 --   - l0_ensure_parties : comptes du voyageur et compte d'hôte (titulaire, appartenance P2P_HOST),
 --     créés AVANT une course : depuis US-011 (0023), guest_user_id et (org_id, country_code) sont
 --     des clés étrangères vers IAM ; les créer pendant la course mesurerait IAM, pas l'exclusion ;
@@ -22,7 +24,7 @@
 -- CETTE transaction. Aucun SQL dynamique, search_path figé, noms qualifiés.
 -- Aucune constante pays : pays, devise et montant sont des paramètres (CLAUDE.md point 3).
 --
--- Retour arrière : DROP FUNCTION test_fixture.l0_place_hold(…), test_fixture.l0_ensure_parties(…),
+-- Retour arrière : DROP FUNCTION test_fixture.l0_place_hold(…), test_fixture.l0_place_hold_timed(…), test_fixture.l0_ensure_parties(…),
 --   test_fixture.l0_set_payment_in_flight(…), test_fixture.l0_seed_expiry_bench(…),
 --   test_fixture.l0_analyze();
 
@@ -83,37 +85,38 @@ BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('veh:' || p_vehicle_id::text, 0));
   END IF;
 
-  -- 2a. expiration ciblée (texte de 17 §2.5, VERIF_16-M14, VERIF_17-A3 / A6) ; la dernière
-  -- instruction est enveloppée dans une CTE pour renvoyer les holds expirés (ref_id d'une
-  -- occupation HOLD = identifiant du hold).
+  -- 2a. expiration ciblée : texte EXPIRY_2A_SQL de test/support/expiry-2a.ts (17 §2.5,
+  -- VERIF_16-M14, VERIF_17-A3 / A6), à l'identique aux paramètres près ; la dernière instruction
+  -- est enveloppée dans une CTE pour renvoyer les holds expirés (ref_id d'une occupation HOLD =
+  -- identifiant du hold). Égalité vérifiée par test/support/expiry-2a.test.ts.
   WITH t AS (SELECT platform.now() AS ts),
-  due AS (
-    SELECT h.id, h.occupancy_id
-      FROM core.booking_checkout_hold h, t
-     WHERE (h.vehicle_id = p_vehicle_id OR h.guest_user_id = p_guest_id)
-       AND h.status IN ('ACTIVE', 'PAYMENT_IN_FLIGHT')
-       AND h.expires_at <= t.ts
-       AND (h.payment_in_flight_until IS NULL OR h.payment_in_flight_until <= t.ts)
-       AND NOT EXISTS (SELECT 1 FROM core.payment_payment_operation o
-                        WHERE o.hold_id = h.id AND o.purpose = 'RENT'
-                          AND ( ( o.status IN ('PENDING', 'SUBMITTED', 'UNKNOWN')
-                                  AND (h.last_polled_at IS NULL OR h.last_polled_at < h.payment_in_flight_until)
-                                  AND t.ts < h.payment_in_flight_until + pg_catalog.make_interval(secs => p_sweep_grace_s) )
-                             OR ( o.status = 'SUCCEEDED'
-                                  AND NOT EXISTS (SELECT 1 FROM core.booking_payment_disposition d
-                                                   WHERE d.operation_id = o.id) ) ))
-     FOR UPDATE OF h SKIP LOCKED
-  ), expired AS (
-    UPDATE core.booking_checkout_hold SET status = 'EXPIRED', expired_at = (SELECT ts FROM t)
-     WHERE id IN (SELECT id FROM due)
-    RETURNING occupancy_id
-  ), deactivated AS (
-    UPDATE core.booking_vehicle_occupancy
-       SET active = false, deactivated_reason = 'HOLD_EXPIRED'
-     WHERE id IN (SELECT occupancy_id FROM expired)
-       AND kind = 'HOLD'
-    RETURNING ref_id
-  )
+     due AS (
+       SELECT h.id, h.occupancy_id
+         FROM core.booking_checkout_hold h, t
+        WHERE (h.vehicle_id = p_vehicle_id OR h.guest_user_id = p_guest_id)
+          AND h.status IN ('ACTIVE', 'PAYMENT_IN_FLIGHT')
+          AND h.expires_at <= t.ts
+          AND (h.payment_in_flight_until IS NULL OR h.payment_in_flight_until <= t.ts)
+          AND NOT EXISTS (SELECT 1 FROM core.payment_payment_operation o
+                           WHERE o.hold_id = h.id AND o.purpose = 'RENT'
+                             AND ( ( o.status IN ('PENDING','SUBMITTED','UNKNOWN')
+                                     AND (h.last_polled_at IS NULL OR h.last_polled_at < h.payment_in_flight_until)
+                                     AND t.ts < h.payment_in_flight_until + make_interval(secs => p_sweep_grace_s) )
+                                OR ( o.status = 'SUCCEEDED'
+                                     AND NOT EXISTS (SELECT 1 FROM core.booking_payment_disposition d
+                                                      WHERE d.operation_id = o.id) ) ))
+        FOR UPDATE OF h SKIP LOCKED
+     ), expired AS (
+       UPDATE core.booking_checkout_hold SET status = 'EXPIRED', expired_at = (SELECT ts FROM t)
+        WHERE id IN (SELECT id FROM due)
+       RETURNING occupancy_id
+     ), deactivated AS (
+     UPDATE core.booking_vehicle_occupancy
+        SET active = false, deactivated_reason = 'HOLD_EXPIRED'
+      WHERE id IN (SELECT occupancy_id FROM expired)
+        AND kind = 'HOLD'
+     RETURNING ref_id
+     )
   SELECT COALESCE(pg_catalog.array_agg(ref_id), '{}') INTO v_expired FROM deactivated;
 
   -- 2c. occupation HOLD (23P01 vehicle_occupancy_no_overlap possible : créneau pris), puis hold
@@ -127,6 +130,55 @@ BEGIN
   VALUES (p_hold_id, p_guest_id, p_vehicle_id, p_org_id, p_country_code, p_occupancy_id,
           'CHECKOUT', 'ACTIVE', v_expires_at);
   RETURN v_expired;
+END
+$fn$;
+
+-- Variante MESURÉE de la pose (revue sécurité US-007, constat 1) : mêmes verrous, puis
+-- l0_place_hold (verrous ré-entrants). Renvoie, et pour une pose perdante (23P01) remonte dans
+-- le HINT, l'instant où le verrou du véhicule est obtenu et l'instant où la commande a fini,
+-- horloge du serveur (platform.now(), réelle sans horloge virtuelle). Les verrous sont pris HORS
+-- du bloc EXCEPTION : le sous-transaction annulé ne les rend pas, la pose perdante les garde
+-- jusqu'au ROLLBACK du client, comme la commande réelle dans une transaction explicite.
+CREATE FUNCTION test_fixture.l0_place_hold_timed(
+  p_hold_id       uuid,
+  p_occupancy_id  uuid,
+  p_guest_id      uuid,
+  p_vehicle_id    uuid,
+  p_org_id        uuid,
+  p_country_code  text,
+  p_period        tstzrange,
+  p_ttl           interval,
+  p_vehicle_lock  boolean,
+  p_sweep_grace_s integer
+)
+  RETURNS text
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_locked_at timestamptz;
+BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('guest:' || p_guest_id::text, 0));
+  IF p_vehicle_lock THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('veh:' || p_vehicle_id::text, 0));
+  END IF;
+  v_locked_at := platform.now();
+  BEGIN
+    PERFORM test_fixture.l0_place_hold(p_hold_id, p_occupancy_id, p_guest_id, p_vehicle_id,
+                                       p_org_id, p_country_code, p_period, p_ttl, p_vehicle_lock,
+                                       p_sweep_grace_s);
+  EXCEPTION WHEN exclusion_violation THEN
+    RAISE EXCEPTION 'vehicle_occupancy_no_overlap'
+      USING ERRCODE = 'exclusion_violation',
+            CONSTRAINT = 'vehicle_occupancy_no_overlap',
+            HINT = pg_catalog.json_build_object(
+                     'lockedAtMs', pg_catalog.date_part('epoch', v_locked_at) * 1000,
+                     'doneAtMs', pg_catalog.date_part('epoch', platform.now()) * 1000)::text;
+  END;
+  RETURN pg_catalog.json_build_object(
+           'lockedAtMs', pg_catalog.date_part('epoch', v_locked_at) * 1000,
+           'doneAtMs', pg_catalog.date_part('epoch', platform.now()) * 1000)::text;
 END
 $fn$;
 
@@ -278,6 +330,7 @@ $fn$;
 REVOKE ALL ON FUNCTION
   test_fixture.l0_ensure_parties(uuid[], uuid, text),
   test_fixture.l0_place_hold(uuid, uuid, uuid, uuid, uuid, text, tstzrange, interval, boolean, integer),
+  test_fixture.l0_place_hold_timed(uuid, uuid, uuid, uuid, uuid, text, tstzrange, interval, boolean, integer),
   test_fixture.l0_set_payment_in_flight(uuid, timestamptz),
   test_fixture.l0_seed_expiry_bench(uuid, text, text, bigint, integer, integer, integer),
   test_fixture.l0_analyze()
@@ -285,6 +338,7 @@ REVOKE ALL ON FUNCTION
 GRANT EXECUTE ON FUNCTION
   test_fixture.l0_ensure_parties(uuid[], uuid, text),
   test_fixture.l0_place_hold(uuid, uuid, uuid, uuid, uuid, text, tstzrange, interval, boolean, integer),
+  test_fixture.l0_place_hold_timed(uuid, uuid, uuid, uuid, uuid, text, tstzrange, interval, boolean, integer),
   test_fixture.l0_set_payment_in_flight(uuid, timestamptz),
   test_fixture.l0_seed_expiry_bench(uuid, text, text, bigint, integer, integer, integer),
   test_fixture.l0_analyze()

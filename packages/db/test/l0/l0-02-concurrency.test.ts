@@ -44,13 +44,16 @@ import {
   ensureParties,
   lockGuestThenVehicle,
   percentile,
+  lockHolds,
   placeHoldLocked,
+  placeHoldTimedInTx,
+  placeHoldTransactional,
   POSE_P95_MS,
   sqlState,
   waitUntilBlocked,
   withReplay,
 } from '../support/concurrency.ts';
-import type { Replayed } from '../support/concurrency.ts';
+import type { PoseTiming, Replayed } from '../support/concurrency.ts';
 
 /** C1 : 100 poses concurrentes (17 §11). */
 const C1_POSES = 100;
@@ -59,6 +62,12 @@ const RESERVED_CONNECTIONS = 30;
 /** Courses C16 et annulation, par mode et par pays. */
 const ROUNDS = 12;
 const LONG = 240_000;
+
+/** En CI, le banc a 200 connexions : le degré doit être exactement 100 (revue sécurité US-007). */
+function expectDegree(degree: number): void {
+  if (process.env['CI'] !== undefined && process.env['CI'] !== '') expect(degree).toBe(C1_POSES);
+  else expect(degree).toBeGreaterThanOrEqual(2);
+}
 
 const log = (line: string, data: unknown): void => {
   console.log(`[L0-02] ${line} ${JSON.stringify(data)}`);
@@ -103,13 +112,57 @@ interface C1Report {
   readonly max: number;
   readonly holds: { status: string }[];
   readonly active: number;
+  /** Série transactionnelle : détention du verrou du véhicule, côté serveur (ms). */
+  readonly lockHold?: Record<string, number>;
+}
+
+/**
+ * Forme d'appel de la pose :
+ * - `autocommit` : un appel = une instruction ; l'erreur `23P01` termine la transaction sur le
+ *   serveur, qui rend aussitôt le verrou (condition de validité du seuil de 300 ms, ADR-056) ;
+ * - `transactional` : forme de 17 §2.3 (`BEGIN`, contexte `SET LOCAL`, appel, `COMMIT` /
+ *   `ROLLBACK`) ; la pose perdante garde le verrou jusqu'au `ROLLBACK` du client. Consignée,
+ *   sans seuil bloquant (revue sécurité US-007, constat 1).
+ */
+type CallForm = 'autocommit' | 'transactional';
+
+const round1 = (x: number): number => Math.round(x * 10) / 10;
+function stats(values: readonly number[]): Record<string, number> {
+  return {
+    n: values.length,
+    p50: round1(percentile(values, 0.5)),
+    p95: round1(percentile(values, 0.95)),
+    max: round1(Math.max(...values)),
+  };
+}
+
+/** Détention du verrou du véhicule (serveur) : poses perdantes, part de la commande, du client. */
+function lockHoldReport(timings: readonly PoseTiming[]): Record<string, number> {
+  const holds = lockHolds(timings);
+  const losers = holds.filter((h) => !h.ok);
+  const l = stats(losers.map((h) => h.holdMs));
+  const w = stats(holds.map((h) => h.workMs));
+  const k = stats(losers.map((h) => h.clientMs));
+  return {
+    measured: holds.length,
+    loserHoldP50: l['p50'] as number,
+    loserHoldP95: l['p95'] as number,
+    loserHoldMax: l['max'] as number,
+    workP95: w['p95'] as number,
+    loserClientP95: k['p95'] as number,
+    loserHoldSum: round1(losers.reduce((acc, h) => acc + h.holdMs, 0)),
+  };
 }
 
 /**
  * C1 : `degree` poses du même créneau par autant de connexions `app_api`, départ commun. Le temps
  * d'une pose va du départ commun à la réponse de la commande, rejeux compris.
  */
-async function runC1(c: CountryCase, vehicleLock: boolean): Promise<C1Report> {
+async function runC1(
+  c: CountryCase,
+  vehicleLock: boolean,
+  form: CallForm = 'autocommit',
+): Promise<C1Report> {
   const observer = await connectAs('app_api');
   try {
     const degree = await concurrencyDegree(observer);
@@ -119,6 +172,7 @@ async function runC1(c: CountryCase, vehicleLock: boolean): Promise<C1Report> {
     await inTx(observer, { commit: true }, (tx) => ensureParties(tx, guests, slot.orgId, c));
 
     const posers: pg.Client[] = [];
+    const timings: PoseTiming[] = [];
     let results: Replayed<unknown>[];
     try {
       posers.push(...(await Promise.all(guests.map(() => connectAs('app_api')))));
@@ -128,24 +182,29 @@ async function runC1(c: CountryCase, vehicleLock: boolean): Promise<C1Report> {
       // 489 à 553 ms avec verrou, contre 177 ms sans verrou).
       await Promise.all(
         posers.map((client, i) =>
-          inTx(client, {}, (tx) =>
-            placeHoldLocked(tx, {
+          inTx(client, {}, async (tx) => {
+            const warm = {
               slot: { ...slot, vehicleId: uuid() },
               c,
               guestId: guests[i] as string,
               period,
               vehicleLock,
-            }),
-          ),
+            };
+            if (form === 'autocommit') await placeHoldLocked(tx, warm);
+            else await placeHoldTimedInTx(tx, warm);
+          }),
         ),
       );
       const barrier = await Barrier.open(observer);
       const runs = posers.map(async (client, i) => {
         await barrier.wait(client);
-        return withReplay(() =>
-          // un appel de commande = une instruction en autocommit, comme l'API appellera
-          // cmd_place_hold : la transaction (et ses verrous) se termine sur le serveur
-          placeHoldLocked(client, { slot, c, guestId: guests[i] as string, period, vehicleLock }),
+        const args = { slot, c, guestId: guests[i] as string, period, vehicleLock };
+        return withReplay<unknown>(() =>
+          form === 'autocommit'
+            ? // un appel de commande = une instruction en autocommit : la transaction (et ses
+              // verrous) se termine sur le serveur
+              placeHoldLocked(client, args)
+            : placeHoldTransactional(client, args, timings),
         );
       });
       try {
@@ -188,6 +247,7 @@ async function runC1(c: CountryCase, vehicleLock: boolean): Promise<C1Report> {
       max: Math.round(Math.max(...ms)),
       holds: state.holds,
       active: state.active,
+      ...(form === 'transactional' ? { lockHold: lockHoldReport(timings) } : {}),
     };
   } finally {
     await releaseClient(observer);
@@ -202,6 +262,7 @@ describe.each(COUNTRIES)(
       async () => {
         const r = await runC1(c, false);
         log(`C1 sans verrou ${c.country}`, r);
+        expectDegree(r.degree);
         expect(r.ok).toBe(1);
         expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
         expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
@@ -215,7 +276,7 @@ describe.each(COUNTRIES)(
       async () => {
         const r = await runC1(c, true);
         log(`C1 avec verrou ${c.country}`, r);
-        expect(r.degree).toBeGreaterThanOrEqual(2);
+        expectDegree(r.degree);
         expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
         expect(r.deadlocks).toBe(0);
         expect(r.serializationFailures).toBe(0);
@@ -223,6 +284,22 @@ describe.each(COUNTRIES)(
         expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
         expect(r.active).toBe(1);
         expect(r.p95).toBeLessThan(POSE_P95_MS);
+      },
+      LONG,
+    );
+
+    it(
+      'avec verrou, forme transactionnelle (17 §2.3) : exactitude exigée, temps et détention du verrou consignés',
+      async () => {
+        const r = await runC1(c, true, 'transactional');
+        log(`C1 transactionnel avec verrou ${c.country}`, r);
+        expectDegree(r.degree);
+        expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
+        expect(r.deadlocks).toBe(0);
+        expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
+        expect(r.active).toBe(1);
+        // toutes les poses sont mesurées côté serveur ; aucun seuil de temps bloquant (ADR-056)
+        expect(r.lockHold?.['measured']).toBe(r.degree - 1);
       },
       LONG,
     );
@@ -659,5 +736,68 @@ describe.each(COUNTRIES)(
       },
       LONG,
     );
+  },
+);
+
+// ---------------------------------------------------------------------------------------------
+// Interblocage déterministe : l'ordre inversé de 17 §2.5 interbloque, le rejeu le résout
+// (revue sécurité US-007, constat 4)
+// ---------------------------------------------------------------------------------------------
+
+const LOCK_GUEST = `SELECT pg_advisory_xact_lock(hashtextextended('guest:' || $1::text, 0))`;
+const LOCK_VEHICLE = `SELECT pg_advisory_xact_lock(hashtextextended('veh:' || $1::text, 0))`;
+
+describe.each(COUNTRIES)(
+  'L0-02 — interblocage déterministe, ordre inversé ($country, $currency)',
+  () => {
+    it('guest → véhicule contre véhicule → guest : un 40P01 réel, rejoué par withReplay, les deux transactions aboutissent', async () => {
+      await withClients(['app_api', 'app_api', 'app_api'], async ([a, b, observer]) => {
+        const guest = uuid();
+        const vehicle = uuid();
+        const pidA = await backendPid(a as pg.Client);
+        let attemptsA = 0;
+        let attemptsB = 0;
+        let bHasVehicle: () => void = () => undefined;
+        const vehicleTaken = new Promise<void>((resolve) => {
+          bHasVehicle = resolve;
+        });
+        const started = performance.now();
+        // A : ordre de 17 §2.5 (guest, puis véhicule)
+        const runA = withReplay(() =>
+          inTx(a as pg.Client, { commit: true }, async (tx) => {
+            attemptsA++;
+            await tx.query(LOCK_GUEST, [guest]);
+            if (attemptsA === 1) await vehicleTaken;
+            await tx.query(LOCK_VEHICLE, [vehicle]);
+            return 'A';
+          }),
+        );
+        // B : ordre INVERSÉ (véhicule, puis guest) ; à la première tentative, attend que A soit
+        // bloqué sur le verrou du véhicule avant de demander celui du guest : cycle certain
+        const runB = withReplay(() =>
+          inTx(b as pg.Client, { commit: true }, async (tx) => {
+            attemptsB++;
+            await tx.query(LOCK_VEHICLE, [vehicle]);
+            if (attemptsB === 1) {
+              bHasVehicle();
+              await waitUntilBlocked(observer as pg.Client, pidA);
+            }
+            await tx.query(LOCK_GUEST, [guest]);
+            return 'B';
+          }),
+        );
+        const [ra, rb] = await Promise.all([runA, runB]);
+        log('interblocage déterministe', {
+          deadlocks: ra.deadlocks + rb.deadlocks,
+          victim: ra.deadlocks > 0 ? 'A' : 'B',
+          ms: Math.round(performance.now() - started),
+        });
+        expect(ra.value).toBe('A');
+        expect(rb.value).toBe('B');
+        expect(ra.deadlocks + rb.deadlocks).toBe(1);
+        expect(ra.replays + rb.replays).toBe(1);
+        expect(ra.error ?? rb.error).toBeUndefined();
+      });
+    });
   },
 );

@@ -10,30 +10,14 @@
 import { randomInt } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type pg from 'pg';
-import { SQLSTATE, translateDbError } from '../../src/index.ts';
-import type { DbBusinessCode } from '../../src/index.ts';
+import { setSessionContext } from '../../src/index.ts';
 import { HOLD_TTL, SWEEP_GRACE_S, uuid } from './avl.ts';
 import type { CountryCase, Slot } from './avl.ts';
+export { MAX_REPLAYS, percentile, sqlState, withReplay } from './replay.ts';
+export type { Replayed } from './replay.ts';
 
 /** Seuil de C1 / L0-02 : p95 de la pose < 300 ms (17 §11). */
 export const POSE_P95_MS = 300;
-/** Reprise de 17 §2.5 : au plus 3 rejeux, attente aléatoire courte. */
-export const MAX_REPLAYS = 3;
-
-const isPgError = (e: unknown): e is { code: string; constraint?: string } =>
-  typeof e === 'object' && e !== null && typeof (e as { code?: unknown }).code === 'string';
-
-/** Code SQLSTATE brut d'une erreur PostgreSQL, sinon `undefined`. */
-export const sqlState = (e: unknown): string | undefined => (isPgError(e) ? e.code : undefined);
-
-/** Percentile par rang le plus proche (p dans ]0, 1]). */
-export function percentile(values: readonly number[], p: number): number {
-  if (values.length === 0) return Number.NaN;
-  const sorted = [...values].sort((a, b) => a - b);
-  const rank = Math.max(1, Math.ceil(p * sorted.length));
-  return sorted[rank - 1] as number;
-}
-
 /** pid du serveur d'une connexion (`pg.Client.processID`). */
 export async function backendPid(client: pg.ClientBase): Promise<number> {
   const r = await client.query<{ pid: number }>('SELECT pg_catalog.pg_backend_pid() AS pid');
@@ -117,63 +101,6 @@ export class Barrier {
   }
 }
 
-/** Issue finale d'une transaction rejouée. */
-export interface Replayed<T> {
-  /** Valeur de la dernière tentative, si elle a abouti. */
-  readonly value?: T;
-  /** Code métier de l'échec final (traduit, sans `DETAIL`), sinon `undefined`. */
-  readonly error?: DbBusinessCode;
-  /** SQLSTATE et contrainte bruts de l'échec final, pour la preuve. */
-  readonly raw?: { readonly code: string | undefined; readonly constraint: string | undefined };
-  /** Nombre de `40P01` reçus (interblocages détectés), toutes tentatives confondues. */
-  readonly deadlocks: number;
-  /** Nombre de `40001` reçus. */
-  readonly serializationFailures: number;
-  /** Nombre de rejeux effectués. */
-  readonly replays: number;
-  /** Durée totale, rejeux compris (ms). */
-  readonly ms: number;
-}
-
-/**
- * Reprise de 17 §2.5 (VERIF_16-M2) : une transaction qui reçoit `40P01` ou `40001` est annulée
- * en entier (par `fn` : `withTestTransaction` fait le `ROLLBACK`) puis rejouée, au plus
- * `MAX_REPLAYS` fois, après une attente aléatoire courte. Toute autre erreur est finale.
- */
-export async function withReplay<T>(fn: () => Promise<T>): Promise<Replayed<T>> {
-  const started = performance.now();
-  let deadlocks = 0;
-  let serializationFailures = 0;
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const value = await fn();
-      return {
-        value,
-        deadlocks,
-        serializationFailures,
-        replays: attempt,
-        ms: performance.now() - started,
-      };
-    } catch (error) {
-      const code = sqlState(error);
-      if (code === SQLSTATE.deadlockDetected) deadlocks++;
-      if (code === SQLSTATE.serializationFailure) serializationFailures++;
-      const translated = translateDbError(error);
-      if (!translated.retryable || attempt >= MAX_REPLAYS) {
-        return {
-          error: translated.code,
-          raw: { code, constraint: isPgError(error) ? error.constraint : undefined },
-          deadlocks,
-          serializationFailures,
-          replays: attempt,
-          ms: performance.now() - started,
-        };
-      }
-      await sleep(randomInt(5, 50));
-    }
-  }
-}
-
 /** Comptes du voyageur et compte d'hôte, créés avant la course (FK IAM depuis US-011). */
 export async function ensureParties(
   tx: pg.ClientBase,
@@ -228,6 +155,84 @@ export async function placeHoldLocked(tx: pg.ClientBase, a: PoseArgs): Promise<P
     ],
   );
   return { holdId, occupancyId, expired: r.rows[0]?.expired ?? [] };
+}
+
+/** Instants serveur d'une pose mesurée (ms epoch, horloge de la base). */
+export interface PoseTiming {
+  /** Obtention du verrou du véhicule (ou du guest, sans verrou de véhicule). */
+  readonly lockedAtMs: number;
+  /** Fin de la commande (avant le COMMIT / ROLLBACK du client). */
+  readonly doneAtMs: number;
+  /** Pose gagnante (hold créé) ; `false` : perdante (`23P01`). */
+  readonly ok: boolean;
+}
+
+/** Appel de la pose mesurée dans la transaction déjà ouverte de l'appelant. */
+export async function placeHoldTimedInTx(
+  tx: pg.ClientBase,
+  a: PoseArgs,
+): Promise<Omit<PoseTiming, 'ok'>> {
+  const r = await tx.query<{ t: string }>(
+    `SELECT test_fixture.l0_place_hold_timed($1, $2, $3, $4, $5, $6, $7::tstzrange, $8::interval,
+                                             $9, $10) AS t`,
+    [
+      uuid(),
+      uuid(),
+      a.guestId,
+      a.slot.vehicleId,
+      a.slot.orgId,
+      a.c.country,
+      a.period,
+      HOLD_TTL,
+      a.vehicleLock,
+      SWEEP_GRACE_S,
+    ],
+  );
+  return JSON.parse(r.rows[0]?.t ?? '{}') as Omit<PoseTiming, 'ok'>;
+}
+
+/**
+ * Pose sous la forme d'appel de 17 §2.3 : transaction explicite (`BEGIN`, contexte `app.*` par
+ * `SET LOCAL`, appel de la commande, `COMMIT` ; `ROLLBACK` sur erreur). Une pose perdante garde
+ * donc ses verrous jusqu'au `ROLLBACK` du client. Les instants serveur sont déposés dans `sink`,
+ * succès comme échec (HINT de la fixture mesurée), puis l'erreur éventuelle est relancée.
+ */
+export async function placeHoldTransactional(
+  client: pg.ClientBase,
+  a: PoseArgs,
+  sink: PoseTiming[],
+): Promise<void> {
+  await client.query('BEGIN');
+  try {
+    await setSessionContext(client, { kind: 'GUEST', actorId: a.guestId });
+    const t = await placeHoldTimedInTx(client, a);
+    await client.query('COMMIT');
+    sink.push({ ...t, ok: true });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    const hint = (error as { hint?: unknown }).hint;
+    if (typeof hint === 'string' && hint.startsWith('{')) {
+      sink.push({ ...(JSON.parse(hint) as object), ok: false } as PoseTiming);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Détention du verrou du véhicule mesurée côté serveur : le verrou passe au suivant dès qu'il
+ * est rendu, donc détention(i) = obtention(i + 1) − obtention(i), dans l'ordre d'obtention (la
+ * dernière pose n'a pas de suivant). `workMs` = fin de commande − obtention ; le reste de la
+ * détention (`clientMs`) est l'aller-retour jusqu'au COMMIT / ROLLBACK du client.
+ */
+export function lockHolds(
+  timings: readonly PoseTiming[],
+): { holdMs: number; workMs: number; clientMs: number; ok: boolean }[] {
+  const sorted = [...timings].sort((x, y) => x.lockedAtMs - y.lockedAtMs);
+  return sorted.slice(0, -1).map((t, i) => {
+    const holdMs = (sorted[i + 1] as PoseTiming).lockedAtMs - t.lockedAtMs;
+    const workMs = t.doneAtMs - t.lockedAtMs;
+    return { holdMs, workMs, clientMs: holdMs - workMs, ok: t.ok };
+  });
 }
 
 /** Verrous consultatifs dans l'ordre global de 17 §2.5 : guest, puis véhicule. */
