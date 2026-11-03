@@ -1,4 +1,4 @@
--- 0028 — AVL : table d'occupation unique, blocages de l'hôte et tampons autonomes.
+-- 0029 — AVL : table d'occupation unique, blocages de l'hôte et tampons autonomes.
 -- US-022 ; 16 CAL-011, CAL-004 ; 08 BR-BOOK-05, BR-BOOK-07, BR-BOOK-10 ; 17 §2.3 (droits
 -- d'écriture, rôles d'exécution des commandes, RLS-15), §2.5 (sources de vérité, ordre global des
 -- verrous, « Blocages iCal » : blocage manuel chevauchant un trip refusé), §3.2.4 ; ADR-048,

@@ -52,7 +52,7 @@ const API_COLUMNS: Record<string, readonly string[]> = {
     'created_at',
     'updated_at',
   ],
-  // calendrier de l'hôte et ADMIN du pays (0028, US-022) : ni ref_type / ref_id, ni ical_uid
+  // calendrier de l'hôte et ADMIN du pays (0029, US-022) : ni ref_type / ref_id, ni ical_uid
   booking_vehicle_occupancy: [
     'id',
     'vehicle_id',

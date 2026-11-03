@@ -162,7 +162,7 @@ describe('configuration pays : structure et droits', () => {
         expect(rows).toEqual(
           [...TABLES].sort().flatMap((t) => [
             { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
-            // commandes d'occupation (0028, US-022) : clé buffer_minutes seulement, en lecture
+            // commandes d'occupation (0029, US-022) : clé buffer_minutes seulement, en lecture
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),

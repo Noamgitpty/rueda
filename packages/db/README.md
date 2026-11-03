@@ -29,8 +29,9 @@ Migrations actuelles :
 - `0016_audit_subject_key` à `0021_audit_grants` (US-009) : journal d'audit chaîné, clés par sujet, magasin de preuves (section « Audit… ») ;
 - `0022_security_definer_owners` à `0026_audit_owner_subject_key_scope` (US-011) : propriétaires NOLOGIN, clés étrangères AVL → IAM, contexte et fonctions de politique, lectures d'`app_api` par acteur et par pays, clés d'audit par sujet (section « RLS par acteur et par pays ») ;
 - `0027_settlement_versions_legs` (US-018) : règlements versionnés, lignes, taxes, jambes et soldes par jambe, commande `core.settlement_cmd_record` (section « Règlements et jambes ») ;
-- `0028_booking_single_occupancy` (US-022) : compte d'hôte et pays de l'occupation, un véhicule = un compte, période et tampon, commandes de blocage de l'hôte et de tampon autonome, calendrier de l'hôte (section « Table d'occupation unique ») ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`).
+- `0028_payment_psp_port` (US-019) : port PaymentProvider côté base (section « Port PaymentProvider ») ;
+- `0029_booking_single_occupancy` (US-022) : compte d'hôte et pays de l'occupation, un véhicule = un compte, période et tampon, commandes de blocage de l'hôte et de tampon autonome, calendrier de l'hôte (section « Table d'occupation unique ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`) ; `9500_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker` ; écriture brute d'opérations pour le contrôle différé des jambes).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -166,7 +167,7 @@ Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_
 
 `core.booking_vehicle_occupancy` est la seule source de vérité de la disponibilité d'un véhicule, tous canaux confondus : `HOLD` (checkout), `TRIP`, `HOST_BLOCK` (blocage manuel de l'hôte), `BUFFER` (tampon autonome). Une seule exclusion GiST `WHERE (active)` ; tout écrivain prend le verrou consultatif du véhicule (17 §2.5 M2).
 
-- **Compte et pays** (0028) : `org_id`, `country_code` `NOT NULL`, clé composée vers `iam_organization (id, country_code)` ; jamais fournis par le client. Exclusion `occupancy_vehicle_single_org` (`vehicle_id WITH =, org_id WITH <>`) : un véhicule n'a d'occupations que d'un compte (PROPOSÉ, en attendant la clé vers `catalog_vehicle`). Clé composée `checkout_hold_occupancy_party_fk` : hold et occupation sur le même véhicule, compte et pays.
+- **Compte et pays** (0029) : `org_id`, `country_code` `NOT NULL`, clé composée vers `iam_organization (id, country_code)` ; jamais fournis par le client. Exclusion `occupancy_vehicle_single_org` (`vehicle_id WITH =, org_id WITH <>`) : un véhicule n'a d'occupations que d'un compte (PROPOSÉ, en attendant la clé vers `catalog_vehicle`). Clé composée `checkout_hold_occupancy_party_fk` : hold et occupation sur le même véhicule, compte et pays.
 - **Période** : `core.booking_occupied_period(début, fin, minutes)` = `[début, fin + minutes)` ; `core.booking_buffer_minutes(pays)` = `buffer_minutes` en vigueur (120 par défaut, 17 §7.2), `NULL` si absent.
 - **Commandes** (`SECURITY DEFINER`, `cmd_hold_owner`, liste blanche RLS-15) :
 
@@ -195,6 +196,20 @@ Migration 0027 : `core.settlement_settlement` (en-tête versionné, `UNIQUE (tri
 - Codes (`translateDbError`) : `SETTLEMENT_EXISTS`, `SETTLEMENT_STALE`, `SETTLEMENT_UNBALANCED`, `LEG_AMOUNT_NEGATIVE`, `IMMUTABLE_RECORD`, `INVARIANT_VIOLATION`.
 
 Preuves : `test/l0/l0-stl-settlement.test.ts` (TJ02a / b, TJ08a / b, T36, TJ18a, TJ18c, TJ13 b / d, EC-54 avec deux connexions, falsifications, RLS-2, RLS-21, RLS-25, RLS-28, hôte contre hôte, pays contre pays) et `test/int/stl-schema.test.ts` (socle RLS, politiques, droits, triggers).
+
+## Port PaymentProvider (US-019 ; 17 §2.8, §3.2.7, §4.3, §4.4, §6.5 ; ADR-059)
+
+Migration `0028_payment_psp_port` :
+
+- `platform.deployment_env()` : environnement de la **base**, `production` par défaut (fail-closed) ; remplacée par la migration d'environnement (US-003) et, en test seulement, par `9500` (paramètre `app.test_deployment_env`). La base de production du banc prouve que la version de production ne lit aucun paramètre.
+- `core.payment_psp_account` (compte marchand de Kmino, `owner_type = PLATFORM`, références de coffre seulement) : `CHECK` FAKE ⇒ `SANDBOX` (`psp_account_fake_sandbox_only`), trigger `psp_account_fake_guard` (aucune écriture d'un compte FAKE quand la base est en production, `psp_account_fake_forbidden`), `PLATFORM_MOR` fermé, compte `LIVE` actif seulement avec `gate_decision_ref` (PAY-041), un compte `ACTIVE` par (fournisseur, pays, environnement). Aucun rôle applicatif n'y écrit en production.
+- `core.payment_psp_capability` : matrice de capacités ; lecture de référence pour `app_api` et `app_worker` ; seule une valeur `VALIDATED_*` est utilisée côté application.
+- `core.payment_payment_operation.psp_account_id` ; `core.payment_payment_operation_leg` (jambes explicites, immuables ; contrôle différé `payment_operation_legs_check`, fonction `core.payment_assert_operation_legs()` de la famille `integrity_trigger`) ; `core.payment_payment_operation_event` (chaque statut reçu, avec `outcome` APPLIED / DUPLICATE / STALE / CONFLICT).
+- `core.payment_webhook_inbox.normalized_events` et contrainte `webhook_inbox_no_pan` (détecteur `core.payment_text_has_pan`, 13 à 19 chiffres, Luhn).
+- Commandes `SECURITY DEFINER` de la famille `cmd_money` (propriétaire `cmd_money_owner`) : `payment_cmd_record_operation` (travailleur `payment_command` ; idempotence par `idem_plain`, `IDEMPOTENCY_CONFLICT` si le contenu ou les jambes diffèrent, `LEG_SUM_MISMATCH`, `LEG_AMOUNT_NEGATIVE`), `payment_cmd_apply_operation_status` (travailleurs `payment_command`, `webhook_ingest` ; rangs de 17 §4.4 point 7), `payment_resolve_webhook_account` et `payment_cmd_receive_webhook` (`app_api` ; compte inconnu ou FAKE en production ⇒ `NOT_FOUND` sans écriture ; tolérance de ± 5 min à l'heure de la base), `payment_startup_guard` (`app_api`, `app_worker`).
+- Lectures : `app_api` lit la seule jambe `HOST` du titulaire du compte d'hôte, ADMIN et FINANCE du pays toutes les jambes, OPS et SUPPORT celles du trip couvert par leur dossier ouvert (`trip_id` dénormalisé) ; `app_worker` (`payment_command`, `webhook_ingest`) lit jambes et événements.
+
+Preuves : `test/l0/l0-pay-legs-rls.test.ts` (RLS des jambes par acteur et par pays) et `test/l0/l0-pay-port.test.ts` (C19, contrôle différé des jambes au COMMIT, idempotence, jambes, rangs, dédoublonnage, quarantaine, aucun PAN ni CVV, en USD et en PYG ; montants des vecteurs TJ).
 
 ## Rôles (17 §2.3, ADR-035)
 

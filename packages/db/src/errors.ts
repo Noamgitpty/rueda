@@ -20,9 +20,12 @@
  * - `SETTLEMENT_EXISTS` : 08 (règle de qualification 5, EC-54, 409) ; `LEG_AMOUNT_NEGATIVE` : 08 E7
  *   règle 5 (nom PROPOSÉ) ; `SETTLEMENT_UNBALANCED` : PROPOSÉ par US-017 ; `SETTLEMENT_STALE` :
  *   PROPOSÉ par US-018 (trip modifié entre le calcul et l'enregistrement, 08 E4 ; migration 0027,
- *   ADR-057).
+ *   ADR-057) ;
+ * - `IDEMPOTENCY_CONFLICT` : 16 fiche PAY-019 (même clé, contenu ou jambes différents) ;
+ *   `LEG_SUM_MISMATCH`, `LEG_AMOUNT_NEGATIVE` : 17 §2.8, §4.3 point 5.8 ; `FAKE_FORBIDDEN_IN_PRODUCTION`,
+ *   `PSP_ACCOUNT_INACTIVE`, `PAYMENT_SUBJECT_MISMATCH` : PROPOSÉS par US-019 (migration 0028, ADR-059) ;
  * - `FORBIDDEN` : 17 §2.5 (US-060, « sans révéler l'état »), 16 A.8 ; `PARAM_MISSING` : 17 §7.1 ;
- *   `INVALID_PERIOD` : PROPOSÉ par US-022 (période d'occupation mal formée ; migration 0028,
+ *   `INVALID_PERIOD` : PROPOSÉ par US-022 (période d'occupation mal formée ; migration 0029,
  *   ADR-060).
  */
 
@@ -45,6 +48,11 @@ export const DB_BUSINESS_CODES = [
   'SETTLEMENT_STALE',
   'SETTLEMENT_UNBALANCED',
   'LEG_AMOUNT_NEGATIVE',
+  'IDEMPOTENCY_CONFLICT',
+  'LEG_SUM_MISMATCH',
+  'FAKE_FORBIDDEN_IN_PRODUCTION',
+  'PSP_ACCOUNT_INACTIVE',
+  'PAYMENT_SUBJECT_MISMATCH',
   'FORBIDDEN',
   'INVALID_PERIOD',
   'PARAM_MISSING',
@@ -73,7 +81,7 @@ export const SQLSTATE = {
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027` et `0028`.
+ * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028` et `0029`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -133,7 +141,25 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_segment_beta: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   settlement_inputs_hash_match: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   settlement_inputs_engine: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
-  // table d'occupation unique, blocages de l'hôte, tampons (0028, US-022)
+  // 23000 : port PaymentProvider (0028, US-019)
+  payment_operation_idempotency_conflict: [
+    SQLSTATE.integrityConstraintViolation,
+    'IDEMPOTENCY_CONFLICT',
+  ],
+  payment_operation_leg_sum: [SQLSTATE.integrityConstraintViolation, 'LEG_SUM_MISMATCH'],
+  payment_operation_legs_complete: [SQLSTATE.integrityConstraintViolation, 'LEG_SUM_MISMATCH'],
+  payment_operation_leg_negative: [SQLSTATE.integrityConstraintViolation, 'LEG_AMOUNT_NEGATIVE'],
+  psp_account_fake_forbidden: [
+    SQLSTATE.integrityConstraintViolation,
+    'FAKE_FORBIDDEN_IN_PRODUCTION',
+  ],
+  psp_account_fake_sandbox_only: [SQLSTATE.checkViolation, 'FAKE_FORBIDDEN_IN_PRODUCTION'],
+  payment_operation_account_active: [SQLSTATE.integrityConstraintViolation, 'PSP_ACCOUNT_INACTIVE'],
+  payment_operation_subject_mismatch: [
+    SQLSTATE.integrityConstraintViolation,
+    'PAYMENT_SUBJECT_MISMATCH',
+  ],
+  // table d'occupation unique, blocages de l'hôte, tampons (0029, US-022)
   occupancy_host_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   occupancy_vehicle_single_org: [SQLSTATE.exclusionViolation, 'FORBIDDEN'],
   occupancy_period_invalid: [SQLSTATE.checkViolation, 'INVALID_PERIOD'],

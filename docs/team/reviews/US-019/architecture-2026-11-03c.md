@@ -1,0 +1,11 @@
+# Revue architecture — US-019 — 2026-11-03 (3e tour)
+
+Relecteur : architecture / claude-sonnet-5-5 (famille A, autre modèle que l’auteur claude-opus-5-5)
+Entrées : diff 921b2df..45f4c6c, story US-019
+
+| #   | Gravité (CRITIQUE/MAJEUR/MINEUR) | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                    | Preuve (fichier:ligne, test) | Décision |
+| --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- | -------- |
+| 1   | INFO                             | Statut : n° 6 du 2e tour (« Conséquences » de l’ADR-059 incomplètes) **CLOS** : colonnes de `payment_operation_leg` (`org_id`, `trip_id`, `country_code`, `beneficiary_ref` illisible, immuable), politiques `leg_host_read` / `leg_staff_read`, `cmd_money_*` avec l’exception de la boîte de réception, `worker_select_payment_command`. N° 8 (plafond 100 ko contre 256 ko) **CLOS** par déclaration d’écart, réglage reporté à US-003. | ADR-059 « Conséquences »     | clos     |
+| 2   | INFO                             | Aucun changement de frontière : le delta n’ajoute qu’un test dans `pay/internal/` (qui importe `production.js` et `pay-webhook.module.js` du même module) et de la documentation. Restes consignés : table `payment_command`, préproduction, rapprochement. CI de la PR à 45f4c6c : 7 jobs verts. Local : `pnpm lint`, `lint:sql`, `typecheck`, `test:unit` (api 440 tests) et `format:check` verts ; PostgreSQL non démarré (consigne).   | diff 921b2df..45f4c6c        | accepté  |
+
+Verdict : APPROUVÉ

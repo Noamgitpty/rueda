@@ -31,7 +31,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23514', 'settlement_leg_kept_nonneg', 'LEG_AMOUNT_NEGATIVE'],
     ['23514', 'trip_leg_balance_nonneg', 'LEG_AMOUNT_NEGATIVE'],
     ['23000', 'settlement_immutable', 'IMMUTABLE_RECORD'],
-    // US-022 (0028) : blocages de l'hôte et tampons
+    // US-022 (0029) : blocages de l'hôte et tampons
     ['42501', 'occupancy_host_forbidden', 'FORBIDDEN'],
     ['23P01', 'occupancy_vehicle_single_org', 'FORBIDDEN'],
     ['23514', 'occupancy_period_invalid', 'INVALID_PERIOD'],
