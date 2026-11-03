@@ -61,7 +61,7 @@ Conventions : `[NOUS]` signale notre recommandation. Les montants Turo sont donn
 | P3 | 71 | **47 options** + **24 lignes HORS PRODUIT (DEC-FONDATEUR-13)** (notes commençant par « HORS PRODUIT ») |
 | **Total** | **676** | P0 = 178 (179 en révision 5, 162 en v4, 150 en révision 2, 275 en version 1) |
 
-**Lots du P0-A** (révision 6) : lot 0 = 22, lot 1 = 47, lot 2 = 72, lot 3 = 32, lot 4 = 1, **lot C = 4** (PAY-041, PAY-042, FIN-020, VER-029). **Tranche des lots 0 à 4 de la bêta P2P** (colonne `beta_pilote`, 178 lignes P0-A) : OUI 31, SIMPLIFIÉ 112, MANUEL 27, DIFFÉRÉ 8, soit **143 lignes construites**. Historique : 96 construites en révision 5 (modèle agence), 82 en v4, 76 en révision 3.
+**Lots du P0-A** (révision 6) : lot 0 = 22, lot 1 = 47, lot 2 = 72, lot 3 = 32, lot 4 = 1, **lot C = 4** (PAY-041, PAY-042, FIN-020, VER-029). **Tranche des lots 0 à 4 de la bêta P2P** (colonne `beta_pilote`, 178 lignes P0-A) : OUI 31, SIMPLIFIÉ 111, MANUEL 28, DIFFÉRÉ 8, soit **142 lignes construites**. Historique : 96 construites en révision 5 (modèle agence), 82 en v4, 76 en révision 3.
 
 Passage de 275 à 150 lignes P0 (révision 2) : 275 − 143 rétrogradations de VERIF_07 appliquées (sur 146 ; 3 rejetées, §5.2) + 5 promotions (PAY-004, NTF-011, VER-028, LEG-020 de VERIF_07 ; FLT-011 par jugement) − 1 rétrogradation propre (REV-004) + 14 nouvelles lignes P0 = **150**. VERIF_07 visait 141 : l'écart de +9 vient des 3 rejets, de FLT-011, des 6 lignes P0 ajoutées en plus de NEW-01 à NEW-08 (PAY-034 à PAY-038, ADM-032) et de REV-004 en moins.
 
@@ -314,12 +314,12 @@ Epics lus dans le README : 18 ; lignes P0 couvertes : 178/178
 
 Mentions d'un ID P0 dans une description P0 hors `dependances` : 0 non documentée(s) ; 34 documentées « Réf. non bloquante »
 Lots du P0-A : lot 0 = 22, lot 1 = 47, lot 2 = 72, lot 3 = 32, lot 4 = 1, lot C = 4 ; inversions de lot : 0
-Bêta pilote : OUI 31, SIMPLIFIÉ 112, MANUEL 27, DIFFÉRÉ 8 ; dépendances vers DIFFÉRÉ : 0
+Bêta pilote : OUI 31, SIMPLIFIÉ 111, MANUEL 28, DIFFÉRÉ 8 ; dépendances vers DIFFÉRÉ : 0
 Risque juridique / financier des lignes P0 : moyen 68, faible 64, élevé 46
 
 Estimation par barème (unités d'effort : 1 unité = 10 jours-agent, ex-« semaine-équipe » ; ordre de grandeur, barème calibré, non mesuré, sans valeur calendaire) :
   P0-A complet (178 lignes) : lignes 23.6–48.1 + socle 1,5–3 + durcissement et recette interne 1–2 = 26.1–53.1
-  Bêta pilote (143 lignes construites) : lignes 8.5–21.4 + socle réduit 1–2 + recette interne 0,5–1 = 10.0–24.4
+  Bêta pilote (142 lignes construites) : lignes 8.4–21.1 + socle réduit 1–2 + recette interne 0,5–1 = 9.9–24.1
   P0-B (lignes seules, hors certification PSP et conformité) : 0.0–0.0
   P1 (327 lignes, même barème que le P0-A, lignes seules) : 32.9–71.2
 Avertissement (non bloquant) : 47 descriptions P0 de moins de 80 caractères, à compléter avant leur lot
@@ -422,7 +422,7 @@ Effort (barème, unités de 10 jours-agent, sans valeur calendaire) : P0-A compl
 | **Remontées** de P1 / P2 (16) | P2 : HST-049, PYO-003, PRT-007, PRT-008, PRT-015, HST-048, LEG-021 ; P1 : PRT-001, PRT-002, PRT-011, BKG-003, PRC-018, REV-002, REV-004, FIN-008, ADM-027 | §e.3 de l'analyse (« 19 lignes de 04 », dont PAY-011, PAY-012 et PAY-036, déjà P0) ; lot = lot de la story de §e.5 / §e.6, relevé au lot de ses dépendances |
 | **Ex-P0-B intégrées** (12) | PAY-011, PAY-012, PAY-015, PAY-036, PAY-037, PRC-012, CLM-021, PYO-001, PYO-002, PYO-007, FIN-004, FIN-005 | §e.3 (US-701 à US-704, US-706 à US-711 remontées ; LB supprimé) |
 | Descriptions réécrites ou ajustées pour l'hôte particulier | 73 lignes du MVP (dont 19 remontées ou intégrées) | voir les notes ; les noms de paramètres et de capacités nouveaux sont PROPOSÉS (17 §7.2 et §2.8, demande de fusion S4) |
-| `beta_pilote` revue | 26 lignes (BKG-016, MSG-001, MSG-007, REV-001, TRP-038, CLM-001, CLM-002, CLM-006, ADM-022, PAY-021, PAY-006, PAY-002, HST-019, HST-039, HST-005, HST-012, HST-016, HST-026, HST-033, PRC-001, HDB-001, CAL-003, ACC-014, FIN-001, PRT-003, LST-020) | ce que l'ops faisait à la place d'une agence est désormais construit (stories remontées ou NOUVELLE-xx de §e.5) |
+| `beta_pilote` revue | 25 lignes (BKG-016, MSG-001, MSG-007, REV-001, TRP-038, CLM-001, CLM-002, CLM-006, ADM-022, PAY-021, PAY-006, PAY-002, HST-019, HST-039, HST-005, HST-012, HST-016, HST-026, HST-033, PRC-001, HDB-001, CAL-003, ACC-014, PRT-003, LST-020 ; FIN-001 reste MANUEL : grand livre en partie double au lot 5, comme le prévoit 17 §10) | ce que l'ops faisait à la place d'une agence est désormais construit (stories remontées ou NOUVELLE-xx de §e.5) |
 | Persona « Hôte pro (loueur) » → « Hôte » | 30 lignes du produit (P1 à P3 surtout) | un hôte particulier peut avoir plusieurs véhicules, comme chez Turo ; la valeur historique ne reste que sur les lignes HORS PRODUIT |
 | Dépendances modifiées (37) | P0-A : VER-028, SRC-011, LST-013, LST-020, BKG-018, BKG-032, PAY-004, PAY-011, PAY-021, TRP-035, NTF-007, REV-002, REV-004, HST-019, HST-039, CAL-001, HDB-001, HDB-002, PYO-001, PYO-013, CLM-006, PRT-003, PRT-007, PRT-011, SUP-004, ADM-004, ADM-007, FIN-003, LEG-021, FIN-018, HST-049 ; hors P0 : ACC-030, HST-018, FLT-001, FLT-009, TRP-054, MKT-018 | une dépendance vers une ligne hors produit, vers le lien de paiement d'une agence ou vers une ligne P1 / P2 est remplacée par la ligne P2P équivalente, ou passée en « Réf. non bloquante » documentée dans `notes` ; quelques dépendances P2P ajoutées (PAY-015, PAY-021, PYO-007, FIN-002) |
 
