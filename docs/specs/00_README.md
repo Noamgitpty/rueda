@@ -110,7 +110,7 @@ Boucle unique (Git Bash) : `for f in tools/*.py; do echo "== $f"; python -I -X u
 2. l'inscrire dans `tools/registry.json` (ou y relever le compte, par exemple `check_legs.py` : `"vecteurs": 58` et le motif `… : 58 ; vecteurs calculés : 58`) ;
 3. lancer `python -I -X utf8 scripts/ci/check-spec-tools.py --specs docs/specs`, qui doit afficher `RÉSULTAT : OK`.
 
-Ce chemin ne touche pas `scripts/ci/`. Comme tout `tools/`, il exige une revue argent (`docs/team/review-requirements.json`). Le registre ne contient que des attentes : il ne peut ni exclure un script ni désactiver une vérification. Ce qui affaiblirait le contrôle reste dans le script et passe donc par l'accord du fondateur :
+Ce chemin ne touche pas `scripts/ci/`. Le registre exige une revue argent et une revue sécurité (`docs/team/review-requirements.json`). Il ne contient que des attentes : il ne peut ni exclure un script, ni retirer un oracle plancher, ni annuler un compte obligatoire. Il peut en revanche relâcher un motif, d'où la revue sécurité. Ce qui suit reste dans le script et ne change qu'avec l'accord du fondateur :
 
 - la liste des scripts exclus (`EXCLUDED`) ;
 - la liste plancher des oracles qui doivent figurer au registre ;

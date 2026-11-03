@@ -78,7 +78,7 @@ REQUIRED_COUNTS = {
 
 ENTRY_KEYS = frozenset({"comment", "require", "forbid", "counts"})
 TOP_KEYS = frozenset({"$comment", "version", "oracles"})
-NAME_RE = re.compile(r"^[A-Za-z0-9_]+\.py$")
+NAME_RE = re.compile(r"[A-Za-z0-9_]+\.py")
 
 
 class RegistryError(Exception):
@@ -139,9 +139,11 @@ def validate_registry(data, tools_dir):
     tools_dir = Path(tools_dir).resolve()
     result = {}
     for name, entry in oracles.items():
-        if not NAME_RE.match(name):
+        if not NAME_RE.fullmatch(name):
             errors.append(f"{name!r} : nom de script invalide (nom simple *.py de docs/specs/tools/ attendu)")
             continue
+        # NAME_RE exclut déjà tout séparateur et « .. ». Ce contrôle est gardé pour les liens
+        # symboliques : un tools/x.py qui pointe hors de tools/ se résout ailleurs et est refusé.
         path = (tools_dir / name).resolve()
         if path.parent != tools_dir:
             errors.append(f"{name} : chemin hors de docs/specs/tools/")

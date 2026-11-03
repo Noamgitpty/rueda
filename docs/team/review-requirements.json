@@ -35,6 +35,11 @@
       "paths": [".github/", "scripts/ci/", "scripts/team/", "docs/team/review-requirements.json"],
       "require": ["securite"],
       "why": "workflows et scripts du contrôle des revues, garde-fou de la fusion autonome (DEC-FONDATEUR-15) : revue sécurité ; ne vaut qu après fusion (règles lues sur la base)"
+    },
+    {
+      "paths": ["docs/specs/tools/registry.json"],
+      "require": ["securite"],
+      "why": "registre des oracles (US-050) : relâcher un motif affaiblit le contrôle des oracles d argent ; revue sécurité en plus de la revue argent (revue sécurité US-050 03g, constat 1)"
     }
   ],
   "stories": {

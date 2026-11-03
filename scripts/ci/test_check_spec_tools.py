@@ -5,6 +5,7 @@ import copy
 import importlib.util
 import io
 import json
+import os
 import shutil
 import tempfile
 import unittest
@@ -220,6 +221,21 @@ class RegistreTest(unittest.TestCase):
             self.data["oracles"][bad] = {"require": ["^OK$"]}
             self.assertIn("nom de script invalide", self.errors(), bad)
             del self.data["oracles"][bad]
+
+    def test_nom_avec_saut_de_ligne_final_refuse_par_le_nom(self):
+        self.data["oracles"]["check_legs.py\n"] = {"require": ["^OK$"]}
+        self.assertIn("nom de script invalide", self.errors())
+
+    def test_lien_symbolique_hors_de_tools_refuse(self):
+        outside = self.tmp / "evil.py"
+        outside.write_text("print('OK')\n", encoding="utf-8")
+        link = self.specs / "tools" / "check_lien.py"
+        try:
+            os.symlink(outside, link)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"liens symboliques indisponibles : {exc}")
+        self.data["oracles"]["check_lien.py"] = {"require": ["^OK$"]}
+        self.assertIn("check_lien.py : chemin hors de docs/specs/tools/", self.errors())
 
     def test_script_absent(self):
         self.data["oracles"]["check_fantome.py"] = {"require": ["^OK$"]}
