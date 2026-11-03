@@ -58,7 +58,15 @@ describe('graphe des dépendances entre modules (17 §2.2)', () => {
   });
 });
 
-describe('structure des modules (US-001)', () => {
+const README_SECTIONS = [
+  'Responsabilité',
+  'Entités',
+  'Événements',
+  'Ports',
+  'Commandes de test',
+] as const;
+
+describe('structure des modules (US-001, US-035)', () => {
   const dirs = readdirSync(modulesRoot).filter((d) => statSync(join(modulesRoot, d)).isDirectory());
 
   it('un répertoire par module du graphe, et rien d’autre', () => {
@@ -66,14 +74,20 @@ describe('structure des modules (US-001)', () => {
   });
 
   it.each(MODULE_CODES.map((c) => [c]))(
-    '%s a index.ts, <x>.module.ts, internal/ et README.md',
+    '%s a index.ts, <x>.module.ts, internal/ et un README complet',
     (code) => {
       const dir = join(modulesRoot, moduleDir(code));
       expect(existsSync(join(dir, 'index.ts'))).toBe(true);
       expect(existsSync(join(dir, `${moduleDir(code)}.module.ts`))).toBe(true);
       expect(statSync(join(dir, 'internal')).isDirectory()).toBe(true);
       const readme = readFileSync(join(dir, 'README.md'), 'utf8').trim();
-      expect(readme.split('\n')).toHaveLength(1);
+      // US-035 : responsabilité, entités, événements, ports et commandes de test (titres `##`,
+      // chacun suivi d'un texte). Même règle pour packages/* : scripts/ci/readmes.test.mjs.
+      for (const title of README_SECTIONS) {
+        expect(readme, `${code} : section « ${title} »`).toMatch(
+          new RegExp(`^## ${title}[ \\t]*\\n+(?!#)\\S`, 'm'),
+        );
+      }
       expect(readme).toContain(`**${code} — `);
       for (const dep of MODULES[code].dependsOn) expect(readme).toContain(dep);
     },

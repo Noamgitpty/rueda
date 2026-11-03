@@ -6,7 +6,9 @@ Monorepo **pnpm + Turborepo**, TypeScript de bout en bout : back-end NestJS en m
 
 ## Démarrer
 
-Prérequis : Node.js 26.13 et pnpm 10.34.9 en tête du `PATH` ([ADR-041](docs/adr/ADR-041-chaine-outils-node-pnpm.md)).
+**Depuis zéro, avec Docker seulement** (PostgreSQL 16, API, travailleur, FAKE, graines PA et PY, suite de tests) : [docs/ops/INSTALL.md](docs/ops/INSTALL.md). Ce guide est exécuté par la CI à chaque demande de fusion.
+
+Sur le poste, sans conteneur pour le code : Node.js 26.13 et pnpm 10.34.9 en tête du `PATH` ([ADR-041](docs/adr/ADR-041-chaine-outils-node-pnpm.md)).
 
 ```bash
 pnpm install --frozen-lockfile
@@ -15,8 +17,8 @@ pnpm typecheck
 pnpm test:unit
 pnpm build
 pnpm format
-pnpm test:int      # réservé (US-005)
-pnpm test:l0       # réservé (US-005)
+pnpm test:int      # PostgreSQL réel : RUEDA_PG_TESTCONTAINERS=1 ou la pile du guide
+pnpm test:l0       # preuves L0 sous les rôles de production
 ```
 
 ## Documentation

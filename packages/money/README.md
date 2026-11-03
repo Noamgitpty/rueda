@@ -4,6 +4,22 @@ Livré par **US-015** (lot 0, story argent). C'est la **bibliothèque monétaire
 
 Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/money'`).
 
+## Responsabilité
+
+Bibliothèque monétaire unique du dépôt (voir l'introduction).
+
+## Entités
+
+Aucune entité persistée : le paquet fournit des types de valeur ; les tables de règlement vivent dans `@rueda/db`.
+
+## Événements
+
+Aucun événement de domaine : le paquet ne fait que des calculs purs.
+
+## Ports
+
+Aucun port : aucune dépendance d'exécution.
+
 ## Règles appliquées
 
 | Règle                                                                                                                                                                                                                         | Source                                         |
@@ -94,7 +110,7 @@ Tests (`test/settlement/record.golden.test.ts`) : TJ01 / TJ02a / TJ02b (T03, USD
 
 Le sous-chemin `@rueda/money/golden-vectors` (`src/golden-vectors/`), **réservé aux tests**, charge les attendus exportés par les oracles Python de `docs/specs/tools/` (T01–T68, TJ01–TJ21, TA01–TA11, en USD et en PYG) et compare un moteur (US-017, US-018) à ces attendus, sans jamais les recalculer. Il n'est pas exporté par `@rueda/money`. Voir [`src/golden-vectors/README.md`](src/golden-vectors/README.md).
 
-## Tests
+## Commandes de test
 
 `pnpm --filter @rueda/money test:unit` lance Vitest et fast-check, en variantes **PA (USD, exposant 2)** et **PY (PYG, exposant 0)**. Les devises de test sont dans `test/fixtures.ts`.
 
