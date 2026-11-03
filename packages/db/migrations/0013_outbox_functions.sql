@@ -1,8 +1,8 @@
--- 0011 — BUS : fonctions du relais, de la file et de la consommation idempotente.
+-- 0013 — BUS : fonctions du relais, de la file et de la consommation idempotente.
 -- US-008 ; 17 §4.2 ; ADR-050. Appliquée sous `migrator`.
 --
 -- Toutes ces fonctions sont SECURITY INVOKER : elles s'exécutent sous le rôle appelant (app_api,
--- app_worker), donc SOUS SA RLS et ses droits par colonne (0012). Elles ne donnent aucun droit ;
+-- app_worker), donc SOUS SA RLS et ses droits par colonne (0014). Elles ne donnent aucun droit ;
 -- elles fixent seulement la forme des écritures (une seule façon de réclamer, terminer, échouer).
 -- Le travailleur est désigné par le contexte de session (app.actor_kind = 'WORKER',
 -- app.worker_name, 17 §2.3) : une file = un travailleur, un reçu = un consommateur. Contexte absent

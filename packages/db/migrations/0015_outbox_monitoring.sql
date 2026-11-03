@@ -1,4 +1,4 @@
--- 0013 — BUS : métriques de l'outbox et des files (âge, profondeur, lettres mortes).
+-- 0015 — BUS : métriques de l'outbox et des files (âge, profondeur, lettres mortes).
 -- US-008 ; 17 §6.3 (« âge maximal de l'outbox non publiée (> 2 min) », alertes), §6.7 (âge de
 -- l'outbox p99 < 30 s) ; ADR-050 « Observabilité » ; revue architecture US-008, constat 2.
 -- Appliquée sous `migrator`.

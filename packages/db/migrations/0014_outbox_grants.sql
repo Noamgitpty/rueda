@@ -1,4 +1,4 @@
--- 0012 — BUS : droits et politiques RLS de l'outbox, de la file, des reçus et des lettres mortes.
+-- 0014 — BUS : droits et politiques RLS de l'outbox, de la file, des reçus et des lettres mortes.
 -- US-008 ; 17 §2.3 (rôles, « une politique explicite par travailleur »), §4.2 ; ADR-035, ADR-050.
 -- Appliquée sous `migrator`.
 --
@@ -20,7 +20,7 @@
 --   - reçus et lettres mortes : seul le consommateur concerné (consumer = app.worker_name()).
 --
 -- Retour arrière : DROP POLICY <politiques ci-dessous> ; REVOKE ALL ON core.outbox_* FROM app_api,
---   app_worker ; REVOKE EXECUTE ON FUNCTION <fonctions de 0011>, platform.uuid_v7() FROM app_api,
+--   app_worker ; REVOKE EXECUTE ON FUNCTION <fonctions de 0013>, platform.uuid_v7() FROM app_api,
 --   app_worker.
 
 -- Les valeurs par défaut (id, occurred_at…) s'évaluent sous le rôle qui insère.
@@ -82,7 +82,7 @@ CREATE POLICY worker_select_own ON core.outbox_dead_letter FOR SELECT TO app_wor
 CREATE POLICY worker_insert_own ON core.outbox_dead_letter FOR INSERT TO app_worker
   WITH CHECK (app.actor_kind() = 'WORKER' AND consumer = app.worker_name());
 
--- Fonctions (0011) : SECURITY INVOKER, donc bornées par ce qui précède --------------------------
+-- Fonctions (0013) : SECURITY INVOKER, donc bornées par ce qui précède --------------------------
 GRANT EXECUTE ON FUNCTION
   core.outbox_relay_claim(integer),
   core.outbox_mark_published(uuid[]),

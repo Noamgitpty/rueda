@@ -1,7 +1,7 @@
 /**
  * Métriques du bus (17 §6.3 : « âge maximal de l'outbox non publiée (> 2 min) » ; §6.7 : âge de
  * l'outbox p99 < 30 s ; revue architecture US-008, constat 2). Lues par `core.outbox_metrics()`
- * (migration 0013) sous le travailleur réservé `bus_monitor`, seul à voir toutes les files.
+ * (migration 0015) sous le travailleur réservé `bus_monitor`, seul à voir toutes les files.
  *
  * Le travailleur publie l'instantané en une ligne JSON (`bus.metrics`, `LogMetricsSink`) reprise
  * par l'observabilité ; les seuils d'alerte sont ceux de 17 §6.3.

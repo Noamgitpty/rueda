@@ -9,8 +9,8 @@
  * pour chaque file de `BusRegistry.queueNames()`, `PeriodicScheduler.tick()` (au démarrage puis
  * toutes les 5 s, PROPOSÉ) et `BusMetrics.collect()` ; arrêt propre sur SIGTERM.
  *
- * RÈGLE (revue architecture US-001 #10, à appliquer par US-008 « Outbox transactionnelle,
- * événements et tâches planifiées ») : les gestionnaires de tâches (relais de l'outbox, files,
+ * RÈGLE (revue architecture US-001 #10, à appliquer au câblage du travailleur par US-003 ;
+ * le module BUS est livré par US-008) : les gestionnaires de tâches (relais de l'outbox, files,
  * minuteries) sont enregistrés **au travailleur seulement**, via un module réservé (par exemple
  * `WorkerModule` qui importe `AppModule` et ajoute les fournisseurs de tâches), avec la connexion
  * `app_worker`. Ils ne doivent jamais être instanciés par l'API (`main.ts`, rôle `app_api`).

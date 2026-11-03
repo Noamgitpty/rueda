@@ -20,7 +20,7 @@ Constats sur pg-boss 12.38.0 (version courante au 2026-11-03, paquet npm inspect
 
 ## Décision
 
-1. **Tables** (schéma Bêta `core`, préfixe du schéma cible `outbox`, `schemas.ts`) : `outbox_outbox_event` (enveloppe 17 §4.1 + colonnes 17 §4.2), `outbox_inbox_receipt` (PK `(consumer, event_id)`), `outbox_dead_letter`, `outbox_scheduled_job`. RLS `ENABLE` + `FORCE`, `migrator_all`, aucun `DELETE` ni `TRUNCATE` accordé (migrations 0010 à 0013).
+1. **Tables** (schéma Bêta `core`, préfixe du schéma cible `outbox`, `schemas.ts`) : `outbox_outbox_event` (enveloppe 17 §4.1 + colonnes 17 §4.2), `outbox_inbox_receipt` (PK `(consumer, event_id)`), `outbox_dead_letter`, `outbox_scheduled_job`. RLS `ENABLE` + `FORCE`, `migrator_all`, aucun `DELETE` ni `TRUNCATE` accordé (migrations 0012 à 0015).
 2. **`scheduled_job` est portée par le projet.** Elle reprend les colonnes de 17 (`name`, `run_at`, `payload`, `singleton_key`, `state`) et ajoute `event_id`, `attempts`, `max_attempts`, `locked_until` et `last_error`. Une file correspond à un travailleur : `name` = `app.worker_name`, et la RLS ne laisse un travailleur lire ou modifier que **sa** file. La réclamation se fait en `FOR UPDATE SKIP LOCKED`, avec un bail. Il y a au plus une tâche vivante par `(name, singleton_key)`.
 3. **Fonctions SQL `SECURITY INVOKER`** (`core.outbox_*`) : elles imposent une seule façon de réclamer, terminer, faire échouer et recevoir. Elles ne donnent aucun droit : la RLS et les droits par colonne de l'appelant s'appliquent. Horloge : `platform.now()` ; l'application passe des durées, jamais « l'heure courante ».
 4. **Consommation idempotente** : reçu `inbox_receipt` (consommateur = `app.worker_name()`) dans la transaction du traitement ; doublon ⇒ traitement sauté. Échec ⇒ `ROLLBACK`, puis `outbox_fail_job` : nouvelle échéance `base × 2^(tentative − 1)`, ou, à `max_attempts` (5, 17 §4.2), `FAILED` + `dead_letter` dans la même transaction, puis alerte (port `Alerter`). Bail expiré sur la dernière tentative ⇒ lettre morte (`outbox_reap_expired_jobs`).
@@ -29,7 +29,7 @@ Constats sur pg-boss 12.38.0 (version courante au 2026-11-03, paquet npm inspect
    - La chaîne **ne peut donc pas mourir définitivement**. Une lettre morte déclenche l'alerte habituelle, et la tâche reprend au passage suivant.
    - Preuves : `packages/db/test/l0/outbox-idempotence.test.ts` (« tâche périodique ») et `apps/api/test/int/bus.int.test.ts` (lettre morte, puis nouvelle occurrence traitée).
    - Une occurrence ne s'exécute qu'une fois à la fois. La période effective vaut la période plus le délai entre deux passages, ce qui suffit pour des filets de sécurité de 30 à 60 s.
-6. **Observabilité** (17 §6.3, §6.7) : `core.outbox_metrics()` (0013) est lisible par le seul travailleur réservé `bus_monitor` ; sous un autre contexte, elle ne renvoie que des zéros. Elle donne :
+6. **Observabilité** (17 §6.3, §6.7) : `core.outbox_metrics()` (0015) est lisible par le seul travailleur réservé `bus_monitor` ; sous un autre contexte, elle ne renvoie que des zéros. Elle donne :
    - `outbox_unpublished` et `outbox_oldest_age_s` (alerte de 17 §6.3 au-delà de 120 s ; objectif p99 < 30 s) ;
    - par file : `queue_ready`, `queue_scheduled`, `queue_active`, `queue_failed`, `queue_oldest_ready_age_s` et `dead_letter_open`.
 
@@ -69,4 +69,5 @@ Constats sur pg-boss 12.38.0 (version courante au 2026-11-03, paquet npm inspect
 - 17 §2.5, « Ordre global des verrous » : ajouter « (0) verrou `bus:` de partition, pris par l'exécuteur de files, hors commandes ».
 - 17 §2.3 : noms de travailleurs `outbox_relay`, `bus_scheduler`, `bus_monitor` et règle « une file = un `app.worker_name` ».
 - ADR-001 : ligne « travailleur pg-boss, ADR-011 » → « travailleur (file SQL, ADR-050) ».
+- README.md l. 5 (« API + travailleur pg-boss ») et docs/team/roles/back-end.md l. 5 (« travailleurs pg-boss ») : même correction.
 - CONTRIBUTING, arborescence (`apps/api` : « travailleur pg-boss ») et CLAUDE.md, « Pile » (« travailleur pg-boss ») : même correction.

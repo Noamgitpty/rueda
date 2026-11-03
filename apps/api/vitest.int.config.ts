@@ -1,14 +1,16 @@
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { defineConfig } from 'vitest/config';
 
-// pnpm test:int — module BUS sur PostgreSQL réel, sous les rôles de production (US-008).
-// Banc et garde-fou L0-05 de @rueda/db (US-005) : mêmes règles que packages/db.
+// pnpm test:int — PostgreSQL réel (banc de @rueda/db : base jetable, rôles de production,
+// assertion L0-05 obligatoire dans chaque test). La CI fait foi (ADR-043). Module BUS : test/int (US-008).
+const require = createRequire(import.meta.url);
+
 export default defineConfig({
   test: {
-    include: ['test/int/**/*.test.ts'],
-    globalSetup: [fileURLToPath(import.meta.resolve('@rueda/db/testing/global-setup'))],
-    setupFiles: [fileURLToPath(import.meta.resolve('@rueda/db/testing/setup-l0-05'))],
-    testTimeout: 30_000,
+    include: ['src/**/*.int.test.ts', 'test/int/**/*.test.ts'],
+    globalSetup: [require.resolve('@rueda/db/testing/global-setup')],
+    setupFiles: [require.resolve('@rueda/db/testing/setup-l0-05')],
+    testTimeout: 60_000,
     hookTimeout: 120_000,
     teardownTimeout: 60_000,
   },

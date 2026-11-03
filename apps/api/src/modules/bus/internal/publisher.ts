@@ -5,7 +5,7 @@
  *
  * L'identifiant (UUID v7) et l'heure du fait viennent de la base (`platform.uuid_v7()`,
  * `platform.now()`) : l'horloge qui fait foi est celle de la base (17 §1.3). Le producteur n'a
- * aucun droit de lecture sur l'outbox (0012) : l'identifiant est donc demandé avant l'insertion.
+ * aucun droit de lecture sur l'outbox (0014) : l'identifiant est donc demandé avant l'insertion.
  */
 import type { NewDomainEvent } from './envelope.js';
 import { validateNewEvent } from './envelope.js';

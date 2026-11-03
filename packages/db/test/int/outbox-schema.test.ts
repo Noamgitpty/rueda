@@ -1,5 +1,5 @@
 /**
- * Intégration du schéma de l'outbox (US-008, migrations 0010 à 0013 ; 17 §4.1, §4.2 ; ADR-050).
+ * Intégration du schéma de l'outbox (US-008, migrations 0012 à 0015 ; 17 §4.1, §4.2 ; ADR-050).
  * Vérifie, sous les rôles de production :
  * - RLS ENABLE + FORCE, propriétaire migrator, politique `migrator_all` (CLAUDE.md point 5) ;
  * - droits : rien pour PUBLIC ni app_anon ; aucun DELETE ni TRUNCATE ; app_api n'écrit que

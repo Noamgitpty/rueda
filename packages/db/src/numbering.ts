@@ -22,8 +22,9 @@ export interface NumberingInput {
   readonly base?: readonly string[];
 }
 
-/** Renvoie la liste des manquements (vide si la règle est respectée). */
 const versionOf = (id: string): string => id.slice(0, 4);
+
+/** Renvoie la liste des manquements (vide si la règle est respectée). */
 
 export function checkMigrationNumbering(raw: NumberingInput): string[] {
   const input = {

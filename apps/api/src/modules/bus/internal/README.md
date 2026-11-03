@@ -4,7 +4,7 @@ Le `README.md` du module reste la ligne unique imposée par `dependency-graph.te
 
 ## US-008 : outbox, consommation idempotente, lettres mortes, tâches planifiées
 
-Décision : ADR-050 (PROPOSÉ). Tables et fonctions SQL : `packages/db/migrations/0010` à `0013` (schéma Bêta `core`, préfixe `outbox_`).
+Décision : ADR-050 (PROPOSÉ). Tables et fonctions SQL : `packages/db/migrations/0012` à `0015` (schéma Bêta `core`, préfixe `outbox_`).
 
 | Élément (`index.ts`)                                        | Rôle                                                                                                                                                                                                                                                       |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

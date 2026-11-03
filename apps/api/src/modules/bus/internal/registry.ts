@@ -1,18 +1,18 @@
 /**
  * Abonnements : quel consommateur reçoit quels types d'événements (17 §4.5, colonne
  * « Consommateurs »), et quelles minuteries (17 §2.11) existent. Un consommateur = un travailleur
- * nommé (`app.worker_name`) = une file : la RLS lui réserve ses tâches et ses reçus (0012).
+ * nommé (`app.worker_name`) = une file : la RLS lui réserve ses tâches et ses reçus (0014).
  */
 import type { DomainEvent, JsonObject } from './envelope.js';
 import { EVENT_TYPE_PATTERN } from './envelope.js';
 import type { SqlClient } from './sql.js';
 import { assertWorkerName } from './sql.js';
 
-/** Nom réservé du relais (politiques de 0012). */
+/** Nom réservé du relais (politiques de 0014). */
 export const OUTBOX_RELAY_WORKER = 'outbox_relay';
 /** Nom réservé du planificateur des tâches périodiques. */
 export const BUS_SCHEDULER_WORKER = 'bus_scheduler';
-/** Nom réservé du collecteur de métriques (politiques de 0013). */
+/** Nom réservé du collecteur de métriques (politiques de 0015). */
 export const BUS_MONITOR_WORKER = 'bus_monitor';
 const RESERVED = new Set([OUTBOX_RELAY_WORKER, BUS_SCHEDULER_WORKER, BUS_MONITOR_WORKER]);
 

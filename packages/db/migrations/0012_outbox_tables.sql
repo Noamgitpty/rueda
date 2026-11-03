@@ -1,4 +1,4 @@
--- 0010 — BUS : outbox transactionnelle, reçus de consommation, lettres mortes, tâches planifiées.
+-- 0012 — BUS : outbox transactionnelle, reçus de consommation, lettres mortes, tâches planifiées.
 -- US-008 ; 17 §4.1 (enveloppe), §4.2 (outbox, inbox, échecs, purge), §3.1.4 (classes), tableau des
 -- entités transverses (outbox_event, inbox_receipt, dead_letter, scheduled_job) ; ADR-011, ADR-050.
 -- Appliquée sous `migrator`.
@@ -8,7 +8,8 @@
 --
 -- `scheduled_job` : 17 la décrit comme « la table du moteur de files (pg-boss) ». ADR-050 (PROPOSÉ)
 -- explique pourquoi la Bêta la porte elle-même (RLS ENABLE + FORCE, platform.now(), rôles de
--- production) derrière le port de file `JobQueue` ; un adaptateur pg-boss reste possible.
+-- production) derrière le port de file du module BUS (`OutboxRelay`, `JobRunner`, `PeriodicScheduler`,
+-- `BusMetrics`, `scheduleJob`, `WorkerTransactions`, ADR-050 point 8) ; un adaptateur pg-boss reste possible.
 --
 -- Numérotation : règle de packages/db/migrations/README.md (numéro strictement supérieur au plus
 -- grand de origin/main à la fusion ; renuméroter à la mise à jour de la branche).
