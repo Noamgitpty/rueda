@@ -25,6 +25,9 @@ const CORE_TABLES = [
   'booking_payment_disposition',
   'payment_payment_operation',
   'payment_webhook_inbox',
+  // US-024 (0040, 0041) : boîte d'envoi CANCEL_ORDER, essais de disposition_sweeper
+  'payment_payment_command',
+  'booking_disposition_repair_log',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),

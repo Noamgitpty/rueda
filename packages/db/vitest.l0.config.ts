@@ -8,7 +8,10 @@ import { databaseTestOptions } from './vitest.shared.ts';
 // (`sequence.groupOrder: 1`, un seul fichier à la fois), après la fin de tous les autres fichiers
 // L0, au lieu de partager `max_connections` avec eux. Le banc reste unique : le `globalSetup` est
 // celui de la racine, exécuté une fois ; les projets héritent de ce qu'il fournit.
-const ISOLATED = ['test/l0/l0-02-concurrency.test.ts'];
+// US-024 : la conversion gardée lance la tâche d'expiration et les balayages, qui portent sur toute la
+// base ; ses preuves tournent donc aussi seules, après les autres fichiers (aucun hold d'un fichier en
+// cours n'est touché).
+const ISOLATED = ['test/l0/l0-02-concurrency.test.ts', 'test/l0/l0-us024-conversion.test.ts'];
 
 export default defineConfig({
   test: {
