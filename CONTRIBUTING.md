@@ -23,7 +23,7 @@ Ce dépôt est développé **à 100 % par des agents** Claude Code (19 §1.5) ; 
 | `pnpm lint:sql`                     | contrôle d'horloge des fichiers `.sql` seul                                                                                   |
 | `pnpm typecheck`                    | `tsc --noEmit` dans chaque paquet (Turborepo)                                                                                 |
 | `pnpm test:unit`                    | Vitest dans chaque paquet (dont les tests à fixtures des règles de lint)                                                      |
-| `pnpm test:int`, `pnpm test:l0`     | emplacements réservés : « pas encore implémenté (US-005) », code de sortie 0                                                  |
+| `pnpm test:int`, `pnpm test:l0`     | PostgreSQL réel (US-005) : intégration et preuves L0 sous les rôles de production ; voir `packages/db/README.md`              |
 | `pnpm build`                        | build de l'API (`tsc`) et des deux applications Next.js                                                                       |
 | `pnpm format` / `pnpm format:check` | Prettier                                                                                                                      |
 
@@ -78,7 +78,7 @@ apps/
   backoffice/           Next.js séparé : back-office interne (domaine distinct)
 packages/
   config/               ESLint partagé (règles maison), tsconfig partagés, contrôle d'horloge SQL
-  db/                   schémas par module (schemas.ts), migrations SQL (US-005), liste blanche de l'horloge
+  db/                   schémas par module (schemas.ts), migrations SQL, amorçage des rôles, exécuteur et harnais de tests (US-005), liste blanche de l'horloge
   i18n/                 catalogues es / en, profils de locale (config/locales.json), formats d'affichage (US-014)
 docs/adr/               ADR du dépôt (report dans 17 §8.1)
 docs/specs/             spécification figée : ne pas modifier
@@ -127,7 +127,7 @@ docs/team/              artefacts entre agents (US-029)
 - **Schémas transverses** (17) : `platform` pour les fonctions de plateforme (`platform.now()`, `platform.guest_hold_guard()`) ; `app` pour le contexte de session et les aides RLS (`app.org_id()`, `app.has_permission()`).
 - **Bêta pilote (D1, 17 §10 point 3)** : un schéma unique `core` (PROPOSÉ, car 17 ne le nomme pas). Chaque table y est **préfixée par son schéma cible** : `booking_checkout_hold`, `booking_trip`, `catalog_listing`, `config_currency`, `payment_payment_operation` (`betaTableName()`). Les noms d'entités et de colonnes restent ceux de 17 §3 : aucune table « bêta » jetable (17 §10 principe 1). Le passage au schéma par module sera un renommage mécanique (`core.booking_trip` → `booking.trip`). Le préfixe exact est à reporter dans 17 §10 point 3 par l'orchestrateur.
 - Un nom PROPOSÉ peut être changé par US-005 tant qu'aucune migration ne l'utilise. Un nom d'origine 17 ne change pas sans ADR.
-- Migrations dans `packages/db/migrations/`, additives et réversibles ; outil et format fixés par US-005.
+- Migrations dans `packages/db/migrations/`, additives et réversibles ; outil et format fixés par US-005 (ADR-044, `packages/db/README.md`).
 
 ## 10. Nommage
 

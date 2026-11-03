@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 // Contrôle « revues présentes, relecteur ≠ auteur » (US-029 critère 2, US-050).
-// Usage : node scripts/team/check-reviews.mjs US-001 --require code,qa [--author-model claude-opus-5-5] [--root .] [--base main]
+// Usage : node scripts/team/check-reviews.mjs US-001 --require code,qa [--author-model claude-opus-5-5] [--root .] [--base main] [--exempt a/,b.md]
 // Sans --author-model, le modèle de l'auteur est lu dans les pieds `Agent-Model:` des commits `<base>..HEAD`
 // (`--base` vaut `main` par défaut ; la CI passe `--base origin/main`, US-002).
+// `--root` désigne le dépôt contrôlé, distinct du dossier du script : la CI exécute ce fichier tel qu'il
+// est sur la branche de base, contre la pointe de la PR (US-050).
+// Revue périmée (US-050) : un fichier livré par la PR et modifié après le sha revu fait échouer, sauf
+// rapports docs/team/reviews/<story>/, passation docs/team/handoffs/<story>.md et chemins `--exempt`.
 // Code de sortie 0 si tout est conforme, 1 sinon (bloque la fusion quand US-002 le branche en CI).
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -61,7 +65,24 @@ export function parseReview(text) {
   };
 }
 
-export function checkReviews({ story, required, authorModels, root = '.', isAncestor = null }) {
+// Un chemin finissant par « / » couvre le répertoire ; sinon correspondance exacte.
+const under = (file, path) => (path.endsWith('/') ? file.startsWith(path) : file === path);
+
+// Chemins qu'une revue n'a pas à couvrir : rapports et passation de la story, plus `exempt`
+// (les `sharedPaths` de docs/team/review-requirements.json, transmis par la CI).
+export function reviewExemptPaths(story, exempt = []) {
+  return [`docs/team/reviews/${story}/`, `docs/team/handoffs/${story}.md`, ...exempt];
+}
+
+export function checkReviews({
+  story,
+  required,
+  authorModels,
+  root = '.',
+  isAncestor = null,
+  staleFiles = null,
+  exempt = [],
+}) {
   const errors = [];
   if (!required.length) errors.push(`${story} : aucune revue requise demandée (--require vide)`);
   if (!authorModels.length) {
@@ -102,31 +123,95 @@ export function checkReviews({ story, required, authorModels, root = '.', isAnce
         errors.push(`${latest} : sha revu absent de « Entrées : » (format <base>..<sha>)`);
       else if (!isAncestor(r.reviewedSha))
         errors.push(`${latest} : le sha revu ${r.reviewedSha} n'est pas un ancêtre de HEAD`);
+      else if (staleFiles) {
+        const free = reviewExemptPaths(story, exempt);
+        let stale;
+        try {
+          stale = staleFiles(r.reviewedSha).filter(({ file }) => !free.some((p) => under(file, p)));
+        } catch {
+          stale = [{ file: '(diff git impossible à calculer)' }];
+        }
+        for (const { file, baseMoved } of stale) {
+          errors.push(
+            `revue ${role} périmée : ${file} modifié après ${r.reviewedSha}` +
+              (baseMoved ? ' (la base a aussi changé ce fichier depuis la revue)' : ''),
+          );
+        }
+      }
     }
   }
   return errors;
 }
 
-// Modèles des commits d'auteur (hors rôles de vérification) sur <base>..HEAD.
-export function authorModelsFromLog(log) {
+// Modèles des commits d'auteur sur <base>..HEAD. `log` : messages séparés par \u0000 ;
+// `filesOf(i)` : fichiers du i-ème commit (null si inconnus). Un commit signé d'un rôle de
+// vérification n'est écarté que si TOUS ses fichiers sont sous docs/team/reviews/ (US-050) :
+// un relecteur qui écrit du code compte comme auteur. Fichiers inconnus ou commit vide : auteur.
+export function authorModelsFromLog(log, filesOf = () => null) {
   const models = new Set();
-  for (const msg of log.split('\u0000')) {
+  log.split('\u0000').forEach((msg, i) => {
     const role = /^Agent-Role:\s*(\S+)/m.exec(msg)?.[1];
     const model = /^Agent-Model:\s*(\S+)/m.exec(msg)?.[1];
-    if (model && !REVIEW_ROLES.has(role)) models.add(model);
-  }
+    if (!model) return;
+    const files = REVIEW_ROLES.has(role) ? filesOf(i) : null;
+    const reportsOnly =
+      Array.isArray(files) &&
+      files.length > 0 &&
+      files.every((f) => f.startsWith('docs/team/reviews/'));
+    if (!reportsOnly) models.add(model);
+  });
   return [...models];
 }
 
-function authorModelsFromGit(root, base) {
+function git(root, args) {
+  return execFileSync('git', ['-C', root, ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+}
+
+// Fichiers modifiés entre deux arbres. `--no-renames` : chemin de départ et chemin d'arrivée.
+const diffNames = (root, a, b) =>
+  git(root, ['diff', '--name-only', '--no-renames', '-z', a, b, '--']).split('\0').filter(Boolean);
+
+export function authorModelsFromGit(root, base) {
   try {
-    const log = execFileSync('git', ['-C', root, 'log', `${base}..HEAD`, '--format=%B%x00'], {
-      encoding: 'utf8',
-    });
-    return authorModelsFromLog(log);
+    const shas = git(root, ['log', '--format=%H', `${base}..HEAD`])
+      .split('\n')
+      .filter(Boolean);
+    const log = shas.map((sha) => git(root, ['show', '-s', '--format=%B', sha])).join('\u0000');
+    // Fichiers d'un commit par rapport à son premier parent (une fusion de main compte donc tout
+    // ce qu'elle apporte) ; null si le calcul échoue (commit racine…) : le commit compte comme auteur.
+    const filesOf = (i) => {
+      try {
+        return diffNames(root, `${shas[i]}^1`, shas[i]);
+      } catch {
+        return null;
+      }
+    };
+    return authorModelsFromLog(log, filesOf);
   } catch {
     return [];
   }
+}
+
+// Fichiers qui rendent périmée la revue du sha X (US-050). Livré par la PR : diff
+// merge-base(base, HEAD)..HEAD. Un fichier livré est périmé s'il diffère de son état en X (modifié
+// après la revue), ou si la base l'a changé entre merge-base(base, X) et merge-base(base, HEAD) : la
+// modification livrée n'est alors plus celle que le relecteur a vue (résolution de conflit qui
+// annule un correctif de main, rapport d'une PR déjà fusionnée réutilisé…). Un fichier que seule la
+// base a changé (`git merge origin/main`) n'est pas livré : il est ignoré.
+export function gitStaleFiles(root, base) {
+  return (sha) => {
+    const mb = git(root, ['merge-base', base, 'HEAD']).trim();
+    const mbx = git(root, ['merge-base', base, sha]).trim();
+    const after = new Set(diffNames(root, sha, 'HEAD'));
+    const baseMoved = new Set(diffNames(root, mbx, mb));
+    return diffNames(root, mb, 'HEAD')
+      .filter((file) => after.has(file) || baseMoved.has(file))
+      .sort()
+      .map((file) => ({ file, baseMoved: !after.has(file) }));
+  };
 }
 
 function gitIsAncestor(root) {
@@ -154,16 +239,17 @@ export function parseArgs(argv) {
     root: opt('root') ?? '.',
     required: (opt('require') ?? '').split(',').filter(Boolean),
     authorModel: opt('author-model'),
+    exempt: (opt('exempt') ?? '').split(',').filter(Boolean),
     // Une base qui commence par « - » serait lue par git comme une option : refusée.
     base: /^[A-Za-z0-9._/-]+$/.test(base) && !base.startsWith('-') ? base : null,
   };
 }
 
 function main(argv) {
-  const { story, root, required, authorModel, base } = parseArgs(argv);
+  const { story, root, required, authorModel, base, exempt } = parseArgs(argv);
   if (!story || !/^US-\d{3}$/.test(story) || !base) {
     console.error(
-      'usage : check-reviews.mjs US-xxx --require code,qa [--author-model m] [--root .] [--base main]',
+      'usage : check-reviews.mjs US-xxx --require code,qa [--author-model m] [--root .] [--base main] [--exempt a/,b.md]',
     );
     return 2;
   }
@@ -174,13 +260,15 @@ function main(argv) {
     authorModels,
     root,
     isAncestor: gitIsAncestor(root),
+    staleFiles: gitStaleFiles(root, base),
+    exempt,
   });
   if (errors.length) {
     for (const e of errors) console.error(`ÉCHEC ${e}`);
     return 1;
   }
   console.log(
-    `OK ${story} : revues ${required.join(', ')} présentes, approuvées, relecteur ≠ auteur`,
+    `OK ${story} : revues ${required.join(', ')} présentes, approuvées, à jour, relecteur ≠ auteur`,
   );
   return 0;
 }
