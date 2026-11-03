@@ -38,6 +38,7 @@
 --     core.cfg_content_cmd_rollback(bytea, uuid, text, text, integer),
 --     core.cfg_brand_authorize(bytea, text, text, text, text, uuid, uuid),
 --     core.cfg_brand_contrast_valid(jsonb), core.cfg_brand_body_allowed(text),
+--     core.cfg_brand_tokens_sha256(jsonb),
 --     core.cfg_brand_version_guard(), core.cfg_content_block_guard(),
 --     core.cfg_brand_asset_guard(), core.cfg_brand_no_truncate();
 --   DROP TABLE core.config_content_block, core.config_brand_version, core.config_brand_asset;
@@ -91,8 +92,19 @@ AS $fn$
            AND p_body !~ '\n\s*\[[^\]]+\]:',
            false)
 $fn$;
-REVOKE ALL ON FUNCTION core.cfg_brand_contrast_valid(jsonb), core.cfg_brand_body_allowed(text)
-  FROM PUBLIC;
+-- Empreinte des jetons d'une version (hexadécimal) : SHA-256 de leur forme texte jsonb (canonique
+-- pour PostgreSQL). Le rapport de contraste doit porter cette empreinte (`tokensSha256`) : un
+-- rapport calculé pour une version ne vaut pour aucune autre.
+CREATE FUNCTION core.cfg_brand_tokens_sha256(p_tokens jsonb)
+  RETURNS text
+  LANGUAGE sql
+  IMMUTABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_tokens::text, 'UTF8')), 'hex')
+$fn$;
+REVOKE ALL ON FUNCTION core.cfg_brand_contrast_valid(jsonb), core.cfg_brand_body_allowed(text),
+  core.cfg_brand_tokens_sha256(jsonb) FROM PUBLIC;
 
 -- 3. Actifs de marque (17 §3.2.13 `brand_asset`, trilingue : alt_text_fr ajouté, US-060) --------
 -- Emplacement, type, taille et empreinte sont recopiés de `file_asset` à l'enregistrement (même
@@ -123,12 +135,14 @@ CREATE TABLE core.config_brand_asset (
   CONSTRAINT brand_asset_mime_valid CHECK (
     (kind = 'FONT' AND mime = 'font/woff2')
     OR (kind <> 'FONT' AND mime IN ('image/png', 'image/jpeg', 'image/webp'))),
-  -- trilingue (es, en, fr) : toute image porte son texte alternatif dans les trois langues
-  CONSTRAINT brand_asset_alt_trilingual CHECK (
+  -- trilingue (es, en, fr) : toute image porte son texte alternatif dans les trois langues.
+  -- COALESCE : un texte NULL rendrait la clause NULL, qu'un CHECK accepte (fail-closed).
+  CONSTRAINT brand_asset_alt_trilingual CHECK (COALESCE(
     kind = 'FONT'
     OR (pg_catalog.char_length(pg_catalog.btrim(alt_text_es)) BETWEEN 1 AND 300
         AND pg_catalog.char_length(pg_catalog.btrim(alt_text_en)) BETWEEN 1 AND 300
-        AND pg_catalog.char_length(pg_catalog.btrim(alt_text_fr)) BETWEEN 1 AND 300)),
+        AND pg_catalog.char_length(pg_catalog.btrim(alt_text_fr)) BETWEEN 1 AND 300),
+    false)),
   CONSTRAINT brand_asset_storage_key_format CHECK (storage_key ~ '^brand/[0-9a-f-]{36}$')
 );
 COMMENT ON TABLE core.config_brand_asset IS
@@ -172,9 +186,12 @@ CREATE TABLE core.config_brand_version (
   CONSTRAINT brand_version_publication_complete CHECK (
     (status = 'DRAFT') = (published_at IS NULL) AND (published_at IS NULL) = (published_by IS NULL)),
   CONSTRAINT brand_version_archive_complete CHECK ((status = 'ARCHIVED') = (archived_at IS NOT NULL)),
-  -- 17 §3.2.13 : « publication refusée si contrast_check échoue »
-  CONSTRAINT brand_version_contrast_passed CHECK (
-    status = 'DRAFT' OR core.cfg_brand_contrast_valid(contrast_check))
+  -- 17 §3.2.13 : « publication refusée si contrast_check échoue » ; le rapport est LIÉ aux
+  -- jetons de la version (empreinte SHA-256 de tokens::text, cfg_brand_tokens_sha256)
+  CONSTRAINT brand_version_contrast_passed CHECK (COALESCE(
+    status = 'DRAFT' OR (core.cfg_brand_contrast_valid(contrast_check)
+                         AND contrast_check ->> 'tokensSha256' = core.cfg_brand_tokens_sha256(tokens)),
+    false))
 );
 -- une seule version publiée (17 §3.2.13)
 CREATE UNIQUE INDEX brand_version_one_published ON core.config_brand_version ((true))
@@ -404,8 +421,8 @@ CREATE POLICY iam_staff_insert ON core.audit_file_asset FOR INSERT TO iam_staff_
   WITH CHECK (bucket = 'BRAND' AND classification = 'C0' AND source = 'STAFF_UPLOAD'
               AND enc_subject_type IS NULL AND retention_class = 'BRAND_PUBLIC');
 
-GRANT EXECUTE ON FUNCTION core.cfg_brand_contrast_valid(jsonb), core.cfg_brand_body_allowed(text)
-  TO iam_staff_owner;
+GRANT EXECUTE ON FUNCTION core.cfg_brand_contrast_valid(jsonb), core.cfg_brand_body_allowed(text),
+  core.cfg_brand_tokens_sha256(jsonb) TO iam_staff_owner;
 
 -- 8. Autorisation commune des commandes (SECURITY INVOKER, exécutée sous iam_staff_owner) -------
 -- Session vivante (empreinte du jeton), TOTP, puis permission sur TOUS les pays déclarés (thème et
@@ -494,6 +511,9 @@ BEGIN
     RETURN QUERY SELECT v_a.outcome, NULL::uuid, NULL::text;
     RETURN;
   END IF;
+  -- rejeu concurrent de la même requête : sérialisé, puis DUPLICATE (jamais 23505)
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('core.config_brand_asset:' || p_request_id::text, 0));
   SELECT a.id, a.storage_key INTO v_id, v_key FROM core.config_brand_asset AS a
    WHERE a.request_id = p_request_id;
   IF v_id IS NOT NULL THEN
@@ -551,12 +571,6 @@ BEGIN
     RETURN QUERY SELECT v_a.outcome, NULL::uuid, NULL::integer;
     RETURN;
   END IF;
-  SELECT v.id, v.version_no INTO v_id, v_no FROM core.config_brand_version AS v
-   WHERE v.request_id = p_request_id;
-  IF v_id IS NOT NULL THEN
-    RETURN QUERY SELECT 'DUPLICATE'::text, v_id, v_no;
-    RETURN;
-  END IF;
   IF (p_logo_asset_id IS NOT NULL AND NOT EXISTS (
         SELECT 1 FROM core.config_brand_asset AS a WHERE a.id = p_logo_asset_id AND a.kind = 'LOGO'))
      OR (p_favicon_asset_id IS NOT NULL AND NOT EXISTS (
@@ -568,6 +582,13 @@ BEGIN
     RAISE EXCEPTION 'marque : actif ou version d''origine inconnu' USING ERRCODE = 'invalid_parameter_value';
   END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('core.config_brand_version', 0));
+  -- idempotence relue SOUS le verrou : un rejeu concurrent rend DUPLICATE, jamais 23505
+  SELECT v.id, v.version_no INTO v_id, v_no FROM core.config_brand_version AS v
+   WHERE v.request_id = p_request_id;
+  IF v_id IS NOT NULL THEN
+    RETURN QUERY SELECT 'DUPLICATE'::text, v_id, v_no;
+    RETURN;
+  END IF;
   SELECT COALESCE(pg_catalog.max(v.version_no), 0) + 1 INTO v_no FROM core.config_brand_version AS v;
   INSERT INTO core.config_brand_version (id, version_no, status, brand_name, tokens,
                                          tokens_schema_version, logo_asset_id, favicon_asset_id,
@@ -619,7 +640,8 @@ BEGIN
     RETURN;
   END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('core.config_brand_version', 0));
-  SELECT v.id, v.version_no, v.status INTO v_t FROM core.config_brand_version AS v
+  SELECT v.id, v.version_no, v.status, core.cfg_brand_tokens_sha256(v.tokens) AS tokens_sha256
+    INTO v_t FROM core.config_brand_version AS v
    WHERE v.id = p_version_id;
   IF v_t.id IS NULL THEN
     RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::uuid, NULL::integer;
@@ -629,11 +651,15 @@ BEGIN
     RETURN QUERY SELECT 'NOT_DRAFT'::text, v_t.id, v_t.version_no;
     RETURN;
   END IF;
-  IF NOT core.cfg_brand_contrast_valid(p_contrast_check) THEN
+  IF NOT core.cfg_brand_contrast_valid(p_contrast_check)
+     OR (p_contrast_check ->> 'tokensSha256') IS DISTINCT FROM v_t.tokens_sha256 THEN
     PERFORM core.iam_staff_audit(v_a.actor, v_a.actor_role, 'BRAND_PUBLISH_REFUSED', 'BRAND_VERSION',
                                  v_t.id, NULL,
                                  pg_catalog.jsonb_build_object('versionNo', v_t.version_no,
-                                   'reason', 'BRAND_CONTRAST_INSUFFICIENT',
+                                   'reason', CASE WHEN (p_contrast_check ->> 'tokensSha256')
+                                                       IS DISTINCT FROM v_t.tokens_sha256
+                                                  THEN 'REPORT_VERSION_MISMATCH'
+                                                  ELSE 'BRAND_CONTRAST_INSUFFICIENT' END,
                                    'failures', p_contrast_check -> 'failures'),
                                  NULL, p_request_id);
     RETURN QUERY SELECT 'CONTRAST_INSUFFICIENT'::text, v_t.id, v_t.version_no;
@@ -667,7 +693,7 @@ $fn$;
 CREATE FUNCTION core.cfg_brand_cmd_rollback(p_token_hash bytea, p_request_id uuid,
                                             p_new_version_id uuid, p_target_id uuid,
                                             p_contrast_check jsonb)
-  RETURNS TABLE (outcome text, version_id uuid, version_no integer)
+  RETURNS TABLE (outcome text, version_id uuid, version_no integer, copied_from_id uuid)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -680,6 +706,7 @@ DECLARE
   v_prev record;
   v_id   uuid;
   v_no   integer;
+  v_from uuid;
 BEGIN
   IF p_request_id IS NULL OR p_new_version_id IS NULL OR p_target_id IS NULL
      OR p_contrast_check IS NULL OR pg_catalog.jsonb_typeof(p_contrast_check) <> 'object'
@@ -692,33 +719,38 @@ BEGIN
                                                   'BRAND_ROLLBACK', 'BRAND_VERSION', p_target_id,
                                                   p_request_id);
   IF v_a.outcome <> 'OK' THEN
-    RETURN QUERY SELECT v_a.outcome, NULL::uuid, NULL::integer;
+    RETURN QUERY SELECT v_a.outcome, NULL::uuid, NULL::integer, NULL::uuid;
     RETURN;
   END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('core.config_brand_version', 0));
-  SELECT v.id, v.version_no INTO v_id, v_no FROM core.config_brand_version AS v
-   WHERE v.request_id = p_request_id;
+  -- rejeu : la version déjà créée et SA source (jamais une cible recalculée)
+  SELECT v.id, v.version_no, v.copied_from_id INTO v_id, v_no, v_from
+    FROM core.config_brand_version AS v WHERE v.request_id = p_request_id;
   IF v_id IS NOT NULL THEN
-    RETURN QUERY SELECT 'DUPLICATE'::text, v_id, v_no;
+    RETURN QUERY SELECT 'DUPLICATE'::text, v_id, v_no, v_from;
     RETURN;
   END IF;
   SELECT v.* INTO v_t FROM core.config_brand_version AS v WHERE v.id = p_target_id;
   IF v_t.id IS NULL THEN
-    RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::uuid, NULL::integer;
+    RETURN QUERY SELECT 'NOT_FOUND'::text, NULL::uuid, NULL::integer, NULL::uuid;
     RETURN;
   END IF;
   IF v_t.status <> 'ARCHIVED' THEN
-    RETURN QUERY SELECT 'NOT_ARCHIVED'::text, v_t.id, v_t.version_no;
+    RETURN QUERY SELECT 'NOT_ARCHIVED'::text, v_t.id, v_t.version_no, NULL::uuid;
     RETURN;
   END IF;
-  IF NOT core.cfg_brand_contrast_valid(p_contrast_check) THEN
+  IF NOT core.cfg_brand_contrast_valid(p_contrast_check)
+     OR (p_contrast_check ->> 'tokensSha256') IS DISTINCT FROM core.cfg_brand_tokens_sha256(v_t.tokens) THEN
     PERFORM core.iam_staff_audit(v_a.actor, v_a.actor_role, 'BRAND_ROLLBACK_REFUSED', 'BRAND_VERSION',
                                  v_t.id, NULL,
                                  pg_catalog.jsonb_build_object('versionNo', v_t.version_no,
-                                   'reason', 'BRAND_CONTRAST_INSUFFICIENT',
+                                   'reason', CASE WHEN (p_contrast_check ->> 'tokensSha256')
+                                                       IS DISTINCT FROM core.cfg_brand_tokens_sha256(v_t.tokens)
+                                                  THEN 'REPORT_VERSION_MISMATCH'
+                                                  ELSE 'BRAND_CONTRAST_INSUFFICIENT' END,
                                    'failures', p_contrast_check -> 'failures'),
                                  NULL, p_request_id);
-    RETURN QUERY SELECT 'CONTRAST_INSUFFICIENT'::text, v_t.id, v_t.version_no;
+    RETURN QUERY SELECT 'CONTRAST_INSUFFICIENT'::text, v_t.id, v_t.version_no, NULL::uuid;
     RETURN;
   END IF;
   SELECT COALESCE(pg_catalog.max(v.version_no), 0) + 1 INTO v_no FROM core.config_brand_version AS v;
@@ -746,7 +778,7 @@ BEGIN
                                  'copiedFromVersionNo', v_t.version_no,
                                  'checker', p_contrast_check -> 'checker'),
                                NULL, p_request_id);
-  RETURN QUERY SELECT 'ROLLED_BACK'::text, p_new_version_id, v_no;
+  RETURN QUERY SELECT 'ROLLED_BACK'::text, p_new_version_id, v_no, v_t.id;
 END
 $fn$;
 
@@ -758,7 +790,7 @@ CREATE FUNCTION core.cfg_brand_staff_versions(p_token_hash bytea, p_version_id u
                  tokens_schema_version integer, logo_asset_id uuid, favicon_asset_id uuid,
                  pwa_icon_asset_id uuid, contrast_check jsonb, copied_from_id uuid,
                  created_by uuid, created_at timestamptz, published_by uuid,
-                 published_at timestamptz, archived_at timestamptz)
+                 published_at timestamptz, archived_at timestamptz, tokens_sha256 text)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -778,7 +810,7 @@ BEGIN
     SELECT v.id, v.version_no, v.status, v.brand_name, v.tokens, v.tokens_schema_version,
            v.logo_asset_id, v.favicon_asset_id, v.pwa_icon_asset_id, v.contrast_check,
            v.copied_from_id, v.created_by, v.created_at, v.published_by, v.published_at,
-           v.archived_at
+           v.archived_at, core.cfg_brand_tokens_sha256(v.tokens)
       FROM core.config_brand_version AS v
      WHERE p_version_id IS NULL OR v.id = p_version_id
      ORDER BY v.version_no DESC
@@ -825,12 +857,6 @@ BEGIN
     RETURN QUERY SELECT v_a.outcome, NULL::integer;
     RETURN;
   END IF;
-  SELECT b.version_no INTO v_no FROM core.config_content_block AS b
-   WHERE b.request_id = p_request_id LIMIT 1;
-  IF v_no IS NOT NULL THEN
-    RETURN QUERY SELECT 'DUPLICATE'::text, v_no;
-    RETURN;
-  END IF;
   IF EXISTS (SELECT 1 FROM pg_catalog.unnest(ARRAY['es', 'en', 'fr']) AS l(locale)
               WHERE pg_catalog.jsonb_typeof(p_bodies -> l.locale) IS DISTINCT FROM 'string'
                  OR pg_catalog.btrim(p_bodies ->> l.locale) = '') THEN
@@ -839,6 +865,13 @@ BEGIN
   END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('core.config_content_block:' || p_block_key || ':' || COALESCE(p_country, ''), 0));
+  -- idempotence relue SOUS le verrou : un rejeu concurrent rend DUPLICATE, jamais 23505
+  SELECT b.version_no INTO v_no FROM core.config_content_block AS b
+   WHERE b.request_id = p_request_id LIMIT 1;
+  IF v_no IS NOT NULL THEN
+    RETURN QUERY SELECT 'DUPLICATE'::text, v_no;
+    RETURN;
+  END IF;
   SELECT COALESCE(pg_catalog.max(b.version_no), 0) + 1 INTO v_no FROM core.config_content_block AS b
    WHERE b.block_key = p_block_key AND b.country_code IS NOT DISTINCT FROM p_country;
   FOREACH v_locale IN ARRAY ARRAY['es', 'en', 'fr'] LOOP

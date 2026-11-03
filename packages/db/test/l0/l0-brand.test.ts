@@ -79,6 +79,22 @@ async function saveDraft(
   return rows[0] ?? { outcome: '', version_id: null, version_no: null };
 }
 
+/** Empreinte des jetons d'une version, lue par la fixture (sous migrator) ; '' si inconnue. */
+async function shaOf(client: pg.ClientBase, versionId: string): Promise<string> {
+  const { rows } = await client.query<{ tokens_sha256: string }>(
+    'SELECT tokens_sha256 FROM test_fixture.brand_versions() WHERE id = $1',
+    [versionId],
+  );
+  return rows[0]?.tokens_sha256 ?? '';
+}
+
+/** Rapport lié à la version visée, sauf si le test fixe lui-même `tokensSha256`. */
+async function bound(client: pg.ClientBase, versionId: string, check: object): Promise<object> {
+  return 'tokensSha256' in check
+    ? check
+    : { ...check, tokensSha256: await shaOf(client, versionId) };
+}
+
 async function publish(
   client: pg.ClientBase,
   hash: Buffer,
@@ -87,7 +103,7 @@ async function publish(
 ): Promise<Outcome> {
   const { rows } = await client.query<Outcome>(
     'SELECT * FROM core.cfg_brand_cmd_publish($1, $2, $3, $4)',
-    [hash, uuid(), versionId, check],
+    [hash, uuid(), versionId, await bound(client, versionId, check)],
   );
   return rows[0] ?? { outcome: '', version_id: null, version_no: null };
 }
@@ -100,7 +116,7 @@ async function rollback(
 ): Promise<Outcome> {
   const { rows } = await client.query<Outcome>(
     'SELECT * FROM core.cfg_brand_cmd_rollback($1, $2, $3, $4, $5)',
-    [hash, uuid(), uuid(), targetId, check],
+    [hash, uuid(), uuid(), targetId, await bound(client, targetId, check)],
   );
   return rows[0] ?? { outcome: '', version_id: null, version_no: null };
 }
@@ -518,6 +534,11 @@ async function registerAsset(
   hash: Buffer,
   kind: string,
   mime: string,
+  alt: { es: string | null; en: string | null; fr: string | null } = {
+    es: 'Logotipo',
+    en: 'Logo',
+    fr: 'Logo',
+  },
 ): Promise<{ outcome: string; asset_id: string | null; storage_key: string | null }> {
   const body = Buffer.from(`asset ${randomUUID()}`, 'utf8');
   const { rows } = await client.query<{
@@ -525,9 +546,20 @@ async function registerAsset(
     asset_id: string | null;
     storage_key: string | null;
   }>(
-    `SELECT * FROM core.cfg_brand_cmd_register_asset($1, $2, $3, $4, $5, $6, $7,
-       'Logotipo', 'Logo', 'Logo', 'Licence vérifiée (test)')`,
-    [hash, uuid(), uuid(), kind, mime, body.length, createHash('sha256').update(body).digest()],
+    `SELECT * FROM core.cfg_brand_cmd_register_asset($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+       'Licence vérifiée (test)')`,
+    [
+      hash,
+      uuid(),
+      uuid(),
+      kind,
+      mime,
+      body.length,
+      createHash('sha256').update(body).digest(),
+      alt.es,
+      alt.en,
+      alt.fr,
+    ],
   );
   return rows[0] ?? { outcome: '', asset_id: null, storage_key: null };
 }
@@ -732,4 +764,112 @@ describe('blocs de contenu (es, en, fr) : brouillon, publication, retour arrièr
       });
     },
   );
+});
+
+describe('revue code US-034 : textes alternatifs, rejeux, rapport lié à la version', () => {
+  it.each(['es', 'en', 'fr'] as const)(
+    'texte alternatif %s absent (NULL) ou vide : refusé par la base (23514), rien n’est écrit',
+    async (locale) => {
+      await withRole('app_api', async (client) => {
+        const admin = await elevatedStaff(client, 'ADMIN', ALL);
+        for (const value of [null, '   ']) {
+          const alt = { es: 'Logotipo', en: 'Logo', fr: 'Logo', [locale]: value };
+          await expect(
+            registerAsset(client, admin.hash, 'LOGO', 'image/png', alt),
+          ).rejects.toMatchObject({
+            code: '23514',
+          });
+        }
+        // une police n'a pas de texte alternatif
+        const font = await registerAsset(client, admin.hash, 'FONT', 'font/woff2', {
+          es: null,
+          en: null,
+          fr: null,
+        });
+        expect(font.outcome).toBe('REGISTERED');
+      });
+    },
+  );
+
+  it('rapport de contraste d’une AUTRE version : refusé (REPORT_VERSION_MISMATCH), journalisé, rien ne change', async () => {
+    await withRole('app_api', async (client) => {
+      const admin = await elevatedStaff(client, 'ADMIN', ALL);
+      const other = structuredClone(TINTA);
+      (other['meta'] as Record<string, unknown>)['version'] = '9.9.9';
+      const a = await saveDraft(client, admin.hash, 'A');
+      const b = await client.query<Outcome>(
+        `SELECT * FROM core.cfg_brand_cmd_save_draft($1, $2, $3, 'B', $4, 1, NULL, NULL, NULL, NULL)`,
+        [admin.hash, uuid(), uuid(), other],
+      );
+      const bId = b.rows[0]?.version_id ?? '';
+      const before = (await published(client)).map((v) => v.id);
+      const forged = { ...PASSED, tokensSha256: await shaOf(client, a.version_id ?? '') };
+      expect((await publish(client, admin.hash, bId, forged)).outcome).toBe(
+        'CONTRAST_INSUFFICIENT',
+      );
+      expect((await published(client)).map((v) => v.id)).toEqual(before);
+      expect((await auditOf(client, admin.userId)).at(-1)).toMatchObject({
+        action_code: 'BRAND_PUBLISH_REFUSED',
+        subject_id: bId,
+        after: { reason: 'REPORT_VERSION_MISMATCH' },
+      });
+      // le même rapport, pour SA version, passe
+      expect((await publish(client, admin.hash, a.version_id ?? '', forged)).outcome).toBe(
+        'PUBLISHED',
+      );
+    });
+  });
+
+  it('rejeu concurrent d’un brouillon (même requête, 6 connexions) : une seule version, aucune erreur', async () => {
+    const clients: pg.Client[] = [];
+    try {
+      for (let i = 0; i < 6; i += 1) clients.push(await connectAs('app_api'));
+      const first = clients[0] as pg.Client;
+      const admin = await elevatedStaff(first, 'ADMIN', ALL);
+      const requestId = uuid();
+      const results = await Promise.all(
+        clients.map(
+          async (c) =>
+            (
+              await c.query<Outcome>(
+                `SELECT * FROM core.cfg_brand_cmd_save_draft($1, $2, $3, 'Rejeu', $4, 1, NULL, NULL, NULL, NULL)`,
+                [admin.hash, requestId, uuid(), TINTA],
+              )
+            ).rows[0],
+        ),
+      );
+      expect(results.filter((r) => r?.outcome === 'SAVED')).toHaveLength(1);
+      expect(results.filter((r) => r?.outcome === 'DUPLICATE')).toHaveLength(5);
+      expect(new Set(results.map((r) => r?.version_id)).size).toBe(1);
+    } finally {
+      for (const c of clients) await releaseClient(c);
+    }
+  });
+
+  it('rejeu d’un retour arrière : DUPLICATE avec la version source d’origine, même si la cible par défaut a changé', async () => {
+    await withRole('app_api', async (client) => {
+      const admin = await elevatedStaff(client, 'ADMIN', ALL);
+      const a = await saveDraft(client, admin.hash, 'Source A');
+      await publish(client, admin.hash, a.version_id ?? '');
+      const b = await saveDraft(client, admin.hash, 'Source B');
+      await publish(client, admin.hash, b.version_id ?? '');
+      const requestId = uuid();
+      const call = async (target: string): Promise<Record<string, unknown> | undefined> =>
+        (
+          await client.query<Record<string, unknown>>(
+            'SELECT * FROM core.cfg_brand_cmd_rollback($1, $2, $3, $4, $5)',
+            [admin.hash, requestId, uuid(), target, await bound(client, target, PASSED)],
+          )
+        ).rows[0];
+      expect(await call(a.version_id ?? '')).toMatchObject({
+        outcome: 'ROLLED_BACK',
+        copied_from_id: a.version_id,
+      });
+      // rejeu avec une autre cible (B, désormais archivée) : la réponse reste celle d'origine
+      expect(await call(b.version_id ?? '')).toMatchObject({
+        outcome: 'DUPLICATE',
+        copied_from_id: a.version_id,
+      });
+    });
+  });
 });

@@ -8,6 +8,7 @@
  * Markdown restreint, repli `es` signalé). La base elle-même est prouvée par test:l0 et test:int.
  */
 import 'reflect-metadata';
+import { createHash } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { PALETTE_IDS, paletteDocument } from '@rueda/design-tokens';
@@ -80,6 +81,7 @@ class MemoryStore implements BrandStore {
       publishedBy: null,
       publishedAt: null,
       archivedAt: null,
+      tokensSha256: createHash('sha256').update(JSON.stringify(i.tokens)).digest('hex'),
     };
     this.versions.push(v);
     return Promise.resolve({ outcome: 'SAVED', versionId: v.id, versionNo: v.versionNo });
@@ -109,7 +111,7 @@ class MemoryStore implements BrandStore {
       return Promise.resolve({ outcome: 'NOT_FOUND', versionId: null, versionNo: null });
     if (t.status !== 'DRAFT')
       return Promise.resolve({ outcome: 'NOT_DRAFT', versionId, versionNo: t.versionNo });
-    if (!report.passed || report.failures.length > 0) {
+    if (!report.passed || report.failures.length > 0 || report.tokensSha256 !== t.tokensSha256) {
       return Promise.resolve({
         outcome: 'CONTRAST_INSUFFICIENT',
         versionId,
@@ -126,7 +128,7 @@ class MemoryStore implements BrandStore {
       return Promise.resolve({ outcome: 'NOT_FOUND', versionId: null, versionNo: null });
     if (t.status !== 'ARCHIVED')
       return Promise.resolve({ outcome: 'NOT_ARCHIVED', versionId: t.id, versionNo: t.versionNo });
-    if (!report.passed)
+    if (!report.passed || report.tokensSha256 !== t.tokensSha256)
       return Promise.resolve({
         outcome: 'CONTRAST_INSUFFICIENT',
         versionId: t.id,
@@ -142,7 +144,12 @@ class MemoryStore implements BrandStore {
     this.versions.push(copy);
     this.#swap(copy, report);
     void requestId;
-    return Promise.resolve({ outcome: 'ROLLED_BACK', versionId: newId, versionNo: copy.versionNo });
+    return Promise.resolve({
+      outcome: 'ROLLED_BACK',
+      versionId: newId,
+      versionNo: copy.versionNo,
+      copiedFromId: t.id,
+    });
   }
   staffVersions(_h: Buffer, versionId: string | null, limit: number) {
     this.calls.push('staffVersions');
@@ -260,11 +267,11 @@ describe('contrôles (US-030 réutilisé, polices, contenu)', () => {
   it('Tinta : format, polices et contraste conformes', () => {
     const theme = themeOf(paletteDocument('lienzo-tinta'));
     expect(unapprovedFonts(theme, PARAMS)).toEqual([]);
-    expect(contrastReport(theme)).toMatchObject({ passed: true, failures: [] });
+    expect(contrastReport(theme, 'empreinte')).toMatchObject({ passed: true, failures: [] });
   });
 
   it('Azur : refusée par le contrôle d’US-030 et la paire est nommée (primary / glass, clair, 3,89:1)', () => {
-    const report = contrastReport(themeOf(paletteDocument('lienzo-azur')));
+    const report = contrastReport(themeOf(paletteDocument('lienzo-azur')), 'empreinte');
     expect(report.passed).toBe(false);
     expect(report.failures).toEqual(
       expect.arrayContaining([
@@ -438,15 +445,23 @@ describe('BrandConsoleService : le contrôle précède la base', () => {
       }),
     ).rejects.toThrow(/BRAND_ASSET_INVALID/);
     const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(16)]);
-    await expect(
-      console.registerAsset(HASH, {
-        requestId: id(),
-        kind: 'LOGO',
-        body: png,
-        alt: { es: 'Logotipo' },
-        licenseNote: 'propre',
-      }),
-    ).rejects.toThrow(/BRAND_ASSET_INVALID/);
+    // chaque langue, une à une : absente puis vide => refus nommant la langue (trilingue)
+    for (const locale of ['es', 'en', 'fr'] as const) {
+      for (const value of [undefined, '   ']) {
+        const partial: Record<string, string | undefined> = { ...alt, [locale]: value };
+        const e = await rejection(
+          console.registerAsset(HASH, {
+            requestId: id(),
+            kind: 'LOGO',
+            body: png,
+            alt: partial,
+            licenseNote: 'propre',
+          }),
+        );
+        expect(e.code, `${locale} ${String(value)}`).toBe('BRAND_ASSET_INVALID');
+        expect(e.details?.['locales'], locale).toEqual([locale]);
+      }
+    }
     const r = await console.registerAsset(HASH, {
       requestId: id(),
       kind: 'LOGO',

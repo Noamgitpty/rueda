@@ -15,13 +15,14 @@
 CREATE FUNCTION test_fixture.brand_versions()
   RETURNS TABLE (id uuid, version_no integer, status text, brand_name text, tokens jsonb,
                  contrast_check jsonb, copied_from_id uuid, created_by uuid, published_by uuid,
-                 published_at timestamptz, archived_at timestamptz)
+                 published_at timestamptz, archived_at timestamptz, tokens_sha256 text)
   LANGUAGE sql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT v.id, v.version_no, v.status, v.brand_name, v.tokens, v.contrast_check, v.copied_from_id,
-         v.created_by, v.published_by, v.published_at, v.archived_at
+         v.created_by, v.published_by, v.published_at, v.archived_at,
+         core.cfg_brand_tokens_sha256(v.tokens)
     FROM core.config_brand_version AS v ORDER BY v.version_no
 $fn$;
 

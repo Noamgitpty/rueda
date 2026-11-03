@@ -49,6 +49,8 @@ export interface VersionOutcome {
   readonly outcome: string;
   readonly versionId: string | null;
   readonly versionNo: number | null;
+  /** Retour arrière : version source, relue en base (exacte aussi au rejeu). */
+  readonly copiedFromId?: string | null;
 }
 
 export interface StaffVersion {
@@ -68,6 +70,8 @@ export interface StaffVersion {
   readonly publishedBy: string | null;
   readonly publishedAt: Date | null;
   readonly archivedAt: Date | null;
+  /** Empreinte SHA-256 (hex) des jetons, calculée par la base (lien du rapport de contraste). */
+  readonly tokensSha256: string;
 }
 
 export interface PublicAsset {
@@ -181,11 +185,17 @@ async function call<R extends Record<string, unknown>>(
   }
 }
 
-type VersionRow = { outcome: string; version_id: string | null; version_no: number | null };
+type VersionRow = {
+  outcome: string;
+  version_id: string | null;
+  version_no: number | null;
+  copied_from_id?: string | null;
+};
 const version = (r: VersionRow | undefined): VersionOutcome => ({
   outcome: r?.outcome ?? 'FORBIDDEN',
   versionId: r?.version_id ?? null,
   versionNo: r?.version_no ?? null,
+  copiedFromId: r?.copied_from_id ?? null,
 });
 type ContentRow = { outcome: string; version_no: number | null };
 const contentOutcome = (r: ContentRow | undefined): ContentOutcome => ({
@@ -292,6 +302,7 @@ export class PgBrandStore implements BrandStore {
       published_by: string | null;
       published_at: Date | null;
       archived_at: Date | null;
+      tokens_sha256: string;
     }>(this.#db, 'SELECT * FROM core.cfg_brand_staff_versions($1, $2, $3)', [
       tokenHash,
       versionId,
@@ -314,6 +325,7 @@ export class PgBrandStore implements BrandStore {
       publishedBy: r.published_by,
       publishedAt: r.published_at,
       archivedAt: r.archived_at,
+      tokensSha256: r.tokens_sha256,
     }));
   }
 

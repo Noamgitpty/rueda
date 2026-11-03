@@ -407,7 +407,7 @@ export class BrandConsoleService {
   #report(version: StaffVersion): ContrastReport {
     const theme = themeOf(version.tokens);
     assertFontsApproved(theme, this.#params);
-    return contrastReport(theme);
+    return contrastReport(theme, version.tokensSha256);
   }
 
   async #readable(tokenHash: Buffer, versionId: string): Promise<StaffVersion> {
@@ -488,14 +488,14 @@ export class BrandConsoleService {
         return {
           versionId: r.versionId,
           versionNo: r.versionNo,
-          copiedFromId: target?.id ?? null,
+          copiedFromId: r.copiedFromId ?? null,
           duplicate: false,
         };
       case 'DUPLICATE':
         return {
           versionId: r.versionId,
           versionNo: r.versionNo,
-          copiedFromId: target?.id ?? null,
+          copiedFromId: r.copiedFromId ?? null,
           duplicate: true,
         };
       case 'CONTRAST_INSUFFICIENT':
@@ -576,6 +576,7 @@ export class BrandConsoleService {
 const REFUSED: ContrastReport = {
   checker: 'unverified',
   tokensSchemaVersion: TOKENS_SCHEMA_VERSION,
+  tokensSha256: '',
   passed: false,
   failures: [],
 };

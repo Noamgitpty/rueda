@@ -25,6 +25,11 @@ export const CONTRAST_CHECKER = '@rueda/design-tokens checkContrast (US-030, WCA
 export interface ContrastReport {
   readonly checker: string;
   readonly tokensSchemaVersion: number;
+  /**
+   * Empreinte SHA-256 (hex) des jetons de la version contrôlée, telle que la base la calcule
+   * (`core.cfg_brand_tokens_sha256`) : la commande refuse un rapport d'une autre version.
+   */
+  readonly tokensSha256: string;
   readonly passed: boolean;
   readonly failures: readonly ContrastFailure[];
 }
@@ -53,11 +58,12 @@ export function assertFontsApproved(theme: Theme, params: BrandParams): void {
 }
 
 /** Rapport de contraste du contrôle d'US-030 (passé = aucune paire en échec). */
-export function contrastReport(theme: Theme): ContrastReport {
+export function contrastReport(theme: Theme, tokensSha256: string): ContrastReport {
   const failures = checkContrast(theme);
   return {
     checker: CONTRAST_CHECKER,
     tokensSchemaVersion: TOKENS_SCHEMA_VERSION,
+    tokensSha256,
     passed: failures.length === 0,
     failures,
   };

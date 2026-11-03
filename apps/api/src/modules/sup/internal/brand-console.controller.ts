@@ -105,6 +105,8 @@ async function run<T>(fn: () => Promise<T>): Promise<T> {
     if (sqlstate === '22023' || sqlstate === '23514' || sqlstate === '23503') {
       throw new BrandHttpError(new BrandError('REQUEST_INVALID'));
     }
+    // unicité (rejeu concurrent non sérialisé, collision d'identifiant) : conflit, jamais un 500
+    if (sqlstate === '23505') throw new BrandHttpError(new BrandError('VERSION_CONFLICT'));
     throw error;
   }
 }
