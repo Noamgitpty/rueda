@@ -44,9 +44,9 @@ export interface DeliveryReceipt {
 
 export interface MessagingChannel {
   readonly channel: MessageChannelKind;
-  send(
+  readonly send: (
     message: OutboundMessage,
-  ): Promise<
+  ) => Promise<
     MessagingOutcome<MessageAccepted, 'INVALID_RECIPIENT' | 'BLOCKED' | 'UNSUPPORTED_CHANNEL'>
   >;
 }

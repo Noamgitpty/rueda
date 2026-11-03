@@ -43,11 +43,11 @@ export interface SignatureCheckResult {
 }
 
 export interface SignatureService {
-  sign(
+  readonly sign: (
     request: SignRequest,
-  ): Promise<SignatureOutcome<SignatureRecord, 'INVALID_DOCUMENT_HASH' | 'OTP_TOO_OLD'>>;
-  verify(
+  ) => Promise<SignatureOutcome<SignatureRecord, 'INVALID_DOCUMENT_HASH' | 'OTP_TOO_OLD'>>;
+  readonly verify: (
     signatureId: string,
     sha256: string,
-  ): Promise<SignatureOutcome<SignatureCheckResult, 'UNKNOWN_SIGNATURE'>>;
+  ) => Promise<SignatureOutcome<SignatureCheckResult, 'UNKNOWN_SIGNATURE'>>;
 }

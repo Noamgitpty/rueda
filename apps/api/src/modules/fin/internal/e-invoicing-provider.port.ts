@@ -48,14 +48,16 @@ export interface FiscalReceipt {
 }
 
 export interface EInvoicingProvider {
-  supportsRegime(regime: string): boolean;
-  submit(
+  readonly supportsRegime: (regime: string) => boolean;
+  readonly submit: (
     request: SubmitFiscalDocumentRequest,
-  ): Promise<
+  ) => Promise<
     EInvoicingOutcome<
       FiscalReceipt,
       'UNSUPPORTED_REGIME' | 'INVALID_DOCUMENT' | 'DUPLICATE_NUMBER' | 'REJECTED'
     >
   >;
-  getStatus(providerRef: string): Promise<EInvoicingOutcome<FiscalReceipt, 'UNKNOWN_DOCUMENT'>>;
+  readonly getStatus: (
+    providerRef: string,
+  ) => Promise<EInvoicingOutcome<FiscalReceipt, 'UNKNOWN_DOCUMENT'>>;
 }

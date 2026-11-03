@@ -17,6 +17,10 @@
  * même clé et contenu différent ⇒ `REFUSED IDEMPOTENCY_CONFLICT`. Les pannes (`UNAVAILABLE`,
  * `TIMEOUT_BEFORE`) passent avant l'idempotence : un fournisseur en panne ne répond pas, même à
  * un rejeu. Les refus ne sont pas mémorisés (un rejeu après refus est rejoué).
+ *
+ * Rejeu d'une clé connue (revue code US-020, constat 4) : il passe **avant** une étape `REFUSE`
+ * (l'étape est consommée sans effet, la réponse mémorisée est rendue) ; sous `TIMEOUT_AFTER`, il
+ * rend `TIMEOUT` bien que le résultat soit connu (le scénario décrit le fournisseur, pas le cache).
  */
 import { createHash } from 'node:crypto';
 import { FakeClock } from './clock.ts';

@@ -61,15 +61,17 @@ export type IdentityWebhookVerdict =
   | { readonly status: 'REJECTED'; readonly reason: 'BAD_SIGNATURE' | 'STALE' | 'MALFORMED' };
 
 export interface IdentityProvider {
-  supportsDocument(document: IdentityDocumentRef): boolean;
-  startVerification(
+  readonly supportsDocument: (document: IdentityDocumentRef) => boolean;
+  readonly startVerification: (
     request: StartVerificationRequest,
-  ): Promise<IdentityOutcome<VerificationSession, 'UNSUPPORTED_DOCUMENT'>>;
-  getStatus(sessionId: string): Promise<IdentityOutcome<VerificationStatus, 'UNKNOWN_SESSION'>>;
+  ) => Promise<IdentityOutcome<VerificationSession, 'UNSUPPORTED_DOCUMENT'>>;
+  readonly getStatus: (
+    sessionId: string,
+  ) => Promise<IdentityOutcome<VerificationStatus, 'UNKNOWN_SESSION'>>;
   /** Vérifie la signature et la fraîcheur d'un rappel (corps brut), puis le lit. */
-  parseWebhook(
+  readonly parseWebhook: (
     body: string,
     signature: string | undefined,
     receivedAt: Date,
-  ): IdentityWebhookVerdict;
+  ) => IdentityWebhookVerdict;
 }

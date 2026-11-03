@@ -38,8 +38,8 @@ export type Classification = 'C0' | 'C1' | 'C2' | 'C3';
  * se conforme au port sans importer `@rueda/db` (pas de cycle de paquets).
  */
 export interface FileStore {
-  put(bucket: Bucket, key: string, body: Buffer): Promise<FileStorePutResult>;
-  get(bucket: Bucket, key: string): Promise<FileStoreGetResult>;
+  readonly put: (bucket: Bucket, key: string, body: Buffer) => Promise<FileStorePutResult>;
+  readonly get: (bucket: Bucket, key: string) => Promise<FileStoreGetResult>;
 }
 
 export type FileStorePutResult =

@@ -30,5 +30,7 @@ export interface Tile {
 
 export interface MapTiles {
   readonly maxZoom: number;
-  tile(request: TileRequest): Promise<MapTilesOutcome<Tile, 'OUT_OF_RANGE' | 'QUOTA_EXCEEDED'>>;
+  readonly tile: (
+    request: TileRequest,
+  ) => Promise<MapTilesOutcome<Tile, 'OUT_OF_RANGE' | 'QUOTA_EXCEEDED'>>;
 }

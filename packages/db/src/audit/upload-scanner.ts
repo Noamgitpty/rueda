@@ -32,7 +32,7 @@ export type ScanResult =
   | { readonly status: 'TIMEOUT' };
 
 export interface UploadScanner {
-  scan(request: ScanRequest): Promise<ScanResult>;
+  readonly scan: (request: ScanRequest) => Promise<ScanResult>;
 }
 
 /** Vrai seulement pour un fichier analysé et sain : tout autre résultat garde la quarantaine. */
