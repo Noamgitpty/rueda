@@ -25,7 +25,7 @@
 --   test_fixture.us024_extra_operation(uuid, uuid, text, integer, text),
 --   test_fixture.us024_force_operation_status(uuid, text),
 --   test_fixture.us024_approve_review(uuid, integer) ; DROP TABLE test_fixture.us024_hold_terms ;
---   réappliquer la définition de 0039 de core.booking_hold_payment_terms.
+--   réappliquer la définition de 0040 de core.booking_hold_payment_terms.
 
 CREATE TABLE test_fixture.us024_hold_terms (
   hold_id         uuid PRIMARY KEY,

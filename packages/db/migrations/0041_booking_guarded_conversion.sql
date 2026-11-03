@@ -1,4 +1,4 @@
--- 0040 — AVL : conversion gardée, ré-acquisition, compensation, refus reçu, balayages.
+-- 0041 — AVL : conversion gardée, ré-acquisition, compensation, refus reçu, balayages.
 -- US-024 ; 16 BKG-014 ; 08 BR-BOOK-10, SM-1 (HOLD -> BOOKED sur preuve de paiement), EC-51 ;
 -- 17 §2.3 (rôles d'exécution : conversion, compensation et balayages sous app_worker, une politique
 -- explicite par travailleur), §2.5 (étape 3d / 3e, étape 4 avec 2 bis, A4, bloc C, étape 5, A6 :

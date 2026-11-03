@@ -16,12 +16,21 @@
  *    avant tout renvoi (17 §4.3 point 3).
  * 5. Montants : `bigint` en unités mineures de la devise du trip ; jamais de flottant.
  *
- * Le port de place de marché (sous-marchands, libération, versement, ajustement, transfert
- * plateforme, soldes par jambe) est ajouté par US-061 (17 §2.8, lignes `registerSubmerchant` à
- * `listLegBalances`).
+ * Port de place de marché (US-061 ; 17 §2.8, lignes `registerSubmerchant` à `listLegBalances` ;
+ * 08 E7 ; ADR-066) : Kmino marchand de référence, chaque hôte sous-marchand. Règles en plus :
+ * 6. Capacité BLOQUANTE non validée (17 §2.8) ⇒ `HOST_PAYOUT_RAIL_UNAVAILABLE` à
+ *    l'enregistrement d'un hôte et avant tout paiement (`createHostedPayment`), sans appel.
+ * 7. Un débit (remboursement, réaffectation, transfert) d'une jambe déjà libérée ou gelée ⇒
+ *    `LEG_ALREADY_RELEASED`, sans mouvement : la variation doit avoir été portée sur `PLATFORM`
+ *    avant l'appel (08 E7 règle 3 bis, TJ18b).
+ * 8. Le PSP exécute les montants par jambe reçus, à l'unité près, jamais un prorata (08 E7
+ *    règle 1, TJ10c) : la suite de contrat relit les jambes (`getOperation`, `listLegBalances`).
+ * 9. Chaque écriture de place de marché est idempotente par sa clé (17 §2.8) :
+ *    `submerchant:{org_id}:a{n}`, `release:{trip_id}:{segment}:{jambe}:i{n}`, lot de versement,
+ *    `adjust:{host_ledger_entry_id}`, `ptransfer:{platform_advance_id}`.
  */
 import type { CapabilitySet } from './capabilities.js';
-import type { LegAmounts, LegBeneficiaries } from './legs.js';
+import type { Leg, LegAmounts, LegBeneficiaries } from './legs.js';
 
 export const PAYMENT_METHODS = ['CARD', 'YAPPY', 'CLAVE', 'QR', 'PIX', 'BANK_TRANSFER'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -61,6 +70,8 @@ interface MovesFunds extends Keyed {
 }
 
 export interface CreateHostedPaymentRequest extends MovesFunds {
+  /** Trip (ou hold) dont le PSP tient les jambes ; défaut : la référence de l'ordre. */
+  readonly tripReference?: string;
   readonly method: PaymentMethod;
   /** `AUTO` : `legs` = jambes de la capture (08 E7 règle 2) ; `MANUAL` : pré-autorisation. */
   readonly capture: CaptureMode;
@@ -81,6 +92,7 @@ export interface RollbackRequest extends MovesFunds {
 }
 
 export interface ChargeMitRequest extends MovesFunds {
+  readonly tripReference?: string;
   readonly reason: MitReason;
   /** Jeton de l'instrument de garantie (jamais un PAN, 17 §1.6). */
   readonly instrumentToken: string;
@@ -157,6 +169,97 @@ export interface WebhookVerifier {
   ): WebhookVerification;
 }
 
+// --- place de marché (US-061 ; 17 §2.8) ---------------------------------------------------------
+
+/** État KYC d'un sous-marchand chez le PSP (17 §3.2.7 `psp_submerchant.kyc_status`). */
+export const SUBMERCHANT_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'] as const;
+export type SubmerchantStatus = (typeof SUBMERCHANT_STATUSES)[number];
+
+export interface RegisterSubmerchantRequest extends Keyed {
+  /** Référence du compte d'hôte chez Kmino (`org_id`), jamais une donnée personnelle. */
+  readonly hostReference: string;
+  /** Hôte particulier (P2P) : exige `SUPPORTS_INDIVIDUAL_SUBMERCHANT`. */
+  readonly individual: boolean;
+  readonly country: string;
+  /** Devise de versement = devise du pays (08 E7 règle 9 : aucune conversion). */
+  readonly payoutCurrency: string;
+}
+
+export interface Submerchant {
+  readonly submerchantReference: string;
+  readonly status: SubmerchantStatus;
+}
+
+/** Libération d'une jambe d'un trip vers son bénéficiaire (08 E7 règle 6). */
+export interface ReleaseLegRequest extends Keyed {
+  readonly tripReference: string;
+  readonly leg: Leg;
+  /** Une seule jambe, montant explicite : aucune ventilation possible. */
+  readonly amountMinor: bigint;
+  readonly currency: string;
+  /** Sous-marchand (HOST), bénéficiaire de l'assureur (INSURER) ou compte de Kmino. */
+  readonly beneficiaryReference: string;
+}
+
+export interface HoldLegRequest extends Keyed {
+  readonly tripReference: string;
+  readonly leg: Leg;
+}
+
+/** Versement d'un lot à l'hôte, depuis ses jambes HOST libérées (B2C). */
+export interface PayoutRequest extends Keyed {
+  readonly submerchantReference: string;
+  readonly amountMinor: bigint;
+  readonly currency: string;
+}
+
+/** Motifs d'un ajustement de versement (08 E7 règle 7). */
+export const PAYOUT_ADJUSTMENT_REASONS = [
+  'HOST_PENALTY',
+  'DAMAGE_DEDUCTIBLE',
+  'IMPUTED_REFUND',
+  'RELEASED_LEG_RECOVERY',
+  'CHARGEBACK_RECOVERY',
+] as const;
+export type PayoutAdjustmentReason = (typeof PAYOUT_ADJUSTMENT_REASONS)[number];
+
+export interface AdjustPayoutRequest extends PayoutRequest {
+  readonly reason: PayoutAdjustmentReason;
+}
+
+/** Motifs d'un transfert depuis PLATFORM (17 §2.9). */
+export const PLATFORM_TRANSFER_REASONS = [
+  'RELEASED_LEG_ADVANCE',
+  'CREDIT_BEYOND_PLATFORM',
+  'HOST_COMPENSATION',
+] as const;
+export type PlatformTransferReason = (typeof PLATFORM_TRANSFER_REASONS)[number];
+
+/** Transfert du solde PLATFORM vers des jambes tierces d'un trip : Σ jambes = 0. */
+export interface TransferFromPlatformRequest extends Keyed {
+  readonly tripReference: string;
+  readonly currency: string;
+  readonly legs: LegAmounts;
+  readonly reason: PlatformTransferReason;
+}
+
+/** Solde d'une jambe d'un trip tenu par le PSP (rapprochement, 17 §2.9). */
+export interface LegBalance {
+  readonly tripReference: string;
+  readonly leg: Leg;
+  readonly currency: string;
+  readonly capturedMinor: bigint;
+  readonly refundedMinor: bigint;
+  readonly reallocatedInMinor: bigint;
+  readonly reallocatedOutMinor: bigint;
+  readonly releasedMinor: bigint;
+  readonly held: boolean;
+}
+
+export interface LegBalanceQuery {
+  readonly tripReference?: string;
+}
+
 export interface PaymentProvider extends WebhookVerifier {
   /** Capacités du compte (fournisseur, pays), lecture fail-closed. */
   capabilities(): CapabilitySet;
@@ -171,6 +274,17 @@ export interface PaymentProvider extends WebhookVerifier {
   reauthorize(request: ReferenceRequest): Promise<OperationResult>;
   /** État faisant foi, indispensable après `UNKNOWN_OUTCOME` ; `null` : inconnu du PSP. */
   getOperation(lookup: OperationLookup): Promise<ProviderOperation | null>;
+
+  // place de marché (US-061)
+  registerSubmerchant(request: RegisterSubmerchantRequest): Promise<Submerchant>;
+  /** `null` : sous-marchand inconnu du PSP. */
+  getSubmerchant(submerchantReference: string): Promise<Submerchant | null>;
+  releaseLeg(request: ReleaseLegRequest): Promise<OperationResult>;
+  holdLeg(request: HoldLegRequest): Promise<OperationResult>;
+  payout(request: PayoutRequest): Promise<OperationResult>;
+  adjustPayout(request: AdjustPayoutRequest): Promise<OperationResult>;
+  transferFromPlatform(request: TransferFromPlatformRequest): Promise<OperationResult>;
+  listLegBalances(query: LegBalanceQuery): Promise<readonly LegBalance[]>;
 }
 
 /** Méthodes qui déplacent des fonds : chacune reçoit un `LegAmounts` (critère 5 de US-019). */
@@ -181,5 +295,20 @@ export const MONEY_MOVING_METHODS = [
   'reallocate',
   'rollback',
   'chargeMIT',
+  'transferFromPlatform',
 ] as const satisfies readonly (keyof PaymentProvider)[];
 export type MoneyMovingMethod = (typeof MONEY_MOVING_METHODS)[number];
+
+/**
+ * Écritures de place de marché, chacune idempotente par sa clé (19 US-061, critère 5).
+ * `releaseLeg`, `payout` et `adjustPayout` portent une seule jambe et son montant explicite.
+ */
+export const MARKETPLACE_WRITE_METHODS = [
+  'registerSubmerchant',
+  'releaseLeg',
+  'holdLeg',
+  'payout',
+  'adjustPayout',
+  'transferFromPlatform',
+] as const satisfies readonly (keyof PaymentProvider)[];
+export type MarketplaceWriteMethod = (typeof MARKETPLACE_WRITE_METHODS)[number];

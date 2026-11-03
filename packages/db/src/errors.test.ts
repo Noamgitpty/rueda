@@ -28,6 +28,10 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23000', 'settlement_trip_version', 'SETTLEMENT_STALE'],
     ['23000', 'settlement_unbalanced', 'SETTLEMENT_UNBALANCED'],
     ['23514', 'settlement_balance', 'SETTLEMENT_UNBALANCED'],
+    ['55000', 'host_payout_rail_unavailable', 'HOST_PAYOUT_RAIL_UNAVAILABLE'],
+    ['55000', 'leg_already_released', 'LEG_ALREADY_RELEASED'],
+    ['55000', 'leg_frozen', 'LEG_ALREADY_RELEASED'],
+    ['55000', 'leg_movement_exceeds_balance', 'LEG_AMOUNT_NEGATIVE'],
     ['23514', 'settlement_leg_kept_nonneg', 'LEG_AMOUNT_NEGATIVE'],
     ['23514', 'trip_leg_balance_nonneg', 'LEG_AMOUNT_NEGATIVE'],
     ['23000', 'settlement_immutable', 'IMMUTABLE_RECORD'],
@@ -51,7 +55,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23000', 'hold_guarded_columns', 'IMMUTABLE_RECORD'],
     ['23000', 'booking_record_no_delete', 'IMMUTABLE_RECORD'],
     ['23514', 'hold_review_before_payment', 'BOOKING_UNDER_REVIEW'],
-    // intention de paiement, conversion gardée (0039, 0040, US-024)
+    // intention de paiement, conversion gardée (0040, 0041, US-024)
     ['55000', 'hold_not_payable', 'HOLD_EXPIRED'],
     ['55000', 'hold_payment_terminal', 'INVALID_TRANSITION'],
     ['55000', 'payment_quote_unavailable', 'QUOTE_UNAVAILABLE'],

@@ -10,6 +10,9 @@
  * - `DECLINED` : refus **reçu**, aucun fonds débité ; `doNotRetry` pour un refus définitif (carte
  *   volée, compte fermé : aucune relance, 08 E4 et T68).
  * - `INVALID_REQUEST`, `FAKE_FORBIDDEN_IN_PRODUCTION` : PROPOSÉS par US-019 (ADR-059).
+ * - `HOST_PAYOUT_RAIL_UNAVAILABLE` : une capacité BLOQUANTE de la place de marché n'est pas
+ *   validée (17 §2.8 « Règle d'activation », 08 E7 ; nom PROPOSÉ) : aucun hôte activé, aucun
+ *   paiement tenté (US-061, ADR-066).
  */
 
 export const PAYMENT_ERROR_CODES = [
@@ -26,6 +29,7 @@ export const PAYMENT_ERROR_CODES = [
   'IDEMPOTENCY_CONFLICT',
   'INVALID_REQUEST',
   'FAKE_FORBIDDEN_IN_PRODUCTION',
+  'HOST_PAYOUT_RAIL_UNAVAILABLE',
 ] as const;
 export type PaymentErrorCode = (typeof PAYMENT_ERROR_CODES)[number];
 
@@ -34,8 +38,10 @@ export interface PaymentErrorDetails {
   readonly declineCode?: string;
   /** Refus définitif : aucune nouvelle tentative (08 E4, T68). */
   readonly doNotRetry?: boolean;
-  /** Capacité manquante (`UNSUPPORTED_CAPABILITY`). */
+  /** Capacité manquante (`UNSUPPORTED_CAPABILITY`, première de `missing`). */
   readonly capability?: string;
+  /** Capacités bloquantes non validées (`HOST_PAYOUT_RAIL_UNAVAILABLE`), triées. */
+  readonly missing?: readonly string[];
 }
 
 export class PaymentError extends Error {

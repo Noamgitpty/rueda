@@ -1,7 +1,7 @@
 /**
  * US-024 — conversion gardée, ré-acquisition et compensation (19 US-024 ; 16 BKG-014 ; 08 BR-BOOK-10,
  * SM-1, EC-51 ; 17 §2.3, §2.5 étapes 3 à 7 et scénarios C2, C3, C4, C4 bis, C6, C7, C8, C13, C14,
- * C15, C15 bis, C16, C17, C18, C20 ; L0-07 ; migrations 0039, 0040, ADR-065).
+ * C15, C15 bis, C16, C17, C18, C20 ; L0-07 ; migrations 0040, 0041, ADR-065).
  *
  * Attendus : tableau « Plan de test de concurrence » de 17 §2.5 (reformulé pour le seul hold
  * CHECKOUT, révision P2P), paramètres de 17 §7.2 (graine US-013) et montants des vecteurs TJ01
@@ -19,7 +19,7 @@
  */
 import { legVector, loadGoldenVectors } from '@rueda/money/golden-vectors';
 import type pg from 'pg';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { commandCallSql, translateDbError } from '../../src/index.ts';
 import type { SessionContext } from '../../src/index.ts';
 import { connectAs, releaseClient } from '../../src/testing/index.ts';
@@ -59,6 +59,8 @@ const legsText = (c: CountryCase): Record<string, string> =>
 
 // --- Horloge virtuelle -------------------------------------------------------------------------
 const ERA0 = Date.parse('2041-01-05T10:00:00.000Z');
+/** Entrée en vigueur des capacités bloquantes du FAKE de ces preuves : la veille de la période 0. */
+const BLOCKING_FROM = new Date(ERA0 - 86_400_000).toISOString();
 const era = (n: number): string => new Date(ERA0 + n * 3 * 86_400_000).toISOString();
 const atSec = (base: string, seconds: number): string =>
   new Date(Date.parse(base) + seconds * 1000).toISOString();
@@ -377,18 +379,32 @@ async function setCapability(
   value: unknown,
   from: string,
   until: string,
+  during: 'VALIDATED_SANDBOX' | 'UNKNOWN' = 'VALIDATED_SANDBOX',
+  after: 'VALIDATED_SANDBOX' | 'UNKNOWN' = 'UNKNOWN',
 ): Promise<void> {
   await inTx(api, { commit: true }, async (tx) => {
     const q = `SELECT test_fixture.us024_set_capability('FAKE', $1, $2, $3, $4::jsonb, $5, $6::timestamptz)`;
-    await tx.query(q, [
-      c.country,
-      method,
-      capability,
-      JSON.stringify(value),
-      'VALIDATED_SANDBOX',
-      from,
-    ]);
-    await tx.query(q, [c.country, method, capability, JSON.stringify(value), 'UNKNOWN', until]);
+    await tx.query(q, [c.country, method, capability, JSON.stringify(value), during, from]);
+    await tx.query(q, [c.country, method, capability, JSON.stringify(value), after, until]);
+  });
+}
+
+/**
+ * Capacités BLOQUANTES du catalogue (US-061, 17 §2.8) validées pour (FAKE, pays), portée (*, *),
+ * avant toutes les périodes des tests : sans elles, T1 refuse tout paiement (fail-closed).
+ */
+async function validateAllBlocking(c: CountryCase): Promise<void> {
+  await inTx(api, { commit: true }, async (tx) => {
+    const { rows } = await tx.query<{ capability: string; kind: string }>(
+      `SELECT capability, kind FROM core.payment_psp_capability_catalog WHERE blocking <> 'NO'`,
+    );
+    for (const r of rows) {
+      const value = r.kind === 'bool' ? true : r.kind === 'int' ? 1 : 'FAKE_HMAC_SHA256';
+      await tx.query(
+        `SELECT test_fixture.us024_set_capability('FAKE', $1, '*', $2, $3::jsonb, 'VALIDATED_SANDBOX', $4::timestamptz)`,
+        [c.country, r.capability, JSON.stringify(value), BLOCKING_FROM],
+      );
+    }
   });
 }
 
@@ -543,6 +559,15 @@ async function commands(
 const iso = (d: Date | null | undefined): string | undefined => d?.toISOString();
 
 describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', (c) => {
+  beforeAll(async () => {
+    api = await connectAs('app_api');
+    try {
+      await validateAllBlocking(c);
+    } finally {
+      await releaseClient(api);
+    }
+  });
+
   // ---------------------------------------------------------------------------------------------
   // T1 / T2 (17 §2.5 étape 3) et conversion nominale ; C15 bis (g) et (h) ; C6 (rejeu séquentiel)
   // ---------------------------------------------------------------------------------------------
@@ -573,9 +598,14 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
       expect((await holdState(holdId)).status).toBe('PAYMENT_IN_FLIGHT');
       expect(await events(holdId)).toContain('booking.hold.payment_in_flight');
 
-      // double clic avant T2 : aucun ordre connu, pas de lecture par notre clé ⇒ « en vérification »
+      // double clic avant T2 : aucun ordre connu ; SUPPORTS_LOOKUP_BY_MERCHANT_REF (bloquante) est
+      // validée ⇒ même clé après getOperation, jamais un second ordre
       const again = await startPayment(g, holdId, w.account, atSec(T0, 90));
-      expect(again).toMatchObject({ outcome: 'VERIFYING', operationId: t1.operationId });
+      expect(again).toMatchObject({
+        outcome: 'RETRY_SAME_KEY',
+        operationId: t1.operationId,
+        idemSent: `hold:${holdId}:CAPTURE:a1`,
+      });
       expect(await operations(holdId)).toHaveLength(1);
 
       // T2 : ordre de 5 min ⇒ borne affinée à expiration + marge (jamais allongée)
@@ -716,6 +746,31 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
       await setTerms(review, c, s1);
       const underReview = await startPayment(other, review, w.account, at(T0, 1));
       expect(isFailure(underReview) && underReview.code).toBe('BOOKING_UNDER_REVIEW');
+
+      // capacité bloquante retirée (17 §2.8, report d'US-061) : aucun paiement
+      const s3 = slotLater(w.vehicles[3] as string, w.orgId, T0);
+      const blocked = await pose(g, s3, at(T0, 30));
+      await setTerms(blocked, c, s3);
+      await setCapability(
+        c,
+        '*',
+        'SUPPORTS_B2C_PAYOUT',
+        true,
+        at(T0, 30),
+        at(T0, 35),
+        'UNKNOWN',
+        'VALIDATED_SANDBOX',
+      );
+      const noRail = await startPayment(g, blocked, w.account, at(T0, 31));
+      expect(isFailure(noRail) && noRail.raw).toEqual({
+        code: '55000',
+        constraint: 'host_payout_rail_unavailable',
+      });
+      expect(isFailure(noRail) && noRail.code).toBe('HOST_PAYOUT_RAIL_UNAVAILABLE');
+      expect(await operations(blocked)).toEqual([]);
+      expect(await startPayment(g, blocked, w.account, at(T0, 36))).toMatchObject({
+        outcome: 'NEW_ORDER',
+      });
 
       // C15 (c) : hold déjà échu au moment de T1 (tâche pas encore passée, puis passée) : aucun appel
       const s2 = slotLater(w.vehicles[2] as string, w.orgId, T0);
@@ -859,7 +914,6 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
     'C4 : créneau pris et converti par B après l’expiration ⇒ aucun trip pour A, compensation REFUND_API (capacité validée), une occupation active',
     async () => {
       const T0 = era(4);
-      await setCapability(c, '*', 'SUPPORTS_REFUND', true, T0, at(T0, 24 * 60));
       const w = await world(c, 1, 2);
       const [a, b] = w.guests as [string, string];
       const slot = slotLater(w.vehicles[0] as string, w.orgId, T0);
@@ -1050,6 +1104,17 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
     'C7 : deux holds chevauchants payés sur deux véhicules ⇒ un trip ; le second compensé GUEST_OVERLAP (BANK_TRANSFER_REFUND, capacité inconnue)',
     async () => {
       const T0 = era(8);
+      // remboursement API non validé pour la carte pendant ce test (ligne propre au moyen)
+      await setCapability(
+        c,
+        'CARD',
+        'SUPPORTS_REFUND',
+        true,
+        T0,
+        at(T0, 24 * 60),
+        'UNKNOWN',
+        'VALIDATED_SANDBOX',
+      );
       const w = await world(c, 2, 1);
       const g = w.guests[0] as string;
       const s1 = slotLater(w.vehicles[0] as string, w.orgId, T0);
@@ -1173,6 +1238,17 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
     'C14 : paiements multiples sur un hold (tentatives 1 et 2, ordre réutilisable, autorisation, rapprochement seul) ⇒ un trip, DUPLICATE_PAYMENT',
     async () => {
       const T0 = era(11);
+      // remboursement API non validé pour la carte pendant ce test (ligne propre au moyen)
+      await setCapability(
+        c,
+        'CARD',
+        'SUPPORTS_REFUND',
+        true,
+        T0,
+        at(T0, 24 * 60),
+        'UNKNOWN',
+        'VALIDATED_SANDBOX',
+      );
       await setCapability(c, '*', 'SUPPORTS_VOID', true, T0, at(T0, 24 * 60));
       const w = await world(c, 1, 1);
       const g = w.guests[0] as string;
@@ -1379,6 +1455,17 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
     'C20 : réservation de dernière minute ⇒ START_PASSED, remboursement intégral ; hold de revue approuvé après le début ⇒ aucun paiement',
     async () => {
       const T0 = era(14); // « 13:58 »
+      // remboursement API non validé pour la carte pendant ce test (ligne propre au moyen)
+      await setCapability(
+        c,
+        'CARD',
+        'SUPPORTS_REFUND',
+        true,
+        T0,
+        at(T0, 24 * 60),
+        'UNKNOWN',
+        'VALIDATED_SANDBOX',
+      );
       const w = await world(c, 2, 2);
       const [g, h] = w.guests as [string, string];
       const slot = slotOf(w.vehicles[0] as string, w.orgId, T0, 2); // début « 14:00 »

@@ -2,12 +2,13 @@
  * Montage FAKE complet pour les tests (US-019) : PSP simulé, adaptateur du port, horloge simulée,
  * matrice de capacités. TESTS SEULEMENT (exclu de la production).
  *
- * Capacités par défaut : toutes celles qu'exerce US-019 sont `VALIDATED_SANDBOX` (le FAKE joue
- * un PSP « complet ») ; chaque test retire ou dégrade celle dont il éprouve l'absence. Durée de vie
+ * Capacités par défaut : toutes celles qu'exercent US-019 et US-061 sont `VALIDATED_SANDBOX` (le
+ * FAKE joue un PSP de place de marché « complet ») ; chaque test retire ou dégrade celle dont il éprouve l'absence. Durée de vie
  * d'un ordre Yappy : 300 s (09b §2.1, 17 §2.8 `ORDER_TTL_SECONDS`).
  */
 import { FakePsp } from '@rueda/fake-adapters';
 import type { FakeCapability, FakePspScenario } from '@rueda/fake-adapters';
+import type { CollectionMode } from '../internal/capabilities.js';
 import { FakePaymentProvider } from './fake-payment-provider.js';
 
 export const FAKE_WEBHOOK_SECRET = 'whsec_fake_test_only';
@@ -40,6 +41,15 @@ export const FULL_FAKE_CAPABILITIES: readonly FakeCapability[] = [
   v('IDEMPOTENCY_KEY_MAX_LEN', 64),
   v('WEBHOOK_SIGNATURE_SCHEME', 'FAKE_HMAC_SHA256'),
   v('ORDER_TTL_SECONDS', 300, 'YAPPY'),
+  // place de marché (US-061) : toutes les capacités bloquantes de 17 §2.8 ; jamais
+  // SUPPORTS_PLATFORM_LEG_TRANSFER (défaut false, 17 §2.8), ajoutée par les tests qui l'éprouvent
+  v('SUPPORTS_SUBMERCHANT', true),
+  v('SUPPORTS_INDIVIDUAL_SUBMERCHANT', true),
+  v('SUPPORTS_B2C_PAYOUT', true),
+  v('SUPPORTS_DELAYED_PAYOUT_RELEASE', true),
+  v('SUPPORTS_NEGATIVE_BALANCE_RECOVERY', true),
+  v('SUPPORTS_LIST_TRANSACTIONS', true),
+  v('CHARGEBACK_NOTIFICATION_CHANNEL', 'WEBHOOK'),
 ];
 
 export interface FakeStack {
@@ -51,6 +61,8 @@ export interface FakeStack {
 
 export interface FakeStackOptions {
   readonly scenario?: FakePspScenario;
+  /** Variante d'exécution du compte (défaut : SPLIT_AT_SOURCE). */
+  readonly collectionMode?: CollectionMode;
   /** Capacités retirées de la matrice complète. */
   readonly without?: readonly string[];
   /** Capacités remplacées (même nom), par exemple dégradées à `DOCUMENTED`. */
@@ -72,5 +84,8 @@ export function fakeStack(options: FakeStackOptions = {}): FakeStack {
     capabilities,
     ...(options.scenario !== undefined ? { scenario: options.scenario } : {}),
   });
-  return { psp, provider: new FakePaymentProvider(psp, capabilities), clock, capabilities };
+  const provider = new FakePaymentProvider(psp, capabilities, undefined, {
+    ...(options.collectionMode !== undefined ? { collectionMode: options.collectionMode } : {}),
+  });
+  return { psp, provider, clock, capabilities };
 }

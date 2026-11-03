@@ -25,7 +25,7 @@ const CORE_TABLES = [
   'booking_payment_disposition',
   'payment_payment_operation',
   'payment_webhook_inbox',
-  // US-024 (0039, 0040) : boîte d'envoi CANCEL_ORDER, essais de disposition_sweeper
+  // US-024 (0040, 0041) : boîte d'envoi CANCEL_ORDER, essais de disposition_sweeper
   'payment_payment_command',
   'booking_disposition_repair_log',
 ] as const;
@@ -60,6 +60,9 @@ const PAY_PORT_TABLES = [
   'payment_psp_capability',
   'payment_payment_operation_leg',
   'payment_payment_operation_event',
+  // port de place de marché (US-061, 0039) : preuves dans test/l0/l0-pay-marketplace.test.ts
+  'payment_psp_capability_catalog',
+  'payment_psp_submerchant',
 ] as const;
 
 const INTEGRITY_FUNCTIONS = [

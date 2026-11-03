@@ -185,7 +185,7 @@ Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_
 - **Pose** : depuis US-023, la commande réelle `core.booking_cmd_place_hold` (contexte et appel en une instruction, `commandCallSql`) pour C1 avec verrou (autocommit), C16 avec verrou, l'annulation et L0-04 ; série transactionnelle mesurée par `test_fixture.l0_cmd_place_hold_timed` (9750). La fixture `test_fixture.l0_place_hold` (9002) ne sert plus qu'à l'**injection** « sans verrou par véhicule » (`p_vehicle_lock = false`), que la commande ne permet pas.
 - **Barrière** (`Barrier`) : le meneur tient un verrou consultatif exclusif ; chaque concurrent le demande en mode partagé ; quand `pg_locks` montre tous les concurrents en attente, le meneur relâche. Les entrelacements forcés sont prouvés par `waitUntilBlocked` (ligne non accordée de `pg_locks` pour le pid attendu).
 - **Reprise** (`withReplay`) : `40P01` / `40001` ⇒ transaction annulée puis rejouée, au plus 3 fois, attente aléatoire de 5 à 50 ms (17 §2.5). Chaque `40P01` est compté.
-- **C1** : 100 connexions `app_api` directes, sur l'horloge réelle. Le conteneur de CI démarre avec `max_connections = 200`. L0-02 tourne **seul**, après les autres fichiers L0 (projet vitest `l0-concurrence`, `sequence.groupOrder: 1`, voir `vitest.l0.config.ts`). Le degré vaut 100, borné par les créneaux libres mesurés au départ (`pg_stat_activity`, ligne `[L0-02] budget de connexions`). Une connexion refusée (`53300`) fait échouer la course aussitôt, sans connexion orpheline. Chaque pose est bornée par `statement_timeout = 60 s`, posé après la chauffe et vérifié avant la barrière (`[L0-02] garde-fou`), et une course encore active à 30 s est consignée (`[L0-02] course bloquée`) (ADR-056, « Budget de connexions du banc »).
+- **C1** : 100 connexions `app_api` directes, sur l'horloge réelle. Le conteneur de CI démarre avec `max_connections = 200`. L0-02 tourne **seul**, après les autres fichiers L0 (projet vitest `l0-concurrence`, `sequence.groupOrder: 1`, voir `vitest.l0.config.ts`). Le degré vaut 100, borné par les créneaux libres mesurés au départ (`pg_stat_activity`, ligne `[L0-02] budget de connexions`). Une connexion refusée (`53300`) fait échouer la course aussitôt, sans connexion orpheline. Chaque pose est bornée par `statement_timeout = 60 s`, posé après la chauffe et vérifié avant la barrière (`[L0-02] garde-fou`), et une course encore active à 30 s est consignée (`[L0-02] course bloquée`, bloqueurs compris) (ADR-056, « Budget de connexions du banc »). Le cas « sans verrou » s'exécute dans une **base d'injection**, copie de la base principale créée par le banc, qui seule reçoit `deadlock_timeout = 50ms` (`BENCH_DEADLOCK_TIMEOUT`, `connectAs(…, { database: 'injection' })`). Les séries « avec verrou », dont le p95 a un seuil de 300 ms, restent sur la base principale, au réglage du serveur (1 s), comme en production. Sans verrou, PostgreSQL résout les cycles de la contrainte d'exclusion un par un, à chaque `deadlock_timeout`, et la course « sans verrou » durait environ 1 s par `40P01` (ADR-056, « Cascade d'interblocages de l'injection »).
 - **Forme d'appel** (ADR-056 point 4) : seuil de 300 ms sur la pose en autocommit (« un appel = une instruction ») ; seconde série C1 en forme transactionnelle de 17 §2.3, consignée sans seuil, avec la détention du verrou du véhicule mesurée côté serveur (`l0_place_hold_timed`).
 - **Interblocage déterministe** : ordre inversé (véhicule puis guest) contre ordre de 17 ; un `40P01` réel, rejoué. Tests unitaires sans base : `test/support/replay.test.ts`, `test/support/expiry-2a.test.ts` (texte unique de 2a).
 - **Mesures** : lignes `[L0-02]` et `[L0-04]` du journal CI (40P01, rejeux, p50 / p95 / max, plan et temps d'exécution de 2a), à joindre au rapport L0 (US-027).
@@ -232,7 +232,7 @@ Preuves : `test/l0/l0-hold-commands.test.ts` (PA et PY) : critères 1 à 5 d'US-
 
 ## Conversion gardée, ré-acquisition et compensation (US-024 ; 16 BKG-014 ; 08 BR-BOOK-10, SM-1 ; 17 §2.3, §2.5 étapes 3 à 7, §4.3 ; ADR-065)
 
-Du paiement au trip, ou au remboursement, jamais les deux ni rien (migrations 0039 et 0040).
+Du paiement au trip, ou au remboursement, jamais les deux ni rien (migrations 0040 et 0041).
 
 - **Commandes du voyageur** (`SECURITY DEFINER`, `cmd_hold_owner`, `EXECUTE` à `app_api`, liste blanche RLS-15 ; forme d'appel `commandCallSql`) :
   - `core.booking_cmd_start_payment(hold, compte PSP, moyen)` (T1, étape 3a) renvoie un `jsonb`. `NEW_ORDER` : hold `PAYMENT_IN_FLIGHT`, borne provisoire, opération `CAPTURE` `PENDING` avec la clé `hold:{hold}:CAPTURE:a{n}` et les quatre jambes **du devis**. Hold déjà en vol : `EXISTING_ORDER`, `RETRY_SAME_KEY` ou `VERIFYING`. Montant et jambes ne sont jamais des paramètres.
@@ -294,6 +294,17 @@ Migration `0028_payment_psp_port` :
 - Lectures : `app_api` lit la seule jambe `HOST` du titulaire du compte d'hôte, ADMIN et FINANCE du pays toutes les jambes, OPS et SUPPORT celles du trip couvert par leur dossier ouvert (`trip_id` dénormalisé) ; `app_worker` (`payment_command`, `webhook_ingest`) lit jambes et événements.
 
 Preuves : `test/l0/l0-pay-legs-rls.test.ts` (RLS des jambes par acteur et par pays) et `test/l0/l0-pay-port.test.ts` (C19, contrôle différé des jambes au COMMIT, idempotence, jambes, rangs, dédoublonnage, quarantaine, aucun PAN ni CVV, en USD et en PYG ; montants des vecteurs TJ).
+
+## Port de place de marché (US-061 ; 17 §2.8, §2.9, §3.2.7, §4.3 ; ADR-066)
+
+Migration `0039_payment_marketplace_legs` (réservée « 0045 », renumérotée à la fusion derrière US-024) :
+
+- `core.payment_psp_capability_catalog` : les capacités de 17 §2.8, leur type et leur caractère **bloquant** (`YES`, `VARIANT_A`, `NO`) ; `core.payment_missing_blocking_capabilities(fournisseur, pays, variante)` rend les bloquantes non validées (seule la ligne `VALIDATED_*` en vigueur la plus récente, de portée méthode `*` / réseau `*`, compte ; fail-closed).
+- `core.payment_psp_submerchant` : une tentative d'enregistrement par ligne (`submerchant:{org_id}:a{n}`), au plus une vivante par (compte, hôte), transitions gardées, aucune suppression ; l'hôte titulaire lit son statut seulement, ADMIN / FINANCE de leur pays, travailleurs `payment_command`, `payout`, `reconciliation`.
+- Commandes `cmd_money` (travailleur `payment_command`) : `payment_cmd_register_submerchant` (refus `host_payout_rail_unavailable` ⇒ `HOST_PAYOUT_RAIL_UNAVAILABLE` si une capacité bloquante manque ; compte FAKE refusé en production) et `payment_cmd_record_submerchant_status`.
+- `core.settlement_cmd_apply_leg_movement` : **seul écrivain** de `trip_leg_balance` (montants lus de `payment_operation_leg`, sous le verrou du trip, une fois par opération : `core.settlement_leg_movement`) ; débit d'une jambe libérée ou gelée ⇒ `LEG_ALREADY_RELEASED`.
+
+Preuves : `test/l0/l0-pay-marketplace.test.ts` (chaque capacité bloquante `UNKNOWN`, `DOCUMENTED` ou absente, statuts, RLS des sous-marchands, soldes TJ01 / TJ02b / TJ08a / TJ08b, jambe libérée TJ18a à d, gel, réaffectation TJ05b, RLS-25 rejouée) ; fixture `9850` (gel d'une jambe).
 
 ## Rôles (17 §2.3, ADR-035)
 

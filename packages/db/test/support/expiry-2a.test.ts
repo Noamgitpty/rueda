@@ -40,9 +40,9 @@ describe('instruction 2a : une seule source', () => {
     expect(normalize(migration)).toContain(normalize(`${expected};`));
   });
 
-  it('la ré-acquisition (core.booking_convert_payment, 0040, US-024) contient EXPIRY_2A_SQL, partie véhicule seule', () => {
+  it('la ré-acquisition (core.booking_convert_payment, 0041, US-024) contient EXPIRY_2A_SQL, partie véhicule seule', () => {
     const migration = readFileSync(
-      join(MIGRATIONS_DIR, '0040_booking_guarded_conversion.sql'),
+      join(MIGRATIONS_DIR, '0041_booking_guarded_conversion.sql'),
       'utf8',
     );
     const expected = EXPIRY_2A_SQL.replaceAll('$1::uuid', 'v_vehicle')

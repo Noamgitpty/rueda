@@ -30,10 +30,13 @@
  * - `HOLD_LIMIT_REACHED`, `SELF_BOOKING_FORBIDDEN`, `BOOKING_UNDER_REVIEW` : 16 fiche BKG-014 ;
  *   `HOST_NOT_ACTIVATED` : 16 fiche BKG-012 ; `HOLD_RATE_LIMITED` : 17 §2.5 (M5, 429) — commandes
  *   de hold d'US-023 (migration 0037, ADR-063) ;
+ * - `HOST_PAYOUT_RAIL_UNAVAILABLE` : 08 E7, 17 §2.8 « Règle d'activation » (nom PROPOSÉ) ;
+ *   `LEG_ALREADY_RELEASED` : 17 §2.8 « Erreurs normalisées », §4.3 point 8 — sous-marchands et
+ *   écrivain des soldes par jambe d'US-061 (migration 0039, ADR-066) ;
  * - `HOLD_EXPIRED` (« reserva expirada », 17 §2.5 étape 3a), `QUOTE_UNAVAILABLE` (16 SRC, devis
  *   indisponible), `START_PASSED` (17 §2.5 2 bis (i)), `PAYMENT_ATTEMPTS_EXHAUSTED`
  *   (`payment_attempts_per_hold`, PAY-017), `PAYMENT_METHOD_UNAVAILABLE` : PROPOSÉS par US-024
- *   (migrations 0039, 0040, ADR-065).
+ *   (migrations 0040, 0041, ADR-065).
  */
 
 /** Codes métier produits par la traduction. */
@@ -68,6 +71,8 @@ export const DB_BUSINESS_CODES = [
   'HOST_NOT_ACTIVATED',
   'SELF_BOOKING_FORBIDDEN',
   'BOOKING_UNDER_REVIEW',
+  'HOST_PAYOUT_RAIL_UNAVAILABLE',
+  'LEG_ALREADY_RELEASED',
   'HOLD_EXPIRED',
   'QUOTE_UNAVAILABLE',
   'START_PASSED',
@@ -99,7 +104,7 @@ export const SQLSTATE = {
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
  * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`,
- * `0037`, `0039` et `0040`.
+ * `0037`, `0039`, `0040` et `0041`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -197,7 +202,24 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   hold_guarded_columns: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   booking_record_no_delete: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   hold_review_before_payment: [SQLSTATE.checkViolation, 'BOOKING_UNDER_REVIEW'],
-  // intention de paiement, conversion gardée et compensation (0039, 0040, US-024)
+  // port de place de marché : sous-marchands, soldes par jambe (0039, US-061)
+  host_payout_rail_unavailable: [
+    SQLSTATE.objectNotInPrerequisiteState,
+    'HOST_PAYOUT_RAIL_UNAVAILABLE',
+  ],
+  psp_submerchant_org_mismatch: [SQLSTATE.integrityConstraintViolation, 'PAYMENT_SUBJECT_MISMATCH'],
+  psp_submerchant_country_unconfigured: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
+  psp_submerchant_org_inactive: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  psp_submerchant_attempt_invalid: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  psp_submerchant_one_live: [SQLSTATE.uniqueViolation, 'INVALID_TRANSITION'],
+  psp_submerchant_transition: [SQLSTATE.integrityConstraintViolation, 'INVALID_TRANSITION'],
+  psp_submerchant_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  leg_already_released: [SQLSTATE.objectNotInPrerequisiteState, 'LEG_ALREADY_RELEASED'],
+  leg_frozen: [SQLSTATE.objectNotInPrerequisiteState, 'LEG_ALREADY_RELEASED'],
+  leg_movement_exceeds_balance: [SQLSTATE.objectNotInPrerequisiteState, 'LEG_AMOUNT_NEGATIVE'],
+  leg_movement_not_succeeded: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  leg_movement_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  // intention de paiement, conversion gardée et compensation (0040, 0041, US-024)
   hold_not_payable: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_EXPIRED'],
   hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   payment_quote_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'QUOTE_UNAVAILABLE'],

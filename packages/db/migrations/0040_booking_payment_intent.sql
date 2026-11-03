@@ -1,4 +1,4 @@
--- 0039 — AVL / PAY : intention de paiement (T1), affinage de l'ordre (T2), annulation d'ordre par la
+-- 0040 — AVL / PAY : intention de paiement (T1), affinage de l'ordre (T2), annulation d'ordre par la
 -- boîte d'envoi (CANCEL_ORDER) et libération après annulation confirmée.
 -- US-024 ; 16 BKG-014 ; 08 BR-BOOK-10 ; 17 §2.3 (rôles d'exécution des commandes : T1 et T2 sous
 -- cmd_hold_owner), §2.5 (étape 3 a à f, étape 6 temps 1 et 2, C15, C15 bis, C16), §2.8 (capacités,
@@ -38,6 +38,8 @@
 --   payment_attempts_exhausted (55000)    → PAYMENT_ATTEMPTS_EXHAUSTED (payment_attempts_per_hold) ;
 --   payment_method_unavailable (55000)    → PAYMENT_METHOD_UNAVAILABLE ;
 --   payment_operation_account_active (23000) → PSP_ACCOUNT_INACTIVE ;
+--   host_payout_rail_unavailable (55000)  → HOST_PAYOUT_RAIL_UNAVAILABLE (capacité bloquante absente,
+--                                           US-061) ;
 --   psp_account_fake_forbidden (23000)    → FAKE_FORBIDDEN_IN_PRODUCTION (C19) ;
 --   hold_param_missing (55000)            → PARAM_MISSING.
 -- Forme d'appel : commandCallSql (ADR-056 point 4, ADR-063 point 7), une instruction.
@@ -54,7 +56,8 @@
 --   DROP POLICY cmd_hold_pay_ins, cmd_hold_pay_upd ON core.payment_payment_operation ;
 --   DROP POLICY cmd_hold_leg_sel, cmd_hold_leg_ins ON core.payment_payment_operation_leg ;
 --   DROP POLICY cmd_hold_opevent_ins ON core.payment_payment_operation_event ;
---   DROP POLICY cmd_hold_read ON core.payment_psp_account, core.payment_psp_capability ;
+--   DROP POLICY cmd_hold_read ON core.payment_psp_account, core.payment_psp_capability,
+--     core.payment_psp_capability_catalog ;
 --   recréer cmd_hold_read de core.config_param_value et cmd_hold_event_ins de l'outbox (0037) ;
 --   REVOKE les droits accordés ci-dessous à cmd_hold_owner et app_worker.
 
@@ -85,9 +88,11 @@ REVOKE ALL ON FUNCTION core.booking_hold_payment_terms(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.booking_hold_payment_terms(uuid) TO cmd_hold_owner, app_worker;
 
 -- 2. Capacités PSP, lecture fail-closed (17 §2.8 ; même règle que pay/internal/capabilities.ts) ----
--- Par moyen (précis, puis '*'), version la plus récente en vigueur à platform.now() ; seule une
--- version VALIDATED_SANDBOX ou VALIDATED_CONTRACT compte. Réseau '*' seulement (les capacités lues
--- ici ne dépendent pas du réseau). SECURITY INVOKER.
+-- Version la plus récente en vigueur à platform.now() de la portée la plus précise présente (moyen
+-- précis, sinon '*') ; elle ne compte que si elle est VALIDATED_SANDBOX ou VALIDATED_CONTRACT. Une
+-- ligne propre au moyen qui n'est pas validée l'emporte donc sur '*' (« SUPPORTS_REFUND[YAPPY] non
+-- validé », 17 §2.5 étape 5 : plus strict que le repli de pay/internal/capabilities.ts, PROPOSÉ,
+-- ADR-065). Réseau '*' seulement. SECURITY INVOKER.
 CREATE FUNCTION core.payment_capability_value(p_provider text, p_country text, p_method text,
                                               p_capability text)
   RETURNS jsonb
@@ -107,11 +112,8 @@ AS $fn$
             AND c.valid_from <= t.ts
           ORDER BY c.method, c.valid_from DESC
        )
-  SELECT cur.value
-    FROM cur
-   WHERE cur.status IN ('VALIDATED_SANDBOX', 'VALIDATED_CONTRACT')
-   ORDER BY (cur.method = '*')
-   LIMIT 1
+  SELECT CASE WHEN x.status IN ('VALIDATED_SANDBOX', 'VALIDATED_CONTRACT') THEN x.value END
+    FROM (SELECT cur.value, cur.status FROM cur ORDER BY (cur.method = '*') LIMIT 1) AS x
 $fn$;
 
 CREATE FUNCTION core.payment_capability_bool(p_provider text, p_country text, p_method text,
@@ -141,7 +143,8 @@ AS $fn$
 $fn$;
 
 COMMENT ON FUNCTION core.payment_capability_value(text, text, text, text) IS
-  'Capacité PSP en vigueur et VALIDATED_* (moyen précis puis *), sinon NULL (fail-closed). US-024.';
+  'Capacité PSP : version en vigueur de la portée la plus précise (moyen, sinon *), si VALIDATED_* ; '
+  'sinon NULL (fail-closed). US-024.';
 COMMENT ON FUNCTION core.payment_capability_bool(text, text, text, text) IS
   'Capacité booléenne validée ; inconnue = false (17 §2.8). US-024.';
 COMMENT ON FUNCTION core.payment_capability_int(text, text, text, text) IS
@@ -156,6 +159,12 @@ GRANT EXECUTE ON FUNCTION core.payment_capability_value(text, text, text, text),
 
 GRANT SELECT ON core.payment_psp_capability TO cmd_hold_owner;
 CREATE POLICY cmd_hold_read ON core.payment_psp_capability FOR SELECT TO cmd_hold_owner USING (true);
+-- capacités bloquantes (US-061, 0039, ADR-066 « Limites ») : T1 les exige avant tout paiement
+GRANT SELECT ON core.payment_psp_capability_catalog TO cmd_hold_owner;
+CREATE POLICY cmd_hold_read ON core.payment_psp_capability_catalog FOR SELECT TO cmd_hold_owner
+  USING (true);
+GRANT EXECUTE ON FUNCTION core.payment_missing_blocking_capabilities(text, text, text)
+  TO cmd_hold_owner;
 
 -- 3. Boîte d'envoi monétaire : commande CANCEL_ORDER (17 §3.2.7 payment_command, §4.3) -------------
 -- Écrite DANS la transaction qui la décide, exécutée APRÈS le COMMIT par le travailleur de commandes
@@ -278,8 +287,8 @@ CREATE POLICY cmd_hold_opevent_ins ON core.payment_payment_operation_event FOR I
   TO cmd_hold_owner
   WITH CHECK (app.actor_kind() = 'GUEST' AND source = 'API_RESPONSE' AND raw_ref IS NULL);
 -- compte marchand de Kmino du pays (owner_type PLATFORM par CHECK) et garde FAKE (C19)
-GRANT SELECT (id, provider, country_code, environment, status) ON core.payment_psp_account
-  TO cmd_hold_owner;
+GRANT SELECT (id, provider, country_code, environment, status, collection_mode)
+  ON core.payment_psp_account TO cmd_hold_owner;
 CREATE POLICY cmd_hold_read ON core.payment_psp_account FOR SELECT TO cmd_hold_owner USING (true);
 GRANT USAGE ON SCHEMA platform TO cmd_hold_owner;
 GRANT EXECUTE ON FUNCTION platform.deployment_env() TO cmd_hold_owner;
@@ -471,7 +480,7 @@ BEGIN
   END IF;
 
   -- compte marchand de Kmino du pays, ACTIVE, jamais un FAKE en production (17 §4.3 point 5.7)
-  SELECT a.provider, a.country_code, a.status INTO r_account
+  SELECT a.provider, a.country_code, a.status, a.collection_mode INTO r_account
     FROM core.payment_psp_account a WHERE a.id = p_psp_account_id;
   IF r_account.provider IS NULL OR r_account.status <> 'ACTIVE' OR r_account.country_code <> v_country THEN
     RAISE EXCEPTION 'payment: PSP account not active'
@@ -481,6 +490,15 @@ BEGIN
   IF r_account.provider = 'FAKE' AND platform.deployment_env() = 'production' THEN
     RAISE EXCEPTION 'payment: FAKE provider forbidden in production (C19)'
       USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'psp_account_fake_forbidden';
+  END IF;
+
+  -- capacités bloquantes du PSP du pays (17 §2.8 ; report d'US-061, ADR-066) : une seule manque ⇒
+  -- aucun paiement (fail-closed), le même refus que l'activation d'un hôte
+  IF pg_catalog.cardinality(core.payment_missing_blocking_capabilities(
+       r_account.provider, v_country, r_account.collection_mode)) > 0 THEN
+    RAISE EXCEPTION 'payment: blocking PSP capability missing'
+      USING ERRCODE = 'object_not_in_prerequisite_state',
+            CONSTRAINT = 'host_payout_rail_unavailable';
   END IF;
 
   -- borne provisoire (17 §2.5 étape 3a)
