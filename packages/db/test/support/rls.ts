@@ -84,7 +84,8 @@ export interface World {
 const PHC =
   '$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g';
 
-async function account(tx: pg.ClientBase): Promise<string> {
+/** Compte voyageur ACTIVE de test (commande d'inscription réelle). */
+export async function account(tx: pg.ClientBase): Promise<string> {
   const id = uuid();
   const r = await tx.query<{ ok: boolean }>(
     `SELECT core.iam_cmd_register($1, $2, $3, 'Rls', 'Test', 'en', $4, $5, 86400, NULL) AS ok`,
@@ -102,7 +103,8 @@ export function staffSessionHash(actorId: string): string | undefined {
   return STAFF_SESSIONS.get(actorId);
 }
 
-async function staff(
+/** Membre du staff de test, rôle attribué et session élevée (empreinte : staffSessionHash). */
+export async function staff(
   tx: pg.ClientBase,
   role: string,
   scope: readonly string[],

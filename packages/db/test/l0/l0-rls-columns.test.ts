@@ -11,10 +11,10 @@ import { withRole } from '../../src/testing/index.ts';
 
 /** Colonnes accordées à app_api par 0025 (et 0022 pour aucune), triées à la comparaison. */
 const API_COLUMNS: Record<string, readonly string[]> = {
+  // US-062 (0035) : guest_user_id n'est plus lisible (minimisation ; l'hôte passe par host_guest_v)
   booking_trip: [
     'id',
     'public_ref',
-    'guest_user_id',
     'org_id',
     'vehicle_id',
     'listing_id',
@@ -224,6 +224,65 @@ const API_COLUMNS: Record<string, readonly string[]> = {
     'created_at',
     'updated_at',
   ],
+  // tables d'argent d'US-062 (0036) : jamais un identifiant du personnel ni une référence PSP
+  settlement_finance_approval: [
+    'id',
+    'action',
+    'subject_id',
+    'country_code',
+    'reason',
+    'requested_at',
+    'approved_at',
+    'status',
+  ],
+  settlement_platform_advance: [
+    'id',
+    'country_code',
+    'currency',
+    'trip_id',
+    'org_id',
+    'cause',
+    'amount_minor',
+    'funded_from',
+    'receivable_minor',
+    'recovered_minor',
+    'status',
+    'written_off_at',
+    'created_at',
+    'updated_at',
+  ],
+  settlement_insurer_ledger_state: [
+    'insurer_id',
+    'country_code',
+    'currency',
+    'payable_minor',
+    'frozen_minor',
+    'receivable_minor',
+    'next_bordereau_at',
+    'created_at',
+    'updated_at',
+  ],
+  settlement_insurer_bordereau: [
+    'id',
+    'insurer_id',
+    'insurer_contract_id',
+    'country_code',
+    'currency',
+    'period',
+    'total_minor',
+    'status',
+    'issued_at',
+    'paid_at',
+    'created_at',
+    'updated_at',
+  ],
+  settlement_insurer_bordereau_line: [
+    'bordereau_id',
+    'country_code',
+    'trip_id',
+    'segment_no',
+    'amount_minor',
+  ],
 };
 
 /** Tables lues en entier par les travailleurs (0007, US-006 ; 0027, US-018) ; aucune lecture IAM ni support. */
@@ -238,9 +297,27 @@ const WORKER_FULL_TABLES = [
   'settlement_settlement_tax_line',
   'settlement_settlement_leg',
   'settlement_trip_leg_balance',
+  'settlement_platform_advance',
+  'settlement_insurer_ledger_state',
+  'settlement_insurer_bordereau',
+  'settlement_insurer_bordereau_line',
 ];
 
-const STAFF_ID_COLUMNS = ['created_by', 'updated_by', 'released_by', 'granted_by', 'approved_by'];
+const STAFF_ID_COLUMNS = [
+  'created_by',
+  'updated_by',
+  'released_by',
+  'granted_by',
+  'approved_by',
+  // US-062 : décisions FINANCE à deux personnes (17 §2.3 RLS-26)
+  'requested_by',
+  'decided_by',
+  'decision_second_by',
+  'written_off_by',
+  'write_off_second_by',
+  'issued_by',
+  'second_validated_by',
+];
 
 async function readable(client: pg.ClientBase, role: string, table: string): Promise<string[]> {
   const { rows } = await client.query<{ col: string }>(

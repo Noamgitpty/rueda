@@ -30,7 +30,8 @@ const IAM_TABLES = [
 ] as const;
 
 // Politiques attendues par table (US-010 : migrator_all ; US-011 : 0022, 0024, 0025 ; US-012 :
-// 0033, iam_staff_owner et lecture des sessions par policy_fn_owner).
+// 0033, iam_staff_owner et lecture des sessions par policy_fn_owner ; US-062 : 0035, 0036,
+// matrice lue par policy_fn_owner, voyageur minimisé par host_view_owner, commandes FINANCE).
 const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_auth_factor:
     'iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator',
@@ -43,13 +44,14 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_otp_challenge: 'migrator_all:migrator',
   iam_restriction: 'migrator_all:migrator',
-  iam_role_permission: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
+  iam_role_permission:
+    'cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_session:
-    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_staff_role_assignment:
-    'iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_money_sel:cmd_money_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_user_account:
-    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;user_account_self_read:app_api',
+    'cmd_money_sel:cmd_money_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;user_account_self_read:app_api',
 };
 
 // Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).

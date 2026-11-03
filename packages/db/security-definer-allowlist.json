@@ -3,6 +3,13 @@
   "searchPath": "search_path=pg_catalog, pg_temp",
   "functions": [
     {
+      "signature": "app.has_permission(text)",
+      "family": "policy_fn",
+      "owner": "policy_fn_owner",
+      "execute": ["app_api"],
+      "story": "US-062"
+    },
+    {
       "signature": "app.has_staff_role(text,text)",
       "family": "policy_fn",
       "owner": "policy_fn_owner",
@@ -13,8 +20,8 @@
       "signature": "app.host_covers_vehicle(uuid)",
       "family": "policy_fn",
       "owner": "policy_fn_owner",
-      "execute": ["app_api", "cmd_hold_owner"],
-      "story": "US-011, US-022"
+      "execute": ["app_api", "cmd_hold_owner", "host_view_owner"],
+      "story": "US-011, US-022, US-062"
     },
     {
       "signature": "app.is_org_holder()",
@@ -78,6 +85,13 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
       "story": "US-022"
+    },
+    {
+      "signature": "core.booking_host_guest_rows()",
+      "family": "host_view",
+      "owner": "host_view_owner",
+      "execute": ["app_api"],
+      "story": "US-062"
     },
     {
       "signature": "core.iam_auth_lookup(text)",
@@ -234,6 +248,13 @@
       "story": "US-019"
     },
     {
+      "signature": "core.settlement_advance_approvers(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-062"
+    },
+    {
       "signature": "core.settlement_assert_balanced()",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
@@ -241,11 +262,25 @@
       "story": "US-018"
     },
     {
+      "signature": "core.settlement_cmd_approve_finance_action(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-062"
+    },
+    {
       "signature": "core.settlement_cmd_record(uuid,uuid,integer,integer,uuid,integer,jsonb)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
       "execute": ["app_worker"],
       "story": "US-018"
+    },
+    {
+      "signature": "core.settlement_cmd_request_finance_action(bytea,uuid,text,uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-062"
     }
   ]
 }

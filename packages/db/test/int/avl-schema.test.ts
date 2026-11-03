@@ -134,7 +134,9 @@ describe('schéma core (US-006)', () => {
                       ? 'cmd_hold_owner'
                       : r.polname.startsWith('worker_')
                         ? 'app_worker'
-                        : 'app_api';
+                        : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
+                          ? 'host_view_owner'
+                          : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
