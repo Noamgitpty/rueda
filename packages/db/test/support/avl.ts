@@ -141,17 +141,12 @@ export async function insertRentOperation(
 }
 
 /**
- * Expiration ciblée 2a (17 §2.5), recopiée de la spécification : holds échus du véhicule OU du
- * guest, filtres A3 / A6, `FOR UPDATE OF h SKIP LOCKED`. Renvoie le nombre d'occupations
- * désactivées. `guestId` nul = partie véhicule seule (ré-acquisition, VERIF_17 T3).
+ * Instruction 2a (17 §2.5, VERIF_16-M14, VERIF_17-A3 / A6), recopiée de la spécification : holds
+ * échus du véhicule OU du guest, filtres A3 / A6, `FOR UPDATE OF h SKIP LOCKED` dans une CTE.
+ * Paramètres : $1 véhicule, $2 guest (nul = partie véhicule seule), $3 `sweep_grace_s`.
+ * Même texte pour l'exécution (`expireDueHolds`) et pour le plan mesuré par L0-04 (US-007).
  */
-export async function expireDueHolds(
-  tx: pg.ClientBase,
-  vehicleId: string,
-  guestId: string | null,
-): Promise<number> {
-  const r = await tx.query(
-    `WITH t AS (SELECT platform.now() AS ts),
+export const EXPIRY_2A_SQL = `WITH t AS (SELECT platform.now() AS ts),
      due AS (
        SELECT h.id, h.occupancy_id
          FROM core.booking_checkout_hold h, t
@@ -176,9 +171,18 @@ export async function expireDueHolds(
      UPDATE core.booking_vehicle_occupancy
         SET active = false, deactivated_reason = 'HOLD_EXPIRED'
       WHERE id IN (SELECT occupancy_id FROM expired)
-        AND kind = 'HOLD'`,
-    [vehicleId, guestId, SWEEP_GRACE_S],
-  );
+        AND kind = 'HOLD'`;
+
+/**
+ * Expiration ciblée 2a (17 §2.5) : exécute `EXPIRY_2A_SQL`. Renvoie le nombre d'occupations
+ * désactivées. `guestId` nul = partie véhicule seule (ré-acquisition, VERIF_17 T3).
+ */
+export async function expireDueHolds(
+  tx: pg.ClientBase,
+  vehicleId: string,
+  guestId: string | null,
+): Promise<number> {
+  const r = await tx.query(EXPIRY_2A_SQL, [vehicleId, guestId, SWEEP_GRACE_S]);
   return r.rowCount ?? 0;
 }
 
@@ -272,14 +276,18 @@ export async function convert(
   tx: pg.ClientBase,
   hold: Hold,
   operationId: string,
+  options: { readonly vehicleLock?: boolean } = {},
 ): Promise<ConversionResult> {
-  // 0. verrous : guest puis véhicule (ordre global, VERIF_16-M2)
+  // 0. verrous : guest puis véhicule (ordre global, VERIF_16-M2). `vehicleLock: false` est
+  // l'injection de L0-02 (US-007) : la même conversion sans le verrou du véhicule.
   await tx.query(`SELECT pg_advisory_xact_lock(hashtextextended('guest:' || $1::text, 0))`, [
     hold.guestId,
   ]);
-  await tx.query(`SELECT pg_advisory_xact_lock(hashtextextended('veh:' || $1::text, 0))`, [
-    hold.slot.vehicleId,
-  ]);
+  if (options.vehicleLock !== false) {
+    await tx.query(`SELECT pg_advisory_xact_lock(hashtextextended('veh:' || $1::text, 0))`, [
+      hold.slot.vehicleId,
+    ]);
+  }
   const replay = await tx.query<{ disposition: string }>(
     `SELECT disposition FROM core.booking_payment_disposition WHERE operation_id = $1`,
     [operationId],

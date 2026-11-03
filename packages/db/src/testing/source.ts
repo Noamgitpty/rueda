@@ -107,6 +107,9 @@ export async function resolveAdminSource(env: BenchEnv = process.env): Promise<A
       .withDatabase('postgres')
       .withUsername('postgres')
       .withPassword(randomPassword())
+      // L0-02 (US-007) : 100 poses concurrentes, chacune sur sa connexion directe, pendant que
+      // les autres fichiers de test tournent ; le défaut de l'image (100) n'y suffit pas.
+      .withCommand(['postgres', '-c', 'max_connections=200'])
       .start();
     return {
       kind: 'testcontainers',

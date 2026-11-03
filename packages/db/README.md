@@ -28,7 +28,7 @@ Migrations actuelles :
 - `0012_outbox_tables` à `0015_outbox_monitoring` : outbox, reçus, lettres mortes, file de tâches, métriques (US-008, section « Outbox et file ») ; numérotation : `migrations/README.md` ;
 - `0016_audit_subject_key` à `0021_audit_grants` (US-009) : journal d'audit chaîné, clés par sujet, magasin de preuves (section « Audit… ») ;
 - `0022_security_definer_owners` à `0026_audit_owner_subject_key_scope` (US-011) : propriétaires NOLOGIN, clés étrangères AVL → IAM, contexte et fonctions de politique, lectures d'`app_api` par acteur et par pays, clés d'audit par sujet (section « RLS par acteur et par pays ») ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support).
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -147,6 +147,17 @@ Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colon
 
 `core.support_support_case` (0024) : sous-ensemble de 17 §3.2.13 (pays, trip, canal, catégorie dont `BREAK_GLASS` motivé, statut, `assignee_id`), écrit par la console (US-012). Clés d'audit (0026) : `app_api` n'accède qu'à la clé `USER` de la session et à la clé `ORG` du compte d'hôte de la session pour son titulaire. Limite RLS-18 et nom de travailleur déclaratif : ADR-053. Preuves : `test/l0/l0-rls-actors.test.ts` (RLS-1, 5, 6, 7 partiel, 8, 9, 12, 13, 18, 20, hôte contre hôte, pays contre pays, clés par sujet) et `test/l0/l0-rls-15-security-definer.test.ts` (RLS-15, RLS-16).
 
+## Preuves de concurrence L0-02 / L0-04 (US-007 ; 17 §2.5, §11 ; ADR-055)
+
+Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_idx`, `checkout_hold_guest_status_idx`) existent depuis 0004. Fichiers : `test/l0/l0-02-concurrency.test.ts`, `test/l0/l0-04-expiry-plan.test.ts`, aides `test/support/concurrency.ts`, fixtures `test-migrations/9002_test_l0_concurrency.sql`.
+
+- **Pose** : `test_fixture.l0_place_hold` tient lieu de `booking.cmd_place_hold` (US-023) : verrou du guest, verrou du véhicule (`p_vehicle_lock = false` = injection), instruction 2a (texte de 17), insertion de l'occupation puis du hold. Appelée sous `app_api`.
+- **Barrière** (`Barrier`) : le meneur tient un verrou consultatif exclusif ; chaque concurrent le demande en mode partagé ; quand `pg_locks` montre tous les concurrents en attente, le meneur relâche. Les entrelacements forcés sont prouvés par `waitUntilBlocked` (ligne non accordée de `pg_locks` pour le pid attendu).
+- **Reprise** (`withReplay`) : `40P01` / `40001` ⇒ transaction annulée puis rejouée, au plus 3 fois, attente aléatoire de 5 à 50 ms (17 §2.5). Chaque `40P01` est compté.
+- **C1** : 100 connexions `app_api` directes, sur l'horloge réelle. Le conteneur de CI démarre avec `max_connections = 200` ; un PostgreSQL natif plus petit réduit le degré à `max_connections − 30` (valeur consignée).
+- **Mesures** : lignes `[L0-02]` et `[L0-04]` du journal CI (40P01, rejeux, p50 / p95 / max, plan et temps d'exécution de 2a), à joindre au rapport L0 (US-027).
+- **L0-04** : 10 000 holds sur 1 000 véhicules par pays (`l0_seed_expiry_bench`, puis `ANALYZE`) ; plan `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` sous `app_worker` (`hold_expiry`), RLS comprise.
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                       | Attributs                                                                                                | Usage                                                                             |
@@ -162,7 +173,7 @@ Droits actuels : `USAGE` sur `platform` et `EXECUTE` sur `platform.now()` pour `
 ```bash
 pnpm test:unit   # sans base : correspondance des schémas, exécuteur (plan, sommes), masquage des secrets, SCRAM, source
 pnpm test:int    # PostgreSQL réel : banc, migrations, droits minimaux, transaction de test
-pnpm test:l0     # preuves L0-01, L0-03, L0-05 (partiel), L0-06, L0-08 sous les rôles de production
+pnpm test:l0     # preuves L0-01 à L0-06, L0-08 sous les rôles de production
 ```
 
 Variables (noms seulement, inventaire : `docs/ops/ENV_VARS.md`) :
