@@ -60,12 +60,14 @@ CREATE FUNCTION core.cfg_brand_contrast_valid(p_check jsonb)
   IMMUTABLE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT p_check IS NOT NULL
-     AND pg_catalog.jsonb_typeof(p_check) = 'object'
-     AND p_check -> 'passed' = 'true'::jsonb
-     AND pg_catalog.jsonb_typeof(p_check -> 'failures') = 'array'
-     AND pg_catalog.jsonb_array_length(p_check -> 'failures') = 0
-     AND pg_catalog.jsonb_typeof(p_check -> 'checker') = 'string'
+  -- jamais NULL : un NULL passerait un CHECK et ne serait pas « faux » pour un IF NOT (fail-closed)
+  SELECT COALESCE(
+           pg_catalog.jsonb_typeof(p_check) = 'object'
+           AND p_check -> 'passed' = 'true'::jsonb
+           AND pg_catalog.jsonb_typeof(p_check -> 'failures') = 'array'
+           AND pg_catalog.jsonb_array_length(p_check -> 'failures') = 0
+           AND pg_catalog.jsonb_typeof(p_check -> 'checker') = 'string',
+           false)
 $fn$;
 
 -- Markdown restreint d'un bloc (17 §3.2.13) : aucune balise HTML (donc aucun script), aucune URL
@@ -78,15 +80,16 @@ CREATE FUNCTION core.cfg_brand_body_allowed(p_body text)
   IMMUTABLE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT p_body IS NOT NULL
-     AND pg_catalog.char_length(pg_catalog.btrim(p_body)) BETWEEN 1 AND 20000
-     AND p_body !~ '<[A-Za-z!/?]'
-     AND p_body !~* '[a-z][a-z0-9+.-]*:[/\\]'
-     AND p_body !~* '(^|[^a-z0-9])www\.'
-     AND p_body !~ '\]\(\s*(//|[^/#\s)])'
-     AND p_body !~ '\]\s*\[[^\]]*\]'
-     AND p_body !~ '^\s*\[[^\]]+\]:'
-     AND p_body !~ '\n\s*\[[^\]]+\]:'
+  SELECT COALESCE(
+           pg_catalog.char_length(pg_catalog.btrim(p_body)) BETWEEN 1 AND 20000
+           AND p_body !~ '<[A-Za-z!/?]'
+           AND p_body !~* '[a-z][a-z0-9+.-]*:[/\\]'
+           AND p_body !~* '(^|[^a-z0-9])www\.'
+           AND p_body !~ '\]\(\s*(//|[^/#\s)])'
+           AND p_body !~ '\]\s*\[[^\]]*\]'
+           AND p_body !~ '^\s*\[[^\]]+\]:'
+           AND p_body !~ '\n\s*\[[^\]]+\]:',
+           false)
 $fn$;
 REVOKE ALL ON FUNCTION core.cfg_brand_contrast_valid(jsonb), core.cfg_brand_body_allowed(text)
   FROM PUBLIC;
