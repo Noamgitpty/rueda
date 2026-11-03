@@ -36,6 +36,10 @@
 2. **Budget mesuré**, qui remplace la constante : au départ de chaque course, `max_connections − superuser_reserved_connections − reserved_connections − sessions de pg_stat_activity − 5`, plafonné à 100. Le résultat est consigné (`[L0-02] budget de connexions`). Les sessions dont `app_api` ne voit pas le type sont comptées, ce qui reste prudent.
 3. **Échec immédiat** : les connexions des poses sont ouvertes par `connectMany`, avec `Promise.allSettled`. Au premier refus, toutes les connexions ouvertes sont fermées et le test échoue en quelques secondes, avec le SQLSTATE. La cascade disparaît.
 
+**Constat complémentaire (PR #51, run 41649044052, passage 4).** Même avec L0-02 isolé et 190 créneaux libres, la course « C1 sans verrou PY » est restée bloquée jusqu'au délai de 240 s. Le même motif apparaît dans un échec antérieur (run 41640254708). Le refus `53300` en était une **conséquence** : les 101 connexions de la course bloquée restaient ouvertes. Une quatrième mesure a donc été ajoutée :
+
+4. **Course bornée** : chaque connexion de pose reçoit `statement_timeout = 60 s`. Une pose bloquée finit en `57014` bien avant `LONG`, le `finally` ferme toujours les connexions, et le test échoue avec une issue explicite au lieu d'une cascade. À 30 s, l'état des sessions encore actives est consigné (`[L0-02] course bloquée` : `wait_event`, verrous non accordés, `pg_blocking_pids`). La cause du blocage reste **à établir** à partir de ce diagnostic, et un blocage réel n'est jamais masqué : aucun rejeu automatique de la course.
+
 **Écartés.** Relever `max_connections` (300 ou plus) ne fait que reculer le seuil : chaque nouveau fichier L0 consomme de la marge. Une seconde invocation de vitest, ou un séquencement dans turbo, démarrerait un second conteneur et un second banc, et un échec du premier lot masquerait L0-02 (`&&`). Exécuter tous les fichiers L0 en série allongerait la CI sans bénéfice. La preuve n'est pas affaiblie : le degré exigé en CI reste exactement 100, et le banc reste à 200 connexions.
 
 ## Conséquences
