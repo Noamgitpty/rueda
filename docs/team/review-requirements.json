@@ -11,6 +11,25 @@
       "paths": ["packages/db/"],
       "require": ["architecture"],
       "why": "schémas, migrations, liste blanche de l'horloge SQL"
+    },
+    {
+      "paths": ["docs/specs/", "CLAUDE.md"],
+      "require": ["architecture"],
+      "why": "spécification qui fait foi et consignes de tout agent : toute révision passe par une revue d architecture (DEC-FONDATEUR-15)"
+    },
+    {
+      "paths": [
+        "docs/specs/08_BUSINESS_RULES.md",
+        "docs/specs/17_DATA_MODEL_AND_ARCHITECTURE.md",
+        "docs/specs/tools/"
+      ],
+      "require": ["argent"],
+      "why": "règles d argent, grands livres et oracles : revue argent sur un autre modèle (contrainte 1)"
+    },
+    {
+      "paths": ["docs/specs/17_DATA_MODEL_AND_ARCHITECTURE.md", "CLAUDE.md"],
+      "require": ["securite"],
+      "why": "RLS, rôles et consignes de tout agent : revue sécurité (contrainte 1)"
     }
   ],
   "stories": {
@@ -39,6 +58,38 @@
     },
     "US-050": {
       "require": ["code", "securite"]
+    },
+    "US-053": {
+      "require": ["code", "architecture"],
+      "why": "S1 : révision P2P de docs/specs/22 (décisions, OQ-P2P)"
+    },
+    "US-054": {
+      "require": ["code", "architecture", "qa"],
+      "why": "S2 : révision P2P de 18, 04, 21 (périmètre)"
+    },
+    "US-055": {
+      "require": ["code", "argent", "qa"],
+      "why": "S3 : révision P2P de 08 (règles d argent, vecteurs par jambe)"
+    },
+    "US-056": {
+      "require": ["code", "architecture", "securite", "argent"],
+      "why": "S4 : révision P2P de 17 (architecture, RLS, grands livres)"
+    },
+    "US-057": {
+      "require": ["code", "architecture", "qa", "ux"],
+      "why": "S5 : révision P2P de 16 (exigences produit)"
+    },
+    "US-058": {
+      "require": ["code", "architecture"],
+      "why": "S6 : révision P2P de 19 (backlog)"
+    },
+    "US-059": {
+      "require": ["code", "ux"],
+      "why": "S7 : révision P2P de 10b (UX)"
+    },
+    "US-060": {
+      "require": ["code", "architecture", "securite"],
+      "why": "S8 : révision P2P du handoff et de CLAUDE.md"
     }
   },
   "pathOwners": {
