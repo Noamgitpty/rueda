@@ -37,7 +37,11 @@ import type { RecipientDirectory } from './recipient-directory.port.js';
 import type { StoredVariable } from './render.js';
 import { renderedHash, renderTemplate, TemplateRenderError } from './render.js';
 
-/** 17 §2.13 : 3 réessais au plus (contrainte `attempts BETWEEN 0 AND 3` de 0029). */
+/**
+ * 3 **tentatives** au plus par envoi (1 envoi + 2 réessais ; contrainte `attempts BETWEEN 0 AND 3`
+ * de 0029). 17 §2.13 écrit « 3 réessais » : lu comme 3 tentatives, défaut fail-closed PROPOSÉ
+ * (ADR-061), écart à reporter dans 17 §2.13.
+ */
 export const MAX_SEND_ATTEMPTS = 3;
 /** Base de l'attente entre deux tentatives, en secondes (× 2^(n−1)). PROPOSÉ : 60 (ADR-061). */
 export const RETRY_BASE_SECONDS = 60;
@@ -97,6 +101,21 @@ const UPDATE_DISPATCH = `
      SET status = $2::text, attempts = $3::smallint, locale = $4::text,
          provider_message_id = $5::text, rendered_hash = $6::bytea, last_error = $7::text
    WHERE id = $1::uuid`;
+
+const SELECT_EXISTING = `
+  SELECT id::text AS id FROM core.ntf_notification_dispatch
+   WHERE event_id = $1::uuid AND recipient_user_id = $2::uuid AND channel = $3::text`;
+
+async function existingDispatchId(tx: SqlClient, d: NewDispatch): Promise<string> {
+  const { rows } = await tx.query<{ id: string }>(SELECT_EXISTING, [
+    d.eventId,
+    d.recipientUserId,
+    d.channel,
+  ]);
+  const id = rows[0]?.id;
+  if (id === undefined) throw new Error('ntf_sender : envoi de repli introuvable');
+  return id;
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -241,8 +260,9 @@ export class NotificationSender {
         variables: row.variables,
         fallbackOf: row.id,
       };
-      // déjà présent (canal doublé) : aucun second envoi, unicité (événement, destinataire, canal)
-      fallbackId = await createDispatch(tx, next);
+      // déjà présent (canal doublé) : aucun second envoi, unicité (événement, destinataire, canal) ;
+      // l'événement nomme alors l'envoi existant (jamais `null` quand FALLBACK_TRIGGERED)
+      fallbackId = (await createDispatch(tx, next)) ?? (await existingDispatchId(tx, next));
     }
     await publishEvent(tx, {
       type: fallback === null ? 'notification.dispatch.failed' : 'notification.fallback.triggered',

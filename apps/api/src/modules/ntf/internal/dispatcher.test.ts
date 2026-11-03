@@ -70,23 +70,37 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
     expect(plan.map((p) => p.channel)).toEqual(['SMS', 'SMS']);
   });
 
-  it('versement : montant en unités mineures (chaîne) et devise, sans conversion', () => {
-    const payload = { host_user_id: host, net_minor: c.amountMinor, currency: c.currency };
-    const sent = planDispatches(
-      event('payout.batch.status_changed', { ...payload, to: 'INITIATED' }, c.country),
-    );
-    const held = planDispatches(
-      event('payout.batch.status_changed', { ...payload, to: 'ON_HOLD' }, c.country),
-    );
-    const other = planDispatches(
-      event('payout.batch.status_changed', { ...payload, to: 'NETTING' }, c.country),
-    );
-    expect(sent.map((p) => p.template)).toEqual(['EVT_PAYOUT_SENT']);
-    expect(held.map((p) => p.template)).toEqual(['EVT_PAYOUT_ON_HOLD']);
-    expect(other).toEqual([]);
-    expect(sent[0]?.variables).toEqual({
+  it('versement : charge utile conforme à 17 §4.5 (`batch_id`, `status`, `net_minor`) + extensions NTF', () => {
+    // 17 §4.5 : `batch_id`, `status`, `net_minor` ; extensions NTF (ADR-061) : `host_user_id`
+    // (titulaire du compte d'hôte, dérivé de `org_id` par PYO) et `currency`
+    const payload = {
+      batch_id: randomUUID(),
+      net_minor: c.amountMinor,
+      host_user_id: host,
+      currency: c.currency,
+    };
+    const plan = (status: string) =>
+      planDispatches(event('payout.batch.status_changed', { ...payload, status }, c.country));
+    expect(plan('INITIATED').map((p) => p.template)).toEqual(['EVT_PAYOUT_SENT']);
+    expect(plan('ON_HOLD').map((p) => p.template)).toEqual(['EVT_PAYOUT_ON_HOLD']);
+    expect(plan('NETTING')).toEqual([]);
+    expect(plan('INITIATED')[0]?.variables).toEqual({
       amount: { amount_minor: c.amountMinor, currency: c.currency },
     });
+  });
+
+  it('champ de statut absent (ex. `to` au lieu de `status`) : erreur de contrat, jamais ignoré en silence', () => {
+    const base = { host_user_id: host, net_minor: c.amountMinor, currency: c.currency };
+    for (const payload of [{ ...base, to: 'INITIATED' }, base, { ...base, status: 1 }]) {
+      expect(() =>
+        planDispatches(event('payout.batch.status_changed', payload, c.country)),
+      ).toThrow(NotificationContractError);
+    }
+    for (const type of ['trip.status_changed', 'kyc.verification.status_changed']) {
+      expect(() =>
+        planDispatches(event(type, { user_id: guest, guest_user_id: guest, status: 'X' }, null)),
+      ).toThrow(NotificationContractError);
+    }
   });
 
   it('annulation : seulement vers un statut CANCELLED_* ; KYC : seulement APPROVED', () => {
@@ -141,7 +155,7 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
       planDispatches(
         event(
           'payout.batch.status_changed',
-          { host_user_id: host, to: 'INITIATED', net_minor: '1.5', currency: c.currency },
+          { host_user_id: host, status: 'INITIATED', net_minor: '1.5', currency: c.currency },
           c.country,
         ),
       ),

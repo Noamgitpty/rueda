@@ -9,7 +9,8 @@
 -- travailleur nommé `ntf_sender` ; tout autre appelant reçoit zéro ligne (fail-closed).
 --
 -- Famille iam_auth (propriétaire NOLOGIN `iam_auth_owner`, qui lit déjà core.iam_user_account
--- par 0022) : aucun droit de table de plus. Liste blanche RLS-15 : security-definer-allowlist.json.
+-- par 0022) : un seul droit de plus, la lecture de deux colonnes des envois QUEUED (ci-dessous). Liste
+-- blanche RLS-15 : security-definer-allowlist.json.
 -- Le contexte est lu par current_setting (le propriétaire n'a pas de droit sur le schéma app) avec
 -- le même format que app.actor_kind() / app.worker_name() (0002).
 --
@@ -17,9 +18,19 @@
 --   - le numéro n'est rendu que s'il est vérifié (phone_verified_at), sinon NULL ;
 --   - l'adresse n'est rendue que si elle est vérifiée (email_verified_at), sinon NULL ;
 --   - compte CLOSED, BANNED ou pseudonymisé : zéro ligne (rien à envoyer) ;
+--   - seulement si un envoi `QUEUED` existe pour ce destinataire (revue sécurité US-021,
+--     constat 1) : un nom de travailleur forgé ne lit pas les coordonnées d'un compte quelconque ;
+--     iam_auth_owner lit pour cela deux colonnes de notification_dispatch, envois QUEUED seulement ;
 --   - ni nom de famille, ni date de naissance, ni pièce.
 --
 -- Retour arrière : DROP FUNCTION core.iam_notification_contact(uuid);
+--   DROP POLICY iam_auth_select_queued ON core.ntf_notification_dispatch;
+--   REVOKE ALL ON core.ntf_notification_dispatch FROM iam_auth_owner;
+
+-- Lecture minimale de notification_dispatch par le propriétaire de la fonction (EXISTS ci-dessous).
+GRANT SELECT (recipient_user_id, status) ON core.ntf_notification_dispatch TO iam_auth_owner;
+CREATE POLICY iam_auth_select_queued ON core.ntf_notification_dispatch FOR SELECT TO iam_auth_owner
+  USING (status = 'QUEUED');
 
 CREATE FUNCTION core.iam_notification_contact(p_user_id uuid)
   RETURNS TABLE (email text, phone_e164 text, preferred_locale text, first_name text)
@@ -38,6 +49,8 @@ AS $fn$
      AND u.pseudonymized_at IS NULL
      AND NULLIF(pg_catalog.current_setting('app.actor_kind', true), '') = 'WORKER'
      AND NULLIF(pg_catalog.current_setting('app.worker_name', true), '') = 'ntf_sender'
+     AND EXISTS (SELECT 1 FROM core.ntf_notification_dispatch AS d
+                  WHERE d.recipient_user_id = u.id AND d.status = 'QUEUED')
 $fn$;
 
 COMMENT ON FUNCTION core.iam_notification_contact(uuid) IS

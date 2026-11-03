@@ -142,6 +142,12 @@ export class MemoryDb implements SqlClient {
       const row = this.dispatches.find((d) => d.id === p[0] && d.status === 'QUEUED');
       return result(row ? [{ ...row }] : []);
     }
+    if (sql.startsWith('SELECT id::text AS id FROM core.ntf_notification_dispatch')) {
+      const row = this.dispatches.find(
+        (d) => d.event_id === p[0] && d.recipient_user_id === p[1] && d.channel === p[2],
+      );
+      return result(row ? [{ id: row.id }] : []);
+    }
     if (sql.startsWith('UPDATE core.ntf_notification_dispatch')) {
       const row = this.dispatches.find((d) => d.id === p[0]);
       if (!row || row.status !== 'QUEUED') return result([]);

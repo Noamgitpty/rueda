@@ -80,7 +80,13 @@ export function planDispatches(
   const payload = event.payload as Readonly<Record<string, unknown>>;
   const out: PlannedDispatch[] = [];
   for (const rule of rules) {
-    if (rule.eventType !== event.type || (rule.when && !rule.when(payload))) continue;
+    if (rule.eventType !== event.type) continue;
+    if (rule.condition !== undefined) {
+      const value = payload[rule.condition.field];
+      // champ de statut absent : contrat violé, lettre morte et alerte (jamais d'oubli silencieux)
+      if (typeof value !== 'string' || value === '') contract(event, rule.condition.field);
+      if (!rule.condition.matches(value)) continue;
+    }
     const template = TEMPLATES[rule.template];
     const variables = payloadVariables(template, event);
     for (const recipient of rule.recipients) {

@@ -61,8 +61,17 @@ export interface RecipientSpec {
 export interface RuleSpec {
   readonly eventType: string;
   readonly template: TemplateKey;
-  /** Condition sur la charge utile (ex. statut d'arrivée) ; absente : toujours. */
-  readonly when?: (payload: Readonly<Record<string, unknown>>) => boolean;
+  /**
+   * Condition sur un champ de statut de la charge utile, nommé comme dans 17 §4.5 (`to` pour
+   * `kyc.verification.status_changed` et `trip.status_changed`, `status` pour
+   * `payout.batch.status_changed`). Champ absent ou non textuel ⇒ erreur de contrat (lettre
+   * morte et alerte), **jamais** un événement ignoré en silence (revue architecture US-021,
+   * constat 1). Absente : la règle s'applique toujours.
+   */
+  readonly condition?: {
+    readonly field: string;
+    readonly matches: (value: string) => boolean;
+  };
   readonly recipients: readonly RecipientSpec[];
 }
 
@@ -145,17 +154,17 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
 const HOST: RecipientSpec = { role: 'HOST', field: 'host_user_id' };
-const toIs =
-  (status: string) =>
-  (payload: Readonly<Record<string, unknown>>): boolean =>
-    payload['to'] === status;
+const fieldIs = (field: string, value: string): NonNullable<RuleSpec['condition']> => ({
+  field,
+  matches: (v) => v === value,
+});
 
 /** Règles de la bêta (16 NTF-001, catalogue réduit) ; événements et statuts : 17 §4.5, 08 SM-1/SM-3/SM-6. */
 export const RULES: readonly RuleSpec[] = [
   {
     eventType: 'kyc.verification.status_changed',
     template: 'EVT_KYC_APPROVED',
-    when: toIs('APPROVED'),
+    condition: fieldIs('to', 'APPROVED'),
     recipients: [{ role: 'GUEST', field: 'user_id' }],
   },
   {
@@ -166,20 +175,20 @@ export const RULES: readonly RuleSpec[] = [
   {
     eventType: 'trip.status_changed',
     template: 'EVT_BOOKING_CANCELLED',
-    when: (payload) => typeof payload['to'] === 'string' && payload['to'].startsWith('CANCELLED_'),
+    condition: { field: 'to', matches: (v) => v.startsWith('CANCELLED_') },
     recipients: [GUEST, HOST],
   },
   { eventType: 'trip.overdue.detected', template: 'EVT_TRIP_OVERDUE', recipients: [GUEST, HOST] },
   {
     eventType: 'payout.batch.status_changed',
     template: 'EVT_PAYOUT_SENT',
-    when: toIs('INITIATED'),
+    condition: fieldIs('status', 'INITIATED'),
     recipients: [HOST],
   },
   {
     eventType: 'payout.batch.status_changed',
     template: 'EVT_PAYOUT_ON_HOLD',
-    when: toIs('ON_HOLD'),
+    condition: fieldIs('status', 'ON_HOLD'),
     recipients: [HOST],
   },
 ];

@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { formatDateTime, getProfile } from '@rueda/i18n';
-import { dispatchEvent } from './dispatcher.js';
+import { createDispatch, dispatchEvent } from './dispatcher.js';
 import type { MemoryDb as MemoryDbType } from './ntf.test-support.js';
 import {
   COUNTRY_CASES,
@@ -240,6 +240,58 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
     ]);
     expect([...h.email.sent(), ...h.sms.sent()]).toEqual([]);
     expect(db.events).toEqual([]);
+  });
+
+  it('garde : un repli ne se replie pas (SMS de repli refusé ⇒ FAILED, aucun nouvel e-mail)', async () => {
+    const { h, db, sender, guest } = setup();
+    h.email.block('guest@example.test');
+    h.sms.block('+15550000001');
+    await dispatchEvent(
+      event('kyc.verification.status_changed', { user_id: guest, to: 'APPROVED' }, c.country),
+      db,
+    );
+    await drain(db, sender);
+    expect(
+      db.dispatches.map((d) => [d.channel, d.status, d.last_error, d.fallback_of !== null]),
+    ).toEqual([
+      ['EMAIL', 'FALLBACK_TRIGGERED', 'REFUSED_BLOCKED', false],
+      ['SMS', 'FAILED', 'REFUSED_BLOCKED', true],
+    ]);
+    expect(db.events.map((e) => e.type)).toEqual([
+      'notification.fallback.triggered',
+      'notification.dispatch.failed',
+    ]);
+    expect(db.events[1]?.payload).toMatchObject({ channel: 'SMS', fallback_channel: null });
+  });
+
+  it('repli vers un envoi déjà existant (canal doublé) : fallback_dispatch_id le nomme, aucun doublon', async () => {
+    const { h, db, sender, guest } = setup();
+    const kyc = event(
+      'kyc.verification.status_changed',
+      { user_id: guest, to: 'APPROVED' },
+      c.country,
+    );
+    await dispatchEvent(kyc, db);
+    // envoi SMS déjà présent pour le même (événement, destinataire)
+    const smsId = await createDispatch(db, {
+      eventId: kyc.eventId,
+      eventType: kyc.type,
+      countryCode: kyc.countryCode,
+      correlationId: kyc.correlationId,
+      recipientUserId: guest,
+      recipientRole: 'GUEST',
+      channel: 'SMS',
+      template: 'EVT_KYC_APPROVED',
+      variables: {},
+      fallbackOf: null,
+    });
+    h.email.block('guest@example.test');
+    await drain(db, sender);
+    expect(db.dispatches.filter((d) => d.channel === 'SMS')).toHaveLength(1);
+    const fallback = db.events.find((e) => e.type === 'notification.fallback.triggered');
+    expect(fallback?.payload['fallback_dispatch_id']).toBe(smsId);
+    expect(smsId).not.toBeNull();
+    expect(h.sms.sent()).toHaveLength(1);
   });
 
   it('journaux : identifiants et codes seulement — ni adresse, ni numéro, ni prénom, ni texte', async () => {

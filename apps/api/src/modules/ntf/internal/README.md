@@ -13,7 +13,7 @@ Le `README.md` du module reste la ligne unique imposée par `dependency-graph.te
   └─ ntf_sender (minuterie, une tâche par tentative)
        coordonnées (port RecipientDirectory ← IAM, core.iam_notification_contact)
        langue du destinataire → rendu (@rueda/i18n, es / en / fr) → MessagingChannel.send
-       OK ⇒ SENT · UNAVAILABLE / TIMEOUT ⇒ réessai (≤ 3) · échec définitif ⇒ repli
+       OK ⇒ SENT · UNAVAILABLE / TIMEOUT ⇒ nouvelle tentative (≤ 3 tentatives) · échec définitif ⇒ repli
        repli ⇒ nouvel envoi sur le canal de repli + notification.fallback.triggered (critère 3)
        sans repli ⇒ FAILED + notification.dispatch.failed
 ```
@@ -37,21 +37,35 @@ Le `README.md` du module reste la ligne unique imposée par `dependency-graph.te
 
 ## Contrat de charge utile (PROPOSÉ, à reporter dans 17 §4.5)
 
-| Événement                                              | Champs lus                                                                     |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `kyc.verification.status_changed` (`to = APPROVED`)    | `user_id`                                                                      |
-| `booking.trip.booked`                                  | `trip_id`, `guest_user_id`, `host_user_id`, `scheduled_start`, `scheduled_end` |
-| `trip.status_changed` (`to = CANCELLED_*`)             | `trip_id`, `guest_user_id`, `host_user_id`                                     |
-| `trip.overdue.detected`                                | `trip_id`, `guest_user_id`, `host_user_id`, `scheduled_end`                    |
-| `payout.batch.status_changed` (`INITIATED`, `ON_HOLD`) | `host_user_id`, `net_minor` (chaîne), `currency`                               |
+**Tous** les champs lus par NTF. Colonne « 17 §4.5 » : champs que 17 donne déjà ; colonne « Extensions NTF » : champs que le producteur doit ajouter (ADR-061 point 9).
 
-Champ absent ou mal formé ⇒ `NotificationContractError` : la tâche échoue, est réessayée, puis part en lettre morte avec alerte (17 §4.2). Aucun envoi partiel.
+| Événement                         | Champ de statut et valeurs déclenchantes              | Champs de 17 §4.5 lus                         | Extensions NTF (à reporter)                                 |
+| --------------------------------- | ----------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| `kyc.verification.status_changed` | `to` = `APPROVED`                                     | `user_id`, `to`                               | —                                                           |
+| `booking.trip.booked`             | —                                                     | `trip_id`, `scheduled_start`, `scheduled_end` | `guest_user_id`, `host_user_id`                             |
+| `trip.status_changed`             | `to` commençant par `CANCELLED_`                      | `trip_id`, `to`                               | `guest_user_id`, `host_user_id`                             |
+| `trip.overdue.detected`           | —                                                     | `trip_id`                                     | `guest_user_id`, `host_user_id`, `scheduled_end`            |
+| `payout.batch.status_changed`     | `status` = `INITIATED` (envoyé) ou `ON_HOLD` (retenu) | `status`, `net_minor` (chaîne)                | `host_user_id` (**dérivé de `org_id`** par PYO), `currency` |
+
+- Les noms des champs de statut sont ceux de 17 §4.5 (`to` pour KYC et trip, `status` pour les lots de versement). Un événement d'un type abonné **sans** son champ de statut (ou avec un autre nom) est une erreur de contrat, jamais un événement ignoré en silence (revue architecture US-021, constat 1).
+- `host_user_id` : un `payout_batch` et un trip appartiennent à un compte d'hôte (`org_id`, 17 §3.2). NTF ne lit pas IAM (17 §2.2) : le producteur ajoute l'identifiant du titulaire du compte d'hôte (une personne physique, `organization.holder_user_id`). Écart à reporter dans 17 §4.5 ; alternative : un port `RecipientDirectory.holderOf(org_id)` fourni par IAM.
+- `currency` : ajoutée à `payout.batch.status_changed` (absente de 17), nécessaire à l'affichage du montant.
+
+Champ absent ou mal formé ⇒ `NotificationContractError` : la tâche échoue, est réessayée, puis part en lettre morte avec **alerte** (`Alerter` du module BUS, 17 §4.2). Aucun envoi partiel. Une valeur de statut non déclenchante (ex. `NETTING`) est ignorée normalement.
+
+## Charge utile des événements `notification.*`
+
+`dispatch_id`, `channel`, `fallback_channel` (`null` si aucun repli), `fallback_dispatch_id` (identifiant de l'envoi de repli, créé ou **déjà existant** si le canal était doublé ; jamais `null` quand l'envoi d'origine est `FALLBACK_TRIGGERED`), `reason` (code court) ; `causation_id` = événement d'origine.
+
+## Tentatives
+
+3 **tentatives** au plus par envoi (un envoi et deux réessais), contrainte `attempts BETWEEN 0 AND 3`. 17 §2.13 écrit « 3 réessais » : lu comme 3 tentatives (défaut fail-closed PROPOSÉ, ADR-061), écart à reporter.
 
 ## Données personnelles
 
 - `notification_dispatch` ne contient ni adresse, ni numéro, ni prénom, ni texte : seulement des identifiants, des variables non sensibles, l'empreinte SHA-256 du texte rendu et un code d'erreur court (contrainte `^[A-Z][A-Z0-9_]{0,63}$`).
 - Journaux (`NtfLogEntry`) : `dispatch_id`, canal, gabarit, issue, tentatives, code. Test : `sender.test.ts` (« journaux »).
-- Coordonnées : `core.iam_notification_contact` (0030), zéro ligne hors du travailleur `ntf_sender` ; numéro et adresse rendus seulement s'ils sont vérifiés.
+- Coordonnées : `core.iam_notification_contact` (0030), zéro ligne hors du travailleur `ntf_sender` (`actor_kind` = WORKER) ou sans envoi `QUEUED` pour ce destinataire ; numéro et adresse rendus seulement s'ils sont vérifiés.
 
 ## Tests
 

@@ -8,7 +8,9 @@
  *   d'erreur court seulement ; un envoi terminal ne bouge plus.
  * - `core.iam_notification_contact` : SECURITY DEFINER, EXECUTE au seul app_worker, zéro ligne
  *   hors du travailleur `ntf_sender` ; numéro et adresse rendus seulement s'ils sont vérifiés ;
- *   compte fermé ⇒ zéro ligne.
+ *   compte fermé ⇒ zéro ligne ; aucun envoi QUEUED pour ce destinataire ⇒ zéro ligne ;
+ *   `actor_kind` autre que WORKER ⇒ zéro ligne.
+ * - lecture d'app_worker bornée par colonnes (ni created_at, ni updated_at, ni row_version).
  *
  * Les attentes viennent de 17 §2.13, §3.2.12 et §3.1.4 (C2), jamais du code testé.
  */
@@ -174,6 +176,28 @@ describe.each(EVENT_COUNTRIES)('L0 NTF — $country ($currency)', (c) => {
     });
   });
 
+  it('lecture par colonnes : les colonnes d’audit ne sont pas lisibles par app_worker', async () => {
+    await withRole('app_worker', async (worker) => {
+      await asWorker(worker, 'ntf_sender', async (tx) => {
+        for (const col of ['created_at', 'updated_at', 'row_version']) {
+          await tx.query('SAVEPOINT s');
+          expect(
+            await failure(tx.query(`SELECT ${col} FROM core.ntf_notification_dispatch LIMIT 1`)),
+            col,
+          ).toBe('42501');
+          await tx.query('ROLLBACK TO SAVEPOINT s');
+        }
+        expect(
+          (
+            await tx.query(
+              'SELECT id, status, recipient_user_id FROM core.ntf_notification_dispatch LIMIT 1',
+            )
+          ).rowCount,
+        ).toBeGreaterThanOrEqual(0);
+      });
+    });
+  });
+
   it('avancement par ntf_sender : 3 tentatives au plus, code court, SENT avec preuve, terminal figé', async () => {
     const user = await account(null);
     await withRole('app_worker', async (worker) => {
@@ -219,11 +243,25 @@ describe.each(EVENT_COUNTRIES)('L0 NTF — $country ($currency)', (c) => {
     });
   });
 
-  it('coordonnées : zéro ligne hors de ntf_sender ; numéro et adresse seulement vérifiés ; compte fermé ⇒ rien', async () => {
+  it('coordonnées : zéro ligne hors de ntf_sender (WORKER) ou sans envoi QUEUED ; numéro et adresse seulement vérifiés ; compte fermé ⇒ rien', async () => {
     const verifiedPhone = phone();
     const verified = await account({ e164: verifiedPhone, verified: true });
     const unverified = await account({ e164: phone(), verified: false });
     const unconfirmed = await withRole('app_api', async (api) => (await register(api)).userId);
+    const noDispatch = await account({ e164: phone(), verified: true });
+    // un envoi QUEUED par destinataire, sauf `noDispatch` (revue sécurité US-021, constat 1)
+    await withRole('app_worker', async (worker) => {
+      await asWorker(
+        worker,
+        'ntf_dispatcher',
+        async (tx) => {
+          for (const id of [verified, unverified, unconfirmed]) {
+            await tx.query(INSERT, [uuid(), c.country, uuid(), id, 'EMAIL']);
+          }
+        },
+        true,
+      );
+    });
     await withRole('app_worker', async (worker) => {
       const contact = (tx: pg.ClientBase, id: string) =>
         tx
@@ -240,6 +278,14 @@ describe.each(EVENT_COUNTRIES)('L0 NTF — $country ($currency)', (c) => {
       await withTestTransaction(worker, {}, async (tx) => {
         expect(await contact(tx, verified)).toEqual([]); // contexte absent
       });
+      // actor_kind ≠ WORKER avec le nom ntf_sender : refusé (clause actor_kind isolée)
+      await withTestTransaction(worker, {}, async (tx) => {
+        await tx.query(
+          `SELECT pg_catalog.set_config('app.actor_kind', 'GUEST', true),
+                  pg_catalog.set_config('app.worker_name', 'ntf_sender', true)`,
+        );
+        expect(await contact(tx, verified)).toEqual([]);
+      });
       await asWorker(worker, 'ntf_sender', async (tx) => {
         const [v] = await contact(tx, verified);
         expect(v?.email).toMatch(/@example\.test$/);
@@ -253,6 +299,8 @@ describe.each(EVENT_COUNTRIES)('L0 NTF — $country ($currency)', (c) => {
         // compte PENDING_EMAIL : zéro ligne
         expect(await contact(tx, unconfirmed)).toEqual([]);
         expect(await contact(tx, uuid())).toEqual([]);
+        // compte actif et vérifié, mais aucun envoi QUEUED pour lui : zéro ligne
+        expect(await contact(tx, noDispatch)).toEqual([]);
       });
     });
     await withRole('app_api', async (api) => {

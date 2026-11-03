@@ -91,7 +91,11 @@ CREATE POLICY migrator_all ON core.ntf_notification_dispatch TO migrator USING (
 GRANT INSERT (event_id, event_type, country_code, correlation_id, recipient_user_id, recipient_role,
               channel, template_key, template_version, variables, fallback_of)
   ON core.ntf_notification_dispatch TO app_worker;
-GRANT SELECT ON core.ntf_notification_dispatch TO app_worker;
+-- lecture bornée par colonnes (revue sécurité US-021) : ni created_at, ni updated_at, ni row_version
+GRANT SELECT (id, event_id, event_type, country_code, correlation_id, recipient_user_id,
+              recipient_role, channel, template_key, template_version, variables, status, attempts,
+              locale, provider_message_id, rendered_hash, last_error, fallback_of)
+  ON core.ntf_notification_dispatch TO app_worker;
 GRANT UPDATE (status, attempts, locale, provider_message_id, rendered_hash, last_error)
   ON core.ntf_notification_dispatch TO app_worker;
 
