@@ -1,0 +1,210 @@
+{
+  "pans": [
+    {
+      "text": "4111111111111111",
+      "note": "Visa 16"
+    },
+    {
+      "text": "4111 1111 1111 1111",
+      "note": "Visa 4-4-4-4 espaces"
+    },
+    {
+      "text": "4111-1111-1111-1111",
+      "note": "Visa 4-4-4-4 tirets"
+    },
+    {
+      "text": "4222222222222",
+      "note": "Visa 13"
+    },
+    {
+      "text": "4012888888881881",
+      "note": "Visa 16"
+    },
+    {
+      "text": "4500000000000000005",
+      "note": "Visa 19"
+    },
+    {
+      "text": "5555555555554444",
+      "note": "Mastercard"
+    },
+    {
+      "text": "5555 5555 5555 4444",
+      "note": "Mastercard 4-4-4-4"
+    },
+    {
+      "text": "5105-1051-0510-5100",
+      "note": "Mastercard 4-4-4-4 tirets"
+    },
+    {
+      "text": "2223003122003222",
+      "note": "Mastercard série 2"
+    },
+    {
+      "text": "378282246310005",
+      "note": "Amex"
+    },
+    {
+      "text": "3782 822463 10005",
+      "note": "Amex 4-6-5"
+    },
+    {
+      "text": "3714-496353-98431",
+      "note": "Amex 4-6-5 tirets"
+    },
+    {
+      "text": "30569309025904",
+      "note": "Diners 14"
+    },
+    {
+      "text": "3056 930902 5904",
+      "note": "Diners 4-6-4"
+    },
+    {
+      "text": "6011111111111117",
+      "note": "Discover"
+    },
+    {
+      "text": "3530111333300000",
+      "note": "JCB"
+    },
+    {
+      "text": "6200000000000005",
+      "note": "UnionPay 16"
+    },
+    {
+      "text": "6200000000000000000",
+      "note": "UnionPay 19"
+    },
+    {
+      "text": "carte 4111111111111111 fin",
+      "note": "dans du texte"
+    },
+    {
+      "text": "card4111111111111111",
+      "note": "collé à des lettres"
+    },
+    {
+      "text": "evt-b6e0d932-76ed-4c01-8373-52880805f175 4111111111111111",
+      "note": "après un evt-<uuid>"
+    },
+    {
+      "text": "2031 4111 1111 1111 1111",
+      "note": "au milieu d'une suite plus longue"
+    },
+    {
+      "text": "{\"x-debug\": \"4111111111111111\"}",
+      "note": "dans du JSON"
+    },
+    {
+      "text": "41111111 11111111",
+      "note": "repli : groupage 8-8"
+    },
+    {
+      "text": "411111 111111 1111",
+      "note": "repli : groupage 6-6-4"
+    },
+    {
+      "text": "411 111 111 111 1111",
+      "note": "repli : groupage 3-3-3-3-4"
+    },
+    {
+      "text": "41-11111111-11116",
+      "note": "repli : groupage 2-8-5"
+    },
+    {
+      "text": "0004111111111111111",
+      "note": "repli : 19 chiffres complétés par des zéros"
+    },
+    {
+      "text": "7111111111111114",
+      "note": "repli : préfixe 7"
+    },
+    {
+      "text": "2200000000000004",
+      "note": "repli : Mir 2200"
+    },
+    {
+      "text": "30950000000000",
+      "note": "repli : Diners 3095"
+    },
+    {
+      "text": "4111111111111111aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "note": "bord arrière de l'UUID : PAN collé avant une forme d'UUID"
+    },
+    {
+      "text": "aaaaaaaa-aaaa-aaaa-aaaa-aaaa4111111111111111",
+      "note": "bord avant de l'UUID : PAN collé après une forme d'UUID"
+    }
+  ],
+  "notPans": [
+    {
+      "text": "evt-b6e0d932-76ed-4c01-8373-52880805f175",
+      "note": "evt-<uuid> refusé par 0028"
+    },
+    {
+      "text": "b6e0d932-76ed-4c01-8373-52880805f175",
+      "note": "UUID nu"
+    },
+    {
+      "text": "EVT-B6E0D932-76ED-4C01-8373-52880805F175",
+      "note": "UUID en capitales"
+    },
+    {
+      "text": "{\"x-request-id\": \"b6e0d932-76ed-4c01-8373-52880805f175\"}",
+      "note": "UUID dans du JSON"
+    },
+    {
+      "text": "evt-d2f69ff4-4996-4768-9028-5f9a743db520",
+      "note": "groupes 2 à 5 du UUID en 4-4-4-1, Luhn valide"
+    },
+    {
+      "text": "4111111111111112",
+      "note": "Luhn invalide"
+    },
+    {
+      "text": "378282246310006",
+      "note": "Luhn invalide"
+    },
+    {
+      "text": "411111111117",
+      "note": "12 chiffres, Luhn valide"
+    },
+    {
+      "text": "40000000000000000002",
+      "note": "20 chiffres, Luhn valide"
+    },
+    {
+      "text": "4111  1111 1111 1111",
+      "note": "double espace"
+    },
+    {
+      "text": "1700000000",
+      "note": "horodatage en secondes"
+    },
+    {
+      "text": "1730633212346",
+      "note": "horodatage en millisecondes, Luhn valide, préfixe 1"
+    },
+    {
+      "text": "9100000000000000",
+      "note": "préfixe 9, Luhn valide"
+    },
+    {
+      "text": "0000000000000",
+      "note": "13 zéros"
+    },
+    {
+      "text": "0000004111118",
+      "note": "zéros puis 7 chiffres, Luhn valide"
+    },
+    {
+      "text": "2031-07-01T08:00:00.000Z",
+      "note": "date ISO"
+    },
+    {
+      "text": "411111******1111",
+      "note": "PAN masqué"
+    }
+  ]
+}

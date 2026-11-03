@@ -1,53 +1,32 @@
 /**
- * Vecteurs de PAN (17 §1.6, §4.4 point 3 ; migration 0029, US-019) : numéros de test publics des
- * réseaux (jamais une carte réelle), identifiants structurés, corpus `evt-<uuid>` à graine fixe et
- * mutant « définition de 0028 ». Mêmes vecteurs que apps/api/src/modules/pay/internal/pan.test.ts.
+ * Vecteurs de PAN (17 §1.6, §4.4 point 3 ; migration 0029, US-019) : table UNIQUE
+ * `pan-vectors.json` (numéros de test publics des réseaux, jamais une carte réelle), lue aussi par
+ * apps/api/src/modules/pay/internal/pan.test.ts ; corpus `evt-<uuid>` à graine fixe et mutant
+ * « définition de 0028 ».
  */
+import { readFileSync } from 'node:fs';
+
+export interface PanVector {
+  readonly text: string;
+  readonly note: string;
+}
+
+/** Chemin de la table depuis la racine du dépôt (le test d'identité le cherche dans pan.test.ts). */
+export const PAN_VECTORS_PATH = 'packages/db/test/support/pan-vectors.json';
+
+const VECTORS = JSON.parse(
+  readFileSync(new URL('./pan-vectors.json', import.meta.url), 'utf8'),
+) as { pans: PanVector[]; notPans: PanVector[] };
+
+/** PAN de test publics (nus, séparés, tout groupage, zéros de tête…) : tous refusés. */
+export const PANS: readonly PanVector[] = VECTORS.pans;
+/** Identifiants structurés et numéros non-PAN : tous acceptés. */
+export const NOT_PANS: readonly PanVector[] = VECTORS.notPans;
 
 export const VISA_TEST = '4111111111111111';
 
 /** `evt-<uuid>` refusé par la définition de 0028 (reproduction déterministe du faux positif). */
 export const EVT_FALSE_POSITIVE = 'evt-b6e0d932-76ed-4c01-8373-52880805f175';
-
-/** PAN de test publics, nus ou séparés : tous refusés. */
-export const PANS: readonly string[] = [
-  VISA_TEST,
-  '4111 1111 1111 1111',
-  '4111-1111-1111-1111',
-  '4222222222222', // Visa 13
-  '5555555555554444', // Mastercard
-  '5105-1051-0510-5100',
-  '2223003122003222', // Mastercard série 2
-  '378282246310005', // Amex
-  '3782 822463 10005', // Amex 4-6-5
-  '30569309025904', // Diners
-  '3056 930902 5904', // Diners 4-6-4
-  '6011111111111117', // Discover
-  '3530111333300000', // JCB
-  `card${VISA_TEST}`,
-  `${EVT_FALSE_POSITIVE} ${VISA_TEST}`,
-  '2031 4111 1111 1111 1111', // PAN au milieu d'une suite plus longue
-  `{"x-debug": "${VISA_TEST}"}`,
-];
-
-/** Identifiants structurés et numéros non-PAN : tous acceptés. */
-export const NOT_PANS: readonly string[] = [
-  EVT_FALSE_POSITIVE,
-  EVT_FALSE_POSITIVE.slice(4),
-  // groupes 2 à 5 en forme 4-4-4-1, préfixe 4, Luhn valide : seul l'écart des UUID le protège
-  'evt-d2f69ff4-4996-4768-9028-5f9a743db520',
-  EVT_FALSE_POSITIVE.toUpperCase(),
-  `{"x-request-id": "${EVT_FALSE_POSITIVE.slice(4)}"}`,
-  '4111111111111112', // Luhn invalide
-  '378282246310006',
-  '411111111111', // 12 chiffres
-  '41111111111111111111', // 20 chiffres
-  '4111  1111 1111 1111', // double espace
-  '1730633212346', // horodatage en millisecondes, Luhn valide, préfixe hors émetteurs
-  '7111111111111114', // Luhn valide, préfixe 7 hors émetteurs
-  '41-11111111-11116', // séparateurs hors forme de carte (Luhn valide)
-  '411111******1111', // masqué
-];
 
 /** Générateur déterministe (mulberry32). */
 function rng(seed: number): () => number {
@@ -61,7 +40,7 @@ function rng(seed: number): () => number {
   };
 }
 
-/** `n` identifiants `evt-<uuid v4>` reproductibles (graine fixe). */
+/** `n` identifiants `evt-<uuid v4>` reproductibles (graine fixe, la même que pan.test.ts). */
 export function evtCorpus(n: number, seed = 20261103): string[] {
   const next = rng(seed);
   return Array.from({ length: n }, () => {

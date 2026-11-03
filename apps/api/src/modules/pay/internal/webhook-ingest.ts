@@ -2,7 +2,9 @@
  * Réception synchrone des webhooks PSP (17 §4.4 points 1 à 4 ; C19) :
  * `POST /webhooks/{provider}/{public_webhook_id}`.
  *
- * 1. Corps brut > 256 ko ⇒ 413, sans écriture.
+ * 1. Corps brut > 256 ko ⇒ 413, sans écriture. En-têtes > 16 ko (noms et valeurs, octets UTF-8) ⇒ 431,
+ *    sans écriture, AVANT tout masquage de PAN (revue sécurité US-019 2026-11-03d : le masque
+ *    s'applique aux en-têtes d'un appelant anonyme, avant la décision sur la signature).
  * 2. Fournisseur absent du registre de CE processus ⇒ 404 sans écriture. En production, le registre
  *    ne contient aucun FAKE (`production.ts`) : un webhook FAKE posté sur l'URL de production
  *    n'atteint jamais la base (C19). Compte inconnu, ou compte FAKE quand la base est en
@@ -26,6 +28,9 @@ import type { WebhookInboxStore } from './stores.js';
 
 /** 17 §4.4 point 1. */
 export const WEBHOOK_MAX_BODY_BYTES = 256 * 1024;
+
+/** Taille maximale des en-têtes reçus (défaut de Node.js, `--max-http-header-size`). */
+export const WEBHOOK_MAX_HEADER_BYTES = 16 * 1024;
 
 /** En-têtes jamais conservés (secrets de transport, cookies). */
 const DROPPED_HEADERS = new Set(['authorization', 'cookie', 'set-cookie', 'proxy-authorization']);
@@ -51,12 +56,13 @@ export interface WebhookRequest {
   readonly rawBody: Uint8Array;
 }
 
-export type WebhookHttpStatus = 200 | 401 | 404 | 413 | 503;
+export type WebhookHttpStatus = 200 | 401 | 404 | 413 | 431 | 503;
 
 export interface WebhookResponse {
   readonly status: WebhookHttpStatus;
   readonly outcome:
     | 'TOO_LARGE'
+    | 'HEADERS_TOO_LARGE'
     | 'UNKNOWN_PROVIDER'
     | 'NOT_FOUND'
     | 'SECRET_UNAVAILABLE'
@@ -74,6 +80,18 @@ const sha256 = (...parts: (string | Uint8Array)[]): Uint8Array => {
   }
   return new Uint8Array(h.digest());
 };
+
+/** Octets UTF-8 des noms et valeurs d'en-têtes (arrêt dès la limite dépassée). */
+function headerBytes(headers: WebhookHeaders): number {
+  let total = 0;
+  for (const [name, value] of Object.entries(headers)) {
+    total +=
+      Buffer.byteLength(name, 'utf8') +
+      (value === undefined ? 0 : Buffer.byteLength(value, 'utf8'));
+    if (total > WEBHOOK_MAX_HEADER_BYTES) return total;
+  }
+  return total;
+}
 
 export class WebhookIngestService {
   readonly #registry: WebhookVerifierRegistry;
@@ -96,6 +114,9 @@ export class WebhookIngestService {
   async receive(request: WebhookRequest): Promise<WebhookResponse> {
     if (request.rawBody.byteLength > WEBHOOK_MAX_BODY_BYTES) {
       return { status: 413, outcome: 'TOO_LARGE' };
+    }
+    if (headerBytes(request.headers) > WEBHOOK_MAX_HEADER_BYTES) {
+      return { status: 431, outcome: 'HEADERS_TOO_LARGE' };
     }
     const provider = request.provider.toUpperCase();
     if (!/^[A-Z][A-Z0-9_]{1,31}$/.test(provider))

@@ -1,9 +1,12 @@
 /**
  * US-019 (correctif, migration 0029) — détecteur `core.payment_text_has_pan` et contrainte
  * `webhook_inbox_no_pan`, sous les rôles de PRODUCTION (assertion L0-05 par withRole / connectAs) :
- * - PAN de test publics (Visa, Mastercard, Amex, Diners, Discover, JCB ; nus ou séparés) : refusés ;
- * - UUID, `evt-<uuid>` (reproduction fixe + 10 000 générés à graine fixe) et numéros non-PAN
- *   (Luhn invalide, préfixe hors émetteurs, forme hors carte) : acceptés ;
+ * - table partagée avec l'API (`test/support/pan-vectors.json`) : 34 PAN de test publics (Visa,
+ *   Mastercard, Amex, Diners, Discover, JCB, UnionPay, Mir ; tout groupage, zéros de tête) refusés,
+ *   17 non-PAN (UUID, `evt-<uuid>`, Luhn invalide, 12 ou 20 chiffres, préfixes 1 et 9) acceptés ;
+ * - 10 000 `evt-<uuid>` générés à graine fixe : acceptés ;
+ * - complexité linéaire : 64 ko de groupes d'un chiffre sous `statement_timeout` (la version
+ *   cubique de la première 0029 n'aboutit pas) ;
  * - mutation : la définition de 0028 refuse la reproduction fixe et une partie du corpus ;
  * - contrainte : un `evt-<uuid>` hier refusé est accepté, un PAN reste refusé (23514).
  */
@@ -33,9 +36,34 @@ async function hasPan(tx: pg.ClientBase, texts: readonly string[]): Promise<Map<
 describe('US-019 / 0029 — détecteur de PAN sans faux positif sur les UUID', () => {
   it('vecteurs : PAN de test refusés, identifiants et non-PAN acceptés', async () => {
     await withRole('app_worker', async (client) => {
-      const got = await hasPan(client, [...PANS, ...NOT_PANS]);
-      for (const p of PANS) expect(got.get(p), p).toBe(true);
-      for (const p of NOT_PANS) expect(got.get(p), p).toBe(false);
+      const got = await hasPan(
+        client,
+        [...PANS, ...NOT_PANS].map((v) => v.text),
+      );
+      for (const v of PANS) expect(got.get(v.text), v.note).toBe(true);
+      for (const v of NOT_PANS) expect(got.get(v.text), v.note).toBe(false);
+    });
+  });
+
+  it('complexité linéaire : 64 ko de groupes d’un chiffre aboutissent sous statement_timeout', async () => {
+    await withRole('app_worker', async (client) => {
+      await client.query('BEGIN');
+      try {
+        await client.query(`SET LOCAL statement_timeout = '30s'`);
+        for (const digit of ['1', '0']) {
+          const t0 = performance.now();
+          const { rows } = await client.query<{ pan: boolean }>(
+            'SELECT core.payment_text_has_pan(repeat($1, 32768)) AS pan',
+            [`${digit} `],
+          );
+          console.log(
+            `[US-019 PAN] base, 64 ko de « ${digit} » : ${(performance.now() - t0).toFixed(0)} ms (informatif)`,
+          );
+          expect(rows[0]?.pan).toBe(false); // aucune fenêtre ne passe : parcours complet
+        }
+      } finally {
+        await client.query('ROLLBACK');
+      }
     });
   });
 
