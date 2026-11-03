@@ -44,6 +44,12 @@
 --     enrollment_code_hash, enrollment_expires_at.
 
 -- 1. Facteur TOTP : anti-rejeu, verrou, enrôlement ----------------------------------------------
+-- Correction de 0010 : la borne {1,500} de auth_factor_secret_ref_format dépasse la limite des
+-- répétitions des regex PostgreSQL (255) ; toute insertion levait 2201B. Même règle, longueur à part.
+ALTER TABLE core.iam_auth_factor DROP CONSTRAINT auth_factor_secret_ref_format;
+ALTER TABLE core.iam_auth_factor ADD CONSTRAINT auth_factor_secret_ref_format CHECK (
+  secret_ref ~ '^[a-z][a-z0-9+.-]*:[^[:space:]]+$' AND pg_catalog.length(secret_ref) <= 512);
+
 ALTER TABLE core.iam_auth_factor
   ADD COLUMN last_used_step        bigint,
   ADD COLUMN failed_attempts       integer NOT NULL DEFAULT 0,

@@ -13,7 +13,7 @@ import { connectAs, releaseClient } from '@rueda/db/testing';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
 import type {} from '@rueda/db/testing/global-setup';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FakeTotpSecretVault } from '../../testing/fake-totp-vault.js';
 import { StaffAuthService } from './staff.service.js';
 import { PgStaffStore } from './staff-store.js';
@@ -30,7 +30,8 @@ let client: pg.Client;
 let vault: FakeTotpSecretVault;
 let staff: StaffAuthService;
 
-beforeAll(async () => {
+// Une connexion par test : connectAs fait l'assertion L0-05 de CHAQUE test.
+beforeEach(async () => {
   client = await connectAs('app_api');
   await client.query('SELECT test_fixture.iam_install_mfa_proof_key($1)', [TEST_PROOF_KEY]);
   vault = new FakeTotpSecretVault();
@@ -42,7 +43,7 @@ beforeAll(async () => {
   });
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await releaseClient(client);
 });
 
