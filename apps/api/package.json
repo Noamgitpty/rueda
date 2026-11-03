@@ -2,11 +2,11 @@
   "name": "@rueda/api",
   "version": "0.0.0",
   "private": true,
-  "description": "Back-end NestJS (monolithe modulaire) : API (main.ts) et travailleur pg-boss (worker.ts), une image.",
+  "description": "Back-end NestJS (monolithe modulaire) : API (main.ts) et travailleur (worker.ts : outbox, files et tâches périodiques en SQL, ADR-050), une image.",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test:unit": "vitest run",
     "test:int": "vitest run --config vitest.int.config.ts",
     "start": "node dist/main.js",

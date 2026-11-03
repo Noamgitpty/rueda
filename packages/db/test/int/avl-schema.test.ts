@@ -7,6 +7,8 @@
  * - fonctions de trigger d'intégrité : SECURITY DEFINER, search_path figé, sans EXECUTE (ADR-048) ;
  * - triggers I-OCC différés (DEFERRABLE INITIALLY DEFERRED) ;
  * - fixtures de test absentes de la base de production.
+ * Les tables `outbox_*` (US-008, migrations 0012 à 0015) ont leurs propres contrôles :
+ * `outbox-schema.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import { withRole } from '../../src/testing/index.ts';
@@ -61,7 +63,8 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
-            AND c.relname !~ '^audit_'
+            AND c.relname !~ '^audit_'        -- tables AUD : test/int/audit-schema.test.ts (US-009)
+            AND c.relname !~ '^outbox_'       -- tables BUS : test/int/outbox-schema.test.ts (US-008)
             AND c.relname !~ '^iam_'          -- tables IAM : test/int/iam-schema.test.ts (US-010)
           ORDER BY c.relname`,
       );

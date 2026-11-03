@@ -13,6 +13,7 @@
       "outputs": []
     },
     "test:int": {
+      "dependsOn": ["^test:int"],
       "cache": false,
       "passThroughEnv": ["RUEDA_PG_*", "DOCKER_*", "TESTCONTAINERS_*"],
       "outputs": []

@@ -23,6 +23,7 @@ Migrations actuelles :
 - `0008_config_country` (US-013) : tables de configuration pays dans `core` (schéma créé par `0003_core_schema`), gardes `PARAM_RETROACTIVE` / immuabilité / interrupteurs, `core.config_go_live`, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker` ;
 - `0009_config_seed` (US-013) : graines PA / PY **générées** depuis `apps/api/src/modules/cfg/data/`, ne pas éditer (ADR-049) ;
 - `0010_iam_identity`, `0011_iam_auth_commands` (US-010) : schéma IAM et commandes d'authentification (section « Schéma IAM ») ;
+- `0012_outbox_tables` à `0015_outbox_monitoring` : outbox, reçus, lettres mortes, file de tâches, métriques (US-008, section « Outbox et file ») ; numérotation : `migrations/README.md` ;
 - tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9200_test_iam_fixtures` (US-010).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
@@ -73,8 +74,6 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
 
 **Fixtures de test** (`test-migrations/9001`, base principale seulement) : `test_fixture.place_hold` remplace `cmd_place_hold` (US-023) et `test_fixture.insert_payment_operation` remplace `cmd_start_payment`. `test_fixture.delete_occupancy` force une suppression qu'aucun rôle ne peut faire : elle est refusée par la clé étrangère du hold (`23503`), et `occupancy_trip_guard` couvre aussi `DELETE`. Ces fonctions sont `SECURITY DEFINER` sous `migrator` ; la transaction appelante reste sous `app_api` ou `app_worker`.
 
-<<<<<<< HEAD
-
 ## Audit, clés par sujet et magasin de preuves (US-009 ; 17 §1.7, §3.1.3, §3.2.13 ; ADR-051)
 
 Migrations `0016` à `0021`, schéma Bêta `core` :
@@ -92,7 +91,17 @@ Code TypeScript (`@rueda/db/audit`) : `appendAuditLog` (IP de l'acteur chiffrée
 Codes PROPOSÉS : `audit_log_append_only`, `data_access_log_append_only`, `audit_chain_head_guard`, `subject_key_immutable`, `file_asset_immutable` → `IMMUTABLE_RECORD` ; `audit_log_key_destroyed`, `subject_key_not_live` → `SUBJECT_ERASED` ; `subject_key_legal_hold` → `LEGAL_HOLD_ACTIVE`.
 
 **Fixtures de test** (`test-migrations/9150`) : `destroy_subject_key`, `set_file_legal_hold`, `owner_tamper_audit_log` (simule un propriétaire qui altère le journal, à n'appeler que dans une transaction annulée) et `lock_audit_log` (à prendre avant toute écriture quand le trigger est désactivé, pour éviter un interblocage).
-=======
+
+## Outbox et file (US-008 ; 17 §4.1, §4.2 ; ADR-050)
+
+| Table                       | Contraintes et droits clés                                                                                                                                                                                                                                                                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.outbox_outbox_event`  | enveloppe 17 §4.1 (formats en CHECK, `actor_role = 'SYSTEM'` ⇔ pas d'utilisateur) ; `id` UUID v7 (`platform.uuid_v7()`) ; index partiel des non publiés. INSERT (colonnes de l'enveloppe seulement) pour `app_api` (acteur GUEST / HOST / STAFF) et `app_worker` (travailleur nommé) ; lecture et `published_at` pour `outbox_relay` seul, une fois. |
+| `core.outbox_scheduled_job` | `name` = `app.worker_name` ; `scheduled_job_singleton` (une tâche vivante par nom et clé) ; `attempts ≤ max_attempts` (5 par défaut, 17 §4.2) ; bail `locked_until`. Ajout par `app_api` / `app_worker` (naît `CREATED`) ; lecture et mise à jour par le travailleur de la file seulement.                                                           |
+| `core.outbox_inbox_receipt` | PK `(consumer, event_id)` ; `consumer = app.worker_name()` imposé par la RLS.                                                                                                                                                                                                                                                                        |
+| `core.outbox_dead_letter`   | une ligne par tâche épuisée (`job_id` unique) ; `consumer = app.worker_name()`.                                                                                                                                                                                                                                                                      |
+
+Fonctions `SECURITY INVOKER` (`search_path` figé, `EXECUTE` à `app_worker` ; `app_api` : `outbox_enqueue` et `platform.uuid_v7()` seulement) : `outbox_relay_claim`, `outbox_mark_published`, `outbox_record_relay_failure`, `outbox_enqueue`, `outbox_claim_jobs`, `outbox_begin_receipt`, `outbox_complete_job`, `outbox_fail_job`, `outbox_reap_expired_jobs`, `outbox_metrics` (lecture par `bus_monitor` seulement, 0015). Personne n'a `DELETE`. Tests : `test/int/outbox-schema.test.ts`, `test/l0/outbox-idempotence.test.ts`.
 
 ## Schéma IAM (US-010 ; 17 §2.3, §3.2.1 ; ADR-052)
 
