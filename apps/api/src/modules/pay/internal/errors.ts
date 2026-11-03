@@ -9,7 +9,7 @@
  *   fait, le rejeu garde la même clé.
  * - `DECLINED` : refus **reçu**, aucun fonds débité ; `doNotRetry` pour un refus définitif (carte
  *   volée, compte fermé : aucune relance, 08 E4 et T68).
- * - `INVALID_REQUEST`, `FAKE_FORBIDDEN_IN_PRODUCTION` : PROPOSÉS par US-019 (ADR-056).
+ * - `INVALID_REQUEST`, `FAKE_FORBIDDEN_IN_PRODUCTION` : PROPOSÉS par US-019 (ADR-059).
  */
 
 export const PAYMENT_ERROR_CODES = [

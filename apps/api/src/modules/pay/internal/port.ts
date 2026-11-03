@@ -1,5 +1,5 @@
 /**
- * Port `PaymentProvider` (17 §2.8 ; 16 fiche PAY-001 ; ADR-032, ADR-045, ADR-056).
+ * Port `PaymentProvider` (17 §2.8 ; 16 fiche PAY-001 ; ADR-032, ADR-045, ADR-059).
  *
  * Un adaptateur par PSP ; aucun code métier ne connaît un PSP. Jusqu'au lot C, seul l'adaptateur
  * FAKE existe (`../testing/`, jamais en production, C19).

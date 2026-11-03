@@ -1,4 +1,4 @@
-# ADR-056 — Port `PaymentProvider`, adaptateur FAKE hors de l'image de production, idempotence et réception des webhooks
+# ADR-059 — Port `PaymentProvider`, adaptateur FAKE hors de l'image de production, idempotence et réception des webhooks
 
 - **Statut** : PROPOSÉ (US-019, agent integrations, claude-opus-5-5, 2026-11-03). Revues exigées : code, architecture, **sécurité** et **argent** sur un autre modèle que l'auteur, qa. À reporter dans 17 §2.8, §3.2.7, §4.4, §6.5 et §8.1 (orchestrateur).
 - **Stories** : US-019 ; s'appuient dessus US-061 (port de place de marché), US-023 / US-024 (paiement du hold, conversion, compensation), US-018 (commandes par jambe), US-003 (coffre, migration d'environnement, câblage du travailleur), US-601 (connecteur réel). **Sources** : 17 §1.6, §2.8, §3.2.7, §4.3, §4.4, §6.5 ; 08 E4, E7 (règles 1, 3, 5, 10) ; 16 PAY-001, PAY-019 ; ADR-032, ADR-045 ; C19.

@@ -1,7 +1,7 @@
 -- 0027 — PAY : port PaymentProvider, comptes et capacités PSP, jambes, événements d'opération,
 -- idempotence et réception des webhooks ; garde FAKE (C19).
 -- US-019 ; 17 §2.8, §3.2.7, §4.3, §4.4, §6.5 ; 08 E4, E7 (règles 1, 4, 10) ; ADR-032, ADR-045,
--- ADR-056. Appliquée sous `migrator`.
+-- ADR-059. Appliquée sous `migrator`.
 --
 -- Contenu :
 --   0. platform.deployment_env() : environnement de déploiement de la BASE (17 §6.5 point 1).
@@ -21,7 +21,7 @@
 --      payment_cmd_record_operation, payment_cmd_apply_operation_status,
 --      payment_resolve_webhook_account, payment_cmd_receive_webhook, payment_startup_guard.
 --
--- Écarts assumés (à reporter dans 17 par l'orchestrateur, ADR-056) :
+-- Écarts assumés (à reporter dans 17 par l'orchestrateur, ADR-059) :
 --   - collection_mode : PLATFORM_MOR refusé par CHECK tant qu'aucune garde ne lit
 --     funds_holding_enabled[pays] (fail-closed ; US-125) ;
 --   - garde FAKE plus stricte que 17 §3.2.7 : en production, AUCUNE écriture d'un compte FAKE

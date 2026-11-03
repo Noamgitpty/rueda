@@ -148,7 +148,7 @@ Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colon
 
 `core.support_support_case` (0024) : sous-ensemble de 17 §3.2.13 (pays, trip, canal, catégorie dont `BREAK_GLASS` motivé, statut, `assignee_id`), écrit par la console (US-012). Clés d'audit (0026) : `app_api` n'accède qu'à la clé `USER` de la session et à la clé `ORG` du compte d'hôte de la session pour son titulaire. Limite RLS-18 et nom de travailleur déclaratif : ADR-053. Preuves : `test/l0/l0-rls-actors.test.ts` (RLS-1, 5, 6, 7 partiel, 8, 9, 12, 13, 18, 20, hôte contre hôte, pays contre pays, clés par sujet) et `test/l0/l0-rls-15-security-definer.test.ts` (RLS-15, RLS-16).
 
-## Port PaymentProvider (US-019 ; 17 §2.8, §3.2.7, §4.3, §4.4, §6.5 ; ADR-056)
+## Port PaymentProvider (US-019 ; 17 §2.8, §3.2.7, §4.3, §4.4, §6.5 ; ADR-059)
 
 Migration `0027_payment_psp_port` :
 

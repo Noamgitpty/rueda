@@ -1,4 +1,4 @@
-# Port `PaymentProvider` (US-019 ; 17 §2.8, §4.3, §4.4, §6.5 ; ADR-032, ADR-045, ADR-056)
+# Port `PaymentProvider` (US-019 ; 17 §2.8, §4.3, §4.4, §6.5 ; ADR-032, ADR-045, ADR-059)
 
 Aucun code métier ne connaît un PSP. Jusqu'au lot C, seul l'adaptateur **FAKE** existe, et il n'est **jamais actif en production** (C19). Tout passe par l'index public (`index.ts`).
 

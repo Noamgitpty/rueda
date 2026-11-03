@@ -1,5 +1,5 @@
 /**
- * Adaptateur FAKE du port `PaymentProvider` (US-019 ; ADR-032, ADR-056), au-dessus du PSP simulé
+ * Adaptateur FAKE du port `PaymentProvider` (US-019 ; ADR-032, ADR-059), au-dessus du PSP simulé
  * de `@rueda/fake-adapters/psp`.
  *
  * JAMAIS EN PRODUCTION (C19) : ce répertoire est exclu de `tsconfig.build.json`, n'est exporté par
