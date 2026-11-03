@@ -3,6 +3,7 @@
 > **Mise à jour pivot P2P (US-059, paquet S7, 2026-11-02)** : Kmino est une **place de marché de particulier à particulier** (DEC-FONDATEUR-12, 13) : des particuliers louent **leur** voiture à d'autres particuliers ; **aucune agence, aucun comptoir, aucun loueur professionnel**. Les parcours suivent ceux de Turo (DEC-FONDATEUR-14, 16) : recherche par voiture précise, fiche centrée sur l'hôte, réservation instantanée par défaut, remise des clés entre personnes au lieu choisi par l'hôte, check-in photo des deux côtés, avis réciproques sur 10 jours, versements à l'hôte, espace hôte sur mobile. Source : `docs/team/impact/2026-11-02-pivot-p2p.md` (§b.7, §e, §f, §g ligne S7). Sections révisées : titre, §0, §3.0, §3.4 à §3.12 (alignement), **§3.5, §3.8, §3.14 (nouvelle), §4.1, §4.2, §4.3 (nouvelle), §5.1, §5.2**, §6 (aligné sur 22), §7, §8. Chaque choix « comme Turo » est inscrit dans `docs/team/COMME_TURO.md`.
 > **Règle de lecture (pivot P2P)** : dans §1 et §2 (analyse de Turo) et dans les notes d'historique (VERIF_13, VERIF_18, alignement v4), toute mention d'agence, de loueur, de comptoir, de « Bêta pilote », de P0-A ou de P0-B est **historique** ; ce qu'elle décrivait est **sans objet (DEC-FONDATEUR-13)**. Les étiquettes de phase deviennent : **[Bêta]** = bêta P2P, lots 0 à 5 (analyse pivot §e.6, PROPOSÉ jusqu'à la révision de 19 par S6 et de 04 par S2), avec le lot quand il est connu (« L2 ») ; **[Lot C]** = connecteurs réels ; **[P1]** = après la bêta. Les anciennes formes « MANUEL » de la Bêta pilote ne sont plus décrites : la répartition fine par lot relève de S6 et de la révision 6 de 04.
 > **Règle bilingue (DEC-FONDATEUR-11)** : tout texte visible cité dans les sections révisées porte une **clé i18n** (`<espace>.<écran>.<élément>`, convention de `packages/i18n/README.md`) et ses versions **es** et **en**, livrées ensemble ; le catalogue est au §4.3. Les variables sont nommées (`{brand}`, `{country}`, `{host_name}`, `{amount}`, `{date}`) : la marque et le pays ne sont jamais écrits en dur.
+> **Règle trilingue (DEC-FONDATEUR-17 ; US-060, 2026-11-03)** : la règle précédente vaut pour **trois** langues : chaque clé du catalogue §4.3 a ses versions **es**, **en** et **fr**, livrées ensemble ; là où une section dit « es et en », lire « es, en et fr ». Le français est au tutoiement dans l'interface (PROPOSÉ, comme Turo en France, `docs/team/COMME_TURO.md`) et au vouvoiement dans les textes contractuels.
 > **Règle de thème (DEC-MARQUE)** : la direction visuelle retenue est **Lienzo · Tinta** (`docs/design/US-028/tokens-lienzo-tinta.json`), **révisable** ; elle s'applique **uniquement par jetons** (§3.14, §8) : aucune couleur, police ni rayon codé en dur.
 > **Alignement v4 (2026-10-30 ; historique, sans objet depuis le pivot P2P : le hold `AGENCY_LINK` sort du produit, UXQ-09)** : écran S06 (libération du hold AGENCY_LINK au lieu d'une « annulation », messages de libération différée, C-v3-17) et proposition BKG-014 du §7 (hold AGENCY_LINK distinct) alignés sur 17 v4 ; marques « (aligné v4 — 16 Rx) ».
 > **Statut : EN COURS, version 3 du 2026-11-02 (pivot P2P, US-059)** ; version 2 du 2026-10-30 (version 1 corrigée après l'audit `verification/VERIF_13_UX.md` : 8 MAJEUR et 14 MINEUR traités ; chaque modification est marquée « (corrigé VERIF_13-<ID>) »). Rédigé par la recherche UX à partir des observations déjà consignées ; **aucune nouvelle navigation sur turo.com**.
@@ -289,11 +290,11 @@ Les identifiants `UX-xx` sont des exigences **PROPOSÉES** ; elles renvoient aux
 | UX-09 | Mode « datos bajos » : vignettes compressées en liste, photos HD à la demande, carte statique en repli de la carte interactive. | [P1] |
 | UX-10 | Jamais de perte de saisie : brouillon local de chaque formulaire long (checkout, KYC, état des lieux) restauré après coupure ou fermeture d'onglet (y compris l'inscription d'une voiture, A10). | [Bêta] |
 
-### 3.3 Langue et ton : espagnol et anglais ensemble, espagnol neutre LATAM (corrigé US-059, DEC-FONDATEUR-11)
+### 3.3 Langue et ton : espagnol, anglais et français ensemble, espagnol neutre LATAM (corrigé US-059, DEC-FONDATEUR-11 ; français ajouté US-060, DEC-FONDATEUR-17)
 
 | ID | Exigence | Phase |
 |---|---|---|
-| UX-11 | Langue par défaut `es` (espagnol neutre d'Amérique latine, validé par un relecteur panaméen **et** un relecteur paraguayen), `en` complet et livré en même temps (DEC-FONDATEUR-11) ; détection par `Accept-Language` puis choix explicite mémorisé ; sélecteur visible dans l'en-tête. **Une vue = une langue** : aucun composant ne suit une autre source de langue que la préférence courante (anti-C1). Attribut `lang` correct sur la page et sur les passages cités dans une autre langue (avis). | [Bêta] (I18N-003, I18N-004) |
+| UX-11 | Langue par défaut `es` (espagnol neutre d'Amérique latine, validé par un relecteur panaméen **et** un relecteur paraguayen), `en` et `fr` complets et livrés en même temps (DEC-FONDATEUR-11 et 17 ; `fr` ajouté par US-060, catalogue §4.3) ; détection par `Accept-Language` puis choix explicite mémorisé ; sélecteur visible dans l'en-tête. **Une vue = une langue** : aucun composant ne suit une autre source de langue que la préférence courante (anti-C1). Attribut `lang` correct sur la page et sur les passages cités dans une autre langue (avis). | [Bêta] (I18N-003, I18N-004) |
 | UX-12 | Tutoiement (« tú ») dans l'interface et les messages, vouvoiement (« usted ») dans le contrat, les décisions de litige et les textes juridiques : **hypothèse à tester** en §5 auprès de voyageurs et d'hôtes résidents au Panama et au Paraguay (corrigé US-059). Jamais de voseo ni de « vosotros ». | [Bêta] (test) |
 | UX-13 | Glossaire contrôlé (extrait) : *auto* (neutre ; les mots propres à un pays, comme « carro » au Panama ou « registro de conducir » au Paraguay pour *licencia*, passent par une **surcharge régionale du catalogue** par locale, `es-PA` et `es-PY`, via `createTranslator(profile, overrides)` de `packages/i18n` : jamais par une constante ou une condition de pays dans le code ; corrigé US-059), *alquiler*, *licencia de conducir*, *cédula*, *pasaporte*, *sello de entrada*, *depósito de garantía* (jamais « fianza », réservé à la caution-assurance IMP-02), *retiro* / *devolución*, *anfitrión* / *anfitriona* (en : *host*), *viajero* (en : *guest*), *punto de entrega* (en : *pick-up spot*), *auto de un vecino* (en : *a neighbor's car*), *ITBMS* / *IVA*, *precio final*, *cancelación gratuita hasta…*, *cargo* (débit), *reembolso emitido* (jamais « recibido », BR-PAY-08). Glossaire EN aligné. **Exclu** : *mostrador*, *agencia*, *flota* et tout vocabulaire de loueur (DEC-FONDATEUR-13 ; corrigé US-059). | [Bêta] |
 | UX-14 | Les avis, messages et descriptions de l'hôte restent dans leur langue d'origine, avec mention de la langue ; traduction automatique proposée à la demande et étiquetée comme telle. | [P1] |
@@ -760,184 +761,188 @@ flowchart TD
   G1 --> R["Reprise possible sur versements futurs pendant la fenêtre de chargeback"]
 ```
 
-### 4.3 Catalogue des textes visibles : clés i18n, espagnol et anglais (ajouté US-059, DEC-FONDATEUR-11)
+### 4.3 Catalogue des textes visibles : clés i18n, espagnol, anglais et français (ajouté US-059, DEC-FONDATEUR-11 ; colonne `fr` ajoutée par US-060, DEC-FONDATEUR-17)
 
-Chaque texte visible cité dans les sections révisées a ici sa clé et ses deux versions, **livrées ensemble**. Convention de `packages/i18n` : `<espace>.<écran>.<élément>`, espaces `common`, `web` (voyageur **et** hôte, même PWA) et `backoffice`. Mêmes variables dans les deux langues ; montants par `formatMoney`, dates et heures par `formatDate` / `formatTime` au fuseau du véhicule ; **pluriels** au format de `packages/i18n` : objet `one` / `other` (`other` obligatoire, repli de toute catégorie absente), variable **`{count}` obligatoire** (le traducteur choisit la forme avec `Intl.PluralRules` ; corrigé US-059) ; écrits ici « **one** : … · **other** : … ». Aucune sélection ICU : une variante grammaticale (genre) est une **clé distincte** affichable. Espagnol neutre au tutoiement (UX-12, H1), anglais américain. Les textes de l'aperçu `presentation.html` (clés courtes `home.kicker`, `host.t`…) sont une **maquette** : ce catalogue les reprend sous les clés du produit, qui font foi pour US-030 et les écrans. Statut : PROPOSÉ, à relire par l'UX et par un relecteur hispanophone panaméen et paraguayen.
+Chaque texte visible cité dans les sections révisées a ici sa clé et ses **trois** versions, `es`, `en` et `fr`, **livrées ensemble** (DEC-FONDATEUR-17, produit trilingue ; US-060). **Règle de 16 et de 10b** : toute clé citée par une fiche de 16, une story de 19 ou une section de 10b existe dans ce catalogue en es, en **et** fr ; là où 16, 19 ou 10b écrivent encore « en es et en », lire « en es, en et fr ». Convention de `packages/i18n` : `<espace>.<écran>.<élément>`, espaces `common`, `web` (voyageur **et** hôte, même PWA) et `backoffice`. Mêmes variables dans les trois langues ; montants par `formatMoney`, dates et heures par `formatDate` / `formatTime` au fuseau du véhicule ; **pluriels** au format de `packages/i18n` : objet `one` / `other` (`other` obligatoire, repli de toute catégorie absente), variable **`{count}` obligatoire** (le traducteur choisit la forme avec `Intl.PluralRules` ; corrigé US-059) ; écrits ici « **one** : … · **other** : … ». Aucune sélection ICU : une variante grammaticale (genre) est une **clé distincte** affichable. Espagnol neutre au tutoiement (UX-12, H1), anglais américain, **français au tutoiement dans l'interface** (registre retenu « comme Turo en France », PROPOSÉ, `docs/team/COMME_TURO.md`) et au vouvoiement dans le contrat, les décisions de litige et les textes juridiques (même partage qu'UX-12) ; textes juridiques français relus par l'avocat avant la mise en service (DEC-FONDATEUR-17). Le français suit l'usage de France (« voiture », « permis de conduire », « hôte », « voyageur »), avec la préposition du pays dans la phrase (« au {country} » vaut pour le Panama et le Paraguay). Les textes de l'aperçu `presentation.html` (clés courtes `home.kicker`, `host.t`…) sont une **maquette** : ce catalogue les reprend sous les clés du produit, qui font foi pour US-030 et les écrans. Statut : PROPOSÉ, à relire par l'UX, par un relecteur hispanophone panaméen et paraguayen et par un relecteur francophone. Clés ajoutées par US-060 : `web.s15.signup`, `web.s05.priceChanged` et `web.a02.cars.title` (PROPOSÉES par 16 v5, US-057), et `web.error.requestDeclined` (refus explicite d'une demande `REQUEST` par l'hôte, distinct de l'expiration `web.error.requestExpired` ; 16 HDB-002).
 
-| Clé | es | en |
-|---|---|---|
-| `common.offline.banner` | Sin conexión. Te mostramos lo último guardado. | You're offline. Showing what was last saved. |
-| `common.price.finalForDays` | **one** : Precio final · {count} día · **other** : Precio final · {count} días | **one** : Final price · {count} day · **other** : Final price · {count} days |
-| `common.error.phoneDigits` | El número debe tener {digits} dígitos, por ejemplo {example}. | Enter a {digits}-digit number, for example {example}. |
-| `common.error.server` | Algo falló de nuestro lado. No se perdió nada de lo que escribiste. Inténtalo de nuevo; si sigue, escríbenos por WhatsApp con el código {code}. | Something went wrong on our side. Nothing you entered was lost. Try again; if it continues, message us on WhatsApp with code {code}. |
-| `web.common.save` | Guardar | Save |
-| `web.search.nearMe` | Cerca de mí | Near me |
-| `web.s01.kicker` | Alquiler entre particulares · {country} | Peer-to-peer car rental · {country} |
-| `web.s01.title` | Alquila el auto de un vecino. | Rent a car from a neighbor. |
-| `web.s01.subtitle` | Autos de personas reales cerca de ti, vivas aquí o estés de visita. | Real people's cars near you, whether you live here or you're just visiting. |
-| `web.s01.rail.title` | Autos de vecinos cerca de ti | Neighbors' cars near you |
-| `web.s01.how.title` | Cómo funciona | How it works |
-| `web.s01.how.1` | Encuentra un auto cerca | Find a car nearby |
-| `web.s01.how.1.body` | Autos de vecinos, con fotos, precio y opiniones reales. | Neighbors' cars, with real photos, prices and reviews. |
-| `web.s01.how.2` | Reserva con su dueño | Book with its owner |
-| `web.s01.how.2.body` | Reservas y acuerdas con el anfitrión dónde te entrega el auto. | Book and agree with the host on where to meet. |
-| `web.s01.how.3` | Recógelo y disfruta | Pick it up and enjoy |
-| `web.s01.how.3.body` | Lo recoges en el punto acordado y lo devuelves ahí mismo. | Pick it up at the agreed spot and bring it back there. |
-| `web.s01.owner.title` | Gana dinero con tu auto | Earn money with your car |
-| `web.s01.owner.body` | Cuando no lo usas, tu auto puede ayudar a un vecino y darte un ingreso extra. | When you're not using it, your car can help a neighbor and bring you extra income. |
-| `web.s01.owner.days` | **one** : {count} día al mes · **other** : {count} días al mes | **one** : {count} day a month · **other** : {count} days a month |
-| `web.s01.owner.perMonth` | al mes | a month |
-| `web.s01.owner.note` | Estimación de ejemplo ({amount} por día), no es una promesa de ingresos. | Sample estimate ({amount} a day), not a promise of income. |
-| `web.s01.owner.cta` | Publica tu auto | List your car |
-| `web.s02.count` | **one** : {count} auto cerca de ti · **other** : {count} autos cerca de ti | **one** : {count} car near you · **other** : {count} cars near you |
-| `web.s02.sort.distance` | Cercanía | Distance |
-| `web.s02.sort.price` | Precio | Price |
-| `web.s02.sort.rating` | Valoración | Rating |
-| `web.s02.new` | Nuevo | New |
-| `web.s02.empty` | No hay autos disponibles en estas fechas. | No cars are available for these dates. |
-| `web.s02.filters` | Filtros | Filters |
-| `web.s02f.price` | Precio por día | Price per day |
-| `web.s02f.type` | Tipo de auto | Car type |
-| `web.s02f.verified` | Solo anfitriones con identidad verificada | Only hosts with verified identity |
-| `web.s02f.instant` | Confirmación inmediata | Instant confirmation |
-| `web.s02f.clear` | Borrar | Clear |
-| `web.s02f.show` | **one** : Ver {count} auto · **other** : Ver {count} autos | **one** : Show {count} car · **other** : Show {count} cars |
-| `web.s02f.none` | Ningún auto cumple estos filtros. Quita alguno para ver más. | No cars match these filters. Remove one to see more. |
-| `web.s03.photos` | {n} / {total} fotos de {host_name} | {n} / {total} photos by {host_name} |
-| `web.s03.host.titleMasc` | Tu anfitrión | Your host |
-| `web.s03.host.titleFem` | Tu anfitriona | Your host |
-| `web.s03.host.titleNeutral` | Quién te alquila el auto | Your host |
-| `web.host.guest.verified` | Identidad verificada | Verified identity |
-| `web.s03.rules.title` | Reglas de {host_name} | {host_name}'s rules |
-| `web.s03.meet.title` | Dónde recoges el auto | Where you pick up the car |
-| `web.s03.instant` | Confirmación inmediata | Instant confirmation |
-| `web.s03.request` | **one** : {host_name} confirma en hasta {count} hora · **other** : {host_name} confirma en hasta {count} horas | **one** : {host_name} confirms within {count} hour · **other** : {host_name} confirms within {count} hours |
-| `web.s03.cta` | Reservar | Book |
-| `web.s03.signal.bookedAfter` | Este auto ya está reservado justo después de tus fechas: devuélvelo a tiempo. | This car is booked right after your dates: please return it on time. |
-| `web.s03.kyc.notice` | Necesitarás: licencia vigente, pasaporte o cédula y una selfie. Tarda unos 3 minutos. | You'll need a valid driver's license, a passport or ID card, and a selfie. It takes about 3 minutes. |
-| `web.s03.kyc.90days` | Puedes manejar con tu licencia extranjera hasta el {date_limit}. Tu alquiler termina el {date_end}. | You can drive with your foreign license until {date_limit}. Your rental ends on {date_end}. |
-| `web.s03.deposit.title` | Depósito de garantía | Security deposit |
-| `web.deposit.holder` | Lo retiene {merchant_name} en tu tarjeta; {host_name} nunca lo cobra. | It's held on your card by {merchant_name}; {host_name} never collects it. |
-| `web.deposit.how.preauth` | Es un bloqueo temporal en tu tarjeta, no un cargo. | It's a temporary hold on your card, not a charge. |
-| `web.deposit.how.chargeRefund` | Se cobra al inicio y se reembolsa al final. | It's charged at the start and refunded at the end. |
-| `web.deposit.covers` | Cubre solo estos gastos del viaje: combustible faltante, retraso en la devolución, kilómetros extra, limpieza, tabaco o mascotas, y peajes. | It only covers these trip costs: missing fuel, late return, extra kilometers, cleaning, smoking or pets, and tolls. |
-| `web.deposit.notCovers` | Los daños no se cobran de este depósito. | Damage is never taken from this deposit. |
-| `web.deposit.releaseBy` | Se libera a más tardar el {date}. | Released no later than {date}. |
-| `web.deposit.contest` | Revisar y responder | Review and respond |
-| `web.deposit.debitWarning` | El depósito se cobra y luego se reembolsa. Emitiremos el reembolso el {date}; tu banco puede tardar de 3 a 10 días hábiles en mostrarlo. | The deposit is charged and then refunded. We'll issue the refund on {date}; your bank may take 3 to 10 business days to show it. |
-| `web.deposit.unavailable` | **one** : Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} día. · **other** : Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} días. | **one** : We can't place the deposit on your card for these dates. You can book up to {count} day. · **other** : We can't place the deposit on your card for these dates. You can book up to {count} days. |
-| `web.s04.status.question` | ¿Cuál es tu situación en {country}? | What's your status in {country}? |
-| `web.s04.status.tourist` | Entraste a {country} hace menos de 90 días con pasaporte | You entered {country} less than 90 days ago with a passport |
-| `web.s04.status.resident` | Tienes un documento de identidad de {country} | You have a {country} ID document |
-| `web.s04.status.special` | Visa especial o permiso de estadía | Special visa or stay permit |
-| `web.s04.status.unsure` | No estoy seguro | I'm not sure |
-| `web.s04.checking` | Verificando… | Verifying… |
-| `web.s04.result.verified` | Verificado | Verified |
-| `web.s04.result.inReview` | **one** : En revisión: te avisamos en un máximo de {count} hora. · **other** : En revisión: te avisamos en un máximo de {count} horas. | **one** : In review: we'll let you know within {count} hour. · **other** : In review: we'll let you know within {count} hours. |
-| `web.s04.result.retake` | Necesitamos otra foto | We need another photo |
-| `web.s04.result.rejected` | No podemos aprobarte: {reason} | We can't approve you: {reason} |
-| `web.s04.result.glare` | La foto de tu licencia salió con reflejo. Inclínala un poco y evita la luz directa. | There's glare on your license photo. Tilt it slightly and avoid direct light. |
-| `web.s05.protection.title` | Elige tu protección | Choose your protection |
-| `web.s05.manual` | Sé manejar caja manual | I can drive a manual car |
-| `web.s05.contract` | Acepto el contrato de alquiler con {host_name} | I accept the rental agreement with {host_name} |
-| `web.s05.mitConsent` | Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba. | I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof. |
-| `web.s05.cta` | Pagar {amount} | Pay {amount} |
-| `web.s05.ctaRequest` | Enviar solicitud | Send request |
-| `web.s05.hold.until` | Guardamos este auto para ti hasta las {time} | We're holding this car for you until {time} |
-| `web.s05.review.title` | Reserva en revisión: no se te cobró nada | Booking under review: you haven't been charged |
-| `web.s05.review.body` | **one** : Revisaremos tu reserva en un máximo de {count} hora hábil. · **other** : Revisaremos tu reserva en un máximo de {count} horas hábiles. | **one** : We'll review your booking within {count} business hour. · **other** : We'll review your booking within {count} business hours. |
-| `web.s05.review.notice` | Revisamos cada reserva. Si no podemos aprobarla, te devolvemos todo. | We review every booking. If we can't approve it, you get a full refund. |
-| `web.s06.pre.title` | En tu estado de cuenta verás: {merchant_name} | Your statement will show: {merchant_name} |
-| `web.s06.pre.leaving` | Vas a pagar {amount} en una página segura de nuestro procesador de pagos. | You'll pay {amount} on a secure page from our payment processor. |
-| `web.s06.verifying.title` | Pago en verificación | Verifying your payment |
-| `web.s06.verifying.body` | Esto suele tardar menos de un minuto. No pagues de nuevo. | This usually takes less than a minute. Don't pay again. |
-| `web.s06.verifying.slow` | Seguimos esperando la confirmación de tu banco. | We're still waiting for your bank to confirm. |
-| `web.s06.support` | Hablar con soporte | Contact support |
-| `web.s06.yappy.newOrder` | Generar una nueva orden | Create a new order |
-| `web.s06.payAgain` | Pagar de nuevo | Pay again |
-| `web.s07.title` | ¡Reserva confirmada! | Your booking is confirmed! |
-| `web.s07.message` | Escribir a {host_name} | Message {host_name} |
-| `web.s07.checkinOpens` | El check-in con fotos se abre el {date}. | Photo check-in opens on {date}. |
-| `web.s07.safety` | Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}. | For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}. |
-| `web.s07.request.pending` | {host_name} tiene hasta las {time} para responder. No se te cobra nada si no acepta. | {host_name} has until {time} to reply. You won't be charged unless they accept. |
-| `web.s08.tabs.upcoming` | Próximos | Upcoming |
-| `web.s08.tabs.past` | Anteriores | Past |
-| `web.s08.empty` | Aún no tienes viajes | You don't have any trips yet |
-| `web.s09.checkin` | Hacer el check-in | Start check-in |
-| `web.s09.lateButton` | Voy tarde | I'm running late |
-| `web.s09.refuse` | No acepto el auto | I don't accept the car |
-| `web.s09.hostNoShow.cancel` | Cancelar sin costo | Cancel at no cost |
-| `web.s09.hostNoShow.wait` | Esperar un poco más | Wait a little longer |
-| `web.s09.deposit.title` | Tu depósito | Your deposit |
-| `web.s09c.done` | Tus fotos quedaron guardadas | Your photos are saved |
-| `web.s09c.returned` | Devolviste el auto | You've returned the car |
-| `web.checkin.queue.savedOnDevice` | Guardado en este teléfono | Saved on this phone |
-| `web.s10.cta` | Cancelar y recibir {amount} | Cancel and get {amount} back |
-| `web.s12.accept` | Aceptar y pagar {amount} | Accept and pay {amount} |
-| `web.s12.contest` | No estoy de acuerdo | I disagree |
-| `web.review.until` | Puedes opinar hasta el {date} | You can leave a review until {date} |
-| `web.review.blind` | **one** : {name} no verá tu opinión hasta que ambos opinen o pase {count} día · **other** : {name} no verá tu opinión hasta que ambos opinen o pasen {count} días | **one** : {name} won't see your review until you've both reviewed or {count} day has passed · **other** : {name} won't see your review until you've both reviewed or {count} days have passed |
-| `web.review.closed` | El plazo para opinar terminó el {date}. | The review period ended on {date}. |
-| `web.s14.becomeHost` | Publica tu auto | List your car |
-| `web.s14.profilePhoto` | Agrega una foto de perfil: tu anfitrión la verá al entregarte el auto. | Add a profile photo: your host will see it when handing over the car. |
-| `web.s15.legalName` | Nombre y apellido como en tu licencia | First and last name as on your license |
-| `web.s15.codeSent` | Código enviado a {phone} | Code sent to {phone} |
-| `web.s16.payOnPlatform` | Paga solo en {brand}: nunca por fuera. | Only pay through {brand}, never outside it. |
-| `web.s16.empty` | Aún no hay mensajes. Escríbele a {host_name} si tienes una pregunta sobre la entrega. | No messages yet. Message {host_name} if you have a question about the handover. |
-| `web.a01.title` | Gana dinero con tu auto | Earn money with your car |
-| `web.a01.cta` | Empezar | Get started |
-| `web.a02.greeting` | Hola, {host_name} | Hi, {host_name} |
-| `web.a02.earnings.title` | Ganancias de {month} | {month} earnings |
-| `web.a02.cars.listed` | Publicado | Listed |
-| `web.a02.cars.paused` | En pausa | Paused |
-| `web.a02.cars.inReview` | En revisión | In review |
-| `web.a02.cars.suspended` | Suspendido | Suspended |
-| `web.a02.cars.add` | Publicar otro auto | List another car |
-| `web.a02.empty` | Aún no tienes reservas. Tu auto ya es visible para los viajeros. | No bookings yet. Your car is already visible to guests. |
-| `web.a02.noShow` | El viajero no llegó | The guest didn't show up |
-| `web.a03.arrived` | Ya llegué | I'm here |
-| `web.a03.refuse` | No entregar el auto | Don't hand over the car |
-| `web.a03.handover` | Entregar las llaves | Hand over the keys |
-| `web.a03.check.face` | La persona se parece a la foto de la licencia y a su foto de perfil | The person looks like the license photo and their profile photo |
-| `web.a03.check.name` | El nombre y la inicial del apellido coinciden con la licencia | The first name and last initial match the license |
-| `web.a03.check.birthYear` | El año de nacimiento coincide | The birth year matches |
-| `web.a03.check.valid` | La licencia está vigente | The license hasn't expired |
-| `web.a03.check.provisional` | No es una licencia provisional | It isn't a provisional license |
-| `web.a03.check.restrictions` | Sus restricciones permiten manejar este auto | Its restrictions allow driving this car |
-| `web.a04.addFee` | Agregar un gasto con prueba | Add a cost with proof |
-| `web.a04.claimUntil` | Puedes reportar daños hasta el {date} | You can report damage until {date} |
-| `web.a05.accept` | Aceptar la solicitud | Accept request |
-| `web.a05.decline` | Rechazar la solicitud | Decline request |
-| `web.a05.cancel` | Cancelar reserva | Cancel booking |
-| `web.a05.cancelWarning` | El viajero recibe el reembolso completo. Se te descontará {amount} de tus próximas ganancias y tu calendario quedará bloqueado en esas fechas. | The guest gets a full refund. {amount} will be deducted from your next earnings and your calendar will be blocked for those dates. |
-| `web.a05.empty` | Sin reservas por ahora | No bookings yet |
-| `web.a06.empty` | Tu calendario está abierto | Your calendar is open |
-| `web.a07.waitingCountry` | Todo listo de tu lado. Avisaremos cuando {brand} abra a anfitriones en {country}. | You're all set. We'll let you know when {brand} opens to hosts in {country}. |
-| `web.a08.payoutOn` | Te pagamos el {date} | We'll pay you on {date} |
-| `web.a08.status.scheduled` | Programado | Scheduled |
-| `web.a08.status.sent` | Enviado | Sent |
-| `web.a08.status.onHold` | Retenido: {reason} | On hold: {reason} |
-| `web.a08.empty` | Aún no tienes ganancias | No earnings yet |
-| `web.a08.payoutsOff` | Tus ganancias quedan registradas. Los pagos a anfitriones en {country} aún no están abiertos; te avisaremos. | Your earnings are recorded. Host payouts in {country} aren't open yet; we'll let you know. |
-| `web.a10.saved` | Guardado | Saved |
-| `web.a10.empty` | Aún no publicaste ningún auto | You haven't listed a car yet |
-| `web.a10.meetPublic` | Te sugerimos este lugar público cerca de ti: {place} | We suggest this public place near you: {place} |
-| `web.a11.preview` | Así lo ve el viajero | What guests see |
-| `web.a11.safety` | Te recomendamos entregar el auto en un lugar público e iluminado. Si eliges tu casa, el viajero solo verá la dirección después de reservar. | We recommend handing over the car in a public, well-lit place. If you choose your home, guests only see the address after booking. |
-| `web.a13.promise` | Tu promesa a los viajeros | Your promise to guests |
-| `web.a13.empty` | Cuéntales a los viajeros quién eres | Tell guests who you are |
-| `web.error.datesUnavailable` | Este auto no está disponible el {date_unavailable}. Te proponemos devolverlo el {date_suggested}. ¿Usar esta fecha? | This car isn't available on {date_unavailable}. We suggest returning it on {date_suggested}. Use this date? |
-| `web.error.paymentDeclined` | Tu banco rechazó el pago. No se hizo ningún cargo. Guardamos tu reserva hasta las {hold_end_time}: prueba otra tarjeta. | Your bank declined the payment. You weren't charged. We're holding your booking until {hold_end_time}: try another card. |
-| `web.error.yappyExpired` | Tu orden de Yappy venció a los 5 minutos. No se hizo ningún cargo. Genera una nueva orden antes de las {hold_end_time}. | Your Yappy order expired after 5 minutes. You weren't charged. Create a new order before {hold_end_time}. |
-| `web.error.paidAfterRelease` | Recibimos tu pago, pero el auto ya no estaba reservado para ti. Te reembolsamos {amount} completo; mira estos autos cerca. | We received your payment, but the car was no longer held for you. We'll refund the full {amount}; here are cars nearby. |
-| `web.error.requestExpired` | {host_name} no respondió a tiempo. No se te cobró nada. Mira estos autos disponibles en tus fechas. | {host_name} didn't reply in time. You weren't charged. Here are cars available for your dates. |
-| `web.error.hostNoShow` | {host_name} no llegó. Puedes cancelar sin costo y te reembolsamos todo, o esperar un poco más. | {host_name} didn't show up. You can cancel at no cost for a full refund, or wait a little longer. |
-| `web.error.offlinePhotos` | Sin conexión. Tus fotos están guardadas en este teléfono y se enviarán solas cuando vuelva la señal. | You're offline. Your photos are saved on this phone and will upload when you're back online. |
-| `web.error.notServed` | Todavía no operamos en {city}. Déjanos tu correo y te avisamos al abrir. | We're not in {city} yet. Leave your email and we'll let you know. |
-| `backoffice.o01.empty` | Fila vacía | Queue empty |
-| `backoffice.o02.noVersion` | Ninguna versión publicada: tema por defecto | No published version: default theme |
+| Clé | es | en | fr |
+|---|---|---|---|
+| `common.offline.banner` | Sin conexión. Te mostramos lo último guardado. | You're offline. Showing what was last saved. | Hors connexion. Voici les dernières informations enregistrées. |
+| `common.price.finalForDays` | **one** : Precio final · {count} día · **other** : Precio final · {count} días | **one** : Final price · {count} day · **other** : Final price · {count} days | **one** : Prix final · {count} jour · **other** : Prix final · {count} jours |
+| `common.error.phoneDigits` | El número debe tener {digits} dígitos, por ejemplo {example}. | Enter a {digits}-digit number, for example {example}. | Le numéro doit comporter {digits} chiffres, par exemple {example}. |
+| `common.error.server` | Algo falló de nuestro lado. No se perdió nada de lo que escribiste. Inténtalo de nuevo; si sigue, escríbenos por WhatsApp con el código {code}. | Something went wrong on our side. Nothing you entered was lost. Try again; if it continues, message us on WhatsApp with code {code}. | Un problème est survenu de notre côté. Rien de ce que tu as saisi n’a été perdu. Réessaie ; si le problème continue, écris-nous sur WhatsApp avec le code {code}. |
+| `web.common.save` | Guardar | Save | Enregistrer |
+| `web.search.nearMe` | Cerca de mí | Near me | Près de moi |
+| `web.s01.kicker` | Alquiler entre particulares · {country} | Peer-to-peer car rental · {country} | Location entre particuliers · {country} |
+| `web.s01.title` | Alquila el auto de un vecino. | Rent a car from a neighbor. | Réserve la voiture d’un voisin. |
+| `web.s01.subtitle` | Autos de personas reales cerca de ti, vivas aquí o estés de visita. | Real people's cars near you, whether you live here or you're just visiting. | Des voitures de vraies personnes près de toi, que tu vives ici ou que tu sois de passage. |
+| `web.s01.rail.title` | Autos de vecinos cerca de ti | Neighbors' cars near you | Des voitures de voisins près de toi |
+| `web.s01.how.title` | Cómo funciona | How it works | Comment ça marche |
+| `web.s01.how.1` | Encuentra un auto cerca | Find a car nearby | Trouve une voiture près de toi |
+| `web.s01.how.1.body` | Autos de vecinos, con fotos, precio y opiniones reales. | Neighbors' cars, with real photos, prices and reviews. | Des voitures de voisins, avec de vraies photos, des prix et des avis réels. |
+| `web.s01.how.2` | Reserva con su dueño | Book with its owner | Réserve auprès de son propriétaire |
+| `web.s01.how.2.body` | Reservas y acuerdas con el anfitrión dónde te entrega el auto. | Book and agree with the host on where to meet. | Tu réserves et tu conviens avec l’hôte de l’endroit où il te remet la voiture. |
+| `web.s01.how.3` | Recógelo y disfruta | Pick it up and enjoy | Récupère-la et profite |
+| `web.s01.how.3.body` | Lo recoges en el punto acordado y lo devuelves ahí mismo. | Pick it up at the agreed spot and bring it back there. | Tu la récupères au point convenu et tu la rends au même endroit. |
+| `web.s01.owner.title` | Gana dinero con tu auto | Earn money with your car | Gagne de l’argent avec ta voiture |
+| `web.s01.owner.body` | Cuando no lo usas, tu auto puede ayudar a un vecino y darte un ingreso extra. | When you're not using it, your car can help a neighbor and bring you extra income. | Quand tu ne t’en sers pas, ta voiture peut dépanner un voisin et te rapporter un revenu en plus. |
+| `web.s01.owner.days` | **one** : {count} día al mes · **other** : {count} días al mes | **one** : {count} day a month · **other** : {count} days a month | **one** : {count} jour par mois · **other** : {count} jours par mois |
+| `web.s01.owner.perMonth` | al mes | a month | par mois |
+| `web.s01.owner.note` | Estimación de ejemplo ({amount} por día), no es una promesa de ingresos. | Sample estimate ({amount} a day), not a promise of income. | Estimation donnée en exemple ({amount} par jour), pas une promesse de revenus. |
+| `web.s01.owner.cta` | Publica tu auto | List your car | Publie ta voiture |
+| `web.s02.count` | **one** : {count} auto cerca de ti · **other** : {count} autos cerca de ti | **one** : {count} car near you · **other** : {count} cars near you | **one** : {count} voiture près de toi · **other** : {count} voitures près de toi |
+| `web.s02.sort.distance` | Cercanía | Distance | Distance |
+| `web.s02.sort.price` | Precio | Price | Prix |
+| `web.s02.sort.rating` | Valoración | Rating | Note |
+| `web.s02.new` | Nuevo | New | Nouveau |
+| `web.s02.empty` | No hay autos disponibles en estas fechas. | No cars are available for these dates. | Aucune voiture n’est disponible à ces dates. |
+| `web.s02.filters` | Filtros | Filters | Filtres |
+| `web.s02f.price` | Precio por día | Price per day | Prix par jour |
+| `web.s02f.type` | Tipo de auto | Car type | Type de voiture |
+| `web.s02f.verified` | Solo anfitriones con identidad verificada | Only hosts with verified identity | Seulement les hôtes à l’identité vérifiée |
+| `web.s02f.instant` | Confirmación inmediata | Instant confirmation | Confirmation immédiate |
+| `web.s02f.clear` | Borrar | Clear | Effacer |
+| `web.s02f.show` | **one** : Ver {count} auto · **other** : Ver {count} autos | **one** : Show {count} car · **other** : Show {count} cars | **one** : Voir {count} voiture · **other** : Voir {count} voitures |
+| `web.s02f.none` | Ningún auto cumple estos filtros. Quita alguno para ver más. | No cars match these filters. Remove one to see more. | Aucune voiture ne correspond à ces filtres. Retires-en un pour en voir plus. |
+| `web.s03.photos` | {n} / {total} fotos de {host_name} | {n} / {total} photos by {host_name} | {n} / {total} · photos prises par {host_name} |
+| `web.s03.host.titleMasc` | Tu anfitrión | Your host | Ton hôte |
+| `web.s03.host.titleFem` | Tu anfitriona | Your host | Ton hôtesse |
+| `web.s03.host.titleNeutral` | Quién te alquila el auto | Your host | Qui te loue la voiture |
+| `web.host.guest.verified` | Identidad verificada | Verified identity | Identité vérifiée |
+| `web.s03.rules.title` | Reglas de {host_name} | {host_name}'s rules | Règles fixées par {host_name} |
+| `web.s03.meet.title` | Dónde recoges el auto | Where you pick up the car | Où tu récupères la voiture |
+| `web.s03.instant` | Confirmación inmediata | Instant confirmation | Confirmation immédiate |
+| `web.s03.request` | **one** : {host_name} confirma en hasta {count} hora · **other** : {host_name} confirma en hasta {count} horas | **one** : {host_name} confirms within {count} hour · **other** : {host_name} confirms within {count} hours | **one** : {host_name} confirme sous {count} heure maximum · **other** : {host_name} confirme sous {count} heures maximum |
+| `web.s03.cta` | Reservar | Book | Réserver |
+| `web.s03.signal.bookedAfter` | Este auto ya está reservado justo después de tus fechas: devuélvelo a tiempo. | This car is booked right after your dates: please return it on time. | Cette voiture est déjà réservée juste après tes dates : rends-la à l’heure. |
+| `web.s03.kyc.notice` | Necesitarás: licencia vigente, pasaporte o cédula y una selfie. Tarda unos 3 minutos. | You'll need a valid driver's license, a passport or ID card, and a selfie. It takes about 3 minutes. | Il te faudra : un permis de conduire valide, un passeport ou une carte d’identité, et un selfie. Compte environ 3 minutes. |
+| `web.s03.kyc.90days` | Puedes manejar con tu licencia extranjera hasta el {date_limit}. Tu alquiler termina el {date_end}. | You can drive with your foreign license until {date_limit}. Your rental ends on {date_end}. | Tu peux conduire avec ton permis étranger jusqu’au {date_limit}. Ta location se termine le {date_end}. |
+| `web.s03.deposit.title` | Depósito de garantía | Security deposit | Dépôt de garantie |
+| `web.deposit.holder` | Lo retiene {merchant_name} en tu tarjeta; {host_name} nunca lo cobra. | It's held on your card by {merchant_name}; {host_name} never collects it. | Il est bloqué sur ta carte par {merchant_name} ; {host_name} ne l’encaisse jamais. |
+| `web.deposit.how.preauth` | Es un bloqueo temporal en tu tarjeta, no un cargo. | It's a temporary hold on your card, not a charge. | C’est un blocage temporaire sur ta carte, pas un débit. |
+| `web.deposit.how.chargeRefund` | Se cobra al inicio y se reembolsa al final. | It's charged at the start and refunded at the end. | Il est débité au début et remboursé à la fin. |
+| `web.deposit.covers` | Cubre solo estos gastos del viaje: combustible faltante, retraso en la devolución, kilómetros extra, limpieza, tabaco o mascotas, y peajes. | It only covers these trip costs: missing fuel, late return, extra kilometers, cleaning, smoking or pets, and tolls. | Il couvre seulement ces frais du voyage : carburant manquant, retard au retour, kilomètres en plus, nettoyage, tabac ou animaux, et péages. |
+| `web.deposit.notCovers` | Los daños no se cobran de este depósito. | Damage is never taken from this deposit. | Les dommages ne sont jamais prélevés sur ce dépôt. |
+| `web.deposit.releaseBy` | Se libera a más tardar el {date}. | Released no later than {date}. | Il est libéré au plus tard le {date}. |
+| `web.deposit.contest` | Revisar y responder | Review and respond | Vérifier et répondre |
+| `web.deposit.debitWarning` | El depósito se cobra y luego se reembolsa. Emitiremos el reembolso el {date}; tu banco puede tardar de 3 a 10 días hábiles en mostrarlo. | The deposit is charged and then refunded. We'll issue the refund on {date}; your bank may take 3 to 10 business days to show it. | Le dépôt est débité puis remboursé. Nous émettrons le remboursement le {date} ; ta banque peut mettre de 3 à 10 jours ouvrés à l’afficher. |
+| `web.deposit.unavailable` | **one** : Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} día. · **other** : Para estas fechas no podemos tomar el depósito en tu tarjeta. Puedes reservar hasta {count} días. | **one** : We can't place the deposit on your card for these dates. You can book up to {count} day. · **other** : We can't place the deposit on your card for these dates. You can book up to {count} days. | **one** : Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jour. · **other** : Pour ces dates, nous ne pouvons pas bloquer le dépôt sur ta carte. Tu peux réserver jusqu’à {count} jours. |
+| `web.s04.status.question` | ¿Cuál es tu situación en {country}? | What's your status in {country}? | Quelle est ta situation au {country} ? |
+| `web.s04.status.tourist` | Entraste a {country} hace menos de 90 días con pasaporte | You entered {country} less than 90 days ago with a passport | Tu es au {country} depuis moins de 90 jours, avec un passeport |
+| `web.s04.status.resident` | Tienes un documento de identidad de {country} | You have a {country} ID document | Tu as une pièce d’identité du {country} |
+| `web.s04.status.special` | Visa especial o permiso de estadía | Special visa or stay permit | Visa spécial ou permis de séjour |
+| `web.s04.status.unsure` | No estoy seguro | I'm not sure | Je ne sais pas |
+| `web.s04.checking` | Verificando… | Verifying… | Vérification… |
+| `web.s04.result.verified` | Verificado | Verified | Vérifié |
+| `web.s04.result.inReview` | **one** : En revisión: te avisamos en un máximo de {count} hora. · **other** : En revisión: te avisamos en un máximo de {count} horas. | **one** : In review: we'll let you know within {count} hour. · **other** : In review: we'll let you know within {count} hours. | **one** : En cours d’examen : nous te répondons sous {count} heure maximum. · **other** : En cours d’examen : nous te répondons sous {count} heures maximum. |
+| `web.s04.result.retake` | Necesitamos otra foto | We need another photo | Il nous faut une autre photo |
+| `web.s04.result.rejected` | No podemos aprobarte: {reason} | We can't approve you: {reason} | Nous ne pouvons pas te valider : {reason} |
+| `web.s04.result.glare` | La foto de tu licencia salió con reflejo. Inclínala un poco y evita la luz directa. | There's glare on your license photo. Tilt it slightly and avoid direct light. | La photo de ton permis a un reflet. Incline-le un peu et évite la lumière directe. |
+| `web.s05.protection.title` | Elige tu protección | Choose your protection | Choisis ta protection |
+| `web.s05.manual` | Sé manejar caja manual | I can drive a manual car | Je sais conduire une boîte manuelle |
+| `web.s05.contract` | Acepto el contrato de alquiler con {host_name} | I accept the rental agreement with {host_name} | J’accepte le contrat de location avec {host_name} |
+| `web.s05.mitConsent` | Autorizo cargos posteriores al viaje en esta tarjeta solo por gastos del viaje, mi franquicia o daños, siempre con aviso y prueba. | I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof. | J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve. |
+| `web.s05.cta` | Pagar {amount} | Pay {amount} | Payer {amount} |
+| `web.s05.ctaRequest` | Enviar solicitud | Send request | Envoyer la demande |
+| `web.s05.hold.until` | Guardamos este auto para ti hasta las {time} | We're holding this car for you until {time} | Nous te gardons cette voiture jusqu’à {time} |
+| `web.s05.priceChanged` | El precio cambió | The price changed | Le prix a changé |
+| `web.s05.review.title` | Reserva en revisión: no se te cobró nada | Booking under review: you haven't been charged | Réservation en cours d’examen : tu n’as rien payé |
+| `web.s05.review.body` | **one** : Revisaremos tu reserva en un máximo de {count} hora hábil. · **other** : Revisaremos tu reserva en un máximo de {count} horas hábiles. | **one** : We'll review your booking within {count} business hour. · **other** : We'll review your booking within {count} business hours. | **one** : Nous examinerons ta réservation sous {count} heure ouvrée maximum. · **other** : Nous examinerons ta réservation sous {count} heures ouvrées maximum. |
+| `web.s05.review.notice` | Revisamos cada reserva. Si no podemos aprobarla, te devolvemos todo. | We review every booking. If we can't approve it, you get a full refund. | Nous examinons chaque réservation. Si nous ne pouvons pas l’accepter, nous te remboursons tout. |
+| `web.s06.pre.title` | En tu estado de cuenta verás: {merchant_name} | Your statement will show: {merchant_name} | Sur ton relevé, tu verras : {merchant_name} |
+| `web.s06.pre.leaving` | Vas a pagar {amount} en una página segura de nuestro procesador de pagos. | You'll pay {amount} on a secure page from our payment processor. | Tu vas payer {amount} sur une page sécurisée de notre prestataire de paiement. |
+| `web.s06.verifying.title` | Pago en verificación | Verifying your payment | Paiement en cours de vérification |
+| `web.s06.verifying.body` | Esto suele tardar menos de un minuto. No pagues de nuevo. | This usually takes less than a minute. Don't pay again. | Cela prend en général moins d’une minute. Ne paie pas une seconde fois. |
+| `web.s06.verifying.slow` | Seguimos esperando la confirmación de tu banco. | We're still waiting for your bank to confirm. | Nous attendons toujours la confirmation de ta banque. |
+| `web.s06.support` | Hablar con soporte | Contact support | Contacter l’assistance |
+| `web.s06.yappy.newOrder` | Generar una nueva orden | Create a new order | Créer une nouvelle demande de paiement |
+| `web.s06.payAgain` | Pagar de nuevo | Pay again | Payer à nouveau |
+| `web.s07.title` | ¡Reserva confirmada! | Your booking is confirmed! | Réservation confirmée ! |
+| `web.s07.message` | Escribir a {host_name} | Message {host_name} | Écrire à {host_name} |
+| `web.s07.checkinOpens` | El check-in con fotos se abre el {date}. | Photo check-in opens on {date}. | Le check-in avec photos ouvre le {date}. |
+| `web.s07.safety` | Para tu seguridad: encuéntrense en un lugar público e iluminado, avisa a alguien de confianza dónde estarás y escribe solo por {brand}. | For your safety: meet in a public, well-lit place, tell someone you trust where you'll be, and keep all messages on {brand}. | Pour ta sécurité : retrouvez-vous dans un lieu public et éclairé, dis à une personne de confiance où tu seras et échange uniquement sur {brand}. |
+| `web.s07.request.pending` | {host_name} tiene hasta las {time} para responder. No se te cobra nada si no acepta. | {host_name} has until {time} to reply. You won't be charged unless they accept. | {host_name} a jusqu’à {time} pour répondre. Tu ne paies rien si la demande n’est pas acceptée. |
+| `web.s08.tabs.upcoming` | Próximos | Upcoming | À venir |
+| `web.s08.tabs.past` | Anteriores | Past | Passés |
+| `web.s08.empty` | Aún no tienes viajes | You don't have any trips yet | Tu n’as encore aucun voyage |
+| `web.s09.checkin` | Hacer el check-in | Start check-in | Faire le check-in |
+| `web.s09.lateButton` | Voy tarde | I'm running late | Je suis en retard |
+| `web.s09.refuse` | No acepto el auto | I don't accept the car | Je n’accepte pas la voiture |
+| `web.s09.hostNoShow.cancel` | Cancelar sin costo | Cancel at no cost | Annuler sans frais |
+| `web.s09.hostNoShow.wait` | Esperar un poco más | Wait a little longer | Attendre encore un peu |
+| `web.s09.deposit.title` | Tu depósito | Your deposit | Ton dépôt |
+| `web.s09c.done` | Tus fotos quedaron guardadas | Your photos are saved | Tes photos sont enregistrées |
+| `web.s09c.returned` | Devolviste el auto | You've returned the car | Tu as rendu la voiture |
+| `web.checkin.queue.savedOnDevice` | Guardado en este teléfono | Saved on this phone | Enregistré sur ce téléphone |
+| `web.s10.cta` | Cancelar y recibir {amount} | Cancel and get {amount} back | Annuler et récupérer {amount} |
+| `web.s12.accept` | Aceptar y pagar {amount} | Accept and pay {amount} | Accepter et payer {amount} |
+| `web.s12.contest` | No estoy de acuerdo | I disagree | Je ne suis pas d’accord |
+| `web.review.until` | Puedes opinar hasta el {date} | You can leave a review until {date} | Tu peux donner ton avis jusqu’au {date} |
+| `web.review.blind` | **one** : {name} no verá tu opinión hasta que ambos opinen o pase {count} día · **other** : {name} no verá tu opinión hasta que ambos opinen o pasen {count} días | **one** : {name} won't see your review until you've both reviewed or {count} day has passed · **other** : {name} won't see your review until you've both reviewed or {count} days have passed | **one** : {name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre ou que {count} jour soit passé · **other** : {name} ne verra pas ton avis avant que vous ayez tous les deux donné le vôtre ou que {count} jours soient passés |
+| `web.review.closed` | El plazo para opinar terminó el {date}. | The review period ended on {date}. | Le délai pour donner ton avis s’est terminé le {date}. |
+| `web.s14.becomeHost` | Publica tu auto | List your car | Publie ta voiture |
+| `web.s14.profilePhoto` | Agrega una foto de perfil: tu anfitrión la verá al entregarte el auto. | Add a profile photo: your host will see it when handing over the car. | Ajoute une photo de profil : ton hôte la verra au moment de te remettre la voiture. |
+| `web.s15.legalName` | Nombre y apellido como en tu licencia | First and last name as on your license | Prénom et nom comme sur ton permis |
+| `web.s15.signup` | Crear cuenta | Sign up | Créer un compte |
+| `web.s15.codeSent` | Código enviado a {phone} | Code sent to {phone} | Code envoyé au {phone} |
+| `web.s16.payOnPlatform` | Paga solo en {brand}: nunca por fuera. | Only pay through {brand}, never outside it. | Paie uniquement sur {brand}, jamais en dehors. |
+| `web.s16.empty` | Aún no hay mensajes. Escríbele a {host_name} si tienes una pregunta sobre la entrega. | No messages yet. Message {host_name} if you have a question about the handover. | Pas encore de messages. Écris à {host_name} si tu as une question sur la remise. |
+| `web.a01.title` | Gana dinero con tu auto | Earn money with your car | Gagne de l’argent avec ta voiture |
+| `web.a01.cta` | Empezar | Get started | Commencer |
+| `web.a02.greeting` | Hola, {host_name} | Hi, {host_name} | Bonjour {host_name} |
+| `web.a02.earnings.title` | Ganancias de {month} | {month} earnings | Gains du mois : {month} |
+| `web.a02.cars.title` | Mis autos | My cars | Mes voitures |
+| `web.a02.cars.listed` | Publicado | Listed | Publiée |
+| `web.a02.cars.paused` | En pausa | Paused | En pause |
+| `web.a02.cars.inReview` | En revisión | In review | En cours d’examen |
+| `web.a02.cars.suspended` | Suspendido | Suspended | Suspendue |
+| `web.a02.cars.add` | Publicar otro auto | List another car | Publier une autre voiture |
+| `web.a02.empty` | Aún no tienes reservas. Tu auto ya es visible para los viajeros. | No bookings yet. Your car is already visible to guests. | Pas encore de réservations. Ta voiture est déjà visible par les voyageurs. |
+| `web.a02.noShow` | El viajero no llegó | The guest didn't show up | Le voyageur ne s’est pas présenté |
+| `web.a03.arrived` | Ya llegué | I'm here | Je suis sur place |
+| `web.a03.refuse` | No entregar el auto | Don't hand over the car | Ne pas remettre la voiture |
+| `web.a03.handover` | Entregar las llaves | Hand over the keys | Remettre les clés |
+| `web.a03.check.face` | La persona se parece a la foto de la licencia y a su foto de perfil | The person looks like the license photo and their profile photo | La personne ressemble à la photo du permis et à sa photo de profil |
+| `web.a03.check.name` | El nombre y la inicial del apellido coinciden con la licencia | The first name and last initial match the license | Le prénom et l’initiale du nom correspondent au permis |
+| `web.a03.check.birthYear` | El año de nacimiento coincide | The birth year matches | L’année de naissance correspond |
+| `web.a03.check.valid` | La licencia está vigente | The license hasn't expired | Le permis est en cours de validité |
+| `web.a03.check.provisional` | No es una licencia provisional | It isn't a provisional license | Ce n’est pas un permis provisoire |
+| `web.a03.check.restrictions` | Sus restricciones permiten manejar este auto | Its restrictions allow driving this car | Ses restrictions permettent de conduire cette voiture |
+| `web.a04.addFee` | Agregar un gasto con prueba | Add a cost with proof | Ajouter des frais avec justificatif |
+| `web.a04.claimUntil` | Puedes reportar daños hasta el {date} | You can report damage until {date} | Tu peux déclarer des dommages jusqu’au {date} |
+| `web.a05.accept` | Aceptar la solicitud | Accept request | Accepter la demande |
+| `web.a05.decline` | Rechazar la solicitud | Decline request | Refuser la demande |
+| `web.a05.cancel` | Cancelar reserva | Cancel booking | Annuler la réservation |
+| `web.a05.cancelWarning` | El viajero recibe el reembolso completo. Se te descontará {amount} de tus próximas ganancias y tu calendario quedará bloqueado en esas fechas. | The guest gets a full refund. {amount} will be deducted from your next earnings and your calendar will be blocked for those dates. | Le voyageur est remboursé intégralement. {amount} sera déduit de tes prochains gains et ton calendrier sera bloqué à ces dates. |
+| `web.a05.empty` | Sin reservas por ahora | No bookings yet | Aucune réservation pour l’instant |
+| `web.a06.empty` | Tu calendario está abierto | Your calendar is open | Ton calendrier est ouvert |
+| `web.a07.waitingCountry` | Todo listo de tu lado. Avisaremos cuando {brand} abra a anfitriones en {country}. | You're all set. We'll let you know when {brand} opens to hosts in {country}. | Tout est prêt de ton côté. Nous te préviendrons quand {brand} ouvrira aux hôtes au {country}. |
+| `web.a08.payoutOn` | Te pagamos el {date} | We'll pay you on {date} | Nous te payons le {date} |
+| `web.a08.status.scheduled` | Programado | Scheduled | Programmé |
+| `web.a08.status.sent` | Enviado | Sent | Envoyé |
+| `web.a08.status.onHold` | Retenido: {reason} | On hold: {reason} | Retenu : {reason} |
+| `web.a08.empty` | Aún no tienes ganancias | No earnings yet | Pas encore de gains |
+| `web.a08.payoutsOff` | Tus ganancias quedan registradas. Los pagos a anfitriones en {country} aún no están abiertos; te avisaremos. | Your earnings are recorded. Host payouts in {country} aren't open yet; we'll let you know. | Tes gains sont enregistrés. Les versements aux hôtes ne sont pas encore ouverts au {country} ; nous te préviendrons. |
+| `web.a10.saved` | Guardado | Saved | Enregistré |
+| `web.a10.empty` | Aún no publicaste ningún auto | You haven't listed a car yet | Tu n’as encore publié aucune voiture |
+| `web.a10.meetPublic` | Te sugerimos este lugar público cerca de ti: {place} | We suggest this public place near you: {place} | Nous te suggérons ce lieu public près de chez toi : {place} |
+| `web.a11.preview` | Así lo ve el viajero | What guests see | Ce que voit le voyageur |
+| `web.a11.safety` | Te recomendamos entregar el auto en un lugar público e iluminado. Si eliges tu casa, el viajero solo verá la dirección después de reservar. | We recommend handing over the car in a public, well-lit place. If you choose your home, guests only see the address after booking. | Nous te conseillons de remettre la voiture dans un lieu public et éclairé. Si tu choisis ton domicile, le voyageur ne verra l’adresse qu’après la réservation. |
+| `web.a13.promise` | Tu promesa a los viajeros | Your promise to guests | Ta promesse aux voyageurs |
+| `web.a13.empty` | Cuéntales a los viajeros quién eres | Tell guests who you are | Dis aux voyageurs qui tu es |
+| `web.error.datesUnavailable` | Este auto no está disponible el {date_unavailable}. Te proponemos devolverlo el {date_suggested}. ¿Usar esta fecha? | This car isn't available on {date_unavailable}. We suggest returning it on {date_suggested}. Use this date? | Cette voiture n’est pas disponible le {date_unavailable}. Nous te proposons de la rendre le {date_suggested}. Utiliser cette date ? |
+| `web.error.paymentDeclined` | Tu banco rechazó el pago. No se hizo ningún cargo. Guardamos tu reserva hasta las {hold_end_time}: prueba otra tarjeta. | Your bank declined the payment. You weren't charged. We're holding your booking until {hold_end_time}: try another card. | Ta banque a refusé le paiement. Aucun débit n’a été effectué. Nous gardons ta réservation jusqu’à {hold_end_time} : essaie une autre carte. |
+| `web.error.yappyExpired` | Tu orden de Yappy venció a los 5 minutos. No se hizo ningún cargo. Genera una nueva orden antes de las {hold_end_time}. | Your Yappy order expired after 5 minutes. You weren't charged. Create a new order before {hold_end_time}. | Ta demande de paiement Yappy a expiré au bout de 5 minutes. Aucun débit n’a été effectué. Crée-en une nouvelle avant {hold_end_time}. |
+| `web.error.paidAfterRelease` | Recibimos tu pago, pero el auto ya no estaba reservado para ti. Te reembolsamos {amount} completo; mira estos autos cerca. | We received your payment, but the car was no longer held for you. We'll refund the full {amount}; here are cars nearby. | Nous avons reçu ton paiement, mais la voiture n’était plus réservée pour toi. Nous te remboursons {amount} en totalité ; voici des voitures à proximité. |
+| `web.error.requestExpired` | {host_name} no respondió a tiempo. No se te cobró nada. Mira estos autos disponibles en tus fechas. | {host_name} didn't reply in time. You weren't charged. Here are cars available for your dates. | {host_name} n’a pas répondu à temps. Tu n’as rien payé. Voici des voitures disponibles à tes dates. |
+| `web.error.requestDeclined` | {host_name} no puede recibirte en estas fechas. No se te cobró nada. Mira estos autos disponibles en tus fechas. | {host_name} can't host you on these dates. You weren't charged. Here are cars available for your dates. | {host_name} ne peut pas te confier sa voiture à ces dates. Tu n’as rien payé. Voici des voitures disponibles à tes dates. |
+| `web.error.hostNoShow` | {host_name} no llegó. Puedes cancelar sin costo y te reembolsamos todo, o esperar un poco más. | {host_name} didn't show up. You can cancel at no cost for a full refund, or wait a little longer. | {host_name} n’est pas encore là. Tu peux annuler sans frais et obtenir un remboursement intégral, ou attendre encore un peu. |
+| `web.error.offlinePhotos` | Sin conexión. Tus fotos están guardadas en este teléfono y se enviarán solas cuando vuelva la señal. | You're offline. Your photos are saved on this phone and will upload when you're back online. | Hors connexion. Tes photos sont enregistrées sur ce téléphone et partiront toutes seules quand le réseau reviendra. |
+| `web.error.notServed` | Todavía no operamos en {city}. Déjanos tu correo y te avisamos al abrir. | We're not in {city} yet. Leave your email and we'll let you know. | Nous ne sommes pas encore à {city}. Laisse-nous ton e-mail et nous te préviendrons à l’ouverture. |
+| `backoffice.o01.empty` | Fila vacía | Queue empty | File vide |
+| `backoffice.o02.noVersion` | Ninguna versión publicada: tema por defecto | No published version: default theme | Aucune version publiée : thème par défaut |
 
-**Règles du catalogue** : (1) une clé s'ajoute dans `es.ts` et `en.ts` dans le même commit, et `CATALOG_VERSION` est incrémentée (README de `packages/i18n`) ; (2) `web.home.tagline` (« Rent a car and see the final price from the start. ») est remplacée par `web.s01.title` à la livraison de S01 ; (3) « Yappy » n'apparaît que si la capacité est validée (UXQ-01) : `web.error.paymentDeclined` ne propose plus Yappy par défaut ; (4) aucun texte ne reprend le vocabulaire de marque de Turo (règle 9) : « Confirmación inmediata » / « Instant confirmation » désigne le mode `INSTANT`.
+**Règles du catalogue** : (1) une clé s'ajoute dans `es.ts`, `en.ts` et `fr.ts` dans le même commit (DEC-FONDATEUR-17), la colonne `fr` suivant la typographie de `fr.ts` : apostrophe « ’ » et espace insécable (U+00A0) avant « : », « ; », « ? » et « ! » (déjà appliquées dans le tableau, hors marqueurs de pluriel **one** / **other**) ; tournures épicènes quand le genre d'une personne est inconnu (« Je suis sur place », « {host_name} n’est pas encore là ») ; jamais « de » devant une variable (élision impossible : « d’avril », « d’Ana ») ; et `CATALOG_VERSION` est incrémentée (README de `packages/i18n`) ; (2) `web.home.tagline` (« Rent a car and see the final price from the start. ») est remplacée par `web.s01.title` à la livraison de S01 ; (3) « Yappy » n'apparaît que si la capacité est validée (UXQ-01) : `web.error.paymentDeclined` ne propose plus Yappy par défaut ; (4) aucun texte ne reprend le vocabulaire de marque de Turo (règle 9) : « Confirmación inmediata » / « Instant confirmation » désigne le mode `INSTANT`.
 
 ---
 
