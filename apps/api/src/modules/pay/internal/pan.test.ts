@@ -1,6 +1,6 @@
 /**
  * Détecteur de PAN (17 §4.4 point 3, F26 ; portée SAQ A, 17 §1.6). Numéros de test publics des
- * réseaux (jamais une carte réelle) ; même définition que `core.payment_text_has_pan` (0027).
+ * réseaux (jamais une carte réelle) ; même définition que `core.payment_text_has_pan` (0028).
  */
 import { describe, expect, it } from 'vitest';
 import { containsPan, luhnValid, maskPan, maskPanDeep } from './pan.js';

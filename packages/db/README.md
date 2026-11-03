@@ -28,8 +28,9 @@ Migrations actuelles :
 - `0012_outbox_tables` à `0015_outbox_monitoring` : outbox, reçus, lettres mortes, file de tâches, métriques (US-008, section « Outbox et file ») ; numérotation : `migrations/README.md` ;
 - `0016_audit_subject_key` à `0021_audit_grants` (US-009) : journal d'audit chaîné, clés par sujet, magasin de preuves (section « Audit… ») ;
 - `0022_security_definer_owners` à `0026_audit_owner_subject_key_scope` (US-011) : propriétaires NOLOGIN, clés étrangères AVL → IAM, contexte et fonctions de politique, lectures d'`app_api` par acteur et par pays, clés d'audit par sujet (section « RLS par acteur et par pays ») ;
-- `0027_payment_psp_port` (US-019) : port PaymentProvider côté base (section « Port PaymentProvider ») ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker`).
+- `0027_settlement_versions_legs` (US-018) : règlements versionnés, lignes, taxes, jambes et soldes par jambe, commande `core.settlement_cmd_record` (section « Règlements et jambes ») ;
+- `0028_payment_psp_port` (US-019) : port PaymentProvider côté base (section « Port PaymentProvider ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`) ; `9500_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker` ; écriture brute d'opérations pour le contrôle différé des jambes).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -161,11 +162,25 @@ Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_
 - **Mesures** : lignes `[L0-02]` et `[L0-04]` du journal CI (40P01, rejeux, p50 / p95 / max, plan et temps d'exécution de 2a), à joindre au rapport L0 (US-027).
 - **L0-04** : 10 000 holds sur 1 000 véhicules par pays (`l0_seed_expiry_bench`, puis `ANALYZE`) ; plan `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` sous `app_worker` (`hold_expiry`), RLS comprise.
 
+## Règlements et jambes (US-018 ; 08 E4, E7 ; 17 §2.3, §2.9, §3.2.8 ; ADR-057)
+
+Migration 0027 : `core.settlement_settlement` (en-tête versionné, `UNIQUE (trip_id, segment_no, version)`, `supersedes_id`), `settlement_settlement_line`, `settlement_settlement_tax_line`, `settlement_settlement_leg` (jambe retenue `kept_minor` ≥ 0, avance `advance_minor` sur `PLATFORM` seulement, base `basis_minor`, variation signée `variation_minor = kept − advance − basis`) et `settlement_trip_leg_balance` (soldes par trip, segment et jambe, toujours ≥ 0, cumuls monotones, aucun `DELETE`).
+
+- **Bêta** : un seul segment par trip (`segment_no = 1`). **Entrées** : `inputs` (texte canonique du moteur), empreinte vérifiée en base contre `inputs_hash`.
+- **Immuable** : un règlement n'est jamais modifié ; la version n+1 remplace la dernière version par `supersedes_id`, la version n reste lisible (`settlement_immutable`).
+- **Écriture** : seulement `core.settlement_cmd_record(id, trip, segment, version, supersedes, trip_row_version, charge jsonb)` (`SECURITY DEFINER`, `cmd_money_owner`, `EXECUTE` au seul `app_worker`, travailleur `settlement`) : verrou `FOR UPDATE` du trip, contrôle de `row_version` (`SETTLEMENT_STALE`), version suivante exacte (`SETTLEMENT_EXISTS`, EC-54), portée relue du trip. La charge utile vient de `settlementRecordPayload` (`@rueda/money`).
+- **Invariants** : `CHECK` de l'en-tête, des lignes et des jambes, puis trigger différé `settlement_balanced` (Σ jambes = retenu TTC, Σ variations = − remboursement ou − écart, `HOST` = `hostFromGuest`, `TAX_THIRD_PARTY`, base = version n ou état capturé, drapeau `negative_leg`).
+- **`negative_leg`** : `PLATFORM` retenue négative ⇒ `kept_minor = 0` + `advance_minor`, revue FIN, remboursement jamais réduit (ordres `PLANNED`).
+- **Lectures** (par colonnes) : hôte titulaire = jambe `HOST` de ses trips (RLS-2, RLS-28) ; en-tête, lignes et taxes : ADMIN / FINANCE du pays ; jambes : ADMIN / FINANCE, OPS / SUPPORT sur dossier (RLS-23) ; voyageur : rien ; travailleurs `settlement`, `payment_command`, `payout`, `bordereau`, `reconciliation`.
+- Codes (`translateDbError`) : `SETTLEMENT_EXISTS`, `SETTLEMENT_STALE`, `SETTLEMENT_UNBALANCED`, `LEG_AMOUNT_NEGATIVE`, `IMMUTABLE_RECORD`, `INVARIANT_VIOLATION`.
+
+Preuves : `test/l0/l0-stl-settlement.test.ts` (TJ02a / b, TJ08a / b, T36, TJ18a, TJ18c, TJ13 b / d, EC-54 avec deux connexions, falsifications, RLS-2, RLS-21, RLS-25, RLS-28, hôte contre hôte, pays contre pays) et `test/int/stl-schema.test.ts` (socle RLS, politiques, droits, triggers).
+
 ## Port PaymentProvider (US-019 ; 17 §2.8, §3.2.7, §4.3, §4.4, §6.5 ; ADR-059)
 
-Migration `0027_payment_psp_port` :
+Migration `0028_payment_psp_port` :
 
-- `platform.deployment_env()` : environnement de la **base**, `production` par défaut (fail-closed) ; remplacée par la migration d'environnement (US-003) et, en test seulement, par `9400` (paramètre `app.test_deployment_env`). La base de production du banc prouve que la version de production ne lit aucun paramètre.
+- `platform.deployment_env()` : environnement de la **base**, `production` par défaut (fail-closed) ; remplacée par la migration d'environnement (US-003) et, en test seulement, par `9500` (paramètre `app.test_deployment_env`). La base de production du banc prouve que la version de production ne lit aucun paramètre.
 - `core.payment_psp_account` (compte marchand de Kmino, `owner_type = PLATFORM`, références de coffre seulement) : `CHECK` FAKE ⇒ `SANDBOX` (`psp_account_fake_sandbox_only`), trigger `psp_account_fake_guard` (aucune écriture d'un compte FAKE quand la base est en production, `psp_account_fake_forbidden`), `PLATFORM_MOR` fermé, compte `LIVE` actif seulement avec `gate_decision_ref` (PAY-041), un compte `ACTIVE` par (fournisseur, pays, environnement). Aucun rôle applicatif n'y écrit en production.
 - `core.payment_psp_capability` : matrice de capacités ; lecture de référence pour `app_api` et `app_worker` ; seule une valeur `VALIDATED_*` est utilisée côté application.
 - `core.payment_payment_operation.psp_account_id` ; `core.payment_payment_operation_leg` (jambes explicites, immuables ; contrôle différé `payment_operation_legs_check`, fonction `core.payment_assert_operation_legs()` de la famille `integrity_trigger`) ; `core.payment_payment_operation_event` (chaque statut reçu, avec `outcome` APPLIED / DUPLICATE / STALE / CONFLICT).

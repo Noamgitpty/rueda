@@ -94,7 +94,7 @@ export { WebhookProcessor } from './internal/webhook-processor.js';
 export type { ProcessorReport } from './internal/webhook-processor.js';
 export { containsPan, maskPan } from './internal/pan.js';
 
-// Persistance (commandes core.payment_cmd_*, migration 0027) et démarrage (C19)
+// Persistance (commandes core.payment_cmd_*, migration 0028) et démarrage (C19)
 export {
   PgOperationRecorder,
   PgWebhookInboxStore,

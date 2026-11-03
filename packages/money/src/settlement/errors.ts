@@ -14,6 +14,12 @@ export const SETTLEMENT_ERROR_CODES = [
   'REJECTED_TOO_EARLY',
   /** PROPOSÉ : invariant d'équilibre violé (`remboursement + retenu + taxe retenue ≠ total`). */
   'SETTLEMENT_UNBALANCED',
+  /**
+   * 08 E7 règle 5 (nom PROPOSÉ par 08) : jambe capturée négative, ou jambe retenue négative hors
+   * `PLATFORM` (US-018). Une `PLATFORM` retenue négative n'est pas une erreur : avance de Kmino et
+   * revue FIN (`negativeLeg`).
+   */
+  'LEG_AMOUNT_NEGATIVE',
 ] as const;
 
 export type SettlementErrorCode = (typeof SETTLEMENT_ERROR_CODES)[number];

@@ -1,7 +1,7 @@
 /**
- * Aides des preuves du port PaymentProvider (US-019, migration 0027) : transaction avec contexte
+ * Aides des preuves du port PaymentProvider (US-019, migration 0028) : transaction avec contexte
  * (travailleur nommé, environnement de déploiement de TEST posé par `app.test_deployment_env`,
- * test-migrations/9400), compte PSP FAKE écrit par app_worker (droit de TEST), trip par la fixture
+ * test-migrations/9500), compte PSP FAKE écrit par app_worker (droit de TEST), trip par la fixture
  * US-011, appels des commandes `core.payment_*`, points de sauvegarde pour les erreurs attendues.
  * Toutes les requêtes passent par une connexion sous un rôle de PRODUCTION (`withRole` :
  * assertion L0-05 en tête). Les attendus viennent de 17, 08 et des vecteurs TJ, jamais d'ici.
@@ -13,13 +13,13 @@ import type { CountryCase } from './avl.ts';
 
 export const uuid = (): string => randomUUID();
 
-/** Identifiant public d'un point d'entrée de webhook (format de 0027 : 16 à 64 caractères). */
+/** Identifiant public d'un point d'entrée de webhook (format de 0028 : 16 à 64 caractères). */
 export const publicWebhookId = (): string => `wh_${randomBytes(12).toString('hex')}`;
 
 export interface PayTxOptions {
   /** `app.actor_kind = WORKER`, `app.worker_name`. */
   readonly worker?: string;
-  /** Environnement de déploiement simulé (test-migrations/9400 ; défaut « test »). */
+  /** Environnement de déploiement simulé (test-migrations/9500 ; défaut « test »). */
   readonly deploymentEnv?: 'production' | 'test';
   readonly virtualNow?: string;
   readonly commit?: boolean;
@@ -64,7 +64,7 @@ export interface AccountInput {
   readonly gateDecisionRef?: string | null;
 }
 
-/** Compte PSP écrit par app_worker (droit de TEST de 9400 ; gardes CHECK et trigger actives). */
+/** Compte PSP écrit par app_worker (droit de TEST de 9500 ; gardes CHECK et trigger actives). */
 export async function insertAccount(tx: pg.ClientBase, a: AccountInput): Promise<string> {
   const id = a.id ?? uuid();
   await tx.query(

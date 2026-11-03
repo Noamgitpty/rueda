@@ -72,7 +72,7 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
     const accountId = randomUUID();
     const tripId = randomUUID();
 
-    // compte FAKE (droit de TEST de 9400) et trip (fixture d'US-011), validés
+    // compte FAKE (droit de TEST de 9500) et trip (fixture d'US-011), validés
     await worker.query('BEGIN');
     await worker.query(
       `INSERT INTO core.payment_psp_account (id, provider, country_code, environment, status, public_webhook_id,
@@ -228,7 +228,7 @@ describe.each(CASES)('PAY de bout en bout — $country ($currency)', (c) => {
       { resolve: () => Promise.resolve(new TextEncoder().encode(FAKE_WEBHOOK_SECRET)) },
       { warn: () => undefined },
     );
-    // la base « passe en production » pour cette session (test-migrations/9400)
+    // la base « passe en production » pour cette session (test-migrations/9500)
     await api.query(`SELECT pg_catalog.set_config('app.test_deployment_env', 'production', false)`);
     for (const d of stack.psp.deliverWebhooks()) {
       const r = await ingest.receive({

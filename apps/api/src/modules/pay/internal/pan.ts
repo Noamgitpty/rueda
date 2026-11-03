@@ -1,7 +1,7 @@
 /**
  * Détecteur et masque de PAN (17 §1.6 portée SAQ A ; §4.4 point 3, corrigé VERIF_14-F26).
  *
- * Définition (identique à `core.payment_text_has_pan`, migration 0027, qui la vérifie en base par
+ * Définition (identique à `core.payment_text_has_pan`, migration 0028, qui la vérifie en base par
  * contrainte) : une suite de chiffres, avec au plus un espace ou un tiret entre deux chiffres, dont
  * la version sans séparateur compte de 13 à 19 chiffres et passe le contrôle de Luhn.
  * Le masque garde les 6 premiers et les 4 derniers chiffres (affichage admis par 17 §1.6) et

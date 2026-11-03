@@ -1,4 +1,4 @@
--- 0027 — PAY : port PaymentProvider, comptes et capacités PSP, jambes, événements d'opération,
+-- 0028 — PAY : port PaymentProvider, comptes et capacités PSP, jambes, événements d'opération,
 -- idempotence et réception des webhooks ; garde FAKE (C19).
 -- US-019 ; 17 §2.8, §3.2.7, §4.3, §4.4, §6.5 ; 08 E4, E7 (règles 1, 4, 10) ; ADR-032, ADR-045,
 -- ADR-059. Appliquée sous `migrator`.
@@ -6,7 +6,7 @@
 -- Contenu :
 --   0. platform.deployment_env() : environnement de déploiement de la BASE (17 §6.5 point 1).
 --      Valeur de production : 'production' (fail-closed). Seule la migration d'environnement
---      (US-003) ou, en test, test-migrations/9400 la remplacent.
+--      (US-003) ou, en test, test-migrations/9500 la remplacent.
 --   1. core.payment_psp_account : compte marchand de Kmino par (provider, pays, environnement) ;
 --      garde FAKE : CHECK « FAKE ⇒ SANDBOX » et trigger « aucune écriture d'un FAKE en
 --      production » (17 §3.2.7, §6.5 point 1, C19).
@@ -52,7 +52,7 @@
 
 -- 0. Environnement de déploiement de la base (17 §6.5 point 1) --------------------------------
 -- Constante écrite par migration : jamais un paramètre de session (forgeable par un rôle
--- applicatif). STABLE pour que la version de test (9400) puisse lire un paramètre.
+-- applicatif). STABLE pour que la version de test (9500) puisse lire un paramètre.
 CREATE FUNCTION platform.deployment_env()
   RETURNS text
   LANGUAGE sql
@@ -64,7 +64,7 @@ $fn$;
 
 COMMENT ON FUNCTION platform.deployment_env() IS
   'Environnement de déploiement de la base (17 §6.5) : production par défaut (fail-closed). '
-  'Remplacée par la migration d''environnement (US-003) ou, en test, par test-migrations/9400.';
+  'Remplacée par la migration d''environnement (US-003) ou, en test, par test-migrations/9500.';
 
 REVOKE ALL ON FUNCTION platform.deployment_env() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION platform.deployment_env() TO app_api, app_worker, cmd_money_owner;

@@ -1,6 +1,6 @@
 /**
  * Adaptateurs PostgreSQL des ports de PAY (production). Chaque écriture appelle une commande
- * `core.payment_cmd_*` (migration 0027, SECURITY DEFINER, propriétaire cmd_money_owner) :
+ * `core.payment_cmd_*` (migration 0028, SECURITY DEFINER, propriétaire cmd_money_owner) :
  * - API (`app_api`) : `PgWebhookInboxStore` (résolution du compte, réception) ;
  * - travailleurs (`app_worker`, transaction ouverte par `withPaymentWorker` avec le contexte
  *   `app.actor_kind = WORKER`, `app.worker_name`) : `PgOperationRecorder` (payment_command),

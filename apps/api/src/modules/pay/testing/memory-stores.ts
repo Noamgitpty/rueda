@@ -1,7 +1,7 @@
 /**
  * Magasins EN MÉMOIRE des ports de PAY, pour les tests unitaires (US-019). TESTS SEULEMENT :
  * exclus de la compilation de production. Ils reproduisent les règles des commandes SQL de la
- * migration 0027 (dédoublonnage, tolérance de ± 5 min, rangs de 17 §4.4 point 7) ; les commandes
+ * migration 0028 (dédoublonnage, tolérance de ± 5 min, rangs de 17 §4.4 point 7) ; les commandes
  * SQL elles-mêmes sont prouvées sous les rôles de production par `packages/db/test/l0/l0-pay-*`.
  */
 import type { NormalizedPaymentEvent, OperationStatus } from '../internal/port.js';

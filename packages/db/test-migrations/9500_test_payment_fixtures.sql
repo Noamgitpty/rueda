@@ -1,4 +1,4 @@
--- 9400 — environnement de déploiement et écrivain des comptes PSP, pour les TESTS (US-019).
+-- 9500 — environnement de déploiement et écrivain des comptes PSP, pour les TESTS (US-019).
 --
 -- JAMAIS appliquée hors tests (comme 9000) : seule la base jetable principale `rueda_test_*` la
 -- reçoit ; la base de contrôle `rueda_test_*_prod` garde la définition de production de
@@ -14,7 +14,7 @@
 --    les rôles : ce droit de test ne les contourne pas.
 --
 -- Retour arrière :
---   réappliquer la définition de 0027 (CREATE OR REPLACE FUNCTION platform.deployment_env()) ;
+--   réappliquer la définition de 0028 (CREATE OR REPLACE FUNCTION platform.deployment_env()) ;
 --   DROP POLICY test_worker_write ON core.payment_psp_account, core.payment_psp_capability ;
 --   REVOKE INSERT, UPDATE ON core.payment_psp_account, core.payment_psp_capability FROM app_worker ;
 --   REVOKE SELECT ON core.payment_psp_account FROM app_worker.
@@ -29,7 +29,7 @@ AS $fn$
 $fn$;
 
 COMMENT ON FUNCTION platform.deployment_env() IS
-  'VERSION DE TEST (test-migrations/9400) : app.test_deployment_env si posé, sinon test.';
+  'VERSION DE TEST (test-migrations/9500) : app.test_deployment_env si posé, sinon test.';
 
 GRANT SELECT, INSERT, UPDATE ON core.payment_psp_account, core.payment_psp_capability TO app_worker;
 CREATE POLICY test_worker_write ON core.payment_psp_account

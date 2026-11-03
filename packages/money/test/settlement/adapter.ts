@@ -35,7 +35,7 @@ import {
   type SettlementParams,
   type SettlementTrip,
 } from '../../src/index.ts';
-import { registry } from '../fixtures.ts';
+import { PYG, USD, registry } from '../fixtures.ts';
 
 /** Départ T = 0 des vecteurs (instant arbitraire ; seuls les écarts à T comptent). */
 export const T0_MS = Date.UTC(2026, 0, 14, 15, 0, 0);
@@ -162,3 +162,101 @@ export function settleVector(
     testParams(trip.currency, overrides),
   );
 }
+
+/** Part du plan `ESTÁNDAR` de la configuration de test de 08 E7 (3/4). */
+const TEST_PLAN = ratio(3n, 4n);
+
+/**
+ * N (USD, 3 j) et NP (PYG, 3 j) de 08 E7 (TJ13a à d) : promo plateforme sur P ; taxe sur P, promo
+ * et F, payée par ligne puis sommée (entrées de 08 ; la taxe de la ligne promo est négative).
+ */
+export function promoTrip(
+  currency: typeof USD,
+  p: bigint,
+  promo: bigint,
+  f: bigint,
+  protection: bigint,
+  taxPaid: bigint,
+): SettlementTrip {
+  const m = (x: bigint) => money(x, currency);
+  return {
+    currency,
+    days: 3,
+    rateType: 'REFUNDABLE',
+    startAtMs: T0_MS,
+    bookedAtMs: at(-5 * 24 * 60),
+    lines: { tripPrice: m(p), promoPlatform: m(promo), tripFee: m(f), protection: m(protection) },
+    taxGroups: [
+      {
+        id: 'g',
+        lines: ['tripPrice', 'promoPlatform', 'tripFee'],
+        taxPaid: m(taxPaid),
+        thirdParty: false,
+      },
+    ],
+    totalPaid: m(p + promo + f + protection + taxPaid),
+    hostSharePctFrozen: TEST_PLAN,
+    deliverySharePct: TEST_PLAN,
+    extrasSharePct: TEST_PLAN,
+    ...TEST_INSURER_SHARES,
+  };
+}
+// TJ13a : P 100,00, promo −90,00, F 15,00, protection 30,00 ; taxe 7 % : 7,00 − 6,30 + 1,05.
+export const N = promoTrip(USD, 10_000n, -9_000n, 1_500n, 3_000n, 700n - 630n + 105n);
+// TJ13b : N avec la promo maximale admise −53,32 ; taxe 7,00 − 3,73 + 1,05.
+export const N_MAX = promoTrip(USD, 10_000n, -5_332n, 1_500n, 3_000n, 700n - 373n + 105n);
+// TJ13c : NP, P 1 000 000, promo −900 000, F 150 000, protection 300 000 ; IVA 10 % par ligne.
+export const NP = promoTrip(
+  PYG,
+  1_000_000n,
+  -900_000n,
+  150_000n,
+  300_000n,
+  100_000n - 90_000n + 15_000n,
+);
+// TJ13d : NP avec la promo maximale admise −550 000.
+export const NP_MAX = promoTrip(
+  PYG,
+  1_000_000n,
+  -550_000n,
+  150_000n,
+  300_000n,
+  100_000n - 55_000n + 15_000n,
+);
+
+/** J (PYG, 3 j, remboursable) : P 1 000 001, F 150 000, protection 400 001 ; taxe 10 % sur F et protection. */
+export const J: SettlementTrip = {
+  currency: PYG,
+  days: 3,
+  rateType: 'REFUNDABLE',
+  startAtMs: T0_MS,
+  bookedAtMs: at(-5 * 24 * 60),
+  lines: {
+    tripPrice: money(1_000_001n, PYG),
+    tripFee: money(150_000n, PYG),
+    protection: money(400_001n, PYG),
+  },
+  taxGroups: [
+    {
+      id: 'iva',
+      lines: ['tripFee', 'protection'],
+      taxPaid: money(55_000n, PYG),
+      thirdParty: false,
+    },
+  ],
+  totalPaid: money(1_605_002n, PYG),
+  hostSharePctFrozen: TEST_PLAN,
+  deliverySharePct: TEST_PLAN,
+  extrasSharePct: TEST_PLAN,
+  ...TEST_INSURER_SHARES,
+};
+
+/** J3 = J + taxe de 10 % sur P collectée pour le compte d'un tiers (100 000). */
+export const J3: SettlementTrip = {
+  ...J,
+  taxGroups: [
+    ...J.taxGroups,
+    { id: 'tiers', lines: ['tripPrice'], taxPaid: money(100_000n, PYG), thirdParty: true },
+  ],
+  totalPaid: money(1_705_002n, PYG),
+};

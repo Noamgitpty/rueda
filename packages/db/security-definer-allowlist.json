@@ -148,6 +148,20 @@
       "owner": "cmd_money_owner",
       "execute": ["app_api", "app_worker"],
       "story": "US-019"
+    },
+    {
+      "signature": "core.settlement_assert_balanced()",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": [],
+      "story": "US-018"
+    },
+    {
+      "signature": "core.settlement_cmd_record(uuid,uuid,integer,integer,uuid,integer,jsonb)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-018"
     }
   ]
 }

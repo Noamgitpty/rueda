@@ -1,5 +1,5 @@
 /**
- * US-019 — port PaymentProvider côté base (migration 0027), sous les rôles de PRODUCTION
+ * US-019 — port PaymentProvider côté base (migration 0028), sous les rôles de PRODUCTION
  * (CLAUDE.md point 6 ; assertion L0-05 en tête de chaque test par withRole / connectAs).
  *
  * Critères (19 US-019) :
@@ -451,7 +451,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
   });
 
   describe('contrôle différé des jambes au COMMIT (payment_operation_legs_check)', () => {
-    // écriture BRUTE (fixture 9400) qui contourne la commande : seul le trigger différé refuse
+    // écriture BRUTE (fixture 9500) qui contourne la commande : seul le trigger différé refuse
     const rawCommit = async (
       kind: string,
       amountMinor: bigint,

@@ -1,5 +1,5 @@
 /**
- * Matrice de capacités PSP (17 §2.8 ; table `psp_capability`, migration 0027).
+ * Matrice de capacités PSP (17 §2.8 ; table `psp_capability`, migration 0028).
  *
  * Règle (fail-closed) : seule une valeur `VALIDATED_SANDBOX` ou `VALIDATED_CONTRACT` est utilisée ;
  * toute autre (absente, `DOCUMENTED`, `UNKNOWN`, type inattendu) vaut « non » : booléen `false`,

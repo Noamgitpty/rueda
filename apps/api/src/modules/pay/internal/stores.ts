@@ -1,7 +1,7 @@
 /**
  * Ports de persistance du module PAY (adaptateurs : `pg-stores.ts` en production, mémoire dans
  * `../testing/` pour les tests unitaires). Chaque écriture passe par une commande SQL
- * `core.payment_cmd_*` (migration 0027), jamais par une écriture de table directe de l'API.
+ * `core.payment_cmd_*` (migration 0028), jamais par une écriture de table directe de l'API.
  */
 import type { NormalizedPaymentEvent, OperationStatus } from './port.js';
 

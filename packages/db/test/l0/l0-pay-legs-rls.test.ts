@@ -1,5 +1,5 @@
 /**
- * US-019 — RLS des jambes `core.payment_payment_operation_leg` (0027 ; 17 §2.3, §3.2.7 : RLS-2,
+ * US-019 — RLS des jambes `core.payment_payment_operation_leg` (0028 ; 17 §2.3, §3.2.7 : RLS-2,
  * RLS-24, RLS-28 ; revues sécurité n° 6 et qa n° 7), sous `app_api` avec le contexte posé par
  * `setSessionContext` (assertion L0-05 par withRole / connectAs), sur des DONNÉES RÉELLES :
  * - l'hôte TITULAIRE lit sa seule jambe HOST, jamais celles d'un autre compte d'hôte, ni les jambes
@@ -7,7 +7,7 @@
  * - FINANCE lit les jambes de SON pays seulement ; ADMIN des deux pays lit tout ;
  * - OPS lit seulement les jambes du trip couvert par son dossier ouvert, dans son pays ;
  * - le voyageur et une session sans contexte ne lisent rien ; `beneficiary_ref` n'est pas lisible.
- * Monde de test d'US-011 (`support/rls.ts`) ; jambes écrites par la fixture 9400 avec les montants
+ * Monde de test d'US-011 (`support/rls.ts`) ; jambes écrites par la fixture 9500 avec les montants
  * des vecteurs TJ (USD et PYG sans décimale).
  */
 import { legVector, loadGoldenVectors } from '@rueda/money/golden-vectors';

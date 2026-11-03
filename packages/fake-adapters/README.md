@@ -6,7 +6,7 @@ Adaptateurs **FAKE** derrière les ports de 17 §5, pour les tests et le dévelo
 
 1. **Construction** : chaque FAKE appelle `assertFakeAllowed` (`src/guard.ts`, garde centrale) ; `RUEDA_ENV` doit valoir explicitement `development` ou `test` (absent, `preproduction` ou `production` ⇒ `FakeForbiddenError`, code `FAKE_FORBIDDEN_IN_PRODUCTION`). Les suites de tests le posent dans leur `vitest.config.ts`. `FakeKeyWrapper` (`@rueda/db/testing`) passe par la même garde.
 2. **Image** : ce paquet est privé et **feuille** (aucune dépendance de production, aucun paquet de l'espace de travail) ; il n'est qu'une dépendance de **développement** (`devDependencies`) de `apps/api` et de `packages/db`. `test/production-isolation.test.ts` vérifie sur tout l'espace de travail qu'aucun `package.json` ne le déclare ailleurs et qu'aucun fichier de production ne l'importe ni ne nomme un de ses FAKE.
-3. **Base et démarrage** (PSP) : la base refuse tout compte PSP `FAKE` en production et l'API refuse de démarrer si elle en trouve un (migration 0027, `assertPaymentStartup`, US-019).
+3. **Base et démarrage** (PSP) : la base refuse tout compte PSP `FAKE` en production et l'API refuse de démarrer si elle en trouve un (migration 0028, `assertPaymentStartup`, US-019).
 
 ## Ports d'US-020
 
