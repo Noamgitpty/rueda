@@ -151,7 +151,7 @@ describe.each(COUNTRIES)('L0-03 — I-OCC au COMMIT ($country, $currency)', (c) 
         ),
       );
       expect(def.rows[0]?.def).toMatch(
-        /AFTER UPDATE OR DELETE .* DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN \(\(old\.kind = 'TRIP'::text\)\)/,
+        /AFTER DELETE OR UPDATE ON core.booking_vehicle_occupancy DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN \(\(old\.kind = 'TRIP'::text\)\)/,
       );
       expect(await occupancyOf(worker, hold.occupancyId)).toMatchObject({
         kind: 'TRIP',
