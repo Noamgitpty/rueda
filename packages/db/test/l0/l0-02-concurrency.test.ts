@@ -20,7 +20,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
-import { connectAs, releaseClient } from '../../src/testing/index.ts';
+import { BENCH_DEADLOCK_TIMEOUT, connectAs, releaseClient } from '../../src/testing/index.ts';
 import {
   at,
   bookTrip,
@@ -171,15 +171,18 @@ const POSE_STATEMENT_TIMEOUT_MS = 60_000;
 const STALL_REPORT_MS = 30_000;
 
 /**
- * Pose `statement_timeout` sur chaque connexion de pose, puis le relit : la course ne part pas si
- * une seule connexion n'a pas le délai attendu.
+ * Pose `statement_timeout` et `application_name` (`l0-02 pose <i>`, lu par le diagnostic) sur
+ * chaque connexion de pose, puis relit le délai : la course ne part pas si une seule connexion n'a
+ * pas le délai attendu.
  */
 async function armStatementTimeout(posers: readonly pg.Client[]): Promise<void> {
   const values = await Promise.all(
-    posers.map(async (cl) => {
-      await cl.query(`SELECT pg_catalog.set_config('statement_timeout', $1, false)`, [
-        `${POSE_STATEMENT_TIMEOUT_MS}ms`,
-      ]);
+    posers.map(async (cl, i) => {
+      await cl.query(
+        `SELECT pg_catalog.set_config('statement_timeout', $1, false),
+                pg_catalog.set_config('application_name', $2, false)`,
+        [`${POSE_STATEMENT_TIMEOUT_MS}ms`, `l0-02 pose ${i}`],
+      );
       const r = await cl.query<{ value: string; ms: number }>(
         `SELECT pg_catalog.current_setting('statement_timeout') AS value,
                 (extract(epoch FROM pg_catalog.current_setting('statement_timeout')::interval)
@@ -226,6 +229,34 @@ async function reportStall(observer: pg.ClientBase, pids: readonly number[]): Pr
     [pids],
   );
   log('course bloquée', { active: r.rows.length, of: pids.length, sessions: r.rows.slice(0, 20) });
+  // Bloqueurs, poses ou non, jusqu'à 4 niveaux : qui tient la transaction attendue ? Les colonnes
+  // d'une session d'un autre rôle sont NULL pour app_api, sauf pid, usename et application_name.
+  const blockers = await observer.query<Record<string, unknown>>(
+    `WITH RECURSIVE b(pid, depth) AS (
+       SELECT DISTINCT x, 1 FROM pg_catalog.unnest($1::int[]) AS p,
+                                 pg_catalog.unnest(pg_catalog.pg_blocking_pids(p)) AS x
+       UNION
+       SELECT x, b.depth + 1 FROM b, pg_catalog.unnest(pg_catalog.pg_blocking_pids(b.pid)) AS x
+        WHERE b.depth < 4
+     )
+     SELECT a.pid, pg_catalog.min(b.depth) AS depth, a.pid = ANY($1::int[]) AS is_pose,
+            a.usename, a.application_name, a.backend_type, a.state,
+            a.xact_start::text AS xact_start, a.query_start::text AS query_start,
+            a.backend_xid::text AS backend_xid, a.backend_xmin::text AS backend_xmin,
+            a.wait_event_type, a.wait_event, pg_catalog.left(a.query, 120) AS query,
+            pg_catalog.pg_blocking_pids(a.pid) AS blockers,
+            (SELECT pg_catalog.array_agg(l.locktype || ':' || l.mode)
+               FROM pg_catalog.pg_locks l WHERE l.pid = a.pid AND NOT l.granted) AS waiting,
+            (SELECT pg_catalog.count(*)::int FROM pg_catalog.pg_locks l
+              WHERE l.pid = a.pid AND l.granted) AS granted
+       FROM b JOIN pg_catalog.pg_stat_activity a ON a.pid = b.pid
+      GROUP BY a.pid, a.usename, a.application_name, a.backend_type, a.state, a.xact_start,
+               a.query_start, a.backend_xid, a.backend_xmin, a.wait_event_type, a.wait_event,
+               a.query
+      ORDER BY 2, 1`,
+    [pids],
+  );
+  log('course bloquée : bloqueurs', blockers.rows);
 }
 
 /** Créneau sur l'horloge réelle : dans 7 jours, 2 jours, tampon 2 h. */
@@ -249,6 +280,9 @@ interface C1Report {
   readonly active: number;
   /** Série transactionnelle : détention du verrou du véhicule, côté serveur (ms). */
   readonly lockHold?: Record<string, number>;
+  /** `deadlock_timeout` des poses (banc : BENCH_DEADLOCK_TIMEOUT) ; rejeux de la pose la plus rejouée. */
+  readonly deadlockTimeout: string;
+  readonly maxReplays: number;
 }
 
 /**
@@ -305,6 +339,12 @@ async function runC1(
     const period = slotPeriod(slot);
     const guests = Array.from({ length: degree }, () => uuid());
     await inTx(observer, { commit: true }, (tx) => ensureParties(tx, guests, slot.orgId, c));
+    // après inTx (RESET ALL) : nom lu par le diagnostic des bloqueurs
+    const dt = await observer.query<{ value: string }>(
+      `SELECT pg_catalog.set_config('application_name', 'l0-02 observateur', false),
+              pg_catalog.current_setting('deadlock_timeout') AS value`,
+    );
+    const deadlockTimeout = dt.rows[0]?.value as string;
 
     const posers: pg.Client[] = [];
     const timings: PoseTiming[] = [];
@@ -396,6 +436,8 @@ async function runC1(
       holds: state.holds,
       active: state.active,
       ...(form === 'transactional' ? { lockHold: lockHoldReport(timings) } : {}),
+      deadlockTimeout,
+      maxReplays: Math.max(...results.map((r) => r.replays)),
     };
   } finally {
     await releaseClient(observer);
@@ -411,6 +453,8 @@ describe.each(COUNTRIES)(
         const r = await runC1(c, false);
         log(`C1 sans verrou ${c.country}`, r);
         expectDegree(r.degree);
+        // cascade d'interblocages bornée par le délai du banc (ADR-056)
+        expect(r.deadlockTimeout).toBe(BENCH_DEADLOCK_TIMEOUT);
         expect(r.ok).toBe(1);
         expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
         expect(r.holds).toEqual([{ status: 'ACTIVE' }]);

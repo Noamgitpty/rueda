@@ -29,6 +29,16 @@ export const TEST_DATABASE_PREFIX = 'rueda_test_';
 /** Clé du verrou d'instance du banc (pris dans la base d'administration). */
 export const BENCH_LOCK_KEY = 7_305_110_005;
 
+/**
+ * `deadlock_timeout` de la base principale du banc (ADR-056, « Cascade d'interblocages de
+ * l'injection »). Sans le verrou par véhicule, PostgreSQL résout les cycles d'attente de la
+ * contrainte d'exclusion un par un, chacun au bout de `deadlock_timeout` : avec le défaut de 1 s,
+ * une course de 100 poses dure environ une seconde par `40P01` (jusqu'à plus de 60 s). Le banc
+ * abaisse ce délai pour toutes les sessions de la base de test, sans toucher aux rôles ni aux
+ * droits ; la base de production du banc garde le défaut. PROPOSÉ.
+ */
+export const BENCH_DEADLOCK_TIMEOUT = '50ms';
+
 /** Ce que les fichiers de test reçoivent (`inject('ruedaBench')`). */
 export interface BenchInfo {
   readonly sourceKind: AdminSource['kind'];
@@ -130,6 +140,12 @@ export async function provisionBench(
       );
       created.push(name);
       log(`base créée : ${name}`);
+      if (key === 'main') {
+        // valeur littérale constante (BENCH_DEADLOCK_TIMEOUT) : aucune donnée externe
+        await lockClient.query(
+          `ALTER DATABASE ${quoteIdent(name)} SET deadlock_timeout = '${BENCH_DEADLOCK_TIMEOUT}'`,
+        );
+      }
 
       const admin = await connect(source.admin, name);
       try {
