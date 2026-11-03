@@ -13,6 +13,7 @@ import { pathToFileURL } from 'node:url';
 const FAMILY_B_ROLES = new Set(['argent', 'securite']);
 
 // Rôles de vérification : leurs commits (rapports) ne comptent pas comme « auteur ».
+// Les alias `revue-<rôle>` (nom du fichier docs/team/roles/revue-*.md) valent le rôle court.
 export const REVIEW_ROLES = new Set([
   'revue-code',
   'qa',
@@ -21,6 +22,11 @@ export const REVIEW_ROLES = new Set([
   'architecture',
   'ux',
   'red-team',
+  'revue-ux',
+  'revue-architecture',
+  'revue-securite',
+  'revue-argent',
+  'revue-qa',
 ]);
 
 export function parseReview(text) {
