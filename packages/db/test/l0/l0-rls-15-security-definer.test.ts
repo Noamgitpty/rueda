@@ -40,7 +40,7 @@ const PROC_SQL = `
   SELECT pg_catalog.regexp_replace(p.oid::regprocedure::text, ',\\s+', ',', 'g') AS signature,
          pg_catalog.pg_get_userbyid(p.proowner) AS owner,
          p.proconfig AS config,
-         ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)
+         ARRAY(SELECT pg_catalog.pg_get_userbyid(a.grantee)::text
                  FROM pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) AS a
                 WHERE a.privilege_type = 'EXECUTE' AND a.grantee <> 0 AND a.grantee <> p.proowner
                 ORDER BY 1) AS executors,

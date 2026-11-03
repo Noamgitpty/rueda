@@ -3,6 +3,8 @@
 - **Statut** : PROPOSÉ (US-009, agent back-end, 2026-11-03). Revues architecture et **sécurité** (`SECURITY DEFINER`, RLS, rôles, concurrence de la tête de chaîne, crypto-shredding) requises, sur un autre modèle que l'auteur. À reporter dans 17 §8.1 (avec ADR-026) et dans la liste blanche RLS-15 (US-011).
 - **Stories** : US-009 ; s'appuient dessus US-004, US-012, US-034, US-046, US-536. **Sources** : 17 §1.5 point 4, §1.7, §3.1.2, §3.1.3 (crypto-shredding, points 1 à 10), §3.1.4, §3.2.13 ; 16 ADM-001 ; ADR-026, ADR-035, ADR-044, ADR-048.
 
+> **Amendement US-011 (ADR-053)** : `core.audit_log_chain()` appartient désormais à `audit_chain_owner` (NOLOGIN) ; la lecture et la création d'une clé de sujet par `app_api` sont réservées au sujet de la session (`USER` = `app.actor_id()`, `ORG` = compte d'hôte de la session pour son titulaire), `PLATFORM` aux travailleurs.
+
 ## Contexte
 
 17 exige : un journal d'audit en ajout seul et chaîné par hachage (§1.7), calculé sur le **texte chiffré** (§3.1.3 point 3) ; des colonnes C2 / C3 des registres immuables chiffrées avec une **clé par sujet**, effaçables par **destruction de clé** sans modifier une ligne (§3.1.3 points 1 et 2) ; une empreinte SHA-256 des fichiers **à la réception** (§1.7, CLM-034). Aucun rôle applicatif ne doit pouvoir modifier ni supprimer un registre (§3.1.2), et aucune clé réelle ne doit apparaître dans le dépôt.

@@ -1,6 +1,6 @@
 # ADR-044 — Migrations SQL, amorçage des rôles et harnais de tests PostgreSQL
 
-- **Statut** : PROPOSÉ (US-005, agent données, 2026-10-31). Revue architecture et sécurité (rôles, secrets) requises, sur un autre modèle que l'auteur. À reporter dans 17 §8.1.
+- **Statut** : PROPOSÉ (US-005, agent données, 2026-10-31) ; **amendé par US-011** (ADR-053, appartenances des propriétaires NOLOGIN). Revue architecture et sécurité (rôles, secrets) requises, sur un autre modèle que l'auteur. À reporter dans 17 §8.1.
 - **Stories** : US-005 ; s'appuient dessus US-006 à US-011, US-022 à US-025. **Sources** : 17 §1.3, §2.3, §6.1, §11 (L0-05, L0-06) ; ADR-030, ADR-035, ADR-043 ; CONTRIBUTING §8, §9.
 
 ## Contexte
@@ -15,6 +15,10 @@ CONTRIBUTING (§9) laisse à US-005 le choix de l'outil et du format des migrati
 4. **Migrations de test** dans `packages/db/test-migrations/` (numéros 9000 et plus), ajoutées par le harnais seul. Le harnais crée **deux bases jetables** par série : principale (production + test) et contrôle (production seule), pour prouver sur une vraie base que le corps de production de `platform.now()` ne lit pas `app.virtual_now`.
 5. **Une série à la fois par instance** : verrou consultatif pris dans la base d'administration pendant toute la série (les mots de passe d'instance changent à chaque série) ; les bases `rueda_test_*` orphelines sont supprimées sous ce verrou.
 6. **Garde-fou L0-05** : tout test des suites `test:int` / `test:l0` qui n'a exécuté aucune assertion de rôle échoue (`setupFiles`).
+
+## Amendement US-011 (2026-11-03, ADR-053)
+
+Le point 2 (« refus de toute appartenance de rôle ») devient : **une seule forme d'appartenance est admise**, `GRANT <propriétaire NOLOGIN> TO migrator WITH ADMIN FALSE, INHERIT FALSE, SET TRUE` (PostgreSQL 16), posée par l'amorçage pour chaque rôle de `OWNER_ROLES`. `migrator` peut ainsi céder une fonction `SECURITY DEFINER` à son propriétaire de famille (`ALTER FUNCTION … OWNER TO`) sans hériter d'aucun de ses droits ; le propriétaire n'hérite de rien. Toute autre appartenance qui touche un rôle géré fait toujours échouer l'amorçage, et un contrôle final refuse `ADMIN` ou `INHERIT` sur ces lignes. L'amorçage crée aussi `iam_auth_owner`, `integrity_owner`, `audit_chain_owner`, `cmd_money_owner` et `cmd_golive_owner`. Preuves : `test/l0/l0-05-roles.test.ts` (appartenances, `pg_has_role` USAGE faux et SET vrai pour `migrator` seulement, aucun objet possédé, ni `TEMP` ni `CREATE` sur la base) et `src/roles.test.ts` (liste SQL = `OWNER_ROLES`).
 
 ## Conséquences
 
