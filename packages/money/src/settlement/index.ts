@@ -1,5 +1,6 @@
 /**
- * Moteur de règlement des annulations, sous-ensemble bêta (US-017). Exporté par `@rueda/money`.
+ * Moteur de règlement des annulations, sous-ensemble bêta (US-017), et forme persistée des
+ * règlements versionnés avec leurs jambes (US-018). Exporté par `@rueda/money`.
  */
 export {
   CANCELLATION_ENGINE_VERSION,
@@ -7,6 +8,30 @@ export {
   freeUntil,
 } from './cancellation.ts';
 export { computeCaptureLegs, computeLegs, legVariation } from './legs.ts';
+export {
+  MONEY_OPERATION_TYPES,
+  SETTLEMENT_INPUTS_HASH_PREFIX,
+  SETTLEMENT_RECORD_FORMAT,
+  buildSettlementRecord,
+  canonicalJson,
+  pspIdempotencyValue,
+  settlementDelta,
+  settlementInputsCanonical,
+  settlementInputsHash,
+  settlementLegRecords,
+  settlementOperationKey,
+  settlementParamsHash,
+  settlementRecordPayload,
+  signedLegs,
+  type MoneyOperationType,
+  type OperationKeyParts,
+  type SettlementDelta,
+  type SettlementLegRecord,
+  type SettlementLineRecord,
+  type SettlementRecord,
+  type SettlementRecordPayload,
+  type SettlementTaxRecord,
+} from './record.ts';
 export {
   SETTLEMENT_ERROR_CODES,
   SettlementError,

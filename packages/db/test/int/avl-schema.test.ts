@@ -72,6 +72,7 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^audit_'        -- tables AUD : test/int/audit-schema.test.ts (US-009)
             AND c.relname !~ '^outbox_'       -- tables BUS : test/int/outbox-schema.test.ts (US-008)
             AND c.relname !~ '^iam_'          -- tables IAM : test/int/iam-schema.test.ts (US-010)
+            AND c.relname !~ '^settlement_'   -- tables STL : test/int/stl-schema.test.ts (US-018)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
@@ -107,9 +108,11 @@ describe('schéma core (US-006)', () => {
             ? 'migrator'
             : r.polname === 'integrity_read'
               ? 'integrity_owner'
-              : r.polname.startsWith('worker_')
-                ? 'app_worker'
-                : 'app_api';
+              : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
+                ? 'cmd_money_owner'
+                : r.polname.startsWith('worker_')
+                  ? 'app_worker'
+                  : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
@@ -273,6 +276,7 @@ describe('schéma core (US-006)', () => {
           'hold_conversion_matches_disposition',
           'occupancy_trip_guard',
           'occupancy_trip_ref_valid',
+          'settlement_balanced', // invariants des règlements (0027, US-018)
           'trip_has_active_occupancy',
         ].map((tgname) => ({ tgname, deferrable: true, deferred: true })),
       );

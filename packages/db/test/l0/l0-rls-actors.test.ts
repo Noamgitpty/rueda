@@ -663,6 +663,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'booking_guest_occupancy',
           'booking_trip',
           'iam_membership',
+          'settlement_settlement',
+          'settlement_settlement_leg',
+          'settlement_trip_leg_balance',
         ]),
       );
       for (const r of tables.rows) {

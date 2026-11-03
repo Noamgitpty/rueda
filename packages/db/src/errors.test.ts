@@ -23,6 +23,14 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23000', 'hold_terminal_status', 'INVALID_TRANSITION'],
     ['23000', 'trip_has_active_occupancy', 'INVARIANT_VIOLATION'],
     ['23000', 'occupancy_trip_guard', 'INVARIANT_VIOLATION'],
+    ['23000', 'settlement_version_taken', 'SETTLEMENT_EXISTS'],
+    ['23505', 'settlement_version_unique', 'SETTLEMENT_EXISTS'],
+    ['23000', 'settlement_trip_version', 'SETTLEMENT_STALE'],
+    ['23000', 'settlement_unbalanced', 'SETTLEMENT_UNBALANCED'],
+    ['23514', 'settlement_balance', 'SETTLEMENT_UNBALANCED'],
+    ['23514', 'settlement_leg_kept_nonneg', 'LEG_AMOUNT_NEGATIVE'],
+    ['23514', 'trip_leg_balance_nonneg', 'LEG_AMOUNT_NEGATIVE'],
+    ['23000', 'settlement_immutable', 'IMMUTABLE_RECORD'],
   ])('%s sur %s → %s, sans détail', (code, constraint, expected) => {
     const translated = translateDbError(pgError({ code, constraint }));
     expect(translated).toEqual({ code: expected, retryable: false });

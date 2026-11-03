@@ -24,6 +24,7 @@
   "devDependencies": {
     "@rueda/config": "workspace:*",
     "@rueda/fake-adapters": "workspace:*",
+    "@rueda/money": "workspace:*",
     "@testcontainers/postgresql": "12.2.1",
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
