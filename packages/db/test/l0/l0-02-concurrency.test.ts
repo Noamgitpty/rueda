@@ -68,8 +68,10 @@ const ROUNDS = 12;
 const LONG = 240_000;
 
 /** En CI, le banc a 200 connexions : le degré doit être exactement 100 (revue sécurité US-007). */
+const isCi = (): boolean => process.env['CI'] !== undefined && process.env['CI'] !== '';
+
 function expectDegree(degree: number): void {
-  if (process.env['CI'] !== undefined && process.env['CI'] !== '') expect(degree).toBe(C1_POSES);
+  if (isCi()) expect(degree).toBe(C1_POSES);
   else expect(degree).toBeGreaterThanOrEqual(2);
 }
 
@@ -124,6 +126,14 @@ async function concurrencyDegree(client: pg.ClientBase): Promise<number> {
   const budget = await connectionBudget(client);
   const degree = Math.max(2, Math.min(C1_POSES, budget.free - SPARE_CONNECTIONS));
   log('budget de connexions', { ...budget, degree });
+  // En CI, un degré inférieur à 100 échoue avant la course (revue code US-007, 2026-11-03c,
+  // constat 4) ; `expectDegree` le vérifie encore après.
+  if (isCi() && degree !== C1_POSES) {
+    throw new Error(
+      `budget de connexions : degré ${degree} au lieu de ${C1_POSES} exigé en CI ` +
+        JSON.stringify(budget),
+    );
+  }
   return degree;
 }
 
@@ -151,15 +161,59 @@ async function connectMany(n: number): Promise<pg.Client[]> {
 /**
  * Garde-fous d'une course C1 (ADR-056, « Budget de connexions du banc ») : une pose qui ne rend
  * pas la main est arrêtée par le serveur (`statement_timeout`, `57014`) bien avant le délai du test
- * (`LONG`). Le bloc `finally` de `runC1` s'exécute donc toujours et ferme les connexions : un cas
+ * (`LONG`). Le délai est posé **après** la chauffe (dont `RESET ALL` l'effacerait) et relu sur
+ * chaque connexion avant la barrière ; la forme transactionnelle ne fait aucun `RESET`. Le bloc
+ * `finally` de `runC1` s'exécute donc toujours et ferme les connexions : un cas
  * bloqué ne laisse aucune connexion orpheline aux cas suivants. Avant cette échéance, l'état des
  * sessions encore actives est consigné (`[L0-02] course bloquée`).
  */
 const POSE_STATEMENT_TIMEOUT_MS = 60_000;
 const STALL_REPORT_MS = 30_000;
 
-/** Consigne les sessions des poses encore actives : attente, verrous non accordés, bloqueurs. */
+/**
+ * Pose `statement_timeout` sur chaque connexion de pose, puis le relit : la course ne part pas si
+ * une seule connexion n'a pas le délai attendu.
+ */
+async function armStatementTimeout(posers: readonly pg.Client[]): Promise<void> {
+  const values = await Promise.all(
+    posers.map(async (cl) => {
+      await cl.query(`SELECT pg_catalog.set_config('statement_timeout', $1, false)`, [
+        `${POSE_STATEMENT_TIMEOUT_MS}ms`,
+      ]);
+      const r = await cl.query<{ value: string; ms: number }>(
+        `SELECT pg_catalog.current_setting('statement_timeout') AS value,
+                (extract(epoch FROM pg_catalog.current_setting('statement_timeout')::interval)
+                  * 1000)::int AS ms`,
+      );
+      return r.rows[0] as { value: string; ms: number };
+    }),
+  );
+  const wrong = values.filter((v) => v.ms !== POSE_STATEMENT_TIMEOUT_MS);
+  if (wrong.length > 0) {
+    throw new Error(
+      `statement_timeout absent sur ${wrong.length} connexion(s) sur ${posers.length} : ` +
+        JSON.stringify(wrong[0]),
+    );
+  }
+  log('garde-fou', { statementTimeout: values[0]?.value, verified: values.length });
+}
+
+/**
+ * Consigne les sessions des poses encore actives : agrégat par attente, `deadlock_timeout`, puis
+ * détail (attente, verrous non accordés, bloqueurs) des 20 premières.
+ */
 async function reportStall(observer: pg.ClientBase, pids: readonly number[]): Promise<void> {
+  const agg = await observer.query<Record<string, unknown>>(
+    `SELECT a.state, a.wait_event_type, a.wait_event, count(*)::int AS n
+       FROM pg_catalog.pg_stat_activity a
+      WHERE a.pid = ANY($1::int[]) AND a.state IS DISTINCT FROM 'idle'
+      GROUP BY 1, 2, 3 ORDER BY n DESC`,
+    [pids],
+  );
+  const dt = await observer.query<{ value: string }>(
+    `SELECT pg_catalog.current_setting('deadlock_timeout') AS value`,
+  );
+  log('course bloquée', { deadlockTimeout: dt.rows[0]?.value, byWait: agg.rows });
   const r = await observer.query<Record<string, unknown>>(
     `SELECT a.pid, a.state, a.wait_event_type, a.wait_event,
             pg_catalog.left(a.query, 60) AS query,
@@ -257,13 +311,6 @@ async function runC1(
     let results: Replayed<unknown>[];
     try {
       posers.push(...(await connectMany(degree)));
-      await Promise.all(
-        posers.map((cl) =>
-          cl.query(`SELECT pg_catalog.set_config('statement_timeout', $1, false)`, [
-            `${POSE_STATEMENT_TIMEOUT_MS}ms`,
-          ]),
-        ),
-      );
       const pids = await Promise.all(posers.map((cl) => backendPid(cl)));
       // Connexions chaudes, comme celles d'un pool de l'API : une pose annulée sur un autre
       // véhicule charge le cache des relations et les plans de la commande. Sans cela, chaque
@@ -284,6 +331,9 @@ async function runC1(
           }),
         ),
       );
+      // Après la chauffe : `inTx` (withTestTransaction) se termine par `RESET ALL`, qui
+      // effacerait un délai posé plus tôt (revues code et qa US-007, 2026-11-03c, constat 1).
+      await armStatementTimeout(posers);
       const barrier = await Barrier.open(observer);
       const runs = posers.map(async (client, i) => {
         await barrier.wait(client);
