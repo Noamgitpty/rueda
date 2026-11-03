@@ -662,6 +662,7 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'booking_checkout_hold',
           'booking_guest_occupancy',
           'booking_trip',
+          'booking_vehicle_occupancy',
           'iam_membership',
           'settlement_settlement',
           'settlement_settlement_leg',

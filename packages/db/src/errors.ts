@@ -21,6 +21,9 @@
  *   règle 5 (nom PROPOSÉ) ; `SETTLEMENT_UNBALANCED` : PROPOSÉ par US-017 ; `SETTLEMENT_STALE` :
  *   PROPOSÉ par US-018 (trip modifié entre le calcul et l'enregistrement, 08 E4 ; migration 0027,
  *   ADR-057).
+ * - `FORBIDDEN` : 17 §2.5 (US-060, « sans révéler l'état »), 16 A.8 ; `PARAM_MISSING` : 17 §7.1 ;
+ *   `INVALID_PERIOD` : PROPOSÉ par US-022 (période d'occupation mal formée ; migration 0028,
+ *   ADR-060).
  */
 
 /** Codes métier produits par la traduction. */
@@ -42,6 +45,9 @@ export const DB_BUSINESS_CODES = [
   'SETTLEMENT_STALE',
   'SETTLEMENT_UNBALANCED',
   'LEG_AMOUNT_NEGATIVE',
+  'FORBIDDEN',
+  'INVALID_PERIOD',
+  'PARAM_MISSING',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -61,11 +67,13 @@ export const SQLSTATE = {
   checkViolation: '23514',
   deadlockDetected: '40P01',
   serializationFailure: '40001',
+  insufficientPrivilege: '42501',
+  objectNotInPrerequisiteState: '55000',
 } as const;
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020` et `0027`.
+ * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027` et `0028`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -125,6 +133,13 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_segment_beta: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   settlement_inputs_hash_match: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   settlement_inputs_engine: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  // table d'occupation unique, blocages de l'hôte, tampons (0028, US-022)
+  occupancy_host_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  occupancy_vehicle_single_org: [SQLSTATE.exclusionViolation, 'FORBIDDEN'],
+  occupancy_period_invalid: [SQLSTATE.checkViolation, 'INVALID_PERIOD'],
+  period_valid: [SQLSTATE.checkViolation, 'INVALID_PERIOD'],
+  occupancy_buffer_trip_state: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  occupancy_buffer_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
 };
 
 const own = (value: object, key: string): unknown =>

@@ -52,6 +52,21 @@ const API_COLUMNS: Record<string, readonly string[]> = {
     'created_at',
     'updated_at',
   ],
+  // calendrier de l'hôte et ADMIN du pays (0028, US-022) : ni ref_type / ref_id, ni ical_uid
+  booking_vehicle_occupancy: [
+    'id',
+    'vehicle_id',
+    'org_id',
+    'country_code',
+    'kind',
+    'source',
+    'period',
+    'active',
+    'expires_at',
+    'deactivated_reason',
+    'created_at',
+    'updated_at',
+  ],
   booking_guest_occupancy: [
     'id',
     'guest_user_id',
@@ -213,6 +228,7 @@ const API_COLUMNS: Record<string, readonly string[]> = {
 
 /** Tables lues en entier par les travailleurs (0007, US-006 ; 0027, US-018) ; aucune lecture IAM ni support. */
 const WORKER_FULL_TABLES = [
+  'booking_vehicle_occupancy',
   'booking_trip',
   'booking_checkout_hold',
   'booking_guest_occupancy',

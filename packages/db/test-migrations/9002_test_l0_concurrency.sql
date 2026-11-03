@@ -122,9 +122,10 @@ BEGIN
   -- 2c. occupation HOLD (23P01 vehicle_occupancy_no_overlap possible : créneau pris), puis hold
   v_expires_at := platform.now() + p_ttl;
   INSERT INTO core.booking_vehicle_occupancy
-         (id, vehicle_id, kind, source, period, active, expires_at, ref_type, ref_id)
-  VALUES (p_occupancy_id, p_vehicle_id, 'HOLD', 'CHECKOUT', p_period, true, v_expires_at,
-          'HOLD', p_hold_id);
+         (id, vehicle_id, org_id, country_code, kind, source, period, active, expires_at,
+          ref_type, ref_id)
+  VALUES (p_occupancy_id, p_vehicle_id, p_org_id, p_country_code, 'HOLD', 'CHECKOUT', p_period,
+          true, v_expires_at, 'HOLD', p_hold_id);
   INSERT INTO core.booking_checkout_hold
          (id, guest_user_id, vehicle_id, org_id, country_code, occupancy_id, kind, status, expires_at)
   VALUES (p_hold_id, p_guest_id, p_vehicle_id, p_org_id, p_country_code, p_occupancy_id,
@@ -240,9 +241,11 @@ BEGIN
     FROM pg_catalog.generate_series(0, p_guests - 1) AS g;
 
   INSERT INTO core.booking_vehicle_occupancy
-         (id, vehicle_id, kind, source, period, active, expires_at, deactivated_reason, ref_type, ref_id)
+         (id, vehicle_id, org_id, country_code, kind, source, period, active, expires_at,
+          deactivated_reason, ref_type, ref_id)
   SELECT pg_catalog.md5(v_seed || ':o:' || s.i)::uuid,
          pg_catalog.md5(v_seed || ':v:' || (s.i / p_holds_per_vehicle))::uuid,
+         p_org_id, p_country_code,
          'HOLD', 'CHECKOUT',
          pg_catalog.tstzrange(v_now + pg_catalog.make_interval(days => 30 + 3 * s.k),
                               v_now + pg_catalog.make_interval(days => 32 + 3 * s.k), '[)'),
