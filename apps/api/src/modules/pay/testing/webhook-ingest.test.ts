@@ -190,4 +190,25 @@ describe('réception des webhooks', () => {
     expect(await post(noSecret, '{}', {})).toEqual({ status: 503, outcome: 'SECRET_UNAVAILABLE' });
     expect([...r.store.inbox, ...noSecret.store.inbox]).toEqual([]);
   });
+  it('dédoublonnage sur l’identifiant BRUT : deux identifiants qui se masquent pareil restent distincts', async () => {
+    // deux numéros Luhn valides de même masque (6 premiers et 4 derniers chiffres identiques)
+    const ids = ['4111111111111111', '4111110000091111'];
+    let next = 0;
+    const verifier = {
+      provider: FAKE_PROVIDER,
+      verifyAndParseWebhook: () => ({
+        signatureValid: true,
+        signedAt: null,
+        providerEventId: ids[next++] ?? null,
+        events: [],
+      }),
+    };
+    const r = rig({ registry: { get: () => verifier } });
+    expect(await post(r, '{}', {})).toMatchObject({ outcome: 'RECEIVED' });
+    expect(await post(r, '{}', {})).toMatchObject({ outcome: 'RECEIVED' });
+    expect(r.store.inbox.map((x) => x.providerEventId)).toEqual([
+      '411111******1111',
+      '411111******1111',
+    ]);
+  });
 });

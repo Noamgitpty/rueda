@@ -22,6 +22,8 @@
 
 ## Conséquences
 
+- À reporter dans 17 §3.2.7 et §2.3 (orchestrateur) : colonnes de `payment_operation_leg` (`org_id`, `trip_id`, `country_code` dénormalisés pour la RLS, `beneficiary_ref` non lisible par `app_api`, table immuable) ; politiques `leg_host_read` (titulaire : jambe `HOST` seulement) et `leg_staff_read` (ADMIN / FINANCE du pays, OPS / SUPPORT par dossier ouvert sur le trip) ; politiques `cmd_money_sel` / `cmd_money_ins` / `cmd_money_upd` contrôlant l'acteur `WORKER` et le travailleur (`payment_command`, `webhook_ingest`), avec l'exception de la boîte de réception (commande de réception appelée par `app_api` pour un PSP anonyme) ; lecture des opérations par `payment_command` (`worker_select_payment_command`).
+- Plafond du corps des webhooks : 17 §4.4 fixe 256 ko, mais l'analyseur JSON d'Express coupe aujourd'hui à 100 ko (413) avant le service. Écart déclaré : US-003, qui câblera le serveur, réglera la limite (`limit` à 256 ko sur la route des webhooks) ou fera reporter 100 ko dans 17.
 - Écarts à reporter dans 17 : `payment_operation_event.outcome`, `webhook_inbox.normalized_events`, garde FAKE étendue à toute écriture, `psp_capability.method = '*'`, `psp_account_live_gate`, `psp_account_platform_mor_closed`, clé étrangère `webhook_inbox.psp_account_id` non posée (L0-08 insère des comptes fictifs).
 - Codes d'erreur PROPOSÉS à reporter dans 16 A.8 : `FAKE_FORBIDDEN_IN_PRODUCTION`, `PSP_ACCOUNT_INACTIVE`, `PAYMENT_SUBJECT_MISMATCH`, `INVALID_REQUEST`.
 - Valeurs de 17 reprises en constantes du code, non en paramètres : 256 ko, ± 5 min, 15 min de quarantaine. Elles deviendront des paramètres (§7.2) si le fondateur le décide.
