@@ -696,25 +696,31 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
     });
   });
 
-  it('réaffectation (TJ05b, règle 3) : sortie de HOST, entrée sur PLATFORM', async () => {
-    const tj05b = legVector(golden, 'TJ05b');
-    if (tj05b.currency !== c.currency) return; // vecteur publié dans une seule devise
-    await withRole('app_worker', async (client) => {
-      await payTx(client, { worker: 'payment_command' }, async (tx) => {
-        const trip = await insertTrip(tx, c);
-        const account = await insertAccount(tx, { country: c.country });
-        await applyMovement(tx, await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency));
-        // 08 E7 règle 3 (TJ05b) : la variation positive de PLATFORM est prise sur HOST
-        const moved = tj05b.legsMinor.PLATFORM;
-        const realloc = { ...ZERO, HOST: -moved, PLATFORM: moved };
-        const op = await succeeded(tx, trip, account, 'LEG_REALLOCATION', realloc, c.currency);
-        expect(await applyMovement(tx, op)).toBe('APPLIED');
-        const b = await balances(tx, trip);
-        expect(col(b, 'realloc_out')).toEqual({ ...ZERO, HOST: moved });
-        expect(col(b, 'realloc_in')).toEqual({ ...ZERO, PLATFORM: moved });
+  // vecteur publié dans une seule devise : la preuve ne tourne que dans celle-ci
+  it.runIf(legVector(golden, 'TJ05b').currency === c.currency)(
+    'réaffectation (TJ05b, règle 3) : sortie de HOST, entrée sur PLATFORM',
+    async () => {
+      const tj05b = legVector(golden, 'TJ05b');
+      await withRole('app_worker', async (client) => {
+        await payTx(client, { worker: 'payment_command' }, async (tx) => {
+          const trip = await insertTrip(tx, c);
+          const account = await insertAccount(tx, { country: c.country });
+          await applyMovement(
+            tx,
+            await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency),
+          );
+          // 08 E7 règle 3 (TJ05b) : la variation positive de PLATFORM est prise sur HOST
+          const moved = tj05b.legsMinor.PLATFORM;
+          const realloc = { ...ZERO, HOST: -moved, PLATFORM: moved };
+          const op = await succeeded(tx, trip, account, 'LEG_REALLOCATION', realloc, c.currency);
+          expect(await applyMovement(tx, op)).toBe('APPLIED');
+          const b = await balances(tx, trip);
+          expect(col(b, 'realloc_out')).toEqual({ ...ZERO, HOST: moved });
+          expect(col(b, 'realloc_in')).toEqual({ ...ZERO, PLATFORM: moved });
+        });
       });
-    });
-  });
+    },
+  );
 
   it('RLS-25 (report US-062) : travailleur hors liste blanche ⇒ appel refusé (42501) et 0 ligne ; écriture directe ⇒ 42501', async () => {
     await withRole('app_worker', async (client) => {
