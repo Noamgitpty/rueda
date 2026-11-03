@@ -1923,6 +1923,9 @@ Révision P2P (US-058) : le voyageur paie **Kmino, marchand de référence**, su
   - Given un hold `CHECKOUT` sans preuve à son échéance (`hold_max_total_minutes` = 20), When la tâche s'exécute, Then `EXPIRED`, créneau libéré, aucun trip, contrat ni `booking.trip.booked` ; un début immédiat payé 8 min après est `BOOKED` sans compensation `START_PASSED` (C20).
   - Given une capacité bloquante du PSP non `VALIDATED_*` (`SUPPORTS_PER_LEG_AMOUNTS`, `SUPPORTS_SUBMERCHANT`…), When un voyageur paie chez un hôte du pays, Then refus avant le paiement (une capacité inconnue vaut « non »).
   - Given un paiement en plusieurs encaissements (carte, Yappy, crédit cash, crédit promo, TJ15), When ils sont ventilés, Then la cascade de la règle 10 donne TJ15a à d et les crédits ne touchent que `PLATFORM` (TJ21).
+  - (US-060, mode `REQUEST`, 17 §2.5) Given une demande acceptée, When la capture part, Then Σ jambes = montant capturé = total du devis figé ≤ montant de l'`AUTH`, sinon `LEG_SUM_MISMATCH` et aucune capture.
+  - (US-060) Given une demande refusée ou expirée, When le `VOID` part, Then il est total et ne crée aucune variation de jambe (distinct du `VOID` du reliquat après une capture partielle, 08 E7 règle 2, TJ03).
+  - (US-060) Given un `VOID` refusé ou sans réponse du PSP, When la demande est refusée ou expirée, Then la demande reste terminée, le créneau est libéré, l'opération `VOID` est rejouée par la boîte d'envoi monétaire puis escaladée au support, et aucun débit n'est créé.
 - **Notes techniques** : `psp_account` (compte marchand de Kmino, `owner_type = PLATFORM`), `psp_submerchant`, `tender`, `payment_operation`, `payment_operation_leg` (`org_id` et `country_code` dénormalisés), `payment_command` ; `createHostedPayment(amount, legs)` et `capture(amount, legs)` sur le `FAKE` (US-061) ; écritures par commandes `cmd_money_owner` seulement (RLS-21) ; conversion par US-024.
 - **Dépendances** : US-209, US-207, US-024, US-061, US-226
 - **Estimation** : 8 pts
@@ -2073,16 +2076,16 @@ Révision P2P (US-058) : le voyageur paie **Kmino, marchand de référence**, su
 - **Epic** : E7
 - **Récit** : En tant qu'hôte, je veux un accueil qui met en tête mes prochaines remises, et la liste filtrable de mes réservations avec ce que je peux voir du voyageur, afin de préparer chaque rendez-vous.
 - **Features** : HDB-001, HDB-002
-- **Références** : 16 fiche HDB-001 / HDB-002 ; 08 BR-BOOK-01 ; 22 OQ-P2P-10 ; 10b §3.8 (UX-39 à UX-45), §4.3 (`web.a05.accept`, `web.a05.decline`, `web.error.requestExpired`) ; RLS-2, RLS-9 ; écrans A02, A05
+- **Références** : 16 fiche HDB-001 / HDB-002 ; 08 BR-BOOK-01 ; 22 OQ-P2P-10 ; 10b §3.8 (UX-39 à UX-45), §4.3 (`web.a05.accept`, `web.a05.decline`, `web.error.requestExpired`, `web.error.requestDeclined`) ; RLS-2, RLS-9 ; écrans A02, A05
 - **Critères d'acceptation** :
   - Given une confirmation à 10:00, When l'hôte rafraîchit à 10:01, Then le trip apparaît en tête des prochaines remises.
   - Given un trip, When l'hôte l'ouvre, Then il voit le prénom, l'âge, la note et le statut de vérification du voyageur, jamais le numéro de permis ni l'image d'une pièce (`host_guest_v`, US-062).
   - Given l'hôte A, When il appelle la liste des trips de l'hôte B, Then 0 ligne.
   - Given une annonce en mode `REQUEST` (au choix de l'hôte, `p2p_default_booking_mode` = `INSTANT` sinon ; OQ-P2P-10) et une demande envoyée à 10:00, When l'hôte touche `web.a05.accept` « Aceptar la solicitud » / « Accept request » à 12:30, Then l'autorisation est capturée par jambes et le trip passe `BOOKED`.
-  - Given la même demande, When l'hôte touche `web.a05.decline` « Rechazar la solicitud » / « Decline request », Then l'autorisation est annulée (`VOID`), le créneau est libéré et rien n'est débité.
+  - Given la même demande, When l'hôte touche `web.a05.decline` « Rechazar la solicitud » / « Decline request », Then l'autorisation est annulée (`VOID`), le créneau est libéré, rien n'est débité et le voyageur voit `web.error.requestDeclined` (10b §4.3, US-060).
   - Given une demande sans réponse, When il est 14:00 à l'heure serveur (heure limite de 4 h), Then elle expire, l'autorisation est annulée, le voyageur voit `web.error.requestExpired` et une acceptation tardive renvoie `REQUEST_EXPIRED`.
   - Given une annonce aéroport, When l'hôte choisit le mode `REQUEST`, Then `REQUEST_MODE_NOT_ALLOWED` et l'annonce reste `INSTANT`.
-- **Notes techniques** : vues de lecture ; mode `REQUEST` de 16 HDB-002 (créneau réservé à la demande, à typer dans 17 ; capture par jambes à l'acceptation, US-223) ; annulation par l'hôte en libre-service au lot 5 (US-520) ; gains et versements en US-314 et US-541.
+- **Notes techniques** : vues de lecture ; mode `REQUEST` de 16 HDB-002 (hold `REQUEST` typé dans 17 §2.5 par US-060, avec ses exigences de sécurité : commandes réservées à l'hôte titulaire, `FORBIDDEN` sans fuite d'état, `request_respond_by` gardé, RLS-15, et d'argent pour US-223 : Σ jambes = devis ≤ `AUTH`, `VOID` total distinct du `VOID` partiel de E7, échec du `VOID` rejoué puis escaladé ; capture par jambes à l'acceptation, US-223) ; annulation par l'hôte en libre-service au lot 5 (US-520) ; gains et versements en US-314 et US-541.
 - **Dépendances** : US-207, US-107, US-032, US-062
 - **Estimation** : 3 pts
 - **Lot** : L2
