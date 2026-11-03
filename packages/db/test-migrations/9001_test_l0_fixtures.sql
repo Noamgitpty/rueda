@@ -42,7 +42,7 @@ DECLARE
   v_expires_at timestamptz := platform.now() + p_ttl;
 BEGIN
   -- 23P01 (vehicle_occupancy_no_overlap) possible ici : créneau pris
-  -- US-022 (0029) : compte d'hôte et pays de l'occupation = ceux du hold
+  -- US-022 (0032) : compte d'hôte et pays de l'occupation = ceux du hold
   INSERT INTO core.booking_vehicle_occupancy
          (id, vehicle_id, org_id, country_code, kind, source, period, active, expires_at,
           ref_type, ref_id)

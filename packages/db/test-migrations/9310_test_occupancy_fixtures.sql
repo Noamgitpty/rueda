@@ -3,7 +3,7 @@
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).
 --
--- Rôle : écrire une occupation ou un hold SANS passer par les commandes de 0029, pour atteindre
+-- Rôle : écrire une occupation ou un hold SANS passer par les commandes de 0032, pour atteindre
 -- les contraintes que la pré-vérification des commandes masque :
 --   - occ_insert_raw : occupation (HOST_BLOCK ou HOLD) avec le compte et le pays choisis par le
 --     test ⇒ prouve `occupancy_vehicle_single_org` (23P01) ;

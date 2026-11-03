@@ -146,4 +146,36 @@ export const FR_MESSAGES = {
   'web.catalog.sample.photo.dashboard': 'Tableau de bord',
   'web.catalog.sample.hostQuote': 'Je remets la voiture propre et avec le plein.',
   'web.catalog.sample.retry': 'Réessayer',
+  // Gabarits de notification (US-021, NTF-001 ; catalogue réduit de la bêta). PROPOSÉS : à
+  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les trois langues.
+  'ntf.kycApproved.email.subject': 'Ton identité est vérifiée · {brand}',
+  'ntf.kycApproved.email.body':
+    'Bonjour {first_name}. Nous avons vérifié ton identité : tu peux maintenant réserver des voitures sur {brand}.',
+  'ntf.kycApproved.sms.body':
+    '{brand} : {first_name}, ton identité est vérifiée. Tu peux maintenant réserver.',
+  'ntf.bookingConfirmed.email.subject': 'Réservation {booking_ref} confirmée',
+  'ntf.bookingConfirmed.email.body':
+    'Bonjour {first_name}. Ta réservation {booking_ref} est confirmée : du {start_at} au {end_at}. Dans l’appli, tu trouves le lieu de remise, le contrat et les messages de la réservation.',
+  'ntf.bookingConfirmed.sms.body':
+    '{brand} : réservation {booking_ref} confirmée, du {start_at} au {end_at}. Détails dans l’appli.',
+  'ntf.bookingCancelled.email.subject': 'Réservation {booking_ref} annulée',
+  'ntf.bookingCancelled.email.body':
+    'Bonjour {first_name}. La réservation {booking_ref} a été annulée. Dans l’appli, tu vois le détail et, le cas échéant, ton remboursement.',
+  'ntf.bookingCancelled.sms.body':
+    '{brand} : la réservation {booking_ref} a été annulée. Détails dans l’appli.',
+  'ntf.tripOverdue.email.subject': 'Réservation {booking_ref} : retour en retard',
+  'ntf.tripOverdue.email.body':
+    'Bonjour {first_name}. La voiture de la réservation {booking_ref} devait être rendue le {end_at} et le retour n’est pas encore enregistré. Écris à l’autre partie depuis les messages de la réservation.',
+  'ntf.tripOverdue.sms.body':
+    '{brand} : retour en retard pour la réservation {booking_ref}, prévu le {end_at}. Écris depuis les messages de l’appli.',
+  'ntf.payoutSent.email.subject': 'Nous t’avons envoyé {amount}',
+  'ntf.payoutSent.email.body':
+    'Bonjour {first_name}. Nous avons envoyé ton versement de {amount}. Ta banque peut mettre un peu de temps à le créditer. Le détail est dans tes gains.',
+  'ntf.payoutSent.sms.body':
+    '{brand} : nous t’avons envoyé un versement de {amount}. Détail dans tes gains.',
+  'ntf.payoutOnHold.email.subject': 'Ton versement de {amount} est retenu',
+  'ntf.payoutOnHold.email.body':
+    'Bonjour {first_name}. Ton versement de {amount} est retenu pour l’instant. Tes gains indiquent la raison et la marche à suivre.',
+  'ntf.payoutOnHold.sms.body':
+    '{brand} : ton versement de {amount} est retenu. Raison dans tes gains.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

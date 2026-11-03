@@ -1,6 +1,6 @@
 /**
  * US-022 — table d'occupation unique (16 CAL-011, CAL-004 ; 08 BR-BOOK-05, BR-BOOK-07,
- * BR-BOOK-10 ; 17 §2.5, §3.2.4 ; C1, EC-51, EC-19 ; migration 0029, ADR-060).
+ * BR-BOOK-10 ; 17 §2.5, §3.2.4 ; C1, EC-51, EC-19 ; migration 0032, ADR-060).
  *
  * Attendu (valeurs de 19 US-022, 16 CAL-011 / CAL-004, 17 §2.5 et §7.2, jamais du code testé) :
  * - une seule exclusion GiST pour tous les canaux : un blocage de l'hôte chevauchant un trip
@@ -557,7 +557,7 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
 
   it('un véhicule = un compte, sans la pré-vérification : occupation d’un autre compte ⇒ 23P01 occupancy_vehicle_single_org, traduit FORBIDDEN', async () => {
     // Revue QA US-022, constat 1 : la fixture 9310 écrit SANS contrôle préalable (chemin de
-    // cmd_place_hold, US-023) ; seule la contrainte de 0029 peut refuser.
+    // cmd_place_hold, US-023) ; seule la contrainte de 0032 peut refuser.
     const x = worldOf(c);
     const y = otherWorld(c);
     await withRole('app_api', async (client) => {
@@ -605,7 +605,7 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
 
   it('hold et occupation de même partie, sans la pré-vérification : autre compte, pays ou véhicule ⇒ 23503 checkout_hold_occupancy_party_fk', async () => {
     // Revue QA US-022, constat 1 : la fixture 9310 écrit SANS contrôle préalable (chemin de
-    // cmd_place_hold, US-023) ; seule la contrainte de 0029 peut refuser.
+    // cmd_place_hold, US-023) ; seule la contrainte de 0032 peut refuser.
     const x = worldOf(c);
     const y = otherWorld(c);
     await withRole('app_api', async (client) => {

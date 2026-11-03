@@ -122,6 +122,13 @@
       "story": "US-010"
     },
     {
+      "signature": "core.iam_notification_contact(uuid)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_worker"],
+      "story": "US-021"
+    },
+    {
       "signature": "core.iam_session_resolve(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",

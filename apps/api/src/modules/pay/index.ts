@@ -82,7 +82,11 @@ export { COMMAND_KINDS, MoneyCommandSender } from './internal/money-command-send
 export type { CommandKind, MoneyCommand, SendOutcome } from './internal/money-command-sender.js';
 
 // Webhooks (17 §4.4)
-export { WEBHOOK_MAX_BODY_BYTES, WebhookIngestService } from './internal/webhook-ingest.js';
+export {
+  WEBHOOK_MAX_BODY_BYTES,
+  WEBHOOK_MAX_HEADER_BYTES,
+  WebhookIngestService,
+} from './internal/webhook-ingest.js';
 export type {
   PaymentLogger,
   WebhookRequest,
