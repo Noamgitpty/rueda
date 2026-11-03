@@ -23,6 +23,9 @@ const noop: ConsoleHandlers = {
   onSignOut: () => undefined,
 };
 
+/** Clé d'exemple affichée (valeur de test, sans rapport avec un secret réel). */
+const SAMPLE_KEY = 'AB'.repeat(16);
+
 const STATES: readonly ConsoleState[] = [
   { kind: 'login' },
   { kind: 'login', error: 'common.auth.invalidCredentials' },
@@ -30,7 +33,7 @@ const STATES: readonly ConsoleState[] = [
   { kind: 'enroll' },
   {
     kind: 'enroll',
-    secret: { secret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', otpauthUri: 'otpauth://totp/x?secret=y' },
+    secret: { secret: SAMPLE_KEY, otpauthUri: 'otpauth://totp/x' },
   },
   { kind: 'denied', reason: 'TOTP_NOT_ENROLLED' },
   { kind: 'denied', reason: 'NOT_STAFF' },
