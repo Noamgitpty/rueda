@@ -276,6 +276,7 @@ describe('schéma core (US-006)', () => {
           'hold_conversion_matches_disposition',
           'occupancy_trip_guard',
           'occupancy_trip_ref_valid',
+          'settlement_balanced', // invariants des règlements (0027, US-018)
           'trip_has_active_occupancy',
         ].map((tgname) => ({ tgname, deferrable: true, deferred: true })),
       );
