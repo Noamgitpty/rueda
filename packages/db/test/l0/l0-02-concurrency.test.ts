@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { setSessionContext } from '../../src/index.ts';
 import { BENCH_DEADLOCK_TIMEOUT, connectAs, releaseClient } from '../../src/testing/index.ts';
+import type { BenchDatabase } from '../../src/testing/index.ts';
 import {
   at,
   bookTrip,
@@ -73,6 +74,12 @@ const ROUNDS = 12;
 const LONG = 240_000;
 
 /** En CI, le banc a 200 connexions : le degré doit être exactement 100 (revue sécurité US-007). */
+/**
+ * `deadlock_timeout` du serveur, celui de la production (défaut PostgreSQL) : la base principale
+ * du banc le garde, et les séries « avec verrou » (seuil de 300 ms) y sont mesurées (ADR-056).
+ */
+const SERVER_DEADLOCK_TIMEOUT = '1s';
+
 const isCi = (): boolean => process.env['CI'] !== undefined && process.env['CI'] !== '';
 
 function expectDegree(degree: number): void {
@@ -87,10 +94,11 @@ const log = (line: string, data: unknown): void => {
 async function withClients<T>(
   roles: readonly ('app_api' | 'app_worker')[],
   fn: (clients: pg.Client[]) => Promise<T>,
+  database: BenchDatabase = 'main',
 ): Promise<T> {
   const clients: pg.Client[] = [];
   try {
-    for (const role of roles) clients.push(await connectAs(role));
+    for (const role of roles) clients.push(await connectAs(role, { database }));
     return await fn(clients);
   } finally {
     await Promise.all(clients.map((cl) => releaseClient(cl)));
@@ -147,8 +155,10 @@ async function concurrencyDegree(client: pg.ClientBase): Promise<number> {
  * exemple `53300`, plus de créneau libre) et ferme alors toutes celles qui ont abouti : un refus
  * ne laisse aucune connexion orpheline qui ferait échouer les cas suivants en cascade.
  */
-async function connectMany(n: number): Promise<pg.Client[]> {
-  const settled = await Promise.allSettled(Array.from({ length: n }, () => connectAs('app_api')));
+async function connectMany(n: number, database: BenchDatabase): Promise<pg.Client[]> {
+  const settled = await Promise.allSettled(
+    Array.from({ length: n }, () => connectAs('app_api', { database })),
+  );
   const clients = settled.flatMap((s) => (s.status === 'fulfilled' ? [s.value] : []));
   const refused = settled.flatMap((s) => (s.status === 'rejected' ? [s.reason as unknown] : []));
   if (refused.length === 0) return clients;
@@ -337,7 +347,10 @@ async function runC1(
   vehicleLock: boolean,
   form: CallForm = 'autocommit',
 ): Promise<C1Report> {
-  const observer = await connectAs('app_api');
+  // Sans verrou : base d'injection (deadlock_timeout court) ; avec verrou : base principale, au
+  // réglage du serveur (1 s, celui de la production), sous lequel le p95 est mesuré (ADR-056).
+  const database: BenchDatabase = vehicleLock ? 'main' : 'injection';
+  const observer = await connectAs('app_api', { database });
   try {
     const degree = await concurrencyDegree(observer);
     const slot = realSlot();
@@ -360,7 +373,7 @@ async function runC1(
     const timings: PoseTiming[] = [];
     let results: Replayed<unknown>[];
     try {
-      posers.push(...(await connectMany(degree)));
+      posers.push(...(await connectMany(degree, database)));
       const pids = await Promise.all(posers.map((cl) => backendPid(cl)));
       // Connexions chaudes, comme celles d'un pool de l'API : une pose annulée sur un autre
       // véhicule charge le cache des relations et les plans de la commande. Sans cela, chaque
@@ -421,15 +434,18 @@ async function runC1(
       await Promise.all(posers.map((cl) => releaseClient(cl)));
     }
 
-    const state = await withClients(['app_worker'], ([worker]) =>
-      inTx(worker as pg.Client, { worker: 'booking_conversion' }, async (tx) => {
-        const holds = await tx.query<{ status: string }>(
-          `SELECT status FROM core.booking_checkout_hold WHERE vehicle_id = $1`,
-          [slot.vehicleId],
-        );
-        const active = await activeOccupancies(tx, slot.vehicleId, period);
-        return { holds: holds.rows, active: active.length };
-      }),
+    const state = await withClients(
+      ['app_worker'],
+      ([worker]) =>
+        inTx(worker as pg.Client, { worker: 'booking_conversion' }, async (tx) => {
+          const holds = await tx.query<{ status: string }>(
+            `SELECT status FROM core.booking_checkout_hold WHERE vehicle_id = $1`,
+            [slot.vehicleId],
+          );
+          const active = await activeOccupancies(tx, slot.vehicleId, period);
+          return { holds: holds.rows, active: active.length };
+        }),
+      database,
     );
     const outcomes: Record<string, number> = {};
     for (const r of results) {
@@ -485,6 +501,8 @@ describe.each(COUNTRIES)(
         const r = await runC1(c, true);
         log(`C1 avec verrou ${c.country}`, r);
         expectDegree(r.degree);
+        // mesure sous le réglage de production, jamais sous le délai court de l'injection
+        expect(r.deadlockTimeout).toBe(SERVER_DEADLOCK_TIMEOUT);
         expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
         expect(r.deadlocks).toBe(0);
         expect(r.serializationFailures).toBe(0);
@@ -502,6 +520,7 @@ describe.each(COUNTRIES)(
         const r = await runC1(c, true, 'transactional');
         log(`C1 transactionnel avec verrou ${c.country}`, r);
         expectDegree(r.degree);
+        expect(r.deadlockTimeout).toBe(SERVER_DEADLOCK_TIMEOUT);
         expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
         expect(r.deadlocks).toBe(0);
         expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
@@ -931,54 +950,78 @@ const LOCK_VEHICLE = `SELECT pg_advisory_xact_lock(hashtextextended('veh:' || $1
 describe.each(COUNTRIES)(
   'L0-02 — interblocage déterministe, ordre inversé ($country, $currency)',
   () => {
-    it('guest → véhicule contre véhicule → guest : un 40P01 réel, rejoué par withReplay, les deux transactions aboutissent', async () => {
-      await withClients(['app_api', 'app_api', 'app_api'], async ([a, b, observer]) => {
-        const guest = uuid();
-        const vehicle = uuid();
-        const pidA = await backendPid(a as pg.Client);
-        let attemptsA = 0;
-        let attemptsB = 0;
-        let bHasVehicle: () => void = () => undefined;
-        const vehicleTaken = new Promise<void>((resolve) => {
-          bHasVehicle = resolve;
-        });
-        const started = performance.now();
-        // A : ordre de 17 §2.5 (guest, puis véhicule)
-        const runA = withReplay(() =>
-          inTx(a as pg.Client, { commit: true }, async (tx) => {
-            attemptsA++;
-            await tx.query(LOCK_GUEST, [guest]);
-            if (attemptsA === 1) await vehicleTaken;
-            await tx.query(LOCK_VEHICLE, [vehicle]);
-            return 'A';
-          }),
-        );
-        // B : ordre INVERSÉ (véhicule, puis guest) ; à la première tentative, attend que A soit
-        // bloqué sur le verrou du véhicule avant de demander celui du guest : cycle certain
-        const runB = withReplay(() =>
-          inTx(b as pg.Client, { commit: true }, async (tx) => {
-            attemptsB++;
-            await tx.query(LOCK_VEHICLE, [vehicle]);
-            if (attemptsB === 1) {
-              bHasVehicle();
-              await waitUntilBlocked(observer as pg.Client, pidA);
+    // Sur la base principale (réglage du serveur, 1 s) et sur la base d'injection (délai court) :
+    // la durée de résolution d'un 40P01 prouve que le délai court agit là où la cascade de la
+    // course « sans verrou » peut se produire, et seulement là (ADR-056).
+    it.each(['main', 'injection'] as const)(
+      'guest → véhicule contre véhicule → guest : un 40P01 réel, rejoué par withReplay, les deux transactions aboutissent (base %s)',
+      async (database) => {
+        await withClients(
+          ['app_api', 'app_api', 'app_api'],
+          async ([a, b, observer]) => {
+            const guest = uuid();
+            const vehicle = uuid();
+            const pidA = await backendPid(a as pg.Client);
+            let attemptsA = 0;
+            let attemptsB = 0;
+            let bHasVehicle: () => void = () => undefined;
+            const vehicleTaken = new Promise<void>((resolve) => {
+              bHasVehicle = resolve;
+            });
+            const started = performance.now();
+            // A : ordre de 17 §2.5 (guest, puis véhicule)
+            const runA = withReplay(() =>
+              inTx(a as pg.Client, { commit: true }, async (tx) => {
+                attemptsA++;
+                await tx.query(LOCK_GUEST, [guest]);
+                if (attemptsA === 1) await vehicleTaken;
+                await tx.query(LOCK_VEHICLE, [vehicle]);
+                return 'A';
+              }),
+            );
+            // B : ordre INVERSÉ (véhicule, puis guest) ; à la première tentative, attend que A soit
+            // bloqué sur le verrou du véhicule avant de demander celui du guest : cycle certain
+            const runB = withReplay(() =>
+              inTx(b as pg.Client, { commit: true }, async (tx) => {
+                attemptsB++;
+                await tx.query(LOCK_VEHICLE, [vehicle]);
+                if (attemptsB === 1) {
+                  bHasVehicle();
+                  await waitUntilBlocked(observer as pg.Client, pidA);
+                }
+                await tx.query(LOCK_GUEST, [guest]);
+                return 'B';
+              }),
+            );
+            const [ra, rb] = await Promise.all([runA, runB]);
+            const ms = Math.round(performance.now() - started);
+            const dt = await (observer as pg.Client).query<{ value: string }>(
+              `SELECT pg_catalog.current_setting('deadlock_timeout') AS value`,
+            );
+            log('interblocage déterministe', {
+              database,
+              deadlockTimeout: dt.rows[0]?.value,
+              deadlocks: ra.deadlocks + rb.deadlocks,
+              victim: ra.deadlocks > 0 ? 'A' : 'B',
+              ms,
+            });
+            if (database === 'injection') {
+              // un 40P01 se résout en ~50 ms (délai du banc), loin de la seconde de la production
+              expect(dt.rows[0]?.value).toBe(BENCH_DEADLOCK_TIMEOUT);
+              expect(ms).toBeLessThan(500);
+            } else {
+              expect(dt.rows[0]?.value).toBe(SERVER_DEADLOCK_TIMEOUT);
+              expect(ms).toBeGreaterThanOrEqual(900);
             }
-            await tx.query(LOCK_GUEST, [guest]);
-            return 'B';
-          }),
+            expect(ra.value).toBe('A');
+            expect(rb.value).toBe('B');
+            expect(ra.deadlocks + rb.deadlocks).toBe(1);
+            expect(ra.replays + rb.replays).toBe(1);
+            expect(ra.error ?? rb.error).toBeUndefined();
+          },
+          database,
         );
-        const [ra, rb] = await Promise.all([runA, runB]);
-        log('interblocage déterministe', {
-          deadlocks: ra.deadlocks + rb.deadlocks,
-          victim: ra.deadlocks > 0 ? 'A' : 'B',
-          ms: Math.round(performance.now() - started),
-        });
-        expect(ra.value).toBe('A');
-        expect(rb.value).toBe('B');
-        expect(ra.deadlocks + rb.deadlocks).toBe(1);
-        expect(ra.replays + rb.replays).toBe(1);
-        expect(ra.error ?? rb.error).toBeUndefined();
-      });
-    });
+      },
+    );
   },
 );

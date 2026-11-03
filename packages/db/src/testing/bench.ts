@@ -30,12 +30,13 @@ export const TEST_DATABASE_PREFIX = 'rueda_test_';
 export const BENCH_LOCK_KEY = 7_305_110_005;
 
 /**
- * `deadlock_timeout` de la base principale du banc (ADR-056, « Cascade d'interblocages de
+ * `deadlock_timeout` de la base d'**injection** du banc (ADR-056, « Cascade d'interblocages de
  * l'injection »). Sans le verrou par véhicule, PostgreSQL résout les cycles d'attente de la
  * contrainte d'exclusion un par un, chacun au bout de `deadlock_timeout` : avec le défaut de 1 s,
- * une course de 100 poses dure environ une seconde par `40P01` (jusqu'à plus de 60 s). Le banc
- * abaisse ce délai pour toutes les sessions de la base de test, sans toucher aux rôles ni aux
- * droits ; la base de production du banc garde le défaut. PROPOSÉ.
+ * une course de 100 poses dure environ une seconde par `40P01` (jusqu'à plus de 60 s). Seule la
+ * base d'injection, copie de la base principale réservée au cas « sans verrou » de L0-02, reçoit ce
+ * délai ; la base principale garde le réglage du serveur (1 s, celui de la production), sous lequel
+ * le p95 « avec verrou » est mesuré. Aucun rôle ni droit ne change. PROPOSÉ.
  */
 export const BENCH_DEADLOCK_TIMEOUT = '50ms';
 
@@ -48,6 +49,11 @@ export interface BenchInfo {
   readonly database: string;
   /** Base de contrôle (migrations de production seules). */
   readonly productionDatabase: string;
+  /**
+   * Base d'injection : copie (`TEMPLATE`) de la base principale juste après ses migrations, avec
+   * `deadlock_timeout = BENCH_DEADLOCK_TIMEOUT`. Réservée au cas « sans verrou » de L0-02.
+   */
+  readonly injectionDatabase: string;
   readonly passwords: Readonly<Record<LoginRole, string>>;
   /** Migrations appliquées sous `migrator` (`NNNN_nom`), par base. */
   readonly appliedMigrations: {
@@ -96,6 +102,7 @@ export async function provisionBench(
   const suffix = randomBytes(6).toString('hex');
   const database = `${TEST_DATABASE_PREFIX}${suffix}`;
   const productionDatabase = `${TEST_DATABASE_PREFIX}${suffix}_prod`;
+  const injectionDatabase = `${TEST_DATABASE_PREFIX}${suffix}_inj`;
   const created: string[] = [];
   const appliedMigrations: { main: string[]; production: string[] } = { main: [], production: [] };
 
@@ -140,12 +147,6 @@ export async function provisionBench(
       );
       created.push(name);
       log(`base créée : ${name}`);
-      if (key === 'main') {
-        // valeur littérale constante (BENCH_DEADLOCK_TIMEOUT) : aucune donnée externe
-        await lockClient.query(
-          `ALTER DATABASE ${quoteIdent(name)} SET deadlock_timeout = '${BENCH_DEADLOCK_TIMEOUT}'`,
-        );
-      }
 
       const admin = await connect(source.admin, name);
       try {
@@ -171,6 +172,21 @@ export async function provisionBench(
         await migrator.end();
       }
     }
+
+    // Base d'injection : copie de la base principale migrée (aucune connexion ouverte sur elle à
+    // ce stade, condition de TEMPLATE). Les réglages de base ne sont pas copiés : seul le délai
+    // ci-dessous s'applique, à cette base seulement.
+    await lockClient.query(
+      `CREATE DATABASE ${quoteIdent(injectionDatabase)} TEMPLATE ${quoteIdent(database)}`,
+    );
+    created.push(injectionDatabase);
+    // valeur littérale constante (BENCH_DEADLOCK_TIMEOUT) : aucune donnée externe
+    await lockClient.query(
+      `ALTER DATABASE ${quoteIdent(injectionDatabase)} SET deadlock_timeout = '${BENCH_DEADLOCK_TIMEOUT}'`,
+    );
+    log(
+      `base d'injection créée : ${injectionDatabase} (deadlock_timeout ${BENCH_DEADLOCK_TIMEOUT})`,
+    );
   } catch (error) {
     const safe = redactError(error, secrets);
     try {
@@ -190,6 +206,7 @@ export async function provisionBench(
       port: source.admin.port,
       database,
       productionDatabase,
+      injectionDatabase,
       passwords,
       appliedMigrations,
       admin: source.admin,
