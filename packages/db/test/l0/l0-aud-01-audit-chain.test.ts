@@ -223,7 +223,7 @@ describe('US-009 — journal d’audit chaîné (17 §1.7, ADM-001)', () => {
           await writeRow(tx, uuid());
           await writeRow(tx, uuid());
           const before = await verifyChainIn(tx);
-          expect(before).toMatchObject({ ok: true });
+          expect(before.ok ? 'ok' : JSON.stringify(before.break)).toBe('ok');
           if (!before.ok) return;
           const target = BigInt(before.lastId) - 1n; // avant-dernière ligne
           await tx.query(`SELECT test_fixture.owner_tamper_audit_log($1, $2, true)`, [
@@ -289,7 +289,7 @@ describe('US-009 — journal d’audit chaîné (17 §1.7, ADM-001)', () => {
     await withRole('app_worker', async (client) => {
       await auditTx(client, { actor: VERIFIER }, async (tx) => {
         const result = await verifyChainIn(tx);
-        expect(result).toMatchObject({ ok: true });
+        expect(result.ok ? 'ok' : JSON.stringify(result.break)).toBe('ok');
         const { rows } = await readChain(tx);
         const mine = rows.filter((r) => requestIds.includes(r.requestId ?? ''));
         expect(mine).toHaveLength(n);
