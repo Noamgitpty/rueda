@@ -37,6 +37,8 @@
 --   core.iam_staff_cmd_enroll_reveal(bytea, bytea), core.iam_staff_cmd_elevate(bytea, uuid,
 --   bigint, bytea), core.iam_staff_cmd_mfa_failed(bytea), core.iam_staff_session(bytea),
 --   core.iam_staff_audit(uuid, text, text, text, uuid, jsonb, jsonb, text, uuid),
+--   core.iam_staff_audit_countries(uuid, text, uuid, jsonb, jsonb);
+--   DROP POLICY iam_staff_select ON core.booking_trip;
 --   core.iam_hmac_sha256(bytea, bytea), core.iam_mfa_proof(bytea, bytea, uuid, bigint),
 --   core.iam_totp_step_now(), app.session_token_hash(); DROP TABLE core.iam_mfa_proof_key;
 --   DROP POLICY iam_staff_* ON <tables> ; REVOKE ALL … FROM iam_staff_owner ;
@@ -375,8 +377,55 @@ AS $fn$
      AND u.status = 'ACTIVE'
 $fn$;
 
+-- pays d'un trip (sujet des actions de console et de leur journal)
+GRANT SELECT (id, country_code) ON core.booking_trip TO iam_staff_owner;
+CREATE POLICY iam_staff_select ON core.booking_trip FOR SELECT TO iam_staff_owner USING (true);
+
+-- Pays concernés par une ligne du journal de la console, dérivés de l'action et de sa cible
+-- (décision de l'orchestrateur, ADR-062 point 10 ; jamais reçus du client) :
+--   - `after.country` posé par la commande (pays relu en base) ;
+--   - sujet TRIP : pays du trip (trip introuvable : aucun pays) ;
+--   - sujet USER autre que l'acteur : pays des rôles de la cible (`before.roles` si la commande les
+--     a retirés, sinon ses rôles en cours) ;
+--   - sinon (MFA, refus d'accès, lecture du journal : l'acteur lui-même) : pays de ses rôles en cours.
+-- Tableau vide = action GLOBALE (lisible par un ADMIN de tous les pays ou un SUPERADMIN seulement).
+CREATE FUNCTION core.iam_staff_audit_countries(p_actor uuid, p_subject_type text, p_subject_id uuid,
+                                               p_before jsonb, p_after jsonb)
+  RETURNS text[]
+  LANGUAGE plpgsql
+  VOLATILE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_user      uuid;
+  v_countries text[];
+BEGIN
+  IF pg_catalog.jsonb_typeof(p_after -> 'country') = 'string' THEN
+    RETURN ARRAY[p_after ->> 'country'];
+  END IF;
+  IF p_subject_type = 'TRIP' THEN
+    SELECT ARRAY[t.country_code] INTO v_countries FROM core.booking_trip AS t WHERE t.id = p_subject_id;
+    RETURN COALESCE(v_countries, '{}');
+  END IF;
+  IF pg_catalog.jsonb_typeof(p_before -> 'roles') = 'array' THEN
+    SELECT pg_catalog.array_agg(DISTINCT c.value ORDER BY c.value) INTO v_countries
+      FROM pg_catalog.jsonb_array_elements(p_before -> 'roles') AS r(role),
+           pg_catalog.jsonb_array_elements_text(r.role -> 'countries') AS c(value);
+    RETURN COALESCE(v_countries, '{}');
+  END IF;
+  v_user := CASE WHEN p_subject_type = 'USER' AND p_subject_id IS NOT NULL THEN p_subject_id
+                 ELSE p_actor END;
+  SELECT pg_catalog.array_agg(DISTINCT c ORDER BY c) INTO v_countries
+    FROM core.iam_staff_role_assignment AS a
+    CROSS JOIN LATERAL pg_catalog.unnest(a.country_scope) AS c
+   WHERE a.user_id = v_user AND (a.expires_at IS NULL OR a.expires_at > platform.now());
+  RETURN COALESCE(v_countries, '{}');
+END
+$fn$;
+
 -- Écriture au journal (toujours EN DERNIER dans une commande : la tête de chaîne est un verrou
--- global jusqu'au COMMIT, passation US-009). Rend l'identifiant attribué par la chaîne.
+-- global jusqu'au COMMIT, passation US-009). Rend l'identifiant attribué par la chaîne. Les pays
+-- concernés sont inscrits dans `after.countries` : ils entrent dans le hachage chaîné (immuables).
 CREATE FUNCTION core.iam_staff_audit(p_actor uuid, p_role text, p_action text, p_subject_type text,
                                      p_subject_id uuid, p_before jsonb, p_after jsonb,
                                      p_reason text, p_request_id uuid)
@@ -388,10 +437,16 @@ AS $fn$
   INSERT INTO core.audit_audit_log AS l
          (actor_user_id, actor_role, action_code, subject_type, subject_id, before, after, reason,
           request_id)
-  VALUES (p_actor, p_role, p_action, p_subject_type, p_subject_id, p_before, p_after,
+  VALUES (p_actor, p_role, p_action, p_subject_type, p_subject_id, p_before,
+          COALESCE(p_after, '{}'::jsonb) || pg_catalog.jsonb_build_object('countries',
+            pg_catalog.to_jsonb(core.iam_staff_audit_countries(p_actor, p_subject_type, p_subject_id,
+                                                              p_before, p_after))),
           NULLIF(pg_catalog.left(p_reason, 1000), ''), p_request_id)
   RETURNING l.id
 $fn$;
+REVOKE ALL ON FUNCTION core.iam_staff_audit_countries(uuid, text, uuid, jsonb, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.iam_staff_audit_countries(uuid, text, uuid, jsonb, jsonb)
+  TO iam_staff_owner;
 
 REVOKE ALL ON FUNCTION core.iam_staff_session(bytea),
   core.iam_staff_audit(uuid, text, text, text, uuid, jsonb, jsonb, text, uuid) FROM PUBLIC;

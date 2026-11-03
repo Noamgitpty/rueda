@@ -127,9 +127,10 @@ CREATE POLICY iam_staff_insert ON core.support_manual_action FOR INSERT TO iam_s
 CREATE POLICY iam_staff_update ON core.support_manual_action FOR UPDATE TO iam_staff_owner
   USING (audit_log_id IS NULL) WITH CHECK (audit_log_id IS NOT NULL);
 
--- pays d'un trip (sujet des actions de console)
-GRANT SELECT (id, country_code) ON core.booking_trip TO iam_staff_owner;
-CREATE POLICY iam_staff_select ON core.booking_trip FOR SELECT TO iam_staff_owner USING (true);
+-- pays déclarés (lecture du journal : une action GLOBALE n'est lisible que par un ADMIN de TOUS
+-- les pays ou par un SUPERADMIN ; aucune constante pays, la liste fait foi dans config)
+GRANT SELECT (code) ON core.config_country TO iam_staff_owner;
+CREATE POLICY iam_staff_select ON core.config_country FOR SELECT TO iam_staff_owner USING (true);
 
 -- 4. Commandes de console ------------------------------------------------------------------------
 -- Rôle EN COURS de p_user qui détient p_permission (matrice en vigueur) sur TOUS les pays
@@ -422,10 +423,17 @@ BEGIN
 END
 $fn$;
 
--- Lecture du journal par la console (`audit.read`) : ADMIN / SUPERADMIN, tout le journal ;
--- OPS / FINANCE (lim.), leurs propres lignes. Jamais l'IP chiffrée (C2). Page de 1 à 200 lignes,
--- de la plus récente à la plus ancienne, avant p_before_id s'il est donné. Session non élevée ou
--- sans permission : aucune ligne, refus journalisé.
+-- Lecture du journal par la console (`audit.read`), bornée au pays (décision de l'orchestrateur,
+-- ADR-062 point 10, fail-closed comme Turo). Une ligne porte ses pays dans `after.countries`
+-- (core.iam_staff_audit_countries ; absents = action GLOBALE). Est lisible :
+--   - par un SUPERADMIN : tout le journal ;
+--   - par un ADMIN : les lignes dont TOUS les pays sont dans la portée de ses rôles ADMIN en cours ;
+--     une ligne globale seulement s'il est ADMIN de TOUS les pays déclarés (config_country) ;
+--   - par OPS / FINANCE (17 §2.3 « lim. ») et par chacun : ses propres lignes.
+-- Jamais l'IP chiffrée (C2). Page de 1 à 200 lignes, de la plus récente à la plus ancienne, avant
+-- p_before_id s'il est donné. Session non élevée ou sans permission : aucune ligne, refus journalisé.
+-- C'est le SEUL chemin de lecture du journal pour app_api (aucun droit SELECT ni politique app_api
+-- sur core.audit_audit_log) : ce filtre tient lieu de politique de lecture du staff.
 CREATE FUNCTION core.iam_staff_audit_read(p_token_hash bytea, p_before_id bigint, p_limit integer)
   RETURNS TABLE (id bigint, at timestamptz, actor_user_id uuid, actor_role text, action_code text,
                  subject_type text, subject_id uuid, reason text, before jsonb, after jsonb)
@@ -436,16 +444,18 @@ CREATE FUNCTION core.iam_staff_audit_read(p_token_hash bytea, p_before_id bigint
 AS $fn$
 DECLARE
   v_s     record;
-  v_full  boolean;
   v_any   boolean;
+  v_super boolean;
+  v_admin text[];
+  v_all   text[];
   v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 50), 1), 200);
 BEGIN
   SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
   IF v_s.user_id IS NULL THEN
     RETURN;
   END IF;
-  SELECT pg_catalog.bool_or(a.role IN ('ADMIN', 'SUPERADMIN')), pg_catalog.bool_or(true)
-    INTO v_full, v_any
+  SELECT pg_catalog.bool_or(true), pg_catalog.bool_or(a.role = 'SUPERADMIN')
+    INTO v_any, v_super
     FROM core.iam_staff_role_assignment AS a
     JOIN core.iam_role_permission AS p ON p.role = a.role
    WHERE a.user_id = v_s.user_id
@@ -463,12 +473,32 @@ BEGIN
                                    'attempted', 'AUDIT_READ', 'permission', 'audit.read'), NULL, NULL);
     RETURN;
   END IF;
+  -- portée ADMIN : pays des rôles ADMIN en cours qui portent audit.read
+  SELECT pg_catalog.array_agg(DISTINCT c ORDER BY c) INTO v_admin
+    FROM core.iam_staff_role_assignment AS a
+    JOIN core.iam_role_permission AS p ON p.role = a.role
+    CROSS JOIN LATERAL pg_catalog.unnest(a.country_scope) AS c
+   WHERE a.user_id = v_s.user_id AND a.role = 'ADMIN'
+     AND (a.expires_at IS NULL OR a.expires_at > platform.now())
+     AND p.permission_code = 'audit.read'
+     AND p.valid_from <= platform.now()
+     AND (p.valid_to IS NULL OR p.valid_to > platform.now());
+  SELECT pg_catalog.array_agg(k.code::text ORDER BY k.code) INTO v_all FROM core.config_country AS k;
   RETURN QUERY
     SELECT l.id, l.at, l.actor_user_id, l.actor_role, l.action_code, l.subject_type, l.subject_id,
            l.reason, l.before, l.after
       FROM core.audit_audit_log AS l
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(ARRAY(SELECT pg_catalog.jsonb_array_elements_text(
+                                CASE WHEN pg_catalog.jsonb_typeof(l.after -> 'countries') = 'array'
+                                     THEN l.after -> 'countries' ELSE '[]'::jsonb END)),
+                        '{}') AS rc) AS r
      WHERE (p_before_id IS NULL OR l.id < p_before_id)
-       AND (v_full OR l.actor_user_id = v_s.user_id)
+       AND (v_super IS TRUE
+            OR l.actor_user_id = v_s.user_id
+            OR (v_admin IS NOT NULL
+                AND ((pg_catalog.cardinality(r.rc) > 0 AND r.rc <@ v_admin)
+                     OR (pg_catalog.cardinality(r.rc) = 0 AND v_all IS NOT NULL AND v_all <@ v_admin))))
      ORDER BY l.id DESC
      LIMIT v_limit;
 END
@@ -481,7 +511,7 @@ COMMENT ON FUNCTION core.iam_staff_cmd_suspend(bytea, uuid, uuid, text) IS
 COMMENT ON FUNCTION core.iam_staff_cmd_reset_totp(bytea, uuid, uuid, text, uuid, text, bytea, integer) IS
   'Réinitialisation du TOTP d''un autre membre du staff (16 ADM-001) ; journalisée. US-012.';
 COMMENT ON FUNCTION core.iam_staff_audit_read(bytea, bigint, integer) IS
-  'Lecture du journal par la console (audit.read ; OPS / FINANCE : leurs lignes) ; sans C2. US-012.';
+  'Lecture du journal par la console (audit.read), bornée au pays ; OPS / FINANCE : leurs lignes. US-012.';
 
 REVOKE ALL ON FUNCTION core.iam_staff_cmd_manual_action(bytea, uuid, text, uuid, text, jsonb),
   core.iam_staff_cmd_suspend(bytea, uuid, uuid, text),

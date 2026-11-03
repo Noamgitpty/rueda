@@ -155,7 +155,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture des codes pays par iam_staff_owner (US-012)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -172,10 +172,15 @@ describe('configuration pays : structure et droits', () => {
           [TABLES],
         );
         expect(rows).toEqual(
-          [...TABLES].sort().flatMap((t) => [
-            { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
-            { t, pol: 'migrator_all', cmd: '*', roles: 'migrator' },
-          ]),
+          [...TABLES]
+            .sort()
+            .flatMap((t) => [
+              { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
+              ...(t === 'config_country'
+                ? [{ t, pol: 'iam_staff_select', cmd: 'r', roles: 'iam_staff_owner' }]
+                : []),
+              { t, pol: 'migrator_all', cmd: '*', roles: 'migrator' },
+            ]),
         );
       },
       { database: 'production' },

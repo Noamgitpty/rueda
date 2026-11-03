@@ -377,3 +377,58 @@ describe('réinitialisation du TOTP par un autre admin, lecture du journal', () 
     });
   });
 });
+
+describe('journal borné au pays (décision de l’orchestrateur, ADR-062 point 10)', () => {
+  it('un ADMIN du premier pays ne lit rien du second ni d’une action globale ; un ADMIN des deux pays lit tout', async () => {
+    await withRole('app_api', async (client) => {
+      const [first, second] = [COUNTRIES[0].country, COUNTRIES[1].country];
+      const adminFirst = await elevatedStaff(client, 'ADMIN', [first]);
+      const adminAll = await elevatedStaff(client, 'ADMIN', ALL);
+      const opsFirst = await elevatedStaff(client, 'OPS_AGENT', [first]);
+      const opsSecond = await elevatedStaff(client, 'OPS_AGENT', [second]);
+      const inFirst = await act(client, opsFirst.hash, 'RECORD_CLAIM', trip(0));
+      const inSecond = await act(client, opsSecond.hash, 'RECORD_CLAIM', trip(1));
+      expect([inFirst.outcome, inSecond.outcome]).toEqual(['RECORDED', 'RECORDED']);
+      // action GLOBALE (aucun pays) : refus d'accès d'un compte sans rôle interne
+      const outsider = await createStaff(client, null, ALL);
+      expect((await begin(client, await login(client, outsider.userId))).outcome).toBe('NOT_STAFF');
+
+      // les pays sont dérivés de l'action et de sa cible, et entrent dans la ligne chaînée
+      const rowsOf = async (actor: string) => auditOf(client, actor);
+      expect((await rowsOf(opsFirst.userId)).at(-1)?.after?.['countries']).toEqual([first]);
+      expect((await rowsOf(opsSecond.userId)).at(-1)?.after?.['countries']).toEqual([second]);
+      expect((await rowsOf(outsider.userId)).at(-1)?.after?.['countries']).toEqual([]);
+
+      const read = async (hash: Buffer) =>
+        (
+          await client.query<{
+            id: string;
+            actor_user_id: string;
+            after: { countries?: string[] };
+          }>('SELECT id, actor_user_id, after FROM core.iam_staff_audit_read($1, NULL, 200)', [
+            hash,
+          ])
+        ).rows;
+      const actors = (rows: { actor_user_id: string }[]) =>
+        new Set(rows.map((r) => r.actor_user_id));
+
+      const byFirst = await read(adminFirst.hash);
+      expect(actors(byFirst).has(opsFirst.userId)).toBe(true);
+      expect(actors(byFirst).has(opsSecond.userId)).toBe(false);
+      expect(actors(byFirst).has(outsider.userId)).toBe(false);
+      for (const r of byFirst) {
+        if (r.actor_user_id === adminFirst.userId) continue; // ses propres lignes
+        expect(r.after.countries?.length ?? 0, r.id).toBeGreaterThan(0);
+        expect(
+          r.after.countries?.every((c) => c === first),
+          r.id,
+        ).toBe(true);
+      }
+
+      const byAll = await read(adminAll.hash);
+      for (const who of [opsFirst.userId, opsSecond.userId, outsider.userId]) {
+        expect(actors(byAll).has(who), who).toBe(true);
+      }
+    });
+  });
+});

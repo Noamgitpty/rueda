@@ -55,6 +55,18 @@
 7. **Matrice.** Seules les permissions des commandes d'US-012 sont semées : `ops.platform_cancel`, `trip.declare_no_show`, `claim.declare`, `iam.staff_roles_write`, `audit.read`, colonnes staff de 17 §2.3. `app.has_permission` reste à US-062.
 8. **Domaine distinct.** Le back-office appelle l'API par un mandataire de même origine (`/api/*` → `RUEDA_API_URL`). Le cookie `__Host-session` reste lié au domaine du back-office.
 9. **Report US-011.** `approved_by` de `config_param_value` n'est plus lisible par `app_api` (lecture par colonnes).
+10. **Journal borné au pays** (décision de l'orchestrateur, fail-closed, entrée de `docs/team/COMME_TURO.md`).
+    - Chaque ligne écrite par la console porte ses pays dans `after.countries`. Ils sont dérivés de l'action et de sa cible par `core.iam_staff_audit_countries`, jamais reçus du client :
+      - pays relu par la commande ;
+      - pays du trip ;
+      - pays des rôles de la cible ;
+      - à défaut, pays des rôles de l'acteur.
+    - Ces pays entrent dans le hachage chaîné, donc ils sont immuables. Un tableau vide désigne une action **globale**.
+    - `iam_staff_audit_read`, seul chemin de lecture du journal pour `app_api` (aucun droit `SELECT` ni politique `app_api` sur `audit_audit_log`), rend :
+      - à un SUPERADMIN : tout le journal ;
+      - à un ADMIN : les lignes dont tous les pays sont dans la portée de ses rôles ADMIN en cours, et les lignes globales seulement s'il est ADMIN de **tous** les pays de `config_country` ;
+      - à OPS, FINANCE et à chacun : ses propres lignes.
+    - Les lignes écrites hors console (sans `countries`) sont globales.
 
 ## Procédures hors application (runbook US-405 à compléter)
 
@@ -70,6 +82,6 @@
   - Le rôle `app_staff` séparé (17 §2.3, lot 4) reste une option. Le test RLS-18 montre désormais la réduction.
 - Chaque requête de console appelle `iam_staff_cmd_begin`, soit un aller-retour de plus. Les refus d'accès sont journalisés à chaque tentative, ce qui produit du volume en cas d'insistance.
 - La comparaison de la preuve en SQL n'est pas à temps constant. Elle n'est exploitable que depuis du SQL déjà arbitraire, que la preuve vise justement à contenir.
-- Le journal n'a pas de colonne pays : un ADMIN d'un seul pays lit tout le journal. PROPOSÉ : ajouter le pays au journal ou filtrer par sujet ; question pour le fondateur.
+- Le pays du journal est dans `after.countries` et non dans une colonne : aucune modification de la table chaînée ni de sa forme canonique (ADR-051). Le filtre est appliqué par la commande de lecture, pas par une politique `app_api`, car `app_api` ne lit jamais le journal directement.
 - `has_staff_role` fait une lecture indexée de plus (`session_token_unique`). Le test de plan d'US-011 borne les appels par ligne, pas leur coût.
 - Aucun membre du staff ne peut être élevé en production tant que le coffre (US-003) et la clé ne sont pas installés : comportement voulu.
