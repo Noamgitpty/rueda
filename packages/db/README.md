@@ -308,7 +308,7 @@ Preuves : `test/l0/l0-pay-marketplace.test.ts` (chaque capacité bloquante `UNKN
 
 ## Socle de marque (US-034 ; 17 §3.2.13 ; ADR-036, ADR-067)
 
-Migration `0042_config_brand` (numéro réservé : US-024 prend `0040`–`0041`), fixtures `test-migrations/9870_test_brand_fixtures.sql` :
+Migration `0042_config_brand` (à la suite de `0040`–`0041` d'US-024), fixtures `test-migrations/9870_test_brand_fixtures.sql` :
 
 - `core.config_brand_version` (thème DTCG versionné, une seule `PUBLISHED`, index unique partiel), `core.config_brand_asset` (actif public, copie figée de l'emplacement et de l'empreinte du `file_asset`), `core.config_content_block` (es, en, fr ensemble, par clé et pays ; `legal.*` et Markdown hors règles refusés par contrainte) ; RLS `ENABLE` + `FORCE`, `migrator_all`.
 - **Gardes** (tous rôles, `migrator` compris) : un brouillon est immuable ; seules transitions `DRAFT → PUBLISHED` et `PUBLISHED → ARCHIVED` ; ni `DELETE` ni `TRUNCATE` ; un actif est immuable. Une version non brouillon exige un `contrast_check` « passé, aucune paire en échec » (CHECK).
