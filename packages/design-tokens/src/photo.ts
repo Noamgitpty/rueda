@@ -1,7 +1,7 @@
 /**
  * Règles photo (US-031, ADR-069) : cadrages, nombre minimal, ratio, lumière, interdits, gabarit
  * de l'annonce (08 BR-LIST-05) et gabarit d'angles de la remise entre particuliers (16 TRP-004,
- * 17 §3.2.10 `slot_code`). Données dans `rules/photo.rules.json`, textes es / en / fr dans
+ * 17 §3.2.10 `slot_code`). Données dans `rules/photo.rules.json`, textes es / en / fr / pt-BR dans
  * `rules/photo.messages.json`. Le tout est validé au chargement du module (fail-closed) : une
  * clé absente dans une langue, un emplacement en double ou un gabarit sous le minimum de TRP-004
  * empêchent le paquet de se charger.
@@ -11,7 +11,11 @@
 import photoMessages from '../rules/photo.messages.json' with { type: 'json' };
 import photoRules from '../rules/photo.rules.json' with { type: 'json' };
 
-export const PHOTO_LANGUAGES = ['es', 'en', 'fr'] as const;
+/**
+ * Langues des textes visibles : espagnol, anglais, français et portugais du Brésil (`pt` = pt-BR,
+ * décision du fondateur du 2026-11-03). Toutes obligatoires, aucun repli entre langues.
+ */
+export const PHOTO_LANGUAGES = ['es', 'en', 'fr', 'pt'] as const;
 export type PhotoLanguage = (typeof PHOTO_LANGUAGES)[number];
 
 export type AngleZone = 'exterior' | 'interior' | 'gauge';
@@ -150,14 +154,20 @@ const placeholders = (text: string): string =>
     .sort()
     .join(',');
 
-/** Valide les textes : mêmes clés dans les trois langues, non vides, mêmes variables. */
+/** Valide les textes : mêmes clés dans les quatre langues, non vides, mêmes variables. */
 export function validatePhotoMessages(doc: unknown): PhotoMessages {
   const problems: string[] = [];
   if (!isRecord(doc)) throw new PhotoRulesError(['messages : objet attendu']);
+  const declared = Array.isArray(doc['languages']) ? doc['languages'].join(',') : '';
+  if (declared !== PHOTO_LANGUAGES.join(','))
+    problems.push(
+      `languages : ${PHOTO_LANGUAGES.join(', ')} attendues (reçu ${declared || 'rien'})`,
+    );
   const byLang = Object.fromEntries(
     PHOTO_LANGUAGES.map((lang) => [lang, isRecord(doc[lang]) ? doc[lang] : {}]),
   ) as Record<PhotoLanguage, Record<string, unknown>>;
   const keys = new Set(PHOTO_LANGUAGES.flatMap((lang) => Object.keys(byLang[lang])));
+  if (keys.size === 0) problems.push('messages : aucun texte');
   for (const key of keys) {
     if (!/^web\.photo\.[A-Za-z0-9.]+$/.test(key)) problems.push(`${key} : clé hors de web.photo.*`);
     const ref = byLang.es[key];
@@ -239,7 +249,7 @@ export function validatePhotoRules(doc: unknown, messages: PhotoMessages): Photo
       problems.push(`forbidden.${code} : interdit obligatoire pour ${uses.join(', ')}`);
   }
 
-  // Angles : vocabulaire unique, chaque angle nommé et expliqué dans les trois langues.
+  // Angles : vocabulaire unique, chaque angle nommé et expliqué dans les quatre langues.
   const angles = new Map<string, PhotoAngle>();
   for (const a of Array.isArray(doc['angles']) ? doc['angles'] : []) {
     if (!isRecord(a) || typeof a['code'] !== 'string' || !/^[A-Z][A-Z0-9_]+$/.test(a['code'])) {
@@ -378,7 +388,7 @@ export function validatePhotoRules(doc: unknown, messages: PhotoMessages): Photo
   };
 }
 
-/** Textes publiés (es, en, fr), validés au chargement. */
+/** Textes publiés (es, en, fr, pt-BR), validés au chargement. */
 export const PHOTO_MESSAGES: PhotoMessages = validatePhotoMessages(photoMessages);
 /** Règles publiées, validées au chargement (fail-closed). */
 export const PHOTO_RULES: PhotoRules = validatePhotoRules(photoRules, PHOTO_MESSAGES);

@@ -149,16 +149,22 @@ describe('prise de vue, cadrages, lumière, interdits', () => {
   });
 });
 
-describe('textes es / en / fr (10b UX-52, UX-58)', () => {
+describe('textes es / en / fr / pt-BR (10b UX-52, UX-58)', () => {
   const keys = (lang: (typeof PHOTO_LANGUAGES)[number]): string[] =>
     Object.keys(PHOTO_MESSAGES[lang]).sort();
 
-  it('mêmes clés dans les trois langues', () => {
-    expect(keys('en')).toEqual(keys('es'));
-    expect(keys('fr')).toEqual(keys('es'));
+  it('quatre langues déclarées : es, en, fr, pt (pt-BR)', () => {
+    expect(PHOTO_LANGUAGES).toEqual(['es', 'en', 'fr', 'pt']);
+    expect(rawMessages()['languages']).toEqual(['es', 'en', 'fr', 'pt']);
   });
 
-  it('chaque angle, cadrage, lumière, interdit et contrôle a son texte dans les trois langues', () => {
+  it('mêmes clés dans les quatre langues', () => {
+    expect(keys('en')).toEqual(keys('es'));
+    expect(keys('fr')).toEqual(keys('es'));
+    expect(keys('pt')).toEqual(keys('es'));
+  });
+
+  it('chaque angle, cadrage, lumière, interdit et contrôle a son texte dans les quatre langues', () => {
     const needed = [
       ...PHOTO_RULES.angles.flatMap((a) => [a.labelKey, a.hintKey]),
       ...[
@@ -206,6 +212,15 @@ describe('textes es / en / fr (10b UX-52, UX-58)', () => {
       expect(text, key).not.toMatch(/ [:;!?]/);
       expect(text, key).not.toContain("'");
     }
+  });
+
+  it('pt-BR : réécrit pour le Brésil, pas recopié de l’espagnol', () => {
+    expect(PHOTO_MESSAGES.pt['web.photo.angle.intTrunk.label']).toBe('Porta-malas');
+    const same = Object.keys(PHOTO_MESSAGES.es).filter(
+      // Un mot isolé peut coïncider (« Frente ») ; une phrase, jamais.
+      (k) => PHOTO_MESSAGES.pt[k] === PHOTO_MESSAGES.es[k] && /\s/.test(PHOTO_MESSAGES.es[k] ?? ''),
+    );
+    expect(same).toEqual([]);
   });
 
   it('les variables sont les mêmes dans chaque langue', () => {
@@ -299,6 +314,19 @@ describe('fail-closed : des données fautives empêchent le chargement', () => {
     delete (msgs['fr'] as Record<string, string>)['web.photo.angle.extFront.hint'];
     expect(problemsOf(() => validatePhotoMessages(msgs)).join('\n')).toContain(
       'web.photo.angle.extFront.hint : texte fr absent',
+    );
+  });
+
+  it('portugais absent ou langue non déclarée', () => {
+    const msgs = rawMessages();
+    delete (msgs['pt'] as Record<string, string>)['web.photo.check.blurry'];
+    expect(problemsOf(() => validatePhotoMessages(msgs)).join('\n')).toContain(
+      'web.photo.check.blurry : texte pt absent',
+    );
+    const undeclared = rawMessages();
+    undeclared['languages'] = ['es', 'en', 'fr'];
+    expect(problemsOf(() => validatePhotoMessages(undeclared)).join('\n')).toContain(
+      'languages : es, en, fr, pt attendues',
     );
   });
 

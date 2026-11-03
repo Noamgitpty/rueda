@@ -1,5 +1,5 @@
 {
-  "$description": "US-031 — règles photo de Kmino, en données : cadrages, nombre minimal, ratio, lumière, interdits, gabarit de l'annonce (08 BR-LIST-05) et gabarit d'angles de la remise entre particuliers (16 TRP-004, 17 §3.2.10 slot_code). Chaque texte visible est une clé de photo.messages.json (es, en, fr). Lu et validé par src/photo.ts ; document : docs/design/US-031/README.md. Valeurs PROPOSÉES, révisables.",
+  "$description": "US-031 — règles photo de Kmino, en données : cadrages, nombre minimal, ratio, lumière, interdits, gabarit de l'annonce (08 BR-LIST-05) et gabarit d'angles de la remise entre particuliers (16 TRP-004, 17 §3.2.10 slot_code). Chaque texte visible est une clé de photo.messages.json (es, en, fr, pt-BR). Lu et validé par src/photo.ts ; document : docs/design/US-031/README.md. Valeurs PROPOSÉES, révisables.",
   "meta": {
     "version": "0.1.0",
     "status": "PROPOSÉ",

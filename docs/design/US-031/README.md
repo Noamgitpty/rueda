@@ -4,12 +4,12 @@
 - **Sources** : 10b §3.1 (UX-01, UX-02), §3.10 (UX-46 à UX-49), §3.11 (UX-52 à UX-58), UX-67 à UX-70 ; 08 BR-LIST-05 ; 16 TRP-004 (gabarit d'angles) ; 17 §3.2.10 (`slot_code`). Décision : [ADR-069](../../adr/ADR-069-regles-mouvement-et-photo-en-donnees.md).
 - **Données consommables** (paquet `@rueda/design-tokens`, validées au chargement, fail-closed) :
 
-| Fichier                                            | Contenu                                                                    | Accès en code                                                  |
-| -------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `packages/design-tokens/foundation.tokens.json`    | jetons de mouvement ajoutés (`stagger`, courbe `exit`, échelle `press`)    | variables CSS `--motion-*`                                     |
-| `packages/design-tokens/rules/motion.rules.json`   | catalogue des 12 micro-interactions : jetons de durée et de courbe, budget | `MOTION_RULES`, `motionPattern`, `motionDurationMs`            |
-| `packages/design-tokens/rules/photo.rules.json`    | prise de vue, cadrages, lumière, interdits, angles, annonce, remise        | `PHOTO_RULES`, `checkHandoverSet`                              |
-| `packages/design-tokens/rules/photo.messages.json` | 95 textes visibles, en espagnol, anglais et français                       | `PHOTO_MESSAGES` (clés `web.photo.*`, format de `@rueda/i18n`) |
+| Fichier                                            | Contenu                                                                                  | Accès en code                                                  |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `packages/design-tokens/foundation.tokens.json`    | jetons de mouvement ajoutés (`stagger`, courbe `exit`, échelle `press`)                  | variables CSS `--motion-*`                                     |
+| `packages/design-tokens/rules/motion.rules.json`   | catalogue des 12 micro-interactions : jetons de durée et de courbe, budget               | `MOTION_RULES`, `motionPattern`, `motionDurationMs`            |
+| `packages/design-tokens/rules/photo.rules.json`    | prise de vue, cadrages, lumière, interdits, angles, annonce, remise                      | `PHOTO_RULES`, `checkHandoverSet`                              |
+| `packages/design-tokens/rules/photo.messages.json` | 95 textes visibles, en espagnol, anglais, français et portugais du Brésil (`pt` = pt-BR) | `PHOTO_MESSAGES` (clés `web.photo.*`, format de `@rueda/i18n`) |
 
 ## 1. Mouvement
 
@@ -72,7 +72,7 @@ Avec `prefers-reduced-motion: reduce`, **aucune animation non essentielle ne jou
 
 ## 2. Photos
 
-Les mêmes règles servent à l'**annonce** de l'hôte et au **gabarit d'angles de la remise** entre particuliers (TRP-004). Les textes visibles sont dans `photo.messages.json`, en es / en / fr ; ci-dessous, le français.
+Les mêmes règles servent à l'**annonce** de l'hôte et au **gabarit d'angles de la remise** entre particuliers (TRP-004). Les textes visibles sont dans `photo.messages.json`, en **es, en, fr et pt-BR** (décision du fondateur du 2026-11-03 : produit quadrilingue), chacun rédigé pour sa langue, pas traduit mot à mot ; ci-dessous, le sens en français.
 
 ### 2.1 Prise de vue
 
@@ -176,7 +176,16 @@ for (const slot of PHOTO_RULES.handover.slots) {
 const { complete, missing } = checkHandoverSet(capturedSlotCodes); // sinon PHOTO_TEMPLATE_INCOMPLETE
 ```
 
-Les clés `web.photo.*` sont au format de `@rueda/i18n` ; voir ADR-069 pour leur versement dans ses catalogues.
+Les clés `web.photo.*` sont au format de `@rueda/i18n` ; voir ADR-069 pour leur versement dans ses catalogues (dont le futur catalogue `pt`).
+
+Exemples de consigne, dans les quatre langues (angle `INT_TRUNK`) :
+
+| Langue | Nom         | Consigne                                            |
+| ------ | ----------- | --------------------------------------------------- |
+| es     | Maletero    | Maletero abierto y vacío, con el piso a la vista.   |
+| en     | Trunk       | Trunk open and empty, with the floor visible.       |
+| fr     | Coffre      | Coffre ouvert et vide, plancher visible.            |
+| pt-BR  | Porta-malas | Porta-malas aberto e vazio, com o assoalho à vista. |
 
 ## 4. Ce qui n'est pas repris de Turo
 
