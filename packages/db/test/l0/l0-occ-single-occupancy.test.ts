@@ -181,6 +181,9 @@ async function committedBlock(x: CountryWorld, vehicleId: string, start: string,
   }
 }
 
+const OCC = `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, $5, $6::tstzrange)`;
+const HOLD = `SELECT test_fixture.hold_insert_raw($1, $2, $3, $4, $5, $6)`;
+const FREE = `[${d(1, 10)},${d(1, 12)})`; // aucun chevauchement avec le trip a1 de v1
 describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $currency)', (c) => {
   it('fonctions de période : tampon du pays = 120 min ; [début, fin + tampon) semi-ouvert ; bornes invalides refusées', async () => {
     await withRole('app_api', async (client) => {
@@ -552,13 +555,11 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
     });
   });
 
-  it('contraintes structurelles sans la pré-vérification des commandes : un véhicule = un compte (23P01 → FORBIDDEN), hold et occupation de même partie (23503)', async () => {
+  it('un véhicule = un compte, sans la pré-vérification : occupation d’un autre compte ⇒ 23P01 occupancy_vehicle_single_org, traduit FORBIDDEN', async () => {
     // Revue QA US-022, constat 1 : la fixture 9310 écrit SANS contrôle préalable (chemin de
-    // cmd_place_hold, US-023) ; seules les contraintes de 0029 peuvent refuser.
+    // cmd_place_hold, US-023) ; seule la contrainte de 0029 peut refuser.
     const x = worldOf(c);
     const y = otherWorld(c);
-    const OCC = `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, $5, $6::tstzrange)`;
-    const HOLD = `SELECT test_fixture.hold_insert_raw($1, $2, $3, $4, $5, $6)`;
     await withRole('app_api', async (client) => {
       await withTestTransaction(client, {}, async (tx) => {
         const raw = async (
@@ -584,9 +585,9 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
             };
           }
         };
-        const free = `[${d(1, 10)},${d(1, 12)})`; // aucun chevauchement avec le trip a1 de v1
+
         // (a) v1 appartient au compte A (occupation TRIP de a1) : témoin positif, même compte
-        expect(await raw(OCC, [uuid(), x.v1, x.orgA, c.country, 'HOST_BLOCK', free])).toEqual({});
+        expect(await raw(OCC, [uuid(), x.v1, x.orgA, c.country, 'HOST_BLOCK', FREE])).toEqual({});
         // autre compte du même pays, puis compte de l'autre pays : exclusion, traduite FORBIDDEN
         const single = {
           code: '23P01',
@@ -598,11 +599,44 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
           single,
         );
         expect(await raw(OCC, [uuid(), x.v1, y.orgA, y.c.country, 'HOLD', later])).toEqual(single);
+      });
+    });
+  });
 
+  it('hold et occupation de même partie, sans la pré-vérification : autre compte, pays ou véhicule ⇒ 23503 checkout_hold_occupancy_party_fk', async () => {
+    // Revue QA US-022, constat 1 : la fixture 9310 écrit SANS contrôle préalable (chemin de
+    // cmd_place_hold, US-023) ; seule la contrainte de 0029 peut refuser.
+    const x = worldOf(c);
+    const y = otherWorld(c);
+    await withRole('app_api', async (client) => {
+      await withTestTransaction(client, {}, async (tx) => {
+        const raw = async (
+          sql: string,
+          params: readonly unknown[],
+        ): Promise<{
+          code?: string | undefined;
+          constraint?: string | undefined;
+          business?: string;
+        }> => {
+          await tx.query('SAVEPOINT raw');
+          try {
+            await tx.query(sql, [...params]);
+            await tx.query('RELEASE SAVEPOINT raw');
+            return {};
+          } catch (error) {
+            await tx.query('ROLLBACK TO SAVEPOINT raw');
+            const e = error as { code?: string; constraint?: string };
+            return {
+              code: e.code,
+              constraint: e.constraint,
+              business: translateDbError(error).code,
+            };
+          }
+        };
         // (b) hold et occupation : même véhicule, même compte, même pays
         const v = uuid();
         const occ = uuid();
-        expect(await raw(OCC, [occ, v, x.orgA, c.country, 'HOLD', free])).toEqual({});
+        expect(await raw(OCC, [occ, v, x.orgA, c.country, 'HOLD', FREE])).toEqual({});
         const party = { code: '23503', constraint: 'checkout_hold_occupancy_party_fk' };
         const pick = (r: { code?: string | undefined; constraint?: string | undefined }) => ({
           code: r.code,
