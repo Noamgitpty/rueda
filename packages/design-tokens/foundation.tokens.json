@@ -2,38 +2,101 @@
   "$description": "US-030 — socle commun à toutes les palettes : valeurs par défaut des jetons ajoutés après US-028 (langage visuel de PROPOSITIONS, « Passage à US-030 »). Une palette peut redéfinir chacun ; ces défauts sont des alias vers ses propres jetons, pour qu'une palette plus ancienne reste complète sans valeur inventée.",
   "color": {
     "light": {
-      "avatar-1": { "$value": "{color.light.accent}", "$type": "color" },
-      "on-avatar-1": { "$value": "{color.light.on-accent}", "$type": "color" },
-      "avatar-2": { "$value": "{color.light.warning-soft}", "$type": "color" },
-      "on-avatar-2": { "$value": "{color.light.warning}", "$type": "color" },
-      "avatar-3": { "$value": "{color.light.success-soft}", "$type": "color" },
-      "on-avatar-3": { "$value": "{color.light.success}", "$type": "color" },
-      "avatar-4": { "$value": "{color.light.surface-sunken}", "$type": "color" },
-      "on-avatar-4": { "$value": "{color.light.text}", "$type": "color" }
+      "avatar-1": {
+        "$value": "{color.light.accent}",
+        "$type": "color"
+      },
+      "on-avatar-1": {
+        "$value": "{color.light.on-accent}",
+        "$type": "color"
+      },
+      "avatar-2": {
+        "$value": "{color.light.warning-soft}",
+        "$type": "color"
+      },
+      "on-avatar-2": {
+        "$value": "{color.light.warning}",
+        "$type": "color"
+      },
+      "avatar-3": {
+        "$value": "{color.light.success-soft}",
+        "$type": "color"
+      },
+      "on-avatar-3": {
+        "$value": "{color.light.success}",
+        "$type": "color"
+      },
+      "avatar-4": {
+        "$value": "{color.light.surface-sunken}",
+        "$type": "color"
+      },
+      "on-avatar-4": {
+        "$value": "{color.light.text}",
+        "$type": "color"
+      }
     },
     "dark": {
-      "avatar-1": { "$value": "{color.dark.accent}", "$type": "color" },
-      "on-avatar-1": { "$value": "{color.dark.on-accent}", "$type": "color" },
-      "avatar-2": { "$value": "{color.dark.warning-soft}", "$type": "color" },
-      "on-avatar-2": { "$value": "{color.dark.warning}", "$type": "color" },
-      "avatar-3": { "$value": "{color.dark.success-soft}", "$type": "color" },
-      "on-avatar-3": { "$value": "{color.dark.success}", "$type": "color" },
-      "avatar-4": { "$value": "{color.dark.surface-sunken}", "$type": "color" },
-      "on-avatar-4": { "$value": "{color.dark.text}", "$type": "color" }
+      "avatar-1": {
+        "$value": "{color.dark.accent}",
+        "$type": "color"
+      },
+      "on-avatar-1": {
+        "$value": "{color.dark.on-accent}",
+        "$type": "color"
+      },
+      "avatar-2": {
+        "$value": "{color.dark.warning-soft}",
+        "$type": "color"
+      },
+      "on-avatar-2": {
+        "$value": "{color.dark.warning}",
+        "$type": "color"
+      },
+      "avatar-3": {
+        "$value": "{color.dark.success-soft}",
+        "$type": "color"
+      },
+      "on-avatar-3": {
+        "$value": "{color.dark.success}",
+        "$type": "color"
+      },
+      "avatar-4": {
+        "$value": "{color.dark.surface-sunken}",
+        "$type": "color"
+      },
+      "on-avatar-4": {
+        "$value": "{color.dark.text}",
+        "$type": "color"
+      }
     }
   },
   "font": {
     "display": {
-      "family": { "$value": "{font.family.heading}", "$type": "fontFamily" },
-      "weight": { "$value": "{font.weight.heading}", "$type": "fontWeight" },
-      "size": { "$value": "40px", "$type": "dimension" },
+      "family": {
+        "$value": "{font.family.heading}",
+        "$type": "fontFamily"
+      },
+      "weight": {
+        "$value": "{font.weight.heading}",
+        "$type": "fontWeight"
+      },
+      "size": {
+        "$value": "40px",
+        "$type": "dimension"
+      },
       "sizeCompact": {
         "$value": "36px",
         "$type": "dimension",
         "$description": "Titre d'affichage sous 400 px de large"
       },
-      "letterSpacing": { "$value": "-0.02em", "$type": "dimension" },
-      "lineHeight": { "$value": 1.05, "$type": "number" }
+      "letterSpacing": {
+        "$value": "-0.02em",
+        "$type": "dimension"
+      },
+      "lineHeight": {
+        "$value": 1.05,
+        "$type": "number"
+      }
     }
   },
   "size": {
@@ -42,14 +105,37 @@
       "$type": "dimension",
       "$description": "Épaisseur de l'anneau de focus (10b, PROPOSITIONS « États soignés »)"
     },
-    "focusOffset": { "$value": "2px", "$type": "dimension" }
+    "focusOffset": {
+      "$value": "2px",
+      "$type": "dimension"
+    }
   },
   "radius": {
-    "card": { "$value": "{radius.lg}", "$type": "dimension" }
+    "card": {
+      "$value": "{radius.lg}",
+      "$type": "dimension"
+    }
   },
   "shadow": {
-    "card": { "$value": "{shadow.raised}", "$type": "shadow" },
-    "float": { "$value": "{shadow.raised}", "$type": "shadow" }
+    "card": {
+      "$value": "{shadow.raised}",
+      "$type": "shadow",
+      "$extensions": {
+        "org.rueda": {
+          "dark": "0 0 0 1px rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.6), 0 12px 32px -12px rgba(0,0,0,.8)"
+        }
+      },
+      "$description": "En sombre, une ombre noire ne se voit pas sur #111214 : un liseré clair de 1 px dessine le bord, l'ombre portée reste en dessous (revue UX US-030)."
+    },
+    "float": {
+      "$value": "{shadow.raised}",
+      "$type": "shadow",
+      "$extensions": {
+        "org.rueda": {
+          "dark": "0 0 0 1px rgba(255,255,255,.12), 0 2px 4px rgba(0,0,0,.6), 0 20px 40px -12px rgba(0,0,0,.85)"
+        }
+      }
+    }
   },
   "motion": {
     "duration": {
@@ -88,11 +174,20 @@
       "$type": "number",
       "$description": "Opacité de surface-raised sous le verre ; contraste vérifié au pire cas (UX-49)"
     },
-    "blur": { "$value": "18px", "$type": "dimension" },
-    "saturate": { "$value": 1.6, "$type": "number" }
+    "blur": {
+      "$value": "18px",
+      "$type": "dimension"
+    },
+    "saturate": {
+      "$value": 1.6,
+      "$type": "number"
+    }
   },
   "camino": {
-    "strokeWidth": { "$value": "2.5px", "$type": "dimension" },
+    "strokeWidth": {
+      "$value": "2.5px",
+      "$type": "dimension"
+    },
     "dashArray": {
       "$value": [0.006, 0.018],
       "$type": "number",

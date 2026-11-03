@@ -12,7 +12,7 @@ describe('choix du thème par configuration', () => {
   });
 
   it('THEME_PALETTE change de palette sans toucher au code', () => {
-    expect(getActiveTheme({ THEME_PALETTE: 'lienzo-azur' }).theme.id).toBe('lienzo-azur');
+    expect(getActiveTheme({ THEME_PALETTE: 'lienzo-grafito' }).theme.id).toBe('lienzo-grafito');
     expect(getActiveTheme({ THEME_PALETTE: 'marina' }).css).toContain('/* thème marina ');
   });
 

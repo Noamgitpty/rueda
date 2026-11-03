@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildTheme,
   getActiveTheme,
   listPalettes,
   loadTheme,
@@ -8,6 +9,7 @@ import {
   SEMANTIC_COLORS,
   themeStyleSheet,
 } from '../src/index.ts';
+import { PALETTE_SOURCES } from '../src/palettes.ts';
 import { paletteFiles, readPalette } from './helpers.ts';
 
 describe('registre des palettes (source unique : docs/design/US-028)', () => {
@@ -21,14 +23,33 @@ describe('registre des palettes (source unique : docs/design/US-028)', () => {
     expect(`tokens-${meta.direction}.json`).toBe(file);
   });
 
-  it('chaque palette est valide et conforme au contraste AA, en clair et en sombre', () => {
+  it('chaque palette est valide ; seules échouent celles dont le lien primary est illisible sur le verre', () => {
     const report = listPalettes();
-    expect(report.filter((p) => !p.accepted)).toEqual([]);
     expect(report).toHaveLength(paletteFiles().length);
+    expect(report.filter((p) => p.problems.length > 0)).toEqual([]);
+    // Recalcul indépendant de la revue code US-030 (constat 8) : 3,80 à 4,33:1 au pire cas.
+    const refused = report.filter((p) => !p.accepted);
+    expect(refused.map((p) => p.id)).toEqual([
+      'cielo',
+      'lagune',
+      'lienzo-azur',
+      'tierra-firme',
+      'voltio',
+    ]);
+    for (const p of refused)
+      expect(new Set(p.contrastFailures.map((f) => f.pair))).toEqual(new Set(['primary / glass']));
+    expect(
+      report.find((p) => p.id === 'tierra-firme')?.contrastFailures.map((f) => f.mode),
+    ).toEqual(['dark']);
+  });
+
+  it('une palette refusée ne peut pas être chargée', () => {
+    expect(() => loadTheme('lienzo-azur')).toThrow('primary / glass');
   });
 
   it('toutes les palettes produisent exactement les mêmes variables CSS (interchangeables)', () => {
-    const names = (id: string): string[] => loadTheme(id).tokens.map((t) => t.name);
+    const names = (id: string): string[] =>
+      buildTheme(PALETTE_SOURCES[id]).tokens.map((t) => t.name);
     const reference = names('lienzo-tinta');
     for (const id of PALETTE_IDS) expect(names(id), id).toEqual(reference);
     expect(reference).toHaveLength(SEMANTIC_COLORS.length + REQUIRED_PATHS.length);

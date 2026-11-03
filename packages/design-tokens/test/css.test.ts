@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { loadTheme, themeStyleSheet } from '../src/index.ts';
+import { buildTheme, loadTheme, PALETTE_IDS, themeStyleSheet } from '../src/index.ts';
+import { PALETTE_SOURCES } from '../src/palettes.ts';
 
 const css = themeStyleSheet(loadTheme('lienzo-tinta'));
 
@@ -12,7 +13,9 @@ describe('feuille de style du thème', () => {
     expect(css).toMatch(
       /:root\[data-theme="dark"\]\{color-scheme:dark;[^}]*--color-surface:#111214;/,
     );
-    expect(css).toMatch(/--shadow-card:0 1px 2px rgba\(0,0,0,\.04\)/);
+    expect(css).toContain(
+      '--shadow-card:0 0 0 1px rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.6)',
+    );
   });
 
   it('coupe toutes les durées avec prefers-reduced-motion (UX-69)', () => {
@@ -42,5 +45,14 @@ describe('feuille de style du thème', () => {
     expect(base).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(base).toContain('font-family:var(--font-family-body)');
     expect(base).toContain('outline:var(--size-focus-ring) solid var(--color-focus)');
+  });
+
+  // Revue UX US-030 : une ombre noire seule est invisible sur un fond sombre. Toute palette
+  // (valeur propre ou socle) doit tracer un liseré clair sur les cartes en mode sombre.
+  it.each(PALETTE_IDS)('%s : ombres de carte visibles en sombre', (id) => {
+    const tokens = buildTheme(PALETTE_SOURCES[id]).tokens;
+    for (const name of ['shadow-card', 'shadow-float']) {
+      expect(tokens.find((t) => t.name === name)?.dark).toMatch(/^0 0 0 1px rgba\(255,255,255,\.\d+\)/);
+    }
   });
 });

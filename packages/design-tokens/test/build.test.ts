@@ -57,7 +57,7 @@ describe('validation des jetons (fail-closed)', () => {
   });
 
   it('complète une palette ancienne par le socle, en alias vers ses propres jetons', () => {
-    const cielo = loadTheme('cielo');
+    const cielo = loadTheme('marina');
     expect(cielo.colors.light['avatar-1']).toBe(cielo.colors.light.accent);
     expect(cielo.tokens.find((t) => t.name === 'radius-card')?.light).toBe(
       cielo.tokens.find((t) => t.name === 'radius-lg')?.light,

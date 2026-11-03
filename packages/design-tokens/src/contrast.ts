@@ -48,12 +48,12 @@ export const CONTRAST_RULES: readonly ContrastRule[] = [
 ];
 
 /**
- * Textes posés sur le verre (valeur et indication de la recherche collante, barre d'action),
- * contrôlés au pire cas. Les actions sur le verre sont des boutons pleins (`on-primary` sur
- * `primary`) : un lien `primary` en texte sur le verre n'est pas prévu ; s'il le devient, l'ajouter ici
- * (Azur, Cielo, Lagune et Voltio seraient alors refusées : 3,8 à 4,1:1 au pire cas).
+ * Textes posés sur le verre (valeur et indication de la recherche collante, liens et onglets de la
+ * barre d'action), contrôlés au pire cas pour **toutes** les palettes. `primary` en fait partie
+ * (revue code et UX US-030) : une palette dont le lien échoue sur le verre est refusée, au lieu
+ * de compter sur une consigne d'usage.
  */
-export const GLASS_TEXT: readonly SemanticColor[] = ['text', 'text-muted'];
+export const GLASS_TEXT: readonly SemanticColor[] = ['text', 'text-muted', 'primary'];
 
 export interface ContrastFailure {
   readonly mode: Mode;

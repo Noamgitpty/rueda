@@ -5,7 +5,7 @@
     "direction": "lienzo-tinta",
     "status": "CHOISI par le fondateur le 2026-11-02 (DEC-MARQUE), révisable ; jetons du langage visuel ajoutés par US-030 (0.2.0)",
     "story": "US-028, US-030",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "date": "2026-11-03",
     "wcag": "2.2 AA, ratios calculés (formule WCAG 2.x de luminance relative), voir contrastChecks",
     "concept": "La page blanche et l'encre : un fond blanc pur, du texte noir doux et une seule encre bleu nuit, rare, posée sur le bouton Reservar, les liens et la sélection. Le calme d'un document bien composé.",
@@ -568,15 +568,20 @@
   "shadow": {
     "raised": {
       "$value": "0 1px 2px rgba(23,24,27,.04)",
-      "$type": "string"
+      "$type": "string",
+      "$extensions": {
+        "org.rueda": {
+          "dark": "0 0 0 1px rgba(255,255,255,.06)"
+        }
+      }
     },
     "card": {
       "$value": "0 1px 2px rgba(17,18,20,.04), 0 10px 28px -14px rgba(17,18,20,.1)",
       "$type": "shadow",
-      "$description": "Ombre double très diffuse des cartes ; sombre dans $extensions",
+      "$description": "Ombre double très diffuse des cartes. En sombre, une ombre noire ne se voit pas sur #111214 : un liseré clair de 1 px dessine le bord, l'ombre portée reste en dessous (revue UX US-030).",
       "$extensions": {
         "org.rueda": {
-          "dark": "0 1px 2px rgba(0,0,0,.04), 0 10px 28px -14px rgba(0,0,0,.5)"
+          "dark": "0 0 0 1px rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.6), 0 12px 32px -12px rgba(0,0,0,.8)"
         }
       }
     },
@@ -586,7 +591,7 @@
       "$description": "Carte survolée ou flottante (recherche, barre d'action)",
       "$extensions": {
         "org.rueda": {
-          "dark": "0 2px 4px rgba(0,0,0,.05), 0 18px 36px -14px rgba(0,0,0,.5)"
+          "dark": "0 0 0 1px rgba(255,255,255,.12), 0 2px 4px rgba(0,0,0,.6), 0 20px 40px -12px rgba(0,0,0,.85)"
         }
       }
     }
