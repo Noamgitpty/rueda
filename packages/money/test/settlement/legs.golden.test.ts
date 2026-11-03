@@ -98,6 +98,57 @@ const K2: SettlementTrip = {
   ...TEST_INSURER_SHARES,
 };
 
+/**
+ * N (USD, 3 j) et NP (PYG, 3 j) de 08 E7 (TJ13a à d) : promo plateforme sur P ; taxe sur P, promo
+ * et F, payée par ligne puis sommée (entrées de 08 ; la taxe de la ligne promo est négative).
+ */
+function promoTrip(
+  currency: typeof USD,
+  p: bigint,
+  promo: bigint,
+  f: bigint,
+  protection: bigint,
+  taxPaid: bigint,
+): SettlementTrip {
+  const m = (x: bigint) => money(x, currency);
+  return {
+    currency,
+    days: 3,
+    rateType: 'REFUNDABLE',
+    startAtMs: T0_MS,
+    bookedAtMs: BOOKED,
+    lines: { tripPrice: m(p), promoPlatform: m(promo), tripFee: m(f), protection: m(protection) },
+    taxGroups: [
+      {
+        id: 'g',
+        lines: ['tripPrice', 'promoPlatform', 'tripFee'],
+        taxPaid: m(taxPaid),
+        thirdParty: false,
+      },
+    ],
+    totalPaid: m(p + promo + f + protection + taxPaid),
+    hostSharePctFrozen: PLAN,
+    deliverySharePct: PLAN,
+    extrasSharePct: PLAN,
+    ...TEST_INSURER_SHARES,
+  };
+}
+// TJ13a : P 100,00, promo −90,00, F 15,00, protection 30,00 ; taxe 7 % : 7,00 − 6,30 + 1,05.
+const N = promoTrip(USD, 10_000n, -9_000n, 1_500n, 3_000n, 700n - 630n + 105n);
+// TJ13b : N avec la promo maximale admise −53,32 ; taxe 7,00 − 3,73 + 1,05.
+const N_MAX = promoTrip(USD, 10_000n, -5_332n, 1_500n, 3_000n, 700n - 373n + 105n);
+// TJ13c : NP, P 1 000 000, promo −900 000, F 150 000, protection 300 000 ; IVA 10 % par ligne.
+const NP = promoTrip(PYG, 1_000_000n, -900_000n, 150_000n, 300_000n, 100_000n - 90_000n + 15_000n);
+// TJ13d : NP avec la promo maximale admise −550 000.
+const NP_MAX = promoTrip(
+  PYG,
+  1_000_000n,
+  -550_000n,
+  150_000n,
+  300_000n,
+  100_000n - 55_000n + 15_000n,
+);
+
 const guestCancelAtTMinus10h: CancellationEvent = {
   reason: 'GUEST_CANCELLED',
   requestedAtMs: at(-600),
@@ -135,6 +186,10 @@ const SOURCES: Readonly<Record<string, () => Legs>> = {
   TJ11b: settle(J3, guestCancelAtTMinus10h, 'legVariation'),
   TJ12a: () => computeCaptureLegs(K2),
   TJ12b: settle(K2, hostDeclaredNoShow, 'legVariation'),
+  TJ13a: () => computeCaptureLegs(N),
+  TJ13b: () => computeCaptureLegs(N_MAX),
+  TJ13c: () => computeCaptureLegs(NP),
+  TJ13d: () => computeCaptureLegs(NP_MAX),
 };
 
 const STORY_TJ = [
@@ -166,14 +221,14 @@ describe('jambes TJ rejouées (08 E7)', () => {
     expect(report.mismatches).toEqual([]);
   });
 
-  it('captures et taxe pour compte de tiers (TJ01, TJ08a, TJ09a, TJ10a, TJ11a/b, TJ12a)', () => {
+  it('captures, taxe pour compte de tiers et promo plateforme (TJ01, TJ08a … TJ12a, TJ13a–d)', () => {
     const ids = Object.keys(SOURCES).filter((id) => !STORY_TJ.includes(id));
     const report = replay(
       ids.map((id) => legVector(set, id)),
       engine,
       compareLegs,
     );
-    expect(report.replayed).toBe(7);
+    expect(report.replayed).toBe(11);
     expect(report.mismatches).toEqual([]);
   });
 
@@ -197,4 +252,42 @@ describe('jambes TJ rejouées (08 E7)', () => {
     );
     expect(report.mismatches.map((m) => m.field)).toContain('HOST');
   });
+});
+
+describe('jambe retenue négative : drapeau negativeLeg (08 E7 règle 5)', () => {
+  // La capture de N et NP est refusée au checkout (TJ13a, TJ13c, export) ; le moteur reste pur et
+  // signale l'état sans réduire le remboursement. Recalcul indépendant des revues argent et qa :
+  // PLATFORM retenue de N = −16,09 à T − 10 h. Ici, le signe et le drapeau seulement.
+  it.each([
+    ['N (USD)', N, 'TJ13a'],
+    ['NP (PYG)', NP, 'TJ13c'],
+  ] as const)('%s annulé à T − 10 h : PLATFORM retenue < 0, drapeau levé', (_name, trip, tj) => {
+    expect(legVector(set, tj).kind).toBe('REFUSED_CAPTURE');
+    expect(legVector(set, tj).legsMinor.PLATFORM < 0n).toBe(true);
+    const s = computeCancellationSettlement(
+      trip,
+      guestCancelAtTMinus10h,
+      testParams(trip.currency),
+    );
+    expect(s.settledLegs.PLATFORM.amountMinor < 0n).toBe(true);
+    expect(s.negativeLeg).toBe(true);
+    // Le remboursement n'est pas réduit : équilibre intact, variation = − remboursement.
+    expect(s.legVariation.total.amountMinor).toBe(-s.guestRefund.amountMinor);
+  });
+
+  it.each([
+    ['N (USD)', N],
+    ['NP (PYG)', NP],
+  ] as const)(
+    '%s annulé dans la fenêtre gratuite (T − 2 j) : rien retenu, drapeau baissé',
+    (_name, trip) => {
+      const s = computeCancellationSettlement(
+        trip,
+        { reason: 'GUEST_CANCELLED', requestedAtMs: at(-2 * 24 * 60) },
+        testParams(trip.currency),
+      );
+      expect(s.settledLegs.total.amountMinor).toBe(0n);
+      expect(s.negativeLeg).toBe(false);
+    },
+  );
 });

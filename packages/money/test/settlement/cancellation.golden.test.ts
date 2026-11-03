@@ -102,10 +102,24 @@ describe('vecteurs de la story, rejoués (USD et PYG)', () => {
     expect(report.mismatches).toEqual([]);
   });
 
-  it.each(['USD', 'PYG'])('tous les vecteurs normatifs bêta en %s', (currency) => {
+  /**
+   * Identifiants exacts (pas un seuil) des vecteurs normatifs à motif bêta de l'export : un filtre
+   * qui en perdrait un seul échoue (revue qa US-017 n° 5). Ce sont des identifiants, pas des montants.
+   */
+  const EXPECTED_IDS: Readonly<Record<string, readonly string[]>> = {
+    USD: [
+      ...['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08', 'T09', 'T10', 'T11', 'T12'],
+      ...['T13', 'T14', 'T15', 'T16', 'T19', 'T22', 'T23', 'T24', 'T25', 'T26', 'T30', 'T31'],
+      ...['T35', 'T38', 'T39', 'T42', 'T43', 'T44', 'T45', 'T46'],
+    ],
+    PYG: ['T27', 'T40', 'T41'],
+  };
+
+  it.each(['USD', 'PYG'])('tous les vecteurs normatifs bêta en %s, liste exacte', (currency) => {
     const list = settlementVectors(set, { currency, normativeOnly: true }).filter(isBeta);
+    expect(list.map((v) => v.id)).toEqual(EXPECTED_IDS[currency]);
     const report = replay(list, (v) => settleVector(v), compareAll);
-    expect(report.replayed).toBeGreaterThan(currency === 'PYG' ? 2 : STORY_T.length);
+    expect(report.replayed).toBe(EXPECTED_IDS[currency]?.length);
     expect(report.mismatches).toEqual([]);
   });
 });
@@ -200,6 +214,92 @@ describe('critères de la story', () => {
         testParams(t37.currency),
       ),
     ).toThrow(expect.objectContaining({ code: 'SETTLEMENT_REASON_NOT_SUPPORTED' }));
+  });
+});
+
+describe('bornes, version et garde d’équilibre (mutants survivants de la revue code US-017)', () => {
+  it('version du moteur : valeur écrite dans le test, recopiée dans chaque règlement', () => {
+    expect(CANCELLATION_ENGINE_VERSION).toBe('cxl-beta/1');
+    expect(settleVector(settlementVector(set, 'T03')).engineVersion).toBe('cxl-beta/1');
+  });
+
+  it('déclaration de no-show entre + 72 h et + 73 h, message tracé : hôte inéligible (= T39)', () => {
+    // Entrées : T06 (A, no-show automatique, message tracé) décalé à + 72 h 30 min, hors de la
+    // fenêtre `[noShowAt, start + 72 h]` de BR-CXL-08. Attendu : celui de l'oracle pour T39 (même
+    // trip, même no-show à + 72 h, hôte inéligible), seul cas exporté d'un no-show sans gains.
+    const t06 = settlementVector(set, 'T06');
+    const t39 = settlementVector(set, 'T39');
+    expect(t39.trip).toEqual(t06.trip);
+    const trip = toTrip(t06.trip);
+    const late = computeCancellationSettlement(
+      trip,
+      { ...toEvent(t06.event), requestedAtMs: at(72 * 60 + 30) },
+      testParams(trip.currency),
+    );
+    expect(late.hostEligible).toBe(false);
+    expect(compareAll(t39, late)).toEqual([]);
+    // Borne incluse : à + 72 h exactement, T06 reste éligible (déjà rejoué plus haut).
+    expect(settleVector(t06).hostEligible).toBe(true);
+  });
+
+  it('SETTLEMENT_UNBALANCED : une entrée qui change entre la validation et le calcul', () => {
+    // Le total payé est validé une fois puis relu par l'invariant de `settle` : un objet dont le
+    // total varie entre deux lectures (accesseur) doit être refusé, jamais réglé.
+    const v = settlementVector(set, 'T03');
+    const base = toTrip(v.trip);
+    let reads = 0;
+    const shifting = Object.defineProperty({ ...base }, 'totalPaid', {
+      get: () => (reads++ === 0 ? base.totalPaid : base.lines.tripFee),
+    });
+    expect(() =>
+      computeCancellationSettlement(shifting, toEvent(v.event), testParams(base.currency)),
+    ).toThrow(expect.objectContaining({ code: 'SETTLEMENT_UNBALANCED' }));
+    expect(reads).toBeGreaterThan(1);
+  });
+});
+
+describe('TA01 (16 A.8.1) rejoué contre le moteur', () => {
+  it('trip PA1 (16) annulé à T − 2 j : remboursement, jambes HOST et PLATFORM de l’oracle', () => {
+    // Entrées recopiées de 16 TA01 (« Trip PA1 : 3 j, loyer 120,00, ITBMS 7 % = 8,40, total
+    // 128,40 ; annulation guest à T−2 j ») ; attendus : contrôles de check_ta_consolidation.py.
+    const ta = set.acceptance.find((a) => a.id === 'TA01');
+    expect(ta?.currency).toBe('USD');
+    const trip = toTrip({
+      ...settlementVector(set, 'T01').trip,
+      name: 'PA1',
+      linesMinor: {
+        tripPrice: 12_000n,
+        promoPlatform: 0n,
+        promoHost: 0n,
+        tripFee: 0n,
+        protection: 0n,
+        extras: 0n,
+        enhancedRoadside: 0n,
+        additionalDriver: 0n,
+        delivery: 0n,
+      },
+      taxGroups: [
+        {
+          id: 'itbms',
+          rate: { numerator: 7n, denominator: 100n },
+          lines: ['tripPrice'],
+          taxPaidMinor: 840n,
+        },
+      ],
+      totalPaidMinor: 12_840n,
+    });
+    const s = computeCancellationSettlement(
+      trip,
+      { reason: 'GUEST_CANCELLED', requestedAtMs: at(-2 * 24 * 60) },
+      testParams(trip.currency),
+    );
+    const expected = (label: string) => int(check('TA01', label));
+    expect(s.guestRefund.amountMinor).toBe(expected('TA01 refund'));
+    expect(s.settledLegs.HOST.amountMinor).toBe(expected('TA01 host'));
+    expect(s.settledLegs.PLATFORM.amountMinor).toBe(expected('TA01 platform'));
+    expect(s.guestRefund.amountMinor + s.settledLegs.total.amountMinor).toBe(
+      expected('TA01 équilibre remboursement + conservé = total'),
+    );
   });
 });
 

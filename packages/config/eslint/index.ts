@@ -49,12 +49,20 @@ export const GOLDEN_VECTORS_IMPORT_PATTERNS: readonly string[] = [
   '**/golden-vectors',
   '**/golden-vectors/**',
 ];
-/** Fichiers de test (et le harnais lui-même) : seuls autorisés à importer le harnais. */
+/**
+ * Fichiers de test, et eux seuls, autorisés à importer le harnais (revue sécurité US-017 n° 3) :
+ * fichiers `*.test.*` / `*.spec.*` et dossier `test/` **à la racine d'un paquet ou d'une
+ * application** (`packages/<p>/test/`, `apps/<a>/test/`). Un dossier `test/` niché dans les sources
+ * (`apps/api/src/test/`) n'est pas exempté. S'y ajoutent le harnais lui-même et ce fichier, qui
+ * décrit la règle (ses chaînes nomment le harnais).
+ */
 export const TEST_FILE_GLOBS: readonly string[] = [
-  '**/test/**',
   '**/*.test.{ts,tsx,mts,cts,js,mjs,cjs}',
   '**/*.spec.{ts,tsx,mts,cts,js,mjs,cjs}',
+  'packages/*/test/**',
+  'apps/*/test/**',
   'packages/money/src/golden-vectors/**',
+  'packages/config/eslint/index.ts',
 ];
 /** Fixture « production » du test de la règle : jamais exemptée, bien qu'elle soit sous `test/`. */
 const GOLDEN_VECTORS_PROD_FIXTURES = 'packages/config/test/fixtures/golden-vectors/src/**';
@@ -68,15 +76,16 @@ function goldenVectorsRules(): Linter.RulesRecord {
         patterns: [{ group: [...GOLDEN_VECTORS_IMPORT_PATTERNS], message: GOLDEN_VECTORS_MESSAGE }],
       },
     ],
-    // `import()` et `require()` échappent à no-restricted-imports : sélecteurs dédiés.
+    // Toute chaîne ou partie de gabarit qui nomme le harnais, où qu'elle soit : `import()` littéral,
+    // en gabarit ou par variable, `require()`, `createRequire(…)(…)`, `globalThis.require(…)`,
+    // `require.resolve(…)`. Limite (documentée, comme rueda/module-boundaries) : un nom fabriqué
+    // sans que « golden-vectors » figure en entier dans un littéral (concaténation de fragments,
+    // valeur lue à l'exécution) échappe au lint ; la revue de code reste le contrôle.
     'no-restricted-syntax': [
       'error',
+      { selector: `Literal[value=${GOLDEN_VECTORS_SOURCE}]`, message: GOLDEN_VECTORS_MESSAGE },
       {
-        selector: `ImportExpression[source.value=${GOLDEN_VECTORS_SOURCE}]`,
-        message: GOLDEN_VECTORS_MESSAGE,
-      },
-      {
-        selector: `CallExpression[callee.name='require'][arguments.0.value=${GOLDEN_VECTORS_SOURCE}]`,
+        selector: `TemplateElement[value.raw=${GOLDEN_VECTORS_SOURCE}]`,
         message: GOLDEN_VECTORS_MESSAGE,
       },
     ],
