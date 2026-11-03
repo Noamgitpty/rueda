@@ -35,6 +35,63 @@ export interface RuedaConfigOptions {
   readonly countryExemptions: readonly string[];
 }
 
+/**
+ * Harnais des vecteurs dorés (`@rueda/money/golden-vectors`, US-016) : réservé aux tests. Il lit
+ * l'export des oracles avec `node:fs` ; un import de production ferait des attendus une donnée du
+ * code produit (CLAUDE.md, « le code testé n'est jamais l'oracle »). Revues US-016 (architecture 2,
+ * qa 5) ; règle posée par US-017, premier consommateur.
+ */
+const GOLDEN_VECTORS_MESSAGE =
+  '@rueda/money/golden-vectors est réservé aux tests (US-016) : aucun code de production ne l’importe.';
+export const GOLDEN_VECTORS_IMPORT_PATTERNS: readonly string[] = [
+  '@rueda/money/golden-vectors',
+  '@rueda/money/golden-vectors/*',
+  '**/golden-vectors',
+  '**/golden-vectors/**',
+];
+/**
+ * Fichiers de test, et eux seuls, autorisés à importer le harnais (revue sécurité US-017 n° 3) :
+ * fichiers `*.test.*` / `*.spec.*` et dossier `test/` **à la racine d'un paquet ou d'une
+ * application** (`packages/<p>/test/`, `apps/<a>/test/`). Un dossier `test/` niché dans les sources
+ * (`apps/api/src/test/`) n'est pas exempté. S'y ajoutent le harnais lui-même et ce fichier, qui
+ * décrit la règle (ses chaînes nomment le harnais).
+ */
+export const TEST_FILE_GLOBS: readonly string[] = [
+  '**/*.test.{ts,tsx,mts,cts,js,mjs,cjs}',
+  '**/*.spec.{ts,tsx,mts,cts,js,mjs,cjs}',
+  'packages/*/test/**',
+  'apps/*/test/**',
+  'packages/money/src/golden-vectors/**',
+  'packages/config/eslint/index.ts',
+];
+/** Fixture « production » du test de la règle : jamais exemptée, bien qu'elle soit sous `test/`. */
+const GOLDEN_VECTORS_PROD_FIXTURES = 'packages/config/test/fixtures/golden-vectors/src/**';
+const GOLDEN_VECTORS_SOURCE = '/golden-vectors/';
+
+function goldenVectorsRules(): Linter.RulesRecord {
+  return {
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [{ group: [...GOLDEN_VECTORS_IMPORT_PATTERNS], message: GOLDEN_VECTORS_MESSAGE }],
+      },
+    ],
+    // Toute chaîne ou partie de gabarit qui nomme le harnais, où qu'elle soit : `import()` littéral,
+    // en gabarit ou par variable, `require()`, `createRequire(…)(…)`, `globalThis.require(…)`,
+    // `require.resolve(…)`. Limite (documentée, comme rueda/module-boundaries) : un nom fabriqué
+    // sans que « golden-vectors » figure en entier dans un littéral (concaténation de fragments,
+    // valeur lue à l'exécution) échappe au lint ; la revue de code reste le contrôle.
+    'no-restricted-syntax': [
+      'error',
+      { selector: `Literal[value=${GOLDEN_VECTORS_SOURCE}]`, message: GOLDEN_VECTORS_MESSAGE },
+      {
+        selector: `TemplateElement[value.raw=${GOLDEN_VECTORS_SOURCE}]`,
+        message: GOLDEN_VECTORS_MESSAGE,
+      },
+    ],
+  };
+}
+
 /** Fixtures du lint : la règle y reste active (tests de packages/config, US-013). */
 const COUNTRY_CONSTANTS_FIXTURES = 'packages/config/test/fixtures/country-in-ts/**';
 
@@ -76,6 +133,16 @@ export function createConfig(options: RuedaConfigOptions): Linter.Config[] {
         'rueda/no-sql-clock': 'error',
         'rueda/no-country-constants': ['error', { tokens: [...options.countryTokens] }],
       },
+    },
+    {
+      files: ['**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],
+      rules: goldenVectorsRules(),
+    },
+    {
+      files: [...TEST_FILE_GLOBS],
+      // La fixture « production » reste soumise au bloc général ci-dessus, malgré `test/`.
+      ignores: [GOLDEN_VECTORS_PROD_FIXTURES],
+      rules: { 'no-restricted-imports': 'off', 'no-restricted-syntax': 'off' },
     },
     {
       files: [...options.countryExemptions],

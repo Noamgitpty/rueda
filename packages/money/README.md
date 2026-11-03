@@ -64,6 +64,17 @@ Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/money'`).
 
 Les codes PROPOSÉS sont à reporter au catalogue de 16 A.8 par une demande de fusion sur `docs/specs/`.
 
+## Moteur de règlement des annulations, sous-ensemble bêta (US-017)
+
+`computeCancellationSettlement(trip, event, params)` (`src/settlement/`, exporté par `@rueda/money`) : fonction **pure et versionnée** (`CANCELLATION_ENGINE_VERSION`, recopiée dans chaque règlement) qui suit la table de décision et le pseudo-code de 08 (BR-CXL) et rend aussi les **jambes** de 08 E7. Décisions : [ADR-054](../../docs/adr/ADR-054-moteur-reglement-annulation-beta.md).
+
+- **Entrées** : `trip` (segment, lignes en `Money`, groupes fiscaux figés avec `thirdParty`, total payé contrôlé, parts figées hôte / livraison / Extras / assureur), `event` (motif, `requestedAtMs` serveur, faits établis : `hostMessageTraced`, `checkinValidated`, `hostNoShowReportedBefore`, `additionalDriverApproved`, `evidenceValidated` + `subReason`, `hostPenaltyWaived`), `params` (paramètres pays résolus par la configuration US-013 : `noShowGraceMinutes`, `lastMinuteThresholdHours`, `freeCancelLeadHours`, `platformFundedHostCompensation`, `hostPenalty`). Aucun défaut silencieux : un fait requis absent ⇒ `SETTLEMENT_INPUT_INVALID`, un paramètre requis absent ⇒ `SETTLEMENT_CONFIG_INVALID`.
+- **Motifs bêta** (`BETA_CANCELLATION_REASONS`) : `GUEST_CANCELLED`, `GUEST_NO_SHOW`, `HOST_CANCELLED_DUE_TO_GUEST`, `PLATFORM_INCOMPLETE_STEPS`, `GUEST_FRAUD_PROVEN`, `HOST_CANCELLED`, `HOST_NO_SHOW`, `PLATFORM_TRUST_SAFETY`, `HOST_ACCOUNT_CLOSED`, `PLATFORM_REVIEW_DELAY`, `PSP_FAILURE`. Tout autre motif ⇒ `SETTLEMENT_REASON_NOT_SUPPORTED`.
+- **Sortie** : motif qualifié et origine, remboursement et retenue par ligne, taxe par groupe, `guestRefund`, `taxRefund`, `retained`, `retainedTax`, `hostFromGuest`, `hostCompensation` (0 sauf `true` exact, DEC-FONDATEUR-01), `hostEarnings`, `platformNet`, `hostPenalty` (hors jambes), `captureLegs`, `settledLegs`, `legVariation`, `negativeLeg`. L'équilibre `remboursement + retenu HT + taxe retenue = total payé` est vérifié à chaque appel (`SETTLEMENT_UNBALANCED`).
+- **Aussi exportés** : `computeCaptureLegs`, `computeLegs`, `legVariation`, `freeUntil`, `SettlementError` (codes `SETTLEMENT_ERROR_CODES`, PROPOSÉS sauf `REJECTED_TOO_EARLY` de 08).
+
+Tests (`test/settlement/`) : vecteurs T et TJ de la story rejoués par `replay` / `compareSettlement` / `compareLegs` sur l'export des oracles, en USD et en PYG ; T61, T62 par les contrôles des oracles ; invariants de 08 par vecteur ; propriétés fast-check en PA et PY ; entrées refusées. Aucun montant attendu n'est écrit à la main.
+
 ## Harnais des vecteurs dorés (US-016)
 
 Le sous-chemin `@rueda/money/golden-vectors` (`src/golden-vectors/`), **réservé aux tests**, charge les attendus exportés par les oracles Python de `docs/specs/tools/` (T01–T68, TJ01–TJ21, TA01–TA11, en USD et en PYG) et compare un moteur (US-017, US-018) à ces attendus, sans jamais les recalculer. Il n'est pas exporté par `@rueda/money`. Voir [`src/golden-vectors/README.md`](src/golden-vectors/README.md).

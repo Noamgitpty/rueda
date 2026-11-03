@@ -454,3 +454,15 @@ test('packages/i18n : les stories qui ajoutent des textes visibles en sont propr
     /packages\/i18n/,
   );
 });
+
+test('packages/config : les stories qui ajoutent des règles de lint en sont propriétaires, avec revue sécurité', () => {
+  const r = ev('story/US-017-x', ['packages/config/eslint/index.ts']);
+  assert.ok(!r.errors.some((e) => /packages\/config/.test(e)), r.errors.join(' ; '));
+  assert.ok(
+    requiredRoles('US-017', ['packages/config/eslint/index.ts'], config).includes('securite'),
+  );
+  assert.match(
+    ev('story/US-099-x', ['packages/config/eslint/index.ts']).errors[0],
+    /packages\/config/,
+  );
+});

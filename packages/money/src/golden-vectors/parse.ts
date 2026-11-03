@@ -25,7 +25,8 @@ import {
 } from './types.ts';
 
 /** Codes d'erreur PROPOSÉS (US-016), à reporter au catalogue 16 A.8 s'ils sortent des tests. */
-export type GoldenVectorsErrorCode = 'GOLDEN_VECTORS_INVALID' | 'GOLDEN_VECTOR_NOT_FOUND';
+export type GoldenVectorsErrorCode =
+  'GOLDEN_VECTORS_INVALID' | 'GOLDEN_VECTOR_NOT_FOUND' | 'GOLDEN_REPLAY_EMPTY';
 
 export class GoldenVectorsError extends Error {
   readonly code: GoldenVectorsErrorCode;

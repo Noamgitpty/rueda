@@ -104,6 +104,35 @@ class InvariantsDuScriptTest(unittest.TestCase):
         }
         self.assertLessEqual(money, cst.FLOOR_ORACLES)
 
+    def test_liste_complete_des_planchers_figee(self):
+        # Revue sécurité US-016, constat 2 : l'inclusion seule laisse retirer en silence un oracle
+        # hors argent du plancher. La liste complète est donc figée ici, nom par nom (US-017) :
+        # ajouter ou retirer un plancher touche ce test, donc scripts/ci (revue sécurité exigée).
+        documents = {
+            "check_inventory.py",
+            "check_prd_structure.py",
+            "check_backlog.py",
+            "verif19_backlog.py",
+            "verif18_crossref.py",
+            "verif18_stale.py",
+            "verif15_struct.py",
+            "verif15_conf.py",
+        }
+        money = {
+            "verif11_settlement.py",
+            "independent_settlement_check.py",
+            "verif12_t49plus.py",
+            "check_t49plus.py",
+            "check_verif12_fixes.py",
+            "check_t66_68.py",
+            "check_ta_consolidation.py",
+            "check_legs.py",
+            "verif15_ta.py",
+            "export_golden_vectors.py",
+        }
+        self.assertEqual(len(documents | money), 18)
+        self.assertEqual(cst.FLOOR_ORACLES, frozenset(documents | money))
+
     def test_planchers_et_exclusions_disjoints(self):
         self.assertFalse(cst.FLOOR_ORACLES & set(cst.EXCLUDED))
         self.assertLessEqual(set(cst.REQUIRED_COUNTS), cst.FLOOR_ORACLES)

@@ -286,7 +286,16 @@
   },
   "pathOwners": {
     "$comment": "Chaque répertoire packages/<x>/ modifié doit avoir ici la story de la branche ; un paquet absent de la liste fait échouer (fail-closed). Lot 0 (US-050) : noms des paquets à créer fixés ici — packages/design-tokens/ (jetons de design, US-030, 19 §1.6), packages/ui/ (bibliothèque de composants vivante, US-032), packages/fake-adapters/ (adaptateurs FAKE dans un paquet séparé exclu de l image de production, 17 §10 point 2 ; US-019, US-020, US-061). US-035 (README par module) est propriétaire de tous les paquets.",
-    "packages/config/": ["US-001", "US-013", "US-030", "US-035"],
+    "packages/config/": [
+      "US-001",
+      "US-013",
+      "US-030",
+      "US-035",
+      "US-017",
+      "US-018",
+      "US-039",
+      "US-043"
+    ],
     "packages/db/": [
       "US-001",
       "US-005",

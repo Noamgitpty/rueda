@@ -39,7 +39,7 @@ Tout montant est un **`bigint` en unités mineures** ; dans le JSON, un montant 
 - `parseGoldenVectors(json)` : validation **fail-closed** ; clé inconnue ou manquante, montant non entier ou écrit en nombre, devise absente, identifiant en double, format inconnu ⇒ `GoldenVectorsError` (`GOLDEN_VECTORS_INVALID`).
 - Accès : `settlementVectors(set, { currency, normativeOnly })`, `legVectors(set, { currency, kind, normativeOnly })`, `settlementVector(set, id)`, `legVector(set, id)` (identifiant absent ⇒ `GOLDEN_VECTOR_NOT_FOUND`), `checksFor(set, 'T54')` (rend aussi T54a, T54b).
 - Comparaison exacte : `compareSettlement(vector, observed, fields?)` (par défaut les colonnes de 08, `SETTLEMENT_COLUMNS_08`), `compareLegs(vector, observed)`, `compareAmounts(...)`. Un champ absent ou qui n'est pas un `bigint` est un écart.
-- `replay(vectors, engine, compare)` : rejoue un moteur sur une liste de vecteurs ; une exception du moteur est un écart, jamais un vecteur ignoré.
+- `replay(vectors, engine, compare)` : rejoue un moteur sur une liste de vecteurs ; une exception du moteur est un écart, jamais un vecteur ignoré. Une liste **vide** lève `GOLDEN_REPLAY_EMPTY` (US-017) : un filtre qui ne rend rien ne passe jamais au vert sans rien comparer.
 
 Exemple (US-017) :
 
@@ -57,6 +57,7 @@ const report = replay(
   (v) => toObservation(engine(toInput(v))),
   compareSettlement,
 );
+expect(report.replayed).toBeGreaterThan(0); // replay lève déjà sur une liste vide
 expect(report.mismatches).toEqual([]);
 ```
 
@@ -66,7 +67,7 @@ L'adaptateur `toInput` / `toObservation` (entrée et sortie du moteur) appartien
 
 - Le moteur (US-017) est écrit par un **autre agent** que celui de ce harnais et de l'oracle (19 §1.5, US-016 critère 3).
 - Une **variante PYG** d'un vecteur USD (`T…-PY`) n'est assertée qu'après avoir été produite par l'oracle **et reportée dans 08** par une demande de fusion sur la spécification (19 US-016 critère 2). Aucune n'est ajoutée par US-016.
-- Le harnais n'importe aucun moteur ; aucun code de production ne doit importer `@rueda/money/golden-vectors`.
+- Le harnais n'importe aucun moteur ; aucun code de production ne doit importer `@rueda/money/golden-vectors`. C'est **contrôlé par `pnpm lint`** depuis US-017 (`packages/config/eslint/index.ts`) : `no-restricted-imports` (import, import de type, réexport, chemin relatif `…/golden-vectors/…`) et `no-restricted-syntax` sur **toute chaîne ou partie de gabarit** qui contient `golden-vectors` (`import()` littéral, en gabarit ou par variable, `require()`, `createRequire(…)(…)`, `globalThis.require(…)`). Exemption limitée aux fichiers de test : `*.test.*`, `*.spec.*`, dossier `test/` à la racine d'un paquet ou d'une application (`packages/<p>/test/`, `apps/<a>/test/`), plus le harnais et le fichier de la règle ; un `test/` niché dans les sources n'est pas exempté. **Limite** : un nom fabriqué sans que `golden-vectors` figure en entier dans un littéral (concaténation de fragments, valeur lue à l'exécution) échappe au lint ; la revue reste le contrôle. Preuve : `packages/config/test/golden-vectors-import.test.ts`.
 
 ## Tests
 

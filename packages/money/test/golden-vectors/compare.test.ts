@@ -10,6 +10,7 @@ import {
   compareSettlement,
   legVectors,
   loadGoldenVectors,
+  GoldenVectorsError,
   replay,
   settlementVectors,
   type GoldenSettlementVector,
@@ -61,6 +62,13 @@ describe('compareSettlement et replay', () => {
       compareSettlement,
     );
     expect(report.mismatches.map((m) => m.field)).toEqual(['exception', 'exception']);
+  });
+
+  it('une liste vide lève GOLDEN_REPLAY_EMPTY au lieu de passer sans rien comparer', () => {
+    const empty = settlementVectors(set, { currency: 'XXX' });
+    expect(empty).toEqual([]);
+    expect(() => replay(empty, echo, compareSettlement)).toThrow(GoldenVectorsError);
+    expect(() => replay([], echo, compareSettlement)).toThrow(/GOLDEN_REPLAY_EMPTY/);
   });
 });
 
