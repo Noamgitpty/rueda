@@ -148,6 +148,32 @@ async function connectMany(n: number): Promise<pg.Client[]> {
   );
 }
 
+/**
+ * Garde-fous d'une course C1 (ADR-056, « Budget de connexions du banc ») : une pose qui ne rend
+ * pas la main est arrêtée par le serveur (`statement_timeout`, `57014`) bien avant le délai du test
+ * (`LONG`). Le bloc `finally` de `runC1` s'exécute donc toujours et ferme les connexions : un cas
+ * bloqué ne laisse aucune connexion orpheline aux cas suivants. Avant cette échéance, l'état des
+ * sessions encore actives est consigné (`[L0-02] course bloquée`).
+ */
+const POSE_STATEMENT_TIMEOUT_MS = 60_000;
+const STALL_REPORT_MS = 30_000;
+
+/** Consigne les sessions des poses encore actives : attente, verrous non accordés, bloqueurs. */
+async function reportStall(observer: pg.ClientBase, pids: readonly number[]): Promise<void> {
+  const r = await observer.query<Record<string, unknown>>(
+    `SELECT a.pid, a.state, a.wait_event_type, a.wait_event,
+            pg_catalog.left(a.query, 60) AS query,
+            pg_catalog.pg_blocking_pids(a.pid) AS blockers,
+            (SELECT pg_catalog.array_agg(l.locktype || ':' || l.mode)
+               FROM pg_catalog.pg_locks l WHERE l.pid = a.pid AND NOT l.granted) AS waiting
+       FROM pg_catalog.pg_stat_activity a
+      WHERE a.pid = ANY($1::int[]) AND a.state IS DISTINCT FROM 'idle'
+      ORDER BY a.pid`,
+    [pids],
+  );
+  log('course bloquée', { active: r.rows.length, of: pids.length, sessions: r.rows.slice(0, 20) });
+}
+
 /** Créneau sur l'horloge réelle : dans 7 jours, 2 jours, tampon 2 h. */
 function realSlot(): Slot {
   const start = new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 7 * 86_400_000);
@@ -231,6 +257,14 @@ async function runC1(
     let results: Replayed<unknown>[];
     try {
       posers.push(...(await connectMany(degree)));
+      await Promise.all(
+        posers.map((cl) =>
+          cl.query(`SELECT pg_catalog.set_config('statement_timeout', $1, false)`, [
+            `${POSE_STATEMENT_TIMEOUT_MS}ms`,
+          ]),
+        ),
+      );
+      const pids = await Promise.all(posers.map((cl) => backendPid(cl)));
       // Connexions chaudes, comme celles d'un pool de l'API : une pose annulée sur un autre
       // véhicule charge le cache des relations et les plans de la commande. Sans cela, chaque
       // pose de la course planifie 2a sous le verrou du véhicule (premier passage CI : p95 de
@@ -267,7 +301,16 @@ async function runC1(
       } finally {
         await barrier.release();
       }
-      results = await Promise.all(runs);
+      const stall = setTimeout(() => {
+        reportStall(observer, pids).catch((error: unknown) => {
+          log('course bloquée', { diagnostic: String(error) });
+        });
+      }, STALL_REPORT_MS);
+      try {
+        results = await Promise.all(runs);
+      } finally {
+        clearTimeout(stall);
+      }
     } finally {
       await Promise.all(posers.map((cl) => releaseClient(cl)));
     }
