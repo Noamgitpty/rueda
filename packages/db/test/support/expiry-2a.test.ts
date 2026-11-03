@@ -40,6 +40,17 @@ describe('instruction 2a : une seule source', () => {
     expect(normalize(migration)).toContain(normalize(`${expected};`));
   });
 
+  it('la ré-acquisition (core.booking_convert_payment, 0040, US-024) contient EXPIRY_2A_SQL, partie véhicule seule', () => {
+    const migration = readFileSync(
+      join(MIGRATIONS_DIR, '0040_booking_guarded_conversion.sql'),
+      'utf8',
+    );
+    const expected = EXPIRY_2A_SQL.replaceAll('$1::uuid', 'v_vehicle')
+      .replaceAll('$2::uuid', 'NULL::uuid')
+      .replaceAll('$3', 'v_grace');
+    expect(normalize(migration)).toContain(normalize(`${expected};`));
+  });
+
   it('le texte de 2a garde ses invariants de 17 §2.5', () => {
     const sql = normalize(EXPIRY_2A_SQL);
     expect(sql).toContain('(h.vehicle_id = $1::uuid OR h.guest_user_id = $2::uuid)');

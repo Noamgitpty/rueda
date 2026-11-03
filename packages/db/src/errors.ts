@@ -29,7 +29,11 @@
  *   ADR-060) ;
  * - `HOLD_LIMIT_REACHED`, `SELF_BOOKING_FORBIDDEN`, `BOOKING_UNDER_REVIEW` : 16 fiche BKG-014 ;
  *   `HOST_NOT_ACTIVATED` : 16 fiche BKG-012 ; `HOLD_RATE_LIMITED` : 17 §2.5 (M5, 429) — commandes
- *   de hold d'US-023 (migration 0037, ADR-063).
+ *   de hold d'US-023 (migration 0037, ADR-063) ;
+ * - `HOLD_EXPIRED` (« reserva expirada », 17 §2.5 étape 3a), `QUOTE_UNAVAILABLE` (16 SRC, devis
+ *   indisponible), `START_PASSED` (17 §2.5 2 bis (i)), `PAYMENT_ATTEMPTS_EXHAUSTED`
+ *   (`payment_attempts_per_hold`, PAY-017), `PAYMENT_METHOD_UNAVAILABLE` : PROPOSÉS par US-024
+ *   (migrations 0039, 0040, ADR-065).
  */
 
 /** Codes métier produits par la traduction. */
@@ -64,6 +68,11 @@ export const DB_BUSINESS_CODES = [
   'HOST_NOT_ACTIVATED',
   'SELF_BOOKING_FORBIDDEN',
   'BOOKING_UNDER_REVIEW',
+  'HOLD_EXPIRED',
+  'QUOTE_UNAVAILABLE',
+  'START_PASSED',
+  'PAYMENT_ATTEMPTS_EXHAUSTED',
+  'PAYMENT_METHOD_UNAVAILABLE',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -89,8 +98,8 @@ export const SQLSTATE = {
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`
- * et `0037`.
+ * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`,
+ * `0037`, `0039` et `0040`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -188,6 +197,16 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   hold_guarded_columns: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   booking_record_no_delete: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   hold_review_before_payment: [SQLSTATE.checkViolation, 'BOOKING_UNDER_REVIEW'],
+  // intention de paiement, conversion gardée et compensation (0039, 0040, US-024)
+  hold_not_payable: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_EXPIRED'],
+  hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  payment_quote_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'QUOTE_UNAVAILABLE'],
+  payment_start_passed: [SQLSTATE.objectNotInPrerequisiteState, 'START_PASSED'],
+  payment_attempts_exhausted: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_ATTEMPTS_EXHAUSTED'],
+  payment_method_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
+  conversion_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  conversion_review_pending: [SQLSTATE.objectNotInPrerequisiteState, 'BOOKING_UNDER_REVIEW'],
+  payment_command_idem_unique: [SQLSTATE.uniqueViolation, 'DISPOSITION_EXISTS'],
 };
 
 const own = (value: object, key: string): unknown =>
