@@ -4,7 +4,7 @@ import { BRAND_NAME } from '../brand.ts';
 import { getRequestI18n } from '../i18n.ts';
 import { getRequestTheme, ThemeStyle } from '../theme.tsx';
 
-// Aucun style codé en dur : tout vient des jetons de design (US-030, `@rueda/tokens`).
+// Aucun style codé en dur : tout vient des jetons de design (US-030, `@rueda/design-tokens`).
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getRequestI18n();
   return {

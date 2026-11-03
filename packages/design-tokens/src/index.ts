@@ -1,5 +1,5 @@
 /**
- * @rueda/tokens — jetons de design, source unique du thème (US-030, DSN-002, ADR-036, ADR-047).
+ * @rueda/design-tokens — jetons de design, source unique du thème (US-030, DSN-002, ADR-036, ADR-047).
  * Voir README.md, section « Changer de palette en 1 étape ».
  */
 export {

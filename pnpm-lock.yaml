@@ -57,12 +57,12 @@ importers:
 
   apps/backoffice:
     dependencies:
+      '@rueda/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@rueda/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@rueda/tokens':
-        specifier: workspace:*
-        version: link:../../packages/tokens
       next:
         specifier: 16.4.2
         version: 16.4.2(@types/node@26.6.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -94,12 +94,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@rueda/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@rueda/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@rueda/tokens':
-        specifier: workspace:*
-        version: link:../../packages/tokens
       next:
         specifier: 16.4.2
         version: 16.4.2(@types/node@26.6.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -185,6 +185,21 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
 
+  packages/design-tokens:
+    devDependencies:
+      '@rueda/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 26.6.5
+        version: 26.6.5
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
+
   packages/i18n:
     devDependencies:
       '@rueda/config':
@@ -211,21 +226,6 @@ importers:
       fast-check:
         specifier: 4.10.2
         version: 4.10.2
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: 5.0.5
-        version: 5.0.5(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
-
-  packages/tokens:
-    devDependencies:
-      '@rueda/config':
-        specifier: workspace:*
-        version: link:../config
-      '@types/node':
-        specifier: 26.6.5
-        version: 26.6.5
       typescript:
         specifier: 6.0.3
         version: 6.0.3

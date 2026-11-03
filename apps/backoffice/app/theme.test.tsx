@@ -1,4 +1,4 @@
-import { loadTheme } from '@rueda/tokens';
+import { loadTheme } from '@rueda/design-tokens';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { getRequestTheme, ThemeStyle } from '../theme.tsx';

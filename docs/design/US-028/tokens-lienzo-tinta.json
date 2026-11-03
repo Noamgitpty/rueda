@@ -1,6 +1,6 @@
 {
   "$schema": "https://design-tokens.github.io/community-group/format/",
-  "$description": "US-028 - direction « Lienzo · Tinta » (famille blanc épuré, 2026-11-02). Format DTCG (brouillon). Choisie par le fondateur le 2026-11-02 (DEC-MARQUE), révisable ; thème par défaut de @rueda/tokens (US-030), qui la lit directement.",
+  "$description": "US-028 - direction « Lienzo · Tinta » (famille blanc épuré, 2026-11-02). Format DTCG (brouillon). Choisie par le fondateur le 2026-11-02 (DEC-MARQUE), révisable ; thème par défaut de @rueda/design-tokens (US-030), qui la lit directement.",
   "meta": {
     "direction": "lienzo-tinta",
     "status": "CHOISI par le fondateur le 2026-11-02 (DEC-MARQUE), révisable ; jetons du langage visuel ajoutés par US-030 (0.2.0)",

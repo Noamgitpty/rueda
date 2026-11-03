@@ -1,6 +1,6 @@
 /*
  * Prototype jetable US-026, rebranché sur les jetons de design (US-030) : couleurs, espacements et
- * police viennent des variables du thème (`@rueda/tokens`). À supprimer avec le laboratoire.
+ * police viennent des variables du thème (`@rueda/design-tokens`). À supprimer avec le laboratoire.
  */
 .lab {
   max-inline-size: 48rem;

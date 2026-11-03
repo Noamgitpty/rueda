@@ -1,10 +1,10 @@
 /**
- * Thème de la requête (US-030) : jetons de design compilés en variables CSS par `@rueda/tokens`.
+ * Thème de la requête (US-030) : jetons de design compilés en variables CSS par `@rueda/design-tokens`.
  * Lu à chaque rendu côté serveur (pas de `NEXT_PUBLIC_`) : changer la palette active s'applique au
  * rechargement, sans reconstruire ; la version publiée en base viendra avec US-034.
  */
-import { getActiveTheme } from '@rueda/tokens';
-import type { ActiveTheme } from '@rueda/tokens';
+import { getActiveTheme } from '@rueda/design-tokens';
+import type { ActiveTheme } from '@rueda/design-tokens';
 
 export function getRequestTheme(): ActiveTheme {
   return getActiveTheme(process.env);

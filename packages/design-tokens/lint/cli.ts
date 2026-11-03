@@ -2,7 +2,7 @@
  * `pnpm lint` (étape « styles ») : échoue si un composant contient une couleur, une police, une
  * taille, une graisse, un espacement, un rayon, une ombre ou une durée codés en dur (US-030).
  *
- * Usage : node packages/tokens/lint/cli.ts [--root <racine du dépôt>]
+ * Usage : node packages/design-tokens/lint/cli.ts [--root <racine du dépôt>]
  */
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';

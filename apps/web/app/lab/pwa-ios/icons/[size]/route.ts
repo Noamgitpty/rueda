@@ -1,5 +1,5 @@
 import { isPwaIosLabEnabled, labNotFound } from '../../lab-flag';
-import { getActiveTheme, hexToRgb } from '@rueda/tokens';
+import { getActiveTheme, hexToRgb } from '@rueda/design-tokens';
 import { LAB_ICON_SIZES, solidPng } from '../../png';
 
 export const dynamic = 'force-dynamic';

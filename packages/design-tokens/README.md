@@ -1,12 +1,12 @@
-# packages/tokens — jetons de design (`@rueda/tokens`)
+# packages/design-tokens — jetons de design (`@rueda/design-tokens`)
 
 Livré par **US-030** (lot 0, DSN-002). C'est la **source unique du thème** : couleurs, polices, tailles, espacements, rayons, ombres, verre, mouvement, avatars et motif _camino_ viennent d'ici. Aucun composant ne contient de valeur de style en dur ; le lint le vérifie (voir plus bas). Décisions : ADR-036 (thème piloté par les données) et ADR-047 (ce paquet).
 
-Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/tokens'`).
+Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/design-tokens'`).
 
 ## Changer de palette en 1 étape
 
-Dans `packages/tokens/config/theme.json`, remplacer la valeur de `"palette"` par l'identifiant d'une palette, puis recharger la page.
+Dans `packages/design-tokens/config/theme.json`, remplacer la valeur de `"palette"` par l'identifiant d'une palette, puis recharger la page.
 
 ```json
 { "palette": "lienzo-azur", "colorScheme": "auto" }
@@ -58,11 +58,11 @@ Règles d'usage (10b UX-49, UX-67 à UX-69) : `--color-border` n'est jamais seul
 
 ## Lint des styles codés en dur
 
-`pnpm lint` exécute `node packages/tokens/lint/cli.ts` (aussi `pnpm lint:style`). Il analyse `apps/web`, `apps/backoffice` et la future `packages/ui` (fichiers `.css`, `.scss`, `.ts`, `.tsx`, hors tests et configuration) et refuse : couleur hexadécimale, fonction de couleur (`rgb`, `hsl`, `oklch`…), couleur nommée ou système, police, taille de texte, graisse, espacement, rayon, ombre ou durée écrits en dur, et variable locale `--x` à valeur en dur. Permis : `var(--…)`, `calc()` et `color-mix()` de variables, `0`, `auto`, `none`, `inherit`, `currentColor`, `transparent`, `50%` pour un rayon. Il n'y a **pas de liste blanche** : un faux positif se corrige dans `lint/scan.ts`, avec une revue design. Le test `test/lint.test.ts` vérifie chaque règle et que le dépôt est propre.
+`pnpm lint` exécute `node packages/design-tokens/lint/cli.ts` (aussi `pnpm lint:style`). Il analyse `apps/web`, `apps/backoffice` et la future `packages/ui` (fichiers `.css`, `.scss`, `.ts`, `.tsx`, hors tests et configuration) et refuse : couleur hexadécimale, fonction de couleur (`rgb`, `hsl`, `oklch`…), couleur nommée ou système, police, taille de texte, graisse, espacement, rayon, ombre ou durée écrits en dur, et variable locale `--x` à valeur en dur. Permis : `var(--…)`, `calc()` et `color-mix()` de variables, `0`, `auto`, `none`, `inherit`, `currentColor`, `transparent`, `50%` pour un rayon. Il n'y a **pas de liste blanche** : un faux positif se corrige dans `lint/scan.ts`, avec une revue design. Le test `test/lint.test.ts` vérifie chaque règle et que le dépôt est propre.
 
 ## Tests
 
-`pnpm --filter @rueda/tokens test:unit` : formule WCAG (valeurs de référence publiées, et **oracle indépendant** : chaque ratio consigné par US-028 dans `contrastChecks` de chaque palette est retrouvé à 0,01 près), registre complet, palettes valides et conformes, mêmes variables partout, valeurs Tinta de 10b UX-67, refus de contraste (clair, sombre, composant, avatar, verre), refus de format (injection CSS, type inconnu, jeton absent, alias), surcharges publiées, feuille générée, sélection et fail-closed, lint. Les entrées de cache turbo incluent `docs/design/US-028/tokens-*.json` et `apps/**` (`turbo.json` du paquet).
+`pnpm --filter @rueda/design-tokens test:unit` : formule WCAG (valeurs de référence publiées, et **oracle indépendant** : chaque ratio consigné par US-028 dans `contrastChecks` de chaque palette est retrouvé à 0,01 près), registre complet, palettes valides et conformes, mêmes variables partout, valeurs Tinta de 10b UX-67, refus de contraste (clair, sombre, composant, avatar, verre), refus de format (injection CSS, type inconnu, jeton absent, alias), surcharges publiées, feuille générée, sélection et fail-closed, lint. Les entrées de cache turbo incluent `docs/design/US-028/tokens-*.json` et `apps/**` (`turbo.json` du paquet).
 
 ## Limites connues
 
