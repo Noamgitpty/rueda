@@ -1,3 +1,9 @@
 // Point d'entrée public du module SUP. Les autres modules n'importent que ce fichier ;
 // tout le reste (internal/, sup.module.ts) est privé (règle rueda/module-boundaries).
 export { SupModule } from './sup.module.js';
+
+// Actions de console (US-012) : montage par le processus API seulement (api.module.ts).
+export { SupConsoleModule } from './internal/sup-console.module.js';
+export type { SupConsoleOptions } from './internal/sup-console.module.js';
+export { PgManualActionStore } from './internal/manual-action-store.js';
+export type { ManualActionStore } from './internal/manual-action-store.js';

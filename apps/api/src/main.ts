@@ -8,15 +8,17 @@
  * `RUEDA_API_TRUST_PROXY` règle `trust proxy` (défaut : aucun mandataire, voir trust-proxy.ts).
  * Le démarrage échoue aussi en production si un compte PSP FAKE existe en base ou si une variable
  * `*_ADAPTER=FAKE` est posée (US-019, C19). `rawBody` : la signature d'un webhook PSP porte sur
- * les octets reçus (17 §4.4).
+ * les octets reçus (17 §4.4). Console interne (US-012) : `RUEDA_STAFF_MFA_PROOF_KEY` (secret géré,
+ * hexadécimal ; mal formée : refus de démarrer) et `RUEDA_STAFF_TOTP_ISSUER`.
  */
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import pg from 'pg';
 import { ApiModule } from './api.module.js';
-import { postgresIamAdapters } from './modules/iam/index.js';
+import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
+import { PgManualActionStore } from './modules/sup/index.js';
 import { parseTrustProxy } from './trust-proxy.js';
 
 const DEFAULT_PORT = 3000;
@@ -26,8 +28,15 @@ async function bootstrap(): Promise<void> {
   const pool = new pg.Pool({ application_name: 'rueda-api' });
   const iam = await postgresIamAdapters(pool);
   const pay = await postgresPayAdapters(pool, process.env);
+  // Console interne (US-012) : coffre TOTP indisponible tant qu'US-003 ne l'a pas livré et clé de
+  // preuve lue dans RUEDA_STAFF_MFA_PROOF_KEY (absente : aucune élévation) — fail-closed.
+  const staff = postgresStaffAdapters(
+    pool,
+    process.env,
+    process.env['RUEDA_STAFF_TOTP_ISSUER'] ?? 'staff-console',
+  );
   const app = await NestFactory.create<NestExpressApplication>(
-    ApiModule.register(iam, pay.webhooks),
+    ApiModule.register(iam, pay.webhooks, staff, { store: new PgManualActionStore(pool) }),
     { rawBody: true },
   );
   app.set('trust proxy', trustProxy);
