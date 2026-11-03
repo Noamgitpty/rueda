@@ -466,3 +466,11 @@ test('packages/config : les stories qui ajoutent des règles de lint en sont pro
     /packages\/config/,
   );
 });
+
+test('packages/db : les stories du lot 0 qui écrivent des migrations en sont propriétaires, avec revue sécurité', () => {
+  for (const s of ['US-012', 'US-021', 'US-022', 'US-023']) {
+    const r = ev(`story/${s}-x`, ['packages/db/migrations/0099_x.sql']);
+    assert.ok(!r.errors.some((e) => /packages\/db\//.test(e)), `${s} : ${r.errors.join(' ; ')}`);
+    assert.ok(requiredRoles(s, ['packages/db/migrations/0099_x.sql'], config).includes('securite'));
+  }
+});
