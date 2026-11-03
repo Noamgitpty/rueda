@@ -2,6 +2,10 @@
 
 Tout ce qui dépend du pays est une **donnée versionnée**, jamais une constante de code (ADR-024, ADR-033, ADR-049). Panama (`PA`, USD, `America/Panama`) et Paraguay (`PY`, PYG sans décimale, `America/Asuncion`) existent dès le lot 0. Choisir le pays de lancement ne demande aucune réécriture.
 
+## Socle de marque (US-034)
+
+Thème versionné, actifs et blocs de contenu : voir [`brand/README.md`](brand/README.md) (ADR-067).
+
 ## Données (source unique)
 
 | Fichier                | Contenu                                                                                                                                                                      | Table(s) en base                                                                                                   |

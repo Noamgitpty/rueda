@@ -1,0 +1,15 @@
+# Revue architecture — US-034 — 2026-11-03 (seconde passe)
+
+Relecteur : architecture / claude-sonnet-5-5 (famille A, autre modèle que l'auteur claude-opus-5-5)
+Entrées : diff 36321c4..ed2cf4d, ADR-067 mis à jour, 0042, RESUME_HERE, passation US-034. Revue de lecture.
+
+| #   | Gravité (CRITIQUE/MAJEUR/MINEUR) | Constat                                                                                                                                                                                                                                                                                                                                                   | Preuve (fichier:ligne, test)                                | Décision      |
+| --- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------- |
+| 1   | MINEUR                           | Le lien rapport-version par empreinte SHA-256 reste dans l'esprit de l'ADR : la base calcule l'empreinte (`cfg_brand_tokens_sha256`, IMMUTABLE, `search_path` figé, sans droit public) sans recopier le contraste ; `checkContrast` reste unique et réutilisé. L'API relit l'empreinte auprès de la base : pas de JSON canonique recopié côté TypeScript. | 0042 `cfg_brand_tokens_sha256` ; checks.ts `contrastReport` | Aucune action |
+| 2   | MINEUR                           | Changements de signature (`cfg_brand_cmd_rollback` rend `copied_from_id`, `cfg_brand_staff_versions` rend `tokens_sha256`) : les arguments sont inchangés, donc la liste blanche RLS-15 (signatures d'arguments) reste exacte. Retour arrière de migration mis à jour (fonction d'empreinte).                                                             | 0042 en-tête ; security-definer-allowlist.json              | Aucune action |
+| 3   | MINEUR                           | Reports tracés comme demandé : RESUME_HERE (site sur GET /brand pour US-120 et US-032, limite de 64 Kio sur les actifs, Azur et autres palettes en échec de contraste), passation et ADR-067 (limite d'une API entièrement compromise, règle « jamais NULL »). Dette du propriétaire `iam_staff_owner` : non inscrite dans l'ADR, rappel non bloquant.    | RESUME_HERE ; ADR-067 point 8                               | Accepté       |
+| 4   | MINEUR                           | Le thème reste une donnée (aucune couleur ni police dans le code) ; retour à n'importe quelle ancienne palette ou palette neuve inchangé.                                                                                                                                                                                                                 | brand.json ; `paletteDocument`                              | Aucune action |
+
+Aucun défaut ouvert.
+
+Verdict : APPROUVÉ

@@ -232,6 +232,24 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. Tu pago de {amount} está retenido por ahora. En tus ganancias ves el motivo y qué hacer.',
   'ntf.payoutOnHold.sms.body':
     '{brand}: tu pago de {amount} está retenido. Motivo en tus ganancias.',
+  'common.brand.tokensInvalid': 'El tema no tiene un formato válido. Revisa los valores señalados.',
+  'common.brand.fontNotApproved': 'La fuente {font} no está en la lista aprobada.',
+  'common.brand.contrastInsufficient':
+    'No se publicó: el par {pair} no alcanza el contraste WCAG 2.2 AA.',
+  'common.brand.versionNotFound': 'Esta versión no existe.',
+  'common.brand.versionUnavailable':
+    'El tema publicado no está disponible; se muestra el tema por defecto.',
+  'common.brand.versionConflict': 'Esta versión ya cambió. Recarga e inténtalo de nuevo.',
+  'common.brand.assetInvalid':
+    'El archivo no es válido: PNG, JPEG o WebP (WOFF2 para una fuente), texto alternativo en español, inglés y francés, y licencia indicada.',
+  'common.brand.assetUnavailable':
+    'El almacenamiento de archivos no está disponible. Inténtalo más tarde.',
+  'common.brand.contentLocaleMissing':
+    'Falta el texto en {locale}: un bloque se publica en español, inglés y francés.',
+  'common.brand.contentKeyForbidden': 'Los textos legales no se editan aquí.',
+  'common.brand.contentMarkdownForbidden':
+    'El texto contiene HTML o un enlace externo. Solo se permiten enlaces internos.',
+  'common.brand.contentNotFound': 'Este bloque o esta versión no existe.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
