@@ -1,4 +1,4 @@
-"""Oracle des jambes explicites (08, E7 « Jambes explicites », vecteurs TJ01-TJ18) — US-055, révision P2P (S3).
+"""Oracle des jambes explicites (08, E7 « Jambes explicites », vecteurs TJ01-TJ21) — US-055 (S3), complété par US-056 (S4).
 
 Écrit à partir du TEXTE de 08 (E7, settle, E1 « Part hôte et encaissement », BR-CXL-06 / 08, BR-PRICE-12 / 14),
 sans reprendre le code des autres oracles ni le code testé :
@@ -14,13 +14,17 @@ sans reprendre le code des autres oracles ni le code testé :
   (jambe retenue - jambe capturée) ; somme des variations = - remboursement du guest ; une variation positive
   est une réaffectation vers cette jambe (cas de l'hôte inéligible, TJ05b) ;
 - encaissement partiel (E1, E7 règle 4) : cible cumulative par jambe non plateforme = floor(jambe x encaissé / owed),
-  remplie dans l'ordre HOST -> INSURER -> TAX dans la limite de l'ordre, manque reporté, PLATFORM = reste >= 0,
-  report soldé au solde (TJ07, TJ17) ;
+  remplie dans l'ordre HOST -> INSURER -> TAX dans la limite de l'ordre, manque reporté ; PLATFORM = reste, plafonné
+  à ce qu'il reste de sa jambe ; excédent aux jambes non plateforme dans l'ordre TAX -> INSURER -> HOST, dans la limite
+  de leur reste (règle 4 révisée par US-056 : plus aucune réaffectation au solde, aucun incrément négatif ; TJ07, TJ17,
+  TJ19 ; balayage de propriété sur 6 jeux de jambes) ;
 - règle 5 : capture refusée si PLATFORM < 0, plafond de la promo plateforme par dichotomie (TJ13) ;
 - règle 7 : chargeback perdu ventilé par jambe, reprise HOST selon E5, INSURER et TAX_THIRD_PARTY jamais réduites (TJ14) ;
 - règle 10 : ventilation en cascade entre opérations (moyens natif -> non natif -> cash -> promo ; jambes
   HOST -> INSURER -> TAX -> PLATFORM) ; remboursements par moyen selon E2 (TJ15, TJ16) ;
 - règle 3 bis : variation sur une jambe HOST déjà libérée, avancée par PLATFORM, créance sur l'hôte (TJ18) ;
+- US-056 : complément de T66 (b) ventilé en cascade, réémissions en crédit comprises (TJ20) ; crédits plafonnés à la
+  jambe PLATFORM de la capture (règle 10, TJ21) ;
 - contrôles de forme : identifiant TJ dupliqué, écart de TJ10c écrit exactement dans la ligne.
 Les valeurs attendues sont calculées ici, puis comparées aux lignes « | TJxx | » écrites dans 08.
 Usage : python -I -X utf8 tools/check_legs.py [--print]   (--print : imprime les lignes calculées)
@@ -326,9 +330,10 @@ for sfx, row in zip("cd", cascade(refT27, rD)):
     REFUNDS.add("TJ16" + sfx)
 
 
-# TJ17 : encaissement partiel de quelques unités (E7 règle 4 révisée : remplissage HOST -> INSURER -> TAX dans la
-# limite du montant de l'ordre et de la cible cumulative floor(jambe x encaissé / owed) ; manque reporté ;
-# PLATFORM = reste >= 0 ; au solde, report restant soldé par réaffectation PLATFORM -> jambe).
+# TJ17 / TJ19 : encaissement partiel (E7 règle 4, révisée par US-056) : remplissage HOST -> INSURER -> TAX dans la
+# limite du montant de l'ordre et de la cible cumulative floor(jambe x encaissé / owed) ; manque reporté ; PLATFORM =
+# reste, plafonné à ce qu'il reste de sa jambe ; l'excédent va à TAX -> INSURER -> HOST dans la limite de leur reste.
+# Au solde, chaque jambe est donc soldée exactement, sans réaffectation et sans incrément négatif.
 def partial_seq(leg_set, payments):
     owed = leg_set["TOTAL"]
     carried = {k: 0 for k in LEGS4}
@@ -343,8 +348,37 @@ def partial_seq(leg_set, payments):
             inc = max(0, min(tgt[k] - carried[k], rest))
             row[k] = inc
             rest -= inc
-        row["PLATFORM"] = rest
+        row["PLATFORM"] = min(rest, leg_set["PLATFORM"] - carried["PLATFORM"])
+        rest -= row["PLATFORM"]
+        for k in ("TAX_THIRD_PARTY", "INSURER", "HOST"):
+            add = min(rest, leg_set[k] - carried[k] - row[k])
+            row[k] += add
+            rest -= add
+        if rest:
+            raise ValueError("encaissement supérieur au reste dû")
         row["TOTAL"] = amount
+        for k in LEGS4:
+            carried[k] += row[k]
+        c = c1
+        out.append(row)
+    return out, carried, naive_neg
+
+
+def partial_seq_us055(leg_set, payments):
+    """Règle 4 dans sa rédaction US-055 (report soldé au solde par réaffectation PLATFORM -> jambe) : sert seulement
+    à montrer le résidu fermé par US-056 (incrément PLATFORM négatif au dernier paiement, TJ19)."""
+    owed = leg_set["TOTAL"]
+    carried = {k: 0 for k in LEGS4}
+    c, out = 0, []
+    for amount in payments:
+        c1 = c + amount
+        tgt = {k: (leg_set[k] * c1) // owed for k in LEGS4[:3]}
+        rest, row = amount, {}
+        for k in LEGS4[:3]:
+            inc = max(0, min(tgt[k] - carried[k], rest))
+            row[k] = inc
+            rest -= inc
+        row["PLATFORM"] = rest
         if c1 == owed:
             for k in LEGS4[:3]:
                 gap = leg_set[k] - carried[k] - row[k]
@@ -354,7 +388,7 @@ def partial_seq(leg_set, payments):
             carried[k] += row[k]
         c = c1
         out.append(row)
-    return out, carried, naive_neg
+    return out
 
 
 seqA, carA, negA = partial_seq(capA, [50, 1, 25666 - 51])
@@ -371,6 +405,84 @@ CROSS += [("TJ17d-f l'ancienne règle donnait un incrément PLATFORM négatif", 
 seq7, _c7, _n7 = partial_seq(keptT03, [3000, 3922])
 CROSS.append(("TJ07 inchangé par la règle 4 révisée", [seq7[i][k] for i in (0, 1) for k in LEGS4],
               [EXPECTED[v][1][k] for v in ("TJ07a", "TJ07b") for k in LEGS4]))
+
+
+# TJ19 (US-056) : dernier paiement de 1 ou 2 unités mineures après un encaissement qui a reporté une jambe non
+# plateforme ; la rédaction US-055 donnait alors un incrément PLATFORM de -1 ou -2 au solde (revue argent US-055 n° 5).
+# La règle révisée plafonne PLATFORM à son reste : l'excédent comble le report tout de suite.
+promoN = cap_legs(promo_trip("USD", "0.07", 10000, PROMO_MAX["TJ13b"], 1500, 3000))     # jambes de TJ13b (PLATFORM = 0)
+promoNP = cap_legs(promo_trip("PYG", "0.10", 1000000, PROMO_MAX["TJ13d"], 150000, 300000))   # jambes de TJ13d
+TJ19_CASES = [("ab", "USD", capA, [25665, 1]), ("cd", "PYG", capJ3, [1705001, 1]), ("ef", "USD", promoN, [1, 9599])]
+for sfx, cur, lg, pays in TJ19_CASES:
+    rows19, car19, _n = partial_seq(lg, pays)
+    old19 = partial_seq_us055(lg, pays)
+    for x, row in zip(sfx, rows19):
+        EXPECTED["TJ19" + x] = (cur, row)
+    CROSS += [(f"TJ19{sfx} cumul = jambes réglées", [car19[k] for k in LEGS4], [lg[k] for k in LEGS4]),
+              (f"TJ19{sfx} la rédaction US-055 donnait un incrément PLATFORM négatif",
+               any(r["PLATFORM"] < 0 for r in old19), True)]
+CROSS.append(("TJ19b rédaction US-055 : PLATFORM = -0,01 au solde", partial_seq_us055(capA, [25665, 1])[1]["PLATFORM"], -1))
+CROSS.append(("TJ19d rédaction US-055 : PLATFORM = -2 au solde", partial_seq_us055(capJ3, [1705001, 1])[1]["PLATFORM"], -2))
+
+
+def sweep(leg_set, firsts):
+    """Propriété (règle 4 révisée) : pour chaque premier paiement a, puis le solde (et a, 1 unité, le solde) : aucun
+    incrément négatif, cumul = jambes, HOST porté <= floor(HOST x encaissé / owed) (= hostPayable de E1) à chaque pas."""
+    owed = leg_set["TOTAL"]
+    bad = 0
+    for a in firsts:
+        seqs = [[a, owed - a]] + ([[a, 1, owed - a - 1]] if owed - a > 1 else [])
+        for pays in seqs:
+            rows, car, _n = partial_seq(leg_set, pays)
+            c, cum_h = 0, 0
+            for r in rows:
+                c += r["TOTAL"]
+                cum_h += r["HOST"]
+                if any(r[k] < 0 for k in LEGS4) or cum_h > (leg_set["HOST"] * c) // owed:
+                    bad += 1
+            if [car[k] for k in LEGS4] != [leg_set[k] for k in LEGS4]:
+                bad += 1
+    return bad
+
+
+SWEEP_SETS = [("TJ01", capA), ("TJ11a", capJ3), ("TJ13b", promoN), ("TJ13d", promoNP), ("TJ02a", keptT03), ("TJ12a", capK2)]
+for name, lg in SWEEP_SETS:
+    o = lg["TOTAL"]
+    firsts = sorted(set(range(1, min(o, 1500))) | set(range(max(1, o - 1500), o)))
+    CROSS.append((f"balayage règle 4 sur {name} ({len(firsts)} premiers paiements)", sweep(lg, firsts), 0))
+
+
+# TJ20 (US-056) : T66 (b) : v1 = T03 exécutée (carte 150,00 et Yappy 37,44, TJ16a-b), v2 = motif FULL ; complément de
+# 69,22 imputé par E2 (incrémental) puis ventilé en cascade (règle 10), réémissions en crédit comprises.
+def e2_incremental(paid, committed, refund_total):
+    refundable = {m: max(0, paid.get(m, 0) - committed.get(m, 0)) for m in paid}
+    K = sum(refundable.values()) - refund_total
+    out = {}
+    for mth in ("promo", "cash", "nonnatif", "natif"):
+        if mth in paid:
+            a = min(K, refundable[mth])
+            out[mth] = refundable[mth] - a
+            K -= a
+    return [out[mth] for mth in ("natif", "nonnatif", "cash", "promo") if mth in paid]
+
+
+var66 = diff(legs(A, *settle(A, "FULL")[:3]), keptT03)
+r66 = e2_incremental(paid33, {"natif": 15000, "nonnatif": 3744}, -var66["TOTAL"])
+CROSS.append(("TJ20 complément par moyen = T66 (b) (carte 0 ; Yappy 19,22 ; cash 30,00 ; promo 20,00)", r66,
+              [0, 1922, 3000, 2000]))
+for sfx, row in zip("abc", cascade(var66, [x for x in r66 if x])):
+    EXPECTED["TJ20" + sfx] = ("USD", row)
+    REFUNDS.add("TJ20" + sfx)
+
+
+# TJ21 (US-056) : crédits (cash, promo) plafonnés à la jambe PLATFORM de la capture (règle 10) : le guest du trip A
+# demande 120,00 de crédit cash ; seul 99,91 (= PLATFORM de TJ01) est imputé ; le reste est payé par carte.
+credit_asked = 12000
+credit_used = min(credit_asked, capA["PLATFORM"])
+for sfx, row in zip("ab", cascade(capA, [capA["TOTAL"] - credit_used, credit_used])):
+    EXPECTED["TJ21" + sfx] = ("USD", row)
+CROSS += [("TJ21 crédit imputé = PLATFORM de TJ01 (99,91)", credit_used, 9991),
+          ("TJ21b le crédit ne touche que PLATFORM", [EXPECTED["TJ21b"][1][k] for k in LEGS4[:3]], [0, 0, 0])]
 
 
 # TJ18 : variation négative sur une jambe HOST déjà libérée (règle 3 bis) : la plateforme avance le débit ;

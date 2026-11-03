@@ -1,7 +1,7 @@
 // Tests du contrôle des revues (node --test scripts/team/).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -206,6 +206,27 @@ test('après le sha revu, seuls rapports, passation et chemins partagés : revue
     const strict = cli(r.root);
     assert.equal(strict.status, 1);
     assert.match(strict.err, /revue code périmée : docs\/team\/BOARD.md modifié après/);
+  } finally {
+    r.done();
+  }
+});
+
+// Chemins partagés réels de docs/team/review-requirements.json, joints comme le fait la CI.
+const SHARED = JSON.parse(
+  readFileSync(new URL('../../docs/team/review-requirements.json', import.meta.url), 'utf8'),
+).sharedPaths;
+
+test('seul docs/team/COMME_TURO.md modifié après le sha revu : revue à jour (sharedPaths)', () => {
+  assert.ok(SHARED.includes('docs/team/COMME_TURO.md'));
+  const r = reviewedBranch();
+  try {
+    r.commit({ 'docs/team/COMME_TURO.md': 'ajout d’une autre story\n' }, 'docs(team)');
+    assert.equal(cli(r.root, ['--exempt', SHARED.join(',')]).status, 0);
+    // Le chemin libre est exact : un autre fichier modifié périme toujours la revue.
+    r.commit({ 'docs/team/COMME_TURO.md.bak': 'x\n' }, 'docs(team)');
+    const stale = cli(r.root, ['--exempt', SHARED.join(',')]);
+    assert.equal(stale.status, 1);
+    assert.match(stale.err, /revue code périmée : docs\/team\/COMME_TURO.md.bak modifié après/);
   } finally {
     r.done();
   }
