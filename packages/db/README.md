@@ -31,7 +31,8 @@ Migrations actuelles :
 - `0027_settlement_versions_legs` (US-018) : règlements versionnés, lignes, taxes, jambes et soldes par jambe, commande `core.settlement_cmd_record` (section « Règlements et jambes ») ;
 - `0028_payment_psp_port` (US-019) : port PaymentProvider côté base (section « Port PaymentProvider ») ;
 - `0029_payment_pan_detector_layouts` (US-019, correctif) : détecteur de PAN sans faux positif sur les UUID, contrainte `webhook_inbox_no_pan` recréée (section « Port PaymentProvider ») ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`) ; `9500_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker` ; écriture brute d'opérations pour le contrôle différé des jambes).
+- `0032_booking_single_occupancy` (US-022) : compte d'hôte et pays de l'occupation, un véhicule = un compte, période et tampon, commandes de blocage de l'hôte et de tampon autonome, calendrier de l'hôte (section « Table d'occupation unique ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`) ; `9310_test_occupancy_fixtures` (US-022 : écriture d'occupations et de holds sans pré-vérification, preuves de `occupancy_vehicle_single_org` et `checkout_hold_occupancy_party_fk`) ; `9500_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker` ; écriture brute d'opérations pour le contrôle différé des jambes).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -54,7 +55,7 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
 
 **Droits** (17 §2.3, VERIF_17-A1, A2) :
 
-- `PUBLIC`, `app_anon` et `app_api` n'ont **aucun** droit sur ces tables. Les lectures filtrées d'`app_api` arrivent avec US-011, les commandes `cmd_*` sous `cmd_hold_owner` avec US-023.
+- `PUBLIC`, `app_anon` et `app_api` n'ont **aucun** droit d'écriture sur ces tables. Les lectures filtrées d'`app_api` sont arrivées avec US-011 (occupations : US-022) ; les commandes sous `cmd_hold_owner` avec US-022 (blocages, tampons) et US-023 (holds).
 - Personne n'a `DELETE`.
 - `app_worker` reçoit des colonnes bornées par `GRANT UPDATE (colonnes)` et une politique par commande SQL. Chaque politique exige `app.actor_kind() = 'WORKER'` et un nom de travailleur de la liste. Sans contexte, aucune ligne n'est visible et aucune écriture n'est possible.
 
@@ -162,6 +163,26 @@ Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_
 - **Interblocage déterministe** : ordre inversé (véhicule puis guest) contre ordre de 17 ; un `40P01` réel, rejoué. Tests unitaires sans base : `test/support/replay.test.ts`, `test/support/expiry-2a.test.ts` (texte unique de 2a).
 - **Mesures** : lignes `[L0-02]` et `[L0-04]` du journal CI (40P01, rejeux, p50 / p95 / max, plan et temps d'exécution de 2a), à joindre au rapport L0 (US-027).
 - **L0-04** : 10 000 holds sur 1 000 véhicules par pays (`l0_seed_expiry_bench`, puis `ANALYZE`) ; plan `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` sous `app_worker` (`hold_expiry`), RLS comprise.
+
+## Table d'occupation unique (US-022 ; 16 CAL-011, CAL-004 ; 08 BR-BOOK-05, BR-BOOK-07 ; 17 §2.5 ; ADR-060)
+
+`core.booking_vehicle_occupancy` est la seule source de vérité de la disponibilité d'un véhicule, tous canaux confondus : `HOLD` (checkout), `TRIP`, `HOST_BLOCK` (blocage manuel de l'hôte), `BUFFER` (tampon autonome). Une seule exclusion GiST `WHERE (active)` ; tout écrivain prend le verrou consultatif du véhicule (17 §2.5 M2).
+
+- **Compte et pays** (0032) : `org_id`, `country_code` `NOT NULL`, clé composée vers `iam_organization (id, country_code)` ; jamais fournis par le client. Exclusion `occupancy_vehicle_single_org` (`vehicle_id WITH =, org_id WITH <>`) : un véhicule n'a d'occupations que d'un compte (PROPOSÉ, en attendant la clé vers `catalog_vehicle`). Clé composée `checkout_hold_occupancy_party_fk` : hold et occupation sur le même véhicule, compte et pays.
+- **Période** : `core.booking_occupied_period(début, fin, minutes)` = `[début, fin + minutes)` ; `core.booking_buffer_minutes(pays)` = `buffer_minutes` en vigueur (120 par défaut, 17 §7.2), `NULL` si absent.
+- **Commandes** (`SECURITY DEFINER`, `cmd_hold_owner`, liste blanche RLS-15) :
+
+  | Commande                                                  | `EXECUTE`    | Contrôle                                                                                        |
+  | --------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------- |
+  | `core.booking_cmd_place_host_block(véhicule, début, fin)` | `app_api`    | `HOST`, `app.host_covers_vehicle`, véhicule du compte ; renvoie l'identifiant du blocage        |
+  | `core.booking_cmd_remove_host_block(blocage)`             | `app_api`    | blocage `MANUAL` de son compte et de sa portée ; `BLOCK_REMOVED` ; rejeu : `false`              |
+  | `core.booking_cmd_place_buffer(trip, début)`              | `app_worker` | travailleur `trip_lifecycle` ; trip ayant rendu le véhicule ; `[début, début + buffer_minutes)` |
+
+- **Codes** (`translateDbError`) : `VEHICLE_UNAVAILABLE` (créneau pris, quel que soit le canal), `FORBIDDEN` (identité, portée, compte ou pays ; la levée ne distingue pas un blocage d'un tiers d'un identifiant inconnu ; la pose sur un identifiant de véhicule inconnu réussit, ADR-060 « Limites »), `INVALID_PERIOD` (PROPOSÉ), `INVALID_TRANSITION`, `PARAM_MISSING`.
+- **Lectures d'`app_api`** (par colonnes, sans `ref_type` / `ref_id`, `ical_uid` ni colonnes d'audit) : hôte (son compte, sa portée de véhicules) et ADMIN du pays. Le voyageur ne lit pas la table (sonde de disponibilité, US-201).
+- **Limite** : avant le catalogue, le premier compte qui écrit une occupation d'un identifiant de véhicule en devient le compte (ADR-060, « Limites »).
+
+Preuves : `test/l0/l0-occ-single-occupancy.test.ts` (PA et PY) : fonctions de période, blocage contre trip, hold et blocage, levée, tampon de 2 h (départ à 13:00 refusé, à 14:00 accepté), I-OCC au COMMIT, tampon autonome, cloisonnement des écritures et des lectures, C1 tous canaux (holds et blocages concurrents, journal CI `[US-022 C1 tous canaux]`). C1 à 100 poses : L0-02 (US-007).
 
 ## Règlements et jambes (US-018 ; 08 E4, E7 ; 17 §2.3, §2.9, §3.2.8 ; ADR-057)
 

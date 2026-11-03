@@ -1,5 +1,5 @@
 {
-  "$comment": "Liste blanche RLS-15 (17 §2.3 ; US-011, ADR-053) : TOUTE fonction ou procédure SECURITY DEFINER de la base de production, avec son propriétaire NOLOGIN, son search_path figé et les seuls rôles qui ont EXECUTE (le propriétaire excepté ; jamais PUBLIC). Vérifiée par packages/db/test/l0/l0-rls-15-security-definer.test.ts sur la base de production du banc. Ajouter une entrée = revue sécurité (packages/db/). Signatures au format regprocedure, sans espace après les virgules.",
+  "$comment": "Liste blanche RLS-15 (17 §2.3 ; US-011, ADR-053) : TOUTE fonction ou procédure SECURITY DEFINER de la base de production, avec son propriétaire NOLOGIN, son search_path figé et les seuls rôles qui ont EXECUTE (le propriétaire excepté ; jamais PUBLIC ; un propriétaire NOLOGIN y figure quand ses commandes appellent la fonction, US-022). Vérifiée par packages/db/test/l0/l0-rls-15-security-definer.test.ts sur la base de production du banc. Ajouter une entrée = revue sécurité (packages/db/). Signatures au format regprocedure, sans espace après les virgules.",
   "searchPath": "search_path=pg_catalog, pg_temp",
   "functions": [
     {
@@ -13,8 +13,8 @@
       "signature": "app.host_covers_vehicle(uuid)",
       "family": "policy_fn",
       "owner": "policy_fn_owner",
-      "execute": ["app_api"],
-      "story": "US-011"
+      "execute": ["app_api", "cmd_hold_owner"],
+      "story": "US-011, US-022"
     },
     {
       "signature": "app.is_org_holder()",
@@ -57,6 +57,27 @@
       "owner": "integrity_owner",
       "execute": [],
       "story": "US-006"
+    },
+    {
+      "signature": "core.booking_cmd_place_buffer(uuid,timestamp with time zone)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-022"
+    },
+    {
+      "signature": "core.booking_cmd_place_host_block(uuid,timestamp with time zone,timestamp with time zone)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-022"
+    },
+    {
+      "signature": "core.booking_cmd_remove_host_block(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-022"
     },
     {
       "signature": "core.iam_auth_lookup(text)",

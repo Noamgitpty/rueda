@@ -143,7 +143,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -162,6 +162,10 @@ describe('configuration pays : structure et droits', () => {
         expect(rows).toEqual(
           [...TABLES].sort().flatMap((t) => [
             { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
+            // commandes d'occupation (0032, US-022) : clé buffer_minutes seulement, en lecture
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
             { t, pol: 'migrator_all', cmd: '*', roles: 'migrator' },
           ]),
         );
