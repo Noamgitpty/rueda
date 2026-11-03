@@ -315,7 +315,8 @@ Séquence des lots (analyse pivot §e.6, PROPOSÉ). L'affectation des lignes est
 
 - **P1 (327 lignes)** — automatiser ce qui est manuel en bêta et compléter l'offre : modifications et extensions de trip (TRP-020 à TRP-025), swap (TRP-027), co-hôtes (FLT-001, FLT-002), filtres et pertinence (SRC-013 à SRC-016, SRC-030), connexion Google / Apple / OTP (ACC-002 à ACC-004), restrictions de compte et soldes (ACC-025, PAY-025), chargebacks (PAY-028), support humain 24/7 (reliquat SUP-004, ADM-010), moteur de risque et score (ADM-011, SUP-012, SUP-019), outils pour un hôte qui a plusieurs véhicules (FLT-004, FLT-005), livraison et aéroport (HST-034, BKG-041 après OQ-MK-08), télématique et alertes frontière (TRP-042, TRP-043), droits des personnes en libre-service (LEG-007, LEG-008), Panapass / ATTT (CLM-036), caution modulée et remboursement multi-rails (PAY-039, PAY-040).
 - **P2 (100 lignes)** — **ouverture commerciale du second pays** (le produit est déjà construit pour les deux pays, DEC-FONDATEUR-04 ; restent son lot C et sa recette ; portes OQ-MK-04, OQ-PAY-08 à 12) et différenciation (CLM-035, TRP-054, BKG-042, SRC-046, MKT-018, programmes MKT).
-- **P3 (71 lignes)** — 47 options conditionnelles (BNPL PAY-009, option avec chauffeur BKG-043, compte entreprise du voyageur ACC-030, éléments non applicables aux deux pays) et 24 lignes **HORS PRODUIT (DEC-FONDATEUR-13)**, sans story.
+- **P3 (47 lignes)** — options conditionnelles (BNPL PAY-009, option avec chauffeur BKG-043, compte entreprise du voyageur ACC-030, éléments non applicables aux deux pays).
+- **HORS (24 lignes)** — lignes **HORS PRODUIT (DEC-FONDATEUR-13)**, sans story (`phase_mvp` = `HORS` depuis US-058 ; rangées en P3 auparavant).
 
 Correspondance avec 15 : « P2 = P2P vérifié » et « P0-B » de 15 sont périmés depuis DEC-FONDATEUR-13 ; 04 et ce document font foi.
 
