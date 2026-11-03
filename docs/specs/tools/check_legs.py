@@ -1,4 +1,4 @@
-"""Oracle des jambes explicites (08, E7 « Jambes explicites », vecteurs TJ01-TJ12) — US-055, révision P2P (S3).
+"""Oracle des jambes explicites (08, E7 « Jambes explicites », vecteurs TJ01-TJ18) — US-055, révision P2P (S3).
 
 Écrit à partir du TEXTE de 08 (E7, settle, E1 « Part hôte et encaissement », BR-CXL-06 / 08, BR-PRICE-12 / 14),
 sans reprendre le code des autres oracles ni le code testé :
@@ -13,8 +13,15 @@ sans reprendre le code des autres oracles ni le code testé :
   PLATFORM = complément ; un ordre de remboursement porte la VARIATION SIGNÉE de chaque jambe
   (jambe retenue - jambe capturée) ; somme des variations = - remboursement du guest ; une variation positive
   est une réaffectation vers cette jambe (cas de l'hôte inéligible, TJ05b) ;
-- encaissement partiel (E1, E7) : cumul payé par jambe non plateforme = floor(jambe x encaissé / owed),
-  la plateforme prend le complément ; montant d'un ordre = cumul après - cumul avant.
+- encaissement partiel (E1, E7 règle 4) : cible cumulative par jambe non plateforme = floor(jambe x encaissé / owed),
+  remplie dans l'ordre HOST -> INSURER -> TAX dans la limite de l'ordre, manque reporté, PLATFORM = reste >= 0,
+  report soldé au solde (TJ07, TJ17) ;
+- règle 5 : capture refusée si PLATFORM < 0, plafond de la promo plateforme par dichotomie (TJ13) ;
+- règle 7 : chargeback perdu ventilé par jambe, reprise HOST selon E5, INSURER et TAX_THIRD_PARTY jamais réduites (TJ14) ;
+- règle 10 : ventilation en cascade entre opérations (moyens natif -> non natif -> cash -> promo ; jambes
+  HOST -> INSURER -> TAX -> PLATFORM) ; remboursements par moyen selon E2 (TJ15, TJ16) ;
+- règle 3 bis : variation sur une jambe HOST déjà libérée, avancée par PLATFORM, créance sur l'hôte (TJ18) ;
+- contrôles de forme : identifiant TJ dupliqué, écart de TJ10c écrit exactement dans la ligne.
 Les valeurs attendues sont calculées ici, puis comparées aux lignes « | TJxx | » écrites dans 08.
 Usage : python -I -X utf8 tools/check_legs.py [--print]   (--print : imprime les lignes calculées)
 Code retour 1 en cas d'écart.
@@ -186,9 +193,15 @@ EXPECTED["TJ10b"] = ("PYG", refJ)
 CROSS += [("TJ10 capture = illustration de l'analyse §c.3 (1 605 002)", capJ["TOTAL"], 1605002),
           ("TJ10 HOST capturé (750 001)", capJ["HOST"], 750001), ("TJ10 INSURER capturé (280 001)", capJ["INSURER"], 280001),
           ("TJ10 HOST retenu (égalité exacte 250 000,5 -> 250 000)", keptJ["HOST"], 250000)]
-# contre-exemple : prorata calculé par un PSP sur la jambe hôte (interdit)
-prorata_host = rhu(Fr(capJ["HOST"]) * (-refJ["TOTAL"]) / capJ["TOTAL"])     # débit de la jambe hôte au prorata
-EXPECTED["TJ10c"] = ("PYG", {"PRORATA_HOST": prorata_host, "ECART": prorata_host - (-refJ["HOST"])})
+# contre-exemple : ventilation au prorata par un PSP (interdite) : chaque jambe non plateforme débitée au prorata
+ratio = Fr(-refJ["TOTAL"], capJ["TOTAL"])
+pro = {k: -rhu(capJ[k] * ratio) for k in ("HOST", "INSURER", "TAX_THIRD_PARTY")}
+pro["PLATFORM"] = refJ["TOTAL"] - sum(pro.values())
+pro["TOTAL"] = refJ["TOTAL"]
+EXPECTED["TJ10c"] = ("PYG", pro)
+REFUNDS.add("TJ10c")
+ECART_TJ10C = -pro["HOST"] - (-refJ["HOST"])
+CROSS.append(("TJ10c écart prorata sur la jambe hôte (68 535)", ECART_TJ10C, 68535))
 
 capJ3, keptJ3, refJ3, _h, _g = capture_and("TJ11", J3, "VOLUNTARY", 1)
 EXPECTED["TJ11a"] = ("PYG", capJ3)
@@ -198,6 +211,192 @@ capK2, keptK2, refK2, _h, _g = capture_and("TJ12", K2, "NO_SHOW", Fr(3, 4))
 EXPECTED["TJ12a"] = ("USD", capK2)
 EXPECTED["TJ12b"] = ("USD", refK2)
 
+# ------------------------------------------------------------------ révision US-055 (revues) : TJ13 à TJ18
+LEGS4 = ("HOST", "INSURER", "TAX_THIRD_PARTY", "PLATFORM")
+REFUSED = set()      # captures refusées (LEG_AMOUNT_NEGATIVE) : PLATFORM < 0 attendu
+LOSSES = set()       # ventilation d'un chargeback perdu
+
+
+def mk(leg_vals):
+    d = dict(zip(LEGS4, leg_vals))
+    d["TOTAL"] = sum(leg_vals)
+    return d
+
+
+# TJ13 : refus d'une jambe négative à la capture (règle 5) ; plafond du code promo plateforme
+def promo_trip(cur, rate, P, PP, F, Pr):
+    return trip("promo", cur, 3, {"g": g1(rate, ["P", "PP", "PH", "F"])}, P=P, PP=PP, F=F, Pr=Pr)
+
+
+def cap_legs(t):
+    return legs(t, *settle(t, "CAPTURE")[:3])
+
+
+def max_promo(cur, rate, P, F, Pr):
+    """Promo plateforme la plus forte (la plus négative) qui laisse PLATFORM >= 0 à la capture
+    (dichotomie : PLATFORM est croissant en PP)."""
+    lo, hi = -P, 0
+    if cap_legs(promo_trip(cur, rate, P, lo, F, Pr))["PLATFORM"] >= 0:
+        return lo
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if cap_legs(promo_trip(cur, rate, P, mid, F, Pr))["PLATFORM"] >= 0:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
+PROMO_CASES = {"TJ13a": ("USD", "0.07", 10000, -9000, 1500, 3000), "TJ13c": ("PYG", "0.10", 1000000, -900000, 150000, 300000)}
+PROMO_MAX = {}  # promo plateforme maximale admise, imprimée avec --print
+for refused_id, ok_id in (("TJ13a", "TJ13b"), ("TJ13c", "TJ13d")):
+    cur, rate, P, PP, F, Pr = PROMO_CASES[refused_id]
+    EXPECTED[refused_id] = (cur, cap_legs(promo_trip(cur, rate, P, PP, F, Pr)))
+    REFUSED.add(refused_id)
+    m = max_promo(cur, rate, P, F, Pr)
+    PROMO_MAX[ok_id] = m
+    EXPECTED[ok_id] = (cur, cap_legs(promo_trip(cur, rate, P, m, F, Pr)))
+    CROSS.append((f"{ok_id} promo maximale − 1 unité => PLATFORM < 0",
+                  cap_legs(promo_trip(cur, rate, P, m - 1, F, Pr))["PLATFORM"] < 0, True))
+
+
+# TJ14 : chargeback perdu, ventilé par jambe (E5, E7 règle 7) : reprise sur HOST seule (formule E5),
+# INSURER et TAX_THIRD_PARTY jamais réduites ; le reste est à la charge de la plateforme.
+def chargeback(kept, collected, refund_committed, host_paid, lost):
+    owed = kept["TOTAL"]
+    after = min(max(collected - lost - refund_committed, 0), owed)
+    payable_after = 0 if owed == 0 else (kept["HOST"] * after) // owed
+    claw = max(0, host_paid - payable_after)
+    return mk([-claw, 0, 0, -(lost - claw)])
+
+
+EXPECTED["TJ14a"] = ("USD", chargeback(keptT03, 25666, 18744, 4500, 25666))      # T53
+CROSS.append(("TJ14a reprise = T53 (45,00)", -EXPECTED["TJ14a"][1]["HOST"], 4500))
+EXPECTED["TJ14b"] = ("USD", chargeback(capA, 25666, 0, 0, 25666))                 # trip réalisé, rien versé encore
+EXPECTED["TJ14c"] = ("PYG", chargeback(keptJ3, 1705002, 1283335, 250000, 1705002))
+LOSSES.update({"TJ14a", "TJ14b", "TJ14c"})
+
+
+# TJ15 / TJ16 : ventilation des jambes entre plusieurs instances (E7 règle 10) : moyens dans l'ordre
+# natif -> non natif -> crédit cash -> crédit promo ; jambes dans l'ordre HOST -> INSURER -> TAX_THIRD_PARTY -> PLATFORM.
+def cascade(leg_amounts, instances):
+    rest = {k: abs(leg_amounts[k]) for k in LEGS4}
+    sign = -1 if leg_amounts["TOTAL"] < 0 else 1
+    out = []
+    for amount in instances:
+        need, row = amount, {}
+        for k in LEGS4:
+            take = min(rest[k], need)
+            row[k] = sign * take
+            rest[k] -= take
+            need -= take
+        if need:
+            raise ValueError("instances > jambes")
+        row["TOTAL"] = sign * amount
+        out.append(row)
+    if any(rest.values()):
+        raise ValueError("jambes non épuisées")
+    return out
+
+
+def e2_refunds(paid, refund_total):
+    """E2 (première exécution) : K = Σ payé − refund_total absorbé promo -> cash -> non natif -> natif ;
+    renvoie les remboursements dans l'ordre natif, non natif, cash, promo (moyens présents)."""
+    K = sum(paid.values()) - refund_total
+    out = {}
+    for mth in ("promo", "cash", "nonnatif", "natif"):
+        a = min(K, paid.get(mth, 0))
+        out[mth] = paid.get(mth, 0) - a
+        K -= a
+    return [out[mth] for mth in ("natif", "nonnatif", "cash", "promo") if mth in paid]
+
+
+paid33 = {"natif": 15000, "nonnatif": 5666, "cash": 3000, "promo": 2000}        # T33 : carte, Yappy, cash, promo
+for sfx, row in zip("abcd", cascade(capA, [paid33[mth] for mth in ("natif", "nonnatif", "cash", "promo")])):
+    EXPECTED["TJ15" + sfx] = ("USD", row)
+r33 = e2_refunds(paid33, 18744)
+CROSS.append(("TJ16 remboursements par moyen = T33 (150,00 ; 37,44 ; 0 ; 0)", r33, [15000, 3744, 0, 0]))
+for sfx, row in zip("ab", cascade(refT03, [x for x in r33 if x])):
+    EXPECTED["TJ16" + sfx] = ("USD", row)
+    REFUNDS.add("TJ16" + sfx)
+rD = e2_refunds({"natif": 1000000, "cash": 438050}, 1000367)
+CROSS.append(("TJ16c-d remboursements par moyen (1 000 000 ; 367)", rD, [1000000, 367]))
+for sfx, row in zip("cd", cascade(refT27, rD)):
+    EXPECTED["TJ16" + sfx] = ("PYG", row)
+    REFUNDS.add("TJ16" + sfx)
+
+
+# TJ17 : encaissement partiel de quelques unités (E7 règle 4 révisée : remplissage HOST -> INSURER -> TAX dans la
+# limite du montant de l'ordre et de la cible cumulative floor(jambe x encaissé / owed) ; manque reporté ;
+# PLATFORM = reste >= 0 ; au solde, report restant soldé par réaffectation PLATFORM -> jambe).
+def partial_seq(leg_set, payments):
+    owed = leg_set["TOTAL"]
+    carried = {k: 0 for k in LEGS4}
+    c, out, naive_neg = 0, [], False
+    for amount in payments:
+        c1 = c + amount
+        tgt = {k: (leg_set[k] * c1) // owed for k in LEGS4[:3]}
+        naive = amount - sum(tgt[k] - (leg_set[k] * c) // owed for k in LEGS4[:3])
+        naive_neg = naive_neg or naive < 0
+        rest, row = amount, {}
+        for k in LEGS4[:3]:
+            inc = max(0, min(tgt[k] - carried[k], rest))
+            row[k] = inc
+            rest -= inc
+        row["PLATFORM"] = rest
+        row["TOTAL"] = amount
+        if c1 == owed:
+            for k in LEGS4[:3]:
+                gap = leg_set[k] - carried[k] - row[k]
+                row[k] += gap
+                row["PLATFORM"] -= gap
+        for k in LEGS4:
+            carried[k] += row[k]
+        c = c1
+        out.append(row)
+    return out, carried, naive_neg
+
+
+seqA, carA, negA = partial_seq(capA, [50, 1, 25666 - 51])
+for sfx, row in zip("abc", seqA):
+    EXPECTED["TJ17" + sfx] = ("USD", row)
+CROSS += [("TJ17a-c l'ancienne règle donnait un incrément PLATFORM négatif", negA, True),
+          ("TJ17a-c cumul = jambes TJ01", [carA[k] for k in LEGS4], [capA[k] for k in LEGS4])]
+J3_PAYMENTS = [6, 1, 1705002 - 7]
+seqJ, carJ, negJ = partial_seq(capJ3, J3_PAYMENTS)
+for sfx, row in zip("def", seqJ):
+    EXPECTED["TJ17" + sfx] = ("PYG", row)
+CROSS += [("TJ17d-f l'ancienne règle donnait un incrément PLATFORM négatif", negJ, True),
+          ("TJ17d-f cumul = jambes TJ11a", [carJ[k] for k in LEGS4], [capJ3[k] for k in LEGS4])]
+seq7, _c7, _n7 = partial_seq(keptT03, [3000, 3922])
+CROSS.append(("TJ07 inchangé par la règle 4 révisée", [seq7[i][k] for i in (0, 1) for k in LEGS4],
+              [EXPECTED[v][1][k] for v in ("TJ07a", "TJ07b") for k in LEGS4]))
+
+
+# TJ18 : variation négative sur une jambe HOST déjà libérée (règle 3 bis) : la plateforme avance le débit ;
+# créance sur l'hôte au host_ledger (SM-6b).
+def released(var):
+    out = dict(var)
+    out["PLATFORM"] = var["PLATFORM"] + var["HOST"]
+    out["HOST"] = 0
+    return out, -var["HOST"]
+
+
+keptT08 = legs(A, *settle(A, "FULL")[:3])
+varA = diff(keptT08, keptT05)                     # v1 = T05 exécutée (hôte versé), v2 = requalification FULL (T08)
+EXPECTED["TJ18a"] = ("USD", varA)
+exA, creA = released(varA)
+EXPECTED["TJ18b"] = ("USD", exA)
+CROSS += [("TJ18a complément au guest (118,44)", -varA["TOTAL"], 11844), ("TJ18b créance sur l'hôte (75,00)", creA, 7500)]
+retT41, taxT41, hT41, gT41 = settle(D, "NO_SHOW", 2)
+CROSS.append(("TJ18c v1 = T41 (hôte 518 750, remboursement 587 683)", (hT41, gT41), (518750, 587683)))
+varD = diff(legs(D, *settle(D, "FULL")[:3]), legs(D, retT41, taxT41, hT41))
+EXPECTED["TJ18c"] = ("PYG", varD)
+exD, creD = released(varD)
+EXPECTED["TJ18d"] = ("PYG", exD)
+CROSS.append(("TJ18d créance sur l'hôte (518 750)", creD, 518750))
+REFUNDS.update({"TJ18a", "TJ18b", "TJ18c", "TJ18d"})
+
 # ------------------------------------------------------------------ invariants
 for vid, (_cur, lg) in EXPECTED.items():
     if "TOTAL" not in lg:
@@ -205,7 +404,13 @@ for vid, (_cur, lg) in EXPECTED.items():
     s = lg["HOST"] + lg["INSURER"] + lg["TAX_THIRD_PARTY"] + lg["PLATFORM"]
     if s != lg["TOTAL"]:
         errors.append(f"{vid} : somme des jambes {s} != total {lg['TOTAL']}")
-    if vid not in REFUNDS:   # capture, encaissement : chaque jambe >= 0 ; REFUNDS = variations signées
+    if vid in REFUSED:       # capture refusée : la jambe PLATFORM serait négative
+        if not lg["PLATFORM"] < 0:
+            errors.append(f"{vid} : refus attendu, PLATFORM >= 0")
+    elif vid in LOSSES:      # chargeback perdu : INSURER et TAX_THIRD_PARTY jamais réduites, aucune jambe positive
+        if lg["INSURER"] or lg["TAX_THIRD_PARTY"] or lg["HOST"] > 0 or lg["PLATFORM"] > 0:
+            errors.append(f"{vid} : ventilation de chargeback non conforme")
+    elif vid not in REFUNDS:  # capture, encaissement : chaque jambe >= 0 ; REFUNDS = variations signées
         neg = [k for k in ("HOST", "INSURER", "TAX_THIRD_PARTY", "PLATFORM") if lg[k] < 0]
         if neg:
             errors.append(f"{vid} : jambe négative {neg}")
@@ -244,6 +449,7 @@ def parse(cur, s):
 COLS = ["HOST", "INSURER", "TAX_THIRD_PARTY", "PLATFORM", "TOTAL"]
 
 if "--print" in sys.argv:
+    print("PROMO_MAX", PROMO_MAX, "ECART_TJ10C", ECART_TJ10C)
     for vid, (cur, lg) in EXPECTED.items():
         if "TOTAL" in lg:
             print(vid, cur, " | ".join(fmt(cur, lg[c]) for c in COLS))
@@ -251,7 +457,11 @@ if "--print" in sys.argv:
             print(vid, cur, " | ".join(f"{k} {fmt(cur, v)}" for k, v in lg.items()))
 
 TXT = (ROOT / "08_BUSINESS_RULES.md").read_text(encoding="utf-8")
-rows = {m.group(1): m.group(0) for m in re.finditer(r"(?m)^\| (TJ\d\d[a-z]?) \|.*$", TXT)}
+rows = {}
+for mt in re.finditer(r"(?m)^\| (TJ\d\d[a-z]?) \|.*$", TXT):
+    if mt.group(1) in rows:
+        errors.append(f"identifiant TJ dupliqué dans 08 : {mt.group(1)}")
+    rows[mt.group(1)] = mt.group(0)
 print(f"\nLignes TJ trouvées dans 08 : {len(rows)} ; vecteurs calculés : {len(EXPECTED)}")
 for vid, (cur, lg) in EXPECTED.items():
     r = rows.get(vid)
@@ -274,13 +484,8 @@ for vid, (cur, lg) in EXPECTED.items():
               + ("" if ok else f" ; écrit {' / '.join(fmt(cur, v) for v in got)}"))
         if not ok:
             errors.append(vid)
-    else:
-        need = [fmt(cur, v) for v in lg.values()]
-        miss = [n for n in need if n not in r.replace(" ", " ").replace(" ", " ")]
-        print(f"  {'OK' if not miss else 'KO'} {vid} ({cur}) : prorata hôte {need[0]}, écart {need[1]}"
-              + (f" ; manquants {miss}" if miss else ""))
-        if miss:
-            errors.append(vid)
+if not re.search(r"(?m)^\| TJ10c \|.*écart de " + re.escape(fmt("PYG", ECART_TJ10C)) + r" PYG\b", TXT):
+    errors.append("TJ10c : l'écart de " + fmt("PYG", ECART_TJ10C) + " PYG n'est pas écrit dans la ligne")
 extra = sorted(set(rows) - set(EXPECTED))
 if extra:
     errors.append(f"lignes TJ non contrôlées : {extra}")

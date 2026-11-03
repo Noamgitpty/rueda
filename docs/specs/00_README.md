@@ -97,7 +97,7 @@ python -I -X utf8 tools/check_t49plus.py                   # T49–T65 (rédacte
 python -I -X utf8 tools/check_verif12_fixes.py             # corrections VERIF_12 (E2 incrémental, T66–T68 partiels) -> 0 écart
 python -I -X utf8 tools/check_t66_68.py                    # T66–T68 -> RÉSULTAT : OK
 python -I -X utf8 tools/check_ta_consolidation.py          # TA10, TA11 de 16 -> RÉSULTAT : OK
-python -I -X utf8 tools/check_legs.py                      # TJ01–TJ12, jambes explicites (08 E7, US-055) -> RÉSULTAT : OK
+python -I -X utf8 tools/check_legs.py                      # TJ01–TJ18, jambes explicites (08 E7, US-055) -> RÉSULTAT : OK
 python -I -X utf8 tools/verif15_ta.py                      # TA01–TA09 de 16 (auditeur VERIF_15) -> OK
 python -I -X utf8 tools/verify_cxl_tests.py                # historique (T01–T27) : imprime, n'asserte rien (déclassé) ; ne pas compter comme contrôle
 ```
