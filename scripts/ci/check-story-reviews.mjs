@@ -8,15 +8,18 @@
 //    une autre story (passation, revue) échoue, sauf story déclarée `related` ; un répertoire
 //    packages/<x>/ doit lister la story dans `pathOwners` (paquet absent : échec) ;
 //    les `sharedPaths` (BOARD, RESUME_HERE…) sont tolérés ;
-// 4. pour chaque story, `node scripts/team/check-reviews.mjs US-xxx --require <rôles> --base <base>`.
+// 4. pour chaque story, `node <ce dossier>/../team/check-reviews.mjs US-xxx --require <rôles> --base <base>
+//    --root <root> --exempt <sharedPaths et rapports / passations des stories de la branche>`.
 // Les règles sont lues sur la branche de base (une PR ne peut pas affaiblir son propre contrôle) ;
 // si la base n'a pas encore le fichier (amorçage), celui de HEAD est utilisé, avec un avertissement.
+// En CI, ce script et check-reviews.mjs sont eux-mêmes ceux de la base (copiés hors du dépôt) ;
+// `--root` désigne la pointe de la PR contrôlée (US-050).
 // Usage : node scripts/ci/check-story-reviews.mjs --branch <nom> [--base origin/main] [--root .]
 // Code de sortie : 0 si conforme, 1 sinon, 2 si usage invalide.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const CONFIG_PATH = 'docs/team/review-requirements.json';
 // story/US-002-integration-continue, story/US-001-US-029-socle, story/US-005 (minuscules, chiffres, tirets).
@@ -100,6 +103,21 @@ export function evaluateBranch({ branch, changedFiles, config }) {
   return { stories, errors };
 }
 
+// check-reviews.mjs voisin de CE fichier, jamais celui du dépôt contrôlé (`--root`) : la CI copie
+// les deux scripts depuis la branche de base et contrôle la pointe de la PR (US-050).
+export const CHECK_REVIEWS = fileURLToPath(new URL('../team/check-reviews.mjs', import.meta.url));
+
+// Chemins qui ne rendent pas une revue périmée, en plus des rapports et de la passation de la story
+// contrôlée : `sharedPaths`, rapports et passations des autres stories de la branche (plusieurs
+// stories : la revue de l'une ne périme pas celle de l'autre). Une virgule séparerait mal : refusée.
+export function reviewExempt(stories, config) {
+  const paths = [
+    ...(config.sharedPaths ?? []),
+    ...stories.flatMap((s) => [`docs/team/reviews/${s}/`, `docs/team/handoffs/${s}.md`]),
+  ];
+  return paths.filter((p) => !p.includes(','));
+}
+
 function git(root, args) {
   return execFileSync('git', ['-C', root, ...args], {
     encoding: 'utf8',
@@ -158,7 +176,7 @@ function main(argv) {
     const res = spawnSync(
       process.execPath,
       [
-        join(root, 'scripts', 'team', 'check-reviews.mjs'),
+        CHECK_REVIEWS,
         story,
         '--require',
         roles.join(','),
@@ -166,6 +184,8 @@ function main(argv) {
         base,
         '--root',
         root,
+        '--exempt',
+        reviewExempt(stories, config).join(','),
       ],
       { stdio: 'inherit' },
     );
