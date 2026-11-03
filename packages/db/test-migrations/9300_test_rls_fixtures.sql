@@ -125,13 +125,19 @@ CREATE FUNCTION test_fixture.rls_insert_trip_operation(
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   INSERT INTO core.payment_payment_operation
-         (id, trip_id, country_code, provider, kind, purpose, amount_minor, currency, attempt_no,
-          status, idem_plain, idem_sent)
-  SELECT p_operation_id, t.id, t.country_code, 'FAKE', 'CAPTURE', 'RENT', p_amount_minor, t.currency,
+         (id, trip_id, psp_account_id, country_code, provider, kind, purpose, amount_minor, currency,
+          attempt_no, status, idem_plain, idem_sent)
+  SELECT p_operation_id, t.id, test_fixture.fixture_psp_account(t.country_code), t.country_code,
+         'FAKE', 'CAPTURE', 'RENT', p_amount_minor, t.currency,
          1, 'SUCCEEDED', pg_catalog.format('trip:%s:op:%s', t.id, p_operation_id),
          pg_catalog.format('test:%s', p_operation_id)
     FROM core.booking_trip AS t
-   WHERE t.id = p_trip_id
+   WHERE t.id = p_trip_id;
+  -- US-023 (0036) : quatre jambes (fixture 9001)
+  SELECT test_fixture.fixture_operation_legs(p_operation_id, 'CAPTURE', t.org_id, t.id,
+                                             t.country_code, p_amount_minor)
+    FROM core.booking_trip AS t
+   WHERE t.id = p_trip_id;
 $fn$;
 
 CREATE FUNCTION test_fixture.rls_insert_support_case(

@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  commandCallSql,
   SESSION_SETTINGS,
   SET_SESSION_CONTEXT_SQL,
   SessionContextError,
@@ -144,6 +145,51 @@ describe('setSessionContext', () => {
         n,
         { 'app.actor_kind': 'HOST', 'app.actor_id': A, 'app.org_id': B }[n as string] ?? '',
       ]),
+    );
+  });
+});
+
+describe('commandCallSql (ADR-056 point 4, ADR-063 : un appel = une instruction)', () => {
+  it('contexte puis appel dans une seule instruction ; valeurs liées, aucune concaténée', () => {
+    const { text, values } = commandCallSql(
+      { kind: 'GUEST', actorId: A },
+      'core.booking_cmd_release_own_hold',
+      [{ value: B, type: 'uuid' }],
+    );
+    const n = SESSION_SETTINGS.length * 2;
+    expect(text).toBe(
+      `WITH ctx AS MATERIALIZED (${SET_SESSION_CONTEXT_SQL}) SELECT core.booking_cmd_release_own_hold($${n + 1}::uuid) AS result FROM ctx`,
+    );
+    expect(values).toHaveLength(n + 1);
+    expect(values.slice(0, 4)).toEqual(['app.actor_kind', 'GUEST', 'app.actor_id', A]);
+    expect(values.at(-1)).toBe(B);
+    expect(text).not.toContain(A);
+    expect(text).not.toContain(B);
+  });
+
+  it('plusieurs arguments typés, dans l’ordre', () => {
+    const { text, values } = commandCallSql({ kind: 'GUEST', actorId: A }, 'core.f', [
+      { value: B, type: 'uuid' },
+      { value: '2031-01-01T00:00:00Z', type: 'timestamptz' },
+      { value: true, type: 'boolean' },
+    ]);
+    const n = SESSION_SETTINGS.length * 2;
+    expect(text).toContain(`core.f($${n + 1}::uuid, $${n + 2}::timestamptz, $${n + 3}::boolean)`);
+    expect(values.slice(n)).toEqual([B, '2031-01-01T00:00:00Z', true]);
+  });
+
+  it('nom de commande ou type hors motif : refusé avant tout SQL ; contexte invalide aussi', () => {
+    const ctx = { kind: 'GUEST', actorId: A } as const;
+    for (const bad of ['f', 'core.f; DROP TABLE x', 'core.f()', 'Core.F', 'a.b.c']) {
+      expect(() => commandCallSql(ctx, bad, []), bad).toThrow(SessionContextError);
+    }
+    for (const bad of ['uuid); --', 'UUID', '', 'text[][]']) {
+      expect(() => commandCallSql(ctx, 'core.f', [{ value: 1, type: bad }]), bad).toThrow(
+        SessionContextError,
+      );
+    }
+    expect(() => commandCallSql({ kind: 'GUEST', actorId: 'pas-un-uuid' }, 'core.f', [])).toThrow(
+      SessionContextError,
     );
   });
 });

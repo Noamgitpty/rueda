@@ -228,6 +228,7 @@ DECLARE
   v_seed  text        := pg_catalog.gen_random_uuid()::text;
   v_now   timestamptz := platform.now();
   v_holds integer     := p_vehicles * p_holds_per_vehicle;
+  v_account uuid      := test_fixture.fixture_psp_account(p_country_code);
 BEGIN
   IF p_holds_per_vehicle < 10 OR p_vehicles * p_holds_per_vehicle > 2 * p_guests
      OR p_guests % p_holds_per_vehicle <> 0 THEN
@@ -282,16 +283,23 @@ BEGIN
             FROM pg_catalog.generate_series(0, v_holds - 1) AS i) AS s;
 
   INSERT INTO core.payment_payment_operation
-         (id, hold_id, country_code, provider, kind, purpose, amount_minor, currency, attempt_no,
-          status, idem_plain, idem_sent)
+         (id, hold_id, psp_account_id, country_code, provider, kind, purpose, amount_minor, currency,
+          attempt_no, status, idem_plain, idem_sent)
   SELECT pg_catalog.md5(v_seed || ':p:' || s.i)::uuid,
          pg_catalog.md5(v_seed || ':h:' || s.i)::uuid,
-         p_country_code, 'FAKE', 'CAPTURE', 'RENT', p_amount_minor, p_currency, 1,
+         v_account, p_country_code, 'FAKE', 'CAPTURE', 'RENT', p_amount_minor, p_currency, 1,
          CASE WHEN s.c <= 6 THEN 'FAILED' WHEN s.c = 7 THEN 'SUCCEEDED' ELSE 'PENDING' END,
          pg_catalog.format('l0:%s:%s', v_seed, s.i), pg_catalog.format('l0-sent:%s:%s', v_seed, s.i)
     FROM (SELECT i, (i % p_holds_per_vehicle) % 10 AS c
             FROM pg_catalog.generate_series(0, v_holds - 1) AS i) AS s
    WHERE s.c <> 8;
+  -- US-023 (0036) : quatre jambes par opération (HOST = montant), comme fixture_operation_legs
+  INSERT INTO core.payment_payment_operation_leg (operation_id, leg, org_id, trip_id, country_code, amount_minor)
+  SELECT pg_catalog.md5(v_seed || ':p:' || s.i)::uuid, l.leg, p_org_id, NULL, p_country_code,
+         CASE WHEN l.leg = 'HOST' THEN p_amount_minor ELSE 0 END
+    FROM pg_catalog.generate_series(0, v_holds - 1) AS s(i)
+   CROSS JOIN (VALUES ('HOST'), ('INSURER'), ('TAX_THIRD_PARTY'), ('PLATFORM')) AS l(leg)
+   WHERE (s.i % p_holds_per_vehicle) % 10 <> 8;
 
   INSERT INTO core.booking_hold_compensation (id, hold_id, reason, operation_id, action, status)
   SELECT pg_catalog.md5(v_seed || ':c:' || s.i)::uuid,

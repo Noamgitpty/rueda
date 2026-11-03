@@ -7,9 +7,11 @@
  * - deux holds vivants même guest / véhicule (`one_live_hold_per_guest_vehicle`) → `HOLD_ALREADY_LIVE` ;
  * - deux dispositions `CONVERSION` sur un hold (`one_conversion_per_hold`, N2) → `DUPLICATE_PAYMENT` ;
  *   et une seconde disposition pour la même opération (clé primaire, XOR) → `DISPOSITION_EXISTS`.
- * Rôles (17 §11) : `app_worker` (webhooks) ; `app_api` pour la pose (fixture qui tient lieu de
- * cmd_place_hold, US-023). Le 4ᵉ cas de 17 (deux `payment_operation_leg` de même jambe) arrive
- * avec la table des jambes (US-019 / US-023).
+ * Rôles (17 §11) : `app_worker` (webhooks) ; `app_api` pour la pose (fixture de mise en place ;
+ * la commande réelle `cmd_place_hold` est prouvée par l0-hold-commands, US-023). Le 4ᵉ cas de 17
+ * (deux `payment_operation_leg` de même jambe) est couvert par la clé primaire
+ * `payment_operation_leg_pkey` (US-019). Depuis US-023 (0036), `psp_account_id` de la boîte de
+ * réception est une clé étrangère : les comptes du test sont de vrais comptes.
  */
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
@@ -27,6 +29,7 @@ import {
   receiveProof,
   uuid,
 } from '../support/avl.ts';
+import { insertAccount } from '../support/pay.ts';
 
 const T0 = '2031-07-01T08:00:00.000Z';
 const START = '2031-07-05T08:00:00.000Z';
@@ -63,6 +66,18 @@ const inbox = (tx: pg.ClientBase, provider: string, account: string | null, dedu
   );
 
 describe('L0-08 — webhook_inbox : UNIQUE NULLS NOT DISTINCT', () => {
+  it('psp_account_id : clé étrangère vers payment_psp_account (US-023, 0036) ; compte inconnu refusé', async () => {
+    await withRole('app_worker', async (client) => {
+      const error = await failure(
+        inTx(client, { worker: 'webhook_ingest' }, (tx) =>
+          inbox(tx, 'FAKE', uuid(), `evt-${uuid()}`),
+        ),
+      );
+      expect(error).toMatchObject({ code: '23503', constraint: 'webhook_inbox_psp_account_fk' });
+      expect(translateDbError(error).code).toBe('INTERNAL_ERROR');
+    });
+  });
+
   it('index webhook_inbox_dedup déclaré NULLS NOT DISTINCT sur (provider, psp_account_id, dedup_key)', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{ nnd: boolean; cols: string }>(
@@ -94,11 +109,15 @@ describe('L0-08 — webhook_inbox : UNIQUE NULLS NOT DISTINCT', () => {
   it('doublon à psp_account_id renseigné : 23505 ; clé, compte ou fournisseur différents : acceptés', async () => {
     await withRole('app_worker', async (client) => {
       const dedup = `evt-${uuid()}`;
-      const account = uuid();
+      // US-023 (0036) : psp_account_id est une clé étrangère ; comptes réels (droit de test 9500)
+      const country = (COUNTRIES[0] as { country: string }).country;
+      let account = '';
       await inTx(client, { worker: 'webhook_ingest', commit: true }, async (tx) => {
+        account = await insertAccount(tx, { country, status: 'PENDING_VALIDATION' });
+        const other = await insertAccount(tx, { country, status: 'PENDING_VALIDATION' });
         await inbox(tx, 'FAKE', account, dedup);
         await inbox(tx, 'FAKE', null, dedup); // compte nul ≠ compte renseigné
-        await inbox(tx, 'FAKE', uuid(), dedup); // autre compte
+        await inbox(tx, 'FAKE', other, dedup); // autre compte
         await inbox(tx, 'FAKE_TWO', account, dedup); // autre fournisseur
         await inbox(tx, 'FAKE', account, `${dedup}-2`); // autre clé
       });

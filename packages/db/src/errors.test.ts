@@ -38,6 +38,19 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23514', 'period_valid', 'INVALID_PERIOD'],
     ['55000', 'occupancy_buffer_trip_state', 'INVALID_TRANSITION'],
     ['55000', 'occupancy_buffer_param_missing', 'PARAM_MISSING'],
+    // commandes de hold (0035, US-023)
+    ['42501', 'hold_forbidden', 'FORBIDDEN'],
+    ['55000', 'hold_vehicle_unknown', 'VEHICLE_UNAVAILABLE'],
+    ['55000', 'hold_host_not_active', 'HOST_NOT_ACTIVATED'],
+    ['55000', 'hold_self_booking', 'SELF_BOOKING_FORBIDDEN'],
+    ['55000', 'hold_param_missing', 'PARAM_MISSING'],
+    ['55000', 'hold_guest_limit', 'HOLD_LIMIT_REACHED'],
+    ['55000', 'hold_guest_overlap', 'GUEST_OVERLAP'],
+    ['55000', 'hold_rate_limited', 'HOLD_RATE_LIMITED'],
+    ['55000', 'hold_release_terminal', 'INVALID_TRANSITION'],
+    ['23000', 'hold_guarded_columns', 'IMMUTABLE_RECORD'],
+    ['23000', 'booking_record_no_delete', 'IMMUTABLE_RECORD'],
+    ['23514', 'hold_review_before_payment', 'BOOKING_UNDER_REVIEW'],
   ])('%s sur %s → %s, sans détail', (code, constraint, expected) => {
     const translated = translateDbError(pgError({ code, constraint }));
     expect(translated).toEqual({ code: expected, retryable: false });

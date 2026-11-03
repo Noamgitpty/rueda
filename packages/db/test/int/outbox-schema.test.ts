@@ -140,6 +140,11 @@ describe('schéma outbox (US-008)', () => {
           expect(r.roles, r.pol).toBe('migrator');
           continue;
         }
+        // commandes de hold (0035, US-023) : insertion de leurs seuls événements booking.hold.*
+        if (r.pol === 'outbox_outbox_event.cmd_hold_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
         expect(['app_api', 'app_worker'], r.pol).toContain(r.roles);
         expect(['r', 'a', 'w'], r.pol).toContain(r.cmd);
       }
