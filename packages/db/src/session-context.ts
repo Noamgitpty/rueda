@@ -157,3 +157,45 @@ export async function setSessionContext(client: Queryable, ctx: SessionContext):
     SESSION_SETTINGS.flatMap((name) => [name, settings[name]]),
   );
 }
+
+/** Argument lié d'une commande : valeur et type SQL du paramètre (`uuid`, `timestamptz`…). */
+export interface CommandArg {
+  readonly value: unknown;
+  readonly type: string;
+}
+
+const COMMAND_NAME = /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/;
+const SQL_TYPE = /^[a-z][a-z0-9_ ]*(\[\])?$/;
+
+/**
+ * Forme d'appel « un appel = une instruction » (ADR-056 point 4, ADR-063) : le contexte `app.*`
+ * et l'appel de la commande dans UNE instruction, exécutable en autocommit. La CTE matérialisée
+ * pose le contexte (`set_config(…, true)`, local à la transaction implicite de l'instruction)
+ * avant que la ligne qu'elle produit ne déclenche l'appel ; l'erreur éventuelle termine la
+ * transaction sur le serveur, qui rend aussitôt les verrous de la commande.
+ *
+ * Nom de commande et types validés par motif (jamais de SQL fourni par un client) ; toutes les
+ * valeurs sont des paramètres liés. Résultat de la commande dans la colonne `result`.
+ */
+export function commandCallSql(
+  ctx: SessionContext,
+  command: string,
+  args: readonly CommandArg[],
+): { readonly text: string; readonly values: unknown[] } {
+  if (typeof command !== 'string' || !COMMAND_NAME.test(command)) {
+    throw new SessionContextError('commande : schéma.nom attendu');
+  }
+  for (const a of args) {
+    if (typeof a.type !== 'string' || !SQL_TYPE.test(a.type)) {
+      throw new SessionContextError('commande : type SQL attendu');
+    }
+  }
+  const settings = sessionSettings(ctx);
+  const contextValues = SESSION_SETTINGS.flatMap((name) => [name, settings[name]]);
+  const offset = contextValues.length;
+  const params = args.map((a, i) => `$${offset + i + 1}::${a.type}`).join(', ');
+  return {
+    text: `WITH ctx AS MATERIALIZED (${SET_SESSION_CONTEXT_SQL}) SELECT ${command}(${params}) AS result FROM ctx`,
+    values: [...contextValues, ...args.map((a) => a.value)],
+  };
+}

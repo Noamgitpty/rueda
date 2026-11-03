@@ -14,12 +14,15 @@
  *   avec verrou, 0 `40P01` ; entrelacements forcés dans les deux ordres ;
  * - annulation de trip concurrente d'une pose sur le créneau libéré : l'annulation prend guest →
  *   véhicule → trip sans interblocage ; la pose qui attendait obtient le créneau.
- * Rôles (17 §11) : `app_api` (pose par la fixture qui tient lieu de `cmd_place_hold`, US-023),
- * `app_worker` (conversion `booking_conversion`, annulation `trip_lifecycle`). En USD (PA) et en
- * PYG (PY). C1 tourne **sans horloge virtuelle** (`platform.now()` réel, 17 §11 L0-06).
+ * Rôles (17 §11) : `app_api` (pose par la commande RÉELLE `core.booking_cmd_place_hold` sous
+ * `cmd_hold_owner` depuis US-023, ADR-063 ; la fixture `l0_place_hold` ne sert plus qu'à
+ * l'injection « sans verrou », que la commande ne permet pas), `app_worker` (conversion
+ * `booking_conversion`, annulation `trip_lifecycle`). En USD (PA) et en PYG (PY). C1 tourne
+ * **sans horloge virtuelle** (`platform.now()` réel, 17 §11 L0-06).
  */
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
+import { setSessionContext } from '../../src/index.ts';
 import { BENCH_DEADLOCK_TIMEOUT, connectAs, releaseClient } from '../../src/testing/index.ts';
 import {
   at,
@@ -45,10 +48,12 @@ import {
   lockGuestThenVehicle,
   percentile,
   lockHolds,
+  placeHoldCommand,
   placeHoldLocked,
   placeHoldTimedInTx,
   placeHoldTransactional,
   POSE_P95_MS,
+  registerVehicles,
   sqlState,
   waitUntilBlocked,
   withReplay,
@@ -338,7 +343,12 @@ async function runC1(
     const slot = realSlot();
     const period = slotPeriod(slot);
     const guests = Array.from({ length: degree }, () => uuid());
-    await inTx(observer, { commit: true }, (tx) => ensureParties(tx, guests, slot.orgId, c));
+    // véhicule de la course et un véhicule de chauffe par connexion, au registre de test (9750)
+    const warmVehicles = guests.map(() => uuid());
+    await inTx(observer, { commit: true }, async (tx) => {
+      await ensureParties(tx, guests, slot.orgId, c);
+      await registerVehicles(tx, [slot.vehicleId, ...warmVehicles], slot.orgId, c);
+    });
     // après inTx (RESET ALL) : nom lu par le diagnostic des bloqueurs
     const dt = await observer.query<{ value: string }>(
       `SELECT pg_catalog.set_config('application_name', 'l0-02 observateur', false),
@@ -360,14 +370,18 @@ async function runC1(
         posers.map((client, i) =>
           inTx(client, {}, async (tx) => {
             const warm = {
-              slot: { ...slot, vehicleId: uuid() },
+              slot: { ...slot, vehicleId: warmVehicles[i] as string },
               c,
               guestId: guests[i] as string,
               period,
               vehicleLock,
             };
-            if (form === 'autocommit') await placeHoldLocked(tx, warm);
-            else await placeHoldTimedInTx(tx, warm);
+            if (!vehicleLock) await placeHoldLocked(tx, warm);
+            else if (form === 'autocommit') await placeHoldCommand(tx, warm);
+            else {
+              await setSessionContext(tx, { kind: 'GUEST', actorId: warm.guestId });
+              await placeHoldTimedInTx(tx, warm);
+            }
           }),
         ),
       );
@@ -380,9 +394,11 @@ async function runC1(
         const args = { slot, c, guestId: guests[i] as string, period, vehicleLock };
         return withReplay<unknown>(() =>
           form === 'autocommit'
-            ? // un appel de commande = une instruction en autocommit : la transaction (et ses
-              // verrous) se termine sur le serveur
-              placeHoldLocked(client, args)
+            ? // un appel de commande = une instruction en autocommit (contexte compris,
+              // commandCallSql) : la transaction (et ses verrous) se termine sur le serveur
+              vehicleLock
+              ? placeHoldCommand(client, args)
+              : placeHoldLocked(client, args)
             : placeHoldTransactional(client, args, timings),
         );
       });
@@ -616,14 +632,17 @@ async function c16Race(
   const poseRun = (async () => {
     await barrier.wait(api);
     return withReplay(() =>
-      inTx(api, { virtualNow: RACE_AT, commit: true }, (tx) =>
-        placeHoldLocked(tx, {
-          slot: s.a.slot,
-          c,
-          guestId: s.guestB,
-          period: slotPeriod(s.a.slot),
-          vehicleLock,
-        }),
+      inTx<unknown>(api, { virtualNow: RACE_AT, commit: true }, (tx) =>
+        // avec verrou : la commande réelle ; sans verrou : l'injection (fixture 9002)
+        vehicleLock
+          ? placeHoldCommand(tx, { slot: s.a.slot, guestId: s.guestB })
+          : placeHoldLocked(tx, {
+              slot: s.a.slot,
+              c,
+              guestId: s.guestB,
+              period: slotPeriod(s.a.slot),
+              vehicleLock,
+            }),
       ),
     );
   })();
@@ -683,13 +702,7 @@ describe.each(COUNTRIES)(
             await lockGuestThenVehicle(tx, s.a.guestId, s.a.slot.vehicleId);
             poseRun = withReplay(() =>
               inTx(api as pg.Client, { virtualNow: RACE_AT, commit: true }, (tx2) =>
-                placeHoldLocked(tx2, {
-                  slot: s.a.slot,
-                  c,
-                  guestId: s.guestB,
-                  period: slotPeriod(s.a.slot),
-                  vehicleLock: true,
-                }),
+                placeHoldCommand(tx2, { slot: s.a.slot, guestId: s.guestB }),
               ),
             );
             await waitUntilBlocked(observer as pg.Client, apiPid);
@@ -723,13 +736,7 @@ describe.each(COUNTRIES)(
             ),
           );
           await waitUntilBlocked(observer as pg.Client, workerPid);
-          return placeHoldLocked(tx, {
-            slot: s.a.slot,
-            c,
-            guestId: s.guestB,
-            period: slotPeriod(s.a.slot),
-            vehicleLock: true,
-          });
+          return placeHoldCommand(tx, { slot: s.a.slot, guestId: s.guestB });
         });
         const conv = await (convRun as Promise<Replayed<{ kind: string; reason?: string }>>);
         expect(conv.deadlocks).toBe(0);
@@ -806,13 +813,7 @@ describe.each(COUNTRIES)(
             await lockGuestThenVehicle(tx, b.guestId, b.slot.vehicleId);
             poseRun = withReplay(() =>
               inTx(api as pg.Client, { virtualNow: CANCEL_AT, commit: true }, (tx2) =>
-                placeHoldLocked(tx2, {
-                  slot: b.slot,
-                  c,
-                  guestId: b.guestB,
-                  period: slotPeriod(b.slot),
-                  vehicleLock: true,
-                }),
+                placeHoldCommand(tx2, { slot: b.slot, guestId: b.guestB }),
               ),
             );
             await waitUntilBlocked(observer as pg.Client, apiPid);
@@ -848,13 +849,7 @@ describe.each(COUNTRIES)(
               ),
             );
             await waitUntilBlocked(observer as pg.Client, workerPid);
-            return placeHoldLocked(tx, {
-              slot: b.slot,
-              c,
-              guestId: b.guestB,
-              period: slotPeriod(b.slot),
-              vehicleLock: true,
-            });
+            return placeHoldCommand(tx, { slot: b.slot, guestId: b.guestB });
           });
         } catch (error) {
           poseError = error;
@@ -892,13 +887,7 @@ describe.each(COUNTRIES)(
               await barrier.wait(api as pg.Client);
               return withReplay(() =>
                 inTx(api as pg.Client, { virtualNow: CANCEL_AT, commit: true }, (tx) =>
-                  placeHoldLocked(tx, {
-                    slot: b.slot,
-                    c,
-                    guestId: b.guestB,
-                    period: slotPeriod(b.slot),
-                    vehicleLock: true,
-                  }),
+                  placeHoldCommand(tx, { slot: b.slot, guestId: b.guestB }),
                 ),
               );
             })();

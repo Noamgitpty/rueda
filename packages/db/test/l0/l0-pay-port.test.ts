@@ -457,7 +457,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
       amountMinor: bigint,
       legs: Record<string, bigint> | null,
       withAccount = true,
-    ): Promise<{ code?: string; constraint?: string } | null> => {
+    ): Promise<{ code?: string; constraint?: string; column?: string } | null> => {
       try {
         await withRole('app_worker', (client) =>
           payTx(client, { commit: true }, async (tx) => {
@@ -480,7 +480,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
           }),
         );
       } catch (error) {
-        return error as { code?: string; constraint?: string };
+        return error as { code?: string; constraint?: string; column?: string };
       }
       return null;
     };
@@ -503,17 +503,21 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
       expect(translateDbError(err).code).toBe('LEG_AMOUNT_NEGATIVE');
     });
 
-    it('jambes incomplètes, absentes, sur un VOID ou sans compte PSP ⇒ refus au COMMIT', async () => {
+    it('jambes incomplètes, absentes ou sur un VOID ⇒ refus au COMMIT ; sans compte PSP ⇒ refus immédiat (NOT NULL, US-023)', async () => {
       const { TAX_THIRD_PARTY: _t, ...three } = legs;
       expect(_t).toBe(capture.legs.TAX_THIRD_PARTY);
       for (const err of [
         await rawCommit('CAPTURE', capture.amountMinor, three),
         await rawCommit('CAPTURE', capture.amountMinor, {}),
         await rawCommit('VOID', capture.amountMinor, legs),
-        await rawCommit('CAPTURE', capture.amountMinor, legs, false),
       ]) {
         expect(err).toMatchObject({ code: '23000', constraint: 'payment_operation_legs_complete' });
       }
+      // 0038 (report US-019) : toute opération porte son compte PSP
+      expect(await rawCommit('CAPTURE', capture.amountMinor, legs, false)).toMatchObject({
+        code: '23502',
+        column: 'psp_account_id',
+      });
     });
 
     it('réaffectation : Σ ≠ 0 ⇒ refus ; Σ = 0 et montant = Σ des crédits ⇒ accepté', async () => {

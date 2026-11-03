@@ -26,7 +26,10 @@
  *   `PSP_ACCOUNT_INACTIVE`, `PAYMENT_SUBJECT_MISMATCH` : PROPOSÉS par US-019 (migration 0028, ADR-059) ;
  * - `FORBIDDEN` : 17 §2.5 (US-060, « sans révéler l'état »), 16 A.8 ; `PARAM_MISSING` : 17 §7.1 ;
  *   `INVALID_PERIOD` : PROPOSÉ par US-022 (période d'occupation mal formée ; migration 0032,
- *   ADR-060).
+ *   ADR-060) ;
+ * - `HOLD_LIMIT_REACHED`, `SELF_BOOKING_FORBIDDEN`, `BOOKING_UNDER_REVIEW` : 16 fiche BKG-014 ;
+ *   `HOST_NOT_ACTIVATED` : 16 fiche BKG-012 ; `HOLD_RATE_LIMITED` : 17 §2.5 (M5, 429) — commandes
+ *   de hold d'US-023 (migration 0037, ADR-063).
  */
 
 /** Codes métier produits par la traduction. */
@@ -56,6 +59,11 @@ export const DB_BUSINESS_CODES = [
   'FORBIDDEN',
   'INVALID_PERIOD',
   'PARAM_MISSING',
+  'HOLD_LIMIT_REACHED',
+  'HOLD_RATE_LIMITED',
+  'HOST_NOT_ACTIVATED',
+  'SELF_BOOKING_FORBIDDEN',
+  'BOOKING_UNDER_REVIEW',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -81,7 +89,8 @@ export const SQLSTATE = {
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028` et `0032`.
+ * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`
+ * et `0037`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -166,6 +175,19 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   period_valid: [SQLSTATE.checkViolation, 'INVALID_PERIOD'],
   occupancy_buffer_trip_state: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   occupancy_buffer_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
+  // holds de checkout et commandes de réservation (0037, US-023)
+  hold_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  hold_vehicle_unknown: [SQLSTATE.objectNotInPrerequisiteState, 'VEHICLE_UNAVAILABLE'],
+  hold_host_not_active: [SQLSTATE.objectNotInPrerequisiteState, 'HOST_NOT_ACTIVATED'],
+  hold_self_booking: [SQLSTATE.objectNotInPrerequisiteState, 'SELF_BOOKING_FORBIDDEN'],
+  hold_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
+  hold_guest_limit: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_LIMIT_REACHED'],
+  hold_guest_overlap: [SQLSTATE.objectNotInPrerequisiteState, 'GUEST_OVERLAP'],
+  hold_rate_limited: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_RATE_LIMITED'],
+  hold_release_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  hold_guarded_columns: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  booking_record_no_delete: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  hold_review_before_payment: [SQLSTATE.checkViolation, 'BOOKING_UNDER_REVIEW'],
 };
 
 const own = (value: object, key: string): unknown =>
