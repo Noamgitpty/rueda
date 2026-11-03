@@ -289,8 +289,18 @@ describe('US-009 — journal d’audit chaîné (17 §1.7, ADM-001)', () => {
     await withRole('app_worker', async (client) => {
       await auditTx(client, { actor: VERIFIER }, async (tx) => {
         const result = await verifyChainIn(tx);
-        expect(result.ok ? 'ok' : JSON.stringify(result.break)).toBe('ok');
-        const { rows } = await readChain(tx);
+        const { rows, head } = await readChain(tx);
+        expect(
+          result.ok
+            ? 'ok'
+            : JSON.stringify({
+                b: result.break,
+                head: head.lastId,
+                ids: rows
+                  .slice(0, 14)
+                  .map((r) => `${r.id}:${r.actionCode}:${r.actorRole}:${r.atUs}`),
+              }),
+        ).toBe('ok');
         const mine = rows.filter((r) => requestIds.includes(r.requestId ?? ''));
         expect(mine).toHaveLength(n);
         if (result.ok)
