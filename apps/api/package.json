@@ -24,6 +24,7 @@
   "devDependencies": {
     "@rueda/config": "workspace:*",
     "@rueda/db": "workspace:*",
+    "@rueda/fake-adapters": "workspace:*",
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
     "typescript": "6.0.3",

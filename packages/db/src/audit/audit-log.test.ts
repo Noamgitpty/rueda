@@ -58,7 +58,7 @@ const entry = (over: Partial<AuditEntry> = {}): AuditEntry => ({
 describe('appendAuditLog', () => {
   it('IP chiffrée avec la clé du sujet acteur (USER:<acteur>), jamais transmise en clair', async () => {
     const db = captureDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     expect(await appendAuditLog(db, keys, entry())).toEqual({ c2Withheld: false });
     const params = db.audits[0]!;
     expect(JSON.stringify(params)).not.toContain('203.0.113.7');
@@ -72,7 +72,7 @@ describe('appendAuditLog', () => {
 
   it('KMS injoignable : ligne écrite quand même, sans IP, c2_withheld = true', async () => {
     const db = captureDb();
-    const kms = new FakeKeyWrapper({});
+    const kms = new FakeKeyWrapper();
     kms.setAvailable(false);
     const keys = new SubjectKeyStore(kms);
     expect(await appendAuditLog(db, keys, entry())).toEqual({ c2Withheld: true });
@@ -83,7 +83,7 @@ describe('appendAuditLog', () => {
 
   it('sans IP : aucune clé créée ni lue', async () => {
     const db = captureDb();
-    const kms = new FakeKeyWrapper({});
+    const kms = new FakeKeyWrapper();
     const keys = new SubjectKeyStore(kms);
     const { ip, ...withoutIp } = entry();
     expect(ip).toBeDefined();
@@ -106,14 +106,14 @@ describe('appendAuditLog', () => {
     ['IP d’un acteur système', { actorUserId: null }],
   ])('refus avant écriture : %s', async (_name, over) => {
     const db = captureDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     await expect(appendAuditLog(db, keys, entry(over))).rejects.toBeInstanceOf(AuditEntryError);
     expect(db.audits).toHaveLength(0);
   });
 
   it('pas de faux positif sur une heure, un UUID ou un instant ISO ; profondeur bornée', async () => {
     const db = captureDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     const ok = entry({
       after: { at: '2031-07-01T08:00:00.000Z', time: '08:00:00', ref: TRIP },
       reason: 'à 10:30:00',
@@ -128,9 +128,9 @@ describe('appendAuditLog', () => {
 
   it('enveloppe de clé rejetée par le KMS (clé empoisonnée ou autre clé maîtresse) : c2_withheld, pas d’exception', async () => {
     const db = captureDb();
-    await appendAuditLog(db, new SubjectKeyStore(new FakeKeyWrapper({})), entry());
+    await appendAuditLog(db, new SubjectKeyStore(new FakeKeyWrapper()), entry());
     // un autre KMS ne déroule pas la clé déjà stockée pour ce sujet
-    const other = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const other = new SubjectKeyStore(new FakeKeyWrapper());
     expect(await appendAuditLog(db, other, entry())).toEqual({ c2Withheld: true });
     const params = db.audits[1]!;
     expect([params[8], params[9], params[10], params[11]]).toEqual([null, null, null, true]);
@@ -138,7 +138,7 @@ describe('appendAuditLog', () => {
 
   it('un message d’erreur ne recopie pas la valeur refusée', async () => {
     const db = captureDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     const error = await appendAuditLog(db, keys, entry({ after: { c: 'ana@example.com' } })).catch(
       (e: unknown) => e,
     );

@@ -12,6 +12,8 @@ export function databaseSuite(include: string[]): ViteUserConfig {
       testTimeout: 30_000,
       hookTimeout: 120_000,
       teardownTimeout: 60_000,
+      // les adaptateurs FAKE (US-020) refusent de se construire hors development / test (C19)
+      env: { RUEDA_ENV: 'test' },
     },
   });
 }
