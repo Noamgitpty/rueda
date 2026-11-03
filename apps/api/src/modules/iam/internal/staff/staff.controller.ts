@@ -1,7 +1,7 @@
 /**
  * Routes de la console interne côté IAM (préfixe `/staff`, US-012). Le back-office (domaine
  * distinct) les appelle par son mandataire de même origine ; le jeton reste dans le cookie
- * `__Host-session`. Corps d'erreur : `{ code, messageKey, values? }` (texte es / en / fr côté client).
+ * `__Host-session`. Corps d'erreur : `{ code, messageKey, values? }` (texte es / en / fr / pt côté client).
  *
  * | Route                                 | Garde        | Réponse                                         |
  * | ------------------------------------- | ------------ | ----------------------------------------------- |

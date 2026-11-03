@@ -85,8 +85,12 @@ export function assertBrandName(name: unknown): string {
 }
 
 // ---- Contenus ---------------------------------------------------------------------------------
-/** Langues d'un bloc : toujours les trois (US-060, exigence trilingue du fondateur). */
-export const CONTENT_LOCALES = ['es', 'en', 'fr'] as const;
+/**
+ * Langues d'un bloc : toujours les quatre (US-060 ; DEC-FONDATEUR-17 et 18 : es, en, fr, pt-BR).
+ * Même liste que `CATALOG_LANGUAGES` de `@rueda/i18n` (test de parité) et que les CHECK de la
+ * base (migration 0044).
+ */
+export const CONTENT_LOCALES = ['es', 'en', 'fr', 'pt'] as const;
 export type ContentLocale = (typeof CONTENT_LOCALES)[number];
 
 const BLOCK_KEY = /^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){1,5}$/;
@@ -120,7 +124,7 @@ export function bodyProblem(body: string): string | null {
   return null;
 }
 
-/** Trois langues présentes et conformes ; rend les corps dans l'ordre es, en, fr. */
+/** Quatre langues présentes et conformes ; rend les corps dans l'ordre es, en, fr, pt. */
 export function assertBodies(raw: unknown): Record<ContentLocale, string> {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new BrandError('REQUEST_INVALID');
@@ -140,5 +144,10 @@ export function assertBodies(raw: unknown): Record<ContentLocale, string> {
     return p === null ? [] : [`${l} : ${p}`];
   });
   if (problems.length > 0) throw new BrandError('CONTENT_MARKDOWN_FORBIDDEN', { problems });
-  return { es: r['es'] as string, en: r['en'] as string, fr: r['fr'] as string };
+  return {
+    es: r['es'] as string,
+    en: r['en'] as string,
+    fr: r['fr'] as string,
+    pt: r['pt'] as string,
+  };
 }

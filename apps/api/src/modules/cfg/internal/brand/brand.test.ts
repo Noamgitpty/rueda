@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { PALETTE_IDS, paletteDocument } from '@rueda/design-tokens';
+import { CATALOG_LANGUAGES } from '@rueda/i18n';
 import { InMemoryFileStore } from '@rueda/fake-adapters/files';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BrandModule } from './brand.module.js';
@@ -20,6 +21,7 @@ import type { BrandOptions } from './brand.service.js';
 import {
   assertBlockKey,
   assertBodies,
+  CONTENT_LOCALES,
   bodyProblem,
   contrastReport,
   themeOf,
@@ -304,6 +306,11 @@ describe('contrôles (US-030 réutilisé, polices, contenu)', () => {
     expect((e?.details?.['problems'] as string[]).length).toBeGreaterThan(0);
   });
 
+  it('langues des blocs = langues de catalogue de @rueda/i18n (es, en, fr, pt ; DEC-FONDATEUR-18)', () => {
+    expect([...CONTENT_LOCALES]).toEqual([...CATALOG_LANGUAGES]);
+    expect([...CONTENT_LOCALES]).toEqual(['es', 'en', 'fr', 'pt']);
+  });
+
   it('clés : legal.* refusée (CONTENT_KEY_FORBIDDEN), format strict', () => {
     expect(assertBlockKey('home.hero.title')).toBe('home.hero.title');
     expect(() => assertBlockKey('legal.terms')).toThrow(/CONTENT_KEY_FORBIDDEN/);
@@ -312,17 +319,26 @@ describe('contrôles (US-030 réutilisé, polices, contenu)', () => {
     }
   });
 
-  it('corps : trois langues exigées (CONTENT_BLOCK_REQUIRED_MISSING), Markdown restreint', () => {
+  it('corps : quatre langues exigées (CONTENT_BLOCK_REQUIRED_MISSING), Markdown restreint', () => {
     expect(() => assertBodies({ es: 'Hola', en: 'Hello' })).toThrow(
-      /CONTENT_BLOCK_REQUIRED_MISSING.*fr/,
+      /CONTENT_BLOCK_REQUIRED_MISSING.*fr.*pt/,
     );
-    expect(() => assertBodies({ es: 'Hola', en: 'Hello', fr: 'Salut', de: 'Hallo' })).toThrow(
-      /REQUEST_INVALID/,
+    expect(() => assertBodies({ es: 'Hola', en: 'Hello', fr: 'Salut' })).toThrow(
+      /CONTENT_BLOCK_REQUIRED_MISSING.*pt/,
     );
+    expect(() =>
+      assertBodies({ es: 'Hola', en: 'Hello', fr: 'Salut', pt: 'Olá', de: 'Hallo' }),
+    ).toThrow(/REQUEST_INVALID/);
     expect(
-      assertBodies({ es: 'Ver [ayuda](/ayuda)', en: 'See [help](#help)', fr: 'Voir **ici**.' }),
+      assertBodies({
+        es: 'Ver [ayuda](/ayuda)',
+        en: 'See [help](#help)',
+        fr: 'Voir **ici**.',
+        pt: 'Veja [ajuda](/ajuda)',
+      }),
     ).toMatchObject({
       es: 'Ver [ayuda](/ayuda)',
+      pt: 'Veja [ajuda](/ajuda)',
     });
     for (const [body, label] of [
       ['<script>x</script>', 'balise HTML'],
@@ -427,6 +443,7 @@ describe('BrandConsoleService : le contrôle précède la base', () => {
         es: 'Hola',
         en: 'Hello',
         fr: 'Salut',
+        pt: 'Olá',
       }),
     ).rejects.toMatchObject({ outcome: 'FORBIDDEN' });
   });
@@ -434,7 +451,7 @@ describe('BrandConsoleService : le contrôle précède la base', () => {
   it('actif : type réel exigé (un SVG déclaré PNG est refusé), dépôt après la ligne en base', async () => {
     const { store, console, options } = setup();
     const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>', 'utf8');
-    const alt = { es: 'Logotipo', en: 'Logo', fr: 'Logo' };
+    const alt = { es: 'Logotipo', en: 'Logo', fr: 'Logo', pt: 'Logotipo' };
     await expect(
       console.registerAsset(HASH, {
         requestId: id(),
@@ -445,8 +462,8 @@ describe('BrandConsoleService : le contrôle précède la base', () => {
       }),
     ).rejects.toThrow(/BRAND_ASSET_INVALID/);
     const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(16)]);
-    // chaque langue, une à une : absente puis vide => refus nommant la langue (trilingue)
-    for (const locale of ['es', 'en', 'fr'] as const) {
+    // chaque langue, une à une : absente puis vide => refus nommant la langue (quatre langues)
+    for (const locale of ['es', 'en', 'fr', 'pt'] as const) {
       for (const value of [undefined, '   ']) {
         const partial: Record<string, string | undefined> = { ...alt, [locale]: value };
         const e = await rejection(

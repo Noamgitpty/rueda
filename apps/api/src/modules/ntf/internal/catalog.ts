@@ -6,7 +6,7 @@
  *
  * - Un **gabarit** déclare ses variables (nom, origine, type : 10b UX-59) et ses canaux, chacun
  *   avec son canal de repli. Ses textes sont dans `@rueda/i18n` sous `ntf.<slug>.email.subject`,
- *   `ntf.<slug>.email.body` et `ntf.<slug>.sms.body`, en es, en et fr.
+ *   `ntf.<slug>.email.body` et `ntf.<slug>.sms.body`, en es, en, fr et pt.
  * - Une **règle** relie un type d'événement de 17 §4.5 (et une condition sur sa charge utile) à un
  *   gabarit et à ses destinataires, lus dans la charge utile (identifiants de comptes seulement).
  *

@@ -1,6 +1,6 @@
 # @rueda/backoffice — console interne
 
-Application Next.js (App Router) séparée, sur un **domaine distinct** de l'application voyageur (17 §6.1). Trilingue es / en / fr (`@rueda/i18n`, une vue = une langue). Mise en forme uniquement par les jetons de design (`@rueda/design-tokens`), composants de `@rueda/ui`.
+Application Next.js (App Router) séparée, sur un **domaine distinct** de l'application voyageur (17 §6.1). Quadrilingue es / en / fr / pt-BR (`@rueda/i18n`, une vue = une langue). Mise en forme uniquement par les jetons de design (`@rueda/design-tokens`), composants de `@rueda/ui`.
 
 ## Console (US-012, ADR-062)
 

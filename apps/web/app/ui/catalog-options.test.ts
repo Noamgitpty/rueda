@@ -37,6 +37,10 @@ describe('vitrine US-032 : paramètres', () => {
       width: 'mobile',
     });
     expect(parseCatalogOptions({ lang: [TAGS[0]!, 'xx'] }, TAGS).locale).toBe(TAGS[0]);
+    // portugais du Brésil (DEC-FONDATEUR-18) : servi par la configuration, sans code dédié
+    expect(TAGS).toContain('pt');
+    expect(parseCatalogOptions({ lang: 'pt' }, TAGS).locale).toBe('pt');
+    expect(parseCatalogOptions({ lang: 'pt-BR' }, TAGS).locale).toBeUndefined();
   });
 
   it('liens : seuls les écarts au défaut figurent dans l’URL', () => {

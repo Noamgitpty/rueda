@@ -4,6 +4,10 @@
     {
       "path": "packages/db/migrations/0009_config_seed.sql",
       "justification": "Graines PA / PY de la configuration pays, générées par apps/api/src/modules/cfg/internal/seed-sql.ts depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. US-013."
+    },
+    {
+      "path": "packages/db/migrations/0044_config_country_portuguese.sql",
+      "justification": "Graine complémentaire de la langue pt (DEC-FONDATEUR-18) : locales et noms des pays PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderLanguageSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-014, ADR-071."
     }
   ]
 }

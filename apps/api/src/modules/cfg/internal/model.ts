@@ -34,8 +34,8 @@ export const TAX_LINE_TYPES = [
 ] as const;
 export type TaxLineType = (typeof TAX_LINE_TYPES)[number];
 
-/** Langues des catalogues (DEC-FONDATEUR-17) : chaque pays a un nom dans chacune. */
-export const NAME_LANGUAGES = ['es', 'en', 'fr'] as const;
+/** Langues des catalogues (DEC-FONDATEUR-17, 18) : chaque pays a un nom dans chacune. */
+export const NAME_LANGUAGES = ['es', 'en', 'fr', 'pt'] as const;
 export type NameLanguage = (typeof NAME_LANGUAGES)[number];
 
 /** Borne technique d'un `bigint` PostgreSQL (unités mineures, 17 §1.2). */

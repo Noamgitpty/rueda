@@ -54,6 +54,28 @@ describe('formatDate / formatTime / formatDateTime dans le fuseau du véhicule',
     );
   });
 
+  it('portugais du Brésil : jj/mm/aaaa, 24 h, « {date}, {time} » (CLDR pt-BR)', () => {
+    expect(formatDateTime(noonUtc, ASUNCION, profile('pt'))).toBe('01/07/2025, 09:00');
+    expect(formatDateTime(noonUtc, PANAMA, profile('pt'))).toBe('01/07/2025, 07:00');
+    expect(formatTime('2025-07-01T03:00:00Z', ASUNCION, profile('pt'))).toBe('00:00');
+    expect(formatDate('2025-07-01T02:00:00Z', ASUNCION, profile('pt'))).toBe('30/06/2025');
+  });
+
+  it('portugais du Brésil : concorde avec Intl.DateTimeFormat(pt-BR) (oracle externe)', () => {
+    for (const [instant, zone] of [
+      [noonUtc, ASUNCION],
+      ['2026-01-10T15:05:00Z', PANAMA],
+      ['2025-12-31T23:59:00Z', ASUNCION],
+    ] as const) {
+      const oracle = new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: zone,
+      });
+      expect(formatDateTime(instant, zone, profile('pt'))).toBe(oracle.format(new Date(instant)));
+    }
+  });
+
   it('minuit et changement de jour selon le fuseau', () => {
     expect(formatTime('2025-07-01T03:00:00Z', ASUNCION, profile('es-PY'))).toBe('00:00');
     expect(formatTime('2025-07-01T03:00:00Z', ASUNCION, profile('en'))).toBe('12:00 AM');

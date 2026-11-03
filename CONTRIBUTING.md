@@ -80,7 +80,7 @@ apps/
 packages/
   config/               ESLint partagé (règles maison), tsconfig partagés, contrôle d'horloge SQL
   db/                   schémas par module (schemas.ts), migrations SQL, amorçage des rôles, exécuteur et harnais de tests (US-005), liste blanche de l'horloge
-  i18n/                 catalogues es / en / fr, profils de locale (config/locales.json), formats d'affichage (US-014)
+  i18n/                 catalogues es / en / fr / pt, profils de locale (config/locales.json), formats d'affichage (US-014)
 docs/adr/               ADR du dépôt (report dans 17 §8.1)
 docs/specs/             spécification figée : ne pas modifier
 docs/team/              artefacts entre agents (US-029)
@@ -148,7 +148,7 @@ docs/team/              artefacts entre agents (US-029)
 | Variables d'environnement | `SCREAMING_SNAKE_CASE`                            | `PORT`                           |
 | Branches                  | `story/US-xxx-<slug>`                             | `story/US-001-depot-conventions` |
 
-- **Langue** : code, identifiants, entités, codes d'erreur en **anglais** ; documentation, récits, commentaires et messages de commit en **français** ; textes d'interface en espagnol neutre LATAM (es-PA, es-PY), en anglais (19 §1.1) et en français (DEC-FONDATEUR-17).
+- **Langue** : code, identifiants, entités, codes d'erreur en **anglais** ; documentation, récits, commentaires et messages de commit en **français** ; textes d'interface en espagnol neutre LATAM (es-PA, es-PY), en anglais (19 §1.1), en français (DEC-FONDATEUR-17) et en portugais du Brésil (pt-BR, DEC-FONDATEUR-18).
 - Marque : non choisie (DEC-MARQUE). Utiliser le provisoire `{brand_name}` (constante `BRAND_NAME` de chaque application), jamais un nom en dur.
 
 ## 11. Codes d'erreur (16 A.8, 17 §4)

@@ -136,7 +136,7 @@
       "story": "US-034"
     },
     {
-      "signature": "core.cfg_brand_cmd_register_asset(bytea,uuid,uuid,text,text,bigint,bytea,text,text,text,text)",
+      "signature": "core.cfg_brand_cmd_register_asset(bytea,uuid,uuid,text,text,bigint,bytea,text,text,text,text,text)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
       "execute": ["app_api"],

@@ -2,7 +2,7 @@
   "name": "@rueda/ui",
   "version": "0.0.0",
   "private": true,
-  "description": "Bibliothèque de composants vivante (US-032) : composants React accessibles, trilingues es / en / fr, écrits uniquement contre les jetons de design (US-030), et leur vitrine.",
+  "description": "Bibliothèque de composants vivante (US-032) : composants React accessibles, quadrilingues es / en / fr / pt-BR, écrits uniquement contre les jetons de design (US-030), et leur vitrine.",
   "type": "module",
   "sideEffects": [
     "*.css"

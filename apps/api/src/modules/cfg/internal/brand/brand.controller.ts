@@ -6,7 +6,7 @@
  * | -------------------------- | ---------------------------------------------------------------------- |
  * | GET /brand                 | 200 version publiée (jetons, `css` prête, actifs) ; 304 si l'ETag      |
  * |                            | correspond ; 503 BRAND_VERSION_UNAVAILABLE (aucune : thème embarqué)   |
- * | GET /brand/content         | 200 blocs publiés `?locale=es|en|fr&country=XX` (repli es signalé)     |
+ * | GET /brand/content         | 200 blocs publiés `?locale=es|en|fr|pt&country=XX` (repli es signalé)  |
  * | GET /brand/assets/:id      | 200 octets d'un actif publié (type vérifié, `nosniff`) ; 404 sinon     |
  *
  * Cache : `Cache-Control: public, max-age=<readCacheTtl>` et ETag par numéro de version ; le cache

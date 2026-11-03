@@ -192,7 +192,7 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
     expect((await audit(ops.userId)).at(-1)?.action_code).toBe('STAFF_FORBIDDEN');
   });
 
-  it('blocs de contenu : trois langues publiées par pays, repli es signalé côté lecture, retour arrière', async () => {
+  it('blocs de contenu : quatre langues publiées par pays, repli es signalé côté lecture, retour arrière', async () => {
     const all = await countries();
     const admin = await staff('ADMIN', all);
     for (const country of [null, ...all]) {
@@ -201,15 +201,17 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
         es: 'Alquila el auto de un vecino.',
         en: 'Rent a car from a neighbor.',
         fr: 'Louez la voiture d’un voisin.',
+        pt: 'Alugue o carro de um vizinho.',
       });
       await brand.publishContent(admin.hash, randomUUID(), key, country, v1.versionNo ?? 0);
       const v2 = await brand.saveContentDraft(admin.hash, randomUUID(), key, country, {
         es: 'Hola',
         en: 'Hello',
         fr: 'Bonjour',
+        pt: 'Olá',
       });
       await brand.publishContent(admin.hash, randomUUID(), key, country, v2.versionNo ?? 0);
-      for (const locale of ['es', 'en', 'fr'] as const) {
+      for (const locale of ['es', 'en', 'fr', 'pt'] as const) {
         const blocks = await read.publishedContent(locale, country);
         expect(
           blocks.find((b) => b.key === key),
@@ -224,11 +226,14 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
       expect(back.versionNo).toBe(3);
       const fr = (await read.publishedContent('fr', country)).find((b) => b.key === key);
       expect(fr).toMatchObject({ bodyMd: 'Louez la voiture d’un voisin.', versionNo: 3 });
+      const pt = (await read.publishedContent('pt', country)).find((b) => b.key === key);
+      expect(pt).toMatchObject({ bodyMd: 'Alugue o carro de um vizinho.', versionNo: 3 });
     }
     await expect(
       brand.saveContentDraft(admin.hash, randomUUID(), 'home.x.title', null, {
         es: 'Hola',
         en: 'Hello',
+        fr: 'Bonjour',
       }),
     ).rejects.toMatchObject({ code: 'CONTENT_BLOCK_REQUIRED_MISSING' });
   });
@@ -240,7 +245,12 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
       requestId: randomUUID(),
       kind: 'LOGO',
       body: png,
-      alt: { es: 'Logotipo de Kmino', en: 'Kmino logo', fr: 'Logo de Kmino' },
+      alt: {
+        es: 'Logotipo de Kmino',
+        en: 'Kmino logo',
+        fr: 'Logo de Kmino',
+        pt: 'Logotipo da Kmino',
+      },
       licenseNote: 'Création interne',
     });
     expect(asset.sha256).toBe(createHash('sha256').update(png).digest('hex'));
@@ -258,7 +268,12 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
     });
     expect((await read.publishedTheme())?.assets.logo).toMatchObject({
       id: asset.assetId,
-      alt: { es: 'Logotipo de Kmino', en: 'Kmino logo', fr: 'Logo de Kmino' },
+      alt: {
+        es: 'Logotipo de Kmino',
+        en: 'Kmino logo',
+        fr: 'Logo de Kmino',
+        pt: 'Logotipo da Kmino',
+      },
     });
   });
 });

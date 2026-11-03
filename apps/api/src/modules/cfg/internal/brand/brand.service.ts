@@ -321,6 +321,7 @@ export class BrandConsoleService {
         es: (a['es'] as string).trim(),
         en: (a['en'] as string).trim(),
         fr: (a['fr'] as string).trim(),
+        pt: (a['pt'] as string).trim(),
       };
     }
     if (
