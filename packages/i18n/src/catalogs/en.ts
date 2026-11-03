@@ -136,4 +136,34 @@ export const EN_MESSAGES = {
   'web.catalog.sample.photo.dashboard': 'Dashboard',
   'web.catalog.sample.hostQuote': 'I hand over the car clean and with a full tank.',
   'web.catalog.sample.retry': 'Try again',
+  // Gabarits de notification (US-021, NTF-001 ; catalogue réduit de la bêta). PROPOSÉS : à
+  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les trois langues.
+  'ntf.kycApproved.email.subject': 'Your identity is verified · {brand}',
+  'ntf.kycApproved.email.body':
+    'Hi {first_name}. We verified your identity: you can now book cars on {brand}.',
+  'ntf.kycApproved.sms.body': '{brand}: {first_name}, your identity is verified. You can now book.',
+  'ntf.bookingConfirmed.email.subject': 'Booking {booking_ref} confirmed',
+  'ntf.bookingConfirmed.email.body':
+    'Hi {first_name}. Your booking {booking_ref} is confirmed: from {start_at} to {end_at}. In the app you will find the pickup spot, the contract and the booking messages.',
+  'ntf.bookingConfirmed.sms.body':
+    '{brand}: booking {booking_ref} confirmed, from {start_at} to {end_at}. Details in the app.',
+  'ntf.bookingCancelled.email.subject': 'Booking {booking_ref} cancelled',
+  'ntf.bookingCancelled.email.body':
+    'Hi {first_name}. Booking {booking_ref} was cancelled. In the app you can see the details and, if it applies, your refund.',
+  'ntf.bookingCancelled.sms.body':
+    '{brand}: booking {booking_ref} was cancelled. Details in the app.',
+  'ntf.tripOverdue.email.subject': 'Booking {booking_ref}: late return',
+  'ntf.tripOverdue.email.body':
+    'Hi {first_name}. The car for booking {booking_ref} was due back on {end_at} and the return is not recorded yet. Message the other party from the booking messages.',
+  'ntf.tripOverdue.sms.body':
+    '{brand}: late return for booking {booking_ref}, due on {end_at}. Message them from the app.',
+  'ntf.payoutSent.email.subject': 'We sent you {amount}',
+  'ntf.payoutSent.email.body':
+    'Hi {first_name}. We sent your payout of {amount}. Your bank may take some time to credit it. The details are in your earnings.',
+  'ntf.payoutSent.sms.body': '{brand}: we sent you a payout of {amount}. Details in your earnings.',
+  'ntf.payoutOnHold.email.subject': 'Your payout of {amount} is on hold',
+  'ntf.payoutOnHold.email.body':
+    'Hi {first_name}. Your payout of {amount} is on hold for now. Your earnings page shows why and what to do.',
+  'ntf.payoutOnHold.sms.body':
+    '{brand}: your payout of {amount} is on hold. Reason in your earnings.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

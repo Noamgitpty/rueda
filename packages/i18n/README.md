@@ -36,6 +36,8 @@ i18n.dateTime('2026-01-10T15:05:00Z', vehicle.timezone); // « 10/01/2026 12:05 
 
 Dans une application Next, la locale de la requête vient de `getRequestI18n()` (`apps/*/i18n.ts`), et d'aucune autre source : une vue = une langue.
 
+Gabarits de notification (US-021, ADR-061) : espace `ntf`, clés `ntf.<gabarit>.email.subject`, `ntf.<gabarit>.email.body` et `ntf.<gabarit>.sms.body`, rendues par le module NTF de l'API dans la langue du **destinataire**. L'API compilée importe les sources `.ts` de ce paquet (`apps/api/tsconfig.build.json` : `rewriteRelativeImportExtensions`), chargées par Node 26.
+
 ## Règles
 
 - **Aucune chaîne en dur** dans les applications : toute chaîne visible passe par une clé. Une clé s'ajoute **dans `es.ts`, `en.ts` et `fr.ts` dans le même commit**. Le nommage suit `<espace>.<écran>.<élément>`, avec les espaces `common`, `web` et `backoffice`. Si le sens d'une clé change, ou si une clé est ajoutée ou retirée, on incrémente `CATALOG_VERSION`.
