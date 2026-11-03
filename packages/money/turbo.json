@@ -1,0 +1,12 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "typecheck": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/docs/specs/tools/golden_vectors.json"]
+    },
+    "test:unit": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/docs/specs/tools/golden_vectors.json"]
+    }
+  }
+}

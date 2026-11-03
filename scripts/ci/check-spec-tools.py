@@ -43,7 +43,8 @@ EXCLUDED = {
 }
 
 # Plancher : oracles qui doivent figurer au registre (ceux de 00_README §4 au 2026-11-02,
-# dont tous les oracles d'argent). En retirer un du registre fait échouer le contrôle.
+# dont tous les oracles d'argent, plus export_golden_vectors.py ajouté par US-016). Le registre peut
+# contenir d'autres oracles (inclusion, pas égalité) ; rendre un oracle plancher touche ce fichier. En retirer un du registre fait échouer le contrôle.
 FLOOR_ORACLES = frozenset(
     {
         # Structure des documents
@@ -65,6 +66,7 @@ FLOOR_ORACLES = frozenset(
         "check_ta_consolidation.py",
         "check_legs.py",
         "verif15_ta.py",
+        "export_golden_vectors.py",  # US-016 : export des vecteurs dorés lu par @rueda/money/golden-vectors
     }
 )
 

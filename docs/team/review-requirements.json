@@ -40,6 +40,16 @@
       "paths": ["docs/specs/tools/registry.json"],
       "require": ["securite"],
       "why": "registre des oracles (US-050) : relâcher un motif affaiblit le contrôle des oracles d argent ; revue sécurité en plus de la revue argent (revue sécurité US-050 03g, constat 1)"
+    },
+    {
+      "paths": ["packages/money/"],
+      "require": ["argent"],
+      "why": "type Money, arrondi et moteurs monétaires : revue argent pour toute story, propriétaire de documentation compris (US-035) (contrainte 1 ; revue sécurité US-050 03i, constat 1)"
+    },
+    {
+      "paths": ["packages/db/", "packages/fake-adapters/", "packages/config/"],
+      "require": ["securite"],
+      "why": "schémas, RLS, rôles, SECURITY DEFINER (db), adaptateurs FAKE exclus de la production (C19), lint de l horloge SQL et règles de lint (config) : revue sécurité pour toute story, propriétaire de documentation compris (US-035, US-038) (contrainte 1 ; revue sécurité US-050 03i, constat 1)"
     }
   ],
   "stories": {
@@ -47,15 +57,51 @@
       "require": ["code", "architecture"],
       "related": ["US-029"]
     },
-    "US-029": {
-      "require": ["code"],
-      "related": ["US-001"]
-    },
     "US-002": {
       "require": ["code", "securite"]
     },
+    "US-003": {
+      "require": ["code", "architecture", "securite"],
+      "why": "IaC, secrets et KMS, image de production sans FAKE (C19) : sécurité ; infrastructure : architecture"
+    },
+    "US-004": {
+      "require": ["code", "architecture", "securite"],
+      "why": "sauvegardes et journal d accès aux données personnelles (C2/C3) : sécurité ; schéma : architecture"
+    },
     "US-005": {
       "require": ["code", "architecture", "securite", "qa"]
+    },
+    "US-006": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "preuves L0 de l occupation (exclusion GiST, triggers, index uniques) : schéma et concurrence (contrainte 1, 19 §1.9)"
+    },
+    "US-007": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "preuves L0 de concurrence (verrou par véhicule, expiration) : concurrence (contrainte 1, 19 §1.9)"
+    },
+    "US-008": {
+      "require": ["code", "architecture", "qa"],
+      "why": "outbox, inbox et tâches planifiées : schéma et idempotence"
+    },
+    "US-009": {
+      "require": ["code", "architecture", "securite"],
+      "why": "audit chaîné, fichiers et clés par sujet (C2/C3, crypto-shredding) : sécurité ; schéma : architecture"
+    },
+    "US-010": {
+      "require": ["code", "architecture", "securite"],
+      "why": "comptes, sessions et facteurs d authentification : sécurité ; schéma IAM : architecture"
+    },
+    "US-011": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "RLS par acteur et par pays, commandes SECURITY DEFINER (contrainte 1, 19 §1.9)"
+    },
+    "US-012": {
+      "require": ["code", "securite", "ux"],
+      "why": "console interne : TOTP, rôles et journal ; Revue design : OUI"
+    },
+    "US-013": {
+      "require": ["code", "architecture", "argent", "qa"],
+      "why": "configuration pays PA / PY : schéma ; taux de taxe datés (ITBMS, IVA) : argent"
     },
     "US-014": {
       "require": ["code", "ux"]
@@ -63,11 +109,139 @@
     "US-015": {
       "require": ["code", "qa", "argent"]
     },
+    "US-016": {
+      "require": ["code", "argent", "qa"],
+      "why": "oracle indépendant et harnais des vecteurs dorés (19 §1.5, §1.9)"
+    },
+    "US-017": {
+      "require": ["code", "argent", "qa"],
+      "why": "moteur de règlement des annulations, montants par jambe (19 §1.5)"
+    },
+    "US-018": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "règlements persistés et jambes, écrits par cmd_money_owner (SECURITY DEFINER) : argent, sécurité, schéma"
+    },
+    "US-019": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "port PaymentProvider, FAKE, idempotence et webhook_inbox : argent, sécurité (webhooks, C19), schéma"
+    },
+    "US-020": {
+      "require": ["code", "architecture", "securite"],
+      "why": "ports et FAKE identité, fichiers, signature, cartes ; FAKE jamais en production (C19) : sécurité"
+    },
+    "US-021": {
+      "require": ["code", "architecture"],
+      "why": "notifications : schéma (notification_template, rule, dispatch)"
+    },
+    "US-022": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "table d occupation unique, exclusion GiST, verrou par véhicule : concurrence (19 §1.9)"
+    },
+    "US-023": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "holds et commandes de réservation sous cmd_hold_owner (SECURITY DEFINER) : concurrence (19 §1.9)"
+    },
+    "US-024": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "conversion gardée et compensation (remboursement) : argent et concurrence (19 §1.9)"
+    },
+    "US-025": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "fuzz C11 et oracle C12 sous les rôles de production : concurrence (19 §1.9)"
+    },
     "US-026": {
       "require": ["code", "securite", "ux"]
     },
+    "US-027": {
+      "require": ["code", "architecture"],
+      "why": "rapport des preuves L0 : revu par l agent architecture (19)"
+    },
+    "US-028": {
+      "require": ["code", "ux"],
+      "why": "naming et identité ; Revue design : OUI"
+    },
+    "US-029": {
+      "require": ["code"],
+      "related": ["US-001"]
+    },
+    "US-030": {
+      "require": ["code", "ux"],
+      "why": "jetons de design et thème ; Revue design : OUI"
+    },
+    "US-031": {
+      "require": ["code", "ux"],
+      "why": "règles de mouvement et de photos ; Revue design : OUI"
+    },
+    "US-032": {
+      "require": ["code", "ux"],
+      "why": "bibliothèque de composants ; Revue design : OUI"
+    },
+    "US-033": {
+      "require": ["code", "ux"],
+      "why": "maquettes et prototypes des écrans clés ; Revue design : OUI"
+    },
+    "US-034": {
+      "require": ["code", "architecture", "securite"],
+      "why": "brand_version, content_block (schéma CFG) ; permission brand.publish et fichiers publics : sécurité"
+    },
+    "US-035": {
+      "require": ["code"],
+      "why": "guide d installation et README par module"
+    },
+    "US-037": {
+      "require": ["code", "securite"],
+      "why": "inventaire des secrets (noms) et des comptes : sécurité"
+    },
+    "US-038": {
+      "require": ["code", "architecture"],
+      "why": "documentation d architecture, d API et de schéma synchronisée"
+    },
+    "US-039": {
+      "require": ["code"],
+      "why": "stratégie de test et flux de revue documentés"
+    },
+    "US-040": {
+      "require": ["code"],
+      "why": "CHANGELOG et notes de version"
+    },
+    "US-041": {
+      "require": ["code", "qa"],
+      "why": "cadres de tests de contrat et e2e"
+    },
+    "US-042": {
+      "require": ["code", "argent", "qa"],
+      "why": "propriétés monétaires comparées à l oracle et mutation"
+    },
+    "US-043": {
+      "require": ["code", "securite", "qa"],
+      "why": "tests de sécurité et matrice d autorisations : sécurité (19 §1.9)"
+    },
+    "US-046": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "migrations montée / descente : schéma ; export et effacement des données personnelles : sécurité"
+    },
+    "US-047": {
+      "require": ["code", "argent", "qa"],
+      "why": "régression nocturne et rapprochement de l argent"
+    },
+    "US-048": {
+      "require": ["code", "ux"],
+      "why": "coquille web mobile-first et PWA ; Revue design : OUI"
+    },
+    "US-049": {
+      "require": ["code", "architecture", "securite", "argent"],
+      "why": "porte du lot 0 : red team argent / RLS / concurrence"
+    },
     "US-050": {
       "require": ["code", "securite"]
+    },
+    "US-051": {
+      "require": ["code", "securite"],
+      "why": "restauration testée et rotation de secret : sécurité"
+    },
+    "US-052": {
+      "require": ["code", "securite"],
+      "why": "limitation de débit et anti-abus (OTP, SMS, API) : sécurité"
     },
     "US-053": {
       "require": ["code", "architecture"],
@@ -100,14 +274,53 @@
     "US-060": {
       "require": ["code", "architecture", "securite"],
       "why": "S8 : révision P2P du handoff et de CLAUDE.md"
+    },
+    "US-061": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "port de place de marché et FAKE hostile : argent sur un autre modèle (19), webhooks et C19 : sécurité, schéma"
+    },
+    "US-062": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "rôle P2P_HOST, RLS de l hôte, tables d argent, SECURITY DEFINER : sécurité, argent, schéma"
     }
   },
   "pathOwners": {
-    "$comment": "Chaque répertoire packages/<x>/ modifié doit avoir ici la story de la branche ; un paquet absent de la liste fait échouer (fail-closed).",
-    "packages/config/": ["US-001"],
-    "packages/db/": ["US-001", "US-005"],
-    "packages/money/": ["US-015"],
-    "packages/i18n/": ["US-014"]
+    "$comment": "Chaque répertoire packages/<x>/ modifié doit avoir ici la story de la branche ; un paquet absent de la liste fait échouer (fail-closed). Lot 0 (US-050) : noms des paquets à créer fixés ici — packages/design-tokens/ (jetons de design, US-030, 19 §1.6), packages/ui/ (bibliothèque de composants vivante, US-032), packages/fake-adapters/ (adaptateurs FAKE dans un paquet séparé exclu de l image de production, 17 §10 point 2 ; US-019, US-020, US-061). US-035 (README par module) est propriétaire de tous les paquets.",
+    "packages/config/": ["US-001", "US-013", "US-030", "US-035"],
+    "packages/db/": [
+      "US-001",
+      "US-005",
+      "US-004",
+      "US-006",
+      "US-007",
+      "US-008",
+      "US-009",
+      "US-010",
+      "US-011",
+      "US-013",
+      "US-018",
+      "US-019",
+      "US-020",
+      "US-021",
+      "US-022",
+      "US-023",
+      "US-024",
+      "US-025",
+      "US-034",
+      "US-035",
+      "US-038",
+      "US-043",
+      "US-046",
+      "US-051",
+      "US-052",
+      "US-061",
+      "US-062"
+    ],
+    "packages/money/": ["US-015", "US-016", "US-017", "US-018", "US-035", "US-042"],
+    "packages/i18n/": ["US-014", "US-012", "US-021", "US-032", "US-035", "US-048"],
+    "packages/design-tokens/": ["US-030", "US-031", "US-032", "US-034", "US-035"],
+    "packages/ui/": ["US-032", "US-033", "US-035"],
+    "packages/fake-adapters/": ["US-019", "US-020", "US-035", "US-061"]
   },
   "sharedPaths": [
     "docs/team/BOARD.md",

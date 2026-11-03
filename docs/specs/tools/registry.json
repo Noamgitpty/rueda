@@ -120,6 +120,21 @@
       "require": [
         "^OK$"
       ]
+    },
+    "export_golden_vectors.py": {
+      "comment": "US-016 : régénère l'export des vecteurs dorés (T01-T68, TJ01-TJ21, TA01-TA11) depuis les oracles et le compare à golden_vectors.json ; tout écart avec 08, 16 ou un oracle échoue.",
+      "require": [
+        "^RÉSULTAT : OK\\s*$",
+        "^Vecteurs de règlement exportés : 42 ; lignes TJ exportées : 58 ; ",
+        "^Couverture T01-T68 : 68/68 ; par devise : USD [1-9]\\d*, PYG [1-9]\\d*$"
+      ],
+      "forbid": [
+        "ÉCART"
+      ],
+      "counts": {
+        "vecteurs": 42,
+        "jambes": 58
+      }
     }
   }
 }
