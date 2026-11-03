@@ -201,6 +201,37 @@ export const ES_MESSAGES = {
     'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.',
   'backoffice.journal.error': 'No pudimos cargar el registro de actividad.',
   'backoffice.journal.scope': 'Solo ves las acciones dentro del alcance de tus roles.',
+  // Gabarits de notification (US-021, NTF-001 ; catalogue réduit de la bêta). PROPOSÉS : à
+  // reporter dans 10b §4.3 et à relire par l'UX. Variables nommées, identiques dans les trois langues.
+  'ntf.kycApproved.email.subject': 'Tu identidad está verificada · {brand}',
+  'ntf.kycApproved.email.body':
+    'Hola, {first_name}. Verificamos tu identidad: ya puedes reservar autos en {brand}.',
+  'ntf.kycApproved.sms.body':
+    '{brand}: {first_name}, tu identidad está verificada. Ya puedes reservar.',
+  'ntf.bookingConfirmed.email.subject': 'Reserva {booking_ref} confirmada',
+  'ntf.bookingConfirmed.email.body':
+    'Hola, {first_name}. Tu reserva {booking_ref} está confirmada: del {start_at} al {end_at}. En la app encuentras el lugar de entrega, el contrato y los mensajes de la reserva.',
+  'ntf.bookingConfirmed.sms.body':
+    '{brand}: reserva {booking_ref} confirmada, del {start_at} al {end_at}. Detalles en la app.',
+  'ntf.bookingCancelled.email.subject': 'Reserva {booking_ref} cancelada',
+  'ntf.bookingCancelled.email.body':
+    'Hola, {first_name}. La reserva {booking_ref} fue cancelada. En la app ves el detalle y, si corresponde, tu reembolso.',
+  'ntf.bookingCancelled.sms.body':
+    '{brand}: la reserva {booking_ref} fue cancelada. Detalles en la app.',
+  'ntf.tripOverdue.email.subject': 'Reserva {booking_ref}: devolución atrasada',
+  'ntf.tripOverdue.email.body':
+    'Hola, {first_name}. El auto de la reserva {booking_ref} debía devolverse el {end_at} y la devolución aún no está registrada. Escribe a la otra parte desde los mensajes de la reserva.',
+  'ntf.tripOverdue.sms.body':
+    '{brand}: devolución atrasada de la reserva {booking_ref}, prevista el {end_at}. Escribe desde los mensajes de la app.',
+  'ntf.payoutSent.email.subject': 'Te enviamos {amount}',
+  'ntf.payoutSent.email.body':
+    'Hola, {first_name}. Enviamos tu pago de {amount}. Tu banco puede tardar en acreditarlo. El detalle está en tus ganancias.',
+  'ntf.payoutSent.sms.body': '{brand}: te enviamos un pago de {amount}. Detalle en tus ganancias.',
+  'ntf.payoutOnHold.email.subject': 'Tu pago de {amount} está retenido',
+  'ntf.payoutOnHold.email.body':
+    'Hola, {first_name}. Tu pago de {amount} está retenido por ahora. En tus ganancias ves el motivo y qué hacer.',
+  'ntf.payoutOnHold.sms.body':
+    '{brand}: tu pago de {amount} está retenido. Motivo en tus ganancias.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

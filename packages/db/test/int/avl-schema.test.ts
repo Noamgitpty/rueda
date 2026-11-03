@@ -88,6 +88,7 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^outbox_'       -- tables BUS : test/int/outbox-schema.test.ts (US-008)
             AND c.relname !~ '^iam_'          -- tables IAM : test/int/iam-schema.test.ts (US-010)
             AND c.relname !~ '^settlement_'   -- tables STL : test/int/stl-schema.test.ts (US-018)
+            AND c.relname !~ '^ntf_'          -- tables NTF : test/l0/l0-ntf-dispatch.test.ts (US-021)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
@@ -129,9 +130,11 @@ describe('schéma core (US-006)', () => {
                   ? 'cmd_money_owner'
                   : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
                     ? 'cmd_money_owner'
-                    : r.polname.startsWith('worker_')
-                      ? 'app_worker'
-                      : 'app_api';
+                    : r.polname.startsWith('cmd_') // commandes d'occupation (0032, US-022)
+                      ? 'cmd_hold_owner'
+                      : r.polname.startsWith('worker_')
+                        ? 'app_worker'
+                        : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
@@ -204,7 +207,8 @@ describe('schéma core (US-006)', () => {
       );
       expect(rows[0]?.n).toBe(0);
       for (const sql of [
-        `SELECT 1 FROM core.booking_vehicle_occupancy LIMIT 1`,
+        // lecture par colonnes depuis US-022 (0032) : ref_id n'en fait pas partie
+        `SELECT ref_id FROM core.booking_vehicle_occupancy LIMIT 1`,
         `UPDATE core.booking_checkout_hold SET status = 'EXPIRED'`,
         `INSERT INTO core.booking_vehicle_occupancy (id, vehicle_id, kind, source, period, active, expires_at)
          VALUES (gen_random_uuid(), gen_random_uuid(), 'HOLD', 'CHECKOUT', '[2031-01-01,2031-01-02)', true, '2031-01-01')`,

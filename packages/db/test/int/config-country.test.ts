@@ -155,7 +155,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture des codes pays par iam_staff_owner (US-012)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner et celle des codes pays par iam_staff_owner (US-012)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -172,15 +172,18 @@ describe('configuration pays : structure et droits', () => {
           [TABLES],
         );
         expect(rows).toEqual(
-          [...TABLES]
-            .sort()
-            .flatMap((t) => [
-              { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
-              ...(t === 'config_country'
-                ? [{ t, pol: 'iam_staff_select', cmd: 'r', roles: 'iam_staff_owner' }]
-                : []),
-              { t, pol: 'migrator_all', cmd: '*', roles: 'migrator' },
-            ]),
+          [...TABLES].sort().flatMap((t) => [
+            { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
+            // commandes d'occupation (0032, US-022) : clé buffer_minutes seulement, en lecture
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
+            // console interne (US-012) : codes pays, pour borner la lecture du journal
+            ...(t === 'config_country'
+              ? [{ t, pol: 'iam_staff_select', cmd: 'r', roles: 'iam_staff_owner' }]
+              : []),
+            { t, pol: 'migrator_all', cmd: '*', roles: 'migrator' },
+          ]),
         );
       },
       { database: 'production' },

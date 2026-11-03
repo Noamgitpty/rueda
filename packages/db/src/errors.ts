@@ -23,7 +23,10 @@
  *   ADR-057) ;
  * - `IDEMPOTENCY_CONFLICT` : 16 fiche PAY-019 (même clé, contenu ou jambes différents) ;
  *   `LEG_SUM_MISMATCH`, `LEG_AMOUNT_NEGATIVE` : 17 §2.8, §4.3 point 5.8 ; `FAKE_FORBIDDEN_IN_PRODUCTION`,
- *   `PSP_ACCOUNT_INACTIVE`, `PAYMENT_SUBJECT_MISMATCH` : PROPOSÉS par US-019 (migration 0028, ADR-059).
+ *   `PSP_ACCOUNT_INACTIVE`, `PAYMENT_SUBJECT_MISMATCH` : PROPOSÉS par US-019 (migration 0028, ADR-059) ;
+ * - `FORBIDDEN` : 17 §2.5 (US-060, « sans révéler l'état »), 16 A.8 ; `PARAM_MISSING` : 17 §7.1 ;
+ *   `INVALID_PERIOD` : PROPOSÉ par US-022 (période d'occupation mal formée ; migration 0032,
+ *   ADR-060).
  */
 
 /** Codes métier produits par la traduction. */
@@ -50,6 +53,9 @@ export const DB_BUSINESS_CODES = [
   'FAKE_FORBIDDEN_IN_PRODUCTION',
   'PSP_ACCOUNT_INACTIVE',
   'PAYMENT_SUBJECT_MISMATCH',
+  'FORBIDDEN',
+  'INVALID_PERIOD',
+  'PARAM_MISSING',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -69,11 +75,13 @@ export const SQLSTATE = {
   checkViolation: '23514',
   deadlockDetected: '40P01',
   serializationFailure: '40001',
+  insufficientPrivilege: '42501',
+  objectNotInPrerequisiteState: '55000',
 } as const;
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020` et `0027`.
+ * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028` et `0032`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -151,6 +159,13 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
     SQLSTATE.integrityConstraintViolation,
     'PAYMENT_SUBJECT_MISMATCH',
   ],
+  // table d'occupation unique, blocages de l'hôte, tampons (0032, US-022)
+  occupancy_host_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  occupancy_vehicle_single_org: [SQLSTATE.exclusionViolation, 'FORBIDDEN'],
+  occupancy_period_invalid: [SQLSTATE.checkViolation, 'INVALID_PERIOD'],
+  period_valid: [SQLSTATE.checkViolation, 'INVALID_PERIOD'],
+  occupancy_buffer_trip_state: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  occupancy_buffer_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
 };
 
 const own = (value: object, key: string): unknown =>

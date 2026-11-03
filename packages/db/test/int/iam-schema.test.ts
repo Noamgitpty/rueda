@@ -39,7 +39,7 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_membership:
     'membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_organization:
-    'migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
+    'cmd_hold_read:cmd_hold_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_otp_challenge: 'migrator_all:migrator',
   iam_restriction: 'migrator_all:migrator',
@@ -70,6 +70,9 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_staff_cmd_reset_totp(bytea,uuid,uuid,text,uuid,text,bytea,integer)': 'iam_staff_owner',
   'core.iam_staff_cmd_suspend(bytea,uuid,uuid,text)': 'iam_staff_owner',
 };
+
+/** Lecture des coordonnées pour NTF (US-021, migration 0031), exécutable par app_worker seul. */
+const NOTIFICATION_CONTACT = 'core.iam_notification_contact(uuid)';
 
 describe('schéma IAM (US-010)', () => {
   it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
@@ -220,8 +223,24 @@ describe('schéma IAM (US-010)', () => {
           WHERE n.nspname = 'core' AND p.proname ~ '^iam_' AND p.prosecdef
           ORDER BY 1`,
       );
-      expect(rows.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
-      for (const r of rows) {
+      // US-021 (ADR-061) : une seule fonction IAM est exécutable par app_worker, et par lui seul :
+      // les coordonnées d'un destinataire de notification (0 ligne hors du travailleur ntf_sender).
+      const contact = rows.filter((r) => r.fn === NOTIFICATION_CONTACT);
+      expect(contact).toEqual([
+        {
+          fn: NOTIFICATION_CONTACT,
+          secdef: true,
+          owner: 'iam_auth_owner',
+          config: ['search_path=pg_catalog, pg_temp'],
+          api: false,
+          worker: true,
+          anon: false,
+          public_exec: false,
+        },
+      ]);
+      const commands = rows.filter((r) => r.fn !== NOTIFICATION_CONTACT);
+      expect(commands.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
+      for (const r of commands) {
         expect(r, r.fn).toMatchObject({
           secdef: true,
           owner: IAM_COMMANDS[r.fn],
