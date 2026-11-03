@@ -1,0 +1,27 @@
+{
+  "$comment": "Formats attendus du composant prix (critère US-032 : formatage de US-014, USD et PYG). Valeurs recopiées du tableau « Formats attendus » de packages/i18n/README.md (19 US-014, 16 I18N-004, 17 §1.2) : le code testé n'est pas l'oracle. En fr : U+202F entre les milliers, U+00A0 avant le symbole.",
+  "cases": [
+    {
+      "currency": "USD",
+      "exponent": 2,
+      "amountMinor": "123456",
+      "expected": {
+        "es-PA": "US$ 1.234,56",
+        "es-PY": "US$ 1.234,56",
+        "en": "$1,234.56",
+        "fr": "1 234,56 $US"
+      }
+    },
+    {
+      "currency": "PYG",
+      "exponent": 0,
+      "amountMinor": "1050000",
+      "expected": {
+        "es-PA": "₲ 1.050.000",
+        "es-PY": "₲ 1.050.000",
+        "en": "₲1,050,000",
+        "fr": "1 050 000 ₲"
+      }
+    }
+  ]
+}

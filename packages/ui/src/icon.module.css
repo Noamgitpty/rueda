@@ -1,0 +1,7 @@
+/* Icônes : taille du texte qui les entoure, couleur du texte (currentColor). */
+.icon {
+  inline-size: 1.25em;
+  block-size: 1.25em;
+  flex: none;
+  vertical-align: middle;
+}

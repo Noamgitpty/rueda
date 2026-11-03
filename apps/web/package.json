@@ -12,8 +12,9 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@rueda/i18n": "workspace:*",
     "@rueda/design-tokens": "workspace:*",
+    "@rueda/i18n": "workspace:*",
+    "@rueda/ui": "workspace:*",
     "next": "16.4.2",
     "react": "19.3.1",
     "react-dom": "19.3.1"

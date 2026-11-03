@@ -1,0 +1,62 @@
+/*
+ * Case de capture photo (remise et retour, TRP-004) : grande cible, angle écrit, état écrit et
+ * iconographié (jamais la couleur seule). Le contour pointillé dit « à faire ».
+ */
+.slot {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: calc(var(--size-touch-target) * 2);
+  padding: var(--space-3);
+  border: var(--size-focus-ring) dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.filled {
+  border-style: solid;
+}
+
+.failed {
+  border-color: var(--color-danger);
+}
+
+.slot:disabled {
+  cursor: progress;
+}
+
+.media {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xl);
+  overflow: hidden;
+}
+
+.angle {
+  font-weight: var(--font-weight-strong);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.statusFailed {
+  color: var(--color-danger);
+}
+
+.statusOk {
+  color: var(--color-success);
+}
