@@ -1,6 +1,6 @@
 # ADR-063 — Holds de checkout par commandes : pose, libération, garde entre hôtes, expiration, compte du véhicule fail-closed
 
-- **Statut** : PROPOSÉ (US-023, agent données, claude-opus-5-5, 2026-11-03). Revues exigées : code, architecture (`packages/db/`, migrations 0035 et 0036), **sécurité / concurrence** (RLS, `SECURITY DEFINER`, liste blanche RLS-15, verrous) sur un autre modèle que l'auteur, **argent** (0036 : compte PSP et jambes obligatoires), QA. À reporter dans 17 §2.3, §2.5, §3.2.4, §3.2.7, §8.1 et dans 16 A.8.
+- **Statut** : PROPOSÉ (US-023, agent données, claude-opus-5-5, 2026-11-03). Revues exigées : code, architecture (`packages/db/`, migrations 0037 et 0038), **sécurité / concurrence** (RLS, `SECURITY DEFINER`, liste blanche RLS-15, verrous) sur un autre modèle que l'auteur, **argent** (0038 : compte PSP et jambes obligatoires), QA. À reporter dans 17 §2.3, §2.5, §3.2.4, §3.2.7, §8.1 et dans 16 A.8.
 - **Stories** : US-023 ; s'appuient dessus US-024 (`cmd_start_payment`, conversion, compensation, annulation d'ordre), US-025 (fuzz C11 sous les rôles réels), US-115 (catalogue : corps réel de `core.booking_vehicle_party`), US-219 / US-223 (mode `REQUEST`). **Sources** : 19 US-023 ; 16 BKG-014, BKG-012 ; 08 BR-BOOK-08, BR-BOOK-10, BR-BOOK-11 ; 17 §2.3 (droits d'écriture, rôles d'exécution, fonction de garde, RLS-3, RLS-4, RLS-11, RLS-13, RLS-14, RLS-15), §2.5 (type de hold, revue avant le débit, étapes 2, 6, 7), §7.2 ; ADR-035, ADR-048, ADR-050, ADR-053, ADR-056, ADR-059, ADR-060.
 
 ## Contexte
@@ -19,9 +19,9 @@ US-006 à US-022 ont posé les tables, les invariants, la concurrence (fixture `
    - `no_delete` : refuse la suppression du hold, de la disposition et de la compensation, même par `migrator`.
    - `CHECK hold_review_before_payment` : un hold de revue n'entre ni en paiement ni en conversion avant `reviewed_at`. Cette garde est structurelle, quelle que soit la future commande de paiement.
 5. **Revue avant le débit (UXQ-08)** : `p_flagged` porte le signal des règles de risque d'ADM-029, évaluées par l'API au checkout ; `NULL` vaut « signalée ». La base décide de la conséquence à partir de `flagged_booking_payment_order` : `REVIEW_BEFORE_CHARGE`, valeur absente ou inconnue ⇒ `review_required`, TTL `review_hold_minutes`. Sinon le TTL vaut `min(hold_ttl_minutes, hold_max_total_minutes)`.
-6. **Compte du véhicule, fail-closed** : `core.booking_vehicle_party(véhicule)` tient lieu de `catalog.vehicle_org` (17 §2.3 : `org_id` jamais choisi par le client). Sans catalogue, elle ne connaît **aucun** véhicule : en production, toute pose est refusée (`VEHICLE_UNAVAILABLE`) jusqu'à US-115, qui remplace son corps (véhicule publié seulement). La politique `cmd_hold_ins` relit le compte et le pays par cette fonction. En test, la migration 9700 la remplace par un registre.
+6. **Compte du véhicule, fail-closed** : `core.booking_vehicle_party(véhicule)` tient lieu de `catalog.vehicle_org` (17 §2.3 : `org_id` jamais choisi par le client). Sans catalogue, elle ne connaît **aucun** véhicule : en production, toute pose est refusée (`VEHICLE_UNAVAILABLE`) jusqu'à US-115, qui remplace son corps (véhicule publié seulement). La politique `cmd_hold_ins` relit le compte et le pays par cette fonction. En test, la migration 9750 la remplace par un registre.
 7. **Forme d'appel** (ADR-056 point 4) : `commandCallSql(contexte, commande, arguments)` (`packages/db/src/session-context.ts`) produit **une** instruction. Une CTE matérialisée y pose le contexte `app.*` (`set_config(…, true)`), puis la ligne qu'elle produit déclenche l'appel. En autocommit, une pose perdante (`23P01`) rend donc son verrou dès la fin de l'instruction. Le nom de la commande et les types sont validés par motif, et toutes les valeurs sont liées. La forme transactionnelle (`BEGIN`, `SET LOCAL`, un appel, `COMMIT`) reste admise.
-8. **Reports d'US-019 et d'US-008** (0036) :
+8. **Reports d'US-019 et d'US-008** (0038) :
    - `payment_operation.psp_account_id NOT NULL` : toute opération qui déplace des fonds porte ses quatre jambes, contrôle différé de 0028 sans exception résiduelle.
    - Clé étrangère `webhook_inbox_psp_account_fk` (`NULL` admis : rappel au compte non résolu).
    - `app_api` ne dépose plus de tâche liée à un événement : `event_id IS NULL` dans `api_insert`, seul le relais crée des livraisons.
@@ -30,7 +30,7 @@ US-006 à US-022 ont posé les tables, les invariants, la concurrence (fixture `
 
 ## Conséquences
 
-- Fixtures de test : `l0_place_hold` (9002) ne sert plus qu'à l'injection « sans verrou » de L0-02. 9001, 9002 et 9300 posent le compte PSP de test du pays et quatre jambes. 9700 apporte le registre de véhicules, la pose réelle mesurée, les comptes d'hôte de statut choisi, une version annulée du paramètre UXQ-08 et l'écriture forcée des colonnes gardées.
+- Fixtures de test : `l0_place_hold` (9002) ne sert plus qu'à l'injection « sans verrou » de L0-02. 9001, 9002 et 9300 posent le compte PSP de test du pays et quatre jambes. 9750 apporte le registre de véhicules, la pose réelle mesurée, les comptes d'hôte de statut choisi, une version annulée du paramètre UXQ-08 et l'écriture forcée des colonnes gardées.
 - La tâche d'expiration balaie toute la base. Ses preuves posent leurs holds à l'instant d'entrée en vigueur des paramètres, pour ne toucher aucun hold d'un autre fichier de test.
 - Production : aucune pose possible avant US-115. C'est voulu : aucun véhicule n'est réservable sans catalogue.
 

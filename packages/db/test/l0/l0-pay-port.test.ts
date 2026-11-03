@@ -513,7 +513,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
       ]) {
         expect(err).toMatchObject({ code: '23000', constraint: 'payment_operation_legs_complete' });
       }
-      // 0036 (report US-019) : toute opération porte son compte PSP
+      // 0038 (report US-019) : toute opération porte son compte PSP
       expect(await rawCommit('CAPTURE', capture.amountMinor, legs, false)).toMatchObject({
         code: '23502',
         column: 'psp_account_id',

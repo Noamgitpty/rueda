@@ -29,7 +29,7 @@
  *   ADR-060) ;
  * - `HOLD_LIMIT_REACHED`, `SELF_BOOKING_FORBIDDEN`, `BOOKING_UNDER_REVIEW` : 16 fiche BKG-014 ;
  *   `HOST_NOT_ACTIVATED` : 16 fiche BKG-012 ; `HOLD_RATE_LIMITED` : 17 §2.5 (M5, 429) — commandes
- *   de hold d'US-023 (migration 0035, ADR-063).
+ *   de hold d'US-023 (migration 0037, ADR-063).
  */
 
 /** Codes métier produits par la traduction. */
@@ -90,7 +90,7 @@ export const SQLSTATE = {
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
  * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`
- * et `0035`.
+ * et `0037`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -175,7 +175,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   period_valid: [SQLSTATE.checkViolation, 'INVALID_PERIOD'],
   occupancy_buffer_trip_state: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   occupancy_buffer_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
-  // holds de checkout et commandes de réservation (0035, US-023)
+  // holds de checkout et commandes de réservation (0037, US-023)
   hold_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   hold_vehicle_unknown: [SQLSTATE.objectNotInPrerequisiteState, 'VEHICLE_UNAVAILABLE'],
   hold_host_not_active: [SQLSTATE.objectNotInPrerequisiteState, 'HOST_NOT_ACTIVATED'],

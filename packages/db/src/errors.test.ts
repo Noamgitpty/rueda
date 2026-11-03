@@ -38,7 +38,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23514', 'period_valid', 'INVALID_PERIOD'],
     ['55000', 'occupancy_buffer_trip_state', 'INVALID_TRANSITION'],
     ['55000', 'occupancy_buffer_param_missing', 'PARAM_MISSING'],
-    // commandes de hold (0035, US-023)
+    // commandes de hold (0037, US-023)
     ['42501', 'hold_forbidden', 'FORBIDDEN'],
     ['55000', 'hold_vehicle_unknown', 'VEHICLE_UNAVAILABLE'],
     ['55000', 'hold_host_not_active', 'HOST_NOT_ACTIVATED'],

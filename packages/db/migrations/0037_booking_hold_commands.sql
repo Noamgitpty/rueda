@@ -1,4 +1,4 @@
--- 0035 — AVL : holds de checkout, commandes de pose et de libération, tâche d'expiration.
+-- 0037 — AVL : holds de checkout, commandes de pose et de libération, tâche d'expiration.
 -- US-023 ; 16 BKG-014 ; 08 BR-BOOK-08, BR-BOOK-10, BR-BOOK-11 ; 17 §2.3 (droits d'écriture,
 -- rôles d'exécution des commandes, fonction de garde, RLS-3, RLS-4, RLS-11, RLS-13, RLS-14,
 -- RLS-15), §2.5 (type de hold, revue avant le débit, étape 2, étape 6, étape 7), §3.2.4 ;
@@ -199,7 +199,7 @@ $fn$;
 -- jamais choisi par le client). Le catalogue n'existe pas encore : la fonction ne connaît AUCUN
 -- véhicule (fail-closed, CLAUDE.md point 7) et toute pose est refusée en production. US-115
 -- remplace ce corps par la lecture de catalog_vehicle / listing (véhicule publié seulement). La
--- base de test la remplace par un registre de test (test-migrations/9700).
+-- base de test la remplace par un registre de test (test-migrations/9750).
 CREATE FUNCTION core.booking_vehicle_party(p_vehicle_id uuid)
   RETURNS TABLE (org_id uuid, country_code text)
   LANGUAGE sql

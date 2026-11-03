@@ -1,4 +1,4 @@
--- 0036 — PAY et BUS : reports de sécurité confiés à US-023.
+-- 0038 — PAY et BUS : reports de sécurité confiés à US-023.
 -- US-023 ; reports d'US-019 (revue sécurité et argent : compte PSP obligatoire, clé étrangère de
 -- la boîte de réception, adaptation de L0-08) et d'US-008 (revue sécurité : seul le relais crée
 -- des livraisons) ; 17 §2.8, §3.2.7, §4.2, §4.4 ; ADR-050, ADR-059 ; ADR-063. Appliquée sous
@@ -30,7 +30,7 @@
 ALTER TABLE core.payment_payment_operation ALTER COLUMN psp_account_id SET NOT NULL;
 
 COMMENT ON COLUMN core.payment_payment_operation.psp_account_id IS
-  'Compte marchand de l''opération (17 §3.2.7) ; obligatoire depuis US-023 (0036) : toute '
+  'Compte marchand de l''opération (17 §3.2.7) ; obligatoire depuis US-023 (0038) : toute '
   'opération qui déplace des fonds porte ses quatre jambes (contrôle différé de 0028).';
 
 -- 2. Clé étrangère de la boîte de réception -------------------------------------------------------

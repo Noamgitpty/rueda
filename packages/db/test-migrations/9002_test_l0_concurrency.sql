@@ -293,7 +293,7 @@ BEGIN
     FROM (SELECT i, (i % p_holds_per_vehicle) % 10 AS c
             FROM pg_catalog.generate_series(0, v_holds - 1) AS i) AS s
    WHERE s.c <> 8;
-  -- US-023 (0036) : quatre jambes par opération (HOST = montant), comme fixture_operation_legs
+  -- US-023 (0038) : quatre jambes par opération (HOST = montant), comme fixture_operation_legs
   INSERT INTO core.payment_payment_operation_leg (operation_id, leg, org_id, trip_id, country_code, amount_minor)
   SELECT pg_catalog.md5(v_seed || ':p:' || s.i)::uuid, l.leg, p_org_id, NULL, p_country_code,
          CASE WHEN l.leg = 'HOST' THEN p_amount_minor ELSE 0 END

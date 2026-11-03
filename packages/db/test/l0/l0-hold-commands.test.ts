@@ -1,7 +1,7 @@
 /**
  * US-023 — holds de checkout et commandes de réservation (16 BKG-014 ; 08 BR-BOOK-08,
  * BR-BOOK-10, BR-BOOK-11 ; 17 §2.3, §2.5 ; C5, C9, RLS-3, RLS-4, RLS-11, RLS-13, RLS-14 ;
- * migration 0035, ADR-063).
+ * migration 0037, ADR-063).
  *
  * Attendu (valeurs de 19 US-023, 16 BKG-014, 17 §2.3 / §2.5 / §7.2, jamais du code testé) :
  * - critère 1 : hold CHECKOUT posé à T0 sans ordre PSP, tâche d'expiration à T0 + 10 min

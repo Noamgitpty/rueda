@@ -9,7 +9,7 @@
 --   - place_hold : la commande booking.cmd_place_hold (US-023, propriétaire cmd_hold_owner),
 --     ici réduite à l'insertion de l'occupation HOLD puis du hold (étape 2c de 17 §2.5) ;
 --   - insert_payment_operation : la commande cmd_start_payment (T1, US-024) ; depuis US-023
---     (0036), avec le compte PSP de test du pays et quatre jambes ;
+--     (0038), avec le compte PSP de test du pays et quatre jambes ;
 --   - delete_occupancy : une suppression qu'AUCUN rôle applicatif ne peut faire (aucun DELETE
 --     accordé), pour prouver qu'elle reste refusée même forcée par le propriétaire (L0-03 : la
 --     clé étrangère du hold refuse dès l'instruction ; le trigger différé occupancy_trip_guard
@@ -57,7 +57,7 @@ BEGIN
 END
 $fn$;
 
--- US-023 (0036) : toute opération porte un compte PSP et, si elle déplace des fonds, ses quatre
+-- US-023 (0038) : toute opération porte un compte PSP et, si elle déplace des fonds, ses quatre
 -- jambes (contrôle différé de 0028). Compte FAKE SANDBOX de test du pays (créé au besoin,
 -- PENDING_VALIDATION : plusieurs fixtures peuvent le créer en parallèle sans conflit d'unicité) et
 -- jambes de test : HOST = montant, les trois autres à zéro (aucune règle de partage ici ; les

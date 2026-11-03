@@ -1,4 +1,4 @@
--- 9700 — fixtures des commandes de hold (US-023). TESTS SEULEMENT.
+-- 9750 — fixtures des commandes de hold (US-023). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` ; la base `rueda_test_*_prod` garde la définition de
@@ -24,7 +24,7 @@
 --   test_fixture.l0_cmd_place_hold_timed(uuid, timestamptz, timestamptz),
 --   test_fixture.create_org(uuid, text, text), test_fixture.config_flag_order(text, text),
 --   test_fixture.hold_force_write(uuid, text) ; DROP TABLE
---   test_fixture.vehicle_party ; réappliquer la définition de 0035 de core.booking_vehicle_party.
+--   test_fixture.vehicle_party ; réappliquer la définition de 0037 de core.booking_vehicle_party.
 
 CREATE TABLE test_fixture.vehicle_party (
   vehicle_id   uuid PRIMARY KEY,
@@ -67,7 +67,7 @@ AS $fn$
 $fn$;
 
 COMMENT ON FUNCTION core.booking_vehicle_party(uuid) IS
-  'VERSION DE TEST (test-migrations/9700) : registre de test, sinon compte des occupations.';
+  'VERSION DE TEST (test-migrations/9750) : registre de test, sinon compte des occupations.';
 
 CREATE FUNCTION test_fixture.l0_cmd_place_hold_timed(
   p_vehicle_id uuid,

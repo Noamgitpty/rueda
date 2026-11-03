@@ -10,7 +10,7 @@
  * Rôles (17 §11) : `app_worker` (webhooks) ; `app_api` pour la pose (fixture de mise en place ;
  * la commande réelle `cmd_place_hold` est prouvée par l0-hold-commands, US-023). Le 4ᵉ cas de 17
  * (deux `payment_operation_leg` de même jambe) est couvert par la clé primaire
- * `payment_operation_leg_pkey` (US-019). Depuis US-023 (0036), `psp_account_id` de la boîte de
+ * `payment_operation_leg_pkey` (US-019). Depuis US-023 (0038), `psp_account_id` de la boîte de
  * réception est une clé étrangère : les comptes du test sont de vrais comptes.
  */
 import { describe, expect, it } from 'vitest';
@@ -66,7 +66,7 @@ const inbox = (tx: pg.ClientBase, provider: string, account: string | null, dedu
   );
 
 describe('L0-08 — webhook_inbox : UNIQUE NULLS NOT DISTINCT', () => {
-  it('psp_account_id : clé étrangère vers payment_psp_account (US-023, 0036) ; compte inconnu refusé', async () => {
+  it('psp_account_id : clé étrangère vers payment_psp_account (US-023, 0038) ; compte inconnu refusé', async () => {
     await withRole('app_worker', async (client) => {
       const error = await failure(
         inTx(client, { worker: 'webhook_ingest' }, (tx) =>
@@ -109,7 +109,7 @@ describe('L0-08 — webhook_inbox : UNIQUE NULLS NOT DISTINCT', () => {
   it('doublon à psp_account_id renseigné : 23505 ; clé, compte ou fournisseur différents : acceptés', async () => {
     await withRole('app_worker', async (client) => {
       const dedup = `evt-${uuid()}`;
-      // US-023 (0036) : psp_account_id est une clé étrangère ; comptes réels (droit de test 9500)
+      // US-023 (0038) : psp_account_id est une clé étrangère ; comptes réels (droit de test 9500)
       const country = (COUNTRIES[0] as { country: string }).country;
       let account = '';
       await inTx(client, { worker: 'webhook_ingest', commit: true }, async (tx) => {

@@ -1,6 +1,6 @@
 /**
  * Le texte de 2a de la fixture de pose (`test_fixture.l0_place_hold`, 9002) et de la commande
- * réelle `core.booking_cmd_place_hold` (0035, US-023) est celui d'`EXPIRY_2A_SQL`, aux
+ * réelle `core.booking_cmd_place_hold` (0037, US-023) est celui d'`EXPIRY_2A_SQL`, aux
  * paramètres près (revue sécurité US-007, constat mineur) : la pose de L0-02 et le plan de L0-04
  * mesurent la même instruction.
  */
@@ -32,8 +32,8 @@ describe('instruction 2a : une seule source', () => {
     expect(normalize(fixture)).toContain(normalize(`${expected} RETURNING ref_id )`));
   });
 
-  it('la commande réelle core.booking_cmd_place_hold (0035, US-023) contient EXPIRY_2A_SQL aux paramètres près', () => {
-    const migration = readFileSync(join(MIGRATIONS_DIR, '0035_booking_hold_commands.sql'), 'utf8');
+  it('la commande réelle core.booking_cmd_place_hold (0037, US-023) contient EXPIRY_2A_SQL aux paramètres près', () => {
+    const migration = readFileSync(join(MIGRATIONS_DIR, '0037_booking_hold_commands.sql'), 'utf8');
     const expected = EXPIRY_2A_SQL.replaceAll('$1::uuid', 'p_vehicle_id')
       .replaceAll('$2::uuid', 'v_guest')
       .replaceAll('$3', 'v_grace');

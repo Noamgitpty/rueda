@@ -132,7 +132,7 @@ export interface Pose {
   readonly expired: readonly string[];
 }
 
-/** Enregistre des véhicules (registre de test 9700, qui tient lieu du catalogue, US-115). */
+/** Enregistre des véhicules (registre de test 9750, qui tient lieu du catalogue, US-115). */
 export async function registerVehicles(
   tx: pg.ClientBase,
   vehicleIds: readonly string[],
@@ -206,7 +206,7 @@ export interface PoseTiming {
 }
 
 /**
- * Appel de la pose RÉELLE mesurée (`test_fixture.l0_cmd_place_hold_timed`, 9700) dans la
+ * Appel de la pose RÉELLE mesurée (`test_fixture.l0_cmd_place_hold_timed`, 9750) dans la
  * transaction déjà ouverte de l'appelant, contexte du voyageur déjà posé.
  */
 export async function placeHoldTimedInTx(

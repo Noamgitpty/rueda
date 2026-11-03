@@ -133,7 +133,7 @@ AS $fn$
          pg_catalog.format('test:%s', p_operation_id)
     FROM core.booking_trip AS t
    WHERE t.id = p_trip_id;
-  -- US-023 (0036) : quatre jambes (fixture 9001)
+  -- US-023 (0038) : quatre jambes (fixture 9001)
   SELECT test_fixture.fixture_operation_legs(p_operation_id, 'CAPTURE', t.org_id, t.id,
                                              t.country_code, p_amount_minor)
     FROM core.booking_trip AS t

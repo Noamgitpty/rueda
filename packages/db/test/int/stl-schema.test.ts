@@ -13,6 +13,14 @@ const STL_TABLES = [
   'settlement_settlement_leg',
   'settlement_trip_leg_balance',
 ] as const;
+/** Tables d'argent d'US-062 (0036) : leurs politiques et droits sont prouvés par l0-us062-*.test.ts. */
+const US062_TABLES = [
+  'settlement_finance_approval',
+  'settlement_platform_advance',
+  'settlement_insurer_ledger_state',
+  'settlement_insurer_bordereau',
+  'settlement_insurer_bordereau_line',
+] as const;
 /** Tables en ajout seul : un règlement n'est jamais modifié (08 E4). */
 const APPEND_ONLY = STL_TABLES.filter((t) => t !== 'settlement_trip_leg_balance');
 
@@ -34,7 +42,7 @@ describe('schéma STL (US-018, 0027)', () => {
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relname ~ '^settlement_'
           ORDER BY 1`,
       );
-      expect(rows.map((r) => r.t)).toEqual([...STL_TABLES].sort());
+      expect(rows.map((r) => r.t)).toEqual([...STL_TABLES, ...US062_TABLES].sort());
       for (const r of rows) {
         expect(r, r.t).toMatchObject({ rls: true, force: true, owner: 'migrator', m: true });
       }
