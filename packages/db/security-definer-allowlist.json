@@ -248,6 +248,20 @@
       "story": "US-019"
     },
     {
+      "signature": "core.payment_cmd_record_submerchant_status(uuid,text,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-061"
+    },
+    {
+      "signature": "core.payment_cmd_register_submerchant(uuid,uuid,uuid,integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-061"
+    },
+    {
       "signature": "core.payment_resolve_webhook_account(text,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
@@ -274,6 +288,13 @@
       "owner": "cmd_money_owner",
       "execute": [],
       "story": "US-018"
+    },
+    {
+      "signature": "core.settlement_cmd_apply_leg_movement(uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-061"
     },
     {
       "signature": "core.settlement_cmd_approve_finance_action(bytea,uuid)",

@@ -224,6 +224,16 @@ const API_COLUMNS: Record<string, readonly string[]> = {
     'created_at',
     'updated_at',
   ],
+  // sous-marchands (US-061, 0039) : statut seulement, jamais la référence PSP ni le motif
+  payment_psp_submerchant: [
+    'id',
+    'org_id',
+    'country_code',
+    'kyc_status',
+    'payout_currency',
+    'activated_at',
+    'updated_at',
+  ],
   // tables d'argent d'US-062 (0036) : jamais un identifiant du personnel ni une référence PSP
   settlement_finance_approval: [
     'id',
@@ -299,6 +309,7 @@ const WORKER_FULL_TABLES = [
   'settlement_trip_leg_balance',
   'settlement_insurer_ledger_state',
   'settlement_insurer_bordereau_line',
+  'payment_psp_submerchant', // US-061 (0039)
 ];
 
 /** Tables lues PAR COLONNES par les travailleurs (US-062) : toutes sauf les identifiants du personnel. */

@@ -14,30 +14,51 @@
  * contenu différent ⇒ `IDEMPOTENCY_CONFLICT` ; même clé et même contenu ⇒ même résultat, sans
  * nouveau mouvement (sauf `ignoreIdempotency`).
  *
- * Identifiants déterministes (`fk_tx_000001`, `fk_evt_000001`) : deux exécutions du même test
- * donnent les mêmes références. Refuse de se construire hors `development` / `test` (C19).
+ * **Place de marché** (US-061 ; 17 §2.8, 08 E7) : Kmino marchand de référence, chaque hôte
+ * sous-marchand (`registerSubmerchant`, KYC scriptable) ; le PSP tient un solde par trip et par
+ * jambe (encaissé, remboursé, réaffecté, libéré, gelé) : `releaseLeg`, `holdLeg`, `payout`,
+ * `adjustPayout` (reprise sur versements futurs si `SUPPORTS_NEGATIVE_BALANCE_RECOVERY`),
+ * `transferFromPlatform`, `listLegBalances`. Un débit d'une jambe libérée ⇒ `LEG_RELEASED`, gelée ⇒
+ * `LEG_HELD`, sans mouvement (08 E7 règle 3 bis) ; un débit de PLATFORM puise dans le solde
+ * PLATFORM du compte (avance de Kmino, TJ18b). Mode hostile `prorata` : remboursement ventilé au
+ * prorata (contre-exemple TJ10c).
+ *
+ * Identifiants déterministes (`fk_tx_000001`, `fk_evt_000001`, `fk_sm_000001`) : deux exécutions
+ * du même test donnent les mêmes références. Refuse de se construire hors `development` / `test`
+ * (C19).
  */
 import { assertFakeAllowed } from '../guard.ts';
 import { FAKE_SIGNATURE_HEADER } from '../core/webhook.ts';
 import { fakeSignature } from './signature.ts';
 import { FAKE_LEGS, FAKE_OPERATIONS } from './types.ts';
 import type {
+  FakeAdjustPayoutRequest,
   FakeCapability,
   FakeCreateOrderRequest,
+  FakeHoldLegRequest,
+  FakeLeg,
   FakeLegAmounts,
+  FakeLegBalance,
   FakeLookup,
   FakeMitRequest,
   FakeMoneyRequest,
   FakeMovement,
   FakeOperation,
+  FakePayoutRequest,
   FakePspOptions,
   FakePspScenario,
+  FakeReadOperation,
   FakeReallocateRequest,
   FakeReferenceRequest,
+  FakeRegisterSubmerchantRequest,
+  FakeReleaseLegRequest,
   FakeResponse,
+  FakeSubmerchant,
   FakeTransaction,
+  FakeTransferRequest,
   FakeTxStatus,
   FakeWebhookDelivery,
+  FakeWriteOperation,
 } from './types.ts';
 
 export type FakePspErrorKind =
@@ -52,7 +73,11 @@ export type FakePspErrorKind =
   | 'INVALID_REQUEST'
   | 'ORDER_EXPIRED'
   | 'ALREADY_CANCELLED'
-  | 'ALREADY_PAID';
+  | 'ALREADY_PAID'
+  // place de marché (US-061)
+  | 'LEG_RELEASED'
+  | 'LEG_HELD'
+  | 'INSUFFICIENT_FUNDS';
 
 export class FakePspError extends Error {
   override readonly name = 'FakePspError';
@@ -83,6 +108,31 @@ interface KeyRecord {
 }
 
 type MutableTx = { -readonly [K in keyof FakeTransaction]: FakeTransaction[K] };
+type MutableSubmerchant = { -readonly [K in keyof FakeSubmerchant]: FakeSubmerchant[K] };
+
+interface LegState {
+  captured: bigint;
+  refunded: bigint;
+  reallocatedIn: bigint;
+  reallocatedOut: bigint;
+  released: bigint;
+  held: boolean;
+}
+
+interface TripLedger {
+  readonly currency: string;
+  readonly legs: Record<FakeLeg, LegState>;
+}
+
+const legAvailable = (s: LegState): bigint =>
+  s.captured + s.reallocatedIn - s.refunded - s.reallocatedOut - s.released;
+
+/**
+ * Arrondi au plus proche, demi vers le haut, de n × num / den (n, num ≥ 0 ; den > 0). Sert
+ * UNIQUEMENT à simuler un PSP hostile qui ventile au prorata (TJ10c) : aucun montant de Kmino.
+ */
+const prorataRound = (n: bigint, num: bigint, den: bigint): bigint =>
+  (2n * n * num + den) / (2n * den);
 
 const VALIDATED = new Set(['VALIDATED_SANDBOX', 'VALIDATED_CONTRACT']);
 
@@ -100,8 +150,11 @@ export class FakePsp {
   readonly #pending: PendingWebhook[] = [];
   readonly #emitted = new Map<string, string>();
   readonly #calls = new Map<FakeOperation, number>();
+  readonly #ledger = new Map<string, TripLedger>();
+  readonly #submerchants = new Map<string, MutableSubmerchant>();
   #txSeq = 0;
   #eventSeq = 0;
+  #smSeq = 0;
 
   constructor(options: FakePspOptions) {
     assertFakeAllowed('FakePsp', options.env);
@@ -153,6 +206,7 @@ export class FakePsp {
           captureMode: req.capture,
           expiresAtMs: ttl > 0 ? now + ttl * 1000 : null,
           status: 'CREATED',
+          tripReference: req.tripReference ?? null,
         });
         this.#emit('order.created', tx, 'PENDING');
         return tx;
@@ -239,6 +293,12 @@ export class FakePsp {
         throw new FakePspError('INVALID_REQUEST', 'remboursement au-delà de l’encaissé');
       }
       if (req.amountMinor < collected) this.#require('SUPPORTS_PARTIAL_REFUND', parent.method);
+      // PSP hostile : ventile lui-même au prorata (TJ10c), sans tenir compte des jambes reçues
+      const effective =
+        this.#scenario.prorata === true
+          ? this.#prorata(parent, req.amountMinor, collected)
+          : req.legs;
+      this.#checkDebits(parent.tripReference, parent.currency, effective);
       return () => {
         parent.refundedMinor += req.amountMinor;
         const tx = this.#childTx(
@@ -246,7 +306,7 @@ export class FakePsp {
           req.merchantReference,
           parent,
           req.amountMinor,
-          req.legs,
+          effective,
         );
         this.#move(tx);
         this.#emit('refund.succeeded', tx, 'SUCCEEDED');
@@ -262,6 +322,7 @@ export class FakePsp {
       this.#checkCurrency(parent, req.currency);
       this.#require('SUPPORTS_PAYOUT_ADJUSTMENT', parent.method);
       const moved = FAKE_LEGS.reduce((s, l) => (req.legs[l] > 0n ? s + req.legs[l] : s), 0n);
+      this.#checkDebits(parent.tripReference, parent.currency, negativePart(req.legs));
       return () => {
         const tx = this.#childTx('REALLOCATE', req.merchantReference, parent, moved, req.legs);
         this.#move(tx);
@@ -286,6 +347,7 @@ export class FakePsp {
       if (req.amountMinor !== this.#collected(parent) - parent.refundedMinor) {
         throw new FakePspError('INVALID_REQUEST', 'un rollback annule le débit en entier');
       }
+      this.#checkDebits(parent.tripReference, parent.currency, req.legs);
       return () => {
         parent.refundedMinor += req.amountMinor;
         const tx = this.#childTx(
@@ -321,6 +383,7 @@ export class FakePsp {
           captureMode: 'AUTO',
           expiresAtMs: null,
           status: 'SUCCEEDED',
+          tripReference: req.tripReference ?? null,
         });
         tx.capturedMinor = req.amountMinor;
         this.#move(tx);
@@ -350,12 +413,7 @@ export class FakePsp {
    * `SUPPORTS_LOOKUP_BY_MERCHANT_REF` est validée, sinon par référence du PSP.
    */
   lookup(query: FakeLookup): FakeTransaction | null {
-    this.#calls.set('LOOKUP', (this.#calls.get('LOOKUP') ?? 0) + 1);
-    const response = this.#nextResponse('LOOKUP');
-    if (response.kind === 'UNAVAILABLE') throw new FakePspError('UNAVAILABLE', 'PSP indisponible');
-    if (response.kind === 'TIMEOUT_BEFORE' || response.kind === 'TIMEOUT_AFTER_SUCCESS') {
-      throw new FakePspError('TIMEOUT', 'délai dépassé');
-    }
+    this.#read('LOOKUP');
     if (query.reference !== undefined) {
       const tx = this.#transactions.get(query.reference);
       return tx === undefined ? null : { ...tx };
@@ -370,6 +428,211 @@ export class FakePsp {
       return tx === undefined ? null : { ...tx };
     }
     throw new FakePspError('INVALID_REQUEST', 'référence ou clé requise');
+  }
+
+  // --- place de marché (US-061 ; 17 §2.8) --------------------------------------------------------
+
+  /** Rattache un hôte comme sous-marchand (KYC du PSP, issue scriptable). */
+  registerSubmerchant(req: FakeRegisterSubmerchantRequest): FakeSubmerchant {
+    const tx = this.#execute('REGISTER_SUBMERCHANT', req.merchantReference, req, () => {
+      this.#require('SUPPORTS_SUBMERCHANT', '*');
+      if (req.individual) this.#require('SUPPORTS_INDIVIDUAL_SUBMERCHANT', '*');
+      if (req.hostReference === '' || !/^[A-Z]{3}$/.test(req.payoutCurrency)) {
+        throw new FakePspError('INVALID_REQUEST', 'hôte ou devise de versement invalide');
+      }
+      return () => {
+        this.#smSeq += 1;
+        const sm: MutableSubmerchant = {
+          reference: `fk_sm_${pad(this.#smSeq)}`,
+          hostReference: req.hostReference,
+          individual: req.individual,
+          country: req.country,
+          payoutCurrency: req.payoutCurrency,
+          status: this.#scenario.submerchantKyc ?? 'ACTIVE',
+          releasedMinor: 0n,
+          paidOutMinor: 0n,
+          adjustedMinor: 0n,
+        };
+        this.#submerchants.set(sm.reference, sm);
+        return this.#marketTx('REGISTER_SUBMERCHANT', req.merchantReference, {
+          currency: req.payoutCurrency,
+          submerchantReference: sm.reference,
+        });
+      };
+    });
+    return this.#submerchantOf(tx);
+  }
+
+  /** État du sous-marchand chez le PSP ; `null` : inconnu. */
+  getSubmerchant(reference: string): FakeSubmerchant | null {
+    this.#read('GET_SUBMERCHANT');
+    const sm = this.#submerchants.get(reference);
+    return sm === undefined ? null : { ...sm };
+  }
+
+  /** Événement du PSP (tests) : KYC décidé, sous-marchand suspendu ou réactivé. */
+  setSubmerchantStatus(reference: string, status: FakeSubmerchant['status']): void {
+    this.#knownSubmerchant(reference).status = status;
+  }
+
+  /** Libère une jambe d'un trip vers son bénéficiaire (`payout_at`, bordereau ; 08 E7 règle 6). */
+  releaseLeg(req: FakeReleaseLegRequest): FakeTransaction {
+    return this.#execute('RELEASE_LEG', req.merchantReference, req, () => {
+      this.#require('SUPPORTS_DELAYED_PAYOUT_RELEASE', '*');
+      if (typeof req.amountMinor !== 'bigint' || req.amountMinor <= 0n) {
+        throw new FakePspError('INVALID_REQUEST', 'montant strictement positif attendu');
+      }
+      const ledger = this.#tripLedger(req.tripReference, req.currency);
+      const state = ledger.legs[req.leg];
+      if (state.held) throw new FakePspError('LEG_HELD', `jambe ${req.leg} gelée`);
+      if (req.amountMinor > legAvailable(state)) {
+        throw new FakePspError('INVALID_REQUEST', `jambe ${req.leg} : solde insuffisant`);
+      }
+      if (req.beneficiaryReference === '') {
+        throw new FakePspError('INVALID_REQUEST', 'bénéficiaire absent');
+      }
+      const sm = req.leg === 'HOST' ? this.#activeSubmerchant(req.beneficiaryReference) : null;
+      if (sm !== null && sm.payoutCurrency !== req.currency) {
+        throw new FakePspError('INVALID_REQUEST', `devise ${req.currency} ≠ ${sm.payoutCurrency}`);
+      }
+      return () => {
+        if (sm !== null) sm.releasedMinor += req.amountMinor;
+        const tx = this.#marketTx('RELEASE_LEG', req.merchantReference, {
+          currency: req.currency,
+          amountMinor: req.amountMinor,
+          legs: oneLeg(req.leg, req.amountMinor),
+          tripReference: req.tripReference,
+          submerchantReference: sm?.reference ?? null,
+        });
+        this.#move(tx);
+        this.#emit('leg.released', tx, 'SUCCEEDED');
+        return tx;
+      };
+    });
+  }
+
+  /** Gèle une jambe (`ON_HOLD`, chargeback, litige) : plus aucune libération ni débit. */
+  holdLeg(req: FakeHoldLegRequest): FakeTransaction {
+    return this.#execute('HOLD_LEG', req.merchantReference, req, () => {
+      this.#require('SUPPORTS_DELAYED_PAYOUT_RELEASE', '*');
+      const ledger = this.#ledger.get(req.tripReference);
+      if (ledger === undefined) {
+        throw new FakePspError('NOT_FOUND', `trip ${req.tripReference} inconnu`);
+      }
+      return () => {
+        ledger.legs[req.leg].held = true;
+        const tx = this.#marketTx('HOLD_LEG', req.merchantReference, {
+          currency: ledger.currency,
+          tripReference: req.tripReference,
+        });
+        this.#emit('leg.held', tx, 'SUCCEEDED');
+        return tx;
+      };
+    });
+  }
+
+  /** Versement d'un lot au sous-marchand, depuis ses jambes HOST libérées (B2C). */
+  payout(req: FakePayoutRequest): FakeTransaction {
+    return this.#execute('PAYOUT', req.merchantReference, req, () => {
+      this.#require('SUPPORTS_B2C_PAYOUT', '*');
+      const sm = this.#activeSubmerchant(req.submerchantReference);
+      this.#checkPositive(req.amountMinor, req.currency, sm);
+      if (req.amountMinor > sm.releasedMinor - sm.paidOutMinor - sm.adjustedMinor) {
+        throw new FakePspError('INSUFFICIENT_FUNDS', 'solde libéré insuffisant');
+      }
+      return () => {
+        sm.paidOutMinor += req.amountMinor;
+        const tx = this.#marketTx('PAYOUT', req.merchantReference, {
+          currency: req.currency,
+          amountMinor: req.amountMinor,
+          submerchantReference: sm.reference,
+        });
+        this.#emit('payout.paid', tx, 'SUCCEEDED');
+        return tx;
+      };
+    });
+  }
+
+  /**
+   * Retenue sur un versement non libéré (pénalité, franchise : 08 E7 règle 7) ; au-delà du solde,
+   * reprise sur les versements futurs si `SUPPORTS_NEGATIVE_BALANCE_RECOVERY`.
+   */
+  adjustPayout(req: FakeAdjustPayoutRequest): FakeTransaction {
+    return this.#execute('ADJUST_PAYOUT', req.merchantReference, req, () => {
+      this.#require('SUPPORTS_PAYOUT_ADJUSTMENT', '*');
+      const sm = this.#knownSubmerchant(req.submerchantReference);
+      this.#checkPositive(req.amountMinor, req.currency, sm);
+      if (req.amountMinor > sm.releasedMinor - sm.paidOutMinor - sm.adjustedMinor) {
+        this.#require('SUPPORTS_NEGATIVE_BALANCE_RECOVERY', '*');
+      }
+      return () => {
+        sm.adjustedMinor += req.amountMinor;
+        const tx = this.#marketTx('ADJUST_PAYOUT', req.merchantReference, {
+          currency: req.currency,
+          amountMinor: req.amountMinor,
+          submerchantReference: sm.reference,
+        });
+        this.#emit('payout.adjusted', tx, 'SUCCEEDED');
+        return tx;
+      };
+    });
+  }
+
+  /** Transfert du solde PLATFORM vers une jambe tierce d'un trip (Σ = 0 ; 17 §2.9). */
+  transferFromPlatform(req: FakeTransferRequest): FakeTransaction {
+    return this.#execute('TRANSFER_FROM_PLATFORM', req.merchantReference, req, () => {
+      this.#checkLegs(0n, req.legs, true);
+      this.#require('SUPPORTS_PLATFORM_LEG_TRANSFER', '*');
+      for (const leg of FAKE_LEGS) {
+        if (leg !== 'PLATFORM' && req.legs[leg] < 0n) {
+          throw new FakePspError('INVALID_LEGS', `transfert : jambe ${leg} débitée`);
+        }
+      }
+      const moved = -req.legs.PLATFORM;
+      if (moved <= 0n) throw new FakePspError('INVALID_REQUEST', 'transfert vide');
+      this.#checkDebits(req.tripReference, req.currency, negativePart(req.legs));
+      return () => {
+        const tx = this.#marketTx('TRANSFER_FROM_PLATFORM', req.merchantReference, {
+          currency: req.currency,
+          amountMinor: moved,
+          legs: req.legs,
+          tripReference: req.tripReference,
+        });
+        this.#move(tx);
+        this.#emit('legs.transferred', tx, 'SUCCEEDED');
+        return tx;
+      };
+    });
+  }
+
+  /** Soldes par trip et par jambe tenus par le PSP (rapprochement, 17 §2.9). */
+  listLegBalances(query: { readonly tripReference?: string } = {}): FakeLegBalance[] {
+    this.#read('LIST_LEG_BALANCES');
+    const out: FakeLegBalance[] = [];
+    for (const [tripReference, ledger] of this.#ledger) {
+      if (query.tripReference !== undefined && query.tripReference !== tripReference) continue;
+      for (const leg of FAKE_LEGS) {
+        const st = ledger.legs[leg];
+        out.push({
+          tripReference,
+          leg,
+          currency: ledger.currency,
+          capturedMinor: st.captured,
+          refundedMinor: st.refunded,
+          reallocatedInMinor: st.reallocatedIn,
+          reallocatedOutMinor: st.reallocatedOut,
+          releasedMinor: st.released,
+          held: st.held,
+        });
+      }
+    }
+    return out;
+  }
+
+  /** Inspection (tests) : état d'un sous-marchand, soldes compris. */
+  submerchant(reference: string): FakeSubmerchant | null {
+    const sm = this.#submerchants.get(reference);
+    return sm === undefined ? null : { ...sm };
   }
 
   // --- actions du client sur la page hébergée --------------------------------------------------
@@ -503,6 +766,154 @@ export class FakePsp {
 
   // --- mécanique interne -----------------------------------------------------------------------
 
+  /** Lecture (aucune clé) : réponse réseau scriptée, comptée comme un appel. */
+  #read(op: FakeReadOperation): void {
+    this.#calls.set(op, (this.#calls.get(op) ?? 0) + 1);
+    const response = this.#nextResponse(op);
+    if (response.kind === 'UNAVAILABLE') throw new FakePspError('UNAVAILABLE', 'PSP indisponible');
+    if (response.kind === 'TIMEOUT_BEFORE' || response.kind === 'TIMEOUT_AFTER_SUCCESS') {
+      throw new FakePspError('TIMEOUT', 'délai dépassé');
+    }
+  }
+
+  #tripLedger(tripReference: string, currency: string): TripLedger {
+    let ledger = this.#ledger.get(tripReference);
+    if (ledger === undefined) {
+      const zero = (): LegState => ({
+        captured: 0n,
+        refunded: 0n,
+        reallocatedIn: 0n,
+        reallocatedOut: 0n,
+        released: 0n,
+        held: false,
+      });
+      ledger = {
+        currency,
+        legs: { HOST: zero(), INSURER: zero(), TAX_THIRD_PARTY: zero(), PLATFORM: zero() },
+      };
+      this.#ledger.set(tripReference, ledger);
+    }
+    if (ledger.currency !== currency) {
+      throw new FakePspError('INVALID_REQUEST', `devise ${currency} ≠ ${ledger.currency}`);
+    }
+    return ledger;
+  }
+
+  /** Solde PLATFORM du compte dans une devise (toutes les jambes PLATFORM, avances comprises). */
+  #platformPool(currency: string): bigint {
+    let total = 0n;
+    for (const ledger of this.#ledger.values()) {
+      if (ledger.currency === currency) total += legAvailable(ledger.legs.PLATFORM);
+    }
+    return total;
+  }
+
+  /**
+   * Débits d'un trip (remboursement, rollback, source d'une réaffectation ou d'un transfert) :
+   * jambe gelée ⇒ `LEG_HELD` ; au-delà du disponible d'une jambe libérée ⇒ `LEG_RELEASED` ;
+   * au-delà du disponible sinon ⇒ `INVALID_LEGS`. PLATFORM puise dans le solde PLATFORM du compte
+   * (avance de Kmino, 08 E7 règle 3 bis).
+   */
+  #checkDebits(tripReference: string, currency: string, debits: FakeLegAmounts): void {
+    const ledger = this.#tripLedger(tripReference, currency);
+    for (const leg of FAKE_LEGS) {
+      const debit = debits[leg];
+      if (debit <= 0n) continue;
+      const state = ledger.legs[leg];
+      if (state.held) throw new FakePspError('LEG_HELD', `jambe ${leg} gelée`);
+      if (leg === 'PLATFORM') {
+        if (debit > this.#platformPool(currency)) {
+          throw new FakePspError('INSUFFICIENT_FUNDS', 'solde PLATFORM du compte insuffisant');
+        }
+        continue;
+      }
+      if (debit > legAvailable(state)) {
+        if (state.released > 0n) {
+          throw new FakePspError('LEG_RELEASED', `jambe ${leg} déjà libérée`);
+        }
+        throw new FakePspError('INVALID_LEGS', `jambe ${leg} : débit au-delà du solde`);
+      }
+    }
+  }
+
+  /** Ventilation au prorata (mode hostile, TJ10c) : jambes tierces arrondies, PLATFORM complément. */
+  #prorata(parent: MutableTx, amountMinor: bigint, collected: bigint): FakeLegAmounts {
+    const base = parent.legs;
+    if (base === null || collected <= 0n) {
+      throw new FakePspError('INVALID_REQUEST', 'prorata impossible sans jambes encaissées');
+    }
+    const host = prorataRound(base.HOST, amountMinor, collected);
+    const insurer = prorataRound(base.INSURER, amountMinor, collected);
+    const tax = prorataRound(base.TAX_THIRD_PARTY, amountMinor, collected);
+    return {
+      HOST: host,
+      INSURER: insurer,
+      TAX_THIRD_PARTY: tax,
+      PLATFORM: amountMinor - host - insurer - tax,
+    };
+  }
+
+  #knownSubmerchant(reference: string): MutableSubmerchant {
+    const sm = this.#submerchants.get(reference);
+    if (sm === undefined) throw new FakePspError('NOT_FOUND', `sous-marchand ${reference} inconnu`);
+    return sm;
+  }
+
+  #activeSubmerchant(reference: string): MutableSubmerchant {
+    const sm = this.#knownSubmerchant(reference);
+    if (sm.status !== 'ACTIVE') {
+      throw new FakePspError('INVALID_REQUEST', `sous-marchand ${reference} : ${sm.status}`);
+    }
+    return sm;
+  }
+
+  #checkPositive(amountMinor: bigint, currency: string, sm: MutableSubmerchant): void {
+    if (typeof amountMinor !== 'bigint' || amountMinor <= 0n) {
+      throw new FakePspError('INVALID_REQUEST', 'montant strictement positif attendu');
+    }
+    if (currency !== sm.payoutCurrency) {
+      throw new FakePspError('INVALID_REQUEST', `devise ${currency} ≠ ${sm.payoutCurrency}`);
+    }
+  }
+
+  #submerchantOf(tx: FakeTransaction): FakeSubmerchant {
+    const sm =
+      tx.submerchantReference === null
+        ? undefined
+        : this.#submerchants.get(tx.submerchantReference);
+    if (sm === undefined) throw new FakePspError('NOT_FOUND', 'sous-marchand perdu');
+    return { ...sm };
+  }
+
+  /** Transaction d'une opération de place de marché (sans ordre parent). */
+  #marketTx(
+    operation: FakeWriteOperation,
+    merchantReference: string,
+    init: {
+      currency: string;
+      amountMinor?: bigint;
+      legs?: FakeLegAmounts | null;
+      tripReference?: string;
+      submerchantReference?: string | null;
+    },
+  ): MutableTx {
+    const tx = this.#newTx({
+      merchantReference,
+      operation,
+      method: 'MARKETPLACE',
+      amountMinor: init.amountMinor ?? 0n,
+      currency: init.currency,
+      legs: init.legs ?? null,
+      parentReference: null,
+      captureMode: null,
+      expiresAtMs: null,
+      status: 'SUCCEEDED',
+      tripReference: init.tripReference ?? null,
+    });
+    tx.submerchantReference = init.submerchantReference ?? null;
+    return tx;
+  }
+
   #nextResponse(op: FakeOperation): FakeResponse {
     return this.#responses.get(op)?.shift() ?? { kind: 'OK' };
   }
@@ -512,7 +923,7 @@ export class FakePsp {
    * effet (`commit`), puis perte éventuelle de la réponse.
    */
   #execute(
-    op: Exclude<FakeOperation, 'LOOKUP'>,
+    op: FakeWriteOperation,
     merchantReference: string,
     request: object,
     prepare: (response: FakeResponse | null) => () => MutableTx,
@@ -626,11 +1037,15 @@ export class FakePsp {
     captureMode: FakeTransaction['captureMode'];
     expiresAtMs: number | null;
     status: FakeTxStatus;
+    tripReference: string | null;
   }): MutableTx {
     this.#txSeq += 1;
+    const reference = `fk_tx_${pad(this.#txSeq)}`;
     const tx: MutableTx = {
       ...init,
-      reference: `fk_tx_${pad(this.#txSeq)}`,
+      reference,
+      tripReference: init.tripReference ?? reference,
+      submerchantReference: null,
       createdAtMs: this.#clock(),
       declineCode: null,
       capturedMinor: 0n,
@@ -660,9 +1075,11 @@ export class FakePsp {
       captureMode: null,
       expiresAtMs: null,
       status: 'SUCCEEDED',
+      tripReference: parent.tripReference,
     });
   }
 
+  /** Mouvement de fonds exécuté : inspection des tests et soldes par jambe du trip. */
   #move(tx: MutableTx): void {
     this.#movements.push({
       reference: tx.reference,
@@ -671,6 +1088,33 @@ export class FakePsp {
       amountMinor: tx.amountMinor,
       legs: tx.legs,
     });
+    if (tx.legs === null) return;
+    const ledger = this.#tripLedger(tx.tripReference, tx.currency);
+    for (const leg of FAKE_LEGS) {
+      const v = tx.legs[leg];
+      const st = ledger.legs[leg];
+      switch (tx.operation) {
+        case 'CREATE_ORDER':
+        case 'CAPTURE':
+        case 'MIT_CHARGE':
+          st.captured += v;
+          break;
+        case 'REFUND':
+        case 'ROLLBACK':
+          st.refunded += v;
+          break;
+        case 'REALLOCATE':
+        case 'TRANSFER_FROM_PLATFORM':
+          if (v > 0n) st.reallocatedIn += v;
+          else st.reallocatedOut -= v;
+          break;
+        case 'RELEASE_LEG':
+          st.released += v;
+          break;
+        default:
+          break;
+      }
+    }
   }
 
   #expire(order: MutableTx): void {
@@ -727,4 +1171,24 @@ function stringify(value: unknown): string {
           )
         : v,
   );
+}
+
+/** Partie négative d'une répartition de somme nulle, en débits positifs. */
+function negativePart(legs: FakeLegAmounts): FakeLegAmounts {
+  return {
+    HOST: legs.HOST < 0n ? -legs.HOST : 0n,
+    INSURER: legs.INSURER < 0n ? -legs.INSURER : 0n,
+    TAX_THIRD_PARTY: legs.TAX_THIRD_PARTY < 0n ? -legs.TAX_THIRD_PARTY : 0n,
+    PLATFORM: legs.PLATFORM < 0n ? -legs.PLATFORM : 0n,
+  };
+}
+
+/** Jambes d'un mouvement d'une seule jambe (libération). */
+function oneLeg(leg: FakeLeg, amountMinor: bigint): FakeLegAmounts {
+  return {
+    HOST: leg === 'HOST' ? amountMinor : 0n,
+    INSURER: leg === 'INSURER' ? amountMinor : 0n,
+    TAX_THIRD_PARTY: leg === 'TAX_THIRD_PARTY' ? amountMinor : 0n,
+    PLATFORM: leg === 'PLATFORM' ? amountMinor : 0n,
+  };
 }

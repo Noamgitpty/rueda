@@ -12,6 +12,7 @@ const STL_TABLES = [
   'settlement_settlement_tax_line',
   'settlement_settlement_leg',
   'settlement_trip_leg_balance',
+  'settlement_leg_movement', // US-061 (0039) : opérations portées sur les soldes, ajout seul
 ] as const;
 /** Tables d'argent d'US-062 (0036) : leurs politiques et droits sont prouvés par l0-us062-*.test.ts. */
 const US062_TABLES = [
@@ -68,16 +69,25 @@ describe('schéma STL (US-018, 0027)', () => {
           expect(r.roles, label).toBe('migrator');
           continue;
         }
-        expect(['r', 'a'], label).toContain(r.cmd); // SELECT ou INSERT, jamais UPDATE / DELETE / ALL
-        if (r.cmd === 'a') expect(r.roles, label).toBe('cmd_money_owner');
+        // SELECT ou INSERT, jamais DELETE / ALL ; UPDATE : cumuls de trip_leg_balance seulement
+        // (écrivain cmd_apply_leg_movement, US-061)
+        expect(
+          r.t === 'settlement_trip_leg_balance' ? ['r', 'a', 'w'] : ['r', 'a'],
+          label,
+        ).toContain(r.cmd);
+        if (r.cmd === 'a' || r.cmd === 'w') expect(r.roles, label).toBe('cmd_money_owner');
         expect(['app_api', 'app_worker', 'cmd_money_owner'], label).toContain(r.roles);
       }
-      // trip_leg_balance : aucune politique d'écriture tant que son écrivain n'existe pas
+      // trip_leg_balance : un seul écrivain, cmd_apply_leg_movement (US-061, 0039)
       expect(
-        rows.filter(
-          (r) => r.t === 'settlement_trip_leg_balance' && r.cmd !== 'r' && r.pol !== 'migrator_all',
-        ),
-      ).toEqual([]);
+        rows
+          .filter(
+            (r) =>
+              r.t === 'settlement_trip_leg_balance' && r.cmd !== 'r' && r.pol !== 'migrator_all',
+          )
+          .map((r) => `${r.pol}:${r.cmd}:${r.roles}`)
+          .sort(),
+      ).toEqual(['cmd_money_ins:a:cmd_money_owner', 'cmd_money_upd:w:cmd_money_owner']);
     });
   });
 
@@ -92,10 +102,11 @@ describe('schéma STL (US-018, 0027)', () => {
                           AND pg_catalog.has_any_column_privilege($1, ('core.' || $2)::regclass, $3)) AS ok`,
               [role, t, priv],
             );
+            // trip_leg_balance : INSERT et UPDATE de colonnes pour son écrivain (US-061, 0039)
             const allowed =
               role === 'cmd_money_owner' &&
-              priv === 'INSERT' &&
-              (APPEND_ONLY as readonly string[]).includes(t);
+              ((priv === 'INSERT' && (APPEND_ONLY as readonly string[]).includes(t)) ||
+                (t === 'settlement_trip_leg_balance' && (priv === 'INSERT' || priv === 'UPDATE')));
             expect(rows[0]?.ok, `${role} ${priv} ${t}`).toBe(allowed);
           }
         }

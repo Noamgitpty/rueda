@@ -7,8 +7,10 @@
  * construction refuse tout `RUEDA_ENV` autre que development / test.
  *
  * Comme un connecteur réel, l'adaptateur vérifie AVANT tout appel : jambes (Σ = montant, ≥ 0 ;
- * réaffectation Σ = 0) et capacités requises (inconnue = non) ; il traduit toute erreur du PSP en
- * erreur normalisée (17 §2.8).
+ * réaffectation et transfert Σ = 0), capacités requises (inconnue = non) et, pour un paiement ou
+ * l'enregistrement d'un hôte, toutes les capacités BLOQUANTES de la place de marché
+ * (`HOST_PAYOUT_RAIL_UNAVAILABLE`, US-061) ; il traduit toute erreur du PSP en erreur normalisée
+ * (17 §2.8), dont `LEG_ALREADY_RELEASED` pour le débit d'une jambe libérée ou gelée.
  */
 import {
   assertFakeAllowed,
@@ -18,24 +20,39 @@ import {
 } from '@rueda/fake-adapters';
 import type { FakePsp, FakeTransaction } from '@rueda/fake-adapters';
 import { CapabilitySet } from '../internal/capabilities.js';
-import type { CapabilityRecord } from '../internal/capabilities.js';
+import type { CapabilityRecord, CollectionMode } from '../internal/capabilities.js';
 import { PaymentError } from '../internal/errors.js';
-import { assertMovingLegs, assertReallocationLegs } from '../internal/legs.js';
+import {
+  assertMovingLegs,
+  assertPositiveAmount,
+  assertReallocationLegs,
+  assertTransferLegs,
+  isLeg,
+} from '../internal/legs.js';
 import type {
+  AdjustPayoutRequest,
   CaptureRequest,
   ChargeMitRequest,
   CreateHostedPaymentRequest,
+  HoldLegRequest,
   HostedPayment,
+  LegBalance,
+  LegBalanceQuery,
   NormalizedPaymentEvent,
   OperationLookup,
   OperationResult,
   OperationStatus,
   PaymentProvider,
+  PayoutRequest,
   ProviderOperation,
   ReallocateRequest,
   ReferenceRequest,
   RefundRequest,
+  RegisterSubmerchantRequest,
+  ReleaseLegRequest,
   RollbackRequest,
+  Submerchant,
+  TransferFromPlatformRequest,
   WebhookHeaders,
   WebhookVerification,
 } from '../internal/port.js';
@@ -81,6 +98,12 @@ function translate(error: unknown): never {
       throw new PaymentError('UNSUPPORTED_CAPABILITY', error.message);
     case 'INVALID_LEGS':
       throw new PaymentError('LEG_SUM_MISMATCH', error.message);
+    // 08 E7 règle 3 bis : jambe libérée (ou gelée) ⇒ variation à porter sur PLATFORM avant l'appel
+    case 'LEG_RELEASED':
+    case 'LEG_HELD':
+      throw new PaymentError('LEG_ALREADY_RELEASED', error.message);
+    case 'INSUFFICIENT_FUNDS':
+      throw new PaymentError('INSUFFICIENT_FUNDS', error.message);
     case 'ALREADY_CANCELLED':
     case 'NOT_FOUND':
     case 'INVALID_REQUEST':
@@ -94,19 +117,27 @@ const result = (tx: FakeTransaction): OperationResult => ({
   status: fakeStatus(tx),
 });
 
+export interface FakePaymentProviderOptions {
+  /** Variante d'exécution du compte (`collection_mode`, 17 §3.2.7) ; défaut : variante A. */
+  readonly collectionMode?: CollectionMode;
+}
+
 export class FakePaymentProvider implements PaymentProvider {
   readonly provider = FAKE_PROVIDER;
   readonly #psp: FakePsp;
   readonly #caps: CapabilitySet;
+  readonly #mode: CollectionMode;
 
   constructor(
     psp: FakePsp,
     capabilities: readonly CapabilityRecord[],
     env?: Readonly<Record<string, string | undefined>>,
+    options: FakePaymentProviderOptions = {},
   ) {
     assertFakeAllowed('FakePaymentProvider', env);
     this.#psp = psp;
     this.#caps = new CapabilitySet(capabilities);
+    this.#mode = options.collectionMode ?? 'SPLIT_AT_SOURCE';
   }
 
   capabilities(): CapabilitySet {
@@ -123,11 +154,13 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async createHostedPayment(req: CreateHostedPaymentRequest): Promise<HostedPayment> {
     assertMovingLegs(req.amountMinor, req.legs);
-    this.#caps.requireCapability('SUPPORTS_PER_LEG_AMOUNTS');
+    // règle d'activation (17 §2.8) : aucun paiement sans toutes les capacités bloquantes
+    this.#caps.assertMarketplaceRails(this.#mode);
     if (req.capture === 'MANUAL') this.#caps.requireCapability('SUPPORTS_PREAUTH', req.method);
     return this.#call(() => {
       const tx = this.#psp.createOrder({
         merchantReference: req.idempotencyKey,
+        ...(req.tripReference !== undefined ? { tripReference: req.tripReference } : {}),
         method: req.method,
         amountMinor: req.amountMinor,
         currency: req.currency,
@@ -248,6 +281,7 @@ export class FakePaymentProvider implements PaymentProvider {
       result(
         this.#psp.chargeMit({
           merchantReference: req.idempotencyKey,
+          ...(req.tripReference !== undefined ? { tripReference: req.tripReference } : {}),
           instrumentToken: req.instrumentToken,
           reason: req.reason,
           amountMinor: req.amountMinor,
@@ -289,6 +323,123 @@ export class FakePaymentProvider implements PaymentProvider {
             legs: tx.legs,
           };
     });
+  }
+
+  // --- place de marché (US-061 ; 17 §2.8) ------------------------------------------------------
+
+  async registerSubmerchant(req: RegisterSubmerchantRequest): Promise<Submerchant> {
+    // règle d'activation : un hôte n'est activable que si toutes les capacités bloquantes sont
+    // validées pour la variante du compte (une capacité inconnue vaut « non »)
+    this.#caps.assertMarketplaceRails(this.#mode);
+    return this.#call(() => {
+      const sm = this.#psp.registerSubmerchant({
+        merchantReference: req.idempotencyKey,
+        hostReference: req.hostReference,
+        individual: req.individual,
+        country: req.country,
+        payoutCurrency: req.payoutCurrency,
+      });
+      return { submerchantReference: sm.reference, status: sm.status };
+    });
+  }
+
+  async getSubmerchant(submerchantReference: string): Promise<Submerchant | null> {
+    return this.#call(() => {
+      const sm = this.#psp.getSubmerchant(submerchantReference);
+      return sm === null ? null : { submerchantReference: sm.reference, status: sm.status };
+    });
+  }
+
+  async releaseLeg(req: ReleaseLegRequest): Promise<OperationResult> {
+    if (!isLeg(req.leg)) throw new PaymentError('INVALID_REQUEST', 'jambe inconnue');
+    assertPositiveAmount(req.amountMinor);
+    this.#caps.requireCapability('SUPPORTS_DELAYED_PAYOUT_RELEASE');
+    return this.#call(() =>
+      result(
+        this.#psp.releaseLeg({
+          merchantReference: req.idempotencyKey,
+          tripReference: req.tripReference,
+          leg: req.leg,
+          amountMinor: req.amountMinor,
+          currency: req.currency,
+          beneficiaryReference: req.beneficiaryReference,
+        }),
+      ),
+    );
+  }
+
+  async holdLeg(req: HoldLegRequest): Promise<OperationResult> {
+    if (!isLeg(req.leg)) throw new PaymentError('INVALID_REQUEST', 'jambe inconnue');
+    this.#caps.requireCapability('SUPPORTS_DELAYED_PAYOUT_RELEASE');
+    return this.#call(() =>
+      result(
+        this.#psp.holdLeg({
+          merchantReference: req.idempotencyKey,
+          tripReference: req.tripReference,
+          leg: req.leg,
+        }),
+      ),
+    );
+  }
+
+  async payout(req: PayoutRequest): Promise<OperationResult> {
+    assertPositiveAmount(req.amountMinor);
+    this.#caps.requireCapability('SUPPORTS_B2C_PAYOUT');
+    return this.#call(() =>
+      result(
+        this.#psp.payout({
+          merchantReference: req.idempotencyKey,
+          submerchantReference: req.submerchantReference,
+          amountMinor: req.amountMinor,
+          currency: req.currency,
+        }),
+      ),
+    );
+  }
+
+  async adjustPayout(req: AdjustPayoutRequest): Promise<OperationResult> {
+    assertPositiveAmount(req.amountMinor);
+    this.#caps.requireCapability('SUPPORTS_PAYOUT_ADJUSTMENT');
+    return this.#call(() =>
+      result(
+        this.#psp.adjustPayout({
+          merchantReference: req.idempotencyKey,
+          submerchantReference: req.submerchantReference,
+          amountMinor: req.amountMinor,
+          currency: req.currency,
+          reason: req.reason,
+        }),
+      ),
+    );
+  }
+
+  async transferFromPlatform(req: TransferFromPlatformRequest): Promise<OperationResult> {
+    assertTransferLegs(req.legs);
+    // défaut : capacité absente ⇒ transfert interdit (17 §2.8, DEC-FONDATEUR-01)
+    this.#caps.requireCapability('SUPPORTS_PLATFORM_LEG_TRANSFER');
+    return this.#call(() =>
+      result(
+        this.#psp.transferFromPlatform({
+          merchantReference: req.idempotencyKey,
+          tripReference: req.tripReference,
+          currency: req.currency,
+          legs: req.legs,
+          reason: req.reason,
+        }),
+      ),
+    );
+  }
+
+  async listLegBalances(query: LegBalanceQuery): Promise<readonly LegBalance[]> {
+    // export par jambe : seulement si le PSP sait lister (sinon import CSV, 17 §2.8)
+    this.#caps.requireCapability('SUPPORTS_LIST_TRANSACTIONS');
+    return this.#call(() =>
+      this.#psp
+        .listLegBalances(
+          query.tripReference !== undefined ? { tripReference: query.tripReference } : {},
+        )
+        .map((b) => ({ ...b })),
+    );
   }
 
   verifyAndParseWebhook(

@@ -150,8 +150,26 @@ export class CapabilitySet {
   missingBlocking(mode: CollectionMode): CapabilityName[] {
     return CAPABILITY_NAMES.filter((name) => {
       const blocking = CAPABILITIES[name].blocking;
-      const applies = blocking === true || (blocking === 'VARIANT_A' && mode === 'SPLIT_AT_SOURCE');
+      const applies = blocking === true || (blocking === 'VARIANT_A' && mode !== 'PLATFORM_MOR');
       return applies && !this.has(name);
     });
+  }
+
+  /**
+   * Règle d'activation de la place de marché (17 §2.8 ; 08 E7 ; US-061, critère 3) : une capacité
+   * bloquante non validée ⇒ `HOST_PAYOUT_RAIL_UNAVAILABLE`, sans appel au PSP. Exigée à
+   * l'enregistrement d'un hôte comme sous-marchand et avant tout paiement (une capacité inconnue
+   * vaut « non »). Même catalogue que `core.payment_psp_capability_catalog` (migration 0039).
+   */
+  assertMarketplaceRails(mode: CollectionMode): void {
+    const missing = this.missingBlocking(mode);
+    const first = missing[0];
+    if (first !== undefined) {
+      throw new PaymentError(
+        'HOST_PAYOUT_RAIL_UNAVAILABLE',
+        `capacités bloquantes non validées : ${missing.join(', ')}`,
+        { capability: first, missing: [...missing].sort() },
+      );
+    }
   }
 }

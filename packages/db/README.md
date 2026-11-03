@@ -270,6 +270,17 @@ Migration `0028_payment_psp_port` :
 
 Preuves : `test/l0/l0-pay-legs-rls.test.ts` (RLS des jambes par acteur et par pays) et `test/l0/l0-pay-port.test.ts` (C19, contrôle différé des jambes au COMMIT, idempotence, jambes, rangs, dédoublonnage, quarantaine, aucun PAN ni CVV, en USD et en PYG ; montants des vecteurs TJ).
 
+## Port de place de marché (US-061 ; 17 §2.8, §2.9, §3.2.7, §4.3 ; ADR-066)
+
+Migration `0039_payment_marketplace_legs` (réservée « 0045 », renumérotée à la fusion derrière US-024) :
+
+- `core.payment_psp_capability_catalog` : les capacités de 17 §2.8, leur type et leur caractère **bloquant** (`YES`, `VARIANT_A`, `NO`) ; `core.payment_missing_blocking_capabilities(fournisseur, pays, variante)` rend les bloquantes non validées (seule la ligne `VALIDATED_*` en vigueur la plus récente, de portée méthode `*` / réseau `*`, compte ; fail-closed).
+- `core.payment_psp_submerchant` : une tentative d'enregistrement par ligne (`submerchant:{org_id}:a{n}`), au plus une vivante par (compte, hôte), transitions gardées, aucune suppression ; l'hôte titulaire lit son statut seulement, ADMIN / FINANCE de leur pays, travailleurs `payment_command`, `payout`, `reconciliation`.
+- Commandes `cmd_money` (travailleur `payment_command`) : `payment_cmd_register_submerchant` (refus `host_payout_rail_unavailable` ⇒ `HOST_PAYOUT_RAIL_UNAVAILABLE` si une capacité bloquante manque ; compte FAKE refusé en production) et `payment_cmd_record_submerchant_status`.
+- `core.settlement_cmd_apply_leg_movement` : **seul écrivain** de `trip_leg_balance` (montants lus de `payment_operation_leg`, sous le verrou du trip, une fois par opération : `core.settlement_leg_movement`) ; débit d'une jambe libérée ou gelée ⇒ `LEG_ALREADY_RELEASED`.
+
+Preuves : `test/l0/l0-pay-marketplace.test.ts` (chaque capacité bloquante `UNKNOWN`, `DOCUMENTED` ou absente, statuts, RLS des sous-marchands, soldes TJ01 / TJ02b / TJ08a / TJ08b, jambe libérée TJ18a à d, gel, réaffectation TJ05b, RLS-25 rejouée) ; fixture `9850` (gel d'une jambe).
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                                                             | Attributs                                                                                                | Usage                                                                             |

@@ -124,7 +124,7 @@ describe.each(PAIRS)('FAKE hostile — $capture.currency', (pair) => {
     expect(stack.psp.movements()).toHaveLength(1);
   });
 
-  it('capacité absente ou seulement DOCUMENTED ⇒ UNSUPPORTED_CAPABILITY, sans appel au PSP', async () => {
+  it('capacité absente ou seulement DOCUMENTED ⇒ refus sans appel au PSP (bloquante : HOST_PAYOUT_RAIL_UNAVAILABLE, US-061)', async () => {
     const { stack } = harness(pair, {
       without: ['SUPPORTS_MIT'],
       override: [
@@ -139,9 +139,9 @@ describe.each(PAIRS)('FAKE hostile — $capture.currency', (pair) => {
         capture: 'AUTO',
         ...capture,
       }),
-      'UNSUPPORTED_CAPABILITY',
+      'HOST_PAYOUT_RAIL_UNAVAILABLE',
     );
-    expect(err.details['capability']).toBe('SUPPORTS_PER_LEG_AMOUNTS');
+    expect(err.details['missing']).toEqual(['SUPPORTS_MIT', 'SUPPORTS_PER_LEG_AMOUNTS']);
     expect(stack.psp.totalCalls()).toBe(0);
     const { stack: noMit } = harness(pair, { without: ['SUPPORTS_MIT'] });
     await expectCode(

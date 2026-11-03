@@ -28,15 +28,24 @@ describe('port PaymentProvider : jambes sur toute méthode qui déplace des fond
       reallocate: true;
       rollback: true;
       chargeMIT: true;
+      transferFromPlatform: true;
     }>();
     // les jambes sont obligatoires (pas optionnelles)
     expectTypeOf<RequestOf<'refund'>['legs']>().toEqualTypeOf<LegAmounts>();
     expectTypeOf<RequestOf<'chargeMIT'>['legs']>().toEqualTypeOf<LegAmounts>();
   });
 
-  it('liste des méthodes (17 §2.8) : capture, remboursement, réaffectation, rollback, débit MIT, paiement hébergé', () => {
+  it('liste des méthodes (17 §2.8) : capture, remboursement, réaffectation, rollback, débit MIT, paiement hébergé, transfert depuis PLATFORM (US-061)', () => {
     expect([...MONEY_MOVING_METHODS].sort()).toEqual(
-      ['capture', 'chargeMIT', 'createHostedPayment', 'reallocate', 'refund', 'rollback'].sort(),
+      [
+        'capture',
+        'chargeMIT',
+        'createHostedPayment',
+        'reallocate',
+        'refund',
+        'rollback',
+        'transferFromPlatform',
+      ].sort(),
     );
   });
 
