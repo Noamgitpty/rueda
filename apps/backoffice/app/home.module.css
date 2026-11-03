@@ -1,0 +1,20 @@
+/* Accueil du back-office (US-012), mis en forme uniquement par les jetons du thème (US-030). */
+.main {
+  display: grid;
+  gap: var(--space-6);
+  max-inline-size: 48rem;
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-2xl);
+}
+
+.intro {
+  margin: 0;
+  color: var(--color-text-muted);
+}

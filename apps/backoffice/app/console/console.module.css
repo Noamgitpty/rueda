@@ -1,0 +1,75 @@
+/*
+ * Console interne (US-012) : mise en page mobile-first, uniquement par les jetons du thème (US-030).
+ * Les composants eux-mêmes viennent de @rueda/ui (US-032).
+ */
+.stack {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.panel {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-lg);
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.roles {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.secret {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  margin: 0;
+  font-weight: var(--font-weight-heading);
+}
+
+.code {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.link {
+  color: var(--color-primary);
+}

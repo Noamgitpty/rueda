@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import { AppModule } from './app.module.js';
-import { IamAuthModule } from './modules/iam/index.js';
-import type { IamAuthOptions } from './modules/iam/index.js';
+import { IamAuthModule, StaffConsoleModule } from './modules/iam/index.js';
+import type { IamAuthOptions, StaffOptions } from './modules/iam/index.js';
 import { PayWebhookModule } from './modules/pay/index.js';
 import type { PayWebhookOptions } from './modules/pay/index.js';
+import { SupConsoleModule } from './modules/sup/index.js';
+import type { SupConsoleOptions } from './modules/sup/index.js';
 
 /**
  * Module racine du processus API (main.ts) : AppModule (partagé avec le travailleur) plus ce
@@ -13,10 +15,21 @@ import type { PayWebhookOptions } from './modules/pay/index.js';
  */
 @Module({})
 export class ApiModule {
-  static register(iam: IamAuthOptions, pay: PayWebhookOptions): DynamicModule {
+  static register(
+    iam: IamAuthOptions,
+    pay: PayWebhookOptions,
+    staff: StaffOptions,
+    sup: SupConsoleOptions,
+  ): DynamicModule {
     return {
       module: ApiModule,
-      imports: [AppModule, IamAuthModule.register(iam), PayWebhookModule.register(pay)],
+      imports: [
+        AppModule,
+        IamAuthModule.register(iam),
+        PayWebhookModule.register(pay),
+        StaffConsoleModule.register(staff),
+        SupConsoleModule.register(sup),
+      ],
     };
   }
 }

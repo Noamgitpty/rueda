@@ -1,7 +1,13 @@
 import { getRequestI18n } from '../i18n.ts';
+import { ConsoleClient } from './console/console-client.tsx';
 import { HomeContent } from './home-content.tsx';
 
-// Page d'accueil minimale du back-office : textes du catalogue i18n (US-014).
+// Back-office interne : en-tête (US-014) et console protégée par TOTP (US-012).
 export default async function BackofficeHomePage() {
-  return <HomeContent i18n={await getRequestI18n()} />;
+  const i18n = await getRequestI18n();
+  return (
+    <HomeContent i18n={i18n}>
+      <ConsoleClient localeTag={i18n.profile.tag} />
+    </HomeContent>
+  );
 }

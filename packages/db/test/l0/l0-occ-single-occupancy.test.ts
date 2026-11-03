@@ -48,8 +48,8 @@ import {
   withReplay,
 } from '../support/concurrency.ts';
 import type { Replayed } from '../support/concurrency.ts';
-import { asActor, buildWorld, sorted } from '../support/rls.ts';
-import type { CountryWorld, World } from '../support/rls.ts';
+import { asActor, buildWorld, sorted, staffSessionHash } from '../support/rls.ts';
+import type { CountryWorld, TestContext, World } from '../support/rls.ts';
 
 let world: World;
 
@@ -513,7 +513,13 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
       for (const ctx of [
         null,
         { kind: 'GUEST', actorId: world.guest1 },
-        { kind: 'STAFF', actorId: world.staff.adminAll, countryScope: [c.country] },
+        {
+          kind: 'STAFF',
+          actorId: world.staff.adminAll,
+          countryScope: [c.country],
+          // US-012 : preuve de la session élevée de l'ADMIN du monde de test
+          sessionTokenHash: staffSessionHash(world.staff.adminAll) ?? '',
+        },
         { kind: 'WORKER', workerName: 'trip_lifecycle' },
       ] as (SessionContext | null)[]) {
         expect(await deny(ctx, BLOCK, [v, ...free]), JSON.stringify(ctx)).toBe('FORBIDDEN');
@@ -663,7 +669,7 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
     const blockId = await committedBlock(x, v, d(12, 1), d(12, 3));
     const yBlock = await committedBlock(y, uuid(), d(12, 1), d(12, 3));
     await withRole('app_api', async (client) => {
-      const seen = (ctx: SessionContext) =>
+      const seen = (ctx: TestContext) =>
         asActor(client, ctx, async (tx) => {
           const r = await tx.query<{ id: string; vehicle_id: string; country_code: string }>(
             `SELECT id, vehicle_id, country_code FROM core.booking_vehicle_occupancy`,

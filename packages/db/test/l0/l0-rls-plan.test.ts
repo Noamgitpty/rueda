@@ -21,10 +21,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { connectAs, releaseClient, withRole } from '../../src/testing/index.ts';
-import type { SessionContext } from '../../src/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import { asActor, buildWorld } from '../support/rls.ts';
-import type { World } from '../support/rls.ts';
+import type { TestContext, World } from '../support/rls.ts';
 
 let world: World;
 
@@ -188,7 +187,7 @@ function report(who: string, what: string, m: Measure, extra: string): void {
   );
 }
 
-const staffContexts = (): [string, SessionContext][] => [
+const staffContexts = (): [string, TestContext][] => [
   [
     'ADMIN',
     {

@@ -1,0 +1,4 @@
+# Faux positifs gitleaks, chacun justifié (revue sécurité) :
+# US-012 : vecteur public de la RFC 6238 (graine « 12345678901234567890 » en base32) dans un test
+# de rendu, retiré au commit suivant ; aucun secret réel.
+575ae22e2ca32baf3ac5c247afc10665206e5067:apps/backoffice/app/console/view.test.tsx:generic-api-key:33

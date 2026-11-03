@@ -6,6 +6,9 @@
  * Codes repris de 16 ACC-001 : AUTH_EMAIL_INVALID, AUTH_PASSWORD_WEAK, AUTH_TERMS_NOT_ACCEPTED,
  * AUTH_LINK_EXPIRED, RATE_LIMITED. Codes PROPOSÉS (à reporter dans 16 A.8, voir la passation) :
  * AUTH_REQUIRED, AUTH_INVALID_CREDENTIALS, REQUEST_INVALID, SIGNUP_ACCEPTED, EMAIL_VERIFIED.
+ * Console interne (US-012) : FORBIDDEN, 2FA_REQUIRED (16 ADM-001) ; PROPOSÉS : AUTH_TOTP_INVALID,
+ * AUTH_TOTP_LOCKED, STAFF_MFA_UNAVAILABLE, STAFF_ACTION_UNAVAILABLE, STAFF_ACTION_RECORDED,
+ * STAFF_ACTION_DONE.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -20,6 +23,16 @@ export const AUTH_MESSAGES = {
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   SIGNUP_ACCEPTED: { status: 202, messageKey: 'common.auth.signupAccepted' },
   EMAIL_VERIFIED: { status: 200, messageKey: 'common.auth.emailVerified' },
+  // Console interne (US-012) : FORBIDDEN et 2FA_REQUIRED viennent de 16 ADM-001 ; les autres sont
+  // PROPOSÉS (à reporter dans 16 A.8, voir la passation US-012).
+  FORBIDDEN: { status: 403, messageKey: 'common.auth.forbidden' },
+  '2FA_REQUIRED': { status: 403, messageKey: 'common.auth.twoFactorRequired' },
+  AUTH_TOTP_INVALID: { status: 400, messageKey: 'common.auth.totpInvalid' },
+  AUTH_TOTP_LOCKED: { status: 429, messageKey: 'common.auth.totpLocked' },
+  STAFF_MFA_UNAVAILABLE: { status: 503, messageKey: 'common.auth.mfaUnavailable' },
+  STAFF_ACTION_UNAVAILABLE: { status: 409, messageKey: 'common.auth.actionUnavailable' },
+  STAFF_ACTION_RECORDED: { status: 201, messageKey: 'common.auth.actionRecorded' },
+  STAFF_ACTION_DONE: { status: 200, messageKey: 'common.auth.actionDone' },
 } as const;
 
 export type AuthCode = keyof typeof AUTH_MESSAGES;

@@ -151,6 +151,29 @@ Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colon
 
 `core.support_support_case` (0024) : sous-ensemble de 17 §3.2.13 (pays, trip, canal, catégorie dont `BREAK_GLASS` motivé, statut, `assignee_id`), écrit par la console (US-012). Clés d'audit (0026) : `app_api` n'accède qu'à la clé `USER` de la session et à la clé `ORG` du compte d'hôte de la session pour son titulaire. Limite RLS-18 et nom de travailleur déclaratif : ADR-053. Preuves : `test/l0/l0-rls-actors.test.ts` (RLS-1, 5, 6, 7 partiel, 8, 9, 12, 13, 18, 20, hôte contre hôte, pays contre pays, clés par sujet) et `test/l0/l0-rls-15-security-definer.test.ts` (RLS-15, RLS-16).
 
+## MFA du staff et console interne (US-012 ; 16 ADM-001 ; 17 §2.3, §3.2.13 ; ADR-062)
+
+Migrations `0033_iam_staff_mfa` et `0034_staff_console`, propriétaire NOLOGIN `iam_staff_owner` (famille `iam_staff`, liste blanche RLS-15), fixtures `test-migrations/9650_test_staff_fixtures.sql`.
+
+- **Session née `NONE`** : `iam_cmd_open_session` refuse toute autre valeur (`22023`, report US-010). Seul `core.iam_staff_cmd_elevate` passe une session à `TOTP`. Il exige une preuve HMAC-SHA-256 (`core.iam_mfa_proof`, clé de `core.iam_mfa_proof_key`, illisible par les rôles applicatifs ; absente ⇒ `UNAVAILABLE`), un pas à ±1 de `platform.now()` et un pas strictement croissant. 5 échecs ⇒ facteur verrouillé 15 min.
+- **Contexte STAFF lié à une session élevée** : `setSessionContext` pose un septième paramètre, `app.session_token_hash` (SHA-256 hexadécimal du jeton). `app.has_staff_role` et `app.staff_case_covers` exigent une session vivante, de niveau `TOTP`, de l'acteur. Résultats : un rôle sans MFA ne lit rien, et un `actor_id` d'ADMIN forgé ne lit rien (RLS-18 réduite, ADR-062).
+- **Commandes** (un appel = une instruction ; audit écrit en dernier ; refus journalisés) :
+  - `iam_staff_cmd_begin` (état d'accès : `TOTP_NOT_ENROLLED`, `ENROLLMENT_REQUIRED`, `MFA_REQUIRED`, `LOCKED`, `NOT_STAFF`, `ELEVATED`) ;
+  - `iam_staff_cmd_enroll_reveal` ;
+  - `iam_staff_cmd_elevate` ;
+  - `iam_staff_cmd_mfa_failed` ;
+  - `iam_staff_cmd_manual_action` (catalogue `support_manual_action_catalog`, table `support_manual_action`, pays relu en base, idempotence par `request_id`) ;
+  - `iam_staff_cmd_suspend` (rôles, sessions et facteurs retirés) ;
+  - `iam_staff_cmd_reset_totp` ;
+  - `iam_staff_audit_read` (`audit.read`).
+- **Matrice** : `iam_role_permission` est semée pour les permissions de ces commandes seulement (colonnes staff de 17 §2.3).
+- **Report US-011** : `config_param_value` se lit par colonnes, sans `approved_by`.
+- **Monde RLS des tests** : chaque membre du staff de `buildWorld` reçoit une session élevée (fixture). `asActor` complète un contexte STAFF par son empreinte.
+- **Preuves** :
+  - `test/l0/l0-iam-staff-mfa.test.ts` : RFC 4231, niveau `NONE`, critère 2, enrôlement, élévation, rejeu, fenêtre, verrou, absence de clé, élévation forgée ;
+  - `test/l0/l0-staff-console.test.ts` : critère 1, MFA, portée pays, journal, idempotence, suspension, autorité, réinitialisation, `audit.read` ;
+  - `test/l0/l0-rls-actors.test.ts` (RLS-18 réduite).
+
 ## Preuves de concurrence L0-02 / L0-04 (US-007 ; 17 §2.5, §11 ; ADR-056)
 
 Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_idx`, `checkout_hold_guest_status_idx`) existent depuis 0004. Fichiers : `test/l0/l0-02-concurrency.test.ts`, `test/l0/l0-04-expiry-plan.test.ts`, aides `test/support/concurrency.ts`, fixtures `test-migrations/9002_test_l0_concurrency.sql`.
@@ -214,11 +237,11 @@ Preuves : `test/l0/l0-pay-legs-rls.test.ts` (RLS des jambes par acteur et par pa
 
 ## Rôles (17 §2.3, ADR-035)
 
-| Rôle                                                                                                                                                                       | Attributs                                                                                                | Usage                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `migrator`                                                                                                                                                                 | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`                                      | propriétaire des objets ; migrations seulement                                    |
-| `app_api`, `app_worker`, `app_anon`                                                                                                                                        | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`                                      | exécution de l'application **et de tous les tests**                               |
-| `guard_owner`, `catalog_probe_owner`, `policy_fn_owner`, `cmd_hold_owner`, `iam_auth_owner`, `integrity_owner`, `audit_chain_owner`, `cmd_money_owner`, `cmd_golive_owner` | `NOLOGIN`, sans mot de passe ; seul membre : `migrator`, avec `INHERIT FALSE, SET TRUE` (ADR-044 amendé) | propriétaires des familles de fonctions `SECURITY DEFINER` (liste blanche RLS-15) |
+| Rôle                                                                                                                                                                                          | Attributs                                                                                                | Usage                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `migrator`                                                                                                                                                                                    | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`                                      | propriétaire des objets ; migrations seulement                                    |
+| `app_api`, `app_worker`, `app_anon`                                                                                                                                                           | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`                                      | exécution de l'application **et de tous les tests**                               |
+| `guard_owner`, `catalog_probe_owner`, `policy_fn_owner`, `cmd_hold_owner`, `iam_auth_owner`, `integrity_owner`, `audit_chain_owner`, `cmd_money_owner`, `cmd_golive_owner`, `iam_staff_owner` | `NOLOGIN`, sans mot de passe ; seul membre : `migrator`, avec `INHERIT FALSE, SET TRUE` (ADR-044 amendé) | propriétaires des familles de fonctions `SECURITY DEFINER` (liste blanche RLS-15) |
 
 Droits actuels : `USAGE` sur `platform` et `EXECUTE` sur `platform.now()` pour `app_api`, `app_worker` et les propriétaires ; chaque propriétaire n'a ensuite que les droits de table, colonne par colonne, de ses fonctions, et une politique RLS à son nom (ADR-053) ; rien pour `app_anon` ni pour `PUBLIC` ; `ALTER DEFAULT PRIVILEGES FOR ROLE migrator REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`. Aucun mot de passe dans le SQL : le harnais (ou, plus tard, le gestionnaire de secrets) les pose, en envoyant un vérificateur SCRAM-SHA-256 et jamais le mot de passe en clair.
 

@@ -21,7 +21,7 @@ DECLARE
   -- propriétaires NOLOGIN des familles SECURITY DEFINER (doit égaler OWNER_ROLES de src/roles.ts)
   v_owners text[] := ARRAY['guard_owner', 'catalog_probe_owner', 'policy_fn_owner', 'cmd_hold_owner',
                            'iam_auth_owner', 'integrity_owner', 'audit_chain_owner', 'cmd_money_owner',
-                           'cmd_golive_owner'];
+                           'cmd_golive_owner', 'iam_staff_owner'];
   v_managed text[] := ARRAY['migrator', 'app_api', 'app_worker', 'app_anon'] || v_owners;
 BEGIN
   FOR r IN
@@ -43,7 +43,9 @@ BEGIN
       ('integrity_owner',     false),   -- fonctions de trigger d'intégrité AVL (ADR-048)
       ('audit_chain_owner',   false),   -- trigger de chaîne du journal d'audit (ADR-051)
       ('cmd_money_owner',     false),   -- commandes d'argent par jambe (US-062 et suivantes)
-      ('cmd_golive_owner',    false)    -- interrupteurs de mise en service (US-125)
+      ('cmd_golive_owner',    false),   -- interrupteurs de mise en service (US-125)
+      -- US-012 (ADR-062) : MFA du staff et commandes de la console interne
+      ('iam_staff_owner',     false)
     ) AS t(role_name, can_login)
   LOOP
     BEGIN

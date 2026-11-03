@@ -42,7 +42,13 @@ const CONFIG_TABLES = [
 
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
-const SUPPORT_TABLES = ['support_support_case'] as const;
+// Actions de console (US-012, 0034) : catalogue et manual_action, écrits par iam_staff_owner seulement
+// (preuves : test/l0/l0-staff-console.test.ts).
+const SUPPORT_TABLES = [
+  'support_support_case',
+  'support_manual_action_catalog',
+  'support_manual_action',
+] as const;
 
 // Tables PAY du port PaymentProvider (US-019, 0027) : même socle RLS ; leurs politiques, droits et
 // commandes sont vérifiés par test/l0/l0-pay-*.test.ts.
@@ -118,15 +124,17 @@ describe('schéma core (US-006)', () => {
             ? 'migrator'
             : r.polname === 'integrity_read'
               ? 'integrity_owner'
-              : r.polname.startsWith('cmd_money_') // commandes d'argent (US-018, US-019 ; 17 §2.3)
-                ? 'cmd_money_owner'
-                : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
+              : r.polname.startsWith('iam_staff_') // pays du trip lu par la console (US-012)
+                ? 'iam_staff_owner'
+                : r.polname.startsWith('cmd_money_') // commandes d'argent (US-018, US-019 ; 17 §2.3)
                   ? 'cmd_money_owner'
-                  : r.polname.startsWith('cmd_') // commandes d'occupation (0032, US-022)
-                    ? 'cmd_hold_owner'
-                    : r.polname.startsWith('worker_')
-                      ? 'app_worker'
-                      : 'app_api';
+                  : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
+                    ? 'cmd_money_owner'
+                    : r.polname.startsWith('cmd_') // commandes d'occupation (0034, US-022)
+                      ? 'cmd_hold_owner'
+                      : r.polname.startsWith('worker_')
+                        ? 'app_worker'
+                        : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
@@ -199,7 +207,7 @@ describe('schéma core (US-006)', () => {
       );
       expect(rows[0]?.n).toBe(0);
       for (const sql of [
-        // lecture par colonnes depuis US-022 (0032) : ref_id n'en fait pas partie
+        // lecture par colonnes depuis US-022 (0034) : ref_id n'en fait pas partie
         `SELECT ref_id FROM core.booking_vehicle_occupancy LIMIT 1`,
         `UPDATE core.booking_checkout_hold SET status = 'EXPIRED'`,
         `INSERT INTO core.booking_vehicle_occupancy (id, vehicle_id, kind, source, period, active, expires_at)
