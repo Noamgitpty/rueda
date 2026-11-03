@@ -1,0 +1,17 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "typecheck": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/i18n/**"]
+    },
+    "test:unit": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/i18n/**",
+        "$TURBO_ROOT$/packages/design-tokens/**",
+        "$TURBO_ROOT$/docs/design/US-028/tokens-*.json"
+      ]
+    }
+  }
+}

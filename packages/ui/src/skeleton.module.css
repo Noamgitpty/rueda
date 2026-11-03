@@ -1,0 +1,61 @@
+/*
+ * Squelettes de chargement : pulsation douce aux durées des jetons (`skeleton` × 3 itérations),
+ * arrêtée avec `prefers-reduced-motion` (10b UX-69). Purement décoratifs (`aria-hidden`) : le
+ * chargement est annoncé par `LoadingState`.
+ */
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  animation: ui-pulse var(--motion-duration-skeleton) var(--motion-easing-standard)
+    var(--motion-iterations-skeleton) alternate;
+}
+
+.line {
+  block-size: 1em;
+}
+
+.short {
+  inline-size: 30%;
+}
+
+.medium {
+  inline-size: 55%;
+}
+
+.long {
+  inline-size: 80%;
+}
+
+.full {
+  inline-size: 100%;
+}
+
+.block {
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+}
+
+.circle {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  border-radius: 50%;
+}
+
+@keyframes ui-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.loading {
+  display: grid;
+  gap: var(--space-4);
+}

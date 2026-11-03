@@ -1,0 +1,30 @@
+/* Bouton rond en verre (maquette S02, « enregistrer ») : 48 × 48 px, repli opaque du thème. */
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--size-touch-target);
+  block-size: var(--size-touch-target);
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-strong);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+  transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.iconButton:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.iconButton[aria-pressed='true'] {
+  color: var(--color-danger);
+}
+
+.iconButton:disabled {
+  cursor: not-allowed;
+  color: var(--color-text-muted);
+}

@@ -1,0 +1,84 @@
+{
+  "$comment": "Données d'exemple de la vitrine (US-032), non normatives : montants inventés, cohérents entre eux (total = somme des lignes), en unités mineures (chaînes converties en bigint). Devises, exposants et fuseau sont des données, jamais du code (ADR-024). Une voiture est en USD (exposant 2), une en PYG (exposant 0), comme l'exige la contrainte des deux pays.",
+  "merchantName": "Kmino",
+  "timeZone": "America/Panama",
+  "errorCode": "K7F2-9QX",
+  "cars": [
+    {
+      "id": "yaris",
+      "title": "Toyota Yaris 2021",
+      "host": { "name": "María José", "tone": 1 },
+      "rating": 4.9,
+      "trips": 23,
+      "place": "San Francisco",
+      "distanceKm": 1.2,
+      "days": 3,
+      "currency": "USD",
+      "exponent": 2,
+      "totalMinor": "15633",
+      "perDayMinor": "3800",
+      "carTone": 1
+    },
+    {
+      "id": "hrv",
+      "title": "Honda HR-V 2019",
+      "host": { "name": "Carlos Benítez", "tone": 3 },
+      "trips": 0,
+      "place": "Villa Morra",
+      "distanceKm": 3.5,
+      "days": 3,
+      "currency": "PYG",
+      "exponent": 0,
+      "totalMinor": "945000",
+      "perDayMinor": "250000",
+      "carTone": 3
+    }
+  ],
+  "price": {
+    "currency": "USD",
+    "exponent": 2,
+    "days": 3,
+    "rentMinor": "11400",
+    "tripFeeMinor": "1710",
+    "protectionMinor": "1500",
+    "taxMinor": "1023",
+    "totalMinor": "15633"
+  },
+  "host": {
+    "name": "María José",
+    "titleForm": "fem",
+    "tone": 1,
+    "rating": 4.9,
+    "trips": 23,
+    "memberSince": 2024,
+    "responseRate": 98,
+    "responseHours": 1
+  },
+  "deposit": {
+    "currency": "USD",
+    "exponent": 2,
+    "amountMinor": "20000",
+    "releaseBy": "2027-01-18T15:00:00Z",
+    "refundIssuedOn": "2027-01-18T15:00:00Z"
+  },
+  "table": [
+    {
+      "id": "t1",
+      "car": "Toyota Yaris 2021",
+      "guest": "Ana",
+      "start": "2027-01-14T15:00:00Z",
+      "end": "2027-01-17T15:00:00Z",
+      "status": "confirmed",
+      "earningsMinor": "10260"
+    },
+    {
+      "id": "t2",
+      "car": "Toyota Yaris 2021",
+      "guest": "Luis",
+      "start": "2027-01-21T13:00:00Z",
+      "end": "2027-01-23T13:00:00Z",
+      "status": "pending",
+      "earningsMinor": "6840"
+    }
+  ]
+}

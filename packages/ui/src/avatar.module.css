@@ -1,0 +1,49 @@
+/* Avatars en monogramme (10b UX-70) : quatre tons du thème, paires contrôlées (≥ 4,5:1). */
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  font-family: var(--font-display-family);
+  font-weight: var(--font-display-weight);
+  line-height: var(--font-display-line-height);
+  text-transform: uppercase;
+}
+
+.sm {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  font-size: var(--font-size-xs);
+}
+
+.md {
+  inline-size: calc(var(--space-10) + var(--space-1));
+  block-size: calc(var(--space-10) + var(--space-1));
+  font-size: var(--font-size-md);
+}
+
+.lg {
+  inline-size: calc(var(--space-10) + var(--space-6));
+  block-size: calc(var(--space-10) + var(--space-6));
+  font-size: var(--font-size-xl);
+}
+
+.tone1 {
+  background: var(--color-avatar-1);
+  color: var(--color-on-avatar-1);
+}
+
+.tone2 {
+  background: var(--color-avatar-2);
+  color: var(--color-on-avatar-2);
+}
+
+.tone3 {
+  background: var(--color-avatar-3);
+  color: var(--color-on-avatar-3);
+}
+
+.tone4 {
+  background: var(--color-avatar-4);
+  color: var(--color-on-avatar-4);
+}
