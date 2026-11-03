@@ -75,7 +75,7 @@ const captureOf = (c: CountryCase): ReturnType<typeof legVector> => {
 // --- Horloge virtuelle -------------------------------------------------------------------------
 const ERA_BASE = Date.parse('2061-01-04T10:00:00.000Z');
 const ERA_SPACING_MS = 7 * 86_400_000;
-const BLOCKING_FROM = '2060-12-01T00:00:00.000Z';
+const BLOCKING_FROM = '2060-01-01T00:00:00.000Z';
 const iso = (ms: number): string => new Date(ms).toISOString();
 const MIN = 60_000;
 
@@ -262,6 +262,9 @@ interface CountryWorld {
   readonly c: CountryCase;
   readonly vehicles: string[];
   readonly guests: string[];
+  /** Véhicule et voyageurs hors du fuzz : preuves C12 et T1, indépendantes d'un fuzz en échec. */
+  readonly spareVehicle: string;
+  readonly spareGuests: string[];
   readonly account: string;
 }
 
@@ -270,11 +273,13 @@ async function buildWorld(api: pg.Client, c: CountryCase): Promise<CountryWorld>
   const orgs = [uuid(), uuid()];
   const vehicles = [uuid(), uuid(), uuid()];
   const guests = [uuid(), uuid(), uuid(), uuid()];
+  const spareVehicle = uuid();
+  const spareGuests = [uuid(), uuid()];
   const account = await inTx(api, { commit: true }, async (tx) => {
-    await ensureParties(tx, guests, orgs[0] as string, c);
+    await ensureParties(tx, [...guests, ...spareGuests], orgs[0] as string, c);
     await ensureParties(tx, [], orgs[1] as string, c);
     await registerVehicles(tx, vehicles.slice(0, 2), orgs[0] as string, c);
-    await registerVehicles(tx, vehicles.slice(2), orgs[1] as string, c);
+    await registerVehicles(tx, [...vehicles.slice(2), spareVehicle], orgs[1] as string, c);
     // capacités bloquantes validées (17 §2.8), comme US-024 ; ORDER_CANCEL et ORDER_TTL en PA
     const { rows } = await tx.query<{ capability: string; kind: string }>(
       `SELECT capability, kind FROM core.payment_psp_capability_catalog WHERE blocking <> 'NO'`,
@@ -299,7 +304,7 @@ async function buildWorld(api: pg.Client, c: CountryCase): Promise<CountryWorld>
     ]);
     return a.rows[0]?.id as string;
   });
-  return { c, vehicles, guests, account };
+  return { c, vehicles, guests, spareVehicle, spareGuests, account };
 }
 
 // --- Une exécution -------------------------------------------------------------------------------
@@ -576,13 +581,14 @@ class Run {
         const opId = uuid();
         const attempt = 50 + a.hold.extra;
         await guarded(s, 'second débit', () =>
-          lane.api.query('SELECT test_fixture.us024_extra_operation($1, $2, $3, $4, $5)', [
-            opId,
-            a.hold.id,
-            'CAPTURE',
-            attempt,
-            'SUCCEEDED',
-          ]),
+          // horloge virtuelle : la réussite est connue « maintenant » (updated_at)
+          call(
+            lane.api,
+            G(a.hold.guest),
+            now,
+            'test_fixture.us024_extra_operation($a1::uuid, $a2::uuid, $a3::text, $a4::integer, $a5::text)',
+            [opId, a.hold.id, 'CAPTURE', attempt, 'SUCCEEDED'],
+          ),
         );
         const plan: FakePlan = {
           truth: 'SUCCEEDED',
@@ -1280,9 +1286,9 @@ describe('US-025 — fuzz C11 (L0-09) et oracle C12, PA (USD) et PY (PYG)', () =
       const w = worlds.find((x) => x.c.country === c.country) as CountryWorld;
       const lane = lanes[0] as Lane;
       // un trip converti de référence, par les commandes et les travailleurs réels
-      const g = w.guests[0] as string;
+      const g = w.spareGuests[0] as string;
       const slot: Slot = {
-        vehicleId: w.vehicles[2] as string,
+        vehicleId: w.spareVehicle,
         orgId: '',
         start: iso(T + 2 * 86_400_000),
         end: iso(T + 3 * 86_400_000),
@@ -1504,9 +1510,9 @@ describe('US-025 — fuzz C11 (L0-09) et oracle C12, PA (USD) et PY (PYG)', () =
     async (c) => {
       const T = ERA_BASE - 60 * 86_400_000 + (c.country === 'PA' ? 0 : 3 * 86_400_000);
       const w = worlds.find((x) => x.c.country === c.country) as CountryWorld;
-      const g = w.guests[1] as string;
+      const g = w.spareGuests[1] as string;
       const slot: Slot = {
-        vehicleId: w.vehicles[0] as string,
+        vehicleId: w.spareVehicle,
         orgId: '',
         start: iso(T + 2 * 86_400_000),
         end: iso(T + 3 * 86_400_000),
