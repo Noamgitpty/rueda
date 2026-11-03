@@ -1,4 +1,4 @@
--- 0032 — Console interne : matrice des permissions du staff, actions de console (`manual_action`),
+-- 0034 — Console interne : matrice des permissions du staff, actions de console (`manual_action`),
 -- suspension d'un membre du staff, réinitialisation de son TOTP, lecture du journal.
 -- US-012 ; 16 ADM-001 (« action interdite => 403 journalisé », « perte du TOTP => réinitialisation
 -- par un autre admin, journalisée »), NFR-08 ; 17 §2.3 (matrice), §3.2.13 (`manual_action`,

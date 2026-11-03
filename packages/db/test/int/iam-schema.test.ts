@@ -30,7 +30,7 @@ const IAM_TABLES = [
 ] as const;
 
 // Politiques attendues par table (US-010 : migrator_all ; US-011 : 0022, 0024, 0025 ; US-012 :
-// 0031, iam_staff_owner et lecture des sessions par policy_fn_owner).
+// 0033, iam_staff_owner et lecture des sessions par policy_fn_owner).
 const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_auth_factor:
     'iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator',

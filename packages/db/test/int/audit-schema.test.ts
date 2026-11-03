@@ -143,7 +143,7 @@ describe('schéma d’audit (US-009)', () => {
       for (const r of rows) {
         const where = `${r.relname}.${r.polname}`;
         if (r.roles === 'iam_staff_owner') {
-          // US-012 (0031) : écriture au journal par les commandes de la console et relecture sans
+          // US-012 (0033) : écriture au journal par les commandes de la console et relecture sans
           // C2 (core.iam_staff_audit_read) ; aucune UPDATE / DELETE
           expect(['r', 'a'], where).toContain(r.cmd);
           continue;

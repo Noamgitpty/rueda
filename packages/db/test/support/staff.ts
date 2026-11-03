@@ -46,7 +46,7 @@ export interface StaffAccount {
 
 /**
  * Compte de staff ACTIVE avec un rôle et, sauf `withFactor: false`, un facteur TOTP EN ATTENTE
- * (procédure d'amorçage hors application, fixture 9600). Validé (autocommit).
+ * (procédure d'amorçage hors application, fixture 9650). Validé (autocommit).
  */
 export async function createStaff(
   client: pg.ClientBase,

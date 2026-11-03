@@ -42,7 +42,7 @@ const CONFIG_TABLES = [
 
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
-// Actions de console (US-012, 0032) : catalogue et manual_action, écrits par iam_staff_owner seulement
+// Actions de console (US-012, 0034) : catalogue et manual_action, écrits par iam_staff_owner seulement
 // (preuves : test/l0/l0-staff-console.test.ts).
 const SUPPORT_TABLES = [
   'support_support_case',
@@ -130,7 +130,7 @@ describe('schéma core (US-006)', () => {
                   ? 'cmd_money_owner'
                   : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
                     ? 'cmd_money_owner'
-                    : r.polname.startsWith('cmd_') // commandes d'occupation (0032, US-022)
+                    : r.polname.startsWith('cmd_') // commandes d'occupation (0034, US-022)
                       ? 'cmd_hold_owner'
                       : r.polname.startsWith('worker_')
                         ? 'app_worker'
@@ -207,7 +207,7 @@ describe('schéma core (US-006)', () => {
       );
       expect(rows[0]?.n).toBe(0);
       for (const sql of [
-        // lecture par colonnes depuis US-022 (0032) : ref_id n'en fait pas partie
+        // lecture par colonnes depuis US-022 (0034) : ref_id n'en fait pas partie
         `SELECT ref_id FROM core.booking_vehicle_occupancy LIMIT 1`,
         `UPDATE core.booking_checkout_hold SET status = 'EXPIRED'`,
         `INSERT INTO core.booking_vehicle_occupancy (id, vehicle_id, kind, source, period, active, expires_at)

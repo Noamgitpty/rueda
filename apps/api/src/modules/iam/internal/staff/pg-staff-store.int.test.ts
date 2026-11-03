@@ -2,7 +2,7 @@
  * test:int — console interne de bout en bout sur la base jetable du banc de @rueda/db, sous
  * app_api (assertion L0-05 par connectAs) : `StaffAuthService` + `PgStaffStore` + commandes
  * `core.iam_staff_*`, avec un VRAI code TOTP (RFC 6238) calculé ici, le secret dans le coffre FAKE
- * et la clé de preuve de TEST installée par la fixture 9600 (valeur publique, jamais un secret).
+ * et la clé de preuve de TEST installée par la fixture 9650 (valeur publique, jamais un secret).
  * Prouve que la preuve HMAC calculée en TypeScript est celle que la base recalcule en SQL, et que :
  * - un compte staff sans TOTP n'obtient jamais de principal (403 2FA_REQUIRED) — critère 2 ;
  * - enrôlement (code remis hors bande) puis console ; code faux compté ; rejeu refusé ;

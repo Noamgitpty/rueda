@@ -153,7 +153,7 @@ Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colon
 
 ## MFA du staff et console interne (US-012 ; 16 ADM-001 ; 17 §2.3, §3.2.13 ; ADR-062)
 
-Migrations `0031_iam_staff_mfa` et `0032_staff_console`, propriétaire NOLOGIN `iam_staff_owner` (famille `iam_staff`, liste blanche RLS-15), fixtures `test-migrations/9600_test_staff_fixtures.sql`.
+Migrations `0033_iam_staff_mfa` et `0034_staff_console`, propriétaire NOLOGIN `iam_staff_owner` (famille `iam_staff`, liste blanche RLS-15), fixtures `test-migrations/9650_test_staff_fixtures.sql`.
 
 - **Session née `NONE`** : `iam_cmd_open_session` refuse toute autre valeur (`22023`, report US-010). Seul `core.iam_staff_cmd_elevate` passe une session à `TOTP`. Il exige une preuve HMAC-SHA-256 (`core.iam_mfa_proof`, clé de `core.iam_mfa_proof_key`, illisible par les rôles applicatifs ; absente ⇒ `UNAVAILABLE`), un pas à ±1 de `platform.now()` et un pas strictement croissant. 5 échecs ⇒ facteur verrouillé 15 min.
 - **Contexte STAFF lié à une session élevée** : `setSessionContext` pose un septième paramètre, `app.session_token_hash` (SHA-256 hexadécimal du jeton). `app.has_staff_role` et `app.staff_case_covers` exigent une session vivante, de niveau `TOTP`, de l'acteur. Résultats : un rôle sans MFA ne lit rien, et un `actor_id` d'ADMIN forgé ne lit rien (RLS-18 réduite, ADR-062).

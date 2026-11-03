@@ -1,4 +1,4 @@
--- 0031 — IAM : authentification forte du staff (TOTP), sessions de staff liées à la MFA,
+-- 0033 — IAM : authentification forte du staff (TOTP), sessions de staff liées à la MFA,
 -- propriétaire dédié `iam_staff_owner`. US-012 ; 16 ADM-001 (« 2FA TOTP obligatoire pour tout
 -- rôle interne », erreurs FORBIDDEN, 2FA_REQUIRED) ; 17 §2.3 (« Limite de la RLS », B8, RLS-18 ;
 -- « Fonctions de politique »), §3.2.1 (`auth_factor`, `session`) ; ADR-052, ADR-053, ADR-062.
@@ -28,11 +28,11 @@
 -- rejeu), facteur non verrouillé ; chaque tentative est comptée sous verrou AVANT que le secret
 -- ne sorte : 5 tentatives au plus, puis verrou de 15 min (PROPOSÉ, ADR-062).
 --
--- Enrôlement : un facteur naît « en attente » (créé par un ADMIN / SUPERADMIN, 0032, ou par la
+-- Enrôlement : un facteur naît « en attente » (créé par un ADMIN / SUPERADMIN, 0034, ou par la
 -- procédure d'amorçage du premier ADMIN), avec l'empreinte d'un code d'enrôlement à usage unique
 -- remis hors bande. Sans facteur vivant, le staff ne peut rien faire (critère 2 d'US-012).
 --
--- Retour arrière (avant toute donnée de 0032) :
+-- Retour arrière (avant toute donnée de 0034) :
 --   restaurer app.has_staff_role, app.staff_case_covers (0024) et core.iam_cmd_open_session
 --   (0011) sous leurs propriétaires ; DROP FUNCTION core.iam_staff_cmd_begin(bytea),
 --   core.iam_staff_cmd_enroll_reveal(bytea, bytea), core.iam_staff_cmd_elevate(bytea, uuid,
@@ -76,7 +76,7 @@ CREATE UNIQUE INDEX auth_factor_one_live_totp
   ON core.iam_auth_factor (user_id) WHERE (kind = 'TOTP' AND disabled_at IS NULL);
 
 -- 2. Clé de preuve de l'élévation (secret géré : AUCUNE valeur dans le dépôt) ------------------
--- Installée par l'exploitation sous `migrator` (runbook, ADR-062), ou par la fixture de test 9600.
+-- Installée par l'exploitation sous `migrator` (runbook, ADR-062), ou par la fixture de test 9650.
 -- Absente => aucune élévation possible => aucun pouvoir de staff (fail-closed).
 CREATE TABLE core.iam_mfa_proof_key (
   id           smallint    CONSTRAINT mfa_proof_key_pkey PRIMARY KEY
@@ -309,7 +309,7 @@ CREATE POLICY iam_staff_select ON core.iam_mfa_proof_key FOR SELECT TO iam_staff
 GRANT SELECT (id, status) ON core.iam_user_account TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.iam_user_account FOR SELECT TO iam_staff_owner USING (true);
 
--- sessions : lecture ; élévation NONE -> TOTP ; révocation (suspension, réinitialisation, 0032)
+-- sessions : lecture ; élévation NONE -> TOTP ; révocation (suspension, réinitialisation, 0034)
 GRANT SELECT (id, user_id, token_hash, expires_at, revoked_at, revoked_reason, mfa_level) ON core.iam_session
   TO iam_staff_owner;
 GRANT UPDATE (mfa_level, expires_at, revoked_at, revoked_reason) ON core.iam_session TO iam_staff_owner;

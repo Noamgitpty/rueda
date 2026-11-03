@@ -1,6 +1,6 @@
 /**
  * Port de persistance du staff et de la console (US-012) et son adaptateur PostgreSQL : un appel
- * de commande `core.iam_staff_*` (migrations 0031, 0032 ; SECURITY DEFINER, EXECUTE au seul
+ * de commande `core.iam_staff_*` (migrations 0033, 0034 ; SECURITY DEFINER, EXECUTE au seul
  * app_api) par méthode, en autocommit — « un appel = une instruction » (ADR-056). Requêtes
  * paramétrées seulement ; la session est toujours désignée par l'empreinte de son jeton.
  *

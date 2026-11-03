@@ -19,7 +19,7 @@
  *
  * US-012 (RLS-18 réduite, ADR-062) : un contexte STAFF n'a d'effet qu'avec l'empreinte du jeton
  * d'une session VIVANTE et ÉLEVÉE par TOTP de l'acteur. Chaque membre du staff du monde reçoit
- * donc une telle session (fixture 9600, qui remplace ici le parcours MFA prouvé par
+ * donc une telle session (fixture 9650, qui remplace ici le parcours MFA prouvé par
  * l0-iam-staff-mfa) ; `asActor` complète un contexte STAFF sans `sessionTokenHash` par celle de
  * l'acteur, s'il en a une (sinon le contexte reste sans preuve : aucun pouvoir de staff).
  */

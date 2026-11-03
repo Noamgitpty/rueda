@@ -4,7 +4,7 @@
  *
  *   preuve = HMAC-SHA-256(clé, UTF-8("rueda-staff-mfa-v1") ‖ SHA-256(jeton) ‖ UUID(16) ‖ pas(int8 BE))
  *
- * La base recalcule la même valeur (core.iam_mfa_proof, migration 0031) avec la clé de
+ * La base recalcule la même valeur (core.iam_mfa_proof, migration 0033) avec la clé de
  * `core.iam_mfa_proof_key`, qu'aucun rôle applicatif ne lit : du SQL arbitraire sous app_api ne peut
  * pas fabriquer une session élevée (RLS-18 réduite). La clé est un secret géré hors dépôt
  * (`RUEDA_STAFF_MFA_PROOF_KEY`, docs/ops/ENV_VARS.md) ; jamais journalisée.

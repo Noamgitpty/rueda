@@ -1,6 +1,6 @@
 /**
  * Port et adaptateur PostgreSQL des actions de console (`manual_action`, 17 §3.2.13 ; US-012).
- * Un appel de `core.iam_staff_cmd_manual_action` (migration 0032 ; SECURITY DEFINER, EXECUTE au
+ * Un appel de `core.iam_staff_cmd_manual_action` (migration 0034 ; SECURITY DEFINER, EXECUTE au
  * seul app_api) en autocommit : « un appel = une instruction » (ADR-056). La commande relit la
  * session (preuve de possession), la MFA, les rôles, la matrice et le pays du sujet, puis agit ou
  * refuse, et écrit l'audit en dernier. Erreurs de la base : seul le SQLSTATE est gardé.
