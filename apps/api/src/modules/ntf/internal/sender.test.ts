@@ -92,11 +92,26 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
     expect(db.events).toEqual([]);
   });
 
+  it('portugais du Brésil (DEC-FONDATEUR-18) : texte pt, date au format pt-BR', async () => {
+    const { h, db, booked, sender } = setup({ locale: 'pt' });
+    await dispatchEvent(booked, db);
+    await drain(db, sender);
+    const toGuest = h.email.sent().find((m) => m.to === 'guest@example.test');
+    expect(toGuest?.locale).toBe('pt');
+    expect(toGuest?.subject).toMatch(/^Reserva [0-9A-F]{8} confirmada$/);
+    const startText = formatDateTime(START, country.timeZone, getProfile(LOCALE_CONFIG, 'pt'));
+    expect(toGuest?.body).toContain(`de ${startText} a `);
+    expect(toGuest?.body).toMatch(/^Olá, Inès Dupré\./);
+  });
+
   it('langue absente du pays ⇒ locale par défaut du pays ; même langue, autre région ⇒ locale du pays', async () => {
     for (const [preferred, expected] of [
-      ['pt-BR', country.defaultLocale],
+      ['de-DE', country.defaultLocale],
       ['es-AR', country.defaultLocale],
       ['en-GB', 'en'],
+      // portugais du Brésil (DEC-FONDATEUR-18) : pt-BR et pt-PT ⇒ locale pt du pays
+      ['pt-BR', 'pt'],
+      ['pt-PT', 'pt'],
     ] as const) {
       const { h, db, booked, sender } = setup({ locale: preferred });
       await dispatchEvent(booked, db);

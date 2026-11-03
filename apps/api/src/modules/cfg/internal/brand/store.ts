@@ -217,7 +217,7 @@ export class PgBrandStore implements BrandStore {
       storage_key: string | null;
     }>(
       this.#db,
-      'SELECT * FROM core.cfg_brand_cmd_register_asset($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
+      'SELECT * FROM core.cfg_brand_cmd_register_asset($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
       [
         tokenHash,
         i.requestId,
@@ -229,6 +229,7 @@ export class PgBrandStore implements BrandStore {
         i.alt?.es ?? null,
         i.alt?.en ?? null,
         i.alt?.fr ?? null,
+        i.alt?.pt ?? null,
         i.licenseNote,
       ],
     );
@@ -419,9 +420,11 @@ export class PgBrandStore implements BrandStore {
       alt_text_es: string | null;
       alt_text_en: string | null;
       alt_text_fr: string | null;
+      alt_text_pt: string | null;
     }>(
       this.#db,
-      `SELECT id, kind, storage_key, mime, bytes, sha256, alt_text_es, alt_text_en, alt_text_fr
+      `SELECT id, kind, storage_key, mime, bytes, sha256, alt_text_es, alt_text_en, alt_text_fr,
+              alt_text_pt
          FROM core.config_brand_asset`,
       [],
     );
@@ -432,7 +435,7 @@ export class PgBrandStore implements BrandStore {
       mime: r.mime,
       bytes: Number(r.bytes),
       sha256: r.sha256,
-      alt: { es: r.alt_text_es, en: r.alt_text_en, fr: r.alt_text_fr },
+      alt: { es: r.alt_text_es, en: r.alt_text_en, fr: r.alt_text_fr, pt: r.alt_text_pt },
     }));
   }
 

@@ -6,7 +6,7 @@
 
 D'après 17 §2.2 et §2.13 : moteur unique de notifications (NTF-001) ; canaux e-mail transactionnel, SMS, WhatsApp (BSP), in-app, push (P1) ; repli automatique ; idempotence `(event_id, destinataire, canal)` ; réessais ; journal d'envoi ; préférences. NTF ne lit pas les tables d'IAM : les coordonnées viennent d'un port fourni par IAM.
 
-État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Catalogue réduit de six gabarits, textes en es, en et fr.
+État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Catalogue réduit de six gabarits, textes en es, en, fr et pt (pt-BR, DEC-FONDATEUR-18).
 
 Non câblé (reports) : processus `worker.ts` (US-003), accusés de remise, préférences et désinscription, WhatsApp (US-526), rappels de trip, e-mail de vérification d'IAM, habillage de marque, purge à 13 mois.
 

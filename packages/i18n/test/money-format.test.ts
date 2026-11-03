@@ -89,6 +89,40 @@ describe('formatMoney — français (lecteur francophone, montants en USD ou en 
   });
 });
 
+// Locale pt-BR (DEC-FONDATEUR-18) : aucune valeur dans 08 / 16 / 17 ; oracle = CLDR du portugais
+// du Brésil (point des milliers, virgule décimale, symbole devant suivi d'une espace insécable
+// U+00A0), vérifié contre `Intl.NumberFormat('pt-BR')`, que `formatMoney` n'utilise pas.
+describe('formatMoney — portugais du Brésil (montants en USD ou en PYG)', () => {
+  it('USD : « US$ 1.234,56 », deux décimales', () => {
+    expect(formatMoney(amount(123456n, 'USD'), profile('pt'))).toBe(`US$${NBSP}1.234,56`);
+    expect(formatMoney(amount(14500n, 'USD'), profile('pt'))).toBe(`US$${NBSP}145,00`);
+    expect(formatMoney(amount(5n, 'USD'), profile('pt'))).toBe(`US$${NBSP}0,05`);
+    expect(formatMoney(amount(-123456n, 'USD'), profile('pt'))).toBe(`-US$${NBSP}1.234,56`);
+  });
+
+  it('PYG : « ₲ 1.050.000 », sans décimale', () => {
+    expect(formatMoney(amount(1050000n, 'PYG'), profile('pt'))).toBe(`₲${NBSP}1.050.000`);
+    expect(formatMoney(amount(7n, 'PYG'), profile('pt'))).toBe(`₲${NBSP}7`);
+    expect(formatMoney(amount(9007199254740993n, 'PYG'), profile('pt'))).toBe(
+      `₲${NBSP}9.007.199.254.740.993`,
+    );
+  });
+
+  it('concorde avec le CLDR du portugais du Brésil embarqué dans Node (oracle externe)', () => {
+    const usd = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'USD' });
+    expect(formatMoney(amount(123456n, 'USD'), profile('pt'))).toBe(usd.format(1234.56));
+    expect(formatMoney(amount(-123456n, 'USD'), profile('pt'))).toBe(usd.format(-1234.56));
+    expect(formatMoney(amount(5n, 'USD'), profile('pt'))).toBe(usd.format(0.05));
+    const pyg = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'PYG',
+      currencyDisplay: 'narrowSymbol',
+    });
+    expect(formatMoney(amount(1050000n, 'PYG'), profile('pt'))).toBe(pyg.format(1050000));
+    expect(formatMoney(amount(-1050000n, 'PYG'), profile('pt'))).toBe(pyg.format(-1050000));
+  });
+});
+
 describe('formatMoney — adaptateur d’affichage seulement', () => {
   it('exact au-delà de 2^53 (aucun flottant)', () => {
     expect(formatMoney(amount(9007199254740993n, 'PYG'), profile('es-PY'))).toBe(

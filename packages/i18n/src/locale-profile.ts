@@ -5,13 +5,20 @@
  * valeurs viennent de `config/locales.json` (ou d'une fixture de test) et sont validées ici.
  * Les formats visés sont ceux de 16 (fiche I18N-003 / I18N-004 / I18N-005) et de 17 §1.2 :
  * « US$ 1.234,56 » en es-PA, « $1,234.56 » en en, « ₲ 1.050.000 » sans décimale. Le profil fr
- * (DEC-FONDATEUR-17) suit le CLDR du français : « 1 234,56 $US », « 1 050 000 ₲ ».
+ * (DEC-FONDATEUR-17) suit le CLDR du français : « 1 234,56 $US », « 1 050 000 ₲ ». Le profil
+ * pt (pt-BR, DEC-FONDATEUR-18) suit le CLDR du portugais du Brésil : « US$ 1.234,56 », « ₲ 1.050.000 ».
  */
 
 /** Langue de catalogue : la locale régionale (es-PA, es-PY) hérite du catalogue de sa langue. */
-export type CatalogLanguage = 'es' | 'en' | 'fr';
+export type CatalogLanguage = 'es' | 'en' | 'fr' | 'pt';
 
-export const CATALOG_LANGUAGES: readonly CatalogLanguage[] = ['es', 'en', 'fr'];
+/**
+ * Langues de catalogue (DEC-FONDATEUR-11, 17, 18) : espagnol (fait foi), anglais, français et
+ * portugais du Brésil (`pt` : dans le CLDR, `pt` est le portugais du Brésil, `pt-PT` celui du
+ * Portugal ; étiquette sans région comme `en` et `fr`, ADR-071). Source unique de la liste : l'API et
+ * le web l'importent au lieu de recopier « es / en / fr / pt ».
+ */
+export const CATALOG_LANGUAGES: readonly CatalogLanguage[] = ['es', 'en', 'fr', 'pt'];
 
 export interface NumberProfile {
   /** Séparateur des milliers (« . » ou « , »). */
@@ -37,7 +44,7 @@ export interface CurrencyProfile {
 export interface DateProfile {
   /** Gabarit de date : `{day}`, `{month}`, `{year}` (16 I18N-003 : jj/mm/aaaa). */
   readonly datePattern: string;
-  /** Gabarit d'heure : `{hour}`, `{minute}`, `{dayPeriod}` (24 h en es et fr, 12 h en en). */
+  /** Gabarit d'heure : `{hour}`, `{minute}`, `{dayPeriod}` (24 h en es, fr et pt, 12 h en en). */
   readonly timePattern: string;
   /** Gabarit date + heure : `{date}`, `{time}`. */
   readonly dateTimePattern: string;
@@ -46,7 +53,7 @@ export interface DateProfile {
 }
 
 export interface LocaleProfile {
-  /** Étiquette BCP 47 (`es-PA`, `es-PY`, `en`, `fr`). Sert aussi à l'attribut `lang`. */
+  /** Étiquette BCP 47 (`es-PA`, `es-PY`, `en`, `fr`, `pt`). Sert aussi à l'attribut `lang`. */
   readonly tag: string;
   readonly language: CatalogLanguage;
   /** Nom de la locale dans sa propre langue (sélecteur de langue, UX-11). */

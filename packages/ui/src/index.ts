@@ -1,6 +1,6 @@
 /**
  * `@rueda/ui` — bibliothèque de composants vivante (US-032, DSN-005). Point d'entrée unique.
- * Composants React accessibles (WCAG 2.2 AA), trilingues (textes par `@rueda/i18n`), écrits
+ * Composants React accessibles (WCAG 2.2 AA), quadrilingues (textes par `@rueda/i18n`), écrits
  * uniquement contre les variables CSS des jetons (`@rueda/design-tokens`). Voir README.md.
  */
 export { Avatar, monogram, toneOf } from './avatar.tsx';

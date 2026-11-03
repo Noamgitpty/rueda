@@ -25,11 +25,14 @@ describe('POST /locale (choix explicite mémorisé, 10b UX-11)', () => {
     },
   );
 
-  it.each(['de', 'es', 'fr-FR', '', 'es-PA;x'])('refuse « %s »', async (value) => {
-    const response = await POST(post(`locale=${encodeURIComponent(value)}`));
-    expect(response.status).toBe(400);
-    expect(response.headers.get('set-cookie')).toBeNull();
-  });
+  it.each(['de', 'es', 'fr-FR', 'pt-BR', 'pt-PT', '', 'es-PA;x'])(
+    'refuse « %s »',
+    async (value) => {
+      const response = await POST(post(`locale=${encodeURIComponent(value)}`));
+      expect(response.status).toBe(400);
+      expect(response.headers.get('set-cookie')).toBeNull();
+    },
+  );
 
   it('refuse un corps sans champ locale', async () => {
     expect((await POST(post(''))).status).toBe(400);

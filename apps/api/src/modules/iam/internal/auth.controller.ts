@@ -1,6 +1,6 @@
 /**
  * Routes HTTP de l'authentification (préfixe `/auth`). Corps de réponse : `{ code, messageKey }`
- * (clé du catalogue @rueda/i18n, texte es / en / fr côté client). Jamais de jeton dans un corps :
+ * (clé du catalogue @rueda/i18n, texte es / en / fr / pt côté client). Jamais de jeton dans un corps :
  * le jeton de session ne voyage que dans le cookie `__Host-session`.
  *
  * | Route                     | Réponse                                                          |

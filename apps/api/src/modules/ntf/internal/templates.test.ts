@@ -81,8 +81,8 @@ describe('catalogue des gabarits (16 NTF-001, 10b §3.13)', () => {
     }
   });
 
-  it('les trois langues ont chaque clé de chaque gabarit et canal (es, en, fr)', () => {
-    expect([...CATALOG_LANGUAGES].sort()).toEqual(['en', 'es', 'fr']);
+  it('les quatre langues ont chaque clé de chaque gabarit et canal (es, en, fr, pt)', () => {
+    expect([...CATALOG_LANGUAGES].sort()).toEqual(['en', 'es', 'fr', 'pt']);
     for (const t of TEMPLATE_LIST) {
       for (const channel of channelsOf(t)) {
         for (const part of PARTS(channel)) {
@@ -97,7 +97,7 @@ describe('catalogue des gabarits (16 NTF-001, 10b §3.13)', () => {
     }
   });
 
-  it('parité : mêmes emplacements dans les trois langues pour toutes les clés ntf.*', () => {
+  it('parité : mêmes emplacements dans les quatre langues pour toutes les clés ntf.*', () => {
     const only = (language: (typeof CATALOG_LANGUAGES)[number]) =>
       Object.fromEntries(
         Object.entries(CATALOGS[language].messages).filter(([k]) => k.startsWith('ntf.')),
@@ -105,6 +105,7 @@ describe('catalogue des gabarits (16 NTF-001, 10b §3.13)', () => {
     expect(Object.keys(only('es')).length).toBeGreaterThan(0);
     expect(compareCatalogs(only('es'), only('en'))).toEqual([]);
     expect(compareCatalogs(only('es'), only('fr'))).toEqual([]);
+    expect(compareCatalogs(only('es'), only('pt'))).toEqual([]);
   });
 
   it('variables déclarées = emplacements des textes ; aucun emplacement non déclaré (UX-59)', () => {
