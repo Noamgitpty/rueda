@@ -64,6 +64,10 @@ Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/money'`).
 
 Les codes PROPOSÉS sont à reporter au catalogue de 16 A.8 par une demande de fusion sur `docs/specs/`.
 
+## Harnais des vecteurs dorés (US-016)
+
+Le sous-chemin `@rueda/money/golden-vectors` (`src/golden-vectors/`), **réservé aux tests**, charge les attendus exportés par les oracles Python de `docs/specs/tools/` (T01–T68, TJ01–TJ21, TA01–TA11, en USD et en PYG) et compare un moteur (US-017, US-018) à ces attendus, sans jamais les recalculer. Il n'est pas exporté par `@rueda/money`. Voir [`src/golden-vectors/README.md`](src/golden-vectors/README.md).
+
 ## Tests
 
 `pnpm --filter @rueda/money test:unit` lance Vitest et fast-check, en variantes **PA (USD, exposant 2)** et **PY (PYG, exposant 0)**. Les devises de test sont dans `test/fixtures.ts`.

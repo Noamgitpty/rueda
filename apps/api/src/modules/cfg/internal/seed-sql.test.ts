@@ -1,5 +1,5 @@
 /**
- * US-013 — la migration de graines 0003 est générée depuis les données (source unique). Pour la
+ * US-013 — la migration de graines 0009 est générée depuis les données (source unique). Pour la
  * régénérer après une modification des données (avant toute application en environnement
  * partagé : une migration appliquée est immuable, ADR-044) :
  *   RUEDA_WRITE_CFG_SEED=1 pnpm --filter @rueda/api test:unit

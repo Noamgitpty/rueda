@@ -1,5 +1,5 @@
 /**
- * US-013 — configuration pays en base (migrations 0002 et 0003) : RLS, droits, graines PA / PY,
+ * US-013 — configuration pays en base (migrations 0008 et 0009) : RLS, droits, graines PA / PY,
  * interrupteurs fail-closed, non-rétroactivité (PARAM_RETROACTIVE), immuabilité, tzdata de
  * PostgreSQL (17 §1.3, ADR-019). Tout tourne sous les rôles de production (assertion L0-05 en
  * tête, via withRole). Attentes : 17 §1.2, §1.3, §7.2 ; 08 BR-CXL-13 ; données CFG pour les comptes.
@@ -143,6 +143,57 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent', async () => {
+    await withRole(
+      'app_api',
+      async (client) => {
+        const { rows } = await client.query<{ t: string; pol: string; cmd: string; roles: string }>(
+          `SELECT c.relname AS t, p.polname AS pol, p.polcmd::text AS cmd,
+                  pg_catalog.array_to_string(ARRAY(
+                    SELECT CASE WHEN r = 0 THEN 'PUBLIC' ELSE pg_catalog.pg_get_userbyid(r) END
+                      FROM pg_catalog.unnest(p.polroles) AS r ORDER BY 1), ',') AS roles
+             FROM pg_catalog.pg_policy p
+             JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
+             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'core' AND c.relname = ANY($1::text[])
+            ORDER BY 1, 2`,
+          [TABLES],
+        );
+        expect(rows).toEqual(
+          [...TABLES].sort().flatMap((t) => [
+            { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
+            { t, pol: 'migrator_all', cmd: '*', roles: 'migrator' },
+          ]),
+        );
+      },
+      { database: 'production' },
+    );
+  });
+
+  it('fonctions de garde : SECURITY INVOKER, search_path figé', async () => {
+    await withRole('app_api', async (client) => {
+      const { rows } = await client.query<{ fn: string; secdef: boolean; config: string[] | null }>(
+        `SELECT p.oid::regprocedure::text AS fn, p.prosecdef AS secdef, p.proconfig AS config
+           FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname = 'core' AND p.proname LIKE 'config_%'
+          ORDER BY 1`,
+      );
+      expect(rows.map((r) => r.fn)).toEqual([
+        'core.config_go_live(text,text)',
+        'core.config_no_truncate()',
+        'core.config_param_value_guard()',
+        'core.config_tax_line_guard()',
+        'core.config_versioned_row_guard()',
+      ]);
+      for (const r of rows) {
+        expect(r, r.fn).toMatchObject({
+          secdef: false,
+          config: ['search_path=pg_catalog, pg_temp'],
+        });
+      }
+    });
+  });
+
   it('app_anon n’a aucun accès', async () => {
     await withRole('app_anon', async (client) => {
       await expectAutocommitError(client, 'SELECT * FROM core.config_country', { code: '42501' });
@@ -150,7 +201,7 @@ describe('configuration pays : structure et droits', () => {
   });
 });
 
-describe('graines PA / PY (0003)', () => {
+describe('graines PA / PY (0009)', () => {
   it('devises et pays (17 §1.2, §1.3)', async () => {
     await withRole('app_api', async (client) => {
       const cur = await client.query(

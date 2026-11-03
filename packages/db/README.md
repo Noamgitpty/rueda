@@ -15,7 +15,62 @@ Migrations SQL versionnées, exécuteur de migrations minimal et harnais de test
 | `src/migrate.ts`, `src/bootstrap.ts` | Exécuteur (`runMigrations`, `planMigrations`, `listMigrations`) et amorçage (`runBootstrap`, `setRolePasswords`).                                                                                                                                                                                                        |
 | `src/testing/`                       | Harnais de tests (`@rueda/db/testing`) : source de la base, banc jetable, connexions sous les rôles de production, transaction de test.                                                                                                                                                                                  |
 
-Migrations actuelles : `0000_platform_now` (schéma `platform`, `platform.now()` = `clock_timestamp()` `VOLATILE`, `platform.schema_migration` sous RLS `ENABLE` + `FORCE`), `0001_role_grants` (droits minimaux), `0002_config_country` (US-013 : schéma `core`, tables de configuration pays, gardes `PARAM_RETROACTIVE` / immuabilité / interrupteurs, `core.config_go_live`, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker`), `0003_config_seed` (graines PA / PY **générées** depuis `apps/api/src/modules/cfg/data/`, ne pas éditer ; ADR-048) ; tests `9000_test_virtual_clock` et `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement).
+Migrations actuelles :
+
+- `0000_platform_now` : schéma `platform`, `platform.now()` = `clock_timestamp()` `VOLATILE`, `platform.schema_migration` sous RLS `ENABLE` + `FORCE` ;
+- `0001_role_grants` : droits minimaux ;
+- `0002_app_session_context` à `0007_avl_pay_worker_grants` : schéma de preuve AVL / PAY (US-006, section « Schéma AVL / PAY ») ;
+- `0008_config_country` (US-013) : tables de configuration pays dans `core` (schéma créé par `0003_core_schema`), gardes `PARAM_RETROACTIVE` / immuabilité / interrupteurs, `core.config_go_live`, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker` ;
+- `0009_config_seed` (US-013) : graines PA / PY **générées** depuis `apps/api/src/modules/cfg/data/`, ne pas éditer (ADR-049) ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement).
+
+## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
+
+Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17, schéma Bêta `core`, préfixe du schéma cible) : réutilisé tel quel par US-019, US-022 à US-024, ce n'est pas un prototype. Les colonnes manquantes arrivent par migrations additives.
+
+| Table                              | Contraintes clés                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.booking_vehicle_occupancy`   | exclusion `vehicle_occupancy_no_overlap` `EXCLUDE USING gist (vehicle_id WITH =, period WITH &&) WHERE (active)` ; `period_valid` (`[début, fin)` borné) ; `hold_has_ttl`, `trip_has_no_ttl` ; `trip_occupancy_has_ref` ; `inactive_has_reason` ; index uniques `occupancy_ical_uid_unique`, `one_active_occupancy_per_trip` |
+| `core.booking_checkout_hold`       | `hold_kind_valid` (`CHECKOUT` seul ; `REQUEST` avec US-219), `hold_status_valid`, `hold_converted_has_trip`, `hold_conversion_op_unique` ; index `one_live_hold_per_guest_vehicle` (`ACTIVE`, `PAYMENT_IN_FLIGHT`) ; index de 2a `(vehicle_id, status)`, `(guest_user_id, status)` ; trigger `hold_terminal_status`          |
+| `core.booking_trip`                | états SM-1, `trip_period_valid`, `trip_terminated_has_reason`, `trip_source_hold_unique` ; trigger différé `trip_has_active_occupancy`                                                                                                                                                                                       |
+| `core.booking_guest_occupancy`     | exclusion `guest_no_overlap` (trips seulement, sans tampon)                                                                                                                                                                                                                                                                  |
+| `core.booking_hold_compensation`   | `hold_compensation_operation_unique` (une opération compensée une fois)                                                                                                                                                                                                                                                      |
+| `core.booking_payment_disposition` | PK `payment_disposition_pkey` = XOR conversion / compensation ; `one_conversion_per_hold` ; triggers `disposition_rent_payment_only`, `disposition_matches_hold` ; immuable                                                                                                                                                  |
+| `core.payment_payment_operation`   | cohérence `kind` / `purpose`, `amount_minor > 0` (bigint, unités mineures), `idem_plain` unique                                                                                                                                                                                                                              |
+| `core.payment_webhook_inbox`       | `webhook_inbox_dedup` `UNIQUE NULLS NOT DISTINCT (provider, psp_account_id, dedup_key)`                                                                                                                                                                                                                                      |
+
+**Invariant I-OCC** (17 §2.5) : tout trip dans un état qui tient le créneau a exactement une occupation `TRIP` active (`ref_id = trip.id`, même véhicule). Les états concernés sont `BOOKED`, `CHECKIN_OPEN`, `START_WINDOW_EXPIRED`, `IN_PROGRESS`, `OVERDUE` et `UNRETURNED` (lecture de SM-1, PROPOSÉ). L'invariant est vérifié au `COMMIT` par trois triggers différés (`trip_has_active_occupancy`, `occupancy_trip_guard`, `occupancy_trip_ref_valid`) ; la borne « au plus une » est structurelle (index `one_active_occupancy_per_trip`). Les fonctions de trigger qui lisent d'autres lignes sont `SECURITY DEFINER` sous `migrator` : voir ADR-048.
+
+**Clés étrangères en attente** : `vehicle_id`, `guest_user_id`, `org_id`, `quote_id`, `listing_id`, `psp_account_id`, `refund_instance_id` sont des `uuid` sans FK tant que la table cible n'existe pas ; la story qui la crée ajoute la contrainte. Codes pays et devises : format seulement (la liste fait foi dans la configuration, US-008).
+
+**Droits** (17 §2.3, VERIF_17-A1, A2) :
+
+- `PUBLIC`, `app_anon` et `app_api` n'ont **aucun** droit sur ces tables. Les lectures filtrées d'`app_api` arrivent avec US-011, les commandes `cmd_*` sous `cmd_hold_owner` avec US-023.
+- Personne n'a `DELETE`.
+- `app_worker` reçoit des colonnes bornées par `GRANT UPDATE (colonnes)` et une politique par commande SQL. Chaque politique exige `app.actor_kind() = 'WORKER'` et un nom de travailleur de la liste. Sans contexte, aucune ligne n'est visible et aucune écriture n'est possible.
+
+| Travailleur (`app.worker_name`, PROPOSÉ)                              | Rôle (17 §2.5)                                                                                                              |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `booking_conversion`, `disposition_sweeper`, `payment_intent_sweeper` | étape 4 (conversion, ré-acquisition avec 2a partie véhicule), étape 5 (compensation, bloc C)                                |
+| `hold_expiry`                                                         | étape 7 (expiration) et libération effective : hold vivant → `EXPIRED` / `RELEASED`, occupation `HOLD` désactivée seulement |
+| `trip_lifecycle`                                                      | transitions SM-1 qui désactivent ou raccourcissent l'occupation `TRIP`                                                      |
+| `webhook_ingest`                                                      | `webhook_inbox`, statut des opérations (17 §4.4)                                                                            |
+
+**Traduction des erreurs** (`translateDbError`, `src/errors.ts`) : la traduction se fait par le couple (SQLSTATE, contrainte), et seuls `code` et `retryable` sont renvoyés, jamais de `DETAIL`. Une contrainte inconnue donne `INTERNAL_ERROR`.
+
+- Codes repris de 17 et de 16 :
+  - `vehicle_occupancy_no_overlap` → `VEHICLE_UNAVAILABLE` ;
+  - `guest_no_overlap` → `GUEST_OVERLAP` ;
+  - `one_conversion_per_hold` → `DUPLICATE_PAYMENT` ;
+  - `hold_terminal_status` → `INVALID_TRANSITION` ;
+  - triggers I-OCC et disposition → `INVARIANT_VIOLATION`.
+- Codes PROPOSÉS, à reporter dans 16 A.8 :
+  - `one_live_hold_per_guest_vehicle` → `HOLD_ALREADY_LIVE` ;
+  - `webhook_inbox_dedup` → `WEBHOOK_DUPLICATE` (réponse 200 sans traitement) ;
+  - `payment_disposition_pkey` et `hold_compensation_operation_unique` → `DISPOSITION_EXISTS` ;
+  - `40P01` et `40001` → `RETRY` (rejeu de la transaction entière).
+
+**Fixtures de test** (`test-migrations/9001`, base principale seulement) : `test_fixture.place_hold` remplace `cmd_place_hold` (US-023) et `test_fixture.insert_payment_operation` remplace `cmd_start_payment`. `test_fixture.delete_occupancy` force une suppression qu'aucun rôle ne peut faire : elle est refusée par la clé étrangère du hold (`23503`), et `occupancy_trip_guard` couvre aussi `DELETE`. Ces fonctions sont `SECURITY DEFINER` sous `migrator` ; la transaction appelante reste sous `app_api` ou `app_worker`.
 
 ## Rôles (17 §2.3, ADR-035)
 
@@ -32,7 +87,7 @@ Droits actuels : `USAGE` sur `platform` et `EXECUTE` sur `platform.now()` pour `
 ```bash
 pnpm test:unit   # sans base : correspondance des schémas, exécuteur (plan, sommes), masquage des secrets, SCRAM, source
 pnpm test:int    # PostgreSQL réel : banc, migrations, droits minimaux, transaction de test
-pnpm test:l0     # preuves L0-05 (partiel) et L0-06 sous les rôles de production
+pnpm test:l0     # preuves L0-01, L0-03, L0-05 (partiel), L0-06, L0-08 sous les rôles de production
 ```
 
 Variables (noms seulement, inventaire : `docs/ops/ENV_VARS.md`) :

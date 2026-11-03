@@ -13,7 +13,7 @@ export type ConfigErrorCode =
   | 'PARAM_NOT_APPLICABLE'
   | 'COUNTRY_UNKNOWN'
   | 'TZDATA_MISMATCH'
-  /** Levés par les gardes SQL (0002) ; listés ici pour la traduction des erreurs de la base. */
+  /** Levés par les gardes SQL (0008) ; listés ici pour la traduction des erreurs de la base. */
   | 'PARAM_IMMUTABLE'
   | 'FORBIDDEN';
 

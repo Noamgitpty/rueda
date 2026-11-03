@@ -1,4 +1,4 @@
--- 0003 — graines de la configuration pays (US-013 ; 17 §7.2 ; ADR-024, ADR-033).
+-- 0009 — graines de la configuration pays (US-013 ; 17 §7.2 ; ADR-024, ADR-033).
 -- FICHIER GÉNÉRÉ depuis apps/api/src/modules/cfg/data/*.json par seed-sql.ts : ne pas
 -- l’éditer à la main (test seed-sql.test.ts). Appliquée sous `migrator`.
 -- Valeurs PROPOSÉES, À DÉCIDER au jalon J-ADM-031 ; interrupteurs de mise en service à false.

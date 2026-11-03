@@ -1,7 +1,7 @@
 /**
  * Chargement de la configuration pays versionnée du dépôt (US-013). Bêta : la source unique est
  * `../data/*.json` (16 ADM-014 « SIMPLIFIÉ : paramètres dans un fichier de configuration versionné ») ;
- * la base reçoit les mêmes données par la migration de graines 0003, générée depuis ces fichiers
+ * la base reçoit les mêmes données par la migration de graines 0009, générée depuis ces fichiers
  * (`seed-sql.ts`). Les locales viennent de `@rueda/i18n` (`config/locales.json`), non dupliquées.
  */
 import locales from '@rueda/i18n/config/locales.json' with { type: 'json' };

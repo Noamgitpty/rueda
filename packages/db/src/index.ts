@@ -21,3 +21,5 @@ export {
 export type { AppRole, LoginRole, OwnerRole } from './roles.ts';
 export { maskConnectionString, redactError, redactSecrets } from './secrets.ts';
 export { randomPassword, scramSha256Verifier } from './scram.ts';
+export { CONSTRAINT_CODES, DB_BUSINESS_CODES, SQLSTATE, translateDbError } from './errors.ts';
+export type { DbBusinessCode, DbBusinessError } from './errors.ts';

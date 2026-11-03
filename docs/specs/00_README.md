@@ -100,6 +100,7 @@ python -I -X utf8 tools/check_t66_68.py                    # T66–T68 -> RÉSUL
 python -I -X utf8 tools/check_ta_consolidation.py          # TA01–TA11 de 16 v5 (jambes, renvois aux TJ de 08) -> RÉSULTAT : OK
 python -I -X utf8 tools/check_legs.py                      # TJ01–TJ21, jambes explicites (08 E7, US-055, US-056) -> RÉSULTAT : OK
 python -I -X utf8 tools/verif15_ta.py                      # TA01–TA07, TA09 de 16 v5, jambes (auditeur) -> OK
+python -I -X utf8 tools/export_golden_vectors.py           # export des vecteurs dorés T01–T68, TJ01–TJ21, TA01–TA11 pour @rueda/money/golden-vectors (US-016) ; compare golden_vectors.json à l'export régénéré (--write pour le réécrire) -> RÉSULTAT : OK
 python -I -X utf8 tools/verify_cxl_tests.py                # historique (T01–T27) : imprime, n'asserte rien (déclassé) ; ne pas compter comme contrôle
 ```
 
@@ -111,7 +112,7 @@ Boucle unique (Git Bash) : `for f in tools/*.py; do echo "== $f"; python -I -X u
 2. l'inscrire dans `tools/registry.json` (ou y relever le compte, par exemple `check_legs.py` : `"vecteurs": 58` et le motif `… : 58 ; vecteurs calculés : 58`) ;
 3. lancer `python -I -X utf8 scripts/ci/check-spec-tools.py --specs docs/specs`, qui doit afficher `RÉSULTAT : OK`.
 
-Ce chemin ne touche pas `scripts/ci/`. Le registre exige une revue argent et une revue sécurité (`docs/team/review-requirements.json`). Il ne contient que des attentes : il ne peut ni exclure un script, ni retirer un oracle plancher, ni annuler un compte obligatoire. Il peut en revanche relâcher un motif, d'où la revue sécurité. Ce qui suit reste dans le script et ne change que par une PR qui touche `scripts/ci/`, sous les garde-fous de DEC-FONDATEUR-15 (revue sécurité au SHA fusionné, `docs/ops/CI.md`) :
+Ce chemin ne touche pas `scripts/ci/` : un oracle inscrit au seul registre est exécuté et contrôlé, mais il peut en être retiré par une PR de specs. Pour le rendre **plancher** (non retirable, attendu pour tout oracle d'argent), il faut aussi l'ajouter à `FLOOR_ORACLES` dans `scripts/ci/check-spec-tools.py` : cela touche `scripts/ci/` et exige une revue sécurité (US-016 l'a fait pour `export_golden_vectors.py`). Le registre exige une revue argent et une revue sécurité (`docs/team/review-requirements.json`). Il ne contient que des attentes : il ne peut ni exclure un script, ni retirer un oracle plancher, ni annuler un compte obligatoire. Il peut en revanche relâcher un motif, d'où la revue sécurité. Ce qui suit reste dans le script et ne change que par une PR qui touche `scripts/ci/`, sous les garde-fous de DEC-FONDATEUR-15 (revue sécurité au SHA fusionné, `docs/ops/CI.md`) :
 
 - la liste des scripts exclus (`EXCLUDED`) ;
 - la liste plancher des oracles qui doivent figurer au registre ;

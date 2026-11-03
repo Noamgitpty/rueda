@@ -1,10 +1,10 @@
--- 0002 — configuration pays (CFG) : devises, pays, paramètres versionnés, fériés, taxes par
+-- 0008 — configuration pays (CFG) : devises, pays, paramètres versionnés, fériés, taxes par
 -- ligne, entités juridiques. US-013 ; 17 §1.1–§1.4, §3.2 (classe C), §7 ; ADR-024, ADR-033 ;
 -- 16 ADM-014. Appliquée sous `migrator`.
 --
 -- Bêta (D1, CONTRIBUTING §9) : schéma unique `core`, tables préfixées par leur schéma cible
 -- (`config_*` pour CFG, `pricing_tax_line_config` pour PRC, `finance_legal_entity` pour FIN).
--- Aucune valeur propre à un pays ici (ADR-024) : les graines sont dans 0003, générées depuis
+-- Aucune valeur propre à un pays ici (ADR-024) : les graines sont dans 0009, générées depuis
 -- apps/api/src/modules/cfg/data/ (source unique).
 --
 -- Classe C (17 §3.1) : tables versionnées, jamais supprimées. Une valeur de paramètre ou de taxe
@@ -21,12 +21,13 @@
 --     core.config_holiday_calendar, core.config_param_value, core.config_param_definition,
 --     core.config_country, core.config_currency;
 --   DROP FUNCTION core.config_param_value_guard(), core.config_versioned_row_guard(),
---     core.config_tax_line_guard();
---   DROP SCHEMA core;  -- seulement si aucune autre migration n'y a créé d'objet
+--     core.config_tax_line_guard(), core.config_no_truncate();
+--   (le schéma `core` appartient à 0003_core_schema, US-006 : il n'est pas supprimé ici)
 
-CREATE SCHEMA IF NOT EXISTS core;  -- propriétaire : migrator
-REVOKE ALL ON SCHEMA core FROM PUBLIC;
-GRANT USAGE ON SCHEMA core TO app_api, app_worker;
+-- Schéma `core` : créé par 0003_core_schema (US-006), USAGE déjà accordé à app_api et app_worker.
+-- Fonctions de garde : SECURITY INVOKER (elles ne lisent que la configuration, lisible par
+-- l'appelant sous RLS) ; contrairement aux triggers I-OCC d'US-006 (ADR-048), aucune n'a besoin
+-- de lire des lignes invisibles de l'appelant.
 
 -- ---------------------------------------------------------------------------------------------
 -- Devises et pays (17 §1.2, §1.1)

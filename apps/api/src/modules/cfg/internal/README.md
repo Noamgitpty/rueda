@@ -1,6 +1,6 @@
 # Module CFG — configuration pays (US-013)
 
-Tout ce qui dépend du pays est une **donnée versionnée**, jamais une constante de code (ADR-024, ADR-033, ADR-048). Panama (`PA`, USD, `America/Panama`) et Paraguay (`PY`, PYG sans décimale, `America/Asuncion`) existent dès le lot 0. Choisir le pays de lancement ne demande aucune réécriture.
+Tout ce qui dépend du pays est une **donnée versionnée**, jamais une constante de code (ADR-024, ADR-033, ADR-049). Panama (`PA`, USD, `America/Panama`) et Paraguay (`PY`, PYG sans décimale, `America/Asuncion`) existent dès le lot 0. Choisir le pays de lancement ne demande aucune réécriture.
 
 ## Données (source unique)
 
@@ -36,13 +36,13 @@ La tzdata de PostgreSQL se contrôle par `checkPostgresTimeZoneData(config, quer
 
 ## Base de données
 
-Migrations `packages/db/migrations/0002_config_country.sql` (tables, gardes, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker`, rien pour `app_anon`) et `0003_config_seed.sql` (**générée**, ne pas éditer). Après une modification des données, et avant toute application en environnement partagé :
+Migrations `packages/db/migrations/0008_config_country.sql` (tables, gardes, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker`, rien pour `app_anon`) et `0009_config_seed.sql` (**générée**, ne pas éditer). Après une modification des données, et avant toute application en environnement partagé :
 
 ```bash
-RUEDA_WRITE_CFG_SEED=1 pnpm --filter @rueda/api test:unit   # régénère 0003
+RUEDA_WRITE_CFG_SEED=1 pnpm --filter @rueda/api test:unit   # régénère 0009
 ```
 
-Une migration appliquée est immuable (ADR-044) : une fois 0003 appliquée, un changement de valeur sera une **nouvelle version** (`valid_from` futur) portée par une nouvelle migration de graines (à outiller, voir la passation US-013).
+Une migration appliquée est immuable (ADR-044) : une fois 0009 appliquée, un changement de valeur sera une **nouvelle version** (`valid_from` futur) portée par une nouvelle migration de graines (à outiller, voir la passation US-013).
 
 ## Aucune constante pays
 

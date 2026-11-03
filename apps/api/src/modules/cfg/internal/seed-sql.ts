@@ -1,5 +1,5 @@
 /**
- * Génération de la migration de graines `packages/db/migrations/0003_config_seed.sql` depuis la
+ * Génération de la migration de graines `packages/db/migrations/0009_config_seed.sql` depuis la
  * configuration du dépôt (US-013) : une seule source de données, aucune recopie à la main. Le
  * test `seed-sql.test.ts` échoue si le fichier commité diffère du rendu.
  *
@@ -9,7 +9,7 @@
  */
 import type { CountryConfig, ParamJson } from './model.js';
 
-export const SEED_MIGRATION_FILE = '0003_config_seed.sql';
+export const SEED_MIGRATION_FILE = '0009_config_seed.sql';
 export const SEED_CHANGE_REASON =
   'graine US-013 : défauts PROPOSÉS de 17 §7.2, à décider au jalon J-ADM-031';
 
@@ -55,7 +55,7 @@ export function renderSeedSql(config: CountryConfig): string {
 
   const parts: string[] = [
     [
-      '-- 0003 — graines de la configuration pays (US-013 ; 17 §7.2 ; ADR-024, ADR-033).',
+      '-- 0009 — graines de la configuration pays (US-013 ; 17 §7.2 ; ADR-024, ADR-033).',
       '-- FICHIER GÉNÉRÉ depuis apps/api/src/modules/cfg/data/*.json par seed-sql.ts : ne pas',
       '-- l’éditer à la main (test seed-sql.test.ts). Appliquée sous `migrator`.',
       '-- Valeurs PROPOSÉES, À DÉCIDER au jalon J-ADM-031 ; interrupteurs de mise en service à false.',

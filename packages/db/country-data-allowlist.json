@@ -2,7 +2,7 @@
   "$comment": "Liste blanche du contrôle SQL « aucune constante pays » (US-013, ADR-024 ; packages/config/country-constants). Seules les migrations de graines GÉNÉRÉES depuis apps/api/src/modules/cfg/data/ (test seed-sql.test.ts) peuvent nommer une devise, un fuseau, un pays, une locale régionale ou une taxe. Toute nouvelle entrée exige une justification et une revue de l'agent architecture.",
   "entries": [
     {
-      "path": "packages/db/migrations/0003_config_seed.sql",
+      "path": "packages/db/migrations/0009_config_seed.sql",
       "justification": "Graines PA / PY de la configuration pays, générées par apps/api/src/modules/cfg/internal/seed-sql.ts depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. US-013."
     }
   ]
