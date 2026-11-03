@@ -443,3 +443,14 @@ test('lot 0 : rôles exacts des stories sensibles (argent, sécurité, qa, archi
     assert.deepEqual(requiredRoles(story, [], config), roles, story);
   }
 });
+
+test('packages/i18n : les stories qui ajoutent des textes visibles en sont propriétaires (DEC-FONDATEUR-17)', () => {
+  for (const s of ['US-010', 'US-013', 'US-102', 'US-106']) {
+    const r = ev(`story/${s}-x`, ['packages/i18n/src/catalogs/fr.ts']);
+    assert.ok(!r.errors.some((e) => /packages\/i18n/.test(e)), `${s} : ${r.errors.join(' ; ')}`);
+  }
+  assert.match(
+    ev('story/US-099-x', ['packages/i18n/src/catalogs/fr.ts']).errors[0],
+    /packages\/i18n/,
+  );
+});
