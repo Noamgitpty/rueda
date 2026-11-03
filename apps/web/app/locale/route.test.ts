@@ -25,7 +25,7 @@ describe('POST /locale (choix explicite mémorisé, 10b UX-11)', () => {
     },
   );
 
-  it.each(['fr', 'es', '', 'es-PA;x'])('refuse « %s »', async (value) => {
+  it.each(['de', 'es', 'fr-FR', '', 'es-PA;x'])('refuse « %s »', async (value) => {
     const response = await POST(post(`locale=${encodeURIComponent(value)}`));
     expect(response.status).toBe(400);
     expect(response.headers.get('set-cookie')).toBeNull();

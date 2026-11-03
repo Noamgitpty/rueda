@@ -8,6 +8,9 @@ import {
 import type { MessageKey } from '../src/index.ts';
 import { amount, profile, tz } from './helpers.ts';
 
+const NBSP = String.fromCodePoint(0xa0);
+const NNBSP = String.fromCodePoint(0x202f);
+
 describe('createTranslator', () => {
   it('es-PA et es-PY lisent le catalogue es, en le catalogue en', () => {
     expect(createTranslator(profile('es-PA')).t('backoffice.meta.description')).toBe(
@@ -50,6 +53,29 @@ describe('createTranslator', () => {
     expect(es('common.price.finalForDays', { count: 1000000 })).toBe(
       'Precio final · 1.000.000 días',
     );
+  });
+
+  it('pluriels français (CLDR : « one » pour 0 et 1), DEC-FONDATEUR-17', () => {
+    const fr = createTranslator(profile('fr')).t;
+    expect(fr('common.price.finalForDays', { count: 0 })).toBe('Prix final · 0 jour');
+    expect(fr('common.price.finalForDays', { count: 1 })).toBe('Prix final · 1 jour');
+    expect(fr('common.price.finalForDays', { count: 2 })).toBe('Prix final · 2 jours');
+    expect(fr('common.price.finalForDays', { count: 1n })).toBe('Prix final · 1 jour');
+    // « many » (1 000 000) absente du catalogue : repli sur « other » ; espace fine insécable.
+    expect(fr('common.price.finalForDays', { count: 1000000 })).toBe(
+      `Prix final · 1${NNBSP}000${NNBSP}000 jours`,
+    );
+  });
+
+  it('français : catalogue fr, variables et formats de la locale fr', () => {
+    const i18n = createTranslator(profile('fr'));
+    expect(i18n.t('backoffice.meta.description')).toBe('Console interne.');
+    expect(i18n.t('common.locale.current', { language: 'Français' })).toBe(
+      `Langue actuelle${NBSP}: Français`,
+    );
+    expect(i18n.number(1234567)).toBe(`1${NNBSP}234${NNBSP}567`);
+    expect(i18n.dateTime('2026-01-10T15:05:00Z', tz('America/Asuncion'))).toBe('10/01/2026 12:05');
+    expect(i18n.time('2026-01-10T15:05:00Z', tz('America/Panama'))).toBe('10:05');
   });
 
   it('pluriel sans « count » entier : erreur', () => {

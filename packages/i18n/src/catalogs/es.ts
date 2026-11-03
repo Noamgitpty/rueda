@@ -6,7 +6,8 @@ import type { Catalog } from './types.ts';
  * le vouvoiement « usted » est réservé au contrat et aux textes juridiques (UX-12). Jamais de
  * voseo ni de « vosotros ». Termes : glossaire `docs/glossary.md` (UX-13).
  *
- * Toute clé ajoutée ici doit l'être dans `en.ts` (sinon `pnpm typecheck` et les tests échouent).
+ * Toute clé ajoutée ici doit l'être dans `en.ts` et `fr.ts` (sinon `pnpm typecheck` et les tests
+ * échouent).
  */
 export const ES_MESSAGES = {
   'common.locale.switchLabel': 'Idioma',
