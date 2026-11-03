@@ -1,4 +1,4 @@
-# ADR-047 — Triggers d'intégrité AVL : fonctions `SECURITY DEFINER` sous `migrator`, I-OCC à trois triggers
+# ADR-048 — Triggers d'intégrité AVL : fonctions `SECURITY DEFINER` sous `migrator`, I-OCC à trois triggers
 
 - **Statut** : PROPOSÉ (US-006, agent données, 2026-11-03). Revue architecture et **sécurité** (`SECURITY DEFINER`, RLS, concurrence) requises, sur un autre modèle que l'auteur. À reporter dans 17 §8.1 et dans la liste blanche RLS-15 (US-011).
 - **Stories** : US-006 ; s'appuient dessus US-011 (RLS-15), US-022 à US-025. **Sources** : 17 §2.3, §2.5 (I-OCC, contraintes v3 / v4), §11 (L0-01, L0-03, L0-08) ; ADR-002, ADR-035, ADR-044.

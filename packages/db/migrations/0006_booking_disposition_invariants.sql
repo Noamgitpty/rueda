@@ -1,10 +1,10 @@
 -- 0006 — AVL : disposition des paiements (XOR) et invariants gardés par triggers.
 -- US-006 ; 17 §2.5 (I-OCC, contraintes v3 / v4 : N1, N2, M4, B5), §3.2.4 ; 08 BR-BOOK-10,
--- SM-1 ; preuves L0-01, L0-03, L0-08 (17 §11). ADR-047 (fonctions de trigger d'intégrité).
+-- SM-1 ; preuves L0-01, L0-03, L0-08 (17 §11). ADR-048 (fonctions de trigger d'intégrité).
 -- Appliquée sous `migrator`.
 --
 -- Fonctions de trigger d'INTÉGRITÉ (I-OCC, disposition) : SECURITY DEFINER, propriétaire
--- migrator, search_path figé, EXECUTE retiré à PUBLIC (ADR-047). Raison : un trigger différé
+-- migrator, search_path figé, EXECUTE retiré à PUBLIC (ADR-048). Raison : un trigger différé
 -- s'exécute au COMMIT sous le rôle courant de la session (PostgreSQL 16) — qui peut être app_api
 -- après une commande cmd_* — ou sous le rôle qui a déclenché l'événement (PostgreSQL 18). Sous
 -- les droits de l'appelant, la RLS lui cacherait des lignes et rendrait la vérification fausse.
@@ -195,7 +195,7 @@ CREATE CONSTRAINT TRIGGER disposition_matches_hold
 -- La borne « au plus une » est structurelle (index one_active_occupancy_per_trip, 0004).
 -- États qui tiennent le créneau (SM-1 de 08 ; PROPOSÉ, reporté dans packages/db/README.md) :
 -- BOOKED, CHECKIN_OPEN, START_WINDOW_EXPIRED, IN_PROGRESS, OVERDUE, UNRETURNED. Aucun état terminal
--- ne revient vers ces états dans SM-1 : une lecture READ COMMITTED de l'état suffit (ADR-047).
+-- ne revient vers ces états dans SM-1 : une lecture READ COMMITTED de l'état suffit (ADR-048).
 CREATE FUNCTION core.booking_assert_trip_occupancy()
   RETURNS trigger
   LANGUAGE plpgsql

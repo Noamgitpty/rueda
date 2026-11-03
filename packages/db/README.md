@@ -21,7 +21,7 @@ Migrations actuelles :
 - `0002_app_session_context` à `0007_avl_pay_worker_grants` : schéma de preuve AVL / PAY (US-006, section « Schéma AVL / PAY ») ;
 - tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`.
 
-## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-047)
+## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
 Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17, schéma Bêta `core`, préfixe du schéma cible) : réutilisé tel quel par US-019, US-022 à US-024, ce n'est pas un prototype. Les colonnes manquantes arrivent par migrations additives.
 
@@ -36,7 +36,7 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
 | `core.payment_payment_operation`   | cohérence `kind` / `purpose`, `amount_minor > 0` (bigint, unités mineures), `idem_plain` unique                                                                                                                                                                                                                              |
 | `core.payment_webhook_inbox`       | `webhook_inbox_dedup` `UNIQUE NULLS NOT DISTINCT (provider, psp_account_id, dedup_key)`                                                                                                                                                                                                                                      |
 
-**Invariant I-OCC** (17 §2.5) : tout trip dans un état qui tient le créneau a exactement une occupation `TRIP` active (`ref_id = trip.id`, même véhicule). Les états concernés sont `BOOKED`, `CHECKIN_OPEN`, `START_WINDOW_EXPIRED`, `IN_PROGRESS`, `OVERDUE` et `UNRETURNED` (lecture de SM-1, PROPOSÉ). L'invariant est vérifié au `COMMIT` par trois triggers différés (`trip_has_active_occupancy`, `occupancy_trip_guard`, `occupancy_trip_ref_valid`) ; la borne « au plus une » est structurelle (index `one_active_occupancy_per_trip`). Les fonctions de trigger qui lisent d'autres lignes sont `SECURITY DEFINER` sous `migrator` : voir ADR-047.
+**Invariant I-OCC** (17 §2.5) : tout trip dans un état qui tient le créneau a exactement une occupation `TRIP` active (`ref_id = trip.id`, même véhicule). Les états concernés sont `BOOKED`, `CHECKIN_OPEN`, `START_WINDOW_EXPIRED`, `IN_PROGRESS`, `OVERDUE` et `UNRETURNED` (lecture de SM-1, PROPOSÉ). L'invariant est vérifié au `COMMIT` par trois triggers différés (`trip_has_active_occupancy`, `occupancy_trip_guard`, `occupancy_trip_ref_valid`) ; la borne « au plus une » est structurelle (index `one_active_occupancy_per_trip`). Les fonctions de trigger qui lisent d'autres lignes sont `SECURITY DEFINER` sous `migrator` : voir ADR-048.
 
 **Clés étrangères en attente** : `vehicle_id`, `guest_user_id`, `org_id`, `quote_id`, `listing_id`, `psp_account_id`, `refund_instance_id` sont des `uuid` sans FK tant que la table cible n'existe pas ; la story qui la crée ajoute la contrainte. Codes pays et devises : format seulement (la liste fait foi dans la configuration, US-008).
 

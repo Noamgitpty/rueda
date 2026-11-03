@@ -4,7 +4,7 @@
  * - RLS ENABLE + FORCE sur toutes les tables `core`, politique `migrator_all` (CLAUDE.md point 5) ;
  * - droits : rien pour PUBLIC, app_anon, app_api ; aucun DELETE ; app_worker borné (17 §2.3, A1) ;
  * - contexte absent ⇒ 0 ligne, sans erreur ; écriture refusée (fail-closed) ;
- * - fonctions de trigger d'intégrité : SECURITY DEFINER, search_path figé, sans EXECUTE (ADR-047) ;
+ * - fonctions de trigger d'intégrité : SECURITY DEFINER, search_path figé, sans EXECUTE (ADR-048) ;
  * - triggers I-OCC différés (DEFERRABLE INITIALLY DEFERRED) ;
  * - fixtures de test absentes de la base de production.
  */
