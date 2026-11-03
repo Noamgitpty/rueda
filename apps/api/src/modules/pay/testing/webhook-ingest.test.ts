@@ -6,7 +6,11 @@
 import { describe, expect, it } from 'vitest';
 import { legVector, loadGoldenVectors } from '@rueda/money/golden-vectors';
 import { containsPan } from '../internal/pan.js';
-import { WEBHOOK_MAX_BODY_BYTES, WebhookIngestService } from '../internal/webhook-ingest.js';
+import {
+  WEBHOOK_MAX_BODY_BYTES,
+  WEBHOOK_MAX_HEADER_BYTES,
+  WebhookIngestService,
+} from '../internal/webhook-ingest.js';
 import type { PaymentLogger, WebhookVerifierRegistry } from '../internal/webhook-ingest.js';
 import { PRODUCTION_PROVIDERS } from '../internal/production.js';
 import { FAKE_PROVIDER } from './fake-payment-provider.js';
@@ -190,6 +194,27 @@ describe('réception des webhooks', () => {
     expect(await post(noSecret, '{}', {})).toEqual({ status: 503, outcome: 'SECRET_UNAVAILABLE' });
     expect([...r.store.inbox, ...noSecret.store.inbox]).toEqual([]);
   });
+  it('en-têtes > 16 ko ⇒ 431 avant tout masquage ni accès à la base ; 16 ko exactement ⇒ traité', async () => {
+    const r = rig();
+    await paidOrder(r);
+    const [d] = r.stack.psp.deliverWebhooks();
+    // pire cas des revues : 256 en-têtes de groupes d'un chiffre (« 4 4 4 … »)
+    const flood = Object.fromEntries(
+      Array.from({ length: 256 }, (_, i) => [`x-${String(i).padStart(3, '0')}`, '4 '.repeat(512)]),
+    );
+    expect(await post(r, d?.body ?? '', { ...d?.headers, ...flood })).toEqual({
+      status: 431,
+      outcome: 'HEADERS_TOO_LARGE',
+    });
+    expect(r.store.calls).toEqual({ resolveAccount: 0, receive: 0 });
+    expect(r.store.inbox).toEqual([]);
+    // à la limite exacte : accepté (la borne est « strictement supérieur »)
+    const base = { ...d?.headers };
+    const used = Object.entries(base).reduce((n, [k, v]) => n + k.length + v.length, 0);
+    const pad = { 'x-pad': 'a'.repeat(WEBHOOK_MAX_HEADER_BYTES - used - 'x-pad'.length) };
+    expect((await post(r, d?.body ?? '', { ...base, ...pad })).status).toBe(200);
+  });
+
   it('dédoublonnage sur l’identifiant BRUT : deux identifiants qui se masquent pareil restent distincts', async () => {
     // deux numéros Luhn valides de même masque (6 premiers et 4 derniers chiffres identiques)
     const ids = ['4111111111111111', '4111110000091111'];
