@@ -1,0 +1,211 @@
+/*
+ * Cartes (maquettes S02 et S03) : surface surélevée, filet `border`, rayon `card`, ombre `card`.
+ * Le filet n'est pas le seul indice d'interaction : toute la carte est un lien, titre souligné
+ * au survol, anneau de focus du thème autour de la carte (10b UX-49).
+ */
+.card {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform var(--motion-duration-base) var(--motion-easing-standard),
+    box-shadow var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.interactive:hover {
+  transform: translateY(calc(var(--space-1) * -0.5));
+  box-shadow: var(--shadow-float);
+}
+
+.interactive:active {
+  transform: scale(0.985);
+}
+
+.interactive:has(.link:focus-visible) {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.media {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  padding: var(--space-3) var(--space-4) 0;
+  background: var(--color-surface-sunken);
+}
+
+.save {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  z-index: 2;
+}
+
+.body {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-lg);
+  line-height: var(--font-line-height-heading);
+}
+
+/* Lien étiré : toute la carte est cliquable, une seule tabulation, nom accessible = le titre. */
+.link {
+  display: block;
+  min-block-size: var(--size-touch-target);
+  padding-block-start: var(--space-2);
+  color: inherit;
+  text-decoration: none;
+}
+
+.link:focus-visible {
+  outline: none;
+}
+
+.link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.host {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+}
+
+.place {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.skeletonBody {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Bloc de l'hôte (S03, UX-65) et bloc du dépôt (S03, S05, UX-21). */
+.section {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+}
+
+.hostHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.hostIdentity {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-xl);
+  line-height: var(--font-line-height-heading);
+}
+
+.facts {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.fact {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.factIcon {
+  color: var(--color-primary);
+}
+
+.quote {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-border-strong);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+}
+
+.amount {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.amount dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.amount dd {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.heading > .kicker {
+  display: block;
+  font-family: var(--font-family-body);
+  font-weight: var(--font-weight-body);
+}
+
+.quote p {
+  margin: 0;
+}

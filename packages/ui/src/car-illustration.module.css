@@ -1,0 +1,39 @@
+/* Voiture dessinée maison (10b UX-70) : silhouette en currentColor, vitres et roues du thème. */
+.car {
+  inline-size: 100%;
+  block-size: auto;
+  display: block;
+}
+
+.tone1 {
+  color: var(--color-on-avatar-1);
+}
+
+.tone2 {
+  color: var(--color-on-avatar-2);
+}
+
+.tone3 {
+  color: var(--color-on-avatar-3);
+}
+
+.tone4 {
+  color: var(--color-on-avatar-4);
+}
+
+.window {
+  fill: var(--color-surface-raised);
+  opacity: 0.85;
+}
+
+.tyre {
+  fill: var(--color-text);
+}
+
+.hub {
+  fill: var(--color-surface-sunken);
+}
+
+.light {
+  fill: var(--color-warning-soft);
+}
