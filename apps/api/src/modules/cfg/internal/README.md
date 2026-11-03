@@ -19,8 +19,10 @@ Les valeurs « à fixer » de 17 §7.2 **ne sont pas chargées** : leur absence 
 - **Validation** (`parseCountryConfig`) : tout défaut (champ inconnu, type, devise ou locale inconnue, fuseau inconnu du runtime, type de ligne fiscale manquant, flottant, valeur hors liste, interrupteur mal déclaré…) lève `CONFIG_INVALID` en listant **tous** les défauts. Rien n'est complété par défaut.
 - **Résolution** (`resolveParam`) : ordre `NETWORK > PSP > ORG > CATEGORY > COUNTRY`, à la date de l'événement fournie par l'appelant (l'horloge fait foi côté base). Absence : `BLOCK` ⇒ `PARAM_MISSING`, `FALSE` ⇒ `false`, `ZERO` ⇒ 0. Clé inconnue ⇒ `PARAM_UNKNOWN` ; pays inconnu ⇒ `COUNTRY_UNKNOWN` ; clé « — » dans un pays ⇒ `PARAM_NOT_APPLICABLE`. Une clé `optional` (repli documenté) se lit par `findOptionalParam`.
 - **Interrupteurs** (`isGoLiveSwitchOn`, `core.config_go_live` en SQL) : `p2p_private_hosts_enabled`, `insurer_contract_active`, `funds_holding_enabled`, `payouts_enabled` ; portée pays, `false` dans les graines ; clé absente ou inconnue, pays inconnu, valeur non booléenne ⇒ `false`, sans exception. En base, toute écriture à une autre valeur que `false` est refusée (`FORBIDDEN`) jusqu'aux commandes à deux personnes de US-125 (RLS-27).
-- **Non-rétroactivité** (`assertNotRetroactive`, garde SQL) : `valid_from` antérieur à `platform.now()` ⇒ `PARAM_RETROACTIVE` ; absent ⇒ `platform.now()`.
-- **Immuabilité** (garde SQL) : ni modification ni suppression ni `TRUNCATE` des valeurs, taxes et fériés (`PARAM_IMMUTABLE`) ; seule la fermeture d'une version ouverte (`valid_to` ≥ maintenant) est permise.
+- **Non-rétroactivité** (`assertNotRetroactive`, garde SQL) : `valid_from` antérieur à `platform.now()` ⇒ `PARAM_RETROACTIVE` ; absent ⇒ `platform.now()`. Pour « maintenant », **omettre** `valid_from` : un appelant qui passerait sa propre heure serait refusé de quelques microsecondes.
+- **Immuabilité** (garde SQL) : ni modification ni suppression ni `TRUNCATE` des valeurs, taxes, fériés, devises, pays, définitions et entités juridiques (`PARAM_IMMUTABLE`) ; seule la fermeture d'une version ouverte (`valid_to` ≥ maintenant) est permise.
+- **Interrupteurs dans les données** : seule la valeur `false` est acceptée par le parseur (`CONFIG_INVALID`) jusqu'à US-125.
+- **Paramètres d'argent JSON** : forme et bornes vérifiées selon l'unité (montants en chaînes d'entiers int64, parts dans [0 ; 1], listes croissantes, barème ordonné et ouvert, `jsonKeys`).
 - **Montants** : chaînes d'entiers en unités mineures de la devise du pays (`currency` posée d'office) ; aucune conversion ; aucun flottant.
 
 ## Démarrage (API et travailleur)
@@ -46,7 +48,7 @@ Une migration appliquée est immuable (ADR-044) : une fois 0009 appliquée, un c
 
 ## Aucune constante pays
 
-`pnpm lint` contient deux contrôles dont les jetons sont **tirés de ces données** (`packages/config/country-constants`) : la règle ESLint `rueda/no-country-constants` (chaînes, gabarits, texte JSX) et le contrôle des littéraux SQL des migrations (liste blanche : `packages/db/country-data-allowlist.json`, graines générées seulement). Tests et fixtures en sont exemptés.
+`pnpm lint` contient deux contrôles dont les jetons sont **tirés de ces données** (`packages/config/country-constants`) : la règle ESLint `rueda/no-country-constants` (chaînes, gabarits, texte JSX, expressions régulières, clés de propriété nues, champs et méthodes de classe, membres d'`enum`, sans tenir compte de la casse) et le contrôle des littéraux SQL des migrations (liste blanche : `packages/db/country-data-allowlist.json`, graines générées seulement). Les commentaires `eslint-disable` qui couperaient la règle sont refusés. Seuls les fichiers déclarés dans `packages/config/country-constants/exemptions.json` en sont exemptés. **Limite** : les nombres (`0.07`) ne sont pas détectés ; un taux codé en dur relève de la revue.
 
 ## Codes d'erreur
 

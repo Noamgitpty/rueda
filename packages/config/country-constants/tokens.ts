@@ -73,24 +73,69 @@ export interface CountryConstantFinding {
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
 /**
- * Occurrences des jetons dans `text`, en mot entier et casse exacte : `PA` est détecté dans
- * `'PA'` ou `'pays PA'`, pas dans `'PAYMENT'` ni `'pa'`.
+ * Occurrences des jetons dans `text`, en mot entier et **sans tenir compte de la casse** (revue
+ * code US-013) : `PA` est détecté dans `'PA'`, `'pa'` ou `'pays PA'`, `America/Asuncion` dans
+ * `'america/asuncion'`, mais pas `PA` dans `'PAYMENT'` ni `py` dans `'oracle.py'` (extension). Le jeton rendu est celui des données.
  */
 export function findCountryConstants(
   text: string,
   tokens: readonly string[],
 ): CountryConstantFinding[] {
   if (tokens.length === 0) return [];
+  const byLower = new Map(tokens.map((t) => [t.toLowerCase(), t]));
   const regex = new RegExp(
-    `(?<![A-Za-z0-9_])(${[...tokens]
+    `(?<![A-Za-z0-9_.])(${[...tokens]
       .sort((a, b) => b.length - a.length)
       .map(escape)
       .join('|')})(?![A-Za-z0-9_])`,
-    'g',
+    'gi',
   );
   const out: CountryConstantFinding[] = [];
   for (const match of text.matchAll(regex)) {
-    out.push({ token: match[1] ?? match[0], offset: match.index });
+    const found = match[1] ?? match[0];
+    out.push({ token: byLower.get(found.toLowerCase()) ?? found, offset: match.index });
   }
   return out;
+}
+
+/** Commentaire qui désactive ou reconfigure `rueda/no-country-constants` (ou toutes les règles). */
+const DIRECTIVE = /^\s*eslint(?:-disable(?:-next-line|-line)?|-enable)?(?=\s|$)(.*)$/s;
+
+/**
+ * Vrai si le texte d'un commentaire est une directive ESLint qui peut couper la règle : une
+ * désactivation sans liste de règles (toutes les règles), ou toute directive qui la nomme.
+ * `eslint-enable` est inoffensif et ignoré.
+ */
+export function isCountryRuleDirective(comment: string): boolean {
+  const m = DIRECTIVE.exec(comment);
+  if (!m) return false;
+  const head = comment.trimStart();
+  if (head.startsWith('eslint-enable')) return false;
+  const rest = (m[1] ?? '').split('--')[0]!.trim();
+  if (head.startsWith('eslint-disable')) return rest === '' || /no-country-constants/.test(rest);
+  // Configuration en ligne (« eslint rueda/no-country-constants: off ») : refusée aussi.
+  return /no-country-constants/.test(rest);
+}
+
+/** Exemptions déclarées (`exemptions.json`) : globs des fichiers exemptés et des directives tolérées. */
+export interface CountryExemptions {
+  readonly files: readonly string[];
+  readonly directives: readonly string[];
+}
+
+export const COUNTRY_EXEMPTIONS_FILE = 'packages/config/country-constants/exemptions.json';
+
+export function loadCountryExemptions(repoRoot: string): CountryExemptions {
+  const doc = JSON.parse(readFileSync(join(repoRoot, COUNTRY_EXEMPTIONS_FILE), 'utf8')) as {
+    files?: Array<{ globs?: unknown; justification?: unknown }>;
+    directives?: unknown;
+  };
+  const files: string[] = [];
+  for (const [i, entry] of (doc.files ?? []).entries()) {
+    if (typeof entry.justification !== 'string' || entry.justification.trim() === '') {
+      throw new Error(`${COUNTRY_EXEMPTIONS_FILE} : entrée ${i} sans justification`);
+    }
+    files.push(...strings(entry.globs));
+  }
+  return { files, directives: strings(doc.directives) };
 }

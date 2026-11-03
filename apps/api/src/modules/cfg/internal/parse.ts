@@ -52,6 +52,7 @@ const COUNTRY_CODE = /^[A-Z]{2}$/;
 const PARAM_KEY = /^[a-z][a-z0-9_]*$/;
 const CODE = /^[A-Z][A-Z0-9_ÁÉÍÓÚÑ]*$/u;
 const MINOR = /^(0|[1-9][0-9]*)$/;
+const RATIO = /^(0|[1-9][0-9]*)\/([1-9][0-9]*)$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 
@@ -481,8 +482,115 @@ function checkValue(
         c.add(path, 'valeur JSON non nulle attendue');
         return false;
       }
-      return checkNoFloat(c, path, value);
+      return checkNoFloat(c, path, value) && checkJsonShape(c, path, def, value);
   }
+}
+
+function isMinor(value: unknown): boolean {
+  return typeof value === 'string' && MINOR.test(value) && BigInt(value) <= INT64_MAX;
+}
+
+/** Fraction « n/d » exacte dans [0 ; 1] (part, 17 §1.2 ; lue ensuite par parseRatio). */
+function isShare(value: unknown): boolean {
+  const m = typeof value === 'string' ? RATIO.exec(value) : null;
+  return m !== null && BigInt(m[1]!) <= BigInt(m[2]!);
+}
+
+function checkMap(
+  c: Collector,
+  path: string,
+  value: unknown,
+  check: (v: unknown) => boolean,
+  what: string,
+): boolean {
+  if (!isObject(value) || Object.keys(value).length === 0) {
+    c.add(path, `objet non vide attendu (${what})`);
+    return false;
+  }
+  let ok = true;
+  for (const [k, v] of Object.entries(value)) {
+    if (!CODE.test(k) && !/^[a-z][A-Za-z0-9]*$/.test(k)) {
+      c.add(`${path}.${k}`, 'clé de code attendue');
+      ok = false;
+    } else if (!check(v)) {
+      c.add(`${path}.${k}`, what);
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+/**
+ * Forme et bornes des paramètres JSON, selon l'unité déclarée (revue argent US-013) : montants
+ * en chaînes d'entiers bornées à int64, parts dans [0 ; 1], listes strictement croissantes,
+ * barème du trip fee ordonné et ouvert. Une unité JSON inconnue est refusée.
+ */
+function checkJsonShape(c: Collector, path: string, def: ParamDefinition, value: unknown): boolean {
+  const unit = def.unit ?? '';
+  if (def.jsonKeys !== null) {
+    const keys = isObject(value) ? Object.keys(value).sort() : [];
+    if (keys.join() !== [...def.jsonKeys].sort().join()) {
+      c.add(path, `clés attendues : ${def.jsonKeys.join(', ')}`);
+      return false;
+    }
+  }
+  if (unit.startsWith('minor_by_')) {
+    return checkMap(c, path, value, isMinor, 'montant en unités mineures (chaîne d’entier, int64)');
+  }
+  if (unit.startsWith('ratio_by_'))
+    return checkMap(c, path, value, isShare, 'part « n/d » dans [0 ; 1]');
+  if (unit === 'ratio') {
+    if (isShare(value)) return true;
+    c.add(path, 'part « n/d » dans [0 ; 1] attendue');
+    return false;
+  }
+  if (unit.endsWith('_list')) {
+    const ok =
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value.every((v, i) => Number.isSafeInteger(v) && v > 0 && (i === 0 || v > value[i - 1]));
+    if (!ok) c.add(path, 'liste non vide d’entiers positifs strictement croissants attendue');
+    return ok;
+  }
+  if (unit === 'tiers_bps_and_min_minor') {
+    const v = isObject(value) ? value : {};
+    const tiers = v['tiers'];
+    let ok =
+      isObject(value) &&
+      Object.keys(v).sort().join() === 'minMinor,tiers' &&
+      isMinor(v['minMinor']);
+    if (!Array.isArray(tiers) || tiers.length === 0) ok = false;
+    else {
+      let previous = 0;
+      tiers.forEach((t, i) => {
+        const tier = isObject(t) ? t : {};
+        const last = i === tiers.length - 1;
+        const maxDays = tier['maxDays'];
+        const rate = tier['rateBps'];
+        const daysOk = last
+          ? maxDays === null
+          : Number.isSafeInteger(maxDays) && (maxDays as number) > previous;
+        if (
+          !daysOk ||
+          !Number.isSafeInteger(rate) ||
+          (rate as number) < 0 ||
+          (rate as number) > MAX_BPS
+        ) {
+          ok = false;
+        }
+        if (typeof maxDays === 'number') previous = maxDays;
+      });
+    }
+    if (!ok) {
+      c.add(
+        path,
+        'barème : { tiers: [{ maxDays croissant, rateBps 0–10 000 }…, dernier maxDays null], minMinor }',
+      );
+    }
+    return ok;
+  }
+  c.add(`${path}`, `unité JSON inconnue « ${unit} » : forme non vérifiable (fail-closed)`);
+  return false;
 }
 
 const DEFINITION_FIELDS = [
@@ -496,6 +604,7 @@ const DEFINITION_FIELDS = [
   'goLiveSwitch',
   'notApplicableIn',
   'allowedValues',
+  'jsonKeys',
   'source',
   'status',
   'values',
@@ -535,6 +644,10 @@ function parseDefinition(
     raw['allowedValues'] === undefined
       ? null
       : (strList(c, `${path}.allowedValues`, raw['allowedValues']) ?? null);
+  const jsonKeys =
+    raw['jsonKeys'] === undefined
+      ? null
+      : (strList(c, `${path}.jsonKeys`, raw['jsonKeys']) ?? null);
   const source = str(c, `${path}.source`, raw['source']);
   const status = str(c, `${path}.status`, raw['status']);
   if (
@@ -559,6 +672,14 @@ function parseDefinition(
   if (failMode === 'ZERO' && !['INT', 'DURATION', 'MONEY', 'BPS'].includes(type)) {
     c.add(`${path}.failMode`, 'ZERO réservé aux types numériques');
   }
+  if (jsonKeys !== null && type !== 'JSON') c.add(`${path}.jsonKeys`, 'réservé au type JSON');
+  if (
+    currencyBound &&
+    type === 'JSON' &&
+    !(unit?.startsWith('minor_by_') || unit === 'tiers_bps_and_min_minor')
+  ) {
+    c.add(`${path}.unit`, 'JSON lié à une devise : unité minor_by_* ou tiers_bps_and_min_minor');
+  }
   if (currencyBound && !['MONEY', 'JSON'].includes(type)) {
     c.add(`${path}.currencyBound`, 'réservé aux types MONEY et JSON');
   }
@@ -580,6 +701,7 @@ function parseDefinition(
     goLiveSwitch,
     notApplicableIn: Object.freeze(notApplicableIn),
     allowedValues: allowedValues === null ? null : Object.freeze(allowedValues),
+    jsonKeys: jsonKeys === null ? null : Object.freeze(jsonKeys),
     source,
     status,
   });
@@ -610,6 +732,14 @@ function parseParams(
     if (!def.scopes.includes(scopeType))
       return c.add(path, `portée ${scopeType} non permise pour ${def.key}`);
     if (!checkValue(c, path, def, value)) return;
+    if (def.goLiveSwitch && value !== false) {
+      // Revue sécurité US-013 : aucune valeur autre que false n'entre par les données tant que la
+      // procédure à deux personnes (US-125, RLS-27) n'existe pas ; la base refuse de même (FORBIDDEN).
+      return c.add(
+        path,
+        'interrupteur de mise en service : seule la valeur false est permise (US-125)',
+      );
+    }
     const id = [def.key, country, scopeType, scopeId ?? '', network ?? ''].join('|');
     if (identity.has(id)) return c.add(path, 'valeur en double (même clé, pays et portée)');
     identity.add(id);

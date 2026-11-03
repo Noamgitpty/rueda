@@ -9,9 +9,12 @@ import { join } from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { lintSqlCountryConstants, scanSqlCountryConstants } from '../country-constants/sql.ts';
+import { findCountryDirectives, lintCountryDirectives } from '../country-constants/directives.ts';
 import {
   countryTokensFromData,
   findCountryConstants,
+  isCountryRuleDirective,
+  loadCountryExemptions,
   loadCountryTokens,
 } from '../country-constants/tokens.ts';
 import { fixturesDir, repoRoot } from './paths.ts';
@@ -59,9 +62,12 @@ describe('jetons tirés des données CFG', () => {
     expect(extra).toEqual(['Etc/GMT+12', 'ZTAX', 'ZZ', 'ZZZ', 'xx-ZZ']);
   });
 
-  it('mot entier, casse exacte', () => {
+  it('mot entier, sans tenir compte de la casse ; jeton rendu tel que dans les données', () => {
     expect(findCountryConstants("code === 'PA'", tokens).map((f) => f.token)).toEqual(['PA']);
-    expect(findCountryConstants('PAYMENT PAYOUT pa usd PYGMY', tokens)).toEqual([]);
+    expect(
+      findCountryConstants('pa usd america/asuncion Es-Py', tokens).map((f) => f.token),
+    ).toEqual(['PA', 'USD', 'America/Asuncion', 'es-PY']);
+    expect(findCountryConstants('PAYMENT PAYOUT PYGMY usdt oracle.py', tokens)).toEqual([]);
     expect(findCountryConstants('es-PY', tokens).map((f) => f.token)).toEqual(['es-PY']);
   });
 });
@@ -83,8 +89,28 @@ describe('rueda/no-country-constants (configuration réelle)', () => {
   it('signale devise, fuseau, locale, code pays, taxe et pièce en dur', async () => {
     const messages = await lintFixture('bad.ts');
     const found = messages.map((m) => /« (.+?) »/.exec(m)?.[1]);
-    expect(found).toEqual(['PYG', 'America/Asuncion', 'es-PA', 'PA', 'USD', 'ITBMS', 'RUC']);
+    expect(found).toEqual([
+      'PYG',
+      'America/Asuncion',
+      'es-PA',
+      'PA',
+      'USD',
+      'ITBMS',
+      'RUC',
+      // clés nues d'objet, membres d'enum (casse ignorée), motif d'expression régulière
+      'PYG',
+      'USD',
+      'PA',
+      'PY',
+      'PY',
+      // casse, champ et méthode de classe
+      'America/Panama',
+      'IVA',
+      'ITBMS',
+    ]);
     expect(messages[0]).toMatch(/configuration pays \(module CFG\)/);
+    // Limite documentée (ADR-049) : le nombre 0.07 de la dernière ligne n'est pas détecté.
+    expect(messages.some((m) => m.startsWith('22:'))).toBe(false);
   });
 
   it('ne signale rien dans un fichier propre (commentaires, mots voisins, minuscules)', async () => {
@@ -103,6 +129,51 @@ describe('rueda/no-country-constants (configuration réelle)', () => {
         .map((m) => `${r.filePath}:${m.line} ${m.message}`),
     );
     expect(hits).toEqual([]);
+  });
+});
+
+describe('exemptions déclarées et directives interdites', () => {
+  it('aucun dossier test exempté d’office : chaque exemption est un glob déclaré et justifié', () => {
+    const { files, directives } = loadCountryExemptions(repoRoot);
+    expect(files).not.toContain('**/test/**');
+    expect(files.some((g) => g.startsWith('**/'))).toBe(false);
+    expect(directives).toEqual([]);
+  });
+
+  it.each([
+    ['eslint-disable-next-line rueda/no-country-constants', true],
+    [' eslint-disable ', true],
+    ['eslint-disable-line -- raison', true],
+    ['eslint rueda/no-country-constants: off', true],
+    ['eslint-disable-next-line no-console', false],
+    ['eslint-enable', false],
+    ['eslint-env node', false],
+    ['texte qui cite eslint-disable', false],
+  ])('directive « %s » ⇒ %s', (comment, expected) => {
+    expect(isCountryRuleDirective(comment)).toBe(expected);
+  });
+
+  it('commentaires seulement : une chaîne qui contient « // eslint-disable » ne compte pas', () => {
+    const src = [
+      "const s = 'a // eslint-disable';",
+      'const t = `/* eslint-disable */`;',
+      '// eslint-disable',
+    ].join(String.fromCharCode(10));
+    expect(findCountryDirectives(src)).toEqual([{ line: 3, comment: 'eslint-disable' }]);
+  });
+
+  it('échoue sur un arbre qui coupe la règle ; passe sur le dépôt', () => {
+    const tree = join(fixturesDir, 'country-directives');
+    expect(lintCountryDirectives(tree, []).findings.map((f) => `${f.file}:${f.line}`)).toEqual([
+      'apps/x/bad.ts:1',
+      'apps/x/bad.ts:3',
+      'apps/x/bad.ts:4',
+      'apps/x/bad.ts:5',
+    ]);
+    expect(lintCountryDirectives(tree, ['apps/x/bad.ts']).findings).toEqual([]);
+    expect(
+      lintCountryDirectives(repoRoot, loadCountryExemptions(repoRoot).directives).findings,
+    ).toEqual([]);
   });
 });
 

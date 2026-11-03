@@ -11,7 +11,7 @@
       "defaultLocale": "es-PA",
       "locales": ["es-PA", "en", "fr"],
       "hostTaxIdKinds": ["CEDULA", "RUC"],
-      "$taxLines": "17 §3.2 tax_line_config ; 08 BR-PRICE-12 ; défaut fail-closed de US-013 (OQ-BR-14 / OQ-MK-06) : assiette = loyer seul (TRIP_PRICE, net des promotions) ; third_party = false (dette propre de Kmino, jambe PLATFORM). PROPOSÉ, À VALIDER par l'avis fiscal.",
+      "$taxLines": "17 §3.2 tax_line_config ; 08 fait foi pour l'argent : configuration fiscale de 08 E1 (« lignes taxables : P et ses lignes promo, et F ») et BR-PRICE-06 (trip fee soumis à ITBMS / IVA comme service de la plateforme). Taxables : TRIP_PRICE, PROMO_PLATFORM, PROMO_HOST, TRIP_FEE ; third_party = false (dette propre de Kmino, jambe PLATFORM, BR-PRICE-12). Configuration réelle À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [
         {
           "lineType": "TRIP_PRICE",
@@ -34,7 +34,13 @@
           "rateBps": 700,
           "thirdParty": false
         },
-        { "lineType": "TRIP_FEE", "taxable": false },
+        {
+          "lineType": "TRIP_FEE",
+          "taxable": true,
+          "rateGroup": "ITBMS",
+          "rateBps": 700,
+          "thirdParty": false
+        },
         { "lineType": "PROTECTION", "taxable": false },
         { "lineType": "EXTRAS", "taxable": false },
         { "lineType": "ENHANCED_ROADSIDE", "taxable": false },
@@ -61,7 +67,7 @@
       "defaultLocale": "es-PY",
       "locales": ["es-PY", "en", "fr"],
       "hostTaxIdKinds": ["RUC"],
-      "$taxLines": "Même défaut que PA (OQ-BR-14 / OQ-MK-06 : assiette = loyer seul, third_party = false). PROPOSÉ, À VALIDER par l'avis fiscal.",
+      "$taxLines": "Même règle que PA (08 E1, BR-PRICE-06, BR-PRICE-12) avec l'IVA. À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [
         {
           "lineType": "TRIP_PRICE",
@@ -84,7 +90,13 @@
           "rateBps": 1000,
           "thirdParty": false
         },
-        { "lineType": "TRIP_FEE", "taxable": false },
+        {
+          "lineType": "TRIP_FEE",
+          "taxable": true,
+          "rateGroup": "IVA",
+          "rateBps": 1000,
+          "thirdParty": false
+        },
         { "lineType": "PROTECTION", "taxable": false },
         { "lineType": "EXTRAS", "taxable": false },
         { "lineType": "ENHANCED_ROADSIDE", "taxable": false },

@@ -193,7 +193,11 @@ BEGIN
   -- Parenthèses obligatoires : PL/pgSQL lit la condition de IF jusqu’au premier THEN.
   IF NOT (CASE v_def.type
       WHEN 'BOOL' THEN v_type = 'boolean'
-      WHEN 'MONEY' THEN v_type = 'string' AND (NEW.value #>> '{}') ~ '^(0|[1-9][0-9]{0,18})$'
+      -- Montant : chaîne d'entier >= 0 bornée à int64 (bigint, 17 §1.2 ; revue argent US-013).
+      WHEN 'MONEY' THEN v_type = 'string'
+                        AND CASE WHEN (NEW.value #>> '{}') ~ '^(0|[1-9][0-9]{0,18})$'
+                                 THEN (NEW.value #>> '{}')::numeric <= 9223372036854775807
+                                 ELSE false END
       WHEN 'ENUM' THEN v_type = 'string' AND (NEW.value #>> '{}') = ANY (v_def.allowed_values)
       WHEN 'BPS' THEN v_type = 'number'
                       AND CASE WHEN (NEW.value #>> '{}') ~ '^[0-9]{1,5}$'
@@ -346,6 +350,30 @@ CREATE TABLE core.finance_legal_entity (
 COMMENT ON TABLE core.finance_legal_entity IS
   'Entité de Kmino par pays (17 §3.2) ; vide tant qu''ADR-013 / OQ-MK-06 n''est pas tranchée : '
   'la production refuse alors de démarrer.';
+
+-- ---------------------------------------------------------------------------------------------
+-- Immuabilité des tables de référence sans version (revue sécurité US-013) : devises, pays,
+-- définitions de paramètres, entités juridiques. Insertion seulement, pour tout rôle ; une
+-- évolution passe par une migration revue qui le dit explicitement (ALTER TABLE … DISABLE
+-- TRIGGER … puis ENABLE dans la même transaction, sous migrator, propriétaire).
+-- ---------------------------------------------------------------------------------------------
+
+DO $immutable$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['config_currency', 'config_country', 'config_param_definition',
+                           'finance_legal_entity']
+  LOOP
+    EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE OR DELETE ON core.%I '
+                   'FOR EACH ROW EXECUTE FUNCTION core.config_versioned_row_guard()',
+                   t || '_guard', t);
+    EXECUTE format('CREATE TRIGGER %I BEFORE TRUNCATE ON core.%I '
+                   'FOR EACH STATEMENT EXECUTE FUNCTION core.config_no_truncate()',
+                   t || '_no_truncate', t);
+  END LOOP;
+END
+$immutable$;
 
 -- ---------------------------------------------------------------------------------------------
 -- Lecture des interrupteurs (17 §2.3) : clé absente, inconnue, non interrupteur, pays inconnu

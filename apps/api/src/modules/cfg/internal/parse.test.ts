@@ -64,12 +64,13 @@ describe('configuration du dépôt', () => {
       expect(Object.keys(entry.names).sort()).toEqual(['en', 'es', 'fr']);
     });
 
-    it('taxe par ligne : tous les types de ligne, défaut « assiette = loyer seul » (OQ-BR-14)', () => {
+    it('taxe par ligne : tous les types de ligne ; taxables P, promos et F (08 E1, BR-PRICE-06)', () => {
       expect(entry.taxLines.map((t) => t.lineType).sort()).toEqual([...TAX_LINE_TYPES].sort());
       const taxable = entry.taxLines.filter((t) => t.taxable);
       expect(taxable.map((t) => t.lineType).sort()).toEqual([
         'PROMO_HOST',
         'PROMO_PLATFORM',
+        'TRIP_FEE',
         'TRIP_PRICE',
       ]);
       for (const line of taxable) {
@@ -251,6 +252,78 @@ describe('validation fail-closed (CONFIG_INVALID)', () => {
       'fail_mode inconnu',
       (s) => (param(s, 'hold_ttl_minutes')['failMode'] = 'DEFAULT'),
       /failMode/,
+    ],
+    // Revue sécurité US-013 : aucun interrupteur à true par les données (US-125, RLS-27).
+    [
+      'interrupteur à true',
+      (s) => ((param(s, 'payouts_enabled')['values'] as Record<string, unknown>)['PY'] = true),
+      /seule la valeur false/,
+    ],
+    // Revue argent US-013 : forme et bornes des paramètres d'argent JSON.
+    [
+      'pénalité sans un de ses cas',
+      (s) =>
+        delete (param(s, 'host_penalty')['values'] as Record<string, Record<string, unknown>>)[
+          'PA'
+        ]!['cleanliness'],
+      /clés attendues/,
+    ],
+    [
+      'pénalité non entière',
+      (s) =>
+        ((param(s, 'host_penalty')['values'] as Record<string, Record<string, unknown>>)['PA']![
+          'cxlEarly'
+        ] = 'abc'),
+      /unités mineures/,
+    ],
+    [
+      'montant au-delà d’int64',
+      (s) =>
+        ((param(s, 'host_penalty')['values'] as Record<string, Record<string, unknown>>)['PY']![
+          'cxlLate'
+        ] = '9223372036854775808'),
+      /int64/,
+    ],
+    [
+      'part supérieure à 1',
+      (s) =>
+        ((param(s, 'host_share_pct')['values'] as Record<string, unknown>)['PA'] = {
+          ESTÁNDAR: '7/4',
+        }),
+      /\[0 ; 1\]/,
+    ],
+    [
+      'barème non ordonné',
+      (s) =>
+        ((param(s, 'trip_fee_schedule')['values'] as Record<string, unknown>)['PY'] = {
+          tiers: [
+            { maxDays: 29, rateBps: 1200 },
+            { maxDays: 6, rateBps: 1500 },
+            { maxDays: null, rateBps: 800 },
+          ],
+          minMinor: '35000',
+        }),
+      /barème/,
+    ],
+    [
+      'barème sans palier ouvert',
+      (s) =>
+        ((param(s, 'trip_fee_schedule')['values'] as Record<string, unknown>)['PA'] = {
+          tiers: [{ maxDays: 6, rateBps: 1500 }],
+          minMinor: '500',
+        }),
+      /barème/,
+    ],
+    [
+      'liste non croissante',
+      (s) =>
+        ((param(s, 'refund_reminders_days')['values'] as Record<string, unknown>)['PA'] = [3, 1]),
+      /strictement croissants/,
+    ],
+    [
+      'unité JSON inconnue',
+      (s) => (param(s, 'refund_reminders_days')['unit'] = 'days'),
+      /unité JSON inconnue/,
     ],
   ];
 

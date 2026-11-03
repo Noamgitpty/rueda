@@ -171,6 +171,8 @@ describe('interrupteurs : absent ou inconnu = false (17 §0.1)', () => {
     expect(isGoLiveSwitchOn(empty, 'payouts_enabled', 'PY', at)).toBe(false);
   });
 
+  // Configuration synthétique construite à la main (hors parseur, qui refuse true jusqu'à US-125) :
+  // elle éprouve seulement la lecture par pays.
   it('par pays : true dans un pays n’ouvre pas l’autre (ADR-024)', () => {
     const synthetic = withValues(config, [
       ...config.values.filter((v) => v.key !== 'payouts_enabled'),

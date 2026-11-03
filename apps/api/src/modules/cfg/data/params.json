@@ -475,6 +475,7 @@
       "key": "host_penalty",
       "type": "JSON",
       "unit": "minor_by_kind",
+      "jsonKeys": ["cleanliness", "cxlEarly", "cxlLate", "hostNoShow"],
       "scopes": ["COUNTRY"],
       "currencyBound": true,
       "failMode": "BLOCK",

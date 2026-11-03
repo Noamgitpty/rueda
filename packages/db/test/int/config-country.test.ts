@@ -257,15 +257,15 @@ describe('graines PA / PY (0009)', () => {
     });
   });
 
-  it('taxe par ligne : ITBMS 7 % (PA), IVA 10 % (PY) sur le loyer, third_party = false', async () => {
+  it('taxe par ligne : ITBMS 7 % (PA), IVA 10 % (PY) sur P, promos et F (08 E1, BR-PRICE-06), third_party = false', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query(
         `SELECT country_code, rate_group, rate_bps, third_party, count(*)::int AS lines
            FROM core.pricing_tax_line_config WHERE taxable GROUP BY 1, 2, 3, 4 ORDER BY 1`,
       );
       expect(rows).toEqual([
-        { country_code: 'PA', rate_group: 'ITBMS', rate_bps: 700, third_party: false, lines: 3 },
-        { country_code: 'PY', rate_group: 'IVA', rate_bps: 1000, third_party: false, lines: 3 },
+        { country_code: 'PA', rate_group: 'ITBMS', rate_bps: 700, third_party: false, lines: 4 },
+        { country_code: 'PY', rate_group: 'IVA', rate_bps: 1000, third_party: false, lines: 4 },
       ]);
     });
   });
@@ -430,6 +430,90 @@ describe('gardes de config_param_value (tous rôles)', () => {
           [],
           { code: '23514', message: 'PARAM_IMMUTABLE' },
         );
+      });
+    });
+  });
+});
+
+describe('tables de référence immuables (devises, pays, définitions, entités juridiques)', () => {
+  it.each([
+    [
+      'config_currency',
+      `UPDATE core.config_currency SET exponent = 3`,
+      `DELETE FROM core.config_currency`,
+    ],
+    [
+      'config_country',
+      `UPDATE core.config_country SET time_zone = 'UTC'`,
+      `DELETE FROM core.config_country`,
+    ],
+    [
+      'config_param_definition',
+      `UPDATE core.config_param_definition SET go_live_switch = false`,
+      `DELETE FROM core.config_param_definition`,
+    ],
+  ])('%s : ni UPDATE ni DELETE (PARAM_IMMUTABLE), pour tout rôle', async (_t, update, del) => {
+    await withRole('app_worker', async (client) => {
+      await withTestTransaction(client, { virtualNow: VIRTUAL_NOW }, async (tx) => {
+        await expectSqlError(tx, update, [], { code: '23514', message: 'PARAM_IMMUTABLE' });
+        await expectSqlError(tx, del, [], { code: '23514', message: 'PARAM_IMMUTABLE' });
+      });
+    });
+  });
+
+  it('TRUNCATE refusé ; gardes inventoriées sur les quatre tables', async () => {
+    await withRole('app_worker', async (client) => {
+      await withTestTransaction(client, { virtualNow: VIRTUAL_NOW }, async (tx) => {
+        await expectSqlError(tx, `TRUNCATE core.finance_legal_entity`, [], {
+          code: '23514',
+          message: 'PARAM_IMMUTABLE',
+        });
+        // finance_legal_entity est vide (ADR-013 en attente) : sa garde de ligne est inventoriée.
+        const { rows } = await tx.query<{ t: string }>(
+          `SELECT c.relname || '.' || g.tgname AS t
+             FROM pg_catalog.pg_trigger g JOIN pg_catalog.pg_class c ON c.oid = g.tgrelid
+             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'core' AND NOT g.tgisinternal
+              AND c.relname IN ('config_currency', 'config_country', 'config_param_definition',
+                                'finance_legal_entity')
+            ORDER BY 1`,
+        );
+        expect(rows.map((r) => r.t)).toEqual([
+          'config_country.config_country_guard',
+          'config_country.config_country_no_truncate',
+          'config_currency.config_currency_guard',
+          'config_currency.config_currency_no_truncate',
+          'config_param_definition.config_param_definition_guard',
+          'config_param_definition.config_param_definition_no_truncate',
+          'finance_legal_entity.finance_legal_entity_guard',
+          'finance_legal_entity.finance_legal_entity_no_truncate',
+        ]);
+      });
+    });
+  });
+});
+
+describe('montants : garde SQL bornée à int64', () => {
+  it('MONEY au-delà de 9 223 372 036 854 775 807 ⇒ CONFIG_INVALID', async () => {
+    await withRole('app_worker', async (client) => {
+      await withTestTransaction(client, { virtualNow: VIRTUAL_NOW }, async (tx) => {
+        await expectSqlError(
+          tx,
+          INSERT_VALUE,
+          ['deposit_max', 'PY', '"9223372036854775808"', null, null],
+          {
+            code: '23514',
+            message: 'CONFIG_INVALID',
+          },
+        );
+        const max = await tx.query(INSERT_VALUE, [
+          'deposit_max',
+          'PY',
+          '"9223372036854775807"',
+          null,
+          null,
+        ]);
+        expect(max.rowCount).toBe(1);
       });
     });
   });

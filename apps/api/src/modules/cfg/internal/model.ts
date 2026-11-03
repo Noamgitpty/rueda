@@ -112,6 +112,8 @@ export interface ParamDefinition {
   /** Pays où la clé est sans objet (17 §7.2 « — »). */
   readonly notApplicableIn: readonly string[];
   readonly allowedValues: readonly string[] | null;
+  /** JSON : ensemble exact des clés attendues (par exemple les cas de `host_penalty`, 08 penalty()). */
+  readonly jsonKeys: readonly string[] | null;
   readonly source: string;
   readonly status: string;
 }

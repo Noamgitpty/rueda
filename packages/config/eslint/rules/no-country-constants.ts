@@ -11,6 +11,12 @@
 import type { Rule } from 'eslint';
 import { findCountryConstants } from '../../country-constants/tokens.ts';
 
+// Couverture (revues US-013) : littéraux chaîne, gabarits, texte JSX, motifs d'expression
+// régulière, clés de propriété nues (`{ PYG: 0 }`, champs de classe, méthodes), membres d'`enum`,
+// sans tenir compte de la casse. Limite : les nombres (`0.07`, `700`) ne sont pas détectables
+// sans faux positifs ; un taux codé en dur ne se voit qu'en revue (ADR-049). Les commentaires
+// `eslint-disable` qui couperaient la règle sont refusés par `country-constants/cli.ts`.
+
 export interface NoCountryConstantsOptions {
   readonly tokens: readonly string[];
 }
@@ -55,18 +61,40 @@ const rule: Rule.RuleModule = {
       }
     }
 
+    type Keyed = { key?: { type?: string; name?: string }; computed?: boolean };
+    const checkKey = (node: Rule.Node): void => {
+      const { key, computed } = node as unknown as Keyed;
+      if (!computed && key?.type === 'Identifier' && typeof key.name === 'string') {
+        check(node, key.name);
+      }
+    };
     const listener: Rule.RuleListener = {
       Literal(node) {
         if (typeof node.value === 'string') check(node as Rule.Node, node.value);
+        const regex = (node as { regex?: { pattern?: string } }).regex;
+        if (regex?.pattern !== undefined) check(node as Rule.Node, regex.pattern);
       },
       TemplateElement(node) {
         check(node as unknown as Rule.Node, node.value.cooked ?? node.value.raw);
       },
+      Property(node) {
+        checkKey(node as Rule.Node);
+      },
+      MethodDefinition(node) {
+        checkKey(node as Rule.Node);
+      },
     };
-    // Texte JSX (applications Next.js) : même contrôle que les chaînes (nœud hors estree).
-    (listener as Record<string, (node: Rule.Node) => void>)['JSXText'] = (node) => {
+    const extra = listener as Record<string, (node: Rule.Node) => void>;
+    // Nœuds hors estree : texte JSX, champs de classe, membres d'enum TypeScript.
+    extra['JSXText'] = (node) => {
       const value = (node as unknown as { value?: unknown }).value;
       if (typeof value === 'string') check(node, value);
+    };
+    extra['PropertyDefinition'] = checkKey;
+    extra['TSPropertySignature'] = checkKey;
+    extra['TSEnumMember'] = (node) => {
+      const id = (node as unknown as { id?: { type?: string; name?: string } }).id;
+      if (id?.type === 'Identifier' && typeof id.name === 'string') check(node, id.name);
     };
     return listener;
   },

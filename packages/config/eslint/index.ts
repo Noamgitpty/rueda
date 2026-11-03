@@ -27,17 +27,13 @@ export interface RuedaConfigOptions {
   readonly moduleBoundaries: ModuleBoundariesOptions;
   /** Jetons propres à un pays, tirés des données CFG (`country-constants/tokens.ts`, US-013). */
   readonly countryTokens: readonly string[];
+  /**
+   * Fichiers exemptés de `rueda/no-country-constants`, **déclarés** un à un avec justification
+   * dans `country-constants/exemptions.json` (revue code US-013) : aucun dossier `test` n'est
+   * exempté d'office.
+   */
+  readonly countryExemptions: readonly string[];
 }
-
-/**
- * Fichiers exemptés de `rueda/no-country-constants` : tests et fixtures (les vecteurs PA / PY y
- * sont des attentes tirées des spécifications), et l'outil qui décrit la règle.
- */
-export const COUNTRY_CONSTANTS_EXEMPT: readonly string[] = [
-  '**/*.test.{ts,tsx,mts,cts,js,mjs,cjs}',
-  '**/test/**',
-  'packages/config/country-constants/**',
-];
 
 /** Fixtures du lint : la règle y reste active (tests de packages/config, US-013). */
 const COUNTRY_CONSTANTS_FIXTURES = 'packages/config/test/fixtures/country-in-ts/**';
@@ -82,7 +78,7 @@ export function createConfig(options: RuedaConfigOptions): Linter.Config[] {
       },
     },
     {
-      files: [...COUNTRY_CONSTANTS_EXEMPT],
+      files: [...options.countryExemptions],
       rules: { 'rueda/no-country-constants': 'off' },
     },
     {
