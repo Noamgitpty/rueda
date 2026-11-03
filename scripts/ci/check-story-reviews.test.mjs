@@ -219,7 +219,7 @@ test('graphe des dépendances ou packages/db touchés : + architecture', () => {
   const graph = ['apps/api/src/modules/dependency-graph.ts'];
   assert.deepEqual(requiredRoles('US-099', graph, config), ['architecture', 'code']);
   const db = ['packages/db/migrations/0001.sql'];
-  assert.deepEqual(requiredRoles('US-099', db, config), ['architecture', 'code']);
+  assert.deepEqual(requiredRoles('US-099', db, config), ['architecture', 'code', 'securite']);
   assert.deepEqual(requiredRoles('US-099', ['packages/dbx/a.ts'], config), ['code']);
 });
 
@@ -373,4 +373,73 @@ test('lot 0 : chaque story US-0xx de 19 §3.1 a ses revues ; chaque paquet du d�
     .filter((d) => d.isDirectory())
     .map((d) => `packages/${d.name}/`);
   for (const p of pkgs) assert.ok(Array.isArray(config.pathOwners[p]), p);
+});
+
+test('paquets sensibles : revues exigées pour toute story, documentation comprise (US-050 03i)', () => {
+  // US-035 (README) et US-038 (documentation) sont propriétaires, mais la règle de chemin l'emporte.
+  const cases = [
+    ['US-035', 'packages/money/README.md', ['argent', 'code']],
+    ['US-035', 'packages/money/src/money.ts', ['argent', 'code']],
+    ['US-035', 'packages/db/README.md', ['architecture', 'code', 'securite']],
+    ['US-038', 'packages/db/migrations/0009.sql', ['architecture', 'code', 'securite']],
+    ['US-035', 'packages/fake-adapters/src/psp.ts', ['code', 'securite']],
+    ['US-035', 'packages/config/sql-clock/cli.ts', ['code', 'securite']],
+    ['US-030', 'packages/config/eslint/index.js', ['code', 'securite', 'ux']],
+    ['US-099', 'packages/moneyx/a.ts', ['code']],
+    ['US-099', 'packages/fake-adaptersx/a.ts', ['code']],
+  ];
+  for (const [story, file, roles] of cases) {
+    assert.deepEqual(requiredRoles(story, [file], config), roles, `${story} ${file}`);
+    if (!file.includes('x/')) {
+      assert.deepEqual(
+        ev(`story/${story}-x`, [file]).errors,
+        [],
+        `${story} propriétaire de ${file}`,
+      );
+    }
+  }
+});
+
+test('lot 0 : rôles exacts des stories sensibles (argent, sécurité, qa, architecture)', () => {
+  const A = 'architecture',
+    M = 'argent',
+    C = 'code',
+    Q = 'qa',
+    S = 'securite',
+    U = 'ux';
+  const expected = {
+    'US-003': [A, C, S],
+    'US-004': [A, C, S],
+    'US-006': [A, C, Q, S],
+    'US-007': [A, C, Q, S],
+    'US-008': [A, C, Q],
+    'US-009': [A, C, S],
+    'US-010': [A, C, S],
+    'US-011': [A, C, Q, S],
+    'US-012': [C, S, U],
+    'US-013': [A, M, C, Q],
+    'US-016': [M, C, Q],
+    'US-017': [M, C, Q],
+    'US-018': [A, M, C, Q, S],
+    'US-019': [A, M, C, Q, S],
+    'US-020': [A, C, S],
+    'US-022': [A, C, Q, S],
+    'US-023': [A, C, Q, S],
+    'US-024': [A, M, C, Q, S],
+    'US-025': [A, C, Q, S],
+    'US-034': [A, C, S],
+    'US-037': [C, S],
+    'US-042': [M, C, Q],
+    'US-043': [C, Q, S],
+    'US-046': [A, C, Q, S],
+    'US-047': [M, C, Q],
+    'US-049': [A, M, C, S],
+    'US-051': [C, S],
+    'US-052': [C, S],
+    'US-061': [A, M, C, Q, S],
+    'US-062': [A, M, C, Q, S],
+  };
+  for (const [story, roles] of Object.entries(expected)) {
+    assert.deepEqual(requiredRoles(story, [], config), roles, story);
+  }
 });

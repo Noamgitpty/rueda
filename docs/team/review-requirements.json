@@ -40,6 +40,16 @@
       "paths": ["docs/specs/tools/registry.json"],
       "require": ["securite"],
       "why": "registre des oracles (US-050) : relâcher un motif affaiblit le contrôle des oracles d argent ; revue sécurité en plus de la revue argent (revue sécurité US-050 03g, constat 1)"
+    },
+    {
+      "paths": ["packages/money/"],
+      "require": ["argent"],
+      "why": "type Money, arrondi et moteurs monétaires : revue argent pour toute story, propriétaire de documentation compris (US-035) (contrainte 1 ; revue sécurité US-050 03i, constat 1)"
+    },
+    {
+      "paths": ["packages/db/", "packages/fake-adapters/", "packages/config/"],
+      "require": ["securite"],
+      "why": "schémas, RLS, rôles, SECURITY DEFINER (db), adaptateurs FAKE exclus de la production (C19), lint de l horloge SQL et règles de lint (config) : revue sécurité pour toute story, propriétaire de documentation compris (US-035, US-038) (contrainte 1 ; revue sécurité US-050 03i, constat 1)"
     }
   ],
   "stories": {
