@@ -1,6 +1,6 @@
 # Revue securite — US-007 — 2026-11-03
 
-Relecteur : securite / claude-sonnet-5-5 (autre modèle que l'auteur claude-opus-5-5)
+Relecteur : securite / claude-sonnet-5-5 (famille A, revue dégradée : famille B indisponible (TECH-007) ; autre modèle que l'auteur claude-opus-5-5)
 Entrées : diff 91b4037..3dc1399 (SHA revu : 3dc1399, branche story/US-007-blocage-injection, PR #54 ; commit 56ac01d), ADR-056, README, bench.ts, l0-02-concurrency.test.ts ; journaux CI de 41705789227 ; lint, typecheck, test:unit et format:check passés en local ; PostgreSQL non démarré, aucun fichier secret ouvert
 
 | #   | Gravité (CRITIQUE/MAJEUR/MINEUR) | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Preuve (fichier:ligne, test)               | Décision |
