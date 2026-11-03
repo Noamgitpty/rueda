@@ -7,3 +7,6 @@ export { SupConsoleModule } from './internal/sup-console.module.js';
 export type { SupConsoleOptions } from './internal/sup-console.module.js';
 export { PgManualActionStore } from './internal/manual-action-store.js';
 export type { ManualActionStore } from './internal/manual-action-store.js';
+
+// Console « Apparence / Marque » (US-034) : montage par le processus API seulement.
+export { SupBrandConsoleModule } from './internal/sup-brand-console.module.js';

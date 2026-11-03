@@ -320,6 +320,17 @@ Migration `0039_payment_marketplace_legs` (réservée « 0045 », renumérotée 
 
 Preuves : `test/l0/l0-pay-marketplace.test.ts` (chaque capacité bloquante `UNKNOWN`, `DOCUMENTED` ou absente, statuts, RLS des sous-marchands, soldes TJ01 / TJ02b / TJ08a / TJ08b, jambe libérée TJ18a à d, gel, réaffectation TJ05b, RLS-25 rejouée) ; fixture `9850` (gel d'une jambe).
 
+## Socle de marque (US-034 ; 17 §3.2.13 ; ADR-036, ADR-067)
+
+Migration `0042_config_brand` (à la suite de `0040`–`0041` d'US-024), fixtures `test-migrations/9870_test_brand_fixtures.sql` :
+
+- `core.config_brand_version` (thème DTCG versionné, une seule `PUBLISHED`, index unique partiel), `core.config_brand_asset` (actif public, copie figée de l'emplacement et de l'empreinte du `file_asset`), `core.config_content_block` (es, en, fr ensemble, par clé et pays ; `legal.*` et Markdown hors règles refusés par contrainte) ; RLS `ENABLE` + `FORCE`, `migrator_all`.
+- **Gardes** (tous rôles, `migrator` compris) : un brouillon est immuable ; seules transitions `DRAFT → PUBLISHED` et `PUBLISHED → ARCHIVED` ; ni `DELETE` ni `TRUNCATE` ; un actif est immuable. Une version non brouillon exige un `contrast_check` « passé, aucune paire en échec » (CHECK).
+- **Commandes** `SECURITY DEFINER` (`iam_staff_owner`, EXECUTE au seul `app_api`, liste blanche RLS-15) : `cfg_brand_cmd_register_asset` (écrit `audit_file_asset` en bucket `BRAND`, `C0`), `cfg_brand_cmd_save_draft`, `cfg_brand_cmd_publish` (atomique sous verrou consultatif, refus de contraste journalisé), `cfg_brand_cmd_rollback` (nouvelle version copiée puis publiée), `cfg_brand_staff_versions`, `cfg_content_cmd_save_draft`, `cfg_content_cmd_publish`, `cfg_content_cmd_rollback`. Permissions semées : `brand.edit`, `brand.publish` (ADMIN) ; thème commun = permission sur tous les pays déclarés.
+- **Lecture publique** : `app_api` lit les versions et blocs `PUBLISHED`, sans colonne d'auteur ni de requête, et les actifs qu'ils référencent ; rien pour `app_worker` ni `app_anon`.
+
+Preuves : `test/l0/l0-brand.test.ts` (droits, publication atomique et 8 publications concurrentes, retour arrière, refus de contraste journalisés, permissions et portée pays, gardes sous `migrator`, actifs, blocs en PA, PY et communs).
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                                                             | Attributs                                                                                                | Usage                                                                             |
