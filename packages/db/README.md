@@ -22,7 +22,8 @@ Migrations actuelles :
 - `0002_app_session_context` à `0007_avl_pay_worker_grants` : schéma de preuve AVL / PAY (US-006, section « Schéma AVL / PAY ») ;
 - `0008_config_country` (US-013) : tables de configuration pays dans `core` (schéma créé par `0003_core_schema`), gardes `PARAM_RETROACTIVE` / immuabilité / interrupteurs, `core.config_go_live`, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker` ;
 - `0009_config_seed` (US-013) : graines PA / PY **générées** depuis `apps/api/src/modules/cfg/data/`, ne pas éditer (ADR-049) ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement).
+- `0010_iam_identity`, `0011_iam_auth_commands` (US-010) : schéma IAM et commandes d'authentification (section « Schéma IAM ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9200_test_iam_fixtures` (US-010).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -71,6 +72,20 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
   - `40P01` et `40001` → `RETRY` (rejeu de la transaction entière).
 
 **Fixtures de test** (`test-migrations/9001`, base principale seulement) : `test_fixture.place_hold` remplace `cmd_place_hold` (US-023) et `test_fixture.insert_payment_operation` remplace `cmd_start_payment`. `test_fixture.delete_occupancy` force une suppression qu'aucun rôle ne peut faire : elle est refusée par la clé étrangère du hold (`23503`), et `occupancy_trip_guard` couvre aussi `DELETE`. Ces fonctions sont `SECURITY DEFINER` sous `migrator` ; la transaction appelante reste sous `app_api` ou `app_worker`.
+
+## Schéma IAM (US-010 ; 17 §2.3, §3.2.1 ; ADR-052)
+
+Tables `core.iam_*` (entités de 17 §3.2.1) : `user_account`, `email_verification`, `auth_factor`, `session`, `otp_challenge`, `organization` (compte d'hôte), `membership`, `staff_role_assignment`, `role_permission`, `restriction`. RLS `ENABLE` + `FORCE`, seule politique `migrator_all`, **aucun droit de table** pour `app_api`, `app_worker`, `app_anon`. Les politiques par acteur et par pays sont l'objet de US-011.
+
+Identités prévues pour US-011 : `user_account.id` (`app.actor_id`), `organization.id` / `country_code` / `holder_user_id` (`app.org_id`, `app.is_org_holder()`), `membership.vehicle_scope` (`app.vehicle_scope`), `staff_role_assignment.role` / `country_scope` (`app.country_scope`), `role_permission` (`app.has_permission`).
+
+Contraintes notables : `user_account_password_hash_argon2id` (seule une chaîne PHC argon2id est stockée), `user_account_email_normalized`, `session_token_sha256` (32 octets), trigger `session_guarded_columns` (révocation définitive, aucune prolongation), `membership_holder_matches_org` (le `P2P_HOST` est le titulaire), `membership_one_active_holder`, `organization_country_holder_unique`, `staff_country_scope_format`, `staff_no_self_grant`.
+
+Commandes (`0011`, `SECURITY DEFINER` sous `migrator`, `search_path` figé, `EXECUTE` au seul `app_api`, famille `iam_auth` pour la liste blanche RLS-15) : `core.iam_cmd_register`, `iam_cmd_verify_email`, `iam_auth_lookup`, `iam_cmd_open_session` (300 s à 30 j, 8 h si rôle interne), `iam_session_resolve`, `iam_cmd_revoke_session`, `iam_cmd_revoke_all_sessions`.
+
+**FK en attente** : les colonnes `guest_user_id` et `org_id` des tables AVL ne pointent pas encore vers `iam_user_account` / `iam_organization` (les fixtures L0 de US-006 posent des identifiants libres) ; `organization.legal_entity_id` attend `config` (US-008).
+
+Fixtures de test (`test-migrations/9200`) : statut d'un compte, rôle interne, compte d'hôte, appartenance, lecture brute des sessions et des comptes, écritures forcées refusées par `session_guarded_columns`.
 
 ## Rôles (17 §2.3, ADR-035)
 

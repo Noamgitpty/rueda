@@ -38,6 +38,9 @@ importers:
       '@rueda/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -48,9 +51,15 @@ importers:
       '@rueda/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@rueda/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@types/node':
         specifier: 26.6.5
         version: 26.6.5
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
       typescript:
         specifier: 6.0.3
         version: 6.0.3
