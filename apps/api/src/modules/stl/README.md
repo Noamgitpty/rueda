@@ -1,3 +1,1 @@
 **STL — Settlement engine & Ledger** : règlement économique pur, grand livre en partie double, host_ledger, commission. Dépendances autorisées : PRC, PAY, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 STL --> PAY, PRC (rupture du cycle STL ↔ PAY)).
-
-**Persistance des règlements (US-018)** : tables `core.settlement_*` et commande `core.settlement_cmd_record` (migration 0027, `packages/db/README.md` « Règlements et jambes ») ; forme de la version et charge utile : `buildSettlementRecord` / `settlementRecordPayload` de `@rueda/money` ; décisions : ADR-057. Le travailleur `settlement` qui l'appelle dans la transaction SM-1 arrive avec US-024.
