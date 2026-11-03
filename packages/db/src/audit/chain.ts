@@ -144,7 +144,8 @@ export function verifyAuditChain(
  * `audit_chain_verifier` (seul lecteur autorisé, migration 0155). Projection seulement : aucun
  * calcul de hachage côté SQL. `$1` = dernier id de la tête lue JUSTE AVANT (même transaction) :
  * sous READ COMMITTED, des écritures validées entre les deux lectures ne faussent pas la
- * comparaison avec la tête (les validations suivent l'ordre des id, ADR-051).
+ * comparaison avec la tête (les validations suivent l'ordre des id, ADR-051). Tri sur `l.id`
+ * (bigint) et non sur l'alias texte `id` (« 10 » trierait avant « 9 »).
  */
 export const AUDIT_CHAIN_SELECT = `
   SELECT id::text AS id,
@@ -153,9 +154,9 @@ export const AUDIT_CHAIN_SELECT = `
          subject_id::text AS subject_id, before::text AS before_text, after::text AS after_text,
          reason, ip_enc, ip_key_subject_type, ip_key_subject_id::text AS ip_key_subject_id,
          c2_withheld, request_id::text AS request_id, prev_hash, hash
-    FROM core.audit_audit_log
-   WHERE id <= $1
-   ORDER BY id`;
+    FROM core.audit_audit_log l
+   WHERE l.id <= $1
+   ORDER BY l.id`;
 
 /** Ligne brute renvoyée par `AUDIT_CHAIN_SELECT` (pilote `pg`). */
 export interface AuditChainDbRow {
