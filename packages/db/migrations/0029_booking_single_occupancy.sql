@@ -60,15 +60,9 @@ ALTER TABLE core.booking_vehicle_occupancy
   -- un véhicule appartient à un seul compte d'hôte : toutes ses occupations (actives ou non)
   -- portent le même org_id. PROPOSÉ (ADR-060) : remplacé par la clé étrangère
   -- (vehicle_id, org_id, country_code) vers catalog_vehicle quand le catalogue existe.
-  ADD CONSTRAINT occupancy_vehicle_single_org
-    EXCLUDE USING gist (vehicle_id WITH =, org_id WITH <>),
   -- cible de la clé composée du hold (véhicule, compte et pays de l'occupation = ceux du hold)
   ADD CONSTRAINT occupancy_party_unique UNIQUE (id, vehicle_id, org_id, country_code);
 
-ALTER TABLE core.booking_checkout_hold
-  ADD CONSTRAINT checkout_hold_occupancy_party_fk
-    FOREIGN KEY (occupancy_id, vehicle_id, org_id, country_code)
-    REFERENCES core.booking_vehicle_occupancy (id, vehicle_id, org_id, country_code);
 
 -- politique de l'hôte (org_id = app.org_id()) et contrôles de suppression côté IAM
 CREATE INDEX occupancy_org_vehicle_idx ON core.booking_vehicle_occupancy (org_id, vehicle_id);
