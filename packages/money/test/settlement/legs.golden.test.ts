@@ -24,8 +24,10 @@ import {
   type Legs,
   type SettlementTrip,
 } from '../../src/index.ts';
-import { PYG, USD } from '../fixtures.ts';
+import { USD } from '../fixtures.ts';
 import {
+  J,
+  J3,
   N,
   NP,
   NP_MAX,
@@ -42,43 +44,6 @@ import {
 const set = loadGoldenVectors();
 const PLAN = ratio(3n, 4n);
 const BOOKED = at(-5 * 24 * 60); // « sauf mention contraire, la réservation est faite à T−5 j »
-
-/** J (PYG, 3 j, remboursable) : P 1 000 001, F 150 000, protection 400 001 ; taxe 10 % sur F et protection. */
-const J: SettlementTrip = {
-  currency: PYG,
-  days: 3,
-  rateType: 'REFUNDABLE',
-  startAtMs: T0_MS,
-  bookedAtMs: BOOKED,
-  lines: {
-    tripPrice: money(1_000_001n, PYG),
-    tripFee: money(150_000n, PYG),
-    protection: money(400_001n, PYG),
-  },
-  taxGroups: [
-    {
-      id: 'iva',
-      lines: ['tripFee', 'protection'],
-      taxPaid: money(55_000n, PYG),
-      thirdParty: false,
-    },
-  ],
-  totalPaid: money(1_605_002n, PYG),
-  hostSharePctFrozen: PLAN,
-  deliverySharePct: PLAN,
-  extrasSharePct: PLAN,
-  ...TEST_INSURER_SHARES,
-};
-
-/** J3 = J + taxe de 10 % sur P collectée pour le compte d'un tiers (100 000). */
-const J3: SettlementTrip = {
-  ...J,
-  taxGroups: [
-    ...J.taxGroups,
-    { id: 'tiers', lines: ['tripPrice'], taxPaid: money(100_000n, PYG), thirdParty: true },
-  ],
-  totalPaid: money(1_705_002n, PYG),
-};
 
 /** K2 (USD, 1 j, remboursable) : P 10,02, F 5,00, protection 10,05 ; taxe 7 % sur F et protection. */
 const K2: SettlementTrip = {

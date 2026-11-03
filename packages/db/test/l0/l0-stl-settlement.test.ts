@@ -19,6 +19,7 @@ import { COUNTRIES } from '../support/avl.ts';
 import { asActor, buildWorld, withRawContext } from '../support/rls.ts';
 import type { CountryWorld, World } from '../support/rls.ts';
 import {
+  J3,
   NP_MAX,
   N_MAX,
   at,
@@ -145,6 +146,7 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
     const exponent = BigInt(golden.currencies.get('USD')?.exponent ?? Number.NaN);
     await worker(async (tx) => {
       const trip = await insertTrip(tx, pa, 3);
+      await captureLegs(tx, trip.id, tj('TJ01').legsMinor);
       const r1 = recordOfVector('T08');
       const v1 = await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, r1);
       const before = await headerOf(tx, v1);
@@ -180,12 +182,13 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
   });
 
   it('TJ18a (USD) et TJ18c (PYG) : requalification FULL après un no-show exécuté', async () => {
-    for (const [c, v1Vector, tripVector, expected] of [
-      [COUNTRIES[0], 'T05', 'T05', 'TJ18a'],
-      [COUNTRIES[1], 'T41', 'T41', 'TJ18c'],
+    for (const [c, v1Vector, tripVector, expected, capture] of [
+      [COUNTRIES[0], 'T05', 'T05', 'TJ18a', 'TJ01'],
+      [COUNTRIES[1], 'T41', 'T41', 'TJ18c', 'TJ08a'],
     ] as const) {
       await worker(async (tx) => {
         const trip = await insertTrip(tx, c, 4);
+        await captureLegs(tx, trip.id, tj(capture).legsMinor);
         const r1 = recordOfVector(v1Vector);
         const v1 = await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, r1);
         const r2 = recordOf(tripOfVector(tripVector), eventOfVector('T08'), r1);
@@ -205,6 +208,7 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
     const r2 = recordOfVector('T07', r1);
     const setup = async (tx: pg.ClientBase) => {
       const trip = await insertTrip(tx, pa, 5);
+      await captureLegs(tx, trip.id, tj('TJ01').legsMinor);
       const v1 = await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, r1);
       return { trip: trip.id, v1 };
     };
@@ -230,6 +234,24 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
         'INVARIANT_VIOLATION',
       ],
       [
+        'v2 dont la base est falsifiée (Σ conservée : HOST + 1, PLATFORM − 1)',
+        (tx, s) => {
+          const p = payloadOf(r2);
+          const legs = p.legs as Record<string, string>[];
+          for (const [name, by] of [
+            ['HOST', 1n],
+            ['PLATFORM', -1n],
+          ] as const) {
+            const l = legs.find((x) => x.leg === name);
+            if (!l) throw new Error(name);
+            l.basisMinor = (BigInt(l.basisMinor ?? '0') + by).toString();
+            l.variationMinor = (BigInt(l.variationMinor ?? '0') - by).toString();
+          }
+          return callRecord(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, p);
+        },
+        'INVARIANT_VIOLATION',
+      ],
+      [
         'v2 qui remplace une version d’un autre trip',
         (tx, s) =>
           recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: uuid() }, r2),
@@ -251,6 +273,57 @@ describe('US-018 — supersession : version n+1 par contre-passation, sans perte
           recordAsSettlementWorker(tx, { tripId: s.trip, version: 2, supersedesId: s.v1 }, r2),
         ),
       ).toBe('SETTLEMENT_EXISTS');
+    });
+  });
+
+  it('version n+1 sans état capturé tenu (trip_leg_balance) ⇒ refus', async () => {
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[0], 12);
+      const r1 = recordOfVector('T08');
+      const v1 = await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, r1);
+      expect(
+        await codeOf(
+          recordAsSettlementWorker(
+            tx,
+            { tripId: trip.id, version: 2, supersedesId: v1 },
+            recordOfVector('T07', r1),
+          ),
+        ),
+      ).toBe('INVARIANT_VIOLATION'); // settlement_capture_missing
+    });
+  });
+
+  it('v n+1 sur une v n à avance (N_MAX tardive puis FULL) : base PLATFORM = − avance de v n', async () => {
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[0], 13);
+      await captureLegs(tx, trip.id, tj('TJ13b').legsMinor);
+      const r1 = recordOf(N_MAX, { reason: 'GUEST_CANCELLED', requestedAtMs: at(-600) });
+      const v1 = await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, r1);
+      const v2 = await recordAsSettlementWorker(
+        tx,
+        { tripId: trip.id, version: 2, supersedesId: v1 },
+        recordOf(N_MAX, eventOfVector('T08'), r1),
+      );
+      const before = (await legsOf(tx, v1)).find((l) => l.leg === 'PLATFORM');
+      const after = (await legsOf(tx, v2)).find((l) => l.leg === 'PLATFORM');
+      expect(before?.advance).toBeGreaterThan(0n);
+      expect(after?.basis).toBe(-(before?.advance ?? 0n));
+    });
+  });
+
+  it('segment autre que 1 (bêta) ⇒ refus : aucune seconde chaîne de versions', async () => {
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[0], 14);
+      await recordAsSettlementWorker(tx, { tripId: trip.id, version: 1 }, recordOfVector('T03'));
+      expect(
+        await codeOf(
+          recordAsSettlementWorker(
+            tx,
+            { tripId: trip.id, version: 1, segmentNo: 2 },
+            recordOfVector('T05'),
+          ),
+        ),
+      ).toBe('INVARIANT_VIOLATION'); // settlement_segment_unsupported
     });
   });
 
@@ -319,6 +392,105 @@ describe('US-018 — EC-54 : deux événements d’annulation simultanés ⇒ un
       }
     },
   );
+});
+
+describe('US-018 — jambe TAX_THIRD_PARTY persistée (J3, PYG, TJ11a / TJ11b)', () => {
+  const late = { reason: 'GUEST_CANCELLED', requestedAtMs: at(-600) } as const;
+  it('base = TJ11a, variation = TJ11b ; ligne de taxe du tiers marquée third_party', async () => {
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[1], 15);
+      await captureLegs(tx, trip.id, tj('TJ11a').legsMinor);
+      const sid = await recordAsSettlementWorker(
+        tx,
+        { tripId: trip.id, version: 1 },
+        recordOf(J3, late),
+      );
+      const legs = await legsOf(tx, sid);
+      expect(byLeg(legs, 'basis')).toEqual(tj('TJ11a').legsMinor);
+      expect(byLeg(legs, 'variation')).toEqual(tj('TJ11b').legsMinor);
+      const tax = await tx.query<{ tax_group: string; third_party: boolean }>(
+        `SELECT tax_group, third_party FROM core.settlement_settlement_tax_line
+          WHERE settlement_id = $1 ORDER BY tax_group`,
+        [sid],
+      );
+      expect(tax.rows.filter((r) => r.third_party).map((r) => r.tax_group)).toEqual(['tiers']);
+    });
+  });
+
+  it.each([
+    [
+      'groupe tiers forcé à third_party = false',
+      (p: Record<string, unknown>) => {
+        for (const g of p.taxGroups as Record<string, unknown>[]) g.thirdParty = false;
+      },
+    ],
+    [
+      'jambe TAX_THIRD_PARTY + 1 / PLATFORM − 1',
+      (p: Record<string, unknown>) => {
+        const legs = p.legs as Record<string, string>[];
+        for (const [name, by] of [
+          ['TAX_THIRD_PARTY', 1n],
+          ['PLATFORM', -1n],
+        ] as const) {
+          const l = legs.find((x) => x.leg === name);
+          if (!l) throw new Error(name);
+          l.keptMinor = (BigInt(l.keptMinor ?? '0') + by).toString();
+          l.variationMinor = (BigInt(l.variationMinor ?? '0') + by).toString();
+        }
+      },
+    ],
+  ])('%s ⇒ SETTLEMENT_UNBALANCED', async (_, mutate) => {
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[1], 16);
+      const p = payloadOf(recordOf(J3, late));
+      mutate(p);
+      await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+      expect(await codeOf(callRecord(tx, { tripId: trip.id, version: 1 }, p))).toBe(
+        'SETTLEMENT_UNBALANCED',
+      );
+    });
+  });
+});
+
+describe('US-018 — cmd_money_owner : UPDATE (row_version) du trip réservé au verrou ; soldes gardés', () => {
+  it('un UPDATE réel de booking_trip.row_version sous cmd_money_owner est refusé (WITH CHECK false)', async () => {
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[0], 17);
+      await expect(
+        tx.query('SELECT test_fixture.settlement_try_trip_update($1)', [trip.id]),
+      ).rejects.toMatchObject({ code: '42501' });
+    });
+  });
+
+  it('trip_leg_balance : cumul décroissant, suppression, solde négatif ⇒ refus', async () => {
+    const cases: [string, string, unknown[], string][] = [
+      [
+        'captured décroît',
+        'SELECT test_fixture.settlement_update_leg_balance($1, $2, 0, 0)',
+        ['HOST'],
+        'INVARIANT_VIOLATION',
+      ],
+      [
+        'suppression',
+        'SELECT test_fixture.settlement_delete_leg_balance($1, $2)',
+        ['HOST'],
+        'IMMUTABLE_RECORD',
+      ],
+      [
+        'libéré > capturé',
+        'SELECT test_fixture.settlement_update_leg_balance($1, $2, 13125, 13126)',
+        ['HOST'],
+        'LEG_AMOUNT_NEGATIVE',
+      ],
+    ];
+    for (const [label, sql, args, code] of cases) {
+      await worker(async (tx) => {
+        const trip = await insertTrip(tx, COUNTRIES[0], 18);
+        await captureLegs(tx, trip.id, tj('TJ01').legsMinor);
+        expect(await codeOf(tx.query(sql, [trip.id, ...args])), label).toBe(code);
+      });
+    }
+  });
 });
 
 describe('US-018 — drapeau negativeLeg (08 E7 règles 3 bis et 5) : PLATFORM jamais négative, avance et revue FIN', () => {
@@ -425,7 +597,110 @@ describe('US-018 — falsification de la charge utile : refus en base (fail-clos
       tamper((p) => (p.currency = COUNTRIES[1].currency)),
       'INVARIANT_VIOLATION',
     ],
+    [
+      'trois jambes seulement',
+      tamper((p) => (p.legs = (p.legs as LegP[]).slice(0, 3))),
+      'SETTLEMENT_UNBALANCED',
+    ],
+    [
+      'base négative en v1 (Σ conservée)',
+      tamper((p) => {
+        const h = leg(p, 'HOST');
+        const by = BigInt(h.basisMinor ?? '0') + 1n; // HOST passe à −1
+        shift(h, 'basisMinor', -by);
+        shift(h, 'variationMinor', by);
+        shift(leg(p, 'PLATFORM'), 'basisMinor', by);
+        shift(leg(p, 'PLATFORM'), 'variationMinor', -by);
+      }),
+      'INVARIANT_VIOLATION',
+    ],
+    [
+      'taxe remboursée ≠ en-tête (ligne de taxe cohérente)',
+      tamper((p) => {
+        const g = (p.taxGroups as LegP[])[0];
+        if (!g) throw new Error('taxe');
+        shift(g, 'taxPaidMinor', 1n);
+        shift(g, 'taxRefundMinor', 1n);
+      }),
+      'SETTLEMENT_UNBALANCED',
+    ],
+    [
+      'entrées canoniques modifiées (empreinte différente de inputs_hash)',
+      tamper((p) => (p.inputs = String(p.inputs).replace('"GUEST_CANCELLED"', '"HOST_CANCELLED"'))),
+      'INVARIANT_VIOLATION',
+    ],
   ];
+
+  it('drapeau negative_leg = false alors qu’une avance existe (N_MAX tardive) ⇒ INVARIANT_VIOLATION', async () => {
+    const p = payloadOf(recordOf(N_MAX, { reason: 'GUEST_CANCELLED', requestedAtMs: at(-600) }));
+    expect(p.negativeLeg).toBe(true);
+    p.negativeLeg = false;
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[0], 19);
+      await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+      expect(await codeOf(callRecord(tx, { tripId: trip.id, version: 1 }, p))).toBe(
+        'INVARIANT_VIOLATION',
+      );
+    });
+  });
+
+  it('charge utile mal formée (format 2) ⇒ 22023, sans écriture', async () => {
+    await worker(async (tx) => {
+      const trip = await insertTrip(tx, COUNTRIES[0], 20);
+      await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+      await expect(
+        callRecord(
+          tx,
+          { tripId: trip.id, version: 1 },
+          tamper((p) => (p.format = 2)),
+        ),
+      ).rejects.toMatchObject({ code: '22023' });
+    });
+  });
+
+  // LIMITES CONNUES (ADR-057, revue argent n° 4) : sans trip_leg_balance, une v1 dont les montants
+  // sont redistribués entre jambes passe. Ces deux tests sont à INVERSER quand le rejeu des entrées
+  // ou l'exigence de trip_leg_balance pour la v1 sera posé (DoR US-061 / US-223 / US-224).
+  it.each([
+    [
+      'jambe retenue INSURER + 1 / PLATFORM − 1',
+      tamper((p) => {
+        shift(leg(p, 'INSURER'), 'keptMinor', 1n);
+        shift(leg(p, 'INSURER'), 'variationMinor', 1n);
+        shift(leg(p, 'PLATFORM'), 'keptMinor', -1n);
+        shift(leg(p, 'PLATFORM'), 'variationMinor', -1n);
+      }),
+      'AUCUNE_ERREUR', // la capture ne fixe que la base : seul le rejeu des entrées le verra
+    ],
+    [
+      'base décalée entre jambes (HOST + 1 / PLATFORM − 1)',
+      tamper((p) => {
+        shift(leg(p, 'HOST'), 'basisMinor', 1n);
+        shift(leg(p, 'HOST'), 'variationMinor', -1n);
+        shift(leg(p, 'PLATFORM'), 'basisMinor', -1n);
+        shift(leg(p, 'PLATFORM'), 'variationMinor', 1n);
+      }),
+      'INVARIANT_VIOLATION', // base ≠ trip_leg_balance.captured_minor
+    ],
+  ] as const)(
+    'limite connue, v1 sans état capturé : %s ⇒ accepté',
+    async (_, payload, withCapture) => {
+      await worker(async (tx) => {
+        const trip = await insertTrip(tx, COUNTRIES[0], 21);
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+        expect(await callRecord(tx, { tripId: trip.id, version: 1 }, payload)).not.toBe('');
+      });
+      // avec l'état capturé tenu : la base est contrôlée jambe par jambe, pas encore la retenue
+      await worker(async (tx) => {
+        const trip = await insertTrip(tx, COUNTRIES[0], 22);
+        await captureLegs(tx, trip.id, tj('TJ01').legsMinor);
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
+        expect(await codeOf(callRecord(tx, { tripId: trip.id, version: 1 }, payload))).toBe(
+          withCapture,
+        );
+      });
+    },
+  );
 
   it.each(cases)('%s', async (_, payload, code) => {
     await worker(async (tx) => {
@@ -624,7 +899,7 @@ describe('US-018 — lectures : hôte titulaire = jambe HOST de ses trips seulem
     });
   });
 
-  it('staff : FINANCE {premier pays} ⇒ ce pays seulement ; OPS ⇒ dossier assigné seulement ; ADMIN ⇒ les deux pays', async () => {
+  it('staff : FINANCE {premier pays} ⇒ ce pays seulement ; OPS ⇒ jambes du dossier seulement (RLS-23) ; ADMIN ⇒ les deux pays', async () => {
     const all = COUNTRIES.map((c) => c.country);
     await withRole('app_api', async (client) => {
       await asActor(
@@ -653,7 +928,14 @@ describe('US-018 — lectures : hôte titulaire = jambe HOST de ses trips seulem
         client,
         { kind: 'STAFF', actorId: world.staff.opsFirst, countryScope: all },
         async (tx) => {
-          expect(mine(await visible(tx, 'settlement_settlement'))).toEqual(ours([[0, 'a1']]));
+          // RLS-23 : jambes du trip du dossier seulement ; ni en-tête, ni lignes, ni taxes
+          expect(mine(await visible(tx, 'settlement_settlement'))).toEqual([]);
+          expect(mine(await visible(tx, 'settlement_settlement_line', 'settlement_id'))).toEqual(
+            [],
+          );
+          expect(
+            mine(await visible(tx, 'settlement_settlement_tax_line', 'settlement_id')),
+          ).toEqual([]);
           expect(mine((await legsVisible(tx)).map((l) => l.s))).toEqual(
             Array(4).fill(sid.get(key(0, 'a1'))),
           );

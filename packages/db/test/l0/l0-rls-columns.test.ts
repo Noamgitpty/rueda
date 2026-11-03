@@ -159,6 +159,7 @@ const API_COLUMNS: Record<string, readonly string[]> = {
     'platform_net_minor',
     'host_penalty_minor',
     'negative_leg',
+    'inputs',
     'inputs_hash',
     'param_snapshot_hash',
     'created_at',

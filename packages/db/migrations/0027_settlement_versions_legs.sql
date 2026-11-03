@@ -30,8 +30,9 @@
 --     `cmd_money_owner` NOLOGIN, EXECUTE au seul app_worker sous `app.worker_name = 'settlement'`) ;
 --     aucune écriture de table par app_api ni app_worker (RLS-21) ;
 --   - lectures (RLS ENABLE + FORCE, GRANT par colonnes, aucun identifiant du personnel) :
---     hôte TITULAIRE : jambe HOST de ses trips seulement (RLS-2, RLS-28) ; staff ADMIN / FINANCE
---     du pays, OPS / SUPPORT sur dossier assigné ; voyageur : rien (vue dédiée plus tard) ;
+--     hôte TITULAIRE : jambe HOST de ses trips seulement (RLS-2, RLS-28) ; en-tête, lignes, taxes :
+--     ADMIN / FINANCE du pays ; jambes : ADMIN / FINANCE, OPS / SUPPORT sur dossier assigné
+--     (RLS-23) ; voyageur : rien (vue dédiée plus tard) ;
 --     travailleurs de la liste blanche de 17 §2.3 ;
 --   - `trip_leg_balance` : table, contraintes et lectures ; son écrivain
 --     (`cmd_apply_leg_movement`, montants lus de `payment_operation_leg`, jamais d'un paramètre
@@ -43,8 +44,8 @@
 --     core.settlement_settlement_line, core.settlement_trip_leg_balance, core.settlement_settlement;
 --   DROP FUNCTION core.settlement_assert_balanced(), core.settlement_guard_immutable(),
 --     core.settlement_trip_leg_balance_guard();
---   DROP POLICY money_read, money_lock ON core.booking_trip;
---   REVOKE ALL ON core.booking_trip, core.iam_organization FROM cmd_money_owner;
+--   DROP POLICY money_read ON core.booking_trip; DROP POLICY money_lock ON core.booking_trip;
+--   REVOKE ALL ON core.booking_trip FROM cmd_money_owner;
 --   REVOKE USAGE ON SCHEMA core, app FROM cmd_money_owner;
 --   REVOKE EXECUTE ON FUNCTION app.actor_kind(), app.worker_name() FROM cmd_money_owner;
 
@@ -53,8 +54,11 @@
 CREATE TABLE core.settlement_settlement (
   id                      uuid        PRIMARY KEY,
   trip_id                 uuid        NOT NULL,
+  -- Bêta : un trip = un segment (aucune table de segments). Un second segment ouvrirait une seconde
+  -- chaîne de versions, donc un second remboursement : refusé. À retirer par la migration qui
+  -- introduira les segments (FK vers la table des segments, migration additive).
   segment_no              integer     NOT NULL
-    CONSTRAINT settlement_segment_positive CHECK (segment_no >= 1),
+    CONSTRAINT settlement_segment_beta CHECK (segment_no = 1),
   version                 integer     NOT NULL
     CONSTRAINT settlement_version_positive CHECK (version >= 1),
   supersedes_id           uuid,
@@ -90,6 +94,9 @@ CREATE TABLE core.settlement_settlement (
   platform_net_minor      bigint      NOT NULL,       -- seul montant signé de l'en-tête (17 §3.2.8)
   host_penalty_minor      bigint      NOT NULL,       -- hors jambes : ajustement du host_ledger (E7 règle 7)
   negative_leg            boolean     NOT NULL,       -- revue FIN requise (E7 règle 5)
+  -- entrées canoniques du moteur (`canonicalJson`, texte exact) : rejouables avant tout ordre
+  -- (ADR-057) ; leur empreinte est contrôlée en base (settlement_inputs_hash_match)
+  inputs                  text        NOT NULL,
   inputs_hash             bytea       NOT NULL
     CONSTRAINT settlement_inputs_hash_sha256 CHECK (octet_length(inputs_hash) = 32),
   param_snapshot_hash     bytea       NOT NULL
@@ -105,6 +112,10 @@ CREATE TABLE core.settlement_settlement (
   CONSTRAINT settlement_earnings CHECK (
     host_earnings_minor = host_from_guest_minor + host_compensation_minor),
   CONSTRAINT settlement_platform_net CHECK (platform_net_minor = retained_minor - host_earnings_minor),
+  CONSTRAINT settlement_inputs_hash_match CHECK (
+    pg_catalog.sha256(pg_catalog.convert_to(
+      'rueda.settlement.inputs/1' || pg_catalog.chr(10) || inputs, 'UTF8')) = inputs_hash),
+  CONSTRAINT settlement_inputs_engine CHECK ((inputs::jsonb ->> 'engineVersion') = engine_version),
   CONSTRAINT settlement_version_unique UNIQUE (trip_id, segment_no, version),
   CONSTRAINT settlement_supersedes_unique UNIQUE (supersedes_id),
   CONSTRAINT settlement_supersession_shape CHECK ((version = 1) = (supersedes_id IS NULL)),
@@ -178,7 +189,7 @@ CREATE INDEX settlement_leg_org_idx ON core.settlement_settlement_leg (org_id) W
 CREATE TABLE core.settlement_trip_leg_balance (
   trip_id               uuid        NOT NULL,
   segment_no            integer     NOT NULL
-    CONSTRAINT trip_leg_balance_segment_positive CHECK (segment_no >= 1),
+    CONSTRAINT trip_leg_balance_segment_beta CHECK (segment_no = 1),   -- bêta : voir settlement
   leg                   text        NOT NULL
     CONSTRAINT trip_leg_balance_leg_valid CHECK (leg IN ('HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM')),
   org_id                uuid        NOT NULL,
@@ -235,6 +246,12 @@ CREATE TRIGGER settlement_immutable BEFORE UPDATE OR DELETE ON core.settlement_s
   FOR EACH ROW EXECUTE FUNCTION core.settlement_guard_immutable();
 CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_settlement
   FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable();
+CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_settlement_line
+  FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable();
+CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_settlement_tax_line
+  FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable();
+CREATE TRIGGER settlement_immutable_truncate BEFORE TRUNCATE ON core.settlement_settlement_leg
+  FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable();
 
 -- trip_leg_balance : aucun DELETE ; cumuls monotones (une correction est un mouvement inverse
 -- explicite) ; identité de la ligne figée (17 §2.3 leg_balance_monotonic).
@@ -267,6 +284,8 @@ CREATE TRIGGER trip_leg_balance_guard BEFORE UPDATE OR DELETE ON core.settlement
   FOR EACH ROW EXECUTE FUNCTION core.settlement_trip_leg_balance_guard();
 CREATE TRIGGER touch_row BEFORE UPDATE ON core.settlement_trip_leg_balance
   FOR EACH ROW EXECUTE FUNCTION platform.touch_row();
+CREATE TRIGGER trip_leg_balance_no_truncate BEFORE TRUNCATE ON core.settlement_trip_leg_balance
+  FOR EACH STATEMENT EXECUTE FUNCTION core.settlement_guard_immutable();
 
 -- 3. RLS : ENABLE + FORCE, socle migrator_all ----------------------------------------------------
 
@@ -293,8 +312,8 @@ GRANT SELECT (id, trip_id, segment_no, version, supersedes_id, org_id, country_c
               engine_version, requested_reason, reason, origin, qualification, target_state,
               host_eligible, total_paid_minor, guest_refund_minor, tax_refund_minor, retained_minor,
               retained_tax_minor, host_from_guest_minor, host_compensation_minor, host_earnings_minor,
-              platform_net_minor, host_penalty_minor, negative_leg, inputs_hash, param_snapshot_hash,
-              created_at)
+              platform_net_minor, host_penalty_minor, negative_leg, inputs, inputs_hash,
+              param_snapshot_hash, created_at)
   ON core.settlement_settlement TO app_api;
 GRANT SELECT (settlement_id, line_type, amount_minor, refund_minor, retained_minor)
   ON core.settlement_settlement_line TO app_api;
@@ -308,11 +327,11 @@ GRANT SELECT (trip_id, segment_no, leg, org_id, country_code, currency, captured
               release_at, created_at, updated_at)
   ON core.settlement_trip_leg_balance TO app_api;
 
--- En-tête : staff seulement (le voyageur et l'hôte n'y lisent ni la part de l'autre ni la marge).
+-- En-tête : ADMIN et FINANCE du pays seulement (marge plateforme, pénalité, compensation). OPS et
+-- SUPPORT, même sur dossier, ne lisent que les jambes (17 §2.3, RLS-23) ; voyageur et hôte : rien.
 CREATE POLICY settlement_staff_read ON core.settlement_settlement FOR SELECT TO app_api
   USING (app.actor_kind() = 'STAFF' AND country_code = ANY (app.country_scope())
-         AND (app.has_staff_role('ADMIN', country_code) OR app.has_staff_role('FINANCE', country_code)
-              OR app.staff_case_covers('TRIP', trip_id)));
+         AND (app.has_staff_role('ADMIN', country_code) OR app.has_staff_role('FINANCE', country_code)));
 -- Lignes et taxes : visibles exactement quand l'en-tête l'est (sous-requête sous la RLS d'app_api).
 CREATE POLICY settlement_line_read ON core.settlement_settlement_line FOR SELECT TO app_api
   USING (EXISTS (SELECT 1 FROM core.settlement_settlement AS s
@@ -478,6 +497,14 @@ BEGIN
   END IF;
 
   -- Base de la variation : version n (supersession) ou état capturé (v1).
+  SELECT count(*)::integer INTO v_captured
+    FROM core.settlement_trip_leg_balance AS b
+   WHERE b.trip_id = s.trip_id AND b.segment_no = s.segment_no;
+  IF s.supersedes_id IS NOT NULL AND v_captured = 0 THEN
+    -- une requalification suppose des fonds capturés tenus par jambe (ADR-057)
+    RAISE EXCEPTION 'settlement %: version n+1 sans état capturé tenu (trip_leg_balance)', s.id
+      USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'settlement_capture_missing';
+  END IF;
   IF s.supersedes_id IS NOT NULL THEN
     SELECT count(*)::integer INTO v_mismatch
       FROM core.settlement_settlement_leg AS cur
@@ -486,9 +513,6 @@ BEGIN
      WHERE cur.settlement_id = s.id
        AND (prev.leg IS NULL OR cur.basis_minor <> prev.kept_minor - prev.advance_minor);
   ELSE
-    SELECT count(*)::integer INTO v_captured
-      FROM core.settlement_trip_leg_balance AS b
-     WHERE b.trip_id = s.trip_id AND b.segment_no = s.segment_no;
     IF v_captured > 0 THEN
       SELECT count(*)::integer INTO v_mismatch
         FROM core.settlement_settlement_leg AS cur
@@ -497,7 +521,9 @@ BEGIN
        WHERE cur.settlement_id = s.id
          AND (b.leg IS NULL OR cur.basis_minor <> b.captured_minor);
     ELSE
-      -- état capturé calculé par le moteur : jambes ≥ 0 (E7 règle 5) et Σ = total payé
+      -- état capturé calculé par le moteur : jambes ≥ 0 (E7 règle 5) et Σ = total payé.
+      -- LIMITE (ADR-057) : une redistribution entre jambes passe ici ; aucun ordre autre que
+      -- PLANNED sans rejeu des entrées `inputs` ni trip_leg_balance tenu (DoR US-061, 223, 224).
       SELECT count(*)::integer INTO v_mismatch
         FROM core.settlement_settlement_leg AS cur
        WHERE cur.settlement_id = s.id AND cur.basis_minor < 0;
@@ -560,6 +586,11 @@ BEGIN
     RAISE EXCEPTION 'settlement_cmd_record : charge utile invalide'
       USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  -- Bêta : un seul segment par trip (voir la colonne segment_no)
+  IF p_segment_no <> 1 THEN
+    RAISE EXCEPTION 'settlement_cmd_record : segment % hors bêta', p_segment_no
+      USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'settlement_segment_unsupported';
+  END IF;
 
   -- les invariants sont contrôlés après l'insertion complète, dans cet appel
   SET CONSTRAINTS core.settlement_balanced DEFERRED;
@@ -603,7 +634,8 @@ BEGIN
           engine_version, requested_reason, reason, origin, qualification, target_state,
           host_eligible, total_paid_minor, guest_refund_minor, tax_refund_minor, retained_minor,
           retained_tax_minor, host_from_guest_minor, host_compensation_minor, host_earnings_minor,
-          platform_net_minor, host_penalty_minor, negative_leg, inputs_hash, param_snapshot_hash)
+          platform_net_minor, host_penalty_minor, negative_leg, inputs, inputs_hash,
+          param_snapshot_hash)
   VALUES (p_settlement_id, p_trip_id, p_segment_no, p_version, p_supersedes_id, v_org, v_country,
           v_currency, p_record ->> 'kind', p_record ->> 'engineVersion',
           p_record ->> 'requestedReason', p_record ->> 'reason', p_record ->> 'origin',
@@ -614,7 +646,7 @@ BEGIN
           (p_record ->> 'retainedTaxMinor')::bigint, (p_record ->> 'hostFromGuestMinor')::bigint,
           (p_record ->> 'hostCompensationMinor')::bigint, (p_record ->> 'hostEarningsMinor')::bigint,
           (p_record ->> 'platformNetMinor')::bigint, (p_record ->> 'hostPenaltyMinor')::bigint,
-          (p_record ->> 'negativeLeg')::boolean,
+          (p_record ->> 'negativeLeg')::boolean, p_record ->> 'inputs',
           pg_catalog.decode(p_record ->> 'inputsHash', 'hex'),
           pg_catalog.decode(p_record ->> 'paramSnapshotHash', 'hex'));
 

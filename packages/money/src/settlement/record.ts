@@ -86,7 +86,9 @@ export interface SettlementRecord {
   readonly lines: readonly SettlementLineRecord[];
   readonly taxGroups: readonly SettlementTaxRecord[];
   readonly legs: readonly SettlementLegRecord[];
-  /** SHA-256 hexadécimal (64 caractères) des entrées du moteur. */
+  /** Entrées canoniques du moteur (`canonicalJson`) : rejouables avant tout ordre (ADR-057). */
+  readonly inputs: string;
+  /** SHA-256 hexadécimal (64 caractères) de `SETTLEMENT_INPUTS_HASH_PREFIX` ‖ `inputs`. */
   readonly inputsHash: string;
   /** SHA-256 hexadécimal des paramètres figés. */
   readonly paramSnapshotHash: string;
@@ -113,6 +115,11 @@ export function canonicalJson(value: unknown): string {
       return value ? 'true' : 'false';
     case 'object': {
       if (Array.isArray(value)) return `[${value.map((v: unknown) => canonicalJson(v)).join(',')}]`;
+      // objet simple seulement : Date, Map, Set ou instance de classe donneraient « {} »
+      const proto: unknown = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) {
+        throw invalid('objet non simple dans les entrées (Date, Map, Set, instance)');
+      }
       const entries = Object.keys(value)
         .sort()
         .filter((k) => (value as Record<string, unknown>)[k] !== undefined)
@@ -126,7 +133,20 @@ export function canonicalJson(value: unknown): string {
 
 const sha256Hex = (text: string): string => createHash('sha256').update(text, 'utf8').digest('hex');
 
-/** 08 E4 : hachage des entrées (version du moteur, trip, événement, paramètres figés). */
+/** Préfixe de domaine du hachage des entrées (recopié par le `CHECK` de 0027). */
+export const SETTLEMENT_INPUTS_HASH_PREFIX = 'rueda.settlement.inputs/1\n';
+
+/** Entrées canoniques du moteur (version, trip, événement, paramètres figés), conservées en base. */
+export function settlementInputsCanonical(
+  engineVersion: string,
+  trip: SettlementTrip,
+  event: CancellationEvent,
+  params: SettlementParams,
+): string {
+  return canonicalJson({ engineVersion, trip, event, params });
+}
+
+/** 08 E4 : hachage des entrées = SHA-256(préfixe ‖ entrées canoniques). */
 export function settlementInputsHash(
   engineVersion: string,
   trip: SettlementTrip,
@@ -134,7 +154,7 @@ export function settlementInputsHash(
   params: SettlementParams,
 ): string {
   return sha256Hex(
-    `rueda.settlement.inputs/1\n${canonicalJson({ engineVersion, trip, event, params })}`,
+    SETTLEMENT_INPUTS_HASH_PREFIX + settlementInputsCanonical(engineVersion, trip, event, params),
   );
 }
 
@@ -154,8 +174,12 @@ export function signedLegs(record: SettlementRecord): Readonly<Record<Leg, bigin
   return Object.freeze(out);
 }
 
-function legRecords(
-  settlement: CancellationSettlement,
+/**
+ * Jambes d'une version : `kept` ≥ 0, avance sur `PLATFORM` seulement, variation depuis `basis`.
+ * Exportée pour les tests (cas inatteignable par le moteur : jambe non plateforme négative).
+ */
+export function settlementLegRecords(
+  settlement: Pick<CancellationSettlement, 'settledLegs'>,
   basis: Readonly<Record<Leg, bigint>>,
 ): SettlementLegRecord[] {
   return LEGS.map((leg) => {
@@ -202,16 +226,18 @@ export function buildSettlementRecord(
     basis = capture;
   } else {
     if (previous.currency !== s.currency) throw invalid('devise différente de la version n');
+    if (previous.engineVersion !== s.engineVersion) {
+      // ADR-057 : une version n+1 se calcule avec la même version du moteur que la version n
+      throw invalid('version du moteur différente de la version n');
+    }
     if (previous.totalPaidMinor !== trip.totalPaid.amountMinor) {
       throw invalid('total payé différent de la version n (nouvelle version de prix : hors bêta)');
     }
     basis = signedLegs(previous);
   }
-  const legs = legRecords(s, basis);
+  const legs = settlementLegRecords(s, basis);
+  // une avance n'existe que sur PLATFORM négative : drapeau negativeLeg (08 E7 règle 5)
   const negativeLeg = legs.some((l) => l.advanceMinor > 0n);
-  if (negativeLeg !== s.negativeLeg) {
-    throw new SettlementError('SETTLEMENT_UNBALANCED', 'drapeau negativeLeg incohérent');
-  }
   const lines = SETTLEMENT_LINES.map((line) =>
     Object.freeze({
       line,
@@ -254,6 +280,7 @@ export function buildSettlementRecord(
     lines: Object.freeze(lines),
     taxGroups: Object.freeze(taxGroups),
     legs: Object.freeze(legs),
+    inputs: settlementInputsCanonical(s.engineVersion, trip, event, params),
     inputsHash: settlementInputsHash(s.engineVersion, trip, event, params),
     paramSnapshotHash: settlementParamsHash(params),
   });
@@ -317,6 +344,7 @@ export function settlementRecordPayload(record: SettlementRecord): SettlementRec
     platformNetMinor: minor(record.platformNetMinor),
     hostPenaltyMinor: minor(record.hostPenaltyMinor),
     negativeLeg: record.negativeLeg,
+    inputs: record.inputs,
     inputsHash: record.inputsHash,
     paramSnapshotHash: record.paramSnapshotHash,
     lines: record.lines.map((l) => ({
@@ -393,8 +421,16 @@ export function settlementOperationKey(parts: OperationKeyParts): string {
   ].join(':');
 }
 
-/** Valeur transmise au PSP : la clé en clair si elle tient dans la limite, sinon son SHA-256 hexadécimal. */
+/** Longueur du condensé SHA-256 hexadécimal (08 E4 : « 64 caractères »). */
+const SHA256_HEX_LENGTH = 64;
+
+/**
+ * Valeur transmise au PSP : la clé en clair si elle tient dans la limite, sinon son SHA-256
+ * hexadécimal. Une limite inférieure à 64 est refusée : la valeur ne dépasse jamais la limite.
+ */
 export function pspIdempotencyValue(plain: string, maxLength: number): string {
-  positive(maxLength, 'maxLength');
+  if (positive(maxLength, 'maxLength') < SHA256_HEX_LENGTH) {
+    throw invalid('limite du PSP inférieure à 64 caractères : clé non transmissible');
+  }
   return plain.length <= maxLength ? plain : sha256Hex(plain);
 }

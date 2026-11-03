@@ -15,7 +15,9 @@ import {
 } from '../../src/golden-vectors/index.ts';
 import {
   LEGS,
+  SETTLEMENT_INPUTS_HASH_PREFIX,
   buildSettlementRecord,
+  canonicalJson,
   computeCancellationSettlement,
   isSettlementError,
   pspIdempotencyValue,
@@ -29,7 +31,9 @@ import {
   type Leg,
   type SettlementRecord,
 } from '../../src/index.ts';
-import { N, NP, NP_MAX, N_MAX, at, testParams, toEvent, toTrip } from './adapter.ts';
+import { createHash } from 'node:crypto';
+import { settlementLegRecords } from '../../src/settlement/record.ts';
+import { J3, N, NP, NP_MAX, N_MAX, at, testParams, toEvent, toTrip } from './adapter.ts';
 
 const set = loadGoldenVectors();
 
@@ -139,13 +143,57 @@ describe('US-018 — supersession : version n+1, delta et variation depuis la ve
     invariants(v2, v1);
   });
 
-  it('refus : version n+1 sur un autre total payé ou une autre devise', () => {
-    const v1 = recordOf('T03');
-    const t27 = settlementVector(set, 'T27');
-    const trip = toTrip(t27.trip);
-    expect(() =>
-      buildSettlementRecord(trip, toEvent(t27.event), testParams(trip.currency), v1),
-    ).toThrow(/SETTLEMENT_INPUT_INVALID/);
+  it('refus : version n+1 sur une autre devise, un autre total payé, une autre version du moteur', () => {
+    const v1 = recordOf('T08');
+    const t07 = settlementVector(set, 'T07');
+    const trip = toTrip(t07.trip);
+    const build = (previous: SettlementRecord) => () =>
+      buildSettlementRecord(trip, toEvent(t07.event), testParams(trip.currency), previous);
+    expect(build(v1)).not.toThrow();
+    // chaque contrôle seul (même trip, une seule différence à la fois)
+    expect(build({ ...v1, currency: 'PYG' })).toThrow(/devise/);
+    expect(build({ ...v1, totalPaidMinor: v1.totalPaidMinor + 1n })).toThrow(/total payé/);
+    expect(build({ ...v1, engineVersion: 'cxl-beta/0' })).toThrow(/version du moteur/);
+  });
+
+  it('v n+1 sur une v n à avance (N_MAX tardive puis FULL) : base PLATFORM négative, Σ variations = − écart', () => {
+    const params = testParams(N_MAX.currency);
+    const v1 = buildSettlementRecord(
+      N_MAX,
+      { reason: 'GUEST_CANCELLED', requestedAtMs: at(-600) },
+      params,
+    );
+    const v2 = buildSettlementRecord(
+      N_MAX,
+      toEvent(settlementVector(set, 'T08').event),
+      params,
+      v1,
+    );
+    const platform1 = v1.legs.find((l) => l.leg === 'PLATFORM');
+    const platform2 = v2.legs.find((l) => l.leg === 'PLATFORM');
+    expect(platform1?.advanceMinor).toBeGreaterThan(0n);
+    expect(platform2?.basisMinor).toBe(-(platform1?.advanceMinor ?? 0n));
+    expect(v2.negativeLeg).toBe(false);
+    invariants(v2, v1);
+  });
+});
+
+describe('US-018 — jambe TAX_THIRD_PARTY (taxe collectée pour un tiers, 08 E7)', () => {
+  it('J3 (PYG), GUEST_CANCELLED à T − 10 h : base = TJ11a, variation = TJ11b, groupe tiers marqué', () => {
+    const late: CancellationEvent = { reason: 'GUEST_CANCELLED', requestedAtMs: at(-600) };
+    const r = buildSettlementRecord(J3, late, testParams(J3.currency));
+    expect(legsOf(r, 'basisMinor')).toEqual(tj('TJ11a').legsMinor);
+    expect(legsOf(r, 'variationMinor')).toEqual(tj('TJ11b').legsMinor);
+    const third = r.taxGroups.filter((g) => g.thirdParty);
+    expect(third.map((g) => g.groupId)).toEqual(['tiers']);
+    // jambe TAX_THIRD_PARTY retenue = taxe retenue des groupes tiers (lien contrôlé aussi en base)
+    expect(r.legs.find((l) => l.leg === 'TAX_THIRD_PARTY')?.keptMinor).toBe(
+      third.reduce((a, g) => a + g.retainedTaxMinor, 0n),
+    );
+    expect(r.legs.find((l) => l.leg === 'TAX_THIRD_PARTY')?.keptMinor).toBe(
+      tj('TJ11a').legsMinor.TAX_THIRD_PARTY + tj('TJ11b').legsMinor.TAX_THIRD_PARTY,
+    );
+    invariants(r);
   });
 });
 
@@ -202,6 +250,25 @@ describe('US-018 — drapeau negativeLeg (08 E7 règles 3 bis et 5) : avance de 
   );
 });
 
+describe('US-018 — jambes : refus d’une jambe non plateforme négative (inatteignable par le moteur)', () => {
+  it('HOST retenue négative ⇒ LEG_AMOUNT_NEGATIVE ; PLATFORM négative ⇒ avance', () => {
+    const r = recordOf('T03');
+    const settled = Object.fromEntries(
+      r.legs.map((l) => [l.leg, { amountMinor: l.keptMinor }]),
+    ) as unknown as Parameters<typeof settlementLegRecords>[0]['settledLegs'];
+    const basis = signedLegs(r);
+    const withHost = { settledLegs: { ...settled, HOST: { amountMinor: -1n } } } as Parameters<
+      typeof settlementLegRecords
+    >[0];
+    expect(() => settlementLegRecords(withHost, basis)).toThrow(/LEG_AMOUNT_NEGATIVE/);
+    const withPlatform = {
+      settledLegs: { ...settled, PLATFORM: { amountMinor: -7n } },
+    } as Parameters<typeof settlementLegRecords>[0];
+    const platform = settlementLegRecords(withPlatform, basis).find((l) => l.leg === 'PLATFORM');
+    expect(platform).toMatchObject({ keptMinor: 0n, advanceMinor: 7n });
+  });
+});
+
 describe('US-018 — inputs_hash (08 E4) et charge utile', () => {
   const v = settlementVector(set, 'T03');
   const trip = toTrip(v.trip);
@@ -231,11 +298,35 @@ describe('US-018 — inputs_hash (08 E4) et charge utile', () => {
     expect(recordOf('T03').inputsHash).toBe(h);
   });
 
+  it('entrées canoniques conservées : SHA-256(préfixe ‖ inputs) = inputsHash, version du moteur incluse', () => {
+    const r = recordOf('T03');
+    expect(
+      createHash('sha256')
+        .update(SETTLEMENT_INPUTS_HASH_PREFIX + r.inputs, 'utf8')
+        .digest('hex'),
+    ).toBe(r.inputsHash);
+    expect((JSON.parse(r.inputs) as { engineVersion: string }).engineVersion).toBe(r.engineVersion);
+  });
+
+  it('canonicalJson refuse Date, Map, Set et instances (sinon « {} » et collision de hachage)', () => {
+    class Box {
+      readonly x = 1;
+    }
+    for (const bad of [new Date(0), new Map([[1, 2]]), new Set([1]), new Box()]) {
+      expect(() => canonicalJson({ a: bad })).toThrow(/SETTLEMENT_INPUT_INVALID/);
+    }
+    expect(canonicalJson({ b: 1n, a: [true, null, 'x'] })).toBe(
+      '{"a":[true,null,"x"],"b":{"$bigint":"1"}}',
+    );
+    expect(canonicalJson(Object.create(null) as object)).toBe('{}');
+  });
+
   it('charge utile : format 1, montants en chaînes d’entiers, 4 jambes, 10 lignes', () => {
     const p = settlementRecordPayload(recordOf('T03'));
     expect(p.format).toBe(1);
     expect(p.guestRefundMinor).toBe(v.expected.guestRefundMinor.toString());
     expect(p.legs).toHaveLength(4);
+    expect(p.inputs).toBe(recordOf('T03').inputs);
     expect(p.lines).toHaveLength(10);
     expect(JSON.parse(JSON.stringify(p))).toEqual(p);
   });
@@ -293,6 +384,15 @@ describe('US-018 — clés d’idempotence `…:v{version}:{opération}:{moyen}:
   it('valeur PSP : la clé en clair si elle tient, sinon son SHA-256 (64 caractères)', () => {
     const key = 'trp_8f3a:1:v2:REFUND:tnd_card_01:i1:a1';
     expect(pspIdempotencyValue(key, 64)).toBe(key);
-    expect(pspIdempotencyValue(key, 10)).toMatch(/^[0-9a-f]{64}$/);
+    const long = `${key}:${'x'.repeat(70 - key.length - 1)}`;
+    expect(long).toHaveLength(70);
+    expect(pspIdempotencyValue(long, 70)).toBe(long); // tient exactement
+    const hashed = pspIdempotencyValue(long, 69);
+    expect(hashed).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashed.length).toBeLessThanOrEqual(69);
+    expect(pspIdempotencyValue(long, 64)).toHaveLength(64);
+    // limite < 64 : la valeur dépasserait la limite ⇒ refus
+    expect(() => pspIdempotencyValue(key, 63)).toThrow(/SETTLEMENT_INPUT_INVALID/);
+    expect(() => pspIdempotencyValue(key, 10)).toThrow(/SETTLEMENT_INPUT_INVALID/);
   });
 });

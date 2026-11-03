@@ -10,12 +10,15 @@ export {
 export { computeCaptureLegs, computeLegs, legVariation } from './legs.ts';
 export {
   MONEY_OPERATION_TYPES,
+  SETTLEMENT_INPUTS_HASH_PREFIX,
   SETTLEMENT_RECORD_FORMAT,
   buildSettlementRecord,
   canonicalJson,
   pspIdempotencyValue,
   settlementDelta,
+  settlementInputsCanonical,
   settlementInputsHash,
+  settlementLegRecords,
   settlementOperationKey,
   settlementParamsHash,
   settlementRecordPayload,

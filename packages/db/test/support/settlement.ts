@@ -5,8 +5,9 @@
  * `settlement`). Les attendus des tests viennent de l'export (`@rueda/money/golden-vectors`),
  * jamais de ce fichier ni du code testé.
  *
- * L'adaptateur vecteur → entrées du moteur est celui des tests du moteur (US-017) : il ne contient
- * que des ENTRÉES recopiées de 08 (paramètres de test, parts assureur 7/10 et 1/2, trips N et NP).
+ * L'adaptateur vecteur → entrées du moteur est celui des tests du moteur (US-017), exposé par le
+ * sous-chemin réservé aux tests `@rueda/money/testing` : il ne contient que des ENTRÉES recopiées
+ * de 08 (paramètres de test, parts assureur 7/10 et 1/2, trips N, NP, J et J3).
  */
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
@@ -24,9 +25,9 @@ import {
   type GoldenLegVector,
 } from '@rueda/money/golden-vectors';
 import { setSessionContext } from '../../src/index.ts';
-import { testParams, toEvent, toTrip } from '../../../money/test/settlement/adapter.ts';
+import { testParams, toEvent, toTrip } from '@rueda/money/testing';
 
-export { N_MAX, NP_MAX, at } from '../../../money/test/settlement/adapter.ts';
+export { J3, N_MAX, NP_MAX, at } from '@rueda/money/testing';
 
 export const uuid = (): string => randomUUID();
 export const golden = loadGoldenVectors();

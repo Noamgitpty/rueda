@@ -120,6 +120,11 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_supersession_invalid: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_basis_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_negative_leg_flag: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_capture_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_segment_unsupported: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_segment_beta: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  settlement_inputs_hash_match: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  settlement_inputs_engine: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
 };
 
 const own = (value: object, key: string): unknown =>

@@ -223,3 +223,40 @@ export const NP_MAX = promoTrip(
   300_000n,
   100_000n - 55_000n + 15_000n,
 );
+
+/** J (PYG, 3 j, remboursable) : P 1 000 001, F 150 000, protection 400 001 ; taxe 10 % sur F et protection. */
+export const J: SettlementTrip = {
+  currency: PYG,
+  days: 3,
+  rateType: 'REFUNDABLE',
+  startAtMs: T0_MS,
+  bookedAtMs: at(-5 * 24 * 60),
+  lines: {
+    tripPrice: money(1_000_001n, PYG),
+    tripFee: money(150_000n, PYG),
+    protection: money(400_001n, PYG),
+  },
+  taxGroups: [
+    {
+      id: 'iva',
+      lines: ['tripFee', 'protection'],
+      taxPaid: money(55_000n, PYG),
+      thirdParty: false,
+    },
+  ],
+  totalPaid: money(1_605_002n, PYG),
+  hostSharePctFrozen: TEST_PLAN,
+  deliverySharePct: TEST_PLAN,
+  extrasSharePct: TEST_PLAN,
+  ...TEST_INSURER_SHARES,
+};
+
+/** J3 = J + taxe de 10 % sur P collectée pour le compte d'un tiers (100 000). */
+export const J3: SettlementTrip = {
+  ...J,
+  taxGroups: [
+    ...J.taxGroups,
+    { id: 'tiers', lines: ['tripPrice'], taxPaid: money(100_000n, PYG), thirdParty: true },
+  ],
+  totalPaid: money(1_705_002n, PYG),
+};
