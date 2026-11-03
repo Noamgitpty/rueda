@@ -8,8 +8,8 @@ export {
   type FakePspErrorKind,
   type FakeWebhookStatus,
 } from './fake-psp.ts';
+// FAKE_SIGNATURE_HEADER : exporté par le socle commun (`../core`), jamais deux fois (TS2308)
 export {
-  FAKE_SIGNATURE_HEADER,
   FAKE_SIGNATURE_SCHEME,
   fakeSignature,
   verifyFakeSignature,

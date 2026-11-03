@@ -25,7 +25,8 @@ import {
   SubjectKeyStore,
 } from '../../src/audit/index.ts';
 import type { SubjectRef } from '../../src/audit/index.ts';
-import { FakeKeyWrapper, InMemoryFileStore, withRole } from '../../src/testing/index.ts';
+import { InMemoryFileStore } from '@rueda/fake-adapters/files';
+import { FakeKeyWrapper, withRole } from '../../src/testing/index.ts';
 import { attempt, auditTx, setActor, uuid, VERIFIER, verifyChainIn } from '../support/audit.ts';
 import type { ActorContext } from '../support/audit.ts';
 

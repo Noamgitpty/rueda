@@ -135,7 +135,7 @@ export class CapabilitySet {
   }
 
   /** Lève `UNSUPPORTED_CAPABILITY` (sans appel au PSP) si la capacité n'est pas validée. */
-  require(name: CapabilityName, method = '*', network = '*'): void {
+  requireCapability(name: CapabilityName, method = '*', network = '*'): void {
     if (!this.has(name, method, network)) {
       throw new PaymentError('UNSUPPORTED_CAPABILITY', `${name} non validée (${method})`, {
         capability: name,

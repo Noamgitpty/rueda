@@ -15,7 +15,8 @@ import {
   verifyFileAsset,
 } from '../../src/audit/index.ts';
 import type { Bucket, Classification, SubjectRef } from '../../src/audit/index.ts';
-import { FakeKeyWrapper, InMemoryFileStore, withRole } from '../../src/testing/index.ts';
+import { InMemoryFileStore } from '@rueda/fake-adapters/files';
+import { FakeKeyWrapper, withRole } from '../../src/testing/index.ts';
 import { attempt, auditTx, uuid } from '../support/audit.ts';
 import type { ActorContext } from '../support/audit.ts';
 

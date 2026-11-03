@@ -2,11 +2,18 @@
   "name": "@rueda/fake-adapters",
   "version": "0.0.0",
   "private": true,
-  "description": "Adaptateurs FAKE (tests et développement seulement, jamais en production, C19) : PSP simulé déterministe, mode normal et hostile (US-019).",
+  "description": "Adaptateurs FAKE (tests et développement seulement, jamais en production, C19) : identité, facture électronique, messagerie, fichiers, antivirus, signature, tuiles de carte (US-020) ; PSP (US-019).",
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./identity": "./src/identity/index.ts",
+    "./e-invoicing": "./src/e-invoicing/index.ts",
+    "./messaging": "./src/messaging/index.ts",
+    "./files": "./src/files/index.ts",
+    "./signature": "./src/signature/index.ts",
+    "./maps": "./src/maps/index.ts",
     "./psp": "./src/psp/index.ts"
   },
   "scripts": {

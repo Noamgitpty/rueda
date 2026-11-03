@@ -77,9 +77,9 @@ describe('CapabilitySet', () => {
 
   it('require : UNSUPPORTED_CAPABILITY nommant la capacité', () => {
     const caps = new CapabilitySet([]);
-    expect(() => caps.require('SUPPORTS_MIT')).toThrow(PaymentError);
+    expect(() => caps.requireCapability('SUPPORTS_MIT')).toThrow(PaymentError);
     try {
-      caps.require('SUPPORTS_MIT');
+      caps.requireCapability('SUPPORTS_MIT');
     } catch (error) {
       expect(error).toMatchObject({
         code: 'UNSUPPORTED_CAPABILITY',

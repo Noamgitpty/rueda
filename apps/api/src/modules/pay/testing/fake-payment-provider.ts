@@ -123,8 +123,8 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async createHostedPayment(req: CreateHostedPaymentRequest): Promise<HostedPayment> {
     assertMovingLegs(req.amountMinor, req.legs);
-    this.#caps.require('SUPPORTS_PER_LEG_AMOUNTS');
-    if (req.capture === 'MANUAL') this.#caps.require('SUPPORTS_PREAUTH', req.method);
+    this.#caps.requireCapability('SUPPORTS_PER_LEG_AMOUNTS');
+    if (req.capture === 'MANUAL') this.#caps.requireCapability('SUPPORTS_PREAUTH', req.method);
     return this.#call(() => {
       const tx = this.#psp.createOrder({
         merchantReference: req.idempotencyKey,
@@ -146,7 +146,7 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 
   async cancelOrder(req: ReferenceRequest): Promise<OperationResult> {
-    this.#caps.require('SUPPORTS_ORDER_CANCEL');
+    this.#caps.requireCapability('SUPPORTS_ORDER_CANCEL');
     return this.#call(() => {
       try {
         return result(
@@ -167,7 +167,7 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async capture(req: CaptureRequest): Promise<OperationResult> {
     assertMovingLegs(req.amountMinor, req.legs);
-    this.#caps.require('SUPPORTS_PER_LEG_AMOUNTS');
+    this.#caps.requireCapability('SUPPORTS_PER_LEG_AMOUNTS');
     return this.#call(() =>
       result(
         this.#psp.capture({
@@ -182,7 +182,7 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 
   async void(req: ReferenceRequest): Promise<OperationResult> {
-    this.#caps.require('SUPPORTS_VOID');
+    this.#caps.requireCapability('SUPPORTS_VOID');
     return this.#call(() =>
       result(
         this.#psp.void({ merchantReference: req.idempotencyKey, reference: req.providerReference }),
@@ -192,8 +192,8 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async refund(req: RefundRequest): Promise<OperationResult> {
     assertMovingLegs(req.amountMinor, req.legs);
-    this.#caps.require('SUPPORTS_PER_LEG_AMOUNTS');
-    this.#caps.require('SUPPORTS_REFUND');
+    this.#caps.requireCapability('SUPPORTS_PER_LEG_AMOUNTS');
+    this.#caps.requireCapability('SUPPORTS_REFUND');
     return this.#call(() =>
       result(
         this.#psp.refund({
@@ -209,8 +209,8 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async reallocate(req: ReallocateRequest): Promise<OperationResult> {
     assertReallocationLegs(req.legs);
-    this.#caps.require('SUPPORTS_PER_LEG_AMOUNTS');
-    this.#caps.require('SUPPORTS_PAYOUT_ADJUSTMENT');
+    this.#caps.requireCapability('SUPPORTS_PER_LEG_AMOUNTS');
+    this.#caps.requireCapability('SUPPORTS_PAYOUT_ADJUSTMENT');
     return this.#call(() =>
       result(
         this.#psp.reallocate({
@@ -225,8 +225,8 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async rollback(req: RollbackRequest): Promise<OperationResult> {
     assertMovingLegs(req.amountMinor, req.legs);
-    this.#caps.require('SUPPORTS_PER_LEG_AMOUNTS');
-    this.#caps.require('ROLLBACK_WINDOW_HOURS');
+    this.#caps.requireCapability('SUPPORTS_PER_LEG_AMOUNTS');
+    this.#caps.requireCapability('ROLLBACK_WINDOW_HOURS');
     return this.#call(() =>
       result(
         this.#psp.rollback({
@@ -242,8 +242,8 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async chargeMIT(req: ChargeMitRequest): Promise<OperationResult> {
     assertMovingLegs(req.amountMinor, req.legs);
-    this.#caps.require('SUPPORTS_PER_LEG_AMOUNTS');
-    this.#caps.require('SUPPORTS_MIT');
+    this.#caps.requireCapability('SUPPORTS_PER_LEG_AMOUNTS');
+    this.#caps.requireCapability('SUPPORTS_MIT');
     return this.#call(() =>
       result(
         this.#psp.chargeMit({
@@ -259,7 +259,7 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 
   async reauthorize(req: ReferenceRequest): Promise<OperationResult> {
-    this.#caps.require('SUPPORTS_REAUTH');
+    this.#caps.requireCapability('SUPPORTS_REAUTH');
     return this.#call(() =>
       result(
         this.#psp.reauthorize({
@@ -272,7 +272,7 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async getOperation(lookup: OperationLookup): Promise<ProviderOperation | null> {
     if (lookup.merchantReference !== undefined)
-      this.#caps.require('SUPPORTS_LOOKUP_BY_MERCHANT_REF');
+      this.#caps.requireCapability('SUPPORTS_LOOKUP_BY_MERCHANT_REF');
     return this.#call(() => {
       const tx =
         lookup.merchantReference !== undefined

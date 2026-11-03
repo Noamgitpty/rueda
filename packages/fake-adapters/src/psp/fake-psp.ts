@@ -18,7 +18,8 @@
  * donnent les mêmes références. Refuse de se construire hors `development` / `test` (C19).
  */
 import { assertFakeAllowed } from '../guard.ts';
-import { fakeSignature, FAKE_SIGNATURE_HEADER } from './signature.ts';
+import { FAKE_SIGNATURE_HEADER } from '../core/webhook.ts';
+import { fakeSignature } from './signature.ts';
 import { FAKE_LEGS, FAKE_OPERATIONS } from './types.ts';
 import type {
   FakeCapability,

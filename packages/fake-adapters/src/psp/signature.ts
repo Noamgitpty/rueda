@@ -2,10 +2,15 @@
  * Schéma de signature des webhooks du PSP simulé (`WEBHOOK_SIGNATURE_SCHEME` = `FAKE_HMAC_SHA256`) :
  * en-tête `fake-signature: t=<secondes Unix>,v1=<hex HMAC-SHA256(secret, "<t>.<corps>")>`.
  * Comme un PSP réel, l'horodatage est signé avec le corps (17 §4.4 point 2).
+ *
+ * UN SEUL format de rappel signé pour tous les FAKE (choix de fusion US-019 / US-020) : le nom de
+ * l'en-tête vient du socle commun (`../core/webhook.ts`, exporté une seule fois par l'index du
+ * paquet). Deux aides restent distinctes par leur nom : `signFakeWebhook` / `checkFakeWebhook`
+ * (corps en chaîne, fenêtre de fraîcheur côté FAKE, US-020) et `fakeSignature` /
+ * `verifyFakeSignature` (corps BRUT en octets, la fraîcheur étant contrôlée à l'heure de la base
+ * par la réception PAY, US-019).
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-
-export const FAKE_SIGNATURE_HEADER = 'fake-signature';
 export const FAKE_SIGNATURE_SCHEME = 'FAKE_HMAC_SHA256';
 
 export function fakeSignature(

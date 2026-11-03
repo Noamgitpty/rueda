@@ -187,6 +187,9 @@ importers:
       '@rueda/config':
         specifier: workspace:*
         version: link:../config
+      '@rueda/fake-adapters':
+        specifier: workspace:*
+        version: link:../fake-adapters
       '@rueda/money':
         specifier: workspace:*
         version: link:../money
