@@ -14,3 +14,4 @@ export { provisionBench, TEST_DATABASE_PREFIX } from './bench.ts';
 export type { Bench, BenchInfo } from './bench.ts';
 export { parseAdminUrl, POSTGRES_IMAGE, readPasswordFile, resolveAdminSource } from './source.ts';
 export type { AdminSource, ConnectionTarget } from './source.ts';
+export { assertNotProduction, FakeKeyWrapper, InMemoryFileStore } from './fake-audit-adapters.ts';
