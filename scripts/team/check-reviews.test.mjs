@@ -345,3 +345,19 @@ test('dépôt réel : relecteur qui modifie du code, puis rapport du même modè
     r.done();
   }
 });
+
+test('chemin libre exact : docs/team/BOARD.md.bak n’est pas exempté (revue code 03e, constat 5)', () => {
+  const stale = [
+    { file: 'docs/team/BOARD.md' },
+    { file: 'docs/team/BOARD.md.bak' },
+    { file: 'docs/team/handoffs/US-001.md.bak' },
+  ];
+  const errors = run(
+    { 'code-2026-10-31.md': report() },
+    { isAncestor: () => true, staleFiles: () => stale, exempt: ['docs/team/BOARD.md'] },
+  );
+  assert.deepEqual(errors, [
+    'revue code périmée : docs/team/BOARD.md.bak modifié après abc1234',
+    'revue code périmée : docs/team/handoffs/US-001.md.bak modifié après abc1234',
+  ]);
+});

@@ -107,8 +107,11 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
           BASE_REF: ${{ github.base_ref }}
         # Scripts du contrôle pris sur la BASE (git show origin/<base>:…), copiés hors du dépôt :
-        # une PR ne peut pas modifier son propre contrôle (US-050). Le dépôt contrôlé reste la
-        # pointe de la PR (--root). Un script absent de la base fait échouer l'étape.
+        # une PR ne peut pas modifier ces scripts pour elle-même (US-050). Le dépôt contrôlé reste
+        # la pointe de la PR (--root). Un script absent de la base fait échouer l'étape.
+        # LIMITE : ce ci.yml est lu depuis la PR. Une PR qui touche .github/ peut retirer ce job,
+        # l'affaiblir ou changer ces lignes. Une PR qui touche .github/, scripts/ci/, scripts/team/
+        # ou docs/team/review-requirements.json est donc exclue de la fusion autonome (docs/ops/CI.md).
         run: |
           set -euo pipefail
           ctl="$RUNNER_TEMP/revues-base"
