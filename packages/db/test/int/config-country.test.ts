@@ -114,8 +114,20 @@ describe('configuration pays : structure et droits', () => {
              FROM unnest($1::text[]) AS t ORDER BY 1`,
             [TABLES],
           );
-          for (const row of rows)
-            expect(row).toMatchObject({ sel: true, ins: false, upd: false, del: false });
+          for (const row of rows) {
+            // US-012 (report US-011) : config_param_value se lit par colonnes, sans approved_by
+            const sel = row.t !== 'config_param_value';
+            expect(row, row.t).toMatchObject({ sel, ins: false, upd: false, del: false });
+          }
+          const { rows: cols } = await client.query<{ col: string }>(
+            `SELECT a.attname::text AS col
+               FROM pg_catalog.pg_attribute a
+              WHERE a.attrelid = 'core.config_param_value'::regclass AND a.attnum > 0
+                AND NOT a.attisdropped
+                AND NOT pg_catalog.has_column_privilege('app_api', a.attrelid, a.attnum, 'SELECT')`,
+          );
+          // identifiant du personnel : jamais lisible par app_api
+          expect(cols.map((c) => c.col)).toEqual(['approved_by']);
         },
         { database },
       );

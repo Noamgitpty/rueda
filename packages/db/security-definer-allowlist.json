@@ -108,6 +108,62 @@
       "story": "US-010"
     },
     {
+      "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
+      "signature": "core.iam_staff_cmd_begin(bytea)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
+      "signature": "core.iam_staff_cmd_elevate(bytea,uuid,bigint,bytea)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
+      "signature": "core.iam_staff_cmd_enroll_reveal(bytea,bytea)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
+      "signature": "core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
+      "signature": "core.iam_staff_cmd_mfa_failed(bytea)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
+      "signature": "core.iam_staff_cmd_reset_totp(bytea,uuid,uuid,text,uuid,text,bytea,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
+      "signature": "core.iam_staff_cmd_suspend(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-012"
+    },
+    {
       "signature": "core.payment_assert_operation_legs()",
       "family": "integrity_trigger",
       "owner": "integrity_owner",

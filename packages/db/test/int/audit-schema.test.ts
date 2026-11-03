@@ -142,6 +142,12 @@ describe('schéma d’audit (US-009)', () => {
       expect(rows.length).toBeGreaterThan(0);
       for (const r of rows) {
         const where = `${r.relname}.${r.polname}`;
+        if (r.roles === 'iam_staff_owner') {
+          // US-012 (0031) : écriture au journal par les commandes de la console et relecture sans
+          // C2 (core.iam_staff_audit_read) ; aucune UPDATE / DELETE
+          expect(['r', 'a'], where).toContain(r.cmd);
+          continue;
+        }
         if (r.roles === 'audit_chain_owner') {
           // US-011 (0026) : lecture et verrou des clés, avance de la tête ; aucun INSERT / DELETE
           expect(['r', 'w'], where).toContain(r.cmd);

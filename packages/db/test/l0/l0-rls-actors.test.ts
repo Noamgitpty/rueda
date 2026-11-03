@@ -22,7 +22,15 @@ import {
   withTestTransaction,
 } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
-import { asActor, buildWorld, ids, sorted, uuid, withRawContext } from '../support/rls.ts';
+import {
+  asActor,
+  buildWorld,
+  ids,
+  sorted,
+  staffSessionHash,
+  uuid,
+  withRawContext,
+} from '../support/rls.ts';
 import type { CountryWorld, World } from '../support/rls.ts';
 
 let world: World;
@@ -683,34 +691,64 @@ describe('RLS-5, RLS-12, RLS-18', () => {
     });
   });
 
-  it('RLS-18 — LIMITE documentée : du SQL arbitraire sous app_api peut poser le contexte d’un ADMIN connu', async () => {
-    // Ce test ne prétend pas fermer la limite (17 §2.3 B8) : il montre ce qu'elle permet et ce
-    // que la relecture en base réduit. Parades : requêtes paramétrées, contexte posé par une seule
-    // fonction (setSessionContext), jeton signé ou rôle app_staff au lot 4 (ADR-053).
+  it('RLS-18 — LIMITE réduite (US-012) : l’identité d’un ADMIN connu ne suffit plus, il faut la preuve de possession d’une session élevée', async () => {
+    // Ce test ne prétend pas fermer la limite (17 §2.3 B8) : il montre ce que la relecture en base
+    // réduit. Depuis US-012 (ADR-062), app.has_staff_role exige que app.session_token_hash désigne
+    // une session VIVANTE, ÉLEVÉE par TOTP, de l'acteur ; app_api ne lit pas iam_session et
+    // l'élévation exige une preuve HMAC dont la clé n'est lisible par aucun rôle applicatif
+    // (l0-iam-staff-mfa). Reste : qui détient le jeton d'une session élevée (ou son empreinte) agit
+    // comme son titulaire, jusqu'à son expiration (8 h) ou sa révocation.
+    const all = `{${allCountries().join(',')}}`;
     await api(async (client) => {
       await withRawContext(
         client,
-        {
-          'app.actor_kind': 'STAFF',
-          'app.actor_id': uuid(),
-          'app.country_scope': `{${allCountries().join(',')}}`,
-        },
+        { 'app.actor_kind': 'STAFF', 'app.actor_id': uuid(), 'app.country_scope': all },
         async (tx) => {
           expect(await ids(tx, 'booking_trip')).toEqual([]); // identité inventée : rien
         },
       );
+      // identité d'un ADMIN réel, sans empreinte ou avec une empreinte inventée : rien
+      for (const hash of ['', 'ab'.repeat(32)]) {
+        await withRawContext(
+          client,
+          {
+            'app.actor_kind': 'STAFF',
+            'app.actor_id': world.staff.adminAll,
+            'app.country_scope': all,
+            'app.session_token_hash': hash,
+          },
+          async (tx) => {
+            expect(await ids(tx, 'booking_trip'), hash).toEqual([]);
+          },
+        );
+      }
+      // l'empreinte d'une session élevée d'UN AUTRE membre du staff ne vaut pas pour l'ADMIN
       await withRawContext(
         client,
         {
           'app.actor_kind': 'STAFF',
           'app.actor_id': world.staff.adminAll,
-          'app.country_scope': `{${allCountries().join(',')}}`,
+          'app.country_scope': all,
+          'app.session_token_hash': staffSessionHash(world.staff.financeFirst) ?? '',
+        },
+        async (tx) => {
+          expect(await ids(tx, 'booking_trip')).toEqual([]);
+        },
+      );
+      // avec la preuve de possession de SA session élevée : les lectures de l'ADMIN
+      await withRawContext(
+        client,
+        {
+          'app.actor_kind': 'STAFF',
+          'app.actor_id': world.staff.adminAll,
+          'app.country_scope': all,
+          'app.session_token_hash': staffSessionHash(world.staff.adminAll) ?? '',
         },
         async (tx) => {
           const r = await tx.query('SELECT 1 FROM core.booking_trip WHERE id = $1', [
             w(0).trips.a1.id,
           ]);
-          expect(r.rowCount).toBe(1); // identité d'un ADMIN réel : la RLS ne l'empêche pas
+          expect(r.rowCount).toBe(1);
         },
       );
     });

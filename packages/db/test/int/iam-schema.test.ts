@@ -19,6 +19,7 @@ const IAM_TABLES = [
   'iam_auth_factor',
   'iam_email_verification',
   'iam_membership',
+  'iam_mfa_proof_key',
   'iam_organization',
   'iam_otp_challenge',
   'iam_restriction',
@@ -28,35 +29,47 @@ const IAM_TABLES = [
   'iam_user_account',
 ] as const;
 
-// Politiques attendues par table (US-010 : migrator_all ; US-011 : 0022, 0024, 0025).
+// Politiques attendues par table (US-010 : migrator_all ; US-011 : 0022, 0024, 0025 ; US-012 :
+// 0031, iam_staff_owner et lecture des sessions par policy_fn_owner).
 const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
-  iam_auth_factor: 'migrator_all:migrator',
+  iam_auth_factor:
+    'iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator',
   iam_email_verification:
     'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
   iam_membership:
     'membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_organization:
     'migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
+  iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_otp_challenge: 'migrator_all:migrator',
   iam_restriction: 'migrator_all:migrator',
-  iam_role_permission: 'migrator_all:migrator',
+  iam_role_permission: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_session:
-    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
+    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_staff_role_assignment:
-    'iam_auth_select:iam_auth_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_user_account:
-    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;user_account_self_read:app_api',
+    'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;user_account_self_read:app_api',
 };
 
-const IAM_COMMANDS = [
-  'core.iam_auth_lookup(text)',
-  'core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)',
-  'core.iam_cmd_register(uuid,text,text,text,text,text,uuid,bytea,integer,inet)',
-  'core.iam_cmd_revoke_all_sessions(bytea)',
-  'core.iam_cmd_revoke_session(bytea,text)',
-  'core.iam_cmd_verify_email(bytea)',
-  'core.iam_session_resolve(bytea)',
-] as const;
+// Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).
+const IAM_COMMANDS: Record<string, string> = {
+  'core.iam_auth_lookup(text)': 'iam_auth_owner',
+  'core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)': 'iam_auth_owner',
+  'core.iam_cmd_register(uuid,text,text,text,text,text,uuid,bytea,integer,inet)': 'iam_auth_owner',
+  'core.iam_cmd_revoke_all_sessions(bytea)': 'iam_auth_owner',
+  'core.iam_cmd_revoke_session(bytea,text)': 'iam_auth_owner',
+  'core.iam_cmd_verify_email(bytea)': 'iam_auth_owner',
+  'core.iam_session_resolve(bytea)': 'iam_auth_owner',
+  'core.iam_staff_audit_read(bytea,bigint,integer)': 'iam_staff_owner',
+  'core.iam_staff_cmd_begin(bytea)': 'iam_staff_owner',
+  'core.iam_staff_cmd_elevate(bytea,uuid,bigint,bytea)': 'iam_staff_owner',
+  'core.iam_staff_cmd_enroll_reveal(bytea,bytea)': 'iam_staff_owner',
+  'core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb)': 'iam_staff_owner',
+  'core.iam_staff_cmd_mfa_failed(bytea)': 'iam_staff_owner',
+  'core.iam_staff_cmd_reset_totp(bytea,uuid,uuid,text,uuid,text,bytea,integer)': 'iam_staff_owner',
+  'core.iam_staff_cmd_suspend(bytea,uuid,uuid,text)': 'iam_staff_owner',
+};
 
 describe('schéma IAM (US-010)', () => {
   it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
@@ -184,7 +197,7 @@ describe('schéma IAM (US-010)', () => {
     }
   });
 
-  it('commandes IAM : SECURITY DEFINER, propriétaire iam_auth_owner, search_path figé, EXECUTE au seul app_api', async () => {
+  it('commandes IAM : SECURITY DEFINER, propriétaire de leur famille (iam_auth, iam_staff), search_path figé, EXECUTE au seul app_api', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{
         fn: string;
@@ -207,11 +220,11 @@ describe('schéma IAM (US-010)', () => {
           WHERE n.nspname = 'core' AND p.proname ~ '^iam_' AND p.prosecdef
           ORDER BY 1`,
       );
-      expect(rows.map((r) => r.fn)).toEqual([...IAM_COMMANDS].sort());
+      expect(rows.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
       for (const r of rows) {
         expect(r, r.fn).toMatchObject({
           secdef: true,
-          owner: 'iam_auth_owner',
+          owner: IAM_COMMANDS[r.fn],
           api: true,
           worker: false,
           anon: false,

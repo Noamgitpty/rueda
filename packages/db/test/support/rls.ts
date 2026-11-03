@@ -16,8 +16,14 @@
  * Staff : OPS du premier pays, SUPPORT des deux pays sans dossier, FINANCE du premier pays, ADMIN
  * des deux pays, ADMIN expiré, ADMIN au compte suspendu (RESTRICTED). Dossiers : (1) a1 du premier pays assigné à l'OPS ; (2) a1 du second
  * pays assigné au MÊME OPS (RLS-20) ; (3) a2 du premier pays, CLOS, assigné à l'OPS.
+ *
+ * US-012 (RLS-18 réduite, ADR-062) : un contexte STAFF n'a d'effet qu'avec l'empreinte du jeton
+ * d'une session VIVANTE et ÉLEVÉE par TOTP de l'acteur. Chaque membre du staff du monde reçoit
+ * donc une telle session (fixture 9600, qui remplace ici le parcours MFA prouvé par
+ * l0-iam-staff-mfa) ; `asActor` complète un contexte STAFF sans `sessionTokenHash` par celle de
+ * l'acteur, s'il en a une (sinon le contexte reste sans preuve : aucun pouvoir de staff).
  */
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { setSessionContext } from '../../src/index.ts';
 import type { SessionContext } from '../../src/index.ts';
@@ -88,6 +94,14 @@ async function account(tx: pg.ClientBase): Promise<string> {
   return id;
 }
 
+/** Empreinte (hex) de la session élevée de chaque membre du staff créé par `buildWorld`. */
+const STAFF_SESSIONS = new Map<string, string>();
+
+/** Empreinte de la session élevée d'un membre du staff du monde (preuve de possession). */
+export function staffSessionHash(actorId: string): string | undefined {
+  return STAFF_SESSIONS.get(actorId);
+}
+
 async function staff(
   tx: pg.ClientBase,
   role: string,
@@ -105,6 +119,9 @@ async function staff(
     scope,
     expiresAt,
   ]);
+  const hash = createHash('sha256').update(randomBytes(32)).digest();
+  await tx.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [id, hash]);
+  STAFF_SESSIONS.set(id, hash.toString('hex'));
   return id;
 }
 
@@ -242,14 +259,35 @@ export async function buildWorld(
   });
 }
 
+/** Contexte de test : un contexte STAFF peut omettre l'empreinte (celle du monde est prise). */
+export type TestContext =
+  | SessionContext
+  | {
+      readonly kind: 'STAFF';
+      readonly actorId: string;
+      readonly countryScope: readonly string[];
+      readonly sessionTokenHash?: string;
+    };
+
+/** Une empreinte qui ne désigne aucune session : le contexte STAFF reste sans preuve. */
+const NO_SESSION = '0'.repeat(64);
+
 /** Transaction annulée sous un contexte posé par la couche d'accès (setSessionContext). */
 export async function asActor<T>(
   client: pg.ClientBase,
-  ctx: SessionContext,
+  ctx: TestContext,
   fn: (tx: pg.ClientBase) => Promise<T>,
 ): Promise<T> {
+  const full: SessionContext =
+    ctx.kind === 'STAFF'
+      ? {
+          ...ctx,
+          sessionTokenHash:
+            ctx.sessionTokenHash ?? STAFF_SESSIONS.get(ctx.actorId.toLowerCase()) ?? NO_SESSION,
+        }
+      : ctx;
   return withTestTransaction(client, {}, async (tx) => {
-    await setSessionContext(tx, ctx);
+    await setSessionContext(tx, full);
     return fn(tx);
   });
 }

@@ -13,9 +13,10 @@ import {
 
 const A = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 const B = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c';
+const H = 'ab'.repeat(32);
 
 describe('sessionSettings', () => {
-  it('voyageur : actor_kind et actor_id seulement ; les quatre autres vides', () => {
+  it('voyageur : actor_kind et actor_id seulement ; les cinq autres vides', () => {
     expect(sessionSettings({ kind: 'GUEST', actorId: A })).toEqual({
       'app.actor_kind': 'GUEST',
       'app.actor_id': A,
@@ -23,6 +24,7 @@ describe('sessionSettings', () => {
       'app.vehicle_scope': '',
       'app.country_scope': '',
       'app.worker_name': '',
+      'app.session_token_hash': '',
     });
   });
 
@@ -45,17 +47,46 @@ describe('sessionSettings', () => {
   });
 
   it('staff : portée pays au format ISO, dédoublonnée, jamais vide', () => {
-    const s = sessionSettings({ kind: 'STAFF', actorId: A, countryScope: ['AA', 'BB', 'AA'] });
+    const s = sessionSettings({
+      kind: 'STAFF',
+      actorId: A,
+      countryScope: ['AA', 'BB', 'AA'],
+      sessionTokenHash: H,
+    });
     expect(s['app.country_scope']).toBe('{AA,BB}');
-    expect(() => sessionSettings({ kind: 'STAFF', actorId: A, countryScope: [] })).toThrow(
-      SessionContextError,
-    );
+    expect(s['app.session_token_hash']).toBe(H);
+    expect(() =>
+      sessionSettings({ kind: 'STAFF', actorId: A, countryScope: [], sessionTokenHash: H }),
+    ).toThrow(SessionContextError);
     for (const bad of ['aa', 'AAA', 'A', 'A,B', '{AA}', "AA'"]) {
       expect(
-        () => sessionSettings({ kind: 'STAFF', actorId: A, countryScope: [bad] }),
+        () =>
+          sessionSettings({ kind: 'STAFF', actorId: A, countryScope: [bad], sessionTokenHash: H }),
         bad,
       ).toThrow(SessionContextError);
     }
+  });
+
+  it('staff (US-012) : empreinte du jeton exigée, 64 caractères hexadécimaux minuscules', () => {
+    for (const bad of ['', 'AB'.repeat(32), 'ab'.repeat(31), `${'ab'.repeat(32)}0`, "x' OR 1=1"]) {
+      expect(
+        () =>
+          sessionSettings({
+            kind: 'STAFF',
+            actorId: A,
+            countryScope: ['AA'],
+            sessionTokenHash: bad,
+          }),
+        bad,
+      ).toThrow(SessionContextError);
+    }
+    expect(() =>
+      sessionSettings({ kind: 'STAFF', actorId: A, countryScope: ['AA'] } as unknown as Parameters<
+        typeof sessionSettings
+      >[0]),
+    ).toThrow(SessionContextError);
+    // jamais posée pour un autre type d'acteur
+    expect(sessionSettings({ kind: 'GUEST', actorId: A })['app.session_token_hash']).toBe('');
   });
 
   it('travailleur : nom snake_case ; aucun identifiant de personne', () => {
@@ -93,7 +124,7 @@ describe('sessionSettings', () => {
 });
 
 describe('setSessionContext', () => {
-  it('une seule instruction, six set_config locaux à paramètres liés, aucune valeur dans le SQL', async () => {
+  it('une seule instruction, sept set_config locaux à paramètres liés, aucune valeur dans le SQL', async () => {
     const calls: { text: string; values?: unknown[] }[] = [];
     await setSessionContext(
       {
@@ -106,7 +137,7 @@ describe('setSessionContext', () => {
     );
     expect(calls).toHaveLength(1);
     expect(calls[0]?.text).toBe(SET_SESSION_CONTEXT_SQL);
-    expect(SET_SESSION_CONTEXT_SQL.match(/set_config\(\$\d+, \$\d+, true\)/g)).toHaveLength(6);
+    expect(SET_SESSION_CONTEXT_SQL.match(/set_config\(\$\d+, \$\d+, true\)/g)).toHaveLength(7);
     expect(SET_SESSION_CONTEXT_SQL).not.toContain(A);
     expect(calls[0]?.values).toEqual(
       SESSION_SETTINGS.flatMap((n) => [

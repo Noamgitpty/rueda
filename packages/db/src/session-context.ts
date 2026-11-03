@@ -13,6 +13,10 @@
  *   la RLS protège contre un filtre oublié, pas contre une injection. Les politiques relisent donc
  *   en base ce qui peut l'être (appartenance de l'hôte, rôle et portée pays du staff) : le contexte
  *   ne peut que RÉDUIRE une portée, jamais l'élargir.
+ * - STAFF (US-012, ADR-062) : `sessionTokenHash` (SHA-256 hexadécimal du jeton de la session) est
+ *   la preuve de possession exigée par `app.has_staff_role` : sans session vivante ÉLEVÉE par TOTP
+ *   de cet acteur, le contexte STAFF ne donne rien (RLS-18 réduite). C'est une donnée [C4] : jamais
+ *   journalisée, posée par paramètre lié comme les autres.
  */
 
 /** Types d'acteur de 17 §2.3 (`HOST` couvre le titulaire et ses co-hôtes). */
@@ -34,10 +38,12 @@ export type SessionContext =
       readonly actorId: string;
       /** Portée pays posée (doit être couverte par staff_role_assignment pour avoir un effet). */
       readonly countryScope: readonly string[];
+      /** SHA-256 (64 caractères hexadécimaux) du jeton de la session de staff élevée par TOTP. */
+      readonly sessionTokenHash: string;
     }
   | { readonly kind: 'WORKER'; readonly workerName: string };
 
-/** Les six paramètres de 17 §2.3, dans l'ordre où ils sont posés. */
+/** Les six paramètres de 17 §2.3, plus l'empreinte du jeton de staff (US-012), dans l'ordre. */
 export const SESSION_SETTINGS = [
   'app.actor_kind',
   'app.actor_id',
@@ -45,6 +51,7 @@ export const SESSION_SETTINGS = [
   'app.vehicle_scope',
   'app.country_scope',
   'app.worker_name',
+  'app.session_token_hash',
 ] as const;
 export type SessionSetting = (typeof SESSION_SETTINGS)[number];
 
@@ -56,6 +63,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // Format seulement : la liste des pays fait foi dans config (aucune constante pays ici).
 const COUNTRY = /^[A-Z]{2}$/;
 const WORKER_NAME = /^[a-z][a-z0-9_]{0,62}$/;
+const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 function uuidOf(value: string, field: string): string {
   const v = typeof value === 'string' ? value.toLowerCase() : '';
@@ -81,7 +89,7 @@ function countryArray(values: readonly string[]): string {
 }
 
 /**
- * Valeurs des six paramètres pour un contexte (pur, testé sans base). Lève
+ * Valeurs des sept paramètres pour un contexte (pur, testé sans base). Lève
  * `SessionContextError` pour toute valeur mal formée.
  */
 export function sessionSettings(ctx: SessionContext): Record<SessionSetting, string> {
@@ -92,6 +100,7 @@ export function sessionSettings(ctx: SessionContext): Record<SessionSetting, str
     'app.vehicle_scope': '',
     'app.country_scope': '',
     'app.worker_name': '',
+    'app.session_token_hash': '',
   };
   switch (ctx.kind) {
     case 'GUEST':
@@ -107,6 +116,10 @@ export function sessionSettings(ctx: SessionContext): Record<SessionSetting, str
     case 'STAFF':
       out['app.actor_id'] = uuidOf(ctx.actorId, 'actorId');
       out['app.country_scope'] = countryArray(ctx.countryScope);
+      if (typeof ctx.sessionTokenHash !== 'string' || !SHA256_HEX.test(ctx.sessionTokenHash)) {
+        throw new SessionContextError('sessionTokenHash : SHA-256 hexadécimal attendu');
+      }
+      out['app.session_token_hash'] = ctx.sessionTokenHash;
       break;
     case 'WORKER':
       if (typeof ctx.workerName !== 'string' || !WORKER_NAME.test(ctx.workerName)) {
@@ -126,7 +139,7 @@ export interface Queryable {
   query(text: string, values?: unknown[]): Promise<unknown>;
 }
 
-/** Une seule instruction, six `set_config(…, true)` à paramètres liés. */
+/** Une seule instruction, sept `set_config(…, true)` à paramètres liés. */
 export const SET_SESSION_CONTEXT_SQL =
   'SELECT ' +
   SESSION_SETTINGS.map((_, i) => `pg_catalog.set_config($${2 * i + 1}, $${2 * i + 2}, true)`).join(
