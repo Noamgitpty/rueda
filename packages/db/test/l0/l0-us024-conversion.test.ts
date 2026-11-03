@@ -172,9 +172,16 @@ async function guestCall<T>(
   args: { value: unknown; type: string }[],
   when: string,
   commit = true,
+  deploymentEnv?: string,
 ): Promise<T | Failure> {
   try {
     return await inTx(api, { virtualNow: when, commit }, async (tx) => {
+      if (deploymentEnv !== undefined) {
+        // environnement de la base simulé (9500 : platform.deployment_env() lit ce paramètre)
+        await tx.query(`SELECT pg_catalog.set_config('app.test_deployment_env', $1, true)`, [
+          deploymentEnv,
+        ]);
+      }
       const { text, values } = commandCallSql(ctx, fn, args);
       const r = await tx.query<{ result: T }>(text, values);
       return r.rows[0]?.result as T;
@@ -190,6 +197,7 @@ const startPayment = (
   account: string,
   when: string,
   method = 'CARD',
+  deploymentEnv?: string,
 ): Promise<Json | Failure> =>
   guestCall<Json>(
     guest(g),
@@ -200,6 +208,8 @@ const startPayment = (
       { value: method, type: 'text' },
     ],
     when,
+    true,
+    deploymentEnv,
   );
 
 const recordOrder = (
@@ -717,6 +727,27 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
         const r = await startPayment(g, holdId, account, at(T0, 1));
         expect(isFailure(r) && r.code).toBe('PSP_ACCOUNT_INACTIVE');
       }
+      // environnement de la base : un compte de bac à sable n'est accepté qu'en test, développement ou
+      // préproduction ; en production (ou environnement inconnu), seul un compte LIVE convient
+      const sandbox = await inTx(api, { commit: true }, async (tx) => {
+        const r = await tx.query<{ id: string }>(
+          `SELECT test_fixture.us024_psp_account_of('DLOCAL', $1, 'SANDBOX') AS id`,
+          [c.country],
+        );
+        return r.rows[0]?.id as string;
+      });
+      for (const env of ['production', 'unknown-env']) {
+        const r = await startPayment(g, holdId, sandbox, at(T0, 1), 'CARD', env);
+        expect(isFailure(r) && r.raw, env).toEqual({
+          code: '23000',
+          constraint: 'payment_operation_account_active',
+        });
+      }
+      const fakeInProd = await startPayment(g, holdId, w.account, at(T0, 1), 'CARD', 'production');
+      expect(isFailure(fakeInProd) && fakeInProd.code).toBe('FAKE_FORBIDDEN_IN_PRODUCTION');
+      // préproduction : le compte passe ; capacités bloquantes de ce fournisseur absentes ⇒ refus
+      const staging = await startPayment(g, holdId, sandbox, at(T0, 1), 'CARD', 'staging');
+      expect(isFailure(staging) && staging.code).toBe('HOST_PAYOUT_RAIL_UNAVAILABLE');
       // moyen inconnu
       const cash = await startPayment(g, holdId, w.account, at(T0, 1), 'CASH');
       expect(isFailure(cash) && cash.code).toBe('PAYMENT_METHOD_UNAVAILABLE');
@@ -1221,6 +1252,13 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
         outcome: 'COMPENSATED',
         reason: 'LATE_PAYMENT_AFTER_COMPENSATION',
       });
+      // autorisation seule sans SUPPORTS_VOID validé : on la laisse expirer (17 §2.5 étape 5, repli)
+      const auth = await extraOperation(holdA, 'AUTH', 3, 'SUCCEEDED', at(T0, 25));
+      expect(await convert(auth, at(T0, 25))).toMatchObject({
+        outcome: 'COMPENSATED',
+        reason: 'LATE_PAYMENT_AFTER_COMPENSATION',
+        action: 'LET_EXPIRE',
+      });
       expect((await holdState(holdA)).status).toBe('COMPENSATED');
       expect(await tripsOfGuest(a)).toEqual([]);
       expect(
@@ -1228,6 +1266,7 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
       ).toEqual([
         [opA, 'COMPENSATION', 'SLOT_LOST_AFTER_EXPIRY'],
         [other, 'COMPENSATION', 'LATE_PAYMENT_AFTER_COMPENSATION'],
+        [auth, 'COMPENSATION', 'LATE_PAYMENT_AFTER_COMPENSATION'],
       ]);
       expect(await activeOn(slot.vehicleId)).toEqual([]);
     },
@@ -1625,6 +1664,58 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
         { idem_plain: `hold:${h3}:CANCEL:${op3}:a1`, status: 'PENDING', operation_id: op3 },
       ]);
       expect((await operations(h3))[0]?.status).toBe('SUBMITTED');
+    },
+    LONG,
+  );
+
+  it(
+    'PAY-017 : trois refus reçus ⇒ le 3e libère le hold (PAYMENT_DECLINED) ; une 4e tentative ⇒ PAYMENT_ATTEMPTS_EXCEEDED',
+    async () => {
+      const T0 = era(18);
+      const w = await world(c, 2, 1);
+      const g = w.guests[0] as string;
+      const slot = slotLater(w.vehicles[0] as string, w.orgId, T0);
+      const holdId = await pose(g, slot, T0);
+      await setTerms(holdId, c, slot);
+      // payment_attempts_per_hold = 3 (PAY-017, 17 §7.2)
+      for (let n = 1; n <= 3; n += 1) {
+        const t1 = await startPayment(g, holdId, w.account, at(T0, n));
+        expect(t1).toMatchObject({ outcome: 'NEW_ORDER', attemptNo: n });
+        const op = (t1 as Json).operationId as string;
+        expect(await applyStatus(op, 'FAILED', atSec(at(T0, n), 20), 'API_RESPONSE')).toBe(
+          'APPLIED',
+        );
+        const r = await paymentFailure(op, atSec(at(T0, n), 20));
+        if (n < 3) {
+          expect(r).toMatchObject({ outcome: 'RETRY_ALLOWED', paymentAttempts: n });
+          expect((await holdState(holdId)).status).toBe('ACTIVE');
+        } else {
+          expect(r).toMatchObject({ outcome: 'RELEASED', paymentAttempts: 3 });
+        }
+      }
+      expect(await holdState(holdId)).toMatchObject({
+        status: 'RELEASED',
+        release_reason: 'PAYMENT_DECLINED',
+        payment_attempts: 3,
+        occ_active: false,
+        deactivated_reason: 'HOLD_RELEASED',
+      });
+      expect(await events(holdId)).toContain('booking.hold.released');
+      expect(await activeOn(slot.vehicleId)).toEqual([]);
+      // hold encore ACTIF dont les trois tentatives sont épuisées (garde défensive de T1)
+      const s2 = slotLater(w.vehicles[1] as string, w.orgId, T0);
+      const other = await pose(g, s2, at(T0, 5));
+      await setTerms(other, c, s2);
+      await inTx(api, { commit: true }, (tx) =>
+        tx.query('SELECT test_fixture.us024_force_payment_attempts($1, 3)', [other]),
+      );
+      const fourth = await startPayment(g, other, w.account, at(T0, 6));
+      expect(isFailure(fourth) && fourth.raw).toEqual({
+        code: '55000',
+        constraint: 'payment_attempts_exceeded',
+      });
+      expect(isFailure(fourth) && fourth.code).toBe('PAYMENT_ATTEMPTS_EXCEEDED');
+      expect(await operations(other)).toEqual([]);
     },
     LONG,
   );

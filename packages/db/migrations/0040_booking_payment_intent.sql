@@ -35,7 +35,7 @@
 --   hold_review_before_payment (23514)    → BOOKING_UNDER_REVIEW (UXQ-08) ;
 --   payment_quote_unavailable (55000)     → QUOTE_UNAVAILABLE ;
 --   payment_start_passed (55000)          → START_PASSED (tolérance conversion_start_tolerance_minutes) ;
---   payment_attempts_exhausted (55000)    → PAYMENT_ATTEMPTS_EXHAUSTED (payment_attempts_per_hold) ;
+--   payment_attempts_exceeded (55000)    → PAYMENT_ATTEMPTS_EXCEEDED (payment_attempts_per_hold) ;
 --   payment_method_unavailable (55000)    → PAYMENT_METHOD_UNAVAILABLE ;
 --   payment_operation_account_active (23000) → PSP_ACCOUNT_INACTIVE ;
 --   host_payout_rail_unavailable (55000)  → HOST_PAYOUT_RAIL_UNAVAILABLE (capacité bloquante absente,
@@ -53,6 +53,7 @@
 --     core.payment_capability_int(text, text, text, text);
 --   réappliquer la définition de 0037 de core.booking_cmd_release_own_hold(uuid) ;
 --   DROP TABLE core.payment_payment_command ;
+--   DROP INDEX core.payment_operation_provider_reference_unique ;
 --   DROP POLICY cmd_hold_pay_ins, cmd_hold_pay_upd ON core.payment_payment_operation ;
 --   DROP POLICY cmd_hold_leg_sel, cmd_hold_leg_ins ON core.payment_payment_operation_leg ;
 --   DROP POLICY cmd_hold_opevent_ins ON core.payment_payment_operation_event ;
@@ -228,7 +229,10 @@ CREATE POLICY cmd_hold_command_ins ON core.payment_payment_command FOR INSERT TO
   WITH CHECK (app.actor_kind() = 'GUEST' AND operation_kind = 'CANCEL_ORDER' AND status = 'PENDING'
               AND EXISTS (SELECT 1 FROM core.booking_checkout_hold h
                            WHERE h.id = payment_payment_command.hold_id
-                             AND h.guest_user_id = app.actor_id()));
+                             AND h.guest_user_id = app.actor_id())
+              AND EXISTS (SELECT 1 FROM core.payment_payment_operation o
+                           WHERE o.id = payment_payment_command.operation_id
+                             AND o.hold_id = payment_payment_command.hold_id));
 
 GRANT SELECT ON core.payment_payment_command TO app_worker;
 GRANT INSERT (id, operation_kind, idem_plain, operation_id, hold_id, country_code, partition_key)
@@ -246,12 +250,22 @@ CREATE POLICY worker_update_command ON core.payment_payment_command FOR UPDATE T
   USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command')
   WITH CHECK (app.actor_kind() = 'WORKER' AND app.worker_name() = 'payment_command');
 
+-- Une référence PSP désigne une seule opération par compte (revue sécurité US-024, mineur 2) : la
+-- réception des webhooks rattache par (compte, référence) ; T2 et le statut appliqué ne peuvent
+-- donc pas faire pointer deux opérations sur le même ordre.
+CREATE UNIQUE INDEX payment_operation_provider_reference_unique
+  ON core.payment_payment_operation (psp_account_id, provider_reference)
+  WHERE (provider_reference IS NOT NULL);
+
 -- 4. Droits de cmd_hold_owner pour T1 et T2 (au plus juste) --------------------------------------
 GRANT SELECT (payment_attempts) ON core.booking_checkout_hold TO cmd_hold_owner;
 GRANT UPDATE (payment_in_flight_until) ON core.booking_checkout_hold TO cmd_hold_owner;
 -- opération de loyer : lecture (rejeu, ordre existant), insertion PENDING (T1), passage
 -- PENDING -> SUBMITTED avec la référence PSP (T2) ; jamais un montant modifié
-GRANT SELECT ON core.payment_payment_operation TO cmd_hold_owner;
+-- lecture par colonnes (revue sécurité US-024, mineur 3) : ce que lisent T1, T2 et la libération
+GRANT SELECT (id, hold_id, purpose, status, kind, attempt_no, created_at, idem_sent,
+              provider_reference, provider, method, amount_minor, currency)
+  ON core.payment_payment_operation TO cmd_hold_owner;
 GRANT INSERT (id, hold_id, psp_account_id, country_code, provider, method, kind, purpose,
               amount_minor, currency, attempt_no, status, idem_plain, idem_sent)
   ON core.payment_payment_operation TO cmd_hold_owner;
@@ -270,9 +284,17 @@ CREATE POLICY cmd_hold_pay_upd ON core.payment_payment_operation FOR UPDATE TO c
                         AND h.guest_user_id = app.actor_id()))
   WITH CHECK (app.actor_kind() = 'GUEST' AND status = 'SUBMITTED');
 -- jambes de capture du devis (08 E7 règle 2), insérées avec l'opération (contrôle différé 0028)
-GRANT SELECT, INSERT ON core.payment_payment_operation_leg TO cmd_hold_owner;
+GRANT SELECT (operation_id, leg, amount_minor) ON core.payment_payment_operation_leg
+  TO cmd_hold_owner;
+GRANT INSERT (operation_id, leg, org_id, trip_id, country_code, amount_minor)
+  ON core.payment_payment_operation_leg TO cmd_hold_owner;
+-- jambes des seules opérations des holds du voyageur de la session (ordre existant, T1)
 CREATE POLICY cmd_hold_leg_sel ON core.payment_payment_operation_leg FOR SELECT TO cmd_hold_owner
-  USING (true);
+  USING (app.actor_kind() = 'GUEST'
+         AND EXISTS (SELECT 1 FROM core.payment_payment_operation o
+                       JOIN core.booking_checkout_hold h ON h.id = o.hold_id
+                      WHERE o.id = payment_payment_operation_leg.operation_id
+                        AND h.guest_user_id = app.actor_id()));
 CREATE POLICY cmd_hold_leg_ins ON core.payment_payment_operation_leg FOR INSERT TO cmd_hold_owner
   WITH CHECK (app.actor_kind() = 'GUEST' AND trip_id IS NULL
               AND EXISTS (SELECT 1 FROM core.payment_payment_operation o
@@ -285,7 +307,12 @@ GRANT INSERT (id, operation_id, status, source, outcome, raw_ref)
   ON core.payment_payment_operation_event TO cmd_hold_owner;
 CREATE POLICY cmd_hold_opevent_ins ON core.payment_payment_operation_event FOR INSERT
   TO cmd_hold_owner
-  WITH CHECK (app.actor_kind() = 'GUEST' AND source = 'API_RESPONSE' AND raw_ref IS NULL);
+  WITH CHECK (app.actor_kind() = 'GUEST' AND source = 'API_RESPONSE' AND raw_ref IS NULL
+              AND status = 'SUBMITTED' AND outcome = 'APPLIED'
+              AND EXISTS (SELECT 1 FROM core.payment_payment_operation o
+                            JOIN core.booking_checkout_hold h ON h.id = o.hold_id
+                           WHERE o.id = payment_payment_operation_event.operation_id
+                             AND o.purpose = 'RENT' AND h.guest_user_id = app.actor_id()));
 -- compte marchand de Kmino du pays (owner_type PLATFORM par CHECK) et garde FAKE (C19)
 GRANT SELECT (id, provider, country_code, environment, status, collection_mode)
   ON core.payment_psp_account TO cmd_hold_owner;
@@ -476,11 +503,11 @@ BEGIN
   END IF;
   IF r_hold.payment_attempts >= v_max_tries THEN
     RAISE EXCEPTION 'payment: attempts exhausted'
-      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'payment_attempts_exhausted';
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'payment_attempts_exceeded';
   END IF;
 
   -- compte marchand de Kmino du pays, ACTIVE, jamais un FAKE en production (17 §4.3 point 5.7)
-  SELECT a.provider, a.country_code, a.status, a.collection_mode INTO r_account
+  SELECT a.provider, a.country_code, a.status, a.collection_mode, a.environment INTO r_account
     FROM core.payment_psp_account a WHERE a.id = p_psp_account_id;
   IF r_account.provider IS NULL OR r_account.status <> 'ACTIVE' OR r_account.country_code <> v_country THEN
     RAISE EXCEPTION 'payment: PSP account not active'
@@ -490,6 +517,15 @@ BEGIN
   IF r_account.provider = 'FAKE' AND platform.deployment_env() = 'production' THEN
     RAISE EXCEPTION 'payment: FAKE provider forbidden in production (C19)'
       USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'psp_account_fake_forbidden';
+  END IF;
+  -- compte de bac à sable seulement dans un environnement non productif connu (revue sécurité US-024,
+  -- majeur 1) : environnement de la BASE (platform.deployment_env(), 17 §6.5 point 1 ; production
+  -- par défaut) ; toute autre valeur, production comprise, exige un compte LIVE (fail-closed)
+  IF r_account.environment IS DISTINCT FROM 'LIVE'
+     AND platform.deployment_env() NOT IN ('test', 'development', 'staging') THEN
+    RAISE EXCEPTION 'payment: sandbox PSP account outside a test environment'
+      USING ERRCODE = 'integrity_constraint_violation',
+            CONSTRAINT = 'payment_operation_account_active';
   END IF;
 
   -- capacités bloquantes du PSP du pays (17 §2.8 ; report d'US-061, ADR-066) : une seule manque ⇒

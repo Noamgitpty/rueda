@@ -34,9 +34,9 @@
  *   `LEG_ALREADY_RELEASED` : 17 §2.8 « Erreurs normalisées », §4.3 point 8 — sous-marchands et
  *   écrivain des soldes par jambe d'US-061 (migration 0039, ADR-066) ;
  * - `HOLD_EXPIRED` (« reserva expirada », 17 §2.5 étape 3a), `QUOTE_UNAVAILABLE` (16 SRC, devis
- *   indisponible), `START_PASSED` (17 §2.5 2 bis (i)), `PAYMENT_ATTEMPTS_EXHAUSTED`
- *   (`payment_attempts_per_hold`, PAY-017), `PAYMENT_METHOD_UNAVAILABLE` : PROPOSÉS par US-024
- *   (migrations 0040, 0041, ADR-065).
+ *   indisponible), `START_PASSED` (17 §2.5 2 bis (i)), `PAYMENT_METHOD_UNAVAILABLE` : PROPOSÉS par
+ *   US-024 (migrations 0040, 0041, ADR-065) ; `PAYMENT_ATTEMPTS_EXCEEDED` : 16 fiche PAY-017
+ *   (`payment_attempts_per_hold`).
  */
 
 /** Codes métier produits par la traduction. */
@@ -76,7 +76,7 @@ export const DB_BUSINESS_CODES = [
   'HOLD_EXPIRED',
   'QUOTE_UNAVAILABLE',
   'START_PASSED',
-  'PAYMENT_ATTEMPTS_EXHAUSTED',
+  'PAYMENT_ATTEMPTS_EXCEEDED',
   'PAYMENT_METHOD_UNAVAILABLE',
 ] as const;
 
@@ -224,11 +224,15 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   payment_quote_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'QUOTE_UNAVAILABLE'],
   payment_start_passed: [SQLSTATE.objectNotInPrerequisiteState, 'START_PASSED'],
-  payment_attempts_exhausted: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_ATTEMPTS_EXHAUSTED'],
+  payment_attempts_exceeded: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_ATTEMPTS_EXCEEDED'],
   payment_method_unavailable: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_METHOD_UNAVAILABLE'],
   conversion_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   conversion_review_pending: [SQLSTATE.objectNotInPrerequisiteState, 'BOOKING_UNDER_REVIEW'],
   payment_command_idem_unique: [SQLSTATE.uniqueViolation, 'DISPOSITION_EXISTS'],
+  payment_operation_provider_reference_unique: [
+    SQLSTATE.uniqueViolation,
+    'PAYMENT_SUBJECT_MISMATCH',
+  ],
 };
 
 const own = (value: object, key: string): unknown =>

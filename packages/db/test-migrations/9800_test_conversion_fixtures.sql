@@ -24,7 +24,8 @@
 --   test_fixture.us024_set_capability(text, text, text, text, jsonb, text, timestamptz),
 --   test_fixture.us024_extra_operation(uuid, uuid, text, integer, text),
 --   test_fixture.us024_force_operation_status(uuid, text),
---   test_fixture.us024_approve_review(uuid, integer) ; DROP TABLE test_fixture.us024_hold_terms ;
+--   test_fixture.us024_approve_review(uuid, integer), test_fixture.us024_psp_account_of(text, text,
+--   text), test_fixture.us024_force_payment_attempts(uuid, integer) ; DROP TABLE test_fixture.us024_hold_terms ;
 --   réappliquer la définition de 0040 de core.booking_hold_payment_terms.
 
 CREATE TABLE test_fixture.us024_hold_terms (
@@ -202,6 +203,52 @@ BEGIN
   END IF;
 END
 $fn$;
+
+-- Compte PSP ACTIF d'un fournisseur et d'un environnement donnés (garde d'environnement de T1).
+CREATE FUNCTION test_fixture.us024_psp_account_of(p_provider text, p_country_code text,
+                                                  p_environment text)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_id uuid;
+BEGIN
+  SELECT a.id INTO v_id
+    FROM core.payment_psp_account a
+   WHERE a.provider = p_provider AND a.country_code = p_country_code
+     AND a.environment = p_environment AND a.status = 'ACTIVE';
+  IF v_id IS NULL THEN
+    v_id := pg_catalog.gen_random_uuid();
+    INSERT INTO core.payment_psp_account
+           (id, provider, country_code, environment, status, public_webhook_id, webhook_secret_ref,
+            credentials_ref, gate_decision_ref)
+    VALUES (v_id, p_provider, p_country_code, p_environment, 'ACTIVE',
+            'us024-' || pg_catalog.replace(v_id::text, '-', ''), 'vault:psp/test/webhook',
+            'vault:psp/test/api', CASE WHEN p_environment = 'LIVE' THEN 'test US-024' END);
+  END IF;
+  RETURN v_id;
+END
+$fn$;
+
+-- Compteur de refus forcé : seul chemin vers le refus défensif PAYMENT_ATTEMPTS_EXCEEDED de T1
+-- (le 3e refus reçu libère déjà le hold).
+CREATE FUNCTION test_fixture.us024_force_payment_attempts(p_hold_id uuid, p_attempts integer)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  UPDATE core.booking_checkout_hold SET payment_attempts = p_attempts WHERE id = p_hold_id;
+END
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us024_psp_account_of(text, text, text),
+  test_fixture.us024_force_payment_attempts(uuid, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us024_psp_account_of(text, text, text),
+  test_fixture.us024_force_payment_attempts(uuid, integer) TO app_api, app_worker;
 
 REVOKE ALL ON FUNCTION
   test_fixture.us024_set_terms(uuid, bigint, text, jsonb, timestamptz, timestamptz, text),

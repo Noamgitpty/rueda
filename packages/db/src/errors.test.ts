@@ -60,11 +60,12 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'hold_payment_terminal', 'INVALID_TRANSITION'],
     ['55000', 'payment_quote_unavailable', 'QUOTE_UNAVAILABLE'],
     ['55000', 'payment_start_passed', 'START_PASSED'],
-    ['55000', 'payment_attempts_exhausted', 'PAYMENT_ATTEMPTS_EXHAUSTED'],
+    ['55000', 'payment_attempts_exceeded', 'PAYMENT_ATTEMPTS_EXCEEDED'],
     ['55000', 'payment_method_unavailable', 'PAYMENT_METHOD_UNAVAILABLE'],
     ['42501', 'conversion_forbidden', 'FORBIDDEN'],
     ['55000', 'conversion_review_pending', 'BOOKING_UNDER_REVIEW'],
     ['23505', 'payment_command_idem_unique', 'DISPOSITION_EXISTS'],
+    ['23505', 'payment_operation_provider_reference_unique', 'PAYMENT_SUBJECT_MISMATCH'],
   ])('%s sur %s → %s, sans détail', (code, constraint, expected) => {
     const translated = translateDbError(pgError({ code, constraint }));
     expect(translated).toEqual({ code: expected, retryable: false });
