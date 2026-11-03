@@ -1,4 +1,4 @@
-# ADR-055 — Preuves de concurrence L0-02 / L0-04 : barrières consultatives, injection du verrou par véhicule, plan de 2a
+# ADR-056 — Preuves de concurrence L0-02 / L0-04 : barrières consultatives, injection du verrou par véhicule, plan de 2a
 
 - **Statut** : PROPOSÉ (US-007, agent données, 2026-11-03). Revues code, architecture et **sécurité / concurrence** requises, sur un autre modèle que l'auteur. À reporter dans 17 §8.1.
 - **Stories** : US-007 ; s'appuient dessus US-022 à US-025 (commandes réelles), US-027 (rapport L0). **Sources** : 17 §2.5 (ordre global des verrous, reprise, 2a), §11 (L0-02, L0-04, C1, C16) ; ADR-048, ADR-053.

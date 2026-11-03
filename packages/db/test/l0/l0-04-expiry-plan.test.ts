@@ -44,7 +44,7 @@ const VEHICLE_INDEXES = ['checkout_hold_vehicle_status_idx'];
  * Branche « guest » : `(guest_user_id, status)` (17 §2.5) ou l'index unique partiel
  * `one_live_hold_per_guest_vehicle (guest_user_id, vehicle_id) WHERE status IN ('ACTIVE',
  * 'PAYMENT_IN_FLIGHT')`, qui couvre aussi le filtre de statut de 2a : le planificateur de
- * PostgreSQL 16 le préfère (constat de la CI, ADR-055).
+ * PostgreSQL 16 le préfère (constat de la CI, ADR-056).
  */
 const GUEST_INDEXES = ['checkout_hold_guest_status_idx', 'one_live_hold_per_guest_vehicle'];
 

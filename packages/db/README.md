@@ -147,7 +147,7 @@ Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colon
 
 `core.support_support_case` (0024) : sous-ensemble de 17 §3.2.13 (pays, trip, canal, catégorie dont `BREAK_GLASS` motivé, statut, `assignee_id`), écrit par la console (US-012). Clés d'audit (0026) : `app_api` n'accède qu'à la clé `USER` de la session et à la clé `ORG` du compte d'hôte de la session pour son titulaire. Limite RLS-18 et nom de travailleur déclaratif : ADR-053. Preuves : `test/l0/l0-rls-actors.test.ts` (RLS-1, 5, 6, 7 partiel, 8, 9, 12, 13, 18, 20, hôte contre hôte, pays contre pays, clés par sujet) et `test/l0/l0-rls-15-security-definer.test.ts` (RLS-15, RLS-16).
 
-## Preuves de concurrence L0-02 / L0-04 (US-007 ; 17 §2.5, §11 ; ADR-055)
+## Preuves de concurrence L0-02 / L0-04 (US-007 ; 17 §2.5, §11 ; ADR-056)
 
 Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_idx`, `checkout_hold_guest_status_idx`) existent depuis 0004. Fichiers : `test/l0/l0-02-concurrency.test.ts`, `test/l0/l0-04-expiry-plan.test.ts`, aides `test/support/concurrency.ts`, fixtures `test-migrations/9002_test_l0_concurrency.sql`.
 
