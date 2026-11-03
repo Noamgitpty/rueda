@@ -13,3 +13,6 @@ export { IamAuthModule } from './internal/iam-auth.module.js';
 export type { IamAuthOptions } from './internal/iam-auth.module.js';
 export { postgresIamAdapters } from './internal/production.js';
 export type { SqlExecutor } from './internal/pg-auth-store.js';
+
+// Coordonnées des destinataires de notification pour NTF (US-021, ADR-061 ; IAM → NTF).
+export { postgresNotificationContacts } from './internal/notification-contacts.js';
