@@ -1,0 +1,36 @@
+/* Écran hors ligne (US-048) : jetons seulement (US-030). */
+.offline {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  max-inline-size: 28rem;
+  margin-inline: auto;
+  padding: var(--space-10) var(--space-5);
+  text-align: center;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: calc(var(--size-touch-target) * 2);
+  block-size: calc(var(--size-touch-target) * 2);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-size-3xl);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display-family);
+  font-weight: var(--font-display-weight);
+  font-size: var(--font-size-3xl);
+  letter-spacing: var(--font-display-letter-spacing);
+  line-height: var(--font-display-line-height);
+}
+
+.body {
+  margin: 0;
+  color: var(--color-text-muted);
+}
