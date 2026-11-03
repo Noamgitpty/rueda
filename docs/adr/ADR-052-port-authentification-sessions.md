@@ -3,6 +3,8 @@
 - **Statut** : PROPOSÉ (US-010, agent back-end, 2026-11-03). Revues code, architecture et **sécurité** requises, sur un autre modèle que l'auteur. À reporter dans 17 §8.1 (ligne ADR-021 : défaut appliqué) et dans la liste blanche RLS-15 (US-011).
 - **Stories** : US-010 ; s'appuient dessus US-011 (RLS par acteur), US-012 (TOTP staff), NTF (envoi des emails). **Sources** : 17 §2.3, §3.1.4, §3.2.1, §6.6 ; 16 ACC-001 ; 08 BR-ACC-01 ; ADR-021 (en attente, défaut : implémentation interne derrière le port), ADR-044, ADR-048.
 
+> **Amendement US-011 (ADR-053)** : les 7 commandes `core.iam_*` appartiennent désormais à `iam_auth_owner` (NOLOGIN, droits par colonne, politiques `iam_auth_*`), et non plus à `migrator` ; constat 1 de la revue sécurité d'US-010 traité.
+
 ## Contexte
 
 ADR-021 (« interne ou service géré ») n'est pas tranché. Le défaut de 19 US-010 est une implémentation interne **derrière un port**, pour pouvoir la remplacer sans toucher aux modules. La consigne interdit tout fournisseur réel et tout identifiant réel : seul un adaptateur `FAKE` existe pour les tests, jamais actif en production.

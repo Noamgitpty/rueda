@@ -10,12 +10,21 @@ export const MIGRATOR_ROLE = 'migrator';
 export const APP_ROLES = ['app_api', 'app_worker', 'app_anon'] as const;
 export type AppRole = (typeof APP_ROLES)[number];
 
-/** Propriétaires `NOLOGIN` des familles de fonctions `SECURITY DEFINER` (VERIF_17-B6). */
+/**
+ * Propriétaires `NOLOGIN` des familles de fonctions `SECURITY DEFINER` (VERIF_17-B6 ; ADR-053).
+ * Chacun est accordé à `migrator` avec `INHERIT FALSE, SET TRUE` (amorçage, amendement
+ * d'ADR-044) : `migrator` peut leur céder une fonction sans hériter de leurs droits.
+ */
 export const OWNER_ROLES = [
   'guard_owner',
   'catalog_probe_owner',
   'policy_fn_owner',
   'cmd_hold_owner',
+  'iam_auth_owner',
+  'integrity_owner',
+  'audit_chain_owner',
+  'cmd_money_owner',
+  'cmd_golive_owner',
 ] as const;
 export type OwnerRole = (typeof OWNER_ROLES)[number];
 

@@ -180,14 +180,21 @@ describe.each(COUNTRIES)('L0-03 — I-OCC au COMMIT ($country, $currency)', (c) 
     await withRoleWorker(async (worker) => {
       const slot = newSlot(START, END);
       await expectCommitRefused(
-        inTx(worker, { worker: 'booking_conversion', commit: true }, (tx) =>
-          tx.query(
+        inTx(worker, { worker: 'booking_conversion', commit: true }, async (tx) => {
+          const guestId = uuid();
+          // US-011 : guest_user_id et (org_id, country_code) sont des clés étrangères vers IAM
+          await tx.query(`SELECT test_fixture.ensure_party($1, $2, $3)`, [
+            guestId,
+            slot.orgId,
+            c.country,
+          ]);
+          return tx.query(
             `INSERT INTO core.booking_trip (id, guest_user_id, org_id, vehicle_id, country_code,
                                             currency, timezone, scheduled_start, scheduled_end, status)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'BOOKED')`,
             [
               uuid(),
-              uuid(),
+              guestId,
               slot.orgId,
               slot.vehicleId,
               c.country,
@@ -196,8 +203,8 @@ describe.each(COUNTRIES)('L0-03 — I-OCC au COMMIT ($country, $currency)', (c) 
               START,
               END,
             ],
-          ),
-        ),
+          );
+        }),
         /^trip_has_active_occupancy$/,
       );
     });

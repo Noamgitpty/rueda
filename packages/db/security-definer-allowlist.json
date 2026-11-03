@@ -1,0 +1,111 @@
+{
+  "$comment": "Liste blanche RLS-15 (17 §2.3 ; US-011, ADR-053) : TOUTE fonction ou procédure SECURITY DEFINER de la base de production, avec son propriétaire NOLOGIN, son search_path figé et les seuls rôles qui ont EXECUTE (le propriétaire excepté ; jamais PUBLIC). Vérifiée par packages/db/test/l0/l0-rls-15-security-definer.test.ts sur la base de production du banc. Ajouter une entrée = revue sécurité (packages/db/). Signatures au format regprocedure, sans espace après les virgules.",
+  "searchPath": "search_path=pg_catalog, pg_temp",
+  "functions": [
+    {
+      "signature": "app.has_staff_role(text,text)",
+      "family": "policy_fn",
+      "owner": "policy_fn_owner",
+      "execute": ["app_api"],
+      "story": "US-011"
+    },
+    {
+      "signature": "app.host_covers_vehicle(uuid)",
+      "family": "policy_fn",
+      "owner": "policy_fn_owner",
+      "execute": ["app_api"],
+      "story": "US-011"
+    },
+    {
+      "signature": "app.is_org_holder()",
+      "family": "policy_fn",
+      "owner": "policy_fn_owner",
+      "execute": ["app_api"],
+      "story": "US-011"
+    },
+    {
+      "signature": "app.staff_case_covers(text,uuid)",
+      "family": "policy_fn",
+      "owner": "policy_fn_owner",
+      "execute": ["app_api"],
+      "story": "US-011"
+    },
+    {
+      "signature": "core.audit_log_chain()",
+      "family": "audit_chain",
+      "owner": "audit_chain_owner",
+      "execute": [],
+      "story": "US-009"
+    },
+    {
+      "signature": "core.booking_assert_conversion_disposition()",
+      "family": "integrity_trigger",
+      "owner": "integrity_owner",
+      "execute": [],
+      "story": "US-006"
+    },
+    {
+      "signature": "core.booking_assert_rent_payment_operation()",
+      "family": "integrity_trigger",
+      "owner": "integrity_owner",
+      "execute": [],
+      "story": "US-006"
+    },
+    {
+      "signature": "core.booking_assert_trip_occupancy()",
+      "family": "integrity_trigger",
+      "owner": "integrity_owner",
+      "execute": [],
+      "story": "US-006"
+    },
+    {
+      "signature": "core.iam_auth_lookup(text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-010"
+    },
+    {
+      "signature": "core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-010"
+    },
+    {
+      "signature": "core.iam_cmd_register(uuid,text,text,text,text,text,uuid,bytea,integer,inet)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-010"
+    },
+    {
+      "signature": "core.iam_cmd_revoke_all_sessions(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-010"
+    },
+    {
+      "signature": "core.iam_cmd_revoke_session(bytea,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-010"
+    },
+    {
+      "signature": "core.iam_cmd_verify_email(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-010"
+    },
+    {
+      "signature": "core.iam_session_resolve(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-010"
+    }
+  ]
+}

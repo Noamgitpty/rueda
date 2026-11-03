@@ -39,8 +39,14 @@ async function upload(
   actor: ActorContext,
   u: Upload,
 ): Promise<void> {
+  // l'envoyeur est le sujet (clé USER de la session, US-011) ou un compte quelconque (C0)
+  const uploader = u.subject?.id ?? uuid();
+  const ctx: ActorContext =
+    actor.kind === 'GUEST' || actor.kind === 'HOST' || actor.kind === 'STAFF'
+      ? { ...actor, actorId: uploader }
+      : actor;
   await withRole('app_api', (client) =>
-    auditTx(client, { actor, virtualNow: T0, commit: true }, async (tx) => {
+    auditTx(client, { actor: ctx, virtualNow: T0, commit: true }, async (tx) => {
       const parts = [u.body.subarray(0, 7), u.body.subarray(7)];
       await receiveFile(
         tx,
@@ -51,7 +57,7 @@ async function upload(
           bucket: u.bucket,
           storageKey: u.key,
           mime: 'image/jpeg',
-          uploaderUserId: u.subject?.id ?? uuid(),
+          uploaderUserId: uploader,
           source: 'IN_APP_CAMERA',
           deviceCapturedAt: new Date('2031-06-01T11:59:30.000Z'),
           classification: u.classification,

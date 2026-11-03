@@ -13,6 +13,8 @@ Migrations SQL versionnées, exécuteur de migrations minimal et harnais de test
 | `sql-clock-allowlist.json`           | Liste blanche de la règle d'horloge (CONTRIBUTING « SQL et horloge ») : `0000_platform_now.sql` et `9000_test_virtual_clock.sql`, `clock_timestamp()` seulement.                                                                                                                                                         |
 | `country-data-allowlist.json`        | Liste blanche du contrôle « aucune constante pays » des migrations (US-013, ADR-049) : seules les graines générées (`0009_config_seed.sql`) peuvent nommer une devise, un fuseau, un pays, une locale régionale ou une taxe.                                                                                             |
 | `src/migrate.ts`, `src/bootstrap.ts` | Exécuteur (`runMigrations`, `planMigrations`, `listMigrations`) et amorçage (`runBootstrap`, `setRolePasswords`).                                                                                                                                                                                                        |
+| `security-definer-allowlist.json`    | **Liste blanche RLS-15** (US-011, ADR-053) : toute fonction `SECURITY DEFINER` de la base de production, son propriétaire NOLOGIN, son `search_path` figé et ses rôles `EXECUTE`. Vérifiée par `test/l0/l0-rls-15-security-definer.test.ts` ; ajouter une entrée = revue sécurité.                                       |
+| `src/session-context.ts`             | `setSessionContext` : **la** fonction de la couche d'accès qui pose le contexte `app.*` (`SET LOCAL`, six paramètres toujours écrits, valeurs validées et liées), US-011.                                                                                                                                                |
 | `src/testing/`                       | Harnais de tests (`@rueda/db/testing`) : source de la base, banc jetable, connexions sous les rôles de production, transaction de test.                                                                                                                                                                                  |
 
 Migrations actuelles :
@@ -24,7 +26,9 @@ Migrations actuelles :
 - `0009_config_seed` (US-013) : graines PA / PY **générées** depuis `apps/api/src/modules/cfg/data/`, ne pas éditer (ADR-049) ;
 - `0010_iam_identity`, `0011_iam_auth_commands` (US-010) : schéma IAM et commandes d'authentification (section « Schéma IAM ») ;
 - `0012_outbox_tables` à `0015_outbox_monitoring` : outbox, reçus, lettres mortes, file de tâches, métriques (US-008, section « Outbox et file ») ; numérotation : `migrations/README.md` ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9200_test_iam_fixtures` (US-010).
+- `0016_audit_subject_key` à `0021_audit_grants` (US-009) : journal d'audit chaîné, clés par sujet, magasin de preuves (section « Audit… ») ;
+- `0022_security_definer_owners` à `0026_audit_owner_subject_key_scope` (US-011) : propriétaires NOLOGIN, clés étrangères AVL → IAM, contexte et fonctions de politique, lectures d'`app_api` par acteur et par pays, clés d'audit par sujet (section « RLS par acteur et par pays ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -105,29 +109,53 @@ Fonctions `SECURITY INVOKER` (`search_path` figé, `EXECUTE` à `app_worker` ; `
 
 ## Schéma IAM (US-010 ; 17 §2.3, §3.2.1 ; ADR-052)
 
-Tables `core.iam_*` (entités de 17 §3.2.1) : `user_account`, `email_verification`, `auth_factor`, `session`, `otp_challenge`, `organization` (compte d'hôte), `membership`, `staff_role_assignment`, `role_permission`, `restriction`. RLS `ENABLE` + `FORCE`, seule politique `migrator_all`, **aucun droit de table** pour `app_api`, `app_worker`, `app_anon`. Les politiques par acteur et par pays sont l'objet de US-011.
+Tables `core.iam_*` (entités de 17 §3.2.1) : `user_account`, `email_verification`, `auth_factor`, `session`, `otp_challenge`, `organization` (compte d'hôte), `membership`, `staff_role_assignment`, `role_permission`, `restriction`. RLS `ENABLE` + `FORCE`, politique `migrator_all` ; **aucun droit d'écriture** pour `app_api`, `app_worker`, `app_anon`. Depuis US-011 : lecture filtrée par acteur d'`app_api` sur `user_account` (son compte, sans `password_hash`), `organization` et `membership` (section « RLS par acteur et par pays »), politiques des propriétaires `iam_auth_owner` et `policy_fn_owner`.
 
 Identités prévues pour US-011 : `user_account.id` (`app.actor_id`), `organization.id` / `country_code` / `holder_user_id` (`app.org_id`, `app.is_org_holder()`), `membership.vehicle_scope` (`app.vehicle_scope`), `staff_role_assignment.role` / `country_scope` (`app.country_scope`), `role_permission` (`app.has_permission`).
 
 Contraintes notables : `user_account_password_hash_argon2id` (seule une chaîne PHC argon2id est stockée), `user_account_email_normalized`, `session_token_sha256` (32 octets), trigger `session_guarded_columns` (révocation définitive, aucune prolongation), `membership_holder_matches_org` (le `P2P_HOST` est le titulaire), `membership_one_active_holder`, `organization_country_holder_unique`, `staff_country_scope_format`, `staff_no_self_grant`.
 
-Commandes (`0011`, `SECURITY DEFINER` sous `migrator`, `search_path` figé, `EXECUTE` au seul `app_api`, famille `iam_auth` pour la liste blanche RLS-15) : `core.iam_cmd_register`, `iam_cmd_verify_email`, `iam_auth_lookup`, `iam_cmd_open_session` (300 s à 30 j, 8 h si rôle interne), `iam_session_resolve`, `iam_cmd_revoke_session`, `iam_cmd_revoke_all_sessions`.
+Commandes (`0011`, `SECURITY DEFINER`, propriétaire `iam_auth_owner` depuis US-011 (0022), `search_path` figé, `EXECUTE` au seul `app_api`, famille `iam_auth` pour la liste blanche RLS-15) : `core.iam_cmd_register`, `iam_cmd_verify_email`, `iam_auth_lookup`, `iam_cmd_open_session` (300 s à 30 j, 8 h si rôle interne), `iam_session_resolve`, `iam_cmd_revoke_session`, `iam_cmd_revoke_all_sessions`.
 
-**FK en attente** : les colonnes `guest_user_id` et `org_id` des tables AVL ne pointent pas encore vers `iam_user_account` / `iam_organization` (les fixtures L0 de US-006 posent des identifiants libres) ; `organization.legal_entity_id` attend `config` (US-008).
+**Clés étrangères AVL → IAM** (US-011, 0023) : `guest_user_id` → `iam_user_account` ; `(org_id, country_code)` des holds et trips → `iam_organization (id, country_code)` (un trip porte le pays de son compte d'hôte) ; les fixtures L0 créent les comptes (`test_fixture.ensure_party`, 9300). En attente : `organization.legal_entity_id` (config).
 
 Fixtures de test (`test-migrations/9200`) : statut d'un compte, rôle interne, compte d'hôte, appartenance, lecture brute des sessions et des comptes, écritures forcées refusées par `session_guarded_columns`.
 
-> > > > > > > origin/main
+## RLS par acteur et par pays (US-011 ; 17 §2.3 ; ADR-027, ADR-035, ADR-053)
+
+Contexte posé par `setSessionContext` (`app.actor_kind`, `actor_id`, `org_id`, `vehicle_scope`, `country_scope`, `worker_name`), lu par des fonctions `STABLE` fail-closed : absent ou mal formé ⇒ `NULL` ⇒ 0 ligne, sans erreur. **Le contexte ne fait que réduire une portée relue en base** par les fonctions de politique (`SECURITY DEFINER`, propriétaire `policy_fn_owner`, `EXECUTE` à `app_api`) :
+
+| Fonction                            | Vrai si…                                                                                                                          |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `app.has_staff_role(rôle, pays)`    | acteur `STAFF`, pays dans `app.country_scope()` **et** dans le `country_scope` d'une attribution en cours de ce rôle (RLS-20)     |
+| `app.staff_case_covers('TRIP', id)` | dossier `OPEN` / `PENDING` sur ce trip, assigné à l'acteur, pays dans la portée, rôle OPS ou SUPPORT en cours sur ce pays (RLS-6) |
+| `app.host_covers_vehicle(véhicule)` | acteur `HOST` membre actif de `app.org_id()` : titulaire = tous les véhicules ; co-hôte = `membership.vehicle_scope` (RLS-9)      |
+| `app.is_org_holder()`               | acteur titulaire actif du compte d'hôte de la session (jamais un co-hôte)                                                         |
+
+Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colonnes** sans colonnes d'audit `created_by` / `updated_by` / `released_by` ni drapeaux internes, liste exacte : `test/l0/l0-rls-columns.test.ts` ; rôles internes effectifs seulement pour un compte `ACTIVE`) :
+
+| Table                       | GUEST                 | HOST                                     | STAFF (toujours borné au pays)                          |
+| --------------------------- | --------------------- | ---------------------------------------- | ------------------------------------------------------- |
+| `booking_trip`              | les siens             | son compte, sa portée de véhicules       | ADMIN, FINANCE ; OPS / SUPPORT : dossier assigné        |
+| `booking_checkout_hold`     | les siens             | **aucun** (NOUVELLE-16)                  | ADMIN, FINANCE ; dossier du trip converti               |
+| `booking_guest_occupancy`   | les siennes           | —                                        | —                                                       |
+| `payment_payment_operation` | de ses holds et trips | —                                        | ADMIN, FINANCE ; dossier du trip (colonnes sans clés)   |
+| `iam_user_account`          | son compte            | son compte                               | son compte (jamais `password_hash`)                     |
+| `iam_organization`          | —                     | son compte d'hôte (titulaire)            | ADMIN, FINANCE                                          |
+| `iam_membership`            | —                     | titulaire : toutes ; co-hôte : la sienne | ADMIN                                                   |
+| `support_support_case`      | —                     | —                                        | ADMIN ; OPS / SUPPORT : dossiers qui leur sont assignés |
+
+`core.support_support_case` (0024) : sous-ensemble de 17 §3.2.13 (pays, trip, canal, catégorie dont `BREAK_GLASS` motivé, statut, `assignee_id`), écrit par la console (US-012). Clés d'audit (0026) : `app_api` n'accède qu'à la clé `USER` de la session et à la clé `ORG` du compte d'hôte de la session pour son titulaire. Limite RLS-18 et nom de travailleur déclaratif : ADR-053. Preuves : `test/l0/l0-rls-actors.test.ts` (RLS-1, 5, 6, 7 partiel, 8, 9, 12, 13, 18, 20, hôte contre hôte, pays contre pays, clés par sujet) et `test/l0/l0-rls-15-security-definer.test.ts` (RLS-15, RLS-16).
 
 ## Rôles (17 §2.3, ADR-035)
 
-| Rôle                                                                      | Attributs                                                           | Usage                                                      |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `migrator`                                                                | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE` | propriétaire des objets ; migrations seulement             |
-| `app_api`, `app_worker`, `app_anon`                                       | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE` | exécution de l'application **et de tous les tests**        |
-| `guard_owner`, `catalog_probe_owner`, `policy_fn_owner`, `cmd_hold_owner` | `NOLOGIN`, sans mot de passe, sans membre                           | propriétaires des familles de fonctions `SECURITY DEFINER` |
+| Rôle                                                                                                                                                                       | Attributs                                                                                                | Usage                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `migrator`                                                                                                                                                                 | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`                                      | propriétaire des objets ; migrations seulement                                    |
+| `app_api`, `app_worker`, `app_anon`                                                                                                                                        | `LOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`                                      | exécution de l'application **et de tous les tests**                               |
+| `guard_owner`, `catalog_probe_owner`, `policy_fn_owner`, `cmd_hold_owner`, `iam_auth_owner`, `integrity_owner`, `audit_chain_owner`, `cmd_money_owner`, `cmd_golive_owner` | `NOLOGIN`, sans mot de passe ; seul membre : `migrator`, avec `INHERIT FALSE, SET TRUE` (ADR-044 amendé) | propriétaires des familles de fonctions `SECURITY DEFINER` (liste blanche RLS-15) |
 
-Droits actuels : `USAGE` sur `platform` et `EXECUTE` sur `platform.now()` pour `app_api`, `app_worker` et les quatre propriétaires ; rien pour `app_anon` ni pour `PUBLIC` ; `ALTER DEFAULT PRIVILEGES FOR ROLE migrator REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`. Aucun mot de passe dans le SQL : le harnais (ou, plus tard, le gestionnaire de secrets) les pose, en envoyant un vérificateur SCRAM-SHA-256 et jamais le mot de passe en clair.
+Droits actuels : `USAGE` sur `platform` et `EXECUTE` sur `platform.now()` pour `app_api`, `app_worker` et les propriétaires ; chaque propriétaire n'a ensuite que les droits de table, colonne par colonne, de ses fonctions, et une politique RLS à son nom (ADR-053) ; rien pour `app_anon` ni pour `PUBLIC` ; `ALTER DEFAULT PRIVILEGES FOR ROLE migrator REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`. Aucun mot de passe dans le SQL : le harnais (ou, plus tard, le gestionnaire de secrets) les pose, en envoyant un vérificateur SCRAM-SHA-256 et jamais le mot de passe en clair.
 
 ## Commandes
 
