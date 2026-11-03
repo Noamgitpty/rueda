@@ -16,6 +16,20 @@
       "paths": ["docs/specs/", "CLAUDE.md"],
       "require": ["architecture"],
       "why": "spécification qui fait foi et consignes de tout agent : toute révision passe par une revue d architecture (DEC-FONDATEUR-15)"
+    },
+    {
+      "paths": [
+        "docs/specs/08_BUSINESS_RULES.md",
+        "docs/specs/17_DATA_MODEL_AND_ARCHITECTURE.md",
+        "docs/specs/tools/"
+      ],
+      "require": ["argent"],
+      "why": "règles d argent, grands livres et oracles : revue argent sur un autre modèle (contrainte 1)"
+    },
+    {
+      "paths": ["docs/specs/17_DATA_MODEL_AND_ARCHITECTURE.md", "CLAUDE.md"],
+      "require": ["securite"],
+      "why": "RLS, rôles et consignes de tout agent : revue sécurité (contrainte 1)"
     }
   ],
   "stories": {
