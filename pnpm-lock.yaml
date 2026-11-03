@@ -57,6 +57,9 @@ importers:
       '@rueda/fake-adapters':
         specifier: workspace:*
         version: link:../../packages/fake-adapters
+      '@rueda/money':
+        specifier: workspace:*
+        version: link:../../packages/money
       '@types/node':
         specifier: 26.6.5
         version: 26.6.5

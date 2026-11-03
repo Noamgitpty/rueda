@@ -44,6 +44,15 @@ const CONFIG_TABLES = [
 // RLS (test/l0/l0-rls-*.test.ts).
 const SUPPORT_TABLES = ['support_support_case'] as const;
 
+// Tables PAY du port PaymentProvider (US-019, 0027) : même socle RLS ; leurs politiques, droits et
+// commandes sont vérifiés par test/l0/l0-pay-*.test.ts.
+const PAY_PORT_TABLES = [
+  'payment_psp_account',
+  'payment_psp_capability',
+  'payment_payment_operation_leg',
+  'payment_payment_operation_event',
+] as const;
+
 const INTEGRITY_FUNCTIONS = [
   'core.booking_assert_trip_occupancy()',
   'core.booking_assert_conversion_disposition()',
@@ -76,7 +85,7 @@ describe('schéma core (US-006)', () => {
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
-        [...CORE_TABLES, ...CONFIG_TABLES, ...SUPPORT_TABLES].sort(),
+        [...CORE_TABLES, ...CONFIG_TABLES, ...SUPPORT_TABLES, ...PAY_PORT_TABLES].sort(),
       );
       for (const r of rows) {
         expect(r, r.relname).toMatchObject({
@@ -89,7 +98,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('AVL / PAY : aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner', async () => {
+  it('AVL / PAY : aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner, cmd_money_owner (cmd_money_*, US-019)', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{ relname: string; polname: string; roles: string }>(
         `SELECT c.relname, p.polname,
@@ -108,11 +117,13 @@ describe('schéma core (US-006)', () => {
             ? 'migrator'
             : r.polname === 'integrity_read'
               ? 'integrity_owner'
-              : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
+              : r.polname.startsWith('cmd_money_') // commandes d'argent (US-018, US-019 ; 17 §2.3)
                 ? 'cmd_money_owner'
-                : r.polname.startsWith('worker_')
-                  ? 'app_worker'
-                  : 'app_api';
+                : r.polname.startsWith('money_') // verrou et lecture du trip (0027, US-018)
+                  ? 'cmd_money_owner'
+                  : r.polname.startsWith('worker_')
+                    ? 'app_worker'
+                    : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)
@@ -256,7 +267,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('triggers I-OCC et disposition : contraintes DEFERRABLE INITIALLY DEFERRED', async () => {
+  it('triggers I-OCC, disposition et jambes : contraintes DEFERRABLE INITIALLY DEFERRED', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         tgname: string;
@@ -276,6 +287,9 @@ describe('schéma core (US-006)', () => {
           'hold_conversion_matches_disposition',
           'occupancy_trip_guard',
           'occupancy_trip_ref_valid',
+          // US-019 (0028) : jambes d'une opération, sur payment_operation et payment_operation_leg
+          'payment_operation_legs_check',
+          'payment_operation_legs_check',
           'settlement_balanced', // invariants des règlements (0027, US-018)
           'trip_has_active_occupancy',
         ].map((tgname) => ({ tgname, deferrable: true, deferred: true })),

@@ -20,7 +20,10 @@
  * - `SETTLEMENT_EXISTS` : 08 (règle de qualification 5, EC-54, 409) ; `LEG_AMOUNT_NEGATIVE` : 08 E7
  *   règle 5 (nom PROPOSÉ) ; `SETTLEMENT_UNBALANCED` : PROPOSÉ par US-017 ; `SETTLEMENT_STALE` :
  *   PROPOSÉ par US-018 (trip modifié entre le calcul et l'enregistrement, 08 E4 ; migration 0027,
- *   ADR-057).
+ *   ADR-057) ;
+ * - `IDEMPOTENCY_CONFLICT` : 16 fiche PAY-019 (même clé, contenu ou jambes différents) ;
+ *   `LEG_SUM_MISMATCH`, `LEG_AMOUNT_NEGATIVE` : 17 §2.8, §4.3 point 5.8 ; `FAKE_FORBIDDEN_IN_PRODUCTION`,
+ *   `PSP_ACCOUNT_INACTIVE`, `PAYMENT_SUBJECT_MISMATCH` : PROPOSÉS par US-019 (migration 0028, ADR-059).
  */
 
 /** Codes métier produits par la traduction. */
@@ -42,6 +45,11 @@ export const DB_BUSINESS_CODES = [
   'SETTLEMENT_STALE',
   'SETTLEMENT_UNBALANCED',
   'LEG_AMOUNT_NEGATIVE',
+  'IDEMPOTENCY_CONFLICT',
+  'LEG_SUM_MISMATCH',
+  'FAKE_FORBIDDEN_IN_PRODUCTION',
+  'PSP_ACCOUNT_INACTIVE',
+  'PAYMENT_SUBJECT_MISMATCH',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -125,6 +133,24 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_segment_beta: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   settlement_inputs_hash_match: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   settlement_inputs_engine: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  // 23000 : port PaymentProvider (0028, US-019)
+  payment_operation_idempotency_conflict: [
+    SQLSTATE.integrityConstraintViolation,
+    'IDEMPOTENCY_CONFLICT',
+  ],
+  payment_operation_leg_sum: [SQLSTATE.integrityConstraintViolation, 'LEG_SUM_MISMATCH'],
+  payment_operation_legs_complete: [SQLSTATE.integrityConstraintViolation, 'LEG_SUM_MISMATCH'],
+  payment_operation_leg_negative: [SQLSTATE.integrityConstraintViolation, 'LEG_AMOUNT_NEGATIVE'],
+  psp_account_fake_forbidden: [
+    SQLSTATE.integrityConstraintViolation,
+    'FAKE_FORBIDDEN_IN_PRODUCTION',
+  ],
+  psp_account_fake_sandbox_only: [SQLSTATE.checkViolation, 'FAKE_FORBIDDEN_IN_PRODUCTION'],
+  payment_operation_account_active: [SQLSTATE.integrityConstraintViolation, 'PSP_ACCOUNT_INACTIVE'],
+  payment_operation_subject_mismatch: [
+    SQLSTATE.integrityConstraintViolation,
+    'PAYMENT_SUBJECT_MISMATCH',
+  ],
 };
 
 const own = (value: object, key: string): unknown =>

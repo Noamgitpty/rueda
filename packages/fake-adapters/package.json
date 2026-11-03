@@ -13,7 +13,8 @@
     "./messaging": "./src/messaging/index.ts",
     "./files": "./src/files/index.ts",
     "./signature": "./src/signature/index.ts",
-    "./maps": "./src/maps/index.ts"
+    "./maps": "./src/maps/index.ts",
+    "./psp": "./src/psp/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -16,6 +16,9 @@
  * `app_worker`. Ils ne doivent jamais être instanciés par l'API (`main.ts`, rôle `app_api`).
  * En attendant, ce processus initialise le contexte puis s'arrête : un conteneur « worker »
  * démarré avant US-003 sort donc immédiatement, et c'est voulu.
+ *
+ * US-019 (C19) : au branchement du pool `app_worker`, appeler d'abord
+ * `assertPaymentStartup({ env: process.env, db: pool })` (index public de PAY), comme main.ts.
  */
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
