@@ -17,7 +17,7 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:int": "vitest run --config vitest.int.config.ts",
     "test:l0": "vitest run --config vitest.l0.config.ts",
-    "test:c11": "vitest run --config vitest.l0.config.ts test/l0/l0-c11-fuzz.test.ts"
+    "test:c11": "vitest run --config vitest.c11.config.ts"
   },
   "dependencies": {
     "pg": "8.23.1"

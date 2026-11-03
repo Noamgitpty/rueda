@@ -28,15 +28,20 @@ jobs:
       pull-requests: read
 
   fuzz-c11:
-    name: fuzz C11 (10 000 exécutions, mode long)
+    # Mode long (US-025, ADR-068) : 10 lots de 1 000 exécutions = 10 000, en parallèle. Chaque lot a sa
+    # base jetable : le coût d'une exécution ne croît pas avec les 9 000 autres (balayages sur toute la
+    # base, ADR-068 « Limites »). La CI de chaque PR garde le mode court (job fuzz-c11 de ci.yml).
+    name: fuzz C11 (mode long, lot ${{ matrix.shard }} sur 10)
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     env:
       # Le harnais d'US-005 démarre postgres:16 par Testcontainers sur le Docker du runner (ADR-043).
       RUEDA_PG_TESTCONTAINERS: '1'
-      # Mode long explicite (US-025, ADR-068) : 10 000 exécutions ; la CI de chaque fusion garde
-      # le mode court par défaut (1 000, `pnpm test:l0`).
-      RUEDA_C11_RUNS: nightly
+      RUEDA_C11_RUNS: '1000'
       RUEDA_C11_FAILURES: ${{ github.workspace }}/c11-failures.jsonl
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,17 +53,19 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Graine de la nuit = date UTC (AAAAMMJJ) : chaque nuit explore d'autres entrelacements ; elle
-      # est consignée dans le journal (`[C11] graine`) et chaque échec donne RUEDA_C11_REPLAY.
-      - name: graine de la nuit
-        run: echo "RUEDA_C11_SEED=$(date -u +%Y%m%d)" >> "$GITHUB_ENV"
+      # Graine du lot = date UTC × 10 + lot (AAAAMMJJL) : chaque nuit et chaque lot explorent d'autres
+      # entrelacements ; elle est consignée (`[C11] graine`) et chaque échec donne RUEDA_C11_REPLAY.
+      - name: graine du lot
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: echo "RUEDA_C11_SEED=$(date -u +%Y%m%d)${SHARD}" >> "$GITHUB_ENV"
       - name: fuzz C11 (pnpm --filter @rueda/db test:c11)
         run: pnpm --filter @rueda/db test:c11
       - name: graines d'échec
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: c11-failures
+          name: c11-failures-${{ matrix.shard }}
           path: c11-failures.jsonl
           if-no-files-found: ignore
           retention-days: 30

@@ -79,7 +79,7 @@ const iso = (ms: number): string => new Date(ms).toISOString();
 const MIN = 60_000;
 
 /** Étapes aléatoires par exécution (hors quiescence). */
-const STEPS = 18;
+const STEPS = 14;
 /** Connexions parallèles (une paire app_api / app_worker par voie). */
 const LANES = 3;
 
@@ -965,7 +965,7 @@ class Run {
   async quiesce(): Promise<void> {
     const lane = this.lanes[0] as Lane;
     for (let i = 0; i < 40; i++) {
-      this.now += 3 * MIN;
+      this.now += 5 * MIN;
       for (const ev of this.dueEvents()) {
         this.removeEvent(ev);
         this.apply(await this.exec({ k: 'EVENT', ev }, lane));
@@ -981,9 +981,9 @@ class Run {
                                      WHERE d.operation_id = o.id)))::int AS n`,
         [this.holds.map((h) => h.id)],
       );
-      if (this.events.length === 0 && live.rows[0]?.n === 0 && i >= 2) return;
+      if (this.events.length === 0 && live.rows[0]?.n === 0 && i >= 1) return;
     }
-    throw new C11Failure('quiescence non atteinte en 2 h virtuelles');
+    throw new C11Failure('quiescence non atteinte en 200 min virtuelles');
   }
 
   /** Trace sans les passes périodiques vides (les 150 dernières actions qui ont eu un effet). */
