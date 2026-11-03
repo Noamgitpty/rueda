@@ -1,7 +1,7 @@
 // Tests du job « revues » (node --test scripts/ci/), contournements compris.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -312,4 +312,65 @@ test('docs/specs/ ou CLAUDE.md touchés : + architecture ; stories de révision 
     'code',
     'securite',
   ]);
+});
+
+test('lot 0 : paquets déclarés pour les stories qui les créent ou les modifient (US-050)', () => {
+  assert.deepEqual(ev('story/US-006-preuves-l0', ['packages/db/migrations/0002.sql']).errors, []);
+  assert.deepEqual(ev('story/US-016-oracle', ['packages/money/test/golden.test.ts']).errors, []);
+  assert.deepEqual(ev('story/US-030-jetons', ['packages/design-tokens/tokens.json']).errors, []);
+  assert.deepEqual(ev('story/US-019-psp', ['packages/fake-adapters/src/psp.ts']).errors, []);
+  // Propriété exacte : US-030 ne touche pas packages/db/, US-016 ne touche pas les jetons.
+  assert.match(ev('story/US-030-jetons', ['packages/db/a.sql']).errors[0], /réservé à/);
+  assert.match(ev('story/US-016-x', ['packages/design-tokens/a.json']).errors[0], /réservé à/);
+  // packages/design-tokensx/ n'est pas packages/design-tokens/.
+  assert.match(
+    ev('story/US-030-x', ['packages/design-tokensx/a.json']).errors[0],
+    /absent de pathOwners/,
+  );
+});
+
+test('lot 0 : revues exigées par story (19 Revue design, contrainte 1)', () => {
+  assert.deepEqual(requiredRoles('US-006', ['packages/db/migrations/0002.sql'], config), [
+    'architecture',
+    'code',
+    'qa',
+    'securite',
+  ]);
+  assert.deepEqual(requiredRoles('US-016', ['packages/money/src/a.ts'], config), [
+    'argent',
+    'code',
+    'qa',
+  ]);
+  assert.deepEqual(requiredRoles('US-030', ['packages/design-tokens/a.json'], config), [
+    'code',
+    'ux',
+  ]);
+  assert.deepEqual(requiredRoles('US-011', [], config), ['architecture', 'code', 'qa', 'securite']);
+  assert.deepEqual(requiredRoles('US-062', [], config), [
+    'architecture',
+    'argent',
+    'code',
+    'qa',
+    'securite',
+  ]);
+});
+
+test('lot 0 : chaque story US-0xx de 19 §3.1 a ses revues ; chaque paquet du dépôt a ses propriétaires', () => {
+  const backlog = readFileSync(
+    new URL('../../docs/specs/19_DEVELOPMENT_BACKLOG.md', import.meta.url),
+    'utf8',
+  );
+  const lot0 = backlog.split('### 3.1 Lot 0')[1].split('### 3.2 ')[0];
+  const ids = [...lot0.matchAll(/^#### (US-\d{3}) /gm)].map((m) => m[1]);
+  assert.ok(ids.length >= 50, `stories du lot 0 lues : ${ids.length}`);
+  for (const id of ['US-061', 'US-062', ...ids]) {
+    const r = config.stories[id];
+    assert.ok(Array.isArray(r?.require) && r.require.includes('code'), id);
+    const story = lot0.split(`#### ${id} `)[1].split('\n#### ')[0];
+    if (/\*\*Revue design\*\* : OUI/.test(story)) assert.ok(r.require.includes('ux'), `${id} : ux`);
+  }
+  const pkgs = readdirSync(new URL('../../packages/', import.meta.url), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => `packages/${d.name}/`);
+  for (const p of pkgs) assert.ok(Array.isArray(config.pathOwners[p]), p);
 });
