@@ -230,6 +230,31 @@ Preuves : `test/l0/l0-occ-single-occupancy.test.ts` (PA et PY) : fonctions de p�
 
 Preuves : `test/l0/l0-hold-commands.test.ts` (PA et PY) : critères 1 à 5 d'US-023, RLS-3, RLS-4, RLS-11, RLS-13, RLS-14, C5, C9, libération immédiate et différée, rotation, auto-réservation, hôte non activé ; L0-02 et L0-04 rejoués avec la commande réelle ; `test/l0/l0-08-unique.test.ts` (clé étrangère de la boîte de réception) ; unitaires `src/errors.test.ts`, `src/session-context.test.ts`, `test/support/expiry-2a.test.ts`.
 
+## Conversion gardée, ré-acquisition et compensation (US-024 ; 16 BKG-014 ; 08 BR-BOOK-10, SM-1 ; 17 §2.3, §2.5 étapes 3 à 7, §4.3 ; ADR-065)
+
+Du paiement au trip, ou au remboursement, jamais les deux ni rien (migrations 0039 et 0040).
+
+- **Commandes du voyageur** (`SECURITY DEFINER`, `cmd_hold_owner`, `EXECUTE` à `app_api`, liste blanche RLS-15 ; forme d'appel `commandCallSql`) :
+  - `core.booking_cmd_start_payment(hold, compte PSP, moyen)` (T1, étape 3a) renvoie un `jsonb`. `NEW_ORDER` : hold `PAYMENT_IN_FLIGHT`, borne provisoire, opération `CAPTURE` `PENDING` avec la clé `hold:{hold}:CAPTURE:a{n}` et les quatre jambes **du devis**. Hold déjà en vol : `EXISTING_ORDER`, `RETRY_SAME_KEY` ou `VERIFYING`. Montant et jambes ne sont jamais des paramètres.
+  - `core.booking_cmd_record_order(hold, opération, référence, expiration)` (T2, étape 3c) : `SUBMITTED` et référence PSP, borne affinée vers le bas. Une opération `SUCCEEDED` n'est jamais rétrogradée. Hold échu ou libéré : `CANCEL_ORDER` si `SUPPORTS_ORDER_CANCEL` est validé.
+  - `core.booking_cmd_release_own_hold(hold)` (remplacée) : la libération différée écrit en plus `CANCEL_ORDER` pour chaque ordre vivant connu, si la capacité est validée.
+- **Devis fail-closed** : `core.booking_hold_payment_terms(hold)` ne rend **rien** tant que le module PRC n'existe pas (T1 : `QUOTE_UNAVAILABLE`). La base de test la remplace par un registre (9800).
+- **Capacités PSP** : `core.payment_capability_value`, `_bool` et `_int` ne comptent que la version en vigueur `VALIDATED_*` (moyen précis, puis `*`). Une capacité inconnue vaut « non ».
+- **Boîte d'envoi** `core.payment_payment_command` (`CANCEL_ORDER` seulement) : la clé `hold:{hold}:CANCEL:{opération}:a1` est `UNIQUE` (C16). La commande est exécutée après le `COMMIT` par `payment_command` (US-061). `core.booking_release_cancelled_holds(lot)` (`hold_expiry`, temps 2) libère après confirmation (`DONE`).
+- **Conversion** (`SECURITY INVOKER`, `app_worker`, travailleurs `booking_conversion`, `disposition_sweeper`, `payment_intent_sweeper`) :
+  - `core.booking_convert_payment(opération)` (étape 4) renvoie un `jsonb` : `CONVERTED` (avec `reacquired`), `COMPENSATED` (motif, action), `REPLAY`, `NOT_SUCCEEDED` ou `NOT_APPLICABLE`.
+  - Ordre de travail : verrous voyageur → véhicule ; rejeu par la disposition ; verrou du hold sans prédicat ; preuve contre le devis et 2 bis ; 2a (partie véhicule) avant la ré-acquisition dans un bloc `SAVEPOINT` ; résolution A4 (`SUPERSEDED_BY_PAID_HOLD`, `DUPLICATE_PAYMENT`, `SLOT_LOST_*`) ; `GUEST_OVERLAP`.
+  - `core.booking_open_compensation(hold, opération, motif)` (bloc C) choisit l'action par capacité validée : `VOID` / `LET_EXPIRE` pour une autorisation, `REFUND_API` / `BANK_TRANSFER_REFUND` pour un débit capturé. Événements `booking.hold.compensated` et `booking.hold.compensation_required`.
+  - `core.booking_conversion_eligibility(hold)` (`SECURITY DEFINER`, `cmd_hold_owner`, `EXECUTE` à `app_worker`) : catalogue, hôte `ACTIVE`, voyageur ≠ titulaire.
+  - `core.booking_record_payment_failure(opération)` (refus reçu, étape 3e) : retour en `ACTIVE` ou `RELEASED` (`PAYMENT_DECLINED`).
+- **Balayages** (une opération par transaction) :
+  - `core.booking_intents_due(lot)` et `core.booking_record_poll(opération)` (`payment_intent_sweeper`, A3) ;
+  - `core.booking_disposition_candidates(lot)` et `core.booking_disposition_repair(opération)` (`disposition_sweeper`, A6, C17), avec les essais dans `core.booking_disposition_repair_log` et l'alerte P1 `booking.payment.disposition_overdue`.
+- **Codes** : `HOLD_EXPIRED`, `QUOTE_UNAVAILABLE`, `START_PASSED`, `PAYMENT_ATTEMPTS_EXHAUSTED`, `PAYMENT_METHOD_UNAVAILABLE` (PROPOSÉS), plus `PSP_ACCOUNT_INACTIVE`, `FAKE_FORBIDDEN_IN_PRODUCTION`, `BOOKING_UNDER_REVIEW`, `INVALID_TRANSITION`, `FORBIDDEN`.
+- **Paramètres lus** (graine US-013, aucun créé) : `payment_in_flight_margin_s`, `psp_call_timeout_s`, `hold_max_total_minutes`, `conversion_start_tolerance_minutes`, `payment_attempts_per_hold`, `sweep_grace_s`, `sweep_lead_s`, `disposition_repair_after_minutes`, `disposition_alert_minutes`. `reacquire_preempts_unpaid_hold` n'est pas lu : l'option M13 n'est pas retenue.
+
+Preuves : `test/l0/l0-us024-conversion.test.ts` (PA et PY, groupe isolé de `vitest.l0.config.ts`) : C2, C3, C4, C4 bis, C6, C7, C8, C13, C14, C15 (a à e), C15 bis (f à h), C16 (rejeux), C17, C18, C20, et les rôles. Unitaires : `src/errors.test.ts`, `test/support/expiry-2a.test.ts` (2a de la ré-acquisition).
+
 ## Règlements et jambes (US-018 ; 08 E4, E7 ; 17 §2.3, §2.9, §3.2.8 ; ADR-057)
 
 Migration 0027 : `core.settlement_settlement` (en-tête versionné, `UNIQUE (trip_id, segment_no, version)`, `supersedes_id`), `settlement_settlement_line`, `settlement_settlement_tax_line`, `settlement_settlement_leg` (jambe retenue `kept_minor` ≥ 0, avance `advance_minor` sur `PLATFORM` seulement, base `basis_minor`, variation signée `variation_minor = kept − advance − basis`) et `settlement_trip_leg_balance` (soldes par trip, segment et jambe, toujours ≥ 0, cumuls monotones, aucun `DELETE`).
