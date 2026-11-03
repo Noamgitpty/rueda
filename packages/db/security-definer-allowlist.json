@@ -73,11 +73,25 @@
       "story": "US-022"
     },
     {
+      "signature": "core.booking_cmd_place_hold(uuid,timestamp with time zone,timestamp with time zone,boolean)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-023"
+    },
+    {
       "signature": "core.booking_cmd_place_host_block(uuid,timestamp with time zone,timestamp with time zone)",
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
       "story": "US-022"
+    },
+    {
+      "signature": "core.booking_cmd_release_own_hold(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-023"
     },
     {
       "signature": "core.booking_cmd_remove_host_block(uuid)",
@@ -281,6 +295,13 @@
       "owner": "cmd_money_owner",
       "execute": ["app_api"],
       "story": "US-062"
+    },
+    {
+      "signature": "platform.guest_hold_guard(tstzrange)",
+      "family": "guard",
+      "owner": "guard_owner",
+      "execute": ["app_api", "cmd_hold_owner"],
+      "story": "US-023"
     }
   ]
 }

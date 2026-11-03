@@ -25,10 +25,17 @@ export { CONSTRAINT_CODES, DB_BUSINESS_CODES, SQLSTATE, translateDbError } from 
 export type { DbBusinessCode, DbBusinessError } from './errors.ts';
 export {
   ACTOR_KINDS,
+  commandCallSql,
   SESSION_SETTINGS,
   SET_SESSION_CONTEXT_SQL,
   SessionContextError,
   sessionSettings,
   setSessionContext,
 } from './session-context.ts';
-export type { ActorKind, Queryable, SessionContext, SessionSetting } from './session-context.ts';
+export type {
+  ActorKind,
+  CommandArg,
+  Queryable,
+  SessionContext,
+  SessionSetting,
+} from './session-context.ts';

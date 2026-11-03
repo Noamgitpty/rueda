@@ -36,7 +36,9 @@ export type Worker =
   | 'payment_intent_sweeper'
   | 'hold_expiry'
   | 'trip_lifecycle'
-  | 'webhook_ingest';
+  | 'webhook_ingest'
+  // relais de l'outbox (US-008) : seul lecteur des événements, pour vérifier ceux d'une commande
+  | 'outbox_relay';
 
 export const uuid = (): string => randomUUID();
 

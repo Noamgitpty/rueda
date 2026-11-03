@@ -1,8 +1,9 @@
 /**
- * Aides des preuves de concurrence L0-02 / L0-04 (US-007) : barrière de départ par verrou
+ * Aides des preuves de concurrence L0-02 / L0-04 (US-007, US-023) : barrière de départ par verrou
  * consultatif, attente observée dans `pg_locks`, rejeu des transactions (`40P01` / `40001`),
- * pose de hold par la fixture qui tient lieu de `booking.cmd_place_hold` (US-023), annulation
- * de trip, percentiles.
+ * pose de hold par la commande réelle `core.booking_cmd_place_hold` (US-023) ou, pour la seule
+ * injection « sans verrou par véhicule » de L0-02, par la fixture `l0_place_hold` (9002),
+ * annulation de trip, percentiles.
  *
  * Toutes les connexions passent par `connectAs` (assertion L0-05 en tête). Les valeurs attendues
  * des tests viennent de 17 (§2.5, §11) et de 16 A.8, jamais de ce fichier.
@@ -10,7 +11,7 @@
 import { randomInt } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type pg from 'pg';
-import { setSessionContext } from '../../src/index.ts';
+import { commandCallSql, setSessionContext } from '../../src/index.ts';
 import { HOLD_TTL, SWEEP_GRACE_S, uuid } from './avl.ts';
 import type { CountryCase, Slot } from './avl.ts';
 export { MAX_REPLAYS, percentile, sqlState, withReplay } from './replay.ts';
@@ -131,9 +132,46 @@ export interface Pose {
   readonly expired: readonly string[];
 }
 
+/** Enregistre des véhicules (registre de test 9750, qui tient lieu du catalogue, US-115). */
+export async function registerVehicles(
+  tx: pg.ClientBase,
+  vehicleIds: readonly string[],
+  orgId: string,
+  c: CountryCase,
+): Promise<void> {
+  for (const v of vehicleIds) {
+    await tx.query('SELECT test_fixture.register_vehicle($1, $2, $3)', [v, orgId, c.country]);
+  }
+}
+
 /**
- * Pose d'un hold (17 §2.5 étape 2 : verrous, 2a, insertion) par la fixture qui tient lieu de
- * `booking.cmd_place_hold` (US-023), sous `app_api`, dans la transaction de l'appelant.
+ * Pose RÉELLE (US-023) : `core.booking_cmd_place_hold` sous `app_api`, contexte du voyageur et
+ * appel dans UNE instruction (`commandCallSql`, ADR-056 point 4). Hors transaction : autocommit ;
+ * dans la transaction ouverte de l'appelant : même instruction, contexte local à la transaction.
+ * Renvoie l'identifiant du hold.
+ */
+export async function placeHoldCommand(
+  client: pg.ClientBase,
+  a: { readonly slot: Slot; readonly guestId: string; readonly flagged?: boolean | null },
+): Promise<string> {
+  const { text, values } = commandCallSql(
+    { kind: 'GUEST', actorId: a.guestId },
+    'core.booking_cmd_place_hold',
+    [
+      { value: a.slot.vehicleId, type: 'uuid' },
+      { value: a.slot.start, type: 'timestamptz' },
+      { value: a.slot.end, type: 'timestamptz' },
+      { value: a.flagged === undefined ? false : a.flagged, type: 'boolean' },
+    ],
+  );
+  const r = await client.query<{ result: string }>(text, values);
+  return r.rows[0]?.result as string;
+}
+
+/**
+ * Pose par la fixture `l0_place_hold` (9002) : verrous, 2a, insertion, sous `app_api`, dans la
+ * transaction de l'appelant. Sert à l'INJECTION de L0-02 (`vehicleLock: false`), que la commande
+ * réelle ne permet pas, et aux poses de mise en place qui choisissent leurs identifiants.
  */
 export async function placeHoldLocked(tx: pg.ClientBase, a: PoseArgs): Promise<Pose> {
   const holdId = uuid();
@@ -167,26 +205,17 @@ export interface PoseTiming {
   readonly ok: boolean;
 }
 
-/** Appel de la pose mesurée dans la transaction déjà ouverte de l'appelant. */
+/**
+ * Appel de la pose RÉELLE mesurée (`test_fixture.l0_cmd_place_hold_timed`, 9750) dans la
+ * transaction déjà ouverte de l'appelant, contexte du voyageur déjà posé.
+ */
 export async function placeHoldTimedInTx(
   tx: pg.ClientBase,
   a: PoseArgs,
 ): Promise<Omit<PoseTiming, 'ok'>> {
   const r = await tx.query<{ t: string }>(
-    `SELECT test_fixture.l0_place_hold_timed($1, $2, $3, $4, $5, $6, $7::tstzrange, $8::interval,
-                                             $9, $10) AS t`,
-    [
-      uuid(),
-      uuid(),
-      a.guestId,
-      a.slot.vehicleId,
-      a.slot.orgId,
-      a.c.country,
-      a.period,
-      HOLD_TTL,
-      a.vehicleLock,
-      SWEEP_GRACE_S,
-    ],
+    `SELECT test_fixture.l0_cmd_place_hold_timed($1, $2::timestamptz, $3::timestamptz) AS t`,
+    [a.slot.vehicleId, a.slot.start, a.slot.end],
   );
   return JSON.parse(r.rows[0]?.t ?? '{}') as Omit<PoseTiming, 'ok'>;
 }

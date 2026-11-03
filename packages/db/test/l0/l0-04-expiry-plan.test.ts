@@ -8,9 +8,9 @@
  * conversion à une barrière est sauté ; un hold `PAYMENT_IN_FLIGHT` avec opération non terminale
  * non encore balayée et un hold dont l'opération est `SUCCEEDED` sans disposition ne sont **pas**
  * expirés ; p95 de 2a compatible avec C1 (< 300 ms, seuil de pose de L0-02).
- * Rôles (17 §11) : `app_api` par la commande de pose (fixture qui tient lieu de
- * `cmd_place_hold` sous `cmd_hold_owner`, US-023) ; `app_worker` (`hold_expiry`, tâche
- * d'expiration). En USD (PA) et en PYG (PY).
+ * Rôles (17 §11) : `app_api` par la commande de pose RÉELLE `core.booking_cmd_place_hold` sous
+ * `cmd_hold_owner` (US-023 : 2a exécutée sous sa politique `cmd_hold_upd`) ; `app_worker`
+ * (`hold_expiry`, tâche d'expiration). En USD (PA) et en PYG (PY).
  */
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
@@ -23,12 +23,16 @@ import {
   inTx,
   insertRentOperation,
   placeHold,
-  slotPeriod,
   SWEEP_GRACE_S,
   uuid,
 } from '../support/avl.ts';
 import type { CountryCase, Hold, Slot } from '../support/avl.ts';
-import { ensureParties, percentile, placeHoldLocked, POSE_P95_MS } from '../support/concurrency.ts';
+import {
+  ensureParties,
+  percentile,
+  placeHoldCommand,
+  POSE_P95_MS,
+} from '../support/concurrency.ts';
 
 const VEHICLES = 1_000;
 const HOLDS_PER_VEHICLE = 10;
@@ -181,19 +185,27 @@ describe.each(COUNTRIES)('L0-04 — instruction 2a sur 10 000 holds ($country, $
           expect(byWorker.n).toBe(2);
           expect(byWorker.st).toEqual(EXPECTED);
 
-          // (2) commande de pose sous app_api : 2a, puis insertion sur un créneau libre de V*
-          const pose = await inTx(api, { virtualNow: TL }, async (tx) => {
-            const slot = slotOn(s.vehicleId, s.orgId, 20);
+          // (2) commande de pose RÉELLE sous app_api (US-023) : 2a sous cmd_hold_owner, puis
+          // insertion sur un créneau libre de V* ; validée, puis relue par le travailleur : même
+          // résultat que la tâche (la commande ne renvoie rien de 2a au client, RLS-14)
+          const poseHold = await inTx(api, { virtualNow: TL, commit: true }, async (tx) => {
             await ensureParties(tx, [s.guest], s.orgId, c);
-            return placeHoldLocked(tx, {
-              slot,
-              c,
+            return placeHoldCommand(tx, {
+              slot: slotOn(s.vehicleId, s.orgId, 20),
               guestId: s.guest,
-              period: slotPeriod(slot),
-              vehicleLock: true,
             });
           });
-          expect([...pose.expired].sort()).toEqual([s.due.holdId, s.otherVehicle.holdId].sort());
+          const byPose = await inTx(worker, { worker: 'hold_expiry', virtualNow: TL }, (tx) =>
+            statuses(tx, s),
+          );
+          expect(byPose).toEqual(EXPECTED);
+          const posed = await inTx(worker, { worker: 'hold_expiry', virtualNow: TL }, (tx) =>
+            tx.query<{ status: string }>(
+              'SELECT status FROM core.booking_checkout_hold WHERE id = $1',
+              [poseHold],
+            ),
+          );
+          expect(posed.rows).toEqual([{ status: 'ACTIVE' }]);
 
           // (3) plan : EXPLAIN (ANALYZE, BUFFERS) de 2a, sous app_worker `hold_expiry`
           const plan = await inTx(worker, { worker: 'hold_expiry', virtualNow: TL }, async (tx) => {
@@ -254,11 +266,12 @@ describe.each(COUNTRIES)('L0-04 — instruction 2a sur 10 000 holds ($country, $
           await conversion.query('RESET ALL');
         }
 
-        // Le verrou rendu, le hold `locked` est expirable : il était bien sauté, pas exclu
+        // Le verrou rendu, le hold `locked` est expirable : il était bien sauté, pas exclu (la
+        // pose validée a déjà expiré `due` et `otherVehicle`)
         const after = await inTx(worker, { worker: 'hold_expiry', virtualNow: TL }, (tx) =>
           expireDueHolds(tx, s.vehicleId, s.guest),
         );
-        expect(after).toBe(3);
+        expect(after).toBe(1);
       } finally {
         await releaseClient(conversion);
         await releaseClient(worker);
