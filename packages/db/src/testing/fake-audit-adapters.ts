@@ -1,27 +1,25 @@
 /**
- * Adaptateurs FAKE des ports d'audit (US-009) : `KeyWrapper` (KMS) et `FileStore` (stockage
- * objet). TESTS SEULEMENT : exportés par `@rueda/db/testing`, jamais par `@rueda/db` ni
- * `@rueda/db/audit` ; refusés à la construction si `NODE_ENV = production` (C19 : aucun FAKE en
- * production, CLAUDE.md point 2).
+ * Adaptateur FAKE du port d'audit `KeyWrapper` (KMS, US-009). TESTS SEULEMENT : exporté par
+ * `@rueda/db/testing`, jamais par `@rueda/db` ni `@rueda/db/audit` ; garde centrale des FAKE
+ * (`assertFakeAllowed` de `@rueda/fake-adapters`, US-020) : refusé hors `RUEDA_ENV` =
+ * development | test (C19 ; revue sécurité US-009, constat 11).
+ *
+ * Le FAKE `FileStore` (`InMemoryFileStore`) est désormais dans `@rueda/fake-adapters/files`
+ * (US-020). `FakeKeyWrapper` reste ici : il lève les classes d'erreur du port (`instanceof` dans
+ * `subject-keys.ts`), et `@rueda/fake-adapters` ne peut pas importer `@rueda/db` sans créer un
+ * cycle de paquets (ADR-058). KMS réel : US-003.
  *
  * `FakeKeyWrapper` : la clé maîtresse est tirée au hasard EN MÉMOIRE à la construction (aucune
  * clé en dur, rien sur disque, rien d'affiché). Elle meurt avec l'instance : une DEK enveloppée par
  * une instance ne se déroule pas avec une autre (comme deux clés KMS distinctes).
  */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { FileStoreConflictError } from '../audit/file-asset.ts';
-import type { Bucket, FileStore } from '../audit/file-asset.ts';
+import { assertFakeAllowed } from '@rueda/fake-adapters';
+import type { EnvironmentVariables } from '@rueda/fake-adapters';
 import { KeyWrapperRejectedError, KeyWrapperUnavailableError } from '../audit/key-wrapper.ts';
 import type { KeyWrapper } from '../audit/key-wrapper.ts';
 import { subjectLabel } from '../audit/envelope.ts';
 import type { SubjectRef } from '../audit/envelope.ts';
-
-/** Refuse un adaptateur FAKE dans un processus de production. */
-export function assertNotProduction(adapter: string, env: NodeJS.ProcessEnv = process.env): void {
-  if (env.NODE_ENV === 'production') {
-    throw new Error(`${adapter} : adaptateur FAKE refusé en production (C19)`);
-  }
-}
 
 const NONCE = 12;
 const TAG = 16;
@@ -32,8 +30,8 @@ export class FakeKeyWrapper implements KeyWrapper {
   #available = true;
   #unwrapCalls = 0;
 
-  constructor(env: NodeJS.ProcessEnv = process.env) {
-    assertNotProduction('FakeKeyWrapper', env);
+  constructor(env: EnvironmentVariables = process.env) {
+    assertFakeAllowed('FakeKeyWrapper', env);
     this.#master = randomBytes(32);
     this.keyId = `fake-kms/${randomBytes(6).toString('hex')}`;
   }
@@ -76,41 +74,5 @@ export class FakeKeyWrapper implements KeyWrapper {
     } catch {
       throw new KeyWrapperRejectedError('enveloppe refusée');
     }
-  }
-}
-
-/** Stockage objet en mémoire, en création seule. `corrupt` simule une altération des octets stockés. */
-export class InMemoryFileStore implements FileStore {
-  readonly #objects = new Map<string, Buffer>();
-
-  constructor(env: NodeJS.ProcessEnv = process.env) {
-    assertNotProduction('InMemoryFileStore', env);
-  }
-
-  /** Création seule (contrat du port) : un objet existant n'est jamais écrasé. */
-  async put(bucket: Bucket, key: string, body: Buffer): Promise<void> {
-    const at = `${bucket}/${key}`;
-    if (this.#objects.has(at)) throw new FileStoreConflictError('objet déjà présent');
-    this.#objects.set(at, Buffer.from(body));
-  }
-
-  async get(bucket: Bucket, key: string): Promise<Buffer> {
-    const body = this.#objects.get(`${bucket}/${key}`);
-    if (body === undefined) throw new Error('objet absent');
-    return Buffer.from(body);
-  }
-
-  /** Octets tels que stockés (preuve que le clair n'y figure pas). */
-  raw(bucket: Bucket, key: string): Buffer | undefined {
-    const body = this.#objects.get(`${bucket}/${key}`);
-    return body === undefined ? undefined : Buffer.from(body);
-  }
-
-  /** Inverse un octet de l'objet stocké. */
-  corrupt(bucket: Bucket, key: string, offset = 0): void {
-    const body = this.#objects.get(`${bucket}/${key}`);
-    if (body === undefined || body.length === 0) throw new Error('objet absent ou vide');
-    const at = Math.min(offset, body.length - 1);
-    body[at] = (body[at] ?? 0) ^ 0xff;
   }
 }

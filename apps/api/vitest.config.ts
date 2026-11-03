@@ -6,5 +6,7 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     exclude: ['src/**/*.int.test.ts', '**/node_modules/**'],
     testTimeout: 30_000,
+    // les adaptateurs FAKE (US-019) refusent de se construire hors development / test (C19)
+    env: { RUEDA_ENV: 'test' },
   },
 });

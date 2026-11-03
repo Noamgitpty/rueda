@@ -54,6 +54,9 @@ importers:
       '@rueda/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@rueda/fake-adapters':
+        specifier: workspace:*
+        version: link:../../packages/fake-adapters
       '@types/node':
         specifier: 26.6.5
         version: 26.6.5
@@ -181,6 +184,9 @@ importers:
       '@rueda/config':
         specifier: workspace:*
         version: link:../config
+      '@rueda/fake-adapters':
+        specifier: workspace:*
+        version: link:../fake-adapters
       '@rueda/money':
         specifier: workspace:*
         version: link:../money
@@ -204,6 +210,21 @@ importers:
         version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.2)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
 
   packages/design-tokens:
+    devDependencies:
+      '@rueda/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 26.6.5
+        version: 26.6.5
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.2)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
+
+  packages/fake-adapters:
     devDependencies:
       '@rueda/config':
         specifier: workspace:*

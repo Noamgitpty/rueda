@@ -4,5 +4,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['*.test.ts', 'src/**/*.test.ts', 'test/support/**/*.test.ts'],
+    // les adaptateurs FAKE (US-020) refusent de se construire hors development / test (C19)
+    env: { RUEDA_ENV: 'test' },
   },
 });
