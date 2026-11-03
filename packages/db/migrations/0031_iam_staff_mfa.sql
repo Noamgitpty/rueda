@@ -2,7 +2,7 @@
 -- propriétaire dédié `iam_staff_owner`. US-012 ; 16 ADM-001 (« 2FA TOTP obligatoire pour tout
 -- rôle interne », erreurs FORBIDDEN, 2FA_REQUIRED) ; 17 §2.3 (« Limite de la RLS », B8, RLS-18 ;
 -- « Fonctions de politique »), §3.2.1 (`auth_factor`, `session`) ; ADR-052, ADR-053, ADR-062.
--- Appliquée sous `migrator`.
+-- Appliquée sous `migrator`, APRÈS l'amorçage (bootstrap/0000) qui crée `iam_staff_owner`.
 --
 -- Reports traités (passations US-010 et US-011) :
 --   1. `p_mfa_level` libre dans `iam_cmd_open_session` : une session naît TOUJOURS au niveau
@@ -25,7 +25,8 @@
 -- base ; `auth_factor.secret_ref` référence le coffre (port de l'API ; FAKE en test, jamais en
 -- production). L'API vérifie le code, puis présente à la base le pas (`step`) reconnu et la
 -- preuve. La base juge seule : pas à ±1 de `platform.now()`, pas strictement croissant (aucun
--- rejeu), facteur non verrouillé, 5 échecs => verrou 15 min (PROPOSÉ, ADR-062).
+-- rejeu), facteur non verrouillé ; chaque tentative est comptée sous verrou AVANT que le secret
+-- ne sorte : 5 tentatives au plus, puis verrou de 15 min (PROPOSÉ, ADR-062).
 --
 -- Enrôlement : un facteur naît « en attente » (créé par un ADMIN / SUPERADMIN, 0032, ou par la
 -- procédure d'amorçage du premier ADMIN), avec l'empreinte d'un code d'enrôlement à usage unique
@@ -35,7 +36,8 @@
 --   restaurer app.has_staff_role, app.staff_case_covers (0024) et core.iam_cmd_open_session
 --   (0011) sous leurs propriétaires ; DROP FUNCTION core.iam_staff_cmd_begin(bytea),
 --   core.iam_staff_cmd_enroll_reveal(bytea, bytea), core.iam_staff_cmd_elevate(bytea, uuid,
---   bigint, bytea), core.iam_staff_cmd_mfa_failed(bytea), core.iam_staff_session(bytea),
+--   bigint, bytea), core.iam_staff_cmd_mfa_attempt(bytea), core.iam_staff_count_attempt(uuid, uuid),
+--   core.iam_staff_session(bytea),
 --   core.iam_staff_audit(uuid, text, text, text, uuid, jsonb, jsonb, text, uuid),
 --   core.iam_staff_audit_countries(uuid, text, uuid, jsonb, jsonb);
 --   DROP POLICY iam_staff_select ON core.booking_trip;
@@ -310,7 +312,7 @@ CREATE POLICY iam_staff_select ON core.iam_user_account FOR SELECT TO iam_staff_
 -- sessions : lecture ; élévation NONE -> TOTP ; révocation (suspension, réinitialisation, 0032)
 GRANT SELECT (id, user_id, token_hash, expires_at, revoked_at, revoked_reason, mfa_level) ON core.iam_session
   TO iam_staff_owner;
-GRANT UPDATE (mfa_level, revoked_at, revoked_reason) ON core.iam_session TO iam_staff_owner;
+GRANT UPDATE (mfa_level, expires_at, revoked_at, revoked_reason) ON core.iam_session TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.iam_session FOR SELECT TO iam_staff_owner USING (true);
 CREATE POLICY iam_staff_update ON core.iam_session FOR UPDATE TO iam_staff_owner
   USING (revoked_at IS NULL)
@@ -456,15 +458,57 @@ GRANT EXECUTE ON FUNCTION core.iam_staff_session(bytea),
 -- 9. Commandes MFA du staff (SECURITY DEFINER, iam_staff_owner, EXECUTE au seul app_api) --------
 -- Une commande = un appel = une instruction (ADR-056) ; l'audit est écrit en dernier.
 
+-- Tentative MFA comptée AVANT toute révélation du secret (revue sécurité US-012, MAJEUR 1) : sous
+-- FOR UPDATE sur le facteur, donc sérialisée. Au plus 5 tentatives ; la 6e pose le verrou de
+-- 15 min (PROPOSÉ) ; un verrou échu remet le compteur à zéro. Une élévation réussie le remet aussi
+-- à zéro. Rend true si la tentative est accordée (et comptée), false si le facteur est verrouillé.
+-- Aide interne (SECURITY INVOKER), appelée par les commandes sous iam_staff_owner.
+CREATE FUNCTION core.iam_staff_count_attempt(p_factor_id uuid, p_user uuid)
+  RETURNS boolean
+  LANGUAGE plpgsql
+  VOLATILE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_now timestamptz := platform.now();
+  v_f   record;
+  v_n   integer;
+BEGIN
+  SELECT f.id, f.failed_attempts, f.locked_until INTO v_f
+    FROM core.iam_auth_factor AS f
+   WHERE f.id = p_factor_id AND f.user_id = p_user AND f.kind = 'TOTP' AND f.disabled_at IS NULL
+     FOR UPDATE;
+  IF v_f.id IS NULL THEN
+    RETURN false;
+  END IF;
+  IF v_f.locked_until IS NOT NULL AND v_f.locked_until > v_now THEN
+    RETURN false;
+  END IF;
+  v_n := CASE WHEN v_f.locked_until IS NOT NULL THEN 0 ELSE v_f.failed_attempts END;
+  IF v_n >= 5 THEN
+    UPDATE core.iam_auth_factor AS f
+       SET failed_attempts = v_n, locked_until = v_now + interval '15 minutes'
+     WHERE f.id = v_f.id;
+    RETURN false;
+  END IF;
+  UPDATE core.iam_auth_factor AS f
+     SET failed_attempts = v_n + 1, locked_until = NULL
+   WHERE f.id = v_f.id;
+  RETURN true;
+END
+$fn$;
+REVOKE ALL ON FUNCTION core.iam_staff_count_attempt(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.iam_staff_count_attempt(uuid, uuid) TO iam_staff_owner;
+
 -- État d'accès d'une session à la console. Issues :
 --   AUTH_REQUIRED (session absente, expirée, révoquée ou compte non ACTIVE ; rien n'est journalisé :
 --   aucun acteur), NOT_STAFF, TOTP_NOT_ENROLLED, ENROLLMENT_REQUIRED, LOCKED (journalisés),
 --   MFA_REQUIRED (facteur actif, session pas encore élevée), ELEVATED.
--- `secret_ref` n'est rendu que pour un facteur ACTIF (vérification du code par l'API) ; celui d'un
--- facteur en attente ne l'est que contre le code d'enrôlement (iam_staff_cmd_enroll_reveal).
+-- Ne rend JAMAIS la référence du secret et ne compte rien : elle est appelée à chaque requête de
+-- console. Le secret ne sort que contre une tentative comptée (iam_staff_cmd_mfa_attempt,
+-- iam_staff_cmd_enroll_reveal).
 CREATE FUNCTION core.iam_staff_cmd_begin(p_token_hash bytea)
-  RETURNS TABLE (outcome text, user_id uuid, factor_id uuid, secret_ref text,
-                 last_used_step bigint, roles jsonb)
+  RETURNS TABLE (outcome text, user_id uuid, factor_id uuid, roles jsonb)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -478,7 +522,7 @@ DECLARE
 BEGIN
   SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
   IF v_s.user_id IS NULL THEN
-    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid, NULL::uuid, NULL::text, NULL::bigint, NULL::jsonb;
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid, NULL::uuid, NULL::jsonb;
     RETURN;
   END IF;
   SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('role', a.role, 'countries',
@@ -489,10 +533,10 @@ BEGIN
   IF v_roles IS NULL THEN
     PERFORM core.iam_staff_audit(v_s.user_id, 'USER', 'STAFF_ACCESS_DENIED', 'USER', v_s.user_id,
                                  NULL, pg_catalog.jsonb_build_object('reason', 'NOT_STAFF'), NULL, NULL);
-    RETURN QUERY SELECT 'NOT_STAFF'::text, v_s.user_id, NULL::uuid, NULL::text, NULL::bigint, NULL::jsonb;
+    RETURN QUERY SELECT 'NOT_STAFF'::text, v_s.user_id, NULL::uuid, NULL::jsonb;
     RETURN;
   END IF;
-  SELECT f.id, f.secret_ref, f.enabled_at, f.last_used_step, f.locked_until, f.enrollment_expires_at
+  SELECT f.id, f.enabled_at, f.locked_until, f.enrollment_expires_at
     INTO v_f
     FROM core.iam_auth_factor AS f
    WHERE f.user_id = v_s.user_id AND f.kind = 'TOTP' AND f.disabled_at IS NULL;
@@ -500,29 +544,78 @@ BEGIN
     -- critère 2 d'US-012 : un compte staff sans TOTP n'a accès à rien
     PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', 'USER', v_s.user_id,
                                  NULL, pg_catalog.jsonb_build_object('reason', '2FA_REQUIRED'), NULL, NULL);
-    RETURN QUERY SELECT 'TOTP_NOT_ENROLLED'::text, v_s.user_id, NULL::uuid, NULL::text, NULL::bigint, v_roles;
+    RETURN QUERY SELECT 'TOTP_NOT_ENROLLED'::text, v_s.user_id, NULL::uuid, v_roles;
     RETURN;
   END IF;
   IF v_f.locked_until IS NOT NULL AND v_f.locked_until > v_now THEN
     PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', 'USER', v_s.user_id,
                                  NULL, pg_catalog.jsonb_build_object('reason', 'TOTP_LOCKED'), NULL, NULL);
-    RETURN QUERY SELECT 'LOCKED'::text, v_s.user_id, v_f.id, NULL::text, NULL::bigint, v_roles;
+    RETURN QUERY SELECT 'LOCKED'::text, v_s.user_id, v_f.id, v_roles;
     RETURN;
   END IF;
   IF v_f.enabled_at IS NULL THEN
-    RETURN QUERY SELECT 'ENROLLMENT_REQUIRED'::text, v_s.user_id, v_f.id, NULL::text, NULL::bigint, v_roles;
+    RETURN QUERY SELECT 'ENROLLMENT_REQUIRED'::text, v_s.user_id, v_f.id, v_roles;
     RETURN;
   END IF;
   IF v_s.mfa_level = 'TOTP' THEN
-    RETURN QUERY SELECT 'ELEVATED'::text, v_s.user_id, v_f.id, NULL::text, NULL::bigint, v_roles;
+    RETURN QUERY SELECT 'ELEVATED'::text, v_s.user_id, v_f.id, v_roles;
     RETURN;
   END IF;
-  RETURN QUERY SELECT 'MFA_REQUIRED'::text, v_s.user_id, v_f.id, v_f.secret_ref, v_f.last_used_step, v_roles;
+  RETURN QUERY SELECT 'MFA_REQUIRED'::text, v_s.user_id, v_f.id, v_roles;
 END
 $fn$;
 
--- Enrôlement, étape 1 : le code remis hors bande ouvre la référence du secret du facteur en
--- attente (l'API en tire le QR code). Mauvais code : échec compté (verrou à 5) et journalisé.
+-- Tentative de code TOTP sur un facteur ACTIF : comptée sous verrou AVANT de rendre la référence
+-- du secret et le dernier pas consommé (l'API vérifie le code, puis élève). Issues : OK,
+-- AUTH_REQUIRED, NOT_STAFF, REFUSED (aucun facteur actif), LOCKED (journalisé). Chaque tentative
+-- est journalisée (STAFF_MFA_ATTEMPT) ; une élévation réussie remet le compteur à zéro.
+CREATE FUNCTION core.iam_staff_cmd_mfa_attempt(p_token_hash bytea)
+  RETURNS TABLE (outcome text, factor_id uuid, secret_ref text, last_used_step bigint)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_now timestamptz := platform.now();
+  v_s   record;
+  v_f   record;
+BEGIN
+  SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
+  IF v_s.user_id IS NULL THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid, NULL::text, NULL::bigint;
+    RETURN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM core.iam_staff_role_assignment AS a
+                  WHERE a.user_id = v_s.user_id AND (a.expires_at IS NULL OR a.expires_at > v_now)) THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'USER', 'STAFF_ACCESS_DENIED', 'USER', v_s.user_id,
+                                 NULL, pg_catalog.jsonb_build_object('reason', 'NOT_STAFF'), NULL, NULL);
+    RETURN QUERY SELECT 'NOT_STAFF'::text, NULL::uuid, NULL::text, NULL::bigint;
+    RETURN;
+  END IF;
+  SELECT f.id, f.secret_ref, f.last_used_step INTO v_f
+    FROM core.iam_auth_factor AS f
+   WHERE f.user_id = v_s.user_id AND f.kind = 'TOTP' AND f.disabled_at IS NULL
+     AND f.enabled_at IS NOT NULL;
+  IF v_f.id IS NULL THEN
+    RETURN QUERY SELECT 'REFUSED'::text, NULL::uuid, NULL::text, NULL::bigint;
+    RETURN;
+  END IF;
+  IF NOT core.iam_staff_count_attempt(v_f.id, v_s.user_id) THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', 'USER', v_s.user_id,
+                                 NULL, pg_catalog.jsonb_build_object('reason', 'TOTP_LOCKED'), NULL, NULL);
+    RETURN QUERY SELECT 'LOCKED'::text, NULL::uuid, NULL::text, NULL::bigint;
+    RETURN;
+  END IF;
+  PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_MFA_ATTEMPT', 'USER', v_s.user_id, NULL,
+                               pg_catalog.jsonb_build_object('factorId', v_f.id), NULL, NULL);
+  RETURN QUERY SELECT 'OK'::text, v_f.id, v_f.secret_ref, v_f.last_used_step;
+END
+$fn$;
+
+-- Enrôlement : le code remis hors bande ouvre la référence du secret du facteur en attente
+-- (l'API en tire le QR code, puis vérifie le premier code). Chaque appel compte une tentative
+-- (même règle que iam_staff_cmd_mfa_attempt), bon ou mauvais code ; mauvais code journalisé.
 CREATE FUNCTION core.iam_staff_cmd_enroll_reveal(p_token_hash bytea, p_code_hash bytea)
   RETURNS TABLE (outcome text, factor_id uuid, secret_ref text)
   LANGUAGE plpgsql
@@ -540,13 +633,11 @@ BEGIN
     RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid, NULL::text;
     RETURN;
   END IF;
-  SELECT f.id, f.secret_ref, f.enrollment_code_hash, f.enrollment_expires_at, f.locked_until,
-         f.failed_attempts
+  SELECT f.id, f.secret_ref, f.enrollment_code_hash, f.enrollment_expires_at
     INTO v_f
     FROM core.iam_auth_factor AS f
    WHERE f.user_id = v_s.user_id AND f.kind = 'TOTP' AND f.disabled_at IS NULL
-     AND f.enabled_at IS NULL
-     FOR UPDATE;
+     AND f.enabled_at IS NULL;
   IF v_f.id IS NULL OR v_f.enrollment_expires_at <= v_now
      OR NOT EXISTS (SELECT 1 FROM core.iam_staff_role_assignment AS a
                      WHERE a.user_id = v_s.user_id
@@ -556,18 +647,15 @@ BEGIN
     RETURN QUERY SELECT 'REFUSED'::text, NULL::uuid, NULL::text;
     RETURN;
   END IF;
-  IF v_f.locked_until IS NOT NULL AND v_f.locked_until > v_now THEN
+  IF NOT core.iam_staff_count_attempt(v_f.id, v_s.user_id) THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', 'USER', v_s.user_id,
+                                 NULL, pg_catalog.jsonb_build_object('reason', 'TOTP_LOCKED'), NULL, NULL);
     RETURN QUERY SELECT 'LOCKED'::text, NULL::uuid, NULL::text;
     RETURN;
   END IF;
   IF p_code_hash IS NULL OR v_f.enrollment_code_hash <> p_code_hash THEN
-    UPDATE core.iam_auth_factor AS f
-       SET failed_attempts = f.failed_attempts + 1,
-           locked_until = CASE WHEN f.failed_attempts + 1 >= 5 THEN v_now + interval '15 minutes' END
-     WHERE f.id = v_f.id;
     PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ENROLLMENT_REFUSED', 'AUTH_FACTOR', v_f.id,
-                                 NULL, pg_catalog.jsonb_build_object('reason', 'BAD_CODE',
-                                   'failedAttempts', v_f.failed_attempts + 1), NULL, NULL);
+                                 NULL, pg_catalog.jsonb_build_object('reason', 'BAD_CODE'), NULL, NULL);
     RETURN QUERY SELECT 'REFUSED'::text, NULL::uuid, NULL::text;
     RETURN;
   END IF;
@@ -628,10 +716,11 @@ BEGIN
     v_reason := 'STEP_REPLAYED';
   END IF;
   IF v_reason IS NOT NULL THEN
+    -- la tentative a déjà été comptée (iam_staff_cmd_mfa_attempt / enroll_reveal) ; une preuve
+    -- forgée compte en plus, sans jamais lever le verrou
     IF v_f.id IS NOT NULL THEN
       UPDATE core.iam_auth_factor AS f
-         SET failed_attempts = f.failed_attempts + 1,
-             locked_until = CASE WHEN f.failed_attempts + 1 >= 5 THEN v_now + interval '15 minutes' END
+         SET failed_attempts = LEAST(f.failed_attempts + 1, 5)
        WHERE f.id = v_f.id;
     END IF;
     PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_MFA_REFUSED', 'USER', v_s.user_id, NULL,
@@ -644,7 +733,11 @@ BEGIN
          enabled_at = COALESCE(f.enabled_at, v_now),
          enrollment_code_hash = NULL, enrollment_expires_at = NULL
    WHERE f.id = v_f.id;
-  UPDATE core.iam_session AS s SET mfa_level = 'TOTP' WHERE s.id = v_s.session_id;
+  -- revue sécurité US-012, MAJEUR 2 : une session élevée vit 8 h au plus, même ouverte avant
+  -- l'attribution du rôle (durée de client) ; jamais prolongée (session_guarded_columns)
+  UPDATE core.iam_session AS s
+     SET mfa_level = 'TOTP', expires_at = LEAST(s.expires_at, v_now + interval '8 hours')
+   WHERE s.id = v_s.session_id;
   PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF',
                                CASE WHEN v_f.enabled_at IS NULL THEN 'STAFF_TOTP_ENROLLED'
                                     ELSE 'STAFF_MFA_VERIFIED' END,
@@ -654,54 +747,25 @@ BEGIN
 END
 $fn$;
 
--- Code TOTP faux (constaté par l'API, qui seule connaît le secret) : échec compté, verrou à 5.
-CREATE FUNCTION core.iam_staff_cmd_mfa_failed(p_token_hash bytea)
-  RETURNS text
-  LANGUAGE plpgsql
-  VOLATILE
-  SECURITY DEFINER
-  SET search_path = pg_catalog, pg_temp
-AS $fn$
-DECLARE
-  v_now timestamptz := platform.now();
-  v_s   record;
-  v_n   integer;
-BEGIN
-  SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
-  IF v_s.user_id IS NULL THEN
-    RETURN 'AUTH_REQUIRED';
-  END IF;
-  UPDATE core.iam_auth_factor AS f
-     SET failed_attempts = f.failed_attempts + 1,
-         locked_until = CASE WHEN f.failed_attempts + 1 >= 5 THEN v_now + interval '15 minutes' END
-   WHERE f.user_id = v_s.user_id AND f.kind = 'TOTP' AND f.disabled_at IS NULL
-  RETURNING f.failed_attempts INTO v_n;
-  PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_MFA_REFUSED', 'USER', v_s.user_id, NULL,
-                               pg_catalog.jsonb_build_object('reason', 'BAD_CODE',
-                                 'failedAttempts', COALESCE(v_n, 0)), NULL, NULL);
-  RETURN CASE WHEN COALESCE(v_n, 0) >= 5 THEN 'LOCKED' ELSE 'COUNTED' END;
-END
-$fn$;
-
 COMMENT ON FUNCTION core.iam_staff_cmd_begin(bytea) IS
   'État d''accès d''une session à la console (TOTP obligatoire) ; refus journalisés. US-012.';
 COMMENT ON FUNCTION core.iam_staff_cmd_enroll_reveal(bytea, bytea) IS
   'Enrôlement TOTP : code hors bande => référence du secret ; échecs comptés et journalisés. US-012.';
 COMMENT ON FUNCTION core.iam_staff_cmd_elevate(bytea, uuid, bigint, bytea) IS
   'Élévation NONE -> TOTP sur preuve HMAC, pas à ±1, sans rejeu ; journalisée. US-012.';
-COMMENT ON FUNCTION core.iam_staff_cmd_mfa_failed(bytea) IS
-  'Code TOTP faux : échec compté (verrou 15 min à 5), journalisé. US-012.';
+COMMENT ON FUNCTION core.iam_staff_cmd_mfa_attempt(bytea) IS
+  'Tentative TOTP comptée sous verrou avant de rendre le secret (5 au plus, puis 15 min). US-012.';
 
 REVOKE ALL ON FUNCTION core.iam_staff_cmd_begin(bytea), core.iam_staff_cmd_enroll_reveal(bytea, bytea),
-  core.iam_staff_cmd_elevate(bytea, uuid, bigint, bytea), core.iam_staff_cmd_mfa_failed(bytea)
+  core.iam_staff_cmd_elevate(bytea, uuid, bigint, bytea), core.iam_staff_cmd_mfa_attempt(bytea)
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.iam_staff_cmd_begin(bytea), core.iam_staff_cmd_enroll_reveal(bytea, bytea),
-  core.iam_staff_cmd_elevate(bytea, uuid, bigint, bytea), core.iam_staff_cmd_mfa_failed(bytea)
+  core.iam_staff_cmd_elevate(bytea, uuid, bigint, bytea), core.iam_staff_cmd_mfa_attempt(bytea)
   TO app_api;
 
 GRANT CREATE ON SCHEMA core TO iam_staff_owner;
 ALTER FUNCTION core.iam_staff_cmd_begin(bytea) OWNER TO iam_staff_owner;
 ALTER FUNCTION core.iam_staff_cmd_enroll_reveal(bytea, bytea) OWNER TO iam_staff_owner;
 ALTER FUNCTION core.iam_staff_cmd_elevate(bytea, uuid, bigint, bytea) OWNER TO iam_staff_owner;
-ALTER FUNCTION core.iam_staff_cmd_mfa_failed(bytea) OWNER TO iam_staff_owner;
+ALTER FUNCTION core.iam_staff_cmd_mfa_attempt(bytea) OWNER TO iam_staff_owner;
 REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;

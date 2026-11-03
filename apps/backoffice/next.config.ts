@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { securityHeaders } from './security-headers.ts';
 
 /**
  * Mandataire de même origine vers l'API (US-012) : `/api/*` → `RUEDA_API_URL/*`. Le back-office vit
@@ -14,6 +15,15 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Les paquets partagés sont publiés en TypeScript source (comme @rueda/db) : Next le transpile.
   transpilePackages: ['@rueda/i18n', '@rueda/design-tokens', '@rueda/ui'],
+  // En-têtes de sécurité sur toutes les routes (revue sécurité US-012) : security-headers.ts.
+  headers() {
+    return Promise.resolve([
+      {
+        source: '/:path*',
+        headers: [...securityHeaders(process.env['NODE_ENV'] === 'production')],
+      },
+    ]);
+  },
   rewrites() {
     return Promise.resolve(
       apiUrl ? [{ source: '/api/:path*', destination: `${apiUrl.replace(/\/$/, '')}/:path*` }] : [],

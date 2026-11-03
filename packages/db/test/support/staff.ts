@@ -93,15 +93,26 @@ export async function login(client: pg.ClientBase, userId: string): Promise<Buff
 export async function begin(
   client: pg.ClientBase,
   hash: Buffer,
-): Promise<{ outcome: string; factor_id: string | null; secret_ref: string | null }> {
-  const { rows } = await client.query<{
-    outcome: string;
-    factor_id: string | null;
-    secret_ref: string | null;
-  }>('SELECT outcome, factor_id, secret_ref FROM core.iam_staff_cmd_begin($1)', [hash]);
+): Promise<{ outcome: string; factor_id: string | null }> {
+  const { rows } = await client.query<{ outcome: string; factor_id: string | null }>(
+    'SELECT outcome, factor_id FROM core.iam_staff_cmd_begin($1)',
+    [hash],
+  );
   const row = rows[0];
   if (row === undefined) throw new Error('begin sans ligne');
   return row;
+}
+
+/** Tentative MFA comptée par la base avant de rendre la référence du secret. */
+export async function attempt(
+  client: pg.ClientBase,
+  hash: Buffer,
+): Promise<{ outcome: string; secret_ref: string | null }> {
+  const { rows } = await client.query<{ outcome: string; secret_ref: string | null }>(
+    'SELECT outcome, secret_ref FROM core.iam_staff_cmd_mfa_attempt($1)',
+    [hash],
+  );
+  return rows[0] ?? { outcome: '', secret_ref: null };
 }
 
 export async function elevate(

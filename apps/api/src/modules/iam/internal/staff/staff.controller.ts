@@ -56,6 +56,7 @@ export class StaffController {
   @Get('me')
   @UseGuards(SessionGuard)
   async me(@Req() request: HttpRequest): Promise<{ state: string; roles: readonly StaffRole[] }> {
+    this.staff.throttle(request.ip ?? null);
     const r = await this.staff.access(readSessionToken(request.headers['cookie']));
     if (r === null || r.access.outcome === 'AUTH_REQUIRED')
       throw new AuthHttpError('AUTH_REQUIRED');
@@ -70,9 +71,11 @@ export class StaffController {
     @Res({ passthrough: true }) response: HttpResponse,
   ): Promise<{ secret: string; otpauthUri: string }> {
     response.setHeader('Cache-Control', 'no-store');
+    this.staff.throttle(request.ip ?? null);
     return this.staff.enroll(
       readSessionToken(request.headers['cookie']),
       body(request)['enrollmentCode'],
+      request.ip ?? null,
     );
   }
 
@@ -81,10 +84,12 @@ export class StaffController {
   @UseGuards(SessionGuard)
   async verify(@Req() request: HttpRequest): Promise<{ state: 'ELEVATED' | 'ENROLLED' }> {
     const b = body(request);
-    const state = await this.staff.verify(readSessionToken(request.headers['cookie']), {
-      code: b['code'],
-      enrollmentCode: b['enrollmentCode'],
-    });
+    this.staff.throttle(request.ip ?? null);
+    const state = await this.staff.verify(
+      readSessionToken(request.headers['cookie']),
+      { code: b['code'], enrollmentCode: b['enrollmentCode'] },
+      request.ip ?? null,
+    );
     return { state };
   }
 

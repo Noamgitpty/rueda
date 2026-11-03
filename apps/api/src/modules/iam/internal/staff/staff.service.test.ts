@@ -18,6 +18,7 @@ import type { StaffOptions } from './staff.service.js';
 import type {
   CommandOutcome,
   ElevateOutcome,
+  MfaAttempt,
   ResetTotpInput,
   StaffAccess,
   StaffStore,
@@ -37,13 +38,16 @@ class RecordingStore implements StaffStore {
     outcome: 'MFA_REQUIRED',
     userId: USER,
     factorId: FACTOR,
+    roles: [{ role: 'OPS_AGENT', countries: ['AA'] }],
+  };
+  attempt: MfaAttempt = {
+    outcome: 'OK',
+    factorId: FACTOR,
     secretRef: 'fake-vault:s',
     lastUsedStep: null,
-    roles: [{ role: 'OPS_AGENT', countries: ['AA'] }],
   };
   elevated: { hash: Buffer; factor: string; step: number; proof: Buffer } | null = null;
   reset: ResetTotpInput | null = null;
-  failedResult: 'COUNTED' | 'LOCKED' = 'COUNTED';
 
   begin() {
     this.calls.push('begin');
@@ -63,9 +67,9 @@ class RecordingStore implements StaffStore {
     this.elevated = { hash, factor, step, proof };
     return Promise.resolve(this.access.outcome === 'ENROLLMENT_REQUIRED' ? 'ENROLLED' : 'ELEVATED');
   }
-  mfaFailed() {
-    this.calls.push('mfaFailed');
-    return Promise.resolve(this.failedResult);
+  mfaAttempt() {
+    this.calls.push('mfaAttempt');
+    return Promise.resolve(this.attempt);
   }
   suspend(): Promise<CommandOutcome> {
     this.calls.push('suspend');
@@ -146,30 +150,66 @@ describe('vérification du code', () => {
     const store = new RecordingStore();
     const step = totpStep(NOW);
     expect(await service(store).verify(TOKEN, { code: hotp(SECRET, step) })).toBe('ELEVATED');
-    expect(store.calls).toEqual(['begin', 'elevate']);
+    expect(store.calls).toEqual(['begin', 'mfaAttempt', 'elevate']);
     expect(store.elevated?.step).toBe(step);
     expect(store.elevated?.factor).toBe(FACTOR);
     expect(store.elevated?.proof.equals(expectedProof(step))).toBe(true);
   });
 
-  it('code faux : échec compté par la base, aucune élévation ; 5e échec => 429', async () => {
+  it('la tentative est comptée par la base AVANT que le secret ne sorte ; code faux : aucun appel de plus', async () => {
     const store = new RecordingStore();
     await expect(service(store).verify(TOKEN, { code: '000000' })).rejects.toMatchObject({
       code: 'AUTH_TOTP_INVALID',
       status: 400,
     });
-    expect(store.calls).toEqual(['begin', 'mfaFailed']);
-    store.failedResult = 'LOCKED';
-    await expect(service(store).verify(TOKEN, { code: '000000' })).rejects.toMatchObject({
-      code: 'AUTH_TOTP_LOCKED',
+    expect(store.calls).toEqual(['begin', 'mfaAttempt']);
+    // facteur verrouillé par la base : le secret ne sort pas, aucune élévation
+    store.calls = [];
+    store.attempt = { outcome: 'LOCKED', factorId: null, secretRef: null, lastUsedStep: null };
+    await expect(
+      service(store).verify(TOKEN, { code: hotp(SECRET, totpStep(NOW)) }),
+    ).rejects.toMatchObject({ code: 'AUTH_TOTP_LOCKED', status: 429 });
+    expect(store.calls).toEqual(['begin', 'mfaAttempt']);
+  });
+
+  it('limiteur /staff/* : tentatives MFA par compte et par IP, toute requête par IP (429)', async () => {
+    const limits = {
+      requestsPerIp: 3,
+      requestWindowMs: 60_000,
+      mfaPerIp: 100,
+      mfaPerAccount: 2,
+      mfaWindowMs: 60_000,
+    };
+    const store = new RecordingStore();
+    const s = service(store, { limits });
+    for (let i = 0; i < 2; i += 1) {
+      await expect(s.verify(TOKEN, { code: '000000' }, '203.0.113.9')).rejects.toMatchObject({
+        code: 'AUTH_TOTP_INVALID',
+      });
+    }
+    await expect(s.verify(TOKEN, { code: '000000' }, '198.51.100.1')).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
       status: 429,
     });
+    const byIp = service(new RecordingStore(), { limits: { ...limits, mfaPerIp: 1 } });
+    await expect(byIp.verify(TOKEN, { code: '000000' }, '203.0.113.9')).rejects.toMatchObject({
+      code: 'AUTH_TOTP_INVALID',
+    });
+    const other = 'C'.repeat(43);
+    await expect(byIp.verify(other, { code: '000000' }, '203.0.113.9')).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+    });
+    for (let i = 0; i < 3; i += 1) s.throttle('192.0.2.7');
+    expect(() => s.throttle('192.0.2.7')).toThrow(
+      expect.objectContaining({ code: 'RATE_LIMITED' }),
+    );
+    expect(() => s.throttle('192.0.2.8')).not.toThrow();
   });
 
   it('pas déjà consommé : jamais présenté à la base (anti-rejeu), compté comme un échec', async () => {
     const store = new RecordingStore();
     const step = totpStep(NOW);
-    store.access = { ...store.access, lastUsedStep: step };
+    store.attempt = { ...store.attempt, lastUsedStep: step };
     await expect(service(store).verify(TOKEN, { code: hotp(SECRET, step) })).rejects.toMatchObject({
       code: 'AUTH_TOTP_INVALID',
     });
@@ -178,7 +218,7 @@ describe('vérification du code', () => {
 
   it('enrôlement : code d’enrôlement exigé, puis ENROLLED', async () => {
     const store = new RecordingStore();
-    store.access = { ...store.access, outcome: 'ENROLLMENT_REQUIRED', secretRef: null };
+    store.access = { ...store.access, outcome: 'ENROLLMENT_REQUIRED' };
     const code = hotp(SECRET, totpStep(NOW));
     await expect(service(store).verify(TOKEN, { code })).rejects.toMatchObject({
       code: 'REQUEST_INVALID',

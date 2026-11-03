@@ -189,4 +189,7 @@ export const EN_MESSAGES = {
   'backoffice.action.CANCEL_TRIP_PLATFORM': 'Cancel on behalf of the platform',
   'backoffice.action.DECLARE_NO_SHOW': 'Declare a no-show',
   'backoffice.action.RECORD_CLAIM': 'Record a claim',
+  'backoffice.error.network': "We couldn't reach the server. Check your connection and try again.",
+  'backoffice.journal.error': "We couldn't load the activity log.",
+  'backoffice.journal.scope': 'You only see actions in the countries of your roles.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

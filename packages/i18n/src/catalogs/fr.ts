@@ -201,4 +201,8 @@ export const FR_MESSAGES = {
   'backoffice.action.CANCEL_TRIP_PLATFORM': 'Annuler au nom de la plateforme',
   'backoffice.action.DECLARE_NO_SHOW': 'Déclarer une non-présentation',
   'backoffice.action.RECORD_CLAIM': 'Enregistrer une réclamation',
+  'backoffice.error.network':
+    'Impossible de joindre le serveur. Vérifie ta connexion, puis réessaie.',
+  'backoffice.journal.error': 'Impossible de charger le journal d’activité.',
+  'backoffice.journal.scope': 'Tu ne vois que les actions des pays de tes rôles.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

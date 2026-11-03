@@ -46,8 +46,6 @@ function stubStore(outcome: () => StaffAccessOutcome): StaffStore {
     outcome: outcome(),
     userId: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c',
     factorId: null,
-    secretRef: null,
-    lastUsedStep: null,
     roles: [{ role: 'OPS_AGENT', countries: ['AA'] }],
   });
   const never = () => Promise.reject(new Error('non appelé'));
@@ -55,7 +53,7 @@ function stubStore(outcome: () => StaffAccessOutcome): StaffStore {
     begin: () => Promise.resolve(access()),
     enrollReveal: never,
     elevate: never,
-    mfaFailed: never,
+    mfaAttempt: never,
     suspend: never,
     resetTotp: never,
     auditRead: () => Promise.resolve([]),

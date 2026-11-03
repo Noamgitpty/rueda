@@ -12,7 +12,7 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  * Version des catalogues (catalogue versionné, 19 US-014). Les trois langues partagent la même
  * version : une clé ajoutée en es l'est en en et en fr dans le même commit.
  */
-export const CATALOG_VERSION = 4;
+export const CATALOG_VERSION = 5;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

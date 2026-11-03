@@ -6,7 +6,8 @@
  * - pas de rôle interne : 403 FORBIDDEN ;
  * - pas de TOTP, enrôlement à finir, facteur verrouillé ou session non élevée : 403 2FA_REQUIRED
  *   (critère 2 d'US-012 ; le refus est journalisé par la base).
- * Comme `SessionGuard` : écriture => JSON exigé (CSRF), réponse jamais mise en cache. Le contrôle de
+ * Comme `SessionGuard` : écriture => JSON exigé (CSRF), réponse jamais mise en cache. Débit limité
+ * par IP (429 RATE_LIMITED, StaffAuthService.throttle). Le contrôle de
  * permission et de portée pays est fait par chaque commande, en base.
  */
 import { Inject, Injectable } from '@nestjs/common';
@@ -33,6 +34,7 @@ export class StaffGuard implements CanActivate {
     const request = http.getRequest<HttpRequest>();
     assertJsonWrite(request);
     http.getResponse<HttpResponse>().setHeader('Cache-Control', 'no-store');
+    this.staff.throttle(request.ip ?? null); // 429 par IP avant tout appel à la base
     const principal = await this.staff.principal(readSessionToken(request.headers['cookie']));
     principals.set(request, principal);
     return true;

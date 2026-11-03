@@ -21,7 +21,8 @@
    - L'API vérifie le code. La base juge seule :
      - le pas est à ±1 de `platform.now()` ;
      - le pas est strictement supérieur au dernier pas consommé (anti-rejeu) ;
-     - le facteur se verrouille 15 min après 5 échecs (PROPOSÉ).
+     - chaque tentative est **comptée sous `FOR UPDATE` avant que la référence du secret ne sorte** (`iam_staff_cmd_mfa_attempt`, `iam_staff_cmd_enroll_reveal`) : au plus 5 tentatives, la 6e verrouille 15 min (PROPOSÉ) ; une élévation réussie remet le compteur à zéro. Des requêtes parallèles ne dépassent donc jamais 5 tentatives (revue sécurité, MAJEUR 1 ; preuve L0 à 16 tentatives concurrentes). `iam_staff_cmd_begin` ne rend jamais la référence du secret et ne compte rien ;
+     - limiteur de débit en mémoire sur `/staff/*` : toute requête par IP (120 / min), tentatives MFA par IP (30 / 15 min) et par compte (10 / 15 min), 429 `RATE_LIMITED` (PROPOSÉ ; le verrou de la base fait foi entre instances).
 3. **Preuve d'élévation (réduction de RLS-18).**
    - L'API envoie `HMAC-SHA-256(clé, "rueda-staff-mfa-v1" ‖ SHA-256(jeton) ‖ UUID du facteur ‖ pas)`. La base la recalcule avec `core.iam_hmac_sha256`, écrit sur `sha256()` natif sans extension et vérifié par les vecteurs RFC 4231.
    - La clé se trouve dans `core.iam_mfa_proof_key`, lisible par le seul `iam_staff_owner`.
@@ -31,6 +32,7 @@
 4. **Contexte STAFF lié à une session élevée.**
    - `app.has_staff_role` et `app.staff_case_covers` (remplacés sous `policy_fn_owner`, par `SET LOCAL ROLE`, ADR-044 amendé) exigent en plus que `app.session_token_hash` désigne une session de l'acteur. Cette session doit être vivante, non révoquée et de niveau `TOTP`.
    - Le paramètre est posé par `setSessionContext`, qui passe de six à sept paramètres ; `sessionTokenHash` est obligatoire pour `STAFF`.
+   - **Session élevée bornée à 8 h** (revue sécurité, MAJEUR 2) : l'élévation pose `expires_at = LEAST(expires_at, platform.now() + 8 h)`, même pour une session ouverte avant l'attribution du rôle (durée de client) ; jamais de prolongation (`session_guarded_columns`). Preuve L0.
    - Effets :
      - connaître l'UUID d'un ADMIN ne donne plus rien ;
      - un rôle sans MFA ne lit rien ;
@@ -80,7 +82,10 @@
   - Qui lit la mémoire ou l'environnement du processus API (clé de preuve, jetons en vol) a tous les pouvoirs.
   - Qui détient le jeton d'une session élevée, ou son empreinte, agit comme son titulaire jusqu'à l'échéance (8 h) ou la révocation.
   - Le rôle `app_staff` séparé (17 §2.3, lot 4) reste une option. Le test RLS-18 montre désormais la réduction.
-- Chaque requête de console appelle `iam_staff_cmd_begin`, soit un aller-retour de plus. Les refus d'accès sont journalisés à chaque tentative, ce qui produit du volume en cas d'insistance.
+  - `api_insert` du journal (0021, US-009) reste ouvert : du SQL arbitraire sous `app_api` peut **ajouter** des lignes d'audit au nom de n'importe quel acteur (jamais en modifier ni en effacer : ajout seul et chaîne). Les lignes de la console sont écrites par `iam_staff_owner` ; une ligne ajoutée par `app_api` se distingue par l'absence de `after.countries` et passe pour globale. Fermeture PROPOSÉE avec le rôle `app_staff` ou une commande d'audit dédiée (lot 4), qui touche US-009.
+- Chaque requête de console appelle `iam_staff_cmd_begin`, soit un aller-retour de plus. Les refus d'accès et les tentatives MFA sont journalisés, ce qui produit du volume en cas d'insistance (atténué par le limiteur de `/staff/*`).
+- En-têtes du back-office (`apps/backoffice/security-headers.ts`) : CSP de même origine avec `frame-ancestors 'none'`, `X-Frame-Options: DENY`, HSTS, `Referrer-Policy: no-referrer`, `nosniff`. `'unsafe-inline'` reste nécessaire aux scripts de Next et à la feuille de thème, faute de nonce (PROPOSÉ).
+- **Amorçage** : `bootstrap/0000_instance_roles.sql` crée `iam_staff_owner` ; il doit être rejoué **avant** 0031 (sinon `GRANT … TO iam_staff_owner` échoue).
 - La comparaison de la preuve en SQL n'est pas à temps constant. Elle n'est exploitable que depuis du SQL déjà arbitraire, que la preuve vise justement à contenir.
 - Le pays du journal est dans `after.countries` et non dans une colonne : aucune modification de la table chaînée ni de sa forme canonique (ADR-051). Le filtre est appliqué par la commande de lecture, pas par une politique `app_api`, car `app_api` ne lit jamais le journal directement.
 - `has_staff_role` fait une lecture indexée de plus (`session_token_unique`). Le test de plan d'US-011 borne les appels par ligne, pas leur coût.

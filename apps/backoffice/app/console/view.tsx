@@ -7,7 +7,7 @@
  */
 import type { FormEvent } from 'react';
 import type { MessageKey, Translator } from '@rueda/i18n';
-import { Badge, Banner, Button, DataTable, EmptyState, TextField } from '@rueda/ui';
+import { Badge, Banner, Button, DataTable, EmptyState, ErrorState, TextField } from '@rueda/ui';
 import styles from './console.module.css';
 
 export interface StaffRoleView {
@@ -39,6 +39,8 @@ export type ConsoleState =
       readonly kind: 'console';
       readonly roles: readonly StaffRoleView[];
       readonly entries: readonly JournalEntryView[];
+      /** La lecture du journal a échoué : distinct d'un journal vide (revue UX US-012). */
+      readonly journalError?: boolean | undefined;
       readonly notice?:
         { readonly tone: 'success' | 'danger' | 'warning'; readonly key: MessageKey } | undefined;
     };
@@ -85,14 +87,27 @@ const prevent =
     fn(event);
   };
 
+/** Titre de chaque écran : le focus y est posé à l'arrivée (console-client.tsx). */
+export const SCREEN_HEADINGS: Readonly<Record<ConsoleState['kind'], string | null>> = {
+  loading: null,
+  login: 'login-heading',
+  totp: 'totp-heading',
+  enroll: 'enroll-heading',
+  denied: 'denied-heading',
+  console: 'roles-heading',
+};
+
 export function ConsoleView({
   i18n,
   state,
   handlers,
+  busy = false,
 }: {
   readonly i18n: Translator;
   readonly state: ConsoleState;
   readonly handlers: ConsoleHandlers;
+  /** Envoi en cours : bouton en chargement, aucun second envoi (jamais `disabled`, UX-50). */
+  readonly busy?: boolean;
 }) {
   switch (state.kind) {
     case 'loading':
@@ -101,10 +116,14 @@ export function ConsoleView({
     case 'login':
       return (
         <section className={styles['panel']} aria-labelledby="login-heading">
-          <h2 id="login-heading" className={styles['heading']}>
+          <h2 id="login-heading" className={styles['heading']} tabIndex={-1}>
             {i18n.t('backoffice.login.heading')}
           </h2>
-          {state.error && <Banner tone="danger">{i18n.t(state.error)}</Banner>}
+          {state.error && (
+            <Banner tone="danger" live="assertive">
+              {i18n.t(state.error)}
+            </Banner>
+          )}
           <form
             className={styles['form']}
             onSubmit={prevent((e) => handlers.onLogin(fieldOf(e, 'email'), fieldOf(e, 'password')))}
@@ -125,7 +144,7 @@ export function ConsoleView({
               autoComplete="current-password"
               label={i18n.t('backoffice.login.password')}
             />
-            <Button type="submit" block>
+            <Button type="submit" block loading={busy}>
               {i18n.t('backoffice.login.submit')}
             </Button>
           </form>
@@ -135,11 +154,15 @@ export function ConsoleView({
     case 'totp':
       return (
         <section className={styles['panel']} aria-labelledby="totp-heading">
-          <h2 id="totp-heading" className={styles['heading']}>
+          <h2 id="totp-heading" className={styles['heading']} tabIndex={-1}>
             {i18n.t('backoffice.totp.heading')}
           </h2>
           <p className={styles['muted']}>{i18n.t('backoffice.totp.intro')}</p>
-          {state.error && <Banner tone="danger">{i18n.t(state.error)}</Banner>}
+          {state.error && (
+            <Banner tone="danger" live="assertive">
+              {i18n.t(state.error)}
+            </Banner>
+          )}
           <form
             className={styles['form']}
             onSubmit={prevent((e) => handlers.onVerify(fieldOf(e, 'code')))}
@@ -148,13 +171,14 @@ export function ConsoleView({
               i18n={i18n}
               id="totp-code"
               name="code"
+              error={state.error ? i18n.t(state.error) : undefined}
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9 ]{6,7}"
               maxLength={7}
               label={i18n.t('backoffice.totp.code')}
             />
-            <Button type="submit" block>
+            <Button type="submit" block loading={busy}>
               {i18n.t('backoffice.totp.submit')}
             </Button>
           </form>
@@ -164,11 +188,15 @@ export function ConsoleView({
     case 'enroll':
       return (
         <section className={styles['panel']} aria-labelledby="enroll-heading">
-          <h2 id="enroll-heading" className={styles['heading']}>
+          <h2 id="enroll-heading" className={styles['heading']} tabIndex={-1}>
             {i18n.t('backoffice.enroll.heading')}
           </h2>
           <p className={styles['muted']}>{i18n.t('backoffice.enroll.intro')}</p>
-          {state.error && <Banner tone="danger">{i18n.t(state.error)}</Banner>}
+          {state.error && (
+            <Banner tone="danger" live="assertive">
+              {i18n.t(state.error)}
+            </Banner>
+          )}
           {state.secret === undefined ? (
             <form
               className={styles['form']}
@@ -182,7 +210,7 @@ export function ConsoleView({
                 spellCheck={false}
                 label={i18n.t('backoffice.enroll.enrollmentCode')}
               />
-              <Button type="submit" block>
+              <Button type="submit" block loading={busy}>
                 {i18n.t('backoffice.enroll.reveal')}
               </Button>
             </form>
@@ -207,7 +235,7 @@ export function ConsoleView({
                 maxLength={7}
                 label={i18n.t('backoffice.totp.code')}
               />
-              <Button type="submit" block>
+              <Button type="submit" block loading={busy}>
                 {i18n.t('backoffice.enroll.confirm')}
               </Button>
             </form>
@@ -218,7 +246,7 @@ export function ConsoleView({
     case 'denied':
       return (
         <section className={styles['panel']} aria-labelledby="denied-heading">
-          <h2 id="denied-heading" className={styles['heading']}>
+          <h2 id="denied-heading" className={styles['heading']} tabIndex={-1}>
             {i18n.t('backoffice.denied.heading')}
           </h2>
           <Banner tone={state.reason === 'LOCKED' ? 'warning' : 'danger'} live="polite">
@@ -240,7 +268,7 @@ export function ConsoleView({
       return (
         <div className={styles['stack']}>
           <section className={styles['panel']} aria-labelledby="roles-heading">
-            <h2 id="roles-heading" className={styles['heading']}>
+            <h2 id="roles-heading" className={styles['heading']} tabIndex={-1}>
               {i18n.t('backoffice.console.roles')}
             </h2>
             <ul className={styles['roles']}>
@@ -308,6 +336,7 @@ export function ConsoleView({
                     name="action"
                     value={a}
                     variant={i === 0 ? 'primary' : 'secondary'}
+                    loading={busy}
                   >
                     {i18n.t(ACTION_KEYS[a])}
                   </Button>
@@ -316,32 +345,42 @@ export function ConsoleView({
             </form>
           </section>
 
-          <DataTable
-            id="journal"
-            caption={i18n.t('backoffice.journal.caption')}
-            columns={[
-              { key: 'when', header: i18n.t('backoffice.journal.when') },
-              { key: 'who', header: i18n.t('backoffice.journal.who') },
-              { key: 'action', header: i18n.t('backoffice.journal.action') },
-              { key: 'subject', header: i18n.t('backoffice.journal.subject') },
-            ]}
-            rows={state.entries.map((e) => ({
-              id: e.id,
-              cells: {
-                when: `${i18n.dateTime(e.at, 'UTC')} UTC`,
-                who: ROLE_KEYS[e.actorRole]
-                  ? i18n.t(ROLE_KEYS[e.actorRole] as MessageKey)
-                  : e.actorRole,
-                action: <code className={styles['code']}>{e.actionCode}</code>,
-                subject: (
-                  <code className={styles['code']}>
-                    {e.subjectType} {e.subjectId.slice(0, 8)}
-                  </code>
-                ),
-              },
-            }))}
-            empty={<EmptyState title={i18n.t('backoffice.journal.empty')} headingLevel={3} />}
-          />
+          {state.journalError ? (
+            <ErrorState
+              i18n={i18n}
+              title={i18n.t('backoffice.journal.caption')}
+              message={i18n.t('backoffice.journal.error')}
+              headingLevel={3}
+            />
+          ) : (
+            <DataTable
+              id="journal"
+              caption={i18n.t('backoffice.journal.caption')}
+              columns={[
+                { key: 'when', header: i18n.t('backoffice.journal.when') },
+                { key: 'who', header: i18n.t('backoffice.journal.who') },
+                { key: 'action', header: i18n.t('backoffice.journal.action') },
+                { key: 'subject', header: i18n.t('backoffice.journal.subject') },
+              ]}
+              rows={state.entries.map((e) => ({
+                id: e.id,
+                cells: {
+                  when: `${i18n.dateTime(e.at, 'UTC')} UTC`,
+                  who: ROLE_KEYS[e.actorRole]
+                    ? i18n.t(ROLE_KEYS[e.actorRole] as MessageKey)
+                    : e.actorRole,
+                  action: <code className={styles['code']}>{e.actionCode}</code>,
+                  subject: (
+                    <code className={styles['code']}>
+                      {e.subjectType} {e.subjectId.slice(0, 8)}
+                    </code>
+                  ),
+                },
+              }))}
+              empty={<EmptyState title={i18n.t('backoffice.journal.empty')} headingLevel={3} />}
+            />
+          )}
+          <p className={styles['muted']}>{i18n.t('backoffice.journal.scope')}</p>
         </div>
       );
   }

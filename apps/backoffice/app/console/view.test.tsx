@@ -136,3 +136,65 @@ describe('choix de l’écran d’après GET /staff/me', () => {
     expect(messageKeyOf(42)).toBe('common.auth.requestInvalid');
   });
 });
+
+describe('revue UX US-012 : annonces, focus, chargement, journal', () => {
+  const es = CATALOGS.es.messages;
+  const tag = LOCALE_CONFIG.locales.find((p) => p.language === 'es')?.tag ?? '';
+
+  it.each([
+    [{ kind: 'login', error: 'common.auth.invalidCredentials' }, 'common.auth.invalidCredentials'],
+    [{ kind: 'totp', error: 'common.auth.totpInvalid' }, 'common.auth.totpInvalid'],
+    [{ kind: 'enroll', error: 'common.auth.totpLocked' }, 'common.auth.totpLocked'],
+  ] as const)('erreur %j : bandeau role="alert" (live assertive)', (state, key) => {
+    const out = html(state as ConsoleState, tag);
+    expect(out).toMatch(new RegExp(`role="alert"[^]*${String(es[key]).slice(0, 12)}`));
+  });
+
+  it('code faux : le champ lui-même est marqué invalide', () => {
+    const out = html({ kind: 'totp', error: 'common.auth.totpInvalid' }, tag);
+    expect(out).toMatch(/aria-invalid="true"/);
+  });
+
+  it('titre de chaque écran focusable (tabIndex -1) pour recevoir le focus à l’arrivée', () => {
+    for (const state of STATES) {
+      if (state.kind === 'loading') continue;
+      expect(html(state, tag), state.kind).toMatch(/<h2 id="[a-z]+-heading"[^>]*tabindex="-1"/i);
+    }
+  });
+
+  it('envoi en cours : bouton en chargement (aria-busy), jamais désactivé', () => {
+    const profile = LOCALE_CONFIG.locales.find((p) => p.tag === tag);
+    if (profile === undefined) throw new Error(tag);
+    const out = renderToStaticMarkup(
+      <ConsoleView
+        i18n={createTranslator(profile)}
+        state={{ kind: 'login' }}
+        handlers={noop}
+        busy
+      />,
+    );
+    expect(out).toMatch(/aria-busy="true"/);
+    expect(out).not.toMatch(/<button[^>]*disabled/);
+  });
+
+  it('lecture du journal en échec : message d’erreur, jamais « aucune activité » ; portée annoncée', () => {
+    const out = html(
+      {
+        kind: 'console',
+        roles: [{ role: 'ADMIN', countries: ['AA'] }],
+        entries: [],
+        journalError: true,
+      },
+      tag,
+    );
+    expect(out).toContain(es['backoffice.journal.error']);
+    expect(out).not.toContain(es['backoffice.journal.empty']);
+    expect(out).toContain(es['backoffice.journal.scope']);
+  });
+
+  it('échec réseau : message clair', () => {
+    expect(html({ kind: 'login', error: 'backoffice.error.network' }, tag)).toContain(
+      es['backoffice.error.network'],
+    );
+  });
+});

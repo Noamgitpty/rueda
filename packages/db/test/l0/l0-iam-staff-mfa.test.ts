@@ -24,6 +24,7 @@ import { newToken, SESSION_TTL_S } from '../support/iam.ts';
 import { buildWorld, ids } from '../support/rls.ts';
 import type { World } from '../support/rls.ts';
 import {
+  attempt,
   auditOf,
   begin,
   createStaff,
@@ -166,7 +167,7 @@ describe('enrôlement et élévation', () => {
       const hash = await login(client, s.userId);
       const b = await begin(client, hash);
       expect(b).toMatchObject({ outcome: 'ENROLLMENT_REQUIRED', factor_id: s.factorId });
-      expect(b.secret_ref).toBeNull(); // la référence du secret n'est pas rendue sans le code
+      expect(b).not.toHaveProperty('secret_ref'); // begin ne rend jamais la référence du secret
       const wrong = createHash('sha256').update('mauvais code').digest();
       const bad = await client.query<{ outcome: string; secret_ref: string | null }>(
         'SELECT outcome, secret_ref FROM core.iam_staff_cmd_enroll_reveal($1, $2)',
@@ -223,7 +224,11 @@ describe('enrôlement et élévation', () => {
       const second = await login(client, s.userId);
       const b = await begin(client, second);
       expect(b).toMatchObject({ outcome: 'MFA_REQUIRED', factor_id: s.factorId });
-      expect(b.secret_ref).toBe('fake-vault:test-secret'); // l'API en a besoin pour vérifier
+      // la référence du secret ne sort que contre une tentative comptée
+      expect(await attempt(client, second)).toEqual({
+        outcome: 'OK',
+        secret_ref: 'fake-vault:test-secret',
+      });
       // preuve calculée avec une autre clé (ce que pourrait faire du SQL arbitraire) : refus
       const forged = proof(second, s.factorId, enrolledStep + 1, Buffer.alloc(32, 7));
       expect(await elevate(client, second, s.factorId, enrolledStep + 1, forged)).toBe('REFUSED');
@@ -251,21 +256,72 @@ describe('enrôlement et élévation', () => {
     });
   });
 
-  it('5 échecs : facteur verrouillé (15 min), LOCKED même avec une preuve juste', async () => {
+  it('5 tentatives au plus, comptées AVANT que le secret ne sorte ; la 6e verrouille (15 min), LOCKED même avec une preuve juste', async () => {
     await withRole('app_api', async (client) => {
       const s = await elevatedStaff(client, 'OPS_AGENT', [ALL[0] ?? '']);
       const next = await login(client, s.userId);
       const outcomes: string[] = [];
-      for (let i = 0; i < 5; i += 1) {
-        const { rows } = await client.query<{ r: string }>(
-          'SELECT core.iam_staff_cmd_mfa_failed($1) AS r',
-          [next],
-        );
-        outcomes.push(rows[0]?.r ?? '');
-      }
-      expect(outcomes).toEqual(['COUNTED', 'COUNTED', 'COUNTED', 'COUNTED', 'LOCKED']);
+      for (let i = 0; i < 6; i += 1) outcomes.push((await attempt(client, next)).outcome);
+      expect(outcomes).toEqual(['OK', 'OK', 'OK', 'OK', 'OK', 'LOCKED']);
+      expect((await attempt(client, next)).secret_ref).toBeNull();
       expect((await begin(client, next)).outcome).toBe('LOCKED');
       expect(await elevate(client, next, s.factorId, stepNow() + 1)).toBe('LOCKED');
+    });
+  });
+
+  it('concurrence (revue sécurité, MAJEUR 1) : 16 tentatives parallèles, jamais plus de 5 accordées avant le verrou', async () => {
+    const setup = await connectAs('app_api');
+    let s: Awaited<ReturnType<typeof elevatedStaff>>;
+    let hash: Buffer;
+    try {
+      s = await elevatedStaff(setup, 'OPS_AGENT', [ALL[0] ?? '']);
+      hash = await login(setup, s.userId);
+    } finally {
+      await releaseClient(setup);
+    }
+    const clients = await Promise.all(Array.from({ length: 16 }, () => connectAs('app_api')));
+    try {
+      const results = await Promise.all(clients.map((c) => attempt(c, hash)));
+      const granted = results.filter((r) => r.outcome === 'OK');
+      expect(granted.length).toBeLessThanOrEqual(5);
+      expect(granted.length).toBe(5);
+      expect(results.filter((r) => r.outcome === 'LOCKED')).toHaveLength(11);
+      expect(
+        results.filter((r) => r.outcome === 'LOCKED').every((r) => r.secret_ref === null),
+      ).toBe(true);
+    } finally {
+      await Promise.all(clients.map((c) => releaseClient(c)));
+    }
+  });
+
+  it('revue sécurité, MAJEUR 2 : une session ouverte AVANT l’attribution du rôle (durée de client) est ramenée à 8 h à l’élévation', async () => {
+    await withRole('app_api', async (client) => {
+      const s = await createStaff(client, null, ALL); // facteur en attente, aucun rôle encore
+      const hash = await login(client, s.userId); // 14 j : aucun rôle interne en cours
+      const before = await client.query<{ expires_at: Date; token_hash: Buffer }>(
+        'SELECT expires_at, token_hash FROM test_fixture.iam_read_sessions($1)',
+        [s.userId],
+      );
+      const opened = before.rows.find((r) => r.token_hash.equals(hash));
+      expect((opened?.expires_at.getTime() ?? 0) - Date.now()).toBeGreaterThan(9 * 3600_000);
+      await client.query(
+        `SELECT test_fixture.iam_grant_staff_role($1, $2, 'ADMIN', $3::text[], NULL, NULL)`,
+        [uuid(), s.userId, ALL],
+      );
+      const reveal = await client.query<{ outcome: string }>(
+        'SELECT outcome FROM core.iam_staff_cmd_enroll_reveal($1, $2)',
+        [hash, s.codeHash],
+      );
+      expect(reveal.rows[0]?.outcome).toBe('OK');
+      expect(await elevate(client, hash, s.factorId)).toBe('ENROLLED');
+      const after = await client.query<{ expires_at: Date; token_hash: Buffer }>(
+        'SELECT expires_at, token_hash FROM test_fixture.iam_read_sessions($1)',
+        [s.userId],
+      );
+      const elevated = after.rows.find((r) => r.token_hash.equals(hash));
+      expect((elevated?.expires_at.getTime() ?? Infinity) - Date.now()).toBeLessThanOrEqual(
+        8 * 3600_000 + 60_000,
+      );
     });
   });
 

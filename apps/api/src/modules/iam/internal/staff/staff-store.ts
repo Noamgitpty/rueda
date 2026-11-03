@@ -27,10 +27,15 @@ export interface StaffAccess {
   readonly outcome: StaffAccessOutcome;
   readonly userId: string | null;
   readonly factorId: string | null;
-  /** Rendue pour un facteur ACTIF non encore prouvé dans cette session (MFA_REQUIRED). */
+  readonly roles: readonly StaffRole[];
+}
+
+/** Tentative MFA comptée par la base AVANT de rendre la référence du secret. */
+export interface MfaAttempt {
+  readonly outcome: 'OK' | 'LOCKED' | 'REFUSED' | 'AUTH_REQUIRED' | 'NOT_STAFF';
+  readonly factorId: string | null;
   readonly secretRef: string | null;
   readonly lastUsedStep: number | null;
-  readonly roles: readonly StaffRole[];
 }
 
 export type ElevateOutcome =
@@ -77,7 +82,7 @@ export interface StaffStore {
     step: number,
     proof: Buffer,
   ): Promise<ElevateOutcome>;
-  mfaFailed(tokenHash: Buffer): Promise<'COUNTED' | 'LOCKED' | 'AUTH_REQUIRED'>;
+  mfaAttempt(tokenHash: Buffer): Promise<MfaAttempt>;
   suspend(
     tokenHash: Buffer,
     requestId: string,
@@ -123,23 +128,33 @@ export class PgStaffStore implements StaffStore {
       outcome: StaffAccessOutcome;
       user_id: string | null;
       factor_id: string | null;
+      roles: StaffRole[] | null;
+    }>('begin', 'SELECT outcome, user_id, factor_id, roles FROM core.iam_staff_cmd_begin($1)', [
+      tokenHash,
+    ]);
+    const r = rows[0];
+    if (!r) throw new StaffStoreError('begin', undefined);
+    return { outcome: r.outcome, userId: r.user_id, factorId: r.factor_id, roles: r.roles ?? [] };
+  }
+
+  async mfaAttempt(tokenHash: Buffer): Promise<MfaAttempt> {
+    const rows = await this.#run<{
+      outcome: MfaAttempt['outcome'];
+      factor_id: string | null;
       secret_ref: string | null;
       last_used_step: string | null;
-      roles: StaffRole[] | null;
     }>(
-      'begin',
-      'SELECT outcome, user_id, factor_id, secret_ref, last_used_step, roles FROM core.iam_staff_cmd_begin($1)',
+      'mfa_attempt',
+      'SELECT outcome, factor_id, secret_ref, last_used_step FROM core.iam_staff_cmd_mfa_attempt($1)',
       [tokenHash],
     );
     const r = rows[0];
-    if (!r) throw new StaffStoreError('begin', undefined);
+    if (!r) throw new StaffStoreError('mfa_attempt', undefined);
     return {
       outcome: r.outcome,
-      userId: r.user_id,
       factorId: r.factor_id,
       secretRef: r.secret_ref,
       lastUsedStep: r.last_used_step === null ? null : Number(r.last_used_step),
-      roles: r.roles ?? [],
     };
   }
 
@@ -165,15 +180,6 @@ export class PgStaffStore implements StaffStore {
       [tokenHash, factorId, step, proof],
     );
     return rows[0]?.r ?? 'REFUSED';
-  }
-
-  async mfaFailed(tokenHash: Buffer) {
-    const rows = await this.#run<{ r: 'COUNTED' | 'LOCKED' | 'AUTH_REQUIRED' }>(
-      'mfa_failed',
-      'SELECT core.iam_staff_cmd_mfa_failed($1) AS r',
-      [tokenHash],
-    );
-    return rows[0]?.r ?? 'COUNTED';
   }
 
   async suspend(tokenHash: Buffer, requestId: string, target: string, reason: string) {

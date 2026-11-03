@@ -66,7 +66,7 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_staff_cmd_elevate(bytea,uuid,bigint,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_enroll_reveal(bytea,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb)': 'iam_staff_owner',
-  'core.iam_staff_cmd_mfa_failed(bytea)': 'iam_staff_owner',
+  'core.iam_staff_cmd_mfa_attempt(bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_reset_totp(bytea,uuid,uuid,text,uuid,text,bytea,integer)': 'iam_staff_owner',
   'core.iam_staff_cmd_suspend(bytea,uuid,uuid,text)': 'iam_staff_owner',
 };

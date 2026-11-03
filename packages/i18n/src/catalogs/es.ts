@@ -197,6 +197,10 @@ export const ES_MESSAGES = {
   'backoffice.action.CANCEL_TRIP_PLATFORM': 'Cancelar por la plataforma',
   'backoffice.action.DECLARE_NO_SHOW': 'Declarar no presentación',
   'backoffice.action.RECORD_CLAIM': 'Registrar un reclamo',
+  'backoffice.error.network':
+    'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.',
+  'backoffice.journal.error': 'No pudimos cargar el registro de actividad.',
+  'backoffice.journal.scope': 'Solo ves las acciones dentro del alcance de tus roles.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
