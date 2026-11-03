@@ -617,7 +617,14 @@ describe.each(COUNTRIES)('US-022 — C1 tous canaux ($country, $currency)', (c) 
     const x = worldOf(c);
     const observer = await connectAs('app_api');
     try {
-      const max = Number((await observer.query<{ m: string }>('SHOW max_connections')).rows[0]?.m);
+      const max = Number(
+        (
+          await observer.query<{ m: string }>(
+            `SELECT pg_catalog.current_setting('max_connections') AS m`,
+          )
+        ).rows[0]?.m,
+      );
+      if (!Number.isInteger(max)) throw new Error('max_connections illisible');
       const degree = Math.max(4, Math.min(MIXED_DEGREE, max - RESERVED_CONNECTIONS));
       const vehicleId = uuid();
       const start = d(2, 1);
