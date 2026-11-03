@@ -60,7 +60,17 @@ export type {
   Classification,
   FileSource,
   FileStore,
+  FileStoreGetResult,
+  FileStorePutResult,
   FileVerification,
   ReceivedFile,
   ReceiveFileInput,
 } from './file-asset.ts';
+export { isReleasable } from './upload-scanner.ts';
+export type {
+  ScanReport,
+  ScanRequest,
+  ScanResult,
+  ScanVerdict,
+  UploadScanner,
+} from './upload-scanner.ts';

@@ -48,7 +48,7 @@ function memoryDb(): Queryable & { rows: Map<string, Row>; inserts: number } {
 
 describe('FakeKeyWrapper (FAKE, tests seulement)', () => {
   it('aller-retour ; liée au sujet ; une autre instance (autre clé maîtresse) ne déroule pas', async () => {
-    const kms = new FakeKeyWrapper({});
+    const kms = new FakeKeyWrapper();
     const dek = randomBytes(32);
     const wrapped = await kms.wrap(dek, ALICE);
     expect(wrapped.includes(dek)).toBe(false);
@@ -56,7 +56,7 @@ describe('FakeKeyWrapper (FAKE, tests seulement)', () => {
     await expect(kms.unwrap(wrapped, kms.keyId, BOB)).rejects.toBeInstanceOf(
       KeyWrapperRejectedError,
     );
-    const other = new FakeKeyWrapper({});
+    const other = new FakeKeyWrapper();
     expect(other.keyId).not.toBe(kms.keyId);
     await expect(other.unwrap(wrapped, kms.keyId, ALICE)).rejects.toBeInstanceOf(
       KeyWrapperRejectedError,
@@ -67,22 +67,24 @@ describe('FakeKeyWrapper (FAKE, tests seulement)', () => {
   });
 
   it('panne simulée : KeyWrapperUnavailableError', async () => {
-    const kms = new FakeKeyWrapper({});
+    const kms = new FakeKeyWrapper();
     kms.setAvailable(false);
     await expect(kms.wrap(randomBytes(32), ALICE)).rejects.toBeInstanceOf(
       KeyWrapperUnavailableError,
     );
   });
 
-  it('refusé en production (C19)', () => {
-    expect(() => new FakeKeyWrapper({ NODE_ENV: 'production' })).toThrow(/production/);
+  it('refusé hors development / test (C19, garde centrale d’US-020)', () => {
+    expect(() => new FakeKeyWrapper({ RUEDA_ENV: 'production' })).toThrow(/production/);
+    expect(() => new FakeKeyWrapper({ RUEDA_ENV: 'preproduction' })).toThrow(/RUEDA_ENV/);
+    expect(() => new FakeKeyWrapper({})).toThrow(/RUEDA_ENV/);
   });
 });
 
 describe('SubjectKeyStore', () => {
   it('crée la clé au premier besoin, puis la réutilise ; une clé par sujet', async () => {
     const db = memoryDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     const a1 = await keys.dekFor(db, ALICE, 'create');
     const a2 = await keys.dekFor(db, ALICE, 'create');
     const b = await keys.dekFor(db, BOB, 'create');
@@ -98,7 +100,7 @@ describe('SubjectKeyStore', () => {
 
   it('lecture sans clé : ABSENT, rien n’est créé', async () => {
     const db = memoryDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     expect(await keys.dekFor(db, ALICE, 'read')).toEqual({ status: 'ABSENT' });
     expect(db.inserts).toBe(0);
   });
@@ -110,14 +112,14 @@ describe('SubjectKeyStore', () => {
       kms_key_id: 'fake-kms/000000000000',
       destroyed_at: null,
     });
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     expect(await keys.dekFor(db, ALICE, 'create')).toEqual({ status: 'WITHHELD' });
     expect(await keys.dekFor(db, ALICE, 'read')).toEqual({ status: 'WITHHELD' });
   });
 
   it('cache : pas de second appel au KMS avant l’échéance ; KMS en panne ⇒ cache utilisé puis WITHHELD', async () => {
     const db = memoryDb();
-    const kms = new FakeKeyWrapper({});
+    const kms = new FakeKeyWrapper();
     let t = 0;
     const keys = new SubjectKeyStore(kms, { cacheTtlMs: 300_000, clock: () => t });
     await keys.dekFor(db, ALICE, 'create');
@@ -135,7 +137,7 @@ describe('SubjectKeyStore', () => {
 
   it('clé détruite : DESTROYED même si la DEK est en cache (la base est relue à chaque appel)', async () => {
     const db = memoryDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     await keys.dekFor(db, ALICE, 'create');
     db.rows.set(`USER:${ALICE.id}`, {
       wrapped_dek: null,
@@ -148,7 +150,7 @@ describe('SubjectKeyStore', () => {
 
   it('la DEK rendue est une copie : la remettre à zéro n’abîme pas le cache', async () => {
     const db = memoryDb();
-    const keys = new SubjectKeyStore(new FakeKeyWrapper({}));
+    const keys = new SubjectKeyStore(new FakeKeyWrapper());
     const first = await keys.dekFor(db, ALICE, 'create');
     if (first.status !== 'OK') throw new Error('attendu OK');
     const copy = Buffer.from(first.dek);

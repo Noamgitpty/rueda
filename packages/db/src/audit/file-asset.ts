@@ -12,7 +12,8 @@
  *   à `file_asset.sha256` (critère US-009). Lecture réservée au travailleur `evidence_verifier`.
  *
  * Bêta : le corps est assemblé en mémoire (`maxBytes`), le port FileStore réel (S3, URL signées,
- * verrou objet) arrive avec US-003 ; antivirus `UploadScanner` : story dédiée.
+ * verrou objet) arrive avec US-003 ; antivirus : port `UploadScanner` (`upload-scanner.ts`,
+ * US-020), branché sur la réception par la story du téléversement.
  */
 import { createHash } from 'node:crypto';
 import { fileAad, open, seal } from './envelope.ts';
@@ -24,17 +25,34 @@ export type FileSource = 'IN_APP_CAMERA' | 'STAFF_UPLOAD' | 'GENERATED' | 'PROVI
 export type Classification = 'C0' | 'C1' | 'C2' | 'C3';
 
 /**
- * Port `FileStore` (17 §5, module AUD). Adaptateur FAKE : `@rueda/db/testing`.
+ * Port `FileStore` (17 §5, module AUD). Adaptateur FAKE : `@rueda/fake-adapters/files`
+ * (`InMemoryFileStore`, US-020) ; adaptateur réel : US-003.
  *
- * Contrat de `put` : **création seule**. Si un objet existe déjà sous `(bucket, key)`, `put`
- * lève `FileStoreConflictError` et l'objet existant reste intact ; un objet n'est JAMAIS écrasé
- * (une preuve ne change pas d'octets). Adaptateur réel (US-003) : écriture conditionnelle
- * (`If-None-Match: *` sur S3) et verrou objet du bucket `PRIVATE_EVIDENCE`.
+ * Contrat de `put` : **création seule**. Si un objet existe déjà sous `(bucket, key)`, `put` rend
+ * `CONFLICT` et l'objet existant reste intact ; un objet n'est JAMAIS écrasé (une preuve ne change
+ * pas d'octets). Adaptateur réel (US-003) : écriture conditionnelle (`If-None-Match: *` sur S3) et
+ * verrou objet du bucket `PRIVATE_EVIDENCE`.
+ *
+ * Les échecs sont des **valeurs** (US-020, ADR-057) : `UNAVAILABLE` (rien n'est fait), `TIMEOUT`
+ * (issue inconnue : l'objet a pu être déposé), `NOT_FOUND`. Ainsi le FAKE, dans un paquet feuille,
+ * se conforme au port sans importer `@rueda/db` (pas de cycle de paquets).
  */
 export interface FileStore {
-  put(bucket: Bucket, key: string, body: Buffer): Promise<void>;
-  get(bucket: Bucket, key: string): Promise<Buffer>;
+  put(bucket: Bucket, key: string, body: Buffer): Promise<FileStorePutResult>;
+  get(bucket: Bucket, key: string): Promise<FileStoreGetResult>;
 }
+
+export type FileStorePutResult =
+  | { readonly status: 'STORED' }
+  | { readonly status: 'CONFLICT' }
+  | { readonly status: 'UNAVAILABLE' }
+  | { readonly status: 'TIMEOUT' };
+
+export type FileStoreGetResult =
+  | { readonly status: 'FOUND'; readonly body: Buffer }
+  | { readonly status: 'NOT_FOUND' }
+  | { readonly status: 'UNAVAILABLE' }
+  | { readonly status: 'TIMEOUT' };
 
 /** Un objet existe déjà sous cette clé : refus, rien n'est écrasé (contrat de `FileStore.put`). */
 export class FileStoreConflictError extends Error {
@@ -138,7 +156,13 @@ export async function receiveFile(
       input.encryptFor?.id ?? null,
     ],
   );
-  await store.put(input.bucket, input.storageKey, stored);
+  const put = await store.put(input.bucket, input.storageKey, stored);
+  if (put.status === 'CONFLICT') throw new FileStoreConflictError('objet déjà présent');
+  if (put.status !== 'STORED') {
+    // Issue inconnue ou panne : l'exception annule la transaction de l'appelant (la ligne
+    // file_asset disparaît). Après TIMEOUT, un objet orphelin peut rester : nouvelle clé au rejeu.
+    throw new FileAssetError(`stockage indisponible (${put.status}) : fichier non reçu`);
+  }
   return {
     sha256: received.sha256,
     bytes: received.bytes,
@@ -149,10 +173,10 @@ export async function receiveFile(
 export type FileVerification =
   | { readonly status: 'MATCH'; readonly sha256: Buffer }
   | { readonly status: 'MISMATCH'; readonly expected: Buffer; readonly actual: Buffer }
-  /** Objet chiffré illisible : octets altérés, ou clé du sujet détruite / indisponible. */
+  /** Objet illisible : octets chiffrés altérés, clé du sujet détruite / indisponible, objet absent. */
   | {
       readonly status: 'UNREADABLE';
-      readonly reason: 'DECRYPT_FAILED' | 'KEY_DESTROYED' | 'KEY_WITHHELD';
+      readonly reason: 'DECRYPT_FAILED' | 'KEY_DESTROYED' | 'KEY_WITHHELD' | 'OBJECT_MISSING';
     }
   | { readonly status: 'UNKNOWN_FILE' };
 
@@ -178,7 +202,13 @@ export async function verifyFileAsset(
   );
   const row = rows[0];
   if (row === undefined) return { status: 'UNKNOWN_FILE' };
-  let content = await store.get(row.bucket, row.storage_key);
+  const got = await store.get(row.bucket, row.storage_key);
+  if (got.status === 'NOT_FOUND') return { status: 'UNREADABLE', reason: 'OBJECT_MISSING' };
+  if (got.status !== 'FOUND') {
+    // Panne passagère : pas un verdict sur la preuve, l'appelant réessaiera.
+    throw new FileAssetError(`stockage indisponible (${got.status}) : vérification reportée`);
+  }
+  let content = got.body;
   if (row.enc_subject_type !== null && row.enc_subject_id !== null) {
     const subject: SubjectRef = { type: row.enc_subject_type, id: row.enc_subject_id };
     const key = await keys.dekFor(db, subject, 'read');
