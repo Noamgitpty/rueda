@@ -1,0 +1,8 @@
+{
+  "$comment": "Devises configurées (17 §1.2, table config.currency) : code ISO 4217 et exposant de l'unité mineure. Donnée, jamais une constante de code (ADR-024). US-013.",
+  "version": 1,
+  "currencies": [
+    { "code": "USD", "exponent": 2, "source": "ISO 4217 ; 17 §1.2 (USD = 2)" },
+    { "code": "PYG", "exponent": 0, "source": "ISO 4217 ; 17 §1.2 (PYG = 0) ; I18N-005" }
+  ]
+}

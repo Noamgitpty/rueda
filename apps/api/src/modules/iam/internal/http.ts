@@ -6,6 +6,7 @@
 import type { AuthenticatedPrincipal } from './auth.service.js';
 
 export interface HttpRequest {
+  readonly method?: string;
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
   readonly ip?: string | undefined;
   readonly body?: unknown;
@@ -36,4 +37,11 @@ export function headerValue(request: HttpRequest, name: string): string | null {
 export function isJson(request: HttpRequest): boolean {
   const type = headerValue(request, 'content-type');
   return type !== null && /^application\/json\s*(;|$)/i.test(type);
+}
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** Méthode d'écriture (tout sauf GET, HEAD, OPTIONS ; méthode inconnue = écriture). */
+export function isWrite(request: HttpRequest): boolean {
+  return !SAFE_METHODS.has((request.method ?? '').toUpperCase());
 }

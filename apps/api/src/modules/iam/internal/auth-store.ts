@@ -2,7 +2,7 @@
  * Port de persistance de l'authentification (adaptateur interne, ADR-021 défaut, ADR-052).
  *
  * Deux implémentations :
- * - `PgAuthStore` (production) : commandes `core.iam_*` (migration 0201) sous `app_api` ;
+ * - `PgAuthStore` (production) : commandes `core.iam_*` (migration 0011) sous `app_api` ;
  * - `FakeAuthStore` (`../testing/`, TESTS SEULEMENT, exclu de la compilation de production).
  * Le contrat commun est vérifié par `../testing/auth-store-contract.ts` sur les deux.
  *
@@ -50,12 +50,14 @@ export interface SessionRecord {
   readonly userId: string;
   readonly mfaLevel: MfaLevel;
   readonly expiresAt: Date;
+  /** Email vérifié : exigé pour les actions sensibles (réserver, publier), comme chez Turo. */
+  readonly emailVerified: boolean;
 }
 
 export interface AuthStore {
   /** `false` si l'email est déjà pris (aucune écriture). */
   registerAccount(input: RegisterAccountInput): Promise<boolean>;
-  /** `true` si un lien valide a été consommé. */
+  /** `true` si un lien valide a été consommé ; révoque alors les sessions antérieures. */
   verifyEmail(tokenHash: Buffer): Promise<boolean>;
   findCredentials(email: string): Promise<Credentials | null>;
   /** Échéance de la session, ou `null` si le compte ne peut pas se connecter. */

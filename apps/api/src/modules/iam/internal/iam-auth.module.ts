@@ -17,6 +17,7 @@ import type { IdentityNotifier } from './notifier.js';
 import { Argon2idPasswordHasher } from './password-hasher.js';
 import { DEFAULT_AUTH_POLICY } from './policy.js';
 import type { AuthPolicy } from './policy.js';
+import { JsonWriteGuard } from './csrf.guard.js';
 import { SessionGuard } from './session.guard.js';
 import {
   AUTHENTICATION_PORT,
@@ -42,6 +43,9 @@ export class IamAuthModule {
   static register(options: IamAuthOptions): DynamicModule {
     return {
       module: IamAuthModule,
+      // global : SessionGuard et AUTHENTICATION_PORT sont injectables dans tout module, sans
+      // second appel à register() (un seul jeu d'adaptateurs par processus)
+      global: true,
       controllers: [AuthController],
       providers: [
         { provide: IAM_AUTH_STORE, useValue: options.store },
@@ -52,6 +56,7 @@ export class IamAuthModule {
         AuthService,
         { provide: AUTHENTICATION_PORT, useExisting: AuthService },
         SessionGuard,
+        JsonWriteGuard,
       ],
       exports: [AUTHENTICATION_PORT, SessionGuard],
     };

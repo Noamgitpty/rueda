@@ -69,7 +69,7 @@ describe('cookie de session', () => {
 
   it('lecture : un seul cookie bien formé ; absent, doublé ou mal formé => null', () => {
     const t = newOpaqueToken();
-    expect(readSessionToken(`theme=dark; __Host-session=${t}; locale=es-PA`)).toBe(t);
+    expect(readSessionToken(`theme=dark; __Host-session=${t}; locale=fr`)).toBe(t);
     expect(readSessionToken([`a=1`, `__Host-session=${t}`])).toBe(t);
     expect(readSessionToken(undefined)).toBeNull();
     expect(readSessionToken('session=' + t)).toBeNull(); // sans le préfixe : ignoré

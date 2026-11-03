@@ -1,6 +1,6 @@
 /**
  * Adaptateur PostgreSQL du port de persistance (production) : appelle les seules commandes
- * `core.iam_*` (migration 0201, `SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
+ * `core.iam_*` (migration 0011, `SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
  * paramétrées uniquement (aucun SQL construit, 17 §2.3 « Limite de la RLS »).
  *
  * Les erreurs de la base sont remplacées par une erreur sans message du serveur ni paramètre
@@ -123,9 +123,10 @@ export class PgAuthStore implements AuthStore {
       user_id: string;
       mfa_level: string;
       expires_at: Date;
+      email_verified: boolean;
     }>(
       'resolve_session',
-      'SELECT session_id, user_id, mfa_level, expires_at FROM core.iam_session_resolve($1)',
+      'SELECT session_id, user_id, mfa_level, expires_at, email_verified FROM core.iam_session_resolve($1)',
       [tokenHash],
     );
     const row = rows[0];
@@ -135,6 +136,7 @@ export class PgAuthStore implements AuthStore {
       userId: row.user_id,
       mfaLevel: row.mfa_level as MfaLevel,
       expiresAt: row.expires_at,
+      emailVerified: row.email_verified === true,
     };
   }
 

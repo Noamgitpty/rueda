@@ -13,19 +13,20 @@
  * | POST /auth/verify-email   | 200 EMAIL_VERIFIED ; 400 AUTH_LINK_EXPIRED                         |
  */
 import { Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { JsonWriteGuard } from './csrf.guard.js';
 import { AuthService } from './auth.service.js';
 import type { RequestContext } from './auth.service.js';
 import { clearedSessionCookie, readSessionToken, sessionCookie } from './cookies.js';
 import { AuthHttpError, authBody } from './errors.js';
 import type { AuthBody } from './errors.js';
-import { headerValue, isJson, principalOf } from './http.js';
+import { headerValue, principalOf } from './http.js';
 import type { HttpRequest, HttpResponse } from './http.js';
 import { SessionGuard } from './session.guard.js';
 import { IAM_CLOCK } from './tokens.js';
 import type { Clock } from './tokens.js';
 
+/** Corps JSON objet (le Content-Type est contrôlé par JsonWriteGuard / SessionGuard). */
 function requireJson(request: HttpRequest): Record<string, unknown> {
-  if (!isJson(request)) throw new AuthHttpError('REQUEST_INVALID', undefined, 415);
   const body = request.body;
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw new AuthHttpError('REQUEST_INVALID');
@@ -38,6 +39,7 @@ function contextOf(request: HttpRequest): RequestContext {
 }
 
 @Controller('auth')
+@UseGuards(JsonWriteGuard)
 export class AuthController {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,
@@ -86,13 +88,19 @@ export class AuthController {
 
   @Get('session')
   @UseGuards(SessionGuard)
-  session(@Req() request: HttpRequest): { userId: string; mfaLevel: string; expiresAt: string } {
+  session(@Req() request: HttpRequest): {
+    userId: string;
+    mfaLevel: string;
+    expiresAt: string;
+    emailVerified: boolean;
+  } {
     const principal = principalOf(request);
     if (principal === null) throw new AuthHttpError('AUTH_REQUIRED');
     return {
       userId: principal.userId,
       mfaLevel: principal.mfaLevel,
       expiresAt: principal.expiresAt.toISOString(),
+      emailVerified: principal.emailVerified,
     };
   }
 
@@ -102,10 +110,11 @@ export class AuthController {
     @Req() request: HttpRequest,
     @Res({ passthrough: true }) response: HttpResponse,
   ): Promise<void> {
-    requireJson(request);
     response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Set-Cookie', clearedSessionCookie());
+    // révoquer D'ABORD : si la base échoue (500), le cookie reste et la session aussi, sans
+    // faire croire à une déconnexion
     await this.auth.logout(readSessionToken(request.headers['cookie']));
+    response.setHeader('Set-Cookie', clearedSessionCookie());
   }
 
   @Post('logout-all')
@@ -114,10 +123,9 @@ export class AuthController {
     @Req() request: HttpRequest,
     @Res({ passthrough: true }) response: HttpResponse,
   ): Promise<void> {
-    requireJson(request);
     response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Set-Cookie', clearedSessionCookie());
     await this.auth.logoutAll(readSessionToken(request.headers['cookie']));
+    response.setHeader('Set-Cookie', clearedSessionCookie());
   }
 
   @Post('verify-email')

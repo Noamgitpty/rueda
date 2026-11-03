@@ -235,7 +235,7 @@ describe('IAM — comptes et sessions sous app_api (US-010)', () => {
     });
   });
 
-  it('lien de vérification : usage unique, expiré après 24 h, PENDING_EMAIL -> ACTIVE', async () => {
+  it('lien de vérification : usage unique, expiré après 24 h, PENDING_EMAIL -> ACTIVE, sessions antérieures révoquées', async () => {
     await withRole('app_api', async (client) => {
       await withTestTransaction(client, { virtualNow: T0 }, async (tx) => {
         const verify = async (hash: Buffer) =>
@@ -247,8 +247,19 @@ describe('IAM — comptes et sessions sous app_api (US-010)', () => {
 
         await setVirtualNow(tx, T0);
         const u = await register(tx);
+        // session ouverte AVANT la vérification (pré-détournement) : révoquée par la vérification
+        const before = await openSession(tx, u.userId);
+        expect((await resolve(tx, before.hash))[0]?.email_verified).toBe(false);
         await setVirtualNow(tx, plus(T0, VERIFICATION_TTL_S - 1));
         expect(await verify(u.verification.hash)).toBe(true);
+        expect(await resolve(tx, before.hash)).toEqual([]);
+        const after = await openSession(tx, u.userId);
+        expect((await resolve(tx, after.hash))[0]?.email_verified).toBe(true);
+        const reasons = await tx.query<{ revoked_reason: string | null }>(
+          'SELECT revoked_reason FROM test_fixture.iam_read_sessions($1)',
+          [u.userId],
+        );
+        expect(reasons.rows.map((r) => r.revoked_reason)).toEqual(['EMAIL_VERIFIED', null]);
         expect(await verify(u.verification.hash)).toBe(false);
         expect(await verify(newToken().hash)).toBe(false);
         const { rows } = await tx.query<{ status: string; email_verified_at: Date }>(

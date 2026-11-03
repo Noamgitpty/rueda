@@ -4,7 +4,7 @@
  * Jamais actif en production : ce répertoire est exclu de `tsconfig.build.json` (il n'existe pas
  * dans `dist/`), et aucun code de production ne l'importe (test `production-isolation.test.ts`).
  *
- * Reproduit la sémantique des commandes core.iam_* (migration 0201) ; le contrat commun est
+ * Reproduit la sémantique des commandes core.iam_* (migration 0011) ; le contrat commun est
  * vérifié contre PostgreSQL par `pg-auth-store.int.test.ts` (même suite `authStoreContract`).
  */
 import type {
@@ -87,6 +87,12 @@ export class FakeAuthStore implements AuthStore {
     if (!account || account.id !== v.userId) return false;
     account.emailVerifiedAt = new Date(this.#now());
     if (account.status === 'PENDING_EMAIL') account.status = 'ACTIVE';
+    for (const s of this.sessions) {
+      if (s.userId === account.id && s.revokedAt === null) {
+        s.revokedAt = new Date(this.#now());
+        s.revokedReason = 'EMAIL_VERIFIED';
+      }
+    }
     return true;
   }
 
@@ -133,7 +139,13 @@ export class FakeAuthStore implements AuthStore {
     if (!s) return null;
     const a = this.#account(s.userId);
     if (!a || a.status === 'CLOSED' || a.status === 'BANNED') return null;
-    return { sessionId: s.id, userId: s.userId, mfaLevel: s.mfaLevel, expiresAt: s.expiresAt };
+    return {
+      sessionId: s.id,
+      userId: s.userId,
+      mfaLevel: s.mfaLevel,
+      expiresAt: s.expiresAt,
+      emailVerified: a.emailVerifiedAt !== null,
+    };
   }
 
   async revokeSession(tokenHash: Buffer, reason: ApiRevocationReason): Promise<boolean> {

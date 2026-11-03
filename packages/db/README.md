@@ -11,6 +11,7 @@ Migrations SQL versionnées, exécuteur de migrations minimal et harnais de test
 | `test-migrations/9NNN_<nom>.sql`     | Migrations **de test seulement** (horloge virtuelle). Jamais appliquées hors du harnais.                                                                                                                                                                                                                                 |
 | `schemas.ts`                         | Correspondance **code de module → schéma PostgreSQL** (`MODULE_SCHEMAS`), schémas transverses (`SHARED_SCHEMAS`) et nommage Bêta (`BETA_SCHEMA`, `betaTableName()`), US-001. `schemas.test.ts` vérifie que chaque module du graphe (`apps/api/src/modules/dependency-graph.ts`) a un schéma. Export `@rueda/db/schemas`. |
 | `sql-clock-allowlist.json`           | Liste blanche de la règle d'horloge (CONTRIBUTING « SQL et horloge ») : `0000_platform_now.sql` et `9000_test_virtual_clock.sql`, `clock_timestamp()` seulement.                                                                                                                                                         |
+| `country-data-allowlist.json`        | Liste blanche du contrôle « aucune constante pays » des migrations (US-013, ADR-049) : seules les graines générées (`0009_config_seed.sql`) peuvent nommer une devise, un fuseau, un pays, une locale régionale ou une taxe.                                                                                             |
 | `src/migrate.ts`, `src/bootstrap.ts` | Exécuteur (`runMigrations`, `planMigrations`, `listMigrations`) et amorçage (`runBootstrap`, `setRolePasswords`).                                                                                                                                                                                                        |
 | `src/testing/`                       | Harnais de tests (`@rueda/db/testing`) : source de la base, banc jetable, connexions sous les rôles de production, transaction de test.                                                                                                                                                                                  |
 
@@ -19,8 +20,10 @@ Migrations actuelles :
 - `0000_platform_now` : schéma `platform`, `platform.now()` = `clock_timestamp()` `VOLATILE`, `platform.schema_migration` sous RLS `ENABLE` + `FORCE` ;
 - `0001_role_grants` : droits minimaux ;
 - `0002_app_session_context` à `0007_avl_pay_worker_grants` : schéma de preuve AVL / PAY (US-006, section « Schéma AVL / PAY ») ;
-- `0200_iam_identity`, `0201_iam_auth_commands` : schéma IAM et commandes d'authentification (US-010, section « Schéma IAM ») ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9200_test_iam_fixtures`.
+- `0008_config_country` (US-013) : tables de configuration pays dans `core` (schéma créé par `0003_core_schema`), gardes `PARAM_RETROACTIVE` / immuabilité / interrupteurs, `core.config_go_live`, RLS `ENABLE` + `FORCE`, lecture seule pour `app_api` et `app_worker` ;
+- `0009_config_seed` (US-013) : graines PA / PY **générées** depuis `apps/api/src/modules/cfg/data/`, ne pas éditer (ADR-049) ;
+- `0010_iam_identity`, `0011_iam_auth_commands` (US-010) : schéma IAM et commandes d'authentification (section « Schéma IAM ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9200_test_iam_fixtures` (US-010).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -78,7 +81,7 @@ Identités prévues pour US-011 : `user_account.id` (`app.actor_id`), `organizat
 
 Contraintes notables : `user_account_password_hash_argon2id` (seule une chaîne PHC argon2id est stockée), `user_account_email_normalized`, `session_token_sha256` (32 octets), trigger `session_guarded_columns` (révocation définitive, aucune prolongation), `membership_holder_matches_org` (le `P2P_HOST` est le titulaire), `membership_one_active_holder`, `organization_country_holder_unique`, `staff_country_scope_format`, `staff_no_self_grant`.
 
-Commandes (`0201`, `SECURITY DEFINER` sous `migrator`, `search_path` figé, `EXECUTE` au seul `app_api`, famille `iam_auth` pour la liste blanche RLS-15) : `core.iam_cmd_register`, `iam_cmd_verify_email`, `iam_auth_lookup`, `iam_cmd_open_session` (300 s à 30 j, 8 h si rôle interne), `iam_session_resolve`, `iam_cmd_revoke_session`, `iam_cmd_revoke_all_sessions`.
+Commandes (`0011`, `SECURITY DEFINER` sous `migrator`, `search_path` figé, `EXECUTE` au seul `app_api`, famille `iam_auth` pour la liste blanche RLS-15) : `core.iam_cmd_register`, `iam_cmd_verify_email`, `iam_auth_lookup`, `iam_cmd_open_session` (300 s à 30 j, 8 h si rôle interne), `iam_session_resolve`, `iam_cmd_revoke_session`, `iam_cmd_revoke_all_sessions`.
 
 **FK en attente** : les colonnes `guest_user_id` et `org_id` des tables AVL ne pointent pas encore vers `iam_user_account` / `iam_organization` (les fixtures L0 de US-006 posent des identifiants libres) ; `organization.legal_entity_id` attend `config` (US-008).
 

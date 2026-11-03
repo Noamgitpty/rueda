@@ -1,4 +1,4 @@
--- 0200 — IAM : comptes, vérification d'email, facteurs, sessions, OTP, comptes d'hôte, appartenances,
+-- 0010 — IAM : comptes, vérification d'email, facteurs, sessions, OTP, comptes d'hôte, appartenances,
 -- rôles internes, permissions, restrictions. US-010 ; 17 §2.3, §3.1.2, §3.1.4, §3.2.1 ; 16 ACC-001 ;
 -- 08 BR-ACC-01 ; ADR-052. Appliquée sous `migrator`.
 --
@@ -15,7 +15,7 @@
 --   - `role_permission` porte les colonnes de configuration versionnée (17 §3.1.2, classe C).
 --
 -- Droits : AUCUN droit de table pour app_api, app_worker, app_anon ni PUBLIC. Les écritures et
--- lectures de l'authentification passent par les commandes de 0201 ; les lectures filtrées par
+-- lectures de l'authentification passent par les commandes de 0011 ; les lectures filtrées par
 -- acteur et par pays (politiques RLS) arrivent avec US-011. RLS ENABLE + FORCE partout.
 --
 -- Clés étrangères en attente : `organization.legal_entity_id` (config, US-008) ; les colonnes
@@ -142,7 +142,8 @@ CREATE TABLE core.iam_session (
   CONSTRAINT session_user_agent_length CHECK (user_agent IS NULL OR pg_catalog.length(user_agent) <= 512),
   CONSTRAINT session_mfa_level_valid CHECK (mfa_level IN ('NONE', 'OTP', 'TOTP')),
   CONSTRAINT session_revoked_reason_valid CHECK (revoked_reason IN
-    ('LOGOUT', 'LOGOUT_ALL', 'ROTATED', 'ADMIN', 'PASSWORD_CHANGED', 'ACCOUNT_CLOSED')),
+    ('LOGOUT', 'LOGOUT_ALL', 'ROTATED', 'EMAIL_VERIFIED', 'ADMIN', 'PASSWORD_CHANGED',
+     'ACCOUNT_CLOSED')),
   CONSTRAINT session_revocation_complete CHECK ((revoked_at IS NULL) = (revoked_reason IS NULL))
 );
 CREATE INDEX session_user_live_idx ON core.iam_session (user_id) WHERE (revoked_at IS NULL);
@@ -173,7 +174,7 @@ CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_session
   FOR EACH ROW EXECUTE FUNCTION platform.touch_row();
 COMMENT ON TABLE core.iam_session IS
   'IAM session (17 §3.2.1). Jeton opaque côté client ; seul son SHA-256 est stocké. Écrite par les '
-  'commandes core.iam_cmd_* (0201) seulement. Révocation définitive (session_guarded_columns). US-010.';
+  'commandes core.iam_cmd_* (0011) seulement. Révocation définitive (session_guarded_columns). US-010.';
 
 -- 5. Défi OTP (17 §3.2.1, VER-013 : 10 min, 5 essais, blocage 1 h ; purge 30 j) ----------------
 CREATE TABLE core.iam_otp_challenge (

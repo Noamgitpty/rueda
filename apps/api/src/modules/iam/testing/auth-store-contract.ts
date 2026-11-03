@@ -28,7 +28,7 @@ async function register(store: AuthStore, email = `c-${randomUUID()}@example.tes
     passwordHash: phc(),
     legalFirstName: 'Ana',
     legalLastName: 'Pérez',
-    preferredLocale: 'es-PY',
+    preferredLocale: 'fr',
     verificationId: randomUUID(),
     verificationTokenHash: tokenHash(verificationToken),
     verificationTtlS: 86_400,
@@ -126,10 +126,15 @@ export function authStoreContract(name: string, harness: () => Promise<ContractH
         await expect(open(store, a.userId, 299)).rejects.toThrow();
       }));
 
-    it('lien de vérification : usage unique, PENDING_EMAIL -> ACTIVE', () =>
+    it('lien de vérification : usage unique, PENDING_EMAIL -> ACTIVE, sessions antérieures révoquées', () =>
       withStore(async (store) => {
         const a = await register(store);
+        const before = await open(store, a.userId);
+        expect((await store.resolveSession(tokenHash(before.token)))?.emailVerified).toBe(false);
         expect(await store.verifyEmail(tokenHash(a.verificationToken))).toBe(true);
+        expect(await store.resolveSession(tokenHash(before.token))).toBeNull();
+        const after = await open(store, a.userId);
+        expect((await store.resolveSession(tokenHash(after.token)))?.emailVerified).toBe(true);
         expect(await store.verifyEmail(tokenHash(a.verificationToken))).toBe(false);
         expect((await store.findCredentials(a.email))?.status).toBe('ACTIVE');
       }));

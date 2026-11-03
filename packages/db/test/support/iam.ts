@@ -40,7 +40,7 @@ export async function register(
   const email = overrides.email ?? `u-${userId}@example.test`;
   const verification = newToken();
   const { rows } = await client.query<{ created: boolean }>(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Ana', 'Pérez', 'es-PA', $4, $5, $6, '203.0.113.7') AS created`,
+    `SELECT core.iam_cmd_register($1, $2, $3, 'Ana', 'Pérez', 'en', $4, $5, $6, '203.0.113.7') AS created`,
     [
       userId,
       email,
@@ -69,12 +69,21 @@ export async function openSession(
 export async function resolve(
   client: pg.ClientBase,
   hash: Buffer,
-): Promise<{ session_id: string; user_id: string; mfa_level: string; expires_at: Date }[]> {
+): Promise<
+  {
+    session_id: string;
+    user_id: string;
+    mfa_level: string;
+    expires_at: Date;
+    email_verified: boolean;
+  }[]
+> {
   const { rows } = await client.query<{
     session_id: string;
     user_id: string;
     mfa_level: string;
     expires_at: Date;
+    email_verified: boolean;
   }>('SELECT * FROM core.iam_session_resolve($1)', [hash]);
   return rows;
 }

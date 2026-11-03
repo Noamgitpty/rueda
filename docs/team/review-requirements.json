@@ -317,7 +317,23 @@
       "US-062"
     ],
     "packages/money/": ["US-015", "US-016", "US-017", "US-018", "US-035", "US-042"],
-    "packages/i18n/": ["US-014", "US-012", "US-021", "US-032", "US-035", "US-048"],
+    "packages/i18n/": [
+      "US-014",
+      "US-012",
+      "US-021",
+      "US-032",
+      "US-035",
+      "US-048",
+      "US-010",
+      "US-013",
+      "US-033",
+      "US-034",
+      "US-102",
+      "US-103",
+      "US-104",
+      "US-105",
+      "US-106"
+    ],
     "packages/design-tokens/": ["US-030", "US-031", "US-032", "US-034", "US-035"],
     "packages/ui/": ["US-032", "US-033", "US-035"],
     "packages/fake-adapters/": ["US-019", "US-020", "US-035", "US-061"]

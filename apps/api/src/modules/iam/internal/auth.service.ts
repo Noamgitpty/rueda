@@ -36,6 +36,8 @@ export interface AuthenticatedPrincipal {
   readonly sessionId: string;
   readonly mfaLevel: MfaLevel;
   readonly expiresAt: Date;
+  /** À exiger par les modules avant une action sensible (réserver, publier une annonce). */
+  readonly emailVerified: boolean;
 }
 
 /**
@@ -245,6 +247,7 @@ export class AuthService implements AuthenticationPort {
       sessionId: record.sessionId,
       mfaLevel: record.mfaLevel,
       expiresAt: record.expiresAt,
+      emailVerified: record.emailVerified,
     };
   }
 

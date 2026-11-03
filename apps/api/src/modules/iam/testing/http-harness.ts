@@ -5,7 +5,7 @@
  */
 import 'reflect-metadata';
 import { Module } from '@nestjs/common';
-import type { DynamicModule, INestApplication, LoggerService } from '@nestjs/common';
+import type { DynamicModule, INestApplication, LoggerService, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { AuthStore } from '../internal/auth-store.js';
 import { IamAuthModule } from '../internal/iam-auth.module.js';
@@ -59,7 +59,7 @@ export interface AuthHttpHarness {
 
 export async function startAuthApp(
   store: AuthStore,
-  options: { policy?: AuthPolicy; clock?: () => number } = {},
+  options: { policy?: AuthPolicy; clock?: () => number; imports?: Type[] } = {},
 ): Promise<AuthHttpHarness> {
   const notifier = new RecordingIdentityNotifier();
   const logger = new CapturingLogger();
@@ -87,6 +87,8 @@ export async function startAuthApp(
             policy: options.policy ?? DEFAULT_AUTH_POLICY,
             ...(options.clock !== undefined ? { clock: options.clock } : {}),
           }),
+          // modules consommateurs : ils n'importent PAS IamAuthModule (module global)
+          ...(options.imports ?? []),
         ],
       };
     }

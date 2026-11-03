@@ -37,7 +37,7 @@ export function authHttpScenarios(name: string, makeStore: () => Promise<StoreHa
         password: PASSWORD,
         legalFirstName: 'Ana',
         legalLastName: 'Pérez',
-        locale: 'es-PA',
+        locale: 'en',
         termsAccepted: true,
       },
     });
@@ -194,6 +194,11 @@ export function authHttpScenarios(name: string, makeStore: () => Promise<StoreHa
         const again = await call(h.url, 'POST', '/auth/verify-email', { body: { token } });
         expect(again.status).toBe(400);
         expect(again.body).toMatchObject({ code: 'AUTH_LINK_EXPIRED' });
+        // la session ouverte avant la vérification est révoquée (pré-détournement de compte)
+        const old = await call(h.url, 'GET', '/auth/session', {
+          cookie: `__Host-session=${session}`,
+        });
+        expect(old.status).toBe(401);
         // aucun jeton (session, lien) ni mot de passe dans la sortie de l'application
         const output = h.output();
         for (const secret of [token, session, PASSWORD]) expect(output).not.toContain(secret);

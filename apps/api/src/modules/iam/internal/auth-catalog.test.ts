@@ -41,7 +41,7 @@ describe('catalogue des messages de l’authentification', () => {
 
   it('rendu dans chaque locale, sans emplacement résiduel', () => {
     const config = parseLocaleConfig(raw);
-    for (const locale of ['es-PA', 'es-PY', 'en', 'fr']) {
+    for (const locale of config.locales.map((l) => l.tag)) {
       const t = createTranslator(getProfile(config, locale));
       const text = t.t('common.auth.passwordWeak', { min: 10 });
       expect(text).toContain('10');

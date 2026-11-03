@@ -1,5 +1,5 @@
 /**
- * Intégration du schéma IAM (US-010, migrations 0200, 0201 et test 9200), sous les rôles de
+ * Intégration du schéma IAM (US-010, migrations 0010, 0011 et test 9200), sous les rôles de
  * production (assertion L0-05 par withRole) :
  * - RLS ENABLE + FORCE sur toutes les tables iam_*, seule politique migrator_all (17 §2.3, B9) ;
  * - aucun droit de table pour app_api, app_worker, app_anon (les politiques par acteur : US-011) ;
@@ -161,20 +161,20 @@ describe('schéma IAM (US-010)', () => {
         await tx.query('SELECT test_fixture.iam_insert_organization($1, $2, $3)', [
           orgPa,
           holder.userId,
-          'PA',
+          'XA',
         ]);
         // même titulaire, autre pays : un second compte d'hôte (17 §2.3)
         await tx.query('SELECT test_fixture.iam_insert_organization($1, $2, $3)', [
           uuid(),
           holder.userId,
-          'PY',
+          'XB',
         ]);
         await tx.query('SAVEPOINT s');
         await expect(
           tx.query('SELECT test_fixture.iam_insert_organization($1, $2, $3)', [
             uuid(),
             holder.userId,
-            'PA',
+            'XA',
           ]),
         ).rejects.toMatchObject({
           code: '23505',
@@ -212,7 +212,7 @@ describe('schéma IAM (US-010)', () => {
         ]);
         await tx.query('SAVEPOINT t');
         await expect(
-          tx.query(`SELECT test_fixture.iam_insert_organization($1, $2, 'pa')`, [
+          tx.query(`SELECT test_fixture.iam_insert_organization($1, $2, 'xa')`, [
             uuid(),
             other.userId,
           ]),
@@ -235,19 +235,19 @@ describe('schéma IAM (US-010)', () => {
             scope,
             grantedBy,
           ]);
-        await grant(['PA'], admin.userId);
-        await grant(['PA', 'PY'], admin.userId, 'FINANCE');
+        await grant(['XA'], admin.userId);
+        await grant(['XA', 'XB'], admin.userId, 'FINANCE');
         for (const [scope, by, constraint] of [
           [[], admin.userId, 'staff_country_scope_format'],
-          [['pa'], admin.userId, 'staff_country_scope_format'],
-          [['PA', 'PRY'], admin.userId, 'staff_country_scope_format'],
-          [['PA'], staff.userId, 'staff_no_self_grant'],
+          [['xa'], admin.userId, 'staff_country_scope_format'],
+          [['XA', 'XAB'], admin.userId, 'staff_country_scope_format'],
+          [['XA'], staff.userId, 'staff_no_self_grant'],
         ] as const) {
           await tx.query('SAVEPOINT s');
           await expect(grant([...scope], by)).rejects.toMatchObject({ code: '23514', constraint });
           await tx.query('ROLLBACK TO SAVEPOINT s');
         }
-        await expect(grant(['PA'], admin.userId, 'P2P_HOST')).rejects.toMatchObject({
+        await expect(grant(['XA'], admin.userId, 'P2P_HOST')).rejects.toMatchObject({
           code: '23514',
           constraint: 'staff_role_valid',
         });

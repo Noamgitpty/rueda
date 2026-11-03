@@ -1,9 +1,9 @@
--- 0201 — IAM : commandes de l'adaptateur interne du port d'authentification (comptes, sessions,
+-- 0011 — IAM : commandes de l'adaptateur interne du port d'authentification (comptes, sessions,
 -- vérification d'email). US-010 ; 17 §2.3, §3.2.1, §6.6 ; 16 ACC-001 ; ADR-021 (défaut :
 -- implémentation interne derrière le port), ADR-052. Appliquée sous `migrator`.
 --
 -- Pourquoi des fonctions SECURITY DEFINER : l'authentification a lieu AVANT qu'un acteur soit
--- connu (aucun contexte app.* posé) ; app_api ne reçoit donc aucun droit de table IAM (0200) et
+-- connu (aucun contexte app.* posé) ; app_api ne reçoit donc aucun droit de table IAM (0010) et
 -- passe par ces seules commandes, à surface minimale :
 --   - aucun SQL dynamique, search_path figé (pg_catalog, pg_temp), noms qualifiés ;
 --   - horloge = platform.now() seulement (expires_at calculé ici, jamais reçu du client) ;
@@ -76,7 +76,9 @@ BEGIN
 END
 $fn$;
 
--- Vérification d'email : jeton à usage unique, non expiré ; PENDING_EMAIL -> ACTIVE.
+-- Vérification d'email : jeton à usage unique, non expiré ; PENDING_EMAIL -> ACTIVE. Toutes les
+-- sessions ouvertes AVANT la vérification sont révoquées (EMAIL_VERIFIED) : parade au
+-- pré-détournement de compte (un tiers inscrit l'adresse d'autrui et garde une session ouverte).
 CREATE FUNCTION core.iam_cmd_verify_email(p_token_hash bytea)
   RETURNS boolean
   LANGUAGE plpgsql
@@ -100,7 +102,13 @@ BEGIN
      SET email_verified_at = v_now,
          status = CASE WHEN u.status = 'PENDING_EMAIL' THEN 'ACTIVE' ELSE u.status END
    WHERE u.id = v_user AND u.email = v_email;
-  RETURN FOUND;
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+  UPDATE core.iam_session AS s
+     SET revoked_at = v_now, revoked_reason = 'EMAIL_VERIFIED'
+   WHERE s.user_id = v_user AND s.revoked_at IS NULL;
+  RETURN true;
 END
 $fn$;
 
@@ -164,14 +172,16 @@ $fn$;
 
 -- Résolution d'un jeton : une ligne seulement si la session est ni révoquée ni expirée (horloge
 -- de la base) et si le compte peut encore se connecter. Sinon aucune ligne (l'API répond 401).
+-- `email_verified` : les actions sensibles (réserver, publier) l'exigent (comme Turo, US-010).
 CREATE FUNCTION core.iam_session_resolve(p_token_hash bytea)
-  RETURNS TABLE (session_id uuid, user_id uuid, mfa_level text, expires_at timestamptz)
+  RETURNS TABLE (session_id uuid, user_id uuid, mfa_level text, expires_at timestamptz,
+                 email_verified boolean)
   LANGUAGE sql
   VOLATILE
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT s.id, s.user_id, s.mfa_level, s.expires_at
+  SELECT s.id, s.user_id, s.mfa_level, s.expires_at, u.email_verified_at IS NOT NULL
     FROM core.iam_session AS s
     JOIN core.iam_user_account AS u ON u.id = s.user_id
    WHERE s.token_hash = p_token_hash

@@ -2,7 +2,7 @@
  * Politique d'authentification : valeurs PROPOSÉES (ADR-052), à inscrire au registre des
  * paramètres (17 §7.2) quand CFG le portera (US-008). Aucune n'est propre à un pays.
  *
- * Bornes dures appliquées EN PLUS par la base (migration 0201) : session de 300 s à 30 j, 8 h
+ * Bornes dures appliquées EN PLUS par la base (migration 0011) : session de 300 s à 30 j, 8 h
  * pour un compte qui a un rôle interne (17 §3.2.1) ; lien de vérification de 300 s à 7 j.
  */
 export interface AuthPolicy {
