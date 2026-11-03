@@ -168,7 +168,6 @@ export const EN_MESSAGES = {
   'backoffice.denied.notStaff': "Your account doesn't have an internal team role.",
   'backoffice.denied.noTotp':
     "Your team account doesn't have two-step verification. Ask an administrator for an activation code.",
-  'backoffice.console.heading': 'Internal console',
   'backoffice.console.roles': 'Your roles',
   'backoffice.console.countries': 'Countries · {countries}',
   'backoffice.console.signOut': 'Sign out',

@@ -180,7 +180,6 @@ export const FR_MESSAGES = {
   'backoffice.denied.notStaff': 'Ton compte n’a aucun rôle de l’équipe interne.',
   'backoffice.denied.noTotp':
     'Ton compte d’équipe n’a pas de vérification en deux étapes. Demande un code d’activation à un administrateur.',
-  'backoffice.console.heading': 'Console interne',
   'backoffice.console.roles': 'Tes rôles',
   'backoffice.console.countries': 'Pays · {countries}',
   'backoffice.console.signOut': 'Se déconnecter',
