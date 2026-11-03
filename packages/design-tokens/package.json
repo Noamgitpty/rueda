@@ -2,12 +2,15 @@
   "name": "@rueda/design-tokens",
   "version": "0.0.0",
   "private": true,
-  "description": "Jetons de design, source unique du thème : palettes US-028 validées, contrôle de contraste WCAG 2.2 AA, variables CSS pour apps/web et apps/backoffice, lint des styles codés en dur (US-030).",
+  "description": "Jetons de design, source unique du thème : palettes US-028 validées, contrôle de contraste WCAG 2.2 AA, variables CSS pour apps/web et apps/backoffice, lint des styles codés en dur (US-030) ; règles de mouvement et règles photo (US-031).",
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./config/theme.json": "./config/theme.json"
+    "./config/theme.json": "./config/theme.json",
+    "./rules/motion.rules.json": "./rules/motion.rules.json",
+    "./rules/photo.rules.json": "./rules/photo.rules.json",
+    "./rules/photo.messages.json": "./rules/photo.messages.json"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

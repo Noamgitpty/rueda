@@ -28,7 +28,8 @@ export type StyleRule =
   | 'radius'
   | 'shadow'
   | 'duration'
-  | 'local-variable';
+  | 'local-variable'
+  | 'reduced-motion';
 
 export type SourceKind = 'css' | 'ts' | 'markup';
 
@@ -55,6 +56,8 @@ const MESSAGES: Record<StyleRule, string> = {
   duration: 'durée codée en dur : utiliser var(--motion-duration-…)',
   'local-variable':
     "variable locale à valeur codée en dur : une variable de composant ne peut qu'aliaser des jetons",
+  'reduced-motion':
+    'animation sans arrêt avec prefers-reduced-motion (10b UX-69) : voir lint/motion.ts',
 };
 
 /** Couleurs nommées CSS et couleurs système (CSS Color 4). */

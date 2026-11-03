@@ -79,3 +79,28 @@ describe('import du harnais des vecteurs dorés (configuration réelle)', () => 
     expect(await atPath(path)).toEqual([]);
   });
 });
+
+describe('import de @rueda/money/testing (configuration réelle ; revue sécurité US-018, constat 7)', () => {
+  const lint = async (code: string, path: string): Promise<number[]> => {
+    const [result] = await eslint.lintText(code, { filePath: join(repoRoot, path) });
+    return restrictedLines(result);
+  };
+  const STATIC = "import { adapter } from '@rueda/money/testing';\nexport const x = adapter;\n";
+  const DYNAMIC =
+    "export const a = await import('@rueda/money/testing');\nconst n = `@rueda/money/testing`;\nexport const b = await import(n);\n";
+
+  it.each(['packages/db/src/settlement.ts', 'apps/api/src/modules/stl/internal/x.ts'])(
+    'refusé en production : %s',
+    async (path) => {
+      expect(await lint(STATIC, path)).toEqual([1]);
+      expect(await lint(DYNAMIC, path)).toEqual([1, 2]);
+    },
+  );
+
+  it.each(['packages/db/test/support/settlement.ts', 'packages/db/src/x.test.ts'])(
+    'autorisé dans un fichier de test : %s',
+    async (path) => {
+      expect(await lint(STATIC, path)).toEqual([]);
+    },
+  );
+});

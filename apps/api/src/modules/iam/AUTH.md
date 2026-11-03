@@ -1,6 +1,6 @@
 # IAM — port d’authentification (US-010, ADR-052)
 
-Complément du README du module (une ligne, règle US-001).
+Complément du README du module (fiche du module, US-035).
 
 API publique (`index.ts`) :
 

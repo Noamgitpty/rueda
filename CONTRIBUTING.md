@@ -6,6 +6,7 @@ Ce dépôt est développé **à 100 % par des agents** Claude Code (19 §1.5) ; 
 
 ## 1. Environnement (Windows)
 
+- **Installation depuis zéro par Docker** (pile `compose.yaml`, graines PA / PY, FAKE, suite de tests) : [docs/ops/INSTALL.md](docs/ops/INSTALL.md), guide prouvé par le job CI `guide-installation`. Chaque module (`apps/api/src/modules/<code>/`) et chaque paquet (`packages/<x>/`) a un README avec ses sections `Responsabilité`, `Entités`, `Événements`, `Ports` et `Commandes de test` (contrôlées par les tests).
 - **Node.js 26.13** (ligne LTS active), figé par `.nvmrc` et `engines` ; **pnpm 10.34.9** (`packageManager`). Détails et raisons : [ADR-041](docs/adr/ADR-041-chaine-outils-node-pnpm.md).
 - Avant toute commande `node` ou `pnpm`, mettre le bon Node en tête du `PATH` (un Node 22 situé dans `AppData\Local\hermes\node` peut passer devant) :
   - PowerShell : `$env:Path = "C:\Program Files\nodejs;$env:APPDATA\npm;$env:Path"`

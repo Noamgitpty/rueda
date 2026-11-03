@@ -158,6 +158,11 @@
         "$value": "1400ms",
         "$type": "duration",
         "$description": "Un balayage du squelette de chargement"
+      },
+      "stagger": {
+        "$value": "40ms",
+        "$type": "duration",
+        "$description": "US-031 : décalage entre deux éléments d'une liste qui apparaît (au plus 6 éléments décalés)"
       }
     },
     "iterations": {
@@ -165,6 +170,20 @@
         "$value": 3,
         "$type": "number",
         "$description": "Le squelette balaie trois fois puis s'arrête"
+      }
+    },
+    "easing": {
+      "exit": {
+        "$value": [0.4, 0, 1, 1],
+        "$type": "cubicBezier",
+        "$description": "US-031 : sortie (fermeture d'une feuille, disparition d'un toast) ; accélère, sans rebond"
+      }
+    },
+    "scale": {
+      "press": {
+        "$value": 0.98,
+        "$type": "number",
+        "$description": "US-031 : échelle d'un élément pressé (bouton, carte) ; vaut 1 avec prefers-reduced-motion"
       }
     }
   },

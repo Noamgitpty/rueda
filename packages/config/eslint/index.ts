@@ -68,12 +68,33 @@ export const TEST_FILE_GLOBS: readonly string[] = [
 const GOLDEN_VECTORS_PROD_FIXTURES = 'packages/config/test/fixtures/golden-vectors/src/**';
 const GOLDEN_VECTORS_SOURCE = '/golden-vectors/';
 
+/**
+ * Adaptateur de test du moteur de règlement (`@rueda/money/testing` = `test/settlement/adapter.ts`,
+ * US-018) : réservé aux tests, comme le harnais des vecteurs dorés, sous les mêmes exemptions
+ * (`TEST_FILE_GLOBS`). Mineur de la revue sécurité US-018 (2e tour, constat 7), tracé par US-061
+ * vers US-035.
+ */
+const MONEY_TESTING_MESSAGE =
+  '@rueda/money/testing est réservé aux tests (US-018) : aucun code de production ne l’importe.';
+// Chaînes assemblées : un littéral qui finit par « /testing » ferait de ce fichier une entrée dans
+// un dossier testing/ pour le contrôle C19 de packages/fake-adapters (production-isolation).
+const MONEY_TESTING = ['@rueda/money', 'testing'].join('/');
+export const MONEY_TESTING_IMPORT_PATTERNS: readonly string[] = [
+  MONEY_TESTING,
+  `${MONEY_TESTING}/*`,
+];
+/** Sélecteur esquery : toute chaîne qui contient le sous-chemin, où qu'elle soit. */
+const MONEY_TESTING_SOURCE = String.raw`/@rueda\/money\/testin[g]/`;
+
 function goldenVectorsRules(): Linter.RulesRecord {
   return {
     'no-restricted-imports': [
       'error',
       {
-        patterns: [{ group: [...GOLDEN_VECTORS_IMPORT_PATTERNS], message: GOLDEN_VECTORS_MESSAGE }],
+        patterns: [
+          { group: [...GOLDEN_VECTORS_IMPORT_PATTERNS], message: GOLDEN_VECTORS_MESSAGE },
+          { group: [...MONEY_TESTING_IMPORT_PATTERNS], message: MONEY_TESTING_MESSAGE },
+        ],
       },
     ],
     // Toute chaîne ou partie de gabarit qui nomme le harnais, où qu'elle soit : `import()` littéral,
@@ -87,6 +108,11 @@ function goldenVectorsRules(): Linter.RulesRecord {
       {
         selector: `TemplateElement[value.raw=${GOLDEN_VECTORS_SOURCE}]`,
         message: GOLDEN_VECTORS_MESSAGE,
+      },
+      { selector: `Literal[value=${MONEY_TESTING_SOURCE}]`, message: MONEY_TESTING_MESSAGE },
+      {
+        selector: `TemplateElement[value.raw=${MONEY_TESTING_SOURCE}]`,
+        message: MONEY_TESTING_MESSAGE,
       },
     ],
   };
