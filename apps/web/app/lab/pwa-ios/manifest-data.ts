@@ -1,4 +1,4 @@
-import { BRAND_NAME } from '../../../brand';
+import { embeddedBrand } from '../../../brand-source.ts';
 import { LAB_BASE_PATH } from './lab-flag';
 import { LAB_ICON_SIZES } from './png';
 
@@ -8,7 +8,7 @@ import { LAB_ICON_SIZES } from './png';
  */
 export function buildLabManifest(): Record<string, unknown> {
   return {
-    name: `${BRAND_NAME} lab PWA iOS`,
+    name: `${embeddedBrand().name} lab PWA iOS`,
     short_name: 'Lab PWA',
     id: LAB_BASE_PATH,
     start_url: LAB_BASE_PATH,

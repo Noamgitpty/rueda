@@ -32,6 +32,29 @@ export const FR_MESSAGES = {
   'common.auth.signupAccepted': 'Consulte tes e-mails pour continuer.',
   'common.auth.emailVerified': 'Ton adresse e-mail est confirmée.',
   'web.home.tagline': 'Loue une voiture et découvre le prix final dès le départ.',
+  'web.shell.skipToContent': 'Aller au contenu',
+  'web.shell.homeLink': '{brand}, page d’accueil',
+  'web.shell.languageHint': 'La page se recharge dans la langue choisie.',
+  'web.offline.title': 'Hors connexion',
+  'web.offline.body':
+    'Vérifie ton réseau ou ton wifi. Dès que la connexion revient, on recharge la page.',
+  'web.offline.retry': 'Réessayer',
+  'common.offline.restored': 'Tu es de nouveau en ligne.',
+  'web.s01.title': 'Réserve la voiture d’un voisin.',
+  'web.s01.subtitle':
+    'Des voitures de vraies personnes près de toi, que tu vives ici ou que tu sois de passage.',
+  'web.s01.how.title': 'Comment ça marche',
+  'web.s01.how.1': 'Trouve une voiture près de toi',
+  'web.s01.how.1.body':
+    'Des voitures de voisins, avec de vraies photos, des prix et des avis réels.',
+  'web.s01.how.2': 'Réserve auprès de son propriétaire',
+  'web.s01.how.2.body':
+    'Tu réserves et tu conviens avec l’hôte de l’endroit où il te remet la voiture.',
+  'web.s01.how.3': 'Récupère-la et profite',
+  'web.s01.how.3.body': 'Tu la récupères au point convenu et tu la rends au même endroit.',
+  'web.s01.owner.title': 'Gagne de l’argent avec ta voiture',
+  'web.s01.owner.body':
+    'Quand tu ne t’en sers pas, ta voiture peut dépanner un voisin et te rapporter un revenu en plus.',
   'backoffice.meta.title': '{brand} — back-office',
   'backoffice.meta.description': 'Console interne.',
   'backoffice.home.heading': '{brand} — back-office',

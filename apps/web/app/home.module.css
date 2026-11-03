@@ -1,17 +1,50 @@
-/* Accueil minimal (US-014), mis en forme uniquement par les jetons du thème (US-030). */
-.main {
-  max-inline-size: 40rem;
-  margin-inline: auto;
-  padding: var(--space-10) var(--space-4);
+/*
+ * Accueil (US-048) mis en forme uniquement par les jetons du thème (US-030). Direction « nuit
+ * chic » de Lienzo · Tinta (PROPOSITIONS US-028) : un bloc d'encre aux coins doux, le reste de la
+ * page en blanc. Sans dégradé (refusé par le lint) : aplat de `primary`, ou d'`accent` en sombre.
+ */
+.page {
+  display: grid;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-4) 0;
+}
+
+/* Bloc « nuit » */
+.hero {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-5) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .hero {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+}
+
+:root[data-theme='dark'] .hero {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .title {
-  margin: 0 0 var(--space-3);
+  margin: 0;
+  max-inline-size: 12ch;
   font-family: var(--font-display-family);
   font-weight: var(--font-display-weight);
   font-size: var(--font-display-size);
   letter-spacing: var(--font-display-letter-spacing);
   line-height: var(--font-display-line-height);
+  text-wrap: balance;
+  animation: rise var(--motion-duration-enter) var(--motion-easing-emphasis) both;
 }
 
 @media (max-width: 400px) {
@@ -20,8 +53,196 @@
   }
 }
 
+.subtitle {
+  margin: 0;
+  max-inline-size: 34ch;
+  font-size: var(--font-size-md);
+  animation: rise var(--motion-duration-enter) var(--motion-easing-emphasis)
+    var(--motion-duration-stagger) both;
+}
+
+/* Scène : l'auto posée sur le camino */
+.stage {
+  position: relative;
+  margin-inline: calc(var(--space-5) * -1);
+  padding-inline: var(--space-5);
+}
+
+.camino {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  inline-size: 100%;
+  block-size: 50%;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--camino-stroke-width);
+  stroke-linecap: round;
+  stroke-dasharray: var(--camino-dash-array);
+  vector-effect: non-scaling-stroke;
+  clip-path: inset(0 0 0 0);
+  animation: draw var(--motion-duration-signature) var(--motion-easing-emphasis)
+    var(--motion-duration-enter) both;
+}
+
+.camino path {
+  vector-effect: non-scaling-stroke;
+}
+
+/* Auto « argent » sur la nuit, dans les deux modes (la teinte d'avatar 1 se confondrait). */
+.hero .car {
+  color: var(--color-border-strong);
+}
+
+.car {
+  position: relative;
+  inline-size: min(100%, 22rem);
+  margin-inline: auto;
+  animation: rise var(--motion-duration-page) var(--motion-easing-emphasis)
+    var(--motion-duration-slow) both;
+}
+
+/* Promesse : pastille en verre posée sur la nuit */
 .tagline {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.tagline > svg {
+  flex: none;
+  color: var(--color-success);
+}
+
+/* Cómo funciona : étapes reliées par le camino */
+.section {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-display-family);
+  font-weight: var(--font-display-weight);
+  font-size: var(--font-size-2xl);
+  letter-spacing: var(--font-display-letter-spacing);
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--size-touch-target) 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* Tracé pointillé entre deux étapes (motif camino, en pointillés ronds). */
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(var(--size-touch-target) / 2 - var(--camino-stroke-width) / 2);
+  inset-block: var(--size-touch-target) calc(var(--space-5) * -1);
+  border-inline-start: var(--camino-stroke-width) dotted var(--color-focus);
+}
+
+.stepMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-touch-target);
+  block-size: var(--size-touch-target);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.stepText {
+  display: grid;
+  gap: var(--space-1);
+  padding-block-start: var(--space-2);
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.stepBody {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-size-lg);
+}
+
+/* Invitation aux hôtes */
+.owner {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-sunken);
+}
+
+.ownerMark {
+  display: block;
+  inline-size: min(60%, 14rem);
+}
+
+.ownerBody {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-3));
+  }
+}
+
+@keyframes draw {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding-inline: var(--space-6);
+  }
+  .hero {
+    padding: var(--space-10);
+  }
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .step:not(:last-child)::before {
+    display: none;
+  }
+}
+
+/* UX-69 : avec le mouvement réduit, rien ne bouge ; contenu affiché directement. */
+@media (prefers-reduced-motion: reduce) {
+  .title,
+  .subtitle,
+  .camino,
+  .car {
+    animation: none;
+  }
 }

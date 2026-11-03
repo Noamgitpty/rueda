@@ -13,9 +13,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  * Version des catalogues (catalogue versionné, 19 US-014). Les quatre langues partagent la même
  * version : une clé ajoutée en es l'est en en, en fr et en pt dans le même commit. Version 8 :
  * portugais du Brésil (DEC-FONDATEUR-18) et sens changé de `common.brand.assetInvalid` et
- * `common.brand.contentLocaleMissing` (quatre langues exigées).
+ * `common.brand.contentLocaleMissing` (quatre langues exigées). Version 9 : coquille et PWA
+ (US-048) : `web.shell.*`, `web.offline.*`, `common.offline.restored` et clés `web.s01.*` de
+ l'accueil reprises de 10b §4.3.
  */
-export const CATALOG_VERSION = 8;
+export const CATALOG_VERSION = 9;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

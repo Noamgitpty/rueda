@@ -1,7 +1,8 @@
 /**
  * Thème de la requête (US-030) : jetons de design compilés en variables CSS par `@rueda/design-tokens`.
  * Lu à chaque rendu côté serveur (pas de `NEXT_PUBLIC_`) : changer la palette active s'applique au
- * rechargement, sans reconstruire ; la version publiée en base viendra avec US-034.
+ * rechargement, sans reconstruire. Les pages passent par `getRequestBrand()` (`brand-source.ts`,
+ * US-048) : version publiée par `GET /brand` (US-034) si l'API est configurée, ce thème sinon.
  */
 import { getActiveTheme } from '@rueda/design-tokens';
 import type { ActiveTheme } from '@rueda/design-tokens';
