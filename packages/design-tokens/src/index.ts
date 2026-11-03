@@ -1,5 +1,6 @@
 /**
- * @rueda/design-tokens — jetons de design, source unique du thème (US-030, DSN-002, ADR-036, ADR-047).
+ * @rueda/design-tokens — jetons de design, source unique du thème (US-030, DSN-002, ADR-036, ADR-047),
+ * règles de mouvement et règles photo (US-031, ADR-069).
  * Voir README.md, section « Changer de palette en 1 étape ».
  */
 export {
@@ -16,6 +17,45 @@ export { checkContrast, CONTRAST_RULES, GLASS_TEXT, ThemeContrastError } from '.
 export type { ContrastFailure, ContrastRule } from './contrast.ts';
 export { BASE_CSS, themeStyleSheet } from './css.ts';
 export { themeFontFamilies } from './fonts.ts';
+export {
+  cssVariableOf,
+  MOTION_RULES,
+  motionDurationMs,
+  motionPattern,
+  MotionRulesError,
+  prefersReducedMotion,
+  REDUCED_MOTION_QUERY,
+  validateMotionRules,
+} from './motion.ts';
+export type { MotionBudget, MotionPattern, MotionRules } from './motion.ts';
+export {
+  angleKeyOf,
+  checkHandoverSet,
+  LISTING_MINIMUM_FLOOR,
+  PHOTO_LANGUAGES,
+  PHOTO_MESSAGES,
+  PHOTO_RULES,
+  PhotoRulesError,
+  TRP004_MINIMUM,
+  validatePhotoMessages,
+  validatePhotoRules,
+} from './photo.ts';
+export type {
+  AngleFraming,
+  AngleSide,
+  AngleZone,
+  HandoverSetCheck,
+  HandoverSlot,
+  ListingShot,
+  PhotoAngle,
+  PhotoForbidden,
+  PhotoGuideline,
+  PhotoLanguage,
+  PhotoMessages,
+  PhotoRules,
+  PhotoUse,
+  Ratio,
+} from './photo.ts';
 export type { StyleSheetOptions } from './css.ts';
 export {
   assertContrast,

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 500" role="img" aria-labelledby="t d">
+  <title id="t">Gabarit d'angles de la remise : tour extérieur (EXT_01 à EXT_15)</title>
+  <desc id="d">Voiture vue de dessus, avant en haut, côté conducteur à gauche (conduite à gauche ; miroir sinon). Quinze positions numérotées autour de la voiture, dans l'ordre de prise : avant, côté conducteur, arrière, côté passager, puis pare-brise et toit.</desc>
+  <style>
+    .body { fill: #eef1f6; stroke: #1d3461; stroke-width: 2; }
+    .glass { fill: #c9d3e3; }
+    .wheel { fill: #1d3461; }
+    .route { fill: none; stroke: #3d6fd8; stroke-width: 2.5; stroke-dasharray: 2 6; stroke-linecap: round; }
+    .dot { fill: #1d3461; }
+    .num { fill: #ffffff; font: 600 11px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+    .lbl { fill: #1d3461; font: 500 12px system-ui, sans-serif; text-anchor: middle; }
+  </style>
+  <rect width="360" height="500" fill="#ffffff"/>
+  <text class="lbl" x="180" y="22">AVANT</text>
+  <text class="lbl" x="180" y="490">ARRIÈRE</text>
+  <text class="lbl" transform="translate(18 250) rotate(-90)">CÔTÉ CONDUCTEUR</text>
+  <text class="lbl" transform="translate(346 250) rotate(90)">CÔTÉ PASSAGER</text>
+  <path class="route" d="M180 58 C120 58 92 70 88 92 L52 170 L52 310 L88 400 C100 430 140 440 180 442 C220 440 260 430 272 400 L308 310 L308 170 L272 92 C268 70 240 58 180 58"/>
+  <rect class="body" x="128" y="100" width="104" height="300" rx="34"/>
+  <rect class="glass" x="142" y="160" width="76" height="44" rx="10"/>
+  <rect class="glass" x="146" y="320" width="68" height="30" rx="8"/>
+  <rect class="wheel" x="118" y="132" width="12" height="42" rx="4"/>
+  <rect class="wheel" x="230" y="132" width="12" height="42" rx="4"/>
+  <rect class="wheel" x="118" y="306" width="12" height="42" rx="4"/>
+  <rect class="wheel" x="230" y="306" width="12" height="42" rx="4"/>
+  <g>
+    <circle class="dot" cx="180" cy="58" r="13"/><text class="num" x="180" y="58">1</text>
+    <circle class="dot" cx="88" cy="92" r="13"/><text class="num" x="88" y="92">2</text>
+    <circle class="dot" cx="52" cy="200" r="13"/><text class="num" x="52" y="200">3</text>
+    <circle class="dot" cx="94" cy="153" r="13"/><text class="num" x="94" y="153">4</text>
+    <circle class="dot" cx="52" cy="290" r="13"/><text class="num" x="52" y="290">5</text>
+    <circle class="dot" cx="94" cy="327" r="13"/><text class="num" x="94" y="327">6</text>
+    <circle class="dot" cx="88" cy="400" r="13"/><text class="num" x="88" y="400">7</text>
+    <circle class="dot" cx="180" cy="442" r="13"/><text class="num" x="180" y="442">8</text>
+    <circle class="dot" cx="272" cy="400" r="13"/><text class="num" x="272" y="400">9</text>
+    <circle class="dot" cx="308" cy="290" r="13"/><text class="num" x="308" y="290">10</text>
+    <circle class="dot" cx="266" cy="327" r="13"/><text class="num" x="266" y="327">11</text>
+    <circle class="dot" cx="308" cy="200" r="13"/><text class="num" x="308" y="200">12</text>
+    <circle class="dot" cx="266" cy="153" r="13"/><text class="num" x="266" y="153">13</text>
+    <circle class="dot" cx="272" cy="92" r="13"/><text class="num" x="272" y="92">14</text>
+    <circle class="dot" cx="180" cy="182" r="13"/><text class="num" x="180" y="182">15</text>
+  </g>
+</svg>

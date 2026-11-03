@@ -1,0 +1,366 @@
+{
+  "$description": "US-031 — règles photo de Kmino, en données : cadrages, nombre minimal, ratio, lumière, interdits, gabarit de l'annonce (08 BR-LIST-05) et gabarit d'angles de la remise entre particuliers (16 TRP-004, 17 §3.2.10 slot_code). Chaque texte visible est une clé de photo.messages.json (es, en, fr). Lu et validé par src/photo.ts ; document : docs/design/US-031/README.md. Valeurs PROPOSÉES, révisables.",
+  "meta": {
+    "version": "0.1.0",
+    "status": "PROPOSÉ",
+    "story": "US-031",
+    "sources": [
+      "08 BR-LIST-05 (≥ 6 obligatoires, 10 recommandées, recadrage ~20 %, interdits)",
+      "16 TRP-004 (≥ 15 extérieures, ≥ 8 intérieures, carburant, compteur, de chaque côté, appareil photo de l'app seulement, ≈ 1 600 px, ≤ 500 ko)",
+      "17 §3.2.10 (slot_code EXT_01 à EXT_15, INT_01 à INT_08, FUEL, ODOMETER ; KEY et DAMAGE_n hors minimum)",
+      "10b UX-01 (360 px d'abord), UX-02 (formats modernes), UX-70 (aucune photo de personne réelle)"
+    ]
+  },
+  "capture": {
+    "orientation": "landscape",
+    "aspectRatio": { "width": 4, "height": 3 },
+    "minLongEdgePx": 1600,
+    "minShortEdgePx": 1200,
+    "storedLongEdgePx": 1600,
+    "storedMaxBytes": 512000,
+    "storedFormats": ["image/webp", "image/jpeg"]
+  },
+  "framing": [
+    { "code": "fill", "messageKey": "web.photo.rule.framing.fill" },
+    { "code": "level", "messageKey": "web.photo.rule.framing.level" },
+    { "code": "height", "messageKey": "web.photo.rule.framing.height" },
+    { "code": "safeArea", "messageKey": "web.photo.rule.framing.safeArea" },
+    { "code": "background", "messageKey": "web.photo.rule.framing.background" },
+    { "code": "clean", "messageKey": "web.photo.rule.framing.clean" }
+  ],
+  "light": [
+    { "code": "daylight", "messageKey": "web.photo.rule.light.daylight" },
+    { "code": "backlight", "messageKey": "web.photo.rule.light.backlight" },
+    { "code": "reflections", "messageKey": "web.photo.rule.light.reflections" },
+    { "code": "night", "messageKey": "web.photo.rule.light.night" },
+    { "code": "noFilter", "messageKey": "web.photo.rule.light.noFilter" }
+  ],
+  "forbidden": [
+    {
+      "code": "plate",
+      "appliesTo": ["listing"],
+      "enforcement": "blur",
+      "messageKey": "web.photo.rule.forbidden.plate"
+    },
+    {
+      "code": "people",
+      "appliesTo": ["listing", "handover"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.people"
+    },
+    {
+      "code": "aiGenerated",
+      "appliesTo": ["listing", "handover"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.aiGenerated"
+    },
+    {
+      "code": "stock",
+      "appliesTo": ["listing"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.stock"
+    },
+    {
+      "code": "overlay",
+      "appliesTo": ["listing"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.overlay"
+    },
+    {
+      "code": "contact",
+      "appliesTo": ["listing"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.contact"
+    },
+    {
+      "code": "documents",
+      "appliesTo": ["listing", "handover"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.documents"
+    },
+    {
+      "code": "unsafe",
+      "appliesTo": ["listing"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.unsafe"
+    },
+    {
+      "code": "offensive",
+      "appliesTo": ["listing", "handover"],
+      "enforcement": "refuse",
+      "messageKey": "web.photo.rule.forbidden.offensive"
+    }
+  ],
+  "checks": [
+    { "code": "tooDark", "messageKey": "web.photo.check.tooDark" },
+    { "code": "blurry", "messageKey": "web.photo.check.blurry" },
+    { "code": "portrait", "messageKey": "web.photo.check.portrait" },
+    { "code": "tooSmall", "messageKey": "web.photo.check.tooSmall" },
+    { "code": "plateVisible", "messageKey": "web.photo.check.plateVisible" },
+    { "code": "personVisible", "messageKey": "web.photo.check.personVisible" },
+    { "code": "galleryForbidden", "messageKey": "web.photo.check.galleryForbidden" }
+  ],
+  "angles": [
+    {
+      "code": "EXT_FRONT",
+      "zone": "exterior",
+      "side": "center",
+      "position": "front",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_FRONT_34_DRIVER",
+      "zone": "exterior",
+      "side": "driver",
+      "position": "front34",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_PROFILE_DRIVER",
+      "zone": "exterior",
+      "side": "driver",
+      "position": "profile",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_SIDE_DRIVER_FRONT",
+      "zone": "exterior",
+      "side": "driver",
+      "position": "sideFront",
+      "framing": "half"
+    },
+    {
+      "code": "EXT_WHEEL_DRIVER_FRONT",
+      "zone": "exterior",
+      "side": "driver",
+      "position": "wheelFront",
+      "framing": "detail"
+    },
+    {
+      "code": "EXT_SIDE_DRIVER_REAR",
+      "zone": "exterior",
+      "side": "driver",
+      "position": "sideRear",
+      "framing": "half"
+    },
+    {
+      "code": "EXT_WHEEL_DRIVER_REAR",
+      "zone": "exterior",
+      "side": "driver",
+      "position": "wheelRear",
+      "framing": "detail"
+    },
+    {
+      "code": "EXT_REAR_34_DRIVER",
+      "zone": "exterior",
+      "side": "driver",
+      "position": "rear34",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_REAR",
+      "zone": "exterior",
+      "side": "center",
+      "position": "rear",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_REAR_34_PASSENGER",
+      "zone": "exterior",
+      "side": "passenger",
+      "position": "rear34",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_PROFILE_PASSENGER",
+      "zone": "exterior",
+      "side": "passenger",
+      "position": "profile",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_SIDE_PASSENGER_REAR",
+      "zone": "exterior",
+      "side": "passenger",
+      "position": "sideRear",
+      "framing": "half"
+    },
+    {
+      "code": "EXT_WHEEL_PASSENGER_REAR",
+      "zone": "exterior",
+      "side": "passenger",
+      "position": "wheelRear",
+      "framing": "detail"
+    },
+    {
+      "code": "EXT_SIDE_PASSENGER_FRONT",
+      "zone": "exterior",
+      "side": "passenger",
+      "position": "sideFront",
+      "framing": "half"
+    },
+    {
+      "code": "EXT_WHEEL_PASSENGER_FRONT",
+      "zone": "exterior",
+      "side": "passenger",
+      "position": "wheelFront",
+      "framing": "detail"
+    },
+    {
+      "code": "EXT_FRONT_34_PASSENGER",
+      "zone": "exterior",
+      "side": "passenger",
+      "position": "front34",
+      "framing": "full"
+    },
+    {
+      "code": "EXT_WINDSHIELD_ROOF",
+      "zone": "exterior",
+      "side": "center",
+      "position": "windshield",
+      "framing": "half"
+    },
+    {
+      "code": "INT_DASHBOARD",
+      "zone": "interior",
+      "side": "center",
+      "position": "dashboard",
+      "framing": "full"
+    },
+    {
+      "code": "INT_CENTER_CONSOLE",
+      "zone": "interior",
+      "side": "center",
+      "position": "console",
+      "framing": "detail"
+    },
+    {
+      "code": "INT_FRONT_SEATS",
+      "zone": "interior",
+      "side": "center",
+      "position": "frontSeats",
+      "framing": "full"
+    },
+    {
+      "code": "INT_DRIVER_SEAT",
+      "zone": "interior",
+      "side": "driver",
+      "position": "frontSeat",
+      "framing": "half"
+    },
+    {
+      "code": "INT_PASSENGER_SEAT",
+      "zone": "interior",
+      "side": "passenger",
+      "position": "frontSeat",
+      "framing": "half"
+    },
+    {
+      "code": "INT_REAR_SEATS",
+      "zone": "interior",
+      "side": "center",
+      "position": "rearSeats",
+      "framing": "full"
+    },
+    {
+      "code": "INT_REAR_SEATS_DRIVER",
+      "zone": "interior",
+      "side": "driver",
+      "position": "rearSeat",
+      "framing": "half"
+    },
+    {
+      "code": "INT_REAR_SEATS_PASSENGER",
+      "zone": "interior",
+      "side": "passenger",
+      "position": "rearSeat",
+      "framing": "half"
+    },
+    {
+      "code": "INT_HEADLINER",
+      "zone": "interior",
+      "side": "center",
+      "position": "headliner",
+      "framing": "half"
+    },
+    {
+      "code": "INT_TRUNK",
+      "zone": "interior",
+      "side": "center",
+      "position": "trunk",
+      "framing": "full"
+    },
+    {
+      "code": "GAUGE_FUEL",
+      "zone": "gauge",
+      "side": "center",
+      "position": "fuel",
+      "framing": "detail"
+    },
+    {
+      "code": "GAUGE_ODOMETER",
+      "zone": "gauge",
+      "side": "center",
+      "position": "odometer",
+      "framing": "detail"
+    }
+  ],
+  "listing": {
+    "minPhotos": 6,
+    "recommendedPhotos": 10,
+    "source": "cameraOrLibrary",
+    "displayAspectRatio": { "width": 16, "height": 9 },
+    "safeAreaInsetPercent": 10,
+    "cover": "EXT_FRONT_34_DRIVER",
+    "shots": [
+      { "angle": "EXT_FRONT_34_DRIVER", "required": true },
+      { "angle": "EXT_REAR_34_PASSENGER", "required": true },
+      { "angle": "EXT_PROFILE_DRIVER", "required": true },
+      { "angle": "INT_DASHBOARD", "required": true },
+      { "angle": "INT_FRONT_SEATS", "required": true },
+      { "angle": "INT_TRUNK", "required": true },
+      { "angle": "EXT_PROFILE_PASSENGER", "required": false },
+      { "angle": "EXT_FRONT", "required": false },
+      { "angle": "EXT_REAR", "required": false },
+      { "angle": "INT_REAR_SEATS", "required": false }
+    ]
+  },
+  "handover": {
+    "source": "inAppCameraOnly",
+    "perParticipant": ["HOST", "GUEST"],
+    "phases": ["PICKUP", "RETURN"],
+    "plate": "visibleNeverPublished",
+    "minimum": { "exterior": 15, "interior": 8, "gauge": 2 },
+    "slots": [
+      { "slotCode": "EXT_01", "angle": "EXT_FRONT" },
+      { "slotCode": "EXT_02", "angle": "EXT_FRONT_34_DRIVER" },
+      { "slotCode": "EXT_03", "angle": "EXT_SIDE_DRIVER_FRONT" },
+      { "slotCode": "EXT_04", "angle": "EXT_WHEEL_DRIVER_FRONT" },
+      { "slotCode": "EXT_05", "angle": "EXT_SIDE_DRIVER_REAR" },
+      { "slotCode": "EXT_06", "angle": "EXT_WHEEL_DRIVER_REAR" },
+      { "slotCode": "EXT_07", "angle": "EXT_REAR_34_DRIVER" },
+      { "slotCode": "EXT_08", "angle": "EXT_REAR" },
+      { "slotCode": "EXT_09", "angle": "EXT_REAR_34_PASSENGER" },
+      { "slotCode": "EXT_10", "angle": "EXT_SIDE_PASSENGER_REAR" },
+      { "slotCode": "EXT_11", "angle": "EXT_WHEEL_PASSENGER_REAR" },
+      { "slotCode": "EXT_12", "angle": "EXT_SIDE_PASSENGER_FRONT" },
+      { "slotCode": "EXT_13", "angle": "EXT_WHEEL_PASSENGER_FRONT" },
+      { "slotCode": "EXT_14", "angle": "EXT_FRONT_34_PASSENGER" },
+      { "slotCode": "EXT_15", "angle": "EXT_WINDSHIELD_ROOF" },
+      { "slotCode": "INT_01", "angle": "INT_DASHBOARD" },
+      { "slotCode": "INT_02", "angle": "INT_CENTER_CONSOLE" },
+      { "slotCode": "INT_03", "angle": "INT_DRIVER_SEAT" },
+      { "slotCode": "INT_04", "angle": "INT_PASSENGER_SEAT" },
+      { "slotCode": "INT_05", "angle": "INT_REAR_SEATS_DRIVER" },
+      { "slotCode": "INT_06", "angle": "INT_REAR_SEATS_PASSENGER" },
+      { "slotCode": "INT_07", "angle": "INT_HEADLINER" },
+      { "slotCode": "INT_08", "angle": "INT_TRUNK" },
+      { "slotCode": "FUEL", "angle": "GAUGE_FUEL" },
+      { "slotCode": "ODOMETER", "angle": "GAUGE_ODOMETER" }
+    ],
+    "optionalSlots": [
+      { "code": "KEY", "messageKey": "web.photo.slot.key" },
+      { "code": "DAMAGE_n", "messageKey": "web.photo.slot.damage" }
+    ]
+  }
+}

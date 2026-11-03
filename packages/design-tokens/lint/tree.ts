@@ -9,6 +9,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { scanReducedMotion } from './motion.ts';
 import { scanStyleSource } from './scan.ts';
 import type { SourceKind, StyleFinding } from './scan.ts';
 
@@ -88,8 +89,10 @@ export function lintStyleTree(
       const kind = kindOf(entry.name);
       if (!kind || isExempt(file)) continue;
       filesScanned += 1;
-      for (const f of scanStyleSource(readFileSync(path, 'utf8'), kind))
-        findings.push({ ...f, file });
+      const source = readFileSync(path, 'utf8');
+      for (const f of scanStyleSource(source, kind)) findings.push({ ...f, file });
+      // US-031 : toute animation s'arrête avec prefers-reduced-motion (10b UX-69).
+      for (const f of scanReducedMotion(source, kind)) findings.push({ ...f, file });
     }
   };
   for (const root of roots) {
