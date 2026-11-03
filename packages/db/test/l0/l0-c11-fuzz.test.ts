@@ -2,10 +2,9 @@
  * US-025 — fuzz d'entrelacements C11 (L0-09) et oracle de production C12 (19 US-025 ; 17 §2.5
  * plan de test C11 et C12, §11 L0-09 ; migration 0042 ; ADR-068).
  *
- * Monde : 2 pays (PA en USD, PY en PYG) × 2 hôtes × 3 véhicules × 4 voyageurs par pays. Chaque
- * exécution vit dans sa propre période d'horloge virtuelle (2061 et après, une semaine par
- * exécution) : les créneaux ne chevauchent jamais ceux d'une autre exécution, qui est donc
- * indépendante des précédentes et rejouable seule.
+ * Monde : 2 pays (PA en USD, PY en PYG) × 2 hôtes × 3 véhicules × 4 voyageurs par pays, NEUFS à
+ * chaque exécution, qui vit en outre dans sa propre période d'horloge virtuelle (2061 et après, une
+ * semaine par exécution) : elle est indépendante des précédentes et rejouable seule.
  *
  * Acteurs, sous les rôles de PRODUCTION seulement (assertion L0-05 par connectAs à chaque test) :
  *   - app_api : commandes du voyageur (pose, T1 / T2, libération), forme d'appel d'ADR-056
@@ -268,7 +267,7 @@ interface CountryWorld {
   readonly account: string;
 }
 
-// --- Un monde par pays (réutilisé : chaque exécution a sa période) --------------------------------
+// --- Un monde par pays : capacités, compte PSP et parties des preuves C12 / T1 (une fois) ---------
 async function buildWorld(api: pg.Client, c: CountryCase): Promise<CountryWorld> {
   const orgs = [uuid(), uuid()];
   const vehicles = [uuid(), uuid(), uuid()];
@@ -305,6 +304,25 @@ async function buildWorld(api: pg.Client, c: CountryCase): Promise<CountryWorld>
     return a.rows[0]?.id as string;
   });
   return { c, vehicles, guests, spareVehicle, spareGuests, account };
+}
+
+/**
+ * Parties NEUVES d'une exécution (2 hôtes, 3 véhicules, 4 voyageurs par pays) : aucune requête,
+ * du produit ou du test, ne s'alourdit avec l'historique des exécutions précédentes (un voyageur
+ * réel n'a pas des milliers de holds), et l'exécution reste rejouable seule.
+ */
+async function freshParties(api: pg.Client, base: CountryWorld): Promise<CountryWorld> {
+  const c = base.c;
+  const orgs = [uuid(), uuid()];
+  const vehicles = [uuid(), uuid(), uuid()];
+  const guests = [uuid(), uuid(), uuid(), uuid()];
+  await inTx(api, { commit: true }, async (tx) => {
+    await ensureParties(tx, guests, orgs[0] as string, c);
+    await ensureParties(tx, [], orgs[1] as string, c);
+    await registerVehicles(tx, vehicles.slice(0, 2), orgs[0] as string, c);
+    await registerVehicles(tx, vehicles.slice(2), orgs[1] as string, c);
+  });
+  return { ...base, vehicles, guests };
 }
 
 // --- Une exécution -------------------------------------------------------------------------------
@@ -1078,6 +1096,7 @@ class Run {
          (SELECT count(*)::int FROM core.booking_vehicle_occupancy a
             JOIN core.booking_vehicle_occupancy b
               ON b.vehicle_id = a.vehicle_id AND b.id > a.id AND b.active AND b.period && a.period
+             AND b.period && $3::tstzrange
            WHERE a.active AND a.vehicle_id = ANY($2::uuid[]) AND a.period && $3::tstzrange) AS i,
          -- (ii) I-OCC : trip non terminal ⇒ exactement une occupation TRIP active de son véhicule
          (SELECT count(*)::int FROM t
@@ -1274,7 +1293,9 @@ describe('US-025 — fuzz C11 (L0-09) et oracle C12, PA (USD) et PY (PYG)', () =
       );
       for (let i = 0; i < CFG.runs; i++) {
         const seed = CFG.replay?.seed ?? runSeed(CFG.seed, i);
-        const run = new Run(seed, i, worlds, lanes, observer, stats, CFG.replay?.orders);
+        const runWorlds: CountryWorld[] = [];
+        for (const w of worlds) runWorlds.push(await freshParties(api, w));
+        const run = new Run(seed, i, runWorlds, lanes, observer, stats, CFG.replay?.orders);
         try {
           const r = await run.run();
           holds += r.holds;
