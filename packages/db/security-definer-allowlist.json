@@ -91,7 +91,28 @@
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
-      "story": "US-023"
+      "story": "US-023, US-024"
+    },
+    {
+      "signature": "core.booking_cmd_start_payment(uuid,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-024"
+    },
+    {
+      "signature": "core.booking_cmd_record_order(uuid,uuid,text,timestamp with time zone)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-024"
+    },
+    {
+      "signature": "core.booking_conversion_eligibility(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_worker"],
+      "story": "US-024"
     },
     {
       "signature": "core.booking_cmd_remove_host_block(uuid)",

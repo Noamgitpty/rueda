@@ -38,7 +38,9 @@ export type Worker =
   | 'trip_lifecycle'
   | 'webhook_ingest'
   // relais de l'outbox (US-008) : seul lecteur des événements, pour vérifier ceux d'une commande
-  | 'outbox_relay';
+  | 'outbox_relay'
+  // travailleur de commandes monétaires (US-019) : statuts appliqués, boîte d'envoi (US-024)
+  | 'payment_command';
 
 export const uuid = (): string => randomUUID();
 
