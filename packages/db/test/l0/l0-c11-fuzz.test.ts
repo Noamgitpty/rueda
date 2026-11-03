@@ -955,17 +955,79 @@ class Run {
       await this.periodic();
       // terminé : aucun événement en attente, aucun hold vivant, aucun paiement réussi non disposé
       const live = await this.observer.query<{ n: number }>(
-        `SELECT (SELECT count(*) FROM core.booking_checkout_hold
+        `SELECT ((SELECT count(*) FROM core.booking_checkout_hold
                   WHERE id = ANY($1::uuid[]) AND status IN ('ACTIVE', 'PAYMENT_IN_FLIGHT'))
               + (SELECT count(*) FROM core.payment_payment_operation o
                   WHERE o.hold_id = ANY($1::uuid[]) AND o.purpose = 'RENT' AND o.status = 'SUCCEEDED'
                     AND NOT EXISTS (SELECT 1 FROM core.booking_payment_disposition d
-                                     WHERE d.operation_id = o.id))::int AS n`,
+                                     WHERE d.operation_id = o.id)))::int AS n`,
         [this.holds.map((h) => h.id)],
       );
       if (this.events.length === 0 && live.rows[0]?.n === 0 && i >= 2) return;
     }
     throw new C11Failure('quiescence non atteinte en 2 h virtuelles');
+  }
+
+  /** Trace sans les passes périodiques vides (les 150 dernières actions qui ont eu un effet). */
+  significantTrace(): string[] {
+    const idle =
+      /^\S+ (EXPIRY:0|RELEASE_CANCELLED:0|CANCEL_EXEC:|INTENT_SWEEP:|DISPOSITION_SWEEP:)$/;
+    return this.trace.filter((l) => !idle.test(l)).slice(-150);
+  }
+
+  /** État des holds et opérations de l'exécution (identifiants abrégés), pour le diagnostic. */
+  async diagnose(): Promise<string[]> {
+    const ids = this.holds.map((h) => h.id);
+    const short = (id: string | null): string => (id === null ? '-' : id.slice(0, 8));
+    const t = (d: Date | null): string => (d === null ? '-' : d.toISOString().slice(11, 19));
+    const h = await this.observer.query<{
+      id: string;
+      status: string;
+      expires_at: Date;
+      pif: Date | null;
+      polled: Date | null;
+      release: Date | null;
+      attempts: number;
+      vehicle: string;
+      guest: string;
+    }>(
+      `SELECT id, status, expires_at, payment_in_flight_until AS pif, last_polled_at AS polled,
+              release_requested_at AS release, payment_attempts AS attempts, vehicle_id AS vehicle,
+              guest_user_id AS guest
+         FROM core.booking_checkout_hold WHERE id = ANY($1::uuid[]) ORDER BY created_at, id`,
+      [ids],
+    );
+    const o = await this.observer.query<{
+      id: string;
+      hold: string;
+      status: string;
+      kind: string;
+      attempt: number;
+      updated: Date;
+      disp: string | null;
+    }>(
+      `SELECT o.id, o.hold_id AS hold, o.status, o.kind, o.attempt_no AS attempt,
+              o.updated_at AS updated,
+              (SELECT d.disposition FROM core.booking_payment_disposition d
+                WHERE d.operation_id = o.id) AS disp
+         FROM core.payment_payment_operation o
+        WHERE o.hold_id = ANY($1::uuid[]) ORDER BY o.created_at, o.id`,
+      [ids],
+    );
+    return [
+      `maintenant ${iso(this.now)} ; événements en attente ${String(this.events.length)}`,
+      ...h.rows.map(
+        (r) =>
+          `hold ${short(r.id)} ${r.status} véh ${short(r.vehicle)} voy ${short(r.guest)} ` +
+          `exp ${t(r.expires_at)} vol ${t(r.pif)} lu ${t(r.polled)} lib ${t(r.release)} ` +
+          `essais ${String(r.attempts)}`,
+      ),
+      ...o.rows.map(
+        (r) =>
+          `op ${short(r.id)} hold ${short(r.hold)} ${r.kind} a${String(r.attempt)} ${r.status} ` +
+          `maj ${t(r.updated)} disp ${r.disp ?? '-'} modèle ${this.ops.has(r.id) ? 'oui' : 'NON'}`,
+      ),
+    ];
   }
 
   // ---- invariants ----
@@ -1219,14 +1281,18 @@ describe('US-025 — fuzz C11 (L0-09) et oracle C12, PA (USD) et PY (PYG)', () =
           trips += r.trips;
         } catch (error) {
           const replay = formatReplay(seed, run.orders);
+          const trace = run.significantTrace();
+          const state = await run
+            .diagnose()
+            .catch((e: unknown) => [`diagnostic impossible : ${String(e)}`]);
           failures.push({
             seed,
             replay,
             error: (error as Error).message,
-            trace: run.trace.slice(-60),
+            trace: [...trace, ...state],
           });
           console.error(
-            `[C11] ÉCHEC exécution ${String(i)} : ${(error as Error).message}\n  rejouer : RUEDA_C11_REPLAY=${replay}\n  ${run.trace.slice(-60).join('\n  ')}`,
+            `[C11] ÉCHEC exécution ${String(i)} : ${(error as Error).message}\n  rejouer : RUEDA_C11_REPLAY=${replay}\n  ${trace.join('\n  ')}\n  état :\n  ${state.join('\n  ')}`,
           );
           if (CFG.failuresFile !== undefined) {
             appendFileSync(CFG.failuresFile, `${JSON.stringify(failures.at(-1))}\n`);

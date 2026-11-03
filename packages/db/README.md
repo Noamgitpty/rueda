@@ -255,6 +255,20 @@ Du paiement au trip, ou au remboursement, jamais les deux ni rien (migrations 00
 
 Preuves : `test/l0/l0-us024-conversion.test.ts` (PA et PY, groupe isolé de `vitest.l0.config.ts`) : C2, C3, C4, C4 bis, C6, C7, C8, C13, C14, C15 (a à e), C15 bis (f à h), C16 (rejeux), C17, C18, C20, et les rôles. Unitaires : `src/errors.test.ts`, `test/support/expiry-2a.test.ts` (2a de la ré-acquisition).
 
+## Fuzz C11 et oracle de production C12 (US-025 ; 17 §2.5 C11, C12, §11 L0-09 ; ADR-068)
+
+Cherche au hasard les entrelacements dangereux et surveille la production chaque nuit (migration 0042, fixture 9880).
+
+- **Oracle C12** (`SECURITY INVOKER`, `app_worker`, travailleur `booking_oracle` seulement ; politiques `worker_select_oracle`, SELECT, une par table lue) :
+  - `core.booking_production_oracle()` (`STABLE`, transaction `READ ONLY`) rend **cinq lignes** `(check_code, violations, by_country)` : `TRIP_WITHOUT_ACTIVE_OCCUPANCY`, `SUCCEEDED_WITHOUT_DISPOSITION` (plus de 20 min après la réussite connue), `COMPENSATED_HOLD_WITH_TRIP`, `HOLD_WITH_TWO_CONVERSIONS`, `INACTIVE_TRIP_OCCUPANCY_OF_LIVE_TRIP` (codes PROPOSÉS). Aucune donnée personnelle lue ; des comptes seulement. Tout autre contexte : `42501` / `oracle_forbidden` (`FORBIDDEN`), jamais des zéros trompeurs.
+  - `core.booking_production_oracle_alert()` rejoue l'oracle et, si un contrôle est non nul, écrit **une** alerte P1 `booking.alert.production_oracle` (comptes par contrôle et par pays) dans l'outbox. La tâche périodique est `registerProductionOracle` (module AVL, 24 h, câblage US-003).
+- **T1 fail-closed** (report de la revue sécurité d'US-024) : `core.booking_cmd_start_payment` lit l'environnement une fois, `COALESCE(platform.deployment_env(), 'production')` ; un NULL n'ouvre plus ni la garde FAKE ni la garde SANDBOX.
+- **Fuzz C11** (`test/l0/l0-c11-fuzz.test.ts`, base `fuzz` du banc, groupe isolé) : 2 pays × 2 hôtes × 3 véhicules × 4 voyageurs, une semaine virtuelle par exécution ; voyageur sous `app_api` (forme d'appel d'ADR-056), travailleurs sous `app_worker` ; FAKE hostile (webhook en double, perdu, hors d'ordre, tardif ; lecture sans réponse ; second débit ; « déjà payé » ; conversion perdue) ; courses de 2 ou 3 actions sur des connexions distinctes. Invariants (i) à (ix) de 17 §2.5 lus par un observateur `booking_oracle` en lecture seule, avec contrôle d'anti-vacuité ; oracle C12 à zéro sur toute la base toutes les 100 exécutions.
+- **Modes** (`test/support/c11.ts`) : court par défaut (1 000 exécutions, graine `20251103`, `pnpm test:l0`) ; long explicite (`RUEDA_C11_RUNS=nightly`, 10 000, graine du jour, job `fuzz-c11` de `nightly.yml`). Fichier seul : `pnpm --filter @rueda/db test:c11`.
+- **Rejeu d'un échec** : le journal donne `[C11] ÉCHEC … rejouer : RUEDA_C11_REPLAY=<graine>:<étape>=<ordre>;…` et la trace ; `RUEDA_C11_REPLAY=… pnpm --filter @rueda/db test:c11` rejoue l'exécution seule, courses en série dans l'ordre observé. `RUEDA_C11_FAILURES=<fichier>` consigne les graines d'échec (artefact de nuit).
+
+Preuves : `test/l0/l0-c11-fuzz.test.ts` (C11 ; C12 : zéro sur la base saine, chaque contrôle forgé dans une transaction annulée, seuil de 20 min, alerte par comptes, lecture seule et contexte ; T1 avec environnement NULL, PA et PY). Unitaires : `test/support/c11.test.ts`, `src/errors.test.ts`, `apps/api/src/modules/avl/internal/production-oracle.test.ts`.
+
 ## Règlements et jambes (US-018 ; 08 E4, E7 ; 17 §2.3, §2.9, §3.2.8 ; ADR-057)
 
 Migration 0027 : `core.settlement_settlement` (en-tête versionné, `UNIQUE (trip_id, segment_no, version)`, `supersedes_id`), `settlement_settlement_line`, `settlement_settlement_tax_line`, `settlement_settlement_leg` (jambe retenue `kept_minor` ≥ 0, avance `advance_minor` sur `PLATFORM` seulement, base `basis_minor`, variation signée `variation_minor = kept − advance − basis`) et `settlement_trip_leg_balance` (soldes par trip, segment et jambe, toujours ≥ 0, cumuls monotones, aucun `DELETE`).
@@ -321,7 +335,8 @@ Droits actuels : `USAGE` sur `platform` et `EXECUTE` sur `platform.now()` pour `
 ```bash
 pnpm test:unit   # sans base : correspondance des schémas, exécuteur (plan, sommes), masquage des secrets, SCRAM, source
 pnpm test:int    # PostgreSQL réel : banc, migrations, droits minimaux, transaction de test
-pnpm test:l0     # preuves L0-01 à L0-06, L0-08 sous les rôles de production
+pnpm test:l0     # preuves L0 sous les rôles de production (dont le fuzz C11 en mode court : 1 000 exécutions)
+RUEDA_C11_RUNS=nightly pnpm --filter @rueda/db test:c11   # fuzz C11 seul, mode long (10 000)
 ```
 
 Variables (noms seulement, inventaire : `docs/ops/ENV_VARS.md`) :
@@ -337,6 +352,7 @@ Sans l'une ou l'autre configuration, `test:int` et `test:l0` **échouent** (jama
 2. `provisionBench` prend un **verrou consultatif d'instance** dans la base d'administration (une série à la fois par instance : les mots de passe des rôles changent à chaque série), supprime les bases `rueda_test_*` orphelines d'une série interrompue, puis crée deux bases jetables :
    - `rueda_test_<aléa>` : migrations de production **+** `test-migrations/` ;
    - `rueda_test_<aléa>_prod` : migrations de production seules, pour vérifier que le corps de production de `platform.now()` ne lit pas `app.virtual_now` (L0-06).
+   - deux copies (`TEMPLATE`) de la base principale juste après ses migrations : `_inj` (cas « sans verrou » de L0-02, `deadlock_timeout` court, ADR-056) et `_fuzz` (fuzz C11 et oracle C12, réglages du serveur, ADR-068).
 3. Dans chaque base : amorçage sous l'administrateur, mots de passe aléatoires de la série pour `migrator`, `app_api`, `app_worker`, `app_anon`, migrations sous `migrator`, puis un second passage de l'exécuteur qui doit être vide (idempotence).
 4. Les tests utilisent `withRole(role, fn, { database })` ou `connectAs(role)` : connexion **directe** (`pg.Client`, sans pooler) et **assertion L0-05** (`current_user ∈ {app_api, app_worker, app_anon}`, `NOT rolsuper AND NOT rolbypassrls`). `setup-l0-05.ts` fait échouer tout test qui n'a exécuté aucune assertion de rôle.
 5. `withTestTransaction(client, { virtualNow, commit }, fn)` : `BEGIN`, `SET LOCAL app.virtual_now` (par `set_config(…, true)`, paramètre lié), contrôle que `platform.now()` vaut l'heure virtuelle (ou, sans heure virtuelle, qu'il est à moins de 120 s de l'horloge du test), `fn`, `ROLLBACK` par défaut, puis `RESET ALL` dans tous les cas.

@@ -152,7 +152,7 @@ Avant le rendu, le témoin `scripts/ci/fixtures/mermaid-invalide.md` doit échou
 ## Nuit (`nightly.yml`)
 
 - `suite-complete` rejoue `ci.yml` à l'identique, sauf le job `revues` (réservé aux PR). Sur `schedule`, gitleaks-action analyse tout l'historique (comportement documenté de l'action, à confirmer au premier run de nuit sur `main`).
-- `fuzz-c11` est un **emplacement documenté** : US-025 livrera le fuzz d'entrelacements C11 (1 000 exécutions en CI, ≥ 10 000 la nuit, graine de chaque échec conservée en artefact). D'ici là, l'étape affiche une notice et n'exécute aucun test. Le remplacement attendu est écrit en commentaire dans le workflow.
+- `fuzz-c11` : fuzz d'entrelacements C11 en **mode long** (US-025, ADR-068) : `RUEDA_C11_RUNS=nightly` (10 000 exécutions), graine = date UTC (`RUEDA_C11_SEED=AAAAMMJJ`, consignée `[C11] graine`), `pnpm --filter @rueda/db test:c11` sur `postgres:16` (Testcontainers). Un échec dépose `c11-failures.jsonl` (graine, `RUEDA_C11_REPLAY`, trace) en artefact `c11-failures` (30 jours). Le mode court (1 000 exécutions, graine fixe `20251103`) tourne dans `test:l0` de chaque PR (job `base-de-donnees`). Rejeu local : `RUEDA_C11_REPLAY=<valeur du journal> pnpm --filter @rueda/db test:c11`.
 - Le reste de la régression de nuit (propriétés, mutation, e2e complet, résilience) s'ajoutera avec `pnpm test:nightly` (handoff §7).
 
 ## Rejouer en local (Windows, Git Bash)
