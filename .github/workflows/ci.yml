@@ -106,7 +106,17 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
           BASE_REF: ${{ github.base_ref }}
-        run: node scripts/ci/check-story-reviews.mjs --branch "$HEAD_REF" --base "origin/$BASE_REF"
+        # Scripts du contrôle pris sur la BASE (git show origin/<base>:…), copiés hors du dépôt :
+        # une PR ne peut pas modifier son propre contrôle (US-050). Le dépôt contrôlé reste la
+        # pointe de la PR (--root). Un script absent de la base fait échouer l'étape.
+        run: |
+          set -euo pipefail
+          ctl="$RUNNER_TEMP/revues-base"
+          mkdir -p "$ctl/scripts/ci" "$ctl/scripts/team"
+          for s in scripts/ci/check-story-reviews.mjs scripts/team/check-reviews.mjs; do
+            git show "origin/$BASE_REF:$s" > "$ctl/$s"
+          done
+          node "$ctl/scripts/ci/check-story-reviews.mjs" --branch "$HEAD_REF" --base "origin/$BASE_REF" --root "$GITHUB_WORKSPACE"
 
   secrets:
     name: analyse des secrets (gitleaks)
