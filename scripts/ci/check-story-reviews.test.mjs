@@ -203,3 +203,19 @@ test('renommage réel hors de la story : le chemin de départ est recoupé', () 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('docs/specs/ ou CLAUDE.md touchés : + architecture ; stories de révision P2P (US-053 à US-060)', () => {
+  assert.deepEqual(requiredRoles('US-099', ['docs/specs/22_OPEN_QUESTIONS.md'], config), [
+    'architecture',
+    'code',
+  ]);
+  assert.deepEqual(requiredRoles('US-099', ['CLAUDE.md'], config), ['architecture', 'code']);
+  assert.deepEqual(requiredRoles('US-099', ['docs/specs.md'], config), ['code']);
+  assert.deepEqual(requiredRoles('US-055', [], config), ['argent', 'code', 'qa']);
+  assert.deepEqual(requiredRoles('US-056', [], config), [
+    'architecture',
+    'argent',
+    'code',
+    'securite',
+  ]);
+});
