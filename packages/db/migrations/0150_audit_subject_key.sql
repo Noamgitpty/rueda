@@ -46,7 +46,7 @@ CREATE TABLE core.audit_subject_key (
     CONSTRAINT subject_key_wrapped_dek_size CHECK (octet_length(wrapped_dek) BETWEEN 32 AND 1024),
   -- identifiant de la clé maîtresse du KMS (jamais la clé elle-même)
   kms_key_id         text        NOT NULL
-    CONSTRAINT subject_key_kms_key_id_format CHECK (kms_key_id ~ '^[A-Za-z0-9:/_.+=-]{1,256}$'),
+    CONSTRAINT subject_key_kms_key_id_format CHECK (kms_key_id ~ '^[A-Za-z0-9:/_.+=-]{1,255}$'),
   created_at         timestamptz NOT NULL DEFAULT platform.now(),
   destroyed_at       timestamptz,
   destroy_request_id uuid,      -- FK data_subject_request : à venir (US-536 ; NN8 procédure manuelle)

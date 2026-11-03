@@ -1,3 +1,1 @@
 **AUD — Audit & Evidence store** : journal d'audit chaîné, accès aux données, fichiers, clés par sujet, incidents. Dépendances autorisées : BUS seulement (socle : publie ses événements par l’outbox ; source : 17 §2.2, revue architecture US-001).
-
-**État (US-009)** : le schéma (`core.audit_*`, migrations `0150` à `0155`), la chaîne de hachage, les clés par sujet, l'enveloppe de chiffrement, le magasin de preuves et les ports `KeyWrapper` (KMS) et `FileStore` sont dans `@rueda/db/audit` (couche d'accès, voir `packages/db/README.md` et ADR-051). Le câblage NestJS (fournisseurs, adaptateur KMS réel) arrive avec US-003 et US-012. Règle pour tout module : écrire l'audit **en dernier** dans la transaction ; jamais de donnée C2 / C3 en clair dans `before` / `after`.

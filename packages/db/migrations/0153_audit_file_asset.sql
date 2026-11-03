@@ -25,7 +25,8 @@ CREATE TABLE core.audit_file_asset (
     CONSTRAINT file_asset_bucket_valid CHECK (bucket IN
       ('PUBLIC_LISTING', 'PRIVATE_EVIDENCE', 'KYC', 'DOCUMENTS', 'BRAND')),
   storage_key        text        NOT NULL
-    CONSTRAINT file_asset_storage_key_format CHECK (storage_key ~ '^[A-Za-z0-9][A-Za-z0-9/_.-]{0,511}$'),
+    CONSTRAINT file_asset_storage_key_format CHECK (
+      storage_key ~ '^[A-Za-z0-9][A-Za-z0-9/_.-]*$' AND pg_catalog.char_length(storage_key) <= 512),
   mime               text        NOT NULL
     CONSTRAINT file_asset_mime_format CHECK (mime ~ '^[a-z]+/[a-z0-9][a-z0-9.+-]{0,126}$'),
   bytes              bigint      NOT NULL

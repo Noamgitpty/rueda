@@ -72,13 +72,15 @@ export const VERIFIER: ActorContext = { kind: 'WORKER', worker: 'audit_chain_ver
 export async function readChain(
   tx: pg.ClientBase,
 ): Promise<{ rows: AuditChainRow[]; head: { lastId: string; lastHash: Buffer } }> {
-  const { rows } = await tx.query<AuditChainDbRow>(AUDIT_CHAIN_SELECT);
+  // la tête d'abord, puis les lignes jusqu'à elle : des écrivains concurrents validés entre les
+  // deux lectures (READ COMMITTED) ne faussent pas la comparaison
   const head = await tx.query<{ last_id: string; last_hash: Buffer }>(
     `SELECT last_id::text AS last_id, last_hash FROM core.audit_chain_head WHERE chain = 'audit_log'`,
   );
   const h = head.rows[0];
   if (h === undefined)
     throw new Error('tête de chaîne invisible : contexte audit_chain_verifier ?');
+  const { rows } = await tx.query<AuditChainDbRow>(AUDIT_CHAIN_SELECT, [h.last_id]);
   return { rows: rows.map(fromDbRow), head: { lastId: h.last_id, lastHash: h.last_hash } };
 }
 
