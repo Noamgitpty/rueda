@@ -21,3 +21,4 @@ export * from './messaging/index.ts';
 export * from './files/index.ts';
 export * from './signature/index.ts';
 export * from './maps/index.ts';
+export * from './psp/index.ts';

@@ -55,7 +55,7 @@ const asSql = (client: pg.Client): LeasedSqlClient => ({
   release: () => undefined,
 });
 
-/** Compte vérifié (commandes IAM de production), numéro vérifié posé par la fixture 9500. */
+/** Compte vérifié (commandes IAM de production), numéro vérifié posé par la fixture 9600. */
 async function verifiedAccount(
   api: pg.Client,
   locale: string,

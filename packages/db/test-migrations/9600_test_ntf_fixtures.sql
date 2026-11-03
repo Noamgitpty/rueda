@@ -1,4 +1,4 @@
--- 9500 — fixtures des tests NTF (US-021). TESTS SEULEMENT.
+-- 9600 — fixtures des tests NTF (US-021). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).

@@ -51,7 +51,7 @@ Champ absent ou mal formé ⇒ `NotificationContractError` : la tâche échoue, 
 
 - `notification_dispatch` ne contient ni adresse, ni numéro, ni prénom, ni texte : seulement des identifiants, des variables non sensibles, l'empreinte SHA-256 du texte rendu et un code d'erreur court (contrainte `^[A-Z][A-Z0-9_]{0,63}$`).
 - Journaux (`NtfLogEntry`) : `dispatch_id`, canal, gabarit, issue, tentatives, code. Test : `sender.test.ts` (« journaux »).
-- Coordonnées : `core.iam_notification_contact` (0029), zéro ligne hors du travailleur `ntf_sender` ; numéro et adresse rendus seulement s'ils sont vérifiés.
+- Coordonnées : `core.iam_notification_contact` (0030), zéro ligne hors du travailleur `ntf_sender` ; numéro et adresse rendus seulement s'ils sont vérifiés.
 
 ## Tests
 

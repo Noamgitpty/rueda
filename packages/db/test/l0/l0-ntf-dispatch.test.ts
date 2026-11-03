@@ -1,5 +1,5 @@
 /**
- * L0 NTF (US-021, migrations 0028 et 0029 ; 17 §2.3, §3.2.12 ; ADR-061) sous les rôles de
+ * L0 NTF (US-021, migrations 0029 et 0030 ; 17 §2.3, §3.2.12 ; ADR-061) sous les rôles de
  * PRODUCTION (assertion L0-05 en tête de chaque test, withRole), en USD (PA) et en PYG (PY).
  *
  * - `notification_dispatch` : RLS ENABLE + FORCE ; rien pour app_api ni app_anon ; app_worker

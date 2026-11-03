@@ -37,7 +37,7 @@ import type { RecipientDirectory } from './recipient-directory.port.js';
 import type { StoredVariable } from './render.js';
 import { renderedHash, renderTemplate, TemplateRenderError } from './render.js';
 
-/** 17 §2.13 : 3 réessais au plus (contrainte `attempts BETWEEN 0 AND 3` de 0028). */
+/** 17 §2.13 : 3 réessais au plus (contrainte `attempts BETWEEN 0 AND 3` de 0029). */
 export const MAX_SEND_ATTEMPTS = 3;
 /** Base de l'attente entre deux tentatives, en secondes (× 2^(n−1)). PROPOSÉ : 60 (ADR-061). */
 export const RETRY_BASE_SECONDS = 60;

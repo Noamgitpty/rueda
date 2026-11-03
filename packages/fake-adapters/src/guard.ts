@@ -8,7 +8,7 @@
  *
  * Défense en profondeur : ce paquet n'est qu'une dépendance de développement (`devDependencies`)
  * de `apps/api`, exclue de l'image de production ; la base refuse aussi tout compte PSP `FAKE` en
- * production (migration 0027) et l'API refuse de démarrer si elle en trouve un.
+ * production (migration 0028) et l'API refuse de démarrer si elle en trouve un.
  */
 
 export const FAKE_ALLOWED_ENVIRONMENTS = ['development', 'test'] as const;
