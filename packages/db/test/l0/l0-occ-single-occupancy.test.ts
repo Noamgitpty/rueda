@@ -552,6 +552,76 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
     });
   });
 
+  it('contraintes structurelles sans la pré-vérification des commandes : un véhicule = un compte (23P01 → FORBIDDEN), hold et occupation de même partie (23503)', async () => {
+    // Revue QA US-022, constat 1 : la fixture 9310 écrit SANS contrôle préalable (chemin de
+    // cmd_place_hold, US-023) ; seules les contraintes de 0029 peuvent refuser.
+    const x = worldOf(c);
+    const y = otherWorld(c);
+    const OCC = `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, $5, $6::tstzrange)`;
+    const HOLD = `SELECT test_fixture.hold_insert_raw($1, $2, $3, $4, $5, $6)`;
+    await withRole('app_api', async (client) => {
+      await withTestTransaction(client, {}, async (tx) => {
+        const raw = async (
+          sql: string,
+          params: readonly unknown[],
+        ): Promise<{
+          code?: string | undefined;
+          constraint?: string | undefined;
+          business?: string;
+        }> => {
+          await tx.query('SAVEPOINT raw');
+          try {
+            await tx.query(sql, [...params]);
+            await tx.query('RELEASE SAVEPOINT raw');
+            return {};
+          } catch (error) {
+            await tx.query('ROLLBACK TO SAVEPOINT raw');
+            const e = error as { code?: string; constraint?: string };
+            return {
+              code: e.code,
+              constraint: e.constraint,
+              business: translateDbError(error).code,
+            };
+          }
+        };
+        const free = `[${d(1, 10)},${d(1, 12)})`; // aucun chevauchement avec le trip a1 de v1
+        // (a) v1 appartient au compte A (occupation TRIP de a1) : témoin positif, même compte
+        expect(await raw(OCC, [uuid(), x.v1, x.orgA, c.country, 'HOST_BLOCK', free])).toEqual({});
+        // autre compte du même pays, puis compte de l'autre pays : exclusion, traduite FORBIDDEN
+        const single = {
+          code: '23P01',
+          constraint: 'occupancy_vehicle_single_org',
+          business: 'FORBIDDEN',
+        };
+        const later = `[${d(1, 20)},${d(1, 22)})`;
+        expect(await raw(OCC, [uuid(), x.v1, x.orgB, c.country, 'HOST_BLOCK', later])).toEqual(
+          single,
+        );
+        expect(await raw(OCC, [uuid(), x.v1, y.orgA, y.c.country, 'HOLD', later])).toEqual(single);
+
+        // (b) hold et occupation : même véhicule, même compte, même pays
+        const v = uuid();
+        const occ = uuid();
+        expect(await raw(OCC, [occ, v, x.orgA, c.country, 'HOLD', free])).toEqual({});
+        const party = { code: '23503', constraint: 'checkout_hold_occupancy_party_fk' };
+        const pick = (r: { code?: string | undefined; constraint?: string | undefined }) => ({
+          code: r.code,
+          constraint: r.constraint,
+        });
+        // autre compte (même pays)
+        expect(pick(await raw(HOLD, [uuid(), occ, uuid(), v, x.orgB, c.country]))).toEqual(party);
+        // autre pays (compte de l'autre pays, clé (org_id, country_code) du hold valide)
+        expect(pick(await raw(HOLD, [uuid(), occ, uuid(), v, y.orgA, y.c.country]))).toEqual(party);
+        // autre véhicule
+        expect(pick(await raw(HOLD, [uuid(), occ, uuid(), uuid(), x.orgA, c.country]))).toEqual(
+          party,
+        );
+        // témoin positif : même partie
+        expect(await raw(HOLD, [uuid(), occ, uuid(), v, x.orgA, c.country])).toEqual({});
+      });
+    });
+  });
+
   it('cloisonnement des lectures : compte d’hôte, portée du co-hôte, pays de l’ADMIN ; voyageur et travailleur sous app_api : rien', async () => {
     const x = worldOf(c);
     const y = otherWorld(c);
