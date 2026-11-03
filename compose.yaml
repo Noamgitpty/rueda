@@ -1,0 +1,167 @@
+# Pile de DÉVELOPPEMENT LOCAL (US-035, ADR-070 ; guide docs/ops/INSTALL.md).
+#
+# RÉSERVÉE AU POSTE DE DÉVELOPPEMENT ET À LA CI : jamais en préproduction ni en production. Les
+# adaptateurs FAKE n'y sont actifs que parce que RUEDA_ENV vaut « development » ; hors de
+# development / test, ils refusent de se construire et l'API refuse de démarrer (C19).
+#
+# Aucun secret ici ni dans .env : les mots de passe PostgreSQL sont tirés au hasard au premier
+# lancement par `secrets-init`, un volume par rôle, et chaque service ne monte que le sien.
+# Ports publiés sur 127.0.0.1 seulement.
+#
+#   docker compose up --build -d                              # postgres, db-setup, api, worker, fakes
+#   docker compose --profile tests run --rm tests             # suite de tests (unitaires, int, L0)
+#   docker compose run --rm db-setup                          # après les tests : rôles remis en état
+#   docker compose down -v                                    # tout supprimer (base et secrets)
+name: rueda-dev
+
+x-dev-image: &dev-image
+  image: rueda-dev:local
+  build:
+    context: .
+    dockerfile: docker/dev/Dockerfile
+  restart: 'no'
+
+services:
+  secrets-init:
+    image: postgres:16
+    user: root
+    entrypoint: ['sh', '/opt/rueda/init-secrets.sh']
+    volumes:
+      - ./docker/dev/init-secrets.sh:/opt/rueda/init-secrets.sh:ro
+      - secret-postgres:/run/rueda-secrets/postgres
+      - secret-migrator:/run/rueda-secrets/migrator
+      - secret-app-api:/run/rueda-secrets/app_api
+      - secret-app-worker:/run/rueda-secrets/app_worker
+      - secret-app-anon:/run/rueda-secrets/app_anon
+    restart: 'no'
+
+  postgres:
+    image: postgres:16
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/rueda-secrets/postgres/password
+    # L0-02 ouvre 100 connexions concurrentes (même réglage que le banc Testcontainers, ADR-056).
+    command: ['postgres', '-c', 'max_connections=200']
+    ports:
+      - '127.0.0.1:${RUEDA_DEV_PG_PORT:-5432}:5432'
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - secret-postgres:/run/rueda-secrets/postgres:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres -h 127.0.0.1']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Base `rueda_dev` : amorçage, rôles, migrations de production (graines PA / PY), surcouche
+  # « development », puis vérification sous app_api et app_worker. Idempotent.
+  db-setup:
+    <<: *dev-image
+    command: ['node', 'packages/db/src/dev/cli.ts']
+    environment:
+      RUEDA_ENV: development
+      RUEDA_DEV_DB_HOST: postgres
+      RUEDA_DEV_DB_NAME: rueda_dev
+      RUEDA_DEV_SECRETS_DIR: /run/rueda-secrets
+    volumes:
+      - secret-postgres:/run/rueda-secrets/postgres:ro
+      - secret-migrator:/run/rueda-secrets/migrator:ro
+      - secret-app-api:/run/rueda-secrets/app_api:ro
+      - secret-app-worker:/run/rueda-secrets/app_worker:ro
+      - secret-app-anon:/run/rueda-secrets/app_anon:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # API HTTP sous app_api (refuse de démarrer sous un autre rôle, US-010).
+  api:
+    <<: *dev-image
+    command:
+      - sh
+      - -c
+      - 'PGPASSWORD="$$(cat /run/rueda-secrets/app_api/password)" exec node apps/api/dist/main.js'
+    environment:
+      RUEDA_ENV: development
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGDATABASE: rueda_dev
+      PGUSER: app_api
+      PORT: '3000'
+    ports:
+      - '127.0.0.1:${RUEDA_DEV_API_PORT:-3000}:3000'
+    volumes:
+      - secret-app-api:/run/rueda-secrets/app_api:ro
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/brand/content?locale=es').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  # Travailleur sous app_worker. Avant US-003, il initialise son contexte (configuration pays
+  # contrôlée au démarrage) puis s'arrête avec le code 0 : c'est voulu (apps/api/src/worker.ts).
+  worker:
+    <<: *dev-image
+    command:
+      - sh
+      - -c
+      - 'PGPASSWORD="$$(cat /run/rueda-secrets/app_worker/password)" exec node apps/api/dist/worker.js'
+    environment:
+      RUEDA_ENV: development
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGDATABASE: rueda_dev
+      PGUSER: app_worker
+    volumes:
+      - secret-app-worker:/run/rueda-secrets/app_worker:ro
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+
+  # Adaptateurs FAKE (PSP, identité, facture, messagerie, fichiers, antivirus, signature, cartes) :
+  # chacun démarre sous development, puis refuse production, préproduction et RUEDA_ENV absent.
+  fakes:
+    <<: *dev-image
+    command: ['node', 'packages/fake-adapters/src/dev/smoke.ts']
+    environment:
+      RUEDA_ENV: development
+
+  # Suite de tests contre le PostgreSQL de la pile (banc de @rueda/db : bases jetables rueda_test_*,
+  # rôles de production, L0-05). Le banc change les mots de passe des rôles d'instance : relancer
+  # ensuite `docker compose run --rm db-setup`.
+  tests:
+    <<: *dev-image
+    profiles: ['tests']
+    command:
+      - sh
+      - -c
+      - >-
+        pnpm -r --if-present run test:unit &&
+        pnpm -r --workspace-concurrency=1 --if-present run test:int &&
+        pnpm -r --workspace-concurrency=1 --if-present run test:l0
+    environment:
+      RUEDA_PG_ADMIN_URL: postgres://postgres@postgres:5432/postgres
+      RUEDA_PG_SUPERUSER_PASSWORD_FILE: /run/rueda-secrets/postgres/password
+    volumes:
+      - secret-postgres:/run/rueda-secrets/postgres:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg-data:
+  secret-postgres:
+  secret-migrator:
+  secret-app-api:
+  secret-app-worker:
+  secret-app-anon:

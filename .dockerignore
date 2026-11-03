@@ -1,0 +1,17 @@
+# Contexte de l'image de développement local (docker/dev/Dockerfile, US-035).
+# Aucun secret, aucun artefact local, aucune dépendance installée sur l'hôte.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+.git
+.claude
+.env
+.env.*
+!.env.example
+*.secret
+**/*.secret
+local-dev
+.pnpm-store

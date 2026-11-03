@@ -4,6 +4,22 @@ Livré par **US-030** (lot 0, DSN-002). C'est la **source unique du thème** : c
 
 Point d'entrée unique : `src/index.ts` (`import { … } from '@rueda/design-tokens'`).
 
+## Responsabilité
+
+Source unique du thème : lire les palettes, les valider, contrôler le contraste et produire la feuille de variables CSS ; refuser au lint tout style codé en dur dans `apps/` et `packages/`.
+
+## Entités
+
+Aucune entité persistée : les palettes sont des fichiers JSON du dépôt (`docs/design/US-028/`) ; la version publiée en base arrive avec US-034 (voir « Limites connues »).
+
+## Événements
+
+Aucun événement de domaine : le paquet est une bibliothèque pure, appelée au rendu, sans état ni effet de bord.
+
+## Ports
+
+Aucun port : aucune dépendance externe. Le thème actif se lit dans l'environnement (`getActiveTheme(process.env)`).
+
 ## Changer de palette en 1 étape
 
 L'étape : choisir l'identifiant de la palette. Ce qui suit dépend de l'endroit où l'on est.
@@ -82,7 +98,7 @@ Il refuse : couleur hexadécimale, fonction de couleur ou dégradé (`rgb`, `hsl
 
 Permis : `var(--…)` sans repli, `calc()` et `color-mix()` de variables, `0`, `auto`, `none`, `inherit`, `currentColor`, `transparent`, `50%` pour un rayon. **Seule exemption**, explicite dans `lint/tree.ts` (`EXEMPT_PATHS`, une raison par entrée) : `packages/design-tokens/src/`, `lint/` et `test/`, qui définissent ou décrivent les valeurs. Il n'y a pas de liste blanche de valeurs : un faux positif se corrige dans `lint/scan.ts`, avec une revue design. Limite connue : une clé calculée (`{ [prop]: 'red' }`) n'est pas jugée. `test/lint.test.ts` contient un test par contournement relevé par la revue et une preuve par mutation sur des copies de `home.module.css` et `home-content.tsx`.
 
-## Tests
+## Commandes de test
 
 `pnpm --filter @rueda/design-tokens test:unit` : formule WCAG (valeurs de référence publiées, et **oracle indépendant** : chaque ratio consigné par US-028 dans `contrastChecks` de chaque palette est retrouvé à 0,01 près), registre complet, palettes valides et conformes, mêmes variables partout, valeurs Tinta de 10b UX-67, refus de contraste (clair, sombre, composant, avatar, verre), refus de format (injection CSS, type inconnu, jeton absent, alias), surcharges publiées, feuille générée, sélection et fail-closed, lint. Les entrées de cache turbo incluent `docs/design/US-028/tokens-*.json` et `apps/**` (`turbo.json` du paquet).
 

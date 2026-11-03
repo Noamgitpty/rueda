@@ -1,6 +1,6 @@
 # Module BUS — détail (US-008)
 
-Le `README.md` du module reste la ligne unique imposée par `dependency-graph.test.ts` (US-001) ; le détail est ici.
+Le `README.md` du module donne la fiche (responsabilité, entités, événements, ports, commandes de test, US-035) ; le détail est ici.
 
 ## US-008 : outbox, consommation idempotente, lettres mortes, tâches planifiées
 
