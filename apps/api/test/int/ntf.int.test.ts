@@ -11,7 +11,7 @@
  * (Critère 1, gabarits es / en / fr : tests unitaires `templates.test.ts`.)
  * Chaque cas tourne en USD (PA) et en PYG sans décimale (PY).
  */
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { connectAs, releaseClient } from '@rueda/db/testing';
@@ -209,7 +209,7 @@ describe.each(CASES)('NTF sur PostgreSQL réel — $country ($currency)', (c) =>
     const guest = await verifiedAccount(
       api,
       'fr',
-      `+1555${String(Math.floor(Math.random() * 1e7)).padStart(7, '0')}`,
+      `+1555${String(randomInt(0, 10_000_000)).padStart(7, '0')}`,
     );
     const e = engine(worker);
     e.email.runtime.script.script(

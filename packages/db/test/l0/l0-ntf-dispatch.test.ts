@@ -12,7 +12,7 @@
  *
  * Les attentes viennent de 17 §2.13, §3.2.12 et §3.1.4 (C2), jamais du code testé.
  */
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
@@ -20,6 +20,8 @@ import { register } from '../support/iam.ts';
 import { EVENT_COUNTRIES } from '../support/outbox.ts';
 
 const uuid = (): string => randomUUID();
+/** Numéro E.164 aléatoire : un numéro vérifié n'appartient qu'à un compte (ACC-014, index unique). */
+const phone = (): string => `+1555${String(randomInt(0, 10_000_000)).padStart(7, '0')}`;
 
 /** Transaction d'un travailleur nommé (contexte posé en local, comme workerTransactions). */
 async function asWorker<T>(
@@ -218,8 +220,9 @@ describe.each(EVENT_COUNTRIES)('L0 NTF — $country ($currency)', (c) => {
   });
 
   it('coordonnées : zéro ligne hors de ntf_sender ; numéro et adresse seulement vérifiés ; compte fermé ⇒ rien', async () => {
-    const verified = await account({ e164: '+15550000101', verified: true });
-    const unverified = await account({ e164: '+15550000102', verified: false });
+    const verifiedPhone = phone();
+    const verified = await account({ e164: verifiedPhone, verified: true });
+    const unverified = await account({ e164: phone(), verified: false });
     const unconfirmed = await withRole('app_api', async (api) => (await register(api)).userId);
     await withRole('app_worker', async (worker) => {
       const contact = (tx: pg.ClientBase, id: string) =>
@@ -240,7 +243,7 @@ describe.each(EVENT_COUNTRIES)('L0 NTF — $country ($currency)', (c) => {
       await asWorker(worker, 'ntf_sender', async (tx) => {
         const [v] = await contact(tx, verified);
         expect(v?.email).toMatch(/@example\.test$/);
-        expect(v?.phone_e164).toBe('+15550000101');
+        expect(v?.phone_e164).toBe(verifiedPhone);
         expect(typeof v?.first_name).toBe('string');
         expect(Object.keys(v ?? {}).sort()).toEqual(
           ['email', 'first_name', 'phone_e164', 'preferred_locale'].sort(),
