@@ -14,7 +14,9 @@
  * - `INVALID_TRANSITION` : 17 §3.4, 16 A.8 (409) ;
  * - `INVARIANT_VIOLATION` : 17 §2.5 (motif d'alerte P1 de la conversion) ;
  * - `HOLD_ALREADY_LIVE`, `WEBHOOK_DUPLICATE`, `DISPOSITION_EXISTS`, `INTERNAL_ERROR`, `RETRY` :
- *   PROPOSÉS par US-006 (à reporter dans 16 A.8 par l'orchestrateur).
+ *   PROPOSÉS par US-006 (à reporter dans 16 A.8 par l'orchestrateur) ;
+ * - `IMMUTABLE_RECORD`, `SUBJECT_ERASED`, `LEGAL_HOLD_ACTIVE` : PROPOSÉS par US-009 (registres en
+ *   ajout seul, crypto-shredding ; migrations 0150 à 0154, ADR-051).
  */
 
 /** Codes métier produits par la traduction. */
@@ -29,6 +31,9 @@ export const DB_BUSINESS_CODES = [
   'INVARIANT_VIOLATION',
   'RETRY',
   'INTERNAL_ERROR',
+  'IMMUTABLE_RECORD',
+  'SUBJECT_ERASED',
+  'LEGAL_HOLD_ACTIVE',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -51,7 +56,7 @@ export const SQLSTATE = {
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006`.
+ * des migrations `packages/db/migrations/0004` à `0006` et `0150` à `0154`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -74,6 +79,15 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
     'INVARIANT_VIOLATION',
   ],
   disposition_rent_payment_only: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  // 23000 : registres d'audit en ajout seul et clés par sujet (0150 à 0154, US-009)
+  audit_log_append_only: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  data_access_log_append_only: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  audit_chain_head_guard: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  subject_key_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  file_asset_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  audit_log_key_destroyed: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
+  subject_key_not_live: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
+  subject_key_legal_hold: [SQLSTATE.integrityConstraintViolation, 'LEGAL_HOLD_ACTIVE'],
 };
 
 const own = (value: object, key: string): unknown =>

@@ -30,7 +30,9 @@ const INTEGRITY_FUNCTIONS = [
 ] as const;
 
 describe('schéma core (US-006)', () => {
-  it('toutes les tables de core : RLS ENABLE + FORCE, politique migrator_all, propriétaire migrator', async () => {
+  // Tables AVL / PAY seulement : les tables d'audit (US-009) ont leur propre test
+  // (test/int/audit-schema.test.ts, qui vérifie aussi RLS + FORCE sur TOUTES les tables de core).
+  it('tables AVL / PAY de core : RLS ENABLE + FORCE, politique migrator_all, propriétaire migrator', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{
         relname: string;
@@ -46,6 +48,7 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
+            AND c.relname ~ '^(booking|payment)_'
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual([...CORE_TABLES].sort());
@@ -60,7 +63,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('aucune politique pour PUBLIC ; politiques app_worker seulement en plus de migrator_all', async () => {
+  it('AVL / PAY : aucune politique pour PUBLIC ; politiques app_worker seulement en plus de migrator_all', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{ relname: string; polname: string; roles: string }>(
         `SELECT c.relname, p.polname,
@@ -70,7 +73,8 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_policy p
            JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core'`,
+          WHERE n.nspname = 'core'
+            AND c.relname ~ '^(booking|payment)_'`,
       );
       for (const r of rows) {
         const expected = r.polname === 'migrator_all' ? 'migrator' : 'app_worker';
@@ -196,7 +200,10 @@ describe('schéma core (US-006)', () => {
           WHERE n.nspname IN ('core', 'app', 'platform') AND p.prosecdef
           ORDER BY 1`,
       );
-      expect(others.map((o) => o.fn)).toEqual([...INTEGRITY_FUNCTIONS].sort());
+      // + le trigger de chaîne d'audit (US-009, ADR-051), vérifié par test/int/audit-schema.test.ts
+      expect(others.map((o) => o.fn)).toEqual(
+        [...INTEGRITY_FUNCTIONS, 'core.audit_log_chain()'].sort(),
+      );
     });
   });
 
