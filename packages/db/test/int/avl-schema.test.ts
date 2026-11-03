@@ -7,6 +7,8 @@
  * - fonctions de trigger d'intégrité : SECURITY DEFINER, search_path figé, sans EXECUTE (ADR-048) ;
  * - triggers I-OCC différés (DEFERRABLE INITIALLY DEFERRED) ;
  * - fixtures de test absentes de la base de production.
+ * Les tables `outbox_*` (US-008, migrations 0100 à 0102) ont leurs propres contrôles :
+ * `outbox-schema.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import { withRole } from '../../src/testing/index.ts';
@@ -45,7 +47,7 @@ describe('schéma core (US-006)', () => {
                          WHERE p.polrelid = c.oid AND p.polname = 'migrator_all') AS migrator_all
            FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
+          WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relname !~ '^outbox_'
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual([...CORE_TABLES].sort());
@@ -70,7 +72,7 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_policy p
            JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core'`,
+          WHERE n.nspname = 'core' AND c.relname ~ '^(booking|payment)_'`,
       );
       for (const r of rows) {
         const expected = r.polname === 'migrator_all' ? 'migrator' : 'app_worker';
@@ -82,7 +84,8 @@ describe('schéma core (US-006)', () => {
            FROM pg_catalog.pg_policy p
            JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core' AND p.polname <> 'migrator_all' AND p.polcmd IN ('d', '*')`,
+          WHERE n.nspname = 'core' AND c.relname ~ '^(booking|payment)_'
+            AND p.polname <> 'migrator_all' AND p.polcmd IN ('d', '*')`,
       );
       expect(cmds[0]?.n).toBe(0);
     });

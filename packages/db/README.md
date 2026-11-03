@@ -19,6 +19,7 @@ Migrations actuelles :
 - `0000_platform_now` : schéma `platform`, `platform.now()` = `clock_timestamp()` `VOLATILE`, `platform.schema_migration` sous RLS `ENABLE` + `FORCE` ;
 - `0001_role_grants` : droits minimaux ;
 - `0002_app_session_context` à `0007_avl_pay_worker_grants` : schéma de preuve AVL / PAY (US-006, section « Schéma AVL / PAY ») ;
+- `0100_outbox_tables` à `0102_outbox_grants` : outbox, reçus, lettres mortes, file de tâches (US-008, section « Outbox et file »). Numéros 0100 à 0149 réservés à US-008 ;
 - tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`.
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
@@ -68,6 +69,17 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
   - `40P01` et `40001` → `RETRY` (rejeu de la transaction entière).
 
 **Fixtures de test** (`test-migrations/9001`, base principale seulement) : `test_fixture.place_hold` remplace `cmd_place_hold` (US-023) et `test_fixture.insert_payment_operation` remplace `cmd_start_payment`. `test_fixture.delete_occupancy` force une suppression qu'aucun rôle ne peut faire : elle est refusée par la clé étrangère du hold (`23503`), et `occupancy_trip_guard` couvre aussi `DELETE`. Ces fonctions sont `SECURITY DEFINER` sous `migrator` ; la transaction appelante reste sous `app_api` ou `app_worker`.
+
+## Outbox et file (US-008 ; 17 §4.1, §4.2 ; ADR-050)
+
+| Table                       | Contraintes et droits clés                                                                                                                                                                                                                                                                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.outbox_outbox_event`  | enveloppe 17 §4.1 (formats en CHECK, `actor_role = 'SYSTEM'` ⇔ pas d'utilisateur) ; `id` UUID v7 (`platform.uuid_v7()`) ; index partiel des non publiés. INSERT (colonnes de l'enveloppe seulement) pour `app_api` (acteur GUEST / HOST / STAFF) et `app_worker` (travailleur nommé) ; lecture et `published_at` pour `outbox_relay` seul, une fois. |
+| `core.outbox_scheduled_job` | `name` = `app.worker_name` ; `scheduled_job_singleton` (une tâche vivante par nom et clé) ; `attempts ≤ max_attempts` (5 par défaut, 17 §4.2) ; bail `locked_until`. Ajout par `app_api` / `app_worker` (naît `CREATED`) ; lecture et mise à jour par le travailleur de la file seulement.                                                           |
+| `core.outbox_inbox_receipt` | PK `(consumer, event_id)` ; `consumer = app.worker_name()` imposé par la RLS.                                                                                                                                                                                                                                                                        |
+| `core.outbox_dead_letter`   | une ligne par tâche épuisée (`job_id` unique) ; `consumer = app.worker_name()`.                                                                                                                                                                                                                                                                      |
+
+Fonctions `SECURITY INVOKER` (`search_path` figé, `EXECUTE` à `app_worker` ; `app_api` : `outbox_enqueue` et `platform.uuid_v7()` seulement) : `outbox_relay_claim`, `outbox_mark_published`, `outbox_record_relay_failure`, `outbox_enqueue`, `outbox_claim_jobs`, `outbox_begin_receipt`, `outbox_complete_job`, `outbox_fail_job`, `outbox_reap_expired_jobs`. Personne n'a `DELETE`. Tests : `test/int/outbox-schema.test.ts`, `test/l0/outbox-idempotence.test.ts`.
 
 ## Rôles (17 §2.3, ADR-035)
 
