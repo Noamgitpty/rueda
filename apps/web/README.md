@@ -16,6 +16,10 @@ La logique (dimensions et poids des photos, ordre de la file, empreinte SHA-256,
 
 Politique de photo (TRP-002) : grand côté ≤ 1 600 px, ≤ 500 ko (500 000 octets), JPEG. Valeurs PROPOSÉ, codées dans `DEFAULT_PHOTO_POLICY` en attendant un paramètre de 17 §7.2.
 
+## Thème (US-030)
+
+La page reçoit dans `<head>` les variables CSS du thème actif (`theme.tsx`, paquet `@rueda/tokens`). Les composants n'écrivent que `var(--…)` : `pnpm lint` refuse toute couleur, police, taille, espacement, rayon, ombre ou durée en dur. Changer de palette : voir `packages/tokens/README.md`, « Changer de palette en 1 étape ».
+
 ## Laboratoire PWA iOS (US-026)
 
 Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et ses icônes, tous sous `/lab/pwa-ios`). Protocole : [docs/qa/US-026-protocole-pwa-ios.md](../../docs/qa/US-026-protocole-pwa-ios.md).
@@ -25,6 +29,8 @@ Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et
 | Variable                  | Défaut  | Effet                                                                                                                                                                                                                                                   |
 | ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `WEB_LAB_PWA_IOS_ENABLED` | absente | `true` (exactement) ouvre le laboratoire US-026. Toute autre valeur, ou l'absence : la page, le manifeste, le service worker et les icônes répondent **404**. Lue à chaque requête côté serveur (pas de `NEXT_PUBLIC_`), donc rien n'est figé au build. |
+| `THEME_PALETTE`           | absente | Palette du thème (US-030), par exemple `lienzo-azur`. Absente : `packages/tokens/config/theme.json` (Lienzo · Tinta). Inconnue : erreur au rendu (fail-closed). Lue à chaque requête, comme le back-office.                                             |
+| `THEME_COLOR_SCHEME`      | absente | `auto` (défaut : clair ou sombre selon l'appareil), `light` ou `dark`.                                                                                                                                                                                  |
 
 - **Ne jamais définir `WEB_LAB_PWA_IOS_ENABLED` en production.** Seulement en local ou en préproduction, le temps de la campagne de test. Recommandation pour US-003 : un contrôle de déploiement qui refuse cette variable dans l'environnement de production.
 - Couper le drapeau suffit à retirer le laboratoire : le service worker déjà installé sur un téléphone reçoit un 404 à sa prochaine vérification et le navigateur le désinscrit.

@@ -1,0 +1,27 @@
+/* Accueil minimal (US-014), mis en forme uniquement par les jetons du thème (US-030). */
+.main {
+  max-inline-size: 40rem;
+  margin-inline: auto;
+  padding: var(--space-10) var(--space-4);
+}
+
+.title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display-family);
+  font-weight: var(--font-display-weight);
+  font-size: var(--font-display-size);
+  letter-spacing: var(--font-display-letter-spacing);
+  line-height: var(--font-display-line-height);
+}
+
+@media (max-width: 400px) {
+  .title {
+    font-size: var(--font-display-size-compact);
+  }
+}
+
+.tagline {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
