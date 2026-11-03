@@ -31,7 +31,7 @@
  * cet instant sont échus à M + 10 min (tout hold d'un autre fichier est posé plus tard, en temps
  * réel, ou dans les années 2031 et suivantes).
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { commandCallSql, setSessionContext, translateDbError } from '../../src/index.ts';
 import type { SessionContext } from '../../src/index.ts';
@@ -256,12 +256,13 @@ async function paramsEra(api: pg.ClientBase, c: CountryCase): Promise<string> {
 let api: pg.Client;
 let worker: pg.Client;
 
-beforeAll(async () => {
+// connexions ouvertes par test : chaque test fait ainsi son assertion L0-05 (setup-l0-05)
+beforeEach(async () => {
   api = await connectAs('app_api');
   worker = await connectAs('app_worker');
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await releaseClient(worker);
   await releaseClient(api);
 });
