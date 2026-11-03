@@ -44,6 +44,15 @@ const CONFIG_TABLES = [
 // RLS (test/l0/l0-rls-*.test.ts).
 const SUPPORT_TABLES = ['support_support_case'] as const;
 
+// Tables PAY du port PaymentProvider (US-019, 0027) : même socle RLS ; leurs politiques, droits et
+// commandes sont vérifiés par test/l0/l0-pay-*.test.ts.
+const PAY_PORT_TABLES = [
+  'payment_psp_account',
+  'payment_psp_capability',
+  'payment_payment_operation_leg',
+  'payment_payment_operation_event',
+] as const;
+
 const INTEGRITY_FUNCTIONS = [
   'core.booking_assert_trip_occupancy()',
   'core.booking_assert_conversion_disposition()',
@@ -75,7 +84,7 @@ describe('schéma core (US-006)', () => {
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
-        [...CORE_TABLES, ...CONFIG_TABLES, ...SUPPORT_TABLES].sort(),
+        [...CORE_TABLES, ...CONFIG_TABLES, ...SUPPORT_TABLES, ...PAY_PORT_TABLES].sort(),
       );
       for (const r of rows) {
         expect(r, r.relname).toMatchObject({
@@ -88,7 +97,7 @@ describe('schéma core (US-006)', () => {
     });
   });
 
-  it('AVL / PAY : aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner', async () => {
+  it('AVL / PAY : aucune politique pour PUBLIC ; app_worker (worker_*), app_api (lecture, US-011), integrity_owner, cmd_money_owner (money_cmd_*, US-019)', async () => {
     await withRole('app_worker', async (client) => {
       const { rows } = await client.query<{ relname: string; polname: string; roles: string }>(
         `SELECT c.relname, p.polname,
@@ -107,9 +116,11 @@ describe('schéma core (US-006)', () => {
             ? 'migrator'
             : r.polname === 'integrity_read'
               ? 'integrity_owner'
-              : r.polname.startsWith('worker_')
-                ? 'app_worker'
-                : 'app_api';
+              : r.polname.startsWith('money_cmd_') // commandes d'argent (US-019, 0027)
+                ? 'cmd_money_owner'
+                : r.polname.startsWith('worker_')
+                  ? 'app_worker'
+                  : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)

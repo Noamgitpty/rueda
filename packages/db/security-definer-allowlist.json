@@ -106,6 +106,48 @@
       "owner": "iam_auth_owner",
       "execute": ["app_api"],
       "story": "US-010"
+    },
+    {
+      "signature": "core.payment_assert_operation_legs()",
+      "family": "integrity_trigger",
+      "owner": "integrity_owner",
+      "execute": [],
+      "story": "US-019"
+    },
+    {
+      "signature": "core.payment_cmd_apply_operation_status(uuid,text,text,uuid,text)",
+      "family": "money_cmd",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-019"
+    },
+    {
+      "signature": "core.payment_cmd_receive_webhook(uuid,text,bytea,boolean,timestamp with time zone,jsonb,jsonb)",
+      "family": "money_cmd",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-019"
+    },
+    {
+      "signature": "core.payment_cmd_record_operation(uuid,uuid,uuid,uuid,text,text,text,bigint,text,integer,text,text,jsonb)",
+      "family": "money_cmd",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-019"
+    },
+    {
+      "signature": "core.payment_resolve_webhook_account(text,text)",
+      "family": "money_cmd",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-019"
+    },
+    {
+      "signature": "core.payment_startup_guard()",
+      "family": "money_cmd",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api", "app_worker"],
+      "story": "US-019"
     }
   ]
 }

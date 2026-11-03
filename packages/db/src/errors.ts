@@ -16,7 +16,10 @@
  * - `HOLD_ALREADY_LIVE`, `WEBHOOK_DUPLICATE`, `DISPOSITION_EXISTS`, `INTERNAL_ERROR`, `RETRY` :
  *   PROPOSÉS par US-006 (à reporter dans 16 A.8 par l'orchestrateur) ;
  * - `IMMUTABLE_RECORD`, `SUBJECT_ERASED`, `LEGAL_HOLD_ACTIVE` : PROPOSÉS par US-009 (registres en
- *   ajout seul, crypto-shredding ; migrations 0016 à 0020, ADR-051).
+ *   ajout seul, crypto-shredding ; migrations 0016 à 0020, ADR-051) ;
+ * - `IDEMPOTENCY_CONFLICT` : 16 fiche PAY-019 (même clé, contenu ou jambes différents) ;
+ *   `LEG_SUM_MISMATCH`, `LEG_AMOUNT_NEGATIVE` : 17 §2.8, §4.3 point 5.8 ; `FAKE_FORBIDDEN_IN_PRODUCTION`,
+ *   `PSP_ACCOUNT_INACTIVE`, `PAYMENT_SUBJECT_MISMATCH` : PROPOSÉS par US-019 (migration 0027, ADR-056).
  */
 
 /** Codes métier produits par la traduction. */
@@ -34,6 +37,12 @@ export const DB_BUSINESS_CODES = [
   'IMMUTABLE_RECORD',
   'SUBJECT_ERASED',
   'LEGAL_HOLD_ACTIVE',
+  'IDEMPOTENCY_CONFLICT',
+  'LEG_SUM_MISMATCH',
+  'LEG_AMOUNT_NEGATIVE',
+  'FAKE_FORBIDDEN_IN_PRODUCTION',
+  'PSP_ACCOUNT_INACTIVE',
+  'PAYMENT_SUBJECT_MISMATCH',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -50,13 +59,14 @@ export const SQLSTATE = {
   integrityConstraintViolation: '23000',
   uniqueViolation: '23505',
   exclusionViolation: '23P01',
+  checkViolation: '23514',
   deadlockDetected: '40P01',
   serializationFailure: '40001',
 } as const;
 
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
- * des migrations `packages/db/migrations/0004` à `0006` et `0016` à `0020`.
+ * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020` et `0027`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -88,6 +98,24 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   audit_log_key_destroyed: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_not_live: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_legal_hold: [SQLSTATE.integrityConstraintViolation, 'LEGAL_HOLD_ACTIVE'],
+  // 23000 : port PaymentProvider (0027, US-019)
+  payment_operation_idempotency_conflict: [
+    SQLSTATE.integrityConstraintViolation,
+    'IDEMPOTENCY_CONFLICT',
+  ],
+  payment_operation_leg_sum: [SQLSTATE.integrityConstraintViolation, 'LEG_SUM_MISMATCH'],
+  payment_operation_legs_complete: [SQLSTATE.integrityConstraintViolation, 'LEG_SUM_MISMATCH'],
+  payment_operation_leg_negative: [SQLSTATE.integrityConstraintViolation, 'LEG_AMOUNT_NEGATIVE'],
+  psp_account_fake_forbidden: [
+    SQLSTATE.integrityConstraintViolation,
+    'FAKE_FORBIDDEN_IN_PRODUCTION',
+  ],
+  psp_account_fake_sandbox_only: [SQLSTATE.checkViolation, 'FAKE_FORBIDDEN_IN_PRODUCTION'],
+  payment_operation_account_active: [SQLSTATE.integrityConstraintViolation, 'PSP_ACCOUNT_INACTIVE'],
+  payment_operation_subject_mismatch: [
+    SQLSTATE.integrityConstraintViolation,
+    'PAYMENT_SUBJECT_MISMATCH',
+  ],
 };
 
 const own = (value: object, key: string): unknown =>

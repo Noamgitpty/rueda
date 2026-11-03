@@ -13,5 +13,7 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 120_000,
     teardownTimeout: 60_000,
+    // les adaptateurs FAKE (US-019) refusent de se construire hors development / test (C19)
+    env: { RUEDA_ENV: 'test' },
   },
 });

@@ -28,7 +28,8 @@ Migrations actuelles :
 - `0012_outbox_tables` à `0015_outbox_monitoring` : outbox, reçus, lettres mortes, file de tâches, métriques (US-008, section « Outbox et file ») ; numérotation : `migrations/README.md` ;
 - `0016_audit_subject_key` à `0021_audit_grants` (US-009) : journal d'audit chaîné, clés par sujet, magasin de preuves (section « Audit… ») ;
 - `0022_security_definer_owners` à `0026_audit_owner_subject_key_scope` (US-011) : propriétaires NOLOGIN, clés étrangères AVL → IAM, contexte et fonctions de politique, lectures d'`app_api` par acteur et par pays, clés d'audit par sujet (section « RLS par acteur et par pays ») ;
-- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support).
+- `0027_payment_psp_port` (US-019) : port PaymentProvider côté base (section « Port PaymentProvider ») ;
+- tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9400_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker`).
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
 
@@ -146,6 +147,20 @@ Lectures d'`app_api` (0025 ; **aucune écriture de table**, lectures **par colon
 | `support_support_case`      | —                     | —                                        | ADMIN ; OPS / SUPPORT : dossiers qui leur sont assignés |
 
 `core.support_support_case` (0024) : sous-ensemble de 17 §3.2.13 (pays, trip, canal, catégorie dont `BREAK_GLASS` motivé, statut, `assignee_id`), écrit par la console (US-012). Clés d'audit (0026) : `app_api` n'accède qu'à la clé `USER` de la session et à la clé `ORG` du compte d'hôte de la session pour son titulaire. Limite RLS-18 et nom de travailleur déclaratif : ADR-053. Preuves : `test/l0/l0-rls-actors.test.ts` (RLS-1, 5, 6, 7 partiel, 8, 9, 12, 13, 18, 20, hôte contre hôte, pays contre pays, clés par sujet) et `test/l0/l0-rls-15-security-definer.test.ts` (RLS-15, RLS-16).
+
+## Port PaymentProvider (US-019 ; 17 §2.8, §3.2.7, §4.3, §4.4, §6.5 ; ADR-056)
+
+Migration `0027_payment_psp_port` :
+
+- `platform.deployment_env()` : environnement de la **base**, `production` par défaut (fail-closed) ; remplacée par la migration d'environnement (US-003) et, en test seulement, par `9400` (paramètre `app.test_deployment_env`). La base de production du banc prouve que la version de production ne lit aucun paramètre.
+- `core.payment_psp_account` (compte marchand de Kmino, `owner_type = PLATFORM`, références de coffre seulement) : `CHECK` FAKE ⇒ `SANDBOX` (`psp_account_fake_sandbox_only`), trigger `psp_account_fake_guard` (aucune écriture d'un compte FAKE quand la base est en production, `psp_account_fake_forbidden`), `PLATFORM_MOR` fermé, compte `LIVE` actif seulement avec `gate_decision_ref` (PAY-041), un compte `ACTIVE` par (fournisseur, pays, environnement). Aucun rôle applicatif n'y écrit en production.
+- `core.payment_psp_capability` : matrice de capacités ; lecture de référence pour `app_api` et `app_worker` ; seule une valeur `VALIDATED_*` est utilisée côté application.
+- `core.payment_payment_operation.psp_account_id` ; `core.payment_payment_operation_leg` (jambes explicites, immuables ; contrôle différé `payment_operation_legs_check`, fonction `core.payment_assert_operation_legs()` de la famille `integrity_trigger`) ; `core.payment_payment_operation_event` (chaque statut reçu, avec `outcome` APPLIED / DUPLICATE / STALE / CONFLICT).
+- `core.payment_webhook_inbox.normalized_events` et contrainte `webhook_inbox_no_pan` (détecteur `core.payment_text_has_pan`, 13 à 19 chiffres, Luhn).
+- Commandes `SECURITY DEFINER` de la famille `money_cmd` (propriétaire `cmd_money_owner`) : `payment_cmd_record_operation` (travailleur `money_command` ; idempotence par `idem_plain`, `IDEMPOTENCY_CONFLICT` si le contenu ou les jambes diffèrent, `LEG_SUM_MISMATCH`, `LEG_AMOUNT_NEGATIVE`), `payment_cmd_apply_operation_status` (travailleurs `money_command`, `webhook_ingest` ; rangs de 17 §4.4 point 7), `payment_resolve_webhook_account` et `payment_cmd_receive_webhook` (`app_api` ; compte inconnu ou FAKE en production ⇒ `NOT_FOUND` sans écriture ; tolérance de ± 5 min à l'heure de la base), `payment_startup_guard` (`app_api`, `app_worker`).
+- Lectures : `app_api` lit la seule jambe `HOST` du titulaire du compte d'hôte, ADMIN et FINANCE du pays toutes les jambes ; `app_worker` (`money_command`, `webhook_ingest`) lit jambes et événements.
+
+Preuves : `test/l0/l0-pay-port.test.ts` (C19, idempotence, jambes, rangs, dédoublonnage, quarantaine, aucun PAN ni CVV, en USD et en PYG ; montants des vecteurs TJ).
 
 ## Rôles (17 §2.3, ADR-035)
 

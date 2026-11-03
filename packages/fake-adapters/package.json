@@ -1,0 +1,22 @@
+{
+  "name": "@rueda/fake-adapters",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Adaptateurs FAKE (tests et développement seulement, jamais en production, C19) : PSP simulé déterministe, mode normal et hostile (US-019).",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./psp": "./src/psp/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "devDependencies": {
+    "@rueda/config": "workspace:*",
+    "@types/node": "26.6.5",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

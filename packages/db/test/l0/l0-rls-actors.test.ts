@@ -663,6 +663,7 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'booking_guest_occupancy',
           'booking_trip',
           'iam_membership',
+          'payment_payment_operation_leg', // US-019 : jambe HOST du titulaire, ADMIN / FINANCE
         ]),
       );
       for (const r of tables.rows) {
