@@ -11,7 +11,7 @@
  */
 import type { BusRegistry, SqlClient } from '../../bus/index.js';
 
-/** Travailleur de l'oracle (politiques `worker_select_oracle`, 0043). */
+/** Travailleur de l'oracle (ajouté aux politiques SELECT `worker_select`, 0043). */
 export const BOOKING_ORACLE_WORKER = 'booking_oracle';
 
 /** Période de la tâche : une fois par 24 h (PROPOSÉ, ADR-068). */

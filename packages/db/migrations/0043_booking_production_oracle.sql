@@ -15,9 +15,9 @@
 --      l'appelant) et, si un contrôle est non nul, écrit UNE alerte P1
 --      `booking.alert.production_oracle` dans l'outbox (comptes seulement, aucun identifiant). C'est
 --      sa seule écriture ;
---   3. politiques `worker_select_oracle` (SELECT seulement) du travailleur `booking_oracle` sur les
---      six tables lues : hold, occupation, trip, disposition, opération, événement d'opération.
---      Aucun droit nouveau sur une table (app_worker a déjà SELECT : 0007, 0028) ;
+--   3. lectures du travailleur `booking_oracle` : ajouté aux politiques SELECT existantes des six
+--      tables lues (hold, occupation, trip, disposition, opération, événement d'opération), par
+--      ALTER POLICY. Aucun droit nouveau sur une table (app_worker a déjà SELECT : 0007, 0028) ;
 --   4. T1 core.booking_cmd_start_payment remplacée (report de la revue sécurité d'US-024) :
 --      l'environnement de la base est lu une fois et `COALESCE(platform.deployment_env(),
 --      'production')` ; avec `NOT IN` et `= 'production'`, un NULL ouvrait les deux gardes (FAKE en
@@ -42,25 +42,38 @@
 --
 -- Retour arrière :
 --   DROP FUNCTION core.booking_production_oracle_alert(), core.booking_production_oracle();
---   DROP POLICY worker_select_oracle ON core.booking_checkout_hold, core.booking_vehicle_occupancy,
---     core.booking_trip, core.booking_payment_disposition, core.payment_payment_operation,
---     core.payment_payment_operation_event (une instruction par table) ;
+--   ALTER POLICY des six politiques vers leurs listes de 0007, 0028 et 0041 (sans booking_oracle) ;
 --   réappliquer la définition de 0040 de core.booking_cmd_start_payment(uuid, uuid, text) (sous
 --   cmd_hold_owner, comme ci-dessous).
 
--- 1. Lectures du travailleur booking_oracle (SELECT seulement, une politique par table) ----------
-CREATE POLICY worker_select_oracle ON core.booking_checkout_hold FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_oracle');
-CREATE POLICY worker_select_oracle ON core.booking_vehicle_occupancy FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_oracle');
-CREATE POLICY worker_select_oracle ON core.booking_trip FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_oracle');
-CREATE POLICY worker_select_oracle ON core.booking_payment_disposition FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_oracle');
-CREATE POLICY worker_select_oracle ON core.payment_payment_operation FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_oracle');
-CREATE POLICY worker_select_oracle ON core.payment_payment_operation_event FOR SELECT TO app_worker
-  USING (app.actor_kind() = 'WORKER' AND app.worker_name() = 'booking_oracle');
+-- 1. Lectures du travailleur booking_oracle (SELECT seulement) ----------------------------------
+-- Ajouté à la liste des travailleurs des politiques SELECT EXISTANTES (ALTER POLICY), plutôt que par
+-- de nouvelles politiques permissives : une politique de plus est un OR de plus, évalué ligne à ligne
+-- par les balayages qui parcourent toute la table (mesuré en CI : preuves US-024 1,7 fois plus
+-- lentes avec six politiques ajoutées, ADR-068). Aucun droit de table nouveau.
+ALTER POLICY worker_select ON core.booking_checkout_hold
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
+         ('booking_conversion', 'disposition_sweeper', 'payment_intent_sweeper', 'hold_expiry',
+          'booking_oracle'));
+ALTER POLICY worker_select ON core.booking_vehicle_occupancy
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
+         ('booking_conversion', 'disposition_sweeper', 'payment_intent_sweeper', 'hold_expiry',
+          'trip_lifecycle', 'booking_oracle'));
+ALTER POLICY worker_select ON core.booking_trip
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
+         ('booking_conversion', 'disposition_sweeper', 'payment_intent_sweeper', 'trip_lifecycle',
+          'booking_oracle'));
+ALTER POLICY worker_select ON core.booking_payment_disposition
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
+         ('booking_conversion', 'disposition_sweeper', 'payment_intent_sweeper', 'hold_expiry',
+          'booking_oracle'));
+ALTER POLICY worker_select ON core.payment_payment_operation
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
+         ('booking_conversion', 'disposition_sweeper', 'payment_intent_sweeper', 'hold_expiry',
+          'webhook_ingest', 'booking_oracle'));
+ALTER POLICY worker_select_disposition ON core.payment_payment_operation_event
+  USING (app.actor_kind() = 'WORKER' AND app.worker_name() IN
+         ('disposition_sweeper', 'booking_oracle'));
 
 -- 2. Oracle C12 (17 §2.5) : lecture seule, comptes par contrôle et par pays ----------------------
 -- Cinq lignes, toujours, dans l'ordre de 17 : (code, violations, {pays: violations}).

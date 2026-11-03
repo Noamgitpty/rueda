@@ -259,7 +259,7 @@ Preuves : `test/l0/l0-us024-conversion.test.ts` (PA et PY, groupe isolé de `vit
 
 Cherche au hasard les entrelacements dangereux et surveille la production chaque nuit (migration 0043, fixture 9880).
 
-- **Oracle C12** (`SECURITY INVOKER`, `app_worker`, travailleur `booking_oracle` seulement ; politiques `worker_select_oracle`, SELECT, une par table lue) :
+- **Oracle C12** (`SECURITY INVOKER`, `app_worker`, travailleur `booking_oracle` seulement ; ajouté par `ALTER POLICY` aux politiques SELECT `worker_select` des tables lues) :
   - `core.booking_production_oracle()` (`STABLE`, transaction `READ ONLY`) rend **cinq lignes** `(check_code, violations, by_country)` : `TRIP_WITHOUT_ACTIVE_OCCUPANCY`, `SUCCEEDED_WITHOUT_DISPOSITION` (plus de 20 min après la réussite connue), `COMPENSATED_HOLD_WITH_TRIP`, `HOLD_WITH_TWO_CONVERSIONS`, `INACTIVE_TRIP_OCCUPANCY_OF_LIVE_TRIP` (codes PROPOSÉS). Aucune donnée personnelle lue ; des comptes seulement. Tout autre contexte : `42501` / `oracle_forbidden` (`FORBIDDEN`), jamais des zéros trompeurs.
   - `core.booking_production_oracle_alert()` rejoue l'oracle et, si un contrôle est non nul, écrit **une** alerte P1 `booking.alert.production_oracle` (comptes par contrôle et par pays) dans l'outbox. La tâche périodique est `registerProductionOracle` (module AVL, 24 h, câblage US-003).
 - **T1 fail-closed** (report de la revue sécurité d'US-024) : `core.booking_cmd_start_payment` lit l'environnement une fois, `COALESCE(platform.deployment_env(), 'production')` ; un NULL n'ouvre plus ni la garde FAKE ni la garde SANDBOX.
