@@ -57,6 +57,9 @@ const PAY_PORT_TABLES = [
   'payment_psp_capability',
   'payment_payment_operation_leg',
   'payment_payment_operation_event',
+  // port de place de marché (US-061, 0039) : preuves dans test/l0/l0-pay-marketplace.test.ts
+  'payment_psp_capability_catalog',
+  'payment_psp_submerchant',
 ] as const;
 
 const INTEGRITY_FUNCTIONS = [
