@@ -122,6 +122,23 @@ async function runC1(c: CountryCase, vehicleLock: boolean): Promise<C1Report> {
     let results: Replayed<unknown>[];
     try {
       posers.push(...(await Promise.all(guests.map(() => connectAs('app_api')))));
+      // Connexions chaudes, comme celles d'un pool de l'API : une pose annulée sur un autre
+      // véhicule charge le cache des relations et les plans de la commande. Sans cela, chaque
+      // pose de la course planifie 2a sous le verrou du véhicule (premier passage CI : p95 de
+      // 489 à 553 ms avec verrou, contre 177 ms sans verrou).
+      await Promise.all(
+        posers.map((client, i) =>
+          inTx(client, {}, (tx) =>
+            placeHoldLocked(tx, {
+              slot: { ...slot, vehicleId: uuid() },
+              c,
+              guestId: guests[i] as string,
+              period,
+              vehicleLock,
+            }),
+          ),
+        ),
+      );
       const barrier = await Barrier.open(observer);
       const runs = posers.map(async (client, i) => {
         await barrier.wait(client);
