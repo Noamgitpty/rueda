@@ -86,10 +86,23 @@ class CheckOutputTest(unittest.TestCase):
 class InvariantsDuScriptTest(unittest.TestCase):
     """Ce qui peut affaiblir le contrôle reste dans le script, pas dans le registre."""
 
-    def test_planchers_couvrent_le_registre_actuel_et_les_oracles_d_argent(self):
-        self.assertEqual(cst.FLOOR_ORACLES, frozenset(REAL["oracles"]))
-        for money in ("check_legs.py", "verif11_settlement.py", "independent_settlement_check.py"):
-            self.assertIn(money, cst.FLOOR_ORACLES)
+    def test_planchers_inclus_dans_le_registre_et_oracles_d_argent_planchers(self):
+        # Inclusion, pas égalité : un nouvel oracle s'inscrit au registre sans toucher scripts/ci ;
+        # le rendre plancher (non retirable) touche scripts/ci et exige une revue sécurité.
+        self.assertLessEqual(cst.FLOOR_ORACLES, frozenset(REAL["oracles"]))
+        money = {
+            "verif11_settlement.py",
+            "independent_settlement_check.py",
+            "verif12_t49plus.py",
+            "check_t49plus.py",
+            "check_verif12_fixes.py",
+            "check_t66_68.py",
+            "check_ta_consolidation.py",
+            "check_legs.py",
+            "verif15_ta.py",
+            "export_golden_vectors.py",
+        }
+        self.assertLessEqual(money, cst.FLOOR_ORACLES)
 
     def test_planchers_et_exclusions_disjoints(self):
         self.assertFalse(cst.FLOOR_ORACLES & set(cst.EXCLUDED))
@@ -145,6 +158,18 @@ class RegistreTest(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("ÉCHEC registre : registre introuvable", out)
         self.assertNotIn("RÉSULTAT : OK", out)
+
+    def test_oracle_plancher_export_golden_vectors_retire(self):
+        del self.data["oracles"]["export_golden_vectors.py"]
+        self.assertIn("export_golden_vectors.py : oracle plancher absent", self.errors())
+
+    def test_oracle_hors_plancher_inscrit_sans_toucher_scripts_ci(self):
+        # Un nouvel oracle (fictif, hors plancher) s'inscrit au seul registre : validé tel quel.
+        (self.specs / "tools" / "zzz_nouvel_oracle.py").write_text("print('OK')\n", encoding="utf-8")
+        self.data["oracles"]["zzz_nouvel_oracle.py"] = {"require": ["^OK$"]}
+        self.assertNotIn("zzz_nouvel_oracle.py", cst.FLOOR_ORACLES)
+        self.write()
+        self.assertIn("zzz_nouvel_oracle.py", cst.load_registry(self.specs))
 
     def test_registre_illisible(self):
         self.assertIn("illisible", self.errors(text="{ pas du json"))
