@@ -35,7 +35,7 @@ say 'aucun adaptateur FAKE (paquet absent, aucun import dans l’API compilée)'
 
 found="$(in_image 'find /app/apps /app/packages \( -name node_modules -prune \) -o \( -name testing -o -name test -o -name test-migrations -o -name dev-overlay -o -name "*.test.*" -o -name "*.test-support.*" \) -print; ls -d /app/packages/db/src/dev /app/packages/fake-adapters 2>/dev/null || true')"
 [ -z "$found" ] || fail "fichiers de test ou de développement présents : $found"
-found="$(in_image 'ls /app/node_modules/.pnpm' | grep -E '^(@?vitest|typescript|eslint|prettier|testcontainers|@testcontainers|turbo|@rueda\+)' || true)"
+found="$(in_image 'ls /app/node_modules/.pnpm' | grep -E '^((vitest|typescript|eslint|prettier|testcontainers|turbo|@stryker-mutator\+core)@|@(vitest|testcontainers|rueda)\+)' || true)"
 [ -z "$found" ] || fail "dépendances de développement présentes : $found"
 say 'aucun test, harnais, surcouche de développement ni outil de développement'
 
