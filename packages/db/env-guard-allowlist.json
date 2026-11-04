@@ -1,0 +1,61 @@
+{
+  "$comment": "Lectures HISTORIQUES de platform.deployment_env() hors COALESCE(…, 'production') tolérées par le lint sql-env-guard (packages/config/sql-env-guard ; US-043, ADR-077). Chacune est dans une migration fusionnée, donc immuable (somme de contrôle), et sa fonction est REMPLACÉE par une migration postérieure (supersededBy) qui lit l'environnement en fail-closed. Le test L0 l0-us043-env-guard vérifie sur la base de production qu'aucune fonction ne garde la lecture ouverte. Ajouter une entrée = revue sécurité (packages/db/) ; une entrée sans lecture correspondante fait échouer le lint.",
+  "entries": [
+    {
+      "path": "packages/db/migrations/0028_payment_psp_port.sql",
+      "line": 127,
+      "function": "core.payment_psp_account_fake_guard()",
+      "supersededBy": "0048_security_env_guard_fail_closed",
+      "justification": "trigger de garde FAKE : IF NULL ne levait pas, un compte FAKE s'écrivait avec un environnement NULL"
+    },
+    {
+      "path": "packages/db/migrations/0028_payment_psp_port.sql",
+      "line": 527,
+      "function": "core.payment_cmd_record_operation(...)",
+      "supersededBy": "0048_security_env_guard_fail_closed",
+      "justification": "commande de paiement : opération sur un compte FAKE admise avec un environnement NULL"
+    },
+    {
+      "path": "packages/db/migrations/0028_payment_psp_port.sql",
+      "line": 740,
+      "function": "core.payment_resolve_webhook_account(text,text)",
+      "supersededBy": "0048_security_env_guard_fail_closed",
+      "justification": "déjà fermée sur NULL (NOT (… AND NULL) dans un WHERE exclut la ligne) ; réécrite pour une règle unique"
+    },
+    {
+      "path": "packages/db/migrations/0028_payment_psp_port.sql",
+      "line": 769,
+      "function": "core.payment_cmd_receive_webhook(...)",
+      "supersededBy": "0048_security_env_guard_fail_closed",
+      "justification": "réception de webhook : un FAKE était reçu et écrit avec un environnement NULL"
+    },
+    {
+      "path": "packages/db/migrations/0028_payment_psp_port.sql",
+      "line": 817,
+      "function": "core.payment_startup_guard()",
+      "supersededBy": "0048_security_env_guard_fail_closed",
+      "justification": "contrôle de démarrage : NULL rendu à l'API, lu comme « pas production », comptes FAKE admis"
+    },
+    {
+      "path": "packages/db/migrations/0039_payment_marketplace_legs.sql",
+      "line": 403,
+      "function": "core.payment_cmd_register_submerchant(uuid,uuid,uuid,integer)",
+      "supersededBy": "0048_security_env_guard_fail_closed",
+      "justification": "enregistrement d'un hôte : sous-marchand sur un compte FAKE admis avec un environnement NULL"
+    },
+    {
+      "path": "packages/db/migrations/0040_booking_payment_intent.sql",
+      "line": 517,
+      "function": "core.booking_cmd_start_payment(uuid,uuid,text)",
+      "supersededBy": "0045_booking_production_oracle",
+      "justification": "T1, garde FAKE : remplacée par 0045 (report de la revue sécurité d'US-024)"
+    },
+    {
+      "path": "packages/db/migrations/0040_booking_payment_intent.sql",
+      "line": 525,
+      "function": "core.booking_cmd_start_payment(uuid,uuid,text)",
+      "supersededBy": "0045_booking_production_oracle",
+      "justification": "T1, garde SANDBOX (NOT IN sur NULL) : remplacée par 0045 (report de la revue sécurité d'US-024)"
+    }
+  ]
+}
