@@ -2,7 +2,7 @@
   "name": "@rueda/web",
   "version": "0.0.0",
   "private": true,
-  "description": "Application Next.js (App Router), mobile-first : guest, console agence, comptoir (PWA).",
+  "description": "Application Next.js (App Router), mobile-first et installable (PWA) : voyageur et espace hôte.",
   "type": "module",
   "scripts": {
     "dev": "next dev",
