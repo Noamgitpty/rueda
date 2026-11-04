@@ -123,6 +123,7 @@ export default async function setup(project: TestProject): Promise<void> {
     productionDatabase: DRILL_DATABASE,
     injectionDatabase: DRILL_DATABASE,
     fuzzDatabase: DRILL_DATABASE,
+    migrationDatabase: DRILL_DATABASE,
     passwords,
     appliedMigrations: { main: [], production: [] },
     admin: { host, port, user: 'postgres', password: adminPassword, database: 'postgres' },
