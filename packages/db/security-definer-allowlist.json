@@ -442,6 +442,13 @@
       "owner": "guard_owner",
       "execute": ["app_api", "cmd_hold_owner"],
       "story": "US-023"
+    },
+    {
+      "signature": "platform.declared_environment()",
+      "family": "guard",
+      "owner": "guard_owner",
+      "execute": ["app_api", "app_worker", "cmd_hold_owner", "cmd_money_owner"],
+      "story": "US-003"
     }
   ]
 }

@@ -1,0 +1,9 @@
+# Copier en <environnement>.tfvars (non suivi) et remplir. AUCUN secret ici : les secrets se saisissent
+# dans le coffre (docs/ops/DEPLOY.md). Valeurs d'exemple, invalides telles quelles.
+aws_account_id           = "000000000000"
+image_digest             = "sha256:<empreinte de l'image construite par le pipeline>"
+release                  = "<sha git>"
+brand_name               = "<nom de marque du thème>"
+certificate_arn          = "arn:aws:acm:us-east-1:000000000000:certificate/<id>"
+bucket_suffix            = "<suffixe-unique>"
+github_oidc_provider_arn = "arn:aws:iam::000000000000:oidc-provider/token.actions.githubusercontent.com"

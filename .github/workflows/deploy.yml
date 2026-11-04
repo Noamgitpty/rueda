@@ -1,0 +1,115 @@
+# Pipeline de déploiement (US-003, ADR-078 ; OPERATING_RULES §2 ; runbook docs/ops/DEPLOY.md).
+#
+# Déclenché À LA MAIN seulement (workflow_dispatch), par l'orchestrateur, depuis `main` :
+#   build                      construit et pousse l'image de production (registre de préproduction) ;
+#   deploy preproduction <e>   déploie l'empreinte <e> en préproduction ;
+#   deploy production <e>      seulement si <e> a été déployée AVEC SUCCÈS en préproduction par ce même
+#                              pipeline (porte « préproduction d'abord », 16 ADM-034), puis après
+#                              l'ACCORD DU FONDATEUR : l'environnement GitHub `production` exige son
+#                              approbation (réglage du dépôt, US-050 ; 5 premiers déploiements au moins) ;
+#   rollback <environnement>   ressert l'empreinte précédente (journal), sans accord préalable
+#                              (OPERATING_RULES §2 : l'orchestrateur notifie le fondateur).
+#
+# Inactif tant que le fondateur n'a pas créé le compte d'hébergement (F-02) : sans les variables des
+# environnements GitHub (sorties d'infra/opentofu), le job échoue dès la garde, sans rien toucher.
+# Aucun secret : identifiants AWS par OIDC à durée courte (rôle `<préfixe>-<env>-deploy`, restreint au
+# dépôt ET à l'environnement GitHub du même nom).
+name: deploy
+run-name: ${{ inputs.action }} ${{ inputs.target }} ${{ inputs.image_digest }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'build, deploy ou rollback'
+        required: true
+        type: choice
+        options: [build, deploy, rollback]
+      target:
+        description: 'environnement'
+        required: true
+        type: choice
+        options: [preproduction, production]
+      image_digest:
+        description: 'deploy : empreinte sha256:… (sortie de build)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    name: ${{ inputs.action }} ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.target }}
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    env:
+      ACTION: ${{ inputs.action }}
+      TARGET: ${{ inputs.target }}
+      IMAGE_DIGEST: ${{ inputs.image_digest }}
+      RUEDA_ENVIRONMENT: ${{ inputs.target }}
+      RUEDA_AWS_REGION: ${{ vars.RUEDA_AWS_REGION }}
+      RUEDA_DEPLOY_ROLE_ARN: ${{ vars.RUEDA_DEPLOY_ROLE_ARN }}
+      RUEDA_CLUSTER: ${{ vars.RUEDA_CLUSTER }}
+      RUEDA_REPOSITORY_URL: ${{ vars.RUEDA_REPOSITORY_URL }}
+      RUEDA_SOURCE_REPOSITORY_URL: ${{ vars.RUEDA_SOURCE_REPOSITORY_URL }}
+      RUEDA_SUBNETS: ${{ vars.RUEDA_SUBNETS }}
+      RUEDA_APP_SECURITY_GROUP: ${{ vars.RUEDA_APP_SECURITY_GROUP }}
+      RUEDA_EVIDENCE_BUCKET: ${{ vars.RUEDA_EVIDENCE_BUCKET }}
+    steps:
+      - name: garde (main, configuration, action permise)
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          [ "$REF" = refs/heads/main ] || { echo "::error::déploiement depuis main seulement ($REF)"; exit 1; }
+          for v in RUEDA_AWS_REGION RUEDA_DEPLOY_ROLE_ARN RUEDA_CLUSTER RUEDA_REPOSITORY_URL RUEDA_SUBNETS RUEDA_APP_SECURITY_GROUP RUEDA_EVIDENCE_BUCKET; do
+            [ -n "${!v}" ] || { echo "::error::$v absente : environnement $TARGET non configuré (F-02, docs/ops/DEPLOY.md)"; exit 1; }
+          done
+          if [ "$ACTION" = build ] && [ "$TARGET" != preproduction ]; then
+            echo "::error::build : registre de préproduction seulement"; exit 1
+          fi
+          if [ "$ACTION" = deploy ]; then
+            [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::empreinte sha256:<64 hex> attendue"; exit 1; }
+          fi
+      - name: porte « préproduction d'abord » (production)
+        if: inputs.action == 'deploy' && inputs.target == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          title="deploy preproduction $IMAGE_DIGEST"
+          ok="$(gh api "repos/$REPO/actions/workflows/deploy.yml/runs?branch=main&status=success&per_page=100" \
+            --jq "[.workflow_runs[] | select(.display_title == \"$title\" and .conclusion == \"success\" and .event == \"workflow_dispatch\")] | length")"
+          [ "$ok" -ge 1 ] || { echo "::error::$IMAGE_DIGEST n'a jamais été déployée avec succès en préproduction"; exit 1; }
+          echo "préproduction réussie pour $IMAGE_DIGEST : $ok run(s)"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.RUEDA_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.RUEDA_AWS_REGION }}
+          role-session-name: deploy-${{ inputs.target }}-${{ github.run_id }}
+          mask-aws-account-id: true
+      - name: ${{ inputs.action }}
+        run: |
+          set -euo pipefail
+          case "$ACTION" in
+            build) bash scripts/deploy/ecs.sh build ;;
+            deploy) bash scripts/deploy/ecs.sh deploy "$IMAGE_DIGEST" ;;
+            rollback) bash scripts/deploy/ecs.sh rollback ;;
+          esac

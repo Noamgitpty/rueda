@@ -10,7 +10,7 @@ Ce guide donne, sur un poste qui n'a que **Docker**, une pile locale complète :
 | `postgres`     | PostgreSQL 16 (`postgres:16`, comme le banc de la CI), port `127.0.0.1:5432`                                                                                                                                                                                            |
 | `db-setup`     | base `rueda_dev` : amorçage des rôles, migrations de production **dont les graines PA et PY** (configuration pays générée depuis `apps/api/src/modules/cfg/data/`), surcouche « development », puis vérification sous les rôles de production `app_api` et `app_worker` |
 | `api`          | API NestJS sous `app_api`, port `127.0.0.1:3000`                                                                                                                                                                                                                        |
-| `worker`       | travailleur sous `app_worker` ; avant US-003, il initialise son contexte puis s'arrête avec le code 0 (voir « Limites »)                                                                                                                                                |
+| `worker`       | travailleur sous `app_worker` (US-003) : relais de l'outbox, files, tâches périodiques (`hold_expiry`, `disposition_sweeper`, `booking_oracle`, `risk_pruner`) et notifications ; reste en marche                                                                       |
 | `fakes`        | adaptateurs FAKE (PSP, identité, facture électronique, messagerie, fichiers, antivirus, signature, cartes) : chacun démarre sous `development`, puis refuse `production`, `preproduction` et `RUEDA_ENV` absent                                                         |
 | `tests`        | profil `tests` : suite unitaire, intégration et preuves L0 contre ce PostgreSQL, sous les rôles de production                                                                                                                                                           |
 
@@ -50,7 +50,7 @@ Le premier lancement construit l'image de développement (installation figée de
 1. `secrets-init` et `db-setup` terminés avec le code 0 ;
 2. graines PA et PY lisibles sous `app_api` et `app_worker`, base déclarée `development` ;
 3. API en bonne santé : `GET /brand/content?locale=es` répond 200, `GET /auth/session` sans cookie répond 401 ;
-4. travailleur terminé avec le code 0 ;
+4. travailleur démarré (`worker.started` journalisé) et toujours en marche ;
 5. FAKE : bilan vert ;
 6. garde C19 : la même API lancée avec `RUEDA_ENV=production` refuse de démarrer.
 
@@ -115,6 +115,6 @@ Pour `pnpm test:int` et `pnpm test:l0` sur le poste, deux possibilités (`packag
 
 ## 8. Limites (au 2026-11-03)
 
-- **Travailleur** : ses boucles (outbox, files, tâches périodiques) se branchent avec le pool `app_worker` d'US-003 (`apps/api/src/worker.ts`). D'ici là, le service `worker` initialise le contexte (configuration pays contrôlée) puis s'arrête avec le code 0, et `smoke.sh` exige ce code.
+- **Travailleur** : ses boucles tournent depuis US-003 (`apps/api/src/worker.ts`) ; `smoke.sh` exige qu'il journalise `worker.started` et reste en marche. Aucun canal de notification réel avant le lot C : les envois échouent en `CHANNEL_UNAVAILABLE` (rien ne part). La préproduction et la production utilisent une autre image, sans FAKE (`docker/prod/Dockerfile`, `docs/ops/DEPLOY.md`).
 - **Fronts** : `apps/web` et `apps/backoffice` ne sont pas dans la pile ; sur le poste : `pnpm --filter @rueda/web dev` et `pnpm --filter @rueda/backoffice dev` (`RUEDA_API_URL=http://127.0.0.1:3000`, `docs/ops/ENV_VARS.md`).
 - **FAKE** : ce sont des bibliothèques en mémoire, sans serveur ; l'API de développement n'a pas encore de registre FAKE branché (le registre de production est vide jusqu'au lot C). Le service `fakes` prouve qu'ils démarrent sous `development` et refusent ailleurs ; les suites de contrat les exercent dans `tests`.

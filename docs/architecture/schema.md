@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 50 migrations ; 64 tables ; 2 vues ; 327 politiques RLS ; 63 fonctions `SECURITY DEFINER` ; 85 autres fonctions.
+- 51 migrations ; 65 tables ; 2 vues ; 332 politiques RLS ; 64 fonctions `SECURITY DEFINER` ; 87 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -65,6 +65,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0047_risk_rate_limit` | RISK : compteurs de débit partagés entre instances, plafond journalier de SMS par pays |
 | `0048_security_env_guard_fail_closed` | Gardes d'environnement fail-closed sur NULL (C19) : PAY. |
 | `0049_staff_read_access_outcome` | Console : issue d'accès des lectures du staff (403 au lieu d'une liste vide). |
+| `0050_platform_environment_declaration` | Environnement de déploiement DÉCLARÉ (US-003, ADR-078 ; 17 §6.5 point 1, C19). |
 
 ## Rôles
 
@@ -3058,6 +3059,37 @@ Déclencheurs :
 
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.support_support_case FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
+### `platform.environment_declaration`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : guard_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `singleton` | `boolean` | oui | `true` |
+| `environment` | `text` | oui | — |
+| `declared_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `declared_by` | `text` | oui | `CURRENT_USER` |
+
+Contraintes :
+
+- `environment_declaration_environment_check` : `CHECK (environment = ANY (ARRAY['development'::text, 'preproduction'::text, 'production'::text]))`
+- `environment_declaration_pkey` : `PRIMARY KEY (singleton)`
+- `environment_declaration_singleton_check` : `CHECK (singleton)`
+
+Politiques RLS :
+
+- `guard_read` (SELECT, PERMISSIVE, guard_owner) USING `true`
+- `migrator_declare` (INSERT, PERMISSIVE, migrator) WITH CHECK `true`
+- `migrator_delete_refused` (DELETE, PERMISSIVE, migrator) USING `true`
+- `migrator_read` (SELECT, PERMISSIVE, migrator) USING `true`
+- `migrator_update_refused` (UPDATE, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `environment_declaration_no_truncate` : `CREATE TRIGGER environment_declaration_no_truncate BEFORE TRUNCATE ON platform.environment_declaration FOR EACH STATEMENT EXECUTE FUNCTION platform.environment_declaration_immutable()`
+- `environment_declaration_no_update` : `CREATE TRIGGER environment_declaration_no_update BEFORE DELETE OR UPDATE ON platform.environment_declaration FOR EACH ROW EXECUTE FUNCTION platform.environment_declaration_immutable()`
+
 ### `platform.schema_migration`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -3162,6 +3194,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `platform.declared_environment()` | `text` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE |
 | `platform.guest_hold_guard(p_period tstzrange)` | `TABLE(live_holds integer, trip_overlap boolean)` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE ; guard_owner: EXECUTE |
 
 ## Autres fonctions
@@ -3249,7 +3282,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_platform_advance_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_trip_leg_balance_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
