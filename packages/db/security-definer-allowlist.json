@@ -248,6 +248,13 @@
       "story": "US-012"
     },
     {
+      "signature": "core.iam_staff_cmd_data_access(bytea,uuid,uuid,text,uuid,text,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-004"
+    },
+    {
       "signature": "core.iam_staff_read_access(bytea,text,text)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",

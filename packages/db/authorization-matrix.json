@@ -25,6 +25,7 @@
     "hold_expiry",
     "ntf_dispatcher",
     "ntf_sender",
+    "ops_monitor",
     "outbox_relay",
     "payment_command",
     "payment_intent_sweeper",
@@ -1316,7 +1317,8 @@
       },
       "travailleurs": {
         "bus_monitor": "tout",
-        "outbox_relay": "tout"
+        "outbox_relay": "tout",
+        "ops_monitor": "tout"
       }
     },
     "core.outbox_scheduled_job": {
@@ -1437,7 +1439,8 @@
         "hold_expiry": "tout",
         "webhook_ingest": "tout",
         "booking_oracle": "tout",
-        "payment_command": "tout"
+        "payment_command": "tout",
+        "ops_monitor": "tout"
       }
     },
     "core.payment_payment_operation_event": {
@@ -1641,7 +1644,7 @@
         "app_worker": {
           "SELECT": "*",
           "INSERT": "*",
-          "UPDATE": ["error", "processed_at", "processing_status"]
+          "UPDATE": ["error", "processed_at", "processing_attempts", "processing_status"]
         },
         "app_anon": {}
       },
@@ -1658,7 +1661,8 @@
         "webhook_ingest": "tout",
         "booking_conversion": "tout",
         "disposition_sweeper": "tout",
-        "payment_intent_sweeper": "tout"
+        "payment_intent_sweeper": "tout",
+        "ops_monitor": "tout"
       }
     },
     "core.pricing_tax_line_config": {

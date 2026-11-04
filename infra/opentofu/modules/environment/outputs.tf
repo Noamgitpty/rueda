@@ -43,3 +43,14 @@ output "secret_arns" {
 output "database_endpoint" {
   value = aws_db_instance.this.address
 }
+
+output "backup" {
+  description = "Coffre et plan de sauvegarde de l'environnement ; coffre de copie hors compte (US-004)."
+  value = {
+    vault            = aws_backup_vault.this.name
+    plan             = aws_backup_plan.daily.id
+    copy_vault_arn   = var.backup_copy_vault_arn
+    alerts_topic     = aws_sns_topic.alerts.arn
+    metric_namespace = local.metric_namespace
+  }
+}

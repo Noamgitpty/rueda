@@ -53,3 +53,14 @@ variable "promotion_source_repository_arn" {
   description = "Registre d'images de la préproduction (sortie de l'environnement preproduction)."
   type        = string
 }
+
+variable "backup_copy_vault_arn" {
+  description = "Coffre de copie du compte de sauvegarde (sortie vault_arn de environments/backup)."
+  type        = string
+}
+
+variable "alert_email" {
+  description = "Adresse du fondateur abonnée aux alertes (renseignée dans le .tfvars non suivi)."
+  type        = string
+  default     = ""
+}

@@ -32,7 +32,8 @@ resource "aws_ecr_lifecycle_policy" "api" {
   })
 }
 
-# Journaux (17 §6.3) : JSON sur la sortie standard, 30 jours en ligne ; archivage 13 mois : US-004.
+# Journaux (17 §6.3) : JSON sur la sortie standard, 30 jours en ligne. Archivage 13 mois (OQ-BR-25,
+# coût) : reporté, docs/team/QUESTIONS.md (US-004). Filtres de métrique et alarmes : monitoring.tf.
 resource "aws_cloudwatch_log_group" "this" {
   for_each          = toset(["api", "worker", "migrate"])
   name              = "/${var.name_prefix}/${var.environment}/${each.key}"

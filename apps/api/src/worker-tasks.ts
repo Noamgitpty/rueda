@@ -10,6 +10,7 @@
  * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
  * | `risk_pruner`         | 1 h                                        | `core.risk_cmd_prune` (0047, US-052)                      |
  * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) |
+ * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
  * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
@@ -18,7 +19,13 @@
  *
  * Les tâches ne journalisent que des comptes, jamais d'identifiant ni de donnée personnelle (17 §6.3).
  */
-import type { BusRegistry, SqlClient, WorkerTransactions } from './modules/bus/index.js';
+import { LogAlertChannel, registerOpsMonitor } from './modules/bus/index.js';
+import type {
+  AlertChannel,
+  BusRegistry,
+  SqlClient,
+  WorkerTransactions,
+} from './modules/bus/index.js';
 import { registerProductionOracle } from './modules/avl/index.js';
 import { resolveParam } from './modules/cfg/index.js';
 import type { CountryConfig } from './modules/cfg/index.js';
@@ -96,6 +103,8 @@ export interface WorkerTaskDeps {
   /** Nom de marque des messages (donnée de thème, DEC-MARQUE ; `RUEDA_BRAND_NAME`). */
   readonly brandName: string;
   readonly log: WorkerLog;
+  /** Canal des alertes d'exploitation (US-004) ; par défaut, une ligne JSON sur `log`. */
+  readonly alerts?: AlertChannel;
   readonly now?: () => Date;
 }
 
@@ -143,6 +152,8 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   );
 
   registerProductionOracle(registry, deps.log);
+
+  registerOpsMonitor(registry, deps.alerts ?? new LogAlertChannel(deps.log), deps.log);
 
   registry.registerPeriodic(RISK_PRUNER_WORKER, d.riskPrunerPeriodSeconds, async (_p, tx) => {
     const { rows } = await tx.query<{ n: unknown }>('SELECT core.risk_cmd_prune($1, $2) AS n', [
