@@ -57,22 +57,7 @@ export const FR_PROTO = {
 
   'web.search.nearMe': 'Près de moi',
   'web.s01.kicker': 'Location entre particuliers · {country}',
-  'web.s01.title': 'Réserve la voiture d’un voisin.',
-  'web.s01.subtitle':
-    'Des voitures de vraies personnes près de toi, que tu vives ici ou que tu sois de passage.',
   'web.s01.rail.title': 'Des voitures de voisins près de toi',
-  'web.s01.how.title': 'Comment ça marche',
-  'web.s01.how.1': 'Trouve une voiture près de toi',
-  'web.s01.how.1.body':
-    'Des voitures de voisins, avec de vraies photos, des prix et des avis réels.',
-  'web.s01.how.2': 'Réserve auprès de son propriétaire',
-  'web.s01.how.2.body':
-    'Tu réserves et tu conviens avec l’hôte de l’endroit où il te remet la voiture.',
-  'web.s01.how.3': 'Récupère-la et profite',
-  'web.s01.how.3.body': 'Tu la récupères au point convenu et tu la rends au même endroit.',
-  'web.s01.owner.title': 'Gagne de l’argent avec ta voiture',
-  'web.s01.owner.body':
-    'Quand tu ne t’en sers pas, ta voiture peut dépanner un voisin et te rapporter un revenu en plus.',
   'web.s01.owner.days': { one: '{count} jour par mois', other: '{count} jours par mois' },
   'web.s01.owner.perMonth': 'par mois',
   'web.s01.owner.note':

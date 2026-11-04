@@ -4,11 +4,9 @@
  */
 import { createTranslator, getProfile } from '@rueda/i18n';
 import type { Translator } from '@rueda/i18n';
-import { paletteDocument } from '@rueda/design-tokens';
-import { BRAND_NAME } from '../../brand.ts';
+import { embeddedBrand } from '../../brand-source.ts';
 import { getRequestI18n } from '../../i18n.ts';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { getRequestTheme } from '../../theme.tsx';
 import { createCopy } from './copy/index.ts';
 import type { Copy, CopyKey, CopyValues } from './copy/index.ts';
 import { marketFor } from './data/scenario.ts';
@@ -35,17 +33,9 @@ export interface ScreenContext {
 
 type Params = Readonly<Record<string, string | string[] | undefined>>;
 
-/** Nom de marque lu dans la palette active (`brand.name`), repli sur `BRAND_NAME`. */
+/** Nom de marque de la coquille (US-048) : thème embarqué, sans appel réseau (prototype). */
 export function brandName(): string {
-  try {
-    const doc = paletteDocument(getRequestTheme().theme.id) as {
-      brand?: { name?: { $value?: unknown } };
-    };
-    const value = doc.brand?.name?.$value;
-    return typeof value === 'string' && value.trim() !== '' ? value : BRAND_NAME;
-  } catch {
-    return BRAND_NAME;
-  }
+  return embeddedBrand().name;
 }
 
 export async function screenContext(
