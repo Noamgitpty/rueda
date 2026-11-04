@@ -99,7 +99,10 @@ $fn$;
 COMMENT ON FUNCTION platform.declared_environment() IS
   'Environnement déclaré de la base, NULL si aucun (US-003). Lu seulement par platform.deployment_env().';
 
+-- propriétaire NOLOGIN (RLS-15) : il lui faut CREATE sur le schéma le temps du transfert (comme 0037)
+GRANT CREATE ON SCHEMA platform TO guard_owner;
 ALTER FUNCTION platform.declared_environment() OWNER TO guard_owner;
+REVOKE CREATE ON SCHEMA platform FROM guard_owner;
 REVOKE ALL ON FUNCTION platform.declared_environment() FROM PUBLIC;
 -- les rôles qui exécutent platform.deployment_env() (0028, 0040) : fonction SECURITY INVOKER
 GRANT EXECUTE ON FUNCTION platform.declared_environment()

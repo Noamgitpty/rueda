@@ -2,7 +2,62 @@
 # avec un fournisseur AWS simulé (mock_provider). Rien n'est créé chez un fournisseur. Les attendus
 # viennent de 17 §6.4 à §6.6 (Multi-AZ et protection en production, chiffrement, TLS), de C19 (aucun
 # FAKE) et de CLAUDE.md point 7 (interrupteurs de mise en service hors de l'IaC).
+# Le fournisseur valide le FORMAT des ARN passés en argument : les doubles rendent donc des ARN
+# plausibles (compte 111111111111, jamais un vrai compte).
 mock_provider "aws" {
+  mock_resource "aws_kms_key" {
+    defaults = {
+      arn    = "arn:aws:kms:us-east-1:111111111111:key/00000000-0000-0000-0000-00000000da7a"
+      key_id = "00000000-0000-0000-0000-00000000da7a"
+    }
+  }
+  mock_resource "aws_lb" {
+    defaults = {
+      arn      = "arn:aws:elasticloadbalancing:us-east-1:111111111111:loadbalancer/app/rueda/0000000000000000"
+      dns_name = "rueda.elb.invalid"
+    }
+  }
+  mock_resource "aws_lb_target_group" {
+    defaults = {
+      arn = "arn:aws:elasticloadbalancing:us-east-1:111111111111:targetgroup/rueda-api/0000000000000000"
+    }
+  }
+  mock_resource "aws_iam_role" {
+    defaults = {
+      arn = "arn:aws:iam::111111111111:role/rueda-test"
+    }
+  }
+  mock_resource "aws_secretsmanager_secret" {
+    defaults = {
+      arn = "arn:aws:secretsmanager:us-east-1:111111111111:secret:rueda-test-000000"
+    }
+  }
+  mock_resource "aws_s3_bucket" {
+    defaults = {
+      arn = "arn:aws:s3:::rueda-test"
+    }
+  }
+  mock_resource "aws_ecs_cluster" {
+    defaults = {
+      arn = "arn:aws:ecs:us-east-1:111111111111:cluster/rueda-test"
+      id  = "arn:aws:ecs:us-east-1:111111111111:cluster/rueda-test"
+    }
+  }
+  mock_resource "aws_ecs_task_definition" {
+    defaults = {
+      arn = "arn:aws:ecs:us-east-1:111111111111:task-definition/rueda-test:1"
+    }
+  }
+  mock_resource "aws_ecs_service" {
+    defaults = {
+      id = "arn:aws:ecs:us-east-1:111111111111:service/rueda-test/rueda-test"
+    }
+  }
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:111111111111:log-group:/rueda/test"
+    }
+  }
   mock_resource "aws_db_instance" {
     defaults = {
       address = "db.internal.invalid"
@@ -15,8 +70,18 @@ mock_provider "aws" {
   }
   mock_resource "aws_ecr_repository" {
     defaults = {
+      arn            = "arn:aws:ecr:us-east-1:111111111111:repository/rueda/api"
       repository_url = "111111111111.dkr.ecr.us-east-1.amazonaws.com/rueda/api"
     }
+  }
+}
+
+# La clé « files » distincte de la clé « data » (les assertions de chiffrement les distinguent).
+override_resource {
+  target = aws_kms_key.files
+  values = {
+    arn    = "arn:aws:kms:us-east-1:111111111111:key/00000000-0000-0000-0000-0000000f11e5"
+    key_id = "00000000-0000-0000-0000-0000000f11e5"
   }
 }
 
@@ -100,8 +165,8 @@ run "production" {
     error_message = "mot de passe d'administration géré par le service (ni dépôt, ni état)"
   }
   assert {
-    condition     = length(aws_kms_key.data.arn) > 0 && aws_kms_key.data.enable_key_rotation && aws_kms_key.files.enable_key_rotation
-    error_message = "deux clés KMS avec rotation (NN10)"
+    condition     = aws_kms_key.data.arn != aws_kms_key.files.arn && aws_kms_key.data.enable_key_rotation && aws_kms_key.files.enable_key_rotation
+    error_message = "deux clés KMS distinctes avec rotation (NN10)"
   }
   assert {
     condition     = length(aws_s3_bucket.this) == 2 && alltrue([for b in aws_s3_bucket.this : !b.force_destroy])
