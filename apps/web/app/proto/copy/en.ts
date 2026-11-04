@@ -671,7 +671,7 @@ export const EN_PROTO = {
   'web.a03.step.arrival': 'Arrival',
   'web.a03.step.license': 'License',
   'web.a03.step.photos': 'Photos',
-  'web.a03.step.keys': 'Keys',
+  'web.a03.step.handover': 'Keys',
   'web.a03.arrival.body': "When you're at the place, let {guest} know with “I'm here”.",
   'web.a03.license.intro': 'Ask {guest} for the physical license and check these 6 points:',
   'web.a03.refuse.reason.license': "The license isn't valid or has expired",

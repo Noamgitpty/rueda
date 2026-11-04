@@ -684,7 +684,7 @@ export const ES_PROTO = {
   'web.a03.step.arrival': 'Llegada',
   'web.a03.step.license': 'Licencia',
   'web.a03.step.photos': 'Fotos de salida',
-  'web.a03.step.keys': 'Llaves',
+  'web.a03.step.handover': 'Llaves',
   'web.a03.arrival.body': 'Cuando estés en el lugar, avísale a {guest} con «Ya llegué».',
   'web.a03.license.intro': 'Pide la licencia física a {guest} y revisa estos 6 puntos:',
   'web.a03.refuse.reason.license': 'La licencia no es válida o está vencida',

@@ -702,7 +702,7 @@ export const FR_PROTO = {
   'web.a03.step.arrival': 'Arrivée',
   'web.a03.step.license': 'Permis',
   'web.a03.step.photos': 'Photos',
-  'web.a03.step.keys': 'Clés',
+  'web.a03.step.handover': 'Clés',
   'web.a03.arrival.body': 'Une fois sur place, préviens {guest} avec « Je suis sur place ».',
   'web.a03.license.intro': 'Demande le permis physique à {guest} et vérifie ces 6 points :',
   'web.a03.refuse.reason.license': 'Le permis n’est pas valable ou a expiré',

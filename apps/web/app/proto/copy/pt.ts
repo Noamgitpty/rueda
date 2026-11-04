@@ -681,7 +681,7 @@ export const PT_PROTO = {
   'web.a03.step.arrival': 'Chegada',
   'web.a03.step.license': 'Carteira',
   'web.a03.step.photos': 'Fotos da saída',
-  'web.a03.step.keys': 'Chaves',
+  'web.a03.step.handover': 'Chaves',
   'web.a03.arrival.body': 'Quando estiver no local, avise {guest} com “Já cheguei”.',
   'web.a03.license.intro': 'Peça a carteira física a {guest} e confira estes 6 pontos:',
   'web.a03.refuse.reason.license': 'A carteira não é válida ou está vencida',

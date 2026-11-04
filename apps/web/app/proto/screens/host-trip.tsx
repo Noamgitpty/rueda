@@ -20,7 +20,7 @@ const HANDOVER = PHOTO_RULES.handover.slots;
 
 // ---------------------------------------------------------------- A03
 
-const A03_STEPS = ['arrival', 'license', 'photos', 'keys'] as const;
+const A03_STEPS = ['arrival', 'license', 'photos', 'handover'] as const;
 const A03_STEP_OF: Readonly<Record<string, number>> = {
   normal: 0,
   error: 0,
