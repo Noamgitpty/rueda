@@ -96,9 +96,12 @@ L'exercice (`packages/db/test/drill/restore-drill.test.ts`) enchaîne deux scén
 
 ### Mesures
 
-| Date                                                                                                          | Commit | Scénario | RPO mesuré | RTO mesuré | Cible (17 §6.4)                   |
-| ------------------------------------------------------------------------------------------------------------- | ------ | -------- | ---------- | ---------- | --------------------------------- |
-| (première mesure : rapport du job « reprise » de la PR d'US-051, reportée dans `restore-drill-baseline.json`) |        |          |            |            | RPO ≤ 1 h (exigé 24 h), RTO ≤ 8 h |
+Base de l'exercice : 960 lignes à T (PA et PY), sauvegarde de base en 0,59 s. Ces durées mesurent la **procédure** sur une petite base, pas le volume de la production : la cible définitive et une mesure sur un volume représentatif reviennent à US-112.
+
+| Date       | Commit                      | Scénario                                             | RPO mesuré                                       | RTO mesuré                                                    | Cible (17 §6.4)                               |
+| ---------- | --------------------------- | ---------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------- |
+| 2026-11-04 | `9d6f745` (run 41828640740) | A : restauration à l'instant T                       | 0,02 s (instant visé − dernière écriture rendue) | 2,86 s (restauration 1,48 + vérification 0,29 + bascule 1,09) | RPO ≤ 1 h (exigé 24 h), RTO ≤ 8 h : **tenus** |
+| 2026-11-04 | `9d6f745` (run 41828640740) | B : perte de l'instance, restauration au plus récent | 6,57 s (borné par `archive_timeout` = 30 s)      | 2,87 s (1,48 + 0,30 + 1,09)                                   | idem : **tenus**                              |
 
 ## En cas d'alerte de sauvegarde
 
