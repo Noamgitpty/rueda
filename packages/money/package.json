@@ -12,10 +12,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:oracle": "vitest run --config vitest.oracle.config.ts",
+    "test:mutation": "stryker run"
   },
   "devDependencies": {
     "@rueda/config": "workspace:*",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "26.6.5",
     "fast-check": "4.10.2",
     "typescript": "6.0.3",
