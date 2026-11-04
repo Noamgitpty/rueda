@@ -8,7 +8,7 @@
     "node": ">=26.13 <27"
   },
   "scripts": {
-    "lint": "eslint . && node packages/config/sql-clock/cli.ts && node packages/config/sql-env-guard/cli.ts && node packages/config/country-constants/cli.ts && node packages/design-tokens/lint/cli.ts",
+    "lint": "eslint . && node packages/config/sql-clock/cli.ts && node packages/config/sql-env-guard/cli.ts && node packages/config/country-constants/cli.ts && node packages/design-tokens/lint/cli.ts && node scripts/ci/check-env-inventory.mjs",
     "lint:sql": "node packages/config/sql-clock/cli.ts && node packages/config/sql-env-guard/cli.ts",
     "lint:country": "node packages/config/country-constants/cli.ts",
     "lint:style": "node packages/design-tokens/lint/cli.ts",
