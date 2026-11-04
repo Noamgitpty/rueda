@@ -40,13 +40,27 @@ L'API répond sur `http://127.0.0.1:3300` (`RUEDA_LOCAL_API_PORT`). Le journal e
 
 ## 4. Cloud : amorçage (une fois, par le fondateur)
 
-Rien de cette section n'est fait par un agent. Elle suppose les décisions de [QUESTIONS Q-007](../team/QUESTIONS.md) (hébergeur, région, budget, comptes) et le domaine (F-03).
+Rien de cette section n'est fait par un agent. Elle suppose les décisions de [QUESTIONS Q-007](../team/QUESTIONS.md) (hébergeur, région, budget, comptes) et le domaine (F-03). Décision : [ADR-084](../adr/ADR-084-porte-de-deploiement-production.md).
 
+**Ordre imposé** : l'étape 0 vient **avant** toute variable, tout secret et tout run du workflow `deploy`. Un run qui nomme un environnement inexistant le crée **sans protection**. Le pipeline refuse alors toute action en production (porte « accord du fondateur »), mais l'environnement reste à protéger.
+
+0. **Environnements GitHub protégés, en premier** (Settings → Environments, compte propriétaire du dépôt, jamais le compte des agents) :
+   - `production` : **approbateur requis = le fondateur**, et lui seul ; cocher « Prevent self-review » ; branches de déploiement : **`main` seulement** (« Selected branches »). Les 5 premiers déploiements au moins (`founder_approval_first_prod_deploys` = 5, OPERATING_RULES §2 d), et en pratique tous, ainsi que **tout retour arrière en production**, attendent son accord. Le compte des agents n'est **jamais** approbateur.
+   - `preproduction` : branches de déploiement `main` seulement ; aucun approbateur.
+   - Le fondateur **ne lance pas lui-même** un run de production : il ne pourrait pas l'approuver (la porte refuse l'auto-approbation, ADR-084). L'orchestrateur lance, le fondateur approuve.
+   - **`sub` OIDC personnalisé** du dépôt (lié au workflow, à la branche et à l'environnement) :
+
+     ```bash
+     gh api -X PUT repos/<propriétaire>/<dépôt>/actions/oidc/customization/sub \
+       --input - <<<'{"use_default":false,"include_claim_keys":["repo","context","ref","job_workflow_ref"]}'
+     ```
+
+     Sans ce réglage, le rôle AWS de déploiement refuse tout jeton (fail-closed).
 1. **Compte et garde-fous** : compte(s) AWS au nom de l'entité du fondateur, MFA, alertes de budget (F-02).
-2. **Fournisseur OIDC GitHub** dans chaque compte (`token.actions.githubusercontent.com`, audience `sts.amazonaws.com`) ; noter son ARN.
+2. **Fournisseur OIDC GitHub** dans chaque compte (`token.actions.githubusercontent.com`, audience `sts.amazonaws.com`) ; noter son ARN. Le rôle de déploiement n'accepte que le `sub` publié par la sortie `deploy_oidc_subject` (`repo:<dépôt>:environment:<env>:ref:refs/heads/main:job_workflow_ref:<dépôt>/.github/workflows/deploy.yml@refs/heads/main`). Au premier run, si l'étape AWS échoue (`Not authorized to perform sts:AssumeRoleWithWebIdentity`), comparer cette valeur au `sub` réel du jeton : n'élargir **jamais** la condition par un joker.
 3. **État OpenTofu** : un compartiment chiffré et versionné par compte ; décommenter le bloc `backend "s3"` de la racine de l'environnement.
 4. **Certificat TLS** du sous-domaine de l'environnement (ACM, validation DNS).
-5. **Autorité de certification de la base gérée** : ajouter le paquet de l'hébergeur à l'image et poser `NODE_EXTRA_CA_CERTS` (US-036). Sans lui, `PGSSLMODE=verify-full` refuse la connexion (fail-closed).
+5. **Autorité de certification de la base gérée** : déjà dans l'image (`docker/prod/certs/rds-global-bundle.pem`, paquet public « global » d'Amazon RDS, épinglé par sa somme SHA-256 dans le `Dockerfile` ; `NODE_EXTRA_CA_CERTS` posée ; contrôlée par `image-checks.sh`). Rien à faire, sauf si l'hébergeur n'est pas AWS (Q-007) : remplacer alors le paquet et sa somme dans la même PR, sous revue sécurité. Sans autorité valide, `PGSSLMODE=verify-full` refuse la connexion (fail-closed).
 6. **Variables** : copier `<env>.tfvars.example` en `<env>.tfvars` (non suivi), remplir. Puis :
 
    ```bash
@@ -57,8 +71,8 @@ Rien de cette section n'est fait par un agent. Elle suppose les décisions de [Q
    Le premier `image_digest` est celui d'une image construite par le pipeline (`build`), poussée dans le registre créé par ce même `apply` : appliquer d'abord avec la cible `-target=module.environment.aws_ecr_repository.api`, lancer `build`, puis appliquer le reste. Commiter `.terraform.lock.hcl`.
 
 7. **Secrets** (la seule action manuelle d'une reconstruction) : pour chaque contenant de la sortie `secret_arns`, saisir une valeur tirée au hasard (`openssl rand -hex 32`), sans l'afficher ni la copier ailleurs : `migrator_password`, `app_api_password`, `app_worker_password`, `app_anon_password`, `rate_limit_key` ; `staff_mfa_proof_key` le jour où la console staff s'ouvre (US-012). Le mot de passe d'administration de la base est géré par le service.
-8. **Environnements GitHub** `preproduction` et `production` : variables (aucun secret) `RUEDA_AWS_REGION`, `RUEDA_DEPLOY_ROLE_ARN`, `RUEDA_CLUSTER`, `RUEDA_REPOSITORY_URL`, `RUEDA_SUBNETS` (virgules), `RUEDA_APP_SECURITY_GROUP`, `RUEDA_EVIDENCE_BUCKET`, plus `RUEDA_SOURCE_REPOSITORY_URL` en production (registre de préproduction). Sur `production` : **approbateur requis = le fondateur**, branche `main` seulement (`founder_approval_first_prod_deploys` = 5, OPERATING_RULES §2 d).
-9. Recommencer 3 à 8 pour la production (`production.tfvars`, avec `promotion_source_repository_arn`).
+8. **Variables des environnements GitHub** (créés et protégés à l'étape 0 ; vérifier que la protection est toujours là) : posées **dans l'environnement**, jamais au niveau du dépôt, sans aucun secret : `RUEDA_AWS_REGION`, `RUEDA_DEPLOY_ROLE_ARN`, `RUEDA_CLUSTER`, `RUEDA_REPOSITORY_URL`, `RUEDA_SUBNETS` (virgules), `RUEDA_APP_SECURITY_GROUP`, `RUEDA_EVIDENCE_BUCKET`, plus `RUEDA_SOURCE_REPOSITORY_URL` en production (registre de préproduction).
+9. Recommencer 2 à 8 pour la production (`production.tfvars`, avec `promotion_source_repository_arn`).
 
 **Reconstruction de la préproduction** (critère 2) : `tofu destroy` puis `tofu apply` (compartiments et registre vidés avec, secrets réutilisables aussitôt), saisie des secrets (étape 7), `deploy preproduction <empreinte>`.
 
@@ -70,10 +84,22 @@ Depuis l'onglet Actions, workflow **deploy** (ou `gh workflow run deploy.yml -f 
 2. `action=deploy target=preproduction image_digest=<empreinte>` : job de base, bascule, stabilité. Vérifier le parcours en préproduction.
 3. Porte de production (OPERATING_RULES §2) : CI verte sur le commit, rapport « go » (US-408), puis `action=deploy target=production image_digest=<même empreinte>`. Le pipeline refuse une empreinte jamais déployée avec succès en préproduction ; l'environnement `production` attend l'accord du fondateur.
 
+**Porte « accord du fondateur »** (ADR-084) : toute action sur `production` (`deploy` et `rollback`) la franchit avant d'obtenir un identifiant AWS. `scripts/deploy/production-gate.mjs` lit l'API GitHub avec le jeton du job et exige quatre conditions :
+
+- l'environnement `production` existe ;
+- il exige au moins un approbateur ;
+- il restreint les branches ;
+- **ce** run a été approuvé par une personne, ni bot ni auteur du lancement ou de la relance.
+
+Si une condition manque, le run échoue sans rien toucher. Le rôle AWS n'est assumable que par `deploy.yml`, sur `refs/heads/main`, pour l'environnement visé.
+
 ## 6. Retour arrière
 
 - **Automatique** : une version non saine ne remplace pas la précédente (coupe-circuit ECS, script local). Le journal porte `DEPLOY FAILED` puis `ROLLBACK SUCCEEDED` (`reason: automatique`). Le run sort en erreur.
-- **Manuel** : `action=rollback target=<env>` (sans accord préalable ; l'orchestrateur notifie le fondateur). Ressert l'empreinte précédente du journal, sans job de base ni migration descendante. Journal : `ROLLBACK SUCCEEDED` (`reason: manuel`, `from` = empreinte retirée).
+- **Manuel** : `action=rollback target=<env>`. Il ressert l'empreinte précédente du journal, sans job de base ni migration descendante. Journal : `ROLLBACK SUCCEEDED` (`reason: manuel`, `from` = empreinte retirée).
+  - En **préproduction** : sans accord.
+  - En **production** : il passe par la **même porte d'approbation** qu'un déploiement (ADR-084). GitHub retient le job jusqu'à l'accord du fondateur, et la porte « accord du fondateur » le revérifie. L'orchestrateur lance le run et prévient aussitôt le fondateur, avec le motif et le lien du run.
+  - En cas d'incident, la version défectueuse reste servie jusqu'à l'accord. Le fondateur garde donc les notifications d'approbation actives.
 - **Si une migration est en cause** : ne jamais modifier une migration appliquée. Écrire une migration corrective (nouvelle version), la faire passer par la préproduction, puis déployer.
 - **Si le retour arrière échoue** (`ROLLBACK FAILED`) : incident ; le mode dégradé et l'astreinte sont décrits en 17 §6.4 (procédure d'incident : US-405). Sauvegardes et restauration : [`BACKUP_RESTORE.md`](BACKUP_RESTORE.md) ; alertes : [`MONITORING.md`](MONITORING.md) (US-004).
 

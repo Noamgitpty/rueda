@@ -237,6 +237,155 @@ run "production" {
   }
 }
 
+# --- Rôle de déploiement OIDC (ADR-084, revue sécurité US-003 constat 2) --------------------------
+# Évaluation SIMULÉE de la politique de confiance : chaque jeton candidat est écrit À LA MAIN, tel
+# que GitHub l'émet avec la personnalisation du `sub` (["repo", "context", "ref",
+# "job_workflow_ref"], DEPLOY.md §4 étape 2), jamais recalculé par le module. Un jeton est accepté
+# si et seulement si CHAQUE condition StringEquals égale l'affirmation du même nom ; la politique
+# n'a qu'une instruction, qu'une action, et aucun autre opérateur (ni StringLike, ni joker).
+run "oidc_production" {
+  command = plan
+
+  variables {
+    environment              = "production"
+    db_multi_az              = true
+    deletion_protection      = true
+    db_backup_retention_days = 14
+  }
+
+  assert {
+    condition = (
+      length(jsondecode(aws_iam_role.deploy.assume_role_policy).Statement) == 1
+      && jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Effect == "Allow"
+      && jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Action == "sts:AssumeRoleWithWebIdentity"
+      && jsonencode(keys(jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition)) == jsonencode(["StringEquals"])
+      && length(jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals) == 2
+      && !strcontains(aws_iam_role.deploy.assume_role_policy, "*")
+    )
+    error_message = "une seule instruction Allow AssumeRoleWithWebIdentity, conditions StringEquals sur aud et sub seulement, aucun joker"
+  }
+  assert {
+    # le jeton légitime : deploy.yml, sur main, environnement production
+    condition = alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:production:ref:refs/heads/main:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/heads/main"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "deploy.yml sur refs/heads/main, environnement production : accepté"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:production:ref:refs/heads/feature:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/heads/feature"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "AUTRE BRANCHE (deploy.yml lancé depuis refs/heads/feature) : refusé"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:production:ref:refs/heads/main:job_workflow_ref:owner/repo/.github/workflows/ci.yml@refs/heads/main"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "AUTRE WORKFLOW (ci.yml sur main, environnement production) : refusé"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:preproduction:ref:refs/heads/main:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/heads/main"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "AUTRE ENVIRONNEMENT (jeton de préproduction sur le rôle de production) : refusé"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:production"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "`sub` par défaut (personnalisation du dépôt absente) : refusé (fail-closed)"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:other/repo:environment:production:ref:refs/heads/main:job_workflow_ref:other/repo/.github/workflows/deploy.yml@refs/heads/main"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "AUTRE DÉPÔT (fourche) : refusé"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "https://github.com/owner"
+        sub = "repo:owner/repo:environment:production:ref:refs/heads/main:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/heads/main"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "AUTRE AUDIENCE : refusé"
+  }
+  assert {
+    condition     = output.deploy_oidc_subject == "repo:owner/repo:environment:production:ref:refs/heads/main:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/heads/main"
+    error_message = "la sortie deploy_oidc_subject publie le `sub` exigé (vérification du fondateur)"
+  }
+}
+
+run "oidc_preproduction" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:preproduction:ref:refs/heads/main:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/heads/main"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "préproduction : deploy.yml sur main, environnement preproduction, accepté"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:production:ref:refs/heads/main:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/heads/main"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "AUTRE ENVIRONNEMENT (jeton de production sur le rôle de préproduction) : refusé"
+  }
+  assert {
+    condition = !alltrue([
+      for k, v in jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals :
+      lookup(tomap({
+        aud = "sts.amazonaws.com"
+        sub = "repo:owner/repo:environment:preproduction:ref:refs/pull/1/merge:job_workflow_ref:owner/repo/.github/workflows/deploy.yml@refs/pull/1/merge"
+      }), trimprefix(k, "token.actions.githubusercontent.com:"), "") == v
+    ])
+    error_message = "AUTRE RÉFÉRENCE (demande de fusion) : refusé"
+  }
+}
+
+run "depot_avec_deux_points_refuse" {
+  command = plan
+
+  variables {
+    github_repository = "owner/repo:environment:production"
+  }
+
+  expect_failures = [var.github_repository]
+}
+
 # --- Sauvegardes et supervision (US-004, ADR-080) -------------------------------------------------
 # Critère : « Given la sauvegarde quotidienne, When elle se termine, Then une copie existe dans un
 # autre compte » : le plan quotidien copie chaque point de restauration dans le coffre d'un AUTRE
