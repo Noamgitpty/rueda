@@ -11,13 +11,14 @@
  * les octets reçus (17 §4.4). Console interne (US-012) : `RUEDA_STAFF_MFA_PROOF_KEY` (secret géré,
  * hexadécimal ; mal formée : refus de démarrer) et `RUEDA_STAFF_TOTP_ISSUER`. Anti-abus (US-052) :
  * `RUEDA_RATE_LIMIT_KEY` (secret géré, hexadécimal, 32 à 64 octets ; absente en production ou mal
- * formée : refus de démarrer).
+ * formée : refus de démarrer) et, le temps d'une rotation, `RUEDA_RATE_LIMIT_KEY_PREVIOUS`. Rotation
+ * du mot de passe de la base sans coupure (US-051) : `RUEDA_PGPASSWORD_NEXT` (db-pool.ts).
  */
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import pg from 'pg';
 import { ApiModule } from './api.module.js';
+import { createAppPool } from './db-pool.js';
 import { applyHttpHardening } from './http-hardening.js';
 import {
   CountryConfigService,
@@ -35,7 +36,9 @@ const DEFAULT_PORT = 3000;
 
 async function bootstrap(): Promise<void> {
   const trustProxy = parseTrustProxy(process.env['RUEDA_API_TRUST_PROXY']);
-  const pool = new pg.Pool({ application_name: 'rueda-api' });
+  // rotation sans coupure du mot de passe (US-051) : PGPASSWORD et, le temps d'une rotation,
+  // RUEDA_PGPASSWORD_NEXT (db-pool.ts)
+  const pool = createAppPool({ application_name: 'rueda-api' });
   const iam = await postgresIamAdapters(pool);
   const pay = await postgresPayAdapters(pool, process.env);
   // Console interne (US-012) : coffre TOTP indisponible tant qu'US-003 ne l'a pas livré et clé de

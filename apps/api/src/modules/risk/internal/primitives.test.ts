@@ -4,7 +4,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { decide, isRegular, lacksBrowserHeaders, RhythmTracker } from './bot-heuristics.js';
-import { normalizeIp, parseRateLimitKey, RateKeyHasher } from './key-hasher.js';
+import {
+  normalizeIp,
+  parsePreviousRateLimitKey,
+  parseRateLimitKey,
+  RateKeyHasher,
+} from './key-hasher.js';
 import { scopeOf } from './rate-limit.guard.js';
 
 describe('clé RUEDA_RATE_LIMIT_KEY', () => {
@@ -32,6 +37,35 @@ describe('clé RUEDA_RATE_LIMIT_KEY', () => {
     } catch (error) {
       expect(String(error)).not.toContain(secret);
     }
+  });
+});
+
+describe('ancienne clé RUEDA_RATE_LIMIT_KEY_PREVIOUS (rotation, US-051)', () => {
+  const current = Buffer.alloc(32, 3);
+
+  it('absente ou égale à la courante : aucune rotation ; mal formée : refus sans la valeur', () => {
+    expect(parsePreviousRateLimitKey(undefined, current)).toBeNull();
+    expect(parsePreviousRateLimitKey('', current)).toBeNull();
+    expect(parsePreviousRateLimitKey(current.toString('hex'), current)).toBeNull();
+    const secret = `${'ef'.repeat(31)}zz`;
+    expect(() => parsePreviousRateLimitKey(secret, current)).toThrow(
+      /RUEDA_RATE_LIMIT_KEY_PREVIOUS/,
+    );
+    try {
+      parsePreviousRateLimitKey(secret, current);
+    } catch (error) {
+      expect(String(error)).not.toContain(secret);
+    }
+  });
+
+  it('pendant la rotation : empreinte courante d’abord, puis l’ancienne', () => {
+    const previous = Buffer.alloc(32, 4);
+    const rotating = new RateKeyHasher(current, previous);
+    const [first, second] = rotating.hashes('ip', '192.0.2.1');
+    expect(first?.equals(new RateKeyHasher(current).hash('ip', '192.0.2.1'))).toBe(true);
+    expect(second?.equals(new RateKeyHasher(previous).hash('ip', '192.0.2.1'))).toBe(true);
+    expect(rotating.hash('ip', '192.0.2.1').equals(first as Buffer)).toBe(true);
+    expect(new RateKeyHasher(current).hashes('ip', '192.0.2.1')).toHaveLength(1);
   });
 });
 

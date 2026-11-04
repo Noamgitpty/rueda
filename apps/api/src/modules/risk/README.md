@@ -24,7 +24,7 @@ RISK ne pose pas lui-même les restrictions de compte : la table `core.iam_restr
 | Heuristiques anti-robot                                  | en-têtes de navigateur absents, rythme régulier, inscriptions en rafale ⇒ client ralenti (poids) ou défi exigé (`403 BOT_CHALLENGE_REQUIRED`) ; défi indisponible ⇒ refus           |
 | Tableau de sécurité                                      | `GET /console/security/abuse` (SUP), permission `security.read_abuse`, TOTP ; agrégats par heure sans empreinte                                                                     |
 
-Seuils : paramètres `rate_limit_*` **par pays** du registre CFG (graine `0046`), jamais des constantes. Une route sans pays prend la valeur la plus stricte des pays déclarés. Clés de compteur : HMAC-SHA-256 sous `RUEDA_RATE_LIMIT_KEY` (aucun téléphone, e-mail ni IP en clair). Horloge des fenêtres : `platform.now()`.
+Seuils : paramètres `rate_limit_*` **par pays** du registre CFG (graine `0046`), jamais des constantes. Une route sans pays prend la valeur la plus stricte des pays déclarés. Clés de compteur : HMAC-SHA-256 sous `RUEDA_RATE_LIMIT_KEY` (aucun téléphone, e-mail ni IP en clair) ; pendant une rotation (US-051, ADR-082), `RUEDA_RATE_LIMIT_KEY_PREVIOUS` fait compter chaque événement sous les deux empreintes (refus si l'une dépasse) : aucune limite n'est remise à zéro. Horloge des fenêtres : `platform.now()`.
 
 ## Entités
 

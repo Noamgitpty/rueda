@@ -381,6 +381,12 @@ Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge v
 - **Migration 0051** : permission `kyc.read_sensitive` (OPS_AGENT : dossier de sa file ; ADMIN : son pays ; PROPOSÉ) ; porte `core.iam_staff_cmd_data_access(jeton, requête, dossier, type de sujet, sujet, champ, type d'accès, motif)` (SECURITY DEFINER, `iam_staff_owner`, EXECUTE au seul `app_api`, RLS-15) : session, TOTP, permission dans le pays du `support_case` (relu en base), dossier ouvert et assigné (sauf ADMIN), `BREAK_GLASS` ⇔ dossier `BREAK_GLASS` ; sur GRANTED une ligne `data_access_log` puis une ligne chaînée `STAFF_DATA_ACCESS` ; refus journalisés sans ligne d'accès ; `READ_C2_SUPPORT` / `BULK_EXPORT` : 22023. `payment_webhook_inbox.processing_attempts` (UPDATE pour `app_worker`). `core.ops_monitor_metrics(depuis, échecs)` (SECURITY INVOKER, travailleur `ops_monitor`, sinon 42501 `ops_monitor_forbidden` → FORBIDDEN) : comptes seulement ; `ops_monitor` ajouté aux politiques SELECT de l'outbox, de la boîte de réception des webhooks et des opérations de paiement (ALTER POLICY).
 - **Preuves** : `test/l0/l0-us004-data-access.test.ts` (PA, PY : GRANTED, refus, 22023, inaltérable, chaîne vérifiable, lecture par `audit.read`) avec la fixture `9920` ; `test/l0/l0-us004-ops-monitor.test.ts` (PA, PY : 3 échecs, UNKNOWN > 30 min, alertes P1 de l'outbox, garde du travailleur) ; matrice d'autorisations (`ops_monitor`, `processing_attempts`).
 
+## Restauration testée et rotation des secrets (US-051 ; 16 ADM-032, ADM-035 ; 17 §6.4, §6.6 ; ADR-082)
+
+- **Migration 0052** : `core.iam_mfa_proof_key` admet une clé SUIVANTE (`id` 2) le temps d'une rotation ; `core.iam_staff_cmd_elevate` (SECURITY DEFINER, `iam_staff_owner`, corps de 0033 hors la lecture des clés) accepte la preuve sous l'une des clés installées ; `core.iam_mfa_proof_key_rotate(INSTALL | STAGE | PROMOTE | ABORT, clé)` (SECURITY INVOKER, sous `migrator` seulement, EXECUTE à personne) rend l'état (`CURRENT`, `CURRENT+NEXT`), jamais une clé. CLI : `node packages/db/src/rotation/cli.ts mfa-proof-key <action>` (`src/rotation/`). Fixture `9930` (gestes sous migrator dans une transaction annulée) ; preuve `test/l0/l0-us051-mfa-key-rotation.test.ts`.
+- **Vérification d'une base restaurée** (`src/restore/`, dans l'image) : `node packages/db/src/restore/cli.ts` ; contrôles `roles`, `rls`, `migrations`, `environment`, `l0-05`, `audit_chain`, `c12`, `money`, `occupancy` ; empreintes du catalogue de sécurité et des données. Variables : `docs/ops/ENV_VARS.md`.
+- **Exercice de restauration** (`test/drill/`, `vitest.drill.config.ts`, `pnpm --filter @rueda/db test:drill`) : lancé SEULEMENT par `scripts/ops/restore-drill.sh` (instance source aux journaux archivés) ; son `globalSetup` prépare une préproduction (job de base, puis fixtures) au lieu du banc ; il exécute les étapes de `docs/ops/BACKUP_RESTORE.md` telles qu'écrites et mesure RTO et RPO. Assertion L0-05 exigée comme ailleurs.
+
 ## Document du schéma et préfixes (US-038 ; 17 §3 ; ADR-079)
 
 - **`src/schema-doc.ts`** : lit le catalogue (`pg_catalog`) d'une base migrée et rend `docs/architecture/schema.md` (historique des migrations résumé par la première ligne de chaque fichier, rôles, schémas, tables avec RLS, droits, colonnes, contraintes, index, politiques et déclencheurs, vues, fonctions `SECURITY DEFINER` et autres). Rendu déterministe (aucun OID, tri par nom), testé sur un instantané fabriqué (`src/schema-doc.test.ts`).
@@ -404,6 +410,7 @@ pnpm test:unit   # sans base : correspondance des schémas, exécuteur (plan, so
 pnpm test:int    # PostgreSQL réel : banc, migrations, droits minimaux, transaction de test
 pnpm test:l0     # preuves L0 sous les rôles de production
 pnpm --filter @rueda/db test:c11   # fuzz C11 (1 000 exécutions par défaut) et oracle C12
+bash scripts/ops/restore-drill.sh  # exercice de restauration chronométré (Docker ; lance test:drill)
 ```
 
 Variables (noms seulement, inventaire : `docs/ops/ENV_VARS.md`) :

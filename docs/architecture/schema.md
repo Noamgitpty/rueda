@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 52 migrations ; 65 tables ; 2 vues ; 334 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 88 autres fonctions.
+- 53 migrations ; 65 tables ; 2 vues ; 334 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 89 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -67,6 +67,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0049_staff_read_access_outcome` | Console : issue d'accès des lectures du staff (403 au lieu d'une liste vide). |
 | `0050_platform_environment_declaration` | Environnement de déploiement DÉCLARÉ (US-003, ADR-078 ; 17 §6.5 point 1, C19). |
 | `0051_audit_staff_data_access_ops_monitor` | AUD : lectures de données personnelles par le staff journalisées ; supervision. |
+| `0052_iam_mfa_proof_key_rotation` | IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff. |
 
 ## Rôles
 
@@ -1284,7 +1285,7 @@ Contraintes :
 
 - `mfa_proof_key_length` : `CHECK (octet_length(key) >= 32 AND octet_length(key) <= 64)`
 - `mfa_proof_key_pkey` : `PRIMARY KEY (id)`
-- `mfa_proof_key_single` : `CHECK (id = 1)`
+- `mfa_proof_key_slot` : `CHECK (id = ANY (ARRAY[1, 2]))`
 
 Politiques RLS :
 
@@ -3256,6 +3257,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.config_versioned_row_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.iam_hmac_sha256(p_key bytea, p_msg bytea)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_mfa_proof(p_key bytea, p_token_hash bytea, p_factor_id uuid, p_step bigint)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.iam_mfa_proof_key_rotate(p_action text, p_key bytea)` | `text` | `migrator` | migrator: EXECUTE |
 | `core.iam_session_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.iam_staff_audit(p_actor uuid, p_role text, p_action text, p_subject_type text, p_subject_id uuid, p_before jsonb, p_after jsonb, p_reason text, p_request_id uuid)` | `bigint` | `migrator` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_staff_audit_countries(p_actor uuid, p_subject_type text, p_subject_id uuid, p_before jsonb, p_after jsonb)` | `text[]` | `migrator` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
