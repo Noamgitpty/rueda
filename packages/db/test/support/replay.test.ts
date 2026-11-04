@@ -4,7 +4,7 @@
  * finale, traduite sans `DETAIL` ; percentile par rang le plus proche.
  */
 import { describe, expect, it } from 'vitest';
-import { MAX_REPLAYS, percentile, withReplay } from './replay.ts';
+import { cascadeBackoff, MAX_REPLAYS, percentile, SHORT_BACKOFF, withReplay } from './replay.ts';
 
 const pgError = (code: string, constraint?: string) =>
   Object.assign(new Error(`sqlstate ${code}`), { code, constraint, detail: 'Key (x)=(secret)' });
@@ -74,5 +74,46 @@ describe('withReplay (17 §2.5 « Reprise »)', () => {
     });
     expect(r.error).toBe('INTERNAL_ERROR');
     expect(r.replays).toBe(0);
+  });
+});
+
+describe('attente avant rejeu', () => {
+  it('défaut de 17 §2.5 : aléatoire courte, 5 à 50 ms', () => {
+    for (let i = 0; i < 200; i++) {
+      const ms = SHORT_BACKOFF(1);
+      expect(ms).toBeGreaterThanOrEqual(5);
+      expect(ms).toBeLessThan(50);
+    }
+  });
+
+  it('injection (ADR-056) : [B, 1,5 B[ avec B = 2 × degré × deadlock_timeout', () => {
+    const backoff = cascadeBackoff(100, 50); // B = 10 000 ms
+    for (let replay = 1; replay <= MAX_REPLAYS; replay++) {
+      for (let i = 0; i < 100; i++) {
+        const ms = backoff(replay);
+        expect(ms).toBeGreaterThanOrEqual(10_000);
+        expect(ms).toBeLessThan(15_000);
+      }
+    }
+    expect(() => cascadeBackoff(0, 50)).toThrow(RangeError);
+    expect(() => cascadeBackoff(100, 0)).toThrow(RangeError);
+  });
+
+  it('withReplay applique l’attente fournie, numérotée par rejeu, sans changer le plafond', async () => {
+    const asked: number[] = [];
+    let calls = 0;
+    const r = await withReplay(
+      async () => {
+        calls++;
+        throw pgError('40P01');
+      },
+      (replay) => {
+        asked.push(replay);
+        return 0;
+      },
+    );
+    expect(asked).toEqual([1, 2, 3]);
+    expect(calls).toBe(MAX_REPLAYS + 1);
+    expect(r).toMatchObject({ error: 'RETRY', deadlocks: 4, replays: 3 });
   });
 });

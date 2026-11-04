@@ -10,6 +10,36 @@ import type { DbBusinessCode } from '../../src/errors.ts';
 /** Reprise de 17 §2.5 : au plus 3 rejeux, attente aléatoire courte. */
 export const MAX_REPLAYS = 3;
 
+/**
+ * Attente avant le rejeu n° `replay` (1 à `MAX_REPLAYS`), en ms. Défaut de 17 §2.5 : aléatoire
+ * courte, 5 à 50 ms.
+ */
+export type ReplayBackoff = (replay: number) => number;
+
+/** Attente de 17 §2.5 : aléatoire courte (5 à 50 ms). */
+export const SHORT_BACKOFF: ReplayBackoff = () => randomInt(5, 50);
+
+/**
+ * Attente du cas d'injection de L0-02 (C1 sans verrou par véhicule, ADR-056, « Issue
+ * déterministe de l'injection ») : aléatoire dans [B, 1,5 B[, avec B = 2 × `degree` ×
+ * `deadlockTimeoutMs`.
+ *
+ * Sans le verrou, `degree` poses en attente mutuelle dans l'index d'exclusion ne se résolvent
+ * qu'**une par une**, à raison d'un `40P01` par `deadlock_timeout` : la file se vide en
+ * (`degree` − 1) × `deadlock_timeout` au plus, au rythme mesuré. Une victime qui revient avant
+ * la fin de cette vidange réinsère un tuple en cours et rentre dans la file : avec l'attente courte,
+ * la file ne se vide qu'une fois les 3 rejeux épuisés (CI : 398 `40P01`, 99 `RETRY`). Une victime
+ * qui revient après la vidange voit le hold gagnant validé et reçoit `23P01` aussitôt. Le facteur 2
+ * couvre un rythme jusqu'à deux fois plus lent que `deadlock_timeout` ; la gigue étale les retours.
+ */
+export function cascadeBackoff(degree: number, deadlockTimeoutMs: number): ReplayBackoff {
+  if (!Number.isInteger(degree) || degree < 1 || !(deadlockTimeoutMs > 0)) {
+    throw new RangeError(`cascadeBackoff : degré ${degree}, deadlock_timeout ${deadlockTimeoutMs}`);
+  }
+  const base = 2 * degree * deadlockTimeoutMs;
+  return () => base + randomInt(0, Math.max(1, Math.floor(base / 2)));
+}
+
 const isPgError = (e: unknown): e is { code: string; constraint?: string } =>
   typeof e === 'object' && e !== null && typeof (e as { code?: unknown }).code === 'string';
 
@@ -45,9 +75,13 @@ export interface Replayed<T> {
 /**
  * Reprise de 17 §2.5 (VERIF_16-M2) : une transaction qui reçoit `40P01` ou `40001` est annulée
  * en entier (par `fn` : `withTestTransaction` fait le `ROLLBACK`) puis rejouée, au plus
- * `MAX_REPLAYS` fois, après une attente aléatoire courte. Toute autre erreur est finale.
+ * `MAX_REPLAYS` fois, après une attente (`backoff`, par défaut aléatoire courte). Toute autre
+ * erreur est finale. Le plafond de rejeux ne dépend pas de l'attente.
  */
-export async function withReplay<T>(fn: () => Promise<T>): Promise<Replayed<T>> {
+export async function withReplay<T>(
+  fn: () => Promise<T>,
+  backoff: ReplayBackoff = SHORT_BACKOFF,
+): Promise<Replayed<T>> {
   const started = performance.now();
   let deadlocks = 0;
   let serializationFailures = 0;
@@ -76,7 +110,7 @@ export async function withReplay<T>(fn: () => Promise<T>): Promise<Replayed<T>> 
           ms: performance.now() - started,
         };
       }
-      await sleep(randomInt(5, 50));
+      await sleep(backoff(attempt + 1));
     }
   }
 }
