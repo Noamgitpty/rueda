@@ -74,11 +74,11 @@
 
 **Mesure.** Un job temporaire de la PR #71 a fait tourner L0-02 seul (run 41773231112, 6 passages). Chaque passage enchaînait 20 courses de 100 poses par pays sur les mêmes connexions, avec la chauffe d'alors (une pose annulée par connexion), et consignait les temps bruts. Le job a ensuite été retiré. Résultats, en p95 par course :
 
-| Rang de la course (exécution de la commande par connexion)    | PA : médiane (min – max) | PY : médiane (min – max) |
-| ------------------------------------------------------------- | ------------------------ | ------------------------ |
-| course 0 (2e exécution)                                       | 247 (205 – 269)          | 270 (203 – 309)          |
-| courses 1 à 4 (3e à 6e)                                       | 203 (126 – 239)          | 189 (149 – 271)          |
-| courses 5 à 19 (7e et suivantes)                              | 132 (90 – 202)           | 125 (84 – 209)           |
+| Rang de la course (exécution de la commande par connexion) | PA : médiane (min – max) | PY : médiane (min – max) |
+| ---------------------------------------------------------- | ------------------------ | ------------------------ |
+| course 0 (2e exécution)                                    | 247 (205 – 269)          | 270 (203 – 309)          |
+| courses 1 à 4 (3e à 6e)                                    | 203 (126 – 239)          | 189 (149 – 271)          |
+| courses 5 à 19 (7e et suivantes)                           | 132 (90 – 202)           | 125 (84 – 209)           |
 
 Le p95 baisse d'environ 70 ms d'un coup, à partir de la 7e exécution de la commande sur une connexion, puis ne baisse plus. Les 6 passages montrent la même marche.
 
