@@ -23,8 +23,9 @@ import { AppModule } from './app.module.js';
 import {
   BusMetrics,
   BusRegistry,
+  ChannelAlerter,
   JobRunner,
-  LogAlerter,
+  LogAlertChannel,
   OutboxRelay,
   PeriodicScheduler,
   workerTransactions,
@@ -77,17 +78,21 @@ async function bootstrap(): Promise<void> {
 
     const transactions = workerTransactions(async () => leased(await pool.connect()));
     const registry = new BusRegistry();
+    // alertes d'exploitation (US-004, ADR-080) : une ligne JSON `ops.alert` sur la sortie
+    // d'erreur, transformée en notification par l'hébergeur (IaC, monitoring.tf)
+    const alerts = new LogAlertChannel();
     registerWorkerTasks(registry, {
       transactions,
       config: app.get(CountryConfigService).config,
       brandName,
       log,
+      alerts,
     });
     const loop = new WorkerLoop(
       {
         registry,
         relay: new OutboxRelay(transactions, registry),
-        runner: new JobRunner(transactions, registry, new LogAlerter()),
+        runner: new JobRunner(transactions, registry, new ChannelAlerter(alerts)),
         scheduler: new PeriodicScheduler(transactions, registry),
         metrics: new BusMetrics(transactions),
       },

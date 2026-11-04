@@ -36,6 +36,8 @@ export interface MemoryInboxRow {
   readonly events: readonly NormalizedPaymentEvent[];
   status: 'RECEIVED' | 'QUARANTINED' | 'PROCESSED' | 'FAILED' | 'REJECTED_SIGNATURE';
   error: string | null;
+  /** Passages en échec (QUARANTINED, FAILED), comme `processing_attempts` (0051, US-004). */
+  processingAttempts: number;
   readonly receivedAtMs: number;
 }
 
@@ -134,6 +136,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
       events: status === 'REJECTED_SIGNATURE' ? [] : input.events,
       status,
       error: status === 'QUARANTINED' ? 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE' : null,
+      processingAttempts: 0,
       receivedAtMs: now,
     });
     return Promise.resolve({ outcome: status, inboxId: id });
@@ -215,6 +218,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
     if (row !== undefined) {
       row.status = status;
       row.error = error;
+      if (status !== 'PROCESSED') row.processingAttempts += 1;
     }
     return Promise.resolve();
   }

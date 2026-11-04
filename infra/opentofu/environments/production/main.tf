@@ -51,6 +51,12 @@ module "environment" {
   github_oidc_provider_arn = var.github_oidc_provider_arn
   # promotion : la même empreinte, copiée du registre de préproduction (jamais reconstruite)
   promotion_source_repository_arn = var.promotion_source_repository_arn
+  # sauvegardes et alertes (US-004, ADR-080) : copie quotidienne hors compte et hors région
+  # obligatoire ; rétentions PROPOSÉES (décision d'argent du fondateur, QUESTIONS.md)
+  backup_retention_days      = 35
+  backup_copy_vault_arn      = var.backup_copy_vault_arn
+  backup_copy_retention_days = 35
+  alert_email                = var.alert_email
 }
 
 output "environment" {

@@ -155,3 +155,52 @@ variable "promotion_source_repository_arn" {
   type        = string
   default     = ""
 }
+
+# --- Sauvegardes et supervision (US-004, ADR-080) -------------------------------------------------
+
+variable "backup_retention_days" {
+  description = "Rétention des sauvegardes quotidiennes dans le coffre de l'environnement (production : 7 au moins)."
+  type        = number
+  validation {
+    condition     = var.backup_retention_days >= 1 && floor(var.backup_retention_days) == var.backup_retention_days
+    error_message = "backup_retention_days : entier ≥ 1."
+  }
+}
+
+variable "backup_copy_vault_arn" {
+  description = "Coffre de copie dans un AUTRE compte et une AUTRE région (sortie de la racine environments/backup) ; vide = aucune copie (refusé en production)."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.backup_copy_vault_arn == "" || can(regex("^arn:aws:backup:[a-z]{2}-[a-z]+-[0-9]:[0-9]{12}:backup-vault:[A-Za-z0-9_.-]{2,50}$", var.backup_copy_vault_arn))
+    error_message = "backup_copy_vault_arn : arn:aws:backup:<région>:<compte>:backup-vault:<nom>, ou vide."
+  }
+}
+
+variable "backup_copy_retention_days" {
+  description = "Rétention des copies hors compte (décision d'argent du fondateur, QUESTIONS.md ; PROPOSÉ : 35)."
+  type        = number
+  default     = 35
+  validation {
+    condition     = var.backup_copy_retention_days >= 1 && floor(var.backup_copy_retention_days) == var.backup_copy_retention_days
+    error_message = "backup_copy_retention_days : entier ≥ 1."
+  }
+}
+
+variable "alert_email" {
+  description = "Adresse abonnée au sujet des alertes (fondateur ; renseignée dans le .tfvars non suivi, jamais dans le dépôt). Vide : aucun abonnement."
+  type        = string
+  default     = ""
+}
+
+variable "api_5xx_threshold" {
+  description = "Erreurs 5xx de l'API sur 5 min qui déclenchent l'alarme (PROPOSÉ)."
+  type        = number
+  default     = 10
+}
+
+variable "api_p95_latency_seconds" {
+  description = "Latence p95 de l'API (s) au-delà de laquelle l'alarme part après 15 min (17 §6.7 : 0,8 s pour la recherche, PROPOSÉ)."
+  type        = number
+  default     = 0.8
+}

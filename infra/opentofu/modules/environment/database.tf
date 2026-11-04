@@ -3,7 +3,10 @@
 # d'administration est GÉRÉ par le service (secret du coffre chiffré par la clé « data ») : il
 # n'apparaît ni dans le dépôt, ni dans l'état OpenTofu. Le job de base (packages/db/src/deploy/) le
 # lit pour l'amorçage des rôles ; les rôles applicatifs ont leurs propres secrets (secrets.tf).
-# Copie des sauvegardes dans un autre compte et une autre région (17 §6.4) : US-004.
+# Sauvegardes (US-004, ADR-080) : restauration à un instant donné par les sauvegardes automatiques
+# du service (rétention db_backup_retention_days), plus le plan quotidien d'AWS Backup avec copie
+# dans un AUTRE compte et une AUTRE région (backup.tf, 17 §6.4). En production, les sauvegardes
+# automatiques survivent à la suppression de l'instance.
 resource "aws_db_subnet_group" "this" {
   name       = local.name
   subnet_ids = aws_subnet.private[*].id
@@ -47,6 +50,7 @@ resource "aws_db_instance" "this" {
   publicly_accessible                 = false
   iam_database_authentication_enabled = false
   backup_retention_period             = var.db_backup_retention_days
+  delete_automated_backups            = !local.production
   copy_tags_to_snapshot               = true
   auto_minor_version_upgrade          = true
   apply_immediately                   = false

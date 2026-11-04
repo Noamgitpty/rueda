@@ -48,3 +48,15 @@ variable "github_repository" {
 variable "github_oidc_provider_arn" {
   type = string
 }
+
+variable "backup_copy_vault_arn" {
+  description = "Coffre de copie du compte de sauvegarde (sortie vault_arn de environments/backup) ; vide = aucune copie."
+  type        = string
+  default     = ""
+}
+
+variable "alert_email" {
+  description = "Adresse du fondateur abonnée aux alertes (renseignée dans le .tfvars non suivi)."
+  type        = string
+  default     = ""
+}

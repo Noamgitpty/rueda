@@ -154,16 +154,18 @@ jobs:
             378ada19d4bc70c43732004e8159be771b23b9a5afdf059e5f8a2b3fa2c70a69
       - name: format
         run: tofu fmt -check -recursive -diff infra/opentofu
-      - name: module (init sans état, validate, tofu test)
-        working-directory: infra/opentofu/modules/environment
+      # US-004 (ADR-080) : chaque module a ses preuves `tofu test` (environment, backup-vault) ;
+      # chaque racine (dont le compte de sauvegarde) est validée.
+      - name: modules (init sans état, validate, tofu test)
         run: |
-          tofu init -backend=false -input=false
-          tofu validate
-          tofu test
+          set -euo pipefail
+          for module in environment backup-vault; do
+            (cd "infra/opentofu/modules/$module" && tofu init -backend=false -input=false && tofu validate && tofu test)
+          done
       - name: environnements (init sans état, validate)
         run: |
           set -euo pipefail
-          for env in preproduction production; do
+          for env in preproduction production backup; do
             (cd "infra/opentofu/environments/$env" && tofu init -backend=false -input=false && tofu validate)
           done
 

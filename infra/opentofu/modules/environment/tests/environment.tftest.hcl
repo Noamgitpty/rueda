@@ -60,12 +60,28 @@ mock_provider "aws" {
   }
   mock_resource "aws_db_instance" {
     defaults = {
+      arn     = "arn:aws:rds:us-east-1:111111111111:db:rueda-test"
       address = "db.internal.invalid"
       master_user_secret = [{
         secret_arn    = "arn:aws:secretsmanager:us-east-1:111111111111:secret:rds-admin-000000"
         kms_key_id    = "arn:aws:kms:us-east-1:111111111111:key/00000000-0000-0000-0000-000000000000"
         secret_status = "active"
       }]
+    }
+  }
+  mock_resource "aws_sns_topic" {
+    defaults = {
+      arn = "arn:aws:sns:us-east-1:111111111111:rueda-test-alerts"
+    }
+  }
+  mock_resource "aws_backup_vault" {
+    defaults = {
+      arn = "arn:aws:backup:us-east-1:111111111111:backup-vault:rueda-test"
+    }
+  }
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "111111111111"
     }
   }
   mock_resource "aws_ecr_repository" {
@@ -102,6 +118,9 @@ variables {
   api_desired_count        = 1
   github_repository        = "owner/repo"
   github_oidc_provider_arn = "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"
+  backup_retention_days    = 7
+  # coffre de copie : AUTRE compte (222222222222) et AUTRE région (us-west-2), jamais un vrai compte
+  backup_copy_vault_arn = "arn:aws:backup:us-west-2:222222222222:backup-vault:rueda-backup-copy"
 }
 
 run "preproduction" {
@@ -150,6 +169,7 @@ run "production" {
     deletion_protection      = true
     evidence_lock_days       = 400
     api_desired_count        = 2
+    backup_retention_days    = 35
   }
 
   assert {
@@ -206,6 +226,158 @@ run "production" {
     ])
     error_message = "conteneurs non root, système de fichiers en lecture seule"
   }
+}
+
+# --- Sauvegardes et supervision (US-004, ADR-080) -------------------------------------------------
+# Critère : « Given la sauvegarde quotidienne, When elle se termine, Then une copie existe dans un
+# autre compte » : le plan quotidien copie chaque point de restauration dans le coffre d'un AUTRE
+# compte et d'une AUTRE région ; en production, un plan sans copie hors compte est refusé.
+run "sauvegardes_production" {
+  command = apply
+
+  variables {
+    environment              = "production"
+    db_instance_class        = "db.t4g.small"
+    db_multi_az              = true
+    db_backup_retention_days = 14
+    deletion_protection      = true
+    evidence_lock_days       = 400
+    api_desired_count        = 2
+    backup_retention_days    = 35
+    alert_email              = "alertes@example.invalid"
+  }
+
+  assert {
+    condition     = aws_db_instance.this.backup_retention_period >= 7 && !aws_db_instance.this.delete_automated_backups
+    error_message = "restauration à un instant donné : 7 jours au moins, gardés après suppression de l'instance"
+  }
+  assert {
+    condition     = one(aws_backup_plan.daily.rule).schedule == "cron(0 5 * * ? *)" && one(one(aws_backup_plan.daily.rule).lifecycle).delete_after == 35
+    error_message = "sauvegarde quotidienne, conservée backup_retention_days"
+  }
+  assert {
+    condition     = one(one(aws_backup_plan.daily.rule).copy_action).destination_vault_arn == var.backup_copy_vault_arn
+    error_message = "chaque sauvegarde quotidienne est copiée dans le coffre de copie"
+  }
+  assert {
+    condition     = split(":", one(one(aws_backup_plan.daily.rule).copy_action).destination_vault_arn)[4] != data.aws_caller_identity.current.account_id
+    error_message = "la copie est dans un AUTRE compte"
+  }
+  assert {
+    condition     = split(":", one(one(aws_backup_plan.daily.rule).copy_action).destination_vault_arn)[3] != var.region
+    error_message = "la copie est dans une AUTRE région"
+  }
+  assert {
+    condition     = one(one(one(aws_backup_plan.daily.rule).copy_action).lifecycle).delete_after == 35
+    error_message = "copie conservée backup_copy_retention_days (PROPOSÉ : 35)"
+  }
+  assert {
+    condition     = contains(aws_backup_selection.data.resources, aws_db_instance.this.arn) && alltrue([for b in aws_s3_bucket.this : contains(aws_backup_selection.data.resources, b.arn)])
+    error_message = "la base et les deux compartiments sont sauvegardés"
+  }
+  assert {
+    condition     = aws_backup_vault.this.kms_key_arn == aws_kms_key.data.arn && !aws_backup_vault.this.force_destroy && length(aws_backup_vault_lock_configuration.this) == 1
+    error_message = "coffre chiffré par la clé « data », jamais détruit avec son contenu, verrouillé en production"
+  }
+  assert {
+    condition     = strcontains(aws_kms_key.data.policy, "arn:aws:iam::222222222222:root") && strcontains(aws_kms_key.data.policy, "arn:aws:iam::111111111111:root")
+    error_message = "clé « data » : administrée par le compte, lisible par le compte de copie (copie entre comptes)"
+  }
+  assert {
+    condition     = aws_sns_topic.alerts.kms_master_key_id == aws_kms_key.alerts.arn && length(aws_sns_topic_subscription.email) == 1
+    error_message = "sujet des alertes chiffré, adresse du fondateur abonnée"
+  }
+  assert {
+    condition     = alltrue([for a in values(aws_cloudwatch_metric_alarm.ops_alert) : contains(a.alarm_actions, aws_sns_topic.alerts.arn)])
+    error_message = "les alarmes des alertes de l'application notifient le sujet des alertes"
+  }
+  assert {
+    condition     = alltrue([for a in [aws_cloudwatch_metric_alarm.worker_heartbeat, aws_cloudwatch_metric_alarm.api_healthy_hosts, aws_cloudwatch_metric_alarm.api_5xx, aws_cloudwatch_metric_alarm.api_latency_p95, aws_cloudwatch_metric_alarm.db_cpu, aws_cloudwatch_metric_alarm.db_free_storage] : contains(a.alarm_actions, aws_sns_topic.alerts.arn)])
+    error_message = "les alarmes de santé (travailleur, API, base) notifient le sujet des alertes"
+  }
+  assert {
+    condition     = aws_cloudwatch_metric_alarm.worker_heartbeat.treat_missing_data == "breaching" && aws_cloudwatch_metric_alarm.api_healthy_hosts.treat_missing_data == "breaching"
+    error_message = "un travailleur muet ou une API sans cible saine déclenche l'alarme (fail-closed)"
+  }
+  assert {
+    condition     = strcontains(aws_cloudwatch_log_metric_filter.ops_alert["p1"].pattern, "ops.alert") && strcontains(aws_cloudwatch_log_metric_filter.ops_alert["p1"].pattern, "P1")
+    error_message = "les alertes de l'application (port AlertChannel) deviennent une métrique par sévérité"
+  }
+  assert {
+    condition     = contains(jsondecode(aws_cloudwatch_event_rule.backup_failed.event_pattern)["detail-type"], "Copy Job State Change") && aws_cloudwatch_event_target.backup_failed.arn == aws_sns_topic.alerts.arn
+    error_message = "un échec de sauvegarde ou de copie hors compte alerte"
+  }
+}
+
+run "preproduction_sans_copie_permise" {
+  command = plan
+
+  variables {
+    backup_copy_vault_arn = ""
+  }
+
+  assert {
+    condition     = length(one(aws_backup_plan.daily.rule).copy_action) == 0 && length(aws_backup_vault_lock_configuration.this) == 0
+    error_message = "préproduction : copie hors compte facultative (coût), coffre non verrouillé"
+  }
+}
+
+run "production_sans_copie_hors_compte_refusee" {
+  command = plan
+
+  variables {
+    environment              = "production"
+    db_multi_az              = true
+    deletion_protection      = true
+    db_backup_retention_days = 14
+    backup_copy_vault_arn    = ""
+  }
+
+  expect_failures = [aws_backup_plan.daily]
+}
+
+run "copie_dans_le_meme_compte_refusee" {
+  command = plan
+
+  variables {
+    backup_copy_vault_arn = "arn:aws:backup:us-west-2:111111111111:backup-vault:rueda-backup-copy"
+  }
+
+  expect_failures = [aws_backup_plan.daily]
+}
+
+run "copie_dans_la_meme_region_refusee" {
+  command = plan
+
+  variables {
+    backup_copy_vault_arn = "arn:aws:backup:us-east-1:222222222222:backup-vault:rueda-backup-copy"
+  }
+
+  expect_failures = [aws_backup_plan.daily]
+}
+
+run "production_retention_courte_refusee" {
+  command = plan
+
+  variables {
+    environment              = "production"
+    db_multi_az              = true
+    deletion_protection      = true
+    db_backup_retention_days = 14
+    backup_retention_days    = 3
+  }
+
+  expect_failures = [aws_backup_plan.daily]
+}
+
+run "coffre_de_copie_mal_forme_refuse" {
+  command = plan
+
+  variables {
+    backup_copy_vault_arn = "arn:aws:s3:::pas-un-coffre"
+  }
+
+  expect_failures = [var.backup_copy_vault_arn]
 }
 
 run "aucun_fake_ni_interrupteur_dans_l_iac" {

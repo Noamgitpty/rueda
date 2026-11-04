@@ -1,0 +1,4 @@
+# Copier en backup.tfvars (non suivi) et remplir. AUCUN secret ici. Valeurs d'exemple, invalides
+# telles quelles.
+aws_account_id     = "000000000000"
+source_account_ids = ["000000000001", "000000000002"]
