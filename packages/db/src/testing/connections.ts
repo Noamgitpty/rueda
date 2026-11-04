@@ -19,9 +19,9 @@ import type { BenchInfo } from './bench.ts';
 
 /**
  * `injection` : réservée au cas « sans verrou » de L0-02 (ADR-056) ; `fuzz` : réservée au fuzz C11
- * et à l'oracle C12 (US-025, ADR-068).
+ * et à l'oracle C12 (US-025, ADR-068) ; `migrations` : réservée au test des migrations (US-046).
  */
-export type BenchDatabase = 'main' | 'production' | 'injection' | 'fuzz';
+export type BenchDatabase = 'main' | 'production' | 'injection' | 'fuzz' | 'migrations';
 
 let roleAssertions = 0;
 
@@ -104,7 +104,9 @@ async function openClient(
           ? info.productionDatabase
           : database === 'injection'
             ? info.injectionDatabase
-            : info.fuzzDatabase,
+            : database === 'migrations'
+              ? info.migrationDatabase
+              : info.fuzzDatabase,
     application_name: `rueda-test-${user}`,
   });
   try {
@@ -168,6 +170,44 @@ export async function connectForNegativeRoleTest(
       ? [info.admin.user, info.admin.password]
       : ['migrator', info.passwords.migrator];
   return openClient(info, user, password, options.database ?? 'main');
+}
+
+/**
+ * RÉSERVÉ AU TEST DES MIGRATIONS (US-046 ; 17 §11 L0-05 : `migrator` pour RLS-19 seulement) :
+ * connexion sous `migrator` à la base des migrations du banc (`migrationDatabase`, amorcée sans
+ * migration), jamais à une autre base. Vérifie que `migrator` n'est ni `SUPERUSER` ni `BYPASSRLS`
+ * (la RLS forcée s'applique donc à ses lectures et à ses migrations de données).
+ */
+export async function connectMigratorForMigrationTest(): Promise<pg.Client> {
+  const info = benchInfo();
+  const client = await openClient(info, 'migrator', info.passwords.migrator, 'migrations');
+  try {
+    const { rows } = await client.query<{
+      current_user: string;
+      current_database: string;
+      rolsuper: boolean;
+      rolbypassrls: boolean;
+    }>(
+      `SELECT current_user, current_database(), r.rolsuper, r.rolbypassrls
+         FROM pg_catalog.pg_roles r WHERE r.rolname = current_user`,
+    );
+    const me = rows[0];
+    if (
+      !me ||
+      me.current_user !== 'migrator' ||
+      me.current_database !== info.migrationDatabase ||
+      me.rolsuper ||
+      me.rolbypassrls
+    ) {
+      throw new ProductionRoleAssertionError(
+        'migrator attendu sur la base des migrations, sans SUPERUSER ni BYPASSRLS',
+      );
+    }
+  } catch (error) {
+    await client.end().catch(() => undefined);
+    throw error;
+  }
+  return client;
 }
 
 export interface TestTransactionOptions {

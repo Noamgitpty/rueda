@@ -126,8 +126,8 @@ describe('configuration pays : structure et droits', () => {
                 AND NOT a.attisdropped
                 AND NOT pg_catalog.has_column_privilege('app_api', a.attrelid, a.attnum, 'SELECT')`,
           );
-          // identifiant du personnel : jamais lisible par app_api
-          expect(cols.map((c) => c.col)).toEqual(['approved_by']);
+          // identifiant du personnel et motif libre C2 (0052, US-046) : jamais lisibles par app_api
+          expect(cols.map((c) => c.col).sort()).toEqual(['approved_by', 'change_reason']);
         },
         { database },
       );

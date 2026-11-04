@@ -111,6 +111,11 @@ export interface RunMigrationsOptions {
   /** Rôle attendu de la connexion (défaut : `migrator`). */
   readonly expectedRole?: string;
   readonly log?: (line: string) => void;
+  /**
+   * Applique les migrations en attente jusqu'à ce numéro INCLUS seulement (test des migrations une
+   * par une sur base peuplée, US-046). Absent : toutes.
+   */
+  readonly through?: string;
 }
 
 /** Applique les migrations en attente ; renvoie celles qui ont été appliquées. */
@@ -149,7 +154,9 @@ export async function runMigrations(
           )
         ).rows
       : [];
-    const pending = planMigrations(files, applied);
+    const planned = planMigrations(files, applied);
+    const through = options.through;
+    const pending = through === undefined ? planned : planned.filter((m) => m.version <= through);
     for (const migration of pending) {
       await client.query('BEGIN');
       try {
