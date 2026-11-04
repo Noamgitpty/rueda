@@ -6,7 +6,7 @@ import { compareCatalogs, findForeignStrings } from '@rueda/i18n/testing';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
 import { screenContext } from './context.ts';
 import { PROTO_CATALOGS, mergedCatalogs } from './copy/index.ts';
-import { MARKETS, planOf } from './data/scenario.ts';
+import { MARKETS, hostActivatable, planOf } from './data/scenario.ts';
 import {
   PROTOTYPE_FLAG,
   SCREENS,
@@ -136,6 +136,85 @@ describe('protection Básica obligatoire et payante (08 BR-PROT-02, BR-PRICE-11)
     for (const language of LANGS) {
       const keys = Object.keys(PROTO_CATALOGS[language]);
       expect(keys.some((k) => k.includes('included'))).toBe(false);
+    }
+  });
+});
+
+describe('espace hôte : jambes et part de l’hôte (oracle de 08, données)', () => {
+  it('chaque trip : jambes HOST + INSURER + TAX_THIRD_PARTY + PLATFORM = total payé', () => {
+    for (const market of MARKETS) {
+      for (const trip of market.host.trips) {
+        const legs =
+          BigInt(trip.hostMinor) +
+          BigInt(trip.insurerMinor) +
+          BigInt(trip.taxThirdMinor) +
+          BigInt(trip.platformMinor);
+        expect(legs.toString(), `${market.id} ${trip.id}`).toBe(trip.totalMinor);
+        const lines =
+          BigInt(trip.rentMinor) +
+          BigInt(trip.tripFeeMinor) +
+          BigInt(trip.protectionMinor) +
+          BigInt(trip.taxMinor);
+        expect(lines.toString(), `${market.id} ${trip.id}`).toBe(trip.totalMinor);
+        expect(BigInt(trip.protectionMinor) > 0n).toBe(true);
+      }
+    }
+  });
+  it('le trip à venir de l’hôte est celui que le voyageur paie (même total, Básica)', () => {
+    for (const market of MARKETS) {
+      const upcoming = market.host.trips.find((t) => t.id === 'upcoming');
+      expect(upcoming?.totalMinor).toBe(planOf(market, 'BASICA').totalMinor);
+      expect(upcoming?.rentMinor).toBe(market.featured.lines.rentMinor);
+      expect(market.host.carId).toBe(market.featured.carId);
+    }
+  });
+  it('gains du mois = somme des jambes HOST des trips terminés', () => {
+    for (const market of MARKETS) {
+      const sum = market.host.trips
+        .filter((t) => t.status === 'sent' || t.status === 'scheduled' || t.status === 'onHold')
+        .reduce((acc, t) => acc + BigInt(t.hostMinor), 0n);
+      expect(sum.toString(), market.id).toBe(market.host.monthEarningsMinor);
+    }
+  });
+});
+
+describe('mise en service : aucun hôte activable tant que le pays est fermé', () => {
+  it('interrupteurs à false et capacité PSP inconnue, comme en production', () => {
+    for (const market of MARKETS) {
+      expect(hostActivatable(market.host.gates), market.id).toBe(false);
+      expect(market.host.gates.insurerContractActive).toBe(false);
+    }
+  });
+  it('une capacité PSP inconnue suffit à bloquer, même si tout le reste est ouvert', () => {
+    const open = {
+      p2pPrivateHostsEnabled: true,
+      insurerContractActive: true,
+      fundsHoldingEnabled: true,
+      payoutsEnabled: true,
+    };
+    expect(hostActivatable({ ...open, pspPayoutCapability: 'unknown' })).toBe(false);
+    expect(hostActivatable({ ...open, pspPayoutCapability: 'no' })).toBe(false);
+    expect(hostActivatable({ ...open, pspPayoutCapability: 'yes' })).toBe(true);
+    expect(
+      hostActivatable({ ...open, insurerContractActive: false, pspPayoutCapability: 'yes' }),
+    ).toBe(false);
+  });
+  it('A07 dit « en attente d’ouverture » et montre l’activation bloquée', async () => {
+    const A07 = SCREEN_COMPONENTS['a07'];
+    const spec = SCREENS.find((s) => s.id === 'a07');
+    expect(A07).toBeDefined();
+    if (!A07) return;
+    for (const market of MARKETS) {
+      const normal = await screenContext({ lang: TAGS[0], market: market.id }, spec);
+      const text = textOf(renderToStaticMarkup(<A07 ctx={normal} />));
+      expect(text).toContain(normal.t('web.a07.activation.locked'));
+      const waiting = await screenContext(
+        { lang: TAGS[0], market: market.id, state: 'waiting' },
+        spec,
+      );
+      expect(textOf(renderToStaticMarkup(<A07 ctx={waiting} />))).toContain(
+        waiting.t('web.a07.waitingCountry', { brand: waiting.brand, country: waiting.country }),
+      );
     }
   });
 });

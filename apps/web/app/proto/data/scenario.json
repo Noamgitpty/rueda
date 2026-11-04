@@ -59,7 +59,26 @@
         "unavailable": "2026-12-15T19:00:00Z",
         "suggested": "2026-12-14T19:00:00Z",
         "pastStart": "2026-10-03T14:00:00Z",
-        "pastEnd": "2026-10-05T14:00:00Z"
+        "pastEnd": "2026-10-05T14:00:00Z",
+        "reqStart": "2026-12-19T15:00:00Z",
+        "reqEnd": "2026-12-21T15:00:00Z",
+        "past1Start": "2026-11-06T14:00:00Z",
+        "past1End": "2026-11-08T14:00:00Z",
+        "payoutSent": "2026-11-10T14:00:00Z",
+        "past2Start": "2026-11-14T14:00:00Z",
+        "past2End": "2026-11-18T14:00:00Z",
+        "payoutOn": "2026-11-20T14:00:00Z",
+        "holdStart": "2026-11-01T14:00:00Z",
+        "holdEnd": "2026-11-02T14:00:00Z",
+        "claimFiled": "2026-11-03T14:00:00Z",
+        "evidenceUntil": "2026-11-18T14:00:00Z",
+        "claimUntil": "2026-12-16T19:00:00Z",
+        "reviewUntil": "2026-12-25T19:00:00Z",
+        "noShowAt": "2026-12-12T20:00:00Z",
+        "monthRef": "2026-11-15T19:00:00Z",
+        "hostSince": "2026-03-10T19:00:00Z",
+        "hoursFrom": "2026-12-12T12:00:00Z",
+        "hoursTo": "2026-12-13T01:00:00Z"
       },
       "featured": {
         "carId": "yaris",
@@ -204,6 +223,206 @@
       "pastTrip": {
         "carId": "picanto",
         "code": "KM-2B8D1"
+      },
+      "host": {
+        "carId": "yaris",
+        "planId": "ESTANDAR",
+        "sharePct": 75,
+        "otherCar": {
+          "title": "Nissan Kicks 2022",
+          "kind": "suv",
+          "tone": 3
+        },
+        "gates": {
+          "p2pPrivateHostsEnabled": false,
+          "insurerContractActive": false,
+          "fundsHoldingEnabled": false,
+          "payoutsEnabled": false,
+          "pspPayoutCapability": "unknown"
+        },
+        "estimateMinor": [
+          "3000",
+          "6000",
+          "9000",
+          "12000",
+          "15000",
+          "18000",
+          "21000",
+          "24000",
+          "27000",
+          "30000",
+          "33000",
+          "36000",
+          "39000",
+          "42000",
+          "45000",
+          "48000",
+          "51000",
+          "54000",
+          "57000",
+          "60000",
+          "63000",
+          "66000",
+          "69000",
+          "72000",
+          "75000",
+          "78000",
+          "81000",
+          "84000",
+          "87000",
+          "90000"
+        ],
+        "monthEarningsMinor": "21000",
+        "cancelPenaltyMinor": "2500",
+        "damageQuoteMinor": "18000",
+        "damageCode": "DM-4K2Q",
+        "calendar": {
+          "month": "2026-12",
+          "booked": [12, 13, 14, 15],
+          "requested": [19, 20, 21],
+          "blocked": [24, 25],
+          "noticeHours": 12,
+          "bufferHours": 3,
+          "minDays": 1,
+          "maxDays": 30
+        },
+        "trips": [
+          {
+            "id": "upcoming",
+            "guest": "Valeria Gómez",
+            "guestTone": 2,
+            "days": 3,
+            "start": "start",
+            "end": "end",
+            "status": "upcoming",
+            "rentMinor": "12000",
+            "tripFeeMinor": "1800",
+            "protectionMinor": "3000",
+            "taxMinor": "966",
+            "totalMinor": "17766",
+            "hostMinor": "9000",
+            "insurerMinor": "2100",
+            "taxThirdMinor": "0",
+            "platformMinor": "6666"
+          },
+          {
+            "id": "request",
+            "guest": "Sofía Herrera",
+            "guestTone": 3,
+            "days": 2,
+            "start": "reqStart",
+            "end": "reqEnd",
+            "status": "request",
+            "rentMinor": "8000",
+            "tripFeeMinor": "1200",
+            "protectionMinor": "2000",
+            "taxMinor": "644",
+            "totalMinor": "11844",
+            "hostMinor": "6000",
+            "insurerMinor": "1400",
+            "taxThirdMinor": "0",
+            "platformMinor": "4444"
+          },
+          {
+            "id": "past1",
+            "guest": "Diego Ruiz",
+            "guestTone": 4,
+            "days": 2,
+            "start": "past1Start",
+            "end": "past1End",
+            "status": "sent",
+            "rentMinor": "8000",
+            "tripFeeMinor": "1200",
+            "protectionMinor": "2000",
+            "taxMinor": "644",
+            "totalMinor": "11844",
+            "hostMinor": "6000",
+            "insurerMinor": "1400",
+            "taxThirdMinor": "0",
+            "platformMinor": "4444",
+            "payout": "payoutSent"
+          },
+          {
+            "id": "past2",
+            "guest": "Camila Pérez",
+            "guestTone": 1,
+            "days": 4,
+            "start": "past2Start",
+            "end": "past2End",
+            "status": "scheduled",
+            "rentMinor": "16000",
+            "tripFeeMinor": "2400",
+            "protectionMinor": "4000",
+            "taxMinor": "1288",
+            "totalMinor": "23688",
+            "hostMinor": "12000",
+            "insurerMinor": "2800",
+            "taxThirdMinor": "0",
+            "platformMinor": "8888",
+            "payout": "payoutOn"
+          },
+          {
+            "id": "hold",
+            "guest": "Martín Díaz",
+            "guestTone": 2,
+            "days": 1,
+            "start": "holdStart",
+            "end": "holdEnd",
+            "status": "onHold",
+            "rentMinor": "4000",
+            "tripFeeMinor": "600",
+            "protectionMinor": "1000",
+            "taxMinor": "322",
+            "totalMinor": "5922",
+            "hostMinor": "3000",
+            "insurerMinor": "700",
+            "taxThirdMinor": "0",
+            "platformMinor": "2222"
+          }
+        ],
+        "profile": {
+          "city": "Ciudad de Panamá",
+          "languages": ["es", "en"],
+          "bio": {
+            "es": "Me encanta manejar por el interior. Te espero con el auto limpio y el tanque lleno.",
+            "en": "I love road trips inland. I'll meet you with a clean car and a full tank.",
+            "fr": "J’adore les virées dans l’intérieur du pays. Je t’attends avec une voiture propre et le plein fait.",
+            "pt": "Adoro viajar pelo interior. Espero você com o carro limpo e o tanque cheio."
+          },
+          "promise": {
+            "es": "Auto limpio, tanque lleno y puntualidad en cada entrega.",
+            "en": "Clean car, full tank and on time at every handover.",
+            "fr": "Voiture propre, plein fait et ponctualité à chaque remise.",
+            "pt": "Carro limpo, tanque cheio e pontualidade em cada entrega."
+          },
+          "review": {
+            "author": "Diego",
+            "text": {
+              "es": "Muy puntual y el auto impecable. ¡Volvería!",
+              "en": "Very punctual and the car was spotless. I'd book again!",
+              "fr": "Très ponctuelle et voiture impeccable. Je reviendrai !",
+              "pt": "Muito pontual e o carro impecável. Voltaria!"
+            },
+            "stars": 5
+          },
+          "rulesVersion": 3
+        },
+        "return": {
+          "odometerKm": 410,
+          "fuelOut": "full",
+          "fuelIn": "threeQuarters"
+        },
+        "ops": {
+          "queues": {
+            "kycGuest": 4,
+            "kycHost": 2,
+            "listing": 3,
+            "flagged": 1,
+            "claims": 2,
+            "late": 0
+          },
+          "slaHours": 24
+        }
       }
     },
     {
@@ -264,7 +483,26 @@
         "unavailable": "2026-12-15T17:00:00Z",
         "suggested": "2026-12-14T17:00:00Z",
         "pastStart": "2026-10-03T12:00:00Z",
-        "pastEnd": "2026-10-05T12:00:00Z"
+        "pastEnd": "2026-10-05T12:00:00Z",
+        "reqStart": "2026-12-19T13:00:00Z",
+        "reqEnd": "2026-12-21T13:00:00Z",
+        "past1Start": "2026-11-06T12:00:00Z",
+        "past1End": "2026-11-08T12:00:00Z",
+        "payoutSent": "2026-11-10T12:00:00Z",
+        "past2Start": "2026-11-14T12:00:00Z",
+        "past2End": "2026-11-18T12:00:00Z",
+        "payoutOn": "2026-11-20T12:00:00Z",
+        "holdStart": "2026-11-01T12:00:00Z",
+        "holdEnd": "2026-11-02T12:00:00Z",
+        "claimFiled": "2026-11-03T12:00:00Z",
+        "evidenceUntil": "2026-11-18T12:00:00Z",
+        "claimUntil": "2026-12-16T17:00:00Z",
+        "reviewUntil": "2026-12-25T17:00:00Z",
+        "noShowAt": "2026-12-12T18:00:00Z",
+        "monthRef": "2026-11-15T17:00:00Z",
+        "hostSince": "2026-03-10T17:00:00Z",
+        "hoursFrom": "2026-12-12T10:00:00Z",
+        "hoursTo": "2026-12-12T23:00:00Z"
       },
       "featured": {
         "carId": "vitz",
@@ -409,6 +647,206 @@
       "pastTrip": {
         "carId": "creta",
         "code": "KM-8L5T3"
+      },
+      "host": {
+        "carId": "vitz",
+        "planId": "ESTANDAR",
+        "sharePct": 75,
+        "otherCar": {
+          "title": "Chevrolet Onix 2023",
+          "kind": "sedan",
+          "tone": 2
+        },
+        "gates": {
+          "p2pPrivateHostsEnabled": false,
+          "insurerContractActive": false,
+          "fundsHoldingEnabled": false,
+          "payoutsEnabled": false,
+          "pspPayoutCapability": "unknown"
+        },
+        "estimateMinor": [
+          "250000",
+          "499999",
+          "749999",
+          "999999",
+          "1249999",
+          "1499998",
+          "1749998",
+          "1999998",
+          "2249998",
+          "2499997",
+          "2749997",
+          "2999997",
+          "3249997",
+          "3499996",
+          "3749996",
+          "3999996",
+          "4249996",
+          "4499995",
+          "4749995",
+          "4999995",
+          "5249995",
+          "5499994",
+          "5749994",
+          "5999994",
+          "6249994",
+          "6499993",
+          "6749993",
+          "6999993",
+          "7249993",
+          "7499992"
+        ],
+        "monthEarningsMinor": "1749998",
+        "cancelPenaltyMinor": "250000",
+        "damageQuoteMinor": "1200000",
+        "damageCode": "DM-7P3L",
+        "calendar": {
+          "month": "2026-12",
+          "booked": [12, 13, 14, 15],
+          "requested": [19, 20, 21],
+          "blocked": [24, 25],
+          "noticeHours": 12,
+          "bufferHours": 3,
+          "minDays": 1,
+          "maxDays": 30
+        },
+        "trips": [
+          {
+            "id": "upcoming",
+            "guest": "Valeria Gómez",
+            "guestTone": 2,
+            "days": 3,
+            "start": "start",
+            "end": "end",
+            "status": "upcoming",
+            "rentMinor": "1000000",
+            "tripFeeMinor": "125500",
+            "protectionMinor": "150000",
+            "taxMinor": "112550",
+            "totalMinor": "1388050",
+            "hostMinor": "750000",
+            "insurerMinor": "105000",
+            "taxThirdMinor": "0",
+            "platformMinor": "533050"
+          },
+          {
+            "id": "request",
+            "guest": "Sofía Herrera",
+            "guestTone": 3,
+            "days": 2,
+            "start": "reqStart",
+            "end": "reqEnd",
+            "status": "request",
+            "rentMinor": "666666",
+            "tripFeeMinor": "83667",
+            "protectionMinor": "100000",
+            "taxMinor": "75034",
+            "totalMinor": "925367",
+            "hostMinor": "499999",
+            "insurerMinor": "70000",
+            "taxThirdMinor": "0",
+            "platformMinor": "355368"
+          },
+          {
+            "id": "past1",
+            "guest": "Rodrigo Benítez",
+            "guestTone": 4,
+            "days": 2,
+            "start": "past1Start",
+            "end": "past1End",
+            "status": "sent",
+            "rentMinor": "666666",
+            "tripFeeMinor": "83667",
+            "protectionMinor": "100000",
+            "taxMinor": "75034",
+            "totalMinor": "925367",
+            "hostMinor": "499999",
+            "insurerMinor": "70000",
+            "taxThirdMinor": "0",
+            "platformMinor": "355368",
+            "payout": "payoutSent"
+          },
+          {
+            "id": "past2",
+            "guest": "Florencia Ayala",
+            "guestTone": 1,
+            "days": 4,
+            "start": "past2Start",
+            "end": "past2End",
+            "status": "scheduled",
+            "rentMinor": "1333332",
+            "tripFeeMinor": "167333",
+            "protectionMinor": "200000",
+            "taxMinor": "150066",
+            "totalMinor": "1850731",
+            "hostMinor": "999999",
+            "insurerMinor": "140000",
+            "taxThirdMinor": "0",
+            "platformMinor": "710732",
+            "payout": "payoutOn"
+          },
+          {
+            "id": "hold",
+            "guest": "Hugo Giménez",
+            "guestTone": 2,
+            "days": 1,
+            "start": "holdStart",
+            "end": "holdEnd",
+            "status": "onHold",
+            "rentMinor": "333333",
+            "tripFeeMinor": "41833",
+            "protectionMinor": "50000",
+            "taxMinor": "37516",
+            "totalMinor": "462682",
+            "hostMinor": "250000",
+            "insurerMinor": "35000",
+            "taxThirdMinor": "0",
+            "platformMinor": "177682"
+          }
+        ],
+        "profile": {
+          "city": "Asunción",
+          "languages": ["es", "en"],
+          "bio": {
+            "es": "Me encanta manejar por el interior. Te espero con el auto limpio y el tanque lleno.",
+            "en": "I love road trips inland. I'll meet you with a clean car and a full tank.",
+            "fr": "J’adore les virées dans l’intérieur du pays. Je t’attends avec une voiture propre et le plein fait.",
+            "pt": "Adoro viajar pelo interior. Espero você com o carro limpo e o tanque cheio."
+          },
+          "promise": {
+            "es": "Auto limpio, tanque lleno y puntualidad en cada entrega.",
+            "en": "Clean car, full tank and on time at every handover.",
+            "fr": "Voiture propre, plein fait et ponctualité à chaque remise.",
+            "pt": "Carro limpo, tanque cheio e pontualidade em cada entrega."
+          },
+          "review": {
+            "author": "Rodrigo",
+            "text": {
+              "es": "Muy puntual y el auto impecable. ¡Volvería!",
+              "en": "Very punctual and the car was spotless. I'd book again!",
+              "fr": "Très ponctuelle et voiture impeccable. Je reviendrai !",
+              "pt": "Muito pontual e o carro impecável. Voltaria!"
+            },
+            "stars": 5
+          },
+          "rulesVersion": 3
+        },
+        "return": {
+          "odometerKm": 410,
+          "fuelOut": "full",
+          "fuelIn": "threeQuarters"
+        },
+        "ops": {
+          "queues": {
+            "kycGuest": 4,
+            "kycHost": 2,
+            "listing": 3,
+            "flagged": 1,
+            "claims": 2,
+            "late": 0
+          },
+          "slaHours": 24
+        }
       }
     }
   ]

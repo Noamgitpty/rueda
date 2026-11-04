@@ -17,11 +17,17 @@ Le fondateur approuve chaque écran clé **avant** son développement (DoR point
    5 bis. **Protection et prix (revue UX du 2026-11-03, constat 1)** : la protection **Básica est obligatoire et payante**, jamais « incluse » (08 BR-PROT-02 [NOUS] « Básica obligatoire », BR-PRICE-11 [NOUS] « prix = % × prix journalier net », E7 jambe `INSURER`). Les montants des voyages viennent de l'**oracle de 08** : `docs/design/US-033/prix_oracle.py` exécute `docs/specs/tools/check_legs.py` (fonction `trip()`) sur le trip de référence **A** (USD, sans options) et **D** (PYG, sans livraison) de 08, avec les rapports Standard / Premier de BR-PRICE-11 (40 % / 65 %) pour Estándar et Total, et échoue si `scenario.json` s'en écarte. Les lignes (location, frais de service, protection, taxe) sont toujours visibles ; le total change dès qu'on choisit un plan (composant client, sans bouton « appliquer »).
 6. **Captures 360 px** dans `docs/design/US-033/captures/` (Chrome sans tête, protocole CDP), pour que le fondateur juge sans installer ; **approbation écran par écran** dans `docs/design/US-033/APPROBATIONS.md`, statut `EN ATTENTE` au départ, changé par le fondateur seul.
 
+7. **Seconde demande de fusion (espace hôte A01–A13, console O01, compte S14)**, même patron. Écrans regroupés par parcours dans l'index (voyageur, hôte, plateforme ; champ `group` de `SCREENS`) ; navigation basse propre à l'hôte (accueil, réservations, calendrier, gains) ; « Cuenta » ajoutée à la navigation du voyageur (S14). Cinq icônes ajoutées à `Icon` (maison, portefeuille, cadenas, drapeau, plus).
+   - **Part de l'hôte et jambes** : bloc `host` de `scenario.json`, recalculé par l'oracle (`prix_oracle.py` étendu) : part du plan `ESTÁNDAR` = 75 % (BR-PROT-06 [NOUS], `hostSharePctFrozen`, égale à `SHARE` de `check_legs.py`), jambes `HOST`, `INSURER` (70 %, valeur de test de l'oracle), `TAX_THIRD_PARTY`, `PLATFORM` par `legs(settle(..., "CAPTURE"))`, estimateur A01 par `allocHost`, gains du mois = somme des jambes `HOST`. Le trip à venir de l'hôte est **le même** que celui payé par le voyageur en S05 (même total, Básica) ; la part affichée (A01, A05, A07, A08, A10, A11) vient d'une seule donnée. Tests : somme des jambes = total, somme des lignes = total, gains du mois.
+   - **Mise en service honnête** : interrupteurs du pays et capacité PSP de versement en **données** (`gates`, `false` / `unknown` comme en production) ; `hostActivatable()` exige tout ouvert et la capacité validée (une capacité inconnue vaut « non »). A07 montre chaque interrupteur et « activation en attente de l'ouverture » ; états `closed` (A01, A02, A10), `waiting` (A07), `payoutsOff` (A08) ; O01 rappelle qu'approuver une annonce n'active pas l'hôte. Aucun écran ne change un interrupteur. Les états « normal » de l'espace hôte simulent un marché ouvert.
+   - Photos d'annonce (A10) et de remise (A03, A04) lues dans le gabarit d'US-031 (`PHOTO_RULES.listing`, `PHOTO_RULES.handover`).
+   - Textes de l'hôte (présentation, promesse, avis reçu) : une version par langue dans les données (« une vue = une langue »).
+
 ## Conséquences
 
 - Un écran non approuvé bloque la story qui l'implémente ; l'implémentation reprend la structure de l'écran et verse ses clés PROPOSÉES dans le catalogue officiel.
 - Le prototype est jetable : à supprimer (dossier `app/proto/` et variable) quand tous les écrans de la bêta seront livrés.
-- L'espace hôte (A01–A13), O01 et S14 suivent dans une seconde demande de fusion de US-033 (passation).
+- L'espace hôte (A01–A13), O01 et S14 sont livrés par la seconde demande de fusion (point 7) ; S10, S13 et S16 restent à faire si l'orchestrateur les veut dans la V0.
 
 ## Alternatives écartées
 

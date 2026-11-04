@@ -15,6 +15,18 @@ Règles appliquées (08) :
   attendant la grille de l'assureur (OQ-P2P-12) ;
 - autres voitures : mêmes rapports que le trip de référence de leur marché, calculés par `trip()` de l'oracle.
 Le total et la taxe viennent de `trip()` de check_legs.py (taxe = somme des taxes de ligne arrondies, roundHalfUp).
+
+Espace hôte (seconde demande de fusion de US-033, bloc `host` de chaque marché) :
+- part de l'hôte = plan de gains `ESTÁNDAR` à 75 % (BR-PROT-06 [NOUS], `host_default_plan`), figée sur chaque trip
+  (`hostSharePctFrozen`) ; le script vérifie qu'elle vaut `SHARE` de check_legs.py ;
+- jambes de chaque trip (HOST, INSURER, TAX_THIRD_PARTY, PLATFORM) : `legs(t, *settle(t, "CAPTURE"))` de check_legs.py,
+  avec `insurer_premium_share` = 70 % (VALEUR DE TEST de check_legs.py, fixée plus tard par le contrat d'assureur) ;
+  la somme des jambes est le total payé par le voyageur ;
+- loyer d'un trip de n jours = prix par jour x n (trip de 3 jours : loyer du trip de référence) ; frais, protection
+  Básica et taxe : mêmes rapports que plus haut ;
+- gains du mois = somme des jambes HOST des trips terminés ; estimateur A01 = `allocHost(prix par jour x jours, part)` ;
+- pénalité d'annulation de l'hôte (BR-CXL-13 [NOUS], plus de 24 h avant le départ) : 25 dans la devise du pays en
+  USD ; en PYG, VALEUR FICTIVE (paramètre par devise non fixé dans 08) ; devis de dommage : montant fictif.
 """
 import contextlib
 import io
@@ -34,6 +46,7 @@ with contextlib.redirect_stdout(io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
     except SystemExit:
         pass
 trip, g1, rhu = ns["trip"], ns["g1"], ns["rhu"]
+legs, settle, alloc_host, SHARE = ns["legs"], ns["settle"], ns["alloc_host"], ns["SHARE"]
 
 # Configuration de test de 08 par marché (trips de référence A et D) : taux, rapport F / P, rapport Básica / P.
 CONFIG = {
@@ -43,12 +56,15 @@ CONFIG = {
 PLAN_SHARE = {"ESTANDAR": Fr(2, 5), "TOTAL": Fr(13, 20)}
 
 
-def priced(market_id, rent, protection=None):
+def priced(market_id, rent, protection=None, days=3):
     c = CONFIG[market_id]
     fee = rhu(Fr(rent) * c["fee"])
     pr = rhu(Fr(rent) * c["basic"]) if protection is None else protection
-    t = trip("proto", c["cur"], 3, {"g": g1(c["tax"], ["P", "PP", "PH", "F"])}, P=rent, F=fee, Pr=pr)
-    return {"rent": rent, "fee": fee, "protection": pr, "tax": sum(t["taxPaid"].values()), "total": t["total"]}
+    t = trip("proto", c["cur"], days, {"g": g1(c["tax"], ["P", "PP", "PH", "F"])}, P=rent, F=fee, Pr=pr)
+    cap = legs(t, *settle(t, "CAPTURE")[:3])
+    return {"rent": rent, "fee": fee, "protection": pr, "tax": sum(t["taxPaid"].values()), "total": t["total"],
+            "host": cap["HOST"], "insurer": cap["INSURER"], "taxThird": cap["TAX_THIRD_PARTY"],
+            "platform": cap["PLATFORM"], "legsTotal": cap["TOTAL"]}
 
 
 errors = []
@@ -80,6 +96,30 @@ for m in data["markets"]:
         got[(car["id"], "totalMinor")] = int(car["totalMinor"])
         expect[(car["id"], "perDayMinor")] = rhu(Fr(car_rent, days))
         got[(car["id"], "perDayMinor")] = per_day
+    h = m["host"]
+    expect[("host", "sharePct")] = int(SHARE * 100)
+    got[("host", "sharePct")] = h["sharePct"]
+    per_day_host = int(next(c for c in m["cars"] if c["id"] == h["carId"])["perDayMinor"])
+    for i, v in enumerate(h["estimateMinor"], start=1):
+        expect[("estimate", str(i))] = alloc_host(per_day_host * i, Fr(h["sharePct"], 100))
+        got[("estimate", str(i))] = int(v)
+    month = 0
+    for ht in h["trips"]:
+        ht_rent = rent if ht["days"] == days else per_day_host * ht["days"]
+        p = priced(m["id"], ht_rent, days=ht["days"])
+        assert p["legsTotal"] == p["total"], "jambes != total"
+        for k, v in (("rentMinor", "rent"), ("tripFeeMinor", "fee"), ("protectionMinor", "protection"),
+                     ("taxMinor", "tax"), ("totalMinor", "total"), ("hostMinor", "host"),
+                     ("insurerMinor", "insurer"), ("taxThirdMinor", "taxThird"), ("platformMinor", "platform")):
+            expect[(ht["id"], k)] = p[v]
+            got[(ht["id"], k)] = int(ht[k])
+        if ht["status"] in ("sent", "scheduled", "onHold"):
+            month += p["host"]
+    expect[("host", "monthEarningsMinor")] = month
+    got[("host", "monthEarningsMinor")] = int(h["monthEarningsMinor"])
+    if m["id"] == "istmo":
+        expect[("host", "cancelPenaltyMinor")] = 2500
+        got[("host", "cancelPenaltyMinor")] = int(h["cancelPenaltyMinor"])
     for key, value in expect.items():
         status = "OK" if got.get(key) == value else "ÉCART"
         if status != "OK":

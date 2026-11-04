@@ -58,7 +58,7 @@ Les écrans utilisent les composants de `@rueda/ui` (voir `packages/ui/README.md
 
 ## Prototype des écrans clés (US-033)
 
-Prototype cliquable du parcours voyageur sur **`/proto`** (index) et `/proto/<écran>` (`s01` … `s09`, `s09c`, `s15`, `s17`), dans le seul dossier `app/proto/` (ADR-073). Paramètres : `?lang=`, `?state=` (vide, chargement, erreur…), `?theme=auto|light|dark`, `?market=` (marché fictif de `app/proto/data/scenario.json`), `?capture=1`. Données fictives, aucun appel d'API, paiement simulé. Textes : `app/proto/copy/` (format de `@rueda/i18n`, quatre langues). Captures et approbations : `docs/design/US-033/`. Ouvert en `next dev`, sinon seulement avec `WEB_PROTOTYPE_ENABLED=true`.
+Prototype cliquable des parcours voyageur, hôte et plateforme sur **`/proto`** (index) et `/proto/<écran>` (`s01` … `s09`, `s09c`, `s14`, `s15`, `s17` ; `a01` … `a13` ; `o01`), dans le seul dossier `app/proto/` (ADR-073). Paramètres : `?lang=`, `?state=` (vide, chargement, erreur…), `?theme=auto|light|dark`, `?market=` (marché fictif de `app/proto/data/scenario.json`), `?capture=1`. Données fictives, aucun appel d'API, paiement simulé. Textes : `app/proto/copy/` (format de `@rueda/i18n`, quatre langues). Captures et approbations : `docs/design/US-033/`. Ouvert en `next dev`, sinon seulement avec `WEB_PROTOTYPE_ENABLED=true`.
 
 ## Laboratoire PWA iOS (US-026)
 
