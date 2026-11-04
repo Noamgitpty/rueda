@@ -1,0 +1,2374 @@
+{
+  "$comment": "Matrice d'autorisations de la base (US-043, ADR-077 ; 17 §2.3). UNE entrée par table ou vue des schémas core, app et platform de la base de production : une relation sans entrée, ou une entrée sans relation, fait échouer la CI (test/l0/l0-us043-authorization-matrix.test.ts). Par relation : droits = privilèges EXACTS de app_api, app_worker et app_anon ('*' = toute la table, liste = colonnes) ; politiques = politiques RLS (nom:commande) qui s'appliquent à chaque rôle, toutes permissives, jamais à PUBLIC ; lecture = pour chaque acteur de app_api (sans_contexte, voyageur, hote titulaire, cohote de portée {v1}, hote_org_forgee = titulaire qui pose l'org_id d'un compte dont il n'est pas membre, chaque rôle interne de portée {pays}, ADMIN_portee_elargie = ADMIN d'un pays qui pose les deux pays dans son contexte, staff_sans_session = ADMIN sans session élevée par TOTP), le prédicat EXACT des lignes visibles ('tout', 'aucune' ou une condition SQL sur les colonnes de la relation, avec :acteur, :org, :vehicules, :pays, :dossiers = trips de ses dossiers OPEN) ; travailleurs = prédicat par nom de travailleur ('*' = tout autre nom, 'sans_nom' = app_worker sans contexte ; absent = 'aucune'). Sans SELECT accordé au rôle, chaque cellule vaut 'refus' (42501). Chaque cellule est éprouvée sous les rôles de production (L0-05), en PA et en PY, contre la fixture 9900 qui évalue le prédicat dans le même instantané. Les prédicats viennent de 17 §2.3 et des stories (US-011, US-012, US-062), jamais des politiques. Modifier la matrice = revue sécurité (packages/db/).",
+  "acteurs": [
+    "sans_contexte",
+    "voyageur",
+    "hote",
+    "cohote",
+    "hote_org_forgee",
+    "SUPPORT_AGENT",
+    "OPS_AGENT",
+    "FINANCE",
+    "ADMIN",
+    "ADMIN_portee_elargie",
+    "SUPERADMIN",
+    "staff_sans_session"
+  ],
+  "travailleurs": [
+    "audit_chain_verifier",
+    "booking_conversion",
+    "booking_oracle",
+    "bordereau",
+    "bus_monitor",
+    "disposition_sweeper",
+    "evidence_verifier",
+    "hold_expiry",
+    "ntf_dispatcher",
+    "ntf_sender",
+    "outbox_relay",
+    "payment_command",
+    "payment_intent_sweeper",
+    "payout",
+    "reconciliation",
+    "settlement",
+    "trip_lifecycle",
+    "webhook_ingest"
+  ],
+  "fonctions_app_anon": [],
+  "relations": {
+    "core.audit_audit_log": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "INSERT": [
+            "action_code",
+            "actor_role",
+            "actor_user_id",
+            "after",
+            "before",
+            "c2_withheld",
+            "ip_enc",
+            "ip_key_subject_id",
+            "ip_key_subject_type",
+            "reason",
+            "request_id",
+            "subject_id",
+            "subject_type"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": [
+            "action_code",
+            "actor_role",
+            "actor_user_id",
+            "after",
+            "before",
+            "c2_withheld",
+            "ip_enc",
+            "ip_key_subject_id",
+            "ip_key_subject_type",
+            "reason",
+            "request_id",
+            "subject_id",
+            "subject_type"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_insert:INSERT"],
+        "app_worker": ["worker_insert:INSERT", "worker_select_verifier:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "audit_chain_verifier": "tout"
+      }
+    },
+    "core.audit_chain_head": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": ["worker_select_verifier:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "audit_chain_verifier": "tout"
+      }
+    },
+    "core.audit_data_access_log": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "INSERT": [
+            "access_kind",
+            "actor_role",
+            "actor_user_id",
+            "case_ref",
+            "field_or_file",
+            "id",
+            "purpose",
+            "request_id",
+            "subject_id",
+            "subject_type"
+          ]
+        },
+        "app_worker": {
+          "INSERT": [
+            "access_kind",
+            "actor_role",
+            "actor_user_id",
+            "case_ref",
+            "field_or_file",
+            "id",
+            "purpose",
+            "request_id",
+            "subject_id",
+            "subject_type"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_insert:INSERT"],
+        "app_worker": ["worker_insert:INSERT"],
+        "app_anon": []
+      }
+    },
+    "core.audit_file_asset": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "INSERT": [
+            "bucket",
+            "bytes",
+            "classification",
+            "device_captured_at",
+            "enc_subject_id",
+            "enc_subject_type",
+            "id",
+            "mime",
+            "retention_class",
+            "sha256",
+            "source",
+            "storage_key",
+            "uploader_user_id"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": [
+            "bucket",
+            "bytes",
+            "classification",
+            "device_captured_at",
+            "enc_subject_id",
+            "enc_subject_type",
+            "id",
+            "mime",
+            "retention_class",
+            "sha256",
+            "source",
+            "storage_key",
+            "uploader_user_id"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_insert:INSERT"],
+        "app_worker": ["worker_insert:INSERT", "worker_select_verifier:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "evidence_verifier": "tout"
+      }
+    },
+    "core.audit_subject_key": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": ["destroyed_at", "kms_key_id", "subject_id", "subject_type", "wrapped_dek"],
+          "INSERT": ["kms_key_id", "subject_id", "subject_type", "wrapped_dek"]
+        },
+        "app_worker": {
+          "SELECT": ["destroyed_at", "kms_key_id", "subject_id", "subject_type", "wrapped_dek"],
+          "INSERT": ["kms_key_id", "subject_id", "subject_type", "wrapped_dek"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_insert:INSERT", "api_select:SELECT"],
+        "app_worker": ["worker_insert:INSERT", "worker_select:SELECT"],
+        "app_anon": []
+      },
+      "identifiant": "subject_id",
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "subject_type = 'USER' AND subject_id = :acteur",
+        "hote": "(subject_type = 'USER' AND subject_id = :acteur) OR (subject_type = 'ORG' AND subject_id = :org)",
+        "cohote": "subject_type = 'USER' AND subject_id = :acteur",
+        "hote_org_forgee": "subject_type = 'USER' AND subject_id = :acteur",
+        "SUPPORT_AGENT": "subject_type = 'USER' AND subject_id = :acteur",
+        "OPS_AGENT": "subject_type = 'USER' AND subject_id = :acteur",
+        "FINANCE": "subject_type = 'USER' AND subject_id = :acteur",
+        "ADMIN": "subject_type = 'USER' AND subject_id = :acteur",
+        "ADMIN_portee_elargie": "subject_type = 'USER' AND subject_id = :acteur",
+        "SUPERADMIN": "subject_type = 'USER' AND subject_id = :acteur",
+        "staff_sans_session": "subject_type = 'USER' AND subject_id = :acteur"
+      },
+      "travailleurs": {
+        "*": "tout"
+      }
+    },
+    "core.booking_checkout_hold": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "compensated_at",
+            "converted_trip_id",
+            "country_code",
+            "created_at",
+            "expired_at",
+            "expires_at",
+            "guest_user_id",
+            "id",
+            "kind",
+            "org_id",
+            "payment_in_flight_until",
+            "quote_id",
+            "release_reason",
+            "released_at",
+            "status",
+            "updated_at",
+            "vehicle_id"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "UPDATE": [
+            "compensated_at",
+            "conversion_operation_id",
+            "converted_trip_id",
+            "expired_at",
+            "last_polled_at",
+            "payment_attempts",
+            "payment_in_flight_until",
+            "release_reason",
+            "released_at",
+            "status"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["hold_guest_read:SELECT", "hold_staff_read:SELECT"],
+        "app_worker": [
+          "worker_select:SELECT",
+          "worker_update_conversion:UPDATE",
+          "worker_update_expiry:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "guest_user_id = :acteur",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "converted_trip_id = ANY(:dossiers)",
+        "OPS_AGENT": "converted_trip_id = ANY(:dossiers)",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout",
+        "hold_expiry": "tout",
+        "booking_oracle": "tout"
+      }
+    },
+    "core.booking_disposition_repair_log": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": "*",
+          "UPDATE": ["alerted_at", "attempts", "last_attempt_at", "last_error"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [
+          "worker_insert_sweeper:INSERT",
+          "worker_select:SELECT",
+          "worker_update_sweeper:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "disposition_sweeper": "tout"
+      }
+    },
+    "core.booking_guest_occupancy": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "active",
+            "created_at",
+            "guest_user_id",
+            "id",
+            "period",
+            "trip_id",
+            "updated_at"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": "*",
+          "UPDATE": ["active", "period"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["guest_occupancy_guest_read:SELECT"],
+        "app_worker": [
+          "worker_insert_conversion:INSERT",
+          "worker_select:SELECT",
+          "worker_update_trip:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "guest_user_id = :acteur",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "aucune",
+        "ADMIN": "aucune",
+        "ADMIN_portee_elargie": "aucune",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout",
+        "trip_lifecycle": "tout"
+      }
+    },
+    "core.booking_hold_compensation": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": ["worker_insert_conversion:INSERT", "worker_select:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout"
+      }
+    },
+    "core.booking_host_guest_v": {
+      "type": "view",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "source": "core.booking_trip",
+      "identifiant": "trip_id",
+      "identifiant_source": "id",
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org",
+        "cohote": "org_id = :org AND vehicle_id = ANY(:vehicules)",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "aucune",
+        "ADMIN": "aucune",
+        "ADMIN_portee_elargie": "aucune",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
+    "core.booking_payment_disposition": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": ["worker_insert_conversion:INSERT", "worker_select:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout",
+        "hold_expiry": "tout",
+        "booking_oracle": "tout"
+      }
+    },
+    "core.booking_trip": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "booked_at",
+            "cancellation_reason",
+            "country_code",
+            "created_at",
+            "currency",
+            "id",
+            "listing_id",
+            "org_id",
+            "payment_status",
+            "public_ref",
+            "requirements_status",
+            "scheduled_end",
+            "scheduled_start",
+            "source_hold_id",
+            "status",
+            "termination_reason",
+            "timezone",
+            "updated_at",
+            "vehicle_id"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": "*",
+          "UPDATE": [
+            "cancellation_reason",
+            "scheduled_end",
+            "scheduled_start",
+            "status",
+            "termination_reason"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["trip_guest_read:SELECT", "trip_host_read:SELECT", "trip_staff_read:SELECT"],
+        "app_worker": [
+          "worker_insert_conversion:INSERT",
+          "worker_select:SELECT",
+          "worker_update_trip:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "guest_user_id = :acteur",
+        "hote": "org_id = :org",
+        "cohote": "org_id = :org AND vehicle_id = ANY(:vehicules)",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "id = ANY(:dossiers)",
+        "OPS_AGENT": "id = ANY(:dossiers)",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout",
+        "trip_lifecycle": "tout",
+        "booking_oracle": "tout"
+      }
+    },
+    "core.booking_vehicle_occupancy": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "active",
+            "country_code",
+            "created_at",
+            "deactivated_reason",
+            "expires_at",
+            "id",
+            "kind",
+            "org_id",
+            "period",
+            "source",
+            "updated_at",
+            "vehicle_id"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "UPDATE": [
+            "active",
+            "deactivated_reason",
+            "expires_at",
+            "kind",
+            "period",
+            "ref_id",
+            "ref_type"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["occupancy_host_read:SELECT", "occupancy_staff_read:SELECT"],
+        "app_worker": [
+          "worker_select:SELECT",
+          "worker_update_conversion:UPDATE",
+          "worker_update_expiry:UPDATE",
+          "worker_update_trip:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org",
+        "cohote": "org_id = :org AND vehicle_id = ANY(:vehicules)",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "aucune",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout",
+        "hold_expiry": "tout",
+        "trip_lifecycle": "tout",
+        "booking_oracle": "tout"
+      }
+    },
+    "core.config_brand_asset": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "alt_text_en",
+            "alt_text_es",
+            "alt_text_fr",
+            "alt_text_pt",
+            "bytes",
+            "id",
+            "kind",
+            "mime",
+            "sha256",
+            "storage_key"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_read_published:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "voyageur": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "hote": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "cohote": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "hote_org_forgee": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "SUPPORT_AGENT": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "OPS_AGENT": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "FINANCE": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "ADMIN": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "ADMIN_portee_elargie": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "SUPERADMIN": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')",
+        "staff_sans_session": "id IN (SELECT v.logo_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.favicon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT v.pwa_icon_asset_id FROM core.config_brand_version AS v WHERE v.status = 'PUBLISHED' UNION ALL SELECT b.asset_id FROM core.config_content_block AS b WHERE b.status = 'PUBLISHED')"
+      }
+    },
+    "core.config_brand_version": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "brand_name",
+            "email_skin",
+            "favicon_asset_id",
+            "id",
+            "logo_asset_id",
+            "published_at",
+            "pwa_icon_asset_id",
+            "status",
+            "tokens",
+            "tokens_schema_version",
+            "version_no",
+            "whatsapp_skin"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_read_published:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "status = 'PUBLISHED'",
+        "voyageur": "status = 'PUBLISHED'",
+        "hote": "status = 'PUBLISHED'",
+        "cohote": "status = 'PUBLISHED'",
+        "hote_org_forgee": "status = 'PUBLISHED'",
+        "SUPPORT_AGENT": "status = 'PUBLISHED'",
+        "OPS_AGENT": "status = 'PUBLISHED'",
+        "FINANCE": "status = 'PUBLISHED'",
+        "ADMIN": "status = 'PUBLISHED'",
+        "ADMIN_portee_elargie": "status = 'PUBLISHED'",
+        "SUPERADMIN": "status = 'PUBLISHED'",
+        "staff_sans_session": "status = 'PUBLISHED'"
+      }
+    },
+    "core.config_content_block": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "asset_id",
+            "block_key",
+            "body_md",
+            "country_code",
+            "id",
+            "locale",
+            "published_at",
+            "status",
+            "version_no"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_read_published:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "status = 'PUBLISHED'",
+        "voyageur": "status = 'PUBLISHED'",
+        "hote": "status = 'PUBLISHED'",
+        "cohote": "status = 'PUBLISHED'",
+        "hote_org_forgee": "status = 'PUBLISHED'",
+        "SUPPORT_AGENT": "status = 'PUBLISHED'",
+        "OPS_AGENT": "status = 'PUBLISHED'",
+        "FINANCE": "status = 'PUBLISHED'",
+        "ADMIN": "status = 'PUBLISHED'",
+        "ADMIN_portee_elargie": "status = 'PUBLISHED'",
+        "SUPERADMIN": "status = 'PUBLISHED'",
+        "staff_sans_session": "status = 'PUBLISHED'"
+      }
+    },
+    "core.config_country": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["app_read:SELECT"],
+        "app_worker": ["app_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.config_currency": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["app_read:SELECT"],
+        "app_worker": ["app_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.config_holiday_calendar": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["app_read:SELECT"],
+        "app_worker": ["app_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.config_param_definition": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["app_read:SELECT"],
+        "app_worker": ["app_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.config_param_value": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "change_reason",
+            "country_code",
+            "created_at",
+            "created_by",
+            "currency",
+            "decision_ref",
+            "id",
+            "key",
+            "network",
+            "scope_id",
+            "scope_type",
+            "valid_from",
+            "valid_to",
+            "value"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["app_read:SELECT"],
+        "app_worker": ["app_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.finance_legal_entity": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["app_read:SELECT"],
+        "app_worker": ["app_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.iam_auth_factor": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_email_verification": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_membership": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "created_at",
+            "id",
+            "invite_expires_at",
+            "org_id",
+            "permission_overrides",
+            "role",
+            "status",
+            "updated_at",
+            "user_id",
+            "vehicle_scope"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["membership_host_read:SELECT", "membership_staff_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org",
+        "cohote": "org_id = :org AND user_id = :acteur AND status = 'ACTIVE'",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "aucune",
+        "ADMIN": "org_id IN (SELECT o.id FROM core.iam_organization AS o WHERE o.country_code = :pays)",
+        "ADMIN_portee_elargie": "org_id IN (SELECT o.id FROM core.iam_organization AS o WHERE o.country_code = :pays)",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
+    "core.iam_mfa_proof_key": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_organization": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "country_code",
+            "created_at",
+            "display_name",
+            "holder_user_id",
+            "id",
+            "kind",
+            "legal_entity_id",
+            "plan_code",
+            "status",
+            "tax_id",
+            "updated_at"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["organization_holder_read:SELECT", "organization_staff_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "id = :org",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
+    "core.iam_otp_challenge": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_restriction": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_role_permission": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_session": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_staff_role_assignment": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.iam_user_account": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "created_at",
+            "date_of_birth",
+            "display_name",
+            "email",
+            "email_verified_at",
+            "id",
+            "legal_first_name",
+            "legal_last_name",
+            "phone_e164",
+            "phone_verified_at",
+            "preferred_locale",
+            "residence_country",
+            "status",
+            "updated_at"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["user_account_self_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "id = :acteur",
+        "hote": "id = :acteur",
+        "cohote": "id = :acteur",
+        "hote_org_forgee": "id = :acteur",
+        "SUPPORT_AGENT": "id = :acteur",
+        "OPS_AGENT": "id = :acteur",
+        "FINANCE": "id = :acteur",
+        "ADMIN": "id = :acteur",
+        "ADMIN_portee_elargie": "id = :acteur",
+        "SUPERADMIN": "id = :acteur",
+        "staff_sans_session": "id = :acteur"
+      }
+    },
+    "core.ntf_notification_dispatch": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": [
+            "attempts",
+            "channel",
+            "correlation_id",
+            "country_code",
+            "event_id",
+            "event_type",
+            "fallback_of",
+            "id",
+            "last_error",
+            "locale",
+            "provider_message_id",
+            "recipient_role",
+            "recipient_user_id",
+            "rendered_hash",
+            "status",
+            "template_key",
+            "template_version",
+            "variables"
+          ],
+          "INSERT": [
+            "channel",
+            "correlation_id",
+            "country_code",
+            "event_id",
+            "event_type",
+            "fallback_of",
+            "recipient_role",
+            "recipient_user_id",
+            "template_key",
+            "template_version",
+            "variables"
+          ],
+          "UPDATE": [
+            "attempts",
+            "last_error",
+            "locale",
+            "provider_message_id",
+            "rendered_hash",
+            "status"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [
+          "ntf_sender_update:UPDATE",
+          "ntf_worker_insert:INSERT",
+          "ntf_worker_select:SELECT"
+        ],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "ntf_dispatcher": "tout",
+        "ntf_sender": "tout"
+      }
+    },
+    "core.outbox_dead_letter": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": ["attempts", "consumer", "event_id", "job_id", "last_error"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [
+          "worker_insert_own:INSERT",
+          "worker_select_monitor:SELECT",
+          "worker_select_own:SELECT"
+        ],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "*": "consumer = :travailleur",
+        "bus_monitor": "tout"
+      }
+    },
+    "core.outbox_inbox_receipt": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": ["consumer", "event_id"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": ["worker_insert_own:INSERT", "worker_select_own:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "*": "consumer = :travailleur"
+      }
+    },
+    "core.outbox_outbox_event": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "INSERT": [
+            "actor_role",
+            "actor_user_id",
+            "aggregate_id",
+            "aggregate_type",
+            "aggregate_version",
+            "causation_id",
+            "correlation_id",
+            "country_code",
+            "id",
+            "partition_key",
+            "payload",
+            "schema_version",
+            "type"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": [
+            "actor_role",
+            "actor_user_id",
+            "aggregate_id",
+            "aggregate_type",
+            "aggregate_version",
+            "causation_id",
+            "correlation_id",
+            "country_code",
+            "id",
+            "partition_key",
+            "payload",
+            "schema_version",
+            "type"
+          ],
+          "UPDATE": ["attempts", "last_error", "published_at"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_insert:INSERT"],
+        "app_worker": [
+          "worker_insert:INSERT",
+          "worker_select_monitor:SELECT",
+          "worker_select_relay:SELECT",
+          "worker_update_relay:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "bus_monitor": "tout",
+        "outbox_relay": "tout"
+      }
+    },
+    "core.outbox_scheduled_job": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "INSERT": ["event_id", "max_attempts", "name", "payload", "run_at", "singleton_key"]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": ["event_id", "max_attempts", "name", "payload", "run_at", "singleton_key"],
+          "UPDATE": ["attempts", "completed_at", "last_error", "locked_until", "run_at", "state"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_insert:INSERT"],
+        "app_worker": [
+          "worker_insert:INSERT",
+          "worker_select_monitor:SELECT",
+          "worker_select_own_queue:SELECT",
+          "worker_update_own_queue:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "*": "name = :travailleur",
+        "bus_monitor": "tout"
+      }
+    },
+    "core.payment_payment_command": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": [
+            "country_code",
+            "hold_id",
+            "id",
+            "idem_plain",
+            "operation_id",
+            "operation_kind",
+            "partition_key"
+          ],
+          "UPDATE": ["attempts", "last_error", "next_attempt_at", "status"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [
+          "worker_insert_conversion:INSERT",
+          "worker_select:SELECT",
+          "worker_update_command:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "payment_command": "tout",
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout",
+        "hold_expiry": "tout"
+      }
+    },
+    "core.payment_payment_operation": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "amount_minor",
+            "country_code",
+            "created_at",
+            "currency",
+            "hold_id",
+            "id",
+            "kind",
+            "purpose",
+            "status",
+            "trip_id",
+            "updated_at"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*",
+          "UPDATE": ["proof_type", "provider_reference", "status"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["operation_guest_read:SELECT", "operation_staff_read:SELECT"],
+        "app_worker": [
+          "worker_select:SELECT",
+          "worker_select_payment_command:SELECT",
+          "worker_update_status:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "hold_id IN (SELECT h.id FROM core.booking_checkout_hold AS h WHERE h.guest_user_id = :acteur) OR trip_id IN (SELECT t.id FROM core.booking_trip AS t WHERE t.guest_user_id = :acteur)",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "trip_id = ANY(:dossiers)",
+        "OPS_AGENT": "trip_id = ANY(:dossiers)",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout",
+        "hold_expiry": "tout",
+        "webhook_ingest": "tout",
+        "booking_oracle": "tout",
+        "payment_command": "tout"
+      }
+    },
+    "core.payment_payment_operation_event": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": ["worker_select:SELECT", "worker_select_disposition:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "payment_command": "tout",
+        "webhook_ingest": "tout",
+        "disposition_sweeper": "tout",
+        "booking_oracle": "tout"
+      }
+    },
+    "core.payment_payment_operation_leg": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "amount_minor",
+            "country_code",
+            "created_at",
+            "leg",
+            "operation_id",
+            "org_id",
+            "trip_id"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["leg_host_read:SELECT", "leg_staff_read:SELECT"],
+        "app_worker": ["worker_select:SELECT", "worker_select_conversion:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org AND leg = 'HOST'",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "trip_id = ANY(:dossiers)",
+        "OPS_AGENT": "trip_id = ANY(:dossiers)",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "payment_command": "tout",
+        "webhook_ingest": "tout",
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout"
+      }
+    },
+    "core.payment_psp_account": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.payment_psp_capability": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["reference_read:SELECT"],
+        "app_worker": ["reference_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.payment_psp_capability_catalog": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["reference_read:SELECT"],
+        "app_worker": ["reference_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.payment_psp_submerchant": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "activated_at",
+            "country_code",
+            "id",
+            "kyc_status",
+            "org_id",
+            "payout_currency",
+            "updated_at"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["submerchant_host_read:SELECT", "submerchant_staff_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "payment_command": "tout",
+        "payout": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.payment_webhook_inbox": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*",
+          "INSERT": "*",
+          "UPDATE": ["error", "processed_at", "processing_status"]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [
+          "worker_insert_ingest:INSERT",
+          "worker_select:SELECT",
+          "worker_update_ingest:UPDATE"
+        ],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "webhook_ingest": "tout",
+        "booking_conversion": "tout",
+        "disposition_sweeper": "tout",
+        "payment_intent_sweeper": "tout"
+      }
+    },
+    "core.pricing_tax_line_config": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["app_read:SELECT"],
+        "app_worker": ["app_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "tout",
+        "voyageur": "tout",
+        "hote": "tout",
+        "cohote": "tout",
+        "hote_org_forgee": "tout",
+        "SUPPORT_AGENT": "tout",
+        "OPS_AGENT": "tout",
+        "FINANCE": "tout",
+        "ADMIN": "tout",
+        "ADMIN_portee_elargie": "tout",
+        "SUPERADMIN": "tout",
+        "staff_sans_session": "tout"
+      },
+      "travailleurs": {
+        "*": "tout",
+        "sans_nom": "tout"
+      }
+    },
+    "core.risk_abuse_event": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.risk_rate_counter": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.settlement_finance_approval": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "action",
+            "approved_at",
+            "country_code",
+            "id",
+            "reason",
+            "requested_at",
+            "status",
+            "subject_id"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["fin_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
+    "core.settlement_host_advance_v": {
+      "type": "view",
+      "droits": {
+        "app_api": {
+          "SELECT": "*"
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "trip_id IN (SELECT t.id FROM core.booking_trip AS t WHERE t.org_id = :org)",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
+    "core.settlement_insurer_bordereau": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "country_code",
+            "created_at",
+            "currency",
+            "id",
+            "insurer_contract_id",
+            "insurer_id",
+            "issued_at",
+            "paid_at",
+            "period",
+            "status",
+            "total_minor",
+            "updated_at"
+          ]
+        },
+        "app_worker": {
+          "SELECT": [
+            "approval_id",
+            "country_code",
+            "created_at",
+            "currency",
+            "id",
+            "insurer_contract_id",
+            "insurer_id",
+            "issued_at",
+            "paid_at",
+            "period",
+            "psp_release_ref",
+            "row_version",
+            "status",
+            "total_minor",
+            "updated_at"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["fin_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_insurer_bordereau_line": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": ["amount_minor", "bordereau_id", "country_code", "segment_no", "trip_id"]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["fin_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_insurer_ledger_state": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "country_code",
+            "created_at",
+            "currency",
+            "frozen_minor",
+            "insurer_id",
+            "next_bordereau_at",
+            "payable_minor",
+            "receivable_minor",
+            "updated_at"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["fin_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_leg_movement": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_platform_advance": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "amount_minor",
+            "cause",
+            "country_code",
+            "created_at",
+            "currency",
+            "funded_from",
+            "id",
+            "org_id",
+            "receivable_minor",
+            "recovered_minor",
+            "status",
+            "trip_id",
+            "updated_at",
+            "written_off_at"
+          ]
+        },
+        "app_worker": {
+          "SELECT": [
+            "amount_minor",
+            "cause",
+            "country_code",
+            "created_at",
+            "currency",
+            "decision_approval_id",
+            "funded_from",
+            "id",
+            "insurer_id",
+            "org_id",
+            "receivable_minor",
+            "recovered_minor",
+            "row_version",
+            "status",
+            "trip_id",
+            "updated_at",
+            "write_off_approval_id",
+            "written_off_at"
+          ]
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["advance_host_read:SELECT", "fin_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org AND cause = 'RELEASED_LEG'",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_settlement": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "country_code",
+            "created_at",
+            "currency",
+            "engine_version",
+            "guest_refund_minor",
+            "host_compensation_minor",
+            "host_earnings_minor",
+            "host_eligible",
+            "host_from_guest_minor",
+            "host_penalty_minor",
+            "id",
+            "inputs",
+            "inputs_hash",
+            "kind",
+            "negative_leg",
+            "org_id",
+            "origin",
+            "param_snapshot_hash",
+            "platform_net_minor",
+            "qualification",
+            "reason",
+            "requested_reason",
+            "retained_minor",
+            "retained_tax_minor",
+            "segment_no",
+            "supersedes_id",
+            "target_state",
+            "tax_refund_minor",
+            "total_paid_minor",
+            "trip_id",
+            "version"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["settlement_staff_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_settlement_leg": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "advance_minor",
+            "basis_minor",
+            "country_code",
+            "kept_minor",
+            "leg",
+            "org_id",
+            "segment_no",
+            "settlement_id",
+            "trip_id",
+            "variation_minor"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["settlement_leg_host_read:SELECT", "settlement_leg_staff_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org AND leg = 'HOST'",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "trip_id = ANY(:dossiers)",
+        "OPS_AGENT": "trip_id = ANY(:dossiers)",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_settlement_line": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": ["amount_minor", "line_type", "refund_minor", "retained_minor", "settlement_id"]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["settlement_line_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "settlement_id IN (SELECT s.id FROM core.settlement_settlement AS s WHERE s.country_code = :pays)",
+        "ADMIN": "settlement_id IN (SELECT s.id FROM core.settlement_settlement AS s WHERE s.country_code = :pays)",
+        "ADMIN_portee_elargie": "settlement_id IN (SELECT s.id FROM core.settlement_settlement AS s WHERE s.country_code = :pays)",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_settlement_tax_line": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "retained_tax_minor",
+            "settlement_id",
+            "tax_group",
+            "tax_paid_minor",
+            "tax_refund_minor",
+            "third_party"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["settlement_tax_line_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "aucune",
+        "OPS_AGENT": "aucune",
+        "FINANCE": "settlement_id IN (SELECT s.id FROM core.settlement_settlement AS s WHERE s.country_code = :pays)",
+        "ADMIN": "settlement_id IN (SELECT s.id FROM core.settlement_settlement AS s WHERE s.country_code = :pays)",
+        "ADMIN_portee_elargie": "settlement_id IN (SELECT s.id FROM core.settlement_settlement AS s WHERE s.country_code = :pays)",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.settlement_trip_leg_balance": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "captured_minor",
+            "country_code",
+            "created_at",
+            "currency",
+            "frozen",
+            "frozen_reason",
+            "leg",
+            "org_id",
+            "reallocated_in_minor",
+            "reallocated_out_minor",
+            "refunded_minor",
+            "release_at",
+            "released_minor",
+            "segment_no",
+            "trip_id",
+            "updated_at"
+          ]
+        },
+        "app_worker": {
+          "SELECT": "*"
+        },
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["leg_host_read:SELECT", "leg_staff_read:SELECT"],
+        "app_worker": ["worker_money_read:SELECT"],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "org_id = :org AND leg = 'HOST'",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "trip_id = ANY(:dossiers)",
+        "OPS_AGENT": "trip_id = ANY(:dossiers)",
+        "FINANCE": "country_code = :pays",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      },
+      "travailleurs": {
+        "settlement": "tout",
+        "payment_command": "tout",
+        "payout": "tout",
+        "bordereau": "tout",
+        "reconciliation": "tout"
+      }
+    },
+    "core.support_manual_action": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.support_manual_action_catalog": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.support_support_case": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "assignee_id",
+            "category",
+            "channel",
+            "country_code",
+            "created_at",
+            "id",
+            "priority",
+            "reason",
+            "requester_user_id",
+            "sla_due_at",
+            "status",
+            "trip_id",
+            "updated_at"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["support_case_staff_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "aucune",
+        "voyageur": "aucune",
+        "hote": "aucune",
+        "cohote": "aucune",
+        "hote_org_forgee": "aucune",
+        "SUPPORT_AGENT": "assignee_id = :acteur AND country_code = :pays",
+        "OPS_AGENT": "assignee_id = :acteur AND country_code = :pays",
+        "FINANCE": "aucune",
+        "ADMIN": "country_code = :pays",
+        "ADMIN_portee_elargie": "country_code = :pays",
+        "SUPERADMIN": "aucune",
+        "staff_sans_session": "aucune"
+      }
+    },
+    "platform.schema_migration": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    }
+  }
+}
