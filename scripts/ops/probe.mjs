@@ -2,7 +2,8 @@
 // rotation de secret sur la préproduction locale. Envoie une requête toutes les `intervalMs` à
 // l'une des instances EN SERVICE (lues à chaque requête dans le fichier des cibles : une instance
 // retirée par scripts/ops/roll-local.sh avant son redémarrage ne reçoit plus rien, comme une cible
-// désenregistrée du répartiteur), et compte toute réponse autre que 200.
+// désenregistrée du répartiteur), et compte toute réponse autre que 200. Intervalle moyen
+// `intervalMs`, tiré entre la moitié et une fois et demie (un client n'est pas un métronome).
 //
 //   node scripts/ops/probe.mjs <fichier-des-cibles> <fichier-du-rapport> [intervalMs]
 //
@@ -55,7 +56,14 @@ while (running) {
     i += 1;
     let code;
     try {
+      // un CLIENT ordinaire : en-têtes d'un navigateur et rythme irrégulier, sinon le garde
+      // anti-robot (US-052, REGULAR_RHYTHM, NO_BROWSER_HEADERS) le ralentit à raison
       const r = await fetch(`${target}/brand/content?locale=es`, {
+        headers: {
+          'user-agent': 'Mozilla/5.0 (sonde de continuité rueda)',
+          accept: 'application/json',
+          'accept-language': 'es',
+        },
         signal: AbortSignal.timeout(5_000),
       });
       code = r.status;
@@ -71,7 +79,7 @@ while (running) {
       }
     }
   }
-  await sleep(intervalMs);
+  await sleep(intervalMs * (0.5 + Math.random()));
 }
 report.stoppedAt = new Date().toISOString();
 writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);

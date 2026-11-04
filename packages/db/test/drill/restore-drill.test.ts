@@ -348,7 +348,8 @@ describe('US-051 — exercice de restauration chronométré', () => {
       // instant T : après la dernière validation de la vague 1, avant la vague 2 (horloge de
       // l'hôte, celle des conteneurs ; comparée par la récupération aux instants de validation)
       await sleep(200);
-      state.t = new Date().toISOString();
+      // forme acceptée par recovery_target_time (« AAAA-MM-JJ HH:MM:SS.mmm+00 », sans T ni Z)
+      state.t = new Date().toISOString().replace('T', ' ').replace('Z', '+00');
       await sleep(1_100);
       state.w2 = await populate(2, 1);
       // fin de segment : les écritures d'après T sont archivées (un incident découvert plus tard)
@@ -400,7 +401,7 @@ describe('US-051 — exercice de restauration chronométré', () => {
       await api.end();
     }
     const beat = await lastHeartbeat(PORT_A);
-    const t = Date.parse(state.t ?? '');
+    const t = Date.parse((state.t ?? '').replace(' ', 'T').replace('+00', 'Z'));
     expect(beat.getTime()).toBeLessThanOrEqual(t);
     // l'application redémarre sur la base restaurée
     state.instant = switchTo(PORT_A, rv);
