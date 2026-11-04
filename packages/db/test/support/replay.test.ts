@@ -86,13 +86,13 @@ describe('attente avant rejeu', () => {
     }
   });
 
-  it('injection (ADR-056) : [B, 1,5 B[ avec B = 2 × degré × deadlock_timeout', () => {
-    const backoff = cascadeBackoff(100, 50); // B = 10 000 ms
+  it('injection (ADR-056) : [B, 1,5 B[ avec B = 3 × degré × deadlock_timeout', () => {
+    const backoff = cascadeBackoff(100, 50); // B = 15 000 ms
     for (let replay = 1; replay <= MAX_REPLAYS; replay++) {
       for (let i = 0; i < 100; i++) {
         const ms = backoff(replay);
-        expect(ms).toBeGreaterThanOrEqual(10_000);
-        expect(ms).toBeLessThan(15_000);
+        expect(ms).toBeGreaterThanOrEqual(15_000);
+        expect(ms).toBeLessThan(22_500);
       }
     }
     expect(() => cascadeBackoff(0, 50)).toThrow(RangeError);

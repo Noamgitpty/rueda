@@ -15,6 +15,7 @@ import { commandCallSql, setSessionContext } from '../../src/index.ts';
 import { HOLD_TTL, SWEEP_GRACE_S, uuid } from './avl.ts';
 import type { CountryCase, Slot } from './avl.ts';
 export {
+  CASCADE_BACKOFF_FACTOR,
   cascadeBackoff,
   MAX_REPLAYS,
   percentile,

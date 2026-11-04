@@ -58,6 +58,7 @@ import {
   registerVehicles,
   sqlState,
   waitUntilBlocked,
+  CASCADE_BACKOFF_FACTOR,
   cascadeBackoff,
   MAX_REPLAYS,
   SHORT_BACKOFF,
@@ -288,6 +289,8 @@ function realSlot(): Slot {
 /** Résumé d'une course C1 (une course = `degree` poses du même créneau, départ commun). */
 interface RaceSummary {
   readonly ok: number;
+  /** Durée de la pose gagnante (ms) : sans verrou, fin de la vidange de la file. */
+  readonly winnerMs: number;
   readonly outcomes: Record<string, number>;
   readonly deadlocks: number;
   readonly serializationFailures: number;
@@ -398,6 +401,7 @@ function summarize(
     results.reduce((acc, r) => acc + f(r), 0);
   return {
     ok: outcomes['OK'] ?? 0,
+    winnerMs: Math.round(results.find((r) => r.error === undefined)?.ms ?? Number.NaN),
     outcomes,
     deadlocks: sum((r) => r.deadlocks),
     serializationFailures: sum((r) => r.serializationFailures),
@@ -426,7 +430,7 @@ interface C1Options {
   readonly pileUp?: boolean;
 }
 
-/** Délai de formation de la file forcée (ms), très inférieur à l'attente avant rejeu (≥ 10 s). */
+/** Délai de formation de la file forcée (ms), très inférieur à l'attente avant rejeu (≥ 15 s). */
 const PILE_UP_WAIT_MS = 5_000;
 
 /**
@@ -669,7 +673,7 @@ async function runC1(
       max: Math.round(Math.max(...ms)),
       ...(form === 'transactional' ? { lockHold: lockHoldReport(timings) } : {}),
       deadlockTimeout,
-      ...(cascade ? { replayBackoffMs: 2 * degree * deadlockTimeoutMs } : {}),
+      ...(cascade ? { replayBackoffMs: CASCADE_BACKOFF_FACTOR * degree * deadlockTimeoutMs } : {}),
       ...(pileUpReport ? { pileUp: pileUpReport } : {}),
     };
   } finally {

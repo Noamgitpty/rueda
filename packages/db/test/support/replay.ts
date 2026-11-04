@@ -21,7 +21,7 @@ export const SHORT_BACKOFF: ReplayBackoff = () => randomInt(5, 50);
 
 /**
  * Attente du cas d'injection de L0-02 (C1 sans verrou par véhicule, ADR-056, « Issue
- * déterministe de l'injection ») : aléatoire dans [B, 1,5 B[, avec B = 2 × `degree` ×
+ * déterministe de l'injection ») : aléatoire dans [B, 1,5 B[, avec B = `CASCADE_BACKOFF_FACTOR` × `degree` ×
  * `deadlockTimeoutMs`.
  *
  * Sans le verrou, `degree` poses en attente mutuelle dans l'index d'exclusion ne se résolvent
@@ -29,14 +29,18 @@ export const SHORT_BACKOFF: ReplayBackoff = () => randomInt(5, 50);
  * (`degree` − 1) × `deadlock_timeout` au plus, au rythme mesuré. Une victime qui revient avant
  * la fin de cette vidange réinsère un tuple en cours et rentre dans la file : avec l'attente courte,
  * la file ne se vide qu'une fois les 3 rejeux épuisés (CI : 398 `40P01`, 99 `RETRY`). Une victime
- * qui revient après la vidange voit le hold gagnant validé et reçoit `23P01` aussitôt. Le facteur 2
- * couvre un rythme jusqu'à deux fois plus lent que `deadlock_timeout` ; la gigue étale les retours.
+ * qui revient après la vidange voit le hold gagnant validé et reçoit `23P01` aussitôt. Le facteur 3
+ * couvre un rythme jusqu'à trois fois plus lent que `deadlock_timeout` (CI : jusqu'à deux fois et
+ * plus quand 100 poses se réveillent ensemble) ; la gigue étale les retours.
  */
+/** Marge de l'attente de l'injection sur la vidange au rythme de `deadlock_timeout` (ADR-056). */
+export const CASCADE_BACKOFF_FACTOR = 3;
+
 export function cascadeBackoff(degree: number, deadlockTimeoutMs: number): ReplayBackoff {
   if (!Number.isInteger(degree) || degree < 1 || !(deadlockTimeoutMs > 0)) {
     throw new RangeError(`cascadeBackoff : degré ${degree}, deadlock_timeout ${deadlockTimeoutMs}`);
   }
-  const base = 2 * degree * deadlockTimeoutMs;
+  const base = CASCADE_BACKOFF_FACTOR * degree * deadlockTimeoutMs;
   return () => base + randomInt(0, Math.max(1, Math.floor(base / 2)));
 }
 
