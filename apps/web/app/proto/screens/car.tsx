@@ -2,6 +2,7 @@
  * S03 Fiche de la voiture — 10b §4.1 (UX-15, UX-17, UX-21, UX-54, UX-65), parcours 4.2.1.
  */
 import {
+  Avatar,
   Badge,
   Banner,
   ButtonLink,
@@ -10,25 +11,26 @@ import {
   HostCard,
   Icon,
   Price,
-  PriceBreakdown,
   Rating,
   Skeleton,
 } from '@rueda/ui';
-import type { PriceLine } from '@rueda/ui';
+import type { MinorUnitAmount } from '@rueda/i18n';
 import type { ScreenContext } from '../context.ts';
 import { featuredCar, money, planOf } from '../data/scenario.ts';
 import type { PlanId } from '../data/scenario.ts';
 import { ActionBar, MiniMap, Row, cx, styles } from '../shell.tsx';
+import { PriceLines } from './price-lines.tsx';
+import type { PriceLineView } from './price-lines.tsx';
 
-/** Lignes du prix final (montants fictifs déjà calculés, jamais additionnés ici). */
-export function priceLines(
+/**
+ * Lignes du prix final d'un plan (montants de l'oracle de 08, `scenario.json`), formatées : location,
+ * frais de service, protection (obligatoire, jamais « incluse »), taxe, total. Aucune addition ici.
+ */
+export function planLines(
   ctx: ScreenContext,
   planId: PlanId | undefined,
-): {
-  readonly lines: PriceLine[];
-  readonly total: ReturnType<typeof money>;
-} {
-  const { t, market } = ctx;
+): { readonly lines: PriceLineView[]; readonly total: MinorUnitAmount } {
+  const { t, i18n, market } = ctx;
   const plan = planOf(market, planId);
   const f = market.featured;
   return {
@@ -36,29 +38,39 @@ export function priceLines(
       {
         id: 'rent',
         label: t('web.price.rent', { count: market.days }),
-        amount: money(market, f.lines.rentMinor),
+        amount: i18n.money(money(market, f.lines.rentMinor)),
       },
-      { id: 'tripFee', label: t('web.price.tripFee'), amount: money(market, f.lines.tripFeeMinor) },
+      {
+        id: 'tripFee',
+        label: t('web.price.tripFee'),
+        amount: i18n.money(money(market, f.lines.tripFeeMinor)),
+      },
       {
         id: 'protection',
         label: t('web.price.protection', { plan: t(`web.s05.plan.${plan.id}`) }),
-        amount: money(market, plan.priceMinor),
+        amount: i18n.money(money(market, plan.priceMinor)),
       },
       {
         id: 'tax',
         label: market.taxLabel[ctx.copy.language],
-        amount: money(market, plan.taxMinor),
+        amount: i18n.money(money(market, plan.taxMinor)),
       },
     ],
     total: money(market, plan.totalMinor),
   };
 }
 
+const HOST_TITLE = {
+  masc: 'web.s03.host.titleMasc',
+  fem: 'web.s03.host.titleFem',
+  neutral: 'web.s03.host.titleNeutral',
+} as const;
+
 export function S03({ ctx }: { readonly ctx: ScreenContext }) {
   const { t, i18n, market, state } = ctx;
   const car = featuredCar(market);
   const f = market.featured;
-  const { lines, total } = priceLines(ctx, 'BASICA');
+  const { lines, total } = planLines(ctx, 'BASICA');
   const isNew = state === 'empty';
   const request = state === 'request';
   if (state === 'loading') {
@@ -101,7 +113,7 @@ export function S03({ ctx }: { readonly ctx: ScreenContext }) {
             </a>
           </span>
         </div>
-        <CarIllustration className={styles['galleryCar']} tone={car.carTone} />
+        <CarIllustration className={styles['galleryCar']} tone={car.carTone} kind={car.kind} />
         <span className={styles['galleryCount']}>
           {t('web.s03.photos', { n: 1, total: f.photosTotal, host_name: car.host.name })}
         </span>
@@ -138,6 +150,36 @@ export function S03({ ctx }: { readonly ctx: ScreenContext }) {
             </Badge>
           </div>
         </header>
+
+        <a className={styles['hostStrip']} href="#s03-host">
+          <span className={styles['hostAvatarSlot']}>
+            <Avatar name={car.host.name} size="lg" tone={car.host.tone} decorative />
+          </span>
+          <span className={styles['stackTight']}>
+            <span className={styles['muted']}>{t(HOST_TITLE[car.host.titleForm])}</span>
+            <span className={styles['h3']}>{car.host.name}</span>
+          </span>
+          <span className={styles['inline']}>
+            <Badge tone="success" icon="shield">
+              {t('web.host.guest.verified')}
+            </Badge>
+          </span>
+        </a>
+
+        <ul className={styles['trust']} aria-label={t('web.s03.trust.label')}>
+          <li className={styles['trustItem']}>
+            <Icon name="phone" />
+            {t('web.s03.trust.assist', { insurer: market.insurerName })}
+          </li>
+          <li className={styles['trustItem']}>
+            <Icon name="key" />
+            {t('web.s03.trust.deposit', { date: ctx.date('releaseBy') })}
+          </li>
+          <li className={styles['trustItem']}>
+            <Icon name="shield" />
+            {t('web.s03.trust.verified', { host_name: car.host.name })}
+          </li>
+        </ul>
 
         <section className={styles['section']} aria-labelledby="s03-features">
           <h2 id="s03-features" className={styles['visuallyHidden']}>
@@ -239,7 +281,11 @@ export function S03({ ctx }: { readonly ctx: ScreenContext }) {
             perDay={money(market, car.perDayMinor)}
             size="lg"
           />
-          <PriceBreakdown i18n={i18n} lines={lines} total={total} />
+          <PriceLines
+            lines={lines}
+            totalLabel={t('common.price.total')}
+            total={i18n.money(total)}
+          />
         </section>
 
         <ul className={styles['rows']}>

@@ -5,7 +5,6 @@
 import {
   Avatar,
   Banner,
-  Button,
   ButtonLink,
   CarIllustration,
   Checkbox,
@@ -13,24 +12,17 @@ import {
   ErrorState,
   Icon,
   LoadingState,
-  Price,
-  PriceBreakdown,
   Skeleton,
 } from '@rueda/ui';
 import type { ScreenContext } from '../context.ts';
 import { featuredCar, money, planOf } from '../data/scenario.ts';
 import type { PlanId } from '../data/scenario.ts';
-import {
-  ActionBar,
-  AppHeader,
-  BottomNav,
-  HiddenContext,
-  MiniMap,
-  Row,
-  cx,
-  styles,
-} from '../shell.tsx';
-import { priceLines } from './car.tsx';
+import { ActionBar, AppHeader, BottomNav, Camino, MiniMap, Row, cx, styles } from '../shell.tsx';
+import { planLines } from './car.tsx';
+import { PlanChoices, PlanCta, PlanLines, PlanScope, PlanTotal } from './plan-picker.tsx';
+import type { PlanView } from './plan-picker.tsx';
+import { PriceLines } from './price-lines.tsx';
+import type { PriceLineView } from './price-lines.tsx';
 
 const PLAN_IDS: readonly PlanId[] = ['BASICA', 'ESTANDAR', 'TOTAL'];
 
@@ -41,7 +33,7 @@ function TripSummary({ ctx, exact }: { readonly ctx: ScreenContext; readonly exa
     <div className={styles['card']}>
       <div className={styles['trip']}>
         <span className={styles['tripMedia']}>
-          <CarIllustration tone={car.carTone} />
+          <CarIllustration tone={car.carTone} kind={car.kind} />
         </span>
         <span className={styles['stackTight']}>
           <span className={styles['strong']}>{car.title}</span>
@@ -77,12 +69,52 @@ export function S05({ ctx }: { readonly ctx: ScreenContext }) {
   const car = featuredCar(market);
   const f = market.featured;
   const planId = PLAN_IDS.find((p) => p === ctx.options.sel) ?? 'BASICA';
-  const { lines, total } = priceLines(ctx, planId);
   const request = state === 'request';
-  const changed = money(market, f.changedTotalMinor);
-  const cta = request ? t('web.s05.ctaRequest') : t('web.s05.cta', { amount: i18n.money(total) });
+  const changed = state === 'priceChanged';
+  const totalLabel = t('common.price.total');
+  const caption = t('common.price.finalForDays', { count: market.days });
+  const plans: PlanView[] = PLAN_IDS.map((id) => {
+    const plan = planOf(market, id);
+    const { lines, total } = planLines(ctx, id);
+    return {
+      id,
+      name: t(`web.s05.plan.${id}`),
+      badge: id === 'BASICA' ? t('web.s05.plan.required') : undefined,
+      deductible: t('web.s05.plan.deductible', {
+        amount: i18n.money(money(market, plan.deductibleMinor)),
+      }),
+      price: i18n.money(money(market, plan.priceMinor)),
+      lines,
+      total: i18n.money(total),
+      cta: request ? t('web.s05.ctaRequest') : t('web.s05.cta', { amount: i18n.money(total) }),
+    };
+  });
+  const c = f.changed;
+  const changedLines: PriceLineView[] = [
+    {
+      id: 'rent',
+      label: t('web.price.rent', { count: market.days }),
+      amount: i18n.money(money(market, c.rentMinor)),
+    },
+    {
+      id: 'tripFee',
+      label: t('web.price.tripFee'),
+      amount: i18n.money(money(market, c.tripFeeMinor)),
+    },
+    {
+      id: 'protection',
+      label: t('web.price.protection', { plan: t('web.s05.plan.BASICA') }),
+      amount: i18n.money(money(market, c.protectionMinor)),
+    },
+    {
+      id: 'tax',
+      label: market.taxLabel[ctx.copy.language],
+      amount: i18n.money(money(market, c.taxMinor)),
+    },
+  ];
+  const changedTotal = i18n.money(money(market, c.totalMinor));
   return (
-    <>
+    <PlanScope plans={plans} initial={changed ? 'BASICA' : planId}>
       <AppHeader ctx={ctx} back={ctx.href('s03')} title={t('web.s05.title')} />
       <main className={styles['content']}>
         {state === 'error' ? (
@@ -97,9 +129,9 @@ export function S05({ ctx }: { readonly ctx: ScreenContext }) {
             {t('web.s05.hold.until', { time: ctx.time('holdUntil') })}
           </Banner>
         )}
-        {state === 'priceChanged' && (
+        {changed && (
           <Banner tone="warning" title={t('web.s05.priceChanged')} live="assertive">
-            {t('web.s05.priceChangedBody', { amount: i18n.money(changed) })}
+            {t('web.s05.priceChangedBody', { amount: changedTotal })}
           </Banner>
         )}
         {state === 'deposit' && (
@@ -126,47 +158,15 @@ export function S05({ ctx }: { readonly ctx: ScreenContext }) {
             />
           </ul>
         </section>
-        <form
-          className={styles['section']}
-          action={ctx.href('s05').split('?')[0]}
-          method="get"
-          aria-labelledby="s05-protection"
-        >
-          <HiddenContext ctx={ctx} />
-          {state !== 'normal' && <input type="hidden" name="state" value={state} />}
-          <fieldset className={styles['choices']}>
-            <legend id="s05-protection" className={styles['h3']}>
-              {t('web.s05.protection.title')}
-            </legend>
-            {PLAN_IDS.map((id) => {
-              const plan = planOf(market, id);
-              return (
-                <label key={id} className={styles['choice']}>
-                  <input type="radio" name="sel" value={id} defaultChecked={id === planId} />
-                  <span className={styles['choiceBody']}>
-                    <span className={styles['strong']}>{t(`web.s05.plan.${id}`)}</span>
-                    <span className={styles['muted']}>
-                      {t('web.s05.plan.deductible', {
-                        amount: i18n.money(money(market, plan.deductibleMinor)),
-                      })}
-                    </span>
-                  </span>
-                  <span className={styles['strong']}>
-                    {id === 'BASICA'
-                      ? t('web.s05.plan.included')
-                      : i18n.money(money(market, plan.priceMinor))}
-                  </span>
-                </label>
-              );
-            })}
-          </fieldset>
-          <p className={styles['muted']}>{t('web.s05.plan.by', { insurer: market.insurerName })}</p>
-          <Button type="submit" variant="secondary" size="sm">
-            {t('web.s05.plan.apply')}
-          </Button>
-        </form>
+        {!changed && (
+          <PlanChoices
+            legend={t('web.s05.protection.title')}
+            plans={plans}
+            note={`${t('web.s05.plan.by', { insurer: market.insurerName })} ${t('web.s05.plan.change')}`}
+          />
+        )}
         <section className={styles['section']} aria-labelledby="s05-price">
-          <h2 id="s05-price" className={styles['visuallyHidden']}>
+          <h2 id="s05-price" className={styles['h3']}>
             {t('common.price.details')}
           </h2>
           {state === 'loading' ? (
@@ -178,13 +178,10 @@ export function S05({ ctx }: { readonly ctx: ScreenContext }) {
               <Skeleton width="medium" />
               <Skeleton width="full" />
             </div>
+          ) : changed ? (
+            <PriceLines lines={changedLines} totalLabel={totalLabel} total={changedTotal} />
           ) : (
-            <PriceBreakdown
-              i18n={i18n}
-              lines={lines}
-              total={state === 'priceChanged' ? changed : total}
-              open
-            />
+            <PlanLines totalLabel={totalLabel} />
           )}
         </section>
         <DepositBlock
@@ -210,33 +207,35 @@ export function S05({ ctx }: { readonly ctx: ScreenContext }) {
       </main>
       <ActionBar
         price={
-          <Price
-            i18n={i18n}
-            total={state === 'priceChanged' ? changed : total}
-            days={market.days}
-            live
-          />
+          changed ? (
+            <p className={styles['barPrice']}>
+              <span className={styles['priceTotalAmount']}>{changedTotal}</span>
+              <span className={styles['muted']}>{caption}</span>
+            </p>
+          ) : (
+            <PlanTotal caption={caption} />
+          )
         }
       >
         {state === 'deposit' ? (
           <ButtonLink variant="secondary" href={ctx.href('s01')}>
             {t('web.s02.empty.dates')}
           </ButtonLink>
+        ) : changed ? (
+          <ButtonLink href={ctx.href('s05')}>{t('web.s05.priceChangedAccept')}</ButtonLink>
         ) : (
-          <ButtonLink
+          <PlanCta
             href={ctx.href(request ? 's07' : 's06', { state: request ? 'request' : 'normal' })}
-          >
-            {cta}
-          </ButtonLink>
+          />
         )}
       </ActionBar>
-    </>
+    </PlanScope>
   );
 }
 
 export function S06({ ctx }: { readonly ctx: ScreenContext }) {
   const { t, i18n, market, state } = ctx;
-  const { total } = priceLines(ctx, 'BASICA');
+  const { total } = planLines(ctx, 'BASICA');
   return (
     <>
       <AppHeader
@@ -327,15 +326,37 @@ export function S07({ ctx }: { readonly ctx: ScreenContext }) {
   return (
     <>
       <AppHeader ctx={ctx} onPrimary />
-      <section className={styles['success']} aria-labelledby="s07-title">
-        <span className={styles['successMark']} aria-hidden="true">
+      <section className={styles['joy']} aria-labelledby="s07-title">
+        <Camino className={styles['joyCamino']} />
+        <span className={styles['joyMark']} aria-hidden="true">
           <Icon name={request ? 'clock' : 'check'} />
         </span>
-        <h1 id="s07-title" className={styles['display']}>
+        <h1 id="s07-title" className={styles['joyTitle']}>
           {request ? t('web.s07.requestTitle') : t('web.s07.title')}
         </h1>
-        <p className={styles['heroSubtitle']}>{t('web.s07.number', { code: f.bookingCode })}</p>
+        <p className={styles['joyCode']}>{t('web.s07.number', { code: f.bookingCode })}</p>
       </section>
+      {!request && (
+        <section className={styles['ticket']} aria-labelledby="s07-recap">
+          <h2 id="s07-recap" className={styles['kicker']}>
+            {t('web.s07.recap')}
+          </h2>
+          <p className={styles['ticketDate']}>
+            {ctx.date('start')} <span className={styles['ticketTime']}>{ctx.time('start')}</span>
+          </p>
+          <p className={styles['text']}>
+            <Icon name="pin" /> {f.meetAddress}
+          </p>
+          <span className={styles['ticketCut']} aria-hidden="true" />
+          <div className={styles['inline']}>
+            <Avatar name={car.host.name} size="md" tone={car.host.tone} decorative />
+            <span className={styles['stackTight']}>
+              <span className={styles['muted']}>{t('web.s07.recap.host')}</span>
+              <span className={styles['strong']}>{car.host.name}</span>
+            </span>
+          </div>
+        </section>
+      )}
       <main className={styles['content']}>
         {request ? (
           <Banner tone="info" icon="clock" live="polite">
@@ -345,7 +366,7 @@ export function S07({ ctx }: { readonly ctx: ScreenContext }) {
             })}
           </Banner>
         ) : null}
-        <TripSummary ctx={ctx} exact={!request} />
+        {request && <TripSummary ctx={ctx} />}
         {!request && (
           <section className={styles['section']} aria-labelledby="s07-meet">
             <h2 id="s07-meet" className={styles['h3']}>

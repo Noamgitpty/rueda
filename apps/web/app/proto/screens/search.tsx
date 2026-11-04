@@ -50,6 +50,7 @@ function CarList({
             perDay={money(market, car.perDayMinor)}
             days={market.days}
             carTone={car.carTone}
+            carKind={car.kind}
             saveAction={
               <IconButton icon="heart" label={t('common.ui.car.save', { car: car.title })} />
             }
@@ -87,7 +88,7 @@ export function S01({ ctx }: { readonly ctx: ScreenContext }) {
           {t('web.s01.title')}
         </h1>
         <p className={styles['heroSubtitle']}>{t('web.s01.subtitle')}</p>
-        <CarIllustration className={styles['heroCar']} tone={2} />
+        <CarIllustration className={styles['heroCar']} tone={2} kind="suv" />
       </section>
       <form
         className={styles['searchCard']}

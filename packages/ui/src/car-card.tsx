@@ -4,6 +4,7 @@ import { Avatar } from './avatar.tsx';
 import type { AvatarTone } from './avatar.tsx';
 import styles from './card.module.css';
 import { CarIllustration } from './car-illustration.tsx';
+import type { CarKind } from './car-illustration.tsx';
 import { Icon } from './icon.tsx';
 import { cx } from './internal/cx.ts';
 import { Price } from './price.tsx';
@@ -34,6 +35,8 @@ export interface CarCardProps {
   readonly saveAction?: ReactNode;
   readonly headingLevel?: 2 | 3 | 4 | undefined;
   readonly carTone?: 1 | 2 | 3 | 4 | undefined;
+  /** Silhouette du véhicule (citadine, berline, SUV, pick-up, monospace). */
+  readonly carKind?: CarKind | undefined;
 }
 
 /**
@@ -57,6 +60,7 @@ export function CarCard({
   saveAction,
   headingLevel = 3,
   carTone,
+  carKind,
 }: CarCardProps) {
   const Heading = `h${headingLevel}` as const;
   const distance =
@@ -66,7 +70,9 @@ export function CarCard({
   const where = [place, distance].filter((part): part is string => Boolean(part)).join(' · ');
   return (
     <article className={cx(styles['card'], styles['interactive'])}>
-      <div className={styles['media']}>{media ?? <CarIllustration tone={carTone} />}</div>
+      <div className={styles['media']}>
+        {media ?? <CarIllustration tone={carTone} kind={carKind} />}
+      </div>
       {saveAction && <div className={styles['save']}>{saveAction}</div>}
       <div className={styles['body']}>
         <Heading className={styles['title']}>

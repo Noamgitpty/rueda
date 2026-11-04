@@ -128,6 +128,18 @@ describe('données fictives cohérentes', () => {
   });
 });
 
+describe('protection Básica obligatoire et payante (08 BR-PROT-02, BR-PRICE-11)', () => {
+  it('chaque plan a un prix non nul, Básica comprise, et aucun texte ne la dit incluse', () => {
+    for (const market of MARKETS) {
+      for (const plan of market.featured.plans) expect(BigInt(plan.priceMinor) > 0n).toBe(true);
+    }
+    for (const language of LANGS) {
+      const keys = Object.keys(PROTO_CATALOGS[language]);
+      expect(keys.some((k) => k.includes('included'))).toBe(false);
+    }
+  });
+});
+
 describe('chaque écran, chaque état, chaque locale et chaque marché se rend', () => {
   for (const screen of SCREENS) {
     it(`${screen.id} : ${screen.states.join(', ')}`, async () => {

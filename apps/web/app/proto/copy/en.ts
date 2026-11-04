@@ -225,7 +225,7 @@ export const EN_PROTO = {
   'web.s03.cancel.free': 'Free until {date}. After that, part of it is refunded.',
   'web.s03.protection.title': 'Protection',
   'web.s03.protection.body':
-    'Basic protection from {insurer} is included. You can upgrade it at checkout.',
+    'Basic protection from {insurer} is required and already in the total. You can upgrade it at checkout.',
   'web.s03.docs.title': "What you'll need",
   'web.s03.error.title': "These dates aren't free",
   'web.s03.error.use': 'Use this date',
@@ -269,7 +269,6 @@ export const EN_PROTO = {
   'web.s05.plan.BASICA': 'Basic',
   'web.s05.plan.ESTANDAR': 'Standard',
   'web.s05.plan.TOTAL': 'Full',
-  'web.s05.plan.included': 'Included',
   'web.s05.plan.deductible': 'Deductible: {amount}',
   'web.s05.plan.by': 'Plans from {insurer}.',
   'web.s05.zones': 'You can only drive in {country}: the car may not cross the border.',
@@ -334,7 +333,7 @@ export const EN_PROTO = {
     "You're offline: these numbers stay here even if the page doesn't finish loading.",
   'proto.fake.next': 'See the result (simulated)',
   'web.price.rent': { one: 'Rental · {count} day', other: 'Rental · {count} days' },
-  'web.price.tripFee': 'Trip fee',
+  'web.price.tripFee': 'Service fee',
   'web.price.protection': 'Protection: {plan}',
   'web.s17.faq.deposit.body':
     'The deposit is released after the trip, no later than the date shown in your booking.',
@@ -342,5 +341,13 @@ export const EN_PROTO = {
     "Tap “I'm running late” in your trip: we tell the host and the wait is extended once by 30 minutes.",
   'web.s17.faq.damage.body':
     "Take photos, stop driving if the damage isn't minor, and report it from your trip.",
-  'web.s05.plan.apply': 'Apply this protection',
+  'web.s05.plan.required': 'Required',
+  'web.s05.plan.change': 'When you change protection, the total updates right away.',
+  'web.s05.priceChangedAccept': 'Accept the new price',
+  'web.s03.trust.label': 'What keeps you covered on this trip',
+  'web.s03.trust.assist': 'Roadside assistance from {insurer}',
+  'web.s03.trust.deposit': 'Deposit released by {date} at the latest',
+  'web.s03.trust.verified': '{host_name} verified their identity',
+  'web.s07.recap': 'Your handover',
+  'web.s07.recap.host': 'Handing you the car',
 } as const satisfies Readonly<Record<ProtoKey, Message>>;

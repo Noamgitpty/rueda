@@ -4,6 +4,7 @@
  * dans le code. Le prototype ne calcule aucun montant : tout est déjà en unités mineures.
  */
 import type { CatalogLanguage, MinorUnitAmount } from '@rueda/i18n';
+import type { CarKind } from '@rueda/ui';
 import raw from './scenario.json' with { type: 'json' };
 
 export type Tone = 1 | 2 | 3 | 4;
@@ -28,6 +29,7 @@ export interface ProtoCar {
   readonly perDayMinor: string;
   readonly totalMinor: string;
   readonly carTone: Tone;
+  readonly kind: CarKind;
   readonly manual: boolean;
 }
 
@@ -102,7 +104,14 @@ export interface ProtoMarket {
     };
     readonly lines: { readonly rentMinor: string; readonly tripFeeMinor: string };
     readonly plans: readonly ProtoPlan[];
-    readonly changedTotalMinor: string;
+    /** Même voyage après un changement de prix (état « prix modifié »), lignes de l'oracle. */
+    readonly changed: {
+      readonly rentMinor: string;
+      readonly tripFeeMinor: string;
+      readonly protectionMinor: string;
+      readonly taxMinor: string;
+      readonly totalMinor: string;
+    };
     readonly refundMinor: string;
   };
   readonly cars: readonly ProtoCar[];

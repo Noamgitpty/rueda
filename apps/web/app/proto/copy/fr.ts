@@ -238,7 +238,7 @@ export const FR_PROTO = {
   'web.s03.cancel.free': 'Gratuite jusqu’au {date}. Ensuite, une partie est remboursée.',
   'web.s03.protection.title': 'Protection',
   'web.s03.protection.body':
-    'La protection Basique de {insurer} est incluse. Tu peux la renforcer au paiement.',
+    'La protection Basique de {insurer} est obligatoire et déjà comprise dans le total. Tu peux la renforcer au paiement.',
   'web.s03.docs.title': 'Ce qu’il te faut',
   'web.s03.error.title': 'Ces dates ne sont pas libres',
   'web.s03.error.use': 'Utiliser cette date',
@@ -287,7 +287,6 @@ export const FR_PROTO = {
   'web.s05.plan.BASICA': 'Basique',
   'web.s05.plan.ESTANDAR': 'Standard',
   'web.s05.plan.TOTAL': 'Intégrale',
-  'web.s05.plan.included': 'Incluse',
   'web.s05.plan.deductible': 'Franchise : {amount}',
   'web.s05.plan.by': 'Formules de {insurer}.',
   'web.s05.zones':
@@ -355,7 +354,7 @@ export const FR_PROTO = {
     'Hors connexion : ces numéros restent affichés même si la page ne finit pas de charger.',
   'proto.fake.next': 'Voir le résultat (simulé)',
   'web.price.rent': { one: 'Location · {count} jour', other: 'Location · {count} jours' },
-  'web.price.tripFee': 'Frais de voyage',
+  'web.price.tripFee': 'Frais de service',
   'web.price.protection': 'Protection {plan}',
   'web.s17.faq.deposit.body':
     'Le dépôt est libéré après le voyage, au plus tard à la date indiquée dans ta réservation.',
@@ -363,5 +362,13 @@ export const FR_PROTO = {
     'Touche « Je suis en retard » dans ton voyage : nous prévenons l’hôte et l’attente est prolongée une fois de 30 minutes.',
   'web.s17.faq.damage.body':
     'Prends des photos, arrête de rouler si le dommage n’est pas mineur et déclare-le depuis ton voyage.',
-  'web.s05.plan.apply': 'Appliquer cette protection',
+  'web.s05.plan.required': 'Obligatoire',
+  'web.s05.plan.change': 'Quand tu changes de protection, le total se met à jour aussitôt.',
+  'web.s05.priceChangedAccept': 'Accepter le nouveau prix',
+  'web.s03.trust.label': 'Ce qui te protège pendant ce voyage',
+  'web.s03.trust.assist': 'Assistance routière de {insurer}',
+  'web.s03.trust.deposit': 'Dépôt libéré au plus tard le {date}',
+  'web.s03.trust.verified': '{host_name} a vérifié son identité',
+  'web.s07.recap': 'Ta remise',
+  'web.s07.recap.host': 'Te remet la voiture',
 } as const satisfies Readonly<Record<ProtoKey, Message>>;

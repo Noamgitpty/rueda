@@ -1073,3 +1073,272 @@
   color: var(--color-text);
   font: inherit;
 }
+
+/* ---------- Lignes de prix toujours visibles (revue UX) ---------- */
+.priceLines {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+}
+
+.priceLine,
+.priceTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.priceLine dt,
+.priceLine dd,
+.priceTotal dt,
+.priceTotal dd {
+  margin: 0;
+}
+
+.priceLine {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.priceLine dd {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.priceTotal {
+  margin-block-start: var(--space-1);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+  font-weight: var(--font-weight-strong);
+}
+
+.priceTotalAmount {
+  display: inline-block;
+  font-family: var(--font-display-family);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-display-weight);
+  letter-spacing: var(--font-display-letter-spacing);
+  font-variant-numeric: tabular-nums;
+  animation: tick var(--motion-duration-enter) var(--motion-easing-emphasis) both;
+}
+
+@keyframes tick {
+  from {
+    transform: translateY(var(--space-2));
+    opacity: 0;
+  }
+}
+
+.barPrice {
+  display: grid;
+  margin: 0;
+  line-height: var(--font-line-height-heading);
+}
+
+.tag {
+  display: inline-block;
+  margin-inline-start: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  vertical-align: middle;
+}
+
+/* ---------- S03 : hôte en tête et bande de confiance ---------- */
+.hostStrip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-sunken);
+}
+
+.hostAvatar {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  inline-size: calc(var(--size-touch-target) * 1.4);
+  block-size: calc(var(--size-touch-target) * 1.4);
+  border: var(--space-1) solid var(--color-surface-raised);
+  border-radius: var(--radius-pill);
+  background: var(--color-avatar-1);
+  color: var(--color-on-avatar-1);
+  box-shadow: var(--shadow-raised);
+  font-family: var(--font-display-family);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-display-weight);
+}
+
+.trust {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trustItem {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  text-align: center;
+}
+
+.trustItem > svg {
+  font-size: var(--font-size-xl);
+}
+
+/* ---------- S07 : moment de joie ---------- */
+.joy {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4) var(--space-10);
+  overflow: hidden;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.joyCamino {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  color: color-mix(in srgb, var(--color-on-primary) 40%, transparent);
+  pointer-events: none;
+}
+
+.joyCamino path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--camino-stroke-width);
+  stroke-linecap: round;
+  stroke-dasharray: var(--camino-dash-array);
+  animation: drift var(--motion-duration-signature) var(--motion-easing-emphasis) both;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(calc(var(--space-10) * -1));
+    opacity: 0;
+  }
+}
+
+.joyMark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--size-touch-target) * 1.6);
+  block-size: calc(var(--size-touch-target) * 1.6);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-size-3xl);
+  outline: var(--space-2) solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  animation: pop var(--motion-duration-signature) var(--motion-easing-emphasis) both;
+}
+
+.joyTitle {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-display-family);
+  font-size: var(--font-display-size);
+  font-weight: var(--font-display-weight);
+  letter-spacing: var(--font-display-letter-spacing);
+  line-height: var(--font-display-line-height);
+  animation: tick var(--motion-duration-signature) var(--motion-easing-emphasis) both;
+}
+
+.joyCode {
+  position: relative;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-on-primary) 14%, transparent);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.ticket {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: var(--space-3);
+  margin: calc(var(--space-8) * -1) var(--space-4) 0;
+  padding: var(--space-5) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-float);
+  animation: tick var(--motion-duration-page) var(--motion-easing-emphasis) both;
+}
+
+.ticketDate {
+  margin: 0;
+  font-family: var(--font-display-family);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-display-weight);
+  letter-spacing: var(--font-display-letter-spacing);
+  line-height: var(--font-display-line-height);
+}
+
+.ticketTime {
+  color: var(--color-primary);
+}
+
+.ticketCut {
+  block-size: 0;
+  margin-inline: calc(var(--space-4) * -1);
+  border-block-start: var(--camino-stroke-width) dashed var(--color-border-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .priceTotalAmount,
+  .joyCamino path,
+  .joyMark,
+  .joyTitle,
+  .ticket {
+    animation: none;
+  }
+}
+
+.hostStrip {
+  color: inherit;
+  text-decoration: none;
+}
+
+.hostStrip:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.hostAvatarSlot {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+}
+
+.hostStrip > * {
+  justify-self: start;
+  text-align: start;
+}

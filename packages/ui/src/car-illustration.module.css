@@ -37,3 +37,15 @@
 .light {
   fill: var(--color-warning-soft);
 }
+
+.shadow {
+  fill: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+.detail {
+  fill: none;
+  stroke: var(--color-surface-raised);
+  stroke-width: var(--camino-stroke-width);
+  stroke-linecap: round;
+  opacity: 0.6;
+}

@@ -237,7 +237,7 @@ export const ES_PROTO = {
   'web.s03.cancel.free': 'Gratis hasta el {date}. Después se reembolsa una parte.',
   'web.s03.protection.title': 'Protección',
   'web.s03.protection.body':
-    'La protección Básica está incluida, de {insurer}. Puedes subirla al pagar.',
+    'La protección Básica de {insurer} es obligatoria y ya está en el total. Puedes subirla al pagar.',
   'web.s03.docs.title': 'Qué necesitas',
   'web.s03.error.title': 'Estas fechas no están libres',
   'web.s03.error.use': 'Usar esta fecha',
@@ -281,7 +281,6 @@ export const ES_PROTO = {
   'web.s05.plan.BASICA': 'Básica',
   'web.s05.plan.ESTANDAR': 'Estándar',
   'web.s05.plan.TOTAL': 'Total',
-  'web.s05.plan.included': 'Incluida',
   'web.s05.plan.deductible': 'Franquicia: {amount}',
   'web.s05.plan.by': 'Planes de {insurer}.',
   'web.s05.zones': 'Solo puedes manejar en {country}: el auto no puede cruzar la frontera.',
@@ -346,7 +345,7 @@ export const ES_PROTO = {
     'Sin conexión: estos números siguen aquí aunque la página no termine de cargar.',
   'proto.fake.next': 'Ver el resultado (simulado)',
   'web.price.rent': { one: 'Alquiler · {count} día', other: 'Alquiler · {count} días' },
-  'web.price.tripFee': 'Tarifa del viaje',
+  'web.price.tripFee': 'Tarifa de servicio',
   'web.price.protection': 'Protección {plan}',
   'web.s17.faq.deposit.body':
     'El depósito se libera al terminar el viaje, a más tardar en la fecha que ves en tu reserva.',
@@ -354,7 +353,15 @@ export const ES_PROTO = {
     'Toca «Voy tarde» en tu viaje: avisamos al anfitrión y la espera se alarga una vez 30 minutos.',
   'web.s17.faq.damage.body':
     'Toma fotos, no sigas manejando si el daño no es menor y repórtalo desde tu viaje.',
-  'web.s05.plan.apply': 'Aplicar esta protección',
+  'web.s05.plan.required': 'Obligatoria',
+  'web.s05.plan.change': 'Al cambiar de protección, el total se actualiza al instante.',
+  'web.s05.priceChangedAccept': 'Aceptar el nuevo precio',
+  'web.s03.trust.label': 'Lo que te cuida en este viaje',
+  'web.s03.trust.assist': 'Asistencia en carretera de {insurer}',
+  'web.s03.trust.deposit': 'Depósito liberado a más tardar el {date}',
+  'web.s03.trust.verified': '{host_name} verificó su identidad',
+  'web.s07.recap': 'Tu entrega',
+  'web.s07.recap.host': 'Te entrega el auto',
 } as const;
 
 export type ProtoKey = keyof typeof ES_PROTO;

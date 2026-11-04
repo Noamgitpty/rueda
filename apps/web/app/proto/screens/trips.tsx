@@ -38,7 +38,7 @@ function TripCard({
     <li className={styles['card']}>
       <div className={styles['trip']}>
         <span className={styles['tripMedia']}>
-          <CarIllustration tone={car.carTone} />
+          <CarIllustration tone={car.carTone} kind={car.kind} />
         </span>
         <span className={styles['stackTight']}>
           <span className={styles['inline']}>

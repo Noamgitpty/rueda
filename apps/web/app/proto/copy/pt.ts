@@ -232,7 +232,7 @@ export const PT_PROTO = {
   'web.s03.cancel.free': 'Grátis até {date}. Depois, parte do valor é devolvida.',
   'web.s03.protection.title': 'Proteção',
   'web.s03.protection.body':
-    'A proteção Básica da {insurer} está incluída. Você pode aumentar no pagamento.',
+    'A proteção Básica da {insurer} é obrigatória e já está no total. Você pode aumentar no pagamento.',
   'web.s03.docs.title': 'O que você precisa',
   'web.s03.error.title': 'Essas datas não estão livres',
   'web.s03.error.use': 'Usar essa data',
@@ -277,7 +277,6 @@ export const PT_PROTO = {
   'web.s05.plan.BASICA': 'Básica',
   'web.s05.plan.ESTANDAR': 'Padrão',
   'web.s05.plan.TOTAL': 'Completa',
-  'web.s05.plan.included': 'Incluída',
   'web.s05.plan.deductible': 'Franquia: {amount}',
   'web.s05.plan.by': 'Planos da {insurer}.',
   'web.s05.zones':
@@ -343,7 +342,7 @@ export const PT_PROTO = {
     'Sem internet: estes números continuam aqui mesmo se a página não terminar de carregar.',
   'proto.fake.next': 'Ver o resultado (simulado)',
   'web.price.rent': { one: 'Aluguel · {count} dia', other: 'Aluguel · {count} dias' },
-  'web.price.tripFee': 'Taxa da viagem',
+  'web.price.tripFee': 'Taxa de serviço',
   'web.price.protection': 'Proteção {plan}',
   'web.s17.faq.deposit.body':
     'A caução é liberada depois da viagem, no máximo na data que aparece na sua reserva.',
@@ -351,5 +350,13 @@ export const PT_PROTO = {
     'Toque em “Vou me atrasar” na sua viagem: avisamos o anfitrião e a espera aumenta uma vez em 30 minutos.',
   'web.s17.faq.damage.body':
     'Tire fotos, pare de dirigir se o dano não for pequeno e informe pela sua viagem.',
-  'web.s05.plan.apply': 'Aplicar esta proteção',
+  'web.s05.plan.required': 'Obrigatória',
+  'web.s05.plan.change': 'Ao trocar de proteção, o total é atualizado na hora.',
+  'web.s05.priceChangedAccept': 'Aceitar o novo preço',
+  'web.s03.trust.label': 'O que protege você nesta viagem',
+  'web.s03.trust.assist': 'Assistência na estrada da {insurer}',
+  'web.s03.trust.deposit': 'Caução liberada até {date}, no máximo',
+  'web.s03.trust.verified': '{host_name} confirmou a identidade',
+  'web.s07.recap': 'Sua entrega',
+  'web.s07.recap.host': 'Quem entrega o carro',
 } as const satisfies Readonly<Record<ProtoKey, Message>>;
