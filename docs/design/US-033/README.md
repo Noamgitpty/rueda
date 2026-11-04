@@ -195,7 +195,7 @@ Index du prototype : [capture](captures/index-es-PA.png).
 - **Prix final partout** (UX-15) : carte, fiche, barre d'action et paiement montrent le même total ; lignes (location, frais de service, protection, taxe) toujours visibles ; au paiement, le total change dès qu'on choisit un plan. La protection Básica est **obligatoire et payante** (08 BR-PROT-02, BR-PRICE-11) ; montants recalculés par l'oracle de 08 : `python -I -X utf8 docs/design/US-033/prix_oracle.py`.
 - **Une silhouette par véhicule** (citadine, berline, SUV, pick-up, monospace) ; **hôte en tête de fiche** avec « identité vérifiée » et bande de confiance ; **confirmation festive** (pastille, camino, billet de remise), immobile si le mouvement est réduit.
 - **Entre particuliers** : prénom et monogramme de l'hôte, ses règles avec frais, zone de remise approximative avant réservation, adresse exacte après, conseils de sécurité, check-in photo par le voyageur.
-- **Accessibilité vérifiée** sur les 105 captures : aucune largeur au-delà de 360 px, aucune cible sous 44 px (48 px visés), textes et formulaires étiquetés, états annoncés (`role="status"`, `alert`), mouvement coupé par `prefers-reduced-motion`.
+- **Accessibilité vérifiée** sur les 241 captures : aucune largeur au-delà de 360 px, aucune cible sous 44 px (48 px visés), textes et formulaires étiquetés, états annoncés (`role="status"`, `alert`), mouvement coupé par `prefers-reduced-motion`.
 
 ## Espace hôte : points de design à regarder
 
