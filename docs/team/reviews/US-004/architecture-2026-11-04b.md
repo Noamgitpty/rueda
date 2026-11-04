@@ -1,0 +1,12 @@
+# Revue architecture — US-004 — 2026-11-04 (seconde passe)
+
+Relecteur : architecture / claude-sonnet-5-5 (famille A, autre modèle que l'auteur claude-opus-5-5, revue dégradée TECH-007)
+Entrées : diff 19ef3d2..ae8fe4f, story US-004 de 19, ADR-080, ops-monitor.ts, backup.tf, keys.tf, BACKUP_RESTORE.md. Locale sur ae8fe4f : lint, typecheck, test:unit et format:check verts ; aucune exécution SQL ni tofu (la CI, verte, fait foi).
+
+| #   | Gravité (CRITIQUE/MAJEUR/MINEUR) | Constat                                                                                                                                                                                                                                                                                 | Preuve (fichier:ligne, test)  | Décision                                       |
+| --- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------- |
+| 1   | MINEUR                           | Séparation des clés conforme à 17 §6.6 (« clés distinctes par domaine ») : `data` (secrets, registre), `files`, `backup` (base, coffre), `alerts`. Le compte de copie ne touche que `backup`, sous conditions. Pas de nouveau budget de connexions ni de nouvelle dépendance de module. | keys.tf ; backup.tf ; ADR-080 | Aucune action                                  |
+| 2   | MINEUR                           | Moniteur : jauge avancée après envoi réussi, alerte non conforme isolée, fenêtre non avancée sur échec : au moins une fois, sans perte de jauge. Le risque de double alerte (état en mémoire, redémarrage, plusieurs instances) subsiste et reste documenté.                            | ops-monitor.ts                | Non bloquant ; à tracer si plusieurs instances |
+| 3   | MINEUR                           | Changer la clé de la base d'une instance existante force son remplacement : sans effet tant que rien n'est appliqué (IaC jamais appliquée), à noter pour tout futur changement de clé.                                                                                                  | database.tf (`kms_key_id`)    | Non bloquant                                   |
+
+Verdict : APPROUVÉ
