@@ -86,14 +86,21 @@ present_in() {
   aws ecr describe-images --repository-name "${1#*/}" --image-ids "imageDigest=$2" >/dev/null 2>&1
 }
 
+# Job de base : 0 s'il a tourné et rendu le code 0 ; 2 si `run-task` n'a lancé AUCUNE tâche
+# (erreur de l'appel, capacité, `failures` d'ECS : la sortie vaut alors « None » ou rien) ; 1 sinon.
+# Appelée dans un `||` (errexit suspendu) : chaque appel est donc vérifié explicitement.
 run_db_job() {
   local arn="$1" task code
   task="$(aws ecs run-task --cluster "$RUEDA_CLUSTER" --task-definition "$arn" --launch-type FARGATE \
     --network-configuration "awsvpcConfiguration={subnets=[$RUEDA_SUBNETS],securityGroups=[$RUEDA_APP_SECURITY_GROUP],assignPublicIp=DISABLED}" \
-    --query 'tasks[0].taskArn' --output text)"
-  aws ecs wait tasks-stopped --cluster "$RUEDA_CLUSTER" --tasks "$task"
+    --query 'tasks[0].taskArn' --output text)" || task=''
+  if [[ ! "$task" =~ ^arn:aws[a-z-]*:ecs:[a-z0-9-]+:[0-9]{12}:task/ ]]; then
+    say 'run-task : aucune tâche lancée'
+    return 2
+  fi
+  aws ecs wait tasks-stopped --cluster "$RUEDA_CLUSTER" --tasks "$task" || return 1
   code="$(aws ecs describe-tasks --cluster "$RUEDA_CLUSTER" --tasks "$task" \
-    --query 'tasks[0].containers[0].exitCode' --output text)"
+    --query 'tasks[0].containers[0].exitCode' --output text)" || return 1
   [ "$code" = 0 ]
 }
 
@@ -146,7 +153,12 @@ cmd_deploy() {
   api="$(register api "$digest" "$release")"
   worker="$(register worker "$digest" "$release")"
   migrate="$(register migrate "$digest" "$release")"
-  if ! run_db_job "$migrate"; then
+  local job=0
+  run_db_job "$migrate" || job=$?
+  if [ "$job" -eq 2 ]; then
+    record DEPLOY FAILED "$digest" "$release" --reason 'job de base non lancé (run-task : aucune tâche) : version servie inchangée'
+    fail 'job de base non lancé (run-task : aucune tâche) : version servie inchangée'
+  elif [ "$job" -ne 0 ]; then
     record DEPLOY FAILED "$digest" "$release" --reason 'job de base en échec : version servie inchangée'
     fail 'job de base en échec : version servie inchangée'
   fi

@@ -16,6 +16,22 @@
 
 Les agents commitent et ouvrent les PR sous le compte GitHub `Projetapploccar` (identité git du poste, option A de TECH-003). Ce compte doit **lui aussi appartenir au fondateur** : créé par lui, avec son e-mail et son téléphone de récupération, MFA à son nom, et **révocable par lui à tout moment** (retrait du collaborateur du dépôt, révocation de ses jetons et clés SSH, suppression du compte). Il n'est titulaire de rien : ni du dépôt, ni d'un environnement GitHub, ni d'un compte cloud, ni d'un secret. Droits attendus sur le dépôt : écriture sur les branches de story seulement ; la protection de `main` et de l'environnement `production` (US-050) doit l'empêcher de pousser sur `main`, de forcer un push et d'approuver un déploiement de production (l'approbateur requis est le fondateur). Si le fondateur ne contrôle pas ce compte, le remplacer par un compte machine qu'il crée (F-01, option B) avant toute fusion autonome.
 
+## Ordre de mise en place du déploiement (ADR-084)
+
+Le fondateur, depuis le compte propriétaire du dépôt, suit cet ordre **avant toute variable, tout secret, tout compte cloud relié et tout run du workflow `deploy`** (détail : [`DEPLOY.md`](DEPLOY.md) §4, étape 0) :
+
+1. **Environnement GitHub `production` protégé** :
+   - approbateur requis : le fondateur seul ;
+   - auto-approbation interdite ;
+   - déploiement depuis `main` seulement.
+
+   Puis l'environnement `preproduction`, `main` seulement. Le bot n'est **jamais** approbateur et n'a pas les droits d'administration du dépôt.
+
+2. **`sub` OIDC personnalisé** du dépôt (`repo`, `context`, `ref`, `job_workflow_ref`).
+3. Ensuite seulement : comptes cloud, fournisseur OIDC, IaC, secrets, puis variables posées **dans** chaque environnement GitHub.
+
+Si cet ordre n'est pas respecté (environnement absent ou non protégé, run non approuvé, approbation par la personne qui a lancé le run), le pipeline refuse toute action en production (porte « accord du fondateur »). Un jeton qui ne vient pas de `deploy.yml` sur `main` pour l'environnement visé n'obtient aucun identifiant AWS. Le retour arrière en production passe par la même approbation.
+
 ## Comptes
 
 États : **existe** ; **à créer par le fondateur** (avec la décision qui le débloque) ; **plus tard** (lot C ou après).

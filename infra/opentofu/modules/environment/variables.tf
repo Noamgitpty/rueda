@@ -137,6 +137,11 @@ variable "log_retention_days" {
 variable "github_repository" {
   description = "Dépôt autorisé à déployer par OIDC (propriétaire/nom)."
   type        = string
+  validation {
+    # ni « : » ni joker : la valeur entre telle quelle dans le `sub` exigé (ADR-084)
+    condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", var.github_repository))
+    error_message = "github_repository : propriétaire/nom, sans « : » ni joker."
+  }
 }
 
 variable "github_oidc_provider_arn" {

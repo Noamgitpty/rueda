@@ -19,6 +19,9 @@
 #     sous node_modules (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING, report d'US-021). L'image garde
 #     donc la disposition de l'espace de travail : les paquets sont sous /app/packages et
 #     node_modules n'en contient que des liens ; la fumée de l'image démarre l'API pour le prouver.
+#   - autorité de certification d'Amazon RDS embarquée et épinglée (ADR-084) : NODE_EXTRA_CA_CERTS
+#     pour PGSSLMODE=verify-full ; somme vérifiée à la construction, chargement vérifié par
+#     image-checks.sh.
 
 # node:26.13.0-slim, épinglée par empreinte (index multi-architecture) ; montée de version :
 # relever l'empreinte du nouvel index et changer les deux lignes FROM ensemble.
@@ -73,6 +76,15 @@ COPY --from=build --chown=root:root /repo/packages/db/node_modules ./packages/db
 COPY --from=build --chown=root:root /repo/packages/db/migrations ./packages/db/migrations
 COPY --from=build --chown=root:root /repo/packages/db/bootstrap ./packages/db/bootstrap
 COPY --from=build --chown=root:root /repo/packages/db/src ./packages/db/src
+# Autorité de certification de la base gérée (ADR-084) : paquet public « global » d'Amazon RDS
+# (https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem, 114 autorités racines et
+# intermédiaires, aucune clé privée), commité dans le dépôt et ÉPINGLÉ par sa somme SHA-256 :
+# une autre version fait échouer la construction. Lu par Node.js via NODE_EXTRA_CA_CERTS pour
+# PGSSLMODE=verify-full (IaC). Mise à jour : remplacer le fichier ET la somme ensemble (DEPLOY.md §4 étape 5).
+ARG RDS_CA_SHA256=90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b
+COPY --from=build --chown=root:root /repo/docker/prod/certs/rds-global-bundle.pem ./certs/rds-global-bundle.pem
+RUN echo "${RDS_CA_SHA256}  /app/certs/rds-global-bundle.pem" | sha256sum -c --strict -
+ENV NODE_EXTRA_CA_CERTS=/app/certs/rds-global-bundle.pem
 # Hors production : harnais de tests, préparation du poste local, tests et sources de test.
 RUN rm -rf packages/db/src/testing packages/db/src/dev \
   && find apps packages -type d \( -name testing -o -name test -o -name __tests__ \) -prune -exec rm -rf {} + \
