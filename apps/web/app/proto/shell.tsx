@@ -190,11 +190,12 @@ export function AppHeader({
 const NAV: ReadonlyArray<{
   readonly screen: string;
   readonly icon: IconName;
-  readonly key: 'web.nav.explore' | 'web.nav.trips' | 'web.nav.help';
+  readonly key: 'web.nav.explore' | 'web.nav.trips' | 'web.nav.help' | 'web.nav.account';
 }> = [
   { screen: 's01', icon: 'search', key: 'web.nav.explore' },
   { screen: 's08', icon: 'car', key: 'web.nav.trips' },
   { screen: 's17', icon: 'help', key: 'web.nav.help' },
+  { screen: 's14', icon: 'user', key: 'web.nav.account' },
 ];
 
 export function BottomNav({

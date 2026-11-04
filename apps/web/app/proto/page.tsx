@@ -5,7 +5,8 @@ import { LOCALE_CONFIG } from '../../locale-config.ts';
 import { ThemeMode } from '../ui/theme-mode.tsx';
 import { screenContext } from './context.ts';
 import { SCREENS, isPrototypeEnabled } from './options.ts';
-import type { StateId } from './options.ts';
+import type { ScreenGroup, StateId } from './options.ts';
+import type { ProtoKey } from './copy/index.ts';
 import { Wordmark, styles } from './shell.tsx';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,13 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /** États exigés par US-033 pour chaque écran clé ; un état absent est « sans objet » dans 10b §4.1. */
 const REQUIRED: readonly StateId[] = ['empty', 'loading', 'error'];
+
+/** Parcours de l'index, dans l'ordre de 10b §4.2 : voyageur, hôte, plateforme. */
+const GROUPS = [
+  { id: 'guest', title: 'proto.index.flow' },
+  { id: 'host', title: 'proto.index.flow.host' },
+  { id: 'platform', title: 'proto.index.flow.platform' },
+] as const satisfies ReadonlyArray<{ readonly id: ScreenGroup; readonly title: ProtoKey }>;
 
 export async function generateMetadata({
   searchParams,
@@ -59,44 +67,55 @@ export default async function ProtoIndexPage({ searchParams }: { searchParams: S
             ))}
           </ul>
         </nav>
-        <ButtonLink href={ctx.href('s01', { locale: current })}>
-          {t('proto.index.start')}
-        </ButtonLink>
-        <section className={styles['section']} aria-labelledby="proto-flow">
-          <h2 id="proto-flow" className={styles['h2']}>
-            {t('proto.index.flow')}
-          </h2>
-          <ol className={styles['indexList']}>
-            {SCREENS.map((screen) => (
-              <li key={screen.id} className={styles['indexItem']}>
-                <a className={styles['link']} href={ctx.href(screen.id, { locale: current })}>
-                  {t(screen.title)}
-                </a>
-                <ul className={styles['chips']} aria-label={t('proto.index.states')}>
-                  {screen.states.map((state) => (
-                    <li key={state}>
-                      <a
-                        className={styles['chip']}
-                        href={ctx.href(screen.id, { locale: current, state })}
-                      >
-                        {t(`proto.state.${state}`)}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-                {REQUIRED.filter((s) => !screen.states.includes(s)).length > 0 && (
-                  <p className={styles['na']}>
-                    {REQUIRED.filter((s) => !screen.states.includes(s))
-                      .map((s) => t(`proto.state.${s}`))
-                      .join(', ')}
-                    {' — '}
-                    {t('proto.state.notApplicable')}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ol>
-        </section>
+        <div className={styles['twoCols']}>
+          <ButtonLink href={ctx.href('s01', { locale: current })}>
+            {t('proto.index.start')}
+          </ButtonLink>
+          <ButtonLink variant="secondary" href={ctx.href('a01', { locale: current })}>
+            {t('proto.index.startHost')}
+          </ButtonLink>
+        </div>
+        {GROUPS.map((group) => (
+          <section
+            key={group.id}
+            className={styles['section']}
+            aria-labelledby={`proto-flow-${group.id}`}
+          >
+            <h2 id={`proto-flow-${group.id}`} className={styles['h2']}>
+              {t(group.title)}
+            </h2>
+            <ol className={styles['indexList']}>
+              {SCREENS.filter((screen) => screen.group === group.id).map((screen) => (
+                <li key={screen.id} className={styles['indexItem']}>
+                  <a className={styles['link']} href={ctx.href(screen.id, { locale: current })}>
+                    {t(screen.title)}
+                  </a>
+                  <ul className={styles['chips']} aria-label={t('proto.index.states')}>
+                    {screen.states.map((state) => (
+                      <li key={state}>
+                        <a
+                          className={styles['chip']}
+                          href={ctx.href(screen.id, { locale: current, state })}
+                        >
+                          {t(`proto.state.${state}`)}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  {REQUIRED.filter((s) => !screen.states.includes(s)).length > 0 && (
+                    <p className={styles['na']}>
+                      {REQUIRED.filter((s) => !screen.states.includes(s))
+                        .map((s) => t(`proto.state.${s}`))
+                        .join(', ')}
+                      {' — '}
+                      {t('proto.state.notApplicable')}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))}
         <p className={styles['muted']}>{t('proto.index.later')}</p>
       </main>
     </div>
