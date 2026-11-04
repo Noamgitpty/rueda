@@ -32,10 +32,31 @@ export type StateId =
   | 'slow'
   | 'late'
   | 'hostNoShow'
-  | 'done';
+  | 'done'
+  // Espace hôte, console ops et compte (seconde demande de fusion)
+  | 'closed'
+  | 'waiting'
+  | 'noShow'
+  | 'license'
+  | 'photos'
+  | 'keys'
+  | 'refuse'
+  | 'fee'
+  | 'cancel'
+  | 'onHold'
+  | 'payoutsOff'
+  | 'decided'
+  | 'preview'
+  | 'sent'
+  | 'item'
+  | 'noPhoto';
+
+/** Parcours : voyageur (10b §4.2.1, §4.2.4), hôte (§4.2.3, §4.2.9) ou plateforme (O01). */
+export type ScreenGroup = 'guest' | 'host' | 'platform';
 
 export interface ScreenSpec {
   readonly id: string;
+  readonly group: ScreenGroup;
   readonly title: ProtoKey;
   /** États montrables ; le premier est l'état par défaut. */
   readonly states: readonly StateId[];
@@ -45,48 +66,163 @@ export interface ScreenSpec {
 export const SCREENS: readonly ScreenSpec[] = [
   {
     id: 's01',
+    group: 'guest',
     title: 'proto.screen.s01',
     states: ['normal', 'empty', 'loading', 'error', 'offline'],
   },
   {
     id: 's02',
+    group: 'guest',
     title: 'proto.screen.s02',
     states: ['normal', 'empty', 'loading', 'error', 'offline', 'sheet', 'sheetEmpty'],
   },
   {
     id: 's03',
+    group: 'guest',
     title: 'proto.screen.s03',
     states: ['normal', 'empty', 'loading', 'error', 'request'],
   },
-  { id: 's15', title: 'proto.screen.s15', states: ['normal', 'loading', 'code', 'error'] },
+  {
+    id: 's15',
+    group: 'guest',
+    title: 'proto.screen.s15',
+    states: ['normal', 'loading', 'code', 'error'],
+  },
   {
     id: 's04',
+    group: 'guest',
     title: 'proto.screen.s04',
     states: ['normal', 'loading', 'error', 'review', 'verified'],
   },
   {
     id: 's05',
+    group: 'guest',
     title: 'proto.screen.s05',
     states: ['normal', 'loading', 'error', 'priceChanged', 'deposit', 'request'],
   },
-  { id: 's06', title: 'proto.screen.s06', states: ['normal', 'loading', 'slow', 'error'] },
-  { id: 's07', title: 'proto.screen.s07', states: ['normal', 'request', 'error'] },
+  {
+    id: 's06',
+    group: 'guest',
+    title: 'proto.screen.s06',
+    states: ['normal', 'loading', 'slow', 'error'],
+  },
+  { id: 's07', group: 'guest', title: 'proto.screen.s07', states: ['normal', 'request', 'error'] },
   {
     id: 's08',
+    group: 'guest',
     title: 'proto.screen.s08',
     states: ['normal', 'empty', 'loading', 'error', 'offline'],
   },
   {
     id: 's09',
+    group: 'guest',
     title: 'proto.screen.s09',
     states: ['normal', 'loading', 'late', 'hostNoShow', 'offline'],
   },
   {
     id: 's09c',
+    group: 'guest',
     title: 'proto.screen.s09c',
     states: ['normal', 'loading', 'error', 'offline', 'done'],
   },
-  { id: 's17', title: 'proto.screen.s17', states: ['normal', 'loading', 'offline'] },
+  {
+    id: 's17',
+    group: 'guest',
+    title: 'proto.screen.s17',
+    states: ['normal', 'loading', 'offline'],
+  },
+  {
+    id: 's14',
+    group: 'guest',
+    title: 'proto.screen.s14',
+    states: ['normal', 'loading', 'error', 'noPhoto'],
+  },
+  // Espace hôte : inscription (10b §4.2.3), puis gestion, remise et retour, gains (§4.2.9).
+  {
+    id: 'a01',
+    group: 'host',
+    title: 'proto.screen.a01',
+    states: ['normal', 'loading', 'error', 'closed'],
+  },
+  {
+    id: 'a07',
+    group: 'host',
+    title: 'proto.screen.a07',
+    states: ['normal', 'loading', 'error', 'waiting'],
+  },
+  {
+    id: 'a10',
+    group: 'host',
+    title: 'proto.screen.a10',
+    states: ['normal', 'empty', 'loading', 'error', 'closed'],
+  },
+  {
+    id: 'a11',
+    group: 'host',
+    title: 'proto.screen.a11',
+    states: ['normal', 'loading', 'error', 'preview'],
+  },
+  {
+    id: 'a13',
+    group: 'host',
+    title: 'proto.screen.a13',
+    states: ['normal', 'empty', 'loading', 'error', 'preview'],
+  },
+  {
+    id: 'a02',
+    group: 'host',
+    title: 'proto.screen.a02',
+    states: ['normal', 'empty', 'loading', 'error', 'closed', 'request', 'noShow'],
+  },
+  {
+    id: 'a05',
+    group: 'host',
+    title: 'proto.screen.a05',
+    states: ['normal', 'empty', 'loading', 'error', 'request', 'cancel'],
+  },
+  {
+    id: 'a06',
+    group: 'host',
+    title: 'proto.screen.a06',
+    states: ['normal', 'empty', 'loading', 'error'],
+  },
+  {
+    id: 'a03',
+    group: 'host',
+    title: 'proto.screen.a03',
+    states: ['normal', 'license', 'photos', 'keys', 'refuse', 'done', 'loading', 'error'],
+  },
+  {
+    id: 'a04',
+    group: 'host',
+    title: 'proto.screen.a04',
+    states: ['normal', 'loading', 'error', 'fee', 'done'],
+  },
+  {
+    id: 'a12',
+    group: 'host',
+    title: 'proto.screen.a12',
+    states: ['normal', 'loading', 'error', 'sent'],
+  },
+  {
+    id: 'a08',
+    group: 'host',
+    title: 'proto.screen.a08',
+    states: ['normal', 'empty', 'loading', 'error', 'onHold', 'payoutsOff'],
+  },
+  {
+    id: 'a09',
+    group: 'host',
+    title: 'proto.screen.a09',
+    states: ['normal', 'loading', 'error', 'decided'],
+  },
+  // Plateforme : console ops (back-office, 10b §4.1 O01).
+  {
+    id: 'o01',
+    group: 'platform',
+    title: 'proto.screen.o01',
+    states: ['normal', 'empty', 'loading', 'error', 'item'],
+  },
 ];
 
 export function screenOf(id: string): ScreenSpec | undefined {

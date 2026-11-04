@@ -42,6 +42,13 @@ const PATHS = {
   fuel: 'M5 20V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15M4 20h11M7.5 8h4M14 10h2a1.5 1.5 0 0 1 1.5 1.5V16a1.5 1.5 0 0 0 3 0V8l-2.5-2.5',
   gearbox: 'M6 5v14M12 5v14M18 5v7H6',
   route: 'M4 19.5c5-1 4-6.5 8-7.5s3-6.5 8-7.5M4 19.5h.3M20 4.5h.3',
+  // Ajoutées par US-033, seconde partie (espace hôte, console ops), même trait.
+  home: 'M4 11l8-6.5 8 6.5M6 9.5V19a1 1 0 0 0 1 1h3.5v-5h3v5H17a1 1 0 0 0 1-1V9.5',
+  wallet:
+    'M4.5 7h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5V6.5A1.5 1.5 0 0 1 5.5 5H17M15.5 13h.3',
+  lock: 'M6.5 10.5h11a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-7.5a1 1 0 0 1 1-1zM8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5M12 14.5v2',
+  flag: 'M5.5 20.5V4M5.5 4.5h11l-2 3.5 2 3.5h-11',
+  plus: 'M12 5v14M5 12h14',
 } as const;
 
 export type IconName = keyof typeof PATHS;
