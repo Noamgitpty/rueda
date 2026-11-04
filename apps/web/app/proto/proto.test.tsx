@@ -219,27 +219,42 @@ describe('mise en service : aucun hôte activable tant que le pays est fermé', 
   });
 });
 
+// Un test par écran et par locale (et non un par écran pour toutes les locales) : chaque test
+// garde une durée courte, loin du délai de vitest, même sur un exécuteur de CI chargé. Les
+// catalogues réunis sont construits une fois. Le contrôle « une vue = une langue » porte sur
+// tous les rendus d'une même langue à la fois (mêmes fragments cherchés, mot entier, séparateur
+// neutre) : `findForeignStrings` parcourt les quatre catalogues à chaque appel, et l'appeler une
+// fois par rendu dominait la durée du fichier (US-007, instabilités de CI).
+const MERGED = mergedCatalogs();
+
 describe('chaque écran, chaque état, chaque locale et chaque marché se rend', () => {
   for (const screen of SCREENS) {
-    it(`${screen.id} : ${screen.states.join(', ')}`, async () => {
-      const Screen = SCREEN_COMPONENTS[screen.id];
-      expect(Screen).toBeDefined();
-      if (!Screen) return;
-      const merged = mergedCatalogs();
-      for (const tag of TAGS) {
+    describe(`${screen.id} : ${screen.states.join(', ')}`, () => {
+      it.each(TAGS)('%s', async (tag) => {
+        const Screen = SCREEN_COMPONENTS[screen.id];
+        expect(Screen).toBeDefined();
+        if (!Screen) return;
+        const texts: string[] = [];
+        let language: CatalogLanguage | undefined;
         for (const market of MARKETS) {
           for (const state of screen.states) {
             const ctx = await screenContext({ lang: tag, state, market: market.id }, screen);
             expect(ctx.state).toBe(state);
+            language = ctx.copy.language;
             const text = textOf(renderToStaticMarkup(<Screen ctx={ctx} />));
-            expect(text, `${screen.id} ${tag} ${state}`).not.toMatch(/\{[A-Za-z_]+\}/u);
-            expect(
-              findForeignStrings(text, ctx.copy.language, merged),
-              `${screen.id} ${tag} ${market.id} ${state}`,
-            ).toEqual([]);
+            expect(text, `${screen.id} ${tag} ${market.id} ${state}`).not.toMatch(
+              /\{[A-Za-z_]+\}/u,
+            );
+            texts.push(text);
           }
         }
-      }
+        expect(language).toBeDefined();
+        if (!language) return;
+        expect(
+          findForeignStrings(texts.join(' | '), language, MERGED),
+          `${screen.id} ${tag} (tous marchés et états)`,
+        ).toEqual([]);
+      });
     });
   }
 });

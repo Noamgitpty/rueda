@@ -20,6 +20,7 @@
  * `booking_conversion`, annulation `trip_lifecycle`). En USD (PA) et en PYG (PY). C1 tourne
  * **sans horloge virtuelle** (`platform.now()` réel, 17 §11 L0-06).
  */
+import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { setSessionContext } from '../../src/index.ts';
@@ -57,9 +58,13 @@ import {
   registerVehicles,
   sqlState,
   waitUntilBlocked,
+  CASCADE_BACKOFF_FACTOR,
+  cascadeBackoff,
+  MAX_REPLAYS,
+  SHORT_BACKOFF,
   withReplay,
 } from '../support/concurrency.ts';
-import type { PoseTiming, Replayed } from '../support/concurrency.ts';
+import type { PoseTiming, Replayed, ReplayBackoff } from '../support/concurrency.ts';
 
 /** C1 : 100 poses concurrentes (17 §11). */
 const C1_POSES = 100;
@@ -284,6 +289,8 @@ function realSlot(): Slot {
 /** Résumé d'une course C1 (une course = `degree` poses du même créneau, départ commun). */
 interface RaceSummary {
   readonly ok: number;
+  /** Durée de la pose gagnante (ms) : sans verrou, fin de la vidange de la file. */
+  readonly winnerMs: number;
   readonly outcomes: Record<string, number>;
   readonly deadlocks: number;
   readonly serializationFailures: number;
@@ -311,6 +318,20 @@ interface C1Report {
   readonly lockHold?: Record<string, number>;
   /** `deadlock_timeout` des poses (banc : BENCH_DEADLOCK_TIMEOUT). */
   readonly deadlockTimeout: string;
+  /** Sans verrou : attente minimale avant un rejeu (ms), `cascadeBackoff` (ADR-056). */
+  readonly replayBackoffMs?: number;
+  /** File forcée : état relevé juste avant que le bloqueur annule sa transaction. */
+  readonly pileUp?: PileUpReport;
+}
+
+/** File forcée de l'injection (ADR-056, « Issue déterministe de l'injection »). */
+interface PileUpReport {
+  /** Poses en attente d'une transaction (`pg_locks`, `transactionid` non accordé). */
+  readonly waiting: number;
+  /** Dont en attente de la transaction du bloqueur. */
+  readonly waitingOnBlocker: number;
+  /** `40P01` reçus avant la libération (victimes en attente de rejeu). */
+  readonly earlyDeadlocks: number;
 }
 
 /**
@@ -380,6 +401,7 @@ function summarize(
     results.reduce((acc, r) => acc + f(r), 0);
   return {
     ok: outcomes['OK'] ?? 0,
+    winnerMs: Math.round(results.find((r) => r.error === undefined)?.ms ?? Number.NaN),
     outcomes,
     deadlocks: sum((r) => r.deadlocks),
     serializationFailures: sum((r) => r.serializationFailures),
@@ -399,6 +421,54 @@ interface C1Options {
   readonly warmupRaces?: number;
   /** Courses mesurées (au moins 1). */
   readonly races?: number;
+  /**
+   * Sans verrou seulement : file d'attente **forcée**. Une pose de plus, sur un autre guest, garde
+   * sa transaction ouverte après son insertion ; les `degree` poses de la course insèrent leur
+   * tuple et l'attendent toutes (`pg_locks`), puis le bloqueur annule. Les `degree` tuples en
+   * cours se voient alors mutuellement : la cascade d'interblocages a lieu à chaque exécution.
+   */
+  readonly pileUp?: boolean;
+}
+
+/** Délai de formation de la file forcée (ms), très inférieur à l'attente avant rejeu (≥ 15 s). */
+const PILE_UP_WAIT_MS = 5_000;
+
+/**
+ * Attend que chacune des poses soit en attente d'une transaction (`transactionid` non accordé
+ * dans `pg_locks`) ou ait déjà reçu un `40P01` (elle attend alors son rejeu, côté client), et
+ * qu'au moins une attende le bloqueur. Échoue explicitement après `PILE_UP_WAIT_MS`.
+ */
+async function waitForPileUp(
+  observer: pg.ClientBase,
+  pids: readonly number[],
+  blockerXid: string,
+  earlyDeadlocks: () => number,
+): Promise<PileUpReport> {
+  const deadline = Date.now() + PILE_UP_WAIT_MS;
+  for (;;) {
+    const r = await observer.query<{ waiting: number; on_blocker: number }>(
+      `SELECT count(DISTINCT l.pid)::int AS waiting,
+              count(DISTINCT l.pid) FILTER (WHERE l.transactionid::text = $2)::int AS on_blocker
+         FROM pg_catalog.pg_locks l
+        WHERE l.locktype = 'transactionid' AND NOT l.granted AND l.pid = ANY($1::int[])`,
+      [pids, blockerXid],
+    );
+    const row = r.rows[0] as { waiting: number; on_blocker: number };
+    const report: PileUpReport = {
+      waiting: row.waiting,
+      waitingOnBlocker: row.on_blocker,
+      earlyDeadlocks: earlyDeadlocks(),
+    };
+    if (report.waiting + report.earlyDeadlocks >= pids.length && report.waitingOnBlocker > 0) {
+      return report;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `file forcée non formée après ${PILE_UP_WAIT_MS} ms ${JSON.stringify(report)}`,
+      );
+    }
+    await sleep(5);
+  }
 }
 
 /**
@@ -410,8 +480,11 @@ interface C1Options {
 async function runC1(
   c: CountryCase,
   vehicleLock: boolean,
-  { form = 'autocommit', warmupRaces = 0, races = 1 }: C1Options = {},
+  { form = 'autocommit', warmupRaces = 0, races = 1, pileUp = false }: C1Options = {},
 ): Promise<C1Report> {
+  if (pileUp && (vehicleLock || form !== 'autocommit' || warmupRaces + races !== 1)) {
+    throw new Error('file forcée : injection (sans verrou), autocommit, une seule course');
+  }
   // Sans verrou : base d'injection (deadlock_timeout court) ; avec verrou : base principale, au
   // réglage du serveur (1 s, celui de la production), sous lequel le p95 est mesuré (ADR-056).
   const database: BenchDatabase = vehicleLock ? 'main' : 'injection';
@@ -426,11 +499,14 @@ async function runC1(
     }));
     const first = plan[0] as (typeof plan)[number];
     const period = slotPeriod(first.slot);
+    // file forcée : guest du bloqueur, distinct des guests de la course
+    const blockerGuest = uuid();
     // un véhicule de chauffe par connexion, au registre de test (9750)
     const warmVehicles = first.guests.map(() => uuid());
     await inTx(observer, { commit: true }, async (tx) => {
       for (const [k, p] of plan.entries()) {
-        await ensureParties(tx, p.guests, p.slot.orgId, c);
+        const guests = k === 0 && pileUp ? [...p.guests, blockerGuest] : p.guests;
+        await ensureParties(tx, guests, p.slot.orgId, c);
         await registerVehicles(
           tx,
           k === 0 ? [p.slot.vehicleId, ...warmVehicles] : [p.slot.vehicleId],
@@ -440,11 +516,24 @@ async function runC1(
       }
     });
     // après inTx (RESET ALL) : nom lu par le diagnostic des bloqueurs
-    const dt = await observer.query<{ value: string }>(
+    const dt = await observer.query<{ value: string; ms: number }>(
       `SELECT pg_catalog.set_config('application_name', 'l0-02 observateur', false),
-              pg_catalog.current_setting('deadlock_timeout') AS value`,
+              pg_catalog.current_setting('deadlock_timeout') AS value,
+              (extract(epoch FROM pg_catalog.current_setting('deadlock_timeout')::interval)
+                * 1000)::int AS ms`,
     );
     const deadlockTimeout = dt.rows[0]?.value as string;
+    const deadlockTimeoutMs = dt.rows[0]?.ms as number;
+    // Sans verrou : attente avant rejeu au-delà de la vidange d'une file de `degree` poses
+    // (ADR-056, « Issue déterministe de l'injection ») ; avec verrou : attente courte de 17 §2.5.
+    // Le plafond de 3 rejeux est le même dans les deux cas.
+    const cascade = vehicleLock ? undefined : cascadeBackoff(degree, deadlockTimeoutMs);
+    let deadlocksSoFar = 0;
+    const backoff: ReplayBackoff = (replay) => {
+      deadlocksSoFar++;
+      return cascade ? cascade(replay) : SHORT_BACKOFF(replay);
+    };
+    let pileUpReport: PileUpReport | undefined;
 
     const posers: pg.Client[] = [];
     const timings: PoseTiming[] = [];
@@ -490,20 +579,53 @@ async function runC1(
         const runs = posers.map(async (client, i) => {
           await barrier.wait(client);
           const args = { slot: p.slot, c, guestId: p.guests[i] as string, period, vehicleLock };
-          return withReplay<unknown>(() =>
-            form === 'autocommit'
-              ? // un appel de commande = une instruction en autocommit (contexte compris,
-                // commandCallSql) : la transaction (et ses verrous) se termine sur le serveur
-                vehicleLock
-                ? placeHoldCommand(client, args)
-                : placeHoldLocked(client, args)
-              : placeHoldTransactional(client, args, sink),
+          return withReplay<unknown>(
+            () =>
+              form === 'autocommit'
+                ? // un appel de commande = une instruction en autocommit (contexte compris,
+                  // commandCallSql) : la transaction (et ses verrous) se termine sur le serveur
+                  vehicleLock
+                  ? placeHoldCommand(client, args)
+                  : placeHoldLocked(client, args)
+                : placeHoldTransactional(client, args, sink),
+            backoff,
           );
         });
+        // File forcée : le bloqueur insère sa pose et garde sa transaction ouverte.
+        const blocker = pileUp ? await connectAs('app_api', { database }) : undefined;
         try {
-          await barrier.waitForWaiters(degree);
+          let blockerXid = '';
+          if (blocker) {
+            await blocker.query(
+              `SELECT pg_catalog.set_config('application_name', 'l0-02 bloqueur', false)`,
+            );
+            await blocker.query('BEGIN');
+            await placeHoldLocked(blocker, {
+              slot: p.slot,
+              c,
+              guestId: blockerGuest,
+              period,
+              vehicleLock: false,
+            });
+            const x = await blocker.query<{ xid: string }>(
+              'SELECT pg_catalog.pg_current_xact_id()::text AS xid',
+            );
+            blockerXid = x.rows[0]?.xid as string;
+          }
+          try {
+            await barrier.waitForWaiters(degree);
+          } finally {
+            await barrier.release();
+          }
+          if (blocker) {
+            pileUpReport = await waitForPileUp(observer, pids, blockerXid, () => deadlocksSoFar);
+            await blocker.query('ROLLBACK');
+          }
         } finally {
-          await barrier.release();
+          if (blocker) {
+            await blocker.query('ROLLBACK').catch(() => undefined);
+            await releaseClient(blocker);
+          }
         }
         const stall = setTimeout(() => {
           reportStall(observer, pids).catch((error: unknown) => {
@@ -551,10 +673,26 @@ async function runC1(
       max: Math.round(Math.max(...ms)),
       ...(form === 'transactional' ? { lockHold: lockHoldReport(timings) } : {}),
       deadlockTimeout,
+      ...(cascade ? { replayBackoffMs: CASCADE_BACKOFF_FACTOR * degree * deadlockTimeoutMs } : {}),
+      ...(pileUpReport ? { pileUp: pileUpReport } : {}),
     };
   } finally {
     await releaseClient(observer);
   }
+}
+
+/**
+ * Exactitude d'une course C1 sans verrou (17 §11 L0-02, « rejeu correct ») : 1 hold, toutes les
+ * autres poses refusées (`VEHICLE_UNAVAILABLE`, jamais `RETRY`), et chaque `40P01` ou `40001`
+ * reçu a été rejoué (aucun abandon), au plus `MAX_REPLAYS` fois par pose.
+ */
+function expectExactInjection(r: RaceSummary, degree: number): void {
+  expect(r.ok).toBe(1);
+  expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: degree - 1 });
+  expect(r.replays).toBe(r.deadlocks + r.serializationFailures);
+  expect(r.maxReplays).toBeLessThanOrEqual(MAX_REPLAYS);
+  expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
+  expect(r.active).toBe(1);
 }
 
 /** Exactitude d'une course C1 avec verrou (17 §11) : 1 hold, les autres refusées, 0 `40P01`. */
@@ -576,11 +714,27 @@ describe.each(COUNTRIES)(
         expectDegree(r.degree);
         // cascade d'interblocages bornée par le délai du banc (ADR-056)
         expect(r.deadlockTimeout).toBe(BENCH_DEADLOCK_TIMEOUT);
+        expectExactInjection(r.races[0] as RaceSummary, r.degree);
+      },
+      LONG,
+    );
+
+    it(
+      'sans verrou, file forcée de toutes les poses (injection) : cascade de 40P01 à chaque exécution, tous rejoués, exactement 1 hold',
+      async () => {
+        const r = await runC1(c, false, { pileUp: true });
+        log(`C1 sans verrou, file forcée ${c.country}`, r);
+        expectDegree(r.degree);
+        expect(r.deadlockTimeout).toBe(BENCH_DEADLOCK_TIMEOUT);
+        // la file était formée : chaque pose attendait une transaction ou son rejeu
+        const pile = r.pileUp as PileUpReport;
+        expect(pile.waiting + pile.earlyDeadlocks).toBe(r.degree);
+        expect(pile.waitingOnBlocker).toBeGreaterThan(0);
         const race = r.races[0] as RaceSummary;
-        expect(race.ok).toBe(1);
-        expect(race.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
-        expect(race.holds).toEqual([{ status: 'ACTIVE' }]);
-        expect(race.active).toBe(1);
+        expectExactInjection(race, r.degree);
+        // Les `degree` tuples en cours se voient tous : seul le gagnant valide, chacun des autres
+        // ne sort que par un 40P01 (aucun hold n'est validé avant le gagnant, donc aucun 23P01).
+        expect(race.deadlocks).toBeGreaterThanOrEqual(r.degree - 1);
       },
       LONG,
     );
