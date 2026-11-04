@@ -281,23 +281,36 @@ function realSlot(): Slot {
   return newSlot(start.toISOString(), end.toISOString());
 }
 
-interface C1Report {
-  readonly degree: number;
+/** Résumé d'une course C1 (une course = `degree` poses du même créneau, départ commun). */
+interface RaceSummary {
   readonly ok: number;
   readonly outcomes: Record<string, number>;
   readonly deadlocks: number;
   readonly serializationFailures: number;
   readonly replays: number;
+  readonly maxReplays: number;
   readonly p50: number;
   readonly p95: number;
   readonly max: number;
   readonly holds: { status: string }[];
   readonly active: number;
+}
+
+interface C1Report {
+  readonly degree: number;
+  /** Courses complètes non mesurées (exactitude vérifiée, temps écartés du p95). */
+  readonly warmups: readonly RaceSummary[];
+  /** Courses mesurées. */
+  readonly races: readonly RaceSummary[];
+  /** p50, p95 et max sur l'ensemble des poses des courses mesurées (`races.length × degree`). */
+  readonly samples: number;
+  readonly p50: number;
+  readonly p95: number;
+  readonly max: number;
   /** Série transactionnelle : détention du verrou du véhicule, côté serveur (ms). */
   readonly lockHold?: Record<string, number>;
-  /** `deadlock_timeout` des poses (banc : BENCH_DEADLOCK_TIMEOUT) ; rejeux de la pose la plus rejouée. */
+  /** `deadlock_timeout` des poses (banc : BENCH_DEADLOCK_TIMEOUT). */
   readonly deadlockTimeout: string;
-  readonly maxReplays: number;
 }
 
 /**
@@ -309,6 +322,17 @@ interface C1Report {
  *   sans seuil bloquant (revue sécurité US-007, constat 1).
  */
 type CallForm = 'autocommit' | 'transactional';
+
+/**
+ * Échantillon du p95 de C1 avec verrou (ADR-056, « Stabilité de la mesure du p95 », US-007) :
+ * une course complète non mesurée, puis 5 courses mesurées de 100 poses chacune, sur les mêmes
+ * connexions chaudes. Le p95 porte sur les 500 poses mesurées. Chaque course, chauffe comprise,
+ * doit être exacte (1 hold, 99 `VEHICLE_UNAVAILABLE`, 0 `40P01`).
+ */
+const C1_WARMUP_RACES = 1;
+const C1_MEASURED_RACES = 5;
+// TEMPORAIRE (mesure US-007, retiré avant fusion) : courses mesurées sans chauffe, temps bruts consignés.
+const MEASURE_RACES = Number(process.env['RUEDA_L0_02_MEASURE_RACES'] ?? '0');
 
 const round1 = (x: number): number => Math.round(x * 10) / 10;
 function stats(values: readonly number[]): Record<string, number> {
@@ -338,14 +362,51 @@ function lockHoldReport(timings: readonly PoseTiming[]): Record<string, number> 
   };
 }
 
+function summarize(
+  results: readonly Replayed<unknown>[],
+  state: { holds: { status: string }[]; active: number },
+): RaceSummary {
+  const outcomes: Record<string, number> = {};
+  for (const r of results) {
+    const key = r.error ?? 'OK';
+    outcomes[key] = (outcomes[key] ?? 0) + 1;
+  }
+  const ms = results.map((r) => r.ms);
+  const sum = (f: (r: Replayed<unknown>) => number): number =>
+    results.reduce((acc, r) => acc + f(r), 0);
+  return {
+    ok: outcomes['OK'] ?? 0,
+    outcomes,
+    deadlocks: sum((r) => r.deadlocks),
+    serializationFailures: sum((r) => r.serializationFailures),
+    replays: sum((r) => r.replays),
+    maxReplays: Math.max(...results.map((r) => r.replays)),
+    p50: Math.round(percentile(ms, 0.5)),
+    p95: Math.round(percentile(ms, 0.95)),
+    max: Math.round(Math.max(...ms)),
+    holds: state.holds,
+    active: state.active,
+  };
+}
+
+interface C1Options {
+  readonly form?: CallForm;
+  /** Courses complètes non mesurées, après la chauffe des connexions. */
+  readonly warmupRaces?: number;
+  /** Courses mesurées (au moins 1). */
+  readonly races?: number;
+}
+
 /**
  * C1 : `degree` poses du même créneau par autant de connexions `app_api`, départ commun. Le temps
- * d'une pose va du départ commun à la réponse de la commande, rejeux compris.
+ * d'une pose va du départ commun à la réponse de la commande, rejeux compris. Les connexions sont
+ * ouvertes et chauffées une fois ; chaque course (chauffe ou mesurée) porte sur un véhicule et des
+ * guests neufs, et son exactitude est relevée.
  */
 async function runC1(
   c: CountryCase,
   vehicleLock: boolean,
-  form: CallForm = 'autocommit',
+  { form = 'autocommit', warmupRaces = 0, races = 1 }: C1Options = {},
 ): Promise<C1Report> {
   // Sans verrou : base d'injection (deadlock_timeout court) ; avec verrou : base principale, au
   // réglage du serveur (1 s, celui de la production), sous lequel le p95 est mesuré (ADR-056).
@@ -353,14 +414,26 @@ async function runC1(
   const observer = await connectAs('app_api', { database });
   try {
     const degree = await concurrencyDegree(observer);
-    const slot = realSlot();
-    const period = slotPeriod(slot);
-    const guests = Array.from({ length: degree }, () => uuid());
-    // véhicule de la course et un véhicule de chauffe par connexion, au registre de test (9750)
-    const warmVehicles = guests.map(() => uuid());
+    const start = realSlot();
+    // une course = un véhicule (et une organisation) neuf et `degree` guests neufs
+    const plan = Array.from({ length: warmupRaces + races }, () => ({
+      slot: newSlot(start.start, start.end),
+      guests: Array.from({ length: degree }, () => uuid()),
+    }));
+    const first = plan[0] as (typeof plan)[number];
+    const period = slotPeriod(first.slot);
+    // un véhicule de chauffe par connexion, au registre de test (9750)
+    const warmVehicles = first.guests.map(() => uuid());
     await inTx(observer, { commit: true }, async (tx) => {
-      await ensureParties(tx, guests, slot.orgId, c);
-      await registerVehicles(tx, [slot.vehicleId, ...warmVehicles], slot.orgId, c);
+      for (const [k, p] of plan.entries()) {
+        await ensureParties(tx, p.guests, p.slot.orgId, c);
+        await registerVehicles(
+          tx,
+          k === 0 ? [p.slot.vehicleId, ...warmVehicles] : [p.slot.vehicleId],
+          p.slot.orgId,
+          c,
+        );
+      }
     });
     // après inTx (RESET ALL) : nom lu par le diagnostic des bloqueurs
     const dt = await observer.query<{ value: string }>(
@@ -371,7 +444,7 @@ async function runC1(
 
     const posers: pg.Client[] = [];
     const timings: PoseTiming[] = [];
-    let results: Replayed<unknown>[];
+    const raced: Replayed<unknown>[][] = [];
     try {
       posers.push(...(await connectMany(degree, database)));
       const pids = await Promise.all(posers.map((cl) => backendPid(cl)));
@@ -383,9 +456,9 @@ async function runC1(
         posers.map((client, i) =>
           inTx(client, {}, async (tx) => {
             const warm = {
-              slot: { ...slot, vehicleId: warmVehicles[i] as string },
+              slot: { ...first.slot, vehicleId: warmVehicles[i] as string },
               c,
-              guestId: guests[i] as string,
+              guestId: first.guests[i] as string,
               period,
               vehicleLock,
             };
@@ -401,79 +474,92 @@ async function runC1(
       // Après la chauffe : `inTx` (withTestTransaction) se termine par `RESET ALL`, qui
       // effacerait un délai posé plus tôt (revues code et qa US-007, 2026-11-03c, constat 1).
       await armStatementTimeout(posers);
-      const barrier = await Barrier.open(observer);
-      const runs = posers.map(async (client, i) => {
-        await barrier.wait(client);
-        const args = { slot, c, guestId: guests[i] as string, period, vehicleLock };
-        return withReplay<unknown>(() =>
-          form === 'autocommit'
-            ? // un appel de commande = une instruction en autocommit (contexte compris,
-              // commandCallSql) : la transaction (et ses verrous) se termine sur le serveur
-              vehicleLock
-              ? placeHoldCommand(client, args)
-              : placeHoldLocked(client, args)
-            : placeHoldTransactional(client, args, timings),
-        );
-      });
-      try {
-        await barrier.waitForWaiters(degree);
-      } finally {
-        await barrier.release();
-      }
-      const stall = setTimeout(() => {
-        reportStall(observer, pids).catch((error: unknown) => {
-          log('course bloquée', { diagnostic: String(error) });
+      for (const [k, p] of plan.entries()) {
+        // détention du verrou : courses mesurées seulement
+        const sink: PoseTiming[] = k < warmupRaces ? [] : timings;
+        const barrier = await Barrier.open(observer);
+        const runs = posers.map(async (client, i) => {
+          await barrier.wait(client);
+          const args = { slot: p.slot, c, guestId: p.guests[i] as string, period, vehicleLock };
+          return withReplay<unknown>(() =>
+            form === 'autocommit'
+              ? // un appel de commande = une instruction en autocommit (contexte compris,
+                // commandCallSql) : la transaction (et ses verrous) se termine sur le serveur
+                vehicleLock
+                ? placeHoldCommand(client, args)
+                : placeHoldLocked(client, args)
+              : placeHoldTransactional(client, args, sink),
+          );
         });
-      }, STALL_REPORT_MS);
-      try {
-        results = await Promise.all(runs);
-      } finally {
-        clearTimeout(stall);
+        try {
+          await barrier.waitForWaiters(degree);
+        } finally {
+          await barrier.release();
+        }
+        const stall = setTimeout(() => {
+          reportStall(observer, pids).catch((error: unknown) => {
+            log('course bloquée', { diagnostic: String(error) });
+          });
+        }, STALL_REPORT_MS);
+        try {
+          raced.push(await Promise.all(runs));
+          if (MEASURE_RACES > 0 && vehicleLock && form === 'autocommit') {
+            const ms = (raced[raced.length - 1] as Replayed<unknown>[]).map((r) =>
+              Math.round(r.ms),
+            );
+            log('MESURE', { country: c.country, race: k, ms: ms.sort((x, y) => x - y) });
+          }
+        } finally {
+          clearTimeout(stall);
+        }
       }
     } finally {
       await Promise.all(posers.map((cl) => releaseClient(cl)));
     }
 
-    const state = await withClients(
+    const states = await withClients(
       ['app_worker'],
       ([worker]) =>
         inTx(worker as pg.Client, { worker: 'booking_conversion' }, async (tx) => {
-          const holds = await tx.query<{ status: string }>(
-            `SELECT status FROM core.booking_checkout_hold WHERE vehicle_id = $1`,
-            [slot.vehicleId],
-          );
-          const active = await activeOccupancies(tx, slot.vehicleId, period);
-          return { holds: holds.rows, active: active.length };
+          const out: { holds: { status: string }[]; active: number }[] = [];
+          for (const p of plan) {
+            const holds = await tx.query<{ status: string }>(
+              `SELECT status FROM core.booking_checkout_hold WHERE vehicle_id = $1`,
+              [p.slot.vehicleId],
+            );
+            const active = await activeOccupancies(tx, p.slot.vehicleId, period);
+            out.push({ holds: holds.rows, active: active.length });
+          }
+          return out;
         }),
       database,
     );
-    const outcomes: Record<string, number> = {};
-    for (const r of results) {
-      const key = r.error ?? 'OK';
-      outcomes[key] = (outcomes[key] ?? 0) + 1;
-    }
-    const ms = results.map((r) => r.ms);
-    const sum = (f: (r: Replayed<unknown>) => number): number =>
-      results.reduce((acc, r) => acc + f(r), 0);
+    const summaries = raced.map((results, k) =>
+      summarize(results, states[k] as { holds: { status: string }[]; active: number }),
+    );
+    const ms = raced.slice(warmupRaces).flatMap((results) => results.map((r) => r.ms));
     return {
       degree,
-      ok: outcomes['OK'] ?? 0,
-      outcomes,
-      deadlocks: sum((r) => r.deadlocks),
-      serializationFailures: sum((r) => r.serializationFailures),
-      replays: sum((r) => r.replays),
+      warmups: summaries.slice(0, warmupRaces),
+      races: summaries.slice(warmupRaces),
+      samples: ms.length,
       p50: Math.round(percentile(ms, 0.5)),
       p95: Math.round(percentile(ms, 0.95)),
       max: Math.round(Math.max(...ms)),
-      holds: state.holds,
-      active: state.active,
       ...(form === 'transactional' ? { lockHold: lockHoldReport(timings) } : {}),
       deadlockTimeout,
-      maxReplays: Math.max(...results.map((r) => r.replays)),
     };
   } finally {
     await releaseClient(observer);
   }
+}
+
+/** Exactitude d'une course C1 avec verrou (17 §11) : 1 hold, les autres refusées, 0 `40P01`. */
+function expectExactWithLock(r: RaceSummary, degree: number): void {
+  expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: degree - 1 });
+  expect(r.deadlocks).toBe(0);
+  expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
+  expect(r.active).toBe(1);
 }
 
 describe.each(COUNTRIES)(
@@ -487,10 +573,11 @@ describe.each(COUNTRIES)(
         expectDegree(r.degree);
         // cascade d'interblocages bornée par le délai du banc (ADR-056)
         expect(r.deadlockTimeout).toBe(BENCH_DEADLOCK_TIMEOUT);
-        expect(r.ok).toBe(1);
-        expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
-        expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
-        expect(r.active).toBe(1);
+        const race = r.races[0] as RaceSummary;
+        expect(race.ok).toBe(1);
+        expect(race.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
+        expect(race.holds).toEqual([{ status: 'ACTIVE' }]);
+        expect(race.active).toBe(1);
       },
       LONG,
     );
@@ -498,17 +585,22 @@ describe.each(COUNTRIES)(
     it(
       'avec verrou par véhicule : exactement 1 hold, 0 40P01, p95 de pose < 300 ms',
       async () => {
-        const r = await runC1(c, true);
+        const warmupRaces = MEASURE_RACES > 0 ? 0 : C1_WARMUP_RACES;
+        const races = MEASURE_RACES > 0 ? MEASURE_RACES : C1_MEASURED_RACES;
+        const r = await runC1(c, true, { warmupRaces, races });
         log(`C1 avec verrou ${c.country}`, r);
         expectDegree(r.degree);
         // mesure sous le réglage de production, jamais sous le délai court de l'injection
         expect(r.deadlockTimeout).toBe(SERVER_DEADLOCK_TIMEOUT);
-        expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
-        expect(r.deadlocks).toBe(0);
-        expect(r.serializationFailures).toBe(0);
-        expect(r.replays).toBe(0);
-        expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
-        expect(r.active).toBe(1);
+        expect(r.warmups).toHaveLength(warmupRaces);
+        expect(r.races).toHaveLength(races);
+        expect(r.samples).toBe(races * r.degree);
+        // chaque course, chauffe comprise, est exacte ; aucun 40P01, 40001 ni rejeu
+        for (const race of [...r.warmups, ...r.races]) {
+          expectExactWithLock(race, r.degree);
+          expect(race.serializationFailures).toBe(0);
+          expect(race.replays).toBe(0);
+        }
         expect(r.p95).toBeLessThan(POSE_P95_MS);
       },
       LONG,
@@ -517,14 +609,11 @@ describe.each(COUNTRIES)(
     it(
       'avec verrou, forme transactionnelle (17 §2.3) : exactitude exigée, temps et détention du verrou consignés',
       async () => {
-        const r = await runC1(c, true, 'transactional');
+        const r = await runC1(c, true, { form: 'transactional' });
         log(`C1 transactionnel avec verrou ${c.country}`, r);
         expectDegree(r.degree);
         expect(r.deadlockTimeout).toBe(SERVER_DEADLOCK_TIMEOUT);
-        expect(r.outcomes).toEqual({ OK: 1, VEHICLE_UNAVAILABLE: r.degree - 1 });
-        expect(r.deadlocks).toBe(0);
-        expect(r.holds).toEqual([{ status: 'ACTIVE' }]);
-        expect(r.active).toBe(1);
+        expectExactWithLock(r.races[0] as RaceSummary, r.degree);
         // toutes les poses sont mesurées côté serveur ; aucun seuil de temps bloquant (ADR-056)
         expect(r.lockHold?.['measured']).toBe(r.degree - 1);
       },
