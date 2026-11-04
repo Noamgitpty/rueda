@@ -17,13 +17,17 @@
 --      fictif), pour peupler audit_subject_key (son écrivain réel est la couche d'audit, US-009).
 --   3. us043_seed_submerchant(compte d'hôte) : sous-marchand PENDING sur un compte FAKE du pays du
 --      compte d'hôte (son écrivain réel est la commande du travailleur payment_command, US-061).
+--   5. us043_seed_reference(pays) : une ligne de référence de TEST dans les tables de
+--      configuration que la graine ne peuple pas encore (férié, entité de Kmino : ADR-013 ouverte ;
+--      capacité PSP de statut UNKNOWN, qui vaut « non » et n'active rien), pour que leurs cellules
+--      « tout » soient éprouvées sur des lignes réelles. ON CONFLICT DO NOTHING : rejouable.
 --   4. us043_enable_totp(compte) : facteur TOTP ACTIF (référence de coffre fictive), pour que la
 --      console reconnaisse une session élevée de test (test:int des routes d'apps/api) ; le
 --      parcours réel d'enrôlement est prouvé par l0-iam-staff-mfa et pg-staff-store.int.test.ts.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us043_expected(text, text, text, jsonb, text, boolean),
 --   test_fixture.us043_seed_subject_key(text, uuid), test_fixture.us043_seed_submerchant(uuid),
---   test_fixture.us043_enable_totp(uuid);
+--   test_fixture.us043_enable_totp(uuid), test_fixture.us043_seed_reference(text);
 
 CREATE FUNCTION test_fixture.us043_expected(p_relation text, p_source text, p_predicate text,
                                             p_params jsonb, p_id_column text, p_by_country boolean)
@@ -115,7 +119,31 @@ AS $fn$
   VALUES (pg_catalog.gen_random_uuid(), p_user_id, 'TOTP', 'fake-vault:us043', platform.now())
 $fn$;
 
+CREATE FUNCTION test_fixture.us043_seed_reference(p_country text)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.config_holiday_calendar (country_code, date, name, version)
+  VALUES (p_country, DATE '2031-12-31', 'Férié de test US-043', 9043)
+  ON CONFLICT DO NOTHING;
+  INSERT INTO core.finance_legal_entity (country_code, name, country_of_incorporation, tax_id,
+                                         invoicing_regime)
+  VALUES (p_country, 'Entité de test US-043', p_country, 'TEST-US043', 'TEST_US043')
+  ON CONFLICT DO NOTHING;
+  INSERT INTO core.payment_psp_capability (provider, country_code, method, network, capability, value,
+                                           status, source, valid_from)
+  SELECT 'FAKE', p_country, 'BANK_TRANSFER', 'AMEX', c.capability, 'null'::jsonb, 'UNKNOWN',
+         'test US-043', TIMESTAMPTZ '2001-01-01T00:00:00Z'
+    FROM core.payment_psp_capability_catalog AS c
+   ORDER BY c.capability
+   LIMIT 1
+  ON CONFLICT DO NOTHING;
+$fn$;
+
 REVOKE ALL ON FUNCTION
+  test_fixture.us043_seed_reference(text),
   test_fixture.us043_enable_totp(uuid),
   test_fixture.us043_expected(text, text, text, jsonb, text, boolean),
   test_fixture.us043_seed_subject_key(text, uuid),
@@ -125,6 +153,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us043_expected(text, text, text, jsonb, text, boolean)
   TO app_api, app_worker;
 GRANT EXECUTE ON FUNCTION
+  test_fixture.us043_seed_reference(text),
   test_fixture.us043_enable_totp(uuid),
   test_fixture.us043_seed_subject_key(text, uuid),
   test_fixture.us043_seed_submerchant(uuid)

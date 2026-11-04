@@ -572,6 +572,8 @@ beforeAll(async () => {
             [uuid(), c, x.trips.a1.id, agent],
           );
         }
+        // tables de référence que la graine ne peuple pas encore (férié, entité, capacité UNKNOWN)
+        await tx.query('SELECT test_fixture.us043_seed_reference($1)', [c]);
         // clés par sujet (USER : personnes du monde ; ORG : comptes d'hôte), sous-marchands
         for (const org of [x.orgA, x.orgB]) {
           await tx.query(`SELECT test_fixture.us043_seed_subject_key('ORG', $1)`, [org]);
