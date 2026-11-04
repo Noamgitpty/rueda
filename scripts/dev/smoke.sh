@@ -7,7 +7,8 @@
 #  1. secrets-init et db-setup terminés avec le code 0 ;
 #  2. graines PA / PY lisibles sous app_api et app_worker, base « development » (db-setup --verify-only) ;
 #  3. API en bonne santé : GET /brand/content?locale=es => 200, GET /auth/session sans cookie => 401 ;
-#  4. travailleur en marche (boucles branchées par US-003) : démarrage journalisé, toujours actif ;
+#  4. travailleur en marche (boucles branchées par US-003) : démarrage journalisé depuis le dernier
+#     (re)démarrage du conteneur, toujours actif ;
 #  5. FAKE : chacun démarre sous development et refuse production, préproduction, RUEDA_ENV absent ;
 #  6. C19 : la même API lancée avec RUEDA_ENV=production refuse de démarrer.
 # Aucun secret n'est lu ni affiché par ce script.
@@ -75,7 +76,11 @@ wait_worker_running() {
     [ -n "$id" ] || fail 'worker : aucun conteneur'
     [ "$(docker inspect -f '{{.State.Status}}' "$id")" = running ] ||
       fail "worker arrêté (code $(docker inspect -f '{{.State.ExitCode}}' "$id"), docker compose logs worker)"
-    if docker compose logs --no-color --no-log-prefix worker | grep -q '"event":"worker.started"'; then
+    # Journal depuis le dernier démarrage du conteneur seulement : après `docker compose start`
+    # (INSTALL.md §4), un `worker.started` d'un lancement précédent ne compte pas.
+    started_at="$(docker inspect -f '{{.State.StartedAt}}' "$id")"
+    if docker compose logs --no-color --no-log-prefix --since "$started_at" worker |
+      grep -q '"event":"worker.started"'; then
       sleep 10
       [ "$(docker inspect -f '{{.State.Status}}' "$id")" = running ] ||
         fail 'worker arrêté après son démarrage (docker compose logs worker)'

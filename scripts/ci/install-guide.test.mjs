@@ -32,8 +32,11 @@ test('le guide démarre la pile, la vérifie, lance les tests et remet les rôle
   const order = [
     'docker compose up --build -d',
     'bash scripts/dev/smoke.sh',
+    'docker compose stop worker api',
     'docker compose --profile tests run --rm tests',
     'docker compose run --rm db-setup',
+    'docker compose start api worker',
+    'bash scripts/dev/smoke.sh',
   ];
   let at = -1;
   for (const step of order) {
