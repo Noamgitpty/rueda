@@ -2,30 +2,81 @@
   "openapi": "3.1.0",
   "info": {
     "title": "rueda API",
-    "version": "0.1.0",
-    "summary": "Contrat HTTP de l'API (US-041). Amorce écrite à la main, PROPOSÉE (ADR-074) : US-038 la remplacera par une spécification générée depuis le code ; les tests de contrat restent les mêmes.",
-    "description": "Routes couvertes : lecture publique du socle de marque (US-034) et authentification (US-010). Les autres routes (staff, console, webhooks) sont listées dans x-rueda-pending et seront ajoutées par leur story ou par US-038. Codes d'erreur stables : 16 A.8 (enum par réponse)."
+    "version": "0.2.0",
+    "summary": "Contrat HTTP de l'API (US-041, complété par US-038). Écrit à la main et VÉRIFIÉ contre le code (ADR-079) : routes montées par Nest, codes d'erreur des catalogues, couverture de chaque statut par un test de contrat, référence docs/architecture/api.md régénérée.",
+    "description": "Toutes les routes des contrôleurs Nest : marque publique (US-034), authentification (US-010), console interne IAM (US-012), actions et marque de la console (US-012, US-034), tableau de sécurité (US-052), webhooks PSP (US-020). Codes d'erreur stables : 16 A.8 (const / enum par réponse). Réponses transverses (garde anti-abus, corps trop gros, erreur interne) : x-rueda-transverse-responses."
   },
-  "x-rueda-pending": [
-    "GET /staff/me",
-    "POST /staff/mfa/enroll",
-    "POST /staff/mfa/verify",
-    "POST /staff/members/{id}/suspend",
-    "POST /staff/members/{id}/reset-totp",
-    "GET /staff/audit",
-    "POST /webhooks/{provider}/{publicWebhookId}",
-    "POST /console/actions",
-    "POST /console/brand/assets",
-    "POST /console/brand/drafts",
-    "GET /console/brand/versions",
-    "GET /console/brand/versions/{id}",
-    "POST /console/brand/versions/{id}/publish",
-    "POST /console/brand/rollback",
-    "POST /console/content/drafts",
-    "POST /console/content/publish",
-    "POST /console/content/rollback",
-    "GET /console/security/abuse"
-  ],
+  "x-rueda-transverse-responses": {
+    "403": {
+      "description": "Défi anti-robot exigé et absent ou refusé (garde globale RISK, US-052 ; hors /webhooks)",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/AuthBody",
+            "properties": {
+              "code": {
+                "const": "BOT_CHALLENGE_REQUIRED"
+              }
+            }
+          }
+        }
+      }
+    },
+    "413": {
+      "description": "Corps JSON ou formulaire au-delà de API_BODY_LIMIT_BYTES (100 Kio, US-043)",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/AuthBody",
+            "properties": {
+              "code": {
+                "const": "PAYLOAD_TOO_LARGE"
+              }
+            }
+          }
+        }
+      }
+    },
+    "429": {
+      "description": "Limite de débit par IP de la garde globale RISK (US-052) : Retry-After et values.retryAfterS",
+      "headers": {
+        "Retry-After": {
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          }
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/AuthBody",
+            "properties": {
+              "code": {
+                "const": "RATE_LIMITED"
+              }
+            }
+          }
+        }
+      }
+    },
+    "500": {
+      "description": "Erreur interne : corps stable sans détail (durcissement HTTP, US-043)",
+      "headers": {
+        "Cache-Control": {
+          "$ref": "#/components/headers/NoStore"
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/InternalError"
+          }
+        }
+      }
+    }
+  },
   "paths": {
     "/brand": {
       "get": {
@@ -37,23 +88,37 @@
             "name": "If-None-Match",
             "in": "header",
             "required": false,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Version publiée",
             "headers": {
-              "Cache-Control": { "$ref": "#/components/headers/PublicCache" },
-              "ETag": { "$ref": "#/components/headers/BrandEtag" }
+              "Cache-Control": {
+                "$ref": "#/components/headers/PublicCache"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/BrandEtag"
+              }
             },
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/PublishedTheme" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishedTheme"
+                }
+              }
             }
           },
           "304": {
             "description": "Inchangée (ETag identique)",
-            "headers": { "ETag": { "$ref": "#/components/headers/BrandEtag" } }
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/BrandEtag"
+              }
+            }
           },
           "503": {
             "description": "Aucune version publiée : le client garde son thème embarqué",
@@ -61,7 +126,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BrandError",
-                  "properties": { "code": { "const": "BRAND_VERSION_UNAVAILABLE" } }
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_VERSION_UNAVAILABLE"
+                    }
+                  }
                 }
               }
             }
@@ -79,21 +148,33 @@
             "name": "locale",
             "in": "query",
             "required": true,
-            "schema": { "$ref": "#/components/schemas/ContentLocale" }
+            "schema": {
+              "$ref": "#/components/schemas/ContentLocale"
+            }
           },
           {
             "name": "country",
             "in": "query",
             "required": false,
-            "schema": { "$ref": "#/components/schemas/CountryCode" }
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Blocs publiés",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/PublicCache" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PublicCache"
+              }
+            },
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/ContentResponse" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentResponse"
+                }
+              }
             }
           },
           "400": {
@@ -102,7 +183,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BrandError",
-                  "properties": { "code": { "const": "REQUEST_INVALID" } }
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
                 }
               }
             }
@@ -116,7 +201,14 @@
         "tags": ["cfg"],
         "summary": "Octets d'un actif publié (type vérifié à l'envoi)",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -124,26 +216,58 @@
             "headers": {
               "Cache-Control": {
                 "required": true,
-                "schema": { "type": "string", "const": "public, max-age=31536000, immutable" }
+                "schema": {
+                  "type": "string",
+                  "const": "public, max-age=31536000, immutable"
+                }
               },
               "X-Content-Type-Options": {
                 "required": true,
-                "schema": { "type": "string", "const": "nosniff" }
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
               },
               "Content-Security-Policy": {
                 "required": true,
-                "schema": { "type": "string", "const": "default-src 'none'" }
+                "schema": {
+                  "type": "string",
+                  "const": "default-src 'none'"
+                }
               },
               "ETag": {
                 "required": true,
-                "schema": { "type": "string", "pattern": "^\"[0-9a-f]{64}\"$" }
+                "schema": {
+                  "type": "string",
+                  "pattern": "^\"[0-9a-f]{64}\"$"
+                }
               }
             },
             "content": {
-              "image/png": { "schema": { "type": "string", "contentMediaType": "image/png" } },
-              "image/jpeg": { "schema": { "type": "string", "contentMediaType": "image/jpeg" } },
-              "image/webp": { "schema": { "type": "string", "contentMediaType": "image/webp" } },
-              "font/woff2": { "schema": { "type": "string", "contentMediaType": "font/woff2" } }
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "image/png"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "image/jpeg"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "image/webp"
+                }
+              },
+              "font/woff2": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "font/woff2"
+                }
+              }
             }
           },
           "400": {
@@ -152,7 +276,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BrandError",
-                  "properties": { "code": { "const": "REQUEST_INVALID" } }
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
                 }
               }
             }
@@ -163,7 +291,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BrandError",
-                  "properties": { "code": { "const": "BRAND_VERSION_NOT_FOUND" } }
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_VERSION_NOT_FOUND"
+                    }
+                  }
                 }
               }
             }
@@ -174,7 +306,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BrandError",
-                  "properties": { "code": { "const": "BRAND_ASSET_UNAVAILABLE" } }
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_ASSET_UNAVAILABLE"
+                    }
+                  }
                 }
               }
             }
@@ -190,18 +326,30 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/SignupRequest" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
           }
         },
         "responses": {
           "202": {
             "description": "Demande acceptée",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "SIGNUP_ACCEPTED" } }
+                  "properties": {
+                    "code": {
+                      "const": "SIGNUP_ACCEPTED"
+                    }
+                  }
                 }
               }
             }
@@ -226,8 +374,12 @@
               }
             }
           },
-          "415": { "$ref": "#/components/responses/NotJson" },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
         }
       }
     },
@@ -239,14 +391,20 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
           }
         },
         "responses": {
           "200": {
             "description": "Session ouverte",
             "headers": {
-              "Cache-Control": { "$ref": "#/components/headers/NoStore" },
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              },
               "Set-Cookie": {
                 "required": true,
                 "schema": {
@@ -256,7 +414,11 @@
               }
             },
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
             }
           },
           "400": {
@@ -265,7 +427,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "REQUEST_INVALID" } }
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
                 }
               }
             }
@@ -276,13 +442,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "AUTH_INVALID_CREDENTIALS" } }
+                  "properties": {
+                    "code": {
+                      "const": "AUTH_INVALID_CREDENTIALS"
+                    }
+                  }
                 }
               }
             }
           },
-          "415": { "$ref": "#/components/responses/NotJson" },
-          "429": { "$ref": "#/components/responses/RateLimited" }
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
         }
       }
     },
@@ -295,10 +469,16 @@
           "200": {
             "description": "Session valide",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Session" } }
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
             }
           },
-          "401": { "$ref": "#/components/responses/AuthRequired" }
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          }
         }
       }
     },
@@ -308,8 +488,12 @@
         "tags": ["iam"],
         "summary": "Déconnexion (idempotente)",
         "responses": {
-          "204": { "$ref": "#/components/responses/CookieCleared" },
-          "415": { "$ref": "#/components/responses/NotJson" }
+          "204": {
+            "$ref": "#/components/responses/CookieCleared"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          }
         }
       }
     },
@@ -319,9 +503,15 @@
         "tags": ["iam"],
         "summary": "Déconnexion de toutes les sessions",
         "responses": {
-          "204": { "$ref": "#/components/responses/CookieCleared" },
-          "401": { "$ref": "#/components/responses/AuthRequired" },
-          "415": { "$ref": "#/components/responses/NotJson" }
+          "204": {
+            "$ref": "#/components/responses/CookieCleared"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          }
         }
       }
     },
@@ -333,18 +523,30 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/VerifyEmailRequest" } }
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequest"
+              }
+            }
           }
         },
         "responses": {
           "200": {
             "description": "Adresse vérifiée",
-            "headers": { "Cache-Control": { "$ref": "#/components/headers/NoStore" } },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "const": "EMAIL_VERIFIED" } }
+                  "properties": {
+                    "code": {
+                      "const": "EMAIL_VERIFIED"
+                    }
+                  }
                 }
               }
             }
@@ -355,12 +557,1390 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthBody",
-                  "properties": { "code": { "enum": ["AUTH_LINK_EXPIRED", "REQUEST_INVALID"] } }
+                  "properties": {
+                    "code": {
+                      "enum": ["AUTH_LINK_EXPIRED", "REQUEST_INVALID"]
+                    }
+                  }
                 }
               }
             }
           },
-          "415": { "$ref": "#/components/responses/NotJson" }
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          }
+        }
+      }
+    },
+    "/staff/me": {
+      "get": {
+        "operationId": "staffMe",
+        "tags": ["iam"],
+        "summary": "État d'accès de la session à la console interne (US-012)",
+        "responses": {
+          "200": {
+            "description": "État et rôles en cours",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffMe"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/staff/mfa/enroll": {
+      "post": {
+        "operationId": "staffMfaEnroll",
+        "tags": ["iam"],
+        "summary": "Enrôlement TOTP, étape 1 : le code remis hors bande ouvre le secret (affiché une fois)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaEnrollRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Secret base32 et URI otpauth",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaEnrollment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code d'enrôlement mal formé ou refusé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "AUTH_TOTP_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "description": "Trop de tentatives ; facteur verrouillé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["RATE_LIMITED", "AUTH_TOTP_LOCKED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Coffre des secrets TOTP indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "STAFF_MFA_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/staff/mfa/verify": {
+      "post": {
+        "operationId": "staffMfaVerify",
+        "tags": ["iam"],
+        "summary": "Code TOTP : fin d'enrôlement ou élévation de la session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session élevée ou facteur enrôlé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code mal formé ou faux",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "AUTH_TOTP_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "description": "Trop de tentatives ; facteur verrouillé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["RATE_LIMITED", "AUTH_TOTP_LOCKED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Clé de preuve ou coffre TOTP indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "STAFF_MFA_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/staff/members/{id}/suspend": {
+      "post": {
+        "operationId": "staffSuspend",
+        "tags": ["iam"],
+        "summary": "Suspension d'un membre du staff (iam.staff_roles_write, portée pays)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suspension faite et journalisée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffActionDone"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/staff/members/{id}/reset-totp": {
+      "post": {
+        "operationId": "staffResetTotp",
+        "tags": ["iam"],
+        "summary": "Réinitialisation du TOTP d'un autre membre : code d'enrôlement rendu une fois",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Nouveau code d'enrôlement, à remettre hors bande",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentCode"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Coffre des secrets TOTP indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "STAFF_MFA_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/staff/audit": {
+      "get": {
+        "operationId": "staffAudit",
+        "tags": ["iam"],
+        "summary": "Journal d'audit de la console (audit.read ; lignes filtrées en base)",
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,17}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Entrées, de la plus récente à la plus ancienne",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/actions": {
+      "post": {
+        "operationId": "consoleAction",
+        "tags": ["sup"],
+        "summary": "Action manuelle motivée et idempotente (ADM-001, catalogue de 17 §10)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Déjà reçue (même requestId)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionRecorded"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Action enregistrée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionRecorded"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "409": {
+            "description": "Commande de domaine pas encore livrée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "STAFF_ACTION_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/brand/assets": {
+      "post": {
+        "operationId": "consoleBrandAsset",
+        "tags": ["sup", "cfg"],
+        "summary": "Actif de marque (base64, type réel vérifié, 64 Kio au plus)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Actif enregistré puis déposé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetRegistered"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "422": {
+            "description": "Taille, type, texte alternatif ou licence refusés",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_ASSET_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Stockage des fichiers indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_ASSET_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/brand/drafts": {
+      "post": {
+        "operationId": "consoleBrandDraft",
+        "tags": ["sup", "cfg"],
+        "summary": "Brouillon de marque (jetons DTCG ou palette du dépôt)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Brouillon enregistré (duplicate au rejeu)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftSaved"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "422": {
+            "description": "Jetons invalides ou police non approuvée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "enum": ["BRAND_TOKENS_INVALID", "FONT_NOT_APPROVED"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/brand/versions": {
+      "get": {
+        "operationId": "consoleBrandVersions",
+        "tags": ["sup", "cfg"],
+        "summary": "Historique des versions de marque, brouillons compris",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versions",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffBrandVersionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/brand/versions/{id}": {
+      "get": {
+        "operationId": "consoleBrandVersion",
+        "tags": ["sup", "cfg"],
+        "summary": "Une version de marque (prévisualisation)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Version",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffBrandVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "404": {
+            "description": "Version inconnue ou illisible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_VERSION_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/brand/versions/{id}/publish": {
+      "post": {
+        "operationId": "consoleBrandPublish",
+        "tags": ["sup", "cfg"],
+        "summary": "Publication d’un brouillon (contraste d’US-030 recalculé)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestIdBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Version publiée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionPublished"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "404": {
+            "description": "Version inconnue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_VERSION_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Contraste insuffisant (paires en cause dans details) ou jetons refusés",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "BRAND_CONTRAST_INSUFFICIENT",
+                        "FONT_NOT_APPROVED",
+                        "BRAND_TOKENS_INVALID"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/brand/rollback": {
+      "post": {
+        "operationId": "consoleBrandRollback",
+        "tags": ["sup", "cfg"],
+        "summary": "Retour arrière en un clic vers la version publiée précédente (ou une cible)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Nouvelle version copiée et publiée (duplicate au rejeu)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionRolledBack"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "404": {
+            "description": "Aucune version à restaurer",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "BRAND_VERSION_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "La cible échoue au contrôle actuel",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "BRAND_CONTRAST_INSUFFICIENT",
+                        "FONT_NOT_APPROVED",
+                        "BRAND_TOKENS_INVALID"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/content/drafts": {
+      "post": {
+        "operationId": "consoleContentDraft",
+        "tags": ["sup", "cfg"],
+        "summary": "Brouillon d’un bloc de contenu (es, en, fr, pt)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentDraftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Brouillon enregistré",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentVersionSaved"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "422": {
+            "description": "Langue manquante, clé ou contenu refusés",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CONTENT_BLOCK_REQUIRED_MISSING",
+                        "CONTENT_KEY_FORBIDDEN",
+                        "CONTENT_MARKDOWN_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/content/publish": {
+      "post": {
+        "operationId": "consoleContentPublish",
+        "tags": ["sup", "cfg"],
+        "summary": "Publication d’une version d’un bloc de contenu",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentPublishRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Version publiée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPublished"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "404": {
+            "description": "Version de bloc inconnue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "CONTENT_BLOCK_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Clé de bloc refusée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "CONTENT_KEY_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/content/rollback": {
+      "post": {
+        "operationId": "consoleContentRollback",
+        "tags": ["sup", "cfg"],
+        "summary": "Retour à la version précédente (ou cible) d’un bloc de contenu",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentRollbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Version rétablie (duplicate au rejeu)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentVersionSaved"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "404": {
+            "description": "Aucune version à rétablir",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "CONTENT_BLOCK_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Clé de bloc refusée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "CONTENT_KEY_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/security/abuse": {
+      "get": {
+        "operationId": "consoleSecurityAbuse",
+        "tags": ["sup", "risk"],
+        "summary": "Tableau des abus agrégés par heure (security.read_abuse)",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 168
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes agrégées (aucune donnée personnelle)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AbuseBoard"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/webhooks/{provider}/{publicWebhookId}": {
+      "post": {
+        "operationId": "pspWebhook",
+        "tags": ["pay"],
+        "summary": "Webhook PSP (17 §4.4) : signature sur les octets reçus ; réponse sans corps",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicWebhookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reçu, mis en quarantaine ou doublon (RECEIVED, QUARANTINED, DUPLICATE)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "description": "Signature invalide (REJECTED_SIGNATURE, journalisé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "404": {
+            "description": "Fournisseur ou point d’entrée inconnu, ou FAKE en production",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "503": {
+            "description": "Secret de signature du compte introuvable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          }
         }
       }
     }
@@ -369,15 +1949,24 @@
     "headers": {
       "PublicCache": {
         "required": true,
-        "schema": { "type": "string", "pattern": "^public, max-age=\\d+$" }
+        "schema": {
+          "type": "string",
+          "pattern": "^public, max-age=\\d+$"
+        }
       },
       "BrandEtag": {
         "required": true,
-        "schema": { "type": "string", "pattern": "^\"brand-[1-9]\\d*\"$" }
+        "schema": {
+          "type": "string",
+          "pattern": "^\"brand-[1-9]\\d*\"$"
+        }
       },
       "NoStore": {
         "required": true,
-        "schema": { "type": "string", "const": "no-store" }
+        "schema": {
+          "type": "string",
+          "const": "no-store"
+        }
       }
     },
     "responses": {
@@ -387,7 +1976,11 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/AuthBody",
-              "properties": { "code": { "const": "REQUEST_INVALID" } }
+              "properties": {
+                "code": {
+                  "const": "REQUEST_INVALID"
+                }
+              }
             }
           }
         }
@@ -398,7 +1991,11 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/AuthBody",
-              "properties": { "code": { "const": "RATE_LIMITED" } }
+              "properties": {
+                "code": {
+                  "const": "RATE_LIMITED"
+                }
+              }
             }
           }
         }
@@ -409,7 +2006,11 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/AuthBody",
-              "properties": { "code": { "const": "AUTH_REQUIRED" } }
+              "properties": {
+                "code": {
+                  "const": "AUTH_REQUIRED"
+                }
+              }
             }
           }
         }
@@ -417,12 +2018,154 @@
       "CookieCleared": {
         "description": "Cookie de session effacé",
         "headers": {
-          "Cache-Control": { "$ref": "#/components/headers/NoStore" },
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          },
           "Set-Cookie": {
             "required": true,
             "schema": {
               "type": "string",
               "const": "__Host-session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax"
+            }
+          }
+        }
+      },
+      "StaffAuthRequired": {
+        "description": "Session absente, expirée ou révoquée",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthBody",
+              "properties": {
+                "code": {
+                  "const": "AUTH_REQUIRED"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StaffForbidden": {
+        "description": "Compte sans rôle interne ou sans la permission (FORBIDDEN, journalisé par la base) ; session non élevée par TOTP (2FA_REQUIRED, `values.step`)",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthBody",
+              "properties": {
+                "code": {
+                  "enum": ["FORBIDDEN", "2FA_REQUIRED"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "StaffRateLimited": {
+        "description": "Limite de débit de la console par IP (ADR-062)",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthBody",
+              "properties": {
+                "code": {
+                  "const": "RATE_LIMITED"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StaffRequestInvalid": {
+        "description": "Corps ou paramètre invalide",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthBody",
+              "properties": {
+                "code": {
+                  "const": "REQUEST_INVALID"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BrandRequestInvalid": {
+        "description": "Corps ou paramètre invalide",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BrandError",
+              "properties": {
+                "code": {
+                  "const": "REQUEST_INVALID"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BrandConflict": {
+        "description": "Rejeu concurrent ou version dans un état incompatible",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/BrandError",
+              "properties": {
+                "code": {
+                  "const": "VERSION_CONFLICT"
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotJsonNoStore": {
+        "description": "Écriture sans Content-Type application/json (parade CSRF, ADR-052)",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthBody",
+              "properties": {
+                "code": {
+                  "const": "REQUEST_INVALID"
+                }
+              }
             }
           }
         }
@@ -438,8 +2181,14 @@
         "type": "string",
         "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
       },
-      "CountryCode": { "type": "string", "pattern": "^[A-Z]{2}$" },
-      "ContentLocale": { "type": "string", "enum": ["es", "en", "fr", "pt"] },
+      "CountryCode": {
+        "type": "string",
+        "pattern": "^[A-Z]{2}$"
+      },
+      "ContentLocale": {
+        "type": "string",
+        "enum": ["es", "en", "fr", "pt"]
+      },
       "MessageKey": {
         "type": "string",
         "pattern": "^common\\.[a-z][A-Za-z]*(\\.[a-z][A-Za-z]*)+$"
@@ -449,10 +2198,22 @@
         "required": ["code", "messageKey"],
         "additionalProperties": false,
         "properties": {
-          "code": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
-          "messageKey": { "$ref": "#/components/schemas/MessageKey" },
-          "values": { "type": "object", "additionalProperties": { "type": "string" } },
-          "details": { "type": "object" }
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]+$"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "details": {
+            "type": "object"
+          }
         }
       },
       "AuthBody": {
@@ -460,11 +2221,18 @@
         "required": ["code", "messageKey"],
         "additionalProperties": false,
         "properties": {
-          "code": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
-          "messageKey": { "$ref": "#/components/schemas/MessageKey" },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]+$"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
           "values": {
             "type": "object",
-            "additionalProperties": { "type": ["string", "number"] }
+            "additionalProperties": {
+              "type": ["string", "number"]
+            }
           }
         }
       },
@@ -473,11 +2241,23 @@
         "required": ["id", "kind", "mime", "bytes", "sha256", "path", "alt"],
         "additionalProperties": false,
         "properties": {
-          "id": { "$ref": "#/components/schemas/Uuid" },
-          "kind": { "enum": ["LOGO", "FAVICON", "PWA_ICON", "HERO_IMAGE", "FONT"] },
-          "mime": { "enum": ["image/png", "image/jpeg", "image/webp", "font/woff2"] },
-          "bytes": { "type": "integer", "minimum": 1 },
-          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "kind": {
+            "enum": ["LOGO", "FAVICON", "PWA_ICON", "HERO_IMAGE", "FONT"]
+          },
+          "mime": {
+            "enum": ["image/png", "image/jpeg", "image/webp", "font/woff2"]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
           "path": {
             "type": "string",
             "pattern": "^/brand/assets/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -487,10 +2267,18 @@
             "required": ["es", "en", "fr", "pt"],
             "additionalProperties": false,
             "properties": {
-              "es": { "type": ["string", "null"] },
-              "en": { "type": ["string", "null"] },
-              "fr": { "type": ["string", "null"] },
-              "pt": { "type": ["string", "null"] }
+              "es": {
+                "type": ["string", "null"]
+              },
+              "en": {
+                "type": ["string", "null"]
+              },
+              "fr": {
+                "type": ["string", "null"]
+              },
+              "pt": {
+                "type": ["string", "null"]
+              }
             }
           }
         }
@@ -509,26 +2297,65 @@
         ],
         "additionalProperties": false,
         "properties": {
-          "versionId": { "$ref": "#/components/schemas/Uuid" },
-          "versionNo": { "type": "integer", "minimum": 1 },
-          "brandName": { "type": "string", "minLength": 1 },
-          "tokensSchemaVersion": { "type": "integer", "minimum": 1 },
-          "tokens": { "type": "object" },
-          "css": { "type": "string", "minLength": 1 },
-          "publishedAt": { "$ref": "#/components/schemas/DateTime" },
+          "versionId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "brandName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tokensSchemaVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tokens": {
+            "type": "object"
+          },
+          "css": {
+            "type": "string",
+            "minLength": 1
+          },
+          "publishedAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
           "assets": {
             "type": "object",
             "required": ["logo", "favicon", "pwaIcon"],
             "additionalProperties": false,
             "properties": {
               "logo": {
-                "oneOf": [{ "$ref": "#/components/schemas/AssetView" }, { "type": "null" }]
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AssetView"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "favicon": {
-                "oneOf": [{ "$ref": "#/components/schemas/AssetView" }, { "type": "null" }]
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AssetView"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "pwaIcon": {
-                "oneOf": [{ "$ref": "#/components/schemas/AssetView" }, { "type": "null" }]
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AssetView"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             }
           }
@@ -539,15 +2366,43 @@
         "required": ["key", "locale", "country", "versionNo", "bodyMd", "assetId", "fallback"],
         "additionalProperties": false,
         "properties": {
-          "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" },
-          "locale": { "$ref": "#/components/schemas/ContentLocale" },
-          "country": {
-            "oneOf": [{ "$ref": "#/components/schemas/CountryCode" }, { "type": "null" }]
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
           },
-          "versionNo": { "type": "integer", "minimum": 1 },
-          "bodyMd": { "type": "string" },
-          "assetId": { "oneOf": [{ "$ref": "#/components/schemas/Uuid" }, { "type": "null" }] },
-          "fallback": { "type": "boolean" }
+          "locale": {
+            "$ref": "#/components/schemas/ContentLocale"
+          },
+          "country": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "bodyMd": {
+            "type": "string"
+          },
+          "assetId": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fallback": {
+            "type": "boolean"
+          }
         }
       },
       "ContentResponse": {
@@ -555,11 +2410,25 @@
         "required": ["locale", "country", "blocks"],
         "additionalProperties": false,
         "properties": {
-          "locale": { "$ref": "#/components/schemas/ContentLocale" },
-          "country": {
-            "oneOf": [{ "$ref": "#/components/schemas/CountryCode" }, { "type": "null" }]
+          "locale": {
+            "$ref": "#/components/schemas/ContentLocale"
           },
-          "blocks": { "type": "array", "items": { "$ref": "#/components/schemas/ContentView" } }
+          "country": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentView"
+            }
+          }
         }
       },
       "SignupRequest": {
@@ -573,39 +2442,848 @@
           "termsAccepted"
         ],
         "properties": {
-          "email": { "type": "string" },
-          "password": { "type": "string" },
-          "legalFirstName": { "type": "string" },
-          "legalLastName": { "type": "string" },
-          "locale": { "type": "string" },
-          "termsAccepted": { "type": "boolean" }
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "legalFirstName": {
+            "type": "string"
+          },
+          "legalLastName": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "termsAccepted": {
+            "type": "boolean"
+          }
         }
       },
       "LoginRequest": {
         "type": "object",
         "required": ["email", "password"],
-        "properties": { "email": { "type": "string" }, "password": { "type": "string" } }
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
       },
       "VerifyEmailRequest": {
         "type": "object",
         "required": ["token"],
-        "properties": { "token": { "type": "string" } }
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
       },
       "LoginResponse": {
         "type": "object",
         "required": ["expiresAt"],
         "additionalProperties": false,
-        "properties": { "expiresAt": { "$ref": "#/components/schemas/DateTime" } }
+        "properties": {
+          "expiresAt": {
+            "$ref": "#/components/schemas/DateTime"
+          }
+        }
       },
       "Session": {
         "type": "object",
         "required": ["userId", "mfaLevel", "expiresAt", "emailVerified"],
         "additionalProperties": false,
         "properties": {
-          "userId": { "$ref": "#/components/schemas/Uuid" },
-          "mfaLevel": { "enum": ["NONE", "OTP", "TOTP"] },
-          "expiresAt": { "$ref": "#/components/schemas/DateTime" },
-          "emailVerified": { "type": "boolean" }
+          "userId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "mfaLevel": {
+            "enum": ["NONE", "OTP", "TOTP"]
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StaffRole": {
+        "type": "object",
+        "required": ["role", "countries"],
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z_]*$"
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          }
+        }
+      },
+      "StaffMe": {
+        "type": "object",
+        "required": ["state", "roles"],
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": [
+              "NOT_STAFF",
+              "TOTP_NOT_ENROLLED",
+              "ENROLLMENT_REQUIRED",
+              "LOCKED",
+              "MFA_REQUIRED",
+              "ELEVATED"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffRole"
+            }
+          }
+        }
+      },
+      "MfaEnrollRequest": {
+        "type": "object",
+        "required": ["enrollmentCode"],
+        "properties": {
+          "enrollmentCode": {
+            "description": "16 caractères base32 remis hors bande (espaces et tirets ignorés)",
+            "type": "string"
+          }
+        }
+      },
+      "MfaEnrollment": {
+        "type": "object",
+        "required": ["secret", "otpauthUri"],
+        "additionalProperties": false,
+        "properties": {
+          "secret": {
+            "type": "string",
+            "pattern": "^[A-Z2-7]+$"
+          },
+          "otpauthUri": {
+            "type": "string",
+            "pattern": "^otpauth://totp/"
+          }
+        }
+      },
+      "MfaVerifyRequest": {
+        "type": "object",
+        "required": ["code"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "code TOTP à 6 chiffres"
+          },
+          "enrollmentCode": {
+            "type": "string",
+            "description": "exigé pour finir un enrôlement"
+          }
+        }
+      },
+      "MfaState": {
+        "type": "object",
+        "required": ["state"],
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": ["ELEVATED", "ENROLLED"]
+          }
+        }
+      },
+      "ReasonRequest": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000,
+            "description": "motif saisi, 10 à 1000 caractères"
+          }
+        }
+      },
+      "EnrollmentCode": {
+        "type": "object",
+        "required": ["enrollmentCode"],
+        "additionalProperties": false,
+        "properties": {
+          "enrollmentCode": {
+            "type": "string",
+            "pattern": "^[A-Z2-7]{16}$"
+          }
+        }
+      },
+      "StaffActionDone": {
+        "$ref": "#/components/schemas/AuthBody",
+        "properties": {
+          "code": {
+            "const": "STAFF_ACTION_DONE"
+          },
+          "messageKey": {
+            "const": "common.auth.actionDone"
+          }
+        }
+      },
+      "AuditEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "actorUserId",
+          "actorRole",
+          "actionCode",
+          "subjectType",
+          "subjectId",
+          "reason",
+          "before",
+          "after"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "at": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "actorUserId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actorRole": {
+            "type": "string"
+          },
+          "actionCode": {
+            "type": "string"
+          },
+          "subjectType": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": ["string", "null"]
+          },
+          "before": {
+            "type": ["object", "null"]
+          },
+          "after": {
+            "type": ["object", "null"]
+          }
+        }
+      },
+      "AuditPage": {
+        "type": "object",
+        "required": ["entries"],
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          }
+        }
+      },
+      "ManualActionRequest": {
+        "type": "object",
+        "required": ["requestId", "action", "subjectId", "reason"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid",
+            "description": "idempotence"
+          },
+          "action": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "subjectId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "input": {
+            "type": ["object", "null"],
+            "description": "4 Kio au plus en JSON"
+          }
+        }
+      },
+      "ActionRecorded": {
+        "type": "object",
+        "required": ["code", "messageKey", "actionId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "STAFF_ACTION_RECORDED"
+          },
+          "messageKey": {
+            "const": "common.auth.actionRecorded"
+          },
+          "actionId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AssetUploadRequest": {
+        "type": "object",
+        "required": ["requestId", "kind", "contentBase64", "licenseNote"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "kind": {
+            "enum": ["LOGO", "FAVICON", "PWA_ICON", "HERO_IMAGE", "FONT"]
+          },
+          "contentBase64": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          },
+          "alt": {
+            "type": "object",
+            "description": "texte alternatif es, en, fr, pt (exigé sauf police)",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "licenseNote": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        }
+      },
+      "AssetRegistered": {
+        "type": "object",
+        "required": ["assetId", "duplicate", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "DraftRequest": {
+        "type": "object",
+        "required": ["requestId", "brandName"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "brandName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tokens": {
+            "type": "object",
+            "description": "document de jetons DTCG (128 Kio au plus)"
+          },
+          "fromPalette": {
+            "type": "string",
+            "description": "palette du dépôt, exclusive de tokens"
+          },
+          "logoAssetId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "faviconAssetId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pwaIconAssetId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "copiedFromId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "DraftSaved": {
+        "type": "object",
+        "required": ["versionId", "versionNo", "duplicate"],
+        "additionalProperties": false,
+        "properties": {
+          "versionId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StaffBrandVersion": {
+        "type": "object",
+        "required": [
+          "id",
+          "versionNo",
+          "status",
+          "brandName",
+          "tokens",
+          "tokensSchemaVersion",
+          "logoAssetId",
+          "faviconAssetId",
+          "pwaIconAssetId",
+          "contrastCheck",
+          "copiedFromId",
+          "createdBy",
+          "createdAt",
+          "publishedBy",
+          "publishedAt",
+          "archivedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "enum": ["DRAFT", "PUBLISHED", "ARCHIVED"]
+          },
+          "brandName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tokens": {
+            "type": "object"
+          },
+          "tokensSchemaVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "logoAssetId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "faviconAssetId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pwaIconAssetId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contrastCheck": {
+            "type": ["object", "null"]
+          },
+          "copiedFromId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "publishedBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "archivedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "StaffBrandVersionList": {
+        "type": "object",
+        "required": ["versions"],
+        "additionalProperties": false,
+        "properties": {
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffBrandVersion"
+            }
+          }
+        }
+      },
+      "RequestIdBody": {
+        "type": "object",
+        "required": ["requestId"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "RollbackRequest": {
+        "type": "object",
+        "required": ["requestId"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "targetVersionId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "VersionPublished": {
+        "type": "object",
+        "required": ["versionId", "versionNo"],
+        "additionalProperties": false,
+        "properties": {
+          "versionId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "VersionRolledBack": {
+        "type": "object",
+        "required": ["versionId", "versionNo", "copiedFromId", "duplicate"],
+        "additionalProperties": false,
+        "properties": {
+          "versionId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "copiedFromId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContentDraftRequest": {
+        "type": "object",
+        "required": ["requestId", "key", "bodies"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bodies": {
+            "type": "object",
+            "description": "texte par langue : es, en, fr et pt exigés",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "assetId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ContentPublishRequest": {
+        "type": "object",
+        "required": ["requestId", "key", "versionNo"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ContentRollbackRequest": {
+        "type": "object",
+        "required": ["requestId", "key"],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetVersionNo": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ContentVersionSaved": {
+        "type": "object",
+        "required": ["versionNo", "duplicate"],
+        "additionalProperties": false,
+        "properties": {
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContentPublished": {
+        "type": "object",
+        "required": ["versionNo"],
+        "additionalProperties": false,
+        "properties": {
+          "versionNo": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "AbuseRow": {
+        "type": "object",
+        "required": [
+          "kind",
+          "scope",
+          "country",
+          "bucketStart",
+          "occurrences",
+          "distinctClients",
+          "signals",
+          "lastAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z_]*$"
+          },
+          "scope": {
+            "type": "string",
+            "pattern": "^[a-z][a-z_]*$"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bucketStart": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "occurrences": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "distinctClients": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z_]*$"
+            }
+          },
+          "lastAt": {
+            "$ref": "#/components/schemas/DateTime"
+          }
+        }
+      },
+      "AbuseBoard": {
+        "type": "object",
+        "required": ["rows"],
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AbuseRow"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "$ref": "#/components/schemas/AuthBody",
+        "properties": {
+          "code": {
+            "const": "INTERNAL_ERROR"
+          },
+          "messageKey": {
+            "const": "common.auth.requestInvalid"
+          }
         }
       }
     }

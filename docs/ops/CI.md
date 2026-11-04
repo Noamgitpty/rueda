@@ -152,6 +152,14 @@ Toute nouvelle exception est une décision : elle est consignée dans `docs/team
 
 Contrats d'API : les tests de contrat (`*.contract.test.ts`, harnais `apps/api/src/testing/openapi-contract.ts`, contrat `apps/api/openapi/openapi.json`) tournent dans `test:unit`, donc dans le job `qualite`.
 
+### Documentation synchronisée (US-038, ADR-079)
+
+La documentation d'architecture, d'API et de schéma est **vérifiée par les jobs existants** (aucun job ajouté) ; un écart fait échouer la CI avec la commande de régénération dans le message :
+
+- `qualite` (`test:unit`) : contrat OpenAPI vérifié contre le code (routes montées par Nest, codes d'erreur des catalogues, surcharges de statut, une suite de contrat par préfixe qui exerce chaque statut, réponses transverses) ; `docs/architecture/modules.md` et `docs/architecture/api.md` régénérés et comparés ; graphe des modules comparé à 17 §2.2 ; préfixes des tables (`packages/db/src/table-prefix.test.ts`) ; glossaire (`scripts/ci/glossary.test.mjs`). Régénérer : `RUEDA_DOCS_WRITE=1 pnpm --filter @rueda/api exec vitest run src/testing/docs`.
+- `base-de-donnees` (`test:int`) : `docs/architecture/schema.md` régénéré depuis la base « production » du banc, sous `app_api`, et comparé (`packages/db/test/int/schema-doc.test.ts`). En cas d'écart, le document attendu est imprimé dans le journal du job entre `----- docs/architecture/schema.md : DÉBUT -----` et `… : FIN -----` ; le recopier tel quel (ou `RUEDA_DOCS_WRITE=1 pnpm --filter @rueda/db test:int` sur un banc local).
+- `diagrammes` : les blocs mermaid de `docs/architecture/` sont rendus par `mmdc` comme tout `docs/`.
+
 ### Diagrammes
 
 mermaid-cli 12.0.0 et **toutes ses dépendances** sont figés par [`scripts/ci/mermaid/package-lock.json`](../../scripts/ci/mermaid/package-lock.json). Ils sont installés par `npm ci --ignore-scripts`, hors de l'espace de travail pnpm.

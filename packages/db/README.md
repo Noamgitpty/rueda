@@ -375,6 +375,12 @@ Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge v
 - **Job de base** (`src/deploy/`, `node packages/db/src/deploy/cli.ts`, image de production) : `RUEDA_ENV` ∈ {preproduction, production} sinon refus ; amorçage et mots de passe sous le rôle d'administration ; migrations sous `migrator` ; déclaration ; vérification sous `app_api` (environnement, aucun compte PSP FAKE). Secrets en variables (`docs/ops/ENV_VARS.md`), messages expurgés. Runbook : `docs/ops/DEPLOY.md`.
 - **Preuves** : `test/l0/l0-us003-environment.test.ts` (base de production sous `app_api` et `app_worker` ; immutabilité par la fixture `9910`, transaction annulée) ; `src/deploy/setup.test.ts` (configuration) ; job CI `déploiement local` (job réel sur PostgreSQL 16, redéclaration refusée).
 
+## Document du schéma et préfixes (US-038 ; 17 §3 ; ADR-079)
+
+- **`src/schema-doc.ts`** : lit le catalogue (`pg_catalog`) d'une base migrée et rend `docs/architecture/schema.md` (historique des migrations résumé par la première ligne de chaque fichier, rôles, schémas, tables avec RLS, droits, colonnes, contraintes, index, politiques et déclencheurs, vues, fonctions `SECURITY DEFINER` et autres). Rendu déterministe (aucun OID, tri par nom), testé sur un instantané fabriqué (`src/schema-doc.test.ts`).
+- **Preuve** : `test/int/schema-doc.test.ts` régénère le document sur la base « production » du banc, sous `app_api` (L0-05), et le compare au fichier commité : un écart fait échouer `test:int`. Une migration ajoutée demande donc de recopier le document imprimé dans le journal du job (marqueurs `----- docs/architecture/schema.md`), ou `RUEDA_DOCS_WRITE=1 pnpm --filter @rueda/db test:int` sur un banc local.
+- **Préfixes** : `src/table-prefix.test.ts` exige que toute table `core.*` commence par le schéma cible d'un module (`schemas.ts`) ; seul écart tracé : `ntf_notification_dispatch` (PROP-038-03 de `docs/team/PROPOSITIONS.md`).
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                                                                                 | Attributs                                                                                                | Usage                                                                             |

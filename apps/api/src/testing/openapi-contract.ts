@@ -46,6 +46,13 @@ export interface OpenApiDocument {
     readonly headers?: Readonly<Record<string, HeaderObject>>;
   };
   readonly 'x-rueda-pending'?: readonly string[];
+  /**
+   * Réponses TRANSVERSES (US-038) : produites par le durcissement HTTP ou la garde anti-abus
+   * globale, avant ou autour de toute route (403 défi anti-robot, 413, 429, 500, 503). Une réponse
+   * observée est conforme si elle valide la réponse déclarée par l'opération OU la réponse
+   * transverse de même statut.
+   */
+  readonly 'x-rueda-transverse-responses'?: Readonly<Record<string, ResponseObject | Reference>>;
 }
 
 /** Réponse observée (forme indépendante de fetch, pour tester le harnais lui-même). */
@@ -133,6 +140,12 @@ export class OpenApiContract {
 
   /** Compile tous les schémas de réponse et d'en-tête (contrôle du contrat lui-même). */
   compileAll(): void {
+    for (const [status, r] of Object.entries(this.document['x-rueda-transverse-responses'] ?? {})) {
+      if (!/^[1-5]\d\d$/.test(status)) {
+        throw new Error(`réponse transverse : statut « ${status} » non explicite`);
+      }
+      this.#compileResponse(this.#response(r));
+    }
     for (const [template, item] of Object.entries(this.document.paths)) {
       for (const method of HTTP_METHODS) {
         const op = item[method];
@@ -143,16 +156,19 @@ export class OpenApiContract {
           if (!/^[1-5]\d\d$/.test(status)) {
             throw new Error(`${method} ${template} : statut « ${status} » non explicite`);
           }
-          const response = this.#response(r);
-          for (const media of Object.values(response.content ?? {})) {
-            if (media.schema !== undefined) this.#validator(media.schema);
-          }
-          for (const h of Object.values(response.headers ?? {})) {
-            const header = this.#header(h);
-            if (header.schema !== undefined) this.#validator(header.schema);
-          }
+          this.#compileResponse(this.#response(r));
         }
       }
+    }
+  }
+
+  #compileResponse(response: ResponseObject): void {
+    for (const media of Object.values(response.content ?? {})) {
+      if (media.schema !== undefined) this.#validator(media.schema);
+    }
+    for (const h of Object.values(response.headers ?? {})) {
+      const header = this.#header(h);
+      if (header.schema !== undefined) this.#validator(header.schema);
     }
   }
 
@@ -203,12 +219,25 @@ export class OpenApiContract {
     const op = this.document.paths[template]?.[method];
     if (op === undefined) return [`méthode non déclarée : ${observed.method} ${template}`];
     const declared = op.responses?.[String(observed.status)];
-    if (declared === undefined) {
+    const transverse = this.document['x-rueda-transverse-responses']?.[String(observed.status)];
+    if (declared === undefined && transverse === undefined) {
       return [
         `statut ${observed.status} non déclaré (déclarés : ${Object.keys(op.responses ?? {}).join(', ')})`,
       ];
     }
-    const response = this.#response(declared);
+    const own =
+      declared === undefined ? null : this.#checkResponse(this.#response(declared), observed);
+    if (own !== null && (own.length === 0 || transverse === undefined)) return own;
+    const other = this.#checkResponse(
+      this.#response(transverse as ResponseObject | Reference),
+      observed,
+    );
+    if (other.length === 0 || own === null) return other;
+    return [...own, ...other.map((p) => `(réponse transverse) ${p}`)];
+  }
+
+  /** Écarts entre une réponse observée et UNE réponse déclarée. */
+  #checkResponse(response: ResponseObject, observed: ObservedResponse): string[] {
     const problems: string[] = [];
 
     for (const [name, h] of Object.entries(response.headers ?? {})) {
@@ -257,6 +286,37 @@ export class OpenApiContract {
     return problems;
   }
 
+  /**
+   * Réponse qui a validé l'observation : celle de l'opération, ou la réponse transverse de même
+   * statut (couverture du contrat). À n'appeler que sur une réponse conforme.
+   */
+  matchedBy(observed: ObservedResponse): 'operation' | 'transverse' {
+    const template = this.match(observed.path);
+    const op =
+      template === null
+        ? undefined
+        : this.document.paths[template]?.[observed.method.toLowerCase()];
+    const declared = op?.responses?.[String(observed.status)];
+    if (
+      declared !== undefined &&
+      this.#checkResponse(this.#response(declared), observed).length === 0
+    ) {
+      return 'operation';
+    }
+    return 'transverse';
+  }
+
+  /** Opérations et statuts déclarés, `GET /brand 200`, pour les chemins d'un préfixe. */
+  declaredStatuses(prefix: string): string[] {
+    return Object.entries(this.document.paths)
+      .filter(([template]) => template === prefix || template.startsWith(`${prefix}/`))
+      .flatMap(([template, item]) =>
+        HTTP_METHODS.filter((m) => item[m] !== undefined).flatMap((m) =>
+          Object.keys(item[m]?.responses ?? {}).map((s) => `${m.toUpperCase()} ${template} ${s}`),
+        ),
+      );
+  }
+
   /** Lève `ContractViolation` si la réponse n'est pas conforme. */
   assert(observed: ObservedResponse): void {
     const problems = this.check(observed);
@@ -278,45 +338,88 @@ export function repositoryContract(): OpenApiContract {
 
 /**
  * Client de test : chaque réponse est confrontée au contrat AVANT d'être rendue au test, et
- * l'opération et le statut sont enregistrés (couverture du contrat par les tests).
+ * l'opération et le statut sont enregistrés (couverture du contrat par les tests). Une réponse
+ * validée par une réponse transverse est comptée dans `coveredTransverse` (`429`, `413`…).
  */
 export class ContractClient {
   readonly covered = new Set<string>();
+  readonly coveredTransverse = new Set<string>();
   constructor(
     private readonly contract: OpenApiContract,
     private readonly base: string,
+    private readonly defaultHeaders: Readonly<Record<string, string>> = {},
   ) {}
 
   async request(
     method: 'GET' | 'POST',
     path: string,
-    options: { body?: unknown; headers?: Record<string, string> } = {},
+    options: { body?: unknown; raw?: string; headers?: Record<string, string> } = {},
   ): Promise<{ status: number; headers: Headers; text: string; json: unknown }> {
-    const headers: Record<string, string> = { ...(options.headers ?? {}) };
+    const headers: Record<string, string> = { ...this.defaultHeaders, ...(options.headers ?? {}) };
     if (method === 'POST' && headers['content-type'] === undefined) {
       headers['content-type'] = 'application/json';
     }
     const response = await fetch(`${this.base}${path}`, {
       method,
       headers,
-      ...(method === 'POST' ? { body: JSON.stringify(options.body ?? {}) } : {}),
+      ...(method === 'POST' ? { body: options.raw ?? JSON.stringify(options.body ?? {}) } : {}),
     });
     const isText = !/^(image|font)\//.test(response.headers.get('content-type') ?? '');
     const text = isText
       ? await response.text()
       : Buffer.from(await response.arrayBuffer()).toString('latin1');
-    this.contract.assert({
+    const observed = {
       method,
       path,
       status: response.status,
       headers: response.headers,
       body: text,
-    });
-    this.covered.add(`${method} ${this.contract.match(path) ?? path} ${response.status}`);
+    };
+    this.contract.assert(observed);
+    if (this.contract.matchedBy(observed) === 'operation') {
+      this.covered.add(`${method} ${this.contract.match(path) ?? path} ${response.status}`);
+    } else {
+      this.coveredTransverse.add(String(response.status));
+    }
     let json: unknown = null;
     if (isText && text.length > 0 && /json/.test(response.headers.get('content-type') ?? '')) {
       json = JSON.parse(text) as unknown;
     }
     return { status: response.status, headers: response.headers, text, json };
   }
+}
+
+/**
+ * Suites de contrat (US-038) : chaque préfixe de chemin du contrat a UNE suite qui exerce tous
+ * ses statuts déclarés (`expectFullCoverage`). `openapi-contract.test.ts` vérifie que chaque
+ * opération a sa suite et que chaque suite appelle bien le contrôle de couverture.
+ */
+export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
+  '/auth': 'modules/iam/testing/auth.contract.test.ts',
+  '/brand': 'modules/cfg/internal/brand/brand.contract.test.ts',
+  '/staff': 'testing/contract/staff.contract.test.ts',
+  '/console': 'testing/contract/console.contract.test.ts',
+  '/webhooks': 'testing/contract/webhooks.contract.test.ts',
+  transverse: 'testing/contract/transverse.contract.test.ts',
+};
+
+/** Statuts déclarés pour `prefix` et jamais observés par la suite (liste vide attendue). */
+export function missingCoverage(
+  contract: OpenApiContract,
+  prefix: string,
+  covered: Iterable<string>,
+): string[] {
+  const seen = new Set(covered);
+  return contract.declaredStatuses(prefix).filter((d) => !seen.has(d));
+}
+
+/** Routes réellement montées par Nest (journal « Mapped {/x/:id, GET} route »), format du contrat. */
+export function mappedRoutes(logs: readonly string[]): string[] {
+  const routes = new Set<string>();
+  for (const line of logs) {
+    const m = /Mapped \{([^,}]+), (GET|POST|PUT|PATCH|DELETE)\} route/.exec(line);
+    if (m === null) continue;
+    routes.add(`${m[2] as string} ${(m[1] as string).replace(/:([A-Za-z]+)/g, '{$1}')}`);
+  }
+  return [...routes].sort();
 }

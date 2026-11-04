@@ -11,3 +11,8 @@ packages/config/test/fixtures/
 scripts/ci/mermaid/package-lock.json
 test-results/
 playwright-report/
+
+# Documentation générée depuis le code (US-038, ADR-079) : contrôlée octet par octet par la CI
+docs/architecture/api.md
+docs/architecture/modules.md
+docs/architecture/schema.md
