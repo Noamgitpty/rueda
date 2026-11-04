@@ -489,7 +489,17 @@ afterAll(async () => {
   if (client) await releaseClient(client);
 });
 
-const ROUTES = Object.keys(ROUTE_MATRIX.routes).sort();
+/**
+ * Déconnexions en DERNIER : `logout-all` révoque TOUTES les sessions du compte, celle des autres
+ * routes comprise (même avec une session neuve) ; ensuite, plus aucune route n'est appelée.
+ */
+const LOGOUTS = ['POST /auth/logout', 'POST /auth/logout-all'];
+const ROUTES = [
+  ...Object.keys(ROUTE_MATRIX.routes)
+    .filter((r) => !LOGOUTS.includes(r))
+    .sort(),
+  ...LOGOUTS,
+];
 
 describe('US-043 — matrice des routes sur PostgreSQL (app_api), chaque acteur', () => {
   it('anonyme : chaque route comme la matrice', async () => {
