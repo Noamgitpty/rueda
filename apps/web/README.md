@@ -17,6 +17,23 @@ Changer le nom, les couleurs, le logo ou les icônes : publier une version de ma
 
 Contrôle à 360 px (défilement horizontal, cibles ≥ 44 px, écran hors ligne par le vrai service worker) et captures : serveur démarré (`pnpm --filter @rueda/web build` puis `start`), puis `node apps/web/scripts/shell-check.mjs http://localhost:3000`. Captures dans `docs/design/US-048/`. Outil local ; le harnais e2e Playwright de la CI reste à créer.
 
+## Parcours e2e Playwright (US-041)
+
+`e2e/` : parcours d'un utilisateur réel contre le **build de production** (`next start`, démarré par Playwright), dans le Google Chrome installé (`channel: 'chrome'`, aucun navigateur téléchargé). Décision : ADR-074.
+
+- **Viewports** (projets de `playwright.config.ts`) : `mobile-360` et `mobile-390` (téléphone tactile), `tablette` (768 px) pour `shell.spec.ts` ; `pwa` (390 px, service workers autorisés) pour `pwa.spec.ts`.
+- **Coquille** (`shell.spec.ts`) : accueil et écran hors ligne en es, en, fr et pt, clair et sombre ; aucun défilement horizontal ; aucune cible tactile sous 44 px (règles de `scripts/shell-check.mjs`) ; luminance du fond selon le mode ; changement de langue mémorisé ; bandeau hors ligne puis retour en ligne annoncés.
+- **PWA** (`pwa.spec.ts`) : manifeste complet dans les quatre langues (icônes PNG aux tailles déclarées, une `maskable`) ; service worker réel : page jamais visitée, réseau coupé, écran hors ligne dans la langue, reprise au retour du réseau ; **application installée** : fenêtre d'application de Chrome (`--app`, `display-mode: standalone`, `e2e/app-window.ts`) sur un profil persistant, verdict d'installabilité de Chrome vide, parcours hors ligne dans cette fenêtre.
+- **Déterminisme** : aucune relance, mouvement réduit, fuseau UTC, `Date` figée (`FROZEN_AT`) ; toute requête vers un autre hôte que le serveur testé fait échouer le test. Valeurs attendues : 10b §4.3 (`e2e/oracle.ts`), jamais le code testé.
+
+```bash
+pnpm turbo run build --filter=@rueda/web
+pnpm --filter @rueda/web test:e2e                      # tous les projets
+pnpm --filter @rueda/web exec playwright test --project=mobile-360
+```
+
+En CI : job `e2e-web` de `ci.yml` (docs/ops/CI.md). Variables : `RUEDA_E2E_PORT` (défaut 3100), `RUEDA_E2E_CHROME`. `scripts/shell-check.mjs` reste l'outil local des captures de revue design.
+
 ## Interfaces d'appareil (`device/`)
 
 Le comptoir n'accède à l'appareil que par trois interfaces (17 §6.2, ADR-005). Point d'entrée unique : `device/index.ts`.
@@ -39,6 +56,10 @@ La page reçoit dans `<head>` les variables CSS du thème actif (`theme.tsx`, pa
 
 Les écrans utilisent les composants de `@rueda/ui` (voir `packages/ui/README.md`). La vitrine vivante est servie sur **`/ui`** (`?lang=`, `?theme=auto|light|dark`, `?width=mobile|full`) : ouverte en `next dev`, sinon seulement avec `WEB_UI_CATALOG_ENABLED=true`.
 
+## Prototype des écrans clés (US-033)
+
+Prototype cliquable du parcours voyageur sur **`/proto`** (index) et `/proto/<écran>` (`s01` … `s09`, `s09c`, `s15`, `s17`), dans le seul dossier `app/proto/` (ADR-073). Paramètres : `?lang=`, `?state=` (vide, chargement, erreur…), `?theme=auto|light|dark`, `?market=` (marché fictif de `app/proto/data/scenario.json`), `?capture=1`. Données fictives, aucun appel d'API, paiement simulé. Textes : `app/proto/copy/` (format de `@rueda/i18n`, quatre langues). Captures et approbations : `docs/design/US-033/`. Ouvert en `next dev`, sinon seulement avec `WEB_PROTOTYPE_ENABLED=true`.
+
 ## Laboratoire PWA iOS (US-026)
 
 Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et ses icônes, tous sous `/lab/pwa-ios`). Protocole : [docs/qa/US-026-protocole-pwa-ios.md](../../docs/qa/US-026-protocole-pwa-ios.md).
@@ -49,6 +70,7 @@ Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et
 | ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `WEB_LAB_PWA_IOS_ENABLED` | absente | `true` (exactement) ouvre le laboratoire US-026. Toute autre valeur, ou l'absence : la page, le manifeste, le service worker et les icônes répondent **404**. Lue à chaque requête côté serveur (pas de `NEXT_PUBLIC_`), donc rien n'est figé au build. |
 | `WEB_UI_CATALOG_ENABLED`  | absente | `true` (exactement) ouvre la vitrine `/ui` (US-032) hors développement, pour la préproduction. Sinon : **404** (toujours ouverte avec `next dev`). Page `noindex`, lue à chaque requête. Ne pas définir en production.                                  |
+| `WEB_PROTOTYPE_ENABLED`   | absente | `true` (exactement) ouvre le prototype `/proto` (US-033) hors développement, pour la revue du fondateur en préproduction. Sinon : **404** (toujours ouvert avec `next dev`). Pages `noindex`, lues à chaque requête. Ne jamais définir en production.   |
 | `THEME_PALETTE`           | absente | Palette du thème (US-030), par exemple `lienzo-azur`. Absente : `packages/design-tokens/config/theme.json` (Lienzo · Tinta). Inconnue : erreur au rendu (fail-closed). Lue à chaque requête, comme le back-office.                                      |
 | `WEB_BRAND_API_URL`       | absente | URL interne de l'API (US-034), par exemple `http://api:3001`. Définie : nom, thème et logo viennent de `GET /brand` (cache 30 s, délai 1,5 s, revalidés) ; panne ou réponse invalide : thème embarqué. http(s) sans identifiants, sinon ignorée.        |
 | `THEME_COLOR_SCHEME`      | absente | `auto` (défaut : clair ou sombre selon l'appareil), `light` ou `dark`.                                                                                                                                                                                  |

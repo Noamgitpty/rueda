@@ -1,0 +1,415 @@
+{
+  "$comment": "Données FICTIVES du prototype US-033 : aucun montant, nom, numéro ni lieu n'est réel ni normatif (ne jamais s'en servir comme oracle : les montants attendus viennent de docs/specs/08 et des oracles Python). Montants en unités mineures (chaînes converties en bigint), déjà calculés : le prototype n'additionne rien. Devises, exposants, fuseaux et autorités sont des données de marché, jamais du code (ADR-024). Les numéros de téléphone sont des exemples à ne pas composer. Prix des voyages (loyer, frais, protection, taxe, total) : recalculés par l'oracle de 08 (docs/design/US-033/prix_oracle.py, qui exécute docs/specs/tools/check_legs.py) ; la protection Básica est obligatoire et payante (BR-PROT-02, BR-PRICE-11).",
+  "markets": [
+    {
+      "id": "istmo",
+      "defaultForLocales": ["es-PA", "en", "fr", "pt"],
+      "countryName": {
+        "es": "Panamá",
+        "en": "Panama",
+        "fr": "Panama",
+        "pt": "Panamá"
+      },
+      "city": "Ciudad de Panamá",
+      "currency": "USD",
+      "exponent": 2,
+      "timeZone": "America/Panama",
+      "insurerName": "Aseguradora Ejemplo",
+      "pspName": "Pasarela Ejemplo",
+      "kycProvider": "Verificador Ejemplo",
+      "dialCode": "+507",
+      "phoneMasked": "+507 6••• ••12",
+      "guestName": "Valeria Gómez",
+      "taxLabel": {
+        "es": "ITBMS (7 %)",
+        "en": "ITBMS (7%)",
+        "fr": "ITBMS (7 %)",
+        "pt": "ITBMS (7%)"
+      },
+      "trafficAuthority": "Tránsito",
+      "phones": {
+        "support": "+507 0000-0000",
+        "roadside": "+507 0000-0001",
+        "emergency": "911",
+        "traffic": "+507 0000-0002"
+      },
+      "places": [
+        "San Francisco",
+        "Obarrio",
+        "Costa del Este",
+        "El Cangrejo",
+        "Aeropuerto de Tocumen"
+      ],
+      "notServedCity": "David",
+      "searchSummary": {
+        "place": "San Francisco",
+        "dates": "12/12 – 15/12"
+      },
+      "days": 3,
+      "instants": {
+        "start": "2026-12-12T19:00:00Z",
+        "end": "2026-12-15T19:00:00Z",
+        "freeCancelUntil": "2026-12-11T19:00:00Z",
+        "checkinOpens": "2026-12-11T19:00:00Z",
+        "holdUntil": "2026-11-20T15:10:00Z",
+        "releaseBy": "2026-12-22T19:00:00Z",
+        "refundIssuedOn": "2026-12-16T19:00:00Z",
+        "requestUntil": "2026-11-20T19:00:00Z",
+        "licenseLimit": "2027-02-10T19:00:00Z",
+        "unavailable": "2026-12-15T19:00:00Z",
+        "suggested": "2026-12-14T19:00:00Z",
+        "pastStart": "2026-10-03T14:00:00Z",
+        "pastEnd": "2026-10-05T14:00:00Z"
+      },
+      "featured": {
+        "carId": "yaris",
+        "meetArea": "San Francisco, cerca de la Vía Israel",
+        "meetAddress": "Calle 74 Este, estacionamiento del supermercado (dirección de ejemplo)",
+        "photosTotal": 12,
+        "seats": 5,
+        "kmPerDay": 200,
+        "requestHours": 4,
+        "reviewHours": 2,
+        "kycReviewHours": 4,
+        "depositMaxDays": 7,
+        "bookingCode": "KM-7Q4F2",
+        "errorCode": "K7F2-9QX",
+        "depositMinor": "20000",
+        "fees": {
+          "smokingMinor": "15000",
+          "petsMinor": "4000",
+          "fuelMinor": "2500"
+        },
+        "lines": {
+          "rentMinor": "12000",
+          "tripFeeMinor": "1800"
+        },
+        "plans": [
+          {
+            "id": "BASICA",
+            "priceMinor": "3000",
+            "deductibleMinor": "300000",
+            "taxMinor": "966",
+            "totalMinor": "17766"
+          },
+          {
+            "id": "ESTANDAR",
+            "priceMinor": "4800",
+            "deductibleMinor": "50000",
+            "taxMinor": "966",
+            "totalMinor": "19566"
+          },
+          {
+            "id": "TOTAL",
+            "priceMinor": "7800",
+            "deductibleMinor": "0",
+            "taxMinor": "966",
+            "totalMinor": "22566"
+          }
+        ],
+        "refundMinor": "17766",
+        "changed": {
+          "rentMinor": "12600",
+          "tripFeeMinor": "1890",
+          "protectionMinor": "3150",
+          "taxMinor": "1014",
+          "totalMinor": "18654"
+        }
+      },
+      "cars": [
+        {
+          "id": "yaris",
+          "title": "Toyota Yaris 2021",
+          "host": {
+            "name": "María José",
+            "tone": 1,
+            "titleForm": "fem",
+            "memberSince": 2024,
+            "responseRate": 98,
+            "responseHours": 1
+          },
+          "rating": 4.9,
+          "trips": 23,
+          "place": "San Francisco",
+          "distanceKm": 1.2,
+          "perDayMinor": "4000",
+          "totalMinor": "17766",
+          "carTone": 1,
+          "manual": false,
+          "kind": "hatch"
+        },
+        {
+          "id": "picanto",
+          "title": "Kia Picanto 2022",
+          "host": {
+            "name": "Andrés",
+            "tone": 2,
+            "titleForm": "masc",
+            "memberSince": 2023,
+            "responseRate": 95,
+            "responseHours": 2
+          },
+          "rating": 4.7,
+          "trips": 41,
+          "place": "Obarrio",
+          "distanceKm": 2.4,
+          "perDayMinor": "3200",
+          "totalMinor": "14213",
+          "carTone": 2,
+          "manual": true,
+          "kind": "hatch"
+        },
+        {
+          "id": "tucson",
+          "title": "Hyundai Tucson 2020",
+          "host": {
+            "name": "Lucía",
+            "tone": 4,
+            "titleForm": "fem",
+            "memberSince": 2025,
+            "responseRate": 100,
+            "responseHours": 1
+          },
+          "rating": 4.8,
+          "trips": 12,
+          "place": "Costa del Este",
+          "distanceKm": 6.8,
+          "perDayMinor": "5500",
+          "totalMinor": "24428",
+          "carTone": 4,
+          "manual": false,
+          "kind": "suv"
+        },
+        {
+          "id": "hilux",
+          "title": "Toyota Hilux 2019",
+          "host": {
+            "name": "Ricardo",
+            "tone": 3,
+            "titleForm": "masc",
+            "memberSince": 2026,
+            "responseRate": 90,
+            "responseHours": 3
+          },
+          "trips": 0,
+          "place": "El Cangrejo",
+          "distanceKm": 3.1,
+          "perDayMinor": "6900",
+          "totalMinor": "30646",
+          "carTone": 3,
+          "manual": false,
+          "kind": "pickup"
+        }
+      ],
+      "pastTrip": {
+        "carId": "picanto",
+        "code": "KM-2B8D1"
+      }
+    },
+    {
+      "id": "guarani",
+      "defaultForLocales": ["es-PY"],
+      "countryName": {
+        "es": "Paraguay",
+        "en": "Paraguay",
+        "fr": "Paraguay",
+        "pt": "Paraguai"
+      },
+      "city": "Asunción",
+      "currency": "PYG",
+      "exponent": 0,
+      "timeZone": "America/Asuncion",
+      "insurerName": "Aseguradora Ejemplo",
+      "pspName": "Pasarela Ejemplo",
+      "kycProvider": "Verificador Ejemplo",
+      "dialCode": "+595",
+      "phoneMasked": "+595 9•• ••• •34",
+      "guestName": "Valeria Gómez",
+      "taxLabel": {
+        "es": "IVA (10 %)",
+        "en": "IVA (10%)",
+        "fr": "IVA (10 %)",
+        "pt": "IVA (10%)"
+      },
+      "trafficAuthority": "Policía Caminera",
+      "phones": {
+        "support": "+595 000 000 000",
+        "roadside": "+595 000 000 001",
+        "emergency": "911",
+        "traffic": "+595 000 000 002"
+      },
+      "places": [
+        "Villa Morra",
+        "Carmelitas",
+        "Recoleta",
+        "Lambaré",
+        "Aeropuerto Silvio Pettirossi"
+      ],
+      "notServedCity": "Encarnación",
+      "searchSummary": {
+        "place": "Villa Morra",
+        "dates": "12/12 – 15/12"
+      },
+      "days": 3,
+      "instants": {
+        "start": "2026-12-12T17:00:00Z",
+        "end": "2026-12-15T17:00:00Z",
+        "freeCancelUntil": "2026-12-11T17:00:00Z",
+        "checkinOpens": "2026-12-11T17:00:00Z",
+        "holdUntil": "2026-11-20T13:10:00Z",
+        "releaseBy": "2026-12-22T17:00:00Z",
+        "refundIssuedOn": "2026-12-16T17:00:00Z",
+        "requestUntil": "2026-11-20T17:00:00Z",
+        "licenseLimit": "2027-02-10T17:00:00Z",
+        "unavailable": "2026-12-15T17:00:00Z",
+        "suggested": "2026-12-14T17:00:00Z",
+        "pastStart": "2026-10-03T12:00:00Z",
+        "pastEnd": "2026-10-05T12:00:00Z"
+      },
+      "featured": {
+        "carId": "vitz",
+        "meetArea": "Villa Morra, cerca de la avenida Mariscal López",
+        "meetAddress": "Calle Ejemplo 1234, estacionamiento del centro comercial (dirección de ejemplo)",
+        "photosTotal": 10,
+        "seats": 5,
+        "kmPerDay": 200,
+        "requestHours": 4,
+        "reviewHours": 2,
+        "kycReviewHours": 4,
+        "depositMaxDays": 7,
+        "bookingCode": "KM-3R9P6",
+        "errorCode": "P3R9-6WZ",
+        "depositMinor": "1300000",
+        "fees": {
+          "smokingMinor": "900000",
+          "petsMinor": "250000",
+          "fuelMinor": "150000"
+        },
+        "lines": {
+          "rentMinor": "1000000",
+          "tripFeeMinor": "125500"
+        },
+        "plans": [
+          {
+            "id": "BASICA",
+            "priceMinor": "150000",
+            "deductibleMinor": "20000000",
+            "taxMinor": "112550",
+            "totalMinor": "1388050"
+          },
+          {
+            "id": "ESTANDAR",
+            "priceMinor": "400000",
+            "deductibleMinor": "3500000",
+            "taxMinor": "112550",
+            "totalMinor": "1638050"
+          },
+          {
+            "id": "TOTAL",
+            "priceMinor": "650000",
+            "deductibleMinor": "0",
+            "taxMinor": "112550",
+            "totalMinor": "1888050"
+          }
+        ],
+        "refundMinor": "1388050",
+        "changed": {
+          "rentMinor": "1050000",
+          "tripFeeMinor": "131775",
+          "protectionMinor": "157500",
+          "taxMinor": "118178",
+          "totalMinor": "1457453"
+        }
+      },
+      "cars": [
+        {
+          "id": "vitz",
+          "title": "Toyota Vitz 2018",
+          "host": {
+            "name": "Carmen",
+            "tone": 1,
+            "titleForm": "fem",
+            "memberSince": 2024,
+            "responseRate": 97,
+            "responseHours": 1
+          },
+          "rating": 4.9,
+          "trips": 31,
+          "place": "Villa Morra",
+          "distanceKm": 1.5,
+          "perDayMinor": "333333",
+          "totalMinor": "1388050",
+          "carTone": 1,
+          "manual": true,
+          "kind": "hatch"
+        },
+        {
+          "id": "carnival",
+          "title": "Kia Carnival 2020",
+          "host": {
+            "name": "Carlos",
+            "tone": 3,
+            "titleForm": "masc",
+            "memberSince": 2026,
+            "responseRate": 92,
+            "responseHours": 2
+          },
+          "trips": 0,
+          "place": "Carmelitas",
+          "distanceKm": 3.5,
+          "perDayMinor": "250000",
+          "totalMinor": "1041038",
+          "carTone": 3,
+          "manual": false,
+          "kind": "van"
+        },
+        {
+          "id": "creta",
+          "title": "Hyundai Creta 2021",
+          "host": {
+            "name": "Lorena",
+            "tone": 4,
+            "titleForm": "fem",
+            "memberSince": 2025,
+            "responseRate": 99,
+            "responseHours": 1
+          },
+          "rating": 4.8,
+          "trips": 18,
+          "place": "Recoleta",
+          "distanceKm": 2.2,
+          "perDayMinor": "280000",
+          "totalMinor": "1165962",
+          "carTone": 4,
+          "manual": false,
+          "kind": "suv"
+        },
+        {
+          "id": "hiluxpy",
+          "title": "Toyota Hilux 2020",
+          "host": {
+            "name": "Diego",
+            "tone": 2,
+            "titleForm": "masc",
+            "memberSince": 2024,
+            "responseRate": 94,
+            "responseHours": 2
+          },
+          "rating": 4.6,
+          "trips": 9,
+          "place": "Lambaré",
+          "distanceKm": 7.9,
+          "perDayMinor": "390000",
+          "totalMinor": "1624019",
+          "carTone": 2,
+          "manual": true,
+          "kind": "pickup"
+        }
+      ],
+      "pastTrip": {
+        "carId": "creta",
+        "code": "KM-8L5T3"
+      }
+    }
+  ]
+}

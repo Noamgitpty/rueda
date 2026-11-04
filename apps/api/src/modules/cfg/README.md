@@ -48,5 +48,6 @@ Ports vers l'extérieur (socle de marque) : `BrandStore` (implémentation `PgBra
 - Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/cfg` (`parse`, `resolve`, `seed-sql`, `startup`, `brand`). `RUEDA_WRITE_CFG_SEED=1 pnpm --filter @rueda/api test:unit` régénère `0009`.
 - Intégration (PostgreSQL réel) : `pnpm --filter @rueda/api exec vitest run --config vitest.int.config.ts src/modules/cfg` (`internal/brand/pg-brand-store.int.test.ts`) et `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/config-country.test.ts`.
 - Preuves L0 (rôles de production) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-brand.test.ts`.
+- Contrat HTTP (US-041, sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/cfg/internal/brand/brand.contract.test.ts` — chaque réponse de `/brand`, `/brand/content` et `/brand/assets/{id}` est confrontée à `apps/api/openapi/openapi.json`, dans chaque pays configuré.
 
 `test:int` et `test:l0` demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».
