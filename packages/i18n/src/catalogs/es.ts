@@ -27,6 +27,10 @@ export const ES_MESSAGES = {
   'common.auth.requestInvalid': 'Revisa los datos ingresados.',
   'common.auth.signupAccepted': 'Revisa tu correo para continuar.',
   'common.auth.emailVerified': 'Tu correo está confirmado.',
+  'common.rateLimit.retryLater': 'Demasiadas solicitudes. Espera un momento y vuelve a intentarlo.',
+  'common.rateLimit.unavailable':
+    'No podemos enviar el mensaje en este momento. Inténtalo de nuevo más tarde.',
+  'common.rateLimit.challengeRequired': 'Confirma que eres una persona para continuar.',
   'web.home.tagline': 'Alquila un auto y conoce el precio final desde el inicio.',
   'web.shell.skipToContent': 'Saltar al contenido',
   'web.shell.homeLink': '{brand}, página de inicio',

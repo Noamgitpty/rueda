@@ -31,6 +31,10 @@ export const FR_MESSAGES = {
   'common.auth.requestInvalid': 'Vérifie les informations saisies.',
   'common.auth.signupAccepted': 'Consulte tes e-mails pour continuer.',
   'common.auth.emailVerified': 'Ton adresse e-mail est confirmée.',
+  'common.rateLimit.retryLater': 'Trop de demandes. Attends un instant, puis réessaie.',
+  'common.rateLimit.unavailable':
+    'Impossible d’envoyer le message pour le moment. Réessaie plus tard.',
+  'common.rateLimit.challengeRequired': 'Montre que tu es bien une personne pour continuer.',
   'web.home.tagline': 'Loue une voiture et découvre le prix final dès le départ.',
   'web.shell.skipToContent': 'Aller au contenu',
   'web.shell.homeLink': '{brand}, page d’accueil',

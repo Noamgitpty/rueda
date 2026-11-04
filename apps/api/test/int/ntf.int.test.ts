@@ -98,6 +98,8 @@ function engine(worker: pg.Client) {
   const sender = new NotificationSender({
     channels: { EMAIL: email, SMS: sms },
     directory: postgresNotificationContacts,
+    // plafond SMS (US-052) : prouvé par sender.test.ts et packages/db/test/l0/l0-risk-rate-limit.test.ts ; illimité ici
+    smsBudget: { reserve: () => Promise.resolve({ allowed: true, alert: false }) },
     countryOf: COUNTRY_DATA.countryOf,
     exponentOf: COUNTRY_DATA.exponentOf,
     localeConfig: repositoryLocaleConfig(),

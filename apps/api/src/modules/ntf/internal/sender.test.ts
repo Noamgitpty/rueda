@@ -309,6 +309,88 @@ describe.each(COUNTRY_CASES)('NotificationSender — $country ($currency)', (c) 
     expect(h.sms.sent()).toHaveLength(1);
   });
 
+  it('US-052 critère 2 : plafond SMS du pays atteint ⇒ SMS non critique refusé, alerte une fois', async () => {
+    const { h, db, guest, sender } = setup();
+    h.smsBudget.cap = 0; // plafond journalier déjà atteint
+    h.email.block('guest@example.test'); // l'e-mail échoue : repli SMS (non critique : KYC)
+    const kyc = event(
+      'kyc.verification.status_changed',
+      { user_id: guest, to: 'APPROVED' },
+      c.country,
+    );
+    await dispatchEvent(kyc, db);
+    await drain(db, sender);
+    const sms = db.dispatches.find((d) => d.channel === 'SMS');
+    expect(sms).toMatchObject({ status: 'FAILED', attempts: 0, last_error: 'SMS_DAILY_CAP' });
+    expect(h.sms.sent()).toEqual([]); // aucun SMS ne part
+    const alerts = db.events.filter((e) => e.type === 'notification.sms_cap.reached');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]?.payload).toEqual({
+      dispatch_id: sms?.id,
+      country_code: c.country,
+      template: 'EVT_KYC_APPROVED',
+    });
+    expect(db.events.filter((e) => e.type === 'notification.dispatch.failed')).toHaveLength(1);
+    // second refus du jour : aucune nouvelle alerte
+    const again = event(
+      'kyc.verification.status_changed',
+      { user_id: guest, to: 'APPROVED' },
+      c.country,
+    );
+    await dispatchEvent(again, db);
+    await drain(db, sender);
+    expect(db.events.filter((e) => e.type === 'notification.sms_cap.reached')).toHaveLength(1);
+  });
+
+  it('US-052 critère 2 : message critique de trip (retard) envoyé malgré le plafond, et compté', async () => {
+    const { h, db, guest, host, sender } = setup();
+    h.smsBudget.cap = 0;
+    const overdue = event(
+      'trip.overdue.detected',
+      { trip_id: randomUUID(), guest_user_id: guest, host_user_id: host, scheduled_end: END },
+      c.country,
+    );
+    await dispatchEvent(overdue, db);
+    await drain(db, sender);
+    expect(h.sms.sent()).toHaveLength(2);
+    expect(db.dispatches.every((d) => d.status === 'SENT')).toBe(true);
+    expect(h.smsBudget.sent.get(c.country)).toBe(2);
+    expect(db.events.some((e) => e.type === 'notification.sms_cap.reached')).toBe(false);
+  });
+
+  it('US-052 : compteur du plafond indisponible ⇒ la tâche échoue, aucun SMS (fail-closed)', async () => {
+    const { h, db, guest, host, sender } = setup();
+    h.smsBudget.fail = true;
+    const overdue = event(
+      'trip.overdue.detected',
+      { trip_id: randomUUID(), guest_user_id: guest, host_user_id: host, scheduled_end: END },
+      c.country,
+    );
+    await dispatchEvent(overdue, db);
+    const [job] = db.pendingSends();
+    if (job === undefined) throw new Error('aucune tâche');
+    await expect(sender.handle(job.payload, db)).rejects.toThrow(/indisponible/);
+    expect(h.sms.sent()).toEqual([]);
+  });
+
+  it('US-052 : un réessai ne recompte pas le plafond (réservation à la 1re tentative)', async () => {
+    const { h, db, guest, host, sender } = setup();
+    h.sms.runtime.script.script(
+      'send',
+      { kind: 'UNAVAILABLE' as const },
+      { kind: 'UNAVAILABLE' as const },
+    );
+    const overdue = event(
+      'trip.overdue.detected',
+      { trip_id: randomUUID(), guest_user_id: guest, host_user_id: host, scheduled_end: END },
+      c.country,
+    );
+    await dispatchEvent(overdue, db);
+    await drain(db, sender);
+    expect(h.sms.sent()).toHaveLength(2);
+    expect(h.smsBudget.sent.get(c.country)).toBe(2);
+  });
+
   it('journaux : identifiants et codes seulement — ni adresse, ni numéro, ni prénom, ni texte', async () => {
     const { h, db, booked, sender } = setup();
     h.email.block('guest@example.test');

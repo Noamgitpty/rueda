@@ -1241,6 +1241,146 @@
       "source": "22 « Pivot P2P » ; OQ-P2P-12",
       "status": "PROPOSÉ",
       "values": { "PA": "BASICA", "PY": "BASICA" }
+    },
+    {
+      "key": "rate_limit_otp_per_phone_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (envois d'OTP par numéro et par heure)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
+      "key": "rate_limit_otp_per_ip_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (envois d'OTP par IP et par heure)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 20, "PY": 20 }
+    },
+    {
+      "key": "rate_limit_email_per_address_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (e-mails coûteux par adresse et par heure)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "rate_limit_email_per_ip_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (e-mails coûteux par IP et par heure)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 50, "PY": 50 }
+    },
+    {
+      "key": "rate_limit_sms_daily_cap",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (plafond journalier d'envois SMS du pays, jour local)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 2000, "PY": 2000 }
+    },
+    {
+      "key": "rate_limit_search_per_ip_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (recherche publique par IP et par minute)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 120, "PY": 120 }
+    },
+    {
+      "key": "rate_limit_search_per_account_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (recherche publique par compte et par minute)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 120, "PY": 120 }
+    },
+    {
+      "key": "rate_limit_quote_per_ip_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (devis par IP et par minute)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "rate_limit_quote_per_account_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (devis par compte et par minute)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "rate_limit_api_per_ip_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (API par IP et par minute)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 600, "PY": 600 }
+    },
+    {
+      "key": "rate_limit_api_per_account_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (API par compte et par minute)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 300, "PY": 300 }
+    },
+    {
+      "key": "rate_limit_webhook_per_ip_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (webhooks : limite large, corps borné)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 6000, "PY": 6000 }
+    },
+    {
+      "key": "rate_limit_signup_burst_per_ip_10min",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (inscriptions en rafale par IP en 10 min)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
+      "key": "rate_limit_bot_weight",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-052 (poids d'une requête suspecte : client ralenti)",
+      "status": "PROPOSÉ",
+      "values": { "PA": 4, "PY": 4 }
     }
   ]
 }

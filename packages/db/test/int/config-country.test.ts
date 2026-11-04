@@ -155,7 +155,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner et celle des codes pays par iam_staff_owner (US-012)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -187,6 +187,10 @@ describe('configuration pays : structure et droits', () => {
               ? [{ t, pol: 'iam_staff_select', cmd: 'r', roles: 'iam_staff_owner' }]
               : []),
             { t, pol: 'migrator_all', cmd: '*', roles: 'migrator' },
+            // limitation de débit (US-052, 0047) : fuseau du pays pour le plafond SMS journalier
+            ...(t === 'config_country'
+              ? [{ t, pol: 'risk_limit_select', cmd: 'r', roles: 'risk_limit_owner' }]
+              : []),
           ]),
         );
       },

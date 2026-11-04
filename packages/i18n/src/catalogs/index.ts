@@ -15,9 +15,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  * portugais du Brésil (DEC-FONDATEUR-18) et sens changé de `common.brand.assetInvalid` et
  * `common.brand.contentLocaleMissing` (quatre langues exigées). Version 9 : coquille et PWA
  (US-048) : `web.shell.*`, `web.offline.*`, `common.offline.restored` et clés `web.s01.*` de
- l'accueil reprises de 10b §4.3.
+ l'accueil reprises de 10b §4.3. Version 10 : limitation de débit et anti-abus (US-052) :
+ `common.rateLimit.*`.
  */
-export const CATALOG_VERSION = 9;
+export const CATALOG_VERSION = 10;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

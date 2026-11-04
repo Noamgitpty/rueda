@@ -48,6 +48,12 @@ export interface TemplateSpec {
   readonly variables: Readonly<Record<string, VariableSource>>;
   /** Canaux envoyés **en parallèle** pour chaque destinataire, chacun avec son repli. */
   readonly channels: readonly ChannelSpec[];
+  /**
+   * Message CRITIQUE de trip (US-052) : un SMS part même si le plafond journalier SMS du pays
+   * est atteint. PROPOSÉ : confirmation, annulation et retard d'un trip ; les autres (KYC,
+   * versements) sont basculés sur l'e-mail ou refusés au-delà du plafond.
+   */
+  readonly critical: boolean;
 }
 
 export type RecipientRole = 'GUEST' | 'HOST';
@@ -100,6 +106,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     slug: 'kycApproved',
     variables: { first_name: FIRST_NAME, brand: BRAND },
     channels: EMAIL_THEN_SMS,
+    critical: false,
   },
   EVT_BOOKING_CONFIRMED: {
     key: 'EVT_BOOKING_CONFIRMED',
@@ -112,12 +119,14 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
       end_at: { from: 'payload', type: 'instant', field: 'scheduled_end' },
     },
     channels: EMAIL_THEN_SMS,
+    critical: true,
   },
   EVT_BOOKING_CANCELLED: {
     key: 'EVT_BOOKING_CANCELLED',
     slug: 'bookingCancelled',
     variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF },
     channels: EMAIL_THEN_SMS,
+    critical: true,
   },
   EVT_TRIP_OVERDUE: {
     key: 'EVT_TRIP_OVERDUE',
@@ -129,6 +138,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
       end_at: { from: 'payload', type: 'instant', field: 'scheduled_end' },
     },
     channels: SMS_THEN_EMAIL,
+    critical: true,
   },
   EVT_PAYOUT_SENT: {
     key: 'EVT_PAYOUT_SENT',
@@ -139,6 +149,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
       amount: { from: 'payload', type: 'money', field: 'net_minor', currencyField: 'currency' },
     },
     channels: EMAIL_THEN_SMS,
+    critical: false,
   },
   EVT_PAYOUT_ON_HOLD: {
     key: 'EVT_PAYOUT_ON_HOLD',
@@ -149,6 +160,7 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
       amount: { from: 'payload', type: 'money', field: 'net_minor', currencyField: 'currency' },
     },
     channels: EMAIL_THEN_SMS,
+    critical: false,
   },
 };
 
