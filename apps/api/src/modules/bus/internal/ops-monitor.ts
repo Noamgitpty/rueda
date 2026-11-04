@@ -17,12 +17,16 @@
  * alertes P1 déjà écrites dans l'outbox par la base (oracle C12, invariant de conversion,
  * disposition en retard, plafond SMS) sont ainsi relayées sans qu'aucun module ne connaisse le canal.
  *
+ * Livraison : l'état d'une jauge n'avance qu'après l'envoi réussi de son alerte ; une alerte non
+ * conforme est écartée et comptée sans bloquer la passe (revue sécurité US-004).
+ *
  * Fenêtre des compteurs : depuis l'horloge de la base lue à la passe précédente (`platform.now()`),
  * au premier passage depuis `periodSeconds`. Livraison « au moins une fois » : une passe en échec
  * est rejouée par le bus et peut renvoyer les mêmes alertes ; un événement validé après la lecture
  * de l'horloge mais daté avant elle peut échapper au compteur (transaction longue) : la jauge de
  * l'outbox et l'oracle quotidien restent les filets.
  */
+import { UnsafeAlertError } from './alert-channel.js';
 import type { AlertChannel, AlertSeverity, OpsAlert } from './alert-channel.js';
 import type { BusRegistry } from './registry.js';
 import type { SqlClient } from './sql.js';
@@ -105,6 +109,20 @@ const toCount = (value: string | number): number => {
   return n;
 };
 
+interface PlannedAlert {
+  readonly alert: OpsAlert;
+  /** Retient l'état de la jauge ; appelé seulement après un envoi réussi. */
+  readonly commit: () => void;
+}
+
+export interface OpsMonitorPass {
+  readonly metrics: number;
+  /** Alertes envoyées. */
+  readonly alerts: number;
+  /** Alertes non conformes écartées (jamais envoyées tronquées). */
+  readonly rejected: number;
+}
+
 interface GaugeState {
   readonly value: number;
   readonly at: number;
@@ -121,10 +139,15 @@ export class OpsMonitor {
     this.#options = { ...OPS_MONITOR_DEFAULTS, ...options };
   }
 
-  /** Alertes d'une passe (pure à l'état des jauges près, qu'elle met à jour). */
-  evaluate(rows: readonly OpsMetricRow[], at: Date): OpsAlert[] {
-    const alerts: OpsAlert[] = [];
+  /**
+   * Alertes d'une passe SANS changer l'état : chaque alerte de jauge porte l'état à retenir une fois
+   * l'envoi réussi (`commit`). Les jauges revenues sous le seuil sont oubliées aussitôt (aucun envoi
+   * en jeu).
+   */
+  #plan(rows: readonly OpsMetricRow[], at: Date): PlannedAlert[] {
+    const planned: PlannedAlert[] = [];
     const seen = new Set<string>();
+    const now = at.getTime();
     for (const row of rows) {
       const rule = RULES[row.metric];
       // métrique inconnue : contrat rompu entre la base et le code (fail-closed, jamais ignorée)
@@ -141,31 +164,48 @@ export class OpsMonitor {
         labels,
       };
       if (!rule.gauge) {
-        alerts.push(alert);
+        planned.push({ alert, commit: () => undefined });
         continue;
       }
       const key = `${row.metric}|${row.label ?? ''}|${row.country_code ?? ''}`;
       seen.add(key);
       const previous = this.#gauges.get(key);
-      const now = at.getTime();
       if (
         previous === undefined ||
         value > previous.value ||
         now - previous.at >= this.#options.realertSeconds * 1000
       ) {
-        this.#gauges.set(key, { value, at: now });
-        alerts.push(alert);
+        planned.push({
+          alert,
+          commit: () => {
+            this.#gauges.set(key, { value, at: now });
+          },
+        });
       }
     }
     // jauge revenue sous le seuil (ou absente) : état oublié, le prochain dépassement alerte
     for (const key of [...this.#gauges.keys()]) {
       if (!seen.has(key)) this.#gauges.delete(key);
     }
-    return alerts;
+    return planned;
   }
 
-  /** Une passe dans la transaction du travailleur `ops_monitor` ; rend le nombre d'alertes. */
-  async run(tx: SqlClient): Promise<{ readonly metrics: number; readonly alerts: number }> {
+  /** Alertes d'une passe, considérées comme livrées (état des jauges mis à jour). */
+  evaluate(rows: readonly OpsMetricRow[], at: Date): OpsAlert[] {
+    return this.#plan(rows, at).map((p) => {
+      p.commit();
+      return p.alert;
+    });
+  }
+
+  /**
+   * Une passe dans la transaction du travailleur `ops_monitor`. L'état d'une jauge n'avance
+   * qu'APRÈS l'envoi réussi de son alerte : un envoi en échec la renvoie à la passe suivante. Une
+   * alerte non conforme (`UnsafeAlertError`) est écartée et comptée (`rejected`) sans bloquer les
+   * autres. Si un envoi a échoué, toutes les autres sont tentées, puis la passe échoue (le bus la
+   * rejoue) et la fenêtre des compteurs n'avance pas : livraison « au moins une fois ».
+   */
+  async run(tx: SqlClient): Promise<OpsMonitorPass> {
     const clock = await tx.query<{ at: Date }>('SELECT platform.now() AS at');
     const at = clock.rows[0]?.at;
     if (!(at instanceof Date)) throw new OpsMonitorContractError('horloge de la base illisible');
@@ -174,10 +214,22 @@ export class OpsMonitor {
       'SELECT metric, label, country_code, value FROM core.ops_monitor_metrics($1, $2)',
       [since, this.#options.webhookFailures],
     );
-    const alerts = this.evaluate(rows, at);
-    for (const alert of alerts) await this.#channel.send(alert);
+    let sent = 0;
+    let rejected = 0;
+    let failure: unknown = null;
+    for (const p of this.#plan(rows, at)) {
+      try {
+        await this.#channel.send(p.alert);
+        p.commit();
+        sent += 1;
+      } catch (error) {
+        if (error instanceof UnsafeAlertError) rejected += 1;
+        else failure ??= error;
+      }
+    }
+    if (failure !== null) throw failure;
     this.#since = at;
-    return { metrics: rows.length, alerts: alerts.length };
+    return { metrics: rows.length, alerts: sent, rejected };
   }
 }
 
@@ -194,7 +246,13 @@ export function registerOpsMonitor(
     options.periodSeconds ?? OPS_MONITOR_DEFAULTS.periodSeconds,
     async (_payload, tx) => {
       const r = await monitor.run(tx);
-      log(JSON.stringify({ level: 'info', worker: OPS_MONITOR_WORKER, ...r }));
+      log(
+        JSON.stringify({
+          level: r.rejected > 0 ? 'error' : 'info',
+          worker: OPS_MONITOR_WORKER,
+          ...r,
+        }),
+      );
     },
   );
   return monitor;

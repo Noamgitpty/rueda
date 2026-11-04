@@ -38,7 +38,7 @@ export {
   OpsMonitorContractError,
   registerOpsMonitor,
 } from './internal/ops-monitor.js';
-export type { OpsMetricRow, OpsMonitorOptions } from './internal/ops-monitor.js';
+export type { OpsMetricRow, OpsMonitorOptions, OpsMonitorPass } from './internal/ops-monitor.js';
 export { PeriodicScheduler } from './internal/periodic.js';
 export { publishEvent } from './internal/publisher.js';
 export {

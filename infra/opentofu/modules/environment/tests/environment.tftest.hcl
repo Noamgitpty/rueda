@@ -101,6 +101,15 @@ override_resource {
   }
 }
 
+# La clé « backup » (base et sauvegardes, US-004) distincte des autres.
+override_resource {
+  target = aws_kms_key.backup
+  values = {
+    arn    = "arn:aws:kms:us-east-1:111111111111:key/00000000-0000-0000-0000-00000000ba0c"
+    key_id = "00000000-0000-0000-0000-00000000ba0c"
+  }
+}
+
 variables {
   environment              = "preproduction"
   region                   = "us-east-1"
@@ -177,8 +186,8 @@ run "production" {
     error_message = "production : Multi-AZ, protection, instantané final (17 §6.4, NN10)"
   }
   assert {
-    condition     = aws_db_instance.this.storage_encrypted && aws_db_instance.this.kms_key_id == aws_kms_key.data.arn && !aws_db_instance.this.publicly_accessible
-    error_message = "base chiffrée par la clé « data », jamais publique"
+    condition     = aws_db_instance.this.storage_encrypted && aws_db_instance.this.kms_key_id == aws_kms_key.backup.arn && aws_db_instance.this.master_user_secret_kms_key_id == aws_kms_key.data.arn && !aws_db_instance.this.publicly_accessible
+    error_message = "base chiffrée par la clé « backup » (son secret d'administration par « data »), jamais publique"
   }
   assert {
     condition     = aws_db_instance.this.manage_master_user_password
@@ -276,12 +285,24 @@ run "sauvegardes_production" {
     error_message = "la base et les deux compartiments sont sauvegardés"
   }
   assert {
-    condition     = aws_backup_vault.this.kms_key_arn == aws_kms_key.data.arn && !aws_backup_vault.this.force_destroy && length(aws_backup_vault_lock_configuration.this) == 1
-    error_message = "coffre chiffré par la clé « data », jamais détruit avec son contenu, verrouillé en production"
+    condition     = aws_backup_vault.this.kms_key_arn == aws_kms_key.backup.arn && !aws_backup_vault.this.force_destroy && length(aws_backup_vault_lock_configuration.this) == 1
+    error_message = "coffre chiffré par la clé dédiée « backup », jamais détruit avec son contenu, verrouillé en production"
   }
   assert {
-    condition     = strcontains(aws_kms_key.data.policy, "arn:aws:iam::222222222222:root") && strcontains(aws_kms_key.data.policy, "arn:aws:iam::111111111111:root")
-    error_message = "clé « data » : administrée par le compte, lisible par le compte de copie (copie entre comptes)"
+    condition     = !strcontains(aws_kms_key.data.policy, "222222222222") && !strcontains(aws_kms_key.files.policy == null ? "" : aws_kms_key.files.policy, "222222222222") && !strcontains(aws_kms_key.alerts.policy, "222222222222")
+    error_message = "revue sécurité : la clé principale « data » (secrets, registre) et les autres clés n'accordent RIEN au compte de copie"
+  }
+  assert {
+    condition     = strcontains(aws_kms_key.backup.policy, "arn:aws:iam::222222222222:root") && strcontains(aws_kms_key.backup.policy, "arn:aws:iam::111111111111:root")
+    error_message = "clé « backup » : administrée par le compte, lisible par le compte de copie (copie entre comptes)"
+  }
+  assert {
+    condition     = strcontains(aws_kms_key.backup.policy, "\"kms:CallerAccount\":\"222222222222\"") && strcontains(aws_kms_key.backup.policy, "backup.us-east-1.amazonaws.com") && strcontains(aws_kms_key.backup.policy, "kms:ViaService") && strcontains(aws_kms_key.backup.policy, "kms:GrantIsForAWSResource")
+    error_message = "clé « backup » : droits du compte de copie conditionnés (kms:CallerAccount, kms:ViaService, subvention pour une ressource AWS)"
+  }
+  assert {
+    condition     = !strcontains(aws_kms_key.backup.policy, "GenerateDataKey") && !strcontains(aws_kms_key.backup.policy, "ReEncrypt") && length(regexall("kms:\\*", aws_kms_key.backup.policy)) == 1
+    error_message = "clé « backup » : ni GenerateDataKey ni ReEncrypt, et kms:* pour l'administration du compte seulement"
   }
   assert {
     condition     = aws_sns_topic.alerts.kms_master_key_id == aws_kms_key.alerts.arn && length(aws_sns_topic_subscription.email) == 1
@@ -317,7 +338,7 @@ run "preproduction_sans_copie_permise" {
   }
 
   assert {
-    condition     = length(one(aws_backup_plan.daily.rule).copy_action) == 0 && length(aws_backup_vault_lock_configuration.this) == 0
+    condition     = length(one(aws_backup_plan.daily.rule).copy_action) == 0 && length(aws_backup_vault_lock_configuration.this) == 0 && !strcontains(aws_kms_key.backup.policy, "BackupCopyAccount")
     error_message = "préproduction : copie hors compte facultative (coût), coffre non verrouillé"
   }
 }

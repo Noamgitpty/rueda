@@ -1,4 +1,4 @@
-# PostgreSQL 16 géré (17 §6.1) : chiffré par la clé « data », TLS obligatoire, privé, restauration à
+# PostgreSQL 16 géré (17 §6.1) : chiffré par la clé dédiée « backup » (US-004), TLS obligatoire, privé, restauration à
 # un instant donné (sauvegardes automatiques), Multi-AZ en production (NN10). Le mot de passe
 # d'administration est GÉRÉ par le service (secret du coffre chiffré par la clé « data ») : il
 # n'apparaît ni dans le dépôt, ni dans l'état OpenTofu. Le job de base (packages/db/src/deploy/) le
@@ -42,7 +42,7 @@ resource "aws_db_instance" "this" {
   max_allocated_storage               = 100
   storage_type                        = "gp3"
   storage_encrypted                   = true
-  kms_key_id                          = aws_kms_key.data.arn
+  kms_key_id                          = aws_kms_key.backup.arn
   multi_az                            = var.db_multi_az
   db_subnet_group_name                = aws_db_subnet_group.this.name
   vpc_security_group_ids              = [aws_security_group.db.id]

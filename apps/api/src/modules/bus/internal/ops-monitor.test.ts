@@ -245,8 +245,8 @@ describe('passe du travailleur ops_monitor', () => {
       },
     ]);
     expect(logs.map((l) => JSON.parse(l) as unknown)).toEqual([
-      { level: 'info', worker: 'ops_monitor', metrics: 1, alerts: 1 },
-      { level: 'info', worker: 'ops_monitor', metrics: 0, alerts: 0 },
+      { level: 'info', worker: 'ops_monitor', metrics: 1, alerts: 1, rejected: 0 },
+      { level: 'info', worker: 'ops_monitor', metrics: 0, alerts: 0, rejected: 0 },
     ]);
     expect(registry.periodicTasks()).toEqual([
       { name: 'ops_monitor', spec: { periodSeconds: 60, maxAttempts: 5 } },
@@ -265,6 +265,36 @@ describe('passe du travailleur ops_monitor', () => {
       [at(-60), 3],
       [at(0), 3],
     ]);
+  });
+
+  it('revue sécurité : envoi en échec => la jauge n\u2019avance pas, l\u2019alerte repart à la passe suivante', async () => {
+    const fake = new FakeAlertChannel();
+    const m = new OpsMonitor(fake);
+    const failing = [row('webhook_failing', 1, 'ACME_PSP')];
+    const t = tx([failing, failing], [at(0), at(60)]);
+    fake.failing = true;
+    await expect(m.run(t.tx)).rejects.toThrow();
+    expect(fake.sent).toEqual([]);
+    fake.failing = false;
+    // même valeur, avant le rappel de 30 min : sans la correction, elle serait perdue
+    expect(await m.run(t.tx)).toEqual({ metrics: 1, alerts: 1, rejected: 0 });
+    expect(fake.sent.map((a) => a.code)).toEqual(['OPS_WEBHOOK_FAILING']);
+  });
+
+  it('revue sécurité : alerte non conforme écartée et comptée, les autres partent, la passe réussit', async () => {
+    const fake = new FakeAlertChannel();
+    const m = new OpsMonitor(fake);
+    const t = tx(
+      [
+        [
+          row('webhook_failing', 2, 'fournisseur avec espace'),
+          row('p1_event', 1, 'booking.alert.production_oracle'),
+        ],
+      ],
+      [at(0)],
+    );
+    expect(await m.run(t.tx)).toEqual({ metrics: 2, alerts: 1, rejected: 1 });
+    expect(fake.sent.map((a) => a.code)).toEqual(['OPS_P1_EVENT']);
   });
 
   it('horloge illisible : erreur de contrat', async () => {

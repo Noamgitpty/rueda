@@ -9,7 +9,7 @@ Décision : [ADR-080](../adr/ADR-080-sauvegardes-supervision-journal-acces.md). 
 | Quoi                                             | Comment                                                                                     | Où                                               | Conservé (PROPOSÉ)                |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------- |
 | Base (restauration à un instant donné)           | sauvegardes automatiques et journaux de transactions du service géré                        | compte de l'environnement                        | `db_backup_retention_days` (14)   |
-| Base et compartiments (actifs, preuves, journal) | plan AWS Backup quotidien, 05:00 UTC                                                        | coffre de l'environnement (clé `data`)           | `backup_retention_days` (35)      |
+| Base et compartiments (actifs, preuves, journal) | plan AWS Backup quotidien, 05:00 UTC                                                        | coffre de l'environnement (clé dédiée `backup`)  | `backup_retention_days` (35)      |
 | Copie de chaque sauvegarde quotidienne           | `copy_action` du plan                                                                       | coffre du **compte de sauvegarde**, autre région | `backup_copy_retention_days` (35) |
 | Secrets et clés                                  | non sauvegardés : clés KMS à rotation, procédure de recréation (US-036) ; secrets re-saisis | —                                                | —                                 |
 
@@ -23,6 +23,14 @@ En production, `tofu plan` **refuse** un plan sans copie hors compte, une copie 
 4. Confirmer l'abonnement au sujet des alertes (courriel reçu d'AWS).
 5. Le lendemain : vérifier un travail de sauvegarde `COMPLETED` et un travail de copie `COMPLETED` (console AWS Backup, « Jobs ») ; le point de restauration doit apparaître dans le coffre du compte de sauvegarde.
 
+## Avant la première application : vérifier la copie entre comptes
+
+La copie n'a jamais tourné (aucun compte). Avant d'ouvrir l'environnement, le fondateur vérifie, sur une sauvegarde à la demande :
+
+1. **Clé `backup` de l'environnement** : le compte de copie n'y a que `Decrypt`, `DescribeKey` et `CreateGrant` (ressource AWS), sous `kms:CallerAccount` et `kms:ViaService` (`backup` ou `rds` de la région). Si la copie échoue avec `AccessDenied` sur KMS, lire dans CloudTrail le service et le compte appelants, et n'élargir que la condition fautive (jamais vers la clé `data`).
+2. **Coffre de destination** : il accepte la copie (`backup:CopyIntoBackupVault` pour les comptes des environnements) et rechiffre avec SA clé, que seul le compte de sauvegarde utilise ; les comptes sources n'y ont aucun droit, par conception. Si AWS Backup exigeait un accès des comptes sources à cette clé, l'ajouter sous les mêmes conditions (`kms:ViaService` backup, `kms:CallerAccount`) et le consigner dans ADR-080.
+3. Un travail de copie `COMPLETED` et le point de restauration visible dans le coffre du compte de sauvegarde ; sinon l'alarme « échec de sauvegarde » doit être reçue.
+
 ## Restaurer
 
 Toujours dans une **nouvelle** instance, jamais par-dessus la base en service ; la bascule se fait par la configuration de l'environnement.
@@ -30,7 +38,7 @@ Toujours dans une **nouvelle** instance, jamais par-dessus la base en service ; 
 ### Erreur récente (RPO de quelques minutes) : instant donné
 
 1. Choisir l'instant (UTC) juste avant l'incident ; la console RDS donne la fenêtre restaurable.
-2. Restaurer l'instance à cet instant sous un nouvel identifiant, même groupe de sous-réseaux, groupe de sécurité `db`, groupe de paramètres de l'environnement, chiffrement par la clé `data`.
+2. Restaurer l'instance à cet instant sous un nouvel identifiant, même groupe de sous-réseaux, groupe de sécurité `db`, groupe de paramètres de l'environnement, chiffrement par la clé `backup`.
 3. Vérifier sous `app_api` (job de base, `packages/db/src/deploy/`) : rôle de production, environnement déclaré attendu, dernière migration appliquée.
 4. Bascule : mettre l'adresse de la nouvelle instance dans `PGHOST` des tâches (nouvelle révision, `scripts/deploy/ecs.sh`), puis surveiller les alarmes 30 min. Journaliser la bascule (journal des déploiements).
 

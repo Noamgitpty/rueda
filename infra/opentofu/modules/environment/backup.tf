@@ -4,7 +4,7 @@
 #   1. Restauration à un instant donné de la base : sauvegardes automatiques du service
 #      (database.tf, db_backup_retention_days ; RPO de quelques minutes).
 #   2. Plan quotidien AWS Backup : base ET compartiments, dans le coffre de l'environnement chiffré
-#      par la clé « data », conservés backup_retention_days ; puis COPIE dans le coffre d'un AUTRE
+#      par la clé dédiée « backup », conservés backup_retention_days ; puis COPIE dans le coffre d'un AUTRE
 #      compte et d'une AUTRE région (module backup-vault, racine environments/backup), conservée
 #      backup_copy_retention_days. Critère US-004 : « Given la sauvegarde quotidienne, When elle se
 #      termine, Then une copie existe dans un autre compte » ; en production, le plan est REFUSÉ
@@ -21,9 +21,57 @@ locals {
   backup_copy_account = local.backup_copy_parts[4]
 }
 
+# Clé DÉDIÉE (revue sécurité US-004) : stockage de la base et coffre des sauvegardes. Un instantané
+# de la base garde la clé de l'instance : c'est donc elle, et elle seule, que le compte de copie doit
+# pouvoir lire. Il ne reçoit que Decrypt, DescribeKey et CreateGrant (pour une ressource AWS),
+# appelés depuis SON compte et par les services de sauvegarde ou de base de cette région
+# (kms:CallerAccount, kms:ViaService) ; rien sur les clés « data » (secrets, registre) et « files ».
+# Point à vérifier avant la première application : docs/ops/BACKUP_RESTORE.md.
+locals {
+  backup_copy_conditions = {
+    "kms:CallerAccount" = local.backup_copy_account
+    "kms:ViaService"    = ["backup.${var.region}.amazonaws.com", "rds.${var.region}.amazonaws.com"]
+  }
+  backup_key_copy_read = {
+    Sid       = "BackupCopyAccountRead"
+    Effect    = "Allow"
+    Principal = { AWS = "arn:aws:iam::${local.backup_copy_account}:root" }
+    Action    = ["kms:Decrypt", "kms:DescribeKey"]
+    Resource  = "*"
+    Condition = { StringEquals = local.backup_copy_conditions }
+  }
+  backup_key_copy_grant = {
+    Sid       = "BackupCopyAccountGrant"
+    Effect    = "Allow"
+    Principal = { AWS = "arn:aws:iam::${local.backup_copy_account}:root" }
+    Action    = "kms:CreateGrant"
+    Resource  = "*"
+    Condition = {
+      StringEquals = local.backup_copy_conditions
+      Bool         = { "kms:GrantIsForAWSResource" = "true" }
+    }
+  }
+}
+
+resource "aws_kms_key" "backup" {
+  description             = "${local.name} : base de données et sauvegardes"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = concat([local.data_key_admin], [for s in [local.backup_key_copy_read, local.backup_key_copy_grant] : s if local.backup_copy_enabled])
+  })
+  tags = local.tags
+}
+
+resource "aws_kms_alias" "backup" {
+  name          = "alias/${local.name}-backup"
+  target_key_id = aws_kms_key.backup.key_id
+}
+
 resource "aws_backup_vault" "this" {
   name          = local.name
-  kms_key_arn   = aws_kms_key.data.arn
+  kms_key_arn   = aws_kms_key.backup.arn
   force_destroy = !var.deletion_protection
   tags          = local.tags
 }
@@ -112,7 +160,7 @@ resource "aws_iam_role_policy" "backup_keys" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["kms:Decrypt", "kms:DescribeKey", "kms:GenerateDataKey*", "kms:CreateGrant"]
-      Resource = [aws_kms_key.data.arn, aws_kms_key.files.arn]
+      Resource = [aws_kms_key.backup.arn, aws_kms_key.files.arn]
     }]
   })
 }
