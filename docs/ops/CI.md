@@ -43,6 +43,7 @@ Le harnais d'US-005 lit `RUEDA_PG_TESTCONTAINERS=1` et démarre `postgres:16` pa
 
 - **Depuis la fusion d'US-005 (PR #18)**, `test:int` et `test:l0` lancent les vrais tests (`turbo run test:int` et `turbo run test:l0`, dont ceux de `@rueda/db` sous les rôles de production) ; le job est **bloquant** sans changement du workflow. Le script `scripts/not-yet-implemented.mjs` n'est plus appelé. L'étape de fumée (PostgreSQL 16 réel avec `btree_gist`) reste en place ; la retirer est une modification de `.github/`, soumise à la revue sécurité.
 - Si le harnais demande l'autre mode (`RUEDA_PG_ADMIN_URL` + `RUEDA_PG_SUPERUSER_PASSWORD_FILE`, natif P-07), il reste réservé au poste local. La CI garde Testcontainers.
+- **Depuis US-046 (ADR-081)**, le banc crée une base `_mig` sans migration : `test:l0` y applique chaque migration **seule**, sous `migrator`, sur des graines PA / PY. Il vérifie après chacune le schéma de la version N (retour arrière sans migration descendante), les lignes et les comptes, l'intégrité et RLS-19. Le job `qualite` lance en plus le lint `sql-expand-contract` (`pnpm lint`) et les contrôles de l'inventaire des données personnelles (`test:unit`).
 - Les commandes `test:rls`, `test:concurrency` et `test:money` s'ajouteront à ce job quand leurs stories les créeront (handoff §7). La matrice PA / PY (19 US-002, notes techniques) sera ajoutée quand un test dépendra du pays.
 
 ### Oracles

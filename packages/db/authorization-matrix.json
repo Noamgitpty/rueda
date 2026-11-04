@@ -849,7 +849,6 @@
       "droits": {
         "app_api": {
           "SELECT": [
-            "change_reason",
             "country_code",
             "created_at",
             "created_by",

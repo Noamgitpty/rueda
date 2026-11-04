@@ -4,6 +4,7 @@ export {
   benchInfo,
   connectAs,
   connectForNegativeRoleTest,
+  connectMigratorForMigrationTest,
   ProductionRoleAssertionError,
   releaseClient,
   withRole,

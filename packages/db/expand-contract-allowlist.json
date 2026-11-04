@@ -1,0 +1,117 @@
+{
+  "$comment": "Dérogations à la règle expand / contract (US-046, ADR-081 ; ADR-078 point 6). Le lint sql-expand-contract (packages/db/src/expand-contract, dans pnpm lint et pnpm lint:sql) refuse toute contraction d'une migration de production, au premier niveau, dans un bloc DO (quelle que soit la structure de contrôle) ou dans la définition d'une fonction (suppression d'objet, de colonne, de politique, de contrainte, de déclencheur ou d'index non recréé sous le même nom, défaut retiré, renommage, changement de schéma ou de type, SET NOT NULL, colonne NOT NULL sans défaut, retrait d'un droit d'un rôle applicatif, RLS relâchée, déclencheur désactivé, rôle modifié, EXECUTE dynamique, TRUNCATE, DELETE, UPDATE) sauf si elle est inscrite ici, une par une (fichier, ligne de début de l'instruction, nature), avec sa justification. Une entrée qui ne correspond plus à aucune instruction fait échouer le lint. Les entrées antérieures à US-046 (0008 à 0044) ont été écrites avant que la règle soit imposée, alors qu'aucune version n'était servie en production (tables vides) ; chacune est justifiée ci-dessous. 'populated: false' déclare une migration qui exige des tables vides : le test des migrations sur base peuplée (l0-us046-migrations) ne pose les graines de ces tables qu'après elle. 'dataTables' liste les tables dont une migration de données réécrit des lignes (comptes égaux, lignes réécrites tolérées). Ajouter une entrée = revue architecture (packages/db/) et revue sécurité si un droit est retiré.",
+  "entries": [
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 364,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de création des déclencheurs d’immutabilité de la configuration (CREATE TRIGGER par format(%I), noms tirés d’une liste fermée de tables) : extension seulement, aucune contraction ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 371,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de création des déclencheurs d’immutabilité de la configuration (CREATE TRIGGER par format(%I), noms tirés d’une liste fermée de tables) : extension seulement, aucune contraction ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 414,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de mise sous RLS de la configuration (ENABLE / FORCE, politiques migrator_all et app_read, REVOKE de PUBLIC, GRANT SELECT) sur une liste fermée de tables créées dans la même migration : extension seulement ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 420,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de mise sous RLS de la configuration (ENABLE / FORCE, politiques migrator_all et app_read, REVOKE de PUBLIC, GRANT SELECT) sur une liste fermée de tables créées dans la même migration : extension seulement ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 421,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de mise sous RLS de la configuration (ENABLE / FORCE, politiques migrator_all et app_read, REVOKE de PUBLIC, GRANT SELECT) sur une liste fermée de tables créées dans la même migration : extension seulement ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 423,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de mise sous RLS de la configuration (ENABLE / FORCE, politiques migrator_all et app_read, REVOKE de PUBLIC, GRANT SELECT) sur une liste fermée de tables créées dans la même migration : extension seulement ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 424,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de mise sous RLS de la configuration (ENABLE / FORCE, politiques migrator_all et app_read, REVOKE de PUBLIC, GRANT SELECT) sur une liste fermée de tables créées dans la même migration : extension seulement ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0008_config_country.sql",
+      "line": 425,
+      "kind": "dynamic-sql",
+      "justification": "bloc DO de mise sous RLS de la configuration (ENABLE / FORCE, politiques migrator_all et app_read, REVOKE de PUBLIC, GRANT SELECT) sur une liste fermée de tables créées dans la même migration : extension seulement ; écrit avant la règle"
+    },
+    {
+      "path": "packages/db/migrations/0032_booking_single_occupancy.sql",
+      "line": 52,
+      "kind": "add-column-not-null-without-default",
+      "populated": false,
+      "justification": "org_id et country_code de l'occupation sans défaut possible (compte d'hôte du véhicule) : écrite pour une table vide, avant toute production ; une table peuplée exigerait colonne facultative, recopie, puis SET NOT NULL dans une version ultérieure"
+    },
+    {
+      "path": "packages/db/migrations/0034_staff_console.sql",
+      "line": 534,
+      "kind": "revoke-app-role",
+      "justification": "report sécurité US-011 : SELECT de config_param_value ramené aux colonnes sans approved_by (identifiant du personnel) ; le droit est aussitôt réaccordé colonne par colonne, et aucune version servie ne lisait approved_by"
+    },
+    {
+      "path": "packages/db/migrations/0035_host_permissions_minimization.sql",
+      "line": 125,
+      "kind": "revoke-app-role",
+      "justification": "minimisation (17 §2.3) : guest_user_id du trip retiré à app_api ; aucune version servie ne le lisait, la politique du paiement est réécrite sans lui dans la même migration"
+    },
+    {
+      "path": "packages/db/migrations/0038_payment_outbox_tightening.sql",
+      "line": 30,
+      "kind": "set-not-null",
+      "populated": false,
+      "justification": "report sécurité US-023 : toute opération porte son compte PSP ; table vide en production à ce stade (en-tête de 0038), aucune version servie n'écrivait d'opération sans compte"
+    },
+    {
+      "path": "packages/db/migrations/0043_config_brand_portuguese.sql",
+      "line": 35,
+      "kind": "drop-constraint",
+      "justification": "contrainte trilingue des textes alternatifs remplacée dans la même migration par brand_asset_alt_all_locales (quatre langues, DEC-FONDATEUR-18), plus stricte ; aucune version servie n’enregistrait d’actif (console de marque non déployée)"
+    },
+    {
+      "path": "packages/db/migrations/0043_config_brand_portuguese.sql",
+      "line": 65,
+      "kind": "drop-function",
+      "justification": "commande d'enregistrement d'actif remplacée par sa version quadrilingue (DEC-FONDATEUR-18) dans la même migration ; aucune version servie n'appelait l'ancienne signature (console de marque non déployée)"
+    },
+    {
+      "path": "packages/db/migrations/0044_config_country_portuguese.sql",
+      "line": 10,
+      "kind": "disable-trigger",
+      "justification": "garde de la ligne de référence suspendue le temps de la graine pt, puis rétablie deux instructions plus loin dans la même transaction (ENABLE TRIGGER, ligne 16) ; aucune autre écriture possible pendant la migration"
+    },
+    {
+      "path": "packages/db/migrations/0044_config_country_portuguese.sql",
+      "line": 11,
+      "kind": "data-update",
+      "dataTables": ["core.config_country"],
+      "justification": "graine complémentaire générée (langue pt du Panama) : réécrit locales et noms d'une ligne de référence, sans changer le nombre de lignes ; la version N lit des tableaux plus longs sans effet"
+    },
+    {
+      "path": "packages/db/migrations/0044_config_country_portuguese.sql",
+      "line": 13,
+      "kind": "data-update",
+      "dataTables": ["core.config_country"],
+      "justification": "graine complémentaire générée (langue pt du Paraguay) : réécrit locales et noms d'une ligne de référence, sans changer le nombre de lignes ; la version N lit des tableaux plus longs sans effet"
+    },
+    {
+      "path": "packages/db/migrations/0052_privacy_free_text_reasons.sql",
+      "line": 24,
+      "kind": "revoke-app-role",
+      "justification": "revue sécurité US-046 : change_reason (motif libre C2) n’est plus lu par app_api, qui le lisait en « tout » sans contexte ; aucun code de l’API ne lit cette colonne (version N non affectée)"
+    }
+  ]
+}
