@@ -14,7 +14,7 @@
  *    applicatifs), sauf contraction déclarée et justifiée dans expand-contract-allowlist.json ;
  * 4. comptes de lignes et contenu des lignes existantes égaux avant / après chaque migration (seule
  *    une migration qui déclare un INSERT ajoute des lignes ; seule une migration de données
- *    déclarée réécrit des lignes) ; contrôles d'intégrité (clés étrangères, CHECK, RLS ENABLE +
+ *    déclarée réécrit des lignes) ; contrôles d'intégrité (contraintes validées, FK sans orpheline, RLS ENABLE +
  *    FORCE, lecture de `migrator`) tenus après chaque migration, chaîne d'audit valide à la fin ;
  * 5. RLS-19 : `migrator` voit exactement les lignes posées (aucune ligne cachée par la RLS forcée) ;
  * 6. idempotence (second passage vide) et refus de rejouer : migration appliquée modifiée, absente
@@ -163,20 +163,20 @@ async function readData(c: pg.ClientBase, catalog: Catalog): Promise<Data> {
   return data;
 }
 
-/** Contrôles d'intégrité : FK sans orpheline, CHECK tenus, RLS ENABLE + FORCE, lecture de migrator. */
+/** Contrôles d'intégrité : contraintes validées, FK sans orpheline, RLS ENABLE + FORCE, lecture de migrator. */
 async function integrity(c: pg.ClientBase): Promise<string[]> {
   const problems: string[] = [];
   const cons = await c.query<{
     rel: string;
     name: string;
     contype: string;
-    def: string;
+    validated: boolean;
     cols: string[];
     frel: string | null;
     fcols: string[] | null;
   }>(
     `SELECT n.nspname || '.' || cl.relname AS rel, co.conname AS name, co.contype::text AS contype,
-            pg_catalog.pg_get_constraintdef(co.oid) AS def,
+            co.convalidated AS validated,
             ARRAY(SELECT a.attname::text FROM unnest(co.conkey) WITH ORDINALITY k(n, o)
                     JOIN pg_catalog.pg_attribute a ON a.attrelid = co.conrelid AND a.attnum = k.n ORDER BY k.o) AS cols,
             CASE WHEN co.contype = 'f' THEN fn.nspname || '.' || fcl.relname END AS frel,
@@ -191,20 +191,19 @@ async function integrity(c: pg.ClientBase): Promise<string[]> {
     [SCHEMAS],
   );
   for (const k of cons.rows) {
-    let sql: string;
-    if (k.contype === 'c') {
-      const m = /^CHECK \((.*)\)( NOT VALID)?$/s.exec(k.def);
-      if (!m) continue;
-      sql = `SELECT count(*)::int AS n FROM ${qrel(k.rel)} WHERE NOT (${m[1] as string})`;
-    } else {
-      const fcols = k.fcols ?? [];
-      const notNull = k.cols.map((col) => `t.${q(col)} IS NOT NULL`).join(' AND ');
-      const match = k.cols
-        .map((col, i) => `f.${q(fcols[i] as string)} = t.${q(col)}`)
-        .join(' AND ');
-      sql = `SELECT count(*)::int AS n FROM ${qrel(k.rel)} t WHERE ${notNull}
-               AND NOT EXISTS (SELECT 1 FROM ${qrel(k.frel as string)} f WHERE ${match})`;
+    // CHECK : PostgreSQL le vérifie sur les lignes existantes quand il est ajouté, sauf NOT VALID ;
+    // une contrainte (CHECK ou FK) laissée NOT VALID sur une base peuplée est un défaut d'intégrité
+    if (!k.validated) {
+      problems.push(`${k.rel} : contrainte ${k.name} NOT VALID (lignes existantes non contrôlées)`);
+      continue;
     }
+    if (k.contype === 'c') continue;
+    // clé étrangère : aucune orpheline (triggers de FK désactivés ou réplication contournés)
+    const fcols = k.fcols ?? [];
+    const notNull = k.cols.map((col) => `t.${q(col)} IS NOT NULL`).join(' AND ');
+    const match = k.cols.map((col, i) => `f.${q(fcols[i] as string)} = t.${q(col)}`).join(' AND ');
+    const sql = `SELECT count(*)::int AS n FROM ${qrel(k.rel)} t WHERE ${notNull}
+               AND NOT EXISTS (SELECT 1 FROM ${qrel(k.frel as string)} f WHERE ${match})`;
     const { rows } = await c.query<{ n: number }>(sql);
     if ((rows[0]?.n ?? 0) > 0) problems.push(`${k.rel} : ${rows[0]?.n} ligne(s) violent ${k.name}`);
   }
@@ -236,7 +235,12 @@ async function integrity(c: pg.ClientBase): Promise<string[]> {
 function insertedTables(sql: string): Set<string> {
   const out = new Set<string>();
   for (const st of topLevelStatements(sql)) {
-    const m = /^\s*insert\s+into\s+([a-z_]+\.[a-z_0-9]+)/i.exec(st.text.replace(/\s+/g, ' '));
+    // instruction de premier niveau ou du corps d'un bloc DO (mots-clés PL/pgSQL en tête retirés)
+    const text = st.text
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^((begin|declare|then|else|loop)\b ?)+/i, '');
+    const m = /^insert into ([a-z_]+\.[a-z_0-9]+)/i.exec(text);
     if (m) out.add((m[1] as string).toLowerCase());
   }
   return out;
@@ -339,6 +343,8 @@ describe('US-046 — migrations de zéro, une par une, sur base peuplée PA et P
         const inserted = insertedTables(m.sql);
         const rewritten = new Set(allow.flatMap((e) => e.dataTables ?? []));
         for (const [rel, prev] of beforeData) {
+          // journal de l'exécuteur : une ligne par migration, écrite par runMigrations
+          if (rel === 'platform.schema_migration') continue;
           const rel2 = after.relations.get(rel);
           if (!rel2) continue; // signalé ci-dessus
           const cols = prev.columns.filter((col) => rel2.columns.has(col));

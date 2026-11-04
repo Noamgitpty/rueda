@@ -382,6 +382,21 @@ Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge v
 - **Preuve** : `test/int/schema-doc.test.ts` régénère le document sur la base « production » du banc, sous `app_api` (L0-05), et le compare au fichier commité : un écart fait échouer `test:int`. Une migration ajoutée demande donc de recopier le document imprimé dans le journal du job (marqueurs `----- docs/architecture/schema.md`), ou `RUEDA_DOCS_WRITE=1 pnpm --filter @rueda/db test:int` sur un banc local.
 - **Préfixes** : `src/table-prefix.test.ts` exige que toute table `core.*` commence par le schéma cible d'un module (`schemas.ts`) ; seul écart tracé : `ntf_notification_dispatch` (PROP-038-03 de `docs/team/PROPOSITIONS.md`).
 
+## Migrations testées et données personnelles (US-046 ; 17 §3.1.3, §3.1.4, §11 RLS-19 ; ADR-081)
+
+- **Expand / contract imposé** : `pnpm lint:sql` (et `pnpm lint`) lance `src/expand-contract/cli.ts`. Une contraction de premier niveau échoue : suppression, renommage, changement de type, `SET NOT NULL`, colonne `NOT NULL` sans défaut, retrait d'un droit d'un rôle applicatif, `TRUNCATE`, `DELETE`, `UPDATE`. Seule une dérogation de `expand-contract-allowlist.json` (fichier, ligne, nature, justification) la fait passer ; une dérogation périmée échoue aussi.
+- **Migrations une par une sur base peuplée** : `test/l0/l0-us046-migrations.test.ts`, sur la base `_mig` du banc (amorcée sans migration), sous `migrator`. Après chaque migration :
+  - schéma de la version N conservé (retour arrière d'US-003 sans migration descendante) ;
+  - lignes et comptes égaux ;
+  - contraintes validées, FK sans orpheline, RLS `ENABLE` + `FORCE` et lecture de `migrator` (RLS-19) ;
+  - graines PA / PY de `test/support/migration-seeds.ts` posées dès que leurs tables existent.
+
+  En fin de parcours : chaîne d'audit valide, idempotence et refus de rejouer. Option `through` de `runMigrations` : appliquer jusqu'à un numéro.
+
+- **Inventaire** `personal-data-inventory.json` : une classe (C0 à C4) par colonne de production. Par table : classe de suppression, colonnes de sujet, canal d'export. Par colonne C2 / C3 : méthode d'effacement. Une colonne nouvelle **doit** y être classée : `src/privacy/inventory.test.ts` (contre `schema.md`) et `test/l0/l0-us046-personal-data.test.ts` (contre le catalogue) échouent sinon. La cohérence avec `authorization-matrix.json` (US-043) est vérifiée en unitaire.
+- **Export** `exportOwnPersonalData` (`@rueda/db/privacy`) : dans la session de la personne, sous `app_api`, tables `self`, colonnes accordées sauf C4. **Effacement** : pour chaque colonne en crypto-shredding de l'inventaire, la destruction de clé est prouvée en PA et en PY.
+- Les URL, journaux, alertes et erreurs d'`apps/api` sont contrôlés par `apps/api/src/testing/personal-data-leaks.test.ts`.
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                                                                                 | Attributs                                                                                                | Usage                                                                             |
@@ -416,7 +431,8 @@ Installation de PostgreSQL pour ces deux suites : guide `docs/ops/INSTALL.md` (c
 2. `provisionBench` prend un **verrou consultatif d'instance** dans la base d'administration (une série à la fois par instance : les mots de passe des rôles changent à chaque série), supprime les bases `rueda_test_*` orphelines d'une série interrompue, puis crée deux bases jetables :
    - `rueda_test_<aléa>` : migrations de production **+** `test-migrations/` ;
    - `rueda_test_<aléa>_prod` : migrations de production seules, pour vérifier que le corps de production de `platform.now()` ne lit pas `app.virtual_now` (L0-06).
-   - deux copies (`TEMPLATE`) de la base principale juste après ses migrations : `_inj` (cas « sans verrou » de L0-02, `deadlock_timeout` court, ADR-056) et `_fuzz` (fuzz C11 et oracle C12, réglages du serveur, ADR-068).
+   - deux copies (`TEMPLATE`) de la base principale juste après ses migrations : `_inj` (cas « sans verrou » de L0-02, `deadlock_timeout` court, ADR-056) et `_fuzz` (fuzz C11 et oracle C12, réglages du serveur, ADR-068) ;
+   - `rueda_test_<aléa>_mig` : amorcée **sans** migration, réservée au test des migrations une par une (US-046, ADR-081), seule base où un test se connecte sous `migrator` (`connectMigratorForMigrationTest`, RLS-19).
 3. Dans chaque base : amorçage sous l'administrateur, mots de passe aléatoires de la série pour `migrator`, `app_api`, `app_worker`, `app_anon`, migrations sous `migrator`, puis un second passage de l'exécuteur qui doit être vide (idempotence).
 4. Les tests utilisent `withRole(role, fn, { database })` ou `connectAs(role)` : connexion **directe** (`pg.Client`, sans pooler) et **assertion L0-05** (`current_user ∈ {app_api, app_worker, app_anon}`, `NOT rolsuper AND NOT rolbypassrls`). `setup-l0-05.ts` fait échouer tout test qui n'a exécuté aucune assertion de rôle.
 5. `withTestTransaction(client, { virtualNow, commit }, fn)` : `BEGIN`, `SET LOCAL app.virtual_now` (par `set_config(…, true)`, paramètre lié), contrôle que `platform.now()` vaut l'heure virtuelle (ou, sans heure virtuelle, qu'il est à moins de 120 s de l'horloge du test), `fn`, `ROLLBACK` par défaut, puis `RESET ALL` dans tous les cas.
@@ -428,7 +444,8 @@ Secrets : le mot de passe du superutilisateur est lu dans le fichier, jamais pla
 ## Écrire une migration
 
 - Nom `NNNN_<module>_<objet>.sql` (minuscules, chiffres, `_`), numéro suivant le dernier ; **jamais** modifier une migration appliquée (somme vérifiée) ; jamais deux agents sur la même migration (19 §1.5).
-- Additive ; un commentaire « Retour arrière » décrit l'inverse (l'exécuteur n'a pas encore de migrations descendantes, voir la passation US-005).
+- Additive (**expand / contract imposé** par `pnpm lint:sql`, ADR-081) ; un commentaire « Retour arrière » décrit l'inverse (aucune migration descendante : le retour arrière ressert la version précédente, ADR-078). Une contraction (suppression, renommage, type, `SET NOT NULL`, droit retiré, données réécrites) vient dans une version ultérieure, avec une dérogation justifiée dans `expand-contract-allowlist.json`.
+- Toute colonne nouvelle est classée dans `personal-data-inventory.json` (classe, et méthode d'effacement si C2 / C3) dans la même story.
 - Horloge : `platform.now()` seulement (`now()`, `current_timestamp`… échouent au lint).
 - Toute table : `ENABLE` et `FORCE ROW LEVEL SECURITY`, politique `migrator_all … TO migrator` (17 §2.3, B9), aucun droit à `PUBLIC`.
 

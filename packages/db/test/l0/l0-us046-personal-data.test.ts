@@ -193,7 +193,8 @@ const SHREDDED = Object.entries(inventory.tables).flatMap(([table, t]) => [
 ]);
 
 describe('US-046 — destruction de la clé : C2 / C3 illisibles, registres intacts', () => {
-  it('l’inventaire désigne les colonnes à détruire (journal d’audit et fichiers du sujet)', () => {
+  it('l’inventaire désigne les colonnes à détruire (journal d’audit et fichiers du sujet)', async () => {
+    await withRole('app_worker', async () => undefined); // L0-05
     expect(SHREDDED.map((s) => `${s.table}.${s.col}`).sort()).toEqual([
       'core.audit_audit_log.ip_enc',
       'core.audit_file_asset.(contenu du fichier)',
@@ -250,7 +251,7 @@ describe('US-046 — destruction de la clé : C2 / C3 illisibles, registres inta
                 mime: 'image/jpeg',
                 uploaderUserId: p.subject.id,
                 source: 'IN_APP_CAMERA',
-                deviceCapturedAt: new Date(),
+                deviceCapturedAt: new Date(Date.now() - 60_000),
                 classification: 'C3',
                 retentionClass: 'CLAIM_EVIDENCE',
                 encryptFor: p.subject,
