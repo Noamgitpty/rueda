@@ -4,9 +4,22 @@
  * d'écart), puis le contrat du dépôt est contrôlé : compilable en mode strict et complet (chaque
  * route déclarée par un contrôleur Nest est décrite ou listée « en attente »).
  */
-import { describe, expect, it } from 'vitest';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { hygienicCode } from '../http-hardening.js';
+import { BRAND_MESSAGES } from '../modules/cfg/index.js';
+import { AUTH_MESSAGES } from '../modules/iam/index.js';
+import { RISK_MESSAGES } from '../modules/risk/index.js';
+import { startApiHarness } from './api-harness.js';
+import type { ApiHarness } from './api-harness.js';
 import { controllerRoutes } from './controller-routes.js';
-import { OpenApiContract, repositoryContract } from './openapi-contract.js';
+import {
+  CONTRACT_SUITES,
+  HTTP_METHODS,
+  mappedRoutes,
+  OpenApiContract,
+  repositoryContract,
+} from './openapi-contract.js';
 import type { ObservedResponse, OpenApiDocument } from './openapi-contract.js';
 
 const UUID = '00000000-0000-4000-8000-000000000001';
@@ -179,13 +192,127 @@ describe('contrat du dépôt (apps/api/openapi/openapi.json)', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('chaque route d’un contrôleur est décrite ou en attente ; aucune route fantôme', () => {
+  it('chaque route d’un contrôleur est décrite ; aucune route fantôme ; plus rien en attente (US-038)', () => {
     const described = contract.operations();
-    const pending = contract.document['x-rueda-pending'] ?? [];
     const routes = controllerRoutes();
     expect(routes.length).toBeGreaterThan(0);
-    expect(routes.filter((r) => !described.includes(r) && !pending.includes(r))).toEqual([]);
-    expect([...described, ...pending].filter((r) => !routes.includes(r))).toEqual([]);
-    expect(described.filter((r) => pending.includes(r))).toEqual([]);
+    expect(contract.document['x-rueda-pending'] ?? []).toEqual([]);
+    expect(routes.filter((r) => !described.includes(r))).toEqual([]);
+    expect(described.filter((r) => !routes.includes(r))).toEqual([]);
+  });
+});
+
+// ---- Contrat vérifié contre le code (US-038, ADR-079) ------------------------------------------
+
+/**
+ * Statuts surchargés dans le code (`new XHttpError(code, valeurs, statut)`), liste fermée : le test
+ * « surcharges » relit les sources et échoue sur toute surcharge absente d'ici.
+ */
+const STATUS_OVERRIDES: ReadonlyArray<readonly [string, number]> = [
+  ['REQUEST_INVALID', 415], // assertJsonWrite (iam/internal/csrf.guard.ts), parade CSRF
+];
+
+/** Codes stables des catalogues du code, avec leur statut HTTP. */
+const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
+  const m = new Map<string, Set<number>>();
+  const add = (code: string, status: number) => m.set(code, (m.get(code) ?? new Set()).add(status));
+  for (const catalog of [AUTH_MESSAGES, BRAND_MESSAGES, RISK_MESSAGES] as const) {
+    for (const [code, { status }] of Object.entries(catalog)) add(code, status);
+  }
+  for (const status of [400, 404, 413, 415, 500]) add(hygienicCode(status), status);
+  for (const [code, status] of STATUS_OVERRIDES) add(code, status);
+  return m;
+})();
+
+/** Codes d'erreur déclarés par une réponse (`properties.code.const` / `enum`). */
+function declaredCodes(response: unknown): string[] {
+  const content = (response as { content?: Record<string, { schema?: unknown }> }).content ?? {};
+  return Object.values(content).flatMap((media) => {
+    const code = (media.schema as { properties?: { code?: { const?: string; enum?: string[] } } })
+      ?.properties?.code;
+    return code?.const !== undefined ? [code.const] : (code?.enum ?? []);
+  });
+}
+
+describe('contrat vérifié contre le code', () => {
+  const contract = repositoryContract();
+  const doc = contract.document;
+  const resolve = (r: unknown): unknown => {
+    const ref = (r as { $ref?: string }).$ref;
+    return ref === undefined ? r : doc.components?.responses?.[ref.split('/').pop() as string];
+  };
+  let harness: ApiHarness;
+  beforeAll(async () => {
+    harness = await startApiHarness();
+  });
+  afterAll(async () => {
+    await harness.close();
+  });
+
+  it('routes MONTÉES par Nest (ApiModule réel) = opérations du contrat = lecture des décorateurs', () => {
+    const mapped = mappedRoutes(harness.logs);
+    expect(mapped.length).toBeGreaterThan(0);
+    expect(mapped).toEqual([...contract.operations()].sort());
+    expect(mapped).toEqual(controllerRoutes());
+  });
+
+  it('chaque code d’erreur déclaré existe dans un catalogue du code, au même statut HTTP', () => {
+    const problems: string[] = [];
+    const check = (where: string, status: string, response: unknown) => {
+      for (const code of declaredCodes(resolve(response))) {
+        const statuses = CATALOG.get(code);
+        if (statuses === undefined)
+          problems.push(`${where} ${status} : code inconnu du code ${code}`);
+        else if (!statuses.has(Number(status)))
+          problems.push(
+            `${where} ${status} : ${code} vaut ${[...statuses].join('/')} dans le code`,
+          );
+      }
+    };
+    for (const [template, item] of Object.entries(doc.paths)) {
+      for (const method of HTTP_METHODS) {
+        for (const [status, r] of Object.entries(item[method]?.responses ?? {})) {
+          check(`${method.toUpperCase()} ${template}`, status, r);
+        }
+      }
+    }
+    for (const [status, r] of Object.entries(doc['x-rueda-transverse-responses'] ?? {})) {
+      check('transverse', status, r);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('surcharges de statut : la liste fermée couvre toutes celles du code', () => {
+    const root = new URL('../', import.meta.url);
+    const found: string[] = [];
+    for (const file of readdirSync(root, { recursive: true, encoding: 'utf8' })) {
+      const posix = file.replaceAll('\\', '/');
+      if (!posix.endsWith('.ts') || /\.test\.ts$|(^|\/)testing\//.test(posix)) continue;
+      const source = readFileSync(new URL(posix, root), 'utf8');
+      for (const m of source.matchAll(/HttpError\(\s*'([A-Z0-9_]+)'\s*,[^;]*?,\s*(\d{3})\s*\)/g)) {
+        found.push(`${m[1] as string} ${m[2] as string}`);
+      }
+    }
+    expect(found.length).toBeGreaterThan(0);
+    const allowed = STATUS_OVERRIDES.map(([c, s]) => `${c} ${s}`);
+    expect(found.filter((f) => !allowed.includes(f))).toEqual([]);
+  });
+
+  it('chaque opération a une suite de contrat qui contrôle la couverture de ses statuts', () => {
+    const prefixes = Object.keys(CONTRACT_SUITES).filter((p) => p.startsWith('/'));
+    const orphans = contract
+      .operations()
+      .filter((op) => !prefixes.some((p) => op.split(' ')[1]?.startsWith(`${p}`)));
+    expect(orphans).toEqual([]);
+    for (const [prefix, file] of Object.entries(CONTRACT_SUITES)) {
+      const path = new URL(`../${file}`, import.meta.url);
+      expect(existsSync(path), file).toBe(true);
+      const source = readFileSync(path, 'utf8');
+      const marker =
+        prefix === 'transverse'
+          ? 'chaque réponse transverse est observée'
+          : `chaque statut déclaré pour ${prefix} est exercé`;
+      expect(source, file).toContain(marker);
+    }
   });
 });

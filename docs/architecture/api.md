@@ -1,0 +1,71 @@
+<!-- Fichier GÉNÉRÉ depuis apps/api/openapi/openapi.json (US-038, ADR-079) : ne pas modifier à la main. -->
+<!-- Régénérer : RUEDA_DOCS_WRITE=1 pnpm --filter @rueda/api exec vitest run src/testing/docs ; la CI échoue si ce fichier n'est plus à jour. -->
+
+# Référence de l’API HTTP
+
+Contrat OpenAPI 3.1.0, version 0.2.0 : [`apps/api/openapi/openapi.json`](../../apps/api/openapi/openapi.json) (fait foi). Contrat HTTP de l'API (US-041, complété par US-038). Écrit à la main et VÉRIFIÉ contre le code (ADR-079) : routes montées par Nest, codes d'erreur des catalogues, couverture de chaque statut par un test de contrat, référence docs/architecture/api.md régénérée.
+
+Chaque statut ci-dessous est exercé par un test de contrat sur l’application réelle (`ContractClient`) ; les codes d’erreur sont ceux des catalogues du code (16 A.8). Corps d’erreur : `{ code, messageKey, values? }` (le client affiche le texte dans sa langue).
+
+## `/auth`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `POST` | `/auth/login` | `login` | Connexion : jeton dans le cookie __Host-session seulement | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_INVALID_CREDENTIALS<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED |
+| `POST` | `/auth/logout` | `logout` | Déconnexion (idempotente) | **204** sans corps<br>**415** REQUEST_INVALID |
+| `POST` | `/auth/logout-all` | `logoutAll` | Déconnexion de toutes les sessions | **204** sans corps<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID |
+| `GET` | `/auth/session` | `getSession` | Principal de la session courante | **200** application/json<br>**401** AUTH_REQUIRED |
+| `POST` | `/auth/signup` | `signup` | Inscription (ACC-001) : réponse identique que l'email soit libre ou pris | **202** SIGNUP_ACCEPTED<br>**400** AUTH_EMAIL_INVALID / AUTH_PASSWORD_WEAK / AUTH_TERMS_NOT_ACCEPTED / REQUEST_INVALID<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED |
+| `POST` | `/auth/verify-email` | `verifyEmail` | Vérification de l'adresse (lien à usage unique) | **200** EMAIL_VERIFIED<br>**400** AUTH_LINK_EXPIRED / REQUEST_INVALID<br>**415** REQUEST_INVALID |
+
+## `/brand`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/brand` | `getPublishedBrand` | Version publiée du socle de marque (DSN-002) | **200** application/json<br>**304** sans corps<br>**503** BRAND_VERSION_UNAVAILABLE |
+| `GET` | `/brand/assets/{id}` | `getBrandAsset` | Octets d'un actif publié (type vérifié à l'envoi) | **200** image/png, image/jpeg, image/webp, font/woff2<br>**400** REQUEST_INVALID<br>**404** BRAND_VERSION_NOT_FOUND<br>**503** BRAND_ASSET_UNAVAILABLE |
+| `GET` | `/brand/content` | `getPublishedContent` | Blocs de contenu publiés dans une langue, repli es signalé (DSN-004) | **200** application/json<br>**400** REQUEST_INVALID |
+
+## `/console`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `POST` | `/console/actions` | `consoleAction` | Action manuelle motivée et idempotente (ADM-001, catalogue de 17 §10) | **200** application/json<br>**201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**409** STAFF_ACTION_UNAVAILABLE<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED |
+| `POST` | `/console/brand/assets` | `consoleBrandAsset` | Actif de marque (base64, type réel vérifié, 64 Kio au plus) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**409** VERSION_CONFLICT<br>**415** REQUEST_INVALID<br>**422** BRAND_ASSET_INVALID<br>**429** RATE_LIMITED<br>**503** BRAND_ASSET_UNAVAILABLE |
+| `POST` | `/console/brand/drafts` | `consoleBrandDraft` | Brouillon de marque (jetons DTCG ou palette du dépôt) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**409** VERSION_CONFLICT<br>**415** REQUEST_INVALID<br>**422** BRAND_TOKENS_INVALID / FONT_NOT_APPROVED<br>**429** RATE_LIMITED |
+| `POST` | `/console/brand/rollback` | `consoleBrandRollback` | Retour arrière en un clic vers la version publiée précédente (ou une cible) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**404** BRAND_VERSION_NOT_FOUND<br>**409** VERSION_CONFLICT<br>**415** REQUEST_INVALID<br>**422** BRAND_CONTRAST_INSUFFICIENT / FONT_NOT_APPROVED / BRAND_TOKENS_INVALID<br>**429** RATE_LIMITED |
+| `GET` | `/console/brand/versions` | `consoleBrandVersions` | Historique des versions de marque, brouillons compris | **200** application/json<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**429** RATE_LIMITED |
+| `GET` | `/console/brand/versions/{id}` | `consoleBrandVersion` | Une version de marque (prévisualisation) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**404** BRAND_VERSION_NOT_FOUND<br>**429** RATE_LIMITED |
+| `POST` | `/console/brand/versions/{id}/publish` | `consoleBrandPublish` | Publication d’un brouillon (contraste d’US-030 recalculé) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**404** BRAND_VERSION_NOT_FOUND<br>**409** VERSION_CONFLICT<br>**415** REQUEST_INVALID<br>**422** BRAND_CONTRAST_INSUFFICIENT / FONT_NOT_APPROVED / BRAND_TOKENS_INVALID<br>**429** RATE_LIMITED |
+| `POST` | `/console/content/drafts` | `consoleContentDraft` | Brouillon d’un bloc de contenu (es, en, fr, pt) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**409** VERSION_CONFLICT<br>**415** REQUEST_INVALID<br>**422** CONTENT_BLOCK_REQUIRED_MISSING / CONTENT_KEY_FORBIDDEN / CONTENT_MARKDOWN_FORBIDDEN<br>**429** RATE_LIMITED |
+| `POST` | `/console/content/publish` | `consoleContentPublish` | Publication d’une version d’un bloc de contenu | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**404** CONTENT_BLOCK_NOT_FOUND<br>**409** VERSION_CONFLICT<br>**415** REQUEST_INVALID<br>**422** CONTENT_KEY_FORBIDDEN<br>**429** RATE_LIMITED |
+| `POST` | `/console/content/rollback` | `consoleContentRollback` | Retour à la version précédente (ou cible) d’un bloc de contenu | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**404** CONTENT_BLOCK_NOT_FOUND<br>**409** VERSION_CONFLICT<br>**415** REQUEST_INVALID<br>**422** CONTENT_KEY_FORBIDDEN<br>**429** RATE_LIMITED |
+| `GET` | `/console/security/abuse` | `consoleSecurityAbuse` | Tableau des abus agrégés par heure (security.read_abuse) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**429** RATE_LIMITED |
+
+## `/staff`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/staff/audit` | `staffAudit` | Journal d'audit de la console (audit.read ; lignes filtrées en base) | **200** application/json<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**429** RATE_LIMITED |
+| `GET` | `/staff/me` | `staffMe` | État d'accès de la session à la console interne (US-012) | **200** application/json<br>**401** AUTH_REQUIRED<br>**429** RATE_LIMITED |
+| `POST` | `/staff/members/{id}/reset-totp` | `staffResetTotp` | Réinitialisation du TOTP d'un autre membre : code d'enrôlement rendu une fois | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED<br>**503** STAFF_MFA_UNAVAILABLE |
+| `POST` | `/staff/members/{id}/suspend` | `staffSuspend` | Suspension d'un membre du staff (iam.staff_roles_write, portée pays) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED |
+| `POST` | `/staff/mfa/enroll` | `staffMfaEnroll` | Enrôlement TOTP, étape 1 : le code remis hors bande ouvre le secret (affiché une fois) | **200** application/json<br>**400** REQUEST_INVALID / AUTH_TOTP_INVALID<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED / AUTH_TOTP_LOCKED<br>**503** STAFF_MFA_UNAVAILABLE |
+| `POST` | `/staff/mfa/verify` | `staffMfaVerify` | Code TOTP : fin d'enrôlement ou élévation de la session | **200** application/json<br>**400** REQUEST_INVALID / AUTH_TOTP_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED / AUTH_TOTP_LOCKED<br>**503** STAFF_MFA_UNAVAILABLE |
+
+## `/webhooks`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `POST` | `/webhooks/{provider}/{publicWebhookId}` | `pspWebhook` | Webhook PSP (17 §4.4) : signature sur les octets reçus ; réponse sans corps | **200** sans corps<br>**401** sans corps<br>**404** sans corps<br>**503** sans corps |
+
+## Réponses transverses
+
+Valables pour toute opération (`x-rueda-transverse-responses`) : produites par la garde anti-abus globale ou le durcissement HTTP.
+
+| Statut | Code | Description |
+| ------ | ---- | ----------- |
+| 403 | BOT_CHALLENGE_REQUIRED | Défi anti-robot exigé et absent ou refusé (garde globale RISK, US-052 ; hors /webhooks) |
+| 413 | PAYLOAD_TOO_LARGE | Corps JSON ou formulaire au-delà de API_BODY_LIMIT_BYTES (100 Kio, US-043) |
+| 429 | RATE_LIMITED | Limite de débit par IP de la garde globale RISK (US-052) : Retry-After et values.retryAfterS |
+| 500 | — | Erreur interne : corps stable sans détail (durcissement HTTP, US-043) |
