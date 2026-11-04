@@ -6,7 +6,9 @@
  * 2. Supprime les bases `rueda_test_*` orphelines d'une série interrompue (sous le verrou).
  * 3. Crée deux bases jetables :
  *    - `rueda_test_<aléa>` : migrations de production + migrations de test (horloge virtuelle) ;
- *    - `rueda_test_<aléa>_prod` : migrations de production seules (contrôle du corps L0-06).
+ *    - `rueda_test_<aléa>_prod` : migrations de production seules (contrôle du corps L0-06) ;
+ *    - copies (`TEMPLATE`) de la base principale juste après ses migrations : `_inj` (injection
+ *      de L0-02, ADR-056) et `_fuzz` (fuzz C11 et oracle C12, US-025, ADR-068).
  * 4. Dans chacune : amorçage idempotent sous l'administrateur (rôles, droits, `btree_gist`),
  *    puis migrations sous `migrator`.
  * 5. Pose des mots de passe aléatoires propres à la série pour `migrator` et les rôles applicatifs.
@@ -54,6 +56,13 @@ export interface BenchInfo {
    * `deadlock_timeout = BENCH_DEADLOCK_TIMEOUT`. Réservée au cas « sans verrou » de L0-02.
    */
   readonly injectionDatabase: string;
+  /**
+   * Base du fuzz C11 et de l'oracle C12 (US-025, ADR-068) : copie (`TEMPLATE`) de la base
+   * principale juste après ses migrations, réglages du serveur inchangés. Aucun autre fichier n'y
+   * écrit : les travailleurs du fuzz, qui balaient toute la base, n'y touchent que ses données, et
+   * l'oracle C12 y est exigé à zéro sur TOUTE la base.
+   */
+  readonly fuzzDatabase: string;
   readonly passwords: Readonly<Record<LoginRole, string>>;
   /** Migrations appliquées sous `migrator` (`NNNN_nom`), par base. */
   readonly appliedMigrations: {
@@ -103,6 +112,7 @@ export async function provisionBench(
   const database = `${TEST_DATABASE_PREFIX}${suffix}`;
   const productionDatabase = `${TEST_DATABASE_PREFIX}${suffix}_prod`;
   const injectionDatabase = `${TEST_DATABASE_PREFIX}${suffix}_inj`;
+  const fuzzDatabase = `${TEST_DATABASE_PREFIX}${suffix}_fuzz`;
   const created: string[] = [];
   const appliedMigrations: { main: string[]; production: string[] } = { main: [], production: [] };
 
@@ -187,6 +197,12 @@ export async function provisionBench(
     log(
       `base d'injection créée : ${injectionDatabase} (deadlock_timeout ${BENCH_DEADLOCK_TIMEOUT})`,
     );
+    // Base du fuzz C11 / oracle C12 : seconde copie, réglages du serveur (ceux de production).
+    await lockClient.query(
+      `CREATE DATABASE ${quoteIdent(fuzzDatabase)} TEMPLATE ${quoteIdent(database)}`,
+    );
+    created.push(fuzzDatabase);
+    log(`base du fuzz créée : ${fuzzDatabase}`);
   } catch (error) {
     const safe = redactError(error, secrets);
     try {
@@ -207,6 +223,7 @@ export async function provisionBench(
       database,
       productionDatabase,
       injectionDatabase,
+      fuzzDatabase,
       passwords,
       appliedMigrations,
       admin: source.admin,
