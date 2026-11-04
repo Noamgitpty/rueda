@@ -68,7 +68,7 @@
         "purpose": {
           "class": "C2",
           "erasure": "derogation",
-          "justification": "finalité libre d’un registre en ajout seul, saisie par le staff : jamais de donnée de la personne (17 §3.2.13, références seulement)",
+          "justification": "finalité libre d’un registre en ajout seul, saisie par le staff à la porte iam_staff_cmd_data_access (0051) et recopiée dans audit_log.reason : ni UPDATE ni clé de sujet ; consigne : jamais de donnée de la personne (17 §3.2.13)",
           "report": "US-536"
         },
         "access_kind": "C1",
@@ -1075,7 +1075,8 @@
         "processing_status": "C1",
         "processed_at": "C1",
         "error": "C1",
-        "normalized_events": "C1"
+        "normalized_events": "C1",
+        "processing_attempts": "C1"
       }
     },
     "core.pricing_tax_line_config": {
