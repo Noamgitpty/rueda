@@ -115,7 +115,7 @@ test('le détecteur de fuites attrape les vrais cas (échec volontaire)', () => 
     'compte 123456789012',
     'arn:aws:iam::123456789012:role/x',
     'tél. +507 6123 4567',
-    'AKIAABCDEFGHIJKLMNOP',
+    ['AKIA', 'ABCDEFGHIJKLMNOP'].join(''), // assemblée à l'exécution : jamais un littéral pour gitleaks
   ].join('\n');
   assert.equal(leakedIdentifiers(sample).length, 6); // le numéro de compte est aussi dans l'ARN
   const bad = TEXT.replace('| fondateur (ou son entité)', '| prestataire');

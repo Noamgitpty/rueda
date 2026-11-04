@@ -2,3 +2,7 @@
 # US-012 : vecteur public de la RFC 6238 (graine « 12345678901234567890 » en base32) dans un test
 # de rendu, retiré au commit suivant ; aucun secret réel.
 575ae22e2ca32baf3ac5c247afc10665206e5067:apps/backoffice/app/console/view.test.tsx:generic-api-key:33
+# US-037 : clé d'accès AWS FICTIVE (motif AKIA + 16 lettres de l'alphabet) dans le témoin du
+# détecteur de fuites de docs/ops/ACCOUNTS.md, assemblée à l'exécution dès le commit suivant ;
+# aucun secret réel.
+3357735fb3b4d310263ac6d51eb20acaf2f4e1b3:scripts/ci/accounts-inventory.test.mjs:aws-access-token:118
