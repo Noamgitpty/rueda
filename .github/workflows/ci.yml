@@ -355,6 +355,39 @@ jobs:
           done
           node "$ctl/scripts/ci/check-story-reviews.mjs" --branch "$HEAD_REF" --base "origin/$BASE_REF" --root "$GITHUB_WORKSPACE"
 
+  changelog:
+    # US-040, ADR-085 : une PR qui touche du code livré ajoute un fragment changelog.d/<branche>.md.
+    # Bloquant, y compris en brouillon. Script pris sur la BASE (comme le job revues) : une PR ne
+    # peut pas affaiblir le contrôle qui la juge. Amorçage : absent de la base -> celui de la PR.
+    name: entrée de CHANGELOG (changelog.d)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: fragment exigé pour du code livré
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          ctl="$RUNNER_TEMP/changelog-base"
+          mkdir -p "$ctl"
+          if git cat-file -e "origin/$BASE_REF:scripts/ci/changelog.mjs" 2>/dev/null; then
+            git show "origin/$BASE_REF:scripts/ci/changelog.mjs" > "$ctl/changelog.mjs"
+          else
+            echo "::warning title=changelog::amorçage : contrôle absent de la base, pris sur la PR"
+            cp scripts/ci/changelog.mjs "$ctl/changelog.mjs"
+          fi
+          node "$ctl/changelog.mjs" check --branch "$HEAD_REF" --base "origin/$BASE_REF" --head HEAD --root "$GITHUB_WORKSPACE"
+
   secrets:
     name: analyse des secrets (gitleaks)
     runs-on: ubuntu-latest

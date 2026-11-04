@@ -12,6 +12,7 @@
     "lint:sql": "node packages/config/sql-clock/cli.ts && node packages/config/sql-env-guard/cli.ts",
     "lint:country": "node packages/config/country-constants/cli.ts",
     "lint:style": "node packages/design-tokens/lint/cli.ts",
+    "lint:changelog": "node scripts/ci/changelog.mjs check --base origin/main",
     "typecheck": "turbo run typecheck",
     "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/ scripts/deploy/",
     "test:int": "turbo run test:int",
