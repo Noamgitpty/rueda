@@ -173,11 +173,12 @@ jobs:
 
   argent-mutation:
     # US-042, ADR-076 : mutation (Stryker) de @rueda/money, seuil bloquant 80 %. Sur une PR, mode
-    # rapide : la mutation ne tourne que si la PR touche packages/money/ ou patches/ (sinon le job
-    # est vert sans rien muter) ; sur main, à la demande et la nuit (nightly.yml), toujours.
+    # rapide : rien si la PR ne touche ni packages/money/ ni patches/ (job vert) ; les seuls fichiers
+    # de src/ modifiés si elle ne touche qu'eux ; tout sinon. Sur main, à la demande et la nuit
+    # (nightly.yml) : tout le périmètre.
     name: argent — mutation de @rueda/money (seuil 80 %)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -188,15 +189,30 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
+        # Sortie `muter` (true / false) et `cibles` : vide = tout le périmètre de stryker.config.mjs ;
+        # sinon les seuls fichiers de src/ modifiés par la PR (mode rapide). Une PR qui touche aussi
+        # un test, la configuration ou patches/ rejoue tout (un test affaibli vaut pour tous les mutants).
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "muter=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "origin/$BASE_REF...HEAD" | grep -qE '^(packages/money/|patches/)'; then
-            echo "muter=true" >> "$GITHUB_OUTPUT"
-          else
+            echo "cibles=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          touche="$(git diff --name-only "origin/$BASE_REF...HEAD" | grep -E '^(packages/money/|patches/)' || true)"
+          if [ -z "$touche" ]; then
             echo "muter=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=mutation::la PR ne touche ni packages/money/ ni patches/ : mutation non rejouée"
+            exit 0
+          fi
+          echo "muter=true" >> "$GITHUB_OUTPUT"
+          sources="$(grep -E '^packages/money/src/(settlement/)?[^/]+\.ts$' <<< "$touche" | grep -vE '/index\.ts$' || true)"
+          autres="$(grep -vE '^packages/money/src/(settlement/)?[^/]+\.ts$' <<< "$touche" || true)"
+          if [ -n "$autres" ] || [ -z "$sources" ]; then
+            echo "cibles=" >> "$GITHUB_OUTPUT"
+          else
+            echo "cibles=$(sed 's#^packages/money/##' <<< "$sources" | paste -sd, -)" >> "$GITHUB_OUTPUT"
+            echo "::notice title=mutation::mode rapide, fichiers mutés : $(paste -sd' ' - <<< "$sources")"
           fi
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         if: steps.perimetre.outputs.muter == 'true'
@@ -213,7 +229,17 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: mutation (pnpm --filter @rueda/money test:mutation)
         if: steps.perimetre.outputs.muter == 'true'
-        run: pnpm --filter @rueda/money test:mutation
+        env:
+          CIBLES: ${{ steps.perimetre.outputs.cibles }}
+          EVENT_NAME: ${{ github.event_name }}
+        # Sur une PR, les mutants « statiques » (tables et constantes de module, qui rejouent toute la
+        # suite chacun) sont ignorés : ils ne le sont pas sur main ni la nuit (ADR-076 point 10).
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$EVENT_NAME" = "pull_request" ]; then args+=(--ignoreStatic); fi
+          if [ -n "$CIBLES" ]; then args+=(--mutate "$CIBLES"); fi
+          pnpm --filter @rueda/money test:mutation "${args[@]}"
       - name: rapport de mutation
         if: always() && steps.perimetre.outputs.muter == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -264,7 +264,10 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
     hostNoShowReportedBefore: false,
     additionalDriverApproved: false,
   };
-  const params = testParams(currency, { platformFundedHostCompensation: true });
+  let cached: ReturnType<typeof testParams> | undefined;
+  // paresseux : aucun calcul à la collecte (mutants « statiques » de Stryker)
+  const paramsOf = () =>
+    (cached ??= testParams(currency, { platformFundedHostCompensation: true }));
 
   describe(`règlement — ${country} (${currency.code})`, () => {
     it('annulation du voyageur : plus la demande est tardive, moins le remboursement est élevé', () => {
@@ -280,7 +283,7 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
               computeCancellationSettlement(
                 trip,
                 { reason: 'GUEST_CANCELLED', requestedAtMs: at(min), ...flags },
-                params,
+                paramsOf(),
               ).guestRefund.amountMinor;
             expect(refund(early) >= refund(late)).toBe(true);
           },
@@ -300,7 +303,7 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
             const s = computeCancellationSettlement(
               trip,
               { reason, requestedAtMs: at(min), ...flags },
-              params,
+              paramsOf(),
             );
             expect(s.guestRefund.amountMinor).toBe(trip.totalPaid.amountMinor);
             expect(s.retained.amountMinor + s.retainedTax.amountMinor).toBe(0n);
@@ -322,7 +325,7 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
             const s = computeCancellationSettlement(
               trip,
               { reason, requestedAtMs: at(min), ...flags },
-              params,
+              paramsOf(),
             );
             expect(s.hostFromGuest.amountMinor <= s.retained.amountMinor).toBe(true);
             expect(s.platformNet.amountMinor + s.hostCompensation.amountMinor >= 0n).toBe(true);

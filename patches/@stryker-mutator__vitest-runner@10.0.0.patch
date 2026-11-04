@@ -32,3 +32,31 @@ index 56cc786f30c524ae18ce87eef1a67fdf26b703c5..8d5b64ad180762ae82838a15e03beea7
      const nameParts = [name];
      let currentSuite = suite;
      while (currentSuite) {
+diff --git a/dist/src/vitest-test-runner.js b/dist/src/vitest-test-runner.js
+index 84f1ca026503b8e92b7adc952ec6c6a401943656..5ba31b64c716ee83c5b9599ac11a7b2f01cbc956 100644
+--- a/dist/src/vitest-test-runner.js
++++ b/dist/src/vitest-test-runner.js
+@@ -177,6 +177,23 @@ export class VitestTestRunner {
+             failure ||= testResult.status === TestStatus.Failed;
+             return testResult;
+         });
++        // rueda US-042 : avec Vitest >= 5, un fichier de test qui échoue à l'import (erreur levée au
++        // chargement d'un module muté) n'a aucun test avec résultat et n'est pas dans errorsSet : sans
++        // ce contrôle, le mutant serait compté « survivant ». Le fichier en échec compte comme un test échoué.
++        if (!failure) {
++            const failedFile = this.ctx.state.getFiles().find((file) => file.result?.state === 'fail');
++            if (failedFile) {
++                failure = true;
++                testResults.push({
++                    id: `${path.relative(process.cwd(), failedFile.filepath).split(path.sep).join('/')}#`,
++                    name: `${failedFile.name} (fichier)`,
++                    timeSpentMs: failedFile.result?.duration ?? 0,
++                    fileName: path.resolve(failedFile.filepath),
++                    status: TestStatus.Failed,
++                    failureMessage: failedFile.result?.errors?.[0]?.message ?? 'StrykerJS: test file failed',
++                });
++            }
++        }
+         if (!failure && this.ctx.state.errorsSet.size > 0) {
+             const errorText = [...this.ctx.state.errorsSet]
+                 .map(errorToString)

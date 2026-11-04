@@ -8,7 +8,9 @@ export default {
   testRunner: 'vitest',
   // `related: false` : chaque mutant rejoue les tests qui le couvrent (perTest), sans graphe Vite.
   vitest: { configFile: 'vitest.mutation.config.ts', related: false },
-  plugins: ['@stryker-mutator/vitest-runner'],
+  plugins: ['@stryker-mutator/vitest-runner', './stryker-ignorers.mjs'],
+  // Textes de message d'erreur non mutés (le code d'erreur, lui, l'est) : stryker-ignorers.mjs.
+  ignorers: ['messages-diagnostic'],
   // Code de production du paquet : primitives et moteur de règlement. Le harnais des vecteurs
   // dorés (src/golden-vectors/, réservé aux tests) est hors périmètre (ADR-076).
   mutate: ['src/*.ts', 'src/settlement/*.ts', '!src/index.ts', '!src/settlement/index.ts'],
