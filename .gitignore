@@ -31,3 +31,11 @@ next-env.d.ts
 # Parcours e2e Playwright (US-041)
 test-results/
 playwright-report/
+
+# Ajouts US-003 : état et variables OpenTofu (jamais suivis), journal de la préproduction locale
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+infra/local/.journal/

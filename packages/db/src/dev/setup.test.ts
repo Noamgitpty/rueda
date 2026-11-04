@@ -38,7 +38,7 @@ describe('base de développement locale (US-035, ADR-070)', () => {
     ).toBe('/run/rueda-secrets/app_api/password');
   });
 
-  it('la surcouche ne touche qu’à platform.deployment_env(), hors des migrations de production', () => {
+  it('la surcouche ne fait que déclarer « development » (0050), hors des migrations de production', () => {
     const files = readdirSync(DEV_OVERLAY_DIR).filter((f) => f.endsWith('.sql'));
     expect(files).toEqual(['0000_dev_deployment_env.sql']);
     const sql = readFileSync(join(DEV_OVERLAY_DIR, files[0] ?? ''), 'utf8')
@@ -46,12 +46,9 @@ describe('base de développement locale (US-035, ADR-070)', () => {
       .replace(/\$fn\$[\s\S]*?\$fn\$/g, '');
     const statements = sql
       .split(';')
-      .map((s) => s.trim().split(/\s+/).slice(0, 4).join(' '))
+      .map((s) => s.trim().replace(/\s+/g, ' '))
       .filter((s) => s !== '');
-    expect(statements).toEqual([
-      'CREATE OR REPLACE FUNCTION',
-      'COMMENT ON FUNCTION platform.deployment_env()',
-    ]);
+    expect(statements).toEqual(["SELECT platform.declare_environment('development')"]);
     expect(readdirSync(MIGRATIONS_DIR)).not.toContain(files[0]);
   });
 

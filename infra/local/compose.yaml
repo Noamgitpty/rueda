@@ -1,0 +1,142 @@
+# PRÉPRODUCTION LOCALE (US-003, ADR-078) : la topologie de l'environnement cloud (base gérée, job
+# de base, API, travailleur), décrite en code et jouée avec l'IMAGE DE PRODUCTION
+# (docker/prod/Dockerfile, sans FAKE). Cible des répétitions de déploiement et de retour arrière
+# (scripts/deploy/local.sh, scripts/deploy/rehearsal.sh, job CI « déploiement local »).
+#
+# Ce n'est PAS la pile de développement (compose.yaml à la racine, image de développement, FAKE) :
+# ici RUEDA_ENV=preproduction, la base est déclarée « preproduction » par le job de base, et
+# l'image est désignée par la variable RUEDA_IMAGE (identifiant ou empreinte), jamais construite ici.
+#
+# Différences assumées avec le cloud (infra/opentofu) : PostgreSQL en conteneur au lieu de la base
+# gérée (Multi-AZ, chiffrement KMS, TLS), secrets tirés par `secrets-init` au lieu du coffre, aucun
+# répartiteur de charge (d'où RUEDA_API_TRUST_PROXY absente : l'IP lue est celle de la connexion).
+name: rueda-preprod-local
+
+x-release: &release
+  image: ${RUEDA_IMAGE:?RUEDA_IMAGE (image de production) est obligatoire}
+  pull_policy: never
+  restart: 'no'
+
+x-pg: &pg
+  PGHOST: postgres
+  PGPORT: '5432'
+  PGDATABASE: rueda
+
+services:
+  secrets-init:
+    image: postgres:16
+    user: root
+    entrypoint: ['sh', '/opt/rueda/init-secrets.sh']
+    volumes:
+      - ./init-secrets.sh:/opt/rueda/init-secrets.sh:ro
+      - secret-postgres:/run/rueda-secrets/postgres
+      - secret-migrator:/run/rueda-secrets/migrator
+      - secret-app-api:/run/rueda-secrets/app_api
+      - secret-app-worker:/run/rueda-secrets/app_worker
+      - secret-app-anon:/run/rueda-secrets/app_anon
+      - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key
+    restart: 'no'
+
+  postgres:
+    image: postgres:16
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: rueda
+      POSTGRES_PASSWORD_FILE: /run/rueda-secrets/postgres/value
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - secret-postgres:/run/rueda-secrets/postgres:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d rueda -h 127.0.0.1']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Job de base : amorçage, migrations, déclaration « preproduction », vérification sous app_api.
+  migrate:
+    <<: *release
+    profiles: ['job']
+    command:
+      - sh
+      - -c
+      - >-
+        RUEDA_DB_ADMIN_PASSWORD="$$(cat /run/rueda-secrets/postgres/value)"
+        RUEDA_DB_MIGRATOR_PASSWORD="$$(cat /run/rueda-secrets/migrator/value)"
+        RUEDA_DB_APP_API_PASSWORD="$$(cat /run/rueda-secrets/app_api/value)"
+        RUEDA_DB_APP_WORKER_PASSWORD="$$(cat /run/rueda-secrets/app_worker/value)"
+        RUEDA_DB_APP_ANON_PASSWORD="$$(cat /run/rueda-secrets/app_anon/value)"
+        exec node packages/db/src/deploy/cli.ts
+    environment:
+      <<: *pg
+      RUEDA_ENV: ${RUEDA_LOCAL_ENV:-preproduction}
+      RUEDA_DB_ADMIN_USER: postgres
+    volumes:
+      - secret-postgres:/run/rueda-secrets/postgres:ro
+      - secret-migrator:/run/rueda-secrets/migrator:ro
+      - secret-app-api:/run/rueda-secrets/app_api:ro
+      - secret-app-worker:/run/rueda-secrets/app_worker:ro
+      - secret-app-anon:/run/rueda-secrets/app_anon:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *release
+    command:
+      - sh
+      - -c
+      - >-
+        PGPASSWORD="$$(cat /run/rueda-secrets/app_api/value)"
+        RUEDA_RATE_LIMIT_KEY="$$(cat /run/rueda-secrets/rate_limit_key/value)"
+        exec node apps/api/dist/main.js
+    environment:
+      <<: *pg
+      RUEDA_ENV: preproduction
+      PGUSER: app_api
+      PORT: '3000'
+    ports:
+      - '127.0.0.1:${RUEDA_LOCAL_API_PORT:-3300}:3000'
+    volumes:
+      - secret-app-api:/run/rueda-secrets/app_api:ro
+      - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/brand/content?locale=es').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  worker:
+    <<: *release
+    command:
+      - sh
+      - -c
+      - 'PGPASSWORD="$$(cat /run/rueda-secrets/app_worker/value)" exec node apps/api/dist/worker.js'
+    environment:
+      <<: *pg
+      RUEDA_ENV: preproduction
+      PGUSER: app_worker
+      RUEDA_BRAND_NAME: ${RUEDA_BRAND_NAME:-Kmino}
+    volumes:
+      - secret-app-worker:/run/rueda-secrets/app_worker:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg-data:
+  secret-postgres:
+  secret-migrator:
+  secret-app-api:
+  secret-app-worker:
+  secret-app-anon:
+  secret-rate-limit-key:

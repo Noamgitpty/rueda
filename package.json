@@ -13,7 +13,7 @@
     "lint:country": "node packages/config/country-constants/cli.ts",
     "lint:style": "node packages/design-tokens/lint/cli.ts",
     "typecheck": "turbo run typecheck",
-    "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/",
+    "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/ scripts/deploy/",
     "test:int": "turbo run test:int",
     "test:l0": "turbo run test:l0",
     "build": "turbo run build",

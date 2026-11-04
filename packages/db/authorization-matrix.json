@@ -2357,6 +2357,19 @@
         "staff_sans_session": "aucune"
       }
     },
+    "platform.environment_declaration": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "platform.schema_migration": {
       "type": "table",
       "droits": {

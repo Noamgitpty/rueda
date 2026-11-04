@@ -72,6 +72,14 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
   const port = Number(process.env['PORT'] ?? DEFAULT_PORT);
   await app.listen(port);
+  // Version servie (US-003) : RUEDA_RELEASE est posée à la construction de l'image de production.
+  console.log(
+    JSON.stringify({
+      level: 'info',
+      event: 'api.started',
+      release: process.env['RUEDA_RELEASE'] ?? 'unknown',
+    }),
+  );
 }
 
 void bootstrap();

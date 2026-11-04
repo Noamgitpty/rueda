@@ -7,7 +7,7 @@
 #  1. secrets-init et db-setup terminés avec le code 0 ;
 #  2. graines PA / PY lisibles sous app_api et app_worker, base « development » (db-setup --verify-only) ;
 #  3. API en bonne santé : GET /brand/content?locale=es => 200, GET /auth/session sans cookie => 401 ;
-#  4. travailleur terminé avec le code 0 (contexte initialisé ; boucles branchées par US-003) ;
+#  4. travailleur en marche (boucles branchées par US-003) : démarrage journalisé, toujours actif ;
 #  5. FAKE : chacun démarre sous development et refuse production, préproduction, RUEDA_ENV absent ;
 #  6. C19 : la même API lancée avec RUEDA_ENV=production refuse de démarrer.
 # Aucun secret n'est lu ni affiché par ce script.
@@ -67,6 +67,27 @@ http_status() {
     "$1"
 }
 
+# Travailleur (US-003) : démarrage journalisé (`worker.started`), puis toujours en marche.
+wait_worker_running() {
+  local id waited=0
+  while :; do
+    id="$(container_of worker)"
+    [ -n "$id" ] || fail 'worker : aucun conteneur'
+    [ "$(docker inspect -f '{{.State.Status}}' "$id")" = running ] ||
+      fail "worker arrêté (code $(docker inspect -f '{{.State.ExitCode}}' "$id"), docker compose logs worker)"
+    if docker compose logs --no-color --no-log-prefix worker | grep -q '"event":"worker.started"'; then
+      sleep 10
+      [ "$(docker inspect -f '{{.State.Status}}' "$id")" = running ] ||
+        fail 'worker arrêté après son démarrage (docker compose logs worker)'
+      say 'worker : démarré, toujours en marche'
+      return 0
+    fi
+    [ "$waited" -lt "$TIMEOUT_S" ] || fail "worker : démarrage non journalisé après ${TIMEOUT_S} s"
+    sleep 2
+    waited=$((waited + 2))
+  done
+}
+
 expect_status() {
   local path="$1" expected="$2" got
   got="$(http_status "$path")"
@@ -80,7 +101,7 @@ docker compose run --rm --no-deps db-setup node packages/db/src/dev/cli.ts --ver
 wait_healthy api
 expect_status '/brand/content?locale=es' 200
 expect_status '/auth/session' 401
-wait_exit_zero worker
+wait_worker_running
 wait_exit_zero fakes
 fakes_log="$(docker compose logs --no-color --no-log-prefix fakes)"
 grep -q '"check":"bilan","ok":true' <<<"$fakes_log" ||

@@ -1,0 +1,172 @@
+/**
+ * Tâches du travailleur (US-003, ADR-078 ; ADR-050 « Tâches périodiques ») : ce que `worker.ts`
+ * déclare sur le registre du module BUS, sous la connexion `app_worker`. Chaque tâche a son nom
+ * de travailleur (`app.worker_name`), celui que la base exige (politiques et gardes des fonctions) :
+ *
+ * | Travailleur           | Période (PROPOSÉ)                          | Appel                                                     |
+ * | --------------------- | ------------------------------------------ | --------------------------------------------------------- |
+ * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040) |
+ * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
+ * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
+ * | `risk_pruner`         | 1 h                                        | `core.risk_cmd_prune` (0047, US-052)                      |
+ * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) |
+ *
+ * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
+ * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
+ * d'US-061). Aucun canal de notification réel n'existe avant le lot C : `ntf_sender` échoue donc en
+ * `CHANNEL_UNAVAILABLE` (fail-closed, rien ne part), mais chaque envoi reste tracé.
+ *
+ * Les tâches ne journalisent que des comptes, jamais d'identifiant ni de donnée personnelle (17 §6.3).
+ */
+import type { BusRegistry, SqlClient, WorkerTransactions } from './modules/bus/index.js';
+import { registerProductionOracle } from './modules/avl/index.js';
+import { resolveParam } from './modules/cfg/index.js';
+import type { CountryConfig } from './modules/cfg/index.js';
+import { postgresNotificationContacts } from './modules/iam/index.js';
+import {
+  notificationCountryData,
+  NotificationSender,
+  registerNotifications,
+  repositoryLocaleConfig,
+} from './modules/ntf/index.js';
+import { ntfSmsBudget } from './modules/risk/index.js';
+
+export const HOLD_EXPIRY_WORKER = 'hold_expiry';
+export const DISPOSITION_SWEEPER_WORKER = 'disposition_sweeper';
+export const RISK_PRUNER_WORKER = 'risk_pruner';
+
+/** Valeurs PROPOSÉES (ADR-078) ; les périodes de 17 qui sont des paramètres pays sont lues en CFG. */
+export const WORKER_TASK_DEFAULTS = {
+  holdExpiryPeriodSeconds: 60,
+  holdExpiryBatch: 500,
+  dispositionBatch: 100,
+  riskPrunerPeriodSeconds: 3_600,
+  riskPrunerBatch: 5_000,
+  /** Conservation des événements d'abus (`risk_abuse_event`) : 90 jours (handoff US-052). */
+  riskEventRetentionDays: 90,
+  /** Reprise d'un interblocage (SQLSTATE 40P01) : 3 essais au plus (handoff US-024). */
+  deadlockAttempts: 3,
+} as const;
+
+export type WorkerLog = (line: string) => void;
+
+const count = (value: unknown): number => {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 0) {
+    throw new Error('compte attendu');
+  }
+  return n;
+};
+
+const isDeadlock = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '40P01';
+
+/** Exécute `fn` dans une transaction de `worker`, rejouée sur interblocage (40P01, ≤ `attempts`). */
+export async function withDeadlockRetry<T>(
+  transactions: WorkerTransactions,
+  worker: string,
+  fn: (tx: SqlClient) => Promise<T>,
+  attempts: number = WORKER_TASK_DEFAULTS.deadlockAttempts,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await transactions.run(worker, fn);
+    } catch (error) {
+      if (!isDeadlock(error) || attempt >= attempts) throw error;
+    }
+  }
+}
+
+/** Période du balayeur des dispositions : la plus courte des pays configurés (17 §2.5 A6). */
+export function dispositionSweeperPeriod(config: CountryConfig, at: Date): number {
+  const periods = [...config.countries.keys()].map((country) => {
+    const value = resolveParam(config, 'disposition_sweeper_period_s', { country, at }).value;
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+      throw new Error(`disposition_sweeper_period_s invalide pour ${country}`);
+    }
+    return value;
+  });
+  if (periods.length === 0) throw new Error('aucun pays configuré');
+  return Math.min(...periods);
+}
+
+export interface WorkerTaskDeps {
+  readonly transactions: WorkerTransactions;
+  readonly config: CountryConfig;
+  /** Nom de marque des messages (donnée de thème, DEC-MARQUE ; `RUEDA_BRAND_NAME`). */
+  readonly brandName: string;
+  readonly log: WorkerLog;
+  readonly now?: () => Date;
+}
+
+/** Déclare toutes les tâches du travailleur sur `registry` (voir l'en-tête). */
+export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps): void {
+  const d = WORKER_TASK_DEFAULTS;
+  const line = (worker: string, counts: Record<string, number>): void => {
+    deps.log(JSON.stringify({ level: 'info', worker, ...counts }));
+  };
+
+  registry.registerPeriodic(HOLD_EXPIRY_WORKER, d.holdExpiryPeriodSeconds, async (_p, tx) => {
+    const expired = await tx.query<{ n: unknown }>(
+      'SELECT core.booking_expire_due_holds($1) AS n',
+      [d.holdExpiryBatch],
+    );
+    const released = await tx.query<{ n: unknown }>(
+      'SELECT core.booking_release_cancelled_holds($1) AS n',
+      [d.holdExpiryBatch],
+    );
+    line(HOLD_EXPIRY_WORKER, {
+      expired: count(expired.rows[0]?.n),
+      released: count(released.rows[0]?.n),
+    });
+  });
+
+  // Une opération par transaction (handoff US-024 : jamais les verrous de plusieurs voyageurs) :
+  // l'occurrence périodique tient seulement son bail ; chaque réparation a sa propre transaction.
+  registry.registerPeriodic(
+    DISPOSITION_SWEEPER_WORKER,
+    dispositionSweeperPeriod(deps.config, (deps.now ?? (() => new Date()))()),
+    async (_p, tx) => {
+      const { rows } = await tx.query<{ operation_id: string }>(
+        'SELECT operation_id FROM core.booking_disposition_candidates($1)',
+        [d.dispositionBatch],
+      );
+      let repaired = 0;
+      for (const row of rows) {
+        await withDeadlockRetry(deps.transactions, DISPOSITION_SWEEPER_WORKER, (repairTx) =>
+          repairTx.query('SELECT core.booking_disposition_repair($1::uuid)', [row.operation_id]),
+        );
+        repaired++;
+      }
+      line(DISPOSITION_SWEEPER_WORKER, { candidates: rows.length, repaired });
+    },
+  );
+
+  registerProductionOracle(registry, deps.log);
+
+  registry.registerPeriodic(RISK_PRUNER_WORKER, d.riskPrunerPeriodSeconds, async (_p, tx) => {
+    const { rows } = await tx.query<{ n: unknown }>('SELECT core.risk_cmd_prune($1, $2) AS n', [
+      d.riskPrunerBatch,
+      d.riskEventRetentionDays,
+    ]);
+    line(RISK_PRUNER_WORKER, { pruned: count(rows[0]?.n) });
+  });
+
+  const countryData = notificationCountryData(deps.config);
+  registerNotifications(
+    registry,
+    new NotificationSender({
+      // Aucun canal réel avant le lot C (F-03) : fail-closed, CHANNEL_UNAVAILABLE.
+      channels: {},
+      directory: postgresNotificationContacts,
+      smsBudget: ntfSmsBudget(deps.config),
+      countryOf: countryData.countryOf,
+      exponentOf: countryData.exponentOf,
+      localeConfig: repositoryLocaleConfig(),
+      brand: deps.brandName,
+      log: (entry) => {
+        deps.log(JSON.stringify({ level: 'info', ...entry }));
+      },
+    }),
+  );
+}

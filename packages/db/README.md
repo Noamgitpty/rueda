@@ -368,6 +368,13 @@ Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge v
 - **Gardes d'environnement** : `0048_security_env_guard_fail_closed` lit `COALESCE(platform.deployment_env(), 'production')` dans les six fonctions PAY qui ouvraient sur NULL ; le lint `sql-env-guard` (`pnpm lint:sql`, liste des lectures historiques remplacées : `env-guard-allowlist.json`) et `test/l0/l0-us043-env-guard.test.ts` (`pg_proc` de production, NULL ⇒ refus) empêchent toute nouvelle garde ouverte.
 - **Lectures de la console** : `0049_staff_read_access_outcome` (`core.iam_staff_read_access`, `iam_staff_owner`) rend l'issue d'accès des lectures `audit.read`, `brand.edit`, `security.read_abuse` quand elles sont vides : 401 / 403 au lieu d'un 200 vide.
 
+## Environnement déclaré et job de déploiement (US-003 ; 17 §6.5 ; ADR-078)
+
+- **Migration 0050** : `platform.environment_declaration` (une ligne au plus, RLS `ENABLE` + `FORCE`, aucun droit applicatif) écrite **une fois** sous `migrator` par `platform.declare_environment(env)` (`development`, `preproduction`, `production` ; même valeur rejouable, autre valeur refusée `environment_declared_once`, 55000), jamais modifiée (trigger sur UPDATE, DELETE, TRUNCATE). `platform.declared_environment()` (SECURITY DEFINER, `guard_owner`, RLS-15) la lit ; `platform.deployment_env()` = `COALESCE(platform.declared_environment(), 'production')` : jamais NULL, base non déclarée ⇒ production. Les bases du banc gardent la version de test (9500).
+- **Surcouche de développement** (`dev-overlay/`) : `SELECT platform.declare_environment('development')`.
+- **Job de base** (`src/deploy/`, `node packages/db/src/deploy/cli.ts`, image de production) : `RUEDA_ENV` ∈ {preproduction, production} sinon refus ; amorçage et mots de passe sous le rôle d'administration ; migrations sous `migrator` ; déclaration ; vérification sous `app_api` (environnement, aucun compte PSP FAKE). Secrets en variables (`docs/ops/ENV_VARS.md`), messages expurgés. Runbook : `docs/ops/DEPLOY.md`.
+- **Preuves** : `test/l0/l0-us003-environment.test.ts` (base de production sous `app_api` et `app_worker` ; immutabilité par la fixture `9910`, transaction annulée) ; `src/deploy/setup.test.ts` (configuration) ; job CI `déploiement local` (job réel sur PostgreSQL 16, redéclaration refusée).
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                                                                                 | Attributs                                                                                                | Usage                                                                             |

@@ -122,6 +122,8 @@ services:
       PGPORT: '5432'
       PGDATABASE: rueda_dev
       PGUSER: app_worker
+      # nom de marque des messages (donnée de thème, DEC-MARQUE) ; obligatoire (US-003)
+      RUEDA_BRAND_NAME: Kmino
     volumes:
       - secret-app-worker:/run/rueda-secrets/app_worker:ro
     depends_on:
