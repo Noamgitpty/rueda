@@ -1,0 +1,7 @@
+{
+  "$comment": "Mesure de référence de l'exercice de restauration (US-051, ADR-082 ; docs/ops/BACKUP_RESTORE.md). Recopiée du rapport du job CI « restauration » ; chaque porte de lot rejoue l'exercice et compare (champ vsBaseline du rapport). Secondes.",
+  "measuredAt": null,
+  "commit": null,
+  "rtoS": null,
+  "rpoS": null
+}

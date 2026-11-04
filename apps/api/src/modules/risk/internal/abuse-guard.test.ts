@@ -251,3 +251,54 @@ describe('anti-abus : comportements transverses', () => {
     expect(store.abuse.every((a) => /^[0-9a-f]{64}$/.test(a.keyHash))).toBe(true);
   });
 });
+
+/**
+ * US-051 — rotation sans coupure de `RUEDA_RATE_LIMIT_KEY` (ADR-082, docs/ops/SECRET_ROTATION.md) :
+ * pendant la rotation, une instance encore sur l'ancienne clé et une instance sur la nouvelle (qui
+ * connaît l'ancienne) partagent le compteur ; la limite n'est jamais remise à zéro. Après le
+ * retrait de l'ancienne clé, ses compteurs n'ont plus d'effet.
+ */
+describe.each(COUNTRIES)('rotation de la clé de débit en $country', ({ country, phone }) => {
+  const OLD = Buffer.alloc(32, 7);
+  const NEW = Buffer.alloc(32, 9);
+  const guardWith = (store: RateCounterStore, hasher: RateKeyHasher) =>
+    new AbuseGuard({ store, hasher, policy: POLICY, log: () => {} });
+
+  it('instances ancienne et nouvelle clé : limite tenue sur l’ensemble, aucune remise à zéro', async () => {
+    const store = new MemoryRateCounterStore(); // compteurs partagés (la base en production)
+    const before = guardWith(store, new RateKeyHasher(OLD));
+    const during = guardWith(store, new RateKeyHasher(NEW, OLD));
+    expect(new RateKeyHasher(NEW, OLD).rotating).toBe(true);
+    const limit = paramValue(RATE_LIMIT_PARAMS.otpPerPhone, country);
+    const req = (i: number): CostlySendRequest => ({
+      channel: 'SMS_OTP',
+      country,
+      recipient: phone,
+      ip: `198.51.100.${i}`,
+    });
+    // la moitié de la limite consommée avant la rotation, sous l'ancienne clé seule
+    const half = Math.floor(limit / 2);
+    for (let i = 0; i < half; i += 1) await before.checkCostlySend(req(i));
+    // le reste réparti entre une instance pas encore déployée et une instance déployée
+    for (let i = half; i < limit; i += 1) {
+      await (i % 2 === 0 ? before : during).checkCostlySend(req(i));
+    }
+    // au-delà : refus, quelle que soit l'instance (le compteur de l'ancienne clé est plein)
+    expect((await refusal(during.checkCostlySend(req(limit)))).code).toBe('RATE_LIMITED');
+    expect((await refusal(before.checkCostlySend(req(limit + 1)))).code).toBe('RATE_LIMITED');
+  });
+
+  it('après le retrait de l’ancienne clé : ses compteurs n’ont plus d’effet', async () => {
+    const store = new MemoryRateCounterStore();
+    const limit = paramValue(RATE_LIMIT_PARAMS.otpPerPhone, country);
+    const old = guardWith(store, new RateKeyHasher(OLD));
+    for (let i = 0; i < limit; i += 1) {
+      await old.checkCostlySend({ channel: 'SMS_OTP', country, recipient: phone, ip: null });
+    }
+    const after = guardWith(store, new RateKeyHasher(NEW));
+    expect(new RateKeyHasher(NEW).rotating).toBe(false);
+    await expect(
+      after.checkCostlySend({ channel: 'SMS_OTP', country, recipient: phone, ip: null }),
+    ).resolves.toBeUndefined();
+  });
+});

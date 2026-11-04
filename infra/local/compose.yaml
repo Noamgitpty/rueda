@@ -10,6 +10,13 @@
 # Différences assumées avec le cloud (infra/opentofu) : PostgreSQL en conteneur au lieu de la base
 # gérée (Multi-AZ, chiffrement KMS, TLS), secrets tirés par `secrets-init` au lieu du coffre, aucun
 # répartiteur de charge (d'où RUEDA_API_TRUST_PROXY absente : l'IP lue est celle de la connexion).
+#
+# Rotation des secrets sans coupure (US-051, ADR-082 ; docs/ops/SECRET_ROTATION.md, répétition
+# scripts/ops/rotation-drill.sh) : chaque secret a, dans son volume, `value` (courante) et, le temps
+# d'une rotation, `next` (suivante : mots de passe des rôles, clé de preuve MFA) ou `previous`
+# (ancienne : clé de débit). Profil `rotation` : seconde instance de l'API (`api-b`, bascule par
+# vagues comme le service cloud à deux tâches), gestes sur les volumes (`secrets-rotate`) et gestes
+# de la clé de preuve MFA en base (`mfa-rotate`, sous migrator).
 name: rueda-preprod-local
 
 x-release: &release
@@ -35,6 +42,7 @@ services:
       - secret-app-worker:/run/rueda-secrets/app_worker
       - secret-app-anon:/run/rueda-secrets/app_anon
       - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key
+      - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key
     restart: 'no'
 
   postgres:
@@ -56,6 +64,7 @@ services:
       retries: 30
 
   # Job de base : amorçage, migrations, déclaration « preproduction », vérification sous app_api.
+  # Pendant une rotation (US-051), il pose sur chaque rôle la valeur SUIVANTE (`next`) si elle existe.
   migrate:
     <<: *release
     profiles: ['job']
@@ -64,10 +73,10 @@ services:
       - -c
       - >-
         RUEDA_DB_ADMIN_PASSWORD="$$(cat /run/rueda-secrets/postgres/value)"
-        RUEDA_DB_MIGRATOR_PASSWORD="$$(cat /run/rueda-secrets/migrator/value)"
-        RUEDA_DB_APP_API_PASSWORD="$$(cat /run/rueda-secrets/app_api/value)"
-        RUEDA_DB_APP_WORKER_PASSWORD="$$(cat /run/rueda-secrets/app_worker/value)"
-        RUEDA_DB_APP_ANON_PASSWORD="$$(cat /run/rueda-secrets/app_anon/value)"
+        RUEDA_DB_MIGRATOR_PASSWORD="$$(cat /run/rueda-secrets/migrator/next 2>/dev/null || cat /run/rueda-secrets/migrator/value)"
+        RUEDA_DB_APP_API_PASSWORD="$$(cat /run/rueda-secrets/app_api/next 2>/dev/null || cat /run/rueda-secrets/app_api/value)"
+        RUEDA_DB_APP_WORKER_PASSWORD="$$(cat /run/rueda-secrets/app_worker/next 2>/dev/null || cat /run/rueda-secrets/app_worker/value)"
+        RUEDA_DB_APP_ANON_PASSWORD="$$(cat /run/rueda-secrets/app_anon/next 2>/dev/null || cat /run/rueda-secrets/app_anon/value)"
         exec node packages/db/src/deploy/cli.ts
     environment:
       <<: *pg
@@ -83,14 +92,17 @@ services:
       postgres:
         condition: service_healthy
 
-  api:
+  api: &api
     <<: *release
     command:
       - sh
       - -c
       - >-
         PGPASSWORD="$$(cat /run/rueda-secrets/app_api/value)"
+        RUEDA_PGPASSWORD_NEXT="$$(cat /run/rueda-secrets/app_api/next 2>/dev/null || true)"
         RUEDA_RATE_LIMIT_KEY="$$(cat /run/rueda-secrets/rate_limit_key/value)"
+        RUEDA_RATE_LIMIT_KEY_PREVIOUS="$$(cat /run/rueda-secrets/rate_limit_key/previous 2>/dev/null || true)"
+        RUEDA_STAFF_MFA_PROOF_KEY="$$(cat /run/rueda-secrets/staff_mfa_proof_key/value 2>/dev/null || true)"
         exec node apps/api/dist/main.js
     environment:
       <<: *pg
@@ -102,6 +114,7 @@ services:
     volumes:
       - secret-app-api:/run/rueda-secrets/app_api:ro
       - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key:ro
+      - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,12 +128,23 @@ services:
       timeout: 5s
       retries: 30
 
+  # Seconde instance de l'API (US-051) : les rotations se déploient par vagues, une instance à la
+  # fois, pendant que l'autre sert (comme les deux tâches du service cloud derrière le répartiteur).
+  api-b:
+    <<: *api
+    profiles: ['rotation']
+    ports:
+      - '127.0.0.1:${RUEDA_LOCAL_API_B_PORT:-3301}:3000'
+
   worker:
     <<: *release
     command:
       - sh
       - -c
-      - 'PGPASSWORD="$$(cat /run/rueda-secrets/app_worker/value)" exec node apps/api/dist/worker.js'
+      - >-
+        PGPASSWORD="$$(cat /run/rueda-secrets/app_worker/value)"
+        RUEDA_PGPASSWORD_NEXT="$$(cat /run/rueda-secrets/app_worker/next 2>/dev/null || true)"
+        exec node apps/api/dist/worker.js
     environment:
       <<: *pg
       RUEDA_ENV: preproduction
@@ -128,6 +152,49 @@ services:
       RUEDA_BRAND_NAME: ${RUEDA_BRAND_NAME:-Kmino}
     volumes:
       - secret-app-worker:/run/rueda-secrets/app_worker:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Gestes de rotation sur les volumes de secrets (US-051, infra/local/rotate-secrets.sh) : tirage
+  # d'une valeur suivante, promotion, retrait, contrôle « ancienne valeur refusée » ; aucune valeur
+  # affichée. Équivalent local des étiquettes de version du coffre (AWSPENDING / AWSCURRENT).
+  secrets-rotate:
+    image: postgres:16
+    profiles: ['rotation']
+    user: root
+    entrypoint: ['sh', '/opt/rueda/rotate-secrets.sh']
+    environment:
+      <<: *pg
+    volumes:
+      - ./rotate-secrets.sh:/opt/rueda/rotate-secrets.sh:ro
+      - secret-postgres:/run/rueda-secrets/postgres:ro
+      - secret-migrator:/run/rueda-secrets/migrator
+      - secret-app-api:/run/rueda-secrets/app_api
+      - secret-app-worker:/run/rueda-secrets/app_worker
+      - secret-app-anon:/run/rueda-secrets/app_anon
+      - secret-rate-limit-key:/run/rueda-secrets/rate_limit_key
+      - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key
+    restart: 'no'
+
+  # Clé de preuve MFA en base (US-051, migration 0052) : `docker compose … run --rm mfa-rotate
+  # <INSTALL|STAGE|PROMOTE|ABORT>`, sous migrator, avec l'image de production.
+  mfa-rotate:
+    <<: *release
+    profiles: ['rotation']
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        RUEDA_DB_MIGRATOR_PASSWORD="$$(cat /run/rueda-secrets/migrator/value)"
+        RUEDA_STAFF_MFA_PROOF_KEY_NEXT="$$(cat /run/rueda-secrets/staff_mfa_proof_key/next 2>/dev/null || cat /run/rueda-secrets/staff_mfa_proof_key/value)"
+        exec node packages/db/src/rotation/cli.ts mfa-proof-key "$$1"
+      - mfa-rotate
+    environment:
+      <<: *pg
+    volumes:
+      - secret-migrator:/run/rueda-secrets/migrator:ro
+      - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,3 +207,4 @@ volumes:
   secret-app-worker:
   secret-app-anon:
   secret-rate-limit-key:
+  secret-staff-mfa-proof-key:
