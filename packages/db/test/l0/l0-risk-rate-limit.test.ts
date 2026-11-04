@@ -21,7 +21,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   connectAs,
   releaseClient,
@@ -471,83 +471,83 @@ describe('journal des soupçons et purge', () => {
 });
 
 describe('tableau de sécurité (critère 4) : core.risk_staff_abuse_board', () => {
-  let admin: Awaited<ReturnType<typeof elevatedStaff>>;
-  let ops: Awaited<ReturnType<typeof elevatedStaff>>;
-  let client: pg.Client;
-
-  beforeAll(async () => {
-    client = await connectAs('app_api');
-    await installTestProofKey(client);
-    admin = await elevatedStaff(
-      client,
-      'ADMIN',
-      COUNTRIES.map((c) => c.country),
-    );
-    ops = await elevatedStaff(
-      client,
-      'OPS_AGENT',
-      COUNTRIES.map((c) => c.country),
-    );
-  });
-
-  afterAll(async () => {
-    await releaseClient(client);
-  });
-
+  // Horloge RÉELLE : une session de staff expire au bout de 8 h, une horloge virtuelle lointaine
+  // la rendrait invalide. Connexion ouverte dans chaque test (assertion L0-05 en tête).
   it.each(COUNTRIES)(
     'ADMIN élevé : agrégat du pays $country sans empreinte ; OPS : rien, refus journalisé',
     async ({ country }) => {
-      await withTestTransaction(client, { virtualNow: '2026-11-10T10:20:00Z' }, async (tx) => {
-        const a = key();
-        const b = key();
-        for (const k of [a, a, a, b, b]) await hit(tx, k, country, 1, 3600, 1, 'search_ip');
-        const { rows } = await tx.query('SELECT * FROM core.risk_staff_abuse_board($1, $2, 24)', [
-          admin.hash,
-          country,
-        ]);
-        expect(rows).toEqual([
-          {
+      await withRole('app_api', async (client) => {
+        await installTestProofKey(client);
+        const all = COUNTRIES.map((c) => c.country);
+        const admin = await elevatedStaff(client, 'ADMIN', all);
+        const ops = await elevatedStaff(client, 'OPS_AGENT', all);
+        await withTestTransaction(client, {}, async (tx) => {
+          const a = key();
+          const b = key();
+          for (const k of [a, a, a, b, b]) await hit(tx, k, country, 1, 3600, 1, 'search_ip');
+          const now = await tx.query<{ hour: Date }>(
+            `SELECT pg_catalog.date_trunc('hour', platform.now()) AS hour`,
+          );
+          const { rows } = await tx.query<Record<string, unknown>>(
+            'SELECT * FROM core.risk_staff_abuse_board($1, $2, 24)',
+            [admin.hash, country],
+          );
+          const mine = rows.filter((r) => r['scope'] === 'search_ip');
+          expect(mine).toHaveLength(1);
+          expect(mine[0]).toMatchObject({
             kind: 'RATE_LIMITED',
-            scope: 'search_ip',
             country_code: country,
-            bucket_start: new Date('2026-11-10T10:00:00Z'),
+            bucket_start: now.rows[0]?.hour,
             occurrences: '3',
             distinct_keys: '2',
             signals: [],
-            last_at: new Date('2026-11-10T10:20:00Z'),
-          },
-        ]);
-        expect(Object.keys(rows[0] as object)).not.toContain('key_hash');
-        const denied = await tx.query('SELECT * FROM core.risk_staff_abuse_board($1, $2, 24)', [
-          ops.hash,
-          country,
-        ]);
-        expect(denied.rows).toEqual([]);
-        const audit = await auditOf(tx, ops.userId);
-        expect(audit.at(-1)).toMatchObject({
-          action_code: 'STAFF_FORBIDDEN',
-          subject_type: 'ABUSE_BOARD',
-          after: expect.objectContaining({ reason: 'PERMISSION', attempted: 'ABUSE_BOARD_READ' }),
+          });
+          expect(Object.keys(mine[0] as object).sort()).toEqual(
+            [
+              'bucket_start',
+              'country_code',
+              'distinct_keys',
+              'kind',
+              'last_at',
+              'occurrences',
+              'scope',
+              'signals',
+            ].sort(),
+          );
+          const denied = await tx.query('SELECT * FROM core.risk_staff_abuse_board($1, $2, 24)', [
+            ops.hash,
+            country,
+          ]);
+          expect(denied.rows).toEqual([]);
+          const audit = await auditOf(tx, ops.userId);
+          expect(audit.at(-1)).toMatchObject({
+            action_code: 'STAFF_FORBIDDEN',
+            subject_type: 'ABUSE_BOARD',
+            after: expect.objectContaining({ reason: 'PERMISSION', attempted: 'ABUSE_BOARD_READ' }),
+          });
         });
       });
     },
   );
 
   it('session non élevée (sans TOTP) : aucune ligne, refus 2FA_REQUIRED journalisé', async () => {
-    const s = await createStaff(
-      client,
-      'ADMIN',
-      COUNTRIES.map((c) => c.country),
-    );
-    const hash = await login(client, s.userId);
-    const { rows } = await client.query('SELECT * FROM core.risk_staff_abuse_board($1, NULL, 24)', [
-      hash,
-    ]);
-    expect(rows).toEqual([]);
-    const audit = await auditOf(client, s.userId);
-    expect(audit.at(-1)).toMatchObject({
-      action_code: 'STAFF_ACCESS_DENIED',
-      after: expect.objectContaining({ reason: '2FA_REQUIRED' }),
+    await withRole('app_api', async (client) => {
+      const s = await createStaff(
+        client,
+        'ADMIN',
+        COUNTRIES.map((c) => c.country),
+      );
+      const hash = await login(client, s.userId);
+      const { rows } = await client.query(
+        'SELECT * FROM core.risk_staff_abuse_board($1, NULL, 24)',
+        [hash],
+      );
+      expect(rows).toEqual([]);
+      const audit = await auditOf(client, s.userId);
+      expect(audit.at(-1)).toMatchObject({
+        action_code: 'STAFF_ACCESS_DENIED',
+        after: expect.objectContaining({ reason: '2FA_REQUIRED' }),
+      });
     });
   });
 });
