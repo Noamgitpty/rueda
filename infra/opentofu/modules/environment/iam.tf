@@ -3,7 +3,8 @@
 #     l'API ne peut pas lire le mot de passe d'administration de la base, réservé au job de base) ;
 #   - un rôle d'APPLICATION pour l'API et le travailleur (compartiments S3 et clé « files ») ;
 #   - le rôle de DÉPLOIEMENT, pris par le pipeline GitHub Actions par OIDC (aucune clé d'accès
-#     longue durée), restreint au dépôt ET à l'environnement GitHub protégé du même nom.
+#     longue durée), restreint au dépôt, au workflow deploy.yml sur `main` ET à l'environnement
+#     GitHub protégé du même nom (ADR-084).
 locals {
   admin_secret_arn = aws_db_instance.this.master_user_secret[0].secret_arn
   task_secrets = {
@@ -22,7 +23,23 @@ locals {
       Principal = { Service = "ecs-tasks.amazonaws.com" }
     }]
   })
-  # seul un job lié à l'environnement GitHub protégé du même nom (accord du fondateur en production)
+  # Rôle de déploiement (ADR-078 §8, ADR-084) : assumable SEULEMENT par le job du workflow
+  # `.github/workflows/deploy.yml`, lancé sur `refs/heads/main`, et lié à l'environnement GitHub du
+  # même nom (accord du fondateur en production). Pour un fournisseur OIDC, AWS ne documente que les
+  # clés `aud` et `sub` : le dépôt publie donc un `sub` PERSONNALISÉ qui porte les quatre affirmations
+  # (`PUT /repos/<dépôt>/actions/oidc/customization/sub`, réglage du fondateur, DEPLOY.md §4) :
+  #   repo:<dépôt>:environment:<env>:ref:refs/heads/main:job_workflow_ref:<dépôt>/.github/workflows/deploy.yml@refs/heads/main
+  # Égalité EXACTE (StringEquals, aucun joker) : autre branche, autre workflow, autre environnement
+  # ou `sub` par défaut (personnalisation absente) ⇒ refus (fail-closed). Preuve : tofu test
+  # `oidc_*` (environment.tftest.hcl).
+  github_deploy_ref      = "refs/heads/main"
+  github_deploy_workflow = ".github/workflows/deploy.yml"
+  github_deploy_sub = join(":", [
+    "repo", var.github_repository,
+    "environment", var.environment,
+    "ref", local.github_deploy_ref,
+    "job_workflow_ref", "${var.github_repository}/${local.github_deploy_workflow}@${local.github_deploy_ref}",
+  ])
   deploy_assume = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -32,7 +49,7 @@ locals {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:environment:${var.environment}"
+          "token.actions.githubusercontent.com:sub" = local.github_deploy_sub
         }
       }
     }]

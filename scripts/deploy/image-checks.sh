@@ -5,7 +5,9 @@
 #   3. rien de ce qui sert aux tests ou au poste local : testing/, test-migrations/, dev-overlay/,
 #      src/dev/, fichiers *.test.*, outils de développement (vitest, typescript, eslint, testcontainers) ;
 #   4. les paquets TypeScript de l'espace de travail sont HORS de node_modules (report d'US-021 :
-#      Node 26 n'efface pas les types sous node_modules) ; l'API compilée se charge (import à blanc).
+#      Node 26 n'efface pas les types sous node_modules) ; l'API compilée se charge (import à blanc) ;
+#   5. l'autorité de certification de la base gérée (ADR-084) est dans l'image, identique au dépôt,
+#      et chargée par Node.js (NODE_EXTRA_CA_CERTS).
 # Usage : bash scripts/deploy/image-checks.sh <image>
 set -euo pipefail
 
@@ -44,4 +46,15 @@ in_image 'for p in i18n design-tokens; do r="$(readlink -f /app/apps/api/node_mo
 in_image 'cd /app/apps/api && node --input-type=module -e "await import(\"@rueda/i18n\"); await import(\"@rueda/design-tokens\"); await import(\"./dist/app.module.js\"); console.log(\"chargé\")"' |
   grep -q '^chargé$' || fail 'l’API compilée ne se charge pas'
 say 'paquets TypeScript hors de node_modules ; API compilée chargée'
+
+# 5. autorité de certification de la base gérée (ADR-084) : NODE_EXTRA_CA_CERTS posée, fichier
+#    identique à celui du dépôt (épinglé dans le Dockerfile), chargé par Node.js sans avertissement.
+ca="$(sed -n 's/^NODE_EXTRA_CA_CERTS=//p' <<<"$env_list")"
+[ "$ca" = /app/certs/rds-global-bundle.pem ] || fail "NODE_EXTRA_CA_CERTS « $ca » (/app/certs/rds-global-bundle.pem attendu)"
+expected="$(sha256sum "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/docker/prod/certs/rds-global-bundle.pem" | cut -d' ' -f1)"
+actual="$(in_image "sha256sum $ca" | cut -d' ' -f1)"
+[ "$actual" = "$expected" ] || fail "autorité de la base : somme $actual ≠ dépôt $expected"
+loaded="$(in_image 'node -e "const t=require(\"node:tls\"); process.stdout.write(String(typeof t.getCACertificates===\"function\" ? t.getCACertificates(\"extra\").length : -1))" 2>&1')"
+[[ "$loaded" =~ ^[0-9]+$ ]] && [ "$loaded" -ge 100 ] || fail "autorités supplémentaires non chargées par Node.js : $loaded"
+say "autorité de la base gérée : $loaded certificats chargés (NODE_EXTRA_CA_CERTS)"
 say "image conforme : $image"

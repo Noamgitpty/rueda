@@ -1,19 +1,29 @@
-# Pipeline de déploiement (US-003, ADR-078 ; OPERATING_RULES §2 ; runbook docs/ops/DEPLOY.md).
+# Pipeline de déploiement (US-003, ADR-078, ADR-084 ; OPERATING_RULES §2 ; runbook docs/ops/DEPLOY.md).
 #
 # Déclenché À LA MAIN seulement (workflow_dispatch), par l'orchestrateur, depuis `main` :
 #   build                      construit et pousse l'image de production (registre de préproduction) ;
 #   deploy preproduction <e>   déploie l'empreinte <e> en préproduction ;
 #   deploy production <e>      seulement si <e> a été déployée AVEC SUCCÈS en préproduction par ce même
 #                              pipeline (porte « préproduction d'abord », 16 ADM-034), puis après
-#                              l'ACCORD DU FONDATEUR : l'environnement GitHub `production` exige son
-#                              approbation (réglage du dépôt, US-050 ; 5 premiers déploiements au moins) ;
-#   rollback <environnement>   ressert l'empreinte précédente (journal), sans accord préalable
-#                              (OPERATING_RULES §2 : l'orchestrateur notifie le fondateur).
+#                              l'ACCORD DU FONDATEUR ;
+#   rollback <environnement>   ressert l'empreinte précédente (journal). En PRODUCTION, le retour
+#                              arrière passe AUSSI par l'accord du fondateur (même porte, ADR-084) ;
+#                              en préproduction, sans accord.
+#
+# Accord du fondateur (ADR-084), pour TOUTE action sur `production` :
+#   1. l'environnement GitHub `production` exige un approbateur (créé par le fondateur AVANT toute
+#      variable, DEPLOY.md §4 étape 0) : GitHub retient le job jusqu'à l'accord ;
+#   2. la porte « accord du fondateur » REVÉRIFIE par l'API, avant tout identifiant AWS, que cet
+#      environnement exige un approbateur et restreint les branches, et que CE run a été approuvé
+#      par une personne autre que celle qui l'a lancé (scripts/deploy/production-gate.mjs) ; sinon
+#      échec : un environnement créé sans protection au premier run ne laisse rien passer ;
+#   3. le rôle AWS n'est assumable que par CE workflow, sur refs/heads/main, pour l'environnement
+#      visé (`sub` OIDC personnalisé, infra/opentofu/modules/environment/iam.tf) : une copie
+#      modifiée de ce fichier sur une autre branche n'obtient aucun identifiant.
 #
 # Inactif tant que le fondateur n'a pas créé le compte d'hébergement (F-02) : sans les variables des
 # environnements GitHub (sorties d'infra/opentofu), le job échoue dès la garde, sans rien toucher.
-# Aucun secret : identifiants AWS par OIDC à durée courte (rôle `<préfixe>-<env>-deploy`, restreint au
-# dépôt ET à l'environnement GitHub du même nom).
+# Aucun secret : identifiants AWS par OIDC à durée courte (rôle `<préfixe>-<env>-deploy`).
 name: deploy
 run-name: ${{ inputs.action }} ${{ inputs.target }} ${{ inputs.image_digest }}
 
@@ -81,6 +91,31 @@ jobs:
           if [ "$ACTION" = deploy ]; then
             [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::empreinte sha256:<64 hex> attendue"; exit 1; }
           fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # ADR-084 : AVANT tout identifiant AWS, pour deploy ET rollback en production. GitHub retient
+      # déjà le job jusqu'à l'accord SI la protection existe ; cette porte refuse quand elle manque.
+      - name: porte « accord du fondateur » (production, deploy et rollback)
+        if: inputs.target == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/environments/production" >"$RUNNER_TEMP/environment.json" ||
+            { echo "::error::environnement GitHub production introuvable ou illisible (DEPLOY.md §4 étape 0)"; exit 1; }
+          gh api "repos/$REPO/actions/runs/$RUN_ID/approvals" >"$RUNNER_TEMP/approvals.json" ||
+            { echo "::error::approbations du run illisibles"; exit 1; }
+          node scripts/deploy/production-gate.mjs --environment production \
+            --environment-json "$RUNNER_TEMP/environment.json" --approvals-json "$RUNNER_TEMP/approvals.json" \
+            --actor "$ACTOR" --triggering-actor "$TRIGGERING_ACTOR"
       - name: porte « préproduction d'abord » (production)
         if: inputs.action == 'deploy' && inputs.target == 'production'
         env:
@@ -93,12 +128,6 @@ jobs:
             --jq "[.workflow_runs[] | select(.display_title == \"$title\" and .conclusion == \"success\" and .event == \"workflow_dispatch\")] | length")"
           [ "$ok" -ge 1 ] || { echo "::error::$IMAGE_DIGEST n'a jamais été déployée avec succès en préproduction"; exit 1; }
           echo "préproduction réussie pour $IMAGE_DIGEST : $ok run(s)"
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.RUEDA_DEPLOY_ROLE_ARN }}
