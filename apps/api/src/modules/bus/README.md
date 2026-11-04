@@ -31,11 +31,16 @@ Producteurs réels aujourd'hui : les fonctions SQL d'AVL (`booking.hold.*`, `boo
 
 API publique (`index.ts`) : `publishEvent`, `validateNewEvent`, `BusRegistry`, `OutboxRelay`, `JobRunner`, `scheduleJob`, `PeriodicScheduler`, `BusMetrics`, `workerTransactions` et leurs types (`DomainEvent`, `NewDomainEvent`, `SqlClient`…). Rôle de chaque élément : [`internal/README.md`](internal/README.md).
 
-Port vers l'extérieur : `Alerter` (alerte des lettres mortes, identifiants et code court seulement), avec l'adaptateur `LogAlerter` (journal) injecté par le jeton `ALERTER`. Aucun adaptateur FAKE dans `packages/fake-adapters`.
+Port vers l'extérieur : `Alerter` (alerte des lettres mortes), avec l'adaptateur `LogAlerter` (journal) injecté par le jeton `ALERTER`.
+
+Port d'alerte de l'exploitation (US-004, ADR-080) : `AlertChannel` (`internal/alert-channel.ts`) — codes fermés, sévérité P1 / P2, comptes et étiquettes techniques seulement, contrôlés par `assertSafeAlert` avant tout envoi. Adaptateurs : `LogAlertChannel` (production : ligne JSON `ops.alert`, reprise par l'IaC `monitoring.tf`) et `FakeAlertChannel` (`testing/`, tests seulement, hors image). `ChannelAlerter` relaie les lettres mortes sur ce canal (sans identifiant d'événement) ; le travailleur l'utilise.
+
+Moniteur (US-004) : `registerOpsMonitor` / `OpsMonitor` (`internal/ops-monitor.ts`), tâche périodique `ops_monitor` (60 s) qui lit `core.ops_monitor_metrics` (migration 0051) et alerte : outbox > 120 s, webhook en échec 3 fois, opération UNKNOWN > 30 min, signature invalide, alertes P1 de l'outbox (oracle C12, plafond SMS…). Runbook : `docs/ops/MONITORING.md`.
 
 ## Commandes de test
 
-- Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/bus` (`internal/bus.test.ts`, `internal/envelope.test.ts`).
+- Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/bus` (`internal/bus.test.ts`, `internal/envelope.test.ts`, `internal/ops-monitor.test.ts`).
+- Webhook en échec 3 fois ⇒ alerte, sur PostgreSQL : `test/int/ops-monitor.int.test.ts` ; métriques en base : `packages/db/test/l0/l0-us004-ops-monitor.test.ts`.
 - Intégration (PostgreSQL réel, `app_api` et `app_worker`) : `pnpm --filter @rueda/api exec vitest run --config vitest.int.config.ts test/int/bus.int.test.ts`, ou toute la suite : `pnpm --filter @rueda/api test:int`.
 - Schéma : `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/outbox-schema.test.ts`.
 - Preuves L0 (rôles de production) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/outbox-idempotence.test.ts`.

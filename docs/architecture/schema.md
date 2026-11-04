@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 51 migrations ; 65 tables ; 2 vues ; 332 politiques RLS ; 64 fonctions `SECURITY DEFINER` ; 87 autres fonctions.
+- 52 migrations ; 65 tables ; 2 vues ; 334 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 88 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -66,6 +66,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0048_security_env_guard_fail_closed` | Gardes d'environnement fail-closed sur NULL (C19) : PAY. |
 | `0049_staff_read_access_outcome` | Console : issue d'accès des lectures du staff (403 au lieu d'une liste vide). |
 | `0050_platform_environment_declaration` | Environnement de déploiement DÉCLARÉ (US-003, ADR-078 ; 17 §6.5 point 1, C19). |
+| `0051_audit_staff_data_access_ops_monitor` | AUD : lectures de données personnelles par le staff journalisées ; supervision. |
 
 ## Rôles
 
@@ -227,6 +228,7 @@ Index :
 Politiques RLS :
 
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
+- `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
 
@@ -1780,7 +1782,7 @@ Politiques RLS :
 - `cmd_hold_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = ANY (ARRAY['booking.hold.created'::text, 'booking.hold.released'::text, 'booking.hold.release_deferred'::text, 'booking.hold.payment_in_flight'::text])) AND (app.actor_kind() = 'GUEST'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id = app.actor_id()))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
-- `worker_select_monitor` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'bus_monitor'::text))`
+- `worker_select_monitor` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['bus_monitor'::text, 'ops_monitor'::text])))`
 - `worker_select_relay` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'outbox_relay'::text))`
 - `worker_update_relay` (UPDATE, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'outbox_relay'::text) AND (published_at IS NULL))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'outbox_relay'::text))`
 
@@ -1959,7 +1961,7 @@ Politiques RLS :
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `operation_guest_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'GUEST'::text) AND ((EXISTS ( SELECT 1 FROM core.booking_checkout_hold h WHERE ((h.id = payment_payment_operation.hold_id) AND (h.guest_user_id = app.actor_id())))) OR (EXISTS ( SELECT 1 FROM core.booking_trip t WHERE (t.id = payment_payment_operation.trip_id)))))`
 - `operation_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('ADMIN'::text, country_code) OR app.has_staff_role('FINANCE'::text, country_code) OR ((trip_id IS NOT NULL) AND app.staff_case_covers('TRIP'::text, trip_id))))`
-- `worker_select` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text, 'hold_expiry'::text, 'webhook_ingest'::text, 'booking_oracle'::text])))`
+- `worker_select` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text, 'hold_expiry'::text, 'webhook_ingest'::text, 'booking_oracle'::text, 'ops_monitor'::text])))`
 - `worker_select_payment_command` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'payment_command'::text))`
 - `worker_update_status` (UPDATE, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text, 'webhook_ingest'::text])))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text, 'webhook_ingest'::text])))`
 
@@ -2247,6 +2249,7 @@ Déclencheurs :
 | `processed_at` | `timestamp with time zone` | non | — |
 | `error` | `text` | non | — |
 | `normalized_events` | `jsonb` | non | — |
+| `processing_attempts` | `integer` | oui | `0` |
 
 Contraintes :
 
@@ -2254,6 +2257,7 @@ Contraintes :
 - `webhook_inbox_dedup` : `UNIQUE NULLS NOT DISTINCT (provider, psp_account_id, dedup_key)`
 - `webhook_inbox_no_pan` : `CHECK (NOT core.payment_text_has_pan(headers::text) AND NOT core.payment_text_has_pan(normalized_events::text) AND NOT core.payment_text_has_pan(provider_event_id))`
 - `webhook_inbox_normalized_events_array` : `CHECK (normalized_events IS NULL OR jsonb_typeof(normalized_events) = 'array'::text)`
+- `webhook_inbox_processing_attempts_nonneg` : `CHECK (processing_attempts >= 0)`
 - `webhook_inbox_processing_status_valid` : `CHECK (processing_status = ANY (ARRAY['RECEIVED'::text, 'PROCESSED'::text, 'DUPLICATE'::text, 'QUARANTINED'::text, 'FAILED'::text, 'REJECTED_SIGNATURE'::text]))`
 - `webhook_inbox_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
 - `webhook_inbox_psp_account_fk` : `FOREIGN KEY (psp_account_id) REFERENCES core.payment_psp_account(id)`
@@ -2268,7 +2272,7 @@ Politiques RLS :
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert_ingest` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'webhook_ingest'::text))`
-- `worker_select` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['webhook_ingest'::text, 'booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])))`
+- `worker_select` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['webhook_ingest'::text, 'booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text, 'ops_monitor'::text])))`
 - `worker_update_ingest` (UPDATE, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'webhook_ingest'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'webhook_ingest'::text))`
 
 ### `core.pricing_tax_line_config`
@@ -3051,6 +3055,7 @@ Index :
 
 Politiques RLS :
 
+- `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
 - `support_case_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('ADMIN'::text, country_code) OR ((assignee_id = app.actor_id()) AND (app.has_staff_role('OPS_AGENT'::text, country_code) OR app.has_staff_role('SUPPORT_AGENT'::text, country_code)))))`
@@ -3168,6 +3173,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_session_resolve(p_token_hash bytea)` | `TABLE(session_id uuid, user_id uuid, mfa_level text, expires_at timestamp with time zone, email_verified boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_staff_audit_read(p_token_hash bytea, p_before_id bigint, p_limit integer)` | `TABLE(id bigint, at timestamp with time zone, actor_user_id uuid, actor_role text, action_code text, subject_type text, subject_id uuid, reason text, before jsonb, after jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_begin(p_token_hash bytea)` | `TABLE(outcome text, user_id uuid, factor_id uuid, roles jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.iam_staff_cmd_data_access(p_token_hash bytea, p_request_id uuid, p_case_id uuid, p_subject_type text, p_subject_id uuid, p_field_or_file text, p_access_kind text, p_purpose text)` | `TABLE(outcome text, access_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_elevate(p_token_hash bytea, p_factor_id uuid, p_step bigint, p_proof bytea)` | `text` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_enroll_reveal(p_token_hash bytea, p_code_hash bytea)` | `TABLE(outcome text, factor_id uuid, secret_ref text)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_manual_action(p_token_hash bytea, p_request_id uuid, p_action_code text, p_subject_id uuid, p_reason text, p_input jsonb)` | `TABLE(outcome text, action_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -3258,6 +3264,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_staff_permitted(p_user uuid, p_permission text, p_countries text[], p_roles text[])` | `text` | `migrator` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_staff_session(p_token_hash bytea, OUT user_id uuid, OUT session_id uuid, OUT mfa_level text)` | `record` | `migrator` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_totp_step_now()` | `bigint` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.ops_monitor_metrics(p_since timestamp with time zone, p_webhook_failures integer)` | `TABLE(metric text, label text, country_code text, value bigint)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.outbox_begin_receipt(p_event_id uuid)` | `boolean` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.outbox_claim_jobs(p_limit integer, p_lease interval)` | `SETOF core.outbox_scheduled_job` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.outbox_complete_job(p_job_id uuid)` | `boolean` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
@@ -3288,3 +3295,4 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
+

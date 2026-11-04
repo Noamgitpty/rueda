@@ -75,7 +75,7 @@ Depuis l'onglet Actions, workflow **deploy** (ou `gh workflow run deploy.yml -f 
 - **Automatique** : une version non saine ne remplace pas la précédente (coupe-circuit ECS, script local). Le journal porte `DEPLOY FAILED` puis `ROLLBACK SUCCEEDED` (`reason: automatique`). Le run sort en erreur.
 - **Manuel** : `action=rollback target=<env>` (sans accord préalable ; l'orchestrateur notifie le fondateur). Ressert l'empreinte précédente du journal, sans job de base ni migration descendante. Journal : `ROLLBACK SUCCEEDED` (`reason: manuel`, `from` = empreinte retirée).
 - **Si une migration est en cause** : ne jamais modifier une migration appliquée. Écrire une migration corrective (nouvelle version), la faire passer par la préproduction, puis déployer.
-- **Si le retour arrière échoue** (`ROLLBACK FAILED`) : incident ; le mode dégradé et l'astreinte sont décrits en 17 §6.4 (procédure d'incident : US-004, US-405).
+- **Si le retour arrière échoue** (`ROLLBACK FAILED`) : incident ; le mode dégradé et l'astreinte sont décrits en 17 §6.4 (procédure d'incident : US-405). Sauvegardes et restauration : [`BACKUP_RESTORE.md`](BACKUP_RESTORE.md) ; alertes : [`MONITORING.md`](MONITORING.md) (US-004).
 
 ## 7. Interdits
 

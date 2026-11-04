@@ -1,5 +1,5 @@
--- 0051 — AUD / exploitation : journal des lectures de données personnelles par le staff et
--- supervision (comptes seulement).
+-- 0051 — AUD : lectures de données personnelles par le staff journalisées ; supervision.
+-- Comptes seulement dans les métriques de supervision.
 -- US-004 ; 16 ADM-032 (« Given une consultation d'un dossier KYC, Then elle est au journal
 -- d'accès » ; « Given un webhook PSP en échec 3 fois, Then une alerte part »), NFR-07, NFR-15 ;
 -- 17 §2.3 (`kyc.read_sensitive`, « hors dossier : support_case BREAK_GLASS motivé, journalisé

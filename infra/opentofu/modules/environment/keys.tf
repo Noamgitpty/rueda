@@ -35,7 +35,7 @@ resource "aws_kms_key" "data" {
   deletion_window_in_days = 30
   policy = jsonencode({
     Version   = "2012-10-17"
-    Statement = local.backup_copy_enabled ? [local.data_key_admin, local.data_key_backup_copy] : [local.data_key_admin]
+    Statement = concat([local.data_key_admin], [for s in [local.data_key_backup_copy] : s if local.backup_copy_enabled])
   })
   tags = local.tags
 }
