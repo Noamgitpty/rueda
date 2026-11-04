@@ -288,7 +288,10 @@ export class PgWebhookWorkStore implements WebhookWorkStore {
       `UPDATE core.payment_webhook_inbox
           SET processing_status = $2,
               processed_at = CASE WHEN $2 = 'PROCESSED' THEN platform.now() END,
-              error = $3
+              error = $3,
+              -- passages en échec comptés : alerte du moniteur à 3 (0051, US-004, ADM-032)
+              processing_attempts = processing_attempts
+                                    + CASE WHEN $2 = 'PROCESSED' THEN 0 ELSE 1 END
         WHERE id = $1`,
       [inboxId, status, error],
     );

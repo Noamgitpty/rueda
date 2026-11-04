@@ -15,7 +15,7 @@ import type pg from 'pg';
 import { afterEach, describe, expect, it } from 'vitest';
 import { connectAs, releaseClient } from '@rueda/db/testing';
 import { BusRegistry } from '../../src/modules/bus/index.js';
-import type { SqlClient, WorkerTransactions } from '../../src/modules/bus/index.js';
+import type { AlertChannel, SqlClient, WorkerTransactions } from '../../src/modules/bus/index.js';
 import { CountryConfigService } from '../../src/modules/cfg/index.js';
 import { assertPaymentStartup } from '../../src/modules/pay/index.js';
 import { registerWorkerTasks } from '../../src/worker-tasks.js';
@@ -51,6 +51,9 @@ const rolledBack: WorkerTransactions = {
   },
 };
 
+/** Canal d'alerte qui ne garde rien (le moniteur est prouvé par test/int/ops-monitor.int.test.ts). */
+const discard: AlertChannel = { send: () => Promise.resolve() };
+
 function registry(logs: string[]): BusRegistry {
   const r = new BusRegistry();
   registerWorkerTasks(r, {
@@ -58,12 +61,20 @@ function registry(logs: string[]): BusRegistry {
     config: new CountryConfigService().config,
     brandName: 'Marca de prueba',
     log: (l) => logs.push(l),
+    // la base de test est partagée : ses alertes éventuelles vont au FAKE, pas au journal vérifié
+    alerts: discard,
   });
   return r;
 }
 
 describe('US-003 — tâches périodiques du travailleur sous app_worker', () => {
-  for (const name of ['hold_expiry', 'disposition_sweeper', 'booking_oracle', 'risk_pruner']) {
+  for (const name of [
+    'hold_expiry',
+    'disposition_sweeper',
+    'booking_oracle',
+    'risk_pruner',
+    'ops_monitor',
+  ]) {
     it(`${name} : s'exécute sous son nom de travailleur ; un autre nom est refusé`, async () => {
       const logs: string[] = [];
       const r = registry(logs);

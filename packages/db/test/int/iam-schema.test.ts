@@ -65,6 +65,8 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_session_resolve(bytea)': 'iam_auth_owner',
   'core.iam_staff_audit_read(bytea,bigint,integer)': 'iam_staff_owner',
   'core.iam_staff_cmd_begin(bytea)': 'iam_staff_owner',
+  // porte des lectures de données personnelles par le staff (US-004, 0051)
+  'core.iam_staff_cmd_data_access(bytea,uuid,uuid,text,uuid,text,text,text)': 'iam_staff_owner',
   'core.iam_staff_cmd_elevate(bytea,uuid,bigint,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_enroll_reveal(bytea,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb)': 'iam_staff_owner',

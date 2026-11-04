@@ -14,8 +14,16 @@ import type pg from 'pg';
 import { commandCallSql, setSessionContext } from '../../src/index.ts';
 import { HOLD_TTL, SWEEP_GRACE_S, uuid } from './avl.ts';
 import type { CountryCase, Slot } from './avl.ts';
-export { MAX_REPLAYS, percentile, sqlState, withReplay } from './replay.ts';
-export type { Replayed } from './replay.ts';
+export {
+  CASCADE_BACKOFF_FACTOR,
+  cascadeBackoff,
+  MAX_REPLAYS,
+  percentile,
+  SHORT_BACKOFF,
+  sqlState,
+  withReplay,
+} from './replay.ts';
+export type { Replayed, ReplayBackoff } from './replay.ts';
 
 /** Seuil de C1 / L0-02 : p95 de la pose < 300 ms (17 §11). */
 export const POSE_P95_MS = 300;

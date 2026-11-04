@@ -49,6 +49,11 @@ module "environment" {
   api_desired_count        = 1
   github_repository        = var.github_repository
   github_oidc_provider_arn = var.github_oidc_provider_arn
+  # sauvegardes et alertes (US-004, ADR-080) : copie hors compte facultative en préproduction (coût)
+  backup_retention_days      = 7
+  backup_copy_vault_arn      = var.backup_copy_vault_arn
+  backup_copy_retention_days = 7
+  alert_email                = var.alert_email
 }
 
 output "environment" {
