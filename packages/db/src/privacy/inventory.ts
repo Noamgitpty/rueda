@@ -267,8 +267,9 @@ export function grantedColumns(
  * - app_anon ne lit aucune colonne C2, C3 ou C4 ;
  * - app_api ne lit aucune colonne C3 (lecture journalisée par fonction, 17 §3.1.4) ni C4 sans
  *   `apiRead` ;
- * - une table dont app_api lit une colonne C2 n'est jamais lisible « tout » par un voyageur, un
- *   hôte, un co-hôte, un hôte à org forgée ou une session sans contexte ;
+ * - une table dont app_api lit une colonne C2 n'est lisible par un voyageur, un hôte, un co-hôte,
+ *   un hôte à org forgée ou une session sans contexte que sur SES lignes (prédicat personnel) ou
+ *   pas du tout ;
  * - export `self` ⇔ la matrice donne au voyageur, à l'hôte ou au co-hôte un prédicat personnel :
  *   l'export en libre-service couvre exactement ce que la personne peut lire d'elle-même.
  */
@@ -308,8 +309,14 @@ export function checkMatrixCoherence(
     const lecture = rel.lecture ?? {};
     if (apiReadsC2) {
       for (const actor of ['sans_contexte', 'voyageur', 'hote', 'cohote', 'hote_org_forgee']) {
-        if (lecture[actor] === 'tout') {
+        // un voyageur, un hôte ou une session sans contexte ne lit des C2 que de SES lignes
+        const p = lecture[actor];
+        if (p === 'tout') {
           errors.push(`${name} : données C2 lisibles « tout » par l'acteur ${actor}`);
+        } else if (p !== undefined && p !== 'aucune' && !isPersonalPredicate(p)) {
+          errors.push(
+            `${name} : données C2 lisibles par ${actor} hors de ses propres lignes (${p})`,
+          );
         }
       }
     }

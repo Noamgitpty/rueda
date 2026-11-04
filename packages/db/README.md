@@ -389,9 +389,9 @@ Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge v
 
 ## Migrations testées et données personnelles (US-046 ; 17 §3.1.3, §3.1.4, §11 RLS-19 ; ADR-081)
 
-- **Expand / contract imposé** : `pnpm lint:sql` (et `pnpm lint`) lance `src/expand-contract/cli.ts`. Une contraction de premier niveau échoue : suppression, renommage, changement de type, `SET NOT NULL`, colonne `NOT NULL` sans défaut, retrait d'un droit d'un rôle applicatif, `TRUNCATE`, `DELETE`, `UPDATE`. Seule une dérogation de `expand-contract-allowlist.json` (fichier, ligne, nature, justification) la fait passer ; une dérogation périmée échoue aussi.
+- **Expand / contract imposé** : `pnpm lint:sql` (et `pnpm lint`) lance `src/expand-contract/cli.ts`. Une contraction échoue, au premier niveau, dans un bloc `DO` (quelle que soit la structure de contrôle) ou dans une fonction : vingt et une natures (ADR-081), dont politique, contrainte, déclencheur ou index retiré sans être recréé sous le même nom, défaut retiré, RLS relâchée et `EXECUTE` dynamique. Seule une dérogation de `expand-contract-allowlist.json` (fichier, ligne, nature, justification) la fait passer ; une dérogation périmée échoue aussi.
 - **Migrations une par une sur base peuplée** : `test/l0/l0-us046-migrations.test.ts`, sur la base `_mig` du banc (amorcée sans migration), sous `migrator`. Après chaque migration :
-  - schéma de la version N conservé (retour arrière d'US-003 sans migration descendante) ;
+  - schéma de la version N conservé (retour arrière d’US-003 sans migration descendante) : colonnes, types, défauts, fonctions, droits, politiques, contraintes, déclencheurs, index, RLS ;
   - lignes et comptes égaux ;
   - contraintes validées, FK sans orpheline, RLS `ENABLE` + `FORCE` et lecture de `migrator` (RLS-19) ;
   - graines PA / PY de `test/support/migration-seeds.ts` posées dès que leurs tables existent.

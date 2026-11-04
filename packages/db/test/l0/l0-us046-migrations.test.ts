@@ -10,8 +10,10 @@
  *    existent : chaque migration suivante s'applique donc sur une base PEUPLÉE ;
  * 3. « descente » = retour arrière d'US-003 SANS migration descendante (expand / contract) : après
  *    chaque migration, tout ce que la version précédente utilisait existe encore à l'identique
- *    (tables, vues, colonnes et leurs types, nullabilité, fonctions, droits des rôles
- *    applicatifs), sauf contraction déclarée et justifiée dans expand-contract-allowlist.json ;
+ *    (tables, vues, colonnes et leurs types, nullabilité, défauts, fonctions, droits des rôles
+ *    applicatifs, politiques RLS, contraintes, déclencheurs actifs, index, RLS ENABLE + FORCE),
+ *    sauf contraction déclarée et justifiée dans expand-contract-allowlist.json. C'est un contrôle
+ *    de STRUCTURE : le code de la version N n'est pas exécuté (ADR-081, « Limites ») ;
  * 4. comptes de lignes et contenu des lignes existantes égaux avant / après chaque migration (seule
  *    une migration qui déclare un INSERT ajoute des lignes ; seule une migration de données
  *    déclarée réécrit des lignes) ; contrôles d'intégrité (contraintes validées, FK sans orpheline, RLS ENABLE +
@@ -66,6 +68,18 @@ interface Catalog {
   readonly relations: Map<string, Relation>;
   readonly functions: Set<string>;
   readonly privileges: Set<string>;
+  /** `table politique` (politiques RLS). */
+  readonly policies: Set<string>;
+  /** `table contrainte`. */
+  readonly constraints: Set<string>;
+  /** `table déclencheur` → activé (tgenabled <> 'D'). */
+  readonly triggers: Map<string, boolean>;
+  /** Index nommés (`schéma.index`). */
+  readonly indexes: Set<string>;
+  /** Colonnes qui ont un défaut (`table.colonne`). */
+  readonly defaults: Set<string>;
+  /** Tables sous RLS ENABLE + FORCE. */
+  readonly rlsForced: Set<string>;
 }
 
 async function readCatalog(c: pg.ClientBase): Promise<Catalog> {
@@ -125,10 +139,51 @@ async function readCatalog(c: pg.ClientBase): Promise<Catalog> {
       WHERE n.nspname = ANY($1) AND r.rolname = ANY($2)`,
     [SCHEMAS, APP_ROLES],
   );
+  const objects = await c.query<{ kind: string; k: string; enabled: boolean }>(
+    `SELECT 'policy' AS kind, n.nspname || '.' || cl.relname || ' ' || p.polname AS k, true AS enabled
+       FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class cl ON cl.oid = p.polrelid
+       JOIN pg_catalog.pg_namespace n ON n.oid = cl.relnamespace WHERE n.nspname = ANY($1)
+     UNION ALL
+     SELECT 'constraint', n.nspname || '.' || cl.relname || ' ' || co.conname, true
+       FROM pg_catalog.pg_constraint co JOIN pg_catalog.pg_class cl ON cl.oid = co.conrelid
+       JOIN pg_catalog.pg_namespace n ON n.oid = cl.relnamespace WHERE n.nspname = ANY($1)
+     UNION ALL
+     SELECT 'trigger', n.nspname || '.' || cl.relname || ' ' || t.tgname, t.tgenabled <> 'D'
+       FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class cl ON cl.oid = t.tgrelid
+       JOIN pg_catalog.pg_namespace n ON n.oid = cl.relnamespace
+      WHERE n.nspname = ANY($1) AND NOT t.tgisinternal
+     UNION ALL
+     SELECT 'index', n.nspname || '.' || cl.relname, true
+       FROM pg_catalog.pg_class cl JOIN pg_catalog.pg_namespace n ON n.oid = cl.relnamespace
+      WHERE n.nspname = ANY($1) AND cl.relkind IN ('i', 'I')
+     UNION ALL
+     SELECT 'default', n.nspname || '.' || cl.relname || '.' || a.attname, true
+       FROM pg_catalog.pg_attrdef d
+       JOIN pg_catalog.pg_class cl ON cl.oid = d.adrelid
+       JOIN pg_catalog.pg_namespace n ON n.oid = cl.relnamespace
+       JOIN pg_catalog.pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+      WHERE n.nspname = ANY($1) AND a.attgenerated = ''
+     UNION ALL
+     SELECT 'rls', n.nspname || '.' || cl.relname, true
+       FROM pg_catalog.pg_class cl JOIN pg_catalog.pg_namespace n ON n.oid = cl.relnamespace
+      WHERE n.nspname = ANY($1) AND cl.relkind IN ('r', 'p')
+        AND cl.relrowsecurity AND cl.relforcerowsecurity`,
+    [SCHEMAS],
+  );
+  const of = (kind: string): string[] =>
+    objects.rows.filter((r) => r.kind === kind).map((r) => r.k);
   return {
     relations,
     functions: new Set(fns.rows.map((r) => r.sig)),
     privileges: new Set(privs.rows.map((r) => r.p)),
+    policies: new Set(of('policy')),
+    constraints: new Set(of('constraint')),
+    triggers: new Map(
+      objects.rows.filter((r) => r.kind === 'trigger').map((r) => [r.k, r.enabled]),
+    ),
+    indexes: new Set(of('index')),
+    defaults: new Set(of('default')),
+    rlsForced: new Set(of('rls')),
   };
 }
 
@@ -283,6 +338,43 @@ function contractions(before: Catalog, after: Catalog): Array<{ kind: string[]; 
         kind: ['revoke-app-role', 'drop-function', 'drop-object', 'drop-column'],
         what: `droit retiré : ${p}`,
       });
+    }
+  }
+  const gone = (rel: string): boolean => !after.relations.has(rel.split(' ')[0] as string);
+  for (const p of before.policies) {
+    if (!after.policies.has(p) && !gone(p))
+      out.push({ kind: ['drop-policy'], what: `politique ${p} supprimée` });
+  }
+  for (const k of before.constraints) {
+    if (!after.constraints.has(k) && !gone(k)) {
+      out.push({ kind: ['drop-constraint', 'drop-column'], what: `contrainte ${k} supprimée` });
+    }
+  }
+  for (const [t, on] of before.triggers) {
+    const now = after.triggers.get(t);
+    if (now === undefined && !gone(t))
+      out.push({ kind: ['drop-trigger'], what: `déclencheur ${t} supprimé` });
+    else if (on && now === false)
+      out.push({ kind: ['disable-trigger'], what: `déclencheur ${t} désactivé` });
+  }
+  for (const i of before.indexes) {
+    if (!after.indexes.has(i)) {
+      out.push({
+        kind: ['drop-index', 'drop-constraint', 'drop-column', 'drop-object'],
+        what: `index ${i} supprimé`,
+      });
+    }
+  }
+  for (const d of before.defaults) {
+    const rel = d.split('.').slice(0, 2).join('.');
+    const col = d.split('.')[2] as string;
+    if (!after.defaults.has(d) && after.relations.get(rel)?.columns.has(col) === true) {
+      out.push({ kind: ['drop-default'], what: `défaut de ${d} retiré` });
+    }
+  }
+  for (const t of before.rlsForced) {
+    if (!after.rlsForced.has(t) && after.relations.has(t)) {
+      out.push({ kind: ['disable-rls'], what: `RLS de ${t} relâchée` });
     }
   }
   return out;

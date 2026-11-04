@@ -10,21 +10,26 @@ Le critère de 19 demande qu'une migration « monte puis descende » sur les gra
 ## Décision
 
 1. **« Descente » = retour arrière d'US-003.** On ne crée pas de migrations descendantes (ADR-078). La descente se prouve en vérifiant qu'après la migration N + 1, tout ce que la version N utilise existe encore à l'identique.
-2. **Lint `sql-expand-contract`** (`packages/db/src/expand-contract/`, dans `pnpm lint` et `pnpm lint:sql`). Il analyse les instructions de premier niveau des migrations de production : commentaires, chaînes et corps de fonctions sont masqués, le corps d'un bloc `DO` est analysé. Il refuse onze contractions :
-   - suppression d'une table, d'une vue, d'une séquence, d'un type ou d'un schéma ;
-   - suppression d'une fonction, suppression d'une colonne ;
-   - renommage ;
-   - changement de type ;
-   - `SET NOT NULL` ;
-   - colonne `NOT NULL` sans défaut ;
-   - retrait d'un droit d'`app_api`, `app_worker` ou `app_anon` ;
-   - `TRUNCATE`, `DELETE` ou `UPDATE` de premier niveau.
+2. **Lint `sql-expand-contract`** (`packages/db/src/expand-contract/`, dans `pnpm lint` et `pnpm lint:sql`). Commentaires et chaînes sont masqués. Il analyse (revues code et architecture d'US-046) :
+   - les instructions de premier niveau ;
+   - le corps des blocs `DO` : **toute** instruction, quelle que soit la structure de contrôle qui la précède (`IF … THEN`, `ELSIF`, `ELSE`, `LOOP`, `EXCEPTION WHEN … THEN`) ;
+   - le corps des fonctions et procédures : leurs définitions (DDL, droits, rôles) et leur SQL dynamique. Leurs `UPDATE` et `DELETE` sont le métier de la fonction, exécuté plus tard, pas une migration de données.
 
-   Une contraction n'est admise que par une **dérogation** de `packages/db/expand-contract-allowlist.json` : fichier, ligne, nature, justification d'au moins 40 caractères. Une dérogation périmée fait échouer le lint. Les sept contractions historiques (0032 à 0044) y sont justifiées : elles ont été écrites avant la règle, alors qu'aucune version n'était servie.
+   Il refuse vingt et une natures de contraction :
+   - suppression d'une table, d'une vue, d'une séquence, d'un type, d'un domaine, d'une extension ou d'un schéma ; d'une fonction ; d'une colonne ;
+   - suppression d'une politique RLS, d'une contrainte, d'un déclencheur ou d'un index **non recréé sous le même nom dans la même migration** (le remplacement est admis : le test L0 prouve que l'objet existe encore, la matrice d'US-043 prouve l'effet des politiques) ;
+   - défaut retiré (`DROP DEFAULT`, `DROP IDENTITY`) ;
+   - renommage ; changement de schéma (`SET SCHEMA`) ; changement de type ;
+   - `SET NOT NULL` ; colonne `NOT NULL` sans défaut ;
+   - retrait d'un droit d'`app_api`, `app_worker` ou `app_anon` ; RLS relâchée (`DISABLE` ou `NO FORCE ROW LEVEL SECURITY`) ; déclencheur désactivé ; rôle modifié (`ALTER ROLE`, `DROP` ou `REASSIGN OWNED`) ;
+   - `EXECUTE` dynamique : son texte n'est pas analysable, il est donc refusé par défaut ;
+   - `TRUNCATE`, `DELETE`, `UPDATE`.
+
+   Une contraction n'est admise que par une **dérogation** de `packages/db/expand-contract-allowlist.json` : fichier, ligne, nature, justification d'au moins 40 caractères. Une dérogation périmée fait échouer le lint. Les dérogations historiques (0008 à 0044) ont été écrites avant la règle, alors qu'aucune version n'était servie : elles sont justifiées une par une. Celle de 0052 vient de la revue sécurité. Chaque nature a un contre-exemple qui fait échouer le lint, au premier niveau et derrière `IF … THEN` / `ELSIF` (`expand-contract.test.ts`).
 
 3. **Test des migrations une par une** (`test/l0/l0-us046-migrations.test.ts`). Le banc crée une cinquième base, `rueda_test_<aléa>_mig`, amorcée **sans** migration. Seul ce test la touche, sous `migrator` (`connectMigratorForMigrationTest`, réservé à cette base ; jamais SUPERUSER ni BYPASSRLS). Pour chaque migration, dans l'ordre :
    - application **seule**, par l'option `through` de `runMigrations` ;
-   - comparaison des catalogues avant et après (relations, colonnes, types, nullabilité, fonctions, droits des rôles applicatifs). Tout écart doit être couvert par une dérogation du même fichier ;
+   - comparaison des catalogues avant et après : relations, colonnes, types, nullabilité, défauts, fonctions, droits des rôles applicatifs, politiques RLS, contraintes, déclencheurs (présents et actifs), index, RLS `ENABLE` + `FORCE`. Tout objet disparu ou relâché doit être couvert par une dérogation de même nature dans le même fichier ;
    - comparaison des données : comptes, et empreinte de chaque ligne existante sur ses colonnes d'avant. Des lignes ne peuvent apparaître qu'avec un `INSERT` de premier niveau sur la table, et seule une migration de données déclarée (`dataTables`) peut réécrire des lignes ;
    - contrôles d'intégrité : aucune contrainte `NOT VALID` (PostgreSQL contrôle les lignes existantes à l’ajout d’un `CHECK` ou d’une FK), aucune clé étrangère orpheline, RLS `ENABLE` + `FORCE` et lecture complète de `migrator` sur chaque table (RLS-19, B9) ;
    - pose des graines (`test/support/migration-seeds.ts`), dès que leurs tables existent. Ce sont des personnes, comptes d'hôte, sessions, événements, clés de sujet, lignes d'audit chaînées, journal d'accès, fichier chiffré, dossier de support, notifications, occupations, trip et hold, en PA et en PY. `migrator`, sous RLS forcée, doit voir exactement les lignes posées (RLS-19).
@@ -37,7 +42,7 @@ Le critère de 19 demande qu'une migration « monte puis descende » sur les gra
    - **cohérence avec la matrice d'US-043** :
      - aucune colonne C2 à C4 n'est lisible par `app_anon` ;
      - aucune C3, ni aucune C4 sans `apiRead` justifié, n'est lisible par `app_api` ;
-     - aucune table à C2 n'est lisible « tout » par un voyageur ou un hôte ;
+     - une table dont `app_api` lit une C2 n'est lisible par un voyageur, un hôte, un co-hôte ou une session sans contexte que sur SES lignes (prédicat personnel) ou pas du tout ;
      - l'export `self` correspond exactement aux tables qu'une personne lit d'elle-même.
 5. **Export en libre-service** (`exportOwnPersonalData`, BR-ACC-09). Il tourne dans la session de la personne, sous `app_api`, et la RLS fait foi. Il couvre chaque table `self`, avec les colonnes que la matrice accorde à `app_api`, sauf les C4. Les données que la personne ne lit pas elle-même relèvent de l'export par le responsable des données (`controller`, US-536).
 6. **Effacement piloté par l'inventaire.** Pour chaque colonne et chaque contenu de fichier en crypto-shredding, la destruction de la clé du sujet doit rendre ses octets illisibles, sans changer les octets, les comptes ni la chaîne d'audit. Le sujet de l'autre pays doit rester lisible.
@@ -48,7 +53,9 @@ Le critère de 19 demande qu'une migration « monte puis descende » sur les gra
 
 ## Défauts PROPOSÉS (fail-closed, 22)
 
-- Classe des motifs libres (`reason`, `purpose`) : **C2**. Dans les registres en ajout seul (`audit_log.reason`, `data_access_log.purpose`, `finance_approval.reason`), ils ne peuvent être ni pseudonymisés ni détruits par clé : ils sont inscrits en **dérogation** avec report à US-536. Consigne : aucune donnée d'une personne dans un motif.
+- Classe des motifs libres (`reason`, `purpose`, `change_reason`) : **C2**. Dans les registres en ajout seul et la configuration versionnée (`audit_log.reason`, `data_access_log.purpose`, `finance_approval.reason`, `config_param_value.change_reason`, `iam_role_permission.change_reason`), ils ne peuvent être ni pseudonymisés ni détruits par clé : ils sont inscrits en **dérogation** avec report à US-536. Consigne : aucune donnée d'une personne dans un motif.
+- Revue sécurité, migration **0052** : `config_param_value.change_reason`, lu en « tout » par `app_api` (sans contexte compris), ne lui est plus accordé. Les motifs du trip (`cancellation_reason`, `termination_reason`) et de suspension du sous-marchand (`suspended_reason`) sont classés C2 et deviennent des **codes** (`^[A-Z][A-Z0-9_]{1,63}$`), jamais du texte libre. Les motifs du trip restent lus du seul voyageur et du seul hôte du trip, et du staff par dossier ou par pays (matrice d'US-043). Les autres motifs libres restants (`last_error`, `error`) sont des erreurs techniques, non lues par `app_api`.
+- **US-536 bloque l'activation des hôtes** : `p2p_private_hosts_enabled` reste `false` dans chaque pays tant que la pseudonymisation, la purge et le sort des motifs C2 en dérogation ne sont pas codés et prouvés (report inscrit dans RESUME_HERE).
 - Variables de notification : **C2**, effacées par purge (rétention courte). En-têtes de webhook : **C1** (en-têtes du PSP, masqués des PAN).
 - `iam_organization.tax_id` : **C2**, selon l'annotation de la migration 0010. S'il passait en C3 (n° de pièce, 17 §3.1.4), la cohérence avec la matrice échouerait : `app_api` le lit.
 
@@ -57,10 +64,12 @@ Le critère de 19 demande qu'une migration « monte puis descende » sur les gra
 - L'analyse statique des journaux se fait par **nom**. Elle ne suit pas une valeur à travers des variables intermédiaires. Les noms trop génériques (`key`, `reason`, `purpose`, `variables`) sont exclus : leur contenu est couvert par l'inventaire et par la revue.
 - Graines sans PAY ni STL : le compte FAKE exige un environnement déclaré, et les quatre jambes ont leurs propres preuves L0 (US-019, US-023, US-056). Leurs tables sont vides dans le parcours, mais leurs contrôles de schéma, de droits, d'intégrité et de RLS-19 s'appliquent.
 - La pseudonymisation des colonnes C2 des tables B (compte, organisation, sessions) et la purge par rétention ne sont pas encore codées : l'inventaire déclare la méthode, l'outil arrive avec US-536.
-- La perte d'une **politique** RLS d'un rôle applicatif n'est pas une contraction détectée : seuls les droits (GRANT) le sont. La matrice d'US-043 couvre les politiques.
+- Le test L0 contrôle la **structure** : la version N n'est pas exécutée sur le schéma N + 1. Un objet conservé mais modifié (expression d'une politique ou d'un `CHECK`, corps d'une fonction, valeur d'un défaut) n'est pas une contraction détectée. La matrice d'US-043 prouve l'effet des politiques, et les suites L0 et de contrat prouvent celui des fonctions.
+- Une dérogation couvre une **nature** dans un fichier, pas un objet : deux contractions de même nature dans une même migration sont couvertes par la même dérogation (revue code, constat 4).
+- Le remplacement d'une politique sous le même nom peut en changer l'expression : la matrice d'US-043 en est le garde-fou.
 
 ## Conséquences
 
-- Une migration qui supprime, renomme, retype, rend obligatoire, retire un droit, ou réécrit ou supprime des données échoue au lint, sauf dérogation revue (architecture, et sécurité si un droit est retiré). Elle échoue aussi au test L0 si elle casse la version N, perd ou altère une ligne, ou échoue sur une base peuplée.
+- Une migration qui supprime, renomme, retype, rend obligatoire, retire un droit, une politique, une contrainte, un déclencheur, un index ou un défaut, relâche la RLS, exécute du SQL dynamique, ou réécrit ou supprime des données, échoue au lint, sauf dérogation revue (architecture, et sécurité si un droit, une politique ou la RLS est en jeu). Elle échoue aussi au test L0 si elle casse la version N, perd ou altère une ligne, ou échoue sur une base peuplée.
 - Une colonne ajoutée par une migration doit être classée dans l'inventaire dans la même story. Les deux tests de complétude échouent sinon.
 - Toute story qui ajoute une graine réaliste peut l'ajouter à `migration-seeds.ts`. Les migrations suivantes seront alors prouvées sur ces données.

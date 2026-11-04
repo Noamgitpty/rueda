@@ -113,6 +113,31 @@ describe('US-046 — inventaire des données personnelles', () => {
     ]);
   });
 
+  it('revue sécurité : un motif libre C2 relu par app_api en « tout » échoue (0052 l’a retiré)', () => {
+    const bad = JSON.parse(JSON.stringify(matrix)) as {
+      relations: Record<string, { droits: Record<string, Record<string, string[] | string>> }>;
+    };
+    const param = bad.relations['core.config_param_value'];
+    if (!param) throw new Error('relation attendue');
+    param.droits['app_api'] = { SELECT: ['id', 'key', 'change_reason'] };
+    expect(
+      checkMatrixCoherence(inventory, bad as unknown as AuthorizationMatrix).filter((e) =>
+        e.startsWith('core.config_param_value'),
+      ),
+    ).toEqual(
+      ['sans_contexte', 'voyageur', 'hote', 'cohote', 'hote_org_forgee'].map(
+        (a) => `core.config_param_value : données C2 lisibles « tout » par l'acteur ${a}`,
+      ),
+    );
+    // motifs du trip : C2, lus du seul voyageur et du seul hôte du trip (prédicats personnels)
+    const trip = matrix.relations['core.booking_trip'];
+    expect(trip?.lecture?.['voyageur']).toBe('guest_user_id = :acteur');
+    expect(trip?.lecture?.['sans_contexte']).toBe('aucune');
+    for (const col of ['cancellation_reason', 'termination_reason']) {
+      expect(classOf(inventory.tables['core.booking_trip']?.columns[col] ?? 'C1')).toBe('C2');
+    }
+  });
+
   it('C2 / C3 inventoriées : identité, contact, IP, motifs, et C4 jamais exportables', () => {
     const personal = Object.entries(inventory.tables).flatMap(([t, e]) =>
       Object.entries(e.columns)

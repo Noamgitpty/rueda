@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { lintExpandContract } from './lint-tree.ts';
 import { scanExpandContract } from './scan.ts';
+import { CONTRACT_KINDS } from './scan.ts';
 import type { ContractKind } from './scan.ts';
 import { PACKAGE_ROOT } from '../paths.ts';
 
@@ -55,6 +56,60 @@ describe('scanExpandContract : contractions refusées', () => {
     ['WITH x AS (SELECT 1) DELETE FROM core.t;', 'data-delete'],
     ["UPDATE core.t SET a = 'b';", 'data-update'],
     ['DO $$ BEGIN UPDATE core.t SET a = 1; END $$;', 'data-update'],
+    // natures ajoutées après la revue (code, constat 2)
+    ['DROP POLICY p ON core.t;', 'drop-policy'],
+    ['DROP POLICY IF EXISTS p ON core.t;', 'drop-policy'],
+    ['ALTER TABLE core.t DROP CONSTRAINT c;', 'drop-constraint'],
+    ['DROP TRIGGER tr ON core.t;', 'drop-trigger'],
+    ['DROP INDEX core.i;', 'drop-index'],
+    ['DROP INDEX CONCURRENTLY IF EXISTS core.i;', 'drop-index'],
+    ['ALTER TABLE core.t ALTER COLUMN a DROP DEFAULT;', 'drop-default'],
+    ['ALTER TABLE core.t ALTER COLUMN id DROP IDENTITY;', 'drop-default'],
+    ['ALTER TABLE core.t SET SCHEMA archive;', 'set-schema'],
+    ['ALTER FUNCTION core.f() SET SCHEMA archive;', 'set-schema'],
+    ['ALTER TABLE core.t NO FORCE ROW LEVEL SECURITY;', 'disable-rls'],
+    ['ALTER TABLE core.t DISABLE ROW LEVEL SECURITY;', 'disable-rls'],
+    ['ALTER TABLE core.t DISABLE TRIGGER tr;', 'disable-trigger'],
+    ['ALTER ROLE app_api SET search_path = public;', 'role-change'],
+    ['DROP OWNED BY app_worker;', 'role-change'],
+    ['REASSIGN OWNED BY app_api TO migrator;', 'role-change'],
+    ['DROP EXTENSION btree_gist;', 'drop-object'],
+    ['DROP DOMAIN core.d;', 'drop-object'],
+    // contournements du lint (revue code, constats 1 et 3) : structure de contrôle et SQL dynamique
+    [
+      'DO $do$ BEGIN IF true THEN ALTER TABLE core.t DROP COLUMN a; END IF; END $do$;',
+      'drop-column',
+    ],
+    [
+      'DO $do$ BEGIN IF EXISTS (SELECT 1 FROM core.t) THEN NULL; ELSE DROP TABLE core.t; END IF; END $do$;',
+      'drop-object',
+    ],
+    ['DO $$ BEGIN LOOP DELETE FROM core.t; EXIT; END LOOP; END $$;', 'data-delete'],
+    ['DO $$ BEGIN IF x THEN UPDATE core.t SET a = 1; END IF; END $$;', 'data-update'],
+    ['DO $$ BEGIN IF x THEN DROP POLICY p ON core.t; END IF; END $$;', 'drop-policy'],
+    [
+      'DO $$ BEGIN IF x THEN ALTER TABLE core.t NO FORCE ROW LEVEL SECURITY; END IF; END $$;',
+      'disable-rls',
+    ],
+    [
+      'DO $$ BEGIN IF x THEN REVOKE SELECT ON core.t FROM app_api; END IF; END $$;',
+      'revoke-app-role',
+    ],
+    ["DO $$ BEGIN EXECUTE 'ALTER TABLE core.t DROP COLUMN a'; END $$;", 'dynamic-sql'],
+    ["DO $$ BEGIN IF x THEN EXECUTE format('DROP TABLE %I', 't'); END IF; END $$;", 'dynamic-sql'],
+    ["DO $$ DECLARE t text; BEGIN EXECUTE format('x'); END $$;", 'dynamic-sql'],
+    [
+      'CREATE FUNCTION core.f() RETURNS void LANGUAGE plpgsql AS $fn$ BEGIN IF true THEN ALTER TABLE core.t DROP COLUMN a; END IF; END $fn$;',
+      'drop-column',
+    ],
+    [
+      "CREATE OR REPLACE FUNCTION core.f() RETURNS void LANGUAGE plpgsql AS $fn$ BEGIN EXECUTE 'TRUNCATE core.t'; END $fn$;",
+      'dynamic-sql',
+    ],
+    [
+      'CREATE PROCEDURE core.p() LANGUAGE plpgsql AS $p$ BEGIN DROP TRIGGER tr ON core.t; END $p$;',
+      'drop-trigger',
+    ],
   ])('%s → %s', (sql, kind) => {
     expect(kinds(sql)).toContain(kind);
   });
@@ -67,12 +122,19 @@ describe('scanExpandContract : extensions admises', () => {
     ['ALTER TABLE core.t ADD COLUMN a text;'],
     ['ALTER TABLE core.t ADD COLUMN h uuid GENERATED ALWAYS AS (id) STORED NOT NULL;'],
     ['ALTER TABLE core.t ADD CONSTRAINT c CHECK (a IS NOT NULL);'],
-    ['ALTER TABLE core.t DROP CONSTRAINT c;'],
     ['ALTER TABLE core.t ALTER COLUMN a DROP NOT NULL;'],
-    ['ALTER TABLE core.t ALTER COLUMN a DROP DEFAULT;'],
-    ['DROP POLICY p ON core.t;'],
-    ['DROP TRIGGER tr ON core.t;'],
-    ['DROP INDEX core.i;'],
+    // remplacement sous le même nom dans la même migration
+    ['DROP POLICY p ON core.t;\nCREATE POLICY p ON core.t FOR SELECT TO app_api USING (true);'],
+    [
+      'DROP TRIGGER tr ON core.t;\nCREATE TRIGGER tr BEFORE UPDATE ON core.t FOR EACH ROW EXECUTE FUNCTION f();',
+    ],
+    ['ALTER TABLE core.t DROP CONSTRAINT c;\nALTER TABLE core.t ADD CONSTRAINT c CHECK (a > 0);'],
+    ['DROP INDEX core.i;\nCREATE UNIQUE INDEX i ON core.t (a);'],
+    // PL/pgSQL : verrou, ON CONFLICT, droit EXECUTE, RAISE ; métier d'une fonction (plus bas)
+    ['DO $$ BEGIN PERFORM 1 FROM core.t FOR UPDATE; END $$;'],
+    ['DO $$ BEGIN INSERT INTO core.t VALUES (1) ON CONFLICT (a) DO UPDATE SET b = 1; END $$;'],
+    ['DO $$ BEGIN GRANT EXECUTE ON FUNCTION core.f() TO app_api; END $$;'],
+    ["DO $$ BEGIN IF x THEN RAISE EXCEPTION 'refus'; END IF; END $$;"],
     ['REVOKE ALL ON core.t FROM PUBLIC;'],
     ['REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;'],
     ["INSERT INTO core.t (a) VALUES ('DROP TABLE core.x');"],
@@ -83,6 +145,9 @@ describe('scanExpandContract : extensions admises', () => {
     ],
     ["COMMENT ON TABLE core.t IS 'pas de DROP COLUMN ici';"],
     ['ALTER TABLE core.t ENABLE ROW LEVEL SECURITY;'],
+    ['ALTER TABLE core.t FORCE ROW LEVEL SECURITY;'],
+    ['ALTER TABLE core.t ENABLE TRIGGER tr;'],
+    ['CREATE TRIGGER tr BEFORE UPDATE OR DELETE ON core.t FOR EACH ROW EXECUTE FUNCTION core.g();'],
   ])('%s', (sql) => {
     expect(kinds(sql)).toEqual([]);
   });
@@ -91,6 +156,46 @@ describe('scanExpandContract : extensions admises', () => {
     const sql =
       'CREATE TABLE core.t (a int);\n\n-- commentaire\nALTER TABLE core.t\n  DROP COLUMN a;\n';
     expect(scanExpandContract(sql)).toMatchObject([{ kind: 'drop-column', line: 4 }]);
+  });
+});
+
+describe('scanExpandContract : un contre-exemple par nature (mutation du lint)', () => {
+  // chaque nature de CONTRACT_KINDS a au moins un contre-exemple refusé, dont la forme IF … THEN
+  const SAMPLE: Record<ContractKind, string> = {
+    'drop-object': 'DROP VIEW core.v',
+    'drop-function': 'DROP FUNCTION core.f()',
+    'drop-column': 'ALTER TABLE core.t DROP COLUMN a',
+    'drop-policy': 'DROP POLICY p ON core.t',
+    'drop-constraint': 'ALTER TABLE core.t DROP CONSTRAINT c',
+    'drop-trigger': 'DROP TRIGGER tr ON core.t',
+    'drop-index': 'DROP INDEX core.i',
+    'drop-default': 'ALTER TABLE core.t ALTER COLUMN a DROP DEFAULT',
+    rename: 'ALTER TABLE core.t RENAME COLUMN a TO b',
+    'set-schema': 'ALTER TABLE core.t SET SCHEMA x',
+    'alter-column-type': 'ALTER TABLE core.t ALTER COLUMN a TYPE text',
+    'set-not-null': 'ALTER TABLE core.t ALTER COLUMN a SET NOT NULL',
+    'add-column-not-null-without-default': 'ALTER TABLE core.t ADD COLUMN b int NOT NULL',
+    'revoke-app-role': 'REVOKE SELECT ON core.t FROM app_api',
+    'disable-rls': 'ALTER TABLE core.t NO FORCE ROW LEVEL SECURITY',
+    'disable-trigger': 'ALTER TABLE core.t DISABLE TRIGGER tr',
+    'role-change': 'ALTER ROLE app_api NOBYPASSRLS',
+    'dynamic-sql': "EXECUTE 'SELECT 1'",
+    truncate: 'TRUNCATE core.t',
+    'data-delete': 'DELETE FROM core.t',
+    'data-update': 'UPDATE core.t SET a = 1',
+  };
+
+  it('chaque nature est couverte', () => {
+    expect(Object.keys(SAMPLE).sort()).toEqual([...CONTRACT_KINDS].sort());
+  });
+
+  it.each([...CONTRACT_KINDS])('%s : premier niveau et bloc DO derrière IF … THEN', (kind) => {
+    const sql = SAMPLE[kind];
+    expect(kinds(`${sql};`)).toContain(kind);
+    expect(kinds(`DO $do$ BEGIN IF true THEN ${sql}; END IF; END $do$;`)).toContain(kind);
+    expect(kinds(`DO $do$ BEGIN IF a THEN NULL; ELSIF b THEN ${sql}; END IF; END $do$;`)).toContain(
+      kind,
+    );
   });
 });
 

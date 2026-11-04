@@ -274,8 +274,14 @@
         "requirements_status": "C1",
         "payment_status": "C1",
         "source_hold_id": "C1",
-        "termination_reason": "C1",
-        "cancellation_reason": "C1",
+        "termination_reason": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "cancellation_reason": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
         "created_at": "C1",
         "created_by": "C1",
         "updated_at": "C1",
@@ -446,7 +452,12 @@
         "valid_to": "C1",
         "approved_by": "C1",
         "decision_ref": "C1",
-        "change_reason": "C1",
+        "change_reason": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "motif libre d’une version de paramètre, figé par le trigger de garde (configuration versionnée) ; lecture retirée à app_api par 0052, lu des seuls travailleurs et du staff ; consigne : aucune donnée de personne",
+          "report": "US-536"
+        },
         "created_at": "C1",
         "created_by": "C1"
       }
@@ -676,7 +687,12 @@
         "created_at": "C1",
         "created_by": "C1",
         "approved_by": "C1",
-        "change_reason": "C1"
+        "change_reason": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "motif libre d’une ligne de la matrice des permissions, écrit par les migrations seulement et lu d’aucun rôle applicatif ; consigne : référence de story, jamais de donnée de personne",
+          "report": "US-536"
+        }
       }
     },
     "core.iam_session": {
@@ -1050,7 +1066,10 @@
         "kyc_status": "C1",
         "payout_currency": "C1",
         "activated_at": "C1",
-        "suspended_reason": "C1",
+        "suspended_reason": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
         "created_at": "C1",
         "updated_at": "C1",
         "row_version": "C1"
