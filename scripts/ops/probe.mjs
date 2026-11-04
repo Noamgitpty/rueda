@@ -2,13 +2,21 @@
 // rotation de secret sur la préproduction locale. Envoie une requête toutes les `intervalMs` à
 // l'une des instances EN SERVICE (lues à chaque requête dans le fichier des cibles : une instance
 // retirée par scripts/ops/roll-local.sh avant son redémarrage ne reçoit plus rien, comme une cible
-// désenregistrée du répartiteur), et compte toute réponse autre que 200. Intervalle moyen
+// désenregistrée du répartiteur), et compte toute réponse autre que celle attendue. Intervalle moyen
 // `intervalMs`, tiré entre la moitié et une fois et demie (un client n'est pas un métronome).
 //
 //   node scripts/ops/probe.mjs <fichier-des-cibles> <fichier-du-rapport> [intervalMs]
 //
 // S'arrête sur SIGTERM ou SIGINT et écrit le rapport JSON : requêtes, échecs, premiers échecs
 // (code, cible, instant), aucune donnée de réponse.
+//
+// Route sondée : `GET /auth/session` avec un jeton de session bien formé mais INCONNU, tiré au
+// hasard à chaque requête. La route n'a aucun cache (`Cache-Control: no-store`) et cherche le
+// jeton EN BASE à chaque appel (empreinte SHA-256, `resolveSession`) : la réponse attendue est
+// 401 `AUTH_REQUIRED`, rendue seulement après une lecture réussie de la base ; une base
+// injoignable ou une connexion refusée donne une autre réponse (5xx), comptée comme un échec.
+// Route publique existante : aucune route réservée aux tests.
+import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -58,21 +66,22 @@ while (running) {
     try {
       // un CLIENT ordinaire : en-têtes d'un navigateur et rythme irrégulier, sinon le garde
       // anti-robot (US-052, REGULAR_RHYTHM, NO_BROWSER_HEADERS) le ralentit à raison
-      const r = await fetch(`${target}/brand/content?locale=es`, {
+      const r = await fetch(`${target}/auth/session`, {
         headers: {
           'user-agent': 'Mozilla/5.0 (sonde de continuité rueda)',
           accept: 'application/json',
           'accept-language': 'es',
+          cookie: `__Host-session=${randomBytes(32).toString('base64url')}`,
         },
         signal: AbortSignal.timeout(5_000),
       });
-      code = r.status;
-      await r.arrayBuffer();
+      const body = await r.text();
+      code = r.status === 401 && body.includes('AUTH_REQUIRED') ? 'OK' : r.status;
     } catch (error) {
       code = error instanceof Error ? error.name : 'ERREUR';
     }
     report.requests += 1;
-    if (code !== 200) {
+    if (code !== 'OK') {
       report.failures += 1;
       if (report.firstFailures.length < 20) {
         report.firstFailures.push({ at: new Date().toISOString(), target, code });

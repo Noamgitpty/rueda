@@ -15,7 +15,8 @@
 --   3. core.iam_mfa_proof_key_rotate(action, clé) : les quatre gestes de l'exploitation, sous
 --      `migrator` SEULEMENT (propriétaire ; EXECUTE retiré à PUBLIC, accordé à personne) :
 --        INSTALL  première clé (id 1), refusée si une clé existe déjà ;
---        STAGE    clé suivante (id 2) : la base accepte alors l'ancienne ET la nouvelle ;
+--        STAGE    clé suivante (id 2) : la base accepte alors l'ancienne ET la nouvelle, l'ancienne
+--                 24 h au plus (fenêtre bornée en base, PROPOSÉ ; au-delà, seule la nouvelle) ;
 --        PROMOTE  la clé suivante devient la seule (id 1) : l'ancienne est REFUSÉE ;
 --        ABORT    retire la clé suivante (rotation abandonnée).
 --      Ordre d'une rotation (docs/ops/SECRET_ROTATION.md) : STAGE, déploiement de l'API avec la
@@ -70,9 +71,15 @@ BEGIN
                                  NULL, pg_catalog.jsonb_build_object('reason', 'NOT_STAFF'), NULL, NULL);
     RETURN 'NOT_STAFF';
   END IF;
-  -- US-051 : courante (1) et, pendant une rotation, suivante (2)
+  -- US-051 : courante (1) et, pendant une rotation, suivante (2). La courante n'est plus
+  -- acceptée 24 h après la pose de la suivante, même sans PROMOTE : la fenêtre à deux clés est
+  -- bornée en base, pas seulement par le runbook (revue code US-051).
   SELECT pg_catalog.array_agg(k.key ORDER BY k.id) INTO v_keys
-    FROM core.iam_mfa_proof_key AS k WHERE k.id IN (1, 2);
+    FROM core.iam_mfa_proof_key AS k
+   WHERE k.id = 2
+      OR (k.id = 1 AND NOT EXISTS (SELECT 1 FROM core.iam_mfa_proof_key AS n
+                                    WHERE n.id = 2
+                                      AND n.installed_at <= v_now - interval '24 hours'));
   IF v_keys IS NULL THEN
     RETURN 'UNAVAILABLE';
   END IF;

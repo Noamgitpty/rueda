@@ -61,10 +61,22 @@ for svc in api api-b; do
   say "$svc redémarrée, saine, remise en service"
 done
 "${COMPOSE[@]}" up -d --no-deps --force-recreate worker >/dev/null
-sleep "${RUEDA_WORKER_SETTLE_S:-15}"
-[ "$(docker inspect -f '{{.State.Running}}' "$("${COMPOSE[@]}" ps -q worker)")" = true ] || {
-  "${COMPOSE[@]}" logs --no-color --tail 30 worker >&2
-  say 'ÉCHEC : travailleur arrêté'
+# travailleur sain : le NOUVEAU conteneur a journalisé son démarrage (rôle vérifié, garde C19,
+# files déclarées : worker.started) et tourne toujours (un redémarrage en boucle échoue)
+id="$("${COMPOSE[@]}" ps -q worker)"
+waited=0
+until docker logs "$id" 2>&1 | grep -cF '"event":"worker.started"' >/dev/null; do
+  if [ "$(docker inspect -f '{{.State.Running}}' "$id")" != true ] || [ "$waited" -ge "$timeout_s" ]; then
+    docker logs --tail 30 "$id" >&2
+    say 'ÉCHEC : travailleur non démarré'
+    exit 1
+  fi
+  sleep 1
+  waited=$((waited + 1))
+done
+[ "$(docker inspect -f '{{.State.Running}} {{.RestartCount}}' "$id")" = 'true 0' ] || {
+  docker logs --tail 30 "$id" >&2
+  say 'ÉCHEC : travailleur arrêté après son démarrage'
   exit 1
 }
-say 'travailleur redémarré'
+say 'travailleur redémarré et démarré (worker.started)'

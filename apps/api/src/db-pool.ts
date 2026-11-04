@@ -89,19 +89,36 @@ export class RotatingPasswordPool extends pg.Pool {
     return this.#state.preferred === 0 ? 'courante' : 'suivante';
   }
 
+  /**
+   * Connexion avec repli, sûre en concurrence (revue code US-051 n° 1) : le rang préféré n'est
+   * basculé que s'il vaut ENCORE celui qu'on a essayé (comparer puis remplacer). Si une autre
+   * connexion a déjà basculé pendant notre essai, on réessaie avec son choix, sans rebasculer :
+   * des échecs simultanés ne ramènent jamais l'ancienne valeur. Au plus un essai par valeur pour
+   * un même appel ; toutes refusées : l'erreur remonte.
+   */
   async #connectWithFallback(): Promise<pg.PoolClient> {
-    try {
-      return await super.connect();
-    } catch (error) {
-      if (this.#values.length < 2 || !isAuthFailure(error)) throw error;
-      this.#state.preferred = (this.#state.preferred + 1) % this.#values.length;
-      this.#log({
-        level: 'warn',
-        event: 'db.password.switched',
-        role: this.#role,
-        to: this.preferredRank,
-      });
-      return super.connect();
+    const triedRanks = new Set<number>();
+    for (;;) {
+      const tried = this.#state.preferred;
+      triedRanks.add(tried);
+      try {
+        return await super.connect();
+      } catch (error) {
+        if (!isAuthFailure(error)) throw error;
+        if (this.#state.preferred === tried) {
+          const next = (tried + 1) % this.#values.length;
+          if (triedRanks.has(next)) throw error;
+          this.#state.preferred = next;
+          this.#log({
+            level: 'warn',
+            event: 'db.password.switched',
+            role: this.#role,
+            to: this.preferredRank,
+          });
+        } else if (triedRanks.has(this.#state.preferred)) {
+          throw error;
+        }
+      }
     }
   }
 

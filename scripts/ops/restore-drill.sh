@@ -82,9 +82,6 @@ for i in $(seq 1 60); do
   }
   sleep 1
 done
-# l'image initialise puis redémarre l'instance : attendre la version définitive
-sleep 2
-docker exec -u postgres "$SOURCE" pg_isready -h 127.0.0.1 -d rueda >/dev/null
 
 say '2. exercice (runbook docs/ops/BACKUP_RESTORE.md, exécuté tel quel)'
 RUEDA_DRILL_WORK="$WORK" RUEDA_DRILL_PG_PORT="$PORT" RUEDA_DRILL_PREFIX="$PREFIX" \

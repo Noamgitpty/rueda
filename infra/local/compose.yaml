@@ -177,7 +177,7 @@ services:
       - secret-staff-mfa-proof-key:/run/rueda-secrets/staff_mfa_proof_key
     restart: 'no'
 
-  # Clé de preuve MFA en base (US-051, migration 0052) : `docker compose … run --rm mfa-rotate
+  # Clé de preuve MFA en base (US-051, migration 0053) : `docker compose … run --rm mfa-rotate
   # <INSTALL|STAGE|PROMOTE|ABORT>`, sous migrator, avec l'image de production.
   mfa-rotate:
     <<: *release

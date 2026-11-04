@@ -103,6 +103,26 @@ describe('RotatingPasswordPool', () => {
     await pool.end();
   });
 
+  it('connexions SIMULTANÉES pendant la rotation : aucune ne revient à l’ancienne valeur, aucune n’échoue', async () => {
+    server.accepted = NEW; // ALTER ROLE déjà fait, rang préféré encore « courante »
+    server.attempts = [];
+    const log: RotationLogEntry[] = [];
+    const pool = new RotatingPasswordPool({ ...config, max: 8 }, { values: [OLD, NEW] }, (e) =>
+      log.push(e),
+    );
+    // huit connexions lancées ensemble : toutes essaient l'ancienne valeur et échouent ensemble
+    const clients = await Promise.all(Array.from({ length: 8 }, () => pool.connect()));
+    expect(clients).toHaveLength(8);
+    for (const c of clients) c.release();
+    expect(pool.preferredRank).toBe('suivante');
+    // une seule bascule journalisée (les autres échecs ont vu la bascule déjà faite)
+    expect(log).toHaveLength(1);
+    // aucune connexion n'est revenue à l'ancienne valeur après la bascule
+    const firstNew = server.attempts.indexOf(NEW);
+    expect(server.attempts.slice(firstNew)).not.toContain(OLD);
+    await pool.end();
+  });
+
   it('une valeur seule : aucun second essai (l’échec remonte tel quel)', async () => {
     server.accepted = 'c';
     const pool = new RotatingPasswordPool({ ...config, password: 'd' }, { values: ['d'] });

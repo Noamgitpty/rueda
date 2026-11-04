@@ -5,7 +5,7 @@
 #
 #   1. construit l'image (docker/prod/Dockerfile) et la déploie (scripts/deploy/local.sh), puis
 #      démarre la seconde instance de l'API (profil `rotation`) et la SONDE (scripts/ops/probe.mjs :
-#      répartiteur et client, une requête toutes les 250 ms, tout code autre que 200 compte) ;
+#      répartiteur et client, une requête toutes les 250 ms, route `/auth/session` qui lit la base à chaque requête, toute réponse autre que 401 `AUTH_REQUIRED` compte) ;
 #   2. exécute TELLES QU'ÉCRITES les étapes de docs/ops/SECRET_ROTATION.md § 4 : mots de passe des
 #      rôles (dont un redéploiement de contrôle après « appliquer » : chaque instance redémarrée
 #      doit basculer sur la valeur suivante), clé de débit, clé de preuve MFA ;
@@ -124,7 +124,7 @@ cat "$REPORT"
 node -e '
   const r = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
   if (r.requests < 100) { console.error(`[rotation] ÉCHEC : ${r.requests} requêtes seulement`); process.exit(1); }
-  if (r.failures !== 0) { console.error(`[rotation] ÉCHEC : ${r.failures} réponse(s) autre(s) que 200`); process.exit(1); }
+  if (r.failures !== 0) { console.error(`[rotation] ÉCHEC : ${r.failures} réponse(s) autre(s) que 401 AUTH_REQUIRED (base lue)`); process.exit(1); }
   console.log(`[rotation] ${r.requests} requêtes, aucune interruption visible`);
 ' "$REPORT"
 say 'rotation verte : aucun échec, anciennes valeurs refusées'

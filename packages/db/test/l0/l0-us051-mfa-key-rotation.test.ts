@@ -9,6 +9,7 @@
  * - STAGE : la base accepte la preuve sous l'ancienne ET sous la nouvelle clé (les instances de
  *   l'API pas encore déployées comme les nouvelles élèvent leurs sessions) ;
  * - PROMOTE : seule la nouvelle clé est acceptée ; l'ancienne est REFUSÉE (et journalisée) ;
+ * - sans PROMOTE, l'ancienne est refusée 24 h après STAGE (fenêtre bornée en base) ;
  * - gestes incohérents refusés ; app_api n'appelle pas la fonction de rotation (42501).
  * Les preuves sont recalculées par node:crypto (test/support/staff.ts), clés de TEST publiques.
  */
@@ -106,6 +107,20 @@ describe('US-051 — rotation de la clé de preuve MFA (0053)', () => {
         expect(await slots(tx)).toEqual([1]);
         expect(await enrollWith(tx, NEW_KEY)).toBe('ENROLLED');
         expect(await enrollWith(tx, TEST_PROOF_KEY)).toBe('REFUSED');
+      });
+    });
+  });
+
+  it('fenêtre à deux clés bornée en base : 24 h après STAGE, l’ancienne est refusée sans PROMOTE', async () => {
+    await withRole('app_api', async (client) => {
+      await withTestTransaction(client, {}, async (tx) => {
+        // clé suivante posée il y a 25 h (horloge virtuelle le temps du geste), puis horloge réelle
+        const past = new Date(Date.now() - 25 * 3600_000).toISOString();
+        await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [past]);
+        expect(await rotate(tx, 'STAGE', NEW_KEY)).toBe('CURRENT+NEXT');
+        await tx.query(`SELECT pg_catalog.set_config('app.virtual_now', '', true)`);
+        expect(await enrollWith(tx, TEST_PROOF_KEY)).toBe('REFUSED');
+        expect(await enrollWith(tx, NEW_KEY)).toBe('ENROLLED');
       });
     });
   });

@@ -65,6 +65,16 @@ const BASELINE = join(ROOT, 'docs/ops/restore-drill-baseline.json');
 export const TARGETS = { rpoRequiredS: 24 * 3600, rpoTargetS: 3600, rtoS: 8 * 3600 } as const;
 
 /**
+ * Porte de RÉGRESSION par rapport à la mesure de référence (critère 4 ; revue code US-051 n° 2 ;
+ * ADR-082 point 5) : échec si une mesure dépasse `factor` fois la référence plus `marginS`
+ * secondes. Le facteur absorbe la variance des runners de la CI (× 2 à 3 observés), la marge le
+ * bruit absolu d'une durée de quelques secondes (démarrage de conteneur, `archive_timeout` de
+ * 30 s pour le RPO) ; une régression d'un ordre de grandeur échoue. Les cibles absolues restent.
+ */
+export const REGRESSION = { factor: 10, marginS: 60 } as const;
+const limitOf = (baseline: number): number => REGRESSION.factor * baseline + REGRESSION.marginS;
+
+/**
  * Vecteurs dorés (comme l0-stl-settlement) : règlement et état capturé ; la paire d'un pays est
  * celle dont la devise du vecteur capturé est la sienne (lue dans les vecteurs, jamais codée ici).
  */
@@ -453,6 +463,7 @@ describe('US-051 — exercice de restauration chronométré', () => {
       rtoS: round(rto),
       rpoS: round(latest.rpoS),
       targets: TARGETS,
+      regression: REGRESSION,
       baseline,
       vsBaseline: {
         rto: baseline.rtoS ? round(rto / baseline.rtoS) : null,
@@ -465,6 +476,11 @@ describe('US-051 — exercice de restauration chronométré', () => {
     expect(latest.rpoS).toBeGreaterThanOrEqual(0);
     expect(latest.rpoS).toBeLessThanOrEqual(TARGETS.rpoTargetS);
     expect(rto).toBeLessThanOrEqual(TARGETS.rtoS);
+    // régression par rapport à la référence (si elle existe)
+    if (typeof baseline.rtoS === 'number') expect(rto).toBeLessThanOrEqual(limitOf(baseline.rtoS));
+    if (typeof baseline.rpoS === 'number') {
+      expect(latest.rpoS).toBeLessThanOrEqual(limitOf(baseline.rpoS));
+    }
   });
 });
 

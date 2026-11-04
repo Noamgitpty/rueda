@@ -44,7 +44,7 @@ Préalable : CI verte sur `main`, aucun déploiement en cours. Préproduction d'
 
 Première installation (ouverture de la console staff) : `node packages/db/src/rotation/cli.ts mfa-proof-key INSTALL` en tâche ponctuelle de l'image (sous `migrator`, `RUEDA_STAFF_MFA_PROOF_KEY_NEXT` = la clé), puis déploiement de l'API avec `RUEDA_STAFF_MFA_PROOF_KEY` = la même clé. Rotation :
 
-1. Nouvelle clé en `AWSPENDING` ; tâche ponctuelle `mfa-proof-key STAGE` avec `RUEDA_STAFF_MFA_PROOF_KEY_NEXT` = `AWSPENDING`. La base accepte alors les deux clés.
+1. Nouvelle clé en `AWSPENDING` ; tâche ponctuelle `mfa-proof-key STAGE` avec `RUEDA_STAFF_MFA_PROOF_KEY_NEXT` = `AWSPENDING`. La base accepte alors les deux clés, l'ancienne **24 h au plus** (bornée en base, migration 0053) : redéployer l'API dans ce délai.
 2. Promouvoir `AWSPENDING` ; redéployer l'API (nouvelle clé).
 3. Tâche ponctuelle `mfa-proof-key PROMOTE` : l'ancienne clé est refusée. En cas d'abandon avant cette étape : `mfa-proof-key ABORT`.
 
@@ -54,7 +54,7 @@ Même procédure, sans attendre : pour un mot de passe de base, enchaîner 3.1 e
 
 ## 4. Préproduction locale (exécutée telle quelle par la CI)
 
-Préproduction locale (`infra/local/compose.yaml`, image de production) servie par `scripts/deploy/local.sh`, avec la seconde instance de l'API (profil `rotation`) et une sonde qui joue le répartiteur et compte toute réponse autre que 200 (`scripts/ops/probe.mjs`). Variables : `RUEDA_IMAGE` (image servie, `rueda-local:<empreinte>`), `RUEDA_PROBE_TARGETS` (cibles en service). Les volumes de secrets jouent le coffre : `value` = `AWSCURRENT`, `next` = `AWSPENDING`, `previous` = `AWSPREVIOUS` (`infra/local/rotate-secrets.sh`).
+Préproduction locale (`infra/local/compose.yaml`, image de production) servie par `scripts/deploy/local.sh`, avec la seconde instance de l'API (profil `rotation`) et une sonde qui joue le répartiteur et compte toute réponse autre que 401 `AUTH_REQUIRED` de `GET /auth/session` (jeton inconnu cherché en base à chaque requête, sans cache) (`scripts/ops/probe.mjs`). Variables : `RUEDA_IMAGE` (image servie, `rueda-local:<empreinte>`), `RUEDA_PROBE_TARGETS` (cibles en service). Les volumes de secrets jouent le coffre : `value` = `AWSCURRENT`, `next` = `AWSPENDING`, `previous` = `AWSPREVIOUS` (`infra/local/rotate-secrets.sh`).
 
 Redéployer (une instance de l'API à la fois, l'autre sert ; puis le travailleur) :
 
@@ -121,4 +121,4 @@ docker compose -f infra/local/compose.yaml --profile rotation run --rm secrets-r
 docker compose -f infra/local/compose.yaml --profile rotation run --rm mfa-rotate PROMOTE
 ```
 
-La répétition (`bash scripts/ops/rotation-drill.sh`, job CI « reprise ») enchaîne ces étapes dans l'ordre ci-dessus, sonde active du début à la fin : elle exige **zéro** réponse autre que 200, la bascule de chaque instance sur la valeur suivante (`db.password.switched`) quand elle redémarre après l'étape « appliquer », et le refus de chaque ancien mot de passe.
+La répétition (`bash scripts/ops/rotation-drill.sh`, job CI « reprise ») enchaîne ces étapes dans l'ordre ci-dessus, sonde active du début à la fin : elle exige **zéro** réponse autre que 401 `AUTH_REQUIRED` de `GET /auth/session` (route sans cache qui lit la base à chaque requête), la bascule de chaque instance sur la valeur suivante (`db.password.switched`) quand elle redémarre après l'étape « appliquer », et le refus de chaque ancien mot de passe.
