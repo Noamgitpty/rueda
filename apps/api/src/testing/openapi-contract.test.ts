@@ -4,10 +4,8 @@
  * d'écart), puis le contrat du dépôt est contrôlé : compilable en mode strict et complet (chaque
  * route déclarée par un contrôleur Nest est décrite ou listée « en attente »).
  */
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { controllerRoutes } from './controller-routes.js';
 import { OpenApiContract, repositoryContract } from './openapi-contract.js';
 import type { ObservedResponse, OpenApiDocument } from './openapi-contract.js';
 
@@ -165,26 +163,6 @@ describe('harnais de contrat : une réponse non conforme fait échouer le test',
 });
 
 // ---- Contrat du dépôt -------------------------------------------------------------------------
-
-const MODULES = fileURLToPath(new URL('../modules/', import.meta.url));
-
-/** Routes déclarées par les contrôleurs Nest (lecture statique des décorateurs). */
-function controllerRoutes(): string[] {
-  const files = readdirSync(MODULES, { recursive: true, encoding: 'utf8' })
-    .filter((f) => f.endsWith('.controller.ts'))
-    .map((f) => join(MODULES, f));
-  const routes: string[] = [];
-  for (const file of files) {
-    const source = readFileSync(file, 'utf8');
-    const prefix = /@Controller\('([^']*)'\)/.exec(source)?.[1];
-    if (prefix === undefined) throw new Error(`${file} : @Controller sans préfixe littéral`);
-    for (const m of source.matchAll(/@(Get|Post|Put|Patch|Delete)\((?:'([^']*)')?\)/g)) {
-      const sub = (m[2] ?? '').replace(/:([A-Za-z]+)/g, '{$1}');
-      routes.push(`${(m[1] as string).toUpperCase()} /${[prefix, sub].filter(Boolean).join('/')}`);
-    }
-  }
-  return routes.sort();
-}
 
 describe('contrat du dépôt (apps/api/openapi/openapi.json)', () => {
   const contract = repositoryContract();

@@ -7,6 +7,7 @@
  * Les erreurs de la base sont remplacées par une erreur sans message ni paramètre (seul le
  * SQLSTATE est gardé) : ni empreinte, ni code, ni preuve ne peut finir dans un journal.
  */
+import { AuthHttpError } from '../errors.js';
 import type { SqlExecutor } from '../pg-auth-store.js';
 
 export type StaffAccessOutcome =
@@ -209,6 +210,23 @@ export class PgStaffStore implements StaffStore {
     return rows[0]?.r ?? 'FORBIDDEN';
   }
 
+  /**
+   * Lecture vide : refus ou vraie liste vide ? La lecture a déjà journalisé un refus ; l'issue
+   * d'accès (0049, sans écriture) fait répondre 401 / 403 au lieu d'un 200 vide (16 ADM-001, US-043).
+   */
+  async #assertReadAccess(tokenHash: Buffer, permission: string, scope: string): Promise<void> {
+    const rows = await this.#run<{ outcome: string }>(
+      'read_access',
+      'SELECT core.iam_staff_read_access($1, $2, $3) AS outcome',
+      [tokenHash, permission, scope],
+    );
+    const outcome = rows[0]?.outcome;
+    if (outcome === 'OK') return;
+    if (outcome === 'AUTH_REQUIRED') throw new AuthHttpError('AUTH_REQUIRED');
+    if (outcome === 'MFA_REQUIRED') throw new AuthHttpError('2FA_REQUIRED');
+    throw new AuthHttpError('FORBIDDEN');
+  }
+
   async auditRead(tokenHash: Buffer, beforeId: string | null, limit: number) {
     const rows = await this.#run<{
       id: string;
@@ -226,6 +244,7 @@ export class PgStaffStore implements StaffStore {
       beforeId,
       limit,
     ]);
+    if (rows.length === 0) await this.#assertReadAccess(tokenHash, 'audit.read', 'ANY');
     return rows.map((r) => ({
       id: r.id,
       at: r.at,

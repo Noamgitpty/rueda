@@ -8,6 +8,7 @@
  * `core.config_brand_*` / `config_content_block` sous la RLS d'app_api (versions et blocs PUBLISHED
  * seulement). Erreurs de la base : seul le SQLSTATE est gardé.
  */
+import { BrandAccessError } from './brand.service.js';
 import type { ContentLocale, ContrastReport } from './checks.js';
 
 /** Exécuteur SQL minimal (pool `pg` ou client), sans dépendre d'IAM (CFG ne dépend que de BUS). */
@@ -309,6 +310,20 @@ export class PgBrandStore implements BrandStore {
       versionId,
       limit,
     ]);
+    if (rows.length === 0) {
+      // refus (journalisé par la lecture) ou vraie absence ? Issue d'accès de 0049 (US-043) :
+      // 401 / 403 au lieu d'une liste vide (16 ADM-001). Marque commune : tous les pays.
+      const access = await call<{ outcome: string }>(
+        this.#db,
+        'SELECT core.iam_staff_read_access($1, $2, $3) AS outcome',
+        [tokenHash, 'brand.edit', 'ALL'],
+      );
+      const outcome = access[0]?.outcome;
+      if (outcome === 'AUTH_REQUIRED' || outcome === 'MFA_REQUIRED' || outcome === 'FORBIDDEN') {
+        throw new BrandAccessError(outcome);
+      }
+      if (outcome !== 'OK') throw new BrandAccessError('FORBIDDEN');
+    }
     return rows.map((r) => ({
       id: r.id,
       versionNo: r.version_no,

@@ -18,6 +18,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import pg from 'pg';
 import { ApiModule } from './api.module.js';
+import { applyHttpHardening } from './http-hardening.js';
 import {
   CountryConfigService,
   loadBrandParams,
@@ -67,6 +68,7 @@ async function bootstrap(): Promise<void> {
     { rawBody: true },
   );
   app.set('trust proxy', trustProxy);
+  applyHttpHardening(app);
   app.enableShutdownHooks();
   const port = Number(process.env['PORT'] ?? DEFAULT_PORT);
   await app.listen(port);
