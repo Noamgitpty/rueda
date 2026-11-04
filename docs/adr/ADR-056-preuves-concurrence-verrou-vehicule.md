@@ -66,6 +66,43 @@
 
 **Écartés.** Abaisser le délai pour toute la base principale : c'était la première correction. Le p95 « avec verrou » n'était plus mesuré dans les conditions de production, chaque attente de plus de 50 ms lançant un contrôle d'interblocage (marge de 3 %, 292 ms). Poser puis rétablir le délai par `ALTER DATABASE` autour du cas exigerait un accès administrateur dans un test et un rétablissement garanti même en cas d'échec : la base dédiée est plus simple et plus sûre. Abaisser `deadlock_timeout` pour le seul rôle `app_api` (`ALTER ROLE … IN DATABASE`) ou lui accorder `SET ON PARAMETER` modifierait le rôle de production sous test. Une fonction de fixture avec `SET deadlock_timeout` exigerait un propriétaire superutilisateur. Assouplir l'issue attendue (accepter `DEADLOCK` après 3 rejeux) affaiblirait la preuve. Réduire le degré ou décaler les départs ne mesurerait plus 100 poses simultanées.
 
+### Stabilité de la mesure du p95 (2026-11-04)
+
+**Constat.** Le cas « C1 avec verrou » échouait par intermittence sur le seuil de 300 ms : 301 ms (PR #58) et 306 ms (PR #69), puis vert à la relance. Sur 68 passages du job `base-de-donnees` relevés dans l'historique de la CI (main et PR, avant cette révision), le p95 d'une course valait, pour PA, 124 à 306 ms (médiane 226, p90 294) et, pour PY, 120 à 285 ms (médiane 198, p90 251).
+
+**Ce que fixe la spécification.** 17 §2.5 (C1) et §11 (L0-02) exigent un « p95 de création < 300 ms sous cette contention », c'est-à-dire 100 poses simultanées du même créneau. 17 §6.7 donne la même cible, PROPOSÉE « à confirmer après mesure au lot 0 ». **Aucun matériel ni aucune charge annexe n'y est défini.** Le seuil s'applique donc tel quel au banc de CI : exécuteur `ubuntu-latest` partagé, PostgreSQL 16 en conteneur et client Node.js sur le même hôte.
+
+**Mesure.** Un job temporaire de la PR #71 a fait tourner L0-02 seul (run 41773231112, 6 passages). Chaque passage enchaînait 20 courses de 100 poses par pays sur les mêmes connexions, avec la chauffe d'alors (une pose annulée par connexion), et consignait les temps bruts. Le job a ensuite été retiré. Résultats, en p95 par course :
+
+| Rang de la course (exécution de la commande par connexion)    | PA : médiane (min – max) | PY : médiane (min – max) |
+| ------------------------------------------------------------- | ------------------------ | ------------------------ |
+| course 0 (2e exécution)                                       | 247 (205 – 269)          | 270 (203 – 309)          |
+| courses 1 à 4 (3e à 6e)                                       | 203 (126 – 239)          | 189 (149 – 271)          |
+| courses 5 à 19 (7e et suivantes)                              | 132 (90 – 202)           | 125 (84 – 209)           |
+
+Le p95 baisse d'environ 70 ms d'un coup, à partir de la 7e exécution de la commande sur une connexion, puis ne baisse plus. Les 6 passages montrent la même marche.
+
+**Sources du bruit, par ordre d'effet.**
+
+1. **Cache de plans de PostgreSQL (cause principale).** Une instruction préparée, y compris chaque instruction d'une fonction PL/pgSQL, est planifiée à chaque appel pendant ses 5 premières exécutions (plans « custom »). Le planificateur compare ensuite ces plans au plan générique avant de le retenir. Dans C1, ces planifications ont lieu **sous le verrou du véhicule**. Elles s'ajoutent donc l'une à l'autre le long de la file des 100 poses. Avec une seule pose de chauffe, chaque course mesurée tombait dans cette phase.
+2. **Première course disputée** : environ 50 ms de plus que les courses 1 à 4, sur les deux pays.
+3. **Exécuteur partagé.** Même une fois la mesure stabilisée, le p95 d'une course varie de 55 à 180 ms d'un passage à l'autre. Une course isolée reste un échantillon de 100 poses, dont le p95 est une seule file d'attente.
+4. **Sans effet mesurable** : le voisinage des autres tests du job. Les p95 du job complet (`test:int`, puis `test:l0`, puis L0-02 seul en dernier) et ceux du job où L0-02 tourne seul se recouvrent : 80 à 161 ms contre 74 à 156 ms, avec la correction. L'autovacuum et la compilation JIT n'expliquent pas la marche, qui suit le rang d'exécution par connexion et non l'heure. Un job dédié n'apporterait donc rien.
+
+**Correction.** Aucun changement du seuil, du degré (100) ni du réglage (`deadlock_timeout` du serveur). Aucune relance.
+
+- **6 poses de chauffe par connexion** (`WARM_POSES`), annulées, sur un véhicule de chauffe. La connexion sort de la phase des plans « custom » et se trouve dans l'état d'une connexion de pool en régime établi. C'est la condition que vise la cible de 17 §6.7 : une API sert ses poses par un pool chaud (point 4).
+- **1 course complète non mesurée** (`C1_WARMUP_RACES`), puis **5 courses mesurées** (`C1_MEASURED_RACES`). Chaque course porte sur un véhicule et 100 guests neufs. Le p95 porte sur les **500 poses** mesurées.
+- **Exactitude par course**, chauffe comprise : 1 hold `ACTIVE`, 1 occupation active, 99 `VEHICLE_UNAVAILABLE`, 0 `40P01`, 0 `40001`, 0 rejeu. Le journal consigne le p50, le p95 et le max de chaque course (`warmups`, `races`), puis l'ensemble (`samples`, `p50`, `p95`, `max`).
+
+**Résultat.** Run 41774960861 (6 passages), avec la correction et le job de mesure : le p95 du job complet vaut 80 à 161 ms (PA) et 83 à 132 ms (PY). Avec la même chauffe, une course isolée ne dépasse pas 180 ms. Les 10 passages consécutifs de la CI de la PR sont consignés dans la passation US-007 (« Stabilité du p95 »). Le seuil de 300 ms est tenu avec une marge d'environ 2 : **pas de dépassement structurel, aucune révision de 17 §2.5 n'est demandée.**
+
+**Écartés.** Relever le seuil, rejouer automatiquement ou ignorer l'échec : interdits. Écarter la meilleure ou la pire course, ou prendre la médiane des p95 : la preuve deviendrait moins exigeante qu'un p95 sur toutes les poses. Un job ou un projet vitest dédié : sans effet mesuré (point 4 ci-dessus). Forcer `plan_cache_mode` : le banc ne mesurerait plus le réglage de production.
+
+**Point pour US-012 (pool de l'API), PROPOSÉ.** Une connexion de pool **neuve** paie la phase des plans « custom » sur ses 5 premières poses. Sous une contention de 100 poses, elle retrouverait les p95 de 200 à 300 ms du tableau. Le pool garde donc des connexions longues avec un minimum chaud, et peut les chauffer à l'ouverture.
+
+**Réserve de l'injection, constatée.** Au passage 2 du run 41773231112, le cas « C1 sans verrou PY », qui n'est pas modifié ici, a fini avec 5 poses en `RETRY` : leurs 3 rejeux étaient épuisés dans une cascade d'interblocages. C'est la réserve de la section « Cascade d'interblocages de l'injection ». Ce n'est pas un cas de performance. Il est signalé dans la passation, sans correction ici.
+
 ## Conséquences
 
 - Les mesures sont dans le journal CI (`[L0-02]`, `[L0-04]`), à reprendre dans le rapport L0 (US-027).

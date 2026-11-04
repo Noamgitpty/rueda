@@ -330,15 +330,13 @@ type CallForm = 'autocommit' | 'transactional';
  * doit être exacte (1 hold, 99 `VEHICLE_UNAVAILABLE`, 0 `40P01`).
  */
 const C1_WARMUP_RACES = 1;
+const C1_MEASURED_RACES = 5;
 /**
  * Poses annulées par connexion avant toute course : au-delà des 5 exécutions planifiées une à une
  * (plans « custom » du cache de plans de PostgreSQL), la connexion est dans l'état d'une
  * connexion de pool en régime établi.
  */
 const WARM_POSES = 6;
-const C1_MEASURED_RACES = 5;
-// TEMPORAIRE (mesure US-007, retiré avant fusion) : courses mesurées sans chauffe, temps bruts consignés.
-const MEASURE_RACES = Number(process.env['RUEDA_L0_02_MEASURE_RACES'] ?? '0');
 
 const round1 = (x: number): number => Math.round(x * 10) / 10;
 function stats(values: readonly number[]): Record<string, number> {
@@ -514,12 +512,6 @@ async function runC1(
         }, STALL_REPORT_MS);
         try {
           raced.push(await Promise.all(runs));
-          if (MEASURE_RACES > 0 && vehicleLock && form === 'autocommit') {
-            const ms = (raced[raced.length - 1] as Replayed<unknown>[]).map((r) =>
-              Math.round(r.ms),
-            );
-            log('MESURE', { country: c.country, race: k, ms: ms.sort((x, y) => x - y) });
-          }
         } finally {
           clearTimeout(stall);
         }
@@ -596,16 +588,17 @@ describe.each(COUNTRIES)(
     it(
       'avec verrou par véhicule : exactement 1 hold, 0 40P01, p95 de pose < 300 ms',
       async () => {
-        const warmupRaces = MEASURE_RACES > 0 ? 0 : C1_WARMUP_RACES;
-        const races = MEASURE_RACES > 0 ? MEASURE_RACES : C1_MEASURED_RACES;
-        const r = await runC1(c, true, { warmupRaces, races });
+        const r = await runC1(c, true, {
+          warmupRaces: C1_WARMUP_RACES,
+          races: C1_MEASURED_RACES,
+        });
         log(`C1 avec verrou ${c.country}`, r);
         expectDegree(r.degree);
         // mesure sous le réglage de production, jamais sous le délai court de l'injection
         expect(r.deadlockTimeout).toBe(SERVER_DEADLOCK_TIMEOUT);
-        expect(r.warmups).toHaveLength(warmupRaces);
-        expect(r.races).toHaveLength(races);
-        expect(r.samples).toBe(races * r.degree);
+        expect(r.warmups).toHaveLength(C1_WARMUP_RACES);
+        expect(r.races).toHaveLength(C1_MEASURED_RACES);
+        expect(r.samples).toBe(C1_MEASURED_RACES * r.degree);
         // chaque course, chauffe comprise, est exacte ; aucun 40P01, 40001 ni rejeu
         for (const race of [...r.warmups, ...r.races]) {
           expectExactWithLock(race, r.degree);
