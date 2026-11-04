@@ -10,7 +10,7 @@ set -euo pipefail
 
 label="${RUEDA_BACKUP_LABEL:?}"
 target="${RUEDA_RESTORE_TARGET_TIME:-}"
-data="${PGDATA:-/var/lib/postgresql/data}"
+data=/var/lib/postgresql/data # répertoire de données de l image postgres:16
 
 if [ ! -s "$data/PG_VERSION" ]; then
   if [ ! -s "/backups/$label/PG_VERSION" ]; then
