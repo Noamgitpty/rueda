@@ -39,6 +39,10 @@ La page reçoit dans `<head>` les variables CSS du thème actif (`theme.tsx`, pa
 
 Les écrans utilisent les composants de `@rueda/ui` (voir `packages/ui/README.md`). La vitrine vivante est servie sur **`/ui`** (`?lang=`, `?theme=auto|light|dark`, `?width=mobile|full`) : ouverte en `next dev`, sinon seulement avec `WEB_UI_CATALOG_ENABLED=true`.
 
+## Prototype des écrans clés (US-033)
+
+Prototype cliquable du parcours voyageur sur **`/proto`** (index) et `/proto/<écran>` (`s01` … `s09`, `s09c`, `s15`, `s17`), dans le seul dossier `app/proto/` (ADR-073). Paramètres : `?lang=`, `?state=` (vide, chargement, erreur…), `?theme=auto|light|dark`, `?market=` (marché fictif de `app/proto/data/scenario.json`), `?capture=1`. Données fictives, aucun appel d'API, paiement simulé. Textes : `app/proto/copy/` (format de `@rueda/i18n`, quatre langues). Captures et approbations : `docs/design/US-033/`. Ouvert en `next dev`, sinon seulement avec `WEB_PROTOTYPE_ENABLED=true`.
+
 ## Laboratoire PWA iOS (US-026)
 
 Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et ses icônes, tous sous `/lab/pwa-ios`). Protocole : [docs/qa/US-026-protocole-pwa-ios.md](../../docs/qa/US-026-protocole-pwa-ios.md).
@@ -49,6 +53,7 @@ Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et
 | ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `WEB_LAB_PWA_IOS_ENABLED` | absente | `true` (exactement) ouvre le laboratoire US-026. Toute autre valeur, ou l'absence : la page, le manifeste, le service worker et les icônes répondent **404**. Lue à chaque requête côté serveur (pas de `NEXT_PUBLIC_`), donc rien n'est figé au build. |
 | `WEB_UI_CATALOG_ENABLED`  | absente | `true` (exactement) ouvre la vitrine `/ui` (US-032) hors développement, pour la préproduction. Sinon : **404** (toujours ouverte avec `next dev`). Page `noindex`, lue à chaque requête. Ne pas définir en production.                                  |
+| `WEB_PROTOTYPE_ENABLED`   | absente | `true` (exactement) ouvre le prototype `/proto` (US-033) hors développement, pour la revue du fondateur en préproduction. Sinon : **404** (toujours ouvert avec `next dev`). Pages `noindex`, lues à chaque requête. Ne jamais définir en production.   |
 | `THEME_PALETTE`           | absente | Palette du thème (US-030), par exemple `lienzo-azur`. Absente : `packages/design-tokens/config/theme.json` (Lienzo · Tinta). Inconnue : erreur au rendu (fail-closed). Lue à chaque requête, comme le back-office.                                      |
 | `WEB_BRAND_API_URL`       | absente | URL interne de l'API (US-034), par exemple `http://api:3001`. Définie : nom, thème et logo viennent de `GET /brand` (cache 30 s, délai 1,5 s, revalidés) ; panne ou réponse invalide : thème embarqué. http(s) sans identifiants, sinon ignorée.        |
 | `THEME_COLOR_SCHEME`      | absente | `auto` (défaut : clair ou sombre selon l'appareil), `light` ou `dark`.                                                                                                                                                                                  |
