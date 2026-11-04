@@ -76,4 +76,11 @@ resource "aws_backup_vault_lock_configuration" "copy" {
   min_retention_days  = var.min_retention_days
   max_retention_days  = var.max_retention_days
   changeable_for_days = var.compliance_mode ? 3 : null
+
+  lifecycle {
+    precondition {
+      condition     = var.min_retention_days >= 1 && var.max_retention_days >= var.min_retention_days
+      error_message = "verrou du coffre : 1 <= min_retention_days <= max_retention_days."
+    }
+  }
 }

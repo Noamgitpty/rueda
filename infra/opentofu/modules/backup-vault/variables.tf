@@ -27,10 +27,6 @@ variable "max_retention_days" {
   description = "Durée maximale de conservation admise par le verrou du coffre (PROPOSÉ : 400, au-delà des 35 jours de copie)."
   type        = number
   default     = 400
-  validation {
-    condition     = var.max_retention_days >= var.min_retention_days
-    error_message = "max_retention_days : supérieure ou égale à min_retention_days."
-  }
 }
 
 variable "compliance_mode" {

@@ -98,5 +98,5 @@ run "retention_incoherente_refusee" {
     max_retention_days = 7
   }
 
-  expect_failures = [var.max_retention_days]
+  expect_failures = [aws_backup_vault_lock_configuration.copy]
 }
