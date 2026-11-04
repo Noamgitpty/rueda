@@ -368,6 +368,12 @@ Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge v
 - **Gardes d'environnement** : `0048_security_env_guard_fail_closed` lit `COALESCE(platform.deployment_env(), 'production')` dans les six fonctions PAY qui ouvraient sur NULL ; le lint `sql-env-guard` (`pnpm lint:sql`, liste des lectures historiques remplacées : `env-guard-allowlist.json`) et `test/l0/l0-us043-env-guard.test.ts` (`pg_proc` de production, NULL ⇒ refus) empêchent toute nouvelle garde ouverte.
 - **Lectures de la console** : `0049_staff_read_access_outcome` (`core.iam_staff_read_access`, `iam_staff_owner`) rend l'issue d'accès des lectures `audit.read`, `brand.edit`, `security.read_abuse` quand elles sont vides : 401 / 403 au lieu d'un 200 vide.
 
+## Document du schéma et préfixes (US-038 ; 17 §3 ; ADR-079)
+
+- **`src/schema-doc.ts`** : lit le catalogue (`pg_catalog`) d'une base migrée et rend `docs/architecture/schema.md` (historique des migrations résumé par la première ligne de chaque fichier, rôles, schémas, tables avec RLS, droits, colonnes, contraintes, index, politiques et déclencheurs, vues, fonctions `SECURITY DEFINER` et autres). Rendu déterministe (aucun OID, tri par nom), testé sur un instantané fabriqué (`src/schema-doc.test.ts`).
+- **Preuve** : `test/int/schema-doc.test.ts` régénère le document sur la base « production » du banc, sous `app_api` (L0-05), et le compare au fichier commité : un écart fait échouer `test:int`. Une migration ajoutée demande donc de recopier le document imprimé dans le journal du job (marqueurs `----- docs/architecture/schema.md`), ou `RUEDA_DOCS_WRITE=1 pnpm --filter @rueda/db test:int` sur un banc local.
+- **Préfixes** : `src/table-prefix.test.ts` exige que toute table `core.*` commence par le schéma cible d'un module (`schemas.ts`) ; seul écart tracé : `ntf_notification_dispatch` (PROP-038-03 de `docs/team/PROPOSITIONS.md`).
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                                                                                 | Attributs                                                                                                | Usage                                                                             |

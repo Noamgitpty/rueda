@@ -19,7 +19,7 @@
  *    /x?email=… ») : une donnée personnelle renvoyée au client. Les corps métier des modules
  *    (`AuthHttpError`, `BrandHttpError`, `RiskHttpError`) passent tels quels.
  */
-import { Catch, HttpException } from '@nestjs/common';
+import { Catch, HttpException, Logger } from '@nestjs/common';
 import type { ArgumentsHost, HttpServer } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -59,10 +59,14 @@ const hasBusinessCode = (body: unknown): boolean =>
   typeof body === 'object' &&
   typeof (body as { code?: unknown }).code === 'string';
 
+/** Même contexte de journal que le filtre de base de Nest. */
+const INTERNAL_ERROR_LOG = new Logger('ExceptionsHandler');
+
 /**
  * Filtre global : corps métier inchangés ; toute autre erreur HTTP réduite à `{ code, messageKey }`
- * (statut conservé) ; une exception non HTTP passe au filtre de base de Nest (journal, 500
- * générique sans détail).
+ * (statut conservé) ; une exception non HTTP est journalisée par le filtre de base de Nest, et la
+ * réponse est le 500 stable `{ code: INTERNAL_ERROR, messageKey }` (US-038 : le corps de Nest,
+ * `{ statusCode, message }`, n'avait pas de code stable, contre 16 A.8 et le point 4 ci-dessus).
  */
 @Catch()
 export class ErrorHygieneFilter extends BaseExceptionFilter {
@@ -84,11 +88,21 @@ export class ErrorHygieneFilter extends BaseExceptionFilter {
     } else {
       // erreur HTTP d'un intergiciel (analyseur de corps : 413, 415…), passée telle quelle par Nest
       const code = (exception as { statusCode?: unknown } | null)?.statusCode;
-      if (typeof code !== 'number' || code < 400 || code > 599) {
-        super.catch(exception, host);
-        return;
+      if (typeof code === 'number' && code >= 400 && code <= 599) {
+        status = code;
+      } else {
+        const response = host.switchToHttp().getResponse<unknown>();
+        if (this.#adapter.isHeadersSent(response)) {
+          super.catch(exception, host);
+          return;
+        }
+        // même journal que le filtre de base de Nest (message et pile, jamais renvoyés au client)
+        INTERNAL_ERROR_LOG.error(
+          exception instanceof Error ? exception.message : 'exception non HTTP',
+          exception instanceof Error ? exception.stack : undefined,
+        );
+        status = 500;
       }
-      status = code;
     }
     const response = host.switchToHttp().getResponse<unknown>();
     this.#adapter.reply(

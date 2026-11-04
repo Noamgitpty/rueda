@@ -3,7 +3,8 @@
  * règle de lint `rueda/module-boundaries` (eslint.config.mjs) et par les tests.
  *
  * Source : 17 §2.1 (carte, flèches pleines = appels d'interface) et §2.2 (colonne « Dépend de »).
- * Les deux sont fusionnés ; la table de §2.2 est la plus complète.
+ * Les deux sont fusionnés ; la table de §2.2 est la plus complète. `docs-sync.test.ts` (US-038)
+ * compare `dependsOn` à la colonne « Dépend de » de 17 §2.2 : un écart non listé y fait échouer la CI.
  *
  * Socle implicite : tout module hors socle peut dépendre de CFG, AUD et BUS. Dans le socle,
  * BUS ne dépend de personne ; CFG et AUD ne dépendent que de BUS, car ils publient des
@@ -71,7 +72,7 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'IAM',
     name: 'Identity & Access',
     responsibility:
-      'comptes, authentification, sessions, organisations, rôles et permissions, restrictions',
+      "comptes, authentification (mot de passe, OTP, TOTP du staff), sessions, compte d'hôte et co-hôtes, rôles et permissions, restrictions, blocage d'un voyageur par un hôte",
     dependsOn: ['CFG', 'NTF'],
     source: '17 §2.2 (NTF : envoi OTP)',
   },
@@ -79,7 +80,7 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'KYC',
     name: 'KYC / KYB',
     responsibility:
-      'vérification du conducteur, pièces, liveness, KYB des agences, sanctions, police flotte',
+      "vérification du conducteur et de l'hôte (personne physique, numéro fiscal), pièces, liveness, contrôle du permis à la remise, filtrage sanctions de l'hôte",
     dependsOn: ['IAM', 'CFG', 'AUD'],
     source: '17 §2.2 ; §2.1 KYC --> IAM',
   },
@@ -87,21 +88,23 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'CAT',
     name: 'Catalog / Listings',
     responsibility:
-      'lieux, véhicules, annonces, photos, politique de caution, import CSV, flux iCal',
+      "lieux de remise de l'hôte, véhicules, annonces, photos, documents du véhicule, éligibilité au contrat d'assureur, flux iCal",
     dependsOn: ['IAM', 'KYC', 'CFG'],
     source: '17 §2.2 ; §2.1 CAT --> KYC',
   },
   AVL: {
     code: 'AVL',
     name: 'Availability & Booking',
-    responsibility: 'occupation unique, holds TTL, réservation, trip, annulations et no-shows',
+    responsibility:
+      'occupation unique, hold CHECKOUT, réservation, trip, segments, conducteurs, annulations et no-shows, import iCal en blocages',
     dependsOn: ['PRC', 'PAY', 'CTR', 'KYC', 'RISK', 'CAT', 'CFG'],
     source: '17 §2.2 ; §2.1 AVL --> PRC, PAY, CTR, RISK, KYC',
   },
   PRC: {
     code: 'PRC',
     name: 'Pricing & Quotes',
-    responsibility: 'devis versionné, jours facturables, lignes, taxes, versions de prix du trip',
+    responsibility:
+      'devis versionné, jours facturables, lignes (trip fee, protection), taxes, instantané des paramètres, versions de prix du trip',
     dependsOn: ['CAT', 'CFG'],
     source: '17 §2.2 ; §2.1 PRC --> CFG, CAT',
   },
@@ -109,7 +112,7 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'CTR',
     name: 'Contracts & Documents',
     responsibility:
-      'gabarits juridiques, génération PDF, signature électronique, consentements, mandats',
+      "gabarits juridiques versionnés, génération PDF (contrat entre l'hôte et le voyageur), signature électronique, consentements",
     dependsOn: ['IAM', 'CFG', 'AUD'],
     source: '17 §2.2',
   },
@@ -117,29 +120,33 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'PAY',
     name: 'Payments abstraction',
     responsibility:
-      'adaptateurs PSP, opérations de paiement, commandes monétaires, webhooks, remboursements',
-    dependsOn: ['CFG', 'CTR', 'AUD'],
-    source: '17 §2.2 (CTR : mandat)',
+      'adaptateurs PSP de place de marché, sous-marchands hôtes, capacités, opérations avec montants par jambe, commandes monétaires, webhooks, remboursements, caution',
+    // 17 v6 §2.2 : CFG, AUD. L'ancienne flèche PAY → CTR (« mandat PSP », terme historique de
+    // l'annexe B) est retirée par US-038 (ADR-079) : aucun import réel, resserrement seul.
+    dependsOn: ['CFG', 'AUD'],
+    source: '17 v6 §2.2 (« CFG, AUD »)',
   },
   STL: {
     code: 'STL',
     name: 'Settlement engine & Ledger',
     responsibility:
-      'règlement économique pur, grand livre en partie double, host_ledger, commission',
+      'règlement économique pur, jambes, grand livre en partie double, host_ledger, insurer_ledger et bordereaux, avances de Kmino',
     dependsOn: ['PRC', 'PAY', 'CFG'],
     source: '17 §2.2 ; §2.1 STL --> PAY, PRC (rupture du cycle STL ↔ PAY)',
   },
   PYO: {
     code: 'PYO',
     name: 'Payouts',
-    responsibility: 'comptes de versement, lots de versement, compensation des débits (P0-B)',
+    responsibility:
+      "compte de versement vérifié de l'hôte, lots depuis la jambe HOST, compensation des débits (NETTING), gel et reprise",
     dependsOn: ['STL', 'PAY', 'KYC'],
     source: '17 §2.2 ; §2.1 PYO --> STL',
   },
   TRP: {
     code: 'TRP',
     name: 'Trip operations',
-    responsibility: 'check-in, check-out, inspections, hors ligne, retards et non-restitution',
+    responsibility:
+      "check-in et check-out par l'hôte et le voyageur, hors ligne, retards et non-restitution, refus du véhicule, remises du jour",
     dependsOn: ['AVL', 'KYC', 'PAY', 'AUD'],
     source: '17 §2.2 ; §2.1 TRP --> AVL, AUD',
   },
@@ -147,7 +154,7 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'CLM',
     name: 'Claims & Disputes',
     responsibility:
-      'dommages et incidents, factures annexes, litiges, dossiers de preuve, décisions',
+      'dommages et incidents, factures annexes, débits de dommage par jambe, litiges, dossiers de preuve, décisions',
     dependsOn: ['TRP', 'STL', 'PAY', 'AUD'],
     source: '17 §2.2 ; §2.1 CLM --> TRP, STL',
   },
@@ -177,7 +184,7 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'SUP',
     name: 'Support & back-office',
     responsibility:
-      'console interne, fiche 360°, files de revue, dossiers de support, actions manuelles',
+      "console interne, fiche 360°, files de revue (KYC, annonces, vérification d'hôte), dossiers de support, actions manuelles",
     // « tous (lecture), IAM » : tous sauf RPT (RPT lit SUP ; l'inverse créerait un cycle).
     dependsOn: allExcept('SUP', 'RPT'),
     source: '17 §2.2 (« tous (lecture), IAM ») ; §2.1 SUP --> CLM',
@@ -186,7 +193,7 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     code: 'FIN',
     name: 'Finance & Tax',
     responsibility:
-      'configuration fiscale, documents fiscaux, relevés de commission, rapprochements',
+      "configuration fiscale, documents fiscaux de Kmino (PAC, SIFEN), relevés de gains de l'hôte, rapprochements par jambe, exports comptables",
     dependsOn: ['STL', 'CFG'],
     source: '17 §2.2 ; §2.1 FIN --> STL',
   },

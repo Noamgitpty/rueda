@@ -94,7 +94,20 @@ function strict<T extends object>(provided: Partial<T>, name: string): T {
 
 const sha256hex = (t: string): string => createHash('sha256').update(t, 'utf8').digest('hex');
 
-export async function startApiHarness(): Promise<ApiHarness> {
+/**
+ * Adaptateurs remplacés par un test (contrats d'API, US-038) : chaque groupe est fusionné sur les
+ * adaptateurs par défaut du harnais, qui restent stricts pour tout ce qui n'est pas fourni.
+ */
+export interface ApiHarnessOverrides {
+  readonly iam?: Partial<IamAuthOptions>;
+  readonly pay?: Partial<PayWebhookOptions>;
+  readonly staff?: Partial<StaffOptions>;
+  readonly sup?: Partial<SupConsoleOptions>;
+  readonly brand?: Partial<BrandOptions>;
+  readonly risk?: Partial<RiskHttpOptions>;
+}
+
+export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
   const sessions: Record<HarnessActor, HarnessSession> = {
     voyageur: { token: token(), userId: uuid(), actor: 'voyageur' },
     staff_sans_mfa: { token: token(), userId: uuid(), actor: 'staff_sans_mfa' },
@@ -227,7 +240,14 @@ export async function startApiHarness(): Promise<ApiHarness> {
       );
     };
   const app = await NestFactory.create<NestExpressApplication>(
-    ApiModule.register(iam, pay, staff, sup, brand, risk),
+    ApiModule.register(
+      { ...iam, ...overrides.iam },
+      { ...pay, ...overrides.pay },
+      { ...staff, ...overrides.staff },
+      { ...sup, ...overrides.sup },
+      { ...brand, ...overrides.brand },
+      { ...risk, ...overrides.risk },
+    ),
     {
       rawBody: true,
       logger: {

@@ -20,6 +20,6 @@ export { StaffGuard, staffPrincipalOf } from './internal/staff/staff.guard.js';
 export type { StaffOptions, StaffPrincipal } from './internal/staff/staff.service.js';
 export type { StaffRole } from './internal/staff/staff-store.js';
 export { postgresStaffAdapters } from './internal/staff/production.js';
-export { AuthHttpError } from './internal/errors.js';
+export { AUTH_MESSAGES, AuthHttpError } from './internal/errors.js';
 // Coordonnées des destinataires de notification pour NTF (US-021, ADR-061 ; IAM → NTF).
 export { postgresNotificationContacts } from './internal/notification-contacts.js';
