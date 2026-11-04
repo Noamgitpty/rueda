@@ -17,9 +17,13 @@
 --      fictif), pour peupler audit_subject_key (son écrivain réel est la couche d'audit, US-009).
 --   3. us043_seed_submerchant(compte d'hôte) : sous-marchand PENDING sur un compte FAKE du pays du
 --      compte d'hôte (son écrivain réel est la commande du travailleur payment_command, US-061).
+--   4. us043_enable_totp(compte) : facteur TOTP ACTIF (référence de coffre fictive), pour que la
+--      console reconnaisse une session élevée de test (test:int des routes d'apps/api) ; le
+--      parcours réel d'enrôlement est prouvé par l0-iam-staff-mfa et pg-staff-store.int.test.ts.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us043_expected(text, text, text, jsonb, text, boolean),
---   test_fixture.us043_seed_subject_key(text, uuid), test_fixture.us043_seed_submerchant(uuid);
+--   test_fixture.us043_seed_subject_key(text, uuid), test_fixture.us043_seed_submerchant(uuid),
+--   test_fixture.us043_enable_totp(uuid);
 
 CREATE FUNCTION test_fixture.us043_expected(p_relation text, p_source text, p_predicate text,
                                             p_params jsonb, p_id_column text, p_by_country boolean)
@@ -55,8 +59,8 @@ BEGIN
   IF p_by_country THEN
     EXECUTE pg_catalog.format(
       'SELECT COALESCE(pg_catalog.jsonb_object_agg(k, n), ''{}''::jsonb) FROM ('
-      'SELECT r.country_code::text AS k, count(*) AS n FROM %s AS r WHERE (%s) '
-      'GROUP BY r.country_code) AS x', v_rel, p_predicate)
+      'SELECT COALESCE(r.country_code::text, '''') AS k, count(*) AS n FROM %s AS r WHERE (%s) '
+      'GROUP BY 1) AS x', v_rel, p_predicate)
       INTO v_country USING p_params;
   END IF;
   RETURN pg_catalog.jsonb_build_object('n', v_n, 'ids', v_ids, 'countries', v_country);
@@ -101,7 +105,18 @@ BEGIN
 END
 $fn$;
 
+CREATE FUNCTION test_fixture.us043_enable_totp(p_user_id uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.iam_auth_factor (id, user_id, kind, secret_ref, enabled_at)
+  VALUES (pg_catalog.gen_random_uuid(), p_user_id, 'TOTP', 'fake-vault:us043', platform.now())
+$fn$;
+
 REVOKE ALL ON FUNCTION
+  test_fixture.us043_enable_totp(uuid),
   test_fixture.us043_expected(text, text, text, jsonb, text, boolean),
   test_fixture.us043_seed_subject_key(text, uuid),
   test_fixture.us043_seed_submerchant(uuid)
@@ -110,6 +125,7 @@ GRANT EXECUTE ON FUNCTION
   test_fixture.us043_expected(text, text, text, jsonb, text, boolean)
   TO app_api, app_worker;
 GRANT EXECUTE ON FUNCTION
+  test_fixture.us043_enable_totp(uuid),
   test_fixture.us043_seed_subject_key(text, uuid),
   test_fixture.us043_seed_submerchant(uuid)
   TO app_api;

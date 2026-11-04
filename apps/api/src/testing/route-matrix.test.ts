@@ -16,28 +16,12 @@
  *    refusés, inscription invalide : ni l'email, ni le téléphone, ni l'URL ne sont renvoyés.
  * Les attendus viennent de 17 §2.3 et §6.6, 16 ADM-001 et de la matrice, jamais du code testé.
  */
-import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { API_BODY_LIMIT_BYTES, SECURITY_HEADERS } from '../http-hardening.js';
 import { startApiHarness, cookieOf } from './api-harness.js';
 import type { ApiHarness, HttpReply } from './api-harness.js';
 import { controllerRoutes } from './controller-routes.js';
-
-interface RouteEntry {
-  readonly acces: 'public' | 'session' | 'staff';
-  readonly permission?: string;
-  readonly roles?: readonly string[];
-  readonly portee?: 'pays' | 'plateforme';
-  readonly idor?: string;
-}
-interface RouteMatrix {
-  readonly acteurs: readonly string[];
-  readonly routes: Readonly<Record<string, RouteEntry>>;
-}
-
-export const ROUTE_MATRIX = JSON.parse(
-  readFileSync(new URL('../../security/route-matrix.json', import.meta.url), 'utf8'),
-) as RouteMatrix;
+import { ROUTE_MATRIX } from './route-matrix.js';
 
 const STAFF_ROLES = ['SUPPORT_AGENT', 'OPS_AGENT', 'FINANCE', 'ADMIN', 'SUPERADMIN'];
 const UUID = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c';

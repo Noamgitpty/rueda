@@ -150,7 +150,7 @@ async function observe(
     let countries: Record<string, number> | null = null;
     if (byCountry) {
       const c = await tx.query<{ k: string; n: string }>(
-        `SELECT country_code::text AS k, count(*)::text AS n FROM ${quoteRel(rel)} GROUP BY 1`,
+        `SELECT COALESCE(country_code::text, '') AS k, count(*)::text AS n FROM ${quoteRel(rel)} GROUP BY 1`,
       );
       countries = Object.fromEntries(c.rows.map((r) => [r.k, Number(r.n)]));
     }
@@ -217,13 +217,16 @@ async function evaluate(
     const out: Record<string, CellResult> = {};
     for (const [rel, r] of RELATIONS) {
       const cell = cellOf(rel, r);
+      // « refus » : prouvé sur la base de PRODUCTION (la base de test porte des droits de test,
+      // 9100 et 9500) par « lectures refusées » ci-dessous
+      if (cell === 'refus') continue;
       const idCandidate = r.identifiant ?? 'id';
       const idColumn = (await columnReadable(client, rel, idCandidate)) ? idCandidate : null;
       const byCountry = await columnReadable(client, rel, 'country_code');
       const seen = await observe(client, rel, idColumn, byCountry);
       const sql = predicateSql(cell);
-      const want =
-        sql === null ? 'refus' : await expected(client, rel, r, sql, params, idColumn, byCountry);
+      if (sql === null) throw new Error(`cellule ${rel}`);
+      const want = await expected(client, rel, r, sql, params, idColumn, byCountry);
       out[rel] = { cell, seen, want };
     }
     return out;
@@ -232,9 +235,19 @@ async function evaluate(
   }
 }
 
+/** Forme canonique (clés triées) : l'ordre des pays rendu par la base n'est pas une différence. */
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, (_k, x: unknown) =>
+    x !== null && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(
+          Object.entries(x as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1)),
+        )
+      : x,
+  );
+
 function assertCells(results: Record<string, CellResult>, who: string): void {
   const wrong = Object.entries(results)
-    .filter(([, x]) => JSON.stringify(x.seen) !== JSON.stringify(x.want))
+    .filter(([, x]) => canonical(x.seen) !== canonical(x.want))
     .map(([rel, x]) => ({ rel, cell: x.cell, seen: x.seen, want: x.want }));
   expect(wrong, `${who} : cellules non conformes à la matrice`).toEqual([]);
 }
@@ -387,7 +400,8 @@ describe('US-043 — matrice : inventaire de la base de production', () => {
     );
   });
 
-  it('cohérence : lecture décrite ⇔ SELECT accordé (app_api), travailleurs décrits ⇔ SELECT (app_worker) ; chaque acteur a sa cellule', () => {
+  it('cohérence : lecture décrite ⇔ SELECT accordé (app_api), travailleurs décrits ⇔ SELECT (app_worker) ; chaque acteur a sa cellule', async () => {
+    await withRole('app_api', (client) => client.query('SELECT 1'));
     for (const [rel, m] of RELATIONS) {
       expect(m.lecture !== undefined, `${rel} lecture`).toBe(m.droits.app_api.SELECT !== undefined);
       expect(m.travailleurs !== undefined, `${rel} travailleurs`).toBe(
@@ -442,10 +456,16 @@ describe('US-043 — matrice : inventaire de la base de production', () => {
 // 2. Écritures : tout droit absent de la matrice est refusé à l'exécution
 // ---------------------------------------------------------------------------------------------
 
+/** Première colonne ordinaire (ni identité, ni générée), lue au catalogue sans droit sur le schéma. */
 async function firstColumn(client: pg.ClientBase, rel: string): Promise<string> {
   const { rows } = await client.query<{ name: string }>(
-    `SELECT attname::text AS name FROM pg_catalog.pg_attribute
-      WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped ORDER BY attnum LIMIT 1`,
+    `SELECT a.attname::text AS name
+       FROM pg_catalog.pg_attribute a
+       JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+       JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname || '.' || c.relname = $1 AND a.attnum > 0 AND NOT a.attisdropped
+        AND a.attidentity = '' AND a.attgenerated = ''
+      ORDER BY a.attnum LIMIT 1`,
     [rel],
   );
   const name = rows[0]?.name;
@@ -483,7 +503,9 @@ describe.each(APP_ROLES)(
                   await client.query('RELEASE SAVEPOINT probe');
                 } catch (error) {
                   await client.query('ROLLBACK TO SAVEPOINT probe');
-                  if ((error as { code?: string }).code !== '42501') {
+                  const code = (error as { code?: string }).code;
+                  // 55000 : vue non modifiable (aucune écriture possible, quel que soit le droit)
+                  if (code !== '42501' && !(m.type === 'view' && code === '55000')) {
                     accepted.push(`${rel} ${w} (${(error as { code?: string }).code})`);
                   }
                 }
@@ -717,7 +739,8 @@ const apiCell =
     r.lecture?.[name] ?? 'refus';
 
 describe('US-043 — matrice : lectures sous la RLS, acteur par acteur, en PA et en PY', () => {
-  it('acteurs de la matrice = acteurs éprouvés', () => {
+  it('acteurs de la matrice = acteurs éprouvés', async () => {
+    await withRole('app_api', (client) => client.query('SELECT 1'));
     expect(apiActors(0).map((a) => a.name)).toEqual([...MATRIX.acteurs]);
   });
 
@@ -765,21 +788,32 @@ describe('US-043 — matrice : lectures sous la RLS, acteur par acteur, en PA et
     );
   }
 
-  it('anonyme (app_anon) : refus sur toute relation du projet', async () => {
-    await withRole('app_anon', async (client) => {
-      await client.query('BEGIN');
-      try {
-        const allowed: string[] = [];
-        for (const [rel] of RELATIONS) {
-          const seen = await observe(client, rel, null, false);
-          if (seen !== 'refus') allowed.push(rel);
-        }
-        expect(allowed).toEqual([]);
-      } finally {
-        await client.query('ROLLBACK');
-      }
-    });
-  });
+  it.each(APP_ROLES)(
+    'lectures refusées (base de production) : %s, chaque relation sans SELECT ⇒ 42501 (anonyme : toutes)',
+    async (role) => {
+      await withRole(
+        role,
+        async (client) => {
+          await client.query('BEGIN');
+          try {
+            const allowed: string[] = [];
+            let probes = 0;
+            for (const [rel, m] of RELATIONS) {
+              if (m.droits[role].SELECT !== undefined) continue;
+              probes++;
+              const seen = await observe(client, rel, null, false);
+              if (seen !== 'refus') allowed.push(rel);
+            }
+            expect(allowed).toEqual([]);
+            expect(probes).toBeGreaterThan(0);
+          } finally {
+            await client.query('ROLLBACK');
+          }
+        },
+        { database: 'production' },
+      );
+    },
+  );
 });
 
 const workerCell =
