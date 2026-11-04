@@ -36,7 +36,9 @@ RUN pnpm install --frozen-lockfile \
 # développement (dont @rueda/fake-adapters) disparaissent de node_modules.
 RUN find . -name node_modules -type d -prune -exec rm -rf {} + \
   && pnpm install --frozen-lockfile --prod --ignore-scripts \
-       --filter @rueda/api... --filter @rueda/db...
+       --filter @rueda/api... --filter @rueda/db...   && find node_modules/.pnpm/node_modules/@rueda -mindepth 1 -maxdepth 1        ! -name i18n ! -name design-tokens -exec rm -rf {} +
+# (le magasin de pnpm « remonte » un lien vers CHAQUE paquet de l'espace de travail, dont
+#  @rueda/fake-adapters : seuls les deux paquets lus par l'API sont gardés, liste blanche)
 
 FROM ${NODE_IMAGE} AS runtime
 ARG RUEDA_RELEASE=unknown
