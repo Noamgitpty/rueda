@@ -71,6 +71,8 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_staff_cmd_mfa_attempt(bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_reset_totp(bytea,uuid,uuid,text,uuid,text,bytea,integer)': 'iam_staff_owner',
   'core.iam_staff_cmd_suspend(bytea,uuid,uuid,text)': 'iam_staff_owner',
+  // US-043 (0049) : issue d'accès des lectures de la console, sans écriture
+  'core.iam_staff_read_access(bytea,text,text)': 'iam_staff_owner',
 };
 
 /** Lecture des coordonnées pour NTF (US-021, migration 0031), exécutable par app_worker seul. */

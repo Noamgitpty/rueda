@@ -2,11 +2,12 @@
   "name": "@rueda/config",
   "version": "0.0.0",
   "private": true,
-  "description": "Configuration partagée : ESLint (frontières de modules, horloge SQL), tsconfig.",
+  "description": "Configuration partagée : ESLint (frontières de modules, horloge SQL), garde d'environnement SQL, tsconfig.",
   "type": "module",
   "exports": {
     "./eslint": "./eslint/index.ts",
     "./sql-clock": "./sql-clock/scan.ts",
+    "./sql-env-guard": "./sql-env-guard/scan.ts",
     "./tsconfig/node.json": "./tsconfig/node.json",
     "./tsconfig/nextjs.json": "./tsconfig/nextjs.json"
   },

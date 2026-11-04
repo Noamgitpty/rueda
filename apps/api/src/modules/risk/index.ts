@@ -11,7 +11,7 @@ export type {
   HttpScope,
   RiskLogEntry,
 } from './internal/abuse-guard.js';
-export { PgAbuseBoardStore } from './internal/abuse-board.js';
+export { AbuseBoardAccessError, PgAbuseBoardStore } from './internal/abuse-board.js';
 export type { AbuseBoardRow, AbuseBoardStore } from './internal/abuse-board.js';
 export { CHALLENGE_HEADER, UnavailableBotChallenge } from './internal/bot-challenge.port.js';
 export type { BotChallengePort, ChallengeOutcome } from './internal/bot-challenge.port.js';

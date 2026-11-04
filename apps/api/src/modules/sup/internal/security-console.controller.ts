@@ -9,11 +9,11 @@
  *
  * `StaffGuard` exige une session élevée (TOTP) ; la base relit l'acteur depuis l'empreinte du
  * jeton, vérifie `security.read_abuse` sur le pays (ou sur tous les pays) et journalise les
- * refus : sans permission, la liste est vide (aucune information sur l'existence d'abus).
+ * refus : sans permission, 403 FORBIDDEN (US-043, 16 ADM-001), jamais une liste vide trompeuse.
  */
 import { Controller, Get, Inject, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthHttpError, StaffGuard, staffPrincipalOf } from '../../iam/index.js';
-import { ABUSE_BOARD_STORE } from '../../risk/index.js';
+import { ABUSE_BOARD_STORE, AbuseBoardAccessError } from '../../risk/index.js';
 import type { AbuseBoardStore } from '../../risk/index.js';
 
 const COUNTRY = /^[A-Z]{2}$/;
@@ -35,11 +35,25 @@ export class SecurityConsoleController {
       throw new AuthHttpError('REQUEST_INVALID');
     }
     const h = typeof hours === 'string' && /^\d{1,3}$/.test(hours) ? Number(hours) : 24;
-    const rows = await this.board.read(
-      principal.tokenHash,
-      typeof country === 'string' ? country : null,
-      Math.min(Math.max(h, 1), 168),
-    );
+    let rows: Awaited<ReturnType<AbuseBoardStore['read']>>;
+    try {
+      rows = await this.board.read(
+        principal.tokenHash,
+        typeof country === 'string' ? country : null,
+        Math.min(Math.max(h, 1), 168),
+      );
+    } catch (error) {
+      if (error instanceof AbuseBoardAccessError) {
+        throw new AuthHttpError(
+          error.outcome === 'MFA_REQUIRED'
+            ? '2FA_REQUIRED'
+            : error.outcome === 'AUTH_REQUIRED'
+              ? 'AUTH_REQUIRED'
+              : 'FORBIDDEN',
+        );
+      }
+      throw error;
+    }
     return {
       rows: rows.map((r) => ({
         kind: r.kind,
