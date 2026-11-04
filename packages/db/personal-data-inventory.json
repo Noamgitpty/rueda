@@ -1,0 +1,1455 @@
+{
+  "$comment": "Inventaire des données personnelles de la base de production (US-046, ADR-081 ; 17 §3.1.3, §3.1.4). UNE entrée par table des schémas core et platform, et UNE classe par colonne (C0 public, C1 interne, C2 personnel, C3 sensible, C4 secret) : une colonne nouvelle non classée, ou une entrée sans colonne, fait échouer la CI (test unitaire contre docs/architecture/schema.md, test L0 contre le catalogue). Par table : lifecycle = classe de suppression de 17 §3.1.3 (A registre immuable, B objet métier, C référence, D contenu éditable, T technique) ; subjects = colonnes qui rattachent une ligne à une personne (USER) ou à un compte d’hôte (ORG) ; export = canal de l’export des données (self : la personne lit elle-même ses lignes sous RLS, libre-service BR-ACC-09 ; controller : export par le responsable des données, US-536 ; none : aucune ligne de sujet). Colonne C2 / C3 : erasure = crypto-shredding (octets chiffrés par la clé du sujet, key = colonnes type et identifiant de la clé), pseudonymisation (UPDATE vers un marqueur, US-536), purge (rétention courte) ou derogation (justification et story de report obligatoires). Colonne C4 : jamais lisible par app_anon ; par app_api seulement avec apiRead justifié. Les attentes viennent de 17 et des annotations [Cx] des migrations, jamais du code. Modifier ce fichier = revue sécurité (packages/db/).",
+  "tables": {
+    "core.audit_audit_log": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "actor_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "at": "C1",
+        "actor_user_id": "C1",
+        "actor_role": "C1",
+        "action_code": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "before": "C1",
+        "after": "C1",
+        "reason": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "motif libre recopié en clair dans un registre en ajout seul : ni UPDATE (pseudonymisation) ni clé de sujet ; consigne : aucun nom, contact ni identifiant de personne dans un motif",
+          "report": "US-536"
+        },
+        "ip_enc": {
+          "class": "C2",
+          "erasure": "crypto-shredding",
+          "key": ["ip_key_subject_type", "ip_key_subject_id"]
+        },
+        "ip_key_subject_type": "C1",
+        "ip_key_subject_id": "C1",
+        "c2_withheld": "C1",
+        "request_id": "C1",
+        "prev_hash": "C1",
+        "hash": "C1"
+      }
+    },
+    "core.audit_chain_head": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "chain": "C1",
+        "last_id": "C1",
+        "last_hash": "C1"
+      }
+    },
+    "core.audit_data_access_log": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "actor_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "at": "C1",
+        "actor_user_id": "C1",
+        "actor_role": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "field_or_file": "C1",
+        "purpose": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "finalité libre d’un registre en ajout seul, saisie par le staff : jamais de donnée de la personne (17 §3.2.13, références seulement)",
+          "report": "US-536"
+        },
+        "access_kind": "C1",
+        "case_ref": "C1",
+        "request_id": "C1"
+      }
+    },
+    "core.audit_file_asset": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "uploader_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "content": {
+        "erasure": "crypto-shredding",
+        "key": ["enc_subject_type", "enc_subject_id"],
+        "classColumn": "classification"
+      },
+      "columns": {
+        "id": "C1",
+        "bucket": "C1",
+        "storage_key": "C1",
+        "mime": "C1",
+        "bytes": "C1",
+        "sha256": "C1",
+        "uploader_user_id": "C1",
+        "source": "C1",
+        "device_captured_at": "C1",
+        "server_received_at": "C1",
+        "classification": "C1",
+        "retention_class": "C1",
+        "enc_subject_type": "C1",
+        "enc_subject_id": "C1",
+        "legal_hold_until": "C1",
+        "deleted_at": "C1"
+      }
+    },
+    "core.audit_subject_key": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "subject_id",
+          "type": "USER"
+        },
+        {
+          "column": "subject_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "wrapped_dek": {
+          "class": "C4",
+          "apiRead": "DEK enveloppée par le KMS : illisible sans le KMS, lue par son seul sujet (US-009, api_select)"
+        },
+        "kms_key_id": "C1",
+        "created_at": "C1",
+        "destroyed_at": "C1",
+        "destroy_request_id": "C1"
+      }
+    },
+    "core.booking_checkout_hold": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "guest_user_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "guest_user_id": "C1",
+        "vehicle_id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "quote_id": "C1",
+        "occupancy_id": "C1",
+        "kind": "C1",
+        "status": "C1",
+        "expires_at": "C1",
+        "payment_in_flight_until": "C1",
+        "payment_attempts": "C1",
+        "expired_at": "C1",
+        "release_requested_at": "C1",
+        "released_at": "C1",
+        "released_by": "C1",
+        "release_reason": "C1",
+        "review_required": "C1",
+        "reviewed_at": "C1",
+        "last_polled_at": "C1",
+        "converted_trip_id": "C1",
+        "conversion_operation_id": "C1",
+        "compensated_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.booking_disposition_repair_log": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "operation_id": "C1",
+        "attempts": "C1",
+        "first_failed_at": "C1",
+        "last_attempt_at": "C1",
+        "last_error": "C1",
+        "alerted_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.booking_guest_occupancy": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "guest_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "guest_user_id": "C1",
+        "period": "C1",
+        "active": "C1",
+        "trip_id": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.booking_hold_compensation": {
+      "lifecycle": "B",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "hold_id": "C1",
+        "reason": "C1",
+        "operation_id": "C1",
+        "action": "C1",
+        "refund_instance_id": "C1",
+        "status": "C1",
+        "opened_at": "C1",
+        "closed_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.booking_payment_disposition": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "operation_id": "C1",
+        "hold_id": "C1",
+        "disposition": "C1",
+        "trip_id": "C1",
+        "hold_compensation_id": "C1",
+        "decided_at": "C1"
+      }
+    },
+    "core.booking_trip": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "guest_user_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "public_ref": "C1",
+        "guest_user_id": "C1",
+        "org_id": "C1",
+        "vehicle_id": "C1",
+        "listing_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "timezone": "C1",
+        "scheduled_start": "C1",
+        "scheduled_end": "C1",
+        "booked_at": "C1",
+        "status": "C1",
+        "requirements_status": "C1",
+        "payment_status": "C1",
+        "source_hold_id": "C1",
+        "termination_reason": "C1",
+        "cancellation_reason": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.booking_vehicle_occupancy": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "vehicle_id": "C1",
+        "kind": "C1",
+        "source": "C1",
+        "period": "C1",
+        "active": "C1",
+        "expires_at": "C1",
+        "deactivated_reason": "C1",
+        "ref_type": "C1",
+        "ref_id": "C1",
+        "ical_uid": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1",
+        "org_id": "C1",
+        "country_code": "C1"
+      }
+    },
+    "core.config_brand_asset": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "kind": "C0",
+        "file_asset_id": "C0",
+        "storage_key": "C0",
+        "mime": "C0",
+        "bytes": "C0",
+        "sha256": "C0",
+        "alt_text_es": "C0",
+        "alt_text_en": "C0",
+        "alt_text_fr": "C0",
+        "license_note": "C0",
+        "uploaded_by": "C0",
+        "created_at": "C0",
+        "request_id": "C0",
+        "alt_text_pt": "C0"
+      }
+    },
+    "core.config_brand_version": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "version_no": "C0",
+        "status": "C0",
+        "brand_name": "C0",
+        "tokens": "C0",
+        "tokens_schema_version": "C0",
+        "logo_asset_id": "C0",
+        "favicon_asset_id": "C0",
+        "pwa_icon_asset_id": "C0",
+        "email_skin": "C0",
+        "whatsapp_skin": "C0",
+        "contrast_check": "C0",
+        "copied_from_id": "C0",
+        "created_by": "C0",
+        "created_at": "C0",
+        "published_by": "C0",
+        "published_at": "C0",
+        "archived_at": "C0",
+        "request_id": "C0"
+      }
+    },
+    "core.config_content_block": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "block_key": "C0",
+        "locale": "C0",
+        "country_code": "C0",
+        "version_no": "C0",
+        "status": "C0",
+        "body_md": "C0",
+        "asset_id": "C0",
+        "copied_from_id": "C0",
+        "created_by": "C0",
+        "created_at": "C0",
+        "published_by": "C0",
+        "published_at": "C0",
+        "archived_at": "C0",
+        "request_id": "C0"
+      }
+    },
+    "core.config_country": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "currency": "C1",
+        "time_zone": "C1",
+        "legal_locale": "C1",
+        "default_locale": "C1",
+        "locales": "C1",
+        "names": "C1",
+        "host_tax_id_kinds": "C1"
+      }
+    },
+    "core.config_currency": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "exponent": "C1"
+      }
+    },
+    "core.config_holiday_calendar": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "country_code": "C1",
+        "date": "C1",
+        "name": "C1",
+        "version": "C1"
+      }
+    },
+    "core.config_param_definition": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "key": "C1",
+        "type": "C1",
+        "unit": "C1",
+        "allowed_scopes": "C1",
+        "currency_bound": "C1",
+        "fail_mode": "C1",
+        "optional": "C1",
+        "go_live_switch": "C1",
+        "not_applicable_in": "C1",
+        "allowed_values": "C1",
+        "source_ref": "C1",
+        "status": "C1"
+      }
+    },
+    "core.config_param_value": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "key": "C1",
+        "country_code": "C1",
+        "scope_type": "C1",
+        "scope_id": "C1",
+        "network": "C1",
+        "currency": "C1",
+        "value": "C1",
+        "valid_from": "C1",
+        "valid_to": "C1",
+        "approved_by": "C1",
+        "decision_ref": "C1",
+        "change_reason": "C1",
+        "created_at": "C1",
+        "created_by": "C1"
+      }
+    },
+    "core.finance_legal_entity": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "country_code": "C1",
+        "name": "C1",
+        "country_of_incorporation": "C1",
+        "tax_id": "C1",
+        "invoicing_regime": "C1"
+      }
+    },
+    "core.iam_auth_factor": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "kind": "C1",
+        "secret_ref": {
+          "class": "C4"
+        },
+        "enabled_at": "C1",
+        "disabled_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1",
+        "last_used_step": "C1",
+        "failed_attempts": "C1",
+        "locked_until": "C1",
+        "enrollment_code_hash": {
+          "class": "C4"
+        },
+        "enrollment_expires_at": "C1"
+      }
+    },
+    "core.iam_email_verification": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "email": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "token_hash": {
+          "class": "C4"
+        },
+        "sent_at": "C1",
+        "expires_at": "C1",
+        "consumed_at": "C1",
+        "ip": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.iam_membership": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "org_id": "C1",
+        "role": "C1",
+        "vehicle_scope": "C1",
+        "permission_overrides": "C1",
+        "status": "C1",
+        "invite_expires_at": "C1",
+        "holder_ref": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.iam_mfa_proof_key": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "key": {
+          "class": "C4"
+        },
+        "installed_at": "C1"
+      }
+    },
+    "core.iam_organization": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "holder_user_id",
+          "type": "USER"
+        },
+        {
+          "column": "id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "kind": "C1",
+        "holder_user_id": "C1",
+        "country_code": "C1",
+        "display_name": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "tax_id": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "status": "C1",
+        "plan_code": "C1",
+        "legal_entity_id": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.iam_otp_challenge": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "phone_e164": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "channel": "C1",
+        "code_hash": {
+          "class": "C4"
+        },
+        "expires_at": "C1",
+        "attempts": "C1",
+        "locked_until": "C1",
+        "purpose": "C1",
+        "consumed_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.iam_restriction": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "kind": "C1",
+        "active": "C1",
+        "reason": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "source_ref": "C1",
+        "lifted_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.iam_role_permission": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "role": "C1",
+        "permission_code": "C1",
+        "scope_rule": "C1",
+        "valid_from": "C1",
+        "valid_to": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "approved_by": "C1",
+        "change_reason": "C1"
+      }
+    },
+    "core.iam_session": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "token_hash": {
+          "class": "C4"
+        },
+        "expires_at": "C1",
+        "ip": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "user_agent": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "revoked_at": "C1",
+        "revoked_reason": "C1",
+        "mfa_level": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.iam_staff_role_assignment": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "role": "C1",
+        "country_scope": "C1",
+        "granted_by": "C1",
+        "expires_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.iam_user_account": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "id",
+          "type": "USER"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "email": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "email_verified_at": "C1",
+        "phone_e164": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "phone_verified_at": "C1",
+        "phone_line_type": "C1",
+        "password_hash": {
+          "class": "C4"
+        },
+        "legal_first_name": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "legal_last_name": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "display_name": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "date_of_birth": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "preferred_locale": "C1",
+        "residence_country": "C1",
+        "status": "C1",
+        "pseudonymized_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.ntf_notification_dispatch": {
+      "lifecycle": "T",
+      "subjects": [
+        {
+          "column": "recipient_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "event_id": "C1",
+        "event_type": "C1",
+        "country_code": "C1",
+        "correlation_id": "C1",
+        "recipient_user_id": "C1",
+        "recipient_role": "C1",
+        "channel": "C1",
+        "template_key": "C1",
+        "template_version": "C1",
+        "variables": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "status": "C1",
+        "attempts": "C1",
+        "locale": "C1",
+        "provider_message_id": "C1",
+        "rendered_hash": "C1",
+        "last_error": "C1",
+        "fallback_of": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.outbox_dead_letter": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "consumer": "C1",
+        "event_id": "C1",
+        "job_id": "C1",
+        "attempts": "C1",
+        "last_error": "C1",
+        "parked_at": "C1",
+        "replayed_at": "C1",
+        "replayed_by": "C1"
+      }
+    },
+    "core.outbox_inbox_receipt": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "consumer": "C1",
+        "event_id": "C1",
+        "processed_at": "C1"
+      }
+    },
+    "core.outbox_outbox_event": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "actor_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "type": "C1",
+        "schema_version": "C1",
+        "occurred_at": "C1",
+        "aggregate_type": "C1",
+        "aggregate_id": "C1",
+        "aggregate_version": "C1",
+        "country_code": "C1",
+        "actor_user_id": "C1",
+        "actor_role": "C1",
+        "correlation_id": "C1",
+        "causation_id": "C1",
+        "payload": "C1",
+        "partition_key": "C1",
+        "created_at": "C1",
+        "published_at": "C1",
+        "attempts": "C1",
+        "last_error": "C1"
+      }
+    },
+    "core.outbox_scheduled_job": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "name": "C1",
+        "run_at": "C1",
+        "payload": "C1",
+        "singleton_key": "C1",
+        "event_id": "C1",
+        "state": "C1",
+        "attempts": "C1",
+        "max_attempts": "C1",
+        "locked_until": "C1",
+        "last_error": "C1",
+        "completed_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.payment_payment_command": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "operation_kind": "C1",
+        "idem_plain": "C1",
+        "operation_id": "C1",
+        "hold_id": "C1",
+        "country_code": "C1",
+        "status": "C1",
+        "next_attempt_at": "C1",
+        "attempts": "C1",
+        "last_error": "C1",
+        "partition_key": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.payment_payment_operation": {
+      "lifecycle": "A",
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "hold_id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "provider": "C1",
+        "method": "C1",
+        "kind": "C1",
+        "purpose": "C1",
+        "amount_minor": "C1",
+        "currency": "C1",
+        "attempt_no": "C1",
+        "status": "C1",
+        "idem_plain": "C1",
+        "idem_sent": "C1",
+        "provider_reference": "C1",
+        "proof_type": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1",
+        "psp_account_id": "C1"
+      }
+    },
+    "core.payment_payment_operation_event": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "operation_id": "C1",
+        "status": "C1",
+        "source": "C1",
+        "outcome": "C1",
+        "raw_ref": "C1",
+        "at": "C1"
+      }
+    },
+    "core.payment_payment_operation_leg": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "operation_id": "C1",
+        "leg": "C1",
+        "org_id": "C1",
+        "trip_id": "C1",
+        "country_code": "C1",
+        "amount_minor": "C1",
+        "beneficiary_ref": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.payment_psp_account": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "provider": "C1",
+        "owner_type": "C1",
+        "country_code": "C1",
+        "environment": "C1",
+        "collection_mode": "C1",
+        "credentials_ref": {
+          "class": "C4"
+        },
+        "webhook_secret_ref": {
+          "class": "C4"
+        },
+        "public_webhook_id": "C1",
+        "status": "C1",
+        "gate_decision_ref": "C1",
+        "last_webhook_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.payment_psp_capability": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "provider": "C1",
+        "country_code": "C1",
+        "method": "C1",
+        "network": "C1",
+        "capability": "C1",
+        "value": "C1",
+        "status": "C1",
+        "source": "C1",
+        "validated_at": "C1",
+        "valid_from": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.payment_psp_capability_catalog": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "capability": "C1",
+        "kind": "C1",
+        "blocking": "C1",
+        "source": "C1"
+      }
+    },
+    "core.payment_psp_submerchant": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "psp_account_id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "attempt_no": "C1",
+        "idem_plain": "C1",
+        "provider_submerchant_ref": "C1",
+        "kyc_status": "C1",
+        "payout_currency": "C1",
+        "activated_at": "C1",
+        "suspended_reason": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.payment_webhook_inbox": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "provider": "C1",
+        "psp_account_id": "C1",
+        "provider_event_id": "C1",
+        "dedup_key": "C1",
+        "received_at": "C1",
+        "signature_valid": "C1",
+        "headers": "C1",
+        "raw_body_enc": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "processing_status": "C1",
+        "processed_at": "C1",
+        "error": "C1",
+        "normalized_events": "C1"
+      }
+    },
+    "core.pricing_tax_line_config": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "country_code": "C1",
+        "line_type": "C1",
+        "taxable": "C1",
+        "rate_group": "C1",
+        "rate_bps": "C1",
+        "third_party": "C1",
+        "version": "C1",
+        "valid_from": "C1"
+      }
+    },
+    "core.risk_abuse_event": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "kind": "C1",
+        "scope": "C1",
+        "key_hash": {
+          "class": "C4"
+        },
+        "country_code": "C1",
+        "bucket_start": "C1",
+        "first_at": "C1",
+        "last_at": "C1",
+        "occurrences": "C1",
+        "signals": "C1"
+      }
+    },
+    "core.risk_rate_counter": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "scope": "C1",
+        "key_hash": {
+          "class": "C4"
+        },
+        "window_start": "C1",
+        "window_end": "C1",
+        "country_code": "C1",
+        "hits": "C1"
+      }
+    },
+    "core.settlement_finance_approval": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "action": "C1",
+        "subject_id": "C1",
+        "country_code": "C1",
+        "reason": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "motif figé par le trigger de garde (double validation) : pseudonymisation impossible ; consigne : aucune donnée de personne dans un motif",
+          "report": "US-536"
+        },
+        "requested_by": "C1",
+        "requested_at": "C1",
+        "approved_by": "C1",
+        "approved_at": "C1",
+        "status": "C1"
+      }
+    },
+    "core.settlement_insurer_bordereau": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "insurer_id": "C1",
+        "insurer_contract_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "period": "C1",
+        "total_minor": "C1",
+        "status": "C1",
+        "issued_by": "C1",
+        "second_validated_by": "C1",
+        "approval_id": "C1",
+        "issued_at": "C1",
+        "paid_at": "C1",
+        "psp_release_ref": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.settlement_insurer_bordereau_line": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "bordereau_id": "C1",
+        "country_code": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "amount_minor": "C1"
+      }
+    },
+    "core.settlement_insurer_ledger_state": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "insurer_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "payable_minor": "C1",
+        "frozen_minor": "C1",
+        "receivable_minor": "C1",
+        "next_bordereau_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.settlement_leg_movement": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "operation_id": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "country_code": "C1",
+        "kind": "C1",
+        "applied_at": "C1"
+      }
+    },
+    "core.settlement_platform_advance": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "trip_id": "C1",
+        "org_id": "C1",
+        "insurer_id": "C1",
+        "cause": "C1",
+        "amount_minor": "C1",
+        "funded_from": "C1",
+        "receivable_minor": "C1",
+        "recovered_minor": "C1",
+        "status": "C1",
+        "decided_by": "C1",
+        "decision_second_by": "C1",
+        "decision_approval_id": "C1",
+        "written_off_at": "C1",
+        "written_off_by": "C1",
+        "write_off_second_by": "C1",
+        "write_off_approval_id": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.settlement_settlement": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "version": "C1",
+        "supersedes_id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "kind": "C1",
+        "engine_version": "C1",
+        "requested_reason": "C1",
+        "reason": "C1",
+        "origin": "C1",
+        "qualification": "C1",
+        "target_state": "C1",
+        "host_eligible": "C1",
+        "total_paid_minor": "C1",
+        "guest_refund_minor": "C1",
+        "tax_refund_minor": "C1",
+        "retained_minor": "C1",
+        "retained_tax_minor": "C1",
+        "host_from_guest_minor": "C1",
+        "host_compensation_minor": "C1",
+        "host_earnings_minor": "C1",
+        "platform_net_minor": "C1",
+        "host_penalty_minor": "C1",
+        "negative_leg": "C1",
+        "inputs": "C1",
+        "inputs_hash": "C1",
+        "param_snapshot_hash": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.settlement_settlement_leg": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "settlement_id": "C1",
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "leg": "C1",
+        "kept_minor": "C1",
+        "advance_minor": "C1",
+        "basis_minor": "C1",
+        "variation_minor": "C1"
+      }
+    },
+    "core.settlement_settlement_line": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "settlement_id": "C1",
+        "line_type": "C1",
+        "amount_minor": "C1",
+        "refund_minor": "C1",
+        "retained_minor": "C1"
+      }
+    },
+    "core.settlement_settlement_tax_line": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "settlement_id": "C1",
+        "tax_group": "C1",
+        "third_party": "C1",
+        "tax_paid_minor": "C1",
+        "tax_refund_minor": "C1",
+        "retained_tax_minor": "C1"
+      }
+    },
+    "core.settlement_trip_leg_balance": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "self",
+      "columns": {
+        "trip_id": "C1",
+        "segment_no": "C1",
+        "leg": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "captured_minor": "C1",
+        "refunded_minor": "C1",
+        "reallocated_in_minor": "C1",
+        "reallocated_out_minor": "C1",
+        "released_minor": "C1",
+        "frozen": "C1",
+        "frozen_reason": "C1",
+        "release_at": "C1",
+        "row_version": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.support_manual_action": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "actor_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "action_code": "C1",
+        "mode": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "country_code": "C1",
+        "actor_user_id": "C1",
+        "actor_role": "C1",
+        "input": "C1",
+        "evidence_file_ids": "C1",
+        "reason": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "emitted_event_ids": "C1",
+        "audit_log_id": "C1",
+        "request_id": "C1",
+        "at": "C1"
+      }
+    },
+    "core.support_manual_action_catalog": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "action_code": "C1",
+        "permission_code": "C1",
+        "mode": "C1",
+        "subject_type": "C1",
+        "available": "C1"
+      }
+    },
+    "core.support_support_case": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "requester_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "requester_user_id": "C1",
+        "country_code": "C1",
+        "trip_id": "C1",
+        "channel": "C1",
+        "category": "C1",
+        "priority": "C1",
+        "status": "C1",
+        "assignee_id": "C1",
+        "reason": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "sla_due_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "platform.environment_declaration": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "singleton": "C1",
+        "environment": "C1",
+        "declared_at": "C1",
+        "declared_by": "C1"
+      }
+    },
+    "platform.schema_migration": {
+      "lifecycle": "T",
+      "export": "none",
+      "columns": {
+        "version": "C1",
+        "name": "C1",
+        "checksum": "C1",
+        "applied_at": "C1",
+        "applied_by": "C1"
+      }
+    }
+  }
+}

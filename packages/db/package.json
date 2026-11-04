@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./audit": "./src/audit/index.ts",
+    "./privacy": "./src/privacy/index.ts",
     "./schemas": "./schemas.ts",
     "./testing": "./src/testing/index.ts",
     "./testing/global-setup": "./src/testing/global-setup.ts",
