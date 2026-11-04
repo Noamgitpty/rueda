@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import {
   applyRelease,
   branchStories,
+  escapeWorkflow,
   evaluate,
   isExemptPath,
   parseFragment,
@@ -334,6 +335,46 @@ test('le CHANGELOG du dépôt est versable (structure Non publié / Lot / module
   });
   const entries = (s) => (s.match(/^- /gm) ?? []).length;
   assert.equal(entries(out), entries(text));
-  assert.ok(entries(text) >= 74, `au moins une entrée par PR fusionnée (${entries(text)})`);
-  for (const n of [1, 2, 18, 40, 65, 77]) assert.match(text, new RegExp(`#${n}\\b`));
+  assert.ok(entries(text) >= 75, `au moins une entrée par PR fusionnée (${entries(text)})`);
+  for (const n of [1, 2, 18, 40, 65, 75, 77]) assert.match(text, new RegExp(`#${n}\\b`));
+});
+
+// --- Durcissements (revues code et sécurité US-040) ----------------------------------------------
+
+test('ÉCHEC VOLONTAIRE : story de la branche citée seulement dans un commentaire HTML', () => {
+  const r = repo();
+  try {
+    r.commit({
+      'packages/x/index.ts': 'export const a = 2;\n',
+      'changelog.d/US-040.md':
+        '<!-- US-040 -->\nlot: L0\nmodule: CI\n- Ajouté : autre chose (US-999) <!-- US-040 -->\n',
+    });
+    const out = r.check();
+    assert.equal(out.status, 1);
+    assert.match(out.stderr, /aucun fragment ne cite une story de la branche \(US-040\)/);
+  } finally {
+    r.done();
+  }
+});
+
+test('entrée dont la seule story est en commentaire : refusée', () => {
+  const p = parseFragment('lot: L0\nmodule: A\n- Ajouté : a <!-- US-001 -->\n');
+  assert.ok(p.errors.some((e) => e.includes('aucune story')));
+  assert.equal(p.stories.size, 0);
+});
+
+test('journal : texte non fiable neutralisé (pas de commande de workflow injectable)', () => {
+  const evil = 'a\n::add-mask::x\r%0A::warning::y';
+  const out = escapeWorkflow(evil);
+  assert.doesNotMatch(out, /[\r\n]/);
+  assert.doesNotMatch(out, /::/);
+  assert.equal(out, 'a%0A: :add-mask: :x%0D%250A: :warning: :y');
+  const r = evaluate({
+    changes: [{ status: 'M', path: 'apps/x\n::add-mask::secret.ts' }],
+    branch: 'story/US-040-x',
+    readFile: () => '',
+  });
+  const line = `::error title=changelog::${escapeWorkflow(r.errors[0])}`;
+  assert.equal(line.split('\n').length, 1);
+  assert.equal(line.match(/::/g).length, 2);
 });

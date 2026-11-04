@@ -380,11 +380,19 @@ jobs:
           set -euo pipefail
           ctl="$RUNNER_TEMP/changelog-base"
           mkdir -p "$ctl"
-          if git cat-file -e "origin/$BASE_REF:scripts/ci/changelog.mjs" 2>/dev/null; then
-            git show "origin/$BASE_REF:scripts/ci/changelog.mjs" > "$ctl/changelog.mjs"
-          else
-            echo "::warning title=changelog::amorçage : contrôle absent de la base, pris sur la PR"
+          # Fail-closed : base introuvable ou lecture git en échec = job rouge. Le repli sur le
+          # script de la PR ne joue que si le fichier est réellement absent de l'arbre de la base.
+          base_sha="$(git rev-parse --verify "origin/$BASE_REF^{commit}")"
+          listed="$(git ls-tree --name-only "$base_sha" -- scripts/ci/changelog.mjs)"
+          if [ "$listed" = "scripts/ci/changelog.mjs" ]; then
+            git show "$base_sha:scripts/ci/changelog.mjs" > "$ctl/changelog.mjs"
+            echo "changelog : contrôle pris sur la base ($base_sha)"
+          elif [ -z "$listed" ]; then
+            echo "::warning title=changelog::AMORÇAGE : scripts/ci/changelog.mjs absent de la base ($base_sha), contrôle pris sur la PR"
             cp scripts/ci/changelog.mjs "$ctl/changelog.mjs"
+          else
+            echo "::error title=changelog::lecture de la base inattendue, échec"
+            exit 1
           fi
           node "$ctl/changelog.mjs" check --branch "$HEAD_REF" --base "origin/$BASE_REF" --head HEAD --root "$GITHUB_WORKSPACE"
 

@@ -10,7 +10,7 @@ Chaque entrée cite sa story (`US-xxx`) et sa demande de fusion (`#n`).
 
 ## [Non publié]
 
-Aucune mise en production n'a encore eu lieu. Les entrées ci-dessous reconstituent l'historique de `main` jusqu'à la PR #77 (2026-11-04), d'après `git log --merges` et les titres des PR fusionnées ; les fragments de `changelog.d/` s'y ajoutent à la prochaine version.
+Aucune mise en production n'a encore eu lieu. Les entrées ci-dessous reconstituent l'historique de `main` au 2026-11-04 (75 PR fusionnées, la dernière étant la PR #75), d'après `git log --merges` et les titres des PR fusionnées ; les fragments de `changelog.d/` s'y ajoutent à la prochaine version.
 
 ### Lot L0 — Socle, preuves PostgreSQL et cœur sûr
 
@@ -37,6 +37,7 @@ Aucune mise en production n'a encore eu lieu. Les entrées ci-dessous reconstitu
 - Corrigé : plan de `trip_staff_read` prouvé sans horloge murale (US-011, #47)
 - Sécurité : rôle `P2P_HOST`, RLS de l'hôte, tables d'argent et minimisation des données du voyageur (US-062, #52)
 - Ajouté : fuzz d'entrelacements C11 et oracle de production C12 (US-025, #58)
+- Ajouté : tests de migrations et de données personnelles (US-046, #75)
 
 #### Argent et règlement
 

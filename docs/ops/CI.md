@@ -132,6 +132,7 @@ US-040, ADR-085. Le format des fragments et les exemptions sont décrits dans [`
 - Le diff contrôlé est `merge-base(origin/main, HEAD)..HEAD`, sans renommages. Un fragment supprimé ne compte pas.
 - Fail-closed : base introuvable, diff vide, fragment illisible ou mal formé, entrée sans catégorie ou sans story, ou aucun fragment qui cite une story de la branche.
 - Les exemptions automatiques sont en dur dans le script : les élargir touche `scripts/ci/`, donc exige une revue sécurité.
+- Fail-closed aussi pour la copie : base introuvable ou lecture git en échec = job rouge ; le repli sur le script de la PR ne joue que si le fichier est absent de l'arbre de la base (amorçage, annoncé « AMORÇAGE »). Noms de fichiers et exemptions sont neutralisés avant d'être écrits au journal (`%`, retours à la ligne, `::`). Une story citée seulement dans un commentaire HTML ne compte pas.
 - Comme pour `revues`, le script est copié depuis `origin/<base>` et appliqué à la pointe de la PR avec `--root`. Un changement du contrôle ne prend effet qu'après sa fusion. Limite identique : `ci.yml` est lu depuis la PR.
 - Les échecs volontaires sont dans `scripts/ci/changelog.test.mjs` (`node --test scripts/ci/`, job `qualite`) : code sans fragment, fragment mal formé, fragment d'une autre story, fragment supprimé, diff vide, base introuvable, exemption trop courte. Ils sont joués par la CLI sur un dépôt git jetable.
 - En local : `pnpm lint:changelog`.

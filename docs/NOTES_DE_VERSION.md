@@ -6,7 +6,7 @@ Ce document s'adresse au **fondateur**. Il dit, sans jargon, ce que chaque étap
 
 ## Où en est le produit (non publié) — point au 4 novembre 2026
 
-**Rien n'est encore en production.** Aucun voyageur ni aucun hôte réel ne peut utiliser Kmino : les interrupteurs de mise en service du Panama et du Paraguay sont fermés, aucun paiement réel n'est branché (les prestataires sont simulés, « FAKE ») et aucun assureur n'est sous contrat. Ce qui suit a été construit pendant le **lot 0**, le socle, entre le 1er et le 4 novembre 2026 (74 demandes de fusion).
+**Rien n'est encore en production.** Aucun voyageur ni aucun hôte réel ne peut utiliser Kmino : les interrupteurs de mise en service du Panama et du Paraguay sont fermés, aucun paiement réel n'est branché (les prestataires sont simulés, « FAKE ») et aucun assureur n'est sous contrat. Ce qui suit a été construit pendant le **lot 0**, le socle, entre le 1er et le 4 novembre 2026 (75 demandes de fusion).
 
 ### Ce que le produit sait déjà faire, sur un poste de test
 

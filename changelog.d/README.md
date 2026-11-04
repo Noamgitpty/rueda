@@ -25,7 +25,7 @@ module: Réservation
   exemption: US-040 — test de non-régression seul, aucun comportement livré ne change
   ```
 
-  La raison fait au moins 20 caractères. Les exemptions disparaissent au versement.
+  La raison fait au moins 20 caractères. Les exemptions disparaissent au versement : leur trace ne reste alors que dans l'historique git (le fragment, sa PR et la revue de code).
 
 ## Versement
 

@@ -45,6 +45,24 @@ const STORY_RE = /US-\d{3}/g;
 const STORY_ONE = /US-\d{3}/;
 const LOT_RE = /^(L[0-5]|LC)$/;
 
+/** Retire les commentaires HTML `<!-- … -->`, y compris sur plusieurs lignes. */
+export function stripComments(text) {
+  return text.replace(/<!--[\s\S]*?-->/g, ' ');
+}
+
+/**
+ * Neutralise un texte non fiable (noms de fichiers, exemption) avant de l'écrire dans le journal
+ * du workflow : `%`, retours à la ligne et `::` ne peuvent plus former une commande de workflow
+ * (`::warning`, `::add-mask`…). Revue sécurité US-040 n° 4.
+ */
+export function escapeWorkflow(text) {
+  return String(text)
+    .replace(/%/g, '%25')
+    .replace(/\r/g, '%0D')
+    .replace(/\n/g, '%0A')
+    .replace(/::/g, ': :');
+}
+
 /** Un fichier qui ne compte pas comme « code livré ». */
 export function isExemptPath(file) {
   if (file.startsWith('docs/')) return true;
@@ -105,7 +123,8 @@ export function parseFragment(text) {
       if (!cat.test(entry)) {
         errors.push(`${where} : l'entrée doit commencer par « ${CATEGORIES.join(' | ')} : »`);
       }
-      if (!STORY_ONE.test(entry)) errors.push(`${where} : l'entrée ne cite aucune story (US-xxx)`);
+      if (!STORY_ONE.test(stripComments(entry)))
+        errors.push(`${where} : l'entrée ne cite aucune story (US-xxx)`);
       current.bullets.push(entry);
       return;
     }
@@ -126,7 +145,8 @@ export function parseFragment(text) {
       if (b.bullets.length === 0) errors.push(`module « ${b.module} » sans entrée`);
     }
   }
-  const stories = new Set(text.match(STORY_RE) ?? []);
+  // Une story citée seulement dans un commentaire HTML ne compte pas (revue code US-040 n° 3).
+  const stories = new Set(stripComments(text).match(STORY_RE) ?? []);
   return { blocks, exemption, stories, errors };
 }
 
@@ -357,7 +377,7 @@ function main() {
   try {
     o = parseArgs(process.argv.slice(2));
   } catch (e) {
-    console.error(`changelog : ${e.message}`);
+    console.error(`changelog : ${escapeWorkflow(e.message)}`);
     process.exit(2);
   }
   const root = o.root ?? '.';
@@ -368,9 +388,9 @@ function main() {
       head: o.head ?? 'HEAD',
       branch: o.branch ?? '',
     });
-    for (const n of r.notes ?? []) console.log(`changelog : ${n}`);
+    for (const n of r.notes ?? []) console.log(`changelog : ${escapeWorkflow(n)}`);
     if (r.errors.length) {
-      for (const e of r.errors) console.error(`::error title=changelog::${e}`);
+      for (const e of r.errors) console.error(`::error title=changelog::${escapeWorkflow(e)}`);
       process.exit(1);
     }
     console.log('changelog : OK');
@@ -379,7 +399,7 @@ function main() {
       const n = runRelease({ root, version: o.version, date: o.date });
       console.log(`changelog : version ${o.version} écrite, ${n} fragment(s) versé(s)`);
     } catch (e) {
-      console.error(`changelog : ${e.message}`);
+      console.error(`changelog : ${escapeWorkflow(e.message)}`);
       process.exit(1);
     }
   } else {
