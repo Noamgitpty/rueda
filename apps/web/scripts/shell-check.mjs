@@ -5,8 +5,8 @@
  *
  * Usage (serveur démarré : `pnpm --filter @rueda/web build && pnpm --filter @rueda/web start`) :
  *   node apps/web/scripts/shell-check.mjs [http://localhost:3000] [chemin de chrome]
- * Sortie non nulle si un critère échoue. Outil local : le harnais e2e Playwright de la CI reste à
- * créer (19 §1.5, rôle front-end).
+ * Sortie non nulle si un critère échoue. Outil local de captures pour la revue design : les mêmes
+ * critères tournent en CI dans les parcours Playwright (`apps/web/e2e/`, US-041, job `e2e-web`).
  */
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';

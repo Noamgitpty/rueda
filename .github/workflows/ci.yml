@@ -89,6 +89,29 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @rueda/db test:c11
 
+  e2e-web:
+    # US-041, ADR-074 : parcours Playwright du site contre son build de production, à 360 px,
+    # 390 px et en tablette (4 langues, clair et sombre, hors ligne) et PWA installée (manifeste,
+    # fenêtre d'application, service worker réel). Navigateur : le Google Chrome du runner
+    # (`channel: 'chrome'`), aucun binaire téléchargé ; aucune requête hors du serveur local.
+    name: e2e web (Playwright, mobiles et PWA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: build de production du site
+        run: pnpm turbo run build --filter=@rueda/web
+      - name: parcours e2e (Playwright)
+        run: pnpm --filter @rueda/web test:e2e
+
   guide-installation:
     name: guide d'installation (docker compose sur runner vierge)
     runs-on: ubuntu-latest

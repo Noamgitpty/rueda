@@ -27,3 +27,7 @@ next-env.d.ts
 # Worktrees et réglages locaux de Claude Code
 .claude/worktrees/
 .claude/settings.local.json
+
+# Parcours e2e Playwright (US-041)
+test-results/
+playwright-report/

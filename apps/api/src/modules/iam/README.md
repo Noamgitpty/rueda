@@ -58,4 +58,6 @@ Ports sortants internes : `IdentityNotifier` (`internal/notifier.ts`, vers NTF ;
 - Intégration (PostgreSQL réel, sous `app_api`) : `pnpm --filter @rueda/api test:int` ; fichiers du module : `internal/pg-auth-store.int.test.ts`, `internal/staff/pg-staff-store.int.test.ts`. Schéma : `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/iam-schema.test.ts`.
 - Preuves L0 en base : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/iam-sessions.test.ts test/l0/l0-iam-staff-mfa.test.ts test/l0/l0-staff-console.test.ts` ; RLS par acteur : `test/l0/l0-rls-actors.test.ts`, `test/l0/l0-rls-columns.test.ts`.
 
+- Contrat HTTP (US-041, sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/iam/testing/auth.contract.test.ts` — chaque réponse des routes `/auth` est confrontée à `apps/api/openapi/openapi.json` (corps, codes stables, `Cache-Control`, cookie). Une route ou un code d'erreur nouveau se déclare d'abord dans ce contrat.
+
 Les tests d'intégration et L0 demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
