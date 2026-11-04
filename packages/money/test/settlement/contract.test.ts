@@ -6,6 +6,7 @@
  * aucun montant attendu n'est calculé avec le code testé ; les montants comparés sont des entrées
  * (total payé, barème) ou des identités de 08.
  */
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   BETA_CANCELLATION_REASONS,
@@ -13,6 +14,9 @@ import {
   canonicalJson,
   computeCancellationSettlement,
   computeLegs,
+  isSettlementError,
+  SettlementError,
+  settlementRecordPayload,
   money,
   pspIdempotencyValue,
   ratio,
@@ -425,5 +429,56 @@ describe('règlements persistés : refus et formes (US-018)', () => {
     expect(codeOf(() => pspIdempotencyValue(key, 63))).toBe('SETTLEMENT_INPUT_INVALID');
     expect(codeOf(() => pspIdempotencyValue(key, 0))).toBe('SETTLEMENT_INPUT_INVALID');
     expect(pspIdempotencyValue(key, 64).length <= 64).toBe(true);
+  });
+
+  it('inputsHash = SHA-256 hexadécimal de « rueda.settlement.inputs/1\n » ‖ entrées (08 E4)', () => {
+    const v1 = version1();
+    const expected = createHash('sha256')
+      .update(`rueda.settlement.inputs/1\n${v1.inputs}`, 'utf8')
+      .digest('hex');
+    expect(v1.inputsHash).toBe(expected);
+  });
+
+  it('charge utile : montants en chaînes, lignes, groupes et jambes détaillés', () => {
+    const v1 = version1();
+    const payload = settlementRecordPayload(v1) as {
+      lines: { line: string; amountMinor: string; refundMinor: string; retainedMinor: string }[];
+      taxGroups: { groupId: string; taxPaidMinor: string; retainedTaxMinor: string }[];
+      legs: { leg: string; keptMinor: string; advanceMinor: string; variationMinor: string }[];
+    };
+    expect(payload.lines[0]).toEqual({
+      line: v1.lines[0]!.line,
+      amountMinor: String(v1.lines[0]!.amountMinor),
+      refundMinor: String(v1.lines[0]!.refundMinor),
+      retainedMinor: String(v1.lines[0]!.retainedMinor),
+    });
+    expect(payload.taxGroups[0]).toMatchObject({
+      groupId: 'g',
+      taxPaidMinor: String(v1.taxGroups[0]!.taxPaidMinor),
+      retainedTaxMinor: String(v1.taxGroups[0]!.retainedTaxMinor),
+    });
+    expect(payload.legs.map((l) => l.leg)).toEqual([
+      'HOST',
+      'INSURER',
+      'TAX_THIRD_PARTY',
+      'PLATFORM',
+    ]);
+    expect(payload.legs[0]).toMatchObject({ keptMinor: String(v1.legs[0]!.keptMinor) });
+  });
+
+  it('SettlementError : nom, code, isSettlementError filtre le code', () => {
+    let caught: unknown;
+    try {
+      signedLegs({ ...version1(), legs: [] } as SettlementRecord);
+    } catch (error) {
+      caught = error;
+    }
+    const e = caught as SettlementError;
+    expect(e).toBeInstanceOf(SettlementError);
+    expect(e.name).toBe('SettlementError');
+    expect(isSettlementError(e, 'SETTLEMENT_INPUT_INVALID')).toBe(true);
+    expect(isSettlementError(e, 'LEG_AMOUNT_NEGATIVE')).toBe(false);
+    expect(isSettlementError(new Error('x'))).toBe(false);
+    expect(isSettlementError(new Error('x'), 'SETTLEMENT_INPUT_INVALID')).toBe(false);
   });
 });
