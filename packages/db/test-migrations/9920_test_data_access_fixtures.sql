@@ -10,10 +10,14 @@
 -- migrator (propriétaire) :
 --   1. test_fixture.us004_data_access_rows(acteur) : lignes du registre écrites pour un acteur ;
 --   2. test_fixture.us004_owner_tamper_data_access(op, id) : UPDATE ou DELETE d'une ligne par le
---      propriétaire, refusés par le trigger de 0018 (le test annule toujours sa transaction).
+--      propriétaire, refusés par le trigger de 0018 (le test annule toujours sa transaction) ;
+--   3. EXECUTE de test_fixture.insert_payment_operation (9001) accordé aussi à app_worker : la
+--      preuve du moniteur (l0-us004-ops-monitor) écrit une opération UNKNOWN et la lit sous
+--      ops_monitor dans la MÊME transaction annulée.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us004_data_access_rows(uuid),
---   test_fixture.us004_owner_tamper_data_access(text, uuid).
+--   test_fixture.us004_owner_tamper_data_access(text, uuid) ;
+--   REVOKE EXECUTE ON FUNCTION test_fixture.insert_payment_operation(…) FROM app_worker.
 
 CREATE FUNCTION test_fixture.us004_data_access_rows(p_actor uuid)
   RETURNS TABLE (id uuid, actor_role text, subject_type text, subject_id uuid, field_or_file text,
@@ -53,3 +57,7 @@ REVOKE ALL ON FUNCTION test_fixture.us004_data_access_rows(uuid),
   test_fixture.us004_owner_tamper_data_access(text, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us004_data_access_rows(uuid),
   test_fixture.us004_owner_tamper_data_access(text, uuid) TO app_api;
+
+GRANT EXECUTE ON FUNCTION
+  test_fixture.insert_payment_operation(uuid, uuid, text, text, bigint, text, text, text)
+TO app_worker;
