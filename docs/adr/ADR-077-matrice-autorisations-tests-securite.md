@@ -44,6 +44,10 @@ Les politiques RLS, les droits par colonne et les gardes des routes existent (US
 | Route inconnue : « Cannot GET /…?email=… » renvoyait l'URL et sa requête                                                                                                               | `ErrorHygieneFilter`       |
 | Aucun en-tête de sécurité ; `X-Powered-By: Express` exposé ; 413 au format brut d'Express                                                                                              | `applyHttpHardening`       |
 
+Constat de la matrice des routes en CI (0049) : `GET /staff/audit` (SUPPORT), `GET /console/brand/versions[/{id}]` (tout rôle sans `brand.edit` sur tous les pays) et `GET /console/security/abuse` (rôle sans `security.read_abuse`, et ADMIN d'un pays sur le tableau de l'autre pays) étaient refusés en base, refus journalisé et aucune ligne rendue, mais l'API répondait **200 avec une liste vide**. Aucune donnée ne fuyait, mais le refus se présentait comme un succès (contraire à 16 ADM-001). Correction : migration `0049_staff_read_access_outcome`, `core.iam_staff_read_access(jeton, permission, portée)` (`iam_staff_owner`, liste blanche RLS-15, EXECUTE `app_api`, sans écriture, liste fermée des trois permissions), appelée par les stores PostgreSQL quand la lecture est vide ; la route répond alors 401 / 403. La matrice des routes distingue désormais les portées `pays`, `tous_les_pays` (marque commune : rôle sur tous les pays déclarés, ADR-067) et `sans_pays` (journal).
+
+Défaut d'un test (corrigé, aucune cellule affaiblie) : la matrice des routes sur PostgreSQL appelait `POST /auth/logout` avec la session de l'acteur, révoquée pour toutes les routes suivantes (401 en cascade) ; chaque déconnexion utilise une session neuve du même acteur.
+
 ## Conséquences
 
 - Toute nouvelle table, vue ou route exige une entrée de matrice revue (sécurité) : c'est voulu.
