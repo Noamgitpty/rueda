@@ -8,7 +8,7 @@ export interface RouteEntry {
   readonly acces: 'public' | 'session' | 'staff';
   readonly permission?: string;
   readonly roles?: readonly string[];
-  readonly portee?: 'pays' | 'plateforme';
+  readonly portee?: 'pays' | 'tous_les_pays' | 'sans_pays';
   readonly idor?: string;
 }
 

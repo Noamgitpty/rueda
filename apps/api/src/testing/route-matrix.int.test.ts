@@ -59,8 +59,13 @@ let countries: string[] = [];
 interface Actor {
   readonly name: string;
   readonly role: StaffRole | null;
+  /** Pays du rôle (staff d'un seul pays) ; `null` : sans rôle, ou rôle de TOUS les pays. */
   readonly country: string | null;
+  /** Rôle interne qui couvre tous les pays déclarés. */
+  readonly allCountries?: boolean;
   readonly cookie: string | null;
+  /** Nouvelle session du même acteur : la déconnexion ne doit pas révoquer celle des autres routes. */
+  readonly fresh?: () => Promise<string>;
 }
 const actors: Actor[] = [];
 /** Trip d'un compte d'hôte, par pays : sujet de POST /console/actions. */
@@ -84,6 +89,12 @@ async function session(userId: string): Promise<string> {
     userId,
     sha(t),
   ]);
+  return `__Host-session=${t}`;
+}
+
+async function elevatedSession(userId: string): Promise<string> {
+  const t = token();
+  await client.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [userId, sha(t)]);
   return `__Host-session=${t}`;
 }
 
@@ -313,6 +324,8 @@ function expectedVerdict(route: string, actor: Actor, idor: boolean): Verdict {
   if (actor.name === 'staff_sans_mfa') return '2FA_REQUIRED';
   if (actor.role === null) return 'FORBIDDEN';
   if (!(e.roles ?? []).includes(actor.role)) return 'FORBIDDEN';
+  // ressource commune : le rôle doit couvrir tous les pays (ADR-067)
+  if (e.portee === 'tous_les_pays' && actor.allCountries !== true) return 'FORBIDDEN';
   return idor && e.portee === 'pays' ? 'FORBIDDEN' : 'acces';
 }
 
@@ -326,7 +339,13 @@ beforeAll(async () => {
   expect(countries.length).toBeGreaterThanOrEqual(2);
   // personnes sans rôle interne
   const guest = await register();
-  actors.push({ name: 'voyageur', role: null, country: null, cookie: await session(guest) });
+  actors.push({
+    name: 'voyageur',
+    role: null,
+    country: null,
+    cookie: await session(guest),
+    fresh: () => session(guest),
+  });
   const first = countries[0] as string;
   const holder = await register();
   const org = randomUUID();
@@ -339,20 +358,50 @@ beforeAll(async () => {
     `SELECT test_fixture.iam_insert_membership($1, $2, $3, 'P2P_HOST', '{}'::uuid[], 'ACTIVE')`,
     [randomUUID(), holder, org],
   );
-  actors.push({ name: 'hote', role: null, country: null, cookie: await session(holder) });
+  actors.push({
+    name: 'hote',
+    role: null,
+    country: null,
+    cookie: await session(holder),
+    fresh: () => session(holder),
+  });
   const cohost = await register();
   await client.query(
     `SELECT test_fixture.iam_insert_membership($1, $2, $3, 'CO_HOST', $4::uuid[], 'ACTIVE')`,
     [randomUUID(), cohost, org, [randomUUID()]],
   );
-  actors.push({ name: 'cohote', role: null, country: null, cookie: await session(cohost) });
+  actors.push({
+    name: 'cohote',
+    role: null,
+    country: null,
+    cookie: await session(cohost),
+    fresh: () => session(cohost),
+  });
   // staff sans TOTP : rôle ADMIN de tous les pays, aucun facteur
   const noMfa = await register();
   await client.query(
     `SELECT test_fixture.iam_grant_staff_role($1, $2, 'ADMIN', $3::text[], NULL, NULL)`,
     [randomUUID(), noMfa, countries],
   );
-  actors.push({ name: 'staff_sans_mfa', role: null, country: null, cookie: await session(noMfa) });
+  actors.push({
+    name: 'staff_sans_mfa',
+    role: null,
+    country: null,
+    cookie: await session(noMfa),
+    fresh: () => session(noMfa),
+  });
+  // rôles qui couvrent TOUS les pays (ressources communes : la marque)
+  for (const role of ['ADMIN', 'SUPERADMIN'] as const) {
+    const s = await elevatedStaff(role, countries);
+    actors.push({
+      name: `${role}_tous_pays`,
+      role,
+      country: null,
+      allCountries: true,
+      cookie: s.cookie,
+      fresh: () => elevatedSession(s.id),
+    });
+  }
   for (const c of countries) {
     const trip = randomUUID();
     await client.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
@@ -379,7 +428,13 @@ beforeAll(async () => {
     tripOf.set(c, trip);
     for (const role of STAFF_ROLES) {
       const s = await elevatedStaff(role, [c]);
-      actors.push({ name: `${role}@${c}`, role, country: c, cookie: s.cookie });
+      actors.push({
+        name: `${role}@${c}`,
+        role,
+        country: c,
+        cookie: s.cookie,
+        fresh: () => elevatedSession(s.id),
+      });
     }
   }
 
@@ -451,10 +506,19 @@ describe('US-043 — matrice des routes sur PostgreSQL (app_api), chaque acteur'
     });
   }
 
+  for (const name of ['ADMIN_tous_pays', 'SUPERADMIN_tous_pays']) {
+    it(`${name} : chaque route comme la matrice (ressources communes comprises)`, async () => {
+      await assertProductionRole(client, 'app_api');
+      const actor = actors.find((a) => a.name === name);
+      if (actor === undefined) throw new Error(name);
+      await check(actor);
+    }, 120_000);
+  }
+
   for (const role of STAFF_ROLES) {
     it(`${role}, par pays : chaque route, sujet du pays puis de l’autre pays (IDOR)`, async () => {
       await assertProductionRole(client, 'app_api');
-      const mine = actors.filter((a) => a.role === role);
+      const mine = actors.filter((a) => a.role === role && a.allCountries !== true);
       expect(mine.length).toBe(countries.length);
       for (const actor of mine) await check(actor);
     }, 120_000);
@@ -474,7 +538,10 @@ async function check(actor: Actor): Promise<void> {
       const e = ROUTE_MATRIX.routes[route];
       if (idor && (e?.acces !== 'staff' || e.portee !== 'pays')) continue;
       const req = await requestOf(route, country);
-      const r = await call(req.method, req.path, actor.cookie, req.body);
+      // la déconnexion révoque la session : une session neuve du même acteur, jamais la sienne
+      const logout = route === 'POST /auth/logout' || route === 'POST /auth/logout-all';
+      const cookie = logout && actor.fresh !== undefined ? await actor.fresh() : actor.cookie;
+      const r = await call(req.method, req.path, cookie, req.body);
       const seen = verdictOf(r);
       const want = expectedVerdict(route, actor, idor);
       if (seen !== want) {

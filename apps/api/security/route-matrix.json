@@ -1,5 +1,5 @@
 {
-  "$comment": "Matrice d'autorisations des ROUTES de l'API (US-043, ADR-077 ; 17 §2.3 matrice de permissions, 16 ADM-001). Chaque route d'un contrôleur Nest a ici une entrée, et chaque entrée une route (src/testing/route-matrix.test.ts : sinon la CI échoue). acces : public (aucune garde d'identité ; jamais 401 ni 403 de garde), session (session vivante exigée : anonyme ⇒ 401), staff (session de staff ÉLEVÉE par TOTP : anonyme ⇒ 401, compte sans rôle interne ⇒ 403 FORBIDDEN, staff sans TOTP ⇒ 403 2FA_REQUIRED). Pour une route staff : permission = code de 17 §2.3 lu en base (iam_role_permission), roles = rôles qui l'ont (autorisés : réponse ni 401 ni 403 ; les autres : 403 journalisé), portee = pays (le sujet est dans un pays : un rôle autorisé d'un AUTRE pays reçoit 403, IDOR entre pays) ou plateforme (marque commune, PROPOSÉ US-034). idor = la requête qui vise la ressource d'un autre (obligatoire pour toute route qui porte un identifiant d'objet appartenant à une personne, un compte d'hôte ou un pays ; 17 §2.3 point 5 : une route d'hôte devra rendre 404 à l'hôte B sur un identifiant de l'hôte A). Preuves : tests unitaires sur l'application réelle (ApiModule, adaptateurs en mémoire : gardes, en-têtes, corps, CORS, erreurs) et test:int sur PostgreSQL sous app_api (src/testing/route-matrix.int.test.ts : chaque cellule acteur × route, staff par rôle et par pays). Modifier une entrée = revue sécurité.",
+  "$comment": "Matrice d'autorisations des ROUTES de l'API (US-043, ADR-077 ; 17 §2.3 matrice de permissions, 16 ADM-001). Chaque route d'un contrôleur Nest a ici une entrée, et chaque entrée une route (src/testing/route-matrix.test.ts : sinon la CI échoue). acces : public (aucune garde d'identité ; jamais 401 ni 403 de garde), session (session vivante exigée : anonyme ⇒ 401), staff (session de staff ÉLEVÉE par TOTP : anonyme ⇒ 401, compte sans rôle interne ⇒ 403 FORBIDDEN, staff sans TOTP ⇒ 403 2FA_REQUIRED). Pour une route staff : permission = code de 17 §2.3 lu en base (iam_role_permission), roles = rôles qui l'ont (autorisés : réponse ni 401 ni 403 ; les autres : 403 journalisé), portee = pays (le sujet est dans un pays : un rôle autorisé d'un AUTRE pays reçoit 403, IDOR entre pays), tous_les_pays (ressource commune, la marque : le rôle doit couvrir TOUS les pays déclarés, ADR-067 ; un ADMIN d'un seul pays reçoit 403) ou sans_pays (au moins un rôle qui porte la permission, quel qu'en soit le pays : journal, lignes filtrées en base). Un refus est TOUJOURS un 401 / 403, jamais une liste vide (0049, 16 ADM-001). idor = la requête qui vise la ressource d'un autre (obligatoire pour toute route qui porte un identifiant d'objet appartenant à une personne, un compte d'hôte ou un pays ; 17 §2.3 point 5 : une route d'hôte devra rendre 404 à l'hôte B sur un identifiant de l'hôte A). Preuves : tests unitaires sur l'application réelle (ApiModule, adaptateurs en mémoire : gardes, en-têtes, corps, CORS, erreurs) et test:int sur PostgreSQL sous app_api (src/testing/route-matrix.int.test.ts : chaque cellule acteur × route, staff par rôle et par pays). Modifier une entrée = revue sécurité.",
   "acteurs": [
     "anonyme",
     "voyageur",
@@ -10,25 +10,51 @@
     "OPS_AGENT",
     "FINANCE",
     "ADMIN",
-    "SUPERADMIN"
+    "SUPERADMIN",
+    "ADMIN_tous_pays",
+    "SUPERADMIN_tous_pays"
   ],
   "routes": {
-    "GET /brand": { "acces": "public" },
-    "GET /brand/content": { "acces": "public" },
-    "GET /brand/assets/{id}": { "acces": "public" },
-    "POST /auth/signup": { "acces": "public" },
-    "POST /auth/login": { "acces": "public" },
-    "GET /auth/session": { "acces": "session" },
-    "POST /auth/logout": { "acces": "public" },
-    "POST /auth/logout-all": { "acces": "session" },
-    "POST /auth/verify-email": { "acces": "public" },
+    "GET /brand": {
+      "acces": "public"
+    },
+    "GET /brand/content": {
+      "acces": "public"
+    },
+    "GET /brand/assets/{id}": {
+      "acces": "public"
+    },
+    "POST /auth/signup": {
+      "acces": "public"
+    },
+    "POST /auth/login": {
+      "acces": "public"
+    },
+    "GET /auth/session": {
+      "acces": "session"
+    },
+    "POST /auth/logout": {
+      "acces": "public"
+    },
+    "POST /auth/logout-all": {
+      "acces": "session"
+    },
+    "POST /auth/verify-email": {
+      "acces": "public"
+    },
     "POST /webhooks/{provider}/{publicWebhookId}": {
       "acces": "public",
       "idor": "point d'entrée d'un autre compte PSP : signature du compte visé exigée (17 §4.4), identifiant inconnu ⇒ 404 sans écriture"
     },
-    "GET /staff/me": { "acces": "session" },
-    "POST /staff/mfa/enroll": { "acces": "session" },
-    "POST /staff/mfa/verify": { "acces": "session" },
+    "GET /staff/me": {
+      "acces": "session"
+    },
+    "POST /staff/mfa/enroll": {
+      "acces": "session"
+    },
+    "POST /staff/mfa/verify": {
+      "acces": "session"
+    },
     "POST /staff/members/{id}/suspend": {
       "acces": "staff",
       "permission": "iam.staff_roles_write",
@@ -47,7 +73,7 @@
       "acces": "staff",
       "permission": "audit.read",
       "roles": ["OPS_AGENT", "FINANCE", "ADMIN", "SUPERADMIN"],
-      "portee": "plateforme",
+      "portee": "sans_pays",
       "idor": "lignes d'un autre membre du staff ou d'un autre pays : jamais rendues (preuve L0 l0-staff-console)"
     },
     "POST /console/actions": {
@@ -61,37 +87,37 @@
       "acces": "staff",
       "permission": "brand.edit",
       "roles": ["ADMIN"],
-      "portee": "plateforme"
+      "portee": "tous_les_pays"
     },
     "POST /console/brand/drafts": {
       "acces": "staff",
       "permission": "brand.edit",
       "roles": ["ADMIN"],
-      "portee": "plateforme"
+      "portee": "tous_les_pays"
     },
     "GET /console/brand/versions": {
       "acces": "staff",
       "permission": "brand.edit",
       "roles": ["ADMIN"],
-      "portee": "plateforme"
+      "portee": "tous_les_pays"
     },
     "GET /console/brand/versions/{id}": {
       "acces": "staff",
       "permission": "brand.edit",
       "roles": ["ADMIN"],
-      "portee": "plateforme"
+      "portee": "tous_les_pays"
     },
     "POST /console/brand/versions/{id}/publish": {
       "acces": "staff",
       "permission": "brand.publish",
       "roles": ["ADMIN"],
-      "portee": "plateforme"
+      "portee": "tous_les_pays"
     },
     "POST /console/brand/rollback": {
       "acces": "staff",
       "permission": "brand.publish",
       "roles": ["ADMIN"],
-      "portee": "plateforme"
+      "portee": "tous_les_pays"
     },
     "POST /console/content/drafts": {
       "acces": "staff",

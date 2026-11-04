@@ -55,6 +55,8 @@ describe('matrice des routes : complète et cohérente', () => {
       'cohote',
       'staff_sans_mfa',
       ...STAFF_ROLES,
+      'ADMIN_tous_pays',
+      'SUPERADMIN_tous_pays',
     ]);
   });
 
@@ -65,7 +67,7 @@ describe('matrice des routes : complète et cohérente', () => {
         expect(e.permission, route).toMatch(/^[a-z]+\.[a-z_]+/);
         expect(e.roles?.length, route).toBeGreaterThan(0);
         for (const r of e.roles ?? []) expect(STAFF_ROLES, route).toContain(r);
-        expect(['pays', 'plateforme'], route).toContain(e.portee);
+        expect(['pays', 'tous_les_pays', 'sans_pays'], route).toContain(e.portee);
         if (e.portee === 'pays') expect(e.idor, route).toBeTruthy();
       } else {
         expect(e.roles, route).toBeUndefined();
