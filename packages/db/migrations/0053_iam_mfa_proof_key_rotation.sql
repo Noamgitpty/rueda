@@ -1,4 +1,4 @@
--- 0052 — IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff.
+-- 0053 — IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff.
 -- US-051 ; 19 US-051 (« Given un secret de préproduction, When la rotation est exercée, Then le
 -- service continue sans interruption visible et l'ancien secret est refusé ») ; 17 §6.4 (secrets
 -- et clés : « procédure de recréation documentée »), §6.6 (« rotation documentée ») ; ADR-062,

@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 53 migrations ; 65 tables ; 2 vues ; 334 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 89 autres fonctions.
+- 54 migrations ; 65 tables ; 2 vues ; 334 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 89 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -67,7 +67,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0049_staff_read_access_outcome` | Console : issue d'accès des lectures du staff (403 au lieu d'une liste vide). |
 | `0050_platform_environment_declaration` | Environnement de déploiement DÉCLARÉ (US-003, ADR-078 ; 17 §6.5 point 1, C19). |
 | `0051_audit_staff_data_access_ops_monitor` | AUD : lectures de données personnelles par le staff journalisées ; supervision. |
-| `0052_iam_mfa_proof_key_rotation` | IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff. |
+| `0052_privacy_free_text_reasons` | Données personnelles : motifs libres fermés ou retirés des lectures applicatives. |
+| `0053_iam_mfa_proof_key_rotation` | IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff. |
 
 ## Rôles
 
@@ -615,6 +616,7 @@ Contraintes :
 
 - `booking_trip_pkey` : `PRIMARY KEY (id)`
 - `booking_trip_source_hold_id_fkey` : `FOREIGN KEY (source_hold_id) REFERENCES core.booking_checkout_hold(id)`
+- `trip_cancellation_reason_code` : `CHECK (cancellation_reason IS NULL OR cancellation_reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `trip_country_code_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `trip_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `trip_guest_fk` : `FOREIGN KEY (guest_user_id) REFERENCES core.iam_user_account(id)`
@@ -628,6 +630,7 @@ Contraintes :
 - `trip_source_hold_unique` : `UNIQUE (source_hold_id)`
 - `trip_status_valid` : `CHECK (status = ANY (ARRAY['BOOKED'::text, 'CHECKIN_OPEN'::text, 'START_WINDOW_EXPIRED'::text, 'IN_PROGRESS'::text, 'OVERDUE'::text, 'RETURNED'::text, 'UNRETURNED'::text, 'TERMINATED_EARLY'::text, 'VEHICLE_LOST'::text, 'POST_TRIP'::text, 'COMPLETED'::text, 'IN_DISPUTE'::text, 'CANCELLED_BY_GUEST'::text, 'CANCELLED_BY_HOST'::text, 'CANCELLED_BY_PLATFORM'::text, 'REFUSED_AT_PICKUP'::text, 'NO_SHOW_GUEST'::text, 'NO_SHOW_HOST'::text]))`
 - `trip_terminated_has_reason` : `CHECK (status <> 'TERMINATED_EARLY'::text OR termination_reason IS NOT NULL)`
+- `trip_termination_reason_code` : `CHECK (termination_reason IS NULL OR termination_reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 
 Index :
 
@@ -2205,6 +2208,7 @@ Contraintes :
 - `psp_submerchant_idem_unique` : `UNIQUE (idem_plain)`
 - `psp_submerchant_kyc_status_valid` : `CHECK (kyc_status = ANY (ARRAY['PENDING'::text, 'ACTIVE'::text, 'SUSPENDED'::text, 'REJECTED'::text]))`
 - `psp_submerchant_org_country_fk` : `FOREIGN KEY (org_id, country_code) REFERENCES core.iam_organization(id, country_code)`
+- `psp_submerchant_reason_code` : `CHECK (suspended_reason IS NULL OR suspended_reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `psp_submerchant_reason_length` : `CHECK (length(suspended_reason) >= 1 AND length(suspended_reason) <= 200)`
 - `psp_submerchant_ref_format` : `CHECK (provider_submerchant_ref ~ '^[A-Za-z0-9_.:-]{1,128}$'::text)`
 - `psp_submerchant_suspended_reason` : `CHECK ((kyc_status = 'SUSPENDED'::text) = (suspended_reason IS NOT NULL))`

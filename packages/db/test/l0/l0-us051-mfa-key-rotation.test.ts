@@ -1,5 +1,5 @@
 /**
- * US-051 — rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff (migration 0052,
+ * US-051 — rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff (migration 0053,
  * ADR-082 ; runbook docs/ops/SECRET_ROTATION.md), sous le rôle de production app_api (assertion
  * L0-05 par withRole), les gestes de l'exploitation joués par la fixture 9930 (fonction de
  * production sous migrator) dans une transaction ANNULÉE.
@@ -86,7 +86,7 @@ async function refusal(tx: pg.ClientBase, action: string, key: Buffer | null): P
   return 'AUCUNE_ERREUR';
 }
 
-describe('US-051 — rotation de la clé de preuve MFA (0052)', () => {
+describe('US-051 — rotation de la clé de preuve MFA (0053)', () => {
   it('STAGE : ancienne et nouvelle clé acceptées ; PROMOTE : l’ancienne est refusée', async () => {
     await withRole('app_api', async (client) => {
       await withTestTransaction(client, {}, async (tx) => {

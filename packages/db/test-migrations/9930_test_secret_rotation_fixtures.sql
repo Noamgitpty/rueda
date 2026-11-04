@@ -1,4 +1,4 @@
--- 9930 — fixtures de la rotation de la clé de preuve MFA (US-051, migration 0052). TESTS SEULEMENT.
+-- 9930 — fixtures de la rotation de la clé de preuve MFA (US-051, migration 0053). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (et à ses copies).

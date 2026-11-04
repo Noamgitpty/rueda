@@ -8,7 +8,9 @@
  *    - `rueda_test_<aléa>` : migrations de production + migrations de test (horloge virtuelle) ;
  *    - `rueda_test_<aléa>_prod` : migrations de production seules (contrôle du corps L0-06) ;
  *    - copies (`TEMPLATE`) de la base principale juste après ses migrations : `_inj` (injection
- *      de L0-02, ADR-056) et `_fuzz` (fuzz C11 et oracle C12, US-025, ADR-068).
+ *      de L0-02, ADR-056) et `_fuzz` (fuzz C11 et oracle C12, US-025, ADR-068) ;
+ *    - `rueda_test_<aléa>_mig` : amorcée (rôles, droits) mais SANS migration : le test des
+ *      migrations (US-046, RLS-19) les y applique une par une, sous `migrator`, sur des graines.
  * 4. Dans chacune : amorçage idempotent sous l'administrateur (rôles, droits, `btree_gist`),
  *    puis migrations sous `migrator`.
  * 5. Pose des mots de passe aléatoires propres à la série pour `migrator` et les rôles applicatifs.
@@ -63,6 +65,11 @@ export interface BenchInfo {
    * l'oracle C12 y est exigé à zéro sur TOUTE la base.
    */
   readonly fuzzDatabase: string;
+  /**
+   * Base des migrations (US-046, ADR-081) : amorcée, sans aucune migration. Seul le test des
+   * migrations l'utilise (application une par une sous `migrator`, graines, RLS-19).
+   */
+  readonly migrationDatabase: string;
   readonly passwords: Readonly<Record<LoginRole, string>>;
   /** Migrations appliquées sous `migrator` (`NNNN_nom`), par base. */
   readonly appliedMigrations: {
@@ -113,6 +120,7 @@ export async function provisionBench(
   const productionDatabase = `${TEST_DATABASE_PREFIX}${suffix}_prod`;
   const injectionDatabase = `${TEST_DATABASE_PREFIX}${suffix}_inj`;
   const fuzzDatabase = `${TEST_DATABASE_PREFIX}${suffix}_fuzz`;
+  const migrationDatabase = `${TEST_DATABASE_PREFIX}${suffix}_mig`;
   const created: string[] = [];
   const appliedMigrations: { main: string[]; production: string[] } = { main: [], production: [] };
 
@@ -203,6 +211,20 @@ export async function provisionBench(
     );
     created.push(fuzzDatabase);
     log(`base du fuzz créée : ${fuzzDatabase}`);
+
+    // Base des migrations : amorçage seulement (rôles d'instance, droits, extensions) ; les
+    // migrations y sont appliquées une par une par le test US-046.
+    await lockClient.query(
+      `CREATE DATABASE ${quoteIdent(migrationDatabase)} TEMPLATE template0 ENCODING 'UTF8'`,
+    );
+    created.push(migrationDatabase);
+    const migAdmin = await connect(source.admin, migrationDatabase);
+    try {
+      await runBootstrap(migAdmin);
+    } finally {
+      await migAdmin.end();
+    }
+    log(`base des migrations créée (sans migration) : ${migrationDatabase}`);
   } catch (error) {
     const safe = redactError(error, secrets);
     try {
@@ -224,6 +246,7 @@ export async function provisionBench(
       productionDatabase,
       injectionDatabase,
       fuzzDatabase,
+      migrationDatabase,
       passwords,
       appliedMigrations,
       admin: source.admin,

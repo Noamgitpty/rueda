@@ -17,7 +17,7 @@ La base porte son environnement (migration 0050) : déclaré une fois par le job
 
 1. **Image immuable** : construite une fois, désignée par son empreinte `sha256:…`. La production reçoit la même empreinte que la préproduction (copie du manifeste, jamais une reconstruction).
 2. **Job de base d'abord** (`node packages/db/src/deploy/cli.ts`) : amorçage des rôles, migrations, déclaration de l'environnement, vérification sous `app_api` (aucun compte PSP FAKE). En échec : rien n'est basculé, la version servie reste.
-3. **Migrations expand / contract** : une migration ne casse jamais la version encore servie (ajout de colonnes, de tables, de fonctions ; la suppression vient dans une version ultérieure, quand plus rien ne lit l'ancien objet). Le retour arrière ne rejoue donc **aucune migration descendante**.
+3. **Migrations expand / contract** : une migration ne casse jamais la version encore servie (ajout de colonnes, de tables, de fonctions ; la suppression vient dans une version ultérieure, quand plus rien ne lit l'ancien objet). Le retour arrière ne rejoue donc **aucune migration descendante**. Règle **imposée** depuis US-046 (ADR-081) : `pnpm lint:sql` refuse toute contraction sans dérogation justifiée (`packages/db/expand-contract-allowlist.json`), et le test `l0-us046-migrations` applique chaque migration seule sur une base peuplée en vérifiant que le schéma de la version N est conservé.
 4. **Bascule gardée par la santé** : API saine (`GET /brand/content?locale=es` = 200), travailleur en marche.
 5. **Retour arrière automatique** si la nouvelle version n'est pas saine : script local, coupe-circuit d'ECS (`rollback = true`).
 6. **Retour arrière manuel** : resservir l'empreinte précédente du journal.

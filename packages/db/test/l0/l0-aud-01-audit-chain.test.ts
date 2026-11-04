@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { translateDbError } from '../../src/index.ts';
-import { appendAuditLog, SubjectKeyStore } from '../../src/audit/index.ts';
+import { appendAuditLog, SubjectKeyStore, verifyAuditChain } from '../../src/audit/index.ts';
 import { connectAs, FakeKeyWrapper, releaseClient, withRole } from '../../src/testing/index.ts';
 import {
   attempt,
@@ -77,8 +77,12 @@ describe('US-009 — journal d’audit chaîné (17 §1.7, ADM-001)', () => {
         });
       });
       await auditTx(client, { actor: VERIFIER }, async (tx) => {
+        // UNE lecture (tête puis lignes jusqu'à elle) vérifiée telle quelle : d'autres fichiers L0
+        // écrivent dans le journal en parallèle (READ COMMITTED) ; une seconde lecture de la tête
+        // pouvait voir leur ligne validée entre-temps (US-046, passation). La chaîne complète est
+        // toujours vérifiée jusqu'à la tête lue.
         const { rows, head } = await readChain(tx);
-        const result = await verifyChainIn(tx);
+        const result = verifyAuditChain(rows, head);
         expect(result).toMatchObject({ ok: true, lastId: head.lastId });
         const mine = rows.filter((r) => requestIds.includes(r.requestId ?? ''));
         expect(mine).toHaveLength(4);

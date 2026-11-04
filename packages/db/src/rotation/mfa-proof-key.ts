@@ -1,5 +1,5 @@
 /**
- * Rotation de la clé de preuve d'élévation MFA du staff (US-051, migration 0052, ADR-082 ;
+ * Rotation de la clé de preuve d'élévation MFA du staff (US-051, migration 0053, ADR-082 ;
  * runbook docs/ops/SECRET_ROTATION.md). Les gestes de l'exploitation, sous `migrator` (propriétaire
  * de `core.iam_mfa_proof_key`, seul à pouvoir appeler `core.iam_mfa_proof_key_rotate`) :
  *
