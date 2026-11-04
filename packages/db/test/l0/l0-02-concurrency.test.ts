@@ -330,6 +330,12 @@ type CallForm = 'autocommit' | 'transactional';
  * doit être exacte (1 hold, 99 `VEHICLE_UNAVAILABLE`, 0 `40P01`).
  */
 const C1_WARMUP_RACES = 1;
+/**
+ * Poses annulées par connexion avant toute course : au-delà des 5 exécutions planifiées une à une
+ * (plans « custom » du cache de plans de PostgreSQL), la connexion est dans l'état d'une
+ * connexion de pool en régime établi.
+ */
+const WARM_POSES = 6;
 const C1_MEASURED_RACES = 5;
 // TEMPORAIRE (mesure US-007, retiré avant fusion) : courses mesurées sans chauffe, temps bruts consignés.
 const MEASURE_RACES = Number(process.env['RUEDA_L0_02_MEASURE_RACES'] ?? '0');
@@ -448,28 +454,33 @@ async function runC1(
     try {
       posers.push(...(await connectMany(degree, database)));
       const pids = await Promise.all(posers.map((cl) => backendPid(cl)));
-      // Connexions chaudes, comme celles d'un pool de l'API : une pose annulée sur un autre
-      // véhicule charge le cache des relations et les plans de la commande. Sans cela, chaque
-      // pose de la course planifie 2a sous le verrou du véhicule (premier passage CI : p95 de
-      // 489 à 553 ms avec verrou, contre 177 ms sans verrou).
+      // Connexions chaudes, comme celles d'un pool de l'API en régime établi : des poses annulées
+      // sur un autre véhicule chargent le cache des relations et les plans de la commande. Sans
+      // cela, chaque pose de la course planifie 2a sous le verrou du véhicule (premier passage
+      // CI : p95 de 489 à 553 ms avec verrou, contre 177 ms sans verrou). `WARM_POSES` poses par
+      // connexion : PostgreSQL planifie à chaque appel (plan « custom ») les 5 premières
+      // exécutions d'une instruction préparée, dont celles de PL/pgSQL, avant de retenir le plan
+      // générique (ADR-056, « Stabilité de la mesure du p95 »).
       await Promise.all(
-        posers.map((client, i) =>
-          inTx(client, {}, async (tx) => {
-            const warm = {
-              slot: { ...first.slot, vehicleId: warmVehicles[i] as string },
-              c,
-              guestId: first.guests[i] as string,
-              period,
-              vehicleLock,
-            };
-            if (!vehicleLock) await placeHoldLocked(tx, warm);
-            else if (form === 'autocommit') await placeHoldCommand(tx, warm);
-            else {
-              await setSessionContext(tx, { kind: 'GUEST', actorId: warm.guestId });
-              await placeHoldTimedInTx(tx, warm);
-            }
-          }),
-        ),
+        posers.map(async (client, i) => {
+          for (let w = 0; w < WARM_POSES; w++) {
+            await inTx(client, {}, async (tx) => {
+              const warm = {
+                slot: { ...first.slot, vehicleId: warmVehicles[i] as string },
+                c,
+                guestId: first.guests[i] as string,
+                period,
+                vehicleLock,
+              };
+              if (!vehicleLock) await placeHoldLocked(tx, warm);
+              else if (form === 'autocommit') await placeHoldCommand(tx, warm);
+              else {
+                await setSessionContext(tx, { kind: 'GUEST', actorId: warm.guestId });
+                await placeHoldTimedInTx(tx, warm);
+              }
+            });
+          }
+        }),
       );
       // Après la chauffe : `inTx` (withTestTransaction) se termine par `RESET ALL`, qui
       // effacerait un délai posé plus tôt (revues code et qa US-007, 2026-11-03c, constat 1).
