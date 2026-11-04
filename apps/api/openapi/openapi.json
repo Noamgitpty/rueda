@@ -23,7 +23,8 @@
     "POST /console/brand/rollback",
     "POST /console/content/drafts",
     "POST /console/content/publish",
-    "POST /console/content/rollback"
+    "POST /console/content/rollback",
+    "GET /console/security/abuse"
   ],
   "paths": {
     "/brand": {

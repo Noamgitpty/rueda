@@ -32,6 +32,7 @@ export {
 } from './internal/dispatcher.js';
 export type { PlannedDispatch } from './internal/dispatcher.js';
 export type { RecipientContact, RecipientDirectory } from './internal/recipient-directory.port.js';
+export type { SmsBudget, SmsReserveResult } from './internal/sms-budget.port.js';
 export {
   notificationCountryData,
   registerNotifications,

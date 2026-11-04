@@ -7,7 +7,7 @@
  * au moment de la migration (jamais rétroactif). Les devises des clés liées à une devise sont
  * posées par la garde (devise du pays).
  */
-import type { CountryConfig, CountryConfigEntry, ParamJson } from './model.js';
+import type { CountryConfig, CountryConfigEntry, ParamDefinition, ParamJson } from './model.js';
 
 export const SEED_MIGRATION_FILE = '0009_config_seed.sql';
 
@@ -19,6 +19,23 @@ export const SEED_MIGRATION_FILE = '0009_config_seed.sql';
  */
 export const POST_SEED_LANGUAGES: readonly { readonly language: string; readonly file: string }[] =
   [{ language: 'pt', file: '0044_config_country_portuguese.sql' }];
+
+/**
+ * Paramètres ajoutés APRÈS la graine 0009, par préfixe de clé (ADR-044 : une migration appliquée
+ * est immuable ; ADR-075). 0009 est rendue sans eux (ni définition, ni valeur) ; chaque groupe a
+ * sa migration de graine complémentaire, générée depuis `params.json` et comparée par
+ * `seed-sql.test.ts`. Un préfixe ne peut couvrir aucune clé déjà présente dans 0009.
+ */
+export const POST_SEED_PARAMS: readonly {
+  readonly prefix: string;
+  readonly file: string;
+  readonly story: string;
+}[] = [{ prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' }];
+
+/** La clé appartient à un groupe de paramètres ajouté après 0009. */
+export function isPostSeedParam(key: string): boolean {
+  return POST_SEED_PARAMS.some((p) => key.startsWith(p.prefix));
+}
 
 const languageOf = (tag: string): string => tag.split('-')[0] ?? tag;
 
@@ -68,11 +85,8 @@ function insert(table: string, columns: readonly string[], rows: readonly string
   return `INSERT INTO ${table} (${columns.join(', ')}) VALUES\n${body};\n`;
 }
 
-export function renderSeedSql(config: CountryConfig): string {
-  const countries = [...config.countries.values()].sort((a, b) => a.code.localeCompare(b.code));
-  const seedExcluded = excludedAt(-1);
-  const definitions = [...config.definitions.values()].sort((a, b) => a.key.localeCompare(b.key));
-  const values = [...config.values].sort(
+function sortValues(values: CountryConfig['values']): CountryConfig['values'] {
+  return [...values].sort(
     (a, b) =>
       a.key.localeCompare(b.key) ||
       a.country.localeCompare(b.country) ||
@@ -80,6 +94,65 @@ export function renderSeedSql(config: CountryConfig): string {
       (a.scopeId ?? '').localeCompare(b.scopeId ?? '') ||
       (a.network ?? '').localeCompare(b.network ?? ''),
   );
+}
+
+function definitionInsert(definitions: readonly ParamDefinition[]): string {
+  return insert(
+    'core.config_param_definition',
+    [
+      'key',
+      'type',
+      'unit',
+      'allowed_scopes',
+      'currency_bound',
+      'fail_mode',
+      'optional',
+      'go_live_switch',
+      'not_applicable_in',
+      'allowed_values',
+      'source_ref',
+      'status',
+    ],
+    definitions.map((d) => [
+      lit(d.key),
+      lit(d.type),
+      lit(d.unit),
+      textArray(d.scopes),
+      String(d.currencyBound),
+      lit(d.failMode),
+      String(d.optional),
+      String(d.goLiveSwitch),
+      textArray(d.notApplicableIn),
+      d.allowedValues === null ? 'NULL' : textArray(d.allowedValues),
+      lit(d.source),
+      lit(d.status),
+    ]),
+  );
+}
+
+function valueInsert(values: CountryConfig['values'], reason = SEED_CHANGE_REASON): string {
+  return insert(
+    'core.config_param_value',
+    ['key', 'country_code', 'scope_type', 'scope_id', 'network', 'value', 'change_reason'],
+    values.map((v) => [
+      lit(v.key),
+      lit(v.country),
+      lit(v.scopeType),
+      lit(v.scopeId),
+      lit(v.network),
+      jsonb(v.value),
+      lit(reason),
+    ]),
+  );
+}
+
+export function renderSeedSql(config: CountryConfig): string {
+  const countries = [...config.countries.values()].sort((a, b) => a.code.localeCompare(b.code));
+  const seedExcluded = excludedAt(-1);
+  const definitions = [...config.definitions.values()]
+    .filter((d) => !isPostSeedParam(d.key))
+    .sort((a, b) => a.key.localeCompare(b.key));
+  const values = sortValues(config.values.filter((v) => !isPostSeedParam(v.key)));
 
   const parts: string[] = [
     [
@@ -123,50 +196,8 @@ export function renderSeedSql(config: CountryConfig): string {
         textArray(c.hostTaxIdKinds),
       ]),
     ),
-    insert(
-      'core.config_param_definition',
-      [
-        'key',
-        'type',
-        'unit',
-        'allowed_scopes',
-        'currency_bound',
-        'fail_mode',
-        'optional',
-        'go_live_switch',
-        'not_applicable_in',
-        'allowed_values',
-        'source_ref',
-        'status',
-      ],
-      definitions.map((d) => [
-        lit(d.key),
-        lit(d.type),
-        lit(d.unit),
-        textArray(d.scopes),
-        String(d.currencyBound),
-        lit(d.failMode),
-        String(d.optional),
-        String(d.goLiveSwitch),
-        textArray(d.notApplicableIn),
-        d.allowedValues === null ? 'NULL' : textArray(d.allowedValues),
-        lit(d.source),
-        lit(d.status),
-      ]),
-    ),
-    insert(
-      'core.config_param_value',
-      ['key', 'country_code', 'scope_type', 'scope_id', 'network', 'value', 'change_reason'],
-      values.map((v) => [
-        lit(v.key),
-        lit(v.country),
-        lit(v.scopeType),
-        lit(v.scopeId),
-        lit(v.network),
-        jsonb(v.value),
-        lit(SEED_CHANGE_REASON),
-      ]),
-    ),
+    definitionInsert(definitions),
+    valueInsert(values),
     insert(
       'core.config_holiday_calendar',
       ['country_code', 'date', 'name', 'version'],
@@ -264,6 +295,55 @@ export function renderLanguageSeedSql(config: CountryConfig, language: string): 
       `                                          WHERE pg_catalog.split_part(t.tag, '-', 1) = ${lit(language)}), false)`,
       `                 OR COALESCE(pg_catalog.btrim(c.names ->> ${lit(language)}), '') = '') THEN`,
       `    RAISE EXCEPTION 'graine : langue ${language} absente d''un pays' USING ERRCODE = 'check_violation';`,
+      '  END IF;',
+      'END',
+      '$check$;',
+      '',
+    ].join('\n'),
+  ].join('');
+}
+
+/**
+ * Migration de graine complémentaire d'un groupe de paramètres ajouté après 0009
+ * (`POST_SEED_PARAMS`) : définitions puis valeurs par pays, comme 0009 (la garde de
+ * `config_param_value` pose `valid_from` = `platform.now()` et la devise). Contrôle final
+ * fail-closed : chaque définition du groupe a une valeur pour chaque pays déclaré.
+ */
+export function renderParamSeedSql(config: CountryConfig, prefix: string): string {
+  const step = POST_SEED_PARAMS.find((p) => p.prefix === prefix);
+  if (!step) throw new Error(`groupe de paramètres « ${prefix} » absent de POST_SEED_PARAMS`);
+  const definitions = [...config.definitions.values()]
+    .filter((d) => d.key.startsWith(prefix))
+    .sort((a, b) => a.key.localeCompare(b.key));
+  const values = sortValues(config.values.filter((v) => v.key.startsWith(prefix)));
+  const number = step.file.slice(0, 4);
+  const like = `${prefix.replaceAll('_', '\\_')}%`;
+  return [
+    [
+      `-- ${number} — graine complémentaire : paramètres « ${prefix}* » (${step.story} ; 17 §7.2).`,
+      '-- FICHIER GÉNÉRÉ depuis apps/api/src/modules/cfg/data/params.json par seed-sql.ts',
+      '-- (renderParamSeedSql) : ne pas l’éditer à la main (test seed-sql.test.ts). Appliquée sous',
+      '-- `migrator`. 0009 est immuable (ADR-044) : elle reste rendue sans ces paramètres (ADR-075).',
+      '-- Valeurs PROPOSÉES ; valid_from posé par la garde (platform.now()).',
+      '--',
+      `-- Retour arrière (base sans dépendance) : DELETE des valeurs puis des définitions dont la clé`,
+      `-- commence par « ${prefix} » ; jamais en production : nouvelle migration à la place.`,
+      '',
+    ].join('\n'),
+    definitionInsert(definitions),
+    '\n',
+    valueInsert(values, `graine ${step.story} : défauts PROPOSÉS (17 §6.6, §7.2)`),
+    [
+      '',
+      '-- Fail-closed : chaque paramètre du groupe a une valeur dans chaque pays déclaré.',
+      'DO $check$',
+      'BEGIN',
+      '  IF EXISTS (SELECT 1 FROM core.config_param_definition AS d',
+      '              CROSS JOIN core.config_country AS c',
+      `             WHERE d.key LIKE ${lit(like)}`,
+      '               AND NOT EXISTS (SELECT 1 FROM core.config_param_value AS v',
+      '                                WHERE v.key = d.key AND v.country_code = c.code)) THEN',
+      `    RAISE EXCEPTION 'graine : paramètre ${prefix}* sans valeur pour un pays' USING ERRCODE = 'check_violation';`,
       '  END IF;',
       'END',
       '$check$;',

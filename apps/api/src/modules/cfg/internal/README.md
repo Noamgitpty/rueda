@@ -48,7 +48,7 @@ Migrations `packages/db/migrations/0008_config_country.sql` (tables, gardes, RLS
 RUEDA_WRITE_CFG_SEED=1 pnpm --filter @rueda/api test:unit   # régénère 0009
 ```
 
-Une migration appliquée est immuable (ADR-044) : une fois 0009 appliquée, un changement de valeur sera une **nouvelle version** (`valid_from` futur) portée par une nouvelle migration de graines (à outiller, voir la passation US-013).
+Paramètres ajoutés après 0009 (US-052, ADR-075) : déclarés par préfixe dans `POST_SEED_PARAMS` (`seed-sql.ts`), exclus du rendu de 0009 et rendus dans leur graine complémentaire générée (`0046_config_rate_limit_params.sql` pour `rate_limit_*`), comparée par `seed-sql.test.ts` ; même mécanisme que `POST_SEED_LANGUAGES` (0044). Une migration appliquée est immuable (ADR-044) : une fois 0009 appliquée, un changement de valeur sera une **nouvelle version** (`valid_from` futur) portée par une nouvelle migration de graines (à outiller, voir la passation US-013).
 
 ## Aucune constante pays
 

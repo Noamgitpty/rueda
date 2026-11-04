@@ -10,7 +10,9 @@ import { loadRepositoryConfig } from './load.js';
 import { NAME_LANGUAGES } from './model.js';
 import {
   POST_SEED_LANGUAGES,
+  POST_SEED_PARAMS,
   renderLanguageSeedSql,
+  renderParamSeedSql,
   renderSeedSql,
   SEED_MIGRATION_FILE,
 } from './seed-sql.js';
@@ -78,6 +80,29 @@ describe('migration de graines', () => {
       expect(delta.indexOf('ENABLE TRIGGER config_country_guard')).toBeGreaterThan(
         delta.lastIndexOf('UPDATE core.config_country'),
       );
+    },
+  );
+
+  it('0009 reste rendue sans les paramètres ajoutés après elle (immuable, ADR-044, ADR-075)', () => {
+    for (const { prefix } of POST_SEED_PARAMS) expect(rendered).not.toContain(`'${prefix}`);
+  });
+
+  it.each(POST_SEED_PARAMS)(
+    'graine complémentaire $file identique au rendu des paramètres $prefix*',
+    ({ prefix, file }) => {
+      const delta = renderParamSeedSql(config, prefix);
+      if (process.env['RUEDA_WRITE_CFG_SEED'] === '1')
+        writeFileSync(migrationUrl(file), delta, 'utf8');
+      expect(readFileSync(migrationUrl(file), 'utf8').replaceAll('\r\n', '\n')).toBe(delta);
+      const keys = [...config.definitions.keys()].filter((k) => k.startsWith(prefix));
+      expect(keys.length).toBeGreaterThan(0);
+      for (const key of keys) {
+        expect(delta).toContain(`('${key}', '`);
+        for (const c of config.countries.values())
+          expect(delta).toContain(`('${key}', '${c.code}'`);
+      }
+      // aucun autre paramètre, aucun valid_from écrit
+      expect(delta).not.toMatch(/valid_from,|currency, value/);
     },
   );
 

@@ -32,6 +32,10 @@ export const PT_MESSAGES = {
   'common.auth.requestInvalid': 'Confira os dados informados.',
   'common.auth.signupAccepted': 'Confira seu e-mail para continuar.',
   'common.auth.emailVerified': 'Seu e-mail foi confirmado.',
+  'common.rateLimit.retryLater': 'Muitas solicitações. Aguarde um momento e tente de novo.',
+  'common.rateLimit.unavailable':
+    'Não é possível enviar a mensagem agora. Tente de novo mais tarde.',
+  'common.rateLimit.challengeRequired': 'Mostre que você é uma pessoa para continuar.',
   'web.home.tagline': 'Alugue um carro e saiba o preço final desde o começo.',
   'web.shell.skipToContent': 'Pular para o conteúdo',
   'web.shell.homeLink': '{brand}, página inicial',

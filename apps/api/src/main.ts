@@ -9,16 +9,24 @@
  * Le démarrage échoue aussi en production si un compte PSP FAKE existe en base ou si une variable
  * `*_ADAPTER=FAKE` est posée (US-019, C19). `rawBody` : la signature d'un webhook PSP porte sur
  * les octets reçus (17 §4.4). Console interne (US-012) : `RUEDA_STAFF_MFA_PROOF_KEY` (secret géré,
- * hexadécimal ; mal formée : refus de démarrer) et `RUEDA_STAFF_TOTP_ISSUER`.
+ * hexadécimal ; mal formée : refus de démarrer) et `RUEDA_STAFF_TOTP_ISSUER`. Anti-abus (US-052) :
+ * `RUEDA_RATE_LIMIT_KEY` (secret géré, hexadécimal, 32 à 64 octets ; absente en production ou mal
+ * formée : refus de démarrer).
  */
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import pg from 'pg';
 import { ApiModule } from './api.module.js';
-import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from './modules/cfg/index.js';
+import {
+  CountryConfigService,
+  loadBrandParams,
+  PgBrandStore,
+  UnavailableBrandFileStore,
+} from './modules/cfg/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
+import { postgresRiskAdapters } from './modules/risk/index.js';
 import { PgManualActionStore } from './modules/sup/index.js';
 import { parseTrustProxy } from './trust-proxy.js';
 
@@ -43,8 +51,19 @@ async function bootstrap(): Promise<void> {
     files: new UnavailableBrandFileStore(),
     params: loadBrandParams(),
   };
+  // Anti-abus (US-052) : compteurs partagés en base, seuils `rate_limit_*` de la configuration
+  // pays, clé HMAC RUEDA_RATE_LIMIT_KEY (absente en production : refus de démarrer), défi
+  // anti-robot indisponible tant que SUP-013 n'a pas de fournisseur (soupçon ⇒ refus).
+  const risk = postgresRiskAdapters(pool, process.env, new CountryConfigService().config);
   const app = await NestFactory.create<NestExpressApplication>(
-    ApiModule.register(iam, pay.webhooks, staff, { store: new PgManualActionStore(pool) }, brand),
+    ApiModule.register(
+      iam,
+      pay.webhooks,
+      staff,
+      { store: new PgManualActionStore(pool) },
+      brand,
+      risk,
+    ),
     { rawBody: true },
   );
   app.set('trust proxy', trustProxy);

@@ -12,6 +12,7 @@ import type { MessageChannelKind } from './messaging-channel.port.js';
 import type { RecipientContact, RecipientDirectory } from './recipient-directory.port.js';
 import { notificationCountryData, repositoryLocaleConfig } from './registration.js';
 import type { NotificationSenderDeps, NtfLogEntry } from './sender.js';
+import type { SmsBudget, SmsReserveResult } from './sms-budget.port.js';
 
 export const COUNTRY_CONFIG = new CountryConfigService().config;
 export const COUNTRY_DATA = notificationCountryData(COUNTRY_CONFIG);
@@ -196,10 +197,38 @@ export class MemoryDb implements SqlClient {
   }
 }
 
+/** Plafond SMS en mémoire (US-052) : `cap` envois non critiques par pays ; critiques comptés. */
+export class MemorySmsBudget implements SmsBudget {
+  readonly sent = new Map<string, number>();
+  readonly alerts: string[] = [];
+  cap: number;
+  fail = false;
+
+  constructor(cap = Number.MAX_SAFE_INTEGER) {
+    this.cap = cap;
+  }
+
+  reserve(
+    _tx: unknown,
+    input: { readonly country: string; readonly critical: boolean },
+  ): Promise<SmsReserveResult> {
+    if (this.fail) return Promise.reject(new Error('compteur indisponible'));
+    const n = this.sent.get(input.country) ?? 0;
+    if (!input.critical && n >= this.cap) {
+      const alert = !this.alerts.includes(input.country);
+      if (alert) this.alerts.push(input.country);
+      return Promise.resolve({ allowed: false, alert });
+    }
+    this.sent.set(input.country, n + 1);
+    return Promise.resolve({ allowed: true, alert: false });
+  }
+}
+
 export interface SenderHarness {
   readonly email: FakeMessagingChannel;
   readonly sms: FakeMessagingChannel;
   readonly directory: MemoryDirectory;
+  readonly smsBudget: MemorySmsBudget;
   readonly logs: NtfLogEntry[];
   readonly deps: NotificationSenderDeps;
 }
@@ -209,15 +238,18 @@ export function senderHarness(): SenderHarness {
   const email = new FakeMessagingChannel({ clock, channel: 'EMAIL' });
   const sms = new FakeMessagingChannel({ clock, channel: 'SMS' });
   const directory = new MemoryDirectory();
+  const smsBudget = new MemorySmsBudget();
   const logs: NtfLogEntry[] = [];
   return {
     email,
     sms,
     directory,
+    smsBudget,
     logs,
     deps: {
       channels: { EMAIL: email, SMS: sms },
       directory,
+      smsBudget,
       countryOf: COUNTRY_DATA.countryOf,
       exponentOf: COUNTRY_DATA.exponentOf,
       localeConfig: LOCALE_CONFIG,

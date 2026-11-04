@@ -34,6 +34,7 @@ import type { CountryLocales } from './locale.js';
 import { chooseLocale } from './locale.js';
 import type { MessageChannelKind, MessagingChannel } from './messaging-channel.port.js';
 import type { RecipientDirectory } from './recipient-directory.port.js';
+import type { SmsBudget } from './sms-budget.port.js';
 import type { StoredVariable } from './render.js';
 import { renderedHash, renderTemplate, TemplateRenderError } from './render.js';
 
@@ -64,6 +65,8 @@ export interface NotificationSenderDeps {
   /** Adaptateurs par canal ; canal absent = capacité inconnue = « non » (échec, puis repli). */
   readonly channels: Partial<Record<MessageChannelKind, MessagingChannel>>;
   readonly directory: RecipientDirectory;
+  /** Plafond journalier SMS du pays (US-052) ; obligatoire : sans lui, aucun SMS (fail-closed). */
+  readonly smsBudget: SmsBudget;
   readonly countryOf: (code: string) => CountryNotificationProfile | undefined;
   readonly exponentOf: (currency: string) => number | undefined;
   readonly localeConfig: LocaleConfig;
@@ -188,6 +191,14 @@ export class NotificationSender {
       await this.#fail(tx, row, row.attempts, profile.tag, 'CHANNEL_UNAVAILABLE');
       return;
     }
+    // Plafond journalier SMS du pays (US-052) : réservé à la première tentative seulement.
+    if (row.channel === 'SMS' && row.attempts === 0) {
+      const refused = await this.#smsCapRefused(tx, row, template.critical);
+      if (refused) {
+        await this.#fail(tx, row, row.attempts, profile.tag, 'SMS_DAILY_CAP');
+        return;
+      }
+    }
     const attempts = row.attempts + 1;
     const outcome = await adapter.send({
       idempotencyKey: `ntf:${row.id}`,
@@ -227,6 +238,36 @@ export class NotificationSender {
         await this.#fail(tx, row, attempts, profile.tag, `REFUSED_${code(outcome.reason)}`);
         return;
     }
+  }
+
+  /**
+   * Réserve un SMS sur le plafond du pays ; rend `true` si l'envoi non critique est refusé (et
+   * publie l'alerte au premier refus du jour). Sans pays connu, un SMS non critique est refusé
+   * (plafond non vérifiable, fail-closed) ; un critique part sans être compté.
+   */
+  async #smsCapRefused(tx: SqlClient, row: DispatchRow, critical: boolean): Promise<boolean> {
+    if (row.country_code === null) return !critical;
+    const r = await this.#deps.smsBudget.reserve(tx, { country: row.country_code, critical });
+    if (r.allowed) return false;
+    if (r.alert) {
+      await publishEvent(tx, {
+        type: 'notification.sms_cap.reached',
+        schemaVersion: 1,
+        aggregateType: 'notification_dispatch',
+        aggregateId: row.id,
+        aggregateVersion: BigInt(row.attempts),
+        countryCode: row.country_code,
+        actor: 'SYSTEM',
+        correlationId: row.correlation_id,
+        causationId: row.event_id,
+        payload: {
+          dispatch_id: row.id,
+          country_code: row.country_code,
+          template: row.template_key,
+        },
+      });
+    }
+    return true;
   }
 
   /** Échec définitif : repli s'il existe (critère 3), sinon `FAILED`. */

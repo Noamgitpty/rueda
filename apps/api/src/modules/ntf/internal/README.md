@@ -18,15 +18,16 @@ Le `README.md` du module donne la fiche (responsabilité, entités, événements
        sans repli ⇒ FAILED + notification.dispatch.failed
 ```
 
-| Élément (`index.ts`)                                | Rôle                                                                                                                                                                          |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TEMPLATES`, `RULES`, `TEMPLATE_KEYS`               | Catalogue réduit de la bêta (16 NTF-001) : `EVT_KYC_APPROVED`, `EVT_BOOKING_CONFIRMED`, `EVT_BOOKING_CANCELLED`, `EVT_TRIP_OVERDUE`, `EVT_PAYOUT_SENT`, `EVT_PAYOUT_ON_HOLD`. |
-| `planDispatches`, `dispatchEvent`                   | Résolution et création des envois d'un événement (travailleur `ntf_dispatcher`).                                                                                              |
-| `NotificationSender`                                | Une tentative d'envoi (travailleur `ntf_sender`) : langue, rendu, port, réessais, repli, événements `notification.*`.                                                         |
-| `registerNotifications`                             | Abonne `ntf_dispatcher` aux types du catalogue et déclare la minuterie `ntf_sender` sur un `BusRegistry`.                                                                     |
-| `notificationCountryData`, `repositoryLocaleConfig` | Fuseau, locales et exposants lus dans CFG et `@rueda/i18n` (aucune constante pays).                                                                                           |
-| `RecipientDirectory` (port)                         | Coordonnées au moment de l'envoi ; adaptateur `postgresNotificationContacts` exporté par IAM.                                                                                 |
-| `MessagingChannel` (port, US-020)                   | Transport d'un texte déjà rendu ; FAKE dans `@rueda/fake-adapters/messaging`, jamais en production.                                                                           |
+| Élément (`index.ts`)                                | Rôle                                                                                                                                                                                                                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TEMPLATES`, `RULES`, `TEMPLATE_KEYS`               | Catalogue réduit de la bêta (16 NTF-001) : `EVT_KYC_APPROVED`, `EVT_BOOKING_CONFIRMED`, `EVT_BOOKING_CANCELLED`, `EVT_TRIP_OVERDUE`, `EVT_PAYOUT_SENT`, `EVT_PAYOUT_ON_HOLD`.                                                                                          |
+| `planDispatches`, `dispatchEvent`                   | Résolution et création des envois d'un événement (travailleur `ntf_dispatcher`).                                                                                                                                                                                       |
+| `NotificationSender`                                | Une tentative d'envoi (travailleur `ntf_sender`) : langue, rendu, port, réessais, repli, événements `notification.*`.                                                                                                                                                  |
+| `registerNotifications`                             | Abonne `ntf_dispatcher` aux types du catalogue et déclare la minuterie `ntf_sender` sur un `BusRegistry`.                                                                                                                                                              |
+| `notificationCountryData`, `repositoryLocaleConfig` | Fuseau, locales et exposants lus dans CFG et `@rueda/i18n` (aucune constante pays).                                                                                                                                                                                    |
+| `RecipientDirectory` (port)                         | Coordonnées au moment de l'envoi ; adaptateur `postgresNotificationContacts` exporté par IAM.                                                                                                                                                                          |
+| `MessagingChannel` (port, US-020)                   | Transport d'un texte déjà rendu ; FAKE dans `@rueda/fake-adapters/messaging`, jamais en production.                                                                                                                                                                    |
+| `SmsBudget` (port, US-052)                          | Plafond journalier SMS du pays avant chaque SMS (1re tentative) ; adaptateur `ntfSmsBudget` exporté par RISK. Gabarit `critical` : toujours envoyé ; sinon refus (`SMS_DAILY_CAP`), repli e-mail s'il existe, alerte `notification.sms_cap.reached` une fois par jour. |
 
 ## Gabarits
 
@@ -55,7 +56,9 @@ Champ absent ou mal formé ⇒ `NotificationContractError` : la tâche échoue, 
 
 ## Charge utile des événements `notification.*`
 
-`dispatch_id`, `channel`, `fallback_channel` (`null` si aucun repli), `fallback_dispatch_id` (identifiant de l'envoi de repli, créé ou **déjà existant** si le canal était doublé ; jamais `null` quand l'envoi d'origine est `FALLBACK_TRIGGERED`), `reason` (code court) ; `causation_id` = événement d'origine.
+`notification.sms_cap.reached` (US-052, alerte du plafond SMS du pays) : `dispatch_id`, `country_code`, `template`.
+
+`notification.fallback.triggered` et `notification.dispatch.failed` : `dispatch_id`, `channel`, `fallback_channel` (`null` si aucun repli), `fallback_dispatch_id` (identifiant de l'envoi de repli, créé ou **déjà existant** si le canal était doublé ; jamais `null` quand l'envoi d'origine est `FALLBACK_TRIGGERED`), `reason` (code court) ; `causation_id` = événement d'origine.
 
 ## Tentatives
 

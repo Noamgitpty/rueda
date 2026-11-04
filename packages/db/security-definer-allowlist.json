@@ -353,6 +353,41 @@
       "story": "US-019"
     },
     {
+      "signature": "core.risk_cmd_hit(text,bytea,text,integer,integer,integer)",
+      "family": "risk_limit",
+      "owner": "risk_limit_owner",
+      "execute": ["app_api"],
+      "story": "US-052"
+    },
+    {
+      "signature": "core.risk_cmd_prune(integer,integer)",
+      "family": "risk_limit",
+      "owner": "risk_limit_owner",
+      "execute": ["app_worker"],
+      "story": "US-052"
+    },
+    {
+      "signature": "core.risk_cmd_record_abuse(text,text,bytea,text,text[])",
+      "family": "risk_limit",
+      "owner": "risk_limit_owner",
+      "execute": ["app_api"],
+      "story": "US-052"
+    },
+    {
+      "signature": "core.risk_cmd_sms_reserve(text,integer,boolean)",
+      "family": "risk_limit",
+      "owner": "risk_limit_owner",
+      "execute": ["app_api", "app_worker"],
+      "story": "US-052"
+    },
+    {
+      "signature": "core.risk_staff_abuse_board(bytea,text,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-052"
+    },
+    {
       "signature": "core.settlement_advance_approvers(bytea,uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
