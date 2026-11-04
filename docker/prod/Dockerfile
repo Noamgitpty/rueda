@@ -32,13 +32,17 @@ WORKDIR /repo
 COPY --chown=node:node . .
 RUN pnpm install --frozen-lockfile \
   && pnpm --filter @rueda/api build
-# Dépendances de PRODUCTION seulement, de l'API et du job de base (pg) : les dépendances de
-# développement (dont @rueda/fake-adapters) disparaissent de node_modules.
+# Dépendances de PRODUCTION seulement, de l'API, du job de base (pg) et des deux paquets de
+# l'espace de travail lus par l'API : les dépendances de développement (dont
+# @rueda/fake-adapters) disparaissent de node_modules. Pas de filtre « pkg... » : il sélectionne
+# aussi les paquets de développement de l'espace de travail (@rueda/config, @rueda/money,
+# @rueda/fake-adapters) et installe leurs propres dépendances (eslint…).
+# Le magasin de pnpm « remonte » un lien vers chaque paquet sélectionné : liste blanche ensuite.
 RUN find . -name node_modules -type d -prune -exec rm -rf {} + \
   && pnpm install --frozen-lockfile --prod --ignore-scripts \
-       --filter @rueda/api... --filter @rueda/db...   && find node_modules/.pnpm/node_modules/@rueda -mindepth 1 -maxdepth 1        ! -name i18n ! -name design-tokens -exec rm -rf {} +
-# (le magasin de pnpm « remonte » un lien vers CHAQUE paquet de l'espace de travail, dont
-#  @rueda/fake-adapters : seuls les deux paquets lus par l'API sont gardés, liste blanche)
+       --filter @rueda/api --filter @rueda/db --filter @rueda/i18n --filter @rueda/design-tokens \
+  && find node_modules/.pnpm/node_modules -maxdepth 2 -path '*/@rueda/*' \
+       ! -name i18n ! -name design-tokens -exec rm -rf {} +
 
 FROM ${NODE_IMAGE} AS runtime
 ARG RUEDA_RELEASE=unknown
