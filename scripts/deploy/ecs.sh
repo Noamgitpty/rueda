@@ -74,9 +74,16 @@ register() {
     --query taskDefinition.taskDefinitionArn --output text
 }
 
+# Version (sha git) d'une empreinte : l'étiquette posée par `build` dans le registre de préproduction.
 release_of_digest() {
-  aws ecr describe-images --repository-name "${RUEDA_REPOSITORY_URL#*/}" --image-ids "imageDigest=$1" \
-    --query 'imageDetails[0].imageTags[0]' --output text
+  local repo="${RUEDA_SOURCE_REPOSITORY_URL:-$RUEDA_REPOSITORY_URL}" tag
+  tag="$(aws ecr describe-images --repository-name "${repo#*/}" --image-ids "imageDigest=$1" \
+    --query 'imageDetails[0].imageTags' --output text 2>/dev/null | tr '\t' '\n' | grep -v '^promoted-' | head -n 1 || true)"
+  if [[ "$tag" =~ ^[A-Za-z0-9._-]{1,80}$ ]]; then printf '%s' "$tag"; else printf '%s' "${1:7:12}"; fi
+}
+
+present_in() {
+  aws ecr describe-images --repository-name "${1#*/}" --image-ids "imageDigest=$2" >/dev/null 2>&1
 }
 
 run_db_job() {
@@ -127,11 +134,13 @@ cmd_deploy() {
     registry_login "$RUEDA_SOURCE_REPOSITORY_URL"
     registry_login "$RUEDA_REPOSITORY_URL"
     # copie octet pour octet du manifeste : même empreinte qu'en préproduction
-    docker buildx imagetools create --tag "$RUEDA_REPOSITORY_URL:promoted-${digest#sha256:}" \
-      "$RUEDA_SOURCE_REPOSITORY_URL@$digest"
+    if ! present_in "$RUEDA_REPOSITORY_URL" "$digest"; then
+      docker buildx imagetools create --tag "$RUEDA_REPOSITORY_URL:promoted-${digest#sha256:}" \
+        "$RUEDA_SOURCE_REPOSITORY_URL@$digest"
+    fi
   fi
+  present_in "$RUEDA_REPOSITORY_URL" "$digest" || fail "empreinte absente du registre : $digest"
   release="$(release_of_digest "$digest")"
-  [[ "$release" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || release="${digest:7:12}"
   previous="$(node "$ROOT/scripts/deploy/journal.mjs" current --journal "$JOURNAL" --environment "$RUEDA_ENVIRONMENT" | cut -d' ' -f1 || true)"
   record DEPLOY STARTED "$digest" "$release" ${previous:+--from "$previous"}
   api="$(register api "$digest" "$release")"
