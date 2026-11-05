@@ -149,14 +149,7 @@ Le job est **bloquant** depuis la revue sécurité du 2026-11-01 (constat 9). [`
 - une sortie d'audit illisible, par exemple quand le registre est indisponible, fait échouer le job (fail-closed) ;
 - une vulnérabilité modérée ou faible ne bloque pas.
 
-Deux exceptions sont en vigueur. Les deux vulnérabilités sont transitives par `@nestjs/platform-express`. Leurs correctifs ont été publiés le 2026-10-22, et `minimumReleaseAge` (14 jours) les interdit avant le 2026-11-05.
-
-| GHSA                  | Paquet                        | Expire le  |
-| --------------------- | ----------------------------- | ---------- |
-| `GHSA-27r3-jxmh-p828` | `body-parser` 2.3.0 (→ 2.4.0) | 2026-11-06 |
-| `GHSA-q7qp-rjg7-q26m` | `multer` 2.4.0 (→ 2.5.0)      | 2026-11-06 |
-
-Le 2026-11-05 ou le 2026-11-06, il faut monter `@nestjs/platform-express` ou ajouter un `overrides` dans `pnpm-workspace.yaml`, puis retirer les deux exceptions. Sinon, la CI sera rouge à partir du 2026-11-07.
+Aucune exception n'est en vigueur depuis le 2026-11-05 (EXC-002 de `docs/team/DECISIONS.md`). Les deux exceptions de l'origine (`GHSA-27r3-jxmh-p828`, `body-parser` ; `GHSA-q7qp-rjg7-q26m`, `multer`, transitives par `@nestjs/platform-express`) sont levées. Les correctifs `body-parser` 2.4.0 et `multer` 2.5.0 sont imposés par deux `overrides` étroits de `pnpm-workspace.yaml`, limités aux versions vulnérables. Raison : `@nestjs/platform-express` 12.1.3 épingle `multer` 2.4.0, et la première version de Nest qui tire `multer` 2.5.0 (12.3.x, publiée le 2026-10-27) reste interdite par `minimumReleaseAge` jusqu'au 2026-11-10. Il faudra retirer ces `overrides` quand Nest sera monté à une version qui tire les correctifs d'elle-même.
 
 Toute nouvelle exception est une décision : elle est consignée dans `docs/team/DECISIONS.md` et passe en revue sécurité.
 

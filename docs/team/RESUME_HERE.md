@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-03 (US-060, fin de la révision P2P des spécifications ; PR #1 à #25 fusionnées).**
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-05 (recalage sur les PR #1 à #82).**
 
 ## Pour reprendre
 
@@ -12,27 +12,27 @@
 
 **Modèle** : Kmino, place de marché de location de voitures **de particulier à particulier**, comme Turo, au Panama et au Paraguay ; **aucune agence** (DEC-FONDATEUR-13 à 16) ; produit **trilingue es / en / fr** (DEC-FONDATEUR-17). Fusion autonome de toutes les PR par l'orchestrateur, avec garde-fous (DEC-FONDATEUR-15).
 
-**Révision P2P des spécifications : terminée.** Les huit demandes de fusion S1 à S8 de `docs/team/impact/2026-11-02-pivot-p2p.md` sont faites : 22 (US-053), 18 v5, 04 rév. 6 et 21 (US-054), 08 (US-055), 17 v6 (US-056), 16 v5 (US-057), 19 v3 (US-058), 10b v3 (US-059), puis le point d'entrée (US-060 : `CLAUDE.md`, handoff, `00_README`, `RESUME_HERE` des specs, reliquats de 17, colonne `fr` du catalogue 10b §4.3). US-060 attend ses revues (code, architecture, sécurité, argent ; UX conseillée) puis la fusion.
+**Révision P2P des spécifications : terminée et fusionnée** (US-053 à US-060, PR #16, #19, #20, #22, #24, #27 ; US-061 et US-062, PR #55 et #52).
 
-| Story                     | Statut                | Où                                  | Où en est-on                                                                        |
-| ------------------------- | --------------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
-| US-001, US-029            | MERGED                | `main` (PR #1)                      | —                                                                                   |
-| US-002 CI                 | MERGED                | `main` (PR #2)                      | Le job « revues » lit `docs/team/review-requirements.json` depuis `origin/main`.    |
-| US-005 banc PostgreSQL    | MERGED                | `main` (PR #18)                     | `test:int` et `test:l0` lancent les vrais tests (`docs/ops/CI.md`).                 |
-| US-014, US-015, US-026    | MERGED                | `main` (PR #3, #4, #5)              | US-014 doit recevoir le catalogue `fr` (DEC-FONDATEUR-17) : ajustement à planifier. |
-| US-028 naming             | MERGED                | `main` (PR #8, #10, #13)            | Kmino, direction Lienzo · Tinta (révisable).                                        |
-| US-050 règles             | IN_PROGRESS (partiel) | `main` (PR #6, #12, #14, #17, #21)  | Reste : protection de branche, accès, usage (F-15).                                 |
-| US-053 à US-059 (S1 à S7) | MERGED                | `main` (PR #16, #19, #20, #22, #24) | —                                                                                   |
-| US-060 (S8)               | IN_REVIEW             | `story/US-060-specs-handoff-claude` | Passation : `docs/team/handoffs/US-060.md`.                                         |
+**Lot 0 : presque tout est fusionné** (détail et revues dans `BOARD.md`). Aucune story n'est ACCEPTED : c'est la recette du fondateur.
 
-`BOARD.md` n'a pas suivi toutes ces fusions (US-005 et US-028 y sont encore en cours) : à remettre à jour par l'orchestrateur.
+| Story                                                            | Statut                | Où                                                     | Où en est-on                                                                                           |
+| ---------------------------------------------------------------- | --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Toutes les autres stories du lot 0 (44 sur 49 ; voir `BOARD.md`) | MERGED                | `main` (PR #1 à #82)                                   | Dernières : US-051 (PR #79), US-040 (PR #80), US-003 durcissement (PR #81), US-035 isolation (PR #82). |
+| US-039 stratégie de test                                         | IN_PROGRESS           | branche à créer par l'agent                            | Agent lancé le 2026-11-05.                                                                             |
+| US-047 régression nocturne                                       | IN_PROGRESS           | `story/US-047-regression-nocturne` (`../wt/US-047`)    | Agent lancé le 2026-11-05.                                                                             |
+| US-050 règles d'exploitation                                     | IN_PROGRESS (partiel) | `main` (PR #6, #12, #14, #17, #21, #28, #36, #39, #50) | Reste : protection de branche, accès, usage (F-15).                                                    |
+| US-049 porte du lot 0                                            | TODO                  | —                                                      | Éprouve les stories fusionnées (US-011, US-012, US-018, US-019, US-025) : peut démarrer.               |
+| US-027 rapport des preuves du lot 0                              | TODO                  | —                                                      | Attend US-049.                                                                                         |
+
+Rappel : US-014 (français et portugais du Brésil : PR #26 et #61) est fusionnée ; la colonne `fr` du catalogue est livrée.
 
 ## Prochaine action exacte (orchestrateur)
 
 1. **Avant le 2026-11-06** : monter `@nestjs/platform-express` (ou `overrides`) et retirer les deux exceptions de `docs/ops/audit-exceptions.json` (`docs/ops/CI.md` §audit). Sinon la CI devient rouge.
-2. Faire relire puis fusionner US-060 (revues code, architecture, sécurité, argent ; UX conseillée pour 10b §4.3).
-3. **Reprendre le développement** dans l'ordre de 19 v3 §2 : stories restantes du **lot 0**, dans leur version ajustée par le pivot (19 v3 §3.1 ; US-026 et US-028, déjà fusionnées, gardent seulement leurs ajustements à reporter), en commençant par celles que débloquent les fusions (US-006 et US-008 à US-010 après US-005, US-013, US-016 après US-015, US-003 après US-002 ; voir BOARD), puis le **lot 1** (identité, hôtes, véhicules).
-4. Chaque story livre ses textes en es, en et fr (catalogue 10b §4.3) et note ses choix « comme Turo » dans `docs/team/COMME_TURO.md`.
+2. Faire relire puis fusionner US-039 et US-047 (agents lancés le 2026-11-05).
+3. Lancer **US-049** (pré-mortem et red team argent / RLS / concurrence), puis **US-027** (rapport des preuves et recalage) ; solder US-050 (protection de branche, accès, usage : F-15).
+4. Puis le **lot 1** (identité, hôtes, véhicules) dans l'ordre de 19 v3 §2. Chaque story livre ses textes en es, en, fr et pt-BR (catalogue 10b §4.3) et note ses choix « comme Turo » dans `docs/team/COMME_TURO.md`.
 5. Les branches réécrites par rebase ne se force-pushent pas : une attestation `git range-diff` d'un relecteur indépendant certifie les nouveaux SHA. Pour mettre une PR à jour, préférer `gh pr update-branch` (fusion).
 
 ## Reports à faire dans `docs/specs/` (par demande de fusion revue)
