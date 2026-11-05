@@ -165,8 +165,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/qa/artefacts"
-          gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
-            --jq '.jobs[] | {name, status, conclusion, html_url}' > "$RUNNER_TEMP/qa/jobs.ndjson"
+          # L'API des jobs peut rendre « in_progress » quelques secondes après la fin d'un job dont
+          # ce job dépend : relecture (12 fois au plus, toutes les 10 s) tant qu'un autre job n'est
+          # pas terminé ; au-delà, le tableau de bord le compte INCOMPLET (fail-closed).
+          for essai in $(seq 1 12); do
+            gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
+              --jq '.jobs[] | {name, status, conclusion, html_url}' > "$RUNNER_TEMP/qa/jobs.ndjson"
+            restants="$(grep -vE '"name": ?"tableau de bord QA' "$RUNNER_TEMP/qa/jobs.ndjson" | grep -vcE '"status": ?"completed"' || true)"
+            if [ "$restants" = "0" ]; then break; fi
+            echo "jobs non terminés selon l'API : $restants (essai $essai)"
+            sleep 10
+          done
           gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.run_started_at' > "$RUNNER_TEMP/qa/started"
           # artefacts absents (nuit verte : aucune graine d'échec) : rien à télécharger
           for pattern in 'c11-failures-*' 'rapprochement-rapport' 'mutation-money'; do
