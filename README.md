@@ -19,11 +19,16 @@ pnpm build
 pnpm format
 pnpm test:int      # PostgreSQL réel : RUEDA_PG_TESTCONTAINERS=1 ou la pile du guide
 pnpm test:l0       # preuves L0 sous les rôles de production
+pnpm test:money    # vecteurs dorés et oracles d'argent (Python 3.12)
+pnpm test:e2e      # Playwright mobile et PWA (Chrome installé)
 ```
+
+Comment lancer chaque famille de tests (C1–C20, RLS-1 à RLS-28, fuzz, accessibilité…) : [docs/qa/STRATEGIE_TESTS.md](docs/qa/STRATEGIE_TESTS.md).
 
 ## Documentation
 
-- Conventions (branches, worktrees, commits, modules, SQL, nommage, codes d'erreur, cycle de story) : [CONTRIBUTING.md](CONTRIBUTING.md)
+- Conventions (branches, worktrees, commits, revues requises, fusion, modules, SQL, nommage, codes d'erreur, cycle de story) : [CONTRIBUTING.md](CONTRIBUTING.md)
+- Stratégie de test : [docs/qa/STRATEGIE_TESTS.md](docs/qa/STRATEGIE_TESTS.md)
 - Point d'entrée du développement : [docs/specs/CLAUDE_BUILD_HANDOFF.md](docs/specs/CLAUDE_BUILD_HANDOFF.md)
 - Spécification (instantané figé, ne pas modifier hors demande de fusion approuvée) : `docs/specs/`
 - Décisions d'architecture : [docs/adr/](docs/adr/)

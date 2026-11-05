@@ -46,7 +46,7 @@ Le harnais d'US-005 lit `RUEDA_PG_TESTCONTAINERS=1` et démarre `postgres:16` pa
 - **Depuis la fusion d'US-005 (PR #18)**, `test:int` et `test:l0` lancent les vrais tests (`turbo run test:int` et `turbo run test:l0`, dont ceux de `@rueda/db` sous les rôles de production) ; le job est **bloquant** sans changement du workflow. Le script `scripts/not-yet-implemented.mjs` n'est plus appelé. L'étape de fumée (PostgreSQL 16 réel avec `btree_gist`) reste en place ; la retirer est une modification de `.github/`, soumise à la revue sécurité.
 - Si le harnais demande l'autre mode (`RUEDA_PG_ADMIN_URL` + `RUEDA_PG_SUPERUSER_PASSWORD_FILE`, natif P-07), il reste réservé au poste local. La CI garde Testcontainers.
 - **Depuis US-046 (ADR-081)**, le banc crée une base `_mig` sans migration : `test:l0` y applique chaque migration **seule**, sous `migrator`, sur des graines PA / PY. Il vérifie après chacune le schéma de la version N (retour arrière sans migration descendante), les lignes et les comptes, l'intégrité et RLS-19. Le job `qualite` lance en plus le lint `sql-expand-contract` (`pnpm lint`) et les contrôles de l'inventaire des données personnelles (`test:unit`).
-- Les commandes `test:rls`, `test:concurrency` et `test:money` s'ajouteront à ce job quand leurs stories les créeront (handoff §7). La matrice PA / PY (19 US-002, notes techniques) sera ajoutée quand un test dépendra du pays.
+- Commandes du handoff §7 (US-039, ADR-086) : `pnpm test:money` et `pnpm test:e2e` sont des alias de suites déjà jouées par `qualite`, `argent-oracles` et `e2e-web` ; `test:rls` et `test:concurrency` ne sont pas créés, car leurs preuves sont dans `test:l0` et `test:c11` ; `test:nightly` est réservé à US-047. Comment lancer chaque famille : [`docs/qa/STRATEGIE_TESTS.md`](../qa/STRATEGIE_TESTS.md). La matrice PA / PY (19 US-002, notes techniques) sera ajoutée quand un test dépendra du pays.
 
 ### Oracles
 
@@ -149,14 +149,7 @@ Le job est **bloquant** depuis la revue sécurité du 2026-11-01 (constat 9). [`
 - une sortie d'audit illisible, par exemple quand le registre est indisponible, fait échouer le job (fail-closed) ;
 - une vulnérabilité modérée ou faible ne bloque pas.
 
-Deux exceptions sont en vigueur. Les deux vulnérabilités sont transitives par `@nestjs/platform-express`. Leurs correctifs ont été publiés le 2026-10-22, et `minimumReleaseAge` (14 jours) les interdit avant le 2026-11-05.
-
-| GHSA                  | Paquet                        | Expire le  |
-| --------------------- | ----------------------------- | ---------- |
-| `GHSA-27r3-jxmh-p828` | `body-parser` 2.3.0 (→ 2.4.0) | 2026-11-06 |
-| `GHSA-q7qp-rjg7-q26m` | `multer` 2.4.0 (→ 2.5.0)      | 2026-11-06 |
-
-Le 2026-11-05 ou le 2026-11-06, il faut monter `@nestjs/platform-express` ou ajouter un `overrides` dans `pnpm-workspace.yaml`, puis retirer les deux exceptions. Sinon, la CI sera rouge à partir du 2026-11-07.
+Aucune exception n'est en vigueur depuis le 2026-11-05 (EXC-002 de `docs/team/DECISIONS.md`). Les deux exceptions de l'origine (`GHSA-27r3-jxmh-p828`, `body-parser` ; `GHSA-q7qp-rjg7-q26m`, `multer`, transitives par `@nestjs/platform-express`) sont levées. Les correctifs `body-parser` 2.4.0 et `multer` 2.5.0 sont imposés par deux `overrides` étroits de `pnpm-workspace.yaml`, limités aux versions vulnérables. Raison : `@nestjs/platform-express` 12.1.3 épingle `multer` 2.4.0, et la première version de Nest qui tire `multer` 2.5.0 (12.3.x, publiée le 2026-10-27) reste interdite par `minimumReleaseAge` jusqu'au 2026-11-10. Il faudra retirer ces `overrides` quand Nest sera monté à une version qui tire les correctifs d'elle-même.
 
 Toute nouvelle exception est une décision : elle est consignée dans `docs/team/DECISIONS.md` et passe en revue sécurité.
 
