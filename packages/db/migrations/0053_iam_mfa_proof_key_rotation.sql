@@ -24,6 +24,7 @@
 --
 -- Retour arrière :
 --   DROP FUNCTION core.iam_mfa_proof_key_rotate(text, bytea);
+--   REVOKE SELECT (installed_at) ON core.iam_mfa_proof_key FROM iam_staff_owner;
 --   DELETE FROM core.iam_mfa_proof_key WHERE id = 2;
 --   ALTER TABLE core.iam_mfa_proof_key DROP CONSTRAINT mfa_proof_key_slot,
 --     ADD CONSTRAINT mfa_proof_key_single CHECK (id = 1);
@@ -43,6 +44,9 @@ COMMENT ON TABLE core.iam_mfa_proof_key IS
 -- `migrator` ne remplace une fonction d'un autre propriétaire qu'en devenant lui (ADR-044 amendé) ;
 -- CREATE sur le schéma accordé le temps du remplacement (comme 0040, 0045). Droits (EXECUTE au
 -- seul app_api), propriétaire et entrée RLS-15 inchangés.
+-- la fenêtre à deux clés est bornée par l'instant de pose de la clé suivante : lecture de cette
+-- seule colonne en plus (0033 n'accordait que id et key), jamais à un rôle applicatif
+GRANT SELECT (installed_at) ON core.iam_mfa_proof_key TO iam_staff_owner;
 GRANT CREATE ON SCHEMA core TO iam_staff_owner;
 SET LOCAL ROLE iam_staff_owner;
 
