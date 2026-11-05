@@ -65,15 +65,18 @@ La sortie de `db-setup` se termine par `base de développement prête`, avec, po
 
 La suite tourne dans un conteneur, contre le PostgreSQL de la pile, comme en CI : tests unitaires de chaque paquet, puis `test:int` et `test:l0`. Le banc de `@rueda/db` crée ses bases jetables `rueda_test_*` et ne touche pas à `rueda_dev`. Chaque test vérifie d'abord qu'il tourne sous un rôle de production (L0-05).
 
+**On arrête d'abord le travailleur et l'API.** Les preuves L0 mesurent des temps de réponse sur ce même PostgreSQL (L0-02 : p95 de pose < 300 ms, 100 connexions concurrentes). Le travailleur y fait tourner ses boucles chaque seconde (relais, `hold_expiry`, `disposition_sweeper`, `booking_oracle`, `risk_pruner`, `ops_monitor`) et la sonde de santé de l'API l'interroge toutes les 2 s : cette charge parasite fausse les mesures, comme sur le banc de la CI qui n'a ni API ni travailleur. Les tests tournent donc sur une instance au repos ; `postgres` reste en marche.
+
 ```bash guide
+docker compose stop worker api
 docker compose --profile tests run --rm tests
 ```
 
-Le banc change les mots de passe des rôles PostgreSQL (ils sont communs à toute l'instance). Après les tests, `db-setup` remet les mots de passe de la pile, puis on revérifie :
+Le banc change les mots de passe des rôles PostgreSQL (ils sont communs à toute l'instance). Après les tests, `db-setup` remet les mots de passe de la pile, on relance l'API et le travailleur, puis on revérifie : la fumée exige un nouveau `worker.started`, journalisé depuis ce redémarrage.
 
 ```bash guide
 docker compose run --rm db-setup
-docker compose restart api
+docker compose start api worker
 bash scripts/dev/smoke.sh
 ```
 

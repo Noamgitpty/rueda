@@ -19,6 +19,12 @@ output "deploy_role_arn" {
   value = aws_iam_role.deploy.arn
 }
 
+# `sub` OIDC exigé par le rôle de déploiement (ADR-084) : le fondateur vérifie que la
+# personnalisation du dépôt (DEPLOY.md §4 étape 2) produit exactement cette valeur.
+output "deploy_oidc_subject" {
+  value = local.github_deploy_sub
+}
+
 output "subnets" {
   value = aws_subnet.private[*].id
 }

@@ -29,7 +29,7 @@ Un déploiement de production est **déclenché seulement par l'orchestrateur**,
 - (c) le rapport « go » de re-vérification existe (US-408) ;
 - (d) le fondateur a donné son **accord** dans l'environnement protégé `production`. Cet accord est requis pour les **5 premiers déploiements** (`founder_approval_first_prod_deploys` = 5). Ensuite, jusqu'à la fin de la recette pilote, il est requis pour toute version qui contient une migration de données ou destructive, un changement de RLS ou de rôles, ou un changement du moteur de règlement, de `Money` ou du devis.
 
-L'orchestrateur peut lancer un retour arrière sans accord préalable ; il le notifie au fondateur.
+L'orchestrateur peut lancer un retour arrière **en préproduction** sans accord préalable. **En production**, le retour arrière passe par la même porte d'approbation qu'un déploiement : l'environnement protégé `production` et la porte « accord du fondateur » du pipeline, que le code impose ([ADR-084](../adr/ADR-084-porte-de-deploiement-production.md)). L'orchestrateur le lance et prévient aussitôt le fondateur, avec le motif et le lien du run. Le pipeline exige aujourd'hui l'accord pour **toute** action en production (fail-closed). L'allègement prévu en (d) après les 5 premiers déploiements demandera une PR sous revue sécurité (QUESTIONS Q-010).
 
 ## 3. Budget d'usage, limites, reprise
 

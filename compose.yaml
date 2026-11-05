@@ -140,7 +140,8 @@ services:
 
   # Suite de tests contre le PostgreSQL de la pile (banc de @rueda/db : bases jetables rueda_test_*,
   # rôles de production, L0-05). Le banc change les mots de passe des rôles d'instance : relancer
-  # ensuite `docker compose run --rm db-setup`.
+  # ensuite `docker compose run --rm db-setup`. Arrêter `worker` et `api` avant (INSTALL.md §4) :
+  # leur charge sur ce PostgreSQL fausse les mesures de temps des preuves L0 (L0-02, p95 < 300 ms).
   tests:
     <<: *dev-image
     profiles: ['tests']
