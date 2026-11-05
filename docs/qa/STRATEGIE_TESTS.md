@@ -1,0 +1,193 @@
+# Stratégie de test — lancer chaque suite (US-039)
+
+> Document de référence pour **lancer** et **écrire** les tests du dépôt, destiné à un agent ou à un développeur humain qui rejoint l'équipe. La stratégie qui fait foi est dans la spécification : 19 §1.8 (pyramide et portes), 17 §11 (preuves L0) et §12 (portes CI), handoff §7 (commandes). Ce document la **rend exécutable** : pour chaque famille de tests, la commande, l'emplacement, le job de CI et l'état réel au 2026-11-05. En cas d'écart, la spécification fait foi et l'écart est signalé à l'orchestrateur (`docs/team/QUESTIONS.md`).
+>
+> Ce qui est **contrôlé automatiquement** par `scripts/qa/test-strategy.test.mjs` (dans `pnpm test:unit`) : chaque commande **pnpm** citée existe dans un `package.json` (ou dans `turbo.json`) ; chaque script lancé par `bash`, `node` ou `python` existe ; chaque job de la colonne « Job CI » existe dans `.github/workflows/` (son **existence**, pas ce qu'il exécute) ; chaque chemin sans joker de la colonne « Emplacement » existe ; aucun lien relatif n'est cassé ; chaque suite `test:*` d'un `package.json` est citée ici (mot entier). **Ne sont pas contrôlés** : les arguments des commandes, les commandes `gh` et `tofu`, et la correspondance entre une ligne et le contenu du job qu'elle nomme ; ils sont vérifiés à la main et relus en revue. Décision : [ADR-086](../adr/ADR-086-strategie-de-test-commandes-figees.md).
+
+**Honnêteté** (19 §1.8) : les tests réduisent fortement le risque, mais ils **ne prouvent pas l'absence de bogue**. C'est pourquoi la production est surveillée (US-004, oracle C12) et un triage des bogues existe après la mise en service (US-409).
+
+## 1. Avant de lancer quoi que ce soit
+
+- Node.js 26.13 et pnpm 10.34.9 en tête du `PATH` (voir [CONTRIBUTING.md](../../CONTRIBUTING.md) §1), puis `pnpm install --frozen-lockfile`.
+- **Sans base de données** : `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm build`, `pnpm test:money` tournent sur n'importe quel poste. `pnpm test:money` et `check-spec-tools.py` demandent aussi Python 3.12 (`python`, ou `RUEDA_PYTHON=<chemin>`).
+- **Avec PostgreSQL 16 réel** : `pnpm test:int`, `pnpm test:l0`, `pnpm --filter @rueda/db test:c11`. Trois façons d'obtenir la base, choisies par le harnais d'US-005 ([`packages/db/README.md`](../../packages/db/README.md), ADR-043) :
+  - `RUEDA_PG_TESTCONTAINERS=1` : `postgres:16` démarré par Testcontainers sur Docker. **C'est le mode de la CI, et c'est la CI qui fait foi.**
+  - la pile du guide d'installation ([`docs/ops/INSTALL.md`](../ops/INSTALL.md)) : `docker compose`, puis la suite de tests dans la pile ;
+  - un PostgreSQL natif (poste P-07) : `RUEDA_PG_ADMIN_URL` et `RUEDA_PG_SUPERUSER_PASSWORD_FILE` (chemin d'un fichier **hors du dépôt** ; le mot de passe n'est jamais affiché ni commité). Démarrer le service Windows demande les droits administrateur : c'est une action du fondateur, jamais d'un agent.
+  - Sans aucune de ces configurations, `test:int` et `test:l0` **échouent** : il n'y a jamais de faux vert.
+- **Avec un navigateur** : `pnpm test:e2e` utilise le Google Chrome installé (`channel: 'chrome'`). Aucun navigateur n'est téléchargé.
+- Rejouer toute la CI d'une PR : `gh pr checks <n>`, puis `gh run view <id> --log-failed`. Ne jamais relancer un job pour masquer un échec : un test instable est un bogue.
+
+## 2. Les familles de tests
+
+Le tableau suit l'ordre des critères d'US-039. La colonne « Job CI » nomme les jobs de [`ci.yml`](../../.github/workflows/ci.yml) (à chaque PR et chaque push sur `main`) ou de [`nightly.yml`](../../.github/workflows/nightly.yml) (chaque nuit). Leur contenu détaillé est dans [`docs/ops/CI.md`](../ops/CI.md).
+
+| Famille                                      | Commande                                                                  | Emplacement                                                                                                                                                                                                 | Job CI                                                 | Quand                               |
+| -------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------- |
+| Unitaires (dont contrats d'API)              | `pnpm test:unit`                                                          | `*.test.ts` à côté du code, `packages/*/test/`, `*.contract.test.ts`, `scripts/{team,ci,deploy,ops,qa}/*.test.mjs`                                                                                          | `qualite`                                              | chaque PR                           |
+| Intégration (PostgreSQL réel)                | `pnpm test:int`                                                           | `packages/db/test/int/`, `apps/api/src/**/*.int.test.ts`, `apps/api/test/int/`                                                                                                                              | `base-de-donnees`                                      | chaque PR                           |
+| Vecteurs dorés T01–T68, TJ01–TJ21, TA01–TA11 | `pnpm test:money`                                                         | `packages/money/test/golden-vectors/`, `packages/money/test/settlement/`, export `docs/specs/tools/golden_vectors.json`                                                                                     | `qualite`, `argent-oracles`                            | chaque PR                           |
+| Oracles Python de la spécification           | `python -I -X utf8 scripts/ci/check-spec-tools.py --specs docs/specs`     | `docs/specs/tools/`, registre `docs/specs/tools/registry.json`                                                                                                                                              | `oracles`                                              | chaque PR                           |
+| Moteur d'argent comparé aux oracles (10 000) | `pnpm --filter @rueda/money test:oracle`                                  | `packages/money/test/oracle/*.oracle.ts`                                                                                                                                                                    | `argent-oracles`, `argent-oracles-long`                | chaque PR ; 100 000 cas la nuit     |
+| Mutation (`Money`, règlement ; seuil 80 %)   | `pnpm --filter @rueda/money test:mutation`                                | `packages/money/stryker.config.mjs`                                                                                                                                                                         | `argent-mutation`                                      | PR qui touche `packages/money/`     |
+| Preuves L0-01 à L0-09                        | `pnpm test:l0`                                                            | `packages/db/test/l0/l0-0*.test.ts` et suivants                                                                                                                                                             | `base-de-donnees`                                      | chaque PR                           |
+| Concurrence C1–C20                           | `pnpm test:l0`, puis `pnpm --filter @rueda/db test:c11`                   | `packages/db/test/l0/` (dont `l0-02-concurrency`, `l0-us024-conversion`, `l0-06-platform-now`), `packages/db/test/support/concurrency.ts`                                                                   | `base-de-donnees`, `fuzz-c11`                          | chaque PR                           |
+| Fuzz C11 et oracle C12                       | `pnpm --filter @rueda/db test:c11`                                        | `packages/db/test/l0/l0-c11-fuzz.test.ts`, `packages/db/test/support/c11.ts`                                                                                                                                | `fuzz-c11`                                             | 1 000 à chaque PR ; 10 × 1 000 nuit |
+| Isolation RLS-1 à RLS-28, matrice d'accès    | `pnpm test:l0` (et `pnpm test:unit` pour la matrice des routes)           | `packages/db/test/l0/l0-rls-*.test.ts`, `l0-05-roles`, `l0-pay-legs-rls`, `l0-us062-host-money`, `l0-us043-authorization-matrix`, `apps/api/src/testing/route-matrix*.ts`                                   | `base-de-donnees`, `qualite`                           | chaque PR                           |
+| Migrations montée / retour, RLS-19           | `pnpm test:l0`                                                            | `packages/db/test/l0/l0-us046-migrations.test.ts` (base `_mig`)                                                                                                                                             | `base-de-donnees`                                      | chaque PR                           |
+| e2e web mobile et PWA                        | `pnpm test:e2e`                                                           | `apps/web/e2e/*.spec.ts`, `apps/web/playwright.config.ts`                                                                                                                                                   | `e2e-web`                                              | chaque PR                           |
+| Parcours dorés e2e PA / USD et PY / PYG      | `pnpm test:e2e` (à venir)                                                 | **à créer** (US-047, US-221)                                                                                                                                                                                | `e2e-web` (à venir)                                    | voir §3.6                           |
+| Accessibilité                                | `pnpm test:e2e` et `pnpm --filter @rueda/design-tokens test:unit`         | `apps/web/e2e/shell.spec.ts`, `packages/design-tokens/test/contrast.test.ts`, `packages/design-tokens/test/wcag.test.ts`                                                                                    | `e2e-web`, `qualite`                                   | chaque PR ; axe à venir (§3.7)      |
+| Sécurité (ASVS niveau 2, §3.9)               | `pnpm test:unit`, `pnpm test:int`, `pnpm test:l0`                         | `apps/api/src/testing/route-matrix.test.ts`, `apps/api/src/testing/route-matrix.int.test.ts`, `packages/db/test/l0/l0-us043-authorization-matrix.test.ts`, `packages/db/test/l0/l0-us043-env-guard.test.ts` | `qualite`, `base-de-donnees`, `secrets`, `dependances` | chaque PR ; revue complète par lot  |
+| Données personnelles (§3.10)                 | `pnpm test:unit`, `pnpm test:l0`                                          | `apps/api/src/testing/personal-data-leaks.test.ts`, `packages/db/test/l0/l0-us046-personal-data.test.ts`, `packages/db/personal-data-inventory.json`                                                        | `qualite`, `base-de-donnees`                           | chaque PR                           |
+| Gabarits de notification (§3.11)             | `pnpm --filter @rueda/api test:unit`                                      | `apps/api/src/modules/ntf/internal/templates.test.ts`                                                                                                                                                       | `qualite`                                              | chaque PR                           |
+| Installation depuis zéro                     | `bash scripts/ci/run-install-guide.sh docs/ops/INSTALL.md`                | [`docs/ops/INSTALL.md`](../ops/INSTALL.md)                                                                                                                                                                  | `guide-installation`                                   | chaque PR                           |
+| Image de production, C19, retour arrière     | `bash scripts/deploy/rehearsal.sh`                                        | `scripts/deploy/`                                                                                                                                                                                           | `deploiement-local`                                    | chaque PR                           |
+| Restauration et rotation des secrets         | `bash scripts/ops/restore-drill.sh`, `bash scripts/ops/rotation-drill.sh` | `packages/db/test/drill/` (`test:drill` de `@rueda/db`, lancé seulement par `restore-drill.sh`), `scripts/ops/`                                                                                             | `restauration`, `rotation-secrets`                     | chaque PR                           |
+| Infrastructure (OpenTofu simulé)             | `tofu test` dans chaque module de `infra/opentofu/modules/`               | `infra/opentofu/`                                                                                                                                                                                           | `infrastructure`                                       | chaque PR                           |
+| Secrets et dépendances                       | `node scripts/ci/audit-gate.mjs`                                          | `docs/ops/audit-exceptions.json`                                                                                                                                                                            | `secrets`, `dependances`                               | chaque PR ; historique complet nuit |
+| Revues et CHANGELOG                          | `node scripts/ci/check-story-reviews.mjs`, `pnpm lint:changelog`          | `docs/team/reviews/`, `changelog.d/`                                                                                                                                                                        | `revues`, `changelog`                                  | chaque PR                           |
+| Régression de nuit                           | `gh workflow run nightly.yml --ref main`                                  | [`nightly.yml`](../../.github/workflows/nightly.yml)                                                                                                                                                        | `suite-complete`, `argent-oracles-long`                | chaque nuit, 03:17 UTC              |
+
+## 3. Détail par famille
+
+### 3.1 Unitaires
+
+- `pnpm test:unit` lance Vitest dans chaque paquet (Turborepo), puis `node --test` sur `scripts/team/`, `scripts/ci/`, `scripts/deploy/`, `scripts/ops/` et `scripts/qa/`. Aucune base, aucun réseau.
+- Un paquet seul : `pnpm --filter @rueda/money test:unit` (remplacer par `@rueda/config`, `@rueda/db`, `@rueda/design-tokens`, `@rueda/fake-adapters`, `@rueda/i18n`, `@rueda/ui`, `@rueda/api`, `@rueda/web`, `@rueda/backoffice`).
+- Y figurent aussi : les tests à fixtures des règles de lint (`packages/config`), le graphe des modules, les README, les contrats OpenAPI (`apps/api/src/testing/contract/`, contrat `apps/api/openapi/openapi.json`) et la documentation synchronisée (US-038).
+- Les oracles Python ont leurs propres tests : `python -I -X utf8 -m unittest discover -s scripts/ci -p "test_*.py"` (job `oracles`).
+
+### 3.2 Intégration
+
+- `pnpm test:int` : `@rueda/db` (banc, migrations, droits minimaux, schéma documenté `docs/architecture/schema.md`) et `@rueda/api` (dépôts SQL et modules contre la vraie base, dont `route-matrix.int.test.ts`).
+- Chaque série de tests a sa base jetable, créée par le banc (`packages/db/src/testing/bench.ts`). Le superutilisateur ne sert qu'à la créer et à installer les rôles.
+- Écart du schéma documenté : le journal du job imprime le document attendu entre les marqueurs `----- docs/architecture/schema.md`. Sur un banc local : `RUEDA_DOCS_WRITE=1 pnpm --filter @rueda/db test:int`.
+
+### 3.3 Vecteurs dorés et oracles (T01–T68, TJ01–TJ21, TA01–TA11)
+
+- **Source des attendus** : les tables de 08 et l'export `docs/specs/tools/golden_vectors.json`, produit par `export_golden_vectors.py` et contrôlé par le job `oracles`. **Jamais le code testé** (CLAUDE.md, « Interdits »).
+- `pnpm test:money` enchaîne :
+  1. `@rueda/money` `test:unit` : primitives, harnais des vecteurs dorés (couverture T01–T48, contrôles de T49–T68, TJ01–TJ21, TA01–TA11, en USD **et** en PYG), moteur d'annulation contre les vecteurs (`cancellation.golden.test.ts`), propriétés `fast-check` ;
+  2. `@rueda/money` `test:oracle` : 10 000 règlements générés (USD et PYG) et 10 000 cas de primitives, comparés aux oracles Python (`independent_settlement_check.py`, `check_legs.py`).
+- Rejouer un échec de l'oracle : `RUEDA_MONEY_ORACLE_SEED=<graine>` (défaut `20261103`) et `RUEDA_MONEY_ORACLE_RUNS=<n>`. La nuit utilise la graine du jour, écrite dans le nom du test.
+- Les oracles de la spécification eux-mêmes : `python -I -X utf8 scripts/ci/check-spec-tools.py --specs docs/specs` (copie temporaire de `docs/specs/`, jamais modifiée). Toujours `python -I -X utf8`.
+- Les jambes **persistées** (règlement par jambe écrit en base) sont prouvées sous les rôles de production dans `test:l0` (`l0-stl-settlement`, `l0-pay-legs-rls`, `l0-us062-host-money`).
+- Mutation : `pnpm --filter @rueda/money test:mutation` (Stryker, seuil bloquant 80 %).
+
+### 3.4 Preuves L0, concurrence C1–C20 et fuzz C11
+
+- `pnpm test:l0` joue les preuves de 17 §11 sous les rôles de production, en **deux groupes** : d'abord tous les fichiers en parallèle, puis seuls `l0-02-concurrency` (100 poses concurrentes, C1 et C16) et `l0-us024-conversion` (C13 à C18, C20), qui ont besoin de toute la base (`packages/db/vitest.l0.config.ts`, ADR-056).
+- **L0-10** (mesures du PSP réel) relève du lot C : aujourd'hui le `FAKE` reproduit les hypothèses, marquées non mesurées.
+- Retrouver où un identifiant est prouvé : `git grep -nw C17 -- packages/db/test apps/api` (de même pour `RLS-12`, `L0-03`…). Le rapport complet des preuves du lot 0, identifiant par identifiant, est l'objet d'US-027.
+- `pnpm --filter @rueda/db test:c11` : fuzz d'entrelacements C11 (L0-09) et oracle C12, sur la base `fuzz` du banc. Court par défaut : 1 000 exécutions, graine fixe. La nuit : 10 lots de 1 000 (`RUEDA_C11_RUNS`, `RUEDA_C11_SEED`).
+- Rejouer un échec de C11 : le journal donne `RUEDA_C11_REPLAY=<graine>:<étape>=<ordre>;…`, à préfixer à la même commande.
+- Lancer un seul fichier : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-02-concurrency.test.ts`.
+
+### 3.5 Isolation RLS-1 à RLS-28
+
+- Prouvée dans `pnpm test:l0`, sous `app_api`, `app_worker` et `app_anon`, jamais sous `migrator` ni superutilisateur :
+  - acteurs, IDOR entre hôtes et entre voyageurs, co-hôtes, staff par pays : `l0-rls-actors` ;
+  - colonnes et minimisation : `l0-rls-columns`, `l0-us062-host-money` ;
+  - fonctions `SECURITY DEFINER` (RLS-15) : `l0-rls-15-security-definer` ; plan des politiques : `l0-rls-plan` ;
+  - inventaire des rôles (`rolsuper`, `rolbypassrls`) : `l0-05-roles` ;
+  - jambes d'argent : `l0-pay-legs-rls` ; migrations sous `FORCE` (RLS-19) : `l0-us046-migrations` ;
+  - matrice d'autorisations par rôle (US-043) : `l0-us043-authorization-matrix`, et côté API `apps/api/src/testing/route-matrix.test.ts` (`test:unit`) et `route-matrix.int.test.ts` (`test:int`).
+- Un fichier seul : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-rls-actors.test.ts`.
+- Les noms `pnpm test:rls` et `pnpm test:concurrency` du handoff §7 **ne sont pas créés** : les preuves sont réparties dans `test:l0` et `test:c11`, et un alias filtré par titre de test ne serait pas joué tel quel en CI (ADR-086).
+
+### 3.6 e2e web, PA et PY
+
+- `pnpm test:e2e` construit `apps/web` en production, puis lance Playwright (`apps/web/playwright.config.ts`) sur quatre projets : `mobile-360`, `mobile-390`, `tablette` et `pwa`. Un projet seul : `pnpm --filter @rueda/web test:e2e --project mobile-360` (le site déjà construit).
+- Couvert aujourd'hui (US-041, ADR-074) : coquille du site dans les **quatre langues** (es, en, fr, pt-BR), clair et sombre, hors ligne ; PWA installée (manifeste, fenêtre d'application, service worker réel). Aucune relance ; toute requête vers un autre hôte que le serveur local fait échouer le test.
+- **Pas encore couvert** : les parcours dorés inter-modules **PA / USD et PY / PYG** de 19 §1.8 (recherche, hold, paiement `FAKE` normal et hostile, trip, remise et retour, annulation, règlement par jambe, versement, notifications). Ils arrivent avec les écrans qu'ils traversent : US-047 (régression de nuit), puis US-221, US-312, US-539. Jusque-là, les variantes PA et PY sont prouvées sous le niveau e2e : vecteurs en USD et PYG (§3.3), graines PA et PY du banc et du guide d'installation, fuzz C11 sur deux pays.
+
+### 3.7 Accessibilité
+
+- Couvert aujourd'hui :
+  - `pnpm test:e2e` : cibles tactiles ≥ 44 px et aucun défilement horizontal, à 360 px, 390 px et en tablette (`apps/web/e2e/shell.spec.ts`) ;
+  - `pnpm --filter @rueda/design-tokens test:unit` : contraste WCAG de chaque palette, en clair et en sombre (texte ≥ 4,5:1, composants et focus ≥ 3:1 ; `contrast.test.ts`, `wcag.test.ts`), et mouvement réduit.
+- **Pas encore couvert** : axe-core (WCAG 2.2 AA, « 0 violation axe bloquante ») et la régression visuelle des écrans et composants. C'est l'objet d'US-044, déplacée au lot 1. Le protocole manuel PWA sur iOS est dans [`US-026-protocole-pwa-ios.md`](US-026-protocole-pwa-ios.md).
+
+### 3.8 Régression de nuit
+
+- `nightly.yml` rejoue `ci.yml` à l'identique (job `suite-complete`, sans `revues`), plus le fuzz C11 long (`fuzz-c11`, 10 lots) et l'oracle d'argent long (`argent-oracles-long`, 100 000 cas). Lancement à la main : `gh workflow run nightly.yml --ref main`.
+- Le nom `pnpm test:nightly` du handoff §7 est **réservé** à US-047 (régression complète, rapprochement, tableau de bord QA).
+
+### 3.9 Sécurité : contrôles OWASP ASVS niveau 2 retenus
+
+Liste attendue par 19 US-043 (notes techniques) et ADR-077 (« Limites »). Référence : OWASP ASVS 4.0.3, niveau 2, chapitres cités par leur numéro. Un contrôle est **retenu** quand une règle de 17 §6.6 ou une story du dépôt le porte. Pour chacun, le tableau donne le test qui le prouve, ou « prévu » avec la story porteuse. Les cinq contrôles qu'ADR-077 déclare couverts sont V4, V8.3, V12.1, V13.1 et V14.4. Sélection PROPOSÉE, à confirmer par l'agent sécurité à la porte du lot 0 (US-049).
+
+| ASVS         | Contrôle retenu                                                                                         | Preuve (test ou job)                                                                                                                                                              | Story                     |
+| ------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| V1           | modèle de menaces par lot                                                                               | **prévu** : red team de porte de lot, revue avant ouverture                                                                                                                       | US-049, US-401, US-407    |
+| V2.1, V2.4   | mots de passe : hachage Argon2id, aucun stockage en clair                                               | `apps/api/src/modules/iam/internal/password-hasher.test.ts`, `auth.service.test.ts`, `auth-http.test.ts`                                                                          | US-010                    |
+| V2.8         | second facteur TOTP du staff, preuve d'élévation                                                        | `packages/db/test/l0/l0-iam-staff-mfa.test.ts`, `apps/api/src/modules/iam/internal/staff/mfa-proof.test.ts`, `l0-us051-mfa-key-rotation`                                          | US-012, US-051            |
+| V3           | sessions : cookie, révocation, expiration                                                               | `apps/api/src/modules/iam/internal/session-guard.test.ts`, `packages/db/test/l0/iam-sessions.test.ts`                                                                             | US-010                    |
+| V4           | contrôle d'accès : matrice par rôle, RLS, IDOR, forçage d'`org_id` ou de pays                           | `apps/api/src/testing/route-matrix.test.ts`, `route-matrix.int.test.ts`, `l0-us043-authorization-matrix`, `l0-rls-*` (§3.5)                                                       | US-011, US-043, US-062    |
+| V5           | validation des entrées, requêtes paramétrées                                                            | partiel : corps refusés `REQUEST_INVALID` par les contrats d'API (`test:unit`) ; **prévu** : lint « aucun SQL dynamique » de 17 §12                                               | US-041 ; lint à attribuer |
+| V6           | cryptographie des données stockées : clé par sujet, destruction de clé                                  | `packages/db/src/audit/subject-keys.test.ts`, `packages/db/test/l0/l0-aud-02-subject-key.test.ts`                                                                                 | US-009                    |
+| V7           | journalisation : audit chaîné, journal d'accès aux données, aucune donnée personnelle dans les journaux | `l0-aud-01-audit-chain`, `l0-us004-data-access`, `apps/api/src/testing/personal-data-leaks.test.ts`                                                                               | US-009, US-004, US-046    |
+| V8.3         | aucune donnée personnelle dans les erreurs ni les URL ; export et effacement                            | `route-matrix.test.ts` (« aucune donnée personnelle dans les erreurs »), `personal-data-leaks.test.ts`, `l0-us046-personal-data`                                                  | US-043, US-046            |
+| V9           | TLS de bout en bout                                                                                     | partiel : en-tête HSTS testé (V14.4) ; **prévu** : terminaison TLS de l'infrastructure                                                                                            | US-003                    |
+| V10.3        | intégrité des dépendances                                                                               | job `dependances` (`pnpm audit`, élevée et critique), `minimumReleaseAge` de 14 jours, actions épinglées par SHA ; **prévu** : SAST                                               | US-002 ; SAST : US-401    |
+| V11          | anti-automatisation : limites de débit, défi anti-robot                                                 | `packages/db/test/l0/l0-risk-rate-limit.test.ts`, `apps/api/src/modules/risk/internal/rate-limit-http.test.ts`, `transverse.contract.test.ts` (429, 403 `BOT_CHALLENGE_REQUIRED`) | US-052                    |
+| V12.1        | taille des requêtes (100 Kio, 413)                                                                      | `route-matrix.test.ts`, `transverse.contract.test.ts`                                                                                                                             | US-043                    |
+| V12.4        | fichiers téléversés : quarantaine jusqu'à l'analyse                                                     | `packages/db/src/audit/upload-scanner.test.ts`, `l0-aud-03-file-asset`                                                                                                            | US-009, US-020            |
+| V13.1        | API : aucun CORS, contrat OpenAPI exhaustif                                                             | `route-matrix.test.ts` (« CORS »), contrats `apps/api/src/testing/contract/`                                                                                                      | US-043, US-038            |
+| V13.2        | webhooks signés, fenêtre d'horodatage, doublons                                                         | `apps/api/src/modules/pay/testing/webhook-http.test.ts`, `webhooks.contract.test.ts`                                                                                              | US-019                    |
+| V14.1, V14.3 | configuration de production : aucun `FAKE`, gardes d'environnement fail-closed                          | `l0-us043-env-guard`, `l0-us003-environment`, jobs `deploiement-local` et `guide-installation` (refus C19)                                                                        | US-003, US-043            |
+| V14.2        | secrets hors du dépôt                                                                                   | job `secrets` (gitleaks), inventaire des variables (`pnpm lint`)                                                                                                                  | US-002, US-037            |
+| V14.4        | en-têtes de sécurité (CSP, HSTS, `nosniff`, `X-Frame-Options`…), `X-Powered-By` retiré                  | `route-matrix.test.ts` (`SECURITY_HEADERS` sur chaque réponse)                                                                                                                    | US-043                    |
+
+Hors périmètre au lot 0, à revoir par US-401 : V2.5 à V2.7 (récupération de compte et OTP du voyageur, avec leurs stories), V8.2 (données côté client, avec les écrans), V12.5 et V12.6 (service de fichiers et SSRF, sans route aujourd'hui).
+
+### 3.10 Données personnelles
+
+- `pnpm test:unit` : `apps/api/src/testing/personal-data-leaks.test.ts` prouve qu'aucune URL du contrat, aucun journal, aucune alerte et aucune erreur ne porte une donnée de l'inventaire `packages/db/personal-data-inventory.json` (C2 à C4). La preuve est double : analyse statique du code de production, puis exécution sur l'application réelle.
+- `pnpm test:l0` : `l0-us046-personal-data` joue l'export complet d'une personne et l'effacement par destruction de clé (colonnes C2 / C3 illisibles, registres intacts), sous les rôles de production, en PA et en PY.
+- Rétention automatique et registre d'effacement dans la console : US-536 (§5).
+
+### 3.11 Gabarits de notification
+
+- `pnpm --filter @rueda/api test:unit` : `apps/api/src/modules/ntf/internal/templates.test.ts` (US-021). Chaque gabarit du catalogue est rendu dans les quatre langues et sur chaque canal (e-mail, SMS), avec des jeux réalistes (noms accentués ou longs, montant à 0, trip de plus de 30 jours). Le test exige aucune variable non résolue, les mêmes emplacements dans toutes les langues, les longueurs bornées par canal et le montant dans la devise du pays.
+- Gabarits PDF : aucun aujourd'hui (§5).
+
+## 4. Conventions d'écriture des tests
+
+| Type                   | Nom de fichier                                   | Exécuté par                                 |
+| ---------------------- | ------------------------------------------------ | ------------------------------------------- |
+| unitaire TypeScript    | `<fichier>.test.ts` à côté du code, ou `test/`   | `test:unit`                                 |
+| contrat d'API          | `<préfixe>.contract.test.ts`                     | `test:unit`                                 |
+| intégration            | `<fichier>.int.test.ts`, ou `test/int/*.test.ts` | `test:int`                                  |
+| preuve L0              | `packages/db/test/l0/l0-<id>-<sujet>.test.ts`    | `test:l0` (sauf `l0-c11-fuzz` : `test:c11`) |
+| oracle d'argent        | `packages/money/test/oracle/*.oracle.ts`         | `test:oracle`                               |
+| e2e                    | `apps/web/e2e/*.spec.ts`                         | `test:e2e`                                  |
+| script de dépôt (Node) | `scripts/<dossier>/*.test.mjs` (`node:test`)     | `test:unit`                                 |
+| contrôle Python        | `scripts/ci/test_*.py` (`unittest`)              | job `oracles`                               |
+
+Règles (19 §1.4, §1.8 ; CLAUDE.md) :
+
+1. **Attendus indépendants du code** : les valeurs viennent de 08, 16, 17 ou des oracles Python de `docs/specs/tools/`. On ne recopie jamais une sortie du moteur dans un test.
+2. **Rôles de production** : tout test qui touche une table à RLS se connecte sous `app_api`, `app_worker` ou `app_anon`, par `packages/db/src/testing/connections.ts`. Chaque connexion commence par l'**assertion L0-05** (`current_user` parmi les rôles de production, ni `rolsuper` ni `rolbypassrls`). Le fichier de préparation `setup-l0-05` fait échouer un test qui n'a pas fait l'assertion. Le superutilisateur ne sert qu'aux tests **négatifs** de L0-05.
+3. **Deux pays** : chaque test d'argent, de taxe, de date ou de libellé a sa variante **PA** (USD, ITBMS 7 %, `America/Panama`, es-PA) et **PY** (PYG sans décimale, IVA 10 %, `America/Asuncion`, es-PY). Aucune constante de pays dans le code : `pnpm lint:country` (dans `pnpm lint`) le contrôle. Les devises de test sont des données de test, nommées comme telles.
+4. **Horloge** : la base fait foi (`platform.now()`). Les tests avancent une horloge virtuelle par `SET LOCAL`. Ils ne passent jamais « l'heure courante » en paramètre.
+5. **Adaptateurs `FAKE`** : toute intégration externe est testée contre son `FAKE` (`packages/fake-adapters`), en mode normal **et** hostile (doublons, retards, refus, réponses inconnues, capacités absentes). Aucun appel réseau réel, et aucun `FAKE` en production (C19).
+6. **Déterminisme** : graines fixes, rejouables (`RUEDA_C11_SEED`, `RUEDA_MONEY_ORACLE_SEED`), aucune relance automatique, aucune dépendance à l'ordre entre fichiers.
+7. **Langues** : un texte visible testé l'est dans ses quatre langues (es, en, fr, pt-BR).
+8. **Indépendance** : l'agent QA écrit les tests d'acceptation à partir de 16 et de 19 **sans lire d'abord l'implémentation**. L'agent d'implémentation n'écrit jamais seul les tests qui valident sa propre story argent, sécurité ou réservation.
+
+## 5. Écarts connus avec 19 §1.8 (au 2026-11-05)
+
+| Exigence de 19 §1.8 / 17 §12                                                     | État                                                       | Porteur                          |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------- |
+| parcours dorés e2e PA / PY, `FAKE` normal et hostile                             | absents                                                    | US-047, US-221, US-312           |
+| axe-core et régression visuelle                                                  | absents (cibles ≥ 44 px et contraste des jetons seulement) | US-044 (lot 1)                   |
+| seuils de couverture (STL, PRC, PAY, AVL, `Money` ≥ 95 % lignes…)                | **PROPOSÉS, non mesurés en CI**                            | à attribuer (QUESTIONS)          |
+| performance de fumée, résilience de nuit                                         | absentes                                                   | US-045 (lot 1)                   |
+| rapprochement de nuit, tableau de bord QA, `pnpm test:nightly` (nom réservé)     | absents                                                    | US-047                           |
+| contrôles ASVS niveau 2 « prévus » (§3.9 : V1, V5, V9, V10.3, tests d'intrusion) | absents                                                    | US-003, US-401, US-407           |
+| données personnelles : rétention et registre d'effacement dans la console        | export et effacement prouvés ; outil et registre absents   | US-536                           |
+| gabarits PDF (contrat, facture)                                                  | absents (e-mail et SMS couverts par US-021)                | story qui produit le premier PDF |
+| L0-10 (mesures du PSP réel)                                                      | hypothèses reproduites par le `FAKE`                       | lot C                            |
+| revue argent et sécurité en famille B                                            | « revue dégradée » sur un autre modèle Claude (TECH-007)   | F-15 (fondateur)                 |

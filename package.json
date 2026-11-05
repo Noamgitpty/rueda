@@ -14,9 +14,11 @@
     "lint:style": "node packages/design-tokens/lint/cli.ts",
     "lint:changelog": "node scripts/ci/changelog.mjs check --base origin/main",
     "typecheck": "turbo run typecheck",
-    "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/ scripts/deploy/ scripts/ops/",
+    "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/ scripts/deploy/ scripts/ops/ scripts/qa/",
     "test:int": "turbo run test:int",
     "test:l0": "turbo run test:l0",
+    "test:money": "turbo run test:unit --filter=@rueda/money && pnpm --filter @rueda/money test:oracle",
+    "test:e2e": "turbo run build --filter=@rueda/web && pnpm --filter @rueda/web test:e2e",
     "build": "turbo run build",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
