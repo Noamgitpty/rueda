@@ -1,0 +1,9 @@
+# Passation US-002 — correctifs body-parser et multer (2026-11-05, agent de story, Opus 5.5)
+
+- Fait : `body-parser` 2.3.0 → 2.4.0 (GHSA-27r3-jxmh-p828) et `multer` 2.4.0 → 2.5.0 (GHSA-q7qp-rjg7-q26m) par deux `overrides` de `pnpm-workspace.yaml`, limités aux versions vulnérables ; lockfile régénéré (seules ces deux versions changent, aucune nouvelle dépendance) ; les deux exceptions de `docs/ops/audit-exceptions.json` sont retirées (liste vide) ; EXC-002 dans `docs/team/DECISIONS.md` ; `docs/ops/CI.md` §Dépendances à jour.
+- Pourquoi un `overrides` et pas une montée de Nest : `@nestjs/platform-express` 12.1.3 et 12.2.0 épinglent `multer` 2.4.0 ; 12.3.x tire 2.5.0, mais a été publiée le 2026-10-27 et reste interdite par `minimumReleaseAge` (14 j) jusqu'au 2026-11-10. `minimumReleaseAge` et la porte d'audit ne sont pas modifiés.
+- Reste : à partir du 2026-11-10, monter `@nestjs/common`, `@nestjs/core` et `@nestjs/platform-express` (12.3.x ou plus) dans `apps/api`, vérifier `pnpm why -r body-parser multer`, puis retirer le bloc `overrides` de `pnpm-workspace.yaml`. Revues exigées : `code` et `securite` (story US-002 dans `docs/team/review-requirements.json`).
+- Prochaine commande exacte : `node scripts/ci/audit-gate.mjs` (attendu : `RÉSULTAT : OK`, 0 élevée, 0 critique).
+- Pièges / hypothèses : l'avis modéré `minimatch` (GHSA-g3hv-75wg-m249) reste présent et ne bloque pas la porte (élevée et critique seulement). `express` reste en 5.2.1 (déclare `body-parser` ^2.2.x, compatible avec 2.4.0).
+- Paramètres créés (17 §7.2) : aucun. Entités / migrations : aucune.
+- Tests ajoutés et état : aucun test ajouté (configuration de dépendances seule) ; `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`, `pnpm test:unit` et la porte d'audit passent en local ; `test:int`, `test:l0` et e2e : la CI fait foi.
