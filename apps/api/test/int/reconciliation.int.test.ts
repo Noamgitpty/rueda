@@ -14,7 +14,7 @@
  * Un autre travailleur ne lit rien : le contrôle refuse de rendre des zéros trompeurs.
  *
  * Nuit (nightly.yml, job `rapprochement`) : `RUEDA_QA_REPORT_DIR` reçoit le rapport JSON (comptes
- * seulement) publié au tableau de bord QA (scripts/qa/nightly-dashboard.mjs, ADR-086).
+ * seulement) publié au tableau de bord QA (scripts/qa/nightly-dashboard.mjs, ADR-087).
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';

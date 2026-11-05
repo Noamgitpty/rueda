@@ -12,7 +12,7 @@ export type {
   SubmitFiscalDocumentRequest,
 } from './internal/e-invoicing-provider.port.js';
 
-// Contrôles de rapprochement de l'argent (US-047, ADR-086) : tâche nocturne du travailleur
+// Contrôles de rapprochement de l'argent (US-047, ADR-087) : tâche nocturne du travailleur
 // `reconciliation`, lecture seule, comptes par contrôle et par pays.
 export {
   evaluateMoneyReconciliation,

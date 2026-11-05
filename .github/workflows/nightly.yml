@@ -99,7 +99,7 @@ jobs:
           retention-days: 30
 
   rapprochement:
-    # US-047, ADR-086 : parcours doré de règlement (trip, capture par jambe, annulation v1,
+    # US-047, ADR-087 : parcours doré de règlement (trip, capture par jambe, annulation v1,
     # supersession v2) dans chaque pays configuré, puis contrôles de rapprochement de l'argent
     # (travailleur `reconciliation`) et oracle C12 sur toute la base, sous app_worker (L0-05).
     # Rapport (comptes par contrôle et par pays, aucune donnée personnelle) en artefact, lu par le
@@ -135,7 +135,7 @@ jobs:
           retention-days: 30
 
   tableau-de-bord-qa:
-    # US-047, ADR-086 : tableau de bord QA de la nuit. Lit l'état de chaque job du run (API, lecture
+    # US-047, ADR-087 : tableau de bord QA de la nuit. Lit l'état de chaque job du run (API, lecture
     # seule) et ses artefacts (graines d'échec C11, rapport de rapprochement, rapport de mutation),
     # publie le résumé du run et l'artefact `tableau-de-bord-qa` (90 jours) avec les bogues à créer
     # et leur scénario rejouable. Aucune écriture dans le dépôt : l'orchestrateur verse les bogues

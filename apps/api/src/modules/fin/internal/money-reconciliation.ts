@@ -1,5 +1,5 @@
 /**
- * Contrôles de rapprochement de l'argent (US-047 ; 19 §1.8 ligne « Rapprochement » ; ADR-086) :
+ * Contrôles de rapprochement de l'argent (US-047 ; 19 §1.8 ligne « Rapprochement » ; ADR-087) :
  * cohérence des règlements, des remboursements et des jambes, relue chaque nuit sur toute la base
  * par le travailleur `reconciliation` (lecture seule ; politiques `worker_money_read` de 0027 et
  * 0036). Les invariants viennent de la spécification, jamais du code testé :
@@ -32,10 +32,10 @@ import type { AlertChannel, BusRegistry, SqlClient } from '../../bus/index.js';
 /** Travailleur du rapprochement (liste des politiques `worker_money_read`, 0027, 0036, 0039). */
 export const MONEY_RECONCILIATION_WORKER = 'reconciliation';
 
-/** Période de la tâche : une fois par 24 h (« chaque nuit », PROPOSÉ, ADR-086). */
+/** Période de la tâche : une fois par 24 h (« chaque nuit », PROPOSÉ, ADR-087). */
 export const MONEY_RECONCILIATION_PERIOD_SECONDS = 86_400;
 
-/** Contrôles, dans l'ordre de l'en-tête (codes PROPOSÉS, ADR-086). */
+/** Contrôles, dans l'ordre de l'en-tête (codes PROPOSÉS, ADR-087). */
 export const MONEY_RECONCILIATION_CHECKS = [
   'SETTLEMENT_LEGS_INCOMPLETE',
   'SETTLEMENT_LEG_NEGATIVE',

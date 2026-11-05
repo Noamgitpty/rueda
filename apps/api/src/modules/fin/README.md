@@ -13,9 +13,9 @@ D'après 17 §2.2 et §2.14 :
 
 FIN ne calcule ni le règlement ni les jambes (STL), et ne déplace pas de fonds (PAY). Le loyer de l'hôte particulier n'est pas facturé par Kmino tant que l'avis OQ-BR-14 / OQ-P2P-07 ne le demande pas (17 §3.2.13).
 
-État du code : `FinModule` est vide (US-001). Existent le port `EInvoicingProvider` (US-020, ADR-058) et les **contrôles de rapprochement de l'argent** (US-047, ADR-086). Le métier arrive avec US-217 (reçu des gains, facture du trip fee), US-541 (relevés), US-711 (rapprochement par jambe) et, pour le connecteur réel, US-604 (lot C).
+État du code : `FinModule` est vide (US-001). Existent le port `EInvoicingProvider` (US-020, ADR-058) et les **contrôles de rapprochement de l'argent** (US-047, ADR-087). Le métier arrive avec US-217 (reçu des gains, facture du trip fee), US-541 (relevés), US-711 (rapprochement par jambe) et, pour le connecteur réel, US-604 (lot C).
 
-## Rapprochement de l'argent (US-047, ADR-086)
+## Rapprochement de l'argent (US-047, ADR-087)
 
 `internal/money-reconciliation.ts` : tâche périodique du travailleur `reconciliation` (24 h, PROPOSÉ ; déclarée dans `apps/api/src/worker-tasks.ts`). En lecture seule, sur toute la base, elle relit les versions de règlement (`core.settlement_settlement`, `core.settlement_settlement_leg`) et les soldes par jambe (`core.settlement_trip_leg_balance`) : politiques `worker_money_read` de 0027 et 0036. Huit contrôles (codes PROPOSÉS) : `SETTLEMENT_LEGS_INCOMPLETE`, `SETTLEMENT_LEG_NEGATIVE`, `SETTLEMENT_LEGS_SUM`, `SETTLEMENT_HOST_LEG`, `SETTLEMENT_REFUND_BALANCE`, `SETTLEMENT_VARIATIONS_REFUND`, `SETTLEMENT_VERSION_CHAIN`, `LEG_BALANCE_OVERDRAWN`. Leurs règles et leurs sources (08 E1, E4, E7 ; 17 §2.9, §3.2.8) sont dans l'en-tête du fichier. Le rapport ne contient que des comptes par contrôle et par pays. Tout écart lève une alerte P1 `FIN_MONEY_RECONCILIATION` par pays (runbook `docs/ops/MONITORING.md`). Un contexte autre que ce travailleur lève `MoneyReconciliationContractError` (jamais de zéros trompeurs).
 

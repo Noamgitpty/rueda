@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Tableau de bord QA de la régression de nuit (US-047, ADR-086). Deux commandes :
+// Tableau de bord QA de la régression de nuit (US-047, ADR-087). Deux commandes :
 //
 //   build : lit l'état des jobs du run de nuit (gh api …/jobs, une ligne JSON par job) et les
 //           artefacts du run (graines d'échec C11, rapport de rapprochement, rapport de mutation),
@@ -9,7 +9,7 @@
 //   board : verse les bogues de `qa-dashboard.json` au tableau des stories (docs/team/BOARD.md,
 //           section « Bogues de la régression de nuit »), sans doublon (clé = run + job). Lancé
 //           par l'orchestrateur sur une branche `docs/team-…` : la nuit n'a que `contents: read`
-//           et n'écrit jamais dans le dépôt (moindre privilège, ADR-086).
+//           et n'écrit jamais dans le dépôt (moindre privilège, ADR-087).
 //   verdict : code de sortie 1 si le tableau de bord n'est pas VERT (dernière étape du job :
 //           une famille obligatoire absente rend la nuit rouge même si chaque job a réussi).
 //
@@ -323,7 +323,7 @@ export function renderMarkdown(d) {
   const lines = [
     `# Tableau de bord QA — nuit du ${d.started.slice(0, 10)} : ${d.verdict}`,
     '',
-    `Run [${cell(d.runId)}](${d.runUrl}) · commit \`${cell(d.sha).slice(0, 12)}\` · événement \`${cell(d.event)}\` · US-047, ADR-086`,
+    `Run [${cell(d.runId)}](${d.runUrl}) · commit \`${cell(d.sha).slice(0, 12)}\` · événement \`${cell(d.event)}\` · US-047, ADR-087`,
     '',
     '| Famille | Verdict | Jobs (OK / total) |',
     '| --- | --- | --- |',
@@ -359,7 +359,7 @@ export function renderMarkdown(d) {
   }
   lines.push(
     '',
-    'Les bogues sont versés au tableau des stories par l’orchestrateur : `node scripts/qa/nightly-dashboard.mjs board --report qa-dashboard.json` (ADR-086).',
+    'Les bogues sont versés au tableau des stories par l’orchestrateur : `node scripts/qa/nightly-dashboard.mjs board --report qa-dashboard.json` (ADR-087).',
     '',
   );
   return lines.join('\n');
@@ -388,7 +388,7 @@ export function applyToBoard(report, boardText) {
       '',
       BOARD_SECTION,
       '',
-      '> Versés depuis le tableau de bord QA de la nuit (US-047, ADR-086) par `node scripts/qa/nightly-dashboard.mjs board`. Gravité PROPOSÉE : S1 argent et concurrence, S2 sinon.',
+      '> Versés depuis le tableau de bord QA de la nuit (US-047, ADR-087) par `node scripts/qa/nightly-dashboard.mjs board`. Gravité PROPOSÉE : S1 argent et concurrence, S2 sinon.',
       '',
       '| Bogue | Nuit | Gravité | Famille | Job | Rejeu | Run | Statut |',
       '| --- | --- | --- | --- | --- | --- | --- | --- |',
