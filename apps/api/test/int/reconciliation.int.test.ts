@@ -185,7 +185,9 @@ function publish(key: string, value: unknown): void {
 }
 
 describe('US-047 — parcours doré de règlement puis rapprochement, dans chaque pays configuré', () => {
-  it('chaque pays configuré a son parcours (CLAUDE.md point 3 : deux devises, dont une sans décimale)', () => {
+  it('chaque pays configuré a son parcours (CLAUDE.md point 3 : deux devises, dont une sans décimale)', async () => {
+    // L0-05 : même un test sans requête commence par l'assertion de rôle
+    await withRole('app_worker', () => Promise.resolve());
     expect(CASES.map((c) => c.country).sort()).toEqual(
       countryCases()
         .map((c) => c.country)
