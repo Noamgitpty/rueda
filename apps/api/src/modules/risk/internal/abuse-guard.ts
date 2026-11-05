@@ -21,7 +21,13 @@
  * une adresse (17 §6.3).
  */
 import { RiskHttpError } from './errors.js';
-import type { RateCounterStore, HitResult, BotSignal, AbuseKind } from './counter-store.js';
+import type {
+  AbuseKind,
+  BotSignal,
+  HitInput,
+  HitResult,
+  RateCounterStore,
+} from './counter-store.js';
 import { CounterUnavailableError, MemoryRateCounterStore } from './counter-store.js';
 import type { RateKeyHasher } from './key-hasher.js';
 import type { RateLimitParam, RateLimitPolicy } from './policy.js';
@@ -113,25 +119,24 @@ export class AbuseGuard {
       this.#log({ event: 'risk.limiter.unavailable', scope: scopeBase, country: req.country });
       throw new RiskHttpError('RATE_LIMIT_UNAVAILABLE');
     }
-    const checks: { scope: string; key: Buffer; limit: number }[] = [
+    const checks: { scope: string; keys: Buffer[]; limit: number }[] = [
       {
         scope: `${scopeBase}_recipient`,
-        key: this.#hasher.hash(sms ? 'phone' : 'email', req.recipient),
+        keys: this.#hasher.hashes(sms ? 'phone' : 'email', req.recipient),
         limit: limits.recipient,
       },
     ];
     if (req.ip !== null) {
       checks.push({
         scope: `${scopeBase}_ip`,
-        key: this.#hasher.hash('ip', req.ip),
+        keys: this.#hasher.hashes('ip', req.ip),
         limit: limits.ip,
       });
     }
     try {
       for (const c of checks) {
-        const r = await this.#store.hit({
+        const r = await hitEach(this.#store, c.keys, {
           scope: c.scope,
-          keyHash: c.key,
           country: req.country,
           limit: c.limit,
           windowS: WINDOWS[sms ? 'otpPerPhone' : 'emailPerAddress'],
@@ -199,11 +204,11 @@ export class AbuseGuard {
   ): Promise<HitResult> {
     const byIp = 'ip' in subject;
     const param = byIp ? IP_PARAM[scope] : ACCOUNT_PARAM[scope as Exclude<HttpScope, 'webhook'>];
+    const keys = byIp
+      ? this.#hasher.hashes('ip', subject.ip)
+      : this.#hasher.hashes('account', subject.account);
     const input = {
       scope: byIp ? `${scope}_ip` : `${scope}_account`,
-      keyHash: byIp
-        ? this.#hasher.hash('ip', subject.ip)
-        : this.#hasher.hash('account', subject.account),
       country,
       limit: this.#policy.limit(param, country),
       windowS: WINDOWS[param],
@@ -211,10 +216,10 @@ export class AbuseGuard {
     };
     let r: HitResult;
     try {
-      r = await this.#store.hit(input);
+      r = await hitEach(this.#store, keys, input);
     } catch {
       this.#log({ event: 'risk.limiter.degraded', scope: input.scope, country });
-      r = await this.#fallback.hit(input);
+      r = await hitEach(this.#fallback, keys, input);
     }
     if (!r.allowed) {
       this.#log({ event: 'risk.rate_limited', scope: input.scope, country });
@@ -225,19 +230,19 @@ export class AbuseGuard {
 
   /** Compte une inscription de l'IP ; rend `true` si la rafale dépasse le seuil du pays. */
   async signupBurst(ip: string, country: string | null): Promise<boolean> {
+    const keys = this.#hasher.hashes('ip', ip);
     const input = {
       scope: 'signup_burst_ip',
-      keyHash: this.#hasher.hash('ip', ip),
       country,
       limit: this.#policy.limit('signupBurstPerIp', country),
       windowS: WINDOWS.signupBurstPerIp,
       weight: 1,
     };
     try {
-      return !(await this.#store.hit(input)).allowed;
+      return !(await hitEach(this.#store, keys, input)).allowed;
     } catch {
       this.#log({ event: 'risk.limiter.degraded', scope: input.scope, country });
-      return !(await this.#fallback.hit(input)).allowed;
+      return !(await hitEach(this.#fallback, keys, input)).allowed;
     }
   }
 
@@ -256,6 +261,32 @@ export class AbuseGuard {
       this.#log({ event: 'risk.limiter.degraded', scope, country, code: kind });
     }
   }
+}
+
+/**
+ * Compte l'événement sous CHAQUE empreinte (une seule hors rotation ; la courante puis l'ancienne
+ * pendant une rotation de `RUEDA_RATE_LIMIT_KEY`, US-051) : refus si l'un des compteurs dépasse,
+ * délai de reprise le plus long. Ainsi une rotation ne remet aucune limite à zéro.
+ */
+async function hitEach(
+  store: RateCounterStore,
+  keys: readonly Buffer[],
+  input: Omit<HitInput, 'keyHash'>,
+): Promise<HitResult> {
+  let result: HitResult | undefined;
+  for (const keyHash of keys) {
+    const r = await store.hit({ ...input, keyHash });
+    result =
+      result === undefined
+        ? r
+        : {
+            allowed: result.allowed && r.allowed,
+            hits: Math.max(result.hits, r.hits),
+            retryAfterS: Math.max(result.retryAfterS, r.retryAfterS),
+          };
+  }
+  if (result === undefined) throw new CounterUnavailableError('aucune empreinte');
+  return result;
 }
 
 /** Délai de reprise d'un plafond journalier : jusqu'au prochain minuit UTC (borne haute). */

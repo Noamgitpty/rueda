@@ -14,7 +14,7 @@
     "lint:style": "node packages/design-tokens/lint/cli.ts",
     "lint:changelog": "node scripts/ci/changelog.mjs check --base origin/main",
     "typecheck": "turbo run typecheck",
-    "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/ scripts/deploy/",
+    "test:unit": "turbo run test:unit && node --test scripts/team/ scripts/ci/ scripts/deploy/ scripts/ops/",
     "test:int": "turbo run test:int",
     "test:l0": "turbo run test:l0",
     "build": "turbo run build",

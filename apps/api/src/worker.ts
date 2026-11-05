@@ -13,13 +13,14 @@
  *      (règle de la revue architecture US-001 #10 : jamais instanciées par l'API) ;
  *   5. boucle (worker-loop.ts) jusqu'à SIGTERM / SIGINT : fin du passage en cours, pool fermé, code 0.
  *
- * Variables (noms seulement, docs/ops/ENV_VARS.md) : `RUEDA_ENV`, `PG*`, `RUEDA_BRAND_NAME`,
- * `RUEDA_WORKER_POOL_MAX`.
+ * Variables (noms seulement, docs/ops/ENV_VARS.md) : `RUEDA_ENV`, `PG*`, `RUEDA_PGPASSWORD_NEXT`
+ * (rotation sans coupure, US-051, db-pool.ts), `RUEDA_BRAND_NAME`, `RUEDA_WORKER_POOL_MAX`.
  */
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import pg from 'pg';
 import { AppModule } from './app.module.js';
+import { createAppPool } from './db-pool.js';
 import {
   BusMetrics,
   BusRegistry,
@@ -68,7 +69,8 @@ async function bootstrap(): Promise<void> {
   };
   const brandName = parseBrandName(process.env['RUEDA_BRAND_NAME']);
   const app = await NestFactory.createApplicationContext(AppModule);
-  const pool = new pg.Pool({
+  // rotation sans coupure du mot de passe (US-051, db-pool.ts)
+  const pool = createAppPool({
     application_name: 'rueda-worker',
     max: parsePoolMax(process.env['RUEDA_WORKER_POOL_MAX']),
   });
