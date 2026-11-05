@@ -97,3 +97,103 @@ jobs:
           path: c11-failures.jsonl
           if-no-files-found: ignore
           retention-days: 30
+
+  rapprochement:
+    # US-047, ADR-086 : parcours doré de règlement (trip, capture par jambe, annulation v1,
+    # supersession v2) dans chaque pays configuré, puis contrôles de rapprochement de l'argent
+    # (travailleur `reconciliation`) et oracle C12 sur toute la base, sous app_worker (L0-05).
+    # Rapport (comptes par contrôle et par pays, aucune donnée personnelle) en artefact, lu par le
+    # tableau de bord QA. Le même test tourne dans `pnpm test:int` (base-de-donnees) sur chaque PR.
+    name: rapprochement — parcours doré de règlement, oracle C12, contrôles de l’argent
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RUEDA_PG_TESTCONTAINERS: '1'
+      RUEDA_QA_REPORT_DIR: ${{ github.workspace }}/qa-rapprochement
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: parcours et rapprochement (pnpm --filter @rueda/api test:reconciliation)
+        run: pnpm --filter @rueda/api test:reconciliation
+      - name: rapport présent
+        # fail-closed : un test vert sans rapport n'a rien prouvé au tableau de bord
+        run: test -s "$RUEDA_QA_REPORT_DIR/rapprochement.json"
+      - name: rapport de rapprochement
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rapprochement-rapport
+          path: qa-rapprochement/rapprochement.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  tableau-de-bord-qa:
+    # US-047, ADR-086 : tableau de bord QA de la nuit. Lit l'état de chaque job du run (API, lecture
+    # seule) et ses artefacts (graines d'échec C11, rapport de rapprochement, rapport de mutation),
+    # publie le résumé du run et l'artefact `tableau-de-bord-qa` (90 jours) avec les bogues à créer
+    # et leur scénario rejouable. Aucune écriture dans le dépôt : l'orchestrateur verse les bogues
+    # au tableau des stories (`node scripts/qa/nightly-dashboard.mjs board`).
+    name: tableau de bord QA (régression de nuit)
+    needs: [suite-complete, argent-oracles-long, fuzz-c11, rapprochement]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # lecture de l'état des jobs et des artefacts du run courant (gh api, gh run download)
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: état des jobs et artefacts du run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qa/artefacts"
+          gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
+            --jq '.jobs[] | {name, status, conclusion, html_url}' > "$RUNNER_TEMP/qa/jobs.ndjson"
+          gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.run_started_at' > "$RUNNER_TEMP/qa/started"
+          # artefacts absents (nuit verte : aucune graine d'échec) : rien à télécharger
+          for pattern in 'c11-failures-*' 'rapprochement-rapport' 'mutation-money'; do
+            gh run download "$RUN_ID" --repo "$REPO" --pattern "$pattern" --dir "$RUNNER_TEMP/qa/artefacts" \
+              || echo "aucun artefact $pattern"
+          done
+      - name: tableau de bord (node scripts/qa/nightly-dashboard.mjs build)
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          node scripts/qa/nightly-dashboard.mjs build \
+            --jobs "$RUNNER_TEMP/qa/jobs.ndjson" --artifacts "$RUNNER_TEMP/qa/artefacts" \
+            --out "$RUNNER_TEMP/qa/out" --run-url "$RUN_URL" --run-id "$RUN_ID" --sha "$SHA" \
+            --started "$(cat "$RUNNER_TEMP/qa/started")" --event "$EVENT_NAME"
+          cat "$RUNNER_TEMP/qa/out/qa-dashboard.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: artefact du tableau de bord
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tableau-de-bord-qa
+          path: ${{ runner.temp }}/qa/out/
+          if-no-files-found: error
+          retention-days: 90
+      - name: verdict du tableau de bord
+        # fail-closed : une famille obligatoire absente rend la nuit rouge même si tout job passe
+        run: node scripts/qa/nightly-dashboard.mjs verdict --report "$RUNNER_TEMP/qa/out/qa-dashboard.json"

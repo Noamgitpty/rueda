@@ -11,3 +11,20 @@ export type {
   FiscalStatus,
   SubmitFiscalDocumentRequest,
 } from './internal/e-invoicing-provider.port.js';
+
+// Contrôles de rapprochement de l'argent (US-047, ADR-086) : tâche nocturne du travailleur
+// `reconciliation`, lecture seule, comptes par contrôle et par pays.
+export {
+  evaluateMoneyReconciliation,
+  MONEY_RECONCILIATION_CHECKS,
+  MONEY_RECONCILIATION_PERIOD_SECONDS,
+  MONEY_RECONCILIATION_WORKER,
+  MoneyReconciliationContractError,
+  reconciliationReportJson,
+  registerMoneyReconciliation,
+  runMoneyReconciliation,
+} from './internal/money-reconciliation.js';
+export type {
+  MoneyReconciliationCheck,
+  MoneyReconciliationReport,
+} from './internal/money-reconciliation.js';

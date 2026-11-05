@@ -13,7 +13,11 @@ D'après 17 §2.2 et §2.14 :
 
 FIN ne calcule ni le règlement ni les jambes (STL), et ne déplace pas de fonds (PAY). Le loyer de l'hôte particulier n'est pas facturé par Kmino tant que l'avis OQ-BR-14 / OQ-P2P-07 ne le demande pas (17 §3.2.13).
 
-État du code : **squelette**. `FinModule` est vide (US-001). Seul le port `EInvoicingProvider` existe (US-020, ADR-058). Le métier arrive avec US-217 (reçu des gains, facture du trip fee), US-541 (relevés), US-711 (rapprochement par jambe) et, pour le connecteur réel, US-604 (lot C).
+État du code : `FinModule` est vide (US-001). Existent le port `EInvoicingProvider` (US-020, ADR-058) et les **contrôles de rapprochement de l'argent** (US-047, ADR-086). Le métier arrive avec US-217 (reçu des gains, facture du trip fee), US-541 (relevés), US-711 (rapprochement par jambe) et, pour le connecteur réel, US-604 (lot C).
+
+## Rapprochement de l'argent (US-047, ADR-086)
+
+`internal/money-reconciliation.ts` : tâche périodique du travailleur `reconciliation` (24 h, PROPOSÉ ; déclarée dans `apps/api/src/worker-tasks.ts`). En lecture seule, sur toute la base, elle relit les versions de règlement (`core.settlement_settlement`, `core.settlement_settlement_leg`) et les soldes par jambe (`core.settlement_trip_leg_balance`) : politiques `worker_money_read` de 0027 et 0036. Huit contrôles (codes PROPOSÉS) : `SETTLEMENT_LEGS_INCOMPLETE`, `SETTLEMENT_LEG_NEGATIVE`, `SETTLEMENT_LEGS_SUM`, `SETTLEMENT_HOST_LEG`, `SETTLEMENT_REFUND_BALANCE`, `SETTLEMENT_VARIATIONS_REFUND`, `SETTLEMENT_VERSION_CHAIN`, `LEG_BALANCE_OVERDRAWN`. Leurs règles et leurs sources (08 E1, E4, E7 ; 17 §2.9, §3.2.8) sont dans l'en-tête du fichier. Le rapport ne contient que des comptes par contrôle et par pays. Tout écart lève une alerte P1 `FIN_MONEY_RECONCILIATION` par pays (runbook `docs/ops/MONITORING.md`). Un contexte autre que ce travailleur lève `MoneyReconciliationContractError` (jamais de zéros trompeurs).
 
 ## Entités
 
@@ -46,11 +50,11 @@ Cible (17 §2.2, §4.5) :
 - `EInvoicingProvider` (`internal/e-invoicing-provider.port.ts`, US-020, ADR-058) : `supportsRegime`, `submit` (soumission idempotente d'un document fiscal), `getStatus`. Échecs en valeurs (`OK`, `REFUSED`, `UNAVAILABLE`, `TIMEOUT`) ; régime inconnu ⇒ `UNSUPPORTED_REGIME` (capacité inconnue = « non ») ; montants `bigint` en unités mineures.
 - Adaptateur FAKE : `FakeEInvoicingProvider` de `@rueda/fake-adapters/e-invoicing` (tests et développement seulement, jamais en production). Connecteur réel : lot C (US-604).
 
-API publique (`index.ts`) : `FinModule` et les types du port (`EInvoicingProvider`, `EInvoicingOutcome`, `FiscalDocumentLine`, `FiscalReceipt`, `FiscalStatus`, `SubmitFiscalDocumentRequest`).
+API publique (`index.ts`) : `FinModule`, les types du port (`EInvoicingProvider`, `EInvoicingOutcome`, `FiscalDocumentLine`, `FiscalReceipt`, `FiscalStatus`, `SubmitFiscalDocumentRequest`) et le rapprochement (`registerMoneyReconciliation`, `runMoneyReconciliation`, `evaluateMoneyReconciliation`, `reconciliationReportJson`, `MONEY_RECONCILIATION_CHECKS`, `MONEY_RECONCILIATION_WORKER`, `MONEY_RECONCILIATION_PERIOD_SECONDS`, `MoneyReconciliationContractError`, types `MoneyReconciliationCheck`, `MoneyReconciliationReport`).
 
 ## Commandes de test
 
-- Unitaires (vitest, sans base ; config `apps/api/vitest.config.ts`) : `pnpm --filter @rueda/api exec vitest run src/modules/fin`. Seul test : `internal/e-invoicing-provider.port.test.ts` (conformité du FAKE au port ; une divergence casse aussi `pnpm typecheck`).
-- Intégration et L0 : aucun test propre à FIN. La table `core.finance_legal_entity` est couverte par `packages/db/test/int/config-country.test.ts` : `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/config-country.test.ts`.
+- Unitaires (vitest, sans base ; config `apps/api/vitest.config.ts`) : `pnpm --filter @rueda/api exec vitest run src/modules/fin`. Fichiers : `internal/e-invoicing-provider.port.test.ts` (conformité du FAKE au port ; une divergence casse aussi `pnpm typecheck`) et `internal/money-reconciliation.test.ts` (chaque contrôle détecte son écart dans chaque pays configuré ; lecture fail-closed ; alerte sans identifiant).
+- Intégration : `apps/api/test/int/reconciliation.int.test.ts`, soit le parcours doré de règlement puis le rapprochement et l'oracle C12 sous `app_worker`, dans chaque pays configuré : `RUEDA_PG_TESTCONTAINERS=1 pnpm --filter @rueda/api test:reconciliation` (aussi dans `pnpm test:int`, et chaque nuit dans le job `rapprochement`). La table `core.finance_legal_entity` est couverte par `packages/db/test/int/config-country.test.ts` : `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/config-country.test.ts`.
 
 Les tests d'intégration et L0 demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.

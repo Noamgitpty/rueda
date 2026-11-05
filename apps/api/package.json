@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test:unit": "vitest run",
     "test:int": "vitest run --config vitest.int.config.ts",
+    "test:reconciliation": "vitest run --config vitest.int.config.ts test/int/reconciliation.int.test.ts",
     "start": "node dist/main.js",
     "start:worker": "node dist/worker.js"
   },

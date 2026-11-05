@@ -22,6 +22,12 @@ Une alerte ne contient **que des comptes et des codes** (17 §6.3) : jamais un n
 | `OPS_WEBHOOK_SIGNATURE` | P2       | signature de webhook invalide depuis la passe précédente           | secret de webhook tourné ? tentative d'usurpation ? (compter, ne rien rejouer)                                                                                           |
 | `BUS_DEAD_LETTER`       | P1       | tâche passée en lettre morte (étiquettes `consumer`, `error_code`) | lire `outbox_dead_letter` ; corriger ; rejouer (console, story à venir)                                                                                                  |
 
+## Rapprochement de l'argent (travailleur `reconciliation`, toutes les 24 h)
+
+| Code                       | Sévérité | Déclenchement                                                                                                                                                              | Premier geste                                                                                                                                                                                                                                                                            |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FIN_MONEY_RECONCILIATION` | P1       | au moins un écart d'un contrôle de rapprochement (règlements, remboursements, jambes, soldes par jambe), une alerte par pays (étiquette `country`, un compte par contrôle) | bogue S1 ; geler les ordres du pays concerné jusqu'à l'analyse FIN ; lire les règlements sous le rôle FINANCE ; contrôles et sources : [ADR-086](../adr/ADR-086-regression-nocturne-rapprochement-tableau-qa.md) et `apps/api/src/modules/fin/internal/money-reconciliation.ts` (US-047) |
+
 Une jauge (trois premières lignes) n'alerte qu'au dépassement, si la valeur monte, puis toutes les 30 min tant qu'elle reste au-dessus du seuil.
 
 ## Alarmes de santé (hébergeur)
