@@ -122,7 +122,9 @@ Autres règles de `review-requirements.json`, vérifiées par le même job (dét
 
 Le dépôt est fait pour des agents, mais tout s'applique à la main :
 
-- **Identité** : les commits portent l'identité git du dépôt (option A, TECH-003). Un humain met en pied `Agent-Role: <rôle>` et `Agent-Model: human` (PROPOSÉ). Le contrôle des revues compare les modèles, et `human` diffère de tout modèle Claude.
+- **Identité** : les commits portent l'identité git du dépôt (option A, TECH-003). Un humain met en pied `Agent-Role: <rôle>` et `Agent-Model: human` (PROPOSÉ). Le contrôle des revues compare les modèles, et `human` diffère de tout modèle Claude. Deux limites :
+  - un humain ne peut pas être à la fois auteur et relecteur d'une même story : les deux portent `human`, et le contrôle refuse alors la revue (« même modèle que l'auteur »), ce qui est voulu ;
+  - pour `argent` et `securite`, la ligne `Relecteur :` du rapport humain doit porter « famille B » (relecteur indépendant de la famille A) ou « revue dégradée », sinon le rapport est refusé.
 - **Faire une revue** : suivre le §5.2 point 3, avec le gabarit. Le rapport est un fichier commité sur la branche de la story, pas un commentaire GitHub.
 - **Lancer les tests** : [docs/qa/STRATEGIE_TESTS.md](docs/qa/STRATEGIE_TESTS.md). Sans Docker ni PostgreSQL local, se fier à la CI (`gh pr checks <n>`).
 - **État du projet** : `docs/team/RESUME_HERE.md`, `docs/team/BOARD.md`, puis la passation `docs/team/handoffs/US-xxx.md` de la story reprise.

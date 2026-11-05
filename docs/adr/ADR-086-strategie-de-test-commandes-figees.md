@@ -18,9 +18,11 @@ Le handoff §7 propose dix commandes racine. US-002 en a créé cinq (`lint`, `t
    - `test:nightly` : réservé à US-047 (régression complète et rapprochement). Aujourd'hui, la nuit est le workflow `nightly.yml`.
 4. **Contrôle** `scripts/qa/test-strategy.test.mjs` (`node:test`, dans `pnpm test:unit`, job `qualite`). Il échoue si :
    - une commande `pnpm …` citée dans le document ou dans `CONTRIBUTING.md` n'existe pas (script racine, script du paquet filtré, tâche Turborepo) ;
-   - un script `test:*` d'un `package.json` du dépôt n'est pas cité dans le document ;
-   - un job de la colonne « Job CI » n'existe pas dans `ci.yml` ou `nightly.yml` ;
-   - un lien relatif est cassé, ou une famille exigée par US-039 manque ;
+   - un script `test:*` d'un `package.json` du dépôt n'est pas cité dans le document (mot entier) ;
+   - un job de la colonne « Job CI » n'existe pas dans `ci.yml` ou `nightly.yml`. Le test prouve l'**existence** du job, pas qu'il joue la commande de sa ligne, ni que chaque job est cité ;
+   - un chemin sans joker de la colonne « Emplacement », ou un script lancé par `bash`, `node` ou `python`, n'existe pas ;
+   - un lien relatif est cassé, ou une famille exigée par US-039 manque (dont la sécurité, les données personnelles et les gabarits) ;
+   - la liste des contrôles ASVS niveau 2 (§3.9, attendue par 19 US-043 et ADR-077) perd l'un des contrôles V4, V8.3, V12.1, V13.1 ou V14.4, ou une ligne sans preuve ni story ;
    - un nom réservé du handoff (`test:rls`, `test:concurrency`, `test:nightly`) n'est ni créé ni marqué « réservé » ou « non créé » dans le document ;
    - `CONTRIBUTING.md` ne décrit pas chaque rôle de revue et chaque chemin protégé de `docs/team/review-requirements.json`.
 5. Le contrôle vit dans un **nouveau dossier `scripts/qa/`**, ajouté à `test:unit`. Il ne touche ni `scripts/ci/` ni `.github/`, qui exigent une revue sécurité : il ne fait que lire ces fichiers.
@@ -29,6 +31,7 @@ Le handoff §7 propose dix commandes racine. US-002 en a créé cinq (`lint`, `t
 
 - Renommer une suite, supprimer un job ou ajouter un `test:*` sans mettre le document à jour fait échouer `qualite`. Le document reste donc lançable par un repreneur (19 §1.8).
 - La lecture du YAML est volontairement simple (clés de second niveau sous `jobs:`, indentées de deux espaces). Un changement de style d'indentation des workflows ferait échouer le test : on l'adaptera alors.
+- Ne sont pas contrôlés : les arguments des commandes, les commandes `gh` et `tofu`, et le contenu des jobs. Ils se relisent en revue.
 - Les écarts avec 19 §1.8 (parcours dorés PA / PY, axe, seuils de couverture, nuit complète) sont listés, pas comblés : ils appartiennent à US-044, US-045, US-047 et suivantes (Q-011 pour les seuils de couverture).
 
 ## Alternatives écartées

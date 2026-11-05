@@ -1,7 +1,9 @@
 // US-039, ADR-086 : la stratégie de test (docs/qa/STRATEGIE_TESTS.md) et le guide de contribution
 // restent lançables. Échoue si une commande `pnpm …` citée n'existe pas, si une suite `test:*` n'est
-// pas documentée, si un job de CI cité n'existe pas, si un lien relatif est cassé, ou si CONTRIBUTING
-// ne décrit plus les rôles et chemins de docs/team/review-requirements.json.
+// pas documentée (mot entier), si un job de CI cité n'existe pas (son existence, pas son contenu),
+// si un chemin de la colonne « Emplacement » ou un script lancé par bash / node / python manque, si
+// un lien relatif est cassé, si la liste ASVS perd un contrôle d'ADR-077, ou si CONTRIBUTING ne
+// décrit plus les rôles et chemins de docs/team/review-requirements.json.
 // Ne fait que LIRE .github/ et scripts/ci/ (aucune porte de fusion n'en dépend).
 // node --test scripts/qa/ (pnpm test:unit).
 import { test } from 'node:test';
@@ -158,7 +160,54 @@ export function brokenLinks(markdown, docPath, root = ROOT) {
   return broken;
 }
 
+/** Le mot `word` figure-t-il entier dans `text` (pas de `[\w:-]` collé avant ni après) ? */
+export function hasWord(text, word) {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\w:-])${escaped}(?![\\w:-])`).test(text);
+}
+
+/** Chemins sans joker (`*`, `{`, `<`) entre accents graves d'une colonne, absents du dépôt. */
+export function missingPaths(values, root = ROOT) {
+  return values.filter(
+    (v) =>
+      v.includes('/') && !v.startsWith('@') && !/[*{<\s]/.test(v) && !existsSync(join(root, v)),
+  );
+}
+
+/** Scripts lancés par `bash`, `node` ou `python` dans du code en ligne, absents du dépôt. */
+export function missingScripts(markdown, root = ROOT) {
+  const missing = [];
+  for (const [, code] of markdown.matchAll(/`([^`]+)`/g)) {
+    for (const [, path] of code.matchAll(
+      /(?:^|\s)(?:bash|node|python)\s[^`]*?((?:scripts|packages|docs)\/\S+)/g,
+    )) {
+      if (!existsSync(join(root, path))) missing.push(path);
+    }
+  }
+  return missing;
+}
+
 // ── Tests des aides (cas d'échec voulus) ────────────────────────────────────────────────────
+
+test('hasWord compare par mot entier', () => {
+  assert.equal(hasWord('lancer `pnpm test:int`', 'test:int'), true);
+  assert.equal(hasWord('lancer `pnpm test:int`', 'test:in'), false);
+  assert.equal(hasWord('test:unit-x', 'test:unit'), false);
+  assert.equal(hasWord('(test:c11)', 'test:c11'), true);
+});
+
+test('missingPaths et missingScripts repèrent un chemin ou un script absent', () => {
+  assert.deepEqual(
+    missingPaths(['package.json', 'scripts/qa/', 'nulle/part.ts', 'a/*.ts', 'l0-05']),
+    ['nulle/part.ts'],
+  );
+  assert.deepEqual(
+    missingScripts(
+      '`bash scripts/ops/restore-drill.sh` `python -I -X utf8 scripts/ci/absent.py --x` `node scripts/qa/x.mjs`',
+    ),
+    ['scripts/ci/absent.py', 'scripts/qa/x.mjs'],
+  );
+});
 
 const fakeWs = {
   packages: new Map([['@x/a', { dir: 'packages/a', scripts: { 'test:unit': 'vitest' } }]]),
@@ -230,7 +279,7 @@ test('chaque suite test:* d’un package.json est décrite dans la stratégie', 
   const all = [['(racine)', ws.rootScripts], ...[...ws.packages].map(([n, p]) => [n, p.scripts])];
   for (const [name, scripts] of all) {
     for (const script of Object.keys(scripts).filter((s) => s.startsWith('test:'))) {
-      if (!strategy.includes(script)) missing.push(`${name} ${script}`);
+      if (!hasWord(strategy, script)) missing.push(`${name} ${script}`);
     }
   }
   assert.deepEqual(missing, [], 'ajouter la suite à docs/qa/STRATEGIE_TESTS.md');
@@ -272,11 +321,43 @@ test('la stratégie couvre chaque famille exigée par US-039', () => {
     // Libellé exact « … PA / USD et PY / PYG » : le lint des constantes de pays interdit de l'écrire ici.
     ['parcours dorés e2e des deux pays', /^\| Parcours dorés e2e /m],
     ['accessibilité', /^\| Accessibilité/m],
+    ['sécurité', /^\| Sécurité \(ASVS niveau 2/m],
+    [
+      'contrôles ASVS niveau 2 retenus',
+      /^### 3\.9 Sécurité : contrôles OWASP ASVS niveau 2 retenus/m,
+    ],
+    ['données personnelles', /^\| Données personnelles/m],
+    ['gabarits', /^\| Gabarits de notification/m],
   ];
   assert.deepEqual(
     families.filter(([, re]) => !re.test(strategy)).map(([n]) => n),
     [],
   );
+});
+
+test('ASVS : les contrôles couverts par ADR-077 ont une ligne, chaque ligne une preuve ou « prévu »', () => {
+  const asvs = strategy.slice(strategy.indexOf('### 3.9'), strategy.indexOf('### 3.10'));
+  const rows = asvs.split('\n').filter((l) => /^\| V\d/.test(l));
+  const ids = rows.map((l) => l.split('|')[1].trim());
+  for (const id of ['V4', 'V8.3', 'V12.1', 'V13.1', 'V14.4']) {
+    assert.ok(
+      ids.some((cell) => cell.split(/,\s*/).includes(id)),
+      `ligne ASVS ${id} absente`,
+    );
+  }
+  for (const row of rows) {
+    const [, , , proof, story] = row.split('|').map((c) => c.trim());
+    assert.ok(/`[^`]+`|prévu/.test(proof), `preuve absente : ${row}`);
+    assert.match(story, /US-\d{3}|à attribuer/, `story absente : ${row}`);
+  }
+});
+
+test('chemins de la colonne « Emplacement » et scripts lancés existent', () => {
+  const places = tableColumn(strategy, 'Emplacement');
+  assert.ok(places && places.length > 20, 'colonne « Emplacement » introuvable ou presque vide');
+  assert.deepEqual(missingPaths(places), []);
+  assert.deepEqual(missingScripts(strategy), [], STRATEGY);
+  assert.deepEqual(missingScripts(contributing), [], CONTRIBUTING);
 });
 
 test('aucun lien relatif cassé dans la stratégie ni dans CONTRIBUTING', () => {
