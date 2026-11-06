@@ -49,7 +49,9 @@ import type { World } from '../support/rls.ts';
 
 const inventory = loadPersonalDataInventory();
 const matrix = loadAuthorizationMatrix();
-const WRITER: ActorContext = { kind: 'WORKER', worker: 'audit_test_writer' };
+// US-049 (0057, F-RLS-06) : seuls des travailleurs nommés écrivent l'audit et lisent les clés de
+// sujet ; `privacy_request` (demandes des personnes, PROPOSÉ) remplace le nom de test libre.
+const WRITER: ActorContext = { kind: 'WORKER', worker: 'privacy_request' };
 const EVIDENCE: ActorContext = { kind: 'WORKER', worker: 'evidence_verifier' };
 
 let world: World;

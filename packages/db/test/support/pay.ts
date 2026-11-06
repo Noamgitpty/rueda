@@ -159,12 +159,42 @@ export async function applyStatus(
   status: string,
   source = 'WEBHOOK',
   providerReference: string | null = null,
+  rawRef: string | null = null,
 ): Promise<string> {
   const { rows } = await tx.query<{ outcome: string }>(
-    `SELECT core.payment_cmd_apply_operation_status($1, $2, $3, NULL, $4) AS outcome`,
-    [operationId, status, source, providerReference],
+    `SELECT core.payment_cmd_apply_operation_status($1, $2, $3, $5, $4) AS outcome`,
+    [operationId, status, source, providerReference, rawRef],
   );
   return rows[0]?.outcome ?? '';
+}
+
+/**
+ * US-049 (RC-5, ADR-088 décision 4) : livre un VRAI webhook signé pour l'opération par
+ * `core.payment_cmd_receive_webhook` (fixture 9940) et rend la ligne d'inbox, `raw_ref` exigé par
+ * une preuve WEBHOOK_SIGNED (0055).
+ */
+export async function signedWebhook(
+  tx: pg.ClientBase,
+  operationId: string,
+  status: string,
+): Promise<string> {
+  const { rows } = await tx.query<{ id: string }>(
+    'SELECT test_fixture.us049_signed_webhook($1, $2) AS id',
+    [operationId, status],
+  );
+  const id = rows[0]?.id;
+  if (id === undefined) throw new Error('webhook signé non reçu');
+  return id;
+}
+
+/** Statut appliqué avec la preuve d'un webhook signé réellement reçu (cas nominal du PSP). */
+export async function applySignedStatus(
+  tx: pg.ClientBase,
+  operationId: string,
+  status: string,
+): Promise<string> {
+  const raw = await signedWebhook(tx, operationId, status);
+  return applyStatus(tx, operationId, status, 'WEBHOOK', null, raw);
 }
 
 /** Exécute `sql` dans un point de sauvegarde et rend l'erreur (la transaction reste utilisable). */

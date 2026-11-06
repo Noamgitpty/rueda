@@ -23,6 +23,17 @@ export interface ProcessorReport {
   readonly conflicts: number;
 }
 
+/** Élément en quarantaine que le PSP n'a pas pu confirmer (US-049, RT-CONC-53). */
+const UNVERIFIED = Symbol('UNVERIFIED');
+
+/**
+ * Reçu dans la fenêtre de ± 5 min de l'horodatage signé. US-049 (revues de la PR n° 92) : jugé sur
+ * l'indicateur posé à la réception et jamais réécrit (`signedAtOutOfTolerance`, 0058), jamais sur
+ * le motif `error`, qu'une relance « opération introuvable » remplaçait (quarantaine blanchie).
+ */
+const inWindow = (item: InboxItem): boolean =>
+  !item.signedAtOutOfTolerance && item.quarantineReason !== 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE';
+
 export class WebhookProcessor {
   readonly #store: WebhookWorkStore;
   readonly #providerFor: (accountId: string) => PaymentProvider | undefined;
@@ -72,6 +83,17 @@ export class WebhookProcessor {
         return { state: 'QUARANTINED', conflicts };
       }
       const decided = await this.#authoritative(item, event);
+      if (decided === UNVERIFIED) {
+        // US-049 (RT-CONC-53) : un webhook à horodatage signé hors de ± 5 min n'est jamais cru sur
+        // parole ; sans lecture du PSP il n'est pas appliqué : FAILED et alerte (l'état faisant foi
+        // sera lu chez le PSP par le rapprochement), jamais une preuve WEBHOOK_SIGNED
+        await this.#store.mark(item.inboxId, 'FAILED', 'SIGNED_TIMESTAMP_UNVERIFIED');
+        this.#log.warn('webhook : horodatage hors tolérance non confirmé par le PSP', {
+          inboxId: item.inboxId,
+          provider: item.provider,
+        });
+        return { state: 'FAILED', conflicts };
+      }
       if (decided.status === 'PENDING') continue;
       const outcome = await this.#store.apply({
         operationId: operation.operationId,
@@ -80,6 +102,16 @@ export class WebhookProcessor {
         rawRef: item.inboxId,
         providerReference: event.providerReference,
       });
+      if (outcome === 'UNPROVEN') {
+        // US-049 : la preuve refusée par la base n'est jamais consommée en silence : FAILED à motif
+        // dédié (compté par l'alerte du moniteur, 0051) et alerte
+        await this.#store.mark(item.inboxId, 'FAILED', 'PROOF_REJECTED');
+        this.#log.warn('webhook : preuve signée refusée par la base (UNPROVEN)', {
+          inboxId: item.inboxId,
+          operationId: operation.operationId,
+        });
+        return { state: 'FAILED', conflicts };
+      }
       if (outcome === 'CONFLICT') {
         conflicts += 1;
         this.#log.warn('webhook : statut contradictoire, file ops', {
@@ -92,23 +124,30 @@ export class WebhookProcessor {
     return { state: 'PROCESSED', conflicts };
   }
 
-  /** « Lire puis appliquer » : l'état du PSP prime ; sans lecture possible, le webhook signé. */
+  /**
+   * « Lire puis appliquer » : l'état du PSP prime ; sans lecture possible, le webhook signé, mais
+   * seulement s'il a été reçu dans la fenêtre de ± 5 min (`RECEIVED`, ou mis en quarantaine plus
+   * tard parce que l'opération était introuvable). Un webhook à horodatage hors tolérance exige
+   * une lecture réussie du PSP (17 §4.4 point 2 : « QUARANTINED et déclenche getOperation »),
+   * sinon `UNVERIFIED`.
+   */
   async #authoritative(
     item: InboxItem,
     event: NormalizedPaymentEvent,
-  ): Promise<{ status: OperationStatus; source: 'WEBHOOK' | 'POLL' }> {
+  ): Promise<{ status: OperationStatus; source: 'WEBHOOK' | 'POLL' } | typeof UNVERIFIED> {
     const provider = this.#providerFor(item.accountId);
     if (provider !== undefined) {
       try {
         const found = await provider.getOperation({ providerReference: event.providerReference });
-        if (found !== null && found.status !== event.status) {
+        if (found !== null && (found.status !== event.status || !inWindow(item))) {
           return { status: found.status, source: 'POLL' };
         }
       } catch (error) {
         if (!(error instanceof PaymentError)) throw error;
-        // lecture impossible : le webhook signé reste la preuve (17 §4.4 point 2)
+        // lecture impossible : seul un webhook RECEIVED reste la preuve (17 §4.4 point 2)
       }
     }
+    if (!inWindow(item)) return UNVERIFIED;
     return { status: event.status, source: 'WEBHOOK' };
   }
 }

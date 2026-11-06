@@ -45,6 +45,7 @@ import {
   ensureParties,
   percentile,
   placeHoldLocked,
+  registerVehicles,
   withReplay,
 } from '../support/concurrency.ts';
 import type { Replayed } from '../support/concurrency.ts';
@@ -172,6 +173,10 @@ async function committedBlock(x: CountryWorld, vehicleId: string, start: string,
   const api = await connectAs('app_api');
   try {
     return await withTestTransaction(api, { commit: true }, async (tx) => {
+      // US-049 (F-RLS-01) : un blocage exige un véhicule du compte au catalogue (registre de test)
+      const c = COUNTRIES.find((k) => k.country === x.c.country);
+      if (c === undefined) throw new Error(`pays ${x.c.country}`);
+      await registerVehicles(tx, [vehicleId], x.orgA, c);
       await setSessionContext(tx, holderA(x));
       const r = await tx.query<{ id: string }>(BLOCK, [vehicleId, start, end]);
       return r.rows[0]?.id as string;
@@ -235,6 +240,9 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
         expect(await attempt(tx, BLOCK, [x.v1, inside, after])).toBe('VEHICLE_UNAVAILABLE');
 
         const v = uuid(); // véhicule neuf du compte A (titulaire : tous les véhicules du compte)
+        // US-049 (F-RLS-01) : connu du catalogue (registre de test) ; inconnu, il est refusé
+        expect(await attempt(tx, BLOCK, [v, d(3, 1), d(3, 3)])).toBe('FORBIDDEN');
+        await registerVehicles(tx, [v], x.orgA, c);
         const blk = await tx.query<{ id: string }>(BLOCK, [v, d(3, 1), d(3, 3)]);
         const blockId = blk.rows[0]?.id as string;
         expect(blockId).toMatch(/^[0-9a-f-]{36}$/);
@@ -509,6 +517,16 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
       ).toBe('FORBIDDEN');
       // même titulaire, compte d'hôte de l'autre pays : véhicule de ce pays refusé
       expect(await deny(holderA(y), BLOCK, [x.v1, ...free])).toBe('FORBIDDEN');
+      // US-049 (F-RLS-01, RT-RLS-17) : véhicule de B SANS aucune occupation (connu du catalogue
+      // seulement) et UUID inconnu du catalogue : refusés au titulaire de A (fail-closed), et le
+      // véhicule de B reste libre pour B
+      const freshB = uuid();
+      await withTestTransaction(client, { commit: true }, (tx) =>
+        registerVehicles(tx, [freshB], x.orgB, c),
+      );
+      expect(await deny(holderA(x), BLOCK, [freshB, ...free])).toBe('FORBIDDEN');
+      expect(await deny(holderA(x), BLOCK, [uuid(), ...free])).toBe('FORBIDDEN');
+      expect(await deny(hostB, BLOCK, [freshB, ...free])).toBe('OK');
       // autres types d'acteur, contexte absent
       for (const ctx of [
         null,
@@ -742,7 +760,11 @@ describe.each(COUNTRIES)('US-022 — C1 tous canaux ($country, $currency)', (c) 
       const period = `[${start},${end})`;
       const slot: Slot = { vehicleId, orgId: x.orgA, start, end, bufferHours: 0 };
       const guests = Array.from({ length: Math.ceil(degree / 2) }, () => uuid());
-      await inTx(observer, { commit: true }, (tx) => ensureParties(tx, guests, x.orgA, c));
+      await inTx(observer, { commit: true }, async (tx) => {
+        await ensureParties(tx, guests, x.orgA, c);
+        // US-049 (F-RLS-01) : le blocage exige un véhicule du compte au catalogue (registre de test)
+        await registerVehicles(tx, [vehicleId], x.orgA, c);
+      });
 
       const clients: pg.Client[] = [];
       let results: Replayed<string>[];

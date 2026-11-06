@@ -292,7 +292,10 @@ async function applyStatus(
   const rows = await workerSql<{ outcome: string }>(
     name,
     when,
-    'SELECT core.payment_cmd_apply_operation_status($1, $2, $3, NULL, NULL) AS outcome',
+    // US-049 (RC-5, 0055) : une preuve WEBHOOK_SIGNED exige un webhook signé réellement reçu
+    `SELECT core.payment_cmd_apply_operation_status($1, $2, $3,
+       CASE WHEN $3 = 'WEBHOOK' AND $2 IN ('SUCCEEDED', 'FAILED')
+            THEN test_fixture.us049_signed_webhook($1, $2) END, NULL) AS outcome`,
     [operationId, status, source],
   );
   return rows[0]?.outcome as string;

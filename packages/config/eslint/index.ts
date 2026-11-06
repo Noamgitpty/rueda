@@ -9,6 +9,7 @@ import tseslint from 'typescript-eslint';
 import moduleBoundaries from './rules/module-boundaries.ts';
 import type { ModuleBoundariesOptions } from './rules/module-boundaries.ts';
 import noCountryConstants from './rules/no-country-constants.ts';
+import noDynamicSql from './rules/no-dynamic-sql.ts';
 import noSqlClock from './rules/no-sql-clock.ts';
 
 export type { ModuleBoundariesOptions } from './rules/module-boundaries.ts';
@@ -19,9 +20,32 @@ export const plugin: ESLint.Plugin = {
   rules: {
     'module-boundaries': moduleBoundaries,
     'no-country-constants': noCountryConstants,
+    'no-dynamic-sql': noDynamicSql,
     'no-sql-clock': noSqlClock,
   },
 };
+
+/**
+ * Code exécuté sous un rôle applicatif (`app_api`, `app_worker`, `app_anon`) : sources des
+ * applications et des paquets, hors tests. `rueda/no-dynamic-sql` (US-049, 17 §2.3 RLS-18) s'y
+ * applique. Exclus : les outils d'administration de `@rueda/db` exécutés sous `migrator` ou le rôle
+ * d'administration, jamais par l'application (amorçage, base de développement, déploiement,
+ * rotation, vérification de restauration, harnais de test), qui composent des identifiants issus de
+ * listes fermées ou du catalogue.
+ */
+export const APP_RUNTIME_GLOBS: readonly string[] = ['apps/*/src/**', 'packages/*/src/**'];
+export const DYNAMIC_SQL_ADMIN_TOOLS: readonly string[] = [
+  'packages/db/src/bootstrap.ts',
+  'packages/db/src/dev/**',
+  'packages/db/src/deploy/**',
+  'packages/db/src/rotation/**',
+  'packages/db/src/restore/**',
+  // chaînes assemblées : un littéral qui désigne un dossier testing/ ferait de ce fichier une entrée
+  // dans testing/ pour le contrôle C19 de packages/fake-adapters (production-isolation), comme
+  // MONEY_TESTING plus bas
+  ['packages/db/src', 'testing', '**'].join('/'),
+  ['**', 'testing', '**'].join('/'),
+];
 
 export interface RuedaConfigOptions {
   readonly moduleBoundaries: ModuleBoundariesOptions;
@@ -159,6 +183,12 @@ export function createConfig(options: RuedaConfigOptions): Linter.Config[] {
         'rueda/no-sql-clock': 'error',
         'rueda/no-country-constants': ['error', { tokens: [...options.countryTokens] }],
       },
+    },
+    {
+      files: [...APP_RUNTIME_GLOBS],
+      ignores: [...TEST_FILE_GLOBS, ...DYNAMIC_SQL_ADMIN_TOOLS],
+      plugins: { rueda: plugin },
+      rules: { 'rueda/no-dynamic-sql': 'error' },
     },
     {
       files: ['**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],

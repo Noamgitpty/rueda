@@ -29,6 +29,7 @@ import {
   payTx,
   publicWebhookId,
   recordOperation,
+  signedWebhook,
   uuid,
 } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
@@ -545,7 +546,18 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
           expect(await applyStatus(tx, op, 'SUBMITTED', 'API_RESPONSE', 'fk_tx_000001')).toBe(
             'APPLIED',
           );
-          expect(await applyStatus(tx, op, 'SUCCEEDED', 'WEBHOOK')).toBe('APPLIED');
+          // US-049 (RC-5, 0055) : sans webhook signé reçu, aucune preuve WEBHOOK_SIGNED
+          expect(await applyStatus(tx, op, 'SUCCEEDED', 'WEBHOOK')).toBe('UNPROVEN');
+          expect(
+            await applyStatus(
+              tx,
+              op,
+              'SUCCEEDED',
+              'WEBHOOK',
+              null,
+              await signedWebhook(tx, op, 'SUCCEEDED'),
+            ),
+          ).toBe('APPLIED');
           expect(await applyStatus(tx, op, 'SUBMITTED', 'WEBHOOK')).toBe('STALE');
           expect(await applyStatus(tx, op, 'SUCCEEDED', 'WEBHOOK')).toBe('DUPLICATE');
           expect(await applyStatus(tx, op, 'FAILED', 'WEBHOOK')).toBe('CONFLICT');
