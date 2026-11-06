@@ -71,3 +71,8 @@
 | US-060 | S8 — CLAUDE.md, handoff, reliquats                              | MERGED | #27, ab0ca4c      | architecture, argent, code, sécurité, UX : ✓                          |
 | US-061 | Port `PaymentProvider` de place de marché, FAKE normal, hostile | MERGED | #55, 4c709e7      | architecture ✓, argent ✓, code ✓, QA ✓, sécurité ✓                    |
 | US-062 | Rôle `P2P_HOST`, RLS de l'hôte, tables d'argent                 | MERGED | #52, 601612a      | architecture ✓, argent ✓, code ✓, QA ✓, sécurité ✓                    |
+
+## Suivis à reporter dans une story
+
+- **ADR-090, `REFUND_OUT_OF_RANGE`** (PR #94) : le service qui appelle le moteur de règlement (US-518, fins anticipées 22-26, US-223 / US-224) attrape ce code. Il laisse l'ordre de remboursement `PLANNED` et lève une alerte FIN avec `SettlementError.details` et la référence du trip, sans donnée personnelle. Q-014 reste ouverte.
+- **ADR-090, devis** (PR #94) : le futur moteur de devis appelle `assertPayableAmounts` (`@rueda/money`) avant de figer un devis. Les refus `LINE_SIGN_INVALID`, `PROMO_EXCEEDS_TRIP_PRICE`, `TAX_PAID_NEGATIVE` et `TOTAL_PAID_NOT_POSITIVE` sont traduits en messages es / en / fr / pt-BR au checkout.

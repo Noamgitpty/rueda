@@ -43,8 +43,12 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
     })
     .map((r): SettlementTrip => {
       const m = (x: bigint) => money(x, currency);
-      const promoPlatform = -(r.promoPlatform < r.p ? r.promoPlatform : 0n);
-      const promoHost = -(r.promoHost < r.p ? r.promoHost : 0n);
+      // Σ promos ≤ P (08 BR-PAY-07 « sur le prix du véhicule seulement », ADR-090) : une promo à
+      // 100 % reste dans le domaine ; au-delà, le refus est prouvé par payable-amounts.test.ts.
+      const pp = r.promoPlatform < r.p ? r.promoPlatform : r.p;
+      const ph = r.promoHost < r.p - pp ? r.promoHost : r.p - pp;
+      const promoPlatform = -pp;
+      const promoHost = -ph;
       const taxPaid = r.taxTenths; // taxe de facture figée, entrée libre
       const total = r.p + promoPlatform + promoHost + r.f + r.protection + r.extras;
       const rest = r.roadside + r.driver + r.delivery + taxPaid;
@@ -80,7 +84,9 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
         extrasSharePct: share,
         ...TEST_INSURER_SHARES,
       };
-    });
+    })
+    // Total payé > 0 (ADR-090 ; nul : défaut fail-closed, Q-013).
+    .filter((trip) => trip.totalPaid.amountMinor > 0n);
 
   const eventArb = fc.record({
     reason: fc.constantFrom(...BETA_CANCELLATION_REASONS),
@@ -108,14 +114,30 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
           try {
             s = computeCancellationSettlement(trip, event, params);
           } catch (error) {
-            // Seul refus admis : no-show déclaré trop tôt (08, règle 3).
-            expect((error as { code?: string }).code).toBe('REJECTED_TOO_EARLY');
+            const code = (error as { code?: string }).code;
+            // Refus admis : no-show déclaré trop tôt (08, règle 3) ; remboursement hors de
+            // [0 ; total] (ADR-090, Q-014), seulement si s = P + promos est petit. MAJORANT, pas la
+            // zone exacte : l'arrondi de chacune des lignes P, PP, PH s'écarte d'au plus ½, d'où
+            // une retenue HT de ces lignes dans [s·r − 3/2 ; s·r + 3/2], avec r = j / days ≤ ¾ ;
+            // les autres lignes restent dans les bornes. Sortir des bornes exige s·(1 − r) < 3/2
+            // ou s·r < 3/2. Pour 1 et 2 jours, r ∈ {¼, ⅜, ½, ¾} et cela donne s < 6 ; à partir
+            // de 3 jours, r ≥ 1 / days et 2s < 3·days couvre le second cas. Hors de ce majorant,
+            // le test échoue.
+            if (code === 'REFUND_OUT_OF_RANGE') {
+              const s = [trip.lines.tripPrice, trip.lines.promoPlatform, trip.lines.promoHost]
+                .map((v) => v?.amountMinor ?? 0n)
+                .reduce((a, b) => a + b, 0n);
+              expect(s < 6n || 2n * s < 3n * BigInt(trip.days)).toBe(true);
+              return;
+            }
+            expect(code).toBe('REJECTED_TOO_EARLY');
             return;
           }
           const total = trip.totalPaid.amountMinor;
           expect(
             s.guestRefund.amountMinor + s.retained.amountMinor + s.retainedTax.amountMinor,
           ).toBe(total);
+          expect(s.guestRefund.amountMinor >= 0n).toBe(true);
           expect(s.guestRefund.amountMinor <= total).toBe(true);
           for (const g of trip.taxGroups) {
             const refunded = s.taxRefundByGroup[g.id]?.amountMinor ?? -1n;
