@@ -8,6 +8,7 @@
  * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040) |
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
  * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
+ * | `reconciliation`      | 24 h (ADR-087)                             | contrôles de rapprochement de l'argent, lecture seule (FIN, US-047) ; alerte `FIN_MONEY_RECONCILIATION` |
  * | `risk_pruner`         | 1 h                                        | `core.risk_cmd_prune` (0047, US-052)                      |
  * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) |
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
@@ -28,6 +29,7 @@ import type {
 } from './modules/bus/index.js';
 import { registerProductionOracle } from './modules/avl/index.js';
 import { resolveParam } from './modules/cfg/index.js';
+import { registerMoneyReconciliation } from './modules/fin/index.js';
 import type { CountryConfig } from './modules/cfg/index.js';
 import { postgresNotificationContacts } from './modules/iam/index.js';
 import {
@@ -153,7 +155,9 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
 
   registerProductionOracle(registry, deps.log);
 
-  registerOpsMonitor(registry, deps.alerts ?? new LogAlertChannel(deps.log), deps.log);
+  const alerts = deps.alerts ?? new LogAlertChannel(deps.log);
+  registerOpsMonitor(registry, alerts, deps.log);
+  registerMoneyReconciliation(registry, alerts, deps.log);
 
   registry.registerPeriodic(RISK_PRUNER_WORKER, d.riskPrunerPeriodSeconds, async (_p, tx) => {
     const { rows } = await tx.query<{ n: unknown }>('SELECT core.risk_cmd_prune($1, $2) AS n', [

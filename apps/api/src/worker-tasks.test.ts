@@ -65,6 +65,7 @@ describe('tâches du travailleur (US-003)', () => {
       'ntf_dispatcher',
       'ntf_sender',
       'ops_monitor',
+      'reconciliation',
       'risk_pruner',
     ]);
     expect(
@@ -74,6 +75,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['disposition_sweeper', 60, 5],
       ['hold_expiry', 60, 5],
       ['ops_monitor', 60, 5],
+      ['reconciliation', 86_400, 5],
       ['risk_pruner', 3_600, 5],
     ]);
     // aucun travailleur qui lirait le PSP (lot C, US-061)

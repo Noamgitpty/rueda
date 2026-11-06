@@ -25,6 +25,8 @@ export const ALERT_CODES = [
   'OPS_WEBHOOK_FAILING',
   'OPS_WEBHOOK_SIGNATURE',
   'OPS_P1_EVENT',
+  // rapprochement de l'argent (FIN, US-047, ADR-087) : une alerte P1 par pays en écart
+  'FIN_MONEY_RECONCILIATION',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 
