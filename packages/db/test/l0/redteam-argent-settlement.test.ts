@@ -123,7 +123,7 @@ describe.each(COUNTRIES)(
     const N = 6;
 
     async function race(
-      clients: pg.ClientBase[],
+      clients: pg.Client[],
       tripId: string,
       args: (i: number) => { version: number; supersedesId?: string },
       records: ReturnType<typeof recordOfVector>[],
@@ -149,10 +149,10 @@ describe.each(COUNTRIES)(
 
     it(`${N} travailleurs posent la version 1 puis la version 2 en même temps : exactement un gagnant par version`, async () => {
       const s = scenario(c);
-      const clients: pg.ClientBase[] = [];
+      const clients: pg.Client[] = [];
       for (let i = 0; i < N; i++) clients.push(await connectAs('app_worker'));
       try {
-        const first = clients[0] as pg.ClientBase;
+        const first = clients[0] as pg.Client;
         const trip = await withTestTransaction(first, { commit: true }, async (tx) => {
           const t = await insertTrip(tx, c, 31);
           await captureLegs(tx, t.id, tj(s.capture).legsMinor);
@@ -491,16 +491,20 @@ describe('ARG-26 — appelants et écritures directes interdits', () => {
   it('app_api, app_anon, travailleurs autres que settlement, sans contexte ⇒ 42501', async () => {
     const rec = recordOfVector('T03');
     for (const role of ['app_api', 'app_anon'] as const) {
-      await withRole(role, (client) =>
-        withTestTransaction(client, {}, async (tx) => {
+      // app_anon n'a pas accès à platform.now() : transaction manuelle, sans horloge de test
+      await withRole(role, async (client) => {
+        await client.query('BEGIN');
+        try {
           expect(
-            await sqlstateOf(tx, () =>
-              callRecord(tx, { tripId: uuid(), version: 1 }, payloadOf(rec)),
+            await sqlstateOf(client, () =>
+              callRecord(client, { tripId: uuid(), version: 1 }, payloadOf(rec)),
             ),
             role,
           ).toBe('42501');
-        }),
-      );
+        } finally {
+          await client.query('ROLLBACK');
+        }
+      });
     }
     await worker(async (tx) => {
       for (const name of ['payment_command', 'webhook_ingest', 'booking_conversion']) {
