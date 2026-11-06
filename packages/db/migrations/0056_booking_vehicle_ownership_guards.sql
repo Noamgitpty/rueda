@@ -45,9 +45,13 @@
 -- cmd_hold_owner, sous la politique cmd_hold_read (lecture seule, propriétaire NOLOGIN ; aucun rôle
 -- applicatif ne gagne de droit) ; la clé max_trip_days lisible par cmd_hold_owner. Propriétaires, EXECUTE et entrées RLS-15 inchangés.
 --
--- Expand / contract : remplacement de corps de fonctions (même signature, même propriétaire) et
--- ajout d'un droit et d'une politique ; aucune contraction. La version N servie appelle les mêmes
--- commandes ; elle reçoit FORBIDDEN / SELF_BOOKING_FORBIDDEN, codes qu'elle traduit déjà.
+-- Expand / contract : aucune contraction de SCHÉMA ni de DROIT (corps de fonctions remplacés à
+-- signature et propriétaire identiques, un droit et une politique ajoutés, une politique recréée
+-- sous le même nom). Le COMPORTEMENT, lui, se resserre en fail-closed, volontairement : plus aucun
+-- blocage possible en production avant le catalogue (US-115), hold refusé aux membres du compte
+-- d'hôte, durée d'un hold plafonnée par max_trip_days, bornes infinies refusées. La version N
+-- servie appelle les mêmes commandes et reçoit FORBIDDEN, SELF_BOOKING_FORBIDDEN, INVALID_PERIOD,
+-- codes qu'elle traduit déjà.
 --
 -- Retour arrière :
 --   réappliquer les définitions de 0032 de core.booking_cmd_place_host_block(uuid, timestamptz,

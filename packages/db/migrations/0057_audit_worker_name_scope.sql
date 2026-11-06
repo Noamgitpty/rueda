@@ -27,10 +27,12 @@
 -- `app_worker` peut annoncer un nom autorisé ; la restriction réduit la surface exposée (un nom
 -- inventé, une file, un autre travailleur), elle ne remplace pas un rôle SQL par travailleur.
 --
--- Expand / contract : aucun travailleur de production n'écrit dans ces tables ni ne lit ces clés
--- sous un autre nom (aucun appel d'`appendAuditLog`, `recordDataAccess`, `receiveFile` ni de
--- `SubjectKeyStore` dans le code des applications au lot 0) : la version N servie n'est pas
--- affectée. Droits (GRANT) inchangés.
+-- Expand / contract : aucune contraction de SCHÉMA ni de DROIT (GRANT inchangés, politiques
+-- recréées sous le même nom) ; RESSERREMENT de comportement fail-closed, volontaire : un nom de
+-- travailleur non autorisé ne lit plus les clés de sujet ni n'écrit l'audit. Aucun travailleur de
+-- production n'écrit dans ces tables ni ne lit ces clés sous un autre nom (aucun appel
+-- d'`appendAuditLog`, `recordDataAccess`, `receiveFile` ni de `SubjectKeyStore` dans le code des
+-- applications au lot 0) : la version N servie n'est pas affectée.
 --
 -- Retour arrière : recréer les politiques de 0021 (worker_select, worker_insert de
 -- core.audit_subject_key ; worker_insert de core.audit_audit_log, core.audit_data_access_log,

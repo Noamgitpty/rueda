@@ -5,7 +5,8 @@
  * données fait échouer `pnpm lint` ; un texte fixe et des paramètres liés passent. Le lint tourne
  * avec la **vraie** configuration racine (eslint.config.mjs), comme le ferait `pnpm lint`.
  */
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { repoRoot } from './paths.ts';
@@ -49,8 +50,26 @@ describe('rueda/no-dynamic-sql (configuration réelle)', () => {
       "export const f = (b: boolean) => db.query(b ? 'SELECT 1' : 'SELECT ' + id);",
     ],
     ['assertion de type', 'export const f = () => db.query(`SELECT ${id}` as string);'],
+    // revues de la PR n° 92 (code 4, sécurité 5) : formes d'appel contournantes
+    ['accès calculé', "export const f = () => db['query'](`SELECT ${id}`);"],
+    ['query.call', 'export const f = () => db.query.call(db, `SELECT ${id}`);'],
+    ['query.apply', 'export const f = () => db.query.apply(db, [`SELECT ${id}`]);'],
+    ['alias const', 'export const f = () => { const q = db.query; return q(`SELECT ${id}`); };'],
+    [
+      'alias bind',
+      'export const f = () => { const q = db.query.bind(db); return q(`SELECT ${id}`); };',
+    ],
+    [
+      'alias par déstructuration',
+      'export const f = () => { const { query } = db; return query(`SELECT ${id}`); };',
+    ],
+    [
+      'étiquette de gabarit inconnue',
+      'declare const raw: (s: TemplateStringsArray, ...v: unknown[]) => string;\nexport const f = () => db.query(raw`SELECT ${id}`);',
+    ],
   ])('refusé : %s', async (_name, line) => {
-    expect(await flagged(`${HEADER}\n${line}\n`)).toEqual([4]);
+    // la ligne fautive est la dernière (certains cas déclarent une étiquette avant)
+    expect(await flagged(`${HEADER}\n${line}\n`)).toEqual([3 + line.split('\n').length]);
   });
 
   it.each([
@@ -67,11 +86,52 @@ describe('rueda/no-dynamic-sql (configuration réelle)', () => {
     ],
     ['enrobage (paramètre non suivi)', 'export const run = (text: string) => db.query(text);'],
     [
+      'étiquette inconnue sans interpolation',
+      'declare const raw: (s: TemplateStringsArray) => string;\nexport const f = () => db.query(raw`SELECT 1`);',
+    ],
+    ['accès calculé fixe', "export const f = () => db['query']('SELECT $1', [id]);"],
+    [
+      'alias appelé avec un texte fixe',
+      "export const f = () => { const q = db.query; return q('SELECT 1'); };",
+    ],
+    [
       'gabarit étiqueté',
       'declare const sql: (s: TemplateStringsArray, ...v: unknown[]) => string;\nexport const f = () => db.query(sql`SELECT ${id}`);',
     ],
   ])('permis : %s', async (_name, line) => {
     expect(await flagged(`${HEADER}\n${line}\n`)).toEqual([]);
+  });
+
+  it('exceptions déclarées : exactement une, dans l’export des données personnelles (contrôle mécanique)', () => {
+    // toute directive qui coupe la règle (par son nom, ou sans liste de règles) dans le code
+    // applicatif ; une exception de plus fait échouer ce test (revue sécurité US-049, constat 5)
+    const found: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.next') continue;
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(ts|tsx|mts|cts|js|mjs|cjs)$/.test(e.name)) {
+          readFileSync(p, 'utf8')
+            .split('\n')
+            .forEach((l, i) => {
+              const m = /(?:\/\/|\/\*)\s*eslint-disable(?:-next-line|-line)?(.*)$/.exec(l);
+              if (m === null) return;
+              const rest = (m[1] ?? '').split('--')[0]?.replace('*/', '').trim() ?? '';
+              if (rest === '' || rest.includes('no-dynamic-sql')) {
+                found.push(`${relative(repoRoot, p).split(sep).join('/')}:${i + 1}`);
+              }
+            });
+        }
+      }
+    };
+    for (const root of ['apps', 'packages']) {
+      for (const pkg of readdirSync(join(repoRoot, root), { withFileTypes: true })) {
+        const src = join(repoRoot, root, pkg.name, 'src');
+        if (pkg.isDirectory() && existsSync(src)) walk(src);
+      }
+    }
+    expect(found.map((f) => f.replace(/:\d+$/, ''))).toEqual(['packages/db/src/privacy/export.ts']);
   });
 
   it('les outils d’administration et les tests ne sont pas concernés', async () => {

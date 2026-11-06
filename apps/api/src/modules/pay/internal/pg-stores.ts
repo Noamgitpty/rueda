@@ -229,9 +229,11 @@ export class PgWebhookWorkStore implements WebhookWorkStore {
       received_at: Date;
       quarantine_expired: boolean;
       error: string | null;
+      signed_at_out_of_tolerance: boolean;
       events: unknown;
     }>(
       `SELECT w.id, w.psp_account_id, w.provider, w.processing_status, w.received_at, w.error,
+              w.signed_at_out_of_tolerance,
               (platform.now() - w.received_at) > interval '15 minutes' AS quarantine_expired,
               COALESCE(w.normalized_events, '[]'::jsonb) AS events
          FROM core.payment_webhook_inbox AS w
@@ -250,6 +252,7 @@ export class PgWebhookWorkStore implements WebhookWorkStore {
       receivedAt: r.received_at,
       quarantineExpired: r.quarantine_expired,
       quarantineReason: r.processing_status === 'QUARANTINED' ? r.error : null,
+      signedAtOutOfTolerance: r.signed_at_out_of_tolerance,
       events: toEvents(r.events),
     }));
   }
@@ -290,7 +293,10 @@ export class PgWebhookWorkStore implements WebhookWorkStore {
       `UPDATE core.payment_webhook_inbox
           SET processing_status = $2,
               processed_at = CASE WHEN $2 = 'PROCESSED' THEN platform.now() END,
-              error = $3,
+              -- US-049 : le motif d'horodatage d'une ligne restée en quarantaine n'est jamais
+              -- remplacé (la colonne signed_at_out_of_tolerance, non effaçable, fait foi)
+              error = CASE WHEN $2 = 'QUARANTINED' AND error = 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE'
+                           THEN error ELSE $3 END,
               -- passages en échec comptés : alerte du moniteur à 3 (0051, US-004, ADM-032)
               processing_attempts = processing_attempts
                                     + CASE WHEN $2 = 'PROCESSED' THEN 0 ELSE 1 END

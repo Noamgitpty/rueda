@@ -26,9 +26,13 @@ export interface ProcessorReport {
 /** Élément en quarantaine que le PSP n'a pas pu confirmer (US-049, RT-CONC-53). */
 const UNVERIFIED = Symbol('UNVERIFIED');
 
-/** Reçu dans la fenêtre de ± 5 min de l'horodatage signé (seule la quarantaine d'horodatage en sort). */
+/**
+ * Reçu dans la fenêtre de ± 5 min de l'horodatage signé. US-049 (revues de la PR n° 92) : jugé sur
+ * l'indicateur posé à la réception et jamais réécrit (`signedAtOutOfTolerance`, 0058), jamais sur
+ * le motif `error`, qu'une relance « opération introuvable » remplaçait (quarantaine blanchie).
+ */
 const inWindow = (item: InboxItem): boolean =>
-  item.status === 'RECEIVED' || item.quarantineReason === 'OPERATION_NOT_FOUND';
+  !item.signedAtOutOfTolerance && item.quarantineReason !== 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE';
 
 export class WebhookProcessor {
   readonly #store: WebhookWorkStore;
@@ -99,10 +103,14 @@ export class WebhookProcessor {
         providerReference: event.providerReference,
       });
       if (outcome === 'UNPROVEN') {
+        // US-049 : la preuve refusée par la base n'est jamais consommée en silence : FAILED à motif
+        // dédié (compté par l'alerte du moniteur, 0051) et alerte
+        await this.#store.mark(item.inboxId, 'FAILED', 'PROOF_REJECTED');
         this.#log.warn('webhook : preuve signée refusée par la base (UNPROVEN)', {
           inboxId: item.inboxId,
           operationId: operation.operationId,
         });
+        return { state: 'FAILED', conflicts };
       }
       if (outcome === 'CONFLICT') {
         conflicts += 1;

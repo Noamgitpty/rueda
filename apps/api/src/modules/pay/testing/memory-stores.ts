@@ -36,6 +36,11 @@ export interface MemoryInboxRow {
   readonly events: readonly NormalizedPaymentEvent[];
   status: 'RECEIVED' | 'QUARANTINED' | 'PROCESSED' | 'FAILED' | 'REJECTED_SIGNATURE';
   error: string | null;
+  /**
+   * Horodatage signé hors tolérance à la réception (`signed_at_out_of_tolerance`, 0058) : posé par
+   * `receive`, jamais réécrit par `mark` (les tests le posent pour simuler une réception tardive).
+   */
+  signedAtOutOfTolerance: boolean;
   /** Passages en échec (QUARANTINED, FAILED), comme `processing_attempts` (0051, US-004). */
   processingAttempts: number;
   readonly receivedAtMs: number;
@@ -73,6 +78,8 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
   readonly inbox: MemoryInboxRow[] = [];
   readonly operations = new Map<string, MemoryOperation>();
   readonly statusEvents: MemoryStatusEvent[] = [];
+  /** Opérations dont la base refuserait toute preuve (`UNPROVEN`), pour les tests du processeur. */
+  readonly unproven = new Set<string>();
   /** Heure « de la base » (ms). */
   now: () => number;
   /** Simule une base en production (C19) : comptes FAKE introuvables. */
@@ -136,6 +143,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
       events: status === 'REJECTED_SIGNATURE' ? [] : input.events,
       status,
       error: status === 'QUARANTINED' ? 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE' : null,
+      signedAtOutOfTolerance: status === 'QUARANTINED',
       processingAttempts: 0,
       receivedAtMs: now,
     });
@@ -159,6 +167,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
           receivedAt: new Date(r.receivedAtMs),
           quarantineExpired: now - r.receivedAtMs > QUARANTINE_MS,
           quarantineReason: r.status === 'QUARANTINED' ? r.error : null,
+          signedAtOutOfTolerance: r.signedAtOutOfTolerance,
           events: r.events,
         })),
     );
@@ -186,6 +195,11 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
     const op = this.operations.get(input.operationId);
     if (op === undefined) return Promise.resolve('NOT_FOUND');
     let outcome: Exclude<ApplyOutcome, 'NOT_FOUND'>;
+    const terminal = input.status === 'SUCCEEDED' || input.status === 'FAILED';
+    const proof =
+      input.source === 'WEBHOOK'
+        ? this.inbox.find((r) => r.id === input.rawRef && r.accountId === op.accountId)
+        : undefined;
     if (input.status === op.status) outcome = 'DUPLICATE';
     else if (RANK[input.status] < RANK[op.status]) outcome = 'STALE';
     else if (RANK[op.status] === 2) outcome = 'CONFLICT';
@@ -195,6 +209,15 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
       op.providerReference !== input.providerReference
     ) {
       outcome = 'CONFLICT';
+    } else if (
+      terminal &&
+      (input.source === 'MANUAL_OPS' ||
+        this.unproven.has(op.id) ||
+        (input.source === 'WEBHOOK' &&
+          (proof === undefined || !proof.signatureValid || proof.signedAtOutOfTolerance)))
+    ) {
+      // même règle que 0055 / 0058 : rien n'est appliqué, aucun événement n'est écrit
+      return Promise.resolve('UNPROVEN');
     } else {
       outcome = 'APPLIED';
       op.status = input.status;
@@ -217,8 +240,10 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
   ): Promise<void> {
     const row = this.inbox.find((r) => r.id === inboxId);
     if (row !== undefined) {
+      // même règle que PgWebhookWorkStore.mark : le motif d'horodatage n'est jamais remplacé
+      const keep = status === 'QUARANTINED' && row.error === 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE';
       row.status = status;
-      row.error = error;
+      row.error = keep ? row.error : error;
       if (status !== 'PROCESSED') row.processingAttempts += 1;
     }
     return Promise.resolve();

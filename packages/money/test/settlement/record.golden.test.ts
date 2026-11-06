@@ -173,7 +173,9 @@ describe('US-018 — supersession : version n+1, delta et variation depuis la ve
         ...trip,
         lines: { ...trip.lines, tripPrice: subtract(price, one), tripFee: add(fee, one) },
       };
-      const full = toEvent(settlementVector(set, 'T08').event);
+      // revue de code US-049 (constat 3) : l'événement du vecteur de la boucle (T27 reçoit le sien,
+      // jamais celui de T08 en USD)
+      const full = toEvent(v.event);
       let code = 'AUCUNE_ERREUR';
       try {
         buildSettlementRecord(recomposed, full, testParams(trip.currency), v1);

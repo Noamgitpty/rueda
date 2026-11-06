@@ -1095,7 +1095,9 @@
         "processed_at": "C1",
         "error": "C1",
         "normalized_events": "C1",
-        "processing_attempts": "C1"
+        "processing_attempts": "C1",
+        "received_by_command": "C1",
+        "signed_at_out_of_tolerance": "C1"
       }
     },
     "core.pricing_tax_line_config": {

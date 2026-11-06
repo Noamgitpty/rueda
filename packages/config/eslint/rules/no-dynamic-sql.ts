@@ -14,7 +14,10 @@
  * ainsi. Une exception motivée se déclare ligne à ligne
  * (`// eslint-disable-next-line rueda/no-dynamic-sql -- <raison>`). Un paramètre de fonction
  * ou une propriété (`SQL.select`) n'est pas suivi : un enrobage `query(text, values)` reste permis
- * et ses appelants passent des constantes (limite écrite dans ADR-089).
+ * et ses appelants passent des constantes (limite écrite dans ADR-089). Formes d'appel couvertes
+ * (revues de la PR n° 92) : `c.query(…)`, `c['query'](…)`, `c.query.call(ctx, …)`,
+ * `c.query.apply(ctx, [...])`, et les alias `const q = c.query`, `c.query.bind(c)`,
+ * `const { query } = c` ; une étiquette de gabarit autre que `sql` qui interpole est refusée.
  */
 import type { Rule, Scope } from 'eslint';
 import type { Node } from 'estree';
@@ -38,6 +41,42 @@ function unwrap(node: Node): Node {
   return n as Node;
 }
 
+/** `sql`, `sql.raw`, `sql<T>()`… : toute étiquette dont la racine s'appelle `sql`. */
+function isSqlTag(tag: unknown): boolean {
+  const t = tag as { type?: string; name?: string; object?: unknown; callee?: unknown };
+  if (t.type === 'Identifier') return t.name === 'sql';
+  if (t.type === 'MemberExpression') return isSqlTag(t.object);
+  if (t.type === 'CallExpression') return isSqlTag(t.callee);
+  return false;
+}
+
+/** `x.query`, `x['query']`, `x?.query` (accès calculé par un littéral compris). */
+function isQueryMember(node: unknown): boolean {
+  const n = node as {
+    type?: string;
+    computed?: boolean;
+    property?: { type?: string; name?: string; value?: unknown };
+  };
+  if (n.type !== 'MemberExpression' || n.property === undefined) return false;
+  if (!n.computed) return n.property.type === 'Identifier' && n.property.name === 'query';
+  return n.property.type === 'Literal' && n.property.value === 'query';
+}
+
+/** `x.query`, `x.query.bind(…)` : la valeur est la méthode d'exécution elle-même. */
+function isQueryValue(node: unknown): boolean {
+  const n = unwrap(node as Node) as unknown as {
+    type?: string;
+    callee?: { type?: string; property?: { name?: string }; object?: unknown };
+  };
+  if (isQueryMember(n)) return true;
+  return (
+    n.type === 'CallExpression' &&
+    n.callee?.type === 'MemberExpression' &&
+    n.callee.property?.name === 'bind' &&
+    isQueryMember(n.callee.object)
+  );
+}
+
 function findVariable(scope: Scope.Scope | null, name: string): Scope.Variable | undefined {
   for (let s = scope; s !== null; s = s.upper) {
     const v = s.set.get(name);
@@ -58,7 +97,9 @@ function verdict(
     case 'TemplateLiteral':
       return n.expressions.length === 0 ? 'static' : 'dynamic';
     case 'TaggedTemplateExpression':
-      return 'static';
+      // seule une étiquette `sql` (Kysely, Drizzle…) paramètre ses valeurs ; toute autre étiquette
+      // peut concaténer : dynamique dès qu'elle interpole (revue sécurité US-049, constat 5)
+      return n.quasi.expressions.length === 0 || isSqlTag(n.tag) ? 'static' : 'dynamic';
     case 'BinaryExpression':
       return n.operator === '+' ? 'dynamic' : 'unknown';
     case 'CallExpression':
@@ -114,16 +155,71 @@ const rule: Rule.RuleModule = {
     },
   },
   create(context) {
+    /** Alias de la méthode d'exécution : `const q = c.query`, `c.query.bind(c)`, `{ query } = c`. */
+    const aliases = new Set<Scope.Variable>();
+    const check = (arg: unknown, node: Rule.Node): void => {
+      if (arg === undefined || (arg as { type?: string }).type === 'SpreadElement') return;
+      if (verdict(arg as Node, context.sourceCode.getScope(node)) === 'dynamic') {
+        context.report({ node: arg as Rule.Node, messageId: 'dynamic' });
+      }
+    };
+    const aliasOf = (id: unknown, node: Rule.Node): void => {
+      const i = id as { type?: string; name?: string };
+      if (i.type !== 'Identifier' || i.name === undefined) return;
+      const v = findVariable(context.sourceCode.getScope(node), i.name);
+      if (v !== undefined) aliases.add(v);
+    };
     return {
+      VariableDeclarator(node) {
+        if (node.init && isQueryValue(node.init)) aliasOf(node.id, node as Rule.Node);
+        if (node.id.type === 'ObjectPattern') {
+          for (const p of node.id.properties) {
+            if (
+              p.type === 'Property' &&
+              ((p.key.type === 'Identifier' && p.key.name === 'query') ||
+                (p.key.type === 'Literal' && p.key.value === 'query'))
+            ) {
+              aliasOf(p.value, node as Rule.Node);
+            }
+          }
+        }
+      },
+      AssignmentExpression(node) {
+        if (isQueryValue(node.right)) aliasOf(node.left, node as Rule.Node);
+      },
       CallExpression(node) {
-        const callee = node.callee;
-        if (callee.type !== 'MemberExpression' || callee.computed) return;
-        if (callee.property.type !== 'Identifier' || callee.property.name !== 'query') return;
-        const first = node.arguments[0];
-        if (first === undefined || first.type === 'SpreadElement') return;
-        const scope = context.sourceCode.getScope(node);
-        if (verdict(first as Node, scope) === 'dynamic') {
-          context.report({ node: first as Rule.Node, messageId: 'dynamic' });
+        const callee = unwrap(node.callee as Node) as unknown as {
+          type?: string;
+          name?: string;
+          object?: unknown;
+          property?: { type?: string; name?: string };
+          computed?: boolean;
+        };
+        // c.query(texte, …) ; c['query'](texte, …)
+        if (isQueryMember(callee)) {
+          check(node.arguments[0], node as Rule.Node);
+          return;
+        }
+        // c.query.call(ctx, texte, …) ; c.query.apply(ctx, [texte, …])
+        if (
+          callee.type === 'MemberExpression' &&
+          !callee.computed &&
+          (callee.property?.name === 'call' || callee.property?.name === 'apply') &&
+          isQueryMember(callee.object)
+        ) {
+          const second = node.arguments[1] as unknown as { type?: string; elements?: unknown[] };
+          check(
+            callee.property.name === 'apply' && second?.type === 'ArrayExpression'
+              ? second.elements?.[0]
+              : second,
+            node as Rule.Node,
+          );
+          return;
+        }
+        // q(texte, …) pour un alias de la méthode
+        if (callee.type === 'Identifier' && callee.name !== undefined) {
+          const v = findVariable(context.sourceCode.getScope(node), callee.name);
+          if (v !== undefined && aliases.has(v)) check(node.arguments[0], node as Rule.Node);
         }
       },
     };

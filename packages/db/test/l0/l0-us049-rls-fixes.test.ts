@@ -34,6 +34,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { APP_ROLES, PACKAGE_ROOT, setSessionContext, translateDbError } from '../../src/index.ts';
+import { SIDE_EFFECT_FUNCTIONS as CATALOG_SIDE_EFFECT_FUNCTIONS } from '../../src/catalog-functions.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { placeHoldCommand, registerVehicles } from '../support/concurrency.ts';
@@ -172,16 +173,7 @@ describe.each(COUNTRIES)('US-049 RT-CONC-02 — périodes bornées ($country, $c
 });
 
 /** Fonctions de pg_catalog à effet de bord hors RLS, retirées de PUBLIC par l'amorçage (§ 3). */
-const SIDE_EFFECT_FUNCTIONS = [
-  'pg_logical_emit_message',
-  'lo_creat',
-  'lo_create',
-  'lo_from_bytea',
-  'lo_import',
-  'lo_export',
-  'pg_cancel_backend',
-  'pg_terminate_backend',
-] as const;
+const SIDE_EFFECT_FUNCTIONS = CATALOG_SIDE_EFFECT_FUNCTIONS;
 
 describe.each(['main', 'production'] as const)('US-049 F-RLS-04 — base %s', (database) => {
   it('aucune fonction de pg_catalog à effet de bord n’est exécutable par un rôle applicatif', async () => {
@@ -394,3 +386,88 @@ describe('US-049 F-RLS-06 — clés de sujet et journaux d’audit sous app_work
     },
   );
 });
+
+// ---------------------------------------------------------------------------------------------
+// F-RLS-01 (0056) : pays du véhicule et levée d'un blocage, contrôles isolés (revue sécurité,
+// constat 7)
+// ---------------------------------------------------------------------------------------------
+
+describe.each(COUNTRIES)(
+  'US-049 F-RLS-01 — contrôles de propriété isolés ($country, $currency)',
+  (c) => {
+    const other = COUNTRIES.find((k) => k.country !== c.country);
+    if (other === undefined) throw new Error('second pays');
+
+    it('pays croisé : véhicule inscrit au catalogue pour le compte de la session mais dans un autre pays ⇒ FORBIDDEN', async () => {
+      const org = uuid();
+      const vehicle = uuid();
+      await withRole('app_api', async (client) => {
+        const holder = await withTestTransaction(client, { commit: true }, async (tx) => {
+          const h = await tx.query<{ h: string }>(
+            'SELECT test_fixture.create_org($1, $2, $3) AS h',
+            [org, c.country, 'ACTIVE'],
+          );
+          // catalogue incohérent à dessein : le même compte, mais le pays de l'autre pays
+          await registerVehicles(tx, [vehicle], org, other);
+          return h.rows[0]?.h as string;
+        });
+        const code = await withTestTransaction(client, {}, async (tx) => {
+          await setSessionContext(tx, { kind: 'HOST', actorId: holder, orgId: org });
+          try {
+            await tx.query(
+              'SELECT core.booking_cmd_place_host_block($1, $2::timestamptz, $3::timestamptz)',
+              [vehicle, '2035-09-01T10:00:00Z', '2035-09-02T10:00:00Z'],
+            );
+            return 'OK';
+          } catch (error) {
+            return translateDbError(error).code;
+          }
+        });
+        expect(code).toBe('FORBIDDEN');
+      });
+    });
+
+    it('levée : un blocage du compte posé sur un véhicule que le catalogue attribue à un autre compte ⇒ FORBIDDEN ; l’autre compte non plus', async () => {
+      const orgA = uuid();
+      const orgB = uuid();
+      const vehicle = uuid();
+      const block = uuid();
+      await withRole('app_api', async (client) => {
+        const holders = await withTestTransaction(client, { commit: true }, async (tx) => {
+          const a = await tx.query<{ h: string }>(
+            'SELECT test_fixture.create_org($1, $2, $3) AS h',
+            [orgA, c.country, 'ACTIVE'],
+          );
+          const b = await tx.query<{ h: string }>(
+            'SELECT test_fixture.create_org($1, $2, $3) AS h',
+            [orgB, c.country, 'ACTIVE'],
+          );
+          await registerVehicles(tx, [vehicle], orgB, c);
+          // blocage MANUAL de A écrit à la main (hors commande) sur le véhicule de B
+          await tx.query(
+            `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, 'HOST_BLOCK', $5::tstzrange)`,
+            [block, vehicle, orgA, c.country, '[2035-10-01T10:00:00Z,2035-10-02T10:00:00Z)'],
+          );
+          return { a: a.rows[0]?.h as string, b: b.rows[0]?.h as string };
+        });
+        for (const [actorId, orgId] of [
+          [holders.a, orgA],
+          [holders.b, orgB],
+        ] as const) {
+          const code = await withTestTransaction(client, {}, async (tx) => {
+            await setSessionContext(tx, { kind: 'HOST', actorId, orgId });
+            try {
+              await tx.query('SELECT core.booking_cmd_remove_host_block($1)', [block]);
+              return 'OK';
+            } catch (error) {
+              return translateDbError(error).code;
+            }
+          });
+          expect(code, orgId === orgA ? 'compte du blocage' : 'compte du véhicule').toBe(
+            'FORBIDDEN',
+          );
+        }
+      });
+    });
+  },
+);

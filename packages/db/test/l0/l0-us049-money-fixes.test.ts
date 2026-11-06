@@ -33,7 +33,12 @@ import {
   type SettlementTrip,
 } from '@rueda/money';
 import { setSessionContext, translateDbError } from '../../src/index.ts';
-import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import {
+  connectAs,
+  releaseClient,
+  withRole,
+  withTestTransaction,
+} from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import {
@@ -362,6 +367,108 @@ describe.each(COUNTRIES)(
         await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
         const full = await succeeded(tx, trip, account, 'REFUND', capture, c.currency);
         expect(await applyMovement(tx, full)).toBe('APPLIED');
+        expect(await refundedOf(tx, trip)).toEqual(capture);
+      });
+    });
+  },
+);
+
+// RC-2 (revue argent US-049, constat 6) : remboursement fractionné, dans les deux ordres, et course
+// de deux remboursements. Attendus : 08 (T08 requalifie en FULL : toute la capture est
+// remboursable) ; le plafond jambe par jambe et le plafond global ne dépendent ni de l'ordre des
+// fractions ni de l'entrelacement des connexions.
+describe.each(COUNTRIES)(
+  'RC-2 — remboursement fractionné et concurrent — $country ($currency)',
+  (c) => {
+    const r = refOf(c);
+    const capture: Legs = { ...legVector(golden, r.capture).legsMinor };
+    const hostOnly: Legs = { ...ZERO, HOST: capture.HOST };
+    const rest: Legs = { ...capture, HOST: 0n };
+
+    /** Trip capturé, réglé v1 (no-show) puis requalifié FULL (T08) : capture remboursable. */
+    async function settledFull(tx: pg.ClientBase): Promise<{ trip: string; account: string }> {
+      const trip = await insertPayTrip(tx, c);
+      const account = await insertAccount(tx, { country: c.country });
+      expect(
+        await applyMovement(tx, await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency)),
+      ).toBe('APPLIED');
+      const r1 = recordOfVector(r.v1);
+      const v1 = await recordAsSettlementWorker(tx, { tripId: trip, version: 1 }, r1);
+      await recordAsSettlementWorker(
+        tx,
+        { tripId: trip, version: 2, supersedesId: v1 },
+        recordOf(tripOfVector(r.v1), eventOfVector('T08'), r1),
+      );
+      await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
+      return { trip, account };
+    }
+
+    it.each([
+      ['HOST puis le reste', [hostOnly, rest]],
+      ['le reste puis HOST', [rest, hostOnly]],
+    ] as const)(
+      'fractions %s : chacune acceptée, total = capture ; une unité de plus refusée',
+      async (_label, parts) => {
+        await asPayments(async (tx) => {
+          const { trip, account } = await settledFull(tx);
+          for (const part of parts) {
+            const op = await succeeded(tx, trip, account, 'REFUND', part, c.currency);
+            expect(await applyMovement(tx, op)).toBe('APPLIED');
+          }
+          expect(await refundedOf(tx, trip)).toEqual(capture);
+          const extra = await succeeded(
+            tx,
+            trip,
+            account,
+            'REFUND',
+            { ...ZERO, PLATFORM: 1n },
+            c.currency,
+          );
+          const err = await caught(tx, () => applyMovement(tx, extra));
+          expect(err).toMatchObject({ code: '55000', constraint: 'leg_refund_exceeds_settlement' });
+          expect(await refundedOf(tx, trip)).toEqual(capture);
+        });
+      },
+    );
+
+    it('course : deux remboursements de la capture entière sur deux connexions ⇒ un seul appliqué, le second refusé', async () => {
+      // mise en place validée : capture, règlements v1 et v2, deux ordres de remboursement réussis
+      const { trip, ops } = await withRole('app_worker', (client) =>
+        payTx(client, { worker: 'payment_command', commit: true }, async (tx) => {
+          const s = await settledFull(tx);
+          const a = await succeeded(tx, s.trip, s.account, 'REFUND', capture, c.currency);
+          const b = await succeeded(tx, s.trip, s.account, 'REFUND', capture, c.currency);
+          return { trip: s.trip, ops: [a, b] as const };
+        }),
+      );
+      const first = await connectAs('app_worker');
+      const second = await connectAs('app_worker');
+      try {
+        const begin = async (client: pg.Client): Promise<void> => {
+          await client.query('BEGIN');
+          await setSessionContext(client, { kind: 'WORKER', workerName: 'payment_command' });
+        };
+        await begin(first);
+        await begin(second);
+        expect(await applyMovement(first, ops[0])).toBe('APPLIED');
+        // la seconde attend le verrou du trip tenu par la première, puis relit les soldes à jour
+        const racing = applyMovement(second, ops[1]).then(
+          (o) => ({ ok: o }),
+          (e: unknown) => ({ err: e as { code?: string; constraint?: string } }),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await first.query('COMMIT');
+        const late = await racing;
+        await second.query('ROLLBACK');
+        expect(late).toMatchObject({
+          err: { code: '55000', constraint: 'leg_refund_exceeds_settlement' },
+        });
+      } finally {
+        await first.query('ROLLBACK').catch(() => undefined);
+        await releaseClient(first);
+        await releaseClient(second);
+      }
+      await asPayments(async (tx) => {
         expect(await refundedOf(tx, trip)).toEqual(capture);
       });
     });

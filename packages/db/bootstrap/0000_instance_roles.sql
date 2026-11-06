@@ -139,7 +139,12 @@ CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
 --     de toute RLS (stockage dissimulé, remplissage du disque) ; lo_import et lo_export (fichiers
 --     du serveur) sont déjà réservés au superutilisateur, ils sont listés par sûreté ;
 --   - pg_cancel_backend, pg_terminate_backend : annuler ou couper les AUTRES connexions du même
---     rôle (déni de service de l'API ou du travailleur).
+--     rôle (déni de service de l'API ou du travailleur) ;
+--   - pg_notify : notifications sur un canal quelconque (aucun code n'écoute ni n'émet ; revue
+--     sécurité US-049). Les verrous consultatifs (pg_advisory_*) et set_config restent
+--     exécutables : l'application s'en sert (commandes de réservation, file du bus, contexte).
+-- Liste unique : packages/db/src/catalog-functions.ts (test catalog-functions.test.ts) ; le job
+-- de déploiement la sonde sous app_api et échoue si une fonction reste exécutable (US-049).
 -- Les ACL des fonctions sont propres à chaque base : l'amorçage, rejoué dans chaque base, les
 -- retire de PUBLIC par nom (toutes les signatures, quelle que soit la version de PostgreSQL).
 -- Idempotent. Un rôle d'administration qui n'est pas propriétaire de ces fonctions (service géré)
@@ -155,7 +160,8 @@ BEGIN
       JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
      WHERE n.nspname = 'pg_catalog'
        AND p.proname IN ('pg_logical_emit_message', 'lo_creat', 'lo_create', 'lo_from_bytea',
-                         'lo_import', 'lo_export', 'pg_cancel_backend', 'pg_terminate_backend')
+                         'lo_import', 'lo_export', 'pg_cancel_backend', 'pg_terminate_backend',
+                         'pg_notify')
   LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', r.sig);
     IF pg_catalog.has_function_privilege('app_anon', r.sig::oid, 'EXECUTE') THEN
