@@ -1,0 +1,20 @@
+# Passation US-049 (documents de la porte) — pré-mortem, registre, post-mortem (2026-11-05, orchestrateur-adjoint, claude-opus-5-5)
+
+- **Fait** : branche `story/US-049-documents-porte`, worktree `../wt/US-049-docs`, partie d'`origin/main` à `69e4679`. Documentation seulement ; aucun code, aucune branche de red team ni de correctif touchée.
+  - `docs/team/gates/L0/premortem.md` : pré-mortem **révisé après coup** (écart au critère 1 consigné en première ligne), 18 scénarios d'échec de la bêta dus au socle, revue des risques de la version initiale du 2026-10-31, version initiale conservée.
+  - `docs/team/RISKS.md` (le registre existant, ADR-042) : L0-PM-01 passé ATTÉNUÉ, L0-PM-05 FERMÉ, risques L0-PM-10 à L0-PM-24 ajoutés, et nouvelle section « Constats des red teams du lot 0 » (18 constats des trois axes, gravité PROPOSÉE, traitement, statut OUVERT).
+  - `docs/team/gates/L0/postmortem.md` : post-mortem **BROUILLON** (points prévus / livrés, bogues échappés et pourquoi, incidents I-1 à I-9, limites d'usage, règles ajoutées et à ajouter, cases de la porte à remplir après la fusion des correctifs).
+- **Chemins** : le brief demandait `docs/team/lots/L0/PRE_MORTEM.md`, `POST_MORTEM.md` et `docs/team/risques/REGISTRE.md`. J'ai suivi ADR-042 (DÉCIDÉ), qui fixe `docs/team/gates/<lot>/{premortem,postmortem}.md` et `docs/team/RISKS.md` ; un pré-mortem et un registre y existaient déjà depuis US-029. Créer des doublons aurait laissé deux registres divergents.
+- **Reste** :
+  1. Revues exigées pour US-049 (`review-requirements.json`) : code, architecture, sécurité, argent, sur un autre modèle que l'auteur.
+  2. Après la fusion des PR #91 et #92 : passer les constats corrigés à FERMÉ dans `RISKS.md`, remplir le §6 du post-mortem (constats, exercice de restauration US-051, accès des agents, budget), retirer la mention BROUILLON.
+  3. Orchestrateur : documenter dans `docs/team/incidents/` les incidents I-1 (passage en public), I-4 (hooks contournés, rapports écrasés) et I-9 (`main` rouge sur `ce49274`), dont le dépôt ne garde aucune trace ; remplir le tableau des limites d'usage (§4).
+  4. Orchestrateur : décider RT-RLS-03 (ADR-089) ; affecter RC-5, RT-ARG-OBS1, RT-RLS-NX4, RT-RLS-NX5, RT-CONC-OB1 et RT-CONC-OB2.
+  5. Recaler `BOARD.md` (US-039 et US-047 fusionnées), `RESUME_HERE.md` (quatre langues) et `docs/ops/CI.md` ligne 3 (dépôt public).
+- **Prochaine commande exacte** : `gh pr checks <n° de cette PR> --repo Noamgitpty/rueda`.
+- **Pièges / hypothèses** :
+  - Les incidents I-1 et I-4 et les limites d'usage viennent du brief de l'orchestrateur et ne sont pas tracés dans le dépôt ; le post-mortem le dit au lieu d'inventer des détails.
+  - Le statut « Traité par » du registre est daté du 2026-11-05 : PR #91 à `b1e7781` (RC-1 à RC-3, RT-CONC-53, RT-CONC-58), PR #92 (F-RLS-01, 02, 04, 05, RT-CONC-02). Les deux branches prennent la migration 0054 ; la PR fusionnée en second renumérote.
+  - Comptages : 491 rapports de revue lus sur leur ligne `Verdict` (422 APPROUVÉ, 69 CHANGEMENTS DEMANDÉS), 162 contenant « revue dégradée ».
+- **Paramètres créés (17 §7.2)** : aucun. **Entités / migrations** : aucune.
+- **Tests ajoutés et état** : aucun (documentation). **Décisions prises** : aucune ; gravités, probabilités et règles à ajouter PROPOSÉES.
