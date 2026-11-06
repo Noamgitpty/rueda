@@ -82,6 +82,7 @@ Depuis l'onglet Actions, workflow **deploy** (ou `gh workflow run deploy.yml -f 
 
 1. `action=build target=preproduction` : l'empreinte est dans le résumé du run (`digest=sha256:…`).
 2. `action=deploy target=preproduction image_digest=<empreinte>` : job de base, bascule, stabilité. Vérifier le parcours en préproduction.
+   **Avant le premier déploiement de production** : chaque ligne de la [liste de contrôle de mise en service](GO_LIVE_CHECKLIST.md) est cochée avec sa preuve (EXC-003 fermée, sonde F-RLS-04, environnement `production` protégé, `sub` OIDC réel, jeton des agents sans admin, protection de `main`, interrupteurs, registre des risques).
 3. Porte de production (OPERATING_RULES §2) : CI verte sur le commit, rapport « go » (US-408), puis `action=deploy target=production image_digest=<même empreinte>`. Le pipeline refuse une empreinte jamais déployée avec succès en préproduction ; l'environnement `production` attend l'accord du fondateur.
 
 **Porte « accord du fondateur »** (ADR-084) : toute action sur `production` (`deploy` et `rollback`) la franchit avant d'obtenir un identifiant AWS. `scripts/deploy/production-gate.mjs` lit l'API GitHub avec le jeton du job et exige quatre conditions :

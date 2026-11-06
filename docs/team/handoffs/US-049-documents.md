@@ -18,3 +18,4 @@
   - Comptages : 491 rapports de revue lus sur leur ligne `Verdict` (422 APPROUVÉ, 69 CHANGEMENTS DEMANDÉS), 162 contenant « revue dégradée ».
 - **Paramètres créés (17 §7.2)** : aucun. **Entités / migrations** : aucune.
 - **Tests ajoutés et état** : aucun (documentation). **Décisions prises** : aucune ; gravités, probabilités et règles à ajouter PROPOSÉES.
+- **Ajout du 2026-11-06** (revues de la PR #92) : `BOARD.md` recalé (US-039 et US-047 MERGED, US-049 IN_REVIEW) avec la section « Suites de la porte du lot 0 » (S-01 à S-07, dont la story US-049-S1 pour EXC-003, et N-01 à N-08) ; Q-012 (révision de 19 et de 17) dans `QUESTIONS.md` ; `docs/ops/GO_LIVE_CHECKLIST.md` (GL-01 à GL-10), liée depuis EXC-003, `DEPLOY.md` §5 et le post-mortem ; `RESUME_HERE.md` quadrilingue ; `docs/ops/CI.md` (dépôt public). Ordre de fusion : **#93 avant #92**.
