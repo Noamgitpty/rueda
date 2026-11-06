@@ -118,6 +118,15 @@ describe('réception des webhooks', () => {
       'fake-signature': `t=${Math.floor(FAKE_T0 / 1000)},v1=${'0'.repeat(64)}`,
     });
     expect(forged).toEqual({ status: 401, outcome: 'REJECTED_SIGNATURE' });
+    // US-049 (RT-CONC-58) : le même faux rejoué reste 401, jamais 200 DUPLICATE ; une seule ligne
+    for (let i = 0; i < 2; i++) {
+      expect(
+        await post(r, d?.body ?? '', {
+          'fake-signature': `t=${Math.floor(FAKE_T0 / 1000)},v1=${'0'.repeat(64)}`,
+        }),
+      ).toEqual({ status: 401, outcome: 'REJECTED_SIGNATURE' });
+    }
+    expect(r.store.inbox).toHaveLength(1);
     expect(r.warnings.some((w) => /REJECTED_SIGNATURE/.test(w))).toBe(true);
     expect(r.store.inbox[0]).toMatchObject({
       status: 'REJECTED_SIGNATURE',

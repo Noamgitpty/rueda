@@ -40,7 +40,12 @@ export interface WebhookInboxStore {
 // --- statuts d'opération (travailleurs, rôle app_worker) ----------------------------------------
 
 export type StatusSource = 'API_RESPONSE' | 'WEBHOOK' | 'POLL' | 'MANUAL_OPS';
-export type ApplyOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'CONFLICT' | 'NOT_FOUND';
+/**
+ * `UNPROVEN` (US-049, 0055) : statut terminal de source WEBHOOK sans webhook signé reçu et rattaché
+ * à l'opération (`rawRef`) ; rien n'est appliqué.
+ */
+export type ApplyOutcome =
+  'APPLIED' | 'DUPLICATE' | 'STALE' | 'CONFLICT' | 'NOT_FOUND' | 'UNPROVEN';
 
 export interface ApplyStatusInput {
   readonly operationId: string;
@@ -65,6 +70,11 @@ export interface InboxItem {
   readonly receivedAt: Date;
   /** Reçu depuis plus de 15 min (17 §4.4 point 6), calculé à l'heure de la BASE. */
   readonly quarantineExpired: boolean;
+  /**
+   * Motif de la quarantaine (`webhook_inbox.error`) : `SIGNED_TIMESTAMP_OUT_OF_TOLERANCE` à la
+   * réception, `OPERATION_NOT_FOUND` au traitement ; `null` pour un élément `RECEIVED`.
+   */
+  readonly quarantineReason: string | null;
   readonly events: readonly NormalizedPaymentEvent[];
 }
 

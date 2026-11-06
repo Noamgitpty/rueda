@@ -682,7 +682,10 @@ class Run {
         lane.worker,
         W(worker),
         now,
-        'core.payment_cmd_apply_operation_status($a1::uuid, $a2::text, $a3::text, NULL, NULL)',
+        // US-049 (RC-5, 0055) : preuve WEBHOOK_SIGNED = webhook signé réellement reçu
+        `core.payment_cmd_apply_operation_status($a1::uuid, $a2::text, $a3::text,
+           CASE WHEN $a3::text = 'WEBHOOK' AND $a2::text IN ('SUCCEEDED', 'FAILED')
+                THEN test_fixture.us049_signed_webhook($a1::uuid, $a2::text) END, NULL)`,
         [op, status, source],
       ),
     );
@@ -1415,7 +1418,9 @@ describe('US-025 — fuzz C11 (L0-09) et oracle C12, PA (USD) et PY (PYG)', () =
           lane.worker,
           W('webhook_ingest'),
           iso(T + 2 * MIN),
-          'core.payment_cmd_apply_operation_status($a1::uuid, $a2::text, $a3::text, NULL, NULL)',
+          // US-049 (RC-5, 0055) : preuve WEBHOOK_SIGNED = webhook signé réellement reçu
+          `core.payment_cmd_apply_operation_status($a1::uuid, $a2::text, $a3::text,
+             test_fixture.us049_signed_webhook($a1::uuid, $a2::text), NULL)`,
           [op, 'SUCCEEDED', 'WEBHOOK'],
         ),
       ).toBe('APPLIED');
