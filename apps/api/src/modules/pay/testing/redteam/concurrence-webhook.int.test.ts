@@ -28,11 +28,20 @@ import {
 } from '../../index.js';
 import type { SqlPool } from '../../index.js';
 import { countryCases } from '../../../../../test/support/countries.js';
-import { FAKE_PROVIDER } from '../fake-payment-provider.js';
 import { FAKE_WEBHOOK_SECRET, fakeStack } from '../fake-stack.js';
 import type { FakeStack } from '../fake-stack.js';
 
 const CASES = countryCases();
+/**
+ * Nom du PSP de ces scènes. Un seul compte `ACTIVE` par (PSP, pays, environnement) peut exister
+ * (`psp_account_one_active`) et `pg-stores.int.test.ts` laisse définitivement un compte FAKE actif :
+ * ces scènes utilisent donc le nom `EBANX` (jamais utilisé ailleurs), servi par le même PSP simulé,
+ * et suspendent leur compte à la fin de chaque test.
+ */
+const PSP_NAME = 'EBANX';
+/** Second nom, pour les scènes qui ont besoin de deux comptes actifs du même pays (RT-CONC-56). */
+const PSP_NAME_2 = 'BAC';
+const accountsToSuspend: string[] = [];
 const set = loadGoldenVectors();
 const LONG = 120_000;
 const enc = new TextEncoder();
@@ -40,6 +49,19 @@ const enc = new TextEncoder();
 const opened: pg.Client[] = [];
 afterEach(async () => {
   for (const c of opened.splice(0)) await releaseClient(c);
+  if (accountsToSuspend.length > 0) {
+    const cleaner = await connectAs('app_worker');
+    try {
+      for (const id of accountsToSuspend.splice(0)) {
+        await cleaner.query(
+          `UPDATE core.payment_psp_account SET status = 'SUSPENDED' WHERE id = $1`,
+          [id],
+        );
+      }
+    } finally {
+      await releaseClient(cleaner);
+    }
+  }
 });
 
 async function open(role: 'app_api' | 'app_worker' | 'app_anon'): Promise<pg.Client> {
@@ -73,6 +95,7 @@ interface Scene {
   readonly operationId: string;
   readonly reference: string;
   readonly idem: string;
+  readonly psp: string;
   /** Service de réception sur la connexion `app_api` donnée. */
   ingestOn(api: pg.Client): WebhookIngestService;
 }
@@ -80,7 +103,7 @@ interface Scene {
 const secrets = { resolve: () => Promise.resolve(enc.encode(FAKE_WEBHOOK_SECRET)) };
 
 /** Compte FAKE, trip, opération SUBMITTED (jambes d'un vecteur TJ), ordre chez le PSP simulé. */
-async function scene(c: Scene['c']): Promise<Scene> {
+async function scene(c: Scene['c'], psp: string = PSP_NAME): Promise<Scene> {
   const capture = legVectors(set, {
     kind: 'ALLOCATION',
     currency: c.currency,
@@ -96,7 +119,7 @@ async function scene(c: Scene['c']): Promise<Scene> {
   await worker.query(
     `INSERT INTO core.payment_psp_account (id, provider, country_code, environment, status, public_webhook_id,
                                            webhook_secret_ref)
-     VALUES ($1, 'FAKE', $2, 'SANDBOX', 'ACTIVE', $3, 'vault:psp/fake/webhook')`,
+     VALUES ($1, $4, $2, 'SANDBOX', 'ACTIVE', $3, 'vault:psp/fake/webhook')`,
     [accountId, c.country, hook],
   );
   await worker.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, 'UTC', $7, $8)`, [
@@ -110,6 +133,7 @@ async function scene(c: Scene['c']): Promise<Scene> {
     '2031-09-03T10:00:00Z',
   ]);
   await worker.query('COMMIT');
+  accountsToSuspend.push(accountId);
 
   const stack = fakeStack();
   stack.clock.now = Date.now(); // l'horodatage signé suit l'heure de la base (± 5 min)
@@ -152,7 +176,7 @@ async function scene(c: Scene['c']): Promise<Scene> {
   );
   const ingestOn = (client: pg.Client): WebhookIngestService =>
     new WebhookIngestService(
-      { get: (p) => (p === FAKE_PROVIDER ? stack.provider : undefined) },
+      { get: (p) => (p === PSP_NAME || p === PSP_NAME_2 ? stack.provider : undefined) },
       new PgWebhookInboxStore(client),
       secrets,
       { warn: () => undefined },
@@ -167,6 +191,7 @@ async function scene(c: Scene['c']): Promise<Scene> {
     operationId,
     reference: order.providerReference,
     idem,
+    psp,
     ingestOn,
   };
 }
@@ -202,7 +227,7 @@ const receive = (
   ingest: WebhookIngestService = s.ingestOn(s.api),
 ) =>
   ingest.receive({
-    provider: 'fake',
+    provider: s.psp.toLowerCase(),
     publicWebhookId: s.hook,
     headers,
     rawBody: enc.encode(body),
@@ -455,7 +480,7 @@ describe.each(CASES)('US-049 red team concurrence — webhooks FAKE ($country, $
     'RT-CONC-56 : webhook inconnu ou d’un autre compte ⇒ aucune opération touchée ; référence de l’opération d’un autre compte ignorée',
     async () => {
       const a = await scene(c);
-      const b = await scene(c);
+      const b = await scene(c, PSP_NAME_2);
       // événement signé du compte B qui revendique la référence de l’opération du compte A
       const forged = JSON.stringify({
         id: 'evt-cross-1',
@@ -473,7 +498,7 @@ describe.each(CASES)('US-049 red team concurrence — webhooks FAKE ($country, $
       expect((await operationStatus(a)).status).toBe('SUBMITTED');
       // point d'entrée inconnu : 404 sans écriture
       const unknown = await b.ingestOn(b.api).receive({
-        provider: 'fake',
+        provider: b.psp.toLowerCase(),
         publicWebhookId: `wh_${randomBytes(12).toString('hex')}`,
         headers: signed(forged),
         rawBody: enc.encode(forged),
