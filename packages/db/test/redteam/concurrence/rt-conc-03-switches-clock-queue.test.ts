@@ -265,18 +265,21 @@ describe.each(COUNTRIES)(
           await withRole(
             role,
             async (client) => {
-              const priv = await client.query<{ w: boolean; d: boolean; u: boolean; t: boolean }>(
-                `SELECT has_table_privilege(current_user, 'core.config_param_value', 'INSERT') AS w,
+              // app_anon n'a même pas l'usage du schéma core : la vérification elle-même est refusée
+              const priv = await client
+                .query<{ w: boolean; d: boolean; u: boolean; t: boolean }>(
+                  `SELECT has_table_privilege(current_user, 'core.config_param_value', 'INSERT') AS w,
                       has_table_privilege(current_user, 'core.config_param_value', 'DELETE') AS d,
                       has_table_privilege(current_user, 'core.config_param_value', 'UPDATE') AS u,
                       has_table_privilege(current_user, 'core.config_param_value', 'TRUNCATE') AS t`,
+                )
+                .then(
+                  (r) => r.rows[0],
+                  (e: unknown) => code(e),
+                );
+              expect(priv, `${role} sur la base de production`).toEqual(
+                role === 'app_anon' ? '42501' : { w: false, d: false, u: false, t: false },
               );
-              expect(priv.rows[0], `${role} sur la base de production`).toEqual({
-                w: false,
-                d: false,
-                u: false,
-                t: false,
-              });
               const members = await client.query<{ rolname: string }>(
                 `SELECT r.rolname FROM pg_roles r
                 WHERE r.rolname <> current_user AND pg_has_role(current_user, r.oid, 'MEMBER')
@@ -452,9 +455,9 @@ describe.each(COUNTRIES)(
       async () => {
         const consumer = workerName('rt_lease');
         const T0 = '2045-06-01T10:00:00.000Z';
-        const ev = await inTx(
+        const ev = await outboxTx(
           api,
-          { commit: true },
+          { actor: 'GUEST', commit: true },
           async (tx) => (await insertEvent(tx, country)).id,
         );
         await outboxTx(worker, { worker: consumer, virtualNow: T0, commit: true }, (tx) =>
@@ -542,9 +545,9 @@ describe.each(COUNTRIES)(
         const owner = workerName('rt_owner');
         const thief = workerName('rt_thief');
         const T0 = '2045-06-02T10:00:00.000Z';
-        const ev = await inTx(
+        const ev = await outboxTx(
           api,
-          { commit: true },
+          { actor: 'GUEST', commit: true },
           async (tx) => (await insertEvent(tx, country)).id,
         );
         await outboxTx(worker, { worker: owner, virtualNow: T0, commit: true }, (tx) =>

@@ -371,11 +371,11 @@ describe.each(COUNTRIES)('US-049 red team concurrence — holds ($country, $curr
         args: unknown[],
       ): Promise<string> => {
         try {
-          await inTx(client, {}, async (tx) => {
+          return await inTx(client, {}, async (tx) => {
             await prepare(tx);
-            await tx.query(sql, args);
+            const r = await tx.query(sql, args);
+            return `EXÉCUTÉ:${r.rowCount ?? 0}`;
           });
-          return 'EXECUTÉ';
         } catch (error) {
           return (error as { code?: string }).code ?? 'SANS_CODE';
         }
