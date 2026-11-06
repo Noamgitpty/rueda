@@ -383,6 +383,8 @@ describe.each(COUNTRIES)(
     const r = refOf(c);
     const capture: Legs = { ...legVector(golden, r.capture).legsMinor };
     const hostOnly: Legs = { ...ZERO, HOST: capture.HOST };
+    /** Refus d'un débit au-delà du remboursable : solde de la jambe ou chaîne de versions. */
+    const REFUSED = ['leg_movement_exceeds_balance', 'leg_refund_exceeds_settlement'];
     const rest: Legs = { ...capture, HOST: 0n };
 
     /** Trip capturé, réglé v1 (no-show) puis requalifié FULL (T08) : capture remboursable. */
@@ -425,7 +427,9 @@ describe.each(COUNTRIES)(
             c.currency,
           );
           const err = await caught(tx, () => applyMovement(tx, extra));
-          expect(err).toMatchObject({ code: '55000', constraint: 'leg_refund_exceeds_settlement' });
+          // refus par le solde de la jambe ou par la chaîne de versions : jamais appliqué
+          expect(err?.code).toBe('55000');
+          expect(REFUSED).toContain(err?.constraint);
           expect(await refundedOf(tx, trip)).toEqual(capture);
         });
       },
@@ -438,6 +442,11 @@ describe.each(COUNTRIES)(
           const s = await settledFull(tx);
           const a = await succeeded(tx, s.trip, s.account, 'REFUND', capture, c.currency);
           const b = await succeeded(tx, s.trip, s.account, 'REFUND', capture, c.currency);
+          // aucun compte PSP ACTIVE laissé aux autres fichiers (index psp_account_one_active) :
+          // le compte, qui n'a plus à enregistrer d'ordre, est suspendu avant la validation
+          await tx.query(`UPDATE core.payment_psp_account SET status = 'SUSPENDED' WHERE id = $1`, [
+            s.account,
+          ]);
           return { trip: s.trip, ops: [a, b] as const };
         }),
       );
@@ -460,9 +469,8 @@ describe.each(COUNTRIES)(
         await first.query('COMMIT');
         const late = await racing;
         await second.query('ROLLBACK');
-        expect(late).toMatchObject({
-          err: { code: '55000', constraint: 'leg_refund_exceeds_settlement' },
-        });
+        expect('err' in late ? late.err.code : 'APPLIQUÉ').toBe('55000');
+        expect(REFUSED).toContain('err' in late ? late.err.constraint : 'APPLIQUÉ');
       } finally {
         await first.query('ROLLBACK').catch(() => undefined);
         await releaseClient(first);
