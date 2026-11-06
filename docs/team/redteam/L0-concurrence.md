@@ -5,6 +5,18 @@
 - Spécifications : 17 (§2.3, §2.5, §4.2, §4.4, §6.5, §0.1, RLS-27), 19 US-049, C1–C20 dont C19 et ADR-068 (fuzz).
 - **Lecture** : chaque test affirme que l'attaque est **bloquée**. Un test rouge en CI est une faille ; aucun n'est masqué ni `skip`. **Ordre des étapes du job « base de données »** : `pnpm test:int` s'exécute avant `pnpm test:l0` et le job s'arrête au premier échec. Tant que RT-CONC-53 et RT-CONC-58 (`test:int`) sont rouges, `test:l0` ne tourne donc pas sur le SHA courant. Les résultats de `test:l0` (groupe `l0-redteam` compris, dont le rouge de RT-CONC-02) ont été lus sur l'exécution 42146563500 (SHA `fef755f`, mêmes tests, RT-CONC-53 et 58 mis en `skip` à titre temporaire pour la lecture, puis réactivés par le commit suivant) ; le rouge de RT-CONC-53 et de RT-CONC-58 est établi sur l'exécution du SHA courant. Tous les scénarios ci-dessous ont été **exécutés en CI** (PostgreSQL local interdit), sous les rôles de production `app_api`, `app_worker`, `app_anon` (assertion L0-05 par `connectAs`), en USD (PA) et en PYG (PY).
 
+## Statut après correction (branche `story/US-049-correctifs-argent`)
+
+Correctifs de l'agent back-end / argent (`claude-opus-5-5`), dans le module PAY ; les tests de la red team ne sont pas modifiés.
+
+| Constat    | Gravité PROPOSÉE | Statut                                               | Correctif                                                                                                                                                                                                                                                                                                          |
+| ---------- | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RT-CONC-53 | moyenne          | **corrigé**                                          | `WebhookProcessor.#authoritative` ne retombe sur le webhook que pour un élément `RECEIVED` ; un élément `QUARANTINED` exige une lecture réussie du PSP (`getOperation`, preuve `POLL`), sinon il reste `QUARANTINED` (`PSP_READ_UNAVAILABLE`) puis passe `FAILED` avec alerte au bout de 15 min (17 §4.4 point 2). |
+| RT-CONC-58 | faible           | **corrigé**                                          | `WebhookIngestService.receive` répond `401 REJECTED_SIGNATURE` à chaque envoi d'une signature invalide, y compris quand la base répond `DUPLICATE` ; une seule ligne d'inbox.                                                                                                                                      |
+| RT-CONC-02 | faible           | non traité ici (agent RLS, commandes de réservation) | Reste rouge sur cette branche tant que la correction de l'agent RLS n'y est pas fusionnée.                                                                                                                                                                                                                         |
+
+Preuves ajoutées : `webhook-processor.test.ts` (élément en quarantaine sans lecture du PSP jamais appliqué, avec lecture appliqué en `POLL`, TJ01 et TJ08a) et `webhook-ingest.test.ts` (faux rejoué : 401 à chaque envoi).
+
 ## Synthèse
 
 |                              |                                                                               |
