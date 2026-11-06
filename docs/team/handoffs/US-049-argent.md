@@ -7,6 +7,6 @@ Branche `story/US-049-redteam-argent`, worktree `../wt/US-049-argent`, PR en bro
 - **Reste (orchestrateur)** :
   1. Verser RC-1 à RC-5 au tableau (`BOARD.md`) en bogues / stories avec leur gravité proposée ; RC-1, RC-2 et RC-3 (élevées) bloquent la porte du lot 0 selon le critère 5 de US-049 (« aucun constat critique ou élevé n'est ouvert ») jusqu'à correction ou décision écrite du fondateur.
   2. Second passage famille B sur les mêmes scénarios (revue dégradée).
-  3. Si `check-story-reviews` échoue sur `packages/db/` : `docs/team/review-requirements.json` (`pathOwners["packages/db/"]`) ne liste pas US-049 ; les règles sont lues sur la base, la correction doit partir de `main` (revue sécurité exigée pour ce fichier).
+  3. `check-story-reviews` : `packages/db/` ne liste pas US-049 dans `pathOwners` de `docs/team/review-requirements.json` ; le job « revues indépendantes » est pourtant vert sur cette PR, mais la liste devrait être complétée depuis `main` si une autre branche de l'US-049 y écrit.
 - **Pièges** : `app_anon` n'a pas accès à `platform.now()` ; `withTestTransaction` ne convient donc pas à ce rôle. Les tests de course (ARG-21) committent un trip et ses soldes capturés, comme L0 EC-54 existant ; ils n'ont pas besoin du groupe isolé (6 connexions). Le fichier `engine` n'ouvre qu'une connexion pour l'assertion L0-05.
 - **Paramètres créés (17 §7.2)** : aucun. **Entités / migrations** : aucune. **Décisions** : aucune (gravités PROPOSÉES).
