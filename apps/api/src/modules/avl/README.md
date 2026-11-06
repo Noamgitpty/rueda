@@ -60,7 +60,7 @@ L'API réelle est SQL (`SECURITY DEFINER` sous `cmd_hold_owner`, ou `SECURITY IN
 - `app_api` : `core.booking_cmd_place_host_block`, `core.booking_cmd_remove_host_block`, `core.booking_cmd_place_hold`, `core.booking_cmd_release_own_hold`, `core.booking_cmd_start_payment`, `core.booking_cmd_record_order` ;
 - `app_worker` : `core.booking_cmd_place_buffer`, `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds`, `core.booking_convert_payment`, `core.booking_record_payment_failure`, balayages `core.booking_intents_due` / `core.booking_record_poll` et `core.booking_disposition_candidates` / `core.booking_disposition_repair` ; oracle C12 `core.booking_production_oracle` (lecture seule) et `core.booking_production_oracle_alert` (travailleur `booking_oracle`).
 
-Dépendances fail-closed en attendant d'autres modules : `core.booking_vehicle_party` ne connaît aucun véhicule tant que CAT n'existe pas (US-115) ; `core.booking_hold_payment_terms` ne rend rien tant que PRC n'existe pas.
+Dépendances fail-closed en attendant d'autres modules : `core.booking_vehicle_party` ne connaît aucun véhicule tant que CAT n'existe pas (US-115) : aucun hold ni, depuis 0054 (US-049, ADR-088), aucun blocage de calendrier n'est possible en production avant le catalogue ; un hold est refusé (`SELF_BOOKING_FORBIDDEN`) au titulaire et à tout membre du compte d'hôte du véhicule ; `core.booking_hold_payment_terms` ne rend rien tant que PRC n'existe pas.
 
 ## Commandes de test
 

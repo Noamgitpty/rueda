@@ -15,6 +15,18 @@
 | Suite existante RLS-1 à RLS-28                  | **verte** (aucun des fichiers `l0-rls-*`, `l0-pay-legs-rls`, `l0-us062-*`, `l0-hold-commands`, `l0-staff-console`, `l0-iam-*` n'a échoué) |
 | Autre échec de la CI `base de données`          | `l0-us043-authorization-matrix` « relations lisibles par app_api peuplées » (voir F-RLS-05) : **sans lien avec une faille de sécurité**   |
 
+## Statut des constats après correction (branche `story/US-049-correctifs-rls`, ADR-088)
+
+| Constat  | Gravité                 | Statut                         | Traitement                                                                                                                                                                                                                                                                                                                                |
+| -------- | ----------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-RLS-01 | PROPOSÉ critique        | **Corrigé** (à rejouer en CI)  | migration 0054 : la pose et la levée d'un blocage exigent `booking_vehicle_party(véhicule)` = compte (et pays) de la session ; véhicule inconnu refusé (fail-closed). Clé étrangère vers `catalog_vehicle` : impossible au lot 0 (table absente), à poser par US-115 (ADR-060). RT-RLS-17 inchangé, attendu vert.                         |
+| F-RLS-02 | PROPOSÉ critique        | **Corrigé** (à rejouer en CI)  | migration 0054 : `booking_cmd_place_hold` refuse tout membre `ACTIVE` ou `INVITED` du compte d'hôte du véhicule (`SELF_BOOKING_FORBIDDEN`), PA et PY. RT-RLS-13 inchangé, attendu vert ; contours (invitation, hors portée, ex-co-hôte, autre compte) dans `l0-us049-rls-fixes`.                                                          |
+| F-RLS-03 | PROPOSÉ élevée          | **Ouvert, décision à prendre** | non fermé au lot 0 : analyse, parades étudiées et risque résiduel dans ADR-088 (« F-RLS-03 : analyse »). Parade compensatoire livrée : règle de lint `rueda/no-dynamic-sql` (aucun SQL construit à partir de données dans le code applicatif, 17 §2.3 RLS-18). RT-RLS-18 inchangé (caractérisation : il passe tant que la limite existe). |
+| F-RLS-04 | PROPOSÉ faible          | **Corrigé** (à rejouer en CI)  | amorçage § 3 : `REVOKE EXECUTE … FROM PUBLIC` sur `pg_logical_emit_message`, `lo_creat`, `lo_create`, `lo_from_bytea`, `lo_import`, `lo_export`, `pg_cancel_backend`, `pg_terminate_backend`, dans chaque base ; preuve `l0-us049-rls-fixes` (base de test et base de production du banc, trois rôles).                                   |
+| F-RLS-05 | robustesse (pas faille) | **Corrigé** (à rejouer en CI)  | `l0-us043-authorization-matrix` publie lui-même un actif de marque (bloc de contenu commun à clé propre) par les vraies commandes ; la table reste exigée peuplée (pas de `sans_donnees`).                                                                                                                                                |
+
+Aucun test de la red team n'a été modifié par la correction.
+
 ## Rejouer
 
 ```bash
