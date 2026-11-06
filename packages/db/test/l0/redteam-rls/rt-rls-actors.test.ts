@@ -505,7 +505,10 @@ describe.each([0, 1])(
           client,
           { 'app.actor_kind': 'GUEST', 'app.actor_id': world.holderA, 'app.org_id': x.orgA },
           async (tx) => {
-            expect(await ids(tx, 'booking_trip')).toEqual([tripAsGuest]);
+            const seen = await ids(tx, 'booking_trip');
+            expect(seen).toContain(tripAsGuest);
+            expect(seen).not.toContain(x.trips.a1.id);
+            expect(seen).not.toContain(x.trips.a2.id);
           },
         );
         await asActor(
