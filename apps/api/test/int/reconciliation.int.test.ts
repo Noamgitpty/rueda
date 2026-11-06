@@ -13,6 +13,9 @@
  *   - l'oracle C12 (`core.booking_production_oracle`, travailleur `booking_oracle`) : 0 écart.
  * Un autre travailleur ne lit rien : le contrôle refuse de rendre des zéros trompeurs.
  *
+ * Écart injecté : une version en écart, par contrôle, est ajoutée aux SOURCES des requêtes
+ * d'agrégat (la base refuserait de l'écrire) ; chacune doit être détectée par son contrôle.
+ *
  * Nuit (nightly.yml, job `rapprochement`) : `RUEDA_QA_REPORT_DIR` reçoit le rapport JSON (comptes
  * seulement) publié au tableau de bord QA (scripts/qa/nightly-dashboard.mjs, ADR-087).
  */
@@ -28,12 +31,23 @@ import type { SettlementRecord } from '@rueda/money';
 import { legVector, loadGoldenVectors, settlementVector } from '@rueda/money/golden-vectors';
 import { testParams, toEvent, toTrip } from '@rueda/money/testing';
 import {
+  evaluateMoneyReconciliation,
+  LEG_BALANCE_SOURCE,
+  legBalanceAggregatesSql,
   MONEY_RECONCILIATION_CHECKS,
   MoneyReconciliationContractError,
+  parseLegBalanceRow,
+  parseSettlementRow,
   reconciliationReportJson,
   runMoneyReconciliation,
+  SETTLEMENT_LEG_SOURCE,
+  SETTLEMENT_SOURCE,
+  settlementAggregatesSql,
 } from '../../src/modules/fin/index.js';
-import type { MoneyReconciliationReport } from '../../src/modules/fin/index.js';
+import type {
+  MoneyReconciliationCheck,
+  MoneyReconciliationReport,
+} from '../../src/modules/fin/index.js';
 import type { SqlClient } from '../../src/modules/bus/index.js';
 import { countryCases } from '../support/countries.js';
 
@@ -45,8 +59,8 @@ const uuid = (): string => randomUUID();
  * configuration associe à cette devise (jamais une constante du code, ADR-024).
  */
 const JOURNEYS = [
-  { a: 'T03', b: 'T05', capture: 'TJ01', v2: 'TJ18a' },
-  { a: 'T27', b: 'T41', capture: 'TJ08a', v2: 'TJ18c' },
+  { a: 'T03', b: 'T05', capture: 'TJ01', variation: 'TJ02b', v2: 'TJ18a' },
+  { a: 'T27', b: 'T41', capture: 'TJ08a', variation: 'TJ08b', v2: 'TJ18c' },
 ] as const;
 type Journey = (typeof JOURNEYS)[number];
 
@@ -289,4 +303,227 @@ describe('US-047 — parcours doré de règlement puis rapprochement, dans chaqu
       }),
     );
   });
+});
+
+// --- Écart injecté (revues code et qa US-047) ---------------------------------------------------
+// La base refuse d'écrire un règlement ou un solde en écart (contraintes, trigger différé, 0027) :
+// on ajoute donc la ligne en écart aux SOURCES des requêtes d'agrégat (`UNION ALL`, paramètres
+// liés), à côté des vraies tables, et on vérifie que l'agrégat SQL de la tâche la détecte, sur
+// PostgreSQL réel, sous app_worker. La ligne de départ est la version 1 du vecteur de 08 (T03 en
+// USD, T27 en PYG) : en-tête de l'export, jambes retenues = capture + variation (TJ01 + TJ02b,
+// TJ08a + TJ08b ; 08 E7 règle 3).
+
+const LEG_NAMES = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
+type LegName = (typeof LEG_NAMES)[number];
+
+interface InjectedSettlement {
+  readonly version: number;
+  readonly supersedesId: string | null;
+  readonly totalPaid: bigint;
+  readonly guestRefund: bigint;
+  readonly retained: bigint;
+  readonly retainedTax: bigint;
+  readonly hostFromGuest: bigint;
+  readonly legs: Partial<Record<LegName, { readonly kept: bigint; readonly variation: bigint }>>;
+}
+
+function v1FromVectors(j: Journey): InjectedSettlement {
+  const v = settlementVector(golden, j.a);
+  const capture = legVector(golden, j.capture);
+  const variation = legVector(golden, j.variation);
+  const legs = Object.fromEntries(
+    LEG_NAMES.map((l) => [
+      l,
+      {
+        kept: capture.legsMinor[l] + variation.legsMinor[l],
+        variation: variation.legsMinor[l],
+      },
+    ]),
+  ) as Record<LegName, { kept: bigint; variation: bigint }>;
+  return {
+    version: 1,
+    supersedesId: null,
+    totalPaid: v.trip.totalPaidMinor,
+    guestRefund: v.expected.guestRefundMinor,
+    retained: v.expected.retainedMinor,
+    retainedTax: v.expected.retainedTaxMinor,
+    hostFromGuest: v.expected.hostFromGuestMinor,
+    legs,
+  };
+}
+
+const keptOf = (s: InjectedSettlement, leg: LegName): bigint => s.legs[leg]?.kept ?? 0n;
+
+const withLeg = (
+  s: InjectedSettlement,
+  leg: LegName,
+  patch: Partial<{ kept: bigint; variation: bigint }>,
+): InjectedSettlement => {
+  const cur = s.legs[leg];
+  if (cur === undefined) throw new Error(`jambe ${leg} absente`);
+  return { ...s, legs: { ...s.legs, [leg]: { ...cur, ...patch } } };
+};
+
+const withoutLeg = (s: InjectedSettlement, leg: LegName): InjectedSettlement => ({
+  ...s,
+  legs: Object.fromEntries(Object.entries(s.legs).filter(([l]) => l !== leg)),
+});
+
+/** Rapport de la tâche sur les vraies tables PLUS une version (et un solde) injectés. */
+async function reportWithInjected(
+  tx: pg.ClientBase,
+  country: string,
+  s: InjectedSettlement,
+  balance?: { readonly captured: bigint; readonly released: bigint },
+): Promise<MoneyReconciliationReport> {
+  await asWorker(tx, 'reconciliation');
+  const params: unknown[] = [];
+  const p = (value: unknown, type: string): string => {
+    params.push(typeof value === 'bigint' ? value.toString() : value);
+    return `$${String(params.length)}::${type}`;
+  };
+  const id = uuid();
+  const header = [
+    p(id, 'uuid'),
+    p(uuid(), 'uuid'),
+    '1',
+    p(s.version, 'integer'),
+    p(s.supersedesId, 'uuid'),
+    p(country, 'text'),
+    p(s.totalPaid, 'bigint'),
+    p(s.guestRefund, 'bigint'),
+    p(s.retained, 'bigint'),
+    p(s.retainedTax, 'bigint'),
+    p(s.hostFromGuest, 'bigint'),
+  ];
+  const settlements = `${SETTLEMENT_SOURCE}
+    UNION ALL SELECT * FROM (VALUES (${header.join(', ')}))
+      AS v(id, trip_id, segment_no, version, supersedes_id, country_code, total_paid_minor,
+           guest_refund_minor, retained_minor, retained_tax_minor, host_from_guest_minor)`;
+  const legRows = Object.entries(s.legs).map(([leg, l]) => {
+    const row = [
+      p(id, 'uuid'),
+      p(leg, 'text'),
+      p(l.kept, 'bigint'),
+      '0::bigint',
+      p(l.variation, 'bigint'),
+    ];
+    return `(${row.join(', ')})`;
+  });
+  const legs = `${SETTLEMENT_LEG_SOURCE}
+    UNION ALL SELECT * FROM (VALUES ${legRows.join(', ')})
+      AS v(settlement_id, leg, kept_minor, advance_minor, variation_minor)`;
+  const settlementRows = await tx.query<Record<string, unknown>>(
+    settlementAggregatesSql(settlements, legs),
+    params,
+  );
+  const balanceParams =
+    balance === undefined
+      ? []
+      : [country, balance.captured.toString(), balance.released.toString()];
+  const balances =
+    balance === undefined
+      ? LEG_BALANCE_SOURCE
+      : `${LEG_BALANCE_SOURCE}
+    UNION ALL SELECT * FROM (VALUES ($1::text, $2::bigint, 0::bigint, 0::bigint, 0::bigint, $3::bigint))
+      AS v(country_code, captured_minor, refunded_minor, reallocated_in_minor,
+           reallocated_out_minor, released_minor)`;
+  const balanceRows = await tx.query<Record<string, unknown>>(
+    legBalanceAggregatesSql(balances),
+    balanceParams,
+  );
+  return evaluateMoneyReconciliation(
+    settlementRows.rows.map(parseSettlementRow),
+    balanceRows.rows.map(parseLegBalanceRow),
+  );
+}
+
+/** Une altération par contrôle ; chacune doit être détectée par SON contrôle, dans le bon pays. */
+const INJECTIONS: readonly [
+  string,
+  MoneyReconciliationCheck,
+  (s: InjectedSettlement) => InjectedSettlement,
+][] = [
+  [
+    'Σ jambes = retenu TTC + 1',
+    'SETTLEMENT_LEGS_SUM',
+    (s) => withLeg(s, 'PLATFORM', { kept: keptOf(s, 'PLATFORM') + 1n }),
+  ],
+  ['jambe INSURER absente', 'SETTLEMENT_LEGS_INCOMPLETE', (s) => withoutLeg(s, 'INSURER')],
+  [
+    'HOST + 1, PLATFORM − 1 (somme intacte)',
+    'SETTLEMENT_HOST_LEG',
+    (s) =>
+      withLeg(withLeg(s, 'HOST', { kept: keptOf(s, 'HOST') + 1n }), 'PLATFORM', {
+        kept: keptOf(s, 'PLATFORM') - 1n,
+      }),
+  ],
+  [
+    'jambe TAX_THIRD_PARTY négative (PLATFORM compense)',
+    'SETTLEMENT_LEG_NEGATIVE',
+    (s) =>
+      withLeg(withLeg(s, 'TAX_THIRD_PARTY', { kept: -1n }), 'PLATFORM', {
+        kept: keptOf(s, 'PLATFORM') + 1n + keptOf(s, 'TAX_THIRD_PARTY'),
+      }),
+  ],
+  ['total payé + 1', 'SETTLEMENT_REFUND_BALANCE', (s) => ({ ...s, totalPaid: s.totalPaid + 1n })],
+  [
+    'Σ variations ≠ − remboursement',
+    'SETTLEMENT_VARIATIONS_REFUND',
+    (s) => withLeg(s, 'PLATFORM', { variation: (s.legs.PLATFORM?.variation ?? 0n) + 1n }),
+  ],
+  [
+    'version 2 qui remplace une version inexistante',
+    'SETTLEMENT_VERSION_CHAIN',
+    (s) => ({ ...s, version: 2, supersedesId: uuid() }),
+  ],
+];
+
+describe('US-047 — un écart injecté est détecté par l’agrégat SQL (PostgreSQL réel, app_worker)', () => {
+  it.each(CASES)('$country ($currency) : version de départ cohérente ⇒ 0 écart', async (c) => {
+    await withRole('app_worker', (client) =>
+      withTestTransaction(client, {}, async (tx) => {
+        await asWorker(tx, 'reconciliation');
+        const baseline = await runMoneyReconciliation(sqlOf(tx));
+        expect(baseline.violations).toBe(0n);
+        const r = await reportWithInjected(tx, c.country, v1FromVectors(c.journey), {
+          captured: 10n,
+          released: 10n,
+        });
+        expect(reconciliationReportJson(r).violations).toBe('0');
+        expect(r.examined.settlements[c.country]).toBe(
+          (baseline.examined.settlements[c.country] ?? 0) + 1,
+        );
+      }),
+    );
+  });
+
+  for (const c of CASES) {
+    it.each(INJECTIONS)(`${c.country} : %s ⇒ %s`, async (_label, check, corrupt) => {
+      await withRole('app_worker', (client) =>
+        withTestTransaction(client, {}, async (tx) => {
+          const r = await reportWithInjected(tx, c.country, corrupt(v1FromVectors(c.journey)));
+          expect(
+            r.checks[check].byCountry[c.country],
+            JSON.stringify(reconciliationReportJson(r)),
+          ).toBe(1n);
+          expect(r.violations).toBeGreaterThanOrEqual(1n);
+        }),
+      );
+    });
+
+    it(`${c.country} : solde de jambe à découvert (libéré > capturé) ⇒ LEG_BALANCE_OVERDRAWN`, async () => {
+      await withRole('app_worker', (client) =>
+        withTestTransaction(client, {}, async (tx) => {
+          const captured = legVector(golden, c.journey.capture).legsMinor.HOST;
+          const r = await reportWithInjected(tx, c.country, v1FromVectors(c.journey), {
+            captured,
+            released: captured + 1n,
+          });
+          expect(r.checks.LEG_BALANCE_OVERDRAWN.byCountry[c.country]).toBe(1n);
+          expect(r.violations).toBe(1n);
+        }),
+      );
+    });
+  }
 });

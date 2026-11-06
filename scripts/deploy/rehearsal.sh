@@ -73,7 +73,7 @@ local_compose logs --no-color worker | grep -q '"event":"worker.started"' ||
   fail 'travailleur : démarrage non journalisé'
 local_compose logs --no-color worker | grep -q '"queues":\["booking_oracle","disposition_sweeper","hold_expiry","ntf_dispatcher","ntf_sender","ops_monitor","reconciliation","risk_pruner"\]' ||
   fail 'travailleur : files attendues absentes'
-say 'travailleur en marche, sept files déclarées (dont ops_monitor, US-004)'
+say 'travailleur en marche, huit files déclarées (dont ops_monitor, US-004, et reconciliation, US-047)'
 
 refuse() {
   local why="$1" pattern="$2" out code

@@ -112,11 +112,33 @@ export const RECONCILIATION_CONTEXT_SQL =
   'SELECT app.actor_kind() AS actor_kind, app.worker_name() AS worker_name';
 
 /**
+ * Sources lues par le contrôle : les tables de STL, colonnes utiles seulement (aucune donnée
+ * personnelle). Les requêtes d'agrégat les reçoivent en CTE : le test d'intégration y ajoute
+ * (`UNION ALL`) une ligne en écart, que la base refuserait d'écrire, pour prouver sur PostgreSQL réel
+ * que l'agrégat la détecte. La tâche de production n'utilise que ces sources.
+ */
+export const SETTLEMENT_SOURCE = `SELECT id, trip_id, segment_no, version, supersedes_id, country_code,
+         total_paid_minor, guest_refund_minor, retained_minor, retained_tax_minor,
+         host_from_guest_minor
+    FROM core.settlement_settlement`;
+export const SETTLEMENT_LEG_SOURCE = `SELECT settlement_id, leg, kept_minor, advance_minor, variation_minor
+    FROM core.settlement_settlement_leg`;
+export const LEG_BALANCE_SOURCE = `SELECT country_code, captured_minor, refunded_minor,
+         reallocated_in_minor, reallocated_out_minor, released_minor
+    FROM core.settlement_trip_leg_balance`;
+
+/**
  * Une ligne par version de règlement : en-tête, version remplacée et agrégats des jambes. Montants
  * en texte (bigint exact, jamais un nombre JavaScript). Aucune donnée personnelle, aucun identifiant
  * rendu. Lecture seule ; aucune horloge.
  */
-export const SETTLEMENT_AGGREGATES_SQL = `
+export function settlementAggregatesSql(
+  settlements: string = SETTLEMENT_SOURCE,
+  legs: string = SETTLEMENT_LEG_SOURCE,
+): string {
+  return `
+WITH st AS (${settlements}),
+     lg AS (${legs})
 SELECT s.country_code AS country,
        s.version,
        (s.supersedes_id IS NOT NULL) AS has_previous,
@@ -134,8 +156,8 @@ SELECT s.country_code AS country,
        COALESCE(l.signed_sum, 0)::text AS signed_sum,
        COALESCE(l.variation_sum, 0)::text AS variation_sum,
        l.host_kept::text AS host_kept
-  FROM core.settlement_settlement AS s
-  LEFT JOIN core.settlement_settlement AS p ON p.id = s.supersedes_id
+  FROM st AS s
+  LEFT JOIN st AS p ON p.id = s.supersedes_id
   LEFT JOIN LATERAL (
     SELECT pg_catalog.array_agg(g.leg ORDER BY g.leg) AS legs,
            pg_catalog.min(g.kept_minor) AS min_kept,
@@ -143,19 +165,27 @@ SELECT s.country_code AS country,
            pg_catalog.sum(g.kept_minor - g.advance_minor) AS signed_sum,
            pg_catalog.sum(g.variation_minor) AS variation_sum,
            pg_catalog.sum(g.kept_minor) FILTER (WHERE g.leg = 'HOST') AS host_kept
-      FROM core.settlement_settlement_leg AS g
+      FROM lg AS g
      WHERE g.settlement_id = s.id
   ) AS l ON true`;
+}
 
 /** Une ligne par jambe de segment tenue (`trip_leg_balance`). */
-export const LEG_BALANCE_AGGREGATES_SQL = `
+export function legBalanceAggregatesSql(balances: string = LEG_BALANCE_SOURCE): string {
+  return `
+WITH b AS (${balances})
 SELECT b.country_code AS country,
        b.captured_minor::text AS captured,
        b.refunded_minor::text AS refunded,
        b.reallocated_in_minor::text AS reallocated_in,
        b.reallocated_out_minor::text AS reallocated_out,
        b.released_minor::text AS released
-  FROM core.settlement_trip_leg_balance AS b`;
+  FROM b`;
+}
+
+/** Requêtes de la tâche de production (sources réelles seulement). */
+export const SETTLEMENT_AGGREGATES_SQL = settlementAggregatesSql();
+export const LEG_BALANCE_AGGREGATES_SQL = legBalanceAggregatesSql();
 
 const MINOR = /^-?[0-9]{1,19}$/;
 const COUNTRY = /^[A-Z]{2}$/;

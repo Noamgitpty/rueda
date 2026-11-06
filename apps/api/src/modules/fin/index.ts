@@ -16,13 +16,20 @@ export type {
 // `reconciliation`, lecture seule, comptes par contrôle et par pays.
 export {
   evaluateMoneyReconciliation,
+  LEG_BALANCE_SOURCE,
+  legBalanceAggregatesSql,
   MONEY_RECONCILIATION_CHECKS,
   MONEY_RECONCILIATION_PERIOD_SECONDS,
   MONEY_RECONCILIATION_WORKER,
   MoneyReconciliationContractError,
+  parseLegBalanceRow,
+  parseSettlementRow,
   reconciliationReportJson,
   registerMoneyReconciliation,
   runMoneyReconciliation,
+  SETTLEMENT_LEG_SOURCE,
+  SETTLEMENT_SOURCE,
+  settlementAggregatesSql,
 } from './internal/money-reconciliation.js';
 export type {
   MoneyReconciliationCheck,
