@@ -20,6 +20,17 @@ export const SETTLEMENT_ERROR_CODES = [
    * revue FIN (`negativeLeg`).
    */
   'LEG_AMOUNT_NEGATIVE',
+  /** PROPOSÉ (ADR-090) : promo > 0 ou prix < 0 (08 pseudo-code `LINES` : promos ≤ 0). */
+  'LINE_SIGN_INVALID',
+  /** PROPOSÉ (ADR-090) : Σ promos au-delà du prix du véhicule (08 BR-PAY-07, E7 règle 5). */
+  'PROMO_EXCEEDS_TRIP_PRICE',
+  /** PROPOSÉ (ADR-090) : total payé ≤ 0 (négatif : 08 E1 ; nul : défaut fail-closed, Q-013). */
+  'TOTAL_PAID_NOT_POSITIVE',
+  /**
+   * PROPOSÉ (ADR-090) : remboursement hors de [0 ; total payé], ou taxe remboursée d'un groupe hors
+   * de [0 ; taxe payée] (08 E1 ; Q-014).
+   */
+  'REFUND_OUT_OF_RANGE',
 ] as const;
 
 export type SettlementErrorCode = (typeof SETTLEMENT_ERROR_CODES)[number];
