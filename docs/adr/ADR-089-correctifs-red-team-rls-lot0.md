@@ -1,7 +1,7 @@
-# ADR-088 — Correctifs de la red team RLS de la porte du lot 0 (propriété du véhicule, auto-réservation, fonctions PUBLIC, SQL dynamique) et ouverture de session (RLS-18)
+# ADR-089 — Correctifs de la red team RLS de la porte du lot 0 (propriété du véhicule, auto-réservation, fonctions PUBLIC, SQL dynamique) et ouverture de session (RLS-18)
 
 - **Statut** : PROPOSÉ (US-049, agent back-end, claude-opus-5-5, 2026-11-05). Revues exigées : code, architecture, **sécurité**, argent (story US-049) ; RLS, rôles et `SECURITY DEFINER` sur un **autre modèle** que l'auteur (contrainte 1). À reporter dans 17 §8.1 (journal des ADR) et §2.3 (RLS-18, commandes de blocage, auto-réservation).
-- **Sources** : `docs/team/redteam/L0-rls.md` (F-RLS-01 à F-RLS-05) ; 16 CAL-011, BKG-012, ACC-014 ; 17 §2.3 (« Limite de la RLS », RLS-15, RLS-18, droits d'écriture, rôles d'exécution des commandes), §2.5 ; ADR-052 (port d'authentification), ADR-053 (propriétaires NOLOGIN), ADR-060 (occupation unique, « Limites »), ADR-062 (preuve HMAC d'élévation MFA), ADR-063 (holds), ADR-081 (expand / contract), ADR-082 (rotation de la clé de preuve).
+- **Sources** : `docs/team/redteam/L0-rls.md` (F-RLS-01 à F-RLS-05), `docs/team/redteam/L0-concurrence.md` (RT-CONC-02, « fin infinie ») ; 16 CAL-011, BKG-012, ACC-014 ; 17 §2.3 (« Limite de la RLS », RLS-15, RLS-18, droits d'écriture, rôles d'exécution des commandes), §2.5 ; ADR-052 (port d'authentification), ADR-053 (propriétaires NOLOGIN), ADR-060 (occupation unique, « Limites »), ADR-062 (preuve HMAC d'élévation MFA), ADR-063 (holds), ADR-081 (expand / contract), ADR-082 (rotation de la clé de preuve).
 
 ## Contexte
 
@@ -12,6 +12,7 @@ La red team RLS de la porte du lot 0 (US-049, critère 3) a trouvé deux failles
 - **F-RLS-03** (élevée, limite RLS-18 déjà écrite) : `core.iam_cmd_open_session(session, user_id, empreinte, …)` permet à `app_api`, sous SQL arbitraire, d'ouvrir une session pour n'importe quel compte, avec une empreinte de jeton qu'il choisit.
 - **F-RLS-04** (faible) : `pg_logical_emit_message` est exécutable par `app_anon` (PUBLIC par défaut).
 - **F-RLS-05** (robustesse) : le test « relations lisibles par app_api peuplées » de la matrice d'US-043 dépendait de l'ordre des fichiers.
+- **RT-CONC-02, « fin infinie »** (red team concurrence, PROPOSÉ faible) : `booking_cmd_place_hold` acceptait une fin `infinity`, et aucune durée maximale n'était contrôlée à la pose.
 
 ## Décision
 
@@ -21,6 +22,7 @@ La red team RLS de la porte du lot 0 (US-049, critère 3) a trouvé deux failles
 4. **SQL dynamique interdit dans le code applicatif (parade compensatoire de F-RLS-03).** Nouvelle règle ESLint `rueda/no-dynamic-sql`, demandée par 17 §2.3 (RLS-18 : « lint : aucun chemin de SQL dynamique exposé ») et absente jusqu'ici. Elle s'applique au code exécuté sous un rôle applicatif (`apps/*/src/**`, `packages/*/src/**`), hors tests et hors outils d'administration de `@rueda/db` exécutés sous `migrator` ou l'administration (amorçage, base de développement, déploiement, rotation, vérification de restauration, harnais). Le premier argument de `query()` doit être un texte fixe : littéral, gabarit sans interpolation, gabarit étiqueté, constante du module, constante locale fixe, ou objet `{ text }` fixe. Sont refusés le gabarit interpolé, la concaténation, l'appel de fonction et la constante locale construite ainsi. Une seule exception est déclarée, ligne à ligne et motivée : l'export des données personnelles, dont les identifiants viennent de l'inventaire versionné et sont cités. **Limite** : un enrobage `query(text, values)` dont `text` est un paramètre n'est pas suivi. Ses appelants passent des constantes, et la revue de code reste le contrôle.
 5. **F-RLS-03 n'est pas fermée au lot 0. Le constat reste ouvert, à la décision de l'orchestrateur** (voir « F-RLS-03 : analyse » ci-dessous). Le test de caractérisation RT-RLS-18 reste inchangé : il passe tant que la limite existe.
 6. **F-RLS-05** : la matrice d'US-043 publie elle-même, par les vraies commandes (ADMIN des deux pays, session élevée du monde de test), un actif de marque référencé par un bloc de contenu commun. La clé de ce bloc est propre au fichier, et aucun autre test ne le remplace ni ne l'archive. La table reste exigée peuplée, sans `sans_donnees` : le contrôle n'est pas affaibli.
+7. **Périodes bornées (RT-CONC-02, red team concurrence, migration 0054).** `booking_cmd_place_hold` exige deux bornes finies (`isfinite`) et une durée fin − début d'au plus `max_trip_days` jours du pays du véhicule. Ce paramètre existe déjà : 17 §7.2, 30 jours, ADM-031, « décidé (bêta) », graine 0009. Au-delà, la réponse est `INVALID_PERIOD`. Un paramètre absent ou mal formé donne `PARAM_MISSING` (fail-closed), comme les autres paramètres de la pose. `cmd_hold_owner` lit cette clé : la politique `cmd_hold_read` de `config_param_value` est recréée sous le même nom. `booking_cmd_place_host_block` avait le même défaut (`-infinity` ou `infinity` acceptés) : il exige aussi des bornes finies, mais sans plafond de durée, puisque l'hôte bloque son propre véhicule (BR-BOOK-07).
 
 ## F-RLS-03 : analyse
 

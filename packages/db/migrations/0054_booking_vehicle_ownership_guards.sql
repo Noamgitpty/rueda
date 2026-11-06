@@ -1,7 +1,7 @@
--- 0054 — AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée.
+-- 0054 — AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées.
 -- US-049 (porte du lot 0, correctifs de la red team RLS : docs/team/redteam/L0-rls.md, F-RLS-01
 -- et F-RLS-02) ; 16 CAL-011, BKG-012, ACC-014 ; 17 §2.3 (« org_id = catalog.vehicle_org(vehicle_id),
--- jamais choisi par le client », RLS-15), §2.5 ; ADR-053, ADR-060, ADR-063 ; ADR-088. Appliquée
+-- jamais choisi par le client », RLS-15), §2.5 ; ADR-053, ADR-060, ADR-063 ; ADR-089. Appliquée
 -- sous `migrator`.
 --
 -- 1. F-RLS-01 (PROPOSÉ critique, RT-RLS-17 « squatting ») : `core.booking_cmd_place_host_block`
@@ -18,7 +18,7 @@
 --    profondeur : un blocage ne se lève que sur un véhicule du compte).
 --    La clé étrangère (vehicle_id, org_id, country_code) vers catalog_vehicle prévue par ADR-060
 --    ne peut pas être posée au lot 0 : la table du catalogue n'existe pas. Elle vient avec US-115,
---    qui remplace aussi le corps de booking_vehicle_party (ADR-088).
+--    qui remplace aussi le corps de booking_vehicle_party (ADR-089).
 --    `booking_cmd_place_buffer` n'est pas concerné : le tampon reprend le véhicule, le compte et le
 --    pays du trip, jamais un argument (0032).
 -- 2. F-RLS-02 (PROPOSÉ critique, RT-RLS-13) : `self_booking_forbidden` ne comparait que le
@@ -26,11 +26,24 @@
 --    d'hôte du véhicule (titulaire ou co-hôte, appartenance ACTIVE ou INVITED : un compte lié au
 --    véhicule, 16 BKG-012 / ACC-014), avec la même erreur `hold_self_booking`
 --    (SELF_BOOKING_FORBIDDEN), dans les deux pays. Les autres liens (carte, appareil) restent à la
---    revue KYC (16 ACC-014, lot 2). Corps de 0037 recopié à l'identique, hors ce contrôle.
+--    revue KYC (16 ACC-014, lot 2). Corps de 0037 recopié à l'identique, hors ce contrôle et le
+--    point 3.
+-- 3. RT-CONC-02, partie « fin infinie » (red team concurrence, docs/team/redteam/L0-concurrence.md,
+--    PROPOSÉ faible) : `booking_cmd_place_hold` acceptait une fin `infinity` (période occupée
+--    [début, infini)). La pose exige désormais deux bornes finies (`isfinite`) et une durée
+--    fin - début d'au plus `max_trip_days` jours du pays du véhicule (17 §7.2 : 30 j, ADM-031,
+--    « décidé (bêta) » ; graine 0009) : au-delà, `occupancy_period_invalid` (INVALID_PERIOD) ;
+--    paramètre absent ou mal formé, `hold_param_missing` (PARAM_MISSING), comme les autres
+--    paramètres de la pose (fail-closed). La politique cmd_hold_read de config_param_value est
+--    recréée sous le même nom avec cette clé en plus (liste de 0040 inchangée sinon).
+--    `booking_cmd_place_host_block` avait le même défaut (début `-infinity` ou fin `infinity`
+--    acceptés) : bornes finies exigées. Aucun plafond de durée pour un blocage : l'hôte bloque son
+--    propre véhicule aussi longtemps qu'il le veut (BR-BOOK-07), sur ses seuls véhicules depuis le
+--    point 1.
 --
 -- Droits ajoutés (au plus juste) : SELECT (org_id, user_id, status) de core.iam_membership pour
 -- cmd_hold_owner, sous la politique cmd_hold_read (lecture seule, propriétaire NOLOGIN ; aucun rôle
--- applicatif ne gagne de droit). Propriétaires, EXECUTE et entrées RLS-15 inchangés.
+-- applicatif ne gagne de droit) ; la clé max_trip_days lisible par cmd_hold_owner. Propriétaires, EXECUTE et entrées RLS-15 inchangés.
 --
 -- Expand / contract : remplacement de corps de fonctions (même signature, même propriétaire) et
 -- ajout d'un droit et d'une politique ; aucune contraction. La version N servie appelle les mêmes
@@ -42,11 +55,23 @@
 --   core.booking_cmd_place_hold(uuid, timestamptz, timestamptz, boolean) (sous cmd_hold_owner,
 --   CREATE sur core accordé le temps du remplacement, comme ci-dessous) ;
 --   DROP POLICY cmd_hold_read ON core.iam_membership;
+--   recréer cmd_hold_read de core.config_param_value avec la liste de clés de 0040 ;
 --   REVOKE SELECT (org_id, user_id, status) ON core.iam_membership FROM cmd_hold_owner.
 
 -- 1. Lecture des appartenances par les commandes de hold --------------------------------------
 GRANT SELECT (org_id, user_id, status) ON core.iam_membership TO cmd_hold_owner;
 CREATE POLICY cmd_hold_read ON core.iam_membership FOR SELECT TO cmd_hold_owner USING (true);
+
+-- Clés lues par les commandes de hold : liste de 0040 + max_trip_days (RT-CONC-02). Même nom,
+-- même table : remplacement admis (ADR-081).
+DROP POLICY cmd_hold_read ON core.config_param_value;
+CREATE POLICY cmd_hold_read ON core.config_param_value FOR SELECT TO cmd_hold_owner
+  USING (key IN ('buffer_minutes', 'hold_ttl_minutes', 'hold_max_total_minutes',
+                 'max_active_holds_per_guest', 'hold_creations_per_guest_vehicle_hour',
+                 'sweep_grace_s', 'flagged_booking_payment_order', 'review_hold_minutes',
+                 'payment_in_flight_margin_s', 'psp_call_timeout_s',
+                 'conversion_start_tolerance_minutes', 'payment_attempts_per_hold',
+                 'max_trip_days'));
 
 -- `migrator` ne remplace une fonction d'un autre propriétaire qu'en devenant lui (ADR-044
 -- amendé) ; CREATE sur le schéma accordé le temps du remplacement (comme 0040, 0045, 0053).
@@ -91,7 +116,9 @@ BEGIN
     RAISE EXCEPTION 'host block: forbidden'
       USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'occupancy_host_forbidden';
   END IF;
-  IF p_start IS NULL OR p_end IS NULL OR p_end <= p_start OR p_end <= platform.now() THEN
+  -- US-049 (RT-CONC-02) : bornes finies (ni -infinity ni infinity)
+  IF p_start IS NULL OR p_end IS NULL OR NOT pg_catalog.isfinite(p_start)
+     OR NOT pg_catalog.isfinite(p_end) OR p_end <= p_start OR p_end <= platform.now() THEN
     RAISE EXCEPTION 'host block: invalid period'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'occupancy_period_invalid';
   END IF;
@@ -196,13 +223,15 @@ DECLARE
   v_period     tstzrange;
   v_hold       uuid := pg_catalog.gen_random_uuid();
   v_occupancy  uuid := pg_catalog.gen_random_uuid();
+  v_max_days   integer;
 BEGIN
   IF app.actor_kind() IS DISTINCT FROM 'GUEST' OR v_guest IS NULL THEN
     RAISE EXCEPTION 'hold: forbidden'
       USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'hold_forbidden';
   END IF;
-  IF p_vehicle_id IS NULL OR p_start IS NULL OR p_end IS NULL OR p_end <= p_start
-     OR p_start <= platform.now() THEN
+  -- US-049 (RT-CONC-02) : bornes finies (une fin infinie occuperait le véhicule sans limite)
+  IF p_vehicle_id IS NULL OR p_start IS NULL OR p_end IS NULL OR NOT pg_catalog.isfinite(p_start)
+     OR NOT pg_catalog.isfinite(p_end) OR p_end <= p_start OR p_start <= platform.now() THEN
     RAISE EXCEPTION 'hold: invalid period'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'occupancy_period_invalid';
   END IF;
@@ -237,6 +266,7 @@ BEGIN
   v_max_live  := core.booking_param_int('max_active_holds_per_guest', v_country);
   v_rate      := core.booking_param_int('hold_creations_per_guest_vehicle_hour', v_country);
   v_grace     := core.booking_param_int('sweep_grace_s', v_country);
+  v_max_days  := core.booking_param_int('max_trip_days', v_country);  -- US-049 (RT-CONC-02)
   v_review    := COALESCE(p_flagged, true)
                  AND COALESCE(core.booking_param_text('flagged_booking_payment_order', v_country),
                               'REVIEW_BEFORE_CHARGE') IS DISTINCT FROM 'PAY_THEN_REVIEW';
@@ -246,9 +276,15 @@ BEGIN
     v_minutes := LEAST(v_ttl, v_max_total);
   END IF;
   IF v_buffer IS NULL OR v_ttl IS NULL OR v_max_total IS NULL OR v_max_live IS NULL
-     OR v_rate IS NULL OR v_grace IS NULL OR v_minutes IS NULL OR v_minutes < 1 THEN
+     OR v_rate IS NULL OR v_grace IS NULL OR v_minutes IS NULL OR v_minutes < 1
+     OR v_max_days IS NULL OR v_max_days < 1 THEN
     RAISE EXCEPTION 'hold: parameter missing'
       USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_param_missing';
+  END IF;
+  -- US-049 (RT-CONC-02) : durée de location au plus max_trip_days jours du pays (17 §7.2, ADM-031)
+  IF p_end - p_start > pg_catalog.make_interval(days => v_max_days) THEN
+    RAISE EXCEPTION 'hold: invalid period'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'occupancy_period_invalid';
   END IF;
   v_period := core.booking_occupied_period(p_start, p_end, v_buffer);
 

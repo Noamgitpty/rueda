@@ -1,6 +1,6 @@
 /**
  * US-049 — correctifs de la red team RLS de la porte du lot 0 (docs/team/redteam/L0-rls.md ;
- * migration 0054, amorçage 0000 § 3, ADR-088). Les attaques elles-mêmes restent dans
+ * migration 0054, amorçage 0000 § 3, ADR-089). Les attaques elles-mêmes restent dans
  * `test/l0/redteam-rls/` (inchangées, gardes de non-régression) ; ce fichier prouve les contours
  * de chaque correctif.
  *
@@ -14,6 +14,9 @@
  *   grands objets, `pg_cancel_backend`, `pg_terminate_backend`) n'est exécutable par `app_api`,
  *   `app_worker` ni `app_anon`, dans la base de test et dans la base de production du banc ;
  *   l'appel réel répond `42501`.
+ * - RT-CONC-02 (red team concurrence, « fin infinie ») : hold et blocage à borne infinie refusés
+ *   (`INVALID_PERIOD`) ; hold de plus de `max_trip_days` jours du pays (17 §7.2 : 30) refusé
+ *   (`INVALID_PERIOD`), exactement 30 jours accepté.
  * F-RLS-01 (blocage sur le véhicule d'autrui ou inconnu) est prouvé dans
  * l0-occ-single-occupancy (cloisonnement des écritures) et par RT-RLS-17.
  * Rôles de production seulement (assertion L0-05 par connectAs / withRole). En USD (PA) et en PYG
@@ -21,7 +24,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
-import { APP_ROLES, translateDbError } from '../../src/index.ts';
+import { APP_ROLES, setSessionContext, translateDbError } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { placeHoldCommand, registerVehicles } from '../support/concurrency.ts';
@@ -102,6 +105,59 @@ describe.each(COUNTRIES)('US-049 F-RLS-02 — membre du compte d’hôte ($count
           '2034-04-03T10:00:00Z',
         ),
       ).toBe('OK');
+    });
+  });
+});
+
+/** Durée maximale d'une location par pays (17 §7.2 `max_trip_days`, ADM-031 : 30 j en bêta). */
+const MAX_TRIP_DAYS = 30;
+const DAY_MS = 86_400_000;
+
+describe.each(COUNTRIES)('US-049 RT-CONC-02 — périodes bornées ($country, $currency)', (c) => {
+  it('hold : fin infinie et durée > max_trip_days ⇒ INVALID_PERIOD ; exactement max_trip_days accepté ; blocage à borne infinie ⇒ INVALID_PERIOD', async () => {
+    const org = uuid();
+    const vehicles = [uuid(), uuid()];
+    const guest = uuid();
+    await withRole('app_api', async (client) => {
+      const holder = await withTestTransaction(client, { commit: true }, async (tx) => {
+        const h = await tx.query<{ h: string }>('SELECT test_fixture.create_org($1, $2, $3) AS h', [
+          org,
+          c.country,
+          'ACTIVE',
+        ]);
+        await registerVehicles(tx, vehicles, org, c);
+        await tx.query('SELECT test_fixture.ensure_party($1, NULL, NULL)', [guest]);
+        return h.rows[0]?.h as string;
+      });
+      const start = Date.parse('2035-05-01T10:00:00Z');
+      const iso = (ms: number): string => new Date(ms).toISOString();
+      const [v0, v1] = vehicles as [string, string];
+      expect(await pose(client, guest, v0, org, iso(start), 'infinity')).toBe('INVALID_PERIOD');
+      expect(
+        await pose(client, guest, v0, org, iso(start), iso(start + MAX_TRIP_DAYS * DAY_MS + 1000)),
+      ).toBe('INVALID_PERIOD');
+      expect(
+        await pose(client, guest, v0, org, iso(start), iso(start + MAX_TRIP_DAYS * DAY_MS)),
+      ).toBe('OK');
+
+      for (const [from, to] of [
+        ['-infinity', iso(start)],
+        [iso(start), 'infinity'],
+      ] as const) {
+        const code = await withTestTransaction(client, {}, async (tx) => {
+          await setSessionContext(tx, { kind: 'HOST', actorId: holder, orgId: org });
+          try {
+            await tx.query(
+              'SELECT core.booking_cmd_place_host_block($1, $2::timestamptz, $3::timestamptz)',
+              [v1, from, to],
+            );
+            return 'OK';
+          } catch (error) {
+            return translateDbError(error).code;
+          }
+        });
+        expect(code, `${from} → ${to}`).toBe('INVALID_PERIOD');
+      }
     });
   });
 });

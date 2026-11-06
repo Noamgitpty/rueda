@@ -14,7 +14,7 @@
  * ainsi. Une exception motivée se déclare ligne à ligne
  * (`// eslint-disable-next-line rueda/no-dynamic-sql -- <raison>`). Un paramètre de fonction
  * ou une propriété (`SQL.select`) n'est pas suivi : un enrobage `query(text, values)` reste permis
- * et ses appelants passent des constantes (limite écrite dans ADR-088).
+ * et ses appelants passent des constantes (limite écrite dans ADR-089).
  */
 import type { Rule, Scope } from 'eslint';
 import type { Node } from 'estree';
