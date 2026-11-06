@@ -120,7 +120,7 @@ async function scene(c: Scene['c'], psp: string = PSP_NAME): Promise<Scene> {
     `INSERT INTO core.payment_psp_account (id, provider, country_code, environment, status, public_webhook_id,
                                            webhook_secret_ref)
      VALUES ($1, $4, $2, 'SANDBOX', 'ACTIVE', $3, 'vault:psp/fake/webhook')`,
-    [accountId, c.country, hook],
+    [accountId, c.country, hook, psp],
   );
   await worker.query(`SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, 'UTC', $7, $8)`, [
     tripId,
