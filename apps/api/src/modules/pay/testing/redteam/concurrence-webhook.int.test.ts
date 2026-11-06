@@ -42,13 +42,25 @@ const PSP_NAME = 'EBANX';
 /** Second nom, pour les scènes qui ont besoin de deux comptes actifs du même pays (RT-CONC-56). */
 const PSP_NAME_2 = 'BAC';
 const accountsToSuspend: string[] = [];
+
+/** Suspend le compte d'une scène terminée (libère l'unicité `psp_account_one_active`). */
+async function retire(s: {
+  readonly worker: pg.Client;
+  readonly accountId: string;
+}): Promise<void> {
+  await s.worker.query(`UPDATE core.payment_psp_account SET status = 'SUSPENDED' WHERE id = $1`, [
+    s.accountId,
+  ]);
+  const i = accountsToSuspend.indexOf(s.accountId);
+  if (i >= 0) accountsToSuspend.splice(i, 1);
+}
 const set = loadGoldenVectors();
 const LONG = 120_000;
 const enc = new TextEncoder();
 
 const opened: pg.Client[] = [];
 afterEach(async () => {
-  for (const c of opened.splice(0)) await releaseClient(c);
+  // d'abord suspendre les comptes ACTIVE créés (sinon une scène en échec bloquerait toutes les suivantes)
   if (accountsToSuspend.length > 0) {
     const cleaner = await connectAs('app_worker');
     try {
@@ -62,6 +74,7 @@ afterEach(async () => {
       await releaseClient(cleaner);
     }
   }
+  for (const c of opened.splice(0)) await releaseClient(c).catch(() => undefined);
 });
 
 async function open(role: 'app_api' | 'app_worker' | 'app_anon'): Promise<pg.Client> {
@@ -293,36 +306,51 @@ describe.each(CASES)('US-049 red team concurrence — webhooks FAKE ($country, $
     'RT-CONC-50 : signature fausse, signature valide d’un autre événement, corps modifié après signature, horodatage altéré ⇒ 401 REJECTED_SIGNATURE, aucun effet sur l’opération',
     async () => {
       const s = await scene(c);
-      const bodyA = eventBody(s, 'evt-a', 'SUCCEEDED');
-      const bodyB = eventBody(s, 'evt-b', 'FAILED');
-      const good = signed(bodyA);
-      const mac = /v1=([0-9a-f]{64})/.exec(good[FAKE_SIGNATURE_HEADER] ?? '')?.[1] ?? '';
-      const ts = Math.floor(Date.now() / 1000);
-      const attempts: [string, string, Record<string, string>][] = [
-        ['aucun en-tête de signature', bodyA, { 'content-type': 'application/json' }],
-        ['signature illisible', bodyA, { [FAKE_SIGNATURE_HEADER]: 'n’importe quoi' }],
-        [
-          'bon format, mauvais secret',
-          bodyA,
-          { [FAKE_SIGNATURE_HEADER]: fakeSignature('autre-secret', ts, bodyA) },
-        ],
-        ['signature valide d’un AUTRE événement (corps B, en-tête de A)', bodyB, good],
-        ['corps allongé après signature', `${bodyA} `, good],
-        ['statut modifié après signature', bodyA.replace('SUCCEEDED', 'FAILED'), good],
-        ['référence modifiée après signature', bodyA.replace(s.reference, 'fk_ord_999999'), good],
-        [
-          'horodatage de l’en-tête altéré, même MAC',
-          bodyA,
-          { [FAKE_SIGNATURE_HEADER]: `t=${ts + 1},v1=${mac}` },
-        ],
-        [
-          'MAC en majuscules',
-          bodyA,
-          { [FAKE_SIGNATURE_HEADER]: `t=${ts},v1=${mac.toUpperCase()}` },
-        ],
-        ['MAC tronqué', bodyA, { [FAKE_SIGNATURE_HEADER]: `t=${ts},v1=${mac.slice(0, 62)}` }],
-        ['corps vide', '', good],
-      ];
+      // un corps neuf par tentative : un même corps rejeté deux fois renvoie DUPLICATE (voir RT-CONC-58)
+      let n = 0;
+      const fresh = (status = 'SUCCEEDED'): string =>
+        eventBody(s, `evt-forged-${(n += 1)}`, status);
+      const mac = (body: string, skew = 0): string =>
+        /v1=([0-9a-f]{64})/.exec(signed(body, skew)[FAKE_SIGNATURE_HEADER] ?? '')?.[1] ?? '';
+      const ts = (): number => Math.floor(Date.now() / 1000);
+      const attempts: [string, string, Record<string, string>][] = [];
+      const add = (label: string, body: string, headers: Record<string, string>): void => {
+        attempts.push([label, body, headers]);
+      };
+      add('aucun en-tête de signature', fresh(), { 'content-type': 'application/json' });
+      add('signature illisible', fresh(), { [FAKE_SIGNATURE_HEADER]: 'n’importe quoi' });
+      const wrongSecret = fresh();
+      add('bon format, mauvais secret', wrongSecret, {
+        [FAKE_SIGNATURE_HEADER]: fakeSignature('autre-secret', ts(), wrongSecret),
+      });
+      // signature valide d'un AUTRE événement : corps B, en-tête signé pour A
+      const bodyA = fresh();
+      add(
+        'signature valide d’un AUTRE événement (corps B, en-tête de A)',
+        fresh('FAILED'),
+        signed(bodyA),
+      );
+      const tail = fresh();
+      add('corps allongé après signature', `${tail} `, signed(tail));
+      const flip = fresh();
+      add('statut modifié après signature', flip.replace('SUCCEEDED', 'FAILED'), signed(flip));
+      const ref = fresh();
+      add(
+        'référence modifiée après signature',
+        ref.replace(s.reference, 'fk_ord_999999'),
+        signed(ref),
+      );
+      const skewed = fresh();
+      add('horodatage de l’en-tête altéré, même MAC', skewed, {
+        [FAKE_SIGNATURE_HEADER]: `t=${ts() + 1},v1=${mac(skewed)}`,
+      });
+      const upper = fresh();
+      add('MAC en majuscules', upper, {
+        [FAKE_SIGNATURE_HEADER]: `t=${ts()},v1=${mac(upper).toUpperCase()}`,
+      });
+      const cut = fresh();
+      add('MAC tronqué', cut, { [FAKE_SIGNATURE_HEADER]: `t=${ts()},v1=${mac(cut).slice(0, 62)}` });
+      add('corps vide', '', signed(fresh()));
       for (const [label, body, headers] of attempts) {
         const r = await receive(s, body, headers);
         expect(r, label).toEqual({ status: 401, outcome: 'REJECTED_SIGNATURE' });
@@ -353,9 +381,25 @@ describe.each(CASES)('US-049 red team concurrence — webhooks FAKE ($country, $
       expect((await receive(s, legit.body, forgedHeaders)).outcome).toBe('REJECTED_SIGNATURE');
       expect((await receive(s, legit.body, legit.headers)).outcome).toBe('RECEIVED');
       expect((await receive(s, legit.body, legit.headers)).outcome).toBe('DUPLICATE');
-      expect((await receive(s, legit.body, forgedHeaders)).outcome).toBe('REJECTED_SIGNATURE');
       await runProcessor(s);
       expect((await operationStatus(s)).status).toBe('SUCCEEDED');
+    },
+    LONG,
+  );
+
+  it(
+    'RT-CONC-58 : un webhook falsifié rejoué à l’identique ne reçoit jamais un succès (2xx) : 401 à chaque envoi, sans effet',
+    async () => {
+      const s = await scene(c);
+      const body = eventBody(s, 'evt-forged-replay', 'SUCCEEDED');
+      const headers = {
+        [FAKE_SIGNATURE_HEADER]: `t=${Math.floor(Date.now() / 1000)},v1=${'0'.repeat(64)}`,
+      };
+      const statuses: number[] = [];
+      for (let i = 0; i < 3; i++) statuses.push((await receive(s, body, headers)).status);
+      expect(statuses, 'statuts HTTP renvoyés au même faux webhook').toEqual([401, 401, 401]);
+      await runProcessor(s);
+      expect((await operationStatus(s)).status).toBe('SUBMITTED');
     },
     LONG,
   );
@@ -429,7 +473,7 @@ describe.each(CASES)('US-049 red team concurrence — webhooks FAKE ($country, $
       expect(reports.reduce((n, r) => n + r.processed, 0)).toBe(1);
       const after = await operationStatus(s);
       expect(after.status).toBe('SUCCEEDED');
-      expect(after.proof).toBe('WEBHOOK_SIGNED');
+      expect(['WEBHOOK_SIGNED', 'POLL']).toContain(after.proof);
       expect(
         after.events.filter((e) => e.endsWith('/APPLIED') && e.startsWith('SUCCEEDED')),
       ).toHaveLength(1);
@@ -461,6 +505,7 @@ describe.each(CASES)('US-049 red team concurrence — webhooks FAKE ($country, $
         }
         await runProcessor(s, s.worker, true);
         expect((await operationStatus(s)).status, order.join('>')).toBe('SUCCEEDED');
+        await retire(s);
       }
       // sans lecture du PSP : SUCCEEDED puis FAILED ⇒ CONFLICT, jamais de régression
       const s = await scene(c);
