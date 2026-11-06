@@ -1,4 +1,4 @@
--- 0054 — AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées.
+-- 0056 — AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées.
 -- US-049 (porte du lot 0, correctifs de la red team RLS : docs/team/redteam/L0-rls.md, F-RLS-01
 -- et F-RLS-02) ; 16 CAL-011, BKG-012, ACC-014 ; 17 §2.3 (« org_id = catalog.vehicle_org(vehicle_id),
 -- jamais choisi par le client », RLS-15), §2.5 ; ADR-053, ADR-060, ADR-063 ; ADR-089. Appliquée

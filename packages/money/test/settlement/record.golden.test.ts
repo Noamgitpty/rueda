@@ -16,10 +16,12 @@ import {
 import {
   LEGS,
   SETTLEMENT_INPUTS_HASH_PREFIX,
+  add,
   buildSettlementRecord,
   canonicalJson,
   computeCancellationSettlement,
   isSettlementError,
+  money,
   pspIdempotencyValue,
   settlementDelta,
   settlementInputsHash,
@@ -27,6 +29,7 @@ import {
   settlementParamsHash,
   settlementRecordPayload,
   signedLegs,
+  subtract,
   type CancellationEvent,
   type Leg,
   type SettlementRecord,
@@ -154,6 +157,33 @@ describe('US-018 — supersession : version n+1, delta et variation depuis la ve
     expect(build({ ...v1, currency: 'PYG' })).toThrow(/devise/);
     expect(build({ ...v1, totalPaidMinor: v1.totalPaidMinor + 1n })).toThrow(/total payé/);
     expect(build({ ...v1, engineVersion: 'cxl-beta/0' })).toThrow(/version du moteur/);
+  });
+
+  it('US-049 (RC-1) : version n+1 sur un devis recomposé à total égal, en USD et en PYG ⇒ refus', () => {
+    for (const id of ['T08', 'T27']) {
+      const v = settlementVector(set, id);
+      const trip = toTrip(v.trip);
+      const v1 = buildSettlementRecord(trip, toEvent(v.event), testParams(trip.currency));
+      const price = trip.lines.tripPrice;
+      const fee = trip.lines.tripFee;
+      if (!price || !fee) throw new Error(`${id} sans tripPrice / tripFee`);
+      // une unité mineure déplacée du prix vers le trip fee : même total payé (08 E1, devis figé)
+      const one = money(1n, trip.currency);
+      const recomposed = {
+        ...trip,
+        lines: { ...trip.lines, tripPrice: subtract(price, one), tripFee: add(fee, one) },
+      };
+      const full = toEvent(settlementVector(set, 'T08').event);
+      let code = 'AUCUNE_ERREUR';
+      try {
+        buildSettlementRecord(recomposed, full, testParams(trip.currency), v1);
+      } catch (error) {
+        code = isSettlementError(error) ? error.code : 'AUTRE';
+      }
+      expect(code, id).toBe('SETTLEMENT_INPUT_INVALID');
+      // contrôle : le même trip (devis figé) est accepté
+      expect(() => buildSettlementRecord(trip, full, testParams(trip.currency), v1)).not.toThrow();
+    }
   });
 
   it('v n+1 sur une v n à avance (N_MAX tardive puis FULL) : base PLATFORM négative, Σ variations = − écart', () => {

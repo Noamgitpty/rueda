@@ -189,7 +189,9 @@ const applySucceeded = async (operationId: string, when: string): Promise<string
       worker,
       'webhook_ingest',
       when,
-      'SELECT core.payment_cmd_apply_operation_status($1, $2, $3, NULL, NULL) AS outcome',
+      // ADR-088 décision 4 (RC-5, 0055) : le cas nominal livre un vrai webhook signé
+      `SELECT core.payment_cmd_apply_operation_status($1, $2, $3,
+         test_fixture.us049_signed_webhook($1, $2), NULL) AS outcome`,
       [operationId, 'SUCCEEDED', 'WEBHOOK'],
     )
   )[0]?.outcome as string;

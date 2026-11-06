@@ -1,6 +1,6 @@
 /**
  * US-049 — correctifs de la red team RLS de la porte du lot 0 (docs/team/redteam/L0-rls.md ;
- * migration 0054, amorçage 0000 § 3, ADR-089). Les attaques elles-mêmes restent dans
+ * migration 0056, amorçage 0000 § 3, ADR-089). Les attaques elles-mêmes restent dans
  * `test/l0/redteam-rls/` (inchangées, gardes de non-régression) ; ce fichier prouve les contours
  * de chaque correctif.
  *

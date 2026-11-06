@@ -48,6 +48,12 @@ Tables présentes en base mais absentes des listes d'entités de 17 :
 - `core.settlement_cmd_apply_leg_movement` (0039, travailleur `payment_command`) ;
 - `core.settlement_cmd_request_finance_action` et `core.settlement_cmd_approve_finance_action` (0036, `app_api`, décision FINANCE à deux personnes).
 
+Gardes ajoutées par les correctifs de la red team argent (US-049, migration 0054, ADR-088) :
+
+- **Rejeu du règlement en base** : le trigger différé `settlement_balanced` rejoue les entrées `inputs` de chaque version par `core.settlement_verify_cxl_beta_1` (vérificateur indépendant du moteur `cxl-beta/1`, aucun montant produit) et refuse tout écart (`settlement_replay_mismatch`) ; une version n+1 porte sur le même trip canonique que la version n (`settlement_trip_inputs_changed`) ; une version de moteur sans vérificateur est refusée.
+- **Remboursement borné par le règlement** : `settlement_cmd_apply_leg_movement` refuse un `REFUND` sans règlement du segment, ou qui dépasse, jambe par jambe, − Σ variations de la chaîne de versions (jamais de prorata).
+- **Versement gardé** : `core.settlement_release_blocker` refuse un `LEG_RELEASE` (dès l'enregistrement de l'ordre, puis au report sur les soldes) tant que le trip n'est pas `COMPLETED`, que `release_at` n'est pas atteint, que l'hôte n'est pas sous-marchand `ACTIVE`, ou que `insurer_contract_active` / `payouts_enabled` du pays valent false. `funds_holding_enabled` est exigé pour un compte qui ne partage pas à la source.
+
 ## Événements
 
 Aucun événement n'est encore émis par le code : aucune commande STL n'écrit dans l'outbox.
@@ -64,7 +70,7 @@ Aucun port propre à STL. L'API publique de `index.ts` se limite à `StlModule`.
 
 - Le moteur pur est l'API de `@rueda/money` : `computeCancellationSettlement`, `buildSettlementRecord`, `settlementRecordPayload`, `settlementDelta`, `settlementOperationKey`.
 - Les mouvements de fonds passent par le port `PaymentProvider` de PAY (`releaseLeg`, `transferFromPlatform`, etc.) et son adaptateur FAKE (`packages/fake-adapters`, sous-chemin `psp`).
-- Les codes d'erreur de la base (`SETTLEMENT_EXISTS`, `SETTLEMENT_STALE`, `SETTLEMENT_UNBALANCED`, `LEG_AMOUNT_NEGATIVE`, `LEG_ALREADY_RELEASED`, `IMMUTABLE_RECORD`) sont traduits par `translateDbError` de `@rueda/db`.
+- Les codes d'erreur de la base (`SETTLEMENT_EXISTS`, `SETTLEMENT_STALE`, `SETTLEMENT_UNBALANCED`, `LEG_AMOUNT_NEGATIVE`, `LEG_ALREADY_RELEASED`, `IMMUTABLE_RECORD` ; rejeu et gardes de 0054 : `INVARIANT_VIOLATION`, `INVALID_TRANSITION`, `HOST_PAYOUT_RAIL_UNAVAILABLE`, `FORBIDDEN`) sont traduits par `translateDbError` de `@rueda/db`.
 
 ## Commandes de test
 
@@ -86,6 +92,8 @@ Preuves L0 en base (sous les rôles de production) :
 pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-stl-settlement.test.ts
 pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-us062-host-money.test.ts
 pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-pay-marketplace.test.ts
+pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-us049-money-fixes.test.ts
+pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/redteam-argent
 ```
 
 Intégration du schéma (RLS, politiques, droits, triggers) :

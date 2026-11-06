@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 55 migrations ; 65 tables ; 2 vues ; 335 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 89 autres fonctions.
+- 57 migrations ; 65 tables ; 2 vues ; 337 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 101 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -69,7 +69,9 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0051_audit_staff_data_access_ops_monitor` | AUD : lectures de données personnelles par le staff journalisées ; supervision. |
 | `0052_privacy_free_text_reasons` | Données personnelles : motifs libres fermés ou retirés des lectures applicatives. |
 | `0053_iam_mfa_proof_key_rotation` | IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff. |
-| `0054_booking_vehicle_ownership_guards` | AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées. |
+| `0054_settlement_replay_leg_guards` | STL / PAY : correctifs de la red team argent de la porte du lot 0 (US-049). |
+| `0055_payment_webhook_proof_guard` | PAY : une preuve WEBHOOK_SIGNED exige un webhook reçu, signé et rattaché (US-049, RC-5). |
+| `0056_booking_vehicle_ownership_guards` | AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées. |
 
 ## Rôles
 
@@ -1007,7 +1009,7 @@ Déclencheurs :
 ### `core.config_param_definition`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : app_api: SELECT ; app_worker: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Droits : app_api: SELECT ; app_worker: SELECT ; cmd_money_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -1040,6 +1042,7 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `go_live_switch`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -1050,7 +1053,7 @@ Déclencheurs :
 ### `core.config_param_value`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : app_worker: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Droits : app_worker: SELECT ; cmd_money_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -1087,6 +1090,7 @@ Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text]))`
+- `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -2052,6 +2056,7 @@ Politiques RLS :
 
 Déclencheurs :
 
+- `payment_operation_leg_release_guard` : `CREATE TRIGGER payment_operation_leg_release_guard AFTER INSERT ON core.payment_payment_operation_leg REFERENCING NEW TABLE AS new_legs FOR EACH STATEMENT EXECUTE FUNCTION core.payment_operation_leg_release_guard()`
 - `payment_operation_legs_check` : `CREATE CONSTRAINT TRIGGER payment_operation_legs_check AFTER INSERT ON core.payment_payment_operation_leg DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION core.payment_assert_operation_legs()`
 
 ### `core.payment_psp_account`
@@ -3256,7 +3261,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_brand_tokens_sha256(p_tokens jsonb)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.cfg_brand_version_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_content_block_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `core.config_go_live(p_key text, p_country text)` | `boolean` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; migrator: EXECUTE |
+| `core.config_go_live(p_key text, p_country text)` | `boolean` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_no_truncate()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_param_value_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_tax_line_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
@@ -3287,6 +3292,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_capability_int(p_provider text, p_country text, p_method text, p_capability text)` | `integer` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_capability_value(p_provider text, p_country text, p_method text, p_capability text)` | `jsonb` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.payment_missing_blocking_capabilities(p_provider text, p_country text, p_mode text)` | `text[]` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.payment_operation_leg_release_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payment_psp_account_fake_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payment_psp_submerchant_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.payment_text_has_pan(p_text text)` | `boolean` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
@@ -3296,7 +3302,18 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_insurer_bordereau_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_platform_advance_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.settlement_release_blocker(p_operation_id uuid)` | `text` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_trip_leg_balance_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.settlement_verify_alloc_host(p_amount numeric, p_share numeric[])` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_cxl_beta_1(p_inputs jsonb)` | `jsonb` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_flag(p_value jsonb, p_name text)` | `boolean` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_floor_div(p_num numeric, p_den numeric)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_host_from_guest(p_lines numeric[], p_host numeric[], p_delivery numeric[], p_extras numeric[])` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_int(p_value jsonb)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_legs(p_trip jsonb, p_currency text, p_lines numeric[], p_tax_third boolean[], p_tax_kept numeric[], p_host_from_guest numeric)` | `numeric[]` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_minor(p_value jsonb, p_currency text)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_ratio(p_value jsonb)` | `numeric[]` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.settlement_verify_round(p_amount numeric, p_num numeric, p_den numeric)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |

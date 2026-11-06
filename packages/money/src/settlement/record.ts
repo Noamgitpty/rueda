@@ -163,6 +163,27 @@ export function settlementParamsHash(params: SettlementParams): string {
   return sha256Hex(`rueda.settlement.params/1\n${canonicalJson(params)}`);
 }
 
+/**
+ * Trip canonique d'une version enregistrée, relu dans ses entrées `inputs` (texte canonique) : le
+ * balisage `{"$bigint": "…"}` relu par `JSON.parse` se resérialise à l'identique.
+ */
+function previousTripCanonical(previous: SettlementRecord): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(previous.inputs);
+  } catch {
+    throw invalid('entrées de la version n illisibles');
+  }
+  const trip =
+    typeof parsed === 'object' && parsed !== null
+      ? (parsed as Record<string, unknown>)['trip']
+      : undefined;
+  if (typeof trip !== 'object' || trip === null) {
+    throw invalid('trip absent des entrées de la version n');
+  }
+  return canonicalJson(trip);
+}
+
 /** Jambes signées d'une version (`kept − advance`) : base de la version suivante. */
 export function signedLegs(record: SettlementRecord): Readonly<Record<Leg, bigint>> {
   const out = {} as Record<Leg, bigint>;
@@ -232,6 +253,11 @@ export function buildSettlementRecord(
     }
     if (previous.totalPaidMinor !== trip.totalPaid.amountMinor) {
       throw invalid('total payé différent de la version n (nouvelle version de prix : hors bêta)');
+    }
+    // US-049 (RC-1, ARG-04c) : la version n+1 porte sur le MÊME devis figé que la version n (08 E1,
+    // BR-CXL-03) ; un devis recomposé à total égal déplacerait de la valeur entre lignes et jambes.
+    if (canonicalJson(trip) !== previousTripCanonical(previous)) {
+      throw invalid('trip différent de celui de la version n (devis figé, 08 E1)');
     }
     basis = signedLegs(previous);
   }

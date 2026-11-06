@@ -181,6 +181,15 @@ export class WebhookIngestService {
       headers: headers.value,
       events: events.value,
     });
+    if (outcome === 'DUPLICATE' && !valid) {
+      // US-049 (RT-CONC-58) : une signature invalide reçoit 401 à CHAQUE envoi, même déjà vu ;
+      // jamais un 2xx (le PSP réessaie, l'appelant anonyme n'apprend pas que le corps est connu)
+      this.#log.warn('webhook : signature invalide (REJECTED_SIGNATURE)', {
+        provider,
+        accountId: account.accountId,
+      });
+      return { status: 401, outcome: 'REJECTED_SIGNATURE' };
+    }
     switch (outcome) {
       case 'NOT_FOUND':
         return { status: 404, outcome };

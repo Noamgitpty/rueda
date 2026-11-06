@@ -228,9 +228,10 @@ export class PgWebhookWorkStore implements WebhookWorkStore {
       processing_status: 'RECEIVED' | 'QUARANTINED';
       received_at: Date;
       quarantine_expired: boolean;
+      error: string | null;
       events: unknown;
     }>(
-      `SELECT w.id, w.psp_account_id, w.provider, w.processing_status, w.received_at,
+      `SELECT w.id, w.psp_account_id, w.provider, w.processing_status, w.received_at, w.error,
               (platform.now() - w.received_at) > interval '15 minutes' AS quarantine_expired,
               COALESCE(w.normalized_events, '[]'::jsonb) AS events
          FROM core.payment_webhook_inbox AS w
@@ -248,6 +249,7 @@ export class PgWebhookWorkStore implements WebhookWorkStore {
       status: r.processing_status,
       receivedAt: r.received_at,
       quarantineExpired: r.quarantine_expired,
+      quarantineReason: r.processing_status === 'QUARANTINED' ? r.error : null,
       events: toEvents(r.events),
     }));
   }
