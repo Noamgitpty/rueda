@@ -39,6 +39,7 @@ import {
 } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
 import { asActor, buildWorld } from '../support/rls.ts';
+import { recordAsSettlementWorker, recordOfVector } from '../support/settlement.ts';
 import type { World } from '../support/rls.ts';
 
 const golden = loadGoldenVectors();
@@ -73,6 +74,11 @@ const VECTORS: Record<
     releasedTheory: legVector(golden, 'TJ18c'),
     releasedExecuted: legVector(golden, 'TJ18d'),
   },
+};
+/** Règlement de l'export dont la capture et la variation sont TJ01 / TJ02b (USD), TJ08a / TJ08b (PYG). */
+const SETTLEMENT_OF: Readonly<Record<string, string>> = {
+  [legVector(golden, 'TJ01').currency]: 'T03',
+  [legVector(golden, 'TJ08a').currency]: 'T27',
 };
 const vectorsOf = (c: CountryCase) => {
   const v = VECTORS[c.currency];
@@ -616,6 +622,14 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
         expect(await applyMovement(tx, cap)).toBe('APPLIED');
         expect(await applyMovement(tx, cap)).toBe('DUPLICATE');
         expect(col(await balances(tx, trip), 'captured')).toEqual(capture);
+        // US-049 (RC-2) : un remboursement est borné par le règlement du segment (T03 / T27, dont
+        // la variation est TJ02b / TJ08b) ; il est enregistré avant l'ordre de remboursement
+        await recordAsSettlementWorker(
+          tx,
+          { tripId: trip, version: 1 },
+          recordOfVector(SETTLEMENT_OF[c.currency] ?? 'absent'),
+        );
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
         const ref = await succeeded(tx, trip, account, 'REFUND', refund, c.currency);
         expect(await applyMovement(tx, ref)).toBe('APPLIED');
         const b = await balances(tx, trip);
@@ -632,10 +646,13 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
         const account = await insertAccount(tx, { country: c.country });
         await applyMovement(tx, await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency));
         const release = { ...ZERO, HOST: capture.HOST };
-        await applyMovement(
-          tx,
-          await succeeded(tx, trip, account, 'LEG_RELEASE', release, c.currency),
-        );
+        // US-049 (RC-3) : un LEG_RELEASE est refusé tant que payouts_enabled[pays] = false (17 §0.1) ;
+        // l'état « jambe HOST versée » est posé par la fixture 9400, comme le fera le futur payout
+        await tx.query(`SELECT test_fixture.settlement_update_leg_balance($1, 'HOST', $2, $3)`, [
+          trip,
+          capture.HOST.toString(),
+          release.HOST.toString(),
+        ]);
         const before = await balances(tx, trip);
         expect(col(before, 'released')).toEqual(release);
         // la variation théorique débite HOST, déjà versée : refus (08 E7 règle 3 bis)
