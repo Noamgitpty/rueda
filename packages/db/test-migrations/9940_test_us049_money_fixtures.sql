@@ -84,9 +84,13 @@ REVOKE ALL ON FUNCTION test_fixture.us049_receive_signed(uuid, jsonb) FROM PUBLI
 GRANT CREATE ON SCHEMA test_fixture TO cmd_money_owner;
 ALTER FUNCTION test_fixture.us049_receive_signed(uuid, jsonb) OWNER TO cmd_money_owner;
 REVOKE CREATE ON SCHEMA test_fixture FROM cmd_money_owner;
+-- la cession retire l'EXECUTE de migrator : le propriétaire le lui rend (USAGE du schéma le temps
+-- du GRANT seulement)
+GRANT USAGE ON SCHEMA test_fixture TO cmd_money_owner;
 SET LOCAL ROLE cmd_money_owner;
 GRANT EXECUTE ON FUNCTION test_fixture.us049_receive_signed(uuid, jsonb) TO migrator;
 RESET ROLE;
+REVOKE USAGE ON SCHEMA test_fixture FROM cmd_money_owner;
 
 CREATE FUNCTION test_fixture.us049_signed_webhook(p_operation_id uuid, p_status text)
   RETURNS uuid
