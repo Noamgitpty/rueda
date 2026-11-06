@@ -1,7 +1,7 @@
 -- 0054 — STL / PAY : correctifs de la red team argent de la porte du lot 0 (US-049).
 -- 08 E1, E4 (calcul unique, version, supersession), E7 (jambes explicites, règles 1, 3, 3 bis, 6),
 -- BR-PAYOUT ; 17 §0.1 (interrupteurs de mise en service), §2.9 (soldes par jambe, invariants),
--- §3.2.8, §4.3 point 8 ; ADR-057, ADR-059, ADR-066 ; ADR-083 (ce correctif). Rapport :
+-- §3.2.8, §4.3 point 8 ; ADR-057, ADR-059, ADR-066 ; ADR-088 (ce correctif). Rapport :
 -- docs/team/redteam/L0-argent.md (RC-1 à RC-5). Appliquée sous `migrator`.
 --
 -- Cette migration (ajout seul : aucune table ni colonne modifiée) :
@@ -43,7 +43,7 @@
 --      profondeur derrière le CHECK `psp_account_platform_mor_closed` de 0028 ;
 --   6. droits au plus juste de `cmd_money_owner` pour ces lectures (statut du trip, configuration).
 --
--- Non traités ici (ADR-083) : RC-4 (capture non bornée par le devis : aucune source de prix avant le
+-- Non traités ici (ADR-088) : RC-4 (capture non bornée par le devis : aucune source de prix avant le
 -- module PRC) et RC-5 (preuve WEBHOOK_SIGNED sans webhook : les tests de la red team se
 -- contredisent, voir le rapport).
 --
@@ -74,8 +74,11 @@
 -- 1. Droits de lecture de cmd_money_owner -------------------------------------------------------
 GRANT SELECT (status) ON core.booking_trip TO cmd_money_owner;
 GRANT SELECT ON core.config_param_value, core.config_param_definition TO cmd_money_owner;
-CREATE POLICY cmd_money_sel ON core.config_param_value FOR SELECT TO cmd_money_owner USING (true);
-CREATE POLICY cmd_money_sel ON core.config_param_definition FOR SELECT TO cmd_money_owner USING (true);
+-- au plus juste : les trois interrupteurs lus par les gardes de ce correctif, rien d'autre
+CREATE POLICY cmd_money_sel ON core.config_param_value FOR SELECT TO cmd_money_owner
+  USING (key IN ('payouts_enabled', 'insurer_contract_active', 'funds_holding_enabled'));
+CREATE POLICY cmd_money_sel ON core.config_param_definition FOR SELECT TO cmd_money_owner
+  USING (go_live_switch);
 GRANT EXECUTE ON FUNCTION core.config_go_live(text, text) TO cmd_money_owner;
 
 -- 2. Vérificateur du moteur cxl-beta/1 (fonctions pures, SECURITY INVOKER) -----------------------
@@ -646,7 +649,7 @@ $fn$;
 
 COMMENT ON FUNCTION core.settlement_verify_cxl_beta_1(jsonb) IS
   'Vérificateur indépendant du moteur cxl-beta/1 (08 BR-CXL, E7) : rejoue les entrées canoniques '
-  'd''un règlement ; ne produit aucun montant stocké. US-049, ADR-083.';
+  'd''un règlement ; ne produit aucun montant stocké. US-049, ADR-088.';
 
 -- 3. Versement d'une jambe (RC-3) : première condition non remplie, ou NULL ---------------------
 CREATE FUNCTION core.settlement_release_blocker(p_operation_id uuid)
@@ -706,7 +709,7 @@ $fn$;
 
 COMMENT ON FUNCTION core.settlement_release_blocker(uuid) IS
   'Garde du versement d''une jambe (LEG_RELEASE) : trip COMPLETED, release_at atteint, sous-marchand '
-  'ACTIVE, interrupteurs du pays. Rend la première contrainte violée ou NULL. US-049, ADR-083.';
+  'ACTIVE, interrupteurs du pays. Rend la première contrainte violée ou NULL. US-049, ADR-088.';
 
 -- Garde à l'enregistrement de l'ordre : un LEG_RELEASE refusé n'est jamais créé (donc jamais
 -- transmis au PSP). Trigger d'instruction : les quatre jambes de l'opération sont visibles.

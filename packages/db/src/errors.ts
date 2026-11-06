@@ -219,7 +219,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   leg_movement_exceeds_balance: [SQLSTATE.objectNotInPrerequisiteState, 'LEG_AMOUNT_NEGATIVE'],
   leg_movement_not_succeeded: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_movement_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
-  // correctifs de la red team argent (0054, US-049, ADR-083) : rejeu des entrées d'un règlement,
+  // correctifs de la red team argent (0054, US-049, ADR-088) : rejeu des entrées d'un règlement,
   // remboursement borné par le règlement, versement gardé (trip terminé, interrupteurs)
   settlement_replay_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   settlement_replay_unsupported: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],

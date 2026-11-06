@@ -11,7 +11,7 @@ PYO verse à l'hôte sa part (17 §2.2, §2.10) :
 - compensation des débits du `host_ledger` (`NETTING`, SM-6b) ;
 - gel (`ON_HOLD`) en cas de litige, de chargeback ou de réclamation, puis reprise.
 
-PYO ne calcule pas la part de l'hôte (c'est STL) et n'appelle pas le PSP directement : il passe par le port `PaymentProvider` de PAY. Aucun versement si `payouts_enabled[pays]` vaut `false`.
+PYO ne calcule pas la part de l'hôte (c'est STL) et n'appelle pas le PSP directement : il passe par le port `PaymentProvider` de PAY. Aucun versement si `payouts_enabled[pays]` vaut `false` : la garde est en base depuis US-049 (`core.settlement_release_blocker`, migration 0054, ADR-088), qui refuse tout `LEG_RELEASE` dès l'enregistrement de l'ordre (trip `COMPLETED`, `release_at` atteint, sous-marchand `ACTIVE`, interrupteurs du pays).
 
 État réel du code : **squelette**. `internal/` est vide et `index.ts` n'exporte que `PyoModule`. Le module arrive avec US-707 (compte de versement), US-708 (versements depuis la jambe `HOST`), US-709 (compensations et solde négatif) et US-314 (versements fermés par pays, gel).
 

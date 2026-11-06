@@ -659,7 +659,7 @@ describe('US-018 — falsification de la charge utile : refus en base (fail-clos
   });
 
   // ANCIENNES LIMITES CONNUES (ADR-057, revue argent n° 4), INVERSÉES par US-049 (RC-1, 0054,
-  // ADR-083) : une redistribution entre jambes cohérente avec elle-même est refusée par le rejeu
+  // ADR-088) : une redistribution entre jambes cohérente avec elle-même est refusée par le rejeu
   // des entrées en base (settlement_replay_mismatch), avec ou sans état capturé tenu.
   it.each([
     [

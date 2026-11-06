@@ -1,5 +1,5 @@
 /**
- * US-049 — correctifs de la red team argent de la porte du lot 0 (migration 0054, ADR-083 ;
+ * US-049 — correctifs de la red team argent de la porte du lot 0 (migration 0054, ADR-088 ;
  * docs/team/redteam/L0-argent.md, RC-1 à RC-4). Sous les rôles de PRODUCTION (assertion L0-05 en
  * tête de chaque test : withRole), en USD (PA) et en PYG sans décimale (PY).
  *
@@ -454,7 +454,7 @@ describe.each(COUNTRIES)(
 // ----------------------------------------------------------------------------------------------
 
 describe.each(COUNTRIES)('RC-4 — capture non bornée par le devis — $country ($currency)', (c) => {
-  // LIMITE CONNUE (US-049, RC-4, ADR-083) : aucune source de prix en base avant le module PRC
+  // LIMITE CONNUE (US-049, RC-4, ADR-088) : aucune source de prix en base avant le module PRC
   // (booking_hold_payment_terms est fail-closed, le trip n'a pas de total figé). Test à INVERSER par
   // la story du devis : total encaissé ≤ montant figé du devis accepté, par jambe (ARG-34a).
   it('limite connue : capture de 4 × 10^15 unités mineures sur un trip réservé ⇒ acceptée', async () => {

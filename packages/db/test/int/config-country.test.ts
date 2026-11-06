@@ -155,7 +155,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -181,6 +181,10 @@ describe('configuration pays : structure et droits', () => {
             // commandes d'occupation (0032, US-022) : clé buffer_minutes seulement, en lecture
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
+            // gardes de versement et de détention de fonds (US-049, 0054) : interrupteurs seulement
+            ...(t === 'config_param_value' || t === 'config_param_definition'
+              ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
             // console interne (US-012) : codes pays, pour borner la lecture du journal
             ...(t === 'config_country'
