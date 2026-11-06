@@ -269,7 +269,9 @@ async function asWorker(
 }
 
 describe('US-049 F-RLS-06 — clés de sujet et journaux d’audit sous app_worker', () => {
-  it('la matrice déclare les travailleurs autorisés aux clés de sujet, et eux seuls', () => {
+  it('la matrice déclare les travailleurs autorisés aux clés de sujet, et eux seuls', async () => {
+    // L0-05 : assertion de rôle exigée de chaque test, même sans requête métier
+    await withRole('app_worker', (client) => client.query('SELECT 1'));
     for (const name of KEY_READERS) expect(DECLARED_WORKERS).toContain(name);
     expect(MATRIX_FILE.relations['core.audit_subject_key']?.travailleurs).toEqual(
       Object.fromEntries(KEY_READERS.map((n) => [n, 'tout'])),
