@@ -15,6 +15,9 @@ import { databaseTestOptions } from './vitest.shared.ts';
 // `pnpm --filter @rueda/db test:c11`) et son propre job de CI, en parallèle de celui-ci (ADR-068).
 const ISOLATED = ['test/l0/l0-02-concurrency.test.ts', 'test/l0/l0-us024-conversion.test.ts'];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
+// US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres
+// fichiers (le hold et la conversion lancent des balayages sur toute la base), un fichier à la fois.
+const REDTEAM = ['test/redteam/**/*.test.ts'];
 
 export default defineConfig({
   test: {
@@ -36,6 +39,15 @@ export default defineConfig({
           include: ISOLATED,
           fileParallelism: false,
           sequence: { groupOrder: 1 },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'l0-redteam',
+          include: REDTEAM,
+          fileParallelism: false,
+          sequence: { groupOrder: 2 },
         },
       },
     ],
