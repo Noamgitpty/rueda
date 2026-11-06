@@ -24,3 +24,12 @@ Branche `story/US-042-total-paye-negatif`, worktree `../wt/US-042-neg`. **Statut
   - aucun autre fichier commun.
 - **Prochaine commande exacte** : `pnpm install --frozen-lockfile && pnpm --filter @rueda/money test:unit && pnpm --filter @rueda/money test:oracle`.
 - **Paramètres créés** : aucun. **Migrations** : aucune.
+
+## Seconde passe (2026-11-06, après les revues argent ✓, code ✓, qa ✗ au SHA cd98e59)
+
+- qa n° 1 : régression exacte de la graine -1546341607 (P 2, promo −2, F 1, taxe 1, 1 jour, remboursable, `GUEST_CANCELLED` à +60 min, total 2 ; oracle : remboursement −2), en USD et en PYG. Le cas P 6 / −3 / −3 / 9 jours est réétiqueté comme variante.
+- Contexte `SettlementError.details` pour `REFUND_OUT_OF_RANGE`, et deux suivis dans `docs/team/BOARD.md` : alerte FIN par le service appelant, appel de la garde par le devis.
+- `TAX_PAID_NEGATIVE` à l'entrée.
+- `guestRefund ≥ 0` affirmé dans la propriété d'équilibre ; commentaire de la zone d'exception présenté comme un majorant.
+- Corrections d'ADR-090 : `LINE_SIGN_INVALID` « prix ≥ 0 » présenté comme déduction PROPOSÉE ; raison pour laquelle les jambes ne sont pas gardées.
+- README : scores de mutation mis à jour ; renvoi à un fichier inexistant retiré.

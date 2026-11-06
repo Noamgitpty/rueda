@@ -38,6 +38,7 @@ export {
   SettlementError,
   isSettlementError,
   type SettlementErrorCode,
+  type SettlementErrorDetails,
 } from './errors.ts';
 export {
   BETA_CANCELLATION_REASONS,

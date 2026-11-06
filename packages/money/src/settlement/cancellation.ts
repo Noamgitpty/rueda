@@ -402,10 +402,25 @@ function settle(
   // promos proches de 100 % de P, retenues ligne par ligne avec leur arrondi, peuvent rendre la
   // retenue HT négative ou supérieure aux lignes : 08 ne tranche pas, refus fail-closed et revue FIN
   // (ADR-090, PROPOSÉ, Q-014).
+  // Le service appelant attrape ce code, laisse le remboursement en attente et alerte FIN : le
+  // contexte (`details`) suffit à l'alerte, sans donnée personnelle (suivi BOARD.md).
   if (isNegative(guestRefund) || compare(guestRefund, trip.totalPaid) > 0 || badTax !== undefined) {
+    const refundOut = badTax === undefined;
     throw new SettlementError(
       'REFUND_OUT_OF_RANGE',
-      `remboursement ${guestRefund.amountMinor} (total ${trip.totalPaid.amountMinor}), taxe hors bornes : ${badTax ?? 'aucune'} (08 E1)`,
+      refundOut
+        ? `remboursement ${guestRefund.amountMinor} hors de [0 ; ${trip.totalPaid.amountMinor}] (08 E1)`
+        : `taxe remboursée du groupe ${badTax} hors de [0 ; taxe payée] (08 E1)`,
+      {
+        engineVersion: CANCELLATION_ENGINE_VERSION,
+        currency: c.code,
+        reason: ev.reason,
+        guestRefundMinor: `${guestRefund.amountMinor}`,
+        totalPaidMinor: `${trip.totalPaid.amountMinor}`,
+        retainedMinor: `${retained.amountMinor}`,
+        taxRefundMinor: `${taxRefund.amountMinor}`,
+        ...(badTax === undefined ? {} : { taxGroupId: badTax }),
+      },
     );
   }
   const captureLegs = computeCaptureLegs(trip);

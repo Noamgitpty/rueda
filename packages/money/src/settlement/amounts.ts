@@ -3,7 +3,10 @@
  * moteur de devis : elle refuse, en fail-closed, un devis que 08 n'autorise pas.
  *
  * - 08 pseudo-code BR-CXL (`LINES`) : « promoPlatform ≤ 0 et promoHost ≤ 0 » ; les autres lignes
- *   sont des prix, jamais négatives ⇒ `LINE_SIGN_INVALID`.
+ *   sont des prix ≥ 0 (déduction PROPOSÉE : 08 ne l'écrit pas ; E7 règle 2, jambes ≥ 0)
+ *   ⇒ `LINE_SIGN_INVALID`.
+ * - taxe payée d'un groupe < 0 (groupe de promos seules) : refus PROPOSÉ, Q-014 ⇒ `TAX_PAID_NEGATIVE`,
+ *   avant tout calcul de remboursement.
  * - 08 BR-PAY-07 : un code promo s'applique « sur le prix du véhicule seulement » ; 08 E7 règle 5 :
  *   un code trop fort « est refusé au checkout » ⇒ Σ promos ≥ −P, sinon `PROMO_EXCEEDS_TRIP_PRICE`.
  *   Une promo égale à P (« promo à 100 % », 08 VERIF_09-m02) reste admise.
@@ -21,6 +24,8 @@ export interface PayableAmounts {
   readonly currency: Currency;
   readonly lines: Readonly<Partial<Record<SettlementLine, Money>>>;
   readonly totalPaid: Money;
+  /** Taxe payée par groupe (facture figée). Absente pour un devis qui ne l'a pas encore calculée. */
+  readonly taxGroups?: readonly { readonly id: string; readonly taxPaid: Money }[];
 }
 
 const PROMO_LINES: readonly SettlementLine[] = ['promoPlatform', 'promoHost'];
@@ -39,7 +44,21 @@ export function assertPayableAmounts(amounts: PayableAmounts): void {
     if (promo ? isPositive(value) : isNegative(value)) {
       throw new SettlementError(
         'LINE_SIGN_INVALID',
-        `${name} = ${value.amountMinor} : ${promo ? 'promo ≤ 0' : 'prix ≥ 0'} attendu (08 LINES)`,
+        `${name} = ${value.amountMinor} : ${promo ? 'promo ≤ 0 (08 LINES)' : 'prix ≥ 0 (déduction PROPOSÉE, ADR-090)'} attendu`,
+      );
+    }
+  }
+  for (const g of amounts.taxGroups ?? []) {
+    const taxPaid = add(zero(amounts.currency), g.taxPaid);
+    if (isNegative(taxPaid)) {
+      throw new SettlementError(
+        'TAX_PAID_NEGATIVE',
+        `groupe ${g.id} : taxe payée ${taxPaid.amountMinor} < 0 (ADR-090, Q-014)`,
+        {
+          currency: amounts.currency.code,
+          taxGroupId: g.id,
+          taxPaidMinor: `${taxPaid.amountMinor}`,
+        },
       );
     }
   }

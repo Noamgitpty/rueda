@@ -17,6 +17,9 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   BETA_CANCELLATION_REASONS,
+  CANCELLATION_ENGINE_VERSION,
+  SettlementError,
+  isSettlementError,
   SETTLEMENT_LINES,
   assertPayableAmounts,
   buildSettlementRecord,
@@ -135,7 +138,74 @@ describe('régression — graine fast-check -1390209851 (run 42167466075)', () =
     }
   });
 
-  it('graine -1546341607 (trouvée en rejouant) : retenue HT négative ⇒ remboursement > total ⇒ REFUND_OUT_OF_RANGE', () => {
+  it('graine -1546341607 (contre-exemple réduit du rejeu) : remboursement négatif ⇒ REFUND_OUT_OF_RANGE, en USD et en PYG', () => {
+    // Contre-exemple exact de la graine : P 2, promo plateforme −2, F 1, taxe figée 1, 1 jour,
+    // remboursable, GUEST_CANCELLED à +60 min (requalifié GUEST_NO_SHOW à noShowAt), total 2.
+    // L'oracle rend remboursement −2 (taxe remboursée −1), contraire à 08 E1 (0 ≤ remboursement).
+    for (const currency of [USD, PYG]) {
+      const base = tripOf(currency, { tripPrice: 2n, promoPlatform: -2n, tripFee: 1n }, 1n);
+      const trip: SettlementTrip = { ...base, rateType: 'REFUNDABLE' };
+      expect(trip.totalPaid.amountMinor).toBe(2n);
+      const params = testParams(currency, { platformFundedHostCompensation: true });
+      const event = { ...NO_SHOW_AT_T, reason: 'GUEST_CANCELLED' as const, requestedAtMs: at(60) };
+      expect([
+        currency.code,
+        codeOf(() => computeCancellationSettlement(trip, event, params)),
+      ]).toEqual([currency.code, 'REFUND_OUT_OF_RANGE']);
+      expect(codeOf(() => buildSettlementRecord(trip, event, params))).toBe('REFUND_OUT_OF_RANGE');
+    }
+  });
+
+  it('REFUND_OUT_OF_RANGE porte le contexte de l’alerte FIN, sans donnée personnelle', () => {
+    const base = tripOf(PYG, { tripPrice: 2n, promoPlatform: -2n, tripFee: 1n }, 1n);
+    const trip: SettlementTrip = { ...base, rateType: 'REFUNDABLE' };
+    const event = { ...NO_SHOW_AT_T, reason: 'GUEST_CANCELLED' as const, requestedAtMs: at(60) };
+    const params = testParams(PYG, { platformFundedHostCompensation: true });
+    let caught: unknown;
+    try {
+      computeCancellationSettlement(trip, event, params);
+    } catch (error) {
+      caught = error;
+    }
+    expect(isSettlementError(caught, 'REFUND_OUT_OF_RANGE')).toBe(true);
+    // Attendus : entrées (total 2, devise, motif requalifié par 08 `qualify` règle 1) et montants
+    // de l'oracle (remboursement −2, taxe remboursée −1, retenu HT 2).
+    expect((caught as SettlementError).details).toEqual({
+      engineVersion: CANCELLATION_ENGINE_VERSION,
+      currency: 'PYG',
+      reason: 'GUEST_NO_SHOW',
+      guestRefundMinor: '-2',
+      totalPaidMinor: '2',
+      retainedMinor: '2',
+      taxRefundMinor: '-1',
+      taxGroupId: 'g',
+    });
+    expect(Object.isFrozen((caught as SettlementError).details)).toBe(true);
+    expect((caught as Error).message).toContain('groupe g');
+    // Remboursement seul hors bornes (taxe dans les bornes) : pas de groupe dans le contexte.
+    const variant: SettlementTrip = {
+      ...tripOf(PYG, { tripPrice: 6n, promoPlatform: -3n, promoHost: -3n, tripFee: 1n }),
+      days: 9,
+      rateType: 'REFUNDABLE',
+    };
+    try {
+      computeCancellationSettlement(variant, event, params);
+    } catch (error) {
+      caught = error;
+    }
+    expect((caught as SettlementError).details).toEqual({
+      engineVersion: CANCELLATION_ENGINE_VERSION,
+      currency: 'PYG',
+      reason: 'GUEST_NO_SHOW',
+      guestRefundMinor: '2',
+      totalPaidMinor: '1',
+      retainedMinor: '-1',
+      taxRefundMinor: '0',
+    });
+    expect((caught as Error).message).toContain('remboursement 2 hors de [0 ; 1]');
+  });
+
+  it('variante (trouvée hors de la graine) : retenue HT négative ⇒ remboursement > total ⇒ REFUND_OUT_OF_RANGE', () => {
     // P 6, promos −3 et −3, F 1, 9 jours, no-show du voyageur (annulation reçue à noShowAt) :
     // l'oracle rend retenue −1 et remboursement 2 pour un total payé de 1 (08 E1 : remboursement ≤ encaissé).
     for (const currency of [USD, PYG]) {
@@ -242,6 +312,23 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
       }
     });
 
+    it('TAX_PAID_NEGATIVE porte le groupe et le montant ; les autres refus n’ont pas de contexte', () => {
+      const caught = (fn: () => unknown): SettlementError => {
+        try {
+          fn();
+        } catch (error) {
+          return error as SettlementError;
+        }
+        throw new Error('refus attendu');
+      };
+      const tax = caught(() => assertPayableAmounts(tripOf(currency, { tripFee: 5n }, -3n)));
+      expect(tax.code).toBe('TAX_PAID_NEGATIVE');
+      expect(tax.details).toEqual({ currency: currency.code, taxGroupId: 'g', taxPaidMinor: '-3' });
+      const sign = caught(() => assertPayableAmounts(tripOf(currency, { tripFee: -1n })));
+      expect(sign.code).toBe('LINE_SIGN_INVALID');
+      expect(sign.details).toBe(undefined);
+    });
+
     it('promo positive refusée ; promo nulle admise', () => {
       for (const promo of PROMOS) {
         expect(
@@ -275,6 +362,10 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
         codeOf(() => assertPayableAmounts(tripOf(currency, { tripPrice: 7n, promoHost: -7n }))),
       ).toBe('TOTAL_PAID_NOT_POSITIVE');
       expect(codeOf(() => assertPayableAmounts(tripOf(currency, {}, -1n)))).toBe(
+        'TAX_PAID_NEGATIVE',
+      );
+      // Devis sans taxe encore calculée : seul le total est contrôlé.
+      expect(codeOf(() => assertPayableAmounts({ currency, lines: {}, totalPaid: m(-1n) }))).toBe(
         'TOTAL_PAID_NOT_POSITIVE',
       );
       expect(codeOf(() => assertPayableAmounts(tripOf(currency, {}, 1n)))).toBe(undefined);
@@ -351,25 +442,43 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
       );
     });
 
-    it('lignes valides et total payé ≤ 0 ⇒ TOTAL_PAID_NOT_POSITIVE', () => {
+    it('lignes valides, taxe nulle et total payé nul ⇒ TOTAL_PAID_NOT_POSITIVE', () => {
+      fc.assert(
+        fc.property(amount, fc.integer({ min: 0, max: 100 }), eventArb, (p, split, e) => {
+          const pp = (p * BigInt(split)) / 100n;
+          const trip = tripOf(currency, { tripPrice: p, promoPlatform: -pp, promoHost: -(p - pp) });
+          expect(trip.totalPaid.amountMinor).toBe(0n);
+          expect(codeOf(() => assertPayableAmounts(trip))).toBe('TOTAL_PAID_NOT_POSITIVE');
+          expect(settleCode(trip, e)).toBe('TOTAL_PAID_NOT_POSITIVE');
+        }),
+        RUNS,
+      );
+    });
+
+    it('taxe payée négative d’un groupe ⇒ TAX_PAID_NEGATIVE, avant tout calcul de remboursement', () => {
       fc.assert(
         fc.property(
           amount,
-          fc.integer({ min: 0, max: 100 }),
-          fc.bigInt({ min: -(10n ** 6n), max: 0n }),
+          amount,
+          fc.bigInt({ min: 1n, max: 10n ** 6n }),
           eventArb,
-          (p, split, tax, e) => {
-            const pp = (p * BigInt(split)) / 100n;
-            const trip = tripOf(
-              currency,
-              { tripPrice: p, promoPlatform: -pp, promoHost: -(p - pp) },
-              tax,
-            );
-            expect(trip.totalPaid.amountMinor <= 0n).toBe(true);
-            expect(codeOf(() => assertPayableAmounts(trip))).toBe('TOTAL_PAID_NOT_POSITIVE');
-            expect(settleCode(trip, e)).toBe('TOTAL_PAID_NOT_POSITIVE');
+          (p, f, minus, e) => {
+            const trip = tripOf(currency, { tripPrice: p, tripFee: f }, -minus);
+            expect(codeOf(() => assertPayableAmounts(trip))).toBe('TAX_PAID_NEGATIVE');
+            expect(settleCode(trip, e)).toBe('TAX_PAID_NEGATIVE');
           },
         ),
+        RUNS,
+      );
+    });
+
+    it('devis sans taxe, total payé ≤ 0 ⇒ TOTAL_PAID_NOT_POSITIVE', () => {
+      fc.assert(
+        fc.property(fc.bigInt({ min: -(10n ** 9n), max: 0n }), (total) => {
+          expect(
+            codeOf(() => assertPayableAmounts({ currency, lines: {}, totalPaid: m(total) })),
+          ).toBe('TOTAL_PAID_NOT_POSITIVE');
+        }),
         RUNS,
       );
     });

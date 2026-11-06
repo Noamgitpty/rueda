@@ -31,17 +31,28 @@ export const SETTLEMENT_ERROR_CODES = [
    * de [0 ; taxe payée] (08 E1 ; Q-014).
    */
   'REFUND_OUT_OF_RANGE',
+  /** PROPOSÉ (ADR-090) : taxe payée d'un groupe < 0 (groupe de promos seules ; Q-014). */
+  'TAX_PAID_NEGATIVE',
 ] as const;
 
 export type SettlementErrorCode = (typeof SETTLEMENT_ERROR_CODES)[number];
 
+/**
+ * Contexte d'un refus, lisible par le service appelant pour l'alerte FIN (ADR-090) : montants en
+ * chaînes d'unités mineures, devise, motif, identifiant de groupe fiscal. Jamais de donnée
+ * personnelle : le moteur n'en reçoit pas.
+ */
+export type SettlementErrorDetails = Readonly<Record<string, string>>;
+
 export class SettlementError extends Error {
   readonly code: SettlementErrorCode;
+  readonly details: SettlementErrorDetails | undefined;
 
-  constructor(code: SettlementErrorCode, message: string) {
+  constructor(code: SettlementErrorCode, message: string, details?: SettlementErrorDetails) {
     super(`${code}: ${message}`);
     this.name = 'SettlementError';
     this.code = code;
+    this.details = details === undefined ? undefined : Object.freeze({ ...details });
   }
 }
 
