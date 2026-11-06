@@ -1,6 +1,6 @@
 # Intégration continue (US-002)
 
-GitHub Actions, dépôt privé `Noamgitpty/rueda`. Trois workflows :
+GitHub Actions, dépôt `Noamgitpty/rueda`, **public** depuis le changement de facturation de la CI (post-mortem du lot 0, incident I-1). Trois workflows :
 
 - [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) : sur chaque demande de fusion (ouverte, mise à jour, rouverte, passée de brouillon à prête), chaque push vers `main`, et à la main (`workflow_dispatch`). Il est aussi appelé par la nuit (`workflow_call`).
 - [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) (US-003, ADR-078) : pipeline de déploiement, **à la main seulement** (`workflow_dispatch`), depuis `main` ; inactif tant que les environnements GitHub `preproduction` et `production` n'ont pas leurs variables (compte d'hébergement, F-02). Permissions par job : `id-token: write` (OIDC AWS), `actions: read` (porte « préproduction d'abord », porte « accord du fondateur »). Toute action en production, retour arrière compris, franchit d'abord la porte « accord du fondateur » ([`scripts/deploy/production-gate.mjs`](../../scripts/deploy/production-gate.mjs), ADR-084). Cette porte exige trois conditions : l'environnement `production` existe, il est protégé (approbateur requis, branches restreintes), et le run a été approuvé par une autre personne que celle qui l'a lancé. Sinon, le pipeline échoue avant tout identifiant AWS. Le rôle AWS n'est assumable que par ce workflow, sur `main`. Runbook : [`DEPLOY.md`](DEPLOY.md).
@@ -123,7 +123,7 @@ Les règles de [`docs/team/review-requirements.json`](../team/review-requirement
   - avant la fusion, l'orchestrateur vérifie dans le diff de `.github/workflows/ci.yml` que le job `revues` et chacune de ses étapes existent toujours (copie des scripts depuis `origin/<base>`, exécution avec `--root`), sans `continue-on-error` hors brouillon ni condition qui le désactive, et que les scripts de contrôle sont toujours pris sur la base ; sinon, pas de fusion ;
   - le relecteur sécurité fait la même vérification à la main dans le `ci.yml` de la PR.
   - Toujours interdits : push direct sur `main`, force-push, contourner ou affaiblir un contrôle pour faire passer une PR, passer un interrupteur de mise en service à `true`.
-- **Parade définitive, recommandée (décision du fondateur à venir).** Une protection de branche sur `main`, avec les statuts exigés, demande GitHub Pro pour un dépôt privé. CODEOWNERS et une revue humaine sur ces chemins en font partie. La pathRule `securite` ne remplace pas cette revue humaine.
+- **Parade définitive, recommandée (décision du fondateur à venir).** Une protection de branche sur `main`, avec les statuts exigés, est disponible sans GitHub Pro depuis que le dépôt est public ; elle n'est pas encore activée (US-050, liste de contrôle de mise en service GL-06). CODEOWNERS et une revue humaine sur ces chemins en font partie. La pathRule `securite` ne remplace pas cette revue humaine.
 
 Le job se place sur la pointe de la branche (`head.sha`), avec tout l'historique (`fetch-depth: 0`). En brouillon, son échec reste informatif. Quand la PR passe en « prête », le job est relancé et devient bloquant. Les contournements sont couverts par `scripts/ci/check-story-reviews.test.mjs`.
 

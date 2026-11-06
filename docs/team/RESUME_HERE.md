@@ -10,7 +10,7 @@
 
 ## État du projet
 
-**Modèle** : Kmino, place de marché de location de voitures **de particulier à particulier**, comme Turo, au Panama et au Paraguay ; **aucune agence** (DEC-FONDATEUR-13 à 16) ; produit **trilingue es / en / fr** (DEC-FONDATEUR-17). Fusion autonome de toutes les PR par l'orchestrateur, avec garde-fous (DEC-FONDATEUR-15).
+**Modèle** : Kmino, place de marché de location de voitures **de particulier à particulier**, comme Turo, au Panama et au Paraguay ; **aucune agence** (DEC-FONDATEUR-13 à 16) ; produit **quadrilingue es / en / fr / pt-BR** (DEC-FONDATEUR-17, 18). Fusion autonome de toutes les PR par l'orchestrateur, avec garde-fous (DEC-FONDATEUR-15).
 
 **Révision P2P des spécifications : terminée et fusionnée** (US-053 à US-060, PR #16, #19, #20, #22, #24, #27 ; US-061 et US-062, PR #55 et #52).
 
@@ -39,7 +39,7 @@ Rappel : US-014 (français et portugais du Brésil : PR #26 et #61) est fusionn�
 
 - 17, revue d'architecture d'US-001 : ligne BUS en §2.2 et socle implicite ; préfixe de table et table module → schéma en §10 point 3 ; ADR-001 DÉCIDÉ, ADR-041 à ADR-043 en §8.1 (et ADR-043 en §11) ; arbitrage « back-office séparé » en §10.
 - 17, « S4 bis » (passation US-057) : noms sans équivalent (`vehicle_earnings_plan`, `plan_history`, `host_guest_block`, `insurer_contract.exclusions`, `rc_amount_minor`, `go_live_switch_request`, `handover_location`, types de `vehicle_document` et de `fiscal_document`, `no_show.side`).
-- 16 et 19 : mentions « es et en » à lire « es, en et fr » (règle de 10b §4.3) ; à réécrire à la prochaine révision.
+- 16 et 19 : mentions « es et en » à lire « es, en, fr et pt-BR » (règle de 10b §4.3) ; à réécrire à la prochaine révision.
 - Runbook de bascule d'un interrupteur de mise en service (PLT-003), avec la story qui construit les commandes à deux personnes.
 
 ## Reports entre stories (DoR des stories cibles)
