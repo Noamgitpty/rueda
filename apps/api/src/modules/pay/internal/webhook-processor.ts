@@ -26,6 +26,10 @@ export interface ProcessorReport {
 /** Élément en quarantaine que le PSP n'a pas pu confirmer (US-049, RT-CONC-53). */
 const UNVERIFIED = Symbol('UNVERIFIED');
 
+/** Reçu dans la fenêtre de ± 5 min de l'horodatage signé (seule la quarantaine d'horodatage en sort). */
+const inWindow = (item: InboxItem): boolean =>
+  item.status === 'RECEIVED' || item.quarantineReason === 'OPERATION_NOT_FOUND';
+
 export class WebhookProcessor {
   readonly #store: WebhookWorkStore;
   readonly #providerFor: (accountId: string) => PaymentProvider | undefined;
@@ -76,18 +80,15 @@ export class WebhookProcessor {
       }
       const decided = await this.#authoritative(item, event);
       if (decided === UNVERIFIED) {
-        // US-049 (RT-CONC-53) : un webhook QUARANTINED n'est jamais cru sur parole ; sans lecture
-        // du PSP il reste en quarantaine (nouvelle tentative), puis FAILED et alerte après 15 min
-        if (item.quarantineExpired) {
-          await this.#store.mark(item.inboxId, 'FAILED', 'PSP_READ_UNAVAILABLE');
-          this.#log.warn('webhook : quarantaine non confirmée par le PSP', {
-            inboxId: item.inboxId,
-            provider: item.provider,
-          });
-          return { state: 'FAILED', conflicts };
-        }
-        await this.#store.mark(item.inboxId, 'QUARANTINED', 'PSP_READ_UNAVAILABLE');
-        return { state: 'QUARANTINED', conflicts };
+        // US-049 (RT-CONC-53) : un webhook à horodatage signé hors de ± 5 min n'est jamais cru sur
+        // parole ; sans lecture du PSP il n'est pas appliqué : FAILED et alerte (l'état faisant foi
+        // sera lu chez le PSP par le rapprochement), jamais une preuve WEBHOOK_SIGNED
+        await this.#store.mark(item.inboxId, 'FAILED', 'SIGNED_TIMESTAMP_UNVERIFIED');
+        this.#log.warn('webhook : horodatage hors tolérance non confirmé par le PSP', {
+          inboxId: item.inboxId,
+          provider: item.provider,
+        });
+        return { state: 'FAILED', conflicts };
       }
       if (decided.status === 'PENDING') continue;
       const outcome = await this.#store.apply({
@@ -111,9 +112,10 @@ export class WebhookProcessor {
 
   /**
    * « Lire puis appliquer » : l'état du PSP prime ; sans lecture possible, le webhook signé, mais
-   * seulement s'il a été reçu dans la fenêtre (`RECEIVED`). Un élément `QUARANTINED` (horodatage
-   * signé hors de ± 5 min, ou opération d'abord introuvable) exige une lecture réussie du PSP
-   * (17 §4.4 point 2 : « QUARANTINED et déclenche getOperation ») ; sinon `UNVERIFIED`.
+   * seulement s'il a été reçu dans la fenêtre de ± 5 min (`RECEIVED`, ou mis en quarantaine plus
+   * tard parce que l'opération était introuvable). Un webhook à horodatage hors tolérance exige
+   * une lecture réussie du PSP (17 §4.4 point 2 : « QUARANTINED et déclenche getOperation »),
+   * sinon `UNVERIFIED`.
    */
   async #authoritative(
     item: InboxItem,
@@ -123,7 +125,7 @@ export class WebhookProcessor {
     if (provider !== undefined) {
       try {
         const found = await provider.getOperation({ providerReference: event.providerReference });
-        if (found !== null && (found.status !== event.status || item.status !== 'RECEIVED')) {
+        if (found !== null && (found.status !== event.status || !inWindow(item))) {
           return { status: found.status, source: 'POLL' };
         }
       } catch (error) {
@@ -131,7 +133,7 @@ export class WebhookProcessor {
         // lecture impossible : seul un webhook RECEIVED reste la preuve (17 §4.4 point 2)
       }
     }
-    if (item.status !== 'RECEIVED') return UNVERIFIED;
+    if (!inWindow(item)) return UNVERIFIED;
     return { status: event.status, source: 'WEBHOOK' };
   }
 }

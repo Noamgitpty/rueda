@@ -158,6 +158,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
           status: r.status,
           receivedAt: new Date(r.receivedAtMs),
           quarantineExpired: now - r.receivedAtMs > QUARANTINE_MS,
+          quarantineReason: r.status === 'QUARANTINED' ? r.error : null,
           events: r.events,
         })),
     );

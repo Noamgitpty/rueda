@@ -65,6 +65,11 @@ export interface InboxItem {
   readonly receivedAt: Date;
   /** Reçu depuis plus de 15 min (17 §4.4 point 6), calculé à l'heure de la BASE. */
   readonly quarantineExpired: boolean;
+  /**
+   * Motif de la quarantaine (`webhook_inbox.error`) : `SIGNED_TIMESTAMP_OUT_OF_TOLERANCE` à la
+   * réception, `OPERATION_NOT_FOUND` au traitement ; `null` pour un élément `RECEIVED`.
+   */
+  readonly quarantineReason: string | null;
   readonly events: readonly NormalizedPaymentEvent[];
 }
 
