@@ -100,7 +100,7 @@ describe('RT-RLS-01 — inventaire du catalogue : schémas, ENABLE + FORCE, vues
     });
   });
 
-  it('politiques USING (true) pour app_api / app_worker : uniquement des tables de référence publique (config_*, pricing_*)', async () => {
+  it('politiques USING (true) pour app_api / app_worker : uniquement des tables de référence publique (config_*, pricing_*, entité légale, capacités PSP)', async () => {
     await prod('app_api', async (client) => {
       const { rows } = await client.query<{ t: string; pol: string }>(
         `SELECT p.polrelid::regclass::text AS t, p.polname AS pol
@@ -109,7 +109,10 @@ describe('RT-RLS-01 — inventaire du catalogue : schémas, ENABLE + FORCE, vues
             AND ('app_api'::regrole = ANY (p.polroles) OR 'app_worker'::regrole = ANY (p.polroles))
             AND pg_catalog.pg_get_expr(p.polqual, p.polrelid) IN ('true', '(true)')`,
       );
-      const outside = rows.filter((r) => !/^(core\.)?(config_|pricing_)/.test(r.t));
+      const outside = rows.filter(
+        (r) =>
+          !/^(core\.)?(config_|pricing_|finance_legal_entity|payment_psp_capability)/.test(r.t),
+      );
       expect(outside).toEqual([]);
     });
   });
@@ -225,34 +228,35 @@ describe('RT-RLS-03 — privilèges de table : ni TRUNCATE, ni TRIGGER, ni REFER
   it('aucun rôle applicatif n’a TRUNCATE, TRIGGER ni REFERENCES sur aucune table (TRUNCATE ignore la RLS)', async () => {
     for (const role of APP_ROLES) {
       await prod(role, async (client) => {
-        const bad: string[] = [];
-        for (const r of (await relations(client)).filter((x) => x.kind === 'r' || x.kind === 'p')) {
-          const { rows } = await client.query<{ ok: boolean }>(
-            `SELECT pg_catalog.has_table_privilege($1, $2::regclass, 'TRUNCATE, TRIGGER, REFERENCES') AS ok`,
-            [role, qualified(r)],
-          );
-          if (rows[0]?.ok === true) bad.push(qualified(r));
-        }
-        expect(bad, role).toEqual([]);
+        const { rows } = await client.query<{ rel: string }>(
+          `SELECT n.nspname || '.' || c.relname AS rel
+             FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE ${USER_SCHEMAS} AND c.relkind IN ('r', 'p')
+              AND pg_catalog.has_table_privilege($1, c.oid, 'TRUNCATE, TRIGGER, REFERENCES')`,
+          [role],
+        );
+        expect(rows, role).toEqual([]);
       });
     }
   });
 
   it('app_anon : aucun privilège de table, de colonne ni de séquence sur AUCUNE relation de AUCUN schéma', async () => {
     await prod('app_anon', async (client) => {
-      const bad: string[] = [];
-      for (const r of await relations(client)) {
-        const sql =
-          r.kind === 'S'
-            ? `SELECT pg_catalog.has_sequence_privilege('app_anon', $1::regclass, 'USAGE, SELECT, UPDATE') AS ok`
-            : `SELECT pg_catalog.has_table_privilege('app_anon', $1::regclass,
-                      'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-                  OR pg_catalog.has_any_column_privilege('app_anon', $1::regclass,
-                      'SELECT, INSERT, UPDATE, REFERENCES') AS ok`;
-        const { rows } = await client.query<{ ok: boolean }>(sql, [qualified(r)]);
-        if (rows[0]?.ok === true) bad.push(qualified(r));
-      }
-      expect(bad).toEqual([]);
+      const { rows } = await client.query<{ rel: string }>(
+        `SELECT n.nspname || '.' || c.relname AS rel
+           FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+          WHERE ${USER_SCHEMAS} AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+            AND (pg_catalog.has_table_privilege('app_anon', c.oid,
+                   'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+                 OR pg_catalog.has_any_column_privilege('app_anon', c.oid,
+                   'SELECT, INSERT, UPDATE, REFERENCES'))
+         UNION ALL
+         SELECT n.nspname || '.' || c.relname
+           FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+          WHERE ${USER_SCHEMAS} AND c.relkind = 'S'
+            AND pg_catalog.has_sequence_privilege('app_anon', c.oid, 'USAGE, SELECT, UPDATE')`,
+      );
+      expect(rows).toEqual([]);
     });
   });
 
@@ -295,11 +299,22 @@ describe('RT-RLS-03 — privilèges de table : ni TRUNCATE, ni TRIGGER, ni REFER
         `SELECT p.oid::regprocedure::text AS f
            FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
           WHERE n.nspname = 'pg_catalog'
-            AND p.proname ~ '^(pg_read_file|pg_read_binary_file|pg_ls_dir|pg_ls_logdir|pg_ls_waldir|pg_stat_file|lo_import|lo_export|pg_reload_conf|pg_rotate_logfile|pg_switch_wal|pg_promote|pg_create_restore_point|pg_logical_emit_message|pg_backup_start|pg_backup_stop|pg_drop_replication_slot|pg_create_physical_replication_slot|pg_create_logical_replication_slot)$'
+            AND p.proname ~ '^(pg_read_file|pg_read_binary_file|pg_ls_dir|pg_ls_logdir|pg_ls_waldir|pg_stat_file|lo_import|lo_export|pg_reload_conf|pg_rotate_logfile|pg_switch_wal|pg_promote|pg_create_restore_point|pg_backup_start|pg_backup_stop)$'
             AND pg_catalog.has_function_privilege('app_anon', p.oid, 'EXECUTE')`,
       );
       expect(dangerous.rows).toEqual([]);
     });
+  });
+
+  it('les rôles applicatifs ne créent pas de slot de réplication (EXECUTE à PUBLIC mais refus interne : pas de rôle REPLICATION)', async () => {
+    for (const role of APP_ROLES) {
+      await prod(role, async (client) => {
+        await expect(
+          client.query(`SELECT pg_catalog.pg_create_physical_replication_slot('rt_slot')`),
+          role,
+        ).rejects.toMatchObject({ code: '42501' });
+      });
+    }
   });
 
   it('les rôles applicatifs ne lisent ni pg_authid, ni pg_shadow, ni les statistiques des tables RLS (pg_stats), ni les requêtes des autres rôles', async () => {

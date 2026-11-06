@@ -485,8 +485,8 @@ describe.each([0, 1])(
               c.country,
               c.currency,
               c.timezone,
-              '2034-03-01T10:00:00Z',
-              '2034-03-03T10:00:00Z',
+              `2034-03-0${i + 1}T10:00:00Z`,
+              `2034-03-0${i + 1}T20:00:00Z`,
             ],
           );
         }),
@@ -668,7 +668,7 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
       expect(t.rows[0]?.r, `reset-totp ${who}`).not.toBe('DONE');
       const d = await call(
         `SELECT version_no FROM core.cfg_content_cmd_save_draft($1, $2, 'rt.key', NULL, $3::jsonb, NULL)`,
-        [hash, uuid(), JSON.stringify({ es: 'Hola', en: 'Hello', fr: 'Salut' })],
+        [hash, uuid(), JSON.stringify({ es: 'Hola', en: 'Hello', fr: 'Salut', pt: 'Ola' })],
       );
       expect(d.rows[0]?.version_no ?? null, `brouillon ${who}`).toBeNull();
       const a = await call('SELECT * FROM core.iam_staff_audit_read($1, NULL, 50)', [hash]);
@@ -726,7 +726,7 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
         adminFirstHash,
         uuid(),
         COUNTRIES[1].country,
-        JSON.stringify({ es: 'Hola', en: 'Hello', fr: 'Salut' }),
+        JSON.stringify({ es: 'Hola', en: 'Hello', fr: 'Salut', pt: 'Ola' }),
       ],
     );
     expect(d.rows[0]?.version_no ?? null, JSON.stringify(d.rows)).toBeNull();
@@ -737,7 +737,7 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
         adminBothHash,
         uuid(),
         COUNTRIES[1].country,
-        JSON.stringify({ es: 'Hola', en: 'Hello', fr: 'Salut' }),
+        JSON.stringify({ es: 'Hola', en: 'Hello', fr: 'Salut', pt: 'Ola' }),
       ],
     );
     expect(ok.rows[0]?.version_no ?? null, JSON.stringify(ok.rows)).not.toBeNull();
@@ -750,7 +750,7 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
         async (client) => {
           const { rows } = await client.query<{ call: string }>(
             `SELECT 'SELECT ' || quote_ident(n.nspname) || '.' || quote_ident(p.proname) || '('
-                    || COALESCE((SELECT string_agg('NULL::' || format_type(t.oid, NULL), ', ' ORDER BY a.ord)
+                    || COALESCE((SELECT string_agg('(SELECT NULL::' || format_type(t.oid, NULL) || ')', ', ' ORDER BY a.ord)
                                    FROM unnest(p.proargtypes::oid[]) WITH ORDINALITY AS a(oid, ord)
                                    JOIN pg_catalog.pg_type t ON t.oid = a.oid), '') || ')' AS call
                FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
@@ -777,7 +777,11 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
 
 // ---------------------------------------------------------------------------------------------
 describe('RT-RLS-16 — contexte app.* forgé d’un AUTRE type d’acteur, sous le mauvais rôle de base', () => {
-  const REFERENCE = /^(config_|pricing_)/;
+  // référence publique de la plateforme (aucune donnée de personne) ; `payment_psp_account` n'est
+  // lisible par app_worker QUE dans la base de test (GRANT de test-migrations/9500, absent de la
+  // production : authorization-matrix.json « droits » vides) — exclu pour ne pas confondre
+  const REFERENCE =
+    /^(config_|pricing_|finance_legal_entity|payment_psp_capability|payment_psp_account)/;
 
   async function readableTables(client: pg.Client, role: string): Promise<string[]> {
     const { rows } = await client.query<{ t: string }>(
@@ -808,7 +812,7 @@ describe('RT-RLS-16 — contexte app.* forgé d’un AUTRE type d’acteur, sous
       const tables = await readableTables(client, 'app_api');
       expect(tables.length).toBeGreaterThan(5);
       const { rows } = await client.query<{ src: string }>(
-        `SELECT pg_catalog.pg_get_expr(p.polqual, p.polrelid) || ' ' || COALESCE(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), '') AS src
+        `SELECT COALESCE(pg_catalog.pg_get_expr(p.polqual, p.polrelid), '') || ' ' || COALESCE(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), '') AS src
            FROM pg_catalog.pg_policy p`,
       );
       const names = new Set<string>([
