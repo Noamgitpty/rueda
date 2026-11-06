@@ -9,7 +9,7 @@
   1. Revues exigées pour US-049 (`review-requirements.json`) : code, architecture, sécurité, argent, sur un autre modèle que l'auteur.
   2. Après la fusion des PR #91 et #92 : passer les constats corrigés à FERMÉ dans `RISKS.md`, remplir le §6 du post-mortem (constats, exercice de restauration US-051, accès des agents, budget), retirer la mention BROUILLON.
   3. Orchestrateur : documenter dans `docs/team/incidents/` les incidents I-1 (passage en public), I-4 (hooks contournés, rapports écrasés) et I-9 (`main` rouge sur `ce49274`), dont le dépôt ne garde aucune trace ; remplir le tableau des limites d'usage (§4).
-  4. Orchestrateur : décider RT-RLS-03 (ADR-089) ; affecter RC-5, RT-ARG-OBS1, RT-RLS-NX4, RT-RLS-NX5, RT-CONC-OB1 et RT-CONC-OB2.
+  4. RT-RLS-03 décidé par l'orchestrateur (EXC-003, accepté pour la bêta, bloquant pour la production) : inscrire la story du lot 4 rattachée à US-003 au backlog. Affecter RC-5, RT-ARG-OBS1, RT-RLS-NX4, RT-RLS-NX5, RT-CONC-OB1 et RT-CONC-OB2.
   5. Recaler `BOARD.md` (US-039 et US-047 fusionnées), `RESUME_HERE.md` (quatre langues) et `docs/ops/CI.md` ligne 3 (dépôt public).
 - **Prochaine commande exacte** : `gh pr checks <n° de cette PR> --repo Noamgitpty/rueda`.
 - **Pièges / hypothèses** :
