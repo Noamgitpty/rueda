@@ -246,15 +246,19 @@ describe('RT-RLS-03 — privilèges de table : ni TRUNCATE, ni TRIGGER, ni REFER
         `SELECT n.nspname || '.' || c.relname AS rel
            FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE ${USER_SCHEMAS} AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
-            AND (pg_catalog.has_table_privilege('app_anon', c.oid,
-                   'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-                 OR pg_catalog.has_any_column_privilege('app_anon', c.oid,
-                   'SELECT, INSERT, UPDATE, REFERENCES'))
+            AND CASE WHEN c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                     THEN pg_catalog.has_table_privilege('app_anon', c.oid,
+                            'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+                          OR pg_catalog.has_any_column_privilege('app_anon', c.oid,
+                            'SELECT, INSERT, UPDATE, REFERENCES')
+                 END
          UNION ALL
          SELECT n.nspname || '.' || c.relname
            FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
           WHERE ${USER_SCHEMAS} AND c.relkind = 'S'
-            AND pg_catalog.has_sequence_privilege('app_anon', c.oid, 'USAGE, SELECT, UPDATE')`,
+            AND CASE WHEN c.relkind = 'S'
+                     THEN pg_catalog.has_sequence_privilege('app_anon', c.oid, 'USAGE, SELECT, UPDATE')
+                 END`,
       );
       expect(rows).toEqual([]);
     });

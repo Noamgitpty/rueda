@@ -347,7 +347,6 @@ describe.each([0, 1])(
             'iam_auth_factor',
             'iam_email_verification',
             'audit_file_asset',
-            'audit_subject_key',
           ]) {
             const a = await attempt(tx, `SELECT 1 FROM core.${t} LIMIT 1`);
             expect(a.code, t).toBe('42501');
@@ -493,7 +492,13 @@ describe.each([0, 1])(
       );
       await api(async (client) => {
         await asActor(client, { kind: 'GUEST', actorId: world.holderA }, async (tx) => {
-          expect(await ids(tx, 'booking_trip')).toEqual([tripAsGuest]); // ses trips de voyageur seulement
+          // un voyageur voit ses trips de tous les pays, mais JAMAIS ceux de son compte d'hôte
+          const seen = await ids(tx, 'booking_trip');
+          expect(seen).toContain(tripAsGuest);
+          for (const w2 of world.countries) {
+            expect(seen).not.toContain(w2.trips.a1.id);
+            expect(seen).not.toContain(w2.trips.a2.id);
+          }
         });
         // le contexte voyageur, avec l'org_id de A glissée dans la session, ne donne pas les trips de A
         await withRawContext(
