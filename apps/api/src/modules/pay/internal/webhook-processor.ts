@@ -98,6 +98,12 @@ export class WebhookProcessor {
         rawRef: item.inboxId,
         providerReference: event.providerReference,
       });
+      if (outcome === 'UNPROVEN') {
+        this.#log.warn('webhook : preuve signée refusée par la base (UNPROVEN)', {
+          inboxId: item.inboxId,
+          operationId: operation.operationId,
+        });
+      }
       if (outcome === 'CONFLICT') {
         conflicts += 1;
         this.#log.warn('webhook : statut contradictoire, file ops', {

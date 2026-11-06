@@ -40,7 +40,12 @@ export interface WebhookInboxStore {
 // --- statuts d'opération (travailleurs, rôle app_worker) ----------------------------------------
 
 export type StatusSource = 'API_RESPONSE' | 'WEBHOOK' | 'POLL' | 'MANUAL_OPS';
-export type ApplyOutcome = 'APPLIED' | 'DUPLICATE' | 'STALE' | 'CONFLICT' | 'NOT_FOUND';
+/**
+ * `UNPROVEN` (US-049, 0055) : statut terminal de source WEBHOOK sans webhook signé reçu et rattaché
+ * à l'opération (`rawRef`) ; rien n'est appliqué.
+ */
+export type ApplyOutcome =
+  'APPLIED' | 'DUPLICATE' | 'STALE' | 'CONFLICT' | 'NOT_FOUND' | 'UNPROVEN';
 
 export interface ApplyStatusInput {
   readonly operationId: string;

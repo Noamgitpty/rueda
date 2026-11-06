@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 55 migrations ; 65 tables ; 2 vues ; 336 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 101 autres fonctions.
+- 56 migrations ; 65 tables ; 2 vues ; 336 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 101 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -70,6 +70,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0052_privacy_free_text_reasons` | Données personnelles : motifs libres fermés ou retirés des lectures applicatives. |
 | `0053_iam_mfa_proof_key_rotation` | IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff. |
 | `0054_settlement_replay_leg_guards` | STL / PAY : correctifs de la red team argent de la porte du lot 0 (US-049). |
+| `0055_payment_webhook_proof_guard` | PAY : une preuve WEBHOOK_SIGNED exige un webhook reçu, signé et rattaché (US-049, RC-5). |
 
 ## Rôles
 

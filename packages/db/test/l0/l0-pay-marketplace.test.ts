@@ -29,7 +29,7 @@ import {
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import {
-  applyStatus,
+  applySignedStatus,
   caught,
   insertAccount,
   insertTrip,
@@ -596,7 +596,8 @@ async function succeeded(
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
   });
-  expect(await applyStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
+  // US-049 (RC-5) : preuve d'un webhook signé réellement reçu (0055)
+  expect(await applySignedStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
   return id;
 }
 

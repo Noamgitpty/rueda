@@ -16,6 +16,7 @@ import { withRole } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import {
+  applySignedStatus,
   applyStatus,
   caught,
   insertAccount,
@@ -136,7 +137,8 @@ async function succeeded(
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
   });
-  expect(await applyStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
+  // ADR-088 décision 4 (RC-5) : le cas nominal livre un vrai webhook signé avant le statut
+  expect(await applySignedStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
   return id;
 }
 
@@ -518,7 +520,22 @@ describe.each(COUNTRIES)(
   (c) => {
     const capture = legsOf(refOf(c).capture);
 
-    it('capture démesurée (4 × 10^15 unités mineures) portée sur les soldes d’un trip réservé ⇒ refus', async () => {
+    // ARG-34a — LIMITE CONNUE (ADR-088 décision 5, arbitrage de l'orchestrateur) : bogue RC-4
+    // « capture non bornée par le devis » (gravité moyenne), porté par la story du devis US-202
+    // (module PRC). Aucune source de prix n'existe en base avant elle : le test CARACTÉRISE le
+    // comportement actuel (capture acceptée) et ÉCHOUE le jour où la borne existera, pour forcer
+    // son inversion. Attaque d'origine de la red team, conservée :
+    //
+    //   it('capture démesurée (4 × 10^15 unités mineures) portée sur les soldes d’un trip réservé ⇒ refus', …
+    //     const huge: Legs = { HOST: 10n ** 15n, INSURER: 10n ** 15n, TAX_THIRD_PARTY: 10n ** 15n,
+    //                          PLATFORM: 10n ** 15n };
+    //     const outcome = await attempt(tx, async () => {
+    //       const op = await succeeded(tx, trip, account, 'CAPTURE', huge, c.currency);
+    //       await applyMovement(tx, op);
+    //     });
+    //     // 08 E1 : le montant encaissé est le total du devis accepté (figé) ; rien ne le borne en base
+    //     expect(outcome).not.toBe('OK');
+    it('limite connue RC-4 (US-202, module PRC) : capture démesurée (4 × 10^15 unités mineures) sur un trip réservé ⇒ encore ACCEPTÉE ; à inverser quand la borne du devis existera', async () => {
       await asPayments(async (tx) => {
         const trip = await insertTrip(tx, c);
         const account = await insertAccount(tx, { country: c.country });
@@ -532,8 +549,9 @@ describe.each(COUNTRIES)(
           const op = await succeeded(tx, trip, account, 'CAPTURE', huge, c.currency);
           await applyMovement(tx, op);
         });
-        // 08 E1 : le montant encaissé est le total du devis accepté (figé) ; rien ne le borne en base
-        expect(outcome).not.toBe('OK');
+        // si ce test échoue, la borne « total encaissé ≤ devis accepté » existe : rétablir l'attaque
+        // d'origine ci-dessus (expect(outcome).not.toBe('OK')) et fermer RC-4
+        expect(outcome, 'RC-4 : borne du devis apparue, inverser ce test (US-202)').toBe('OK');
       });
     });
 

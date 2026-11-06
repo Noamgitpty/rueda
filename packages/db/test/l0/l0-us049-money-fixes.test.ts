@@ -13,7 +13,7 @@
  * - RC-3 : le versement d'une jambe est refusé à l'ENREGISTREMENT de l'ordre, condition par
  *   condition, jusqu'à l'interrupteur `payouts_enabled[pays]`, qui vaut false (17 §0.1) et
  *   n'est écrit par aucun test.
- * - RC-4 : limite connue, rattachée à la story du devis (module PRC).
+ * - RC-4 : limite connue, caractérisée dans `redteam-argent-psp-legs` (ARG-34a, story US-202).
  *
  * Attendus : export des oracles (`@rueda/money/golden-vectors`) et vecteurs TJ, jamais le code testé.
  */
@@ -37,7 +37,7 @@ import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import {
-  applyStatus,
+  applySignedStatus,
   caught,
   insertAccount,
   insertTrip as insertPayTrip,
@@ -282,7 +282,7 @@ async function succeeded(
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
   });
-  expect(await applyStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
+  expect(await applySignedStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
   return id;
 }
 
@@ -449,26 +449,5 @@ describe.each(COUNTRIES)(
   },
 );
 
-// ----------------------------------------------------------------------------------------------
-// RC-4 : limite connue (story du devis, module PRC)
-// ----------------------------------------------------------------------------------------------
-
-describe.each(COUNTRIES)('RC-4 — capture non bornée par le devis — $country ($currency)', (c) => {
-  // LIMITE CONNUE (US-049, RC-4, ADR-088) : aucune source de prix en base avant le module PRC
-  // (booking_hold_payment_terms est fail-closed, le trip n'a pas de total figé). Test à INVERSER par
-  // la story du devis : total encaissé ≤ montant figé du devis accepté, par jambe (ARG-34a).
-  it('limite connue : capture de 4 × 10^15 unités mineures sur un trip réservé ⇒ acceptée', async () => {
-    await asPayments(async (tx) => {
-      const trip = await insertPayTrip(tx, c);
-      const account = await insertAccount(tx, { country: c.country });
-      const huge: Legs = {
-        HOST: 10n ** 15n,
-        INSURER: 10n ** 15n,
-        TAX_THIRD_PARTY: 10n ** 15n,
-        PLATFORM: 10n ** 15n,
-      };
-      const op = await succeeded(tx, trip, account, 'CAPTURE', huge, c.currency);
-      expect(await applyMovement(tx, op)).toBe('APPLIED');
-    });
-  });
-});
+// RC-4 : la caractérisation « limite connue » est dans redteam-argent-psp-legs.test.ts (ARG-34a,
+// ADR-088 décision 5, story du devis US-202).
