@@ -17,14 +17,23 @@
  * - RT-CONC-02 (red team concurrence, « fin infinie ») : hold et blocage à borne infinie refusés
  *   (`INVALID_PERIOD`) ; hold de plus de `max_trip_days` jours du pays (17 §7.2 : 30) refusé
  *   (`INVALID_PERIOD`), exactement 30 jours accepté.
+ * - F-RLS-06 (0057) : sous `app_worker`, un nom de travailleur inconnu, ou connu mais non
+ *   autorisé, ne lit aucune clé de sujet et n'en écrit aucune ; un nom inconnu n'écrit ni dans le
+ *   journal d'audit, ni dans le journal d'accès aux données, ni dans le registre des fichiers ; la
+ *   liste des travailleurs admis à écrire ces trois tables est EXACTEMENT celle de la matrice
+ *   d'autorisations. Chaque test peuple lui-même la table qu'il lit (aucune dépendance à l'ordre
+ *   des fichiers, contrairement à RT-RLS-16).
  * F-RLS-01 (blocage sur le véhicule d'autrui ou inconnu) est prouvé dans
  * l0-occ-single-occupancy (cloisonnement des écritures) et par RT-RLS-17.
  * Rôles de production seulement (assertion L0-05 par connectAs / withRole). En USD (PA) et en PYG
  * (PY).
  */
+import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
-import { APP_ROLES, setSessionContext, translateDbError } from '../../src/index.ts';
+import { APP_ROLES, PACKAGE_ROOT, setSessionContext, translateDbError } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { placeHoldCommand, registerVehicles } from '../support/concurrency.ts';
@@ -214,4 +223,172 @@ describe.each(['main', 'production'] as const)('US-049 F-RLS-04 — base %s', (d
       { database },
     );
   });
+});
+
+// ---------------------------------------------------------------------------------------------
+// F-RLS-06 (0057) : politiques des travailleurs fondées sur le seul nom
+// ---------------------------------------------------------------------------------------------
+
+/** Travailleurs déclarés par la matrice d'autorisations (ADR-077) : la source qui fait foi. */
+const MATRIX_FILE = JSON.parse(
+  readFileSync(join(PACKAGE_ROOT, 'authorization-matrix.json'), 'utf8'),
+) as {
+  travailleurs: string[];
+  relations: Record<string, { travailleurs?: Record<string, string> }>;
+};
+const DECLARED_WORKERS: readonly string[] = MATRIX_FILE.travailleurs;
+/** Travailleurs qui chiffrent ou déchiffrent une donnée C2 / C3 (0057, ADR-089). */
+const KEY_READERS = ['evidence_ingest', 'evidence_verifier', 'privacy_request'];
+const KEY_WRITERS = ['evidence_ingest', 'privacy_request'];
+const UNKNOWN_WORKER = 'us049_intrus';
+const INSERT_KEY = `INSERT INTO core.audit_subject_key (subject_type, subject_id, wrapped_dek, kms_key_id)
+                    VALUES ('USER', $1, $2, 'fake:us049')`;
+
+/** Tentative en point de sauvegarde, sous le travailleur `name` : code SQLSTATE ou `OK`. */
+async function asWorker(
+  tx: pg.ClientBase,
+  name: string,
+  sql: string,
+  params: readonly unknown[] = [],
+): Promise<{ code: string; rows: number }> {
+  await tx.query('SAVEPOINT us049_worker');
+  try {
+    await tx.query(
+      `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+              pg_catalog.set_config('app.actor_id', '', true),
+              pg_catalog.set_config('app.worker_name', $1, true)`,
+      [name],
+    );
+    const r = await tx.query(sql, [...params]);
+    await tx.query('RELEASE SAVEPOINT us049_worker');
+    return { code: 'OK', rows: r.rowCount ?? 0 };
+  } catch (error) {
+    await tx.query('ROLLBACK TO SAVEPOINT us049_worker');
+    return { code: (error as { code?: string }).code ?? 'ERROR', rows: 0 };
+  }
+}
+
+describe('US-049 F-RLS-06 — clés de sujet et journaux d’audit sous app_worker', () => {
+  it('la matrice déclare les travailleurs autorisés aux clés de sujet, et eux seuls', () => {
+    for (const name of KEY_READERS) expect(DECLARED_WORKERS).toContain(name);
+    expect(MATRIX_FILE.relations['core.audit_subject_key']?.travailleurs).toEqual(
+      Object.fromEntries(KEY_READERS.map((n) => [n, 'tout'])),
+    );
+  });
+
+  it('table peuplée : nom inconnu et nom connu non autorisé ⇒ 0 clé lue, aucune écrite ; travailleurs autorisés : lecture et écriture', async () => {
+    const owner = uuid();
+    await withRole('app_worker', async (client) => {
+      // la table est peuplée par ce test (commit), jamais par un autre fichier
+      await withTestTransaction(client, { commit: true }, async (tx) => {
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'evidence_ingest' });
+        await tx.query(INSERT_KEY, [owner, randomBytes(48)]);
+      });
+      await withTestTransaction(client, {}, async (tx) => {
+        const readers = [
+          UNKNOWN_WORKER,
+          ...DECLARED_WORKERS.filter((n) => !KEY_READERS.includes(n)),
+        ];
+        expect(readers.length).toBeGreaterThan(5);
+        for (const name of readers) {
+          const read = await asWorker(tx, name, 'SELECT 1 FROM core.audit_subject_key');
+          expect(read, name).toEqual({ code: 'OK', rows: 0 });
+        }
+        const writers = [
+          UNKNOWN_WORKER,
+          ...DECLARED_WORKERS.filter((n) => !KEY_WRITERS.includes(n)),
+        ];
+        for (const name of writers) {
+          const write = await asWorker(tx, name, INSERT_KEY, [uuid(), randomBytes(48)]);
+          expect(write.code, name).toBe('42501');
+        }
+        // témoins : la clé posée est visible des lecteurs autorisés ; les écrivains en créent
+        for (const name of KEY_READERS) {
+          const read = await asWorker(
+            tx,
+            name,
+            'SELECT 1 FROM core.audit_subject_key WHERE subject_id = $1',
+            [owner],
+          );
+          expect(read, name).toEqual({ code: 'OK', rows: 1 });
+        }
+        for (const name of KEY_WRITERS) {
+          const write = await asWorker(tx, name, INSERT_KEY, [uuid(), randomBytes(48)]);
+          expect(write, name).toEqual({ code: 'OK', rows: 1 });
+        }
+      });
+    });
+  });
+
+  const AUDIT_INSERTS: readonly (readonly [string, string, () => unknown[]])[] = [
+    [
+      'core.audit_audit_log',
+      `INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                         subject_id, after, request_id)
+       VALUES ($1, 'STAFF', 'TEST_ACTION', 'TRIP', $2, '{"us049": 1}', $3)`,
+      () => [uuid(), uuid(), uuid()],
+    ],
+    [
+      'core.audit_data_access_log',
+      `INSERT INTO core.audit_data_access_log (id, actor_user_id, actor_role, subject_type, subject_id,
+                                               field_or_file, purpose, access_kind, case_ref)
+       VALUES ($1, $2, 'SUPPORT_AGENT', 'USER', $3, 'identity_document.number_enc',
+               'vérification du dossier (test US-049)', 'READ_C3', 'CASE-2031-0049')`,
+      () => [uuid(), uuid(), uuid()],
+    ],
+    [
+      'core.audit_file_asset',
+      `INSERT INTO core.audit_file_asset (id, bucket, storage_key, mime, bytes, sha256, source,
+                                          classification, retention_class)
+       VALUES ($1, 'PUBLIC_LISTING', $2, 'image/jpeg', 1, $3, 'IN_APP_CAMERA', 'C0', 'CLAIM_EVIDENCE')`,
+      () => [uuid(), `k/${uuid()}`, randomBytes(32)],
+    ],
+  ];
+
+  it.each(AUDIT_INSERTS)(
+    '%s : un nom inconnu ou vide n’écrit rien (42501) ; chaque travailleur de la matrice passe la politique',
+    async (_table, sql, params) => {
+      await withRole('app_worker', async (client) => {
+        await withTestTransaction(client, {}, async (tx) => {
+          expect((await asWorker(tx, UNKNOWN_WORKER, sql, params())).code).toBe('42501');
+          expect((await asWorker(tx, '', sql, params())).code).toBe('42501');
+          // témoin : la politique admet les travailleurs déclarés (une contrainte de la table peut
+          // refuser la ligne d'essai, jamais le droit : tout sauf 42501)
+          for (const name of DECLARED_WORKERS) {
+            expect((await asWorker(tx, name, sql, params())).code, name).not.toBe('42501');
+          }
+        });
+      });
+    },
+  );
+
+  it.each(['main', 'production'] as const)(
+    'base %s : les politiques worker_insert des tables d’audit nomment exactement les travailleurs de la matrice',
+    async (database) => {
+      await withRole(
+        'app_api',
+        async (client) => {
+          const { rows } = await client.query<{ rel: string; expr: string }>(
+            `SELECT c.relname AS rel, pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid) AS expr
+               FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid = p.polrelid
+              WHERE p.polname = 'worker_insert'
+                AND c.relname IN ('audit_audit_log', 'audit_data_access_log', 'audit_file_asset')
+              ORDER BY 1`,
+          );
+          expect(rows.map((r) => r.rel)).toEqual([
+            'audit_audit_log',
+            'audit_data_access_log',
+            'audit_file_asset',
+          ]);
+          for (const r of rows) {
+            const names = [...r.expr.matchAll(/'([a-z_]+)'::text/g)]
+              .map((m) => m[1] as string)
+              .sort();
+            expect(names, r.rel).toEqual([...DECLARED_WORKERS].sort());
+          }
+        },
+        { database },
+      );
+    },
+  );
 });

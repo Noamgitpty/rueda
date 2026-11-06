@@ -6,6 +6,7 @@ module: Réservation
 - Sécurité : un hold ou un blocage à borne infinie est refusé, et un hold ne dépasse plus max_trip_days jours du pays (INVALID_PERIOD, RT-CONC-02, US-049)
   lot: L0
   module: Base de données
+- Sécurité : sous app_worker, les clés de sujet ne sont plus lues ni créées que par les travailleurs qui chiffrent ou déchiffrent (evidence_ingest, evidence_verifier, privacy_request), et les journaux d'audit ne sont plus écrits que par les travailleurs de la matrice (F-RLS-06, US-049)
 - Sécurité : l'amorçage retire à PUBLIC les fonctions de pg_catalog à effet de bord hors RLS (pg_logical_emit_message, grands objets, pg_cancel_backend, pg_terminate_backend) (F-RLS-04, US-049)
   lot: L0
   module: Équipe et CI

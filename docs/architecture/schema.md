@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 57 migrations ; 65 tables ; 2 vues ; 337 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 101 autres fonctions.
+- 58 migrations ; 65 tables ; 2 vues ; 337 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 101 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -72,6 +72,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0054_settlement_replay_leg_guards` | STL / PAY : correctifs de la red team argent de la porte du lot 0 (US-049). |
 | `0055_payment_webhook_proof_guard` | PAY : une preuve WEBHOOK_SIGNED exige un webhook reçu, signé et rattaché (US-049, RC-5). |
 | `0056_booking_vehicle_ownership_guards` | AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées. |
+| `0057_audit_worker_name_scope` | AUD : écritures et lecture des clés de sujet réservées aux travailleurs nommés. |
 
 ## Rôles
 
@@ -158,7 +159,7 @@ Politiques RLS :
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
+- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['audit_chain_verifier'::text, 'booking_conversion'::text, 'booking_oracle'::text, 'bordereau'::text, 'bus_monitor'::text, 'disposition_sweeper'::text, 'evidence_ingest'::text, 'evidence_verifier'::text, 'hold_expiry'::text, 'ntf_dispatcher'::text, 'ntf_sender'::text, 'ops_monitor'::text, 'outbox_relay'::text, 'payment_command'::text, 'payment_intent_sweeper'::text, 'payout'::text, 'privacy_request'::text, 'reconciliation'::text, 'settlement'::text, 'trip_lifecycle'::text, 'webhook_ingest'::text])))`
 - `worker_select_verifier` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'audit_chain_verifier'::text))`
 
 Déclencheurs :
@@ -235,7 +236,7 @@ Politiques RLS :
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
+- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['audit_chain_verifier'::text, 'booking_conversion'::text, 'booking_oracle'::text, 'bordereau'::text, 'bus_monitor'::text, 'disposition_sweeper'::text, 'evidence_ingest'::text, 'evidence_verifier'::text, 'hold_expiry'::text, 'ntf_dispatcher'::text, 'ntf_sender'::text, 'ops_monitor'::text, 'outbox_relay'::text, 'payment_command'::text, 'payment_intent_sweeper'::text, 'payout'::text, 'privacy_request'::text, 'reconciliation'::text, 'settlement'::text, 'trip_lifecycle'::text, 'webhook_ingest'::text])))`
 
 Déclencheurs :
 
@@ -293,7 +294,7 @@ Politiques RLS :
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'BRAND'::text) AND (classification = 'C0'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type IS NULL) AND (retention_class = 'BRAND_PUBLIC'::text))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
+- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['audit_chain_verifier'::text, 'booking_conversion'::text, 'booking_oracle'::text, 'bordereau'::text, 'bus_monitor'::text, 'disposition_sweeper'::text, 'evidence_ingest'::text, 'evidence_verifier'::text, 'hold_expiry'::text, 'ntf_dispatcher'::text, 'ntf_sender'::text, 'ops_monitor'::text, 'outbox_relay'::text, 'payment_command'::text, 'payment_intent_sweeper'::text, 'payout'::text, 'privacy_request'::text, 'reconciliation'::text, 'settlement'::text, 'trip_lifecycle'::text, 'webhook_ingest'::text])))`
 - `worker_select_verifier` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'evidence_verifier'::text))`
 
 Déclencheurs :
@@ -332,8 +333,8 @@ Politiques RLS :
 - `audit_chain_lock` (UPDATE, PERMISSIVE, audit_chain_owner) USING `true` WITH CHECK `false`
 - `audit_chain_read` (SELECT, PERMISSIVE, audit_chain_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
-- `worker_select` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
+- `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['evidence_ingest'::text, 'privacy_request'::text])))`
+- `worker_select` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['evidence_ingest'::text, 'evidence_verifier'::text, 'privacy_request'::text])))`
 
 Déclencheurs :
 
