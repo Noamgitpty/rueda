@@ -556,7 +556,7 @@ const hashOf = (actor: string): Buffer => Buffer.from(staffSessionHash(actor) ??
  * peuplées » dépendait des actifs publiés par un AUTRE fichier (l0-brand), qui les publie puis les
  * remplace en cours de route : vert ou rouge selon l'ordre des fichiers. La matrice publie donc son
  * propre actif, par les vraies commandes (ADMIN des deux pays, session élevée du monde de test) :
- * un bloc de contenu commun, à une clé propre à ce fichier, qu'aucun autre test ne remplace ni
+ * un bloc de contenu par pays, à une clé propre à ce fichier, qu'aucun autre test ne remplace ni
  * n'archive. Le contrôle n'est pas affaibli : la table reste exigée peuplée, sans `sans_donnees`.
  */
 async function seedPublishedBrandAsset(client: pg.ClientBase): Promise<void> {
@@ -570,27 +570,32 @@ async function seedPublishedBrandAsset(client: pg.ClientBase): Promise<void> {
   );
   expect(asset.rows[0]?.outcome).toBe('REGISTERED');
   const key = `us043.matrix_${uuid().replace(/-/g, '').slice(0, 12)}.hero`;
-  const draft = await client.query<{ outcome: string; version_no: number | null }>(
-    'SELECT * FROM core.cfg_content_cmd_save_draft($1, $2, $3, NULL, $4, $5)',
-    [
-      admin,
-      uuid(),
-      key,
-      {
-        es: 'Bloque de prueba de la matriz.',
-        en: 'Authorization matrix test block.',
-        fr: 'Bloc de test de la matrice.',
-        pt: 'Bloco de teste da matriz.',
-      },
-      asset.rows[0]?.asset_id,
-    ],
-  );
-  expect(draft.rows[0]?.outcome).toBe('SAVED');
-  const published = await client.query<{ outcome: string }>(
-    'SELECT * FROM core.cfg_content_cmd_publish($1, $2, $3, NULL, $4)',
-    [admin, uuid(), key, draft.rows[0]?.version_no],
-  );
-  expect(published.rows[0]?.outcome).toBe('PUBLISHED');
+  // un bloc par pays : config_content_block est lue par pays (colonne country_code), et un bloc
+  // commun (pays NULL) ne compterait pour aucun des deux
+  for (const { country } of COUNTRIES) {
+    const draft = await client.query<{ outcome: string; version_no: number | null }>(
+      'SELECT * FROM core.cfg_content_cmd_save_draft($1, $2, $3, $4, $5, $6)',
+      [
+        admin,
+        uuid(),
+        key,
+        country,
+        {
+          es: 'Bloque de prueba de la matriz.',
+          en: 'Authorization matrix test block.',
+          fr: 'Bloc de test de la matrice.',
+          pt: 'Bloco de teste da matriz.',
+        },
+        asset.rows[0]?.asset_id,
+      ],
+    );
+    expect(draft.rows[0]?.outcome, country).toBe('SAVED');
+    const published = await client.query<{ outcome: string }>(
+      'SELECT * FROM core.cfg_content_cmd_publish($1, $2, $3, $4, $5)',
+      [admin, uuid(), key, country, draft.rows[0]?.version_no],
+    );
+    expect(published.rows[0]?.outcome, country).toBe('PUBLISHED');
+  }
 }
 
 beforeAll(async () => {
