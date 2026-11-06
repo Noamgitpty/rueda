@@ -129,3 +129,38 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
 -- Exclusion GiST sur (uuid, tstzrange) : nécessaire dès US-006 (17 §11 L0-01).
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
+
+-- 3. Fonctions de pg_catalog exécutables par PUBLIC à effet de bord (US-049, F-RLS-04) ----------
+-- PostgreSQL accorde EXECUTE à PUBLIC sur quelques fonctions qui écrivent hors de la RLS ou
+-- agissent sur d'autres connexions. Aucun rôle applicatif (app_api, app_worker, app_anon) ni
+-- propriétaire NOLOGIN n'en a l'usage ; du SQL arbitraire sous un rôle applicatif pourrait :
+--   - pg_logical_emit_message : écrire dans le journal de transactions (bruit, volume de WAL) ;
+--   - lo_creat, lo_create, lo_from_bytea : créer des grands objets, stockés hors de toute table et
+--     de toute RLS (stockage dissimulé, remplissage du disque) ; lo_import et lo_export (fichiers
+--     du serveur) sont déjà réservés au superutilisateur, ils sont listés par sûreté ;
+--   - pg_cancel_backend, pg_terminate_backend : annuler ou couper les AUTRES connexions du même
+--     rôle (déni de service de l'API ou du travailleur).
+-- Les ACL des fonctions sont propres à chaque base : l'amorçage, rejoué dans chaque base, les
+-- retire de PUBLIC par nom (toutes les signatures, quelle que soit la version de PostgreSQL).
+-- Idempotent. Un rôle d'administration qui n'est pas propriétaire de ces fonctions (service géré)
+-- ne peut pas les retirer : PostgreSQL n'émet alors qu'un avertissement, et le contrôle ci-dessous
+-- le signale ; la preuve est l0-us049-rls-fixes (base de test et base de production du banc).
+DO $pg_catalog_functions$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_catalog.pg_proc AS p
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'pg_catalog'
+       AND p.proname IN ('pg_logical_emit_message', 'lo_creat', 'lo_create', 'lo_from_bytea',
+                         'lo_import', 'lo_export', 'pg_cancel_backend', 'pg_terminate_backend')
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', r.sig);
+    IF pg_catalog.has_function_privilege('app_anon', r.sig::oid, 'EXECUTE') THEN
+      RAISE WARNING 'rueda bootstrap: EXECUTE on % still granted to PUBLIC (not revocable by this role)', r.sig;
+    END IF;
+  END LOOP;
+END
+$pg_catalog_functions$;

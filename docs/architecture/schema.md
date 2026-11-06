@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 54 migrations ; 65 tables ; 2 vues ; 334 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 89 autres fonctions.
+- 55 migrations ; 65 tables ; 2 vues ; 335 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 89 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -69,6 +69,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0051_audit_staff_data_access_ops_monitor` | AUD : lectures de données personnelles par le staff journalisées ; supervision. |
 | `0052_privacy_free_text_reasons` | Données personnelles : motifs libres fermés ou retirés des lectures applicatives. |
 | `0053_iam_mfa_proof_key_rotation` | IAM : rotation SANS COUPURE de la clé de preuve d'élévation MFA du staff. |
+| `0054_booking_vehicle_ownership_guards` | AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée. |
 
 ## Rôles
 
@@ -1264,6 +1265,7 @@ Index :
 
 Politiques RLS :
 
+- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `membership_host_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()) AND (app.is_org_holder() OR ((user_id = app.actor_id()) AND (status = 'ACTIVE'::text))))`
 - `membership_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (EXISTS ( SELECT 1 FROM core.iam_organization o WHERE ((o.id = iam_membership.org_id) AND (o.country_code = ANY (app.country_scope())) AND app.has_staff_role('ADMIN'::text, o.country_code)))))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`

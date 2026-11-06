@@ -37,8 +37,9 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
     'iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator',
   iam_email_verification:
     'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
+  // US-049 (0054) : lecture des appartenances par les commandes de hold (auto-réservation)
   iam_membership:
-    'membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_hold_read:cmd_hold_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_organization:
     'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
