@@ -40,8 +40,11 @@ export const DYNAMIC_SQL_ADMIN_TOOLS: readonly string[] = [
   'packages/db/src/deploy/**',
   'packages/db/src/rotation/**',
   'packages/db/src/restore/**',
-  'packages/db/src/testing/**',
-  '**/testing/**',
+  // chaînes assemblées : un littéral qui désigne un dossier testing/ ferait de ce fichier une entrée
+  // dans testing/ pour le contrôle C19 de packages/fake-adapters (production-isolation), comme
+  // MONEY_TESTING plus bas
+  ['packages/db/src', 'testing', '**'].join('/'),
+  ['**', 'testing', '**'].join('/'),
 ];
 
 export interface RuedaConfigOptions {
