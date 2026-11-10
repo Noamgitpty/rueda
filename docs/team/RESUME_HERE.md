@@ -1,6 +1,6 @@
 # RESUME_HERE — point de reprise du dépôt
 
-> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-05 (recalage sur les PR #1 à #82).**
+> Lu en premier par toute session qui reprend le travail (handoff §4.9). Tenu par l'orchestrateur à chaque fin de session. **Dernière mise à jour : 2026-11-10 (porte du lot 0 tenue : PR #92, #93 et #94 fusionnées ; US-027 en revue).**
 
 ## Pour reprendre
 
@@ -14,26 +14,30 @@
 
 **Révision P2P des spécifications : terminée et fusionnée** (US-053 à US-060, PR #16, #19, #20, #22, #24, #27 ; US-061 et US-062, PR #55 et #52).
 
-**Lot 0 : presque tout est fusionné** (détail et revues dans `BOARD.md`). Aucune story n'est ACCEPTED : c'est la recette du fondateur.
+**Lot 0 : terminé côté construction, porte tenue le 2026-11-10** (**Réserve EXC-003** : le fondateur en a été informé dans la conversation du 2026-11-05 (termes expliqués, avec l'offre de corriger tout de suite ; il n'a pas objecté). La décision reste **PROPOSÉ**, à ratifier par écrit.) : 47 stories sur 49 fusionnées, 217 points sur 222 (`BOARD.md`). Aucune story n'est ACCEPTED : c'est la recette du fondateur. Rapport des preuves et recalage : [`gates/L0/rapport-preuves.md`](gates/L0/rapport-preuves.md) ; post-mortem final : [`gates/L0/postmortem.md`](gates/L0/postmortem.md).
 
-| Story                                                            | Statut                | Où                                                     | Où en est-on                                                                                           |
-| ---------------------------------------------------------------- | --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Toutes les autres stories du lot 0 (44 sur 49 ; voir `BOARD.md`) | MERGED                | `main` (PR #1 à #82)                                   | Dernières : US-051 (PR #79), US-040 (PR #80), US-003 durcissement (PR #81), US-035 isolation (PR #82). |
-| US-039 stratégie de test                                         | IN_PROGRESS           | branche à créer par l'agent                            | Agent lancé le 2026-11-05.                                                                             |
-| US-047 régression nocturne                                       | IN_PROGRESS           | `story/US-047-regression-nocturne` (`../wt/US-047`)    | Agent lancé le 2026-11-05.                                                                             |
-| US-050 règles d'exploitation                                     | IN_PROGRESS (partiel) | `main` (PR #6, #12, #14, #17, #21, #28, #36, #39, #50) | Reste : protection de branche, accès, usage (F-15).                                                    |
-| US-049 porte du lot 0                                            | TODO                  | —                                                      | Éprouve les stories fusionnées (US-011, US-012, US-018, US-019, US-025) : peut démarrer.               |
-| US-027 rapport des preuves du lot 0                              | TODO                  | —                                                      | Attend US-049.                                                                                         |
+| Story                                                            | Statut                | Où                                                     | Où en est-on                                                                                                                                                                                                      |
+| ---------------------------------------------------------------- | --------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toutes les autres stories du lot 0 (47 sur 49 ; voir `BOARD.md`) | MERGED                | `main` (PR #1 à #94)                                   | Dernières : US-049 (porte du lot 0 : PR #93 `32fa23a`, puis #92 `cc1ef72`, qui contient #88 à #91) ; US-042 correctif (PR #94, `f91541a`).                                                                        |
+| US-027 rapport des preuves du lot 0                              | IN_REVIEW             | `story/US-027-rapport-preuves-L0` (`../wt/US-027`)     | PR en brouillon ; revues exigées : code, architecture. Contient aussi le post-mortem final, RISKS, BOARD, la liste de contrôle de mise en service et ce fichier.                                                  |
+| US-050 règles d'exploitation                                     | IN_PROGRESS (partiel) | `main` (PR #6, #12, #14, #17, #21, #28, #36, #39, #50) | Protection de `main` faite le 2026-11-10 (17 statuts, `enforce_admins`). Reste : `CODEOWNERS`, jeton du compte machine pour les agents (`gh api user` rend encore `Noamgitpty`, admin), usage et plafonds (F-15). |
+
+**Ce que le lot 0 a prouvé** (run CI `42804893221` sur `cc1ef72`, 15 jobs verts, 2 ignorés par conception (revues, changelog : jobs de PR)) : aucune preuve L0 en échec ; L0-05, L0-06 et L0-08 partielles ; C10 absent (US-305, avec US-312) ; RLS-7 et RLS-27 partiels ; critiques et élevés des red teams corrigés, sauf RT-RLS-03 (EXC-003, accepté pour la bêta, bloquant pour la production, US-410). **Alerte ADR-056, antérieure à la porte** : p95 de la forme transactionnelle de C1 au-dessus de 300 ms depuis au moins le 2026-11-04, sans régression démontrée (N-16, US-045 : révision de 17 §2.5 avant le lot 2). Statuts « partielle » et « absent » : jugement de l'orchestrateur, PROPOSÉ.
+
+**Nuits** : rouges du 2026-11-04 au 2026-11-10 (gitleaks sur le commit `c824308` de la PR #78 fermée, incident I-3). Branches mortes supprimées le 2026-11-10. Nuit planifiée du 2026-11-10 (`42805510046`) rouge pour gitleaks ; nuit de vérification `42905487854` (même SHA) : **verte** (conclusion `success`, terminée à 21:49Z : 28 jobs verts, 2 ignorés par conception — revues et CHANGELOG —, aucun rouge ; gitleaks vert, job `130142280824` ; fuzz C11 long 10 × 1 000 et moteur contre oracles 100 000 cas verts ; tableau de bord QA « VERT, 0 bogue(s) », job `130153551430`).
 
 Rappel : US-014 (français et portugais du Brésil : PR #26 et #61) est fusionnée ; la colonne `fr` du catalogue est livrée.
 
 ## Prochaine action exacte (orchestrateur)
 
-1. **Avant le 2026-11-06** : monter `@nestjs/platform-express` (ou `overrides`) et retirer les deux exceptions de `docs/ops/audit-exceptions.json` (`docs/ops/CI.md` §audit). Sinon la CI devient rouge.
-2. Faire relire puis fusionner US-039 et US-047 (agents lancés le 2026-11-05).
-3. Lancer **US-049** (pré-mortem et red team argent / RLS / concurrence), puis **US-027** (rapport des preuves et recalage) ; solder US-050 (protection de branche, accès, usage : F-15).
-4. Puis le **lot 1** (identité, hôtes, véhicules) dans l'ordre de 19 v3 §2. Chaque story livre ses textes en es, en, fr et pt-BR (catalogue 10b §4.3) et note ses choix « comme Turo » dans `docs/team/COMME_TURO.md`.
-5. Les branches réécrites par rebase ne se force-pushent pas : une attestation `git range-diff` d'un relecteur indépendant certifie les nouveaux SHA. Pour mettre une PR à jour, préférer `gh pr update-branch` (fusion).
+1. Faire relire **US-027** (code, architecture), puis fusionner la PR quand la CI est verte et les deux revues APPROUVÉ.
+2. **Démarrer le lot 1** (identité, hôtes, véhicules ; 19 v3 §2, 28 stories, 120 points) par son **pré-mortem**, avant toute story du lot : `docs/team/gates/L1/premortem.md`, porté par US-122 (règle 11 du post-mortem du lot 0). Ensuite, suivre l'ordre de 19 v3 §2. En tête du chemin critique : US-101 (cadre `manual_action`), puis US-107, US-115 et US-119. Chaque story livre ses textes en es, en, fr et pt-BR (catalogue 10b §4.3) et note ses choix « comme Turo » dans `docs/team/COMME_TURO.md`.
+3. Réserver au BOARD, avant de coder, les numéros d'ADR et de migration de chaque story du lot 1 (règle 2 du post-mortem). Dernier ADR : ADR-090. Dernière migration : 0058.
+4. Mesurer l'usage dès les 20 premiers points du lot 1 : un rapport de santé par session dans `docs/team/health/`, pour calculer le budget (19 §1.9 point 3). Plafonds F-15 à demander au fondateur.
+5. Avant le lot 2 : ouvrir la révision de 17 §2.5 (N-16) par une demande de fusion revue. Traiter aussi N-17 à N-20 avec leur story.
+6. Solder US-050 : `CODEOWNERS`, jeton du compte machine (GL-05), environnement `production` (GL-03).
+7. Écrire les fiches d'incident I-1, I-4 et I-9 dans `docs/team/incidents/` (avec le fondateur pour I-1).
+8. Les branches réécrites par rebase ne se force-pushent pas : une attestation `git range-diff` d'un relecteur indépendant certifie les nouveaux SHA. Pour mettre une PR à jour, préférer `gh pr update-branch` (fusion).
 
 ## Reports à faire dans `docs/specs/` (par demande de fusion revue)
 
