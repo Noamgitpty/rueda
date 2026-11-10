@@ -24,7 +24,7 @@
 
 **Ce que le lot 0 a prouvé** (run CI `42804893221` sur `cc1ef72`, 17 jobs verts sur 17) : aucune preuve L0 en échec ; L0-05, L0-06 et L0-08 partielles ; C10 absent (US-308) ; RLS-7 et RLS-27 partiels ; critiques et élevés des red teams corrigés, sauf RT-RLS-03 (EXC-003, accepté pour la bêta, bloquant pour la production, US-410). **Alerte** : p95 de la forme transactionnelle de C1 au-dessus de 300 ms (N-16, révision de 17 §2.5 avant le lot 2).
 
-**Nuits** : rouges du 2026-11-04 au 2026-11-10 (gitleaks sur le commit `c824308` de la PR #78 fermée, incident I-3). Branches mortes supprimées le 2026-11-10. Nuit de vérification `42905487854` : NUIT_RESULTAT.
+**Nuits** : rouges du 2026-11-04 au 2026-11-10 (gitleaks sur le commit `c824308` de la PR #78 fermée, incident I-3). Branches mortes supprimées le 2026-11-10. Nuit de vérification `42905487854` : **verte** (conclusion `success`, terminée à 21:49Z : 28 jobs verts, 2 ignorés par conception — revues et CHANGELOG —, aucun rouge ; gitleaks vert, job `130142280824` ; fuzz C11 long 10 × 1 000 et moteur contre oracles 100 000 cas verts ; tableau de bord QA « VERT, 0 bogue(s) », job `130153551430`).
 
 Rappel : US-014 (français et portugais du Brésil : PR #26 et #61) est fusionnée ; la colonne `fr` du catalogue est livrée.
 
