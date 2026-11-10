@@ -255,7 +255,9 @@ for (const { country, currency } of COUNTRY_VARIANTS) {
         extrasSharePct: s,
         ...TEST_INSURER_SHARES,
       };
-    });
+    })
+    // Total payé > 0 (ADR-090 ; nul : défaut fail-closed, Q-013).
+    .filter((trip) => trip.totalPaid.amountMinor > 0n);
   const flags = {
     subReason: 'INVALID_LICENSE',
     evidenceValidated: true,

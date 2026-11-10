@@ -234,7 +234,10 @@ const settlementCaseArb = fc
       event: toCaseEvent(c.event, c.bookedMinutes),
       event2: c.event2 === null ? null : toCaseEvent(c.event2, c.bookedMinutes),
     };
-  });
+  })
+  // Total payé > 0 (ADR-090 ; nul : défaut fail-closed, Q-013). Les lignes sont ≥ 0 et les promos
+  // ≤ 3/10 de P : le total n'est nul que si toutes les lignes le sont.
+  .filter((c) => Object.values(c.lines).some((v) => v > 0n));
 type SettlementCase = typeof settlementCaseArb extends fc.Arbitrary<infer T> ? T : never;
 
 const anyRatioArb = fc.tuple(

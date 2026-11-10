@@ -12,6 +12,7 @@
 import {
   add,
   allocHost,
+  compare,
   isNegative,
   max,
   multiplyRoundHalfUp,
@@ -21,6 +22,7 @@ import {
   type Money,
 } from '../money.ts';
 import { assertRatio, ratio, type Ratio } from '../ratio.ts';
+import { assertPayableAmounts } from './amounts.ts';
 import { SettlementError } from './errors.ts';
 import { computeLegs, computeCaptureLegs, legVariation } from './legs.ts';
 import { hostFromGuestOf, line } from './lines.ts';
@@ -181,6 +183,8 @@ function validateTrip(trip: SettlementTrip): void {
       `total payé ${trip.totalPaid.amountMinor} ≠ Σ lignes + Σ taxe payée ${expectedTotal.amountMinor}`,
     );
   }
+  // Signes des lignes, promos ≤ prix du véhicule, total payé > 0 (ADR-090).
+  assertPayableAmounts(trip);
 }
 
 function validateParams(params: SettlementParams): void {
@@ -362,6 +366,7 @@ function settle(
   }
   const taxRefundByGroup: Record<string, Money> = {};
   const retainedTaxByGroup: Record<string, Money> = {};
+  let badTax: string | undefined;
   for (const g of trip.taxGroups) {
     const base = sum(
       c,
@@ -377,6 +382,7 @@ function settle(
         ? zero(c)
         : multiplyRoundHalfUp(g.taxPaid, ratio(refunded.amountMinor, base.amountMinor));
     taxRefundByGroup[g.id] = taxRefund;
+    if (isNegative(taxRefund) || compare(taxRefund, g.taxPaid) > 0) badTax ??= g.id;
     retainedTaxByGroup[g.id] = subtract(g.taxPaid, taxRefund);
   }
   const eligible = hostEligible(trip, rowOf, ev, event, params);
@@ -390,6 +396,31 @@ function settle(
     throw new SettlementError(
       'SETTLEMENT_UNBALANCED',
       'remboursement + retenu HT + taxe retenue ≠ total payé',
+    );
+  }
+  // 08 E1 : 0 ≤ remboursement ≤ encaissé ; taxe remboursée dans [0 ; taxe payée] par groupe. Des
+  // promos proches de 100 % de P, retenues ligne par ligne avec leur arrondi, peuvent rendre la
+  // retenue HT négative ou supérieure aux lignes : 08 ne tranche pas, refus fail-closed et revue FIN
+  // (ADR-090, PROPOSÉ, Q-014).
+  // Le service appelant attrape ce code, laisse le remboursement en attente et alerte FIN : le
+  // contexte (`details`) suffit à l'alerte, sans donnée personnelle (suivi BOARD.md).
+  if (isNegative(guestRefund) || compare(guestRefund, trip.totalPaid) > 0 || badTax !== undefined) {
+    const refundOut = badTax === undefined;
+    throw new SettlementError(
+      'REFUND_OUT_OF_RANGE',
+      refundOut
+        ? `remboursement ${guestRefund.amountMinor} hors de [0 ; ${trip.totalPaid.amountMinor}] (08 E1)`
+        : `taxe remboursée du groupe ${badTax} hors de [0 ; taxe payée] (08 E1)`,
+      {
+        engineVersion: CANCELLATION_ENGINE_VERSION,
+        currency: c.code,
+        reason: ev.reason,
+        guestRefundMinor: `${guestRefund.amountMinor}`,
+        totalPaidMinor: `${trip.totalPaid.amountMinor}`,
+        retainedMinor: `${retained.amountMinor}`,
+        taxRefundMinor: `${taxRefund.amountMinor}`,
+        ...(badTax === undefined ? {} : { taxGroupId: badTax }),
+      },
     );
   }
   const captureLegs = computeCaptureLegs(trip);
