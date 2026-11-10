@@ -96,6 +96,107 @@ describe.each(['TJ01', 'TJ08a'])('ordre et doublons des webhooks (%s)', (vectorI
     expect(s.store.statusEvents.map((e) => e.outcome)).toEqual(['APPLIED', 'STALE']);
   });
 
+  it('US-049 (RT-CONC-53) : horodatage hors tolérance sans lecture du PSP ⇒ jamais appliqué, FAILED et alerte', async () => {
+    const s = await scenario({}, vectorId);
+    s.stack.psp.customerPays(s.order.providerReference);
+    await s.deliver();
+    for (const row of s.store.inbox) {
+      row.status = 'QUARANTINED';
+      row.error = 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE';
+      row.signedAtOutOfTolerance = true;
+    }
+    const warnings: string[] = [];
+    const blind = new WebhookProcessor(s.store, () => undefined, { warn: (m) => warnings.push(m) });
+    expect(await blind.runOnce()).toMatchObject({ processed: 0, failed: 2 });
+    expect(s.store.operations.get('op-1')?.status).toBe('SUBMITTED');
+    expect(s.store.statusEvents).toEqual([]);
+    expect(s.store.inbox.map((r) => [r.status, r.error])).toEqual([
+      ['FAILED', 'SIGNED_TIMESTAMP_UNVERIFIED'],
+      ['FAILED', 'SIGNED_TIMESTAMP_UNVERIFIED'],
+    ]);
+    expect(warnings).toHaveLength(2);
+  });
+
+  it('US-049 (RT-CONC-53) : horodatage hors tolérance avec lecture du PSP ⇒ état du PSP, preuve POLL seulement', async () => {
+    const s = await scenario({}, vectorId);
+    s.stack.psp.customerPays(s.order.providerReference);
+    await s.deliver();
+    for (const row of s.store.inbox) {
+      row.status = 'QUARANTINED';
+      row.error = 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE';
+      row.signedAtOutOfTolerance = true;
+    }
+    expect(await s.processor.runOnce()).toMatchObject({ processed: 2 });
+    expect(s.store.operations.get('op-1')?.status).toBe('SUCCEEDED');
+    expect(new Set(s.store.statusEvents.map((e) => e.source))).toEqual(new Set(['POLL']));
+  });
+
+  it('US-049 (revues PR 92) : hors tolérance, puis opération introuvable, puis trouvée, PSP illisible ⇒ jamais appliqué (motif conservé)', async () => {
+    const s = await scenario({}, vectorId);
+    s.stack.psp.customerPays(s.order.providerReference);
+    await s.deliver();
+    for (const row of s.store.inbox) {
+      row.status = 'QUARANTINED';
+      row.error = 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE';
+      row.signedAtOutOfTolerance = true;
+    }
+    const op = s.store.operations.get('op-1');
+    if (op === undefined) throw new Error('opération');
+    s.store.operations.delete('op-1');
+    const warnings: string[] = [];
+    const blind = new WebhookProcessor(s.store, () => undefined, { warn: (m) => warnings.push(m) });
+    // 1er passage : opération introuvable ⇒ quarantaine, le motif d'horodatage n'est pas remplacé
+    expect(await blind.runOnce()).toMatchObject({ quarantined: 2, processed: 0 });
+    expect(s.store.inbox.map((r) => [r.status, r.error, r.signedAtOutOfTolerance])).toEqual([
+      ['QUARANTINED', 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE', true],
+      ['QUARANTINED', 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE', true],
+    ]);
+    // 2e passage : l'opération existe, le PSP reste illisible ⇒ jamais crue sur parole
+    s.store.operations.set('op-1', op);
+    expect(await blind.runOnce()).toMatchObject({ processed: 0, failed: 2 });
+    expect(s.store.operations.get('op-1')?.status).toBe('SUBMITTED');
+    expect(s.store.statusEvents).toEqual([]);
+    expect(s.store.inbox.map((r) => [r.status, r.error])).toEqual([
+      ['FAILED', 'SIGNED_TIMESTAMP_UNVERIFIED'],
+      ['FAILED', 'SIGNED_TIMESTAMP_UNVERIFIED'],
+    ]);
+    expect(warnings).toHaveLength(2);
+  });
+
+  it('US-049 (revues PR 92) : preuve refusée par la base (UNPROVEN) ⇒ FAILED à motif dédié et alerte, jamais PROCESSED', async () => {
+    const s = await scenario({}, vectorId);
+    s.stack.psp.customerPays(s.order.providerReference);
+    await s.deliver();
+    s.store.unproven.add('op-1');
+    const warnings: string[] = [];
+    const blind = new WebhookProcessor(s.store, () => undefined, { warn: (m) => warnings.push(m) });
+    // l'événement de création (statut non terminal) est traité ; le paiement refusé échoue
+    expect(await blind.runOnce()).toMatchObject({ failed: 1 });
+    expect(s.store.operations.get('op-1')?.status).toBe('SUBMITTED');
+    expect(
+      s.store.inbox.filter((r) => r.status === 'FAILED').map((r) => [r.status, r.error]),
+    ).toEqual([['FAILED', 'PROOF_REJECTED']]);
+    // aucun statut terminal n'est écrit (seul le SUBMITTED de création, sans effet, l'est)
+    expect(s.store.statusEvents.filter((e) => e.status === 'SUCCEEDED')).toEqual([]);
+    expect(warnings.filter((w) => w.includes('UNPROVEN'))).toHaveLength(1);
+  });
+
+  it('US-049 : quarantaine « opération introuvable » (reçu dans la fenêtre) ⇒ le webhook signé reste la preuve sans lecture du PSP', async () => {
+    const s = await scenario({}, vectorId);
+    s.stack.psp.customerPays(s.order.providerReference);
+    await s.deliver();
+    for (const row of s.store.inbox) {
+      row.status = 'QUARANTINED';
+      row.error = 'OPERATION_NOT_FOUND';
+    }
+    const blind = new WebhookProcessor(s.store, () => undefined, { warn: () => undefined });
+    await blind.runOnce();
+    expect(s.store.operations.get('op-1')?.status).toBe('SUCCEEDED');
+    expect(
+      s.store.statusEvents.some((e) => e.source === 'WEBHOOK' && e.outcome === 'APPLIED'),
+    ).toBe(true);
+  });
+
   it('webhook retardé : rien avant le délai, traitement après', async () => {
     const s = await scenario({ scenario: { webhooks: { delayMs: 120_000 } } }, vectorId);
     s.stack.psp.customerPays(s.order.providerReference);

@@ -32,13 +32,18 @@ describe('instruction 2a : une seule source', () => {
     expect(normalize(fixture)).toContain(normalize(`${expected} RETURNING ref_id )`));
   });
 
-  it('la commande réelle core.booking_cmd_place_hold (0037, US-023) contient EXPIRY_2A_SQL aux paramètres près', () => {
-    const migration = readFileSync(join(MIGRATIONS_DIR, '0037_booking_hold_commands.sql'), 'utf8');
-    const expected = EXPIRY_2A_SQL.replaceAll('$1::uuid', 'p_vehicle_id')
-      .replaceAll('$2::uuid', 'v_guest')
-      .replaceAll('$3', 'v_grace');
-    expect(normalize(migration)).toContain(normalize(`${expected};`));
-  });
+  // 0056 (US-049, F-RLS-02) remplace le corps de la commande : la définition en vigueur est
+  // celle de 0056, qui doit garder la même instruction 2a que 0037.
+  it.each(['0037_booking_hold_commands.sql', '0056_booking_vehicle_ownership_guards.sql'])(
+    'la commande réelle core.booking_cmd_place_hold (%s) contient EXPIRY_2A_SQL aux paramètres près',
+    (file) => {
+      const migration = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+      const expected = EXPIRY_2A_SQL.replaceAll('$1::uuid', 'p_vehicle_id')
+        .replaceAll('$2::uuid', 'v_guest')
+        .replaceAll('$3', 'v_grace');
+      expect(normalize(migration)).toContain(normalize(`${expected};`));
+    },
+  );
 
   it('la ré-acquisition (core.booking_convert_payment, 0041, US-024) contient EXPIRY_2A_SQL, partie véhicule seule', () => {
     const migration = readFileSync(

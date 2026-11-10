@@ -550,6 +550,54 @@ const TRIP_KEYS = ['a1', 'a2', 'b1'] as const;
 const advanceB1: string[] = [];
 const hashOf = (actor: string): Buffer => Buffer.from(staffSessionHash(actor) ?? '', 'hex');
 
+/**
+ * US-049 (F-RLS-05, red team RLS) : `core.config_brand_asset` n'est lisible par app_api que pour
+ * un actif référencé par une version de thème ou un bloc de contenu PUBLIÉS. Le test « relations
+ * peuplées » dépendait des actifs publiés par un AUTRE fichier (l0-brand), qui les publie puis les
+ * remplace en cours de route : vert ou rouge selon l'ordre des fichiers. La matrice publie donc son
+ * propre actif, par les vraies commandes (ADMIN des deux pays, session élevée du monde de test) :
+ * un bloc de contenu par pays, à une clé propre à ce fichier, qu'aucun autre test ne remplace ni
+ * n'archive. Le contrôle n'est pas affaibli : la table reste exigée peuplée, sans `sans_donnees`.
+ */
+async function seedPublishedBrandAsset(client: pg.ClientBase): Promise<void> {
+  const admin = hashOf(world.staff.adminAll);
+  const body = Buffer.from(`us043 ${uuid()}`, 'utf8');
+  const asset = await client.query<{ outcome: string; asset_id: string | null }>(
+    `SELECT outcome, asset_id FROM core.cfg_brand_cmd_register_asset($1, $2, $3, 'HERO_IMAGE',
+       'image/png', $4, $5, 'Imagen de prueba', 'Test image', 'Image de test', 'Imagem de teste',
+       'Licence vérifiée (test US-043)')`,
+    [admin, uuid(), uuid(), body.length, createHash('sha256').update(body).digest()],
+  );
+  expect(asset.rows[0]?.outcome).toBe('REGISTERED');
+  const key = `us043.matrix_${uuid().replace(/-/g, '').slice(0, 12)}.hero`;
+  // un bloc par pays : config_content_block est lue par pays (colonne country_code), et un bloc
+  // commun (pays NULL) ne compterait pour aucun des deux
+  for (const { country } of COUNTRIES) {
+    const draft = await client.query<{ outcome: string; version_no: number | null }>(
+      'SELECT * FROM core.cfg_content_cmd_save_draft($1, $2, $3, $4, $5, $6)',
+      [
+        admin,
+        uuid(),
+        key,
+        country,
+        {
+          es: 'Bloque de prueba de la matriz.',
+          en: 'Authorization matrix test block.',
+          fr: 'Bloc de test de la matrice.',
+          pt: 'Bloco de teste da matriz.',
+        },
+        asset.rows[0]?.asset_id,
+      ],
+    );
+    expect(draft.rows[0]?.outcome, country).toBe('SAVED');
+    const published = await client.query<{ outcome: string }>(
+      'SELECT * FROM core.cfg_content_cmd_publish($1, $2, $3, $4, $5)',
+      [admin, uuid(), key, country, draft.rows[0]?.version_no],
+    );
+    expect(published.rows[0]?.outcome, country).toBe('PUBLISHED');
+  }
+}
+
 beforeAll(async () => {
   const api = await connectAs('app_api');
   try {
@@ -649,6 +697,7 @@ beforeAll(async () => {
         expect(rows[0]?.outcome).toBe('REQUESTED');
       });
     }
+    await seedPublishedBrandAsset(api);
   } finally {
     await releaseClient(api);
   }

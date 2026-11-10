@@ -14,7 +14,10 @@
  *    fois, jamais modifiée ; une base déjà déclarée autrement fait échouer le job.
  * 5. Vérification sous le rôle de PRODUCTION `app_api` (L0-05) : rôle courant sans SUPERUSER ni
  *    BYPASSRLS, `platform.deployment_env()` égale à l'environnement visé, aucun compte PSP `FAKE`
- *    (C19 : refusé en préproduction comme en production, l'image n'a pas de FAKE).
+ *    (C19 : refusé en préproduction comme en production, l'image n'a pas de FAKE), et aucune
+ *    fonction de `pg_catalog` à effet de bord exécutable par un rôle applicatif (US-049, F-RLS-04 :
+ *    sur un service géré, l'amorçage peut ne pas pouvoir les retirer ; le déploiement échoue alors
+ *    au lieu de n'émettre qu'un avertissement).
  *
  * Secrets (noms seulement, docs/ops/ENV_VARS.md) : injectés par l'orchestrateur de conteneurs depuis
  * le coffre, jamais affichés ni journalisés ; tout message d'erreur est expurgé.
@@ -26,6 +29,11 @@ import { runMigrations } from '../migrate.ts';
 import { MIGRATIONS_DIR } from '../paths.ts';
 import { LOGIN_ROLES, MIGRATOR_ROLE } from '../roles.ts';
 import type { LoginRole } from '../roles.ts';
+import {
+  PROBED_ROLES,
+  SIDE_EFFECT_FUNCTIONS,
+  SIDE_EFFECT_PROBE_SQL,
+} from '../catalog-functions.ts';
 import { redactError } from '../secrets.ts';
 
 export const DEPLOY_ENVIRONMENTS = ['preproduction', 'production'] as const;
@@ -165,7 +173,20 @@ export async function deployDatabase(
     if (Number(me.fakes) !== 0) {
       throw new Error(`${me.fakes} compte(s) PSP FAKE en base : refusé (C19)`);
     }
+    // US-049 (F-RLS-04) : sonde du catalogue, fail-closed
+    const exposed = await api.query<{ sig: string; role: string }>(SIDE_EFFECT_PROBE_SQL, [
+      [...SIDE_EFFECT_FUNCTIONS],
+      [...PROBED_ROLES],
+    ]);
+    if (exposed.rows.length > 0) {
+      throw new Error(
+        `fonctions de pg_catalog exécutables par un rôle applicatif : ${exposed.rows
+          .map((r) => `${r.sig} (${r.role})`)
+          .join(', ')} ; REVOKE EXECUTE … FROM PUBLIC requis (amorçage § 3)`,
+      );
+    }
     log(`vérifié sous app_api : base « ${me.env} », aucun compte PSP FAKE`);
+    log('vérifié sous app_api : aucune fonction de pg_catalog à effet de bord exécutable');
   } finally {
     await api.end();
   }

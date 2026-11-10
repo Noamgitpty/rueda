@@ -1,5 +1,6 @@
 # ADR-057 — Règlements persistés : versions immuables, supersession, jambes signées et avance de Kmino
 
+- **Amendé par ADR-088** (US-049) : « Alternatives écartées » (recalcul du règlement en SQL : désormais un vérificateur en base, qui ne produit aucun montant), « Condition de rejeu avant tout ordre », « Limites ». Lire ADR-088 avant ces sections.
 - **Statut** : PROPOSÉ (US-018, agent back-end, claude-opus-5-5, 2026-11-03). Revues exigées (`docs/team/review-requirements.json`) : **argent** et **sécurité** sur un autre modèle que l'auteur (RLS, `SECURITY DEFINER`, concurrence), code, architecture (schéma). À reporter dans 17 §2.9, §3.2.8 et §8.1.
 - **Stories** : US-018 ; s'appuient dessus US-024 (annulation de bout en bout), US-223 / US-224 (ordres de remboursement par jambe), US-061 (opérations par jambe, `trip_leg_balance`), US-530 (grand livre). **Sources** : 08 E1, E4, E7 (règles 3, 3 bis, 5, 8), règle de qualification 5, SM-8 ; 17 v6 §2.3 (SQL des tables d'argent, RLS-2, RLS-21, RLS-25, RLS-28), §2.9, §3.2.8, §4.3 point 8 ; ADR-053, ADR-054.
 

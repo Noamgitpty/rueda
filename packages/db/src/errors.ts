@@ -104,7 +104,7 @@ export const SQLSTATE = {
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
  * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`,
- * `0037`, `0039`, `0040` et `0041`.
+ * `0037`, `0039`, `0040`, `0041` et `0054`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -219,6 +219,23 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   leg_movement_exceeds_balance: [SQLSTATE.objectNotInPrerequisiteState, 'LEG_AMOUNT_NEGATIVE'],
   leg_movement_not_succeeded: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_movement_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  // correctifs de la red team argent (0054, US-049, ADR-088) : rejeu des entrées d'un règlement,
+  // remboursement borné par le règlement, versement gardé (trip terminé, interrupteurs)
+  settlement_replay_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_replay_unsupported: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_replay_input_invalid: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  settlement_trip_inputs_changed: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  leg_refund_without_settlement: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_refund_exceeds_settlement: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  leg_release_trip_not_completed: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  leg_release_not_due: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
+  leg_release_submerchant_inactive: [
+    SQLSTATE.objectNotInPrerequisiteState,
+    'HOST_PAYOUT_RAIL_UNAVAILABLE',
+  ],
+  leg_release_insurer_inactive: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  leg_release_payouts_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  leg_funds_holding_disabled: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   // intention de paiement, conversion gardée et compensation (0040, 0041, US-024)
   hold_not_payable: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_EXPIRED'],
   hold_payment_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],

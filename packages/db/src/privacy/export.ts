@@ -54,6 +54,7 @@ export async function exportOwnPersonalData(
     if (cols.length === 0) continue;
     const [schema, name] = table.split('.') as [string, string];
     const { rows } = await tx.query<Record<string, unknown>>(
+      // eslint-disable-next-line rueda/no-dynamic-sql -- identifiants de l'inventaire versionné (liste fermée du dépôt, jamais de l'appelant), cités par quote ; aucune valeur interpolée
       `SELECT ${cols.map(quote).join(', ')} FROM ${quote(schema)}.${quote(name)} ORDER BY 1`,
     );
     out[table] = rows;

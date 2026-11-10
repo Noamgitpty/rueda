@@ -658,9 +658,9 @@ describe('US-018 — falsification de la charge utile : refus en base (fail-clos
     });
   });
 
-  // LIMITES CONNUES (ADR-057, revue argent n° 4) : sans trip_leg_balance, une v1 dont les montants
-  // sont redistribués entre jambes passe. Ces deux tests sont à INVERSER quand le rejeu des entrées
-  // ou l'exigence de trip_leg_balance pour la v1 sera posé (DoR US-061 / US-223 / US-224).
+  // ANCIENNES LIMITES CONNUES (ADR-057, revue argent n° 4), INVERSÉES par US-049 (RC-1, 0054,
+  // ADR-088) : une redistribution entre jambes cohérente avec elle-même est refusée par le rejeu
+  // des entrées en base (settlement_replay_mismatch), avec ou sans état capturé tenu.
   it.each([
     [
       'jambe retenue INSURER + 1 / PLATFORM − 1',
@@ -670,7 +670,7 @@ describe('US-018 — falsification de la charge utile : refus en base (fail-clos
         shift(leg(p, 'PLATFORM'), 'keptMinor', -1n);
         shift(leg(p, 'PLATFORM'), 'variationMinor', -1n);
       }),
-      'AUCUNE_ERREUR', // la capture ne fixe que la base : seul le rejeu des entrées le verra
+      'INVARIANT_VIOLATION', // settlement_replay_mismatch : retenue ≠ rejeu des entrées
     ],
     [
       'base décalée entre jambes (HOST + 1 / PLATFORM − 1)',
@@ -683,14 +683,17 @@ describe('US-018 — falsification de la charge utile : refus en base (fail-clos
       'INVARIANT_VIOLATION', // base ≠ trip_leg_balance.captured_minor
     ],
   ] as const)(
-    'limite connue, v1 sans état capturé : %s ⇒ accepté',
+    'ancienne limite connue (inversée par US-049) : %s ⇒ refusé, avec ou sans état capturé',
     async (_, payload, withCapture) => {
       await worker(async (tx) => {
         const trip = await insertTrip(tx, COUNTRIES[0], 21);
         await setSessionContext(tx, { kind: 'WORKER', workerName: 'settlement' });
-        expect(await callRecord(tx, { tripId: trip.id, version: 1 }, payload)).not.toBe('');
+        // sans état capturé : base ou retenue ≠ rejeu des entrées (settlement_replay_mismatch)
+        expect(await codeOf(callRecord(tx, { tripId: trip.id, version: 1 }, payload))).toBe(
+          'INVARIANT_VIOLATION',
+        );
       });
-      // avec l'état capturé tenu : la base est contrôlée jambe par jambe, pas encore la retenue
+      // avec l'état capturé tenu : base contrôlée jambe par jambe, retenue par le rejeu
       await worker(async (tx) => {
         const trip = await insertTrip(tx, COUNTRIES[0], 22);
         await captureLegs(tx, trip.id, tj('TJ01').legsMinor);

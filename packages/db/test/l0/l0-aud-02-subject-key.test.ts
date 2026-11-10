@@ -32,7 +32,9 @@ import type { ActorContext } from '../support/audit.ts';
 
 const IP = '203.0.113.7'; // RFC 5737 (documentation)
 const T0 = '2031-05-01T10:00:00.000Z';
-const WRITER: ActorContext = { kind: 'WORKER', worker: 'audit_test_writer' };
+// US-049 (0057, F-RLS-06) : seuls des travailleurs nommés écrivent l'audit et lisent les clés de
+// sujet ; `privacy_request` (demandes des personnes, PROPOSÉ) remplace le nom de test libre.
+const WRITER: ActorContext = { kind: 'WORKER', worker: 'privacy_request' };
 const ipAad = (s: SubjectRef): string => columnAad('audit_log', 'ip_enc', s);
 
 interface StoredAudit {

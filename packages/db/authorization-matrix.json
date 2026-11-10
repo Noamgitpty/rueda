@@ -21,6 +21,7 @@
     "bordereau",
     "bus_monitor",
     "disposition_sweeper",
+    "evidence_ingest",
     "evidence_verifier",
     "hold_expiry",
     "ntf_dispatcher",
@@ -30,6 +31,7 @@
     "payment_command",
     "payment_intent_sweeper",
     "payout",
+    "privacy_request",
     "reconciliation",
     "settlement",
     "trip_lifecycle",
@@ -226,7 +228,9 @@
         "staff_sans_session": "subject_type = 'USER' AND subject_id = :acteur"
       },
       "travailleurs": {
-        "*": "tout"
+        "evidence_ingest": "tout",
+        "evidence_verifier": "tout",
+        "privacy_request": "tout"
       }
     },
     "core.booking_checkout_hold": {

@@ -162,19 +162,26 @@ export async function expireDueHolds(
   return r.rowCount ?? 0;
 }
 
-/** Réception d'une preuve de paiement signée (17 §4.4 points 3 et 8), sous `webhook_ingest`. */
+/**
+ * Réception d'une preuve de paiement signée (17 §4.4 points 3 et 8), sous `webhook_ingest`.
+ * US-049 (0058, revues de la PR n° 92) : par la VRAIE voie de production, un webhook signé reçu par
+ * `core.payment_cmd_receive_webhook` (fixture 9940) puis `core.payment_cmd_apply_operation_status`
+ * avec ce webhook pour preuve ; plus jamais une ligne d'inbox ni un statut écrits à la main (la
+ * voie directe est fermée par 0058).
+ */
 export async function receiveProof(tx: pg.ClientBase, operationId: string): Promise<void> {
-  await tx.query(
-    `INSERT INTO core.payment_webhook_inbox (id, provider, psp_account_id, provider_event_id,
-                                             dedup_key, signature_valid, processing_status)
-     VALUES ($1, 'FAKE', NULL, $2, convert_to($2, 'UTF8'), true, 'PROCESSED')`,
-    [uuid(), `evt-${operationId}`],
-  );
-  await tx.query(
-    `UPDATE core.payment_payment_operation SET status = 'SUCCEEDED', proof_type = 'WEBHOOK_SIGNED'
-      WHERE id = $1`,
+  const raw = await tx.query<{ id: string }>(
+    `SELECT test_fixture.us049_signed_webhook($1, 'SUCCEEDED') AS id`,
     [operationId],
   );
+  const r = await tx.query<{ outcome: string }>(
+    `SELECT core.payment_cmd_apply_operation_status($1, 'SUCCEEDED', 'WEBHOOK', $2, NULL) AS outcome`,
+    [operationId, raw.rows[0]?.id],
+  );
+  const outcome = r.rows[0]?.outcome;
+  if (outcome !== 'APPLIED' && outcome !== 'DUPLICATE') {
+    throw new Error(`preuve de paiement refusée : ${String(outcome)}`);
+  }
 }
 
 export type CompensationReason =
