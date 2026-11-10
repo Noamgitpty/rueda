@@ -7,6 +7,7 @@ export {
   computeCancellationSettlement,
   freeUntil,
 } from './cancellation.ts';
+export { assertPayableAmounts, type PayableAmounts } from './amounts.ts';
 export { computeCaptureLegs, computeLegs, legVariation } from './legs.ts';
 export {
   MONEY_OPERATION_TYPES,
@@ -37,6 +38,7 @@ export {
   SettlementError,
   isSettlementError,
   type SettlementErrorCode,
+  type SettlementErrorDetails,
 } from './errors.ts';
 export {
   BETA_CANCELLATION_REASONS,
