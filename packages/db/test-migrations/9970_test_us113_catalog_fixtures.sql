@@ -113,7 +113,7 @@ BEGIN
   BEGIN
     TRUNCATE core.catalog_vehicle_variant;
     RAISE EXCEPTION 'US-113 : TRUNCATE du catalogue accepté';
-  -- US-115 (0066) : catalog_vehicle référence la variante ; PostgreSQL refuse alors le TRUNCATE
+  -- US-115 (0067) : catalog_vehicle référence la variante ; PostgreSQL refuse alors le TRUNCATE
   -- avant même la garde (0A000) : refus dans les deux cas
   EXCEPTION WHEN integrity_constraint_violation OR feature_not_supported THEN NULL;
   END;

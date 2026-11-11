@@ -1,4 +1,4 @@
--- 0066 — CAT : lieux de remise, véhicules et annonces de l'hôte (modèle bêta), clé étrangère du véhicule.
+-- 0067 — CAT : lieux de remise, véhicules et annonces de l'hôte (modèle bêta), clé étrangère du véhicule.
 -- US-115 ; 19 US-115 ; 16 HST-011, HST-005, HST-012, PRC-001, HST-033 ; 08 BR-LIST-04, BR-LIST-05,
 -- BR-PRICE-01, BR-MILEAGE-01, SM-2 ; 17 §2.3 (« org_id = catalog.vehicle_org(vehicle_id), jamais
 -- choisi par le client »), §3.1.3, §3.1.4 (C0 : « EXIF / GPS retirés des photos d'annonce »),

@@ -671,7 +671,7 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'booking_guest_occupancy',
           'booking_trip',
           'booking_vehicle_occupancy',
-          // US-115 (0066, ADR-099) : AUCUN droit ni politique d'app_api ; accès par les seules
+          // US-115 (0067, ADR-099) : AUCUN droit ni politique d'app_api ; accès par les seules
           // fonctions SECURITY DEFINER de catalog_cmd_owner (hôte désigné par son jeton)
           'catalog_listing',
           'catalog_listing_photo',

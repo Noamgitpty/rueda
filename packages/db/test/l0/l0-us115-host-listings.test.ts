@@ -1,5 +1,5 @@
 /**
- * Preuves des lieux de remise, véhicules et annonces de l'hôte (US-115, migrations 0066 et 0067 ;
+ * Preuves des lieux de remise, véhicules et annonces de l'hôte (US-115, migrations 0067 et 0068 ;
  * fixtures 9985) sous le rôle de production app_api (assertion L0-05 en tête de chaque connexion,
  * withRole), en USD (PA) et en PYG (PY). Chaque test crée ses propres personnes, sessions, comptes
  * d'hôte, lieux, véhicules et annonces par les VRAIES commandes.
@@ -296,7 +296,7 @@ const TABLES = [
 ] as const;
 
 // ---------------------------------------------------------------------------------------------
-describe('socle (0066) : RLS, droits, propriétaires', () => {
+describe('socle (0067) : RLS, droits, propriétaires', () => {
   it('cinq tables : RLS ENABLE + FORCE, propriétaire migrator, politiques des seuls propriétaires NOLOGIN', async () => {
     await withRole(
       'app_api',

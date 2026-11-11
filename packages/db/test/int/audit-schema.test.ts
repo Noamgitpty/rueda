@@ -150,7 +150,7 @@ describe('schéma d’audit (US-009)', () => {
           continue;
         }
         if (r.roles === 'catalog_cmd_owner') {
-          // US-115 (0066) : soumission et suppression d'annonce journalisées ; fichier d'une photo
+          // US-115 (0067) : soumission et suppression d'annonce journalisées ; fichier d'une photo
           // d'annonce (bucket public, C0) ; INSERT seulement
           expect(
             [

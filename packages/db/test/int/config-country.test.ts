@@ -174,7 +174,7 @@ describe('configuration pays : structure et droits', () => {
         expect(rows).toEqual(
           [...TABLES].sort().flatMap((t) => [
             { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
-            // commandes de l'hôte (US-115, 0066) : devise et fuseau du pays ; pas de prix, minimum
+            // commandes de l'hôte (US-115, 0067) : devise et fuseau du pays ; pas de prix, minimum
             // de photos et ouverture du pays aux hôtes particuliers seulement
             ...(t === 'config_country' ||
             t === 'config_param_definition' ||

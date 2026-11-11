@@ -1,7 +1,7 @@
 /**
  * Modèle et validation des lieux de remise, véhicules et annonces de l'hôte (US-115 ; 16 HST-011,
  * HST-005, HST-012, PRC-001, HST-033 ; 17 §3.2.3 ; ADR-099). Fonctions pures : la base revérifie
- * tout (commandes `core.catalog_cmd_*` de 0066) et décide seule de la propriété, du pays, de
+ * tout (commandes `core.catalog_cmd_*` de 0067) et décide seule de la propriété, du pays, de
  * l'unicité de la plaque et du pas de prix du pays.
  *
  * Une saisie invalide est rendue champ par champ (UX-50 : « champ invalide lié au champ ») ;

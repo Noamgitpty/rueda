@@ -1,8 +1,8 @@
--- 9985 — fixtures des preuves des lieux, véhicules et annonces de l'hôte (US-115, migration 0066).
+-- 9985 — fixtures des preuves des lieux, véhicules et annonces de l'hôte (US-115, migration 0067).
 -- TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
--- jetable principale `rueda_test_*` ; la base `rueda_test_*_prod` garde la clé étrangère de 0066
+-- jetable principale `rueda_test_*` ; la base `rueda_test_*_prod` garde la clé étrangère de 0067
 -- sans relais (test l0-us115 : un véhicule absent du catalogue y est refusé).
 --
 -- Rôle (SECURITY DEFINER sous migrator, search_path figé ; aucun SQL dynamique) :

@@ -79,8 +79,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0061_iam_host_account` | IAM : compte d'hôte d'une personne physique (titulaire, nom affiché), libre-service et action de console CREATE_HOST_ACCOUNT. |
 | `0062_config_content_legal_keys` | CFG : blocs de contenu éditables, textes juridiques refusés et journalisés. |
 | `0063_catalog_vehicle_reference` | CAT : catalogue de référence des véhicules (marques, modèles, variantes) et sa graine. |
-| `0066_catalog_host_listings` | CAT : lieux de remise, véhicules et annonces de l'hôte (modèle bêta), clé étrangère du véhicule. |
-| `0067_config_listing_photo_params` | graine complémentaire : paramètres « listing_min_photos* » (US-115 ; 17 §7.2). |
+| `0067_catalog_host_listings` | CAT : lieux de remise, véhicules et annonces de l'hôte (modèle bêta), clé étrangère du véhicule. |
+| `0068_config_listing_photo_params` | graine complémentaire : paramètres « listing_min_photos* » (US-115 ; 17 §7.2). |
 
 ## Rôles
 

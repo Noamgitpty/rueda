@@ -1,6 +1,6 @@
 /**
  * FAKE du magasin des lieux, véhicules et annonces de l'hôte (US-115) — TESTS SEULEMENT (absent de
- * la compilation de production). Reproduit les issues des commandes `core.catalog_*` de 0066 que
+ * la compilation de production). Reproduit les issues des commandes `core.catalog_*` de 0067 que
  * les tests de contrat HTTP observent ; les règles elles-mêmes (propriété, pays, doublons, pas du
  * prix, SM-2) sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us115-host-listings.test.ts).
  */

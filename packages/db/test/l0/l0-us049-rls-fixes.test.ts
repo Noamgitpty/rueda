@@ -427,7 +427,7 @@ describe.each(COUNTRIES)(
       });
     });
 
-    // US-115 (0066, N-03) : l'état que ce test fabriquait à la main (blocage de A sur un véhicule
+    // US-115 (0067, N-03) : l'état que ce test fabriquait à la main (blocage de A sur un véhicule
     // que le catalogue attribue à B) n'est plus représentable : la clé étrangère
     // (vehicle_id, org_id, country_code) vers catalog_vehicle refuse l'écriture elle-même, même
     // forcée par le propriétaire des tables. La garde de la levée reste en défense en profondeur.

@@ -211,10 +211,10 @@ export const MIGRATION_SEEDS: readonly MigrationSeed[] = [
   },
   {
     // après 0032 : la table d'occupation exigeait d'être vide (dérogation populated: false) ;
-    // depuis US-115 (0066), après 0066 : une occupation, un hold ou un trip exige son véhicule au
+    // depuis US-115 (0067), après 0067 : une occupation, un hold ou un trip exige son véhicule au
     // catalogue (clé étrangère (vehicle_id, org_id, country_code) vers catalog_vehicle, N-03)
     id: 'CAT et AVL : lieu, véhicule et annonce de l’hôte ; occupations, trip réservé et hold actif par pays',
-    after: '0066',
+    after: '0067',
     rows: {
       'core.catalog_location': n,
       'core.catalog_vehicle': n,

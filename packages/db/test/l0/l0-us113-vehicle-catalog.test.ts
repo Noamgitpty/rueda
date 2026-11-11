@@ -126,7 +126,7 @@ describe('socle RLS et droits (0063)', () => {
       expect(rows.map((r) => r.relname)).toEqual([...TABLES]);
       for (const r of rows) {
         expect(r, r.relname).toMatchObject({ rls: true, force: true, owner: 'migrator' });
-        // US-115 (0066) : lecture du statut, du marché et des années par les commandes de l'hôte
+        // US-115 (0067) : lecture du statut, du marché et des années par les commandes de l'hôte
         // (catalog_cmd_owner, propriétaire NOLOGIN), jamais par un rôle applicatif de plus
         expect(r.policies, r.relname).toEqual([
           'api_read:app_api',

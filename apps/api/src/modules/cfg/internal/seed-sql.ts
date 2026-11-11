@@ -36,7 +36,7 @@ export const POST_SEED_PARAMS: readonly {
   { prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' },
   {
     prefix: 'listing_min_photos',
-    file: '0067_config_listing_photo_params.sql',
+    file: '0068_config_listing_photo_params.sql',
     story: 'US-115',
     refs: '08 BR-LIST-05, 16 HST-012',
   },

@@ -1,6 +1,6 @@
 /**
  * Port et adaptateur PostgreSQL des lieux, véhicules et annonces de l'hôte (US-115, migration
- * 0066). L'adaptateur n'appelle QUE les fonctions `core.catalog_*` (SECURITY DEFINER,
+ * 0067). L'adaptateur n'appelle QUE les fonctions `core.catalog_*` (SECURITY DEFINER,
  * propriétaire catalog_cmd_owner, EXECUTE au seul app_api) : app_api n'a aucun droit sur les
  * tables. L'hôte est désigné par l'empreinte de son jeton de session (`proof`), jamais par un
  * identifiant reçu du client ; le compte d'hôte demandé (`orgId`) est revérifié en base.
