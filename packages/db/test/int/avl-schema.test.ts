@@ -108,6 +108,7 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^ntf_'          -- tables NTF : test/l0/l0-ntf-dispatch.test.ts (US-021)
             AND c.relname !~ '^risk_'         -- tables RISK : test/l0/l0-risk-rate-limit.test.ts (US-052)
             AND c.relname !~ '^contract_'     -- tables CTR : test/l0/l0-ctr-consents.test.ts (US-102)
+            AND c.relname !~ '^catalog_'      -- tables CAT : test/l0/l0-us113-vehicle-catalog.test.ts (US-113)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
