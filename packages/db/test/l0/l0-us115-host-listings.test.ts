@@ -742,7 +742,8 @@ describe('critère 3 — prix : trip confirmé inchangé ; pas du prix du pays (
                                'core.settlement_settlement_line']) AS t(rel),
                   unnest(ARRAY['INSERT', 'UPDATE', 'DELETE']) AS p(priv)
             WHERE pg_catalog.has_table_privilege('catalog_cmd_owner', t.rel, p.priv)
-               OR pg_catalog.has_any_column_privilege('catalog_cmd_owner', t.rel, p.priv)`,
+               OR (p.priv <> 'DELETE'
+                   AND pg_catalog.has_any_column_privilege('catalog_cmd_owner', t.rel, p.priv))`,
         );
         expect(rights.rows[0]?.n).toBe(0);
       });
