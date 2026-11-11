@@ -1,5 +1,5 @@
 /*
- * Console interne (US-012) : mise en page mobile-first, uniquement par les jetons du thème (US-030).
+ * Console interne (US-012, US-101) : mise en page mobile-first, uniquement par les jetons du thème (US-030).
  * Les composants eux-mêmes viennent de @rueda/ui (US-032).
  */
 .stack {
@@ -72,4 +72,10 @@
 
 .link {
   color: var(--color-primary);
+}
+
+/* Groupe d'actions de console (US-101) : titre puis boutons */
+.group {
+  display: grid;
+  gap: var(--space-2);
 }

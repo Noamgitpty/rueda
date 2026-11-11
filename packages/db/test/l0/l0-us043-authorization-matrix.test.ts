@@ -598,6 +598,76 @@ async function seedPublishedBrandAsset(client: pg.ClientBase): Promise<void> {
   }
 }
 
+/** Jetons du thème par défaut (Tinta, DEC-MARQUE) : le jeu que publie aussi l0-brand. */
+const BRAND_TOKENS = JSON.parse(
+  readFileSync(
+    new URL('../../../../docs/design/US-028/tokens-lienzo-tinta.json', import.meta.url),
+    'utf8',
+  ),
+) as Record<string, unknown>;
+
+/**
+ * `core.config_brand_version` est lisible par app_api pour sa seule version PUBLIÉE. Le test
+ * « relations peuplées » comptait sur la version publiée par un AUTRE fichier (l0-brand) : rouge
+ * quand la matrice passait avant lui (job « guide d'installation » du run 43038483423, PA). La
+ * matrice garantit donc elle-même qu'une version de thème est publiée, par les vraies commandes
+ * (`cfg_brand_cmd_save_draft` puis `cfg_brand_cmd_publish`, ADMIN de tous les pays, session élevée
+ * du monde de test). La version de thème est commune aux deux pays (aucune colonne de pays) : une
+ * seule publication couvre PA et PY.
+ *
+ * Elle ne publie QUE si aucune version n'est publiée, et décide sous le verrou de la marque
+ * (le verrou consultatif que prennent les commandes de publication et de retour arrière) : une
+ * publication inconditionnelle s'intercalerait entre deux étapes d'un test de l0-brand qui
+ * vérifie QUELLE version est publiée, et rendrait ce fichier-là dépendant de l'ordre. Une fois
+ * une version publiée, il en reste toujours exactement une : publier et revenir en arrière
+ * archivent l'ancienne et publient la nouvelle dans la même transaction, et aucune commande ne
+ * dépublie sans publier. Le contrôle n'est pas affaibli : la table reste exigée peuplée, sans
+ * `sans_donnees`, et ce fichier la peuple lui-même quel que soit l'ordre des fichiers.
+ */
+async function ensurePublishedBrandVersion(client: pg.ClientBase): Promise<void> {
+  const admin = hashOf(world.staff.adminAll);
+  await withTestTransaction(client, { commit: true }, async (tx) => {
+    await tx.query(
+      `SELECT pg_catalog.pg_advisory_xact_lock(
+                pg_catalog.hashtextextended('core.config_brand_version', 0))`,
+    );
+    const live = await tx.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM test_fixture.brand_versions() WHERE status = 'PUBLISHED'`,
+    );
+    if (Number(live.rows[0]?.n) > 0) return;
+    const draft = await tx.query<{ outcome: string; version_id: string | null }>(
+      'SELECT * FROM core.cfg_brand_cmd_save_draft($1, $2, $3, $4, $5, 1, NULL, NULL, NULL, NULL)',
+      [admin, uuid(), uuid(), 'Kmino us043', BRAND_TOKENS],
+    );
+    expect(draft.rows[0]?.outcome).toBe('SAVED');
+    const versionId = draft.rows[0]?.version_id ?? '';
+    const sha = await tx.query<{ tokens_sha256: string }>(
+      'SELECT tokens_sha256 FROM test_fixture.brand_versions() WHERE id = $1',
+      [versionId],
+    );
+    const published = await tx.query<{ outcome: string }>(
+      'SELECT * FROM core.cfg_brand_cmd_publish($1, $2, $3, $4)',
+      [
+        admin,
+        uuid(),
+        versionId,
+        {
+          checker: 'test US-043',
+          tokensSchemaVersion: 1,
+          passed: true,
+          failures: [],
+          tokensSha256: sha.rows[0]?.tokens_sha256 ?? '',
+        },
+      ],
+    );
+    expect(published.rows[0]?.outcome).toBe('PUBLISHED');
+  });
+  const after = await client.query<{ n: string }>(
+    `SELECT count(*)::text AS n FROM test_fixture.brand_versions() WHERE status = 'PUBLISHED'`,
+  );
+  expect(Number(after.rows[0]?.n)).toBe(1);
+}
+
 beforeAll(async () => {
   const api = await connectAs('app_api');
   try {
@@ -698,6 +768,7 @@ beforeAll(async () => {
       });
     }
     await seedPublishedBrandAsset(api);
+    await ensurePublishedBrandVersion(api);
   } finally {
     await releaseClient(api);
   }

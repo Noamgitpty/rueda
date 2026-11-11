@@ -29,7 +29,7 @@ Contrôles avant toute écriture : format des jetons (`BRAND_TOKENS_INVALID`), p
 ## Blocs de contenu éditables (US-121, ADR-095)
 
 - **Registre** : seules les clés de `EDITABLE_BLOCKS` (`@rueda/i18n`, `packages/i18n/src/editable-blocks.ts`) sont éditables et servies ; chacune remplace un texte du catalogue livré (`catalogKey`) avec un format (`plain` : une ligne ; `rich` : paragraphes, listes, gras, italique, liens internes) et une longueur maximale. Clé hors registre : `CONTENT_KEY_NOT_EDITABLE` (422). Rendre un texte éditable : une ligne du registre (le test du registre vérifie la clé du catalogue dans les quatre langues).
-- **Textes juridiques** (CGU, contrat, politique d'annulation, confidentialité, assurance…, motif `LEGAL_BLOCK_KEY`) : `CONTENT_KEY_FORBIDDEN` ; la base refuse aussi et journalise la tentative (`CONTENT_KEY_REFUSED`, migration 0060).
+- **Textes juridiques** (CGU, contrat, politique d'annulation, confidentialité, assurance…, motif `LEGAL_BLOCK_KEY`) : `CONTENT_KEY_FORBIDDEN` ; la base refuse aussi et journalise la tentative (`CONTENT_KEY_REFUSED`, migration 0061).
 - **Assainissement** : chaque corps passe la liste blanche de son format (`richTextProblem`) en plus des règles de 0042 (`CONTENT_MARKDOWN_FORBIDDEN`) ; `GET /brand/content` sert l'arbre fermé (`doc`) de chaque bloc, jamais du HTML ; un corps publié devenu hors règles n'est pas servi.
 - **Signalement** : `GET /console/content/gaps` (`brand.edit`, ADMIN de tous les pays) : blocs publiés sans une langue, corps hors règles, clés hors registre. Le site affiche alors le texte du catalogue livré dans la langue de la page (`apps/web/content-source.ts`).
 

@@ -1,6 +1,8 @@
 /**
  * Écrans de la console interne (US-012 ; écran O01 de 10b, socle d'accès) : connexion, enrôlement
- * TOTP, code TOTP, refus, console (rôles et pays, action motivée, journal). Composant de
+ * TOTP, code TOTP, refus, console (rôles et pays, action motivée, journal). US-101 : catalogue des
+ * actions de console groupé (changer un état, enregistrer seulement avec pièces, décisions FINANCE à
+ * deux personnes), pièces, et demandes FINANCE en attente à approuver par une seconde personne. Composant de
  * PRÉSENTATION pur : aucun appel réseau, aucun état (rendu testable dans chaque locale) ; la
  * logique est dans `console-client.tsx`. Composants de `@rueda/ui` seulement, mise en page par les
  * jetons de design (console.module.css) : aucun style en dur.
@@ -33,6 +35,16 @@ export interface ContentGapView {
   readonly invalid: readonly string[];
 }
 
+/** Demande FINANCE en attente (GET /console/finance/approvals). */
+export interface ApprovalView {
+  readonly id: string;
+  readonly action: string;
+  readonly subjectId: string;
+  readonly country: string;
+  readonly reason: string;
+  readonly requestedAt: string;
+}
+
 export type ConsoleState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'login'; readonly error?: MessageKey | undefined }
@@ -55,19 +67,79 @@ export type ConsoleState =
        * lecture a échoué, absent si le rôle n'a pas `brand.edit`.
        */
       readonly contentGaps?: readonly ContentGapView[] | 'error' | undefined;
+      /** Demandes FINANCE en attente (FINANCE et ADMIN seulement ; la base filtre, RLS-24). */
+      readonly approvals?: readonly ApprovalView[] | undefined;
+      readonly approvalsError?: boolean | undefined;
       readonly notice?:
         { readonly tone: 'success' | 'danger' | 'warning'; readonly key: MessageKey } | undefined;
     };
 
-/** Actions de console proposées (catalogue de 17 §10 ; la base reste juge de chaque droit). */
-export const CONSOLE_ACTIONS = ['RECORD_CLAIM', 'CANCEL_TRIP_PLATFORM', 'DECLARE_NO_SHOW'] as const;
-export type ConsoleAction = (typeof CONSOLE_ACTIONS)[number];
+/**
+ * Actions de console proposées, groupées comme 19 US-101 (catalogue de 17 §10 ; la base reste juge
+ * de chaque droit et de la disponibilité de chaque commande de domaine).
+ */
+export const ACTION_GROUPS = {
+  state: [
+    'CANCEL_TRIP_GUEST',
+    'CANCEL_TRIP_HOST',
+    'CANCEL_TRIP_PLATFORM',
+    'DECLARE_NO_SHOW',
+    'REFUSE_AT_PICKUP',
+    'KYC_DECISION',
+    'HOST_VERIFICATION_DECISION',
+    'PUBLISH_LISTING',
+    'ESCALATE_OVERDUE',
+    'REVIEW_FLAGGED_BOOKING',
+  ],
+  record: [
+    'RECORD_CLAIM',
+    'ISSUE_DECISION',
+    'RECORD_CHARGEBACK',
+    'OPEN_INCIDENT',
+    'RECORD_REVIEW',
+    'HANDLE_DSR',
+  ],
+  finance: ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'],
+} as const;
+export type ConsoleAction = (typeof ACTION_GROUPS)[keyof typeof ACTION_GROUPS][number];
+export const CONSOLE_ACTIONS: readonly ConsoleAction[] = [
+  ...ACTION_GROUPS.state,
+  ...ACTION_GROUPS.record,
+  ...ACTION_GROUPS.finance,
+];
+
+const GROUP_KEYS: Readonly<Record<keyof typeof ACTION_GROUPS, MessageKey>> = {
+  state: 'backoffice.action.groupState',
+  record: 'backoffice.action.groupRecord',
+  finance: 'backoffice.action.groupFinance',
+};
+
+/** Rôles qui voient les demandes FINANCE en attente (17 §2.3 fin_read). */
+const APPROVER_ROLES = new Set(['FINANCE', 'ADMIN']);
+
+/** Identifiants des pièces saisis (virgules, espaces ou retours à la ligne), en minuscules. */
+export function evidenceOf(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .split(/[\s,;]+/)
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+}
 
 export interface ConsoleHandlers {
   readonly onLogin: (email: string, password: string) => void;
   readonly onReveal: (enrollmentCode: string) => void;
   readonly onVerify: (code: string) => void;
-  readonly onAction: (action: ConsoleAction, subjectId: string, reason: string) => void;
+  readonly onAction: (
+    action: ConsoleAction,
+    subjectId: string,
+    reason: string,
+    evidence: readonly string[],
+  ) => void;
+  readonly onApprove: (approvalId: string) => void;
   readonly onSignOut: () => void;
 }
 
@@ -80,9 +152,25 @@ const ROLE_KEYS: Readonly<Record<string, MessageKey>> = {
 };
 
 const ACTION_KEYS: Readonly<Record<ConsoleAction, MessageKey>> = {
-  RECORD_CLAIM: 'backoffice.action.RECORD_CLAIM',
+  CANCEL_TRIP_GUEST: 'backoffice.action.CANCEL_TRIP_GUEST',
+  CANCEL_TRIP_HOST: 'backoffice.action.CANCEL_TRIP_HOST',
   CANCEL_TRIP_PLATFORM: 'backoffice.action.CANCEL_TRIP_PLATFORM',
   DECLARE_NO_SHOW: 'backoffice.action.DECLARE_NO_SHOW',
+  REFUSE_AT_PICKUP: 'backoffice.action.REFUSE_AT_PICKUP',
+  KYC_DECISION: 'backoffice.action.KYC_DECISION',
+  HOST_VERIFICATION_DECISION: 'backoffice.action.HOST_VERIFICATION_DECISION',
+  PUBLISH_LISTING: 'backoffice.action.PUBLISH_LISTING',
+  ESCALATE_OVERDUE: 'backoffice.action.ESCALATE_OVERDUE',
+  REVIEW_FLAGGED_BOOKING: 'backoffice.action.REVIEW_FLAGGED_BOOKING',
+  RECORD_CLAIM: 'backoffice.action.RECORD_CLAIM',
+  ISSUE_DECISION: 'backoffice.action.ISSUE_DECISION',
+  RECORD_CHARGEBACK: 'backoffice.action.RECORD_CHARGEBACK',
+  OPEN_INCIDENT: 'backoffice.action.OPEN_INCIDENT',
+  RECORD_REVIEW: 'backoffice.action.RECORD_REVIEW',
+  HANDLE_DSR: 'backoffice.action.HANDLE_DSR',
+  ISSUE_BORDEREAU: 'backoffice.action.ISSUE_BORDEREAU',
+  DECIDE_ADVANCE: 'backoffice.action.DECIDE_ADVANCE',
+  WRITE_OFF_RECEIVABLE: 'backoffice.action.WRITE_OFF_RECEIVABLE',
 };
 
 function fieldOf(event: FormEvent<HTMLFormElement>, name: string): string {
@@ -323,6 +411,7 @@ export function ConsoleView({
                     action as ConsoleAction,
                     fieldOf(e, 'subjectId'),
                     fieldOf(e, 'reason'),
+                    evidenceOf(fieldOf(e, 'evidence')),
                   );
                 }
               })}
@@ -344,22 +433,106 @@ export function ConsoleView({
                 label={i18n.t('backoffice.action.reason')}
                 hint={i18n.t('backoffice.action.reasonHint')}
               />
-              <div className={styles['actions']}>
-                {CONSOLE_ACTIONS.map((a, i) => (
-                  <Button
-                    key={a}
-                    type="submit"
-                    name="action"
-                    value={a}
-                    variant={i === 0 ? 'primary' : 'secondary'}
-                    loading={busy}
-                  >
-                    {i18n.t(ACTION_KEYS[a])}
-                  </Button>
-                ))}
-              </div>
+              <TextField
+                i18n={i18n}
+                id="action-evidence"
+                name="evidence"
+                autoComplete="off"
+                spellCheck={false}
+                optional
+                label={i18n.t('backoffice.action.evidence')}
+                hint={i18n.t('backoffice.action.evidenceHint')}
+              />
+              <p className={styles['muted']}>{i18n.t('backoffice.action.amountNote')}</p>
+              {(Object.keys(ACTION_GROUPS) as (keyof typeof ACTION_GROUPS)[]).map((group) => (
+                <div
+                  key={group}
+                  role="group"
+                  aria-labelledby={`action-group-${group}`}
+                  className={styles['group']}
+                >
+                  <h3 id={`action-group-${group}`} className={styles['label']}>
+                    {i18n.t(GROUP_KEYS[group])}
+                  </h3>
+                  <div className={styles['actions']}>
+                    {ACTION_GROUPS[group].map((a) => (
+                      <Button
+                        key={a}
+                        type="submit"
+                        name="action"
+                        value={a}
+                        variant="secondary"
+                        loading={busy}
+                      >
+                        {i18n.t(ACTION_KEYS[a])}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </form>
           </section>
+
+          {state.roles.some((r) => APPROVER_ROLES.has(r.role)) &&
+            (state.approvalsError ? (
+              <ErrorState
+                i18n={i18n}
+                title={i18n.t('backoffice.approvals.caption')}
+                message={i18n.t('backoffice.approvals.error')}
+                headingLevel={3}
+              />
+            ) : (
+              <form
+                className={styles['form']}
+                onSubmit={prevent((e) => {
+                  const id = submitted(e);
+                  if (id !== '') handlers.onApprove(id);
+                })}
+              >
+                <DataTable
+                  id="approvals"
+                  caption={i18n.t('backoffice.approvals.caption')}
+                  columns={[
+                    { key: 'request', header: i18n.t('backoffice.approvals.request') },
+                    { key: 'country', header: i18n.t('backoffice.approvals.country') },
+                    { key: 'reason', header: i18n.t('backoffice.approvals.reason') },
+                    { key: 'when', header: i18n.t('backoffice.approvals.requestedAt') },
+                    { key: 'approve', header: i18n.t('backoffice.approvals.approve') },
+                  ]}
+                  rows={(state.approvals ?? []).map((a) => ({
+                    id: a.id,
+                    cells: {
+                      request: (
+                        <span>
+                          {(CONSOLE_ACTIONS as readonly string[]).includes(a.action)
+                            ? i18n.t(ACTION_KEYS[a.action as ConsoleAction])
+                            : a.action}{' '}
+                          <code className={styles['code']}>{a.subjectId.slice(0, 8)}</code>
+                        </span>
+                      ),
+                      country: a.country,
+                      reason: a.reason,
+                      when: `${i18n.dateTime(a.requestedAt, 'UTC')} UTC`,
+                      approve: (
+                        <Button
+                          type="submit"
+                          name="approval"
+                          value={a.id}
+                          variant="primary"
+                          loading={busy}
+                        >
+                          {i18n.t('backoffice.approvals.approve')}
+                        </Button>
+                      ),
+                    },
+                  }))}
+                  empty={
+                    <EmptyState title={i18n.t('backoffice.approvals.empty')} headingLevel={3} />
+                  }
+                />
+                <p className={styles['muted']}>{i18n.t('backoffice.approvals.hint')}</p>
+              </form>
+            ))}
 
           {state.journalError ? (
             <ErrorState

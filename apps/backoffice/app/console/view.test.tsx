@@ -4,6 +4,8 @@
  * - un compte staff sans TOTP ne voit que le refus (aucun formulaire d'action, aucun journal) ;
  * - la console élevée montre les rôles traduits et leurs pays, l'action motivée et le journal ;
  * - l'état inconnu rendu par l'API est un refus (fail-closed).
+ * US-101 : catalogue des actions groupé (état, enregistrement seul avec pièces, FINANCE à deux
+ * personnes), champ des pièces, demandes FINANCE en attente (FINANCE et ADMIN seulement).
  * Textes attendus : catalogue @rueda/i18n (es fait foi).
  */
 import { CATALOGS, createTranslator } from '@rueda/i18n';
@@ -11,8 +13,8 @@ import { findForeignStrings } from '@rueda/i18n/testing';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { messageKeyOf, screenFor } from './api.ts';
-import { ConsoleView } from './view.tsx';
+import { intentFor, messageKeyOf, screenFor } from './api.ts';
+import { ACTION_GROUPS, ConsoleView, evidenceOf } from './view.tsx';
 import type { ConsoleHandlers, ConsoleState } from './view.tsx';
 
 const noop: ConsoleHandlers = {
@@ -20,6 +22,7 @@ const noop: ConsoleHandlers = {
   onReveal: () => undefined,
   onVerify: () => undefined,
   onAction: () => undefined,
+  onApprove: () => undefined,
   onSignOut: () => undefined,
 };
 
@@ -57,6 +60,28 @@ const STATES: readonly ConsoleState[] = [
     notice: { tone: 'danger', key: 'common.auth.forbidden' },
   },
   { kind: 'console', roles: [{ role: 'FINANCE', countries: ['AA'] }], entries: [] },
+  {
+    kind: 'console',
+    roles: [{ role: 'FINANCE', countries: ['AA'] }],
+    entries: [],
+    approvals: [
+      {
+        id: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e',
+        action: 'DECIDE_ADVANCE',
+        subjectId: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5f',
+        country: 'AA',
+        reason: 'Ref 4242 zz',
+        requestedAt: '2026-11-11T09:30:00.000Z',
+      },
+    ],
+  },
+  {
+    kind: 'console',
+    roles: [{ role: 'ADMIN', countries: ['AA'] }],
+    entries: [],
+    approvals: [],
+    approvalsError: true,
+  },
 ];
 
 const html = (state: ConsoleState, tag: string): string => {
@@ -196,5 +221,66 @@ describe('revue UX US-012 : annonces, focus, chargement, journal', () => {
     expect(html({ kind: 'login', error: 'backoffice.error.network' }, tag)).toContain(
       es['backoffice.error.network'],
     );
+  });
+});
+
+describe('US-101 : catalogue des actions, pièces, demandes FINANCE', () => {
+  const es = CATALOGS.es.messages;
+  const tag = LOCALE_CONFIG.locales.find((p) => p.language === 'es')?.tag ?? '';
+
+  it('les trois groupes de 19 US-101, chaque action du catalogue, le champ des pièces et la note « aucun montant »', () => {
+    const out = html(STATES[8] as ConsoleState, tag);
+    for (const key of [
+      'backoffice.action.groupState',
+      'backoffice.action.groupRecord',
+      'backoffice.action.groupFinance',
+      'backoffice.action.evidence',
+      'backoffice.action.amountNote',
+    ] as const) {
+      expect(out, key).toContain(es[key]);
+    }
+    for (const a of [...ACTION_GROUPS.state, ...ACTION_GROUPS.record, ...ACTION_GROUPS.finance]) {
+      expect(out, a).toContain(`value="${a}"`);
+    }
+    expect(out).toContain('name="evidence"');
+    // aucun champ de montant dans le formulaire d'action
+    expect(out).not.toMatch(/name="(amount|amountMinor|montant)"/i);
+  });
+
+  it('FINANCE : demandes en attente avec un bouton « Aprobar » par demande', () => {
+    const out = html(STATES[10] as ConsoleState, tag);
+    expect(out).toContain(es['backoffice.approvals.caption']);
+    expect(out).toContain(es['backoffice.action.DECIDE_ADVANCE']);
+    expect(out).toContain('value="0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e"');
+    expect(out).toContain(es['backoffice.approvals.hint']);
+  });
+
+  it('OPS : aucun panneau de demandes FINANCE ; ADMIN en échec de lecture : message d’erreur', () => {
+    const ops: ConsoleState = {
+      kind: 'console',
+      roles: [{ role: 'OPS_AGENT', countries: ['AA'] }],
+      entries: [],
+    };
+    expect(html(ops, tag)).not.toContain(es['backoffice.approvals.caption']);
+    const out = html(STATES[11] as ConsoleState, tag);
+    expect(out).toContain(es['backoffice.approvals.error']);
+    expect(out).not.toContain(es['backoffice.approvals.empty']);
+  });
+
+  it('pièces : virgules, espaces et retours à la ligne ; doublons retirés ; minuscules', () => {
+    expect(evidenceOf(` A1, b2${'\n'}A1 ;c3  `)).toEqual(['a1', 'b2', 'c3']);
+    expect(evidenceOf('')).toEqual([]);
+  });
+});
+
+describe('US-101 (revue) : un requestId par intention, pas par clic', () => {
+  it('même intention (double clic, reprise réseau) : même identifiant ; intention différente : identifiant neuf', () => {
+    let n = 0;
+    const id = () => `id-${(n += 1)}`;
+    const first = intentFor(null, ['RECORD_CLAIM', 'a', 'motif', ['p']], id);
+    expect(first.requestId).toBe('id-1');
+    expect(intentFor(first, ['RECORD_CLAIM', 'a', 'motif', ['p']], id)).toBe(first);
+    expect(intentFor(first, ['RECORD_CLAIM', 'b', 'motif', ['p']], id).requestId).toBe('id-2');
+    expect(intentFor(first, ['RECORD_CLAIM', 'a', 'motif', []], id).requestId).toBe('id-3');
   });
 });

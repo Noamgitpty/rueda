@@ -1032,7 +1032,7 @@
       "post": {
         "operationId": "consoleAction",
         "tags": ["sup"],
-        "summary": "Action manuelle motivée et idempotente (ADM-001, catalogue de 17 §10)",
+        "summary": "Action de console motivée et idempotente : commande de domaine liée ou enregistrement seul (ADM-001, 17 §10, US-101)",
         "requestBody": {
           "required": true,
           "content": {
@@ -1060,7 +1060,7 @@
             }
           },
           "201": {
-            "description": "Action enregistrée",
+            "description": "Action enregistrée, commande de domaine appliquée, ou demande FINANCE créée",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -1084,7 +1084,7 @@
             "$ref": "#/components/responses/StaffForbidden"
           },
           "409": {
-            "description": "Commande de domaine pas encore livrée",
+            "description": "Commande de domaine pas encore livrée (STAFF_ACTION_UNAVAILABLE) ou refusée par le domaine (STAFF_ACTION_REFUSED, `values.reason`)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -1096,7 +1096,121 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "STAFF_ACTION_UNAVAILABLE"
+                      "enum": ["STAFF_ACTION_UNAVAILABLE", "STAFF_ACTION_REFUSED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/finance/approvals": {
+      "get": {
+        "operationId": "consoleFinanceApprovals",
+        "tags": ["sup"],
+        "summary": "Demandes FINANCE en attente d'une seconde personne (FINANCE et ADMIN du pays, RLS-24)",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes en attente (aucun identifiant du personnel)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinanceApprovals"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/finance/approvals/{id}/approve": {
+      "post": {
+        "operationId": "consoleFinanceApprove",
+        "tags": ["sup"],
+        "summary": "Approbation d'une demande FINANCE par une seconde personne distincte (cmd_approve_finance_action, RLS-24)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demande approuvée : effet appliqué",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinanceApproved"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "409": {
+            "description": "Le demandeur ne peut pas approuver (STAFF_SELF_APPROVAL) ; demande plus en attente ou sujet changé (STAFF_ACTION_REFUSED)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["STAFF_SELF_APPROVAL", "STAFF_ACTION_REFUSED"]
                     }
                   }
                 }
@@ -3215,7 +3329,25 @@
           },
           "input": {
             "type": ["object", "null"],
-            "description": "4 Kio au plus en JSON"
+            "description": "4 Kio au plus en JSON ; chaînes seulement (l'agent ne saisit jamais un montant), clés déclarées par l'action (US-101)",
+            "maxProperties": 8,
+            "propertyNames": {
+              "pattern": "^[a-z][A-Za-z]{0,31}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "evidence": {
+            "type": ["array", "null"],
+            "description": "pièces déjà reçues (seau des preuves) ; obligatoires pour une action d'enregistrement seul (US-101)",
+            "maxItems": 20,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/Uuid"
+            }
           }
         }
       },
@@ -3225,10 +3357,14 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "const": "STAFF_ACTION_RECORDED"
+            "enum": ["STAFF_ACTION_RECORDED", "STAFF_ACTION_DONE", "STAFF_ACTION_REQUESTED"]
           },
           "messageKey": {
-            "const": "common.auth.actionRecorded"
+            "enum": [
+              "common.auth.actionRecorded",
+              "common.auth.actionDone",
+              "common.auth.actionRequested"
+            ]
           },
           "actionId": {
             "anyOf": [
@@ -3239,6 +3375,10 @@
                 "type": "null"
               }
             ]
+          },
+          "approvalId": {
+            "$ref": "#/components/schemas/Uuid",
+            "description": "demande FINANCE à approuver par une seconde personne (STAFF_ACTION_REQUESTED)"
           }
         }
       },
@@ -4046,6 +4186,57 @@
           },
           "marketingOptIn": {
             "type": "boolean"
+          }
+        }
+      },
+      "FinanceApprovals": {
+        "type": "object",
+        "required": ["approvals"],
+        "additionalProperties": false,
+        "properties": {
+          "approvals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "action", "subjectId", "country", "reason", "requestedAt"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "action": {
+                  "enum": ["ISSUE_BORDEREAU", "DECIDE_ADVANCE", "WRITE_OFF_RECEIVABLE"]
+                },
+                "subjectId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "requestedAt": {
+                  "$ref": "#/components/schemas/DateTime"
+                }
+              }
+            }
+          }
+        }
+      },
+      "FinanceApproved": {
+        "type": "object",
+        "required": ["code", "messageKey", "approvalId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "STAFF_ACTION_DONE"
+          },
+          "messageKey": {
+            "const": "common.auth.actionDone"
+          },
+          "approvalId": {
+            "$ref": "#/components/schemas/Uuid"
           }
         }
       },

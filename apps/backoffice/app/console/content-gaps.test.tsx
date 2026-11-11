@@ -18,6 +18,7 @@ const noop: ConsoleHandlers = {
   onVerify: () => undefined,
   onAction: () => undefined,
   onSignOut: () => undefined,
+  onApprove: () => undefined,
 };
 
 const state = (contentGaps: Extract<ConsoleState, { kind: 'console' }>['contentGaps']) =>

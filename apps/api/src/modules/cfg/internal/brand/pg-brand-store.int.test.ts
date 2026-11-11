@@ -13,7 +13,7 @@
  * Oracle de la paire : README de @rueda/design-tokens (Lienzo · Azur refusée, « lien primary sur
  * verre 3,89:1 (clair) »). Pays lus en base (aucune constante).
  *
- * US-121 (blocs éditables, ADR-095, migration 0060) : registre des blocs injecté (une clé tirée
+ * US-121 (blocs éditables, ADR-095, migration 0061) : registre des blocs injecté (une clé tirée
  * au hasard par test, déclarée au registre, isole les tests sur la base partagée) ; texte
  * juridique refusé et JOURNALISÉ par la base ; signalement au back-office réservé à `brand.edit`.
  */

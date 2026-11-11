@@ -1,6 +1,6 @@
 /**
- * US-038 — contrat des routes /console (US-012 actions, US-034 marque et contenu, US-052 tableau
- * de sécurité) sur l'application réelle : chaque statut déclaré est exercé, chaque réponse
+ * US-038 — contrat des routes /console (US-012 actions, US-101 cadre des actions et décisions
+ * FINANCE à deux personnes, US-034 marque et contenu, US-052 tableau de sécurité) sur l'application réelle : chaque statut déclaré est exercé, chaque réponse
  * validée contre l'OpenAPI. Les magasins sont des doubles en mémoire à issues réglables (la base
  * juge en production : commandes `core.cfg_brand_*`, `core.sup_*`, `core.risk_staff_abuse_board`,
  * prouvées par test:int) ; les contrôles de l'API (jetons, contraste, polices, Markdown) sont les
@@ -11,7 +11,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { AbuseBoardAccessError } from '../../modules/risk/index.js';
 import type { BrandStore, StaffVersion } from '../../modules/cfg/index.js';
 import type { StaffOptions } from '../../modules/iam/index.js';
-import type { ManualActionStore } from '../../modules/sup/index.js';
+import type { FinanceApprovalStore, ManualActionStore } from '../../modules/sup/index.js';
 import { missingCoverage } from '../openapi-contract.js';
 import {
   closeContractApps,
@@ -176,6 +176,8 @@ describe('contrat HTTP — /console', () => {
   const brand = new TunableBrandStore();
   let filesUp = true;
   let action: Awaited<ReturnType<ManualActionStore['record']>>['outcome'] = 'RECORDED';
+  let actionDetail: string | null = null;
+  let approval: Awaited<ReturnType<FinanceApprovalStore['approve']>> = 'APPROVED';
   let boardRefusal: 'FORBIDDEN' | null = null;
   afterAll(closeContractApps);
 
@@ -184,7 +186,29 @@ describe('contrat HTTP — /console', () => {
     const a = await startContractApp({
       staff: { store: staffStore(() => ref.self), ...(limits !== undefined ? { limits } : {}) },
       sup: {
-        store: { record: () => Promise.resolve({ outcome: action, actionId: randomUUID() }) },
+        store: {
+          record: (_actor, input) =>
+            Promise.resolve({
+              outcome: action,
+              actionId: input.requestId,
+              domainRef: action === 'REQUESTED' || action === 'REFUSED' ? randomUUID() : null,
+              detail: actionDetail,
+            }),
+        },
+        finance: {
+          pending: () =>
+            Promise.resolve([
+              {
+                id: ID,
+                action: 'ISSUE_BORDEREAU',
+                subjectId: ID,
+                country: FIRST_COUNTRY,
+                reason: REASON,
+                requestedAt: new Date('2031-07-01T08:00:00.000Z'),
+              },
+            ]),
+          approve: () => Promise.resolve(approval),
+        },
       },
       brand: {
         store: brand,
@@ -241,12 +265,63 @@ describe('contrat HTTP — /console', () => {
     expect((await a.api.request('POST', '/console/actions', { headers, body })).status).toBe(200);
     action = 'UNAVAILABLE';
     expect((await a.api.request('POST', '/console/actions', { headers, body })).status).toBe(409);
+    // US-101 : commande de domaine appliquée, demande FINANCE, refus du domaine
+    for (const [outcome, status, code] of [
+      ['DONE', 201, 'STAFF_ACTION_DONE'],
+      ['REQUESTED', 201, 'STAFF_ACTION_REQUESTED'],
+      ['REFUSED', 409, 'STAFF_ACTION_REFUSED'],
+    ] as const) {
+      action = outcome;
+      actionDetail = outcome === 'REFUSED' ? 'ALREADY_PENDING' : null;
+      const r = await a.api.request('POST', '/console/actions', {
+        headers,
+        body: { ...body, requestId: randomUUID(), evidence: [randomUUID()] },
+      });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json, outcome).toMatchObject({ code });
+    }
+    actionDetail = null;
     action = 'RECORDED';
+    expect(
+      (
+        await a.api.request('POST', '/console/actions', {
+          headers,
+          body: { ...body, input: { amountMinor: 2500 } },
+        })
+      ).status,
+    ).toBe(400);
     expect(
       (await a.api.request('POST', '/console/actions', { headers, body: { ...body, reason: 'x' } }))
         .status,
     ).toBe(400);
     await refusals(a, 'POST', '/console/actions');
+  });
+
+  it('demandes FINANCE : liste (200, 401, 403) ; approbation 200, 400, 401, 403, 409, 415', async () => {
+    const a = await app();
+    const headers = a.cookie('staff');
+    const list = await a.api.request('GET', '/console/finance/approvals?limit=10', { headers });
+    expect(list.status).toBe(200);
+    expect(list.json).toMatchObject({ approvals: [{ id: ID, action: 'ISSUE_BORDEREAU' }] });
+    await refusals(a, 'GET', '/console/finance/approvals');
+    const path = `/console/finance/approvals/${ID}/approve`;
+    for (const [outcome, status, code] of [
+      ['APPROVED', 200, 'STAFF_ACTION_DONE'],
+      ['SELF_APPROVAL', 409, 'STAFF_SELF_APPROVAL'],
+      ['NOT_PENDING', 409, 'STAFF_ACTION_REFUSED'],
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+    ] as const) {
+      approval = outcome;
+      const r = await a.api.request('POST', path, { headers, body: {} });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json, outcome).toMatchObject({ code });
+    }
+    approval = 'APPROVED';
+    expect(
+      (await a.api.request('POST', '/console/finance/approvals/x/approve', { headers, body: {} }))
+        .status,
+    ).toBe(400);
+    await refusals(a, 'POST', path);
   });
 
   it('marque : actifs, brouillons, versions, publication, retour arrière', async () => {

@@ -9,7 +9,7 @@
  *   balise, liens internes seulement) — mêmes règles que la base (0042), avec un message précis.
  *   US-121 (ADR-095) : la clé doit figurer au registre des blocs éditables de `@rueda/i18n`
  *   (`CONTENT_KEY_NOT_EDITABLE` sinon) ; un texte juridique (motif `LEGAL_BLOCK_KEY`, recopié par
- *   la base en 0060) est refusé (`CONTENT_KEY_FORBIDDEN`) ; chaque corps passe la liste blanche
+ *   la base en 0061) est refusé (`CONTENT_KEY_FORBIDDEN`) ; chaque corps passe la liste blanche
  *   du format du bloc (`richTextProblem` : `plain` sur une ligne, `rich` bornée).
  */
 import {
