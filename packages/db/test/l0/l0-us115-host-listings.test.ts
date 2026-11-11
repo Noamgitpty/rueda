@@ -613,7 +613,7 @@ describe('critère 2 — photos : PHOTO_MIN_COUNT, l’annonce reste DRAFT ; N-3
         expect((await listingRow(client, h.listing))?.status).toBe('DRAFT');
         // fichiers : bucket public, C0, téléversement de l'hôte, positions 0 à 4
         const files = await client.query<{
-          position: number;
+          photo_position: number;
           status: string;
           bucket: string;
           storage_key: string;
@@ -622,7 +622,7 @@ describe('critère 2 — photos : PHOTO_MIN_COUNT, l’annonce reste DRAFT ; N-3
           source: string;
           uploader_user_id: string;
         }>('SELECT * FROM test_fixture.us115_photo_files($1)', [h.listing]);
-        expect(files.rows.map((r) => r.position)).toEqual([0, 1, 2, 3, 4]);
+        expect(files.rows.map((r) => r.photo_position)).toEqual([0, 1, 2, 3, 4]);
         for (const f of files.rows) {
           expect(f).toMatchObject({
             status: 'PENDING',

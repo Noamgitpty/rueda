@@ -173,7 +173,7 @@ AS $fn$
 $fn$;
 
 CREATE FUNCTION test_fixture.us115_photo_files(p_listing uuid)
-  RETURNS TABLE (photo_id uuid, position smallint, status text, bucket text, storage_key text,
+  RETURNS TABLE (photo_id uuid, photo_position smallint, status text, bucket text, storage_key text,
                  mime text, classification text, source text, uploader_user_id uuid)
   LANGUAGE sql
   SECURITY DEFINER
