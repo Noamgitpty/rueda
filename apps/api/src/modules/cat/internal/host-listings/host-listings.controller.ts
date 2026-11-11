@@ -16,11 +16,13 @@
  * | POST /host/accounts/{orgId}/listings                        | 201 LISTING_CREATED (DRAFT)               |
  * | PUT  /host/accounts/{orgId}/listings/{listingId}/pricing    | 200 LISTING_SAVED                         |
  * | POST /host/accounts/{orgId}/listings/{listingId}/submit     | 200 LISTING_SUBMITTED ; 422 photos, hôte  |
+ * | POST /host/accounts/{orgId}/listings/{listingId}/photos     | 201 PHOTO_ADDED ; 422 ; 503 (production)  |
  * | DELETE /host/accounts/{orgId}/listings/{listingId}          | 200 LISTING_DELETED                       |
  * | GET  /host/accounts/{orgId}/catalog/…                       | 200 listes de choix du marché du compte   |
  *
- * Photos : le dépôt HTTP arrive avec l'URL de dépôt signée du stockage réel (US-003, L1-PM-42) ;
- * le service (`addPhoto`) et la base sont prêts, fail-closed (503) sans antivirus (Q-019).
+ * Photos : corps JSON borné (100 Kio) en attendant l'URL de dépôt signée du stockage réel
+ * (US-003, L1-PM-42) ; fail-closed (503) tant que l'antivirus ClamAV (DEC-FONDATEUR-20) et le
+ * stockage objet ne sont pas branchés.
  */
 import {
   Controller,
@@ -101,7 +103,7 @@ export class HostListingsController {
 
   @Get('accounts/:orgId/listings')
   async listingsOf(@Req() request: Req, @Param('orgId') orgId: string) {
-    return { listings: await this.listings.listings(proofOf(request), orgOf(orgId)) };
+    return this.listings.listings(proofOf(request), orgOf(orgId));
   }
 
   @Post('accounts/:orgId/listings')
@@ -135,6 +137,38 @@ export class HostListingsController {
   ) {
     const r = await this.listings.submit(proofOf(request), orgOf(orgId), listingOf(listingId));
     return { ...hostListingBody(r.code), status: r.status };
+  }
+
+  /**
+   * Photo d'annonce, image encodée en base64 dans le corps JSON (`dataBase64`) : bornée par la
+   * limite du corps de l'API (100 Kio, 413) jusqu'à l'URL de dépôt signée du stockage réel
+   * (US-003, L1-PM-42). Production : antivirus ClamAV (DEC-FONDATEUR-20) et stockage objet pas
+   * encore branchés ⇒ 503 PHOTO_UPLOAD_UNAVAILABLE, rien n'est écrit.
+   */
+  @Post('accounts/:orgId/listings/:listingId/photos')
+  @HttpCode(201)
+  async photo(
+    @Req() request: Req,
+    @Param('orgId') orgId: string,
+    @Param('listingId') listingId: string,
+  ) {
+    const body = bodyOf(request);
+    const data = body['dataBase64'];
+    if (
+      typeof data !== 'string' ||
+      data.length === 0 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(data) ||
+      Object.keys(body).some((k) => k !== 'dataBase64')
+    ) {
+      throw new HostListingHttpError('REQUEST_INVALID');
+    }
+    const r = await this.listings.addPhoto(
+      proofOf(request),
+      orgOf(orgId),
+      listingOf(listingId),
+      Buffer.from(data, 'base64'),
+    );
+    return { ...hostListingBody(r.code), photoId: r.photoId };
   }
 
   @Delete('accounts/:orgId/listings/:listingId')

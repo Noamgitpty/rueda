@@ -3462,6 +3462,164 @@
         }
       }
     },
+    "/host/accounts/{orgId}/listings/{listingId}/photos": {
+      "post": {
+        "operationId": "addHostListingPhoto",
+        "tags": ["cat"],
+        "summary": "Photo d'annonce (JPEG, PNG, WebP ; type réel, dimensions, métadonnées EXIF retirées, antivirus) ; production : 503 tant que l'antivirus ClamAV et le stockage objet ne sont pas branchés (US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Photo nettoyée, analysée et déposée (PENDING jusqu'à la revue)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoAdded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (base64 attendu)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou annonce inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Annonce dans un état sans photo modifiable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_TRANSITION_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Type réel hors liste, image trop grande, fichier infecté ou mal formé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "PHOTO_FORMAT"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Antivirus ou stockage objet indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "PHOTO_UPLOAD_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/host/accounts/{orgId}/listings/{listingId}": {
       "delete": {
         "operationId": "deleteHostListing",
@@ -6333,7 +6491,7 @@
       },
       "HostListingList": {
         "type": "object",
-        "required": ["listings"],
+        "required": ["listings", "market"],
         "additionalProperties": false,
         "properties": {
           "listings": {
@@ -6341,6 +6499,9 @@
             "items": {
               "$ref": "#/components/schemas/HostListing"
             }
+          },
+          "market": {
+            "$ref": "#/components/schemas/HostMarket"
           }
         }
       },
@@ -6352,6 +6513,7 @@
           "country",
           "dailyPriceMinor",
           "currency",
+          "currencyExponent",
           "mileageMode",
           "includedKmPerDay",
           "extraKmPriceMinor",
@@ -6382,6 +6544,11 @@
           "currency": {
             "type": "string",
             "pattern": "^[A-Z]{3}$"
+          },
+          "currencyExponent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
           },
           "mileageMode": {
             "enum": ["UNLIMITED", "INCLUDED"]
@@ -6598,6 +6765,52 @@
                 "enum": ["MANUAL", "AUTOMATIC"]
               }
             }
+          }
+        }
+      },
+      "HostMarket": {
+        "type": "object",
+        "required": ["country", "currency", "currencyExponent"],
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "currencyExponent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          }
+        }
+      },
+      "PhotoRequest": {
+        "type": "object",
+        "required": ["dataBase64"],
+        "additionalProperties": false,
+        "properties": {
+          "dataBase64": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          }
+        }
+      },
+      "PhotoAdded": {
+        "type": "object",
+        "required": ["code", "messageKey", "photoId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "PHOTO_ADDED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "photoId": {
+            "$ref": "#/components/schemas/Uuid"
           }
         }
       }

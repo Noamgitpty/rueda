@@ -23,6 +23,7 @@ export const HOST_LISTING_MESSAGES = {
   LISTING_SAVED: { status: 200, messageKey: 'common.listing.saved' },
   LISTING_SUBMITTED: { status: 200, messageKey: 'common.listing.submitted' },
   LISTING_DELETED: { status: 200, messageKey: 'common.listing.deleted' },
+  PHOTO_ADDED: { status: 201, messageKey: 'common.listing.photoAdded' },
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },
   HOST_ACCOUNT_SUSPENDED: { status: 403, messageKey: 'common.listing.hostSuspended' },

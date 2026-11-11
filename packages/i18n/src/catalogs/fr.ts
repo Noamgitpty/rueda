@@ -539,6 +539,7 @@ export const FR_MESSAGES = {
   'common.listing.created': 'Brouillon de l’annonce créé.',
   'common.listing.saved': 'Enregistré',
   'common.listing.submitted': 'Ton annonce est envoyée en revue.',
+  'common.listing.photoAdded': 'Photo ajoutée. Nous la vérifions avant la publication.',
   'common.listing.deleted': 'Brouillon supprimé.',
   'common.listing.hostSuspended':
     'Ton compte d’hôte est suspendu : tu ne peux pas modifier tes annonces.',

@@ -521,6 +521,7 @@ export const ES_MESSAGES = {
   'common.listing.created': 'Borrador del anuncio creado.',
   'common.listing.saved': 'Guardado',
   'common.listing.submitted': 'Enviamos tu anuncio a revisión.',
+  'common.listing.photoAdded': 'Foto agregada. La revisamos antes de publicar.',
   'common.listing.deleted': 'Borrador eliminado.',
   'common.listing.hostSuspended':
     'Tu cuenta de anfitrión está suspendida: no puedes modificar tus anuncios.',

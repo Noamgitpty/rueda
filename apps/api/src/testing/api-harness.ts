@@ -247,7 +247,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
   const cat: CatHostOptions = {
     store: strict<HostListingStore>(
       {
-        hostCountry: () => Promise.resolve(null),
+        hostMarket: () => Promise.resolve(null),
         createLocation: refused,
         createVehicle: refused,
         createListing: refused,

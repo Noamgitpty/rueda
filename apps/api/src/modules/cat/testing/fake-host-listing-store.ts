@@ -10,6 +10,7 @@ import type {
   HostListing,
   HostListingStore,
   HostLocation,
+  HostMarket,
   HostVehicle,
   Outcome,
   PhotoRecord,
@@ -53,6 +54,8 @@ export class FakeHostListingStore implements HostListingStore {
   readonly priceStep = new Map<string, bigint>();
   /** `p2p_private_hosts_enabled[pays]` : toujours false (interrupteur, US-125). */
   readonly minPhotos = 6;
+  /** Exposant de la devise des comptes du FAKE. */
+  exponent = 2;
   /** Panne simulée de la base. */
   failing = false;
 
@@ -76,10 +79,14 @@ export class FakeHostListingStore implements HostListingStore {
     return h;
   }
 
-  hostCountry(proof: Buffer, orgId: string): Promise<string | null> {
+  hostMarket(proof: Buffer, orgId: string): Promise<HostMarket | null> {
     if (this.failing) return Promise.reject(new HostListingStoreError('panne', '08006'));
     const h = this.#host(proof, orgId);
-    return Promise.resolve(h === 'FORBIDDEN' ? null : h.country);
+    return Promise.resolve(
+      h === 'FORBIDDEN'
+        ? null
+        : { country: h.country, currency: h.currency, currencyExponent: this.exponent },
+    );
   }
 
   createLocation(proof: Buffer, orgId: string, input: LocationInput): Promise<Outcome> {
@@ -290,6 +297,7 @@ export class FakeHostListingStore implements HostListingStore {
       country: v.country,
       dailyPriceMinor: l.pricing.dailyPriceMinor.toString(),
       currency: [...this.hosts.values()].flat().find((h) => h.orgId === l.orgId)?.currency ?? '',
+      currencyExponent: this.exponent,
       mileageMode: l.pricing.mileageMode,
       includedKmPerDay: l.pricing.includedKmPerDay,
       extraKmPriceMinor: l.pricing.extraKmPriceMinor?.toString() ?? null,

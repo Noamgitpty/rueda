@@ -96,6 +96,8 @@ export interface PublicListing {
   readonly country: string;
   readonly dailyPriceMinor: string;
   readonly currency: string;
+  /** Exposant de la devise (config_currency) : affichage sans constante de devise. */
+  readonly currencyExponent: number;
   readonly mileageMode: MileageMode;
   readonly includedKmPerDay: number | null;
   readonly extraKmPriceMinor: string | null;
@@ -115,6 +117,13 @@ export interface PublicListing {
   readonly timezone: string;
 }
 
+/** Marché du compte d'hôte : pays, devise et exposant de la devise (config_currency, 17 §1.2). */
+export interface HostMarket {
+  readonly country: string;
+  readonly currency: string;
+  readonly currencyExponent: number;
+}
+
 export interface PhotoRecord {
   readonly photoId: string;
   readonly fileId: string;
@@ -124,8 +133,8 @@ export interface PhotoRecord {
 }
 
 export interface HostListingStore {
-  /** Pays du compte d'hôte titulaire `orgId` de la session, sinon `null` (inconnu ou d'un autre). */
-  hostCountry(proof: Buffer, orgId: string): Promise<string | null>;
+  /** Marché du compte d'hôte titulaire `orgId` de la session, sinon `null` (inconnu ou d'un autre). */
+  hostMarket(proof: Buffer, orgId: string): Promise<HostMarket | null>;
   createLocation(proof: Buffer, orgId: string, input: LocationInput): Promise<Outcome>;
   createVehicle(proof: Buffer, orgId: string, input: VehicleInput): Promise<Outcome>;
   createListing(proof: Buffer, orgId: string, input: ListingInput): Promise<Outcome>;
@@ -169,7 +178,7 @@ export class UnavailableHostListingStore implements HostListingStore {
   #fail(): Promise<never> {
     return Promise.reject(new HostListingStoreError('magasin indisponible', undefined));
   }
-  hostCountry = (): Promise<string | null> => this.#fail();
+  hostMarket = (): Promise<HostMarket | null> => this.#fail();
   createLocation = (): Promise<Outcome> => this.#fail();
   createVehicle = (): Promise<Outcome> => this.#fail();
   createListing = (): Promise<Outcome> => this.#fail();
@@ -227,13 +236,20 @@ export class PgHostListingStore implements HostListingStore {
     }
   }
 
-  async hostCountry(proof: Buffer, orgId: string): Promise<string | null> {
-    const rows = await this.#rows<{ country_code: string }>(
+  async hostMarket(proof: Buffer, orgId: string): Promise<HostMarket | null> {
+    const rows = await this.#rows<{ country_code: string; currency: string; exponent: number }>(
       'comptes d’hôte',
-      'SELECT a.country_code FROM core.iam_host_accounts($1) AS a WHERE a.org_id = $2::uuid',
+      `SELECT a.country_code, k.currency::text AS currency, c.exponent::int AS exponent
+         FROM core.iam_host_accounts($1) AS a
+         JOIN core.config_country AS k ON k.code::text = a.country_code
+         JOIN core.config_currency AS c ON c.code = k.currency
+        WHERE a.org_id = $2::uuid`,
       [proof, orgId],
     );
-    return rows[0]?.country_code ?? null;
+    const r = rows[0];
+    return r === undefined
+      ? null
+      : { country: r.country_code, currency: r.currency, currencyExponent: Number(r.exponent) };
   }
 
   createLocation(proof: Buffer, orgId: string, i: LocationInput): Promise<Outcome> {
@@ -456,7 +472,9 @@ export class PgHostListingStore implements HostListingStore {
   async publicListing(listingId: string): Promise<PublicListing | null> {
     const rows = await this.#rows<Record<string, unknown>>(
       'fiche publique',
-      'SELECT * FROM core.catalog_public_listing($1::uuid)',
+      `SELECT p.*, c.exponent::int AS currency_exponent
+         FROM core.catalog_public_listing($1::uuid) AS p
+         JOIN core.config_currency AS c ON c.code::text = p.currency`,
       [listingId],
     );
     const r = rows[0];
@@ -468,6 +486,7 @@ export class PgHostListingStore implements HostListingStore {
       country: String(r['country_code']),
       dailyPriceMinor: String(r['daily_price_minor']),
       currency: String(r['currency']),
+      currencyExponent: Number(r['currency_exponent']),
       mileageMode: r['mileage_mode'] as MileageMode,
       includedKmPerDay: num(r['included_km_per_day']),
       extraKmPriceMinor: str(r['extra_km_price_minor']),

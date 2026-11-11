@@ -34,6 +34,7 @@ import type {
   HostListing,
   HostListingStore,
   HostLocation,
+  HostMarket,
   HostVehicle,
   PublicListing,
 } from './store.js';
@@ -176,7 +177,7 @@ export class HostListingsService {
       if (depositFailed) throw new HostListingHttpError('PHOTO_UPLOAD_UNAVAILABLE');
       throw error;
     });
-    return { ...this.#done(r.outcome, 'LISTING_SAVED'), photoId: r.id as string };
+    return { ...this.#done(r.outcome, 'PHOTO_ADDED'), photoId: r.id as string };
   }
 
   locations(proof: Buffer, orgId: string): Promise<HostLocation[]> {
@@ -187,8 +188,13 @@ export class HostListingsService {
     return this.#owned(proof, orgId, () => this.store.vehicles(proof, orgId));
   }
 
-  listings(proof: Buffer, orgId: string): Promise<HostListing[]> {
-    return this.#owned(proof, orgId, () => this.store.listings(proof, orgId));
+  /** Annonces du compte et marché du compte (devise et exposant pour la saisie du prix). */
+  async listings(
+    proof: Buffer,
+    orgId: string,
+  ): Promise<{ listings: HostListing[]; market: HostMarket }> {
+    const market = await this.#market(proof, orgId);
+    return { listings: await this.#call(() => this.store.listings(proof, orgId)), market };
   }
 
   /** Lecture : un compte d'un autre (ou inconnu) rend 404, jamais une liste vide trompeuse. */
@@ -197,10 +203,14 @@ export class HostListingsService {
     return this.#call(read);
   }
 
+  async #market(proof: Buffer, orgId: string): Promise<HostMarket> {
+    const market = await this.#call(() => this.store.hostMarket(proof, orgId));
+    if (market === null) throw new HostListingHttpError('HOST_ACCOUNT_NOT_FOUND');
+    return market;
+  }
+
   async #country(proof: Buffer, orgId: string): Promise<string> {
-    const country = await this.#call(() => this.store.hostCountry(proof, orgId));
-    if (country === null) throw new HostListingHttpError('HOST_ACCOUNT_NOT_FOUND');
-    return country;
+    return (await this.#market(proof, orgId)).country;
   }
 
   async publicListing(listingId: string): Promise<PublicListing> {

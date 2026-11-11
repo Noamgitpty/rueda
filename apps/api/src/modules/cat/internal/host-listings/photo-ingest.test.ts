@@ -259,7 +259,7 @@ describe('service : antivirus fail-closed, ligne puis dépôt (Q-019, N-52)', ()
     const scanner = new FakeUploadScanner({ env });
     const svc = new HostListingsService(store, null, { scanner, storage: files });
     const r = await svc.addPhoto(proof, 'org', 'lst', jpeg());
-    expect(r.code).toBe('LISTING_SAVED');
+    expect(r.code).toBe('PHOTO_ADDED');
     expect(store.deposited).toEqual([`listing/lst/${r.photoId}`]);
     const stored = await files.get('PUBLIC_LISTING', `listing/lst/${r.photoId}`);
     expect(stored.status).toBe('FOUND');

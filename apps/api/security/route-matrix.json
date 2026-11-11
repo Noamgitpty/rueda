@@ -77,6 +77,10 @@
       "acces": "session",
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
     },
+    "POST /host/accounts/{orgId}/listings/{listingId}/photos": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
     "DELETE /host/accounts/{orgId}/listings/{listingId}": {
       "acces": "session",
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"

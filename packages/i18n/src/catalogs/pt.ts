@@ -522,6 +522,7 @@ export const PT_MESSAGES = {
   'common.listing.created': 'Rascunho do anúncio criado.',
   'common.listing.saved': 'Salvo',
   'common.listing.submitted': 'Seu anúncio foi enviado para revisão.',
+  'common.listing.photoAdded': 'Foto adicionada. Nós a revisamos antes de publicar.',
   'common.listing.deleted': 'Rascunho excluído.',
   'common.listing.hostSuspended':
     'Sua conta de anfitrião está suspensa: você não pode alterar seus anúncios.',

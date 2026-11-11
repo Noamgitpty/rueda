@@ -496,6 +496,7 @@ export const EN_MESSAGES = {
   'common.listing.created': 'Listing draft created.',
   'common.listing.saved': 'Saved',
   'common.listing.submitted': 'Your listing was sent for review.',
+  'common.listing.photoAdded': 'Photo added. We review it before publishing.',
   'common.listing.deleted': 'Draft deleted.',
   'common.listing.hostSuspended':
     'Your host account is suspended: you cannot change your listings.',

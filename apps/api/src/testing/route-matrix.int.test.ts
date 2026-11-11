@@ -391,6 +391,12 @@ async function requestOf(
         path: `/host/accounts/${id}/listings/${randomUUID()}/submit`,
         body: {},
       };
+    case 'POST /host/accounts/{orgId}/listings/{listingId}/photos':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/listings/${randomUUID()}/photos`,
+        body: { dataBase64: 'AAAA' },
+      };
     case 'DELETE /host/accounts/{orgId}/listings/{listingId}':
       return { method: 'DELETE', path: `/host/accounts/${id}/listings/${randomUUID()}`, body: {} };
     case 'GET /listings/{listingId}':

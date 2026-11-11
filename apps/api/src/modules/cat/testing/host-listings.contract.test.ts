@@ -19,6 +19,7 @@ import {
 } from '../../../testing/contract/support.js';
 import type { ContractApp } from '../../../testing/contract/support.js';
 import { missingCoverage } from '../../../testing/openapi-contract.js';
+import { FakeUploadScanner, InMemoryFileStore } from '@rueda/fake-adapters/files';
 import {
   UnavailablePhotoScanner,
   UnavailablePhotoStorage,
@@ -121,14 +122,22 @@ interface World {
 
 const apps: ContractApp[] = [];
 
-async function world(options: { catalog?: boolean; failing?: boolean } = {}): Promise<World> {
+async function world(
+  options: { catalog?: boolean; failing?: boolean; photos?: boolean } = {},
+): Promise<World> {
   const store = new ForcedStore();
   store.priceStep.set(FIRST_COUNTRY, 1n);
   const app = await startContractApp({
     cat: {
       store,
       catalog: options.catalog === false ? null : new VehicleCatalogService(catalogStore),
-      photos: { scanner: new UnavailablePhotoScanner(), storage: new UnavailablePhotoStorage() },
+      photos:
+        options.photos === true
+          ? {
+              scanner: new FakeUploadScanner({ env: { RUEDA_ENV: 'test' } }),
+              storage: new InMemoryFileStore({ env: { RUEDA_ENV: 'test' } }),
+            }
+          : { scanner: new UnavailablePhotoScanner(), storage: new UnavailablePhotoStorage() },
     },
   });
   apps.push(app);
@@ -204,7 +213,10 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     expect(locs.json).toMatchObject({ locations: [{ id: d.locationId, label: 'Casa' }] });
     expect((await api.request('GET', `${d.base}/vehicles`, { headers: w.a })).status).toBe(200);
     const listings = await api.request('GET', `${d.base}/listings`, { headers: w.a });
-    expect(listings.json).toMatchObject({ listings: [{ id: d.listingId, status: 'DRAFT' }] });
+    expect(listings.json).toMatchObject({
+      listings: [{ id: d.listingId, status: 'DRAFT' }],
+      market: { country: FIRST_COUNTRY, currencyExponent: 2 },
+    });
     const priced = await api.request('PUT', `${d.base}/listings/${d.listingId}/pricing`, {
       headers: w.a,
       body: {
@@ -518,6 +530,46 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
       const r = await api.request(method, path, method === 'GET' ? {} : { body: {} });
       expect(r.status, `${method} ${path}`).toBe(401);
     }
+  });
+
+  it('photos : production (antivirus et stockage absents) ⇒ 503 ; FAKE sain ⇒ 201 ; type trompeur ⇒ 422 ; base64 invalide ⇒ 400 ; annonce d’un autre ⇒ 404 ; annonce publiée ⇒ 409', async () => {
+    const jpeg = Buffer.concat([
+      Buffer.from([0xff, 0xd8]),
+      Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x10, 0x00, 0x10, 0x03]),
+      Buffer.alloc(9),
+      Buffer.from([0xff, 0xda, 0x00, 0x02, 0x12, 0x34, 0xff, 0xd9]),
+    ]).toString('base64');
+    const closed = await world();
+    const d0 = await draft(closed);
+    const off = await closed.app.api.request('POST', `${d0.base}/listings/${d0.listingId}/photos`, {
+      headers: closed.a,
+      body: { dataBase64: jpeg },
+    });
+    expect(off.status).toBe(503);
+    expect(off.json).toMatchObject({ code: 'PHOTO_UPLOAD_UNAVAILABLE' });
+    const w = await world({ photos: true });
+    const api = w.app.api;
+    const d = await draft(w);
+    const send = (body: unknown, headers = w.a, listingId = d.listingId) =>
+      api.request('POST', `${d.base}/listings/${listingId}/photos`, { headers, body });
+    const ok = await send({ dataBase64: jpeg });
+    expect(ok.status).toBe(201);
+    expect(ok.json).toMatchObject({ code: 'PHOTO_ADDED' });
+    expect(w.store.listingsById.get(d.listingId)?.photos).toBe(1);
+    expect((await send({ dataBase64: Buffer.from('<svg/>').toString('base64') })).status).toBe(422);
+    expect((await send({ dataBase64: 'pas du base64 !' })).status).toBe(400);
+    expect((await send({ dataBase64: jpeg }, w.a, randomUUID())).status).toBe(404);
+    expect((await send({ dataBase64: jpeg }, {})).status).toBe(401);
+    expect(
+      (
+        await api.request('POST', `${d.base}/listings/${d.listingId}/photos`, {
+          ...textBody(w.a),
+        })
+      ).status,
+    ).toBe(415);
+    const l = w.store.listingsById.get(d.listingId);
+    if (l) l.status = 'LISTED';
+    expect((await send({ dataBase64: jpeg })).status).toBe(409);
   });
 
   it('compte suspendu ⇒ 403 HOST_ACCOUNT_SUSPENDED ; base indisponible ⇒ 503 LISTING_UNAVAILABLE', async () => {
