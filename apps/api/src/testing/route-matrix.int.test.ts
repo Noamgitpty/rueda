@@ -25,6 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
 import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from '../modules/cfg/index.js';
+import { PgConsentStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
@@ -74,7 +75,7 @@ const tripOf = new Map<string, string>();
 async function register(): Promise<string> {
   const id = randomUUID();
   const r = await client.query<{ ok: boolean }>(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Matrice', 'Test', 'es', $4, $5, 86400, NULL) AS ok`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Matrice', 'Test', 'es', $4, $5, 86400, NULL, NULL, NULL, false) AS ok`,
     [id, `us043-${id}@example.test`, PHC, randomUUID(), randomBytes(32)],
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
@@ -476,6 +477,7 @@ beforeAll(async () => {
         board: new PgAbuseBoardStore(client),
         rhythm: { record: () => false },
       },
+      { store: new PgConsentStore(client) },
     ),
     { rawBody: true, logger: false },
   );

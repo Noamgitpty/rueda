@@ -320,6 +320,8 @@ describe('schéma core (US-006)', () => {
       );
       expect(rows).toEqual(
         [
+          // US-102 (0059) : aucun compte sans consentement CGU et confidentialité
+          'ctr_signup_consents_required',
           'disposition_matches_hold',
           'hold_conversion_matches_disposition',
           'occupancy_trip_guard',

@@ -17,6 +17,14 @@ import type {
   RegisterAccountInput,
   SessionRecord,
 } from './auth-store.js';
+import { SignupDocumentsError } from './auth-store.js';
+
+/** Contraintes de la commande d'inscription avec consentements (0059) → motif du refus. */
+const SIGNUP_DOCUMENT_CONSTRAINTS: Readonly<Record<string, SignupDocumentsError['reason']>> = {
+  ctr_document_version_current: 'VERSION_CHANGED',
+  ctr_document_unavailable: 'UNAVAILABLE',
+  ctr_document_request_invalid: 'INVALID',
+};
 
 /** Sous-ensemble de `pg.Pool` / `pg.Client` utilisé ici. */
 export interface SqlExecutor {
@@ -29,10 +37,13 @@ export interface SqlExecutor {
 export class AuthStoreError extends Error {
   override readonly name = 'AuthStoreError';
   readonly sqlstate: string | undefined;
+  /** Nom de contrainte (jamais une valeur) : distingue les refus métier des commandes. */
+  readonly constraint: string | undefined;
 
-  constructor(operation: string, sqlstate: string | undefined) {
+  constructor(operation: string, sqlstate: string | undefined, constraint?: string) {
     super(`IAM : échec de la base (${operation}${sqlstate ? `, SQLSTATE ${sqlstate}` : ''})`);
     this.sqlstate = sqlstate;
+    this.constraint = constraint;
   }
 }
 
@@ -51,28 +62,48 @@ export class PgAuthStore implements AuthStore {
     try {
       return (await this.#db.query<R>(text, values)).rows;
     } catch (error) {
-      const code = (error as { code?: unknown }).code;
-      throw new AuthStoreError(operation, typeof code === 'string' ? code : undefined);
+      const { code, constraint } = error as { code?: unknown; constraint?: unknown };
+      throw new AuthStoreError(
+        operation,
+        typeof code === 'string' ? code : undefined,
+        typeof constraint === 'string' ? constraint : undefined,
+      );
     }
   }
 
   async registerAccount(input: RegisterAccountInput): Promise<boolean> {
-    const rows = await this.#run<{ created: boolean }>(
-      'register',
-      `SELECT core.iam_cmd_register($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) AS created`,
-      [
-        input.userId,
-        input.email,
-        input.passwordHash,
-        input.legalFirstName,
-        input.legalLastName,
-        input.preferredLocale,
-        input.verificationId,
-        input.verificationTokenHash,
-        input.verificationTtlS,
-        input.ip,
-      ],
-    );
+    let rows: { created: boolean }[];
+    try {
+      // US-102 : compte et consentements dans la même instruction (le déclencheur différé de 0059
+      // refuse tout compte sans CGU ni confidentialité acceptées)
+      rows = await this.#run<{ created: boolean }>(
+        'register',
+        `SELECT core.iam_cmd_register_with_consents($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                                                    $11, $12::jsonb, $13) AS created`,
+        [
+          input.userId,
+          input.email,
+          input.passwordHash,
+          input.legalFirstName,
+          input.legalLastName,
+          input.preferredLocale,
+          input.verificationId,
+          input.verificationTokenHash,
+          input.verificationTtlS,
+          input.ip,
+          input.country ?? null,
+          input.documents == null ? null : JSON.stringify(input.documents),
+          input.marketingOptIn ?? false,
+        ],
+      );
+    } catch (error) {
+      const reason =
+        error instanceof AuthStoreError && error.sqlstate === '23514'
+          ? SIGNUP_DOCUMENT_CONSTRAINTS[error.constraint ?? '']
+          : undefined;
+      if (reason !== undefined) throw new SignupDocumentsError(reason);
+      throw error;
+    }
     return rows[0]?.created === true;
   }
 

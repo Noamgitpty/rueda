@@ -23,6 +23,9 @@ export const AUTH_MESSAGES = {
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   SIGNUP_ACCEPTED: { status: 202, messageKey: 'common.auth.signupAccepted' },
   EMAIL_VERIFIED: { status: 200, messageKey: 'common.auth.emailVerified' },
+  // Consentements à l'inscription (US-102) : PROPOSÉS, à reporter dans 16 A.8.
+  TERMS_VERSION_CHANGED: { status: 409, messageKey: 'common.legal.versionChanged' },
+  LEGAL_DOCUMENT_UNAVAILABLE: { status: 503, messageKey: 'common.legal.unavailable' },
   // Console interne (US-012) : FORBIDDEN et 2FA_REQUIRED viennent de 16 ADM-001 ; les autres sont
   // PROPOSÉS (à reporter dans 16 A.8, voir la passation US-012).
   FORBIDDEN: { status: 403, messageKey: 'common.auth.forbidden' },

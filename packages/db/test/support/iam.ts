@@ -40,7 +40,7 @@ export async function register(
   const email = overrides.email ?? `u-${userId}@example.test`;
   const verification = newToken();
   const { rows } = await client.query<{ created: boolean }>(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Ana', 'Pérez', 'en', $4, $5, $6, '203.0.113.7') AS created`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Ana', 'Pérez', 'en', $4, $5, $6, '203.0.113.7', NULL, NULL, false) AS created`,
     [
       userId,
       email,

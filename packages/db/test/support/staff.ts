@@ -56,7 +56,7 @@ export async function createStaff(
 ): Promise<StaffAccount> {
   const userId = uuid();
   const r = await client.query<{ ok: boolean }>(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Staff', 'Test', 'es', $4, $5, 86400, NULL) AS ok`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Staff', 'Test', 'es', $4, $5, 86400, NULL, NULL, NULL, false) AS ok`,
     [userId, `staff-${userId}@example.test`, phcArgon2id(), uuid(), randomBytes(32)],
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');

@@ -17,6 +17,15 @@ import type {
   RegisterAccountInput,
   SessionRecord,
 } from '../internal/auth-store.js';
+import { SignupDocumentsError } from '../internal/auth-store.js';
+
+/** Consentement enregistré par le FAKE (même sémantique que core.contract_consent, 0059). */
+export interface FakeConsent {
+  readonly userId: string;
+  readonly kind: 'TOS_GUEST' | 'PRIVACY' | 'MARKETING';
+  readonly version: number;
+  readonly accepted: boolean;
+}
 
 interface FakeAccount {
   id: string;
@@ -43,6 +52,13 @@ const ARGON2ID_PHC =
 export class FakeAuthStore implements AuthStore {
   readonly accounts = new Map<string, FakeAccount>();
   readonly sessions: FakeSession[] = [];
+  readonly consents: FakeConsent[] = [];
+  /** Versions en vigueur des documents (US-102) ; `null` = aucun document (fail-closed). */
+  documentVersions: Readonly<Record<'TOS_GUEST' | 'PRIVACY' | 'MARKETING', number>> | null = {
+    TOS_GUEST: 1,
+    PRIVACY: 1,
+    MARKETING: 1,
+  };
   readonly #verifications = new Map<
     string,
     { userId: string; email: string; expiresAt: Date; consumed: boolean }
@@ -62,7 +78,28 @@ export class FakeAuthStore implements AuthStore {
     if (!ARGON2ID_PHC.test(input.passwordHash))
       throw new Error('23514 user_account_password_hash_argon2id');
     if (input.verificationTtlS < 300 || input.verificationTtlS > 604_800) throw new Error('22023');
+    // consentements contrôlés AVANT l'email (anti-énumération), comme la commande 0059
+    const versions = this.documentVersions;
+    if (versions === null) throw new SignupDocumentsError('UNAVAILABLE');
+    for (const kind of ['TOS_GUEST', 'PRIVACY'] as const) {
+      if (input.documents == null) continue;
+      const shown = input.documents.filter((d) => d.kind === kind).map((d) => d.version);
+      if (shown.length === 0 || Math.max(...shown) !== versions[kind]) {
+        throw new SignupDocumentsError('VERSION_CHANGED');
+      }
+    }
     if (this.accounts.has(input.email)) return false;
+    for (const kind of ['TOS_GUEST', 'PRIVACY'] as const) {
+      this.consents.push({ userId: input.userId, kind, version: versions[kind], accepted: true });
+    }
+    if (input.marketingOptIn === true) {
+      this.consents.push({
+        userId: input.userId,
+        kind: 'MARKETING',
+        version: versions.MARKETING,
+        accepted: true,
+      });
+    }
     this.accounts.set(input.email, {
       id: input.userId,
       email: input.email,

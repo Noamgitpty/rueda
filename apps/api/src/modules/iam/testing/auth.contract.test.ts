@@ -106,6 +106,31 @@ describe('contrat HTTP — /auth', () => {
     record(api);
   });
 
+  it('consentements (US-102) : 409 version affichée périmée, 503 aucun document en vigueur', async () => {
+    const store = new FakeAuthStore();
+    const h = await startAuthApp(store);
+    harnesses.push(h);
+    const api = new ContractClient(contract, h.url);
+    const stale = await api.request('POST', '/auth/signup', {
+      body: signupBody(`v-${randomUUID()}@example.test`, {
+        acceptedDocuments: [
+          { kind: 'TOS_GUEST', version: 1 },
+          { kind: 'PRIVACY', version: 2 },
+        ],
+      }),
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.json).toMatchObject({ code: 'TERMS_VERSION_CHANGED' });
+    store.documentVersions = null;
+    const none = await api.request('POST', '/auth/signup', {
+      body: signupBody(`n-${randomUUID()}@example.test`),
+    });
+    expect(none.status).toBe(503);
+    expect(none.json).toMatchObject({ code: 'LEGAL_DOCUMENT_UNAVAILABLE' });
+    expect(store.accounts.size).toBe(0);
+    record(api);
+  });
+
   it('débit : 429 RATE_LIMITED à l’inscription et à la connexion', async () => {
     const { api } = await client(LOW_LIMITS);
     const statuses: number[] = [];

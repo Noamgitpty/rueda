@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 59 migrations ; 65 tables ; 2 vues ; 337 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 102 autres fonctions.
+- 60 migrations ; 67 tables ; 2 vues ; 337 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 102 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -74,6 +74,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0056_booking_vehicle_ownership_guards` | AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées. |
 | `0057_audit_worker_name_scope` | AUD : écritures et lecture des clés de sujet réservées aux travailleurs nommés. |
 | `0058_payment_proof_hardening` | PAY : preuve d'un statut terminal durcie (quarantaine non effaçable, MANUAL_OPS, voie directe). |
+| `0059_ctr_legal_consent` | CTR : gabarits juridiques versionnés et consentements (CGU, confidentialité, communications). |
 
 ## Rôles
 
@@ -1099,6 +1100,52 @@ Déclencheurs :
 
 - `config_param_value_guard` : `CREATE TRIGGER config_param_value_guard BEFORE INSERT OR DELETE OR UPDATE ON core.config_param_value FOR EACH ROW EXECUTE FUNCTION core.config_param_value_guard()`
 - `config_param_value_no_truncate` : `CREATE TRIGGER config_param_value_no_truncate BEFORE TRUNCATE ON core.config_param_value FOR EACH STATEMENT EXECUTE FUNCTION core.config_no_truncate()`
+
+### `core.contract_consent`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : iam_auth_owner: INSERT (accepted, accepted_at, c2_withheld, context, doc_kind, doc_version, id, ip_enc, key_subject_id, key_subject_type, locale, template_id, user_agent_enc, user_id), SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `seq` | `bigint` | oui | — |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `user_id` | `uuid` | oui | — |
+| `template_id` | `uuid` | oui | — |
+| `doc_kind` | `text` | oui | — |
+| `doc_version` | `integer` | oui | — |
+| `locale` | `text` | oui | — |
+| `accepted` | `boolean` | oui | — |
+| `accepted_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `context` | `text` | oui | — |
+| `ip_enc` | `bytea` | non | — |
+| `user_agent_enc` | `bytea` | non | — |
+| `key_subject_type` | `text` | non | — |
+| `key_subject_id` | `uuid` | non | — |
+| `c2_withheld` | `boolean` | oui | — |
+
+### `core.contract_document_template`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : iam_auth_owner: SELECT ; iam_staff_owner: INSERT (body_md, content_hash, country_code, id, is_authoritative, is_major, kind, legal_review_ref, locale, published_by, request_id, title, valid_from, version), SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `kind` | `text` | oui | — |
+| `country_code` | `character(2)` | non | — |
+| `locale` | `text` | oui | — |
+| `version` | `integer` | oui | — |
+| `is_major` | `boolean` | oui | — |
+| `title` | `text` | oui | — |
+| `body_md` | `text` | oui | — |
+| `content_hash` | `bytea` | oui | — |
+| `legal_review_ref` | `text` | non | — |
+| `is_authoritative` | `boolean` | oui | — |
+| `valid_from` | `timestamp with time zone` | oui | — |
+| `published_by` | `uuid` | non | — |
+| `request_id` | `uuid` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 
 ### `core.finance_legal_entity`
 

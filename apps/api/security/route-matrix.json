@@ -146,6 +146,21 @@
       "roles": ["ADMIN", "SUPERADMIN"],
       "portee": "pays",
       "idor": "tableau de l'autre pays (?country=) : 403"
+    },
+    "GET /legal/documents": {
+      "acces": "public"
+    },
+    "GET /legal/documents/{kind}": {
+      "acces": "public"
+    },
+    "GET /legal/consents": {
+      "acces": "session"
+    },
+    "POST /legal/consents/accept": {
+      "acces": "session"
+    },
+    "POST /legal/consents/marketing": {
+      "acces": "session"
     }
   }
 }

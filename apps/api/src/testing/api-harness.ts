@@ -21,6 +21,7 @@ import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
 import { loadBrandParams, UnavailableBrandFileStore } from '../modules/cfg/index.js';
 import type { BrandOptions } from '../modules/cfg/index.js';
+import type { CtrLegalOptions } from '../modules/ctr/index.js';
 import type { IamAuthOptions, StaffOptions } from '../modules/iam/index.js';
 import type { PayWebhookOptions } from '../modules/pay/index.js';
 import {
@@ -104,6 +105,7 @@ export interface ApiHarnessOverrides {
   readonly staff?: Partial<StaffOptions>;
   readonly sup?: Partial<SupConsoleOptions>;
   readonly brand?: Partial<BrandOptions>;
+  readonly ctr?: Partial<CtrLegalOptions>;
   readonly risk?: Partial<RiskHttpOptions>;
 }
 
@@ -213,6 +215,21 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
     files: new UnavailableBrandFileStore(),
     params: loadBrandParams(),
   };
+  // Consentements (US-102) : une session connue a des CGU à jour (aucune ligne) ; inconnue : 401.
+  const ctr: CtrLegalOptions = {
+    store: strict<CtrLegalOptions['store']>(
+      {
+        publishedDocuments: () => Promise.resolve([]),
+        documentBody: () => Promise.resolve(null),
+        status: (proof: Buffer) => Promise.resolve(find(proof) === undefined ? null : []),
+        history: () => Promise.resolve([]),
+        accept: (proof: Buffer) => Promise.resolve(find(proof) === undefined ? null : 0),
+        setMarketing: (proof: Buffer) =>
+          Promise.resolve(find(proof) === undefined ? null : ('UNCHANGED' as const)),
+      },
+      'ConsentStore',
+    ),
+  };
   const config = new CountryConfigService().config;
   const wide: RateLimitPolicy = {
     limit: () => 1_000_000,
@@ -247,6 +264,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...sup, ...overrides.sup },
       { ...brand, ...overrides.brand },
       { ...risk, ...overrides.risk },
+      { ...ctr, ...overrides.ctr },
     ),
     {
       rawBody: true,
