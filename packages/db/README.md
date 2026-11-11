@@ -59,6 +59,7 @@ Migrations actuelles :
 - `0056_booking_vehicle_ownership_guards` (US-049, correctifs de la red team RLS et RT-CONC-02) : véhicule du compte exigé pour les blocages, auto-réservation d'un membre refusée, périodes bornées (section « Correctifs de la red team RLS ») ;
 - `0057_audit_worker_name_scope` (US-049, F-RLS-06) : clés de sujet et écritures d'audit réservées aux travailleurs nommés (section « Audit ») ;
 - `0058_payment_proof_hardening` (US-049, revues de la PR n° 92) : quarantaine d'horodatage non effaçable, preuve WEBHOOK reçue par la commande, MANUAL_OPS terminal refusé, voie directe du statut fermée (section « Correctifs de la red team argent ») ;
+- `0059_support_manual_action_framework` (US-101) : catalogue minimal des actions de console, règles de saisie, pièces, liaison des commandes de domaine, demandes FINANCE par la console (section « Cadre des actions de console ») ; fixture de test `9960_test_us101_console_fixtures` (commande sonde liée, pièces, essais annulés du catalogue et de la liaison) ;
 - tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`) ; `9310_test_occupancy_fixtures` (US-022 : écriture d'occupations et de holds sans pré-vérification, preuves de `occupancy_vehicle_single_org` et `checkout_hold_occupancy_party_fk`) ; `9500_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker` ; écriture brute d'opérations pour le contrôle différé des jambes) ; `9700_test_host_money_fixtures` (US-062 : avances, bordereaux, position de l'assureur, permission donnée par erreur à un co-hôte, relecture des colonnes du personnel, passage en perte tenté par un travailleur sous `cmd_money_owner`) ; `9750_test_hold_fixtures` (US-023 : registre de véhicules de test à la place du catalogue, pose réelle mesurée, comptes d'hôte de statut choisi, version annulée de `flagged_booking_payment_order`, écriture forcée des colonnes gardées). Depuis US-023, les fixtures d'opérations (9001, 9002, 9300, 9700) posent le compte PSP de test du pays et quatre jambes.
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
@@ -190,7 +191,7 @@ Migrations `0033_iam_staff_mfa` et `0034_staff_console`, propriétaire NOLOGIN `
   - `iam_staff_cmd_enroll_reveal` ;
   - `iam_staff_cmd_elevate` ;
   - `iam_staff_cmd_mfa_failed` ;
-  - `iam_staff_cmd_manual_action` (catalogue `support_manual_action_catalog`, table `support_manual_action`, pays relu en base, idempotence par `request_id`) ;
+  - `iam_staff_cmd_manual_action` (catalogue `support_manual_action_catalog`, table `support_manual_action`, pays relu en base, idempotence par `request_id` ; cadre complet depuis US-101, section « Cadre des actions de console ») ;
   - `iam_staff_cmd_suspend` (rôles, sessions et facteurs retirés) ;
   - `iam_staff_cmd_reset_totp` ;
   - `iam_staff_audit_read` (`audit.read`).
@@ -201,6 +202,20 @@ Migrations `0033_iam_staff_mfa` et `0034_staff_console`, propriétaire NOLOGIN `
   - `test/l0/l0-iam-staff-mfa.test.ts` : RFC 4231, niveau `NONE`, critère 2, enrôlement, élévation, rejeu, fenêtre, verrou, absence de clé, élévation forgée ;
   - `test/l0/l0-staff-console.test.ts` : critère 1, MFA, portée pays, journal, idempotence, suspension, autorité, réinitialisation, `audit.read` ;
   - `test/l0/l0-rls-actors.test.ts` (RLS-18 réduite).
+
+## Cadre des actions de console (US-101 ; 17 §10 NN9, §3.2.13, §2.3 ; ADR-091)
+
+Migration `0059_support_manual_action_framework`, fixtures `test-migrations/9960_test_us101_console_fixtures.sql`.
+
+- **Catalogue** (`support_manual_action_catalog`) : les 19 actions du catalogue minimal de 17 §10 (hors `CREATE_HOST_ACCOUNT`, US-107), chacune avec sa permission, son mode (`DOMAIN_COMMAND` ou `RECORD_ONLY`), son type de sujet et ses clés de saisie `input_keys`. Une contrainte interdit toute clé qui nomme un montant.
+- **Commande** `core.iam_staff_cmd_manual_action(token, request_id, action, sujet, motif, input, pièces uuid[])` (`iam_staff_owner`, EXECUTE au seul `app_api`). Ordre : session, données, TOTP, pays du sujet relu en base (`core.support_subject_country`), permission et portée pays (refus journalisé), saisie et pièces, idempotence, disponibilité, exécution, audit en dernier. La forme d'US-012 (6 arguments) délègue à celle-ci.
+- **Aucun montant** : `input` n'admet que les clés déclarées, en chaînes de 1 à 200 caractères ; un nombre ou une chaîne numérique est refusé (`22023`).
+- **Enregistrement seul** : motif et au moins une pièce (`audit_file_asset` du seau `PRIVATE_EVIDENCE`, non supprimée ; 20 au plus).
+- **Commande de domaine liée** (`support_manual_action_handler`, écrite par migration seulement) : signature `(bytea, uuid, text, uuid, jsonb, text, uuid, text) RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])`, `search_path` figé, exécutable par `iam_staff_owner` seulement (déclencheur `manual_action_handler_guard`). Appel dans la même instruction (`EXECUTE`, nom lu dans `pg_proc`, valeurs liées : dérogation `dynamic-sql`). `DONE` ou `REQUESTED` : ligne et audit ; autre issue : `REFUSED` journalisé ; erreur : tout est annulé. Sans liaison : `UNAVAILABLE` journalisé.
+- **FINANCE** : `ISSUE_BORDEREAU`, `DECIDE_ADVANCE`, `WRITE_OFF_RECEIVABLE` sont liées à `core.support_manual_action_finance_request`, qui appelle `settlement_cmd_request_finance_action` (0036). La demande seule ; l'effet à `cmd_approve_finance_action` par une seconde personne (RLS-24). Le contexte STAFF doit être posé (l'API le pose dans l'instruction).
+- **Lectures d'`iam_staff_owner`** : `id` et `country_code` de `iam_organization`, `settlement_platform_advance`, `settlement_insurer_bordereau` ; `id`, `bucket`, `deleted_at` de `audit_file_asset`. Aucun rôle applicatif ne lit ni n'écrit `manual_action`, le catalogue ou les liaisons.
+- **Ajouter une commande d'état** (story qui la livre) : son gestionnaire à la signature ci-dessus (EXECUTE à `iam_staff_owner` seulement), un `INSERT` dans `support_manual_action_handler`, et une branche de `core.support_subject_country` si le type de sujet n'a pas encore de table.
+- **Preuves** : `test/l0/l0-us101-console-actions.test.ts` (PA USD, PY PYG : catalogue, contrôles de la base, critère 1 par la sonde liée, montants refusés, portée pays, actions indisponibles, critère 2, critère 3 à deux personnes) ; `test/l0/l0-staff-console.test.ts` (US-012, passé à la forme à pièces).
 
 ## Preuves de concurrence L0-02 / L0-04 (US-007 ; 17 §2.5, §11 ; ADR-056)
 

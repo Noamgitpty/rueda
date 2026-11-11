@@ -22,17 +22,18 @@ Au lot 1, aucune commande de domaine d'état n'existe encore : les annulations v
 
    **PROPOSÉ, là où 17 ne nomme pas l'action** :
 
-   | Action(s)                                         | Permission                      |
-   | ------------------------------------------------- | ------------------------------- |
-   | `CANCEL_TRIP_GUEST`, `CANCEL_TRIP_HOST`           | `ops.platform_cancel`           |
-   | `REFUSE_AT_PICKUP`                                | `kyc.license_check_at_handover` |
-   | `REVIEW_FLAGGED_BOOKING`                          | `kyc.decide`                    |
-   | `ESCALATE_OVERDUE`                                | `ops.force_terminate_trip`      |
-   | `ISSUE_DECISION`, `RECORD_CHARGEBACK`             | `dispute.decide`                |
-   | `RECORD_REVIEW`                                   | `ops.review_listing_host`       |
-   | `HANDLE_DSR`                                      | `data.export` (ADMIN, SUPERADMIN) |
+   | Action(s)                               | Permission                        |
+   | --------------------------------------- | --------------------------------- |
+   | `CANCEL_TRIP_GUEST`, `CANCEL_TRIP_HOST` | `ops.platform_cancel`             |
+   | `REFUSE_AT_PICKUP`                      | `kyc.license_check_at_handover`   |
+   | `REVIEW_FLAGGED_BOOKING`                | `kyc.decide`                      |
+   | `ESCALATE_OVERDUE`                      | `ops.force_terminate_trip`        |
+   | `ISSUE_DECISION`, `RECORD_CHARGEBACK`   | `dispute.decide`                  |
+   | `RECORD_REVIEW`                         | `ops.review_listing_host`         |
+   | `HANDLE_DSR`                            | `data.export` (ADMIN, SUPERADMIN) |
 
    `HANDLE_DSR` porte sur un `SUPPORT_CASE`, qui donne le pays. La matrice `iam_role_permission` reçoit les lignes OPS et ADMIN correspondantes. FINANCE ne reçoit pas `dispute.decide` : 17 le limite (« lim. (montants) »).
+
 2. **Une seule commande de console, à pièces** : `core.iam_staff_cmd_manual_action(token, request_id, action, sujet, motif, input, pièces uuid[])`. Elle est `SECURITY DEFINER`, appartient à `iam_staff_owner`, et seul `app_api` a `EXECUTE`. Elle procède dans cet ordre :
    - session (preuve de possession) ;
    - forme des données ;
@@ -45,6 +46,7 @@ Au lot 1, aucune commande de domaine d'état n'existe encore : les annulations v
    - exécution, puis audit **en dernier** (passation US-009).
 
    Un type de sujet sans table en Bêta (`IDENTITY_VERIFICATION`, `LISTING`) rend `UNAVAILABLE`, ou `FORBIDDEN` sans la permission. La story qui crée sa table remplace `core.support_subject_country` en y ajoutant sa branche. La forme d'US-012 (sans pièces) délègue à cette commande : elle garde les mêmes règles, et une action d'enregistrement seul y est donc refusée.
+
 3. **Aucun montant saisi** (NN3 ; critère 1). `input` est un objet de 4 Kio au plus. Il n'admet que les clés déclarées par l'action, et ses valeurs doivent être des chaînes de 1 à 200 caractères. Sont refusés, avec le code `22023` : un nombre, un objet, et toute chaîne numérique (`1500`, `12,50`, `850 000`). Une **contrainte du catalogue** interdit en outre toute clé qui nomme un montant (`amount`, `minor`, `montant`, `monto`, `valor`, `price`, `fee`, `total`, `refund`, `sum`). Les actions FINANCE et d'annulation n'admettent aucune clé : la commande de domaine calcule ou lit les montants. L'API applique la même règle de forme (400), et l'écran de la console n'a aucun champ de montant.
 4. **Enregistrement seul** (critère 2) : le motif compte de 10 à 1000 caractères, et **au moins une pièce** est exigée (20 au plus, sans doublon). Chaque pièce doit être un `audit_file_asset` du seau `PRIVATE_EVIDENCE`, non supprimé. Aucun effet de domaine. La ligne `manual_action` (`outcome = RECORDED`, `evidence_file_ids`) est rattachée à sa ligne d'audit `MANUAL_ACTION_RECORDED`. La règle d'une pièce au moins est PROPOSÉE, fail-closed ; elle est inscrite dans `COMME_TURO.md` (une déclaration se fait avec ses preuves).
 5. **Commande de domaine liée** (critère 1). La table `core.support_manual_action_handler (action_code, handler regprocedure, story)` est écrite **par migration seulement** (`migrator_all`). Un déclencheur vérifie, à la liaison :
@@ -61,6 +63,7 @@ Au lot 1, aucune commande de domaine d'état n'existe encore : les annulations v
    - une erreur annule tout : effet, ligne et audit.
 
    Une action d'état sans commande liée rend `UNAVAILABLE`, journalisé : aucun changement d'état n'est imité. Une story qui livre sa commande **ajoute** une ligne de liaison (INSERT) ; elle ne réécrit pas ce cadre. La preuve L0 utilise une commande sonde de test, liée par la vraie table.
+
 6. **FINANCE à deux personnes** (critère 3, RLS-24). `ISSUE_BORDEREAU`, `DECIDE_ADVANCE` et `WRITE_OFF_RECEIVABLE` sont liées à `core.support_manual_action_finance_request`, qui appelle `settlement_cmd_request_finance_action` (0036, inchangée). L'action n'est qu'une **demande** (`REQUESTED`, référence = la demande `finance_approval`). L'effet n'a lieu qu'à `cmd_approve_finance_action` par une **seconde personne distincte** : le demandeur est refusé, même dans une autre session (`SELF_APPROVAL`). `EXECUTE` sur la demande est accordé à `iam_staff_owner` par son propriétaire `cmd_money_owner`. La demande relit d'elle-même la session, le contexte STAFF, la permission, la portée et l'éligibilité, et journalise ses refus.
 7. **Contexte STAFF posé par l'API dans l'instruction.** `PgManualActionStore` et l'approbation utilisent une CTE matérialisée qui pose les sept paramètres `app.*`, puis appellent la commande en `LATERAL` sur une colonne de la CTE. Le contexte est donc posé avant l'appel, en autocommit (ADR-056 point 4). La portée pays posée est celle des rôles de la session. Elle ne fait que réduire : la base relit les rôles. La liste des demandes en attente est lue sous la RLS `fin_read` (FINANCE et ADMIN du pays, colonnes sans identifiant du personnel), dans une transaction courte de lecture.
 8. **RLS par rôle staff** :

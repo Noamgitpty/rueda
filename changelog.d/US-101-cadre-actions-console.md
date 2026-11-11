@@ -1,5 +1,6 @@
 lot: L1
 module: Console interne
+
 - Ajouté : catalogue minimal des actions de console de 17 §10 (actions d'état, actions d'enregistrement seul, décisions FINANCE), chacune avec sa permission, son type de sujet et ses clés de saisie (US-101)
 - Ajouté : une action d'état appelle la commande de domaine liée à l'action dans la même transaction que `manual_action` et l'audit ; tant que sa commande n'est pas livrée, elle reste indisponible et la tentative est journalisée (US-101)
 - Sécurité : l'agent ne saisit jamais un montant ; la base refuse toute clé non déclarée, toute valeur numérique et toute clé de catalogue qui nomme un montant (US-101)

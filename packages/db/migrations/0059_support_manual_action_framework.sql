@@ -1,6 +1,6 @@
--- 0059 — Cadre des actions de console (`manual_action`) : catalogue minimal complet, règles de
--- saisie (aucun montant), pièces des actions d'enregistrement seul, liaison des commandes de
--- domaine, et décisions FINANCE à deux personnes lancées depuis la console.
+-- 0059 — SUP : cadre des actions de console (commande de domaine liée, aucun montant, pièces, FINANCE à deux personnes).
+-- Catalogue minimal complet, règles de saisie, pièces des actions d'enregistrement seul, liaison
+-- des commandes de domaine, et décisions FINANCE à deux personnes lancées depuis la console.
 -- US-101 ; 19 US-101 ; 17 §1.8 D7, §2.3 (matrice, commandes FINANCE à deux personnes, RLS-24),
 -- §3.2.13 (`manual_action`), §10 NN9 et « catalogue minimal des actions de console » ; C-v3-05 ;
 -- ADR-062 (console), ADR-091 (ce cadre). Appliquée sous `migrator`.
