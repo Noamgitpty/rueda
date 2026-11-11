@@ -13,8 +13,12 @@ import { defineConfig } from '@playwright/test';
 
 const PORT = Number(process.env['RUEDA_E2E_PORT'] ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
+// Double de l'API des comptes (US-102, e2e/stub-api.mjs) : appelé par le serveur du site seulement.
+const API_PORT = Number(process.env['RUEDA_E2E_API_PORT'] ?? 3199);
 
 const SHELL = /shell\.spec\.ts$/;
+// Inscription, connexion et consentements (US-102) : téléphones 360 et 390 px.
+const SIGNUP = /signup\.spec\.ts$/;
 const phone = { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } as const;
 
 export default defineConfig({
@@ -37,12 +41,12 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-360',
-      testMatch: SHELL,
+      testMatch: [SHELL, SIGNUP],
       use: { ...phone, viewport: { width: 360, height: 780 } },
     },
     {
       name: 'mobile-390',
-      testMatch: SHELL,
+      testMatch: [SHELL, SIGNUP],
       use: { ...phone, viewport: { width: 390, height: 844 } },
     },
     {
@@ -56,12 +60,27 @@ export default defineConfig({
       use: { ...phone, viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' },
     },
   ],
-  webServer: {
-    command: `pnpm exec next start --port ${PORT}`,
-    url: `${BASE_URL}/manifest.webmanifest`,
-    reuseExistingServer: process.env['CI'] === undefined,
-    timeout: 60_000,
-    // Thème embarqué (aucune API de marque) ; laboratoire PWA iOS coupé.
-    env: { WEB_BRAND_API_URL: '', WEB_LAB_PWA_IOS_ENABLED: 'false', NEXT_TELEMETRY_DISABLED: '1' },
-  },
+  webServer: [
+    {
+      command: 'node e2e/stub-api.mjs',
+      url: `http://127.0.0.1:${API_PORT}/legal/documents?locale=es`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: { RUEDA_E2E_API_PORT: String(API_PORT) },
+    },
+    {
+      command: `pnpm exec next start --port ${PORT}`,
+      url: `${BASE_URL}/manifest.webmanifest`,
+      reuseExistingServer: process.env['CI'] === undefined,
+      timeout: 60_000,
+      // Thème embarqué (aucune API de marque) ; laboratoire PWA iOS coupé ; API des comptes :
+      // double local (US-102).
+      env: {
+        WEB_BRAND_API_URL: '',
+        WEB_API_URL: `http://127.0.0.1:${API_PORT}`,
+        WEB_LAB_PWA_IOS_ENABLED: 'false',
+        NEXT_TELEMETRY_DISABLED: '1',
+      },
+    },
+  ],
 });

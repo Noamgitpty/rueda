@@ -267,6 +267,10 @@ describe('US-046 — aucune donnée personnelle dans les réponses ni le journal
               legalLastName: PII.last,
               locale: 'es',
               termsAccepted: true,
+              acceptedDocuments: [
+                { kind: 'TOS_GUEST', version: 1 },
+                { kind: 'PRIVACY', version: 1 },
+              ],
             }),
           })
         ).text,

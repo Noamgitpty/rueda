@@ -60,6 +60,9 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_auth_lookup(text)': 'iam_auth_owner',
   'core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)': 'iam_auth_owner',
   'core.iam_cmd_register(uuid,text,text,text,text,text,uuid,bytea,integer,inet)': 'iam_auth_owner',
+  // US-102 (0059) : inscription avec consentements versionnés
+  'core.iam_cmd_register_with_consents(uuid,text,text,text,text,text,uuid,bytea,integer,inet,text,jsonb,boolean)':
+    'iam_auth_owner',
   'core.iam_cmd_revoke_all_sessions(bytea)': 'iam_auth_owner',
   'core.iam_cmd_revoke_session(bytea,text)': 'iam_auth_owner',
   'core.iam_cmd_verify_email(bytea)': 'iam_auth_owner',

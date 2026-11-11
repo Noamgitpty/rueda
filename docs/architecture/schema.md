@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 60 migrations ; 65 tables ; 2 vues ; 337 politiques RLS ; 65 fonctions `SECURITY DEFINER` ; 103 autres fonctions.
+- 60 migrations ; 67 tables ; 2 vues ; 345 politiques RLS ; 74 fonctions `SECURITY DEFINER` ; 109 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -74,7 +74,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0056_booking_vehicle_ownership_guards` | AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées. |
 | `0057_audit_worker_name_scope` | AUD : écritures et lecture des clés de sujet réservées aux travailleurs nommés. |
 | `0058_payment_proof_hardening` | PAY : preuve d'un statut terminal durcie (quarantaine non effaçable, MANUAL_OPS, voie directe). |
-| `0059_config_content_legal_keys` | CFG : blocs de contenu éditables, textes juridiques refusés et journalisés. |
+| `0059_ctr_legal_consent` | CTR : gabarits juridiques versionnés et consentements (CGU, confidentialité, communications). |
 
 ## Rôles
 
@@ -889,7 +889,6 @@ Contraintes :
 - `content_block_body_allowed` : `CHECK (core.cfg_brand_body_allowed(body_md))`
 - `content_block_key_format` : `CHECK (block_key ~ '^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){1,5}$'::text AND char_length(block_key) <= 120)`
 - `content_block_key_not_legal` : `CHECK (block_key !~ '^legal\.'::text)`
-- `content_block_key_not_legal_text` : `CHECK (core.cfg_content_key_not_legal(block_key))`
 - `content_block_locale_valid` : `CHECK (locale = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
 - `content_block_pkey` : `PRIMARY KEY (id)`
 - `content_block_publication_complete` : `CHECK ((status = 'DRAFT'::text) = (published_at IS NULL) AND (published_at IS NULL) = (published_by IS NULL))`
@@ -946,6 +945,7 @@ Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `risk_limit_select` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
@@ -1101,6 +1101,117 @@ Déclencheurs :
 
 - `config_param_value_guard` : `CREATE TRIGGER config_param_value_guard BEFORE INSERT OR DELETE OR UPDATE ON core.config_param_value FOR EACH ROW EXECUTE FUNCTION core.config_param_value_guard()`
 - `config_param_value_no_truncate` : `CREATE TRIGGER config_param_value_no_truncate BEFORE TRUNCATE ON core.config_param_value FOR EACH STATEMENT EXECUTE FUNCTION core.config_no_truncate()`
+
+### `core.contract_consent`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : iam_auth_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `seq` | `bigint` | oui | — |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `user_id` | `uuid` | oui | — |
+| `template_id` | `uuid` | oui | — |
+| `doc_kind` | `text` | oui | — |
+| `doc_version` | `integer` | oui | — |
+| `locale` | `text` | oui | — |
+| `accepted` | `boolean` | oui | — |
+| `accepted_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `context` | `text` | oui | — |
+| `country_code` | `character(2)` | non | — |
+| `ip_enc` | `bytea` | non | — |
+| `user_agent_enc` | `bytea` | non | — |
+| `key_subject_type` | `text` | non | — |
+| `key_subject_id` | `uuid` | non | — |
+| `c2_withheld` | `boolean` | oui | — |
+
+Contraintes :
+
+- `consent_c2_key_complete` : `CHECK (ip_enc IS NULL AND user_agent_enc IS NULL OR key_subject_type IS NOT NULL AND key_subject_id IS NOT NULL)`
+- `consent_c2_withheld_coherent` : `CHECK (NOT c2_withheld OR ip_enc IS NULL AND user_agent_enc IS NULL)`
+- `consent_context_valid` : `CHECK (context = ANY (ARRAY['SIGNUP'::text, 'REACCEPT'::text, 'SETTINGS'::text, 'CHECKOUT'::text, 'CONTRACT'::text, 'KYC'::text]))`
+- `consent_doc_kind_valid` : `CHECK (doc_kind = ANY (ARRAY['TOS_GUEST'::text, 'TOS_HOST'::text, 'PRIVACY'::text, 'MARKETING'::text, 'BIOMETRIC_CONSENT'::text, 'DAMAGE_TERMS'::text, 'CANCELLATION_POLICY'::text]))`
+- `consent_doc_version_positive` : `CHECK (doc_version >= 1)`
+- `consent_key_pair` : `CHECK ((key_subject_type IS NULL) = (key_subject_id IS NULL))`
+- `consent_key_subject_type_valid` : `CHECK (key_subject_type IS NULL OR key_subject_type = 'USER'::text)`
+- `consent_locale_valid` : `CHECK (locale = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
+- `consent_required_not_withdrawn` : `CHECK (accepted OR (doc_kind <> ALL (ARRAY['TOS_GUEST'::text, 'PRIVACY'::text])))`
+- `contract_consent_country_code_fkey` : `FOREIGN KEY (country_code) REFERENCES core.config_country(code)`
+- `contract_consent_id_unique` : `UNIQUE (id)`
+- `contract_consent_pkey` : `PRIMARY KEY (seq)`
+- `contract_consent_template_id_fkey` : `FOREIGN KEY (template_id) REFERENCES core.contract_document_template(id)`
+- `contract_consent_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
+
+Index :
+
+- `consent_user_kind_idx` : `CREATE INDEX consent_user_kind_idx ON core.contract_consent USING btree (user_id, doc_kind, seq DESC)`
+
+Politiques RLS :
+
+- `iam_auth_insert` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `true`
+- `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `consent_guard` : `CREATE TRIGGER consent_guard BEFORE INSERT OR DELETE OR UPDATE ON core.contract_consent FOR EACH ROW EXECUTE FUNCTION core.ctr_consent_guard()`
+- `consent_no_truncate` : `CREATE TRIGGER consent_no_truncate BEFORE TRUNCATE ON core.contract_consent FOR EACH STATEMENT EXECUTE FUNCTION core.ctr_no_truncate('consent_append_only')`
+
+### `core.contract_document_template`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : iam_auth_owner: SELECT ; iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `kind` | `text` | oui | — |
+| `country_code` | `character(2)` | non | — |
+| `locale` | `text` | oui | — |
+| `version` | `integer` | oui | — |
+| `is_major` | `boolean` | oui | — |
+| `title` | `text` | oui | — |
+| `body_md` | `text` | oui | — |
+| `content_hash` | `bytea` | oui | — |
+| `legal_review_ref` | `text` | non | — |
+| `is_authoritative` | `boolean` | oui | — |
+| `valid_from` | `timestamp with time zone` | oui | — |
+| `published_by` | `uuid` | non | — |
+| `request_id` | `uuid` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `contract_document_template_country_code_fkey` : `FOREIGN KEY (country_code) REFERENCES core.config_country(code)`
+- `contract_document_template_pkey` : `PRIMARY KEY (id)`
+- `contract_document_template_published_by_fkey` : `FOREIGN KEY (published_by) REFERENCES core.iam_user_account(id)`
+- `document_template_authoritative_es` : `CHECK (is_authoritative = (locale = 'es'::text))`
+- `document_template_body_length` : `CHECK (length(body_md) >= 1 AND length(body_md) <= 200000)`
+- `document_template_hash_sha256` : `CHECK (octet_length(content_hash) = 32)`
+- `document_template_kind_valid` : `CHECK (kind = ANY (ARRAY['TOS_GUEST'::text, 'TOS_HOST'::text, 'PRIVACY'::text, 'MARKETING'::text, 'BIOMETRIC_CONSENT'::text, 'RENTAL_CONTRACT'::text, 'CONSTANCIA'::text, 'DAMAGE_TERMS'::text, 'CANCELLATION_POLICY'::text]))`
+- `document_template_locale_valid` : `CHECK (locale = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
+- `document_template_request_unique` : `UNIQUE (request_id, locale)`
+- `document_template_review_ref_length` : `CHECK (legal_review_ref IS NULL OR length(legal_review_ref) >= 1 AND length(legal_review_ref) <= 200)`
+- `document_template_title_length` : `CHECK (length(title) >= 1 AND length(title) <= 200)`
+- `document_template_version_positive` : `CHECK (version >= 1)`
+- `document_template_version_unique` : `UNIQUE NULLS NOT DISTINCT (kind, country_code, locale, version)`
+
+Index :
+
+- `document_template_current_idx` : `CREATE INDEX document_template_current_idx ON core.contract_document_template USING btree (kind, country_code, version DESC)`
+
+Politiques RLS :
+
+- `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
+- `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
+- `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `document_template_guard` : `CREATE TRIGGER document_template_guard BEFORE INSERT OR DELETE OR UPDATE ON core.contract_document_template FOR EACH ROW EXECUTE FUNCTION core.ctr_template_guard()`
+- `document_template_no_truncate` : `CREATE TRIGGER document_template_no_truncate BEFORE TRUNCATE ON core.contract_document_template FOR EACH STATEMENT EXECUTE FUNCTION core.ctr_no_truncate('document_template_immutable')`
 
 ### `core.finance_legal_entity`
 
@@ -1592,6 +1703,7 @@ Déclencheurs :
 
 Contraintes :
 
+- `ctr_signup_consents_required` : `TRIGGER DEFERRABLE INITIALLY DEFERRED`
 - `iam_user_account_pkey` : `PRIMARY KEY (id)`
 - `user_account_email_normalized` : `CHECK (email = lower(email) AND email = btrim(email) AND length(email) >= 3 AND length(email) <= 254 AND email ~ '^[^@[:space:]]+@[^@[:space:]]+$'::text)`
 - `user_account_email_unique` : `UNIQUE (email)`
@@ -1620,6 +1732,7 @@ Politiques RLS :
 
 Déclencheurs :
 
+- `ctr_signup_consents_required` : `CREATE CONSTRAINT TRIGGER ctr_signup_consents_required AFTER INSERT ON core.iam_user_account DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NOT core.ctr_writer_exempt()) EXECUTE FUNCTION core.ctr_signup_consents_guard()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_user_account FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
 ### `core.ntf_notification_dispatch`
@@ -3185,9 +3298,18 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_content_cmd_publish(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_version_no integer)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_content_cmd_rollback(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_target_version_no integer)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_content_cmd_save_draft(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_bodies jsonb, p_asset_id uuid)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.ctr_cmd_accept_documents(p_token_hash bytea, p_documents jsonb)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_cmd_set_marketing(p_token_hash bytea, p_opt_in boolean)` | `text` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_consent_history(p_token_hash bytea)` | `TABLE(doc_kind text, doc_version integer, locale text, accepted boolean, accepted_at timestamp with time zone, context text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_consent_status(p_token_hash bytea)` | `TABLE(doc_kind text, required boolean, current_version integer, required_version integer, accepted_version integer, accepted boolean, reaccept_required boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_document_body(p_kind text, p_country text, p_language text, p_version integer)` | `TABLE(doc_kind text, version integer, is_major boolean, locale text, title text, body_md text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_published_documents(p_country text, p_language text)` | `TABLE(doc_kind text, version integer, is_major boolean, locale text, title text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_signup_consents_guard()` | `trigger` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE |
+| `core.ctr_staff_cmd_publish_document(p_token_hash bytea, p_request_id uuid, p_kind text, p_country text, p_is_major boolean, p_valid_from timestamp with time zone, p_legal_review_ref text, p_bodies jsonb)` | `TABLE(outcome text, version integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_auth_lookup(p_email text)` | `TABLE(user_id uuid, password_hash text, status text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_open_session(p_session_id uuid, p_user_id uuid, p_token_hash bytea, p_ttl_s integer, p_mfa_level text, p_ip inet, p_user_agent text)` | `timestamp with time zone` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_register(p_user_id uuid, p_email text, p_password_hash text, p_legal_first_name text, p_legal_last_name text, p_preferred_locale text, p_verification_id uuid, p_verification_token_hash bytea, p_verification_ttl_s integer, p_ip inet)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.iam_cmd_register_with_consents(p_user_id uuid, p_email text, p_password_hash text, p_legal_first_name text, p_legal_last_name text, p_preferred_locale text, p_verification_id uuid, p_verification_token_hash bytea, p_verification_ttl_s integer, p_ip inet, p_country text, p_documents jsonb, p_marketing_opt_in boolean)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_revoke_all_sessions(p_token_hash bytea)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_revoke_session(p_token_hash bytea, p_reason text)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_verify_email(p_token_hash bytea)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
@@ -3271,12 +3393,18 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_brand_tokens_sha256(p_tokens jsonb)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.cfg_brand_version_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_content_block_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `core.cfg_content_key_not_legal(p_key text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_go_live(p_key text, p_country text)` | `boolean` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_no_truncate()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_param_value_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_tax_line_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_versioned_row_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.ctr_account_country(p_user_id uuid)` | `text` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
+| `core.ctr_consent_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.ctr_current_template(p_kind text, p_country text, p_language text, p_major_only boolean)` | `SETOF core.contract_document_template` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
+| `core.ctr_no_truncate()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.ctr_record_consent(p_user_id uuid, p_template_id uuid, p_accepted boolean, p_context text, p_country text)` | `void` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
+| `core.ctr_template_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.ctr_writer_exempt()` | `boolean` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_hmac_sha256(p_key bytea, p_msg bytea)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_mfa_proof(p_key bytea, p_token_hash bytea, p_factor_id uuid, p_step bigint)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_mfa_proof_key_rotate(p_action text, p_key bytea)` | `text` | `migrator` | migrator: EXECUTE |
@@ -3331,4 +3459,4 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
+| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |

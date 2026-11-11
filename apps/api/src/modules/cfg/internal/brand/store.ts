@@ -140,7 +140,7 @@ export interface BrandStore {
     requestId: string,
     blockKey: string,
     country: string | null,
-    /** Vide pour une clé juridique : la base refuse et journalise (KEY_FORBIDDEN, 0059). */
+    /** Vide pour une clé juridique : la base refuse et journalise (KEY_FORBIDDEN, 0060). */
     bodies: Readonly<Partial<Record<ContentLocale, string>>>,
     assetId: string | null,
   ): Promise<ContentOutcome>;

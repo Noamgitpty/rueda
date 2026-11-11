@@ -8,7 +8,7 @@ D'après 17 §2.2 : comptes, authentification (mot de passe, OTP, TOTP du staff)
 
 État du code :
 
-- **livré** : inscription, vérification de l'e-mail, connexion, sessions, déconnexion, garde `SessionGuard` et port `AuthenticationPort` (US-010, ADR-052) ; MFA TOTP du staff et garde de la console interne `StaffGuard` (US-012, ADR-062) ; coordonnées des destinataires pour NTF (US-021, ADR-061) ; permissions de l'hôte `app.has_permission` en base (US-062) ;
+- **livré** : inscription, vérification de l'e-mail, connexion, sessions, déconnexion, garde `SessionGuard` et port `AuthenticationPort` (US-010, ADR-052) ; inscription avec consentements versionnés (CGU, confidentialité, communications ; US-102, ADR-091) et envoi des e-mails d'identité par un canal NTF (`ChannelIdentityNotifier`) ; MFA TOTP du staff et garde de la console interne `StaffGuard` (US-012, ADR-062) ; coordonnées des destinataires pour NTF (US-021, ADR-061) ; permissions de l'hôte `app.has_permission` en base (US-062) ;
 - **pas encore** : OTP téléphone (US-104), restrictions, invitations de co-hôtes, blocage voyageur, émission d'événements. L'envoi réel de l'e-mail de vérification attend le câblage NTF : `PendingIdentityNotifier` n'envoie rien (fail-closed, le compte reste en attente).
 
 Détail des routes, de la sécurité et des paramètres PROPOSÉS : [`AUTH.md`](AUTH.md).
@@ -46,7 +46,7 @@ Cible (17 §2.2, §4.5) :
 
 Ports exposés aux autres modules (`index.ts`) :
 
-- authentification : `AUTHENTICATION_PORT` / `AuthenticationPort` (`resolveSession`), `SessionGuard`, `principalOf`, `AuthenticatedPrincipal` ; montage `IamAuthModule`, `IamAuthOptions`, `postgresIamAdapters`, `SqlExecutor`, `AuthHttpError` ;
+- authentification : `AUTHENTICATION_PORT` / `AuthenticationPort` (`resolveSession`), `SessionGuard`, `principalOf`, `AuthenticatedPrincipal`, `sessionProofOf` (empreinte du jeton, preuve de possession pour les commandes de CTR, US-102) ; montage `IamAuthModule`, `IamAuthOptions`, `postgresIamAdapters`, `SqlExecutor`, `AuthHttpError` ;
 - console interne : `StaffConsoleModule`, `StaffGuard`, `staffPrincipalOf`, `StaffOptions`, `StaffPrincipal`, `StaffRole`, `postgresStaffAdapters` ;
 - pour NTF : `postgresNotificationContacts` (adaptateur du port `RecipientDirectory` de NTF).
 

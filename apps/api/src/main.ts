@@ -26,6 +26,7 @@ import {
   PgBrandStore,
   UnavailableBrandFileStore,
 } from './modules/cfg/index.js';
+import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
 import { postgresRiskAdapters } from './modules/risk/index.js';
@@ -40,6 +41,8 @@ async function bootstrap(): Promise<void> {
   // RUEDA_PGPASSWORD_NEXT (db-pool.ts)
   const pool = createAppPool({ application_name: 'rueda-api' });
   const iam = await postgresIamAdapters(pool);
+  // Documents juridiques et consentements (US-102) : commandes core.ctr_* sous app_api.
+  const ctr = await postgresCtrAdapters(pool);
   const pay = await postgresPayAdapters(pool, process.env);
   // Console interne (US-012) : coffre TOTP indisponible tant qu'US-003 ne l'a pas livré et clé de
   // preuve lue dans RUEDA_STAFF_MFA_PROOF_KEY (absente : aucune élévation) — fail-closed.
@@ -67,6 +70,7 @@ async function bootstrap(): Promise<void> {
       { store: new PgManualActionStore(pool) },
       brand,
       risk,
+      ctr,
     ),
     { rawBody: true },
   );

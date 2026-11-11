@@ -370,7 +370,7 @@ Migration `0042_config_brand` (à la suite de `0040`–`0041` d'US-024), fixture
 
 Preuves : `test/l0/l0-brand.test.ts` (droits, publication atomique et 8 publications concurrentes, retour arrière, refus de contraste journalisés, permissions et portée pays, gardes sous `migrator`, actifs, blocs en PA, PY et communs).
 
-**Blocs éditables, textes juridiques** (US-121, ADR-095, migration `0059_config_content_legal_keys`) : `core.cfg_content_key_not_legal(text)` (motif identique à `LEGAL_BLOCK_KEY` de `@rueda/i18n` : legal, terms, cgu, contract, privacy, cancellation, refund, insurance, policy… ; EXECUTE à `iam_staff_owner` seul), contrainte `content_block_key_not_legal_text` en plus de `content_block_key_not_legal` ; `cfg_content_cmd_save_draft` remplacée (même signature) : après les droits, une clé juridique rend `KEY_FORBIDDEN`, la tentative est journalisée (`CONTENT_KEY_REFUSED`, motif `LEGAL_TEXT`) et rien n'est écrit. Le registre des clés éditables (liste blanche) reste dans l'API. Preuves : `test/l0/l0-us121-content-keys.test.ts` (exemples de la story en es / en / fr / pt, PA, PY et commun, droits d'abord, contrainte validée, parité du motif SQL et TypeScript, fonction non exécutable par les rôles applicatifs).
+**Blocs éditables, textes juridiques** (US-121, ADR-095, migration `0060_config_content_legal_keys`) : `core.cfg_content_key_not_legal(text)` (motif identique à `LEGAL_BLOCK_KEY` de `@rueda/i18n` : legal, terms, cgu, contract, privacy, cancellation, refund, insurance, policy… ; EXECUTE à `iam_staff_owner` seul), contrainte `content_block_key_not_legal_text` en plus de `content_block_key_not_legal` ; `cfg_content_cmd_save_draft` remplacée (même signature) : après les droits, une clé juridique rend `KEY_FORBIDDEN`, la tentative est journalisée (`CONTENT_KEY_REFUSED`, motif `LEGAL_TEXT`) et rien n'est écrit. Le registre des clés éditables (liste blanche) reste dans l'API. Preuves : `test/l0/l0-us121-content-keys.test.ts` (exemples de la story en es / en / fr / pt, PA, PY et commun, droits d'abord, contrainte validée, parité du motif SQL et TypeScript, fonction non exécutable par les rôles applicatifs).
 
 ## Limitation de débit et anti-abus (US-052 ; 17 §6.6 ; ADR-075)
 
@@ -381,6 +381,17 @@ Migrations `0046_config_rate_limit_params` (graine complémentaire **générée*
 - **Tableau de sécurité** : `risk_staff_abuse_board` (`iam_staff_owner`, EXECUTE app_api) ; TOTP et permission `security.read_abuse` (ADMIN, SUPERADMIN) ; refus journalisés ; aucune empreinte rendue.
 
 Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge virtuelle en PA et PY, 30 appels concurrents pour une limite de 5, plafond SMS au jour local, critique toujours accordé, alerte unique, liste blanche des travailleurs, purge, tableau de sécurité et refus journalisés).
+
+## Consentements versionnés et gabarits juridiques (US-102 ; 16 ACC-001, LEG-001, LEG-002 ; 17 §3.1.3, §3.2.6 ; ADR-091)
+
+Migration `0059_ctr_legal_consent` :
+
+- `core.contract_document_template` (classe C, ajout seul) : texte en base, version par (genre, pays, langue), `is_major`, `content_hash` = SHA-256 posé par le déclencheur `document_template_guard`, `country_code` NULL = document commun, `legal_review_ref` NULL = BROUILLON. Graine : version 1 BROUILLON de `TOS_GUEST`, `PRIVACY` et `MARKETING` en es, en, fr et pt.
+- `core.contract_consent` (classe A, ajout seul, `consent_guard`) : version exacte (`template_id`), langue, `accepted_at` = `platform.now()`, contexte ; `ip_enc` / `user_agent_enc` [C2] chiffrés par la clé du sujet ou retenus (`c2_withheld`) ; CGU et confidentialité jamais retirées par une ligne.
+- **Aucune inscription sans consentement** : déclencheur de contrainte DIFFÉRÉ `ctr_signup_consents_required` sur `core.iam_user_account` (fonction `core.ctr_signup_consents_guard`, `iam_auth_owner`) ; exemptées : les écritures de `migrator` (migrations, fonctions de fixtures) ou d'un superutilisateur, jugées par `WHEN (NOT core.ctr_writer_exempt())` à l'insertion. Un test qui crée un compte en autocommit appelle `core.iam_cmd_register_with_consents` (versions NULL = en vigueur).
+- Aucun droit de table pour les rôles applicatifs ; commandes `iam_auth_owner` (inscription, état, réacceptation, communications, historique, lecture publique) et `iam_staff_owner` (publication, permission `legal.publish`, journalisée) ; liste blanche RLS-15 mise à jour.
+
+Preuves : `test/l0/l0-ctr-consents.test.ts` (rôle app_api, horloge virtuelle, publication dans une transaction annulée, documents propres à chaque pays).
 
 ## Matrice d'autorisations et gardes d'environnement (US-043 ; 17 §2.3, §6.5, §6.6 ; ADR-077)
 

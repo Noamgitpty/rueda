@@ -42,7 +42,7 @@ Aucun port : tout repose sur `Intl` (ICU embarqué dans Node 26), sans dépendan
 ## Blocs de contenu éditables (US-121, ADR-095)
 
 - `EDITABLE_BLOCKS` (`src/editable-blocks.ts`) : **liste blanche** des textes que le fondateur change sans déploiement. Chaque entrée nomme le texte du catalogue qu'elle remplace (`catalogKey`, sans variable ni pluriel), son format (`plain` ou `rich`) et sa longueur maximale. `editableBlock(key)`, `blockKeyOf(catalogKey)`.
-- `LEGAL_BLOCK_KEY` / `isLegalBlockKey` : textes juridiques (jamais des blocs) ; motif recopié par la base (migration 0059).
+- `LEGAL_BLOCK_KEY` / `isLegalBlockKey` : textes juridiques (jamais des blocs) ; motif recopié par la base (migration 0060).
 - `parseRichText(source, format, maxLength)` : Markdown restreint vers un **arbre fermé** (`RichDoc` : paragraphes, listes, gras, italique, liens internes) ; `richTextProblem` (message du refus), `isRichDoc` (revalidation stricte d'un arbre reçu), `plainTextOf`. Aucune chaîne HTML n'est jamais produite.
 
 ## Utilisation

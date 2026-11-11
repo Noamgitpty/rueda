@@ -1,4 +1,4 @@
--- 0059 — CFG : blocs de contenu éditables, textes juridiques refusés et journalisés.
+-- 0060 — CFG : blocs de contenu éditables, textes juridiques refusés et journalisés.
 -- US-121 (19 : critère 3 « un texte juridique — CGU, contrat, politique d'annulation — n'est
 -- jamais éditable comme bloc, il reste un gabarit versionné `document_template` ») ; 17 §3.2.13
 -- (`content_block`) ; ADR-036, ADR-067, ADR-095. Appliquée sous `migrator`.

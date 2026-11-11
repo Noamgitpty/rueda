@@ -13,7 +13,7 @@
  * Oracle de la paire : README de @rueda/design-tokens (Lienzo · Azur refusée, « lien primary sur
  * verre 3,89:1 (clair) »). Pays lus en base (aucune constante).
  *
- * US-121 (blocs éditables, ADR-095, migration 0059) : registre des blocs injecté (une clé tirée
+ * US-121 (blocs éditables, ADR-095, migration 0060) : registre des blocs injecté (une clé tirée
  * au hasard par test, déclarée au registre, isole les tests sur la base partagée) ; texte
  * juridique refusé et JOURNALISÉ par la base ; signalement au back-office réservé à `brand.edit`.
  */
@@ -77,7 +77,7 @@ async function staff(
 ): Promise<{ userId: string; hash: Buffer }> {
   const userId = randomUUID();
   await client.query(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Int', 'Brand', 'es', $4, $5, 86400, NULL)`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Int', 'Brand', 'es', $4, $5, 86400, NULL, NULL, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false)`,
     [userId, `brand-${userId}@example.test`, PHC, randomUUID(), randomBytes(32)],
   );
   await client.query(`SELECT test_fixture.iam_set_account_status($1, 'ACTIVE')`, [userId]);

@@ -8,7 +8,7 @@
  *
  * Exclus par construction : textes juridiques (CGU, contrat, politique d'annulation,
  * confidentialité, assurance : `document_template` versionnés, 17 §3.2.13), montants et règles.
- * `LEGAL_BLOCK_KEY` les reconnaît ; la base applique le même motif (migration 0059).
+ * `LEGAL_BLOCK_KEY` les reconnaît ; la base applique le même motif (migration 0060).
  */
 import type { MessageKey } from './catalogs/index.ts';
 import type { RichFormat } from './rich-text.ts';
@@ -27,7 +27,7 @@ export const BLOCK_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){
 /**
  * Textes juridiques et contractuels : jamais des blocs (refus `CONTENT_KEY_FORBIDDEN`). Un
  * segment de la clé (séparé par `.` ou `_`) qui nomme un texte juridique suffit. Motif recopié
- * dans `core.cfg_content_key_not_legal` (0059) : la preuve L0 compare les deux.
+ * dans `core.cfg_content_key_not_legal` (0060) : la preuve L0 compare les deux.
  */
 export const LEGAL_BLOCK_KEY =
   /(^|[._])(legal|terms|tos|cgu|cgv|conditions|contract|contrat|contrato|agreement|privacy|privacidad|privacidade|confidentialite|cancellation|cancelacion|cancelamento|annulation|refund|reembolso|remboursement|insurance|seguro|assurance|protection|policy|politica|politique|cookies|consent)([._]|$)/;

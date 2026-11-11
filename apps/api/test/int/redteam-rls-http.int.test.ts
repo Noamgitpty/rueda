@@ -27,6 +27,7 @@ import {
   PgBrandStore,
   UnavailableBrandFileStore,
 } from '../../src/modules/cfg/index.js';
+import { PgConsentStore } from '../../src/modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../../src/modules/iam/index.js';
 import type { StaffOptions } from '../../src/modules/iam/index.js';
 import { postgresPayAdapters } from '../../src/modules/pay/index.js';
@@ -53,7 +54,7 @@ let countries: string[] = [];
 async function register(): Promise<string> {
   const id = randomUUID();
   const r = await client.query<{ ok: boolean }>(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Rt', 'Rls', 'es', $4, $5, 86400, NULL) AS ok`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Rt', 'Rls', 'es', $4, $5, 86400, NULL, NULL, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false) AS ok`,
     [id, `rt-${id}@example.test`, PHC, randomUUID(), randomBytes(32)],
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
@@ -216,6 +217,7 @@ beforeAll(async () => {
         board: new PgAbuseBoardStore(client),
         rhythm: { record: () => false },
       },
+      { store: new PgConsentStore(client) },
     ),
     { rawBody: true, logger: false },
   );

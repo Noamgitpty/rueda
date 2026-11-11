@@ -14,6 +14,23 @@ export type MfaLevel = 'NONE' | 'OTP' | 'TOTP';
 /** Motifs de révocation que l'API peut écrire (les autres : console interne, US-012). */
 export type ApiRevocationReason = 'LOGOUT' | 'ROTATED';
 
+/** Version d'un document juridique AFFICHÉE et acceptée à l'inscription (US-102). */
+export interface AcceptedDocument {
+  readonly kind: 'TOS_GUEST' | 'PRIVACY';
+  readonly version: number;
+}
+
+/**
+ * Refus des consentements à l'inscription (US-102, commande 0059) : version affichée périmée,
+ * aucun document en vigueur (fail-closed) ou liste mal formée. Jamais de donnée personnelle.
+ */
+export class SignupDocumentsError extends Error {
+  override readonly name = 'SignupDocumentsError';
+  constructor(readonly reason: 'VERSION_CHANGED' | 'UNAVAILABLE' | 'INVALID' | 'COUNTRY_UNKNOWN') {
+    super(`IAM : consentements refusés (${reason})`);
+  }
+}
+
 export interface RegisterAccountInput {
   readonly userId: string;
   /** Normalisé (trim, minuscules). */
@@ -27,6 +44,14 @@ export interface RegisterAccountInput {
   readonly verificationTokenHash: Buffer;
   readonly verificationTtlS: number;
   readonly ip: string | null;
+  /**
+   * Consentements (US-102) : pays du parcours (portée des documents ; absent = documents communs),
+   * versions affichées (OBLIGATOIRES : absentes, refus `VERSION_CHANGED`) et opt-in des communications (non pré-coché,
+   * défaut `false`). La base refuse tout compte sans CGU ni confidentialité acceptées.
+   */
+  readonly country?: string | null;
+  readonly documents?: readonly AcceptedDocument[] | null;
+  readonly marketingOptIn?: boolean;
 }
 
 export interface Credentials {
@@ -55,7 +80,10 @@ export interface SessionRecord {
 }
 
 export interface AuthStore {
-  /** `false` si l'email est déjà pris (aucune écriture). */
+  /**
+   * `false` si l'email est déjà pris (aucune écriture). Enregistre les consentements dans la même
+   * transaction ; `SignupDocumentsError` si les versions sont refusées (contrôlé avant l'email).
+   */
   registerAccount(input: RegisterAccountInput): Promise<boolean>;
   /** `true` si un lien valide a été consommé ; révoque alors les sessions antérieures. */
   verifyEmail(tokenHash: Buffer): Promise<boolean>;

@@ -25,6 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
 import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from '../modules/cfg/index.js';
+import { PgConsentStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
@@ -74,7 +75,7 @@ const tripOf = new Map<string, string>();
 async function register(): Promise<string> {
   const id = randomUUID();
   const r = await client.query<{ ok: boolean }>(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Matrice', 'Test', 'es', $4, $5, 86400, NULL) AS ok`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Matrice', 'Test', 'es', $4, $5, 86400, NULL, NULL, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false) AS ok`,
     [id, `us043-${id}@example.test`, PHC, randomUUID(), randomBytes(32)],
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
@@ -139,6 +140,10 @@ async function requestOf(
           legalLastName: 'Test',
           locale: 'es',
           termsAccepted: true,
+          acceptedDocuments: [
+            { kind: 'TOS_GUEST', version: 1 },
+            { kind: 'PRIVACY', version: 1 },
+          ],
         },
       };
     case 'POST /auth/login':
@@ -253,6 +258,21 @@ async function requestOf(
       };
     case 'GET /console/security/abuse':
       return { method: 'GET', path: `/console/security/abuse?country=${country}&hours=1` };
+    // documents juridiques et consentements (US-102)
+    case 'GET /legal/documents':
+      return { method: 'GET', path: '/legal/documents?locale=es' };
+    case 'GET /legal/documents/{kind}':
+      return { method: 'GET', path: '/legal/documents/PRIVACY?locale=es' };
+    case 'GET /legal/consents':
+      return { method: 'GET', path: '/legal/consents' };
+    case 'POST /legal/consents/accept':
+      return {
+        method: 'POST',
+        path: '/legal/consents/accept',
+        body: { documents: [{ kind: 'PRIVACY', version: 1 }] },
+      };
+    case 'POST /legal/consents/marketing':
+      return { method: 'POST', path: '/legal/consents/marketing', body: { optIn: false } };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }
@@ -479,6 +499,7 @@ beforeAll(async () => {
         board: new PgAbuseBoardStore(client),
         rhythm: { record: () => false },
       },
+      { store: new PgConsentStore(client) },
     ),
     { rawBody: true, logger: false },
   );
