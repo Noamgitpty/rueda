@@ -332,6 +332,13 @@ async function requestOf(
         path: '/host/accounts',
         body: { country, holderKind: 'INDIVIDUAL' },
       };
+    // téléphone par OTP (US-104) : la personne de la session ; un code faux, jamais un envoi
+    case 'GET /phone':
+      return { method: 'GET', path: '/phone' };
+    case 'POST /phone/otp':
+      return { method: 'POST', path: '/phone/otp', body: { phone: '0', country } };
+    case 'POST /phone/verify':
+      return { method: 'POST', path: '/phone/verify', body: { code: '000000' } };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }
