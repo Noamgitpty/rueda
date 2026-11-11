@@ -1147,7 +1147,8 @@ BEGIN
         'id', t.id, 'publicRef', t.public_ref, 'status', t.status, 'country', t.country_code,
         'scheduledStart', t.scheduled_start, 'scheduledEnd', t.scheduled_end)
         ORDER BY t.scheduled_start DESC)
-      FROM (SELECT * FROM core.booking_trip AS x
+      FROM (SELECT x.id, x.public_ref, x.status, x.country_code, x.scheduled_start, x.scheduled_end
+              FROM core.booking_trip AS x
              WHERE x.guest_user_id = p_user_id AND x.country_code = v_country
              ORDER BY x.scheduled_start DESC LIMIT 50) AS t), '[]'::jsonb),
     'cases', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
