@@ -282,6 +282,118 @@
     "US-062": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "rôle P2P_HOST, RLS de l hôte, tables d argent, SECURITY DEFINER : sécurité, argent, schéma"
+    },
+    "US-101": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "cadre des actions de console (manual_action), SECURITY DEFINER, FINANCE à deux personnes (RLS-24), annulations qui touchent l argent : sécurité, argent, schéma ; PROPOSÉ (US-122, L1-PM-07, L1-PM-08)"
+    },
+    "US-102": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "inscription, CGU et consentements versionnés : données personnelles, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-02, L1-PM-28)"
+    },
+    "US-103": {
+      "require": ["code", "securite", "ux"],
+      "why": "nom légal et SM-3 : données personnelles ; Revue design : OUI ; PROPOSÉ"
+    },
+    "US-104": {
+      "require": ["code", "securite", "ux", "qa"],
+      "why": "OTP, limitation de débit : sécurité ; Revue design : OUI ; PROPOSÉ (L1-PM-06)"
+    },
+    "US-105": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "KYC hébergé, biométrie, webhooks signés, données C2 / C3 : sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-03, L1-PM-04, L1-PM-05)"
+    },
+    "US-106": {
+      "require": ["code", "securite", "ux"],
+      "why": "décision KYC par l ops (action de console, données C2 / C3) : sécurité ; Revue design : OUI ; PROPOSÉ"
+    },
+    "US-107": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "compte d hôte (organisation d une personne), rôle P2P_HOST, RLS org_id : sécurité, schéma ; PROPOSÉ (L1-PM-10, L1-PM-11)"
+    },
+    "US-108": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "activation de l hôte : sanctions, assureur, capacités bloquantes du PSP (contrainte 4) : sécurité, argent, schéma ; PROPOSÉ (L1-PM-13)"
+    },
+    "US-109": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "fiche 360°, files de revue, restrictions, journal d accès KYC : sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-08, L1-PM-33)"
+    },
+    "US-110": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "paramètres par pays (pénalités, plafonds, trip fee) : argent ; garde des valeurs « À DÉCIDER » : sécurité ; PROPOSÉ (L1-PM-21)"
+    },
+    "US-111": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "rétention, pseudonymisation, registre Ley 81, droits des personnes : sécurité, schéma ; PROPOSÉ (L1-PM-23)"
+    },
+    "US-112": {
+      "require": ["code", "architecture", "securite"],
+      "why": "RPO / RTO, procédure d incident, registre des incidents : sécurité, architecture ; PROPOSÉ"
+    },
+    "US-113": {
+      "require": ["code", "architecture", "qa"],
+      "why": "catalogue de référence et graine sous licence : schéma ; PROPOSÉ (L1-PM-17)"
+    },
+    "US-114": {
+      "require": ["code", "architecture"],
+      "why": "file d ajout au catalogue : schéma ; PROPOSÉ"
+    },
+    "US-115": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "véhicules, annonces, photos, lieux de remise (adresse exacte), prix par jour : sécurité, argent, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-11, L1-PM-19, L1-PM-21)"
+    },
+    "US-118": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "publication d une annonce, SM-2 et gardes en base : sécurité, schéma ; PROPOSÉ (L1-PM-18)"
+    },
+    "US-119": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "calendrier, blocages par commande (occupation, concurrence) : sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-22)"
+    },
+    "US-120": {
+      "require": ["code", "securite", "ux"],
+      "why": "écran Apparence / Marque, rôle ADMIN, publication et retour arrière : sécurité ; Revue design : OUI ; PROPOSÉ (L1-PM-29)"
+    },
+    "US-121": {
+      "require": ["code", "securite", "ux"],
+      "why": "blocs de contenu éditables, HTML assaini : sécurité ; Revue design : OUI ; PROPOSÉ (L1-PM-29, L1-PM-31)"
+    },
+    "US-036": {
+      "require": ["code", "architecture", "securite"],
+      "why": "portabilité, export des données et des clés : sécurité, architecture ; PROPOSÉ (L1-PM-34)"
+    },
+    "US-044": {
+      "require": ["code", "ux", "qa"],
+      "why": "accessibilité et régression visuelle : vérificateur UX ; PROPOSÉ"
+    },
+    "US-045": {
+      "require": ["code", "architecture", "qa"],
+      "why": "performance de fumée et résilience face aux FAKE hostiles (17 §2.5, N-16, N-17) : architecture, QA ; PROPOSÉ (L1-PM-35)"
+    },
+    "US-122": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "porte du lot 1 : red team RLS / KYC / console, paramètres pays (argent) ; même périmètre de revue que US-049 ; PROPOSÉ"
+    },
+    "US-123": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "KYC individuel de l hôte, sanctions, profil fiscal chiffré, sous-commerce du PSP : sécurité, argent, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-01, L1-PM-10, L1-PM-12, L1-PM-13)"
+    },
+    "US-124": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "pièces du véhicule (titre, prenda), fichiers en bucket privé : sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-14, L1-PM-15)"
+    },
+    "US-125": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "interrupteurs par pays à deux personnes (RLS-27, cmd_golive_owner), versements et détention de fonds : sécurité, argent, schéma ; Revue design : OUI ; PROPOSÉ (L1-PM-25, L1-PM-26)"
+    },
+    "US-126": {
+      "require": ["code", "securite", "ux"],
+      "why": "CGU de l hôte, consent TOS_HOST versionné : sécurité ; Revue design : OUI ; PROPOSÉ (L1-PM-28)"
+    },
+    "US-127": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "auto-réservation (garde dans cmd_place_hold), comptes liés, aucune compensation dette / gains sans accord : sécurité, argent, concurrence ; PROPOSÉ (L1-PM-30)"
     }
   },
   "pathOwners": {
@@ -295,7 +407,9 @@
       "US-018",
       "US-039",
       "US-043",
-      "US-049"
+      "US-049",
+      "US-110",
+      "US-122"
     ],
     "packages/db/": [
       "US-001",
@@ -326,7 +440,34 @@
       "US-061",
       "US-062",
       "US-012",
-      "US-049"
+      "US-049",
+      "US-101",
+      "US-102",
+      "US-103",
+      "US-104",
+      "US-105",
+      "US-106",
+      "US-107",
+      "US-108",
+      "US-109",
+      "US-110",
+      "US-111",
+      "US-112",
+      "US-113",
+      "US-114",
+      "US-115",
+      "US-118",
+      "US-119",
+      "US-120",
+      "US-121",
+      "US-036",
+      "US-045",
+      "US-122",
+      "US-123",
+      "US-124",
+      "US-125",
+      "US-126",
+      "US-127"
     ],
     "packages/money/": ["US-015", "US-016", "US-017", "US-018", "US-035", "US-042", "US-049"],
     "packages/i18n/": [
@@ -344,11 +485,65 @@
       "US-103",
       "US-104",
       "US-105",
-      "US-106"
+      "US-106",
+      "US-101",
+      "US-107",
+      "US-108",
+      "US-109",
+      "US-111",
+      "US-113",
+      "US-114",
+      "US-115",
+      "US-118",
+      "US-119",
+      "US-120",
+      "US-121",
+      "US-123",
+      "US-124",
+      "US-125",
+      "US-126",
+      "US-127"
     ],
-    "packages/design-tokens/": ["US-030", "US-031", "US-032", "US-034", "US-035"],
-    "packages/ui/": ["US-032", "US-033", "US-035"],
-    "packages/fake-adapters/": ["US-019", "US-020", "US-035", "US-061"]
+    "packages/design-tokens/": [
+      "US-030",
+      "US-031",
+      "US-032",
+      "US-034",
+      "US-035",
+      "US-120",
+      "US-044"
+    ],
+    "packages/ui/": [
+      "US-032",
+      "US-033",
+      "US-035",
+      "US-102",
+      "US-103",
+      "US-104",
+      "US-105",
+      "US-106",
+      "US-109",
+      "US-115",
+      "US-119",
+      "US-120",
+      "US-121",
+      "US-123",
+      "US-124",
+      "US-125",
+      "US-126",
+      "US-044"
+    ],
+    "packages/fake-adapters/": [
+      "US-019",
+      "US-020",
+      "US-035",
+      "US-061",
+      "US-104",
+      "US-105",
+      "US-108",
+      "US-123",
+      "US-045"
+    ]
   },
   "sharedPaths": [
     "docs/team/BOARD.md",
