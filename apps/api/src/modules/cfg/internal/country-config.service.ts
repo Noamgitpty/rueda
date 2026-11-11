@@ -8,9 +8,10 @@ import { runStartupChecks } from './startup.js';
 import type { RuntimeEnvironment } from './startup.js';
 
 /**
- * Configuration pays du processus (API et travailleur ; US-013). Chargée et validée à la
- * construction ; contrôles de démarrage à l'initialisation du module : une erreur arrête le
- * démarrage (`CONFIG_INVALID`, `TZDATA_MISMATCH`, `PARAM_MISSING` en production).
+ * Configuration pays du processus (API et travailleur pg-boss d'`apps/api` ; US-013, US-110).
+ * Chargée et validée à la construction ; contrôles de démarrage à l'initialisation du module : une
+ * erreur arrête le démarrage (`CONFIG_INVALID`, `TZDATA_MISMATCH` ; en production `PARAM_MISSING`
+ * ou `PARAM_UNDECIDED`, ADR-093).
  */
 @Injectable()
 export class CountryConfigService implements OnModuleInit {

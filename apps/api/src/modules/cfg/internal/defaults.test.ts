@@ -67,6 +67,79 @@ const ADM_031_KEYS = [
   'platform_funded_host_compensation',
 ];
 
+/**
+ * Liste attendue **exacte** des clés « À DÉCIDER » (revues qa et sécurité US-110) : toute
+ * différence avec le dépôt, dans un sens ou dans l'autre, fait échouer le test. Chaque clé porte
+ * la source qui la rend À DÉCIDER :
+ * - « 17 statut » : la colonne « Statut / OQ » de 17 §7.2 cite une question ouverte (OQ, UXQ,
+ *   J-ADM-031, contrat d'assureur) ou « à fixer » ;
+ * - « 17 source » : la colonne « Source » de 17 §7.2 cite une OQ ouverte (ADR-093, point 2) ;
+ * - « 16 ADM-031 » : valeur de lancement « À DÉCIDER au jalon J-ADM-031 » ;
+ * - « 22 » : défaut fail-closed d'une question ouverte (OQ-BR-04, DEC-FONDATEUR-01) ;
+ * - « lot C » : rail du PSP, choisi avec le pays (DEC-PAYS, porte PAY-041).
+ */
+const EXPECTED_TO_DECIDE: Readonly<Record<string, string>> = {
+  advance_notice_minutes: '16 ADM-031 ; 17 statut ADM-031',
+  ach_xpress_max_minor: 'lot C (17 statut « rail du PSP »)',
+  audit_log_retention_years: '17 statut OQ-BR-25',
+  auth_lead_h: '17 statut OQ-PAY-02',
+  billing_boundary_minutes: '17 statut OQ-BR-04 ; 22',
+  biometric_appeal_retention_days: '17 statut OQ-BR-25, OQ-MK-09',
+  biometric_retention_max_years: '17 statut OQ-BR-25, OQ-MK-09',
+  biometric_score_retention_days: '17 statut OQ-BR-25, OQ-MK-09',
+  booking_request_expiry_hours: '17 source OQ-P2P-10',
+  buffer_minutes: '16 ADM-031 ; 17 statut ADM-031',
+  chargeback_window_days: '17 statut OQ-BR-43',
+  claim_declaration_window_h: '16 ADM-031 ; 17 statut ADM-031',
+  commercial_gesture_cap: '17 statut J-ADM-031',
+  damage_charge_deadline_days: '17 statut OQ-PAY-18',
+  damage_notice_days: '17 statut OQ-PAY-18',
+  damage_overcharge_refund_days: '17 statut J-ADM-031',
+  deposit_amount: '17 statut J-ADM-031 ; 17 source OQ-BR-47',
+  deposit_charge_cap: '17 statut OQ-PAY-06, OQ-PAY-19',
+  deposit_max: '17 statut J-ADM-031',
+  deposit_safety_h: '17 statut OQ-PAY-02',
+  evidence_retention_months: '17 statut OQ-BR-25',
+  flagged_booking_payment_order: '17 statut UXQ-08',
+  free_cancel_lead: '16 ADM-031 ; 17 statut ADM-031',
+  fuel_refill_max: '17 statut J-ADM-031',
+  grace_minutes: '16 ADM-031 ; 17 statut OQ-BR-04 ; 22',
+  guest_protection_min_level: '16 ADM-031 ; 17 source OQ-P2P-12',
+  host_advance_cap_minor: '16 ADM-031',
+  host_default_plan: '16 ADM-031 ; 17 source OQ-P2P-11',
+  host_min_age_years: '16 ADM-031 ; 17 source OQ-P2P-01',
+  host_penalty: '16 ADM-031 ; 17 statut OQ-BR-24',
+  host_share_pct: '16 ADM-031 (ESTÁNDAR 75 %) ; 17 statut OQ-P2P-11',
+  incidental_charge_deadline_days: '17 statut J-ADM-031',
+  insurer_premium_share: '17 statut contrat d’assureur',
+  insurer_roadside_share: '17 statut contrat d’assureur',
+  insurer_settlement_at: '17 statut contrat d’assureur',
+  last_minute_threshold: '16 ADM-031 ; 17 statut OQ-BR-30 ; 22',
+  late_fee_cap: '17 statut J-ADM-031',
+  marge_h: '17 statut OQ-PAY-02',
+  max_reattempts: '17 statut OQ-PAY-18',
+  max_trip_days: '16 ADM-031 (17 statut : décidé pour la bêta)',
+  min_driver_age: '16 ADM-031 ; 17 statut ADM-031',
+  no_show_grace_minutes: '16 ADM-031 ; 17 statut OQ-BR-33 ; 22',
+  overdue_detection_minutes: '22 OQ-BR-04 (= grace_minutes + 1 ; 17 statut : décidé)',
+  p2p_default_booking_mode: '16 ADM-031',
+  p2p_host_requires_tax_id: '17 source OQ-PAY-09, OQ-P2P-07',
+  platform_funded_host_compensation: '16 ADM-031 ; 22 DEC-FONDATEUR-01',
+  platform_reserve_minor: '16 ADM-031',
+  provider_max_hold_h: '17 statut OQ-PAY-02',
+  reconciliation_delta_threshold_bps: '17 statut J-ADM-031',
+  refund_protection_on_nr: '17 statut OQ-BR-42',
+  refund_reminders_days: '17 statut OQ-BR-44',
+  release_delay_h: '17 statut OQ-PAY-02',
+  review_hold_minutes: '17 statut UXQ-08',
+  review_window_days: '16 ADM-031 ; 17 source OQ-P2P-06 (17 statut : décidé comme Turo)',
+  self_booking_forbidden: '16 ADM-031 ; 17 source OQ-P2P-08',
+  trip_fee_schedule: '17 statut OQ-MK-01',
+  trip_id_evidence_retention_days: '17 statut OQ-BR-25, OQ-MK-09',
+  visa_objection_days: '17 statut OQ-PAY-18',
+  webhook_raw_body_retention_days: '17 statut OQ-BR-25, OQ-MK-09',
+};
+
 describe('statut et source de chaque valeur (19 US-110, notes techniques)', () => {
   it('chaque clé porte un statut de la liste fermée et une référence de décision', () => {
     for (const d of config.definitions.values()) {
@@ -96,10 +169,20 @@ describe('statut et source de chaque valeur (19 US-110, notes techniques)', () =
     }
   });
 
-  it('une question ouverte citée par 17 §7.2 (OQ, UXQ, J-ADM-031, contrat, à fixer) ⇒ À DÉCIDER', () => {
+  it('ensemble des clés À DÉCIDER = liste attendue exacte (17, 22, 16 ADM-031), dans les deux sens', () => {
+    const actual = [...config.definitions.values()]
+      .filter((d) => d.decision === 'TO_DECIDE')
+      .map((d) => d.key)
+      .sort();
+    expect(actual).toEqual(Object.keys(EXPECTED_TO_DECIDE).sort());
+  });
+
+  it('une question ouverte citée par 17 §7.2, en statut ou en source ⇒ À DÉCIDER (sauf interrupteurs)', () => {
     const open = /OQ-|UXQ-|DEC-FONDATEUR-01|J-ADM-031|ADM-031|à fixer|contrat/;
     for (const d of config.definitions.values()) {
-      if (open.test(d.status)) expect(d.decision, d.key).toBe('TO_DECIDE');
+      // Interrupteurs : false décidé (17 §0.1) ; leurs OQ ferment la mise en service par US-125.
+      if (d.goLiveSwitch) continue;
+      if (open.test(d.status) || open.test(d.source)) expect(d.decision, d.key).toBe('TO_DECIDE');
     }
   });
 
@@ -142,6 +225,29 @@ describe('défauts fail-closed de 22 chargés pour PA et PY (19 US-110, « Bloqu
     }
   });
 
+  it.each(COUNTRIES)('%s : free_cancel_lead 24 h et trip_fee_schedule de 17 §7.2', (c) => {
+    expect(resolveParam(config, 'free_cancel_lead', { country: c, at }).value).toBe(24);
+    // 17 §7.2 : 15 / 12 / 8 % ; minimum 5 USD (500 cents) au PA, 35 000 PYG au PY (BR-PRICE-06)
+    const fee = resolveParam(config, 'trip_fee_schedule', { country: c, at });
+    expect(fee.value).toEqual({
+      tiers: [
+        { maxDays: 6, rateBps: 1500 },
+        { maxDays: 29, rateBps: 1200 },
+        { maxDays: null, rateBps: 800 },
+      ],
+      minMinor: c === 'PA' ? '500' : '35000',
+    });
+    expect(fee.currency).toBe(c === 'PA' ? 'USD' : 'PYG');
+  });
+
+  it('ach_xpress_max_minor : 500 000 (5 000 USD) au PA, sans objet au PY (17 §7.2)', () => {
+    const r = resolveParam(config, 'ach_xpress_max_minor', { country: 'PA', at });
+    expect([r.value, r.currency]).toEqual(['500000', 'USD']);
+    expect(
+      errorCode(() => resolveParam(config, 'ach_xpress_max_minor', { country: 'PY', at })),
+    ).toBe('PARAM_NOT_APPLICABLE');
+  });
+
   it.each(COUNTRIES)(
     '%s : platform_funded_host_compensation absent ⇒ false (DEC-FONDATEUR-01)',
     (c) => {
@@ -182,10 +288,54 @@ describe('défauts fail-closed de 22 chargés pour PA et PY (19 US-110, « Bloqu
     });
   });
 
-  it('DEC-FONDATEUR-19 : aucun paramètre de plafond de véhicules ou d’annonces par hôte', () => {
-    const cap =
-      /(max|cap|limit|plafond)\w*_(vehicles?|listings?|cars?)\b|(vehicles?|listings?|cars?)_\w*(max|cap|limit)/;
-    for (const key of config.definitions.keys()) expect(key).not.toMatch(cap);
+  describe('DEC-FONDATEUR-19 : aucun plafond de véhicules ou d’annonces par hôte', () => {
+    // Un mot de flotte et un mot de borne, dans un ordre ou dans l'autre, n'importe où dans la clé
+    // (pas de borne de mot : `_` est un caractère de mot ; revue qa US-110, constat 1).
+    const FLEET =
+      '(vehicle|vehicule|vehiculo|car|auto|listing|annonce|anuncio|fleet|flota|flotte|unit)';
+    const BOUND = '(max|cap|limit|quota|plafond|tope|ceiling|count|size)';
+    const cap = new RegExp(`${BOUND}.*${FLEET}|${FLEET}.*${BOUND}`);
+    const mustMatch = [
+      'max_vehicles_per_host',
+      'max_cars_per_host',
+      'max_vehicle_count',
+      'max_fleet_size',
+      'fleet_size_max',
+      'vehicle_quota',
+      'max_vehicules',
+      'max_annonces',
+      'max_autos_per_host',
+      'max_units',
+      'host_vehicle_cap',
+      'vehicle_limit',
+      'max_listings',
+      'listing_max',
+      'max_active_vehicles',
+      'vehicles_per_host_max',
+      'host_max_vehicles',
+      'plafond_vehicules_hote',
+      'tope_vehiculos',
+    ];
+    // Clés existantes qui ne bornent pas une flotte : elles ne doivent pas correspondre.
+    const mustNotMatch = [
+      'hold_creations_per_guest_vehicle_hour',
+      'vehicle_financed_requires_lender_consent',
+      'max_trip_days',
+      'max_active_holds_per_guest',
+      'catalog_addition_sla_business_h',
+    ];
+
+    it.each(mustMatch)('« %s » est reconnu comme un plafond', (key) => {
+      expect(key).toMatch(cap);
+    });
+
+    it.each(mustNotMatch)('« %s » n’est pas un plafond de flotte', (key) => {
+      expect(key).not.toMatch(cap);
+    });
+
+    it('aucune clé du dépôt n’est un plafond de flotte', () => {
+      for (const key of config.definitions.keys()) expect(key, key).not.toMatch(cap);
+    });
   });
 });
 
@@ -201,7 +351,7 @@ describe('T61 rejoué avec la configuration PA / PY (critère 1)', () => {
     return value;
   };
   // Export de check_t49plus.py : [absent, non booléen, true (T17), payable (b)].
-  const [absent, , withTrue] = check('T61').map(int);
+  const [absent, , withTrue, payable] = check('T61').map(int);
   const resolved = (c: string) =>
     resolveParam(config, 'platform_funded_host_compensation', { country: c, at }).value;
 
@@ -229,6 +379,15 @@ describe('T61 rejoué avec la configuration PA / PY (critère 1)', () => {
       testParams(trip.currency, { platformFundedHostCompensation: resolved('PA') }),
     );
     expect(s.hostCompensation.amountMinor).toBe(absent);
+    // Témoin `true` (option A) : 45,00 payables bien que rien ne soit encaissé. L'oracle le calcule
+    // avec collected = 0 (`hostPayable(0, compensation(True, hp), 0, [], A_TOTAL)`) ; le moteur ne
+    // prend pas l'encaissement en entrée : sa compensation ne dépend pas de `collected`.
+    const optionA = computeCancellationSettlement(
+      trip,
+      event,
+      testParams(trip.currency, { platformFundedHostCompensation: true }),
+    );
+    expect(optionA.hostCompensation.amountMinor).toBe(payable);
   });
 
   it('PY (PYG) : annulation de T17 sur le trip D (T48), paramètre résolu ⇒ compensation 0', () => {
