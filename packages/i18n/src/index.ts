@@ -60,8 +60,10 @@ export {
 } from './editable-blocks.ts';
 export type { EditableBlock, EditableBlockKey, EditableBlocks } from './editable-blocks.ts';
 export {
+  INTERNAL_HREF_PATTERN,
   RICH_LIMITS,
   RichTextError,
+  codePoints,
   isInternalHref,
   isRichDoc,
   parseRichText,

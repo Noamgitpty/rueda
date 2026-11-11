@@ -26,6 +26,34 @@ describe('format plain', () => {
     expect(richTextProblem('é'.repeat(80), 'plain', 80)).toBeNull();
   });
 
+  it('émojis : longueur en points de code, identique à l’API et au site', () => {
+    const ok = '\u{1F697}'.repeat(80);
+    expect(richTextProblem(ok, 'plain', 80)).toBeNull();
+    expect(isRichDoc(parseRichText(ok, 'plain', 80), 'plain', 80)).toBe(true);
+    const tooLong = '\u{1F697}'.repeat(81);
+    expect(richTextProblem(tooLong, 'plain', 80)).toBe('plus de 80 caractères');
+    expect(isRichDoc({ format: 'plain', text: tooLong }, 'plain', 80)).toBe(false);
+    // demi-paire de substitution isolée : refusée des deux côtés
+    expect(richTextProblem('a\ud83db', 'plain', 80)).toBe('caractère de contrôle');
+    expect(isRichDoc({ format: 'plain', text: 'a\ud83db' }, 'plain', 80)).toBe(false);
+  });
+
+  it('marques de direction et caractères invisibles refusés (LRM, RLM, ALM, largeur nulle, BOM)', () => {
+    for (const bad of [
+      'a\u200eb',
+      'a\u200fb',
+      'a\u061cb',
+      'a\u200bb',
+      'a\u200cb',
+      'a\u200db',
+      'a\u2060b',
+      'a\ufeffb',
+    ]) {
+      expect(richTextProblem(bad, 'plain', 80), JSON.stringify(bad)).toBe('caractère de contrôle');
+      expect(isRichDoc({ format: 'plain', text: bad }, 'plain', 80)).toBe(false);
+    }
+  });
+
   it('caractères de contrôle et de direction (texte trompeur) refusés', () => {
     for (const bad of ['a\u0000b', 'a\u0007b', 'a\u202eb', 'a\u2066b', 'a\u2028b', 'a\u009bb']) {
       expect(richTextProblem(bad, 'plain', 80), JSON.stringify(bad)).toBe('caractère de contrôle');
@@ -143,6 +171,13 @@ describe('isRichDoc : revalidation stricte côté site', () => {
     ['texte vide', { format: 'rich', blocks: [{ t: 'p', c: [{ t: 'text', v: '' }] }] }],
     ['texte non chaîne', { format: 'rich', blocks: [{ t: 'p', c: [{ t: 'text', v: 1 }] }] }],
     ['aucun bloc', { format: 'rich', blocks: [] }],
+    [
+      'tableau en ligne au-delà du plafond (borné avant le parcours)',
+      {
+        format: 'rich',
+        blocks: [{ t: 'p', c: Array.from({ length: 401 }, () => ({ t: 'text', v: 'x' })) }],
+      },
+    ],
     ['plain multiligne', { format: 'plain', text: 'a\nb' }],
     ['plain trop long', { format: 'plain', text: 'x'.repeat(81) }],
     ['contrôle', { format: 'plain', text: 'a\u202eb' }],

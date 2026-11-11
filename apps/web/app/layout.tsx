@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { getRequestBrand } from '../brand-source.ts';
+import { getRequestContent } from '../content-source.ts';
 import { getRequestI18n } from '../i18n.ts';
 import { iconUrl, MANIFEST_PATH } from '../pwa/manifest.ts';
 import { ThemeStyle } from '../theme.tsx';
@@ -9,9 +10,12 @@ import { ThemeStyle } from '../theme.tsx';
 // version publiée si l'API la donne, thème embarqué sinon. Aucun nom ni style codé en dur.
 export async function generateMetadata(): Promise<Metadata> {
   const [brand, i18n] = await Promise.all([getRequestBrand(), getRequestI18n()]);
+  // description = accroche de l'accueil : le bloc publié dans la langue de la page s'il existe
+  // (US-121, même source que la page, aperçu de partage cohérent), sinon le catalogue livré
+  const tagline = (await getRequestContent(i18n)).get('web.home.tagline');
   return {
     title: brand.name,
-    description: i18n.t('web.home.tagline'),
+    description: tagline?.format === 'plain' ? tagline.text : i18n.t('web.home.tagline'),
     applicationName: brand.name,
     manifest: MANIFEST_PATH,
     icons: {

@@ -4,13 +4,20 @@
 -- (`content_block`) ; ADR-036, ADR-067, ADR-095. Appliquée sous `migrator`.
 --
 -- Contenu :
---   1. `core.cfg_content_key_not_legal(text)` : vrai si la clé ne nomme AUCUN texte juridique.
---      Motif recopié À L'IDENTIQUE de `LEGAL_BLOCK_KEY` (`packages/i18n/src/editable-blocks.ts`) :
---      un segment de la clé (séparé par `.` ou `_`) parmi legal, terms, cgu, contract, privacy,
---      cancellation, refund, insurance, policy… (es, en, fr, pt). La preuve L0 compare les deux.
+--   1. `core.cfg_content_key_not_legal(text)` : vrai si la clé ne CONTIENT aucune racine de texte
+--      juridique (sous-chaîne, n'importe où : legal, terms, termin, termos, cgu, condicion,
+--      contract, privac, cancel, refund, insurance, seguro, policy, eula, waiver, franqui,
+--      garanti… en es, en, fr et pt). Motif recopié À L'IDENTIQUE de `LEGAL_BLOCK_KEY`
+--      (`packages/i18n/src/editable-blocks.ts`) ; la preuve L0 compare les deux.
 --      Jamais NULL (COALESCE, fail-closed) ;
 --   2. contrainte `content_block_key_not_legal_text` : CHECK de la table, en plus de
---      `content_block_key_not_legal` (`legal.*`, 0042) qui reste en place ;
+--      `content_block_key_not_legal` (`legal.*`, 0042) qui reste en place ; posée `NOT VALID`
+--      (lignes nouvelles et modifiées contrôlées aussitôt, verrou court) puis validée par une
+--      instruction séparée. Justification de la validation : aucune base ne peut contenir de clé
+--      devenue juridique. La production n'a jamais été déployée ; en préproduction et en test,
+--      l'API n'écrit que des clés du registre `EDITABLE_BLOCKS`, toutes non juridiques (test du
+--      registre), et les tests écrivent des clés `home.*_<hasard>.title`. Si une telle ligne
+--      existait, VALIDATE échouerait et la migration avec : échec fermé, rien n'est affaibli ;
 --   3. `cfg_content_cmd_save_draft` remplacée (même signature, iam_staff_owner) : après les
 --      droits, une clé juridique rend `KEY_FORBIDDEN` et la tentative est JOURNALISÉE
 --      (`CONTENT_KEY_REFUSED`, motif `LEGAL_TEXT`) ; rien n'est écrit. Corps repris de 0043 à
@@ -36,7 +43,7 @@ CREATE FUNCTION core.cfg_content_key_not_legal(p_key text)
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   -- jamais NULL : un NULL passerait un CHECK (fail-closed)
-  SELECT COALESCE(p_key !~ '(^|[._])(legal|terms|tos|cgu|cgv|conditions|contract|contrat|contrato|agreement|privacy|privacidad|privacidade|confidentialite|cancellation|cancelacion|cancelamento|annulation|refund|reembolso|remboursement|insurance|seguro|assurance|protection|policy|politica|politique|cookies|consent)([._]|$)', false)
+  SELECT COALESCE(p_key !~ '(legal|terms|termin|termos|cgu|cgv|condicion|condicoe|condition|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancel|annul|refund|reembols|rembours|insurance|seguro|assur|protection|proteccion|protecao|policy|politic|cookie|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)', false)
 $fn$;
 REVOKE ALL ON FUNCTION core.cfg_content_key_not_legal(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.cfg_content_key_not_legal(text) TO iam_staff_owner;
@@ -45,7 +52,8 @@ COMMENT ON FUNCTION core.cfg_content_key_not_legal(text) IS
 
 -- 2. Filet de la table ---------------------------------------------------------------------------
 ALTER TABLE core.config_content_block ADD CONSTRAINT content_block_key_not_legal_text
-  CHECK (core.cfg_content_key_not_legal(block_key));
+  CHECK (core.cfg_content_key_not_legal(block_key)) NOT VALID;
+ALTER TABLE core.config_content_block VALIDATE CONSTRAINT content_block_key_not_legal_text;
 
 -- 3. Brouillon : refus journalisé d'une clé juridique ---------------------------------------------
 -- `migrator` ne remplace une fonction d'un autre propriétaire qu'en devenant lui (ADR-044 amendé) ;

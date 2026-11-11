@@ -217,6 +217,8 @@ export const PT_MESSAGES = {
   'backoffice.content.gaps.hint': 'Enquanto isso, a página mostra o texto original nesse idioma.',
   'backoffice.content.gaps.missing': '{key} · {scope}: falta {locales}',
   'backoffice.content.gaps.invalid': '{key} · {scope}: formato não permitido ({locales})',
+  'backoffice.content.gaps.notEditable':
+    '{key} · {scope}: esta chave não é um texto editável; nunca é exibida.',
   'backoffice.content.gaps.common': 'geral',
   'backoffice.content.gaps.error': 'Não conseguimos verificar os textos publicados.',
   'backoffice.journal.caption': 'Histórico de atividades',

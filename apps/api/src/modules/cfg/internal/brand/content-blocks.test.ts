@@ -6,7 +6,8 @@
  * signalé au back-office), 10b UX-58 (aucune publication incomplète), registre
  * `EDITABLE_BLOCKS` de `@rueda/i18n`.
  */
-import { EDITABLE_BLOCKS } from '@rueda/i18n';
+import { readFileSync } from 'node:fs';
+import { EDITABLE_BLOCKS, INTERNAL_HREF_PATTERN, isInternalHref } from '@rueda/i18n';
 import type { EditableBlocks } from '@rueda/i18n';
 import { InMemoryFileStore } from '@rueda/fake-adapters/files';
 import { describe, expect, it } from 'vitest';
@@ -289,5 +290,25 @@ describe('brouillon : liste blanche du registre avant la base', () => {
     });
     await console.saveContentDraft(HASH, id(), 'home.test_x.title', null, FOUR);
     expect(store.calls).toHaveLength(1);
+  });
+});
+
+describe('contrat OpenAPI : même motif de lien interne que la liste blanche', () => {
+  it('RichInline.href.pattern = INTERNAL_HREF_PATTERN, et même verdict sur un corpus', () => {
+    const doc = JSON.parse(
+      readFileSync(new URL('../../../../../openapi/openapi.json', import.meta.url), 'utf8'),
+    ) as {
+      components: {
+        schemas: { RichInline: { oneOf: Array<{ properties: { href?: { pattern: string } } }> } };
+      };
+    };
+    const pattern = doc.components.schemas.RichInline.oneOf
+      .map((o) => o.properties.href?.pattern)
+      .find((x) => x !== undefined);
+    expect(pattern).toBe(INTERNAL_HREF_PATTERN);
+    const re = new RegExp(pattern ?? '$^', 'u');
+    for (const href of ['/', '/hosts', '/a?b=1#c', '#faq', '//x', 'javascript:x', '/a b', '']) {
+      expect(re.test(href), href).toBe(isInternalHref(href));
+    }
   });
 });

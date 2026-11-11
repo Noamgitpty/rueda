@@ -223,6 +223,8 @@ export const FR_MESSAGES = {
     'En attendant, la page affiche le texte d’origine dans cette langue.',
   'backoffice.content.gaps.missing': '{key} · {scope} : manque {locales}',
   'backoffice.content.gaps.invalid': '{key} · {scope} : format non autorisé ({locales})',
+  'backoffice.content.gaps.notEditable':
+    '{key} · {scope} : cette clé n’est pas un texte modifiable ; elle n’est jamais affichée.',
   'backoffice.content.gaps.common': 'commun',
   'backoffice.content.gaps.error': 'Impossible de vérifier les textes publiés.',
   'backoffice.journal.caption': 'Journal d’activité',

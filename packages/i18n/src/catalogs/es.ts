@@ -216,6 +216,8 @@ export const ES_MESSAGES = {
     'Mientras tanto, la página muestra el texto original en ese idioma.',
   'backoffice.content.gaps.missing': '{key} · {scope}: falta {locales}',
   'backoffice.content.gaps.invalid': '{key} · {scope}: formato no permitido ({locales})',
+  'backoffice.content.gaps.notEditable':
+    '{key} · {scope}: esta clave no es un texto editable; nunca se muestra.',
   'backoffice.content.gaps.common': 'común',
   'backoffice.content.gaps.error': 'No pudimos revisar los textos publicados.',
   'backoffice.journal.caption': 'Registro de actividad',

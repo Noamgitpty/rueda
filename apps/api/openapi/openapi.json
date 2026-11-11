@@ -375,12 +375,6 @@
               }
             }
           },
-          "415": {
-            "$ref": "#/components/responses/NotJson"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
           "409": {
             "description": "Version affichée des CGU ou de la confidentialité absente ou périmée (US-102) : recharger le formulaire",
             "content": {
@@ -395,6 +389,12 @@
                 }
               }
             }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
           },
           "503": {
             "description": "Aucun document juridique en vigueur (fail-closed, US-102) : aucun compte créé",
@@ -1257,17 +1257,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
           },
           "409": {
             "$ref": "#/components/responses/BrandConflict"
@@ -1294,6 +1291,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           },
           "503": {
             "description": "Stockage des fichiers indisponible",
@@ -1349,17 +1349,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
           },
           "409": {
             "$ref": "#/components/responses/BrandConflict"
@@ -1386,6 +1383,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1475,9 +1475,6 @@
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
           },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
           "404": {
             "description": "Version inconnue ou illisible",
             "headers": {
@@ -1497,6 +1494,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1542,23 +1542,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Version inconnue",
@@ -1579,6 +1570,12 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "422": {
             "description": "Contraste insuffisant (paires en cause dans details) ou jetons refusés",
@@ -1603,6 +1600,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1638,23 +1638,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Aucune version à restaurer",
@@ -1675,6 +1666,12 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "422": {
             "description": "La cible échoue au contrôle actuel",
@@ -1699,6 +1696,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1734,17 +1734,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
           },
           "409": {
             "$ref": "#/components/responses/BrandConflict"
@@ -1776,6 +1773,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1844,23 +1844,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Version de bloc inconnue",
@@ -1882,6 +1873,12 @@
               }
             }
           },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
           "422": {
             "description": "Clé de bloc refusée",
             "headers": {
@@ -1901,6 +1898,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1936,23 +1936,14 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
-          },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Aucune version à rétablir",
@@ -1974,6 +1965,12 @@
               }
             }
           },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
           "422": {
             "description": "Clé de bloc refusée",
             "headers": {
@@ -1993,6 +1990,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -4272,7 +4272,7 @@
               "href": {
                 "type": "string",
                 "description": "chemin interne seulement",
-                "pattern": "^(?:/(?!/)[A-Za-z0-9\\-._~/%]*(?:\\?[A-Za-z0-9\\-._~=&%]*)?(?:#[A-Za-z0-9\\-._~]*)?|#[A-Za-z0-9\\-._~]+)$"
+                "pattern": "^(?:\\/(?!\\/)[A-Za-z0-9\\-._~/%]*(?:\\?[A-Za-z0-9\\-._~=&%]*)?(?:#[A-Za-z0-9\\-._~]*)?|#[A-Za-z0-9\\-._~]+)$"
               }
             }
           }

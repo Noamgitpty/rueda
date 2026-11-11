@@ -206,6 +206,8 @@ export const EN_MESSAGES = {
   'backoffice.content.gaps.hint': 'Meanwhile, the page shows the original text in that language.',
   'backoffice.content.gaps.missing': '{key} · {scope}: missing {locales}',
   'backoffice.content.gaps.invalid': '{key} · {scope}: format not allowed ({locales})',
+  'backoffice.content.gaps.notEditable':
+    '{key} · {scope}: this key is not an editable text; it is never shown.',
   'backoffice.content.gaps.common': 'shared',
   'backoffice.content.gaps.error': 'We couldn’t check the published texts.',
   'backoffice.journal.caption': 'Activity log',

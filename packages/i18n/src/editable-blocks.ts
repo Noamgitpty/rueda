@@ -25,12 +25,18 @@ export interface EditableBlock {
 export const BLOCK_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){1,5}$/;
 
 /**
- * Textes juridiques et contractuels : jamais des blocs (refus `CONTENT_KEY_FORBIDDEN`). Un
- * segment de la clé (séparé par `.` ou `_`) qui nomme un texte juridique suffit. Motif recopié
- * dans `core.cfg_content_key_not_legal` (0061) : la preuve L0 compare les deux.
+ * Textes juridiques et contractuels : jamais des blocs (refus `CONTENT_KEY_FORBIDDEN`). Une clé
+ * est juridique dès qu'elle CONTIENT l'une de ces racines, n'importe où (sous-chaîne, et non
+ * segment entier : `help.terminos_uso`, `footer.avisolegal`, `page.mentions_legales` sont
+ * refusées). Racines en es, en, fr et pt : CGU (terms, términos, termos, cgu, cgv, conditions,
+ * condiciones, condições), contrat, accord, confidentialité, annulation, remboursement, assurance
+ * et protection (franchise, garantie, responsabilité, renonciation), politiques, cookies,
+ * consentement, mentions légales. Fail-closed : un faux positif refuse une clé de marketing (il
+ * suffit de la renommer), un faux négatif rendrait un texte juridique éditable. Motif recopié À
+ * L'IDENTIQUE dans `core.cfg_content_key_not_legal` (0061) : la preuve L0 compare les deux.
  */
 export const LEGAL_BLOCK_KEY =
-  /(^|[._])(legal|terms|tos|cgu|cgv|conditions|contract|contrat|contrato|agreement|privacy|privacidad|privacidade|confidentialite|cancellation|cancelacion|cancelamento|annulation|refund|reembolso|remboursement|insurance|seguro|assurance|protection|policy|politica|politique|cookies|consent)([._]|$)/;
+  /(legal|terms|termin|termos|cgu|cgv|condicion|condicoe|condition|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancel|annul|refund|reembols|rembours|insurance|seguro|assur|protection|proteccion|protecao|policy|politic|cookie|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)/;
 
 export const EDITABLE_BLOCKS = {
   'home.hero.title': { catalogKey: 'web.s01.title', format: 'plain', maxLength: 80 },

@@ -65,14 +65,44 @@ describe('textes juridiques (critère 3)', () => {
     'insurance.summary',
     'home.refund.title',
     'web.cookies.banner',
+    // es et pt, sous-chaînes d'un segment (revue sécurité US-121, constat 1)
+    'help.terminos_uso',
+    'help.terminos',
+    'page.condiciones',
+    'ajuda.termos',
+    'ajuda.condicoes_gerais',
+    'footer.legalnotice',
+    'footer.avisolegal',
+    'page.mentions_legales',
+    'app.eula',
+    'home.disclaimer',
+    'trip.waiver',
+    'protection.deductible',
+    'home.franquicia',
+    'home.franquia',
+    'home.warranty',
+    'home.garantia',
+    'home.garantie',
+    'trip.contrato_alquiler',
+    'help.politica_privacidade',
+    'help.reembolsos',
+    'help.remboursement',
+    'trip.responsabilidad',
+    'home.seguros',
   ])('%s : juridique', (key) => {
     expect(isLegalBlockKey(key)).toBe(true);
   });
 
-  it.each(['home.hero.title', 'home.how.step2.body', 'home.owner.body', 'faq.pickup.where'])(
-    '%s : non juridique',
-    (key) => {
-      expect(isLegalBlockKey(key)).toBe(false);
-    },
-  );
+  it.each([
+    'home.hero.title',
+    'home.how.step2.body',
+    'home.owner.body',
+    'faq.pickup.where',
+    'home.autos.title',
+    'web.fotos.caption',
+    'home.precio.final',
+    'home.vecinos.body',
+  ])('%s : non juridique', (key) => {
+    expect(isLegalBlockKey(key)).toBe(false);
+  });
 });

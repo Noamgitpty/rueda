@@ -36,8 +36,19 @@ export const RICH_LIMITS = { maxBlocks: 20, maxItems: 12, maxNodes: 400 } as con
 /** Chemin interne : `/…` (jamais `//`) ou ancre `#…` ; caractères d'URL non ambigus seulement. */
 const INTERNAL_HREF =
   /^(?:\/(?!\/)[A-Za-z0-9\-._~/%]*(?:\?[A-Za-z0-9\-._~=&%]*)?(?:#[A-Za-z0-9\-._~]*)?|#[A-Za-z0-9\-._~]+)$/;
-// eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/;
+// contrôles C0 / C1, séparateurs de ligne, marques et contrôles de direction (LRM, RLM, ALM,
+// U+202A à 202E, U+2066 à 2069), caractères invisibles (U+200B à 200D, U+2060, U+FEFF) et
+// demi-paires de substitution isolées (le drapeau `u` ne les fait pas apparier par paire)
+/* eslint-disable no-control-regex -- liste des caractères refusés, voulue */
+const CONTROL =
+  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060\u2066-\u2069\ufeff\ud800-\udfff]/u;
+/* eslint-enable no-control-regex */
+
+/** Longueur en points de code (même unité à l'API et au site : un émoji compte pour un). */
+export const codePoints = (s: string): number => [...s].length;
+
+/** Motif des chemins internes (repris tel quel par le contrat OpenAPI : test de parité). */
+export const INTERNAL_HREF_PATTERN = INTERNAL_HREF.source;
 
 export function isInternalHref(href: string): boolean {
   return href.length <= 300 && INTERNAL_HREF.test(href);
@@ -122,7 +133,7 @@ function countNodes(doc: RichDoc): number {
 export function parseRichText(source: string, format: RichFormat, maxLength: number): RichDoc {
   const body = source.replace(/\r\n?/g, '\n').replace(/\t/g, ' ').trim();
   if (body.length === 0) throw new RichTextError('vide');
-  if ([...body].length > maxLength) throw new RichTextError(`plus de ${maxLength} caractères`);
+  if (codePoints(body) > maxLength) throw new RichTextError(`plus de ${maxLength} caractères`);
   if (CONTROL.test(body)) throw new RichTextError('caractère de contrôle');
   if (format === 'plain') {
     if (body.includes('\n')) throw new RichTextError('une seule ligne attendue');
@@ -164,7 +175,11 @@ const hasOnly = (v: Record<string, unknown>, keys: readonly string[]): boolean =
   Object.keys(v).every((k) => keys.includes(k)) && keys.every((k) => k in v);
 
 const safeText = (v: unknown, max: number): v is string =>
-  typeof v === 'string' && v.length > 0 && v.length <= max && !CONTROL.test(v);
+  typeof v === 'string' &&
+  v.length > 0 &&
+  v.length <= 2 * max &&
+  codePoints(v) <= max &&
+  !CONTROL.test(v);
 
 function isInline(v: unknown): v is RichInline {
   if (!isRecord(v)) return false;
@@ -187,8 +202,9 @@ function isInline(v: unknown): v is RichInline {
   }
 }
 
+// plafond AVANT le parcours : le site ne fait pas confiance à la taille annoncée par l'API
 const isInlines = (v: unknown): v is RichInline[] =>
-  Array.isArray(v) && v.length > 0 && v.every(isInline);
+  Array.isArray(v) && v.length > 0 && v.length <= RICH_LIMITS.maxNodes && v.every(isInline);
 
 function isBlock(v: unknown): v is RichBlock {
   if (!isRecord(v)) return false;
@@ -230,7 +246,7 @@ export function isRichDoc(value: unknown, format: RichFormat, maxLength: number)
     return false;
   }
   const doc = value as RichDoc;
-  return countNodes(doc) <= RICH_LIMITS.maxNodes && plainTextOf(doc).length <= maxLength;
+  return countNodes(doc) <= RICH_LIMITS.maxNodes && codePoints(plainTextOf(doc)) <= maxLength;
 }
 
 /** Texte brut d'un arbre (aperçu, longueur, lecteurs sans rendu). */

@@ -597,6 +597,10 @@ function ContentGaps({
   }
   const scope = (g: ContentGapView): string =>
     g.country ?? i18n.t('backoffice.content.gaps.common');
+  // langues nommées dans la langue de la vue (« inglés », « anglais »), jamais un code brut
+  const names = new Intl.DisplayNames([i18n.profile.tag], { type: 'language' });
+  const languages = (codes: readonly string[]): string =>
+    codes.map((c) => names.of(c) ?? c).join(', ');
   const title = i18n.t('backoffice.content.gaps.title', { count: gaps.length });
   return (
     <section className={styles['panel']} aria-label={title}>
@@ -611,22 +615,28 @@ function ContentGaps({
                   {i18n.t('backoffice.content.gaps.missing', {
                     key: g.key,
                     scope: scope(g),
-                    locales: g.missing.join(', '),
+                    locales: languages(g.missing),
                   })}
                 </li>,
               ]
             : []),
-          ...(g.invalid.length > 0 || !g.editable
+          ...(!g.editable
             ? [
-                <li key={`${g.key}:${g.country ?? ''}:i`} className={styles['muted']}>
-                  {i18n.t('backoffice.content.gaps.invalid', {
-                    key: g.key,
-                    scope: scope(g),
-                    locales: (g.editable ? g.invalid : ['—']).join(', '),
-                  })}
+                <li key={`${g.key}:${g.country ?? ''}:n`} className={styles['muted']}>
+                  {i18n.t('backoffice.content.gaps.notEditable', { key: g.key, scope: scope(g) })}
                 </li>,
               ]
-            : []),
+            : g.invalid.length > 0
+              ? [
+                  <li key={`${g.key}:${g.country ?? ''}:i`} className={styles['muted']}>
+                    {i18n.t('backoffice.content.gaps.invalid', {
+                      key: g.key,
+                      scope: scope(g),
+                      locales: languages(g.invalid),
+                    })}
+                  </li>,
+                ]
+              : []),
         ])}
       </ul>
     </section>

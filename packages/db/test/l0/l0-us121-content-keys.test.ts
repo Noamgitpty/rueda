@@ -53,8 +53,23 @@ describe('critère 3 — texte juridique : refusé par la base, tentative journa
     // CGU (es, en, fr, pt)
     ['page.cgu', 'body'],
     ['legal.terms', 'body'],
-    ['help.terminos', 'x'],
+    ['help.terminos_uso', 'x'],
+    ['help.condiciones', 'body'],
+    ['ajuda.termos', 'body'],
+    ['ajuda.condicoes_gerais', 'body'],
     ['footer.terms', 'link'],
+    // mentions légales et avis juridiques, formes collées
+    ['footer.legalnotice', 'link'],
+    ['footer.avisolegal', 'link'],
+    ['page.mentions_legales', 'body'],
+    ['app.eula', 'body'],
+    ['home.disclaimer', 'body'],
+    ['trip.waiver', 'body'],
+    // franchise, garantie
+    ['protection.deductible', 'body'],
+    ['home.franquicia', 'body'],
+    ['home.warranty', 'body'],
+    ['home.garantia', 'body'],
     // contrat
     ['trip.contract', 'body'],
     ['trip.contrato', 'body'],
@@ -70,16 +85,10 @@ describe('critère 3 — texte juridique : refusé par la base, tentative journa
     ['home.insurance', 'body'],
     ['home.refund', 'title'],
   ])('%s.%s… : KEY_FORBIDDEN, CONTENT_KEY_REFUSED journalisé', async (prefix, leaf) => {
-    // « terminos » n'est pas dans la liste : seuls les mots qui nomment un texte juridique le sont
-    const legal = prefix !== 'help.terminos';
     await withRole('app_api', async (client) => {
       const admin = await elevatedStaff(client, 'ADMIN', ALL);
       const key = `${prefix}.k${suffix()}.${leaf}`;
       const r = await save(client, admin.hash, key, null);
-      if (!legal) {
-        expect(r.outcome).toBe('SAVED');
-        return;
-      }
       expect(r).toEqual({ outcome: 'KEY_FORBIDDEN', version_no: null });
       expect((await auditOf(client, admin.userId)).at(-1)).toMatchObject({
         action_code: 'CONTENT_KEY_REFUSED',
@@ -122,7 +131,11 @@ describe('critère 3 — texte juridique : refusé par la base, tentative journa
   it('clé non juridique : enregistrée comme avant (aucune régression de 0043)', async () => {
     await withRole('app_api', async (client) => {
       const admin = await elevatedStaff(client, 'ADMIN', ALL);
+      // négatifs : textes de marketing, dont des mots voisins sans racine juridique
       for (const key of [
+        `home.autos_${suffix()}.title`,
+        `home.fotos_${suffix()}.body`,
+        `home.precio_${suffix()}.title`,
         `home.hero_${suffix()}.title`,
         `home.how_${suffix()}.body`,
         `faq.pickup_${suffix()}.where`,

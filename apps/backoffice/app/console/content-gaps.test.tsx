@@ -50,8 +50,21 @@ describe('blocs à revoir : affichés, traduits, jamais muets', () => {
     const out = render(state(GAPS), tag);
     expect(out).toContain('2 textos publicados necesitan revisión');
     expect(out).toContain(es['backoffice.content.gaps.hint']);
-    expect(out).toContain('home.hero.title · común: falta en, fr');
-    expect(out).toContain('home.owner.body · AA: formato no permitido (pt)');
+    // langues nommées dans la langue de la vue (oracle : Intl.DisplayNames de Node, CLDR)
+    expect(out).toContain('home.hero.title · común: falta inglés, francés');
+    expect(out).toContain('home.owner.body · AA: formato no permitido (portugués)');
+    expect(out).not.toMatch(/falta en,/);
+  });
+
+  it('clé hors registre : message propre, sans tiret ni langue', () => {
+    const out = render(
+      state([{ key: 'home.old.title', country: null, editable: false, missing: [], invalid: [] }]),
+      tag,
+    );
+    expect(out).toContain(
+      'home.old.title · común: esta clave no es un texto editable; nunca se muestra.',
+    );
+    expect(out).not.toContain('(—)');
   });
 
   it('rien à signaler, ou rôle sans brand.edit : rien n’est affiché ; échec de lecture : signalé', () => {

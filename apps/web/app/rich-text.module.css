@@ -2,6 +2,8 @@
 .rich {
   display: grid;
   gap: var(--space-2);
+  /* un mot long (titre éditable, adresse collée) se coupe : aucun défilement horizontal (WCAG 1.4.10) */
+  overflow-wrap: anywhere;
 }
 
 .list {

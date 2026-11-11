@@ -23,7 +23,8 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.auth.actionRefused`, `common.auth.selfApproval`, `backoffice.approvals.*`, nouvelles
  `backoffice.action.*`, et sens élargi de `backoffice.action.heading` et `backoffice.action.subject`
  (le sujet n'est plus seulement un voyage). Version 13 : blocs de contenu éditables (US-121) :
- `common.brand.contentKeyNotEditable`, `backoffice.content.gaps.*`.
+ `common.brand.contentKeyNotEditable`, `backoffice.content.gaps.*` (langues nommées par
+ `Intl.DisplayNames`).
  */
 export const CATALOG_VERSION = 13;
 
