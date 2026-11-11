@@ -786,7 +786,7 @@ BEGIN
   END IF;
   SELECT k.currency::text INTO v_currency FROM core.config_country AS k
    WHERE k.code::text = h.country_code;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('cat.listing:' || v_vehicle, 0));
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('cat.listing:' || v_vehicle::text, 0));
   IF EXISTS (SELECT 1 FROM core.catalog_listing AS x WHERE x.vehicle_id = v_vehicle) THEN
     RETURN QUERY SELECT 'LISTING_EXISTS'::text, NULL::uuid;
     RETURN;
@@ -1259,11 +1259,12 @@ AS $fn$
                         WHERE cv.id = p_vehicle_id AND cv.org_id = app.org_id()),
            false)
 $fn$;
-RESET ROLE;
-REVOKE CREATE ON SCHEMA app FROM policy_fn_owner;
+-- COMMENT exige le propriétaire : posé sous policy_fn_owner, avant RESET ROLE
 COMMENT ON FUNCTION app.host_covers_vehicle(uuid) IS
   'Politique : véhicule du catalogue du compte de la session, dans la portée de l''hôte '
   '(titulaire : tout ; co-hôte : vehicle_scope). US-011 ; US-115 (ADR-060, ADR-099).';
+RESET ROLE;
+REVOKE CREATE ON SCHEMA app FROM policy_fn_owner;
 
 -- 7.3 Clés étrangères (vehicle_id, org_id, country_code) vers catalog_vehicle (ADR-060, N-03) et
 -- listing_id du trip vers catalog_listing, validées à la pose : aucune occupation, aucun hold ni
