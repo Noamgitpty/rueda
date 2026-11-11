@@ -1,6 +1,6 @@
-# ADR-091 — Statut de décision des paramètres pays et refus de la production « À DÉCIDER »
+# ADR-093 — Statut de décision des paramètres pays et refus de la production « À DÉCIDER »
 
-- **Statut** : PROPOSÉ (US-110, agent back-end, claude-opus-5-5, 2026-11-11). Revues exigées par `review-requirements.json` : code, architecture, sécurité, argent et qa, sur un autre modèle que l'auteur. Numéro pris sur `main` au moment du push : il peut changer (US-101 et US-102 prennent aussi ADR-091).
+- **Statut** : PROPOSÉ (US-110, agent back-end, claude-opus-5-5, 2026-11-11). Revues exigées par `review-requirements.json` : code, architecture, sécurité, argent et qa, sur un autre modèle que l'auteur. Numéro fixé par l'orchestrateur (ordre de fusion : US-102 ADR-091, US-101 ADR-092, US-110 ADR-093).
 - **Sources** : 19 US-110 ; 16 fiche ADM-014 / ADM-031 (valeurs « À DÉCIDER au jalon J-ADM-031 », parcours alternatif « démarrage refusé en production ») ; 17 §7.1 points 6 et 7, §7.2 (colonne « Statut / OQ ») ; 22 (défauts fail-closed) ; 08 T61 ; DEC-FONDATEUR-01, DEC-FONDATEUR-02, DEC-FONDATEUR-19. Complète ADR-049 (configuration pays en données).
 
 ## Contexte
