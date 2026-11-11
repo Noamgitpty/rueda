@@ -469,6 +469,44 @@ describe('documents en vigueur, empreintes et droits', () => {
     });
   });
 
+  it('tables CTR : RLS ENABLE + FORCE, propriétaire migrator, politiques des seuls propriétaires', async () => {
+    await withRole('app_api', async (client) => {
+      const { rows } = await client.query<{
+        t: string;
+        rls: boolean;
+        force: boolean;
+        owner: string;
+        pols: string;
+      }>(
+        `SELECT c.relname AS t, c.relrowsecurity AS rls, c.relforcerowsecurity AS force,
+                pg_catalog.pg_get_userbyid(c.relowner) AS owner,
+                pg_catalog.array_to_string(ARRAY(
+                  SELECT p.polname || ':' || pg_catalog.array_to_string(ARRAY(
+                           SELECT pg_catalog.pg_get_userbyid(r) FROM pg_catalog.unnest(p.polroles) AS r ORDER BY 1), ',')
+                    FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid ORDER BY 1), ';') AS pols
+           FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'core' AND c.relkind = 'r' AND c.relname ~ '^contract_'
+          ORDER BY 1`,
+      );
+      expect(rows).toEqual([
+        {
+          t: 'contract_consent',
+          rls: true,
+          force: true,
+          owner: 'migrator',
+          pols: 'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;migrator_all:migrator',
+        },
+        {
+          t: 'contract_document_template',
+          rls: true,
+          force: true,
+          owner: 'migrator',
+          pols: 'iam_auth_select:iam_auth_owner;iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator',
+        },
+      ]);
+    });
+  });
+
   it('aucun droit de table CTR pour app_api : lecture et écriture directes refusées (42501)', async () => {
     await withRole('app_api', async (client) => {
       for (const sql of [
