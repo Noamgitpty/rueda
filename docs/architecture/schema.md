@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 60 migrations ; 67 tables ; 2 vues ; 344 politiques RLS ; 74 fonctions `SECURITY DEFINER` ; 108 autres fonctions.
+- 60 migrations ; 67 tables ; 2 vues ; 344 politiques RLS ; 74 fonctions `SECURITY DEFINER` ; 109 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -1136,6 +1136,7 @@ Contraintes :
 - `consent_key_subject_type_valid` : `CHECK (key_subject_type IS NULL OR key_subject_type = 'USER'::text)`
 - `consent_locale_valid` : `CHECK (locale = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
 - `consent_required_not_withdrawn` : `CHECK (accepted OR (doc_kind <> ALL (ARRAY['TOS_GUEST'::text, 'PRIVACY'::text])))`
+- `contract_consent_country_code_fkey` : `FOREIGN KEY (country_code) REFERENCES core.config_country(code)`
 - `contract_consent_id_unique` : `UNIQUE (id)`
 - `contract_consent_pkey` : `PRIMARY KEY (seq)`
 - `contract_consent_template_id_fkey` : `FOREIGN KEY (template_id) REFERENCES core.contract_document_template(id)`
@@ -1189,6 +1190,7 @@ Contraintes :
 - `document_template_hash_sha256` : `CHECK (octet_length(content_hash) = 32)`
 - `document_template_kind_valid` : `CHECK (kind = ANY (ARRAY['TOS_GUEST'::text, 'TOS_HOST'::text, 'PRIVACY'::text, 'MARKETING'::text, 'BIOMETRIC_CONSENT'::text, 'RENTAL_CONTRACT'::text, 'CONSTANCIA'::text, 'DAMAGE_TERMS'::text, 'CANCELLATION_POLICY'::text]))`
 - `document_template_locale_valid` : `CHECK (locale = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
+- `document_template_request_unique` : `UNIQUE (request_id, locale)`
 - `document_template_review_ref_length` : `CHECK (legal_review_ref IS NULL OR length(legal_review_ref) >= 1 AND length(legal_review_ref) <= 200)`
 - `document_template_title_length` : `CHECK (length(title) >= 1 AND length(title) <= 200)`
 - `document_template_version_positive` : `CHECK (version >= 1)`
@@ -3395,10 +3397,11 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.config_param_value_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_tax_line_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_versioned_row_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.ctr_account_country(p_user_id uuid)` | `text` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_consent_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.ctr_current_template(p_kind text, p_country text, p_language text, p_major_only boolean)` | `SETOF core.contract_document_template` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_no_truncate()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `core.ctr_record_consent(p_user_id uuid, p_template_id uuid, p_accepted boolean, p_context text)` | `void` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
+| `core.ctr_record_consent(p_user_id uuid, p_template_id uuid, p_accepted boolean, p_context text, p_country text)` | `void` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_template_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.ctr_writer_exempt()` | `boolean` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_hmac_sha256(p_key bytea, p_msg bytea)` | `bytea` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
