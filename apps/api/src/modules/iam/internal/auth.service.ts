@@ -13,7 +13,9 @@
  * - aucun jeton, mot de passe ou email dans un journal ou une erreur.
  */
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuthStore, MfaLevel } from './auth-store.js';
+import { CountryConfigService } from '../../cfg/index.js';
+import type { AcceptedDocument, AuthStore, MfaLevel } from './auth-store.js';
+import { SignupDocumentsError } from './auth-store.js';
 import { AuthHttpError } from './errors.js';
 import type { IdentityNotifier } from './notifier.js';
 import type { Argon2idPasswordHasher } from './password-hasher.js';
@@ -61,6 +63,12 @@ export interface SignupInput {
   readonly legalLastName: unknown;
   readonly locale: unknown;
   readonly termsAccepted: unknown;
+  /** US-102 : versions affichées `[{ kind, version }]`, OBLIGATOIRES (absentes : 409). */
+  readonly acceptedDocuments?: unknown;
+  /** US-102 : opt-in des communications commerciales (absent : non). */
+  readonly marketingOptIn?: unknown;
+  /** US-102 : pays du parcours (portée des documents ; absent : documents communs). */
+  readonly country?: unknown;
 }
 
 export interface LoginInput {
@@ -74,6 +82,28 @@ export interface OpenedSession {
 }
 
 const EMAIL_FORMAT = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const COUNTRY_FORMAT = /^[A-Z]{2}$/;
+/** Pays déclarés par la configuration (CFG) : un pays inconnu est refusé avant toute écriture. */
+const KNOWN_COUNTRIES: ReadonlySet<string> = new Set(
+  new CountryConfigService().config.countries.keys(),
+);
+const DOCUMENT_KINDS = new Set(['TOS_GUEST', 'PRIVACY']);
+
+/** Versions affichées (US-102) : `null` si absentes, `undefined` si mal formées. */
+function acceptedDocuments(value: unknown): readonly AcceptedDocument[] | null | undefined {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value) || value.length < 1 || value.length > 2) return undefined;
+  const out: AcceptedDocument[] = [];
+  for (const item of value as unknown[]) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) return undefined;
+    const { kind, version } = item as { kind?: unknown; version?: unknown };
+    if (typeof kind !== 'string' || !DOCUMENT_KINDS.has(kind)) return undefined;
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) return undefined;
+    if (out.some((d) => d.kind === kind)) return undefined;
+    out.push({ kind: kind as AcceptedDocument['kind'], version });
+  }
+  return out;
+}
 const LOCALE_FORMAT = /^[a-z]{2}(-[A-Z]{2})?$/;
 
 /** Email normalisé (trim, minuscules, NFC), ou `null` s'il est mal formé. */
@@ -151,22 +181,56 @@ export class AuthService implements AuthenticationPort {
       typeof input.locale === 'string' && LOCALE_FORMAT.test(input.locale) ? input.locale : null;
     if (first === null || last === null || locale === null)
       throw new AuthHttpError('REQUEST_INVALID');
+    const documents = acceptedDocuments(input.acceptedDocuments);
+    const marketing = input.marketingOptIn ?? false;
+    const country = input.country ?? null;
+    if (
+      documents === undefined ||
+      typeof marketing !== 'boolean' ||
+      (country !== null && (typeof country !== 'string' || !COUNTRY_FORMAT.test(country)))
+    ) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    // pays inconnu : même refus que l'email soit libre ou pris (contrôlé aussi par la base)
+    if (country !== null && !KNOWN_COUNTRIES.has(country as string)) {
+      throw new AuthHttpError('COUNTRY_UNKNOWN');
+    }
+    // un client direct de l'API ne consent jamais « à l'aveugle » : la version affichée est exigée
+    if (documents === null) throw new AuthHttpError('TERMS_VERSION_CHANGED');
 
     const passwordHash = await this.hasher.hash(password); // toujours calculé : coût égal
     const verificationToken = newOpaqueToken();
     const userId = uuidV7(this.clock());
-    const created = await this.store.registerAccount({
-      userId,
-      email,
-      passwordHash,
-      legalFirstName: first,
-      legalLastName: last,
-      preferredLocale: locale,
-      verificationId: uuidV7(this.clock()),
-      verificationTokenHash: tokenHash(verificationToken),
-      verificationTtlS: this.policy.emailVerificationTtlS,
-      ip: ctx.ip,
-    });
+    let created: boolean;
+    try {
+      created = await this.store.registerAccount({
+        userId,
+        email,
+        passwordHash,
+        legalFirstName: first,
+        legalLastName: last,
+        preferredLocale: locale,
+        verificationId: uuidV7(this.clock()),
+        verificationTokenHash: tokenHash(verificationToken),
+        verificationTtlS: this.policy.emailVerificationTtlS,
+        ip: ctx.ip,
+        country,
+        documents,
+        marketingOptIn: marketing,
+      });
+    } catch (error) {
+      if (!(error instanceof SignupDocumentsError)) throw error;
+      // même issue que l'email soit libre ou pris : contrôlé par la base AVANT le compte
+      throw new AuthHttpError(
+        error.reason === 'VERSION_CHANGED'
+          ? 'TERMS_VERSION_CHANGED'
+          : error.reason === 'UNAVAILABLE'
+            ? 'LEGAL_DOCUMENT_UNAVAILABLE'
+            : error.reason === 'COUNTRY_UNKNOWN'
+              ? 'COUNTRY_UNKNOWN'
+              : 'REQUEST_INVALID',
+      );
+    }
     if (created) {
       await this.notifier.sendEmailVerification({
         userId,

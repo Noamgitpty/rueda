@@ -5,6 +5,8 @@ export { IamModule } from './iam.module.js';
 // Port d'authentification (US-010, ADR-021, ADR-052) : ce que les autres modules utilisent.
 export { SessionGuard } from './internal/session.guard.js';
 export { principalOf } from './internal/http.js';
+// Preuve de possession de la session (SHA-256 du jeton) pour les commandes des autres modules (US-102).
+export { sessionProofOf } from './internal/session-proof.js';
 export { AUTHENTICATION_PORT } from './internal/tokens.js';
 export type { AuthenticatedPrincipal, AuthenticationPort } from './internal/auth.service.js';
 
@@ -12,6 +14,9 @@ export type { AuthenticatedPrincipal, AuthenticationPort } from './internal/auth
 export { IamAuthModule } from './internal/iam-auth.module.js';
 export type { IamAuthOptions } from './internal/iam-auth.module.js';
 export { postgresIamAdapters } from './internal/production.js';
+// Envoi des e-mails d'identité par un canal NTF (US-102) ; production : aucun canal avant le lot C.
+export { ChannelIdentityNotifier } from './internal/channel-notifier.js';
+export type { ChannelIdentityNotifierOptions } from './internal/channel-notifier.js';
 export type { SqlExecutor } from './internal/pg-auth-store.js';
 
 // Console interne (US-012, ADR-062) : MFA du staff, garde des routes de console, principal.

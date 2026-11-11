@@ -39,6 +39,10 @@ export function authHttpScenarios(name: string, makeStore: () => Promise<StoreHa
         legalLastName: 'Pérez',
         locale: 'en',
         termsAccepted: true,
+        acceptedDocuments: [
+          { kind: 'TOS_GUEST', version: 1 },
+          { kind: 'PRIVACY', version: 1 },
+        ],
       },
     });
     expect(signup.status).toBe(202);
@@ -150,6 +154,10 @@ export function authHttpScenarios(name: string, makeStore: () => Promise<StoreHa
           legalLastName: 'Gómez',
           locale: 'en',
           termsAccepted: true,
+          acceptedDocuments: [
+            { kind: 'TOS_GUEST', version: 1 },
+            { kind: 'PRIVACY', version: 1 },
+          ],
         };
         const dup = await call(h.url, 'POST', '/auth/signup', { body });
         const fresh = await call(h.url, 'POST', '/auth/signup', {

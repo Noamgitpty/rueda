@@ -34,6 +34,12 @@ pnpm --filter @rueda/web exec playwright test --project=mobile-360
 
 En CI : job `e2e-web` de `ci.yml` (docs/ops/CI.md). Variables : `RUEDA_E2E_PORT` (défaut 3100), `RUEDA_E2E_CHROME`. `scripts/shell-check.mjs` reste l'outil local des captures de revue design.
 
+## Inscription, connexion et consentements (US-102)
+
+Écrans S15 dans la coquille, maquette US-033 : `/signup` (nom et prénom comme sur le permis, e-mail, mot de passe, case CGU + confidentialité obligatoire, opt-in des communications ; jamais pré-cochées), `/signup/sent` (écran identique que l'email soit libre ou pris), `/legal/{TOS_GUEST|PRIVACY|MARKETING}` (version, mention BROUILLON), `/login`, `/terms/update` (réacceptation après une version majeure), `/login/done`, `/verify-email`. Formulaires par actions serveur : ils fonctionnent sans JavaScript. Le navigateur ne parle qu'au site ; le **serveur** appelle l'API par `WEB_API_URL` (`account/api-client.ts`) et repose le cookie `__Host-session` (ADR-091). Sans `WEB_API_URL` ou sans documents : aucun formulaire, message « documents indisponibles » (fail-closed).
+
+e2e : `e2e/signup.spec.ts` (projets `mobile-360` et `mobile-390`, quatre langues, axe-core WCAG 2.2 A / AA sur `main`) contre le double `e2e/stub-api.mjs`, démarré par Playwright (`RUEDA_E2E_API_PORT`, défaut 3199).
+
 ## Interfaces d'appareil (`device/`)
 
 Le comptoir n'accède à l'appareil que par trois interfaces (17 §6.2, ADR-005). Point d'entrée unique : `device/index.ts`.
@@ -74,6 +80,7 @@ Page de test jetable : `/lab/pwa-ios` (avec son manifeste, son service worker et
 | `THEME_PALETTE`           | absente | Palette du thème (US-030), par exemple `lienzo-azur`. Absente : `packages/design-tokens/config/theme.json` (Lienzo · Tinta). Inconnue : erreur au rendu (fail-closed). Lue à chaque requête, comme le back-office.                                      |
 | `WEB_BRAND_API_URL`       | absente | URL interne de l'API (US-034), par exemple `http://api:3001`. Définie : nom, thème et logo viennent de `GET /brand` (cache 30 s, délai 1,5 s, revalidés) ; panne ou réponse invalide : thème embarqué. http(s) sans identifiants, sinon ignorée.        |
 | `THEME_COLOR_SCHEME`      | absente | `auto` (défaut : clair ou sombre selon l'appareil), `light` ou `dark`.                                                                                                                                                                                  |
+| `WEB_API_URL`             | absente | URL interne de l'API des comptes et des consentements (US-102), lue par le serveur seulement. Absente ou invalide : inscription et connexion indisponibles (fail-closed). http(s) sans identifiants.                                                    |
 
 - **Ne jamais définir `WEB_LAB_PWA_IOS_ENABLED` en production.** Seulement en local ou en préproduction, le temps de la campagne de test. Recommandation pour US-003 : un contrôle de déploiement qui refuse cette variable dans l'environnement de production.
 - Couper le drapeau suffit à retirer le laboratoire : le service worker déjà installé sur un téléphone reçoit un 404 à sa prochaine vérification et le navigateur le désinscrit.
