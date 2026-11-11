@@ -251,6 +251,21 @@ async function requestOf(
       };
     case 'GET /console/security/abuse':
       return { method: 'GET', path: `/console/security/abuse?country=${country}&hours=1` };
+    // documents juridiques et consentements (US-102)
+    case 'GET /legal/documents':
+      return { method: 'GET', path: '/legal/documents?locale=es' };
+    case 'GET /legal/documents/{kind}':
+      return { method: 'GET', path: '/legal/documents/PRIVACY?locale=es' };
+    case 'GET /legal/consents':
+      return { method: 'GET', path: '/legal/consents' };
+    case 'POST /legal/consents/accept':
+      return {
+        method: 'POST',
+        path: '/legal/consents/accept',
+        body: { documents: [{ kind: 'PRIVACY', version: 1 }] },
+      };
+    case 'POST /legal/consents/marketing':
+      return { method: 'POST', path: '/legal/consents/marketing', body: { optIn: false } };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }
