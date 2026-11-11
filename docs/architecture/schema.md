@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 60 migrations ; 67 tables ; 2 vues ; 345 politiques RLS ; 74 fonctions `SECURITY DEFINER` ; 109 autres fonctions.
+- 61 migrations ; 70 tables ; 2 vues ; 351 politiques RLS ; 74 fonctions `SECURITY DEFINER` ; 110 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -743,6 +743,7 @@ Déclencheurs :
 ### `core.catalog_vehicle_make`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -757,9 +758,32 @@ Déclencheurs :
 | `license_note` | `text` | oui | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 
+Contraintes :
+
+- `catalog_vehicle_make_country_origin_check` : `CHECK (country_origin ~ '^[A-Z]{2}$'::text)`
+- `catalog_vehicle_make_license_note_check` : `CHECK (btrim(license_note) <> ''::text AND length(license_note) <= 500)`
+- `catalog_vehicle_make_name_check` : `CHECK (btrim(name) <> ''::text AND length(name) <= 80)`
+- `catalog_vehicle_make_pkey` : `PRIMARY KEY (id)`
+- `catalog_vehicle_make_slug_check` : `CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)`
+- `catalog_vehicle_make_slug_key` : `UNIQUE (slug)`
+- `catalog_vehicle_make_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_make_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
+- `catalog_vehicle_make_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
+
+Politiques RLS :
+
+- `api_read` (SELECT, PERMISSIVE, app_api) USING `(status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text]))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `catalog_vehicle_make_no_delete` : `CREATE TRIGGER catalog_vehicle_make_no_delete BEFORE DELETE ON core.catalog_vehicle_make FOR EACH ROW EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+- `catalog_vehicle_make_no_truncate` : `CREATE TRIGGER catalog_vehicle_make_no_truncate BEFORE TRUNCATE ON core.catalog_vehicle_make FOR EACH STATEMENT EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+
 ### `core.catalog_vehicle_model`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -777,9 +801,35 @@ Déclencheurs :
 | `license_note` | `text` | oui | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 
+Contraintes :
+
+- `catalog_vehicle_model_body_type_check` : `CHECK (body_type = ANY (ARRAY['SUV'::text, 'PICKUP'::text, 'SEDAN'::text, 'HATCHBACK'::text, 'VAN'::text, 'MINIVAN'::text, 'COUPE'::text, 'CONVERTIBLE'::text, 'WAGON'::text]))`
+- `catalog_vehicle_model_doors_default_check` : `CHECK (doors_default >= 1 AND doors_default <= 6)`
+- `catalog_vehicle_model_license_note_check` : `CHECK (btrim(license_note) <> ''::text AND length(license_note) <= 500)`
+- `catalog_vehicle_model_make_id_fkey` : `FOREIGN KEY (make_id) REFERENCES core.catalog_vehicle_make(id)`
+- `catalog_vehicle_model_make_slug_key` : `UNIQUE (make_id, slug)`
+- `catalog_vehicle_model_name_check` : `CHECK (btrim(name) <> ''::text AND length(name) <= 80)`
+- `catalog_vehicle_model_pkey` : `PRIMARY KEY (id)`
+- `catalog_vehicle_model_seats_default_check` : `CHECK (seats_default >= 1 AND seats_default <= 60)`
+- `catalog_vehicle_model_slug_check` : `CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)`
+- `catalog_vehicle_model_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_model_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
+- `catalog_vehicle_model_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
+
+Politiques RLS :
+
+- `api_read` (SELECT, PERMISSIVE, app_api) USING `(status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text]))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `catalog_vehicle_model_no_delete` : `CREATE TRIGGER catalog_vehicle_model_no_delete BEFORE DELETE ON core.catalog_vehicle_model FOR EACH ROW EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+- `catalog_vehicle_model_no_truncate` : `CREATE TRIGGER catalog_vehicle_model_no_truncate BEFORE TRUNCATE ON core.catalog_vehicle_model FOR EACH STATEMENT EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+
 ### `core.catalog_vehicle_variant`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -808,6 +858,49 @@ Déclencheurs :
 | `verified_by` | `uuid` | non | — |
 | `verified_at` | `timestamp with time zone` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `catalog_vehicle_variant_cargo_l_check` : `CHECK (cargo_l >= 1 AND cargo_l <= 20000)`
+- `catalog_vehicle_variant_check` : `CHECK (year_to IS NULL OR year_to >= year_from)`
+- `catalog_vehicle_variant_consumption_l_100km_check` : `CHECK (consumption_l_100km > 0::numeric)`
+- `catalog_vehicle_variant_consumption_source_check` : `CHECK (consumption_source = ANY (ARRAY['EPA_US_REFERENCE'::text, 'OPS_CURATED'::text]))`
+- `catalog_vehicle_variant_consumption_sourced` : `CHECK ((consumption_l_100km IS NULL) = (consumption_source IS NULL))`
+- `catalog_vehicle_variant_doors_check` : `CHECK (doors >= 1 AND doors <= 6)`
+- `catalog_vehicle_variant_drive_check` : `CHECK (drive = ANY (ARRAY['FWD'::text, 'RWD'::text, 'AWD'::text, '4X4'::text]))`
+- `catalog_vehicle_variant_engine_cc_check` : `CHECK (engine_cc >= 50 AND engine_cc <= 10000)`
+- `catalog_vehicle_variant_engine_cylinders_check` : `CHECK (engine_cylinders >= 1 AND engine_cylinders <= 16)`
+- `catalog_vehicle_variant_fuel_type_check` : `CHECK (fuel_type = ANY (ARRAY['GASOLINE'::text, 'DIESEL'::text, 'HYBRID'::text, 'PHEV'::text, 'EV'::text, 'LPG'::text]))`
+- `catalog_vehicle_variant_license_note_check` : `CHECK (btrim(license_note) <> ''::text AND length(license_note) <= 500)`
+- `catalog_vehicle_variant_market_fkey` : `FOREIGN KEY (market) REFERENCES core.config_country(code)`
+- `catalog_vehicle_variant_model_id_fkey` : `FOREIGN KEY (model_id) REFERENCES core.catalog_vehicle_model(id)`
+- `catalog_vehicle_variant_natural_key` : `UNIQUE NULLS NOT DISTINCT (model_id, year_from, trim_name, transmission, fuel_type, drive, market)`
+- `catalog_vehicle_variant_pkey` : `PRIMARY KEY (id)`
+- `catalog_vehicle_variant_power_hp_check` : `CHECK (power_hp >= 1 AND power_hp <= 2000)`
+- `catalog_vehicle_variant_seats_check` : `CHECK (seats >= 1 AND seats <= 60)`
+- `catalog_vehicle_variant_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_variant_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
+- `catalog_vehicle_variant_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
+- `catalog_vehicle_variant_transmission_check` : `CHECK (transmission = ANY (ARRAY['MT'::text, 'AT'::text, 'CVT'::text, 'DCT'::text]))`
+- `catalog_vehicle_variant_trim_name_check` : `CHECK (trim_name IS NULL OR btrim(trim_name) <> ''::text AND length(trim_name) <= 80)`
+- `catalog_vehicle_variant_value_class_check` : `CHECK (value_class = ANY (ARRAY['STANDARD'::text, 'PREMIUM'::text, 'LUXE'::text]))`
+- `catalog_vehicle_variant_verified_by_fkey` : `FOREIGN KEY (verified_by) REFERENCES core.iam_user_account(id)`
+- `catalog_vehicle_variant_verified_pair` : `CHECK ((verified_by IS NULL) = (verified_at IS NULL))`
+- `catalog_vehicle_variant_year_from_check` : `CHECK (year_from >= 1950 AND year_from <= 2100)`
+
+Index :
+
+- `catalog_vehicle_variant_model_idx` : `CREATE INDEX catalog_vehicle_variant_model_idx ON core.catalog_vehicle_variant USING btree (model_id, year_from)`
+
+Politiques RLS :
+
+- `api_read` (SELECT, PERMISSIVE, app_api) USING `(status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text]))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `catalog_vehicle_variant_no_delete` : `CREATE TRIGGER catalog_vehicle_variant_no_delete BEFORE DELETE ON core.catalog_vehicle_variant FOR EACH ROW EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+- `catalog_vehicle_variant_no_truncate` : `CREATE TRIGGER catalog_vehicle_variant_no_truncate BEFORE TRUNCATE ON core.catalog_vehicle_variant FOR EACH STATEMENT EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
 
 ### `core.config_brand_asset`
 
@@ -3455,6 +3548,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_record_poll(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_release_cancelled_holds(p_limit integer)` | `integer` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_vehicle_party(p_vehicle_id uuid)` | `TABLE(org_id uuid, country_code text)` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_vehicle_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_brand_asset_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_brand_authorize(p_token_hash bytea, p_permission text, p_country text, p_attempted text, p_subject_type text, p_subject_id uuid, p_request_id uuid, OUT outcome text, OUT actor uuid, OUT actor_role text)` | `record` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.cfg_brand_body_allowed(p_body text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
