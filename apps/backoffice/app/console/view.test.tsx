@@ -13,7 +13,7 @@ import { findForeignStrings } from '@rueda/i18n/testing';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { messageKeyOf, screenFor } from './api.ts';
+import { intentFor, messageKeyOf, screenFor } from './api.ts';
 import { ACTION_GROUPS, ConsoleView, evidenceOf } from './view.tsx';
 import type { ConsoleHandlers, ConsoleState } from './view.tsx';
 
@@ -270,5 +270,17 @@ describe('US-101 : catalogue des actions, pièces, demandes FINANCE', () => {
   it('pièces : virgules, espaces et retours à la ligne ; doublons retirés ; minuscules', () => {
     expect(evidenceOf(` A1, b2${'\n'}A1 ;c3  `)).toEqual(['a1', 'b2', 'c3']);
     expect(evidenceOf('')).toEqual([]);
+  });
+});
+
+describe('US-101 (revue) : un requestId par intention, pas par clic', () => {
+  it('même intention (double clic, reprise réseau) : même identifiant ; intention différente : identifiant neuf', () => {
+    let n = 0;
+    const id = () => `id-${(n += 1)}`;
+    const first = intentFor(null, ['RECORD_CLAIM', 'a', 'motif', ['p']], id);
+    expect(first.requestId).toBe('id-1');
+    expect(intentFor(first, ['RECORD_CLAIM', 'a', 'motif', ['p']], id)).toBe(first);
+    expect(intentFor(first, ['RECORD_CLAIM', 'b', 'motif', ['p']], id).requestId).toBe('id-2');
+    expect(intentFor(first, ['RECORD_CLAIM', 'a', 'motif', []], id).requestId).toBe('id-3');
   });
 });

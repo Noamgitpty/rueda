@@ -1398,7 +1398,10 @@
         "country_code": "C1",
         "actor_user_id": "C1",
         "actor_role": "C1",
-        "input": "C1",
+        "input": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
         "evidence_file_ids": "C1",
         "reason": {
           "class": "C2",
@@ -1421,7 +1424,19 @@
         "mode": "C1",
         "subject_type": "C1",
         "available": "C1",
-        "input_keys": "C1"
+        "input_keys": "C1",
+        "input_values": "C1",
+        "requires_approval": "C1"
+      }
+    },
+    "core.support_manual_action_subject": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "subject_type": "C1",
+        "resolver": "C1",
+        "story": "C1",
+        "declared_at": "C1"
       }
     },
     "core.support_manual_action_handler": {

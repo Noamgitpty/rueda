@@ -13,6 +13,10 @@
  * - critère 2 : une action d'enregistrement seul exige un motif ET des pièces, et est journalisée ;
  * - critère 3 : une action FINANCE n'est qu'une demande (`cmd_request_finance_action`) tant
  *   qu'une seconde personne distincte ne l'a pas validée (`cmd_approve_finance_action`, RLS-24).
+ * Reprise après les revues de la PR #99 (ADR-091) : catalogue comparé à un tableau tiré de 17 §2.3
+ * et §10 ; garde des liaisons jouée contrôle par contrôle, réappliquée à toutes les liaisons et
+ * à chaque appel ; types de sujet déclarés ; énumération fermée de `decision` ; FINANCE garantie
+ * par `requires_approval` ; rejeu concurrent d'un même request_id sur deux connexions.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
@@ -152,50 +156,323 @@ const RECORD_ONLY = [
 ] as const;
 const FINANCE = ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'] as const;
 
-describe('catalogue (17 §10 NN9, 19 US-101)', () => {
-  it('catalogue minimal complet : actions d’état et FINANCE en commande de domaine, actions rares en enregistrement seul ; seules les commandes FINANCE sont liées', async () => {
+const FINANCE_REQUEST =
+  'core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+const DECISION = { decision: ['APPROVED', 'REJECTED'] };
+
+interface Expected {
+  readonly permission: string;
+  readonly subject: string;
+  readonly mode: 'DOMAIN_COMMAND' | 'RECORD_ONLY';
+  readonly keys: readonly string[];
+  readonly values: Record<string, readonly string[]>;
+  readonly approval: boolean;
+  /** Source dans la spécification (17 §2.3 matrice, §10 catalogue), ou décision PROPOSÉE. */
+  readonly source: string;
+}
+
+/**
+ * Matrice attendue, tirée de la SPÉCIFICATION et non du catalogue en base : permissions de 17 §2.3
+ * (lignes de la matrice) ; actions, modes et sujets de 17 §10 et §3.2.13 ; FINANCE à deux
+ * personnes de 17 §2.3 (RLS-24). Là où 17 ne nomme pas l'action, la valeur est celle d'ADR-091
+ * §1 (PROPOSÉ), citée comme telle.
+ */
+const MATRIX: Readonly<Record<string, Expected>> = {
+  CANCEL_TRIP_GUEST: {
+    permission: 'ops.platform_cancel',
+    subject: 'TRIP',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    source: 'ADR-091 §1 (PROPOSÉ ; 17 §10 NN3 « l’ops déclenche »)',
+  },
+  CANCEL_TRIP_HOST: {
+    permission: 'ops.platform_cancel',
+    subject: 'TRIP',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    source: 'ADR-091 §1 (PROPOSÉ)',
+  },
+  CANCEL_TRIP_PLATFORM: {
+    permission: 'ops.platform_cancel',
+    subject: 'TRIP',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « ops.platform_cancel (motif plateforme) »',
+  },
+  DECLARE_NO_SHOW: {
+    permission: 'trip.declare_no_show',
+    subject: 'TRIP',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « trip.declare_no_show »',
+  },
+  REFUSE_AT_PICKUP: {
+    permission: 'kyc.license_check_at_handover',
+    subject: 'TRIP',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « kyc.license_check_at_handover » (OPS oui)',
+  },
+  KYC_DECISION: {
+    permission: 'kyc.decide',
+    subject: 'IDENTITY_VERIFICATION',
+    mode: 'DOMAIN_COMMAND',
+    keys: ['decision'],
+    values: DECISION,
+    approval: false,
+    source: '17 §2.3 « kyc.decide »',
+  },
+  HOST_VERIFICATION_DECISION: {
+    permission: 'ops.review_listing_host',
+    subject: 'ORGANIZATION',
+    mode: 'DOMAIN_COMMAND',
+    keys: ['decision'],
+    values: DECISION,
+    approval: false,
+    source: '17 §2.3 « ops.review_listing_host (revue d’annonce et vérification d’hôte) »',
+  },
+  PUBLISH_LISTING: {
+    permission: 'ops.review_listing_host',
+    subject: 'LISTING',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « ops.review_listing_host »',
+  },
+  ESCALATE_OVERDUE: {
+    permission: 'ops.force_terminate_trip',
+    subject: 'TRIP',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    source: 'ADR-091 §1 (PROPOSÉ ; 17 §2.3 « ops.force_terminate_trip »)',
+  },
+  REVIEW_FLAGGED_BOOKING: {
+    permission: 'kyc.decide',
+    subject: 'TRIP',
+    mode: 'DOMAIN_COMMAND',
+    keys: ['decision'],
+    values: DECISION,
+    approval: false,
+    source: 'ADR-091 §1 (PROPOSÉ)',
+  },
+  RECORD_CLAIM: {
+    permission: 'claim.declare',
+    subject: 'TRIP',
+    mode: 'RECORD_ONLY',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « claim.declare » ; §10 enregistrement seul',
+  },
+  ISSUE_DECISION: {
+    permission: 'dispute.decide',
+    subject: 'TRIP',
+    mode: 'RECORD_ONLY',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « dispute.decide (ADM-008) »',
+  },
+  RECORD_CHARGEBACK: {
+    permission: 'dispute.decide',
+    subject: 'TRIP',
+    mode: 'RECORD_ONLY',
+    keys: [],
+    values: {},
+    approval: false,
+    source: 'ADR-091 §1 (PROPOSÉ)',
+  },
+  OPEN_INCIDENT: {
+    permission: 'claim.declare',
+    subject: 'TRIP',
+    mode: 'RECORD_ONLY',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « claim.declare » (incident)',
+  },
+  RECORD_REVIEW: {
+    permission: 'ops.review_listing_host',
+    subject: 'TRIP',
+    mode: 'RECORD_ONLY',
+    keys: [],
+    values: {},
+    approval: false,
+    source: 'ADR-091 §1 (PROPOSÉ)',
+  },
+  HANDLE_DSR: {
+    permission: 'data.export',
+    subject: 'SUPPORT_CASE',
+    mode: 'RECORD_ONLY',
+    keys: [],
+    values: {},
+    approval: false,
+    source: '17 §2.3 « data.export » (ADMIN, journalisé) ; ADR-091 §1',
+  },
+  ISSUE_BORDEREAU: {
+    permission: 'finance.insurer_bordereau',
+    subject: 'INSURER_BORDEREAU',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: true,
+    source: '17 §2.3 « finance.insurer_bordereau (double validation) »',
+  },
+  DECIDE_ADVANCE: {
+    permission: 'finance.platform_advance',
+    subject: 'PLATFORM_ADVANCE',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: true,
+    source: '17 §2.3 « finance.platform_advance (double validation) »',
+  },
+  WRITE_OFF_RECEIVABLE: {
+    permission: 'finance.platform_advance',
+    subject: 'PLATFORM_ADVANCE',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: true,
+    source:
+      '17 §2.3 « finance.platform_advance (passer une créance en perte ; double validation) »',
+  },
+};
+
+interface CatalogRow {
+  action_code: string;
+  permission_code: string;
+  mode: string;
+  subject_type: string;
+  input_keys: string[];
+  input_values: Record<string, string[]>;
+  requires_approval: boolean;
+  handler: string | null;
+}
+
+async function catalog(client: pg.ClientBase): Promise<Map<string, CatalogRow>> {
+  const { rows } = await client.query<CatalogRow>(
+    `SELECT * FROM test_fixture.us101_catalog() WHERE action_code !~ '^TEST_'`,
+  );
+  return new Map(rows.map((r) => [r.action_code, r]));
+}
+
+describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
+  it('le catalogue minimal de 17 §10 : exactement les 19 actions de 19 US-101', async () => {
     await withRole('app_api', async (client) => {
-      const { rows } = await client.query<{
-        action_code: string;
-        mode: string;
-        bound: boolean;
-        input_keys: string[];
-      }>(
-        `SELECT action_code, mode, bound, input_keys FROM test_fixture.us101_catalog()
-          WHERE action_code <> 'TEST_PROBE_ACTION'`,
-      );
-      const byCode = new Map(rows.map((r) => [r.action_code, r]));
+      const byCode = await catalog(client);
       expect([...byCode.keys()].sort()).toEqual(
         [...STATE_ACTIONS, ...RECORD_ONLY, ...FINANCE].sort(),
       );
-      for (const a of STATE_ACTIONS) {
-        expect(byCode.get(a), a).toMatchObject({ mode: 'DOMAIN_COMMAND', bound: false });
-      }
-      for (const a of RECORD_ONLY) {
-        expect(byCode.get(a), a).toMatchObject({ mode: 'RECORD_ONLY', bound: false });
-      }
-      for (const a of FINANCE) {
-        expect(byCode.get(a), a).toMatchObject({ mode: 'DOMAIN_COMMAND', bound: true });
-      }
-      // aucune clé de saisie ne nomme un montant
-      for (const r of rows) {
-        for (const k of r.input_keys) expect(k, r.action_code).not.toMatch(/amount|minor|total/i);
-      }
+      expect(Object.keys(MATRIX).sort()).toEqual([...byCode.keys()].sort());
     });
   });
 
-  it('la base refuse une clé de saisie qui nomme un montant, et la liaison d’un gestionnaire non conforme ou d’une action d’enregistrement seul', async () => {
+  it.each(Object.entries(MATRIX))(
+    '%s : permission, sujet, mode, clés, valeurs et approbation de la spécification',
+    async (action, e) => {
+      await withRole('app_api', async (client) => {
+        const r = (await catalog(client)).get(action);
+        expect(r, `${action} (${e.source})`).toMatchObject({
+          permission_code: e.permission,
+          subject_type: e.subject,
+          mode: e.mode,
+          input_keys: [...e.keys],
+          input_values: e.values,
+          requires_approval: e.approval,
+        });
+        // une action d'argent n'est liée qu'à la demande FINANCE ; aucune autre n'est liée au lot 1
+        expect(r?.handler ?? null, action).toBe(e.approval ? FINANCE_REQUEST : null);
+      });
+    },
+  );
+
+  it('la base refuse une clé qui nomme un montant, une énumération incomplète, et toute valeur qui ne soit pas un mot', async () => {
     await withRole('app_api', async (client) => {
-      const keys = async (k: string[]) =>
+      const tryCatalog = async (k: string[], v: unknown) =>
         (
-          await client.query<{ r: string }>('SELECT test_fixture.us101_try_catalog_keys($1) AS r', [
-            k,
+          await client.query<{ r: string }>(
+            'SELECT test_fixture.us101_try_catalog($1, $2::jsonb) AS r',
+            [k, JSON.stringify(v)],
+          )
+        ).rows[0]?.r;
+      expect(await tryCatalog(['decision'], DECISION)).toBe('OK');
+      for (const k of [['refundAmount'], ['amountMinor'], ['montant'], ['total'], ['fee']]) {
+        expect(await tryCatalog(k, { [k[0] ?? '']: ['X'] }), k[0]).toBe(
+          '23514:manual_action_catalog_input_keys_format',
+        );
+      }
+      for (const v of [
+        {}, // clé déclarée sans énumération
+        { decision: [] }, // énumération vide
+        { decision: ['APPROVED'], other: ['X'] }, // clé non déclarée
+        { decision: ['1500'] }, // nombre
+        { decision: ['APPROVED_2'] }, // chiffre
+        { decision: [12] }, // pas une chaîne
+        { decision: 'APPROVED' }, // pas une liste
+      ]) {
+        expect(await tryCatalog(['decision'], v), JSON.stringify(v)).toBe(
+          '23514:manual_action_catalog_input_values_valid',
+        );
+      }
+    });
+  });
+});
+
+describe('garde des liaisons : à la liaison, sur toute la table, et à chaque appel', () => {
+  const sig = (name: string, input = 'jsonb') =>
+    `test_fixture.${name}(bytea,uuid,text,uuid,${input},text,uuid,text)`;
+
+  it.each([
+    ['us101_bad_return', 'jsonb', 'retour'],
+    ['us101_bad_types', 'text', 'types'],
+    ['us101_bad_modes', 'jsonb', 'modes'],
+    ['us101_bad_columns', 'jsonb', 'colonnes'],
+    ['us101_bad_search_path', 'jsonb', 'search_path'],
+    ['us101_bad_invoker', 'jsonb', 'SECURITY DEFINER'],
+    ['us101_bad_owner', 'jsonb', 'propriétaire'],
+    ['us101_bad_no_staff_exec', 'jsonb', 'EXECUTE iam_staff_owner'],
+    ['us101_bad_app_exec', 'jsonb', 'EXECUTE rôle applicatif'],
+  ] as const)(
+    'contrôle « %s » : la garde nomme le défaut, et la liaison est refusée',
+    async (name, input, why) => {
+      await withRole('app_api', async (client) => {
+        const check = await client.query<{ r: string | null }>(
+          'SELECT test_fixture.us101_check($1, $2) AS r',
+          ['CANCEL_TRIP_PLATFORM', sig(name, input)],
+        );
+        expect(check.rows[0]?.r).toBe(why);
+        const bind = await client.query<{ r: string }>(
+          'SELECT test_fixture.us101_try_bind($1, $2) AS r',
+          ['CANCEL_TRIP_PLATFORM', sig(name, input)],
+        );
+        expect(bind.rows[0]?.r).toBe('23514:manual_action_handler_signature');
+      });
+    },
+  );
+
+  it('domaine et approbation : action d’enregistrement seul refusée ; action d’argent liée à autre chose que la demande FINANCE refusée ; gestionnaires conformes admis', async () => {
+    await withRole('app_api', async (client) => {
+      const check = async (action: string, handler: string) =>
+        (
+          await client.query<{ r: string | null }>('SELECT test_fixture.us101_check($1, $2) AS r', [
+            action,
+            handler,
           ])
         ).rows[0]?.r;
-      expect(await keys(['decision'])).toBe('OK');
-      for (const k of [['refundAmount'], ['amountMinor'], ['montant'], ['total'], ['fee']]) {
-        expect(await keys(k), k[0]).toBe('23514:manual_action_catalog_input_keys_format');
-      }
       const bind = async (action: string, handler: string) =>
         (
           await client.query<{ r: string }>('SELECT test_fixture.us101_try_bind($1, $2) AS r', [
@@ -203,25 +480,162 @@ describe('catalogue (17 §10 NN9, 19 US-101)', () => {
             handler,
           ])
         ).rows[0]?.r;
-      const finance =
-        'core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
-      expect(await bind('CANCEL_TRIP_PLATFORM', finance)).toBe('OK');
-      expect(await bind('RECORD_CLAIM', finance)).toBe('23514:manual_action_handler_domain_only');
-      // mauvaise signature (fonction interne du cadre)
-      expect(await bind('CANCEL_TRIP_PLATFORM', 'core.support_subject_country(text,uuid)')).toBe(
-        '23514:manual_action_handler_signature',
+      const probe = sig('us101_probe_handler');
+      expect(await check('RECORD_CLAIM', probe)).toBe('domaine');
+      expect(await bind('RECORD_CLAIM', probe)).toBe('23514:manual_action_handler_domain_only');
+      for (const a of [...FINANCE, 'TEST_PROBE_APPROVAL']) {
+        expect(await check(a, probe), a).toBe('approbation');
+        expect(await bind(a, probe), a).toBe('23514:manual_action_handler_approval');
+        expect(await check(a, FINANCE_REQUEST), a).toBeNull();
+      }
+      expect(await check('CANCEL_TRIP_PLATFORM', probe)).toBeNull();
+      expect(await bind('CANCEL_TRIP_PLATFORM', probe)).toBe('OK');
+    });
+  });
+
+  it('invariant : la garde réappliquée à TOUTES les liaisons en base ne trouve rien ; une liaison exposée après coup (GRANT à app_api) est trouvée', async () => {
+    await withRole('app_api', async (client) => {
+      const all = await client.query('SELECT * FROM test_fixture.us101_check_all_bindings()');
+      expect(all.rows).toEqual([]);
+      const exposed = await client.query<{ action_code: string; why: string }>(
+        'SELECT * FROM test_fixture.us101_check_all_with_exposed()',
       );
-      // le gestionnaire n'est jamais exécutable par un rôle applicatif
+      expect(exposed.rows).toEqual([
+        { action_code: 'TEST_PROBE_EXPOSED', why: 'EXECUTE rôle applicatif' },
+      ]);
+      // aucun gestionnaire lié n'est exécutable par un rôle applicatif (lecture directe des droits)
       const { rows } = await client.query<{ api: boolean; worker: boolean; anon: boolean }>(
         `SELECT pg_catalog.has_function_privilege('app_api', $1::regprocedure, 'EXECUTE') AS api,
                 pg_catalog.has_function_privilege('app_worker', $1::regprocedure, 'EXECUTE') AS worker,
                 pg_catalog.has_function_privilege('app_anon', $1::regprocedure, 'EXECUTE') AS anon`,
-        [finance],
+        [FINANCE_REQUEST],
       );
       expect(rows).toEqual([{ api: false, worker: false, anon: false }]);
     });
   });
 
+  it('à l’appel : une liaison devenue non conforme rend l’action indisponible (journalisé), la commande n’est jamais appelée ; une action d’argent liée de force à une commande qui rendrait DONE est refusée', async () => {
+    await withRole('app_api', async (client) => {
+      const ops = await elevatedStaff(client, 'OPS_AGENT', ALL);
+      const subject = trip(0);
+      await client.query('SELECT test_fixture.us101_force_bind($1, $2)', [
+        'TEST_PROBE_EXPOSED',
+        sig('us101_bad_app_exec'),
+      ]);
+      await client.query('SELECT test_fixture.us101_force_bind($1, $2)', [
+        'TEST_PROBE_APPROVAL',
+        sig('us101_probe_handler'),
+      ]);
+      try {
+        const before = (await effects(client, subject)).length;
+        expect((await act(client, ops, 'TEST_PROBE_EXPOSED', subject)).outcome).toBe('UNAVAILABLE');
+        expect((await auditOf(client, ops.userId)).at(-1)).toMatchObject({
+          action_code: 'MANUAL_ACTION_UNAVAILABLE',
+          after: { attempted: 'TEST_PROBE_EXPOSED', handler: 'EXECUTE rôle applicatif' },
+        });
+        expect(
+          (await act(client, ops, 'TEST_PROBE_APPROVAL', subject, { input: { probeMode: 'done' } }))
+            .outcome,
+        ).toBe('UNAVAILABLE');
+        expect((await auditOf(client, ops.userId)).at(-1)).toMatchObject({
+          after: { attempted: 'TEST_PROBE_APPROVAL', handler: 'approbation' },
+        });
+        expect((await effects(client, subject)).length).toBe(before);
+      } finally {
+        await client.query('SELECT test_fixture.us101_unbind($1)', ['TEST_PROBE_EXPOSED']);
+        await client.query('SELECT test_fixture.us101_unbind($1)', ['TEST_PROBE_APPROVAL']);
+      }
+    });
+  });
+});
+
+describe('types de sujet déclarés et résolveurs de pays', () => {
+  // types de 17 §3.2 qui ont une table en Bêta (attendu tiré du modèle, pas du code) ; les deux
+  // autres types du catalogue arriveront avec leur table (US-123, US-124) et devront se déclarer
+  const DECLARED = [
+    'INSURER_BORDEREAU',
+    'ORGANIZATION',
+    'PLATFORM_ADVANCE',
+    'SUPPORT_CASE',
+    'TRIP',
+  ];
+  const PENDING = ['IDENTITY_VERIFICATION', 'LISTING'];
+
+  it('chaque type de sujet du catalogue est déclaré, sauf ceux dont la table n’existe pas encore ; chaque résolveur est conforme', async () => {
+    await withRole('app_api', async (client) => {
+      const { rows } = await client.query<{ subject_type: string; why: string | null }>(
+        'SELECT subject_type, why FROM test_fixture.us101_subjects()',
+      );
+      expect(rows.map((r) => r.subject_type)).toEqual(DECLARED);
+      expect(rows.filter((r) => r.why !== null)).toEqual([]);
+      const types = new Set([...(await catalog(client)).values()].map((r) => r.subject_type));
+      expect([...types].filter((t) => !DECLARED.includes(t)).sort()).toEqual(PENDING);
+    });
+  });
+
+  it.each(COUNTRIES.map((c, i) => [c.country, i] as const))(
+    '%s : un type déclaré répond toujours « connu », avec le pays de son sujet ; sujet introuvable : connu, sans pays',
+    async (country, i) => {
+      await withRole('app_api', async (client) => {
+        const advance = uuid();
+        await client.query(
+          `SELECT test_fixture.us062_insert_advance($1, $2, 'HOST_COMPENSATION', 100::bigint)`,
+          [advance, trip(i)],
+        );
+        const bordereau = uuid();
+        await client.query('SELECT test_fixture.us062_insert_bordereau($1, $2, $3, 100::bigint)', [
+          bordereau,
+          country,
+          COUNTRIES[i]?.currency,
+        ]);
+        const cw = world.countries[i];
+        const subjects: Record<string, string> = {
+          TRIP: trip(i),
+          ORGANIZATION: cw?.orgA ?? '',
+          SUPPORT_CASE: i === 0 ? world.cases.firstA1 : world.cases.secondA1,
+          PLATFORM_ADVANCE: advance,
+          INSURER_BORDEREAU: bordereau,
+        };
+        for (const type of DECLARED) {
+          const resolve = async (id: string) =>
+            (
+              await client.query<{ known: boolean; country: string | null }>(
+                'SELECT * FROM test_fixture.us101_resolve($1, $2)',
+                [type, id],
+              )
+            ).rows[0];
+          expect(await resolve(subjects[type] ?? ''), type).toEqual({ known: true, country });
+          expect(await resolve(uuid()), type).toEqual({ known: true, country: null });
+        }
+        for (const type of PENDING) {
+          expect(
+            (await client.query('SELECT * FROM test_fixture.us101_resolve($1, $2)', [type, uuid()]))
+              .rows[0],
+            type,
+          ).toEqual({ known: false, country: null });
+        }
+      });
+    },
+  );
+
+  it('la base refuse un résolveur non conforme (signature, droits)', async () => {
+    await withRole('app_api', async (client) => {
+      const declare = async (resolver: string) =>
+        (
+          await client.query<{ r: string }>('SELECT test_fixture.us101_try_declare($1, $2) AS r', [
+            'LISTING',
+            resolver,
+          ])
+        ).rows[0]?.r;
+      expect(await declare('core.support_staff_holds_permission(uuid,text)')).toBe(
+        '23514:manual_action_subject_resolver',
+      );
+      expect(await declare('core.support_country_of_trip(uuid)')).toBe('OK');
+    });
+  });
+});
+
+describe('accès direct', () => {
   it('app_api ne lit ni n’écrit directement manual_action, le catalogue ni les liaisons (42501)', async () => {
     await withRole('app_api', async (client) => {
       for (const t of [
@@ -335,7 +749,7 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
     },
   );
 
-  it('l’agent ne saisit jamais un montant : clé non déclarée, nombre ou chaîne numérique => 22023, rien n’est écrit', async () => {
+  it('l’agent ne saisit jamais un montant : clé non déclarée, nombre, chaîne numérique ou valeur hors énumération => 22023, rien n’est écrit', async () => {
     await withRole('app_api', async (client) => {
       const ops = await elevatedStaff(client, 'OPS_AGENT', ALL);
       const subject = trip(0);
@@ -352,6 +766,8 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
         { probeMode: '850 000' },
         { probeMode: { minor: 'x' } },
         { probeMode: '' },
+        { probeMode: 'DONE' }, // énumération fermée : la casse compte
+        { probeMode: 'done ' },
       ]) {
         await expect(
           act(client, ops, 'TEST_PROBE_ACTION', subject, { input }),
@@ -362,6 +778,14 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
       await expect(
         act(client, ops, 'CANCEL_TRIP_PLATFORM', subject, { input: { cause: 'x' } }),
       ).rejects.toMatchObject({ code: '22023' });
+      // `decision` : énumération fermée {APPROVED, REJECTED} (sujet ORGANIZATION, connu)
+      const org = world.countries[0]?.orgA ?? '';
+      for (const decision of ['MAYBE', 'approved', 'APPROVED;REJECTED', '1']) {
+        await expect(
+          act(client, ops, 'HOST_VERIFICATION_DECISION', org, { input: { decision } }),
+          decision,
+        ).rejects.toMatchObject({ code: '22023' });
+      }
       expect((await effects(client, subject)).length).toBe(before);
       expect(await auditOf(client, ops.userId)).toHaveLength(auditBefore);
     });
@@ -622,4 +1046,66 @@ describe('critère 3 — action FINANCE : une demande, puis une seconde personne
       });
     });
   });
+});
+
+describe('rejeu concurrent : un même request_id envoyé deux fois en parallèle', () => {
+  it.each(COUNTRIES.map((c, i) => [c.country, i] as const))(
+    '%s : sur deux connexions, la seconde attend la première puis rend DUPLICATE (jamais une violation d’unicité) ; un seul effet, une seule ligne',
+    async (country, i) => {
+      await withRole('app_api', async (client) => {
+        const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
+        const subject = trip(i);
+        const requestId = uuid();
+        const a = await connectAs('app_api');
+        const b = await connectAs('app_api');
+        try {
+          const call = (c: pg.ClientBase) =>
+            c.query<Outcome>(ACT, [
+              ops.hash,
+              requestId,
+              'TEST_PROBE_ACTION',
+              subject,
+              REASON,
+              { probeMode: 'done' },
+              [],
+            ]);
+          // A garde sa transaction ouverte après l'action ; B est lancée pendant ce temps
+          await a.query('BEGIN');
+          const first = await call(a);
+          expect(first.rows[0]?.outcome).toBe('DONE');
+          const pidB = (await b.query<{ pid: number }>('SELECT pg_catalog.pg_backend_pid() AS pid'))
+            .rows[0]?.pid;
+          const second = call(b);
+          // B est bloquée par A (verrou consultatif du request_id), jamais en erreur
+          let waiting = false;
+          for (let k = 0; k < 100 && !waiting; k += 1) {
+            const { rows } = await client.query<{ w: boolean }>(
+              `SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_stat_activity
+                               WHERE pid = $1 AND wait_event_type = 'Lock') AS w`,
+              [pidB],
+            );
+            waiting = rows[0]?.w === true;
+            if (!waiting) await new Promise((r) => setTimeout(r, 50));
+          }
+          expect(waiting).toBe(true);
+          await a.query('COMMIT');
+          const r = await second;
+          expect(r.rows[0]).toEqual({
+            outcome: 'DUPLICATE',
+            action_id: requestId,
+            domain_ref: requestId,
+            detail: 'DONE',
+          });
+          expect(
+            (await effects(client, subject)).filter((e) => e.request_id === requestId),
+          ).toHaveLength(1);
+          expect(await manualAction(client, requestId)).toHaveLength(1);
+        } finally {
+          await a.query('ROLLBACK').catch(() => undefined);
+          await releaseClient(a);
+          await releaseClient(b);
+        }
+      });
+    },
+  );
 });

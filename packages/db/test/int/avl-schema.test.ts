@@ -53,6 +53,7 @@ const SUPPORT_TABLES = [
   'support_manual_action_catalog',
   'support_manual_action',
   'support_manual_action_handler',
+  'support_manual_action_subject',
 ] as const;
 
 // Tables PAY du port PaymentProvider (US-019, 0027) : même socle RLS ; leurs politiques, droits et

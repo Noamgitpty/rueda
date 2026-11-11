@@ -5,11 +5,11 @@
  * fait que choisir l'écran d'après ses réponses. Les textes viennent du catalogue de la locale de
  * la requête (une vue = une langue).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { messageKeyOf, readsApprovals, request, screenFor } from './api.ts';
-import type { ApiResult, ApprovalsBody, AuditBody, MeBody } from './api.ts';
+import { intentFor, messageKeyOf, readsApprovals, request, screenFor } from './api.ts';
+import type { ActionIntent, ApiResult, ApprovalsBody, AuditBody, MeBody } from './api.ts';
 import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
 
@@ -18,6 +18,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   const [state, setState] = useState<ConsoleState>({ kind: 'loading' });
   const [enrollmentCode, setEnrollmentCode] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  // un requestId par intention d'action (double clic, reprise réseau : même identifiant)
+  const intent = useRef<ActionIntent | null>(null);
   // échec réseau (API injoignable, hors ligne) : rendu comme une erreur lisible, jamais muet
   const call = useCallback(
     <T,>(method: 'GET' | 'POST', path: string, body?: unknown) =>
@@ -119,12 +121,17 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       reason: string,
       evidence: readonly string[],
     ) => {
+      const subject = subjectId.trim().toLowerCase();
+      intent.current = intentFor(intent.current, [action, subject, reason.trim(), evidence], () =>
+        crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
       once(async () => {
         // jamais de montant : aucune saisie libre n'est envoyée (US-101, 17 §10 NN3)
         const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
-          requestId: crypto.randomUUID(),
+          requestId,
           action,
-          subjectId: subjectId.trim().toLowerCase(),
+          subjectId: subject,
           reason,
           ...(evidence.length > 0 ? { evidence } : {}),
         });

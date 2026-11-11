@@ -447,7 +447,7 @@
       "signature": "core.settlement_cmd_request_finance_action(bytea,uuid,text,uuid,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
-      "execute": ["app_api", "iam_staff_owner"],
+      "execute": ["app_api"],
       "story": "US-062"
     },
     {
@@ -463,6 +463,13 @@
       "owner": "guard_owner",
       "execute": ["app_api", "app_worker", "cmd_hold_owner", "cmd_money_owner"],
       "story": "US-003"
+    },
+    {
+      "signature": "core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-101"
     }
   ]
 }

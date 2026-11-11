@@ -101,3 +101,23 @@ export interface ApprovalsBody {
 export function readsApprovals(roles: readonly StaffRoleView[]): boolean {
   return roles.some((r) => r.role === 'FINANCE' || r.role === 'ADMIN');
 }
+
+/**
+ * Intention d'action (US-101, revue) : un `requestId` par intention, pas par clic. Une même
+ * intention (même action, même sujet, même motif, mêmes pièces) garde son identifiant : un double
+ * clic ou une reprise après une coupure réseau est reconnu par la base (DUPLICATE) au lieu d'être
+ * exécuté deux fois. Une intention différente reçoit un identifiant neuf.
+ */
+export interface ActionIntent {
+  readonly key: string;
+  readonly requestId: string;
+}
+
+export function intentFor(
+  previous: ActionIntent | null,
+  parts: readonly unknown[],
+  newId: () => string,
+): ActionIntent {
+  const key = JSON.stringify(parts);
+  return previous !== null && previous.key === key ? previous : { key, requestId: newId() };
+}

@@ -1,6 +1,6 @@
 # ADR-091 — Cadre des actions de console (`manual_action`) : commande de domaine liée, aucun montant saisi, pièces, FINANCE à deux personnes
 
-- **Statut** : PROPOSÉ (US-101, agent back-end, claude-opus-5-5, 2026-11-11). Revues exigées : code, **sécurité** (RLS, rôles, `SECURITY DEFINER`, SQL dynamique) et architecture (`packages/db/`), sur un autre modèle que l'auteur.
+- **Statut** : PROPOSÉ (US-101, agent back-end, claude-opus-5-5, 2026-11-11 ; complété le même jour après les cinq revues de la PR #99 : MAJEUR de sécurité n° 1, d'argent n° 3, d'architecture n° 2, de QA n° 4 et n° 5). Revues exigées : code, **sécurité** (RLS, rôles, `SECURITY DEFINER`, SQL dynamique) et architecture (`packages/db/`), sur un autre modèle que l'auteur.
 - **Sources** : 19 US-101 (critères d'acceptation) ; 17 §1.8 D7, §2.3 (matrice des permissions, commandes FINANCE à deux personnes, RLS-24), §3.2.13 (`manual_action`), §10 NN9 et « catalogue minimal des actions de console », NN3 (« l'ops ne saisit jamais le montant ») ; C-v3-05 ; ADR-062 (console, MFA du staff) ; ADR-056 point 4 et ADR-063 point 7 (un appel = une instruction) ; migrations 0034 (US-012) et 0036 (US-062).
 
 ## Contexte
@@ -18,7 +18,7 @@ Au lot 1, aucune commande de domaine d'état n'existe encore : les annulations v
    - 6 actions d'enregistrement seul, en `RECORD_ONLY` ;
    - 3 actions FINANCE, en `DOMAIN_COMMAND`.
 
-   `CREATE_HOST_ACCOUNT` est laissée à US-107. Chaque action déclare sa permission (17 §2.3), son type de sujet et ses **clés de saisie** (`input_keys`). Les types de sujet sont `TRIP`, `ORGANIZATION`, `IDENTITY_VERIFICATION`, `LISTING`, `SUPPORT_CASE`, `PLATFORM_ADVANCE` et `INSURER_BORDEREAU`. La contrainte de 0034 est remplacée sous le même nom, en l'élargissant.
+   `CREATE_HOST_ACCOUNT` est laissée à US-107. Chaque action déclare sa permission (17 §2.3), son type de sujet, ses **clés de saisie** (`input_keys`), l'**énumération fermée** des valeurs admises par clé (`input_values`) et si elle exige une **approbation** par une seconde personne (`requires_approval`, vrai pour les trois actions FINANCE). Un test L0 compare chaque action à un tableau tiré de 17 §2.3 et §10 (et de la table ci-dessous pour les valeurs PROPOSÉES), jamais au catalogue lui-même. Les types de sujet sont `TRIP`, `ORGANIZATION`, `IDENTITY_VERIFICATION`, `LISTING`, `SUPPORT_CASE`, `PLATFORM_ADVANCE` et `INSURER_BORDEREAU`. La contrainte de 0034 est remplacée sous le même nom, en l'élargissant.
 
    **PROPOSÉ, là où 17 ne nomme pas l'action** :
 
@@ -38,22 +38,29 @@ Au lot 1, aucune commande de domaine d'état n'existe encore : les annulations v
    - session (preuve de possession) ;
    - forme des données ;
    - niveau TOTP ;
-   - **pays du sujet relu en base** (`core.support_subject_country`) ;
+   - **pays du sujet relu en base**, par le résolveur DÉCLARÉ du type de sujet (§2 bis) ;
    - permission et portée pays : un refus est journalisé (`STAFF_FORBIDDEN`), et un sujet introuvable rend la même issue (aucun oracle d'existence) ;
    - règles de saisie et pièces ;
-   - idempotence : même `request_id` ⇒ `DUPLICATE`, avec l'issue d'origine ; un `request_id` réutilisé pour une autre action est refusé ;
+   - idempotence : même `request_id` ⇒ `DUPLICATE`, avec l'issue d'origine ; un `request_id` réutilisé pour une autre action est refusé. Deux appels **concurrents** du même `request_id` sont sérialisés par un verrou consultatif de transaction (`pg_advisory_xact_lock` sur une empreinte du `request_id`) : le second attend la fin du premier, puis rend `DUPLICATE` au lieu d'une violation d'unicité (preuve L0 sur deux connexions) ;
    - disponibilité ;
    - exécution, puis audit **en dernier** (passation US-009).
 
-   Un type de sujet sans table en Bêta (`IDENTITY_VERIFICATION`, `LISTING`) rend `UNAVAILABLE`, ou `FORBIDDEN` sans la permission. La story qui crée sa table remplace `core.support_subject_country` en y ajoutant sa branche. La forme d'US-012 (sans pièces) délègue à cette commande : elle garde les mêmes règles, et une action d'enregistrement seul y est donc refusée.
+   Un type de sujet non déclaré (`IDENTITY_VERIFICATION`, `LISTING`, dont la table n'existe pas en Bêta) rend `UNAVAILABLE`, ou `FORBIDDEN` sans la permission. La forme d'US-012 (sans pièces) délègue à cette commande : elle garde les mêmes règles, et une action d'enregistrement seul y est donc refusée.
 
-3. **Aucun montant saisi** (NN3 ; critère 1). `input` est un objet de 4 Kio au plus. Il n'admet que les clés déclarées par l'action, et ses valeurs doivent être des chaînes de 1 à 200 caractères. Sont refusés, avec le code `22023` : un nombre, un objet, et toute chaîne numérique (`1500`, `12,50`, `850 000`). Une **contrainte du catalogue** interdit en outre toute clé qui nomme un montant (`amount`, `minor`, `montant`, `monto`, `valor`, `price`, `fee`, `total`, `refund`, `sum`). Les actions FINANCE et d'annulation n'admettent aucune clé : la commande de domaine calcule ou lit les montants. L'API applique la même règle de forme (400), et l'écran de la console n'a aucun champ de montant.
+2 bis. **Types de sujet déclarés** (revue d'architecture n° 2). La table `core.support_manual_action_subject (subject_type, resolver regprocedure, story)`, écrite par migration seulement, déclare chaque type et son **résolveur de pays** : `(p_id uuid) RETURNS text`, `STABLE`, `search_path` figé, exécutable par `iam_staff_owner` et jamais par un rôle applicatif (déclencheur `manual_action_subject_guard`, contrôle `core.support_subject_resolver_check`, revérifié à chaque appel : un résolveur devenu non conforme rend le type inconnu). Cinq types sont déclarés (`TRIP`, `ORGANIZATION`, `SUPPORT_CASE`, `PLATFORM_ADVANCE`, `INSURER_BORDEREAU`). La story qui crée la table d'un type (US-123, US-124) **ajoute** sa ligne et son résolveur (INSERT) : il n'y a plus de fonction partagée à réécrire, donc plus de risque qu'une migration efface la branche d'une autre. Un test L0 vérifie que chaque type déclaré répond « connu » avec le pays de son sujet, et que seuls `IDENTITY_VERIFICATION` et `LISTING` restent non déclarés : quand leur table existera, ce test devra être mis à jour, avec la déclaration. L'appel du résolveur est un `EXECUTE` (nom lu dans `pg_proc`, valeur liée) : seconde dérogation `dynamic-sql`.
+
+3. **Aucun montant saisi** (NN3 ; critère 1). `input` est un objet de 4 Kio au plus. Il n'admet que les clés déclarées par l'action, et pour chacune une valeur de l'**énumération fermée** du catalogue (`decision` ∈ {`APPROVED`, `REJECTED`}, PROPOSÉ). Une contrainte du catalogue (`manual_action_catalog_input_values_valid`) exige une énumération pour chaque clé, faite de mots (lettres et soulignés, jamais un chiffre) : aucune valeur numérique ne peut donc être admise. Tout le reste est refusé avec le code `22023` : clé non déclarée, nombre, objet, chaîne numérique, valeur hors énumération (la casse compte). Une autre contrainte du catalogue interdit toute clé qui nomme un montant (`amount`, `minor`, `montant`, `monto`, `valor`, `price`, `fee`, `total`, `refund`, `sum`). Les actions FINANCE et d'annulation n'admettent aucune clé : la commande de domaine calcule ou lit les montants. L'API applique la même règle de forme (400), et l'écran de la console n'a aucun champ de montant.
 4. **Enregistrement seul** (critère 2) : le motif compte de 10 à 1000 caractères, et **au moins une pièce** est exigée (20 au plus, sans doublon). Chaque pièce doit être un `audit_file_asset` du seau `PRIVATE_EVIDENCE`, non supprimé. Aucun effet de domaine. La ligne `manual_action` (`outcome = RECORDED`, `evidence_file_ids`) est rattachée à sa ligne d'audit `MANUAL_ACTION_RECORDED`. La règle d'une pièce au moins est PROPOSÉE, fail-closed ; elle est inscrite dans `COMME_TURO.md` (une déclaration se fait avec ses preuves).
-5. **Commande de domaine liée** (critère 1). La table `core.support_manual_action_handler (action_code, handler regprocedure, story)` est écrite **par migration seulement** (`migrator_all`). Un déclencheur vérifie, à la liaison :
-   - que l'action est en `DOMAIN_COMMAND` ;
-   - la signature exacte du gestionnaire : `(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text) RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])` ;
-   - son `search_path` figé ;
-   - qu'il est exécutable par `iam_staff_owner` et **jamais** par `PUBLIC`, `app_api`, `app_worker` ni `app_anon`.
+5. **Commande de domaine liée** (critère 1). La table `core.support_manual_action_handler (action_code, handler regprocedure, story)` est écrite **par migration seulement** (`migrator_all`). Le contrôle `core.support_manual_action_handler_check(action, gestionnaire)` rend `NULL` si la liaison est conforme, sinon le contrôle en échec :
+   - `domaine` : l'action est en `DOMAIN_COMMAND` ;
+   - `approbation` : une action `requires_approval` n'est liée qu'à la demande FINANCE (§6) ;
+   - `retour`, `types`, `modes`, `colonnes` : la signature exacte `(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text) RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])` ;
+   - `search_path` figé ;
+   - `SECURITY DEFINER` : le gestionnaire ne s'exécute jamais avec les droits larges d'`iam_staff_owner` ;
+   - `propriétaire` : un rôle NOLOGIN, autre qu'`iam_staff_owner` ;
+   - `EXECUTE` : accordé à `iam_staff_owner` et **jamais** à `PUBLIC`, `app_api`, `app_worker` ni `app_anon`. Le gestionnaire reçoit l'acteur en argument : exposé, il permettrait de le forger.
+
+   Le contrôle est appelé **à la liaison** (déclencheur `manual_action_handler_guard`) et **à chaque appel** par la commande de console (revue sécurité n° 1). Une liaison devenue non conforme après coup, par exemple un `GRANT EXECUTE … TO app_api` ultérieur, rend l'action `UNAVAILABLE`, journalisé avec le contrôle en échec, et le gestionnaire n'est pas appelé. Un test L0 réapplique le contrôle à **toutes** les liaisons en base, prouve qu'il trouve une liaison exposée après coup, et joue chacun des contrôles par un gestionnaire non conforme.
 
    La commande de console appelle le gestionnaire **dans la même instruction**, par un `EXECUTE` : le nom est lu dans `pg_proc` par l'OID lié et cité par `format('%I.%I')`, et toutes les valeurs passent par `USING`. Aucun texte du client n'entre dans l'appel. C'est une dérogation `dynamic-sql`, inscrite dans `expand-contract-allowlist.json`.
 
@@ -64,7 +71,7 @@ Au lot 1, aucune commande de domaine d'état n'existe encore : les annulations v
 
    Une action d'état sans commande liée rend `UNAVAILABLE`, journalisé : aucun changement d'état n'est imité. Une story qui livre sa commande **ajoute** une ligne de liaison (INSERT) ; elle ne réécrit pas ce cadre. La preuve L0 utilise une commande sonde de test, liée par la vraie table.
 
-6. **FINANCE à deux personnes** (critère 3, RLS-24). `ISSUE_BORDEREAU`, `DECIDE_ADVANCE` et `WRITE_OFF_RECEIVABLE` sont liées à `core.support_manual_action_finance_request`, qui appelle `settlement_cmd_request_finance_action` (0036, inchangée). L'action n'est qu'une **demande** (`REQUESTED`, référence = la demande `finance_approval`). L'effet n'a lieu qu'à `cmd_approve_finance_action` par une **seconde personne distincte** : le demandeur est refusé, même dans une autre session (`SELF_APPROVAL`). `EXECUTE` sur la demande est accordé à `iam_staff_owner` par son propriétaire `cmd_money_owner`. La demande relit d'elle-même la session, le contexte STAFF, la permission, la portée et l'éligibilité, et journalise ses refus.
+6. **FINANCE à deux personnes** (critère 3, RLS-24). `ISSUE_BORDEREAU`, `DECIDE_ADVANCE` et `WRITE_OFF_RECEIVABLE` portent `requires_approval` et sont liées à `core.support_manual_action_finance_request` (`SECURITY DEFINER`, propriétaire `cmd_money_owner`, `EXECUTE` au seul `iam_staff_owner`), qui appelle `settlement_cmd_request_finance_action` (0036, inchangée). La garantie est **dans le cadre**, pas seulement dans la donnée de liaison (revue argent n° 3) : une action `requires_approval` ne peut être liée qu'à cette demande, et une issue `DONE` y est refusée (exception, tout est annulé). L'action n'est qu'une **demande** (`REQUESTED`, référence = la demande `finance_approval`). L'effet n'a lieu qu'à `cmd_approve_finance_action` par une **seconde personne distincte** : le demandeur est refusé, même dans une autre session (`SELF_APPROVAL`). La demande relit d'elle-même la session, le contexte STAFF, la permission, la portée et l'éligibilité, et journalise ses refus.
 7. **Contexte STAFF posé par l'API dans l'instruction.** `PgManualActionStore` et l'approbation utilisent une CTE matérialisée qui pose les sept paramètres `app.*`, puis appellent la commande en `LATERAL` sur une colonne de la CTE. Le contexte est donc posé avant l'appel, en autocommit (ADR-056 point 4). La portée pays posée est celle des rôles de la session. Elle ne fait que réduire : la base relit les rôles. La liste des demandes en attente est lue sous la RLS `fin_read` (FINANCE et ADMIN du pays, colonnes sans identifiant du personnel), dans une transaction courte de lecture.
 8. **RLS par rôle staff** :
    - `manual_action`, le catalogue et les liaisons restent illisibles et non modifiables par tout rôle applicatif (`42501`) ;
@@ -82,13 +89,14 @@ ADR-088 laisse `MANUAL_OPS` terminal `UNPROVEN` : aucune action du staff journal
 
 ## Conséquences
 
-- Chaque story qui livre une commande d'état n'a qu'à livrer son gestionnaire (signature ci-dessus, `EXECUTE` à `iam_staff_owner` seulement) et une ligne de liaison. Elle ajoute sa branche à `support_subject_country` si son type de sujet est nouveau.
+- Chaque story qui livre une commande d'état n'a qu'à livrer son gestionnaire (signature ci-dessus, `SECURITY DEFINER`, propriétaire NOLOGIN, `EXECUTE` à `iam_staff_owner` seulement) et une ligne de liaison. Si son type de sujet est nouveau, elle déclare ce type et son résolveur (une ligne). Elle met à jour le tableau du test de catalogue si 17 §2.3 change.
+- **Approbation FINANCE aveugle** (revue argent n° 4, acceptée) : l'approbateur ne voit ni le montant ni la devise, et l'approbation n'est pas liée au montant vu par le demandeur. La correction demande un changement de 17 (empreinte du montant figée dans `finance_approval`) : suite inscrite dans `docs/team/BOARD.md` et demande de révision dans `docs/team/QUESTIONS.md`, **non implémentée ici**.
 - Le téléversement des pièces par le staff n'existe pas encore : la console reçoit des identifiants de fichiers déjà reçus. Le stockage objet réel vient avec US-003 ; l'écran de téléversement est à confier à une story (US-109 ou suivante).
 - `internal_note` et l'écriture de `support_case` (17 §2.3) ne sont pas créées : aucun critère d'US-101 ne les exige. Elles sont reportées à US-109 (fiche 360°, files).
 - `available` du catalogue n'a plus de sens pour une action `DOMAIN_COMMAND`, où la liaison fait foi. La colonne est gardée (expand / contract).
 
 ## Écartés
 
-- **Répartiteur statique** (`CASE action WHEN …`) réécrit par chaque story : réécrire la commande de console à chaque lot crée des conflits entre stories parallèles et un risque de régression. Il est refusé au profit de la table de liaison, contrôlée.
+- **Répartiteur statique** (`CASE action WHEN …` ou `IF type = …`) réécrit par chaque story : réécrire une fonction partagée à chaque lot crée des conflits entre stories parallèles, et une migration écrite à partir d'une version ancienne efface la branche d'une autre sans conflit de texte. Il est refusé, pour les commandes comme pour les types de sujet, au profit de tables de déclaration contrôlées.
 - **`UPDATE` du catalogue pour lier une commande** : c'est une contraction (`data-update`) à chaque story ; la liaison par INSERT est en extension seule.
 - **Montant admis puis comparé au moteur** : NN3 interdit que l'ops saisisse le montant ; aucun montant n'entre.

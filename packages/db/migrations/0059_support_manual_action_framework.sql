@@ -15,47 +15,54 @@
 --       * DOMAIN_COMMAND : la commande de domaine LIÉE à l'action est appelée DANS LA MÊME
 --         TRANSACTION (même instruction) ; son issue décide de l'écriture de `manual_action` ;
 --     et l'audit est écrit EN DERNIER (passation US-009) ;
---   - l'agent ne saisit JAMAIS un montant : `input` n'admet que les clés déclarées par l'action,
---     des chaînes courtes, jamais un nombre ni une chaîne numérique ; aucune clé déclarée ne peut
---     ressembler à un montant (contrainte du catalogue) ; les montants viennent du moteur ;
---   - liaison des commandes de domaine par la table `support_manual_action_handler` (INSERT par
---     migration seulement ; une story qui livre sa commande AJOUTE la liaison, sans réécrire ce
---     cadre). La signature et les droits du gestionnaire sont vérifiés à la liaison (déclencheur) ;
---     l'appel est un EXECUTE dont le nom vient de pg_proc (jamais du client) et dont toutes les
---     valeurs sont liées (USING) : dérogation `dynamic-sql` justifiée ;
---   - FINANCE (`ISSUE_BORDEREAU`, `DECIDE_ADVANCE`, `WRITE_OFF_RECEIVABLE`) : la commande liée est
---     `cmd_request_finance_action` (0036) : l'action n'est qu'une DEMANDE ; l'effet n'a lieu qu'à
---     `cmd_approve_finance_action` par une SECONDE personne distincte (RLS-24, inchangé) ;
+--   - l'agent ne saisit JAMAIS un montant : `input` n'admet que les clés déclarées par l'action
+--     et, pour chacune, une valeur d'une énumération FERMÉE (mots, jamais un nombre) ; aucune clé
+--     ne peut nommer un montant (contrainte du catalogue) ; les montants viennent du moteur ;
+--   - types de sujet déclarés par `support_manual_action_subject` (un résolveur de pays par type)
+--     et commandes de domaine liées par `support_manual_action_handler` : une story AJOUTE sa
+--     ligne (INSERT par migration), sans réécrire ce cadre. Résolveurs et gestionnaires sont
+--     contrôlés à la déclaration (déclencheurs) ; le gestionnaire l'est aussi à CHAQUE appel.
+--     Les appels sont des EXECUTE dont le nom vient de pg_proc (jamais du client) et dont toutes
+--     les valeurs sont liées (USING) : dérogations `dynamic-sql` justifiées ;
+--   - FINANCE (`ISSUE_BORDEREAU`, `DECIDE_ADVANCE`, `WRITE_OFF_RECEIVABLE`, `requires_approval`) :
+--     seule la demande `cmd_request_finance_action` (0036) peut y être liée, et une issue DONE est
+--     refusée : l'action n'est qu'une DEMANDE ; l'effet n'a lieu qu'à `cmd_approve_finance_action`
+--     par une SECONDE personne distincte (RLS-24, inchangé) ;
+--   - un même `request_id` envoyé deux fois en parallèle est sérialisé (verrou consultatif de
+--     transaction) : le second rend DUPLICATE ;
 --   - les actions dont la commande de domaine n'existe pas encore restent indisponibles
 --     (UNAVAILABLE, journalisé) : aucun changement d'état n'est imité (17 §10 NN9).
 --
 -- Défauts PROPOSÉS (fail-closed, ADR-091) : permission et type de sujet de chaque action
 -- nouvelle ; une pièce au moins pour toute action d'enregistrement seul ; 20 pièces au plus ;
--- clés de saisie : `decision` pour les décisions, aucune ailleurs.
+-- clés de saisie : `decision` ∈ {APPROVED, REJECTED} pour les décisions, aucune ailleurs.
 --
 -- Retour arrière :
 --   réappliquer la définition de 0034 de core.iam_staff_cmd_manual_action(bytea, uuid, text, uuid,
 --     text, jsonb) (sous iam_staff_owner) ;
 --   DROP FUNCTION core.iam_staff_cmd_manual_action(bytea, uuid, text, uuid, text, jsonb, uuid[]),
 --     core.support_manual_action_finance_request(bytea, uuid, text, uuid, jsonb, text, uuid, text),
---     core.support_subject_country(text, uuid), core.support_staff_holds_permission(uuid, text),
---     core.support_manual_action_handler_guard();
---   DROP TABLE core.support_manual_action_handler;
+--     core.support_manual_action_handler_check(text, regprocedure),
+--     core.support_manual_action_handler_guard(), core.support_subject_resolver_check(regprocedure),
+--     core.support_manual_action_subject_guard(), core.support_country_of_*(uuid) (5),
+--     core.support_staff_holds_permission(uuid, text), core.support_input_values_valid(text[], jsonb);
+--   DROP TABLE core.support_manual_action_handler, core.support_manual_action_subject;
 --   ALTER TABLE core.support_manual_action DROP COLUMN outcome, DROP COLUMN domain_ref;
 --   DELETE FROM core.support_manual_action_catalog WHERE action_code NOT IN
 --     ('CANCEL_TRIP_PLATFORM', 'DECLARE_NO_SHOW', 'RECORD_CLAIM');
---   ALTER TABLE core.support_manual_action_catalog DROP COLUMN input_keys, contrainte de sujet de 0034 ;
+--   ALTER TABLE core.support_manual_action_catalog DROP COLUMN input_keys, DROP COLUMN input_values,
+--     DROP COLUMN requires_approval, contrainte de sujet de 0034 ;
 --   DELETE FROM core.iam_role_permission WHERE change_reason LIKE 'US-101%';
 --   révoquer les droits ci-dessous accordés à iam_staff_owner.
 
--- 1. Catalogue : types de sujet et clés de saisie ---------------------------------------------------
+-- 1. Catalogue : types de sujet, clés et valeurs de saisie, approbation exigée ---------------------
 -- Contrainte remplacée sous le même nom (élargie, jamais restreinte).
 ALTER TABLE core.support_manual_action_catalog DROP CONSTRAINT manual_action_catalog_subject_valid;
 ALTER TABLE core.support_manual_action_catalog ADD CONSTRAINT manual_action_catalog_subject_valid
   CHECK (subject_type IN ('TRIP', 'ORGANIZATION', 'IDENTITY_VERIFICATION', 'LISTING',
                           'SUPPORT_CASE', 'PLATFORM_ADVANCE', 'INSURER_BORDEREAU'));
 -- Clés admises dans `input` (références, jamais un montant) : 8 au plus, camelCase, et aucune ne
--- peut nommer un montant (défense en profondeur ; la commande refuse en plus toute valeur numérique).
+-- peut nommer un montant (défense en profondeur).
 ALTER TABLE core.support_manual_action_catalog
   ADD COLUMN input_keys text[] NOT NULL DEFAULT '{}'
     CONSTRAINT manual_action_catalog_input_keys_format CHECK (
@@ -63,8 +70,46 @@ ALTER TABLE core.support_manual_action_catalog
       AND pg_catalog.array_position(input_keys, NULL) IS NULL
       AND pg_catalog.array_to_string(input_keys, ',') ~ '^([a-z][A-Za-z]{0,31}(,[a-z][A-Za-z]{0,31})*)?$'
       AND pg_catalog.array_to_string(input_keys, ',') !~* '(amount|minor|montant|monto|valor|price|prix|precio|fee|total|refund|sum)');
+
+-- Valeurs admises (énumération FERMÉE) : un objet { clé : [valeurs] } dont les clés sont
+-- exactement `input_keys` ; chaque valeur est un mot (lettres et soulignés, jamais un chiffre),
+-- 16 au plus par clé. Aide IMMUABLE de la contrainte (propriétaire migrator, EXECUTE à personne).
+CREATE FUNCTION core.support_input_values_valid(p_keys text[], p_values jsonb)
+  RETURNS boolean
+  LANGUAGE sql
+  IMMUTABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT pg_catalog.jsonb_typeof(p_values) = 'object'
+     AND (SELECT pg_catalog.count(DISTINCT k) FROM pg_catalog.unnest(p_keys) AS k)
+         = pg_catalog.cardinality(p_keys)
+     AND (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(p_values) AS o)
+         = pg_catalog.cardinality(p_keys)
+     AND NOT EXISTS (
+           SELECT 1 FROM pg_catalog.unnest(p_keys) AS k
+            WHERE pg_catalog.jsonb_typeof(p_values -> k) IS DISTINCT FROM 'array'
+               OR pg_catalog.jsonb_array_length(p_values -> k) NOT BETWEEN 1 AND 16
+               OR EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(p_values -> k) AS v
+                           WHERE pg_catalog.jsonb_typeof(v) <> 'string'
+                              OR (v #>> '{}') !~ '^[A-Za-z][A-Za-z_]{0,31}$'))
+$fn$;
+REVOKE ALL ON FUNCTION core.support_input_values_valid(text[], jsonb) FROM PUBLIC;
+
+ALTER TABLE core.support_manual_action_catalog
+  ADD COLUMN input_values jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN requires_approval boolean NOT NULL DEFAULT false;
+ALTER TABLE core.support_manual_action_catalog
+  ADD CONSTRAINT manual_action_catalog_input_values_valid
+    CHECK (core.support_input_values_valid(input_keys, input_values)),
+  ADD CONSTRAINT manual_action_catalog_approval_domain
+    CHECK (NOT requires_approval OR mode = 'DOMAIN_COMMAND');
 COMMENT ON COLUMN core.support_manual_action_catalog.input_keys IS
-  'Clés admises dans manual_action.input pour cette action (chaînes courtes, jamais un montant). US-101.';
+  'Clés admises dans manual_action.input pour cette action (jamais un montant). US-101.';
+COMMENT ON COLUMN core.support_manual_action_catalog.input_values IS
+  'Énumération fermée des valeurs admises par clé (mots, jamais un nombre). US-101.';
+COMMENT ON COLUMN core.support_manual_action_catalog.requires_approval IS
+  'Action d''argent : la commande liée n''est qu''une demande (REQUESTED), approuvée par une '
+  'seconde personne ; DONE est refusé et seule la demande FINANCE peut être liée. US-101.';
 COMMENT ON COLUMN core.support_manual_action_catalog.available IS
   'RECORD_ONLY : action ouverte. DOMAIN_COMMAND : ignoré ; disponible ssi une commande est liée '
   '(support_manual_action_handler). US-012, US-101.';
@@ -73,39 +118,25 @@ COMMENT ON COLUMN core.support_manual_action_catalog.available IS
 -- sont indisponibles tant que leur story ne les lie pas (US-208 annulations, story du no-show,
 -- US-123 KYC et vérification d'hôte, US-124 annonce, retards, revue de réservation).
 INSERT INTO core.support_manual_action_catalog
-       (action_code, permission_code, mode, subject_type, available, input_keys)
+       (action_code, permission_code, mode, subject_type, available, input_keys, input_values,
+        requires_approval)
 VALUES
-  ('CANCEL_TRIP_GUEST',          'ops.platform_cancel',           'DOMAIN_COMMAND', 'TRIP',                  false, '{}'),
-  ('CANCEL_TRIP_HOST',           'ops.platform_cancel',           'DOMAIN_COMMAND', 'TRIP',                  false, '{}'),
-  ('REFUSE_AT_PICKUP',           'kyc.license_check_at_handover', 'DOMAIN_COMMAND', 'TRIP',                  false, '{}'),
-  ('KYC_DECISION',               'kyc.decide',                    'DOMAIN_COMMAND', 'IDENTITY_VERIFICATION', false, '{decision}'),
-  ('HOST_VERIFICATION_DECISION', 'ops.review_listing_host',       'DOMAIN_COMMAND', 'ORGANIZATION',          false, '{decision}'),
-  ('PUBLISH_LISTING',            'ops.review_listing_host',       'DOMAIN_COMMAND', 'LISTING',               false, '{}'),
-  ('ESCALATE_OVERDUE',           'ops.force_terminate_trip',      'DOMAIN_COMMAND', 'TRIP',                  false, '{}'),
-  ('REVIEW_FLAGGED_BOOKING',     'kyc.decide',                    'DOMAIN_COMMAND', 'TRIP',                  false, '{decision}'),
-  ('ISSUE_DECISION',             'dispute.decide',                'RECORD_ONLY',    'TRIP',                  true,  '{}'),
-  ('RECORD_CHARGEBACK',          'dispute.decide',                'RECORD_ONLY',    'TRIP',                  true,  '{}'),
-  ('OPEN_INCIDENT',              'claim.declare',                 'RECORD_ONLY',    'TRIP',                  true,  '{}'),
-  ('RECORD_REVIEW',              'ops.review_listing_host',       'RECORD_ONLY',    'TRIP',                  true,  '{}'),
-  ('HANDLE_DSR',                 'data.export',                   'RECORD_ONLY',    'SUPPORT_CASE',          true,  '{}'),
-  ('ISSUE_BORDEREAU',            'finance.insurer_bordereau',     'DOMAIN_COMMAND', 'INSURER_BORDEREAU',     false, '{}'),
-  ('DECIDE_ADVANCE',             'finance.platform_advance',      'DOMAIN_COMMAND', 'PLATFORM_ADVANCE',      false, '{}'),
-  ('WRITE_OFF_RECEIVABLE',       'finance.platform_advance',      'DOMAIN_COMMAND', 'PLATFORM_ADVANCE',      false, '{}');
-
--- Matrice (17 §2.3, colonnes OPS et ADMIN ; PROPOSÉ là où 17 ne nomme pas l'action) -------------
-INSERT INTO core.iam_role_permission (role, permission_code, scope_rule, valid_from, change_reason)
-VALUES
-  ('OPS_AGENT',  'kyc.license_check_at_handover', 'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('OPS_AGENT',  'kyc.decide',                    'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('ADMIN',      'kyc.decide',                    'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('OPS_AGENT',  'ops.review_listing_host',       'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('ADMIN',      'ops.review_listing_host',       'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('OPS_AGENT',  'ops.force_terminate_trip',      'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('ADMIN',      'ops.force_terminate_trip',      'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('OPS_AGENT',  'dispute.decide',                'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3 (FINANCE lim. non semé)'),
-  ('ADMIN',      'dispute.decide',                'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
-  ('ADMIN',      'data.export',                   'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3 (DSR, journalisé)'),
-  ('SUPERADMIN', 'data.export',                   'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3 (DSR, journalisé)');
+  ('CANCEL_TRIP_GUEST',          'ops.platform_cancel',           'DOMAIN_COMMAND', 'TRIP',                  false, '{}',         '{}', false),
+  ('CANCEL_TRIP_HOST',           'ops.platform_cancel',           'DOMAIN_COMMAND', 'TRIP',                  false, '{}',         '{}', false),
+  ('REFUSE_AT_PICKUP',           'kyc.license_check_at_handover', 'DOMAIN_COMMAND', 'TRIP',                  false, '{}',         '{}', false),
+  ('KYC_DECISION',               'kyc.decide',                    'DOMAIN_COMMAND', 'IDENTITY_VERIFICATION', false, '{decision}', '{"decision": ["APPROVED", "REJECTED"]}', false),
+  ('HOST_VERIFICATION_DECISION', 'ops.review_listing_host',       'DOMAIN_COMMAND', 'ORGANIZATION',          false, '{decision}', '{"decision": ["APPROVED", "REJECTED"]}', false),
+  ('PUBLISH_LISTING',            'ops.review_listing_host',       'DOMAIN_COMMAND', 'LISTING',               false, '{}',         '{}', false),
+  ('ESCALATE_OVERDUE',           'ops.force_terminate_trip',      'DOMAIN_COMMAND', 'TRIP',                  false, '{}',         '{}', false),
+  ('REVIEW_FLAGGED_BOOKING',     'kyc.decide',                    'DOMAIN_COMMAND', 'TRIP',                  false, '{decision}', '{"decision": ["APPROVED", "REJECTED"]}', false),
+  ('ISSUE_DECISION',             'dispute.decide',                'RECORD_ONLY',    'TRIP',                  true,  '{}',         '{}', false),
+  ('RECORD_CHARGEBACK',          'dispute.decide',                'RECORD_ONLY',    'TRIP',                  true,  '{}',         '{}', false),
+  ('OPEN_INCIDENT',              'claim.declare',                 'RECORD_ONLY',    'TRIP',                  true,  '{}',         '{}', false),
+  ('RECORD_REVIEW',              'ops.review_listing_host',       'RECORD_ONLY',    'TRIP',                  true,  '{}',         '{}', false),
+  ('HANDLE_DSR',                 'data.export',                   'RECORD_ONLY',    'SUPPORT_CASE',          true,  '{}',         '{}', false),
+  ('ISSUE_BORDEREAU',            'finance.insurer_bordereau',     'DOMAIN_COMMAND', 'INSURER_BORDEREAU',     false, '{}',         '{}', true),
+  ('DECIDE_ADVANCE',             'finance.platform_advance',      'DOMAIN_COMMAND', 'PLATFORM_ADVANCE',      false, '{}',         '{}', true),
+  ('WRITE_OFF_RECEIVABLE',       'finance.platform_advance',      'DOMAIN_COMMAND', 'PLATFORM_ADVANCE',      false, '{}',         '{}', true);
 
 -- 2. manual_action : issue et référence de la commande de domaine ---------------------------------
 ALTER TABLE core.support_manual_action
@@ -124,77 +155,7 @@ GRANT SELECT (outcome, domain_ref) ON core.support_manual_action TO iam_staff_ow
 GRANT INSERT (evidence_file_ids, emitted_event_ids, outcome, domain_ref)
   ON core.support_manual_action TO iam_staff_owner;
 
--- 3. Liaison des commandes de domaine ------------------------------------------------------------
-CREATE TABLE core.support_manual_action_handler (
-  action_code text        CONSTRAINT manual_action_handler_pkey PRIMARY KEY
-    REFERENCES core.support_manual_action_catalog (action_code),
-  handler     regprocedure NOT NULL,
-  story       text        NOT NULL
-    CONSTRAINT manual_action_handler_story_format CHECK (story ~ '^US-[0-9]{3}$'),
-  bound_at    timestamptz NOT NULL DEFAULT platform.now()
-);
-ALTER TABLE core.support_manual_action_handler ENABLE ROW LEVEL SECURITY;
-ALTER TABLE core.support_manual_action_handler FORCE ROW LEVEL SECURITY;
-CREATE POLICY migrator_all ON core.support_manual_action_handler TO migrator USING (true) WITH CHECK (true);
-REVOKE ALL ON core.support_manual_action_handler FROM PUBLIC;
-GRANT SELECT ON core.support_manual_action_handler TO iam_staff_owner;
-CREATE POLICY iam_staff_select ON core.support_manual_action_handler FOR SELECT TO iam_staff_owner
-  USING (true);
-COMMENT ON TABLE core.support_manual_action_handler IS
-  'Commande de domaine liée à une action de console DOMAIN_COMMAND (ADR-091) : ajoutée par la '
-  'migration de la story qui livre la commande ; signature et droits vérifiés à la liaison. US-101.';
-
--- Garde de liaison : action DOMAIN_COMMAND ; signature exacte du gestionnaire
---   (p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb,
---    p_reason text, p_actor uuid, p_actor_role text)
---   RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[]) ;
--- exécutable par iam_staff_owner, JAMAIS par PUBLIC ni par un rôle applicatif.
-CREATE FUNCTION core.support_manual_action_handler_guard()
-  RETURNS trigger
-  LANGUAGE plpgsql
-  SET search_path = pg_catalog, pg_temp
-AS $fn$
-DECLARE
-  v_why text;
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM core.support_manual_action_catalog AS c
-                  WHERE c.action_code = NEW.action_code AND c.mode = 'DOMAIN_COMMAND') THEN
-    RAISE EXCEPTION 'manual_action_handler : action % sans commande de domaine', NEW.action_code
-      USING ERRCODE = 'check_violation', CONSTRAINT = 'manual_action_handler_domain_only';
-  END IF;
-  -- comparaisons sur le texte (un oidvector est indexé à partir de 0 : jamais égal à un ARRAY[])
-  SELECT CASE
-           WHEN NOT (p.proretset AND p.prorettype = 'record'::regtype) THEN 'retour'
-           WHEN pg_catalog.array_to_string(p.proallargtypes::regtype[]::text[], ',')
-                <> 'bytea,uuid,text,uuid,jsonb,text,uuid,text,text,uuid,uuid[]' THEN 'types'
-           WHEN pg_catalog.array_to_string(p.proargmodes::text[], '') <> 'iiiiiiiittt' THEN 'modes'
-           WHEN pg_catalog.array_to_string(p.proargnames[9:11], ',')
-                <> 'outcome,ref_id,emitted_event_ids' THEN 'colonnes'
-           WHEN pg_catalog.array_to_string(p.proconfig, ';') IS DISTINCT FROM
-                'search_path=pg_catalog, pg_temp' THEN 'search_path'
-           WHEN NOT pg_catalog.has_function_privilege('iam_staff_owner', p.oid, 'EXECUTE')
-             THEN 'EXECUTE iam_staff_owner'
-           WHEN pg_catalog.has_function_privilege('app_api', p.oid, 'EXECUTE')
-             OR pg_catalog.has_function_privilege('app_worker', p.oid, 'EXECUTE')
-             OR pg_catalog.has_function_privilege('app_anon', p.oid, 'EXECUTE')
-             THEN 'EXECUTE rôle applicatif'
-         END
-    INTO v_why
-    FROM pg_catalog.pg_proc AS p
-   WHERE p.oid = NEW.handler;
-  IF NOT FOUND OR v_why IS NOT NULL THEN
-    RAISE EXCEPTION 'manual_action_handler : gestionnaire % non conforme (%)', NEW.handler,
-                    COALESCE(v_why, 'introuvable')
-      USING ERRCODE = 'check_violation', CONSTRAINT = 'manual_action_handler_signature';
-  END IF;
-  RETURN NEW;
-END
-$fn$;
-REVOKE ALL ON FUNCTION core.support_manual_action_handler_guard() FROM PUBLIC;
-CREATE TRIGGER manual_action_handler_guard BEFORE INSERT OR UPDATE ON core.support_manual_action_handler
-  FOR EACH ROW EXECUTE FUNCTION core.support_manual_action_handler_guard();
-
--- 4. Lectures d'iam_staff_owner : pays des sujets, pièces ------------------------------------------
+-- 3. Lectures d'iam_staff_owner : pays des sujets, pièces ------------------------------------------
 GRANT SELECT (id, country_code) ON core.iam_organization TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.iam_organization FOR SELECT TO iam_staff_owner USING (true);
 GRANT SELECT (id, country_code) ON core.settlement_platform_advance TO iam_staff_owner;
@@ -206,36 +167,109 @@ CREATE POLICY iam_staff_select ON core.settlement_insurer_bordereau FOR SELECT T
 GRANT SELECT (id, bucket, deleted_at) ON core.audit_file_asset TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.audit_file_asset FOR SELECT TO iam_staff_owner USING (true);
 
--- 5. Aides internes (SECURITY INVOKER, exécutées sous iam_staff_owner) -----------------------------
--- Pays d'un sujet, relu en base. `known` = le type a une table en Bêta ; `country` NULL = sujet
--- introuvable. Une story qui crée la table d'un type (IDENTITY_VERIFICATION, LISTING) remplace
--- cette fonction (CREATE OR REPLACE) en ajoutant sa branche.
-CREATE FUNCTION core.support_subject_country(p_type text, p_id uuid)
-  RETURNS TABLE (known boolean, country text)
-  LANGUAGE plpgsql
+-- 4. Types de sujet déclarés et leur résolveur de pays ------------------------------------------------
+-- Un type est CONNU s'il a une ligne ; son résolveur rend le pays d'un sujet (NULL : introuvable).
+-- Une story qui crée la table d'un type (IDENTITY_VERIFICATION : US-123, LISTING : US-124) AJOUTE
+-- sa ligne et son résolveur (INSERT), sans réécrire de fonction partagée. Signature du résolveur :
+-- (p_id uuid) RETURNS text, STABLE, search_path figé, exécutable par iam_staff_owner, jamais par un
+-- rôle applicatif (déclencheur).
+CREATE TABLE core.support_manual_action_subject (
+  subject_type text        CONSTRAINT manual_action_subject_pkey PRIMARY KEY
+    CONSTRAINT manual_action_subject_type_format CHECK (subject_type ~ '^[A-Z][A-Z_]{1,63}$'),
+  resolver     regprocedure NOT NULL,
+  story        text        NOT NULL
+    CONSTRAINT manual_action_subject_story_format CHECK (story ~ '^US-[0-9]{3}$'),
+  declared_at  timestamptz NOT NULL DEFAULT platform.now()
+);
+ALTER TABLE core.support_manual_action_subject ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.support_manual_action_subject FORCE ROW LEVEL SECURITY;
+CREATE POLICY migrator_all ON core.support_manual_action_subject TO migrator USING (true) WITH CHECK (true);
+REVOKE ALL ON core.support_manual_action_subject FROM PUBLIC;
+GRANT SELECT ON core.support_manual_action_subject TO iam_staff_owner;
+CREATE POLICY iam_staff_select ON core.support_manual_action_subject FOR SELECT TO iam_staff_owner
+  USING (true);
+COMMENT ON TABLE core.support_manual_action_subject IS
+  'Types de sujet des actions de console et résolveur du pays (ADR-091) : une ligne par type, '
+  'ajoutée par la story qui crée la table du type ; signature vérifiée à la déclaration. US-101.';
+
+-- Contrôle d'un résolveur : NULL si conforme, sinon le contrôle en échec.
+CREATE FUNCTION core.support_subject_resolver_check(p_resolver regprocedure)
+  RETURNS text
+  LANGUAGE sql
   STABLE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+  SELECT COALESCE(
+           (SELECT CASE
+                     WHEN p.proretset OR p.prorettype <> 'text'::regtype THEN 'retour'
+                     WHEN pg_catalog.oidvectortypes(p.proargtypes) <> 'uuid' OR p.proallargtypes IS NOT NULL
+                       THEN 'types'
+                     WHEN p.provolatile = 'v' THEN 'volatilité'
+                     WHEN pg_catalog.array_to_string(p.proconfig, ';') IS DISTINCT FROM
+                          'search_path=pg_catalog, pg_temp' THEN 'search_path'
+                     WHEN NOT pg_catalog.has_function_privilege('iam_staff_owner', p.oid, 'EXECUTE')
+                       THEN 'EXECUTE iam_staff_owner'
+                     WHEN pg_catalog.has_function_privilege('app_api', p.oid, 'EXECUTE')
+                       OR pg_catalog.has_function_privilege('app_worker', p.oid, 'EXECUTE')
+                       OR pg_catalog.has_function_privilege('app_anon', p.oid, 'EXECUTE')
+                       THEN 'EXECUTE rôle applicatif'
+                   END
+              FROM pg_catalog.pg_proc AS p WHERE p.oid = p_resolver),
+           CASE WHEN NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc AS p WHERE p.oid = p_resolver)
+                THEN 'introuvable' END)
+$fn$;
+REVOKE ALL ON FUNCTION core.support_subject_resolver_check(regprocedure) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.support_subject_resolver_check(regprocedure) TO iam_staff_owner;
+
+CREATE FUNCTION core.support_manual_action_subject_guard()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_why text := core.support_subject_resolver_check(NEW.resolver);
 BEGIN
-  IF p_type = 'TRIP' THEN
-    RETURN QUERY SELECT true, (SELECT t.country_code FROM core.booking_trip AS t WHERE t.id = p_id);
-  ELSIF p_type = 'ORGANIZATION' THEN
-    RETURN QUERY SELECT true, (SELECT o.country_code FROM core.iam_organization AS o WHERE o.id = p_id);
-  ELSIF p_type = 'SUPPORT_CASE' THEN
-    RETURN QUERY SELECT true, (SELECT c.country_code FROM core.support_support_case AS c WHERE c.id = p_id);
-  ELSIF p_type = 'PLATFORM_ADVANCE' THEN
-    RETURN QUERY SELECT true,
-      (SELECT a.country_code FROM core.settlement_platform_advance AS a WHERE a.id = p_id);
-  ELSIF p_type = 'INSURER_BORDEREAU' THEN
-    RETURN QUERY SELECT true,
-      (SELECT b.country_code FROM core.settlement_insurer_bordereau AS b WHERE b.id = p_id);
-  ELSE
-    RETURN QUERY SELECT false, NULL::text;
+  IF v_why IS NOT NULL THEN
+    RAISE EXCEPTION 'manual_action_subject : résolveur % non conforme (%)', NEW.resolver, v_why
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'manual_action_subject_resolver';
   END IF;
+  RETURN NEW;
 END
 $fn$;
-REVOKE ALL ON FUNCTION core.support_subject_country(text, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.support_subject_country(text, uuid) TO iam_staff_owner;
+REVOKE ALL ON FUNCTION core.support_manual_action_subject_guard() FROM PUBLIC;
+CREATE TRIGGER manual_action_subject_guard BEFORE INSERT OR UPDATE ON core.support_manual_action_subject
+  FOR EACH ROW EXECUTE FUNCTION core.support_manual_action_subject_guard();
+
+-- Résolveurs des types qui ont une table en Bêta (SECURITY INVOKER, sous iam_staff_owner)
+CREATE FUNCTION core.support_country_of_trip(p_id uuid)
+  RETURNS text LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
+AS $fn$ SELECT t.country_code FROM core.booking_trip AS t WHERE t.id = p_id $fn$;
+CREATE FUNCTION core.support_country_of_organization(p_id uuid)
+  RETURNS text LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
+AS $fn$ SELECT o.country_code FROM core.iam_organization AS o WHERE o.id = p_id $fn$;
+CREATE FUNCTION core.support_country_of_support_case(p_id uuid)
+  RETURNS text LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
+AS $fn$ SELECT c.country_code FROM core.support_support_case AS c WHERE c.id = p_id $fn$;
+CREATE FUNCTION core.support_country_of_platform_advance(p_id uuid)
+  RETURNS text LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
+AS $fn$ SELECT a.country_code FROM core.settlement_platform_advance AS a WHERE a.id = p_id $fn$;
+CREATE FUNCTION core.support_country_of_insurer_bordereau(p_id uuid)
+  RETURNS text LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
+AS $fn$ SELECT b.country_code FROM core.settlement_insurer_bordereau AS b WHERE b.id = p_id $fn$;
+REVOKE ALL ON FUNCTION core.support_country_of_trip(uuid), core.support_country_of_organization(uuid),
+  core.support_country_of_support_case(uuid), core.support_country_of_platform_advance(uuid),
+  core.support_country_of_insurer_bordereau(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.support_country_of_trip(uuid), core.support_country_of_organization(uuid),
+  core.support_country_of_support_case(uuid), core.support_country_of_platform_advance(uuid),
+  core.support_country_of_insurer_bordereau(uuid) TO iam_staff_owner;
+
+INSERT INTO core.support_manual_action_subject (subject_type, resolver, story)
+VALUES
+  ('TRIP',              'core.support_country_of_trip(uuid)'::regprocedure,              'US-101'),
+  ('ORGANIZATION',      'core.support_country_of_organization(uuid)'::regprocedure,      'US-101'),
+  ('SUPPORT_CASE',      'core.support_country_of_support_case(uuid)'::regprocedure,      'US-101'),
+  ('PLATFORM_ADVANCE',  'core.support_country_of_platform_advance(uuid)'::regprocedure,  'US-101'),
+  ('INSURER_BORDEREAU', 'core.support_country_of_insurer_bordereau(uuid)'::regprocedure, 'US-101');
 
 -- p_user détient-il p_permission par un rôle EN COURS, quel qu'en soit le pays ?
 CREATE FUNCTION core.support_staff_holds_permission(p_user uuid, p_permission text)
@@ -256,10 +290,119 @@ $fn$;
 REVOKE ALL ON FUNCTION core.support_staff_holds_permission(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.support_staff_holds_permission(uuid, text) TO iam_staff_owner;
 
+-- 5. Liaison des commandes de domaine ------------------------------------------------------------
+CREATE TABLE core.support_manual_action_handler (
+  action_code text        CONSTRAINT manual_action_handler_pkey PRIMARY KEY
+    REFERENCES core.support_manual_action_catalog (action_code),
+  handler     regprocedure NOT NULL,
+  story       text        NOT NULL
+    CONSTRAINT manual_action_handler_story_format CHECK (story ~ '^US-[0-9]{3}$'),
+  bound_at    timestamptz NOT NULL DEFAULT platform.now()
+);
+ALTER TABLE core.support_manual_action_handler ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.support_manual_action_handler FORCE ROW LEVEL SECURITY;
+CREATE POLICY migrator_all ON core.support_manual_action_handler TO migrator USING (true) WITH CHECK (true);
+REVOKE ALL ON core.support_manual_action_handler FROM PUBLIC;
+GRANT SELECT ON core.support_manual_action_handler TO iam_staff_owner;
+CREATE POLICY iam_staff_select ON core.support_manual_action_handler FOR SELECT TO iam_staff_owner
+  USING (true);
+COMMENT ON TABLE core.support_manual_action_handler IS
+  'Commande de domaine liée à une action de console DOMAIN_COMMAND (ADR-091) : ajoutée par la '
+  'migration de la story qui livre la commande ; contrôlée à la liaison ET à chaque appel. US-101.';
+
+-- Contrôle d'une liaison : NULL si conforme, sinon le contrôle en échec. Appelé par le
+-- déclencheur de liaison ET par la commande de console à CHAQUE appel (un droit accordé plus tard
+-- à un rôle applicatif sur un gestionnaire lié rend l'action indisponible : fail-closed).
+--   domaine      : l'action est DOMAIN_COMMAND ;
+--   approbation  : une action requires_approval n'est liée qu'à la demande FINANCE ;
+--   retour, types, modes, colonnes : signature exacte
+--     (p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb,
+--      p_reason text, p_actor uuid, p_actor_role text)
+--     RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[]) ;
+--   search_path  : figé ;
+--   SECURITY DEFINER : le gestionnaire n'hérite jamais des droits larges d'iam_staff_owner ;
+--   propriétaire : NOLOGIN et autre qu'iam_staff_owner ;
+--   EXECUTE      : accordé à iam_staff_owner, JAMAIS à app_api, app_worker ni app_anon (le
+--                  gestionnaire reçoit l'acteur en argument : exposé, il permettrait de le forger).
+-- Comparaisons sur le texte (un oidvector est indexé à partir de 0 : jamais égal à un ARRAY[]).
+CREATE FUNCTION core.support_manual_action_handler_check(p_action text, p_handler regprocedure)
+  RETURNS text
+  LANGUAGE plpgsql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_cat record;
+  v_why text;
+BEGIN
+  SELECT c.mode, c.requires_approval INTO v_cat
+    FROM core.support_manual_action_catalog AS c WHERE c.action_code = p_action;
+  IF v_cat.mode IS DISTINCT FROM 'DOMAIN_COMMAND' THEN
+    RETURN 'domaine';
+  END IF;
+  IF v_cat.requires_approval
+     AND p_handler <> 'core.support_manual_action_finance_request(bytea, uuid, text, uuid, jsonb, text, uuid, text)'::regprocedure THEN
+    RETURN 'approbation';
+  END IF;
+  SELECT CASE
+           WHEN NOT (p.proretset AND p.prorettype = 'record'::regtype) THEN 'retour'
+           WHEN pg_catalog.array_to_string(p.proallargtypes::regtype[]::text[], ',')
+                IS DISTINCT FROM 'bytea,uuid,text,uuid,jsonb,text,uuid,text,text,uuid,uuid[]' THEN 'types'
+           WHEN pg_catalog.array_to_string(p.proargmodes::text[], '') <> 'iiiiiiiittt' THEN 'modes'
+           WHEN pg_catalog.array_to_string(p.proargnames[9:11], ',')
+                IS DISTINCT FROM 'outcome,ref_id,emitted_event_ids' THEN 'colonnes'
+           WHEN pg_catalog.array_to_string(p.proconfig, ';') IS DISTINCT FROM
+                'search_path=pg_catalog, pg_temp' THEN 'search_path'
+           WHEN NOT p.prosecdef THEN 'SECURITY DEFINER'
+           WHEN r.rolcanlogin OR r.rolname = 'iam_staff_owner' THEN 'propriétaire'
+           WHEN NOT pg_catalog.has_function_privilege('iam_staff_owner', p.oid, 'EXECUTE')
+             THEN 'EXECUTE iam_staff_owner'
+           WHEN pg_catalog.has_function_privilege('app_api', p.oid, 'EXECUTE')
+             OR pg_catalog.has_function_privilege('app_worker', p.oid, 'EXECUTE')
+             OR pg_catalog.has_function_privilege('app_anon', p.oid, 'EXECUTE')
+             THEN 'EXECUTE rôle applicatif'
+         END
+    INTO v_why
+    FROM pg_catalog.pg_proc AS p
+    JOIN pg_catalog.pg_roles AS r ON r.oid = p.proowner
+   WHERE p.oid = p_handler;
+  IF NOT FOUND THEN
+    RETURN 'introuvable';
+  END IF;
+  RETURN v_why;
+END
+$fn$;
+REVOKE ALL ON FUNCTION core.support_manual_action_handler_check(text, regprocedure) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.support_manual_action_handler_check(text, regprocedure) TO iam_staff_owner;
+
+CREATE FUNCTION core.support_manual_action_handler_guard()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_why text := core.support_manual_action_handler_check(NEW.action_code, NEW.handler);
+BEGIN
+  IF v_why IS NOT NULL THEN
+    RAISE EXCEPTION 'manual_action_handler : liaison de % à % non conforme (%)', NEW.action_code,
+                    NEW.handler, v_why
+      USING ERRCODE = 'check_violation',
+            CONSTRAINT = CASE v_why WHEN 'domaine' THEN 'manual_action_handler_domain_only'
+                                    WHEN 'approbation' THEN 'manual_action_handler_approval'
+                                    ELSE 'manual_action_handler_signature' END;
+  END IF;
+  RETURN NEW;
+END
+$fn$;
+REVOKE ALL ON FUNCTION core.support_manual_action_handler_guard() FROM PUBLIC;
+CREATE TRIGGER manual_action_handler_guard BEFORE INSERT OR UPDATE ON core.support_manual_action_handler
+  FOR EACH ROW EXECUTE FUNCTION core.support_manual_action_handler_guard();
+
 -- 6. Commande de domaine FINANCE liée (une demande, jamais un effet d'argent) ---------------------
--- La demande relit elle-même session, TOTP, contexte STAFF, permission, portée pays et éligibilité
--- du sujet, et journalise ses refus (0036). Les deux approbateurs restent deux personnes distinctes
--- (cmd_approve_finance_action, appelée par la console hors de ce cadre).
+-- SECURITY DEFINER, propriétaire cmd_money_owner (celui de la demande), EXECUTE au seul
+-- iam_staff_owner. La demande relit elle-même session, TOTP, contexte STAFF, permission, portée
+-- pays et éligibilité du sujet, et journalise ses refus (0036). Les deux approbateurs restent deux
+-- personnes distinctes (cmd_approve_finance_action, appelée par la console hors de ce cadre).
 CREATE FUNCTION core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid,
                                                            p_action_code text, p_subject_id uuid,
                                                            p_input jsonb, p_reason text,
@@ -267,23 +410,23 @@ CREATE FUNCTION core.support_manual_action_finance_request(p_token_hash bytea, p
   RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])
   LANGUAGE sql
   VOLATILE
+  SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT f.outcome, f.approval_id, '{}'::uuid[]
     FROM core.settlement_cmd_request_finance_action(p_token_hash, p_action_id, p_action_code,
                                                     p_subject_id, p_reason) AS f
 $fn$;
+COMMENT ON FUNCTION core.support_manual_action_finance_request(bytea, uuid, text, uuid, jsonb, text, uuid, text) IS
+  'Commande liée aux actions FINANCE de la console : demande seule (REQUESTED), 0036. US-101.';
 REVOKE ALL ON FUNCTION core.support_manual_action_finance_request(bytea, uuid, text, uuid, jsonb, text,
                                                                   uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.support_manual_action_finance_request(bytea, uuid, text, uuid, jsonb, text,
                                                                      uuid, text) TO iam_staff_owner;
-
--- la demande FINANCE est appelée par le gestionnaire, sous iam_staff_owner (son propriétaire
--- cmd_money_owner accorde le droit ; ADR-044 amendé)
-SET LOCAL ROLE cmd_money_owner;
-GRANT EXECUTE ON FUNCTION core.settlement_cmd_request_finance_action(bytea, uuid, text, uuid, text)
-  TO iam_staff_owner;
-RESET ROLE;
+GRANT CREATE ON SCHEMA core TO cmd_money_owner;
+ALTER FUNCTION core.support_manual_action_finance_request(bytea, uuid, text, uuid, jsonb, text, uuid, text)
+  OWNER TO cmd_money_owner;
+REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
 
 INSERT INTO core.support_manual_action_handler (action_code, handler, story)
 VALUES
@@ -320,7 +463,8 @@ AS $fn$
 DECLARE
   v_s        record;
   v_cat      record;
-  v_subject  record;
+  v_resolver regprocedure;
+  v_known    boolean;
   v_prev     record;
   v_h        record;
   v_input    jsonb := COALESCE(p_input, '{}'::jsonb);
@@ -331,6 +475,7 @@ DECLARE
   v_key      text;
   v_value    jsonb;
   v_handler  regprocedure;
+  v_bad      text;
   v_call     text;
   v_outcome  text;
   v_ref      uuid;
@@ -342,7 +487,8 @@ BEGIN
     RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid, NULL::uuid, NULL::text;
     RETURN;
   END IF;
-  SELECT c.action_code, c.permission_code, c.mode, c.subject_type, c.available, c.input_keys INTO v_cat
+  SELECT c.action_code, c.permission_code, c.mode, c.subject_type, c.available, c.input_keys,
+         c.input_values, c.requires_approval INTO v_cat
     FROM core.support_manual_action_catalog AS c WHERE c.action_code = p_action_code;
   IF v_cat.action_code IS NULL OR p_request_id IS NULL OR p_subject_id IS NULL
      OR p_reason IS NULL OR pg_catalog.char_length(pg_catalog.btrim(p_reason)) NOT BETWEEN 10 AND 1000
@@ -361,11 +507,17 @@ BEGIN
     RETURN;
   END IF;
 
-  -- pays du sujet, relu en base (jamais reçu du client), puis permission et portée pays
-  SELECT r.known, r.country INTO v_subject
-    FROM core.support_subject_country(v_cat.subject_type, p_subject_id) AS r;
-  IF v_subject.known THEN
-    v_country := v_subject.country;
+  -- pays du sujet, relu en base par le résolveur déclaré du type (jamais reçu du client), puis
+  -- permission et portée pays. Le nom du résolveur est lu dans pg_proc, la valeur est liée.
+  SELECT s.resolver INTO v_resolver
+    FROM core.support_manual_action_subject AS s WHERE s.subject_type = v_cat.subject_type;
+  -- un résolveur devenu non conforme (droit accordé plus tard…) : type traité comme inconnu
+  v_known := v_resolver IS NOT NULL AND core.support_subject_resolver_check(v_resolver) IS NULL;
+  IF v_known THEN
+    SELECT pg_catalog.format('SELECT %I.%I($1)', n.nspname, p.proname) INTO v_call
+      FROM pg_catalog.pg_proc AS p JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+     WHERE p.oid = v_resolver;
+    EXECUTE v_call INTO v_country USING p_subject_id;
     IF v_country IS NULL THEN
       v_why := 'SUBJECT_NOT_FOUND';
     ELSE
@@ -388,7 +540,7 @@ BEGIN
     RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::uuid, NULL::uuid, NULL::text;
     RETURN;
   END IF;
-  IF NOT v_subject.known THEN
+  IF NOT v_known THEN
     -- type de sujet sans table en Bêta : aucune commande ne peut encore y être liée
     PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'MANUAL_ACTION_UNAVAILABLE', v_cat.subject_type,
                                  p_subject_id, NULL,
@@ -398,14 +550,13 @@ BEGIN
     RETURN;
   END IF;
 
-  -- règles de saisie de l'action : clés déclarées seulement, chaînes courtes, JAMAIS un nombre ni
-  -- une chaîne numérique (l'agent ne saisit jamais un montant : 19 US-101, 17 §10 NN3)
+  -- règles de saisie de l'action : clés déclarées seulement, et pour chacune une valeur de
+  -- l'énumération FERMÉE du catalogue (l'agent ne saisit jamais un montant : 19 US-101, 17 §10 NN3)
   FOR v_key, v_value IN SELECT e.key, e.value FROM pg_catalog.jsonb_each(v_input) AS e LOOP
     IF NOT (v_key = ANY (v_cat.input_keys))
        OR pg_catalog.jsonb_typeof(v_value) <> 'string'
-       OR pg_catalog.char_length(v_value #>> '{}') NOT BETWEEN 1 AND 200
-       OR (v_value #>> '{}') ~ '^\s*[-+]?[0-9]+([.,\s][0-9]+)*\s*$' THEN
-      RAISE EXCEPTION 'console : donnée % refusée (clé non déclarée, ou montant)', v_key
+       OR NOT COALESCE((v_cat.input_values -> v_key) ? (v_value #>> '{}'), false) THEN
+      RAISE EXCEPTION 'console : donnée % refusée (clé non déclarée ou valeur hors énumération)', v_key
         USING ERRCODE = 'invalid_parameter_value';
     END IF;
   END LOOP;
@@ -421,7 +572,11 @@ BEGIN
     RAISE EXCEPTION 'console : pièce inconnue' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  -- idempotence par (action, sujet, request_id) ; un request_id réutilisé ailleurs est refusé
+  -- idempotence par (action, sujet, request_id) ; un request_id réutilisé ailleurs est refusé.
+  -- Deux appels concurrents du même request_id sont sérialisés : le second attend la fin du
+  -- premier, puis voit sa ligne (DUPLICATE) au lieu d'une violation d'unicité.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('support.manual_action:' || p_request_id::text, 0));
   SELECT m.id, m.action_code, m.subject_id, m.outcome, m.domain_ref INTO v_prev
     FROM core.support_manual_action AS m WHERE m.id = p_request_id;
   IF v_prev.id IS NOT NULL THEN
@@ -445,6 +600,20 @@ BEGIN
     RETURN;
   END IF;
 
+  IF v_cat.mode = 'DOMAIN_COMMAND' THEN
+    -- invariant revérifié à chaque appel : une liaison devenue non conforme (droit accordé plus
+    -- tard à un rôle applicatif, propriétaire changé…) rend l'action indisponible, journalisé
+    v_bad := core.support_manual_action_handler_check(v_cat.action_code, v_handler);
+    IF v_bad IS NOT NULL THEN
+      PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'MANUAL_ACTION_UNAVAILABLE', v_cat.subject_type,
+                                   p_subject_id, NULL,
+                                   pg_catalog.jsonb_build_object('attempted', v_cat.action_code,
+                                     'country', v_country, 'handler', v_bad), p_reason, p_request_id);
+      RETURN QUERY SELECT 'UNAVAILABLE'::text, NULL::uuid, NULL::uuid, NULL::text;
+      RETURN;
+    END IF;
+  END IF;
+
   IF v_cat.mode = 'RECORD_ONLY' THEN
     v_outcome := 'RECORDED';
   ELSE
@@ -460,6 +629,11 @@ BEGIN
             pg_catalog.btrim(p_reason), v_s.user_id, v_role;
     IF v_h.outcome IS NULL THEN
       RAISE EXCEPTION 'console : la commande de domaine n''a rendu aucune issue';
+    END IF;
+    -- action d'argent : jamais un effet en une personne (RLS-24) ; une issue DONE annule tout
+    IF v_cat.requires_approval AND v_h.outcome = 'DONE' THEN
+      RAISE EXCEPTION 'console : % exige une seconde personne, issue DONE refusée', v_cat.action_code
+        USING ERRCODE = 'integrity_constraint_violation';
     END IF;
     IF v_h.outcome NOT IN ('DONE', 'REQUESTED') THEN
       PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'MANUAL_ACTION_REFUSED', v_cat.subject_type,
