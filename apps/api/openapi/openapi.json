@@ -375,6 +375,12 @@
               }
             }
           },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "409": {
             "description": "Version affichée des CGU ou de la confidentialité absente ou périmée (US-102) : recharger le formulaire",
             "content": {
@@ -389,12 +395,6 @@
                 }
               }
             }
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJson"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
           },
           "503": {
             "description": "Aucun document juridique en vigueur (fail-closed, US-102) : aucun compte créé",
@@ -599,6 +599,146 @@
           },
           "415": {
             "$ref": "#/components/responses/NotJson"
+          }
+        }
+      }
+    },
+    "/host/accounts": {
+      "post": {
+        "operationId": "openHostAccount",
+        "tags": ["iam"],
+        "summary": "Ouverture du compte d'hôte de la personne de la session (personne physique, un par pays ; US-107)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Compte d'hôte ouvert au statut ONBOARDING (activation : vérification de l'hôte, US-123)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostAccountOpened"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide ou pays inconnu de la configuration",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte de la personne non vérifié, restreint ou fermé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_ELIGIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La personne a déjà un compte d'hôte dans ce pays (une personne, un compte d'hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_EXISTS"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Personne morale (DEC-FONDATEUR-13) ou âge inférieur à host_min_age_years du pays",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ENTITY_NOT_ALLOWED", "HOST_UNDER_AGE"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Paramètre du pays absent (fail-closed) : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1257,14 +1397,17 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
           },
           "409": {
             "$ref": "#/components/responses/BrandConflict"
@@ -1291,9 +1434,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           },
           "503": {
             "description": "Stockage des fichiers indisponible",
@@ -1349,14 +1489,17 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
           },
           "409": {
             "$ref": "#/components/responses/BrandConflict"
@@ -1383,9 +1526,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1475,6 +1615,9 @@
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
           },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
           "404": {
             "description": "Version inconnue ou illisible",
             "headers": {
@@ -1494,9 +1637,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1542,14 +1682,23 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Version inconnue",
@@ -1570,12 +1719,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "422": {
             "description": "Contraste insuffisant (paires en cause dans details) ou jetons refusés",
@@ -1600,9 +1743,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1638,14 +1778,23 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Aucune version à restaurer",
@@ -1666,12 +1815,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "422": {
             "description": "La cible échoue au contrôle actuel",
@@ -1696,9 +1839,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1734,14 +1874,17 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
           },
           "409": {
             "$ref": "#/components/responses/BrandConflict"
@@ -1773,9 +1916,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1844,14 +1984,23 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Version de bloc inconnue",
@@ -1873,12 +2022,6 @@
               }
             }
           },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
-          },
           "422": {
             "description": "Clé de bloc refusée",
             "headers": {
@@ -1898,9 +2041,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -1936,14 +2076,23 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BrandRequestInvalid"
-          },
           "401": {
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
             "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "400": {
+            "$ref": "#/components/responses/BrandRequestInvalid"
+          },
+          "409": {
+            "$ref": "#/components/responses/BrandConflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
           },
           "404": {
             "description": "Aucune version à rétablir",
@@ -1965,12 +2114,6 @@
               }
             }
           },
-          "409": {
-            "$ref": "#/components/responses/BrandConflict"
-          },
-          "415": {
-            "$ref": "#/components/responses/NotJsonNoStore"
-          },
           "422": {
             "description": "Clé de bloc refusée",
             "headers": {
@@ -1990,9 +2133,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -3097,7 +3237,7 @@
       },
       "Session": {
         "type": "object",
-        "required": ["userId", "mfaLevel", "expiresAt", "emailVerified"],
+        "required": ["userId", "mfaLevel", "expiresAt", "emailVerified", "roles", "hostAccounts"],
         "additionalProperties": false,
         "properties": {
           "userId": {
@@ -3111,6 +3251,22 @@
           },
           "emailVerified": {
             "type": "boolean"
+          },
+          "roles": {
+            "description": "US-107 : GUEST pour tout compte ; P2P_HOST en plus pour le titulaire d'un compte d'hôte (17 §2.3).",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "enum": ["GUEST", "P2P_HOST"]
+            }
+          },
+          "hostAccounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostAccount"
+            }
           }
         }
       },
@@ -4236,6 +4392,60 @@
             "const": "common.auth.actionDone"
           },
           "approvalId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "HostAccount": {
+        "description": "Compte d'hôte dont la personne de la session est titulaire (US-107 ; 17 §3.2.1). Le nom affiché aux voyageurs est le prénom du titulaire [C2], jamais une raison sociale.",
+        "type": "object",
+        "required": ["orgId", "country", "role", "status", "displayName"],
+        "additionalProperties": false,
+        "properties": {
+          "orgId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "role": {
+            "const": "P2P_HOST"
+          },
+          "status": {
+            "enum": ["ONBOARDING", "PENDING_ACTIVATION", "ACTIVE", "SUSPENDED", "OFFBOARDED"]
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      },
+      "HostAccountRequest": {
+        "description": "Ouverture d'un compte d'hôte (US-107) : pays du compte et déclaration d'une personne physique. Aucun nom ni numéro fiscal n'est reçu ; une donnée de personne morale (legalName, tradeName, companyName, businessName, companyTaxId, legalEntity) ou holderKind LEGAL_ENTITY est refusée (422 HOST_ENTITY_NOT_ALLOWED).",
+        "type": "object",
+        "required": ["country", "holderKind"],
+        "properties": {
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "holderKind": {
+            "enum": ["INDIVIDUAL", "LEGAL_ENTITY"]
+          }
+        }
+      },
+      "HostAccountOpened": {
+        "type": "object",
+        "required": ["code", "messageKey", "orgId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "HOST_ACCOUNT_OPENED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "orgId": {
             "$ref": "#/components/schemas/Uuid"
           }
         }

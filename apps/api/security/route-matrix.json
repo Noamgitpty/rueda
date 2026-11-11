@@ -42,6 +42,9 @@
     "POST /auth/verify-email": {
       "acces": "public"
     },
+    "POST /host/accounts": {
+      "acces": "session"
+    },
     "POST /webhooks/{provider}/{publicWebhookId}": {
       "acces": "public",
       "idor": "point d'entrée d'un autre compte PSP : signature du compte visé exigée (17 §4.4), identifiant inconnu ⇒ 404 sans écriture"

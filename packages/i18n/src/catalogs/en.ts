@@ -251,6 +251,15 @@ export const EN_MESSAGES = {
   'backoffice.action.ISSUE_BORDEREAU': 'Request the insurer statement',
   'backoffice.action.DECIDE_ADVANCE': 'Request an advance decision',
   'backoffice.action.WRITE_OFF_RECEIVABLE': 'Request a receivable write-off',
+  // Compte d'hôte d'une personne physique (US-107), PROPOSÉS
+  'common.host.accountOpened': 'Your host account is open. Complete verification to list your car.',
+  'common.host.accountExists': 'You already have a host account here.',
+  'common.host.entityNotAllowed':
+    'Only individuals can host. We do not accept companies or agencies.',
+  'common.host.underAge': 'You have not yet reached the minimum age to host.',
+  'common.host.notEligible': 'Confirm your email and check your account status before hosting.',
+  'common.host.unavailable': 'We cannot open host accounts right now. Try again later.',
+  'backoffice.action.CREATE_HOST_ACCOUNT': 'Create a host account for a person',
   'backoffice.approvals.caption': 'Money requests awaiting approval',
   'backoffice.approvals.hint': 'A request is approved by someone other than its author.',
   'backoffice.approvals.request': 'Request',

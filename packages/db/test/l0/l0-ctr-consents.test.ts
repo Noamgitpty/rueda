@@ -657,7 +657,8 @@ describe('documents en vigueur, empreintes et droits', () => {
           rls: true,
           force: true,
           owner: 'migrator',
-          pols: 'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;migrator_all:migrator',
+          // US-107 (0061) : pays du compte lu par la console (résolveur du type USER_ACCOUNT)
+          pols: 'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator',
         },
         {
           t: 'contract_document_template',

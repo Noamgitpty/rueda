@@ -149,6 +149,12 @@ describe('schéma d’audit (US-009)', () => {
           expect(['r', 'a'], where).toContain(r.cmd);
           continue;
         }
+        if (r.roles === 'iam_auth_owner') {
+          // US-107 (0061) : ouverture d'un compte d'hôte journalisée, INSERT seulement
+          expect(where).toBe('audit_audit_log.iam_auth_host_insert');
+          expect(r.cmd, where).toBe('a');
+          continue;
+        }
         if (r.roles === 'audit_chain_owner') {
           // US-011 (0026) : lecture et verrou des clés, avance de la tête ; aucun INSERT / DELETE
           expect(['r', 'w'], where).toContain(r.cmd);

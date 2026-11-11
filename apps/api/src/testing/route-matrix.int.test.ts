@@ -325,6 +325,13 @@ async function requestOf(
       };
     case 'POST /legal/consents/marketing':
       return { method: 'POST', path: '/legal/consents/marketing', body: { optIn: false } };
+    // compte d'hôte (US-107) : la personne de la session, dans le pays de la cellule
+    case 'POST /host/accounts':
+      return {
+        method: 'POST',
+        path: '/host/accounts',
+        body: { country, holderKind: 'INDIVIDUAL' },
+      };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }

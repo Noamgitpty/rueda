@@ -8,7 +8,7 @@
  *
  * Exclus par construction : textes juridiques (CGU, contrat, politique d'annulation,
  * confidentialité, assurance : `document_template` versionnés, 17 §3.2.13), montants et règles.
- * `LEGAL_BLOCK_KEY` les reconnaît ; la base applique le même motif (migration 0061).
+ * `LEGAL_BLOCK_KEY` les reconnaît ; la base applique le même motif (migration 0062).
  */
 import type { MessageKey } from './catalogs/index.ts';
 import type { RichFormat } from './rich-text.ts';
@@ -42,7 +42,7 @@ export const BLOCK_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){
  * `responsable` (renommer la clé suffit). Faux négatif accepté : un segment `seguro` seul
  * (« sûr » en espagnol) n'est pas refusé ; l'assurance reste refusée par insurance, seguros,
  * seguro_, assurance, deductible, franqui. Motif recopié À L'IDENTIQUE dans
- * `core.cfg_content_key_not_legal` (0061) : la preuve L0 compare les deux.
+ * `core.cfg_content_key_not_legal` (0062) : la preuve L0 compare les deux.
  */
 export const LEGAL_BLOCK_KEY =
   /(^|[._])(tos|tyc|t_c|tandc|rgpd|lgpd|gdpr|dpa|lopd|aviso|mentions|impressum|imprint|license|licencia|licenca|cgu|cgv|cookies)([._]|$)|(legal|terms|terminos|termino_|termos|condiciones|condicoes|conditions|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancellation|cancelacion|cancelamento|annulation|refund|reembols|rembours|insurance|seguros|seguro_|segurador|assurance|protection|policy|politic|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)/;

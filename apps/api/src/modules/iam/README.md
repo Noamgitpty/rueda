@@ -8,8 +8,8 @@ D'après 17 §2.2 : comptes, authentification (mot de passe, OTP, TOTP du staff)
 
 État du code :
 
-- **livré** : inscription, vérification de l'e-mail, connexion, sessions, déconnexion, garde `SessionGuard` et port `AuthenticationPort` (US-010, ADR-052) ; inscription avec consentements versionnés (CGU, confidentialité, communications ; US-102, ADR-091) et envoi des e-mails d'identité par un canal NTF (`ChannelIdentityNotifier`) ; MFA TOTP du staff et garde de la console interne `StaffGuard` (US-012, ADR-062) ; coordonnées des destinataires pour NTF (US-021, ADR-061) ; permissions de l'hôte `app.has_permission` en base (US-062) ;
-- **pas encore** : OTP téléphone (US-104), restrictions, invitations de co-hôtes, blocage voyageur, émission d'événements. L'envoi réel de l'e-mail de vérification attend le câblage NTF : `PendingIdentityNotifier` n'envoie rien (fail-closed, le compte reste en attente).
+- **livré** : inscription, vérification de l'e-mail, connexion, sessions, déconnexion, garde `SessionGuard` et port `AuthenticationPort` (US-010, ADR-052) ; inscription avec consentements versionnés (CGU, confidentialité, communications ; US-102, ADR-091) et envoi des e-mails d'identité par un canal NTF (`ChannelIdentityNotifier`) ; MFA TOTP du staff et garde de la console interne `StaffGuard` (US-012, ADR-062) ; coordonnées des destinataires pour NTF (US-021, ADR-061) ; permissions de l'hôte `app.has_permission` en base (US-062) ; compte d'hôte d'une personne physique (US-107, ADR-096) : ouverture en libre-service (`POST /host/accounts`) ou par l'action de console `CREATE_HOST_ACCOUNT`, rôles et comptes d'hôte dans `GET /auth/session` ;
+- **pas encore** : OTP téléphone (US-104), restrictions, invitations de co-hôtes, blocage voyageur, émission d'événements (dont `iam.organization.created`), activation du compte d'hôte (US-123). L'envoi réel de l'e-mail de vérification attend le câblage NTF : `PendingIdentityNotifier` n'envoie rien (fail-closed, le compte reste en attente).
 
 Détail des routes, de la sécurité et des paramètres PROPOSÉS : [`AUTH.md`](AUTH.md).
 
@@ -24,8 +24,8 @@ Entités de 17 §3.2.1 :
 | `auth_factor`           | table `core.iam_auth_factor` (migration 0010, TOTP 0033) |
 | `session`               | table `core.iam_session` (migration 0010)                |
 | `otp_challenge`         | table `core.iam_otp_challenge` (migration 0010)          |
-| `organization`          | table `core.iam_organization` (migration 0010)           |
-| `membership`            | table `core.iam_membership` (migration 0010)             |
+| `organization`          | table `core.iam_organization` (0010 ; écrite par 0061)   |
+| `membership`            | table `core.iam_membership` (0010 ; écrite par 0061)     |
 | `staff_role_assignment` | table `core.iam_staff_role_assignment` (migration 0010)  |
 | `role_permission`       | table `core.iam_role_permission` (migration 0010)        |
 | `restriction`           | table `core.iam_restriction` (migration 0010)            |

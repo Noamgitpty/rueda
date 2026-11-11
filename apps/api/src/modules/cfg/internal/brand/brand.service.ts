@@ -623,7 +623,7 @@ export class BrandConsoleService {
   ) {
     const cls = classifyBlockKey(blockKey, this.#registry);
     if (cls.kind === 'legal') {
-      // texte juridique : la base relit les droits, refuse et JOURNALISE la tentative (0061) ;
+      // texte juridique : la base relit les droits, refuse et JOURNALISE la tentative (0062) ;
       // aucun corps n'est transmis
       const refused = await this.#store.saveContentDraft(
         tokenHash,

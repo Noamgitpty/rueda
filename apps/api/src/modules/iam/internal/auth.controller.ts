@@ -8,7 +8,7 @@
  * | POST /auth/signup         | 202 SIGNUP_ACCEPTED (email libre ou déjà pris : réponse identique) |
  * |                           | 409 TERMS_VERSION_CHANGED ; 503 LEGAL_DOCUMENT_UNAVAILABLE (US-102) |
  * | POST /auth/login          | 200 + Set-Cookie ; 401 AUTH_INVALID_CREDENTIALS ; 429 RATE_LIMITED |
- * | GET  /auth/session        | 200 principal ; 401 AUTH_REQUIRED (absente, expirée, révoquée)     |
+ * | GET  /auth/session        | 200 principal, rôles, comptes d'hôte (US-107) ; 401 AUTH_REQUIRED  |
  * | POST /auth/logout         | 204 + cookie effacé (idempotent)                                   |
  * | POST /auth/logout-all     | 204 + cookie effacé ; 401 AUTH_REQUIRED                            |
  * | POST /auth/verify-email   | 200 EMAIL_VERIFIED ; 400 AUTH_LINK_EXPIRED                         |
@@ -22,6 +22,8 @@ import { AuthHttpError, authBody } from './errors.js';
 import type { AuthBody } from './errors.js';
 import { headerValue, principalOf } from './http.js';
 import type { HttpRequest, HttpResponse } from './http.js';
+import type { HostAccount } from './auth-store.js';
+import { sessionProofOf } from './session-proof.js';
 import { SessionGuard } from './session.guard.js';
 import { IAM_CLOCK } from './tokens.js';
 import type { Clock } from './tokens.js';
@@ -92,19 +94,25 @@ export class AuthController {
 
   @Get('session')
   @UseGuards(SessionGuard)
-  session(@Req() request: HttpRequest): {
+  async session(@Req() request: HttpRequest): Promise<{
     userId: string;
     mfaLevel: string;
     expiresAt: string;
     emailVerified: boolean;
-  } {
+    roles: ('GUEST' | 'P2P_HOST')[];
+    hostAccounts: HostAccount[];
+  }> {
     const principal = principalOf(request);
     if (principal === null) throw new AuthHttpError('AUTH_REQUIRED');
+    // US-107 : tout compte est voyageur (GUEST) ; titulaire d'un compte d'hôte : P2P_HOST en plus
+    const hostAccounts = await this.auth.hostAccounts(sessionProofOf(request));
     return {
       userId: principal.userId,
       mfaLevel: principal.mfaLevel,
       expiresAt: principal.expiresAt.toISOString(),
       emailVerified: principal.emailVerified,
+      roles: hostAccounts.length > 0 ? ['GUEST', 'P2P_HOST'] : ['GUEST'],
+      hostAccounts,
     };
   }
 

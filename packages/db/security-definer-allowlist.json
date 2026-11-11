@@ -533,6 +533,27 @@
       "owner": "cmd_money_owner",
       "execute": ["iam_staff_owner"],
       "story": "US-101"
+    },
+    {
+      "signature": "core.iam_cmd_open_host_account(bytea,text,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-107"
+    },
+    {
+      "signature": "core.iam_host_accounts(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-107"
+    },
+    {
+      "signature": "core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-107"
     }
   ]
 }
