@@ -9,8 +9,22 @@
 import type { Language } from './fixtures.ts';
 
 export const SPEC_TEXT: Readonly<
-  Record<'homeTitle' | 'offlineBanner', Readonly<Partial<Record<Language, string>>>>
+  Record<
+    'homeTitle' | 'offlineBanner' | 'signupButton' | 'draftMarker',
+    Readonly<Partial<Record<Language, string>>>
+  >
 > = {
+  // 10b §4.3, ligne `web.s15.signup` (S15, US-102)
+  signupButton: {
+    es: 'Crear cuenta',
+    en: 'Sign up',
+    fr: 'Créer un compte',
+  },
+  // consigne de la story US-102 (orchestrateur) : textes juridiques provisoires marqués
+  // « BROUILLON — à valider par le juridique » ; seule la formulation française est donnée
+  draftMarker: {
+    fr: 'BROUILLON — à valider par le juridique',
+  },
   homeTitle: {
     es: 'Alquila el auto de un vecino.',
     en: 'Rent a car from a neighbor.',
