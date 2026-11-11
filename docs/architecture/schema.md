@@ -3063,9 +3063,6 @@ Contraintes :
 - `settlement_inputs_engine` : `CHECK ((inputs::jsonb ->> 'engineVersion'::text) = engine_version)`
 - `settlement_inputs_hash_match` : `CHECK (sha256(convert_to(('rueda.settlement.inputs/1'::text \|\| chr(10)) \|\| inputs, 'UTF8'::name)) = inputs_hash)`
 - `settlement_inputs_hash_sha256` : `CHECK (octet_length(inputs_hash) = 32)`
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - `settlement_kind_valid` : `CHECK (kind = ANY (ARRAY['CANCELLATION'::text, 'TERMINATION'::text, 'COMPLETION'::text]))`
 - `settlement_org_country_fk` : `FOREIGN KEY (org_id, country_code) REFERENCES core.iam_organization(id, country_code)`
 - `settlement_origin_format` : `CHECK (origin ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
