@@ -142,7 +142,8 @@ describe('critère 3 — texte juridique : refusé par la base, tentative journa
   it('clé non juridique : enregistrée comme avant (aucune régression de 0043)', async () => {
     await withRole('app_api', async (client) => {
       const admin = await elevatedStaff(client, 'ADMIN', ALL);
-      // négatifs : textes de marketing, dont des mots voisins sans racine juridique
+      // négatifs : textes de marketing, dont des mots voisins sans racine juridique ; le mot
+      // testé termine la clé (`seguro_` suivi d'un mot est une racine d'assurance, refusée)
       for (const key of [
         `home.autos_${suffix()}.title`,
         `home.fotos_${suffix()}.body`,
@@ -150,9 +151,9 @@ describe('critère 3 — texte juridique : refusé par la base, tentative journa
         `home.photos_${suffix()}.title`,
         `home.pickup_${suffix()}.airport_terminal`,
         `home.car_${suffix()}.vehicle_condition`,
-        `home.free_cancel_${suffix()}.title`,
-        `home.viaja_seguro_${suffix()}.title`,
-        `web.cookie_banner_${suffix()}.title`,
+        `home.k${suffix()}.free_cancel`,
+        `home.k${suffix()}.viaja_seguro`,
+        `web.k${suffix()}.cookie_banner`,
         `home.hero_${suffix()}.title`,
         `home.how_${suffix()}.body`,
         `faq.pickup_${suffix()}.where`,
