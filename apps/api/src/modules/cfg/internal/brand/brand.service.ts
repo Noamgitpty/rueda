@@ -11,6 +11,11 @@
  * `BrandReadService` — API de lecture publique mise en cache : version publiée (jetons, feuille
  * de style prête, actifs), blocs publiés par langue et pays (repli `es` signalé). Cache borné par
  * `readCacheTtlMs` (autres instances) et vidé à la publication (instance qui publie).
+ *
+ * US-121 (ADR-095) : seuls les blocs du registre `EDITABLE_BLOCKS` (`@rueda/i18n`) sont servis,
+ * chacun avec son arbre assaini (`doc`, liste blanche `parseRichText`) ; le site ne reçoit jamais
+ * de HTML. `contentGaps` signale au back-office les blocs publiés sans une langue ou hors des
+ * règles actuelles.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import {
@@ -23,12 +28,15 @@ import {
   assertBlockKey,
   assertBodies,
   assertBrandName,
+  classifyBlockKey,
   assertFontsApproved,
   CONTENT_LOCALES,
   contrastReport,
   themeOf,
 } from './checks.js';
 import type { ContentLocale, ContrastReport } from './checks.js';
+import { EDITABLE_BLOCKS, editableBlock, parseRichText, RichTextError } from '@rueda/i18n';
+import type { EditableBlock, EditableBlocks, RichDoc, RichFormat } from '@rueda/i18n';
 import { BrandError } from './errors.js';
 import type { BrandParams } from './params.js';
 import type {
@@ -74,6 +82,18 @@ export interface BrandOptions {
   readonly newId?: () => string;
   /** Horloge du cache (ms) ; aucune décision métier n'en dépend. */
   readonly nowMs?: () => number;
+  /** Registre des blocs éditables (US-121) ; `EDITABLE_BLOCKS` par défaut, injectable en test. */
+  readonly blocks?: EditableBlocks;
+}
+
+/** Arbre assaini d'un corps publié, ou `null` s'il ne passe plus la liste blanche du bloc. */
+function docOf(body: string, block: EditableBlock): RichDoc | null {
+  try {
+    return parseRichText(body, block.format, block.maxLength);
+  } catch (error) {
+    if (error instanceof RichTextError) return null;
+    throw error;
+  }
 }
 
 /** Issue d'une commande refusée par la base pour une raison d'accès (traduite en HTTP par SUP). */
@@ -135,6 +155,7 @@ export class BrandReadService {
   readonly #store: BrandStore;
   readonly #ttl: number;
   readonly #now: () => number;
+  readonly #registry: EditableBlocks;
   #theme: { at: number; value: PublishedTheme | null } | undefined;
   readonly #blocks = new Map<string, { at: number; value: PublishedBlock[] }>();
 
@@ -142,6 +163,7 @@ export class BrandReadService {
     this.#store = options.store;
     this.#ttl = options.params.readCacheTtlMs;
     this.#now = options.nowMs ?? Date.now;
+    this.#registry = options.blocks ?? EDITABLE_BLOCKS;
   }
 
   /** Vide le cache (appelé à chaque publication ou retour arrière de cette instance). */
@@ -188,7 +210,9 @@ export class BrandReadService {
 
   /**
    * Blocs publiés pour une langue et un pays : le bloc du pays prime sur le bloc commun ; une
-   * langue absente retombe sur `es`, signalée (`fallback: true`, 17 §3.2.13).
+   * langue absente retombe sur `es`, signalée (`fallback: true`, 17 §3.2.13). US-121 : blocs du
+   * registre seulement ; un corps qui ne passe plus la liste blanche est ignoré (candidat
+   * suivant), jamais servi.
    */
   async publishedContent(locale: ContentLocale, country: string | null): Promise<ContentView[]> {
     const cacheKey = country ?? '';
@@ -201,25 +225,75 @@ export class BrandReadService {
     for (const b of entry.value) byKey.set(b.blockKey, [...(byKey.get(b.blockKey) ?? []), b]);
     const out: ContentView[] = [];
     for (const [key, blocks] of [...byKey.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      const spec = editableBlock(key, this.#registry);
+      if (spec === undefined) continue;
       const find = (loc: ContentLocale, c: string | null): PublishedBlock | undefined =>
         blocks.find((b) => b.locale === loc && b.countryCode === c);
-      const chosen =
-        (country !== null ? find(locale, country) : undefined) ??
-        find(locale, null) ??
-        (country !== null ? find('es', country) : undefined) ??
-        find('es', null);
-      if (chosen === undefined) continue;
-      out.push({
-        key,
-        locale: chosen.locale,
-        country: chosen.countryCode,
-        versionNo: chosen.versionNo,
-        bodyMd: chosen.bodyMd,
-        assetId: chosen.assetId,
-        fallback: chosen.locale !== locale,
-      });
+      const candidates = [
+        country !== null ? find(locale, country) : undefined,
+        find(locale, null),
+        country !== null ? find('es', country) : undefined,
+        find('es', null),
+      ];
+      for (const chosen of candidates) {
+        if (chosen === undefined) continue;
+        const doc = docOf(chosen.bodyMd, spec);
+        if (doc === null) continue;
+        out.push({
+          key,
+          locale: chosen.locale,
+          country: chosen.countryCode,
+          versionNo: chosen.versionNo,
+          bodyMd: chosen.bodyMd,
+          assetId: chosen.assetId,
+          format: spec.format,
+          doc,
+          fallback: chosen.locale !== locale,
+        });
+        break;
+      }
     }
     return out;
+  }
+
+  /**
+   * Signalement au back-office (US-121 ; 17 §3.2.13 « locale manquante ⇒ repli, signalé ») :
+   * pour chaque bloc publié (clé, pays), les langues absentes et celles dont le corps ne passe
+   * plus la liste blanche ; une clé hors du registre est signalée (elle n'est jamais servie).
+   * Sans cache : lecture de la console, rare.
+   */
+  async contentGaps(): Promise<ContentGap[]> {
+    const groups = new Map<string, PublishedBlock[]>();
+    for (const b of await this.#store.allPublishedBlocks()) {
+      const k = `${b.blockKey} ${b.countryCode ?? ''}`;
+      groups.set(k, [...(groups.get(k) ?? []), b]);
+    }
+    const out: ContentGap[] = [];
+    for (const blocks of groups.values()) {
+      const first = blocks[0];
+      if (first === undefined) continue;
+      const spec = editableBlock(first.blockKey, this.#registry);
+      const missing = CONTENT_LOCALES.filter((l) => !blocks.some((b) => b.locale === l));
+      const invalid =
+        spec === undefined
+          ? []
+          : CONTENT_LOCALES.filter((l) => {
+              const b = blocks.find((x) => x.locale === l);
+              return b !== undefined && docOf(b.bodyMd, spec) === null;
+            });
+      if (spec !== undefined && missing.length === 0 && invalid.length === 0) continue;
+      out.push({
+        key: first.blockKey,
+        country: first.countryCode,
+        versionNo: Math.max(...blocks.map((b) => b.versionNo)),
+        editable: spec !== undefined,
+        missing,
+        invalid,
+      });
+    }
+    return out.sort(
+      (a, b) => a.key.localeCompare(b.key) || (a.country ?? '').localeCompare(b.country ?? ''),
+    );
   }
 
   /** Actif publié (référencé par la version ou un bloc publiés), ou `null`. */
@@ -273,8 +347,25 @@ export interface ContentView {
   readonly versionNo: number;
   readonly bodyMd: string;
   readonly assetId: string | null;
+  /** Format du bloc au registre (US-121). */
+  readonly format: RichFormat;
+  /** Arbre assaini (liste blanche) : seule forme que le site affiche ; jamais de HTML. */
+  readonly doc: RichDoc;
   /** Vrai si la langue demandée manquait et que la version `es` est servie (signalé). */
   readonly fallback: boolean;
+}
+
+/** Bloc publié à revoir (US-121), pour le back-office. */
+export interface ContentGap {
+  readonly key: string;
+  readonly country: string | null;
+  readonly versionNo: number;
+  /** Faux : clé hors du registre (jamais servie au site). */
+  readonly editable: boolean;
+  /** Langues sans texte publié : le site affiche le catalogue livré dans ces langues. */
+  readonly missing: readonly ContentLocale[];
+  /** Langues dont le corps ne passe plus la liste blanche du bloc : jamais servies. */
+  readonly invalid: readonly ContentLocale[];
 }
 
 export class BrandConsoleService {
@@ -283,6 +374,7 @@ export class BrandConsoleService {
   readonly #params: BrandParams;
   readonly #read: BrandReadService;
   readonly #newId: () => string;
+  readonly #registry: EditableBlocks;
 
   constructor(options: BrandOptions, read: BrandReadService) {
     this.#store = options.store;
@@ -290,6 +382,7 @@ export class BrandConsoleService {
     this.#params = options.params;
     this.#read = read;
     this.#newId = options.newId ?? randomUUID;
+    this.#registry = options.blocks ?? EDITABLE_BLOCKS;
   }
 
   /** Actif de marque : type réel contrôlé, ligne en base AVANT le dépôt (création seule). */
@@ -508,6 +601,18 @@ export class BrandConsoleService {
     }
   }
 
+  /**
+   * Blocs publiés à revoir (US-121) : langue absente, corps hors des règles, clé hors du
+   * registre. Même droit que l'historique de la marque : `brand.edit` sur tous les pays, relu
+   * en base (refus rendu en 401 / 403, jamais une liste vide).
+   */
+  async contentGaps(tokenHash: Buffer): Promise<ContentGap[]> {
+    const outcome = await this.#store.staffReadAccess(tokenHash, 'brand.edit');
+    access(outcome);
+    if (outcome !== 'OK') throw new BrandAccessError('FORBIDDEN');
+    return this.#read.contentGaps();
+  }
+
   async saveContentDraft(
     tokenHash: Buffer,
     requestId: string,
@@ -516,8 +621,24 @@ export class BrandConsoleService {
     bodies: unknown,
     assetId: string | null = null,
   ) {
-    const key = assertBlockKey(blockKey);
-    const valid = assertBodies(bodies);
+    const cls = classifyBlockKey(blockKey, this.#registry);
+    if (cls.kind === 'legal') {
+      // texte juridique : la base relit les droits, refuse et JOURNALISE la tentative (0059) ;
+      // aucun corps n'est transmis
+      const refused = await this.#store.saveContentDraft(
+        tokenHash,
+        requestId,
+        cls.key,
+        country,
+        {},
+        null,
+      );
+      access(refused.outcome);
+      throw new BrandError('CONTENT_KEY_FORBIDDEN', { key: cls.key });
+    }
+    if (cls.kind === 'unknown') throw new BrandError('CONTENT_KEY_NOT_EDITABLE', { key: cls.key });
+    const key = cls.key;
+    const valid = assertBodies(bodies, cls.block);
     const r = await this.#store.saveContentDraft(
       tokenHash,
       requestId,

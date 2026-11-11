@@ -140,7 +140,8 @@ export interface BrandStore {
     requestId: string,
     blockKey: string,
     country: string | null,
-    bodies: Readonly<Record<ContentLocale, string>>,
+    /** Vide pour une clé juridique : la base refuse et journalise (KEY_FORBIDDEN, 0059). */
+    bodies: Readonly<Partial<Record<ContentLocale, string>>>,
     assetId: string | null,
   ): Promise<ContentOutcome>;
   publishContent(
@@ -161,6 +162,13 @@ export interface BrandStore {
   publishedVersion(): Promise<PublishedVersion | null>;
   publicAssets(): Promise<PublicAsset[]>;
   publishedBlocks(country: string | null): Promise<PublishedBlock[]>;
+  /** Tous les blocs publiés, communs et de chaque pays (signalement au back-office, US-121). */
+  allPublishedBlocks(): Promise<PublishedBlock[]>;
+  /**
+   * Droit de lecture de la console sur la marque commune (`core.iam_staff_read_access`, 0049) :
+   * `OK`, ou `AUTH_REQUIRED` / `MFA_REQUIRED` / `FORBIDDEN` (jamais une liste vide : 401 / 403).
+   */
+  staffReadAccess(tokenHash: Buffer, permission: 'brand.edit'): Promise<string>;
 }
 
 export class BrandStoreError extends Error {
@@ -350,7 +358,7 @@ export class PgBrandStore implements BrandStore {
     requestId: string,
     blockKey: string,
     country: string | null,
-    bodies: Readonly<Record<ContentLocale, string>>,
+    bodies: Readonly<Partial<Record<ContentLocale, string>>>,
     assetId: string | null,
   ) {
     const rows = await call<ContentRow>(
@@ -454,7 +462,24 @@ export class PgBrandStore implements BrandStore {
     }));
   }
 
+  async staffReadAccess(tokenHash: Buffer, permission: 'brand.edit'): Promise<string> {
+    const rows = await call<{ outcome: string }>(
+      this.#db,
+      'SELECT core.iam_staff_read_access($1, $2, $3) AS outcome',
+      [tokenHash, permission, 'ALL'],
+    );
+    return rows[0]?.outcome ?? 'FORBIDDEN';
+  }
+
   async publishedBlocks(country: string | null): Promise<PublishedBlock[]> {
+    return this.#blocks(country, false);
+  }
+
+  async allPublishedBlocks(): Promise<PublishedBlock[]> {
+    return this.#blocks(null, true);
+  }
+
+  async #blocks(country: string | null, all: boolean): Promise<PublishedBlock[]> {
     const rows = await call<{
       block_key: string;
       locale: ContentLocale;
@@ -466,9 +491,9 @@ export class PgBrandStore implements BrandStore {
       this.#db,
       `SELECT block_key, locale, country_code::text AS country_code, version_no, body_md, asset_id
          FROM core.config_content_block
-        WHERE status = 'PUBLISHED' AND (country_code IS NULL OR country_code = $1)
-        ORDER BY block_key, locale`,
-      [country],
+        WHERE status = 'PUBLISHED' AND ($2 OR country_code IS NULL OR country_code = $1)
+        ORDER BY block_key, country_code NULLS FIRST, locale`,
+      [country, all],
     );
     return rows.map((r) => ({
       blockKey: r.block_key,

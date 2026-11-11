@@ -8,8 +8,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { request, screenFor } from './api.ts';
-import type { ApiResult, AuditBody, MeBody } from './api.ts';
+import { gapsOf, request, screenFor } from './api.ts';
+import type { ApiResult, AuditBody, ContentGapsBody, MeBody } from './api.ts';
 import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
 
@@ -42,11 +42,14 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       const screen = screenFor(me.body.state);
       if (screen === 'console') {
         const audit = await call<AuditBody>('GET', '/staff/audit?limit=50');
+        // blocs de contenu à revoir (US-121) : réservé à brand.edit ; un refus n'affiche rien
+        const gaps = await call<ContentGapsBody>('GET', '/console/content/gaps');
         setState({
           kind: 'console',
           roles: me.body.roles,
           entries: audit.ok ? audit.body.entries : [],
           journalError: !audit.ok,
+          contentGaps: gapsOf(gaps),
           notice,
         });
       } else if (screen === 'totp' || screen === 'enroll') {

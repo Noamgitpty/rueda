@@ -120,6 +120,22 @@ class TunableBrandStore implements BrandStore {
   publishedBlocks() {
     return Promise.resolve([]);
   }
+  allPublishedBlocks() {
+    return Promise.resolve([
+      {
+        blockKey: 'home.hero.title',
+        locale: 'es' as const,
+        countryCode: null,
+        versionNo: 2,
+        bodyMd: 'Hola',
+        assetId: null,
+      },
+    ]);
+  }
+  staffReadAccess() {
+    this.#guard();
+    return Promise.resolve('OK');
+  }
 }
 
 /** Accès staff : voyageur sans rôle, staff sans TOTP, staff élevé (comme le harnais). */
@@ -339,6 +355,7 @@ describe('contrat HTTP — /console', () => {
       await refusals(a, 'POST', path);
     }
     await refusals(a, 'GET', '/console/brand/versions');
+    await refusals(a, 'GET', '/console/content/gaps');
     await refusals(a, 'GET', `/console/brand/versions/${tintaId}`);
   });
 
@@ -347,7 +364,7 @@ describe('contrat HTTP — /console', () => {
     const headers = a.cookie('staff');
     const post = (path: string, body: Record<string, unknown>) =>
       a.api.request('POST', path, { headers, body: { requestId: randomUUID(), ...body } });
-    const key = 'home.hero';
+    const key = 'home.hero.title';
 
     brand.contentOutcome = 'SAVED';
     expect((await post('/console/content/drafts', { key, bodies: BODIES })).status).toBe(201);
@@ -357,6 +374,37 @@ describe('contrat HTTP — /console', () => {
     expect(
       (await post('/console/content/drafts', { key, bodies: { es: 'Hola' } })).json,
     ).toMatchObject({ code: 'CONTENT_BLOCK_REQUIRED_MISSING' });
+    // US-121 : clé hors du registre, texte juridique (refus de la base relayé), corps hors règles
+    expect(
+      (await post('/console/content/drafts', { key: 'home.nope.title', bodies: BODIES })).json,
+    ).toMatchObject({ code: 'CONTENT_KEY_NOT_EDITABLE' });
+    brand.contentOutcome = 'KEY_FORBIDDEN';
+    expect(
+      (await post('/console/content/drafts', { key: 'page.cgu.body', bodies: BODIES })).json,
+    ).toMatchObject({ code: 'CONTENT_KEY_FORBIDDEN' });
+    brand.contentOutcome = 'SAVED';
+    expect(
+      (
+        await post('/console/content/drafts', {
+          key,
+          bodies: { ...BODIES, es: 'Hola\nmundo' },
+        })
+      ).json,
+    ).toMatchObject({ code: 'CONTENT_MARKDOWN_FORBIDDEN' });
+    const gaps = await a.api.request('GET', '/console/content/gaps', { headers });
+    expect(gaps.status).toBe(200);
+    expect(gaps.json).toEqual({
+      gaps: [
+        {
+          key: 'home.hero.title',
+          country: null,
+          versionNo: 2,
+          editable: true,
+          missing: ['en', 'fr', 'pt'],
+          invalid: [],
+        },
+      ],
+    });
     brand.fail = uniqueViolation();
     expect((await post('/console/content/drafts', { key, bodies: BODIES })).status).toBe(409);
     expect((await post('/console/content/rollback', { key })).status).toBe(409);

@@ -1,8 +1,11 @@
 import type { MessageKey, Translator } from '@rueda/i18n';
 import { CarIllustration, Icon } from '@rueda/ui';
 import type { IconName } from '@rueda/ui';
+import { NO_CONTENT } from '../content-source.ts';
+import type { PageContent } from '../content-source.ts';
 import { MAIN_ID } from './(app)/_shell/main-id.ts';
 import styles from './home.module.css';
+import { plainText, RichText } from './rich-text.tsx';
 
 interface Step {
   readonly title: MessageKey;
@@ -22,9 +25,22 @@ const STEPS: readonly Step[] = [
  * relié par le _camino_ et l'invitation aux hôtes. Textes de 10b §4.3 (S01) ; la recherche, le rail
  * et l'estimateur de revenus de S01 arrivent avec le lot 2. Sans accès à la requête : testable dans
  * chaque locale. Styles : jetons seulement (US-030).
+ *
+ * Blocs éditables (US-121) : `content` remplace un texte du catalogue par le bloc publié dans la
+ * langue de la page ; sans bloc, le texte du catalogue livré (jamais un bloc vide).
  */
-export function HomeContent({ i18n }: { readonly i18n: Translator }) {
-  const t = i18n.t.bind(i18n);
+export function HomeContent({
+  i18n,
+  content = NO_CONTENT,
+}: {
+  readonly i18n: Translator;
+  readonly content?: PageContent;
+}) {
+  const t = (key: MessageKey): string => {
+    const doc = content.get(key);
+    return (doc === undefined ? undefined : plainText(doc)) ?? i18n.t(key);
+  };
+  const ownerBody = content.get('web.s01.owner.body');
   return (
     <main id={MAIN_ID} tabIndex={-1} className={styles['page']}>
       <section className={styles['hero']} aria-labelledby="home-title">
@@ -75,7 +91,11 @@ export function HomeContent({ i18n }: { readonly i18n: Translator }) {
         <h2 id="home-owner" className={styles['heading']}>
           {t('web.s01.owner.title')}
         </h2>
-        <p className={styles['ownerBody']}>{t('web.s01.owner.body')}</p>
+        {ownerBody?.format === 'rich' ? (
+          <RichText doc={ownerBody} paragraphClass={styles['ownerBody']} />
+        ) : (
+          <p className={styles['ownerBody']}>{t('web.s01.owner.body')}</p>
+        )}
       </section>
     </main>
   );

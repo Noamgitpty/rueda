@@ -8,7 +8,7 @@ Le thème (nom, palette, polices, logo, icônes) et les textes non juridiques so
 | ---------------------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
 | `brand_version`              | `config_brand_version` | thème versionné : `DRAFT` → `PUBLISHED` → `ARCHIVED` ; une seule publiée ; jamais écrasé |
 | `brand_asset` + `file_asset` | `config_brand_asset`   | logo, favicon, icône PWA, image d'accueil, police ; fichier en bucket public `BRAND`     |
-| `content_block`              | `config_content_block` | texte par clé, langue (es, en, fr ensemble) et pays ; `legal.*` refusé                   |
+| `content_block`              | `config_content_block` | texte par clé, langue (es, en, fr, pt ensemble) et pays ; textes juridiques refusés      |
 
 Migration `packages/db/migrations/0042_config_brand.sql` ; commandes `core.cfg_brand_*` et `core.cfg_content_*` (SECURITY DEFINER, `iam_staff_owner`, EXECUTE au seul `app_api`).
 
@@ -26,9 +26,23 @@ Migration `packages/db/migrations/0042_config_brand.sql` ; commandes `core.cfg_b
 
 Contrôles avant toute écriture : format des jetons (`BRAND_TOKENS_INVALID`), polices approuvées (`FONT_NOT_APPROVED`), contraste WCAG 2.2 AA par **le contrôle d'US-030** (`checkContrast` de `@rueda/design-tokens`, réutilisé) à la publication et au retour arrière (`BRAND_CONTRAST_INSUFFICIENT`, chaque paire en cause dans `details.failures`). Chaque publication, retour arrière et refus est journalisé dans la chaîne d'audit (US-009).
 
+## Blocs de contenu éditables (US-121, ADR-095)
+
+- **Registre** : seules les clés de `EDITABLE_BLOCKS` (`@rueda/i18n`, `packages/i18n/src/editable-blocks.ts`) sont éditables et servies ; chacune remplace un texte du catalogue livré (`catalogKey`) avec un format (`plain` : une ligne ; `rich` : paragraphes, listes, gras, italique, liens internes) et une longueur maximale. Clé hors registre : `CONTENT_KEY_NOT_EDITABLE` (422). Rendre un texte éditable : une ligne du registre (le test du registre vérifie la clé du catalogue dans les quatre langues).
+- **Textes juridiques** (CGU, contrat, politique d'annulation, confidentialité, assurance…, motif `LEGAL_BLOCK_KEY`) : `CONTENT_KEY_FORBIDDEN` ; la base refuse aussi et journalise la tentative (`CONTENT_KEY_REFUSED`, migration 0059).
+- **Assainissement** : chaque corps passe la liste blanche de son format (`richTextProblem`) en plus des règles de 0042 (`CONTENT_MARKDOWN_FORBIDDEN`) ; `GET /brand/content` sert l'arbre fermé (`doc`) de chaque bloc, jamais du HTML ; un corps publié devenu hors règles n'est pas servi.
+- **Signalement** : `GET /console/content/gaps` (`brand.edit`, ADMIN de tous les pays) : blocs publiés sans une langue, corps hors règles, clés hors registre. Le site affiche alors le texte du catalogue livré dans la langue de la page (`apps/web/content-source.ts`).
+
+| Changer un texte de l'accueil   | Requête (console, session élevée)                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Brouillon dans les 4 langues    | `POST /console/content/drafts` `{ requestId, key: "home.hero.title", country?, bodies: { es, en, fr, pt } }` |
+| Publier (visible en 30 s)       | `POST /console/content/publish` `{ requestId, key, country?, versionNo }`                                    |
+| Revenir à la version précédente | `POST /console/content/rollback` `{ requestId, key, country? }`                                              |
+| Voir ce qui manque              | `GET /console/content/gaps`                                                                                  |
+
 ## Lecture publique (sans session)
 
-`GET /brand` (version publiée : jetons, feuille de style prête `css`, actifs ; ETag, 304 ; 503 `BRAND_VERSION_UNAVAILABLE` s'il n'y en a pas, le client garde le thème embarqué), `GET /brand/content?locale=es|en|fr&country=XX` (bloc du pays prioritaire, repli `es` signalé par `fallback`), `GET /brand/assets/:id`. Cache vidé à chaque publication de l'instance, borné à `readCacheTtlSeconds` ailleurs.
+`GET /brand` (version publiée : jetons, feuille de style prête `css`, actifs ; ETag, 304 ; 503 `BRAND_VERSION_UNAVAILABLE` s'il n'y en a pas, le client garde le thème embarqué), `GET /brand/content?locale=es|en|fr|pt&country=XX` (blocs du registre seulement, avec leur arbre assaini `doc` ; bloc du pays prioritaire, repli `es` signalé par `fallback`), `GET /brand/assets/:id`. Cache vidé à chaque publication de l'instance, borné à `readCacheTtlSeconds` ailleurs.
 
 ## Paramètres
 
@@ -46,7 +60,7 @@ Aucun en Bêta (cache invalidé localement, borné entre instances). Piste : `co
 ## Tests
 
 ```bash
-pnpm --filter @rueda/api test:unit            # brand.test.ts : contrôles, services, cache, HTTP
+pnpm --filter @rueda/api test:unit            # brand.test.ts : contrôles, services, cache, HTTP ; content-blocks.test.ts (US-121)
 pnpm --filter @rueda/api test:int             # pg-brand-store.int.test.ts : bout en bout, PostgreSQL réel
 pnpm --filter @rueda/db test:l0               # l0-brand.test.ts : RLS, gardes, concurrence, refus journalisés
 ```

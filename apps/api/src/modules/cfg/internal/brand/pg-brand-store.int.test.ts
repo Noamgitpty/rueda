@@ -12,9 +12,15 @@
  *    refus journalisé en base — sans l'écran US-120.
  * Oracle de la paire : README de @rueda/design-tokens (Lienzo · Azur refusée, « lien primary sur
  * verre 3,89:1 (clair) »). Pays lus en base (aucune constante).
+ *
+ * US-121 (blocs éditables, ADR-095, migration 0059) : registre des blocs injecté (une clé tirée
+ * au hasard par test, déclarée au registre, isole les tests sur la base partagée) ; texte
+ * juridique refusé et JOURNALISÉ par la base ; signalement au back-office réservé à `brand.edit`.
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { paletteDocument } from '@rueda/design-tokens';
+import { EDITABLE_BLOCKS } from '@rueda/i18n';
+import type { EditableBlock } from '@rueda/i18n';
 import { connectAs, releaseClient } from '@rueda/db/testing';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
 import type {} from '@rueda/db/testing/global-setup';
@@ -32,6 +38,14 @@ const PHC =
 let client: pg.Client;
 let read: BrandReadService;
 let brand: BrandConsoleService;
+/** Registre des blocs du test : celui du produit, plus les clés tirées par chaque test. */
+const REGISTRY: Record<string, EditableBlock> = { ...EDITABLE_BLOCKS };
+const TEST_BLOCK: EditableBlock = { catalogKey: 'web.s01.title', format: 'plain', maxLength: 80 };
+const testKey = (prefix: string): string => {
+  const key = `home.${prefix}_${randomUUID().slice(0, 8)}.title`;
+  REGISTRY[key] = TEST_BLOCK;
+  return key;
+};
 
 beforeEach(async () => {
   client = await connectAs('app_api');
@@ -39,6 +53,7 @@ beforeEach(async () => {
     store: new PgBrandStore(client),
     files: new InMemoryFileStore(),
     params: loadBrandParams(),
+    blocks: REGISTRY,
   };
   read = new BrandReadService(options);
   brand = new BrandConsoleService(options, read);
@@ -196,7 +211,7 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
     const all = await countries();
     const admin = await staff('ADMIN', all);
     for (const country of [null, ...all]) {
-      const key = `home.hero_${randomUUID().slice(0, 8)}.title`;
+      const key = testKey('hero');
       const v1 = await brand.saveContentDraft(admin.hash, randomUUID(), key, country, {
         es: 'Alquila el auto de un vecino.',
         en: 'Rent a car from a neighbor.',
@@ -230,7 +245,7 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
       expect(pt).toMatchObject({ bodyMd: 'Alugue o carro de um vizinho.', versionNo: 3 });
     }
     await expect(
-      brand.saveContentDraft(admin.hash, randomUUID(), 'home.x.title', null, {
+      brand.saveContentDraft(admin.hash, randomUUID(), 'home.hero.title', null, {
         es: 'Hola',
         en: 'Hello',
         fr: 'Bonjour',
@@ -275,5 +290,53 @@ describe('socle de marque de bout en bout (PostgreSQL, app_api)', () => {
         pt: 'Logotipo da Kmino',
       },
     });
+  });
+
+  it('US-121 critères 1 et 3 : bloc publié servi avec son arbre assaini ; texte juridique refusé et journalisé', async () => {
+    const admin = await staff('ADMIN', await countries());
+    const key = testKey('us121');
+    const v = await brand.saveContentDraft(admin.hash, randomUUID(), key, null, {
+      es: 'Texto **nuevo**',
+      en: 'New text',
+      fr: 'Nouveau texte',
+      pt: 'Texto novo',
+    });
+    await brand.publishContent(admin.hash, randomUUID(), key, null, v.versionNo ?? 0);
+    expect((await read.publishedContent('fr', null)).find((b) => b.key === key)).toMatchObject({
+      locale: 'fr',
+      fallback: false,
+      format: 'plain',
+      doc: { format: 'plain', text: 'Nouveau texte' },
+    });
+    // bloc complet : rien à signaler pour lui
+    expect((await brand.contentGaps(admin.hash)).filter((g) => g.key === key)).toEqual([]);
+
+    const legal = `legal.us121_${randomUUID().slice(0, 8)}.body`;
+    const error = await caught(
+      brand.saveContentDraft(admin.hash, randomUUID(), legal, null, {
+        es: 'Términos',
+        en: 'Terms',
+        fr: 'Conditions',
+        pt: 'Termos',
+      }),
+    );
+    expect(error).toBeInstanceOf(BrandError);
+    expect((error as BrandError).code).toBe('CONTENT_KEY_FORBIDDEN');
+    expect((await audit(admin.userId)).at(-1)).toMatchObject({
+      action_code: 'CONTENT_KEY_REFUSED',
+      after: { blockKey: legal, reason: 'LEGAL_TEXT' },
+    });
+    const rows = await client.query(
+      'SELECT 1 FROM core.config_content_block WHERE block_key = $1',
+      [legal],
+    );
+    expect(rows.rowCount).toBe(0);
+  });
+
+  it('US-121 : signalement au back-office réservé à brand.edit (OPS : 403)', async () => {
+    const ops = await staff('OPS_AGENT', await countries());
+    const error = await caught(brand.contentGaps(ops.hash));
+    expect(error).toBeInstanceOf(BrandAccessError);
+    expect((error as BrandAccessError).outcome).toBe('FORBIDDEN');
   });
 });

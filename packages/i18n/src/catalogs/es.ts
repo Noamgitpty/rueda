@@ -208,6 +208,16 @@ export const ES_MESSAGES = {
   'backoffice.role.FINANCE': 'Finanzas',
   'backoffice.role.ADMIN': 'Administrador',
   'backoffice.role.SUPERADMIN': 'Superadministrador',
+  'backoffice.content.gaps.title': {
+    one: '{count} texto publicado necesita revisión',
+    other: '{count} textos publicados necesitan revisión',
+  },
+  'backoffice.content.gaps.hint':
+    'Mientras tanto, la página muestra el texto original en ese idioma.',
+  'backoffice.content.gaps.missing': '{key} · {scope}: falta {locales}',
+  'backoffice.content.gaps.invalid': '{key} · {scope}: formato no permitido ({locales})',
+  'backoffice.content.gaps.common': 'común',
+  'backoffice.content.gaps.error': 'No pudimos revisar los textos publicados.',
   'backoffice.journal.caption': 'Registro de actividad',
   'backoffice.journal.when': 'Fecha',
   'backoffice.journal.who': 'Quién',
@@ -274,6 +284,7 @@ export const ES_MESSAGES = {
   'common.brand.contentMarkdownForbidden':
     'El texto contiene HTML o un enlace externo. Solo se permiten enlaces internos.',
   'common.brand.contentNotFound': 'Este bloque o esta versión no existe.',
+  'common.brand.contentKeyNotEditable': 'Este texto no se puede editar como bloque.',
   // Règles photo d'US-031 (ADR-069 point 7), versées depuis
   // `packages/design-tokens/rules/photo.messages.json` sans changer clés ni textes (ADR-071) ;
   // un test de `packages/i18n` vérifie que les deux restent identiques.

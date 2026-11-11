@@ -24,6 +24,15 @@ export interface JournalEntryView {
   readonly subjectId: string;
 }
 
+/** Bloc de contenu publié à revoir (US-121, `GET /console/content/gaps`). */
+export interface ContentGapView {
+  readonly key: string;
+  readonly country: string | null;
+  readonly editable: boolean;
+  readonly missing: readonly string[];
+  readonly invalid: readonly string[];
+}
+
 export type ConsoleState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'login'; readonly error?: MessageKey | undefined }
@@ -41,6 +50,11 @@ export type ConsoleState =
       readonly entries: readonly JournalEntryView[];
       /** La lecture du journal a échoué : distinct d'un journal vide (revue UX US-012). */
       readonly journalError?: boolean | undefined;
+      /**
+       * Blocs de contenu à revoir (US-121) : liste (vide = rien à signaler), `'error'` si la
+       * lecture a échoué, absent si le rôle n'a pas `brand.edit`.
+       */
+      readonly contentGaps?: readonly ContentGapView[] | 'error' | undefined;
       readonly notice?:
         { readonly tone: 'success' | 'danger' | 'warning'; readonly key: MessageKey } | undefined;
     };
@@ -294,6 +308,8 @@ export function ConsoleView({
             </Banner>
           )}
 
+          <ContentGaps i18n={i18n} gaps={state.contentGaps} />
+
           <section className={styles['panel']} aria-labelledby="action-heading">
             <h2 id="action-heading" className={styles['heading']}>
               {i18n.t('backoffice.action.heading')}
@@ -384,4 +400,62 @@ export function ConsoleView({
         </div>
       );
   }
+}
+
+/**
+ * Signalement des blocs de contenu à revoir (US-121 ; 17 §3.2.13 « locale manquante, signalée au
+ * back-office ») : langue absente (le site montre alors le texte livré dans cette langue) ou
+ * corps hors des règles. Rien à signaler : rien n'est affiché.
+ */
+function ContentGaps({
+  i18n,
+  gaps,
+}: {
+  readonly i18n: Translator;
+  readonly gaps: readonly ContentGapView[] | 'error' | undefined;
+}) {
+  if (gaps === undefined || (gaps !== 'error' && gaps.length === 0)) return null;
+  if (gaps === 'error') {
+    return (
+      <Banner tone="warning" live="polite">
+        {i18n.t('backoffice.content.gaps.error')}
+      </Banner>
+    );
+  }
+  const scope = (g: ContentGapView): string =>
+    g.country ?? i18n.t('backoffice.content.gaps.common');
+  const title = i18n.t('backoffice.content.gaps.title', { count: gaps.length });
+  return (
+    <section className={styles['panel']} aria-label={title}>
+      <Banner tone="warning" title={title}>
+        {i18n.t('backoffice.content.gaps.hint')}
+      </Banner>
+      <ul className={styles['roles']}>
+        {gaps.flatMap((g) => [
+          ...(g.missing.length > 0
+            ? [
+                <li key={`${g.key}:${g.country ?? ''}:m`} className={styles['muted']}>
+                  {i18n.t('backoffice.content.gaps.missing', {
+                    key: g.key,
+                    scope: scope(g),
+                    locales: g.missing.join(', '),
+                  })}
+                </li>,
+              ]
+            : []),
+          ...(g.invalid.length > 0 || !g.editable
+            ? [
+                <li key={`${g.key}:${g.country ?? ''}:i`} className={styles['muted']}>
+                  {i18n.t('backoffice.content.gaps.invalid', {
+                    key: g.key,
+                    scope: scope(g),
+                    locales: (g.editable ? g.invalid : ['—']).join(', '),
+                  })}
+                </li>,
+              ]
+            : []),
+        ])}
+      </ul>
+    </section>
+  );
 }

@@ -673,8 +673,9 @@ describe('blocs de contenu (es, en, fr, pt) : brouillon, publication, retour arr
     });
   });
 
+  // clé `legal.*` : refusée avant l'écriture et journalisée depuis 0059 (KEY_FORBIDDEN) ; preuve
+  // dans l0-us121-content-keys.test.ts
   it.each([
-    ['clé legal.*', 'legal.terms.body', BODIES.es],
     ['balise <script>', 'home.x.body', 'Hola <script>alert(1)</script>'],
     ['lien externe', 'home.x.body', 'Ver [aquí](https://example.test)'],
     ['lien javascript:', 'home.x.body', 'Ver [aquí](javascript:alert(1))'],

@@ -39,6 +39,12 @@ Aucun port : tout repose sur `Intl` (ICU embarqué dans Node 26), sans dépendan
 | `test/photo-messages.test.ts` | les 95 clés `web.photo.*` d'US-031 (ADR-069 point 7) versées dans les quatre catalogues restent identiques à `packages/design-tokens/rules/photo.messages.json` |
 | `src/testing/index.ts`        | export `@rueda/i18n/testing` : `compareCatalogs` (parité) et `findForeignStrings` (mélange de langues dans un écran rendu, en **mot entier**)                   |
 
+## Blocs de contenu éditables (US-121, ADR-095)
+
+- `EDITABLE_BLOCKS` (`src/editable-blocks.ts`) : **liste blanche** des textes que le fondateur change sans déploiement. Chaque entrée nomme le texte du catalogue qu'elle remplace (`catalogKey`, sans variable ni pluriel), son format (`plain` ou `rich`) et sa longueur maximale. `editableBlock(key)`, `blockKeyOf(catalogKey)`.
+- `LEGAL_BLOCK_KEY` / `isLegalBlockKey` : textes juridiques (jamais des blocs) ; motif recopié par la base (migration 0059).
+- `parseRichText(source, format, maxLength)` : Markdown restreint vers un **arbre fermé** (`RichDoc` : paragraphes, listes, gras, italique, liens internes) ; `richTextProblem` (message du refus), `isRichDoc` (revalidation stricte d'un arbre reçu), `plainTextOf`. Aucune chaîne HTML n'est jamais produite.
+
 ## Utilisation
 
 ```ts

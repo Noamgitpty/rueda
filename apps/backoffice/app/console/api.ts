@@ -6,7 +6,7 @@
  */
 import { CATALOGS } from '@rueda/i18n';
 import type { MessageKey } from '@rueda/i18n';
-import type { ConsoleState, JournalEntryView, StaffRoleView } from './view.tsx';
+import type { ConsoleState, ContentGapView, JournalEntryView, StaffRoleView } from './view.tsx';
 
 export interface ApiError {
   readonly status: number;
@@ -90,4 +90,47 @@ export function screenFor(
 
 export interface AuditBody {
   readonly entries: readonly (JournalEntryView & { readonly at: string })[];
+}
+
+/** Réponse de `GET /console/content/gaps` (US-121). */
+export interface ContentGapsBody {
+  readonly gaps: readonly ContentGapView[];
+}
+
+const isStringList = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+/**
+ * Blocs à revoir : liste lue (formes inattendues écartées), rien si le rôle n'a pas le droit
+ * (401 / 403), `'error'` sinon (réseau, serveur) : un échec n'est jamais montré comme « rien ».
+ */
+export function gapsOf(
+  result: ApiResult<ContentGapsBody>,
+): readonly ContentGapView[] | 'error' | undefined {
+  if (!result.ok) return result.status === 401 || result.status === 403 ? undefined : 'error';
+  const list = (result.body as { gaps?: unknown } | null)?.gaps;
+  if (!Array.isArray(list)) return 'error';
+  return list.flatMap((g: unknown) => {
+    const x = g as Record<string, unknown> | null;
+    if (
+      x === null ||
+      typeof x !== 'object' ||
+      typeof x['key'] !== 'string' ||
+      (x['country'] !== null && typeof x['country'] !== 'string') ||
+      typeof x['editable'] !== 'boolean' ||
+      !isStringList(x['missing']) ||
+      !isStringList(x['invalid'])
+    ) {
+      return [];
+    }
+    return [
+      {
+        key: x['key'],
+        country: x['country'] as string | null,
+        editable: x['editable'],
+        missing: x['missing'],
+        invalid: x['invalid'],
+      },
+    ];
+  });
 }
