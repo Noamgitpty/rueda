@@ -138,7 +138,7 @@ const publish = async (
   (
     await c.query<{ outcome: string; version: number | null }>(
       `SELECT * FROM core.ctr_staff_cmd_publish_document($1, $2, $3, $4, $5,
-                COALESCE($6::timestamptz, platform.now()), NULL, $7::jsonb)`,
+                $6::timestamptz, NULL, $7::jsonb)`,
       [
         hash,
         uuid(),
@@ -212,7 +212,7 @@ describe('critère 1 — inscription : compte et consentements versionnés dans 
         expect(rows[0]?.ok).toBe(true);
         await expectConstraint(
           tx,
-          () => tx.query('SET CONSTRAINTS ctr_signup_consents_required IMMEDIATE'),
+          () => tx.query('SET CONSTRAINTS core.ctr_signup_consents_required IMMEDIATE'),
           'ctr_signup_consents_required',
         );
       });

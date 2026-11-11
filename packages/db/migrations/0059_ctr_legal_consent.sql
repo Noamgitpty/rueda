@@ -629,7 +629,7 @@ $fn$;
 -- le pays du document (cfg_brand_authorize, 0042 : refus journalisés). p_bodies :
 -- `{ "es": { "title": …, "body": … }, "en": …, "fr": …, "pt": … }`, les QUATRE langues ensemble
 -- (DEC-FONDATEUR-17, 18). Version = suivante du (genre, pays). Jamais rétroactive (valid_from ≥
--- maintenant). Issues : AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN, PUBLISHED (+ version).
+-- maintenant ; NULL = maintenant, à l'horloge de la base). Issues : AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN, PUBLISHED (+ version).
 CREATE FUNCTION core.ctr_staff_cmd_publish_document(p_token_hash bytea, p_request_id uuid,
                                                     p_kind text, p_country text,
                                                     p_is_major boolean, p_valid_from timestamptz,
@@ -648,7 +648,7 @@ DECLARE
   v_lang  text;
   v_first uuid;
 BEGIN
-  IF p_request_id IS NULL OR p_is_major IS NULL OR p_valid_from IS NULL
+  IF p_request_id IS NULL OR p_is_major IS NULL
      OR p_kind IS NULL OR p_kind NOT IN ('TOS_GUEST', 'PRIVACY', 'MARKETING')
      OR p_bodies IS NULL OR pg_catalog.jsonb_typeof(p_bodies) <> 'object'
      OR (SELECT pg_catalog.array_agg(k ORDER BY k) FROM pg_catalog.jsonb_object_keys(p_bodies) AS k)
@@ -666,7 +666,7 @@ BEGIN
     RETURN QUERY SELECT v_a.outcome, NULL::integer;
     RETURN;
   END IF;
-  IF p_valid_from < v_now THEN
+  IF p_valid_from IS NOT NULL AND p_valid_from < v_now THEN
     RAISE EXCEPTION 'ctr : publication rétroactive refusée'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'document_template_not_retroactive';
   END IF;
@@ -682,7 +682,8 @@ BEGIN
             legal_review_ref, is_authoritative, valid_from, published_by, request_id)
     VALUES (p_kind, p_country, v_lang, v_next, p_is_major, p_bodies -> v_lang ->> 'title',
             p_bodies -> v_lang ->> 'body', pg_catalog.decode(pg_catalog.repeat('00', 32), 'hex'),
-            NULLIF(pg_catalog.btrim(p_legal_review_ref), ''), v_lang = 'es', p_valid_from,
+            NULLIF(pg_catalog.btrim(p_legal_review_ref), ''), v_lang = 'es',
+            COALESCE(p_valid_from, v_now),
             v_a.actor, p_request_id);
   END LOOP;
   SELECT t.id INTO v_first FROM core.contract_document_template AS t
