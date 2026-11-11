@@ -12,6 +12,10 @@
     {
       "path": "packages/db/migrations/0046_config_rate_limit_params.sql",
       "justification": "Graine complémentaire des paramètres rate_limit_* (17 §6.6, 19 US-052) : définitions et valeurs PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-052, ADR-075."
+    },
+    {
+      "path": "packages/db/migrations/0065_config_otp_rate_params.sql",
+      "justification": "Graine complémentaire des paramètres otp_rate_* (17 §6.6, 19 US-104 : envois d'OTP par compte et par indicatif pays, parade au SMS pumping) : définitions et valeurs PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 et 0046 sont immuables (ADR-044). US-104, ADR-098."
     }
   ]
 }

@@ -34,6 +34,7 @@ import type {
   TaxLineConfig,
   TaxLineType,
   TimeZoneCheck,
+  PhoneNumberingConfig,
 } from './model.js';
 
 export interface CountryConfigSources {
@@ -349,6 +350,75 @@ function parseTimeZoneChecks(c: Collector, path: string, value: unknown): TimeZo
   return out;
 }
 
+const CALLING_CODE = /^[1-9][0-9]{0,2}$/;
+const DIGITS = /^[0-9]+$/;
+
+/**
+ * Plan de numérotation des mobiles (US-104, ADR-098) : indicatif de 1 à 3 chiffres, numéro national
+ * de 4 à 14 chiffres (E.164 : 15 chiffres au plus avec l'indicatif), premiers chiffres des mobiles,
+ * préfixe interurbain (chiffres ou `null`) et exemple affiché.
+ */
+function parsePhoneNumbering(
+  c: Collector,
+  path: string,
+  raw: unknown,
+): PhoneNumberingConfig | undefined {
+  if (!isObject(raw)) {
+    c.add(path, 'objet attendu');
+    return undefined;
+  }
+  checkKeys(c, path, raw, [
+    'callingCode',
+    'nationalLength',
+    'mobilePrefixes',
+    'trunkPrefix',
+    'example',
+  ]);
+  const callingCode = str(c, `${path}.callingCode`, raw['callingCode']);
+  if (callingCode !== undefined && !CALLING_CODE.test(callingCode)) {
+    c.add(`${path}.callingCode`, 'indicatif de 1 à 3 chiffres attendu');
+  }
+  const nationalLength = int(c, `${path}.nationalLength`, raw['nationalLength'], 4, 14);
+  if (
+    callingCode !== undefined &&
+    nationalLength !== undefined &&
+    callingCode.length + nationalLength > 15
+  ) {
+    c.add(path, 'E.164 : 15 chiffres au plus, indicatif compris');
+  }
+  const mobilePrefixes = strList(c, `${path}.mobilePrefixes`, raw['mobilePrefixes']) ?? [];
+  for (const prefix of mobilePrefixes) {
+    if (!DIGITS.test(prefix)) c.add(`${path}.mobilePrefixes`, `chiffres attendus « ${prefix} »`);
+  }
+  const rawTrunk = raw['trunkPrefix'];
+  let trunkPrefix: string | null = null;
+  if (!('trunkPrefix' in raw)) {
+    c.add(`${path}.trunkPrefix`, 'champ obligatoire (chiffres ou null)');
+  } else if (rawTrunk !== null) {
+    if (typeof rawTrunk !== 'string' || !DIGITS.test(rawTrunk)) {
+      c.add(`${path}.trunkPrefix`, 'chiffres ou null attendus');
+    } else {
+      trunkPrefix = rawTrunk;
+    }
+  }
+  const example = str(c, `${path}.example`, raw['example']);
+  if (
+    callingCode === undefined ||
+    nationalLength === undefined ||
+    example === undefined ||
+    mobilePrefixes.length === 0
+  ) {
+    return undefined;
+  }
+  return Object.freeze({
+    callingCode,
+    nationalLength,
+    mobilePrefixes: Object.freeze(mobilePrefixes),
+    trunkPrefix,
+    example,
+  });
+}
+
 function parseCountries(
   c: Collector,
   doc: unknown,
@@ -368,6 +438,7 @@ function parseCountries(
       'defaultLocale',
       'locales',
       'hostTaxIdKinds',
+      'phone',
       'taxLines',
       'taxDecision',
       'legalEntity',
@@ -423,6 +494,7 @@ function parseCountries(
     for (const kind of hostTaxIdKinds) {
       if (!CODE.test(kind)) c.add(`${p}.hostTaxIdKinds`, `code attendu « ${kind} »`);
     }
+    const phone = parsePhoneNumbering(c, `${p}.phone`, raw['phone']);
     const taxLines = parseTaxLines(c, `${p}.taxLines`, raw['taxLines']);
     const rawTaxDecision = raw['taxDecision'];
     let taxDecision: DecisionInfo | undefined;
@@ -449,6 +521,7 @@ function parseCountries(
       defaultLocale === undefined ||
       holidayCalendar === undefined ||
       taxDecision === undefined ||
+      phone === undefined ||
       NAME_LANGUAGES.some((l) => names[l] === undefined)
     ) {
       return;
@@ -464,6 +537,7 @@ function parseCountries(
         defaultLocale,
         locales: Object.freeze(locales),
         hostTaxIdKinds: Object.freeze(hostTaxIdKinds),
+        phone,
         taxLines: Object.freeze(taxLines),
         taxDecision,
         legalEntity,

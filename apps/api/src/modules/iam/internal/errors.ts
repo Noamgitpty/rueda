@@ -11,7 +11,9 @@
  * STAFF_ACTION_DONE ; cadre des actions (US-101) : STAFF_ACTION_REQUESTED, STAFF_ACTION_REFUSED,
  * STAFF_SELF_APPROVAL. Compte d'hôte (US-107) : HOST_ENTITY_NOT_ALLOWED, HOST_UNDER_AGE (16 A.8) ;
  * PROPOSÉS : HOST_ACCOUNT_OPENED, HOST_ACCOUNT_EXISTS, HOST_ACCOUNT_NOT_ELIGIBLE,
- * HOST_ACCOUNT_UNAVAILABLE.
+ * HOST_ACCOUNT_UNAVAILABLE. Téléphone par OTP (US-104) : OTP_INVALID, OTP_EXPIRED, OTP_LOCKED,
+ * ACCOUNT_DUPLICATE_PHONE (16 VER-013) ; PROPOSÉS : OTP_SENT, PHONE_VERIFIED,
+ * PHONE_ALREADY_VERIFIED, PHONE_INVALID, PHONE_NOT_ELIGIBLE, PHONE_NOT_VERIFIED, OTP_UNAVAILABLE.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -53,6 +55,20 @@ export const AUTH_MESSAGES = {
   HOST_UNDER_AGE: { status: 422, messageKey: 'common.host.underAge' },
   HOST_ACCOUNT_NOT_ELIGIBLE: { status: 403, messageKey: 'common.host.notEligible' },
   HOST_ACCOUNT_UNAVAILABLE: { status: 503, messageKey: 'common.host.unavailable' },
+  // Téléphone par OTP (US-104) : OTP_INVALID, OTP_EXPIRED, OTP_LOCKED et ACCOUNT_DUPLICATE_PHONE
+  // viennent de 16 VER-013 ; PHONE_INVALID porte le texte de 10b §4.3 (`common.error.phoneDigits`) ;
+  // les autres sont PROPOSÉS (à reporter dans 16 A.8, voir la passation US-104).
+  OTP_SENT: { status: 202, messageKey: 'common.otp.sent' },
+  PHONE_VERIFIED: { status: 200, messageKey: 'common.otp.verified' },
+  PHONE_ALREADY_VERIFIED: { status: 200, messageKey: 'common.otp.alreadyVerified' },
+  PHONE_INVALID: { status: 400, messageKey: 'common.error.phoneDigits' },
+  OTP_INVALID: { status: 400, messageKey: 'common.otp.invalid' },
+  OTP_EXPIRED: { status: 400, messageKey: 'common.otp.expired' },
+  OTP_LOCKED: { status: 429, messageKey: 'common.otp.locked' },
+  ACCOUNT_DUPLICATE_PHONE: { status: 409, messageKey: 'common.otp.duplicatePhone' },
+  PHONE_NOT_ELIGIBLE: { status: 403, messageKey: 'common.otp.notEligible' },
+  PHONE_NOT_VERIFIED: { status: 403, messageKey: 'common.otp.phoneRequired' },
+  OTP_UNAVAILABLE: { status: 503, messageKey: 'common.otp.unavailable' },
 } as const;
 
 export type AuthCode = keyof typeof AUTH_MESSAGES;

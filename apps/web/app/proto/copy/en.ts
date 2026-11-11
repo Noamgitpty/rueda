@@ -139,7 +139,6 @@ export const EN_PROTO = {
   'web.s09.deposit.title': 'Your deposit',
   'web.s09c.done': 'Your photos are saved',
   'web.checkin.queue.savedOnDevice': 'Saved on this phone',
-  'web.s15.codeSent': 'Code sent to {phone}',
   'web.error.datesUnavailable':
     "This car isn't available on {date_unavailable}. We suggest returning it on {date_suggested}. Use this date?",
   'web.error.paymentDeclined':
@@ -215,10 +214,6 @@ export const EN_PROTO = {
   'web.s03.docs.title': "What you'll need",
   'web.s03.error.title': "These dates aren't free",
   'web.s03.error.use': 'Use this date',
-  'web.s15.phone': 'Phone',
-  'web.s15.code': '6-digit code',
-  'web.s15.verify': 'Verify',
-  'web.s15.resendIn': { one: 'Resend in {count} second', other: 'Resend in {count} seconds' },
   'web.s15.codeInvalid': {
     one: "That code isn't right. You have {count} try left.",
     other: "That code isn't right. You have {count} tries left.",

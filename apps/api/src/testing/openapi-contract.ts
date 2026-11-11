@@ -397,6 +397,7 @@ export class ContractClient {
 export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/auth': 'modules/iam/testing/auth.contract.test.ts',
   '/host': 'modules/iam/testing/host.contract.test.ts',
+  '/phone': 'modules/iam/testing/phone.contract.test.ts',
   '/brand': 'modules/cfg/internal/brand/brand.contract.test.ts',
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',

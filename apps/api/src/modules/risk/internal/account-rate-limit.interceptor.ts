@@ -2,11 +2,12 @@
  * Limite PAR COMPTE (US-052, critère 3 ; 17 §6.6) : intercepteur global, exécuté APRÈS les gardes,
  * donc après `SessionGuard` qui pose le principal. Une route sans session n'est limitée que par IP
  * (garde global). Au-delà ⇒ 429 `RATE_LIMITED` et `Retry-After`. Webhooks exclus (aucun compte).
+ * Un `RATE_LIMITED` levé ensuite par la route (envoi coûteux, OTP d'US-104) reçoit le même en-tête.
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import type { Observable } from 'rxjs';
-import { from, switchMap } from 'rxjs';
+import { catchError, from, switchMap, throwError } from 'rxjs';
 import { principalOf } from '../../iam/index.js';
 import { AbuseGuard } from './abuse-guard.js';
 import { RiskHttpError } from './errors.js';
@@ -33,6 +34,15 @@ export class AccountRateLimitInterceptor implements NestInterceptor {
         }
         throw error;
       });
-    return from(check).pipe(switchMap(() => next.handle()));
+    // un refus d'envoi coûteux levé par la route elle-même (OTP, US-104) porte aussi Retry-After
+    return from(check).pipe(
+      switchMap(() => next.handle()),
+      catchError((error: unknown) => {
+        if (error instanceof RiskHttpError && error.retryAfterS !== null) {
+          http.getResponse<RiskHttpResponse>().setHeader('Retry-After', String(error.retryAfterS));
+        }
+        return throwError(() => error);
+      }),
+    );
   }
 }

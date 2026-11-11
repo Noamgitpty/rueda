@@ -8,7 +8,8 @@
  * propre au processus (compteurs non partagés entre instances, ce qui suffit en développement).
  * Clé mal formée : refus de démarrer partout.
  *
- * Normalisation avant hachage : e-mail en minuscules sans espaces ; numéro E.164 sans espaces ;
+ * Normalisation avant hachage : e-mail en minuscules sans espaces ; numéro E.164 et indicatif pays
+ * (US-104) sans espaces ;
  * IPv6 réduite à son préfixe /64 (un client qui change d'adresse dans son /64 garde la même
  * clé) ; IPv4 telle quelle (préfixe `::ffff:` retiré).
  *
@@ -24,7 +25,7 @@ import { isIPv4, isIPv6 } from 'node:net';
 export const RATE_LIMIT_KEY_MIN_BYTES = 32;
 export const RATE_LIMIT_KEY_MAX_BYTES = 64;
 
-export type KeyKind = 'ip' | 'phone' | 'email' | 'account';
+export type KeyKind = 'ip' | 'phone' | 'email' | 'account' | 'prefix';
 
 export function parseRateLimitKey(raw: string | undefined, production: boolean): Buffer {
   if (raw === undefined || raw === '') {
@@ -74,6 +75,8 @@ function normalize(kind: KeyKind, value: string): string {
       return value.replace(/\s+/g, '');
     case 'account':
       return value.trim().toLowerCase();
+    case 'prefix':
+      return value.replace(/\s+/g, '');
   }
 }
 

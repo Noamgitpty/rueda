@@ -5,6 +5,8 @@ export const IAM_NOTIFIER = Symbol('iam.IdentityNotifier');
 export const IAM_CLOCK = Symbol('iam.Clock');
 export const IAM_PASSWORD_HASHER = Symbol('iam.PasswordHasher');
 export const IAM_POLICY = Symbol('iam.AuthPolicy');
+/** Vérification du téléphone par OTP (US-104). */
+export const IAM_PHONE_VERIFICATION = Symbol('iam.PhoneVerification');
 
 /** Horloge de l'application (millisecondes) : limiteurs et Max-Age du cookie seulement. */
 export type Clock = () => number;

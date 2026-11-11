@@ -12,6 +12,8 @@
  * | `risk_pruner`         | 1 h                                        | `core.risk_cmd_prune` (0047, US-052)                      |
  * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) |
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
+ * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
+ * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
  * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
@@ -31,7 +33,8 @@ import { registerProductionOracle } from './modules/avl/index.js';
 import { resolveParam } from './modules/cfg/index.js';
 import { registerMoneyReconciliation } from './modules/fin/index.js';
 import type { CountryConfig } from './modules/cfg/index.js';
-import { postgresNotificationContacts } from './modules/iam/index.js';
+import { OtpSender, postgresNotificationContacts, registerPhoneOtp } from './modules/iam/index.js';
+import type { OtpCodeHasher } from './modules/iam/index.js';
 import {
   notificationCountryData,
   NotificationSender,
@@ -43,6 +46,7 @@ import { ntfSmsBudget } from './modules/risk/index.js';
 export const HOLD_EXPIRY_WORKER = 'hold_expiry';
 export const DISPOSITION_SWEEPER_WORKER = 'disposition_sweeper';
 export const RISK_PRUNER_WORKER = 'risk_pruner';
+export { IAM_OTP_PRUNER_WORKER, IAM_OTP_SENDER_WORKER } from './modules/iam/index.js';
 
 /** Valeurs PROPOSÉES (ADR-078) ; les périodes de 17 qui sont des paramètres pays sont lues en CFG. */
 export const WORKER_TASK_DEFAULTS = {
@@ -53,6 +57,9 @@ export const WORKER_TASK_DEFAULTS = {
   riskPrunerBatch: 5_000,
   /** Conservation des événements d'abus (`risk_abuse_event`) : 90 jours (handoff US-052). */
   riskEventRetentionDays: 90,
+  /** Purge des défis OTP de plus de 30 jours (US-104) : toutes les heures, par lots. */
+  otpPrunerPeriodSeconds: 3_600,
+  otpPrunerBatch: 5_000,
   /** Reprise d'un interblocage (SQLSTATE 40P01) : 3 essais au plus (handoff US-024). */
   deadlockAttempts: 3,
 } as const;
@@ -108,6 +115,11 @@ export interface WorkerTaskDeps {
   /** Canal des alertes d'exploitation (US-004) ; par défaut, une ligne JSON sur `log`. */
   readonly alerts?: AlertChannel;
   readonly now?: () => Date;
+  /**
+   * Empreinte des codes OTP (`RUEDA_OTP_KEY`, US-104) ; absente (`null`) : aucun code émis. Aucun
+   * canal SMS réel avant le lot C : le travailleur n'envoie rien en production (fail-closed).
+   */
+  readonly otpHasher?: OtpCodeHasher | null;
 }
 
 /** Déclare toutes les tâches du travailleur sur `registry` (voir l'en-tête). */
@@ -166,6 +178,28 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
     ]);
     line(RISK_PRUNER_WORKER, { pruned: count(rows[0]?.n) });
   });
+
+  // OTP du téléphone (US-104) : émission asynchrone, aucun canal SMS réel avant le lot C (F-03)
+  registerPhoneOtp(
+    registry,
+    new OtpSender({
+      hasher: deps.otpHasher ?? null,
+      sms: null,
+      localeConfig: repositoryLocaleConfig(),
+      countryOf: (code) => deps.config.countries.get(code),
+      brand: deps.brandName,
+      log: (entry) => {
+        deps.log(JSON.stringify({ level: 'info', ...entry }));
+      },
+    }),
+    {
+      periodSeconds: d.otpPrunerPeriodSeconds,
+      batch: d.otpPrunerBatch,
+      log: (n) => {
+        line('iam_otp_pruner', { pruned: n });
+      },
+    },
+  );
 
   const countryData = notificationCountryData(deps.config);
   registerNotifications(
