@@ -138,6 +138,21 @@ VALUES
   ('DECIDE_ADVANCE',             'finance.platform_advance',      'DOMAIN_COMMAND', 'PLATFORM_ADVANCE',      false, '{}',         '{}', true),
   ('WRITE_OFF_RECEIVABLE',       'finance.platform_advance',      'DOMAIN_COMMAND', 'PLATFORM_ADVANCE',      false, '{}',         '{}', true);
 
+-- Matrice (17 §2.3, colonnes OPS et ADMIN ; PROPOSÉ là où 17 ne nomme pas l'action) -------------
+INSERT INTO core.iam_role_permission (role, permission_code, scope_rule, valid_from, change_reason)
+VALUES
+  ('OPS_AGENT',  'kyc.license_check_at_handover', 'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('OPS_AGENT',  'kyc.decide',                    'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('ADMIN',      'kyc.decide',                    'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('OPS_AGENT',  'ops.review_listing_host',       'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('ADMIN',      'ops.review_listing_host',       'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('OPS_AGENT',  'ops.force_terminate_trip',      'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('ADMIN',      'ops.force_terminate_trip',      'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('OPS_AGENT',  'dispute.decide',                'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3 (FINANCE lim. non semé)'),
+  ('ADMIN',      'dispute.decide',                'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3'),
+  ('ADMIN',      'data.export',                   'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3 (DSR, journalisé)'),
+  ('SUPERADMIN', 'data.export',                   'PLATFORM', '2026-11-03T00:00:00Z', 'US-101 : matrice 17 §2.3 (DSR, journalisé)');
+
 -- 2. manual_action : issue et référence de la commande de domaine ---------------------------------
 ALTER TABLE core.support_manual_action
   ADD COLUMN outcome text

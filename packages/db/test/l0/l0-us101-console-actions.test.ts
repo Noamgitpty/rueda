@@ -650,7 +650,7 @@ describe('accès direct', () => {
       await expect(
         client.query(
           `INSERT INTO core.support_manual_action_handler (action_code, handler, story)
-           VALUES ('CANCEL_TRIP_PLATFORM', 'core.support_subject_country(text,uuid)'::regprocedure, 'US-101')`,
+           VALUES ('CANCEL_TRIP_PLATFORM', 'core.support_country_of_trip(uuid)'::regprocedure, 'US-101')`,
         ),
       ).rejects.toMatchObject({ code: '42501' });
     });
