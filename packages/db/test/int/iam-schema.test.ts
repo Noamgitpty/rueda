@@ -39,10 +39,11 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_email_verification:
     'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
   // US-049 (0056) : lecture des appartenances par les commandes de hold (auto-réservation)
+  // US-107 (0061) : ouverture du compte d'hôte par les commandes d'iam_auth_owner
   iam_membership:
-    'cmd_hold_read:cmd_hold_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_organization:
-    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
+    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_otp_challenge: 'migrator_all:migrator',
   iam_restriction: 'migrator_all:migrator',
@@ -64,6 +65,9 @@ const IAM_COMMANDS: Record<string, string> = {
   // US-102 (0059) : inscription avec consentements versionnés
   'core.iam_cmd_register_with_consents(uuid,text,text,text,text,text,uuid,bytea,integer,inet,text,jsonb,boolean)':
     'iam_auth_owner',
+  // US-107 (0061) : ouverture du compte d'hôte en libre-service, comptes d'hôte de la session
+  'core.iam_cmd_open_host_account(bytea,text,text)': 'iam_auth_owner',
+  'core.iam_host_accounts(bytea)': 'iam_auth_owner',
   'core.iam_cmd_revoke_all_sessions(bytea)': 'iam_auth_owner',
   'core.iam_cmd_revoke_session(bytea,text)': 'iam_auth_owner',
   'core.iam_cmd_verify_email(bytea)': 'iam_auth_owner',
@@ -86,6 +90,12 @@ const IAM_COMMANDS: Record<string, string> = {
 
 /** Lecture des coordonnées pour NTF (US-021, migration 0031), exécutable par app_worker seul. */
 const NOTIFICATION_CONTACT = 'core.iam_notification_contact(uuid)';
+/**
+ * Gestionnaire de console de CREATE_HOST_ACCOUNT (US-107, 0061) : exécutable par iam_staff_owner
+ * SEUL, jamais par un rôle applicatif (garde des liaisons d'ADR-092 : il reçoit l'acteur).
+ */
+const HOST_ACCOUNT_HANDLER =
+  'core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 
 describe('schéma IAM (US-010)', () => {
   it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
@@ -251,7 +261,21 @@ describe('schéma IAM (US-010)', () => {
           public_exec: false,
         },
       ]);
-      const commands = rows.filter((r) => r.fn !== NOTIFICATION_CONTACT);
+      expect(rows.filter((r) => r.fn === HOST_ACCOUNT_HANDLER)).toEqual([
+        {
+          fn: HOST_ACCOUNT_HANDLER,
+          secdef: true,
+          owner: 'iam_auth_owner',
+          config: ['search_path=pg_catalog, pg_temp'],
+          api: false,
+          worker: false,
+          anon: false,
+          public_exec: false,
+        },
+      ]);
+      const commands = rows.filter(
+        (r) => r.fn !== NOTIFICATION_CONTACT && r.fn !== HOST_ACCOUNT_HANDLER,
+      );
       expect(commands.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
       for (const r of commands) {
         expect(r, r.fn).toMatchObject({

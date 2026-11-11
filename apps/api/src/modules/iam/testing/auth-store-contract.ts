@@ -8,6 +8,10 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { AuthStore } from '../internal/auth-store.js';
 import { newOpaqueToken, tokenHash } from '../internal/session-token.js';
+import { CountryConfigService } from '../../cfg/index.js';
+
+/** Pays configurés (données de configuration, jamais une constante du code). */
+const COUNTRIES = [...new CountryConfigService().config.countries.keys()].sort();
 
 export interface ContractHarness {
   readonly store: AuthStore;
@@ -145,6 +149,57 @@ export function authStoreContract(name: string, harness: () => Promise<ContractH
         expect((await store.resolveSession(tokenHash(after.token)))?.emailVerified).toBe(true);
         expect(await store.verifyEmail(tokenHash(a.verificationToken))).toBe(false);
         expect((await store.findCredentials(a.email))?.status).toBe('ACTIVE');
+      }));
+
+    // US-107 : compte d'hôte d'une personne physique, un par pays (19 US-107, 17 §2.3, §3.2.1)
+    it.each(COUNTRIES)(
+      'compte d’hôte (%s) : personne vérifiée => DONE, titulaire P2P_HOST, nom affiché = prénom ; seconde demande => HOST_ACCOUNT_EXISTS ; personne morale => HOST_ENTITY_NOT_ALLOWED',
+      (country) =>
+        withStore(async (store) => {
+          const a = await register(store);
+          const b = await register(store);
+          await store.verifyEmail(tokenHash(a.verificationToken));
+          await store.verifyEmail(tokenHash(b.verificationToken));
+          const sa = tokenHash((await open(store, a.userId)).token);
+          const sb = tokenHash((await open(store, b.userId)).token);
+          expect(await store.hostAccounts(sa)).toEqual([]);
+          expect(await store.openHostAccount(sa, country, 'LEGAL_ENTITY')).toEqual({
+            outcome: 'HOST_ENTITY_NOT_ALLOWED',
+            orgId: null,
+          });
+          const r = await store.openHostAccount(sa, country, 'INDIVIDUAL');
+          expect(r.outcome).toBe('DONE');
+          expect(r.orgId).toMatch(/^[0-9a-f-]{36}$/);
+          expect(await store.openHostAccount(sa, country, 'INDIVIDUAL')).toEqual({
+            outcome: 'HOST_ACCOUNT_EXISTS',
+            orgId: null,
+          });
+          // reconnexion : nouvelle session, le compte d'hôte est porté ; jamais celui d'un autre
+          const again = tokenHash((await open(store, a.userId)).token);
+          expect(await store.hostAccounts(again)).toEqual([
+            { orgId: r.orgId, country, role: 'P2P_HOST', status: 'ONBOARDING', displayName: 'Ana' },
+          ]);
+          expect(await store.hostAccounts(sb)).toEqual([]);
+        }),
+    );
+
+    it('compte d’hôte : session invalide => AUTH_REQUIRED ; e-mail non vérifié => HOST_ACCOUNT_NOT_ELIGIBLE ; pays non configuré => COUNTRY_UNKNOWN', () =>
+      withStore(async (store) => {
+        const country = COUNTRIES[0] ?? '';
+        expect(
+          await store.openHostAccount(tokenHash(newOpaqueToken()), country, 'INDIVIDUAL'),
+        ).toEqual({ outcome: 'AUTH_REQUIRED', orgId: null });
+        const a = await register(store);
+        const s = tokenHash((await open(store, a.userId)).token);
+        expect(await store.openHostAccount(s, country, 'INDIVIDUAL')).toEqual({
+          outcome: 'HOST_ACCOUNT_NOT_ELIGIBLE',
+          orgId: null,
+        });
+        expect(await store.openHostAccount(s, 'ZZ', 'INDIVIDUAL')).toEqual({
+          outcome: 'COUNTRY_UNKNOWN',
+          orgId: null,
+        });
+        expect(await store.hostAccounts(s)).toEqual([]);
       }));
   });
 }

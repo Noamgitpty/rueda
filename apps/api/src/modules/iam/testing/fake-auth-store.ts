@@ -12,11 +12,15 @@ import type {
   ApiRevocationReason,
   AuthStore,
   Credentials,
+  HolderKind,
+  HostAccount,
+  HostAccountOutcome,
   MfaLevel,
   OpenSessionInput,
   RegisterAccountInput,
   SessionRecord,
 } from '../internal/auth-store.js';
+import { randomUUID } from 'node:crypto';
 import { SignupDocumentsError } from '../internal/auth-store.js';
 import { CountryConfigService } from '../../cfg/index.js';
 
@@ -36,6 +40,16 @@ interface FakeAccount {
   passwordHash: string;
   status: AccountStatus;
   emailVerifiedAt: Date | null;
+  legalFirstName: string;
+}
+
+/** Compte d'hôte du FAKE (même sémantique que core.iam_organization + membership, 0061). */
+export interface FakeHostAccount {
+  readonly orgId: string;
+  readonly holderUserId: string;
+  readonly country: string;
+  readonly status: string;
+  readonly displayName: string;
 }
 
 interface FakeSession {
@@ -56,6 +70,7 @@ export class FakeAuthStore implements AuthStore {
   readonly accounts = new Map<string, FakeAccount>();
   readonly sessions: FakeSession[] = [];
   readonly consents: FakeConsent[] = [];
+  readonly hostOrgs: FakeHostAccount[] = [];
   /** Versions en vigueur des documents (US-102) ; `null` = aucun document (fail-closed). */
   documentVersions: Readonly<Record<'TOS_GUEST' | 'PRIVACY' | 'MARKETING', number>> | null = {
     TOS_GUEST: 1,
@@ -114,6 +129,7 @@ export class FakeAuthStore implements AuthStore {
       passwordHash: input.passwordHash,
       status: 'PENDING_EMAIL',
       emailVerifiedAt: null,
+      legalFirstName: input.legalFirstName,
     });
     this.#verifications.set(input.verificationTokenHash.toString('hex'), {
       userId: input.userId,
@@ -200,6 +216,54 @@ export class FakeAuthStore implements AuthStore {
     s.revokedAt = new Date(this.#now());
     s.revokedReason = reason;
     return true;
+  }
+
+  /**
+   * Ouverture du compte d'hôte, mêmes règles que core.iam_cmd_open_host_account (0061) : personne
+   * physique, pays configuré, compte ACTIVE, un compte par personne et par pays ; nom affiché = le
+   * prénom légal. L'âge n'est pas modélisé (aucune date de naissance avant le KYC).
+   */
+  async openHostAccount(
+    tokenHash: Buffer,
+    country: string,
+    holderKind: HolderKind,
+  ): Promise<{ outcome: HostAccountOutcome; orgId: string | null }> {
+    const s = this.#live(tokenHash);
+    const a = s ? this.#account(s.userId) : undefined;
+    if (!s || !a || a.status === 'CLOSED' || a.status === 'BANNED') {
+      return { outcome: 'AUTH_REQUIRED', orgId: null };
+    }
+    if (holderKind !== 'INDIVIDUAL') return { outcome: 'HOST_ENTITY_NOT_ALLOWED', orgId: null };
+    if (!KNOWN_COUNTRIES.has(country)) return { outcome: 'COUNTRY_UNKNOWN', orgId: null };
+    if (a.status !== 'ACTIVE') return { outcome: 'HOST_ACCOUNT_NOT_ELIGIBLE', orgId: null };
+    if (this.hostOrgs.some((o) => o.holderUserId === a.id && o.country === country)) {
+      return { outcome: 'HOST_ACCOUNT_EXISTS', orgId: null };
+    }
+    const orgId = randomUUID();
+    this.hostOrgs.push({
+      orgId,
+      holderUserId: a.id,
+      country,
+      status: 'ONBOARDING',
+      displayName: a.legalFirstName.trim(),
+    });
+    return { outcome: 'DONE', orgId };
+  }
+
+  async hostAccounts(tokenHash: Buffer): Promise<HostAccount[]> {
+    const s = this.#live(tokenHash);
+    const a = s ? this.#account(s.userId) : undefined;
+    if (!s || !a || a.status === 'CLOSED' || a.status === 'BANNED') return [];
+    return this.hostOrgs
+      .filter((o) => o.holderUserId === a.id)
+      .sort((x, y) => (x.country === y.country ? 0 : x.country < y.country ? -1 : 1))
+      .map((o) => ({
+        orgId: o.orgId,
+        country: o.country,
+        role: 'P2P_HOST' as const,
+        status: o.status,
+        displayName: o.displayName,
+      }));
   }
 
   async revokeAllSessions(tokenHash: Buffer): Promise<number> {

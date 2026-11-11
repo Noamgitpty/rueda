@@ -33,6 +33,12 @@ Paramètres PROPOSÉS (à inscrire au registre 17 §7.2) : durée de session 14 
 
 E-mails d'identité : `ChannelIdentityNotifier` (port `MessagingChannel` de NTF, textes `common.auth.emailVerification.*` / `common.auth.accountExists.*`, lien `<site>/verify-email?token=`) ; envoyé pendant la requête. Production : `PendingIdentityNotifier` tant qu'aucun adaptateur e-mail réel n'existe (lot C).
 
+## Compte d'hôte (US-107, ADR-096)
+
+`POST /host/accounts` (`SessionGuard`, `HostAccountController`) : corps `{ country, holderKind }` seulement. `holderKind` vaut `INDIVIDUAL` ; `LEGAL_ENTITY`, ou toute donnée de personne morale (`legalName`, `tradeName`, `companyName`, `businessName`, `companyTaxId`, `legalEntity`), rend 422 `HOST_ENTITY_NOT_ALLOWED` (DEC-FONDATEUR-13). Aucun nom n'est reçu : le nom affiché aux voyageurs est le prénom légal du titulaire, recopié par la base. Réponses : 201 `HOST_ACCOUNT_OPENED` + `orgId` (compte `ONBOARDING`) ; 400 `REQUEST_INVALID` ou `COUNTRY_UNKNOWN` ; 401 ; 403 `HOST_ACCOUNT_NOT_ELIGIBLE` (e-mail non vérifié, compte restreint) ; 409 `HOST_ACCOUNT_EXISTS` (un compte par personne et par pays) ; 422 `HOST_UNDER_AGE` ; 503 `HOST_ACCOUNT_UNAVAILABLE` (paramètre du pays absent). Commande `core.iam_cmd_open_host_account` (0061).
+
+`GET /auth/session` rend aussi `roles` (`GUEST`, plus `P2P_HOST` pour le titulaire d'un compte d'hôte) et `hostAccounts` (`orgId`, `country`, `role`, `status`, `displayName`), lus par `core.iam_host_accounts`. Textes : `common.host.*` (es, en, fr, pt-BR). Ouverture par l'ops : action de console `CREATE_HOST_ACCOUNT` (module SUP, `POST /console/actions`).
+
 ## Console interne : MFA du staff (US-012, ADR-062)
 
 `StaffConsoleModule.register(options)` (global, monté par l'API après `IamAuthModule`) exporte `StaffGuard` et `staffPrincipalOf(request)`. Une route de console pose `@UseGuards(StaffGuard)` :

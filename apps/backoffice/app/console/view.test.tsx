@@ -242,6 +242,9 @@ describe('US-101 : catalogue des actions, pièces, demandes FINANCE', () => {
     for (const a of [...ACTION_GROUPS.state, ...ACTION_GROUPS.record, ...ACTION_GROUPS.finance]) {
       expect(out, a).toContain(`value="${a}"`);
     }
+    // US-107 : création d'un compte d'hôte par l'ops, libellée dans la langue de la vue
+    expect(out).toContain('value="CREATE_HOST_ACCOUNT"');
+    expect(out).toContain(es['backoffice.action.CREATE_HOST_ACCOUNT']);
     expect(out).toContain('name="evidence"');
     // aucun champ de montant dans le formulaire d'action
     expect(out).not.toMatch(/name="(amount|amountMinor|montant)"/i);

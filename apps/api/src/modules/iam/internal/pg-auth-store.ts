@@ -12,12 +12,15 @@ import type {
   ApiRevocationReason,
   AuthStore,
   Credentials,
+  HolderKind,
+  HostAccount,
+  HostAccountOutcome,
   MfaLevel,
   OpenSessionInput,
   RegisterAccountInput,
   SessionRecord,
 } from './auth-store.js';
-import { SignupDocumentsError } from './auth-store.js';
+import { HOST_ACCOUNT_OUTCOMES, SignupDocumentsError } from './auth-store.js';
 
 /** Contraintes de la commande d'inscription avec consentements (0059) → motif du refus. */
 const SIGNUP_DOCUMENT_CONSTRAINTS: Readonly<Record<string, SignupDocumentsError['reason']>> = {
@@ -191,6 +194,47 @@ export class PgAuthStore implements AuthStore {
       [tokenHash],
     );
     return rows[0]?.n ?? 0;
+  }
+
+  async openHostAccount(
+    tokenHash: Buffer,
+    country: string,
+    holderKind: HolderKind,
+  ): Promise<{ outcome: HostAccountOutcome; orgId: string | null }> {
+    const rows = await this.#run<{ outcome: string; org_id: string | null }>(
+      'open_host_account',
+      'SELECT outcome, org_id FROM core.iam_cmd_open_host_account($1, $2, $3)',
+      [tokenHash, country, holderKind],
+    );
+    const row = rows[0];
+    // issue inconnue de la commande : jamais interprétée comme un succès (fail-closed)
+    if (!row || !(HOST_ACCOUNT_OUTCOMES as readonly string[]).includes(row.outcome)) {
+      throw new AuthStoreError('open_host_account', undefined);
+    }
+    return { outcome: row.outcome as HostAccountOutcome, orgId: row.org_id };
+  }
+
+  async hostAccounts(tokenHash: Buffer): Promise<HostAccount[]> {
+    const rows = await this.#run<{
+      org_id: string;
+      country_code: string;
+      role: string;
+      org_status: string;
+      display_name: string;
+    }>(
+      'host_accounts',
+      'SELECT org_id, country_code, role, org_status, display_name FROM core.iam_host_accounts($1)',
+      [tokenHash],
+    );
+    return rows
+      .filter((r) => r.role === 'P2P_HOST')
+      .map((r) => ({
+        orgId: r.org_id,
+        country: r.country_code,
+        role: 'P2P_HOST' as const,
+        status: r.org_status,
+        displayName: r.display_name,
+      }));
   }
 }
 

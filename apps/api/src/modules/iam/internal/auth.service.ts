@@ -14,7 +14,7 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { CountryConfigService } from '../../cfg/index.js';
-import type { AcceptedDocument, AuthStore, MfaLevel } from './auth-store.js';
+import type { AcceptedDocument, AuthStore, HostAccount, MfaLevel } from './auth-store.js';
 import { SignupDocumentsError } from './auth-store.js';
 import { AuthHttpError } from './errors.js';
 import type { IdentityNotifier } from './notifier.js';
@@ -88,6 +88,21 @@ const KNOWN_COUNTRIES: ReadonlySet<string> = new Set(
   new CountryConfigService().config.countries.keys(),
 );
 const DOCUMENT_KINDS = new Set(['TOS_GUEST', 'PRIVACY']);
+/** Corps de l'ouverture d'un compte d'hôte (US-107) : ces deux champs seulement. */
+const HOST_ACCOUNT_FIELDS = new Set(['country', 'holderKind']);
+const HOLDER_KINDS = new Set(['INDIVIDUAL', 'LEGAL_ENTITY']);
+/**
+ * Champs qui désignent une personne morale (raison sociale, nom commercial, numéro fiscal
+ * d'entreprise) : leur seule présence est un refus `HOST_ENTITY_NOT_ALLOWED` (DEC-FONDATEUR-13).
+ */
+const LEGAL_ENTITY_FIELDS = new Set([
+  'legalName',
+  'tradeName',
+  'companyName',
+  'businessName',
+  'companyTaxId',
+  'legalEntity',
+]);
 
 /** Versions affichées (US-102) : `null` si absentes, `undefined` si mal formées. */
 function acceptedDocuments(value: unknown): readonly AcceptedDocument[] | null | undefined {
@@ -326,6 +341,53 @@ export class AuthService implements AuthenticationPort {
     const n = await this.store.revokeAllSessions(tokenHash(token));
     if (n === 0) throw new AuthHttpError('AUTH_REQUIRED');
     return n;
+  }
+
+  /**
+   * Ouverture du compte d'hôte de la personne de la session (US-107 ; 19 US-107, 08 BR-ACC-06,
+   * DEC-FONDATEUR-13). Corps : `{ country, holderKind }` seulement. Toute donnée de personne
+   * morale (raison sociale, nom commercial, numéro fiscal d'entreprise) ou `holderKind` autre
+   * qu'`INDIVIDUAL` : `HOST_ENTITY_NOT_ALLOWED`. Aucun nom n'est reçu : le nom affiché est le
+   * prénom légal du titulaire, recopié par la base. Rend l'identifiant du compte ouvert.
+   */
+  async openHostAccount(proof: Buffer | null, body: Record<string, unknown>): Promise<string> {
+    if (proof === null) throw new AuthHttpError('AUTH_REQUIRED');
+    if (Object.keys(body).some((k) => LEGAL_ENTITY_FIELDS.has(k))) {
+      throw new AuthHttpError('HOST_ENTITY_NOT_ALLOWED');
+    }
+    if (Object.keys(body).some((k) => !HOST_ACCOUNT_FIELDS.has(k))) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    const { country, holderKind } = body;
+    if (typeof holderKind !== 'string' || !HOLDER_KINDS.has(holderKind)) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    if (holderKind !== 'INDIVIDUAL') throw new AuthHttpError('HOST_ENTITY_NOT_ALLOWED');
+    if (typeof country !== 'string' || !COUNTRY_FORMAT.test(country)) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    if (!KNOWN_COUNTRIES.has(country)) throw new AuthHttpError('COUNTRY_UNKNOWN');
+    const r = await this.store.openHostAccount(proof, country, 'INDIVIDUAL');
+    switch (r.outcome) {
+      case 'DONE':
+        if (r.orgId === null) throw new Error('IAM : compte d’hôte ouvert sans identifiant');
+        return r.orgId;
+      case 'AUTH_REQUIRED':
+      case 'HOST_ENTITY_NOT_ALLOWED':
+      case 'COUNTRY_UNKNOWN':
+      case 'HOST_ACCOUNT_NOT_ELIGIBLE':
+      case 'HOST_UNDER_AGE':
+      case 'HOST_ACCOUNT_EXISTS':
+        throw new AuthHttpError(r.outcome);
+      case 'PARAM_MISSING':
+        // paramètre du pays absent (fail-closed, 17 §7.1) : service indisponible, sans détail
+        throw new AuthHttpError('HOST_ACCOUNT_UNAVAILABLE');
+    }
+  }
+
+  /** Rôles et comptes d'hôte de la personne de la session (rôle P2P_HOST à la reconnexion). */
+  async hostAccounts(proof: Buffer | null): Promise<HostAccount[]> {
+    return proof === null ? [] : this.store.hostAccounts(proof);
   }
 
   /** Lien de vérification d'email (usage unique) ; inconnu, consommé ou expiré : même erreur. */

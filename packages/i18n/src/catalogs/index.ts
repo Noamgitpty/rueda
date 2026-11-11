@@ -22,9 +22,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.legal.*`. Version 12 : cadre des actions de console (US-101) : `common.auth.actionRequested`,
  `common.auth.actionRefused`, `common.auth.selfApproval`, `backoffice.approvals.*`, nouvelles
  `backoffice.action.*`, et sens élargi de `backoffice.action.heading` et `backoffice.action.subject`
- (le sujet n'est plus seulement un voyage).
+ (le sujet n'est plus seulement un voyage). Version 13 : compte d'hôte d'une personne physique
+ (US-107) : `common.host.*` et `backoffice.action.CREATE_HOST_ACCOUNT`.
  */
-export const CATALOG_VERSION = 12;
+export const CATALOG_VERSION = 13;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

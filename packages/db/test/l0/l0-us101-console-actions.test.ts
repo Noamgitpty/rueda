@@ -18,6 +18,7 @@
  * à chaque appel ; types de sujet déclarés ; énumération fermée de `decision` ; FINANCE garantie
  * par `requires_approval` ; rejeu concurrent d'un même request_id sur deux connexions.
  */
+import { randomBytes } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { setSessionContext } from '../../src/index.ts';
@@ -30,6 +31,7 @@ import {
 import { COUNTRIES } from '../support/avl.ts';
 import { buildWorld } from '../support/rls.ts';
 import type { World } from '../support/rls.ts';
+import { phcArgon2id } from '../support/iam.ts';
 import { auditOf, elevatedStaff, installTestProofKey, uuid } from '../support/staff.ts';
 
 const ALL = COUNTRIES.map((c) => c.country);
@@ -133,7 +135,8 @@ async function effects(client: pg.ClientBase, subject: string) {
   return rows;
 }
 
-// 17 §10, catalogue minimal (hors CREATE_HOST_ACCOUNT, US-107), réparti par 19 US-101.
+// 17 §10, catalogue minimal réparti par 19 US-101 ; CREATE_HOST_ACCOUNT est porté par US-107
+// (action d'état liée à sa commande de domaine, migration 0061).
 const STATE_ACTIONS = [
   'CANCEL_TRIP_GUEST',
   'CANCEL_TRIP_HOST',
@@ -159,6 +162,8 @@ const FINANCE = ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'] as
 const FINANCE_REQUEST =
   'core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const DECISION = { decision: ['APPROVED', 'REJECTED'] };
+const HOST_ACCOUNT_HANDLER =
+  'core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 
 interface Expected {
   readonly permission: string;
@@ -167,6 +172,8 @@ interface Expected {
   readonly keys: readonly string[];
   readonly values: Record<string, readonly string[]>;
   readonly approval: boolean;
+  /** Commande liée attendue, hors actions d'argent (liées à la demande FINANCE). */
+  readonly handler?: string;
   /** Source dans la spécification (17 §2.3 matrice, §10 catalogue), ou décision PROPOSÉE. */
   readonly source: string;
 }
@@ -178,6 +185,17 @@ interface Expected {
  * §1 (PROPOSÉ), citée comme telle.
  */
 const MATRIX: Readonly<Record<string, Expected>> = {
+  CREATE_HOST_ACCOUNT: {
+    permission: 'ops.review_listing_host',
+    subject: 'USER_ACCOUNT',
+    mode: 'DOMAIN_COMMAND',
+    keys: [],
+    values: {},
+    approval: false,
+    handler: HOST_ACCOUNT_HANDLER,
+    source:
+      '17 §10 « CREATE_HOST_ACCOUNT (création par l’ops, permission ops.review_listing_host, pour une personne physique déjà inscrite et à sa demande) » ; ADR-096 (sujet USER_ACCOUNT, PROPOSÉ)',
+  },
   CANCEL_TRIP_GUEST: {
     permission: 'ops.platform_cancel',
     subject: 'TRIP',
@@ -371,11 +389,11 @@ async function catalog(client: pg.ClientBase): Promise<Map<string, CatalogRow>> 
 }
 
 describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
-  it('le catalogue minimal de 17 §10 : exactement les 19 actions de 19 US-101', async () => {
+  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107)', async () => {
     await withRole('app_api', async (client) => {
       const byCode = await catalog(client);
       expect([...byCode.keys()].sort()).toEqual(
-        [...STATE_ACTIONS, ...RECORD_ONLY, ...FINANCE].sort(),
+        [...STATE_ACTIONS, ...RECORD_ONLY, ...FINANCE, 'CREATE_HOST_ACCOUNT'].sort(),
       );
       expect(Object.keys(MATRIX).sort()).toEqual([...byCode.keys()].sort());
     });
@@ -394,8 +412,9 @@ describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
           input_values: e.values,
           requires_approval: e.approval,
         });
-        // une action d'argent n'est liée qu'à la demande FINANCE ; aucune autre n'est liée au lot 1
-        expect(r?.handler ?? null, action).toBe(e.approval ? FINANCE_REQUEST : null);
+        // une action d'argent n'est liée qu'à la demande FINANCE ; une action d'état ne l'est qu'à
+        // la commande de domaine livrée par sa story (US-107 : CREATE_HOST_ACCOUNT)
+        expect(r?.handler ?? null, action).toBe(e.approval ? FINANCE_REQUEST : (e.handler ?? null));
       });
     },
   );
@@ -558,6 +577,8 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
     'PLATFORM_ADVANCE',
     'SUPPORT_CASE',
     'TRIP',
+    // US-107 (0061) : la personne inscrite, pays de son compte (dernière acceptation des CGU)
+    'USER_ACCOUNT',
   ];
   const PENDING = ['IDENTITY_VERIFICATION', 'LISTING'];
 
@@ -589,7 +610,15 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
           COUNTRIES[i]?.currency,
         ]);
         const cw = world.countries[i];
+        // personne inscrite par le parcours du pays (US-107 : pays du compte = dernière CGU)
+        const person = uuid();
+        await client.query(
+          `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Rls', 'Test', 'es', $4, $5, 86400,
+                  NULL, $6, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false)`,
+          [person, `us101-${person}@example.test`, phcArgon2id(), uuid(), randomBytes(32), country],
+        );
         const subjects: Record<string, string> = {
+          USER_ACCOUNT: person,
           TRIP: trip(i),
           ORGANIZATION: cw?.orgA ?? '',
           SUPPORT_CASE: i === 0 ? world.cases.firstA1 : world.cases.secondA1,
