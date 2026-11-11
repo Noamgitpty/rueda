@@ -2,13 +2,13 @@
  * Rendu SQL de la graine du catalogue des véhicules (US-113 ; ADR-094) depuis
  * `../../data/vehicle-catalog.json`, validée par `parseVehicleCatalog` (aucune ligne sans source
  * ni licence, aucune source à la licence non validée). La migration
- * `packages/db/migrations/0059_catalog_vehicle_reference.sql` contient ce rendu entre deux
+ * `packages/db/migrations/0060_catalog_vehicle_reference.sql` contient ce rendu entre deux
  * marqueurs ; `seed-sql.test.ts` échoue s'il en diffère. Une instruction `INSERT` par table : la
  * migration est une transaction, une ligne refusée par la base (NOT NULL, CHECK) annule tout.
  */
 import type { CatalogMake, CatalogModel, CatalogVariant, VehicleCatalogSeed } from './model.js';
 
-export const CATALOG_MIGRATION_FILE = '0059_catalog_vehicle_reference.sql';
+export const CATALOG_MIGRATION_FILE = '0060_catalog_vehicle_reference.sql';
 export const SEED_BEGIN = '-- >>> graine générée (US-113) : ne pas éditer à la main';
 export const SEED_END = '-- <<< fin de la graine générée';
 

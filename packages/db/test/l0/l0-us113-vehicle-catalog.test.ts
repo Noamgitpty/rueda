@@ -1,5 +1,5 @@
 /**
- * Preuves du catalogue de référence des véhicules (US-113, migration 0059 ; 16 HST-050 ; 17 §3.2.3,
+ * Preuves du catalogue de référence des véhicules (US-113, migration 0060 ; 16 HST-050 ; 17 §3.2.3,
  * ADR-034 ; ADR-094) sous les rôles de production (assertion L0-05 en tête par withRole) :
  * - socle : RLS ENABLE + FORCE, migrator_all, propriétaire migrator, aucun droit ni politique pour
  *   PUBLIC ; app_api lit des colonnes nommées (ni provenance ni vérificateur) ; app_worker et
@@ -27,7 +27,7 @@ const TABLES = [
   'catalog_vehicle_variant',
 ] as const;
 
-/** Colonnes lisibles par app_api (0059), triées. */
+/** Colonnes lisibles par app_api (0060), triées. */
 const API_COLUMNS: Readonly<Record<(typeof TABLES)[number], readonly string[]>> = {
   catalog_vehicle_make: ['aliases', 'country_origin', 'id', 'name', 'slug', 'status'],
   catalog_vehicle_model: [
@@ -101,7 +101,7 @@ async function sqlState(client: pg.ClientBase, sql: string): Promise<string> {
   }
 }
 
-describe('socle RLS et droits (0059)', () => {
+describe('socle RLS et droits (0060)', () => {
   it('trois tables : RLS ENABLE + FORCE, migrator_all, propriétaire migrator', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{

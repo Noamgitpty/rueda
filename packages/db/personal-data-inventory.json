@@ -528,6 +528,63 @@
         "created_by": "C1"
       }
     },
+    "core.contract_consent": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "seq": "C1",
+        "id": "C1",
+        "user_id": "C1",
+        "template_id": "C1",
+        "doc_kind": "C1",
+        "doc_version": "C1",
+        "locale": "C1",
+        "accepted": "C1",
+        "accepted_at": "C1",
+        "context": "C1",
+        "country_code": "C1",
+        "ip_enc": {
+          "class": "C2",
+          "erasure": "crypto-shredding",
+          "key": ["key_subject_type", "key_subject_id"]
+        },
+        "user_agent_enc": {
+          "class": "C2",
+          "erasure": "crypto-shredding",
+          "key": ["key_subject_type", "key_subject_id"]
+        },
+        "key_subject_type": "C1",
+        "key_subject_id": "C1",
+        "c2_withheld": "C1"
+      }
+    },
+    "core.contract_document_template": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "kind": "C0",
+        "country_code": "C0",
+        "locale": "C0",
+        "version": "C0",
+        "is_major": "C0",
+        "title": "C0",
+        "body_md": "C0",
+        "content_hash": "C0",
+        "legal_review_ref": "C0",
+        "is_authoritative": "C0",
+        "valid_from": "C0",
+        "published_by": "C1",
+        "request_id": "C1",
+        "created_at": "C0"
+      }
+    },
     "core.finance_legal_entity": {
       "lifecycle": "C",
       "export": "none",

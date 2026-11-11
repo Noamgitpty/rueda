@@ -19,6 +19,10 @@ const signup = (url: string, overrides: Record<string, unknown> = {}) =>
       legalLastName: 'Pérez',
       locale: 'fr',
       termsAccepted: true,
+      acceptedDocuments: [
+        { kind: 'TOS_GUEST', version: 1 },
+        { kind: 'PRIVACY', version: 1 },
+      ],
       ...overrides,
     },
   });

@@ -1,5 +1,5 @@
 /**
- * US-113 — graine du catalogue des véhicules : la section générée de la migration 0059 est le rendu
+ * US-113 — graine du catalogue des véhicules : la section générée de la migration 0060 est le rendu
  * exact des données, et aucune ligne sans source ni licence ne peut être rendue (critère 1, côté
  * générateur ; côté base : test-migrations/9970 et test/l0/l0-us113-vehicle-catalog.test.ts).
  * Pour réécrire la section après une modification des données (avant toute application en
@@ -71,7 +71,7 @@ function codeOf(fn: () => unknown): string {
   return 'OK';
 }
 
-describe('migration 0059 : graine générée', () => {
+describe('migration 0060 : graine générée', () => {
   const seed = parseVehicleCatalog(raw());
   const rendered = renderVehicleCatalogSeedSql(seed);
 

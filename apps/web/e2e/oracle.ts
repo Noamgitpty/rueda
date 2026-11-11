@@ -9,8 +9,26 @@
 import type { Language } from './fixtures.ts';
 
 export const SPEC_TEXT: Readonly<
-  Record<'homeTitle' | 'offlineBanner', Readonly<Partial<Record<Language, string>>>>
+  Record<
+    'homeTitle' | 'offlineBanner' | 'signupButton' | 'draftMarker',
+    Readonly<Partial<Record<Language, string>>>
+  >
 > = {
+  // 10b §4.3, ligne `web.s15.signup` (S15, US-102)
+  signupButton: {
+    es: 'Crear cuenta',
+    en: 'Sign up',
+    fr: 'Créer un compte',
+  },
+  // consigne de la story US-102 (orchestrateur) : textes juridiques provisoires marqués
+  // « BROUILLON — à valider par le juridique » (formulation française donnée par la consigne) ;
+  // es, en et pt : textes PROPOSÉS d'ADR-091 point 8 (BORRADOR / DRAFT / RASCUNHO)
+  draftMarker: {
+    es: 'BORRADOR — pendiente de validación jurídica',
+    en: 'DRAFT — pending legal review',
+    fr: 'BROUILLON — à valider par le juridique',
+    pt: 'RASCUNHO — pendente de validação jurídica',
+  },
   homeTitle: {
     es: 'Alquila el auto de un vecino.',
     en: 'Rent a car from a neighbor.',

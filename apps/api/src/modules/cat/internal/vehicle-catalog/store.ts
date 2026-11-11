@@ -1,5 +1,5 @@
 /**
- * Port et adaptateur PostgreSQL du catalogue de référence des véhicules (US-113, migration 0059).
+ * Port et adaptateur PostgreSQL du catalogue de référence des véhicules (US-113, migration 0060).
  *
  * Lecture seule, sous la RLS d'`app_api` : la base ne montre que les lignes `ACTIVE` et `RETIRED`
  * (politique `api_read`), jamais la provenance (`source`, `license_note`) ni le vérificateur. Les

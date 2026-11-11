@@ -1,7 +1,7 @@
 /**
  * test:int — catalogue de référence des véhicules de bout en bout sur la base jetable du banc de
  * @rueda/db, sous app_api (assertion L0-05 par connectAs, une connexion par test) :
- * `VehicleCatalogService` + `PgVehicleCatalogStore` + tables de 0059 et fixtures 9970.
+ * `VehicleCatalogService` + `PgVehicleCatalogStore` + tables de 0060 et fixtures 9970.
  *
  * Critère 2 de 19 US-113 : un Toyota Hilux de la graine préremplit places, boîte, carburant et
  * transmission intégrale ; une consommation EPA porte « référence US ». Valeurs attendues : la
