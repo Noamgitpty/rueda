@@ -198,7 +198,7 @@ GRANT SELECT ON core.support_review_queue TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.support_review_queue FOR SELECT TO iam_staff_owner USING (true);
 
 GRANT SELECT, INSERT (id, queue, subject_type, subject_id, country_code, status, sla_due_at,
-                      created_by, updated_by)
+                      created_at, created_by, updated_by)
   ON core.support_review_queue_item TO iam_staff_owner;
 GRANT UPDATE (status, assignee_id, assigned_at, updated_by) ON core.support_review_queue_item
   TO iam_staff_owner;
@@ -326,9 +326,12 @@ BEGIN
   END IF;
   v_id := pg_catalog.gen_random_uuid();
   INSERT INTO core.support_review_queue_item
-         (id, queue, subject_type, subject_id, country_code, status, sla_due_at, created_by, updated_by)
+         (id, queue, subject_type, subject_id, country_code, status, sla_due_at, created_at,
+          created_by, updated_by)
+  -- création et échéance lues sur le MÊME instant (platform.now() avance pendant la commande) :
+  -- le délai posé est exactement celui du paramètre
   VALUES (v_id, p_queue, p_subject_type, p_subject_id, p_country, 'OPEN',
-          v_now + pg_catalog.make_interval(mins => v_minutes), p_actor, p_actor);
+          v_now + pg_catalog.make_interval(mins => v_minutes), v_now, p_actor, p_actor);
   RETURN QUERY SELECT 'CREATED'::text, v_id;
 END
 $fn$;
