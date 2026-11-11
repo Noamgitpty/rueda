@@ -199,6 +199,17 @@ export const EN_MESSAGES = {
   'backoffice.role.FINANCE': 'Finance team',
   'backoffice.role.ADMIN': 'Administrator',
   'backoffice.role.SUPERADMIN': 'Super administrator',
+  'backoffice.content.gaps.title': {
+    one: '{count} published text needs review',
+    other: '{count} published texts need review',
+  },
+  'backoffice.content.gaps.hint': 'Meanwhile, the page shows the original text in that language.',
+  'backoffice.content.gaps.missing': '{key} · {scope}: missing {locales}',
+  'backoffice.content.gaps.invalid': '{key} · {scope}: format not allowed ({locales})',
+  'backoffice.content.gaps.notEditable':
+    '{key} · {scope}: this key is not an editable text; it is never shown.',
+  'backoffice.content.gaps.common': 'shared',
+  'backoffice.content.gaps.error': 'We couldn’t check the published texts.',
   'backoffice.journal.caption': 'Activity log',
   'backoffice.journal.when': 'When',
   'backoffice.journal.who': 'Who',
@@ -417,6 +428,7 @@ export const EN_MESSAGES = {
   'common.brand.contentMarkdownForbidden':
     'The text contains HTML or an external link. Only internal links are allowed.',
   'common.brand.contentNotFound': 'This block or version does not exist.',
+  'common.brand.contentKeyNotEditable': 'This text cannot be edited as a block.',
   // Règles photo d'US-031 (ADR-069 point 7), versées depuis
   // `packages/design-tokens/rules/photo.messages.json` sans changer clés ni textes (ADR-071) ;
   // un test de `packages/i18n` vérifie que les deux restent identiques.
@@ -586,4 +598,34 @@ export const EN_MESSAGES = {
   'web.legal.draft': 'DRAFT — pending legal review',
   'web.legal.version': 'Version {version}',
   'web.legal.back': 'Back to the form',
+  // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
+  'common.vehicle.bodyType.suv': 'SUV',
+  'common.vehicle.bodyType.pickup': 'Pickup',
+  'common.vehicle.bodyType.sedan': 'Sedan',
+  'common.vehicle.bodyType.hatchback': 'Hatchback',
+  'common.vehicle.bodyType.van': 'Van',
+  'common.vehicle.bodyType.minivan': 'Minivan',
+  'common.vehicle.bodyType.coupe': 'Coupe',
+  'common.vehicle.bodyType.convertible': 'Convertible',
+  'common.vehicle.bodyType.wagon': 'Station wagon',
+  'common.vehicle.gearbox.manual': 'Manual',
+  'common.vehicle.gearbox.automatic': 'Automatic',
+  'common.vehicle.gearbox.cvt': 'Automatic (CVT)',
+  'common.vehicle.gearbox.dualClutch': 'Dual-clutch automatic',
+  'common.vehicle.fuel.gasoline': 'Gasoline',
+  'common.vehicle.fuel.diesel': 'Diesel',
+  'common.vehicle.fuel.hybrid': 'Hybrid',
+  'common.vehicle.fuel.plugInHybrid': 'Plug-in hybrid',
+  'common.vehicle.fuel.electric': 'Electric',
+  'common.vehicle.fuel.lpg': 'LPG',
+  'common.vehicle.drive.front': 'Front-wheel drive',
+  'common.vehicle.drive.rear': 'Rear-wheel drive',
+  'common.vehicle.drive.allWheel': 'All-wheel drive',
+  'common.vehicle.drive.fourByFour': '4x4',
+  'common.vehicle.consumption.value': '{value} L/100 km',
+  'common.vehicle.consumption.usReference': 'US reference',
+  'common.vehicle.catalog.notListed': 'My car isn’t listed',
+  'common.vehicle.catalog.variantRetired':
+    'This version is no longer in the catalog. Choose another one.',
+  'common.vehicle.catalog.variantNotFound': 'We couldn’t find this version in the catalog.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

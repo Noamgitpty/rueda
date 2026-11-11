@@ -65,6 +65,7 @@ export type {
   AssetUpload,
   BrandFileStore,
   BrandOptions,
+  ContentGap,
   ContentView,
   DraftInput,
   PublishedTheme,

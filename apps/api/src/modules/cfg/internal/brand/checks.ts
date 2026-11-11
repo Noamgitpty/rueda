@@ -7,6 +7,10 @@
  * - Polices : toute famille nommée doit figurer dans la liste approuvée (`FONT_NOT_APPROVED`).
  * - Contenu : clé hors `legal.*`, trois langues (es, en, fr) non vides, Markdown restreint (aucune
  *   balise, liens internes seulement) — mêmes règles que la base (0042), avec un message précis.
+ *   US-121 (ADR-095) : la clé doit figurer au registre des blocs éditables de `@rueda/i18n`
+ *   (`CONTENT_KEY_NOT_EDITABLE` sinon) ; un texte juridique (motif `LEGAL_BLOCK_KEY`, recopié par
+ *   la base en 0062) est refusé (`CONTENT_KEY_FORBIDDEN`) ; chaque corps passe la liste blanche
+ *   du format du bloc (`richTextProblem` : `plain` sur une ligne, `rich` bornée).
  */
 import {
   buildTheme,
@@ -16,6 +20,8 @@ import {
   TOKENS_SCHEMA_VERSION,
 } from '@rueda/design-tokens';
 import type { ContrastFailure, Theme } from '@rueda/design-tokens';
+import { BLOCK_KEY_PATTERN, editableBlock, isLegalBlockKey, richTextProblem } from '@rueda/i18n';
+import type { EditableBlock, EditableBlocks } from '@rueda/i18n';
 import { BrandError } from './errors.js';
 import type { BrandParams } from './params.js';
 
@@ -93,7 +99,6 @@ export function assertBrandName(name: unknown): string {
 export const CONTENT_LOCALES = ['es', 'en', 'fr', 'pt'] as const;
 export type ContentLocale = (typeof CONTENT_LOCALES)[number];
 
-const BLOCK_KEY = /^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){1,5}$/;
 const BODY_MAX = 20_000;
 
 /** Règles du Markdown restreint (mêmes que `core.cfg_brand_body_allowed`, 0042). */
@@ -106,26 +111,51 @@ const BODY_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/(^|\n)\s*\[[^\]]+\]:/, 'définition de lien'],
 ];
 
-export function assertBlockKey(key: unknown): string {
-  if (typeof key !== 'string' || key.length > 120 || !BLOCK_KEY.test(key)) {
+/** Format de la clé (même motif que la base) ; `REQUEST_INVALID` sinon. */
+function assertKeyFormat(key: unknown): string {
+  if (typeof key !== 'string' || key.length > 120 || !BLOCK_KEY_PATTERN.test(key)) {
     throw new BrandError('REQUEST_INVALID');
   }
-  // 17 §3.2.13 : les textes juridiques sont des document_template versionnés (LEG)
-  if (key.startsWith('legal.')) throw new BrandError('CONTENT_KEY_FORBIDDEN', { key });
   return key;
 }
 
-/** Problème du corps, ou `null` s'il respecte les règles. */
-export function bodyProblem(body: string): string | null {
+/**
+ * Clé d'une publication ou d'un retour arrière : format, puis texte juridique refusé
+ * (`CONTENT_KEY_FORBIDDEN` ; 17 §3.2.13 : les textes juridiques sont des `document_template`).
+ */
+export function assertBlockKey(key: unknown): string {
+  const k = assertKeyFormat(key);
+  if (isLegalBlockKey(k)) throw new BrandError('CONTENT_KEY_FORBIDDEN', { key: k });
+  return k;
+}
+
+export type BlockKeyClass =
+  | { readonly kind: 'legal'; readonly key: string }
+  | { readonly kind: 'unknown'; readonly key: string }
+  | { readonly kind: 'editable'; readonly key: string; readonly block: EditableBlock };
+
+/**
+ * Clé d'un brouillon (US-121) : texte juridique (refus journalisé par la base), clé hors du
+ * registre (refus `CONTENT_KEY_NOT_EDITABLE`) ou bloc éditable avec son format.
+ */
+export function classifyBlockKey(key: unknown, registry: EditableBlocks): BlockKeyClass {
+  const k = assertKeyFormat(key);
+  if (isLegalBlockKey(k)) return { kind: 'legal', key: k };
+  const block = editableBlock(k, registry);
+  return block === undefined ? { kind: 'unknown', key: k } : { kind: 'editable', key: k, block };
+}
+
+/** Problème du corps, ou `null` s'il respecte les règles (base, puis format du bloc). */
+export function bodyProblem(body: string, block?: EditableBlock): string | null {
   const trimmed = body.trim();
   if (trimmed.length === 0) return 'vide';
   if ([...trimmed].length > BODY_MAX) return 'trop long';
   for (const [rule, label] of BODY_RULES) if (rule.test(body)) return label;
-  return null;
+  return block === undefined ? null : richTextProblem(body, block.format, block.maxLength);
 }
 
 /** Quatre langues présentes et conformes ; rend les corps dans l'ordre es, en, fr, pt. */
-export function assertBodies(raw: unknown): Record<ContentLocale, string> {
+export function assertBodies(raw: unknown, block?: EditableBlock): Record<ContentLocale, string> {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new BrandError('REQUEST_INVALID');
   }
@@ -140,7 +170,7 @@ export function assertBodies(raw: unknown): Record<ContentLocale, string> {
     throw new BrandError('CONTENT_BLOCK_REQUIRED_MISSING', { locales: missing });
   }
   const problems = CONTENT_LOCALES.flatMap((l) => {
-    const p = bodyProblem(r[l] as string);
+    const p = bodyProblem(r[l] as string, block);
     return p === null ? [] : [`${l} : ${p}`];
   });
   if (problems.length > 0) throw new BrandError('CONTENT_MARKDOWN_FORBIDDEN', { problems });

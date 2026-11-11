@@ -208,6 +208,18 @@ export const ES_MESSAGES = {
   'backoffice.role.FINANCE': 'Finanzas',
   'backoffice.role.ADMIN': 'Administrador',
   'backoffice.role.SUPERADMIN': 'Superadministrador',
+  'backoffice.content.gaps.title': {
+    one: '{count} texto publicado necesita revisión',
+    other: '{count} textos publicados necesitan revisión',
+  },
+  'backoffice.content.gaps.hint':
+    'Mientras tanto, la página muestra el texto original en ese idioma.',
+  'backoffice.content.gaps.missing': '{key} · {scope}: falta {locales}',
+  'backoffice.content.gaps.invalid': '{key} · {scope}: formato no permitido ({locales})',
+  'backoffice.content.gaps.notEditable':
+    '{key} · {scope}: esta clave no es un texto editable; nunca se muestra.',
+  'backoffice.content.gaps.common': 'común',
+  'backoffice.content.gaps.error': 'No pudimos revisar los textos publicados.',
   'backoffice.journal.caption': 'Registro de actividad',
   'backoffice.journal.when': 'Fecha',
   'backoffice.journal.who': 'Quién',
@@ -432,6 +444,7 @@ export const ES_MESSAGES = {
   'common.brand.contentMarkdownForbidden':
     'El texto contiene HTML o un enlace externo. Solo se permiten enlaces internos.',
   'common.brand.contentNotFound': 'Este bloque o esta versión no existe.',
+  'common.brand.contentKeyNotEditable': 'Este texto no se puede editar como bloque.',
   // Règles photo d'US-031 (ADR-069 point 7), versées depuis
   // `packages/design-tokens/rules/photo.messages.json` sans changer clés ni textes (ADR-071) ;
   // un test de `packages/i18n` vérifie que les deux restent identiques.
@@ -610,6 +623,35 @@ export const ES_MESSAGES = {
   'web.legal.draft': 'BORRADOR — pendiente de validación jurídica',
   'web.legal.version': 'Versión {version}',
   'web.legal.back': 'Volver al formulario',
+  // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
+  'common.vehicle.bodyType.suv': 'SUV',
+  'common.vehicle.bodyType.pickup': 'Pickup',
+  'common.vehicle.bodyType.sedan': 'Sedán',
+  'common.vehicle.bodyType.hatchback': 'Hatchback',
+  'common.vehicle.bodyType.van': 'Van',
+  'common.vehicle.bodyType.minivan': 'Minivan',
+  'common.vehicle.bodyType.coupe': 'Cupé',
+  'common.vehicle.bodyType.convertible': 'Convertible',
+  'common.vehicle.bodyType.wagon': 'Station wagon',
+  'common.vehicle.gearbox.manual': 'Manual',
+  'common.vehicle.gearbox.automatic': 'Automática',
+  'common.vehicle.gearbox.cvt': 'Automática (CVT)',
+  'common.vehicle.gearbox.dualClutch': 'Automática de doble embrague',
+  'common.vehicle.fuel.gasoline': 'Gasolina',
+  'common.vehicle.fuel.diesel': 'Diésel',
+  'common.vehicle.fuel.hybrid': 'Híbrido',
+  'common.vehicle.fuel.plugInHybrid': 'Híbrido enchufable',
+  'common.vehicle.fuel.electric': 'Eléctrico',
+  'common.vehicle.fuel.lpg': 'GLP',
+  'common.vehicle.drive.front': 'Tracción delantera',
+  'common.vehicle.drive.rear': 'Tracción trasera',
+  'common.vehicle.drive.allWheel': 'Tracción integral',
+  'common.vehicle.drive.fourByFour': '4x4',
+  'common.vehicle.consumption.value': '{value} L/100 km',
+  'common.vehicle.consumption.usReference': 'referencia EE. UU.',
+  'common.vehicle.catalog.notListed': 'Mi auto no está en la lista',
+  'common.vehicle.catalog.variantRetired': 'Esta versión ya no está en el catálogo. Elige otra.',
+  'common.vehicle.catalog.variantNotFound': 'No encontramos esta versión en el catálogo.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

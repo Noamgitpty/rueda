@@ -587,6 +587,123 @@
         "booking_oracle": "tout"
       }
     },
+    "core.catalog_vehicle_make": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": ["aliases", "country_origin", "id", "name", "slug", "status"]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "status IN ('ACTIVE', 'RETIRED')",
+        "voyageur": "status IN ('ACTIVE', 'RETIRED')",
+        "hote": "status IN ('ACTIVE', 'RETIRED')",
+        "cohote": "status IN ('ACTIVE', 'RETIRED')",
+        "hote_org_forgee": "status IN ('ACTIVE', 'RETIRED')",
+        "SUPPORT_AGENT": "status IN ('ACTIVE', 'RETIRED')",
+        "OPS_AGENT": "status IN ('ACTIVE', 'RETIRED')",
+        "FINANCE": "status IN ('ACTIVE', 'RETIRED')",
+        "ADMIN": "status IN ('ACTIVE', 'RETIRED')",
+        "ADMIN_portee_elargie": "status IN ('ACTIVE', 'RETIRED')",
+        "SUPERADMIN": "status IN ('ACTIVE', 'RETIRED')",
+        "staff_sans_session": "status IN ('ACTIVE', 'RETIRED')"
+      }
+    },
+    "core.catalog_vehicle_model": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "aliases",
+            "body_type",
+            "doors_default",
+            "id",
+            "make_id",
+            "name",
+            "seats_default",
+            "slug",
+            "status"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "status IN ('ACTIVE', 'RETIRED')",
+        "voyageur": "status IN ('ACTIVE', 'RETIRED')",
+        "hote": "status IN ('ACTIVE', 'RETIRED')",
+        "cohote": "status IN ('ACTIVE', 'RETIRED')",
+        "hote_org_forgee": "status IN ('ACTIVE', 'RETIRED')",
+        "SUPPORT_AGENT": "status IN ('ACTIVE', 'RETIRED')",
+        "OPS_AGENT": "status IN ('ACTIVE', 'RETIRED')",
+        "FINANCE": "status IN ('ACTIVE', 'RETIRED')",
+        "ADMIN": "status IN ('ACTIVE', 'RETIRED')",
+        "ADMIN_portee_elargie": "status IN ('ACTIVE', 'RETIRED')",
+        "SUPERADMIN": "status IN ('ACTIVE', 'RETIRED')",
+        "staff_sans_session": "status IN ('ACTIVE', 'RETIRED')"
+      }
+    },
+    "core.catalog_vehicle_variant": {
+      "type": "table",
+      "droits": {
+        "app_api": {
+          "SELECT": [
+            "cargo_l",
+            "consumption_l_100km",
+            "consumption_source",
+            "doors",
+            "drive",
+            "engine_cc",
+            "engine_cylinders",
+            "fuel_type",
+            "id",
+            "market",
+            "model_id",
+            "power_hp",
+            "seats",
+            "status",
+            "transmission",
+            "trim_name",
+            "value_class",
+            "year_from",
+            "year_to"
+          ]
+        },
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": ["api_read:SELECT"],
+        "app_worker": [],
+        "app_anon": []
+      },
+      "lecture": {
+        "sans_contexte": "status IN ('ACTIVE', 'RETIRED')",
+        "voyageur": "status IN ('ACTIVE', 'RETIRED')",
+        "hote": "status IN ('ACTIVE', 'RETIRED')",
+        "cohote": "status IN ('ACTIVE', 'RETIRED')",
+        "hote_org_forgee": "status IN ('ACTIVE', 'RETIRED')",
+        "SUPPORT_AGENT": "status IN ('ACTIVE', 'RETIRED')",
+        "OPS_AGENT": "status IN ('ACTIVE', 'RETIRED')",
+        "FINANCE": "status IN ('ACTIVE', 'RETIRED')",
+        "ADMIN": "status IN ('ACTIVE', 'RETIRED')",
+        "ADMIN_portee_elargie": "status IN ('ACTIVE', 'RETIRED')",
+        "SUPERADMIN": "status IN ('ACTIVE', 'RETIRED')",
+        "staff_sans_session": "status IN ('ACTIVE', 'RETIRED')"
+      }
+    },
     "core.config_brand_asset": {
       "type": "table",
       "droits": {

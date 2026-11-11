@@ -1,0 +1,24 @@
+/* Bloc de contenu éditable (US-121) : jetons de design seulement (US-030). */
+.rich {
+  display: grid;
+  gap: var(--space-2);
+  /* un mot long (titre éditable, adresse collée) se coupe : aucun défilement horizontal (WCAG 1.4.10) */
+  overflow-wrap: anywhere;
+}
+
+.list {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  color: var(--color-text-muted);
+}
+
+.link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.link:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-primary);
+  outline-offset: var(--space-1);
+}

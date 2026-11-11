@@ -50,3 +50,24 @@ export type { FormatNumberOptions } from './number-format.ts';
 export { MissingVariableError, placeholdersOf } from './pattern.ts';
 export { UnknownMessageKeyError, createTranslator } from './translator.ts';
 export type { MessageValues, Translator } from './translator.ts';
+export {
+  BLOCK_KEY_PATTERN,
+  EDITABLE_BLOCKS,
+  LEGAL_BLOCK_KEY,
+  blockKeyOf,
+  editableBlock,
+  isLegalBlockKey,
+} from './editable-blocks.ts';
+export type { EditableBlock, EditableBlockKey, EditableBlocks } from './editable-blocks.ts';
+export {
+  INTERNAL_HREF_PATTERN,
+  RICH_LIMITS,
+  RichTextError,
+  codePoints,
+  isInternalHref,
+  isRichDoc,
+  parseRichText,
+  plainTextOf,
+  richTextProblem,
+} from './rich-text.ts';
+export type { RichBlock, RichDoc, RichFormat, RichInline } from './rich-text.ts';

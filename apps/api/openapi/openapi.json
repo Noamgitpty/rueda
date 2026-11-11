@@ -1893,7 +1893,7 @@
             "$ref": "#/components/responses/NotJsonNoStore"
           },
           "422": {
-            "description": "Langue manquante, clé ou contenu refusés",
+            "description": "Langue manquante, clé non éditable ou juridique, contenu refusés",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -1908,13 +1908,47 @@
                       "enum": [
                         "CONTENT_BLOCK_REQUIRED_MISSING",
                         "CONTENT_KEY_FORBIDDEN",
-                        "CONTENT_MARKDOWN_FORBIDDEN"
+                        "CONTENT_MARKDOWN_FORBIDDEN",
+                        "CONTENT_KEY_NOT_EDITABLE"
                       ]
                     }
                   }
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/console/content/gaps": {
+      "get": {
+        "operationId": "consoleContentGaps",
+        "tags": ["sup", "cfg"],
+        "summary": "Blocs publiés à revoir : langue absente, corps hors des règles, clé hors du registre (US-121)",
+        "responses": {
+          "200": {
+            "description": "Blocs à revoir (liste vide : rien à signaler)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentGapList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
           }
         }
       }
@@ -3525,7 +3559,17 @@
       },
       "ContentView": {
         "type": "object",
-        "required": ["key", "locale", "country", "versionNo", "bodyMd", "assetId", "fallback"],
+        "required": [
+          "key",
+          "locale",
+          "country",
+          "versionNo",
+          "bodyMd",
+          "assetId",
+          "format",
+          "doc",
+          "fallback"
+        ],
         "additionalProperties": false,
         "properties": {
           "key": {
@@ -3561,6 +3605,12 @@
                 "type": "null"
               }
             ]
+          },
+          "format": {
+            "enum": ["plain", "rich"]
+          },
+          "doc": {
+            "$ref": "#/components/schemas/RichDoc"
           },
           "fallback": {
             "type": "boolean"
@@ -4884,6 +4934,170 @@
           },
           "orgId": {
             "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "RichInline": {
+        "description": "Nœud de texte d'un bloc (US-121, ADR-095) : liste blanche fermée, jamais de HTML.",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["t", "v"],
+            "additionalProperties": false,
+            "properties": {
+              "t": {
+                "enum": ["text", "strong", "em"]
+              },
+              "v": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["t", "v", "href"],
+            "additionalProperties": false,
+            "properties": {
+              "t": {
+                "const": "link"
+              },
+              "v": {
+                "type": "string",
+                "minLength": 1
+              },
+              "href": {
+                "type": "string",
+                "description": "chemin interne seulement",
+                "pattern": "^(?:\\/(?!\\/)[A-Za-z0-9\\-._~/%]*(?:\\?[A-Za-z0-9\\-._~=&%]*)?(?:#[A-Za-z0-9\\-._~]*)?|#[A-Za-z0-9\\-._~]+)$"
+              }
+            }
+          }
+        ]
+      },
+      "RichDoc": {
+        "description": "Arbre assaini d'un bloc (US-121, ADR-095) : `plain` (une ligne) ou `rich` (paragraphes, listes, gras, italique, liens internes).",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["format", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "format": {
+                "const": "plain"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["format", "blocks"],
+            "additionalProperties": false,
+            "properties": {
+              "format": {
+                "const": "rich"
+              },
+              "blocks": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": ["t", "c"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "t": {
+                          "const": "p"
+                        },
+                        "c": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "$ref": "#/components/schemas/RichInline"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": ["t", "items"],
+                      "additionalProperties": false,
+                      "properties": {
+                        "t": {
+                          "enum": ["ul", "ol"]
+                        },
+                        "items": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 12,
+                          "items": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "$ref": "#/components/schemas/RichInline"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ContentGapList": {
+        "type": "object",
+        "required": ["gaps"],
+        "additionalProperties": false,
+        "properties": {
+          "gaps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "country", "versionNo", "editable", "missing", "invalid"],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "country": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/CountryCode"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "versionNo": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "editable": {
+                  "type": "boolean"
+                },
+                "missing": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentLocale"
+                  }
+                },
+                "invalid": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentLocale"
+                  }
+                }
+              }
+            }
           }
         }
       },

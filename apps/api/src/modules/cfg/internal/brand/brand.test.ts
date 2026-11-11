@@ -204,6 +204,15 @@ class MemoryStore implements BrandStore {
       ),
     );
   }
+  allPublishedBlocks(): Promise<PublishedBlock[]> {
+    this.calls.push('allPublishedBlocks');
+    return Promise.resolve(this.blocks.filter((b) => b.status === 'PUBLISHED'));
+  }
+  access = 'OK';
+  staffReadAccess(): Promise<string> {
+    this.calls.push('staffReadAccess');
+    return Promise.resolve(this.access);
+  }
 }
 
 function setup(nowMs = () => 0): {
@@ -522,14 +531,24 @@ describe('BrandReadService : cache borné et repli es signalé', () => {
     });
     // pays tirés d'aucune constante : un code quelconque de deux lettres suffit au service
     store.blocks.push(
-      block('home.a', 'fr', null, 'commun fr'),
-      block('home.a', 'fr', 'XX', 'pays fr'),
-      block('home.b', 'es', null, 'solo es'),
+      block('home.hero.subtitle', 'fr', null, 'commun fr'),
+      block('home.hero.subtitle', 'fr', 'XX', 'pays fr'),
+      block('home.hero.title', 'es', null, 'solo es'),
     );
     const out = await read.publishedContent('fr', 'XX');
     expect(out).toEqual([
-      expect.objectContaining({ key: 'home.a', bodyMd: 'pays fr', fallback: false, country: 'XX' }),
-      expect.objectContaining({ key: 'home.b', bodyMd: 'solo es', fallback: true, locale: 'es' }),
+      expect.objectContaining({
+        key: 'home.hero.subtitle',
+        bodyMd: 'pays fr',
+        fallback: false,
+        country: 'XX',
+      }),
+      expect.objectContaining({
+        key: 'home.hero.title',
+        bodyMd: 'solo es',
+        fallback: true,
+        locale: 'es',
+      }),
     ]);
   });
 });

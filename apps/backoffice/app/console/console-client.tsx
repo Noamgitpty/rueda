@@ -9,8 +9,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import type { MessageKey } from '@rueda/i18n';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { intentFor, messageKeyOf, readsApprovals, request, screenFor } from './api.ts';
-import type { ActionIntent, ApiResult, ApprovalsBody, AuditBody, MeBody } from './api.ts';
+import { gapsOf, intentFor, messageKeyOf, readsApprovals, request, screenFor } from './api.ts';
+import type {
+  ActionIntent,
+  ApiResult,
+  ApprovalsBody,
+  AuditBody,
+  ContentGapsBody,
+  MeBody,
+} from './api.ts';
 import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
 import type {
@@ -83,6 +90,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           }));
         }
         const audit = await call<AuditBody>('GET', '/staff/audit?limit=50');
+        // blocs de contenu à revoir (US-121) : réservé à brand.edit ; un refus n'affiche rien
+        const gaps = await call<ContentGapsBody>('GET', '/console/content/gaps');
         // demandes FINANCE à approuver (US-101) : FINANCE et ADMIN seulement
         const approvals = readsApprovals(me.body.roles)
           ? await call<ApprovalsBody>('GET', '/console/finance/approvals?limit=50')
@@ -92,6 +101,7 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           roles: me.body.roles,
           entries: audit.ok ? audit.body.entries : [],
           journalError: !audit.ok,
+          contentGaps: gapsOf(gaps),
           approvals: approvals?.ok === true ? approvals.body.approvals : [],
           approvalsError: approvals !== null && !approvals.ok,
           notice,
