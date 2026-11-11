@@ -11,6 +11,7 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
+import { HostAccountController } from './host-account.controller.js';
 import { AuthService } from './auth.service.js';
 import type { AuthStore } from './auth-store.js';
 import type { IdentityNotifier } from './notifier.js';
@@ -46,7 +47,8 @@ export class IamAuthModule {
       // global : SessionGuard et AUTHENTICATION_PORT sont injectables dans tout module, sans
       // second appel à register() (un seul jeu d'adaptateurs par processus)
       global: true,
-      controllers: [AuthController],
+      // US-107 : ouverture du compte d'hôte (même store, même session que l'authentification)
+      controllers: [AuthController, HostAccountController],
       providers: [
         { provide: IAM_AUTH_STORE, useValue: options.store },
         { provide: IAM_NOTIFIER, useValue: options.notifier },

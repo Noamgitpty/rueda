@@ -155,7 +155,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -185,6 +185,10 @@ describe('configuration pays : structure et droits', () => {
             // gardes de versement et de détention de fonds (US-049, 0054) : interrupteurs seulement
             ...(t === 'config_param_value' || t === 'config_param_definition'
               ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
+              : []),
+            // compte d'hôte (US-107, 0061) : âge minimal de l'hôte (host_min_age_years) seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'iam_auth_host_read', cmd: 'r', roles: 'iam_auth_owner' }]
               : []),
             // inscription (US-102, 0059) : codes pays, pour refuser un pays inconnu avant l'écriture
             ...(t === 'config_country'

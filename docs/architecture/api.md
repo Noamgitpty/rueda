@@ -44,6 +44,12 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `POST` | `/console/finance/approvals/{id}/approve` | `consoleFinanceApprove` | Approbation d'une demande FINANCE par une seconde personne distincte (cmd_approve_finance_action, RLS-24) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**409** STAFF_SELF_APPROVAL / STAFF_ACTION_REFUSED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED |
 | `GET` | `/console/security/abuse` | `consoleSecurityAbuse` | Tableau des abus agrégés par heure (security.read_abuse) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** FORBIDDEN / 2FA_REQUIRED<br>**429** RATE_LIMITED |
 
+## `/host`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `POST` | `/host/accounts` | `openHostAccount` | Ouverture du compte d'hôte de la personne de la session (personne physique, un par pays ; US-107) | **201** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**401** AUTH_REQUIRED<br>**403** HOST_ACCOUNT_NOT_ELIGIBLE<br>**409** HOST_ACCOUNT_EXISTS<br>**415** REQUEST_INVALID<br>**422** HOST_ENTITY_NOT_ALLOWED / HOST_UNDER_AGE<br>**503** HOST_ACCOUNT_UNAVAILABLE |
+
 ## `/legal`
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |

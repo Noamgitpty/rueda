@@ -9,7 +9,9 @@
  * Console interne (US-012) : FORBIDDEN, 2FA_REQUIRED (16 ADM-001) ; PROPOSÉS : AUTH_TOTP_INVALID,
  * AUTH_TOTP_LOCKED, STAFF_MFA_UNAVAILABLE, STAFF_ACTION_UNAVAILABLE, STAFF_ACTION_RECORDED,
  * STAFF_ACTION_DONE ; cadre des actions (US-101) : STAFF_ACTION_REQUESTED, STAFF_ACTION_REFUSED,
- * STAFF_SELF_APPROVAL.
+ * STAFF_SELF_APPROVAL. Compte d'hôte (US-107) : HOST_ENTITY_NOT_ALLOWED, HOST_UNDER_AGE (16 A.8) ;
+ * PROPOSÉS : HOST_ACCOUNT_OPENED, HOST_ACCOUNT_EXISTS, HOST_ACCOUNT_NOT_ELIGIBLE,
+ * HOST_ACCOUNT_UNAVAILABLE.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -43,6 +45,14 @@ export const AUTH_MESSAGES = {
   STAFF_ACTION_REQUESTED: { status: 201, messageKey: 'common.auth.actionRequested' },
   STAFF_ACTION_REFUSED: { status: 409, messageKey: 'common.auth.actionRefused' },
   STAFF_SELF_APPROVAL: { status: 409, messageKey: 'common.auth.selfApproval' },
+  // Compte d'hôte (US-107) : HOST_ENTITY_NOT_ALLOWED et HOST_UNDER_AGE viennent de 16 A.8 ; les
+  // autres sont PROPOSÉS (à reporter dans 16 A.8, voir la passation US-107).
+  HOST_ACCOUNT_OPENED: { status: 201, messageKey: 'common.host.accountOpened' },
+  HOST_ACCOUNT_EXISTS: { status: 409, messageKey: 'common.host.accountExists' },
+  HOST_ENTITY_NOT_ALLOWED: { status: 422, messageKey: 'common.host.entityNotAllowed' },
+  HOST_UNDER_AGE: { status: 422, messageKey: 'common.host.underAge' },
+  HOST_ACCOUNT_NOT_ELIGIBLE: { status: 403, messageKey: 'common.host.notEligible' },
+  HOST_ACCOUNT_UNAVAILABLE: { status: 503, messageKey: 'common.host.unavailable' },
 } as const;
 
 export type AuthCode = keyof typeof AUTH_MESSAGES;

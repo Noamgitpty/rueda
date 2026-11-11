@@ -79,6 +79,39 @@ export interface SessionRecord {
   readonly emailVerified: boolean;
 }
 
+/**
+ * Issues de l'ouverture d'un compte d'hôte (US-107, commande `core.iam_cmd_open_host_account`,
+ * migration 0061) : `DONE` ou un refus métier (rien n'est écrit). Codes de 16 A.8 quand ils existent
+ * (`HOST_ENTITY_NOT_ALLOWED`, `HOST_UNDER_AGE`, `PARAM_MISSING`, `COUNTRY_UNKNOWN`) ; PROPOSÉS :
+ * `HOST_ACCOUNT_EXISTS`, `HOST_ACCOUNT_NOT_ELIGIBLE`.
+ */
+export const HOST_ACCOUNT_OUTCOMES = [
+  'DONE',
+  'AUTH_REQUIRED',
+  'HOST_ENTITY_NOT_ALLOWED',
+  'COUNTRY_UNKNOWN',
+  'HOST_ACCOUNT_NOT_ELIGIBLE',
+  'PARAM_MISSING',
+  'HOST_UNDER_AGE',
+  'HOST_ACCOUNT_EXISTS',
+] as const;
+export type HostAccountOutcome = (typeof HOST_ACCOUNT_OUTCOMES)[number];
+
+/** Déclaration du demandeur : seule une personne physique est acceptée (DEC-FONDATEUR-13). */
+export type HolderKind = 'INDIVIDUAL' | 'LEGAL_ENTITY';
+
+/** Compte d'hôte dont la personne de la session est titulaire (17 §3.2.1, US-107). */
+export interface HostAccount {
+  readonly orgId: string;
+  readonly country: string;
+  /** Rôle de la personne sur ce compte : `P2P_HOST` (titulaire). */
+  readonly role: 'P2P_HOST';
+  /** `organization.status` (`ONBOARDING`, `PENDING_ACTIVATION`, `ACTIVE`, …). */
+  readonly status: string;
+  /** Nom affiché aux voyageurs : le prénom du titulaire [C2], jamais une raison sociale. */
+  readonly displayName: string;
+}
+
 export interface AuthStore {
   /**
    * `false` si l'email est déjà pris (aucune écriture). Enregistre les consentements dans la même
@@ -95,4 +128,15 @@ export interface AuthStore {
   revokeSession(tokenHash: Buffer, reason: ApiRevocationReason): Promise<boolean>;
   /** Révoque toutes les sessions du titulaire d'une session valide ; nombre révoqué. */
   revokeAllSessions(tokenHash: Buffer): Promise<number>;
+  /**
+   * Ouvre le compte d'hôte de la personne de la session dans `country` (US-107) : organisation
+   * `ONBOARDING` et appartenance `P2P_HOST` titulaire, ou un refus métier sans écriture.
+   */
+  openHostAccount(
+    tokenHash: Buffer,
+    country: string,
+    holderKind: HolderKind,
+  ): Promise<{ readonly outcome: HostAccountOutcome; readonly orgId: string | null }>;
+  /** Comptes d'hôte dont la personne de la session est titulaire (session invalide : aucun). */
+  hostAccounts(tokenHash: Buffer): Promise<HostAccount[]>;
 }

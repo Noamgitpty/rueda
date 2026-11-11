@@ -141,6 +141,13 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
         verifyEmail: () => Promise.resolve(false),
         revokeSession: (hash: Buffer) => Promise.resolve(find(hash) !== undefined),
         revokeAllSessions: (hash: Buffer) => Promise.resolve(find(hash) === undefined ? 0 : 1),
+        // compte d'hôte (US-107) : aucun compte dans le harnais ; une ouverture est refusée
+        hostAccounts: () => Promise.resolve([]),
+        openHostAccount: (hash: Buffer) =>
+          Promise.resolve({
+            outcome: find(hash) === undefined ? 'AUTH_REQUIRED' : 'HOST_ACCOUNT_NOT_ELIGIBLE',
+            orgId: null,
+          }),
       },
       'AuthStore',
     ),

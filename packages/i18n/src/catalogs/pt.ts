@@ -253,6 +253,18 @@ export const PT_MESSAGES = {
   'backoffice.action.ISSUE_BORDEREAU': 'Solicitar a emissão do borderô',
   'backoffice.action.DECIDE_ADVANCE': 'Solicitar a decisão de um adiantamento',
   'backoffice.action.WRITE_OFF_RECEIVABLE': 'Solicitar a baixa de um crédito',
+  // Compte d'hôte d'une personne physique (US-107), PROPOSÉS
+  'common.host.accountOpened':
+    'Sua conta de anfitrião está aberta. Conclua a verificação para anunciar seu carro.',
+  'common.host.accountExists': 'Você já tem uma conta de anfitrião aqui.',
+  'common.host.entityNotAllowed':
+    'Somente pessoas físicas podem ser anfitriãs. Não aceitamos empresas nem agências.',
+  'common.host.underAge': 'Você ainda não tem a idade mínima para ser anfitrião.',
+  'common.host.notEligible':
+    'Confirme seu e-mail e verifique a situação da sua conta antes de ser anfitrião.',
+  'common.host.unavailable':
+    'Não é possível abrir contas de anfitrião agora. Tente novamente mais tarde.',
+  'backoffice.action.CREATE_HOST_ACCOUNT': 'Criar a conta de anfitrião de uma pessoa',
   'backoffice.approvals.caption': 'Solicitações financeiras a aprovar',
   'backoffice.approvals.hint': 'Uma solicitação é aprovada por outra pessoa, nunca por quem a fez.',
   'backoffice.approvals.request': 'Solicitação',

@@ -258,6 +258,18 @@ export const FR_MESSAGES = {
   'backoffice.action.ISSUE_BORDEREAU': 'Demander l’émission du bordereau',
   'backoffice.action.DECIDE_ADVANCE': 'Demander la décision d’une avance',
   'backoffice.action.WRITE_OFF_RECEIVABLE': 'Demander le passage en perte d’une créance',
+  // Compte d'hôte d'une personne physique (US-107), PROPOSÉS
+  'common.host.accountOpened':
+    'Ton compte d’hôte est ouvert. Termine la vérification pour publier ta voiture.',
+  'common.host.accountExists': 'Tu as déjà un compte d’hôte ici.',
+  'common.host.entityNotAllowed':
+    'Seuls les particuliers peuvent être hôtes. Nous n’acceptons ni sociétés ni agences.',
+  'common.host.underAge': 'Tu n’as pas encore l’âge minimum pour être hôte.',
+  'common.host.notEligible':
+    'Confirme ton adresse e-mail et vérifie l’état de ton compte avant de devenir hôte.',
+  'common.host.unavailable':
+    'Impossible d’ouvrir un compte d’hôte pour le moment. Réessaie plus tard.',
+  'backoffice.action.CREATE_HOST_ACCOUNT': 'Créer le compte d’hôte d’une personne',
   'backoffice.approvals.caption': 'Demandes financières à approuver',
   'backoffice.approvals.hint': 'Une demande est approuvée par une autre personne que son auteur.',
   'backoffice.approvals.request': 'Demande',
