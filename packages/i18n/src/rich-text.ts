@@ -39,18 +39,26 @@ const INTERNAL_HREF =
 // contrôles C0 / C1, séparateurs de ligne, marques et contrôles de direction (LRM, RLM, ALM,
 // U+202A à 202E, U+2066 à 2069), formats invisibles ou obsolètes (U+00AD, U+034F, U+180E,
 // U+200B à 200D, U+2060 à 2064, U+206A à 206F, U+FEFF), caractères qui s'affichent vides
-// (remplisseurs hangul U+115F, U+1160, U+3164, U+FFA0 ; braille vide U+2800) et demi-paires de
+// (remplisseurs hangul U+115F, U+1160, U+3164, U+FFA0 ; braille vide U+2800 ; voyelles
+// inhérentes khmères U+17B4, 17B5 ; sélecteurs mongols U+180B à 180D ; sélecteurs de variante
+// U+FE00 à FE0E et U+E0100 à E01EF, U+FE0F des émojis restant permis ; annotations U+FFF9 à
+// FFFC ; formats musicaux U+1D173 à 1D17A ; étiquettes U+E0000 à E007F) et demi-paires de
 // substitution isolées (le drapeau `u` ne les fait pas apparier par paire). U+200D (ZWJ) est
 // refusé même entre deux émojis : les émojis composés (personne et métier, familles, drapeaux à séquence) ne
 // passent pas ; un émoji simple, oui. Choix de sécurité (un ZWJ isolé sert à déguiser un texte) ;
 // l'écran d'édition (US-120) doit l'expliquer au fondateur (message `caractère invisible`).
 /* eslint-disable no-control-regex, no-misleading-character-class -- liste voulue de caractères refusés, un par un */
 const CONTROL =
-  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u180e\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff\uffa0\ud800-\udfff]/u;
+  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufe00-\ufe0e\ufeff\uffa0\ufff9-\ufffc\ud800-\udfff\u{1D173}-\u{1D17A}\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]/u;
 /* eslint-enable no-control-regex, no-misleading-character-class */
 
-/** Texte qui ne montre rien : vide après retrait des blancs (UX-58 : jamais un bloc vide). */
-const isBlank = (s: string): boolean => s.replace(/[\s\p{Z}]/gu, '') === '';
+/**
+ * Texte qui ne montre rien (UX-58 : jamais un bloc vide) : aucun caractère VISIBLE, c'est-à-dire
+ * aucune lettre, chiffre, ponctuation ni symbole (émojis compris) ; des blancs ou des marques
+ * combinantes seules ne suffisent pas.
+ */
+const VISIBLE = /[\p{L}\p{N}\p{P}\p{S}]/u;
+const isBlank = (s: string): boolean => !VISIBLE.test(s);
 
 /** Longueur en points de code (même unité à l'API et au site : un émoji compte pour un). */
 export const codePoints = (s: string): number => [...s].length;

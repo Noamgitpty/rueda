@@ -130,6 +130,14 @@ describe('textes juridiques (critère 3)', () => {
     'protection.assurance',
     'footer.cookie_policy',
     'footer.politica_de_cookies',
+    // plans de protection en es et pt, et `seguro` en segment (revues 3e passe)
+    'trip.proteccion.plan',
+    'trip.proteccion_basica',
+    'plano.protecao_total',
+    'trip.plan_proteccion',
+    'trip.proteccao',
+    'help.seguro.body',
+    'trip.seguro',
   ])('%s : juridique', (key) => {
     expect(isLegalBlockKey(key)).toBe(true);
   });
@@ -151,6 +159,8 @@ describe('textes juridiques (critère 3)', () => {
     'home.air_conditioning',
     'home.free_cancel',
     'home.viaja_seguro',
+    'home.k1.viaja_seguro',
+    'home.protected_area',
     'web.cookie_banner',
   ])('%s : non juridique', (key) => {
     expect(isLegalBlockKey(key)).toBe(false);

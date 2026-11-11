@@ -36,16 +36,20 @@ export const BLOCK_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){
  *    cancelación, cancelamento, annulation), remboursement, assurance (insurance, seguros,
  *    seguro_, segurador, assurance, protection, franchise, garantie, responsabilité,
  *    renonciation), politiques (policy, política, politique), consentement.
+ * 3. **`seguro` par segment délimité par des points** (`help.seguro.body`, `trip.seguro`) : le
+ *    nom espagnol et portugais de l'assurance ; `viaja_seguro` (« voyage sûr ») reste permis,
+ *    car `_` n'y délimite pas le segment.
+ * Plans de protection : protection (en, fr), proteccion (es), protecao et proteccao (pt,
+ * protección / proteção / protecção sans accents : les clés sont en ASCII).
  * Racines resserrées pour éviter les faux positifs courants (`airport_terminal`,
  * `vehicle_condition`, `free_cancel`, `viaja_seguro`, `cookie_banner` restent permises). Faux
  * positifs gardés, au profit du refus : `illegal`, `political`, `host_protection`,
- * `responsable` (renommer la clé suffit). Faux négatif accepté : un segment `seguro` seul
- * (« sûr » en espagnol) n'est pas refusé ; l'assurance reste refusée par insurance, seguros,
- * seguro_, assurance, deductible, franqui. Motif recopié À L'IDENTIQUE dans
+ * `responsable`, `drivers_license`, `licencia_conducir`, `aviso_reserva`, `seguro_viaje`,
+ * `warranty_badge` (renommer la clé suffit ; liste tenue dans ADR-095). Motif recopié À L'IDENTIQUE dans
  * `core.cfg_content_key_not_legal` (0062) : la preuve L0 compare les deux.
  */
 export const LEGAL_BLOCK_KEY =
-  /(^|[._])(tos|tyc|t_c|tandc|rgpd|lgpd|gdpr|dpa|lopd|aviso|mentions|impressum|imprint|license|licencia|licenca|cgu|cgv|cookies)([._]|$)|(legal|terms|terminos|termino_|termos|condiciones|condicoes|conditions|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancellation|cancelacion|cancelamento|annulation|refund|reembols|rembours|insurance|seguros|seguro_|segurador|assurance|protection|policy|politic|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)/;
+  /(^|\.)seguro(\.|$)|(^|[._])(tos|tyc|t_c|tandc|rgpd|lgpd|gdpr|dpa|lopd|aviso|mentions|impressum|imprint|license|licencia|licenca|cgu|cgv|cookies)([._]|$)|(legal|terms|terminos|termino_|termos|condiciones|condicoes|conditions|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancellation|cancelacion|cancelamento|annulation|refund|reembols|rembours|insurance|seguros|seguro_|segurador|assurance|protection|proteccion|protecao|proteccao|policy|politic|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)/;
 
 export const EDITABLE_BLOCKS = {
   'home.hero.title': { catalogKey: 'web.s01.title', format: 'plain', maxLength: 80 },

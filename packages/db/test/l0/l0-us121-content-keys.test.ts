@@ -81,6 +81,12 @@ describe('critère 3 — texte juridique : refusé par la base, tentative journa
     ['footer.mentions', 'body'],
     ['app.license', 'body'],
     ['footer.cookies', 'body'],
+    // plans de protection es / pt et `seguro` en segment (revues 3e passe)
+    ['trip.proteccion', 'plan'],
+    ['plano.protecao_total', 'body'],
+    ['trip.plan_proteccion', 'body'],
+    ['help.seguro', 'body'],
+    ['trip.seguro', 'body'],
     // contrat
     ['trip.contract', 'body'],
     ['trip.contrato', 'body'],

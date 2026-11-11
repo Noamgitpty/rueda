@@ -76,6 +76,32 @@ describe('format plain', () => {
     expect(richTextProblem('\u{1F697} \u2764\ufe0f', 'plain', 80)).toBeNull();
   });
 
+  it('invisibles de la 3e passe refusés : étiquettes, sélecteurs, voyelles khmères, annotations', () => {
+    for (const cp of [
+      0xe0000, 0xe0041, 0xe007f, 0xfe00, 0xfe0e, 0xe0100, 0x17b4, 0x17b5, 0x180b, 0x180d, 0xfff9,
+      0xfffc, 0x1d173,
+    ]) {
+      const bad = `a${String.fromCodePoint(cp)}b`;
+      expect(richTextProblem(bad, 'plain', 80), cp.toString(16)).toBe(
+        'caractère invisible ou de contrôle',
+      );
+      expect(isRichDoc({ format: 'plain', text: bad }, 'plain', 80), cp.toString(16)).toBe(false);
+    }
+    // U+FE0F (présentation émoji) reste permis
+    expect(richTextProblem('\u2764\ufe0f', 'plain', 80)).toBeNull();
+  });
+
+  it('UX-58 : au moins un caractère visible (lettre, chiffre, ponctuation, symbole)', () => {
+    for (const blank of ['\u0301', '\u0301\u0302 ', '\u20dd']) {
+      expect(richTextProblem(blank, 'plain', 80), JSON.stringify(blank)).toBe('vide');
+      expect(isRichDoc({ format: 'plain', text: blank }, 'plain', 80)).toBe(false);
+    }
+    for (const ok of ['a', '7', '!', '\u{1F697}', 'é']) {
+      expect(richTextProblem(ok, 'plain', 80), ok).toBeNull();
+      expect(isRichDoc({ format: 'plain', text: ok }, 'plain', 80), ok).toBe(true);
+    }
+  });
+
   it('UX-58 : un texte fait seulement de blancs (espaces, insécables, idéographiques) est vide', () => {
     for (const blank of ['\u00a0', '\u3000\u2003', ' \u202f ']) {
       expect(richTextProblem(blank, 'plain', 80), JSON.stringify(blank)).toBe('vide');

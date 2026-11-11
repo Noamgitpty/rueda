@@ -74,25 +74,37 @@ describe('blocs à revoir : affichés, traduits, jamais muets', () => {
     expect(render(state('error'), tag)).toContain(es['backoffice.content.gaps.error']);
   });
 
-  // oracle : textes attendus écrits à la main dans chaque langue (noms CLDR des langues)
-  it.each([
-    ['es', 'home.hero.title · común: falta inglés, francés', 'formato no permitido (portugués)'],
-    ['en', 'home.hero.title · shared: missing English, French', 'format not allowed (Portuguese)'],
-    [
-      'fr',
-      'home.hero.title · commun : manque anglais, français',
-      'format non autorisé (portugais)',
-    ],
-    ['pt', 'home.hero.title · geral: falta inglês, francês', 'formato não permitido (português)'],
-  ] as const)(
-    'bandeau en %s : langues nommées dans la langue de la vue',
-    (language, missing, invalid) => {
-      const t = LOCALE_CONFIG.locales.find((p) => p.language === language)?.tag ?? language;
-      const out = render(state(GAPS), t).replace(/<[^>]+>/g, '');
-      expect(out).toContain(missing);
-      expect(out).toContain(invalid);
-    },
-  );
+  // oracle : textes attendus écrits à la main dans chaque langue (noms CLDR des langues) ; un
+  // test par langue, la locale de la configuration est exigée (aucun repli silencieux sur es)
+  const view = (language: 'es' | 'en' | 'fr' | 'pt'): string => {
+    const profile = LOCALE_CONFIG.locales.find((p) => p.language === language);
+    if (profile === undefined) throw new Error(`locale ${language} absente de la configuration`);
+    return render(state(GAPS), profile.tag).replace(/<[^>]+>/g, '');
+  };
+
+  it('bandeau en espagnol (es)', () => {
+    const out = view('es');
+    expect(out).toContain('home.hero.title · común: falta inglés, francés');
+    expect(out).toContain('home.owner.body · AA: formato no permitido (portugués)');
+  });
+
+  it('bandeau en anglais (en)', () => {
+    const out = view('en');
+    expect(out).toContain('home.hero.title · shared: missing English, French');
+    expect(out).toContain('home.owner.body · AA: format not allowed (Portuguese)');
+  });
+
+  it('bandeau en français (fr)', () => {
+    const out = view('fr');
+    expect(out).toContain('home.hero.title · commun : manque anglais, français');
+    expect(out).toContain('home.owner.body · AA : format non autorisé (portugais)');
+  });
+
+  it('bandeau en portugais du Brésil (pt)', () => {
+    const out = view('pt');
+    expect(out).toContain('home.hero.title · geral: falta inglês, francês');
+    expect(out).toContain('home.owner.body · AA: formato não permitido (português)');
+  });
 
   it.each(LOCALE_CONFIG.locales.map((p) => [p.tag, p] as const))(
     '%s : une langue',
