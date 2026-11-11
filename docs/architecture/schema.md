@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 60 migrations ; 66 tables ; 2 vues ; 343 politiques RLS ; 66 fonctions `SECURITY DEFINER` ; 106 autres fonctions.
+- 60 migrations ; 67 tables ; 2 vues ; 345 politiques RLS ; 67 fonctions `SECURITY DEFINER` ; 113 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -3028,11 +3028,15 @@ Politiques RLS :
 | `subject_type` | `text` | oui | — |
 | `available` | `boolean` | oui | — |
 | `input_keys` | `text[]` | oui | `'{}'::text[]` |
+| `input_values` | `jsonb` | oui | `'{}'::jsonb` |
+| `requires_approval` | `boolean` | oui | `false` |
 
 Contraintes :
 
+- `manual_action_catalog_approval_domain` : `CHECK (NOT requires_approval OR mode = 'DOMAIN_COMMAND'::text)`
 - `manual_action_catalog_code_format` : `CHECK (action_code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `manual_action_catalog_input_keys_format` : `CHECK (cardinality(input_keys) <= 8 AND array_position(input_keys, NULL::text) IS NULL AND array_to_string(input_keys, ','::text) ~ '^([a-z][A-Za-z]{0,31}(,[a-z][A-Za-z]{0,31})*)?$'::text AND array_to_string(input_keys, ','::text) !~* '(amount\|minor\|montant\|monto\|valor\|price\|prix\|precio\|fee\|total\|refund\|sum)'::text)`
+- `manual_action_catalog_input_values_valid` : `CHECK (core.support_input_values_valid(input_keys, input_values))`
 - `manual_action_catalog_mode_valid` : `CHECK (mode = ANY (ARRAY['DOMAIN_COMMAND'::text, 'RECORD_ONLY'::text]))`
 - `manual_action_catalog_permission_format` : `CHECK (permission_code ~ '^[a-z][a-z_]*\.[a-z][a-z_]*$'::text)`
 - `manual_action_catalog_pkey` : `PRIMARY KEY (action_code)`
@@ -3069,6 +3073,33 @@ Politiques RLS :
 Déclencheurs :
 
 - `manual_action_handler_guard` : `CREATE TRIGGER manual_action_handler_guard BEFORE INSERT OR UPDATE ON core.support_manual_action_handler FOR EACH ROW EXECUTE FUNCTION core.support_manual_action_handler_guard()`
+
+### `core.support_manual_action_subject`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `subject_type` | `text` | oui | — |
+| `resolver` | `regprocedure` | oui | — |
+| `story` | `text` | oui | — |
+| `declared_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `manual_action_subject_pkey` : `PRIMARY KEY (subject_type)`
+- `manual_action_subject_story_format` : `CHECK (story ~ '^US-[0-9]{3}$'::text)`
+- `manual_action_subject_type_format` : `CHECK (subject_type ~ '^[A-Z][A-Z_]{1,63}$'::text)`
+
+Politiques RLS :
+
+- `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `manual_action_subject_guard` : `CREATE TRIGGER manual_action_subject_guard BEFORE INSERT OR UPDATE ON core.support_manual_action_subject FOR EACH ROW EXECUTE FUNCTION core.support_manual_action_subject_guard()`
 
 ### `core.support_support_case`
 
@@ -3258,7 +3289,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_approve_finance_action(p_token_hash bytea, p_approval_id uuid)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
-| `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `platform.declared_environment()` | `text` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE |
 | `platform.guest_hold_guard(p_period tstzrange)` | `TABLE(live_holds integer, trip_overlap boolean)` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE ; guard_owner: EXECUTE |
 
@@ -3362,10 +3394,17 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_verify_minor(p_value jsonb, p_currency text)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_verify_ratio(p_value jsonb)` | `numeric[]` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_verify_round(p_amount numeric, p_num numeric, p_den numeric)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
-| `core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_country_of_insurer_bordereau(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_country_of_organization(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_country_of_platform_advance(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_country_of_support_case(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_country_of_trip(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_input_values_valid(p_keys text[], p_values jsonb)` | `boolean` | `migrator` | migrator: EXECUTE |
+| `core.support_manual_action_handler_check(p_action text, p_handler regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_manual_action_handler_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.support_manual_action_subject_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.support_staff_holds_permission(p_user uuid, p_permission text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
-| `core.support_subject_country(p_type text, p_id uuid)` | `TABLE(known boolean, country text)` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_subject_resolver_check(p_resolver regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
