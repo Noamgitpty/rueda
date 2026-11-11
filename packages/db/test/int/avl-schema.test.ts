@@ -54,6 +54,10 @@ const SUPPORT_TABLES = [
   'support_manual_action',
   'support_manual_action_handler',
   'support_manual_action_subject',
+  // US-109 (0064) : files de revue, éléments de file et notes internes (aucun droit applicatif)
+  'support_review_queue',
+  'support_review_queue_item',
+  'support_internal_note',
 ] as const;
 
 // Tables PAY du port PaymentProvider (US-019, 0027) : même socle RLS ; leurs politiques, droits et

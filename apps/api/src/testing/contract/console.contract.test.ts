@@ -11,7 +11,14 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { AbuseBoardAccessError } from '../../modules/risk/index.js';
 import type { BrandStore, StaffVersion } from '../../modules/cfg/index.js';
 import type { StaffOptions } from '../../modules/iam/index.js';
-import type { FinanceApprovalStore, ManualActionStore } from '../../modules/sup/index.js';
+import { OpsStoreError } from '../../modules/sup/index.js';
+import type {
+  EvidenceOptions,
+  FinanceApprovalStore,
+  ManualActionStore,
+  OpsConsoleStore,
+  OpsResult,
+} from '../../modules/sup/index.js';
 import { missingCoverage } from '../openapi-contract.js';
 import {
   closeContractApps,
@@ -122,6 +129,146 @@ class TunableBrandStore implements BrandStore {
   }
 }
 
+const AT = '2031-07-01T08:00:00.000Z';
+
+/** Corps rendus par la base pour chaque commande US-109 (formes de 0064). */
+const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
+  queues: {
+    queues: [{ queue: 'KYC', open: 2, overdue: 1 }],
+    items: [
+      {
+        id: ID,
+        queue: 'KYC',
+        subjectType: 'USER_ACCOUNT',
+        subjectId: ID,
+        country: FIRST_COUNTRY,
+        status: 'OPEN',
+        slaDueAt: '2031-07-01T08:00:00.123456+00:00',
+        overdue: true,
+        assigned: false,
+        assignedToMe: false,
+        createdAt: AT,
+      },
+    ],
+  },
+  kycDossier: {
+    itemId: ID,
+    userId: ID,
+    country: FIRST_COUNTRY,
+    accessId: ID,
+    kycStatus: 'NOT_STARTED',
+    pseudonymized: false,
+    legalFirstName: 'Lucía',
+    legalLastName: 'Benítez',
+    dateOfBirth: null,
+    residenceCountry: null,
+  },
+  findUser: { userId: ID, country: FIRST_COUNTRY },
+  profile: {
+    accessId: ID,
+    country: FIRST_COUNTRY,
+    coverage: 'case',
+    profile: {
+      id: ID,
+      email: 'lucia@example.test',
+      emailVerified: true,
+      phone: null,
+      phoneVerified: false,
+      legalFirstName: 'Lucía',
+      legalLastName: 'Benítez',
+      displayName: null,
+      preferredLocale: 'es',
+      residenceCountry: null,
+      status: 'ACTIVE',
+      pseudonymized: false,
+      createdAt: AT,
+    },
+    kyc: { status: 'NOT_STARTED' },
+    restricted: true,
+    restrictions: [
+      {
+        id: ID,
+        kind: 'TS_HOLD',
+        active: true,
+        reason: REASON,
+        createdAt: AT,
+        liftedAt: null,
+      },
+    ],
+    notes: [{ id: ID, authorRole: 'SUPPORT_AGENT', body: 'Note', createdAt: AT }],
+    hostAccounts: [
+      {
+        orgId: ID,
+        country: FIRST_COUNTRY,
+        status: 'ACTIVE',
+        displayName: 'Lucía',
+        bookable: false,
+      },
+    ],
+    trips: [],
+    cases: [
+      {
+        id: ID,
+        category: 'ACCOUNT',
+        status: 'OPEN',
+        priority: 'NORMAL',
+        channel: 'PHONE',
+        assignedToMe: true,
+        createdAt: AT,
+      },
+    ],
+    queueItems: [{ id: ID, queue: 'KYC', status: 'OPEN', slaDueAt: AT, overdue: false }],
+  },
+};
+
+/** Magasin US-109 en mémoire : issue réglable par méthode, ou échec 22023. */
+class TunableOpsStore implements OpsConsoleStore {
+  readonly outcome: Record<string, string> = {};
+  invalid = false;
+
+  #r(method: string, fallback: string): Promise<OpsResult> {
+    if (this.invalid) {
+      return Promise.reject(new OpsStoreError('22023'));
+    }
+    const outcome = this.outcome[method] ?? fallback;
+    return Promise.resolve({ outcome, body: OPS_BODIES[method] ?? {} });
+  }
+  queues() {
+    return this.#r('queues', 'OK');
+  }
+  claim() {
+    return this.#r('claim', 'CLAIMED');
+  }
+  kycDossier() {
+    return this.#r('kycDossier', 'GRANTED');
+  }
+  findUser() {
+    return this.#r('findUser', 'FOUND');
+  }
+  profile() {
+    return this.#r('profile', 'GRANTED');
+  }
+  addNote() {
+    return this.#r('addNote', 'ADDED');
+  }
+  openCase() {
+    return this.#r('openCase', 'OPENED');
+  }
+  setCaseStatus() {
+    return this.#r('setCaseStatus', 'UPDATED');
+  }
+  evidencePermitted() {
+    return this.#r('evidencePermitted', 'PERMITTED');
+  }
+  recordEvidence(_tx: unknown, _actor: unknown, input: { requestId: string }) {
+    const outcome = this.outcome['recordEvidence'] ?? 'RECORDED';
+    return Promise.resolve({
+      outcome,
+      body: { fileId: input.requestId, storageKey: `staff-evidence/${input.requestId}` },
+    });
+  }
+}
+
 /** Accès staff : voyageur sans rôle, staff sans TOTP, staff élevé (comme le harnais). */
 function staffStore(app: () => ContractApp | undefined): StaffOptions['store'] {
   const never = () => Promise.reject(new Error('non prévu'));
@@ -163,6 +310,31 @@ describe('contrat HTTP — /console', () => {
   let actionDetail: string | null = null;
   let approval: Awaited<ReturnType<FinanceApprovalStore['approve']>> = 'APPROVED';
   let boardRefusal: 'FORBIDDEN' | null = null;
+  const ops = new TunableOpsStore();
+  let scanVerdict: 'CLEAN' | 'INFECTED' | 'DOWN' = 'CLEAN';
+  const evidence: EvidenceOptions = {
+    pool: {
+      query: () => Promise.resolve({ rows: [] }),
+      connect: () =>
+        Promise.resolve({ query: () => Promise.resolve({ rows: [] }), release: () => undefined }),
+    } as unknown as EvidenceOptions['pool'],
+    scanner: {
+      scan: () =>
+        Promise.resolve(
+          scanVerdict === 'DOWN'
+            ? { status: 'UNAVAILABLE' as const }
+            : {
+                status: 'SCANNED' as const,
+                report: { verdict: scanVerdict, detectedMime: 'image/png', threat: null },
+              },
+        ),
+    },
+    vault: {
+      prepare: () => Promise.resolve('READY' as const),
+      seal: (_tx, _user, _file, body) => Promise.resolve({ status: 'SEALED' as const, body }),
+    },
+    files: { put: () => Promise.resolve({ status: 'STORED' as const }) },
+  };
   afterAll(closeContractApps);
 
   async function app(limits?: StaffOptions['limits']): Promise<ContractApp> {
@@ -193,6 +365,8 @@ describe('contrat HTTP — /console', () => {
             ]),
           approve: () => Promise.resolve(approval),
         },
+        ops,
+        evidence,
       },
       brand: {
         store: brand,
@@ -479,6 +653,144 @@ describe('contrat HTTP — /console', () => {
     expect((await a.api.request('GET', '/console/security/abuse', { headers })).status).toBe(403);
     boardRefusal = null;
     await refusals(a, 'GET', '/console/security/abuse');
+  });
+
+  it('files de revue, fiche 360°, notes, dossiers, pièces (US-109) : chaque statut déclaré', async () => {
+    const a = await app();
+    const headers = a.cookie('staff');
+    const post = (path: string, body: unknown) => a.api.request('POST', path, { headers, body });
+    const purpose = 'Instruction du dossier assigné';
+
+    // files : 200 (dates normalisées), 400, 401, 403
+    const q = await a.api.request('GET', '/console/queues?queue=KYC&limit=10', { headers });
+    expect(q.status).toBe(200);
+    expect(q.json).toMatchObject({
+      items: [{ overdue: true, slaDueAt: '2031-07-01T08:00:00.123Z' }],
+    });
+    expect((await a.api.request('GET', '/console/queues?queue=X', { headers })).status).toBe(400);
+    ops.outcome['queues'] = 'FORBIDDEN';
+    expect((await a.api.request('GET', '/console/queues', { headers })).status).toBe(403);
+    delete ops.outcome['queues'];
+    await refusals(a, 'GET', '/console/queues');
+
+    // prise en charge : 200, 400, 403, 409
+    const claim = `/console/queues/items/${ID}/claim`;
+    expect((await post(claim, { requestId: randomUUID() })).json).toEqual({ itemId: ID });
+    expect((await post(claim, { requestId: 'x' })).status).toBe(400);
+    ops.outcome['claim'] = 'TAKEN';
+    expect((await post(claim, { requestId: randomUUID() })).json).toMatchObject({
+      code: 'STAFF_ITEM_TAKEN',
+    });
+    ops.outcome['claim'] = 'FORBIDDEN';
+    expect((await post(claim, { requestId: randomUUID() })).status).toBe(403);
+    await refusals(a, 'POST', claim);
+
+    // dossier KYC : 200, 400, 403 (dont STAFF_CASE_REQUIRED)
+    const kyc = `/console/queues/items/${ID}/kyc`;
+    expect((await post(kyc, { requestId: randomUUID(), purpose })).status).toBe(200);
+    expect((await post(kyc, { requestId: randomUUID(), purpose: 'court' })).status).toBe(400);
+    ops.outcome['kycDossier'] = 'CASE_REQUIRED';
+    expect((await post(kyc, { requestId: randomUUID(), purpose })).json).toMatchObject({
+      code: 'STAFF_CASE_REQUIRED',
+    });
+    await refusals(a, 'POST', kyc);
+
+    // recherche : 200, 400, 403, 404 ; donnée refusée par la base (22023) : 400
+    const search = { requestId: randomUUID(), email: 'lucia@example.test', purpose };
+    expect((await post('/console/users/search', search)).json).toEqual({
+      userId: ID,
+      country: FIRST_COUNTRY,
+    });
+    ops.outcome['findUser'] = 'NOT_FOUND';
+    expect((await post('/console/users/search', search)).status).toBe(404);
+    ops.outcome['findUser'] = 'FORBIDDEN';
+    expect((await post('/console/users/search', search)).status).toBe(403);
+    ops.invalid = true;
+    expect((await post('/console/users/search', search)).status).toBe(400);
+    ops.invalid = false;
+    await refusals(a, 'POST', '/console/users/search');
+
+    // fiche 360° : 200, 400, 403
+    const profile = `/console/users/${ID}/profile`;
+    const p = await post(profile, { requestId: randomUUID(), purpose });
+    expect(p.status).toBe(200);
+    expect(p.json).toMatchObject({ restricted: true, hostAccounts: [{ bookable: false }] });
+    expect(
+      (await post(`/console/users/x/profile`, { requestId: randomUUID(), purpose })).status,
+    ).toBe(400);
+    ops.outcome['profile'] = 'CASE_REQUIRED';
+    expect((await post(profile, { requestId: randomUUID(), purpose })).status).toBe(403);
+    await refusals(a, 'POST', profile);
+
+    // notes : 201, 200 (rejeu), 400, 403
+    const notes = `/console/users/${ID}/notes`;
+    expect((await post(notes, { requestId: randomUUID(), body: 'Appel reçu' })).status).toBe(201);
+    ops.outcome['addNote'] = 'DUPLICATE';
+    expect((await post(notes, { requestId: randomUUID(), body: 'Appel reçu' })).status).toBe(200);
+    expect((await post(notes, { requestId: randomUUID(), body: '' })).status).toBe(400);
+    ops.outcome['addNote'] = 'CASE_REQUIRED';
+    expect((await post(notes, { requestId: randomUUID(), body: 'Appel reçu' })).status).toBe(403);
+    await refusals(a, 'POST', notes);
+
+    // dossiers : 201, 200, 400, 403 ; état : 200, 400, 403
+    const caseBody = {
+      requestId: randomUUID(),
+      requesterUserId: ID,
+      category: 'ACCOUNT',
+      channel: 'PHONE',
+    };
+    expect((await post('/console/cases', caseBody)).status).toBe(201);
+    ops.outcome['openCase'] = 'DUPLICATE';
+    expect((await post('/console/cases', caseBody)).status).toBe(200);
+    expect((await post('/console/cases', { ...caseBody, category: 'BREAK_GLASS' })).status).toBe(
+      400,
+    );
+    ops.outcome['openCase'] = 'FORBIDDEN';
+    expect((await post('/console/cases', caseBody)).status).toBe(403);
+    await refusals(a, 'POST', '/console/cases');
+    const status = `/console/cases/${ID}/status`;
+    expect((await post(status, { requestId: randomUUID(), status: 'RESOLVED' })).json).toEqual({
+      caseId: ID,
+      status: 'RESOLVED',
+    });
+    expect((await post(status, { requestId: randomUUID(), status: 'OPEN' })).status).toBe(400);
+    ops.outcome['setCaseStatus'] = 'CASE_REQUIRED';
+    expect((await post(status, { requestId: randomUUID(), status: 'CLOSED' })).status).toBe(403);
+    await refusals(a, 'POST', status);
+
+    // pièces : 201, 200, 400, 403, 422 (taille, type réel, antivirus), 503 (antivirus en panne)
+    const upload = (over: Record<string, unknown> = {}) =>
+      post('/console/evidence', {
+        requestId: randomUUID(),
+        subjectUserId: ID,
+        mime: 'image/png',
+        contentBase64: PNG.toString('base64'),
+        ...over,
+      });
+    const ok = await upload();
+    expect(ok.status).toBe(201);
+    expect(ok.json).toMatchObject({ sha256: createHash('sha256').update(PNG).digest('hex') });
+    ops.outcome['recordEvidence'] = 'DUPLICATE';
+    expect((await upload()).status).toBe(200);
+    delete ops.outcome['recordEvidence'];
+    expect((await upload({ contentBase64: '***' })).status).toBe(400);
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>', 'utf8');
+    expect((await upload({ contentBase64: svg.toString('base64') })).json).toMatchObject({
+      code: 'EVIDENCE_REJECTED',
+      values: { reason: 'TYPE' },
+    });
+    expect((await upload({ mime: 'application/pdf' })).json).toMatchObject({
+      values: { reason: 'TYPE' },
+    });
+    scanVerdict = 'INFECTED';
+    expect((await upload()).json).toMatchObject({ values: { reason: 'SCAN' } });
+    scanVerdict = 'DOWN';
+    expect((await upload()).status).toBe(503);
+    scanVerdict = 'CLEAN';
+    ops.outcome['evidencePermitted'] = 'FORBIDDEN';
+    expect((await upload()).status).toBe(403);
+    delete ops.outcome['evidencePermitted'];
+    await refusals(a, 'POST', '/console/evidence');
   });
 
   it('429 : limite de débit de la console par IP sur chaque route /console', async () => {

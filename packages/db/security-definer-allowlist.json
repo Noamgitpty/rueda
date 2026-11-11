@@ -554,6 +554,83 @@
       "owner": "iam_auth_owner",
       "execute": ["iam_staff_owner"],
       "story": "US-107"
+    },
+    {
+      "signature": "core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_queues(bytea,text,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_claim_item(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_kyc_dossier(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_find_user(bytea,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_profile(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_add_note(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_open_case(bytea,uuid,uuid,text,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_set_case_status(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_evidence_permitted(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_record_evidence(bytea,uuid,uuid,text,bigint,bytea)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
     }
   ]
 }
