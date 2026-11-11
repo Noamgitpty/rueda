@@ -125,6 +125,12 @@ describe('contrat HTTP — /auth', () => {
     });
     expect(stale.status).toBe(409);
     expect(stale.json).toMatchObject({ code: 'TERMS_VERSION_CHANGED' });
+    // pays inconnu de la configuration : 400 COUNTRY_UNKNOWN, aucun compte
+    const unknown = await api.request('POST', '/auth/signup', {
+      body: signupBody(`z-${randomUUID()}@example.test`, { country: 'ZZ' }),
+    });
+    expect(unknown.status).toBe(400);
+    expect(unknown.json).toMatchObject({ code: 'COUNTRY_UNKNOWN' });
     // client direct de l'API sans versions affichées : même refus
     const { acceptedDocuments: _omitted, ...blind } = signupBody(`b-${randomUUID()}@example.test`);
     void _omitted;

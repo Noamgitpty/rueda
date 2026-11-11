@@ -10,6 +10,7 @@
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { CATALOG_LANGUAGES } from '@rueda/i18n';
+import { CountryConfigService } from '../../cfg/index.js';
 import type {
   ConsentHistoryRow,
   ConsentStatusRow,
@@ -43,6 +44,11 @@ export function countryOf(value: unknown): string | null | undefined {
   if (value === undefined || value === null || value === '') return null;
   return typeof value === 'string' && COUNTRY_FORMAT.test(value) ? value : undefined;
 }
+
+/** Pays déclarés par la configuration (CFG) : un pays inconnu est refusé (`COUNTRY_UNKNOWN`). */
+export const KNOWN_COUNTRIES: ReadonlySet<string> = new Set(
+  new CountryConfigService().config.countries.keys(),
+);
 
 export interface ConsentOverview {
   readonly code: Extract<LegalCode, 'TERMS_CURRENT' | 'TERMS_REACCEPT_REQUIRED'>;

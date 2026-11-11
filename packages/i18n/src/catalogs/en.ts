@@ -398,6 +398,7 @@ export const EN_MESSAGES = {
   'common.legal.reacceptRequired': 'We updated the Terms. Accept them to keep booking.',
   'common.legal.versionChanged': 'The documents changed while you were reading. Review them again.',
   'common.legal.unavailable': 'We can’t show the documents right now. Try again later.',
+  'common.legal.countryUnknown': "This destination isn't available yet. Choose another one.",
   'common.legal.notFound': 'We couldn’t find this document.',
   'common.legal.consentRecorded': 'Done, we saved your preference.',
   'web.s15.legalName': 'First and last name as on your license',

@@ -419,6 +419,7 @@ export const PT_MESSAGES = {
   'common.legal.reacceptRequired': 'Atualizamos os Termos. Aceite-os para continuar reservando.',
   'common.legal.versionChanged': 'Os documentos mudaram enquanto você lia. Revise-os de novo.',
   'common.legal.unavailable': 'Não conseguimos mostrar os documentos agora. Tente mais tarde.',
+  'common.legal.countryUnknown': 'Este destino ainda não está disponível. Escolha outro.',
   'common.legal.notFound': 'Não encontramos este documento.',
   'common.legal.consentRecorded': 'Pronto, salvamos sua preferência.',
   'web.s15.legalName': 'Nome e sobrenome como na sua carteira de motorista',

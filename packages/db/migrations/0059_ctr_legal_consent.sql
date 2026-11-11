@@ -46,6 +46,8 @@
 --     core.ctr_current_template(text, text, text, boolean), core.ctr_record_consent(uuid, uuid,
 --     boolean, text, text), core.ctr_account_country(uuid);
 --   DROP TABLE core.contract_consent, core.contract_document_template;
+--   DROP POLICY iam_auth_select ON core.config_country;
+--   REVOKE SELECT (code) ON core.config_country FROM iam_auth_owner;
 --   DELETE FROM core.iam_role_permission WHERE change_reason LIKE 'US-102%'.
 
 -- 1. Permission de publication (17 §3.2.6 ; 16 LEG-001 : version publiée par un administrateur) --
@@ -227,6 +229,9 @@ CREATE POLICY iam_auth_select ON core.contract_document_template FOR SELECT TO i
   USING (true);
 CREATE POLICY iam_auth_select ON core.contract_consent FOR SELECT TO iam_auth_owner USING (true);
 CREATE POLICY iam_auth_insert ON core.contract_consent FOR INSERT TO iam_auth_owner WITH CHECK (true);
+-- pays connus de la configuration (contrôle du pays déclaré à l'inscription, avant l'écriture)
+GRANT SELECT (code) ON core.config_country TO iam_auth_owner;
+CREATE POLICY iam_auth_select ON core.config_country FOR SELECT TO iam_auth_owner USING (true);
 -- identifiants par défaut (platform.uuid_v7) des lignes ajoutées par les propriétaires
 GRANT EXECUTE ON FUNCTION platform.uuid_v7() TO iam_auth_owner, iam_staff_owner;
 
@@ -362,8 +367,9 @@ CREATE CONSTRAINT TRIGGER ctr_signup_consents_required
 -- acceptées, OBLIGATOIRE : absente, incomplète ou différente de la version en vigueur, refus
 -- (ctr_document_version_current) ; un client direct de l'API ne peut pas consentir « à l'aveugle ». Les versions sont contrôlées AVANT l'écriture du compte :
 -- même issue que l'email soit libre ou pris (anti-énumération). Issues d'erreur (contrainte) :
---   ctr_document_request_invalid (liste mal formée), ctr_document_unavailable (aucun document en
---   vigueur : fail-closed), ctr_document_version_current (version affichée périmée).
+--   ctr_document_request_invalid (liste mal formée), ctr_country_unknown (pays absent de la
+--   configuration), ctr_document_unavailable (aucun document en vigueur : fail-closed),
+--   ctr_document_version_current (version affichée absente ou périmée).
 CREATE FUNCTION core.iam_cmd_register_with_consents(
   p_user_id                 uuid,
   p_email                   text,
@@ -401,6 +407,14 @@ BEGIN
      OR (p_country IS NOT NULL AND p_country !~ '^[A-Z]{2}$') THEN
     RAISE EXCEPTION 'ctr : demande de consentement invalide'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_request_invalid';
+  END IF;
+  -- pays inconnu de la configuration : refus AVANT toute écriture, même issue que l'email soit
+  -- libre ou pris (revue sécurité de #102 : sinon la clé étrangère du consentement échouait APRÈS
+  -- l'écriture du compte, et seul un email libre donnait une erreur)
+  IF p_country IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM core.config_country AS k WHERE k.code = p_country) THEN
+    RAISE EXCEPTION 'ctr : pays inconnu'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_country_unknown';
   END IF;
   IF EXISTS (
        SELECT 1 FROM pg_catalog.jsonb_array_elements(p_documents) AS d(e)

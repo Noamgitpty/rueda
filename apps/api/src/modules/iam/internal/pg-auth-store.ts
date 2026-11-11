@@ -24,6 +24,7 @@ const SIGNUP_DOCUMENT_CONSTRAINTS: Readonly<Record<string, SignupDocumentsError[
   ctr_document_version_current: 'VERSION_CHANGED',
   ctr_document_unavailable: 'UNAVAILABLE',
   ctr_document_request_invalid: 'INVALID',
+  ctr_country_unknown: 'COUNTRY_UNKNOWN',
 };
 
 /** Sous-ensemble de `pg.Pool` / `pg.Client` utilisé ici. */
@@ -97,10 +98,13 @@ export class PgAuthStore implements AuthStore {
         ],
       );
     } catch (error) {
+      // 23514 : refus métier nommés ; 23503 (clé étrangère, ex. pays) : demande invalide, jamais 500
       const reason =
         error instanceof AuthStoreError && error.sqlstate === '23514'
           ? SIGNUP_DOCUMENT_CONSTRAINTS[error.constraint ?? '']
-          : undefined;
+          : error instanceof AuthStoreError && error.sqlstate === '23503'
+            ? 'INVALID'
+            : undefined;
       if (reason !== undefined) throw new SignupDocumentsError(reason);
       throw error;
     }

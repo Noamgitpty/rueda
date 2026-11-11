@@ -18,6 +18,9 @@ import type {
   SessionRecord,
 } from '../internal/auth-store.js';
 import { SignupDocumentsError } from '../internal/auth-store.js';
+import { CountryConfigService } from '../../cfg/index.js';
+
+const KNOWN_COUNTRIES = new Set(new CountryConfigService().config.countries.keys());
 
 /** Consentement enregistré par le FAKE (même sémantique que core.contract_consent, 0059). */
 export interface FakeConsent {
@@ -81,6 +84,10 @@ export class FakeAuthStore implements AuthStore {
     // consentements contrôlés AVANT l'email (anti-énumération), comme la commande 0059
     const versions = this.documentVersions;
     if (versions === null) throw new SignupDocumentsError('UNAVAILABLE');
+    // pays inconnu de la configuration : refus avant l'email (même issue libre ou pris), comme 0059
+    if (input.country != null && !KNOWN_COUNTRIES.has(input.country)) {
+      throw new SignupDocumentsError('COUNTRY_UNKNOWN');
+    }
     // versions affichées OBLIGATOIRES (US-102, revue) : absentes ⇒ refus
     if (input.documents == null) throw new SignupDocumentsError('VERSION_CHANGED');
     for (const kind of ['TOS_GUEST', 'PRIVACY'] as const) {

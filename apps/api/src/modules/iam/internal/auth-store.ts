@@ -26,7 +26,7 @@ export interface AcceptedDocument {
  */
 export class SignupDocumentsError extends Error {
   override readonly name = 'SignupDocumentsError';
-  constructor(readonly reason: 'VERSION_CHANGED' | 'UNAVAILABLE' | 'INVALID') {
+  constructor(readonly reason: 'VERSION_CHANGED' | 'UNAVAILABLE' | 'INVALID' | 'COUNTRY_UNKNOWN') {
     super(`IAM : consentements refusés (${reason})`);
   }
 }

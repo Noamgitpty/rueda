@@ -15,7 +15,7 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `POST` | `/auth/logout` | `logout` | Déconnexion (idempotente) | **204** sans corps<br>**415** REQUEST_INVALID |
 | `POST` | `/auth/logout-all` | `logoutAll` | Déconnexion de toutes les sessions | **204** sans corps<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID |
 | `GET` | `/auth/session` | `getSession` | Principal de la session courante | **200** application/json<br>**401** AUTH_REQUIRED |
-| `POST` | `/auth/signup` | `signup` | Inscription (ACC-001) : réponse identique que l'email soit libre ou pris | **202** SIGNUP_ACCEPTED<br>**400** AUTH_EMAIL_INVALID / AUTH_PASSWORD_WEAK / AUTH_TERMS_NOT_ACCEPTED / REQUEST_INVALID<br>**409** TERMS_VERSION_CHANGED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
+| `POST` | `/auth/signup` | `signup` | Inscription (ACC-001) : réponse identique que l'email soit libre ou pris | **202** SIGNUP_ACCEPTED<br>**400** AUTH_EMAIL_INVALID / AUTH_PASSWORD_WEAK / AUTH_TERMS_NOT_ACCEPTED / REQUEST_INVALID / COUNTRY_UNKNOWN<br>**409** TERMS_VERSION_CHANGED<br>**415** REQUEST_INVALID<br>**429** RATE_LIMITED<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
 | `POST` | `/auth/verify-email` | `verifyEmail` | Vérification de l'adresse (lien à usage unique) | **200** EMAIL_VERIFIED<br>**400** AUTH_LINK_EXPIRED / REQUEST_INVALID<br>**415** REQUEST_INVALID |
 
 ## `/brand`
@@ -49,8 +49,8 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `GET` | `/legal/consents` | `getConsents` | État des consentements de la session (réacceptation exigée après une version majeure) et historique | **200** application/json<br>**401** AUTH_REQUIRED |
 | `POST` | `/legal/consents/accept` | `acceptConsents` | Accepter les versions en vigueur des CGU et de la confidentialité (REACCEPT) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**409** TERMS_VERSION_CHANGED<br>**415** REQUEST_INVALID<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
 | `POST` | `/legal/consents/marketing` | `setMarketingConsent` | Communications commerciales : accord ou révocation (historique conservé) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
-| `GET` | `/legal/documents` | `listLegalDocuments` | Documents juridiques en vigueur (CGU du voyageur, confidentialité, communications) et leur version (US-102) | **200** application/json<br>**400** REQUEST_INVALID<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
-| `GET` | `/legal/documents/{kind}` | `getLegalDocument` | Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté | **200** application/json<br>**400** REQUEST_INVALID<br>**404** LEGAL_DOCUMENT_NOT_FOUND |
+| `GET` | `/legal/documents` | `listLegalDocuments` | Documents juridiques en vigueur (CGU du voyageur, confidentialité, communications) et leur version (US-102) | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
+| `GET` | `/legal/documents/{kind}` | `getLegalDocument` | Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**404** LEGAL_DOCUMENT_NOT_FOUND |
 
 ## `/staff`
 

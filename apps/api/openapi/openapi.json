@@ -366,7 +366,8 @@
                         "AUTH_EMAIL_INVALID",
                         "AUTH_PASSWORD_WEAK",
                         "AUTH_TERMS_NOT_ACCEPTED",
-                        "REQUEST_INVALID"
+                        "REQUEST_INVALID",
+                        "COUNTRY_UNKNOWN"
                       ]
                     }
                   }
@@ -2015,7 +2016,7 @@
             }
           },
           "400": {
-            "description": "Paramètre ou corps invalide",
+            "description": "Paramètre invalide, ou pays inconnu de la configuration (COUNTRY_UNKNOWN)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -2027,7 +2028,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "REQUEST_INVALID"
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
                     }
                   }
                 }
@@ -2115,7 +2116,7 @@
             }
           },
           "400": {
-            "description": "Paramètre ou corps invalide",
+            "description": "Paramètre invalide, ou pays inconnu de la configuration (COUNTRY_UNKNOWN)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -2127,7 +2128,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "REQUEST_INVALID"
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
                     }
                   }
                 }

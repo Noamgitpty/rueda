@@ -27,6 +27,7 @@ const KEYS: Readonly<Record<string, MessageKey>> = {
   TERMS_VERSION_CHANGED: 'common.legal.versionChanged',
   TERMS_REACCEPT_REQUIRED: 'common.legal.reacceptRequired',
   LEGAL_DOCUMENT_UNAVAILABLE: 'common.legal.unavailable',
+  COUNTRY_UNKNOWN: 'common.legal.countryUnknown',
 };
 
 export function apiErrorKey(code: string | null, status: number | 'unavailable'): MessageKey {

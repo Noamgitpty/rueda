@@ -29,11 +29,19 @@ export default async function SignupPage({
     searchParams,
   ]);
   const t = i18n.t.bind(i18n);
-  const country = journeyCountry(query['country'], tag);
-  const params = new URLSearchParams({ locale: tag, ...(country !== null ? { country } : {}) });
-  const documents = documentsOf(
-    await callApi('GET', `/legal/documents?${params.toString()}`, await clientContext()),
-  );
+  const ctx = await clientContext();
+  const fetchDocuments = async (c: string | null) => {
+    const params = new URLSearchParams({ locale: tag, ...(c !== null ? { country: c } : {}) });
+    return { params, reply: await callApi('GET', `/legal/documents?${params.toString()}`, ctx) };
+  };
+  let country = journeyCountry(query['country'], tag);
+  let { params, reply } = await fetchDocuments(country);
+  // pays du lien profond inconnu de l'API (400) : portée de la locale seule, jamais d'échec
+  if (reply.status === 400 && typeof query['country'] === 'string') {
+    country = journeyCountry(undefined, tag);
+    ({ params, reply } = await fetchDocuments(country));
+  }
+  const documents = documentsOf(reply);
   const tos = documents?.find((d) => d.kind === 'TOS_GUEST');
   const privacy = documents?.find((d) => d.kind === 'PRIVACY');
   return (

@@ -13,6 +13,7 @@
  * - aucun jeton, mot de passe ou email dans un journal ou une erreur.
  */
 import { Inject, Injectable } from '@nestjs/common';
+import { CountryConfigService } from '../../cfg/index.js';
 import type { AcceptedDocument, AuthStore, MfaLevel } from './auth-store.js';
 import { SignupDocumentsError } from './auth-store.js';
 import { AuthHttpError } from './errors.js';
@@ -82,6 +83,10 @@ export interface OpenedSession {
 
 const EMAIL_FORMAT = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COUNTRY_FORMAT = /^[A-Z]{2}$/;
+/** Pays déclarés par la configuration (CFG) : un pays inconnu est refusé avant toute écriture. */
+const KNOWN_COUNTRIES: ReadonlySet<string> = new Set(
+  new CountryConfigService().config.countries.keys(),
+);
 const DOCUMENT_KINDS = new Set(['TOS_GUEST', 'PRIVACY']);
 
 /** Versions affichées (US-102) : `null` si absentes, `undefined` si mal formées. */
@@ -186,6 +191,10 @@ export class AuthService implements AuthenticationPort {
     ) {
       throw new AuthHttpError('REQUEST_INVALID');
     }
+    // pays inconnu : même refus que l'email soit libre ou pris (contrôlé aussi par la base)
+    if (country !== null && !KNOWN_COUNTRIES.has(country as string)) {
+      throw new AuthHttpError('COUNTRY_UNKNOWN');
+    }
     // un client direct de l'API ne consent jamais « à l'aveugle » : la version affichée est exigée
     if (documents === null) throw new AuthHttpError('TERMS_VERSION_CHANGED');
 
@@ -217,7 +226,9 @@ export class AuthService implements AuthenticationPort {
           ? 'TERMS_VERSION_CHANGED'
           : error.reason === 'UNAVAILABLE'
             ? 'LEGAL_DOCUMENT_UNAVAILABLE'
-            : 'REQUEST_INVALID',
+            : error.reason === 'COUNTRY_UNKNOWN'
+              ? 'COUNTRY_UNKNOWN'
+              : 'REQUEST_INVALID',
       );
     }
     if (created) {

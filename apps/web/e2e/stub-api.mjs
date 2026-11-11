@@ -23,6 +23,8 @@ const MARK = {
 };
 const REACCEPT = /^reaccept-[a-z0-9-]+@example\.test$/;
 const PASSWORD_MIN = 10;
+// pays inconnu de la configuration (jeton fictif, jamais un vrai pays) : 400 COUNTRY_UNKNOWN
+const UNKNOWN_COUNTRY = 'ZZ';
 
 const signups = [];
 const accounts = new Map();
@@ -103,6 +105,9 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && path === '/legal/documents') {
     const lang = languageOf(url);
     if (lang === null) return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    if (url.searchParams.get('country') === UNKNOWN_COUNTRY) {
+      return err(res, 400, 'COUNTRY_UNKNOWN', 'common.legal.countryUnknown');
+    }
     return json(res, 200, {
       documents: ['MARKETING', 'PRIVACY', 'TOS_GUEST'].map((k) => doc(k, lang)),
     });
@@ -129,6 +134,9 @@ createServer(async (req, res) => {
     return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
   }
   if (path === '/auth/signup') {
+    if (body.country === UNKNOWN_COUNTRY) {
+      return err(res, 400, 'COUNTRY_UNKNOWN', 'common.legal.countryUnknown');
+    }
     if (body.termsAccepted !== true) {
       return err(res, 400, 'AUTH_TERMS_NOT_ACCEPTED', 'common.auth.termsNotAccepted');
     }

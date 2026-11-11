@@ -7,6 +7,7 @@ export { CtrModule } from './ctr.module.js';
 export { CtrLegalModule } from './internal/ctr-legal.module.js';
 export type { CtrLegalOptions } from './internal/ctr-legal.module.js';
 export { TermsGuard } from './internal/terms.guard.js';
+export { BOOKING_ROUTES, BookingRoutes } from './internal/booking-routes.js';
 export { LEGAL_MESSAGES, LegalHttpError } from './internal/errors.js';
 export { postgresCtrAdapters, PgConsentStore } from './internal/pg-consent-store.js';
 export type {

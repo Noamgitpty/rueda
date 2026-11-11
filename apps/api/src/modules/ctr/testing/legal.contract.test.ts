@@ -55,6 +55,9 @@ describe('contrat HTTP — /legal (US-102)', () => {
     expect(old.status).toBe(200);
     expect((await a.api.request('GET', '/legal/documents?locale=xx')).status).toBe(400);
     expect((await a.api.request('GET', '/legal/documents?locale=es&country=zz')).status).toBe(400);
+    const unknown = await a.api.request('GET', '/legal/documents?locale=es&country=ZZ');
+    expect(unknown.status).toBe(400);
+    expect(unknown.json).toMatchObject({ code: 'COUNTRY_UNKNOWN' });
     expect(
       (await a.api.request('GET', '/legal/documents/TOS_GUEST?locale=es&version=0')).status,
     ).toBe(400);

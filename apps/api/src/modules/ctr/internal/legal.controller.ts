@@ -17,7 +17,7 @@ import { SessionGuard, sessionProofOf } from '../../iam/index.js';
 import type { ConsentStatusRow, LegalDocument, LegalDocumentSummary } from './consent-store.js';
 import { legalBody, LegalHttpError } from './errors.js';
 import type { LegalBody } from './errors.js';
-import { countryOf, languageOf, LegalService } from './legal.service.js';
+import { countryOf, KNOWN_COUNTRIES, languageOf, LegalService } from './legal.service.js';
 
 interface Req {
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
@@ -60,6 +60,8 @@ function scope(query: Record<string, unknown>): { country: string | null; langua
   const language = languageOf(query['locale']);
   const country = countryOf(query['country']);
   if (language === null || country === undefined) throw new LegalHttpError('REQUEST_INVALID');
+  if (country !== null && !KNOWN_COUNTRIES.has(country))
+    throw new LegalHttpError('COUNTRY_UNKNOWN');
   return { country, language };
 }
 

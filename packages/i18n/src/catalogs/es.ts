@@ -419,6 +419,7 @@ export const ES_MESSAGES = {
   'common.legal.reacceptRequired': 'Actualizamos los Términos. Acéptalos para seguir reservando.',
   'common.legal.versionChanged': 'Los documentos cambiaron mientras leías. Revísalos de nuevo.',
   'common.legal.unavailable': 'No podemos mostrar los documentos ahora. Inténtalo más tarde.',
+  'common.legal.countryUnknown': 'Este destino todavía no está disponible. Elige otro.',
   'common.legal.notFound': 'No encontramos este documento.',
   'common.legal.consentRecorded': 'Listo, guardamos tu preferencia.',
   'web.s15.legalName': 'Nombre y apellido como en tu licencia',

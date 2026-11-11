@@ -14,6 +14,7 @@ export const LEGAL_MESSAGES = {
   TERMS_VERSION_CHANGED: { status: 409, messageKey: 'common.legal.versionChanged' },
   LEGAL_DOCUMENT_UNAVAILABLE: { status: 503, messageKey: 'common.legal.unavailable' },
   LEGAL_DOCUMENT_NOT_FOUND: { status: 404, messageKey: 'common.legal.notFound' },
+  COUNTRY_UNKNOWN: { status: 400, messageKey: 'common.legal.countryUnknown' },
   CONSENT_RECORDED: { status: 200, messageKey: 'common.legal.consentRecorded' },
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },

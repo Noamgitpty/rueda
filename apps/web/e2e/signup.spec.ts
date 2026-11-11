@@ -143,6 +143,20 @@ for (const language of LANGUAGES) {
       expect(screens[1]).toBe(screens[0]);
     });
 
+    test('lien profond avec un pays inconnu : le formulaire reste utilisable, sans ce pays', async ({
+      page,
+    }) => {
+      await page.goto('/signup?country=ZZ');
+      const email = unique(language);
+      await fill(page, email);
+      await page.locator('#s15-terms').check();
+      await page.locator('main form button[type="submit"]').click();
+      await expect(page).toHaveURL(/\/signup\/sent$/);
+      const [sent] = await received(email);
+      expect(sent).toBeDefined();
+      expect((sent as { country?: string } | undefined)?.country).not.toBe('ZZ');
+    });
+
     test('document juridique : version et mention BROUILLON, langue de la vue', async ({
       page,
     }) => {

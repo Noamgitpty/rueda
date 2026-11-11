@@ -36,15 +36,18 @@ import {
 
 const T0 = '2031-05-04T10:00:00.000Z';
 /**
- * Requête nommée GL-14 (docs/ops/GO_LIVE_CHECKLIST.md) : documents CGU ou confidentialité EN
- * VIGUEUR et BROUILLON, par pays et par langue. Elle doit rendre zéro ligne avant la mise en service.
+ * Requête nommée GL-14 (docs/ops/GO_LIVE_CHECKLIST.md) : documents EN VIGUEUR et BROUILLON (CGU du
+ * voyageur, confidentialité, communications), dans TOUTES les portées atteignables : chaque pays de
+ * la configuration ET la portée NULL (documents communs, servis aux comptes sans pays : locales sans
+ * région), dans chaque langue. Elle doit rendre zéro ligne avant la mise en service.
  */
 export const GL14_DRAFTS = `
-  SELECT k.code::text AS code, d.doc_kind, d.version, d.locale
-    FROM core.config_country AS k
+  SELECT k.code AS code, d.doc_kind, d.version, d.locale
+    FROM (SELECT c.code::text AS code FROM core.config_country AS c
+          UNION ALL SELECT NULL::text) AS k
    CROSS JOIN unnest(ARRAY['es', 'en', 'fr', 'pt']) AS l(lang)
-   CROSS JOIN LATERAL core.ctr_published_documents(k.code::text, l.lang) AS d
-   WHERE d.is_draft AND d.doc_kind IN ('TOS_GUEST', 'PRIVACY')`;
+   CROSS JOIN LATERAL core.ctr_published_documents(k.code, l.lang) AS d
+   WHERE d.is_draft AND d.doc_kind IN ('TOS_GUEST', 'PRIVACY', 'MARKETING')`;
 /** Versions en vigueur de la graine (0059) : CGU et confidentialité v1. */
 const CURRENT_V1 = [
   { kind: 'TOS_GUEST', version: 1 },
@@ -156,12 +159,13 @@ const publish = async (
     validFrom?: string;
     bodies?: unknown;
     requestId?: string;
+    reviewRef?: string;
   } = {},
 ) =>
   (
     await c.query<{ outcome: string; version: number | null }>(
       `SELECT * FROM core.ctr_staff_cmd_publish_document($1, $2, $3, $4, $5,
-                $6::timestamptz, NULL, $7::jsonb)`,
+                $6::timestamptz, $8, $7::jsonb)`,
       [
         hash,
         options.requestId ?? uuid(),
@@ -170,6 +174,7 @@ const publish = async (
         options.major ?? true,
         options.validFrom ?? null,
         JSON.stringify(options.bodies ?? BODIES),
+        options.reviewRef ?? null,
       ],
     )
   ).rows[0];
@@ -452,6 +457,25 @@ describe('critère 3 — version majeure publiée : réacceptation avant toute r
 });
 
 describe('revue US-102 : versions affichées obligatoires, portée par pays, idempotence', () => {
+  it('pays inconnu de la configuration : même refus que l’email soit libre ou pris, rien n’est écrit', async () => {
+    await withRole('app_api', async (client) => {
+      await withTestTransaction(client, { virtualNow: T0 }, async (tx) => {
+        const taken = await signup(tx);
+        const free = `libre-${uuid()}@example.test`;
+        // « ZZ » : bien formé, absent de core.config_country (jeton fictif)
+        for (const email of [free, taken.email]) {
+          await expectConstraint(
+            tx,
+            () => signup(tx, { email, country: 'ZZ' }),
+            'ctr_country_unknown',
+          );
+        }
+        const { rows } = await tx.query('SELECT * FROM core.iam_auth_lookup($1)', [free]);
+        expect(rows).toEqual([]);
+      });
+    });
+  });
+
   it('client direct : sans versions affichées (NULL) ou avec une seule, refus avant toute écriture', async () => {
     await withRole('app_api', async (client) => {
       await withTestTransaction(client, { virtualNow: T0 }, async (tx) => {
@@ -537,13 +561,32 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
     });
   });
 
-  it('GL-14 (mise en service) : la requête nommée voit tout document CGU ou confidentialité BROUILLON en vigueur', async () => {
+  it('GL-14 (mise en service) : la requête nommée voit tout document BROUILLON en vigueur, pays et portée commune', async () => {
     await withRole('app_api', async (client) => {
-      const { rows } = await client.query<{ code: string; doc_kind: string }>(GL14_DRAFTS);
+      const { rows } = await client.query<{ code: string | null; doc_kind: string }>(GL14_DRAFTS);
       // graine 0059 : brouillons partout ⇒ la mise en service est bloquée (OQ-BR-24)
-      expect(new Set(rows.map((r) => `${r.code}:${r.doc_kind}`))).toEqual(
-        new Set(ALL.flatMap((c) => [`${c}:PRIVACY`, `${c}:TOS_GUEST`])),
+      const kinds = ['MARKETING', 'PRIVACY', 'TOS_GUEST'];
+      expect(new Set(rows.map((r) => `${r.code ?? 'NULL'}:${r.doc_kind}`))).toEqual(
+        new Set([...ALL, 'NULL'].flatMap((c) => kinds.map((k) => `${c}:${k}`))),
       );
+    });
+  });
+
+  it('GL-14 : documents de chaque pays validés, commun encore BROUILLON ⇒ au moins une ligne (portée NULL)', async () => {
+    await withRole('app_api', async (client) => {
+      const admin = await elevatedStaff(client, 'ADMIN', ALL);
+      await withTestTransaction(client, {}, async (tx) => {
+        for (const country of ALL) {
+          for (const kind of ['TOS_GUEST', 'PRIVACY', 'MARKETING']) {
+            const r = await publish(tx, admin.hash, kind, { country, reviewRef: 'AVIS-TEST-1' });
+            expect(r?.outcome).toBe('PUBLISHED');
+          }
+        }
+        const { rows } = await tx.query<{ code: string | null }>(GL14_DRAFTS);
+        expect(rows.length).toBeGreaterThan(0);
+        // plus aucun brouillon dans un pays : seuls restent les documents communs
+        expect(rows.every((r) => r.code === null)).toBe(true);
+      });
     });
   });
 });

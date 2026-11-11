@@ -434,6 +434,8 @@ export const FR_MESSAGES = {
   'common.legal.versionChanged': 'Les documents ont changé pendant ta lecture. Relis-les.',
   'common.legal.unavailable':
     'Impossible d’afficher les documents pour le moment. Réessaie plus tard.',
+  'common.legal.countryUnknown':
+    'Cette destination n’est pas encore disponible. Choisis-en une autre.',
   'common.legal.notFound': 'Nous ne trouvons pas ce document.',
   'common.legal.consentRecorded': 'C’est fait, ta préférence est enregistrée.',
   'web.s15.legalName': 'Prénom et nom comme sur ton permis',

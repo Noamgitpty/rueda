@@ -183,6 +183,21 @@ describe('inscription avec consentements versionnés (US-102)', () => {
     expect(channel.sent).toEqual([]);
   });
 
+  it('pays inconnu de la configuration : même refus que l’email soit libre ou pris, rien n’est écrit', async () => {
+    const { store, channel, service } = setup();
+    const taken = form();
+    await service.signup(taken, CTX);
+    const accounts = store.accounts.size;
+    const consents = store.consents.length;
+    const sent = channel.sent.length;
+    // « ZZ » : bien formé, absent de la configuration pays (jeton fictif)
+    expect(await codeOf(service.signup(form({ country: 'ZZ' }), CTX))).toBe('COUNTRY_UNKNOWN');
+    expect(await codeOf(service.signup({ ...taken, country: 'ZZ' }, CTX))).toBe('COUNTRY_UNKNOWN');
+    expect(store.accounts.size).toBe(accounts);
+    expect(store.consents).toHaveLength(consents);
+    expect(channel.sent).toHaveLength(sent);
+  });
+
   it('demande mal formée : versions, pays', async () => {
     const { service } = setup();
     for (const over of [
