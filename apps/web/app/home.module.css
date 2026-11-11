@@ -7,6 +7,8 @@
   display: grid;
   gap: var(--space-8);
   padding: var(--space-4) var(--space-4) 0;
+  /* un mot long (titre éditable, adresse collée) se coupe : aucun défilement horizontal (WCAG 1.4.10) */
+  overflow-wrap: anywhere;
 }
 
 /* Bloc « nuit » */

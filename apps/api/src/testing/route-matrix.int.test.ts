@@ -288,11 +288,14 @@ async function requestOf(
         path: '/console/content/drafts',
         body: {
           requestId: id,
-          key: 'home.us043',
+          // clé du registre des blocs éditables (US-121) : une autre clé est refusée avant la base
+          key: 'home.hero.title',
           country,
           bodies: { es: 'Hola', en: 'Hello', fr: 'Bonjour', pt: 'Olá' },
         },
       };
+    case 'GET /console/content/gaps':
+      return { method: 'GET', path: '/console/content/gaps' };
     case 'POST /console/content/publish':
       return {
         method: 'POST',

@@ -23,9 +23,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.auth.actionRefused`, `common.auth.selfApproval`, `backoffice.approvals.*`, nouvelles
  `backoffice.action.*`, et sens élargi de `backoffice.action.heading` et `backoffice.action.subject`
  (le sujet n'est plus seulement un voyage). Version 13 : compte d'hôte d'une personne physique
- (US-107) : `common.host.*` et `backoffice.action.CREATE_HOST_ACCOUNT`.
+ (US-107) : `common.host.*` et `backoffice.action.CREATE_HOST_ACCOUNT`. Version 14 : blocs de contenu éditables (US-121) :
+ `common.brand.contentKeyNotEditable`, `backoffice.content.gaps.*` (langues nommées par
+ `Intl.DisplayNames`).
  */
-export const CATALOG_VERSION = 13;
+export const CATALOG_VERSION = 14;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

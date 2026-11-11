@@ -15,6 +15,8 @@
  * | POST /console/content/drafts             | 201 brouillon es + en + fr ; 422 si une langue manque   |
  * | POST /console/content/publish            | 200 publié                                              |
  * | POST /console/content/rollback           | 201 version précédente rétablie                         |
+ * | GET  /console/content/gaps               | 200 blocs publiés à revoir (langue absente, corps hors  |
+ * |                                          | règles, clé hors registre ; US-121)                     |
  *
  * Refus d'accès : 401 AUTH_REQUIRED, 403 2FA_REQUIRED, 403 FORBIDDEN (journalisés par la base).
  */
@@ -248,6 +250,13 @@ export class BrandConsoleController {
     const no = versionNo(b['versionNo']) as number;
     response.status(200);
     return run(() => this.brand.publishContent(hash, requestId, b['key'], c, no));
+  }
+
+  @Get('content/gaps')
+  @UseGuards(StaffGuard)
+  async contentGaps(@Req() request: object) {
+    const hash = tokenHash(request);
+    return { gaps: await run(() => this.brand.contentGaps(hash)) };
   }
 
   @Post('content/rollback')

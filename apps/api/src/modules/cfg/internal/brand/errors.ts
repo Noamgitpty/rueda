@@ -7,7 +7,8 @@
  * `CONTENT_BLOCK_REQUIRED_MISSING`, `VERSION_CONFLICT`, `FORBIDDEN` (DSN-003 / DSN-004) ; de 19
  * US-034 : `FONT_NOT_APPROVED`. PROPOSÉS (à reporter dans 16 A.8) : `BRAND_TOKENS_INVALID`,
  * `BRAND_VERSION_NOT_FOUND`, `BRAND_ASSET_INVALID`, `BRAND_ASSET_UNAVAILABLE`,
- * `CONTENT_KEY_FORBIDDEN`, `CONTENT_MARKDOWN_FORBIDDEN`, `CONTENT_BLOCK_NOT_FOUND`.
+ * `CONTENT_KEY_FORBIDDEN`, `CONTENT_MARKDOWN_FORBIDDEN`, `CONTENT_BLOCK_NOT_FOUND` ; US-121
+ * (ADR-095) : `CONTENT_KEY_NOT_EDITABLE` (clé hors du registre des blocs éditables).
  */
 import { HttpException } from '@nestjs/common';
 
@@ -23,6 +24,7 @@ export const BRAND_MESSAGES = {
   BRAND_ASSET_UNAVAILABLE: { status: 503, messageKey: 'common.brand.assetUnavailable' },
   CONTENT_BLOCK_REQUIRED_MISSING: { status: 422, messageKey: 'common.brand.contentLocaleMissing' },
   CONTENT_KEY_FORBIDDEN: { status: 422, messageKey: 'common.brand.contentKeyForbidden' },
+  CONTENT_KEY_NOT_EDITABLE: { status: 422, messageKey: 'common.brand.contentKeyNotEditable' },
   CONTENT_MARKDOWN_FORBIDDEN: { status: 422, messageKey: 'common.brand.contentMarkdownForbidden' },
   CONTENT_BLOCK_NOT_FOUND: { status: 404, messageKey: 'common.brand.contentNotFound' },
 } as const;

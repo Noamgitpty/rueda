@@ -143,6 +143,12 @@
       "portee": "pays",
       "idor": "bloc de contenu de l'autre pays : 403"
     },
+    "GET /console/content/gaps": {
+      "acces": "staff",
+      "permission": "brand.edit",
+      "roles": ["ADMIN"],
+      "portee": "tous_les_pays"
+    },
     "POST /console/content/publish": {
       "acces": "staff",
       "permission": "brand.publish",

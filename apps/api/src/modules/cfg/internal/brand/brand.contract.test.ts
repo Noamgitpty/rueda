@@ -54,7 +54,7 @@ class ReadOnlyStore implements BrandStore {
   }
   publishedBlocks(country: string | null): Promise<PublishedBlock[]> {
     const block = (locale: 'es' | 'en', c: string | null, bodyMd: string): PublishedBlock => ({
-      blockKey: 'home.hero',
+      blockKey: 'home.hero.title',
       locale,
       countryCode: c,
       versionNo: 2,
@@ -66,6 +66,12 @@ class ReadOnlyStore implements BrandStore {
       block('en', null, 'Shared text'),
       ...(country === null ? [] : [block('es', country, `Texto de ${country}`)]),
     ]);
+  }
+  allPublishedBlocks(): Promise<PublishedBlock[]> {
+    return this.publishedBlocks(null);
+  }
+  staffReadAccess(): Promise<string> {
+    return Promise.resolve('FORBIDDEN');
   }
 }
 

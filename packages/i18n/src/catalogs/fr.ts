@@ -215,6 +215,18 @@ export const FR_MESSAGES = {
   'backoffice.role.FINANCE': 'Finances',
   'backoffice.role.ADMIN': 'Administrateur',
   'backoffice.role.SUPERADMIN': 'Super-administrateur',
+  'backoffice.content.gaps.title': {
+    one: '{count} texte publié à revoir',
+    other: '{count} textes publiés à revoir',
+  },
+  'backoffice.content.gaps.hint':
+    'En attendant, la page affiche le texte d’origine dans cette langue.',
+  'backoffice.content.gaps.missing': '{key} · {scope} : manque {locales}',
+  'backoffice.content.gaps.invalid': '{key} · {scope} : format non autorisé ({locales})',
+  'backoffice.content.gaps.notEditable':
+    '{key} · {scope} : cette clé n’est pas un texte modifiable ; elle n’est jamais affichée.',
+  'backoffice.content.gaps.common': 'commun',
+  'backoffice.content.gaps.error': 'Impossible de vérifier les textes publiés.',
   'backoffice.journal.caption': 'Journal d’activité',
   'backoffice.journal.when': 'Date et heure',
   'backoffice.journal.who': 'Auteur',
@@ -333,6 +345,7 @@ export const FR_MESSAGES = {
   'common.brand.contentMarkdownForbidden':
     'Le texte contient du HTML ou un lien externe. Seuls les liens internes sont permis.',
   'common.brand.contentNotFound': 'Ce bloc ou cette version n’existe pas.',
+  'common.brand.contentKeyNotEditable': 'Ce texte ne se modifie pas comme un bloc.',
   // Règles photo d'US-031 (ADR-069 point 7), versées depuis
   // `packages/design-tokens/rules/photo.messages.json` sans changer clés ni textes (ADR-071) ;
   // un test de `packages/i18n` vérifie que les deux restent identiques.
