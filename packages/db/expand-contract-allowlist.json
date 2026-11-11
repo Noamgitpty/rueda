@@ -121,7 +121,7 @@
     },
     {
       "path": "packages/db/migrations/0059_support_manual_action_framework.sql",
-      "line": 453,
+      "line": 458,
       "kind": "dynamic-sql",
       "justification": "US-101 (ADR-091) : appel, dans la commande de console, de la commande de domaine LIÉE à l'action (table support_manual_action_handler, écrite par migration seulement, signature et droits vérifiés à la liaison par déclencheur) ; nom de schéma et de fonction lus dans pg_proc par l'OID lié et cités par format(%I.%I), toutes les valeurs passées par USING (aucun texte du client) ; extension seulement, aucune contraction"
     }

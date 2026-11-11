@@ -155,31 +155,36 @@ CREATE FUNCTION core.support_manual_action_handler_guard()
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 DECLARE
-  v_ok boolean;
+  v_why text;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM core.support_manual_action_catalog AS c
                   WHERE c.action_code = NEW.action_code AND c.mode = 'DOMAIN_COMMAND') THEN
     RAISE EXCEPTION 'manual_action_handler : action % sans commande de domaine', NEW.action_code
       USING ERRCODE = 'check_violation', CONSTRAINT = 'manual_action_handler_domain_only';
   END IF;
-  SELECT p.proretset
-     AND p.prorettype = 'record'::regtype
-     AND p.proargtypes::oid[] = ARRAY['bytea', 'uuid', 'text', 'uuid', 'jsonb', 'text', 'uuid',
-                                      'text']::regtype[]::oid[]
-     AND p.proallargtypes = ARRAY['bytea', 'uuid', 'text', 'uuid', 'jsonb', 'text', 'uuid', 'text',
-                                  'text', 'uuid', 'uuid[]']::regtype[]::oid[]
-     AND p.proargmodes = ARRAY['i', 'i', 'i', 'i', 'i', 'i', 'i', 'i', 't', 't', 't']::"char"[]
-     AND p.proargnames[9:11] = ARRAY['outcome', 'ref_id', 'emitted_event_ids']
-     AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
-     AND pg_catalog.has_function_privilege('iam_staff_owner', p.oid, 'EXECUTE')
-     AND NOT pg_catalog.has_function_privilege('app_api', p.oid, 'EXECUTE')
-     AND NOT pg_catalog.has_function_privilege('app_worker', p.oid, 'EXECUTE')
-     AND NOT pg_catalog.has_function_privilege('app_anon', p.oid, 'EXECUTE')
-    INTO v_ok
+  -- comparaisons sur le texte (un oidvector est indexé à partir de 0 : jamais égal à un ARRAY[])
+  SELECT CASE
+           WHEN NOT (p.proretset AND p.prorettype = 'record'::regtype) THEN 'retour'
+           WHEN pg_catalog.array_to_string(p.proallargtypes::regtype[]::text[], ',')
+                <> 'bytea,uuid,text,uuid,jsonb,text,uuid,text,text,uuid,uuid[]' THEN 'types'
+           WHEN pg_catalog.array_to_string(p.proargmodes::text[], '') <> 'iiiiiiiittt' THEN 'modes'
+           WHEN pg_catalog.array_to_string(p.proargnames[9:11], ',')
+                <> 'outcome,ref_id,emitted_event_ids' THEN 'colonnes'
+           WHEN pg_catalog.array_to_string(p.proconfig, ';') IS DISTINCT FROM
+                'search_path=pg_catalog, pg_temp' THEN 'search_path'
+           WHEN NOT pg_catalog.has_function_privilege('iam_staff_owner', p.oid, 'EXECUTE')
+             THEN 'EXECUTE iam_staff_owner'
+           WHEN pg_catalog.has_function_privilege('app_api', p.oid, 'EXECUTE')
+             OR pg_catalog.has_function_privilege('app_worker', p.oid, 'EXECUTE')
+             OR pg_catalog.has_function_privilege('app_anon', p.oid, 'EXECUTE')
+             THEN 'EXECUTE rôle applicatif'
+         END
+    INTO v_why
     FROM pg_catalog.pg_proc AS p
    WHERE p.oid = NEW.handler;
-  IF v_ok IS NOT TRUE THEN
-    RAISE EXCEPTION 'manual_action_handler : signature ou droits du gestionnaire % non conformes', NEW.handler
+  IF NOT FOUND OR v_why IS NOT NULL THEN
+    RAISE EXCEPTION 'manual_action_handler : gestionnaire % non conforme (%)', NEW.handler,
+                    COALESCE(v_why, 'introuvable')
       USING ERRCODE = 'check_violation', CONSTRAINT = 'manual_action_handler_signature';
   END IF;
   RETURN NEW;
