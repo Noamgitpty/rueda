@@ -62,7 +62,8 @@ export interface Provenance {
 
 export interface CatalogVariant {
   readonly id: string;
-  readonly key: string;
+  /** Code de la variante, unique dans son modèle (slug). */
+  readonly variantCode: string;
   readonly yearFrom: number;
   readonly yearTo: number | null;
   readonly trimName: string | null;
@@ -338,13 +339,13 @@ export function parseVehicleCatalog(raw: unknown): VehicleCatalogSeed {
         p.add('CATALOG_DATA_INVALID', `${owhere} : au moins une variante (OQ-CAT-01 g)`);
       for (const [vi, variantRaw] of rawVariants.entries()) {
         const v = isObject(variantRaw) ? variantRaw : {};
-        const key = v['key'];
+        const key = v['variantCode'];
         const vwhere = `${owhere}.variants[${vi}] (${String(key)})`;
         if (typeof key !== 'string' || !SLUG.test(key)) {
-          p.add('CATALOG_DATA_INVALID', `${vwhere} : key invalide`);
+          p.add('CATALOG_DATA_INVALID', `${vwhere} : variantCode invalide`);
           continue;
         }
-        if (keys.has(key)) p.add('CATALOG_DATA_INVALID', `${vwhere} : key en double`);
+        if (keys.has(key)) p.add('CATALOG_DATA_INVALID', `${vwhere} : variantCode en double`);
         keys.add(key);
         const yearFrom = v['yearFrom'];
         const yearTo = v['yearTo'] ?? null;
@@ -407,7 +408,7 @@ export function parseVehicleCatalog(raw: unknown): VehicleCatalogSeed {
         if (provenance === null) continue;
         variants.push({
           id: catalogId(`variant/${slug}/${oslug}/${key}`),
-          key,
+          variantCode: key,
           yearFrom: yearFrom as number,
           yearTo: yearTo as number | null,
           trimName: trimName as string | null,

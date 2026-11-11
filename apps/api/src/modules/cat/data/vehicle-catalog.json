@@ -37,7 +37,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2016-cd-2-4-diesel-mt-4x4",
+              "variantCode": "2016-cd-2-4-diesel-mt-4x4",
               "yearFrom": 2016,
               "trimName": "2.4",
               "transmission": "MT",
@@ -50,7 +50,7 @@
               "provenance": "ops-us113-v1"
             },
             {
-              "key": "2016-cd-2-8-diesel-at-4x4",
+              "variantCode": "2016-cd-2-8-diesel-at-4x4",
               "yearFrom": 2016,
               "trimName": "2.8",
               "transmission": "AT",
@@ -73,7 +73,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2020-1-8-cvt",
+              "variantCode": "2020-1-8-cvt",
               "yearFrom": 2020,
               "trimName": "1.8",
               "transmission": "CVT",
@@ -85,7 +85,7 @@
               "provenance": "ops-us113-v1"
             },
             {
-              "key": "2020-1-8-hybrid",
+              "variantCode": "2020-1-8-hybrid",
               "yearFrom": 2020,
               "trimName": "1.8",
               "transmission": "CVT",
@@ -107,7 +107,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2018-1-5-cvt",
+              "variantCode": "2018-1-5-cvt",
               "yearFrom": 2018,
               "trimName": "1.5",
               "transmission": "CVT",
@@ -128,7 +128,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2019-2-0-cvt",
+              "variantCode": "2019-2-0-cvt",
               "yearFrom": 2019,
               "trimName": "2.0",
               "transmission": "CVT",
@@ -149,7 +149,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2016-2-8-diesel-at-4x4",
+              "variantCode": "2016-2-8-diesel-at-4x4",
               "yearFrom": 2016,
               "trimName": "2.8",
               "transmission": "AT",
@@ -172,7 +172,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2010-2023-diesel-at-4x4",
+              "variantCode": "2010-2023-diesel-at-4x4",
               "yearFrom": 2010,
               "yearTo": 2023,
               "transmission": "AT",
@@ -193,7 +193,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2018-1-5-at",
+              "variantCode": "2018-1-5-at",
               "yearFrom": 2018,
               "trimName": "1.5",
               "transmission": "AT",
@@ -214,7 +214,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2007-2021-cvt",
+              "variantCode": "2007-2021-cvt",
               "yearFrom": 2007,
               "yearTo": 2021,
               "transmission": "CVT",
@@ -235,7 +235,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2010-2019-cvt",
+              "variantCode": "2010-2019-cvt",
               "yearFrom": 2010,
               "yearTo": 2019,
               "transmission": "CVT",
@@ -265,7 +265,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2015-diesel-mt-4x4",
+              "variantCode": "2015-diesel-mt-4x4",
               "yearFrom": 2015,
               "transmission": "MT",
               "fuelType": "DIESEL",
@@ -285,7 +285,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2020-1-6-cvt",
+              "variantCode": "2020-1-6-cvt",
               "yearFrom": 2020,
               "trimName": "1.6",
               "transmission": "CVT",
@@ -306,7 +306,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2017-1-6-cvt",
+              "variantCode": "2017-1-6-cvt",
               "yearFrom": 2017,
               "trimName": "1.6",
               "transmission": "CVT",
@@ -327,7 +327,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2014-2021-cvt",
+              "variantCode": "2014-2021-cvt",
               "yearFrom": 2014,
               "yearTo": 2021,
               "transmission": "CVT",
@@ -357,7 +357,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2015-diesel-mt-4x4",
+              "variantCode": "2015-diesel-mt-4x4",
               "yearFrom": 2015,
               "transmission": "MT",
               "fuelType": "DIESEL",
@@ -377,7 +377,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2016-diesel-at-4x4",
+              "variantCode": "2016-diesel-at-4x4",
               "yearFrom": 2016,
               "transmission": "AT",
               "fuelType": "DIESEL",
@@ -397,7 +397,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2013-2021-cvt",
+              "variantCode": "2013-2021-cvt",
               "yearFrom": 2013,
               "yearTo": 2021,
               "transmission": "CVT",
@@ -426,7 +426,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2016-2021-cvt",
+              "variantCode": "2016-2021-cvt",
               "yearFrom": 2016,
               "yearTo": 2021,
               "transmission": "CVT",
@@ -447,7 +447,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2017-2022-cvt",
+              "variantCode": "2017-2022-cvt",
               "yearFrom": 2017,
               "yearTo": 2022,
               "transmission": "CVT",
@@ -469,7 +469,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2014-2020-cvt",
+              "variantCode": "2014-2020-cvt",
               "yearFrom": 2014,
               "yearTo": 2020,
               "transmission": "CVT",
@@ -498,7 +498,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2017-mt",
+              "variantCode": "2017-mt",
               "yearFrom": 2017,
               "transmission": "MT",
               "fuelType": "GASOLINE",
@@ -518,7 +518,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2015-at",
+              "variantCode": "2015-at",
               "yearFrom": 2015,
               "transmission": "AT",
               "fuelType": "GASOLINE",
@@ -538,7 +538,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2018-mt-4x4",
+              "variantCode": "2018-mt-4x4",
               "yearFrom": 2018,
               "transmission": "MT",
               "fuelType": "GASOLINE",
@@ -558,7 +558,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2018-mt",
+              "variantCode": "2018-mt",
               "yearFrom": 2018,
               "transmission": "MT",
               "fuelType": "GASOLINE",
@@ -586,7 +586,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2019-at",
+              "variantCode": "2019-at",
               "yearFrom": 2019,
               "transmission": "AT",
               "fuelType": "GASOLINE",
@@ -606,7 +606,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2017-at",
+              "variantCode": "2017-at",
               "yearFrom": 2017,
               "transmission": "AT",
               "fuelType": "GASOLINE",
@@ -634,7 +634,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2020-diesel-mt-4x4",
+              "variantCode": "2020-diesel-mt-4x4",
               "yearFrom": 2020,
               "transmission": "MT",
               "fuelType": "DIESEL",
@@ -662,7 +662,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2018-at",
+              "variantCode": "2018-at",
               "yearFrom": 2018,
               "transmission": "AT",
               "fuelType": "GASOLINE",
@@ -682,7 +682,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2016-2021-at",
+              "variantCode": "2016-2021-at",
               "yearFrom": 2016,
               "yearTo": 2021,
               "transmission": "AT",
@@ -703,7 +703,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2016-at",
+              "variantCode": "2016-at",
               "yearFrom": 2016,
               "transmission": "AT",
               "fuelType": "GASOLINE",
@@ -724,7 +724,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2008-2021-diesel-mt",
+              "variantCode": "2008-2021-diesel-mt",
               "yearFrom": 2008,
               "yearTo": 2021,
               "transmission": "MT",
@@ -753,7 +753,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2017-mt",
+              "variantCode": "2017-mt",
               "yearFrom": 2017,
               "transmission": "MT",
               "fuelType": "GASOLINE",
@@ -773,7 +773,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2017-at",
+              "variantCode": "2017-at",
               "yearFrom": 2017,
               "transmission": "AT",
               "fuelType": "GASOLINE",
@@ -793,7 +793,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2016-2021-at",
+              "variantCode": "2016-2021-at",
               "yearFrom": 2016,
               "yearTo": 2021,
               "transmission": "AT",
@@ -814,7 +814,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2015-2020-diesel-at-awd",
+              "variantCode": "2015-2020-diesel-at-awd",
               "yearFrom": 2015,
               "yearTo": 2020,
               "transmission": "AT",
@@ -843,7 +843,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2012-diesel-mt-4x4",
+              "variantCode": "2012-diesel-mt-4x4",
               "yearFrom": 2012,
               "transmission": "MT",
               "fuelType": "DIESEL",
@@ -863,7 +863,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2020-at",
+              "variantCode": "2020-at",
               "yearFrom": 2020,
               "transmission": "AT",
               "fuelType": "GASOLINE",
@@ -891,7 +891,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2012-2022-diesel-mt-4x4",
+              "variantCode": "2012-2022-diesel-mt-4x4",
               "yearFrom": 2012,
               "yearTo": 2022,
               "transmission": "MT",
@@ -912,7 +912,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2013-2022-mt",
+              "variantCode": "2013-2022-mt",
               "yearFrom": 2013,
               "yearTo": 2022,
               "transmission": "MT",
@@ -942,7 +942,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2008-2023-mt",
+              "variantCode": "2008-2023-mt",
               "yearFrom": 2008,
               "yearTo": 2023,
               "transmission": "MT",
@@ -963,7 +963,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2010-2022-diesel-at-4x4",
+              "variantCode": "2010-2022-diesel-at-4x4",
               "yearFrom": 2010,
               "yearTo": 2022,
               "transmission": "AT",
@@ -992,7 +992,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2010-mt",
+              "variantCode": "2010-mt",
               "yearFrom": 2010,
               "transmission": "MT",
               "fuelType": "GASOLINE",
@@ -1012,7 +1012,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2014-mt",
+              "variantCode": "2014-mt",
               "yearFrom": 2014,
               "transmission": "MT",
               "fuelType": "GASOLINE",
@@ -1040,7 +1040,7 @@
           "provenance": "ops-us113-v1",
           "variants": [
             {
-              "key": "2020-at",
+              "variantCode": "2020-at",
               "yearFrom": 2020,
               "transmission": "AT",
               "fuelType": "GASOLINE",

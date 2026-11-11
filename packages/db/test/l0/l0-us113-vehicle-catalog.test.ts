@@ -71,7 +71,7 @@ interface SeedDoc {
     models: Array<{
       slug: string;
       variants: Array<{
-        key: string;
+        variantCode: string;
         transmission: string;
         fuelType: string;
         drive: string;
