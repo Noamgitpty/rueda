@@ -2207,9 +2207,6 @@ Contraintes :
 - `notification_dispatch_not_own_fallback` : `CHECK (fallback_of IS NULL OR fallback_of <> id)`
 - `notification_dispatch_provider_ref` : `CHECK (provider_message_id IS NULL OR length(provider_message_id) >= 1 AND length(provider_message_id) <= 200)`
 - `notification_dispatch_role_format` : `CHECK (recipient_role ~ '^[A-Z][A-Z0-9_]{0,31}$'::text)`
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - `notification_dispatch_sent_has_ref` : `CHECK ((status <> ALL (ARRAY['SENT'::text, 'DELIVERED'::text])) OR provider_message_id IS NOT NULL AND rendered_hash IS NOT NULL)`
 - `notification_dispatch_status_valid` : `CHECK (status = ANY (ARRAY['QUEUED'::text, 'SENT'::text, 'DELIVERED'::text, 'FAILED'::text, 'FALLBACK_TRIGGERED'::text, 'SUPPRESSED'::text]))`
 - `notification_dispatch_template_format` : `CHECK (template_key ~ '^EVT_[A-Z0-9_]{1,60}$'::text)`
