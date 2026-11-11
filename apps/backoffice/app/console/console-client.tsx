@@ -7,11 +7,38 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
+import type { MessageKey } from '@rueda/i18n';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
 import { intentFor, messageKeyOf, readsApprovals, request, screenFor } from './api.ts';
 import type { ActionIntent, ApiResult, ApprovalsBody, AuditBody, MeBody } from './api.ts';
 import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
+import type {
+  KycDossierView,
+  ManualRestriction,
+  OpsHandlers,
+  OpsState,
+  ProfileView,
+  Queue,
+  QueueItemView,
+  QueueSummaryView,
+} from './ops-view.tsx';
+
+/** Rôles qui travaillent les files de revue (permissions des files : kyc.decide, ops.review_listing_host). */
+const QUEUE_ROLES = new Set(['OPS_AGENT', 'ADMIN']);
+
+interface QueuesBody {
+  readonly queues: readonly QueueSummaryView[];
+  readonly items: readonly QueueItemView[];
+}
+
+/** Octets d'un fichier en base64 (pièce du staff, US-109). */
+async function base64Of(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
 
 export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   const i18n = useMemo(() => createTranslator(getProfile(LOCALE_CONFIG, localeTag)), [localeTag]);
@@ -20,6 +47,9 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
   const [busy, setBusy] = useState(false);
   // un requestId par intention d'action (double clic, reprise réseau : même identifiant)
   const intent = useRef<ActionIntent | null>(null);
+  // files de revue et fiche 360° (US-109) ; le motif de la dernière fiche ouverte sert aux relectures
+  const [ops, setOps] = useState<OpsState>({});
+  const purposeRef = useRef<string>('');
   // échec réseau (API injoignable, hors ligne) : rendu comme une erreur lisible, jamais muet
   const call = useCallback(
     <T,>(method: 'GET' | 'POST', path: string, body?: unknown) =>
@@ -43,6 +73,15 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       }
       const screen = screenFor(me.body.state);
       if (screen === 'console') {
+        if (me.body.roles.some((r) => QUEUE_ROLES.has(r.role))) {
+          const q = await call<QueuesBody>('GET', '/console/queues');
+          setOps((prev) => ({
+            ...prev,
+            queues: q.ok
+              ? { summary: q.body.queues, selected: null, items: [], error: false }
+              : { summary: [], selected: null, items: [], error: true },
+          }));
+        }
         const audit = await call<AuditBody>('GET', '/staff/audit?limit=50');
         // demandes FINANCE à approuver (US-101) : FINANCE et ADMIN seulement
         const approvals = readsApprovals(me.body.roles)
@@ -160,5 +199,161 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
     },
   };
 
-  return <ConsoleView i18n={i18n} state={state} handlers={handlers} busy={busy} />;
+  const notice = (r: { readonly status: number; readonly messageKey?: MessageKey }) =>
+    setOps((prev) => ({
+      ...prev,
+      notice: {
+        tone: r.status === 409 || r.status === 503 ? 'warning' : 'danger',
+        key: r.messageKey ?? 'common.auth.requestInvalid',
+      },
+    }));
+
+  const showQueue = async (queue: Queue) => {
+    const r = await call<QueuesBody>('GET', `/console/queues?queue=${queue}&limit=100`);
+    if (r.ok) {
+      setOps((prev) => ({
+        ...prev,
+        queues: { summary: r.body.queues, selected: queue, items: r.body.items, error: false },
+      }));
+    } else notice(r);
+  };
+
+  const openProfile = async (userId: string, purpose: string) => {
+    purposeRef.current = purpose;
+    const r = await call<ProfileView>('POST', `/console/users/${userId}/profile`, {
+      requestId: crypto.randomUUID(),
+      purpose,
+    });
+    if (r.ok) setOps((prev) => ({ ...prev, profile: r.body }));
+    else {
+      setOps((prev) => ({ ...prev, profile: undefined }));
+      notice(r);
+    }
+  };
+
+  /** Après un geste sur la fiche : relecture (journalisée) de la fiche, puis bandeau. */
+  const after = async (
+    userId: string,
+    r: ApiResult<unknown>,
+    success: MessageKey,
+    values?: Readonly<Record<string, string>>,
+  ) => {
+    if (r.ok) {
+      await openProfile(userId, purposeRef.current);
+      setOps((prev) => ({ ...prev, notice: { tone: 'success', key: success, values } }));
+    } else notice(r);
+  };
+
+  const opsHandlers: OpsHandlers = {
+    onShowQueue: (queue) => once(() => showQueue(queue)),
+    onClaim: (itemId) =>
+      once(async () => {
+        const r = await call('POST', `/console/queues/items/${itemId}/claim`, {
+          requestId: crypto.randomUUID(),
+        });
+        if (!r.ok) notice(r);
+        const selected = ops.queues?.selected;
+        if (selected !== undefined && selected !== null) await showQueue(selected);
+      }),
+    onOpenKyc: (itemId, purpose) =>
+      once(async () => {
+        const r = await call<KycDossierView>('POST', `/console/queues/items/${itemId}/kyc`, {
+          requestId: crypto.randomUUID(),
+          purpose,
+        });
+        if (r.ok) setOps((prev) => ({ ...prev, kyc: r.body, notice: undefined }));
+        else {
+          setOps((prev) => ({ ...prev, kyc: undefined }));
+          notice(r);
+        }
+      }),
+    onSearch: (email, purpose) =>
+      once(async () => {
+        const r = await call<{ userId: string }>('POST', '/console/users/search', {
+          requestId: crypto.randomUUID(),
+          email,
+          purpose,
+        });
+        if (r.ok) await openProfile(r.body.userId, purpose);
+        else notice(r);
+      }),
+    onOpenProfile: (userId, purpose) => once(() => openProfile(userId, purpose)),
+    onAddNote: (userId, body) =>
+      once(async () => {
+        const r = await call('POST', `/console/users/${userId}/notes`, {
+          requestId: crypto.randomUUID(),
+          body,
+        });
+        await after(userId, r, 'backoffice.profile.noteAdded');
+      }),
+    onRestriction: (action, userId, kind: ManualRestriction, reason) => {
+      intent.current = intentFor(intent.current, [action, userId, kind, reason.trim()], () =>
+        crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action,
+          subjectId: userId,
+          reason,
+          input: { kind },
+        });
+        await after(userId, r, r.ok ? messageKeyOf(r.body.messageKey) : 'common.auth.actionDone');
+      });
+    },
+    onOpenCase: (userId, category, channel) =>
+      once(async () => {
+        const r = await call('POST', '/console/cases', {
+          requestId: crypto.randomUUID(),
+          requesterUserId: userId,
+          category,
+          channel,
+        });
+        await after(userId, r, 'backoffice.case.opened');
+      }),
+    onResolveCase: (caseId) =>
+      once(async () => {
+        const r = await call('POST', `/console/cases/${caseId}/status`, {
+          requestId: crypto.randomUUID(),
+          status: 'RESOLVED',
+        });
+        const userId = ops.profile?.profile.id;
+        if (userId !== undefined) await after(userId, r, 'common.auth.actionDone');
+        else if (!r.ok) notice(r);
+      }),
+    onUpload: (userId, file) =>
+      once(async () => {
+        if (file === null) {
+          notice({ status: 400, messageKey: 'common.evidence.rejected' });
+          return;
+        }
+        const r = await call<{ fileId: string }>('POST', '/console/evidence', {
+          requestId: crypto.randomUUID(),
+          subjectUserId: userId,
+          mime: file.type,
+          contentBase64: await base64Of(file),
+        });
+        if (r.ok) {
+          setOps((prev) => ({
+            ...prev,
+            notice: {
+              tone: 'success',
+              key: 'backoffice.evidence.received',
+              values: { id: r.body.fileId },
+            },
+          }));
+        } else notice(r);
+      }),
+  };
+
+  return (
+    <ConsoleView
+      i18n={i18n}
+      state={state}
+      handlers={handlers}
+      busy={busy}
+      ops={{ state: ops, handlers: opsHandlers }}
+    />
+  );
 }
