@@ -318,7 +318,7 @@ export const EN_MESSAGES = {
   'backoffice.profile.restricted':
     'Restricted account: cannot book, and their cars are closed to bookings.',
   'backoffice.profile.restrictions': 'Restrictions',
-  'backoffice.profile.kind': 'Type',
+  'backoffice.profile.kind': 'Restriction type',
   'backoffice.profile.reason': 'Reason',
   'backoffice.profile.since': 'Since',
   'backoffice.profile.active': 'Active',

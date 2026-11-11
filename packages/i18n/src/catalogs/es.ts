@@ -331,7 +331,7 @@ export const ES_MESSAGES = {
   'backoffice.profile.restricted':
     'Cuenta restringida: no puede reservar y sus autos están cerrados a reservas.',
   'backoffice.profile.restrictions': 'Restricciones',
-  'backoffice.profile.kind': 'Tipo',
+  'backoffice.profile.kind': 'Tipo de restricción',
   'backoffice.profile.reason': 'Motivo',
   'backoffice.profile.since': 'Desde',
   'backoffice.profile.active': 'Activa',
