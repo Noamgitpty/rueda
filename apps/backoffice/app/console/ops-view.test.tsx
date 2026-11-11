@@ -11,7 +11,7 @@ import { findForeignStrings } from '@rueda/i18n/testing';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { OpsPanels } from './ops-view.tsx';
+import { evidenceReasonKey, evidenceRefusal, OpsPanels } from './ops-view.tsx';
 import type { OpsHandlers, OpsState } from './ops-view.tsx';
 import { ConsoleView } from './view.tsx';
 import type { ConsoleHandlers } from './view.tsx';
@@ -146,6 +146,40 @@ describe('O01 : ce que chaque état montre', () => {
     expect(out).not.toContain(`value="kyc:${B}"`);
     // le motif de consultation est exigé et borné
     expect(out).toMatch(/name="purpose"[^>]*minLength="10"|minLength="10"[^>]*name="purpose"/i);
+  });
+
+  it.each(LOCALE_CONFIG.locales.map((p) => [p.tag] as const))(
+    '%s : la file affichée est annoncée (aria-current) et signalée par un texte, pas seulement une couleur',
+    (locale) => {
+      const out = html(FULL, locale);
+      const t = translatorOf(locale);
+      expect(out).toMatch(
+        /aria-current="true"[^>]*value="show:KYC"|value="show:KYC"[^>]*aria-current="true"/,
+      );
+      expect(out).not.toMatch(
+        /value="show:LISTING"[^>]*aria-current|aria-current[^>]*value="show:LISTING"/,
+      );
+      expect(out).toContain(t.t('backoffice.queues.current'));
+    },
+  );
+
+  it('pièce : refus avant l’envoi au-delà de 64 Kio ou hors des types admis ; cause du refus de l’API traduite', () => {
+    expect(evidenceRefusal({ size: 64 * 1024, type: 'application/pdf' })).toBeNull();
+    expect(evidenceRefusal({ size: 64 * 1024 + 1, type: 'application/pdf' })).toBe(
+      'common.evidence.tooLarge',
+    );
+    expect(evidenceRefusal({ size: 0, type: 'image/png' })).toBe('common.evidence.tooLarge');
+    expect(evidenceRefusal({ size: 10, type: 'image/svg+xml' })).toBe('common.evidence.badType');
+    // HEIC sans type donné par le navigateur : l'API lit le type réel
+    expect(evidenceRefusal({ size: 10, type: '' })).toBeNull();
+    expect(evidenceReasonKey('SIZE')).toBe('common.evidence.tooLarge');
+    expect(evidenceReasonKey('TYPE')).toBe('common.evidence.badType');
+    expect(evidenceReasonKey('SCAN')).toBe('common.evidence.scanRefused');
+    expect(evidenceReasonKey(undefined)).toBe('common.evidence.rejected');
+    for (const p of LOCALE_CONFIG.locales) {
+      const t = translatorOf(p.tag);
+      expect(t.t('common.evidence.tooLarge', { max: '64' })).toContain('64');
+    }
   });
 
   it('dossier KYC : consultation annoncée comme journalisée, aucune image', () => {

@@ -132,6 +132,33 @@ export interface OpsState {
     | undefined;
 }
 
+/** Taille maximale d'une pièce (octets) : celle de l'API en Bêta (64 Kio, ADR-097). */
+export const EVIDENCE_MAX_BYTES = 64 * 1024;
+export const EVIDENCE_TYPES = ['image/jpeg', 'image/png', 'image/heic', 'application/pdf'] as const;
+
+/**
+ * Contrôle avant l'envoi (la base et l'API restent juges) : clé du message de refus, ou `null`.
+ * Un HEIC dont le navigateur ne donne pas le type est accepté ici : l'API lit le type réel.
+ */
+export function evidenceRefusal(file: {
+  readonly size: number;
+  readonly type: string;
+}): 'common.evidence.tooLarge' | 'common.evidence.badType' | null {
+  if (file.size === 0 || file.size > EVIDENCE_MAX_BYTES) return 'common.evidence.tooLarge';
+  if (file.type !== '' && !(EVIDENCE_TYPES as readonly string[]).includes(file.type)) {
+    return 'common.evidence.badType';
+  }
+  return null;
+}
+
+/** Message d'un refus de l'API selon sa cause (`values.reason`) : taille, type, analyse. */
+export function evidenceReasonKey(reason: unknown): MessageKey {
+  if (reason === 'SIZE') return 'common.evidence.tooLarge';
+  if (reason === 'TYPE') return 'common.evidence.badType';
+  if (reason === 'SCAN') return 'common.evidence.scanRefused';
+  return 'common.evidence.rejected';
+}
+
 export interface OpsHandlers {
   readonly onShowQueue: (queue: Queue) => void;
   readonly onClaim: (itemId: string) => void;
@@ -251,7 +278,10 @@ export function OpsPanels({
   return (
     <>
       {state.notice && (
-        <Banner tone={state.notice.tone} live="polite">
+        <Banner
+          tone={state.notice.tone}
+          live={state.notice.tone === 'success' ? 'polite' : 'assertive'}
+        >
           {i18n.t(state.notice.key, state.notice.values)}
         </Banner>
       )}
@@ -290,10 +320,14 @@ export function OpsPanels({
                       name="op"
                       value={`show:${s.queue}`}
                       variant={q.selected === s.queue ? 'primary' : 'secondary'}
+                      aria-current={q.selected === s.queue ? 'true' : undefined}
                       loading={busy}
                     >
                       {i18n.t(QUEUE_KEYS[s.queue])}
                     </Button>
+                    {q.selected === s.queue && (
+                      <Badge tone="neutral">{i18n.t('backoffice.queues.current')}</Badge>
+                    )}
                     <span className={styles['muted']}>
                       {i18n.t('backoffice.queues.summary', {
                         total: String(s.open),

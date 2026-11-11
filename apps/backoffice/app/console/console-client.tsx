@@ -20,6 +20,7 @@ import type {
 } from './api.ts';
 import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
+import { EVIDENCE_MAX_BYTES, evidenceReasonKey, evidenceRefusal } from './ops-view.tsx';
 import type {
   KycDossierView,
   ManualRestriction,
@@ -209,14 +210,20 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
     },
   };
 
-  const notice = (r: { readonly status: number; readonly messageKey?: MessageKey }) =>
+  const notice = (
+    r: { readonly status: number; readonly messageKey?: MessageKey },
+    values?: Readonly<Record<string, string>>,
+  ) =>
     setOps((prev) => ({
       ...prev,
       notice: {
         tone: r.status === 409 || r.status === 503 ? 'warning' : 'danger',
         key: r.messageKey ?? 'common.auth.requestInvalid',
+        values,
       },
     }));
+  /** Limite des pièces, en Kio, pour les messages de refus. */
+  const maxKib = { max: String(EVIDENCE_MAX_BYTES / 1024) };
 
   const showQueue = async (queue: Queue) => {
     const r = await call<QueuesBody>('GET', `/console/queues?queue=${queue}&limit=100`);
@@ -335,7 +342,13 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
     onUpload: (userId, file) =>
       once(async () => {
         if (file === null) {
-          notice({ status: 400, messageKey: 'common.evidence.rejected' });
+          notice({ status: 400, messageKey: 'common.evidence.badType' });
+          return;
+        }
+        // contrôle avant l'envoi : rien n'est lu ni envoyé au-delà de la limite (revue UX US-109)
+        const refusal = evidenceRefusal(file);
+        if (refusal !== null) {
+          notice({ status: 422, messageKey: refusal }, maxKib);
           return;
         }
         const r = await call<{ fileId: string }>('POST', '/console/evidence', {
@@ -353,6 +366,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
               values: { id: r.body.fileId },
             },
           }));
+        } else if (r.code === 'EVIDENCE_REJECTED') {
+          notice({ status: 422, messageKey: evidenceReasonKey(r.values?.['reason']) }, maxKib);
         } else notice(r);
       }),
   };

@@ -106,14 +106,22 @@ function actorOf(request: object): StaffActor {
   return staffActorOf(principal);
 }
 
-/** Horodatages de la base convertis en ISO 8601 UTC, récursivement (le reste est inchangé). */
-export function isoDates(value: unknown): unknown {
+/** Champs d'horodatage rendus par la base (noms de 0064) ; aucun texte libre n'en fait partie. */
+const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd)$/;
+
+/**
+ * Horodatages de la base convertis en ISO 8601 UTC, récursivement, dans les SEULS champs de date :
+ * le texte d'une note, d'un motif ou d'un nom n'est jamais réécrit (revue de code US-109).
+ */
+export function isoDates(value: unknown, key: string | null = null): unknown {
   if (typeof value === 'string') {
-    return DB_TIMESTAMP.test(value) ? new Date(value).toISOString() : value;
+    return key !== null && DATE_FIELD.test(key) && DB_TIMESTAMP.test(value)
+      ? new Date(value).toISOString()
+      : value;
   }
-  if (Array.isArray(value)) return value.map(isoDates);
+  if (Array.isArray(value)) return value.map((v) => isoDates(v, key));
   if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, isoDates(v)]));
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, isoDates(v, k)]));
   }
   return value;
 }
