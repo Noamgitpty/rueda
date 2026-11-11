@@ -46,11 +46,14 @@ const CONFIG_TABLES = [
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
 // Actions de console (US-012, 0034) : catalogue et manual_action, écrits par iam_staff_owner seulement
-// (preuves : test/l0/l0-staff-console.test.ts).
+// (preuves : test/l0/l0-staff-console.test.ts) ; liaison des commandes de domaine (US-101, 0060 ;
+// preuves : test/l0/l0-us101-console-actions.test.ts).
 const SUPPORT_TABLES = [
   'support_support_case',
   'support_manual_action_catalog',
   'support_manual_action',
+  'support_manual_action_handler',
+  'support_manual_action_subject',
 ] as const;
 
 // Tables PAY du port PaymentProvider (US-019, 0027) : même socle RLS ; leurs politiques, droits et

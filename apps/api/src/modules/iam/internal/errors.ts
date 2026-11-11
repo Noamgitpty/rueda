@@ -8,7 +8,8 @@
  * AUTH_REQUIRED, AUTH_INVALID_CREDENTIALS, REQUEST_INVALID, SIGNUP_ACCEPTED, EMAIL_VERIFIED.
  * Console interne (US-012) : FORBIDDEN, 2FA_REQUIRED (16 ADM-001) ; PROPOSÉS : AUTH_TOTP_INVALID,
  * AUTH_TOTP_LOCKED, STAFF_MFA_UNAVAILABLE, STAFF_ACTION_UNAVAILABLE, STAFF_ACTION_RECORDED,
- * STAFF_ACTION_DONE.
+ * STAFF_ACTION_DONE ; cadre des actions (US-101) : STAFF_ACTION_REQUESTED, STAFF_ACTION_REFUSED,
+ * STAFF_SELF_APPROVAL.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -37,6 +38,11 @@ export const AUTH_MESSAGES = {
   STAFF_ACTION_UNAVAILABLE: { status: 409, messageKey: 'common.auth.actionUnavailable' },
   STAFF_ACTION_RECORDED: { status: 201, messageKey: 'common.auth.actionRecorded' },
   STAFF_ACTION_DONE: { status: 200, messageKey: 'common.auth.actionDone' },
+  // Cadre des actions de console (US-101, PROPOSÉS) : demande FINANCE en attente d'une seconde
+  // personne, refus de la commande de domaine, auto-approbation refusée (RLS-24).
+  STAFF_ACTION_REQUESTED: { status: 201, messageKey: 'common.auth.actionRequested' },
+  STAFF_ACTION_REFUSED: { status: 409, messageKey: 'common.auth.actionRefused' },
+  STAFF_SELF_APPROVAL: { status: 409, messageKey: 'common.auth.selfApproval' },
 } as const;
 
 export type AuthCode = keyof typeof AUTH_MESSAGES;

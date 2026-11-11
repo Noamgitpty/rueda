@@ -62,7 +62,7 @@ Fichiers (`internal/staff/`) :
 - `staff-store.ts` (commandes `core.iam_staff_*`, une instruction par appel) ;
 - `staff.service.ts`, `staff.guard.ts`, `staff.controller.ts`, `production.ts`.
 
-FAKE : `testing/fake-totp-vault.ts`. Codes : `FORBIDDEN`, `2FA_REQUIRED` (16 ADM-001) ; PROPOSÉS : `AUTH_TOTP_INVALID`, `AUTH_TOTP_LOCKED`, `STAFF_MFA_UNAVAILABLE`, `STAFF_ACTION_UNAVAILABLE`, `STAFF_ACTION_RECORDED`, `STAFF_ACTION_DONE`.
+FAKE : `testing/fake-totp-vault.ts`. Codes : `FORBIDDEN`, `2FA_REQUIRED` (16 ADM-001) ; PROPOSÉS : `AUTH_TOTP_INVALID`, `AUTH_TOTP_LOCKED`, `STAFF_MFA_UNAVAILABLE`, `STAFF_ACTION_UNAVAILABLE`, `STAFF_ACTION_RECORDED`, `STAFF_ACTION_DONE` ; cadre des actions de console (US-101, ADR-092) : `STAFF_ACTION_REQUESTED`, `STAFF_ACTION_REFUSED`, `STAFF_SELF_APPROVAL`.
 
 Paramètres PROPOSÉS :
 

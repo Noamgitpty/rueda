@@ -6,7 +6,7 @@
  */
 import { CATALOGS } from '@rueda/i18n';
 import type { MessageKey } from '@rueda/i18n';
-import type { ConsoleState, JournalEntryView, StaffRoleView } from './view.tsx';
+import type { ApprovalView, ConsoleState, JournalEntryView, StaffRoleView } from './view.tsx';
 
 export interface ApiError {
   readonly status: number;
@@ -90,4 +90,34 @@ export function screenFor(
 
 export interface AuditBody {
   readonly entries: readonly (JournalEntryView & { readonly at: string })[];
+}
+
+/** Demandes FINANCE en attente (US-101) : `GET /console/finance/approvals`. */
+export interface ApprovalsBody {
+  readonly approvals: readonly ApprovalView[];
+}
+
+/** Rôles qui lisent les demandes FINANCE (17 §2.3 fin_read) ; la base filtre de toute façon. */
+export function readsApprovals(roles: readonly StaffRoleView[]): boolean {
+  return roles.some((r) => r.role === 'FINANCE' || r.role === 'ADMIN');
+}
+
+/**
+ * Intention d'action (US-101, revue) : un `requestId` par intention, pas par clic. Une même
+ * intention (même action, même sujet, même motif, mêmes pièces) garde son identifiant : un double
+ * clic ou une reprise après une coupure réseau est reconnu par la base (DUPLICATE) au lieu d'être
+ * exécuté deux fois. Une intention différente reçoit un identifiant neuf.
+ */
+export interface ActionIntent {
+  readonly key: string;
+  readonly requestId: string;
+}
+
+export function intentFor(
+  previous: ActionIntent | null,
+  parts: readonly unknown[],
+  newId: () => string,
+): ActionIntent {
+  const key = JSON.stringify(parts);
+  return previous !== null && previous.key === key ? previous : { key, requestId: newId() };
 }

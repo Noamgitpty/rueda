@@ -1455,7 +1455,10 @@
         "country_code": "C1",
         "actor_user_id": "C1",
         "actor_role": "C1",
-        "input": "C1",
+        "input": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
         "evidence_file_ids": "C1",
         "reason": {
           "class": "C2",
@@ -1464,7 +1467,9 @@
         "emitted_event_ids": "C1",
         "audit_log_id": "C1",
         "request_id": "C1",
-        "at": "C1"
+        "at": "C1",
+        "outcome": "C1",
+        "domain_ref": "C1"
       }
     },
     "core.support_manual_action_catalog": {
@@ -1475,7 +1480,30 @@
         "permission_code": "C1",
         "mode": "C1",
         "subject_type": "C1",
-        "available": "C1"
+        "available": "C1",
+        "input_keys": "C1",
+        "input_values": "C1",
+        "requires_approval": "C1"
+      }
+    },
+    "core.support_manual_action_subject": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "subject_type": "C1",
+        "resolver": "C1",
+        "story": "C1",
+        "declared_at": "C1"
+      }
+    },
+    "core.support_manual_action_handler": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "action_code": "C1",
+        "handler": "C1",
+        "story": "C1",
+        "bound_at": "C1"
       }
     },
     "core.support_support_case": {

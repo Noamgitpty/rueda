@@ -202,6 +202,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
   };
   const sup: SupConsoleOptions = {
     store: strict<SupConsoleOptions['store']>({}, 'ManualActionStore'),
+    finance: strict<SupConsoleOptions['finance']>({}, 'FinanceApprovalStore'),
   };
   const brand: BrandOptions = {
     store: strict<BrandOptions['store']>(

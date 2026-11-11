@@ -37,7 +37,8 @@ import {
   UnavailableBotChallenge,
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy } from '../modules/risk/index.js';
-import { PgManualActionStore } from '../modules/sup/index.js';
+import { PgFinanceApprovalStore, PgManualActionStore } from '../modules/sup/index.js';
+import type { SqlPool } from '../modules/sup/index.js';
 import { ROUTE_MATRIX } from './route-matrix.js';
 
 const STAFF_ROLES = ['SUPPORT_AGENT', 'OPS_AGENT', 'FINANCE', 'ADMIN', 'SUPERADMIN'] as const;
@@ -113,6 +114,49 @@ async function elevatedStaff(
   const t = token();
   await client.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [id, sha(t)]);
   return { id, cookie: `__Host-session=${t}` };
+}
+
+/**
+ * Demande FINANCE neuve du pays (US-101) : un bordereau en brouillon (fixture 9700) et une demande
+ * ISSUE_BORDEREAU faite par un AUTRE membre FINANCE du pays, par la vraie commande sous le contexte
+ * STAFF : l'acteur de la matrice l'approuve donc en seconde personne.
+ */
+async function financeRequest(country: string): Promise<string> {
+  const requester = await elevatedStaff('FINANCE', [country]);
+  const hash = sha(requester.cookie.slice('__Host-session='.length));
+  const { rows: cur } = await client.query<{ currency: string }>(
+    'SELECT currency::text AS currency FROM core.config_country WHERE code = $1',
+    [country],
+  );
+  const bordereau = randomUUID();
+  await client.query('SELECT test_fixture.us062_insert_bordereau($1, $2, $3, $4::bigint)', [
+    bordereau,
+    country,
+    cur[0]?.currency,
+    '42000',
+  ]);
+  const approval = randomUUID();
+  await client.query('BEGIN');
+  try {
+    await client.query(
+      `SELECT pg_catalog.set_config('app.actor_kind', 'STAFF', true),
+              pg_catalog.set_config('app.actor_id', $1, true),
+              pg_catalog.set_config('app.country_scope', $2, true),
+              pg_catalog.set_config('app.session_token_hash', $3, true)`,
+      [requester.id, `{${country}}`, hash.toString('hex')],
+    );
+    const { rows } = await client.query<{ outcome: string }>(
+      `SELECT outcome FROM core.settlement_cmd_request_finance_action($1, $2, 'ISSUE_BORDEREAU', $3,
+                                                                    'Matrice US-043 : bordereau de test')`,
+      [hash, approval, bordereau],
+    );
+    await client.query('COMMIT');
+    if (rows[0]?.outcome !== 'REQUESTED') throw new Error(`demande FINANCE : ${rows[0]?.outcome}`);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  }
+  return approval;
 }
 
 /** Requête concrète d'une route pour un sujet du pays `country` (corps valides : la route juge). */
@@ -199,6 +243,14 @@ async function requestOf(
           subjectId: tripOf.get(country),
           reason: 'Matrice US-043 : sinistre de test motivé',
         },
+      };
+    case 'GET /console/finance/approvals':
+      return { method: 'GET', path: '/console/finance/approvals?limit=5' };
+    case 'POST /console/finance/approvals/{id}/approve':
+      return {
+        method: 'POST',
+        path: `/console/finance/approvals/${await financeRequest(country)}/approve`,
+        body: {},
       };
     case 'POST /console/brand/assets':
       return {
@@ -480,7 +532,19 @@ beforeAll(async () => {
       await postgresIamAdapters(client),
       (await postgresPayAdapters(client, env)).webhooks,
       staff,
-      { store: new PgManualActionStore(client) },
+      {
+        store: new PgManualActionStore(client),
+        // une seule connexion de test : la lecture des demandes y ouvre et ferme sa transaction
+        finance: new PgFinanceApprovalStore({
+          query: (text, values) => client.query(text, values as unknown[]),
+          connect: () =>
+            Promise.resolve({
+              query: (text: string, values?: readonly unknown[]) =>
+                client.query(text, values as unknown[]),
+              release: () => undefined,
+            } as Awaited<ReturnType<SqlPool['connect']>>),
+        }),
+      },
       {
         store: new PgBrandStore(client),
         files: new UnavailableBrandFileStore(),

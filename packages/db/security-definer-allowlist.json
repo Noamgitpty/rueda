@@ -519,6 +519,20 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-102"
+    },
+    {
+      "signature": "core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb,uuid[])",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-101"
+    },
+    {
+      "signature": "core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-101"
     }
   ]
 }
