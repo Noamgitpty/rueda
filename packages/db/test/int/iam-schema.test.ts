@@ -32,7 +32,7 @@ const IAM_TABLES = [
 // Politiques attendues par table (US-010 : migrator_all ; US-011 : 0022, 0024, 0025 ; US-012 :
 // 0033, iam_staff_owner et lecture des sessions par policy_fn_owner ; US-062 : 0035, 0036,
 // matrice lue par policy_fn_owner, voyageur minimisé par host_view_owner, commandes FINANCE ;
-// US-101 : 0059, pays d'un compte d'hôte lu par la console).
+// US-101 : 0060, pays d'un compte d'hôte lu par la console).
 const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_auth_factor:
     'iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator',
@@ -61,6 +61,9 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_auth_lookup(text)': 'iam_auth_owner',
   'core.iam_cmd_open_session(uuid,uuid,bytea,integer,text,inet,text)': 'iam_auth_owner',
   'core.iam_cmd_register(uuid,text,text,text,text,text,uuid,bytea,integer,inet)': 'iam_auth_owner',
+  // US-102 (0059) : inscription avec consentements versionnés
+  'core.iam_cmd_register_with_consents(uuid,text,text,text,text,text,uuid,bytea,integer,inet,text,jsonb,boolean)':
+    'iam_auth_owner',
   'core.iam_cmd_revoke_all_sessions(bytea)': 'iam_auth_owner',
   'core.iam_cmd_revoke_session(bytea,text)': 'iam_auth_owner',
   'core.iam_cmd_verify_email(bytea)': 'iam_auth_owner',
@@ -72,7 +75,7 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_staff_cmd_elevate(bytea,uuid,bigint,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_enroll_reveal(bytea,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb)': 'iam_staff_owner',
-  // cadre des actions de console (US-101, 0059) : pièces, commande de domaine liée
+  // cadre des actions de console (US-101, 0060) : pièces, commande de domaine liée
   'core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb,uuid[])': 'iam_staff_owner',
   'core.iam_staff_cmd_mfa_attempt(bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_reset_totp(bytea,uuid,uuid,text,uuid,text,bytea,integer)': 'iam_staff_owner',

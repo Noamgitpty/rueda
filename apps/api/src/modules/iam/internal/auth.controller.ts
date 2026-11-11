@@ -6,6 +6,7 @@
  * | Route                     | Réponse                                                          |
  * | ------------------------- | ---------------------------------------------------------------- |
  * | POST /auth/signup         | 202 SIGNUP_ACCEPTED (email libre ou déjà pris : réponse identique) |
+ * |                           | 409 TERMS_VERSION_CHANGED ; 503 LEGAL_DOCUMENT_UNAVAILABLE (US-102) |
  * | POST /auth/login          | 200 + Set-Cookie ; 401 AUTH_INVALID_CREDENTIALS ; 429 RATE_LIMITED |
  * | GET  /auth/session        | 200 principal ; 401 AUTH_REQUIRED (absente, expirée, révoquée)     |
  * | POST /auth/logout         | 204 + cookie effacé (idempotent)                                   |
@@ -62,6 +63,9 @@ export class AuthController {
         legalLastName: body['legalLastName'],
         locale: body['locale'],
         termsAccepted: body['termsAccepted'],
+        acceptedDocuments: body['acceptedDocuments'],
+        marketingOptIn: body['marketingOptIn'],
+        country: body['country'],
       },
       contextOf(request),
     );

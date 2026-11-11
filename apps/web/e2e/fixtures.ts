@@ -47,7 +47,11 @@ export async function measure(page: Page): Promise<Measure> {
     const small: string[] = [];
     const selector = 'a[href], button, summary, input, select, textarea, [role="button"]';
     for (const el of document.querySelectorAll<HTMLElement>(selector)) {
-      const r = el.getBoundingClientRect();
+      // case ou bouton radio dans son libellé : la cible est le libellé entier (WCAG 2.5.8)
+      const label = el.matches('input[type="checkbox"], input[type="radio"]')
+        ? el.closest('label')
+        : null;
+      const r = (label ?? el).getBoundingClientRect();
       const style = getComputedStyle(el);
       if (r.width === 0 || style.visibility === 'hidden') continue;
       // lien dans le texte (WCAG 2.5.8, exception) ; lien d'évitement hors écran

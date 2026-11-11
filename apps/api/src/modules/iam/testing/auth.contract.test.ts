@@ -40,6 +40,10 @@ describe('contrat HTTP — /auth', () => {
     legalLastName: 'Prueba',
     locale: 'es',
     termsAccepted: true,
+    acceptedDocuments: [
+      { kind: 'TOS_GUEST', version: 1 },
+      { kind: 'PRIVACY', version: 1 },
+    ],
     ...over,
   });
 
@@ -103,6 +107,43 @@ describe('contrat HTTP — /auth', () => {
     ]) {
       expect((await api.request('POST', path, text)).status).toBe(415);
     }
+    record(api);
+  });
+
+  it('consentements (US-102) : 409 version affichée périmée, 503 aucun document en vigueur', async () => {
+    const store = new FakeAuthStore();
+    const h = await startAuthApp(store);
+    harnesses.push(h);
+    const api = new ContractClient(contract, h.url);
+    const stale = await api.request('POST', '/auth/signup', {
+      body: signupBody(`v-${randomUUID()}@example.test`, {
+        acceptedDocuments: [
+          { kind: 'TOS_GUEST', version: 1 },
+          { kind: 'PRIVACY', version: 2 },
+        ],
+      }),
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.json).toMatchObject({ code: 'TERMS_VERSION_CHANGED' });
+    // pays inconnu de la configuration : 400 COUNTRY_UNKNOWN, aucun compte
+    const unknown = await api.request('POST', '/auth/signup', {
+      body: signupBody(`z-${randomUUID()}@example.test`, { country: 'ZZ' }),
+    });
+    expect(unknown.status).toBe(400);
+    expect(unknown.json).toMatchObject({ code: 'COUNTRY_UNKNOWN' });
+    // client direct de l'API sans versions affichées : même refus
+    const { acceptedDocuments: _omitted, ...blind } = signupBody(`b-${randomUUID()}@example.test`);
+    void _omitted;
+    const noVersions = await api.request('POST', '/auth/signup', { body: blind });
+    expect(noVersions.status).toBe(409);
+    expect(noVersions.json).toMatchObject({ code: 'TERMS_VERSION_CHANGED' });
+    store.documentVersions = null;
+    const none = await api.request('POST', '/auth/signup', {
+      body: signupBody(`n-${randomUUID()}@example.test`),
+    });
+    expect(none.status).toBe(503);
+    expect(none.json).toMatchObject({ code: 'LEGAL_DOCUMENT_UNAVAILABLE' });
+    expect(store.accounts.size).toBe(0);
     record(api);
   });
 

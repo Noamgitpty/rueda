@@ -93,6 +93,10 @@ async function withConsole(
         legalLastName: 'Pérez',
         locale: 'es',
         termsAccepted: true,
+        acceptedDocuments: [
+          { kind: 'TOS_GUEST', version: 1 },
+          { kind: 'PRIVACY', version: 1 },
+        ],
       },
     });
     const login = await call(h.url, 'POST', '/auth/login', {

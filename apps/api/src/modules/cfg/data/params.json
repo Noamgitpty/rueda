@@ -10,6 +10,8 @@
       "failMode": "BLOCK",
       "source": "BR-CXL-01",
       "status": "OQ-BR-30",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-30 ; J-ADM-031 (défaut de 22 : 25 h)",
       "values": { "PA": 25, "PY": 25 }
     },
     {
@@ -20,6 +22,8 @@
       "failMode": "BLOCK",
       "source": "BR-CXL-01",
       "status": "ADM-031",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031)",
       "values": { "PA": 24, "PY": 24 }
     },
     {
@@ -30,6 +34,8 @@
       "failMode": "BLOCK",
       "source": "BR-CXL-08",
       "status": "OQ-BR-33",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-33 ; J-ADM-031 (défaut de 22 : 60 min)",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -40,6 +46,8 @@
       "failMode": "BLOCK",
       "source": "BR-BOOK-03 (jours facturés seulement)",
       "status": "OQ-BR-04 (ouverte)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-04 ; J-ADM-031 (défaut de 22 : 29 min)",
       "values": { "PA": 29, "PY": 29 }
     },
     {
@@ -51,6 +59,8 @@
       "optional": true,
       "source": "BR-BOOK-03",
       "status": "OQ-BR-04 : non appliqué (120 proposé) ; absent = non appliqué",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-04 (défaut de 22 : non appliqué)",
       "values": {}
     },
     {
@@ -61,6 +71,8 @@
       "failMode": "BLOCK",
       "source": "BR-BOOK-10",
       "status": "PROPOSÉ (08)",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (08 BR-BOOK-10)",
       "values": { "PA": 10, "PY": 10 }
     },
     {
@@ -71,6 +83,8 @@
       "failMode": "BLOCK",
       "source": "BR-BOOK-10 test 8",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 20, "PY": 20 }
     },
     {
@@ -81,6 +95,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5 étape 3 d",
       "status": "PROPOSÉ ; à mesurer",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (à mesurer)",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -91,6 +107,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5 étape 3 d",
       "status": "PROPOSÉ ; à mesurer",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (à mesurer)",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -101,6 +119,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5 étape 4 (A6), portée plateforme",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -111,6 +131,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5 étape 4 (A6), portée plateforme",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 2, "PY": 2 }
     },
     {
@@ -121,6 +143,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5 étape 4 (A6), portée plateforme",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 10, "PY": 10 }
     },
     {
@@ -131,6 +155,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5",
       "status": "PROPOSÉ ; UXQ-08 ouverte",
+      "decision": "TO_DECIDE",
+      "decisionRef": "UXQ-08 (ouverte)",
       "values": { "PA": 120, "PY": 120 }
     },
     {
@@ -141,6 +167,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.3 (B7), portée plateforme",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -151,6 +179,8 @@
       "failMode": "BLOCK",
       "source": "ADR-034",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 24, "PY": 24 }
     },
     {
@@ -161,6 +191,8 @@
       "failMode": "BLOCK",
       "source": "17 §1.3, §2.5",
       "status": "PROPOSÉ ; à mesurer en bac à sable",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (à mesurer en bac à sable)",
       "values": { "PA": 120, "PY": 120 }
     },
     {
@@ -171,6 +203,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5 étape 3",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 20, "PY": 20 }
     },
     {
@@ -181,6 +215,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5 étape 4",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 0, "PY": 0 }
     },
     {
@@ -191,6 +227,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.5",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 3, "PY": 3 }
     },
     {
@@ -200,6 +238,8 @@
       "failMode": "FALSE",
       "source": "17 §2.5 (M13)",
       "status": "PROPOSÉ, non retenu",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ, non retenu",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -210,6 +250,8 @@
       "failMode": "BLOCK",
       "source": "17 §3.1.3, §3.2.2",
       "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
       "values": { "PA": 90 }
     },
     {
@@ -220,6 +262,8 @@
       "failMode": "BLOCK",
       "source": "17 §3.1.3, §3.2.2",
       "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
       "values": { "PA": 90 }
     },
     {
@@ -230,6 +274,8 @@
       "failMode": "BLOCK",
       "source": "17 §3.1.3, §3.2.2",
       "status": "PROPOSÉ ; OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
       "values": { "PA": 30 }
     },
     {
@@ -240,6 +286,8 @@
       "failMode": "BLOCK",
       "source": "17 §3.1.3, portée plateforme",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 300, "PY": 300 }
     },
     {
@@ -250,6 +298,8 @@
       "failMode": "BLOCK",
       "source": "BR-BOOK-10",
       "status": "PROPOSÉ (08)",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (08 BR-BOOK-10)",
       "values": { "PA": 2, "PY": 2 }
     },
     {
@@ -260,6 +310,8 @@
       "failMode": "BLOCK",
       "source": "PAY-017",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (PAY-017)",
       "values": { "PA": 3, "PY": 3 }
     },
     {
@@ -270,6 +322,8 @@
       "failMode": "BLOCK",
       "source": "rail BANK_TRANSFER",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -280,6 +334,8 @@
       "failMode": "BLOCK",
       "source": "F21",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -290,6 +346,8 @@
       "failMode": "BLOCK",
       "source": "F12",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 24, "PY": 24 }
     },
     {
@@ -300,6 +358,8 @@
       "failMode": "BLOCK",
       "source": "BR-REIMB-02, CLM-021",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 72, "PY": 72 }
     },
     {
@@ -310,6 +370,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-09 bis, SM-8",
       "status": "J-ADM-031 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -320,6 +382,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-09 bis, SM-8",
       "status": "J-ADM-031 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -331,6 +395,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06, OQ-BR-47",
       "status": "J-ADM-031 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -341,6 +407,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06",
       "status": "J-ADM-031 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -351,6 +419,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06",
       "status": "J-ADM-031 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -361,6 +431,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06",
       "status": "J-ADM-031 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -371,6 +443,8 @@
       "failMode": "BLOCK",
       "source": "08 E4",
       "status": "OQ-PAY-18 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-18 (à fixer)",
       "values": {}
     },
     {
@@ -381,6 +455,8 @@
       "failMode": "BLOCK",
       "source": "17 §4.3",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -391,6 +467,8 @@
       "failMode": "BLOCK",
       "source": "17 §3.1.3",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -401,6 +479,8 @@
       "failMode": "BLOCK",
       "source": "17 §1.5, SM-3",
       "status": "OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
       "values": { "PA": 30 }
     },
     {
@@ -411,6 +491,8 @@
       "failMode": "BLOCK",
       "source": "PAY-006",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (PAY-006)",
       "values": { "PA": 24, "PY": 24 }
     },
     {
@@ -421,6 +503,8 @@
       "failMode": "BLOCK",
       "source": "BR-BOOK-05 (l'annonce peut porter sa propre valeur)",
       "status": "ADM-031",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031)",
       "values": { "PA": 120, "PY": 120 }
     },
     {
@@ -431,6 +515,8 @@
       "failMode": "BLOCK",
       "source": "BR-BOOK-04 (le lieu peut porter sa propre valeur)",
       "status": "ADM-031",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031)",
       "values": { "PA": 180, "PY": 180 },
       "scoped": [
         { "country": "PA", "scopeType": "CATEGORY", "scopeId": "LUXE", "value": 1440 },
@@ -445,6 +531,8 @@
       "failMode": "BLOCK",
       "source": "BKG-012 ; 08 recommandation LATAM (25 ans classe Premium)",
       "status": "ADM-031 (21 / 25)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031)",
       "values": { "PA": 21, "PY": 21 },
       "scoped": [
         { "country": "PA", "scopeType": "CATEGORY", "scopeId": "PREMIUM", "value": 25 },
@@ -459,6 +547,8 @@
       "failMode": "BLOCK",
       "source": "ADM-031",
       "status": "décidé (bêta)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031 « durée max 30 j » ; 17 §7.2 : décidé pour la bêta)",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -469,6 +559,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-04",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (BR-PAY-04)",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -481,6 +573,8 @@
       "failMode": "BLOCK",
       "source": "BR-CXL-13 ; 08 penalty() (cxlEarly / cxlLate / hostNoShow / cleanliness)",
       "status": "OQ-BR-24 ; PY PROPOSÉ",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-24 ; J-ADM-031",
       "values": {
         "PA": {
           "cxlEarly": "2500",
@@ -503,6 +597,8 @@
       "failMode": "FALSE",
       "source": "08 ; 16 ADM-031 (absent)",
       "status": "DEC-FONDATEUR-01 / OQ-BR-41 : absent ⇒ false",
+      "decision": "TO_DECIDE",
+      "decisionRef": "DEC-FONDATEUR-01 / OQ-BR-41 (absent ⇒ false)",
       "values": {}
     },
     {
@@ -512,6 +608,8 @@
       "failMode": "BLOCK",
       "source": "08",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (08)",
       "values": { "PA": true, "PY": true }
     },
     {
@@ -521,6 +619,8 @@
       "failMode": "FALSE",
       "source": "08",
       "status": "OQ-BR-42",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-42",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -531,6 +631,8 @@
       "failMode": "BLOCK",
       "source": "E5",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (08 E5)",
       "values": { "PA": 72, "PY": 72 }
     },
     {
@@ -541,6 +643,8 @@
       "failMode": "BLOCK",
       "source": "E5 (valeurs par PSP au lot C)",
       "status": "OQ-BR-43",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-43",
       "values": { "PA": 180, "PY": 180 }
     },
     {
@@ -551,6 +655,8 @@
       "failMode": "ZERO",
       "source": "09b §5.1 bis (valeurs par PSP au lot C)",
       "status": "OQ-PAY-02 ; absent ⇒ 0",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-02 (absent ⇒ 0)",
       "values": {}
     },
     {
@@ -561,6 +667,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06",
       "status": "OQ-PAY-02",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-02",
       "values": { "PA": 72, "PY": 72 }
     },
     {
@@ -571,6 +679,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06",
       "status": "OQ-PAY-02",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-02",
       "values": { "PA": 2, "PY": 2 }
     },
     {
@@ -581,6 +691,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06",
       "status": "OQ-PAY-02 (marge à relever)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-02",
       "values": { "PA": 0, "PY": 0 }
     },
     {
@@ -591,6 +703,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-06",
       "status": "OQ-PAY-02",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-02",
       "values": { "PA": 24, "PY": 24 }
     },
     {
@@ -601,6 +715,8 @@
       "failMode": "ZERO",
       "source": "BR-PAY-06",
       "status": "OQ-PAY-06, OQ-PAY-19 ; inconnu ⇒ 0 (rail interdit)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-06, OQ-PAY-19 (absent ⇒ 0)",
       "values": {}
     },
     {
@@ -611,6 +727,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-09 bis",
       "status": "OQ-PAY-18",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-18",
       "values": { "PA": 10, "PY": 10 }
     },
     {
@@ -621,6 +739,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAY-09 bis",
       "status": "OQ-PAY-18",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-18",
       "values": { "PA": 20, "PY": 20 }
     },
     {
@@ -631,6 +751,8 @@
       "failMode": "BLOCK",
       "source": "REQ-PAY-DMG-07",
       "status": "OQ-PAY-18",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-18",
       "values": {},
       "scoped": [
         { "country": "PA", "scopeType": "NETWORK", "network": "MASTERCARD", "value": 30 },
@@ -649,6 +771,8 @@
       "failMode": "BLOCK",
       "source": "REQ-PAY-DMG-11 (08) : au moins 15 mois après la dernière opération monétaire",
       "status": "OQ-BR-25",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25 (avis juridique)",
       "values": { "PA": 15, "PY": 15 }
     },
     {
@@ -659,6 +783,8 @@
       "failMode": "BLOCK",
       "source": "VER-004 (17 §7.2 biometric_retention : plafond ; défaut appliqué = le plus court)",
       "status": "OQ-BR-25, OQ-MK-09 ; PY à fixer",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25, OQ-MK-09 (avis juridique)",
       "values": { "PA": 3 }
     },
     {
@@ -669,6 +795,8 @@
       "failMode": "BLOCK",
       "source": "ADM-001",
       "status": "OQ-BR-25",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25 (avis juridique)",
       "values": { "PA": 5, "PY": 5 }
     },
     {
@@ -679,6 +807,8 @@
       "failMode": "BLOCK",
       "source": "E3 (J+1, J+3, J+7)",
       "status": "OQ-BR-44",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-44",
       "values": { "PA": [1, 3, 7], "PY": [1, 3, 7] }
     },
     {
@@ -689,6 +819,8 @@
       "failMode": "BLOCK",
       "source": "E2",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (08 E2)",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -699,6 +831,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAYOUT-02",
       "status": "PROPOSÉ (fermé par payouts_enabled)",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (fermé par payouts_enabled)",
       "values": { "PA": 2, "PY": 2 }
     },
     {
@@ -709,6 +843,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAYOUT-02",
       "status": "PROPOSÉ (fermé par payouts_enabled)",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (fermé par payouts_enabled)",
       "values": { "PA": 5, "PY": 5 }
     },
     {
@@ -719,6 +855,8 @@
       "failMode": "BLOCK",
       "source": "BR-PAYOUT-02 (10:00 heure locale)",
       "status": "PROPOSÉ (fermé par payouts_enabled)",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (fermé par payouts_enabled)",
       "values": { "PA": 600, "PY": 600 }
     },
     {
@@ -730,6 +868,8 @@
       "notApplicableIn": ["PY"],
       "source": "BR-PAYOUT-01",
       "status": "rail du PSP ; sans objet au PY",
+      "decision": "TO_DECIDE",
+      "decisionRef": "rail du PSP, choisi au lot C (DEC-PAYS, porte PAY-041)",
       "values": { "PA": "500000" }
     },
     {
@@ -741,6 +881,8 @@
       "failMode": "BLOCK",
       "source": "BR-PRICE-06 : 15 % (≤ 6 j), 12 % (7–29 j), 8 % (≥ 30 j), minimum",
       "status": "PROPOSÉ ; OQ-MK-01",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-MK-01 (avis avant la mise en service)",
       "values": {
         "PA": {
           "tiers": [
@@ -769,6 +911,8 @@
       "notApplicableIn": ["PA"],
       "source": "BR-PRICE-14, I18N-005 (17 §7.2 pyg_price_step)",
       "status": "décidé ; sans objet au PA",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (BR-PRICE-14)",
       "values": { "PY": "1000" }
     },
     {
@@ -779,6 +923,8 @@
       "failMode": "BLOCK",
       "source": "VER-013",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (VER-013)",
       "values": { "PA": 10, "PY": 10 }
     },
     {
@@ -789,6 +935,8 @@
       "failMode": "BLOCK",
       "source": "VER-013",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (VER-013)",
       "values": { "PA": 5, "PY": 5 }
     },
     {
@@ -799,6 +947,8 @@
       "failMode": "BLOCK",
       "source": "VER-013",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (VER-013)",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -809,6 +959,8 @@
       "failMode": "BLOCK",
       "source": "VER-013",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (VER-013)",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -819,6 +971,8 @@
       "failMode": "BLOCK",
       "source": "CAL-009",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (CAL-009)",
       "values": { "PA": 15, "PY": 15 }
     },
     {
@@ -829,6 +983,8 @@
       "failMode": "BLOCK",
       "source": "TRP-035 (= grace_minutes + 1 tant qu'OQ-BR-04 est ouverte)",
       "status": "décidé",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-04 (grace_minutes + 1 tant qu’elle est ouverte ; défaut de 22 : 30 min)",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -839,6 +995,8 @@
       "failMode": "BLOCK",
       "source": "TRP-038 (+2 h, +6 h, +24 h)",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (TRP-035, TRP-038)",
       "values": { "PA": [2, 6, 24], "PY": [2, 6, 24] }
     },
     {
@@ -849,6 +1007,8 @@
       "failMode": "BLOCK",
       "source": "CLM-001 (après la fin)",
       "status": "ADM-031",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031)",
       "values": { "PA": 24, "PY": 24 }
     },
     {
@@ -859,6 +1019,8 @@
       "failMode": "BLOCK",
       "source": "ADM-002",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (ADM-002)",
       "values": { "PA": 4, "PY": 4 }
     },
     {
@@ -869,6 +1031,8 @@
       "failMode": "BLOCK",
       "source": "ADM-003",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (ADM-003)",
       "values": { "PA": 24, "PY": 24 }
     },
     {
@@ -879,6 +1043,8 @@
       "failMode": "BLOCK",
       "source": "ADM-008",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (ADM-008)",
       "values": { "PA": 5, "PY": 5 }
     },
     {
@@ -889,6 +1055,8 @@
       "failMode": "BLOCK",
       "source": "SM-3",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (SM-3)",
       "values": { "PA": 15, "PY": 15 }
     },
     {
@@ -899,6 +1067,8 @@
       "failMode": "BLOCK",
       "source": "SM-3",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (SM-3)",
       "values": { "PA": 15, "PY": 15 }
     },
     {
@@ -909,6 +1079,8 @@
       "failMode": "BLOCK",
       "source": "BR-COHOST",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (BR-COHOST)",
       "values": { "PA": 30, "PY": 30 }
     },
     {
@@ -919,6 +1091,8 @@
       "failMode": "BLOCK",
       "source": "PYO-001",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (PYO-001)",
       "values": { "PA": 48, "PY": 48 }
     },
     {
@@ -928,6 +1102,8 @@
       "failMode": "BLOCK",
       "source": "FIN-005",
       "status": "J-ADM-031 (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -940,6 +1116,8 @@
       "notApplicableIn": ["PY"],
       "source": "ADM-031",
       "status": "J-ADM-031 (à fixer au PA ; sans objet au PY)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (à fixer)",
       "values": {}
     },
     {
@@ -950,6 +1128,8 @@
       "failMode": "BLOCK",
       "source": "TRP-002",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (TRP-002)",
       "values": { "PA": 500, "PY": 500 }
     },
     {
@@ -960,6 +1140,8 @@
       "failMode": "BLOCK",
       "source": "TRP-002",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (TRP-002)",
       "values": { "PA": 1600, "PY": 1600 }
     },
     {
@@ -970,6 +1152,8 @@
       "failMode": "BLOCK",
       "source": "TRP-057",
       "status": "décidé",
+      "decision": "DECIDED",
+      "decisionRef": "17 §7.2 décidé (TRP-057)",
       "values": { "PA": 2, "PY": 2 }
     },
     {
@@ -980,6 +1164,8 @@
       "failMode": "BLOCK",
       "source": "ADM-029, UXQ-08",
       "status": "UXQ-08 ouverte ; défaut fail-closed REVIEW_BEFORE_CHARGE",
+      "decision": "TO_DECIDE",
+      "decisionRef": "UXQ-08 (ouverte ; défaut fail-closed REVIEW_BEFORE_CHARGE)",
       "values": { "PA": "REVIEW_BEFORE_CHARGE", "PY": "REVIEW_BEFORE_CHARGE" }
     },
     {
@@ -990,6 +1176,8 @@
       "failMode": "BLOCK",
       "source": "08 BR-PROT-06, BR-PROT-08 (figé dans host_share_pct_frozen)",
       "status": "PROPOSÉ (OQ-P2P-11) ; absent ⇒ règlement refusé",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-11 ; J-ADM-031 (16 ADM-031 « ESTÁNDAR 75 % »)",
       "values": {
         "PA": { "ESTÁNDAR": "3/4" },
         "PY": { "ESTÁNDAR": "3/4" }
@@ -1004,6 +1192,8 @@
       "optional": true,
       "source": "08 BR-PROT-08, BR-CXL-16",
       "status": "PROPOSÉ ; absent ⇒ host_share_pct_frozen du trip",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (absent ⇒ host_share_pct_frozen)",
       "values": {}
     },
     {
@@ -1015,6 +1205,8 @@
       "optional": true,
       "source": "08 BR-PROT-08",
       "status": "PROPOSÉ ; absent ⇒ host_share_pct_frozen du trip",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (absent ⇒ host_share_pct_frozen)",
       "values": {}
     },
     {
@@ -1025,6 +1217,8 @@
       "goLiveSwitch": true,
       "source": "17 §0.1 ; 08 Règle de blocage ; OQ-BR-35, OQ-BR-16",
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "decision": "DECIDED",
+      "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -1035,6 +1229,8 @@
       "goLiveSwitch": true,
       "source": "17 §0.1 ; Q-002, OQ-P2P-03",
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "decision": "DECIDED",
+      "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -1045,6 +1241,8 @@
       "goLiveSwitch": true,
       "source": "17 §0.1 ; 08 E7 ; OQ-MK-02 / 03 / 04, OQ-PAY-05, OQ-PAY-06",
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "decision": "DECIDED",
+      "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -1055,6 +1253,8 @@
       "goLiveSwitch": true,
       "source": "17 §0.1 ; 08 BR-PAYOUT ; OQ-PAY-09",
       "status": "interrupteur : false en production, deux personnes (RLS-27, US-125)",
+      "decision": "DECIDED",
+      "decisionRef": "17 §0.1 : false en production ; true seulement par US-125",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -1065,6 +1265,8 @@
       "failMode": "BLOCK",
       "source": "08 E7 ; ADR-045",
       "status": "PROPOSÉ ; PLATFORM_MOR refusé si funds_holding_enabled = false",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (ADR-045 ; PLATFORM_MOR fermé par funds_holding_enabled)",
       "values": { "PA": "SPLIT_AT_SOURCE", "PY": "SPLIT_AT_SOURCE" }
     },
     {
@@ -1075,6 +1277,8 @@
       "failMode": "BLOCK",
       "source": "08 BR-PROT-06 ; OQ-P2P-11",
       "status": "PROPOSÉ",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-11 ; J-ADM-031 (16 ADM-031)",
       "values": { "PA": "ESTÁNDAR", "PY": "ESTÁNDAR" }
     },
     {
@@ -1085,6 +1289,8 @@
       "failMode": "BLOCK",
       "source": "08 BR-PRICE-11, E7",
       "status": "contrat d'assureur (à fixer) ; absent ⇒ vente de protection refusée",
+      "decision": "TO_DECIDE",
+      "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
       "values": {}
     },
     {
@@ -1095,6 +1301,8 @@
       "failMode": "BLOCK",
       "source": "08 BR-PRICE-11, E7",
       "status": "contrat d'assureur (à fixer)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
       "values": {}
     },
     {
@@ -1105,6 +1313,8 @@
       "failMode": "BLOCK",
       "source": "08 E7 règle 6",
       "status": "PROPOSÉ ; contrat d'assureur",
+      "decision": "TO_DECIDE",
+      "decisionRef": "contrat d'assureur (Q-002, OQ-P2P-03)",
       "values": { "PA": "MONTHLY", "PY": "MONTHLY" }
     },
     {
@@ -1115,6 +1325,8 @@
       "failMode": "BLOCK",
       "source": "08 E7 règle 6 ; 17 §2.9",
       "status": "PROPOSÉ (US-056), fail-closed",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ (US-056), fail-closed",
       "values": { "PA": "TRIP_PAYOUT_AT", "PY": "TRIP_PAYOUT_AT" }
     },
     {
@@ -1125,6 +1337,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.9",
       "status": "PROPOSÉ ; absent ⇒ aucune avance automatique",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031 ; absent ⇒ aucune avance)",
       "values": {}
     },
     {
@@ -1135,6 +1349,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.9 ; 08 E7 règle 3 bis, SM-6b",
       "status": "PROPOSÉ ; absent ⇒ BLOCK",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031 ; absent ⇒ aucune avance)",
       "values": {}
     },
     {
@@ -1145,6 +1361,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.9 ; SM-6b",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": 180, "PY": 180 }
     },
     {
@@ -1154,6 +1372,8 @@
       "failMode": "FALSE",
       "source": "08 E7 règle 10 ; 17 §2.9",
       "status": "PROPOSÉ, fail-closed",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ, fail-closed",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -1164,6 +1384,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.4 ; OQ-P2P-01",
       "status": "PROPOSÉ",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-01 ; J-ADM-031 (16 ADM-031)",
       "values": { "PA": 21, "PY": 21 }
     },
     {
@@ -1173,6 +1395,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.4 ; OQ-PAY-09, OQ-P2P-07",
       "status": "PROPOSÉ",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-PAY-09, OQ-P2P-07 (colonne « Source » de 17 §7.2 ; 17 : PROPOSÉ)",
       "values": { "PA": true, "PY": true }
     },
     {
@@ -1182,6 +1406,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.4",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": true, "PY": true }
     },
     {
@@ -1191,6 +1417,8 @@
       "failMode": "BLOCK",
       "source": "17 §2.3 ; OQ-P2P-08, portée plateforme",
       "status": "PROPOSÉ",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-08 ; J-ADM-031 (16 ADM-031)",
       "values": { "PA": true, "PY": true }
     },
     {
@@ -1201,6 +1429,8 @@
       "failMode": "BLOCK",
       "source": "22 « Pivot P2P »",
       "status": "PROPOSÉ",
+      "decision": "TO_DECIDE",
+      "decisionRef": "J-ADM-031 (16 ADM-031)",
       "values": { "PA": "INSTANT", "PY": "INSTANT" }
     },
     {
@@ -1211,6 +1441,8 @@
       "failMode": "BLOCK",
       "source": "08 BR-BOOK-01 ; 17 §2.5 ; OQ-P2P-10",
       "status": "PROPOSÉ (US-060)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-10 (colonne « Source » de 17 §7.2 ; 17 : PROPOSÉ, US-060)",
       "values": { "PA": 4, "PY": 4 }
     },
     {
@@ -1220,6 +1452,8 @@
       "failMode": "FALSE",
       "source": "22 « Pivot P2P »",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §7.2 PROPOSÉ",
       "values": { "PA": false, "PY": false }
     },
     {
@@ -1230,6 +1464,8 @@
       "failMode": "BLOCK",
       "source": "08 BR-REVIEW-01 ; OQ-P2P-06",
       "status": "décidé (comme Turo)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-06 ; J-ADM-031 (16 ADM-031 ; 17 §7.2 : décidé comme Turo)",
       "values": { "PA": 10, "PY": 10 }
     },
     {
@@ -1240,6 +1476,8 @@
       "failMode": "BLOCK",
       "source": "22 « Pivot P2P » ; OQ-P2P-12",
       "status": "PROPOSÉ",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-12 (assureur) ; J-ADM-031 (16 ADM-031)",
       "values": { "PA": "BASICA", "PY": "BASICA" }
     },
     {
@@ -1250,6 +1488,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (envois d'OTP par numéro et par heure)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 5, "PY": 5 }
     },
     {
@@ -1260,6 +1500,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (envois d'OTP par IP et par heure)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 20, "PY": 20 }
     },
     {
@@ -1270,6 +1512,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (e-mails coûteux par adresse et par heure)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 10, "PY": 10 }
     },
     {
@@ -1280,6 +1524,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (e-mails coûteux par IP et par heure)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 50, "PY": 50 }
     },
     {
@@ -1290,6 +1536,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (plafond journalier d'envois SMS du pays, jour local)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 2000, "PY": 2000 }
     },
     {
@@ -1300,6 +1548,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (recherche publique par IP et par minute)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 120, "PY": 120 }
     },
     {
@@ -1310,6 +1560,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (recherche publique par compte et par minute)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 120, "PY": 120 }
     },
     {
@@ -1320,6 +1572,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (devis par IP et par minute)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -1330,6 +1584,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (devis par compte et par minute)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 60, "PY": 60 }
     },
     {
@@ -1340,6 +1596,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (API par IP et par minute)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 600, "PY": 600 }
     },
     {
@@ -1350,6 +1608,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (API par compte et par minute)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 300, "PY": 300 }
     },
     {
@@ -1360,6 +1620,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (webhooks : limite large, corps borné)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 6000, "PY": 6000 }
     },
     {
@@ -1370,6 +1632,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (inscriptions en rafale par IP en 10 min)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 5, "PY": 5 }
     },
     {
@@ -1380,6 +1644,8 @@
       "failMode": "BLOCK",
       "source": "17 §6.6 ; 19 US-052 (poids d'une requête suspecte : client ralenti)",
       "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 4, "PY": 4 }
     }
   ]

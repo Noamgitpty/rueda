@@ -200,6 +200,9 @@ describe('US-046 — destruction de la clé : C2 / C3 illisibles, registres inta
     expect(SHREDDED.map((s) => `${s.table}.${s.col}`).sort()).toEqual([
       'core.audit_audit_log.ip_enc',
       'core.audit_file_asset.(contenu du fichier)',
+      // consentements (US-102, 0059) : preuve C2 chiffrée par la clé du sujet
+      'core.contract_consent.ip_enc',
+      'core.contract_consent.user_agent_enc',
     ]);
   });
 

@@ -59,7 +59,7 @@ Migrations actuelles :
 - `0056_booking_vehicle_ownership_guards` (US-049, correctifs de la red team RLS et RT-CONC-02) : véhicule du compte exigé pour les blocages, auto-réservation d'un membre refusée, périodes bornées (section « Correctifs de la red team RLS ») ;
 - `0057_audit_worker_name_scope` (US-049, F-RLS-06) : clés de sujet et écritures d'audit réservées aux travailleurs nommés (section « Audit ») ;
 - `0058_payment_proof_hardening` (US-049, revues de la PR n° 92) : quarantaine d'horodatage non effaçable, preuve WEBHOOK reçue par la commande, MANUAL_OPS terminal refusé, voie directe du statut fermée (section « Correctifs de la red team argent ») ;
-- `0059_support_manual_action_framework` (US-101) : catalogue minimal des actions de console, règles de saisie, pièces, liaison des commandes de domaine, demandes FINANCE par la console (section « Cadre des actions de console ») ; fixture de test `9960_test_us101_console_fixtures` (commande sonde liée, pièces, essais annulés du catalogue et de la liaison) ;
+- `0060_support_manual_action_framework` (US-101) : catalogue minimal des actions de console, règles de saisie, pièces, liaison des commandes de domaine, demandes FINANCE par la console (section « Cadre des actions de console ») ; fixture de test `9960_test_us101_console_fixtures` (commande sonde liée, pièces, essais annulés du catalogue et de la liaison) ;
 - tests : `9000_test_virtual_clock`, `9001_test_l0_fixtures`, `9100_test_config_writer` (écriture de test pour `app_worker` sur deux tables de configuration, base principale seulement), `9150_test_audit_fixtures` (US-009), `9200_test_iam_fixtures` (US-010), `9300_test_rls_fixtures` (US-011 : comptes des fixtures L0, trips, dossiers de support), `9002_test_l0_concurrency` (US-007 : pose avec verrous et 2a, volume de L0-04), `9400_test_settlement_fixtures` (US-018 : état capturé d'un segment, en attendant `cmd_apply_leg_movement`) ; `9310_test_occupancy_fixtures` (US-022 : écriture d'occupations et de holds sans pré-vérification, preuves de `occupancy_vehicle_single_org` et `checkout_hold_occupancy_party_fk`) ; `9500_test_payment_fixtures` (US-019 : `platform.deployment_env()` de test, pilotée par `app.test_deployment_env` ; écriture des comptes PSP et capacités par `app_worker` ; écriture brute d'opérations pour le contrôle différé des jambes) ; `9700_test_host_money_fixtures` (US-062 : avances, bordereaux, position de l'assureur, permission donnée par erreur à un co-hôte, relecture des colonnes du personnel, passage en perte tenté par un travailleur sous `cmd_money_owner`) ; `9750_test_hold_fixtures` (US-023 : registre de véhicules de test à la place du catalogue, pose réelle mesurée, comptes d'hôte de statut choisi, version annulée de `flagged_booking_payment_order`, écriture forcée des colonnes gardées). Depuis US-023, les fixtures d'opérations (9001, 9002, 9300, 9700) posent le compte PSP de test du pays et quatre jambes.
 
 ## Schéma AVL / PAY (US-006 ; 17 §2.5, §3.2.4, §3.2.7, §11 ; ADR-048)
@@ -203,9 +203,9 @@ Migrations `0033_iam_staff_mfa` et `0034_staff_console`, propriétaire NOLOGIN `
   - `test/l0/l0-staff-console.test.ts` : critère 1, MFA, portée pays, journal, idempotence, suspension, autorité, réinitialisation, `audit.read` ;
   - `test/l0/l0-rls-actors.test.ts` (RLS-18 réduite).
 
-## Cadre des actions de console (US-101 ; 17 §10 NN9, §3.2.13, §2.3 ; ADR-091)
+## Cadre des actions de console (US-101 ; 17 §10 NN9, §3.2.13, §2.3 ; ADR-092)
 
-Migration `0059_support_manual_action_framework`, fixtures `test-migrations/9960_test_us101_console_fixtures.sql`.
+Migration `0060_support_manual_action_framework`, fixtures `test-migrations/9960_test_us101_console_fixtures.sql`.
 
 - **Catalogue** (`support_manual_action_catalog`) : les 19 actions du catalogue minimal de 17 §10 (hors `CREATE_HOST_ACCOUNT`, US-107), chacune avec sa permission, son mode (`DOMAIN_COMMAND` ou `RECORD_ONLY`), son type de sujet, ses clés de saisie `input_keys`, l'énumération fermée de leurs valeurs `input_values` et `requires_approval` (actions FINANCE). Des contraintes interdisent une clé qui nomme un montant et une énumération incomplète ou faite d'autre chose que des mots.
 - **Commande** `core.iam_staff_cmd_manual_action(token, request_id, action, sujet, motif, input, pièces uuid[])` (`iam_staff_owner`, EXECUTE au seul `app_api`). Ordre : session, données, TOTP, pays du sujet par le résolveur déclaré, permission et portée pays (refus journalisé), saisie et pièces, verrou consultatif du `request_id` puis idempotence, disponibilité, contrôle de la liaison, exécution, audit en dernier. La forme d'US-012 (6 arguments) délègue à celle-ci.
@@ -395,6 +395,17 @@ Migrations `0046_config_rate_limit_params` (graine complémentaire **générée*
 - **Tableau de sécurité** : `risk_staff_abuse_board` (`iam_staff_owner`, EXECUTE app_api) ; TOTP et permission `security.read_abuse` (ADMIN, SUPERADMIN) ; refus journalisés ; aucune empreinte rendue.
 
 Preuves : `test/l0/l0-risk-rate-limit.test.ts` (droits, fenêtres à l'horloge virtuelle en PA et PY, 30 appels concurrents pour une limite de 5, plafond SMS au jour local, critique toujours accordé, alerte unique, liste blanche des travailleurs, purge, tableau de sécurité et refus journalisés).
+
+## Consentements versionnés et gabarits juridiques (US-102 ; 16 ACC-001, LEG-001, LEG-002 ; 17 §3.1.3, §3.2.6 ; ADR-091)
+
+Migration `0059_ctr_legal_consent` :
+
+- `core.contract_document_template` (classe C, ajout seul) : texte en base, version par (genre, pays, langue), `is_major`, `content_hash` = SHA-256 posé par le déclencheur `document_template_guard`, `country_code` NULL = document commun, `legal_review_ref` NULL = BROUILLON. Graine : version 1 BROUILLON de `TOS_GUEST`, `PRIVACY` et `MARKETING` en es, en, fr et pt.
+- `core.contract_consent` (classe A, ajout seul, `consent_guard`) : version exacte (`template_id`), langue, `accepted_at` = `platform.now()`, contexte ; `ip_enc` / `user_agent_enc` [C2] chiffrés par la clé du sujet ou retenus (`c2_withheld`) ; CGU et confidentialité jamais retirées par une ligne.
+- **Aucune inscription sans consentement** : déclencheur de contrainte DIFFÉRÉ `ctr_signup_consents_required` sur `core.iam_user_account` (fonction `core.ctr_signup_consents_guard`, `iam_auth_owner`) ; exemptées : les écritures de `migrator` (migrations, fonctions de fixtures) ou d'un superutilisateur, jugées par `WHEN (NOT core.ctr_writer_exempt())` à l'insertion. Un test qui crée un compte en autocommit appelle `core.iam_cmd_register_with_consents` (versions NULL = en vigueur).
+- Aucun droit de table pour les rôles applicatifs ; commandes `iam_auth_owner` (inscription, état, réacceptation, communications, historique, lecture publique) et `iam_staff_owner` (publication, permission `legal.publish`, journalisée) ; liste blanche RLS-15 mise à jour.
+
+Preuves : `test/l0/l0-ctr-consents.test.ts` (rôle app_api, horloge virtuelle, publication dans une transaction annulée, documents propres à chaque pays).
 
 ## Matrice d'autorisations et gardes d'environnement (US-043 ; 17 §2.3, §6.5, §6.6 ; ADR-077)
 

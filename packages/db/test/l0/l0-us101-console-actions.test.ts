@@ -1,5 +1,5 @@
 /**
- * Preuves du cadre des actions de console `manual_action` (US-101, migration 0059 ; fixtures 9960)
+ * Preuves du cadre des actions de console `manual_action` (US-101, migration 0060 ; fixtures 9960)
  * sous le rôle de production app_api (assertion L0-05 en tête de chaque test par withRole), avec
  * des membres du staff enrôlés et élevés par les VRAIES commandes (support/staff.ts), en USD (PA)
  * et en PYG (PY). Chaque test crée ses propres membres du staff, pièces et avances.
@@ -13,7 +13,7 @@
  * - critère 2 : une action d'enregistrement seul exige un motif ET des pièces, et est journalisée ;
  * - critère 3 : une action FINANCE n'est qu'une demande (`cmd_request_finance_action`) tant
  *   qu'une seconde personne distincte ne l'a pas validée (`cmd_approve_finance_action`, RLS-24).
- * Reprise après les revues de la PR #99 (ADR-091) : catalogue comparé à un tableau tiré de 17 §2.3
+ * Reprise après les revues de la PR #99 (ADR-092) : catalogue comparé à un tableau tiré de 17 §2.3
  * et §10 ; garde des liaisons jouée contrôle par contrôle, réappliquée à toutes les liaisons et
  * à chaque appel ; types de sujet déclarés ; énumération fermée de `decision` ; FINANCE garantie
  * par `requires_approval` ; rejeu concurrent d'un même request_id sur deux connexions.
@@ -65,7 +65,7 @@ const ACT =
 
 /**
  * Action de console : un appel = une instruction dans une transaction courte VALIDÉE, sous le
- * contexte STAFF que pose l'API (ADR-062, ADR-091) ; `context: false` = aucun contexte posé.
+ * contexte STAFF que pose l'API (ADR-062, ADR-092) ; `context: false` = aucun contexte posé.
  */
 async function act(
   client: pg.ClientBase,
@@ -174,7 +174,7 @@ interface Expected {
 /**
  * Matrice attendue, tirée de la SPÉCIFICATION et non du catalogue en base : permissions de 17 §2.3
  * (lignes de la matrice) ; actions, modes et sujets de 17 §10 et §3.2.13 ; FINANCE à deux
- * personnes de 17 §2.3 (RLS-24). Là où 17 ne nomme pas l'action, la valeur est celle d'ADR-091
+ * personnes de 17 §2.3 (RLS-24). Là où 17 ne nomme pas l'action, la valeur est celle d'ADR-092
  * §1 (PROPOSÉ), citée comme telle.
  */
 const MATRIX: Readonly<Record<string, Expected>> = {
@@ -185,7 +185,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: [],
     values: {},
     approval: false,
-    source: 'ADR-091 §1 (PROPOSÉ ; 17 §10 NN3 « l’ops déclenche »)',
+    source: 'ADR-092 §1 (PROPOSÉ ; 17 §10 NN3 « l’ops déclenche »)',
   },
   CANCEL_TRIP_HOST: {
     permission: 'ops.platform_cancel',
@@ -194,7 +194,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: [],
     values: {},
     approval: false,
-    source: 'ADR-091 §1 (PROPOSÉ)',
+    source: 'ADR-092 §1 (PROPOSÉ)',
   },
   CANCEL_TRIP_PLATFORM: {
     permission: 'ops.platform_cancel',
@@ -257,7 +257,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: [],
     values: {},
     approval: false,
-    source: 'ADR-091 §1 (PROPOSÉ ; 17 §2.3 « ops.force_terminate_trip »)',
+    source: 'ADR-092 §1 (PROPOSÉ ; 17 §2.3 « ops.force_terminate_trip »)',
   },
   REVIEW_FLAGGED_BOOKING: {
     permission: 'kyc.decide',
@@ -266,7 +266,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: ['decision'],
     values: DECISION,
     approval: false,
-    source: 'ADR-091 §1 (PROPOSÉ)',
+    source: 'ADR-092 §1 (PROPOSÉ)',
   },
   RECORD_CLAIM: {
     permission: 'claim.declare',
@@ -293,7 +293,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: [],
     values: {},
     approval: false,
-    source: 'ADR-091 §1 (PROPOSÉ)',
+    source: 'ADR-092 §1 (PROPOSÉ)',
   },
   OPEN_INCIDENT: {
     permission: 'claim.declare',
@@ -311,7 +311,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: [],
     values: {},
     approval: false,
-    source: 'ADR-091 §1 (PROPOSÉ)',
+    source: 'ADR-092 §1 (PROPOSÉ)',
   },
   HANDLE_DSR: {
     permission: 'data.export',
@@ -320,7 +320,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     keys: [],
     values: {},
     approval: false,
-    source: '17 §2.3 « data.export » (ADMIN, journalisé) ; ADR-091 §1',
+    source: '17 §2.3 « data.export » (ADMIN, journalisé) ; ADR-092 §1',
   },
   ISSUE_BORDEREAU: {
     permission: 'finance.insurer_bordereau',

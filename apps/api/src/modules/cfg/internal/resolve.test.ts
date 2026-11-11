@@ -148,6 +148,9 @@ describe('interrupteurs : absent ou inconnu = false (17 §0.1)', () => {
     value: true,
     validFrom: new Date('2026-01-01T00:00:00Z'),
     validTo: null,
+    decision: 'DECIDED',
+    decisionRef: 'test',
+    source: 'test',
   });
 
   it('clé inconnue, casse différente, pays inconnu ou en minuscules ⇒ false, sans exception', () => {
@@ -199,6 +202,9 @@ describe('versions datées (17 §7.1 point 6)', () => {
     value: 10,
     validFrom: new Date('2026-01-01T00:00:00Z'),
     validTo: new Date('2026-12-01T00:00:00Z'),
+    decision: 'PROPOSED',
+    decisionRef: 'test',
+    source: 'test',
   };
   const next: ParamValue = {
     ...base,

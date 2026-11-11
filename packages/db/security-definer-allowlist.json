@@ -290,13 +290,6 @@
       "story": "US-012"
     },
     {
-      "signature": "core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb,uuid[])",
-      "family": "iam_staff",
-      "owner": "iam_staff_owner",
-      "execute": ["app_api"],
-      "story": "US-101"
-    },
-    {
       "signature": "core.iam_staff_cmd_mfa_attempt(bytea)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
@@ -463,6 +456,76 @@
       "owner": "guard_owner",
       "execute": ["app_api", "app_worker", "cmd_hold_owner", "cmd_money_owner"],
       "story": "US-003"
+    },
+    {
+      "signature": "core.iam_cmd_register_with_consents(uuid,text,text,text,text,text,uuid,bytea,integer,inet,text,jsonb,boolean)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_consent_status(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_cmd_accept_documents(bytea,jsonb)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_cmd_set_marketing(bytea,boolean)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_consent_history(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_published_documents(text,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_document_body(text,text,text,integer)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_signup_consents_guard()",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": [],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.ctr_staff_cmd_publish_document(bytea,uuid,text,text,boolean,timestamp with time zone,text,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-102"
+    },
+    {
+      "signature": "core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb,uuid[])",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-101"
     },
     {
       "signature": "core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)",

@@ -1,11 +1,11 @@
--- 0059 — SUP : cadre des actions de console (commande de domaine liée, aucun montant, pièces, FINANCE à deux personnes).
+-- 0060 — SUP : cadre des actions de console (commande de domaine liée, aucun montant, pièces, FINANCE à deux personnes).
 -- Catalogue minimal complet, règles de saisie, pièces des actions d'enregistrement seul, liaison
 -- des commandes de domaine, et décisions FINANCE à deux personnes lancées depuis la console.
 -- US-101 ; 19 US-101 ; 17 §1.8 D7, §2.3 (matrice, commandes FINANCE à deux personnes, RLS-24),
 -- §3.2.13 (`manual_action`), §10 NN9 et « catalogue minimal des actions de console » ; C-v3-05 ;
--- ADR-062 (console), ADR-091 (ce cadre). Appliquée sous `migrator`.
+-- ADR-062 (console), ADR-092 (ce cadre). Appliquée sous `migrator`.
 --
--- Principes (ADR-091) :
+-- Principes (ADR-092) :
 --   - UNE commande de console, `core.iam_staff_cmd_manual_action(…, p_evidence uuid[])`
 --     (SECURITY DEFINER, iam_staff_owner, EXECUTE au seul app_api), dans cet ordre : session
 --     (preuve de possession), données, niveau TOTP, pays du sujet relu en base, permission et
@@ -33,7 +33,7 @@
 --   - les actions dont la commande de domaine n'existe pas encore restent indisponibles
 --     (UNAVAILABLE, journalisé) : aucun changement d'état n'est imité (17 §10 NN9).
 --
--- Défauts PROPOSÉS (fail-closed, ADR-091) : permission et type de sujet de chaque action
+-- Défauts PROPOSÉS (fail-closed, ADR-092) : permission et type de sujet de chaque action
 -- nouvelle ; une pièce au moins pour toute action d'enregistrement seul ; 20 pièces au plus ;
 -- clés de saisie : `decision` ∈ {APPROVED, REJECTED} pour les décisions, aucune ailleurs.
 --
@@ -204,7 +204,7 @@ GRANT SELECT ON core.support_manual_action_subject TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.support_manual_action_subject FOR SELECT TO iam_staff_owner
   USING (true);
 COMMENT ON TABLE core.support_manual_action_subject IS
-  'Types de sujet des actions de console et résolveur du pays (ADR-091) : une ligne par type, '
+  'Types de sujet des actions de console et résolveur du pays (ADR-092) : une ligne par type, '
   'ajoutée par la story qui crée la table du type ; signature vérifiée à la déclaration. US-101.';
 
 -- Contrôle d'un résolveur : NULL si conforme, sinon le contrôle en échec.
@@ -322,7 +322,7 @@ GRANT SELECT ON core.support_manual_action_handler TO iam_staff_owner;
 CREATE POLICY iam_staff_select ON core.support_manual_action_handler FOR SELECT TO iam_staff_owner
   USING (true);
 COMMENT ON TABLE core.support_manual_action_handler IS
-  'Commande de domaine liée à une action de console DOMAIN_COMMAND (ADR-091) : ajoutée par la '
+  'Commande de domaine liée à une action de console DOMAIN_COMMAND (ADR-092) : ajoutée par la '
   'migration de la story qui livre la commande ; contrôlée à la liaison ET à chaque appel. US-101.';
 
 -- Contrôle d'une liaison : NULL si conforme, sinon le contrôle en échec. Appelé par le
@@ -708,9 +708,9 @@ $fn$;
 COMMENT ON FUNCTION core.iam_staff_cmd_manual_action(bytea, uuid, text, uuid, text, jsonb, uuid[]) IS
   'Action de console (17 §3.2.13, §10) : TOTP, permission, portée pays, aucun montant saisi, pièces '
   'des actions d''enregistrement seul, commande de domaine liée dans la même transaction ; refus '
-  'journalisés. US-101 (ADR-091).';
+  'journalisés. US-101 (ADR-092).';
 COMMENT ON FUNCTION core.iam_staff_cmd_manual_action(bytea, uuid, text, uuid, text, jsonb) IS
-  'Forme d''US-012 sans pièces : délègue au cadre d''US-101 (ADR-091).';
+  'Forme d''US-012 sans pièces : délègue au cadre d''US-101 (ADR-092).';
 
 REVOKE ALL ON FUNCTION core.iam_staff_cmd_manual_action(bytea, uuid, text, uuid, text, jsonb, uuid[])
   FROM PUBLIC;

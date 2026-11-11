@@ -3,11 +3,14 @@
  * - `PARAM_MISSING`, `PARAM_RETROACTIVE`, `FORBIDDEN` : 16 ADM-014 ;
  * - `CONFIG_INVALID`, `PARAM_UNKNOWN`, `PARAM_NOT_APPLICABLE`, `PARAM_IMMUTABLE`, `COUNTRY_UNKNOWN`,
  *   `TZDATA_MISMATCH` :
- *   PROPOSÉS par US-013, à reporter au catalogue 16 A.8.
+ *   PROPOSÉS par US-013, à reporter au catalogue 16 A.8 ;
+ * - `PARAM_UNDECIDED` : PROPOSÉ par US-110 (production refusée tant qu'une valeur en vigueur est
+ *   « À DÉCIDER »), à reporter au catalogue 16 A.8.
  */
 export type ConfigErrorCode =
   | 'CONFIG_INVALID'
   | 'PARAM_MISSING'
+  | 'PARAM_UNDECIDED'
   | 'PARAM_RETROACTIVE'
   | 'PARAM_UNKNOWN'
   | 'PARAM_NOT_APPLICABLE'

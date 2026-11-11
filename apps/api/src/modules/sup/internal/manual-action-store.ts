@@ -1,9 +1,9 @@
 /**
  * Port et adaptateur PostgreSQL des actions de console (`manual_action`, 17 §3.2.13, §10 ; US-012,
- * US-101). Un appel de `core.iam_staff_cmd_manual_action` (forme à pièces de la migration 0059 ;
+ * US-101). Un appel de `core.iam_staff_cmd_manual_action` (forme à pièces de la migration 0060 ;
  * SECURITY DEFINER, EXECUTE au seul app_api) en UNE instruction, en autocommit : la CTE pose le
  * contexte STAFF (lu par les commandes FINANCE liées), puis la ligne qu'elle produit déclenche la
- * commande (ADR-056 point 4, ADR-063, ADR-091). La commande relit la session (preuve de
+ * commande (ADR-056 point 4, ADR-063, ADR-092). La commande relit la session (preuve de
  * possession), la MFA, les rôles, la matrice et le pays du sujet, applique les règles de saisie
  * (aucun montant) et de pièces, appelle la commande de domaine liée dans la même transaction, et
  * écrit l'audit en dernier. Erreurs de la base : seul le SQLSTATE est gardé.

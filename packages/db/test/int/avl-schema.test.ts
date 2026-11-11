@@ -46,7 +46,7 @@ const CONFIG_TABLES = [
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
 // Actions de console (US-012, 0034) : catalogue et manual_action, écrits par iam_staff_owner seulement
-// (preuves : test/l0/l0-staff-console.test.ts) ; liaison des commandes de domaine (US-101, 0059 ;
+// (preuves : test/l0/l0-staff-console.test.ts) ; liaison des commandes de domaine (US-101, 0060 ;
 // preuves : test/l0/l0-us101-console-actions.test.ts).
 const SUPPORT_TABLES = [
   'support_support_case',
@@ -107,6 +107,7 @@ describe('schéma core (US-006)', () => {
             AND c.relname !~ '^settlement_'   -- tables STL : test/int/stl-schema.test.ts (US-018)
             AND c.relname !~ '^ntf_'          -- tables NTF : test/l0/l0-ntf-dispatch.test.ts (US-021)
             AND c.relname !~ '^risk_'         -- tables RISK : test/l0/l0-risk-rate-limit.test.ts (US-052)
+            AND c.relname !~ '^contract_'     -- tables CTR : test/l0/l0-ctr-consents.test.ts (US-102)
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual(
@@ -323,6 +324,8 @@ describe('schéma core (US-006)', () => {
       );
       expect(rows).toEqual(
         [
+          // US-102 (0059) : aucun compte sans consentement CGU et confidentialité
+          'ctr_signup_consents_required',
           'disposition_matches_hold',
           'hold_conversion_matches_disposition',
           'occupancy_trip_guard',

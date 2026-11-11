@@ -16,7 +16,7 @@ SUP ne décide pas les règles des autres modules : une action de console appell
 État réel du code :
 
 - **US-012** : route `POST /console/actions` (`internal/console.controller.ts`, `SupConsoleModule`). L'acteur vient de la session élevée, jamais du corps.
-- **US-101** (ADR-091) : cadre des actions de console.
+- **US-101** (ADR-092) : cadre des actions de console.
   - `POST /console/actions` admet `evidence` (UUID des pièces) et `input` (chaînes seulement, jamais un montant). Réponses : 201 `STAFF_ACTION_RECORDED`, `STAFF_ACTION_DONE` ou `STAFF_ACTION_REQUESTED` (avec `approvalId`) ; 200 si déjà reçue (même `requestId`) ; 403 `FORBIDDEN` ou `2FA_REQUIRED` ; 409 `STAFF_ACTION_UNAVAILABLE` (commande de domaine pas encore livrée) ou `STAFF_ACTION_REFUSED` (refus du domaine, `values.reason`) ; 400.
   - `GET /console/finance/approvals` : demandes FINANCE en attente (FINANCE et ADMIN du pays, RLS `fin_read`).
   - `POST /console/finance/approvals/{id}/approve` : approbation par une seconde personne distincte ; 200 `STAFF_ACTION_DONE`, 409 `STAFF_SELF_APPROVAL` ou `STAFF_ACTION_REFUSED`.
@@ -37,9 +37,9 @@ Bêta (17 §10 point 3) : schéma unique `core`, tables préfixées `support_`.
 | `review_queue_item`  | cible 17, pas encore créée                                                           |
 | `commercial_gesture` | cible 17, pas encore créée                                                           |
 
-Tables présentes en base mais absentes de 17 : `core.support_manual_action_catalog` (migration 0034, complété par 0059), catalogue fermé des codes d'action ; `core.support_manual_action_handler` (migration 0059), liaison d'une action à sa commande de domaine.
+Tables présentes en base mais absentes de 17 : `core.support_manual_action_catalog` (migration 0034, complété par 0060), catalogue fermé des codes d'action ; `core.support_manual_action_handler` (migration 0060), liaison d'une action à sa commande de domaine.
 
-Écritures : `core.support_manual_action` n'est écrite que par la commande `core.iam_staff_cmd_manual_action` (migrations 0034 et 0059, `SECURITY DEFINER`, propriétaire `iam_staff_owner`, `EXECUTE` au seul `app_api`). Le catalogue et les liaisons ne sont écrits que par migration. Voir [`packages/db/README.md`](../../../../../packages/db/README.md), sections « RLS par acteur et par pays » et « MFA du staff et console interne ».
+Écritures : `core.support_manual_action` n'est écrite que par la commande `core.iam_staff_cmd_manual_action` (migrations 0034 et 0060, `SECURITY DEFINER`, propriétaire `iam_staff_owner`, `EXECUTE` au seul `app_api`). Le catalogue et les liaisons ne sont écrits que par migration. Voir [`packages/db/README.md`](../../../../../packages/db/README.md), sections « RLS par acteur et par pays » et « MFA du staff et console interne ».
 
 ## Événements
 

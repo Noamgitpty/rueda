@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     include: [
       'device/**/*.test.ts',
+      'account/**/*.test.ts',
       'app/**/*.test.{ts,tsx}',
       'pwa/**/*.test.{ts,tsx}',
       '*.test.ts',

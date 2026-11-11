@@ -1,7 +1,7 @@
 /**
  * test:int — adaptateurs PostgreSQL de la console (US-101) sur la base jetable du banc de
  * @rueda/db, sous app_api (assertion L0-05 par connectAs) : `PgManualActionStore` et
- * `PgFinanceApprovalStore`, avec les VRAIES commandes (0036, 0059) et la forme d'appel de
+ * `PgFinanceApprovalStore`, avec les VRAIES commandes (0036, 0060) et la forme d'appel de
  * production (une instruction, contexte STAFF posé par la CTE ; lecture en transaction courte).
  * Sessions élevées ouvertes par la fixture 9650, bordereaux posés par la fixture 9700.
  * Pour chaque pays déclaré (USD et PYG) :

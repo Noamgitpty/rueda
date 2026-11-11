@@ -12,7 +12,7 @@ API publique (`index.ts`) :
 | `IamAuthModule.register(options)`           | routes `/auth` ; monté par l'API seulement (`api.module.ts`), jamais par le travailleur                |
 | `postgresIamAdapters(pool)`                 | adaptateurs de production ; refuse une connexion qui n'est pas `app_api`                               |
 
-Routes : `POST /auth/signup` (202, réponse identique si l'email existe), `POST /auth/login` (cookie), `GET /auth/session`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/verify-email`. Corps de réponse `{ code, messageKey, values? }` : la clé est dans `@rueda/i18n` (es, en, fr, espace `common.auth.*`).
+Routes : `POST /auth/signup` (202, réponse identique si l'email existe ; US-102 : `acceptedDocuments` = versions affichées des CGU et de la confidentialité, `marketingOptIn` non pré-coché, `country` du parcours ; 409 `TERMS_VERSION_CHANGED`, 503 `LEGAL_DOCUMENT_UNAVAILABLE`, contrôlés avant l'email), `POST /auth/login` (cookie), `GET /auth/session`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/verify-email`. Corps de réponse `{ code, messageKey, values? }` : la clé est dans `@rueda/i18n` (es, en, fr, espace `common.auth.*`).
 
 `IamAuthModule` est **global** : un module consommateur pose `@UseGuards(SessionGuard)` sans réimporter IAM. Le principal porte `emailVerified`, à exiger avant une action sensible (réserver, publier). `SessionGuard` exige aussi du JSON sur toute écriture gardée (CSRF).
 
@@ -26,6 +26,12 @@ Arborescence :
 Tests : `pnpm --filter @rueda/api test:unit` (FAKE, sans base) ; `pnpm --filter @rueda/api test:int` (PostgreSQL réel sous `app_api`, banc de `@rueda/db` ; la CI fait foi). Schéma : `packages/db/migrations/0010_iam_identity.sql`, `0011_iam_auth_commands.sql`.
 
 Paramètres PROPOSÉS (à inscrire au registre 17 §7.2) : durée de session 14 j (8 h staff, borne de la base) ; lien de vérification 24 h ; mot de passe ≥ 10 caractères, ≤ 1 024 octets ; 10 échecs par email, 100 par IP sur 15 min ; 20 inscriptions par IP et par heure.
+
+## Consentements à l'inscription (US-102, ADR-091)
+
+`PgAuthStore.registerAccount` appelle `core.iam_cmd_register_with_consents` : compte `PENDING_EMAIL` et consentements CGU + confidentialité (+ communications si l'opt-in est coché) dans la même instruction. La base refuse tout compte sans ces consentements (déclencheur différé `ctr_signup_consents_required`). Les versions affichées sont contrôlées avant l'écriture du compte : même issue que l'email soit libre ou pris. Lecture de l'état, réacceptation et révocation : module CTR (routes `/legal`, `TermsGuard`).
+
+E-mails d'identité : `ChannelIdentityNotifier` (port `MessagingChannel` de NTF, textes `common.auth.emailVerification.*` / `common.auth.accountExists.*`, lien `<site>/verify-email?token=`) ; envoyé pendant la requête. Production : `PendingIdentityNotifier` tant qu'aucun adaptateur e-mail réel n'existe (lot C).
 
 ## Console interne : MFA du staff (US-012, ADR-062)
 
@@ -56,7 +62,7 @@ Fichiers (`internal/staff/`) :
 - `staff-store.ts` (commandes `core.iam_staff_*`, une instruction par appel) ;
 - `staff.service.ts`, `staff.guard.ts`, `staff.controller.ts`, `production.ts`.
 
-FAKE : `testing/fake-totp-vault.ts`. Codes : `FORBIDDEN`, `2FA_REQUIRED` (16 ADM-001) ; PROPOSÉS : `AUTH_TOTP_INVALID`, `AUTH_TOTP_LOCKED`, `STAFF_MFA_UNAVAILABLE`, `STAFF_ACTION_UNAVAILABLE`, `STAFF_ACTION_RECORDED`, `STAFF_ACTION_DONE` ; cadre des actions de console (US-101, ADR-091) : `STAFF_ACTION_REQUESTED`, `STAFF_ACTION_REFUSED`, `STAFF_SELF_APPROVAL`.
+FAKE : `testing/fake-totp-vault.ts`. Codes : `FORBIDDEN`, `2FA_REQUIRED` (16 ADM-001) ; PROPOSÉS : `AUTH_TOTP_INVALID`, `AUTH_TOTP_LOCKED`, `STAFF_MFA_UNAVAILABLE`, `STAFF_ACTION_UNAVAILABLE`, `STAFF_ACTION_RECORDED`, `STAFF_ACTION_DONE` ; cadre des actions de console (US-101, ADR-092) : `STAFF_ACTION_REQUESTED`, `STAFF_ACTION_REFUSED`, `STAFF_SELF_APPROVAL`.
 
 Paramètres PROPOSÉS :
 

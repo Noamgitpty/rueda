@@ -4,7 +4,7 @@
     "title": "rueda API",
     "version": "0.2.0",
     "summary": "Contrat HTTP de l'API (US-041, complété par US-038). Écrit à la main et VÉRIFIÉ contre le code (ADR-079) : routes montées par Nest, codes d'erreur des catalogues, couverture de chaque statut par un test de contrat, référence docs/architecture/api.md régénérée.",
-    "description": "Toutes les routes des contrôleurs Nest : marque publique (US-034), authentification (US-010), console interne IAM (US-012), actions et marque de la console (US-012, US-034), tableau de sécurité (US-052), webhooks PSP (US-020). Codes d'erreur stables : 16 A.8 (const / enum par réponse). Réponses transverses (garde anti-abus, corps trop gros, erreur interne) : x-rueda-transverse-responses."
+    "description": "Toutes les routes des contrôleurs Nest : marque publique (US-034), authentification (US-010), console interne IAM (US-012), actions et marque de la console (US-012, US-034), tableau de sécurité (US-052), webhooks PSP (US-020), documents juridiques et consentements (US-102). Codes d'erreur stables : 16 A.8 (const / enum par réponse). Réponses transverses (garde anti-abus, corps trop gros, erreur interne) : x-rueda-transverse-responses."
   },
   "x-rueda-transverse-responses": {
     "403": {
@@ -366,7 +366,8 @@
                         "AUTH_EMAIL_INVALID",
                         "AUTH_PASSWORD_WEAK",
                         "AUTH_TERMS_NOT_ACCEPTED",
-                        "REQUEST_INVALID"
+                        "REQUEST_INVALID",
+                        "COUNTRY_UNKNOWN"
                       ]
                     }
                   }
@@ -379,6 +380,36 @@
           },
           "429": {
             "$ref": "#/components/responses/RateLimited"
+          },
+          "409": {
+            "description": "Version affichée des CGU ou de la confidentialité absente ou périmée (US-102) : recharger le formulaire",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TERMS_VERSION_CHANGED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun document juridique en vigueur (fail-closed, US-102) : aucun compte créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2057,6 +2088,396 @@
           }
         }
       }
+    },
+    "/legal/documents": {
+      "get": {
+        "operationId": "listLegalDocuments",
+        "tags": ["ctr"],
+        "summary": "Documents juridiques en vigueur (CGU du voyageur, confidentialité, communications) et leur version (US-102)",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versions en vigueur (brouillon signalé par `draft`)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalDocumentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre invalide, ou pays inconnu de la configuration (COUNTRY_UNKNOWN)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CGU ou confidentialité absentes (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legal/documents/{kind}": {
+      "get": {
+        "operationId": "getLegalDocument",
+        "tags": ["ctr"],
+        "summary": "Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,5}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Texte du document",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre invalide, ou pays inconnu de la configuration (COUNTRY_UNKNOWN)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Genre ou version inconnus, ou version future",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legal/consents": {
+      "get": {
+        "operationId": "getConsents",
+        "tags": ["ctr"],
+        "summary": "État des consentements de la session (réacceptation exigée après une version majeure) et historique",
+        "responses": {
+          "200": {
+            "description": "TERMS_CURRENT ou TERMS_REACCEPT_REQUIRED",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          }
+        }
+      }
+    },
+    "/legal/consents/accept": {
+      "post": {
+        "operationId": "acceptConsents",
+        "tags": ["ctr"],
+        "summary": "Accepter les versions en vigueur des CGU et de la confidentialité (REACCEPT)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentAcceptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consentements enregistrés ; état à jour",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentAcceptResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre ou corps invalide",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "409": {
+            "description": "Version affichée périmée, ou document à réaccepter absent de la demande",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TERMS_VERSION_CHANGED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Aucun document en vigueur (fail-closed) : rien n’est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/legal/consents/marketing": {
+      "post": {
+        "operationId": "setMarketingConsent",
+        "tags": ["ctr"],
+        "summary": "Communications commerciales : accord ou révocation (historique conservé)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarketingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Préférence enregistrée (inchangée : aucune ligne)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketingRecorded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre ou corps invalide",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Aucun document en vigueur (fail-closed) : rien n’est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2553,7 +2974,8 @@
           "legalFirstName",
           "legalLastName",
           "locale",
-          "termsAccepted"
+          "termsAccepted",
+          "acceptedDocuments"
         ],
         "properties": {
           "email": {
@@ -2573,6 +2995,22 @@
           },
           "termsAccepted": {
             "type": "boolean"
+          },
+          "acceptedDocuments": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "description": "Versions AFFICHÉES et acceptées des CGU et de la confidentialité (US-102), OBLIGATOIRES : absentes, incomplètes ou périmées, 409 TERMS_VERSION_CHANGED.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentVersion"
+            }
+          },
+          "marketingOptIn": {
+            "type": "boolean",
+            "description": "Communications commerciales, non pré-coché (absent : false)."
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
           }
         }
       },
@@ -3423,6 +3861,281 @@
           },
           "messageKey": {
             "const": "common.auth.requestInvalid"
+          }
+        }
+      },
+      "DocumentVersion": {
+        "type": "object",
+        "required": ["kind", "version"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["TOS_GUEST", "PRIVACY"]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "LegalDocumentKind": {
+        "type": "string",
+        "enum": ["TOS_GUEST", "PRIVACY", "MARKETING"]
+      },
+      "LegalDocumentSummary": {
+        "type": "object",
+        "required": [
+          "kind",
+          "version",
+          "isMajor",
+          "locale",
+          "title",
+          "contentHash",
+          "draft",
+          "validFrom"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LegalDocumentKind"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "isMajor": {
+            "type": "boolean"
+          },
+          "locale": {
+            "$ref": "#/components/schemas/ContentLocale"
+          },
+          "title": {
+            "type": "string"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Version non validée par le juridique (OQ-BR-24) : « BROUILLON »"
+          },
+          "validFrom": {
+            "$ref": "#/components/schemas/DateTime"
+          }
+        }
+      },
+      "LegalDocumentList": {
+        "type": "object",
+        "required": ["documents"],
+        "additionalProperties": false,
+        "properties": {
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegalDocumentSummary"
+            }
+          }
+        }
+      },
+      "LegalDocument": {
+        "type": "object",
+        "required": [
+          "kind",
+          "version",
+          "isMajor",
+          "locale",
+          "title",
+          "contentHash",
+          "draft",
+          "validFrom",
+          "bodyMd"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LegalDocumentKind"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "isMajor": {
+            "type": "boolean"
+          },
+          "locale": {
+            "$ref": "#/components/schemas/ContentLocale"
+          },
+          "title": {
+            "type": "string"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Version non validée par le juridique (OQ-BR-24) : « BROUILLON »"
+          },
+          "validFrom": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "bodyMd": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsentStatus": {
+        "type": "object",
+        "required": [
+          "kind",
+          "required",
+          "currentVersion",
+          "requiredVersion",
+          "acceptedVersion",
+          "accepted",
+          "reacceptRequired"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/LegalDocumentKind"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "currentVersion": {
+            "type": ["integer", "null"]
+          },
+          "requiredVersion": {
+            "type": ["integer", "null"]
+          },
+          "acceptedVersion": {
+            "type": ["integer", "null"]
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "reacceptRequired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsentHistoryEntry": {
+        "type": "object",
+        "required": ["kind", "version", "locale", "accepted", "acceptedAt", "context"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "locale": {
+            "$ref": "#/components/schemas/ContentLocale"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "acceptedAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "context": {
+            "type": "string",
+            "enum": ["SIGNUP", "REACCEPT", "SETTINGS", "CHECKOUT", "CONTRACT", "KYC"]
+          }
+        }
+      },
+      "ConsentAcceptResult": {
+        "type": "object",
+        "required": ["code", "messageKey", "documents", "marketingOptIn"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": ["TERMS_CURRENT", "TERMS_REACCEPT_REQUIRED"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentStatus"
+            }
+          },
+          "marketingOptIn": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsentOverview": {
+        "type": "object",
+        "required": ["code", "messageKey", "documents", "marketingOptIn", "history"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": ["TERMS_CURRENT", "TERMS_REACCEPT_REQUIRED"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentStatus"
+            }
+          },
+          "marketingOptIn": {
+            "type": "boolean"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsentHistoryEntry"
+            }
+          }
+        }
+      },
+      "ConsentAcceptRequest": {
+        "type": "object",
+        "required": ["documents"],
+        "properties": {
+          "documents": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/DocumentVersion"
+            }
+          }
+        }
+      },
+      "MarketingRequest": {
+        "type": "object",
+        "required": ["optIn"],
+        "properties": {
+          "optIn": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MarketingRecorded": {
+        "type": "object",
+        "required": ["code", "messageKey", "marketingOptIn"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "CONSENT_RECORDED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "marketingOptIn": {
+            "type": "boolean"
           }
         }
       },

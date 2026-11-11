@@ -8,14 +8,18 @@ import type { Translator } from '@rueda/i18n';
 import { cookies, headers } from 'next/headers';
 import { LOCALE_CONFIG } from './locale-config.ts';
 
-export async function getRequestI18n(): Promise<Translator> {
+/** Étiquette de la locale de la requête (`es-PA`, `en`…), même règle que `getRequestI18n`. */
+export async function getRequestLocaleTag(): Promise<string> {
   const [cookieStore, headerList] = await Promise.all([cookies(), headers()]);
-  const tag = negotiateLocale(
+  return negotiateLocale(
     {
       stored: cookieStore.get(LOCALE_COOKIE)?.value,
       acceptLanguage: headerList.get('accept-language'),
     },
     LOCALE_CONFIG,
   );
-  return createTranslator(getProfile(LOCALE_CONFIG, tag));
+}
+
+export async function getRequestI18n(): Promise<Translator> {
+  return createTranslator(getProfile(LOCALE_CONFIG, await getRequestLocaleTag()));
 }

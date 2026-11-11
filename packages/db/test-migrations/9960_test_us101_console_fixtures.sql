@@ -1,4 +1,4 @@
--- 9960 — fixtures des preuves du cadre des actions de console (US-101, migration 0059). TESTS
+-- 9960 — fixtures des preuves du cadre des actions de console (US-101, migration 0060). TESTS
 -- SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
@@ -199,7 +199,7 @@ AS $fn$
     FROM core.support_manual_action AS m WHERE m.id = p_id
 $fn$;
 
--- Catalogue, avec la commande liée (le test compare à 17 §2.3 et §10, et à ADR-091).
+-- Catalogue, avec la commande liée (le test compare à 17 §2.3 et §10, et à ADR-092).
 CREATE FUNCTION test_fixture.us101_catalog()
   RETURNS TABLE (action_code text, permission_code text, mode text, subject_type text,
                  available boolean, input_keys text[], input_values jsonb, requires_approval boolean,

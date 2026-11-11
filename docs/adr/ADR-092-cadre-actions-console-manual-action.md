@@ -1,4 +1,4 @@
-# ADR-091 — Cadre des actions de console (`manual_action`) : commande de domaine liée, aucun montant saisi, pièces, FINANCE à deux personnes
+# ADR-092 — Cadre des actions de console (`manual_action`) : commande de domaine liée, aucun montant saisi, pièces, FINANCE à deux personnes
 
 - **Statut** : PROPOSÉ (US-101, agent back-end, claude-opus-5-5, 2026-11-11 ; complété le même jour après les cinq revues de la PR #99 : MAJEUR de sécurité n° 1, d'argent n° 3, d'architecture n° 2, de QA n° 4 et n° 5). Revues exigées : code, **sécurité** (RLS, rôles, `SECURITY DEFINER`, SQL dynamique) et architecture (`packages/db/`), sur un autre modèle que l'auteur.
 - **Sources** : 19 US-101 (critères d'acceptation) ; 17 §1.8 D7, §2.3 (matrice des permissions, commandes FINANCE à deux personnes, RLS-24), §3.2.13 (`manual_action`), §10 NN9 et « catalogue minimal des actions de console », NN3 (« l'ops ne saisit jamais le montant ») ; C-v3-05 ; ADR-062 (console, MFA du staff) ; ADR-056 point 4 et ADR-063 point 7 (un appel = une instruction) ; migrations 0034 (US-012) et 0036 (US-062).
@@ -13,7 +13,7 @@ Au lot 1, aucune commande de domaine d'état n'existe encore : les annulations v
 
 ## Décision
 
-1. **Catalogue minimal de 17 §10** (migration 0059). Il compte 19 actions :
+1. **Catalogue minimal de 17 §10** (migration 0060). Il compte 19 actions :
    - 10 actions d'état, en `DOMAIN_COMMAND` ;
    - 6 actions d'enregistrement seul, en `RECORD_ONLY` ;
    - 3 actions FINANCE, en `DOMAIN_COMMAND`.
