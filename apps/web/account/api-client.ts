@@ -65,7 +65,7 @@ export function sessionFromSetCookie(
 type Fetcher = (input: string, init: RequestInit) => Promise<Response>;
 
 export async function callApi(
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   ctx: ClientContext,
   body?: unknown,

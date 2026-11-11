@@ -98,9 +98,245 @@ const statusOf = (email) => {
   };
 };
 
+// ---- Espace de l'hôte et fiche publique (US-115) --------------------------------------------
+// Session `H0st…` (43 caractères) inconnue : un compte d'hôte neuf lui est créé (un par parcours,
+// aucun partage d'état entre tests parallèles) ; `N0ho…` : session sans compte d'hôte. Les photos
+// répondent 503 PHOTO_UPLOAD_UNAVAILABLE comme la production (antivirus et stockage pas encore
+// branchés). Fiches publiques : `PUBLIC_ID` publiée, `DOWN_ID` en panne (503), le reste 404.
+// Données fictives ; la fiche publique ne porte que des colonnes C0 (aucune adresse exacte).
+const HOST_TOKEN = /^H0st[A-Za-z0-9_-]{39}$/;
+const NOHOST_TOKEN = /^N0ho[A-Za-z0-9_-]{39}$/;
+const PUBLIC_ID = '11500000-0000-4000-8000-00000000f001';
+const DOWN_ID = '11500000-0000-4000-8000-00000000f503';
+const hosts = new Map();
+const uuid = () => {
+  const h = randomBytes(16).toString('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+};
+const tokenOf = (req) => /__Host-session=([A-Za-z0-9_-]{43})/.exec(req.headers.cookie ?? '')?.[1];
+const hostOf = (req) => {
+  const token = tokenOf(req);
+  if (token === undefined) return undefined;
+  if (NOHOST_TOKEN.test(token)) return null;
+  if (!HOST_TOKEN.test(token)) return undefined;
+  if (!hosts.has(token)) {
+    hosts.set(token, { orgId: uuid(), locations: [], vehicles: [], listings: [] });
+  }
+  return hosts.get(token);
+};
+// devise de test ISO 4217 (XTS) : aucune vraie devise écrite ici (ADR-024)
+const MARKET = { country: 'ZZ', currency: 'XTS', currencyExponent: 2 };
+
+async function hostRoute(req, res, url) {
+  const path = url.pathname;
+  if (req.method === 'GET' && path === '/auth/session') {
+    const h = hostOf(req);
+    if (h === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    return json(res, 200, {
+      userId: uuid(),
+      mfaLevel: 'NONE',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      emailVerified: true,
+      roles: h === null ? ['GUEST'] : ['GUEST', 'P2P_HOST'],
+      hostAccounts:
+        h === null
+          ? []
+          : [
+              {
+                orgId: h.orgId,
+                country: 'ZZ',
+                role: 'P2P_HOST',
+                status: 'ONBOARDING',
+                displayName: 'Ana',
+              },
+            ],
+    });
+  }
+  const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
+  if (req.method === 'GET' && pub !== undefined) {
+    if (pub === DOWN_ID) return err(res, 503, 'LISTING_UNAVAILABLE', 'common.listing.unavailable');
+    if (pub !== PUBLIC_ID) return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    return json(res, 200, {
+      listing: {
+        id: PUBLIC_ID,
+        country: 'ZZ',
+        dailyPriceMinor: '4000',
+        currency: 'XTS',
+        currencyExponent: 2,
+        mileageMode: 'INCLUDED',
+        includedKmPerDay: 250,
+        extraKmPriceMinor: '20',
+        instantBook: true,
+        variantId: null,
+        makeName: 'Toyota',
+        modelName: 'Yaris',
+        year: 2021,
+        transmission: 'AUTOMATIC',
+        seats: 5,
+        fuelType: 'GASOLINE',
+        locationKind: 'POI',
+        city: 'Ciudad Ficticia',
+        areaLabel: 'Barrio Norte',
+        approximatePoint: { lat: 8.98, lng: -79.52 },
+        timezone: 'UTC',
+      },
+    });
+  }
+  const m =
+    /^\/host\/accounts\/([0-9a-f-]{36})\/(locations|vehicles|listings)(?:\/([0-9a-f-]{36})(?:\/(pricing|submit|photos))?)?$/.exec(
+      path,
+    );
+  if (m === null) return false;
+  const h = hostOf(req);
+  if (h === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  if (h === null || h.orgId !== m[1]) {
+    return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+  }
+  const [, , kind, id, step] = m;
+  if (req.method === 'GET') {
+    if (kind === 'locations') return json(res, 200, { locations: h.locations });
+    if (kind === 'vehicles') return json(res, 200, { vehicles: h.vehicles });
+    return json(res, 200, {
+      listings: h.listings.filter((l) => l.status !== 'DELETED'),
+      market: MARKET,
+    });
+  }
+  if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+    return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const body = (await readBody(req)) ?? {};
+  const missing = (names) =>
+    names.filter((n) => typeof body[n] !== 'string' || body[n].trim() === '');
+  if (req.method === 'POST' && kind === 'locations' && id === undefined) {
+    const fields = missing(['label', 'addressLine', 'city']);
+    if (fields.length > 0) {
+      return json(res, 400, {
+        code: 'REQUEST_INVALID',
+        messageKey: 'common.auth.requestInvalid',
+        fields: fields.map((field) => ({ field, reason: 'REQUIRED' })),
+      });
+    }
+    const loc = {
+      id: uuid(),
+      kind: body.kind,
+      label: body.label,
+      addressLine: body.addressLine,
+      city: body.city,
+      areaLabel: body.areaLabel ?? null,
+      lat: null,
+      lng: null,
+      timezone: 'UTC',
+    };
+    h.locations.push(loc);
+    return json(res, 201, {
+      code: 'LOCATION_CREATED',
+      messageKey: 'common.listing.locationCreated',
+      locationId: loc.id,
+    });
+  }
+  if (req.method === 'POST' && kind === 'vehicles' && id === undefined) {
+    const plate = String(body.plate ?? '')
+      .replace(/[ .-]/g, '')
+      .toUpperCase();
+    if (!/^[A-Z0-9]{2,12}$/.test(plate)) {
+      return json(res, 400, {
+        code: 'REQUEST_INVALID',
+        messageKey: 'common.auth.requestInvalid',
+        fields: [{ field: 'plate', reason: 'INVALID' }],
+      });
+    }
+    if ([...hosts.values()].some((x) => x.vehicles.some((v) => v.plate === plate))) {
+      return err(res, 409, 'VEHICLE_PLATE_DUPLICATE', 'common.listing.plateDuplicate');
+    }
+    const v = {
+      id: uuid(),
+      locationId: body.locationId,
+      plate,
+      vin: body.vin ?? null,
+      variantId: null,
+      makeText: body.makeText,
+      modelText: body.modelText,
+      year: body.year,
+      trim: null,
+      valueClass: null,
+      transmission: body.transmission,
+      seats: body.seats,
+      fuelType: body.fuelType,
+      odometerKm: null,
+      gpsInstalled: false,
+      lienDeclared: false,
+      eligibilityStatus: 'PENDING',
+      listingId: null,
+      listingStatus: null,
+    };
+    h.vehicles.push(v);
+    return json(res, 201, {
+      code: 'VEHICLE_CREATED',
+      messageKey: 'common.listing.vehicleCreated',
+      vehicleId: v.id,
+    });
+  }
+  if (req.method === 'POST' && kind === 'listings' && id === undefined) {
+    const v = h.vehicles.find((x) => x.id === body.vehicleId);
+    if (!v) return err(res, 404, 'VEHICLE_NOT_FOUND', 'common.listing.vehicleNotFound');
+    if (!/^[1-9][0-9]*$/.test(String(body.dailyPriceMinor))) {
+      return err(res, 422, 'PRICE_INVALID', 'common.listing.priceInvalid');
+    }
+    const l = {
+      id: uuid(),
+      vehicleId: v.id,
+      status: 'DRAFT',
+      dailyPriceMinor: body.dailyPriceMinor,
+      currency: 'XTS',
+      mileageMode: body.mileageMode,
+      includedKmPerDay: body.includedKmPerDay ?? null,
+      extraKmPriceMinor: body.extraKmPriceMinor ?? null,
+      instantBook: true,
+      photos: 0,
+      submittedAt: null,
+    };
+    h.listings.push(l);
+    v.listingId = l.id;
+    v.listingStatus = 'DRAFT';
+    return json(res, 201, {
+      code: 'LISTING_CREATED',
+      messageKey: 'common.listing.created',
+      listingId: l.id,
+    });
+  }
+  const l = h.listings.find((x) => x.id === id);
+  if (!l) return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+  if (req.method === 'PUT' && step === 'pricing') {
+    if (!/^[1-9][0-9]*$/.test(String(body.dailyPriceMinor))) {
+      return err(res, 422, 'PRICE_INVALID', 'common.listing.priceInvalid');
+    }
+    l.dailyPriceMinor = body.dailyPriceMinor;
+    l.mileageMode = body.mileageMode;
+    l.includedKmPerDay = body.includedKmPerDay ?? null;
+    return err(res, 200, 'LISTING_SAVED', 'common.listing.saved');
+  }
+  if (req.method === 'POST' && step === 'photos') {
+    return err(res, 503, 'PHOTO_UPLOAD_UNAVAILABLE', 'common.listing.photoUnavailable');
+  }
+  if (req.method === 'POST' && step === 'submit') {
+    if (l.photos < 6) return err(res, 422, 'PHOTO_MIN_COUNT', 'common.listing.photoMinCount');
+    return err(res, 422, 'HOST_NOT_ACTIVATED', 'common.listing.hostNotActivated');
+  }
+  if (req.method === 'DELETE' && step === undefined) {
+    l.status = 'DELETED';
+    return json(res, 200, {
+      code: 'LISTING_DELETED',
+      messageKey: 'common.listing.deleted',
+      status: 'DELETED',
+    });
+  }
+  return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+}
+
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
+  if ((await hostRoute(req, res, url)) !== false) return;
   if (req.method === 'GET' && path === '/__e2e/signups') return json(res, 200, signups);
   if (req.method === 'GET' && path === '/legal/documents') {
     const lang = languageOf(url);

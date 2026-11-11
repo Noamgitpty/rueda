@@ -10,7 +10,7 @@ import type { Language } from './fixtures.ts';
 
 export const SPEC_TEXT: Readonly<
   Record<
-    'homeTitle' | 'offlineBanner' | 'signupButton' | 'draftMarker',
+    'homeTitle' | 'offlineBanner' | 'signupButton' | 'draftMarker' | 'hostEmpty' | 'hostSaved',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -29,6 +29,13 @@ export const SPEC_TEXT: Readonly<
     fr: 'BROUILLON — à valider par le juridique',
     pt: 'RASCUNHO — pendente de validação jurídica',
   },
+  // 10b §4.3, lignes `web.a10.empty` et `web.a10.saved` (A10, US-115)
+  hostEmpty: {
+    es: 'Aún no publicaste ningún auto',
+    en: "You haven't listed a car yet",
+    fr: 'Tu n’as encore publié aucune voiture',
+  },
+  hostSaved: { es: 'Guardado', en: 'Saved', fr: 'Enregistré' },
   homeTitle: {
     es: 'Alquila el auto de un vecino.',
     en: 'Rent a car from a neighbor.',
