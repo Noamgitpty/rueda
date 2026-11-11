@@ -19,8 +19,8 @@
 -- 3. AUCUNE INSCRIPTION SANS CONSENTEMENT : déclencheur de contrainte DIFFÉRÉ sur
 --    `core.iam_user_account` : à la validation de la transaction, tout compte créé doit avoir accepté
 --    la version courante des CGU du voyageur (`TOS_GUEST`) et de la confidentialité (`PRIVACY`).
---    Seules les migrations et les fixtures (connexion `migrator` ou superutilisateur) en sont
---    exemptées. L'ancienne commande `core.iam_cmd_register` (0011) reste en place (expand-only) mais
+--    Seules les écritures de `migrator` (migrations, fonctions de fixtures dont il est
+--    propriétaire) ou d'un superutilisateur en sont exemptées. L'ancienne commande `core.iam_cmd_register` (0011) reste en place (expand-only) mais
 --    ne peut plus aboutir seule : l'API appelle `core.iam_cmd_register_with_consents`.
 -- 4. Commandes (SECURITY DEFINER, search_path figé, EXECUTE au seul app_api) :
 --    - famille iam_auth (`iam_auth_owner`) : inscription avec consentements, état des
@@ -40,7 +40,8 @@
 --     core.ctr_consent_history(bytea), core.ctr_published_documents(text, text),
 --     core.ctr_document_body(text, text, text, integer),
 --     core.ctr_staff_cmd_publish_document(bytea, uuid, text, text, boolean, timestamptz, text, jsonb),
---     core.ctr_signup_consents_guard(), core.ctr_consent_guard(), core.ctr_template_guard(),
+--     core.ctr_signup_consents_guard(), core.ctr_writer_exempt(), core.ctr_consent_guard(),
+--     core.ctr_template_guard(), core.ctr_no_truncate(),
 --     core.ctr_current_template(text, text, text, boolean), core.ctr_record_consent(uuid, uuid,
 --     boolean, text);
 --   DROP TABLE core.contract_consent, core.contract_document_template;
@@ -286,9 +287,25 @@ REVOKE ALL ON FUNCTION core.ctr_record_consent(uuid, uuid, boolean, text) FROM P
 GRANT EXECUTE ON FUNCTION core.ctr_record_consent(uuid, uuid, boolean, text) TO iam_auth_owner;
 
 -- 7. Aucune inscription sans consentement (déclencheur de contrainte différé) ---------------------
--- SECURITY DEFINER : au COMMIT, l'appelant est app_api, qui ne lit pas contract_consent. Exemption :
--- connexion de migration (migrator) ou superutilisateur (fixtures de test), jamais un rôle
--- applicatif. `session_user` est le rôle de connexion, inchangé par SECURITY DEFINER.
+-- Exemption : le rôle QUI ÉCRIT le compte est `migrator` (migrations, fixtures de test, qui sont des
+-- fonctions dont il est propriétaire) ou un superutilisateur ; jamais un rôle applicatif ni un
+-- propriétaire NOLOGIN (la commande d'inscription écrit sous `iam_auth_owner`). La condition WHEN
+-- d'un déclencheur de contrainte est évaluée À L'INSERTION (pas au COMMIT), donc `current_user`
+-- est bien l'écrivain ; seul le contrôle des consentements est différé au COMMIT.
+CREATE FUNCTION core.ctr_writer_exempt()
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT current_user = 'migrator'
+      OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles AS r WHERE r.rolname = current_user AND r.rolsuper)
+$fn$;
+REVOKE ALL ON FUNCTION core.ctr_writer_exempt() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.ctr_writer_exempt() TO iam_auth_owner;
+
+-- SECURITY DEFINER : au COMMIT, l'appelant est le rôle de connexion (app_api), qui ne lit pas
+-- contract_consent.
 CREATE FUNCTION core.ctr_signup_consents_guard()
   RETURNS trigger
   LANGUAGE plpgsql
@@ -298,11 +315,6 @@ AS $fn$
 DECLARE
   v_kind text;
 BEGIN
-  IF session_user::text = 'migrator'
-     OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles AS r
-                 WHERE r.rolname = session_user AND r.rolsuper) THEN
-    RETURN NULL;
-  END IF;
   FOREACH v_kind IN ARRAY ARRAY['TOS_GUEST', 'PRIVACY'] LOOP
     IF NOT EXISTS (SELECT 1 FROM core.contract_consent AS c
                     WHERE c.user_id = NEW.id AND c.doc_kind = v_kind AND c.accepted) THEN
@@ -318,7 +330,9 @@ REVOKE ALL ON FUNCTION core.ctr_signup_consents_guard() FROM PUBLIC;
 CREATE CONSTRAINT TRIGGER ctr_signup_consents_required
   AFTER INSERT ON core.iam_user_account
   DEFERRABLE INITIALLY DEFERRED
-  FOR EACH ROW EXECUTE FUNCTION core.ctr_signup_consents_guard();
+  FOR EACH ROW
+  WHEN (NOT core.ctr_writer_exempt())
+  EXECUTE FUNCTION core.ctr_signup_consents_guard();
 
 -- 8. Inscription avec consentements (famille iam_auth) --------------------------------------------
 -- p_documents : liste `[{ "kind": "TOS_GUEST", "version": 1 }, …]` des versions AFFICHÉES et
