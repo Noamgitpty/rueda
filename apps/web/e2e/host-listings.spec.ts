@@ -155,8 +155,10 @@ for (const language of LANGUAGES) {
     test('S03 : zone approximative seulement ; introuvable ; panne', async ({ page }) => {
       await page.goto(`/listings/${PUBLIC_ID}`);
       await expect(page.locator('main h1')).toContainText('Toyota Yaris 2021');
-      await expect(page.locator('main')).toContainText('Barrio Norte');
-      await expect(page.locator('main')).toContainText('Ciudad Ficticia');
+      // l'écran de chargement (sans titre) peut coexister un instant : la fiche est le main titré
+      const sheet = page.locator('main', { has: page.locator('h1') });
+      await expect(sheet).toContainText('Barrio Norte');
+      await expect(sheet).toContainText('Ciudad Ficticia');
       await expectAccessible(page);
       await expectMobileFriendly(page);
       await page.goto('/listings/11500000-0000-4000-8000-0000000f0404');
