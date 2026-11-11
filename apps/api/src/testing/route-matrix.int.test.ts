@@ -24,6 +24,7 @@ import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
+import { postgresCatAdapters } from '../modules/cat/index.js';
 import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from '../modules/cfg/index.js';
 import { PgConsentStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
@@ -332,6 +333,68 @@ async function requestOf(
         path: '/host/accounts',
         body: { country, holderKind: 'INDIVIDUAL' },
       };
+    // lieux, véhicules et annonces de l'hôte (US-115) : compte d'hôte d'aucun acteur de la
+    // cellule (identifiant neuf) ⇒ 404, jamais 401 / 403 pour une session (IDOR, 17 §2.3 point 5)
+    case 'GET /host/accounts/{orgId}/locations':
+    case 'GET /host/accounts/{orgId}/vehicles':
+    case 'GET /host/accounts/{orgId}/listings':
+    case 'GET /host/accounts/{orgId}/catalog/makes':
+      return { method: 'GET', path: `/host/accounts/${id}/${route.split('{orgId}/')[1] ?? ''}` };
+    case 'GET /host/accounts/{orgId}/catalog/makes/{makeId}/models':
+      return { method: 'GET', path: `/host/accounts/${id}/catalog/makes/${randomUUID()}/models` };
+    case 'GET /host/accounts/{orgId}/catalog/models/{modelId}/variants':
+      return {
+        method: 'GET',
+        path: `/host/accounts/${id}/catalog/models/${randomUUID()}/variants`,
+      };
+    case 'GET /host/accounts/{orgId}/catalog/variants/{variantId}/prefill':
+      return {
+        method: 'GET',
+        path: `/host/accounts/${id}/catalog/variants/${randomUUID()}/prefill`,
+      };
+    case 'POST /host/accounts/{orgId}/locations':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/locations`,
+        body: { label: 'Casa', addressLine: 'Calle Ficticia 1', city: 'Ciudad Ficticia' },
+      };
+    case 'POST /host/accounts/{orgId}/vehicles':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/vehicles`,
+        body: {
+          locationId: randomUUID(),
+          plate: 'ZZ-0001',
+          makeText: 'Marca',
+          modelText: 'Modelo',
+          year: 2021,
+          transmission: 'MANUAL',
+          seats: 5,
+          fuelType: 'GASOLINE',
+        },
+      };
+    case 'POST /host/accounts/{orgId}/listings':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/listings`,
+        body: { vehicleId: randomUUID(), dailyPriceMinor: '1000' },
+      };
+    case 'PUT /host/accounts/{orgId}/listings/{listingId}/pricing':
+      return {
+        method: 'PUT',
+        path: `/host/accounts/${id}/listings/${randomUUID()}/pricing`,
+        body: { dailyPriceMinor: '1000' },
+      };
+    case 'POST /host/accounts/{orgId}/listings/{listingId}/submit':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/listings/${randomUUID()}/submit`,
+        body: {},
+      };
+    case 'DELETE /host/accounts/{orgId}/listings/{listingId}':
+      return { method: 'DELETE', path: `/host/accounts/${id}/listings/${randomUUID()}`, body: {} };
+    case 'GET /listings/{listingId}':
+      return { method: 'GET', path: `/listings/${randomUUID()}` };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }
@@ -571,6 +634,7 @@ beforeAll(async () => {
         rhythm: { record: () => false },
       },
       { store: new PgConsentStore(client) },
+      postgresCatAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

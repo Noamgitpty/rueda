@@ -119,13 +119,20 @@ describe('socle RLS et droits (0063)', () => {
                         FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid ORDER BY 1) AS policies
            FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relname ~ '^catalog_'
+          WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p')
+            AND c.relname ~ '^catalog_vehicle_(make|model|variant)$'
           ORDER BY c.relname`,
       );
       expect(rows.map((r) => r.relname)).toEqual([...TABLES]);
       for (const r of rows) {
         expect(r, r.relname).toMatchObject({ rls: true, force: true, owner: 'migrator' });
-        expect(r.policies, r.relname).toEqual(['api_read:app_api', 'migrator_all:migrator']);
+        // US-115 (0066) : lecture du statut, du marché et des années par les commandes de l'hôte
+        // (catalog_cmd_owner, propriétaire NOLOGIN), jamais par un rôle applicatif de plus
+        expect(r.policies, r.relname).toEqual([
+          'api_read:app_api',
+          'catalog_cmd_read:catalog_cmd_owner',
+          'migrator_all:migrator',
+        ]);
       }
     });
   });

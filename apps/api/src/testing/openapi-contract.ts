@@ -351,18 +351,19 @@ export class ContractClient {
   ) {}
 
   async request(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
     options: { body?: unknown; raw?: string; headers?: Record<string, string> } = {},
   ): Promise<{ status: number; headers: Headers; text: string; json: unknown }> {
     const headers: Record<string, string> = { ...this.defaultHeaders, ...(options.headers ?? {}) };
-    if (method === 'POST' && headers['content-type'] === undefined) {
+    const write = method !== 'GET';
+    if (write && headers['content-type'] === undefined) {
       headers['content-type'] = 'application/json';
     }
     const response = await fetch(`${this.base}${path}`, {
       method,
       headers,
-      ...(method === 'POST' ? { body: options.raw ?? JSON.stringify(options.body ?? {}) } : {}),
+      ...(write ? { body: options.raw ?? JSON.stringify(options.body ?? {}) } : {}),
     });
     const isText = !/^(image|font)\//.test(response.headers.get('content-type') ?? '');
     const text = isText
@@ -397,6 +398,9 @@ export class ContractClient {
 export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/auth': 'modules/iam/testing/auth.contract.test.ts',
   '/host': 'modules/iam/testing/host.contract.test.ts',
+  // lieux, véhicules et annonces de l'hôte (US-115) ; fiche publique d'une annonce
+  '/host/accounts/{orgId}': 'modules/cat/testing/host-listings.contract.test.ts',
+  '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   '/brand': 'modules/cfg/internal/brand/brand.contract.test.ts',
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',

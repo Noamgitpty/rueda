@@ -50,6 +50,19 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |
 | ------- | ------ | ----------- | ------ | ---------------- |
 | `POST` | `/host/accounts` | `openHostAccount` | Ouverture du compte d'hôte de la personne de la session (personne physique, un par pays ; US-107) | **201** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**401** AUTH_REQUIRED<br>**403** HOST_ACCOUNT_NOT_ELIGIBLE<br>**409** HOST_ACCOUNT_EXISTS<br>**415** REQUEST_INVALID<br>**422** HOST_ENTITY_NOT_ALLOWED / HOST_UNDER_AGE<br>**503** HOST_ACCOUNT_UNAVAILABLE |
+| `GET` | `/host/accounts/{orgId}/catalog/makes` | `hostCatalogMakes` | Marques ACTIVE du catalogue de référence (US-113, US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND |
+| `GET` | `/host/accounts/{orgId}/catalog/makes/{makeId}/models` | `hostCatalogModels` | Modèles ACTIVE d'une marque (US-113, US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND |
+| `GET` | `/host/accounts/{orgId}/catalog/models/{modelId}/variants` | `hostCatalogVariants` | Variantes ACTIVE d'un modèle, communes ou du marché du compte d'hôte (réserve de la revue d'US-113 ; US-115) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND |
+| `GET` | `/host/accounts/{orgId}/catalog/variants/{variantId}/prefill` | `hostCatalogPrefill` | Préremplissage du véhicule depuis une variante du marché du compte (US-113, US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND / CATALOG_VARIANT_NOT_FOUND |
+| `GET` | `/host/accounts/{orgId}/listings` | `hostListings` | Annonces du compte d'hôte de la session, hors supprimées (US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND |
+| `POST` | `/host/accounts/{orgId}/listings` | `createHostListing` | Annonce DRAFT d'un véhicule du compte (une par véhicule ; prix au pas du pays ; US-115) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND / VEHICLE_NOT_FOUND<br>**409** LISTING_EXISTS<br>**415** REQUEST_INVALID<br>**422** PRICE_INVALID / MILEAGE_CONFIG_INVALID / REQUEST_MODE_NOT_ALLOWED |
+| `DELETE` | `/host/accounts/{orgId}/listings/{listingId}` | `deleteHostListing` | Suppression d'un brouillon, d'une annonce refusée ou bloquée (SM-2 vers DELETED ; US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND / LISTING_NOT_FOUND<br>**409** LISTING_TRANSITION_FORBIDDEN<br>**415** REQUEST_INVALID |
+| `PUT` | `/host/accounts/{orgId}/listings/{listingId}/pricing` | `updateHostListingPricing` | Prix journalier et distance incluse (effet sur les nouveaux devis seulement ; un trip confirmé garde son prix ; US-115) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND / LISTING_NOT_FOUND<br>**409** LISTING_TRANSITION_FORBIDDEN<br>**415** REQUEST_INVALID<br>**422** PRICE_INVALID / MILEAGE_CONFIG_INVALID |
+| `POST` | `/host/accounts/{orgId}/listings/{listingId}/submit` | `submitHostListing` | Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, compte ACTIVE, pays ouvert (US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND / LISTING_NOT_FOUND<br>**409** LISTING_TRANSITION_FORBIDDEN<br>**415** REQUEST_INVALID<br>**422** PHOTO_MIN_COUNT / HOST_NOT_ACTIVATED |
+| `GET` | `/host/accounts/{orgId}/locations` | `hostLocations` | Lieux de remise du compte d'hôte de la session (exacts : l'hôte seul ; US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND |
+| `POST` | `/host/accounts/{orgId}/locations` | `createHostLocation` | Lieu de remise (pays et fuseau du compte d'hôte ; épingle facultative, sans géocodage ; US-115) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** HOST_ACCOUNT_SUSPENDED<br>**404** HOST_ACCOUNT_NOT_FOUND<br>**415** REQUEST_INVALID<br>**503** LISTING_UNAVAILABLE |
+| `GET` | `/host/accounts/{orgId}/vehicles` | `hostVehicles` | Véhicules du compte d'hôte de la session (US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND |
+| `POST` | `/host/accounts/{orgId}/vehicles` | `createHostVehicle` | Véhicule d'un particulier : plaque et VIN normalisés, uniques ; variante du marché du compte (US-115) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND / LOCATION_NOT_FOUND / CATALOG_VARIANT_NOT_FOUND<br>**409** VEHICLE_PLATE_DUPLICATE / CATALOG_VARIANT_RETIRED<br>**415** REQUEST_INVALID<br>**422** VEHICLE_FIELD_REQUIRED |
 
 ## `/legal`
 
@@ -60,6 +73,12 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `POST` | `/legal/consents/marketing` | `setMarketingConsent` | Communications commerciales : accord ou révocation (historique conservé) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
 | `GET` | `/legal/documents` | `listLegalDocuments` | Documents juridiques en vigueur (CGU du voyageur, confidentialité, communications) et leur version (US-102) | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
 | `GET` | `/legal/documents/{kind}` | `getLegalDocument` | Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**404** LEGAL_DOCUMENT_NOT_FOUND |
+
+## `/listings`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/listings/{listingId}` | `publicListing` | Fiche publique d'une annonce LISTED : colonnes C0, zone approximative du lieu de remise, jamais l'adresse exacte (US-115 critère 4) | **200** application/json<br>**404** LISTING_NOT_FOUND |
 
 ## `/staff`
 

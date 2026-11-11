@@ -28,6 +28,7 @@ export const OWNER_ROLES = [
   'iam_staff_owner',
   'host_view_owner',
   'risk_limit_owner',
+  'catalog_cmd_owner',
 ] as const;
 export type OwnerRole = (typeof OWNER_ROLES)[number];
 

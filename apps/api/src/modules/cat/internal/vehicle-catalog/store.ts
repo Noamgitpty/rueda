@@ -48,10 +48,21 @@ export interface VehicleCatalogStore {
   listMakes(): Promise<MakeOption[]>;
   /** Modèles `ACTIVE` d'une marque `ACTIVE`, par nom. */
   listModels(makeId: string): Promise<ModelOption[]>;
-  /** Variantes `ACTIVE` d'un modèle `ACTIVE` (d'une marque `ACTIVE`), produites l'année donnée. */
-  listVariants(modelId: string, year: number | null): Promise<VariantOption[]>;
-  /** Variante lisible (`ACTIVE` ou `RETIRED`) avec son modèle et sa marque, sinon `null`. */
-  findVariant(variantId: string): Promise<VariantView | null>;
+  /**
+   * Variantes `ACTIVE` d'un modèle `ACTIVE` (d'une marque `ACTIVE`), produites l'année donnée ;
+   * `country` (US-115, réserve de la revue d'US-113) : seulement les variantes communes
+   * (`market` nul) ou de ce marché.
+   */
+  listVariants(
+    modelId: string,
+    year: number | null,
+    country?: string | null,
+  ): Promise<VariantOption[]>;
+  /**
+   * Variante lisible (`ACTIVE` ou `RETIRED`) avec son modèle et sa marque, sinon `null` ; une
+   * variante d'un autre marché que `country` est inconnue (US-115).
+   */
+  findVariant(variantId: string, country?: string | null): Promise<VariantView | null>;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -124,7 +135,11 @@ export class PgVehicleCatalogStore implements VehicleCatalogStore {
     }));
   }
 
-  async listVariants(modelId: string, year: number | null): Promise<VariantOption[]> {
+  async listVariants(
+    modelId: string,
+    year: number | null,
+    country: string | null = null,
+  ): Promise<VariantOption[]> {
     if (!isUuid(modelId)) return [];
     const { rows } = await this.db.query<{
       id: string;
@@ -144,8 +159,9 @@ export class PgVehicleCatalogStore implements VehicleCatalogStore {
           AND v.status = 'ACTIVE' AND o.status = 'ACTIVE' AND m.status = 'ACTIVE'
           AND ($2::int IS NULL OR (v.year_from <= $2::int
                                    AND (v.year_to IS NULL OR v.year_to >= $2::int)))
+          AND ($3::text IS NULL OR v.market IS NULL OR v.market::text = $3::text)
         ORDER BY v.year_from, v.trim_name NULLS FIRST, v.transmission, v.fuel_type, v.drive`,
-      [modelId, year],
+      [modelId, year, country],
     );
     return rows.map((r) => ({
       id: r.id,
@@ -158,7 +174,7 @@ export class PgVehicleCatalogStore implements VehicleCatalogStore {
     }));
   }
 
-  async findVariant(variantId: string): Promise<VariantView | null> {
+  async findVariant(variantId: string, country: string | null = null): Promise<VariantView | null> {
     if (!isUuid(variantId)) return null;
     const { rows } = await this.db.query<VariantRow>(
       `SELECT v.id::text AS id, v.status, m.id::text AS make_id, m.name AS make_name,
@@ -169,8 +185,9 @@ export class PgVehicleCatalogStore implements VehicleCatalogStore {
          FROM core.catalog_vehicle_variant AS v
          JOIN core.catalog_vehicle_model AS o ON o.id = v.model_id
          JOIN core.catalog_vehicle_make AS m ON m.id = o.make_id
-        WHERE v.id = $1::uuid`,
-      [variantId],
+        WHERE v.id = $1::uuid
+          AND ($2::text IS NULL OR v.market IS NULL OR v.market::text = $2::text)`,
+      [variantId, country],
     );
     const r = rows[0];
     if (r === undefined) return null;

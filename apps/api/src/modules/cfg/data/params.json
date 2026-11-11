@@ -1036,6 +1036,18 @@
       "values": { "PA": 24, "PY": 24 }
     },
     {
+      "key": "listing_min_photos",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-LIST-05 (au moins 6 photos, {param}) ; 16 HST-012 (PHOTO_MIN_COUNT à la soumission)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "08 BR-LIST-05 PROPOSÉ (US-115)",
+      "values": { "PA": 6, "PY": 6 }
+    },
+    {
       "key": "dispute_decision_sla_business_days",
       "type": "DURATION",
       "unit": "business_d",

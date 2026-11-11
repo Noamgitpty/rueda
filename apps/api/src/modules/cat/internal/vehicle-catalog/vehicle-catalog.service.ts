@@ -21,19 +21,27 @@ export class VehicleCatalogService {
     return this.store.listModels(makeId);
   }
 
-  /** `year` : année du véhicule de l'hôte (entier), ou `null` pour toutes les années. */
-  listVariants(modelId: string, year: number | null): Promise<VariantOption[]> {
+  /**
+   * `year` : année du véhicule de l'hôte (entier), ou `null` pour toutes les années. `country` :
+   * pays du compte d'hôte (US-115) ; les variantes d'un autre marché ne sont jamais proposées.
+   */
+  listVariants(
+    modelId: string,
+    year: number | null,
+    country: string | null = null,
+  ): Promise<VariantOption[]> {
     if (year !== null && !Number.isInteger(year)) return Promise.resolve([]);
-    return this.store.listVariants(modelId, year);
+    return this.store.listVariants(modelId, year, country);
   }
 
   /**
    * Préremplissage du véhicule depuis la variante : places, boîte, carburant, transmission
-   * intégrale, consommation étiquetée. Variante inconnue : `CATALOG_VARIANT_NOT_FOUND` ; retirée
+   * intégrale, consommation étiquetée. Variante inconnue, ou d'un autre marché que `country`
+   * (US-115) : `CATALOG_VARIANT_NOT_FOUND` ; retirée
    * (elle, son modèle ou sa marque) : `CATALOG_VARIANT_RETIRED`.
    */
-  async prefill(variantId: string): Promise<VehiclePrefill> {
-    const view = await this.store.findVariant(variantId);
+  async prefill(variantId: string, country: string | null = null): Promise<VehiclePrefill> {
+    const view = await this.store.findVariant(variantId, country);
     if (view === null) {
       throw new CatalogError('CATALOG_VARIANT_NOT_FOUND', 'variante inconnue du catalogue');
     }

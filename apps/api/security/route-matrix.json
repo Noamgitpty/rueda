@@ -45,6 +45,62 @@
     "POST /host/accounts": {
       "acces": "session"
     },
+    "GET /host/accounts/{orgId}/locations": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "POST /host/accounts/{orgId}/locations": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/vehicles": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "POST /host/accounts/{orgId}/vehicles": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "GET /host/accounts/{orgId}/listings": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "POST /host/accounts/{orgId}/listings": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "PUT /host/accounts/{orgId}/listings/{listingId}/pricing": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "POST /host/accounts/{orgId}/listings/{listingId}/submit": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "DELETE /host/accounts/{orgId}/listings/{listingId}": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "GET /host/accounts/{orgId}/catalog/makes": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/catalog/makes/{makeId}/models": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/catalog/models/{modelId}/variants": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/catalog/variants/{variantId}/prefill": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /listings/{listingId}": {
+      "acces": "public",
+      "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative (19 US-115 critère 4)"
+    },
     "POST /webhooks/{provider}/{publicWebhookId}": {
       "acces": "public",
       "idor": "point d'entrée d'un autre compte PSP : signature du compte visé exigée (17 §4.4), identifiant inconnu ⇒ 404 sans écriture"

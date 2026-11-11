@@ -30,7 +30,17 @@ export const POST_SEED_PARAMS: readonly {
   readonly prefix: string;
   readonly file: string;
   readonly story: string;
-}[] = [{ prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' }];
+  /** Références citées par le motif des valeurs (défaut : celles de la graine US-052). */
+  readonly refs?: string;
+}[] = [
+  { prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' },
+  {
+    prefix: 'listing_min_photos',
+    file: '0067_config_listing_photo_params.sql',
+    story: 'US-115',
+    refs: '08 BR-LIST-05, 16 HST-012',
+  },
+];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */
 export function isPostSeedParam(key: string): boolean {
@@ -332,7 +342,10 @@ export function renderParamSeedSql(config: CountryConfig, prefix: string): strin
     ].join('\n'),
     definitionInsert(definitions),
     '\n',
-    valueInsert(values, `graine ${step.story} : défauts PROPOSÉS (17 §6.6, §7.2)`),
+    valueInsert(
+      values,
+      `graine ${step.story} : défauts PROPOSÉS (${step.refs ?? '17 §6.6, §7.2'})`,
+    ),
     [
       '',
       '-- Fail-closed : chaque paramètre du groupe a une valeur dans chaque pays déclaré.',

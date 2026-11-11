@@ -5,9 +5,12 @@
 -- production de core.booking_vehicle_party (aucun véhicule connu : toute pose refusée).
 --
 --   1. Registre de véhicules de TEST (test_fixture.vehicle_party) et remplacement de
---      core.booking_vehicle_party, qui tient lieu de la lecture du catalogue (US-115) : un véhicule
---      enregistré par test_fixture.register_vehicle, sinon le compte et le pays de ses occupations
---      existantes (véhicules des fixtures 9001, 9300) ; inconnu sinon. SECURITY DEFINER sous
+--      core.booking_vehicle_party : depuis US-115 (0066), d'abord la lecture de production du
+--      catalogue (véhicule et annonce LISTED), puis un véhicule enregistré par
+--      test_fixture.register_vehicle, sinon le compte et le pays de ses occupations existantes
+--      (véhicules des fixtures 9001, 9300) ; inconnu sinon. Le véhicule enregistré est aussi
+--      inscrit au catalogue (test_fixture.ensure_catalog_vehicle, fixture 9985) quand son compte
+--      est bien de ce pays (clé étrangère de 0066). SECURITY DEFINER sous
 --      migrator (comme les autres fixtures) : cmd_hold_owner l'exécute sans aucun droit sur
 --      test_fixture.
 --   2. test_fixture.l0_cmd_place_hold_timed : la pose RÉELLE (core.booking_cmd_place_hold),
@@ -55,11 +58,18 @@ CREATE OR REPLACE FUNCTION core.booking_vehicle_party(p_vehicle_id uuid)
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT x.org_id, x.country_code
-    FROM (SELECT r.org_id, r.country_code, 0 AS rank
+    FROM (-- US-115 (0066) : d'abord la définition de production (véhicule du catalogue et annonce
+          -- LISTED), puis le registre de test, puis le compte des occupations existantes
+          SELECT v.org_id, v.country_code, 0 AS rank
+            FROM core.catalog_vehicle v
+            JOIN core.catalog_listing l ON l.vehicle_id = v.id
+           WHERE v.id = p_vehicle_id AND l.status = 'LISTED'
+          UNION ALL
+          SELECT r.org_id, r.country_code, 1 AS rank
             FROM test_fixture.vehicle_party r
            WHERE r.vehicle_id = p_vehicle_id
           UNION ALL
-          SELECT vo.org_id, vo.country_code, 1 AS rank
+          SELECT vo.org_id, vo.country_code, 2 AS rank
             FROM core.booking_vehicle_occupancy vo
            WHERE vo.vehicle_id = p_vehicle_id) AS x
    ORDER BY x.rank
@@ -67,7 +77,8 @@ AS $fn$
 $fn$;
 
 COMMENT ON FUNCTION core.booking_vehicle_party(uuid) IS
-  'VERSION DE TEST (test-migrations/9750) : registre de test, sinon compte des occupations.';
+  'VERSION DE TEST (test-migrations/9750) : catalogue (annonce LISTED), sinon registre de test, '
+  'sinon compte des occupations.';
 
 CREATE FUNCTION test_fixture.l0_cmd_place_hold_timed(
   p_vehicle_id uuid,

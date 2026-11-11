@@ -7,6 +7,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { hygienicCode } from '../http-hardening.js';
+import { HOST_LISTING_MESSAGES } from '../modules/cat/index.js';
 import { BRAND_MESSAGES } from '../modules/cfg/index.js';
 import { LEGAL_MESSAGES } from '../modules/ctr/index.js';
 import { AUTH_MESSAGES } from '../modules/iam/index.js';
@@ -217,7 +218,13 @@ const STATUS_OVERRIDES: ReadonlyArray<readonly [string, number]> = [
 const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
   const m = new Map<string, Set<number>>();
   const add = (code: string, status: number) => m.set(code, (m.get(code) ?? new Set()).add(status));
-  for (const catalog of [AUTH_MESSAGES, BRAND_MESSAGES, LEGAL_MESSAGES, RISK_MESSAGES] as const) {
+  for (const catalog of [
+    AUTH_MESSAGES,
+    BRAND_MESSAGES,
+    LEGAL_MESSAGES,
+    RISK_MESSAGES,
+    HOST_LISTING_MESSAGES,
+  ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);
   }
   for (const status of [400, 404, 413, 415, 500]) add(hygienicCode(status), status);

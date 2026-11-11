@@ -2652,6 +2652,1238 @@
           }
         }
       }
+    },
+    "/host/accounts/{orgId}/locations": {
+      "get": {
+        "operationId": "hostLocations",
+        "tags": ["cat"],
+        "summary": "Lieux de remise du compte d'hôte de la session (exacts : l'hôte seul ; US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lieux du compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostLocationList"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (IDOR : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createHostLocation",
+        "tags": ["cat"],
+        "summary": "Lieu de remise (pays et fuseau du compte d'hôte ; épingle facultative, sans géocodage ; US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Lieu enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationCreated"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte d'hôte suspendu ou fermé : aucune écriture",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_SUSPENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (IDOR : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/vehicles": {
+      "get": {
+        "operationId": "hostVehicles",
+        "tags": ["cat"],
+        "summary": "Véhicules du compte d'hôte de la session (US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Véhicules du compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostVehicleList"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (IDOR : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createHostVehicle",
+        "tags": ["cat"],
+        "summary": "Véhicule d'un particulier : plaque et VIN normalisés, uniques ; variante du marché du compte (US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Véhicule enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleCreated"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte, lieu ou variante inconnus (ou d'un autre hôte, d'un autre marché)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "HOST_ACCOUNT_NOT_FOUND",
+                        "LOCATION_NOT_FOUND",
+                        "CATALOG_VARIANT_NOT_FOUND"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Plaque ou VIN déjà enregistrés ; variante retirée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_PLATE_DUPLICATE", "CATALOG_VARIANT_RETIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Champ obligatoire absent ou invalide selon la base",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_FIELD_REQUIRED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/listings": {
+      "get": {
+        "operationId": "hostListings",
+        "tags": ["cat"],
+        "summary": "Annonces du compte d'hôte de la session, hors supprimées (US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Annonces du compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostListingList"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (IDOR : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createHostListing",
+        "tags": ["cat"],
+        "summary": "Annonce DRAFT d'un véhicule du compte (une par véhicule ; prix au pas du pays ; US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Brouillon créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingCreated"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou véhicule inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Le véhicule a déjà une annonce",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_EXISTS"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Prix hors pas du pays, distance invalide, mode REQUEST pour un aéroport",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "PRICE_INVALID",
+                        "MILEAGE_CONFIG_INVALID",
+                        "REQUEST_MODE_NOT_ALLOWED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListingRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/listings/{listingId}/pricing": {
+      "put": {
+        "operationId": "updateHostListingPricing",
+        "tags": ["cat"],
+        "summary": "Prix journalier et distance incluse (effet sur les nouveaux devis seulement ; un trip confirmé garde son prix ; US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tarif enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingSaved"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou annonce inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transition absente de SM-2 dans l'état de l'annonce",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_TRANSITION_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Prix hors pas du pays ou distance invalide",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["PRICE_INVALID", "MILEAGE_CONFIG_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricingRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/listings/{listingId}/submit": {
+      "post": {
+        "operationId": "submitHostListing",
+        "tags": ["cat"],
+        "summary": "Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, compte ACTIVE, pays ouvert (US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Annonce en revue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingStatusChanged"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou annonce inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transition absente de SM-2 dans l'état de l'annonce",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_TRANSITION_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Photos en nombre insuffisant ; compte d'hôte non activé ou pays fermé : l'annonce reste DRAFT",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["PHOTO_MIN_COUNT", "HOST_NOT_ACTIVATED"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/listings/{listingId}": {
+      "delete": {
+        "operationId": "deleteHostListing",
+        "tags": ["cat"],
+        "summary": "Suppression d'un brouillon, d'une annonce refusée ou bloquée (SM-2 vers DELETED ; US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Annonce supprimée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingStatusChanged"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou annonce inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transition absente de SM-2 dans l'état de l'annonce",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_TRANSITION_FORBIDDEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/catalog/makes": {
+      "get": {
+        "operationId": "hostCatalogMakes",
+        "tags": ["cat"],
+        "summary": "Marques ACTIVE du catalogue de référence (US-113, US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marques",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogMakes"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (IDOR : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/catalog/makes/{makeId}/models": {
+      "get": {
+        "operationId": "hostCatalogModels",
+        "tags": ["cat"],
+        "summary": "Modèles ACTIVE d'une marque (US-113, US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "makeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Modèles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogModels"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (IDOR : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/catalog/models/{modelId}/variants": {
+      "get": {
+        "operationId": "hostCatalogVariants",
+        "tags": ["cat"],
+        "summary": "Variantes ACTIVE d'un modèle, communes ou du marché du compte d'hôte (réserve de la revue d'US-113 ; US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "modelId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Variantes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogVariants"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (IDOR : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/catalog/variants/{variantId}/prefill": {
+      "get": {
+        "operationId": "hostCatalogPrefill",
+        "tags": ["cat"],
+        "summary": "Préremplissage du véhicule depuis une variante du marché du compte (US-113, US-115)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Préremplissage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogPrefill"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte inconnu ; variante inconnue ou d'un autre marché",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "CATALOG_VARIANT_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listings/{listingId}": {
+      "get": {
+        "operationId": "publicListing",
+        "tags": ["cat"],
+        "summary": "Fiche publique d'une annonce LISTED : colonnes C0, zone approximative du lieu de remise, jamais l'adresse exacte (US-115 critère 4)",
+        "parameters": [
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Annonce publiée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicListingResponse"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "404": {
+            "description": "Annonce non publiée ou inconnue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4609,6 +5841,761 @@
                     "$ref": "#/components/schemas/ContentLocale"
                   }
                 }
+              }
+            }
+          }
+        }
+      },
+      "ListingError": {
+        "type": "object",
+        "required": ["code", "messageKey"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]+$"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["field", "reason"],
+              "additionalProperties": false,
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "reason": {
+                  "enum": ["REQUIRED", "INVALID"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "MinorUnits": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]{0,17})$"
+      },
+      "LocationRequest": {
+        "type": "object",
+        "required": ["label", "addressLine", "city"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["HOME", "POI", "AIRPORT"]
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "addressLine": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "areaLabel": {
+            "type": ["string", "null"],
+            "maxLength": 80
+          },
+          "lat": {
+            "type": ["number", "null"],
+            "minimum": -90,
+            "maximum": 90
+          },
+          "lng": {
+            "type": ["number", "null"],
+            "minimum": -180,
+            "maximum": 180
+          }
+        }
+      },
+      "HostLocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "addressLine",
+          "city",
+          "areaLabel",
+          "lat",
+          "lng",
+          "timezone"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "kind": {
+            "enum": ["HOME", "POI", "AIRPORT"]
+          },
+          "label": {
+            "type": "string"
+          },
+          "addressLine": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "areaLabel": {
+            "type": ["string", "null"]
+          },
+          "lat": {
+            "type": ["number", "null"]
+          },
+          "lng": {
+            "type": ["number", "null"]
+          },
+          "timezone": {
+            "type": "string"
+          }
+        }
+      },
+      "HostLocationList": {
+        "type": "object",
+        "required": ["locations"],
+        "additionalProperties": false,
+        "properties": {
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostLocation"
+            }
+          }
+        }
+      },
+      "LocationCreated": {
+        "type": "object",
+        "required": ["code", "messageKey", "locationId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "LOCATION_CREATED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "locationId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "VehicleCreated": {
+        "type": "object",
+        "required": ["code", "messageKey", "vehicleId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "VEHICLE_CREATED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "vehicleId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "ListingCreated": {
+        "type": "object",
+        "required": ["code", "messageKey", "listingId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "LISTING_CREATED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "listingId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "ListingSaved": {
+        "type": "object",
+        "required": ["code", "messageKey"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "LISTING_SAVED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          }
+        }
+      },
+      "ListingStatusChanged": {
+        "type": "object",
+        "required": ["code", "messageKey", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": ["LISTING_SUBMITTED", "LISTING_DELETED"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "status": {
+            "enum": ["PENDING_REVIEW", "DELETED"]
+          }
+        }
+      },
+      "VehicleRequest": {
+        "type": "object",
+        "required": ["locationId", "plate", "year", "transmission", "seats", "fuelType"],
+        "additionalProperties": false,
+        "properties": {
+          "locationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "plate": {
+            "type": "string",
+            "maxLength": 24
+          },
+          "vin": {
+            "type": ["string", "null"],
+            "maxLength": 40
+          },
+          "variantId": {
+            "type": ["string", "null"]
+          },
+          "makeText": {
+            "type": ["string", "null"],
+            "maxLength": 80
+          },
+          "modelText": {
+            "type": ["string", "null"],
+            "maxLength": 80
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1950,
+            "maximum": 2100
+          },
+          "trim": {
+            "type": ["string", "null"],
+            "maxLength": 80
+          },
+          "transmission": {
+            "enum": ["MANUAL", "AUTOMATIC"]
+          },
+          "seats": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "fuelType": {
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
+          },
+          "odometerKm": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "gpsInstalled": {
+            "type": "boolean"
+          },
+          "lienDeclared": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HostVehicle": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "locationId",
+          "plate",
+          "vin",
+          "variantId",
+          "makeText",
+          "modelText",
+          "year",
+          "trim",
+          "valueClass",
+          "transmission",
+          "seats",
+          "fuelType",
+          "odometerKm",
+          "gpsInstalled",
+          "lienDeclared",
+          "eligibilityStatus",
+          "listingId",
+          "listingStatus"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "locationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "vin": {
+            "type": ["string", "null"]
+          },
+          "variantId": {
+            "type": ["string", "null"]
+          },
+          "makeText": {
+            "type": ["string", "null"]
+          },
+          "modelText": {
+            "type": ["string", "null"]
+          },
+          "year": {
+            "type": "integer"
+          },
+          "trim": {
+            "type": ["string", "null"]
+          },
+          "valueClass": {
+            "type": ["string", "null"]
+          },
+          "transmission": {
+            "enum": ["MANUAL", "AUTOMATIC"]
+          },
+          "seats": {
+            "type": "integer"
+          },
+          "fuelType": {
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
+          },
+          "odometerKm": {
+            "type": ["integer", "null"]
+          },
+          "gpsInstalled": {
+            "type": "boolean"
+          },
+          "lienDeclared": {
+            "type": "boolean"
+          },
+          "eligibilityStatus": {
+            "type": "string"
+          },
+          "listingId": {
+            "type": ["string", "null"]
+          },
+          "listingStatus": {
+            "enum": [
+              "DRAFT",
+              "BLOCKED_ELIGIBILITY",
+              "PENDING_REVIEW",
+              "LISTED",
+              "REJECTED",
+              "SNOOZED",
+              "UNLISTED",
+              "RESTRICTED",
+              "REMOVED_BY_PLATFORM",
+              "DELETED",
+              null
+            ]
+          }
+        }
+      },
+      "HostVehicleList": {
+        "type": "object",
+        "required": ["vehicles"],
+        "additionalProperties": false,
+        "properties": {
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostVehicle"
+            }
+          }
+        }
+      },
+      "PricingRequest": {
+        "type": "object",
+        "required": ["dailyPriceMinor"],
+        "additionalProperties": false,
+        "properties": {
+          "dailyPriceMinor": {
+            "$ref": "#/components/schemas/MinorUnits"
+          },
+          "mileageMode": {
+            "enum": ["UNLIMITED", "INCLUDED"]
+          },
+          "includedKmPerDay": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "extraKmPriceMinor": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ListingRequest": {
+        "type": "object",
+        "required": ["vehicleId", "dailyPriceMinor"],
+        "additionalProperties": false,
+        "properties": {
+          "dailyPriceMinor": {
+            "$ref": "#/components/schemas/MinorUnits"
+          },
+          "mileageMode": {
+            "enum": ["UNLIMITED", "INCLUDED"]
+          },
+          "includedKmPerDay": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "extraKmPriceMinor": {
+            "type": ["string", "null"]
+          },
+          "vehicleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "instantBook": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HostListing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "vehicleId",
+          "status",
+          "dailyPriceMinor",
+          "currency",
+          "mileageMode",
+          "includedKmPerDay",
+          "extraKmPriceMinor",
+          "instantBook",
+          "photos",
+          "submittedAt"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "vehicleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": [
+              "DRAFT",
+              "BLOCKED_ELIGIBILITY",
+              "PENDING_REVIEW",
+              "LISTED",
+              "REJECTED",
+              "SNOOZED",
+              "UNLISTED",
+              "RESTRICTED",
+              "REMOVED_BY_PLATFORM",
+              "DELETED"
+            ]
+          },
+          "dailyPriceMinor": {
+            "$ref": "#/components/schemas/MinorUnits"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "mileageMode": {
+            "enum": ["UNLIMITED", "INCLUDED"]
+          },
+          "includedKmPerDay": {
+            "type": ["integer", "null"]
+          },
+          "extraKmPriceMinor": {
+            "type": ["string", "null"]
+          },
+          "instantBook": {
+            "type": "boolean"
+          },
+          "photos": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "submittedAt": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "HostListingList": {
+        "type": "object",
+        "required": ["listings"],
+        "additionalProperties": false,
+        "properties": {
+          "listings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostListing"
+            }
+          }
+        }
+      },
+      "PublicListing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "country",
+          "dailyPriceMinor",
+          "currency",
+          "mileageMode",
+          "includedKmPerDay",
+          "extraKmPriceMinor",
+          "instantBook",
+          "variantId",
+          "makeName",
+          "modelName",
+          "year",
+          "transmission",
+          "seats",
+          "fuelType",
+          "locationKind",
+          "city",
+          "areaLabel",
+          "approximatePoint",
+          "timezone"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "dailyPriceMinor": {
+            "$ref": "#/components/schemas/MinorUnits"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "mileageMode": {
+            "enum": ["UNLIMITED", "INCLUDED"]
+          },
+          "includedKmPerDay": {
+            "type": ["integer", "null"]
+          },
+          "extraKmPriceMinor": {
+            "type": ["string", "null"]
+          },
+          "instantBook": {
+            "type": "boolean"
+          },
+          "variantId": {
+            "type": ["string", "null"]
+          },
+          "makeName": {
+            "type": "string"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "transmission": {
+            "enum": ["MANUAL", "AUTOMATIC"]
+          },
+          "seats": {
+            "type": "integer"
+          },
+          "fuelType": {
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
+          },
+          "locationKind": {
+            "enum": ["HOME", "POI", "AIRPORT"]
+          },
+          "city": {
+            "type": "string"
+          },
+          "areaLabel": {
+            "type": ["string", "null"]
+          },
+          "approximatePoint": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": ["lat", "lng"],
+                "additionalProperties": false,
+                "properties": {
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  }
+                }
+              }
+            ]
+          },
+          "timezone": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicListingResponse": {
+        "type": "object",
+        "required": ["listing"],
+        "additionalProperties": false,
+        "properties": {
+          "listing": {
+            "$ref": "#/components/schemas/PublicListing"
+          }
+        }
+      },
+      "CatalogMakes": {
+        "type": "object",
+        "required": ["makes"],
+        "additionalProperties": false,
+        "properties": {
+          "makes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "slug", "name", "aliases"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "aliases": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "CatalogModels": {
+        "type": "object",
+        "required": ["models"],
+        "additionalProperties": false,
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "slug", "name", "aliases", "bodyType"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "aliases": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "bodyType": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CatalogVariants": {
+        "type": "object",
+        "required": ["variants"],
+        "additionalProperties": false,
+        "properties": {
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "yearFrom",
+                "yearTo",
+                "trimName",
+                "transmission",
+                "fuelType",
+                "drive"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "yearFrom": {
+                  "type": "integer"
+                },
+                "yearTo": {
+                  "type": ["integer", "null"]
+                },
+                "trimName": {
+                  "type": ["string", "null"]
+                },
+                "transmission": {
+                  "type": "string"
+                },
+                "fuelType": {
+                  "type": "string"
+                },
+                "drive": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CatalogPrefill": {
+        "type": "object",
+        "required": ["prefill"],
+        "additionalProperties": false,
+        "properties": {
+          "prefill": {
+            "type": "object",
+            "required": ["variantId", "makeName", "modelName", "seats", "transmission"],
+            "properties": {
+              "variantId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "makeName": {
+                "type": "string"
+              },
+              "modelName": {
+                "type": "string"
+              },
+              "seats": {
+                "type": "integer"
+              },
+              "transmission": {
+                "enum": ["MANUAL", "AUTOMATIC"]
               }
             }
           }

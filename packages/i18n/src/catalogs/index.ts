@@ -26,9 +26,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (US-107) : `common.host.*` et `backoffice.action.CREATE_HOST_ACCOUNT`. Version 14 : blocs de contenu éditables (US-121) :
  `common.brand.contentKeyNotEditable`, `backoffice.content.gaps.*` (langues nommées par
  `Intl.DisplayNames`). Version 15 : catalogue de référence des véhicules (US-113) :
- `common.vehicle.*`.
+ `common.vehicle.*`. Version 16 : lieux de remise, véhicules et annonces de l'hôte (US-115) :
+ `common.listing.*`.
  */
-export const CATALOG_VERSION = 15;
+export const CATALOG_VERSION = 16;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import { AppModule } from './app.module.js';
+import { CatHostModule } from './modules/cat/index.js';
+import type { CatHostOptions } from './modules/cat/index.js';
 import { BrandModule } from './modules/cfg/index.js';
 import { CtrLegalModule } from './modules/ctr/index.js';
 import type { CtrLegalOptions } from './modules/ctr/index.js';
@@ -23,7 +25,8 @@ import type { SupConsoleOptions } from './modules/sup/index.js';
  * qui ne doit tourner que dans l'API, sous le rôle `app_api` (routes d'authentification, US-010 ;
  * réception des webhooks PSP, US-019 ; console interne, US-012 ; socle de marque, US-034 ;
  * limitation de débit et anti-abus, garde global et tableau de sécurité, US-052 ; documents
- * juridiques et consentements versionnés, US-102).
+ * juridiques et consentements versionnés, US-102 ; lieux, véhicules et annonces de l'hôte, US-115 :
+ * sans adaptateurs CAT, ses routes répondent 503, fail-closed).
  */
 @Module({})
 export class ApiModule {
@@ -35,6 +38,7 @@ export class ApiModule {
     brand: BrandOptions,
     risk: RiskHttpOptions,
     ctr: CtrLegalOptions,
+    cat?: CatHostOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -45,6 +49,8 @@ export class ApiModule {
         IamAuthModule.register(iam),
         // après IAM : routes /legal gardées par SessionGuard ; TermsGuard pour les réservations
         CtrLegalModule.register(ctr),
+        // après IAM : routes /host/accounts/{orgId}/… gardées par SessionGuard (US-115)
+        CatHostModule.register(cat),
         PayWebhookModule.register(pay),
         StaffConsoleModule.register(staff),
         SupConsoleModule.register(sup),

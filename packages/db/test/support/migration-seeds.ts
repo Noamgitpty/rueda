@@ -210,10 +210,15 @@ export const MIGRATION_SEEDS: readonly MigrationSeed[] = [
     ),
   },
   {
-    // après 0032 : la table d'occupation exigeait d'être vide (dérogation populated: false)
-    id: 'AVL : occupations, trip réservé et hold actif par pays',
-    after: '0032',
+    // après 0032 : la table d'occupation exigeait d'être vide (dérogation populated: false) ;
+    // depuis US-115 (0066), après 0066 : une occupation, un hold ou un trip exige son véhicule au
+    // catalogue (clé étrangère (vehicle_id, org_id, country_code) vers catalog_vehicle, N-03)
+    id: 'CAT et AVL : lieu, véhicule et annonce de l’hôte ; occupations, trip réservé et hold actif par pays',
+    after: '0066',
     rows: {
+      'core.catalog_location': n,
+      'core.catalog_vehicle': n,
+      'core.catalog_listing': n,
       'core.booking_vehicle_occupancy': 2 * n,
       'core.booking_trip': n,
       'core.booking_guest_occupancy': n,
@@ -225,6 +230,22 @@ export const MIGRATION_SEEDS: readonly MigrationSeed[] = [
       const hStart = `timestamptz '2031-04-${String(10 + 4 * k).padStart(2, '0')} 15:00:00+00'`;
       const hEnd = `timestamptz '2031-04-${String(12 + 4 * k).padStart(2, '0')} 15:00:00+00'`;
       return `
+        INSERT INTO core.catalog_location
+          (id, org_id, country_code, kind, place_label, address_line, city, area_label, geo, timezone,
+           created_by)
+        VALUES (${lit(id(20, k))}, ${lit(c.org)}, ${lit(c.country)}, 'HOME', 'Casa', ${lit(`Calle Ficticia ${k + 1}`)},
+                'Ciudad Ficticia', 'Barrio Ficticio', point(${-79.5 + k}, ${8.95 + k}), ${lit(c.timezone)},
+                ${lit(c.host)});
+        INSERT INTO core.catalog_vehicle
+          (id, org_id, country_code, home_location_id, timezone, plate, make_text, model_text, year,
+           transmission, seats, fuel_type, created_by)
+        VALUES (${lit(c.vehicle)}, ${lit(c.org)}, ${lit(c.country)}, ${lit(id(20, k))}, ${lit(c.timezone)},
+                ${lit(`K46F${k}0`)}, 'Ficticia', 'Modelo', 2022, 'AUTOMATIC', 5, 'GASOLINE', ${lit(c.host)});
+        INSERT INTO core.catalog_listing
+          (id, vehicle_id, org_id, country_code, status, daily_price_minor, currency, mileage_mode,
+           created_by)
+        VALUES (${lit(id(21, k))}, ${lit(c.vehicle)}, ${lit(c.org)}, ${lit(c.country)}, 'DRAFT', 250000,
+                ${lit(c.currency)}, 'UNLIMITED', ${lit(c.host)});
         INSERT INTO core.booking_vehicle_occupancy
           (id, vehicle_id, org_id, country_code, kind, source, period, active, ref_type, ref_id)
         VALUES (${lit(id(17, k))}, ${lit(c.vehicle)}, ${lit(c.org)}, ${lit(c.country)}, 'TRIP', 'CHECKOUT',

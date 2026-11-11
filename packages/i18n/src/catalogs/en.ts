@@ -490,6 +490,42 @@ export const EN_MESSAGES = {
   'web.legal.version': 'Version {version}',
   'web.legal.back': 'Back to the form',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
+  // US-115 : lieux de remise, véhicules et annonces de l'hôte (codes de 16 A.8 et PROPOSÉS)
+  'common.listing.locationCreated': 'Handover spot saved.',
+  'common.listing.vehicleCreated': 'Car saved.',
+  'common.listing.created': 'Listing draft created.',
+  'common.listing.saved': 'Saved',
+  'common.listing.submitted': 'Your listing was sent for review.',
+  'common.listing.deleted': 'Draft deleted.',
+  'common.listing.hostSuspended':
+    'Your host account is suspended: you cannot change your listings.',
+  'common.listing.hostNotFound': 'We could not find this host account.',
+  'common.listing.locationNotFound': 'We could not find this handover spot.',
+  'common.listing.vehicleNotFound': 'We could not find this car.',
+  'common.listing.notFound': 'We could not find this listing.',
+  'common.listing.variantNotFound':
+    'This version is not in the catalog for your car. Pick another one or ask us to add it.',
+  'common.listing.variantRetired':
+    'This version is no longer available in the catalog. Pick another one.',
+  'common.listing.plateDuplicate': 'This plate or chassis number (VIN) is already registered.',
+  'common.listing.exists': 'This car already has a listing.',
+  'common.listing.transitionForbidden':
+    'This change is not possible in the listing’s current status.',
+  'common.listing.vehicleFieldRequired':
+    'Check the car details: a required field is missing or invalid.',
+  'common.listing.locationFieldInvalid': 'Check the handover spot: a field is missing or invalid.',
+  'common.listing.priceInvalid': 'The daily price is not valid for this currency.',
+  'common.listing.mileageInvalid': 'Check the included distance and the price per extra kilometer.',
+  'common.listing.requestModeNotAllowed': 'At an airport, bookings are always instant.',
+  'common.listing.photoMinCount': 'Add more photos of your car before submitting the listing.',
+  'common.listing.photoFormat': 'This photo cannot be used. Upload a JPEG, PNG or WebP photo.',
+  'common.listing.hostNotActivated':
+    'All set on your side. You can submit your listing once your host account is active and we open to hosts here.',
+  'common.listing.unavailable': 'We cannot save your listing right now. Try again later.',
+  'common.listing.photoUnavailable': 'We cannot receive photos yet. Try again later.',
+  'common.listing.field.required': 'This field is required.',
+  'common.listing.field.invalid': 'This value is not valid.',
+  'common.listing.zoneOnly': 'You will see the exact address once your booking is confirmed.',
   'common.vehicle.bodyType.suv': 'SUV',
   'common.vehicle.bodyType.pickup': 'Pickup',
   'common.vehicle.bodyType.sedan': 'Sedan',

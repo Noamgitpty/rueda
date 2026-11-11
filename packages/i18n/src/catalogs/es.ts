@@ -515,6 +515,43 @@ export const ES_MESSAGES = {
   'web.legal.version': 'Versión {version}',
   'web.legal.back': 'Volver al formulario',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
+  // US-115 : lieux de remise, véhicules et annonces de l'hôte (codes de 16 A.8 et PROPOSÉS)
+  'common.listing.locationCreated': 'Lugar de entrega guardado.',
+  'common.listing.vehicleCreated': 'Auto guardado.',
+  'common.listing.created': 'Borrador del anuncio creado.',
+  'common.listing.saved': 'Guardado',
+  'common.listing.submitted': 'Enviamos tu anuncio a revisión.',
+  'common.listing.deleted': 'Borrador eliminado.',
+  'common.listing.hostSuspended':
+    'Tu cuenta de anfitrión está suspendida: no puedes modificar tus anuncios.',
+  'common.listing.hostNotFound': 'No encontramos esta cuenta de anfitrión.',
+  'common.listing.locationNotFound': 'No encontramos este lugar de entrega.',
+  'common.listing.vehicleNotFound': 'No encontramos este auto.',
+  'common.listing.notFound': 'No encontramos este anuncio.',
+  'common.listing.variantNotFound':
+    'Esta versión no está en el catálogo para tu auto. Elige otra o pide que la agreguemos.',
+  'common.listing.variantRetired': 'Esta versión ya no está disponible en el catálogo. Elige otra.',
+  'common.listing.plateDuplicate': 'Esta placa o este número de chasis (VIN) ya está registrado.',
+  'common.listing.exists': 'Este auto ya tiene un anuncio.',
+  'common.listing.transitionForbidden':
+    'No es posible hacer este cambio en el estado actual del anuncio.',
+  'common.listing.vehicleFieldRequired':
+    'Revisa los datos del auto: falta un campo obligatorio o no es válido.',
+  'common.listing.locationFieldInvalid':
+    'Revisa el lugar de entrega: falta un campo o no es válido.',
+  'common.listing.priceInvalid': 'El precio por día no es válido para esta moneda.',
+  'common.listing.mileageInvalid': 'Revisa la distancia incluida y el precio por kilómetro extra.',
+  'common.listing.requestModeNotAllowed': 'En un aeropuerto, la reserva es siempre inmediata.',
+  'common.listing.photoMinCount': 'Agrega más fotos de tu auto antes de enviar el anuncio.',
+  'common.listing.photoFormat': 'Esta foto no se puede usar. Sube una foto JPEG, PNG o WebP.',
+  'common.listing.hostNotActivated':
+    'Todo listo de tu lado. Podrás enviar tu anuncio cuando tu cuenta de anfitrión esté activa y abramos a anfitriones aquí.',
+  'common.listing.unavailable':
+    'No podemos guardar tu anuncio en este momento. Inténtalo más tarde.',
+  'common.listing.photoUnavailable': 'Todavía no podemos recibir fotos. Inténtalo más tarde.',
+  'common.listing.field.required': 'Este campo es obligatorio.',
+  'common.listing.field.invalid': 'Este valor no es válido.',
+  'common.listing.zoneOnly': 'Verás la dirección exacta cuando se confirme tu reserva.',
   'common.vehicle.bodyType.suv': 'SUV',
   'common.vehicle.bodyType.pickup': 'Pickup',
   'common.vehicle.bodyType.sedan': 'Sedán',

@@ -533,6 +533,47 @@ export const FR_MESSAGES = {
   'web.legal.version': 'Révision {version}',
   'web.legal.back': 'Retour au formulaire',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
+  // US-115 : lieux de remise, véhicules et annonces de l'hôte (codes de 16 A.8 et PROPOSÉS)
+  'common.listing.locationCreated': 'Lieu de remise enregistré.',
+  'common.listing.vehicleCreated': 'Voiture enregistrée.',
+  'common.listing.created': 'Brouillon de l’annonce créé.',
+  'common.listing.saved': 'Enregistré',
+  'common.listing.submitted': 'Ton annonce est envoyée en revue.',
+  'common.listing.deleted': 'Brouillon supprimé.',
+  'common.listing.hostSuspended':
+    'Ton compte d’hôte est suspendu : tu ne peux pas modifier tes annonces.',
+  'common.listing.hostNotFound': 'Ce compte d’hôte est introuvable.',
+  'common.listing.locationNotFound': 'Ce lieu de remise est introuvable.',
+  'common.listing.vehicleNotFound': 'Cette voiture est introuvable.',
+  'common.listing.notFound': 'Cette annonce est introuvable.',
+  'common.listing.variantNotFound':
+    'Cette version n’est pas au catalogue pour ta voiture. Choisis-en une autre ou demande son ajout.',
+  'common.listing.variantRetired':
+    'Cette version n’est plus proposée au catalogue. Choisis-en une autre.',
+  'common.listing.plateDuplicate':
+    'Cette plaque ou ce numéro de châssis (VIN) est déjà enregistré.',
+  'common.listing.exists': 'Cette voiture a déjà une annonce.',
+  'common.listing.transitionForbidden':
+    'Ce changement est impossible dans l’état actuel de l’annonce.',
+  'common.listing.vehicleFieldRequired':
+    'Vérifie les informations de la voiture : un champ obligatoire manque ou n’est pas valide.',
+  'common.listing.locationFieldInvalid':
+    'Vérifie le lieu de remise : un champ manque ou n’est pas valide.',
+  'common.listing.priceInvalid': 'Le prix par jour n’est pas valide pour cette devise.',
+  'common.listing.mileageInvalid':
+    'Vérifie la distance incluse et le prix du kilomètre supplémentaire.',
+  'common.listing.requestModeNotAllowed': 'À l’aéroport, la réservation est toujours immédiate.',
+  'common.listing.photoMinCount': 'Ajoute d’autres photos de ta voiture avant d’envoyer l’annonce.',
+  'common.listing.photoFormat': 'Cette photo est inutilisable. Envoie une photo JPEG, PNG ou WebP.',
+  'common.listing.hostNotActivated':
+    'Tout est prêt de ton côté. Tu pourras envoyer ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
+  'common.listing.unavailable':
+    'Impossible d’enregistrer ton annonce pour le moment. Réessaie plus tard.',
+  'common.listing.photoUnavailable':
+    'Nous ne pouvons pas encore recevoir de photos. Réessaie plus tard.',
+  'common.listing.field.required': 'Ce champ est obligatoire.',
+  'common.listing.field.invalid': 'Cette valeur n’est pas valide.',
+  'common.listing.zoneOnly': 'Tu verras l’adresse exacte une fois ta réservation confirmée.',
   'common.vehicle.bodyType.suv': 'SUV',
   'common.vehicle.bodyType.pickup': 'Pick-up',
   'common.vehicle.bodyType.sedan': 'Berline',
