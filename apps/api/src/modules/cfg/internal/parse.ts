@@ -8,6 +8,7 @@
  */
 import { ConfigError } from './errors.js';
 import {
+  DECISION_STATUSES,
   FAIL_MODES,
   INT64_MAX,
   NAME_LANGUAGES,
@@ -19,6 +20,8 @@ import type {
   CountryConfig,
   CountryConfigEntry,
   CurrencyConfig,
+  DecisionInfo,
+  DecisionStatus,
   FailMode,
   HolidayConfig,
   LegalEntityConfig,
@@ -147,6 +150,22 @@ function oneOf<T extends string>(
     return undefined;
   }
   return value as T;
+}
+
+/**
+ * Statut de décision (US-110) : `decision` parmi `DECISION_STATUSES` et `decisionRef` non vide,
+ * tous deux obligatoires (aucun statut deviné : une clé sans statut est un refus).
+ */
+function decisionInfo(
+  c: Collector,
+  path: string,
+  decision: unknown,
+  ref: unknown,
+): DecisionInfo | undefined {
+  const status = oneOf<DecisionStatus>(c, `${path}.decision`, decision, DECISION_STATUSES);
+  const decisionRef = str(c, `${path}.decisionRef`, ref);
+  if (status === undefined || decisionRef === undefined) return undefined;
+  return Object.freeze({ decision: status, decisionRef });
 }
 
 function isValidTimeZone(timeZone: string): boolean {
@@ -350,6 +369,7 @@ function parseCountries(
       'locales',
       'hostTaxIdKinds',
       'taxLines',
+      'taxDecision',
       'legalEntity',
       'holidayCalendar',
       'timeZoneChecks',
@@ -404,6 +424,19 @@ function parseCountries(
       if (!CODE.test(kind)) c.add(`${p}.hostTaxIdKinds`, `code attendu « ${kind} »`);
     }
     const taxLines = parseTaxLines(c, `${p}.taxLines`, raw['taxLines']);
+    const rawTaxDecision = raw['taxDecision'];
+    let taxDecision: DecisionInfo | undefined;
+    if (!isObject(rawTaxDecision)) {
+      c.add(`${p}.taxDecision`, 'objet { decision, decisionRef } attendu');
+    } else {
+      checkKeys(c, `${p}.taxDecision`, rawTaxDecision, ['decision', 'decisionRef']);
+      taxDecision = decisionInfo(
+        c,
+        `${p}.taxDecision`,
+        rawTaxDecision['decision'],
+        rawTaxDecision['decisionRef'],
+      );
+    }
     if (!('legalEntity' in raw)) c.add(`${p}.legalEntity`, 'champ obligatoire (objet ou null)');
     const legalEntity = parseLegalEntity(c, `${p}.legalEntity`, raw['legalEntity']);
     const holidayCalendar = parseHolidays(c, `${p}.holidayCalendar`, raw['holidayCalendar']);
@@ -415,6 +448,7 @@ function parseCountries(
       legalLocale === undefined ||
       defaultLocale === undefined ||
       holidayCalendar === undefined ||
+      taxDecision === undefined ||
       NAME_LANGUAGES.some((l) => names[l] === undefined)
     ) {
       return;
@@ -431,6 +465,7 @@ function parseCountries(
         locales: Object.freeze(locales),
         hostTaxIdKinds: Object.freeze(hostTaxIdKinds),
         taxLines: Object.freeze(taxLines),
+        taxDecision,
         legalEntity,
         holidayCalendar,
         timeZoneChecks: Object.freeze(timeZoneChecks),
@@ -607,6 +642,8 @@ const DEFINITION_FIELDS = [
   'jsonKeys',
   'source',
   'status',
+  'decision',
+  'decisionRef',
   'values',
   'scoped',
 ] as const;
@@ -650,11 +687,13 @@ function parseDefinition(
       : (strList(c, `${path}.jsonKeys`, raw['jsonKeys']) ?? null);
   const source = str(c, `${path}.source`, raw['source']);
   const status = str(c, `${path}.status`, raw['status']);
+  const decision = decisionInfo(c, path, raw['decision'], raw['decisionRef']);
   if (
     type === undefined ||
     failMode === undefined ||
     source === undefined ||
-    status === undefined
+    status === undefined ||
+    decision === undefined
   ) {
     return undefined;
   }
@@ -690,6 +729,11 @@ function parseDefinition(
     // 17 §7.1 point 6 et §0.1 : un interrupteur est un booléen de portée COUNTRY, absent ⇒ false.
     c.add(path, 'interrupteur : type BOOL, failMode FALSE, portée COUNTRY seule, non optionnel');
   }
+  if (goLiveSwitch && decision.decision !== 'DECIDED') {
+    // US-110 : la valeur false d'un interrupteur est décidée (17 §0.1) ; son passage à true ne
+    // relève pas du statut mais de la procédure à deux personnes (US-125).
+    c.add(`${path}.decision`, 'interrupteur : statut DECIDED attendu (false, 17 §0.1)');
+  }
   return Object.freeze({
     key,
     type,
@@ -704,6 +748,8 @@ function parseDefinition(
     jsonKeys: jsonKeys === null ? null : Object.freeze(jsonKeys),
     source,
     status,
+    decision: decision.decision,
+    decisionRef: decision.decisionRef,
   });
 }
 
@@ -754,6 +800,9 @@ function parseParams(
         value: deepFreeze(value),
         validFrom: null,
         validTo: null,
+        decision: def.decision,
+        decisionRef: def.decisionRef,
+        source: def.source,
       }),
     );
   };

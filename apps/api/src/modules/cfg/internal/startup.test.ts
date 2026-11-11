@@ -10,7 +10,6 @@ import { NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CfgModule } from '../cfg.module.js';
 import { loadRepositoryConfig } from './load.js';
-import type { CountryConfig, ParamDefinition, ParamJson, ParamValue } from './model.js';
 import { assertProductionReady, findReadinessIssues } from './readiness.js';
 import { parseRuntimeEnvironment, runStartupChecks } from './startup.js';
 import {
@@ -18,7 +17,14 @@ import {
   checkRuntimeTimeZoneData,
   runtimeUtcOffsetMinutes,
 } from './tzdata.js';
-import { cloneSources, country, errorCode, errorDetails, parse } from './test-helpers.js';
+import {
+  cloneSources,
+  completeConfig,
+  country,
+  errorCode,
+  errorDetails,
+  parse,
+} from './test-helpers.js';
 
 const config = loadRepositoryConfig();
 const at = new Date('2026-11-03T12:00:00Z');
@@ -62,17 +68,18 @@ describe('contrôle de production sur la configuration du dépôt', () => {
     expect(missing('PY')).toEqual([...TO_FIX_BOTH, ...TO_FIX_PY].sort());
   });
 
-  it('entité juridique et fériés manquent dans les deux pays', () => {
+  it('entité juridique et fériés manquent, taux de taxe à décider, dans les deux pays', () => {
     for (const c of ['PA', 'PY']) {
       expect(issues.filter((i) => i.country === c && i.key === null).map((i) => i.kind)).toEqual([
         'LEGAL_ENTITY_MISSING',
         'HOLIDAYS_MISSING',
+        'TAX_UNDECIDED',
       ]);
     }
   });
 
   it('interrupteurs, clés FALSE / ZERO, optionnelles et sans objet ne sont pas exigés', () => {
-    const keys = new Set(issues.map((i) => i.key));
+    const keys = new Set(issues.filter((i) => i.kind === 'PARAM_MISSING').map((i) => i.key));
     for (const key of [
       'p2p_private_hosts_enabled',
       'payouts_enabled',
@@ -90,58 +97,6 @@ describe('contrôle de production sur la configuration du dépôt', () => {
     );
   });
 });
-
-/** Valeur de test d'un type (jamais une valeur métier). */
-function sample(def: ParamDefinition): ParamJson {
-  switch (def.type) {
-    case 'BOOL':
-      return true;
-    case 'MONEY':
-      return '1';
-    case 'ENUM':
-      return def.allowedValues![0]!;
-    case 'JSON':
-      return { test: '1' };
-    default:
-      return 1;
-  }
-}
-
-/** Configuration complétée par des valeurs de test, pour isoler le critère. */
-function completeConfig(): CountryConfig {
-  const sources = cloneSources();
-  for (const code of ['PA', 'PY']) {
-    country(sources, code)['legalEntity'] = {
-      name: 'Entité de test',
-      countryOfIncorporation: code,
-      taxId: 'TEST-0001',
-      invoicingRegime: 'TEST_REGIME',
-    };
-    country(sources, code)['holidayCalendar'] = {
-      version: 1,
-      holidays: [{ date: '2026-12-25', name: 'Test' }],
-    };
-  }
-  const base = parse(sources);
-  const extra: ParamValue[] = findReadinessIssues(base, at)
-    .filter((i) => i.kind === 'PARAM_MISSING')
-    .map((i) => {
-      const def = base.definitions.get(i.key!)!;
-      const scopeType = def.scopes.includes('COUNTRY') ? 'COUNTRY' : def.scopes[0]!;
-      return {
-        key: def.key,
-        country: i.country,
-        scopeType,
-        scopeId: scopeType === 'COUNTRY' || scopeType === 'NETWORK' ? null : 'TEST',
-        network: scopeType === 'NETWORK' ? 'TEST' : null,
-        currency: null,
-        value: sample(def),
-        validFrom: null,
-        validTo: null,
-      };
-    });
-  return { ...base, values: [...base.values, ...extra] };
-}
 
 describe('clé obligatoire manquante ⇒ refus explicite (16 ADM-014)', () => {
   it('configuration complète : aucun manque', () => {
@@ -163,8 +118,8 @@ describe('clé obligatoire manquante ⇒ refus explicite (16 ADM-014)', () => {
 
   it('fériés de l’année contrôlée absents ⇒ refus', () => {
     expect(findReadinessIssues(completeConfig(), new Date('2027-03-01T00:00:00Z'))).toEqual([
-      { country: 'PA', kind: 'HOLIDAYS_MISSING', key: null },
-      { country: 'PY', kind: 'HOLIDAYS_MISSING', key: null },
+      { country: 'PA', kind: 'HOLIDAYS_MISSING', key: null, decisionRef: null },
+      { country: 'PY', kind: 'HOLIDAYS_MISSING', key: null, decisionRef: null },
     ]);
   });
 });
