@@ -243,9 +243,6 @@ Politiques RLS :
 
 Déclencheurs :
 
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - `data_access_log_append_only` : `CREATE TRIGGER data_access_log_append_only BEFORE DELETE OR UPDATE ON core.audit_data_access_log FOR EACH ROW EXECUTE FUNCTION core.audit_append_only('data_access_log_append_only')`
 - `data_access_log_no_truncate` : `CREATE TRIGGER data_access_log_no_truncate BEFORE TRUNCATE ON core.audit_data_access_log FOR EACH STATEMENT EXECUTE FUNCTION core.audit_append_only('data_access_log_append_only')`
 
