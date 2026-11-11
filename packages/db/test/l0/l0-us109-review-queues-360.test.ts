@@ -29,7 +29,7 @@ import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { ensureParties, placeHoldCommand, registerVehicles } from '../support/concurrency.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
-import { auditOf, elevatedStaff } from '../support/staff.ts';
+import { auditOf, elevate, elevatedStaff, login, stepNow } from '../support/staff.ts';
 
 const ALL = COUNTRIES.map((c) => c.country);
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
@@ -64,6 +64,40 @@ async function person(client: pg.ClientBase, country: string): Promise<Person> {
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
   return { userId, hash: t.hash, email };
+}
+
+/**
+ * Membre du staff qui est AUSSI une personne inscrite dans `country` (son compte a un pays, donc
+ * il peut être le sujet d'une action de console) : rôle, facteur TOTP, session élevée par les
+ * vraies commandes (mêmes étapes qu'`elevatedStaff`).
+ */
+async function staffPerson(
+  client: pg.ClientBase,
+  country: string,
+  role: string,
+): Promise<Staff & { readonly email: string }> {
+  const p = await person(client, country);
+  await client.query(
+    `SELECT test_fixture.iam_grant_staff_role($1, $2, $3, $4::text[], NULL, NULL)`,
+    [uuid(), p.userId, role, [country]],
+  );
+  const factorId = uuid();
+  const code = randomBytes(9).toString('base64url');
+  const codeHash = createHash('sha256').update(code, 'utf8').digest();
+  await client.query(
+    `SELECT test_fixture.iam_insert_pending_totp($1, $2, 'fake-vault:test-secret', $3, 86400)`,
+    [factorId, p.userId, codeHash],
+  );
+  const hash = await login(client, p.userId);
+  const reveal = await client.query<{ outcome: string }>(
+    'SELECT outcome FROM core.iam_staff_cmd_enroll_reveal($1, $2)',
+    [hash, codeHash],
+  );
+  if (reveal.rows[0]?.outcome !== 'OK') throw new Error('enrôlement refusé');
+  if ((await elevate(client, hash, factorId, stepNow())) !== 'ENROLLED') {
+    throw new Error('élévation refusée');
+  }
+  return { userId: p.userId, factorId, code, codeHash, hash, email: p.email };
 }
 
 interface Result {
@@ -288,6 +322,74 @@ describe('critère 1 — un compte restreint ne réserve pas (ACCOUNT_RESTRICTED
           guest.userId,
         ]);
         expect(rows).toEqual([]);
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : séparation des fonctions — jamais sur soi-même (pose ni levée) ; un membre du staff seulement par un ADMIN (ADR-097, PROPOSÉ)',
+    async (country) => {
+      await withRole('app_api', async (client) => {
+        const ops = await staffPerson(client, country, 'OPS_AGENT');
+        const colleague = await staffPerson(client, country, 'OPS_AGENT');
+        const admin = await staffPerson(client, country, 'ADMIN');
+        const scope = [country];
+        // soi-même : refusé, pour la pose comme pour la levée
+        expect(
+          await act(client, ops, 'RESTRICT_ACCOUNT', ops.userId, { kind: 'TS_HOLD' }, scope),
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'SELF_FORBIDDEN' });
+        // un collègue du staff : pas par un OPS
+        expect(
+          await act(client, ops, 'RESTRICT_ACCOUNT', colleague.userId, { kind: 'TS_HOLD' }, scope),
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'STAFF_SUBJECT_ADMIN_ONLY' });
+        // par un ADMIN : posée
+        expect(
+          (
+            await act(
+              client,
+              admin,
+              'RESTRICT_ACCOUNT',
+              colleague.userId,
+              { kind: 'TS_HOLD' },
+              scope,
+            )
+          ).outcome,
+        ).toBe('DONE');
+        // le collègue restreint ne lève pas sa propre restriction ; un autre OPS non plus
+        expect(
+          await act(
+            client,
+            colleague,
+            'LIFT_RESTRICTION',
+            colleague.userId,
+            { kind: 'TS_HOLD' },
+            scope,
+          ),
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'SELF_FORBIDDEN' });
+        expect(
+          await act(client, ops, 'LIFT_RESTRICTION', colleague.userId, { kind: 'TS_HOLD' }, scope),
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'STAFF_SUBJECT_ADMIN_ONLY' });
+        const { rows } = await client.query<{ active: boolean }>(
+          'SELECT * FROM test_fixture.us109_restrictions($1)',
+          [colleague.userId],
+        );
+        expect(rows.map((r) => r.active)).toEqual([true]);
+        // l'ADMIN ne se restreint pas non plus lui-même
+        expect(
+          await act(client, admin, 'RESTRICT_ACCOUNT', admin.userId, { kind: 'TS_HOLD' }, scope),
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'SELF_FORBIDDEN' });
+        expect(
+          (
+            await act(
+              client,
+              admin,
+              'LIFT_RESTRICTION',
+              colleague.userId,
+              { kind: 'TS_HOLD' },
+              scope,
+            )
+          ).outcome,
+        ).toBe('DONE');
       });
     },
   );
@@ -588,6 +690,10 @@ describe('critère 3 — un élément qui dépasse son délai est signalé (16 A
         expect((await enqueue(client, 'OVERDUE', 'TRIP', uuid(), country)).outcome).toBe(
           'QUEUE_UNKNOWN',
         );
+        // pays recoupé avec celui de la personne (revue sécurité US-109, n° 3)
+        expect(
+          (await enqueue(client, 'LISTING', 'USER_ACCOUNT', p.userId, otherOf(country))).outcome,
+        ).toBe('COUNTRY_MISMATCH');
         const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
         const fresh = await queues(client, ops, 'KYC');
         expect(fresh.outcome).toBe('OK');
@@ -612,6 +718,44 @@ describe('critère 3 — un élément qui dépasse son délai est signalé (16 A
         const support = await elevatedStaff(client, 'SUPPORT_AGENT', [country]);
         expect((await queues(client, support, null)).outcome).toBe('FORBIDDEN');
         expect((await auditOf(client, support.userId)).at(-1)?.action_code).toBe('STAFF_FORBIDDEN');
+      });
+    },
+  );
+});
+
+describe('sonde productrice : mise en file et clôture avec le seul droit EXECUTE', () => {
+  it.each(byCountry)(
+    '%s (%s) : la commande d’une story productrice (propriétaire NOLOGIN, EXECUTE seul) met en file puis clôt (DONE, décision et date posées par la base) ; un élément clos sort de la file ; une seconde clôture rend NOT_OPEN',
+    async (country) => {
+      await withRole('app_api', async (client) => {
+        const p = await person(client, country);
+        const k = await enqueue(client, 'KYC', 'USER_ACCOUNT', p.userId, country);
+        expect(k.outcome).toBe('CREATED');
+        const close = async (status: string, decision: string) =>
+          (
+            await client.query<{ outcome: string }>(
+              'SELECT outcome FROM test_fixture.us109_close($1, $2, $3)',
+              [k.item_id, status, decision],
+            )
+          ).rows[0]?.outcome;
+        expect(await close('DONE', 'APPROVED')).toBe('CLOSED');
+        expect(await close('DONE', 'APPROVED')).toBe('NOT_OPEN');
+        const { rows } = await client.query<{ status: string }>(
+          'SELECT * FROM test_fixture.us109_item($1)',
+          [k.item_id],
+        );
+        expect(rows[0]?.status).toBe('DONE');
+        const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
+        const items = ((await queues(client, ops, 'KYC')).body?.['items'] ?? []) as {
+          id: string;
+        }[];
+        expect(items.map((i) => i.id)).not.toContain(k.item_id);
+        // une décision qui n'est pas un mot, ou un état non terminal : 22023
+        await expect(close('OPEN', 'APPROVED')).rejects.toMatchObject({ code: '22023' });
+        // un élément neuf peut de nouveau être mis en file pour ce sujet
+        expect((await enqueue(client, 'KYC', 'USER_ACCOUNT', p.userId, country)).outcome).toBe(
+          'CREATED',
+        );
       });
     },
   );
@@ -700,6 +844,11 @@ describe('aucun accès direct aux tables ni aux commandes hors app_api', () => {
           `SELECT * FROM core.support_enqueue_review('KYC', 'USER_ACCOUNT', $1, $2, NULL)`,
           [uuid(), ALL[0]],
         ),
+      ).rejects.toMatchObject({ code: '42501' });
+      await expect(
+        client.query(`SELECT * FROM core.support_close_review_item($1, 'DONE', 'APPROVED', NULL)`, [
+          uuid(),
+        ]),
       ).rejects.toMatchObject({ code: '42501' });
     });
     for (const role of ['app_worker', 'app_anon'] as const) {

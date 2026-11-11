@@ -56,7 +56,8 @@
 --     core.support_staff_record_evidence(bytea, uuid, uuid, text, bigint, bytea),
 --     core.support_staff_evidence_permitted(bytea, uuid, uuid),
 --     core.iam_manual_action_restriction(bytea, uuid, text, uuid, jsonb, text, uuid, text),
---     core.support_enqueue_review(text, text, uuid, text, uuid), core.support_staff_covers_user(uuid, text, uuid, text),
+--     core.support_enqueue_review(text, text, uuid, text, uuid), core.support_close_review_item(uuid, text, text, uuid),
+--     core.support_staff_covers_user(uuid, text, uuid, text),
 --     core.support_staff_log_access(uuid, text, text, uuid, text, text, text, text, uuid, text),
 --     core.support_queue_sla_minutes(text, text);
 --   DROP TABLE core.support_internal_note, core.support_review_queue_item, core.support_review_queue;
@@ -208,6 +209,11 @@ CREATE POLICY iam_staff_insert ON core.support_review_queue_item FOR INSERT TO i
   WITH CHECK (status = 'OPEN');
 CREATE POLICY iam_staff_update ON core.support_review_queue_item FOR UPDATE TO iam_staff_owner
   USING (status IN ('OPEN', 'IN_REVIEW')) WITH CHECK (status IN ('OPEN', 'IN_REVIEW'));
+-- clôture par la commande de domaine productrice (support_close_review_item) : décision datée
+GRANT UPDATE (decision, decided_at) ON core.support_review_queue_item TO iam_staff_owner;
+CREATE POLICY iam_staff_close ON core.support_review_queue_item FOR UPDATE TO iam_staff_owner
+  USING (status IN ('OPEN', 'IN_REVIEW'))
+  WITH CHECK (status IN ('DONE', 'CANCELLED') AND decided_at IS NOT NULL);
 
 GRANT SELECT, INSERT (id, subject_type, subject_id, country_code, author_user_id, author_role, body)
   ON core.support_internal_note TO iam_staff_owner;
@@ -284,58 +290,6 @@ AS $fn$
    LIMIT 1
 $fn$;
 
--- Mise en file (appelée par les commandes de domaine des stories productrices : US-106, US-108,
--- US-114, US-118, US-209 ; leur propriétaire reçoit EXECUTE dans leur migration). Échéance posée
--- par la base. Issues : CREATED (id), EXISTS (élément vivant déjà présent : son id),
--- QUEUE_UNKNOWN, PARAM_MISSING. Deux mises en file concurrentes du même sujet sont sérialisées.
-CREATE FUNCTION core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid,
-                                            p_country text, p_actor uuid)
-  RETURNS TABLE (outcome text, item_id uuid)
-  LANGUAGE plpgsql
-  VOLATILE
-  SET search_path = pg_catalog, pg_temp
-AS $fn$
-#variable_conflict use_column
-DECLARE
-  v_minutes integer;
-  v_id      uuid;
-  v_now     timestamptz := platform.now();
-BEGIN
-  IF p_queue IS NULL OR p_subject_type IS NULL OR p_subject_type !~ '^[A-Z][A-Z_]{1,63}$'
-     OR p_subject_id IS NULL OR p_country IS NULL OR p_country !~ '^[A-Z]{2}$' THEN
-    RAISE EXCEPTION 'file de revue : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM core.support_review_queue AS q WHERE q.queue = p_queue) THEN
-    RETURN QUERY SELECT 'QUEUE_UNKNOWN'::text, NULL::uuid;
-    RETURN;
-  END IF;
-  v_minutes := core.support_queue_sla_minutes(p_queue, p_country);
-  IF v_minutes IS NULL THEN
-    RETURN QUERY SELECT 'PARAM_MISSING'::text, NULL::uuid;
-    RETURN;
-  END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
-    'support.review_queue:' || p_queue || ':' || p_subject_type || ':' || p_subject_id::text, 0));
-  SELECT i.id INTO v_id
-    FROM core.support_review_queue_item AS i
-   WHERE i.queue = p_queue AND i.subject_type = p_subject_type AND i.subject_id = p_subject_id
-     AND i.status IN ('OPEN', 'IN_REVIEW');
-  IF v_id IS NOT NULL THEN
-    RETURN QUERY SELECT 'EXISTS'::text, v_id;
-    RETURN;
-  END IF;
-  v_id := pg_catalog.gen_random_uuid();
-  INSERT INTO core.support_review_queue_item
-         (id, queue, subject_type, subject_id, country_code, status, sla_due_at, created_at,
-          created_by, updated_by)
-  -- création et échéance lues sur le MÊME instant (platform.now() avance pendant la commande) :
-  -- le délai posé est exactement celui du paramètre
-  VALUES (v_id, p_queue, p_subject_type, p_subject_id, p_country, 'OPEN',
-          v_now + pg_catalog.make_interval(mins => v_minutes), v_now, p_actor, p_actor);
-  RETURN QUERY SELECT 'CREATED'::text, v_id;
-END
-$fn$;
-
 -- Dossier (case:<id>) ou élément de file (item:<id>) OUVERT, assigné à p_actor, qui couvre la
 -- personne p_user dans le pays p_country (17 §2.3) ; NULL sinon.
 CREATE FUNCTION core.support_staff_covers_user(p_actor uuid, p_role text, p_user uuid, p_country text)
@@ -392,17 +346,12 @@ END
 $fn$;
 
 REVOKE ALL ON FUNCTION core.support_queue_sla_minutes(text, text),
-  core.support_enqueue_review(text, text, uuid, text, uuid),
   core.support_staff_covers_user(uuid, text, uuid, text),
   core.support_staff_log_access(uuid, text, text, uuid, text, text, text, text, uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.support_queue_sla_minutes(text, text),
-  core.support_enqueue_review(text, text, uuid, text, uuid),
   core.support_staff_covers_user(uuid, text, uuid, text),
   core.support_staff_log_access(uuid, text, text, uuid, text, text, text, text, uuid, text)
   TO iam_staff_owner;
-COMMENT ON FUNCTION core.support_enqueue_review(text, text, uuid, text, uuid) IS
-  'Mise en file de revue : échéance = platform.now() + délai du paramètre du pays (absent : '
-  'PARAM_MISSING) ; un élément vivant par sujet et par file. US-109 (ADR-097).';
 
 -- 8. Restrictions de compte : commande de domaine liée (cadre d'ADR-092) --------------------------
 GRANT SELECT (id, user_id, kind, active) ON core.iam_restriction TO iam_auth_owner;
@@ -427,8 +376,9 @@ VALUES
    '{"kind": ["TS_HOLD", "POLICY_VIOLATION"]}', false);
 
 -- Gestionnaire (signature imposée par support_manual_action_handler_check). Issues : DONE (ref_id =
--- la restriction), SUBJECT_NOT_FOUND, KIND_REQUIRED, RESTRICTION_EXISTS (pose), RESTRICTION_NOT_FOUND
--- (levée). Le motif de l'action devient celui de la restriction ; aucune saisie libre d'autre sorte.
+-- la restriction), SUBJECT_NOT_FOUND, KIND_REQUIRED, SELF_FORBIDDEN (l'acteur est le sujet, pose et
+-- levée), STAFF_SUBJECT_ADMIN_ONLY (sujet membre du staff, acteur autre qu'ADMIN), RESTRICTION_EXISTS
+-- (pose), RESTRICTION_NOT_FOUND (levée). Séparation des fonctions : revue sécurité US-109, n° 1. Le motif de l'action devient celui de la restriction ; aucune saisie libre d'autre sorte.
 CREATE FUNCTION core.iam_manual_action_restriction(p_token_hash bytea, p_action_id uuid,
                                                    p_action_code text, p_subject_id uuid,
                                                    p_input jsonb, p_reason text,
@@ -455,6 +405,18 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM core.iam_user_account AS u WHERE u.id = p_subject_id) THEN
     RETURN QUERY SELECT 'SUBJECT_NOT_FOUND'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  IF p_subject_id = p_actor THEN
+    RETURN QUERY SELECT 'SELF_FORBIDDEN'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  -- membre du staff (rôle en cours) : un ADMIN seulement (PROPOSÉ, ADR-097)
+  IF p_actor_role IS DISTINCT FROM 'ADMIN'
+     AND EXISTS (SELECT 1 FROM core.iam_staff_role_assignment AS a
+                  WHERE a.user_id = p_subject_id
+                    AND (a.expires_at IS NULL OR a.expires_at > platform.now())) THEN
+    RETURN QUERY SELECT 'STAFF_SUBJECT_ADMIN_ONLY'::text, NULL::uuid, '{}'::uuid[];
     RETURN;
   END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(
@@ -727,6 +689,108 @@ REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
 GRANT CREATE ON SCHEMA core TO iam_staff_owner;
 SET LOCAL ROLE iam_staff_owner;
 
+-- 10.0 Mise en file et clôture, pour les commandes de domaine des stories productrices (US-106,
+-- US-108, US-114, US-118, US-209) : SECURITY DEFINER, iam_staff_owner, search_path figé ; EXECUTE
+-- à AUCUN rôle ici : chaque story l'accorde au propriétaire NOLOGIN de sa commande (revue
+-- architecture US-109, n° 1). Le pays d'un sujet qui a une table (personne, compte d'hôte) est
+-- relu en base et doit être celui reçu (revue sécurité US-109, n° 3).
+-- Mise en file. Issues : CREATED (id), EXISTS (élément vivant : son id), QUEUE_UNKNOWN,
+-- PARAM_MISSING, COUNTRY_MISMATCH. Deux mises en file concurrentes du même sujet sont sérialisées.
+CREATE FUNCTION core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid,
+                                            p_country text, p_actor uuid)
+  RETURNS TABLE (outcome text, item_id uuid)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_minutes integer;
+  v_id      uuid;
+  v_subject text;
+  v_now     timestamptz := platform.now();
+BEGIN
+  IF p_queue IS NULL OR p_subject_type IS NULL OR p_subject_type !~ '^[A-Z][A-Z_]{1,63}$'
+     OR p_subject_id IS NULL OR p_country IS NULL OR p_country !~ '^[A-Z]{2}$' THEN
+    RAISE EXCEPTION 'file de revue : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM core.support_review_queue AS q WHERE q.queue = p_queue) THEN
+    RETURN QUERY SELECT 'QUEUE_UNKNOWN'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  -- pays du sujet relu en base quand le sujet a une table : jamais celui d'une autre personne
+  IF p_subject_type = 'USER_ACCOUNT' THEN
+    v_subject := core.ctr_account_country(p_subject_id);
+  ELSIF p_subject_type = 'ORGANIZATION' THEN
+    SELECT o.country_code INTO v_subject FROM core.iam_organization AS o WHERE o.id = p_subject_id;
+  END IF;
+  IF p_subject_type IN ('USER_ACCOUNT', 'ORGANIZATION') AND v_subject IS DISTINCT FROM p_country THEN
+    RETURN QUERY SELECT 'COUNTRY_MISMATCH'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  v_minutes := core.support_queue_sla_minutes(p_queue, p_country);
+  IF v_minutes IS NULL THEN
+    RETURN QUERY SELECT 'PARAM_MISSING'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'support.review_queue:' || p_queue || ':' || p_subject_type || ':' || p_subject_id::text, 0));
+  SELECT i.id INTO v_id
+    FROM core.support_review_queue_item AS i
+   WHERE i.queue = p_queue AND i.subject_type = p_subject_type AND i.subject_id = p_subject_id
+     AND i.status IN ('OPEN', 'IN_REVIEW');
+  IF v_id IS NOT NULL THEN
+    RETURN QUERY SELECT 'EXISTS'::text, v_id;
+    RETURN;
+  END IF;
+  v_id := pg_catalog.gen_random_uuid();
+  INSERT INTO core.support_review_queue_item
+         (id, queue, subject_type, subject_id, country_code, status, sla_due_at, created_at,
+          created_by, updated_by)
+  -- création et échéance lues sur le MÊME instant (platform.now() avance pendant la commande) :
+  -- le délai posé est exactement celui du paramètre
+  VALUES (v_id, p_queue, p_subject_type, p_subject_id, p_country, 'OPEN',
+          v_now + pg_catalog.make_interval(mins => v_minutes), v_now, p_actor, p_actor);
+  RETURN QUERY SELECT 'CREATED'::text, v_id;
+END
+$fn$;
+
+-- Clôture d'un élément vivant par la commande de domaine qui a tranché (DONE) ou annulé
+-- (CANCELLED) : décision (mot) et date posées par la base. Issues : CLOSED, NOT_OPEN.
+CREATE FUNCTION core.support_close_review_item(p_item_id uuid, p_status text, p_decision text,
+                                               p_actor uuid)
+  RETURNS TABLE (outcome text, item_id uuid)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  n integer;
+BEGIN
+  IF p_item_id IS NULL OR p_status IS NULL OR p_status NOT IN ('DONE', 'CANCELLED')
+     OR p_decision IS NULL OR p_decision !~ '^[A-Z][A-Z_]{1,63}$' THEN
+    RAISE EXCEPTION 'file de revue : clôture invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  UPDATE core.support_review_queue_item AS i
+     SET status = p_status, decision = p_decision, decided_at = platform.now(), updated_by = p_actor
+   WHERE i.id = p_item_id AND i.status IN ('OPEN', 'IN_REVIEW');
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN QUERY SELECT CASE WHEN n = 1 THEN 'CLOSED' ELSE 'NOT_OPEN' END::text, p_item_id;
+END
+$fn$;
+COMMENT ON FUNCTION core.support_enqueue_review(text, text, uuid, text, uuid) IS
+  'Mise en file de revue : échéance = platform.now() + délai du paramètre du pays (absent : '
+  'PARAM_MISSING) ; pays du sujet recoupé ; un élément vivant par sujet et par file. EXECUTE '
+  'accordé par chaque story productrice. US-109 (ADR-097).';
+COMMENT ON FUNCTION core.support_close_review_item(uuid, text, text, uuid) IS
+  'Clôture d''un élément de file (DONE, CANCELLED) par la commande de domaine qui a tranché ; '
+  'décision et date posées par la base. US-109 (ADR-097).';
+REVOKE ALL ON FUNCTION core.support_enqueue_review(text, text, uuid, text, uuid),
+  core.support_close_review_item(uuid, text, text, uuid) FROM PUBLIC;
+
 -- 10.1 Files : résumé par file (ouverts, en retard) et éléments d'une file, dans les pays où
 -- l'acteur détient la permission de la file. Un élément ouvert dont l'échéance est passée est
 -- signalé (`overdue`), calculé par la base. Aucune donnée personnelle : des références seulement.
@@ -937,6 +1001,9 @@ BEGIN
     WHEN v_item.id IS NULL THEN 'CASE'
     WHEN v_item.queue <> 'KYC' OR v_item.subject_type <> 'USER_ACCOUNT' THEN 'CASE'
     WHEN v_role IS NULL THEN 'PERMISSION'
+    -- pays de l'élément = pays de la personne (revue sécurité US-109, n° 3)
+    WHEN core.ctr_account_country(v_item.subject_id) IS DISTINCT FROM v_item.country_code
+      THEN 'COUNTRY'
     WHEN v_item.status NOT IN ('OPEN', 'IN_REVIEW') THEN 'CASE'
     WHEN v_role <> 'ADMIN' AND v_item.assignee_id IS DISTINCT FROM v_s.user_id THEN 'CASE'
     ELSE NULL END;
@@ -950,8 +1017,10 @@ BEGIN
                                          ELSE pg_catalog.jsonb_build_object('country',
                                                 v_item.country_code) END,
                                  v_purpose, p_request_id);
-    -- permission détenue mais élément hors file KYC, clos ou non assigné : CASE_REQUIRED
-    RETURN QUERY SELECT CASE WHEN v_role IS NOT NULL THEN 'CASE_REQUIRED' ELSE 'FORBIDDEN' END::text,
+    -- permission détenue mais élément hors file KYC, clos ou non assigné : CASE_REQUIRED ;
+    -- pays discordant : FORBIDDEN
+    RETURN QUERY SELECT CASE WHEN v_role IS NOT NULL AND v_reason <> 'COUNTRY' THEN 'CASE_REQUIRED'
+                             ELSE 'FORBIDDEN' END::text,
                         NULL::jsonb;
     RETURN;
   END IF;

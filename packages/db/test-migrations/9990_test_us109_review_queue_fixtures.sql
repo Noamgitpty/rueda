@@ -4,8 +4,10 @@
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).
 --
 -- Rôle (SECURITY DEFINER sous migrator, search_path figé, EXECUTE au seul app_api) :
---   - mise en file par la VRAIE fonction core.support_enqueue_review (appelée en production par
---     les commandes des stories productrices, jamais par un rôle applicatif) ;
+--   - SONDE PRODUCTRICE : mise en file et clôture par les VRAIES fonctions
+--     core.support_enqueue_review et core.support_close_review_item, appelées depuis une commande
+--     SECURITY DEFINER dont le propriétaire NOLOGIN (cmd_golive_owner, comme les sondes de 9960)
+--     n'a reçu QUE le droit EXECUTE : c'est exactement ce qu'une story productrice accordera ;
 --   - recul d'un élément dans le temps (création et échéance reculées du même intervalle : le
 --     délai posé par la base est conservé), pour éprouver le retard sans horloge truquée ;
 --   - relectures des lignes que les rôles applicatifs ne lisent pas (éléments, journal d'accès,
@@ -27,6 +29,30 @@ AS $fn$
   SELECT r.outcome, r.item_id
     FROM core.support_enqueue_review(p_queue, p_subject_type, p_subject_id, p_country, NULL) AS r
 $fn$;
+
+CREATE FUNCTION test_fixture.us109_close(p_item uuid, p_status text, p_decision text)
+  RETURNS TABLE (outcome text, item_id uuid)
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT r.outcome, r.item_id
+    FROM core.support_close_review_item(p_item, p_status, p_decision, NULL) AS r
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us109_enqueue(text, text, uuid, text),
+  test_fixture.us109_close(uuid, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us109_enqueue(text, text, uuid, text),
+  test_fixture.us109_close(uuid, text, text) TO app_api;
+-- sonde productrice : propriétaire NOLOGIN qui ne reçoit que l'EXECUTE des deux fonctions
+GRANT CREATE ON SCHEMA test_fixture TO cmd_golive_owner;
+ALTER FUNCTION test_fixture.us109_enqueue(text, text, uuid, text) OWNER TO cmd_golive_owner;
+ALTER FUNCTION test_fixture.us109_close(uuid, text, text) OWNER TO cmd_golive_owner;
+REVOKE CREATE ON SCHEMA test_fixture FROM cmd_golive_owner;
+SET LOCAL ROLE iam_staff_owner;
+GRANT EXECUTE ON FUNCTION core.support_enqueue_review(text, text, uuid, text, uuid),
+  core.support_close_review_item(uuid, text, text, uuid) TO cmd_golive_owner;
+RESET ROLE;
 
 CREATE FUNCTION test_fixture.us109_backdate_item(p_item uuid, p_minutes integer)
   RETURNS void
@@ -154,8 +180,7 @@ AS $fn$
   VALUES (pg_catalog.gen_random_uuid(), p_user, p_kind, true, 'fixture US-109')
 $fn$;
 
-REVOKE ALL ON FUNCTION test_fixture.us109_enqueue(text, text, uuid, text),
-  test_fixture.us109_backdate_item(uuid, integer),
+REVOKE ALL ON FUNCTION test_fixture.us109_backdate_item(uuid, integer),
   test_fixture.us109_item(uuid),
   test_fixture.us109_access_log(uuid),
   test_fixture.us109_notes(uuid),
@@ -166,8 +191,7 @@ REVOKE ALL ON FUNCTION test_fixture.us109_enqueue(text, text, uuid, text),
   test_fixture.us109_activate_org(uuid),
   test_fixture.us109_holder_of(uuid),
   test_fixture.us109_restrict_directly(uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION test_fixture.us109_enqueue(text, text, uuid, text),
-  test_fixture.us109_backdate_item(uuid, integer),
+GRANT EXECUTE ON FUNCTION test_fixture.us109_backdate_item(uuid, integer),
   test_fixture.us109_item(uuid),
   test_fixture.us109_access_log(uuid),
   test_fixture.us109_notes(uuid),

@@ -631,6 +631,20 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-109"
+    },
+    {
+      "signature": "core.support_enqueue_review(text,text,uuid,text,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": [],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_close_review_item(uuid,text,text,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": [],
+      "story": "US-109"
     }
   ]
 }
