@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 62 migrations ; 69 tables ; 2 vues ; 360 politiques RLS ; 79 fonctions `SECURITY DEFINER` ; 122 autres fonctions.
+- 63 migrations ; 69 tables ; 2 vues ; 360 politiques RLS ; 79 fonctions `SECURITY DEFINER` ; 123 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -77,6 +77,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0059_ctr_legal_consent` | CTR : gabarits juridiques versionnés et consentements (CGU, confidentialité, communications). |
 | `0060_support_manual_action_framework` | SUP : cadre des actions de console (commande de domaine liée, aucun montant, pièces, FINANCE à deux personnes). |
 | `0061_iam_host_account` | IAM : compte d'hôte d'une personne physique (titulaire, nom affiché), libre-service et action de console CREATE_HOST_ACCOUNT. |
+| `0062_config_content_legal_keys` | CFG : blocs de contenu éditables, textes juridiques refusés et journalisés. |
 
 ## Rôles
 
@@ -893,6 +894,7 @@ Contraintes :
 - `content_block_body_allowed` : `CHECK (core.cfg_brand_body_allowed(body_md))`
 - `content_block_key_format` : `CHECK (block_key ~ '^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){1,5}$'::text AND char_length(block_key) <= 120)`
 - `content_block_key_not_legal` : `CHECK (block_key !~ '^legal\.'::text)`
+- `content_block_key_not_legal_text` : `CHECK (core.cfg_content_key_not_legal(block_key))`
 - `content_block_locale_valid` : `CHECK (locale = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
 - `content_block_pkey` : `PRIMARY KEY (id)`
 - `content_block_publication_complete` : `CHECK ((status = 'DRAFT'::text) = (published_at IS NULL) AND (published_at IS NULL) = (published_by IS NULL))`
@@ -3475,6 +3477,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_brand_tokens_sha256(p_tokens jsonb)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.cfg_brand_version_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_content_block_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.cfg_content_key_not_legal(p_key text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_go_live(p_key text, p_country text)` | `boolean` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.config_no_truncate()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_param_value_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
