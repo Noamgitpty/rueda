@@ -31,7 +31,8 @@ const IAM_TABLES = [
 
 // Politiques attendues par table (US-010 : migrator_all ; US-011 : 0022, 0024, 0025 ; US-012 :
 // 0033, iam_staff_owner et lecture des sessions par policy_fn_owner ; US-062 : 0035, 0036,
-// matrice lue par policy_fn_owner, voyageur minimisé par host_view_owner, commandes FINANCE).
+// matrice lue par policy_fn_owner, voyageur minimisé par host_view_owner, commandes FINANCE ;
+// US-101 : 0059, pays d'un compte d'hôte lu par la console).
 const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_auth_factor:
     'iam_staff_insert:iam_staff_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator',
@@ -41,7 +42,7 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_membership:
     'cmd_hold_read:cmd_hold_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_organization:
-    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
+    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_otp_challenge: 'migrator_all:migrator',
   iam_restriction: 'migrator_all:migrator',
@@ -71,6 +72,8 @@ const IAM_COMMANDS: Record<string, string> = {
   'core.iam_staff_cmd_elevate(bytea,uuid,bigint,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_enroll_reveal(bytea,bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb)': 'iam_staff_owner',
+  // cadre des actions de console (US-101, 0059) : pièces, commande de domaine liée
+  'core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb,uuid[])': 'iam_staff_owner',
   'core.iam_staff_cmd_mfa_attempt(bytea)': 'iam_staff_owner',
   'core.iam_staff_cmd_reset_totp(bytea,uuid,uuid,text,uuid,text,bytea,integer)': 'iam_staff_owner',
   'core.iam_staff_cmd_suspend(bytea,uuid,uuid,text)': 'iam_staff_owner',

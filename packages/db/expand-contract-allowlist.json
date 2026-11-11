@@ -118,6 +118,12 @@
       "line": 35,
       "kind": "drop-constraint",
       "justification": "US-051 (ADR-082) : la contrainte mfa_proof_key_single (id = 1) est remplacée, dans la même migration, par mfa_proof_key_slot (id IN (1, 2)), qui l'ÉLARGIT pour la clé suivante d'une rotation : toute ligne valide sous la version N (id 1) le reste, la version N n'écrit jamais id 2 ; aucun code d'erreur applicatif n'est attaché à l'ancienne contrainte (écrite hors application, sous migrator)"
+    },
+    {
+      "path": "packages/db/migrations/0059_support_manual_action_framework.sql",
+      "line": 453,
+      "kind": "dynamic-sql",
+      "justification": "US-101 (ADR-091) : appel, dans la commande de console, de la commande de domaine LIÉE à l'action (table support_manual_action_handler, écrite par migration seulement, signature et droits vérifiés à la liaison par déclencheur) ; nom de schéma et de fonction lus dans pg_proc par l'OID lié et cités par format(%I.%I), toutes les valeurs passées par USING (aucun texte du client) ; extension seulement, aucune contraction"
     }
   ]
 }

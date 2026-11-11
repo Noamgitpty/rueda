@@ -1407,7 +1407,9 @@
         "emitted_event_ids": "C1",
         "audit_log_id": "C1",
         "request_id": "C1",
-        "at": "C1"
+        "at": "C1",
+        "outcome": "C1",
+        "domain_ref": "C1"
       }
     },
     "core.support_manual_action_catalog": {
@@ -1418,7 +1420,18 @@
         "permission_code": "C1",
         "mode": "C1",
         "subject_type": "C1",
-        "available": "C1"
+        "available": "C1",
+        "input_keys": "C1"
+      }
+    },
+    "core.support_manual_action_handler": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "action_code": "C1",
+        "handler": "C1",
+        "story": "C1",
+        "bound_at": "C1"
       }
     },
     "core.support_support_case": {

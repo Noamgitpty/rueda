@@ -38,7 +38,8 @@ import {
   UnavailableBotChallenge,
 } from '../../src/modules/risk/index.js';
 import type { RateLimitPolicy } from '../../src/modules/risk/index.js';
-import { PgManualActionStore } from '../../src/modules/sup/index.js';
+import { PgFinanceApprovalStore, PgManualActionStore } from '../../src/modules/sup/index.js';
+import type { SqlPool } from '../../src/modules/sup/index.js';
 
 const PHC =
   '$argon2id$v=19$m=65536,t=3,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g';
@@ -200,7 +201,19 @@ beforeAll(async () => {
       await postgresIamAdapters(client),
       (await postgresPayAdapters(client, env)).webhooks,
       staff,
-      { store: new PgManualActionStore(client) },
+      {
+        store: new PgManualActionStore(client),
+        // une seule connexion de test : la lecture des demandes y ouvre et ferme sa transaction
+        finance: new PgFinanceApprovalStore({
+          query: (text, values) => client.query(text, values as unknown[]),
+          connect: () =>
+            Promise.resolve({
+              query: (text: string, values?: readonly unknown[]) =>
+                client.query(text, values as unknown[]),
+              release: () => undefined,
+            } as Awaited<ReturnType<SqlPool['connect']>>),
+        }),
+      },
       {
         store: new PgBrandStore(client),
         files: new UnavailableBrandFileStore(),

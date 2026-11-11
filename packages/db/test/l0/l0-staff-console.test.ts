@@ -49,6 +49,10 @@ beforeAll(async () => {
 
 const trip = (i: number): string => world.countries[i]?.trips.a1.id ?? '';
 
+/**
+ * Action de console par le cadre d'US-101 (forme à pièces) : une action d'enregistrement seul
+ * (RECORD_CLAIM) porte une pièce reçue du seau des preuves (fixture 9960) ; aucune saisie.
+ */
 async function act(
   client: pg.ClientBase,
   hash: Buffer,
@@ -56,9 +60,15 @@ async function act(
   subject: string,
   requestId = uuid(),
 ): Promise<{ outcome: string; action_id: string | null }> {
+  const evidence: string[] = [];
+  if (action === 'RECORD_CLAIM') {
+    const file = uuid();
+    await client.query(`SELECT test_fixture.us101_insert_file($1, 'PRIVATE_EVIDENCE')`, [file]);
+    evidence.push(file);
+  }
   const { rows } = await client.query<{ outcome: string; action_id: string | null }>(
-    'SELECT * FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6)',
-    [hash, requestId, action, subject, REASON, { note: 'test' }],
+    'SELECT outcome, action_id FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, $7::uuid[])',
+    [hash, requestId, action, subject, REASON, {}, evidence],
   );
   return rows[0] ?? { outcome: '', action_id: null };
 }

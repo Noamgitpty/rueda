@@ -8,8 +8,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { request, screenFor } from './api.ts';
-import type { ApiResult, AuditBody, MeBody } from './api.ts';
+import { messageKeyOf, readsApprovals, request, screenFor } from './api.ts';
+import type { ApiResult, ApprovalsBody, AuditBody, MeBody } from './api.ts';
 import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
 
@@ -42,11 +42,17 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
       const screen = screenFor(me.body.state);
       if (screen === 'console') {
         const audit = await call<AuditBody>('GET', '/staff/audit?limit=50');
+        // demandes FINANCE à approuver (US-101) : FINANCE et ADMIN seulement
+        const approvals = readsApprovals(me.body.roles)
+          ? await call<ApprovalsBody>('GET', '/console/finance/approvals?limit=50')
+          : null;
         setState({
           kind: 'console',
           roles: me.body.roles,
           entries: audit.ok ? audit.body.entries : [],
           journalError: !audit.ok,
+          approvals: approvals?.ok === true ? approvals.body.approvals : [],
+          approvalsError: approvals !== null && !approvals.ok,
           notice,
         });
       } else if (screen === 'totp' || screen === 'enroll') {
@@ -107,17 +113,34 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         else setState({ kind: 'totp', error: r.messageKey });
       });
     },
-    onAction: (action: ConsoleAction, subjectId: string, reason: string) => {
+    onAction: (
+      action: ConsoleAction,
+      subjectId: string,
+      reason: string,
+      evidence: readonly string[],
+    ) => {
       once(async () => {
-        const r = await call('POST', '/console/actions', {
+        // jamais de montant : aucune saisie libre n'est envoyée (US-101, 17 §10 NN3)
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
           requestId: crypto.randomUUID(),
           action,
           subjectId: subjectId.trim().toLowerCase(),
           reason,
+          ...(evidence.length > 0 ? { evidence } : {}),
         });
         await refresh(
           r.ok
-            ? { tone: 'success', key: 'common.auth.actionRecorded' }
+            ? { tone: 'success', key: messageKeyOf(r.body.messageKey) }
+            : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
+        );
+      });
+    },
+    onApprove: (approvalId: string) => {
+      once(async () => {
+        const r = await call('POST', `/console/finance/approvals/${approvalId}/approve`, {});
+        await refresh(
+          r.ok
+            ? { tone: 'success', key: 'common.auth.actionDone' }
             : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
         );
       });

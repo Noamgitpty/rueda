@@ -290,6 +290,13 @@
       "story": "US-012"
     },
     {
+      "signature": "core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb,uuid[])",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-101"
+    },
+    {
       "signature": "core.iam_staff_cmd_mfa_attempt(bytea)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
@@ -440,7 +447,7 @@
       "signature": "core.settlement_cmd_request_finance_action(bytea,uuid,text,uuid,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",
-      "execute": ["app_api"],
+      "execute": ["app_api", "iam_staff_owner"],
       "story": "US-062"
     },
     {

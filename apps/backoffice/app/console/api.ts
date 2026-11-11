@@ -6,7 +6,7 @@
  */
 import { CATALOGS } from '@rueda/i18n';
 import type { MessageKey } from '@rueda/i18n';
-import type { ConsoleState, JournalEntryView, StaffRoleView } from './view.tsx';
+import type { ApprovalView, ConsoleState, JournalEntryView, StaffRoleView } from './view.tsx';
 
 export interface ApiError {
   readonly status: number;
@@ -90,4 +90,14 @@ export function screenFor(
 
 export interface AuditBody {
   readonly entries: readonly (JournalEntryView & { readonly at: string })[];
+}
+
+/** Demandes FINANCE en attente (US-101) : `GET /console/finance/approvals`. */
+export interface ApprovalsBody {
+  readonly approvals: readonly ApprovalView[];
+}
+
+/** Rôles qui lisent les demandes FINANCE (17 §2.3 fin_read) ; la base filtre de toute façon. */
+export function readsApprovals(roles: readonly StaffRoleView[]): boolean {
+  return roles.some((r) => r.role === 'FINANCE' || r.role === 'ADMIN');
 }

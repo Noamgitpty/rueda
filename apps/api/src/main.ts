@@ -29,7 +29,7 @@ import {
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
 import { postgresRiskAdapters } from './modules/risk/index.js';
-import { PgManualActionStore } from './modules/sup/index.js';
+import { PgFinanceApprovalStore, PgManualActionStore } from './modules/sup/index.js';
 import { parseTrustProxy } from './trust-proxy.js';
 
 const DEFAULT_PORT = 3000;
@@ -64,7 +64,7 @@ async function bootstrap(): Promise<void> {
       iam,
       pay.webhooks,
       staff,
-      { store: new PgManualActionStore(pool) },
+      { store: new PgManualActionStore(pool), finance: new PgFinanceApprovalStore(pool) },
       brand,
       risk,
     ),

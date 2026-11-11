@@ -83,6 +83,20 @@
       "portee": "pays",
       "idor": "trip de l'autre pays : 403 journalisé (COUNTRY_SCOPE)"
     },
+    "GET /console/finance/approvals": {
+      "acces": "staff",
+      "permission": "finance.platform_advance ou finance.insurer_bordereau (lecture RLS fin_read)",
+      "roles": ["OPS_AGENT", "SUPPORT_AGENT", "FINANCE", "ADMIN", "SUPERADMIN"],
+      "portee": "sans_pays",
+      "idor": "demandes de l'autre pays ou d'un rôle sans droit FINANCE : jamais rendues (liste vide ; preuve L0 l0-us101-console-actions et test:int pg-console-stores)"
+    },
+    "POST /console/finance/approvals/{id}/approve": {
+      "acces": "staff",
+      "permission": "finance.platform_advance ou finance.insurer_bordereau (seconde personne distincte, RLS-24)",
+      "roles": ["FINANCE", "ADMIN"],
+      "portee": "pays",
+      "idor": "demande de l'autre pays : 403 journalisé ; demandeur : 409 STAFF_SELF_APPROVAL"
+    },
     "POST /console/brand/assets": {
       "acces": "staff",
       "permission": "brand.edit",
