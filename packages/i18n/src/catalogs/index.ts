@@ -25,11 +25,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (le sujet n'est plus seulement un voyage). Version 13 : compte d'hôte d'une personne physique
  (US-107) : `common.host.*` et `backoffice.action.CREATE_HOST_ACCOUNT`. Version 14 : blocs de contenu éditables (US-121) :
  `common.brand.contentKeyNotEditable`, `backoffice.content.gaps.*` (langues nommées par
- `Intl.DisplayNames`). Version 15 : vérification du téléphone par OTP (US-104) : `common.otp.*`,
+ `Intl.DisplayNames`). Version 15 : catalogue de référence des véhicules (US-113) :
+ `common.vehicle.*`. Version 16 : vérification du téléphone par OTP (US-104) : `common.otp.*`,
  `common.error.phoneDigits` (10b §4.3), clés OTP de S15 du prototype US-033 devenues officielles
  (`web.s15.phone`, `.code`, `.verify`, `.codeSent`, `.resendIn`) et nouvelles `web.s15.*`.
  */
-export const CATALOG_VERSION = 15;
+export const CATALOG_VERSION = 16;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
