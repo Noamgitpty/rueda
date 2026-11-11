@@ -17,7 +17,8 @@
 --   - activation d'un compte d'hôte et restriction posée directement (titulaire sans pays déclaré,
 --     que la console ne peut pas viser) pour éprouver la garde de la pose d'un hold.
 --
--- Retour arrière : DROP FUNCTION test_fixture.us109_* (voir la liste des droits en fin de fichier).
+-- Retour arrière : DROP FUNCTION test_fixture.us109_* (voir la liste des droits en fin de fichier) ;
+--   REVOKE USAGE ON SCHEMA core FROM cmd_golive_owner.
 
 CREATE FUNCTION test_fixture.us109_enqueue(p_queue text, p_subject_type text, p_subject_id uuid,
                                            p_country text)
@@ -44,7 +45,12 @@ REVOKE ALL ON FUNCTION test_fixture.us109_enqueue(text, text, uuid, text),
   test_fixture.us109_close(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us109_enqueue(text, text, uuid, text),
   test_fixture.us109_close(uuid, text, text) TO app_api;
--- sonde productrice : propriétaire NOLOGIN qui ne reçoit que l'EXECUTE des deux fonctions
+-- sonde productrice : propriétaire NOLOGIN qui ne reçoit que l'EXECUTE des deux fonctions, plus
+-- l'USAGE du schéma core sans lequel une fonction de ce schéma n'est pas résoluble (tout
+-- propriétaire producteur l'a déjà : cmd_money_owner, cmd_hold_owner…). Base de test seulement :
+-- aucun droit sur une table ni sur une autre fonction ; app_api n'a toujours pas EXECUTE sur
+-- core.support_enqueue_review ni core.support_close_review_item.
+GRANT USAGE ON SCHEMA core TO cmd_golive_owner;
 GRANT CREATE ON SCHEMA test_fixture TO cmd_golive_owner;
 ALTER FUNCTION test_fixture.us109_enqueue(text, text, uuid, text) OWNER TO cmd_golive_owner;
 ALTER FUNCTION test_fixture.us109_close(uuid, text, text) OWNER TO cmd_golive_owner;
