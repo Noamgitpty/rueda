@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 60 migrations ; 67 tables ; 2 vues ; 344 politiques RLS ; 74 fonctions `SECURITY DEFINER` ; 109 autres fonctions.
+- 60 migrations ; 67 tables ; 2 vues ; 345 politiques RLS ; 74 fonctions `SECURITY DEFINER` ; 109 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -945,6 +945,7 @@ Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `risk_limit_select` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
