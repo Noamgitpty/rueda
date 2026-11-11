@@ -36,12 +36,12 @@ import {
 
 const T0 = '2031-05-04T10:00:00.000Z';
 /**
- * Requête nommée GL-14 (docs/ops/GO_LIVE_CHECKLIST.md) : documents EN VIGUEUR et BROUILLON (CGU du
+ * Requête nommée GL-15 (docs/ops/GO_LIVE_CHECKLIST.md) : documents EN VIGUEUR et BROUILLON (CGU du
  * voyageur, confidentialité, communications), dans TOUTES les portées atteignables : chaque pays de
  * la configuration ET la portée NULL (documents communs, servis aux comptes sans pays : locales sans
  * région), dans chaque langue. Elle doit rendre zéro ligne avant la mise en service.
  */
-export const GL14_DRAFTS = `
+export const GL15_DRAFTS = `
   SELECT k.code AS code, d.doc_kind, d.version, d.locale
     FROM (SELECT c.code::text AS code FROM core.config_country AS c
           UNION ALL SELECT NULL::text) AS k
@@ -561,9 +561,9 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
     });
   });
 
-  it('GL-14 (mise en service) : la requête nommée voit tout document BROUILLON en vigueur, pays et portée commune', async () => {
+  it('GL-15 (mise en service) : la requête nommée voit tout document BROUILLON en vigueur, pays et portée commune', async () => {
     await withRole('app_api', async (client) => {
-      const { rows } = await client.query<{ code: string | null; doc_kind: string }>(GL14_DRAFTS);
+      const { rows } = await client.query<{ code: string | null; doc_kind: string }>(GL15_DRAFTS);
       // graine 0059 : brouillons partout ⇒ la mise en service est bloquée (OQ-BR-24)
       const kinds = ['MARKETING', 'PRIVACY', 'TOS_GUEST'];
       expect(new Set(rows.map((r) => `${r.code ?? 'NULL'}:${r.doc_kind}`))).toEqual(
@@ -572,7 +572,7 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
     });
   });
 
-  it('GL-14 : documents de chaque pays validés, commun encore BROUILLON ⇒ au moins une ligne (portée NULL)', async () => {
+  it('GL-15 : documents de chaque pays validés, commun encore BROUILLON ⇒ au moins une ligne (portée NULL)', async () => {
     await withRole('app_api', async (client) => {
       const admin = await elevatedStaff(client, 'ADMIN', ALL);
       await withTestTransaction(client, {}, async (tx) => {
@@ -582,7 +582,7 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
             expect(r?.outcome).toBe('PUBLISHED');
           }
         }
-        const { rows } = await tx.query<{ code: string | null }>(GL14_DRAFTS);
+        const { rows } = await tx.query<{ code: string | null }>(GL15_DRAFTS);
         expect(rows.length).toBeGreaterThan(0);
         // plus aucun brouillon dans un pays : seuls restent les documents communs
         expect(rows.every((r) => r.code === null)).toBe(true);

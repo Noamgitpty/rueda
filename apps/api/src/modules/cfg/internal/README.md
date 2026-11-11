@@ -29,14 +29,26 @@ Les valeurs « à fixer » de 17 §7.2 **ne sont pas chargées** : leur absence 
 - **Paramètres d'argent JSON** : forme et bornes vérifiées selon l'unité (montants en chaînes d'entiers int64, parts dans [0 ; 1], listes croissantes, barème ordonné et ouvert, `jsonKeys`).
 - **Montants** : chaînes d'entiers en unités mineures de la devise du pays (`currency` posée d'office) ; aucune conversion ; aucun flottant.
 
-## Démarrage (API et travailleur)
+## Démarrage (processus API et travailleur pg-boss d'`apps/api`)
 
 `CountryConfigService` (fourni et exporté par `CfgModule`) charge et valide les données, puis à l'initialisation :
 
 1. contrôle la **tzdata du runtime** contre les attentes de `countries.json` (`TZDATA_MISMATCH` ; 17 §1.3, ADR-019, OQ-BR-20) ;
 2. si `RUEDA_ENV` vaut `production` — **ou est absent ou inconnu** —, exige toutes les données obligatoires (`PARAM_MISSING`, avec la liste) : clés `BLOCK` non optionnelles, entité juridique, fériés de l'année.
 
-Aujourd'hui, la production refuse donc de démarrer (34 manques : valeurs « à fixer », entités juridiques, fériés). C'est voulu : J-ADM-031, ADR-013 et les calendriers de fériés ne sont pas tranchés. En local : `RUEDA_ENV=development`.
+3. toujours en production, refuse toute valeur **en vigueur** encore « À DÉCIDER » (`PARAM_UNDECIDED`, US-110) et des taux de taxe à décider (`TAX_UNDECIDED`) ; le code levé reste `PARAM_MISSING` s'il manque aussi une donnée.
+
+Aujourd'hui, la production refuse donc de démarrer : 34 manques (valeurs « à fixer », entités juridiques, fériés), 42 valeurs à décider au PA, 36 au PY, et les taux de taxe des deux pays. C'est voulu : J-ADM-031, ADR-013 et les calendriers de fériés ne sont pas tranchés. La préproduction accepte les valeurs de test. En local : `RUEDA_ENV=development`.
+
+## Statut de chaque valeur (US-110, ADR-093)
+
+Chaque clé de `params.json` porte `decision` (`DECIDED`, `PROPOSED` ou `TO_DECIDE`) et `decisionRef` (la décision ou la question ouverte), tous deux obligatoires ; chaque valeur en hérite, avec la `source` de la clé. Les taux de taxe ont leur `taxDecision` par pays dans `countries.json`. Règle d'attribution (testée par `defaults.test.ts`) :
+
+- `DECIDED` : « décidé » dans 17 §7.2 ; les interrupteurs, dont la valeur `false` est décidée (17 §0.1), et seulement eux hors de ce cas ;
+- `TO_DECIDE` : question ouverte citée par 17 §7.2 en colonne « Statut / OQ » ou « Source » (OQ, UXQ, DEC-FONDATEUR-01, J-ADM-031, contrat, « à fixer »), liste de 16 ADM-031, rail du PSP, taux de taxe. La liste exacte des 59 clés est épinglée dans `defaults.test.ts`. Les valeurs chargées sont les défauts fail-closed de 22 ;
+- `PROPOSED` : défaut de l'équipe (technique ou « comme Turo ») qui n'attend aucune décision.
+
+Pour décider une valeur, le fondateur fait publier une **nouvelle version** `DECIDED` (référence de sa décision), jamais rétroactive. `platform_funded_host_compensation` reste **absent** (DEC-FONDATEUR-01) : `false`, compensation nulle (T61). Aucun plafond de véhicules par hôte (DEC-FONDATEUR-19). Le statut n'est pas encore recopié en base (ADR-093, point 5) : les graines 0009 et 0046 sont inchangées.
 
 La tzdata de PostgreSQL se contrôle par `checkPostgresTimeZoneData(config, query)` (requête `POSTGRES_OFFSET_SQL`) ; elle est prouvée par `packages/db/test/int/config-country.test.ts` et sera branchée au démarrage par la story qui connecte l'API à la base.
 
@@ -56,4 +68,4 @@ Paramètres ajoutés après 0009 (US-052, ADR-075) : déclarés par préfixe dan
 
 ## Codes d'erreur
 
-`PARAM_MISSING`, `PARAM_RETROACTIVE` (16 ADM-014) ; PROPOSÉS par US-013, à reporter en 16 A.8 : `CONFIG_INVALID`, `PARAM_UNKNOWN`, `PARAM_NOT_APPLICABLE`, `PARAM_IMMUTABLE`, `COUNTRY_UNKNOWN`, `TZDATA_MISMATCH`. `FORBIDDEN` (16 ADM-014) pour un interrupteur écrit hors procédure.
+`PARAM_MISSING`, `PARAM_RETROACTIVE` (16 ADM-014) ; PROPOSÉS par US-013, à reporter en 16 A.8 : `CONFIG_INVALID`, `PARAM_UNKNOWN`, `PARAM_NOT_APPLICABLE`, `PARAM_IMMUTABLE`, `COUNTRY_UNKNOWN`, `TZDATA_MISMATCH`. PROPOSÉ par US-110, à reporter en 16 A.8 : `PARAM_UNDECIDED`. `FORBIDDEN` (16 ADM-014) pour un interrupteur écrit hors procédure.

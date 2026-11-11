@@ -34,6 +34,24 @@ export const TAX_LINE_TYPES = [
 ] as const;
 export type TaxLineType = (typeof TAX_LINE_TYPES)[number];
 
+/**
+ * Statut de décision d'une valeur (US-110 ; 17 §7.2 colonne « Statut / OQ » ; 16 ADM-031) :
+ * - `DECIDED` : « décidé » dans 17 §7.2 ;
+ * - `PROPOSED` : défaut de l'équipe (technique ou « comme Turo »), qui n'attend aucune décision
+ *   du fondateur, d'un avocat ou d'un contrat ;
+ * - `TO_DECIDE` : « À DÉCIDER » — question ouverte (OQ, J-ADM-031, contrat d'assureur, PSP) ;
+ *   la valeur est un défaut fail-closed de 22, permis hors production seulement.
+ */
+export const DECISION_STATUSES = ['DECIDED', 'PROPOSED', 'TO_DECIDE'] as const;
+export type DecisionStatus = (typeof DECISION_STATUSES)[number];
+
+/** Statut d'une valeur et référence de la décision (ou de la question ouverte). */
+export interface DecisionInfo {
+  readonly decision: DecisionStatus;
+  /** Décision ou question ouverte qui fixe la valeur (`OQ-BR-30`, `J-ADM-031`, `17 §7.2`…). */
+  readonly decisionRef: string;
+}
+
 /** Langues des catalogues (DEC-FONDATEUR-17, 18) : chaque pays a un nom dans chacune. */
 export const NAME_LANGUAGES = ['es', 'en', 'fr', 'pt'] as const;
 export type NameLanguage = (typeof NAME_LANGUAGES)[number];
@@ -90,6 +108,8 @@ export interface CountryConfigEntry {
   readonly locales: readonly string[];
   readonly hostTaxIdKinds: readonly string[];
   readonly taxLines: readonly TaxLineConfig[];
+  /** Statut des taux de taxe du pays (17 §7.2 `tax_rate` ; OQ-BR-14, OQ-MK-06 ; US-110). */
+  readonly taxDecision: DecisionInfo;
   readonly legalEntity: LegalEntityConfig | null;
   readonly holidayCalendar: {
     readonly version: number;
@@ -115,7 +135,11 @@ export interface ParamDefinition {
   /** JSON : ensemble exact des clés attendues (par exemple les cas de `host_penalty`, 08 penalty()). */
   readonly jsonKeys: readonly string[] | null;
   readonly source: string;
+  /** Texte libre de 17 §7.2 (colonne « Statut / OQ »), rendu tel quel dans 0009. */
   readonly status: string;
+  /** Statut normalisé (US-110), hérité par chaque valeur de la clé. */
+  readonly decision: DecisionStatus;
+  readonly decisionRef: string;
 }
 
 export interface ParamValue {
@@ -132,6 +156,11 @@ export interface ParamValue {
   /** Début de validité ; `null` = depuis le chargement de la graine. */
   readonly validFrom: Date | null;
   readonly validTo: Date | null;
+  /** Statut de la valeur (US-110) : celui de sa définition. */
+  readonly decision: DecisionStatus;
+  readonly decisionRef: string;
+  /** Source de la règle (celle de la définition, 17 §7.2 colonne « Source »). */
+  readonly source: string;
 }
 
 /** Configuration validée, immuable. Seule `parseCountryConfig` en fabrique une. */

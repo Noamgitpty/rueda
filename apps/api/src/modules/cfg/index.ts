@@ -4,11 +4,19 @@ export { CfgModule } from './cfg.module.js';
 export { CountryConfigService } from './internal/country-config.service.js';
 export { ConfigError } from './internal/errors.js';
 export type { ConfigErrorCode } from './internal/errors.js';
-export { FAIL_MODES, PARAM_SCOPES, PARAM_TYPES, TAX_LINE_TYPES } from './internal/model.js';
+export {
+  DECISION_STATUSES,
+  FAIL_MODES,
+  PARAM_SCOPES,
+  PARAM_TYPES,
+  TAX_LINE_TYPES,
+} from './internal/model.js';
 export type {
   CountryConfig,
   CountryConfigEntry,
   CurrencyConfig,
+  DecisionInfo,
+  DecisionStatus,
   FailMode,
   ParamDefinition,
   ParamJson,
