@@ -787,9 +787,11 @@ describe('RT-RLS-15 — commandes appelées sans le rôle prévu (jetons et rôl
 describe('RT-RLS-16 — contexte app.* forgé d’un AUTRE type d’acteur, sous le mauvais rôle de base', () => {
   // référence publique de la plateforme (aucune donnée de personne) ; `payment_psp_account` n'est
   // lisible par app_worker QUE dans la base de test (GRANT de test-migrations/9500, absent de la
-  // production : authorization-matrix.json « droits » vides) — exclu pour ne pas confondre
+  // production : authorization-matrix.json « droits » vides) — exclu pour ne pas confondre ;
+  // catalogue de référence des véhicules (US-113, 16 HST-050 « lecture publique ») : marques,
+  // modèles et variantes, lus par app_api sans contexte, sans provenance ni donnée de personne
   const REFERENCE =
-    /^(config_|pricing_|finance_legal_entity|payment_psp_capability|payment_psp_account)/;
+    /^(config_|pricing_|finance_legal_entity|payment_psp_capability|payment_psp_account|catalog_vehicle_(make|model|variant)$)/;
 
   async function readableTables(client: pg.Client, role: string): Promise<string[]> {
     const { rows } = await client.query<{ t: string }>(

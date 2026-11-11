@@ -1,4 +1,4 @@
--- 0060 — CAT : catalogue de référence des véhicules (marques, modèles, variantes) et sa graine.
+-- 0061 — CAT : catalogue de référence des véhicules (marques, modèles, variantes) et sa graine.
 -- US-113 ; 16 HST-050 ; 17 §3.2.3 (`vehicle_make`, `vehicle_model`, `vehicle_variant`), ADR-034 ;
 -- 22 OQ-CAT-01 ; ADR-094. Appliquée sous `migrator`, en une transaction.
 --

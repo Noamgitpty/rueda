@@ -1,6 +1,6 @@
--- 9970 — TEST SEULEMENT : catalogue de référence des véhicules (US-113, migration 0060).
+-- 9970 — TEST SEULEMENT : catalogue de référence des véhicules (US-113, migration 0061).
 -- Jamais appliquée hors du harnais (base principale du banc ; la base « production » du banc n'a
--- que la graine de 0060).
+-- que la graine de 0061).
 --
 -- 1. Preuves du critère 1 (19 US-113), jouées PAR CETTE MIGRATION sous `migrator` : une instruction
 --    de graine dont UNE ligne n'a pas de licence (NULL ou blanc) ou pas de source échoue en entier,

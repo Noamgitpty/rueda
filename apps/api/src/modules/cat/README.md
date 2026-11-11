@@ -12,7 +12,7 @@ CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe p
 
 ## Entités
 
-- **Créées** (US-113, migration `0060_catalog_vehicle_reference`, ADR-094) : `core.catalog_vehicle_make`, `core.catalog_vehicle_model`, `core.catalog_vehicle_variant` (17 §3.2.3 `vehicle_make`, `vehicle_model`, `vehicle_variant`). `source` et `license_note` obligatoires et non vides ; retrait par `RETIRED`, jamais de suppression ; lecture des lignes `ACTIVE` et `RETIRED` par `app_api`, sans provenance ; aucune écriture applicative.
+- **Créées** (US-113, migration `0061_catalog_vehicle_reference`, ADR-094) : `core.catalog_vehicle_make`, `core.catalog_vehicle_model`, `core.catalog_vehicle_variant` (17 §3.2.3 `vehicle_make`, `vehicle_model`, `vehicle_variant`). `source` et `license_note` obligatoires et non vides ; retrait par `RETIRED`, jamais de suppression ; lecture des lignes `ACTIVE` et `RETIRED` par `app_api`, sans provenance ; aucune écriture applicative.
 - **Cibles 17, pas encore créées** : `location`, `vehicle`, `vehicle_document`, `listing`, `listing_photo`, `deposit_policy`, `ical_feed`, `catalog_addition_request`. `fleet_import_job` est historique, sans objet.
 
 ### Catalogue de référence des véhicules (US-113)
@@ -21,12 +21,12 @@ CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe p
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `data/vehicle-catalog.json`                           | **Donnée** : graine v1 PROPOSÉE (14 marques, 43 modèles, 45 variantes), saisie à la main par l'équipe, sans copie d'un tiers ; licences des sources (`sourceLicenses`, `consumptionLicenses`) et provenances (`source`, `sourceRef`, `licenseNote`) |
 | `internal/vehicle-catalog/model.ts`                   | énumérations de 17 §3.2.3 ; `parseVehicleCatalog` (fail-closed : `CATALOG_SOURCE_MISSING`, `CATALOG_SOURCE_UNLICENSED`, `CATALOG_DATA_INVALID`) ; `catalogId` (UUID stable du chemin de la ligne)                                                   |
-| `internal/vehicle-catalog/seed-sql.ts`                | rendu de la section générée de la migration 0060 (une instruction `INSERT` par table)                                                                                                                                                               |
+| `internal/vehicle-catalog/seed-sql.ts`                | rendu de la section générée de la migration 0061 (une instruction `INSERT` par table)                                                                                                                                                               |
 | `internal/vehicle-catalog/prefill.ts`                 | `prefillFromVariant` : places, boîte, carburant, transmission intégrale, consommation (EPA = « référence US ») ; libellés en clés i18n `common.vehicle.*`                                                                                           |
 | `internal/vehicle-catalog/store.ts`                   | port `VehicleCatalogStore` et `PgVehicleCatalogStore` (lecture sous `app_api`)                                                                                                                                                                      |
 | `internal/vehicle-catalog/vehicle-catalog.service.ts` | `VehicleCatalogService` : marques → modèles → variantes de l'année → préremplissage ; `CATALOG_VARIANT_RETIRED`, `CATALOG_VARIANT_NOT_FOUND`                                                                                                        |
 
-Modifier la graine : éditer les données, puis `RUEDA_WRITE_CATALOG_SEED=1 pnpm --filter @rueda/api exec vitest run src/modules/cat` réécrit la section de 0060. Une migration appliquée en environnement partagé est immuable (ADR-044) : une correction ultérieure passe par une nouvelle migration. Une source n'est chargée que si sa licence est `VALIDATED` (OQ-CAT-01 ; aujourd'hui `OPS_CURATED` et `WIKIDATA`).
+Modifier la graine : éditer les données, puis `RUEDA_WRITE_CATALOG_SEED=1 pnpm --filter @rueda/api exec vitest run src/modules/cat` réécrit la section de 0061. Une migration appliquée en environnement partagé est immuable (ADR-044) : une correction ultérieure passe par une nouvelle migration. Une source n'est chargée que si sa licence est `VALIDATED` (OQ-CAT-01 ; aujourd'hui `OPS_CURATED` et `WIKIDATA`).
 
 En attendant, AVL ne connaît aucun véhicule en production : `core.booking_vehicle_party` est fail-closed jusqu'à US-115 (`packages/db/README.md`).
 
