@@ -74,6 +74,26 @@ describe('blocs à revoir : affichés, traduits, jamais muets', () => {
     expect(render(state('error'), tag)).toContain(es['backoffice.content.gaps.error']);
   });
 
+  // oracle : textes attendus écrits à la main dans chaque langue (noms CLDR des langues)
+  it.each([
+    ['es', 'home.hero.title · común: falta inglés, francés', 'formato no permitido (portugués)'],
+    ['en', 'home.hero.title · shared: missing English, French', 'format not allowed (Portuguese)'],
+    [
+      'fr',
+      'home.hero.title · commun : manque anglais, français',
+      'format non autorisé (portugais)',
+    ],
+    ['pt', 'home.hero.title · geral: falta inglês, francês', 'formato não permitido (português)'],
+  ] as const)(
+    'bandeau en %s : langues nommées dans la langue de la vue',
+    (language, missing, invalid) => {
+      const t = LOCALE_CONFIG.locales.find((p) => p.language === language)?.tag ?? language;
+      const out = render(state(GAPS), t).replace(/<[^>]+>/g, '');
+      expect(out).toContain(missing);
+      expect(out).toContain(invalid);
+    },
+  );
+
   it.each(LOCALE_CONFIG.locales.map((p) => [p.tag, p] as const))(
     '%s : une langue',
     (t, profile) => {

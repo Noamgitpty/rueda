@@ -37,12 +37,20 @@ export const RICH_LIMITS = { maxBlocks: 20, maxItems: 12, maxNodes: 400 } as con
 const INTERNAL_HREF =
   /^(?:\/(?!\/)[A-Za-z0-9\-._~/%]*(?:\?[A-Za-z0-9\-._~=&%]*)?(?:#[A-Za-z0-9\-._~]*)?|#[A-Za-z0-9\-._~]+)$/;
 // contrôles C0 / C1, séparateurs de ligne, marques et contrôles de direction (LRM, RLM, ALM,
-// U+202A à 202E, U+2066 à 2069), caractères invisibles (U+200B à 200D, U+2060, U+FEFF) et
-// demi-paires de substitution isolées (le drapeau `u` ne les fait pas apparier par paire)
-/* eslint-disable no-control-regex -- liste des caractères refusés, voulue */
+// U+202A à 202E, U+2066 à 2069), formats invisibles ou obsolètes (U+00AD, U+034F, U+180E,
+// U+200B à 200D, U+2060 à 2064, U+206A à 206F, U+FEFF), caractères qui s'affichent vides
+// (remplisseurs hangul U+115F, U+1160, U+3164, U+FFA0 ; braille vide U+2800) et demi-paires de
+// substitution isolées (le drapeau `u` ne les fait pas apparier par paire). U+200D (ZWJ) est
+// refusé même entre deux émojis : les émojis composés (personne et métier, familles, drapeaux à séquence) ne
+// passent pas ; un émoji simple, oui. Choix de sécurité (un ZWJ isolé sert à déguiser un texte) ;
+// l'écran d'édition (US-120) doit l'expliquer au fondateur (message `caractère invisible`).
+/* eslint-disable no-control-regex, no-misleading-character-class -- liste voulue de caractères refusés, un par un */
 const CONTROL =
-  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060\u2066-\u2069\ufeff\ud800-\udfff]/u;
-/* eslint-enable no-control-regex */
+  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u180e\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff\uffa0\ud800-\udfff]/u;
+/* eslint-enable no-control-regex, no-misleading-character-class */
+
+/** Texte qui ne montre rien : vide après retrait des blancs (UX-58 : jamais un bloc vide). */
+const isBlank = (s: string): boolean => s.replace(/[\s\p{Z}]/gu, '') === '';
 
 /** Longueur en points de code (même unité à l'API et au site : un émoji compte pour un). */
 export const codePoints = (s: string): number => [...s].length;
@@ -132,9 +140,9 @@ function countNodes(doc: RichDoc): number {
  */
 export function parseRichText(source: string, format: RichFormat, maxLength: number): RichDoc {
   const body = source.replace(/\r\n?/g, '\n').replace(/\t/g, ' ').trim();
-  if (body.length === 0) throw new RichTextError('vide');
+  if (body.length === 0 || isBlank(body)) throw new RichTextError('vide');
   if (codePoints(body) > maxLength) throw new RichTextError(`plus de ${maxLength} caractères`);
-  if (CONTROL.test(body)) throw new RichTextError('caractère de contrôle');
+  if (CONTROL.test(body)) throw new RichTextError('caractère invisible ou de contrôle');
   if (format === 'plain') {
     if (body.includes('\n')) throw new RichTextError('une seule ligne attendue');
     return { format: 'plain', text: body };
@@ -180,6 +188,9 @@ const safeText = (v: unknown, max: number): v is string =>
   v.length <= 2 * max &&
   codePoints(v) <= max &&
   !CONTROL.test(v);
+
+/** Texte qui doit montrer quelque chose (titre `plain`, paragraphe entier). */
+const visible = (v: string): boolean => !isBlank(v);
 
 function isInline(v: unknown): v is RichInline {
   if (!isRecord(v)) return false;
@@ -232,6 +243,7 @@ export function isRichDoc(value: unknown, format: RichFormat, maxLength: number)
     return (
       hasOnly(value, ['format', 'text']) &&
       safeText(value['text'], maxLength) &&
+      visible(value['text']) &&
       !value['text'].includes('\n')
     );
   }
@@ -246,7 +258,8 @@ export function isRichDoc(value: unknown, format: RichFormat, maxLength: number)
     return false;
   }
   const doc = value as RichDoc;
-  return countNodes(doc) <= RICH_LIMITS.maxNodes && codePoints(plainTextOf(doc)) <= maxLength;
+  const text = plainTextOf(doc);
+  return countNodes(doc) <= RICH_LIMITS.maxNodes && codePoints(text) <= maxLength && visible(text);
 }
 
 /** Texte brut d'un arbre (aperçu, longueur, lecteurs sans rendu). */

@@ -25,18 +25,27 @@ export interface EditableBlock {
 export const BLOCK_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}(\.[a-z][a-z0-9_]{0,39}){1,5}$/;
 
 /**
- * Textes juridiques et contractuels : jamais des blocs (refus `CONTENT_KEY_FORBIDDEN`). Une clé
- * est juridique dès qu'elle CONTIENT l'une de ces racines, n'importe où (sous-chaîne, et non
- * segment entier : `help.terminos_uso`, `footer.avisolegal`, `page.mentions_legales` sont
- * refusées). Racines en es, en, fr et pt : CGU (terms, términos, termos, cgu, cgv, conditions,
- * condiciones, condições), contrat, accord, confidentialité, annulation, remboursement, assurance
- * et protection (franchise, garantie, responsabilité, renonciation), politiques, cookies,
- * consentement, mentions légales. Fail-closed : un faux positif refuse une clé de marketing (il
- * suffit de la renommer), un faux négatif rendrait un texte juridique éditable. Motif recopié À
- * L'IDENTIQUE dans `core.cfg_content_key_not_legal` (0061) : la preuve L0 compare les deux.
+ * Textes juridiques et contractuels : jamais des blocs (refus `CONTENT_KEY_FORBIDDEN`). Deux
+ * alternatives, en es, en, fr et pt :
+ * 1. **sigles et mots courts, par segment entier** (séparé par `.` ou `_`) : tos, tyc, t_c,
+ *    tandc, rgpd, lgpd, gdpr, dpa, lopd, aviso, mentions, impressum, imprint, license, licencia,
+ *    licenca, cgu, cgv, cookies. En sous-chaîne, ils refuseraient `autos`, `fotos`, `photos` ;
+ * 2. **racines, par sous-chaîne** (n'importe où : `help.terminos_uso`, `footer.avisolegal`,
+ *    `page.mentions_legales`) : CGU (terms, terminos, termos, conditions, condiciones,
+ *    condições), contrat, accord, confidentialité, politique d'annulation (cancellation,
+ *    cancelación, cancelamento, annulation), remboursement, assurance (insurance, seguros,
+ *    seguro_, segurador, assurance, protection, franchise, garantie, responsabilité,
+ *    renonciation), politiques (policy, política, politique), consentement.
+ * Racines resserrées pour éviter les faux positifs courants (`airport_terminal`,
+ * `vehicle_condition`, `free_cancel`, `viaja_seguro`, `cookie_banner` restent permises). Faux
+ * positifs gardés, au profit du refus : `illegal`, `political`, `host_protection`,
+ * `responsable` (renommer la clé suffit). Faux négatif accepté : un segment `seguro` seul
+ * (« sûr » en espagnol) n'est pas refusé ; l'assurance reste refusée par insurance, seguros,
+ * seguro_, assurance, deductible, franqui. Motif recopié À L'IDENTIQUE dans
+ * `core.cfg_content_key_not_legal` (0061) : la preuve L0 compare les deux.
  */
 export const LEGAL_BLOCK_KEY =
-  /(legal|terms|termin|termos|cgu|cgv|condicion|condicoe|condition|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancel|annul|refund|reembols|rembours|insurance|seguro|assur|protection|proteccion|protecao|policy|politic|cookie|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)/;
+  /(^|[._])(tos|tyc|t_c|tandc|rgpd|lgpd|gdpr|dpa|lopd|aviso|mentions|impressum|imprint|license|licencia|licenca|cgu|cgv|cookies)([._]|$)|(legal|terms|terminos|termino_|termos|condiciones|condicoes|conditions|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancellation|cancelacion|cancelamento|annulation|refund|reembols|rembours|insurance|seguros|seguro_|segurador|assurance|protection|policy|politic|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)/;
 
 export const EDITABLE_BLOCKS = {
   'home.hero.title': { catalogKey: 'web.s01.title', format: 'plain', maxLength: 80 },

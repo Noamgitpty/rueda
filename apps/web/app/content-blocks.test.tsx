@@ -17,6 +17,7 @@ import {
   countryOf,
   getRequestContent,
   NO_CONTENT,
+  pageDescription,
   resetContentCache,
 } from '../content-source.ts';
 import { LOCALE_CONFIG } from '../locale-config.ts';
@@ -189,6 +190,38 @@ describe('accueil avec blocs (critères 1 et 2)', () => {
     expect(html).toContain('<ul');
     expect(html).not.toContain('<img');
   });
+});
+
+describe('description de la page (métadonnées du layout)', () => {
+  it.each(LOCALE_CONFIG.locales.map((p) => p.tag))(
+    '%s : accroche publiée dans la langue de la page, sinon catalogue de cette langue',
+    (tag) => {
+      const i18n = i18nOf(tag);
+      const language = i18n.profile.language;
+      expect(pageDescription(i18n, NO_CONTENT)).toBe(
+        CATALOGS[language].messages['web.home.tagline'],
+      );
+      const published = contentFromResponse(
+        {
+          locale: language,
+          blocks: [view('home.hero.tagline', language, plain('Accroche publiée'))],
+        },
+        language,
+      );
+      expect(pageDescription(i18n, published)).toBe('Accroche publiée');
+      // bloc d'une autre langue (repli es de l'API) : jamais dans la description
+      const fallback = contentFromResponse(
+        {
+          locale: language,
+          blocks: [view('home.hero.tagline', 'es', plain('Solo es'), language !== 'es')],
+        },
+        language,
+      );
+      expect(pageDescription(i18n, fallback)).toBe(
+        language === 'es' ? 'Solo es' : CATALOGS[language].messages['web.home.tagline'],
+      );
+    },
+  );
 });
 
 describe('en-têtes de sécurité du site (CSP renforcée, US-121)', () => {

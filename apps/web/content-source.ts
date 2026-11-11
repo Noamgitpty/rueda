@@ -66,6 +66,15 @@ export function contentFromResponse(
   return out;
 }
 
+/**
+ * Description de la page (métadonnées du layout) : l'accroche de l'accueil, bloc publié dans la
+ * langue de la page s'il existe (aperçu de partage cohérent avec la page), sinon le catalogue.
+ */
+export function pageDescription(i18n: Translator, content: PageContent): string {
+  const tagline = content.get('web.home.tagline');
+  return tagline?.format === 'plain' ? tagline.text : i18n.t('web.home.tagline');
+}
+
 const cache = new Map<string, { at: number; value: PageContent }>();
 
 /** Vide le cache (tests). */

@@ -34,7 +34,7 @@ describe('format plain', () => {
     expect(richTextProblem(tooLong, 'plain', 80)).toBe('plus de 80 caractères');
     expect(isRichDoc({ format: 'plain', text: tooLong }, 'plain', 80)).toBe(false);
     // demi-paire de substitution isolée : refusée des deux côtés
-    expect(richTextProblem('a\ud83db', 'plain', 80)).toBe('caractère de contrôle');
+    expect(richTextProblem('a\ud83db', 'plain', 80)).toBe('caractère invisible ou de contrôle');
     expect(isRichDoc({ format: 'plain', text: 'a\ud83db' }, 'plain', 80)).toBe(false);
   });
 
@@ -49,14 +49,52 @@ describe('format plain', () => {
       'a\u2060b',
       'a\ufeffb',
     ]) {
-      expect(richTextProblem(bad, 'plain', 80), JSON.stringify(bad)).toBe('caractère de contrôle');
+      expect(richTextProblem(bad, 'plain', 80), JSON.stringify(bad)).toBe(
+        'caractère invisible ou de contrôle',
+      );
       expect(isRichDoc({ format: 'plain', text: bad }, 'plain', 80)).toBe(false);
     }
   });
 
+  it('invisibles qui s’affichent vides ou formats obsolètes refusés (revue sécurité 2e passe, 6)', () => {
+    for (const cp of [
+      0xad, 0x34f, 0x115f, 0x1160, 0x180e, 0x2061, 0x2062, 0x2063, 0x2064, 0x206a, 0x206f, 0x2800,
+      0x3164, 0xffa0,
+    ]) {
+      const bad = `a${String.fromCodePoint(cp)}b`;
+      expect(richTextProblem(bad, 'plain', 80), cp.toString(16)).toBe(
+        'caractère invisible ou de contrôle',
+      );
+      expect(isRichDoc({ format: 'plain', text: bad }, 'plain', 80), cp.toString(16)).toBe(false);
+    }
+  });
+
+  it('émoji composé par ZWJ refusé (choix documenté, ADR-095) ; émoji simple et sélecteur de variante admis', () => {
+    expect(richTextProblem('\u{1F469}\u200d\u{1F4BB}', 'plain', 80)).toBe(
+      'caractère invisible ou de contrôle',
+    );
+    expect(richTextProblem('\u{1F697} \u2764\ufe0f', 'plain', 80)).toBeNull();
+  });
+
+  it('UX-58 : un texte fait seulement de blancs (espaces, insécables, idéographiques) est vide', () => {
+    for (const blank of ['\u00a0', '\u3000\u2003', ' \u202f ']) {
+      expect(richTextProblem(blank, 'plain', 80), JSON.stringify(blank)).toBe('vide');
+      expect(isRichDoc({ format: 'plain', text: blank }, 'plain', 80)).toBe(false);
+    }
+    expect(
+      isRichDoc(
+        { format: 'rich', blocks: [{ t: 'p', c: [{ t: 'text', v: '\u00a0' }] }] },
+        'rich',
+        80,
+      ),
+    ).toBe(false);
+  });
+
   it('caractères de contrôle et de direction (texte trompeur) refusés', () => {
     for (const bad of ['a\u0000b', 'a\u0007b', 'a\u202eb', 'a\u2066b', 'a\u2028b', 'a\u009bb']) {
-      expect(richTextProblem(bad, 'plain', 80), JSON.stringify(bad)).toBe('caractère de contrôle');
+      expect(richTextProblem(bad, 'plain', 80), JSON.stringify(bad)).toBe(
+        'caractère invisible ou de contrôle',
+      );
     }
   });
 });

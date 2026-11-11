@@ -4,10 +4,11 @@
 -- (`content_block`) ; ADR-036, ADR-067, ADR-095. Appliquée sous `migrator`.
 --
 -- Contenu :
---   1. `core.cfg_content_key_not_legal(text)` : vrai si la clé ne CONTIENT aucune racine de texte
---      juridique (sous-chaîne, n'importe où : legal, terms, termin, termos, cgu, condicion,
---      contract, privac, cancel, refund, insurance, seguro, policy, eula, waiver, franqui,
---      garanti… en es, en, fr et pt). Motif recopié À L'IDENTIQUE de `LEGAL_BLOCK_KEY`
+--   1. `core.cfg_content_key_not_legal(text)` : vrai si la clé ne nomme aucun texte juridique :
+--      ni sigle par SEGMENT entier (tos, tyc, t_c, rgpd, lgpd, gdpr, dpa, lopd, aviso, mentions,
+--      impressum, license, cgu, cgv, cookies…), ni racine par SOUS-CHAÎNE (legal, terms,
+--      terminos, termos, conditions, condiciones, contract, privac, cancellation, refund,
+--      insurance, seguros, policy, eula, waiver, franqui, garanti… en es, en, fr et pt). Motif recopié À L'IDENTIQUE de `LEGAL_BLOCK_KEY`
 --      (`packages/i18n/src/editable-blocks.ts`) ; la preuve L0 compare les deux.
 --      Jamais NULL (COALESCE, fail-closed) ;
 --   2. contrainte `content_block_key_not_legal_text` : CHECK de la table, en plus de
@@ -43,7 +44,7 @@ CREATE FUNCTION core.cfg_content_key_not_legal(p_key text)
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   -- jamais NULL : un NULL passerait un CHECK (fail-closed)
-  SELECT COALESCE(p_key !~ '(legal|terms|termin|termos|cgu|cgv|condicion|condicoe|condition|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancel|annul|refund|reembols|rembours|insurance|seguro|assur|protection|proteccion|protecao|policy|politic|cookie|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)', false)
+  SELECT COALESCE(p_key !~ '(^|[._])(tos|tyc|t_c|tandc|rgpd|lgpd|gdpr|dpa|lopd|aviso|mentions|impressum|imprint|license|licencia|licenca|cgu|cgv|cookies)([._]|$)|(legal|terms|terminos|termino_|termos|condiciones|condicoes|conditions|contract|contrat|agreement|acuerdo|acordo|privac|confidential|cancellation|cancelacion|cancelamento|annulation|refund|reembols|rembours|insurance|seguros|seguro_|segurador|assurance|protection|policy|politic|consent|eula|disclaimer|waiver|deductible|franqui|warrant|garanti|liabil|responsab)', false)
 $fn$;
 REVOKE ALL ON FUNCTION core.cfg_content_key_not_legal(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.cfg_content_key_not_legal(text) TO iam_staff_owner;

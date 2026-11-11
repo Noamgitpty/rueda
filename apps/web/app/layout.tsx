@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { getRequestBrand } from '../brand-source.ts';
-import { getRequestContent } from '../content-source.ts';
+import { getRequestContent, pageDescription } from '../content-source.ts';
 import { getRequestI18n } from '../i18n.ts';
 import { iconUrl, MANIFEST_PATH } from '../pwa/manifest.ts';
 import { ThemeStyle } from '../theme.tsx';
@@ -9,13 +9,18 @@ import { ThemeStyle } from '../theme.tsx';
 // Nom, description, manifeste et icônes viennent de la marque de la requête (US-034, US-048) :
 // version publiée si l'API la donne, thème embarqué sinon. Aucun nom ni style codé en dur.
 export async function generateMetadata(): Promise<Metadata> {
-  const [brand, i18n] = await Promise.all([getRequestBrand(), getRequestI18n()]);
-  // description = accroche de l'accueil : le bloc publié dans la langue de la page s'il existe
-  // (US-121, même source que la page, aperçu de partage cohérent), sinon le catalogue livré
-  const tagline = (await getRequestContent(i18n)).get('web.home.tagline');
+  // marque et blocs lus en parallèle (chacun borné à 1,5 s, mis en cache 30 s) : la page n'attend
+  // jamais les deux délais l'un après l'autre (revue architecture US-121, 2e passe, n° 5)
+  const i18nP = getRequestI18n();
+  const [brand, i18n, content] = await Promise.all([
+    getRequestBrand(),
+    i18nP,
+    i18nP.then((i18n) => getRequestContent(i18n)),
+  ]);
   return {
     title: brand.name,
-    description: tagline?.format === 'plain' ? tagline.text : i18n.t('web.home.tagline'),
+    // accroche de l'accueil : bloc publié dans la langue de la page, sinon catalogue (US-121)
+    description: pageDescription(i18n, content),
     applicationName: brand.name,
     manifest: MANIFEST_PATH,
     icons: {
