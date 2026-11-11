@@ -1,0 +1,1057 @@
+{
+  "$comment": "Catalogue de référence des véhicules (US-113 ; 16 HST-050 ; 17 §3.2.3, ADR-034 ; ADR-094). Graine MINIMALE construite à la main, PROPOSÉE : modèles courants dans les deux pays de premier rang, aucune donnée copiée d'un tiers (ni base, ni annonce, ni site de constructeur, ni Turo). Toute ligne désigne une provenance qui porte source et license_note ; une provenance dont la licence n'est pas VALIDATED ne peut pas être chargée (OQ-CAT-01). La migration 0059 contient le rendu de ce fichier (apps/api/src/modules/cat/internal/vehicle-catalog/seed-sql.ts) ; le test seed-sql.test.ts échoue si elle en diffère. Curation complète (environ 150 modèles) : ops, hors développement.",
+  "version": 1,
+  "sourceLicenses": {
+    "OPS_CURATED": {
+      "status": "VALIDATED",
+      "note": "saisie de l'équipe du projet, sans reprise d'un tiers"
+    },
+    "WIKIDATA": { "status": "VALIDATED", "note": "CC0 (17 ADR-034)" },
+    "NHTSA_VPIC": { "status": "TO_VALIDATE", "note": "OQ-CAT-01 (a)" },
+    "HOST_REQUEST": { "status": "TO_VALIDATE", "note": "file d'ajout US-114, jamais en graine" }
+  },
+  "consumptionLicenses": {
+    "OPS_CURATED": { "status": "VALIDATED", "note": "saisie de l'équipe du projet" },
+    "EPA_US_REFERENCE": { "status": "TO_VALIDATE", "note": "OQ-CAT-01 (b)" }
+  },
+  "provenances": {
+    "ops-us113-v1": {
+      "source": "OPS_CURATED",
+      "sourceRef": "US-113 graine v1 (2026-11-11)",
+      "licenseNote": "Graine saisie à la main par l'équipe du projet (US-113) à partir de caractéristiques techniques de notoriété publique. Aucune donnée copiée d'une base, d'une annonce, d'un site de constructeur ou de Turo. PROPOSÉ : à vérifier par l'ops avant la mise en service."
+    }
+  },
+  "makes": [
+    {
+      "slug": "toyota",
+      "name": "Toyota",
+      "countryOrigin": "JP",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "hilux",
+          "name": "Hilux",
+          "bodyType": "PICKUP",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2016-cd-2-4-diesel-mt-4x4",
+              "yearFrom": 2016,
+              "trimName": "2.4",
+              "transmission": "MT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "engineCc": 2393,
+              "engineCylinders": 4,
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            },
+            {
+              "key": "2016-cd-2-8-diesel-at-4x4",
+              "yearFrom": 2016,
+              "trimName": "2.8",
+              "transmission": "AT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "engineCc": 2755,
+              "engineCylinders": 4,
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "corolla",
+          "name": "Corolla",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2020-1-8-cvt",
+              "yearFrom": 2020,
+              "trimName": "1.8",
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "engineCc": 1798,
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            },
+            {
+              "key": "2020-1-8-hybrid",
+              "yearFrom": 2020,
+              "trimName": "1.8",
+              "transmission": "CVT",
+              "fuelType": "HYBRID",
+              "drive": "FWD",
+              "engineCc": 1798,
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "yaris",
+          "name": "Yaris",
+          "bodyType": "HATCHBACK",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2018-1-5-cvt",
+              "yearFrom": 2018,
+              "trimName": "1.5",
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "rav4",
+          "name": "RAV4",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2019-2-0-cvt",
+              "yearFrom": 2019,
+              "trimName": "2.0",
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "fortuner",
+          "name": "Fortuner",
+          "bodyType": "SUV",
+          "seatsDefault": 7,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2016-2-8-diesel-at-4x4",
+              "yearFrom": 2016,
+              "trimName": "2.8",
+              "transmission": "AT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "engineCc": 2755,
+              "seats": 7,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "land-cruiser-prado",
+          "name": "Land Cruiser Prado",
+          "aliases": ["Prado"],
+          "bodyType": "SUV",
+          "seatsDefault": 7,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2010-2023-diesel-at-4x4",
+              "yearFrom": 2010,
+              "yearTo": 2023,
+              "transmission": "AT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 7,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "rush",
+          "name": "Rush",
+          "bodyType": "SUV",
+          "seatsDefault": 7,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2018-1-5-at",
+              "yearFrom": 2018,
+              "trimName": "1.5",
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "RWD",
+              "seats": 7,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "allion",
+          "name": "Allion",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2007-2021-cvt",
+              "yearFrom": 2007,
+              "yearTo": 2021,
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "vitz",
+          "name": "Vitz",
+          "bodyType": "HATCHBACK",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2010-2019-cvt",
+              "yearFrom": 2010,
+              "yearTo": 2019,
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "nissan",
+      "name": "Nissan",
+      "countryOrigin": "JP",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "frontier",
+          "name": "Frontier",
+          "aliases": ["Navara"],
+          "bodyType": "PICKUP",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2015-diesel-mt-4x4",
+              "yearFrom": 2015,
+              "transmission": "MT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "versa",
+          "name": "Versa",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2020-1-6-cvt",
+              "yearFrom": 2020,
+              "trimName": "1.6",
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "kicks",
+          "name": "Kicks",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2017-1-6-cvt",
+              "yearFrom": 2017,
+              "trimName": "1.6",
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "x-trail",
+          "name": "X-Trail",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2014-2021-cvt",
+              "yearFrom": 2014,
+              "yearTo": 2021,
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "mitsubishi",
+      "name": "Mitsubishi",
+      "countryOrigin": "JP",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "l200",
+          "name": "L200",
+          "aliases": ["Triton"],
+          "bodyType": "PICKUP",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2015-diesel-mt-4x4",
+              "yearFrom": 2015,
+              "transmission": "MT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "montero-sport",
+          "name": "Montero Sport",
+          "bodyType": "SUV",
+          "seatsDefault": 7,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2016-diesel-at-4x4",
+              "yearFrom": 2016,
+              "transmission": "AT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 7,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "outlander",
+          "name": "Outlander",
+          "bodyType": "SUV",
+          "seatsDefault": 7,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2013-2021-cvt",
+              "yearFrom": 2013,
+              "yearTo": 2021,
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 7,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "honda",
+      "name": "Honda",
+      "countryOrigin": "JP",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "civic",
+          "name": "Civic",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2016-2021-cvt",
+              "yearFrom": 2016,
+              "yearTo": 2021,
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "cr-v",
+          "name": "CR-V",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2017-2022-cvt",
+              "yearFrom": 2017,
+              "yearTo": 2022,
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "fit",
+          "name": "Fit",
+          "aliases": ["Jazz"],
+          "bodyType": "HATCHBACK",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2014-2020-cvt",
+              "yearFrom": 2014,
+              "yearTo": 2020,
+              "transmission": "CVT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "suzuki",
+      "name": "Suzuki",
+      "countryOrigin": "JP",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "swift",
+          "name": "Swift",
+          "bodyType": "HATCHBACK",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2017-mt",
+              "yearFrom": 2017,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "vitara",
+          "name": "Vitara",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2015-at",
+              "yearFrom": 2015,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "jimny",
+          "name": "Jimny",
+          "bodyType": "SUV",
+          "seatsDefault": 4,
+          "doorsDefault": 3,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2018-mt-4x4",
+              "yearFrom": 2018,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "4X4",
+              "seats": 4,
+              "doors": 3,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "ertiga",
+          "name": "Ertiga",
+          "bodyType": "MINIVAN",
+          "seatsDefault": 7,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2018-mt",
+              "yearFrom": 2018,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 7,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "mazda",
+      "name": "Mazda",
+      "countryOrigin": "JP",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "mazda3",
+          "name": "Mazda3",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2019-at",
+              "yearFrom": 2019,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "cx-5",
+          "name": "CX-5",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2017-at",
+              "yearFrom": 2017,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "isuzu",
+      "name": "Isuzu",
+      "countryOrigin": "JP",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "d-max",
+          "name": "D-Max",
+          "bodyType": "PICKUP",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2020-diesel-mt-4x4",
+              "yearFrom": 2020,
+              "transmission": "MT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "hyundai",
+      "name": "Hyundai",
+      "countryOrigin": "KR",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "accent",
+          "name": "Accent",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2018-at",
+              "yearFrom": 2018,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "tucson",
+          "name": "Tucson",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2016-2021-at",
+              "yearFrom": 2016,
+              "yearTo": 2021,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "creta",
+          "name": "Creta",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2016-at",
+              "yearFrom": 2016,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "h-1",
+          "name": "H-1",
+          "aliases": ["Grand Starex"],
+          "bodyType": "VAN",
+          "seatsDefault": 12,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2008-2021-diesel-mt",
+              "yearFrom": 2008,
+              "yearTo": 2021,
+              "transmission": "MT",
+              "fuelType": "DIESEL",
+              "drive": "RWD",
+              "seats": 12,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "kia",
+      "name": "Kia",
+      "countryOrigin": "KR",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "picanto",
+          "name": "Picanto",
+          "bodyType": "HATCHBACK",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2017-mt",
+              "yearFrom": 2017,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "rio",
+          "name": "Rio",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2017-at",
+              "yearFrom": 2017,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "sportage",
+          "name": "Sportage",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2016-2021-at",
+              "yearFrom": 2016,
+              "yearTo": 2021,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "sorento",
+          "name": "Sorento",
+          "bodyType": "SUV",
+          "seatsDefault": 7,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2015-2020-diesel-at-awd",
+              "yearFrom": 2015,
+              "yearTo": 2020,
+              "transmission": "AT",
+              "fuelType": "DIESEL",
+              "drive": "AWD",
+              "seats": 7,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "chevrolet",
+      "name": "Chevrolet",
+      "countryOrigin": "US",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "s10",
+          "name": "S10",
+          "bodyType": "PICKUP",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2012-diesel-mt-4x4",
+              "yearFrom": 2012,
+              "transmission": "MT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "tracker",
+          "name": "Tracker",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2020-at",
+              "yearFrom": 2020,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ford",
+      "name": "Ford",
+      "countryOrigin": "US",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "ranger",
+          "name": "Ranger",
+          "bodyType": "PICKUP",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2012-2022-diesel-mt-4x4",
+              "yearFrom": 2012,
+              "yearTo": 2022,
+              "transmission": "MT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "ecosport",
+          "name": "EcoSport",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2013-2022-mt",
+              "yearFrom": 2013,
+              "yearTo": 2022,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "volkswagen",
+      "name": "Volkswagen",
+      "aliases": ["VW"],
+      "countryOrigin": "DE",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "gol",
+          "name": "Gol",
+          "bodyType": "HATCHBACK",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2008-2023-mt",
+              "yearFrom": 2008,
+              "yearTo": 2023,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "amarok",
+          "name": "Amarok",
+          "bodyType": "PICKUP",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2010-2022-diesel-at-4x4",
+              "yearFrom": 2010,
+              "yearTo": 2022,
+              "transmission": "AT",
+              "fuelType": "DIESEL",
+              "drive": "4X4",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "renault",
+      "name": "Renault",
+      "countryOrigin": "FR",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "duster",
+          "name": "Duster",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2010-mt",
+              "yearFrom": 2010,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        },
+        {
+          "slug": "logan",
+          "name": "Logan",
+          "bodyType": "SEDAN",
+          "seatsDefault": 5,
+          "doorsDefault": 4,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2014-mt",
+              "yearFrom": 2014,
+              "transmission": "MT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 4,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "chery",
+      "name": "Chery",
+      "countryOrigin": "CN",
+      "provenance": "ops-us113-v1",
+      "models": [
+        {
+          "slug": "tiggo-7",
+          "name": "Tiggo 7",
+          "bodyType": "SUV",
+          "seatsDefault": 5,
+          "doorsDefault": 5,
+          "provenance": "ops-us113-v1",
+          "variants": [
+            {
+              "key": "2020-at",
+              "yearFrom": 2020,
+              "transmission": "AT",
+              "fuelType": "GASOLINE",
+              "drive": "FWD",
+              "seats": 5,
+              "doors": 5,
+              "provenance": "ops-us113-v1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -74,6 +74,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0056_booking_vehicle_ownership_guards` | AVL : véhicule du compte exigé pour les blocages ; auto-réservation d'un membre refusée ; périodes bornées. |
 | `0057_audit_worker_name_scope` | AUD : écritures et lecture des clés de sujet réservées aux travailleurs nommés. |
 | `0058_payment_proof_hardening` | PAY : preuve d'un statut terminal durcie (quarantaine non effaçable, MANUAL_OPS, voie directe). |
+| `0059_catalog_vehicle_reference` | CAT : catalogue de référence des véhicules (marques, modèles, variantes) et sa graine. |
 
 ## Rôles
 
@@ -737,6 +738,75 @@ Déclencheurs :
 - `occupancy_trip_guard` : `CREATE CONSTRAINT TRIGGER occupancy_trip_guard AFTER DELETE OR UPDATE ON core.booking_vehicle_occupancy DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (old.kind = 'TRIP'::text) EXECUTE FUNCTION core.booking_assert_trip_occupancy('occupancy_trip_guard')`
 - `occupancy_trip_ref_valid` : `CREATE CONSTRAINT TRIGGER occupancy_trip_ref_valid AFTER INSERT OR UPDATE ON core.booking_vehicle_occupancy DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (new.kind = 'TRIP'::text AND new.active) EXECUTE FUNCTION core.booking_assert_trip_occupancy('occupancy_trip_ref_valid')`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.booking_vehicle_occupancy FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
+### `core.catalog_vehicle_make`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `slug` | `text` | oui | — |
+| `name` | `text` | oui | — |
+| `country_origin` | `character(2)` | non | — |
+| `aliases` | `text[]` | oui | `ARRAY[]::text[]` |
+| `status` | `text` | oui | `'ACTIVE'::text` |
+| `source` | `text` | oui | — |
+| `source_ref` | `text` | non | — |
+| `license_note` | `text` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+### `core.catalog_vehicle_model`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `make_id` | `uuid` | oui | — |
+| `slug` | `text` | oui | — |
+| `name` | `text` | oui | — |
+| `aliases` | `text[]` | oui | `ARRAY[]::text[]` |
+| `body_type` | `text` | oui | — |
+| `seats_default` | `smallint` | oui | — |
+| `doors_default` | `smallint` | oui | — |
+| `status` | `text` | oui | `'ACTIVE'::text` |
+| `source` | `text` | oui | — |
+| `source_ref` | `text` | non | — |
+| `license_note` | `text` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+### `core.catalog_vehicle_variant`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `model_id` | `uuid` | oui | — |
+| `year_from` | `integer` | oui | — |
+| `year_to` | `integer` | non | — |
+| `trim_name` | `text` | non | — |
+| `transmission` | `text` | oui | — |
+| `fuel_type` | `text` | oui | — |
+| `drive` | `text` | oui | — |
+| `engine_cc` | `integer` | non | — |
+| `engine_cylinders` | `smallint` | non | — |
+| `power_hp` | `integer` | non | — |
+| `consumption_l_100km` | `numeric(3,1)` | non | — |
+| `consumption_source` | `text` | non | — |
+| `seats` | `smallint` | oui | — |
+| `doors` | `smallint` | oui | — |
+| `cargo_l` | `integer` | non | — |
+| `value_class` | `text` | non | — |
+| `market` | `character(2)` | non | — |
+| `status` | `text` | oui | `'ACTIVE'::text` |
+| `source` | `text` | oui | — |
+| `source_ref` | `text` | non | — |
+| `license_note` | `text` | oui | — |
+| `verified_by` | `uuid` | non | — |
+| `verified_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 
 ### `core.config_brand_asset`
 

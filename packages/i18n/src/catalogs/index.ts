@@ -16,9 +16,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  * `common.brand.contentLocaleMissing` (quatre langues exigées). Version 9 : coquille et PWA
  (US-048) : `web.shell.*`, `web.offline.*`, `common.offline.restored` et clés `web.s01.*` de
  l'accueil reprises de 10b §4.3. Version 10 : limitation de débit et anti-abus (US-052) :
- `common.rateLimit.*`.
+ `common.rateLimit.*`. Version 11 : catalogue de référence des véhicules (US-113) :
+ `common.vehicle.*`.
  */
-export const CATALOG_VERSION = 10;
+export const CATALOG_VERSION = 11;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

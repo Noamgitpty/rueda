@@ -319,6 +319,72 @@
         "country_code": "C1"
       }
     },
+    "core.catalog_vehicle_make": {
+      "lifecycle": "D",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "slug": "C0",
+        "name": "C0",
+        "country_origin": "C0",
+        "aliases": "C0",
+        "status": "C0",
+        "source": "C0",
+        "source_ref": "C0",
+        "license_note": "C0",
+        "created_at": "C0"
+      }
+    },
+    "core.catalog_vehicle_model": {
+      "lifecycle": "D",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "make_id": "C0",
+        "slug": "C0",
+        "name": "C0",
+        "aliases": "C0",
+        "body_type": "C0",
+        "seats_default": "C0",
+        "doors_default": "C0",
+        "status": "C0",
+        "source": "C0",
+        "source_ref": "C0",
+        "license_note": "C0",
+        "created_at": "C0"
+      }
+    },
+    "core.catalog_vehicle_variant": {
+      "lifecycle": "D",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "model_id": "C0",
+        "year_from": "C0",
+        "year_to": "C0",
+        "trim_name": "C0",
+        "transmission": "C0",
+        "fuel_type": "C0",
+        "drive": "C0",
+        "engine_cc": "C0",
+        "engine_cylinders": "C0",
+        "power_hp": "C0",
+        "consumption_l_100km": "C0",
+        "consumption_source": "C0",
+        "seats": "C0",
+        "doors": "C0",
+        "cargo_l": "C0",
+        "value_class": "C0",
+        "market": "C0",
+        "status": "C0",
+        "source": "C0",
+        "source_ref": "C0",
+        "license_note": "C0",
+        "verified_by": "C1",
+        "verified_at": "C0",
+        "created_at": "C0"
+      }
+    },
     "core.config_brand_asset": {
       "lifecycle": "C",
       "export": "none",
