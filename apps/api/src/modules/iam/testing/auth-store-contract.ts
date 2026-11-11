@@ -33,6 +33,10 @@ async function register(store: AuthStore, email = `c-${randomUUID()}@example.tes
     verificationTokenHash: tokenHash(verificationToken),
     verificationTtlS: 86_400,
     ip: '198.51.100.4',
+    documents: [
+      { kind: 'TOS_GUEST', version: 1 },
+      { kind: 'PRIVACY', version: 1 },
+    ],
   });
   return { created, userId, email, verificationToken };
 }
@@ -87,6 +91,10 @@ export function authStoreContract(name: string, harness: () => Promise<ContractH
             verificationTokenHash: tokenHash(newOpaqueToken()),
             verificationTtlS: 86_400,
             ip: null,
+            documents: [
+              { kind: 'TOS_GUEST', version: 1 },
+              { kind: 'PRIVACY', version: 1 },
+            ],
           }),
         ).rejects.toThrow();
       }));

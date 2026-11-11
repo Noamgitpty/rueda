@@ -424,7 +424,7 @@ export const PT_MESSAGES = {
   'web.s15.legalName': 'Nome e sobrenome como na sua carteira de motorista',
   'web.s15.signup': 'Criar conta',
   'web.s15.title': 'Crie sua conta para reservar',
-  'web.s15.intro': 'Você volta para este carro quando terminar.',
+  'web.s15.intro': 'Só pedimos uma conta na hora de reservar.',
   'web.s15.email': 'Endereço de e-mail',
   'web.s15.password': 'Senha',
   'web.s15.passwordHint': 'No mínimo 10 caracteres.',

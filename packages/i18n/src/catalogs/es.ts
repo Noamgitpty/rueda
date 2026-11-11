@@ -424,7 +424,7 @@ export const ES_MESSAGES = {
   'web.s15.legalName': 'Nombre y apellido como en tu licencia',
   'web.s15.signup': 'Crear cuenta',
   'web.s15.title': 'Crea tu cuenta para reservar',
-  'web.s15.intro': 'Volverás a este auto al terminar.',
+  'web.s15.intro': 'Solo te pedimos una cuenta cuando vas a reservar.',
   'web.s15.email': 'Correo electrónico',
   'web.s15.password': 'Contraseña',
   'web.s15.passwordHint': 'Al menos 10 caracteres.',

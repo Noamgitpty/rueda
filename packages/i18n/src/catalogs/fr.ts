@@ -439,7 +439,7 @@ export const FR_MESSAGES = {
   'web.s15.legalName': 'Prénom et nom comme sur ton permis',
   'web.s15.signup': 'Créer un compte',
   'web.s15.title': 'Crée ton compte pour réserver',
-  'web.s15.intro': 'Tu reviendras à cette voiture une fois terminé.',
+  'web.s15.intro': 'On ne te demande un compte qu’au moment de réserver.',
   'web.s15.email': 'Adresse e-mail',
   'web.s15.password': 'Mot de passe',
   'web.s15.passwordHint': 'Au moins 10 caractères.',

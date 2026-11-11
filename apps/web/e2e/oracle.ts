@@ -21,9 +21,13 @@ export const SPEC_TEXT: Readonly<
     fr: 'Créer un compte',
   },
   // consigne de la story US-102 (orchestrateur) : textes juridiques provisoires marqués
-  // « BROUILLON — à valider par le juridique » ; seule la formulation française est donnée
+  // « BROUILLON — à valider par le juridique » (formulation française donnée par la consigne) ;
+  // es, en et pt : textes PROPOSÉS d'ADR-091 point 8 (BORRADOR / DRAFT / RASCUNHO)
   draftMarker: {
+    es: 'BORRADOR — pendiente de validación jurídica',
+    en: 'DRAFT — pending legal review',
     fr: 'BROUILLON — à valider par le juridique',
+    pt: 'RASCUNHO — pendente de validação jurídica',
   },
   homeTitle: {
     es: 'Alquila el auto de un vecino.',

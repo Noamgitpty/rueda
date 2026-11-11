@@ -88,7 +88,7 @@ const PHC =
 export async function account(tx: pg.ClientBase): Promise<string> {
   const id = uuid();
   const r = await tx.query<{ ok: boolean }>(
-    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Rls', 'Test', 'en', $4, $5, 86400, NULL, NULL, NULL, false) AS ok`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Rls', 'Test', 'en', $4, $5, 86400, NULL, NULL, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false) AS ok`,
     [id, `rls-${id}@example.test`, PHC, uuid(), randomBytes(32)],
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');

@@ -381,7 +381,7 @@
             "$ref": "#/components/responses/RateLimited"
           },
           "409": {
-            "description": "Version affichée des CGU ou de la confidentialité périmée (US-102) : recharger le formulaire",
+            "description": "Version affichée des CGU ou de la confidentialité absente ou périmée (US-102) : recharger le formulaire",
             "content": {
               "application/json": {
                 "schema": {
@@ -2239,7 +2239,7 @@
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "409": {
-            "description": "Version affichée périmée",
+            "description": "Version affichée périmée, ou document à réaccepter absent de la demande",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -2260,6 +2260,26 @@
           },
           "415": {
             "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Aucun document en vigueur (fail-closed) : rien n’est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2320,6 +2340,26 @@
           },
           "415": {
             "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Aucun document en vigueur (fail-closed) : rien n’est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2819,7 +2859,8 @@
           "legalFirstName",
           "legalLastName",
           "locale",
-          "termsAccepted"
+          "termsAccepted",
+          "acceptedDocuments"
         ],
         "properties": {
           "email": {
@@ -2844,7 +2885,7 @@
             "type": "array",
             "minItems": 1,
             "maxItems": 2,
-            "description": "Versions AFFICHÉES et acceptées (US-102) ; absent : versions en vigueur. Une version périmée : 409 TERMS_VERSION_CHANGED.",
+            "description": "Versions AFFICHÉES et acceptées des CGU et de la confidentialité (US-102), OBLIGATOIRES : absentes, incomplètes ou périmées, 409 TERMS_VERSION_CHANGED.",
             "items": {
               "$ref": "#/components/schemas/DocumentVersion"
             }

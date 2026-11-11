@@ -35,6 +35,21 @@ import {
 } from '../support/staff.ts';
 
 const T0 = '2031-05-04T10:00:00.000Z';
+/**
+ * Requête nommée GL-14 (docs/ops/GO_LIVE_CHECKLIST.md) : documents CGU ou confidentialité EN
+ * VIGUEUR et BROUILLON, par pays et par langue. Elle doit rendre zéro ligne avant la mise en service.
+ */
+export const GL14_DRAFTS = `
+  SELECT k.code::text AS code, d.doc_kind, d.version, d.locale
+    FROM core.config_country AS k
+   CROSS JOIN unnest(ARRAY['es', 'en', 'fr', 'pt']) AS l(lang)
+   CROSS JOIN LATERAL core.ctr_published_documents(k.code::text, l.lang) AS d
+   WHERE d.is_draft AND d.doc_kind IN ('TOS_GUEST', 'PRIVACY')`;
+/** Versions en vigueur de la graine (0059) : CGU et confidentialité v1. */
+const CURRENT_V1 = [
+  { kind: 'TOS_GUEST', version: 1 },
+  { kind: 'PRIVACY', version: 1 },
+];
 const ALL = COUNTRIES.map((c) => c.country);
 const BODIES = {
   es: { title: 'Términos v2', body: 'Texto de prueba de la versión 2.' },
@@ -111,7 +126,9 @@ async function signup(
       uuid(),
       newToken().hash,
       options.country ?? null,
-      options.documents === undefined ? null : JSON.stringify(options.documents),
+      options.documents === null
+        ? null
+        : JSON.stringify(options.documents === undefined ? CURRENT_V1 : options.documents),
       options.marketing ?? false,
     ],
   );
@@ -133,7 +150,13 @@ const publish = async (
   c: pg.ClientBase,
   hash: Buffer,
   kind: string,
-  options: { country?: string | null; major?: boolean; validFrom?: string; bodies?: unknown } = {},
+  options: {
+    country?: string | null;
+    major?: boolean;
+    validFrom?: string;
+    bodies?: unknown;
+    requestId?: string;
+  } = {},
 ) =>
   (
     await c.query<{ outcome: string; version: number | null }>(
@@ -141,7 +164,7 @@ const publish = async (
                 $6::timestamptz, NULL, $7::jsonb)`,
       [
         hash,
-        uuid(),
+        options.requestId ?? uuid(),
         kind,
         options.country ?? null,
         options.major ?? true,
@@ -424,6 +447,103 @@ describe('critère 3 — version majeure publiée : réacceptation avant toute r
           expect(body.rows).toEqual([]);
         });
       }
+    });
+  });
+});
+
+describe('revue US-102 : versions affichées obligatoires, portée par pays, idempotence', () => {
+  it('client direct : sans versions affichées (NULL) ou avec une seule, refus avant toute écriture', async () => {
+    await withRole('app_api', async (client) => {
+      await withTestTransaction(client, { virtualNow: T0 }, async (tx) => {
+        const email = `aveugle-${uuid()}@example.test`;
+        for (const documents of [null, [{ kind: 'TOS_GUEST', version: 1 }]]) {
+          await expectConstraint(
+            tx,
+            () => signup(tx, { email, documents }),
+            'ctr_document_version_current',
+          );
+        }
+        const { rows } = await tx.query('SELECT * FROM core.iam_auth_lookup($1)', [email]);
+        expect(rows).toEqual([]);
+      });
+    });
+  });
+
+  it('document propre au pays publié après l’inscription : réacceptation exigée dans ce pays seulement (chaque pays)', async () => {
+    await withRole('app_api', async (client) => {
+      const admin = await elevatedStaff(client, 'ADMIN', ALL);
+      for (const country of ALL) {
+        const other = ALL.find((c) => c !== country) as string;
+        await withTestTransaction(client, {}, async (tx) => {
+          const here = await signup(tx, { country });
+          const there = await signup(tx, { country: other });
+          const sHere = await openSession(tx, here.userId);
+          const sThere = await openSession(tx, there.userId);
+          // document de confidentialité propre au pays : version 1, comme le commun
+          expect(await publish(tx, admin.hash, 'PRIVACY', { country })).toEqual({
+            outcome: 'PUBLISHED',
+            version: 1,
+          });
+          const privacy = (rows: StatusRow[]) => rows.find((r) => r.doc_kind === 'PRIVACY');
+          // même numéro de version, autre gabarit : l'acceptation du commun ne vaut pas
+          expect(privacy(await status(tx, sHere.hash))).toMatchObject({
+            current_version: 1,
+            accepted_version: null,
+            reaccept_required: true,
+          });
+          expect(privacy(await status(tx, sThere.hash))).toMatchObject({
+            accepted_version: 1,
+            reaccept_required: false,
+          });
+          // demande incomplète refusée, puis acceptation du gabarit du pays
+          await expectConstraint(
+            tx,
+            () =>
+              tx.query('SELECT core.ctr_cmd_accept_documents($1, $2::jsonb)', [
+                sHere.hash,
+                JSON.stringify([{ kind: 'TOS_GUEST', version: 1 }]),
+              ]),
+            'ctr_document_version_current',
+          );
+          await tx.query('SELECT core.ctr_cmd_accept_documents($1, $2::jsonb)', [
+            sHere.hash,
+            JSON.stringify([{ kind: 'PRIVACY', version: 1 }]),
+          ]);
+          expect((await status(tx, sHere.hash)).filter((r) => r.reaccept_required)).toEqual([]);
+          // inscription après la publication : le gabarit du pays est accepté d'emblée
+          const late = await signup(tx, { country });
+          const sLate = await openSession(tx, late.userId);
+          expect((await status(tx, sLate.hash)).filter((r) => r.reaccept_required)).toEqual([]);
+        });
+      }
+    });
+  });
+
+  it('publication idempotente sur request_id ; request_id d’une autre publication refusé', async () => {
+    await withRole('app_api', async (client) => {
+      const admin = await elevatedStaff(client, 'ADMIN', ALL);
+      await withTestTransaction(client, {}, async (tx) => {
+        const requestId = uuid();
+        const first = await publish(tx, admin.hash, 'MARKETING', { requestId, major: false });
+        const again = await publish(tx, admin.hash, 'MARKETING', { requestId, major: false });
+        expect(again).toEqual(first);
+        const docs = await current(tx, null, 'es');
+        expect(docs.find((d) => d.doc_kind === 'MARKETING')?.version).toBe(first?.version);
+        const reused = await publish(tx, admin.hash, 'PRIVACY', { requestId });
+        expect(reused).toEqual({ outcome: 'REQUEST_ID_REUSED', version: null });
+        const audit = await auditOf(tx, admin.userId);
+        expect(audit.filter((a) => a.request_id === requestId)).toHaveLength(1);
+      });
+    });
+  });
+
+  it('GL-14 (mise en service) : la requête nommée voit tout document CGU ou confidentialité BROUILLON en vigueur', async () => {
+    await withRole('app_api', async (client) => {
+      const { rows } = await client.query<{ code: string; doc_kind: string }>(GL14_DRAFTS);
+      // graine 0059 : brouillons partout ⇒ la mise en service est bloquée (OQ-BR-24)
+      expect(new Set(rows.map((r) => `${r.code}:${r.doc_kind}`))).toEqual(
+        new Set(ALL.flatMap((c) => [`${c}:PRIVACY`, `${c}:TOS_GUEST`])),
+      );
     });
   });
 });

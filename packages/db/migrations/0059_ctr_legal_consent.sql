@@ -17,8 +17,9 @@
 --    d'audit, US-009). Les CGU et la confidentialité ne se retirent pas par une ligne (fermeture du
 --    compte, BR-ACC-09) ; les communications commerciales, si (révocation).
 -- 3. AUCUNE INSCRIPTION SANS CONSENTEMENT : déclencheur de contrainte DIFFÉRÉ sur
---    `core.iam_user_account` : à la validation de la transaction, tout compte créé doit avoir accepté
---    la version courante des CGU du voyageur (`TOS_GUEST`) et de la confidentialité (`PRIVACY`).
+--    `core.iam_user_account` : à la validation de la transaction, tout compte créé doit avoir un
+--    consentement accepté aux CGU du voyageur (`TOS_GUEST`) et à la confidentialité (`PRIVACY`) ;
+--    que ce soit la version EN VIGUEUR AFFICHÉE est vérifié par la commande d'inscription.
 --    Seules les écritures de `migrator` (migrations, fonctions de fixtures dont il est
 --    propriétaire) ou d'un superutilisateur en sont exemptées. L'ancienne commande `core.iam_cmd_register` (0011) reste en place (expand-only) mais
 --    ne peut plus aboutir seule : l'API appelle `core.iam_cmd_register_with_consents`.
@@ -43,7 +44,7 @@
 --     core.ctr_signup_consents_guard(), core.ctr_writer_exempt(), core.ctr_consent_guard(),
 --     core.ctr_template_guard(), core.ctr_no_truncate(),
 --     core.ctr_current_template(text, text, text, boolean), core.ctr_record_consent(uuid, uuid,
---     boolean, text);
+--     boolean, text, text), core.ctr_account_country(uuid);
 --   DROP TABLE core.contract_consent, core.contract_document_template;
 --   DELETE FROM core.iam_role_permission WHERE change_reason LIKE 'US-102%'.
 
@@ -86,6 +87,8 @@ CREATE TABLE core.contract_document_template (
   request_id       uuid,
   created_at       timestamptz NOT NULL DEFAULT platform.now(),
   CONSTRAINT document_template_version_unique UNIQUE NULLS NOT DISTINCT (kind, country_code, locale, version),
+  -- publication idempotente : une demande = une version (quatre langues)
+  CONSTRAINT document_template_request_unique UNIQUE (request_id, locale),
   -- l'espagnol fait foi (16 NFR-11) : c'est la seule langue faisant foi
   CONSTRAINT document_template_authoritative_es CHECK (is_authoritative = (locale = 'es'))
 );
@@ -117,6 +120,9 @@ CREATE TABLE core.contract_consent (
   context             text        NOT NULL
     CONSTRAINT consent_context_valid CHECK (context IN (
       'SIGNUP', 'REACCEPT', 'SETTINGS', 'CHECKOUT', 'CONTRACT', 'KYC')),
+  -- pays déclaré par le parcours au moment du consentement (NULL : aucun) ; le pays du compte pour
+  -- ses documents est celui de sa dernière acceptation des CGU (core.ctr_account_country)
+  country_code        char(2)     REFERENCES core.config_country (code),
   ip_enc              bytea,                                       -- [C2] chiffré, clé du sujet
   user_agent_enc      bytea,                                       -- [C2] chiffré, clé du sujet
   key_subject_type    text
@@ -215,7 +221,7 @@ REVOKE ALL ON core.contract_document_template, core.contract_consent FROM PUBLIC
 GRANT SELECT ON core.contract_document_template TO iam_auth_owner;
 GRANT SELECT ON core.contract_consent TO iam_auth_owner;
 GRANT INSERT (id, user_id, template_id, doc_kind, doc_version, locale, accepted, accepted_at,
-              context, ip_enc, user_agent_enc, key_subject_type, key_subject_id, c2_withheld)
+              context, country_code, ip_enc, user_agent_enc, key_subject_type, key_subject_id, c2_withheld)
   ON core.contract_consent TO iam_auth_owner;
 CREATE POLICY iam_auth_select ON core.contract_document_template FOR SELECT TO iam_auth_owner
   USING (true);
@@ -271,20 +277,37 @@ GRANT EXECUTE ON FUNCTION core.ctr_current_template(text, text, text, boolean) T
 -- Ajout d'un consentement (SECURITY INVOKER, exécutée sous iam_auth_owner) : C2 retenues tant que
 -- l'API n'a pas de KeyWrapper (US-036).
 CREATE FUNCTION core.ctr_record_consent(p_user_id uuid, p_template_id uuid, p_accepted boolean,
-                                        p_context text)
+                                        p_context text, p_country text)
   RETURNS void
   LANGUAGE sql
   VOLATILE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   INSERT INTO core.contract_consent (user_id, template_id, doc_kind, doc_version, locale, accepted,
-                                     accepted_at, context, c2_withheld)
-  SELECT p_user_id, t.id, t.kind, t.version, t.locale, p_accepted, platform.now(), p_context, true
+                                     accepted_at, context, country_code, c2_withheld)
+  SELECT p_user_id, t.id, t.kind, t.version, t.locale, p_accepted, platform.now(), p_context,
+         p_country, true
     FROM core.contract_document_template AS t
    WHERE t.id = p_template_id
 $fn$;
-REVOKE ALL ON FUNCTION core.ctr_record_consent(uuid, uuid, boolean, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.ctr_record_consent(uuid, uuid, boolean, text) TO iam_auth_owner;
+REVOKE ALL ON FUNCTION core.ctr_record_consent(uuid, uuid, boolean, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.ctr_record_consent(uuid, uuid, boolean, text, text) TO iam_auth_owner;
+
+-- Pays du compte pour ses documents : celui de sa dernière acceptation des CGU (déclaré par le
+-- parcours à l'inscription ou à la réacceptation) ; NULL = documents communs. `residence_country`
+-- (0010) n'est écrit par aucune commande : il ne fait pas foi ici.
+CREATE FUNCTION core.ctr_account_country(p_user_id uuid)
+  RETURNS text
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT c.country_code::text FROM core.contract_consent AS c
+   WHERE c.user_id = p_user_id AND c.doc_kind = 'TOS_GUEST' AND c.accepted
+   ORDER BY c.seq DESC LIMIT 1
+$fn$;
+REVOKE ALL ON FUNCTION core.ctr_account_country(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.ctr_account_country(uuid) TO iam_auth_owner;
 
 -- 7. Aucune inscription sans consentement (déclencheur de contrainte différé) ---------------------
 -- Exemption : le rôle QUI ÉCRIT le compte est `migrator` (migrations, fixtures de test, qui sont des
@@ -336,7 +359,8 @@ CREATE CONSTRAINT TRIGGER ctr_signup_consents_required
 
 -- 8. Inscription avec consentements (famille iam_auth) --------------------------------------------
 -- p_documents : liste `[{ "kind": "TOS_GUEST", "version": 1 }, …]` des versions AFFICHÉES et
--- acceptées ; NULL = versions en vigueur. Les versions sont contrôlées AVANT l'écriture du compte :
+-- acceptées, OBLIGATOIRE : absente, incomplète ou différente de la version en vigueur, refus
+-- (ctr_document_version_current) ; un client direct de l'API ne peut pas consentir « à l'aveugle ». Les versions sont contrôlées AVANT l'écriture du compte :
 -- même issue que l'email soit libre ou pris (anti-énumération). Issues d'erreur (contrainte) :
 --   ctr_document_request_invalid (liste mal formée), ctr_document_unavailable (aucun document en
 --   vigueur : fail-closed), ctr_document_version_current (version affichée périmée).
@@ -368,13 +392,17 @@ DECLARE
   v_templates uuid[] := '{}';
   v_marketing uuid;
 BEGIN
+  IF p_documents IS NULL THEN
+    RAISE EXCEPTION 'ctr : versions affichées absentes'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_version_current';
+  END IF;
   IF p_marketing_opt_in IS NULL
-     OR (p_documents IS NOT NULL AND pg_catalog.jsonb_typeof(p_documents) <> 'array')
+     OR pg_catalog.jsonb_typeof(p_documents) <> 'array'
      OR (p_country IS NOT NULL AND p_country !~ '^[A-Z]{2}$') THEN
     RAISE EXCEPTION 'ctr : demande de consentement invalide'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_request_invalid';
   END IF;
-  IF p_documents IS NOT NULL AND EXISTS (
+  IF EXISTS (
        SELECT 1 FROM pg_catalog.jsonb_array_elements(p_documents) AS d(e)
         WHERE pg_catalog.jsonb_typeof(d.e) <> 'object'
            OR NOT COALESCE((d.e ->> 'kind') = ANY (ARRAY['TOS_GUEST', 'PRIVACY']), false)
@@ -388,14 +416,12 @@ BEGIN
       RAISE EXCEPTION 'ctr : aucun document en vigueur (%)', v_kind
         USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_unavailable';
     END IF;
-    IF p_documents IS NOT NULL THEN
-      SELECT pg_catalog.max((d.e ->> 'version')::numeric) INTO v_shown
-        FROM pg_catalog.jsonb_array_elements(p_documents) AS d(e)
-       WHERE d.e ->> 'kind' = v_kind;
-      IF v_shown IS DISTINCT FROM v_t.version::numeric THEN
-        RAISE EXCEPTION 'ctr : version affichée périmée (%)', v_kind
-          USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_version_current';
-      END IF;
+    SELECT pg_catalog.max((d.e ->> 'version')::numeric) INTO v_shown
+      FROM pg_catalog.jsonb_array_elements(p_documents) AS d(e)
+     WHERE d.e ->> 'kind' = v_kind;
+    IF v_shown IS DISTINCT FROM v_t.version::numeric THEN
+      RAISE EXCEPTION 'ctr : version affichée absente ou périmée (%)', v_kind
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_version_current';
     END IF;
     v_templates := v_templates || v_t.id;
   END LOOP;
@@ -412,18 +438,22 @@ BEGIN
                                p_verification_token_hash, p_verification_ttl_s, p_ip) THEN
     RETURN false;  -- email déjà pris : aucune écriture
   END IF;
-  PERFORM core.ctr_record_consent(p_user_id, t, true, 'SIGNUP') FROM pg_catalog.unnest(v_templates) AS t;
+  PERFORM core.ctr_record_consent(p_user_id, t, true, 'SIGNUP', p_country)
+     FROM pg_catalog.unnest(v_templates) AS t;
   IF v_marketing IS NOT NULL THEN
-    PERFORM core.ctr_record_consent(p_user_id, v_marketing, true, 'SIGNUP');
+    PERFORM core.ctr_record_consent(p_user_id, v_marketing, true, 'SIGNUP', p_country);
   END IF;
   RETURN true;
 END
 $fn$;
 
 -- 9. État des consentements d'une session -------------------------------------------------------
--- Par genre : version en vigueur, version majeure exigée, dernière version acceptée, état courant et
--- réacceptation exigée (genre requis, aucune acceptation ou dernière acceptée < majeure exigée).
--- Session invalide : zéro ligne.
+-- Pays du compte : celui de sa dernière acceptation des CGU (core.ctr_account_country). Par genre :
+-- gabarit en vigueur dans la portée de ce pays (documents du pays s'il en existe, sinon communs),
+-- plus haute version MAJEURE de cette portée, dernière version acceptée D'UN GABARIT DE CETTE
+-- PORTÉE (genre et pays du gabarit comparés, jamais l'entier de version seul : un document propre
+-- au pays publié après l'inscription exige l'acceptation, même s'il porte le numéro 1), état
+-- courant et réacceptation exigée. Session invalide : zéro ligne.
 CREATE FUNCTION core.ctr_consent_status(p_token_hash bytea)
   RETURNS TABLE (doc_kind text, required boolean, current_version integer,
                  required_version integer, accepted_version integer, accepted boolean,
@@ -443,22 +473,28 @@ BEGIN
   IF v_user IS NULL THEN
     RETURN;
   END IF;
-  SELECT u.residence_country, pg_catalog.split_part(u.preferred_locale, '-', 1)
-    INTO v_country, v_lang
+  v_country := core.ctr_account_country(v_user);
+  SELECT pg_catalog.split_part(u.preferred_locale, '-', 1) INTO v_lang
     FROM core.iam_user_account AS u WHERE u.id = v_user;
   RETURN QUERY
   WITH kinds(k, req) AS (VALUES ('TOS_GUEST', true), ('PRIVACY', true), ('MARKETING', false)),
-  rows AS (
-    SELECT k.k, k.req,
-           (SELECT t.version FROM core.ctr_current_template(k.k, v_country, v_lang, false) AS t) AS cur,
-           (SELECT t.version FROM core.ctr_current_template(k.k, v_country, v_lang, true) AS t) AS maj,
-           (SELECT c.doc_version FROM core.contract_consent AS c
-             WHERE c.user_id = v_user AND c.doc_kind = k.k AND c.accepted
-             ORDER BY c.seq DESC LIMIT 1) AS acc_version,
-           (SELECT c.accepted FROM core.contract_consent AS c
-             WHERE c.user_id = v_user AND c.doc_kind = k.k
-             ORDER BY c.seq DESC LIMIT 1) AS last_accepted
+  cur AS (
+    SELECT k.k, k.req, t.version AS cur, t.country_code AS scope,
+           (SELECT m.version FROM core.ctr_current_template(k.k, v_country, v_lang, true) AS m) AS maj
       FROM kinds AS k
+      LEFT JOIN LATERAL core.ctr_current_template(k.k, v_country, v_lang, false) AS t ON true
+  ),
+  rows AS (
+    SELECT c.k, c.req, c.cur, c.maj,
+           (SELECT x.doc_version FROM core.contract_consent AS x
+              JOIN core.contract_document_template AS g ON g.id = x.template_id
+             WHERE x.user_id = v_user AND x.doc_kind = c.k AND x.accepted
+               AND g.kind = c.k AND g.country_code IS NOT DISTINCT FROM c.scope
+             ORDER BY x.seq DESC LIMIT 1) AS acc_version,
+           (SELECT x.accepted FROM core.contract_consent AS x
+             WHERE x.user_id = v_user AND x.doc_kind = c.k
+             ORDER BY x.seq DESC LIMIT 1) AS last_accepted
+      FROM cur AS c
   )
   SELECT r.k, r.req, r.cur, r.maj, r.acc_version, COALESCE(r.last_accepted, false),
          r.req AND (r.acc_version IS NULL OR r.last_accepted IS NOT TRUE
@@ -470,7 +506,8 @@ $fn$;
 
 -- 10. Acceptation des versions en vigueur (réacceptation) -----------------------------------------
 -- p_documents : `[{ "kind": "TOS_GUEST", "version": n }, …]` ; chaque version doit être la version
--- EN VIGUEUR (sinon ctr_document_version_current). Rend le nombre de consentements écrits ; session
+-- EN VIGUEUR de la portée du compte, et TOUT document dont la réacceptation est exigée doit y
+-- figurer (sinon ctr_document_version_current). Rend le nombre de consentements écrits ; session
 -- invalide : -1 (aucune écriture).
 CREATE FUNCTION core.ctr_cmd_accept_documents(p_token_hash bytea, p_documents jsonb)
   RETURNS integer
@@ -496,8 +533,16 @@ BEGIN
     RAISE EXCEPTION 'ctr : demande de consentement invalide'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_request_invalid';
   END IF;
-  SELECT u.residence_country, pg_catalog.split_part(u.preferred_locale, '-', 1)
-    INTO v_country, v_lang
+  -- chaque document à réaccepter doit figurer dans la demande
+  IF EXISTS (SELECT 1 FROM core.ctr_consent_status(p_token_hash) AS st
+              WHERE st.reaccept_required
+                AND NOT EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(p_documents) AS d(e)
+                                 WHERE d.e ->> 'kind' = st.doc_kind)) THEN
+    RAISE EXCEPTION 'ctr : version affichée absente'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_version_current';
+  END IF;
+  v_country := core.ctr_account_country(v_user);
+  SELECT pg_catalog.split_part(u.preferred_locale, '-', 1) INTO v_lang
     FROM core.iam_user_account AS u WHERE u.id = v_user;
   FOR v_e IN SELECT d.e FROM pg_catalog.jsonb_array_elements(p_documents) AS d(e) LOOP
     IF pg_catalog.jsonb_typeof(v_e) <> 'object'
@@ -515,7 +560,7 @@ BEGIN
       RAISE EXCEPTION 'ctr : version affichée périmée'
         USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_version_current';
     END IF;
-    PERFORM core.ctr_record_consent(v_user, v_t.id, true, 'REACCEPT');
+    PERFORM core.ctr_record_consent(v_user, v_t.id, true, 'REACCEPT', v_country);
     v_n := v_n + 1;
   END LOOP;
   RETURN v_n;
@@ -554,15 +599,15 @@ BEGIN
   IF COALESCE(v_last, false) = p_opt_in THEN
     RETURN 'UNCHANGED';
   END IF;
-  SELECT u.residence_country, pg_catalog.split_part(u.preferred_locale, '-', 1)
-    INTO v_country, v_lang
+  v_country := core.ctr_account_country(v_user);
+  SELECT pg_catalog.split_part(u.preferred_locale, '-', 1) INTO v_lang
     FROM core.iam_user_account AS u WHERE u.id = v_user;
   SELECT t.id INTO v_t FROM core.ctr_current_template('MARKETING', v_country, v_lang, false) AS t;
   IF v_t IS NULL THEN
     RAISE EXCEPTION 'ctr : aucun document en vigueur (MARKETING)'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'ctr_document_unavailable';
   END IF;
-  PERFORM core.ctr_record_consent(v_user, v_t, p_opt_in, 'SETTINGS');
+  PERFORM core.ctr_record_consent(v_user, v_t, p_opt_in, 'SETTINGS', v_country);
   RETURN 'CHANGED';
 END
 $fn$;
@@ -629,7 +674,8 @@ $fn$;
 -- le pays du document (cfg_brand_authorize, 0042 : refus journalisés). p_bodies :
 -- `{ "es": { "title": …, "body": … }, "en": …, "fr": …, "pt": … }`, les QUATRE langues ensemble
 -- (DEC-FONDATEUR-17, 18). Version = suivante du (genre, pays). Jamais rétroactive (valid_from ≥
--- maintenant ; NULL = maintenant, à l'horloge de la base). Issues : AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN, PUBLISHED (+ version).
+-- maintenant ; NULL = maintenant, à l'horloge de la base). Idempotente sur p_request_id.
+-- Issues : AUTH_REQUIRED, MFA_REQUIRED, FORBIDDEN, PUBLISHED (+ version), REQUEST_ID_REUSED.
 CREATE FUNCTION core.ctr_staff_cmd_publish_document(p_token_hash bytea, p_request_id uuid,
                                                     p_kind text, p_country text,
                                                     p_is_major boolean, p_valid_from timestamptz,
@@ -673,6 +719,20 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('core.contract_document_template:' || p_kind || ':'
                                 || COALESCE(p_country, ''), 0));
+  -- même demande rejouée (même request_id) : la version déjà publiée, sans nouvelle ligne ni audit ;
+  -- request_id d'une autre publication (autre genre ou pays) : refus
+  SELECT t.version INTO v_next FROM core.contract_document_template AS t
+   WHERE t.request_id = p_request_id AND t.is_authoritative;
+  IF v_next IS NOT NULL THEN
+    IF EXISTS (SELECT 1 FROM core.contract_document_template AS t
+                WHERE t.request_id = p_request_id
+                  AND (t.kind <> p_kind OR t.country_code IS DISTINCT FROM p_country)) THEN
+      RETURN QUERY SELECT 'REQUEST_ID_REUSED'::text, NULL::integer;
+    ELSE
+      RETURN QUERY SELECT 'PUBLISHED'::text, v_next;
+    END IF;
+    RETURN;
+  END IF;
   SELECT COALESCE(pg_catalog.max(t.version), 0) + 1 INTO v_next
     FROM core.contract_document_template AS t
    WHERE t.kind = p_kind AND t.country_code IS NOT DISTINCT FROM p_country;

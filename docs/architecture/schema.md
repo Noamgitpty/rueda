@@ -1118,6 +1118,7 @@ Déclencheurs :
 | `accepted` | `boolean` | oui | — |
 | `accepted_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `context` | `text` | oui | — |
+| `country_code` | `character(2)` | non | — |
 | `ip_enc` | `bytea` | non | — |
 | `user_agent_enc` | `bytea` | non | — |
 | `key_subject_type` | `text` | non | — |

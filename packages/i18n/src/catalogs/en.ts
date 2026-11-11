@@ -403,7 +403,7 @@ export const EN_MESSAGES = {
   'web.s15.legalName': 'First and last name as on your license',
   'web.s15.signup': 'Sign up',
   'web.s15.title': 'Create your account to book',
-  'web.s15.intro': "You'll come back to this car when you're done.",
+  'web.s15.intro': 'We only ask for an account when you are ready to book.',
   'web.s15.email': 'Email',
   'web.s15.password': 'Password',
   'web.s15.passwordHint': 'At least 10 characters.',

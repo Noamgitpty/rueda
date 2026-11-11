@@ -46,7 +46,7 @@ export interface RegisterAccountInput {
   readonly ip: string | null;
   /**
    * Consentements (US-102) : pays du parcours (portée des documents ; absent = documents communs),
-   * versions affichées (absent = versions en vigueur) et opt-in des communications (non pré-coché,
+   * versions affichées (OBLIGATOIRES : absentes, refus `VERSION_CHANGED`) et opt-in des communications (non pré-coché,
    * défaut `false`). La base refuse tout compte sans CGU ni confidentialité acceptées.
    */
   readonly country?: string | null;

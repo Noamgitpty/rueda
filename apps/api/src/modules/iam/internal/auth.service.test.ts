@@ -36,6 +36,10 @@ const SIGNUP = {
   legalLastName: 'Pérez',
   locale: 'en',
   termsAccepted: true,
+  acceptedDocuments: [
+    { kind: 'TOS_GUEST', version: 1 },
+    { kind: 'PRIVACY', version: 1 },
+  ],
 };
 
 function setup() {

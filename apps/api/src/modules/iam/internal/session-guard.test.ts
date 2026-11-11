@@ -42,6 +42,10 @@ async function withProbe(fn: (url: string, cookie: string) => Promise<void>): Pr
         legalLastName: 'Pérez',
         locale: 'fr',
         termsAccepted: true,
+        acceptedDocuments: [
+          { kind: 'TOS_GUEST', version: 1 },
+          { kind: 'PRIVACY', version: 1 },
+        ],
       },
     });
     const login = await call(h.url, 'POST', '/auth/login', {

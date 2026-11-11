@@ -79,7 +79,8 @@ for (const language of LANGUAGES) {
       await expect(page.locator('#s15-terms')).not.toBeChecked();
       await expect(page.locator('#s15-marketing')).not.toBeChecked();
       const draft = SPEC_TEXT.draftMarker[language];
-      if (draft !== undefined) await expect(page.getByText(draft)).toBeVisible();
+      expect(draft, 'marqueur BROUILLON attendu dans chaque langue').toBeDefined();
+      await expect(page.getByText(draft ?? '')).toBeVisible();
       // champs libellés (WCAG 1.3.1, 3.3.2)
       for (const id of ['s15-first', 's15-last', 's15-email', 's15-password', 's15-terms']) {
         await expect(page.locator(`label[for="${id}"]`)).toHaveCount(1);
@@ -148,7 +149,8 @@ for (const language of LANGUAGES) {
       await page.goto('/legal/TOS_GUEST');
       await expect(page.locator('article')).toHaveAttribute('lang', language);
       const draft = SPEC_TEXT.draftMarker[language];
-      if (draft !== undefined) await expect(page.getByText(draft).first()).toBeVisible();
+      expect(draft, 'marqueur BROUILLON attendu dans chaque langue').toBeDefined();
+      await expect(page.getByText(draft ?? '').first()).toBeVisible();
       await expectMobileFriendly(page);
       await expectAccessible(page);
     });

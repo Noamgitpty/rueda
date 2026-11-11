@@ -165,6 +165,24 @@ describe('inscription avec consentements versionnés (US-102)', () => {
     expect(store.accounts.size).toBe(1);
   });
 
+  it('client direct de l’API : sans versions affichées, ou avec une seule, refus 409 et aucun compte', async () => {
+    const { store, channel, service } = setup();
+    const { acceptedDocuments: _omitted, ...blind } = form();
+    void _omitted;
+    expect(await codeOf(service.signup(blind, CTX))).toBe('TERMS_VERSION_CHANGED');
+    expect(
+      await codeOf(
+        service.signup(form({ acceptedDocuments: [{ kind: 'TOS_GUEST', version: 1 }] }), CTX),
+      ),
+    ).toBe('TERMS_VERSION_CHANGED');
+    expect(await codeOf(service.signup(form({ acceptedDocuments: null }), CTX))).toBe(
+      'TERMS_VERSION_CHANGED',
+    );
+    expect(store.accounts.size).toBe(0);
+    expect(store.consents).toEqual([]);
+    expect(channel.sent).toEqual([]);
+  });
+
   it('demande mal formée : versions, pays', async () => {
     const { service } = setup();
     for (const over of [

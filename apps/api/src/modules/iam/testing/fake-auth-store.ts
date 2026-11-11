@@ -81,8 +81,9 @@ export class FakeAuthStore implements AuthStore {
     // consentements contrôlés AVANT l'email (anti-énumération), comme la commande 0059
     const versions = this.documentVersions;
     if (versions === null) throw new SignupDocumentsError('UNAVAILABLE');
+    // versions affichées OBLIGATOIRES (US-102, revue) : absentes ⇒ refus
+    if (input.documents == null) throw new SignupDocumentsError('VERSION_CHANGED');
     for (const kind of ['TOS_GUEST', 'PRIVACY'] as const) {
-      if (input.documents == null) continue;
       const shown = input.documents.filter((d) => d.kind === kind).map((d) => d.version);
       if (shown.length === 0 || Math.max(...shown) !== versions[kind]) {
         throw new SignupDocumentsError('VERSION_CHANGED');

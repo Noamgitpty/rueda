@@ -153,6 +153,11 @@ export class FakeConsentStore implements ConsentStore {
   async accept(proof: Buffer, documents: readonly DocumentVersion[]): Promise<number | null> {
     const userId = this.#user(proof);
     if (userId === undefined) return null;
+    // tout document à réaccepter doit figurer dans la demande (comme la commande 0059)
+    const pending = ((await this.status(proof)) ?? []).filter((r) => r.reacceptRequired);
+    if (pending.some((r) => !documents.some((d) => d.kind === r.kind))) {
+      throw new ConsentDocumentsError('VERSION_CHANGED');
+    }
     for (const d of documents) {
       const current = this.#current(d.kind);
       if (current === undefined) throw new ConsentDocumentsError('UNAVAILABLE');

@@ -482,6 +482,7 @@
         "accepted": "C1",
         "accepted_at": "C1",
         "context": "C1",
+        "country_code": "C1",
         "ip_enc": {
           "class": "C2",
           "erasure": "crypto-shredding",

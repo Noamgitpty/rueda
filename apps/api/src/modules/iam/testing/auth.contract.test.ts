@@ -40,6 +40,10 @@ describe('contrat HTTP — /auth', () => {
     legalLastName: 'Prueba',
     locale: 'es',
     termsAccepted: true,
+    acceptedDocuments: [
+      { kind: 'TOS_GUEST', version: 1 },
+      { kind: 'PRIVACY', version: 1 },
+    ],
     ...over,
   });
 
@@ -121,6 +125,12 @@ describe('contrat HTTP — /auth', () => {
     });
     expect(stale.status).toBe(409);
     expect(stale.json).toMatchObject({ code: 'TERMS_VERSION_CHANGED' });
+    // client direct de l'API sans versions affichées : même refus
+    const { acceptedDocuments: _omitted, ...blind } = signupBody(`b-${randomUUID()}@example.test`);
+    void _omitted;
+    const noVersions = await api.request('POST', '/auth/signup', { body: blind });
+    expect(noVersions.status).toBe(409);
+    expect(noVersions.json).toMatchObject({ code: 'TERMS_VERSION_CHANGED' });
     store.documentVersions = null;
     const none = await api.request('POST', '/auth/signup', {
       body: signupBody(`n-${randomUUID()}@example.test`),

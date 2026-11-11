@@ -54,7 +54,7 @@ let countries: string[] = [];
 async function register(): Promise<string> {
   const id = randomUUID();
   const r = await client.query<{ ok: boolean }>(
-    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Rt', 'Rls', 'es', $4, $5, 86400, NULL, NULL, NULL, false) AS ok`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Rt', 'Rls', 'es', $4, $5, 86400, NULL, NULL, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false) AS ok`,
     [id, `rt-${id}@example.test`, PHC, randomUUID(), randomBytes(32)],
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');

@@ -66,7 +66,7 @@ async function verifiedAccount(
   const hash = createHash('sha256').update(token).digest();
   const b64 = (n: number) => randomBytes(n).toString('base64').replace(/=+$/, '');
   await api.query(
-    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Inès', 'Dupré', $4, $5, $6, 86400, '203.0.113.7', NULL, NULL, false)`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Inès', 'Dupré', $4, $5, $6, 86400, '203.0.113.7', NULL, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false)`,
     [
       userId,
       `u-${userId}@example.test`,

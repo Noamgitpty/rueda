@@ -47,8 +47,8 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |
 | ------- | ------ | ----------- | ------ | ---------------- |
 | `GET` | `/legal/consents` | `getConsents` | État des consentements de la session (réacceptation exigée après une version majeure) et historique | **200** application/json<br>**401** AUTH_REQUIRED |
-| `POST` | `/legal/consents/accept` | `acceptConsents` | Accepter les versions en vigueur des CGU et de la confidentialité (REACCEPT) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**409** TERMS_VERSION_CHANGED<br>**415** REQUEST_INVALID |
-| `POST` | `/legal/consents/marketing` | `setMarketingConsent` | Communications commerciales : accord ou révocation (historique conservé) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID |
+| `POST` | `/legal/consents/accept` | `acceptConsents` | Accepter les versions en vigueur des CGU et de la confidentialité (REACCEPT) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**409** TERMS_VERSION_CHANGED<br>**415** REQUEST_INVALID<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
+| `POST` | `/legal/consents/marketing` | `setMarketingConsent` | Communications commerciales : accord ou révocation (historique conservé) | **200** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**415** REQUEST_INVALID<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
 | `GET` | `/legal/documents` | `listLegalDocuments` | Documents juridiques en vigueur (CGU du voyageur, confidentialité, communications) et leur version (US-102) | **200** application/json<br>**400** REQUEST_INVALID<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
 | `GET` | `/legal/documents/{kind}` | `getLegalDocument` | Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté | **200** application/json<br>**400** REQUEST_INVALID<br>**404** LEGAL_DOCUMENT_NOT_FOUND |
 

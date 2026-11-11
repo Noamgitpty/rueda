@@ -172,6 +172,57 @@ describe('contrat HTTP — /legal (US-102)', () => {
     ).toBe(401);
   });
 
+  it('fail-closed : plus aucun document en vigueur ⇒ 503, rien n’est écrit', async () => {
+    const { a, store } = await app();
+    apps.push(a);
+    const user = a.h.sessions.voyageur.userId;
+    store.record(user, 'TOS_GUEST', 1);
+    store.record(user, 'PRIVACY', 1);
+    store.versions.splice(0);
+    const cookie = { headers: a.cookie('voyageur') };
+    const before = store.rows.length;
+    const accept = await a.api.request('POST', '/legal/consents/accept', {
+      ...cookie,
+      body: { documents: [{ kind: 'TOS_GUEST', version: 1 }] },
+    });
+    expect(accept.status).toBe(503);
+    const marketing = await a.api.request('POST', '/legal/consents/marketing', {
+      ...cookie,
+      body: { optIn: true },
+    });
+    expect(marketing.status).toBe(503);
+    expect(marketing.json).toMatchObject({ code: 'LEGAL_DOCUMENT_UNAVAILABLE' });
+    expect(store.rows.length).toBe(before);
+  });
+
+  it('réacceptation : un document exigé absent de la demande ⇒ 409, rien n’est écrit', async () => {
+    const { a, store } = await app();
+    apps.push(a);
+    const user = a.h.sessions.voyageur.userId;
+    store.record(user, 'TOS_GUEST', 1);
+    store.record(user, 'PRIVACY', 1);
+    const tos = store.publish('TOS_GUEST', true);
+    const privacy = store.publish('PRIVACY', true);
+    const before = store.rows.length;
+    const partial = await a.api.request('POST', '/legal/consents/accept', {
+      headers: a.cookie('voyageur'),
+      body: { documents: [{ kind: 'TOS_GUEST', version: tos }] },
+    });
+    expect(partial.status).toBe(409);
+    expect(partial.json).toMatchObject({ code: 'TERMS_VERSION_CHANGED' });
+    expect(store.rows.length).toBe(before);
+    const both = await a.api.request('POST', '/legal/consents/accept', {
+      headers: a.cookie('voyageur'),
+      body: {
+        documents: [
+          { kind: 'TOS_GUEST', version: tos },
+          { kind: 'PRIVACY', version: privacy },
+        ],
+      },
+    });
+    expect(both.json).toMatchObject({ code: 'TERMS_CURRENT' });
+  });
+
   it('couverture : chaque statut déclaré pour /legal est exercé', () => {
     expect(missingCoverage(contract, '/legal', coverageOf(...apps))).toEqual([]);
   });

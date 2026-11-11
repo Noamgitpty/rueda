@@ -62,7 +62,7 @@ export interface SignupInput {
   readonly legalLastName: unknown;
   readonly locale: unknown;
   readonly termsAccepted: unknown;
-  /** US-102 : versions affichées `[{ kind, version }]` (absent : versions en vigueur). */
+  /** US-102 : versions affichées `[{ kind, version }]`, OBLIGATOIRES (absentes : 409). */
   readonly acceptedDocuments?: unknown;
   /** US-102 : opt-in des communications commerciales (absent : non). */
   readonly marketingOptIn?: unknown;
@@ -186,6 +186,8 @@ export class AuthService implements AuthenticationPort {
     ) {
       throw new AuthHttpError('REQUEST_INVALID');
     }
+    // un client direct de l'API ne consent jamais « à l'aveugle » : la version affichée est exigée
+    if (documents === null) throw new AuthHttpError('TERMS_VERSION_CHANGED');
 
     const passwordHash = await this.hasher.hash(password); // toujours calculé : coût égal
     const verificationToken = newOpaqueToken();
