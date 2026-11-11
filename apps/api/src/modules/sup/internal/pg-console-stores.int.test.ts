@@ -53,7 +53,7 @@ const sha = (t: string): Buffer => createHash('sha256').update(t, 'utf8').digest
 async function staff(role: string, countries: readonly string[]): Promise<StaffActor> {
   const userId = randomUUID();
   await client.query(
-    `SELECT core.iam_cmd_register($1, $2, $3, 'Int', 'Test', 'es', $4, $5, 86400, NULL)`,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Int', 'Test', 'es', $4, $5, 86400, NULL, NULL, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false)`,
     [userId, `int-${userId}@example.test`, PHC, randomUUID(), randomBytes(32)],
   );
   await client.query(`SELECT test_fixture.iam_set_account_status($1, 'ACTIVE')`, [userId]);
