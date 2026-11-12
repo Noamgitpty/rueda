@@ -104,7 +104,8 @@ const EXPECTED_TO_DECIDE: Readonly<Record<string, string>> = {
   elig_doc_inspection: '16 HST-039 ; 22 OQ-P2P-02 (US-124)',
   elig_doc_plate_vin_photo: '16 HST-039 ; 22 OQ-P2P-02 (US-124)',
   elig_doc_title: '16 HST-039 ; 22 OQ-P2P-02 (US-124)',
-  elig_odometer_km_ceiling: '16 HST-019 (« valeurs À DÉCIDER dans ADM-031 ») ; 22 OQ-P2P-02 (US-124)',
+  elig_odometer_km_ceiling:
+    '16 HST-019 (« valeurs À DÉCIDER dans ADM-031 ») ; 22 OQ-P2P-02 (US-124)',
   evidence_retention_months: '17 statut OQ-BR-25',
   flagged_booking_payment_order: '17 statut UXQ-08',
   free_cancel_lead: '16 ADM-031 ; 17 statut ADM-031',
