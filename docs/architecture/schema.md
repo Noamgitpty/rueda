@@ -921,7 +921,7 @@ Contraintes :
 - `catalog_location_geo_range` : `CHECK (geo[1] >= '-90'::integer::double precision AND geo[1] <= 90::double precision AND geo[0] >= '-180'::integer::double precision AND geo[0] <= 180::double precision)`
 - `catalog_location_kind_valid` : `CHECK (kind = ANY (ARRAY['HOME'::text, 'POI'::text, 'AIRPORT'::text]))`
 - `catalog_location_label_valid` : `CHECK (btrim(place_label) <> ''::text AND char_length(place_label) <= 80)`
-- `catalog_location_notice_valid` : `CHECK (advance_notice_minutes IS NULL OR advance_notice_minutes >= 60 AND advance_notice_minutes <= 10080 AND (advance_notice_minutes % 30) = 0)`
+- `catalog_location_notice_valid` : `CHECK (advance_notice_minutes IS NULL OR advance_notice_minutes >= 0 AND advance_notice_minutes <= 10080 AND (advance_notice_minutes % 30) = 0)`
 - `catalog_location_org_fk` : `FOREIGN KEY (org_id, country_code) REFERENCES core.iam_organization(id, country_code)`
 - `catalog_location_party_unique` : `UNIQUE (id, org_id, country_code)`
 - `catalog_location_pkey` : `PRIMARY KEY (id)`
