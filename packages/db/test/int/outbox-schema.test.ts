@@ -151,6 +151,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_auth_owner', cmd: 'a' });
           continue;
         }
+        // décision de la file d'ajout au catalogue (0074, US-114) : insertion de son seul
+        // événement catalog.addition_request.resolved
+        if (r.pol === 'outbox_outbox_event.catalog_cmd_event_insert') {
+          expect(r).toMatchObject({ roles: 'catalog_cmd_owner', cmd: 'a' });
+          continue;
+        }
         // vérification d'identité (0072, US-105) : insertion de ses seuls événements
         // kyc.verification.status_changed
         if (r.pol === 'outbox_outbox_event.kyc_cmd_event_ins') {

@@ -8,13 +8,14 @@ CAT décrit l'offre de l'hôte : lieux de remise, véhicules, documents du véhi
 
 CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe pas le prix d'un trip (PRC). L'import CSV d'une flotte est historique depuis le pivot P2P (`fleet_import_job`, 17 §3.2.3).
 
-État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout arrive avec US-114, la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
+État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout au catalogue est livrée par US-114 (ADR-104 : un véhicule hors catalogue ouvre sa demande, son annonce n'est pas publiable tant que l'ops ne l'a pas rattaché à une variante ; route `POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request` ; `GET …/vehicles` rend `catalogRequest`), la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
 
 ## Entités
 
 - **Créées** (US-113, migration `0063_catalog_vehicle_reference`, ADR-094) : `core.catalog_vehicle_make`, `core.catalog_vehicle_model`, `core.catalog_vehicle_variant` (17 §3.2.3 `vehicle_make`, `vehicle_model`, `vehicle_variant`). `source` et `license_note` obligatoires et non vides ; retrait par `RETIRED`, jamais de suppression ; lecture des lignes `ACTIVE` et `RETIRED` par `app_api`, sans provenance ; aucune écriture applicative.
 - **Créées** (US-115, migration `0067_catalog_host_listings`, ADR-099) : `core.catalog_location`, `core.catalog_vehicle`, `core.catalog_listing`, `core.catalog_listing_photo`, `core.catalog_deposit_policy` (17 §3.2.3). Aucun droit applicatif : tout passe par les fonctions `core.catalog_cmd_*` et `core.catalog_host_*` (`SECURITY DEFINER`, propriétaire `catalog_cmd_owner`, hôte désigné par l'empreinte du jeton) et `core.catalog_public_listing`.
-- **Cibles 17, pas encore créées** : `vehicle_document`, `ical_feed`, `catalog_addition_request`. `fleet_import_job` est historique, sans objet.
+- **Créée** (US-114, migration `0074_catalog_addition_requests`, ADR-104) : `core.catalog_addition_request` (17 §3.2.3) : demande d'ajout d'un véhicule hors catalogue, élément de la file `CATALOG_ADDITION` d'US-109 ; aucun droit applicatif ; commandes de l'hôte `core.catalog_cmd_request_addition`, `core.catalog_host_addition_requests`, fonctions de domaine `core.catalog_addition_detail` et `core.catalog_resolve_addition` (appelées par la console de SUP).
+- **Cibles 17, pas encore créées** : `vehicle_document`, `ical_feed`. `fleet_import_job` est historique, sans objet.
 
 ### Lieux de remise, véhicules et annonces de l'hôte (US-115)
 
@@ -60,7 +61,7 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 
 ## Événements
 
-Émis (cible 17 §4.5) : `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `catalog.deposit_policy.changed` (17 §2.2), `catalog.addition_request.resolved`, `catalog.vehicle_document.expiring`. **Aucun n'est émis aujourd'hui.**
+Émis : `catalog.addition_request.resolved` (US-114, outbox, par `core.catalog_resolve_addition` : `request_id`, `status`, `resolved_variant_id`, extensions `vehicle_id`, `org_id`, `host_user_id`, `reject_reason` ; consommé par NTF). Cible 17 §4.5, pas encore émis : `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `catalog.deposit_policy.changed` (17 §2.2), `catalog.vehicle_document.expiring`.
 
 Consommés (cible 17 §4.5) : `kyc.host_verification.decided` (KYC), `review.published` (REV), `catalog.addition_request.resolved` (rattachement de la variante). Aucun consommateur n'est branché.
 
@@ -78,6 +79,6 @@ Consommés (cible 17 §4.5) : `kyc.host_verification.decided` (KYC), `review.pub
 
 - Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/cat` (`internal/map-tiles.port.test.ts`, `internal/vehicle-catalog/seed-sql.test.ts`, `internal/vehicle-catalog/vehicle-catalog.service.test.ts`, `internal/host-listings/model.test.ts`, `internal/host-listings/photo-ingest.test.ts`, contrat HTTP `testing/host-listings.contract.test.ts`).
 - Intégration : `internal/vehicle-catalog/vehicle-catalog.int.test.ts` (`pnpm --filter @rueda/api test:int`, sous `app_api`, PA et PY).
-- Preuves L0 : `packages/db/test/l0/l0-us113-vehicle-catalog.test.ts` ; fixture `packages/db/test-migrations/9970_test_us113_catalog_fixtures.sql` ; `packages/db/test/l0/l0-us115-host-listings.test.ts` ; fixture `packages/db/test-migrations/9985_test_us115_catalog_host_fixtures.sql`.
+- Preuves L0 : `packages/db/test/l0/l0-us114-catalog-addition.test.ts` (fixture `9988_test_us114_catalog_addition_fixtures.sql`) ; `packages/db/test/l0/l0-us113-vehicle-catalog.test.ts` ; fixture `packages/db/test-migrations/9970_test_us113_catalog_fixtures.sql` ; `packages/db/test/l0/l0-us115-host-listings.test.ts` ; fixture `packages/db/test-migrations/9985_test_us115_catalog_host_fixtures.sql`.
 
 `test:int` et `test:l0` demanderont PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».

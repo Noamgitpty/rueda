@@ -25,6 +25,7 @@ import accountStyles from '../_account/account.module.css';
 import { RegulatoryNotices } from '../_account/regulatory-notices.tsx';
 import { MAIN_ID } from '../_shell/main-id.ts';
 import {
+  CatalogRequestForm,
   HostTermsForm,
   ListingForms,
   LocationForm,
@@ -59,6 +60,14 @@ const STATUSES = new Set([
   'DELETED',
 ]);
 
+/** Demande d'ajout au catalogue (US-114) : ton du badge par statut. */
+const CATALOG_TONE: Readonly<Record<string, BadgeTone>> = {
+  OPEN: 'warning',
+  APPROVED: 'success',
+  MERGED: 'success',
+  REJECTED: 'danger',
+};
+
 const carLabel = (v: VehicleView): string =>
   `${[v.makeText, v.modelText].filter(Boolean).join(' ')} ${v.year} · ${v.plate}`;
 
@@ -77,7 +86,9 @@ function countryName(tag: string, code: string): string {
  * date, brouillon, acceptation de la version affichée avant la soumission). Le serveur lit l'API avec la
  * session de l'hôte ; un compte d'un autre hôte n'est jamais lisible (404 de l'API). États :
  * sans session, sans compte d'hôte, vide, erreur (API injoignable), chargement (`loading.tsx`) ;
- * hors connexion : bandeau de la coquille et écran `/offline` du service worker.
+ * hors connexion : bandeau de la coquille et écran `/offline` du service worker. Véhicule hors
+ * catalogue (US-114) : statut de sa demande d'ajout, échéance, motif d'un refus et nouvelle
+ * demande ; son annonce reste en brouillon tant qu'il n'est pas au catalogue.
  */
 export default async function HostPage({
   searchParams,
@@ -159,6 +170,8 @@ export default async function HostPage({
   const number = i18n.profile.number;
   const photos = { ...photoUploads, maxLabel: formatPhotoMax(photoUploads.maxBytes, tag) };
   const free = vehicles.filter((v) => v.listingId === null);
+  // fuseau du pays du compte (servi avec les CGU de l'hôte) ; à défaut, UTC
+  const timeZone = terms?.timeZone ?? 'UTC';
   const statusOf = (l: ListingView): string =>
     STATUSES.has(l.status) ? t(`web.host.status.${l.status}` as MessageKey) : l.status;
   return shell(
@@ -280,19 +293,56 @@ export default async function HostPage({
         </h2>
         {vehicles.length > 0 && (
           <ul className={styles['rows']}>
-            {vehicles.map((v) => (
-              <li key={v.id} className={styles['card']}>
-                <span className={styles['strong']}>{carLabel(v)}</span>
-                {/* A06 : calendrier, blocages et préavis du véhicule (US-119) */}
-                <a
-                  className={styles['link']}
-                  href={`/host/vehicles/${v.id}?org=${account.orgId}`}
-                  aria-label={`${t('web.calendar.open')} · ${carLabel(v)}`}
-                >
-                  {t('web.calendar.open')}
-                </a>
-              </li>
-            ))}
+            {vehicles.map((v) => {
+              const r = v.inCatalog ? null : v.catalogRequest;
+              return (
+                <li key={v.id} className={styles['card']}>
+                  <div className={styles['between']}>
+                    <span className={styles['strong']}>{carLabel(v)}</span>
+                    {r !== null && (
+                      <Badge tone={CATALOG_TONE[r.status] ?? 'neutral'}>
+                        {t(`web.host.catalog.status.${r.status}` as MessageKey)}
+                      </Badge>
+                    )}
+                  </div>
+                  {/* A06 : calendrier, blocages et préavis du véhicule (US-119) */}
+                  <a
+                    className={styles['link']}
+                    href={`/host/vehicles/${v.id}?org=${account.orgId}`}
+                    aria-label={`${t('web.calendar.open')} · ${carLabel(v)}`}
+                  >
+                    {t('web.calendar.open')}
+                  </a>
+                  {r?.status === 'OPEN' && (
+                    <p className={accountStyles['muted']}>
+                      {t('web.host.catalog.pending', {
+                        date: i18n.date(r.slaDueAt, timeZone),
+                      })}
+                    </p>
+                  )}
+                  {r?.status === 'REJECTED' && (
+                    <>
+                      {r.rejectReason !== null && (
+                        <Banner tone="warning">
+                          {t(`web.host.catalog.reason.${r.rejectReason}` as MessageKey)}
+                        </Banner>
+                      )}
+                      {r.rejectReason === 'NOT_ELIGIBLE' ? (
+                        <p className={accountStyles['muted']}>{t('web.host.catalog.final')}</p>
+                      ) : (
+                        <CatalogRequestForm
+                          localeTag={tag}
+                          orgId={account.orgId}
+                          vehicleId={v.id}
+                          makeText={v.makeText ?? ''}
+                          modelText={v.modelText ?? ''}
+                        />
+                      )}
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         {locations.length === 0 ? (

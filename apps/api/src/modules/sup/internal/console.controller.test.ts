@@ -46,6 +46,8 @@ const ops: OpsConsoleStore = {
   setCaseStatus: neverCalled,
   evidencePermitted: neverCalled,
   recordEvidence: neverCalled,
+  catalogAddition: neverCalled,
+  resolveCatalogAddition: neverCalled,
 };
 const unusedPool: SqlPool = { query: neverCalled, connect: neverCalled };
 

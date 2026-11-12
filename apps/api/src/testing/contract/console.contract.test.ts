@@ -1,6 +1,7 @@
 /**
  * US-038 — contrat des routes /console (US-012 actions, US-101 cadre des actions et décisions
- * FINANCE à deux personnes, US-034 marque et contenu, US-052 tableau de sécurité) sur l'application réelle : chaque statut déclaré est exercé, chaque réponse
+ * FINANCE à deux personnes, US-034 marque et contenu, US-052 tableau de sécurité, US-109 files de
+ * revue, US-114 file d'ajout au catalogue) sur l'application réelle : chaque statut déclaré est exercé, chaque réponse
  * validée contre l'OpenAPI. Les magasins sont des doubles en mémoire à issues réglables (la base
  * juge en production : commandes `core.cfg_brand_*`, `core.sup_*`, `core.risk_staff_abuse_board`,
  * prouvées par test:int) ; les contrôles de l'API (jetons, contraste, polices, Markdown) sont les
@@ -180,6 +181,40 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
     residenceCountry: null,
   },
   findUser: { userId: ID, country: FIRST_COUNTRY },
+  catalogAddition: {
+    itemId: ID,
+    requestId: ID,
+    status: 'OPEN',
+    country: FIRST_COUNTRY,
+    makeText: 'Chery',
+    modelText: 'Tiggo 2',
+    year: 2021,
+    trimText: null,
+    vinMasked: 'LVVDB11B5MD******',
+    transmission: 'MANUAL',
+    seats: 5,
+    fuelType: 'GASOLINE',
+    slaDueAt: '2031-07-02T08:00:00.123456+00:00',
+    createdAt: AT,
+    rejectReason: null,
+    resolvedVariantId: null,
+    candidates: [
+      {
+        variantId: ID,
+        make: 'Chery',
+        model: 'Tiggo 7',
+        yearFrom: 2020,
+        yearTo: null,
+        trim: null,
+        transmission: 'CVT',
+        fuelType: 'GASOLINE',
+        drive: 'FWD',
+        seats: 5,
+        modelMatch: false,
+      },
+    ],
+  },
+  resolveCatalogAddition: { itemId: ID, requestId: ID, status: 'APPROVED', variantId: ID },
   profile: {
     accessId: ID,
     country: FIRST_COUNTRY,
@@ -275,6 +310,12 @@ class TunableOpsStore implements OpsConsoleStore {
   }
   evidencePermitted() {
     return this.#r('evidencePermitted', 'PERMITTED');
+  }
+  catalogAddition() {
+    return this.#r('catalogAddition', 'GRANTED');
+  }
+  resolveCatalogAddition() {
+    return this.#r('resolveCatalogAddition', 'RESOLVED');
   }
   recordEvidence(_tx: unknown, _actor: unknown, input: { requestId: string }) {
     const outcome = this.outcome['recordEvidence'] ?? 'RECORDED';
@@ -742,6 +783,76 @@ describe('contrat HTTP — /console', () => {
       code: 'STAFF_CASE_REQUIRED',
     });
     await refusals(a, 'POST', kyc);
+
+    // file d'ajout au catalogue (US-114) : lecture 200, 400, 403, 409 ; décision 200, 400, 403,
+    // 409, 422
+    const addition = `/console/queues/items/${ID}/catalog-addition`;
+    const read = await post(addition, { requestId: randomUUID() });
+    expect(read.status).toBe(200);
+    expect(read.json).toMatchObject({
+      makeText: 'Chery',
+      slaDueAt: '2031-07-02T08:00:00.123Z',
+      candidates: [{ model: 'Tiggo 7' }],
+    });
+    expect((await post(addition, { requestId: 'x' })).status).toBe(400);
+    ops.outcome['catalogAddition'] = 'NOT_OPEN';
+    expect((await post(addition, { requestId: randomUUID() })).json).toMatchObject({
+      code: 'CATALOG_REQUEST_CLOSED',
+    });
+    ops.outcome['catalogAddition'] = 'CASE_REQUIRED';
+    expect((await post(addition, { requestId: randomUUID() })).json).toMatchObject({
+      code: 'STAFF_CASE_REQUIRED',
+    });
+    delete ops.outcome['catalogAddition'];
+    await refusals(a, 'POST', addition);
+    const resolve = `${addition}/resolve`;
+    const entry = {
+      makeName: 'Chery',
+      modelName: 'Tiggo 2',
+      bodyType: 'SUV',
+      yearFrom: 2017,
+      transmission: 'MT',
+      fuelType: 'GASOLINE',
+      drive: 'FWD',
+      seats: 5,
+      doors: 5,
+      licenseNote: 'Saisie de l’hôte vérifiée par l’ops',
+    };
+    const approved = await post(resolve, { requestId: randomUUID(), decision: 'APPROVE', entry });
+    expect(approved.status).toBe(200);
+    expect(approved.json).toEqual({ itemId: ID, requestId: ID, status: 'APPROVED', variantId: ID });
+    for (const body of [
+      { requestId: randomUUID(), decision: 'DELETE' },
+      { requestId: randomUUID(), decision: 'MERGE' },
+      { requestId: randomUUID(), decision: 'MERGE', variantId: 'x' },
+      { requestId: randomUUID(), decision: 'REJECT', rejectReason: 'BECAUSE' },
+      { requestId: randomUUID(), decision: 'APPROVE', entry: [] },
+      { requestId: randomUUID(), decision: 'APPROVE', entry: { ...entry, price: 1 } },
+    ]) {
+      expect((await post(resolve, body)).status, JSON.stringify(body)).toBe(400);
+    }
+    const reject = { requestId: randomUUID(), decision: 'REJECT', rejectReason: 'UNKNOWN_MODEL' };
+    for (const [outcome, status, code] of [
+      ['NOT_OPEN', 409, 'CATALOG_REQUEST_CLOSED'],
+      ['CATALOG_VARIANT_EXISTS', 409, 'CATALOG_VARIANT_EXISTS'],
+      ['CATALOG_VARIANT_NOT_FOUND', 422, 'CATALOG_VARIANT_NOT_FOUND'],
+      ['CATALOG_ENTRY_INVALID', 422, 'CATALOG_ENTRY_INVALID'],
+      ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+    ] as const) {
+      ops.outcome['resolveCatalogAddition'] = outcome;
+      const r = await post(resolve, reject);
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    delete ops.outcome['resolveCatalogAddition'];
+    const merged = await post(resolve, {
+      requestId: randomUUID(),
+      decision: 'MERGE',
+      variantId: ID,
+    });
+    expect(merged.status).toBe(200);
+    await refusals(a, 'POST', resolve);
 
     // recherche : 200, 400, 403, 404 ; donnée refusée par la base (22023) : 400
     const search = { requestId: randomUUID(), email: 'lucia@example.test', purpose };

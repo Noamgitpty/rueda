@@ -319,6 +319,41 @@
         "country_code": "C1"
       }
     },
+    "core.catalog_addition_request": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "requested_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "vehicle_id": "C1",
+        "requested_by": "C1",
+        "origin": "C1",
+        "make_text": "C0",
+        "model_text": "C0",
+        "year": "C0",
+        "trim_text": "C0",
+        "vin_masked": "C1",
+        "status": "C1",
+        "resolved_variant_id": "C0",
+        "reject_reason": "C1",
+        "reviewed_by": "C1",
+        "reviewed_at": "C1",
+        "review_item_id": "C1",
+        "sla_due_at": "C1",
+        "created_at": "C1"
+      }
+    },
     "core.catalog_deposit_policy": {
       "lifecycle": "C",
       "export": "none",

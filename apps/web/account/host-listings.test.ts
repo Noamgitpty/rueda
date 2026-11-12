@@ -15,6 +15,7 @@ import {
   minorFromInput,
   priceExample,
   publicListingOf,
+  vehiclesOf,
 } from './host-listings.ts';
 
 const ID = '00000000-0000-4000-8000-000000000001';
@@ -134,6 +135,41 @@ describe('lecture défensive des réponses', () => {
         }),
       ),
     ).toBeNull();
+  });
+
+  it('véhicules : demande d’ajout au catalogue lue (US-114) ; statut, motif ou échéance illisibles : null', () => {
+    const base = { id: ID, plate: 'AB123', makeText: 'Chery', modelText: 'Tiggo 2', year: 2021 };
+    const request = {
+      status: 'REJECTED',
+      rejectReason: 'UNKNOWN_MODEL',
+      slaDueAt: '2026-11-13T09:00:00.000Z',
+    };
+    expect(
+      vehiclesOf(
+        reply(200, {
+          vehicles: [{ ...base, variantId: null, listingId: null, catalogRequest: request }],
+        }),
+      ),
+    ).toEqual([
+      {
+        ...base,
+        listingId: null,
+        inCatalog: false,
+        catalogRequest: request,
+      },
+    ]);
+    // rattaché au catalogue, sans demande
+    expect(
+      vehiclesOf(reply(200, { vehicles: [{ ...base, variantId: ID, catalogRequest: null }] }))?.[0],
+    ).toMatchObject({ inCatalog: true, catalogRequest: null });
+    for (const bad of [
+      { ...request, status: 'MAYBE' },
+      { ...request, rejectReason: 'BECAUSE' },
+      { ...request, slaDueAt: 'demain' },
+      'OPEN',
+    ]) {
+      expect(vehiclesOf(reply(200, { vehicles: [{ ...base, catalogRequest: bad }] }))).toBeNull();
+    }
   });
 
   it('fiche publique : colonnes attendues seulement, montant en bigint', () => {

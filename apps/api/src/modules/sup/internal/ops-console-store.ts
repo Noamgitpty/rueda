@@ -28,6 +28,19 @@ export type CaseCategory =
 export type CasePriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 export type CaseChannel = 'WHATSAPP' | 'EMAIL' | 'PHONE' | 'IN_APP';
 export type CaseStatus = 'PENDING' | 'RESOLVED' | 'CLOSED';
+/** Décision de l'ops sur une demande d'ajout au catalogue (US-114, 16 ADM-036). */
+export type CatalogDecision = 'MERGE' | 'APPROVE' | 'REJECT';
+export type CatalogRejectReason = 'INSUFFICIENT_DETAILS' | 'UNKNOWN_MODEL' | 'NOT_ELIGIBLE';
+
+export interface CatalogResolution {
+  readonly decision: CatalogDecision;
+  /** MERGE : variante ACTIVE existante. */
+  readonly variantId: string | null;
+  /** APPROVE : saisie de la variante nouvelle (clés fermées, jugées par la base). */
+  readonly entry: Record<string, unknown> | null;
+  /** REJECT : motif d'une liste fermée. */
+  readonly rejectReason: CatalogRejectReason | null;
+}
 
 export interface EvidenceRecord {
   readonly requestId: string;
@@ -80,6 +93,15 @@ export interface OpsConsoleStore {
   ): Promise<OpsResult>;
   /** Dans la transaction `tx` de l'appelant (ligne file_asset avant le dépôt). */
   recordEvidence(tx: SqlExecutor, actor: StaffActor, input: EvidenceRecord): Promise<OpsResult>;
+  /** Demande d'ajout au catalogue d'un élément de la file CATALOG_ADDITION (US-114). */
+  catalogAddition(actor: StaffActor, requestId: string, itemId: string): Promise<OpsResult>;
+  /** Décision sur la demande d'un élément de la file CATALOG_ADDITION (US-114). */
+  resolveCatalogAddition(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    resolution: CatalogResolution,
+  ): Promise<OpsResult>;
 }
 
 /** Échec de la base (SQLSTATE seulement) ; 22023 = donnée refusée par la commande. */
@@ -107,6 +129,10 @@ export const EVIDENCE_PERMITTED_SQL =
   'SELECT outcome, body FROM core.support_staff_evidence_permitted($1, $2, $3)';
 export const RECORD_EVIDENCE_SQL =
   'SELECT outcome, body FROM core.support_staff_record_evidence($1, $2, $3, $4, $5, $6)';
+export const CATALOG_ADDITION_SQL =
+  'SELECT outcome, body FROM core.support_staff_catalog_addition($1, $2, $3)';
+export const RESOLVE_CATALOG_ADDITION_SQL =
+  'SELECT outcome, body FROM core.support_staff_resolve_catalog_addition($1, $2, $3, $4, $5, $6::jsonb, $7)';
 
 async function one(db: SqlExecutor, text: string, values: readonly unknown[]): Promise<OpsResult> {
   try {
@@ -178,6 +204,27 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
 
   evidencePermitted(actor: StaffActor, requestId: string, subjectUserId: string) {
     return one(this.#db, EVIDENCE_PERMITTED_SQL, [actor.tokenHash, requestId, subjectUserId]);
+  }
+
+  catalogAddition(actor: StaffActor, requestId: string, itemId: string) {
+    return one(this.#db, CATALOG_ADDITION_SQL, [actor.tokenHash, requestId, itemId]);
+  }
+
+  resolveCatalogAddition(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    r: CatalogResolution,
+  ) {
+    return one(this.#db, RESOLVE_CATALOG_ADDITION_SQL, [
+      actor.tokenHash,
+      requestId,
+      itemId,
+      r.decision,
+      r.variantId,
+      r.entry === null ? null : JSON.stringify(r.entry),
+      r.rejectReason,
+    ]);
   }
 
   recordEvidence(tx: SqlExecutor, actor: StaffActor, input: EvidenceRecord) {

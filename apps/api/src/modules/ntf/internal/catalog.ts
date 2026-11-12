@@ -88,6 +88,8 @@ export const TEMPLATE_KEYS = [
   'EVT_TRIP_OVERDUE',
   'EVT_PAYOUT_SENT',
   'EVT_PAYOUT_ON_HOLD',
+  'EVT_CATALOG_ADDITION_APPROVED',
+  'EVT_CATALOG_ADDITION_REJECTED',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -162,6 +164,21 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: EMAIL_THEN_SMS,
     critical: false,
   },
+  // file d'ajout au catalogue (US-114, 16 ADM-036 « notification à l'hôte ») : PROPOSÉ (ADR-104)
+  EVT_CATALOG_ADDITION_APPROVED: {
+    key: 'EVT_CATALOG_ADDITION_APPROVED',
+    slug: 'catalogAdditionApproved',
+    variables: { first_name: FIRST_NAME, brand: BRAND },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
+  EVT_CATALOG_ADDITION_REJECTED: {
+    key: 'EVT_CATALOG_ADDITION_REJECTED',
+    slug: 'catalogAdditionRejected',
+    variables: { first_name: FIRST_NAME, brand: BRAND },
+    channels: EMAIL_THEN_SMS,
+    critical: false,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -201,6 +218,20 @@ export const RULES: readonly RuleSpec[] = [
     eventType: 'payout.batch.status_changed',
     template: 'EVT_PAYOUT_ON_HOLD',
     condition: fieldIs('status', 'ON_HOLD'),
+    recipients: [HOST],
+  },
+  // 17 §4.5 `catalog.addition_request.resolved` (request_id, status, resolved_variant_id) ;
+  // extension NTF : `host_user_id` (demandeur), posé par la commande de 0074 (US-114)
+  {
+    eventType: 'catalog.addition_request.resolved',
+    template: 'EVT_CATALOG_ADDITION_APPROVED',
+    condition: { field: 'status', matches: (v) => v === 'APPROVED' || v === 'MERGED' },
+    recipients: [HOST],
+  },
+  {
+    eventType: 'catalog.addition_request.resolved',
+    template: 'EVT_CATALOG_ADDITION_REJECTED',
+    condition: fieldIs('status', 'REJECTED'),
     recipients: [HOST],
   },
 ];

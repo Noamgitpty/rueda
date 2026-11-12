@@ -8,6 +8,7 @@
  * (SQLSTATE seulement, jamais le message du serveur ni un paramètre).
  */
 import type {
+  CatalogRequestInput,
   FuelType,
   ListingInput,
   ListingStatus,
@@ -54,6 +55,19 @@ export interface HostLocation {
   readonly timezone: string;
 }
 
+/** Dernière demande d'ajout au catalogue d'un véhicule (US-114) ; jamais le VIN ni l'auteur. */
+export interface CatalogRequestView {
+  readonly id: string;
+  readonly status: 'OPEN' | 'APPROVED' | 'MERGED' | 'REJECTED';
+  readonly makeText: string;
+  readonly modelText: string;
+  readonly rejectReason: 'INSUFFICIENT_DETAILS' | 'UNKNOWN_MODEL' | 'NOT_ELIGIBLE' | null;
+  /** Échéance de la décision posée par la base (catalog_addition_sla_business_h du pays). */
+  readonly slaDueAt: string;
+  readonly createdAt: string;
+  readonly reviewedAt: string | null;
+}
+
 export interface HostVehicle {
   readonly id: string;
   readonly locationId: string;
@@ -74,6 +88,8 @@ export interface HostVehicle {
   readonly eligibilityStatus: string;
   readonly listingId: string | null;
   readonly listingStatus: ListingStatus | null;
+  /** Demande d'ajout au catalogue (véhicule saisi hors catalogue), sinon `null` (US-114). */
+  readonly catalogRequest: CatalogRequestView | null;
 }
 
 export interface HostListing {
@@ -146,6 +162,13 @@ export interface HostListingStore {
   ): Promise<Outcome>;
   submitListing(proof: Buffer, orgId: string, listingId: string): Promise<Outcome>;
   deleteListing(proof: Buffer, orgId: string, listingId: string): Promise<Outcome>;
+  /** Nouvelle demande d'ajout au catalogue d'un véhicule hors catalogue (US-114) ; `id` = demande. */
+  requestCatalogAddition(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    input: CatalogRequestInput,
+  ): Promise<Outcome>;
   /**
    * Ligne `file_asset` et photo PENDING dans une transaction ; `deposit(storageKey)` dépose
    * l'objet AVANT la validation : un dépôt en échec annule la ligne (création seule, rien
@@ -185,6 +208,7 @@ export class UnavailableHostListingStore implements HostListingStore {
   updatePricing = (): Promise<Outcome> => this.#fail();
   submitListing = (): Promise<Outcome> => this.#fail();
   deleteListing = (): Promise<Outcome> => this.#fail();
+  requestCatalogAddition = (): Promise<Outcome> => this.#fail();
   addPhoto = (): Promise<Outcome> => this.#fail();
   locations = (): Promise<HostLocation[]> => this.#fail();
   vehicles = (): Promise<HostVehicle[]> => this.#fail();
@@ -199,6 +223,8 @@ const sqlstateOf = (error: unknown): string | undefined =>
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 const str = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
+const iso = (v: unknown): string | null =>
+  v instanceof Date ? v.toISOString() : v === null || v === undefined ? null : String(v);
 
 interface OutcomeRow extends Record<string, unknown> {
   outcome: string;
@@ -350,6 +376,20 @@ export class PgHostListingStore implements HostListingStore {
     );
   }
 
+  requestCatalogAddition(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    i: CatalogRequestInput,
+  ): Promise<Outcome> {
+    return this.#outcome(
+      'demande d’ajout au catalogue',
+      `SELECT r.outcome, r.request_id::text AS id
+         FROM core.catalog_cmd_request_addition($1, $2::uuid, $3::uuid, $4, $5, $6) AS r`,
+      [proof, orgId, vehicleId, i.makeText, i.modelText, i.trim],
+    );
+  }
+
   async addPhoto(
     proof: Buffer,
     orgId: string,
@@ -431,6 +471,23 @@ export class PgHostListingStore implements HostListingStore {
       'SELECT * FROM core.catalog_host_vehicles($1, $2::uuid)',
       [proof, orgId],
     );
+    const requests = new Map<string, CatalogRequestView>();
+    for (const q of await this.#rows<Record<string, unknown>>(
+      'demandes d’ajout au catalogue',
+      'SELECT * FROM core.catalog_host_addition_requests($1, $2::uuid)',
+      [proof, orgId],
+    )) {
+      requests.set(String(q['vehicle_id']), {
+        id: String(q['request_id']),
+        status: q['status'] as CatalogRequestView['status'],
+        makeText: String(q['make_text']),
+        modelText: String(q['model_text']),
+        rejectReason: str(q['reject_reason']) as CatalogRequestView['rejectReason'],
+        slaDueAt: iso(q['sla_due_at']) ?? '',
+        createdAt: iso(q['created_at']) ?? '',
+        reviewedAt: iso(q['reviewed_at']),
+      });
+    }
     return rows.map((r) => ({
       id: String(r['vehicle_id']),
       locationId: String(r['location_id']),
@@ -451,6 +508,7 @@ export class PgHostListingStore implements HostListingStore {
       eligibilityStatus: String(r['eligibility_status']),
       listingId: str(r['listing_id']),
       listingStatus: str(r['listing_status']) as ListingStatus | null,
+      catalogRequest: requests.get(String(r['vehicle_id'])) ?? null,
     }));
   }
 

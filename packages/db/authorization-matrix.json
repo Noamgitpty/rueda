@@ -587,6 +587,19 @@
         "booking_oracle": "tout"
       }
     },
+    "core.catalog_addition_request": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.catalog_deposit_policy": {
       "type": "table",
       "droits": {

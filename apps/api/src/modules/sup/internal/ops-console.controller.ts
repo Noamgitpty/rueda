@@ -14,6 +14,10 @@
  * | POST /console/cases                     | 201 dossier ; 200 rejeu          | —                                |
  * | POST /console/cases/:id/status          | 200 état changé                  | 403 STAFF_CASE_REQUIRED          |
  * | POST /console/evidence                  | 201 pièce ; 200 rejeu            | 422 EVIDENCE_REJECTED, 503       |
+ * | POST /console/queues/items/:id/         | 200 demande d'ajout et variantes | 409 CATALOG_REQUEST_CLOSED       |
+ * |      catalog-addition (US-114)          | candidates                       |                                  |
+ * | POST /console/queues/items/:id/         | 200 décision (MERGE, APPROVE,    | 409 CATALOG_REQUEST_CLOSED,      |
+ * |      catalog-addition/resolve (US-114)  | REJECT), élément clos            | CATALOG_VARIANT_EXISTS ; 422     |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
  * base juge chaque droit (permission EN COURS dans le pays du sujet, couverture) et journalise
@@ -36,6 +40,9 @@ import {
 import { AuthHttpError, StaffGuard, staffPrincipalOf } from '../../iam/index.js';
 import { EvidenceError, EvidenceService } from './evidence.js';
 import type {
+  CatalogDecision,
+  CatalogRejectReason,
+  CatalogResolution,
   CaseCategory,
   CaseChannel,
   CasePriority,
@@ -64,6 +71,28 @@ const CATEGORIES: readonly CaseCategory[] = [
 const PRIORITIES: readonly CasePriority[] = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
 const CHANNELS: readonly CaseChannel[] = ['WHATSAPP', 'EMAIL', 'PHONE', 'IN_APP'];
 const STATUSES: readonly CaseStatus[] = ['PENDING', 'RESOLVED', 'CLOSED'];
+const DECISIONS: readonly CatalogDecision[] = ['MERGE', 'APPROVE', 'REJECT'];
+const REJECT_REASONS: readonly CatalogRejectReason[] = [
+  'INSUFFICIENT_DETAILS',
+  'UNKNOWN_MODEL',
+  'NOT_ELIGIBLE',
+];
+/** Clés de la saisie d'APPROVE (0074) ; valeurs jugées par la base. */
+const ENTRY_KEYS = new Set([
+  'makeName',
+  'modelName',
+  'bodyType',
+  'yearFrom',
+  'yearTo',
+  'trimName',
+  'transmission',
+  'fuelType',
+  'drive',
+  'seats',
+  'doors',
+  'valueClass',
+  'licenseNote',
+]);
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 /** Horodatage rendu par la base (jsonb) : normalisé en ISO 8601 UTC (`toISOString`). */
 const DB_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?([+-]\d{2}:\d{2}|Z)$/;
@@ -108,6 +137,32 @@ function actorOf(request: object): StaffActor {
 
 /** Champs d'horodatage rendus par la base (noms de 0064) ; aucun texte libre n'en fait partie. */
 const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd)$/;
+
+/** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
+function resolutionOf(b: Record<string, unknown>): CatalogResolution {
+  const decision = oneOf(b['decision'], DECISIONS);
+  if (decision === 'MERGE') {
+    return { decision, variantId: uuidOf(b['variantId']), entry: null, rejectReason: null };
+  }
+  if (decision === 'REJECT') {
+    return {
+      decision,
+      variantId: null,
+      entry: null,
+      rejectReason: oneOf(b['rejectReason'], REJECT_REASONS),
+    };
+  }
+  const entry = b['entry'];
+  if (
+    entry === null ||
+    typeof entry !== 'object' ||
+    Array.isArray(entry) ||
+    Object.keys(entry).some((k) => !ENTRY_KEYS.has(k))
+  ) {
+    throw new AuthHttpError('REQUEST_INVALID');
+  }
+  return { decision, variantId: null, entry: entry as Record<string, unknown>, rejectReason: null };
+}
 
 /**
  * Horodatages de la base convertis en ISO 8601 UTC, récursivement, dans les SEULS champs de date :
@@ -204,6 +259,59 @@ export class OpsConsoleController {
       ['GRANTED'],
     );
     return body;
+  }
+
+  @Post('queues/items/:id/catalog-addition')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async catalogAddition(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const requestId = uuidOf(fields(raw)['requestId']);
+    const r = await run(
+      () => this.store.catalogAddition(actor, requestId, itemId),
+      ['GRANTED', 'NOT_OPEN'],
+    );
+    if (r.outcome === 'NOT_OPEN') throw new OpsHttpError('CATALOG_REQUEST_CLOSED');
+    return r.body;
+  }
+
+  @Post('queues/items/:id/catalog-addition/resolve')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async resolveCatalogAddition(
+    @Req() request: object,
+    @Param('id') id: string,
+    @Body() raw: unknown,
+  ) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const resolution = resolutionOf(b);
+    const r = await run(
+      () => this.store.resolveCatalogAddition(actor, requestId, itemId, resolution),
+      [
+        'RESOLVED',
+        'NOT_OPEN',
+        'CATALOG_VARIANT_EXISTS',
+        'CATALOG_VARIANT_NOT_FOUND',
+        'CATALOG_ENTRY_INVALID',
+      ],
+    );
+    if (r.outcome === 'NOT_OPEN') throw new OpsHttpError('CATALOG_REQUEST_CLOSED');
+    if (r.outcome !== 'RESOLVED') {
+      throw new OpsHttpError(
+        r.outcome as
+          'CATALOG_VARIANT_EXISTS' | 'CATALOG_VARIANT_NOT_FOUND' | 'CATALOG_ENTRY_INVALID',
+      );
+    }
+    return {
+      itemId,
+      requestId: r.body['requestId'],
+      status: r.body['status'],
+      variantId: r.body['variantId'] ?? null,
+    };
   }
 
   @Post('users/search')

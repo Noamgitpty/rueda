@@ -143,6 +143,32 @@ async function createVehicleImpl(_prev: HostFormState, form: FormData): Promise<
   done(orgId);
 }
 
+/**
+ * Nouvelle demande d'ajout au catalogue après un refus (US-114, 16 ADM-036) : marque et modèle
+ * corrigés ; la base refuse une seconde demande ouverte (CATALOG_REQUEST_DUPLICATE).
+ */
+async function requestCatalogImpl(_prev: HostFormState, form: FormData): Promise<HostFormState> {
+  const orgId = idOf(form, 'org');
+  const vehicleId = idOf(form, 'vehicle');
+  const formId = `a10-catalog-${vehicleId ?? 'x'}`;
+  if (orgId === null || vehicleId === null) return invalid(formId);
+  const reply = await callApi(
+    'POST',
+    `/host/accounts/${orgId}/vehicles/${vehicleId}/catalog-request`,
+    await clientContext(),
+    { makeText: text(form, 'makeText', 80), modelText: text(form, 'modelText', 80) },
+  );
+  if (reply.status !== 201) {
+    return {
+      errors: errorsOf(reply, formId, {
+        makeText: `${formId}-make`,
+        modelText: `${formId}-model`,
+      }),
+    };
+  }
+  done(orgId);
+}
+
 /** Marché du compte (devise, exposant) et dépôt des photos, relus de l'API ; `null` : injoignable. */
 async function accountOf(
   orgId: string,
@@ -330,6 +356,13 @@ export async function createVehicleAction(
   form: FormData,
 ): Promise<HostFormState> {
   return keep(form, await createVehicleImpl(prev, form));
+}
+
+export async function requestCatalogAction(
+  prev: HostFormState,
+  form: FormData,
+): Promise<HostFormState> {
+  return keep(form, await requestCatalogImpl(prev, form));
 }
 
 export async function createListingAction(

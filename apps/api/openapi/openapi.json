@@ -3254,6 +3254,254 @@
         }
       }
     },
+    "/console/queues/items/{id}/catalog-addition": {
+      "post": {
+        "operationId": "consoleCatalogAddition",
+        "tags": ["sup"],
+        "summary": "Demande d'ajout au catalogue d'un élément de la file CATALOG_ADDITION pris en charge (ADMIN : sa portée), variantes candidates (US-114)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Demande et variantes candidates",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogAdditionDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "409": {
+            "description": "Aucune demande ouverte derrière l'élément",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "CATALOG_REQUEST_CLOSED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/catalog-addition/resolve": {
+      "post": {
+        "operationId": "consoleResolveCatalogAddition",
+        "tags": ["sup"],
+        "summary": "Décision de l'ops sur une demande d'ajout (MERGE vers une variante existante, APPROVE d'une variante nouvelle sous licence, REJECT motivé) : variante rattachée au véhicule, élément clos, hôte notifié, décision journalisée (US-114)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "decision"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "decision": {
+                    "enum": ["MERGE", "APPROVE", "REJECT"]
+                  },
+                  "variantId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "rejectReason": {
+                    "enum": ["INSUFFICIENT_DETAILS", "UNKNOWN_MODEL", "NOT_ELIGIBLE"]
+                  },
+                  "entry": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "makeName": {
+                        "type": "string"
+                      },
+                      "modelName": {
+                        "type": "string"
+                      },
+                      "bodyType": {
+                        "type": "string"
+                      },
+                      "yearFrom": {
+                        "type": "integer"
+                      },
+                      "yearTo": {
+                        "type": ["integer", "null"]
+                      },
+                      "trimName": {
+                        "type": ["string", "null"]
+                      },
+                      "transmission": {
+                        "type": "string"
+                      },
+                      "fuelType": {
+                        "type": "string"
+                      },
+                      "drive": {
+                        "type": "string"
+                      },
+                      "seats": {
+                        "type": "integer"
+                      },
+                      "doors": {
+                        "type": "integer"
+                      },
+                      "valueClass": {
+                        "type": ["string", "null"]
+                      },
+                      "licenseNote": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 500
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Demande tranchée, élément clos",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogAdditionResolved"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "409": {
+            "description": "Demande déjà tranchée ; variante déjà au catalogue (la rapprocher)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["CATALOG_REQUEST_CLOSED", "CATALOG_VARIANT_EXISTS"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Variante inconnue, retirée, d'un autre marché ou d'une autre année ; saisie de la variante invalide",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["CATALOG_VARIANT_NOT_FOUND", "CATALOG_ENTRY_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/console/users/search": {
       "post": {
         "operationId": "consoleUserSearch",
@@ -4146,6 +4394,148 @@
         }
       }
     },
+    "/host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request": {
+      "post": {
+        "operationId": "requestHostCatalogAddition",
+        "tags": ["cat"],
+        "summary": "Nouvelle demande d'ajout au catalogue d'un véhicule hors catalogue, marque et modèle corrigés (US-114, 16 ADM-036)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Demande ouverte et mise en file (CATALOG_ADDITION)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogRequestCreated"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou véhicule inconnus (ou d'un autre hôte : même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Demande déjà ouverte pour ce véhicule ; véhicule déjà rattaché au catalogue ; véhicule non admis ou trois refus : plus de nouvelle demande",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CATALOG_REQUEST_DUPLICATE",
+                        "CATALOG_ALREADY_LINKED",
+                        "CATALOG_REQUEST_NOT_ALLOWED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogRequestBody"
+              }
+            }
+          }
+        }
+      }
+    },
     "/host/accounts/{orgId}/listings": {
       "get": {
         "operationId": "hostListings",
@@ -4477,7 +4867,7 @@
       "post": {
         "operationId": "submitHostListing",
         "tags": ["cat"],
-        "summary": "Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, CGU de l'hôte (US-126), compte ACTIVE, pays ouvert (US-115)",
+        "summary": "Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, véhicule au catalogue (US-114), CGU de l'hôte (US-126), compte ACTIVE, pays ouvert (US-115)",
         "parameters": [
           {
             "name": "orgId",
@@ -4536,7 +4926,7 @@
             }
           },
           "409": {
-            "description": "Transition absente de SM-2 dans l'état de l'annonce ; CGU de l'hôte à accepter dans leur version exigée (US-126) : l'annonce reste DRAFT",
+            "description": "Transition absente de SM-2 dans l'état de l'annonce ; CGU de l'hôte à accepter dans leur version exigée (US-126) : l'annonce reste DRAFT ; véhicule hors catalogue en attente de la file d'ajout (US-114) : l'annonce reste DRAFT ; dernière demande d'ajout refusée",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4548,7 +4938,12 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["LISTING_TRANSITION_FORBIDDEN", "TERMS_REACCEPT_REQUIRED"]
+                      "enum": [
+                        "LISTING_TRANSITION_FORBIDDEN",
+                        "TERMS_REACCEPT_REQUIRED",
+                        "CATALOG_ADDITION_PENDING",
+                        "CATALOG_ADDITION_REJECTED"
+                      ]
                     }
                   }
                 }
@@ -9446,7 +9841,8 @@
           "lienDeclared",
           "eligibilityStatus",
           "listingId",
-          "listingStatus"
+          "listingStatus",
+          "catalogRequest"
         ],
         "properties": {
           "id": {
@@ -9516,6 +9912,16 @@
               "REMOVED_BY_PLATFORM",
               "DELETED",
               null
+            ]
+          },
+          "catalogRequest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogRequestView"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         }
@@ -10242,6 +10648,233 @@
           },
           "expiresAt": {
             "$ref": "#/components/schemas/DateTime"
+          }
+        }
+      },
+      "CatalogRequestView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "makeText",
+          "modelText",
+          "rejectReason",
+          "slaDueAt",
+          "createdAt",
+          "reviewedAt"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": ["OPEN", "APPROVED", "MERGED", "REJECTED"]
+          },
+          "makeText": {
+            "type": "string"
+          },
+          "modelText": {
+            "type": "string"
+          },
+          "rejectReason": {
+            "enum": ["INSUFFICIENT_DETAILS", "UNKNOWN_MODEL", "NOT_ELIGIBLE", null]
+          },
+          "slaDueAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "reviewedAt": {
+            "type": ["string", "null"]
+          }
+        },
+        "description": "Dernière demande d'ajout au catalogue d'un véhicule saisi hors catalogue (US-114, 16 ADM-036) ; échéance posée par la base (catalog_addition_sla_business_h du pays). Jamais le VIN ni l'auteur de la décision."
+      },
+      "CatalogRequestBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["makeText", "modelText"],
+        "properties": {
+          "makeText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "modelText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "trim": {
+            "type": ["string", "null"],
+            "maxLength": 80
+          }
+        }
+      },
+      "CatalogRequestCreated": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageKey", "requestId"],
+        "properties": {
+          "code": {
+            "const": "CATALOG_REQUEST_CREATED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "CatalogAdditionDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "itemId",
+          "requestId",
+          "status",
+          "country",
+          "makeText",
+          "modelText",
+          "year",
+          "trimText",
+          "vinMasked",
+          "transmission",
+          "seats",
+          "fuelType",
+          "slaDueAt",
+          "createdAt",
+          "rejectReason",
+          "resolvedVariantId",
+          "candidates"
+        ],
+        "description": "Demande d'ajout au catalogue d'un élément de la file CATALOG_ADDITION (US-114, 16 ADM-036) et variantes candidates (ACTIVE, du marché et de l'année du véhicule, marque reconnue). Aucune donnée personnelle : ni plaque, ni VIN complet (numéro de série caché), ni demandeur.",
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": ["OPEN", "APPROVED", "MERGED", "REJECTED"]
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "makeText": {
+            "type": "string"
+          },
+          "modelText": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "trimText": {
+            "type": ["string", "null"]
+          },
+          "vinMasked": {
+            "type": ["string", "null"]
+          },
+          "transmission": {
+            "enum": ["MANUAL", "AUTOMATIC"]
+          },
+          "seats": {
+            "type": "integer"
+          },
+          "fuelType": {
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
+          },
+          "slaDueAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "rejectReason": {
+            "enum": ["INSUFFICIENT_DETAILS", "UNKNOWN_MODEL", "NOT_ELIGIBLE", null]
+          },
+          "resolvedVariantId": {
+            "type": ["string", "null"]
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "variantId",
+                "make",
+                "model",
+                "yearFrom",
+                "yearTo",
+                "trim",
+                "transmission",
+                "fuelType",
+                "drive",
+                "seats",
+                "modelMatch"
+              ],
+              "properties": {
+                "variantId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "make": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "yearFrom": {
+                  "type": "integer"
+                },
+                "yearTo": {
+                  "type": ["integer", "null"]
+                },
+                "trim": {
+                  "type": ["string", "null"]
+                },
+                "transmission": {
+                  "enum": ["MT", "AT", "CVT", "DCT"]
+                },
+                "fuelType": {
+                  "enum": ["GASOLINE", "DIESEL", "HYBRID", "PHEV", "EV", "LPG"]
+                },
+                "drive": {
+                  "enum": ["FWD", "RWD", "AWD", "4X4"]
+                },
+                "seats": {
+                  "type": "integer"
+                },
+                "modelMatch": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CatalogAdditionResolved": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["itemId", "requestId", "status", "variantId"],
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": ["APPROVED", "MERGED", "REJECTED"]
+          },
+          "variantId": {
+            "type": ["string", "null"]
           }
         }
       }

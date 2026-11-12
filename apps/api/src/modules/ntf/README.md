@@ -6,7 +6,7 @@
 
 D'après 17 §2.2 et §2.13 : moteur unique de notifications (NTF-001) ; canaux e-mail transactionnel, SMS, WhatsApp (BSP), in-app, push (P1) ; repli automatique ; idempotence `(event_id, destinataire, canal)` ; réessais ; journal d'envoi ; préférences. NTF ne lit pas les tables d'IAM : les coordonnées viennent d'un port fourni par IAM.
 
-État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Catalogue réduit de six gabarits, textes en es, en, fr et pt (pt-BR, DEC-FONDATEUR-18).
+État du code : **livré pour la bêta e-mail et SMS** par US-020 (port `MessagingChannel`, ADR-058) et US-021 (moteur, ADR-061). Catalogue réduit de huit gabarits (deux de la file d'ajout au catalogue, US-114), textes en es, en, fr et pt (pt-BR, DEC-FONDATEUR-18).
 
 Non câblé (reports) : processus `worker.ts` (US-003), accusés de remise, préférences et désinscription, WhatsApp (US-526), rappels de trip, e-mail de vérification d'IAM, habillage de marque, purge à 13 mois.
 
@@ -39,7 +39,8 @@ Déjà consommés par le code (travailleur `ntf_dispatcher`, `RULES` de `interna
 - `booking.trip.booked` ;
 - `trip.status_changed` (`to` commençant par `CANCELLED_`) ;
 - `trip.overdue.detected` ;
-- `payout.batch.status_changed` (`status` = `INITIATED` ou `ON_HOLD`).
+- `payout.batch.status_changed` (`status` = `INITIATED` ou `ON_HOLD`) ;
+- `catalog.addition_request.resolved` (`status` = `APPROVED` ou `MERGED` : ajout ; `REJECTED` : refus ; hôte demandeur `host_user_id`, US-114).
 
 Cible (17 §4.5) : NTF consomme aussi, entre autres, `iam.user.registered`, `iam.restriction.applied` / `.lifted`, `kyc.host_verification.decided`, `catalog.listing.status_changed`, `booking.hold.*`, `booking.request.*`, `settlement.computed`, `refund.instance.status_changed`, `deposit.decision.executed`, `contract.document.generated` / `.signed`, `trip.checkin.validated`, `trip.checkout.completed`, `claim.status_changed`, `invoice.status_changed`, `message.posted` / `.flagged`, `finance.statement.issued`, `fiscal.document.status_changed`, `host_ledger.state_changed`.
 

@@ -13,7 +13,13 @@ export type { FinanceApprovalStore, SqlPool } from './internal/finance-approval-
 // Files de revue, fiche 360°, notes, dossiers et pièces du staff (US-109).
 export { OpsStoreError, PgOpsConsoleStore } from './internal/ops-console-store.js';
 export { OPS_MESSAGES } from './internal/ops-errors.js';
-export type { OpsConsoleStore, OpsResult } from './internal/ops-console-store.js';
+export type {
+  CatalogDecision,
+  CatalogRejectReason,
+  CatalogResolution,
+  OpsConsoleStore,
+  OpsResult,
+} from './internal/ops-console-store.js';
 export {
   EVIDENCE_MAX_BYTES,
   sniffEvidenceMime,
