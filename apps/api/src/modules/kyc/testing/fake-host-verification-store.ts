@@ -32,6 +32,7 @@ interface Account {
   verificationStatus: HostVerificationState['verificationStatus'];
   tax: { kind: string; envelope: Buffer; regime: string | null } | null;
   screening: ScreeningToRecord | null;
+  screeningHold: boolean;
 }
 
 export class FakeHostVerificationStore implements HostVerificationStore {
@@ -63,12 +64,18 @@ export class FakeHostVerificationStore implements HostVerificationStore {
       verificationStatus: null,
       tax: null,
       screening: null,
+      screeningHold: false,
     });
   }
 
   /** Lecture du test : profil fiscal consigné (enveloppe seulement). */
   taxOf(orgId: string): Account['tax'] {
     return this.#accounts.get(orgId)?.tax ?? null;
+  }
+
+  /** Lecture du test : correspondance retenue (jamais rendue à l'hôte). */
+  holdOf(orgId: string): boolean {
+    return this.#accounts.get(orgId)?.screeningHold ?? false;
   }
 
   /** Lecture du test : filtrage consigné. */
@@ -128,12 +135,9 @@ export class FakeHostVerificationStore implements HostVerificationStore {
       state: {
         country: a.country,
         orgStatus: a.orgStatus,
-        // correspondance de sanctions jamais révélée : BLOCKED rendu comme IN_REVIEW (VER-028)
-        verificationStatus: a.verificationStatus === 'BLOCKED' ? 'IN_REVIEW' : a.verificationStatus,
-        missing:
-          a.verificationStatus === null || a.verificationStatus === 'BLOCKED'
-            ? []
-            : this.#missing(a),
+        // correspondance de sanctions jamais révélée : le dossier suit le calcul d'un dossier propre
+        verificationStatus: a.verificationStatus,
+        missing: a.verificationStatus === null ? [] : this.#missing(a),
         kycApproved: a.kycApproved,
         ageStatus: a.ageStatus,
         residenceStatus: a.residenceStatus,
@@ -156,11 +160,7 @@ export class FakeHostVerificationStore implements HostVerificationStore {
     if (p.taxpayerKind !== 'INDIVIDUAL') return Promise.resolve('HOST_ENTITY_NOT_ALLOWED');
     if (!a.taxKinds.includes(p.kind)) return Promise.resolve('HOST_TAX_ID_KIND_INVALID');
     if (p.envelope.length < 30 || p.envelope[0] !== 1) return Promise.resolve('REQUEST_INVALID');
-    if (
-      ['IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED'].includes(
-        a.verificationStatus ?? '',
-      )
-    ) {
+    if (['IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED'].includes(a.verificationStatus ?? '')) {
       return Promise.resolve('HOST_VERIFICATION_LOCKED');
     }
     a.tax = { kind: p.kind, envelope: p.envelope, regime: p.regime };
@@ -172,7 +172,7 @@ export class FakeHostVerificationStore implements HostVerificationStore {
     if (down !== null) return down;
     const a = this.#own(tokenHash, orgId);
     if (a === null) return Promise.resolve({ outcome: 'FORBIDDEN', screening: null });
-    if (['APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED'].includes(a.verificationStatus ?? '')) {
+    if (['APPROVED', 'REJECTED', 'REVOKED'].includes(a.verificationStatus ?? '')) {
       return Promise.resolve({ outcome: 'DECIDED', screening: null });
     }
     if (this.submitRefusal !== null) {
@@ -209,8 +209,9 @@ export class FakeHostVerificationStore implements HostVerificationStore {
       return Promise.resolve(a.screening.key === s.key ? 'DUPLICATE' : 'ALREADY_SCREENED');
     }
     a.screening = s;
-    if (s.result === 'CLEAR') this.#refresh(a);
-    else a.verificationStatus = 'BLOCKED';
+    // correspondance : retenue côté ops seulement (`screeningHold`), dossier recalculé à l'identique
+    if (s.result !== 'CLEAR') a.screeningHold = true;
+    this.#refresh(a);
     return Promise.resolve('RECORDED');
   }
 }

@@ -48,7 +48,6 @@ export const VERIFICATION_STATUSES = [
   'APPROVED',
   'REJECTED',
   'REVOKED',
-  'BLOCKED',
 ] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 

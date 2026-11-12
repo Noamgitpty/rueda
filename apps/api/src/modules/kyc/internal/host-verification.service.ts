@@ -5,7 +5,8 @@
  * - **État** : statut du compte d'hôte et du dossier, pièces manquantes, contrôles (sans date de
  *   naissance ni numéro fiscal), types de numéro admis dans le pays (configuration), blocages de
  *   l'activation (pays pas encore ouvert compris). Une correspondance de sanctions n'est jamais
- *   révélée à l'hôte (dossier `BLOCKED`, sans motif).
+ *   révélée à l'hôte : le dossier suit le calcul d'un dossier propre (statut, pièces manquantes,
+ *   profil fiscal) et n'est simplement jamais approuvable.
  * - **Profil fiscal** (FIN-008) : personne physique seulement (une donnée d'entreprise dans le
  *   corps ⇒ `HOST_ENTITY_NOT_ALLOWED`, BR-ACC-06) ; numéro normalisé, forme générale contrôlée ici,
  *   type admis jugé en base ; numéro CHIFFRÉ par la clé du compte d'hôte (port `TaxIdSealer`)

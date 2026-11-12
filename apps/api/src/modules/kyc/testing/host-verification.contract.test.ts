@@ -234,19 +234,37 @@ describe('US-123 — soumission du dossier et filtrage des sanctions (VER-028)',
     ]);
   });
 
-  it('correspondance ⇒ rendue comme une revue ordinaire (rien n’est révélé) ; profil fiscal verrouillé (409), comme en revue', async () => {
-    const w = await world();
-    w.screener.flag(`fk_idv_${w.org.slice(0, 8)}`, 'POTENTIAL_MATCH');
-    const r = await w.app.api.request('POST', w.base, { headers: w.headers, body: {} });
-    expect(r.status).toBe(200);
-    expect(r.json).toMatchObject({ verificationStatus: 'IN_REVIEW', missing: [] });
-    expect(JSON.stringify(r.json)).not.toMatch(/SANCTION|MATCH|BLOCKED|fk_aml/);
-    const tax = await w.app.api.request('POST', `${w.base}/tax-profile`, {
-      headers: w.headers,
-      body: { kind: KIND, taxId: '1234567-8' },
+  it('correspondance : à chaque étape (sans numéro, numéro enregistré, soumission, nouvel essai), réponses identiques à celles d’un hôte propre', async () => {
+    const run = async (hit: boolean) => {
+      const w = await world();
+      if (hit) w.screener.flag(`fk_idv_${w.org.slice(0, 8)}`, 'POTENTIAL_MATCH');
+      const seen: unknown[] = [];
+      const step = async (method: 'GET' | 'POST', path: string, body?: unknown) => {
+        const r = await w.app.api.request(method, path, {
+          headers: w.headers,
+          ...(body === undefined ? {} : { body }),
+        });
+        seen.push({ status: r.status, json: r.json });
+      };
+      await step('POST', w.base, {});
+      await step('GET', w.base);
+      await step('POST', `${w.base}/tax-profile`, { kind: KIND, taxId: '1234567-8' });
+      await step('POST', w.base, {});
+      await step('POST', `${w.base}/tax-profile`, { kind: KIND, taxId: '7654321-0' });
+      await step('GET', w.base);
+      expect(w.store.holdOf(w.org)).toBe(hit);
+      return seen;
+    };
+    const clean = await run(false);
+    const flagged = await run(true);
+    expect(flagged).toEqual(clean);
+    expect(clean[0]).toMatchObject({
+      status: 200,
+      json: { verificationStatus: 'DOCS_PENDING', missing: ['HOST_TAX_ID_REQUIRED'] },
     });
-    expect(tax.status).toBe(409);
-    expect(tax.json).toMatchObject({ code: 'HOST_VERIFICATION_LOCKED' });
+    expect(clean[3]).toMatchObject({ status: 200, json: { verificationStatus: 'IN_REVIEW' } });
+    expect(clean[4]).toMatchObject({ status: 409 });
+    expect(JSON.stringify(flagged)).not.toMatch(/SANCTION|MATCH|BLOCKED|HOLD|fk_aml/i);
   });
 
   it('sans prestataire de filtrage (production) : dossier incomplet, HOST_SCREENING_MISSING', async () => {

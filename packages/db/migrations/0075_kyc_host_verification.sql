@@ -27,7 +27,7 @@
 --   - filtrage des sanctions (VER-028) : résultat du port `SanctionsScreener` consigné
 --     (`core.kyc_sanctions_screening`) : version des listes, résultat, référence OPAQUE de la
 --     correspondance chez le prestataire ; AUCUNE donnée de la liste (nom, alias, programme) n'est
---     copiée. Correspondance (potentielle ou confirmée) ⇒ dossier `BLOCKED` (statut PROPOSÉ),
+--     copiée. Correspondance (potentielle ou confirmée) ⇒ `screening_hold` (colonne PROPOSÉE),
 --     motif `HOST_SANCTIONS_HIT` journalisé (audit : code seulement), jamais activable ;
 --   - profil fiscal (FIN-008) chiffré par la clé du SUJET (compte d'hôte, enveloppe v1 de
 --     `@rueda/db/audit`, AAD `rueda.c2.v1|core.kyc_host_tax_profile.tax_id_enc|ORG:<id>`) : la base
@@ -50,7 +50,7 @@
 --
 -- Écarts PROPOSÉS avec 17 §3.2.2 (à reporter, ADR-105) : `host_verification` gagne `country_code`,
 -- `missing` (codes des pièces manquantes), `reason_code`, `residence_verified`, `activated_at`,
--- `row_version` et le statut `BLOCKED` ; `vehicle_title_checked` et `lender_consent_file_id`
+-- `row_version` et `screening_hold` ; `vehicle_title_checked` et `lender_consent_file_id`
 -- restent à US-124, `host_terms_consent_id` est remplacé par la lecture de
 -- `core.ctr_host_terms_required` (N-66) ; `sanctions_screening` gagne `host_verification_id`,
 -- `provider`, `request_key`, `match_ref` ; profil fiscal en table propre (`kyc_host_tax_profile`)
@@ -190,7 +190,11 @@ CREATE TABLE core.kyc_host_verification (
     CONSTRAINT kyc_host_verification_country_format CHECK (country_code ~ '^[A-Z]{2}$'),
   status                    text        NOT NULL
     CONSTRAINT kyc_host_verification_status_valid CHECK (status IN (
-      'OPEN', 'DOCS_PENDING', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED')),
+      'OPEN', 'DOCS_PENDING', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED')),
+  -- correspondance de sanctions en attente de revue humaine (VER-028) : le dossier suit pour le
+  -- reste EXACTEMENT le parcours d'un dossier propre (statut, pièces manquantes, profil fiscal),
+  -- si bien que l'hôte ne peut rien en déduire ; il n'est jamais approuvable
+  screening_hold            boolean     NOT NULL DEFAULT false,
   identity_verification_id  uuid        REFERENCES core.kyc_identity_verification (id),
   age_ok                    boolean     NOT NULL DEFAULT false,
   -- résidence lue par le fournisseur d'identité (true) ou pays déclaré du compte d'hôte (false)
@@ -220,7 +224,8 @@ CREATE TABLE core.kyc_host_verification (
     status <> 'APPROVED' OR (age_ok AND pg_catalog.cardinality(missing) = 0
                              AND identity_verification_id IS NOT NULL
                              AND sanctions_screening_id IS NOT NULL)),
-  CONSTRAINT kyc_host_verification_blocked_reason CHECK (status <> 'BLOCKED' OR reason_code IS NOT NULL),
+  CONSTRAINT kyc_host_verification_hold_reason CHECK (NOT screening_hold OR reason_code IS NOT NULL),
+  CONSTRAINT kyc_host_verification_hold_not_approved CHECK (NOT screening_hold OR status <> 'APPROVED'),
   CONSTRAINT kyc_host_verification_activated_approved CHECK (activated_at IS NULL OR status = 'APPROVED')
 );
 CREATE INDEX kyc_host_verification_user_idx ON core.kyc_host_verification (user_id);
@@ -329,7 +334,7 @@ CREATE POLICY kyc_cmd_insert ON core.kyc_identity_subject FOR INSERT TO kyc_cmd_
 
 GRANT SELECT, INSERT ON core.kyc_host_verification TO kyc_cmd_owner;
 GRANT UPDATE (status, identity_verification_id, age_ok, residence_verified, tax_id_checked_at,
-              sanctions_screening_id, missing, reason_code, decided_by, decided_at, activated_at,
+              sanctions_screening_id, screening_hold, missing, reason_code, decided_by, decided_at, activated_at,
               row_version, updated_at)
   ON core.kyc_host_verification TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_select ON core.kyc_host_verification FOR SELECT TO kyc_cmd_owner USING (true);
@@ -735,7 +740,8 @@ $fn$;
 -- Ses seules données, pour SON compte d'hôte : statut du compte et du dossier, pièces manquantes,
 -- contrôles (sans date de naissance ni numéro fiscal), types de numéro admis dans le pays, blocages
 -- de l'activation (pays fermé compris). Correspondance de sanctions : JAMAIS révélée (VER-028,
--- tipping-off) : un dossier `BLOCKED` est rendu comme `IN_REVIEW`, sans pièce manquante.
+-- tipping-off) : `screening_hold` n'est pas rendu ; le statut et les pièces manquantes sont ceux
+-- d'un dossier propre (le dossier suit le même calcul).
 -- Issues : OK, AUTH_REQUIRED, FORBIDDEN (compte d'un autre ou inconnu : rien n'est révélé).
 CREATE FUNCTION core.kyc_host_state(p_token_hash bytea, p_org uuid)
   RETURNS TABLE (outcome text, country_code text, org_status text, verification_status text,
@@ -778,8 +784,7 @@ BEGIN
    WHERE k.code::text = g.country_code;
   v_req := core.kyc_host_param('p2p_host_requires_tax_id', g.country_code);
   RETURN QUERY SELECT 'OK'::text, g.country_code, g.org_status,
-    CASE WHEN h.status = 'BLOCKED' THEN 'IN_REVIEW' ELSE h.status END,
-    CASE WHEN h.status = 'BLOCKED' THEN '{}'::text[] ELSE COALESCE(h.missing, '{}'::text[]) END,
+    h.status, COALESCE(h.missing, '{}'::text[]),
     g.kyc_id IS NOT NULL,
     CASE WHEN g.age = 'PARAM_MISSING' THEN 'UNVERIFIED' ELSE g.age END, g.residence,
     v_req IS DISTINCT FROM 'false'::jsonb, g.tax = 'OK' AND v_kind IS NOT NULL, v_kind,
@@ -792,8 +797,8 @@ $fn$;
 -- Le numéro arrive CHIFFRÉ par l'API (clé du compte d'hôte) : la base n'en voit que l'enveloppe.
 -- Issues : SAVED, AUTH_REQUIRED, FORBIDDEN, HOST_ENTITY_NOT_ALLOWED (personne morale),
 -- HOST_TAX_ID_KIND_INVALID (type non admis dans le pays), REQUEST_INVALID (enveloppe ou régime
--- mal formés), HOST_VERIFICATION_LOCKED (dossier en revue, décidé ou bloqué : nouvelle revue,
--- hors bêta).
+-- mal formés), HOST_VERIFICATION_LOCKED (dossier en revue ou décidé : nouvelle revue, hors
+-- bêta).
 CREATE FUNCTION core.kyc_cmd_host_save_tax_profile(p_token_hash bytea, p_org uuid, p_kind text,
                                                    p_tax_id_enc bytea, p_regime text,
                                                    p_taxpayer_kind text)
@@ -841,8 +846,8 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('kyc.host:' || p_org::text, 0));
   SELECT d.status INTO v_status FROM core.kyc_host_verification AS d WHERE d.org_id = p_org;
-  -- dossier en revue, décidé ou bloqué : verrouillé (en revue et bloqué indiscernables, VER-028)
-  IF v_status IN ('IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED') THEN
+  -- dossier en revue ou décidé : verrouillé (une correspondance en attente n'y change rien)
+  IF v_status IN ('IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED') THEN
     RETURN QUERY SELECT 'HOST_VERIFICATION_LOCKED'::text;
     RETURN;
   END IF;
@@ -909,7 +914,7 @@ BEGIN
     pg_catalog.hashtextextended('kyc.host:' || p_org::text, 0));
   SELECT * INTO g FROM core.kyc_host_gates(p_org);
   SELECT d.id, d.status INTO h FROM core.kyc_host_verification AS d WHERE d.org_id = p_org;
-  IF h.status IN ('APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED') THEN
+  IF h.status IN ('APPROVED', 'REJECTED', 'REVOKED') THEN
     RETURN QUERY SELECT 'DECIDED'::text, h.id, h.status, NULL::text[], NULL::text, NULL::text,
                         NULL::text;
     RETURN;
@@ -964,7 +969,8 @@ $fn$;
 -- 9. Résultat du filtrage des sanctions (SECURITY DEFINER, EXECUTE app_api) ----------------------
 -- Consigné par l'API après l'appel au port `SanctionsScreener` (clé rendue par la soumission).
 -- Idempotent par (prestataire, clé) ; un second filtrage d'un dossier déjà filtré est refusé.
--- Correspondance ⇒ dossier BLOCKED, motif HOST_SANCTIONS_HIT journalisé (code seulement).
+-- Correspondance ⇒ `screening_hold` (dossier jamais approuvable, statut recalculé comme un dossier
+-- propre), motif HOST_SANCTIONS_HIT journalisé (code seulement), file de revue, événement interne.
 -- Issues : RECORDED, DUPLICATE, AUTH_REQUIRED, FORBIDDEN, NOT_FOUND (aucun dossier),
 -- REQUEST_INVALID, ALREADY_SCREENED.
 CREATE FUNCTION core.kyc_cmd_host_record_screening(p_token_hash bytea, p_org uuid, p_provider text,
@@ -1049,11 +1055,12 @@ BEGIN
     v_status := core.kyc_host_refresh(h.id);
   ELSE
     UPDATE core.kyc_host_verification AS d
-       SET sanctions_screening_id = v_scr, status = 'BLOCKED', reason_code = 'HOST_SANCTIONS_HIT',
+       SET sanctions_screening_id = v_scr, screening_hold = true, reason_code = 'HOST_SANCTIONS_HIT',
            row_version = d.row_version + 1, updated_at = platform.now()
      WHERE d.id = h.id
     RETURNING d.row_version INTO v_ver;
-    v_status := 'BLOCKED';
+    -- même statut et mêmes pièces manquantes qu'un dossier propre (aucun oracle pour l'hôte)
+    v_status := core.kyc_host_refresh(h.id);
     -- escalade (VER-028) : file de revue de l'ops et événement interne pour l'ADMIN ; codes et
     -- identifiants seulement, aucune donnée de la liste
     PERFORM 1 FROM core.support_enqueue_review('HOST_VERIFICATION', 'ORGANIZATION', p_org,
@@ -1095,7 +1102,7 @@ COMMENT ON FUNCTION core.kyc_cmd_host_submit(bytea, uuid) IS
   'demande de filtrage. SECURITY DEFINER, EXECUTE app_api. US-123 (ADR-105).';
 COMMENT ON FUNCTION core.kyc_cmd_host_record_screening(bytea, uuid, text, text, text, jsonb, text) IS
   'Résultat du filtrage des sanctions de l''hôte (version des listes, résultat, référence '
-  'opaque) ; correspondance ⇒ BLOCKED. SECURITY DEFINER, EXECUTE app_api. US-123 (ADR-105).';
+  'opaque) ; correspondance ⇒ screening_hold. SECURITY DEFINER, EXECUTE app_api. US-123 (ADR-105).';
 
 REVOKE ALL ON FUNCTION
   core.kyc_cmd_decide_with_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb),
@@ -1154,7 +1161,7 @@ BEGIN
   END IF;
 
   IF v_decision = 'REJECTED' THEN
-    IF h.status NOT IN ('OPEN', 'DOCS_PENDING', 'IN_REVIEW', 'BLOCKED') THEN
+    IF h.status NOT IN ('OPEN', 'DOCS_PENDING', 'IN_REVIEW') THEN
       RETURN QUERY SELECT 'HOST_VERIFICATION_DECIDED'::text, h.id, '{}'::uuid[];
       RETURN;
     END IF;
@@ -1166,7 +1173,7 @@ BEGIN
     RETURNING d.row_version INTO v_ver;
   ELSE
     -- APPROVED : dossier prêt, puis tous les contrôles revérifiés à l'horloge de la base
-    IF h.status = 'BLOCKED' THEN
+    IF h.screening_hold THEN
       RETURN QUERY SELECT 'HOST_SANCTIONS_HIT'::text, h.id, '{}'::uuid[];
       RETURN;
     ELSIF h.status IN ('REJECTED', 'REVOKED') THEN
@@ -1270,7 +1277,9 @@ GRANT EXECUTE ON FUNCTION core.kyc_manual_action_host_verification_decision(byte
 -- signé du relecteur, dossier recalculé (pièces manquantes ou revue) ; CONFIRMED : filtrage
 -- CONFIRMED_MATCH, dossier REJECTED (motif HOST_SANCTIONS_HIT), événement de décision. Élément de
 -- la file clôturé ; audit `HOST_SCREENING_REVIEWED` (codes seulement). Issue DONE ou
--- HOST_SCREENING_NOT_BLOCKED (dossier absent ou non bloqué : rien n'est écrit).
+-- HOST_SCREENING_NOT_BLOCKED (dossier absent, non retenu ou décidé : rien n'est écrit) ou
+-- HOST_SCREENING_ADMIN_REQUIRED (levée d'une correspondance par un autre rôle qu'ADMIN, PROPOSÉ :
+-- l'OPS_AGENT peut confirmer, seul l'ADMIN lève).
 CREATE FUNCTION core.kyc_manual_action_host_screening_review(p_token_hash bytea, p_action_id uuid,
                                                              p_action_code text,
                                                              p_subject_id uuid, p_input jsonb,
@@ -1300,8 +1309,12 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('kyc.host:' || p_subject_id::text, 0));
   SELECT d.* INTO h FROM core.kyc_host_verification AS d WHERE d.org_id = p_subject_id;
-  IF h.id IS NULL OR h.status <> 'BLOCKED' THEN
+  IF h.id IS NULL OR NOT h.screening_hold OR h.status NOT IN ('OPEN', 'DOCS_PENDING', 'IN_REVIEW') THEN
     RETURN QUERY SELECT 'HOST_SCREENING_NOT_BLOCKED'::text, h.id, '{}'::uuid[];
+    RETURN;
+  END IF;
+  IF v_decision = 'CLEARED' AND p_actor_role IS DISTINCT FROM 'ADMIN' THEN
+    RETURN QUERY SELECT 'HOST_SCREENING_ADMIN_REQUIRED'::text, h.id, '{}'::uuid[];
     RETURN;
   END IF;
   INSERT INTO core.kyc_sanctions_screening (id, subject_id, host_verification_id, provider,
@@ -1319,13 +1332,18 @@ BEGIN
   END IF;
   IF v_decision = 'CLEARED' THEN
     UPDATE core.kyc_host_verification AS d
-       SET sanctions_screening_id = v_scr, status = 'DOCS_PENDING', reason_code = NULL,
+       SET sanctions_screening_id = v_scr, screening_hold = false, reason_code = NULL,
            row_version = d.row_version + 1, updated_at = platform.now()
      WHERE d.id = h.id;
-    PERFORM core.kyc_host_refresh(h.id);
+    -- dossier complet : rendu à la file de revue ordinaire (l'élément de l'escalade est clôturé)
+    IF core.kyc_host_refresh(h.id) = 'IN_REVIEW' THEN
+      PERFORM 1 FROM core.support_enqueue_review('HOST_VERIFICATION', 'ORGANIZATION', p_subject_id,
+                                                  h.country_code, p_actor);
+    END IF;
   ELSE
     UPDATE core.kyc_host_verification AS d
-       SET sanctions_screening_id = v_scr, status = 'REJECTED', decided_by = p_actor,
+       SET sanctions_screening_id = v_scr, screening_hold = false, status = 'REJECTED',
+           decided_by = p_actor,
            decided_at = platform.now(), row_version = d.row_version + 1, updated_at = platform.now()
      WHERE d.id = h.id
     RETURNING d.row_version INTO v_ver;
@@ -1343,7 +1361,7 @@ BEGIN
   INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
                                     subject_id, before, after, reason, request_id)
   VALUES (p_actor, p_actor_role, 'HOST_SCREENING_REVIEWED', 'ORGANIZATION', p_subject_id,
-          pg_catalog.jsonb_build_object('status', 'BLOCKED'),
+          pg_catalog.jsonb_build_object('status', h.status, 'screeningHold', true),
           pg_catalog.jsonb_build_object('country', h.country_code,
                                         'countries', pg_catalog.jsonb_build_array(h.country_code),
                                         'verificationId', h.id, 'decision', v_decision),

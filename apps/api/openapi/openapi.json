@@ -11309,16 +11309,7 @@
             "enum": ["ONBOARDING", "PENDING_ACTIVATION", "ACTIVE", "SUSPENDED", "OFFBOARDED"]
           },
           "verificationStatus": {
-            "enum": [
-              "OPEN",
-              "DOCS_PENDING",
-              "IN_REVIEW",
-              "APPROVED",
-              "REJECTED",
-              "REVOKED",
-              "BLOCKED",
-              null
-            ]
+            "enum": ["OPEN", "DOCS_PENDING", "IN_REVIEW", "APPROVED", "REJECTED", "REVOKED", null]
           },
           "missing": {
             "type": "array",

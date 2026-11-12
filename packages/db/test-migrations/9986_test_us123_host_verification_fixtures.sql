@@ -55,14 +55,14 @@ CREATE FUNCTION test_fixture.us123_dossier(p_org uuid)
   RETURNS TABLE (id uuid, status text, missing text[], age_ok boolean, residence_verified boolean,
                  reason_code text, decided_by uuid, decided_at timestamptz,
                  activated_at timestamptz, sanctions_screening_id uuid,
-                 identity_verification_id uuid, country_code text)
+                 identity_verification_id uuid, country_code text, screening_hold boolean)
   LANGUAGE sql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT d.id, d.status, d.missing, d.age_ok, d.residence_verified, d.reason_code, d.decided_by,
          d.decided_at, d.activated_at, d.sanctions_screening_id, d.identity_verification_id,
-         d.country_code
+         d.country_code, d.screening_hold
     FROM core.kyc_host_verification AS d WHERE d.org_id = p_org
 $fn$;
 

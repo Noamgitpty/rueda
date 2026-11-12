@@ -656,10 +656,11 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
       const matchRef = `case_${randomBytes(5).toString('hex')}`;
       expect(await screen(c, p, org, s.screening_key, 'POTENTIAL_MATCH', matchRef)).toMatchObject({
         outcome: 'RECORDED',
-        status: 'BLOCKED',
+        status: 'IN_REVIEW',
       });
       expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
-        status: 'BLOCKED',
+        status: 'IN_REVIEW',
+        screening_hold: true,
         reason_code: 'HOST_SANCTIONS_HIT',
       });
       // dossier : version des listes, résultat, référence opaque (source, date : VER-028)
@@ -708,8 +709,8 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         missing: [],
         screening_done: true,
       });
-      expect(JSON.stringify(st)).not.toMatch(/SANCTIONS|BLOCKED|MATCH/);
-      expect((await submit(c, p, org)).outcome).toBe('DECIDED');
+      expect(JSON.stringify(st)).not.toMatch(/SANCTIONS|BLOCKED|MATCH|HOLD/i);
+      expect((await submit(c, p, org)).outcome).toBe('SUBMITTED');
       expect((await screen(c, p, org, s.screening_key, 'CLEAR')).outcome).toBe('DUPLICATE');
       expect(await decide(c, ops, org, 'APPROVED', [country])).toMatchObject({
         outcome: 'REFUSED',
@@ -784,13 +785,54 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
     });
   });
 
+  it('correspondance indiscernable par l’hôte : sans numéro, numéro enregistré, soumission, nouvel essai, mêmes réponses qu’un hôte propre', async () => {
+    await withRole('app_api', async (c) => {
+      const journey = async (result: 'CLEAR' | 'POTENTIAL_MATCH') => {
+        const { p, org } = await readyHost(c, country, { tax: false, screening: 'NONE' });
+        const s = await submit(c, p, org);
+        expect((await screen(c, p, org, s.screening_key, result)).outcome).toBe('RECORDED');
+        const kind = data(country).hostTaxIdKinds[0] ?? '';
+        const shape = (x: Submitted) => ({
+          outcome: x.outcome,
+          status: x.status,
+          missing: x.missing,
+        });
+        const seen = [
+          await state(c, p, org),
+          await saveTax(c, p, org, kind, sealedTaxId(org).enc),
+          shape(await submit(c, p, org)),
+          await state(c, p, org),
+          await saveTax(c, p, org, kind, sealedTaxId(org).enc),
+          await state(c, p, org),
+        ];
+        expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
+          screening_hold: result !== 'CLEAR',
+        });
+        return seen;
+      };
+      const clean = await journey('CLEAR');
+      const flagged = await journey('POTENTIAL_MATCH');
+      expect(flagged).toEqual(clean);
+      expect(clean[0]).toMatchObject({
+        verification_status: 'DOCS_PENDING',
+        missing: ['HOST_TAX_ID_REQUIRED'],
+      });
+      expect(clean[1]).toEqual({ outcome: 'SAVED' });
+      expect(clean[2]).toMatchObject({ outcome: 'SUBMITTED', status: 'IN_REVIEW', missing: [] });
+      expect(clean[4]).toEqual({ outcome: 'HOST_VERIFICATION_LOCKED' });
+    });
+  });
+
   it('revue d’une correspondance (VER-028) : faux positif levé avec motif ⇒ dossier rendu à la revue ; confirmée ⇒ REJECTED', async () => {
     await withRole('app_api', async (c) => {
       const ops = await elevated(c, 'OPS_AGENT', [country]);
+      const admin = await elevated(c, 'ADMIN', [country]);
       const finance = await elevated(c, 'FINANCE', [country]);
       const hit = async (): Promise<Ready> => {
         const r = await readyHost(c, country, { screening: 'POTENTIAL_MATCH' });
-        expect((await fixture(c, 'us123_dossier', r.org))[0]).toMatchObject({ status: 'BLOCKED' });
+        expect((await fixture(c, 'us123_dossier', r.org))[0]).toMatchObject({
+          screening_hold: true,
+        });
         return r;
       };
       const a = await hit();
@@ -798,16 +840,21 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
       expect(
         (await act(c, finance, 'HOST_SCREENING_REVIEW', a.org, 'CLEARED', [country])).outcome,
       ).toBe('FORBIDDEN');
+      // lever une correspondance : ADMIN seulement (l'OPS_AGENT peut confirmer, pas lever)
+      expect(await act(c, ops, 'HOST_SCREENING_REVIEW', a.org, 'CLEARED', [country])).toMatchObject(
+        { outcome: 'REFUSED', detail: 'HOST_SCREENING_ADMIN_REQUIRED' },
+      );
       expect(
-        (await act(c, ops, 'HOST_SCREENING_REVIEW', a.org, 'CLEARED', [country])).outcome,
+        (await act(c, admin, 'HOST_SCREENING_REVIEW', a.org, 'CLEARED', [country])).outcome,
       ).toBe('DONE');
       expect((await fixture(c, 'us123_dossier', a.org))[0]).toMatchObject({
         status: 'IN_REVIEW',
+        screening_hold: false,
         reason_code: null,
       });
       expect(await fixture(c, 'us123_screenings', a.org)).toEqual([
         expect.objectContaining({ result: 'POTENTIAL_MATCH', reviewer: null }),
-        expect.objectContaining({ provider: 'MANUAL', result: 'CLEAR', reviewer: ops.userId }),
+        expect.objectContaining({ provider: 'MANUAL', result: 'CLEAR', reviewer: admin.userId }),
       ]);
       expect(await fixture(c, 'us123_queue_items', a.org)).toEqual([
         { queue: 'HOST_VERIFICATION', status: 'DONE', decision: 'CLEARED' },
