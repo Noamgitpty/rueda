@@ -1992,8 +1992,6 @@ Contraintes :
 
 Index :
 
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - `restriction_user_active_idx` : `CREATE INDEX restriction_user_active_idx ON core.iam_restriction USING btree (user_id) WHERE active`
 - `restriction_user_kind_active_unique` : `CREATE UNIQUE INDEX restriction_user_kind_active_unique ON core.iam_restriction USING btree (user_id, kind) WHERE active`
 
@@ -4206,10 +4204,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_staff_cmd_reset_totp(p_token_hash bytea, p_request_id uuid, p_target uuid, p_reason text, p_factor_id uuid, p_secret_ref text, p_code_hash bytea, p_ttl_s integer)` | `text` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_suspend(p_token_hash bytea, p_request_id uuid, p_target uuid, p_reason text)` | `text` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_read_access(p_token_hash bytea, p_permission text, p_scope text)` | `text` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.iam_worker_otp_issue(p_challenge_id uuid, p_code_hash bytea)` | `TABLE(outcome text, phone_e164 text, country_code text, locale text, expires_in_min integer)` | `iam_auth_o ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 157ms
-   ❯ document du schéma (docs/architecture/schema.md) (1)
-     × est à jour : régénéré depuis la base migrée, identique au fichier commité 155ms
-wner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.iam_worker_otp_issue(p_challenge_id uuid, p_code_hash bytea)` | `TABLE(outcome text, phone_e164 text, country_code text, locale text, expires_in_min integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_worker_otp_prune(p_batch integer)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.kyc_cmd_apply_decision(p_provider text, p_event_id text, p_session_ref text, p_subject_ref text, p_decision text, p_liveness numeric, p_face_match numeric, p_document jsonb)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_biometric_consent(p_token_hash bytea, p_country text, p_version integer, p_accepted boolean)` | `TABLE(outcome text, version integer)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
