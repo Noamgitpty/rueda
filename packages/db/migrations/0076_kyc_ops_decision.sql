@@ -489,12 +489,16 @@ BEGIN
               v.review_unqueued_at NULLS FIRST, v.updated_at, v.id
      LIMIT p_batch
   LOOP
-    -- MUTATION VOLONTAIRE (à retirer) : ni verrou ni relecture
+    IF NOT pg_catalog.pg_try_advisory_xact_lock(
+             pg_catalog.hashtextextended('kyc.verification:' || v_c.user_id::text, 0)) THEN
+      v_skip := v_skip + 1;
+      CONTINUE;
+    END IF;
     -- relecture sous le verrou (nouvel instantané) : l'état a pu changer depuis la liste
     SELECT v.status, v.updated_at, v.review_unqueued_at INTO v_v
       FROM core.kyc_identity_verification AS v WHERE v.id = v_c.id AND v.is_current;
-    IF false
-       AND EXISTS (SELECT 1 FROM core.support_review_queue_item AS i
+    IF v_v.status IS DISTINCT FROM 'MANUAL_REVIEW'
+       OR EXISTS (SELECT 1 FROM core.support_review_queue_item AS i
                    WHERE i.queue = 'KYC' AND i.subject_type = 'USER_ACCOUNT'
                      AND i.subject_id = v_c.user_id AND i.status IN ('OPEN', 'IN_REVIEW')) THEN
       CONTINUE;
