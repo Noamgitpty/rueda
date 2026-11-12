@@ -1128,6 +1128,75 @@ export const FR_MESSAGES = {
   'web.s04.phoneFirst':
     'Vérifie d’abord ton téléphone : il sert à organiser la remise de la voiture.',
   'web.s04.phoneLink': 'Vérifier mon téléphone',
+  'common.hostVerification.state': 'État de ta vérification d’hôte.',
+  'common.hostVerification.submitted': 'Nous avons reçu ta demande pour devenir hôte.',
+  'common.hostVerification.taxSaved': 'Nous avons enregistré ton numéro fiscal.',
+  'common.hostVerification.ageUnverified':
+    'Nous n’avons pas pu confirmer ta date de naissance. Vérifie à nouveau ton identité.',
+  'common.hostVerification.kycRequired': 'Vérifie d’abord ton identité et ton permis.',
+  'common.hostVerification.residenceMismatch':
+    'Ta résidence vérifiée ne correspond pas au lieu de ton compte d’hôte.',
+  'common.hostVerification.accountNotEligible':
+    'Ton compte d’hôte ne peut pas recevoir cette demande pour le moment. Écris-nous.',
+  'common.hostVerification.locked':
+    'Ta demande est en cours d’examen ou a déjà été examinée. Pour changer une information, écris-nous.',
+  'common.hostVerification.taxKindInvalid': 'Choisis l’un des types de numéro fiscal de la liste.',
+  'common.hostVerification.taxIdInvalid':
+    'Vérifie ton numéro fiscal : chiffres, lettres et tirets seulement.',
+  'common.hostVerification.vaultUnavailable':
+    'Nous ne pouvons pas enregistrer ton numéro fiscal en sécurité pour le moment. Réessaie plus tard.',
+  'common.hostVerification.unavailable':
+    'Nous ne pouvons pas traiter ta demande d’hôte pour le moment. Réessaie plus tard.',
+  'web.a07.loginRequired': 'Connecte-toi pour voir tes tâches d’hôte.',
+  'web.a07.login': 'Se connecter',
+  'web.a07.noHostAccount': 'Tu n’as pas encore de compte d’hôte.',
+  'web.a07.openHost': 'Aller à mon espace d’hôte',
+  'web.a07.error': 'Nous n’avons pas pu charger tes tâches.',
+  'web.a07.retry': 'Réessayer',
+  'web.a07.tasksHeading': 'Tes tâches',
+  'web.a07.done': 'Fait',
+  'web.a07.todo': 'À faire',
+  'web.a07.waiting': 'En attente',
+  'web.a07.task.identityAction': 'Vérifier mon identité',
+  'web.a07.task.age': 'Âge minimum pour être hôte',
+  'web.a07.task.ageHint': 'Nous la lisons sur ton identité vérifiée ou, à défaut, sur ton compte.',
+  'web.a07.task.termsAction': 'Lire et accepter',
+  'web.a07.task.screening': 'Contrôles de sécurité',
+  'web.a07.task.screeningHint': 'Nous les faisons quand tu envoies ta demande.',
+  'web.a07.task.payments': 'Compte de versement examiné par le prestataire de paiement',
+  'web.a07.task.paymentsHint': 'Ce contrôle est fait par le prestataire de paiement, pas par toi.',
+  'web.a07.tax.heading': 'Ton numéro fiscal',
+  'web.a07.tax.kind': 'Type de numéro',
+  'web.a07.tax.number': 'Numéro',
+  'web.a07.tax.numberHint': 'Tel qu’il figure sur ton document, avec ou sans tirets.',
+  'web.a07.tax.regime': 'Régime fiscal',
+  'web.a07.tax.regimeHint': 'Code en majuscules, si tu le connais.',
+  'web.a07.tax.save': 'Enregistrer mon numéro',
+  'web.a07.tax.saved': 'Numéro enregistré ({kind}).',
+  'web.a07.tax.private': 'Nous le gardons chiffré et ne le montrons jamais aux voyageurs.',
+  'web.a07.tax.individualOnly': 'Particuliers seulement : nous n’acceptons pas les sociétés.',
+  'web.a07.submit': 'Envoyer ma demande',
+  'web.a07.submitHint':
+    'Tu peux l’envoyer même s’il manque une tâche : nous te dirons ce qui reste.',
+  'web.a07.status.DOCS_PENDING': 'Ta demande est incomplète.',
+  'web.a07.status.IN_REVIEW': 'Nous examinons ta demande.',
+  'web.a07.status.APPROVED': 'Nous avons approuvé ta demande.',
+  'web.a07.status.REJECTED':
+    'Nous n’avons pas pu approuver ta demande. Écris-nous pour en savoir plus.',
+  'web.a07.missing': 'Il manque : {tasks}.',
+  'web.a07.pendingActivation':
+    'Nous avons approuvé ta demande, mais ton compte d’hôte n’est pas encore actif.',
+  'web.a07.active': 'Ton compte d’hôte est actif.',
+  'web.a07.back': 'Retour à mon espace d’hôte',
+  'web.host.verificationLink': 'Ma vérification d’hôte',
+  'web.a07.waitingCountry':
+    'Tout est prêt de ton côté. Nous te préviendrons quand {brand} ouvrira aux hôtes au {country}.',
+  'web.a07.title': 'Avant d’accueillir des voyageurs',
+  'web.a07.intro':
+    'On te dit ce qui reste et qui s’en charge. Tu peux partir et revenir quand tu veux.',
+  'web.a07.task.identity': 'Ton identité',
+  'web.a07.task.tax': 'Données fiscales',
+  'web.a07.task.terms': 'Conditions pour les hôtes',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Avertissement important',
   'common.regulatory.version': 'Version {version} de cet avertissement',

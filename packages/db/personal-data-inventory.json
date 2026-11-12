@@ -2053,6 +2053,132 @@
         "requested_at": "C1",
         "completed_at": "C1"
       }
+    },
+    "core.kyc_identity_subject": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "verification_id": "C1",
+        "user_id": "C1",
+        "attempt": "C1",
+        "date_of_birth": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "residence_country": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "created_at": "C1"
+      }
+    },
+    "core.kyc_host_verification": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "user_id": "C1",
+        "country_code": "C1",
+        "status": "C1",
+        "screening_hold": {
+          "class": "C3",
+          "erasure": "purge"
+        },
+        "identity_verification_id": "C1",
+        "age_ok": "C1",
+        "residence_verified": "C1",
+        "tax_id_checked_at": "C1",
+        "sanctions_screening_id": "C1",
+        "missing": "C1",
+        "reason_code": "C1",
+        "decided_by": "C1",
+        "decided_at": "C1",
+        "activated_at": "C1",
+        "row_version": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.kyc_sanctions_screening": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "subject_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "host_verification_id": "C1",
+        "provider": "C1",
+        "request_key": "C1",
+        "lists_version": "C1",
+        "result": {
+          "class": "C3",
+          "erasure": "purge"
+        },
+        "match_ref": {
+          "class": "C3",
+          "erasure": "purge"
+        },
+        "screened_at": "C1",
+        "reviewer": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.kyc_host_tax_profile": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "user_id": "C1",
+        "country_code": "C1",
+        "tax_id_kind": "C1",
+        "tax_id_enc": {
+          "class": "C2",
+          "erasure": "crypto-shredding",
+          "key": ["tax_id_key_subject_type", "tax_id_key_subject_id"]
+        },
+        "tax_id_key_subject_type": "C1",
+        "tax_id_key_subject_id": "C1",
+        "regime": "C1",
+        "taxpayer_kind": "C1",
+        "row_version": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
     }
   }
 }

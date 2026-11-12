@@ -601,8 +601,8 @@
       "signature": "core.ctr_host_terms_required(uuid,text)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["catalog_cmd_owner"],
-      "story": "US-126"
+      "execute": ["catalog_cmd_owner", "kyc_cmd_owner"],
+      "story": "US-126, US-123"
     },
     {
       "signature": "core.ctr_host_terms(bytea,uuid,text)",
@@ -643,8 +643,8 @@
       "signature": "core.iam_host_accounts(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api", "catalog_cmd_owner"],
-      "story": "US-107, US-115"
+      "execute": ["app_api", "catalog_cmd_owner", "kyc_cmd_owner"],
+      "story": "US-107, US-115, US-123"
     },
     {
       "signature": "core.iam_phone_otp_state(bytea)",
@@ -770,14 +770,14 @@
       "family": "iam_staff",
       "owner": "iam_staff_owner",
       "execute": ["catalog_cmd_owner", "kyc_cmd_owner"],
-      "story": "US-109, US-114, US-106"
+      "story": "US-109, US-114, US-123, US-106"
     },
     {
       "signature": "core.support_close_review_item(uuid,text,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
       "execute": ["kyc_cmd_owner"],
-      "story": "US-109, US-106"
+      "story": "US-109, US-123, US-106"
     },
     {
       "signature": "core.catalog_cmd_request_addition(bytea,uuid,uuid,text,text,text)",
@@ -932,6 +932,55 @@
       "owner": "kyc_cmd_owner",
       "execute": ["app_worker"],
       "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_decide_with_facts(text,text,text,text,text,numeric,numeric,jsonb,jsonb)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-123"
+    },
+    {
+      "signature": "core.kyc_host_state(bytea,uuid)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-123"
+    },
+    {
+      "signature": "core.kyc_cmd_host_save_tax_profile(bytea,uuid,text,bytea,text,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-123"
+    },
+    {
+      "signature": "core.kyc_cmd_host_submit(bytea,uuid)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-123"
+    },
+    {
+      "signature": "core.kyc_cmd_host_record_screening(bytea,uuid,text,text,text,jsonb,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-123"
+    },
+    {
+      "signature": "core.kyc_manual_action_host_verification_decision(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-123"
+    },
+    {
+      "signature": "core.kyc_manual_action_host_screening_review(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-123"
     },
     {
       "signature": "core.config_cmd_approve_go_live_switch(bytea,uuid)",

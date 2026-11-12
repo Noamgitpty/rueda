@@ -203,6 +203,8 @@ describe('US-046 — destruction de la clé : C2 / C3 illisibles, registres inta
       // consentements (US-102, 0059) : preuve C2 chiffrée par la clé du sujet
       'core.contract_consent.ip_enc',
       'core.contract_consent.user_agent_enc',
+      // profil fiscal de l'hôte (US-123, 0075) : numéro chiffré par la clé du compte d'hôte
+      'core.kyc_host_tax_profile.tax_id_enc',
     ]);
   });
 

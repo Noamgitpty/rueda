@@ -402,6 +402,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/host/accounts/{orgId}': 'modules/cat/testing/host-listings.contract.test.ts',
   // CGU de l'hôte (US-126, module CTR)
   '/host/accounts/{orgId}/terms': 'modules/ctr/testing/host-terms.contract.test.ts',
+  // inscription et vérification de l'hôte, profil fiscal (US-123, module KYC)
+  '/host/accounts/{orgId}/verification': 'modules/kyc/testing/host-verification.contract.test.ts',
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   '/phone': 'modules/iam/testing/phone.contract.test.ts',
   // vérification d'identité et rappels du fournisseur d'identité (US-105)

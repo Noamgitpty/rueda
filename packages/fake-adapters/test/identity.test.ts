@@ -238,3 +238,63 @@ describe('FakeIdentityProvider (KYC hébergé)', () => {
     });
   });
 });
+
+describe('FakeIdentityProvider — faits vérifiés de la personne (US-123)', () => {
+  it('date de naissance et pays de résidence lus du rappel ; tout autre champ ignoré ; forme stricte', async () => {
+    const { kyc } = setup();
+    const country = countries[0]?.code ?? '';
+    const out = await kyc.startVerification(request(country, 'k-facts'));
+    if (out.status !== 'OK') throw new Error('session refusée');
+    kyc.decide(
+      out.value.sessionId,
+      'APPROVED',
+      [],
+      {
+        livenessScore: 0.9,
+        faceMatchScore: 0.8,
+        document: null,
+        subject: { dateOfBirth: '1990-04-30', residenceCountry: country },
+      },
+      // un fournisseur réel peut ajouter nom et adresse : la lecture les ignore
+      {},
+    );
+    const [delivery] = kyc.takeDeliveries();
+    if (delivery === undefined) throw new Error('rappel absent');
+    const raw = JSON.parse(delivery.body) as { checks: { subject: Record<string, unknown> } };
+    raw.checks.subject['fullName'] = 'Ana María Pérez Gómez';
+    raw.checks.subject['address'] = 'Calle 50';
+    const verdict = kyc.parseWebhook(delivery.body, delivery.signature, kyc.runtime.clock.now());
+    expect(verdict).toMatchObject({
+      status: 'ACCEPTED',
+      event: { checks: { subject: { dateOfBirth: '1990-04-30', residenceCountry: country } } },
+    });
+    if (verdict.status !== 'ACCEPTED') throw new Error('rappel rejeté');
+    expect(Object.keys(verdict.event.checks.subject ?? {}).sort()).toEqual([
+      'dateOfBirth',
+      'residenceCountry',
+    ]);
+  });
+
+  it('faits mal formés ⇒ rappel MALFORMED ; absents ⇒ aucun champ subject', async () => {
+    const { kyc } = setup();
+    const country = countries[0]?.code ?? '';
+    const out = await kyc.startVerification(request(country, 'k-bad-facts'));
+    if (out.status !== 'OK') throw new Error('session refusée');
+    kyc.decide(out.value.sessionId, 'APPROVED', [], {
+      livenessScore: 0.9,
+      faceMatchScore: 0.8,
+      document: null,
+      subject: { dateOfBirth: '30/04/1990', residenceCountry: country },
+    });
+    kyc.decide(out.value.sessionId, 'APPROVED');
+    const [bad, plain] = kyc.takeDeliveries();
+    if (bad === undefined || plain === undefined) throw new Error('rappels absents');
+    expect(kyc.parseWebhook(bad.body, bad.signature, kyc.runtime.clock.now())).toEqual({
+      status: 'REJECTED',
+      reason: 'MALFORMED',
+    });
+    const v = kyc.parseWebhook(plain.body, plain.signature, kyc.runtime.clock.now());
+    if (v.status !== 'ACCEPTED') throw new Error('rappel rejeté');
+    expect('subject' in v.event.checks).toBe(false);
+  });
+});

@@ -60,11 +60,25 @@ export interface IdentityDocumentResult {
   readonly providerDocumentRef: string | null;
 }
 
-/** Contrôles du fournisseur : scores de liveness et de face match (0 à 1, C3) et pièce lue. */
+/**
+ * Faits VÉRIFIÉS sur la personne (US-123, ADR-105 ; BOARD N-28, N-38) : date de naissance lue sur
+ * la pièce (AAAA-MM-JJ) et pays de résidence établi par le fournisseur. Source prioritaire de l'âge
+ * et de la résidence de l'hôte. Jamais un nom, un numéro ni une adresse.
+ */
+export interface IdentitySubjectFacts {
+  readonly dateOfBirth: string | null;
+  readonly residenceCountry: string | null;
+}
+
+/**
+ * Contrôles du fournisseur : scores de liveness et de face match (0 à 1, C3), pièce lue et, quand
+ * le fournisseur les rend, faits vérifiés sur la personne.
+ */
 export interface IdentityChecks {
   readonly livenessScore: number | null;
   readonly faceMatchScore: number | null;
   readonly document: IdentityDocumentResult | null;
+  readonly subject?: IdentitySubjectFacts | null;
 }
 
 export interface IdentityDecisionEvent {

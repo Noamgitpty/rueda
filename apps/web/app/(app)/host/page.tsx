@@ -183,6 +183,15 @@ export default async function HostPage({
           currency: market.currency,
         })}
       </p>
+      {/* liste de tâches de la vérification de l'hôte (A07, US-123) */}
+      <p className={accountStyles['text']}>
+        <a
+          className={styles['link']}
+          href={`/host/verification?${new URLSearchParams({ org: account.orgId }).toString()}`}
+        >
+          {t('web.host.verificationLink')}
+        </a>
+      </p>
       {accounts.length > 1 && (
         <nav aria-labelledby="a10-accounts">
           <h2 id="a10-accounts" className={accountStyles['h2']}>
