@@ -246,8 +246,9 @@ BEGIN
   IF p_key NOT IN ('price_ceiling_daily_minor', 'price_ceiling_extra_km_minor') THEN
     RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  INSERT INTO core.config_param_value (key, country_code, scope_type, value, valid_from, change_reason)
-  VALUES (p_key, p_country, 'COUNTRY', p_value, platform.now(), 'test US-115 (annulé)');
+  -- valid_from absent : la garde le pose à platform.now() (jamais rétroactif, 16 ADM-014)
+  INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
+  VALUES (p_key, p_country, 'COUNTRY', p_value, 'test US-115 (annulé)');
 END
 $fn$;
 
