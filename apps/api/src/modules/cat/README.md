@@ -64,6 +64,13 @@ Modifier la graine : éditer les données, puis `RUEDA_WRITE_CATALOG_SEED=1 pnpm
 
 Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce `LISTED` ; occupations, holds et trips portent une clé étrangère `(vehicle_id, org_id, country_code)` vers `catalog_vehicle` (ADR-060, ADR-089, ADR-099). Sans annonce publiée (US-118), aucun hold ni blocage n'est possible en production.
 
+### Documents et éligibilité du véhicule, contestation de plaque (US-124, ADR-107)
+
+- Migrations `0077_catalog_vehicle_documents` (tables `catalog_vehicle_document`, `catalog_vehicle_eligibility_check`, `catalog_vehicle_claim` ; colonnes `title_holder`, `eligibility_reasons`, `eligibility_submitted_at`, `eligibility_checked_at`, `released_at` sur `catalog_vehicle`) et `0078_config_vehicle_eligibility_params` (paramètres `elig_*`, générée).
+- Routes : `GET /host/accounts/{orgId}/vehicle-eligibility`, `PUT …/vehicles/{vehicleId}/declaration`, `POST …/vehicles/{vehicleId}/documents` (503 en production : antivirus, coffre et stockage pas encore livrés), `POST …/vehicles/{vehicleId}/eligibility` (motifs dans `reasons`), `GET|POST …/vehicle-claims`. Console (SUP) : `POST /console/queues/items/{id}/vehicle|vehicle/decide|vehicle-claim|vehicle-claim/decide|files/{fileId}`.
+- Ports `DocumentScanner`, `DocumentVault`, `DocumentFileStore` (`internal/vehicle-documents/ports.ts`, exportés par `index.ts` pour la console) ; production : `UNAVAILABLE_DOCUMENTS`.
+- Fiche publique : `hostFirstName` (premier mot du prénom légal, BOARD N-37).
+
 ## Événements
 
 Émis : `catalog.addition_request.resolved` (US-114, outbox, par `core.catalog_resolve_addition` : `request_id`, `status`, `resolved_variant_id`, extensions `vehicle_id`, `org_id`, `host_user_id`, `reject_reason` ; consommé par NTF). Cible 17 §4.5, pas encore émis : `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `catalog.deposit_policy.changed` (17 §2.2), `catalog.vehicle_document.expiring`.

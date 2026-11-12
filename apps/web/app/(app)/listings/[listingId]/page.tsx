@@ -134,6 +134,12 @@ export default async function ListingPage({
           </span>
         </p>
         <p className={accountStyles['muted']}>{t('web.listing.meet.approx')}</p>
+        {/* nom affiché de l'hôte : premier mot du prénom légal, jamais le nom complet (N-37) */}
+        {listing.hostFirstName !== null && (
+          <p className={accountStyles['text']}>
+            {t('web.listing.hostName', { name: listing.hostFirstName })}
+          </p>
+        )}
       </section>
     </main>
   );
