@@ -41,7 +41,7 @@ const CONFIG_TABLES = [
   'config_holiday_calendar',
   'pricing_tax_line_config',
   'finance_legal_entity',
-  // US-125 (0071) : demandes à deux personnes des interrupteurs ; droits par l0-us125
+  // US-125 (0073) : demandes à deux personnes des interrupteurs ; droits par l0-us125
   'config_go_live_switch_request',
 ] as const;
 

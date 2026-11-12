@@ -127,7 +127,7 @@ describe('configuration pays : structure et droits', () => {
                 AND NOT pg_catalog.has_column_privilege('app_api', a.attrelid, a.attnum, 'SELECT')`,
           );
           // identifiant du personnel et motif libre C2 (0052, US-046) et lien vers la demande à deux
-          // personnes (0071, US-125) : jamais lisibles par app_api
+          // personnes (0073, US-125) : jamais lisibles par app_api
           expect(cols.map((c) => c.col).sort()).toEqual([
             'approved_by',
             'change_reason',
@@ -186,7 +186,7 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
-            // interrupteurs à deux personnes (US-125, 0071) : écriture de la seule version recopiant
+            // interrupteurs à deux personnes (US-125, 0073) : écriture de la seule version recopiant
             // une demande approuvée ; lecture des pays, des définitions et valeurs gardées
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_golive_ins', cmd: 'a', roles: 'cmd_golive_owner' }]

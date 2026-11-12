@@ -36,10 +36,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  nouvelles `web.s15.*`. Version 18 : lieux de remise, véhicules et annonces de l'hôte (US-115) :
  `common.listing.*`, `web.host.*`, `web.listing.*`. Version 19 : CGU de l'hôte (US-126) :
  `common.listing.hostTermsRequired`, `web.host.terms.*`, `web.legal.validFrom`,
- `web.legal.translation`, `web.legal.backHost`. Version 20 : interrupteurs par pays et
+ `web.legal.translation`, `web.legal.backHost`. Versions 20 et 21 : US-105 et US-119. Version 22 : interrupteurs par pays et
  avertissements réglementaires versionnés (US-125) : `common.regulatory.*`.
  */
-export const CATALOG_VERSION = 20;
+export const CATALOG_VERSION = 22;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

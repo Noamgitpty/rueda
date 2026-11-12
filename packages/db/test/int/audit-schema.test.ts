@@ -169,7 +169,7 @@ describe('schéma d’audit (US-009)', () => {
           continue;
         }
         if (r.roles === 'cmd_golive_owner') {
-          // US-125 (0071) : interrupteurs à deux personnes, journal en ajout seul (+ RETURNING id)
+          // US-125 (0073) : interrupteurs à deux personnes, journal en ajout seul (+ RETURNING id)
           expect(
             ['audit_audit_log.cmd_golive_ins', 'audit_audit_log.cmd_golive_sel'],
             where,

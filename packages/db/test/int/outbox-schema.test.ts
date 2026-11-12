@@ -151,7 +151,7 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_auth_owner', cmd: 'a' });
           continue;
         }
-        // interrupteurs à deux personnes (0071, US-125) : insertion de config.param.changed seulement
+        // interrupteurs à deux personnes (0073, US-125) : insertion de config.param.changed seulement
         if (r.pol === 'outbox_outbox_event.cmd_golive_event_ins') {
           expect(r).toMatchObject({ roles: 'cmd_golive_owner', cmd: 'a' });
           continue;

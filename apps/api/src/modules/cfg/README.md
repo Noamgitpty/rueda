@@ -12,7 +12,7 @@ CFG ne contient aucune règle métier : il valide, charge et résout des valeurs
 
 - US-013 (ADR-024, ADR-033, ADR-049) : données `data/*.json`, validation, résolution des paramètres, interrupteurs, contrôles de démarrage et de tzdata. Détail : [`internal/README.md`](internal/README.md).
 - US-034 (ADR-036, ADR-067) : socle de marque. Détail : [`internal/brand/README.md`](internal/brand/README.md).
-- US-125 (ADR-101, PROPOSÉ) : interrupteurs de mise en service changés **seulement** par deux personnes distinctes (commandes en base `core.config_cmd_request_go_live_switch` / `core.config_cmd_approve_go_live_switch`, migration 0071, RLS-27) ; avertissements réglementaires versionnés par pays (`regulatoryNotices` de `data/countries.json`, textes `common.regulatory.*` du catalogue en es, en, fr et pt), servis par `GET /regulatory-notices?country=XX&audience=HOST|GUEST` (`internal/notices/`).
+- US-125 (ADR-103, PROPOSÉ) : interrupteurs de mise en service changés **seulement** par deux personnes distinctes (commandes en base `core.config_cmd_request_go_live_switch` / `core.config_cmd_approve_go_live_switch`, migration 0073, RLS-27) ; avertissements réglementaires versionnés par pays (`regulatoryNotices` de `data/countries.json`, textes `common.regulatory.*` du catalogue en es, en, fr et pt), servis par `GET /regulatory-notices?country=XX&audience=HOST|GUEST` (`internal/notices/`).
 
 ## Entités
 
@@ -26,7 +26,7 @@ CFG ne contient aucune règle métier : il valide, charge et résout des valeurs
 | `brand_version`           | table `core.config_brand_version` (migration 0042)    |
 | `brand_asset`             | table `core.config_brand_asset` (migration 0042)      |
 | `content_block`           | table `core.config_content_block` (migration 0042)    |
-| `go_live_switch_request`  | table `core.config_go_live_switch_request` (0071)     |
+| `go_live_switch_request`  | table `core.config_go_live_switch_request` (0073)     |
 
 La migration 0008 crée aussi `core.pricing_tax_line_config` (taxe par ligne, entité PRC en 17 §3.2.5) et `core.finance_legal_entity` (entité FIN en 17 §3.2.13), chargées depuis `data/countries.json`. Graines : `0009_config_seed.sql`, **générée** depuis `data/*.json` (ne pas l'éditer).
 

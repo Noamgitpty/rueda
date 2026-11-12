@@ -1,5 +1,5 @@
 /**
- * Preuves des interrupteurs de mise en service par pays (US-125, migration 0071 ; RLS-27) sous les
+ * Preuves des interrupteurs de mise en service par pays (US-125, migration 0073 ; RLS-27) sous les
  * rôles de PRODUCTION (assertion L0-05 en tête de chaque connexion : connectAs / withRole), au
  * Panama (USD) et au Paraguay (PYG). Chaque écriture à true se fait dans une transaction ANNULÉE ;
  * à la fin de chaque preuve, les quatre interrupteurs valent false.
@@ -16,7 +16,7 @@
  *   référence de la décision écrite du fondateur ;
  * - critère 5 (base) : la table des demandes n'est lisible par aucun rôle applicatif ; un hôte ou
  *   un voyageur n'obtient rien des commandes.
- * Défauts fail-closed PROPOSÉS (ADR-101) : référence `DEC-FONDATEUR-n`, échéance de 72 h, demande
+ * Défauts fail-closed PROPOSÉS (ADR-103) : référence `DEC-FONDATEUR-n`, échéance de 72 h, demande
  * rejetée si le demandeur a perdu la permission, MFA exigée.
  */
 import { randomUUID } from 'node:crypto';

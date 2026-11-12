@@ -1,9 +1,9 @@
--- 0071 — CFG : interrupteurs de mise en service par pays, changés seulement par deux personnes.
+-- 0073 — CFG : interrupteurs de mise en service par pays, changés seulement par deux personnes.
 -- US-125 ; 19 US-125 ; 17 §0.1 (interrupteurs), §2.3 (commandes `cmd_request_go_live_switch` /
 -- `cmd_approve_go_live_switch`, propriétaire `cmd_golive_owner`, trigger
 -- `param_value_go_live_guard`, RLS-27), §7.2 ; ADR-046 (mécanisme PROPOSÉ) ; DEC-FONDATEUR-15 ;
 -- réserve 5 de la revue sécurité US-056 (l'identité ne vient jamais d'un réglage de session) ;
--- ADR-101 (PROPOSÉ). Appliquée sous `migrator`.
+-- ADR-103 (PROPOSÉ). Appliquée sous `migrator`.
 --
 -- Bêta (D1) : schéma unique `core`, préfixe `config_` (`config.go_live_switch_request` →
 -- `core.config_go_live_switch_request`, `config.cmd_*` → `core.config_cmd_*`).
@@ -24,7 +24,7 @@
 --   - demande : ADMIN ou SUPERADMIN avec `config.go_live_switch` dans le pays, référence d'une
 --     décision écrite du fondateur (`DEC-FONDATEUR-n`, docs/team/DECISIONS.md) ; approbation :
 --     SUPERADMIN AUTRE que le demandeur, dans le pays ; le demandeur doit encore détenir la
---     permission ; une demande expire 72 h après sa création (PROPOSÉ, ADR-101) ;
+--     permission ; une demande expire 72 h après sa création (PROPOSÉ, ADR-103) ;
 --   - effet dans la transaction de l'approbation : demande APPLIED, nouvelle version de
 --     `config_param_value` (valid_from = platform.now()), événement `config.param.changed`,
 --     audit en dernier ; refus (auto-approbation, expiration, demandeur sans droit) journalisés ;
@@ -486,7 +486,7 @@ BEGIN
     RETURN QUERY SELECT 'ALREADY_PENDING'::text, v_pending;
     RETURN;
   END IF;
-  -- aucun effet sur la valeur : la demande seule ; échéance 72 h (PROPOSÉ, ADR-101)
+  -- aucun effet sur la valeur : la demande seule ; échéance 72 h (PROPOSÉ, ADR-103)
   INSERT INTO core.config_go_live_switch_request (id, key, country_code, value, decision_ref,
                                                   requested_by, expires_at, status)
   VALUES (p_request_id, p_key, p_country, p_value, p_decision_ref, v_s.user_id,

@@ -13,7 +13,7 @@
  * - RC-3 : le versement d'une jambe est refusé à l'ENREGISTREMENT de l'ordre, condition par
  *   condition, jusqu'à l'interrupteur `payouts_enabled[pays]`, qui vaut false (17 §0.1) ; cas
  *   passant (suite S-04, US-125) : l'interrupteur ouvert par les DEUX personnes de la procédure de
- *   0071, sur la base de test et dans une fenêtre d'horloge virtuelle lointaine refermée à false.
+ *   0073, sur la base de test et dans une fenêtre d'horloge virtuelle lointaine refermée à false.
  * - RC-4 : limite connue, caractérisée dans `redteam-argent-psp-legs` (ARG-34a, story US-202).
  *
  * Attendus : export des oracles (`@rueda/money/golden-vectors`) et vecteurs TJ, jamais le code testé.

@@ -6,7 +6,7 @@
  * Règle de l'axe : AUCUN interrupteur n'est jamais mis à true durablement. Les tentatives
  * d'écriture à true se font dans une transaction ANNULÉE (`inTx` sans `commit`) sur la base de test ;
  * un test rouge signifierait qu'un acteur seul y est parvenu, et la transaction est annulée quand
- * même. Depuis US-125 (migration 0071), la SEULE voie d'écriture est la paire de commandes à deux
+ * même. Depuis US-125 (migration 0073), la SEULE voie d'écriture est la paire de commandes à deux
  * personnes `core.config_cmd_request_go_live_switch` / `core.config_cmd_approve_go_live_switch` :
  * on prouve qu'aucune autre voie n'existe, pour aucun rôle, aucun contexte, aucune astuce de
  * session (RT-CONC-21 à 23), puis que la paire refuse un acteur seul et la même personne deux fois
