@@ -353,7 +353,9 @@ BEGIN
     RETURN 'HELD';
   END IF;
   -- revue de l'ops exigée par le pays ; paramètre absent ou mal formé : revue (fail-closed)
-  -- MUTATION US-108 (commit retiré ensuite) : garde de la revue exigée par le pays retirée
+  IF core.kyc_host_param('host_manual_review_required', h.country_code) IS DISTINCT FROM 'false'::jsonb THEN
+    RETURN 'REVIEW_REQUIRED';
+  END IF;
   -- mêmes contrôles que la décision APPROVED de l'ops (0075), à l'horloge de la base
   SELECT * INTO g FROM core.kyc_host_gates(p_org);
   IF g.org_id IS NULL OR g.kyc_id IS NULL OR g.age <> 'OK' OR g.residence = 'MISMATCH'
