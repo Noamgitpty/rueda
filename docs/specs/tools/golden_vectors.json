@@ -4111,7 +4111,29 @@
     {
       "vectorId": "T71",
       "oracle": "check_t49plus.py",
-      "label": "T71 a/b/c/d",
+      "label": "T71 a/b/c (valeurs PROPOSEES)",
+      "normative": true,
+      "expected": [
+        [
+          false,
+          []
+        ],
+        [
+          false,
+          []
+        ],
+        [
+          true,
+          [
+            "CLASS"
+          ]
+        ]
+      ]
+    },
+    {
+      "vectorId": "T71",
+      "oracle": "check_t49plus.py",
+      "label": "T71 d/e/f (age active) / g (absent)",
       "normative": true,
       "expected": [
         [
@@ -4170,7 +4192,6 @@
         [
           true,
           [
-            "AGE",
             "CLASS",
             "RISK"
           ]

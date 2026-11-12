@@ -249,7 +249,8 @@ check('T64', (ops, need, hostPayable(4500, 0, need, [], owed1)),
 # ---------- T69-T73 : caution conditionnelle (revise 2026-11-12, caution comme Turo, US-063) ----------
 # Ecrit a partir du texte de BR-PAY-06 (« Caution conditionnelle », « Fail-closed », « Montant unique ») et de
 # la section « Jeux de tests T69-T73 ». None = parametre absent ou donnee inconnue => declencheur vrai.
-PROPOSED = dict(always=False, classes={'LUXE'}, age=30, age_classes={'PREMIUM', 'LUXE'}, risk=True, risk_deployed=False)
+# age_classes vide : aucune caution liee a l'age au PA et au PY (DEC-FONDATEUR-21, 2026-11-12)
+PROPOSED = dict(always=False, classes={'LUXE'}, age=30, age_classes=set(), risk=True, risk_deployed=False)
 
 
 def deposit_required(p, cls, driver_ages, flagged, stage='CHECKOUT'):
@@ -294,8 +295,13 @@ r70l = deposit_required(PROPOSED, 'LUXE', None, None, stage='PRE_CHECKOUT')
 check('T70 c avant checkout PREMIUM / LUXE', (r70p, r70l, deposit_amount(r70l[0], AMT_PA_TEST, 'LUXE')),
       ((False, ()), (True, ('CLASS',)), 30000))
 # T71 : seuil d'age strict, classes de l'age, plus jeune conducteur approuve
-check('T71 a/b/c/d', (deposit_required(PROPOSED, 'PREMIUM', [29], False), deposit_required(PROPOSED, 'PREMIUM', [30], False),
-                      deposit_required(PROPOSED, 'STANDARD', [22], False), deposit_required(PROPOSED, 'PREMIUM', [45, 26], False)),
+AGE_ON = dict(PROPOSED, age_classes={'PREMIUM', 'LUXE'})
+check('T71 a/b/c (valeurs PROPOSEES)', (deposit_required(PROPOSED, 'PREMIUM', [29], False), deposit_required(PROPOSED, 'PREMIUM', [45, 26], False),
+                                      deposit_required(PROPOSED, 'LUXE', [25], False)),
+      ((False, ()), (False, ()), (True, ('CLASS',))))
+check('T71 d/e/f (age active) / g (absent)', (deposit_required(AGE_ON, 'PREMIUM', [29], False), deposit_required(AGE_ON, 'PREMIUM', [30], False),
+                                             deposit_required(AGE_ON, 'STANDARD', [22], False),
+                                             deposit_required(dict(PROPOSED, age_classes=None), 'STANDARD', [22], False)),
       ((True, ('AGE',)), (False, ()), (False, ()), (True, ('AGE',))))
 # T72 : fail-closed (PY)
 DEPLOYED = dict(PROPOSED, risk_deployed=True)
@@ -309,7 +315,7 @@ AMT_PY = {'LUXE': 1500000, 'STANDARD': 500000}
 r73a = deposit_required(DEPLOYED, 'LUXE', [27], True)
 r73b = deposit_required(dict(PROPOSED, always=True), 'STANDARD', [45], False)
 check('T73 a/b', (r73a, deposit_amount(r73a[0], AMT_PY, 'LUXE'), r73b, deposit_amount(r73b[0], AMT_PY, 'STANDARD')),
-      ((True, ('AGE', 'CLASS', 'RISK')), 1500000, (True, ('COUNTRY',)), 500000))
+      ((True, ('CLASS', 'RISK')), 1500000, (True, ('COUNTRY',)), 500000))
 
 print('T49-T65 : ecarts =', len(FAILS))
 raise SystemExit(1 if FAILS else 0)
