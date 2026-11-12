@@ -61,7 +61,13 @@ describe('contrat HTTP — /legal (US-102)', () => {
     expect(
       (await a.api.request('GET', '/legal/documents/TOS_GUEST?locale=es&version=0')).status,
     ).toBe(400);
-    expect((await a.api.request('GET', '/legal/documents/TOS_HOST?locale=es')).status).toBe(404);
+    // CGU de l'hôte (US-126) : texte servi, BROUILLON ; jamais dans la liste du voyageur
+    const host = await a.api.request('GET', '/legal/documents/TOS_HOST?locale=es');
+    expect(host.status).toBe(200);
+    expect(host.json).toMatchObject({ kind: 'TOS_HOST', version: 1, draft: true, locale: 'es' });
+    expect((await a.api.request('GET', '/legal/documents/RENTAL_CONTRACT?locale=es')).status).toBe(
+      404,
+    );
     expect(
       (await a.api.request('GET', '/legal/documents/TOS_GUEST?locale=es&version=9')).status,
     ).toBe(404);

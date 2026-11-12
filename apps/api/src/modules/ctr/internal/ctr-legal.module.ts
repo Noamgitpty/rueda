@@ -1,5 +1,6 @@
 /**
- * Module Nest des documents juridiques et des consentements (US-102). Module DYNAMIQUE, importé
+ * Module Nest des documents juridiques et des consentements (US-102) et des CGU de l'hôte
+ * (US-126 : routes `/host/accounts/{orgId}/terms`). Module DYNAMIQUE, importé
  * par le seul processus API (`api.module.ts`), après `IamAuthModule` (il utilise `SessionGuard`).
  * Global : `TermsGuard` est injectable par les modules qui réservent sans réimporter CTR.
  *
@@ -9,6 +10,7 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import type { ConsentStore } from './consent-store.js';
+import { HostTermsController } from './host-terms.controller.js';
 import { LegalController } from './legal.controller.js';
 import { LegalService } from './legal.service.js';
 import { TermsGuard } from './terms.guard.js';
@@ -24,7 +26,7 @@ export class CtrLegalModule {
     return {
       module: CtrLegalModule,
       global: true,
-      controllers: [LegalController],
+      controllers: [LegalController, HostTermsController],
       providers: [
         { provide: CTR_CONSENT_STORE, useValue: options.store },
         LegalService,

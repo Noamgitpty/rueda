@@ -1,8 +1,8 @@
 'use server';
 /**
  * Actions serveur de l'espace de l'hôte (A10, US-115) : lieu de remise, véhicule, annonce, prix,
- * photo, soumission et suppression. Le site appelle l'API CÔTÉ SERVEUR (`account/api-client.ts`) ;
- * le compte d'hôte et l'annonce viennent de champs cachés que l'API revérifie toujours (un compte
+ * photo, soumission et suppression ; acceptation des CGU de l'hôte (US-126). Le site appelle
+ * l'API CÔTÉ SERVEUR (`account/api-client.ts`) ; le compte d'hôte et l'annonce viennent de champs cachés que l'API revérifie toujours (un compte
  * ou un objet d'un autre hôte : 404). La devise, son exposant et la taille maximale d'une photo
  * sont RELUS de l'API (`GET …/listings`), jamais crus d'un champ du formulaire (revue argent
  * d'US-115). Formulaires sans JavaScript ; succès : retour à l'écran avec « Guardado ». Jamais de
@@ -287,6 +287,35 @@ async function listingStepImpl(_prev: HostFormState, form: FormData): Promise<Ho
       : await callApi('DELETE', `/host/accounts/${orgId}/listings/${listingId}`, ctx, {});
   if (reply.status !== 200) return { errors: errorsOf(reply, formId, {}) };
   done(orgId);
+}
+
+/**
+ * Acceptation des CGU de l'hôte (US-126) : case obligatoire, jamais pré-cochée ; la version
+ * AFFICHÉE et la langue de la vue sont envoyées, l'API refuse une version périmée (409).
+ */
+async function acceptHostTermsImpl(_prev: HostFormState, form: FormData): Promise<HostFormState> {
+  const formId = 'a10-terms-form';
+  const orgId = idOf(form, 'org');
+  const version = Number(text(form, 'version', 6));
+  if (orgId === null || !Number.isInteger(version) || version < 1) return invalid(formId);
+  if (form.get('accept') !== 'on') {
+    return { errors: [{ fieldId: 'a10-terms-accept', key: 'common.auth.termsNotAccepted' }] };
+  }
+  const reply = await callApi(
+    'POST',
+    `/host/accounts/${orgId}/terms/accept`,
+    await clientContext(),
+    { version, locale: await getRequestLocaleTag() },
+  );
+  if (reply.status !== 200) return { errors: errorsOf(reply, formId, {}) };
+  done(orgId);
+}
+
+export async function acceptHostTermsAction(
+  prev: HostFormState,
+  form: FormData,
+): Promise<HostFormState> {
+  return acceptHostTermsImpl(prev, form);
 }
 
 export async function createLocationAction(

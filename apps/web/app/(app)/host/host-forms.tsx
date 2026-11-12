@@ -9,10 +9,11 @@ import { useActionState, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import type { Translator } from '@rueda/i18n';
-import { Banner, Button, ErrorSummary, TextField } from '@rueda/ui';
+import { Banner, Button, Checkbox, ErrorSummary, TextField } from '@rueda/ui';
 import { LOCALE_CONFIG } from '../../../locale-config.ts';
 import styles from './host.module.css';
 import {
+  acceptHostTermsAction,
   addPhotoAction,
   createListingAction,
   createLocationAction,
@@ -350,6 +351,38 @@ export function NewListingForm({
       <PricingFields f={f} prefix="a10-new" currency={currency} />
       <Button type="submit" block loading={f.pending}>
         {t('web.host.listing.create')}
+      </Button>
+    </FormFrame>
+  );
+}
+
+/**
+ * Acceptation des CGU de l'hôte (US-126, A07 étape 7) : case obligatoire, jamais pré-cochée ;
+ * la version affichée part avec le formulaire (champ caché que l'API revérifie).
+ */
+export function HostTermsForm({
+  localeTag,
+  orgId,
+  version,
+}: {
+  localeTag: string;
+  orgId: string;
+  version: number;
+}) {
+  const f = useForm(localeTag, acceptHostTermsAction, 'a10-terms-form');
+  return (
+    <FormFrame {...f} formId="a10-terms-form" label={f.t('web.host.terms.accept')}>
+      <input type="hidden" name="org" value={orgId} />
+      <input type="hidden" name="version" value={version} />
+      <Checkbox
+        id="a10-terms-accept"
+        name="accept"
+        label={f.t('web.host.terms.checkbox')}
+        aria-required="true"
+        error={f.errorOf('a10-terms-accept')}
+      />
+      <Button type="submit" loading={f.pending}>
+        {f.t('web.host.terms.accept')}
       </Button>
     </FormFrame>
   );
