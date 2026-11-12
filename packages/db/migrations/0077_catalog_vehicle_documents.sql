@@ -461,7 +461,7 @@ BEGIN
     r := r || 'VEHICLE_MILEAGE_TOO_HIGH'::text;
   END IF;
   -- titre d'un tiers : autorisation notariée du propriétaire (08 BR-LIST-01, OQ-P2P-02)
-  IF false AND v.title_holder = 'THIRD_PARTY'
+  IF v.title_holder = 'THIRD_PARTY'
      AND core.catalog_document_state(p_vehicle, 'OWNER_AUTHORIZATION', p_strict, v_today) <> 'OK' THEN
     r := r || 'VEHICLE_TITLE_MISMATCH'::text;
   END IF;
