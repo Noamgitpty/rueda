@@ -4418,7 +4418,7 @@
       "post": {
         "operationId": "submitHostListing",
         "tags": ["cat"],
-        "summary": "Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, compte ACTIVE, pays ouvert (US-115)",
+        "summary": "Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, CGU de l'hôte (US-126), compte ACTIVE, pays ouvert (US-115)",
         "parameters": [
           {
             "name": "orgId",
@@ -4477,7 +4477,7 @@
             }
           },
           "409": {
-            "description": "Transition absente de SM-2 dans l'état de l'annonce",
+            "description": "Transition absente de SM-2 dans l'état de l'annonce ; CGU de l'hôte à accepter dans leur version exigée (US-126) : l'annonce reste DRAFT",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4489,7 +4489,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "const": "LISTING_TRANSITION_FORBIDDEN"
+                      "enum": ["LISTING_TRANSITION_FORBIDDEN", "TERMS_REACCEPT_REQUIRED"]
                     }
                   }
                 }
@@ -5094,6 +5094,242 @@
                   "properties": {
                     "code": {
                       "const": "LISTING_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/terms": {
+      "get": {
+        "operationId": "getHostTerms",
+        "tags": ["ctr"],
+        "summary": "CGU de l'hôte du compte d'hôte (pays du compte) : version, date, langue, BROUILLON, état d'acceptation (US-126)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CGU de l'hôte : version en vigueur (date, langue, brouillon), version exigée et acceptée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostTermsState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Langue invalide",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (rien n'est révélé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucune CGU de l'hôte en vigueur (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/terms/accept": {
+      "post": {
+        "operationId": "acceptHostTerms",
+        "tags": ["ctr"],
+        "summary": "Accepter la version affichée des CGU de l'hôte : consentement TOS_HOST versionné, langue et horodatage de la base (US-126)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostTermsAcceptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consentement enregistré ; état à jour",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostTermsState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (version ou langue)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (rien n'est révélé ni écrit)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version affichée périmée : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "TERMS_VERSION_CHANGED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Aucune CGU de l'hôte en vigueur (fail-closed) : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "LEGAL_DOCUMENT_UNAVAILABLE"
                     }
                   }
                 }
@@ -6996,7 +7232,7 @@
       },
       "LegalDocumentKind": {
         "type": "string",
-        "enum": ["TOS_GUEST", "PRIVACY", "MARKETING"]
+        "enum": ["TOS_GUEST", "PRIVACY", "MARKETING", "TOS_HOST"]
       },
       "LegalDocumentSummary": {
         "type": "object",
@@ -9057,6 +9293,71 @@
           },
           "photoId": {
             "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "HostTermsState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "messageKey",
+          "country",
+          "timeZone",
+          "document",
+          "requiredVersion",
+          "acceptedVersion",
+          "acceptedAt",
+          "reacceptRequired"
+        ],
+        "description": "CGU de l'hôte d'un compte d'hôte (US-126) : portée = pays du compte d'hôte ; TERMS_REACCEPT_REQUIRED tant que la version exigée n'est pas acceptée",
+        "properties": {
+          "code": {
+            "enum": ["TERMS_CURRENT", "TERMS_REACCEPT_REQUIRED"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Fuseau du pays du compte d'hôte (affichage des dates)"
+          },
+          "document": {
+            "$ref": "#/components/schemas/LegalDocumentSummary"
+          },
+          "requiredVersion": {
+            "type": ["integer", "null"],
+            "description": "Plus haute version MAJEURE en vigueur"
+          },
+          "acceptedVersion": {
+            "type": ["integer", "null"]
+          },
+          "acceptedAt": {
+            "type": ["string", "null"],
+            "description": "Horodatage de la base (platform.now()) de la dernière acceptation"
+          },
+          "reacceptRequired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HostTermsAcceptRequest": {
+        "type": "object",
+        "required": ["version", "locale"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version AFFICHÉE des CGU de l'hôte"
+          },
+          "locale": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+            "description": "Langue du texte affiché"
           }
         }
       },

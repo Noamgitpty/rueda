@@ -1,6 +1,6 @@
 /**
  * Adaptateur PostgreSQL du port `IdentityStore` (production) : appelle les seules fonctions
- * `core.kyc_*` de la migration 0070 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
+ * `core.kyc_*` de la migration 0071 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
  * paramétrées uniquement. Une erreur de la base est remplacée par une erreur sans message du
  * serveur ni paramètre (SQLSTATE seulement) ; une issue inconnue de la base est une erreur
  * (fail-closed : jamais un succès supposé).

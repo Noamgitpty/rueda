@@ -214,7 +214,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_country'
               ? [{ t, pol: 'iam_staff_select', cmd: 'r', roles: 'iam_staff_owner' }]
               : []),
-            // vérification d'identité (US-105, 0070) : codes et fuseaux des pays ; durée de
+            // vérification d'identité (US-105, 0071) : codes et fuseaux des pays ; durée de
             // rétention biométrique (biometric_appeal_retention_days) seulement
             ...(t === 'config_country' || t === 'config_param_value'
               ? [{ t, pol: 'kyc_cmd_read', cmd: 'r', roles: 'kyc_cmd_owner' }]

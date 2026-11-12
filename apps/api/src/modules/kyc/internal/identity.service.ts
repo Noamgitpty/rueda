@@ -1,5 +1,5 @@
 /**
- * Vérification d'identité par parcours hébergé (US-105, ADR-100 ; 16 VER-001, VER-002 / VER-003,
+ * Vérification d'identité par parcours hébergé (US-105, ADR-101 ; 16 VER-001, VER-002 / VER-003,
  * VER-004 ; 17 §1.5 point 3, §3.2.2).
  *
  * - **État** : statut SM-3, pays du dossier, échéance du permis (la sienne), texte du

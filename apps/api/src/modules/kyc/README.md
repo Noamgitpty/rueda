@@ -6,11 +6,11 @@
 
 D'après 17 §2.2 et §2.4 (révision P2P) : vérification du conducteur (SM-3) et de l'hôte, qui est une personne physique ; pièces, liveness et face match par un fournisseur à parcours hébergé ; contrôle « 90 jours » du permis étranger (en mode signalement) ; contrôle du permis à la remise par l'hôte (`trip_identity_check`) ; filtrage sanctions de l'hôte. Aucune image de pièce ni selfie n'est gardée par défaut (zéro copie). Le KYB d'agence et la police flotte de la phrase ci-dessus sont historiques, sans objet depuis le pivot P2P (17 §2.4). KYC ne gère pas les comptes (IAM) ni le KYC du sous-marchand chez le PSP (PAY).
 
-État du code : **vérification d'identité du voyageur** (US-105, ADR-100) : consentement biométrique séparé, parcours hébergé du fournisseur (port `IdentityProvider`, FAKE seulement), décision par rappel signé, contrôle bloquant du permis pour le paiement. À venir : US-106 (décision par l'ops), US-108 et US-123 (vérification de l'hôte), US-605 (fournisseur réel, lot C). `KycModule` (US-001) reste vide ; le métier est monté par `KycIdentityModule` (processus API).
+État du code : **vérification d'identité du voyageur** (US-105, ADR-101) : consentement biométrique séparé, parcours hébergé du fournisseur (port `IdentityProvider`, FAKE seulement), décision par rappel signé, contrôle bloquant du permis pour le paiement. À venir : US-106 (décision par l'ops), US-108 et US-123 (vérification de l'hôte), US-605 (fournisseur réel, lot C). `KycModule` (US-001) reste vide ; le métier est monté par `KycIdentityModule` (processus API).
 
 ## Entités
 
-Entités de 17 §3.2.2 (migration `0070`, écritures par commandes `core.kyc_*` seulement) :
+Entités de 17 §3.2.2 (migration `0071`, écritures par commandes `core.kyc_*` seulement) :
 
 | Entité                      | État en base                                                                    |
 | --------------------------- | ------------------------------------------------------------------------------- |

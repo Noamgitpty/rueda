@@ -400,6 +400,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/host': 'modules/iam/testing/host.contract.test.ts',
   // lieux, véhicules et annonces de l'hôte (US-115) ; fiche publique d'une annonce
   '/host/accounts/{orgId}': 'modules/cat/testing/host-listings.contract.test.ts',
+  // CGU de l'hôte (US-126, module CTR)
+  '/host/accounts/{orgId}/terms': 'modules/ctr/testing/host-terms.contract.test.ts',
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   '/phone': 'modules/iam/testing/phone.contract.test.ts',
   // vérification d'identité et rappels du fournisseur d'identité (US-105)

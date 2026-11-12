@@ -1,4 +1,4 @@
--- 9996 — fixtures des preuves de la vérification d'identité (US-105, migration 0070). TESTS
+-- 9996 — fixtures des preuves de la vérification d'identité (US-105, migration 0071). TESTS
 -- SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base

@@ -1,4 +1,4 @@
--- 0070 — KYC : vérification d'identité par parcours hébergé et consentement biométrique.
+-- 0071 — KYC : vérification d'identité par parcours hébergé et consentement biométrique.
 -- US-105 ; 19 US-105 ; 16 VER-001 (« Given DOCS_SUBMITTED, When le webhook signé approved arrive
 -- deux fois, Then une seule transition APPROVED ; signature invalide ⇒ rejet journalisé ; permis
 -- expirant avant la fin du trip ⇒ KYC_LICENSE_EXPIRED »), VER-002 / VER-003 (scores seulement),
@@ -7,10 +7,10 @@
 -- BR-VERIF-04 ; 17 §1.5 point 3 (zéro copie d'image, scores C3, rétentions les plus courtes),
 -- §3.2.2 (`identity_verification`, `identity_document`, `liveness_check`), §3.2.6 (`consent`),
 -- §4.5 (`kyc.verification.status_changed` : user_id, from, to, reason_code), §7.2
--- (`biometric_appeal_retention_days`) ; ADR-029 ; ADR-100 (cette migration). Appliquée sous
+-- (`biometric_appeal_retention_days`) ; ADR-029 ; ADR-101 (cette migration). Appliquée sous
 -- `migrator`.
 --
--- Principes (ADR-100) :
+-- Principes (ADR-101) :
 --   - parcours HÉBERGÉ chez le fournisseur (port IdentityProvider, adaptateur FAKE seulement,
 --     ADR-007) : l'application n'envoie ni pièce ni selfie et n'en reçoit aucun ; la base ne garde
 --     que la référence de session, la décision, le code motif, les scores [C3] et les champs
@@ -43,7 +43,7 @@
 --     défaut PROPOSÉ) : aucun fournisseur n'est compilé dans l'image de production, l'ouverture y
 --     rend KYC_PROVIDER_UNAVAILABLE et un rappel 404 (adaptateurs de production de l'API).
 --
--- Écarts PROPOSÉS avec 17 §3.2.2 (à reporter, ADR-100) : `identity_verification` gagne
+-- Écarts PROPOSÉS avec 17 §3.2.2 (à reporter, ADR-101) : `identity_verification` gagne
 -- `country_code` (pays du dossier, porteur des paramètres), `attempt` (tentative courante, clé
 -- d'idempotence du fournisseur), `hosted_url` et `session_expires_at` (reprise d'une session
 -- vivante), `row_version` ; `doc_type` prend des types neutres (NATIONAL_ID, FOREIGN_RESIDENT_ID au lieu des noms de pièces
@@ -172,7 +172,7 @@ CREATE UNIQUE INDEX kyc_identity_verification_session_unique
 COMMENT ON TABLE core.kyc_identity_verification IS
   'KYC identity_verification (17 §3.2.2, SM-3) : vérification courante par personne, parcours '
   'hébergé du fournisseur ; référence de session et décision seulement, aucune image. Écrite par '
-  'les commandes 0070 seulement. US-105 (ADR-100).';
+  'les commandes 0071 seulement. US-105 (ADR-101).';
 
 -- 2.2 Champs minimaux du permis rendus par le fournisseur (aucune image, aucun numéro).
 CREATE TABLE core.kyc_identity_document (
@@ -209,7 +209,7 @@ CREATE INDEX kyc_identity_document_verification_idx
   ON core.kyc_identity_document (verification_id, attempt);
 COMMENT ON TABLE core.kyc_identity_document IS
   'KYC identity_document (17 §3.2.2) : champs minimaux du permis rendus par le fournisseur (type, '
-  'pays, échéance, classe, définitif, référence) ; aucune image ni numéro. US-105 (ADR-100).';
+  'pays, échéance, classe, définitif, référence) ; aucune image ni numéro. US-105 (ADR-101).';
 
 -- 2.3 Scores de liveness et de face match [C3] ; aucune copie du selfie.
 CREATE TABLE core.kyc_liveness_check (
@@ -261,7 +261,7 @@ CREATE TABLE core.kyc_provider_event (
 );
 COMMENT ON TABLE core.kyc_provider_event IS
   'KYC : rappels de décision acceptés (signature vérifiée), un par (fournisseur, événement) ; '
-  'un rappel rejoué n''écrit rien. US-105 (ADR-100).';
+  'un rappel rejoué n''écrit rien. US-105 (ADR-101).';
 
 -- 2.5 Rappels rejetés (signature, fraîcheur, forme) : empreinte du corps seulement.
 CREATE TABLE core.kyc_webhook_rejection (
@@ -281,7 +281,7 @@ CREATE TABLE core.kyc_webhook_rejection (
 CREATE INDEX kyc_webhook_rejection_received_idx ON core.kyc_webhook_rejection (received_at);
 COMMENT ON TABLE core.kyc_webhook_rejection IS
   'KYC : journal des rappels rejetés (signature invalide, périmés, mal formés) ; empreinte '
-  'SHA-256 et longueur du corps, jamais le corps. US-105 (ADR-100).';
+  'SHA-256 et longueur du corps, jamais le corps. US-105 (ADR-101).';
 
 -- 3. RLS : aucun droit de table pour les rôles applicatifs --------------------------------------
 ALTER TABLE core.kyc_identity_verification ENABLE ROW LEVEL SECURITY;
@@ -975,25 +975,25 @@ $fn$;
 
 COMMENT ON FUNCTION core.kyc_identity_state(bytea, text) IS
   'État de la vérification d''identité de la session (SM-3, échéance du permis, consentement '
-  'biométrique). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-100).';
+  'biométrique). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
 COMMENT ON FUNCTION core.kyc_cmd_biometric_consent(bytea, text, integer, boolean) IS
   'Consentement biométrique (VER-004) : acceptation de la version en vigueur ou retrait, contexte '
-  'KYC. SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-100).';
+  'KYC. SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
 COMMENT ON FUNCTION core.kyc_cmd_open_verification(bytea, text, text) IS
   'Ouverture d''une vérification : session, compte, téléphone, consentement à la version en '
   'vigueur, état ; aucune écriture hors READY. SECURITY DEFINER, EXECUTE app_api. US-105.';
 COMMENT ON FUNCTION core.kyc_cmd_record_session(bytea, uuid, integer, text, text, text, timestamptz) IS
   'Session hébergée du fournisseur posée sur la tentative courante (SM-3 DOCS_SUBMITTED). '
-  'SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-100).';
+  'SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
 COMMENT ON FUNCTION core.kyc_cmd_apply_decision(text, text, text, text, text, numeric, numeric, jsonb) IS
   'Décision du fournisseur (rappel signé) : idempotente par événement, une transition par '
   'session, scores C3 et champs minimaux du permis, aucune image. SECURITY DEFINER, EXECUTE '
-  'app_api. US-105 (ADR-100).';
+  'app_api. US-105 (ADR-101).';
 COMMENT ON FUNCTION core.kyc_cmd_record_webhook_rejection(text, text, bytea, integer) IS
   'Journal d''un rappel KYC rejeté (empreinte du corps). SECURITY DEFINER, EXECUTE app_api. US-105.';
 COMMENT ON FUNCTION core.kyc_driver_eligibility(bytea, timestamptz, text) IS
   'Contrôle bloquant du paiement : vérification approuvée et permis valable jusqu''à la fin du '
-  'trip (KYC_LICENSE_EXPIRED). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-100).';
+  'trip (KYC_LICENSE_EXPIRED). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
 
 REVOKE ALL ON FUNCTION core.kyc_identity_state(bytea, text),
   core.kyc_cmd_biometric_consent(bytea, text, integer, boolean),

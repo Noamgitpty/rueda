@@ -1,5 +1,5 @@
 /**
- * Routes de la vérification d'identité (US-105, ADR-100 ; 16 VER-001, VER-004 ; écran S04).
+ * Routes de la vérification d'identité (US-105, ADR-101 ; 16 VER-001, VER-004 ; écran S04).
  * Routes de la personne gardées par `SessionGuard` (JSON exigé pour les écritures : parade CSRF) ;
  * la personne est celle de la session (empreinte du jeton). Rappels du fournisseur :
  * `kyc-webhook.controller.ts`.

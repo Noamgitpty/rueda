@@ -1,6 +1,6 @@
 /**
- * Port de persistance de la vérification d'identité (US-105, ADR-100) : les seules commandes
- * `core.kyc_*` de 0070 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). La personne est
+ * Port de persistance de la vérification d'identité (US-105, ADR-101) : les seules commandes
+ * `core.kyc_*` de 0071 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). La personne est
  * désignée par l'empreinte de son jeton de session (jamais un identifiant reçu du client) ; la base
  * juge tout à son horloge (consentement à la version en vigueur, téléphone, état SM-3, échéance
  * du permis, rétention des scores).

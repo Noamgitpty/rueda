@@ -1,7 +1,7 @@
 /**
  * FAKE du port `IdentityStore` (US-105) — TESTS SEULEMENT, jamais compilé en production
  * (`testing/` exclu par tsconfig.build.json). Mémoire seulement ; reproduit les issues des
- * commandes `core.kyc_*` de 0070 utiles aux contrats d'API (consentement à la version en vigueur,
+ * commandes `core.kyc_*` de 0071 utiles aux contrats d'API (consentement à la version en vigueur,
  * téléphone, ouverture, session, décision idempotente par événement, rejets). Les règles
  * elles-mêmes sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us105-*).
  */

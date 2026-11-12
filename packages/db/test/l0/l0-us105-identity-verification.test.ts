@@ -1,6 +1,6 @@
 /**
  * Preuves de la vérification d'identité par parcours hébergé et du consentement biométrique
- * (US-105, migration 0070 ; fixtures 9996) sous les rôles de production app_api et app_worker
+ * (US-105, migration 0071 ; fixtures 9996) sous les rôles de production app_api et app_worker
  * (assertion L0-05 en tête de chaque connexion, withRole), au Panama (USD) et au Paraguay (PYG).
  * Chaque test crée ses propres personnes par les VRAIES commandes (inscription avec consentements,
  * vérification d’e-mail, session) ; le téléphone vérifié est posé par la fixture 9996.
