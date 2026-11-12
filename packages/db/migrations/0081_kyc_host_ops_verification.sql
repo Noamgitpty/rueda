@@ -428,7 +428,7 @@ BEGIN
      OR (v #>> '{}') !~ '^[0-9]{1,6}$' THEN
     RETURN false;
   END IF;
-  RETURN p_started + pg_catalog.make_interval(mins => (v #>> '{}')::integer) <= platform.now();
+  RETURN true;  -- MUTATION US-108 (retirée ensuite) : délai uniforme ignoré
 END
 $fn$;
 REVOKE ALL ON FUNCTION core.kyc_host_review_due(text, timestamptz) FROM PUBLIC;
