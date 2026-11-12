@@ -112,6 +112,13 @@ export async function freshSession(tx: pg.ClientBase, who: StaffActor): Promise<
  * `requester`, approbation de `approver`, validées), puis le referme à false à `to` par la même
  * procédure à deux personnes. Rend la fenêtre [from, to) ; hors de cette fenêtre, la valeur reste
  * false pour tout lecteur. `from` doit être loin de toute date lue par les autres preuves.
+ *
+ * Pourquoi pas une transaction annulée : le cas passant S-04 lit l'interrupteur sous app_worker
+ * (`payment_command`) alors que les commandes à deux personnes ne s'exécutent que sous app_api ;
+ * une valeur non validée d'une connexion est invisible de l'autre. La fermeture à false est
+ * TOUJOURS tentée (`finally`), même si l'ouverture échoue, AVANT que l'appelant ne lise la
+ * fenêtre : un échec du test qui suit ne peut donc pas laisser l'interrupteur ouvert. Si la
+ * fermeture échoue, la fonction lève (le test échoue) au lieu de continuer.
  */
 export async function openSwitchWindow(
   api: pg.ClientBase,
@@ -122,11 +129,8 @@ export async function openSwitchWindow(
   from: string,
   to: string,
 ): Promise<void> {
-  for (const [at, value] of [
-    [from, true],
-    [to, false],
-  ] as const) {
-    await withTestTransaction(api, { virtualNow: at, commit: true }, async (tx) => {
+  const twoPeople = (at: string, value: boolean): Promise<void> =>
+    withTestTransaction(api, { virtualNow: at, commit: true }, async (tx) => {
       const req = await freshSession(tx, requester);
       const app = await freshSession(tx, approver);
       const r = await requestSwitch(tx, req, key, country, value);
@@ -136,7 +140,19 @@ export async function openSwitchWindow(
       const a = await approveSwitch(tx, app, r.request_id);
       if (a.outcome !== 'APPLIED') throw new Error(`approbation d'interrupteur : ${a.outcome}`);
     });
+  let opening: unknown = null;
+  try {
+    await twoPeople(from, true);
+  } catch (error) {
+    opening = error;
   }
+  // fermeture à false par la même procédure, quoi qu'il arrive à l'ouverture
+  await twoPeople(to, false);
+  const closed = await withTestTransaction(api, { virtualNow: to }, (tx) =>
+    goLive(tx, key, country),
+  );
+  if (closed) throw new Error(`interrupteur ${key} resté ouvert à ${to}`);
+  if (opening !== null) throw opening;
 }
 
 /** Instant virtuel lointain (années 2500 à 2900), distinct à chaque série : aucune collision. */
