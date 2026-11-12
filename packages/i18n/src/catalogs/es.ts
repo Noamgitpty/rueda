@@ -1291,7 +1291,7 @@ export const ES_MESSAGES = {
   'web.vehicleDocs.upload.tooLarge': 'El archivo pesa más de {max}.',
   'web.vehicleDocs.submit.title': 'Validar',
   'web.vehicleDocs.submit.intro':
-    'Revisamos tus datos al instante. Si tu país pide documentos, los revisa nuestro equipo.',
+    'Revisamos tus datos al instante. Si se piden documentos, los revisa nuestro equipo.',
   'web.vehicleDocs.submit.send': 'Validar mi auto',
   'web.vehicleDocs.claims.title': '¿Tu placa ya está registrada?',
   'web.vehicleDocs.claims.intro':

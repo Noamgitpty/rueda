@@ -1298,7 +1298,7 @@ export const PT_MESSAGES = {
   'web.vehicleDocs.upload.tooLarge': 'O arquivo passa de {max}.',
   'web.vehicleDocs.submit.title': 'Aprovar',
   'web.vehicleDocs.submit.intro':
-    'Verificamos seus dados na hora. Se o país exigir documentos, nossa equipe os analisa.',
+    'Verificamos seus dados na hora. Se forem exigidos documentos, nossa equipe os analisa.',
   'web.vehicleDocs.submit.send': 'Aprovar meu carro',
   'web.vehicleDocs.claims.title': 'Sua placa já está cadastrada?',
   'web.vehicleDocs.claims.intro':
