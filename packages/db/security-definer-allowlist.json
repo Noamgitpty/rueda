@@ -769,15 +769,15 @@
       "signature": "core.support_enqueue_review(text,text,uuid,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": [],
-      "story": "US-109"
+      "execute": ["kyc_cmd_owner"],
+      "story": "US-109, US-106"
     },
     {
       "signature": "core.support_close_review_item(uuid,text,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": [],
-      "story": "US-109"
+      "execute": ["kyc_cmd_owner"],
+      "story": "US-109, US-106"
     },
     {
       "signature": "core.catalog_cmd_place_host_block(bytea,uuid,uuid,timestamp without time zone,timestamp without time zone)",
@@ -911,6 +911,55 @@
       "owner": "cmd_golive_owner",
       "execute": ["app_api"],
       "story": "US-125"
+    },
+    {
+      "signature": "core.kyc_verification_review_queue()",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": [],
+      "story": "US-106"
+    },
+    {
+      "signature": "core.kyc_country_of_verification(uuid)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-106"
+    },
+    {
+      "signature": "core.kyc_manual_action_decision(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-106"
+    },
+    {
+      "signature": "core.kyc_staff_dossier(uuid)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-106"
+    },
+    {
+      "signature": "core.kyc_staff_status(uuid)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-106"
+    },
+    {
+      "signature": "core.kyc_worker_enqueue_reviews(integer)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-106"
+    },
+    {
+      "signature": "core.support_worker_review_sla(integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_worker"],
+      "story": "US-106"
     }
   ]
 }

@@ -30,6 +30,13 @@ Une jauge (trois premières lignes) n'alerte qu'au dépassement, si la valeur mo
 | -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `FIN_MONEY_RECONCILIATION` | P1       | au moins un écart d'un contrôle de rapprochement (règlements, remboursements, jambes, soldes par jambe), une alerte par pays (étiquette `country`, un compte par contrôle) | bogue S1 ; geler les ordres du pays concerné jusqu'à l'analyse FIN ; lire les règlements sous le rôle FINANCE ; contrôles et sources : [ADR-087](../adr/ADR-087-regression-nocturne-rapprochement-tableau-qa.md) et `apps/api/src/modules/fin/internal/money-reconciliation.ts` (US-047) |
 
+## Files de revue (travailleur `review_sla_watch`, toutes les 60 s)
+
+| Code                      | Sévérité | Déclenchement                                                                                                                              | Premier geste                                                                                                                                                        |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPS_REVIEW_SLA_BREACH`   | P2       | au moins un élément de file passé au-delà de son échéance (une seule alerte par élément), par file et pays (étiquettes `queue`, `country`) | prévenir le responsable ops (16 ADM-002) ; console O01, file signalée « en retard » ; prendre et traiter l'élément ; délai : paramètre de la file (ADR-097, ADR-106) |
+| `OPS_KYC_REVIEW_UNQUEUED` | P1       | dossier KYC en `MANUAL_REVIEW` qui ne peut pas entrer dans la file KYC (personne sans pays de compte, délai du pays absent)                | personne ne le voit : vérifier `kyc_review_sla_business_h` du pays et le pays du compte ; la passe suivante le remet en file (ADR-106)                               |
+
 ## Alarmes de santé (hébergeur)
 
 | Alarme                    | Seuil (PROPOSÉ)                          | Données absentes |

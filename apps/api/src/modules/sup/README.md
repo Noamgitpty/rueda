@@ -30,7 +30,11 @@ SUP ne décide pas les règles des autres modules : une action de console appell
   - `POST /console/cases`, `POST /console/cases/{id}/status`.
   - `POST /console/evidence` : type réel, taille, droit, antivirus, puis dépôt chiffré ; en production : 503 tant qu'US-003 et Q-019 ne sont pas livrés.
   - Couverture : un OPS ou un SUPPORT sans dossier ni élément assigné reçoit 403 `STAFF_CASE_REQUIRED` ; un ADMIN lit sa portée pays. Restrictions : actions `RESTRICT_ACCOUNT` et `LIFT_RESTRICTION` de `POST /console/actions` (saisie `kind`).
-- À venir : gestes commerciaux (US-533), console à rôles complets (US-534), commandes de domaine d'état liées par leurs stories (US-208, US-123, US-124…), mise en file par les commandes productrices (US-106, US-108, US-114, US-118, US-209).
+- **US-106** (ADR-106) : décision KYC de l'ops.
+  - `KYC_DECISION` de `POST /console/actions` est liée (commande KYC `core.kyc_manual_action_decision`) : sujet = la vérification courante (`IDENTITY_VERIFICATION`), saisie `decision` et quatre contrôles cochés ; refus du domaine en 409 `STAFF_ACTION_REFUSED` avec `values.reason` (`CHECKS_REQUIRED`, `CHECKS_INCONSISTENT`, `ITEM_NOT_CLAIMED`, `NOT_IN_REVIEW`, `SELF_FORBIDDEN`, `CONSENT_WITHDRAWN`, `LICENSE_NOT_ACCEPTED`, `PRODUCTION_BLOCKED`).
+  - La file KYC est alimentée par la base (entrée en `MANUAL_REVIEW`) ; le dossier KYC rend la vérification courante (`verification` : état, motif, permis, scores C3), la fiche 360° son statut SM-3.
+  - Travailleur `review_sla_watch` (`apps/api/src/worker-tasks.ts`, 60 s) : retards signalés une fois par la base, alerte `OPS_REVIEW_SLA_BREACH` (P2) par file et pays ; dossier KYC en revue sans élément : remis en file, sinon alerte `OPS_KYC_REVIEW_UNQUEUED` (P1).
+- À venir : gestes commerciaux (US-533), console à rôles complets (US-534), commandes de domaine d'état liées par leurs stories (US-208, US-123, US-124…), mise en file par les commandes productrices (US-108, US-114, US-118, US-209).
 
 ## Entités
 
@@ -52,11 +56,11 @@ Tables présentes en base mais absentes de 17 : `core.support_manual_action_cata
 
 ## Événements
 
-Aucun événement n'est encore émis par le code.
+Émis (US-106, par la base, travailleur `review_sla_watch`) : `support.review_queue.sla_breached` (`item_id`, `queue`, `sla_due_at`, `severity` P2), une fois par élément en retard.
 
 Cible :
 
-- émis (17 §4.5) : `support.commercial_gesture.issued`, `support.review_queue.sla_breached` ;
+- émis (17 §4.5) : `support.commercial_gesture.issued` ;
 - émis (17 §2.2, noms différents) : `support.case.status_changed`, `ops.gesture.granted` ;
 - consommés (17 §4.5) : `risk.review.required` / `.decided`, `trip.overdue.detected` / `.escalated`, `trip.offline.clock_skew_detected`, `host_ledger.state_changed`, `booking.hold.compensation_required`, `booking.hold.compensated` / `.release_deferred`, `booking.payment.late_ignored`, `booking.ical.*`, `payment.disposition.repair_alert`, `refund.instance.status_changed`, `evidence.bundle.generated`, `message.posted` / `.flagged`, `notification.dispatch.failed` / `.fallback.triggered`, `fiscal.document.status_changed`, `finance.reconciliation.delta_exceeded`, `catalog.vehicle_document.expiring`, `iam.organization.*`, `privacy.dsr.status_changed`, `security.incident.opened`.
 

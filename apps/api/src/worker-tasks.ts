@@ -15,6 +15,7 @@
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
+ * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1) |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
  * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
@@ -49,6 +50,8 @@ export const DISPOSITION_SWEEPER_WORKER = 'disposition_sweeper';
 export const RISK_PRUNER_WORKER = 'risk_pruner';
 /** Purge des scores biométriques à échéance et des rejets de rappels KYC (US-105, ADR-102). */
 export const KYC_SCORE_PRUNER_WORKER = 'kyc_score_pruner';
+/** Alerte de délai des files de revue et remise en file des dossiers KYC (US-106, ADR-106). */
+export const REVIEW_SLA_WATCH_WORKER = 'review_sla_watch';
 export { IAM_OTP_PRUNER_WORKER, IAM_OTP_SENDER_WORKER } from './modules/iam/index.js';
 
 /** Valeurs PROPOSÉES (ADR-078) ; les périodes de 17 qui sont des paramètres pays sont lues en CFG. */
@@ -66,6 +69,12 @@ export const WORKER_TASK_DEFAULTS = {
   /** Purge KYC (US-105) : toutes les heures, par lots. */
   kycPrunerPeriodSeconds: 3_600,
   kycPrunerBatch: 5_000,
+  /**
+   * Files de revue (US-106) : passe chaque minute (délai le plus court : `review_hold_minutes`,
+   * en minutes ; 16 ADM-002 « SLA dépassé ⇒ alerte »), par lots.
+   */
+  reviewSlaWatchPeriodSeconds: 60,
+  reviewSlaWatchBatch: 500,
   /** Reprise d'un interblocage (SQLSTATE 40P01) : 3 essais au plus (handoff US-024). */
   deadlockAttempts: 3,
 } as const;
@@ -176,6 +185,46 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   const alerts = deps.alerts ?? new LogAlertChannel(deps.log);
   registerOpsMonitor(registry, alerts, deps.log);
   registerMoneyReconciliation(registry, alerts, deps.log);
+
+  // Files de revue (US-106) : dossiers KYC en revue remis en file s'il le faut, puis chaque élément
+  // en retard signalé UNE fois par la base ; une alerte par (file, pays). Un envoi en échec annule
+  // la passe (marques comprises) : rejouée par le bus, livraison « au moins une fois ».
+  registry.registerPeriodic(
+    REVIEW_SLA_WATCH_WORKER,
+    d.reviewSlaWatchPeriodSeconds,
+    async (_p, tx) => {
+      const k = await tx.query<{ enqueued: unknown; unqueued: unknown }>(
+        'SELECT enqueued, unqueued FROM core.kyc_worker_enqueue_reviews($1)',
+        [d.reviewSlaWatchBatch],
+      );
+      const enqueued = count(k.rows[0]?.enqueued);
+      const unqueued = count(k.rows[0]?.unqueued);
+      const { rows } = await tx.query<{ queue: string; country_code: string; breached: unknown }>(
+        'SELECT queue, country_code, breached FROM core.support_worker_review_sla($1)',
+        [d.reviewSlaWatchBatch],
+      );
+      let breached = 0;
+      for (const r of rows) {
+        const n = count(r.breached);
+        breached += n;
+        await alerts.send({
+          code: 'OPS_REVIEW_SLA_BREACH',
+          severity: 'P2',
+          counts: { breached: n },
+          labels: { queue: r.queue, country: r.country_code },
+        });
+      }
+      if (unqueued > 0) {
+        await alerts.send({
+          code: 'OPS_KYC_REVIEW_UNQUEUED',
+          severity: 'P1',
+          counts: { unqueued },
+          labels: { queue: 'KYC' },
+        });
+      }
+      line(REVIEW_SLA_WATCH_WORKER, { enqueued, unqueued, breached });
+    },
+  );
 
   registry.registerPeriodic(RISK_PRUNER_WORKER, d.riskPrunerPeriodSeconds, async (_p, tx) => {
     const { rows } = await tx.query<{ n: unknown }>('SELECT core.risk_cmd_prune($1, $2) AS n', [

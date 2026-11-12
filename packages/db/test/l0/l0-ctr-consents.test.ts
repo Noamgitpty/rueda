@@ -667,7 +667,8 @@ describe('documents en vigueur, empreintes et droits', () => {
           owner: 'migrator',
           // US-107 (0061) : pays du compte lu par la console (résolveur du type USER_ACCOUNT)
           // US-105 (0072) : consentement biométrique (genre BIOMETRIC_CONSENT, contexte KYC) seulement
-          pols: 'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_insert:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator',
+          // US-106 (0076) : pays du compte (CGU acceptées, genre TOS_GUEST) pour la file KYC
+          pols: 'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_insert:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;kyc_cmd_read_tos:kyc_cmd_owner;migrator_all:migrator',
         },
         {
           t: 'contract_document_template',

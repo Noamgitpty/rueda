@@ -40,8 +40,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  de l'hôte (US-119) : `common.calendar.*`, `web.calendar.*`. Version 21 : vérification d'identité et
  consentement biométrique (US-105) : `common.kyc.*` et `web.s04.*` (écran S04). Version 22 :
  interrupteurs par pays et avertissements réglementaires versionnés (US-125) : `common.regulatory.*`.
+ Versions 23 et 24 : réservées (US-114, US-123). Version 25 : décision KYC de l'ops (US-106) : états
+ SM-3, motifs, champs du permis, scores, contrôles cochés et refus `backoffice.kyc.*` ; messages
+ au voyageur `web.s04.result.rejected*` et `web.s04.moreInfo.*`.
  */
-export const CATALOG_VERSION = 22;
+export const CATALOG_VERSION = 25;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

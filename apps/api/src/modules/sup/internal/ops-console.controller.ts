@@ -106,8 +106,8 @@ function actorOf(request: object): StaffActor {
   return staffActorOf(principal);
 }
 
-/** Champs d'horodatage rendus par la base (noms de 0064) ; aucun texte libre n'en fait partie. */
-const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd)$/;
+/** Champs d'horodatage rendus par la base (noms de 0064, 0076) ; aucun texte libre n'en fait partie. */
+const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt)$/;
 
 /**
  * Horodatages de la base convertis en ISO 8601 UTC, récursivement, dans les SEULS champs de date :

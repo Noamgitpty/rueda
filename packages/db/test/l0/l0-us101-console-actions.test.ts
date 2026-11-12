@@ -167,6 +167,18 @@ const HOST_ACCOUNT_HANDLER =
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
+const KYC_DECISION_HANDLER =
+  'core.kyc_manual_action_decision(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+// 19 US-106 : décision (SM-3 MANUAL_REVIEW → APPROVED | REJECTED | MORE_INFO_REQUIRED) et les
+// quatre contrôles cochés (liveness, pièce selon le statut, liste des permis, doublons)
+const CHECK = ['PASSED', 'FAILED'];
+const KYC_DECISION_VALUES = {
+  decision: ['APPROVED', 'REJECTED', 'MORE_INFO_REQUIRED'],
+  livenessCheck: CHECK,
+  idDocumentCheck: CHECK,
+  licenseListCheck: CHECK,
+  duplicateCheck: CHECK,
+};
 
 interface Expected {
   readonly permission: string;
@@ -269,10 +281,11 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     permission: 'kyc.decide',
     subject: 'IDENTITY_VERIFICATION',
     mode: 'DOMAIN_COMMAND',
-    keys: ['decision'],
-    values: DECISION,
+    keys: ['decision', 'livenessCheck', 'idDocumentCheck', 'licenseListCheck', 'duplicateCheck'],
+    values: KYC_DECISION_VALUES,
     approval: false,
-    source: '17 §2.3 « kyc.decide »',
+    handler: KYC_DECISION_HANDLER,
+    source: '17 §2.3 « kyc.decide » ; 19 US-106 (contrôles cochés), ADR-106',
   },
   HOST_VERIFICATION_DECISION: {
     permission: 'ops.review_listing_host',
@@ -600,9 +613,11 @@ describe('garde des liaisons : à la liaison, sur toute la table, et à chaque a
 });
 
 describe('types de sujet déclarés et résolveurs de pays', () => {
-  // types de 17 §3.2 qui ont une table en Bêta (attendu tiré du modèle, pas du code) ; les deux
-  // autres types du catalogue arriveront avec leur table (US-123, US-124) et devront se déclarer
+  // types de 17 §3.2 qui ont une table en Bêta (attendu tiré du modèle, pas du code) ; le type
+  // restant du catalogue arrivera avec sa table (US-124) et devra se déclarer
   const DECLARED = [
+    // US-106 (0076) : la vérification d'identité courante, pays du compte de la personne
+    'IDENTITY_VERIFICATION',
     'INSURER_BORDEREAU',
     'ORGANIZATION',
     'PLATFORM_ADVANCE',
@@ -611,7 +626,7 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
     // US-107 (0061) : la personne inscrite, pays de son compte (dernière acceptation des CGU)
     'USER_ACCOUNT',
   ];
-  const PENDING = ['IDENTITY_VERIFICATION', 'LISTING'];
+  const PENDING = ['LISTING'];
 
   it('chaque type de sujet du catalogue est déclaré, sauf ceux dont la table n’existe pas encore ; chaque résolveur est conforme', async () => {
     await withRole('app_api', async (client) => {
@@ -873,15 +888,13 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
       const ops = await elevatedStaff(client, 'OPS_AGENT', ALL);
       const finance = await elevatedStaff(client, 'FINANCE', ALL);
       const subjects: Record<string, string> = {
-        KYC_DECISION: uuid(),
         PUBLISH_LISTING: uuid(),
         HOST_VERIFICATION_DECISION: world.countries[0]?.orgA ?? '',
       };
-      for (const a of STATE_ACTIONS) {
+      // KYC_DECISION est liée (US-106, l0-us106-kyc-decision)
+      for (const a of STATE_ACTIONS.filter((x) => x !== 'KYC_DECISION')) {
         const input =
-          a === 'KYC_DECISION' ||
-          a === 'HOST_VERIFICATION_DECISION' ||
-          a === 'REVIEW_FLAGGED_BOOKING'
+          a === 'HOST_VERIFICATION_DECISION' || a === 'REVIEW_FLAGGED_BOOKING'
             ? { decision: 'APPROVED' }
             : {};
         const subject = subjects[a] ?? trip(0);
