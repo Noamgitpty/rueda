@@ -264,8 +264,121 @@ const hostTermsDoc = (lang) => ({
 });
 const MARKET_NO_DECIMALS = { country: 'QZ', currency: 'XXX', currencyExponent: 0 };
 
+// ---- Vérification de l'hôte (US-123) : liste de tâches A07 -----------------------------------
+// Double : identité et âge déjà vérifiés ; un type de numéro fiscal NEUTRE (données fictives, aucun
+// type propre à un pays) ; envoi ⇒ filtrage fait, dossier en revue si le numéro est enregistré ;
+// `GET /__e2e/host-verification/approve?token=` ⇒ dossier approuvé, compte en attente
+// d'activation, pays pas encore ouvert (interrupteurs fermés, comme la production).
+const TAX_KINDS = ['TAX_NUMBER'];
+const verificationOf = (h) => {
+  h.verification ??= { status: null, orgStatus: 'ONBOARDING', taxKind: null, screening: false };
+  return h.verification;
+};
+const verificationView = (h, code, messageKey) => {
+  const v = verificationOf(h);
+  const terms = h.terms.acceptedVersion !== null;
+  const missing = [
+    ...(v.screening ? [] : ['HOST_SCREENING_MISSING']),
+    ...(v.taxKind === null ? ['HOST_TAX_ID_REQUIRED'] : []),
+    ...(terms ? [] : ['TERMS_REACCEPT_REQUIRED']),
+  ];
+  return {
+    code,
+    messageKey,
+    country: h.market.country,
+    orgStatus: v.orgStatus,
+    verificationStatus: v.status,
+    missing: v.status === null || v.status === 'APPROVED' ? [] : missing,
+    kycApproved: true,
+    ageStatus: 'OK',
+    residenceStatus: 'VERIFIED',
+    taxRequired: true,
+    taxSaved: v.taxKind !== null,
+    taxKind: v.taxKind,
+    taxKinds: TAX_KINDS,
+    termsAccepted: terms,
+    screeningDone: v.screening,
+    blockers:
+      v.status === 'APPROVED'
+        ? ['SUBMERCHANT_NOT_ACTIVE', 'P2P_HOSTS_DISABLED', 'INSURER_CONTRACT_INACTIVE']
+        : [
+            ...(v.taxKind === null ? ['HOST_TAX_ID_REQUIRED'] : []),
+            ...(terms ? [] : ['TERMS_REACCEPT_REQUIRED']),
+            'HOST_VERIFICATION_NOT_APPROVED',
+            'SUBMERCHANT_NOT_ACTIVE',
+            'P2P_HOSTS_DISABLED',
+            'INSURER_CONTRACT_INACTIVE',
+          ],
+  };
+};
+
+async function verificationRoute(req, res, path) {
+  const m = /^\/host\/accounts\/([0-9a-f-]{36})\/verification(\/tax-profile)?$/.exec(path);
+  if (m === null) return false;
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === m[1]);
+  if (h === undefined)
+    return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+  const v = verificationOf(h);
+  if (req.method === 'GET' && m[2] === undefined) {
+    return json(
+      res,
+      200,
+      verificationView(h, 'HOST_VERIFICATION_STATE', 'common.hostVerification.state'),
+    );
+  }
+  if (req.method !== 'POST') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+  if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+    return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+  }
+  const body = (await readBody(req)) ?? {};
+  const locked = v.status !== null && !['OPEN', 'DOCS_PENDING'].includes(v.status);
+  if (m[2] !== undefined) {
+    if (!TAX_KINDS.includes(body.kind)) {
+      return err(res, 422, 'HOST_TAX_ID_KIND_INVALID', 'common.hostVerification.taxKindInvalid');
+    }
+    const taxId = String(body.taxId ?? '')
+      .replace(/[\s.]/g, '')
+      .toUpperCase();
+    if (!/^[0-9A-Z][0-9A-Z-]{3,19}$/.test(taxId)) {
+      return err(res, 422, 'HOST_TAX_ID_INVALID', 'common.hostVerification.taxIdInvalid');
+    }
+    if (locked) return err(res, 409, 'HOST_VERIFICATION_LOCKED', 'common.hostVerification.locked');
+    // le numéro n'est jamais gardé par le double (le vrai magasin ne reçoit que son enveloppe)
+    v.taxKind = body.kind;
+    return json(
+      res,
+      200,
+      verificationView(h, 'HOST_TAX_PROFILE_SAVED', 'common.hostVerification.taxSaved'),
+    );
+  }
+  if (!locked) {
+    v.screening = true;
+    v.status =
+      v.taxKind !== null && h.terms.acceptedVersion !== null ? 'IN_REVIEW' : 'DOCS_PENDING';
+  }
+  return json(
+    res,
+    200,
+    verificationView(h, 'HOST_VERIFICATION_SUBMITTED', 'common.hostVerification.submitted'),
+  );
+}
+
 async function hostRoute(req, res, url) {
   const path = url.pathname;
+  if ((await verificationRoute(req, res, path)) !== false) return true;
+  if (req.method === 'GET' && path === '/__e2e/host-verification/approve') {
+    const h = hosts.get(url.searchParams.get('token') ?? '');
+    if (h === undefined) return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    for (const a of h.accounts) {
+      const v = verificationOf(a);
+      v.status = 'APPROVED';
+      v.orgStatus = 'PENDING_ACTIVATION';
+      v.screening = true;
+    }
+    return json(res, 200, { status: 'APPROVED' });
+  }
   if (req.method === 'GET' && path === '/auth/session') {
     const h = hostOf(req);
     if (h === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');

@@ -681,6 +681,10 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'catalog_location',
           'catalog_vehicle',
           'iam_membership',
+          // US-123 (0075, ADR-105) : AUCUN droit ni politique d'app_api ; accès par les seules
+          // fonctions SECURITY DEFINER de kyc_cmd_owner (hôte désigné par son jeton)
+          'kyc_host_tax_profile',
+          'kyc_host_verification',
           'payment_payment_operation_leg', // US-019 : jambe HOST du titulaire, ADMIN / FINANCE
           'payment_psp_submerchant', // US-061 : statut du titulaire, ADMIN / FINANCE
           'settlement_settlement',
@@ -691,8 +695,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
       );
       for (const r of tables.rows) {
         expect(r, r.t).toMatchObject({ rls: true, force: true });
-        if (r.t.startsWith('catalog_')) expect(r.api_policies, r.t).toBe(0);
-        else expect(r.api_policies, r.t).toBeGreaterThan(0);
+        if (r.t.startsWith('catalog_') || r.t.startsWith('kyc_')) {
+          expect(r.api_policies, r.t).toBe(0);
+        } else expect(r.api_policies, r.t).toBeGreaterThan(0);
       }
       const all = await client.query<{ t: string }>(
         `SELECT c.relname AS t

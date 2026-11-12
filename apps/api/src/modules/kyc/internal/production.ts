@@ -7,12 +7,15 @@
  *   LEG-010 n'est pas validé (OQ-MK-09, défaut PROPOSÉ) : l'ouverture d'une vérification rend
  *   `KYC_PROVIDER_UNAVAILABLE` (503) sans écriture, un rappel posté sur `/kyc/webhooks/{code}`
  *   rend 404 sans toucher la base. Aucune option ne permet d'y injecter un fournisseur.
+ * - Vérification de l'hôte (US-123) : aucun prestataire de filtrage des sanctions ni coffre de
+ *   clés compilé ; l'état et la soumission restent servis par la base, le profil fiscal rend 503.
  * - Le magasin est celui de la base (`core.kyc_*`, connexion `app_api`) : l'état et le
  *   consentement biométrique restent lisibles et enregistrables.
  */
 import { CountryConfigService } from '../../cfg/index.js';
 import type { KycIdentityOptions } from './kyc-identity.module.js';
 import { kycConsoleLogger } from './kyc-identity.module.js';
+import { PgHostVerificationStore } from './pg-host-verification-store.js';
 import { PgIdentityStore } from './pg-identity-store.js';
 import type { KycSqlExecutor } from './pg-identity-store.js';
 
@@ -33,5 +36,14 @@ export function postgresKycAdapters(db: KycSqlExecutor): KycIdentityOptions {
     returnUrl: null,
     countries: kycCountries(),
     log: kycConsoleLogger,
+    // vérification de l'hôte (US-123) : commandes core.kyc_* de 0075 ; AUCUN prestataire de
+    // filtrage (bêta pilote : filtrage manuel par l'ops, US-108) ni coffre de clés (KMS) avant leur
+    // adaptateur : le profil fiscal rend 503 et le dossier reste incomplet (fail-closed)
+    host: {
+      store: new PgHostVerificationStore(db),
+      screener: null,
+      sealer: null,
+      log: kycConsoleLogger,
+    },
   };
 }

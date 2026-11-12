@@ -43,8 +43,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 23 : file d'ajout au catalogue véhicules (US-114) : `common.catalogAddition.*`,
  `web.host.car.catalogHint`, `web.host.catalog.*`, `backoffice.catalog.*`,
  `ntf.catalogAdditionApproved.*` et `ntf.catalogAdditionRejected.*`.
+ Version 24 : inscription et vérification de l'hôte, profil fiscal (US-123) :
+ `common.hostVerification.*`, `web.a07.*` (liste de tâches A07, dont `web.a07.waitingCountry` de
+ 10b §4.3) et `web.host.verificationLink`.
  */
-export const CATALOG_VERSION = 23;
+export const CATALOG_VERSION = 24;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

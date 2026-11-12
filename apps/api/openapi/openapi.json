@@ -6668,6 +6668,372 @@
           }
         }
       }
+    },
+    "/host/accounts/{orgId}/verification": {
+      "get": {
+        "operationId": "getHostVerification",
+        "tags": ["kyc"],
+        "summary": "Liste de tâches de l'hôte (A07) : statut du compte et du dossier, pièces manquantes, contrôles sans donnée personnelle, types de numéro fiscal du pays, blocages de l'activation (US-123)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État de la vérification de l'hôte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostVerificationState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (rien n'est révélé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou paramètre du pays absent (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_VERIFICATION_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "submitHostVerification",
+        "tags": ["kyc"],
+        "summary": "Soumettre le dossier de l'hôte : KYC approuvé, âge et résidence jugés en base ; filtrage des sanctions par le prestataire s'il est configuré ; pièces manquantes (US-123)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dossier soumis (ou déjà décidé) : état à jour",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostVerificationState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Identité non vérifiée, âge inférieur au minimum du pays ou inconnu, résidence vérifiée d'un autre lieu (rien n'est écrit)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "HOST_KYC_REQUIRED",
+                        "HOST_UNDER_AGE",
+                        "HOST_AGE_UNVERIFIED",
+                        "HOST_RESIDENCE_MISMATCH"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (rien n'est révélé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Compte d'hôte suspendu ou sorti",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_ELIGIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible ou paramètre du pays absent (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_VERIFICATION_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/verification/tax-profile": {
+      "post": {
+        "operationId": "saveHostTaxProfile",
+        "tags": ["kyc"],
+        "summary": "Profil fiscal de l'hôte (FIN-008) : type admis par le pays, numéro chiffré par la clé du compte d'hôte avant l'écriture, personne physique seulement (US-123)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostTaxProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profil fiscal enregistré (numéro chiffré) : état à jour",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostVerificationState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide (champ inconnu, type ou régime mal formés)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte d'hôte inconnu ou d'un autre hôte (rien n'est révélé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier en revue ou décidé : nouvelle revue hors bêta",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_VERIFICATION_LOCKED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Personne morale, numéro mal formé ou type non admis dans le pays",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "HOST_ENTITY_NOT_ALLOWED",
+                        "HOST_TAX_ID_INVALID",
+                        "HOST_TAX_ID_KIND_INVALID"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Coffre de clés indisponible (aucun numéro écrit) ou base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_TAX_VAULT_UNAVAILABLE", "HOST_VERIFICATION_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10875,6 +11241,137 @@
           },
           "variantId": {
             "type": ["string", "null"]
+          }
+        }
+      },
+      "HostTaxProfileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "taxId"],
+        "description": "Profil fiscal de l'hôte (US-123) : type de numéro admis par le pays (configuration), numéro (chiffres, lettres, tirets), régime facultatif ; personne physique seulement",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "taxId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "regime": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "taxpayerKind": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          }
+        }
+      },
+      "HostVerificationState": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Liste de tâches de l'hôte (US-123, A07) : aucune date de naissance, aucun numéro fiscal, aucun motif de filtrage ; blocages de l'activation (17 §2.4), pays fermé compris",
+        "required": [
+          "code",
+          "messageKey",
+          "country",
+          "orgStatus",
+          "verificationStatus",
+          "missing",
+          "kycApproved",
+          "ageStatus",
+          "residenceStatus",
+          "taxRequired",
+          "taxSaved",
+          "taxKind",
+          "taxKinds",
+          "termsAccepted",
+          "screeningDone",
+          "blockers"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "HOST_VERIFICATION_STATE",
+              "HOST_VERIFICATION_SUBMITTED",
+              "HOST_TAX_PROFILE_SAVED"
+            ]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "orgStatus": {
+            "enum": ["ONBOARDING", "PENDING_ACTIVATION", "ACTIVE", "SUSPENDED", "OFFBOARDED"]
+          },
+          "verificationStatus": {
+            "enum": ["OPEN", "DOCS_PENDING", "IN_REVIEW", "APPROVED", "REJECTED", "REVOKED", null]
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "HOST_SCREENING_MISSING",
+                "HOST_TAX_ID_REQUIRED",
+                "TERMS_REACCEPT_REQUIRED",
+                "HOST_KYC_REQUIRED"
+              ]
+            }
+          },
+          "kycApproved": {
+            "type": "boolean"
+          },
+          "ageStatus": {
+            "enum": ["OK", "UNDER_AGE", "UNVERIFIED"]
+          },
+          "residenceStatus": {
+            "enum": ["VERIFIED", "DECLARED", "MISMATCH"]
+          },
+          "taxRequired": {
+            "type": "boolean"
+          },
+          "taxSaved": {
+            "type": "boolean"
+          },
+          "taxKind": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+          },
+          "taxKinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+            }
+          },
+          "termsAccepted": {
+            "type": "boolean"
+          },
+          "screeningDone": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "HOST_UNDER_AGE",
+                "HOST_AGE_UNVERIFIED",
+                "PARAM_MISSING",
+                "HOST_RESIDENCE_MISMATCH",
+                "HOST_TAX_ID_REQUIRED",
+                "TERMS_REACCEPT_REQUIRED",
+                "HOST_VERIFICATION_NOT_APPROVED",
+                "SUBMERCHANT_NOT_ACTIVE",
+                "PSP_CAPABILITY_MISSING",
+                "P2P_HOSTS_DISABLED",
+                "INSURER_CONTRACT_INACTIVE",
+                "HOST_NOT_ACTIVATED"
+              ]
+            }
           }
         }
       }

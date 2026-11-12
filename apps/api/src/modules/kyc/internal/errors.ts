@@ -10,6 +10,12 @@
  * `KYC_CONSENT_VERSION_CHANGED`, `KYC_CONSENT_UNAVAILABLE`, `KYC_SESSION_STARTED`,
  * `KYC_SESSION_IN_PROGRESS`, `KYC_IN_REVIEW`, `KYC_ALREADY_APPROVED`, `KYC_NOT_ELIGIBLE`,
  * `KYC_DOCUMENT_UNSUPPORTED`, `KYC_NOT_APPROVED`, `KYC_DRIVER_ELIGIBLE`.
+ * Vérification de l'hôte (US-123, ADR-105) : `HOST_UNDER_AGE`, `HOST_ENTITY_NOT_ALLOWED`,
+ * `HOST_TAX_ID_REQUIRED`, `HOST_SANCTIONS_HIT`, `HOST_SCREENING_MISSING` (16 A.8) ; PROPOSÉS :
+ * `HOST_VERIFICATION_STATE`, `HOST_VERIFICATION_SUBMITTED`, `HOST_TAX_PROFILE_SAVED`,
+ * `HOST_AGE_UNVERIFIED`, `HOST_KYC_REQUIRED`, `HOST_RESIDENCE_MISMATCH`, `HOST_ACCOUNT_NOT_ELIGIBLE`,
+ * `HOST_VERIFICATION_LOCKED`, `HOST_TAX_ID_KIND_INVALID`, `HOST_TAX_ID_INVALID`,
+ * `HOST_TAX_VAULT_UNAVAILABLE`, `HOST_VERIFICATION_UNAVAILABLE`.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -31,6 +37,29 @@ export const KYC_MESSAGES = {
   KYC_NOT_APPROVED: { status: 403, messageKey: 'common.kyc.notApproved' },
   KYC_LICENSE_EXPIRED: { status: 403, messageKey: 'common.kyc.licenseExpired' },
   KYC_DRIVER_ELIGIBLE: { status: 200, messageKey: 'common.kyc.driverEligible' },
+  // Vérification de l'hôte (US-123, ADR-105) : HOST_UNDER_AGE, HOST_ENTITY_NOT_ALLOWED (16 A.8,
+  // clés d'US-107), HOST_ACCOUNT_NOT_FOUND (code d'US-115) ; les autres sont PROPOSÉS.
+  HOST_VERIFICATION_STATE: { status: 200, messageKey: 'common.hostVerification.state' },
+  HOST_VERIFICATION_SUBMITTED: { status: 200, messageKey: 'common.hostVerification.submitted' },
+  HOST_TAX_PROFILE_SAVED: { status: 200, messageKey: 'common.hostVerification.taxSaved' },
+  HOST_ACCOUNT_NOT_FOUND: { status: 404, messageKey: 'common.listing.hostNotFound' },
+  HOST_ENTITY_NOT_ALLOWED: { status: 422, messageKey: 'common.host.entityNotAllowed' },
+  HOST_UNDER_AGE: { status: 403, messageKey: 'common.host.underAge' },
+  HOST_AGE_UNVERIFIED: { status: 403, messageKey: 'common.hostVerification.ageUnverified' },
+  HOST_KYC_REQUIRED: { status: 403, messageKey: 'common.hostVerification.kycRequired' },
+  HOST_RESIDENCE_MISMATCH: { status: 403, messageKey: 'common.hostVerification.residenceMismatch' },
+  HOST_ACCOUNT_NOT_ELIGIBLE: {
+    status: 409,
+    messageKey: 'common.hostVerification.accountNotEligible',
+  },
+  HOST_VERIFICATION_LOCKED: { status: 409, messageKey: 'common.hostVerification.locked' },
+  HOST_TAX_ID_KIND_INVALID: { status: 422, messageKey: 'common.hostVerification.taxKindInvalid' },
+  HOST_TAX_ID_INVALID: { status: 422, messageKey: 'common.hostVerification.taxIdInvalid' },
+  HOST_TAX_VAULT_UNAVAILABLE: {
+    status: 503,
+    messageKey: 'common.hostVerification.vaultUnavailable',
+  },
+  HOST_VERIFICATION_UNAVAILABLE: { status: 503, messageKey: 'common.hostVerification.unavailable' },
   COUNTRY_UNKNOWN: { status: 400, messageKey: 'common.legal.countryUnknown' },
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },

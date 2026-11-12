@@ -19,7 +19,8 @@ export const SPEC_TEXT: Readonly<
     | 'hostEmpty'
     | 'hostSaved'
     | 'identityVerified'
-    | 'identityRetake',
+    | 'identityRetake'
+    | 'hostWaitingCountry',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -61,6 +62,12 @@ export const SPEC_TEXT: Readonly<
     en: 'We need another photo',
     fr: 'Il nous faut une autre photo',
     pt: 'Precisamos de outra foto',
+  },
+  // 10b §4.3, ligne `web.a07.waitingCountry` (A07, US-123) : début du texte, avant {brand}
+  hostWaitingCountry: {
+    es: 'Todo listo de tu lado.',
+    en: "You're all set.",
+    fr: 'Tout est prêt de ton côté.',
   },
   // 10b §4.3, ligne `web.s15.codeSent` (S15, US-104) : début du texte, avant {phone}
   codeSent: {

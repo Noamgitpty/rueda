@@ -522,9 +522,13 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
         expect(
           rows.filter((r) => /image|file|selfie|photo|front|back|number|blob/.test(r.col)),
         ).toEqual([]);
-        expect(rows.filter((r) => r.typ === 'bytea').map((r) => `${r.rel}.${r.col}`)).toEqual([
-          'kyc_webhook_rejection.body_sha256',
-        ]);
+        // US-123 (0075) : seul autre bytea, le numéro fiscal CHIFFRÉ de l'hôte (enveloppe v1)
+        expect(
+          rows
+            .filter((r) => r.typ === 'bytea')
+            .map((r) => `${r.rel}.${r.col}`)
+            .sort(),
+        ).toEqual(['kyc_host_tax_profile.tax_id_enc', 'kyc_webhook_rejection.body_sha256']);
       });
     },
   );
@@ -544,10 +548,14 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
       expect(rows).toEqual(
         [
           'kyc_erasure_request',
+          'kyc_host_tax_profile',
+          'kyc_host_verification',
           'kyc_identity_document',
+          'kyc_identity_subject',
           'kyc_identity_verification',
           'kyc_liveness_check',
           'kyc_provider_event',
+          'kyc_sanctions_screening',
           'kyc_webhook_rejection',
         ].map((t) => ({ t, ok: true })),
       );
@@ -563,6 +571,11 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
         'kyc_provider_event',
         'kyc_webhook_rejection',
         'kyc_erasure_request',
+        // US-123 (0075)
+        'kyc_identity_subject',
+        'kyc_host_verification',
+        'kyc_sanctions_screening',
+        'kyc_host_tax_profile',
       ]) {
         await expect(c.query(`SELECT 1 FROM core.${t} LIMIT 1`)).rejects.toMatchObject({
           code: '42501',
