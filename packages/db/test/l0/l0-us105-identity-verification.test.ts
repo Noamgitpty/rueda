@@ -543,6 +543,7 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
       );
       expect(rows).toEqual(
         [
+          'kyc_erasure_request',
           'kyc_identity_document',
           'kyc_identity_verification',
           'kyc_liveness_check',
@@ -561,6 +562,7 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
         'kyc_liveness_check',
         'kyc_provider_event',
         'kyc_webhook_rejection',
+        'kyc_erasure_request',
       ]) {
         await expect(c.query(`SELECT 1 FROM core.${t} LIMIT 1`)).rejects.toMatchObject({
           code: '42501',
