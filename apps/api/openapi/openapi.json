@@ -195,6 +195,65 @@
         }
       }
     },
+    "/regulatory-notices": {
+      "get": {
+        "operationId": "getRegulatoryNotices",
+        "tags": ["cfg"],
+        "summary": "Avertissements réglementaires versionnés d’un pays pour un public (US-125, LEG-021)",
+        "description": "Limite légale connue du partage de véhicule entre particuliers, lue dans la configuration pays. Le texte est dans le catalogue @rueda/i18n (`messageKey`.title et .body, es / en / fr / pt). Aucun interrupteur de mise en service ni sa valeur n’est exposé.",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          },
+          {
+            "name": "audience",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["HOST", "GUEST"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Avertissements du pays pour ce public (liste vide : aucune limite connue)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/PublicCache"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegulatoryNoticesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Pays non configuré ou public invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/brand/assets/{id}": {
       "get": {
         "operationId": "getBrandAsset",
@@ -6622,6 +6681,49 @@
         "description": "Horodatage ISO 8601 en UTC (toISOString)",
         "type": "string",
         "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+      },
+      "RegulatoryNoticesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["country", "audience", "notices"],
+        "properties": {
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "audience": {
+            "type": "string",
+            "enum": ["HOST", "GUEST"]
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegulatoryNotice"
+            }
+          }
+        }
+      },
+      "RegulatoryNotice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "since", "messageKey"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-zA-Z0-9]{0,47}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "since": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "messageKey": {
+            "type": "string",
+            "pattern": "^common\\.regulatory\\.[a-z][a-zA-Z0-9]*\\.v[1-9][0-9]*\\.(host|guest)$"
+          }
+        }
       },
       "CountryCode": {
         "type": "string",

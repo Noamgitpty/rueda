@@ -19,6 +19,16 @@
         "trunkPrefix": null,
         "example": "6123-4567"
       },
+      "$regulatoryNotices": "US-125 (16 LEG-021, 19 US-125 critère 4) : limite légale connue du partage de véhicule entre particuliers, affichée à l'hôte (espace) et au voyageur (fiche), texte versionné du catalogue @rueda/i18n (common.regulatory.<id>.v<version>.*). Panama : plaque « particular » (usage privé) d'un véhicule loué entre particuliers, avis attendu (OQ-BR-35, OQ-BR-16). Texte PROPOSÉ, À VALIDER par l'avis juridique.",
+      "regulatoryNotices": [
+        {
+          "id": "privatePlate",
+          "version": 1,
+          "since": "2026-11-12",
+          "audiences": ["HOST", "GUEST"],
+          "source": "19 US-125 ; 16 LEG-021 ; OQ-BR-35, OQ-BR-16 (plaque « particular »)"
+        }
+      ],
       "$taxLines": "17 §3.2 tax_line_config ; 08 fait foi pour l'argent : configuration fiscale de 08 E1 (« lignes taxables : P et ses lignes promo, et F ») et BR-PRICE-06 (trip fee soumis à ITBMS / IVA comme service de la plateforme). Taxables : TRIP_PRICE, PROMO_PLATFORM, PROMO_HOST, TRIP_FEE ; third_party = false (dette propre de Kmino, jambe PLATFORM, BR-PRICE-12). Configuration réelle À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [
         {
@@ -84,6 +94,16 @@
         "trunkPrefix": "0",
         "example": "0981 123 456"
       },
+      "$regulatoryNotices": "Même règle que PA (US-125). Paraguay : statut fiscal de l'hôte particulier (déclaration des revenus de location), avis fiscal attendu (OQ-P2P-07, OQ-PAY-09). Texte PROPOSÉ, À VALIDER par l'avis fiscal.",
+      "regulatoryNotices": [
+        {
+          "id": "hostTaxStatus",
+          "version": 1,
+          "since": "2026-11-12",
+          "audiences": ["HOST", "GUEST"],
+          "source": "19 US-125 ; 16 LEG-021 ; OQ-P2P-07, OQ-PAY-09 (statut fiscal de l'hôte)"
+        }
+      ],
       "$taxLines": "Même règle que PA (08 E1, BR-PRICE-06, BR-PRICE-12) avec l'IVA. À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [
         {

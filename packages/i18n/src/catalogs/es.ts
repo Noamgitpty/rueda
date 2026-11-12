@@ -934,6 +934,23 @@ export const ES_MESSAGES = {
   'web.s04.phoneFirst':
     'Primero verifica tu teléfono: lo usamos para coordinar la entrega del auto.',
   'web.s04.phoneLink': 'Verificar mi teléfono',
+  // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
+  'common.regulatory.heading': 'Aviso importante',
+  'common.regulatory.version': 'Versión {version} de este aviso',
+  'common.regulatory.unavailable':
+    'Los avisos no están disponibles por ahora. Vuelve a intentarlo más tarde.',
+  'common.regulatory.privatePlate.v1.host.title': 'Placa particular y alquiler entre personas',
+  'common.regulatory.privatePlate.v1.host.body':
+    'En Panamá, un auto con placa particular está registrado para uso privado. El alquiler entre personas de un auto con esta placa está en revisión legal. Antes de publicar, confirma con tu aseguradora y en tu registro vehicular que puedes ofrecerlo.',
+  'common.regulatory.privatePlate.v1.guest.title': 'Auto de una persona particular',
+  'common.regulatory.privatePlate.v1.guest.body':
+    'Este auto pertenece a una persona y tiene placa particular. El alquiler entre personas con este tipo de placa está en revisión legal en Panamá. Revisa las condiciones del alquiler antes de reservar.',
+  'common.regulatory.hostTaxStatus.v1.host.title': 'Tu situación tributaria como anfitrión',
+  'common.regulatory.hostTaxStatus.v1.host.body':
+    'En Paraguay, los ingresos por alquilar tu auto pueden tener que declararse según tu situación tributaria. El tratamiento tributario de los anfitriones particulares está en revisión. Registra tu número tributario y guarda tus resúmenes de ganancias.',
+  'common.regulatory.hostTaxStatus.v1.guest.title': 'Alquiler con una persona particular',
+  'common.regulatory.hostTaxStatus.v1.guest.body':
+    'Este auto lo alquila una persona particular. En Paraguay, la situación tributaria de los anfitriones particulares está en revisión. Tu comprobante detalla lo que pagas.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
