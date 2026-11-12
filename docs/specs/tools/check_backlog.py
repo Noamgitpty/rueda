@@ -258,7 +258,7 @@ tj08 = set(re.findall(r"^\| (TJ\d{2}[a-z]?) \|", t08, re.M))
 tjbase = {x[:4] for x in tj08}
 bad = set()
 for v in re.findall(r"\bT(\d{2})\b", stext):
-    if not 1 <= int(v) <= 68:
+    if not 1 <= int(v) <= 73:  # T69-T73 : révisé 2026-11-12, caution comme Turo (US-063)
         bad.add("T" + v)
 for v in re.findall(r"\bTA(\d{2})\b", stext):
     if not 1 <= int(v) <= 11:

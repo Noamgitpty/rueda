@@ -4055,6 +4055,116 @@
       ]
     },
     {
+      "vectorId": "T69",
+      "oracle": "check_t49plus.py",
+      "label": "T69 caution / MIT / jambe HOST / PLATFORM",
+      "normative": true,
+      "expected": [
+        false,
+        {
+          "$int": "1200"
+        },
+        {
+          "$int": "1200"
+        },
+        {
+          "$int": "0"
+        }
+      ]
+    },
+    {
+      "vectorId": "T70",
+      "oracle": "check_t49plus.py",
+      "label": "T70 sans caution / T59 en LUXE",
+      "normative": true,
+      "expected": [
+        false,
+        [
+          true,
+          [
+            "CLASS"
+          ]
+        ]
+      ]
+    },
+    {
+      "vectorId": "T71",
+      "oracle": "check_t49plus.py",
+      "label": "T71 a/b/c/d",
+      "normative": true,
+      "expected": [
+        [
+          true,
+          [
+            "AGE"
+          ]
+        ],
+        [
+          false,
+          []
+        ],
+        [
+          false,
+          []
+        ],
+        [
+          true,
+          [
+            "AGE"
+          ]
+        ]
+      ]
+    },
+    {
+      "vectorId": "T72",
+      "oracle": "check_t49plus.py",
+      "label": "T72 a/b/c",
+      "normative": true,
+      "expected": [
+        [
+          true,
+          [
+            "RISK"
+          ]
+        ],
+        [
+          true,
+          [
+            "RISK"
+          ]
+        ],
+        "PARAM_MISSING"
+      ]
+    },
+    {
+      "vectorId": "T73",
+      "oracle": "check_t49plus.py",
+      "label": "T73 a/b",
+      "normative": true,
+      "expected": [
+        [
+          true,
+          [
+            "AGE",
+            "CLASS",
+            "RISK"
+          ]
+        ],
+        {
+          "$int": "1500000"
+        },
+        [
+          true,
+          [
+            "COUNTRY"
+          ]
+        ],
+        {
+          "$int": "500000"
+        }
+      ]
+    },
+    {
       "vectorId": "T33",
       "oracle": "check_verif12_fixes.py",
       "label": "T33 premiere imputation",
