@@ -9,6 +9,10 @@
 --     champs du permis, scores, événements, rejets de rappels, consentements biométriques) : les
 --     attendus des tests viennent de 19 US-105, 16 VER-001 / VER-002 / VER-004 et 17 §3.2.2,
 --     §4.5, §7.2, jamais de ces relectures ;
+--   - téléphone vérifié posé directement (numéro fictif unique) : la vérification par OTP (0066,
+--     prouvée par l0-us104) partage la table des défis avec la purge à 30 jours de l0-us104, qui,
+--     sous une horloge virtuelle à +31 jours, efface aussi les défis d'un fichier parallèle
+--     (échec aléatoire observé en CI : saisie refusée) ;
 --   - publication d'une version 2 du consentement biométrique, pour éprouver « une nouvelle version
 --     exige une nouvelle acceptation » DANS une transaction annulée (la commande de console de 0059
 --     ne publie pas ce genre).
@@ -121,6 +125,20 @@ BEGIN
   RETURN v_next;
 END
 $fn$;
+
+CREATE FUNCTION test_fixture.us105_verify_phone(p_user uuid, p_phone text)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.iam_user_account AS u
+     SET phone_e164 = p_phone, phone_verified_at = platform.now()
+   WHERE u.id = p_user
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us105_verify_phone(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us105_verify_phone(uuid, text) TO app_api;
 
 REVOKE ALL ON FUNCTION test_fixture.us105_verification(uuid), test_fixture.us105_documents(uuid),
   test_fixture.us105_liveness(uuid), test_fixture.us105_events(uuid),

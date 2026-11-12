@@ -3,7 +3,7 @@
  * (US-105, migration 0070 ; fixtures 9996) sous les rôles de production app_api et app_worker
  * (assertion L0-05 en tête de chaque connexion, withRole), au Panama (USD) et au Paraguay (PYG).
  * Chaque test crée ses propres personnes par les VRAIES commandes (inscription avec consentements,
- * vérification d'e-mail, session, OTP du téléphone).
+ * vérification d’e-mail, session) ; le téléphone vérifié est posé par la fixture 9996.
  *
  * Attendus tirés de 19 US-105, de 16 VER-001 / VER-002 / VER-004 et de 17, jamais du code testé :
  * - critère 1 : `DOCS_SUBMITTED`, rappel signé « approved » reçu deux fois ⇒ une seule transition
@@ -105,32 +105,16 @@ async function person(
   return p;
 }
 
-/** Téléphone vérifié par les vraies commandes de 0066 (demande, émission, saisie). */
+/**
+ * Téléphone vérifié (SM-3 `PHONE_VERIFIED`) posé par la fixture 9996, numéro fictif unique : la
+ * vérification par OTP est prouvée par l0-us104, dont la purge à +31 jours (horloge virtuelle)
+ * efface aussi les défis d'un fichier parallèle (échec aléatoire observé en CI, corrigé ainsi).
+ */
 async function verifyPhone(client: pg.ClientBase, p: Person, country: string): Promise<void> {
-  const code = randomBytes(32);
-  const req = await client.query<{ outcome: string; challenge_id: string }>(
-    'SELECT * FROM core.iam_cmd_phone_otp_request($1, $2, $3)',
-    [p.token, phoneOf(country), country],
-  );
-  if (req.rows[0]?.outcome !== 'SENT') throw new Error('demande d’OTP refusée');
-  await withRole('app_worker', (w) =>
-    commit(w, async () => {
-      await w.query(
-        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
-                pg_catalog.set_config('app.worker_name', 'iam_otp_sender', true)`,
-      );
-      const { rows } = await w.query<{ outcome: string }>(
-        'SELECT * FROM core.iam_worker_otp_issue($1, $2)',
-        [req.rows[0]?.challenge_id, code],
-      );
-      if (rows[0]?.outcome !== 'ISSUED') throw new Error('émission de l’OTP refusée');
-    }),
-  );
-  const ver = await client.query<{ outcome: string }>(
-    'SELECT * FROM core.iam_cmd_phone_otp_verify($1, $2::bytea[])',
-    [p.token, [code]],
-  );
-  if (ver.rows[0]?.outcome !== 'PHONE_VERIFIED') throw new Error('saisie de l’OTP refusée');
+  await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [
+    p.userId,
+    phoneOf(country),
+  ]);
 }
 
 const one = async <T extends pg.QueryResultRow>(
@@ -347,15 +331,16 @@ describe('US-105 — décision par rappel signé (critère 1)', () => {
         });
         const expiresOn = isoDay(400);
         const d = { document: licence(country, expiresOn) };
-        expect(await apply(c, 'evt-1', sessionRef, vid, d)).toEqual({
+        const evt1 = uuid();
+        expect(await apply(c, evt1, sessionRef, vid, d)).toEqual({
           outcome: 'APPLIED',
           status: 'APPROVED',
         });
-        expect(await apply(c, 'evt-1', sessionRef, vid, d)).toEqual({
+        expect(await apply(c, evt1, sessionRef, vid, d)).toEqual({
           outcome: 'DUPLICATE',
           status: null,
         });
-        expect(await apply(c, 'evt-2', sessionRef, vid, d)).toEqual({
+        expect(await apply(c, uuid(), sessionRef, vid, d)).toEqual({
           outcome: 'STALE',
           status: 'APPROVED',
         });
@@ -392,7 +377,7 @@ describe('US-105 — décision par rappel signé (critère 1)', () => {
     const d = { document: licence(country, isoDay(400)) };
     const run = (eventId: string) =>
       withRole('app_api', (c) => commit(c, () => apply(c, eventId, s.sessionRef, vid, d)));
-    const results = await Promise.all([run('evt-a'), run('evt-b')]);
+    const results = await Promise.all([run(uuid()), run(uuid())]);
     expect(results.map((r) => r.outcome).sort()).toEqual(['APPLIED', 'STALE']);
     await withRole('app_api', async (c) => {
       const events = await fixture<{ payload: { to: string } }>(c, 'us105_events', vid);

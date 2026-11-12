@@ -810,14 +810,17 @@ BEGIN
   SELECT v.user_id INTO v_user FROM core.kyc_identity_verification AS v
    WHERE v.provider = p_provider AND v.provider_session_ref = p_session_ref
      AND v.id::text = p_subject_ref AND v.is_current;
-  IF v_user IS NOT NULL THEN
-    PERFORM pg_catalog.pg_advisory_xact_lock(
-      pg_catalog.hashtextextended('kyc.verification:' || v_user::text, 0));
-    SELECT v.* INTO v_v FROM core.kyc_identity_verification AS v
-     WHERE v.provider = p_provider AND v.provider_session_ref = p_session_ref
-       AND v.id::text = p_subject_ref AND v.is_current;
+  IF v_user IS NULL THEN
+    UPDATE core.kyc_provider_event AS e SET outcome = 'UNKNOWN_SESSION' WHERE e.id = v_event;
+    RETURN QUERY SELECT 'UNKNOWN_SESSION'::text, NULL::text;
+    RETURN;
   END IF;
-  IF v_user IS NULL OR v_v.id IS NULL THEN
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('kyc.verification:' || v_user::text, 0));
+  SELECT v.* INTO v_v FROM core.kyc_identity_verification AS v
+   WHERE v.provider = p_provider AND v.provider_session_ref = p_session_ref
+     AND v.id::text = p_subject_ref AND v.is_current;
+  IF v_v.id IS NULL THEN
     UPDATE core.kyc_provider_event AS e SET outcome = 'UNKNOWN_SESSION' WHERE e.id = v_event;
     RETURN QUERY SELECT 'UNKNOWN_SESSION'::text, NULL::text;
     RETURN;
