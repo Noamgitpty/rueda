@@ -1,6 +1,6 @@
 /**
  * FAKE du calendrier de l'hôte (US-119) — TESTS SEULEMENT (absent de la compilation de
- * production). Reproduit les issues des commandes `core.catalog_*` de 0071 que les tests de
+ * production). Reproduit les issues des commandes `core.catalog_*` de 0072 que les tests de
  * contrat HTTP observent, sur les comptes, lieux, véhicules et annonces du FAKE d'US-115 ; les
  * règles elles-mêmes (session, propriété, fuseau, exclusion GiST, préavis) sont prouvées sur
  * PostgreSQL (packages/db/test/l0/l0-us119-host-calendar.test.ts). Le FAKE compare les heures

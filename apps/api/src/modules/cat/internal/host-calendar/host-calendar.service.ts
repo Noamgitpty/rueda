@@ -1,5 +1,5 @@
 /**
- * Service du calendrier de l'hôte (US-119 ; 16 CAL-001 / CAL-002, CAL-003 ; ADR-101). Valide la
+ * Service du calendrier de l'hôte (US-119 ; 16 CAL-001 / CAL-002, CAL-003 ; ADR-102). Valide la
  * saisie (jours ou heures au pas de 30 min, préavis), appelle le magasin (la base juge la session,
  * le compte, le véhicule, le fuseau, l'occupation) et traduit chaque issue en code stable.
  *

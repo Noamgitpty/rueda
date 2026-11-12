@@ -12,7 +12,7 @@
  * `LISTING_NOT_FOUND`, `LISTING_EXISTS`, `PHOTO_UPLOAD_UNAVAILABLE`, `LISTING_UNAVAILABLE` ;
  * `TERMS_REACCEPT_REQUIRED` (16 LEG-001, 19 US-126) : CGU de l'hôte à accepter avant la soumission.
  *
- * Calendrier de l'hôte (US-119, ADR-101) : `VEHICLE_UNAVAILABLE` (16 CAL-011, CAL-002 : créneau
+ * Calendrier de l'hôte (US-119, ADR-102) : `VEHICLE_UNAVAILABLE` (16 CAL-011, CAL-002 : créneau
  * pris, sans détail de l'occupation en cause), PROPOSÉS par US-119 : `BLOCK_CREATED`,
  * `BLOCK_REMOVED`, `NOTICE_SAVED`, `BLOCK_NOT_FOUND`, `VEHICLE_NOT_LISTED`, `INVALID_PERIOD` (code de
  * la base d'US-022), `NOTICE_INVALID`.
