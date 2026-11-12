@@ -234,16 +234,28 @@ describe('configuration pays : structure et droits', () => {
           WHERE n.nspname = 'core' AND p.proname LIKE 'config_%'
           ORDER BY 1`,
       );
-      expect(rows.map((r) => r.fn)).toEqual([
-        'core.config_go_live(text,text)',
-        'core.config_no_truncate()',
-        'core.config_param_value_guard()',
-        'core.config_tax_line_guard()',
-        'core.config_versioned_row_guard()',
-      ]);
+      // US-125 : les deux commandes à deux personnes sont SECURITY DEFINER (liste blanche RLS-15) ;
+      // toutes les autres fonctions config_* restent des gardes ou des lectures SECURITY INVOKER
+      const COMMANDS = [
+        'core.config_cmd_approve_go_live_switch(bytea,uuid)',
+        'core.config_cmd_request_go_live_switch(bytea,uuid,text,text,boolean,text)',
+      ];
+      expect(rows.map((r) => r.fn).sort()).toEqual(
+        [
+          ...COMMANDS,
+          'core.config_go_live(text,text)',
+          'core.config_go_live_request_guard()',
+          'core.config_go_live_write_refusal(text,text,text,jsonb,uuid,uuid,text)',
+          'core.config_no_truncate()',
+          'core.config_param_value_go_live_guard()',
+          'core.config_param_value_guard()',
+          'core.config_tax_line_guard()',
+          'core.config_versioned_row_guard()',
+        ].sort(),
+      );
       for (const r of rows) {
         expect(r, r.fn).toMatchObject({
-          secdef: false,
+          secdef: COMMANDS.includes(r.fn),
           config: ['search_path=pg_catalog, pg_temp'],
         });
       }

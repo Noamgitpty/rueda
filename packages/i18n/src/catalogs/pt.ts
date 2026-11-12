@@ -817,4 +817,19 @@ export const PT_MESSAGES = {
   'common.vehicle.catalog.notListed': 'Meu carro não está na lista',
   'common.vehicle.catalog.variantRetired': 'Esta versão não está mais no catálogo. Escolha outra.',
   'common.vehicle.catalog.variantNotFound': 'Não encontramos esta versão no catálogo.',
+  // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
+  'common.regulatory.heading': 'Aviso importante',
+  'common.regulatory.version': 'Versão {version} deste aviso',
+  'common.regulatory.privatePlate.v1.host.title': 'Placa particular e aluguel entre pessoas',
+  'common.regulatory.privatePlate.v1.host.body':
+    'No Panamá, um carro com placa particular é registrado para uso privado. O aluguel entre pessoas de um carro com essa placa está em análise jurídica. Antes de anunciar, confirme com sua seguradora e no registro do veículo que você pode oferecê-lo.',
+  'common.regulatory.privatePlate.v1.guest.title': 'Carro de uma pessoa física',
+  'common.regulatory.privatePlate.v1.guest.body':
+    'Este carro pertence a uma pessoa física e tem placa particular. O aluguel entre pessoas com esse tipo de placa está em análise jurídica no Panamá. Sua viagem fica protegida pelo plano que você escolher.',
+  'common.regulatory.hostTaxStatus.v1.host.title': 'Sua situação tributária como anfitrião',
+  'common.regulatory.hostTaxStatus.v1.host.body':
+    'No Paraguai, a renda do aluguel do seu carro pode precisar ser declarada conforme sua situação tributária. A tributação de anfitriões pessoas físicas está em análise. Informe seu número de identificação fiscal e guarde seus extratos de ganhos.',
+  'common.regulatory.hostTaxStatus.v1.guest.title': 'Aluguel com uma pessoa física',
+  'common.regulatory.hostTaxStatus.v1.guest.body':
+    'Este carro é alugado por uma pessoa física. No Paraguai, a situação tributária dos anfitriões pessoas físicas está em análise. Seu recibo mostra o que você paga.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

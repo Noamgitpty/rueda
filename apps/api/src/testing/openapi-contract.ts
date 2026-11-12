@@ -403,6 +403,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   '/phone': 'modules/iam/testing/phone.contract.test.ts',
   '/brand': 'modules/cfg/internal/brand/brand.contract.test.ts',
+  // avertissements réglementaires versionnés par pays (US-125)
+  '/regulatory-notices': 'modules/cfg/internal/notices/regulatory-notices.contract.test.ts',
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',

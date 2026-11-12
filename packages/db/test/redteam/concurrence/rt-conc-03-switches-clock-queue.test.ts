@@ -6,9 +6,12 @@
  * Règle de l'axe : AUCUN interrupteur n'est jamais mis à true durablement. Les tentatives
  * d'écriture à true se font dans une transaction ANNULÉE (`inTx` sans `commit`) sur la base de test ;
  * un test rouge signifierait qu'un acteur seul y est parvenu, et la transaction est annulée quand
- * même. Les commandes à deux personnes `cmd_request_go_live_switch` / `cmd_approve_go_live_switch`
- * (US-125) n'existent pas encore : on prouve donc qu'AUCUNE voie d'écriture à true n'existe, pour
- * aucun rôle, aucun contexte, aucune astuce de session.
+ * même. Depuis US-125 (migration 0070), la SEULE voie d'écriture est la paire de commandes à deux
+ * personnes `core.config_cmd_request_go_live_switch` / `core.config_cmd_approve_go_live_switch` :
+ * on prouve qu'aucune autre voie n'existe, pour aucun rôle, aucun contexte, aucune astuce de
+ * session (RT-CONC-21 à 23), puis que la paire refuse un acteur seul et la même personne deux fois
+ * et n'accepte que deux personnes (RT-CONC-24, transaction annulée), une seule fois sous
+ * concurrence (RT-CONC-25, demande à false : aucun interrupteur ne s'ouvre).
  * Rôles de production seulement (assertion L0-05 par connectAs / withRole). USD (PA) et PYG (PY).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -28,6 +31,15 @@ import {
 } from '../../support/outbox.ts';
 import type { EventCountry } from '../../support/outbox.ts';
 import { at, LONG } from './support.ts';
+import {
+  DECISION,
+  approveSwitch,
+  freshSession,
+  goLive,
+  requestSwitch,
+} from '../../support/golive.ts';
+import type { StaffActor } from '../../support/golive.ts';
+import { staff, staffSessionHash } from '../../support/rls.ts';
 
 /** Les quatre interrupteurs de mise en service (CLAUDE.md point 7 ; 17 §0.1). */
 const SWITCHES = [
@@ -248,6 +260,7 @@ describe.each(COUNTRIES)(
           ['SET ROLE migrator', `SET LOCAL ROLE migrator`],
           ['SET ROLE propriétaire des commandes de hold', `SET LOCAL ROLE cmd_hold_owner`],
           ['SET ROLE propriétaire des commandes monétaires', `SET LOCAL ROLE cmd_money_owner`],
+          ['SET ROLE propriétaire des interrupteurs', `SET LOCAL ROLE cmd_golive_owner`],
         ];
         for (const client of [api, worker]) {
           for (const [label, disable] of disablers) {
@@ -302,9 +315,12 @@ describe.each(COUNTRIES)(
                 AND p.prosrc ~* '(insert\\s+into|update|delete\\s+from)\\s+(core\\.)?config_param_value'
                 AND p.proname <> 'config_param_value_guard'`,
             );
-            expect(writers.rows, 'fonctions écrivant config_param_value').toEqual([]);
-            // fonctions « go live » : seule la lecture existe tant que US-125 n'est pas livrée ; si les
-            // commandes à deux personnes arrivent, elles ne doivent être exécutables que par app_api
+            // US-125 : la seule fonction qui écrit la table est l'approbation à deux personnes
+            expect(writers.rows, 'fonctions écrivant config_param_value').toEqual([
+              { fn: 'core.config_cmd_approve_go_live_switch' },
+            ]);
+            // fonctions « go live » : la lecture (invocateur), les gardes (invocateur, aucune écriture)
+            // et les deux commandes, SECURITY DEFINER, exécutables par app_api seulement
             const fns = await client.query<{
               fn: string;
               secdef: boolean;
@@ -321,9 +337,26 @@ describe.each(COUNTRIES)(
                 AND p.proname ~* 'go_live|golive'
               ORDER BY 1`,
             );
+            const INVOKER = new Set([
+              'config_go_live',
+              'config_go_live_request_guard',
+              'config_go_live_write_refusal',
+              'config_param_value_go_live_guard',
+            ]);
+            expect(fns.rows.map((f) => f.fn).sort()).toEqual(
+              [
+                ...INVOKER,
+                'config_cmd_approve_go_live_switch',
+                'config_cmd_request_go_live_switch',
+              ].sort(),
+            );
             for (const f of fns.rows) {
-              if (f.fn === 'config_go_live') continue; // lecture seule, invocateur
+              if (INVOKER.has(f.fn)) {
+                expect(f.secdef, `${f.fn} doit rester SECURITY INVOKER`).toBe(false);
+                continue;
+              }
               expect(f.secdef, `${f.fn} doit être SECURITY DEFINER`).toBe(true);
+              expect(f.api, `${f.fn} exécutable par app_api`).toBe(true);
               expect(f.worker, `${f.fn} exécutable par app_worker`).toBe(false);
               expect(f.anon, `${f.fn} exécutable par app_anon`).toBe(false);
             }
@@ -336,7 +369,8 @@ describe.each(COUNTRIES)(
               `SELECT tgname, tgenabled, tgtype FROM pg_trigger
               WHERE tgrelid = 'core.config_param_value'::regclass AND NOT tgisinternal ORDER BY 1`,
             );
-            expect(triggers.rows.length).toBeGreaterThanOrEqual(2);
+            expect(triggers.rows.length).toBeGreaterThanOrEqual(3);
+            expect(triggers.rows.map((t) => t.tgname)).toContain('param_value_go_live_guard');
             expect(triggers.rows.every((t) => t.tgenabled === 'O')).toBe(true);
           },
           { database: 'production' },
@@ -344,8 +378,96 @@ describe.each(COUNTRIES)(
       },
       LONG,
     );
+
+    it(
+      'RT-CONC-24 (US-125, S-04) : un acteur seul, la même personne deux fois (seconde session, acteur forgé), puis deux personnes distinctes ; transaction annulée',
+      async () => {
+        const [superB, superC] = await twoSuperadmins(api, c.country);
+        await inTx(api, {}, async (tx) => {
+          const r = await requestSwitch(tx, superB, 'payouts_enabled', c.country, true);
+          expect(r.outcome).toBe('REQUESTED');
+          const id = r.request_id as string;
+          // un acteur seul
+          expect((await approveSwitch(tx, superB, id)).outcome).toBe('SELF_APPROVAL');
+          // la même personne deux fois : seconde session, puis identifiant de superC forgé
+          const second = await freshSession(tx, superB);
+          expect((await approveSwitch(tx, second, id)).outcome).toBe('SELF_APPROVAL');
+          expect((await approveSwitch(tx, superB, id, superC.userId)).outcome).toBe(
+            'SELF_APPROVAL',
+          );
+          expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(false);
+          // deux personnes
+          expect((await approveSwitch(tx, superC, id)).outcome).toBe('APPLIED');
+          expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(true);
+        });
+        for (const k of SWITCHES) expect(await goLive(api, k, c.country), k).toBe(false);
+      },
+      LONG,
+    );
+
+    it(
+      'RT-CONC-25 (US-125) : deux approbations concurrentes de la même demande par deux SUPERADMIN ⇒ une seule appliquée, l’autre NOT_PENDING (demande à false : aucun interrupteur ne s’ouvre)',
+      async () => {
+        const [superB, superC] = await twoSuperadmins(api, c.country);
+        const superD = (await twoSuperadmins(api, c.country))[0];
+        const id = await inTx(api, { commit: true }, async (tx) => {
+          const r = await requestSwitch(tx, superB, 'funds_holding_enabled', c.country, false);
+          expect(r.outcome).toBe('REQUESTED');
+          return r.request_id as string;
+        });
+        const first = await connectAs('app_api');
+        const second = await connectAs('app_api');
+        try {
+          const barrier = await Barrier.open(api);
+          const race = [
+            [first, superC],
+            [second, superD],
+          ].map(async ([conn, who]) => {
+            await barrier.wait(conn as pg.Client);
+            return inTx(conn as pg.Client, { commit: true }, async (tx) =>
+              approveSwitch(tx, who as StaffActor, id),
+            );
+          });
+          await barrier.waitForWaiters(2);
+          await barrier.release();
+          const outcomes = (await Promise.all(race)).map((o) => o.outcome).sort();
+          expect(outcomes).toEqual(['APPLIED', 'NOT_PENDING']);
+        } finally {
+          await releaseClient(second);
+          await releaseClient(first);
+        }
+        const { rows } = await api.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM core.config_param_value
+            WHERE key = 'funds_holding_enabled' AND country_code = $1 AND decision_ref = $2
+              AND value = 'false'::jsonb`,
+          [c.country, DECISION],
+        );
+        expect(rows[0]?.n).toBeGreaterThanOrEqual(1);
+        for (const k of SWITCHES) expect(await goLive(api, k, c.country), k).toBe(false);
+      },
+      LONG,
+    );
   },
 );
+
+/** Deux SUPERADMIN du pays, sessions élevées, validés (base de test). */
+async function twoSuperadmins(
+  client: pg.Client,
+  country: string,
+): Promise<[StaffActor, StaffActor]> {
+  return inTx(client, { commit: true }, async (tx) => {
+    const out: StaffActor[] = [];
+    for (let i = 0; i < 2; i++) {
+      const id = await staff(tx, 'SUPERADMIN', [country]);
+      out.push({
+        userId: id,
+        hash: Buffer.from(staffSessionHash(id) ?? '', 'hex'),
+        scope: [country],
+      });
+    }
+    return out as [StaffActor, StaffActor];
+  });
+}
 
 describe('US-049 red team concurrence — horloge applicative contre platform.now()', () => {
   it(

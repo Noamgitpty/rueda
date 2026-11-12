@@ -3,9 +3,14 @@ import { Badge, ButtonLink, CarIllustration, EmptyState, ErrorState, Icon } from
 import type { MessageKey } from '@rueda/i18n';
 import { callApi } from '../../../../account/api-client.ts';
 import { publicListingOf } from '../../../../account/host-listings.ts';
+import {
+  regulatoryNoticesOf,
+  regulatoryNoticesPath,
+} from '../../../../account/regulatory-notices.ts';
 import { clientContext } from '../../../../account/request.ts';
 import { getRequestI18n } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
+import { RegulatoryNotices } from '../../_account/regulatory-notices.tsx';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
 
@@ -61,6 +66,15 @@ export default async function ListingPage({
     );
   }
   const title = `${listing.makeName} ${listing.modelName} ${listing.year}`;
+  // US-125 : limite légale connue du pays de l'annonce, pour le voyageur
+  const notices = regulatoryNoticesOf(
+    await callApi('GET', regulatoryNoticesPath(listing.country, 'GUEST'), {
+      ...(await clientContext()),
+      sessionToken: null,
+    }),
+    listing.country,
+    'GUEST',
+  );
   return (
     <main id={MAIN_ID} tabIndex={-1} className={accountStyles['content']}>
       <div className={styles['media']}>
@@ -83,6 +97,8 @@ export default async function ListingPage({
           </Badge>
         </div>
       </header>
+
+      <RegulatoryNotices i18n={i18n} notices={notices} headingId="s03-notices" />
 
       <section className={styles['section']} aria-labelledby="s03-features">
         <h2 id="s03-features" className={accountStyles['h2']}>

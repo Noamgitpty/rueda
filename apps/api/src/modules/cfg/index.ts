@@ -7,6 +7,7 @@ export type { ConfigErrorCode } from './internal/errors.js';
 export {
   DECISION_STATUSES,
   FAIL_MODES,
+  NOTICE_AUDIENCES,
   PARAM_SCOPES,
   PARAM_TYPES,
   TAX_LINE_TYPES,
@@ -23,7 +24,9 @@ export type {
   ParamScope,
   ParamType,
   ParamValue,
+  NoticeAudience,
   PhoneNumberingConfig,
+  RegulatoryNotice,
   TaxLineConfig,
   TaxLineType,
 } from './internal/model.js';
@@ -83,3 +86,14 @@ export type { BrandParams } from './internal/brand/params.js';
 export { PgBrandStore } from './internal/brand/store.js';
 export type { BrandStore, StaffVersion } from './internal/brand/store.js';
 export { CONTENT_LOCALES, CONTRAST_CHECKER } from './internal/brand/checks.js';
+
+// Avertissements réglementaires versionnés par pays (US-125) : route publique du processus API.
+export { RegulatoryNoticesModule } from './internal/notices/regulatory-notices.module.js';
+export {
+  noticeMessageKey,
+  RegulatoryNoticesController,
+} from './internal/notices/regulatory-notices.controller.js';
+export type {
+  RegulatoryNoticesResponse,
+  RegulatoryNoticeView,
+} from './internal/notices/regulatory-notices.controller.js';

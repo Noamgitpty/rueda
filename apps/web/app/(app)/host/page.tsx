@@ -13,9 +13,11 @@ import {
   vehiclesOf,
 } from '../../../account/host-listings.ts';
 import type { ListingView, VehicleView } from '../../../account/host-listings.ts';
+import { regulatoryNoticesOf, regulatoryNoticesPath } from '../../../account/regulatory-notices.ts';
 import { clientContext } from '../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../i18n.ts';
 import accountStyles from '../_account/account.module.css';
+import { RegulatoryNotices } from '../_account/regulatory-notices.tsx';
 import { MAIN_ID } from '../_shell/main-id.ts';
 import { ListingForms, LocationForm, NewListingForm, VehicleForm } from './host-forms.tsx';
 import styles from './host.module.css';
@@ -126,11 +128,14 @@ export default async function HostPage({
   const account = accounts.find((a) => a.orgId === wanted) ?? accounts[0];
   if (account === undefined) return error;
   const base = `/host/accounts/${account.orgId}`;
-  const [locReply, vehReply, lstReply] = await Promise.all([
+  const [locReply, vehReply, lstReply, noticeReply] = await Promise.all([
     callApi('GET', `${base}/locations`, ctx),
     callApi('GET', `${base}/vehicles`, ctx),
     callApi('GET', `${base}/listings`, ctx),
+    // US-125 : limite légale connue du pays du compte (route publique, sans session)
+    callApi('GET', regulatoryNoticesPath(account.country, 'HOST'), { ...ctx, sessionToken: null }),
   ]);
+  const notices = regulatoryNoticesOf(noticeReply, account.country, 'HOST');
   const locations = locationsOf(locReply);
   const vehicles = vehiclesOf(vehReply);
   const listed = listingsOf(lstReply);
@@ -170,6 +175,7 @@ export default async function HostPage({
           </ul>
         </nav>
       )}
+      <RegulatoryNotices i18n={i18n} notices={notices} headingId="a10-notices" />
       {query['saved'] === '1' && (
         <Banner tone="success" live="polite" icon="check">
           {t('web.host.saved')}

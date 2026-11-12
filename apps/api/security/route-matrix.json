@@ -24,6 +24,9 @@
     "GET /brand/assets/{id}": {
       "acces": "public"
     },
+    "GET /regulatory-notices": {
+      "acces": "public"
+    },
     "POST /auth/signup": {
       "acces": "public"
     },

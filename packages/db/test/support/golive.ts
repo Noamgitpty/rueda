@@ -1,0 +1,150 @@
+/**
+ * Aides des preuves des interrupteurs de mise en service (US-125, migration 0070 ; 17 §0.1, §2.3,
+ * RLS-27) : appel des VRAIES commandes à deux personnes `core.config_cmd_request_go_live_switch`
+ * et `core.config_cmd_approve_go_live_switch` sous app_api, contexte STAFF posé par la vraie couche
+ * (`setSessionContext`) ; l'identité vient de la session désignée par l'empreinte du jeton.
+ *
+ * Règle : un interrupteur ne passe à true que dans une transaction ANNULÉE ou, sur la base de
+ * TEST seulement, dans une fenêtre d'horloge virtuelle lointaine refermée par la même procédure
+ * (`openSwitchWindow`). Aucun pays en constante : les pays viennent de `COUNTRIES`.
+ */
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import type pg from 'pg';
+import { setSessionContext } from '../../src/index.ts';
+import { withTestTransaction } from '../../src/testing/index.ts';
+
+/** Les quatre interrupteurs de mise en service (CLAUDE.md point 7 ; 17 §0.1). */
+export const SWITCHES = [
+  'p2p_private_hosts_enabled',
+  'insurer_contract_active',
+  'funds_holding_enabled',
+  'payouts_enabled',
+] as const;
+export type SwitchKey = (typeof SWITCHES)[number];
+
+/** Référence d'une décision écrite du fondateur (forme de docs/team/DECISIONS.md). */
+export const DECISION = 'DEC-FONDATEUR-15';
+
+export const REQUEST_SQL =
+  'SELECT outcome, request_id FROM core.config_cmd_request_go_live_switch($1, $2, $3, $4, $5, $6)';
+export const APPROVE_SQL =
+  'SELECT outcome, request_id FROM core.config_cmd_approve_go_live_switch($1, $2)';
+
+/** Membre du staff : identifiant, empreinte de session (élevée sauf mention), portée pays. */
+export interface StaffActor {
+  readonly userId: string;
+  readonly hash: Buffer;
+  readonly scope: readonly string[];
+}
+
+export interface Outcome {
+  readonly outcome: string;
+  readonly request_id: string | null;
+}
+
+/** Empreinte d'un nouveau jeton (SHA-256), comme la base la reçoit. */
+export const newHash = (): Buffer => createHash('sha256').update(randomBytes(32)).digest();
+
+/** Pose le contexte STAFF de `who` (ou un acteur forgé `actorId`) dans la transaction courante. */
+export async function asStaff(
+  tx: pg.ClientBase,
+  who: StaffActor,
+  actorId: string = who.userId,
+): Promise<void> {
+  await setSessionContext(tx, {
+    kind: 'STAFF',
+    actorId,
+    countryScope: who.scope,
+    sessionTokenHash: who.hash.toString('hex'),
+  });
+}
+
+/** Demande, dans la transaction courante, sous le contexte de `who`. */
+export async function requestSwitch(
+  tx: pg.ClientBase,
+  who: StaffActor,
+  key: string,
+  country: string,
+  value: boolean,
+  options: { readonly id?: string; readonly decision?: string; readonly actorId?: string } = {},
+): Promise<Outcome> {
+  await asStaff(tx, who, options.actorId);
+  const { rows } = await tx.query<Outcome>(REQUEST_SQL, [
+    who.hash,
+    options.id ?? randomUUID(),
+    key,
+    country,
+    value,
+    options.decision ?? DECISION,
+  ]);
+  return rows[0] ?? { outcome: '', request_id: null };
+}
+
+/** Approbation, dans la transaction courante, sous le contexte de `who`. */
+export async function approveSwitch(
+  tx: pg.ClientBase,
+  who: StaffActor,
+  requestId: string,
+  actorId?: string,
+): Promise<Outcome> {
+  await asStaff(tx, who, actorId);
+  const { rows } = await tx.query<Outcome>(APPROVE_SQL, [who.hash, requestId]);
+  return rows[0] ?? { outcome: '', request_id: null };
+}
+
+export async function goLive(tx: pg.ClientBase, key: string, country: string): Promise<boolean> {
+  const { rows } = await tx.query<{ on: boolean }>('SELECT core.config_go_live($1, $2) AS "on"', [
+    key,
+    country,
+  ]);
+  return rows[0]?.on === true;
+}
+
+/** Session élevée (TOTP) neuve de `userId`, ouverte à l'instant (virtuel) de la transaction. */
+export async function freshSession(tx: pg.ClientBase, who: StaffActor): Promise<StaffActor> {
+  const hash = newHash();
+  await tx.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [who.userId, hash]);
+  return { ...who, hash };
+}
+
+/**
+ * Base de TEST seulement : ouvre `key` à true dans `country` à l'instant virtuel `from` (demande de
+ * `requester`, approbation de `approver`, validées), puis le referme à false à `to` par la même
+ * procédure à deux personnes. Rend la fenêtre [from, to) ; hors de cette fenêtre, la valeur reste
+ * false pour tout lecteur. `from` doit être loin de toute date lue par les autres preuves.
+ */
+export async function openSwitchWindow(
+  api: pg.ClientBase,
+  requester: StaffActor,
+  approver: StaffActor,
+  key: SwitchKey,
+  country: string,
+  from: string,
+  to: string,
+): Promise<void> {
+  for (const [at, value] of [
+    [from, true],
+    [to, false],
+  ] as const) {
+    await withTestTransaction(api, { virtualNow: at, commit: true }, async (tx) => {
+      const req = await freshSession(tx, requester);
+      const app = await freshSession(tx, approver);
+      const r = await requestSwitch(tx, req, key, country, value);
+      if (r.outcome !== 'REQUESTED' || r.request_id === null) {
+        throw new Error(`demande d'interrupteur : ${r.outcome}`);
+      }
+      const a = await approveSwitch(tx, app, r.request_id);
+      if (a.outcome !== 'APPLIED') throw new Error(`approbation d'interrupteur : ${a.outcome}`);
+    });
+  }
+}
+
+/** Instant virtuel lointain (années 2500 à 2900), distinct à chaque série : aucune collision. */
+export function farInstant(offsetMinutes = 0): string {
+  const base = Date.UTC(2500, 0, 1) + Math.floor(Math.random() * 400 * 365) * 86_400_000;
+  return new Date(base + offsetMinutes * 60_000).toISOString();
+}
+
+/** `iso` décalé de `minutes`. */
+export const plusMinutes = (iso: string, minutes: number): string =>
+  new Date(Date.parse(iso) + minutes * 60_000).toISOString();

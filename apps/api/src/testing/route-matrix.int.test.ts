@@ -215,6 +215,8 @@ async function requestOf(
       return { method: 'GET', path: `/brand/content?locale=es&country=${country}` };
     case 'GET /brand/assets/{id}':
       return { method: 'GET', path: `/brand/assets/${id}` };
+    case 'GET /regulatory-notices':
+      return { method: 'GET', path: `/regulatory-notices?country=${country}&audience=GUEST` };
     case 'POST /auth/signup':
       return {
         method: 'POST',

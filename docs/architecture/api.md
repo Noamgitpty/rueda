@@ -98,6 +98,12 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `POST` | `/phone/otp` | `requestPhoneOtp` | Demande d'un code OTP par SMS pour le numéro saisi (envoi asynchrone ; US-104, 16 VER-013) | **200** PHONE_ALREADY_VERIFIED<br>**202** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN / PHONE_INVALID<br>**401** AUTH_REQUIRED<br>**403** PHONE_NOT_ELIGIBLE<br>**415** REQUEST_INVALID<br>**429** OTP_LOCKED / RATE_LIMITED<br>**503** OTP_UNAVAILABLE / RATE_LIMIT_UNAVAILABLE |
 | `POST` | `/phone/verify` | `verifyPhoneOtp` | Saisie du code OTP : numéro vérifié (US-104, 16 VER-013) | **200** PHONE_VERIFIED<br>**400** REQUEST_INVALID / OTP_INVALID / OTP_EXPIRED<br>**401** AUTH_REQUIRED<br>**409** ACCOUNT_DUPLICATE_PHONE<br>**415** REQUEST_INVALID<br>**429** OTP_LOCKED<br>**503** OTP_UNAVAILABLE |
 
+## `/regulatory-notices`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/regulatory-notices` | `getRegulatoryNotices` | Avertissements réglementaires versionnés d’un pays pour un public (US-125, LEG-021) | **200** application/json<br>**400** REQUEST_INVALID |
+
 ## `/staff`
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |

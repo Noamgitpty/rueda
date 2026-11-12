@@ -788,4 +788,19 @@ export const EN_MESSAGES = {
   'common.vehicle.catalog.variantRetired':
     'This version is no longer in the catalog. Choose another one.',
   'common.vehicle.catalog.variantNotFound': 'We couldn’t find this version in the catalog.',
+  // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
+  'common.regulatory.heading': 'Important notice',
+  'common.regulatory.version': 'Version {version} of this notice',
+  'common.regulatory.privatePlate.v1.host.title': 'Private plate and peer-to-peer rental',
+  'common.regulatory.privatePlate.v1.host.body':
+    'In Panama, a car with a private plate is registered for private use. Renting such a car between individuals is under legal review. Before you list it, check with your insurer and your vehicle registration that you may offer it.',
+  'common.regulatory.privatePlate.v1.guest.title': 'A car owned by an individual',
+  'common.regulatory.privatePlate.v1.guest.body':
+    'This car belongs to an individual and has a private plate. Peer-to-peer rental with this kind of plate is under legal review in Panama. Your trip is protected by the plan you choose.',
+  'common.regulatory.hostTaxStatus.v1.host.title': 'Your tax status as a host',
+  'common.regulatory.hostTaxStatus.v1.host.body':
+    'In Paraguay, income from renting out your car may have to be declared according to your tax status. How individual hosts are taxed is under review. Add your tax number and keep your earnings statements.',
+  'common.regulatory.hostTaxStatus.v1.guest.title': 'Renting from an individual',
+  'common.regulatory.hostTaxStatus.v1.guest.body':
+    'This car is rented out by an individual. In Paraguay, the tax status of individual hosts is under review. Your receipt shows what you pay.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

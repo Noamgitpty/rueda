@@ -757,6 +757,20 @@
       "owner": "iam_staff_owner",
       "execute": [],
       "story": "US-109"
+    },
+    {
+      "signature": "core.config_cmd_approve_go_live_switch(bytea,uuid)",
+      "family": "cmd_golive",
+      "owner": "cmd_golive_owner",
+      "execute": ["app_api"],
+      "story": "US-125"
+    },
+    {
+      "signature": "core.config_cmd_request_go_live_switch(bytea,uuid,text,text,boolean,text)",
+      "family": "cmd_golive",
+      "owner": "cmd_golive_owner",
+      "execute": ["app_api"],
+      "story": "US-125"
     }
   ]
 }

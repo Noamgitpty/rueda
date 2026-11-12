@@ -12,6 +12,7 @@ import {
   FAIL_MODES,
   INT64_MAX,
   NAME_LANGUAGES,
+  NOTICE_AUDIENCES,
   PARAM_SCOPES,
   PARAM_TYPES,
   TAX_LINE_TYPES,
@@ -26,6 +27,7 @@ import type {
   HolidayConfig,
   LegalEntityConfig,
   NameLanguage,
+  NoticeAudience,
   ParamDefinition,
   ParamJson,
   ParamScope,
@@ -35,6 +37,7 @@ import type {
   TaxLineType,
   TimeZoneCheck,
   PhoneNumberingConfig,
+  RegulatoryNotice,
 } from './model.js';
 
 export interface CountryConfigSources {
@@ -419,6 +422,77 @@ function parsePhoneNumbering(
   });
 }
 
+const NOTICE_ID = /^[a-z][a-zA-Z0-9]{0,47}$/;
+
+/**
+ * Avertissements réglementaires du pays (US-125) : liste obligatoire (vide : aucune limite connue,
+ * jamais complétée par défaut) ; chaque
+ * avertissement a un identifiant, une version ≥ 1, une date de mise en vigueur, ses publics
+ * (`HOST`, `GUEST`, sans doublon) et sa source. Un identifiant figure une seule fois par pays.
+ */
+function parseRegulatoryNotices(
+  c: Collector,
+  path: string,
+  raw: unknown,
+): RegulatoryNotice[] | undefined {
+  if (!Array.isArray(raw)) {
+    c.add(path, 'liste attendue (vide si aucune limite connue)');
+    return undefined;
+  }
+  const out: RegulatoryNotice[] = [];
+  const seen = new Set<string>();
+  let ok = true;
+  raw.forEach((n: unknown, i) => {
+    const p = `${path}[${i}]`;
+    if (!isObject(n)) {
+      ok = false;
+      return c.add(p, 'objet attendu');
+    }
+    checkKeys(c, p, n, ['id', 'version', 'since', 'audiences', 'source']);
+    const id = str(c, `${p}.id`, n['id']);
+    if (id !== undefined && !NOTICE_ID.test(id))
+      c.add(`${p}.id`, `identifiant camelCase attendu « ${id} »`);
+    if (id !== undefined && seen.has(id)) c.add(`${p}.id`, `avertissement en double « ${id} »`);
+    const version = int(c, `${p}.version`, n['version'], 1, 9999);
+    const since = str(c, `${p}.since`, n['since']);
+    if (since !== undefined && (!ISO_DATE.test(since) || Number.isNaN(Date.parse(since)))) {
+      c.add(`${p}.since`, `date AAAA-MM-JJ attendue « ${since} »`);
+    }
+    const audiences = strList(c, `${p}.audiences`, n['audiences']) ?? [];
+    if (audiences.length === 0) c.add(`${p}.audiences`, 'au moins un public attendu');
+    for (const a of audiences) {
+      if (!(NOTICE_AUDIENCES as readonly string[]).includes(a)) {
+        c.add(`${p}.audiences`, `public inconnu « ${a} »`);
+      }
+    }
+    if (new Set(audiences).size !== audiences.length) c.add(`${p}.audiences`, 'public en double');
+    const source = str(c, `${p}.source`, n['source']);
+    if (
+      id === undefined ||
+      !NOTICE_ID.test(id) ||
+      seen.has(id) ||
+      version === undefined ||
+      since === undefined ||
+      source === undefined ||
+      audiences.length === 0
+    ) {
+      ok = false;
+      return;
+    }
+    seen.add(id);
+    out.push(
+      Object.freeze({
+        id,
+        version,
+        since,
+        audiences: Object.freeze(audiences as NoticeAudience[]),
+        source,
+      }),
+    );
+  });
+  return ok ? out : undefined;
+}
+
 function parseCountries(
   c: Collector,
   doc: unknown,
@@ -439,6 +513,7 @@ function parseCountries(
       'locales',
       'hostTaxIdKinds',
       'phone',
+      'regulatoryNotices',
       'taxLines',
       'taxDecision',
       'legalEntity',
@@ -495,6 +570,11 @@ function parseCountries(
       if (!CODE.test(kind)) c.add(`${p}.hostTaxIdKinds`, `code attendu « ${kind} »`);
     }
     const phone = parsePhoneNumbering(c, `${p}.phone`, raw['phone']);
+    const regulatoryNotices = parseRegulatoryNotices(
+      c,
+      `${p}.regulatoryNotices`,
+      raw['regulatoryNotices'],
+    );
     const taxLines = parseTaxLines(c, `${p}.taxLines`, raw['taxLines']);
     const rawTaxDecision = raw['taxDecision'];
     let taxDecision: DecisionInfo | undefined;
@@ -522,6 +602,7 @@ function parseCountries(
       holidayCalendar === undefined ||
       taxDecision === undefined ||
       phone === undefined ||
+      regulatoryNotices === undefined ||
       NAME_LANGUAGES.some((l) => names[l] === undefined)
     ) {
       return;
@@ -538,6 +619,7 @@ function parseCountries(
         locales: Object.freeze(locales),
         hostTaxIdKinds: Object.freeze(hostTaxIdKinds),
         phone,
+        regulatoryNotices: Object.freeze(regulatoryNotices),
         taxLines: Object.freeze(taxLines),
         taxDecision,
         legalEntity,

@@ -3,7 +3,7 @@ import type { DynamicModule } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { CatHostModule } from './modules/cat/index.js';
 import type { CatHostOptions } from './modules/cat/index.js';
-import { BrandModule } from './modules/cfg/index.js';
+import { BrandModule, RegulatoryNoticesModule } from './modules/cfg/index.js';
 import { CtrLegalModule } from './modules/ctr/index.js';
 import type { CtrLegalOptions } from './modules/ctr/index.js';
 import type { BrandOptions } from './modules/cfg/index.js';
@@ -55,6 +55,8 @@ export class ApiModule {
         StaffConsoleModule.register(staff),
         SupConsoleModule.register(sup),
         BrandModule.register(brand),
+        // US-125 : avertissements réglementaires par pays (route publique, configuration pays)
+        RegulatoryNoticesModule,
         SupBrandConsoleModule,
         SupSecurityConsoleModule,
       ],

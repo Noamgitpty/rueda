@@ -182,6 +182,8 @@ export function listingsOf(
 
 export interface PublicListingView {
   readonly id: string;
+  /** Pays de l'annonce (avertissements réglementaires du pays, US-125). */
+  readonly country: string;
   readonly dailyPriceMinor: bigint;
   readonly currency: string;
   readonly currencyExponent: number;
@@ -207,8 +209,11 @@ export function publicListingOf(reply: ApiResult): PublicListingView | null {
   const currency = str(l['currency']);
   const year = int(l['year']);
   const seats = int(l['seats']);
+  const country = str(l['country']);
   if (
     !UUID.test(String(l['id'])) ||
+    country === null ||
+    !/^[A-Z]{2}$/.test(country) ||
     price === null ||
     !MINOR.test(price) ||
     exponent === null ||
@@ -224,6 +229,7 @@ export function publicListingOf(reply: ApiResult): PublicListingView | null {
   }
   return {
     id: String(l['id']),
+    country,
     dailyPriceMinor: BigInt(price),
     currency,
     currencyExponent: exponent,
