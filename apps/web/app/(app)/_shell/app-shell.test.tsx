@@ -76,6 +76,18 @@ describe('structure accessible (WCAG 2.2 AA)', () => {
     expect(html).toContain('action="/locale"');
   });
 
+  it('choix de langue : le nom accessible contient le code affiché (WCAG 2.5.3, US-044)', () => {
+    const summary = /<summary[^>]*>([\s\S]*?)<\/summary>/.exec(html);
+    expect(summary?.[0]).not.toContain('aria-label');
+    const text = (summary?.[1] ?? '').replace(/<[^>]+>/g, ' ');
+    expect(text).toContain(profile.language.toUpperCase());
+    expect(text).toContain(
+      CATALOGS[profile.language].messages['common.locale.current']
+        .toString()
+        .replace('{language}', profile.displayName),
+    );
+  });
+
   it('région live des changements de réseau présente dès le rendu (UX-48)', () => {
     expect(html).toMatch(/role="status" aria-live="polite"/);
   });

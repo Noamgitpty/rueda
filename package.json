@@ -18,7 +18,7 @@
     "test:int": "turbo run test:int",
     "test:l0": "turbo run test:l0",
     "test:money": "turbo run test:unit --filter=@rueda/money && pnpm --filter @rueda/money test:oracle",
-    "test:e2e": "turbo run build --filter=@rueda/web && pnpm --filter @rueda/web test:e2e",
+    "test:e2e": "turbo run build --filter=@rueda/web --filter=@rueda/backoffice && pnpm --filter @rueda/web test:e2e",
     "build": "turbo run build",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

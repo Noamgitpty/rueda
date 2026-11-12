@@ -39,3 +39,9 @@ playwright-report/
 *.tfvars
 !*.tfvars.example
 infra/local/.journal/
+
+# Captures de régression visuelle d'un poste local (US-044) : seules celles de la CI (linux/) font foi
+apps/web/e2e/__screenshots__/win32/
+apps/web/e2e/__screenshots__/darwin/
+apps/web/test-results/
+apps/web/playwright-report/

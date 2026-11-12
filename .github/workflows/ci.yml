@@ -94,8 +94,12 @@ jobs:
     # 390 px et en tablette (4 langues, clair et sombre, hors ligne) et PWA installée (manifeste,
     # fenêtre d'application, service worker réel). Navigateur : le Google Chrome du runner
     # (`channel: 'chrome'`), aucun binaire téléchargé ; aucune requête hors du serveur local.
+    # US-044, ADR-112 : même job, sans nouveau statut requis : balayage axe (WCAG 2.2 AA) de chaque
+    # écran du site et de la console interne (4 langues, clair et sombre, 360 et 390 px) et
+    # régression visuelle (captures natives de Playwright, références dans le dépôt, aucun service
+    # externe). Image du runner épinglée : les polices du système font partie des références.
     name: e2e web (Playwright, mobiles et PWA)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,10 +111,26 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: build de production du site
-        run: pnpm turbo run build --filter=@rueda/web
+      - name: build de production du site et de la console
+        run: pnpm turbo run build --filter=@rueda/web --filter=@rueda/backoffice
       - name: parcours e2e (Playwright)
         run: pnpm --filter @rueda/web test:e2e
+      # Écart de rendu ou capture absente : le job reste rouge ; les tests en échec sont rejoués en
+      # écrivant les captures obtenues, pour les présenter à l'approbation (docs/qa/REGRESSION_VISUELLE.md).
+      - name: références proposées (échec seulement, le job reste en échec)
+        if: failure()
+        working-directory: apps/web
+        run: pnpm exec playwright test --last-failed --update-snapshots=changed --reporter=list || true
+      - name: artefact de la régression visuelle (échec seulement)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: regression-visuelle
+          path: |
+            apps/web/test-results/
+            apps/web/e2e/__screenshots__/linux/
+          if-no-files-found: ignore
+          retention-days: 14
 
   guide-installation:
     name: guide d'installation (docker compose sur runner vierge)

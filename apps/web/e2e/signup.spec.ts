@@ -14,13 +14,12 @@
  *   récapitulatif d'erreurs annoncé ; mobile d'abord (aucun défilement horizontal, cibles ≥ 44 px).
  * Attendus : 10b §4.3 et la story (e2e/oracle.ts), jamais le code testé.
  */
-import { createRequire } from 'node:module';
 import type { Page } from '@playwright/test';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import { expectAccessible } from './axe.ts';
 import { SPEC_TEXT } from './oracle.ts';
 
 const API = `http://127.0.0.1:${process.env['RUEDA_E2E_API_PORT'] ?? 3199}`;
-const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const PASSWORD = 'Correct-Horse-9';
 
 interface Recorded {
@@ -34,22 +33,6 @@ interface Recorded {
 async function received(email: string): Promise<Recorded[]> {
   const all = (await (await fetch(`${API}/__e2e/signups`)).json()) as Recorded[];
   return all.filter((s) => s.email === email);
-}
-
-async function expectAccessible(page: Page): Promise<void> {
-  await page.addScriptTag({ path: AXE });
-  const violations = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (o: unknown) => Promise<unknown> } }).axe;
-    // l'écran (`main`) : la coquille (en-tête, menu des langues) relève d'US-048
-    const r = (await (axe.run as (context: unknown, options: unknown) => Promise<unknown>)(
-      { include: ['main'] },
-      {
-        runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
-      },
-    )) as { violations: { id: string; nodes: { target: string[] }[] }[] };
-    return r.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
-  });
-  expect(violations, 'violations axe-core').toEqual([]);
 }
 
 const unique = (language: string) =>
