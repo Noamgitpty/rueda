@@ -3543,6 +3543,43 @@ Politiques RLS :
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `risk_limit_all` (ALL, PERMISSIVE, risk_limit_owner) USING `true` WITH CHECK `true`
 
+### `core.risk_account_link`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `user_low` | `uuid` | oui | — |
+| `user_high` | `uuid` | oui | — |
+| `decision` | `text` | oui | — |
+| `signal` | `text` | oui | — |
+| `decided_by` | `uuid` | oui | — |
+| `decided_at` | `timestamp with time zone` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `row_version` | `integer` | oui | `0` |
+
+### `core.risk_assessment`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `subject_type` | `text` | oui | — |
+| `subject_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `org_id` | `uuid` | non | — |
+| `rules_fired` | `jsonb` | oui | — |
+| `score` | `integer` | oui | — |
+| `decision` | `text` | oui | — |
+| `dedupe_key` | `text` | oui | — |
+| `explanation` | `text` | oui | — |
+| `reviewed_by` | `uuid` | non | — |
+| `decided_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
 ### `core.risk_rate_counter`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -3574,6 +3611,19 @@ Politiques RLS :
 
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `risk_limit_all` (ALL, PERMISSIVE, risk_limit_owner) USING `true` WITH CHECK `true`
+
+### `core.risk_rule`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `code` | `text` | oui | — |
+| `version` | `integer` | oui | — |
+| `description` | `text` | oui | — |
+| `severity` | `text` | oui | — |
+| `active` | `boolean` | oui | — |
+| `valid_from` | `timestamp with time zone` | oui | — |
 
 ### `core.settlement_finance_approval`
 

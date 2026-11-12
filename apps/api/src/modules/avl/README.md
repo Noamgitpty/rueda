@@ -16,6 +16,7 @@ AVL ne calcule ni prix (PRC) ni règlement (STL), et n'appelle jamais le PSP lui
 - US-022 : table d'occupation unique, blocages de l'hôte, tampons (ADR-060) ;
 - US-023 : commandes de pose et de libération des holds, tâche d'expiration (ADR-063) ;
 - US-024 : intention de paiement, conversion gardée, ré-acquisition, compensation, balayages (ADR-065) ;
+- US-127 : auto-réservation refusée à la pose et à la conversion pour l'hôte, les co-hôtes de tous ses comptes et les comptes liés (migration 0079, ADR-110). **Contrat de la future route de pose du hold** : sur `SELF_BOOKING_FORBIDDEN`, appeler `core.booking_cmd_report_self_booking(véhicule)` dans une **nouvelle** transaction (signalement à l'ops), puis afficher `common.booking.selfBookingForbidden.*`, sans autre détail ;
 - US-025 : oracle de production C12 (migration 0045) et sa tâche périodique `internal/production-oracle.ts` (ADR-068) ; fuzz C11 (`packages/db/test/l0/l0-c11-fuzz.test.ts`).
 
 Détail des commandes : `packages/db/README.md`, sections « Table d'occupation unique », « Holds de checkout et commandes » et « Conversion gardée, ré-acquisition et compensation ». Machine à états du trip : US-207. iCal : US-510 (hors produit pour l'instant).
