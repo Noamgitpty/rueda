@@ -1,13 +1,13 @@
 -- 9981 — TEST SEULEMENT : import de la douane au catalogue des véhicules (suite d'US-113,
--- migration 0078, ADR-109). Jamais appliquée hors du harnais (base principale du banc ; la base
--- « production » du banc n'a que les graines de 0063 et 0078).
+-- migration 0079, ADR-109). Jamais appliquée hors du harnais (base principale du banc ; la base
+-- « production » du banc n'a que les graines de 0063 et 0079).
 --
 -- 1. Preuves jouées PAR CETTE MIGRATION sous `migrator` : si la base acceptait une ligne fautive,
 --    cette migration lèverait une exception et le banc, donc la CI, échouerait.
 --    a) une ligne sans fiche d'une source qui DOIT en fournir une (OPS_CURATED, HOST_REQUEST) est
 --       refusée (contraintes *_specs_complete) : la v1 et la file d'ajout restent complètes ;
 --    b) une ligne de la douane sans licence ou sans source est refusée (NOT NULL, 0063) ;
---    c) une source inconnue est refusée (CHECK élargi de 0078, rien de plus) ;
+--    c) une source inconnue est refusée (CHECK élargi de 0079, rien de plus) ;
 --    d) une valeur technique invalide reste refusée, même pour la douane (CHECK de 0063 gardés).
 -- 2. Fixtures lues par test/l0/l0-us113-customs-import.test.ts et par le test d'intégration de
 --    l'API : marque témoin (la preuve a tourné), modèle et variante sans fiche communs aux pays.

@@ -9,7 +9,7 @@
  * testé. Le catalogue est commun aux pays (`market` nul) : chaque pays configuré (PA en USD, PY en
  * PYG, lus dans les données CFG) voit les mêmes lignes.
  *
- * Import de la douane (suite d'US-113, migration 0078, fixtures 9981, ADR-109) : variantes sans
+ * Import de la douane (suite d'US-113, migration 0079, fixtures 9981, ADR-109) : variantes sans
  * fiche du marché de la source (`market` du fichier de données, jamais une constante) ; un hôte de
  * ce marché trouve la marque, le modèle et la variante, et le préremplissage ne rend que marque et
  * modèle (`specsComplete` faux, aucune valeur technique devinée) ; un hôte d'un autre marché ne

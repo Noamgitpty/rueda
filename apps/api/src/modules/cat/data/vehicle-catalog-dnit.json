@@ -1,5 +1,5 @@
 {
-  "$comment": "Import de la douane du Paraguay (suite d'US-113, ADR-109) : marques et modèles d'au moins `minUnits` unités importées (8703 et 8704 jusqu'à 5 t, régimes définitifs, échantillon 1997–2026), normalisés et rapprochés de la graine v1 par scripts/catalog/dnit-import.mjs. Aucune caractéristique technique : la douane n'en donne pas (à compléter par l'ops). `existing` : ligne de la graine v1, jamais recréée ; `variant` : variante sans fiche, années indicatives, du marché `market` ; `units` et `imported` : traçabilité, jamais chargés. La migration 0078 contient le rendu (apps/api/src/modules/cat/internal/vehicle-catalog/customs-import.ts).",
+  "$comment": "Import de la douane du Paraguay (suite d'US-113, ADR-109) : marques et modèles d'au moins `minUnits` unités importées (8703 et 8704 jusqu'à 5 t, régimes définitifs, échantillon 1997–2026), normalisés et rapprochés de la graine v1 par scripts/catalog/dnit-import.mjs. Aucune caractéristique technique : la douane n'en donne pas (à compléter par l'ops). `existing` : ligne de la graine v1, jamais recréée ; `variant` : variante sans fiche, années indicatives, du marché `market` ; `units` et `imported` : traçabilité, jamais chargés. La migration 0079 contient le rendu (apps/api/src/modules/cat/internal/vehicle-catalog/customs-import.ts).",
   "version": 1,
   "market": "PY",
   "minUnits": 30,

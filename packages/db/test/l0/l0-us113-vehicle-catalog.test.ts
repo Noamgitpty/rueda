@@ -10,7 +10,7 @@
  *   présente, lignes « zz-us113-rejet-* » absentes) ;
  * - graine (base « production » du banc, migrations de production seules) : exactement les lignes
  *   des données `apps/api/src/modules/cat/data/vehicle-catalog.json` (0063) et de l'import de la
- *   douane `vehicle-catalog-dnit.json` (0078, ADR-109, détail : l0-us113-customs-import), toutes
+ *   douane `vehicle-catalog-dnit.json` (0079, ADR-109, détail : l0-us113-customs-import), toutes
  *   ACTIVE, toutes avec source et licence, aucune consommation EPA (OQ-CAT-01 b ouverte), aucune
  *   ligne de test ; graine v1 commune aux pays (`market` nul), variantes de la douane du seul
  *   marché de la source ;
@@ -91,7 +91,7 @@ const SEED = JSON.parse(
 const SEED_MODELS = SEED.makes.flatMap((m) => m.models);
 const SEED_VARIANTS = SEED_MODELS.flatMap((o) => o.variants);
 
-/** Import de la douane (0078) : lignes nouvelles seulement (`existing` = ligne de la v1). */
+/** Import de la douane (0079) : lignes nouvelles seulement (`existing` = ligne de la v1). */
 interface CustomsDoc {
   market: string;
   makes: Array<{
@@ -349,7 +349,7 @@ describe('graine de production (base « production » du banc)', () => {
              JOIN core.catalog_vehicle_model o ON o.id = v.model_id
              JOIN core.catalog_vehicle_make m ON m.id = o.make_id
             WHERE m.slug = 'toyota' AND o.slug = 'hilux'
-              -- variantes de la v1 (communes) ; celle de la douane (0078, années antérieures) est
+              -- variantes de la v1 (communes) ; celle de la douane (0079, années antérieures) est
               -- prouvée par l0-us113-customs-import
               AND v.market IS NULL
             ORDER BY v.transmission`,

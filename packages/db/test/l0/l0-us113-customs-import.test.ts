@@ -1,5 +1,5 @@
 /**
- * Import de la douane au catalogue des véhicules (suite d'US-113, migration 0078 ; ADR-109,
+ * Import de la douane au catalogue des véhicules (suite d'US-113, migration 0079 ; ADR-109,
  * ADR-094 ; 17 §3.2.3, ADR-034) sous les rôles de production (assertion L0-05 en tête par
  * withRole) :
  * - schéma : source `DNIT_ADUANAS_PY` admise sur les trois tables ; fiche technique facultative pour
@@ -79,7 +79,7 @@ const TABLES = [
   'catalog_vehicle_variant',
 ] as const;
 
-describe('schéma (0078)', () => {
+describe('schéma (0079)', () => {
   it('source DNIT_ADUANAS_PY admise par le CHECK des trois tables, sans autre valeur nouvelle', async () => {
     await withRole('app_api', async (client) => {
       for (const t of TABLES) {

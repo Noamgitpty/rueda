@@ -2,7 +2,7 @@
  * Import des marques et modèles déclarés à la douane (suite d'US-113 ; ADR-109, ADR-094 ;
  * 17 §3.2.3, ADR-034). La donnée est `../../data/vehicle-catalog-dnit.json`, produite par
  * `scripts/catalog/dnit-import.mjs` ; elle est validée ici, fail-closed, puis rendue en SQL dans
- * la migration `0078_catalog_customs_import.sql` (le test `customs-import.test.ts` échoue si la
+ * la migration `0079_catalog_customs_import.sql` (le test `customs-import.test.ts` échoue si la
  * section générée en diffère).
  *
  * Règles (PROPOSÉES, ADR-109) :
@@ -24,7 +24,7 @@ import type { CatalogSource, LicenseStatus, Provenance, VehicleCatalogSeed } fro
 import { CatalogError } from './errors.js';
 import type { CatalogErrorCode } from './errors.js';
 
-export const CUSTOMS_MIGRATION_FILE = '0078_catalog_customs_import.sql';
+export const CUSTOMS_MIGRATION_FILE = '0079_catalog_customs_import.sql';
 export const CUSTOMS_BEGIN =
   '-- >>> graine générée (US-113, import de la douane) : ne pas éditer à la main';
 export const CUSTOMS_END = '-- <<< fin de la graine générée de la douane';
@@ -418,7 +418,7 @@ function insert(
 }
 
 /**
- * Section générée de la migration 0078, marqueurs compris, terminée par un saut de ligne. Une
+ * Section générée de la migration 0079, marqueurs compris, terminée par un saut de ligne. Une
  * instruction par table : la migration est une transaction, une ligne refusée annule tout.
  */
 export function renderCustomsSeedSql(data: CustomsImport): string {

@@ -1,5 +1,5 @@
 /**
- * Suite d'US-113 — import de la douane (ADR-109) : la section générée de la migration 0078 est le
+ * Suite d'US-113 — import de la douane (ADR-109) : la section générée de la migration 0079 est le
  * rendu exact des données, aucune ligne sans source ni licence validée ne peut être rendue, aucune
  * ligne ne double la graine v1, et la v1 n'est jamais recréée ni chevauchée.
  * Côté base : test-migrations/9981 (sous migrator) et test/l0/l0-us113-customs-import.test.ts.
@@ -57,7 +57,7 @@ function codeOf(fn: () => unknown): string {
   return 'OK';
 }
 
-describe('migration 0078 : graine générée de la douane', () => {
+describe('migration 0079 : graine générée de la douane', () => {
   const data = parseCustomsCatalog(raw(), V1);
   const rendered = renderCustomsSeedSql(data);
 
@@ -65,7 +65,7 @@ describe('migration 0078 : graine générée de la douane', () => {
     const current = readFileSync(migrationUrl, 'utf8').replaceAll('\r\n', '\n');
     const begin = current.indexOf(CUSTOMS_BEGIN);
     const end = current.indexOf(CUSTOMS_END);
-    if (begin < 0 || end < begin) throw new Error('marqueurs absents de la migration 0078');
+    if (begin < 0 || end < begin) throw new Error('marqueurs absents de la migration 0079');
     writeFileSync(
       migrationUrl,
       current.slice(0, begin) + rendered + current.slice(end + CUSTOMS_END.length + 1),
