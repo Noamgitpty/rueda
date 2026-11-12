@@ -23,7 +23,8 @@
 --     publié (annonce LISTED) seulement, comme la commande de 0056 (VEHICLE_NOT_LISTED avant) ;
 --   - préavis minimum par lieu de remise (`advance_notice_minutes`, 17 §3.2.3 ; 16 CAL-003) :
 --     NULL = défaut du pays (`advance_notice_minutes`, portée COUNTRY) ; valeur de l'hôte de 60 à
---     10 080 min (1 h à 7 jours), au pas de 30 min ; plancher de la classe du véhicule (portée
+--     10 080 min (1 h à 7 jours), au pas de 30 min (la colonne admet aussi 0, jamais proposé à
+--     l'hôte : bornes de la commande) ; plancher de la classe du véhicule (portée
 --     CATEGORY, 1 440 min pour LUXE : 08 BR-BOOK-04 « préavis minimal imposé ») ; défaut du pays
 --     absent sans valeur de l'hôte : PARAM_MISSING (fail-closed). Le lieu de remise d'un hold est
 --     le lieu du véhicule (`home_location_id`) : un seul lieu en bêta ;
@@ -63,10 +64,11 @@ ALTER TABLE core.catalog_location
   ADD COLUMN advance_notice_minutes integer
     CONSTRAINT catalog_location_notice_valid
     CHECK (advance_notice_minutes IS NULL
-           OR (advance_notice_minutes BETWEEN 60 AND 10080 AND advance_notice_minutes % 30 = 0));
+           OR (advance_notice_minutes BETWEEN 0 AND 10080 AND advance_notice_minutes % 30 = 0));
 COMMENT ON COLUMN core.catalog_location.advance_notice_minutes IS
-  'Préavis minimum de l''hôte pour ce lieu (16 CAL-003, 08 BR-BOOK-04), en minutes, 60 à 10 080 '
-  'au pas de 30 ; NULL : défaut du pays (advance_notice_minutes). US-119 (ADR-100).';
+  'Préavis minimum de l''hôte pour ce lieu (16 CAL-003, 08 BR-BOOK-04), en minutes au pas de 30 ; '
+  'l''hôte choisit de 60 à 10 080 (commande) ; 0 (aucun préavis) n''est jamais proposé à l''hôte ; '
+  'NULL : défaut du pays (advance_notice_minutes). US-119 (ADR-100).';
 
 -- 2. Préavis en vigueur d'un véhicule (SECURITY INVOKER : exécutée sous cmd_hold_owner à la pose
 -- d'un hold et sous catalog_cmd_owner au calendrier ; chacun lit sous sa propre RLS) ------------
