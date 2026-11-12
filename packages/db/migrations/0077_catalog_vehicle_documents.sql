@@ -62,7 +62,7 @@
 -- Retour arrière :
 --   réappliquer core.catalog_cmd_create_vehicle de 0074 ; recréer catalog_vehicle_plate_unique en
 --     UNIQUE (country_code, plate) et catalog_vehicle_vin_unique sans released_at (aucun véhicule
---     libéré) ; recréer les politiques catalog_cmd_read et catalog_cmd_audit_insert de 0067 / 0074 ;
+--     libéré) ; recréer les politiques catalog_cmd_read et catalog_cmd_audit_insert de 0067, 0071 et 0074 ;
 --   DROP FUNCTION des fonctions créées ci-dessous ; DROP TABLE core.catalog_vehicle_claim,
 --     core.catalog_vehicle_eligibility_check, core.catalog_vehicle_document ;
 --   ALTER TABLE core.catalog_vehicle DROP COLUMN title_holder, eligibility_reasons,
@@ -280,8 +280,8 @@ CREATE POLICY catalog_cmd_doc_insert ON core.audit_file_asset FOR INSERT TO cata
               AND enc_subject_id = uploader_user_id AND retention_class = 'VEHICLE_DOCUMENT'
               AND mime IN ('image/jpeg', 'image/png', 'image/heic', 'application/pdf'));
 
--- configuration : paramètres d'éligibilité du pays en plus des clés de 0067 (politique recréée
--- sous son nom, élargie)
+-- configuration : paramètres d'éligibilité du pays en plus des clés de 0067 et 0071 (politiques
+-- recréées sous leur nom, élargies)
 DROP POLICY catalog_cmd_read ON core.config_param_definition;
 CREATE POLICY catalog_cmd_read ON core.config_param_definition FOR SELECT TO catalog_cmd_owner
   USING (key IN ('price_display_step_minor', 'listing_min_photos', 'price_ceiling_daily_minor',
@@ -293,7 +293,7 @@ CREATE POLICY catalog_cmd_read ON core.config_param_definition FOR SELECT TO cat
 DROP POLICY catalog_cmd_read ON core.config_param_value;
 CREATE POLICY catalog_cmd_read ON core.config_param_value FOR SELECT TO catalog_cmd_owner
   USING (key IN ('price_display_step_minor', 'listing_min_photos', 'price_ceiling_daily_minor',
-                'price_ceiling_extra_km_minor', 'p2p_private_hosts_enabled',
+                'price_ceiling_extra_km_minor', 'p2p_private_hosts_enabled', 'advance_notice_minutes',
                 'vehicle_financed_requires_lender_consent', 'elig_age_years_ceiling',
                 'elig_odometer_km_ceiling', 'elig_doc_title',
                 'elig_doc_plate_vin_photo', 'elig_doc_inspection',

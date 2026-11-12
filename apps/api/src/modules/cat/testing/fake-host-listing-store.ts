@@ -68,6 +68,8 @@ export class FakeHostListingStore implements HostListingStore {
   exponent = 2;
   /** Panne simulée de la base. */
   failing = false;
+  /** Nom affiché au voyageur par compte d'hôte (N-37, US-124 : premier mot du prénom légal). */
+  readonly hostFirstNames = new Map<string, string>();
 
   /** Inscrit un compte d'hôte titulaire de la session `proof`. */
   addHost(proof: Buffer, host: FakeHost): void {
@@ -394,6 +396,7 @@ export class FakeHostListingStore implements HostListingStore {
           ? null
           : { lat: round(loc.input.lat), lng: round(loc.input.lng) },
       timezone: 'UTC',
+      hostFirstName: this.hostFirstNames.get(l.orgId) ?? null,
     });
   }
 }

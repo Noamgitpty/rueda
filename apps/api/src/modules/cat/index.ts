@@ -60,3 +60,27 @@ export type {
   HostCalendarStore,
   OccupancyKind,
 } from './internal/host-calendar/store.js';
+
+// Pièces et éligibilité du véhicule, contestations (US-124, ADR-107) : ports du seau privé
+// DOCUMENTS (lus aussi par la console de l'ops, SUP), magasin PostgreSQL de production.
+export {
+  DOCUMENT_MAX_BYTES,
+  documentsOpen,
+  sniffDocumentMime,
+  UNAVAILABLE_DOCUMENTS,
+  UnavailableDocumentFileStore,
+  UnavailableDocumentScanner,
+  UnavailableDocumentVault,
+} from './internal/vehicle-documents/ports.js';
+export type {
+  DocumentFileStore,
+  DocumentMime,
+  DocumentPipeline,
+  DocumentScanner,
+  DocumentVault,
+} from './internal/vehicle-documents/ports.js';
+export {
+  PgVehicleDocumentStore,
+  UnavailableVehicleDocumentStore,
+} from './internal/vehicle-documents/store.js';
+export type { VehicleDocumentStore } from './internal/vehicle-documents/store.js';
