@@ -845,7 +845,8 @@ BEGIN
   END IF;
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('kyc.host:' || p_org::text, 0));
-  SELECT d.status INTO v_status FROM core.kyc_host_verification AS d WHERE d.org_id = p_org;
+  SELECT CASE WHEN d.screening_hold THEN 'IN_REVIEW' ELSE d.status END INTO v_status
+    FROM core.kyc_host_verification AS d WHERE d.org_id = p_org;
   -- dossier en revue ou décidé : verrouillé (une correspondance en attente n'y change rien)
   IF v_status IN ('IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED') THEN
     RETURN QUERY SELECT 'HOST_VERIFICATION_LOCKED'::text;
