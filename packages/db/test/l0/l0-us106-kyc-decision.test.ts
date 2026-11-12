@@ -491,13 +491,15 @@ describe('US-106 — retrait du consentement biométrique (VER-004)', () => {
     await withRole('app_api', async (c) => {
       const country = COUNTRIES[1].country;
       const { r, ops } = await claimed(c, country);
+      const events = (await fixture(c, 'us105_events', r.verificationId)).length;
       await withTestTransaction(c, {}, async () => {
         await c.query('SELECT test_fixture.us105_publish_biometric_next()');
         expect(await decide(c, ops, r.verificationId, checks('APPROVED'))).toMatchObject({
           outcome: 'REFUSED',
           detail: 'CONSENT_WITHDRAWN',
         });
-        expect((await verification(c, r.userId)).status).toBe('MANUAL_REVIEW');
+        // rien n'est écrit : dossier en revue, élément toujours pris, aucun événement
+        await untouched(c, r.userId, r.verificationId, events);
       });
     });
   });
