@@ -234,6 +234,8 @@ export interface PublicListingView {
   readonly fuelType: string;
   readonly city: string;
   readonly areaLabel: string | null;
+  /** Premier mot du prénom légal de l'hôte (BOARD N-37, US-124) ; jamais le nom de famille. */
+  readonly hostFirstName: string | null;
 }
 
 /** Fiche publique de `GET /listings/{id}` (colonnes C0 seulement) ; `null` si illisible. */
@@ -280,6 +282,12 @@ export function publicListingOf(reply: ApiResult): PublicListingView | null {
     fuelType: String(l['fuelType']),
     city: String(l['city']),
     areaLabel: str(l['areaLabel']),
+    hostFirstName: (() => {
+      const name = str(l['hostFirstName']);
+      return name !== null && name.length > 0 && name.length <= 40 && !/\s/.test(name)
+        ? name
+        : null;
+    })(),
   };
 }
 

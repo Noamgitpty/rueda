@@ -46,8 +46,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 24 : inscription et vérification de l'hôte, profil fiscal (US-123) :
  `common.hostVerification.*`, `web.a07.*` (liste de tâches A07, dont `web.a07.waitingCountry` de
  10b §4.3) et `web.host.verificationLink`.
+ Version 26 (la 25 est réservée à US-106) : documents et éligibilité du véhicule, contestation de
+ plaque (US-124) : `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`,
+ `web.listing.hostName` et `backoffice.vehicle.*`.
  */
-export const CATALOG_VERSION = 24;
+export const CATALOG_VERSION = 26;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
