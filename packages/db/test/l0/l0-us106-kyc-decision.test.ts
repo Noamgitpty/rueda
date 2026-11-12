@@ -735,8 +735,9 @@ describe('US-106 — alerte de délai et remise en file (critère 2, travailleur
                 'SELECT * FROM core.kyc_worker_enqueue_reviews(10000)',
                 [],
               );
-              expect(k.skipped).toBeGreaterThanOrEqual(1);
+              // effet d'abord : aucun élément vivant pour ce dossier ; puis la cause (sauté)
               expect(live(await itemsOf(w, x.userId))).toEqual([]);
+              expect(k.skipped).toBeGreaterThanOrEqual(1);
             }),
           );
         });
