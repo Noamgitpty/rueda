@@ -84,7 +84,6 @@ const STATUS_TONE: Readonly<Record<string, BadgeTone>> = {
   IN_REVIEW: 'neutral',
   APPROVED: 'success',
   REJECTED: 'danger',
-  BLOCKED: 'warning',
 };
 /** Tâche manquante du dossier → libellé de la tâche (10b UX-40). */
 const MISSING_TASK: Readonly<Record<string, MessageKey>> = {
@@ -94,7 +93,8 @@ const MISSING_TASK: Readonly<Record<string, MessageKey>> = {
   HOST_SCREENING_MISSING: 'web.a07.task.screening',
 };
 const COUNTRY_CLOSED = new Set(['P2P_HOSTS_DISABLED', 'INSURER_CONTRACT_INACTIVE']);
-const EDITABLE = new Set(['OPEN', 'DOCS_PENDING', 'IN_REVIEW']);
+// en revue : plus de modification (une revue et un filtrage escaladé sont indiscernables, VER-028)
+const EDITABLE = new Set(['OPEN', 'DOCS_PENDING']);
 
 /**
  * A07 — « Deviens hôte » : liste de tâches de l'hôte (US-123 ; 16 HST-049 / FIN-008 ; 10b A07,

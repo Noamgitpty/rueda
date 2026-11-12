@@ -982,7 +982,7 @@ export const EN_MESSAGES = {
   'common.hostVerification.accountNotEligible':
     'Your host account cannot take this request right now. Contact us.',
   'common.hostVerification.locked':
-    'Your request was already reviewed. To change any detail, contact us.',
+    'Your request is under review or was already reviewed. To change any detail, contact us.',
   'common.hostVerification.taxKindInvalid': 'Choose one of the tax number types in the list.',
   'common.hostVerification.taxIdInvalid':
     'Check your tax number: digits, letters and hyphens only.',
@@ -1002,12 +1002,13 @@ export const EN_MESSAGES = {
   'web.a07.waiting': 'Waiting',
   'web.a07.task.identityAction': 'Verify my identity',
   'web.a07.task.age': 'Minimum age to host',
-  'web.a07.task.ageHint': 'We read it from your verified license.',
+  'web.a07.task.ageHint':
+    'We read it from your verified identity or, if missing, from your account.',
   'web.a07.task.termsAction': 'Read and accept',
   'web.a07.task.screening': 'Safety checks',
   'web.a07.task.screeningHint': 'We run them when you send your request.',
   'web.a07.task.payments': 'Payout account reviewed by the payment provider',
-  'web.a07.task.paymentsHint': 'The payment provider does it after we approve your request.',
+  'web.a07.task.paymentsHint': 'The payment provider does this check, not you.',
   'web.a07.tax.heading': 'Your tax number',
   'web.a07.tax.kind': 'Number type',
   'web.a07.tax.number': 'Number',
@@ -1024,7 +1025,6 @@ export const EN_MESSAGES = {
   'web.a07.status.IN_REVIEW': 'We are reviewing your request.',
   'web.a07.status.APPROVED': 'We approved your request.',
   'web.a07.status.REJECTED': 'We could not approve your request. Contact us to learn more.',
-  'web.a07.status.BLOCKED': 'Our team is reviewing your request by hand. We will write to you.',
   'web.a07.missing': 'Still missing: {tasks}.',
   'web.a07.pendingActivation': 'We approved your request, but your host account is not active yet.',
   'web.a07.active': 'Your host account is active.',

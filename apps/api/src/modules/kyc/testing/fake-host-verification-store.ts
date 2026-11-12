@@ -128,8 +128,12 @@ export class FakeHostVerificationStore implements HostVerificationStore {
       state: {
         country: a.country,
         orgStatus: a.orgStatus,
-        verificationStatus: a.verificationStatus,
-        missing: a.verificationStatus === null ? [] : this.#missing(a),
+        // correspondance de sanctions jamais révélée : BLOCKED rendu comme IN_REVIEW (VER-028)
+        verificationStatus: a.verificationStatus === 'BLOCKED' ? 'IN_REVIEW' : a.verificationStatus,
+        missing:
+          a.verificationStatus === null || a.verificationStatus === 'BLOCKED'
+            ? []
+            : this.#missing(a),
         kycApproved: a.kycApproved,
         ageStatus: a.ageStatus,
         residenceStatus: a.residenceStatus,
@@ -152,7 +156,11 @@ export class FakeHostVerificationStore implements HostVerificationStore {
     if (p.taxpayerKind !== 'INDIVIDUAL') return Promise.resolve('HOST_ENTITY_NOT_ALLOWED');
     if (!a.taxKinds.includes(p.kind)) return Promise.resolve('HOST_TAX_ID_KIND_INVALID');
     if (p.envelope.length < 30 || p.envelope[0] !== 1) return Promise.resolve('REQUEST_INVALID');
-    if (['APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED'].includes(a.verificationStatus ?? '')) {
+    if (
+      ['IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED'].includes(
+        a.verificationStatus ?? '',
+      )
+    ) {
       return Promise.resolve('HOST_VERIFICATION_LOCKED');
     }
     a.tax = { kind: p.kind, envelope: p.envelope, regime: p.regime };

@@ -167,6 +167,9 @@ const HOST_ACCOUNT_HANDLER =
 // US-123 (0075) : décision de vérification de l'hôte liée à sa commande de domaine
 const HOST_VERIFICATION_HANDLER =
   'core.kyc_manual_action_host_verification_decision(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+// US-123 (0075) : revue humaine d'une correspondance de sanctions (PROPOSÉE, ADR-105)
+const SCREENING_REVIEW_HANDLER =
+  'core.kyc_manual_action_host_screening_review(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
@@ -211,6 +214,16 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     approval: false,
     handler: RESTRICTION_HANDLER,
     source: '16 ADM-005 « levée d’une restriction → motif obligatoire » ; ADR-097 (PROPOSÉ)',
+  },
+  HOST_SCREENING_REVIEW: {
+    permission: 'kyc.decide',
+    subject: 'ORGANIZATION',
+    mode: 'DOMAIN_COMMAND',
+    keys: ['decision'],
+    values: { decision: ['CLEARED', 'CONFIRMED'] },
+    approval: false,
+    handler: SCREENING_REVIEW_HANDLER,
+    source: '16 VER-028 (parcours alternatif, permissions OPS_AGENT et ADMIN) ; ADR-105 (PROPOSÉ)',
   },
   CREATE_HOST_ACCOUNT: {
     permission: 'ops.review_listing_host',
@@ -417,7 +430,7 @@ async function catalog(client: pg.ClientBase): Promise<Map<string, CatalogRow>> 
 }
 
 describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
-  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107), RESTRICT_ACCOUNT et LIFT_RESTRICTION (US-109)', async () => {
+  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107), RESTRICT_ACCOUNT et LIFT_RESTRICTION (US-109), HOST_SCREENING_REVIEW (US-123)', async () => {
     await withRole('app_api', async (client) => {
       const byCode = await catalog(client);
       expect([...byCode.keys()].sort()).toEqual(
@@ -428,6 +441,8 @@ describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
           'CREATE_HOST_ACCOUNT',
           'RESTRICT_ACCOUNT',
           'LIFT_RESTRICTION',
+          // US-123 (0075) : revue d'une correspondance de sanctions
+          'HOST_SCREENING_REVIEW',
         ].sort(),
       );
       expect(Object.keys(MATRIX).sort()).toEqual([...byCode.keys()].sort());

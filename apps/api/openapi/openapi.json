@@ -6966,7 +6966,7 @@
             }
           },
           "409": {
-            "description": "Dossier déjà décidé ou bloqué : nouvelle revue hors bêta",
+            "description": "Dossier en revue ou décidé : nouvelle revue hors bêta",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -11375,6 +11375,7 @@
                 "TERMS_REACCEPT_REQUIRED",
                 "HOST_VERIFICATION_NOT_APPROVED",
                 "SUBMERCHANT_NOT_ACTIVE",
+                "PSP_CAPABILITY_MISSING",
                 "P2P_HOSTS_DISABLED",
                 "INSURER_CONTRACT_INACTIVE",
                 "HOST_NOT_ACTIVATED"

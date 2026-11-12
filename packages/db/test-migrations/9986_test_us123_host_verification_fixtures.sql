@@ -12,7 +12,8 @@
 --   - sous-marchand du PSP posé directement (compte FAKE de test du pays, statut demandé) : le
 --     KYC du PSP est simulé ici, l'enregistrement par le travailleur `payment_command` est prouvé
 --     par l0-pay-marketplace (US-061).
--- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1) : ils restent à false.
+-- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1) : la preuve du chemin ACTIVE
+-- les ouvre par la procédure à deux personnes d'US-125, dans une fenêtre virtuelle lointaine.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us123_* (voir la liste des droits en fin de fichier).
 
@@ -151,13 +152,39 @@ AS $fn$
    ORDER BY i.created_at, i.id
 $fn$;
 
+-- Capacités BLOQUANTES du PSP FAKE du pays (catalogue de 0039, sans liste en dur) posées au statut
+-- demandé à l'instant `p_valid_from` : la plus récente fait foi (17 §2.8). Appelée avec un instant
+-- d'une fenêtre d'horloge virtuelle lointaine, refermée par une ligne UNKNOWN : sans effet hors de
+-- cette fenêtre pour les autres preuves.
+CREATE FUNCTION test_fixture.us123_set_capabilities(p_country text, p_status text,
+                                                    p_valid_from timestamptz)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.payment_psp_capability
+         (provider, country_code, method, network, capability, value, status, source,
+          validated_at, valid_from)
+  SELECT 'FAKE', p_country, '*', '*', c.capability,
+         CASE c.kind WHEN 'bool' THEN 'true'::jsonb WHEN 'int' THEN '24'::jsonb
+                     ELSE '"SUPPORTED"'::jsonb END,
+         p_status, 'test US-123 (FAKE)',
+         CASE WHEN p_status IN ('VALIDATED_SANDBOX', 'VALIDATED_CONTRACT') THEN p_valid_from END,
+         p_valid_from
+    FROM core.payment_psp_capability_catalog AS c
+   WHERE c.blocking <> 'NO'
+$fn$;
+
 REVOKE ALL ON FUNCTION test_fixture.us123_set_submerchant(uuid, text),
   test_fixture.us123_dossier(uuid), test_fixture.us123_screenings(uuid),
   test_fixture.us123_tax_profile(uuid), test_fixture.us123_subject(uuid),
   test_fixture.us123_org_status(uuid), test_fixture.us123_events(uuid),
-  test_fixture.us123_audit(uuid), test_fixture.us123_queue_items(uuid) FROM PUBLIC;
+  test_fixture.us123_audit(uuid), test_fixture.us123_queue_items(uuid),
+  test_fixture.us123_set_capabilities(text, text, timestamptz) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us123_set_submerchant(uuid, text),
   test_fixture.us123_dossier(uuid), test_fixture.us123_screenings(uuid),
   test_fixture.us123_tax_profile(uuid), test_fixture.us123_subject(uuid),
   test_fixture.us123_org_status(uuid), test_fixture.us123_events(uuid),
-  test_fixture.us123_audit(uuid), test_fixture.us123_queue_items(uuid) TO app_api;
+  test_fixture.us123_audit(uuid), test_fixture.us123_queue_items(uuid),
+  test_fixture.us123_set_capabilities(text, text, timestamptz) TO app_api;

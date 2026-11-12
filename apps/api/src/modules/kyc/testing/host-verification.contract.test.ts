@@ -234,13 +234,13 @@ describe('US-123 — soumission du dossier et filtrage des sanctions (VER-028)',
     ]);
   });
 
-  it('correspondance ⇒ dossier bloqué, aucun motif révélé ; profil fiscal ensuite verrouillé (409)', async () => {
+  it('correspondance ⇒ rendue comme une revue ordinaire (rien n’est révélé) ; profil fiscal verrouillé (409), comme en revue', async () => {
     const w = await world();
     w.screener.flag(`fk_idv_${w.org.slice(0, 8)}`, 'POTENTIAL_MATCH');
     const r = await w.app.api.request('POST', w.base, { headers: w.headers, body: {} });
     expect(r.status).toBe(200);
-    expect(r.json).toMatchObject({ verificationStatus: 'BLOCKED' });
-    expect(JSON.stringify(r.json)).not.toMatch(/SANCTION|MATCH|fk_aml/);
+    expect(r.json).toMatchObject({ verificationStatus: 'IN_REVIEW', missing: [] });
+    expect(JSON.stringify(r.json)).not.toMatch(/SANCTION|MATCH|BLOCKED|fk_aml/);
     const tax = await w.app.api.request('POST', `${w.base}/tax-profile`, {
       headers: w.headers,
       body: { kind: KIND, taxId: '1234567-8' },

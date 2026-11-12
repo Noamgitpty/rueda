@@ -1016,7 +1016,7 @@ export const ES_MESSAGES = {
   'common.hostVerification.accountNotEligible':
     'Tu cuenta de anfitrión no puede recibir esta solicitud ahora. Escríbenos.',
   'common.hostVerification.locked':
-    'Tu solicitud ya fue revisada. Para cambiar un dato, escríbenos.',
+    'Tu solicitud está en revisión o ya fue revisada. Para cambiar un dato, escríbenos.',
   'common.hostVerification.taxKindInvalid': 'Elige uno de los tipos de número fiscal de la lista.',
   'common.hostVerification.taxIdInvalid': 'Revisa tu número fiscal: solo cifras, letras y guiones.',
   'common.hostVerification.vaultUnavailable':
@@ -1035,12 +1035,12 @@ export const ES_MESSAGES = {
   'web.a07.waiting': 'En espera',
   'web.a07.task.identityAction': 'Verificar mi identidad',
   'web.a07.task.age': 'Edad mínima para ser anfitrión',
-  'web.a07.task.ageHint': 'La tomamos de tu licencia verificada.',
+  'web.a07.task.ageHint': 'La tomamos de tu identidad verificada o, si falta, de tu cuenta.',
   'web.a07.task.termsAction': 'Leer y aceptar',
   'web.a07.task.screening': 'Controles de seguridad',
   'web.a07.task.screeningHint': 'Los hacemos nosotros cuando envías tu solicitud.',
   'web.a07.task.payments': 'Cuenta de cobro revisada por el proveedor de pagos',
-  'web.a07.task.paymentsHint': 'Lo hace el proveedor de pagos después de aprobar tu solicitud.',
+  'web.a07.task.paymentsHint': 'Esta revisión la hace el proveedor de pagos, no tú.',
   'web.a07.tax.heading': 'Tu número fiscal',
   'web.a07.tax.kind': 'Tipo de número',
   'web.a07.tax.number': 'Número de tu documento',
@@ -1057,7 +1057,6 @@ export const ES_MESSAGES = {
   'web.a07.status.IN_REVIEW': 'Estamos revisando tu solicitud.',
   'web.a07.status.APPROVED': 'Aprobamos tu solicitud.',
   'web.a07.status.REJECTED': 'No pudimos aprobar tu solicitud. Escríbenos si quieres saber más.',
-  'web.a07.status.BLOCKED': 'Nuestro equipo revisa tu solicitud a mano. Te escribiremos.',
   'web.a07.missing': 'Falta: {tasks}.',
   'web.a07.pendingActivation':
     'Aprobamos tu solicitud, pero tu cuenta de anfitrión aún no está activa.',

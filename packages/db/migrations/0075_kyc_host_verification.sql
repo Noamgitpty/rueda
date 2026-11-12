@@ -57,7 +57,9 @@
 -- au lieu de `organization.tax_id` (colonne en clair de 0010, laissée NULL).
 --
 -- Retour arrière :
---   DELETE FROM core.support_manual_action_handler WHERE action_code = 'HOST_VERIFICATION_DECISION';
+--   DELETE FROM core.support_manual_action_handler WHERE action_code IN ('HOST_VERIFICATION_DECISION',
+--     'HOST_SCREENING_REVIEW') ; DELETE FROM core.support_manual_action_catalog WHERE action_code =
+--     'HOST_SCREENING_REVIEW' ; DROP FUNCTION core.kyc_manual_action_host_screening_review(…) ;
 --   DROP FUNCTION core.kyc_manual_action_host_verification_decision(bytea, uuid, text, uuid, jsonb,
 --     text, uuid, text), core.kyc_cmd_host_record_screening(bytea, uuid, text, text, text, jsonb,
 --     text), core.kyc_cmd_host_submit(bytea, uuid), core.kyc_cmd_host_save_tax_profile(bytea, uuid,
@@ -114,16 +116,32 @@ GRANT SELECT (id, kind, holder_user_id, country_code, status, row_version) ON co
 GRANT UPDATE (status, updated_by) ON core.iam_organization TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_read ON core.iam_organization FOR SELECT TO kyc_cmd_owner USING (true);
 
--- sous-marchand du PSP : statut KYC seulement (17 §3.2.7)
-GRANT SELECT (org_id, kyc_status) ON core.payment_psp_submerchant TO kyc_cmd_owner;
+-- sous-marchand du PSP : statut KYC et compte marchand (17 §3.2.7) ; capacités BLOQUANTES du PSP
+-- de ce compte (17 §2.4 condition (1), §2.8 : inconnue = « non »), lues par
+-- core.payment_missing_blocking_capabilities sous ce rôle
+GRANT SELECT (org_id, kyc_status, psp_account_id) ON core.payment_psp_submerchant TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_host_read ON core.payment_psp_submerchant FOR SELECT TO kyc_cmd_owner
   USING (true);
+GRANT SELECT (id, provider, country_code, collection_mode) ON core.payment_psp_account
+  TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_host_read ON core.payment_psp_account FOR SELECT TO kyc_cmd_owner
+  USING (true);
+GRANT SELECT (capability, kind, blocking) ON core.payment_psp_capability_catalog TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_host_read ON core.payment_psp_capability_catalog FOR SELECT TO kyc_cmd_owner
+  USING (true);
+GRANT SELECT (provider, country_code, method, network, capability, value, status, valid_from)
+  ON core.payment_psp_capability TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_host_read ON core.payment_psp_capability FOR SELECT TO kyc_cmd_owner
+  USING (true);
+GRANT EXECUTE ON FUNCTION core.payment_missing_blocking_capabilities(text, text, text)
+  TO kyc_cmd_owner;
 
 -- événements de l'hôte (17 §4.5) ; identifiant posé par la commande (rendu à la console sans
 -- relire la table)
 GRANT INSERT (id) ON core.outbox_outbox_event TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_host_event_ins ON core.outbox_outbox_event FOR INSERT TO kyc_cmd_owner
-  WITH CHECK (((type = 'kyc.host_verification.decided' AND aggregate_type = 'host_verification')
+  WITH CHECK (((type IN ('kyc.host_verification.decided', 'kyc.host_screening.flagged')
+                AND aggregate_type = 'host_verification')
                OR (type IN ('iam.organization.status_changed', 'iam.organization.created')
                    AND aggregate_type = 'organization'))
               AND actor_role IN ('GUEST', 'OPS_AGENT', 'ADMIN', 'SYSTEM'));
@@ -134,7 +152,7 @@ GRANT INSERT (reason, request_id) ON core.audit_audit_log TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_host_audit_insert ON core.audit_audit_log FOR INSERT TO kyc_cmd_owner
   WITH CHECK (action_code IN ('HOST_VERIFICATION_SUBMITTED', 'HOST_SANCTIONS_SCREENED',
                               'HOST_TAX_PROFILE_SAVED', 'HOST_VERIFICATION_DECIDED',
-                              'HOST_ACCOUNT_STATUS_CHANGED')
+                              'HOST_ACCOUNT_STATUS_CHANGED', 'HOST_SCREENING_REVIEWED')
               AND subject_type = 'ORGANIZATION');
 
 -- 2. Tables ------------------------------------------------------------------------------------
@@ -364,13 +382,15 @@ $fn$;
 --   tax            : OK, MISSING (exigé et absent) ;
 --   terms_ok       : CGU de l'hôte acceptées dans la version exigée (N-66) ;
 --   screening_id / screening_result : dernier filtrage du dossier ;
---   submerchant_ok : un sous-marchand ACTIVE chez le PSP ;
+--   submerchant_ok : un sous-marchand ACTIVE chez le PSP, sur un compte marchand du pays ;
+--   capabilities_ok : toutes les capacités BLOQUANTES du PSP de ce compte validées
+--                    (`VALIDATED_*`, variante du compte ; inconnue = « non », 17 §2.4, §2.8) ;
 --   p2p_open, insurer_open : interrupteurs du pays (absent = false).
 CREATE FUNCTION core.kyc_host_gates(p_org uuid)
   RETURNS TABLE (org_id uuid, user_id uuid, country_code text, org_status text, kyc_id uuid,
                  age text, residence text, tax text, terms_ok boolean, screening_id uuid,
-                 screening_result text, submerchant_ok boolean, p2p_open boolean,
-                 insurer_open boolean)
+                 screening_result text, submerchant_ok boolean, capabilities_ok boolean,
+                 p2p_open boolean, insurer_open boolean)
   LANGUAGE plpgsql
   STABLE
   SET search_path = pg_catalog, pg_temp
@@ -443,15 +463,24 @@ BEGIN
     v_tax, NOT core.ctr_host_terms_required(v_org.holder_user_id, v_org.country_code),
     v_scr.id, v_scr.result,
     EXISTS (SELECT 1 FROM core.payment_psp_submerchant AS m
-             WHERE m.org_id = v_org.id AND m.kyc_status = 'ACTIVE'),
+              JOIN core.payment_psp_account AS a ON a.id = m.psp_account_id
+             WHERE m.org_id = v_org.id AND m.kyc_status = 'ACTIVE'
+               AND a.country_code = v_org.country_code),
+    EXISTS (SELECT 1 FROM core.payment_psp_submerchant AS m
+              JOIN core.payment_psp_account AS a ON a.id = m.psp_account_id
+             WHERE m.org_id = v_org.id AND m.kyc_status = 'ACTIVE'
+               AND a.country_code = v_org.country_code
+               AND pg_catalog.cardinality(core.payment_missing_blocking_capabilities(
+                     a.provider, a.country_code, a.collection_mode)) = 0),
     core.config_go_live('p2p_private_hosts_enabled', v_org.country_code),
     core.config_go_live('insurer_contract_active', v_org.country_code);
 END
 $fn$;
 
 -- Blocages de l'ACTIVATION d'un compte d'hôte (17 §2.4), dans cet ordre : âge revérifié (N-38),
--- résidence, profil fiscal, CGU de l'hôte, dossier non approuvé, sous-marchand non ACTIVE, pays
--- fermé aux hôtes particuliers, contrat d'assureur inactif. Tableau vide = activable.
+-- résidence, profil fiscal, CGU de l'hôte, dossier non approuvé, sous-marchand non ACTIVE,
+-- capacité bloquante du PSP non validée, pays fermé aux hôtes particuliers, contrat d'assureur
+-- inactif. Tableau vide = activable.
 CREATE FUNCTION core.kyc_host_blockers(p_org uuid)
   RETURNS text[]
   LANGUAGE plpgsql
@@ -478,6 +507,8 @@ BEGIN
     b := b || 'HOST_VERIFICATION_NOT_APPROVED'::text;
   END IF;
   IF NOT g.submerchant_ok THEN b := b || 'SUBMERCHANT_NOT_ACTIVE'::text; END IF;
+  -- capacité bloquante inconnue ou non validée : hôte non activable (CLAUDE.md contrainte 4)
+  IF NOT g.capabilities_ok THEN b := b || 'PSP_CAPABILITY_MISSING'::text; END IF;
   IF NOT g.p2p_open THEN b := b || 'P2P_HOSTS_DISABLED'::text; END IF;
   IF NOT g.insurer_open THEN b := b || 'INSURER_CONTRACT_INACTIVE'::text; END IF;
   RETURN b;
@@ -703,8 +734,8 @@ $fn$;
 -- 6. Lecture de l'état de l'hôte de la session (SECURITY DEFINER, EXECUTE app_api) --------------
 -- Ses seules données, pour SON compte d'hôte : statut du compte et du dossier, pièces manquantes,
 -- contrôles (sans date de naissance ni numéro fiscal), types de numéro admis dans le pays, blocages
--- de l'activation (pays fermé compris). Correspondance de sanctions : jamais révélée (le dossier
--- est `BLOCKED`, sans motif).
+-- de l'activation (pays fermé compris). Correspondance de sanctions : JAMAIS révélée (VER-028,
+-- tipping-off) : un dossier `BLOCKED` est rendu comme `IN_REVIEW`, sans pièce manquante.
 -- Issues : OK, AUTH_REQUIRED, FORBIDDEN (compte d'un autre ou inconnu : rien n'est révélé).
 CREATE FUNCTION core.kyc_host_state(p_token_hash bytea, p_org uuid)
   RETURNS TABLE (outcome text, country_code text, org_status text, verification_status text,
@@ -746,8 +777,10 @@ BEGIN
   SELECT k.host_tax_id_kinds INTO v_kinds FROM core.config_country AS k
    WHERE k.code::text = g.country_code;
   v_req := core.kyc_host_param('p2p_host_requires_tax_id', g.country_code);
-  RETURN QUERY SELECT 'OK'::text, g.country_code, g.org_status, h.status,
-    COALESCE(h.missing, '{}'::text[]), g.kyc_id IS NOT NULL,
+  RETURN QUERY SELECT 'OK'::text, g.country_code, g.org_status,
+    CASE WHEN h.status = 'BLOCKED' THEN 'IN_REVIEW' ELSE h.status END,
+    CASE WHEN h.status = 'BLOCKED' THEN '{}'::text[] ELSE COALESCE(h.missing, '{}'::text[]) END,
+    g.kyc_id IS NOT NULL,
     CASE WHEN g.age = 'PARAM_MISSING' THEN 'UNVERIFIED' ELSE g.age END, g.residence,
     v_req IS DISTINCT FROM 'false'::jsonb, g.tax = 'OK' AND v_kind IS NOT NULL, v_kind,
     COALESCE(v_kinds, '{}'::text[]), g.terms_ok, g.screening_id IS NOT NULL,
@@ -759,7 +792,8 @@ $fn$;
 -- Le numéro arrive CHIFFRÉ par l'API (clé du compte d'hôte) : la base n'en voit que l'enveloppe.
 -- Issues : SAVED, AUTH_REQUIRED, FORBIDDEN, HOST_ENTITY_NOT_ALLOWED (personne morale),
 -- HOST_TAX_ID_KIND_INVALID (type non admis dans le pays), REQUEST_INVALID (enveloppe ou régime
--- mal formés), HOST_VERIFICATION_LOCKED (dossier décidé ou bloqué : nouvelle revue, hors bêta).
+-- mal formés), HOST_VERIFICATION_LOCKED (dossier en revue, décidé ou bloqué : nouvelle revue,
+-- hors bêta).
 CREATE FUNCTION core.kyc_cmd_host_save_tax_profile(p_token_hash bytea, p_org uuid, p_kind text,
                                                    p_tax_id_enc bytea, p_regime text,
                                                    p_taxpayer_kind text)
@@ -807,7 +841,8 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('kyc.host:' || p_org::text, 0));
   SELECT d.status INTO v_status FROM core.kyc_host_verification AS d WHERE d.org_id = p_org;
-  IF v_status IN ('APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED') THEN
+  -- dossier en revue, décidé ou bloqué : verrouillé (en revue et bloqué indiscernables, VER-028)
+  IF v_status IN ('IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED', 'BLOCKED') THEN
     RETURN QUERY SELECT 'HOST_VERIFICATION_LOCKED'::text;
     RETURN;
   END IF;
@@ -947,6 +982,7 @@ DECLARE
   h        record;
   v_scr    uuid;
   v_status text;
+  v_ver    integer;
   v_k      text;
   v_v      jsonb;
 BEGIN
@@ -1015,8 +1051,21 @@ BEGIN
     UPDATE core.kyc_host_verification AS d
        SET sanctions_screening_id = v_scr, status = 'BLOCKED', reason_code = 'HOST_SANCTIONS_HIT',
            row_version = d.row_version + 1, updated_at = platform.now()
-     WHERE d.id = h.id;
+     WHERE d.id = h.id
+    RETURNING d.row_version INTO v_ver;
     v_status := 'BLOCKED';
+    -- escalade (VER-028) : file de revue de l'ops et événement interne pour l'ADMIN ; codes et
+    -- identifiants seulement, aucune donnée de la liste
+    PERFORM 1 FROM core.support_enqueue_review('HOST_VERIFICATION', 'ORGANIZATION', p_org,
+                                                h.country_code, v_user);
+    INSERT INTO core.outbox_outbox_event
+           (id, type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_user_id, actor_role, correlation_id, payload, partition_key)
+    VALUES (platform.uuid_v7(), 'kyc.host_screening.flagged', 1, 'host_verification', h.id, v_ver,
+            h.country_code, NULL, 'SYSTEM', pg_catalog.gen_random_uuid(),
+            pg_catalog.jsonb_build_object('org_id', p_org, 'verification_id', h.id,
+                                          'reason_code', 'HOST_SANCTIONS_HIT'),
+            p_org::text);
   END IF;
   -- motif journalisé : résultat et code seulement ; ni versions des listes ni référence
   INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
@@ -1153,6 +1202,7 @@ BEGIN
       END IF;
       RETURN QUERY SELECT CASE
           WHEN 'SUBMERCHANT_NOT_ACTIVE' = ANY (v_act.blockers) THEN 'HOST_PAYOUT_RAIL_UNAVAILABLE'
+          WHEN 'PSP_CAPABILITY_MISSING' = ANY (v_act.blockers) THEN 'HOST_PAYOUT_RAIL_UNAVAILABLE'
           WHEN 'P2P_HOSTS_DISABLED' = ANY (v_act.blockers) THEN 'HOST_PAYOUT_RAIL_UNAVAILABLE'
           WHEN 'INSURER_CONTRACT_INACTIVE' = ANY (v_act.blockers) THEN 'INSURER_CONTRACT_INACTIVE'
           ELSE COALESCE(v_act.blockers[1], 'HOST_NOT_ACTIVATED') END::text,
@@ -1212,6 +1262,110 @@ GRANT EXECUTE ON FUNCTION core.kyc_manual_action_host_verification_decision(byte
                                                                             jsonb, text, uuid, text)
   TO iam_staff_owner;
 
+
+-- 10 bis. Action de console HOST_SCREENING_REVIEW (PROPOSÉE, ADR-105 ; VER-028 parcours
+-- alternatif) : revue humaine d'une correspondance de sanctions escaladée. Sujet = compte d'hôte ;
+-- `decision` ∈ {CLEARED, CONFIRMED} ; motif obligatoire (cadre d'US-101) ; permission `kyc.decide`
+-- (OPS_AGENT, ADMIN : VER-028 « Permissions »). CLEARED (faux positif) : nouveau filtrage CLEAR
+-- signé du relecteur, dossier recalculé (pièces manquantes ou revue) ; CONFIRMED : filtrage
+-- CONFIRMED_MATCH, dossier REJECTED (motif HOST_SANCTIONS_HIT), événement de décision. Élément de
+-- la file clôturé ; audit `HOST_SCREENING_REVIEWED` (codes seulement). Issue DONE ou
+-- HOST_SCREENING_NOT_BLOCKED (dossier absent ou non bloqué : rien n'est écrit).
+CREATE FUNCTION core.kyc_manual_action_host_screening_review(p_token_hash bytea, p_action_id uuid,
+                                                             p_action_code text,
+                                                             p_subject_id uuid, p_input jsonb,
+                                                             p_reason text, p_actor uuid,
+                                                             p_actor_role text)
+  RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_decision text := p_input ->> 'decision';
+  h          record;
+  v_scr      uuid := platform.uuid_v7();
+  v_ver      integer;
+  v_ev       uuid;
+  v_events   uuid[] := '{}';
+  v_q        record;
+BEGIN
+  IF p_action_code IS DISTINCT FROM 'HOST_SCREENING_REVIEW' OR p_subject_id IS NULL
+     OR p_actor IS NULL OR p_actor_role IS NULL
+     OR v_decision IS NULL OR v_decision NOT IN ('CLEARED', 'CONFIRMED') THEN
+    RAISE EXCEPTION 'revue de filtrage : action invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('kyc.host:' || p_subject_id::text, 0));
+  SELECT d.* INTO h FROM core.kyc_host_verification AS d WHERE d.org_id = p_subject_id;
+  IF h.id IS NULL OR h.status <> 'BLOCKED' THEN
+    RETURN QUERY SELECT 'HOST_SCREENING_NOT_BLOCKED'::text, h.id, '{}'::uuid[];
+    RETURN;
+  END IF;
+  INSERT INTO core.kyc_sanctions_screening (id, subject_id, host_verification_id, provider,
+                                            request_key, lists_version, result, match_ref,
+                                            screened_at, reviewer)
+  VALUES (v_scr, h.user_id, h.id, 'MANUAL', pg_catalog.format('screening:%s:a2', h.id), '{}'::jsonb,
+          CASE v_decision WHEN 'CLEARED' THEN 'CLEAR' ELSE 'CONFIRMED_MATCH' END, NULL,
+          platform.now(), p_actor);
+  -- élément vivant de la file de revue clôturé par la revue
+  SELECT q.outcome, q.item_id INTO v_q
+    FROM core.support_enqueue_review('HOST_VERIFICATION', 'ORGANIZATION', p_subject_id,
+                                     h.country_code, p_actor) AS q;
+  IF v_q.outcome IN ('CREATED', 'EXISTS') THEN
+    PERFORM 1 FROM core.support_close_review_item(v_q.item_id, 'DONE', v_decision, p_actor);
+  END IF;
+  IF v_decision = 'CLEARED' THEN
+    UPDATE core.kyc_host_verification AS d
+       SET sanctions_screening_id = v_scr, status = 'DOCS_PENDING', reason_code = NULL,
+           row_version = d.row_version + 1, updated_at = platform.now()
+     WHERE d.id = h.id;
+    PERFORM core.kyc_host_refresh(h.id);
+  ELSE
+    UPDATE core.kyc_host_verification AS d
+       SET sanctions_screening_id = v_scr, status = 'REJECTED', decided_by = p_actor,
+           decided_at = platform.now(), row_version = d.row_version + 1, updated_at = platform.now()
+     WHERE d.id = h.id
+    RETURNING d.row_version INTO v_ver;
+    v_ev := platform.uuid_v7();
+    INSERT INTO core.outbox_outbox_event
+           (id, type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_user_id, actor_role, correlation_id, causation_id, payload, partition_key)
+    VALUES (v_ev, 'kyc.host_verification.decided', 1, 'host_verification', h.id, v_ver,
+            h.country_code, p_actor, p_actor_role, pg_catalog.gen_random_uuid(), p_action_id,
+            pg_catalog.jsonb_build_object('org_id', p_subject_id, 'verification_id', h.id,
+                                          'decision', 'REJECTED'),
+            p_subject_id::text);
+    v_events := v_events || v_ev;
+  END IF;
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after, reason, request_id)
+  VALUES (p_actor, p_actor_role, 'HOST_SCREENING_REVIEWED', 'ORGANIZATION', p_subject_id,
+          pg_catalog.jsonb_build_object('status', 'BLOCKED'),
+          pg_catalog.jsonb_build_object('country', h.country_code,
+                                        'countries', pg_catalog.jsonb_build_array(h.country_code),
+                                        'verificationId', h.id, 'decision', v_decision),
+          NULLIF(pg_catalog.left(pg_catalog.btrim(p_reason), 1000), ''), p_action_id);
+  RETURN QUERY SELECT 'DONE'::text, h.id, v_events;
+END
+$fn$;
+COMMENT ON FUNCTION core.kyc_manual_action_host_screening_review(bytea, uuid, text, uuid, jsonb, text, uuid, text) IS
+  'Commande liée à HOST_SCREENING_REVIEW (cadre d''US-101) : revue humaine d''une correspondance de '
+  'sanctions (faux positif levé ou correspondance confirmée). EXECUTE iam_staff_owner. US-123.';
+REVOKE ALL ON FUNCTION core.kyc_manual_action_host_screening_review(bytea, uuid, text, uuid, jsonb,
+                                                                    text, uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.kyc_manual_action_host_screening_review(bytea, uuid, text, uuid, jsonb,
+                                                                       text, uuid, text)
+  TO iam_staff_owner;
+
+INSERT INTO core.support_manual_action_catalog
+       (action_code, permission_code, mode, subject_type, available, input_keys, input_values,
+        requires_approval)
+VALUES ('HOST_SCREENING_REVIEW', 'kyc.decide', 'DOMAIN_COMMAND', 'ORGANIZATION', false,
+        '{decision}', '{"decision": ["CLEARED", "CONFIRMED"]}', false);
+
 -- 11. Propriétaire NOLOGIN (mécanique de 0059 / 0072 : CREATE le temps du transfert seulement) ---
 GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_host_param(text, text) OWNER TO kyc_cmd_owner;
@@ -1232,6 +1386,8 @@ ALTER FUNCTION core.kyc_cmd_host_record_screening(bytea, uuid, text, text, text,
   OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_manual_action_host_verification_decision(bytea, uuid, text, uuid, jsonb, text, uuid, text)
   OWNER TO kyc_cmd_owner;
+ALTER FUNCTION core.kyc_manual_action_host_screening_review(bytea, uuid, text, uuid, jsonb, text, uuid, text)
+  OWNER TO kyc_cmd_owner;
 REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
 
 -- 12. Liaison (garde d'ADR-092 au moment de l'INSERT : signature, SECURITY DEFINER, propriétaire
@@ -1239,4 +1395,8 @@ REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
 INSERT INTO core.support_manual_action_handler (action_code, handler, story)
 VALUES ('HOST_VERIFICATION_DECISION',
         'core.kyc_manual_action_host_verification_decision(bytea, uuid, text, uuid, jsonb, text, uuid, text)'::regprocedure,
+        'US-123');
+INSERT INTO core.support_manual_action_handler (action_code, handler, story)
+VALUES ('HOST_SCREENING_REVIEW',
+        'core.kyc_manual_action_host_screening_review(bytea, uuid, text, uuid, jsonb, text, uuid, text)'::regprocedure,
         'US-123');

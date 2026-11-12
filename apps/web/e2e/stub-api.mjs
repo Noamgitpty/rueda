@@ -333,7 +333,7 @@ async function verificationRoute(req, res, path) {
     return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
   }
   const body = (await readBody(req)) ?? {};
-  const locked = v.status !== null && !['OPEN', 'DOCS_PENDING', 'IN_REVIEW'].includes(v.status);
+  const locked = v.status !== null && !['OPEN', 'DOCS_PENDING'].includes(v.status);
   if (m[2] !== undefined) {
     if (!TAX_KINDS.includes(body.kind)) {
       return err(res, 422, 'HOST_TAX_ID_KIND_INVALID', 'common.hostVerification.taxKindInvalid');

@@ -1049,7 +1049,7 @@ export const FR_MESSAGES = {
   'common.hostVerification.accountNotEligible':
     'Ton compte d’hôte ne peut pas recevoir cette demande pour le moment. Écris-nous.',
   'common.hostVerification.locked':
-    'Ta demande a déjà été examinée. Pour changer une information, écris-nous.',
+    'Ta demande est en cours d’examen ou a déjà été examinée. Pour changer une information, écris-nous.',
   'common.hostVerification.taxKindInvalid': 'Choisis l’un des types de numéro fiscal de la liste.',
   'common.hostVerification.taxIdInvalid':
     'Vérifie ton numéro fiscal : chiffres, lettres et tirets seulement.',
@@ -1069,13 +1069,12 @@ export const FR_MESSAGES = {
   'web.a07.waiting': 'En attente',
   'web.a07.task.identityAction': 'Vérifier mon identité',
   'web.a07.task.age': 'Âge minimum pour être hôte',
-  'web.a07.task.ageHint': 'Nous la lisons sur ton permis vérifié.',
+  'web.a07.task.ageHint': 'Nous la lisons sur ton identité vérifiée ou, à défaut, sur ton compte.',
   'web.a07.task.termsAction': 'Lire et accepter',
   'web.a07.task.screening': 'Contrôles de sécurité',
   'web.a07.task.screeningHint': 'Nous les faisons quand tu envoies ta demande.',
   'web.a07.task.payments': 'Compte de versement examiné par le prestataire de paiement',
-  'web.a07.task.paymentsHint':
-    'Le prestataire de paiement s’en charge après l’approbation de ta demande.',
+  'web.a07.task.paymentsHint': 'Ce contrôle est fait par le prestataire de paiement, pas par toi.',
   'web.a07.tax.heading': 'Ton numéro fiscal',
   'web.a07.tax.kind': 'Type de numéro',
   'web.a07.tax.number': 'Numéro',
@@ -1094,7 +1093,6 @@ export const FR_MESSAGES = {
   'web.a07.status.APPROVED': 'Nous avons approuvé ta demande.',
   'web.a07.status.REJECTED':
     'Nous n’avons pas pu approuver ta demande. Écris-nous pour en savoir plus.',
-  'web.a07.status.BLOCKED': 'Notre équipe examine ta demande à la main. Nous t’écrirons.',
   'web.a07.missing': 'Il manque : {tasks}.',
   'web.a07.pendingActivation':
     'Nous avons approuvé ta demande, mais ton compte d’hôte n’est pas encore actif.',

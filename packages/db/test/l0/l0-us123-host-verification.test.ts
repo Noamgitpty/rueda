@@ -32,6 +32,15 @@ import { setSessionContext } from '../../src/index.ts';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import {
+  farInstant,
+  openSwitchWindow,
+  ensureClosed,
+  newHash,
+  plusMinutes,
+} from '../support/golive.ts';
+import type { StaffActor } from '../support/golive.ts';
+import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 import { auditOf, elevatedStaff } from '../support/staff.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
@@ -321,34 +330,66 @@ interface HostState {
 const state = (c: pg.ClientBase, p: Person, org: string) =>
   one<HostState>(c, 'SELECT * FROM core.kyc_host_state($1, $2)', [p.token, org]);
 
+/** État lu à un instant virtuel (fenêtre d'interrupteurs ouverts : base de test seulement). */
+const stateAt = (c: pg.ClientBase, p: Person, org: string, at: string) =>
+  withTestTransaction(c, { virtualNow: at }, (tx) => state(tx, p, org));
+
 interface ActOutcome {
   readonly outcome: string;
   readonly action_id: string | null;
   readonly domain_ref: string | null;
   readonly detail: string | null;
 }
-/** Décision HOST_VERIFICATION_DECISION par la console (cadre d'US-101), transaction validée. */
-function decide(
+/**
+ * Action de console (cadre d'US-101), transaction validée ; `at` : instant virtuel (une session
+ * élevée neuve est alors ouverte à cet instant pour le même membre du staff).
+ */
+function act(
+  client: pg.ClientBase,
+  staff: { readonly userId: string; readonly hash: Buffer },
+  action: 'HOST_VERIFICATION_DECISION' | 'HOST_SCREENING_REVIEW',
+  org: string,
+  decision: string,
+  scope: readonly string[],
+  at?: string,
+): Promise<ActOutcome> {
+  return withTestTransaction(
+    client,
+    { commit: true, ...(at === undefined ? {} : { virtualNow: at }) },
+    async (tx) => {
+      let hash = staff.hash;
+      if (at !== undefined) {
+        hash = newHash();
+        await tx.query('SELECT test_fixture.iam_open_elevated_session($1, $2)', [
+          staff.userId,
+          hash,
+        ]);
+      }
+      await setSessionContext(tx, {
+        kind: 'STAFF',
+        actorId: staff.userId,
+        countryScope: scope,
+        sessionTokenHash: hash.toString('hex'),
+      });
+      const { rows } = await tx.query<ActOutcome>(
+        'SELECT * FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, $7::uuid[])',
+        [hash, uuid(), action, org, REASON, { decision }, []],
+      );
+      return rows[0] ?? { outcome: '', action_id: null, domain_ref: null, detail: null };
+    },
+  );
+}
+
+/** Décision HOST_VERIFICATION_DECISION par la console. */
+const decide = (
   client: pg.ClientBase,
   staff: { readonly userId: string; readonly hash: Buffer },
   org: string,
   decision: 'APPROVED' | 'REJECTED',
   scope: readonly string[],
-): Promise<ActOutcome> {
-  return withTestTransaction(client, { commit: true }, async (tx) => {
-    await setSessionContext(tx, {
-      kind: 'STAFF',
-      actorId: staff.userId,
-      countryScope: scope,
-      sessionTokenHash: staff.hash.toString('hex'),
-    });
-    const { rows } = await tx.query<ActOutcome>(
-      'SELECT * FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, $7::uuid[])',
-      [staff.hash, uuid(), 'HOST_VERIFICATION_DECISION', org, REASON, { decision }, []],
-    );
-    return rows[0] ?? { outcome: '', action_id: null, domain_ref: null, detail: null };
-  });
-}
+  at?: string,
+): Promise<ActOutcome> =>
+  act(client, staff, 'HOST_VERIFICATION_DECISION', org, decision, scope, at);
 
 interface Ready {
   readonly p: Person;
@@ -633,10 +674,24 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         expect(JSON.stringify(audit)).not.toContain(leak);
         expect(JSON.stringify(events)).not.toContain(leak);
       }
-      // l'hôte ne voit ni le motif ni la liste ; aucun nouveau filtrage, aucune approbation
+      // escalade (VER-028) : file de revue de l'ops et événement interne, codes seulement
+      expect(await fixture(c, 'us123_queue_items', org)).toEqual([
+        { queue: 'HOST_VERIFICATION', status: 'OPEN', decision: null },
+      ]);
+      const flagged = (
+        await fixture<{ type: string; payload: Record<string, unknown> }>(c, 'us123_events', org)
+      ).filter((e) => e.type === 'kyc.host_screening.flagged');
+      expect(flagged.map((e) => e.payload)).toEqual([
+        { org_id: org, verification_id: s.verification_id, reason_code: 'HOST_SANCTIONS_HIT' },
+      ]);
+      // l'hôte ne peut rien en déduire : rendu comme une revue ordinaire, sans pièce manquante
       const st = await state(c, p, org);
-      expect(st).toMatchObject({ verification_status: 'BLOCKED', screening_done: true });
-      expect(JSON.stringify(st)).not.toContain('SANCTIONS');
+      expect(st).toMatchObject({
+        verification_status: 'IN_REVIEW',
+        missing: [],
+        screening_done: true,
+      });
+      expect(JSON.stringify(st)).not.toMatch(/SANCTIONS|BLOCKED|MATCH/);
       expect((await submit(c, p, org)).outcome).toBe('DECIDED');
       expect((await screen(c, p, org, s.screening_key, 'CLEAR')).outcome).toBe('DUPLICATE');
       expect(await decide(c, ops, org, 'APPROVED', [country])).toMatchObject({
@@ -676,7 +731,10 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         verification_status: 'APPROVED',
         country_code: country,
       });
-      expect(st.blockers).toEqual(['P2P_HOSTS_DISABLED', 'INSURER_CONTRACT_INACTIVE']);
+      expect(st.blockers).toEqual(
+        expect.arrayContaining(['P2P_HOSTS_DISABLED', 'INSURER_CONTRACT_INACTIVE']),
+      );
+      expect(st.blockers).not.toContain('SUBMERCHANT_NOT_ACTIVE');
       // aucune activation possible tant que insurer_contract_active vaut false
       expect(await decide(c, ops, org, 'APPROVED', [country])).toMatchObject({
         outcome: 'REFUSED',
@@ -706,6 +764,151 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         from: 'ONBOARDING',
         to: 'PENDING_ACTIVATION',
       });
+    });
+  });
+
+  it('revue d’une correspondance (VER-028) : faux positif levé avec motif ⇒ dossier rendu à la revue ; confirmée ⇒ REJECTED', async () => {
+    await withRole('app_api', async (c) => {
+      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const finance = await elevatedStaff(c, 'FINANCE', [country]);
+      const hit = async (): Promise<Ready> => {
+        const r = await readyHost(c, country, { screening: 'POTENTIAL_MATCH' });
+        expect((await fixture(c, 'us123_dossier', r.org))[0]).toMatchObject({ status: 'BLOCKED' });
+        return r;
+      };
+      const a = await hit();
+      // sans la permission kyc.decide : FORBIDDEN, rien ne change
+      expect(
+        (await act(c, finance, 'HOST_SCREENING_REVIEW', a.org, 'CLEARED', [country])).outcome,
+      ).toBe('FORBIDDEN');
+      expect(
+        (await act(c, ops, 'HOST_SCREENING_REVIEW', a.org, 'CLEARED', [country])).outcome,
+      ).toBe('DONE');
+      expect((await fixture(c, 'us123_dossier', a.org))[0]).toMatchObject({
+        status: 'IN_REVIEW',
+        reason_code: null,
+      });
+      expect(await fixture(c, 'us123_screenings', a.org)).toEqual([
+        expect.objectContaining({ result: 'POTENTIAL_MATCH', reviewer: null }),
+        expect.objectContaining({ provider: 'MANUAL', result: 'CLEAR', reviewer: ops.userId }),
+      ]);
+      expect(await fixture(c, 'us123_queue_items', a.org)).toEqual([
+        { queue: 'HOST_VERIFICATION', status: 'DONE', decision: 'CLEARED' },
+        { queue: 'HOST_VERIFICATION', status: 'OPEN', decision: null },
+      ]);
+      // le faux positif levé, le dossier s'approuve normalement
+      expect((await decide(c, ops, a.org, 'APPROVED', [country])).outcome).toBe('DONE');
+      // un dossier non bloqué ne se « revoit » pas
+      expect(await act(c, ops, 'HOST_SCREENING_REVIEW', a.org, 'CLEARED', [country])).toMatchObject(
+        { outcome: 'REFUSED', detail: 'HOST_SCREENING_NOT_BLOCKED' },
+      );
+      const b = await hit();
+      expect(
+        (await act(c, ops, 'HOST_SCREENING_REVIEW', b.org, 'CONFIRMED', [country])).outcome,
+      ).toBe('DONE');
+      expect((await fixture(c, 'us123_dossier', b.org))[0]).toMatchObject({
+        status: 'REJECTED',
+        reason_code: 'HOST_SANCTIONS_HIT',
+        decided_by: ops.userId,
+      });
+      const audit = await fixture<{ action_code: string; after: Record<string, unknown> }>(
+        c,
+        'us123_audit',
+        b.org,
+      );
+      expect(audit.find((r) => r.action_code === 'HOST_SCREENING_REVIEWED')?.after).toMatchObject({
+        decision: 'CONFIRMED',
+      });
+    });
+  });
+
+  it('HOST_VERIFICATION_DECISION sans la permission ops.review_listing_host ⇒ FORBIDDEN journalisé, rien ne change', async () => {
+    await withRole('app_api', async (c) => {
+      const finance = await elevatedStaff(c, 'FINANCE', [country]);
+      const { org } = await readyHost(c, country);
+      expect((await decide(c, finance, org, 'APPROVED', [country])).outcome).toBe('FORBIDDEN');
+      expect((await auditOf(c, finance.userId)).at(-1)?.action_code).toBe('STAFF_FORBIDDEN');
+      expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({ status: 'IN_REVIEW' });
+    });
+  });
+
+  it('chemin ACTIVE (base de test, fenêtre d’horloge lointaine) : capacité bloquante inconnue ⇒ refus ; capacités validées et interrupteurs ouverts par deux personnes ⇒ ACTIVE, iam.organization.created une seule fois', async () => {
+    await withRole('app_api', async (c) => {
+      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const { p, org } = await readyHost(c, country);
+      await c.query('SELECT test_fixture.us123_set_submerchant($1, $2)', [org, 'ACTIVE']);
+      expect((await decide(c, ops, org, 'APPROVED', [country])).outcome).toBe('DONE');
+      expect(await fixture(c, 'us123_org_status', org)).toEqual([
+        { us123_org_status: 'PENDING_ACTIVATION' },
+      ]);
+      // fenêtre [from, to) : capacités bloquantes du FAKE INCONNUES de from à caps, VALIDÉES de
+      // caps à to, inconnues après ; interrupteurs ouverts de from à to par la procédure à deux
+      // personnes d'US-125, refermés quoi qu'il arrive
+      const from = farInstant();
+      const caps = plusMinutes(from, 60);
+      const to = plusMinutes(from, 120);
+      for (const [status, at] of [
+        ['UNKNOWN', from],
+        ['VALIDATED_SANDBOX', caps],
+        ['UNKNOWN', to],
+      ] as const) {
+        await c.query('SELECT test_fixture.us123_set_capabilities($1, $2, $3)', [
+          country,
+          status,
+          at,
+        ]);
+      }
+      const people = await withTestTransaction(c, { commit: true }, async (tx) => {
+        const admin = await rlsStaff(tx, 'ADMIN', [country]);
+        const superadmin = await rlsStaff(tx, 'SUPERADMIN', [country]);
+        return [admin, superadmin].map((id): StaffActor => ({
+          userId: id,
+          hash: Buffer.from(staffSessionHash(id) ?? '', 'hex'),
+          scope: [country],
+        }));
+      });
+      const [requester, approver] = people as [StaffActor, StaffActor];
+      try {
+        for (const key of ['p2p_private_hosts_enabled', 'insurer_contract_active'] as const) {
+          await openSwitchWindow(c, requester, approver, key, country, from, to);
+        }
+        // pays ouvert, capacités inconnues : refus, seul blocage restant la capacité du PSP
+        const early = plusMinutes(from, 10);
+        expect((await stateAt(c, p, org, early)).blockers).toEqual(['PSP_CAPABILITY_MISSING']);
+        expect(await decide(c, ops, org, 'APPROVED', [country], early)).toMatchObject({
+          outcome: 'REFUSED',
+          detail: 'HOST_PAYOUT_RAIL_UNAVAILABLE',
+        });
+        expect(await fixture(c, 'us123_org_status', org)).toEqual([
+          { us123_org_status: 'PENDING_ACTIVATION' },
+        ]);
+        // tout est rempli : ACTIVE (garde en base comprise)
+        const late = plusMinutes(from, 70);
+        expect((await stateAt(c, p, org, late)).blockers).toEqual([]);
+        expect((await decide(c, ops, org, 'APPROVED', [country], late)).outcome).toBe('DONE');
+        expect(await fixture(c, 'us123_org_status', org)).toEqual([{ us123_org_status: 'ACTIVE' }]);
+        expect((await fixture(c, 'us123_dossier', org))[0]?.activated_at).not.toBeNull();
+        // nouvelle tentative : déjà active, aucun second événement
+        expect(
+          await decide(c, ops, org, 'APPROVED', [country], plusMinutes(from, 80)),
+        ).toMatchObject({ outcome: 'REFUSED', detail: 'HOST_ALREADY_ACTIVE' });
+        const events = await fixture<{ type: string; payload: Record<string, unknown> }>(
+          c,
+          'us123_events',
+          org,
+        );
+        expect(events.filter((e) => e.type === 'iam.organization.created')).toHaveLength(1);
+        expect(
+          events
+            .filter((e) => e.type === 'iam.organization.status_changed')
+            .map((e) => e.payload['to'])
+            .sort(),
+        ).toEqual(['ACTIVE', 'PENDING_ACTIVATION']);
+      } finally {
+        for (const key of ['p2p_private_hosts_enabled', 'insurer_contract_active'] as const) {
+          await ensureClosed(c, requester, approver, key, country, to);
+        }
+      }
     });
   });
 

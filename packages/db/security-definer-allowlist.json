@@ -976,6 +976,13 @@
       "story": "US-123"
     },
     {
+      "signature": "core.kyc_manual_action_host_screening_review(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-123"
+    },
+    {
       "signature": "core.config_cmd_approve_go_live_switch(bytea,uuid)",
       "family": "cmd_golive",
       "owner": "cmd_golive_owner",

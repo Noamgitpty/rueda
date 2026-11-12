@@ -1016,7 +1016,7 @@ export const PT_MESSAGES = {
   'common.hostVerification.accountNotEligible':
     'Sua conta de anfitrião não pode receber este pedido agora. Fale com a gente.',
   'common.hostVerification.locked':
-    'Seu pedido já foi analisado. Para mudar algum dado, fale com a gente.',
+    'Seu pedido está em análise ou já foi analisado. Para mudar algum dado, fale com a gente.',
   'common.hostVerification.taxKindInvalid':
     'Escolha um dos tipos de número de identificação fiscal da lista.',
   'common.hostVerification.taxIdInvalid':
@@ -1037,12 +1037,12 @@ export const PT_MESSAGES = {
   'web.a07.waiting': 'Aguardando',
   'web.a07.task.identityAction': 'Confirmar minha identidade',
   'web.a07.task.age': 'Idade mínima para ser anfitrião',
-  'web.a07.task.ageHint': 'Lemos na sua carteira confirmada.',
+  'web.a07.task.ageHint': 'Lemos na sua identidade confirmada ou, se faltar, na sua conta.',
   'web.a07.task.termsAction': 'Ler e aceitar',
   'web.a07.task.screening': 'Checagens de segurança',
   'web.a07.task.screeningHint': 'Fazemos quando você envia seu pedido.',
   'web.a07.task.payments': 'Conta de recebimento analisada pelo provedor de pagamentos',
-  'web.a07.task.paymentsHint': 'O provedor de pagamentos faz isso depois que aprovamos seu pedido.',
+  'web.a07.task.paymentsHint': 'Essa análise é feita pelo provedor de pagamentos, não por você.',
   'web.a07.tax.heading': 'Seu número de identificação fiscal',
   'web.a07.tax.kind': 'Tipo de documento fiscal',
   'web.a07.tax.number': 'Número do documento',
@@ -1060,8 +1060,6 @@ export const PT_MESSAGES = {
   'web.a07.status.APPROVED': 'Aprovamos seu pedido.',
   'web.a07.status.REJECTED':
     'Não conseguimos aprovar seu pedido. Fale com a gente para saber mais.',
-  'web.a07.status.BLOCKED':
-    'Nossa equipe está analisando seu pedido manualmente. Vamos escrever para você.',
   'web.a07.missing': 'Ainda falta: {tasks}.',
   'web.a07.pendingActivation':
     'Aprovamos seu pedido, mas sua conta de anfitrião ainda não está ativa.',
