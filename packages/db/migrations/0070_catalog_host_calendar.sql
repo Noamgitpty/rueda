@@ -471,7 +471,9 @@ BEGIN
       RAISE;
     END IF;
   END;
-  -- MUTATION TEMPORAIRE (preuve du test qa n° 1) : effacement retiré
+  PERFORM pg_catalog.set_config('app.actor_kind', '', true),
+          pg_catalog.set_config('app.actor_id', '', true),
+          pg_catalog.set_config('app.org_id', '', true);
   RETURN QUERY SELECT v_outcome, v_id;
 END
 $fn$;
@@ -532,7 +534,9 @@ BEGIN
       RAISE;
     END IF;
   END;
-  -- MUTATION TEMPORAIRE (preuve du test qa n° 1) : effacement retiré
+  PERFORM pg_catalog.set_config('app.actor_kind', '', true),
+          pg_catalog.set_config('app.actor_id', '', true),
+          pg_catalog.set_config('app.org_id', '', true);
   RETURN QUERY SELECT v_outcome, CASE WHEN v_outcome = 'DONE' THEN p_block_id END;
 END
 $fn$;
