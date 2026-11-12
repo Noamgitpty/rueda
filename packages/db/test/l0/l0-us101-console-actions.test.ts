@@ -33,6 +33,7 @@ import { buildWorld } from '../support/rls.ts';
 import type { World } from '../support/rls.ts';
 import { phcArgon2id } from '../support/iam.ts';
 import { auditOf, elevatedStaff, installTestProofKey, uuid } from '../support/staff.ts';
+import { opened } from '../support/kyc.ts';
 
 const ALL = COUNTRIES.map((c) => c.country);
 const REASON = 'Motif de test suffisamment long';
@@ -663,7 +664,10 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
                   NULL, $6, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false)`,
           [person, `us101-${person}@example.test`, phcArgon2id(), uuid(), randomBytes(32), country],
         );
+        // US-106 (0076) : vérification d'identité courante d'une personne inscrite dans le pays
+        const verification = await opened(client, country);
         const subjects: Record<string, string> = {
+          IDENTITY_VERIFICATION: verification.verificationId,
           USER_ACCOUNT: person,
           TRIP: trip(i),
           ORGANIZATION: cw?.orgA ?? '',

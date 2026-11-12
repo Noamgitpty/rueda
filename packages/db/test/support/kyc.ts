@@ -122,6 +122,27 @@ export const licence = (
   ...extra,
 });
 
+/** Personne consentante dont la vérification courante est ouverte (`PHONE_VERIFIED`, tentative 1). */
+export async function opened(
+  client: pg.ClientBase,
+  country: string,
+): Promise<Person & { readonly verificationId: string }> {
+  const p = await person(client, country);
+  const c = await one<{ outcome: string }>(
+    client,
+    'SELECT * FROM core.kyc_cmd_biometric_consent($1, $2, $3, $4)',
+    [p.token, country, 1, true],
+  );
+  if (c.outcome !== 'RECORDED') throw new Error(`consentement refusé : ${c.outcome}`);
+  const o = await one<{ outcome: string; verification_id: string }>(
+    client,
+    'SELECT * FROM core.kyc_cmd_open_verification($1, $2, $3)',
+    [p.token, country, PROVIDER],
+  );
+  if (o.outcome !== 'READY') throw new Error(`ouverture refusée : ${o.outcome}`);
+  return { ...p, verificationId: o.verification_id };
+}
+
 export interface Reviewed extends Person {
   readonly verificationId: string;
   readonly sessionRef: string;
