@@ -2727,6 +2727,19 @@
         "app_worker": [],
         "app_anon": []
       }
+    },
+    "core.kyc_erasure_request": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Adaptateur PostgreSQL du port `IdentityStore` (production) : appelle les seules fonctions
- * `core.kyc_*` de la migration 0071 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
+ * `core.kyc_*` de la migration 0072 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
  * paramétrées uniquement. Une erreur de la base est remplacée par une erreur sans message du
  * serveur ni paramètre (SQLSTATE seulement) ; une issue inconnue de la base est une erreur
  * (fail-closed : jamais un succès supposé).
@@ -19,10 +19,12 @@ import type {
   ConsentOutcome,
   DecisionResult,
   EligibilityOutcome,
+  ErasureOutcome,
   IdentityState,
   IdentityStore,
   KycStatus,
   OpenResult,
+  PendingErasure,
   RecordOutcome,
   SessionToRecord,
   WebhookRejectionReason,
@@ -224,5 +226,36 @@ export class PgIdentityStore implements IdentityStore {
       [tokenHash, tripEnd, tripCountry],
     );
     return member(ELIGIBILITY_OUTCOMES, r?.outcome, 'eligibility');
+  }
+
+  async pendingErasures(tokenHash: Buffer): Promise<readonly PendingErasure[]> {
+    const rows = await this.#run<{ request_id: string; provider: string; session_ref: string }>(
+      'pending_erasures',
+      'SELECT * FROM core.kyc_pending_erasures($1)',
+      [tokenHash],
+    );
+    return rows.map((r) => ({
+      requestId: r.request_id,
+      provider: r.provider,
+      sessionRef: r.session_ref,
+    }));
+  }
+
+  async recordErasure(
+    tokenHash: Buffer,
+    requestId: string,
+    outcome: 'DONE' | 'FAILED',
+    attestationRef: string | null,
+  ): Promise<ErasureOutcome> {
+    const [r] = await this.#run<{ outcome: string }>(
+      'record_erasure',
+      'SELECT * FROM core.kyc_cmd_record_erasure($1, $2, $3, $4)',
+      [tokenHash, requestId, outcome, attestationRef],
+    );
+    return member<ErasureOutcome>(
+      ['RECORDED', 'AUTH_REQUIRED', 'NOT_FOUND'],
+      r?.outcome,
+      'record_erasure',
+    );
   }
 }

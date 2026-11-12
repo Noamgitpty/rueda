@@ -1,5 +1,5 @@
 /**
- * Adaptateurs de PRODUCTION de la vérification d'identité (US-105, ADR-101 ; ADR-007 ; C19).
+ * Adaptateurs de PRODUCTION de la vérification d'identité (US-105, ADR-102 ; ADR-007 ; C19).
  *
  * - **Aucun fournisseur d'identité avant le lot C** (US-605) : le FAKE n'est jamais compilé dans
  *   l'image de production (`tsconfig.build.json` exclut `testing/` ; le paquet des FAKE est une

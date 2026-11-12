@@ -1870,7 +1870,10 @@
         "attempt": "C1",
         "provider": "C1",
         "provider_session_ref": "C1",
-        "hosted_url": "C1",
+        "hosted_url": {
+          "class": "C2",
+          "erasure": "purge"
+        },
         "session_expires_at": "C1",
         "decision_reason_code": "C1",
         "reviewed_by": "C1",
@@ -1909,7 +1912,10 @@
           "erasure": "purge"
         },
         "is_permanent": "C1",
-        "provider_document_ref": "C1",
+        "provider_document_ref": {
+          "class": "C2",
+          "erasure": "purge"
+        },
         "status": "C1",
         "retention_until": "C1",
         "created_at": "C1"
@@ -1940,7 +1946,8 @@
         "result": "C1",
         "provider_session_ref": "C1",
         "retention_until": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "erased_at": "C1"
       }
     },
     "core.kyc_provider_event": {
@@ -1968,6 +1975,27 @@
         "body_sha256": "C1",
         "body_length": "C1",
         "received_at": "C1"
+      }
+    },
+    "core.kyc_erasure_request": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "verification_id": "C1",
+        "provider": "C1",
+        "provider_session_ref": "C1",
+        "status": "C1",
+        "attestation_ref": "C1",
+        "requested_at": "C1",
+        "completed_at": "C1"
       }
     }
   }

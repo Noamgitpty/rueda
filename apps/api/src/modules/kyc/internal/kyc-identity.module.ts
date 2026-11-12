@@ -1,5 +1,5 @@
 /**
- * Module Nest de la vérification d'identité (US-105, ADR-101). Module DYNAMIQUE, importé par le
+ * Module Nest de la vérification d'identité (US-105, ADR-102). Module DYNAMIQUE, importé par le
  * seul processus API (`api.module.ts`), après `IamAuthModule` (il utilise `SessionGuard`). Global : le
  * service (`KYC_IDENTITY_SERVICE`, méthode `assertDriverEligible`) est injectable par le module
  * qui encaisse (US-209 : contrôle bloquant du permis) sans réimporter KYC.

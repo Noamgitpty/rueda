@@ -411,6 +411,64 @@ describe('US-105 — contrôle bloquant du paiement (critère 3, service export�
   });
 });
 
+describe('US-105 — retrait du consentement biométrique (VER-004, RISKS L1-PM-39)', () => {
+  const withdraw = (w: World) =>
+    w.app.api.request('POST', '/identity/consent', { headers: w.guest, body: { accepted: false } });
+
+  it('après ouverture de session : RECHECK, effacement demandé et attesté, rappel tardif sans effet', async () => {
+    const w = await world();
+    const sessionId = await started(w);
+    // le fournisseur a décidé, mais son rappel arrive après le retrait
+    w.kyc.decide(sessionId, 'APPROVED', [], LICENCE(FIRST_COUNTRY));
+    const r = await withdraw(w);
+    expect(r.status).toBe(200);
+    expect(w.store.statusOf(w.guestHash)).toBe('RECHECK');
+    expect(w.kyc.erased.has(sessionId)).toBe(true);
+    expect(w.store.erasures).toMatchObject([
+      {
+        sessionRef: sessionId,
+        status: 'DONE',
+        attestationRef: expect.stringMatching(/^fk_idv_erase_/) as string,
+      },
+    ]);
+    // rappel signé de la session effacée : 200, rien n'est décidé
+    for (const d of w.kyc.takeDeliveries()) {
+      const hook = await w.app.api.request('POST', `/kyc/webhooks/${PROVIDER}`, {
+        headers: { ...JSON_HEADERS, [KYC_SIGNATURE_HEADER]: d.signature },
+        raw: d.body,
+      });
+      expect(hook.status).toBe(200);
+    }
+    expect(w.store.decisions.map((d) => d.outcome)).toEqual(['UNKNOWN_SESSION']);
+    expect(w.store.statusOf(w.guestHash)).toBe('RECHECK');
+    // une nouvelle vérification exige un nouveau consentement
+    const again = await w.app.api.request('POST', '/identity/verification', {
+      headers: w.guest,
+      body: { country: FIRST_COUNTRY },
+    });
+    expect(again.status).toBe(403);
+    expect(again.json).toMatchObject({ code: 'KYC_BIOMETRIC_CONSENT_MISSING' });
+  });
+
+  it('après approbation : RECHECK et effacement ; fournisseur en panne : demande laissée en attente', async () => {
+    const w = await world();
+    const sessionId = await started(w);
+    w.kyc.decide(sessionId, 'APPROVED', [], LICENCE(FIRST_COUNTRY));
+    const [d] = w.kyc.takeDeliveries();
+    if (d === undefined) throw new Error('rappel attendu');
+    await w.app.api.request('POST', `/kyc/webhooks/${PROVIDER}`, {
+      headers: { ...JSON_HEADERS, [KYC_SIGNATURE_HEADER]: d.signature },
+      raw: d.body,
+    });
+    expect(w.store.statusOf(w.guestHash)).toBe('APPROVED');
+    w.kyc.runtime.script.script('erase', { kind: 'UNAVAILABLE' });
+    expect((await withdraw(w)).status).toBe(200);
+    expect(w.store.statusOf(w.guestHash)).toBe('RECHECK');
+    expect(w.store.erasures).toMatchObject([{ sessionRef: sessionId, status: 'PENDING' }]);
+    expect(w.kyc.erased.has(sessionId)).toBe(false);
+  });
+});
+
 afterAll(async () => {
   await closeContractApps();
 });

@@ -53,7 +53,7 @@ BEGIN
       ('risk_limit_owner',    false),
       -- US-115 (ADR-099) : lieux, véhicules et annonces de l'hôte (core.catalog_cmd_*)
       ('catalog_cmd_owner',   false),
-      -- US-105 (ADR-101) : vérification d'identité et consentement biométrique (core.kyc_cmd_*)
+      -- US-105 (ADR-102) : vérification d'identité et consentement biométrique (core.kyc_cmd_*)
       ('kyc_cmd_owner',       false)
     ) AS t(role_name, can_login)
   LOOP

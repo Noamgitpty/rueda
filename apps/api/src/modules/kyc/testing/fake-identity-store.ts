@@ -1,7 +1,7 @@
 /**
  * FAKE du port `IdentityStore` (US-105) — TESTS SEULEMENT, jamais compilé en production
  * (`testing/` exclu par tsconfig.build.json). Mémoire seulement ; reproduit les issues des
- * commandes `core.kyc_*` de 0071 utiles aux contrats d'API (consentement à la version en vigueur,
+ * commandes `core.kyc_*` de 0072 utiles aux contrats d'API (consentement à la version en vigueur,
  * téléphone, ouverture, session, décision idempotente par événement, rejets). Les règles
  * elles-mêmes sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us105-*).
  */
@@ -10,10 +10,12 @@ import type {
   ConsentOutcome,
   DecisionResult,
   EligibilityOutcome,
+  ErasureOutcome,
   IdentityState,
   IdentityStore,
   KycStatus,
   OpenResult,
+  PendingErasure,
   RecordOutcome,
   SessionToRecord,
   WebhookRejectionReason,
@@ -46,6 +48,15 @@ export class FakeIdentityStore implements IdentityStore {
   /** Issue imposée du contrôle d'éligibilité. */
   eligibilityOutcome: EligibilityOutcome = 'KYC_NOT_APPROVED';
   readonly decisions: { readonly eventId: string; readonly outcome: string }[] = [];
+  /** Demandes d'effacement inscrites au retrait (lecture du test). */
+  readonly erasures: {
+    readonly requestId: string;
+    readonly owner: string;
+    readonly provider: string;
+    readonly sessionRef: string;
+    status: 'PENDING' | 'DONE' | 'FAILED';
+    attestationRef: string | null;
+  }[] = [];
   readonly rejections: {
     readonly provider: string;
     readonly reason: WebhookRejectionReason;
@@ -111,6 +122,25 @@ export class FakeIdentityStore implements IdentityStore {
         return Promise.resolve({ outcome: 'VERSION_CHANGED', version: this.currentVersion });
       }
       p.consentVersion = accepted ? this.currentVersion : null;
+      const v = p.verification;
+      if (!accepted && v !== null) {
+        // retrait : demande d'effacement datée, session effacée, dossier en RECHECK
+        if (v.sessionRef !== null) {
+          this.erasures.push({
+            requestId: `00000000-0000-4000-9000-${String(this.erasures.length + 1).padStart(12, '0')}`,
+            owner: tokenHash.toString('hex'),
+            provider: v.provider,
+            sessionRef: v.sessionRef,
+            status: 'PENDING',
+            attestationRef: null,
+          });
+        }
+        v.status = 'RECHECK';
+        v.attempt += 1;
+        v.sessionRef = null;
+        v.hostedUrl = null;
+        v.sessionExpiresAt = null;
+      }
       return Promise.resolve({ outcome: 'RECORDED', version: this.currentVersion });
     } catch (error) {
       return Promise.reject(error as Error);
@@ -164,6 +194,11 @@ export class FakeIdentityStore implements IdentityStore {
           sessionExpiresAt: v.sessionExpiresAt,
         });
       }
+      if (
+        !['PHONE_VERIFIED', 'DOCS_SUBMITTED', 'MORE_INFO_REQUIRED', 'RECHECK'].includes(v.status)
+      ) {
+        return none('NOT_ELIGIBLE');
+      }
       return Promise.resolve({
         outcome: 'READY',
         verificationId: v.id,
@@ -202,15 +237,20 @@ export class FakeIdentityStore implements IdentityStore {
     if (this.failing) return Promise.reject(new IdentityStoreError('fake', '08006'));
     const key = `${provider}:${event.eventId}`;
     let result: DecisionResult;
-    if (this.#events.has(key)) {
+    const person = [...this.#people.values()].find(
+      (x) =>
+        x.verification?.sessionRef === event.sessionId && x.verification.id === event.subjectRef,
+    );
+    const v = person?.verification ?? null;
+    if (person === undefined || v === null) {
+      // session inconnue : l'identifiant d'événement n'est pas consommé
+      result = { outcome: 'UNKNOWN_SESSION', status: null };
+    } else if (this.#events.has(key)) {
       result = { outcome: 'DUPLICATE', status: null };
     } else {
       this.#events.add(key);
-      const v = [...this.#people.values()]
-        .map((p) => p.verification)
-        .find((x) => x?.sessionRef === event.sessionId && x.id === event.subjectRef);
-      if (v === undefined || v === null) {
-        result = { outcome: 'UNKNOWN_SESSION', status: null };
+      if (person.consentVersion !== this.currentVersion) {
+        result = { outcome: 'CONSENT_WITHDRAWN', status: v.status };
       } else if (v.status !== 'DOCS_SUBMITTED') {
         result = { outcome: 'STALE', status: v.status };
       } else {
@@ -246,5 +286,34 @@ export class FakeIdentityStore implements IdentityStore {
     } catch (error) {
       return Promise.reject(error as Error);
     }
+  }
+
+  pendingErasures(tokenHash: Buffer): Promise<readonly PendingErasure[]> {
+    if (this.failing) return Promise.reject(new IdentityStoreError('fake', '08006'));
+    const owner = tokenHash.toString('hex');
+    return Promise.resolve(
+      this.erasures
+        .filter((e) => e.owner === owner && e.status === 'PENDING')
+        .map((e) => ({ requestId: e.requestId, provider: e.provider, sessionRef: e.sessionRef })),
+    );
+  }
+
+  recordErasure(
+    tokenHash: Buffer,
+    requestId: string,
+    outcome: 'DONE' | 'FAILED',
+    attestationRef: string | null,
+  ): Promise<ErasureOutcome> {
+    if (this.failing) return Promise.reject(new IdentityStoreError('fake', '08006'));
+    const e = this.erasures.find(
+      (x) =>
+        x.requestId === requestId &&
+        x.owner === tokenHash.toString('hex') &&
+        x.status === 'PENDING',
+    );
+    if (e === undefined) return Promise.resolve('NOT_FOUND');
+    e.status = outcome;
+    e.attestationRef = attestationRef;
+    return Promise.resolve('RECORDED');
   }
 }

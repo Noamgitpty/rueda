@@ -1,6 +1,6 @@
 /**
- * Port de persistance de la vérification d'identité (US-105, ADR-101) : les seules commandes
- * `core.kyc_*` de 0071 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). La personne est
+ * Port de persistance de la vérification d'identité (US-105, ADR-102) : les seules commandes
+ * `core.kyc_*` de 0072 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). La personne est
  * désignée par l'empreinte de son jeton de session (jamais un identifiant reçu du client) ; la base
  * juge tout à son horloge (consentement à la version en vigueur, téléphone, état SM-3, échéance
  * du permis, rétention des scores).
@@ -76,6 +76,7 @@ export const OPEN_OUTCOMES = [
   'IN_REVIEW',
   'ALREADY_APPROVED',
   'PROVIDER_INVALID',
+  'PRODUCTION_BLOCKED',
 ] as const;
 export type OpenOutcome = (typeof OPEN_OUTCOMES)[number];
 
@@ -105,7 +106,14 @@ export interface SessionToRecord {
   readonly expiresAt: Date;
 }
 
-export const DECISION_OUTCOMES = ['APPLIED', 'DUPLICATE', 'UNKNOWN_SESSION', 'STALE'] as const;
+export const DECISION_OUTCOMES = [
+  'APPLIED',
+  'DUPLICATE',
+  'UNKNOWN_SESSION',
+  'STALE',
+  'CONSENT_WITHDRAWN',
+  'PRODUCTION_BLOCKED',
+] as const;
 export type DecisionOutcome = (typeof DECISION_OUTCOMES)[number];
 
 export interface DecisionResult {
@@ -121,8 +129,18 @@ export const ELIGIBILITY_OUTCOMES = [
   'COUNTRY_UNKNOWN',
   'REQUEST_INVALID',
   'KYC_NOT_APPROVED',
+  'KYC_BIOMETRIC_CONSENT_MISSING',
   'KYC_LICENSE_EXPIRED',
 ] as const;
+
+/** Demande d'effacement en attente (retrait du consentement) : à exécuter chez le fournisseur. */
+export interface PendingErasure {
+  readonly requestId: string;
+  readonly provider: string;
+  readonly sessionRef: string;
+}
+
+export type ErasureOutcome = 'RECORDED' | 'AUTH_REQUIRED' | 'NOT_FOUND';
 export type EligibilityOutcome = (typeof ELIGIBILITY_OUTCOMES)[number];
 
 export interface IdentityStore {
@@ -149,6 +167,15 @@ export interface IdentityStore {
   ): Promise<void>;
   /** Contrôle bloquant du paiement (US-209) : permis valable jusqu'à la fin du trip. */
   eligibility(tokenHash: Buffer, tripEnd: Date, tripCountry: string): Promise<EligibilityOutcome>;
+  /** Demandes d'effacement en attente de la personne de la session (après un retrait). */
+  pendingErasures(tokenHash: Buffer): Promise<readonly PendingErasure[]>;
+  /** Issue d'une demande d'effacement : `DONE` (attestation) ou `FAILED` (refus du fournisseur). */
+  recordErasure(
+    tokenHash: Buffer,
+    requestId: string,
+    outcome: 'DONE' | 'FAILED',
+    attestationRef: string | null,
+  ): Promise<ErasureOutcome>;
 }
 
 /** Échec de la base : opération et SQLSTATE seulement (jamais un message du serveur). */
@@ -184,5 +211,11 @@ export class UnavailableIdentityStore implements IdentityStore {
   }
   eligibility(): Promise<EligibilityOutcome> {
     return Promise.reject(new IdentityStoreError('eligibility', undefined));
+  }
+  pendingErasures(): Promise<readonly PendingErasure[]> {
+    return Promise.reject(new IdentityStoreError('pending_erasures', undefined));
+  }
+  recordErasure(): Promise<ErasureOutcome> {
+    return Promise.reject(new IdentityStoreError('record_erasure', undefined));
   }
 }

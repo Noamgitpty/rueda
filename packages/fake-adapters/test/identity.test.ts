@@ -212,4 +212,29 @@ describe('FakeIdentityProvider (KYC hébergé)', () => {
       reason: 'MALFORMED',
     });
   });
+
+  it('effacement d’une session (US-105, retrait) : attestation, idempotent ; session inconnue refusée', async () => {
+    const { kyc } = setup();
+    const out = await kyc.startVerification(request(countries[0]?.code ?? ''));
+    if (out.status !== 'OK') throw new Error('session attendue');
+    const first = await kyc.requestErasure({
+      idempotencyKey: 'e1',
+      sessionId: out.value.sessionId,
+    });
+    expect(first).toMatchObject({ status: 'OK', value: { attestationRef: 'fk_idv_erase_000001' } });
+    expect(
+      await kyc.requestErasure({ idempotencyKey: 'e1', sessionId: out.value.sessionId }),
+    ).toMatchObject({
+      status: 'OK',
+      replayed: true,
+    });
+    expect(await kyc.getStatus(out.value.sessionId)).toEqual({
+      status: 'REFUSED',
+      reason: 'UNKNOWN_SESSION',
+    });
+    expect(await kyc.requestErasure({ idempotencyKey: 'e2', sessionId: 'fk_idv_999999' })).toEqual({
+      status: 'REFUSED',
+      reason: 'UNKNOWN_SESSION',
+    });
+  });
 });

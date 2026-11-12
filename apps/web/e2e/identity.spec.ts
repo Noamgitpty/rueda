@@ -116,6 +116,54 @@ for (const language of LANGUAGES) {
       await expect(page.locator('main #s04-country')).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);
+
+      // VER-004 : retrait proposé aussi une fois vérifié ; retour à l'étape 1 (consentement)
+      await page.locator('#s04-withdraw-heading').scrollIntoViewIfNeeded();
+      await page
+        .locator('form[aria-labelledby="s04-withdraw-heading"] button[type="submit"]')
+        .click();
+      await expect(page).toHaveURL(/\/verify-identity$/);
+      await expect(page.locator('#s04-consent')).toBeVisible();
+      await expect(page.locator('#s04-consent')).not.toBeChecked();
+      await expect(page.locator('#s04-withdraw-heading')).toHaveCount(0);
+      await expectAccessible(page);
+    });
+
+    test('retrait après ouverture de la session hébergée : retour au consentement', async ({
+      page,
+      offsite,
+    }, info) => {
+      const email = `identity-${language}-w-${slug(info.project.name)}@example.test`;
+      await page.goto('/login');
+      await page.locator('#s15-login-email').fill(email);
+      await page.locator('#s15-login-password').fill(PASSWORD);
+      await page.locator('main form button[type="submit"]').click();
+      await expect(page).toHaveURL(/\/login\/done$/);
+      await page.goto('/verify-identity');
+      await page.locator('#s04-consent').check();
+      await page.locator('main form button[type="submit"]').first().click();
+      await expect(page.locator('#s04-country')).toBeVisible();
+      await page.route(/^https:\/\/identity\.fake\.invalid\//, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<!doctype html><title>p</title>',
+        }),
+      );
+      await page.locator('main form button[type="submit"]').first().click();
+      await expect(page).toHaveURL(HOSTED);
+      offsite.splice(0);
+      // retour sur S04 sans terminer : reprise proposée, et retrait possible
+      await page.goto('/verify-identity');
+      await expect(page.locator('#s04-withdraw-heading')).toBeVisible();
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+      await page
+        .locator('form[aria-labelledby="s04-withdraw-heading"] button[type="submit"]')
+        .click();
+      await expect(page).toHaveURL(/\/verify-identity$/);
+      await expect(page.locator('#s04-consent')).toBeVisible();
+      await expect(page.locator('#s04-country')).toHaveCount(0);
     });
   });
 }

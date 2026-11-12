@@ -691,7 +691,13 @@ ${kind} ${lang}`,
     if (body.accepted && body.version !== 1) {
       return err(res, 409, 'KYC_CONSENT_VERSION_CHANGED', 'common.kyc.consentVersionChanged');
     }
-    identityOf(s.email).consent = body.accepted ? 1 : null;
+    const i = identityOf(s.email);
+    i.consent = body.accepted ? 1 : null;
+    // retrait : session effacée, dossier en RECHECK (ADR-102)
+    if (!body.accepted && i.status !== 'NOT_STARTED') {
+      i.status = 'RECHECK';
+      i.session = null;
+    }
     return json(res, 200, {
       code: 'KYC_CONSENT_RECORDED',
       messageKey: 'common.kyc.consentRecorded',

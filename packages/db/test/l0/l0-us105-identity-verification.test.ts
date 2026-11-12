@@ -1,6 +1,6 @@
 /**
  * Preuves de la vérification d'identité par parcours hébergé et du consentement biométrique
- * (US-105, migration 0071 ; fixtures 9996) sous les rôles de production app_api et app_worker
+ * (US-105, migration 0072 ; fixtures 9996) sous les rôles de production app_api et app_worker
  * (assertion L0-05 en tête de chaque connexion, withRole), au Panama (USD) et au Paraguay (PYG).
  * Chaque test crée ses propres personnes par les VRAIES commandes (inscription avec consentements,
  * vérification d’e-mail, session) ; le téléphone vérifié est posé par la fixture 9996.
@@ -48,6 +48,19 @@ const NUMBERING = new Map(
       }[];
     }
   ).countries.map((c) => [c.code, c.phone] as const),
+);
+
+/**
+ * Décalage UTC courant de chaque pays, en minutes : dernier contrôle tzdata des données CFG
+ * (`timeZoneChecks`, 17 §1.3, ADR-019 ; Panama UTC−5, Paraguay UTC−3 permanent, Ley 7354/2024).
+ * Oracle des bornes du permis, indépendant de l'expression SQL testée.
+ */
+const UTC_OFFSET_MIN = new Map(
+  (
+    cfg('countries.json') as {
+      countries: { code: string; timeZoneChecks: { offsetMinutes: number }[] }[];
+    }
+  ).countries.map((c) => [c.code, c.timeZoneChecks.at(-1)?.offsetMinutes ?? 0] as const),
 );
 
 /** 17 §7.2 `biometric_appeal_retention_days` par pays (données CFG). */
@@ -560,7 +573,7 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
 describe('US-105 — permis expirant avant la fin du trip (critère 3)', () => {
   it.each(byCountry)(
     '%s (%s) : valable jusqu’à la fin du jour d’échéance dans le fuseau du pays du trip',
-    async (country, _currency, timezone) => {
+    async (country) => {
       await withRole('app_api', async (c) => {
         const { p, o, sessionRef } = await submitted(c, country);
         const eligibility = (end: string) =>
@@ -577,13 +590,11 @@ describe('US-105 — permis expirant avant la fin du trip (critère 3)', () => {
         await apply(c, uuid(), sessionRef, o.verification_id as string, {
           document: licence(country, expiresOn),
         });
-        // dernière seconde du jour d'échéance, heure locale du pays du trip, puis minuit suivant
-        const { rows } = await c.query<{ last: Date; next: Date }>(
-          `SELECT (($1::date + 1)::timestamp AT TIME ZONE $2) - interval '1 second' AS last,
-                  (($1::date + 1)::timestamp AT TIME ZONE $2) AS next`,
-          [expiresOn, timezone],
-        );
-        const bounds = rows[0] as { last: Date; next: Date };
+        // minuit local qui suit le jour d'échéance = minuit UTC du lendemain moins le décalage du
+        // pays (calcul indépendant du SQL testé), et la seconde qui le précède
+        const offset = UTC_OFFSET_MIN.get(country) ?? 0;
+        const next = new Date(Date.parse(`${expiresOn}T00:00:00Z`) + DAY_MS - offset * 60_000);
+        const bounds = { last: new Date(next.getTime() - 1000), next };
         expect(await eligibility(bounds.last.toISOString())).toBe('ELIGIBLE');
         expect(await eligibility(bounds.next.toISOString())).toBe('KYC_LICENSE_EXPIRED');
         expect(await eligibility(new Date(bounds.next.getTime() + 40 * DAY_MS).toISOString())).toBe(
@@ -601,4 +612,246 @@ describe('US-105 — permis expirant avant la fin du trip (critère 3)', () => {
       });
     },
   );
+});
+
+describe('US-105 — retrait du consentement biométrique (VER-004, RISKS L1-PM-39)', () => {
+  const pending = (c: pg.ClientBase, p: Person) =>
+    c
+      .query<{ request_id: string; provider: string; session_ref: string }>(
+        'SELECT * FROM core.kyc_pending_erasures($1)',
+        [p.token],
+      )
+      .then((r) => r.rows);
+
+  it.each(byCountry)(
+    '%s (%s) : après ouverture de session, RECHECK, effacement daté, rappel tardif sans effet',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const { p, o, sessionRef } = await submitted(c, country);
+        const vid = o.verification_id as string;
+        expect(await consent(c, p, country, null, false)).toEqual({
+          outcome: 'RECORDED',
+          version: 1,
+        });
+        expect((await fixture(c, 'us105_verification', p.userId))[0]).toMatchObject({
+          status: 'RECHECK',
+          decision_reason_code: 'CONSENT_WITHDRAWN',
+          provider_session_ref: null,
+          attempt: 2,
+        });
+        expect(await fixture(c, 'us105_erasures', p.userId)).toEqual([
+          {
+            provider: PROVIDER,
+            provider_session_ref: sessionRef,
+            status: 'PENDING',
+            attestation_ref: null,
+            dated: true,
+          },
+        ]);
+        const [req] = await pending(c, p);
+        expect(req).toMatchObject({ provider: PROVIDER, session_ref: sessionRef });
+        // rappel signé tardif de la session effacée : inconnu, aucun score, aucune transition
+        expect(
+          await apply(c, uuid(), sessionRef, vid, { document: licence(country, isoDay(400)) }),
+        ).toEqual({ outcome: 'UNKNOWN_SESSION', status: null });
+        expect(await fixture(c, 'us105_liveness', p.userId)).toEqual([]);
+        const events = await fixture<{
+          payload: { from: string; to: string; reason_code: string | null };
+        }>(c, 'us105_events', vid);
+        expect(events.at(-1)?.payload).toMatchObject({
+          from: 'DOCS_SUBMITTED',
+          to: 'RECHECK',
+          reason_code: 'CONSENT_WITHDRAWN',
+        });
+        expect(await fixture(c, 'us105_user_events', p.userId)).toMatchObject([
+          { type: 'kyc.consent.withdrawn', payload: { user_id: p.userId, erasure_requests: 1 } },
+        ]);
+        expect(
+          (await fixture<{ action_code: string }>(c, 'us105_audit', p.userId)).map(
+            (a) => a.action_code,
+          ),
+        ).toEqual(['KYC_CONSENT_WITHDRAWN']);
+        // attestation du fournisseur : demande close, référence effacée, journalisée
+        expect(
+          await one<{ outcome: string }>(
+            c,
+            'SELECT * FROM core.kyc_cmd_record_erasure($1, $2, $3, $4)',
+            [p.token, req?.request_id, 'DONE', 'attestation-1'],
+          ),
+        ).toEqual({ outcome: 'RECORDED' });
+        expect(await fixture(c, 'us105_erasures', p.userId)).toEqual([
+          {
+            provider: PROVIDER,
+            provider_session_ref: null,
+            status: 'DONE',
+            attestation_ref: 'attestation-1',
+            dated: true,
+          },
+        ]);
+        expect(await pending(c, p)).toEqual([]);
+        // une nouvelle vérification exige un nouveau consentement, puis une nouvelle tentative
+        expect((await open(c, p, country)).outcome).toBe('CONSENT_MISSING');
+        expect(await consent(c, p, country, 1)).toEqual({ outcome: 'RECORDED', version: 1 });
+        expect(await open(c, p, country)).toMatchObject({ outcome: 'READY', attempt: 2 });
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : après approbation, scores et références effacés, paiement refusé',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const { p, o, sessionRef } = await submitted(c, country);
+        await apply(c, uuid(), sessionRef, o.verification_id as string, {
+          document: licence(country, isoDay(400)),
+        });
+        const end = new Date(Date.now() + DAY_MS).toISOString();
+        const eligibility = () =>
+          one<{ outcome: string }>(c, 'SELECT * FROM core.kyc_driver_eligibility($1, $2, $3)', [
+            p.token,
+            end,
+            country,
+          ]).then((r) => r.outcome);
+        expect(await eligibility()).toBe('ELIGIBLE');
+        expect(await consent(c, p, country, null, false)).toEqual({
+          outcome: 'RECORDED',
+          version: 1,
+        });
+        expect((await fixture(c, 'us105_verification', p.userId))[0]).toMatchObject({
+          status: 'RECHECK',
+          approved_at: null,
+          expires_at: null,
+        });
+        expect(await fixture(c, 'us105_liveness', p.userId)).toMatchObject([
+          {
+            liveness_score: null,
+            face_match_score: null,
+            provider_session_ref: null,
+            erased: true,
+          },
+        ]);
+        expect(await fixture(c, 'us105_documents', p.userId)).toMatchObject([
+          { provider_document_ref: null },
+        ]);
+        expect(await fixture(c, 'us105_erasures', p.userId)).toMatchObject([
+          { provider_session_ref: sessionRef, status: 'PENDING' },
+        ]);
+        expect(await eligibility()).toBe('KYC_NOT_APPROVED');
+        expect((await open(c, p, country)).outcome).toBe('CONSENT_MISSING');
+      });
+    },
+  );
+
+  it('consentement retiré pendant la session (nouvelle version non acceptée) : rappel ignoré, aucun score', async () => {
+    await withRole('app_api', async (c) => {
+      const country = COUNTRIES[0].country;
+      const { p, o, sessionRef } = await submitted(c, country);
+      await withTestTransaction(c, {}, async () => {
+        await c.query('SELECT test_fixture.us105_publish_biometric_next()');
+        expect(
+          await apply(c, uuid(), sessionRef, o.verification_id as string, {
+            document: licence(country, isoDay(400)),
+          }),
+        ).toEqual({ outcome: 'CONSENT_WITHDRAWN', status: 'DOCS_SUBMITTED' });
+        expect(await fixture(c, 'us105_liveness', p.userId)).toEqual([]);
+        expect((await fixture(c, 'us105_verification', p.userId))[0]).toMatchObject({
+          status: 'DOCS_SUBMITTED',
+        });
+      });
+    });
+  });
+});
+
+describe('US-105 — garde de production, reprise, rappel inconnu, purge', () => {
+  it.each(['production', '__null__'])(
+    'base « %s » : ouverture et décision refusées en base (OQ-MK-09, L1-PM-05), rien n’est écrit',
+    async (env) => {
+      await withRole('app_api', async (c) => {
+        const country = COUNTRIES[0].country;
+        const p = await person(c, country);
+        expect(await consent(c, p, country, 1)).toEqual({ outcome: 'RECORDED', version: 1 });
+        await withTestTransaction(c, {}, async () => {
+          await c.query(`SELECT pg_catalog.set_config('app.test_deployment_env', $1, true)`, [env]);
+          expect((await open(c, p, country)).outcome).toBe('PRODUCTION_BLOCKED');
+          expect(await apply(c, uuid(), 'fk_idv_x', uuid(), { document: null })).toEqual({
+            outcome: 'PRODUCTION_BLOCKED',
+            status: null,
+          });
+          expect(await fixture(c, 'us105_verification', p.userId)).toEqual([]);
+        });
+      });
+    },
+  );
+
+  it('session expirée : un double clic rejoue la même tentative (une seule clé chez le fournisseur)', async () => {
+    await withRole('app_api', async (c) => {
+      const country = COUNTRIES[1].country;
+      const { p } = await submitted(c, country);
+      await c.query('SELECT test_fixture.us105_expire_session($1)', [p.userId]);
+      const first = await open(c, p, country);
+      const second = await open(c, p, country);
+      expect(first).toMatchObject({ outcome: 'READY', attempt: 2 });
+      expect(second).toMatchObject({
+        outcome: 'READY',
+        attempt: 2,
+        verification_id: first.verification_id,
+      });
+    });
+  });
+
+  it('rappel d’une session inconnue : l’identifiant d’événement n’est pas consommé', async () => {
+    await withRole('app_api', async (c) => {
+      const country = COUNTRIES[0].country;
+      const s = await submitted(c, country);
+      const evt = uuid();
+      const d = { document: licence(country, isoDay(400)) };
+      expect(
+        (await apply(c, evt, 'fk_idv_unknown', s.o.verification_id as string, d)).outcome,
+      ).toBe('UNKNOWN_SESSION');
+      expect(await apply(c, evt, s.sessionRef, s.o.verification_id as string, d)).toEqual({
+        outcome: 'APPLIED',
+        status: 'APPROVED',
+      });
+    });
+  });
+
+  it('travailleur kyc_score_pruner : scores à échéance effacés, les autres gardés', async () => {
+    const country = COUNTRIES[0].country;
+    const people = await withRole('app_api', async (c) => {
+      const due = await submitted(c, country);
+      const kept = await submitted(c, country);
+      for (const s of [due, kept]) {
+        await apply(c, uuid(), s.sessionRef, s.o.verification_id as string, {
+          document: licence(country, isoDay(400)),
+        });
+      }
+      await c.query('SELECT test_fixture.us105_age_scores($1)', [due.p.userId]);
+      return { due: due.p.userId, kept: kept.p.userId };
+    });
+    const n = await withRole('app_worker', (w) =>
+      commit(w, async () => {
+        await w.query(
+          `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+                  pg_catalog.set_config('app.worker_name', 'kyc_score_pruner', true)`,
+        );
+        const { rows } = await w.query<{ n: number }>('SELECT core.kyc_worker_prune(10000) AS n');
+        return rows[0]?.n ?? -1;
+      }),
+    );
+    expect(n).toBeGreaterThanOrEqual(1);
+    await withRole('app_api', async (c) => {
+      expect(await fixture(c, 'us105_liveness', people.due)).toMatchObject([
+        { liveness_score: null, erased: true },
+      ]);
+      expect(await fixture(c, 'us105_liveness', people.kept)).toMatchObject([
+        { liveness_score: '0.9871', erased: false },
+      ]);
+    });
+    // réservé au travailleur kyc_score_pruner
+    await withRole('app_worker', async (w) => {
+      await expect(w.query('SELECT core.kyc_worker_prune(10)')).rejects.toMatchObject({
+        code: '42501',
+      });
+    });
+  });
 });

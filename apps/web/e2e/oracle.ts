@@ -48,11 +48,19 @@ export const SPEC_TEXT: Readonly<
   },
   hostSaved: { es: 'Guardado', en: 'Saved', fr: 'Enregistré', pt: 'Salvo' },
   // 10b §4.3, lignes `web.s04.result.verified` et `web.s04.result.retake` (S04, US-105)
-  identityVerified: { es: 'Verificado', en: 'Verified', fr: 'Vérifié' },
+  // pt : 10b n'a pas de colonne pt ; texte pt-BR de référence de la story US-105 (DEC-FONDATEUR-18),
+  // à reporter dans 10b
+  identityVerified: {
+    es: 'Verificado',
+    en: 'Verified',
+    fr: 'Vérifié',
+    pt: 'Identidade confirmada',
+  },
   identityRetake: {
     es: 'Necesitamos otra foto',
     en: 'We need another photo',
     fr: 'Il nous faut une autre photo',
+    pt: 'Precisamos de outra foto',
   },
   // 10b §4.3, ligne `web.s15.codeSent` (S15, US-104) : début du texte, avant {phone}
   codeSent: {

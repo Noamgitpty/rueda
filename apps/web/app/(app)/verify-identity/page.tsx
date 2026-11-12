@@ -95,7 +95,14 @@ function stateOf(reply: ApiResult): IdentityStateView | null {
 }
 
 const REVIEW = new Set(['AUTO_CHECKS', 'MANUAL_REVIEW']);
-const OPEN = new Set(['NOT_STARTED', 'PHONE_VERIFIED', 'DOCS_SUBMITTED', 'MORE_INFO_REQUIRED']);
+// RECHECK : après un retrait du consentement, la vérification se refait depuis l'étape 1
+const OPEN = new Set([
+  'NOT_STARTED',
+  'PHONE_VERIFIED',
+  'DOCS_SUBMITTED',
+  'MORE_INFO_REQUIRED',
+  'RECHECK',
+]);
 
 /**
  * S04 — vérification d'identité (US-105 ; 16 VER-001, VER-004 ; 10b S04, UX-37 ; maquette
@@ -227,10 +234,12 @@ export default async function VerifyIdentityPage({
             {t('common.kyc.providerUnavailable')}
           </Banner>
         )}
-        <WithdrawForm localeTag={tag} />
       </>
     );
   }
+  // retrait du consentement proposé dans TOUS les états où il est donné (VER-004) : approuvé, en
+  // revue, refusé compris, là même où des scores sont conservés
+  const withdraw = state?.consent?.accepted === true ? <WithdrawForm localeTag={tag} /> : null;
 
   return (
     <main id={MAIN_ID} tabIndex={-1} className={styles['content']}>
@@ -239,6 +248,7 @@ export default async function VerifyIdentityPage({
         <p className={styles['muted']}>{t('web.s04.intro')}</p>
       </header>
       {body}
+      {withdraw}
     </main>
   );
 }

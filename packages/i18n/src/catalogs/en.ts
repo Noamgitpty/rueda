@@ -839,6 +839,9 @@ export const EN_MESSAGES = {
   'web.s04.consent.refusal':
     'Without this consent we can’t verify you, and you won’t be able to book or list a car.',
   'web.s04.consent.withdraw': 'Withdraw my consent',
+  'web.s04.consent.withdrawHeading': 'Your biometric consent',
+  'web.s04.consent.withdrawHint':
+    'You can withdraw it at any time. We will ask the provider to delete your biometric data, and you won’t be able to book or list a car until you verify again.',
   'web.s04.consent.given': 'You accepted the biometric consent.',
   'web.s04.country': 'Where your license was issued',
   'web.s04.start': 'Verify my identity',

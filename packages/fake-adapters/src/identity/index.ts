@@ -1,5 +1,7 @@
 export { FakeIdentityProvider } from './fake-identity-provider.ts';
 export type {
+  ErasureReceipt,
+  ErasureRequest,
   FakeIdentityProviderOptions,
   IdentityDecision,
   IdentityChecks,

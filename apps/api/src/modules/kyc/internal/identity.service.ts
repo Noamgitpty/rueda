@@ -1,10 +1,14 @@
 /**
- * Vérification d'identité par parcours hébergé (US-105, ADR-101 ; 16 VER-001, VER-002 / VER-003,
+ * Vérification d'identité par parcours hébergé (US-105, ADR-102 ; 16 VER-001, VER-002 / VER-003,
  * VER-004 ; 17 §1.5 point 3, §3.2.2).
  *
  * - **État** : statut SM-3, pays du dossier, échéance du permis (la sienne), texte du
  *   consentement biométrique en vigueur dans la langue de la personne, pays proposés (CFG).
- * - **Consentement** : acceptation de la version AFFICHÉE (sinon 409) ou retrait.
+ * - **Consentement** : acceptation de la version AFFICHÉE (sinon 409) ou RETRAIT (VER-004 ;
+ *   RISKS L1-PM-39) : la base révoque, efface scores et références, repasse le dossier en
+ *   `RECHECK` et inscrit une demande d'effacement datée par session ; le service l'exécute
+ *   aussitôt par le port (`requestErasure`) et en consigne l'attestation. Fournisseur absent ou en
+ *   panne : la demande reste en attente (reprise par l'ops), le retrait reste acquis.
  * - **Ouverture** : la base juge AVANT tout appel au fournisseur (consentement à la version en
  *   vigueur, téléphone vérifié, état) ; sans consentement, aucune session n'est demandée
  *   (`KYC_BIOMETRIC_CONSENT_MISSING`). Puis la pièce doit être prise en charge par le fournisseur
@@ -105,6 +109,8 @@ const OPEN_REFUSALS: Readonly<Record<string, KycCode>> = {
   IN_REVIEW: 'KYC_IN_REVIEW',
   ALREADY_APPROVED: 'KYC_ALREADY_APPROVED',
   PROVIDER_INVALID: 'KYC_PROVIDER_UNAVAILABLE',
+  // garde de production en base (OQ-MK-09, L1-PM-05)
+  PRODUCTION_BLOCKED: 'KYC_PROVIDER_UNAVAILABLE',
 };
 
 export class IdentityVerificationService {
@@ -191,6 +197,7 @@ export class IdentityVerificationService {
     }
     switch (r.outcome) {
       case 'RECORDED':
+        if (!accepted) await this.#erase(proof);
         return { version: r.version };
       case 'AUTH_REQUIRED':
         throw new KycHttpError('AUTH_REQUIRED');
@@ -202,6 +209,45 @@ export class IdentityVerificationService {
         throw new KycHttpError('KYC_CONSENT_UNAVAILABLE');
       case 'VERSION_CHANGED':
         throw new KycHttpError('KYC_CONSENT_VERSION_CHANGED');
+    }
+  }
+
+  /**
+   * Exécute les demandes d'effacement en attente de la personne (après un retrait). Jamais
+   * d'échec visible : le retrait est acquis en base ; une demande non exécutée reste en attente.
+   */
+  async #erase(proof: Buffer): Promise<void> {
+    let pending: Awaited<ReturnType<IdentityStore['pendingErasures']>>;
+    try {
+      pending = await this.#deps.store.pendingErasures(proof);
+    } catch {
+      this.#deps.log.warn('kyc.erasure.unavailable', { stage: 'pending' });
+      return;
+    }
+    for (const r of pending) {
+      const provider = this.#deps.providers.byCode.get(r.provider);
+      if (provider === undefined) {
+        this.#deps.log.warn('kyc.erasure.pending', { provider: r.provider });
+        continue;
+      }
+      const out = await provider.requestErasure({
+        idempotencyKey: `erase:${r.requestId}`,
+        sessionId: r.sessionRef,
+      });
+      if (out.status === 'UNAVAILABLE' || out.status === 'TIMEOUT') {
+        this.#deps.log.warn('kyc.erasure.pending', { provider: r.provider });
+        continue;
+      }
+      try {
+        await this.#deps.store.recordErasure(
+          proof,
+          r.requestId,
+          out.status === 'OK' ? 'DONE' : 'FAILED',
+          out.status === 'OK' ? out.value.attestationRef : null,
+        );
+      } catch {
+        this.#deps.log.warn('kyc.erasure.unavailable', { stage: 'record' });
+      }
     }
   }
 

@@ -151,7 +151,7 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_auth_owner', cmd: 'a' });
           continue;
         }
-        // vérification d'identité (0071, US-105) : insertion de ses seuls événements
+        // vérification d'identité (0072, US-105) : insertion de ses seuls événements
         // kyc.verification.status_changed
         if (r.pol === 'outbox_outbox_event.kyc_cmd_event_ins') {
           expect(r).toMatchObject({ roles: 'kyc_cmd_owner', cmd: 'a' });

@@ -149,6 +149,13 @@ describe('schéma d’audit (US-009)', () => {
           expect(['r', 'a'], where).toContain(r.cmd);
           continue;
         }
+        if (r.roles === 'kyc_cmd_owner') {
+          // US-105 (0072) : retrait du consentement biométrique et effacement chez le fournisseur
+          // journalisés ; INSERT seulement
+          expect(where).toBe('audit_audit_log.kyc_cmd_audit_insert');
+          expect(r.cmd, where).toBe('a');
+          continue;
+        }
         if (r.roles === 'catalog_cmd_owner') {
           // US-115 (0067) : soumission et suppression d'annonce journalisées ; fichier d'une photo
           // d'annonce (bucket public, C0) ; INSERT seulement

@@ -5,6 +5,8 @@ export { KycModule } from './kyc.module.js';
 // Port IdentityProvider (US-020, ADR-058 ; contrôles du rappel : US-105) : types seulement ;
 // l'adaptateur est injecté.
 export type {
+  ErasureReceipt,
+  ErasureRequest,
   IdentityChecks,
   IdentityDecision,
   IdentityDecisionEvent,
@@ -18,7 +20,7 @@ export type {
   VerificationStatus,
 } from './internal/identity-provider.port.js';
 
-// Vérification d'identité par parcours hébergé et consentement biométrique (US-105, ADR-101) :
+// Vérification d'identité par parcours hébergé et consentement biométrique (US-105, ADR-102) :
 // routes /identity et /kyc/webhooks, montage par le processus API, contrôle bloquant du paiement
 // (US-209 : `assertDriverEligible` du service injecté par KYC_IDENTITY_SERVICE).
 export { KycIdentityModule, unavailableKycOptions } from './internal/kyc-identity.module.js';

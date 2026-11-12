@@ -77,6 +77,18 @@ export interface IdentityDecisionEvent {
   readonly checks: IdentityChecks;
 }
 
+/** Demande d'effacement d'une session chez le fournisseur (retrait du consentement, VER-004). */
+export interface ErasureRequest {
+  readonly idempotencyKey: string;
+  readonly sessionId: string;
+}
+
+/** Attestation d'effacement rendue par le fournisseur (consignée en base). */
+export interface ErasureReceipt {
+  readonly attestationRef: string;
+  readonly erasedAt: Date;
+}
+
 export type IdentityWebhookVerdict =
   | { readonly status: 'ACCEPTED'; readonly event: IdentityDecisionEvent }
   | { readonly status: 'REJECTED'; readonly reason: 'BAD_SIGNATURE' | 'STALE' | 'MALFORMED' };
@@ -89,6 +101,13 @@ export interface IdentityProvider {
   readonly getStatus: (
     sessionId: string,
   ) => Promise<IdentityOutcome<VerificationStatus, 'UNKNOWN_SESSION'>>;
+  /**
+   * Efface chez le fournisseur les images, selfies et données biométriques d'une session
+   * (retrait du consentement, VER-004 ; RISKS L1-PM-39) et rend une attestation. Idempotent.
+   */
+  readonly requestErasure: (
+    request: ErasureRequest,
+  ) => Promise<IdentityOutcome<ErasureReceipt, 'UNKNOWN_SESSION'>>;
   /** Vérifie la signature et la fraîcheur d'un rappel (corps brut), puis le lit. */
   readonly parseWebhook: (
     body: string,

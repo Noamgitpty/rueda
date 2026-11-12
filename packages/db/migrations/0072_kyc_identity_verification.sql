@@ -1,4 +1,4 @@
--- 0071 — KYC : vérification d'identité par parcours hébergé et consentement biométrique.
+-- 0072 — KYC : vérification d'identité par parcours hébergé et consentement biométrique.
 -- US-105 ; 19 US-105 ; 16 VER-001 (« Given DOCS_SUBMITTED, When le webhook signé approved arrive
 -- deux fois, Then une seule transition APPROVED ; signature invalide ⇒ rejet journalisé ; permis
 -- expirant avant la fin du trip ⇒ KYC_LICENSE_EXPIRED »), VER-002 / VER-003 (scores seulement),
@@ -7,10 +7,10 @@
 -- BR-VERIF-04 ; 17 §1.5 point 3 (zéro copie d'image, scores C3, rétentions les plus courtes),
 -- §3.2.2 (`identity_verification`, `identity_document`, `liveness_check`), §3.2.6 (`consent`),
 -- §4.5 (`kyc.verification.status_changed` : user_id, from, to, reason_code), §7.2
--- (`biometric_appeal_retention_days`) ; ADR-029 ; ADR-101 (cette migration). Appliquée sous
+-- (`biometric_appeal_retention_days`) ; ADR-029 ; ADR-102 (cette migration). Appliquée sous
 -- `migrator`.
 --
--- Principes (ADR-101) :
+-- Principes (ADR-102) :
 --   - parcours HÉBERGÉ chez le fournisseur (port IdentityProvider, adaptateur FAKE seulement,
 --     ADR-007) : l'application n'envoie ni pièce ni selfie et n'en reçoit aucun ; la base ne garde
 --     que la référence de session, la décision, le code motif, les scores [C3] et les champs
@@ -40,10 +40,22 @@
 --     le permis expire avant la fin du trip (fin du jour d'échéance dans le fuseau du pays du
 --     trip), à poser par US-209 ;
 --   - KYC de production désactivé tant que le registre LEG-010 n'est pas validé (OQ-MK-09,
---     défaut PROPOSÉ) : aucun fournisseur n'est compilé dans l'image de production, l'ouverture y
---     rend KYC_PROVIDER_UNAVAILABLE et un rappel 404 (adaptateurs de production de l'API).
+--     défaut PROPOSÉ ; RISKS L1-PM-05) : garde EN BASE (`COALESCE(platform.deployment_env(),
+--     'production') = 'production'` ⇒ `PRODUCTION_BLOCKED`, rien n'est écrit) dans l'ouverture et la
+--     décision, reprise par US-111 ; en plus, aucun fournisseur n'est compilé dans l'image de
+--     production (ouverture 503, rappel 404) ;
+--   - RETRAIT du consentement biométrique (VER-004 ; RISKS L1-PM-39) : la commande révoque le
+--     consentement, efface les scores [C3] et les références chez le fournisseur, inscrit une
+--     demande d'effacement par session (`kyc_erasure_request`, datée ; l'API l'exécute par le port
+--     `IdentityProvider.requestErasure` et en consigne l'attestation), repasse le dossier en
+--     `RECHECK` (réservation bloquée), émet `kyc.consent.withdrawn` et un événement d'état, et
+--     journalise l'audit. Un rappel reçu sans consentement en vigueur n'écrit rien
+--     (`CONSENT_WITHDRAWN`) ; l'éligibilité au paiement le refuse aussi ;
+--   - purge : le travailleur `kyc_score_pruner` efface les scores arrivés à `retention_until` et
+--     les rejets de rappels de plus de 90 jours (PROPOSÉ) ; le journal des rejets est plafonné
+--     (600 par minute et par fournisseur, PROPOSÉ).
 --
--- Écarts PROPOSÉS avec 17 §3.2.2 (à reporter, ADR-101) : `identity_verification` gagne
+-- Écarts PROPOSÉS avec 17 §3.2.2 (à reporter, ADR-102) : `identity_verification` gagne
 -- `country_code` (pays du dossier, porteur des paramètres), `attempt` (tentative courante, clé
 -- d'idempotence du fournisseur), `hosted_url` et `session_expires_at` (reprise d'une session
 -- vivante), `row_version` ; `doc_type` prend des types neutres (NATIONAL_ID, FOREIGN_RESIDENT_ID au lieu des noms de pièces
@@ -51,8 +63,9 @@
 -- `more_info_deadline_at` et, pour
 -- `identity_document`, `number_enc`, `number_bidx`, `front_file_id`, `back_file_id`,
 -- `copy_reason` sont reportés (aucun écrivain dans cette story) ; `liveness_check.selfie_file_id`
--- n'existe pas (zéro copie) ; nouvelles tables techniques `kyc_provider_event` (idempotence des
--- rappels) et `kyc_webhook_rejection` (journal des rejets).
+-- n'existe pas (zéro copie) ; `liveness_check.erased_at` (scores effacés) ; nouvelles tables
+-- techniques `kyc_provider_event` (idempotence des rappels), `kyc_webhook_rejection` (journal des
+-- rejets) et `kyc_erasure_request` (demandes d'effacement au fournisseur).
 --
 -- Retour arrière :
 --   DROP FUNCTION core.kyc_identity_state(bytea, text),
@@ -62,10 +75,12 @@
 --     core.kyc_cmd_apply_decision(text, text, text, text, text, numeric, numeric, jsonb),
 --     core.kyc_cmd_record_webhook_rejection(text, text, bytea, integer),
 --     core.kyc_driver_eligibility(bytea, timestamptz, text),
+--     core.kyc_pending_erasures(bytea), core.kyc_cmd_record_erasure(bytea, uuid, text, text),
+--     core.kyc_worker_prune(integer),
 --     core.kyc_biometric_template(text, text), core.kyc_consent_current(uuid, text),
 --     core.kyc_retention_days(text), core.kyc_emit_status(uuid, uuid, integer, text, text, text,
 --     text, uuid, text);
---   DROP TABLE core.kyc_webhook_rejection, core.kyc_provider_event, core.kyc_liveness_check,
+--   DROP TABLE core.kyc_erasure_request, core.kyc_webhook_rejection, core.kyc_provider_event, core.kyc_liveness_check,
 --     core.kyc_identity_document, core.kyc_identity_verification;
 --   DELETE FROM core.contract_document_template WHERE kind = 'BIOMETRIC_CONSENT' (base sans
 --     consentement biométrique seulement) ; DROP POLICY kyc_cmd_* sur les tables de 0010, 0012,
@@ -73,7 +88,8 @@
 
 -- 1. Socle de kyc_cmd_owner (propriétaire NOLOGIN des commandes KYC, amorçage) --------------------
 GRANT USAGE ON SCHEMA core, platform TO kyc_cmd_owner;
-GRANT EXECUTE ON FUNCTION platform.now(), platform.uuid_v7() TO kyc_cmd_owner;
+GRANT EXECUTE ON FUNCTION platform.now(), platform.uuid_v7(), platform.deployment_env()
+  TO kyc_cmd_owner;
 
 -- session de la personne (fonction d'iam_auth_owner : seul son propriétaire accorde EXECUTE)
 SET LOCAL ROLE iam_auth_owner;
@@ -113,9 +129,18 @@ GRANT INSERT (type, schema_version, aggregate_type, aggregate_id, aggregate_vers
               actor_user_id, actor_role, correlation_id, causation_id, payload, partition_key)
   ON core.outbox_outbox_event TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_event_ins ON core.outbox_outbox_event FOR INSERT TO kyc_cmd_owner
-  WITH CHECK (type = 'kyc.verification.status_changed'
-              AND aggregate_type = 'identity_verification'
+  WITH CHECK (((type = 'kyc.verification.status_changed'
+                AND aggregate_type = 'identity_verification')
+               OR (type = 'kyc.consent.withdrawn' AND aggregate_type = 'user_account'))
               AND actor_role IN ('GUEST', 'SYSTEM'));
+
+-- journal d'audit : retrait du consentement et effacement chez le fournisseur (la chaîne attribue
+-- id, at, hachages)
+GRANT INSERT (actor_user_id, actor_role, action_code, subject_type, subject_id, before, after)
+  ON core.audit_audit_log TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_audit_insert ON core.audit_audit_log FOR INSERT TO kyc_cmd_owner
+  WITH CHECK (action_code IN ('KYC_CONSENT_WITHDRAWN', 'KYC_ERASURE_RECORDED')
+              AND subject_type = 'USER_ACCOUNT');
 
 -- 2. Tables (17 §3.2.2) ----------------------------------------------------------------------------
 -- 2.1 Vérification courante d'une personne (SM-3). Une seule vérification courante par personne.
@@ -172,7 +197,7 @@ CREATE UNIQUE INDEX kyc_identity_verification_session_unique
 COMMENT ON TABLE core.kyc_identity_verification IS
   'KYC identity_verification (17 §3.2.2, SM-3) : vérification courante par personne, parcours '
   'hébergé du fournisseur ; référence de session et décision seulement, aucune image. Écrite par '
-  'les commandes 0071 seulement. US-105 (ADR-101).';
+  'les commandes 0072 seulement. US-105 (ADR-102).';
 
 -- 2.2 Champs minimaux du permis rendus par le fournisseur (aucune image, aucun numéro).
 CREATE TABLE core.kyc_identity_document (
@@ -209,7 +234,7 @@ CREATE INDEX kyc_identity_document_verification_idx
   ON core.kyc_identity_document (verification_id, attempt);
 COMMENT ON TABLE core.kyc_identity_document IS
   'KYC identity_document (17 §3.2.2) : champs minimaux du permis rendus par le fournisseur (type, '
-  'pays, échéance, classe, définitif, référence) ; aucune image ni numéro. US-105 (ADR-101).';
+  'pays, échéance, classe, définitif, référence) ; aucune image ni numéro. US-105 (ADR-102).';
 
 -- 2.3 Scores de liveness et de face match [C3] ; aucune copie du selfie.
 CREATE TABLE core.kyc_liveness_check (
@@ -228,15 +253,22 @@ CREATE TABLE core.kyc_liveness_check (
       CHECK (face_match_score IS NULL OR face_match_score BETWEEN 0 AND 1),
   result                text          NOT NULL
     CONSTRAINT kyc_liveness_check_result_valid CHECK (result IN ('APPROVED', 'DECLINED', 'REVIEW')),
-  provider_session_ref  text          NOT NULL
+  provider_session_ref  text
     CONSTRAINT kyc_liveness_check_session_ref_length
-      CHECK (pg_catalog.length(provider_session_ref) BETWEEN 1 AND 200),
+      CHECK (provider_session_ref IS NULL OR pg_catalog.length(provider_session_ref) BETWEEN 1 AND 200),
   -- décision + biometric_appeal_retention_days du pays (17 §3.2.2 ; plafond VER-004 ≤ 3 ans)
   retention_until       timestamptz   NOT NULL,
-  created_at            timestamptz   NOT NULL DEFAULT platform.now()
+  -- scores et référence effacés (retrait du consentement ou échéance de rétention)
+  erased_at             timestamptz,
+  created_at            timestamptz   NOT NULL DEFAULT platform.now(),
+  CONSTRAINT kyc_liveness_check_erased_coherent CHECK (
+    (erased_at IS NULL AND provider_session_ref IS NOT NULL)
+    OR (erased_at IS NOT NULL AND liveness_score IS NULL AND face_match_score IS NULL
+        AND provider_session_ref IS NULL))
 );
 CREATE INDEX kyc_liveness_check_verification_idx ON core.kyc_liveness_check (verification_id);
-CREATE INDEX kyc_liveness_check_retention_idx ON core.kyc_liveness_check (retention_until);
+CREATE INDEX kyc_liveness_check_retention_idx ON core.kyc_liveness_check (retention_until)
+  WHERE erased_at IS NULL;
 COMMENT ON TABLE core.kyc_liveness_check IS
   'KYC liveness_check (17 §3.2.2) : scores de liveness et de face match [C3] et décision du '
   'fournisseur ; aucune image. Rétention : décision + biometric_appeal_retention_days. US-105.';
@@ -255,13 +287,13 @@ CREATE TABLE core.kyc_provider_event (
     CONSTRAINT kyc_provider_event_decision_valid CHECK (decision IN ('APPROVED', 'DECLINED', 'REVIEW')),
   outcome       text
     CONSTRAINT kyc_provider_event_outcome_valid
-      CHECK (outcome IS NULL OR outcome IN ('APPLIED', 'UNKNOWN_SESSION', 'STALE')),
+      CHECK (outcome IS NULL OR outcome IN ('APPLIED', 'STALE', 'CONSENT_WITHDRAWN')),
   received_at   timestamptz NOT NULL DEFAULT platform.now(),
   CONSTRAINT kyc_provider_event_unique UNIQUE (provider, event_id)
 );
 COMMENT ON TABLE core.kyc_provider_event IS
   'KYC : rappels de décision acceptés (signature vérifiée), un par (fournisseur, événement) ; '
-  'un rappel rejoué n''écrit rien. US-105 (ADR-101).';
+  'un rappel rejoué n''écrit rien. US-105 (ADR-102).';
 
 -- 2.5 Rappels rejetés (signature, fraîcheur, forme) : empreinte du corps seulement.
 CREATE TABLE core.kyc_webhook_rejection (
@@ -278,10 +310,41 @@ CREATE TABLE core.kyc_webhook_rejection (
     CONSTRAINT kyc_webhook_rejection_length_valid CHECK (body_length >= 0),
   received_at   timestamptz NOT NULL DEFAULT platform.now()
 );
-CREATE INDEX kyc_webhook_rejection_received_idx ON core.kyc_webhook_rejection (received_at);
+CREATE INDEX kyc_webhook_rejection_received_idx
+  ON core.kyc_webhook_rejection (provider, received_at);
+
+-- 2.6 Demandes d'effacement au fournisseur (retrait du consentement, VER-004 : « la demande de
+-- purge au fournisseur est tracée avec date »). La référence de session n'est gardée que le temps
+-- de la demande : effacée quand le fournisseur atteste l'effacement.
+CREATE TABLE core.kyc_erasure_request (
+  id                    uuid        NOT NULL DEFAULT platform.uuid_v7()
+    CONSTRAINT kyc_erasure_request_pkey PRIMARY KEY,
+  user_id               uuid        NOT NULL REFERENCES core.iam_user_account (id),
+  verification_id       uuid        NOT NULL REFERENCES core.kyc_identity_verification (id),
+  provider              text        NOT NULL
+    CONSTRAINT kyc_erasure_request_provider_format CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'),
+  provider_session_ref  text
+    CONSTRAINT kyc_erasure_request_session_ref_length
+      CHECK (provider_session_ref IS NULL OR pg_catalog.length(provider_session_ref) BETWEEN 1 AND 200),
+  status                text        NOT NULL DEFAULT 'PENDING'
+    CONSTRAINT kyc_erasure_request_status_valid CHECK (status IN ('PENDING', 'DONE', 'FAILED')),
+  attestation_ref       text
+    CONSTRAINT kyc_erasure_request_attestation_length
+      CHECK (attestation_ref IS NULL OR pg_catalog.length(attestation_ref) BETWEEN 1 AND 200),
+  requested_at          timestamptz NOT NULL DEFAULT platform.now(),
+  completed_at          timestamptz,
+  CONSTRAINT kyc_erasure_request_done_coherent CHECK (
+    (status = 'PENDING' AND completed_at IS NULL AND provider_session_ref IS NOT NULL)
+    OR (status = 'FAILED' AND completed_at IS NOT NULL AND provider_session_ref IS NOT NULL)
+    OR (status = 'DONE' AND completed_at IS NOT NULL AND provider_session_ref IS NULL))
+);
+CREATE INDEX kyc_erasure_request_user_idx ON core.kyc_erasure_request (user_id, status);
+COMMENT ON TABLE core.kyc_erasure_request IS
+  'KYC : demandes d''effacement au fournisseur (retrait du consentement biométrique, VER-004), '
+  'datées ; référence de session effacée quand le fournisseur atteste. US-105 (ADR-102).';
 COMMENT ON TABLE core.kyc_webhook_rejection IS
   'KYC : journal des rappels rejetés (signature invalide, périmés, mal formés) ; empreinte '
-  'SHA-256 et longueur du corps, jamais le corps. US-105 (ADR-101).';
+  'SHA-256 et longueur du corps, jamais le corps. US-105 (ADR-102).';
 
 -- 3. RLS : aucun droit de table pour les rôles applicatifs --------------------------------------
 ALTER TABLE core.kyc_identity_verification ENABLE ROW LEVEL SECURITY;
@@ -294,13 +357,16 @@ ALTER TABLE core.kyc_provider_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE core.kyc_provider_event FORCE ROW LEVEL SECURITY;
 ALTER TABLE core.kyc_webhook_rejection ENABLE ROW LEVEL SECURITY;
 ALTER TABLE core.kyc_webhook_rejection FORCE ROW LEVEL SECURITY;
+ALTER TABLE core.kyc_erasure_request ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.kyc_erasure_request FORCE ROW LEVEL SECURITY;
 CREATE POLICY migrator_all ON core.kyc_identity_verification TO migrator USING (true) WITH CHECK (true);
 CREATE POLICY migrator_all ON core.kyc_identity_document TO migrator USING (true) WITH CHECK (true);
 CREATE POLICY migrator_all ON core.kyc_liveness_check TO migrator USING (true) WITH CHECK (true);
 CREATE POLICY migrator_all ON core.kyc_provider_event TO migrator USING (true) WITH CHECK (true);
 CREATE POLICY migrator_all ON core.kyc_webhook_rejection TO migrator USING (true) WITH CHECK (true);
+CREATE POLICY migrator_all ON core.kyc_erasure_request TO migrator USING (true) WITH CHECK (true);
 REVOKE ALL ON core.kyc_identity_verification, core.kyc_identity_document, core.kyc_liveness_check,
-  core.kyc_provider_event, core.kyc_webhook_rejection FROM PUBLIC;
+  core.kyc_provider_event, core.kyc_webhook_rejection, core.kyc_erasure_request FROM PUBLIC;
 
 -- kyc_cmd_owner : ses commandes seules
 GRANT SELECT, INSERT ON core.kyc_identity_verification TO kyc_cmd_owner;
@@ -314,10 +380,19 @@ CREATE POLICY kyc_cmd_select ON core.kyc_identity_verification FOR SELECT TO kyc
 CREATE POLICY kyc_cmd_insert ON core.kyc_identity_verification FOR INSERT TO kyc_cmd_owner
   WITH CHECK (is_current AND status = 'PHONE_VERIFIED' AND provider_session_ref IS NULL
               AND approved_at IS NULL AND reviewed_by IS NULL);
--- une vérification approuvée ne change plus par ces commandes (révocation, réexamen : US-106)
+-- seule la vérification courante change (les transitions sont jugées par les commandes ; le
+-- retrait du consentement fait passer un dossier APPROVED en RECHECK)
 CREATE POLICY kyc_cmd_update ON core.kyc_identity_verification FOR UPDATE TO kyc_cmd_owner
-  USING (is_current AND status <> 'APPROVED') WITH CHECK (is_current);
+  USING (is_current) WITH CHECK (is_current);
 GRANT SELECT, INSERT ON core.kyc_identity_document, core.kyc_liveness_check TO kyc_cmd_owner;
+-- effacement : référence du document ; scores et référence de session (retrait, rétention)
+GRANT UPDATE (provider_document_ref) ON core.kyc_identity_document TO kyc_cmd_owner;
+GRANT UPDATE (liveness_score, face_match_score, provider_session_ref, erased_at)
+  ON core.kyc_liveness_check TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_update ON core.kyc_identity_document FOR UPDATE TO kyc_cmd_owner
+  USING (provider_document_ref IS NOT NULL) WITH CHECK (provider_document_ref IS NULL);
+CREATE POLICY kyc_cmd_update ON core.kyc_liveness_check FOR UPDATE TO kyc_cmd_owner
+  USING (erased_at IS NULL) WITH CHECK (erased_at IS NOT NULL);
 CREATE POLICY kyc_cmd_select ON core.kyc_identity_document FOR SELECT TO kyc_cmd_owner USING (true);
 CREATE POLICY kyc_cmd_insert ON core.kyc_identity_document FOR INSERT TO kyc_cmd_owner
   WITH CHECK (true);
@@ -331,9 +406,22 @@ CREATE POLICY kyc_cmd_insert ON core.kyc_provider_event FOR INSERT TO kyc_cmd_ow
   WITH CHECK (outcome IS NULL);
 CREATE POLICY kyc_cmd_update ON core.kyc_provider_event FOR UPDATE TO kyc_cmd_owner
   USING (outcome IS NULL) WITH CHECK (outcome IS NOT NULL);
-GRANT INSERT ON core.kyc_webhook_rejection TO kyc_cmd_owner;
+GRANT SELECT, INSERT, DELETE ON core.kyc_webhook_rejection TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_select ON core.kyc_webhook_rejection FOR SELECT TO kyc_cmd_owner
+  USING (true);
 CREATE POLICY kyc_cmd_insert ON core.kyc_webhook_rejection FOR INSERT TO kyc_cmd_owner
   WITH CHECK (true);
+-- purge au-delà de 90 jours seulement (PROPOSÉ)
+CREATE POLICY kyc_cmd_delete ON core.kyc_webhook_rejection FOR DELETE TO kyc_cmd_owner
+  USING (received_at < platform.now() - pg_catalog.make_interval(days => 90));
+GRANT SELECT, INSERT ON core.kyc_erasure_request TO kyc_cmd_owner;
+GRANT UPDATE (provider_session_ref, status, attestation_ref, completed_at)
+  ON core.kyc_erasure_request TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_select ON core.kyc_erasure_request FOR SELECT TO kyc_cmd_owner USING (true);
+CREATE POLICY kyc_cmd_insert ON core.kyc_erasure_request FOR INSERT TO kyc_cmd_owner
+  WITH CHECK (status = 'PENDING');
+CREATE POLICY kyc_cmd_update ON core.kyc_erasure_request FOR UPDATE TO kyc_cmd_owner
+  USING (status = 'PENDING') WITH CHECK (status IN ('DONE', 'FAILED'));
 
 -- 4. Primitives (SECURITY INVOKER ; EXECUTE au seul kyc_cmd_owner) ---------------------------------
 -- Gabarit du consentement biométrique en vigueur : documents du pays s'il en existe un en vigueur,
@@ -496,11 +584,16 @@ $fn$;
 
 -- 6. Consentement biométrique (SECURITY DEFINER, EXECUTE app_api) ---------------------------------
 -- `p_version` : version AFFICHÉE et acceptée ; elle doit être la version en vigueur (sinon
--- VERSION_CHANGED, rien n'est écrit). `p_accepted` = false : retrait (VER-004), enregistré sur la
--- version en vigueur ; la purge chez le fournisseur est tracée par l'ops (manuelle, US-106).
--- Issues : RECORDED, AUTH_REQUIRED, NOT_ELIGIBLE (compte fermé, pseudonymisé ou e-mail non
--- vérifié), COUNTRY_UNKNOWN, CONSENT_UNAVAILABLE (aucun texte en vigueur : fail-closed),
--- VERSION_CHANGED.
+-- VERSION_CHANGED, rien n'est écrit). `p_accepted` = false : RETRAIT (VER-004 ; RISKS L1-PM-39),
+-- possible quel que soit l'état du compte et du dossier : ligne de retrait sur la version en
+-- vigueur, puis, si un dossier existe, demandes d'effacement datées (une par référence de session
+-- connue), scores [C3] et références effacés, dossier repassé en `RECHECK` (tentative suivante,
+-- session effacée : un rappel tardif est inconnu), événements `kyc.verification.status_changed` et
+-- `kyc.consent.withdrawn`, audit `KYC_CONSENT_WITHDRAWN`. L'effacement chez le fournisseur est
+-- exécuté par l'API (`core.kyc_pending_erasures`, `core.kyc_cmd_record_erasure`).
+-- Issues : RECORDED, AUTH_REQUIRED, NOT_ELIGIBLE (acceptation : compte fermé, pseudonymisé ou
+-- e-mail non vérifié), COUNTRY_UNKNOWN, CONSENT_UNAVAILABLE (aucun texte en vigueur :
+-- fail-closed), VERSION_CHANGED.
 CREATE FUNCTION core.kyc_cmd_biometric_consent(p_token_hash bytea, p_country text,
                                                p_version integer, p_accepted boolean)
   RETURNS TABLE (outcome text, version integer)
@@ -515,6 +608,9 @@ DECLARE
   v_acc     record;
   v_country text;
   v_t       core.contract_document_template%ROWTYPE;
+  v_v       record;
+  v_now     timestamptz := platform.now();
+  v_n       integer := 0;
 BEGIN
   IF p_accepted IS NULL THEN
     RAISE EXCEPTION 'kyc : consentement invalide' USING ERRCODE = 'invalid_parameter_value';
@@ -526,14 +622,22 @@ BEGIN
   END IF;
   SELECT u.id, u.status, u.email_verified_at, u.pseudonymized_at, u.preferred_locale INTO v_acc
     FROM core.iam_user_account AS u WHERE u.id = v_user;
-  IF v_acc.id IS NULL OR v_acc.email_verified_at IS NULL OR v_acc.pseudonymized_at IS NOT NULL
-     OR v_acc.status NOT IN ('ACTIVE', 'RESTRICTED') THEN
+  -- le retrait reste possible pour tout compte qui a une session (droit de la personne)
+  IF p_accepted AND (v_acc.id IS NULL OR v_acc.email_verified_at IS NULL
+                     OR v_acc.pseudonymized_at IS NOT NULL
+                     OR v_acc.status NOT IN ('ACTIVE', 'RESTRICTED')) THEN
     RETURN QUERY SELECT 'NOT_ELIGIBLE'::text, NULL::integer;
     RETURN;
   END IF;
-  -- portée : pays du dossier courant s'il existe, sinon le pays du parcours (connu de la config)
+  -- portée : pays du dossier courant s'il existe, sinon (retrait) celui du dernier consentement
+  -- biométrique, sinon le pays du parcours (connu de la config)
   SELECT v.country_code::text INTO v_country FROM core.kyc_identity_verification AS v
    WHERE v.user_id = v_user AND v.is_current;
+  IF v_country IS NULL AND NOT p_accepted THEN
+    SELECT c.country_code::text INTO v_country FROM core.contract_consent AS c
+     WHERE c.user_id = v_user AND c.doc_kind = 'BIOMETRIC_CONSENT'
+     ORDER BY c.seq DESC LIMIT 1;
+  END IF;
   IF v_country IS NULL THEN
     IF p_country IS NULL
        OR NOT EXISTS (SELECT 1 FROM core.config_country AS k WHERE k.code::text = p_country) THEN
@@ -552,11 +656,138 @@ BEGIN
     RETURN QUERY SELECT 'VERSION_CHANGED'::text, v_t.version;
     RETURN;
   END IF;
+  -- consentement, ouverture et décision d'une personne : un seul à la fois
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('kyc.verification:' || v_user::text, 0));
   INSERT INTO core.contract_consent (user_id, template_id, doc_kind, doc_version, locale, accepted,
                                      accepted_at, context, country_code, c2_withheld)
-  VALUES (v_user, v_t.id, v_t.kind, v_t.version, v_t.locale, p_accepted, platform.now(), 'KYC',
+  VALUES (v_user, v_t.id, v_t.kind, v_t.version, v_t.locale, p_accepted, v_now, 'KYC',
           v_country, true);
+  IF p_accepted THEN
+    RETURN QUERY SELECT 'RECORDED'::text, v_t.version;
+    RETURN;
+  END IF;
+
+  -- retrait : effacement et réexamen du dossier courant
+  SELECT v.* INTO v_v FROM core.kyc_identity_verification AS v
+   WHERE v.user_id = v_user AND v.is_current;
+  IF v_v.id IS NOT NULL THEN
+    INSERT INTO core.kyc_erasure_request (user_id, verification_id, provider, provider_session_ref)
+    SELECT v_user, v_v.id, v_v.provider, r.ref
+      FROM (SELECT v_v.provider_session_ref AS ref WHERE v_v.provider_session_ref IS NOT NULL
+            UNION
+            SELECT l.provider_session_ref FROM core.kyc_liveness_check AS l
+             WHERE l.verification_id = v_v.id AND l.erased_at IS NULL) AS r
+     WHERE v_v.provider IS NOT NULL;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    UPDATE core.kyc_liveness_check AS l
+       SET liveness_score = NULL, face_match_score = NULL, provider_session_ref = NULL,
+           erased_at = v_now
+     WHERE l.verification_id = v_v.id AND l.erased_at IS NULL;
+    UPDATE core.kyc_identity_document AS d SET provider_document_ref = NULL
+     WHERE d.verification_id = v_v.id AND d.provider_document_ref IS NOT NULL;
+    IF v_v.status IN ('PHONE_VERIFIED', 'DOCS_SUBMITTED', 'AUTO_CHECKS', 'MANUAL_REVIEW',
+                      'MORE_INFO_REQUIRED', 'APPROVED', 'RECHECK') THEN
+      UPDATE core.kyc_identity_verification AS v
+         SET status = 'RECHECK', decision_reason_code = 'CONSENT_WITHDRAWN',
+             attempt = v_v.attempt + 1, provider_session_ref = NULL, hosted_url = NULL,
+             session_expires_at = NULL, approved_at = NULL, expires_at = NULL,
+             row_version = v_v.row_version + 1, updated_at = v_now
+       WHERE v.id = v_v.id;
+      IF v_v.status <> 'RECHECK' THEN
+        PERFORM core.kyc_emit_status(v_v.id, v_user, v_v.row_version + 1, v_v.status, 'RECHECK',
+                                     'CONSENT_WITHDRAWN', v_v.country_code::text, v_user, 'GUEST');
+      END IF;
+    END IF;
+  END IF;
+  INSERT INTO core.outbox_outbox_event
+         (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+          actor_user_id, actor_role, correlation_id, payload, partition_key)
+  VALUES ('kyc.consent.withdrawn', 1, 'user_account', v_user, 0, v_country, v_user, 'GUEST',
+          pg_catalog.gen_random_uuid(),
+          pg_catalog.jsonb_build_object('user_id', v_user, 'verification_id', v_v.id,
+                                        'version', v_t.version, 'withdrawn_at', v_now,
+                                        'erasure_requests', v_n),
+          v_user::text);
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after)
+  VALUES (v_user, 'GUEST', 'KYC_CONSENT_WITHDRAWN', 'USER_ACCOUNT', v_user,
+          pg_catalog.jsonb_build_object('status', COALESCE(v_v.status, 'NOT_STARTED')),
+          pg_catalog.jsonb_build_object('status', CASE WHEN v_v.id IS NULL THEN 'NOT_STARTED'
+                                                       ELSE 'RECHECK' END,
+                                        'version', v_t.version, 'erasureRequests', v_n,
+                                        'country', v_country));
   RETURN QUERY SELECT 'RECORDED'::text, v_t.version;
+END
+$fn$;
+
+-- 6 bis. Demandes d'effacement en attente de la personne de la session (SECURITY DEFINER, EXECUTE
+-- app_api) : identifiant, fournisseur et référence de session à effacer chez lui.
+CREATE FUNCTION core.kyc_pending_erasures(p_token_hash bytea)
+  RETURNS TABLE (request_id uuid, provider text, session_ref text)
+  LANGUAGE plpgsql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_user uuid;
+BEGIN
+  SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
+  IF v_user IS NULL THEN
+    RETURN;
+  END IF;
+  RETURN QUERY SELECT e.id, e.provider, e.provider_session_ref
+    FROM core.kyc_erasure_request AS e
+   WHERE e.user_id = v_user AND e.status = 'PENDING'
+   ORDER BY e.requested_at, e.id;
+END
+$fn$;
+
+-- 6 ter. Issue d'une demande d'effacement (SECURITY DEFINER, EXECUTE app_api) : DONE (attestation
+-- du fournisseur ; la référence de session est effacée) ou FAILED (refus du fournisseur ; l'ops
+-- reprend). Une panne laisse la demande PENDING (l'API n'appelle pas cette commande). Issues :
+-- RECORDED, AUTH_REQUIRED, NOT_FOUND (demande d'un autre, inconnue ou déjà close).
+CREATE FUNCTION core.kyc_cmd_record_erasure(p_token_hash bytea, p_request_id uuid, p_outcome text,
+                                            p_attestation_ref text)
+  RETURNS TABLE (outcome text)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_user uuid;
+  v_id   uuid;
+BEGIN
+  IF p_outcome IS NULL OR p_outcome NOT IN ('DONE', 'FAILED')
+     OR (p_attestation_ref IS NOT NULL AND pg_catalog.length(p_attestation_ref) NOT BETWEEN 1 AND 200)
+     OR (p_outcome = 'DONE' AND p_attestation_ref IS NULL) THEN
+    RAISE EXCEPTION 'kyc : issue d''effacement invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
+  IF v_user IS NULL THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text;
+    RETURN;
+  END IF;
+  UPDATE core.kyc_erasure_request AS e
+     SET status = p_outcome, attestation_ref = p_attestation_ref, completed_at = platform.now(),
+         provider_session_ref = CASE WHEN p_outcome = 'DONE' THEN NULL
+                                     ELSE e.provider_session_ref END
+   WHERE e.id = p_request_id AND e.user_id = v_user AND e.status = 'PENDING'
+  RETURNING e.id INTO v_id;
+  IF v_id IS NULL THEN
+    RETURN QUERY SELECT 'NOT_FOUND'::text;
+    RETURN;
+  END IF;
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after)
+  VALUES (v_user, 'GUEST', 'KYC_ERASURE_RECORDED', 'USER_ACCOUNT', v_user,
+          pg_catalog.jsonb_build_object('status', 'PENDING', 'requestId', v_id),
+          pg_catalog.jsonb_build_object('status', p_outcome, 'requestId', v_id));
+  RETURN QUERY SELECT 'RECORDED'::text;
 END
 $fn$;
 
@@ -568,11 +799,12 @@ $fn$;
 --   IN_PROGRESS (session hébergée vivante : son adresse est rendue, rien n'est écrit),
 --   AUTH_REQUIRED, COUNTRY_UNKNOWN, NOT_ELIGIBLE, PHONE_NOT_VERIFIED, CONSENT_MISSING,
 --   IN_REVIEW (décision en cours : AUTO_CHECKS, MANUAL_REVIEW), ALREADY_APPROVED,
---   PROVIDER_INVALID.
--- Rien n'est écrit hors READY. Tentative nouvelle (compteur + 1, session effacée) quand la
--- session précédente a expiré, quand des informations sont demandées (MORE_INFO_REQUIRED) ou
--- quand le pays du dossier change avant toute session ; sinon la tentative en cours est rendue
--- telle quelle (un double clic rejoue la même clé chez le fournisseur).
+--   PROVIDER_INVALID, PRODUCTION_BLOCKED (base de production : KYC fermé, OQ-MK-09, L1-PM-05).
+-- Rien n'est écrit hors READY. Une tentative SANS session posée est rendue telle quelle (même
+-- pays, même fournisseur) : un double clic rejoue la même clé chez le fournisseur, y compris après
+-- une expiration ou un retrait. Tentative nouvelle (compteur + 1, session effacée) quand une
+-- session expirée est encore posée ou quand le pays du dossier change. Dossier `RECHECK` (après un
+-- retrait du consentement) ou `MORE_INFO_REQUIRED` : nouvelle session admise.
 CREATE FUNCTION core.kyc_cmd_open_verification(p_token_hash bytea, p_country text, p_provider text)
   RETURNS TABLE (outcome text, verification_id uuid, attempt integer, hosted_url text,
                  session_expires_at timestamptz)
@@ -589,6 +821,12 @@ DECLARE
   v_v    record;
   v_id   uuid;
 BEGIN
+  -- garde fail-closed en base (L1-PM-05) : environnement inconnu = production
+  IF COALESCE(platform.deployment_env(), 'production') = 'production' THEN
+    RETURN QUERY SELECT 'PRODUCTION_BLOCKED'::text, NULL::uuid, NULL::integer, NULL::text,
+                        NULL::timestamptz;
+    RETURN;
+  END IF;
   SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
   IF v_user IS NULL THEN
     RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid, NULL::integer, NULL::text,
@@ -652,8 +890,8 @@ BEGIN
                         NULL::timestamptz;
     RETURN;
   END IF;
-  IF v_v.status NOT IN ('PHONE_VERIFIED', 'DOCS_SUBMITTED', 'MORE_INFO_REQUIRED') THEN
-    -- RECHECK, EXPIRED, REVOKED, REJECTED, APPEAL, REJECTED_FINAL, BANNED : décision de l'ops
+  IF v_v.status NOT IN ('PHONE_VERIFIED', 'DOCS_SUBMITTED', 'MORE_INFO_REQUIRED', 'RECHECK') THEN
+    -- EXPIRED, REVOKED, REJECTED, APPEAL, REJECTED_FINAL, BANNED : décision de l'ops
     RETURN QUERY SELECT 'NOT_ELIGIBLE'::text, NULL::uuid, NULL::integer, NULL::text,
                         NULL::timestamptz;
     RETURN;
@@ -663,7 +901,7 @@ BEGIN
                         v_v.session_expires_at;
     RETURN;
   END IF;
-  IF v_v.status = 'PHONE_VERIFIED' AND v_v.provider_session_ref IS NULL
+  IF v_v.provider_session_ref IS NULL
      AND v_v.country_code::text = p_country AND v_v.provider IS NOT DISTINCT FROM p_provider THEN
     -- tentative préparée, aucune session encore posée : même clé (double clic, nouvel essai)
     RETURN QUERY SELECT 'READY'::text, v_v.id, v_v.attempt, NULL::text, NULL::timestamptz;
@@ -727,7 +965,7 @@ BEGIN
     RETURN;
   END IF;
   IF v_v.attempt IS DISTINCT FROM p_attempt OR v_v.provider IS DISTINCT FROM p_provider
-     OR v_v.status NOT IN ('PHONE_VERIFIED', 'DOCS_SUBMITTED', 'MORE_INFO_REQUIRED') THEN
+     OR v_v.status NOT IN ('PHONE_VERIFIED', 'DOCS_SUBMITTED', 'MORE_INFO_REQUIRED', 'RECHECK') THEN
     RETURN QUERY SELECT 'SUPERSEDED'::text;
     RETURN;
   END IF;
@@ -755,8 +993,11 @@ $fn$;
 -- fuseau du pays du dossier), sinon → MANUAL_REVIEW avec un code motif (PROVIDER_REVIEW,
 -- PROVIDER_DECLINED, DOCUMENT_MISSING, DOCUMENT_NOT_LICENSE, LICENSE_PROVISIONAL,
 -- LICENSE_EXPIRED). Écrit les champs minimaux du permis et les scores [C3] (rétention : décision
--- + biometric_appeal_retention_days) ; AUCUNE image (le port n'en transporte pas). Issues :
--- APPLIED (statut final rendu), DUPLICATE, UNKNOWN_SESSION, STALE.
+-- + biometric_appeal_retention_days) ; AUCUNE image (le port n'en transporte pas). Session
+-- inconnue : rien n'est écrit, l'identifiant d'événement n'est pas consommé (un rejeu plus tard
+-- peut aboutir). Consentement biométrique absent ou retiré : l'événement est consommé, rien
+-- d'autre (aucun score, aucune transition). Issues : APPLIED (statut final rendu), DUPLICATE,
+-- UNKNOWN_SESSION, STALE, CONSENT_WITHDRAWN, PRODUCTION_BLOCKED (base de production).
 CREATE FUNCTION core.kyc_cmd_apply_decision(p_provider text, p_event_id text, p_session_ref text,
                                             p_subject_ref text, p_decision text,
                                             p_liveness numeric, p_face_match numeric,
@@ -796,12 +1037,8 @@ BEGIN
      OR (p_document IS NOT NULL AND pg_catalog.jsonb_typeof(p_document) <> 'object') THEN
     RAISE EXCEPTION 'kyc : décision invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  INSERT INTO core.kyc_provider_event (provider, event_id, session_ref, decision)
-  VALUES (p_provider, p_event_id, p_session_ref, p_decision)
-  ON CONFLICT ON CONSTRAINT kyc_provider_event_unique DO NOTHING
-  RETURNING id INTO v_event;
-  IF v_event IS NULL THEN
-    RETURN QUERY SELECT 'DUPLICATE'::text, NULL::text;
+  IF COALESCE(platform.deployment_env(), 'production') = 'production' THEN
+    RETURN QUERY SELECT 'PRODUCTION_BLOCKED'::text, NULL::text;
     RETURN;
   END IF;
   -- dossier de la session ET du sujet ; puis verrou de la personne (même clé que l'ouverture) et
@@ -811,7 +1048,7 @@ BEGIN
    WHERE v.provider = p_provider AND v.provider_session_ref = p_session_ref
      AND v.id::text = p_subject_ref AND v.is_current;
   IF v_user IS NULL THEN
-    UPDATE core.kyc_provider_event AS e SET outcome = 'UNKNOWN_SESSION' WHERE e.id = v_event;
+    -- rien n'est écrit : l'événement n'est pas consommé
     RETURN QUERY SELECT 'UNKNOWN_SESSION'::text, NULL::text;
     RETURN;
   END IF;
@@ -821,8 +1058,22 @@ BEGIN
    WHERE v.provider = p_provider AND v.provider_session_ref = p_session_ref
      AND v.id::text = p_subject_ref AND v.is_current;
   IF v_v.id IS NULL THEN
-    UPDATE core.kyc_provider_event AS e SET outcome = 'UNKNOWN_SESSION' WHERE e.id = v_event;
     RETURN QUERY SELECT 'UNKNOWN_SESSION'::text, NULL::text;
+    RETURN;
+  END IF;
+  -- sous le verrou de la personne : idempotence par (fournisseur, événement)
+  INSERT INTO core.kyc_provider_event (provider, event_id, session_ref, decision)
+  VALUES (p_provider, p_event_id, p_session_ref, p_decision)
+  ON CONFLICT ON CONSTRAINT kyc_provider_event_unique DO NOTHING
+  RETURNING id INTO v_event;
+  IF v_event IS NULL THEN
+    RETURN QUERY SELECT 'DUPLICATE'::text, NULL::text;
+    RETURN;
+  END IF;
+  -- consentement biométrique retiré (ou nouvelle version non acceptée) : aucune donnée écrite
+  IF core.kyc_consent_current(v_user, v_v.country_code::text) IS NULL THEN
+    UPDATE core.kyc_provider_event AS e SET outcome = 'CONSENT_WITHDRAWN' WHERE e.id = v_event;
+    RETURN QUERY SELECT 'CONSENT_WITHDRAWN'::text, v_v.status;
     RETURN;
   END IF;
   IF v_v.status <> 'DOCS_SUBMITTED' THEN
@@ -898,7 +1149,9 @@ $fn$;
 
 -- 10. Rappel rejeté (SECURITY DEFINER, EXECUTE app_api) --------------------------------------------
 -- Journal du rejet (signature invalide, périmé, mal formé) : fournisseur, motif, empreinte et
--- longueur du corps ; jamais le corps (16 VER-001 : « rejeté et journalisé »).
+-- longueur du corps ; jamais le corps (16 VER-001 : « rejeté et journalisé »). Plafond : 600
+-- rejets par minute et par fournisseur (PROPOSÉ) ; au-delà, rien n'est écrit (la route rend
+-- toujours 401).
 CREATE FUNCTION core.kyc_cmd_record_webhook_rejection(p_provider text, p_reason text,
                                                       p_body_sha256 bytea, p_body_length integer)
   RETURNS void
@@ -914,6 +1167,13 @@ BEGIN
      OR p_body_length IS NULL OR p_body_length < 0 THEN
     RAISE EXCEPTION 'kyc : rejet invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  IF (SELECT pg_catalog.count(*) FROM (
+        SELECT 1 FROM core.kyc_webhook_rejection AS r
+         WHERE r.provider = p_provider
+           AND r.received_at > platform.now() - pg_catalog.make_interval(mins => 1)
+         LIMIT 600) AS x) >= 600 THEN
+    RETURN;
+  END IF;
   INSERT INTO core.kyc_webhook_rejection (provider, reason, body_sha256, body_length)
   VALUES (p_provider, p_reason, p_body_sha256, p_body_length);
 END
@@ -925,7 +1185,7 @@ $fn$;
 -- fin de son jour d'échéance dans le fuseau du PAYS DU TRIP ; il est expiré pour le trip si la fin
 -- du trip tombe à cet instant ou après. Issues : ELIGIBLE, AUTH_REQUIRED, COUNTRY_UNKNOWN,
 -- REQUEST_INVALID (fin absente), KYC_NOT_APPROVED (aucune vérification approuvée),
--- KYC_LICENSE_EXPIRED.
+-- KYC_BIOMETRIC_CONSENT_MISSING (consentement retiré ou version non acceptée), KYC_LICENSE_EXPIRED.
 CREATE FUNCTION core.kyc_driver_eligibility(p_token_hash bytea, p_trip_end timestamptz,
                                             p_trip_country text)
   RETURNS TABLE (outcome text)
@@ -955,10 +1215,14 @@ BEGIN
     RETURN QUERY SELECT 'COUNTRY_UNKNOWN'::text;
     RETURN;
   END IF;
-  SELECT v.id, v.status, v.attempt INTO v_v FROM core.kyc_identity_verification AS v
+  SELECT v.id, v.status, v.attempt, v.country_code INTO v_v FROM core.kyc_identity_verification AS v
    WHERE v.user_id = v_user AND v.is_current;
   IF v_v.id IS NULL OR v_v.status <> 'APPROVED' THEN
     RETURN QUERY SELECT 'KYC_NOT_APPROVED'::text;
+    RETURN;
+  END IF;
+  IF core.kyc_consent_current(v_user, v_v.country_code::text) IS NULL THEN
+    RETURN QUERY SELECT 'KYC_BIOMETRIC_CONSENT_MISSING'::text;
     RETURN;
   END IF;
   SELECT d.expiry_date INTO v_expiry FROM core.kyc_identity_document AS d
@@ -973,27 +1237,76 @@ BEGIN
 END
 $fn$;
 
+-- 12. Purge (SECURITY DEFINER, EXECUTE app_worker, `kyc_score_pruner`) --------------------------
+-- Efface les scores [C3] et la référence de session arrivés à `retention_until` (décision +
+-- biometric_appeal_retention_days ; 0 jour sans paramètre) et supprime les rejets de rappels de
+-- plus de 90 jours (PROPOSÉ), par lots. Rend le nombre de lignes traitées.
+CREATE FUNCTION core.kyc_worker_prune(p_batch integer)
+  RETURNS integer
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_now timestamptz := platform.now();
+  v_a   integer;
+  v_b   integer;
+BEGIN
+  IF COALESCE(pg_catalog.current_setting('app.actor_kind', true), '') <> 'WORKER'
+     OR COALESCE(pg_catalog.current_setting('app.worker_name', true), '') <> 'kyc_score_pruner' THEN
+    RAISE EXCEPTION 'kyc : réservé au travailleur kyc_score_pruner'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF p_batch IS NULL OR p_batch < 1 OR p_batch > 10000 THEN
+    RAISE EXCEPTION 'kyc : lot de purge invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  UPDATE core.kyc_liveness_check AS l
+     SET liveness_score = NULL, face_match_score = NULL, provider_session_ref = NULL,
+         erased_at = v_now
+   WHERE l.id IN (SELECT o.id FROM core.kyc_liveness_check AS o
+                   WHERE o.erased_at IS NULL AND o.retention_until <= v_now
+                   ORDER BY o.retention_until LIMIT p_batch);
+  GET DIAGNOSTICS v_a = ROW_COUNT;
+  DELETE FROM core.kyc_webhook_rejection AS r
+   WHERE r.id IN (SELECT o.id FROM core.kyc_webhook_rejection AS o
+                   WHERE o.received_at < v_now - pg_catalog.make_interval(days => 90)
+                   ORDER BY o.received_at LIMIT p_batch);
+  GET DIAGNOSTICS v_b = ROW_COUNT;
+  RETURN v_a + v_b;
+END
+$fn$;
+
+COMMENT ON FUNCTION core.kyc_pending_erasures(bytea) IS
+  'Demandes d''effacement en attente de la personne de la session (retrait du consentement). '
+  'SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-102).';
+COMMENT ON FUNCTION core.kyc_cmd_record_erasure(bytea, uuid, text, text) IS
+  'Issue d''une demande d''effacement au fournisseur (attestation), journalisée. SECURITY '
+  'DEFINER, EXECUTE app_api. US-105 (ADR-102).';
+COMMENT ON FUNCTION core.kyc_worker_prune(integer) IS
+  'Purge des scores à échéance et des rejets de rappels de plus de 90 jours, travailleur '
+  'kyc_score_pruner. SECURITY DEFINER, EXECUTE app_worker. US-105 (ADR-102).';
 COMMENT ON FUNCTION core.kyc_identity_state(bytea, text) IS
   'État de la vérification d''identité de la session (SM-3, échéance du permis, consentement '
-  'biométrique). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
+  'biométrique). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-102).';
 COMMENT ON FUNCTION core.kyc_cmd_biometric_consent(bytea, text, integer, boolean) IS
   'Consentement biométrique (VER-004) : acceptation de la version en vigueur ou retrait, contexte '
-  'KYC. SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
+  'KYC. SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-102).';
 COMMENT ON FUNCTION core.kyc_cmd_open_verification(bytea, text, text) IS
   'Ouverture d''une vérification : session, compte, téléphone, consentement à la version en '
   'vigueur, état ; aucune écriture hors READY. SECURITY DEFINER, EXECUTE app_api. US-105.';
 COMMENT ON FUNCTION core.kyc_cmd_record_session(bytea, uuid, integer, text, text, text, timestamptz) IS
   'Session hébergée du fournisseur posée sur la tentative courante (SM-3 DOCS_SUBMITTED). '
-  'SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
+  'SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-102).';
 COMMENT ON FUNCTION core.kyc_cmd_apply_decision(text, text, text, text, text, numeric, numeric, jsonb) IS
   'Décision du fournisseur (rappel signé) : idempotente par événement, une transition par '
   'session, scores C3 et champs minimaux du permis, aucune image. SECURITY DEFINER, EXECUTE '
-  'app_api. US-105 (ADR-101).';
+  'app_api. US-105 (ADR-102).';
 COMMENT ON FUNCTION core.kyc_cmd_record_webhook_rejection(text, text, bytea, integer) IS
   'Journal d''un rappel KYC rejeté (empreinte du corps). SECURITY DEFINER, EXECUTE app_api. US-105.';
 COMMENT ON FUNCTION core.kyc_driver_eligibility(bytea, timestamptz, text) IS
   'Contrôle bloquant du paiement : vérification approuvée et permis valable jusqu''à la fin du '
-  'trip (KYC_LICENSE_EXPIRED). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-101).';
+  'trip (KYC_LICENSE_EXPIRED). SECURITY DEFINER, EXECUTE app_api. US-105 (ADR-102).';
 
 REVOKE ALL ON FUNCTION core.kyc_identity_state(bytea, text),
   core.kyc_cmd_biometric_consent(bytea, text, integer, boolean),
@@ -1001,14 +1314,17 @@ REVOKE ALL ON FUNCTION core.kyc_identity_state(bytea, text),
   core.kyc_cmd_record_session(bytea, uuid, integer, text, text, text, timestamptz),
   core.kyc_cmd_apply_decision(text, text, text, text, text, numeric, numeric, jsonb),
   core.kyc_cmd_record_webhook_rejection(text, text, bytea, integer),
-  core.kyc_driver_eligibility(bytea, timestamptz, text) FROM PUBLIC;
+  core.kyc_driver_eligibility(bytea, timestamptz, text), core.kyc_pending_erasures(bytea),
+  core.kyc_cmd_record_erasure(bytea, uuid, text, text), core.kyc_worker_prune(integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.kyc_identity_state(bytea, text),
   core.kyc_cmd_biometric_consent(bytea, text, integer, boolean),
   core.kyc_cmd_open_verification(bytea, text, text),
   core.kyc_cmd_record_session(bytea, uuid, integer, text, text, text, timestamptz),
   core.kyc_cmd_apply_decision(text, text, text, text, text, numeric, numeric, jsonb),
   core.kyc_cmd_record_webhook_rejection(text, text, bytea, integer),
-  core.kyc_driver_eligibility(bytea, timestamptz, text) TO app_api;
+  core.kyc_driver_eligibility(bytea, timestamptz, text), core.kyc_pending_erasures(bytea),
+  core.kyc_cmd_record_erasure(bytea, uuid, text, text) TO app_api;
+GRANT EXECUTE ON FUNCTION core.kyc_worker_prune(integer) TO app_worker;
 
 -- Propriétaire NOLOGIN (mécanique de 0059 / 0066 : CREATE le temps du transfert seulement).
 GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
@@ -1027,9 +1343,12 @@ ALTER FUNCTION core.kyc_cmd_apply_decision(text, text, text, text, text, numeric
 ALTER FUNCTION core.kyc_cmd_record_webhook_rejection(text, text, bytea, integer)
   OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_driver_eligibility(bytea, timestamptz, text) OWNER TO kyc_cmd_owner;
+ALTER FUNCTION core.kyc_pending_erasures(bytea) OWNER TO kyc_cmd_owner;
+ALTER FUNCTION core.kyc_cmd_record_erasure(bytea, uuid, text, text) OWNER TO kyc_cmd_owner;
+ALTER FUNCTION core.kyc_worker_prune(integer) OWNER TO kyc_cmd_owner;
 REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
 
--- 12. Graine : consentement biométrique, version 1 BROUILLON commune aux pays (textes PROVISOIRES,
+-- 13. Graine : consentement biométrique, version 1 BROUILLON commune aux pays (textes PROVISOIRES,
 -- OQ-BR-24, OQ-MK-09). En vigueur dès l'origine (date antérieure à toute horloge de test). À
 -- remplacer par le texte validé par le juridique avant toute collecte réelle (registre LEG-010).
 INSERT INTO core.contract_document_template

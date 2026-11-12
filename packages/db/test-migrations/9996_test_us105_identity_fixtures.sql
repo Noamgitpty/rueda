@@ -1,4 +1,4 @@
--- 9996 — fixtures des preuves de la vérification d'identité (US-105, migration 0071). TESTS
+-- 9996 — fixtures des preuves de la vérification d'identité (US-105, migration 0072). TESTS
 -- SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
@@ -51,13 +51,14 @@ $fn$;
 
 CREATE FUNCTION test_fixture.us105_liveness(p_user uuid)
   RETURNS TABLE (liveness_score numeric, face_match_score numeric, result text,
-                 provider_session_ref text, retention_days numeric)
+                 provider_session_ref text, retention_days numeric, erased boolean)
   LANGUAGE sql
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   SELECT l.liveness_score, l.face_match_score, l.result, l.provider_session_ref,
-         pg_catalog.round(EXTRACT(EPOCH FROM (l.retention_until - l.created_at)) / 86400, 3)
+         pg_catalog.round(EXTRACT(EPOCH FROM (l.retention_until - l.created_at)) / 86400, 3),
+         l.erased_at IS NOT NULL
     FROM core.kyc_liveness_check AS l
     JOIN core.kyc_identity_verification AS v ON v.id = l.verification_id
    WHERE v.user_id = p_user
@@ -136,6 +137,71 @@ AS $fn$
      SET phone_e164 = p_phone, phone_verified_at = platform.now()
    WHERE u.id = p_user
 $fn$;
+
+-- Demandes d'effacement, événements par personne (agrégat user_account) et audit KYC.
+CREATE FUNCTION test_fixture.us105_erasures(p_user uuid)
+  RETURNS TABLE (provider text, provider_session_ref text, status text, attestation_ref text,
+                 dated boolean)
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT e.provider, e.provider_session_ref, e.status, e.attestation_ref, e.requested_at IS NOT NULL
+    FROM core.kyc_erasure_request AS e WHERE e.user_id = p_user ORDER BY e.requested_at, e.id
+$fn$;
+
+CREATE FUNCTION test_fixture.us105_user_events(p_user uuid)
+  RETURNS TABLE (type text, payload jsonb)
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT e.type, e.payload FROM core.outbox_outbox_event AS e
+   WHERE e.aggregate_id = p_user AND e.aggregate_type = 'user_account' AND e.type LIKE 'kyc.%'
+   ORDER BY e.id
+$fn$;
+
+CREATE FUNCTION test_fixture.us105_audit(p_user uuid)
+  RETURNS TABLE (action_code text, after jsonb)
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT a.action_code, a.after FROM core.audit_audit_log AS a
+   WHERE a.subject_id = p_user AND a.action_code LIKE 'KYC\_%'
+   ORDER BY a.id
+$fn$;
+
+-- Échéance de rétention des scores d'une personne avancée au passé (purge éprouvée sans horloge
+-- truquée) ; session expirée d'un dossier (reprise éprouvée sans attendre).
+CREATE FUNCTION test_fixture.us105_age_scores(p_user uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.kyc_liveness_check AS l SET retention_until = platform.now() - interval '1 second'
+    FROM core.kyc_identity_verification AS v
+   WHERE v.id = l.verification_id AND v.user_id = p_user
+$fn$;
+
+CREATE FUNCTION test_fixture.us105_expire_session(p_user uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.kyc_identity_verification AS v
+     SET session_expires_at = platform.now() - interval '1 second'
+   WHERE v.user_id = p_user AND v.is_current AND v.provider_session_ref IS NOT NULL
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us105_erasures(uuid), test_fixture.us105_user_events(uuid),
+  test_fixture.us105_audit(uuid), test_fixture.us105_age_scores(uuid),
+  test_fixture.us105_expire_session(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us105_erasures(uuid), test_fixture.us105_user_events(uuid),
+  test_fixture.us105_audit(uuid), test_fixture.us105_age_scores(uuid),
+  test_fixture.us105_expire_session(uuid) TO app_api;
 
 REVOKE ALL ON FUNCTION test_fixture.us105_verify_phone(uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us105_verify_phone(uuid, text) TO app_api;

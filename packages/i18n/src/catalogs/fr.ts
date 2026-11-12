@@ -903,6 +903,9 @@ export const FR_MESSAGES = {
   'web.s04.consent.refusal':
     'Sans ce consentement, nous ne pouvons pas te vérifier, et tu ne pourras ni réserver ni publier une voiture.',
   'web.s04.consent.withdraw': 'Retirer mon consentement',
+  'web.s04.consent.withdrawHeading': 'Ton consentement biométrique',
+  'web.s04.consent.withdrawHint':
+    'Tu peux le retirer à tout moment. Nous demanderons au prestataire d’effacer tes données biométriques, et tu ne pourras plus réserver ni publier une voiture avant une nouvelle vérification.',
   'web.s04.consent.given': 'Tu as accepté le consentement biométrique.',
   'web.s04.country': 'Lieu de délivrance de ton permis',
   'web.s04.start': 'Vérifier mon identité',

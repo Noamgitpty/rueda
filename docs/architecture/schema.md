@@ -86,7 +86,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0068_config_listing_photo_params` | graine complémentaire : paramètres « listing_min_photos* » (US-115 ; 17 §7.2). |
 | `0069_config_listing_price_params` | graine complémentaire : paramètres « price_ceiling_* » (US-115 ; 17 §7.2). |
 | `0070_ctr_host_terms` | CTR : CGU de l'hôte versionnées (`TOS_HOST`), acceptation horodatée et garde de la |
-| `0071_kyc_identity_verification` | KYC : vérification d'identité par parcours hébergé et consentement biométrique. |
+| `0072_kyc_identity_verification` | KYC : vérification d'identité par parcours hébergé et consentement biométrique. |
 
 ## Rôles
 

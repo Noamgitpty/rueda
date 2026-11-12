@@ -1,5 +1,5 @@
 /**
- * Rappel de décision du fournisseur d'identité (US-105, ADR-101 ; 16 VER-001 ; 17 §4.4) :
+ * Rappel de décision du fournisseur d'identité (US-105, ADR-102 ; 16 VER-001 ; 17 §4.4) :
  * `POST /kyc/webhooks/{provider}`, public. Le corps BRUT est lu (`rawBody`, activé dans main.ts) :
  * la signature porte sur les octets reçus, jamais sur un JSON ré-sérialisé. Réponse sans corps ;
  * le statut seul porte le résultat (200 décision appliquée, rejouée ou ignorée ; 401 rejet

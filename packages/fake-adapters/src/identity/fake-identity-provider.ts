@@ -84,6 +84,16 @@ export interface IdentityDecisionEvent {
 
 const NO_CHECKS: IdentityChecks = { livenessScore: null, faceMatchScore: null, document: null };
 
+export interface ErasureRequest {
+  readonly idempotencyKey: string;
+  readonly sessionId: string;
+}
+
+export interface ErasureReceipt {
+  readonly attestationRef: string;
+  readonly erasedAt: Date;
+}
+
 export interface WebhookDelivery {
   readonly body: string;
   readonly signature: string;
@@ -102,7 +112,7 @@ export interface FakeIdentityProviderOptions {
   readonly env?: EnvironmentVariables;
 }
 
-type IdentityOp = 'start' | 'status' | 'webhook';
+type IdentityOp = 'start' | 'status' | 'webhook' | 'erase';
 
 interface Session {
   readonly sessionId: string;
@@ -118,6 +128,9 @@ export class FakeIdentityProvider {
   readonly #sessions = new Map<string, Session>();
   readonly #sessionIds = new Sequence('fk_idv');
   readonly #eventIds = new Sequence('fk_idv_evt');
+  readonly #erasures = new Sequence('fk_idv_erase');
+  /** Sessions effacées (lecture du test). */
+  readonly erased = new Set<string>();
   readonly #deliveries: { readonly dueAtMs: number; readonly delivery: WebhookDelivery }[] = [];
 
   constructor(options: FakeIdentityProviderOptions) {
@@ -171,6 +184,30 @@ export class FakeIdentityProvider {
           : session.state;
       return { ok: true, value: { sessionId, state, reasons: [...session.reasons] } };
     });
+  }
+
+  /**
+   * Efface les données d'une session (images, selfie, biométrie) et rend une attestation ; une
+   * session déjà effacée rend la même issue (idempotent) ; inconnue : `UNKNOWN_SESSION`.
+   */
+  async requestErasure(
+    request: ErasureRequest,
+  ): Promise<Outcome<ErasureReceipt, 'UNKNOWN_SESSION'>> {
+    return this.runtime.execute(
+      'erase',
+      { idempotencyKey: request.idempotencyKey, content: request },
+      () => {
+        if (!this.#sessions.has(request.sessionId) && !this.erased.has(request.sessionId)) {
+          return { ok: false, reason: 'UNKNOWN_SESSION' as const };
+        }
+        this.#sessions.delete(request.sessionId);
+        this.erased.add(request.sessionId);
+        return {
+          ok: true,
+          value: { attestationRef: this.#erasures.next(), erasedAt: this.runtime.clock.now() },
+        };
+      },
+    );
   }
 
   /** Vérifie et lit un rappel de décision (signature, fraîcheur, forme). */
@@ -272,10 +309,11 @@ function parseDecision(body: string): IdentityDecisionEvent | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
   const decidedAt = typeof r['decidedAt'] === 'string' ? new Date(r['decidedAt']) : null;
+  const id = (v: unknown): boolean => typeof v === 'string' && v.length >= 1 && v.length <= 200;
   if (
-    typeof r['eventId'] !== 'string' ||
-    typeof r['sessionId'] !== 'string' ||
-    typeof r['subjectRef'] !== 'string' ||
+    !id(r['eventId']) ||
+    !id(r['sessionId']) ||
+    !id(r['subjectRef']) ||
     typeof r['decision'] !== 'string' ||
     !DECISIONS.includes(r['decision']) ||
     !Array.isArray(r['reasons']) ||
@@ -288,9 +326,9 @@ function parseDecision(body: string): IdentityDecisionEvent | null {
   const checks = parseChecks(r['checks']);
   if (checks === null) return null;
   return {
-    eventId: r['eventId'],
-    sessionId: r['sessionId'],
-    subjectRef: r['subjectRef'],
+    eventId: r['eventId'] as string,
+    sessionId: r['sessionId'] as string,
+    subjectRef: r['subjectRef'] as string,
     decision: r['decision'] as IdentityDecision,
     reasons: r['reasons'] as string[],
     decidedAt,

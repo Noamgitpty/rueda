@@ -827,6 +827,27 @@
       "owner": "kyc_cmd_owner",
       "execute": ["app_api"],
       "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_pending_erasures(bytea)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_record_erasure(bytea,uuid,text,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_worker_prune(integer)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-105"
     }
   ]
 }

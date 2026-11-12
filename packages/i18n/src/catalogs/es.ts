@@ -872,6 +872,9 @@ export const ES_MESSAGES = {
   'web.s04.consent.refusal':
     'Sin este consentimiento no podemos verificarte, y no podrás reservar ni publicar un auto.',
   'web.s04.consent.withdraw': 'Retirar mi consentimiento',
+  'web.s04.consent.withdrawHeading': 'Tu consentimiento biométrico',
+  'web.s04.consent.withdrawHint':
+    'Puedes retirarlo cuando quieras. Pediremos al proveedor que borre tus datos biométricos y ya no podrás reservar ni publicar un auto hasta verificarte de nuevo.',
   'web.s04.consent.given': 'Aceptaste el consentimiento biométrico.',
   'web.s04.country': 'Lugar de emisión de tu licencia',
   'web.s04.start': 'Verificar mi identidad',

@@ -122,13 +122,17 @@ export function WithdrawForm({ localeTag }: { readonly localeTag: string }) {
   const { t, errorOf } = useMessages(localeTag, state);
   const formError = errorOf('s04-form');
   return (
-    <form className={styles['stackTight']} action={action}>
+    <form className={styles['stackTight']} action={action} aria-labelledby="s04-withdraw-heading">
+      <h2 id="s04-withdraw-heading" className={styles['h2']}>
+        {t('web.s04.consent.withdrawHeading')}
+      </h2>
+      <p className={styles['muted']}>{t('web.s04.consent.withdrawHint')}</p>
       {formError !== undefined && (
         <Banner tone="danger" live="assertive">
           {formError}
         </Banner>
       )}
-      <Button type="submit" variant="quiet" loading={pending}>
+      <Button type="submit" variant="secondary" loading={pending}>
         {t('web.s04.consent.withdraw')}
       </Button>
     </form>

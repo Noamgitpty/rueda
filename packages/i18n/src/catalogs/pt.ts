@@ -871,6 +871,9 @@ export const PT_MESSAGES = {
   'web.s04.consent.refusal':
     'Sem este consentimento não podemos confirmar sua identidade, e você não poderá reservar nem anunciar um carro.',
   'web.s04.consent.withdraw': 'Retirar meu consentimento',
+  'web.s04.consent.withdrawHeading': 'Seu consentimento biométrico',
+  'web.s04.consent.withdrawHint':
+    'Você pode retirá-lo quando quiser. Vamos pedir ao fornecedor que apague seus dados biométricos, e você não poderá reservar nem anunciar um carro até confirmar sua identidade de novo.',
   'web.s04.consent.given': 'Você aceitou o consentimento biométrico.',
   'web.s04.country': 'Local de emissão da sua carteira de motorista',
   'web.s04.start': 'Confirmar minha identidade',
