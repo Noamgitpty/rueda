@@ -177,7 +177,7 @@ export default async function VehicleCalendarPage({
         {vehicle.effectiveNoticeMinutes !== null && (
           <p className={accountStyles['text']}>
             {t('web.calendar.notice.current', {
-              duration: durationLabel(t, vehicle.effectiveNoticeMinutes),
+              duration: durationLabel(i18n, vehicle.effectiveNoticeMinutes),
             })}
           </p>
         )}
@@ -185,7 +185,7 @@ export default async function VehicleCalendarPage({
           {...ids}
           locationId={vehicle.locationId}
           current={vehicle.noticeMinutes}
-          options={presets.map((m) => ({ minutes: m, label: durationLabel(t, m) }))}
+          options={presets.map((m) => ({ minutes: m, label: durationLabel(i18n, m) }))}
         />
       </section>
     </>,

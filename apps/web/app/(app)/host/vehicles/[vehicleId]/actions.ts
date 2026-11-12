@@ -107,6 +107,10 @@ async function blockHoursImpl(form: FormData): Promise<CalendarFormState> {
   }
   if (!TIME.test(end))
     errors.push({ fieldId: `${formId}-end`, key: 'common.listing.field.required' });
+  // fin non postérieure au début : message de la période, rattaché au champ de fin
+  if (errors.length === 0 && end <= start) {
+    errors.push({ fieldId: `${formId}-end`, key: 'common.calendar.invalidPeriod' });
+  }
   if (errors.length > 0) return { errors };
   const reply = await callApi(
     'POST',

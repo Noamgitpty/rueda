@@ -21,6 +21,7 @@ La table d'occupation unique (ADR-060) et ses commandes de blocage existent depu
 ## Conséquences
 
 - Les critères 1 à 3 de 19 US-119 sont prouvés sur PostgreSQL sous `app_api`, en PA (USD, UTC−5) et en PY (PYG, UTC−3), y compris la concurrence (deux blocages, blocage contre hold : une seule occupation).
+- `catalog_cmd_owner` peut désormais déclencher une écriture d'occupation sous l'identité d'un hôte qu'il pose lui-même, et lit toutes les occupations actives (politique `catalog_cmd_read USING (active)`) : la séparation entre comptes repose sur chaque fonction de la famille (hôte de la session, filtres `org_id` et véhicule). Toute nouvelle fonction sous ce propriétaire hérite de ce pouvoir et doit être revue comme telle (revue architecture US-119 n° 2). Les listes de clés lues (`catalog_cmd_read`, `cmd_hold_read`) restent à tenir en phase : une clé manquante donne `PARAM_MISSING` (fail-closed).
 - Tout hold dont le départ est dans le préavis est désormais refusé ; les fixtures historiques (départs à plusieurs jours) ne sont pas touchées.
 - Routes `GET …/vehicles/{vehicleId}/calendar`, `POST …/vehicles/{vehicleId}/blocks`, `DELETE …/blocks/{blockId}`, `PUT …/locations/{locationId}/notice` (module CAT : l'espace de l'hôte y vit déjà, avec `SessionGuard` d'IAM ; AVL ne dépend pas d'IAM, 17 §2.2).
 

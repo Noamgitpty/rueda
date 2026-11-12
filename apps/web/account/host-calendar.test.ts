@@ -55,12 +55,14 @@ describe('durationLabel', () => {
   // première locale espagnole de la configuration (aucune locale écrite ici, ADR-024)
   const es = LOCALE_CONFIG.locales.find((l) => l.language === 'es');
   if (es === undefined) throw new Error('configuration sans locale espagnole');
-  const t = createTranslator(getProfile(LOCALE_CONFIG, es.tag)).t;
+  const i18n = createTranslator(getProfile(LOCALE_CONFIG, es.tag));
   it('heures, puis jours entiers', () => {
-    expect(durationLabel(t, 180)).toBe('3 horas');
-    expect(durationLabel(t, 60)).toBe('1 hora');
-    expect(durationLabel(t, 1_440)).toBe('1 día');
-    expect(durationLabel(t, 10_080)).toBe('7 días');
+    expect(durationLabel(i18n, 180)).toBe('3 horas');
+    expect(durationLabel(i18n, 60)).toBe('1 hora');
+    expect(durationLabel(i18n, 1_440)).toBe('1 día');
+    expect(durationLabel(i18n, 10_080)).toBe('7 días');
+    // demi-heure : séparateur décimal de la locale (es : virgule, config/locales.json)
+    expect(durationLabel(i18n, 90)).toBe(`1${es.number.decimal}5 horas`);
   });
 
   it('préavis proposés : 1 h à 7 jours, au pas de 30 min', () => {

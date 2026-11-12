@@ -103,10 +103,16 @@ export const NOTICE_PRESETS: readonly number[] = [
   60, 120, 180, 360, 720, 1_440, 2_880, 4_320, 10_080,
 ];
 
-/** Durée lisible : en jours si elle tombe sur des jours entiers, sinon en heures. */
-export function durationLabel(t: Translator['t'], minutes: number): string {
+/**
+ * Durée lisible : en jours si elle tombe sur des jours entiers, sinon en heures ; une demi-heure
+ * s'écrit avec le séparateur décimal de la locale (« 1,5 horas »), jamais « 1.5 ».
+ */
+export function durationLabel(i18n: Translator, minutes: number): string {
   if (minutes >= 1_440 && minutes % 1_440 === 0) {
-    return t('web.calendar.duration.days', { count: minutes / 1_440 });
+    return i18n.t('web.calendar.duration.days', { count: minutes / 1_440 });
   }
-  return t('web.calendar.duration.hours', { count: minutes / 60 });
+  const hours = minutes / 60;
+  return i18n.t('web.calendar.duration.hours', {
+    count: Number.isInteger(hours) ? hours : i18n.number(hours),
+  });
 }
