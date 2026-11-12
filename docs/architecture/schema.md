@@ -2866,8 +2866,6 @@ Index :
 
 Politiques RLS :
 
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `(psp_account_id IS NOT NULL)`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`

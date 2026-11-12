@@ -52,7 +52,10 @@ describe('calendarOf', () => {
 });
 
 describe('durationLabel', () => {
-  const t = createTranslator(getProfile(LOCALE_CONFIG, 'es-PA')).t;
+  // première locale espagnole de la configuration (aucune locale écrite ici, ADR-024)
+  const es = LOCALE_CONFIG.locales.find((l) => l.language === 'es');
+  if (es === undefined) throw new Error('configuration sans locale espagnole');
+  const t = createTranslator(getProfile(LOCALE_CONFIG, es.tag)).t;
   it('heures, puis jours entiers', () => {
     expect(durationLabel(t, 180)).toBe('3 horas');
     expect(durationLabel(t, 60)).toBe('1 hora');
