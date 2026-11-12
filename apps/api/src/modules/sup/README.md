@@ -29,6 +29,7 @@ SUP ne décide pas les règles des autres modules : une action de console appell
   - `POST /console/users/search`, `POST /console/users/{id}/profile` (fiche 360°, journalisée `READ_C2_SUPPORT`), `POST /console/users/{id}/notes`.
   - `POST /console/cases`, `POST /console/cases/{id}/status`.
   - `POST /console/evidence` : type réel, taille, droit, antivirus, puis dépôt chiffré ; en production : 503 tant qu'US-003 et Q-019 ne sont pas livrés.
+  - `POST /console/queues/items/{id}/catalog-addition` et `…/catalog-addition/resolve` (US-114, ADR-104) : demande d'ajout au catalogue d'un élément `CATALOG_ADDITION` pris en charge (variantes candidates) et décision `MERGE` / `APPROVE` / `REJECT` (409 `CATALOG_REQUEST_CLOSED`, `CATALOG_VARIANT_EXISTS` ; 422 `CATALOG_VARIANT_NOT_FOUND`, `CATALOG_ENTRY_INVALID`) ; les écritures au catalogue sont faites par les fonctions de domaine de CAT (`catalog_cmd_owner`).
   - Couverture : un OPS ou un SUPPORT sans dossier ni élément assigné reçoit 403 `STAFF_CASE_REQUIRED` ; un ADMIN lit sa portée pays. Restrictions : actions `RESTRICT_ACCOUNT` et `LIFT_RESTRICTION` de `POST /console/actions` (saisie `kind`).
 - À venir : gestes commerciaux (US-533), console à rôles complets (US-534), commandes de domaine d'état liées par leurs stories (US-208, US-123, US-124…), mise en file par les commandes productrices (US-106, US-108, US-114, US-118, US-209).
 
