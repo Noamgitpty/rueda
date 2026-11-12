@@ -682,7 +682,7 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'catalog_vehicle',
           // US-124 (0077, ADR-107) : même règle (commandes de l'hôte et fonctions de domaine de
           // catalog_cmd_owner, console d'iam_staff_owner)
-          // US-124, correctif (0083, ADR-112) : historique des engagements, même règle
+          // US-124, correctif (0083, ADR-113) : historique des engagements, même règle
           'catalog_vehicle_attestation',
           'catalog_vehicle_claim',
           'catalog_vehicle_document',

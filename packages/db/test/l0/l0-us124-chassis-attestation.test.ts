@@ -5,7 +5,7 @@
  *
  * Attendus tirés d'ISO 3779 (VIN de 17 caractères, ni I, ni O, ni Q), de 08 BR-LIST-04, de la
  * décision du fondateur DEC-FONDATEUR-22 (« jamais plus lourd que Turo » : un châssis court
- * d'importation japonaise, « modèle-numéro » comme GRJ150-0012345, n'est pas bloqué), d'ADR-112
+ * d'importation japonaise, « modèle-numéro » comme GRJ150-0012345, n'est pas bloqué), d'ADR-113
  * (deux formats, normalisation commune : majuscules, sans espace ni tiret ; refus dédié
  * VEHICLE_VIN_INVALID ; engagements historisés avec la version et le libellé affichés, comme le
  * consentement versionné des CGU d'US-102 / US-126) et du BOARD N-61 (contestation), jamais du
@@ -94,7 +94,7 @@ const isoVin = (): string => {
  * chiffres) ; série tirée au hasard pour qu'aucun test n'en partage un.
  */
 const jpChassis = (): string => `GRJ150-${String(randomInt(0, 10_000_000)).padStart(7, '0')}`;
-/** Forme normalisée attendue (ADR-112) : majuscules, sans espace ni tiret. */
+/** Forme normalisée attendue (ADR-113) : majuscules, sans espace ni tiret. */
 const normalized = (raw: string): string => raw.toUpperCase().replace(/[ -]/g, '');
 
 async function vehicle(
@@ -205,7 +205,7 @@ const attestations = async (c: pg.ClientBase, id: string): Promise<Attestation[]
   (await c.query<Attestation>('SELECT * FROM test_fixture.us124_attestations($1)', [id])).rows;
 
 // ---------------------------------------------------------------------------------------------
-describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-112, DEC-FONDATEUR-22)', () => {
+describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FONDATEUR-22)', () => {
   it.each(byCountry)(
     '%s (%s) : VIN ISO valide accepté (majuscules) ; 17 caractères avec I, O ou Q, trop court ou trop long ⇒ VEHICLE_VIN_INVALID, à la création comme à la déclaration ; témoin d’un seul caractère',
     async (country, _currency, cc: CountryCase) => {
@@ -332,7 +332,7 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-112, DEC-FO
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('engagements de l’hôte : historique ajout seul, version et libellé affichés (ADR-112)', () => {
+describe('engagements de l’hôte : historique ajout seul, version et libellé affichés (ADR-113)', () => {
   it.each(byCountry)(
     '%s (%s) : chaque déclaration AJOUTE ses engagements (clé, version du catalogue, langue, libellé exact, auteur, pays) ; rien n’est réécrit ; ancienne signature : engagement sans libellé',
     async (country, _currency, cc: CountryCase) => {

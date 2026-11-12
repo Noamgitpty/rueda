@@ -4362,7 +4362,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Champ obligatoire absent ou invalide selon la base ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-112)",
+            "description": "Champ obligatoire absent ou invalide selon la base ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-113)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -7258,7 +7258,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Champ refusé par la base (VIN déjà enregistré différent, libellé des engagements) ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-112)",
+            "description": "Champ refusé par la base (VIN déjà enregistré différent, libellé des engagements) ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-113)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -13192,7 +13192,7 @@
           },
           "locale": {
             "type": ["string", "null"],
-            "description": "Langue de l'écran où l'hôte a coché ses engagements (es, en, fr, pt, ou étiquette comme pt-BR) ; absente : es. Le libellé affiché et la version du catalogue sont historisés (ADR-112)"
+            "description": "Langue de l'écran où l'hôte a coché ses engagements (es, en, fr, pt, ou étiquette comme pt-BR) ; absente : es. Le libellé affiché et la version du catalogue sont historisés (ADR-113)"
           }
         }
       },

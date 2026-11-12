@@ -1,7 +1,7 @@
 -- 0083 — CAT : numéro de châssis en deux formats (VIN ISO 3779 ou numéro non ISO) et historique des engagements de l'hôte.
 -- US-124, correctif de la seconde passe des revues (code 3, architecture 4, ux 3, qa 6, sécurité 5) ;
 -- 08 BR-LIST-04 ; 16 HST-011, HST-019 ; 19 US-124 ; DEC-FONDATEUR-22 (« jamais plus lourd que
--- Turo ») ; ADR-107 et ADR-112 (cette migration). Appliquée sous `migrator`, en une transaction.
+-- Turo ») ; ADR-107 et ADR-113 (cette migration). Appliquée sous `migrator`, en une transaction.
 --
 -- 1. Numéro de châssis : deux formats acceptés, sans constante d'année ni de pays.
 --    - VIN ISO 3779 : 17 caractères, ni I, ni O, ni Q. Le chiffre de contrôle (position 9) n'est
@@ -55,7 +55,7 @@ AS $fn$
 $fn$;
 COMMENT ON FUNCTION core.catalog_vin_kind(text) IS
   'Format d''un numéro de châssis normalisé : ISO_3779 (17 caractères sans I, O, Q ; chiffre de '
-  'contrôle non vérifié), CHASSIS (5 à 16 lettres ou chiffres, non ISO), sinon NULL. US-124 (ADR-112).';
+  'contrôle non vérifié), CHASSIS (5 à 16 lettres ou chiffres, non ISO), sinon NULL. US-124 (ADR-113).';
 REVOKE ALL ON FUNCTION core.catalog_vin_kind(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.catalog_vin_kind(text) TO catalog_cmd_owner;
 
@@ -65,7 +65,7 @@ ALTER TABLE core.catalog_vehicle ADD CONSTRAINT catalog_vehicle_vin_iso
   CHECK (vin IS NULL OR vin ~ '^[A-HJ-NPR-Z0-9]{17}$' OR vin ~ '^[A-Z0-9]{5,16}$');
 COMMENT ON CONSTRAINT catalog_vehicle_vin_iso ON core.catalog_vehicle IS
   'Numéro de châssis normalisé : VIN ISO 3779 (17 caractères sans I, O, Q) ou numéro non ISO de '
-  '5 à 16 caractères ; aucune année ni aucun pays (ADR-112). US-124.';
+  '5 à 16 caractères ; aucune année ni aucun pays (ADR-113). US-124.';
 
 -- 2. Historique des engagements de l'hôte (ajout seul) --------------------------------------------
 CREATE TABLE core.catalog_vehicle_attestation (
@@ -115,7 +115,7 @@ CREATE TRIGGER catalog_vehicle_attestation_no_truncate
 COMMENT ON TABLE core.catalog_vehicle_attestation IS
   'CAT : engagements horodatés de l''hôte sur un véhicule (propriétaire ou autorisé ; non gagé ou '
   'accord du créancier), un par engagement pris, avec la version du catalogue, la langue et le '
-  'libellé exact affichés ; ajout seul, jamais modifié ni supprimé. US-124 (ADR-112).';
+  'libellé exact affichés ; ajout seul, jamais modifié ni supprimé. US-124 (ADR-113).';
 
 ALTER TABLE core.catalog_vehicle_attestation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE core.catalog_vehicle_attestation FORCE ROW LEVEL SECURITY;
@@ -173,7 +173,7 @@ BEGIN
     r := r || 'VEHICLE_TOO_OLD'::text;
   END IF;
   -- plaque et numéro de châssis saisis (VIN ISO 3779 ou numéro non ISO, quelle que soit l'année :
-  -- tout véhicule en porte un ; ADR-112), compteur et titulaire déclarés
+  -- tout véhicule en porte un ; ADR-113), compteur et titulaire déclarés
   IF v.odometer_km IS NULL OR v.title_holder IS NULL OR v.vin IS NULL THEN
     r := r || 'VEHICLE_FIELD_REQUIRED'::text;
   ELSIF v.odometer_km >= v_km THEN
@@ -270,7 +270,7 @@ BEGIN
     RETURN;
   END IF;
   -- numéro de châssis saisi : VIN ISO 3779 ou numéro non ISO (importation japonaise), sinon refus
-  -- dédié (ADR-112)
+  -- dédié (ADR-113)
   IF p_vin IS NOT NULL AND core.catalog_vin_kind(v_vin) IS NULL THEN
     RETURN QUERY SELECT 'VEHICLE_VIN_INVALID'::text, NULL::uuid;
     RETURN;
@@ -350,7 +350,7 @@ COMMENT ON FUNCTION core.catalog_cmd_create_vehicle(bytea, uuid, uuid, text, tex
   'Véhicule de l''hôte : plaque et numéro de châssis (VIN ISO 3779 ou non ISO) uniques parmi les '
   'véhicules non libérés, variante du marché du compte ; hors catalogue : demande d''ajout et '
   'élément de file dans la même instruction. SECURITY DEFINER, EXECUTE app_api. US-115 (ADR-099) ; '
-  'US-114 (ADR-104) ; US-124 (ADR-107, ADR-112).';
+  'US-114 (ADR-104) ; US-124 (ADR-107, ADR-113).';
 
 -- 4.2 Déclarations et engagements de l'hôte (corps de 0077 étendu). Aide interne commune aux deux
 -- signatures de la commande ; libellé (langue, version, textes) NULL : ancienne signature.
@@ -391,7 +391,7 @@ BEGIN
     RETURN QUERY SELECT 'VEHICLE_FIELD_REQUIRED'::text, NULL::uuid;
     RETURN;
   END IF;
-  -- numéro saisi : VIN ISO 3779 ou numéro non ISO, sinon refus dédié (ADR-112)
+  -- numéro saisi : VIN ISO 3779 ou numéro non ISO, sinon refus dédié (ADR-113)
   IF p_vin IS NOT NULL AND core.catalog_vin_kind(v_vin) IS NULL THEN
     RETURN QUERY SELECT 'VEHICLE_VIN_INVALID'::text, NULL::uuid;
     RETURN;
@@ -445,7 +445,7 @@ $fn$;
 COMMENT ON FUNCTION core.catalog_vehicle_declare(bytea, uuid, uuid, text, boolean, integer, boolean, boolean, text, text, integer, text, text) IS
   'Déclarations de l''hôte et historique de ses engagements (libellé, langue, version du '
   'catalogue) ; aide interne des deux signatures de catalog_cmd_declare_vehicle, sous '
-  'catalog_cmd_owner, jamais exécutable par un rôle applicatif. US-124 (ADR-112).';
+  'catalog_cmd_owner, jamais exécutable par un rôle applicatif. US-124 (ADR-113).';
 REVOKE ALL ON FUNCTION core.catalog_vehicle_declare(bytea, uuid, uuid, text, boolean, integer,
   boolean, boolean, text, text, integer, text, text) FROM PUBLIC;
 
@@ -485,7 +485,7 @@ $fn$;
 COMMENT ON FUNCTION core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer, boolean, boolean, text, text, integer, text, text) IS
   'Déclarations et engagements horodatés de l''hôte, historisés avec le libellé affiché (langue, '
   'version du catalogue) ; numéro de châssis ISO 3779 ou non ISO saisi s''il manquait ; un '
-  'véhicule ELIGIBLE redevient PENDING. SECURITY DEFINER, EXECUTE app_api. US-124 (ADR-107, ADR-112).';
+  'véhicule ELIGIBLE redevient PENDING. SECURITY DEFINER, EXECUTE app_api. US-124 (ADR-107, ADR-113).';
 
 -- 4.4 Ancienne signature (version N de l'API) : même règle, engagement historisé sans libellé.
 CREATE OR REPLACE FUNCTION core.catalog_cmd_declare_vehicle(p_token_hash bytea, p_org uuid,
@@ -511,7 +511,7 @@ $fn$;
 COMMENT ON FUNCTION core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer, boolean, boolean, text) IS
   'Ancienne signature (version N de l''API) : déclarations et engagements de l''hôte, historisés '
   'sans libellé connu ; numéro de châssis ISO 3779 ou non ISO. SECURITY DEFINER, EXECUTE app_api. '
-  'US-124 (ADR-107, ADR-112).';
+  'US-124 (ADR-107, ADR-113).';
 
 REVOKE ALL ON FUNCTION core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer,
   boolean, boolean, text, text, integer, text, text) FROM PUBLIC;

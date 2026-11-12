@@ -145,7 +145,7 @@ export class PgVehicleDocumentStore implements VehicleDocumentStore {
   }
 
   async declare(proof: Buffer, orgId: string, vehicleId: string, i: DeclarationInput) {
-    // libellé affiché des engagements, historisé par la base avec sa version (ADR-112)
+    // libellé affiché des engagements, historisé par la base avec sa version (ADR-113)
     const wording = attestationWording(i.locale);
     const r = await this.#one<{ outcome: string }>(
       'déclaration du véhicule',

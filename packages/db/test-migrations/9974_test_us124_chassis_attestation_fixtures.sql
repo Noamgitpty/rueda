@@ -6,7 +6,7 @@
 -- Relectures (SECURITY DEFINER sous migrator, search_path figé, EXECUTE au seul app_api) de
 -- l'historique des engagements, que les rôles applicatifs ne lisent pas, et tentative de
 -- modification ou de suppression d'un engagement (preuve de l'ajout seul : SQLSTATE rendu). Les
--- attendus du test viennent de 08 BR-LIST-04, d'ISO 3779, de DEC-FONDATEUR-22 et d'ADR-112,
+-- attendus du test viennent de 08 BR-LIST-04, d'ISO 3779, de DEC-FONDATEUR-22 et d'ADR-113,
 -- jamais de ces relectures.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us124_attestations(uuid),

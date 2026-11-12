@@ -34,7 +34,7 @@ describe('plaque et VIN (critère 1, L1-PM-20)', () => {
     expect(normalizePlate('-')).toBeNull();
   });
 
-  it('numéro de châssis normalisé (majuscules, sans espace ni tiret), sans année ; format jugé par la base (ADR-112)', () => {
+  it('numéro de châssis normalisé (majuscules, sans espace ni tiret), sans année ; format jugé par la base (ADR-113)', () => {
     expect(normalizeVin('1hgcm 82633a00435-2')).toBe('1HGCM82633A004352');
     expect(normalizeVin('1hgcm82633a004352')).toBe('1HGCM82633A004352');
     // châssis court d'une importation japonaise : normalisé, jamais refusé ici

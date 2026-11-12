@@ -207,7 +207,7 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
       ownershipAttested: true,
       lienAttested: true,
       vin: '1hgcm82633a004352',
-      // langue de l'écran absente : es, qui fait foi (libellé historisé, ADR-112)
+      // langue de l'écran absente : es, qui fait foi (libellé historisé, ADR-113)
       locale: 'es',
     });
     // langue de l'écran : celle du catalogue (pt-BR ⇒ pt) ; hors catalogue ⇒ 400
@@ -219,7 +219,7 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
       code: 'REQUEST_INVALID',
       fields: [{ field: 'locale', reason: 'INVALID' }],
     });
-    // châssis court d'une importation japonaise : transmis tel quel, la base juge (ADR-112)
+    // châssis court d'une importation japonaise : transmis tel quel, la base juge (ADR-113)
     expect((await send({ ...body, vin: 'GRJ150-0012345' })).status).toBe(200);
     expect(w.docs.declared.at(-1)).toMatchObject({ vin: 'GRJ150-0012345' });
     expect((await send({ ...body, titleHolder: 'OWNER' })).json).toMatchObject({

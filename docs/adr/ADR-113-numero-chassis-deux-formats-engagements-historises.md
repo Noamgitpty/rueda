@@ -1,4 +1,4 @@
-# ADR-112 — Numéro de châssis en deux formats (VIN ISO 3779 ou non ISO) et historique des engagements de l'hôte
+# ADR-113 — Numéro de châssis en deux formats (VIN ISO 3779 ou non ISO) et historique des engagements de l'hôte
 
 - **Statut** : PROPOSÉ (correctif d'US-124, agent back-end, claude-opus-5-5, 2026-11-12). Complète ADR-107. Revues exigées (`review-requirements.json`, story US-124) : code, architecture, **sécurité**, ux, qa ; sécurité sur un autre modèle que l'auteur.
 - **Sources** : revues de la seconde passe d'US-124 (code 3, architecture 4, ux 3, qa 6, sécurité 5) ; 08 BR-LIST-04 ; 16 HST-011, HST-019 ; ISO 3779 ; DEC-FONDATEUR-22 (« jamais plus lourd que Turo ») ; consentement versionné des CGU (US-102, US-126, ADR-100).

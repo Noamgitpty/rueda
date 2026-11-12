@@ -521,7 +521,7 @@ describe('critère 1 — plaque ou VIN déjà enregistrés : VEHICLE_PLATE_DUPLI
           'VEHICLE_FIELD_REQUIRED',
         );
         // VIN mal formé (17 caractères : lu comme ISO 3779, qui interdit I, O et Q) : refus dédié
-        // (US-124, correctif, ADR-112)
+        // (US-124, correctif, ADR-113)
         expect(
           (await vehicle(client, b, lb, { plate: plate(), vin: 'IOQ45678901234567' })).outcome,
         ).toBe('VEHICLE_VIN_INVALID');

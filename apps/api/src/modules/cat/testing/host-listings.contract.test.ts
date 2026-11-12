@@ -332,7 +332,7 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     });
     expect(bad.status).toBe(400);
     const fields = (bad.json as { fields: { field: string }[] }).fields.map((f) => f.field).sort();
-    // le format du numéro de châssis est jugé par la base (ADR-112) : ici, seuls les caractères
+    // le format du numéro de châssis est jugé par la base (ADR-113) : ici, seuls les caractères
     expect(fields).toEqual(['plate', 'seats']);
     expect(bad.text).not.toContain('IOQ');
     const dotted = await api.request('POST', `${base}/vehicles`, {
@@ -360,7 +360,7 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
         })
       ).status,
     ).toBe(422);
-    // numéro de châssis refusé par la base : message dédié (ADR-112)
+    // numéro de châssis refusé par la base : message dédié (ADR-113)
     w.store.forced = 'VEHICLE_VIN_INVALID';
     const vinRefused = await api.request('POST', `${base}/vehicles`, {
       headers: w.a,

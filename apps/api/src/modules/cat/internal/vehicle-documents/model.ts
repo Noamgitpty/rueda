@@ -34,14 +34,14 @@ export interface DeclarationInput {
   readonly lienAttested: boolean;
   /**
    * Numéro de châssis saisi s'il manquait : VIN ISO 3779 ou numéro non ISO (la base le normalise,
-   * juge son format et le refuse s'il est pris ; ADR-112).
+   * juge son format et le refuse s'il est pris ; ADR-113).
    */
   readonly vin: string | null;
   /** Langue du catalogue de l'écran où l'hôte a coché ses engagements (défaut : es, qui fait foi). */
   readonly locale: CatalogLanguage;
 }
 
-/** Libellé des engagements tel qu'affiché à l'hôte : historisé par la base (ADR-112). */
+/** Libellé des engagements tel qu'affiché à l'hôte : historisé par la base (ADR-113). */
 export interface AttestationWording {
   readonly locale: CatalogLanguage;
   readonly catalogVersion: number;

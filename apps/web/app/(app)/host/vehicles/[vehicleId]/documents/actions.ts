@@ -59,7 +59,7 @@ function errorsOf(reply: ApiResult, formId: string, fieldIds: Record<string, str
     return [{ fieldId: formId, key: 'common.listing.unavailable' }];
   }
   const key = messageKeyOf(reply);
-  // numéro de châssis refusé par la base : message dédié, sous le champ (ADR-112)
+  // numéro de châssis refusé par la base : message dédié, sous le champ (ADR-113)
   const vinField = fieldIds['vin'];
   if (key === 'common.vehicleDocs.vinInvalid' && vinField !== undefined) {
     return [{ fieldId: vinField, key }];
@@ -108,7 +108,7 @@ async function declareImpl(form: FormData): Promise<DocumentsFormState> {
       ownershipAttested: form.get('owner') === 'on',
       lienAttested: form.get('lienOk') === 'on',
       vin: vin === '' ? null : vin,
-      // langue de l'écran : la base historise le libellé exact des engagements cochés (ADR-112)
+      // langue de l'écran : la base historise le libellé exact des engagements cochés (ADR-113)
       locale: await getRequestLocaleTag(),
     },
   );

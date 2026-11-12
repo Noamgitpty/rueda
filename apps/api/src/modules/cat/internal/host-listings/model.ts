@@ -104,7 +104,7 @@ export function normalizePlate(raw: string): string | null {
  * Numéro de châssis normalisé (majuscules, sans espace ni tiret, comme la base) ; caractère
  * étranger : `null`. Son FORMAT (VIN ISO 3779, ou numéro non ISO comme le châssis court d'une
  * importation japonaise) est jugé par la base seule, sans année ni pays : `VEHICLE_VIN_INVALID`
- * (ADR-112).
+ * (ADR-113).
  */
 export function normalizeVin(raw: string): string | null {
   if (!/^[A-Za-z0-9 -]{1,40}$/.test(raw)) return null;
