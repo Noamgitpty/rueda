@@ -10841,6 +10841,7 @@
           "country",
           "accessId",
           "kycStatus",
+          "verification",
           "pseudonymized",
           "legalFirstName",
           "legalLastName",
@@ -10862,7 +10863,18 @@
             "$ref": "#/components/schemas/Uuid"
           },
           "kycStatus": {
-            "enum": ["NOT_STARTED"]
+            "$ref": "#/components/schemas/KycStatus"
+          },
+          "verification": {
+            "description": "Vérification courante (US-106) : données minimales, scores C3 ; null sans vérification. Lecture journalisée READ_C3.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KycDossierVerification"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "pseudonymized": {
             "type": "boolean"
@@ -10888,6 +10900,166 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KycDossierVerification": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "reasonCode",
+          "attempt",
+          "country",
+          "updatedAt",
+          "consentCurrent",
+          "document",
+          "liveness"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KycStatus"
+          },
+          "reasonCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "consentCurrent": {
+            "type": "boolean"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "type",
+                  "issuingCountry",
+                  "expiresOn",
+                  "licenseClass",
+                  "permanent",
+                  "status"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "DRIVER_LICENSE",
+                      "NATIONAL_ID",
+                      "FOREIGN_RESIDENT_ID",
+                      "PASSPORT",
+                      "IDP"
+                    ]
+                  },
+                  "issuingCountry": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "expiresOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "licenseClass": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "permanent": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "enum": ["ACCEPTED", "IN_REVIEW"]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "liveness": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": ["result", "livenessScore", "faceMatchScore", "erased"],
+                "additionalProperties": false,
+                "properties": {
+                  "result": {
+                    "enum": ["APPROVED", "DECLINED", "REVIEW"]
+                  },
+                  "livenessScore": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "faceMatchScore": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "erased": {
+                    "type": "boolean"
+                  }
+                }
               },
               {
                 "type": "null"
@@ -11023,7 +11195,7 @@
             "additionalProperties": false,
             "properties": {
               "status": {
-                "enum": ["NOT_STARTED"]
+                "$ref": "#/components/schemas/KycStatus"
               }
             }
           },
@@ -12264,8 +12436,8 @@
             ]
           },
           "reasonCode": {
-            "type": ["string", "null"],
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+            "description": "Catégorie de reprise après une nouvelle pièce demandée (US-106, 08 BR-VERIF-03) ; null pour tout autre état ou motif.",
+            "enum": ["LIVENESS_FAILED", "ID_DOCUMENT_REFUSED", "LICENSE_NOT_ACCEPTED", null]
           },
           "licenseExpiresOn": {
             "type": ["string", "null"],

@@ -45,10 +45,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `ntf.catalogAdditionApproved.*` et `ntf.catalogAdditionRejected.*`.
  Version 24 : inscription et vérification de l'hôte, profil fiscal (US-123) :
  `common.hostVerification.*`, `web.a07.*` (liste de tâches A07, dont `web.a07.waitingCountry` de
- 10b §4.3) et `web.host.verificationLink`.
- Version 26 (la 25 est réservée à US-106) : documents et éligibilité du véhicule, contestation de
- plaque (US-124) : `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`,
- `web.listing.hostName` et `backoffice.vehicle.*`.
+ 10b §4.3) et `web.host.verificationLink`. Version 25 : décision KYC de l'ops (US-106) : états
+ SM-3, motifs, champs du permis, scores, contrôles cochés et refus `backoffice.kyc.*` ; messages
+ au voyageur `web.s04.result.rejected*` et `web.s04.moreInfo.*`.
+ Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
+ `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
+ `backoffice.vehicle.*`.
  */
 export const CATALOG_VERSION = 26;
 

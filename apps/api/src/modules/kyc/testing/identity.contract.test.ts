@@ -28,6 +28,7 @@ import {
   LICENSE_DOCUMENT_KIND,
 } from '../internal/identity.service.js';
 import { kycCountries } from '../internal/production.js';
+import type { KycStatus } from '../internal/identity-store.js';
 import { FakeIdentityStore } from './fake-identity-store.js';
 
 const PROVIDER = 'FAKE';
@@ -126,6 +127,26 @@ describe('US-105 — GET /identity et consentement biométrique (VER-004)', () =
     expect((await w.app.api.request('GET', '/identity')).status).toBe(401);
     w.store.failing = true;
     expect((await w.app.api.request('GET', '/identity', { headers: w.guest })).status).toBe(503);
+  });
+
+  // US-106 (08 BR-VERIF-03) : jamais le motif brut d'un refus ; seulement la catégorie de reprise
+  it('motif rendu au voyageur : catégorie de reprise d’une nouvelle pièce seulement, jamais un refus ni un doublon', async () => {
+    const w = await world();
+    const reason = async (status: KycStatus, code: string | null) => {
+      w.store.setDecision(w.guestHash, status, code);
+      const r = await w.app.api.request('GET', '/identity', { headers: w.guest });
+      expect(r.status).toBe(200);
+      return (r.json as { reasonCode: unknown }).reasonCode;
+    };
+    expect(await reason('MORE_INFO_REQUIRED', 'LIVENESS_FAILED')).toBe('LIVENESS_FAILED');
+    expect(await reason('MORE_INFO_REQUIRED', 'ID_DOCUMENT_REFUSED')).toBe('ID_DOCUMENT_REFUSED');
+    expect(await reason('MORE_INFO_REQUIRED', 'LICENSE_NOT_ACCEPTED')).toBe('LICENSE_NOT_ACCEPTED');
+    expect(await reason('MORE_INFO_REQUIRED', 'DUPLICATE_ACCOUNT')).toBeNull();
+    expect(await reason('MORE_INFO_REQUIRED', 'MORE_INFO_REQUESTED')).toBeNull();
+    expect(await reason('REJECTED', 'DUPLICATE_ACCOUNT')).toBeNull();
+    expect(await reason('REJECTED', 'LIVENESS_FAILED')).toBeNull();
+    expect(await reason('MANUAL_REVIEW', 'PROVIDER_REVIEW')).toBeNull();
+    expect(await reason('RECHECK', 'CONSENT_WITHDRAWN')).toBeNull();
   });
 
   it('acceptation de la version affichée ; version périmée 409 ; retrait ; refus', async () => {

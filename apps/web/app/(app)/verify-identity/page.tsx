@@ -21,6 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 interface IdentityStateView {
   readonly status: string;
+  /** Motif du dossier (catégorie seulement, jamais le texte de l'ops ; US-106). */
+  readonly reasonCode: string | null;
   readonly country: string | null;
   readonly licenseExpiresOn: string | null;
   readonly sessionLive: boolean;
@@ -82,8 +84,10 @@ function stateOf(reply: ApiResult): IdentityStateView | null {
   ) as unknown as IdentityStateView['countries'];
   const country = j['country'];
   const expires = j['licenseExpiresOn'];
+  const reason = j['reasonCode'];
   return {
     status: j['status'],
+    reasonCode: typeof reason === 'string' && STATUS.test(reason) ? reason : null,
     country: typeof country === 'string' && /^[A-Z]{2}$/.test(country) ? country : null,
     licenseExpiresOn: typeof expires === 'string' && DAY.test(expires) ? expires : null,
     sessionLive: j['sessionLive'] === true,
@@ -95,6 +99,19 @@ function stateOf(reply: ApiResult): IdentityStateView | null {
 }
 
 const REVIEW = new Set(['AUTO_CHECKS', 'MANUAL_REVIEW']);
+/**
+ * Conseil de reprise après une décision de l'ops « nouvelle pièce » (US-106), selon la catégorie du
+ * motif ; tout autre motif : conseil général (jamais le détail d'un contrôle, BR-VERIF-03).
+ */
+const MORE_INFO_KEYS = {
+  LIVENESS_FAILED: 'web.s04.moreInfo.LIVENESS_FAILED',
+  ID_DOCUMENT_REFUSED: 'web.s04.moreInfo.ID_DOCUMENT_REFUSED',
+  LICENSE_NOT_ACCEPTED: 'web.s04.moreInfo.LICENSE_NOT_ACCEPTED',
+} as const;
+const moreInfoKey = (reason: string | null) =>
+  reason !== null && reason in MORE_INFO_KEYS
+    ? MORE_INFO_KEYS[reason as keyof typeof MORE_INFO_KEYS]
+    : 'web.s04.moreInfo.generic';
 // RECHECK : après un retrait du consentement, la vérification se refait depuis l'étape 1
 const OPEN = new Set([
   'NOT_STARTED',
@@ -175,6 +192,20 @@ export default async function VerifyIdentityPage({
         </Banner>
       </>
     );
+  } else if (state.status === 'REJECTED') {
+    // décision de l'ops (US-106) : refus annoncé, sans le détail des contrôles (BR-VERIF-03)
+    body = (
+      <>
+        {progress(4)}
+        <Banner tone="danger" live="polite">
+          {t('web.s04.result.rejected')}
+        </Banner>
+        {/* renvoie au retrait proposé plus bas : seulement s'il est proposé (consentement donné) */}
+        {state.consent?.accepted === true && (
+          <p className={styles['muted']}>{t('web.s04.result.rejectedHelp')}</p>
+        )}
+      </>
+    );
   } else if (!OPEN.has(state.status)) {
     body = (
       <Banner tone="danger" live="polite">
@@ -208,9 +239,12 @@ export default async function VerifyIdentityPage({
       <>
         {progress(state.sessionLive ? 3 : 2)}
         {state.status === 'MORE_INFO_REQUIRED' && (
-          <Banner tone="warning" live="polite">
-            {t('web.s04.result.retake')}
-          </Banner>
+          <>
+            <Banner tone="warning" live="polite">
+              {t('web.s04.result.retake')}
+            </Banner>
+            <p className={styles['muted']}>{t(moreInfoKey(state.reasonCode))}</p>
+          </>
         )}
         <Banner tone="success">{t('web.s04.consent.given')}</Banner>
         {!state.phoneVerified ? (

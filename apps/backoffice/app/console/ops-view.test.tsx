@@ -5,14 +5,26 @@
  * consultation annoncée comme journalisée (ADM-032), fiche 360° avec statut KYC sans pièce,
  * restriction active annoncée et comptes d'hôte fermés à la réservation (ADM-005), restriction et
  * levée motivées, aucune saisie de montant ; demande d'ajout au catalogue (US-114, 16 ADM-036) :
- * variantes candidates à rattacher, création sous licence, refus motivé, aucune donnée personnelle. Textes attendus : catalogue @rueda/i18n (es fait foi).
+ * variantes candidates à rattacher, création sous licence, refus motivé, aucune donnée personnelle.
+ * US-106 : dossier KYC complété (état SM-3, motif, permis, scores, aucune image) et formulaire de
+ * décision (quatre contrôles cochés jamais pré-cochés, motif, trois décisions de SM-3) seulement
+ * pour un dossier en revue ; refus de la commande expliqués. Textes attendus : catalogue
+ * @rueda/i18n (es fait foi).
  */
 import { CATALOGS, createTranslator } from '@rueda/i18n';
 import { findForeignStrings } from '@rueda/i18n/testing';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
-import { evidenceReasonKey, evidenceRefusal, OpsPanels } from './ops-view.tsx';
+import {
+  evidenceReasonKey,
+  evidenceRefusal,
+  KYC_REASON_KEYS,
+  KYC_REFUSAL_KEYS,
+  KYC_STATUSES,
+  kycStatusLabel,
+  OpsPanels,
+} from './ops-view.tsx';
 import type { OpsHandlers, OpsState } from './ops-view.tsx';
 import { ConsoleView } from './view.tsx';
 import type { ConsoleHandlers } from './view.tsx';
@@ -21,6 +33,7 @@ const noop: OpsHandlers = {
   onShowQueue: () => undefined,
   onClaim: () => undefined,
   onOpenKyc: () => undefined,
+  onKycDecision: () => undefined,
   onOpenCatalog: () => undefined,
   onResolveCatalog: () => undefined,
   onSearch: () => undefined,
@@ -72,6 +85,7 @@ const FULL: OpsState = {
     itemId: A,
     userId: B,
     kycStatus: 'NOT_STARTED',
+    verification: null,
     legalFirstName: 'Zzq',
     legalLastName: 'Xxw',
     dateOfBirth: null,
@@ -98,6 +112,50 @@ const FULL: OpsState = {
     cases: [{ id: A, category: 'ACCOUNT', status: 'OPEN', assignedToMe: true }],
   },
   notice: { tone: 'success', key: 'backoffice.evidence.received', values: { id: A } },
+};
+
+/** Dossier en revue (US-106) : motif du fournisseur, permis, scores [C3], consentement retiré. */
+const IN_REVIEW: OpsState = {
+  kyc: {
+    itemId: A,
+    userId: B,
+    kycStatus: 'MANUAL_REVIEW',
+    verification: {
+      id: A,
+      status: 'MANUAL_REVIEW',
+      reasonCode: 'LICENSE_PROVISIONAL',
+      attempt: 1,
+      country: 'AA',
+      consentCurrent: false,
+      document: {
+        type: 'IDP',
+        issuingCountry: 'ZZ',
+        expiresOn: '2031-01-31',
+        licenseClass: 'B',
+        permanent: false,
+        status: 'IN_REVIEW',
+      },
+      liveness: { result: 'REVIEW', livenessScore: 0.4211, faceMatchScore: 0.8875, erased: false },
+    },
+    legalFirstName: 'Zzq',
+    legalLastName: 'Xxw',
+    dateOfBirth: null,
+    residenceCountry: null,
+  },
+};
+const DECIDED: OpsState = {
+  kyc: {
+    ...(IN_REVIEW.kyc as NonNullable<OpsState['kyc']>),
+    kycStatus: 'REJECTED',
+    verification: {
+      ...(IN_REVIEW.kyc?.verification as NonNullable<NonNullable<OpsState['kyc']>['verification']>),
+      status: 'REJECTED',
+      reasonCode: 'LIVENESS_FAILED',
+      consentCurrent: true,
+      document: null,
+      liveness: { result: 'REVIEW', livenessScore: null, faceMatchScore: null, erased: true },
+    },
+  },
 };
 
 const CATALOG: OpsState = {
@@ -152,6 +210,8 @@ const CATALOG: OpsState = {
 const STATES: readonly OpsState[] = [
   {},
   FULL,
+  IN_REVIEW,
+  DECIDED,
   { queues: { summary: [], selected: null, items: [], error: true } },
   {
     queues: {
@@ -267,10 +327,97 @@ describe('O01 : ce que chaque état montre', () => {
   });
 
   it('lecture des files en échec : message d’erreur, jamais « aucun élément » ; file vide : état vide', () => {
-    const failed = html(STATES[2] as OpsState, tag);
+    const failed = html(STATES[4] as OpsState, tag);
     expect(failed).toContain(es['backoffice.queues.error']);
     expect(failed).not.toContain(es['backoffice.queues.empty']);
-    expect(html(STATES[3] as OpsState, tag)).toContain(es['backoffice.queues.empty']);
+    expect(html(STATES[5] as OpsState, tag)).toContain(es['backoffice.queues.empty']);
+  });
+
+  it('dossier KYC en revue (US-106) : état, motif, permis, scores et consentement ; quatre contrôles jamais pré-cochés, motif borné, trois décisions ; aucune image ni montant', () => {
+    const out = html(IN_REVIEW, tag);
+    for (const key of [
+      'backoffice.kyc.MANUAL_REVIEW',
+      'backoffice.kyc.reason.LICENSE_PROVISIONAL',
+      'backoffice.kyc.doc.IDP',
+      'backoffice.kyc.consentMissing',
+      'backoffice.kyc.decisionHeading',
+      'backoffice.kyc.check.livenessCheck',
+      'backoffice.kyc.check.idDocumentCheck',
+      'backoffice.kyc.check.licenseListCheck',
+      'backoffice.kyc.check.duplicateCheck',
+      'backoffice.kyc.decide.APPROVED',
+      'backoffice.kyc.decide.REJECTED',
+      'backoffice.kyc.decide.MORE_INFO_REQUIRED',
+    ] as const) {
+      expect(out, key).toContain(es[key]);
+    }
+    // scores en pourcentage entier
+    expect(out).toContain('42');
+    expect(out).toContain('89');
+    for (const check of [
+      'livenessCheck',
+      'idDocumentCheck',
+      'licenseListCheck',
+      'duplicateCheck',
+    ]) {
+      expect(out).toContain(`name="${check}" value="PASSED"`);
+      expect(out).toContain(`name="${check}" value="FAILED"`);
+    }
+    expect(out).not.toMatch(/checked/);
+    for (const d of ['APPROVED', 'REJECTED', 'MORE_INFO_REQUIRED']) {
+      expect(out).toContain(`value="${d}"`);
+    }
+    expect(out).toMatch(/name="reason"[^>]*minLength="10"|minLength="10"[^>]*name="reason"/i);
+    expect(out).not.toMatch(/name="(amount|amountMinor|montant)"/i);
+    expect(out).not.toContain('<img');
+  });
+
+  it('dossier décidé ou scores effacés (US-106) : aucun formulaire de décision, scores annoncés absents', () => {
+    const out = html(DECIDED, tag);
+    expect(out).toContain(es['backoffice.kyc.REJECTED']);
+    expect(out).toContain(es['backoffice.kyc.reason.LIVENESS_FAILED']);
+    expect(out).toContain(es['backoffice.kyc.noScores']);
+    expect(out).toContain(es['backoffice.kyc.noDocument']);
+    expect(out).not.toContain(es['backoffice.kyc.decisionHeading']);
+    expect(out).not.toContain('name="livenessCheck"');
+  });
+
+  it('états SM-3, motifs et refus de la décision : un libellé dans chaque langue (US-106)', () => {
+    for (const p of LOCALE_CONFIG.locales) {
+      const t = translatorOf(p.tag);
+      for (const status of KYC_STATUSES) expect(kycStatusLabel(t, status)).not.toBe(status);
+      expect(kycStatusLabel(t, 'UNKNOWN_STATE')).toBe('UNKNOWN_STATE');
+    }
+    // motifs de 0072 (fournisseur, permis) et de 0076 (décision de l'ops), refus de 0076
+    expect(Object.keys(KYC_REASON_KEYS).sort()).toEqual(
+      [
+        'PROVIDER_REVIEW',
+        'PROVIDER_DECLINED',
+        'DOCUMENT_MISSING',
+        'DOCUMENT_NOT_LICENSE',
+        'LICENSE_PROVISIONAL',
+        'LICENSE_EXPIRED',
+        'CONSENT_WITHDRAWN',
+        'LIVENESS_FAILED',
+        'ID_DOCUMENT_REFUSED',
+        'LICENSE_NOT_ACCEPTED',
+        'DUPLICATE_ACCOUNT',
+        'MORE_INFO_REQUESTED',
+      ].sort(),
+    );
+    expect(Object.keys(KYC_REFUSAL_KEYS).sort()).toEqual(
+      [
+        'CHECKS_REQUIRED',
+        'CHECKS_INCONSISTENT',
+        'ITEM_NOT_CLAIMED',
+        'NOT_IN_REVIEW',
+        'NOT_FOUND',
+        'SELF_FORBIDDEN',
+        'CONSENT_WITHDRAWN',
+        'LICENSE_NOT_ACCEPTED',
+        'PRODUCTION_BLOCKED',
+      ].sort(),
+    );
   });
 
   it('file d’ajout au catalogue : demande ouverte de l’élément pris, variante candidate à rattacher, création sous licence, refus par motif ; aucune plaque, VIN sans numéro de série', () => {

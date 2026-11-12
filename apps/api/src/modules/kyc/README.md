@@ -30,12 +30,19 @@ Tables techniques (US-105) : `core.kyc_provider_event` (idempotence des rappels)
 
 Émis (US-123, par les commandes en base) : `kyc.host_verification.decided` (`org_id`, `verification_id`, `decision`), `iam.organization.status_changed` (`org_id`, `from`, `to`) au passage `PENDING_ACTIVATION` ou `ACTIVE`, `iam.organization.created` une fois, à la première activation (N-38).
 
-Émis (US-105, par les commandes en base) : `kyc.verification.status_changed` (`user_id`, `from`, `to`, `reason_code`) à chaque transition SM-3 (`PHONE_VERIFIED → DOCS_SUBMITTED`, `DOCS_SUBMITTED → AUTO_CHECKS`, `AUTO_CHECKS → APPROVED | MANUAL_REVIEW`). NTF y est abonné (gabarit `EVT_KYC_APPROVED`, `to` = `APPROVED`). Aucun événement consommé : le téléphone vérifié et le consentement sont lus en base à l'ouverture.
+Émis (US-105, par les commandes en base) : `kyc.verification.status_changed` (`user_id`, `from`, `to`, `reason_code`) à chaque transition SM-3 (`PHONE_VERIFIED → DOCS_SUBMITTED`, `DOCS_SUBMITTED → AUTO_CHECKS`, `AUTO_CHECKS → APPROVED | MANUAL_REVIEW`). US-106 : `MANUAL_REVIEW → APPROVED | REJECTED | MORE_INFO_REQUIRED` par la décision de l'ops (acteur OPS_AGENT ou ADMIN, motif = catégorie du premier contrôle en échec). NTF y est abonné (gabarit `EVT_KYC_APPROVED`, `to` = `APPROVED`). Aucun événement consommé : le téléphone vérifié et le consentement sont lus en base à l'ouverture.
 
 Cible (17 §2.2, §4.5) :
 
 - émis : `kyc.verification.status_changed`, `kyc.trip_identity.failed`, `kyc.host_verification.decided` ;
 - consommés : `iam.phone.verified` (SM-3 `PHONE_VERIFIED`), `legal.consent.recorded` (consentement biométrique préalable).
+
+## Décision de l'ops (US-106, ADR-106)
+
+- Tout dossier qui entre en `MANUAL_REVIEW` est mis dans la file KYC de la console (US-109) par la base ; il en sort annulé si la personne retire son consentement (`RECHECK`).
+- L'ops décide par l'action de console `KYC_DECISION` (SUP, `POST /console/actions`) : élément KYC pris en charge, quatre contrôles cochés (liveness, pièce selon le statut, liste des permis, doublons), motif obligatoire ; la commande liée `core.kyc_manual_action_decision` (0076) refuse sans rien écrire un dossier hors revue, un élément non pris, sa propre vérification, des contrôles incohérents, une approbation sans consentement en vigueur ou sans permis de conduire définitif valable (OQ-BR-21, défaut PROPOSÉ : IDP seul et permis provisoire jamais approuvés).
+- Le voyageur ne voit qu'une catégorie (S04 : refus annoncé ; nouvelle pièce : conseil de reprise et nouvelle session).
+- Le dossier KYC de la file (`POST /console/queues/items/:id/kyc`) rend la vérification courante (état, motif, champs du permis, scores C3) : c'est la seule lecture des tables KYC par le staff.
 
 ## Ports
 

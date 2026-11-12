@@ -161,8 +161,8 @@ function actorOf(request: object): StaffActor {
   return staffActorOf(principal);
 }
 
-/** Champs d'horodatage rendus par la base (noms de 0064) ; aucun texte libre n'en fait partie. */
-const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd)$/;
+/** Champs d'horodatage rendus par la base (noms de 0064, 0076) ; aucun texte libre n'en fait partie. */
+const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {

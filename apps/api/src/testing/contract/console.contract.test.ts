@@ -173,7 +173,26 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
     userId: ID,
     country: FIRST_COUNTRY,
     accessId: ID,
-    kycStatus: 'NOT_STARTED',
+    // US-106 : vérification courante (données minimales, scores C3), sans aucune image
+    kycStatus: 'MANUAL_REVIEW',
+    verification: {
+      id: ID,
+      status: 'MANUAL_REVIEW',
+      reasonCode: 'PROVIDER_REVIEW',
+      attempt: 1,
+      country: FIRST_COUNTRY,
+      updatedAt: '2031-07-01T08:00:00.123456+00:00',
+      consentCurrent: true,
+      document: {
+        type: 'DRIVER_LICENSE',
+        issuingCountry: FIRST_COUNTRY,
+        expiresOn: '2032-01-31',
+        licenseClass: 'B',
+        permanent: true,
+        status: 'IN_REVIEW',
+      },
+      liveness: { result: 'REVIEW', livenessScore: 0.42, faceMatchScore: 0.9, erased: false },
+    },
     pseudonymized: false,
     legalFirstName: 'Lucía',
     legalLastName: 'Benítez',
@@ -833,7 +852,12 @@ describe('contrat HTTP — /console', () => {
 
     // dossier KYC : 200, 400, 403 (dont STAFF_CASE_REQUIRED)
     const kyc = `/console/queues/items/${ID}/kyc`;
-    expect((await post(kyc, { requestId: randomUUID(), purpose })).status).toBe(200);
+    const dossier = await post(kyc, { requestId: randomUUID(), purpose });
+    expect(dossier.status).toBe(200);
+    expect(dossier.json).toMatchObject({
+      kycStatus: 'MANUAL_REVIEW',
+      verification: { updatedAt: '2031-07-01T08:00:00.123Z', liveness: { erased: false } },
+    });
     expect((await post(kyc, { requestId: randomUUID(), purpose: 'court' })).status).toBe(400);
     ops.outcome['kycDossier'] = 'CASE_REQUIRED';
     expect((await post(kyc, { requestId: randomUUID(), purpose })).json).toMatchObject({
@@ -913,8 +937,11 @@ describe('contrat HTTP — /console', () => {
 
     // revue du véhicule (US-124) : dossier 200, 400, 403, 409 ; décision 200, 400, 403, 409, 422
     const vehicle = `/console/queues/items/${ID}/vehicle`;
-    const dossier = await post(vehicle, { requestId: randomUUID(), purpose });
-    expect(dossier.json).toMatchObject({ plate: 'AB123', holder: { legalLastName: 'Benítez' } });
+    const vehicleDossier = await post(vehicle, { requestId: randomUUID(), purpose });
+    expect(vehicleDossier.json).toMatchObject({
+      plate: 'AB123',
+      holder: { legalLastName: 'Benítez' },
+    });
     expect((await post(vehicle, { requestId: randomUUID(), purpose: 'court' })).status).toBe(400);
     for (const [outcome, status, code] of [
       ['NOT_UNDER_REVIEW', 409, 'VEHICLE_REVIEW_CLOSED'],
