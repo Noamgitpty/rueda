@@ -677,7 +677,7 @@ describe.each(COUNTRIES)(
     it('dossier de la console : retenue visible du staff seulement, liste de contrôle fermée, lecture journalisée et limitée à l’élément pris en charge', async () => {
       await withRole('app_api', async (c) => {
         const ops = await elevated(c, 'OPS_AGENT', [country]);
-        const support = await elevated(c, 'SUPPORT', [country]);
+        const support = await elevated(c, 'SUPPORT_AGENT', [country]);
         const { org } = await readyHost(c, country, 'POTENTIAL_MATCH');
         const [item] = await fixture<{ id: string; status: string }>(c, 'us108_queue_item', org);
         if (item === undefined) throw new Error('aucun élément de file');
@@ -739,7 +739,7 @@ describe.each(COUNTRIES)(
     it('IDOR et rôles : l’action de filtrage manuel exige ops.review_listing_host dans le pays du compte', async () => {
       await withRole('app_api', async (c) => {
         const other = COUNTRIES.find((x) => x.country !== country)?.country ?? '';
-        const support = await elevated(c, 'SUPPORT', [country]);
+        const support = await elevated(c, 'SUPPORT_AGENT', [country]);
         const foreignOps = await elevated(c, 'OPS_AGENT', [other]);
         const { org } = await readyHost(c, country, 'NONE');
         expect(
@@ -818,7 +818,7 @@ async function draft(tx: pg.ClientBase, c: CountryCase): Promise<Draft> {
        FROM core.catalog_vehicle_variant v
        JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
        JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
-      WHERE v.status = 'ACTIVE' AND v.market IS NULL
+      WHERE v.status = 'ACTIVE' AND v.market IS NULL AND v.value_class IS NOT NULL
       ORDER BY v.id LIMIT 1`,
     [],
   );
