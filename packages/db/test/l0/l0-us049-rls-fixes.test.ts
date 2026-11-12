@@ -427,46 +427,35 @@ describe.each(COUNTRIES)(
       });
     });
 
-    it('levée : un blocage du compte posé sur un véhicule que le catalogue attribue à un autre compte ⇒ FORBIDDEN ; l’autre compte non plus', async () => {
+    // US-115 (0067, N-03) : l'état que ce test fabriquait à la main (blocage de A sur un véhicule
+    // que le catalogue attribue à B) n'est plus représentable : la clé étrangère
+    // (vehicle_id, org_id, country_code) vers catalog_vehicle refuse l'écriture elle-même, même
+    // forcée par le propriétaire des tables. La garde de la levée reste en défense en profondeur.
+    it('levée : un blocage du compte sur un véhicule que le catalogue attribue à un autre compte ne peut plus être écrit (clé étrangère, N-03)', async () => {
       const orgA = uuid();
       const orgB = uuid();
       const vehicle = uuid();
       const block = uuid();
       await withRole('app_api', async (client) => {
-        const holders = await withTestTransaction(client, { commit: true }, async (tx) => {
-          const a = await tx.query<{ h: string }>(
-            'SELECT test_fixture.create_org($1, $2, $3) AS h',
-            [orgA, c.country, 'ACTIVE'],
-          );
-          const b = await tx.query<{ h: string }>(
-            'SELECT test_fixture.create_org($1, $2, $3) AS h',
-            [orgB, c.country, 'ACTIVE'],
-          );
+        await withTestTransaction(client, { commit: true }, async (tx) => {
+          await tx.query('SELECT test_fixture.create_org($1, $2, $3)', [orgA, c.country, 'ACTIVE']);
+          await tx.query('SELECT test_fixture.create_org($1, $2, $3)', [orgB, c.country, 'ACTIVE']);
           await registerVehicles(tx, [vehicle], orgB, c);
-          // blocage MANUAL de A écrit à la main (hors commande) sur le véhicule de B
-          await tx.query(
-            `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, 'HOST_BLOCK', $5::tstzrange)`,
-            [block, vehicle, orgA, c.country, '[2035-10-01T10:00:00Z,2035-10-02T10:00:00Z)'],
-          );
-          return { a: a.rows[0]?.h as string, b: b.rows[0]?.h as string };
         });
-        for (const [actorId, orgId] of [
-          [holders.a, orgA],
-          [holders.b, orgB],
-        ] as const) {
-          const code = await withTestTransaction(client, {}, async (tx) => {
-            await setSessionContext(tx, { kind: 'HOST', actorId, orgId });
-            try {
-              await tx.query('SELECT core.booking_cmd_remove_host_block($1)', [block]);
-              return 'OK';
-            } catch (error) {
-              return translateDbError(error).code;
-            }
-          });
-          expect(code, orgId === orgA ? 'compte du blocage' : 'compte du véhicule').toBe(
-            'FORBIDDEN',
-          );
-        }
+        const refused = await withTestTransaction(client, {}, async (tx) => {
+          try {
+            // blocage MANUAL de A écrit à la main (hors commande) sur le véhicule de B
+            await tx.query(
+              `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, 'HOST_BLOCK', $5::tstzrange)`,
+              [block, vehicle, orgA, c.country, '[2035-10-01T10:00:00Z,2035-10-02T10:00:00Z)'],
+            );
+            return { code: 'OK', constraint: undefined };
+          } catch (error) {
+            const e = error as { code?: string; constraint?: string };
+            return { code: e.code, constraint: e.constraint };
+          }
+        });
+        expect(refused).toEqual({ code: '23503', constraint: 'occupancy_catalog_vehicle_fk' });
       });
     });
   },

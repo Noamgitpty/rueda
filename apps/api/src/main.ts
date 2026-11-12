@@ -28,6 +28,7 @@ import {
   PgBrandStore,
   UnavailableBrandFileStore,
 } from './modules/cfg/index.js';
+import { postgresCatAdapters } from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
@@ -73,6 +74,9 @@ async function bootstrap(): Promise<void> {
     files: new UnavailableBrandFileStore(),
     params: loadBrandParams(),
   };
+  // Lieux, véhicules et annonces de l'hôte (US-115) : commandes core.catalog_* sous app_api ;
+  // antivirus ClamAV (DEC-FONDATEUR-20, adaptateur à livrer) et stockage objet (US-003) indisponibles : photos 503 (fail-closed).
+  const cat = postgresCatAdapters(pool, pool);
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,
@@ -89,6 +93,7 @@ async function bootstrap(): Promise<void> {
       brand,
       risk,
       ctr,
+      cat,
     ),
     { rawBody: true },
   );

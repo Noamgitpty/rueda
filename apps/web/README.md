@@ -45,6 +45,15 @@ En CI : job `e2e-web` de `ci.yml` (docs/ops/CI.md). Variables : `RUEDA_E2E_PORT`
 
 e2e : `e2e/signup.spec.ts` (projets `mobile-360` et `mobile-390`, quatre langues, axe-core WCAG 2.2 A / AA sur `main`) contre le double `e2e/stub-api.mjs`, démarré par Playwright (`RUEDA_E2E_API_PORT`, défaut 3199).
 
+## Espace de l'hôte (A10) et fiche publique (S03) — US-115
+
+Écrans dans la coquille, maquette US-033 (`app/proto/screens/host-onboarding.tsx` A10, `car.tsx` S03), mobile d'abord :
+
+- **`/host`** (A10) : lieux de remise, autos et annonces du compte d'hôte de la session (`GET /auth/session` puis `GET /host/accounts/{orgId}/…`) ; formulaires par actions serveur (`app/(app)/host/actions.ts`), sans JavaScript requis : lieu (le type, le libellé et l'adresse exacte restent à l'hôte ; la zone est publique), auto (plaque, VIN facultatif, marque, modèle, année, boîte, places, carburant), brouillon et prix par jour saisi dans la langue de la vue (séparateurs de la locale, exposant de la devise du compte, jamais de flottant : `account/host-listings.ts`), photo, soumission, suppression. États : sans session (connexion proposée), sans compte d'hôte, vide (`web.host.empty`, texte de 10b `web.a10.empty`), erreur (API injoignable, réessai), chargement (`loading.tsx`), « Guardado » après chaque enregistrement, erreurs liées au champ ; saisie conservée après un refus. **Photo** : la production répond 503 (antivirus ClamAV, DEC-FONDATEUR-20, et stockage objet pas encore branchés) ; l'écran l'annonce sans rien perdre. Hors connexion : bandeau de la coquille et écran `/offline`.
+- **`/listings/{id}`** (S03) : fiche d'une annonce publiée, prix par jour, l'essentiel, distance incluse, mode de réservation et **zone approximative seulement** (ville, zone) avec « la dirección exacta aparece al confirmar » ; introuvable (404) ; erreur (503).
+
+e2e : `e2e/host-listings.spec.ts` (projets `mobile-360` et `mobile-390`, quatre langues, axe-core WCAG 2.2 A / AA sur `main` à chaque état, aucun défilement horizontal, cibles ≥ 44 px) contre `e2e/stub-api.mjs` (sessions `H0st…` : un compte d'hôte neuf par parcours ; `N0ho…` : sans compte ; photos 503 comme la production ; fiche publique fictive).
+
 ## Interfaces d'appareil (`device/`)
 
 Le comptoir n'accède à l'appareil que par trois interfaces (17 §6.2, ADR-005). Point d'entrée unique : `device/index.ts`.

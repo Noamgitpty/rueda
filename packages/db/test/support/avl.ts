@@ -20,8 +20,22 @@ export { EXPIRY_2A_SQL } from './expiry-2a.ts';
  * sans décimale (PY). Données de TEST, pas des constantes du code. Montants en unités mineures.
  */
 export const COUNTRIES = [
-  { country: 'PA', currency: 'USD', timezone: 'America/Panama', rentMinor: '12000' },
-  { country: 'PY', currency: 'PYG', timezone: 'America/Asuncion', rentMinor: '850000' },
+  // priceStepMinor : pas du prix journalier (17 §7.2 pyg_price_step : 1 000 au PY, sans objet au
+  // PA ; BR-PRICE-14), donnée de test tirée de la spécification (US-115)
+  {
+    country: 'PA',
+    currency: 'USD',
+    timezone: 'America/Panama',
+    rentMinor: '12000',
+    priceStepMinor: 1,
+  },
+  {
+    country: 'PY',
+    currency: 'PYG',
+    timezone: 'America/Asuncion',
+    rentMinor: '850000',
+    priceStepMinor: 1000,
+  },
 ] as const;
 export type CountryCase = (typeof COUNTRIES)[number];
 

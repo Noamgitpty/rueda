@@ -19,6 +19,8 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
+import { UnavailablePhotoScanner, UnavailablePhotoStorage } from '../modules/cat/index.js';
+import type { CatHostOptions, HostListingStore } from '../modules/cat/index.js';
 import { loadBrandParams, UnavailableBrandFileStore } from '../modules/cfg/index.js';
 import type { BrandOptions } from '../modules/cfg/index.js';
 import type { CtrLegalOptions } from '../modules/ctr/index.js';
@@ -107,6 +109,7 @@ export interface ApiHarnessOverrides {
   readonly brand?: Partial<BrandOptions>;
   readonly ctr?: Partial<CtrLegalOptions>;
   readonly risk?: Partial<RiskHttpOptions>;
+  readonly cat?: Partial<CatHostOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -245,6 +248,30 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       'ConsentStore',
     ),
   };
+  // Lieux, véhicules et annonces de l'hôte (US-115) : aucun compte d'hôte dans le harnais ; toute
+  // commande rend FORBIDDEN (404, IDOR) et toute lecture rien.
+  const refused = () => Promise.resolve({ outcome: 'FORBIDDEN', id: null });
+  const cat: CatHostOptions = {
+    store: strict<HostListingStore>(
+      {
+        hostMarket: () => Promise.resolve(null),
+        createLocation: refused,
+        createVehicle: refused,
+        createListing: refused,
+        updatePricing: refused,
+        submitListing: refused,
+        deleteListing: refused,
+        addPhoto: refused,
+        locations: () => Promise.resolve([]),
+        vehicles: () => Promise.resolve([]),
+        listings: () => Promise.resolve([]),
+        publicListing: () => Promise.resolve(null),
+      },
+      'HostListingStore',
+    ),
+    catalog: null,
+    photos: { scanner: new UnavailablePhotoScanner(), storage: new UnavailablePhotoStorage() },
+  };
   const config = new CountryConfigService().config;
   const wide: RateLimitPolicy = {
     limit: () => 1_000_000,
@@ -280,6 +307,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...brand, ...overrides.brand },
       { ...risk, ...overrides.risk },
       { ...ctr, ...overrides.ctr },
+      { ...cat, ...overrides.cat },
     ),
     {
       rawBody: true,

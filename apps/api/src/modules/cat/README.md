@@ -8,12 +8,28 @@ CAT décrit l'offre de l'hôte : lieux de remise, véhicules, documents du véhi
 
 CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe pas le prix d'un trip (PRC). L'import CSV d'une flotte est historique depuis le pivot P2P (`fleet_import_job`, 17 §3.2.3).
 
-État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058) et le **catalogue de référence des véhicules** (US-113, ADR-094) : tables, graine et lecture avec préremplissage. La file d'ajout arrive avec US-114, les lieux, véhicules et annonces avec US-115 (qui branche la route et l'assistant A10), la publication avec US-118 et US-509, les documents du véhicule avec US-124.
+État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout arrive avec US-114, la publication avec US-118 et US-509, les documents du véhicule avec US-124, le calendrier avec US-119, l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
 
 ## Entités
 
 - **Créées** (US-113, migration `0063_catalog_vehicle_reference`, ADR-094) : `core.catalog_vehicle_make`, `core.catalog_vehicle_model`, `core.catalog_vehicle_variant` (17 §3.2.3 `vehicle_make`, `vehicle_model`, `vehicle_variant`). `source` et `license_note` obligatoires et non vides ; retrait par `RETIRED`, jamais de suppression ; lecture des lignes `ACTIVE` et `RETIRED` par `app_api`, sans provenance ; aucune écriture applicative.
-- **Cibles 17, pas encore créées** : `location`, `vehicle`, `vehicle_document`, `listing`, `listing_photo`, `deposit_policy`, `ical_feed`, `catalog_addition_request`. `fleet_import_job` est historique, sans objet.
+- **Créées** (US-115, migration `0067_catalog_host_listings`, ADR-099) : `core.catalog_location`, `core.catalog_vehicle`, `core.catalog_listing`, `core.catalog_listing_photo`, `core.catalog_deposit_policy` (17 §3.2.3). Aucun droit applicatif : tout passe par les fonctions `core.catalog_cmd_*` et `core.catalog_host_*` (`SECURITY DEFINER`, propriétaire `catalog_cmd_owner`, hôte désigné par l'empreinte du jeton) et `core.catalog_public_listing`.
+- **Cibles 17, pas encore créées** : `vehicle_document`, `ical_feed`, `catalog_addition_request`. `fleet_import_job` est historique, sans objet.
+
+### Lieux de remise, véhicules et annonces de l'hôte (US-115)
+
+| Fichier                                               | Rôle                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `internal/host-listings/model.ts`                     | validation champ par champ (UX-50) : lieu (épingle facultative, jamais à moitié posée), véhicule (plaque et VIN normalisés, variante ou repli texte), tarif (unités mineures en chaîne d'entier)                                                                                                   |
+| `internal/host-listings/store.ts`                     | port `HostListingStore`, `PgHostListingStore` (fonctions `core.catalog_*` de 0067, paramètres liés), `UnavailableHostListingStore` (503)                                                                                                                                                           |
+| `internal/host-listings/photo-ingest.ts`              | photo : taille, type réel (JPEG, PNG, WebP), dimensions avant décodage, retrait des métadonnées par liste blanche (EXIF dont GPS, XMP, IPTC, MPF, textes ; rien après la fin du JPEG ; fragments PNG et WebP connus seulement) ; ports `PhotoScanner`, `PhotoStorage`, indisponibles en production |
+| `internal/host-listings/host-listings.service.ts`     | `HostListingsService` : issues de la base vers codes stables ; catalogue filtré par le marché du compte d'hôte                                                                                                                                                                                     |
+| `internal/host-listings/host-listings.controller.ts`  | routes de l'hôte (`SessionGuard`) ; tout objet d'un autre hôte : 404                                                                                                                                                                                                                               |
+| `internal/host-listings/public-listing.controller.ts` | `GET /listings/{listingId}` : annonce `LISTED`, colonnes C0, zone approximative seulement                                                                                                                                                                                                          |
+| `internal/host-listings/cat-host.module.ts`           | `CatHostModule.register(options)`, `postgresCatAdapters(db, pool)` ; sans options : 503 partout                                                                                                                                                                                                    |
+| `testing/fake-host-listing-store.ts`                  | FAKE du magasin (tests de contrat seulement)                                                                                                                                                                                                                                                       |
+
+Codes : ceux de 16 (`VEHICLE_PLATE_DUPLICATE`, `VEHICLE_FIELD_REQUIRED`, `PHOTO_MIN_COUNT`, `PHOTO_FORMAT`, `PRICE_INVALID`, `MILEAGE_CONFIG_INVALID`, `HOST_NOT_ACTIVATED`, `LISTING_TRANSITION_FORBIDDEN`, `REQUEST_MODE_NOT_ALLOWED`) et les PROPOSÉS d'`internal/host-listings/errors.ts` ; messages `common.listing.*` en es, en, fr et pt. Photos : `POST /host/accounts/{orgId}/listings/{listingId}/photos` (base64, corps borné à 100 Kio jusqu'à l'URL signée d'US-003) ; en production, antivirus ClamAV (DEC-FONDATEUR-20, adaptateur à livrer) et stockage objet sont indisponibles : 503.
 
 ### Catalogue de référence des véhicules (US-113)
 
@@ -28,7 +44,7 @@ CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe p
 
 Modifier la graine : éditer les données, puis `RUEDA_WRITE_CATALOG_SEED=1 pnpm --filter @rueda/api exec vitest run src/modules/cat` réécrit la section de 0063. Une migration appliquée en environnement partagé est immuable (ADR-044) : une correction ultérieure passe par une nouvelle migration. Une source n'est chargée que si sa licence est `VALIDATED` (OQ-CAT-01 ; aujourd'hui `OPS_CURATED` et `WIKIDATA`).
 
-En attendant, AVL ne connaît aucun véhicule en production : `core.booking_vehicle_party` est fail-closed jusqu'à US-115 (`packages/db/README.md`).
+Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce `LISTED` ; occupations, holds et trips portent une clé étrangère `(vehicle_id, org_id, country_code)` vers `catalog_vehicle` (ADR-060, ADR-089, ADR-099). Sans annonce publiée (US-118), aucun hold ni blocage n'est possible en production.
 
 ## Événements
 
@@ -40,14 +56,16 @@ Consommés (cible 17 §4.5) : `kyc.host_verification.decided` (KYC), `review.pub
 
 - `MapTiles` (`internal/map-tiles.port.ts`, types exportés par `index.ts` : `MapTiles`, `MapTilesOutcome`, `Tile`, `TileRequest`) : fonds de carte seuls, sans géocodage. Refus `OUT_OF_RANGE` et `QUOTA_EXCEEDED`. Adaptateur FAKE `FakeMapTiles` (`@rueda/fake-adapters/maps`) ; fournisseur réel à choisir. L'adaptateur est injecté.
 
-`VehicleCatalogStore` (`internal/vehicle-catalog/store.ts`) : lecture du catalogue de référence ; adaptateur `PgVehicleCatalogStore` sous `app_api`, aucun FAKE nécessaire.
+`VehicleCatalogStore` (`internal/vehicle-catalog/store.ts`) : lecture du catalogue de référence ; adaptateur `PgVehicleCatalogStore` sous `app_api`, aucun FAKE nécessaire. Depuis US-115, `listVariants` et `findVariant` prennent le pays du compte d'hôte (`market` nul ou égal).
+
+`HostListingStore`, `PhotoScanner`, `PhotoStorage` (`internal/host-listings/`) : voir la section US-115 ; FAKE du scanner et du stockage : `@rueda/fake-adapters/files`.
 
 `index.ts` exporte aussi `CatModule`, `VehicleCatalogService`, `PgVehicleCatalogStore`, `prefillFromVariant`, `CatalogError` et leurs types.
 
 ## Commandes de test
 
-- Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/cat` (`internal/map-tiles.port.test.ts`, `internal/vehicle-catalog/seed-sql.test.ts`, `internal/vehicle-catalog/vehicle-catalog.service.test.ts`).
+- Unitaires (sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/cat` (`internal/map-tiles.port.test.ts`, `internal/vehicle-catalog/seed-sql.test.ts`, `internal/vehicle-catalog/vehicle-catalog.service.test.ts`, `internal/host-listings/model.test.ts`, `internal/host-listings/photo-ingest.test.ts`, contrat HTTP `testing/host-listings.contract.test.ts`).
 - Intégration : `internal/vehicle-catalog/vehicle-catalog.int.test.ts` (`pnpm --filter @rueda/api test:int`, sous `app_api`, PA et PY).
-- Preuves L0 : `packages/db/test/l0/l0-us113-vehicle-catalog.test.ts` ; fixture `packages/db/test-migrations/9970_test_us113_catalog_fixtures.sql`.
+- Preuves L0 : `packages/db/test/l0/l0-us113-vehicle-catalog.test.ts` ; fixture `packages/db/test-migrations/9970_test_us113_catalog_fixtures.sql` ; `packages/db/test/l0/l0-us115-host-listings.test.ts` ; fixture `packages/db/test-migrations/9985_test_us115_catalog_host_fixtures.sql`.
 
 `test:int` et `test:l0` demanderont PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».

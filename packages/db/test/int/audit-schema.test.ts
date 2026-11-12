@@ -149,6 +149,19 @@ describe('schéma d’audit (US-009)', () => {
           expect(['r', 'a'], where).toContain(r.cmd);
           continue;
         }
+        if (r.roles === 'catalog_cmd_owner') {
+          // US-115 (0067) : soumission et suppression d'annonce journalisées ; fichier d'une photo
+          // d'annonce (bucket public, C0) ; INSERT seulement
+          expect(
+            [
+              'audit_audit_log.catalog_cmd_audit_insert',
+              'audit_file_asset.catalog_cmd_photo_insert',
+            ],
+            where,
+          ).toContain(where);
+          expect(r.cmd, where).toBe('a');
+          continue;
+        }
         if (r.roles === 'iam_auth_owner') {
           // US-107 (0061) : ouverture d'un compte d'hôte journalisée, INSERT seulement
           expect(where).toBe('audit_audit_log.iam_auth_host_insert');

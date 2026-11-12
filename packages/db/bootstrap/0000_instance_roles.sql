@@ -22,7 +22,7 @@ DECLARE
   v_owners text[] := ARRAY['guard_owner', 'catalog_probe_owner', 'policy_fn_owner', 'cmd_hold_owner',
                            'iam_auth_owner', 'integrity_owner', 'audit_chain_owner', 'cmd_money_owner',
                            'cmd_golive_owner', 'iam_staff_owner', 'host_view_owner',
-                           'risk_limit_owner'];
+                           'risk_limit_owner', 'catalog_cmd_owner'];
   v_managed text[] := ARRAY['migrator', 'app_api', 'app_worker', 'app_anon'] || v_owners;
 BEGIN
   FOR r IN
@@ -50,7 +50,9 @@ BEGIN
       -- US-062 (ADR-064) : vues minimisées de l'hôte (host_guest_v)
       ('host_view_owner',     false),
       -- US-052 (ADR-075) : compteurs de débit et journal des abus (core.risk_cmd_*)
-      ('risk_limit_owner',    false)
+      ('risk_limit_owner',    false),
+      -- US-115 (ADR-099) : lieux, véhicules et annonces de l'hôte (core.catalog_cmd_*)
+      ('catalog_cmd_owner',   false)
     ) AS t(role_name, can_login)
   LOOP
     BEGIN

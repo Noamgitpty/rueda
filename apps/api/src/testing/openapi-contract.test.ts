@@ -7,6 +7,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { hygienicCode } from '../http-hardening.js';
+import { HOST_LISTING_MESSAGES } from '../modules/cat/index.js';
 import { BRAND_MESSAGES } from '../modules/cfg/index.js';
 import { LEGAL_MESSAGES } from '../modules/ctr/index.js';
 import { AUTH_MESSAGES } from '../modules/iam/index.js';
@@ -223,6 +224,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     BRAND_MESSAGES,
     LEGAL_MESSAGES,
     RISK_MESSAGES,
+    HOST_LISTING_MESSAGES,
     OPS_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);

@@ -19,6 +19,8 @@ const API_PORT = Number(process.env['RUEDA_E2E_API_PORT'] ?? 3199);
 const SHELL = /shell\.spec\.ts$/;
 // Inscription, connexion et consentements (US-102) : téléphones 360 et 390 px.
 const SIGNUP = /signup\.spec\.ts$/;
+// Espace de l'hôte (A10) et fiche publique (S03), US-115 : téléphones 360 et 390 px.
+const HOST = /host-listings\.spec\.ts$/;
 /** Étape OTP de S15 (US-104) : mêmes largeurs que l'inscription. */
 const PHONE = /phone\.spec\.ts$/;
 const phone = { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } as const;
@@ -43,12 +45,12 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-360',
-      testMatch: [SHELL, SIGNUP, PHONE],
+      testMatch: [SHELL, SIGNUP, PHONE, HOST],
       use: { ...phone, viewport: { width: 360, height: 780 } },
     },
     {
       name: 'mobile-390',
-      testMatch: [SHELL, SIGNUP, PHONE],
+      testMatch: [SHELL, SIGNUP, PHONE, HOST],
       use: { ...phone, viewport: { width: 390, height: 844 } },
     },
     {

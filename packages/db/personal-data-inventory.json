@@ -319,6 +319,168 @@
         "country_code": "C1"
       }
     },
+    "core.catalog_deposit_policy": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C0",
+        "country_code": "C0",
+        "value_class": "C0",
+        "amount_minor": "C0",
+        "currency": "C0",
+        "accepted_methods": "C0",
+        "covered_items": "C0",
+        "excluded_items": "C0",
+        "covers_damage": "C0",
+        "valid_from": "C0"
+      }
+    },
+    "core.catalog_listing": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "created_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C0",
+        "vehicle_id": "C1",
+        "org_id": "C1",
+        "country_code": "C0",
+        "status": "C1",
+        "daily_price_minor": "C0",
+        "currency": "C0",
+        "mileage_mode": "C0",
+        "included_km_per_day": "C0",
+        "extra_km_price_minor": "C0",
+        "instant_book": "C0",
+        "deposit_policy_id": "C1",
+        "submitted_at": "C1",
+        "published_at": "C0",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.catalog_listing_photo": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "created_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C0",
+        "listing_id": "C0",
+        "org_id": "C1",
+        "country_code": "C1",
+        "file_id": "C1",
+        "position": "C0",
+        "status": "C1",
+        "alt_text": "C0",
+        "deleted_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1"
+      }
+    },
+    "core.catalog_location": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "created_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "kind": "C0",
+        "place_label": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "address_line": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "city": "C0",
+        "area_label": "C0",
+        "geo": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "geo_public": "C0",
+        "timezone": "C0",
+        "created_at": "C1",
+        "created_by": "C1"
+      }
+    },
+    "core.catalog_vehicle": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "created_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "home_location_id": "C1",
+        "timezone": "C0",
+        "plate": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "vin": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "plate_category": "C1",
+        "insurer_eligibility": "C1",
+        "variant_id": "C0",
+        "make_text": "C0",
+        "model_text": "C0",
+        "year": "C0",
+        "trim_override": "C0",
+        "value_class": "C0",
+        "transmission": "C0",
+        "seats": "C0",
+        "fuel_type": "C0",
+        "odometer_km": "C1",
+        "eligibility_status": "C1",
+        "lien_declared": "C1",
+        "gps_installed": "C1",
+        "created_at": "C1",
+        "created_by": "C1"
+      }
+    },
     "core.catalog_vehicle_make": {
       "lifecycle": "D",
       "export": "none",

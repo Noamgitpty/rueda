@@ -212,7 +212,11 @@ describe('contrat HTTP — /host', () => {
 
   it('couverture : chaque statut déclaré pour /host est exercé', () => {
     const declared = Object.entries(contract.document.paths)
-      .filter(([template]) => template.startsWith('/host'))
+      // les routes /host/accounts/{orgId}/… (US-115) ont leur propre suite (CAT)
+      .filter(
+        ([template]) =>
+          template.startsWith('/host') && !template.startsWith('/host/accounts/{orgId}'),
+      )
       .flatMap(([template, item]) =>
         Object.entries(item).flatMap(([method, op]) =>
           Object.keys(op.responses ?? {}).map((s) => `${method.toUpperCase()} ${template} ${s}`),

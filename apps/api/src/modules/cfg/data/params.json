@@ -1060,6 +1060,42 @@
       "values": { "PA": 24, "PY": 24 }
     },
     {
+      "key": "listing_min_photos",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-LIST-05 (au moins 6 photos, {param}) ; 16 HST-012 (PHOTO_MIN_COUNT à la soumission)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "08 BR-LIST-05 PROPOSÉ (US-115)",
+      "values": { "PA": 6, "PY": 6 }
+    },
+    {
+      "key": "price_ceiling_daily_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "16 PRC-001 (plafond de cohérence du prix journalier, PRICE_INVALID au-delà)",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "PROPOSED",
+      "decisionRef": "16 PRC-001 PROPOSÉ (US-115)",
+      "values": { "PA": "500000", "PY": "35000000" }
+    },
+    {
+      "key": "price_ceiling_extra_km_minor",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "16 PRC-001, HST-033 (plafond de cohérence du prix du km supplémentaire)",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "PROPOSED",
+      "decisionRef": "16 PRC-001 PROPOSÉ (US-115)",
+      "values": { "PA": "1000", "PY": "75000" }
+    },
+    {
       "key": "dispute_decision_sla_business_days",
       "type": "DURATION",
       "unit": "business_d",

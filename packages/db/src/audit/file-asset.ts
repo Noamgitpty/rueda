@@ -21,7 +21,9 @@ import type { SubjectRef } from './envelope.ts';
 import type { Queryable, SubjectKeyStore } from './subject-keys.ts';
 
 export type Bucket = 'PUBLIC_LISTING' | 'PRIVATE_EVIDENCE' | 'KYC' | 'DOCUMENTS' | 'BRAND';
-export type FileSource = 'IN_APP_CAMERA' | 'STAFF_UPLOAD' | 'GENERATED' | 'PROVIDER';
+/** `HOST_UPLOAD` : photo d'annonce téléversée par l'hôte (US-115, 0067). */
+export type FileSource =
+  'IN_APP_CAMERA' | 'STAFF_UPLOAD' | 'GENERATED' | 'PROVIDER' | 'HOST_UPLOAD';
 export type Classification = 'C0' | 'C1' | 'C2' | 'C3';
 
 /**

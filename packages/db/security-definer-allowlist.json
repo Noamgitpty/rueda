@@ -129,6 +129,83 @@
       "story": "US-062"
     },
     {
+      "signature": "core.catalog_cmd_add_listing_photo(bytea,uuid,uuid,uuid,uuid,text,bigint,bytea)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_cmd_create_listing(bytea,uuid,uuid,bigint,text,integer,bigint,boolean)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_cmd_create_location(bytea,uuid,text,text,text,text,text,numeric,numeric)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_cmd_create_vehicle(bytea,uuid,uuid,text,text,uuid,text,text,integer,text,text,smallint,text,integer,boolean,boolean)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_cmd_delete_listing(bytea,uuid,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_cmd_submit_listing(bytea,uuid,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_cmd_update_listing_pricing(bytea,uuid,uuid,bigint,text,integer,bigint)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_host_listings(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_host_locations(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_host_vehicles(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
+      "signature": "core.catalog_public_listing(uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-115"
+    },
+    {
       "signature": "core.cfg_brand_cmd_publish(bytea,uuid,uuid,jsonb)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
@@ -237,8 +314,8 @@
       "signature": "core.iam_session_resolve(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api"],
-      "story": "US-010"
+      "execute": ["app_api", "catalog_cmd_owner"],
+      "story": "US-010, US-115"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -545,8 +622,8 @@
       "signature": "core.iam_host_accounts(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api"],
-      "story": "US-107"
+      "execute": ["app_api", "catalog_cmd_owner"],
+      "story": "US-107, US-115"
     },
     {
       "signature": "core.iam_phone_otp_state(bytea)",
