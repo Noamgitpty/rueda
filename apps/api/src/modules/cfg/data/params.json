@@ -1460,6 +1460,17 @@
       "values": { "PA": true, "PY": true }
     },
     {
+      "key": "host_manual_review_required",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "19 US-108 ; 16 ADM-004 ; consigne du fondateur du 2026-11-12 (vérification par exception, comme Turo)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "consigne du fondateur du 2026-11-12 « jamais plus lourd que Turo » ; ADR-111",
+      "values": { "PA": false, "PY": false }
+    },
+    {
       "key": "vehicle_financed_requires_lender_consent",
       "type": "BOOL",
       "scopes": ["COUNTRY"],

@@ -6,7 +6,10 @@
  * dossier, ajout d'une pièce ; demande d'ajout au catalogue (US-114 ; 16 ADM-036 : rapprocher d'une
  * variante existante, créer la variante sous licence, ou refuser avec un motif). US-106 : dossier
  * KYC complété (état SM-3, motif, champs minimaux du permis, scores, consentement) et décision
- * `KYC_DECISION` (quatre contrôles cochés, motif) ; statut SM-3 dans la fiche. Composant de
+ * `KYC_DECISION` (quatre contrôles cochés, motif) ; statut SM-3 dans la fiche. US-108 : dossier de
+ * l'hôte signalé (revue par exception) : liste de contrôle fermée calculée par la base, retenue de
+ * sanctions visible du staff seulement, source et date du filtrage, filtrage manuel des trois
+ * listes (`HOST_SANCTIONS_SCREENING`). Composant de
  * PRÉSENTATION pur : aucun appel réseau ni état ; la
  * logique est dans `console-client.tsx`. Composants de `@rueda/ui` ; mise en page par les jetons
  * (console.module.css). La base reste juge de chaque droit et journalise chaque consultation.
@@ -125,6 +128,53 @@ export interface KycDossierView {
   readonly residenceCountry: string | null;
 }
 
+/** Liste de contrôle FERMÉE du dossier de l'hôte, dans l'ordre de la base (US-108, 0081). */
+export const HOST_CHECK_ITEMS = [
+  'IDENTITY',
+  'AGE',
+  'RESIDENCE',
+  'SANCTIONS',
+  'TAX_PROFILE',
+  'HOST_TERMS',
+  'PAYOUT_ACCOUNT',
+  'PSP_CAPABILITIES',
+  'COUNTRY_OPEN',
+  'INSURER_CONTRACT',
+] as const;
+export type HostCheckItem = (typeof HOST_CHECK_ITEMS)[number];
+export type HostCheckState = 'OK' | 'MISSING' | 'BLOCKED' | 'HELD';
+export const HOST_STATUSES = [
+  'NOT_SUBMITTED',
+  'OPEN',
+  'DOCS_PENDING',
+  'IN_REVIEW',
+  'APPROVED',
+  'REJECTED',
+  'REVOKED',
+] as const;
+export type HostStatus = (typeof HOST_STATUSES)[number];
+/** Listes du filtrage manuel (saisie fermée de `HOST_SANCTIONS_SCREENING`). */
+export const SANCTIONS_LISTS = ['unList', 'ofacList', 'nationalList'] as const;
+export type SanctionsList = (typeof SANCTIONS_LISTS)[number];
+export type SanctionsListResult = 'CLEAR' | 'MATCH';
+
+/** Dossier de l'hôte d'un élément HOST_VERIFICATION pris en charge (US-108). */
+export interface HostDossierView {
+  readonly itemId: string;
+  readonly orgId: string;
+  readonly country: string;
+  readonly status: HostStatus;
+  readonly screeningHold: boolean;
+  readonly reviewReasons: readonly ('SCREENING_HOLD' | 'COUNTRY_REVIEW')[];
+  readonly screening: {
+    readonly source: string;
+    readonly screenedAt: string;
+    readonly result: 'CLEAR' | 'POTENTIAL_MATCH' | 'CONFIRMED_MATCH';
+  } | null;
+  readonly checklist: readonly { readonly item: HostCheckItem; readonly state: HostCheckState }[];
+  readonly evidenceFileIds: readonly string[];
+}
+
 /** Demande d'ajout au catalogue d'un élément CATALOG_ADDITION pris en charge (US-114). */
 export interface CatalogAdditionView {
   readonly itemId: string;
@@ -233,6 +283,8 @@ export interface OpsState {
       }
     | undefined;
   readonly kyc?: KycDossierView | undefined;
+  /** US-108 : dossier de l'hôte signalé. */
+  readonly host?: HostDossierView | undefined;
   readonly catalog?: CatalogAdditionView | undefined;
   readonly profile?: ProfileView | undefined;
   readonly notice?:
@@ -280,6 +332,14 @@ export interface OpsHandlers {
     verificationId: string,
     decision: KycDecision,
     checks: Readonly<Record<KycCheck, KycCheckResult>>,
+    reason: string,
+  ) => void;
+  /** US-108 : dossier de l'hôte (file HOST_VERIFICATION), lecture journalisée. */
+  readonly onOpenHost: (itemId: string, purpose: string) => void;
+  /** US-108 : filtrage manuel des sanctions (`HOST_SANCTIONS_SCREENING`), motif obligatoire. */
+  readonly onHostScreening: (
+    orgId: string,
+    results: Readonly<Record<SanctionsList, SanctionsListResult>>,
     reason: string,
   ) => void;
   readonly onOpenCatalog: (itemId: string) => void;
@@ -552,6 +612,8 @@ export function OpsPanels({
                 } else if (verb === 'claim' && target !== undefined) handlers.onClaim(target);
                 else if (verb === 'kyc' && target !== undefined) {
                   handlers.onOpenKyc(target, fieldOf(e, 'purpose'));
+                } else if (verb === 'host' && target !== undefined) {
+                  handlers.onOpenHost(target, fieldOf(e, 'purpose'));
                 } else if (verb === 'catalog' && target !== undefined) {
                   handlers.onOpenCatalog(target);
                 }
@@ -587,7 +649,9 @@ export function OpsPanels({
               </ul>
               {q.selected !== null && (
                 <>
-                  {q.selected === 'KYC' && <PurposeField i18n={i18n} id="queue-purpose" />}
+                  {(q.selected === 'KYC' || q.selected === 'HOST_VERIFICATION') && (
+                    <PurposeField i18n={i18n} id="queue-purpose" />
+                  )}
                   <DataTable
                     id="queue-items"
                     caption={`${i18n.t('backoffice.queues.caption')} · ${i18n.t(QUEUE_KEYS[q.selected])}`}
@@ -648,6 +712,17 @@ export function OpsPanels({
                                 {i18n.t('backoffice.catalog.open')}
                               </Button>
                             )}
+                            {item.queue === 'HOST_VERIFICATION' && item.assignedToMe && (
+                              <Button
+                                type="submit"
+                                name="op"
+                                value={`host:${item.id}`}
+                                variant="primary"
+                                loading={busy}
+                              >
+                                {i18n.t('backoffice.queues.openHost')}
+                              </Button>
+                            )}
                             {item.queue === 'KYC' && item.assignedToMe && (
                               <Button
                                 type="submit"
@@ -676,6 +751,10 @@ export function OpsPanels({
 
       {state.kyc !== undefined && (
         <KycPanel i18n={i18n} kyc={state.kyc} handlers={handlers} busy={busy} />
+      )}
+
+      {state.host !== undefined && (
+        <HostPanel i18n={i18n} host={state.host} handlers={handlers} busy={busy} />
       )}
 
       {state.catalog !== undefined && (
@@ -1541,6 +1620,210 @@ function KycPanel({
             </form>
           )}
         </>
+      )}
+    </section>
+  );
+}
+
+// US-108 : libellés du dossier de l'hôte (catalogue `backoffice.host.*`)
+const HOST_ITEM_KEYS: Readonly<Record<HostCheckItem, MessageKey>> = {
+  IDENTITY: 'backoffice.host.item.IDENTITY',
+  AGE: 'backoffice.host.item.AGE',
+  RESIDENCE: 'backoffice.host.item.RESIDENCE',
+  SANCTIONS: 'backoffice.host.item.SANCTIONS',
+  TAX_PROFILE: 'backoffice.host.item.TAX_PROFILE',
+  HOST_TERMS: 'backoffice.host.item.HOST_TERMS',
+  PAYOUT_ACCOUNT: 'backoffice.host.item.PAYOUT_ACCOUNT',
+  PSP_CAPABILITIES: 'backoffice.host.item.PSP_CAPABILITIES',
+  COUNTRY_OPEN: 'backoffice.host.item.COUNTRY_OPEN',
+  INSURER_CONTRACT: 'backoffice.host.item.INSURER_CONTRACT',
+};
+const HOST_STATE_KEYS: Readonly<Record<HostCheckState, MessageKey>> = {
+  OK: 'backoffice.host.state.OK',
+  MISSING: 'backoffice.host.state.MISSING',
+  BLOCKED: 'backoffice.host.state.BLOCKED',
+  HELD: 'backoffice.host.state.HELD',
+};
+const HOST_STATE_TONES: Readonly<Record<HostCheckState, 'success' | 'warning' | 'danger'>> = {
+  OK: 'success',
+  MISSING: 'warning',
+  BLOCKED: 'danger',
+  HELD: 'danger',
+};
+const HOST_STATUS_KEYS: Readonly<Record<HostStatus, MessageKey>> = {
+  NOT_SUBMITTED: 'backoffice.host.status.NOT_SUBMITTED',
+  OPEN: 'backoffice.host.status.OPEN',
+  DOCS_PENDING: 'backoffice.host.status.DOCS_PENDING',
+  IN_REVIEW: 'backoffice.host.status.IN_REVIEW',
+  APPROVED: 'backoffice.host.status.APPROVED',
+  REJECTED: 'backoffice.host.status.REJECTED',
+  REVOKED: 'backoffice.host.status.REVOKED',
+};
+const HOST_REASON_KEYS: Readonly<Record<'SCREENING_HOLD' | 'COUNTRY_REVIEW', MessageKey>> = {
+  SCREENING_HOLD: 'backoffice.host.reason.SCREENING_HOLD',
+  COUNTRY_REVIEW: 'backoffice.host.reason.COUNTRY_REVIEW',
+};
+const HOST_RESULT_KEYS: Readonly<
+  Record<'CLEAR' | 'POTENTIAL_MATCH' | 'CONFIRMED_MATCH', MessageKey>
+> = {
+  CLEAR: 'backoffice.host.result.CLEAR',
+  POTENTIAL_MATCH: 'backoffice.host.result.POTENTIAL_MATCH',
+  CONFIRMED_MATCH: 'backoffice.host.result.CONFIRMED_MATCH',
+};
+const HOST_SOURCE_KEYS: Readonly<Record<string, MessageKey>> = {
+  OPS_MANUAL: 'backoffice.host.source.OPS_MANUAL',
+  MANUAL: 'backoffice.host.source.MANUAL',
+};
+const SANCTIONS_LIST_KEYS: Readonly<Record<SanctionsList, MessageKey>> = {
+  unList: 'backoffice.host.list.unList',
+  ofacList: 'backoffice.host.list.ofacList',
+  nationalList: 'backoffice.host.list.nationalList',
+};
+/** Refus de `HOST_SANCTIONS_SCREENING` expliqués (issue de la commande de domaine, 0081). */
+export const HOST_SCREENING_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
+  HOST_ALREADY_SCREENED: 'backoffice.host.refused.HOST_ALREADY_SCREENED',
+  HOST_VERIFICATION_NOT_READY: 'backoffice.host.refused.HOST_VERIFICATION_NOT_READY',
+  SELF_FORBIDDEN: 'backoffice.host.refused.SELF_FORBIDDEN',
+};
+
+function listResultOf(
+  event: FormEvent<HTMLFormElement>,
+  name: SanctionsList,
+): SanctionsListResult | null {
+  const v = new FormData(event.currentTarget).get(name);
+  return v === 'CLEAR' || v === 'MATCH' ? v : null;
+}
+
+function HostPanel({
+  i18n,
+  host,
+  handlers,
+  busy,
+}: {
+  readonly i18n: Translator;
+  readonly host: HostDossierView;
+  readonly handlers: OpsHandlers;
+  readonly busy: boolean;
+}) {
+  const s = host.screening;
+  const open =
+    host.status === 'OPEN' || host.status === 'DOCS_PENDING' || host.status === 'IN_REVIEW';
+  return (
+    <section className={styles['panel']} aria-labelledby="host-heading">
+      <h2 id="host-heading" className={styles['heading']} tabIndex={-1}>
+        {i18n.t('backoffice.host.heading')}
+      </h2>
+      <Banner tone="info" live="polite">
+        {i18n.t('backoffice.kyc.logged')}
+      </Banner>
+      <p className={styles['muted']}>{i18n.t('backoffice.host.intro')}</p>
+      {host.screeningHold && (
+        <Banner tone="warning" live="polite">
+          {i18n.t('backoffice.host.hold')}
+        </Banner>
+      )}
+      <Fact
+        label={i18n.t('backoffice.host.status')}
+        value={`${i18n.t(HOST_STATUS_KEYS[host.status])} · ${host.country}`}
+      />
+      <Fact
+        label={i18n.t('backoffice.host.reviewReasons')}
+        value={
+          host.reviewReasons.length === 0
+            ? i18n.t('backoffice.host.noReason')
+            : host.reviewReasons.map((r) => i18n.t(HOST_REASON_KEYS[r])).join(' · ')
+        }
+      />
+      <h3 className={styles['label']}>{i18n.t('backoffice.host.checklist')}</h3>
+      <ul className={styles['roles']}>
+        {host.checklist.map((c) => (
+          <li key={c.item} className={styles['role']}>
+            <span>{i18n.t(HOST_ITEM_KEYS[c.item])}</span>
+            <Badge tone={HOST_STATE_TONES[c.state]}>{i18n.t(HOST_STATE_KEYS[c.state])}</Badge>
+          </li>
+        ))}
+      </ul>
+      <h3 className={styles['label']}>{i18n.t('backoffice.host.screening')}</h3>
+      {s === null ? (
+        <p className={styles['muted']}>{i18n.t('backoffice.host.noScreening')}</p>
+      ) : (
+        <>
+          <Fact
+            label={i18n.t('backoffice.host.source')}
+            value={
+              HOST_SOURCE_KEYS[s.source]
+                ? i18n.t(HOST_SOURCE_KEYS[s.source] as MessageKey)
+                : s.source
+            }
+          />
+          <Fact
+            label={i18n.t('backoffice.host.screenedAt')}
+            value={`${i18n.dateTime(s.screenedAt, 'UTC')} UTC`}
+          />
+          <Fact
+            label={i18n.t('backoffice.host.result')}
+            value={i18n.t(HOST_RESULT_KEYS[s.result])}
+          />
+          {host.evidenceFileIds.length > 0 && (
+            <p className={styles['muted']}>
+              {i18n.t('backoffice.host.evidence', { count: host.evidenceFileIds.length })}
+            </p>
+          )}
+        </>
+      )}
+      {s === null && open && (
+        <form
+          className={styles['form']}
+          aria-labelledby="host-screening-heading"
+          onSubmit={prevent((e) => {
+            const values = SANCTIONS_LISTS.map((l) => [l, listResultOf(e, l)] as const);
+            if (values.every(([, r]) => r !== null)) {
+              handlers.onHostScreening(
+                host.orgId,
+                Object.fromEntries(values) as Record<SanctionsList, SanctionsListResult>,
+                fieldOf(e, 'reason'),
+              );
+            }
+          })}
+        >
+          <h3 id="host-screening-heading" className={styles['label']}>
+            {i18n.t('backoffice.host.screeningHeading')}
+          </h3>
+          <p className={styles['muted']}>{i18n.t('backoffice.host.screeningHint')}</p>
+          {SANCTIONS_LISTS.map((list) => (
+            <fieldset key={list} className={styles['checks']}>
+              <legend className={styles['label']}>{i18n.t(SANCTIONS_LIST_KEYS[list])}</legend>
+              {(['CLEAR', 'MATCH'] as const).map((result) => (
+                <label key={result} className={styles['choice']}>
+                  <input
+                    type="radio"
+                    name={list}
+                    value={result}
+                    required
+                    className={styles['choiceInput']}
+                  />
+                  <span>
+                    {i18n.t(result === 'CLEAR' ? 'backoffice.host.clear' : 'backoffice.host.match')}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ))}
+          <TextField
+            i18n={i18n}
+            id="host-screening-reason"
+            name="reason"
+            minLength={10}
+            maxLength={1000}
+            label={i18n.t('backoffice.action.reason')}
+            hint={i18n.t('backoffice.action.reasonHint')}
+          />
+          <div className={styles['actions']}>
+            <Button type="submit" variant="primary" loading={busy}>
+              {i18n.t('backoffice.host.record')}
+            </Button>
+          </div>
+        </form>
       )}
     </section>
   );

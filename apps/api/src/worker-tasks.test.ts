@@ -202,11 +202,12 @@ describe('tâches du travailleur (US-003)', () => {
 
   // US-106 (16 ADM-002 « SLA dépassé ⇒ alerte au responsable ops ») : comptes de la base relayés,
   // une alerte P2 par (file, pays), une alerte P1 si un dossier KYC en revue reste hors file
-  it('review_sla_watch : remise en file KYC puis retards signalés ; une alerte par file et pays', async () => {
+  it('review_sla_watch : revue de l’hôte par exception, remise en file KYC puis retards signalés ; une alerte par file et pays', async () => {
     const registry = new BusRegistry();
     const alerts = new RecordingAlerts();
     const logs: string[] = [];
     const { tx, sql } = recordingTx({
+      kyc_worker_auto_review_hosts: [{ approved: 2, kept: '1', skipped: 0 }],
       kyc_worker_enqueue_reviews: [{ enqueued: 1, unqueued: '2', waiting: 3, skipped: '1' }],
       support_worker_review_sla: [
         { queue: 'KYC', country_code: C1, breached: 3 },
@@ -226,6 +227,8 @@ describe('tâches du travailleur (US-003)', () => {
     await h.handle({}, tx);
     const batch = WORKER_TASK_DEFAULTS.reviewSlaWatchBatch;
     expect(sql).toEqual([
+      // US-108 : revue de l'hôte par exception, d'abord (tous les comptes : NULL)
+      `SELECT approved, kept, skipped FROM core.kyc_worker_auto_review_hosts($1, NULL) [${batch}]`,
       `SELECT enqueued, unqueued, waiting, skipped FROM core.kyc_worker_enqueue_reviews($1) [${batch}]`,
       `SELECT queue, country_code, breached FROM core.support_worker_review_sla($1) [${batch}]`,
     ]);
@@ -253,6 +256,9 @@ describe('tâches du travailleur (US-003)', () => {
       JSON.stringify({
         level: 'info',
         worker: 'review_sla_watch',
+        hostsApproved: 2,
+        hostsKept: 1,
+        hostsSkipped: 0,
         enqueued: 1,
         unqueued: 2,
         waiting: 3,
@@ -265,6 +271,7 @@ describe('tâches du travailleur (US-003)', () => {
   it('review_sla_watch : rien en retard ni hors file ⇒ aucune alerte ; canal en échec ⇒ la passe échoue (rejouée)', async () => {
     // échecs déjà signalés (`waiting`) : aucune nouvelle alerte P1 (une par dossier, revue US-106)
     const quiet = recordingTx({
+      kyc_worker_auto_review_hosts: [{ approved: 0, kept: 0, skipped: 0 }],
       kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 5, skipped: 0 }],
     });
     const alerts = new RecordingAlerts();
@@ -282,6 +289,7 @@ describe('tâches du travailleur (US-003)', () => {
     await h.handle({}, quiet.tx);
     expect(alerts.sent).toEqual([]);
     const late = recordingTx({
+      kyc_worker_auto_review_hosts: [{ approved: 0, kept: 0, skipped: 0 }],
       kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 0, skipped: 0 }],
       support_worker_review_sla: [{ queue: 'KYC', country_code: C2, breached: 1 }],
     });

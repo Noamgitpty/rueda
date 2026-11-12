@@ -1508,6 +1508,35 @@
         "status": "C1"
       }
     },
+    "core.settlement_insurer": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "country_code": "C1",
+        "name": "C1",
+        "kind": "C1",
+        "license_ref": "C1",
+        "status": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.settlement_insurer_contract": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "insurer_id": "C1",
+        "country_code": "C1",
+        "version": "C1",
+        "vehicle_eligibility": "C1",
+        "signed_at": "C1",
+        "valid_from": "C1",
+        "valid_to": "C1",
+        "document_file_id": "C1",
+        "created_at": "C1"
+      }
+    },
     "core.settlement_insurer_bordereau": {
       "lifecycle": "A",
       "export": "none",
@@ -2144,7 +2173,8 @@
         },
         "screened_at": "C1",
         "reviewer": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "manual_action_id": "C1"
       }
     },
     "core.kyc_host_tax_profile": {

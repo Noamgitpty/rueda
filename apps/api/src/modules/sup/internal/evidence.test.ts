@@ -60,6 +60,7 @@ function storeOf(trace: Trace, permitted = 'PERMITTED', recorded = 'RECORDED'): 
     queues: never,
     claim: never,
     kycDossier: never,
+    hostDossier: never,
     catalogAddition: never,
     resolveCatalogAddition: never,
     findUser: never,

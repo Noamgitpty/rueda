@@ -59,6 +59,13 @@ export interface OpsConsoleStore {
     itemId: string,
     purpose: string,
   ): Promise<OpsResult>;
+  /** US-108 : dossier de l'hôte par la file HOST_VERIFICATION (liste de contrôle, retenue). */
+  hostDossier(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    purpose: string,
+  ): Promise<OpsResult>;
   findUser(
     actor: StaffActor,
     requestId: string,
@@ -118,6 +125,8 @@ export class OpsStoreError extends Error {
 export const QUEUES_SQL = 'SELECT outcome, body FROM core.support_staff_queues($1, $2, $3)';
 export const CLAIM_SQL = 'SELECT outcome, body FROM core.support_staff_claim_item($1, $2, $3)';
 export const KYC_SQL = 'SELECT outcome, body FROM core.support_staff_kyc_dossier($1, $2, $3, $4)';
+export const HOST_DOSSIER_SQL =
+  'SELECT outcome, body FROM core.support_staff_host_dossier($1, $2, $3, $4)';
 export const FIND_SQL = 'SELECT outcome, body FROM core.support_staff_find_user($1, $2, $3, $4)';
 export const PROFILE_SQL = 'SELECT outcome, body FROM core.support_staff_profile($1, $2, $3, $4)';
 export const NOTE_SQL = 'SELECT outcome, body FROM core.support_staff_add_note($1, $2, $3, $4)';
@@ -166,6 +175,10 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
 
   kycDossier(actor: StaffActor, requestId: string, itemId: string, purpose: string) {
     return one(this.#db, KYC_SQL, [actor.tokenHash, requestId, itemId, purpose]);
+  }
+
+  hostDossier(actor: StaffActor, requestId: string, itemId: string, purpose: string) {
+    return one(this.#db, HOST_DOSSIER_SQL, [actor.tokenHash, requestId, itemId, purpose]);
   }
 
   findUser(actor: StaffActor, requestId: string, email: string, purpose: string) {

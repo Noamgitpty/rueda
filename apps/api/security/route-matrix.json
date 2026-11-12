@@ -142,6 +142,13 @@
       "portee": "pays",
       "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès"
     },
+    "POST /console/queues/items/{id}/host-verification": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file HOST_VERIFICATION, élément assigné ; ADMIN : sa portée), journalisé READ_C2_SUPPORT",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès (preuve L0 l0-us108-host-ops-verification)"
+    },
     "POST /console/queues/items/{id}/catalog-addition": {
       "acces": "staff",
       "permission": "ops.review_listing_host (file CATALOG_ADDITION, élément pris en charge ; ADMIN : sa portée)",
