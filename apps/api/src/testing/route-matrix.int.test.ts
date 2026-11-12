@@ -142,8 +142,7 @@ async function vehicleItem(country: string, subject: 'VEHICLE' | 'VEHICLE_CLAIM'
   return rows[0]?.item_id ?? randomUUID();
 }
 
-const PDF64 = Buffer.from('%PDF-1.7
-', 'latin1').toString('base64');
+const PDF64 = Buffer.from('%PDF-1.7 de test', 'latin1').toString('base64');
 
 async function register(): Promise<string> {
   const id = randomUUID();
