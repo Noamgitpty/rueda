@@ -101,13 +101,10 @@ export const FR_PROTO = {
   'web.s04.status.resident': 'Tu as une pièce d’identité du {country}',
   'web.s04.status.special': 'Visa spécial ou permis de séjour',
   'web.s04.status.unsure': 'Je ne sais pas',
-  'web.s04.checking': 'Vérification…',
-  'web.s04.result.verified': 'Vérifié',
   'web.s04.result.inReview': {
     one: 'En cours d’examen : nous te répondons sous {count} heure maximum.',
     other: 'En cours d’examen : nous te répondons sous {count} heures maximum.',
   },
-  'web.s04.result.retake': 'Il nous faut une autre photo',
   'web.s04.result.glare':
     'La photo de ton permis a un reflet. Incline-le un peu et évite la lumière directe.',
   'web.s05.protection.title': 'Choisis ta protection',
@@ -229,9 +226,6 @@ export const FR_PROTO = {
     other: 'Ce code n’est pas le bon. Il te reste {count} essais.',
   },
   'web.s15.emailUsed': 'Un compte existe déjà avec cette adresse. Connecte-toi pour continuer.',
-  'web.s04.title': 'Vérifie ton identité',
-  'web.s04.intro':
-    'Nous le faisons avant le paiement pour que tu ne paies jamais si tu ne peux pas conduire.',
   'web.s04.step.status': 'Situation',
   'web.s04.step.documents': 'Documents',
   'web.s04.step.selfie': 'Selfie',

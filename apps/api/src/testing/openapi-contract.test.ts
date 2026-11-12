@@ -11,6 +11,7 @@ import { HOST_LISTING_MESSAGES } from '../modules/cat/index.js';
 import { BRAND_MESSAGES } from '../modules/cfg/index.js';
 import { LEGAL_MESSAGES } from '../modules/ctr/index.js';
 import { AUTH_MESSAGES } from '../modules/iam/index.js';
+import { KYC_MESSAGES } from '../modules/kyc/index.js';
 import { OPS_MESSAGES } from '../modules/sup/index.js';
 import { RISK_MESSAGES } from '../modules/risk/index.js';
 import { startApiHarness } from './api-harness.js';
@@ -226,6 +227,7 @@ const CATALOG: ReadonlyMap<string, ReadonlySet<number>> = (() => {
     RISK_MESSAGES,
     HOST_LISTING_MESSAGES,
     OPS_MESSAGES,
+    KYC_MESSAGES,
   ] as const) {
     for (const [code, { status }] of Object.entries(catalog)) add(code, status);
   }

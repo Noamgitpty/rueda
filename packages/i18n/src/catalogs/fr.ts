@@ -862,6 +862,109 @@ export const FR_MESSAGES = {
     'Cette version n’est plus au catalogue. Choisis-en une autre.',
   'common.vehicle.catalog.variantNotFound':
     'Nous n’avons pas trouvé cette version dans le catalogue.',
+  'common.calendar.blockCreated': 'Dates bloquées.',
+  'common.calendar.blockRemoved': 'Dates débloquées.',
+  'common.calendar.noticeSaved': 'Préavis enregistré.',
+  'common.calendar.vehicleUnavailable': 'Ces dates sont déjà prises. Choisis-en d’autres.',
+  'common.calendar.notListed': 'Publie ton annonce avant de bloquer des dates.',
+  'common.calendar.blockNotFound': 'Ce blocage n’existe plus.',
+  'common.calendar.invalidPeriod':
+    'Vérifie les dates : la fin doit suivre le début et ne pas être déjà passée.',
+  'common.calendar.noticeInvalid': 'Choisis un préavis entre 1 heure et 7 jours.',
+  'web.calendar.title': 'Calendrier',
+  'web.calendar.intro':
+    'Vois quand ta voiture est occupée, bloque des jours ou des heures et fixe ton préavis.',
+  'web.calendar.open': 'Voir le calendrier',
+  'web.calendar.back': 'Retour à mes voitures',
+  'web.calendar.notFound': 'Nous n’avons pas trouvé cette voiture.',
+  'web.calendar.timezone': 'Heures dans le fuseau horaire de la voiture ({timezone}).',
+  'web.calendar.upcoming.title': 'Occupations à venir',
+  'web.calendar.empty': 'Rien à venir : ta voiture est disponible.',
+  'web.calendar.kind.TRIP': 'Voyage confirmé',
+  'web.calendar.kind.HOLD': 'Réservation en cours',
+  'web.calendar.kind.HOST_BLOCK': 'Bloqué par toi',
+  'web.calendar.kind.BUFFER': 'Battement entre voyages',
+  'web.calendar.range': 'Du {start} au {end}',
+  'web.calendar.remove': 'Débloquer',
+  'web.calendar.block.title': 'Bloquer des dates',
+  'web.calendar.block.notListed': 'Tu pourras bloquer des dates quand ton annonce sera publiée.',
+  'web.calendar.block.days': 'Bloquer des jours entiers',
+  'web.calendar.block.from': 'Du jour',
+  'web.calendar.block.to': 'Au jour (inclus)',
+  'web.calendar.block.submitDays': 'Bloquer ces jours',
+  'web.calendar.block.hours': 'Bloquer quelques heures',
+  'web.calendar.block.date': 'Jour',
+  'web.calendar.block.start': 'De',
+  'web.calendar.block.end': 'À',
+  'web.calendar.block.hoursHint': 'Par tranches d’une demi-heure.',
+  'web.calendar.block.submitHours': 'Bloquer ces heures',
+  'web.calendar.notice.title': 'Préavis minimum',
+  'web.calendar.notice.intro':
+    'Délai minimum entre la réservation et le début du voyage à ton lieu de remise. Personne ne pourra réserver plus tard.',
+  'web.calendar.notice.label': 'Préavis',
+  'web.calendar.notice.default': 'Valeur par défaut',
+  'web.calendar.notice.current': 'Préavis en vigueur : {duration}.',
+  'web.calendar.notice.save': 'Enregistrer le préavis',
+  'web.calendar.duration.hours': { one: '{count} heure', other: '{count} heures' },
+  'web.calendar.duration.days': { one: '{count} jour', other: '{count} jours' },
+  'web.calendar.duration.hoursDecimal': '{value} heures',
+  // Vérification d’identité et consentement biométrique (US-105, 16 VER-001, VER-004 ; écran S04,
+  // 10b §4.3 : web.s04.checking, .result.verified, .result.retake ; autres clés PROPOSÉES)
+  'common.kyc.state': 'État de ta vérification d’identité.',
+  'common.kyc.consentRecorded': 'Nous avons enregistré ta réponse sur le consentement biométrique.',
+  'common.kyc.consentVersionChanged':
+    'Le texte du consentement a changé. Relis-le avant d’accepter.',
+  'common.kyc.consentUnavailable':
+    'Nous ne pouvons pas afficher le consentement pour le moment. Réessaie plus tard.',
+  'common.kyc.sessionStarted':
+    'Nous t’emmenons sur la page sécurisée de notre prestataire de vérification.',
+  'common.kyc.sessionInProgress':
+    'Tu as déjà commencé ta vérification : tu peux la reprendre là où tu l’as laissée.',
+  'common.kyc.consentMissing':
+    'Pour vérifier ton identité, accepte d’abord le consentement biométrique.',
+  'common.kyc.notEligible':
+    'Nous ne pouvons pas vérifier ton identité d’ici. Écris-nous pour qu’on regarde ensemble.',
+  'common.kyc.inReview':
+    'Ta vérification est en cours d’examen : nous te prévenons dès que nous avons la décision.',
+  'common.kyc.alreadyApproved': 'Ton identité est déjà vérifiée. Tu n’as rien d’autre à faire.',
+  'common.kyc.documentUnsupported':
+    'Nous ne pouvons pas encore vérifier un permis délivré là-bas. Choisis-en un autre ou écris-nous.',
+  'common.kyc.sessionFailed':
+    'Nous n’avons pas pu ouvrir la vérification. Réessaie dans quelques minutes.',
+  'common.kyc.providerUnavailable':
+    'La vérification d’identité n’est pas disponible pour le moment. Réessaie plus tard.',
+  'common.kyc.notApproved': 'Vérifie ton identité et ton permis avant de payer.',
+  'common.kyc.licenseExpired':
+    'Ton permis expire avant la fin du voyage. Mets-le à jour pour pouvoir payer.',
+  'common.kyc.driverEligible': 'Ton permis est valable pour tout le voyage.',
+  'web.s04.title': 'Vérifie ton identité',
+  'web.s04.intro':
+    'Nous le faisons avant le paiement pour que tu ne paies jamais si tu ne peux pas conduire.',
+  'web.s04.progress': 'Étape {step} sur {total}',
+  'web.s04.consent.heading': 'Consentement biométrique',
+  'web.s04.consent.checkbox':
+    'J’accepte que le prestataire utilise mes données biométriques pour vérifier mon identité.',
+  'web.s04.consent.submit': 'Accepter et continuer',
+  'web.s04.consent.required': 'Coche la case pour accepter le consentement biométrique.',
+  'web.s04.consent.refusal':
+    'Sans ce consentement, nous ne pouvons pas te vérifier, et tu ne pourras ni réserver ni publier une voiture.',
+  'web.s04.consent.withdraw': 'Retirer mon consentement',
+  'web.s04.consent.withdrawHeading': 'Ton consentement biométrique',
+  'web.s04.consent.withdrawHint':
+    'Tu peux le retirer à tout moment. Nous demanderons au prestataire d’effacer tes données biométriques, et tu ne pourras plus réserver ni publier une voiture avant une nouvelle vérification.',
+  'web.s04.consent.given': 'Tu as accepté le consentement biométrique.',
+  'web.s04.country': 'Lieu de délivrance de ton permis',
+  'web.s04.start': 'Vérifier mon identité',
+  'web.s04.resume': 'Reprendre ma vérification',
+  'web.s04.hosted':
+    'Tu prendras les photos sur la page sécurisée du prestataire. Nous ne gardons aucune photo : seulement le résultat.',
+  'web.s04.checking': 'Vérification…',
+  'web.s04.result.verified': 'Vérifié',
+  'web.s04.result.retake': 'Il nous faut une autre photo',
+  'web.s04.licenseValid': 'Permis valable jusqu’au {date}.',
+  'web.s04.phoneFirst':
+    'Vérifie d’abord ton téléphone : il sert à organiser la remise de la voiture.',
+  'web.s04.phoneLink': 'Vérifier mon téléphone',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Avertissement important',
   'common.regulatory.version': 'Version {version} de cet avertissement',

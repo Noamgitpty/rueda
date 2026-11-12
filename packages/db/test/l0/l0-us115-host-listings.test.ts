@@ -71,7 +71,7 @@ async function session(client: pg.ClientBase, userId: string): Promise<Buffer> {
 
 /**
  * Hôte : personne, compte d'hôte ouvert en libre-service (ONBOARDING) ; statut forcé au besoin.
- * Les CGU de l'hôte en vigueur (graine 0070, v1) sont acceptées par la vraie commande d'US-126 :
+ * Les CGU de l'hôte en vigueur (graine 0071, v1) sont acceptées par la vraie commande d'US-126 :
  * la garde TERMS_REACCEPT_REQUIRED de la soumission est prouvée par l0-us126-host-terms.
  */
 async function host(client: pg.ClientBase, country: string, status?: string): Promise<Host> {
@@ -337,13 +337,20 @@ describe('socle (0067) : RLS, droits, propriétaires', () => {
         expect(rows.map((r) => r.relname)).toEqual([...TABLES]);
         const expected: Record<(typeof TABLES)[number], string[]> = {
           catalog_deposit_policy: ['migrator_all:migrator'],
+          // US-119 (0071) : sonde de disponibilité (catalog_probe_owner) et préavis du lieu lu à
+          // la pose d'un hold (cmd_hold_owner)
           catalog_listing: [
             'catalog_cmd_all:catalog_cmd_owner',
             'cmd_hold_read:cmd_hold_owner',
             'migrator_all:migrator',
+            'probe_read:catalog_probe_owner',
           ],
           catalog_listing_photo: ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
-          catalog_location: ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
+          catalog_location: [
+            'catalog_cmd_all:catalog_cmd_owner',
+            'cmd_hold_read:cmd_hold_owner',
+            'migrator_all:migrator',
+          ],
           catalog_vehicle: [
             'catalog_cmd_all:catalog_cmd_owner',
             'cmd_hold_read:cmd_hold_owner',

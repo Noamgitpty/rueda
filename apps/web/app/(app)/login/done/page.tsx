@@ -10,7 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Connecté, documents à jour (US-102) ; accès à la vérification du téléphone (US-104). Point d'extension : le retour automatique à l'écran
+ * Connecté, documents à jour (US-102) ; accès à la vérification du téléphone (US-104) et de
+ * l'identité (US-105). Point d'extension : le retour automatique à l'écran
  * d'origine (lien profond, 10b N7) arrive avec la réservation (lot 2).
  */
 export default async function LoginDonePage() {
@@ -24,6 +25,10 @@ export default async function LoginDonePage() {
       {/* US-104 : étape OTP de S15 (16 ACC-001 : après l'e-mail, VER-013) */}
       <ButtonLink variant="secondary" href="/verify-phone">
         {i18n.t('web.s15.phoneTitle')}
+      </ButtonLink>
+      {/* US-105 : vérification d'identité (S04, 16 VER-001 : après l'OTP) */}
+      <ButtonLink variant="secondary" href="/verify-identity">
+        {i18n.t('web.s04.title')}
       </ButtonLink>
     </main>
   );

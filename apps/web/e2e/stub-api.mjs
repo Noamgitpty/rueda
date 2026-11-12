@@ -13,6 +13,11 @@
 // documents à jour) parcourt l'étape OTP de S15. Pays et plans de numérotation : données de
 // configuration du dépôt (countries.json), jamais une constante. Le « SMS » du double porte
 // toujours le code `OTP_CODE` ; 5 codes faux bloquent (16 VER-013).
+//
+// Vérification d'identité (US-105) : un compte `identity-<nom>@example.test` (créé à sa première
+// connexion, documents à jour, téléphone vérifié) parcourt S04 : consentement biométrique v1
+// (texte BROUILLON), ouverture du parcours hébergé (adresse `https://identity.fake.invalid/…`,
+// jamais résolue : le test l'intercepte), décision posée par `GET /__e2e/identity/approve`.
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -47,6 +52,41 @@ const COUNTRIES = JSON.parse(
   mobilePrefixes: c.phone.mobilePrefixes,
 }));
 const phones = new Map();
+
+const IDENTITY_ACCOUNT = /^identity-[a-z0-9-]+@example\.test$/;
+const BIOMETRIC_TITLE = {
+  es: 'Consentimiento para la verificación biométrica (BORRADOR)',
+  en: 'Consent to biometric verification (DRAFT)',
+  fr: 'Consentement à la vérification biométrique (BROUILLON)',
+  pt: 'Consentimento para a checagem biométrica (RASCUNHO)',
+};
+const identities = new Map();
+let identitySessions = 0;
+const identityOf = (email) => {
+  const i = identities.get(email) ?? { consent: null, status: 'NOT_STARTED', session: null };
+  identities.set(email, i);
+  return i;
+};
+const identityView = (i, lang) => ({
+  code: 'KYC_STATE',
+  status: i.status,
+  country: i.session?.country ?? null,
+  reasonCode: null,
+  licenseExpiresOn: i.status === 'APPROVED' ? '2031-06-30' : null,
+  sessionLive: i.status === 'DOCS_SUBMITTED',
+  phoneVerified: true,
+  available: true,
+  consent: {
+    version: 1,
+    accepted: i.consent === 1,
+    locale: lang,
+    title: BIOMETRIC_TITLE[lang],
+    bodyMd: `**${MARK[lang]}**
+
+BIOMETRIC_CONSENT ${lang}`,
+  },
+  countries: COUNTRIES.map((c) => ({ code: c.code, names: c.names })),
+});
 
 /** Même règle que l'API (plan du pays) : forme nationale ou internationale, mobiles seulement. */
 const normalize = (raw, country) => {
@@ -275,6 +315,124 @@ async function hostRoute(req, res, url) {
         approximatePoint: { lat: 8.98, lng: -79.52 },
         timezone: 'UTC',
       },
+    });
+  }
+  // ---- Calendrier d'un véhicule (US-119) : occupations, blocages, préavis du lieu -------------
+  // Double : un véhicule qui a une annonce vaut « publié » (le double ne publie jamais, US-118) ;
+  // heures locales comparées comme des chaînes (fuseau UTC du double) ; préavis du pays : 180 min.
+  const cal =
+    /^\/host\/accounts\/([0-9a-f-]{36})\/(?:vehicles\/([0-9a-f-]{36})\/(calendar|blocks)(?:\/([0-9a-f-]{36}))?|locations\/([0-9a-f-]{36})\/notice)$/.exec(
+      path,
+    );
+  if (cal !== null) {
+    const owner = hostOf(req);
+    if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === cal[1]);
+    if (h === undefined) {
+      return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+    }
+    h.blocks ??= [];
+    const [, , vehicleId, what, blockId, locationId] = cal;
+    if (locationId !== undefined) {
+      if (req.method !== 'PUT') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+      if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+        return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+      }
+      const loc = h.locations.find((x) => x.id === locationId);
+      if (!loc) return err(res, 404, 'LOCATION_NOT_FOUND', 'common.listing.locationNotFound');
+      const body = (await readBody(req)) ?? {};
+      const m = body.minutes;
+      if (m !== null && !(Number.isInteger(m) && m >= 60 && m <= 10_080 && m % 30 === 0)) {
+        return json(res, 400, {
+          code: 'REQUEST_INVALID',
+          messageKey: 'common.auth.requestInvalid',
+          fields: [{ field: 'minutes', reason: 'INVALID' }],
+        });
+      }
+      loc.notice = m;
+      return err(res, 200, 'NOTICE_SAVED', 'common.calendar.noticeSaved');
+    }
+    const v = h.vehicles.find((x) => x.id === vehicleId);
+    if (!v) return err(res, 404, 'VEHICLE_NOT_FOUND', 'common.listing.vehicleNotFound');
+    const listed = v.listingId !== null;
+    if (req.method === 'GET' && what === 'calendar' && blockId === undefined) {
+      const loc = h.locations.find((x) => x.id === v.locationId);
+      const notice = loc?.notice ?? null;
+      return json(res, 200, {
+        vehicle: {
+          id: v.id,
+          timezone: 'UTC',
+          listed,
+          locationId: v.locationId,
+          noticeMinutes: notice,
+          effectiveNoticeMinutes: notice ?? 180,
+        },
+        entries: h.blocks
+          .filter((b) => b.vehicleId === v.id && b.active)
+          .sort((a, b) => (a.startLocal < b.startLocal ? -1 : 1))
+          .map((b) => ({
+            id: b.id,
+            kind: 'HOST_BLOCK',
+            startsAt: `${b.startLocal}:00.000Z`,
+            endsAt: `${b.endLocal}:00.000Z`,
+            startLocal: b.startLocal,
+            endLocal: b.endLocal,
+            removable: true,
+          })),
+      });
+    }
+    if (what !== 'blocks') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+      return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const body = (await readBody(req)) ?? {};
+    if (req.method === 'DELETE' && blockId !== undefined) {
+      const b = h.blocks.find((x) => x.id === blockId && x.vehicleId === v.id && x.active);
+      if (!b) return err(res, 404, 'BLOCK_NOT_FOUND', 'common.calendar.blockNotFound');
+      b.active = false;
+      return err(res, 200, 'BLOCK_REMOVED', 'common.calendar.blockRemoved');
+    }
+    if (req.method !== 'POST' || blockId !== undefined) {
+      return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    }
+    let startLocal;
+    let endLocal;
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    const time = /^\d{4}-\d{2}-\d{2}T\d{2}:(00|30)$/;
+    if (day.test(String(body.from)) && day.test(String(body.to)) && body.to >= body.from) {
+      const next = new Date(`${body.to}T00:00:00.000Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      startLocal = `${body.from}T00:00`;
+      endLocal = `${next.toISOString().slice(0, 10)}T00:00`;
+    } else if (
+      time.test(String(body.start)) &&
+      time.test(String(body.end)) &&
+      body.end > body.start
+    ) {
+      startLocal = body.start;
+      endLocal = body.end;
+    } else {
+      return json(res, 400, {
+        code: 'REQUEST_INVALID',
+        messageKey: 'common.auth.requestInvalid',
+        fields: [{ field: 'from', reason: 'INVALID' }],
+      });
+    }
+    if (!listed) return err(res, 409, 'VEHICLE_NOT_LISTED', 'common.calendar.notListed');
+    if (
+      h.blocks.some(
+        (b) =>
+          b.vehicleId === v.id && b.active && b.startLocal < endLocal && startLocal < b.endLocal,
+      )
+    ) {
+      return err(res, 409, 'VEHICLE_UNAVAILABLE', 'common.calendar.vehicleUnavailable');
+    }
+    const id = uuid();
+    h.blocks.push({ id, vehicleId: v.id, startLocal, endLocal, active: true });
+    return json(res, 201, {
+      code: 'BLOCK_CREATED',
+      messageKey: 'common.calendar.blockCreated',
+      blockId: id,
     });
   }
   // CGU de l'hôte (US-126) : version 1 BROUILLON ; acceptation de la version affichée
@@ -535,6 +693,20 @@ ${kind} ${lang}`,
     if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
     return json(res, 200, { ...statusOf(s.email), history: [] });
   }
+  if (req.method === 'GET' && path === '/__e2e/identity/approve') {
+    const i = identities.get(url.searchParams.get('email') ?? '');
+    if (!i || i.status !== 'DOCS_SUBMITTED')
+      return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    i.status = 'APPROVED';
+    return json(res, 200, { status: i.status });
+  }
+  if (req.method === 'GET' && path === '/identity') {
+    const s = sessionOf(req);
+    if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    // langue préférée du compte : celle du parcours (identity-<langue>-<nom>@example.test)
+    const lang = LANGS.find((l) => s.email.startsWith('identity-' + l + '-')) ?? 'es';
+    return json(res, 200, identityView(identityOf(s.email), lang));
+  }
   if (req.method === 'GET' && path === '/phone') {
     const s = sessionOf(req);
     if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
@@ -628,7 +800,68 @@ ${kind} ${lang}`,
     p.pending = null;
     return err(res, 200, 'PHONE_VERIFIED', 'common.otp.verified');
   }
+  if (path === '/identity/consent') {
+    const s = sessionOf(req);
+    if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    if (typeof body.accepted !== 'boolean') {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (body.accepted && body.version !== 1) {
+      return err(res, 409, 'KYC_CONSENT_VERSION_CHANGED', 'common.kyc.consentVersionChanged');
+    }
+    const i = identityOf(s.email);
+    i.consent = body.accepted ? 1 : null;
+    // retrait : session effacée, dossier en RECHECK (ADR-102)
+    if (!body.accepted && i.status !== 'NOT_STARTED') {
+      i.status = 'RECHECK';
+      i.session = null;
+    }
+    return json(res, 200, {
+      code: 'KYC_CONSENT_RECORDED',
+      messageKey: 'common.kyc.consentRecorded',
+      version: 1,
+    });
+  }
+  if (path === '/identity/verification') {
+    const s = sessionOf(req);
+    if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const i = identityOf(s.email);
+    if (i.consent !== 1) {
+      return err(res, 403, 'KYC_BIOMETRIC_CONSENT_MISSING', 'common.kyc.consentMissing');
+    }
+    if (!COUNTRIES.some((c) => c.code === body.country)) {
+      return err(res, 400, 'COUNTRY_UNKNOWN', 'common.legal.countryUnknown');
+    }
+    if (i.status === 'APPROVED') {
+      return err(res, 409, 'KYC_ALREADY_APPROVED', 'common.kyc.alreadyApproved');
+    }
+    const resumed = i.session !== null;
+    if (!resumed) {
+      identitySessions += 1;
+      i.session = {
+        country: body.country,
+        url: `https://identity.fake.invalid/session/fk_idv_${String(identitySessions).padStart(6, '0')}`,
+      };
+    }
+    i.status = 'DOCS_SUBMITTED';
+    return json(res, resumed ? 200 : 201, {
+      code: resumed ? 'KYC_SESSION_IN_PROGRESS' : 'KYC_SESSION_STARTED',
+      messageKey: resumed ? 'common.kyc.sessionInProgress' : 'common.kyc.sessionStarted',
+      hostedUrl: i.session.url,
+      expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+    });
+  }
   if (path === '/auth/login') {
+    if (
+      typeof body.email === 'string' &&
+      IDENTITY_ACCOUNT.test(body.email) &&
+      !accounts.has(body.email)
+    ) {
+      accounts.set(body.email, {
+        password: 'Correct-Horse-9',
+        accepted: { TOS_GUEST: VERSIONS.TOS_GUEST, PRIVACY: VERSIONS.PRIVACY },
+      });
+    }
     if (
       typeof body.email === 'string' &&
       PHONE_ACCOUNT.test(body.email) &&

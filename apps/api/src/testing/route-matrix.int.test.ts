@@ -28,6 +28,7 @@ import { postgresCatAdapters } from '../modules/cat/index.js';
 import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from '../modules/cfg/index.js';
 import { PgConsentStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
+import { postgresKycAdapters } from '../modules/kyc/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
 import {
@@ -508,6 +509,27 @@ async function requestOf(
       };
     case 'DELETE /host/accounts/{orgId}/listings/{listingId}':
       return { method: 'DELETE', path: `/host/accounts/${id}/listings/${randomUUID()}`, body: {} };
+    // calendrier de l'hôte (US-119) : véhicule, lieu et blocage inconnus du compte ⇒ 404
+    case 'GET /host/accounts/{orgId}/vehicles/{vehicleId}/calendar':
+      return { method: 'GET', path: `/host/accounts/${id}/vehicles/${randomUUID()}/calendar` };
+    case 'POST /host/accounts/{orgId}/vehicles/{vehicleId}/blocks':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/blocks`,
+        body: { from: '2036-12-10', to: '2036-12-12' },
+      };
+    case 'DELETE /host/accounts/{orgId}/vehicles/{vehicleId}/blocks/{blockId}':
+      return {
+        method: 'DELETE',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/blocks/${randomUUID()}`,
+        body: {},
+      };
+    case 'PUT /host/accounts/{orgId}/locations/{locationId}/notice':
+      return {
+        method: 'PUT',
+        path: `/host/accounts/${id}/locations/${randomUUID()}/notice`,
+        body: { minutes: 180 },
+      };
     case 'GET /listings/{listingId}':
       return { method: 'GET', path: `/listings/${randomUUID()}` };
     // CGU de l'hôte (US-126) : compte d'hôte d'aucun acteur de la cellule ⇒ 404 (IDOR)
@@ -526,6 +548,16 @@ async function requestOf(
       return { method: 'POST', path: '/phone/otp', body: { phone: '0', country } };
     case 'POST /phone/verify':
       return { method: 'POST', path: '/phone/verify', body: { code: '000000' } };
+    // vérification d'identité (US-105) : version de consentement périmée (rien n'est écrit) ;
+    // ouverture sans fournisseur (production : 503) ; rappel d'un fournisseur inconnu (404)
+    case 'GET /identity':
+      return { method: 'GET', path: `/identity?country=${country}` };
+    case 'POST /identity/consent':
+      return { method: 'POST', path: '/identity/consent', body: { accepted: true, version: 999 } };
+    case 'POST /identity/verification':
+      return { method: 'POST', path: '/identity/verification', body: { country } };
+    case 'POST /kyc/webhooks/{provider}':
+      return { method: 'POST', path: '/kyc/webhooks/FAKE', body: {} };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }
@@ -771,6 +803,7 @@ beforeAll(async () => {
       },
       { store: new PgConsentStore(client) },
       postgresCatAdapters(client),
+      postgresKycAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

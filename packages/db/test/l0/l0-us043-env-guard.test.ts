@@ -58,6 +58,9 @@ async function setEnv(tx: pg.ClientBase, env: string): Promise<void> {
 /** Les fonctions qui lisent l'environnement dans la base de production (0028, 0039, 0045, 0048). */
 const READERS = [
   'core.booking_cmd_start_payment',
+  // US-105 (0072) : KYC de production fermé en base (OQ-MK-09, L1-PM-05)
+  'core.kyc_cmd_apply_decision',
+  'core.kyc_cmd_open_verification',
   'core.payment_cmd_receive_webhook',
   'core.payment_cmd_record_operation',
   'core.payment_cmd_register_submerchant',

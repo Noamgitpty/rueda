@@ -151,6 +151,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_auth_owner', cmd: 'a' });
           continue;
         }
+        // vérification d'identité (0072, US-105) : insertion de ses seuls événements
+        // kyc.verification.status_changed
+        if (r.pol === 'outbox_outbox_event.kyc_cmd_event_ins') {
+          expect(r).toMatchObject({ roles: 'kyc_cmd_owner', cmd: 'a' });
+          continue;
+        }
         // interrupteurs à deux personnes (0073, US-125) : insertion de config.param.changed seulement
         if (r.pol === 'outbox_outbox_event.cmd_golive_event_ins') {
           expect(r).toMatchObject({ roles: 'cmd_golive_owner', cmd: 'a' });
