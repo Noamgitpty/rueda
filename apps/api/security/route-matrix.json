@@ -45,6 +45,15 @@
     "POST /host/accounts": {
       "acces": "session"
     },
+    "GET /identity": {
+      "acces": "session"
+    },
+    "POST /identity/consent": {
+      "acces": "session"
+    },
+    "POST /identity/verification": {
+      "acces": "session"
+    },
     "GET /phone": {
       "acces": "session"
     },
@@ -340,6 +349,10 @@
     "POST /host/accounts/{orgId}/terms/accept": {
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun consentement écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us126)"
+    },
+    "POST /kyc/webhooks/{provider}": {
+      "acces": "public",
+      "idor": "rappel d’un fournisseur d’identité : signature du fournisseur exigée sur le corps brut ; le dossier visé est celui de la session du fournisseur ET de la référence opaque du sujet (recoupées en base) ; fournisseur inconnu ⇒ 404 sans écriture"
     }
   }
 }

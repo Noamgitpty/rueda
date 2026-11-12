@@ -105,13 +105,10 @@ export const ES_PROTO = {
   'web.s04.status.resident': 'Tienes un documento de identidad de {country}',
   'web.s04.status.special': 'Visa especial o permiso de estadía',
   'web.s04.status.unsure': 'No estoy seguro',
-  'web.s04.checking': 'Verificando…',
-  'web.s04.result.verified': 'Verificado',
   'web.s04.result.inReview': {
     one: 'En revisión: te avisamos en un máximo de {count} hora.',
     other: 'En revisión: te avisamos en un máximo de {count} horas.',
   },
-  'web.s04.result.retake': 'Necesitamos otra foto',
   'web.s04.result.glare':
     'La foto de tu licencia salió con reflejo. Inclínala un poco y evita la luz directa.',
   'web.s05.protection.title': 'Elige tu protección',
@@ -231,8 +228,6 @@ export const ES_PROTO = {
     other: 'El código no es correcto. Te quedan {count} intentos.',
   },
   'web.s15.emailUsed': 'Ya hay una cuenta con este correo. Inicia sesión para seguir.',
-  'web.s04.title': 'Verifica tu identidad',
-  'web.s04.intro': 'Lo hacemos antes del pago para que nadie te cobre si no puedes manejar.',
   'web.s04.step.status': 'Situación',
   'web.s04.step.documents': 'Documentos',
   'web.s04.step.selfie': 'Selfie',

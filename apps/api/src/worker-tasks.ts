@@ -14,6 +14,7 @@
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
+ * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
  * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
@@ -46,6 +47,8 @@ import { ntfSmsBudget } from './modules/risk/index.js';
 export const HOLD_EXPIRY_WORKER = 'hold_expiry';
 export const DISPOSITION_SWEEPER_WORKER = 'disposition_sweeper';
 export const RISK_PRUNER_WORKER = 'risk_pruner';
+/** Purge des scores biométriques à échéance et des rejets de rappels KYC (US-105, ADR-102). */
+export const KYC_SCORE_PRUNER_WORKER = 'kyc_score_pruner';
 export { IAM_OTP_PRUNER_WORKER, IAM_OTP_SENDER_WORKER } from './modules/iam/index.js';
 
 /** Valeurs PROPOSÉES (ADR-078) ; les périodes de 17 qui sont des paramètres pays sont lues en CFG. */
@@ -60,6 +63,9 @@ export const WORKER_TASK_DEFAULTS = {
   /** Purge des défis OTP de plus de 30 jours (US-104) : toutes les heures, par lots. */
   otpPrunerPeriodSeconds: 3_600,
   otpPrunerBatch: 5_000,
+  /** Purge KYC (US-105) : toutes les heures, par lots. */
+  kycPrunerPeriodSeconds: 3_600,
+  kycPrunerBatch: 5_000,
   /** Reprise d'un interblocage (SQLSTATE 40P01) : 3 essais au plus (handoff US-024). */
   deadlockAttempts: 3,
 } as const;
@@ -177,6 +183,14 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
       d.riskEventRetentionDays,
     ]);
     line(RISK_PRUNER_WORKER, { pruned: count(rows[0]?.n) });
+  });
+
+  // Vérification d'identité (US-105) : scores [C3] effacés à leur échéance (0 jour sans paramètre)
+  registry.registerPeriodic(KYC_SCORE_PRUNER_WORKER, d.kycPrunerPeriodSeconds, async (_p, tx) => {
+    const { rows } = await tx.query<{ n: unknown }>('SELECT core.kyc_worker_prune($1) AS n', [
+      d.kycPrunerBatch,
+    ]);
+    line(KYC_SCORE_PRUNER_WORKER, { pruned: count(rows[0]?.n) });
   });
 
   // OTP du téléphone (US-104) : émission asynchrone, aucun canal SMS réel avant le lot C (F-03)

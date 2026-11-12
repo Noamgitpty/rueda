@@ -175,4 +175,66 @@ describe('FakeIdentityProvider (KYC hébergé)', () => {
     expect(Date.now() - t0).toBeLessThan(1_000);
     expect(kyc.runtime.clock.now().toISOString()).toBe('2026-11-03T12:00:25.000Z');
   });
+
+  it('contrôles du rappel (US-105) : scores et champs minimaux seulement, images ignorées', async () => {
+    const { kyc } = setup();
+    const country = countries[0]?.code ?? '';
+    const out = await kyc.startVerification(request(country));
+    if (out.status !== 'OK') throw new Error('session attendue');
+    const checks = {
+      livenessScore: 0.98,
+      faceMatchScore: 0.91,
+      document: {
+        kind: 'DRIVER_LICENSE',
+        country,
+        expiresOn: '2030-01-31',
+        licenseClass: 'B',
+        isPermanent: true,
+        providerDocumentRef: 'doc_1',
+      },
+    };
+    kyc.decide(out.value.sessionId, 'APPROVED', [], checks, {
+      selfieUrl: 'https://identity.fake.invalid/selfie.jpg',
+      frontImage: 'data:image/jpeg;base64,AAAA',
+    });
+    const [delivery] = kyc.takeDeliveries();
+    if (delivery === undefined) throw new Error('rappel attendu');
+    const verdict = kyc.parseWebhook(delivery.body, delivery.signature, kyc.runtime.clock.now());
+    if (verdict.status !== 'ACCEPTED') throw new Error('rappel accepté attendu');
+    expect(verdict.event.checks).toEqual(checks);
+    expect(JSON.stringify(verdict.event)).not.toMatch(/selfie|image/i);
+    // score hors bornes : rappel mal formé
+    kyc.decide(out.value.sessionId, 'APPROVED', [], { ...checks, livenessScore: 2 });
+    const [bad] = kyc.takeDeliveries();
+    if (bad === undefined) throw new Error('rappel attendu');
+    expect(kyc.parseWebhook(bad.body, bad.signature, kyc.runtime.clock.now())).toEqual({
+      status: 'REJECTED',
+      reason: 'MALFORMED',
+    });
+  });
+
+  it('effacement d’une session (US-105, retrait) : attestation, idempotent ; session inconnue refusée', async () => {
+    const { kyc } = setup();
+    const out = await kyc.startVerification(request(countries[0]?.code ?? ''));
+    if (out.status !== 'OK') throw new Error('session attendue');
+    const first = await kyc.requestErasure({
+      idempotencyKey: 'e1',
+      sessionId: out.value.sessionId,
+    });
+    expect(first).toMatchObject({ status: 'OK', value: { attestationRef: 'fk_idv_erase_000001' } });
+    expect(
+      await kyc.requestErasure({ idempotencyKey: 'e1', sessionId: out.value.sessionId }),
+    ).toMatchObject({
+      status: 'OK',
+      replayed: true,
+    });
+    expect(await kyc.getStatus(out.value.sessionId)).toEqual({
+      status: 'REFUSED',
+      reason: 'UNKNOWN_SESSION',
+    });
+    expect(await kyc.requestErasure({ idempotencyKey: 'e2', sessionId: 'fk_idv_999999' })).toEqual({
+      status: 'REFUSED',
+      reason: 'UNKNOWN_SESSION',
+    });
+  });
 });

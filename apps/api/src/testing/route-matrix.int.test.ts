@@ -28,6 +28,7 @@ import { postgresCatAdapters } from '../modules/cat/index.js';
 import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from '../modules/cfg/index.js';
 import { PgConsentStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
+import { postgresKycAdapters } from '../modules/kyc/index.js';
 import type { StaffOptions } from '../modules/iam/index.js';
 import { postgresPayAdapters } from '../modules/pay/index.js';
 import {
@@ -545,6 +546,16 @@ async function requestOf(
       return { method: 'POST', path: '/phone/otp', body: { phone: '0', country } };
     case 'POST /phone/verify':
       return { method: 'POST', path: '/phone/verify', body: { code: '000000' } };
+    // vérification d'identité (US-105) : version de consentement périmée (rien n'est écrit) ;
+    // ouverture sans fournisseur (production : 503) ; rappel d'un fournisseur inconnu (404)
+    case 'GET /identity':
+      return { method: 'GET', path: `/identity?country=${country}` };
+    case 'POST /identity/consent':
+      return { method: 'POST', path: '/identity/consent', body: { accepted: true, version: 999 } };
+    case 'POST /identity/verification':
+      return { method: 'POST', path: '/identity/verification', body: { country } };
+    case 'POST /kyc/webhooks/{provider}':
+      return { method: 'POST', path: '/kyc/webhooks/FAKE', body: {} };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }
@@ -790,6 +801,7 @@ beforeAll(async () => {
       },
       { store: new PgConsentStore(client) },
       postgresCatAdapters(client),
+      postgresKycAdapters(client),
     ),
     { rawBody: true, logger: false },
   );

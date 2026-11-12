@@ -5775,6 +5775,445 @@
           }
         }
       }
+    },
+    "/identity": {
+      "get": {
+        "operationId": "getIdentityState",
+        "tags": ["kyc"],
+        "summary": "État de la vérification d'identité de la session : statut SM-3, texte du consentement biométrique en vigueur, pays proposés (US-105, 16 VER-001, VER-004)",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            },
+            "description": "Pays du parcours (portée du consentement avant toute ouverture)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État ; échéance du permis de la personne seulement, jamais une image ni un numéro",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Pays mal formé ou inconnu de la configuration",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "503": {
+            "description": "État illisible (base indisponible) : fail-closed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_PROVIDER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity/consent": {
+      "post": {
+        "operationId": "recordBiometricConsent",
+        "tags": ["kyc"],
+        "summary": "Consentement biométrique séparé (VER-004) : acceptation de la version affichée ou retrait (US-105)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KycConsentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consentement enregistré (contexte KYC, version en vigueur)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycConsentRecorded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps mal formé ou pays inconnu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte non éligible (fermé, pseudonymisé, e-mail non vérifié)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_NOT_ELIGIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La version affichée n'est plus celle en vigueur : relire le texte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_CONSENT_VERSION_CHANGED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Aucun texte en vigueur ou base indisponible : fail-closed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["KYC_CONSENT_UNAVAILABLE", "KYC_PROVIDER_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity/verification": {
+      "post": {
+        "operationId": "startIdentityVerification",
+        "tags": ["kyc"],
+        "summary": "Ouverture du parcours hébergé du fournisseur (US-105, 16 VER-001) : sans consentement biométrique, aucune session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KycVerificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session hébergée encore vivante : reprise",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycSession"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Session hébergée ouverte (SM-3 DOCS_SUBMITTED) : rediriger vers hostedUrl",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps mal formé ou pays inconnu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Consentement biométrique absent ou périmé (aucune session), téléphone non vérifié, compte non éligible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "KYC_BIOMETRIC_CONSENT_MISSING",
+                        "PHONE_NOT_VERIFIED",
+                        "KYC_NOT_ELIGIBLE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Décision en cours ou identité déjà vérifiée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["KYC_IN_REVIEW", "KYC_ALREADY_APPROVED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Pièce non prise en charge par le fournisseur (capacité inconnue = non)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_DOCUMENT_UNSUPPORTED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Le fournisseur a refusé la session",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_SESSION_FAILED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun fournisseur (KYC de production désactivé, OQ-MK-09), fournisseur en panne ou issue inconnue, base indisponible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_PROVIDER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kyc/webhooks/{provider}": {
+      "post": {
+        "operationId": "identityWebhook",
+        "tags": ["kyc"],
+        "summary": "Rappel de décision du fournisseur d'identité (US-105) : signature sur les octets reçus (en-tête x-identity-signature) ; réponse sans corps",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Décision appliquée, rappel rejoué (une seule transition), périmé ou session inconnue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "description": "Signature invalide, rappel périmé ou mal formé : rejet journalisé (empreinte du corps)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "404": {
+            "description": "Fournisseur inconnu (aucun fournisseur en production) : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : le fournisseur rejouera",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9507,6 +9946,200 @@
             "type": "string",
             "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
             "description": "Langue du texte affiché"
+          }
+        }
+      },
+      "KycStatus": {
+        "type": "string",
+        "enum": [
+          "NOT_STARTED",
+          "PHONE_VERIFIED",
+          "DOCS_SUBMITTED",
+          "AUTO_CHECKS",
+          "MANUAL_REVIEW",
+          "MORE_INFO_REQUIRED",
+          "APPROVED",
+          "RECHECK",
+          "EXPIRED",
+          "REVOKED",
+          "REJECTED",
+          "APPEAL",
+          "REJECTED_FINAL",
+          "BANNED"
+        ]
+      },
+      "KycState": {
+        "type": "object",
+        "required": [
+          "code",
+          "status",
+          "country",
+          "reasonCode",
+          "licenseExpiresOn",
+          "sessionLive",
+          "phoneVerified",
+          "available",
+          "consent",
+          "countries"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "KYC_STATE"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KycStatus"
+          },
+          "country": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              }
+            ]
+          },
+          "reasonCode": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "licenseExpiresOn": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "sessionLive": {
+            "type": "boolean"
+          },
+          "phoneVerified": {
+            "type": "boolean"
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "consent": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": ["version", "accepted", "locale", "title", "bodyMd"],
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "accepted": {
+                    "type": "boolean"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": ["es", "en", "fr", "pt"]
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "bodyMd": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            ]
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "names"],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "names": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "KycConsentRequest": {
+        "type": "object",
+        "required": ["accepted"],
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean",
+            "description": "true : acceptation de la version affichée ; false : retrait (VER-004)"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version AFFICHÉE (obligatoire pour une acceptation)"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          }
+        }
+      },
+      "KycConsentRecorded": {
+        "type": "object",
+        "required": ["code", "messageKey", "version"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "KYC_CONSENT_RECORDED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "version": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          }
+        }
+      },
+      "KycVerificationRequest": {
+        "type": "object",
+        "required": ["country"],
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "locale": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+            "description": "Langue de la vue, transmise au parcours hébergé"
+          }
+        }
+      },
+      "KycSession": {
+        "type": "object",
+        "required": ["code", "messageKey", "hostedUrl", "expiresAt"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": ["KYC_SESSION_STARTED", "KYC_SESSION_IN_PROGRESS"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "hostedUrl": {
+            "type": "string",
+            "pattern": "^https://",
+            "maxLength": 500
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/DateTime"
           }
         }
       }
