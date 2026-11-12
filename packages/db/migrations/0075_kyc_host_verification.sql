@@ -109,7 +109,7 @@ CREATE POLICY kyc_cmd_host_read ON core.config_param_value FOR SELECT TO kyc_cmd
 -- compte d'hôte : lecture ; seul changement admis, ONBOARDING → PENDING_ACTIVATION → ACTIVE, et
 -- ACTIVE seulement si la règle d'activation est vraie (garde en base, 17 §2.4 ; politique posée
 -- plus bas, après la fonction de garde)
-GRANT SELECT (id, kind, holder_user_id, country_code, status) ON core.iam_organization
+GRANT SELECT (id, kind, holder_user_id, country_code, status, row_version) ON core.iam_organization
   TO kyc_cmd_owner;
 GRANT UPDATE (status, updated_by) ON core.iam_organization TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_read ON core.iam_organization FOR SELECT TO kyc_cmd_owner USING (true);
@@ -119,7 +119,9 @@ GRANT SELECT (org_id, kyc_status) ON core.payment_psp_submerchant TO kyc_cmd_own
 CREATE POLICY kyc_cmd_host_read ON core.payment_psp_submerchant FOR SELECT TO kyc_cmd_owner
   USING (true);
 
--- événements de l'hôte (17 §4.5)
+-- événements de l'hôte (17 §4.5) ; identifiant posé par la commande (rendu à la console sans
+-- relire la table)
+GRANT INSERT (id) ON core.outbox_outbox_event TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_host_event_ins ON core.outbox_outbox_event FOR INSERT TO kyc_cmd_owner
   WITH CHECK (((type = 'kyc.host_verification.decided' AND aggregate_type = 'host_verification')
                OR (type IN ('iam.organization.status_changed', 'iam.organization.created')
@@ -500,19 +502,23 @@ $fn$;
 CREATE FUNCTION core.kyc_host_emit_org(p_org uuid, p_type text, p_version integer, p_from text,
                                        p_to text, p_actor uuid, p_actor_role text, p_country text)
   RETURNS uuid
-  LANGUAGE sql
+  LANGUAGE plpgsql
   VOLATILE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
+DECLARE
+  v_id uuid := platform.uuid_v7();
+BEGIN
   INSERT INTO core.outbox_outbox_event
-         (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+         (id, type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
           actor_user_id, actor_role, correlation_id, payload, partition_key)
-  VALUES (p_type, 1, 'organization', p_org, p_version, p_country,
+  VALUES (v_id, p_type, 1, 'organization', p_org, p_version, p_country,
           CASE WHEN p_actor_role = 'SYSTEM' THEN NULL ELSE p_actor END, p_actor_role,
           pg_catalog.gen_random_uuid(),
           pg_catalog.jsonb_build_object('org_id', p_org, 'from', p_from, 'to', p_to),
-          p_org::text)
-  RETURNING id
+          p_org::text);
+  RETURN v_id;
+END
 $fn$;
 
 -- Statut d'un dossier encore ouvert recalculé (pièces manquantes) ; un dossier décidé ou bloqué
@@ -1162,15 +1168,15 @@ BEGIN
     RETURNING d.row_version INTO v_ver;
   END IF;
 
+  v_ev := platform.uuid_v7();
   INSERT INTO core.outbox_outbox_event
-         (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+         (id, type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
           actor_user_id, actor_role, correlation_id, causation_id, payload, partition_key)
-  VALUES ('kyc.host_verification.decided', 1, 'host_verification', h.id, v_ver, h.country_code,
-          p_actor, p_actor_role, pg_catalog.gen_random_uuid(), p_action_id,
+  VALUES (v_ev, 'kyc.host_verification.decided', 1, 'host_verification', h.id, v_ver,
+          h.country_code, p_actor, p_actor_role, pg_catalog.gen_random_uuid(), p_action_id,
           pg_catalog.jsonb_build_object('org_id', p_subject_id, 'verification_id', h.id,
                                         'decision', v_decision),
-          p_subject_id::text)
-  RETURNING id INTO v_ev;
+          p_subject_id::text);
   v_events := v_events || v_ev;
   INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
                                     subject_id, before, after, reason, request_id)
