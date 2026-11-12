@@ -879,16 +879,11 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
       const subjects: Record<string, string> = {
         KYC_DECISION: uuid(),
         PUBLISH_LISTING: uuid(),
-        HOST_VERIFICATION_DECISION: world.countries[0]?.orgA ?? '',
       };
       // HOST_VERIFICATION_DECISION est livrée (US-123) : prouvée par l0-us123-host-verification
       for (const a of STATE_ACTIONS.filter((x) => x !== 'HOST_VERIFICATION_DECISION')) {
         const input =
-          a === 'KYC_DECISION' ||
-          a === 'HOST_VERIFICATION_DECISION' ||
-          a === 'REVIEW_FLAGGED_BOOKING'
-            ? { decision: 'APPROVED' }
-            : {};
+          a === 'KYC_DECISION' || a === 'REVIEW_FLAGGED_BOOKING' ? { decision: 'APPROVED' } : {};
         const subject = subjects[a] ?? trip(0);
         expect((await act(client, ops, a, subject, { input })).outcome, a).toBe('UNAVAILABLE');
         expect((await auditOf(client, ops.userId)).at(-1)?.action_code, a).toBe(
