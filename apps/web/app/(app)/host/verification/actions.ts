@@ -74,5 +74,7 @@ export async function submitAction(
   );
   if (reply.status === 401) redirect('/login');
   if (reply.status === 200) back(org);
-  return { errors: [{ fieldId: 'a07-submit-form', key: apiErrorKey(codeOf(reply), reply.status) }] };
+  return {
+    errors: [{ fieldId: 'a07-submit-form', key: apiErrorKey(codeOf(reply), reply.status) }],
+  };
 }

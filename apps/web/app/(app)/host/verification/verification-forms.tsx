@@ -114,7 +114,13 @@ export function TaxForm({ localeTag, orgId, kinds }: TaxFormProps) {
   );
 }
 
-export function SubmitForm({ localeTag, orgId }: { readonly localeTag: string; readonly orgId: string }) {
+export function SubmitForm({
+  localeTag,
+  orgId,
+}: {
+  readonly localeTag: string;
+  readonly orgId: string;
+}) {
   const [state, action, pending] = useActionState(submitAction, INITIAL);
   const { t, formError } = useMessages(localeTag, state, 'a07-submit-form');
   return (

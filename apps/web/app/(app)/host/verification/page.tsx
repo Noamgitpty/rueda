@@ -230,7 +230,9 @@ export default async function HostVerificationPage({
               {badge(v.taxSaved)} {t('web.a07.task.tax')}
             </p>
             {v.taxSaved && v.taxKind !== null && (
-              <p className={accountStyles['muted']}>{t('web.a07.tax.saved', { kind: v.taxKind })}</p>
+              <p className={accountStyles['muted']}>
+                {t('web.a07.tax.saved', { kind: v.taxKind })}
+              </p>
             )}
             {editable && v.taxKinds.length > 0 && (
               <TaxForm localeTag={tag} orgId={account.orgId} kinds={v.taxKinds} />
