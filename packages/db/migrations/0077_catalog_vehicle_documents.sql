@@ -1251,7 +1251,12 @@ BEGIN
          x.eligibility_submitted_at, x.eligibility_checked_at
     INTO v
     FROM core.catalog_vehicle AS x WHERE x.id = p_vehicle FOR UPDATE;
-  IF v.id IS NULL OR v.country_code IS DISTINCT FROM p_country THEN
+  IF v.id IS NULL THEN
+    -- élément sans véhicule derrière : rien à trancher
+    RETURN QUERY SELECT 'NOT_UNDER_REVIEW'::text, NULL::text, '{}'::text[];
+    RETURN;
+  END IF;
+  IF v.country_code IS DISTINCT FROM p_country THEN
     RETURN QUERY SELECT 'COUNTRY_MISMATCH'::text, NULL::text, '{}'::text[];
     RETURN;
   END IF;
