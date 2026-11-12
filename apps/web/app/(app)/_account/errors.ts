@@ -48,6 +48,19 @@ const KEYS: Readonly<Record<string, MessageKey>> = {
   KYC_DOCUMENT_UNSUPPORTED: 'common.kyc.documentUnsupported',
   KYC_SESSION_FAILED: 'common.kyc.sessionFailed',
   KYC_PROVIDER_UNAVAILABLE: 'common.kyc.providerUnavailable',
+  // vérification de l'hôte et profil fiscal (US-123)
+  HOST_ACCOUNT_NOT_FOUND: 'common.listing.hostNotFound',
+  HOST_ENTITY_NOT_ALLOWED: 'common.host.entityNotAllowed',
+  HOST_UNDER_AGE: 'common.host.underAge',
+  HOST_AGE_UNVERIFIED: 'common.hostVerification.ageUnverified',
+  HOST_KYC_REQUIRED: 'common.hostVerification.kycRequired',
+  HOST_RESIDENCE_MISMATCH: 'common.hostVerification.residenceMismatch',
+  HOST_ACCOUNT_NOT_ELIGIBLE: 'common.hostVerification.accountNotEligible',
+  HOST_VERIFICATION_LOCKED: 'common.hostVerification.locked',
+  HOST_TAX_ID_KIND_INVALID: 'common.hostVerification.taxKindInvalid',
+  HOST_TAX_ID_INVALID: 'common.hostVerification.taxIdInvalid',
+  HOST_TAX_VAULT_UNAVAILABLE: 'common.hostVerification.vaultUnavailable',
+  HOST_VERIFICATION_UNAVAILABLE: 'common.hostVerification.unavailable',
 };
 
 export function apiErrorKey(code: string | null, status: number | 'unavailable'): MessageKey {

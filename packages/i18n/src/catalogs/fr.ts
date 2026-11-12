@@ -984,8 +984,6 @@ export const FR_MESSAGES = {
     'Nous ne pouvons pas enregistrer ton numéro fiscal en sécurité pour le moment. Réessaie plus tard.',
   'common.hostVerification.unavailable':
     'Nous ne pouvons pas traiter ta demande d’hôte pour le moment. Réessaie plus tard.',
-  'web.a07.title': 'Deviens hôte',
-  'web.a07.intro': 'Termine ces tâches. Nous examinons ta demande et te prévenons.',
   'web.a07.loginRequired': 'Connecte-toi pour voir tes tâches d’hôte.',
   'web.a07.login': 'Se connecter',
   'web.a07.noHostAccount': 'Tu n’as pas encore de compte d’hôte.',
@@ -996,12 +994,9 @@ export const FR_MESSAGES = {
   'web.a07.done': 'Fait',
   'web.a07.todo': 'À faire',
   'web.a07.waiting': 'En attente',
-  'web.a07.task.identity': 'Identité et permis vérifiés',
   'web.a07.task.identityAction': 'Vérifier mon identité',
-  'web.a07.task.age': 'Âge minimum de {age} ans',
+  'web.a07.task.age': 'Âge minimum pour être hôte',
   'web.a07.task.ageHint': 'Nous la lisons sur ton permis vérifié.',
-  'web.a07.task.tax': 'Numéro fiscal',
-  'web.a07.task.terms': 'Conditions de l’hôte acceptées',
   'web.a07.task.termsAction': 'Lire et accepter',
   'web.a07.task.screening': 'Contrôles de sécurité',
   'web.a07.task.screeningHint': 'Nous les faisons quand tu envoies ta demande.',
@@ -1012,7 +1007,7 @@ export const FR_MESSAGES = {
   'web.a07.tax.kind': 'Type de numéro',
   'web.a07.tax.number': 'Numéro',
   'web.a07.tax.numberHint': 'Tel qu’il figure sur ton document, avec ou sans tirets.',
-  'web.a07.tax.regime': 'Régime fiscal (facultatif)',
+  'web.a07.tax.regime': 'Régime fiscal',
   'web.a07.tax.regimeHint': 'Code en majuscules, si tu le connais.',
   'web.a07.tax.save': 'Enregistrer mon numéro',
   'web.a07.tax.saved': 'Numéro enregistré ({kind}).',
@@ -1028,11 +1023,17 @@ export const FR_MESSAGES = {
     'Nous n’avons pas pu approuver ta demande. Écris-nous pour en savoir plus.',
   'web.a07.status.BLOCKED': 'Notre équipe examine ta demande à la main. Nous t’écrirons.',
   'web.a07.missing': 'Il manque : {tasks}.',
-  'web.a07.waitingCountry':
-    'Tout est prêt de ton côté. Nous te préviendrons quand {brand} ouvrira aux hôtes au {country}.',
   'web.a07.pendingActivation':
     'Nous avons approuvé ta demande, mais ton compte d’hôte n’est pas encore actif.',
   'web.a07.active': 'Ton compte d’hôte est actif.',
   'web.a07.back': 'Retour à mon espace d’hôte',
   'web.host.verificationLink': 'Ma vérification d’hôte',
+  'web.a07.waitingCountry':
+    'Tout est prêt de ton côté. Nous te préviendrons quand {brand} ouvrira aux hôtes au {country}.',
+  'web.a07.title': 'Avant d’accueillir des voyageurs',
+  'web.a07.intro':
+    'On te dit ce qui reste et qui s’en charge. Tu peux partir et revenir quand tu veux.',
+  'web.a07.task.identity': 'Ton identité',
+  'web.a07.task.tax': 'Données fiscales',
+  'web.a07.task.terms': 'Conditions pour les hôtes',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

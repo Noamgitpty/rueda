@@ -952,8 +952,6 @@ export const ES_MESSAGES = {
     'No podemos guardar tu número fiscal de forma segura en este momento. Inténtalo más tarde.',
   'common.hostVerification.unavailable':
     'No podemos revisar tu solicitud de anfitrión en este momento. Inténtalo más tarde.',
-  'web.a07.title': 'Conviértete en anfitrión',
-  'web.a07.intro': 'Completa estas tareas. Revisamos tu solicitud y te avisamos.',
   'web.a07.loginRequired': 'Inicia sesión para ver tus tareas de anfitrión.',
   'web.a07.login': 'Iniciar sesión',
   'web.a07.noHostAccount': 'Aún no tienes una cuenta de anfitrión.',
@@ -964,12 +962,9 @@ export const ES_MESSAGES = {
   'web.a07.done': 'Listo',
   'web.a07.todo': 'Por hacer',
   'web.a07.waiting': 'En espera',
-  'web.a07.task.identity': 'Identidad y licencia verificadas',
   'web.a07.task.identityAction': 'Verificar mi identidad',
-  'web.a07.task.age': 'Edad mínima de {age} años',
+  'web.a07.task.age': 'Edad mínima para ser anfitrión',
   'web.a07.task.ageHint': 'La tomamos de tu licencia verificada.',
-  'web.a07.task.tax': 'Número fiscal',
-  'web.a07.task.terms': 'Condiciones del anfitrión aceptadas',
   'web.a07.task.termsAction': 'Leer y aceptar',
   'web.a07.task.screening': 'Controles de seguridad',
   'web.a07.task.screeningHint': 'Los hacemos nosotros cuando envías tu solicitud.',
@@ -979,7 +974,7 @@ export const ES_MESSAGES = {
   'web.a07.tax.kind': 'Tipo de número',
   'web.a07.tax.number': 'Número de tu documento',
   'web.a07.tax.numberHint': 'Tal como aparece en tu documento, con o sin guiones.',
-  'web.a07.tax.regime': 'Régimen tributario (opcional)',
+  'web.a07.tax.regime': 'Régimen tributario',
   'web.a07.tax.regimeHint': 'Código en mayúsculas, si lo conoces.',
   'web.a07.tax.save': 'Guardar mi número',
   'web.a07.tax.saved': 'Número guardado ({kind}).',
@@ -993,13 +988,18 @@ export const ES_MESSAGES = {
   'web.a07.status.REJECTED': 'No pudimos aprobar tu solicitud. Escríbenos si quieres saber más.',
   'web.a07.status.BLOCKED': 'Nuestro equipo revisa tu solicitud a mano. Te escribiremos.',
   'web.a07.missing': 'Falta: {tasks}.',
-  'web.a07.waitingCountry':
-    'Todo listo de tu lado. Avisaremos cuando {brand} abra a anfitriones en {country}.',
   'web.a07.pendingActivation':
     'Aprobamos tu solicitud, pero tu cuenta de anfitrión aún no está activa.',
   'web.a07.active': 'Tu cuenta de anfitrión está activa.',
   'web.a07.back': 'Volver a mi espacio de anfitrión',
   'web.host.verificationLink': 'Mi verificación de anfitrión',
+  'web.a07.waitingCountry':
+    'Todo listo de tu lado. Avisaremos cuando {brand} abra a anfitriones en {country}.',
+  'web.a07.title': 'Antes de recibir viajeros',
+  'web.a07.intro': 'Te decimos qué falta y quién lo hace. Puedes salir y volver cuando quieras.',
+  'web.a07.task.identity': 'Tu identidad',
+  'web.a07.task.tax': 'Datos fiscales',
+  'web.a07.task.terms': 'Condiciones para anfitriones',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

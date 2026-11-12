@@ -954,8 +954,6 @@ export const PT_MESSAGES = {
     'Não conseguimos guardar seu número de identificação fiscal com segurança agora. Tente mais tarde.',
   'common.hostVerification.unavailable':
     'Não conseguimos processar seu pedido de anfitrião agora. Tente mais tarde.',
-  'web.a07.title': 'Torne-se anfitrião',
-  'web.a07.intro': 'Conclua estas tarefas. Analisamos seu pedido e avisamos você.',
   'web.a07.loginRequired': 'Entre na sua conta para ver suas tarefas de anfitrião.',
   'web.a07.login': 'Entrar',
   'web.a07.noHostAccount': 'Você ainda não tem uma conta de anfitrião.',
@@ -966,12 +964,9 @@ export const PT_MESSAGES = {
   'web.a07.done': 'Concluído',
   'web.a07.todo': 'A fazer',
   'web.a07.waiting': 'Aguardando',
-  'web.a07.task.identity': 'Identidade e carteira confirmadas',
   'web.a07.task.identityAction': 'Confirmar minha identidade',
-  'web.a07.task.age': 'Idade mínima de {age} anos',
+  'web.a07.task.age': 'Idade mínima para ser anfitrião',
   'web.a07.task.ageHint': 'Lemos na sua carteira confirmada.',
-  'web.a07.task.tax': 'Número de identificação fiscal',
-  'web.a07.task.terms': 'Termos do anfitrião aceitos',
   'web.a07.task.termsAction': 'Ler e aceitar',
   'web.a07.task.screening': 'Checagens de segurança',
   'web.a07.task.screeningHint': 'Fazemos quando você envia seu pedido.',
@@ -981,7 +976,7 @@ export const PT_MESSAGES = {
   'web.a07.tax.kind': 'Tipo de documento fiscal',
   'web.a07.tax.number': 'Número do documento',
   'web.a07.tax.numberHint': 'Como aparece no seu documento, com ou sem hifens.',
-  'web.a07.tax.regime': 'Regime tributário (opcional)',
+  'web.a07.tax.regime': 'Regime tributário',
   'web.a07.tax.regimeHint': 'Código em maiúsculas, se você souber.',
   'web.a07.tax.save': 'Salvar meu número',
   'web.a07.tax.saved': 'Número salvo ({kind}).',
@@ -997,11 +992,16 @@ export const PT_MESSAGES = {
   'web.a07.status.BLOCKED':
     'Nossa equipe está analisando seu pedido manualmente. Vamos escrever para você.',
   'web.a07.missing': 'Ainda falta: {tasks}.',
-  'web.a07.waitingCountry':
-    'Tudo certo do seu lado. Avisaremos quando {brand} abrir para anfitriões em {country}.',
   'web.a07.pendingActivation':
     'Aprovamos seu pedido, mas sua conta de anfitrião ainda não está ativa.',
   'web.a07.active': 'Sua conta de anfitrião está ativa.',
   'web.a07.back': 'Voltar ao meu espaço de anfitrião',
   'web.host.verificationLink': 'Minha checagem de anfitrião',
+  'web.a07.waitingCountry':
+    'Tudo pronto do seu lado. Avisaremos quando a {brand} abrir para anfitriões em {country}.',
+  'web.a07.title': 'Antes de receber viajantes',
+  'web.a07.intro': 'Mostramos o que falta e quem faz. Você pode sair e voltar quando quiser.',
+  'web.a07.task.identity': 'Sua identidade',
+  'web.a07.task.tax': 'Dados fiscais',
+  'web.a07.task.terms': 'Termos para anfitriões',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -361,8 +361,6 @@ export const FR_PROTO = {
     'Le voyageur est remboursé intégralement. {amount} sera déduit de tes prochains gains et ton calendrier sera bloqué à ces dates.',
   'web.a05.empty': 'Aucune réservation pour l’instant',
   'web.a06.empty': 'Ton calendrier est ouvert',
-  'web.a07.waitingCountry':
-    'Tout est prêt de ton côté. Nous te préviendrons quand {brand} ouvrira aux hôtes au {country}.',
   'web.a08.payoutOn': 'Nous te payons le {date}',
   'web.a08.status.scheduled': 'Programmé',
   'web.a08.status.sent': 'Envoyé',
@@ -461,22 +459,16 @@ export const FR_PROTO = {
   'web.a01.plans.title': 'Ton plan de gains',
   'web.a01.plans.more':
     'D’autres plans arriveront quand {insurer} les aura tarifés. Tu peux changer de plan à tout moment : cela s’applique aux nouvelles réservations.',
-  'web.a07.title': 'Avant d’accueillir des voyageurs',
   'web.a07.heading': 'Tes tâches d’hôte',
-  'web.a07.intro':
-    'On te dit ce qui reste et qui s’en charge. Tu peux partir et revenir quand tu veux.',
   'web.a07.progress': '{done} tâches prêtes sur {total}',
-  'web.a07.task.identity': 'Ton identité',
   'web.a07.task.identity.body': 'Permis et selfie ; 21 ans ou plus.',
   'web.a07.task.psp': 'Ton compte d’encaissement',
   'web.a07.task.psp.body': '{psp} vérifie tes données pour pouvoir te payer.',
   'web.a07.task.payout': 'Compte pour recevoir tes gains',
   'web.a07.task.payout.body': 'Le compte bancaire à ton nom où tu reçois ta part.',
-  'web.a07.task.tax': 'Données fiscales',
   'web.a07.task.tax.body': 'Ton numéro de contribuable, selon les règles du {country}.',
   'web.a07.task.plan': 'Plan de gains',
   'web.a07.task.plan.body': 'Standard : tu reçois {pct} % du prix du voyage.',
-  'web.a07.task.terms': 'Conditions pour les hôtes',
   'web.a07.task.terms.body':
     'Lis-les et accepte-les : elles incluent le contrat avec chaque voyageur.',
   'web.a07.task.car': 'Ta première voiture',
