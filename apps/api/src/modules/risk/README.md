@@ -10,7 +10,7 @@ RISK évalue le risque d'une réservation, d'un hold ou d'un utilisateur (17 §2
 - chaque décision (`AUTO_OK`, `REVIEW`, `REJECT`) est journalisée avec les règles déclenchées, pour rester explicable (BR-TRUST-01) ;
 - une décision `REVIEW` alimente la file de revue humaine de SUP ; la capture n'a lieu qu'après la revue (PAY-006).
 
-RISK ne pose pas lui-même les restrictions de compte : la table `core.iam_restriction` appartient à IAM (migration 0010). L'évaluation des réservations arrive avec US-209. **US-127 (ADR-110, migration 0079)** livre la première règle, en base : l'auto-réservation par l'hôte, un co-hôte de l'un de ses comptes (tous pays) ou un **compte lié** (même identité vérifiée, même téléphone, lien constaté par l'ops : carte, appareil, permis) est refusée à la pose du hold et à la conversion (`SELF_BOOKING_FORBIDDEN`, le même refus dans tous les cas) ; une tentative par un compte lié est signalée à l'ops (`risk_assessment` `REVIEW`, file `RISK_BOOKING`) par `core.booking_cmd_report_self_booking`, que la route de pose du hold (lot 2) appelle dans une nouvelle transaction après le refus ; l'ops constate ou écarte un lien par `core.risk_staff_decide_account_link` (route et écran de console : à venir).
+RISK ne pose pas lui-même les restrictions de compte : la table `core.iam_restriction` appartient à IAM (migration 0010). L'évaluation des réservations arrive avec US-209. **US-127 (ADR-110, migration 0080)** livre la première règle, en base : l'auto-réservation par l'hôte, un co-hôte de l'un de ses comptes (tous pays) ou un **compte lié** (même identité vérifiée, même téléphone, lien constaté par l'ops : carte, appareil, permis) est refusée à la pose du hold et à la conversion (`SELF_BOOKING_FORBIDDEN`, le même refus dans tous les cas) ; une tentative par un compte lié est signalée à l'ops (`risk_assessment` `REVIEW`, file `RISK_BOOKING`) par `core.booking_cmd_report_self_booking`, que la route de pose du hold (lot 2) appelle dans une nouvelle transaction après le refus ; l'ops constate ou écarte un lien par `core.risk_staff_decide_account_link` (route et écran de console : à venir).
 
 **Limitation de débit et anti-abus (US-052, ADR-075, 17 §6.6)**, livrée :
 
@@ -30,9 +30,9 @@ Seuils : paramètres `rate_limit_*` **par pays** du registre CFG (graine `0046`)
 
 | Entité (17 §3.2.13)      | État                                                                                                        |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `core.risk_rule`         | créée (0079, US-127) : règles déclarées ; graine `SELF_BOOKING_LINKED_ACCOUNT` v1                           |
-| `core.risk_assessment`   | créée (0079, US-127) : évaluation explicable ; une ouverte par voyageur et compte d'hôte                    |
-| `core.risk_account_link` | créée (0079, US-127) : dernier constat de l'ops sur une paire de comptes (`LINKED`, `NOT_LINKED`)           |
+| `core.risk_rule`         | créée (0080, US-127) : règles déclarées ; graine `SELF_BOOKING_LINKED_ACCOUNT` v1                           |
+| `core.risk_assessment`   | créée (0080, US-127) : évaluation explicable ; une ouverte par voyageur et compte d'hôte                    |
+| `core.risk_account_link` | créée (0080, US-127) : dernier constat de l'ops sur une paire de comptes (`LINKED`, `NOT_LINKED`)           |
 | `core.risk_rate_counter` | créée (0047, US-052) : compteur à fenêtre fixe par (portée, empreinte, fenêtre) ; RLS ENABLE + FORCE        |
 | `core.risk_abuse_event`  | créée (0047, US-052) : refus et soupçons agrégés par (genre, portée, empreinte, heure) ; RLS ENABLE + FORCE |
 

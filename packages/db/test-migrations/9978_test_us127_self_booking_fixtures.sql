@@ -1,5 +1,5 @@
 -- 9978 — fixtures des preuves du cumul hôte / voyageur et de l'auto-réservation (US-127, migration
--- 0079). TESTS SEULEMENT.
+-- 0080). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).

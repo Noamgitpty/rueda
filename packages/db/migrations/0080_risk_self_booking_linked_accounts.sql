@@ -1,4 +1,4 @@
--- 0079 — RISK / AVL : cumul hôte / voyageur, auto-réservation refusée y compris par un compte lié.
+-- 0080 — RISK / AVL : cumul hôte / voyageur, auto-réservation refusée y compris par un compte lié.
 -- US-127 ; 19 US-127 (« Given un hôte qui cherche son propre véhicule, When il pose un hold, Then
 -- refus (`self_booking_forbidden` = `true`) sans révéler d'information sur l'occupation » ; « Given
 -- un compte voyageur lié à l'hôte (même appareil, même carte ou même numéro de permis), When il pose

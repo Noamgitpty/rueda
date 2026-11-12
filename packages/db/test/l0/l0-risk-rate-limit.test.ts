@@ -118,7 +118,7 @@ describe('tables risk_* : RLS et droits', () => {
       );
       expect(rows).toEqual([
         { relname: 'risk_abuse_event', rls: true, force: true },
-        // US-127 (0079, ADR-110) : constats de l'ops, évaluations, règles déclarées
+        // US-127 (0080, ADR-110) : constats de l'ops, évaluations, règles déclarées
         { relname: 'risk_account_link', rls: true, force: true },
         { relname: 'risk_assessment', rls: true, force: true },
         { relname: 'risk_rate_counter', rls: true, force: true },

@@ -1,5 +1,5 @@
 /**
- * US-127 — cumul hôte / voyageur et interdiction de l'auto-réservation (migration 0079, ADR-110 ;
+ * US-127 — cumul hôte / voyageur et interdiction de l'auto-réservation (migration 0080, ADR-110 ;
  * fixtures 9978, 9750, 9200, 9984, 9996). Rôles de production seulement (assertion L0-05 par
  * `withRole` / `connectAs`), au Panama (USD) et au Paraguay (PYG). Chaque test crée ses propres
  * personnes, comptes d'hôte et véhicules.
