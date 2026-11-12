@@ -1,4 +1,5 @@
-# check_t49plus.py - controle des vecteurs T49-T65 de 08_BUSINESS_RULES.md (corrections VERIF_11).
+# check_t49plus.py - controle des vecteurs T49-T65 de 08_BUSINESS_RULES.md (corrections VERIF_11),
+# etendu aux vecteurs T69-T73 (revise 2026-11-12, caution comme Turo, US-063) ; la ligne finale compte tous les ecarts.
 # Ecrit a partir du TEXTE de 08 (E1-E5, BR-PAY-06, SM-8, section "Jeux de tests d'execution T49-T65").
 # Ne modifie ni n'importe tools/verif11_settlement.py ni tools/independent_settlement_check.py.
 # Entiers en unites mineures, Fractions exactes, aucun flottant. Lancer : python -I tools/check_t49plus.py
@@ -244,6 +245,77 @@ need = owed1
 ops = [Inst(1, 'VOID', 'card', 25666, 'PLANNED').key(), Inst(1, 'MIT_CHARGE', 'card', need, 'PLANNED').key()]
 check('T64', (ops, need, hostPayable(4500, 0, need, [], owed1)),
       (['A:1:v1:VOID:card:i1:a1', 'A:1:v1:MIT_CHARGE:card:i1:a1'], 6922, 4500))
+
+# ---------- T69-T73 : caution conditionnelle (revise 2026-11-12, caution comme Turo, US-063) ----------
+# Ecrit a partir du texte de BR-PAY-06 (« Caution conditionnelle », « Fail-closed », « Montant unique ») et de
+# la section « Jeux de tests T69-T73 ». None = parametre absent ou donnee inconnue => declencheur vrai.
+# age_classes vide : aucune caution liee a l'age au PA et au PY (DEC-FONDATEUR-21, 2026-11-12)
+PROPOSED = dict(always=False, classes={'LUXE'}, age=30, age_classes=set(), risk=True, risk_deployed=False)
+
+
+def deposit_required(p, cls, driver_ages, flagged, stage='CHECKOUT'):
+    # stage 'PRE_CHECKOUT' : seuls COUNTRY et CLASS (connus du vehicule) ; AGE et RISK non evalues.
+    # risk_deployed False : RISK non evalue (controle non deploye) ; None (absent) ou True : evalue, panne => vrai.
+    trig = set()
+    if p.get('always') is None or p['always'] is True:
+        trig.add('COUNTRY')
+    if p.get('classes') is None or cls is None or cls in p['classes']:
+        trig.add('CLASS')
+    if stage == 'PRE_CHECKOUT':
+        return (len(trig) > 0, tuple(sorted(trig)))
+    youngest = None if driver_ages is None or None in driver_ages else min(driver_ages)
+    in_age_classes = p.get('age_classes') is None or cls is None or cls in p['age_classes']
+    if in_age_classes and (p.get('age') is None or youngest is None or youngest < p['age']):
+        trig.add('AGE')
+    if p.get('risk_deployed') is not False:
+        if p.get('risk') is None or (p['risk'] is True and (flagged is None or flagged)):
+            trig.add('RISK')
+    return (len(trig) > 0, tuple(sorted(trig)))
+
+
+def deposit_amount(required, amounts, cls):
+    # montant unique deposit_amount[pays][classe] ; absent => BLOCK (PARAM_MISSING), jamais 0
+    if not required:
+        return 0
+    return amounts.get(cls, 'PARAM_MISSING')
+
+
+# T69 : PA, STANDARD, 35 ans, aucun signal ; carburant 12,00 par MIT, 100 % hote
+r69 = deposit_required(PROPOSED, 'STANDARD', [35], False)
+check('T69 caution / MIT / jambe HOST / PLATFORM', (r69[0], 1200, allocHost(1200, Fr(1)), 1200 - allocHost(1200, Fr(1))),
+      (False, 1200, 1200, 0))
+# T70 : trip de T59 sans declencheur => mecanisme non evalue, reservation acceptee ; en LUXE = T59
+r70 = deposit_required(PROPOSED, 'STANDARD', [40], False)
+r59_luxe = deposit_required(PROPOSED, 'LUXE', [40], False)
+check('T70 sans caution / T59 en LUXE', (r70[0], r59_luxe), (False, (True, ('CLASS',))))
+# T70 c : avant le checkout, AGE et RISK inconnus ne valent pas vrai ; LUXE affiche son montant
+AMT_PA_TEST = {'LUXE': 30000}
+r70p = deposit_required(PROPOSED, 'PREMIUM', None, None, stage='PRE_CHECKOUT')
+r70l = deposit_required(PROPOSED, 'LUXE', None, None, stage='PRE_CHECKOUT')
+check('T70 c avant checkout PREMIUM / LUXE', (r70p, r70l, deposit_amount(r70l[0], AMT_PA_TEST, 'LUXE')),
+      ((False, ()), (True, ('CLASS',)), 30000))
+# T71 : seuil d'age strict, classes de l'age, plus jeune conducteur approuve
+AGE_ON = dict(PROPOSED, age_classes={'PREMIUM', 'LUXE'})
+check('T71 a/b/c (valeurs PROPOSEES)', (deposit_required(PROPOSED, 'PREMIUM', [29], False), deposit_required(PROPOSED, 'PREMIUM', [45, 26], False),
+                                      deposit_required(PROPOSED, 'LUXE', [25], False)),
+      ((False, ()), (False, ()), (True, ('CLASS',))))
+check('T71 d/e/f (age active) / g (absent)', (deposit_required(AGE_ON, 'PREMIUM', [29], False), deposit_required(AGE_ON, 'PREMIUM', [30], False),
+                                             deposit_required(AGE_ON, 'STANDARD', [22], False),
+                                             deposit_required(dict(PROPOSED, age_classes=None), 'STANDARD', [22], False)),
+      ((True, ('AGE',)), (False, ()), (False, ()), (True, ('AGE',))))
+# T72 : fail-closed (PY)
+DEPLOYED = dict(PROPOSED, risk_deployed=True)
+r72a = deposit_required(dict(DEPLOYED, risk=None), 'STANDARD', [45], False)
+r72b = deposit_required(DEPLOYED, 'STANDARD', [45], None)
+r72d = deposit_required(PROPOSED, 'STANDARD', [45], None)
+check('T72 a/b/c/d', (r72a, r72b, deposit_amount(r72a[0], {}, 'STANDARD'), r72d),
+      ((True, ('RISK',)), (True, ('RISK',)), 'PARAM_MISSING', (False, ())))
+# T73 : montant unique non cumule (PY, PYG sans decimale) ; caution imposee par le pays
+AMT_PY = {'LUXE': 1500000, 'STANDARD': 500000}
+r73a = deposit_required(DEPLOYED, 'LUXE', [27], True)
+r73b = deposit_required(dict(PROPOSED, always=True), 'STANDARD', [45], False)
+check('T73 a/b', (r73a, deposit_amount(r73a[0], AMT_PY, 'LUXE'), r73b, deposit_amount(r73b[0], AMT_PY, 'STANDARD')),
+      ((True, ('CLASS', 'RISK')), 1500000, (True, ('COUNTRY',)), 500000))
 
 print('T49-T65 : ecarts =', len(FAILS))
 raise SystemExit(1 if FAILS else 0)
