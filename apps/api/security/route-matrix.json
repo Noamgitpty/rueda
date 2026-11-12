@@ -130,6 +130,20 @@
       "portee": "pays",
       "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès"
     },
+    "POST /console/queues/items/{id}/catalog-addition": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file CATALOG_ADDITION, élément pris en charge ; ADMIN : sa portée)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre file : 403 STAFF_CASE_REQUIRED journalisé (preuve L0 l0-us114-catalog-addition)"
+    },
+    "POST /console/queues/items/{id}/catalog-addition/resolve": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file CATALOG_ADDITION, élément pris en charge ; ADMIN : sa portée)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé, rien n’est écrit ; non pris en charge : 403 STAFF_CASE_REQUIRED (preuve L0 l0-us114-catalog-addition)"
+    },
     "POST /console/users/search": {
       "acces": "staff",
       "permission": "support.read_profile",
@@ -272,6 +286,10 @@
     "POST /host/accounts/{orgId}/vehicles": {
       "acces": "session",
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request": {
+      "acces": "session",
+      "idor": "véhicule d'un autre hôte sous son propre compte : 404 VEHICLE_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us114)"
     },
     "GET /host/accounts/{orgId}/listings": {
       "acces": "session",

@@ -12,10 +12,12 @@
  * | POST /host/accounts/{orgId}/locations                       | 201 LOCATION_CREATED                      |
  * | GET  /host/accounts/{orgId}/vehicles                        | 200 véhicules                             |
  * | POST /host/accounts/{orgId}/vehicles                        | 201 VEHICLE_CREATED ; 409 doublon         |
+ * | POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request | 201 CATALOG_REQUEST_CREATED ; 409    |
  * | GET  /host/accounts/{orgId}/listings                        | 200 annonces                              |
  * | POST /host/accounts/{orgId}/listings                        | 201 LISTING_CREATED (DRAFT)               |
  * | PUT  /host/accounts/{orgId}/listings/{listingId}/pricing    | 200 LISTING_SAVED                         |
- * | POST /host/accounts/{orgId}/listings/{listingId}/submit     | 200 LISTING_SUBMITTED ; 422 photos, hôte  |
+ * | POST /host/accounts/{orgId}/listings/{listingId}/submit     | 200 LISTING_SUBMITTED ; 422 photos, hôte ; |
+ * |                                                             | 409 CATALOG_ADDITION_PENDING (US-114)     |
  * | POST /host/accounts/{orgId}/listings/{listingId}/photos     | 201 PHOTO_ADDED ; 422 ; 503 (production)  |
  * | DELETE /host/accounts/{orgId}/listings/{listingId}          | 200 LISTING_DELETED                       |
  * | GET  /host/accounts/{orgId}/catalog/…                       | 200 listes de choix du marché du compte   |
@@ -67,6 +69,11 @@ function orgOf(orgId: string): string {
   return orgId;
 }
 
+function vehicleOf(vehicleId: string): string {
+  if (!isUuid(vehicleId)) throw new HostListingHttpError('VEHICLE_NOT_FOUND');
+  return vehicleId;
+}
+
 function listingOf(listingId: string): string {
   if (!isUuid(listingId)) throw new HostListingHttpError('LISTING_NOT_FOUND');
   return listingId;
@@ -99,6 +106,27 @@ export class HostListingsController {
   async createVehicle(@Req() request: Req, @Param('orgId') orgId: string) {
     const r = await this.listings.createVehicle(proofOf(request), orgOf(orgId), bodyOf(request));
     return { ...hostListingBody(r.code), vehicleId: r.vehicleId };
+  }
+
+  /**
+   * Nouvelle demande d'ajout au catalogue d'un véhicule hors catalogue (US-114 ; 16 ADM-036) :
+   * après un refus de l'ops, l'hôte corrige marque et modèle. Une demande ouverte par véhicule
+   * (409 CATALOG_REQUEST_DUPLICATE) ; véhicule déjà rattaché : 409 CATALOG_ALREADY_LINKED.
+   */
+  @Post('accounts/:orgId/vehicles/:vehicleId/catalog-request')
+  @HttpCode(201)
+  async catalogRequest(
+    @Req() request: Req,
+    @Param('orgId') orgId: string,
+    @Param('vehicleId') vehicleId: string,
+  ) {
+    const r = await this.listings.requestCatalogAddition(
+      proofOf(request),
+      orgOf(orgId),
+      vehicleOf(vehicleId),
+      bodyOf(request),
+    );
+    return { ...hostListingBody(r.code), requestId: r.requestId };
   }
 
   @Get('accounts/:orgId/listings')

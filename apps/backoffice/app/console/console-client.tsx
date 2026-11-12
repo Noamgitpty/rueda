@@ -22,6 +22,7 @@ import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
 import { EVIDENCE_MAX_BYTES, evidenceReasonKey, evidenceRefusal } from './ops-view.tsx';
 import type {
+  CatalogAdditionView,
   KycDossierView,
   ManualRestriction,
   OpsHandlers,
@@ -283,6 +284,36 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           setOps((prev) => ({ ...prev, kyc: undefined }));
           notice(r);
         }
+      }),
+    onOpenCatalog: (itemId) =>
+      once(async () => {
+        const r = await call<CatalogAdditionView>(
+          'POST',
+          `/console/queues/items/${itemId}/catalog-addition`,
+          { requestId: crypto.randomUUID() },
+        );
+        if (r.ok) setOps((prev) => ({ ...prev, catalog: r.body, notice: undefined }));
+        else {
+          setOps((prev) => ({ ...prev, catalog: undefined }));
+          notice(r);
+        }
+      }),
+    onResolveCatalog: (itemId, resolution) =>
+      once(async () => {
+        const r = await call<{ status: 'APPROVED' | 'MERGED' | 'REJECTED' }>(
+          'POST',
+          `/console/queues/items/${itemId}/catalog-addition/resolve`,
+          { requestId: crypto.randomUUID(), ...resolution },
+        );
+        if (r.ok) {
+          setOps((prev) => ({
+            ...prev,
+            catalog: undefined,
+            notice: { tone: 'success', key: `backoffice.catalog.done.${r.body.status}` },
+          }));
+          const selected = ops.queues?.selected;
+          if (selected !== undefined && selected !== null) await showQueue(selected);
+        } else notice(r);
       }),
     onSearch: (email, purpose) =>
       once(async () => {

@@ -18,6 +18,7 @@ describe('abonnement', () => {
   it('le dispatcher écoute les événements canoniques du catalogue (17 §4.5)', () => {
     expect(subscribedEventTypes()).toEqual([
       'booking.trip.booked',
+      'catalog.addition_request.resolved',
       'kyc.verification.status_changed',
       'payout.batch.status_changed',
       'trip.overdue.detected',
@@ -87,6 +88,29 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
     expect(plan('INITIATED')[0]?.variables).toEqual({
       amount: { amount_minor: c.amountMinor, currency: c.currency },
     });
+  });
+
+  it('demande d’ajout au catalogue tranchée (US-114) : l’hôte demandeur est notifié, e-mail d’abord ; APPROVED et MERGED ⇒ ajout, REJECTED ⇒ refus', () => {
+    // 17 §4.5 : `request_id`, `status`, `resolved_variant_id` ; extension NTF : `host_user_id`
+    const payload = {
+      request_id: randomUUID(),
+      resolved_variant_id: randomUUID(),
+      host_user_id: host,
+    };
+    const plan = (status: string) =>
+      planDispatches(
+        event('catalog.addition_request.resolved', { ...payload, status }, c.country),
+      );
+    for (const status of ['APPROVED', 'MERGED']) {
+      expect(
+        plan(status).map((p) => [p.recipientRole, p.recipientUserId, p.channel, p.template]),
+      ).toEqual([['HOST', host, 'EMAIL', 'EVT_CATALOG_ADDITION_APPROVED']]);
+    }
+    expect(plan('REJECTED').map((p) => p.template)).toEqual(['EVT_CATALOG_ADDITION_REJECTED']);
+    expect(plan('OPEN')).toEqual([]);
+    expect(() =>
+      planDispatches(event('catalog.addition_request.resolved', payload, c.country)),
+    ).toThrow(NotificationContractError);
   });
 
   it('champ de statut absent (ex. `to` au lieu de `status`) : erreur de contrat, jamais ignoré en silence', () => {

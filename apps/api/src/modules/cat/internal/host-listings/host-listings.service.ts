@@ -17,6 +17,7 @@ import type { HostListingCode } from './errors.js';
 import {
   FieldValidationError,
   isUuid,
+  parseCatalogRequest,
   parseListing,
   parseLocation,
   parsePricing,
@@ -132,6 +133,23 @@ export class HostListingsService {
   async submit(proof: Buffer, orgId: string, listingId: string) {
     const r = await this.#call(() => this.store.submitListing(proof, orgId, listingId));
     return { ...this.#done(r.outcome, 'LISTING_SUBMITTED'), status: 'PENDING_REVIEW' as const };
+  }
+
+  /** Nouvelle demande d'ajout au catalogue (US-114) : après un refus, marque et modèle corrigés. */
+  async requestCatalogAddition(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    body: Record<string, unknown>,
+  ) {
+    let input!: ReturnType<typeof parseCatalogRequest>;
+    this.#fields(() => {
+      input = parseCatalogRequest(body);
+    });
+    const r = await this.#call(() =>
+      this.store.requestCatalogAddition(proof, orgId, vehicleId, input),
+    );
+    return { ...this.#done(r.outcome, 'CATALOG_REQUEST_CREATED'), requestId: r.id as string };
   }
 
   async remove(proof: Buffer, orgId: string, listingId: string) {

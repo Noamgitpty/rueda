@@ -10,7 +10,10 @@
  * (US-113) ; PROPOSÉS par US-115 (à reporter dans 16 A.8) : `HOST_ACCOUNT_NOT_FOUND`,
  * `HOST_ACCOUNT_SUSPENDED`, `LOCATION_NOT_FOUND`, `LOCATION_FIELD_INVALID`, `VEHICLE_NOT_FOUND`,
  * `LISTING_NOT_FOUND`, `LISTING_EXISTS`, `PHOTO_UPLOAD_UNAVAILABLE`, `LISTING_UNAVAILABLE` ;
- * `TERMS_REACCEPT_REQUIRED` (16 LEG-001, 19 US-126) : CGU de l'hôte à accepter avant la soumission.
+ * `TERMS_REACCEPT_REQUIRED` (16 LEG-001, 19 US-126) : CGU de l'hôte à accepter avant la soumission ;
+ * `CATALOG_REQUEST_DUPLICATE` (16 ADM-036) et, PROPOSÉS par US-114 (ADR-104) :
+ * `CATALOG_ADDITION_PENDING` (véhicule hors catalogue, annonce non publiable),
+ * `CATALOG_ALREADY_LINKED` (véhicule déjà rattaché), `CATALOG_REQUEST_CREATED`.
  *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
@@ -25,6 +28,7 @@ export const HOST_LISTING_MESSAGES = {
   LISTING_SUBMITTED: { status: 200, messageKey: 'common.listing.submitted' },
   LISTING_DELETED: { status: 200, messageKey: 'common.listing.deleted' },
   PHOTO_ADDED: { status: 201, messageKey: 'common.listing.photoAdded' },
+  CATALOG_REQUEST_CREATED: { status: 201, messageKey: 'common.catalogAddition.requested' },
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },
   HOST_ACCOUNT_SUSPENDED: { status: 403, messageKey: 'common.listing.hostSuspended' },
@@ -39,6 +43,10 @@ export const HOST_LISTING_MESSAGES = {
   // CGU de l'hôte non acceptées dans leur version exigée (US-126) : l'annonce reste DRAFT
   TERMS_REACCEPT_REQUIRED: { status: 409, messageKey: 'common.listing.hostTermsRequired' },
   CATALOG_VARIANT_RETIRED: { status: 409, messageKey: 'common.listing.variantRetired' },
+  // véhicule hors catalogue (US-114) : l'annonce reste DRAFT jusqu'à la décision de l'ops
+  CATALOG_ADDITION_PENDING: { status: 409, messageKey: 'common.catalogAddition.pending' },
+  CATALOG_REQUEST_DUPLICATE: { status: 409, messageKey: 'common.catalogAddition.duplicate' },
+  CATALOG_ALREADY_LINKED: { status: 409, messageKey: 'common.catalogAddition.alreadyLinked' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
   LOCATION_FIELD_INVALID: { status: 422, messageKey: 'common.listing.locationFieldInvalid' },
   PRICE_INVALID: { status: 422, messageKey: 'common.listing.priceInvalid' },

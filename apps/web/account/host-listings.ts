@@ -57,6 +57,34 @@ export interface LocationView {
   readonly areaLabel: string | null;
 }
 
+/** Demande d'ajout au catalogue d'un véhicule hors catalogue (US-114, 16 ADM-036). */
+export interface CatalogRequestView {
+  readonly status: 'OPEN' | 'APPROVED' | 'MERGED' | 'REJECTED';
+  readonly rejectReason: 'INSUFFICIENT_DETAILS' | 'UNKNOWN_MODEL' | 'NOT_ELIGIBLE' | null;
+  /** Échéance de la décision (ISO 8601), posée par la base. */
+  readonly slaDueAt: string;
+}
+
+const CATALOG_STATUSES = new Set(['OPEN', 'APPROVED', 'MERGED', 'REJECTED']);
+const REJECT_REASONS = new Set(['INSUFFICIENT_DETAILS', 'UNKNOWN_MODEL', 'NOT_ELIGIBLE']);
+
+/** Demande illisible : `undefined` (la réponse entière est alors refusée). */
+function catalogRequestOf(v: unknown): CatalogRequestView | null | undefined {
+  if (v === null || v === undefined) return null;
+  if (!isObj(v)) return undefined;
+  const status = str(v['status']);
+  const reason = v['rejectReason'] === null ? null : str(v['rejectReason']);
+  const due = str(v['slaDueAt']);
+  if (status === null || !CATALOG_STATUSES.has(status)) return undefined;
+  if (reason !== null && !REJECT_REASONS.has(reason)) return undefined;
+  if (due === null || Number.isNaN(Date.parse(due))) return undefined;
+  return {
+    status: status as CatalogRequestView['status'],
+    rejectReason: reason as CatalogRequestView['rejectReason'],
+    slaDueAt: due,
+  };
+}
+
 export interface VehicleView {
   readonly id: string;
   readonly plate: string;
@@ -64,6 +92,9 @@ export interface VehicleView {
   readonly modelText: string | null;
   readonly year: number;
   readonly listingId: string | null;
+  /** Véhicule rattaché au catalogue de référence (variante) : publiable (US-114). */
+  readonly inCatalog: boolean;
+  readonly catalogRequest: CatalogRequestView | null;
 }
 
 export interface ListingView {
@@ -137,6 +168,9 @@ export function vehiclesOf(reply: ApiResult): VehicleView[] | null {
     const plate = str(v['plate']);
     if (plate === null) return null;
     const listingId = str(v['listingId']);
+    const catalogRequest = catalogRequestOf(v['catalogRequest']);
+    if (catalogRequest === undefined) return null;
+    const variantId = str(v['variantId']);
     out.push({
       id: String(v['id']),
       plate,
@@ -144,6 +178,8 @@ export function vehiclesOf(reply: ApiResult): VehicleView[] | null {
       modelText: str(v['modelText']),
       year: int(v['year']) as number,
       listingId: listingId !== null && UUID.test(listingId) ? listingId : null,
+      inCatalog: variantId !== null && UUID.test(variantId),
+      catalogRequest,
     });
   }
   return out;

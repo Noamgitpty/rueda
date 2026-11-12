@@ -3,10 +3,13 @@
  * la compilation de production). Reproduit les issues des commandes `core.catalog_*` de 0067 que
  * les tests de contrat HTTP observent ; les règles elles-mêmes (propriété, pays, doublons, pas du
  * prix, SM-2) sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us115-host-listings.test.ts).
+ * File d'ajout au catalogue (US-114, 0074) : un véhicule hors catalogue ouvre sa demande, sa
+ * soumission rend CATALOG_ADDITION_PENDING (preuves : l0-us114-catalog-addition).
  */
 import { randomUUID } from 'node:crypto';
 import { HostListingStoreError } from '../internal/host-listings/store.js';
 import type {
+  CatalogRequestView,
   HostListing,
   HostListingStore,
   HostLocation,
@@ -17,6 +20,7 @@ import type {
   PublicListing,
 } from '../internal/host-listings/store.js';
 import type {
+  CatalogRequestInput,
   ListingInput,
   ListingStatus,
   LocationInput,
@@ -49,6 +53,8 @@ export class FakeHostListingStore implements HostListingStore {
     { orgId: string; country: string; input: VehicleInput }
   >();
   readonly listingsById = new Map<string, FakeListing>();
+  /** Dernière demande d'ajout au catalogue de chaque véhicule hors catalogue (US-114). */
+  readonly catalogRequests = new Map<string, CatalogRequestView>();
   readonly deposited: string[] = [];
   /** Pas du prix par pays (donnée de test, comme 17 §7.2). */
   readonly priceStep = new Map<string, bigint>();
@@ -115,7 +121,48 @@ export class FakeHostListingStore implements HostListingStore {
     if (duplicate) return Promise.resolve({ outcome: 'VEHICLE_PLATE_DUPLICATE', id: null });
     const id = randomUUID();
     this.vehiclesById.set(id, { orgId, country: h.country, input });
+    if (input.variantId === null) {
+      this.#openRequest(id, input.makeText ?? '', input.modelText ?? '');
+    }
     return Promise.resolve({ outcome: 'DONE', id });
+  }
+
+  #openRequest(vehicleId: string, makeText: string, modelText: string): string {
+    const id = randomUUID();
+    const now = new Date();
+    this.catalogRequests.set(vehicleId, {
+      id,
+      status: 'OPEN',
+      makeText,
+      modelText,
+      rejectReason: null,
+      slaDueAt: new Date(now.getTime() + 24 * 3_600_000).toISOString(),
+      createdAt: now.toISOString(),
+      reviewedAt: null,
+    });
+    return id;
+  }
+
+  requestCatalogAddition(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    input: CatalogRequestInput,
+  ): Promise<Outcome> {
+    const h = this.#write(proof, orgId);
+    if ('outcome' in h) return Promise.resolve(h);
+    const v = this.vehiclesById.get(vehicleId);
+    if (v?.orgId !== orgId) return Promise.resolve({ outcome: 'VEHICLE_NOT_FOUND', id: null });
+    if (v.input.variantId !== null) {
+      return Promise.resolve({ outcome: 'CATALOG_ALREADY_LINKED', id: null });
+    }
+    if (this.catalogRequests.get(vehicleId)?.status === 'OPEN') {
+      return Promise.resolve({ outcome: 'CATALOG_REQUEST_DUPLICATE', id: null });
+    }
+    return Promise.resolve({
+      outcome: 'DONE',
+      id: this.#openRequest(vehicleId, input.makeText, input.modelText),
+    });
   }
 
   #pricing(country: string, p: PricingInput): string {
@@ -187,6 +234,10 @@ export class FakeHostListingStore implements HostListingStore {
     if (l.status !== 'DRAFT')
       return Promise.resolve({ outcome: 'LISTING_TRANSITION_FORBIDDEN', id: null });
     if (l.photos < this.minPhotos) return Promise.resolve({ outcome: 'PHOTO_MIN_COUNT', id: null });
+    // véhicule hors catalogue (US-114) : non publiable
+    if (this.vehiclesById.get(l.vehicleId)?.input.variantId === null) {
+      return Promise.resolve({ outcome: 'CATALOG_ADDITION_PENDING', id: null });
+    }
     // CGU de l'hôte acceptées (US-126, garde de la commande en base, 0070)
     if (!this.hostTermsAccepted.has(orgId)) {
       return Promise.resolve({ outcome: 'TERMS_REACCEPT_REQUIRED', id: null });
@@ -274,6 +325,7 @@ export class FakeHostListingStore implements HostListingStore {
             eligibilityStatus: 'PENDING',
             listingId: l?.id ?? null,
             listingStatus: l?.status ?? null,
+            catalogRequest: this.catalogRequests.get(id) ?? null,
           };
         }),
     );

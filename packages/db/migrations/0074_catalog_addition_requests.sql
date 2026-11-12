@@ -926,7 +926,8 @@ $fn$;
 REVOKE ALL ON FUNCTION core.support_staff_catalog_item(uuid, uuid, text, uuid) FROM PUBLIC;
 
 -- 5.1 Demande d'ajout d'un élément de la file (lecture ; aucune donnée personnelle).
--- Issues : GRANTED (demande et variantes candidates) et les issues communes.
+-- Issues : GRANTED (demande et variantes candidates), NOT_OPEN (aucune demande derrière
+-- l'élément) et les issues communes.
 CREATE FUNCTION core.support_staff_catalog_addition(p_token_hash bytea, p_request_id uuid,
                                                     p_item_id uuid)
   RETURNS TABLE (outcome text, body jsonb)
@@ -965,7 +966,8 @@ BEGIN
   END IF;
   v_body := core.catalog_addition_detail(v_g.subject_id, v_g.country_code);
   IF v_body IS NULL THEN
-    RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::jsonb;
+    -- élément sans demande (ou demande d'un autre pays) : rien à instruire
+    RETURN QUERY SELECT 'NOT_OPEN'::text, NULL::jsonb;
     RETURN;
   END IF;
   RETURN QUERY SELECT 'GRANTED'::text,

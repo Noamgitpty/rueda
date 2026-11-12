@@ -79,3 +79,20 @@
   display: grid;
   gap: var(--space-2);
 }
+
+/* Liste de choix de la file d'ajout au catalogue (US-114) : cible tactile, jetons de thème */
+.select {
+  inline-size: 100%;
+  min-block-size: var(--size-touch-target);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.select:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
