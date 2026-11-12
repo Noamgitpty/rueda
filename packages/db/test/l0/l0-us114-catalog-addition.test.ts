@@ -105,11 +105,11 @@ async function vehicle(
   client: pg.ClientBase,
   h: Host,
   v: {
-    readonly make?: string;
-    readonly model?: string;
-    readonly variantId?: string;
+    readonly make?: string | undefined;
+    readonly model?: string | undefined;
+    readonly variantId?: string | undefined;
     readonly year: number;
-    readonly vin?: string;
+    readonly vin?: string | undefined;
   },
 ): Promise<{ outcome: string; id: string | null }> {
   const { rows } = await client.query<{ outcome: string; vehicle_id: string | null }>(
@@ -241,7 +241,11 @@ const resolve = (
   s: { hash: Buffer },
   item: string,
   decision: string,
-  options: { variantId?: string; entry?: unknown; reason?: string } = {},
+  options: {
+    variantId?: string | undefined;
+    entry?: unknown;
+    reason?: string | undefined;
+  } = {},
 ) =>
   call(
     c,
@@ -304,7 +308,7 @@ async function pending(
   client: pg.ClientBase,
   country: string,
   ops: Staff | null,
-  v: { make?: string; model?: string; year?: number } = {},
+  v: { make?: string | undefined; model?: string | undefined; year?: number | undefined } = {},
 ): Promise<{ h: Host; vehicle: string; request: RequestRow; item: string }> {
   const h = await host(client, country);
   const veh = await vehicle(client, h, { make: v.make, model: v.model, year: v.year ?? 2021 });
