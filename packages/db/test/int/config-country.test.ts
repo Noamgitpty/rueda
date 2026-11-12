@@ -126,8 +126,13 @@ describe('configuration pays : structure et droits', () => {
                 AND NOT a.attisdropped
                 AND NOT pg_catalog.has_column_privilege('app_api', a.attrelid, a.attnum, 'SELECT')`,
           );
-          // identifiant du personnel et motif libre C2 (0052, US-046) : jamais lisibles par app_api
-          expect(cols.map((c) => c.col).sort()).toEqual(['approved_by', 'change_reason']);
+          // identifiant du personnel et motif libre C2 (0052, US-046) et lien vers la demande à deux
+          // personnes (0071, US-125) : jamais lisibles par app_api
+          expect(cols.map((c) => c.col).sort()).toEqual([
+            'approved_by',
+            'change_reason',
+            'go_live_request_id',
+          ]);
         },
         { database },
       );
@@ -155,7 +160,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -180,6 +185,16 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_definition' ||
             t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
+              : []),
+            // interrupteurs à deux personnes (US-125, 0071) : écriture de la seule version recopiant
+            // une demande approuvée ; lecture des pays, des définitions et valeurs gardées
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_golive_ins', cmd: 'a', roles: 'cmd_golive_owner' }]
+              : []),
+            ...(t === 'config_country' ||
+            t === 'config_param_definition' ||
+            t === 'config_param_value'
+              ? [{ t, pol: 'cmd_golive_sel', cmd: 'r', roles: 'cmd_golive_owner' }]
               : []),
             // sous-marchands (US-061, 0039) : devise de versement du pays
             ...(t === 'config_country'
