@@ -9,8 +9,16 @@
 -- des tests viennent de 19 US-106, 16 ADM-002 / VER-002 / VER-006 et 17 §3.2.2, §4.5, §7.2,
 -- jamais de ces relectures. Aucune écriture.
 --
+-- Base de test seulement : `migrator` reçoit l'EXECUTE du résolveur `core.kyc_country_of_verification`
+-- (propriétaire NOLOGIN kyc_cmd_owner, `SECURITY DEFINER`), parce que la fixture
+-- `test_fixture.us101_resolve` (9960, SECURITY DEFINER sous migrator) appelle chaque résolveur
+-- déclaré ; les autres résolveurs appartiennent à migrator. La base de production n'a pas ce droit
+-- (liste blanche RLS-15 : EXECUTE à iam_staff_owner seul).
+--
 -- Retour arrière : DROP FUNCTION test_fixture.us106_items(uuid),
---   test_fixture.us106_verification(uuid), test_fixture.us106_item_events(uuid).
+--   test_fixture.us106_verification(uuid), test_fixture.us106_item_events(uuid) ;
+--   REVOKE EXECUTE ON FUNCTION core.kyc_country_of_verification(uuid) FROM migrator (sous
+--   kyc_cmd_owner).
 
 CREATE FUNCTION test_fixture.us106_items(p_user uuid)
   RETURNS TABLE (id uuid, status text, decision text, assignee_id uuid, country_code text,
@@ -56,3 +64,7 @@ REVOKE ALL ON FUNCTION test_fixture.us106_items(uuid), test_fixture.us106_verifi
   test_fixture.us106_item_events(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us106_items(uuid), test_fixture.us106_verification(uuid),
   test_fixture.us106_item_events(uuid) TO app_api, app_worker;
+
+SET LOCAL ROLE kyc_cmd_owner;
+GRANT EXECUTE ON FUNCTION core.kyc_country_of_verification(uuid) TO migrator;
+RESET ROLE;
