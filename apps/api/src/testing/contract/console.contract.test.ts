@@ -215,6 +215,31 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
     ],
   },
   resolveCatalogAddition: { itemId: ID, requestId: ID, status: 'APPROVED', variantId: ID },
+  // revue du véhicule et contestations (US-124)
+  vehicleEligibility: {
+    itemId: ID,
+    vehicleId: ID,
+    country: FIRST_COUNTRY,
+    plate: 'AB123',
+    vin: 'LVVDB11B5MD000001',
+    holder: { userId: ID, legalFirstName: 'Lucía', legalLastName: 'Benítez' },
+    documents: [{ documentId: ID, type: 'TITLE', status: 'SUBMITTED', createdAt: AT }],
+  },
+  decideVehicleEligibility: {
+    itemId: ID,
+    vehicleId: ID,
+    result: 'PENDING',
+    reasons: ['VEHICLE_VIN_MISMATCH'],
+  },
+  vehicleClaim: { itemId: ID, claimId: ID, plate: 'AB123', status: 'OPEN', createdAt: AT },
+  decideVehicleClaim: { itemId: ID, claimId: ID, status: 'UPHELD' },
+  vehicleFile: {
+    fileId: ID,
+    storageKey: `vehicle-documents/${ID}/${ID}/${ID}`,
+    mime: 'application/pdf',
+    bytes: 9,
+    subjectUserId: ID,
+  },
   profile: {
     accessId: ID,
     country: FIRST_COUNTRY,
@@ -317,6 +342,21 @@ class TunableOpsStore implements OpsConsoleStore {
   resolveCatalogAddition() {
     return this.#r('resolveCatalogAddition', 'RESOLVED');
   }
+  vehicleEligibility() {
+    return this.#r('vehicleEligibility', 'GRANTED');
+  }
+  decideVehicleEligibility() {
+    return this.#r('decideVehicleEligibility', 'DECIDED');
+  }
+  vehicleClaim() {
+    return this.#r('vehicleClaim', 'GRANTED');
+  }
+  decideVehicleClaim() {
+    return this.#r('decideVehicleClaim', 'DECIDED');
+  }
+  vehicleFile() {
+    return this.#r('vehicleFile', 'GRANTED');
+  }
   recordEvidence(_tx: unknown, _actor: unknown, input: { requestId: string }) {
     const outcome = this.outcome['recordEvidence'] ?? 'RECORDED';
     return Promise.resolve({
@@ -369,6 +409,7 @@ describe('contrat HTTP — /console', () => {
   let boardRefusal: 'FORBIDDEN' | null = null;
   const ops = new TunableOpsStore();
   let scanVerdict: 'CLEAN' | 'INFECTED' | 'DOWN' = 'CLEAN';
+  let vehicleFilesUp = true;
   const evidence: EvidenceOptions = {
     pool: {
       query: () => Promise.resolve({ rows: [] }),
@@ -424,6 +465,22 @@ describe('contrat HTTP — /console', () => {
         },
         ops,
         evidence,
+        vehicleFiles: {
+          files: {
+            put: () => Promise.resolve({ status: 'STORED' as const }),
+            get: () =>
+              Promise.resolve(
+                vehicleFilesUp
+                  ? { status: 'FOUND' as const, body: Buffer.from('%PDF-1.7\n', 'latin1') }
+                  : { status: 'UNAVAILABLE' as const },
+              ),
+          },
+          vault: {
+            prepare: () => Promise.resolve('READY' as const),
+            seal: (_tx, _u, _f, body) => Promise.resolve({ status: 'SEALED' as const, body }),
+            open: (_u, _f, body) => Promise.resolve({ status: 'OPENED' as const, body }),
+          },
+        },
       },
       brand: {
         store: brand,
@@ -853,6 +910,117 @@ describe('contrat HTTP — /console', () => {
     });
     expect(merged.status).toBe(200);
     await refusals(a, 'POST', resolve);
+
+    // revue du véhicule (US-124) : dossier 200, 400, 403, 409 ; décision 200, 400, 403, 409, 422
+    const vehicle = `/console/queues/items/${ID}/vehicle`;
+    const dossier = await post(vehicle, { requestId: randomUUID(), purpose });
+    expect(dossier.json).toMatchObject({ plate: 'AB123', holder: { legalLastName: 'Benítez' } });
+    expect((await post(vehicle, { requestId: randomUUID(), purpose: 'court' })).status).toBe(400);
+    for (const [outcome, status, code] of [
+      ['NOT_UNDER_REVIEW', 409, 'VEHICLE_REVIEW_CLOSED'],
+      ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+    ] as const) {
+      ops.outcome['vehicleEligibility'] = outcome;
+      const r = await post(vehicle, { requestId: randomUUID(), purpose });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    delete ops.outcome['vehicleEligibility'];
+    await refusals(a, 'POST', vehicle);
+    const decide = `${vehicle}/decide`;
+    const checklist = {
+      TITLE_HOLDER: 'PASS',
+      TITLE_CLEAN: 'PASS',
+      PLATE_MATCH: 'PASS',
+      VIN_MATCH: 'FAIL',
+      LIEN: 'PASS',
+      INSPECTION: 'PASS',
+      REGISTRY: 'NOT_CONSULTABLE',
+    };
+    const verdicts = [{ documentId: ID, verdict: 'VALID', validUntil: null }];
+    const decided = await post(decide, { requestId: randomUUID(), checklist, documents: verdicts });
+    expect(decided.json).toMatchObject({ result: 'PENDING', reasons: ['VEHICLE_VIN_MISMATCH'] });
+    for (const body of [
+      { requestId: randomUUID(), checklist: { ...checklist, ALL_VERIFIED: 'PASS' }, documents: [] },
+      { requestId: randomUUID(), checklist: [], documents: [] },
+      { requestId: randomUUID(), checklist, documents: {} },
+    ]) {
+      expect((await post(decide, body)).status, JSON.stringify(body)).toBe(400);
+    }
+    for (const [outcome, status, code] of [
+      ['NOT_UNDER_REVIEW', 409, 'VEHICLE_REVIEW_CLOSED'],
+      ['CHECKLIST_INVALID', 422, 'VEHICLE_CHECKLIST_INVALID'],
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+    ] as const) {
+      ops.outcome['decideVehicleEligibility'] = outcome;
+      const r = await post(decide, { requestId: randomUUID(), checklist, documents: verdicts });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    delete ops.outcome['decideVehicleEligibility'];
+    await refusals(a, 'POST', decide);
+
+    // contestation (BOARD N-61) : lecture 200, 400, 403, 409 ; décision 200, 400, 403 (dont
+    // STAFF_ADMIN_REQUIRED), 409, 422
+    const claimPath = `/console/queues/items/${ID}/vehicle-claim`;
+    expect((await post(claimPath, { requestId: randomUUID(), purpose })).status).toBe(200);
+    expect((await post(claimPath, { requestId: 'x', purpose })).status).toBe(400);
+    ops.outcome['vehicleClaim'] = 'NOT_OPEN';
+    expect((await post(claimPath, { requestId: randomUUID(), purpose })).json).toMatchObject({
+      code: 'VEHICLE_CLAIM_CLOSED',
+    });
+    ops.outcome['vehicleClaim'] = 'FORBIDDEN';
+    expect((await post(claimPath, { requestId: randomUUID(), purpose })).status).toBe(403);
+    delete ops.outcome['vehicleClaim'];
+    await refusals(a, 'POST', claimPath);
+    const claimDecide = `${claimPath}/decide`;
+    expect(
+      (await post(claimDecide, { requestId: randomUUID(), decision: 'UPHOLD' })).json,
+    ).toMatchObject({ status: 'UPHELD' });
+    expect((await post(claimDecide, { requestId: randomUUID(), decision: 'KEEP' })).status).toBe(
+      400,
+    );
+    for (const [outcome, status, code] of [
+      ['ADMIN_REQUIRED', 403, 'STAFF_ADMIN_REQUIRED'],
+      ['NOT_OPEN', 409, 'VEHICLE_CLAIM_CLOSED'],
+      ['CLAIM_REASON_INVALID', 422, 'VEHICLE_CLAIM_REASON_INVALID'],
+    ] as const) {
+      ops.outcome['decideVehicleClaim'] = outcome;
+      const r = await post(claimDecide, {
+        requestId: randomUUID(),
+        decision: 'DISMISS',
+        reason: 'INSUFFICIENT_PROOF',
+      });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    delete ops.outcome['decideVehicleClaim'];
+    await refusals(a, 'POST', claimDecide);
+
+    // pièce (US-124) : 200 (base64), 400, 403, 404, 503 (stockage ou coffre indisponibles)
+    const filePath = `/console/queues/items/${ID}/files/${ID}`;
+    const fileBody = () => ({ requestId: randomUUID(), purpose, subject: 'VEHICLE' });
+    const file = await post(filePath, fileBody());
+    expect(file.json).toEqual({
+      fileId: ID,
+      mime: 'application/pdf',
+      bytes: 9,
+      dataBase64: Buffer.from('%PDF-1.7\n', 'latin1').toString('base64'),
+    });
+    expect((await post(filePath, { ...fileBody(), subject: 'USER' })).status).toBe(400);
+    ops.outcome['vehicleFile'] = 'FILE_NOT_FOUND';
+    expect((await post(filePath, fileBody())).json).toMatchObject({
+      code: 'VEHICLE_FILE_NOT_FOUND',
+    });
+    ops.outcome['vehicleFile'] = 'CASE_REQUIRED';
+    expect((await post(filePath, fileBody())).status).toBe(403);
+    delete ops.outcome['vehicleFile'];
+    vehicleFilesUp = false;
+    expect((await post(filePath, fileBody())).json).toMatchObject({
+      code: 'VEHICLE_FILE_UNAVAILABLE',
+    });
+    vehicleFilesUp = true;
+    await refusals(a, 'POST', filePath);
 
     // recherche : 200, 400, 403, 404 ; donnée refusée par la base (22023) : 400
     const search = { requestId: randomUUID(), email: 'lucia@example.test', purpose };

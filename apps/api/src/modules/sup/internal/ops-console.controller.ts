@@ -18,6 +18,16 @@
  * |      catalog-addition (US-114)          | candidates                       |                                  |
  * | POST /console/queues/items/:id/         | 200 décision (MERGE, APPROVE,    | 409 CATALOG_REQUEST_CLOSED,      |
  * |      catalog-addition/resolve (US-114)  | REJECT), élément clos            | CATALOG_VARIANT_EXISTS ; 422     |
+ * | POST /console/queues/items/:id/vehicle  | 200 dossier du véhicule          | 409 VEHICLE_REVIEW_CLOSED        |
+ * |      (US-124)                           | (journalisé)                     |                                  |
+ * | POST /console/queues/items/:id/vehicle/ | 200 résultat calculé (ELIGIBLE,  | 409 ; 422                        |
+ * |      decide (US-124)                    | PENDING, INELIGIBLE)             | VEHICLE_CHECKLIST_INVALID        |
+ * | POST /console/queues/items/:id/         | 200 contestation (journalisée)   | 409 VEHICLE_CLAIM_CLOSED         |
+ * |      vehicle-claim (US-124, N-61)       |                                  |                                  |
+ * | POST /console/queues/items/:id/         | 200 UPHELD / DISMISSED           | 403 STAFF_ADMIN_REQUIRED ; 409 ; |
+ * |      vehicle-claim/decide               |                                  | 422                              |
+ * | POST /console/queues/items/:id/files/   | 200 pièce (base64, journalisée)  | 404 VEHICLE_FILE_NOT_FOUND ; 503 |
+ * |      :fileId (US-124)                   |                                  |                                  |
  *
  * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
  * base juge chaque droit (permission EN COURS dans le pays du sujet, couverture) et journalise
@@ -49,12 +59,28 @@ import type {
   CaseStatus,
   OpsConsoleStore,
   OpsResult,
+  VehicleClaimDecision,
 } from './ops-console-store.js';
 import { OpsStoreError } from './ops-console-store.js';
 import { OpsHttpError } from './ops-errors.js';
 import { staffActorOf } from './staff-context.js';
 import type { StaffActor } from './staff-context.js';
-import { EVIDENCE_SERVICE, OPS_CONSOLE_STORE } from './tokens.js';
+import type { VehicleFilesOptions } from './sup-console.module.js';
+import { EVIDENCE_SERVICE, OPS_CONSOLE_STORE, VEHICLE_FILES } from './tokens.js';
+
+/** Liste de contrôle fermée de la revue du véhicule (0077, L1-PM-14) ; valeurs jugées par la base. */
+const CHECK_KEYS = new Set([
+  'TITLE_HOLDER',
+  'TITLE_CLEAN',
+  'PLATE_MATCH',
+  'VIN_MATCH',
+  'LIEN',
+  'INSPECTION',
+  'REGISTRY',
+]);
+const CLAIM_DECISIONS: readonly VehicleClaimDecision[] = ['UPHOLD', 'DISMISS'];
+const CLAIM_REASONS = ['INSUFFICIENT_PROOF', 'CLAIMANT_NOT_OWNER'] as const;
+const FILE_SUBJECTS = ['VEHICLE', 'VEHICLE_CLAIM'] as const;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const QUEUE =
@@ -212,6 +238,7 @@ export class OpsConsoleController {
   constructor(
     @Inject(OPS_CONSOLE_STORE) private readonly store: OpsConsoleStore,
     @Inject(EVIDENCE_SERVICE) private readonly evidence: EvidenceService,
+    @Inject(VEHICLE_FILES) private readonly vehicleFiles: VehicleFilesOptions,
   ) {}
 
   @Get('queues')
@@ -311,6 +338,150 @@ export class OpsConsoleController {
       requestId: r.body['requestId'],
       status: r.body['status'],
       variantId: r.body['variantId'] ?? null,
+    };
+  }
+
+  /** Dossier d'un véhicule en revue (US-124) : plaque, VIN, pièces, titulaire ; journalisé. */
+  @Post('queues/items/:id/vehicle')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async vehicle(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const r = await run(
+      () => this.store.vehicleEligibility(actor, requestId, itemId, purpose),
+      ['GRANTED', 'NOT_UNDER_REVIEW'],
+    );
+    if (r.outcome === 'NOT_UNDER_REVIEW') throw new OpsHttpError('VEHICLE_REVIEW_CLOSED');
+    return r.body;
+  }
+
+  /**
+   * Décision sur un véhicule (US-124) : liste de contrôle FERMÉE (chaque point PASS ou FAIL) et un
+   * verdict par pièce soumise ; le résultat est calculé par la base, jamais choisi ici.
+   */
+  @Post('queues/items/:id/vehicle/decide')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async decideVehicle(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const checklist = b['checklist'];
+    const documents = b['documents'];
+    if (
+      checklist === null ||
+      typeof checklist !== 'object' ||
+      Array.isArray(checklist) ||
+      Object.keys(checklist).some((k) => !CHECK_KEYS.has(k)) ||
+      !Array.isArray(documents) ||
+      documents.length > 20
+    ) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    const r = await run(
+      () =>
+        this.store.decideVehicleEligibility(
+          actor,
+          requestId,
+          itemId,
+          checklist as Record<string, unknown>,
+          documents as unknown[],
+        ),
+      ['DECIDED', 'NOT_UNDER_REVIEW', 'CHECKLIST_INVALID'],
+    );
+    if (r.outcome === 'NOT_UNDER_REVIEW') throw new OpsHttpError('VEHICLE_REVIEW_CLOSED');
+    if (r.outcome === 'CHECKLIST_INVALID') throw new OpsHttpError('VEHICLE_CHECKLIST_INVALID');
+    return r.body;
+  }
+
+  /** Dossier d'une contestation de plaque ou de VIN (BOARD N-61) ; journalisé. */
+  @Post('queues/items/:id/vehicle-claim')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async vehicleClaim(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const r = await run(
+      () => this.store.vehicleClaim(actor, requestId, itemId, purpose),
+      ['GRANTED', 'NOT_OPEN'],
+    );
+    if (r.outcome === 'NOT_OPEN') throw new OpsHttpError('VEHICLE_CLAIM_CLOSED');
+    return r.body;
+  }
+
+  /** Décision sur une contestation : UPHOLD (ADMIN seul, libère le véhicule) ou DISMISS motivé. */
+  @Post('queues/items/:id/vehicle-claim/decide')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async decideVehicleClaim(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const decision = oneOf(b['decision'], CLAIM_DECISIONS);
+    const reason =
+      b['reason'] === undefined || b['reason'] === null ? null : oneOf(b['reason'], CLAIM_REASONS);
+    const r = await run(
+      () => this.store.decideVehicleClaim(actor, requestId, itemId, decision, reason),
+      ['DECIDED', 'NOT_OPEN', 'CLAIM_REASON_INVALID', 'ADMIN_REQUIRED'],
+    );
+    if (r.outcome === 'NOT_OPEN') throw new OpsHttpError('VEHICLE_CLAIM_CLOSED');
+    if (r.outcome === 'CLAIM_REASON_INVALID')
+      throw new OpsHttpError('VEHICLE_CLAIM_REASON_INVALID');
+    if (r.outcome === 'ADMIN_REQUIRED') throw new OpsHttpError('STAFF_ADMIN_REQUIRED');
+    return r.body;
+  }
+
+  /**
+   * Pièce couverte par l'élément (US-124) : droit et journal par la base AVANT toute lecture, puis
+   * objet lu au seau privé DOCUMENTS et déchiffré par le coffre ; rendue en base64 (jamais une URL,
+   * jamais servie sur l'origine de l'application). Production : stockage et coffre indisponibles,
+   * donc 503 (fail-closed).
+   */
+  @Post('queues/items/:id/files/:fileId')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async vehicleFile(
+    @Req() request: object,
+    @Param('id') id: string,
+    @Param('fileId') fileId: string,
+    @Body() raw: unknown,
+  ) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const file = uuidOf(fileId);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const subject = oneOf(b['subject'], FILE_SUBJECTS);
+    const r = await run(
+      () => this.store.vehicleFile(actor, requestId, itemId, subject, file, purpose),
+      ['GRANTED', 'FILE_NOT_FOUND'],
+    );
+    if (r.outcome === 'FILE_NOT_FOUND') throw new OpsHttpError('VEHICLE_FILE_NOT_FOUND');
+    const key = r.body['storageKey'];
+    const owner = r.body['subjectUserId'];
+    const mime = r.body['mime'];
+    if (typeof key !== 'string' || typeof owner !== 'string' || typeof mime !== 'string') {
+      throw new OpsHttpError('VEHICLE_FILE_UNAVAILABLE');
+    }
+    const got = await this.vehicleFiles.files.get('DOCUMENTS', key);
+    if (got.status !== 'FOUND') throw new OpsHttpError('VEHICLE_FILE_UNAVAILABLE');
+    const opened = await this.vehicleFiles.vault.open(owner, file, got.body);
+    if (opened.status !== 'OPENED') throw new OpsHttpError('VEHICLE_FILE_UNAVAILABLE');
+    return {
+      fileId: file,
+      mime,
+      bytes: opened.body.length,
+      dataBase64: opened.body.toString('base64'),
     };
   }
 

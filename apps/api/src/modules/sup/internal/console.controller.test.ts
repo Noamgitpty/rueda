@@ -48,6 +48,11 @@ const ops: OpsConsoleStore = {
   recordEvidence: neverCalled,
   catalogAddition: neverCalled,
   resolveCatalogAddition: neverCalled,
+  vehicleEligibility: neverCalled,
+  decideVehicleEligibility: neverCalled,
+  vehicleClaim: neverCalled,
+  decideVehicleClaim: neverCalled,
+  vehicleFile: neverCalled,
 };
 const unusedPool: SqlPool = { query: neverCalled, connect: neverCalled };
 

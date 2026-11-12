@@ -22,6 +22,20 @@ export const OPS_MESSAGES = {
   // MERGE vers une variante inconnue, non ACTIVE, d'un autre marché ou d'une autre année
   CATALOG_VARIANT_NOT_FOUND: { status: 422, messageKey: 'common.catalogAddition.variantNotFound' },
   CATALOG_ENTRY_INVALID: { status: 422, messageKey: 'common.catalogAddition.entryInvalid' },
+  // revue du véhicule (US-124) : véhicule plus en revue (déjà tranché) ; liste de contrôle
+  // incomplète ou mal formée (aucune case « tout vérifié », L1-PM-14)
+  VEHICLE_REVIEW_CLOSED: { status: 409, messageKey: 'common.vehicleReview.closed' },
+  VEHICLE_CHECKLIST_INVALID: { status: 422, messageKey: 'common.vehicleReview.checklistInvalid' },
+  // contestation (BOARD N-61) : déjà tranchée ; motif absent ou en trop ; confirmation à l'ADMIN
+  VEHICLE_CLAIM_CLOSED: { status: 409, messageKey: 'common.vehicleReview.claimClosed' },
+  VEHICLE_CLAIM_REASON_INVALID: {
+    status: 422,
+    messageKey: 'common.vehicleReview.claimReasonInvalid',
+  },
+  STAFF_ADMIN_REQUIRED: { status: 403, messageKey: 'common.vehicleReview.adminRequired' },
+  // pièce : hors de l'élément ; coffre ou stockage indisponibles (production : 503)
+  VEHICLE_FILE_NOT_FOUND: { status: 404, messageKey: 'common.vehicleReview.fileNotFound' },
+  VEHICLE_FILE_UNAVAILABLE: { status: 503, messageKey: 'common.vehicleReview.fileUnavailable' },
 } as const;
 
 export type OpsCode = keyof typeof OPS_MESSAGES;

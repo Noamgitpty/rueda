@@ -102,7 +102,49 @@ export interface OpsConsoleStore {
     itemId: string,
     resolution: CatalogResolution,
   ): Promise<OpsResult>;
+  /** Dossier d'un véhicule en revue (élément LISTING, sujet VEHICLE ; US-124), journalisé. */
+  vehicleEligibility(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    purpose: string,
+  ): Promise<OpsResult>;
+  /** Décision sur un véhicule : liste de contrôle fermée et verdict par pièce (US-124). */
+  decideVehicleEligibility(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    checklist: Record<string, unknown>,
+    documents: readonly unknown[],
+  ): Promise<OpsResult>;
+  /** Dossier d'une contestation de plaque ou de VIN (sujet VEHICLE_CLAIM ; BOARD N-61), journalisé. */
+  vehicleClaim(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    purpose: string,
+  ): Promise<OpsResult>;
+  /** Décision sur une contestation : UPHOLD (ADMIN seul) ou DISMISS motivé (US-124). */
+  decideVehicleClaim(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    decision: VehicleClaimDecision,
+    reason: string | null,
+  ): Promise<OpsResult>;
+  /** Accès journalisé au fichier d'une pièce couvert par l'élément (US-124). */
+  vehicleFile(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    subjectType: 'VEHICLE' | 'VEHICLE_CLAIM',
+    fileId: string,
+    purpose: string,
+  ): Promise<OpsResult>;
 }
+
+/** Décision sur une contestation de plaque ou de VIN (US-124, BOARD N-61). */
+export type VehicleClaimDecision = 'UPHOLD' | 'DISMISS';
 
 /** Échec de la base (SQLSTATE seulement) ; 22023 = donnée refusée par la commande. */
 export class OpsStoreError extends Error {
@@ -131,6 +173,16 @@ export const RECORD_EVIDENCE_SQL =
   'SELECT outcome, body FROM core.support_staff_record_evidence($1, $2, $3, $4, $5, $6)';
 export const CATALOG_ADDITION_SQL =
   'SELECT outcome, body FROM core.support_staff_catalog_addition($1, $2, $3)';
+export const VEHICLE_ELIGIBILITY_SQL =
+  'SELECT outcome, body FROM core.support_staff_vehicle_eligibility($1, $2, $3, $4)';
+export const DECIDE_VEHICLE_SQL =
+  'SELECT outcome, body FROM core.support_staff_decide_vehicle_eligibility($1, $2, $3, $4::jsonb, $5::jsonb)';
+export const VEHICLE_CLAIM_SQL =
+  'SELECT outcome, body FROM core.support_staff_vehicle_claim($1, $2, $3, $4)';
+export const DECIDE_VEHICLE_CLAIM_SQL =
+  'SELECT outcome, body FROM core.support_staff_decide_vehicle_claim($1, $2, $3, $4, $5)';
+export const VEHICLE_FILE_SQL =
+  'SELECT outcome, body FROM core.support_staff_vehicle_file($1, $2, $3, $4, $5, $6)';
 export const RESOLVE_CATALOG_ADDITION_SQL =
   'SELECT outcome, body FROM core.support_staff_resolve_catalog_addition($1, $2, $3, $4, $5, $6::jsonb, $7)';
 
@@ -224,6 +276,64 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
       r.variantId,
       r.entry === null ? null : JSON.stringify(r.entry),
       r.rejectReason,
+    ]);
+  }
+
+  vehicleEligibility(actor: StaffActor, requestId: string, itemId: string, purpose: string) {
+    return one(this.#db, VEHICLE_ELIGIBILITY_SQL, [actor.tokenHash, requestId, itemId, purpose]);
+  }
+
+  decideVehicleEligibility(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    checklist: Record<string, unknown>,
+    documents: readonly unknown[],
+  ) {
+    return one(this.#db, DECIDE_VEHICLE_SQL, [
+      actor.tokenHash,
+      requestId,
+      itemId,
+      JSON.stringify(checklist),
+      JSON.stringify(documents),
+    ]);
+  }
+
+  vehicleClaim(actor: StaffActor, requestId: string, itemId: string, purpose: string) {
+    return one(this.#db, VEHICLE_CLAIM_SQL, [actor.tokenHash, requestId, itemId, purpose]);
+  }
+
+  decideVehicleClaim(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    decision: VehicleClaimDecision,
+    reason: string | null,
+  ) {
+    return one(this.#db, DECIDE_VEHICLE_CLAIM_SQL, [
+      actor.tokenHash,
+      requestId,
+      itemId,
+      decision,
+      reason,
+    ]);
+  }
+
+  vehicleFile(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    subjectType: 'VEHICLE' | 'VEHICLE_CLAIM',
+    fileId: string,
+    purpose: string,
+  ) {
+    return one(this.#db, VEHICLE_FILE_SQL, [
+      actor.tokenHash,
+      requestId,
+      itemId,
+      subjectType,
+      fileId,
+      purpose,
     ]);
   }
 
