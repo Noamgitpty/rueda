@@ -17,6 +17,12 @@
  * N-37 (jamais le nom légal complet au voyageur) et N-61 (contestation et libération par l'ops),
  * jamais du code testé.
  *
+ * Décision du fondateur du 2026-11-12, « jamais plus lourd que Turo » : par défaut AUCUNE pièce
+ * n'est exigée (paramètres `elig_doc_*` à false) ; l'hôte déclare (propriétaire ou autorisé ; non
+ * gagé ou accord du créancier) et saisit plaque et VIN ; le véhicule devient ELIGIBLE sans revue.
+ * Chaque paramètre est éprouvé désactivé (défaut) et activé (pièce exigée, revue de l'ops) ; un
+ * test règle lui-même les paramètres qu'il suppose (`docRules`).
+ *
  * Absence d'effet : chaque refus est comparé à un TÉMOIN qui ne diffère que par la condition
  * éprouvée (même hôte, même dossier, une pièce ou une valeur de plus) : si la garde disparaissait,
  * le refus deviendrait l'issue du témoin et le test échouerait.
@@ -35,11 +41,38 @@ const byCountry = COUNTRIES.map((c) => [c.country, c.currency, c] as const);
 const ALL = COUNTRIES.map((c) => c.country);
 const otherOf = (country: string): string => ALL.find((x) => x !== country) ?? '';
 
-/** 16 HST-039 : pièces exigées (assurance obligatoire SOBAT au Panama seulement). */
-const REQUIRED: Readonly<Record<string, readonly string[]>> = {
+/**
+ * Pièces d'un pays qui les ACTIVE (16 HST-039 : assurance obligatoire SOBAT au Panama seulement) ;
+ * par défaut aucune (décision du fondateur du 2026-11-12).
+ */
+const ENABLED: Readonly<Record<string, readonly string[]>> = {
   PA: ['TITLE', 'PLATE_VIN_PHOTO', 'INSPECTION', 'COMPULSORY_INSURANCE'],
   PY: ['TITLE', 'PLATE_VIN_PHOTO', 'INSPECTION'],
 };
+/** Paramètre par pays de chaque pièce (0078). */
+const DOC_PARAM: Readonly<Record<string, string>> = {
+  TITLE: 'elig_doc_title',
+  PLATE_VIN_PHOTO: 'elig_doc_plate_vin_photo',
+  INSPECTION: 'elig_doc_inspection',
+  COMPULSORY_INSURANCE: 'elig_doc_compulsory_insurance',
+  OWNER_AUTHORIZATION: 'elig_doc_owner_authorization',
+  LENDER_CONSENT: 'elig_doc_lender_consent',
+};
+
+/**
+ * Pièces exigées par le pays pour la suite du test : `on` à true, toutes les autres à false (une
+ * nouvelle version de chaque paramètre, valable à platform.now()). Chaque test qui suppose un état
+ * le pose lui-même : aucun ordre entre les tests.
+ */
+async function docRules(c: pg.ClientBase, country: string, on: readonly string[]): Promise<void> {
+  for (const [type, key] of Object.entries(DOC_PARAM)) {
+    await c.query('SELECT test_fixture.us124_param_version($1, $2, $3::jsonb)', [
+      key,
+      country,
+      on.includes(type) ? 'true' : 'false',
+    ]);
+  }
+}
 /** 08 BR-LIST-02 [NOUS] : ≤ 10 ans ; < 200 000 km. */
 const MAX_AGE = 10;
 const KM_CEILING = 200_000;
@@ -178,16 +211,37 @@ async function vehicle(
   return { outcome: rows[0]?.outcome ?? '', id: rows[0]?.vehicle_id ?? '' };
 }
 
+interface Declaration {
+  readonly holder?: string;
+  readonly lien?: boolean;
+  readonly km?: number;
+  /** « Je suis propriétaire ou autorisé par le propriétaire » (défaut : coché). */
+  readonly owner?: boolean;
+  /** « Non gagé, ou j'ai l'accord du créancier » (défaut : coché). */
+  readonly lienOk?: boolean;
+  readonly vin?: string | null;
+}
+
 const declare = async (
   c: pg.ClientBase,
   h: Host,
   vehicleId: string,
-  d: { holder?: string; lien?: boolean; km?: number } = {},
+  d: Declaration = {},
 ): Promise<string> =>
   (
     await c.query<{ outcome: string }>(
-      'SELECT * FROM core.catalog_cmd_declare_vehicle($1, $2, $3, $4, $5, $6)',
-      [h.hash, h.org, vehicleId, d.holder ?? 'HOST', d.lien ?? false, d.km ?? 42_000],
+      'SELECT * FROM core.catalog_cmd_declare_vehicle($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+      [
+        h.hash,
+        h.org,
+        vehicleId,
+        d.holder ?? 'HOST',
+        d.lien ?? false,
+        d.km ?? 42_000,
+        d.owner ?? true,
+        d.lienOk ?? true,
+        d.vin ?? null,
+      ],
     )
   ).rows[0]?.outcome ?? '';
 
@@ -233,18 +287,19 @@ async function submitVehicle(
   };
 }
 
-/** Véhicule au catalogue, déclaré et pourvu des pièces exigées par son pays. */
+/** Véhicule au catalogue (VIN saisi), déclaré, et pourvu des pièces `docs`. */
 async function complete(
   c: pg.ClientBase,
   h: Host,
   country: string,
   spec: VehicleSpec,
-  d: { holder?: string; lien?: boolean; km?: number } = {},
+  d: Declaration = {},
+  docs: readonly string[] = [],
 ): Promise<string> {
   const v = await vehicle(c, h, country, spec);
   if (v.outcome !== 'DONE') throw new Error(`véhicule : ${v.outcome}`);
   expect(await declare(c, h, v.id, d)).toBe('DONE');
-  for (const t of REQUIRED[country] ?? []) {
+  for (const t of docs) {
     const r = await addDoc(c, h, v.id, t);
     if (r.outcome !== 'DONE') throw new Error(`pièce ${t} : ${r.outcome}`);
   }
@@ -342,11 +397,15 @@ async function inReview(
   ops: Staff,
   d: { holder?: string; lien?: boolean } = {},
 ): Promise<{ h: Host; id: string; item: string }> {
+  // pays qui active les pièces (assureur) : la soumission passe par la revue de l'ops
+  const docs = [
+    ...(ENABLED[cc.country] ?? []),
+    ...(d.holder === 'THIRD_PARTY' ? ['OWNER_AUTHORIZATION'] : []),
+    ...(d.lien ? ['LENDER_CONSENT'] : []),
+  ];
+  await docRules(c, cc.country, docs);
   const h = await host(c, cc.country);
-  const id = await complete(c, h, cc.country, { year: localYear(cc) - 2 }, d);
-  if (d.holder === 'THIRD_PARTY')
-    expect((await addDoc(c, h, id, 'OWNER_AUTHORIZATION')).outcome).toBe('DONE');
-  if (d.lien) expect((await addDoc(c, h, id, 'LENDER_CONSENT')).outcome).toBe('DONE');
+  const id = await complete(c, h, cc.country, { year: localYear(cc) - 2 }, d, docs);
   const s = await submitVehicle(c, h, id);
   expect(s.outcome).toBe('DONE');
   const item = s.item ?? '';
@@ -516,13 +575,20 @@ describe('pièces : fichier privé C2 chiffré par la clé de l’hôte, jamais 
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('critère 1 — titre au nom d’un tiers sans autorisation notariée : refus « titre »', () => {
+describe('critère 1 — titre : l’hôte déclare être propriétaire ou autorisé (défaut, comme Turo) ; autorisation notariée seulement si le pays l’exige', () => {
   it.each(byCountry)(
-    '%s (%s) : titulaire THIRD_PARTY, pièces exigées présentes, sans autorisation ⇒ VEHICLE_TITLE_MISMATCH, refus journalisé, aucun élément de file (témoin avec l’autorisation : soumis)',
+    '%s (%s) : défaut — sans l’engagement « propriétaire ou autorisé » ⇒ VEHICLE_TITLE_MISMATCH, refus journalisé, aucun élément de file ; témoin engagement coché (titre d’un tiers) ⇒ ELIGIBLE sans pièce ni revue, publiable',
     async (country) => {
       await withRole('app_api', async (client) => {
+        await docRules(client, country, []);
         const h = await host(client, country);
-        const id = await complete(client, h, country, { year: 2022 }, { holder: 'THIRD_PARTY' });
+        const id = await complete(
+          client,
+          h,
+          country,
+          { year: 2022 },
+          { holder: 'THIRD_PARTY', owner: false },
+        );
         const r = await submitVehicle(client, h, id);
         expect(r).toEqual({
           outcome: 'VEHICLE_TITLE_MISMATCH',
@@ -538,19 +604,42 @@ describe('critère 1 — titre au nom d’un tiers sans autorisation notariée :
             actor_role: 'P2P_HOST',
           }),
         ]);
-        expect(await vehicleRow(client, id)).toMatchObject({
-          eligibility_status: 'PENDING',
-          submitted: false,
-        });
-        // l'hôte lit le motif et les pièces exigées (dont l'autorisation)
         const mine = (await eligibilityOf(client, h)).find((x) => x.vehicle_id === id)?.body;
         expect(mine).toMatchObject({
           reasons: ['VEHICLE_TITLE_MISMATCH'],
-          requiredDocuments: [...(REQUIRED[country] ?? []), 'OWNER_AUTHORIZATION'],
+          requiredDocuments: [],
+          ownershipAttested: false,
           publishable: false,
         });
 
-        // TÉMOIN : même véhicule avec l'autorisation notariée ⇒ soumis, élément LISTING / VEHICLE
+        // TÉMOIN : engagement coché ⇒ ELIGIBLE tout de suite, sans pièce ni élément de file
+        expect(await declare(client, h, id, { holder: 'THIRD_PARTY' })).toBe('DONE');
+        expect(await submitVehicle(client, h, id)).toEqual({
+          outcome: 'ELIGIBLE',
+          item: null,
+          reasons: [],
+        });
+        expect(await itemsOf(client, id)).toEqual([]);
+        expect(await docsOf(client, id)).toEqual([]);
+        expect(await vehicleRow(client, id)).toMatchObject({ eligibility_status: 'ELIGIBLE' });
+        expect(
+          (await eligibilityOf(client, h)).find((x) => x.vehicle_id === id)?.body,
+        ).toMatchObject({ ownershipAttested: true, publishable: true, underReview: false });
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : elig_doc_owner_authorization activé — titre d’un tiers, engagement coché, sans autorisation notariée ⇒ VEHICLE_TITLE_MISMATCH ; pièce déposée ⇒ revue de l’ops (élément LISTING) ; titre à son nom : non exigée',
+    async (country) => {
+      await withRole('app_api', async (client) => {
+        await docRules(client, country, ['OWNER_AUTHORIZATION']);
+        const h = await host(client, country);
+        const id = await complete(client, h, country, { year: 2022 }, { holder: 'THIRD_PARTY' });
+        expect((await submitVehicle(client, h, id)).reasons).toEqual(['VEHICLE_TITLE_MISMATCH']);
+        expect(
+          (await eligibilityOf(client, h)).find((x) => x.vehicle_id === id)?.body,
+        ).toMatchObject({ requiredDocuments: ['OWNER_AUTHORIZATION'] });
         expect((await addDoc(client, h, id, 'OWNER_AUTHORIZATION')).outcome).toBe('DONE');
         const ok = await submitVehicle(client, h, id);
         expect(ok.outcome).toBe('DONE');
@@ -566,25 +655,61 @@ describe('critère 1 — titre au nom d’un tiers sans autorisation notariée :
         // pendant la revue, rien ne change (pièce, déclaration)
         expect((await addDoc(client, h, id, 'TITLE')).outcome).toBe('VEHICLE_UNDER_REVIEW');
         expect(await declare(client, h, id)).toBe('VEHICLE_UNDER_REVIEW');
+        // titre à son nom : la même règle n'exige rien
+        const own = await complete(client, h, country, { year: 2022 });
+        expect((await submitVehicle(client, h, own)).outcome).toBe('ELIGIBLE');
+        await docRules(client, country, []);
       });
     },
   );
 
   it.each(byCountry)(
-    '%s (%s) : sans titre ni autorisation ⇒ VEHICLE_DOCUMENT_REQUIRED (16 HST-039)',
+    '%s (%s) : chaque pièce du pays (titre, plaque et VIN, inspection, assurance obligatoire) — désactivée : ELIGIBLE sans elle ; activée : VEHICLE_DOCUMENT_REQUIRED, puis revue de l’ops une fois déposée',
     async (country) => {
       await withRole('app_api', async (client) => {
         const h = await host(client, country);
-        const v = await vehicle(client, h, country, { year: 2022 });
-        expect(await declare(client, h, v.id)).toBe('DONE');
-        for (const t of (REQUIRED[country] ?? []).filter((x) => x !== 'TITLE')) {
-          expect((await addDoc(client, h, v.id, t)).outcome).toBe('DONE');
+        for (const type of ['TITLE', 'PLATE_VIN_PHOTO', 'INSPECTION', 'COMPULSORY_INSURANCE']) {
+          await docRules(client, country, []);
+          const off = await complete(client, h, country, { year: 2022 });
+          expect((await submitVehicle(client, h, off)).outcome, `${type} désactivée`).toBe(
+            'ELIGIBLE',
+          );
+          await docRules(client, country, [type]);
+          const on = await complete(client, h, country, { year: 2022 });
+          expect((await submitVehicle(client, h, on)).reasons, `${type} activée`).toEqual([
+            'VEHICLE_DOCUMENT_REQUIRED',
+          ]);
+          expect(
+            (await eligibilityOf(client, h)).find((x) => x.vehicle_id === on)?.body,
+          ).toMatchObject({ requiredDocuments: [type] });
+          expect((await addDoc(client, h, on, type, '2099-12-31')).outcome).toBe('DONE');
+          const queued = await submitVehicle(client, h, on);
+          expect(queued.outcome, `${type} déposée`).toBe('DONE');
+          expect(queued.item).not.toBeNull();
         }
-        expect((await submitVehicle(client, h, v.id)).reasons).toEqual([
-          'VEHICLE_DOCUMENT_REQUIRED',
-        ]);
-        expect((await addDoc(client, h, v.id, 'TITLE')).outcome).toBe('DONE');
-        expect((await submitVehicle(client, h, v.id)).outcome).toBe('DONE');
+        await docRules(client, country, []);
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : VIN — véhicule de 1981 ou après sans VIN ⇒ VEHICLE_FIELD_REQUIRED ; VIN saisi à la déclaration ⇒ ELIGIBLE ; VIN d’un autre véhicule ⇒ VEHICLE_PLATE_DUPLICATE ; VIN enregistré : jamais remplacé ici',
+    async (country) => {
+      await withRole('app_api', async (client) => {
+        await docRules(client, country, []);
+        const h = await host(client, country);
+        const v = await vehicle(client, h, country, { year: 2022, vin: null });
+        expect(await declare(client, h, v.id)).toBe('DONE');
+        expect((await submitVehicle(client, h, v.id)).reasons).toEqual(['VEHICLE_FIELD_REQUIRED']);
+        const taken = vin();
+        const other = await vehicle(client, h, country, { year: 2022, vin: taken });
+        expect(other.outcome).toBe('DONE');
+        expect(await declare(client, h, v.id, { vin: taken })).toBe('VEHICLE_PLATE_DUPLICATE');
+        const mine = vin();
+        expect(await declare(client, h, v.id, { vin: mine.toLowerCase() })).toBe('DONE');
+        expect((await vehicleRow(client, v.id))?.vin).toBe(mine);
+        expect(await declare(client, h, v.id, { vin: vin() })).toBe('VEHICLE_FIELD_REQUIRED');
+        expect((await submitVehicle(client, h, v.id)).outcome).toBe('ELIGIBLE');
       });
     },
   );
@@ -746,38 +871,63 @@ describe('critère 2 — plaque ou VIN discordants avec le titre : le véhicule 
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('critère 3 — véhicule financé sans consentement écrit du créancier : non publiable', () => {
+describe('critère 3 — véhicule financé : accord du créancier déclaré (défaut, comme Turo) ; document du créancier seulement si le pays l’exige', () => {
   it.each(byCountry)(
-    '%s (%s) : prenda déclarée, vehicle_financed_requires_lender_consent = true ⇒ VEHICLE_LENDER_CONSENT_REQUIRED ; témoin du paramètre à false : soumis ; consentement refusé par l’ops ⇒ non publiable ; témoin avec consentement : ELIGIBLE et publiable',
-    async (country, _currency, cc: CountryCase) => {
+    '%s (%s) : défaut — prenda déclarée sans l’engagement « accord du créancier » ⇒ VEHICLE_LENDER_CONSENT_REQUIRED, non publiable ; engagement coché ⇒ ELIGIBLE sans pièce ; vehicle_financed_requires_lender_consent à false ⇒ ELIGIBLE sans engagement',
+    async (country) => {
       await withRole('app_api', async (client) => {
+        await docRules(client, country, []);
         const h = await host(client, country);
-        const id = await complete(client, h, country, { year: 2022 }, { lien: true });
-        expect(await submitVehicle(client, h, id)).toMatchObject({
+        const id = await complete(
+          client,
+          h,
+          country,
+          { year: 2022 },
+          { lien: true, lienOk: false },
+        );
+        expect(await submitVehicle(client, h, id)).toEqual({
           outcome: 'VEHICLE_LENDER_CONSENT_REQUIRED',
           reasons: ['VEHICLE_LENDER_CONSENT_REQUIRED'],
           item: null,
         });
-        expect(await itemsOf(client, id)).toEqual([]);
-        // TÉMOIN du paramètre (transaction annulée) : false ⇒ la soumission franchit la règle ;
-        // une clé absente vaut true (COALESCE de catalog_vehicle_blockers : la garde de la
-        // configuration refuse d'écrire une valeur nulle ou mal typée)
+        expect(
+          (await eligibilityOf(client, h)).find((x) => x.vehicle_id === id)?.body,
+        ).toMatchObject({ publishable: false, lienAttested: false, requiredDocuments: [] });
+        // TÉMOIN du paramètre (transaction annulée) : false ⇒ aucun accord demandé
         await client.query('BEGIN');
         try {
-          // TÉMOIN du paramètre : false ⇒ la soumission franchit la règle
           await client.query('SELECT test_fixture.us124_param_version($1, $2, $3::jsonb)', [
             'vehicle_financed_requires_lender_consent',
             country,
             'false',
           ]);
-          expect((await submitVehicle(client, h, id)).outcome).toBe('DONE');
+          expect((await submitVehicle(client, h, id)).outcome).toBe('ELIGIBLE');
         } finally {
           await client.query('ROLLBACK');
         }
+        // TÉMOIN de l'engagement : coché ⇒ ELIGIBLE, aucune pièce
+        expect(await declare(client, h, id, { lien: true })).toBe('DONE');
+        expect((await submitVehicle(client, h, id)).outcome).toBe('ELIGIBLE');
+        expect(await docsOf(client, id)).toEqual([]);
+        expect(
+          (await eligibilityOf(client, h)).find((x) => x.vehicle_id === id)?.body,
+        ).toMatchObject({ publishable: true, lienAttested: true });
+      });
+    },
+  );
 
-        // consentement déposé ⇒ soumis ; refusé par l'ops ⇒ PENDING, non publiable
+  it.each(byCountry)(
+    '%s (%s) : elig_doc_lender_consent activé — engagement coché sans document ⇒ VEHICLE_LENDER_CONSENT_REQUIRED ; document refusé par l’ops ⇒ PENDING, non publiable ; témoin document valide ⇒ ELIGIBLE et publiable',
+    async (country, _currency, cc: CountryCase) => {
+      await withRole('app_api', async (client) => {
+        await docRules(client, country, ['LENDER_CONSENT']);
+        const h = await host(client, country);
+        const id = await complete(client, h, country, { year: 2022 }, { lien: true });
+        expect((await submitVehicle(client, h, id)).reasons).toEqual([
+          'VEHICLE_LENDER_CONSENT_REQUIRED',
+        ]);
         const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
-        expect((await addDoc(client, h, id, 'LENDER_CONSENT')).outcome).toBe('DONE');
+        expect((await addDoc(client, h, id, 'LENDER_CONSENT', '2099-12-31')).outcome).toBe('DONE');
         const s = await submitVehicle(client, h, id);
         expect(s.outcome).toBe('DONE');
         expect((await claimItem(client, ops, s.item ?? '')).outcome).toBe('CLAIMED');
@@ -799,14 +949,14 @@ describe('critère 3 — véhicule financé sans consentement écrit du créanci
           publishable: false,
           requiredDocuments: expect.arrayContaining(['LENDER_CONSENT']),
         });
-
-        // TÉMOIN : consentement valide ⇒ ELIGIBLE et publiable
+        // TÉMOIN : document valide ⇒ ELIGIBLE et publiable
         const w = await inReview(client, cc, ops, { lien: true });
         const ok = await decide(client, ops, w.item, allPass(), await allValid(client, cc, w.id));
         expect(ok.body).toMatchObject({ result: 'ELIGIBLE' });
         expect(
           (await eligibilityOf(client, w.h)).find((x) => x.vehicle_id === w.id)?.body,
         ).toMatchObject({ publishable: true });
+        await docRules(client, country, []);
       });
     },
   );
@@ -815,9 +965,10 @@ describe('critère 3 — véhicule financé sans consentement écrit du créanci
 // ---------------------------------------------------------------------------------------------
 describe('critère 4 — hors catalogue ou au-delà de l’âge maximal du pays : refus', () => {
   it.each(byCountry)(
-    '%s (%s) : véhicule hors catalogue ⇒ CATALOG_ADDITION_PENDING ; 11 ans au seuil 10 ⇒ VEHICLE_TOO_OLD (témoin 10 ans : soumis) ; compteur au plafond ⇒ VEHICLE_MILEAGE_TOO_HIGH (témoin un km de moins : soumis)',
+    '%s (%s) : véhicule hors catalogue ⇒ CATALOG_ADDITION_PENDING ; 11 ans au seuil 10 ⇒ VEHICLE_TOO_OLD (témoin 10 ans : ELIGIBLE) ; compteur au plafond ⇒ VEHICLE_MILEAGE_TOO_HIGH (témoin un km de moins : ELIGIBLE)',
     async (country, _currency, cc: CountryCase) => {
       await withRole('app_api', async (client) => {
+        await docRules(client, country, []);
         const h = await host(client, country);
         const off = await complete(client, h, country, { year: 2022, offCatalog: true });
         expect(await submitVehicle(client, h, off)).toMatchObject({
@@ -833,12 +984,12 @@ describe('critère 4 — hors catalogue ou au-delà de l’âge maximal du pays 
           item: null,
         });
         const edge = await complete(client, h, country, { year: year - MAX_AGE });
-        expect((await submitVehicle(client, h, edge)).outcome).toBe('DONE');
+        expect((await submitVehicle(client, h, edge)).outcome).toBe('ELIGIBLE');
 
         const km = await complete(client, h, country, { year: 2022 }, { km: KM_CEILING });
         expect((await submitVehicle(client, h, km)).reasons).toEqual(['VEHICLE_MILEAGE_TOO_HIGH']);
         expect(await declare(client, h, km, { km: KM_CEILING - 1 })).toBe('DONE');
-        expect((await submitVehicle(client, h, km)).outcome).toBe('DONE');
+        expect((await submitVehicle(client, h, km)).outcome).toBe('ELIGIBLE');
 
         // seuil d'âge inutilisable (0) ⇒ PARAM_MISSING, jamais soumis (fail-closed)
         const fresh = await complete(client, h, country, { year: 2023 });
@@ -853,7 +1004,7 @@ describe('critère 4 — hors catalogue ou au-delà de l’âge maximal du pays 
         } finally {
           await client.query('ROLLBACK');
         }
-        expect((await submitVehicle(client, h, fresh)).outcome).toBe('DONE');
+        expect((await submitVehicle(client, h, fresh)).outcome).toBe('ELIGIBLE');
       });
     },
   );
@@ -877,7 +1028,7 @@ describe('L1-PM-11 — l’hôte B n’agit jamais sur le véhicule de l’hôte
         const forged = { ...b, org: a.org };
         expect(await declare(client, forged, id)).toBe('FORBIDDEN');
         expect(await eligibilityOf(client, forged)).toEqual([]);
-        expect(await docsOf(client, id)).toHaveLength((REQUIRED[country] ?? []).length);
+        expect(await docsOf(client, id)).toEqual([]);
         // un hôte de l'autre pays : rien non plus
         const o = await host(client, otherOf(country));
         expect(await declare(client, { ...o, org: a.org }, id)).toBe('FORBIDDEN');

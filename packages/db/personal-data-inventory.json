@@ -519,7 +519,9 @@
         "eligibility_reasons": "C1",
         "eligibility_submitted_at": "C1",
         "eligibility_checked_at": "C1",
-        "released_at": "C1"
+        "released_at": "C1",
+        "ownership_attested_at": "C1",
+        "lien_attested_at": "C1"
       }
     },
     "core.catalog_vehicle_claim": {

@@ -143,7 +143,9 @@ CREATE FUNCTION test_fixture.us124_param_version(p_key text, p_country text, p_v
 AS $fn$
 BEGIN
   IF p_key NOT IN ('vehicle_financed_requires_lender_consent', 'elig_age_years_ceiling',
-                   'elig_odometer_km_ceiling', 'elig_doc_compulsory_insurance') THEN
+                   'elig_odometer_km_ceiling', 'elig_doc_title', 'elig_doc_plate_vin_photo',
+                   'elig_doc_inspection', 'elig_doc_compulsory_insurance',
+                   'elig_doc_owner_authorization', 'elig_doc_lender_consent') THEN
     RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
   END IF;
   INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)

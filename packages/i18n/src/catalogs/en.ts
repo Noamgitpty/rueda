@@ -1166,9 +1166,9 @@ export const EN_MESSAGES = {
   'common.vehicleDocs.tooOld': 'The car is older than the maximum age allowed in your country.',
   'common.vehicleDocs.mileageTooHigh': 'The mileage is above the maximum allowed in your country.',
   'common.vehicleDocs.titleMismatch':
-    'Title: the car is in someone else’s name. Upload their notarized authorization.',
+    'Declare that you own the car or that the owner authorizes you.',
   'common.vehicleDocs.lenderConsentRequired':
-    'The car is financed: upload the lender’s written consent.',
+    'The car is financed: declare that you have the lender’s consent.',
   'common.vehicleDocs.documentRequired': 'A required car document is missing.',
   'common.vehicleDocs.documentExpired': 'A car document has expired. Upload a valid one.',
   'common.vehicleDocs.documentInvalid':
@@ -1182,10 +1182,10 @@ export const EN_MESSAGES = {
   'common.vehicleReview.adminRequired': 'Only an administrator can release another account’s car.',
   'common.vehicleReview.fileNotFound': 'This document does not belong to this item.',
   'common.vehicleReview.fileUnavailable': 'We could not open the document. Try again later.',
-  'web.vehicleDocs.open': 'Documents',
-  'web.vehicleDocs.title': 'Car documents',
+  'web.vehicleDocs.open': 'Approve the car',
+  'web.vehicleDocs.title': 'Approve your car',
   'web.vehicleDocs.intro':
-    'We check every car before it is listed: title, plate, chassis number (VIN) and inspection.',
+    'Confirm a few details and your car is ready to list. We only ask for documents when needed.',
   'web.vehicleDocs.back': 'Back to my cars',
   'web.vehicleDocs.notFound': 'We could not find this car',
   'web.vehicleDocs.status.ELIGIBLE': 'Approved',
@@ -1199,11 +1199,11 @@ export const EN_MESSAGES = {
   'web.vehicleDocs.reason.VEHICLE_TOO_OLD': 'The car is older than the maximum age.',
   'web.vehicleDocs.reason.VEHICLE_MILEAGE_TOO_HIGH': 'The mileage is above the maximum.',
   'web.vehicleDocs.reason.VEHICLE_FIELD_REQUIRED':
-    'Complete the car details (title holder and mileage).',
+    'Complete the car details: chassis number (VIN), mileage and holder.',
   'web.vehicleDocs.reason.VEHICLE_TITLE_MISMATCH':
-    'Title: the owner’s notarized authorization is missing, or the holder does not match.',
+    'You still need to declare that you own the car or are authorized by the owner.',
   'web.vehicleDocs.reason.VEHICLE_LENDER_CONSENT_REQUIRED':
-    'The lender’s written consent is missing.',
+    'You still need to declare that you have the lender’s consent.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_REQUIRED': 'A required document is missing.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_EXPIRED': 'A document has expired.',
   'web.vehicleDocs.reason.VEHICLE_PLATE_MISMATCH': 'The plate does not match the title.',
@@ -1251,9 +1251,10 @@ export const EN_MESSAGES = {
   'web.vehicleDocs.upload.closed':
     'Document upload is not available yet. You can complete the car details.',
   'web.vehicleDocs.upload.tooLarge': 'The file is larger than {max}.',
-  'web.vehicleDocs.submit.title': 'Send for review',
-  'web.vehicleDocs.submit.intro': 'When you have every document, send the car for review.',
-  'web.vehicleDocs.submit.send': 'Send for review',
+  'web.vehicleDocs.submit.title': 'Approve',
+  'web.vehicleDocs.submit.intro':
+    'We check your details instantly. If your country requires documents, our team reviews them.',
+  'web.vehicleDocs.submit.send': 'Approve my car',
   'web.vehicleDocs.claims.title': 'Is your plate already registered?',
   'web.vehicleDocs.claims.intro':
     'If another account registered your car, send us your title and we will review it.',
@@ -1316,4 +1317,10 @@ export const EN_MESSAGES = {
   },
   'common.vehicleReview.sameAdmin':
     'Another administrator must decide: you already released this plate.',
+  'common.vehicleDocs.confirmed': 'Car approved: you can list it now.',
+  'web.vehicleDocs.declaration.owner': 'I own the car or the owner authorizes me to rent it out',
+  'web.vehicleDocs.declaration.lienOk':
+    'The car has no lien, or I have the lender’s written consent',
+  'web.vehicleDocs.declaration.vin': 'Chassis number (VIN)',
+  'web.vehicleDocs.declaration.attested': 'You declared it on {date}.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

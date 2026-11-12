@@ -113,6 +113,8 @@ export default async function VehicleDocumentsPage({
   const ids = { localeTag: tag, orgId: account.orgId, vehicleId };
   const locked = v.underReview || v.released || v.status === 'INELIGIBLE';
   const docOf = (type: string) => v.documents.find((d) => d.type === type);
+  // aucune pièce exigée ni déposée (défaut « jamais plus lourd que Turo ») : aucune étape de pièces
+  const documentsStep = v.requiredDocuments.length > 0 || v.documents.length > 0;
   const shown = [
     ...v.requiredDocuments,
     ...v.documents.map((d) => d.type).filter((x) => !v.requiredDocuments.includes(x)),
@@ -162,42 +164,44 @@ export default async function VehicleDocumentsPage({
         )}
       </section>
 
-      <section className={styles['section']} aria-labelledby="a10d-docs">
-        <h2 id="a10d-docs" className={accountStyles['h2']}>
-          {t('web.vehicleDocs.documents.title')}
-        </h2>
-        <ul className={styles['rows']}>
-          {shown.map((type) => {
-            const d = docOf(type);
-            return (
-              <li key={type} className={styles['card']}>
-                <div className={styles['between']}>
-                  <span className={styles['strong']}>
-                    {t(`web.vehicleDocs.type.${type}` as MessageKey)}
-                  </span>
-                  {d === undefined ? (
-                    <Badge tone="neutral">{t('web.vehicleDocs.doc.missing')}</Badge>
-                  ) : (
-                    <Badge tone={DOC_TONE[d.status]}>
-                      {t(`web.vehicleDocs.doc.status.${d.status}`)}
-                    </Badge>
+      {documentsStep && (
+        <section className={styles['section']} aria-labelledby="a10d-docs">
+          <h2 id="a10d-docs" className={accountStyles['h2']}>
+            {t('web.vehicleDocs.documents.title')}
+          </h2>
+          <ul className={styles['rows']}>
+            {shown.map((type) => {
+              const d = docOf(type);
+              return (
+                <li key={type} className={styles['card']}>
+                  <div className={styles['between']}>
+                    <span className={styles['strong']}>
+                      {t(`web.vehicleDocs.type.${type}` as MessageKey)}
+                    </span>
+                    {d === undefined ? (
+                      <Badge tone="neutral">{t('web.vehicleDocs.doc.missing')}</Badge>
+                    ) : (
+                      <Badge tone={DOC_TONE[d.status]}>
+                        {t(`web.vehicleDocs.doc.status.${d.status}`)}
+                      </Badge>
+                    )}
+                  </div>
+                  {d?.validUntil != null && (
+                    <p className={accountStyles['muted']}>
+                      {t('web.vehicleDocs.doc.validUntil', { date: day(d.validUntil) })}
+                    </p>
                   )}
-                </div>
-                {d?.validUntil != null && (
-                  <p className={accountStyles['muted']}>
-                    {t('web.vehicleDocs.doc.validUntil', { date: day(d.validUntil) })}
-                  </p>
-                )}
-                {d?.rejectReason != null && (
-                  <p className={accountStyles['text']}>
-                    {t(`web.vehicleDocs.doc.rejected.${d.rejectReason}` as MessageKey)}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                  {d?.rejectReason != null && (
+                    <p className={accountStyles['text']}>
+                      {t(`web.vehicleDocs.doc.rejected.${d.rejectReason}` as MessageKey)}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {!locked && (
         <>
@@ -210,25 +214,30 @@ export default async function VehicleDocumentsPage({
               holder={v.titleHolder}
               lien={v.lienDeclared}
               odometerKm={v.odometerKm}
+              ownershipAttested={v.ownershipAttested}
+              lienAttested={v.lienAttested}
+              hasVin={v.hasVin}
             />
           </section>
 
-          <section className={styles['section']} aria-labelledby="a10d-upload-title">
-            <h2 id="a10d-upload-title" className={accountStyles['h2']}>
-              {t('web.vehicleDocs.upload.title')}
-            </h2>
-            {state.uploads.open ? (
-              <UploadForm
-                {...ids}
-                types={[...DOCUMENT_TYPES]}
-                maxLabel={formatPhotoMax(state.uploads.maxBytes, tag)}
-              />
-            ) : (
-              <p className={accountStyles['muted']} role="status">
-                {t('web.vehicleDocs.upload.closed')}
-              </p>
-            )}
-          </section>
+          {documentsStep && (
+            <section className={styles['section']} aria-labelledby="a10d-upload-title">
+              <h2 id="a10d-upload-title" className={accountStyles['h2']}>
+                {t('web.vehicleDocs.upload.title')}
+              </h2>
+              {state.uploads.open ? (
+                <UploadForm
+                  {...ids}
+                  types={[...DOCUMENT_TYPES]}
+                  maxLabel={formatPhotoMax(state.uploads.maxBytes, tag)}
+                />
+              ) : (
+                <p className={accountStyles['muted']} role="status">
+                  {t('web.vehicleDocs.upload.closed')}
+                </p>
+              )}
+            </section>
+          )}
 
           {v.status !== 'ELIGIBLE' && (
             <section className={styles['section']} aria-labelledby="a10d-submit-title">

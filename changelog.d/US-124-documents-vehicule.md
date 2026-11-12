@@ -5,3 +5,4 @@ module: Catalogue et annonces
 - Ajouté : revue de l'ops sur liste de contrôle fermée avec résultat calculé (ELIGIBLE, PENDING, INELIGIBLE), dossier et pièces lus après journalisation (US-124)
 - Ajouté : contestation d'une plaque ou d'un VIN déjà enregistrés par un autre hôte, libération du véhicule par un ADMIN (US-124)
 - Ajouté : nom de l'hôte affiché au voyageur, premier mot du prénom légal seulement (US-124)
+- Modifié : « jamais plus lourd que Turo » : aucune pièce exigée par défaut, déclaration horodatée de l'hôte et VIN, véhicule validé sans revue de l'ops ; pièces activables par pays (US-124)

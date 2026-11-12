@@ -26,6 +26,12 @@ export interface DeclarationInput {
   readonly titleHolder: TitleHolder;
   readonly lienDeclared: boolean;
   readonly odometerKm: number;
+  /** « Je suis propriétaire ou autorisé par le propriétaire » (engagement horodaté par la base). */
+  readonly ownershipAttested: boolean;
+  /** « Le véhicule n'est pas gagé, ou j'ai l'accord écrit du créancier ». */
+  readonly lienAttested: boolean;
+  /** VIN saisi s'il manquait (la base le normalise et le refuse s'il est pris). */
+  readonly vin: string | null;
 }
 
 export interface DocumentUploadInput {
@@ -74,7 +80,23 @@ function content(body: Record<string, unknown>, p: FieldProblem[]): Buffer | nul
 
 export function parseDeclaration(body: Record<string, unknown>): DeclarationInput {
   const p: FieldProblem[] = [];
-  unknownKeys(body, ['titleHolder', 'lienDeclared', 'odometerKm'], p);
+  unknownKeys(
+    body,
+    ['titleHolder', 'lienDeclared', 'odometerKm', 'ownershipAttested', 'lienAttested', 'vin'],
+    p,
+  );
+  for (const k of ['ownershipAttested', 'lienAttested'] as const) {
+    const v = body[k];
+    if (v !== undefined && typeof v !== 'boolean') p.push({ field: k, reason: 'INVALID' });
+  }
+  const vin = body['vin'];
+  if (
+    vin !== undefined &&
+    vin !== null &&
+    (typeof vin !== 'string' || !/^[A-Za-z0-9 -]{5,40}$/.test(vin))
+  ) {
+    p.push({ field: 'vin', reason: 'INVALID' });
+  }
   const holder = body['titleHolder'];
   if (typeof holder !== 'string' || !(TITLE_HOLDERS as readonly string[]).includes(holder)) {
     p.push({ field: 'titleHolder', reason: holder === undefined ? 'REQUIRED' : 'INVALID' });
@@ -95,6 +117,9 @@ export function parseDeclaration(body: Record<string, unknown>): DeclarationInpu
     titleHolder: holder as TitleHolder,
     lienDeclared: lien as boolean,
     odometerKm: km as number,
+    ownershipAttested: body['ownershipAttested'] === true,
+    lienAttested: body['lienAttested'] === true,
+    vin: typeof vin === 'string' ? vin : null,
   };
 }
 

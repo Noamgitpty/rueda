@@ -1202,9 +1202,9 @@ export const ES_MESSAGES = {
   'common.vehicleDocs.tooOld': 'El auto supera la antigüedad máxima permitida.',
   'common.vehicleDocs.mileageTooHigh': 'El kilometraje supera el máximo permitido.',
   'common.vehicleDocs.titleMismatch':
-    'Título: el auto está a nombre de otra persona. Sube su autorización notariada.',
+    'Declara que eres el propietario del auto o que el propietario te autoriza.',
   'common.vehicleDocs.lenderConsentRequired':
-    'El auto está financiado: sube el consentimiento escrito del acreedor.',
+    'El auto está financiado: declara que tienes el acuerdo del acreedor.',
   'common.vehicleDocs.documentRequired': 'Falta un documento obligatorio del auto.',
   'common.vehicleDocs.documentExpired': 'Un documento del auto está vencido. Sube uno vigente.',
   'common.vehicleDocs.documentInvalid':
@@ -1220,10 +1220,10 @@ export const ES_MESSAGES = {
     'Solo un administrador puede liberar el auto de otra cuenta.',
   'common.vehicleReview.fileNotFound': 'Este documento no pertenece a este elemento.',
   'common.vehicleReview.fileUnavailable': 'No pudimos abrir el documento. Inténtalo más tarde.',
-  'web.vehicleDocs.open': 'Documentos',
-  'web.vehicleDocs.title': 'Documentos del auto',
+  'web.vehicleDocs.open': 'Validar el auto',
+  'web.vehicleDocs.title': 'Validar el auto',
   'web.vehicleDocs.intro':
-    'Revisamos cada auto antes de publicarlo: título, placa, chasis (VIN) e inspección.',
+    'Confirma unos datos y tu auto queda listo para publicar. Solo te pedimos documentos si hace falta.',
   'web.vehicleDocs.back': 'Volver a mis autos',
   'web.vehicleDocs.notFound': 'No encontramos este auto',
   'web.vehicleDocs.status.ELIGIBLE': 'Aprobado',
@@ -1237,11 +1237,11 @@ export const ES_MESSAGES = {
   'web.vehicleDocs.reason.VEHICLE_TOO_OLD': 'El auto supera la antigüedad máxima.',
   'web.vehicleDocs.reason.VEHICLE_MILEAGE_TOO_HIGH': 'El kilometraje supera el máximo.',
   'web.vehicleDocs.reason.VEHICLE_FIELD_REQUIRED':
-    'Completa los datos del auto (titular del título y kilometraje).',
+    'Completa los datos del auto: número de chasis (VIN), kilometraje y titular.',
   'web.vehicleDocs.reason.VEHICLE_TITLE_MISMATCH':
-    'Título: falta la autorización notariada del dueño, o el titular no coincide.',
+    'Falta declarar que eres el propietario o que el propietario te autoriza.',
   'web.vehicleDocs.reason.VEHICLE_LENDER_CONSENT_REQUIRED':
-    'Falta el consentimiento escrito del acreedor.',
+    'Falta declarar que tienes el acuerdo del acreedor.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_REQUIRED': 'Falta un documento obligatorio.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_EXPIRED': 'Un documento está vencido.',
   'web.vehicleDocs.reason.VEHICLE_PLATE_MISMATCH': 'La placa no coincide con el título.',
@@ -1289,9 +1289,10 @@ export const ES_MESSAGES = {
   'web.vehicleDocs.upload.closed':
     'El envío de documentos aún no está disponible. Puedes completar los datos del auto.',
   'web.vehicleDocs.upload.tooLarge': 'El archivo pesa más de {max}.',
-  'web.vehicleDocs.submit.title': 'Enviar a revisión',
-  'web.vehicleDocs.submit.intro': 'Cuando tengas todos los documentos, envía el auto a revisión.',
-  'web.vehicleDocs.submit.send': 'Enviar a revisión',
+  'web.vehicleDocs.submit.title': 'Validar',
+  'web.vehicleDocs.submit.intro':
+    'Revisamos tus datos al instante. Si tu país pide documentos, los revisa nuestro equipo.',
+  'web.vehicleDocs.submit.send': 'Validar mi auto',
   'web.vehicleDocs.claims.title': '¿Tu placa ya está registrada?',
   'web.vehicleDocs.claims.intro':
     'Si otra cuenta registró tu auto, envíanos tu título y lo revisamos.',
@@ -1353,6 +1354,13 @@ export const ES_MESSAGES = {
     other: 'El auto tiene {count} reservas en curso o futuras: no se puede liberar.',
   },
   'common.vehicleReview.sameAdmin': 'Otro administrador debe decidir: ya liberaste esta placa.',
+  'common.vehicleDocs.confirmed': 'Auto aprobado: ya puedes publicarlo.',
+  'web.vehicleDocs.declaration.owner':
+    'Soy el propietario del auto o el propietario me autoriza a alquilarlo',
+  'web.vehicleDocs.declaration.lienOk':
+    'El auto no está prendado, o tengo el acuerdo escrito del acreedor',
+  'web.vehicleDocs.declaration.vin': 'Número de chasis (VIN)',
+  'web.vehicleDocs.declaration.attested': 'Lo declaraste el {date}.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

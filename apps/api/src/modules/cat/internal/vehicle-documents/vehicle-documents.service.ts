@@ -88,6 +88,11 @@ export class VehicleDocumentsService {
 
   async submit(proof: Buffer, orgId: string, vehicleId: string) {
     const r = await this.#call(() => this.store.submit(proof, orgId, vehicleId));
+    // aucune pièce exigée par le pays : les contrôles automatiques suffisent (« jamais plus lourd
+    // que Turo », décision du fondateur du 2026-11-12)
+    if (r.outcome === 'ELIGIBLE') {
+      return { code: 'VEHICLE_ELIGIBILITY_CONFIRMED' as const, itemId: null };
+    }
     if (r.outcome !== 'DONE') {
       throw new HostListingHttpError(
         outcomeCode(r.outcome),
@@ -95,7 +100,7 @@ export class VehicleDocumentsService {
         r.reasons.length > 0 ? r.reasons : undefined,
       );
     }
-    return { code: 'VEHICLE_ELIGIBILITY_SUBMITTED' as const, itemId: r.itemId };
+    return { code: 'VEHICLE_ELIGIBILITY_SUBMITTED' as const, itemId: r.itemId as string | null };
   }
 
   /** Contrôles 1, 2 et 4 (taille, type réel, antivirus) ; le droit (3) est jugé avant l'analyse. */

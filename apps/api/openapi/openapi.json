@@ -7116,7 +7116,7 @@
       "put": {
         "operationId": "declareHostVehicle",
         "tags": ["cat"],
-        "summary": "Déclarations de l'hôte : titulaire du titre (lui ou un tiers), prenda, compteur ; un véhicule éligible redevient PENDING (US-124)",
+        "summary": "Déclarations et engagements horodatés de l'hôte (propriétaire ou autorisé ; non gagé ou accord du créancier), titulaire du titre, prenda, compteur, VIN ; un véhicule éligible redevient PENDING (US-124, « jamais plus lourd que Turo »)",
         "parameters": [
           {
             "name": "orgId",
@@ -7242,7 +7242,12 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["VEHICLE_UNDER_REVIEW", "VEHICLE_INELIGIBLE", "VEHICLE_RELEASED"]
+                      "enum": [
+                        "VEHICLE_UNDER_REVIEW",
+                        "VEHICLE_INELIGIBLE",
+                        "VEHICLE_RELEASED",
+                        "VEHICLE_PLATE_DUPLICATE"
+                      ]
                     }
                   }
                 }
@@ -7478,7 +7483,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Véhicule soumis : élément de la file LISTING",
+            "description": "VEHICLE_ELIGIBILITY_CONFIRMED : aucune pièce exigée par le pays, véhicule validé par les contrôles automatiques (itemId nul) ; VEHICLE_ELIGIBILITY_SUBMITTED : pièces exigées, élément de la file LISTING",
             "content": {
               "application/json": {
                 "schema": {
@@ -13039,7 +13044,10 @@
           "submittedAt",
           "checkedAt",
           "requiredDocuments",
-          "documents"
+          "documents",
+          "ownershipAttested",
+          "lienAttested",
+          "hasVin"
         ],
         "properties": {
           "vehicleId": {
@@ -13096,6 +13104,15 @@
             "items": {
               "$ref": "#/components/schemas/VehicleDocumentView"
             }
+          },
+          "ownershipAttested": {
+            "type": "boolean"
+          },
+          "lienAttested": {
+            "type": "boolean"
+          },
+          "hasVin": {
+            "type": "boolean"
           }
         }
       },
@@ -13140,6 +13157,18 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 3000000
+          },
+          "ownershipAttested": {
+            "type": "boolean",
+            "description": "« Je suis propriétaire ou autorisé par le propriétaire » (engagement horodaté ; exigé pour l'éligibilité)"
+          },
+          "lienAttested": {
+            "type": "boolean",
+            "description": "« Le véhicule n'est pas gagé, ou j'ai l'accord écrit du créancier »"
+          },
+          "vin": {
+            "type": ["string", "null"],
+            "description": "VIN saisi s'il manquait (normalisé ; pris par un autre véhicule : 409 VEHICLE_PLATE_DUPLICATE)"
           }
         }
       },

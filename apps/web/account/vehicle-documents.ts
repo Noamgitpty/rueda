@@ -73,6 +73,10 @@ export interface EligibilityView {
   readonly titleHolder: 'HOST' | 'THIRD_PARTY' | null;
   readonly lienDeclared: boolean;
   readonly odometerKm: number | null;
+  /** Engagements de l'hôte (« jamais plus lourd que Turo » : ils tiennent lieu de pièces). */
+  readonly ownershipAttested: boolean;
+  readonly lienAttested: boolean;
+  readonly hasVin: boolean;
   readonly reasons: readonly string[];
   readonly released: boolean;
   readonly publishable: boolean;
@@ -141,6 +145,9 @@ export function eligibilityOf(
       titleHolder: holder,
       lienDeclared: v['lienDeclared'] === true,
       odometerKm: typeof km === 'number' && Number.isSafeInteger(km) ? km : null,
+      ownershipAttested: v['ownershipAttested'] === true,
+      lienAttested: v['lienAttested'] === true,
+      hasVin: v['hasVin'] === true,
       reasons: reasons as string[],
       released: v['released'] === true,
       publishable: v['publishable'] === true,

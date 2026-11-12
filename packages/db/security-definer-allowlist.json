@@ -1011,7 +1011,7 @@
       "story": "US-124"
     },
     {
-      "signature": "core.catalog_cmd_declare_vehicle(bytea,uuid,uuid,text,boolean,integer)",
+      "signature": "core.catalog_cmd_declare_vehicle(bytea,uuid,uuid,text,boolean,integer,boolean,boolean,text)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],

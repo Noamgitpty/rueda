@@ -142,6 +142,9 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
         titleHolder: 'THIRD_PARTY',
         lienDeclared: true,
         odometerKm: 42_000,
+        ownershipAttested: true,
+        lienAttested: false,
+        hasVin: true,
         reasons: ['VEHICLE_TITLE_MISMATCH'],
         released: false,
         publishable: false,
@@ -185,10 +188,26 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
   it('déclarations : 200, 400 (champ lié), 401, 403, 404, 409, 415, 503', async () => {
     const w = await world();
     const path = `/host/accounts/${w.orgA}/vehicles/${randomUUID()}/declaration`;
-    const body = { titleHolder: 'THIRD_PARTY', lienDeclared: true, odometerKm: 42_000 };
+    const body = {
+      titleHolder: 'THIRD_PARTY',
+      lienDeclared: true,
+      odometerKm: 42_000,
+      ownershipAttested: true,
+      lienAttested: true,
+      vin: '1hgcm82633a004352',
+    };
     const send = (b: unknown, headers = w.a) =>
       w.app.api.request('PUT', path, { headers, body: b });
     expect((await send(body)).json).toMatchObject({ code: 'VEHICLE_DECLARATION_SAVED' });
+    // les engagements et le VIN arrivent au magasin (horodatés par la base)
+    expect(w.docs.declared.at(-1)).toEqual({
+      titleHolder: 'THIRD_PARTY',
+      lienDeclared: true,
+      odometerKm: 42_000,
+      ownershipAttested: true,
+      lienAttested: true,
+      vin: '1hgcm82633a004352',
+    });
     expect((await send({ ...body, titleHolder: 'OWNER' })).json).toMatchObject({
       code: 'REQUEST_INVALID',
       fields: [{ field: 'titleHolder', reason: 'INVALID' }],
@@ -302,6 +321,14 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
     const path = `/host/accounts/${w.orgA}/vehicles/${randomUUID()}/eligibility`;
     const send = (headers = w.a) => w.app.api.request('POST', path, { headers, body: {} });
     expect((await send()).json).toMatchObject({ code: 'VEHICLE_ELIGIBILITY_SUBMITTED' });
+    // aucune pièce exigée par le pays (défaut) : validé tout de suite, sans élément de file
+    w.docs.outcome['submit'] = 'ELIGIBLE';
+    expect((await send()).json).toEqual({
+      code: 'VEHICLE_ELIGIBILITY_CONFIRMED',
+      messageKey: 'common.vehicleDocs.confirmed',
+      itemId: null,
+    });
+    delete w.docs.outcome['submit'];
     w.docs.outcome['submit'] = 'VEHICLE_TITLE_MISMATCH';
     w.docs.reasons.push('VEHICLE_TITLE_MISMATCH', 'VEHICLE_LENDER_CONSENT_REQUIRED');
     const refused = await send();

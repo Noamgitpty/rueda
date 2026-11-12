@@ -1120,6 +1120,28 @@
       "values": { "PA": 200000, "PY": 200000 }
     },
     {
+      "key": "elig_doc_owner_authorization",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-039 (autorisation notariée du propriétaire, titre d’un tiers) ; décision du fondateur du 2026-11-12 « jamais plus lourd que Turo » : déclaration de l’hôte par défaut",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "elig_doc_lender_consent",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-039 (consentement écrit du créancier, véhicule financé ; OQ-BR-28) ; décision du fondateur du 2026-11-12 : déclaration de l’hôte par défaut",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
       "key": "elig_doc_title",
       "type": "BOOL",
       "scopes": ["COUNTRY"],
@@ -1128,7 +1150,7 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": true, "PY": true }
+      "values": { "PA": false, "PY": false }
     },
     {
       "key": "elig_doc_plate_vin_photo",
@@ -1139,7 +1161,7 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": true, "PY": true }
+      "values": { "PA": false, "PY": false }
     },
     {
       "key": "elig_doc_inspection",
@@ -1150,7 +1172,7 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": true, "PY": true }
+      "values": { "PA": false, "PY": false }
     },
     {
       "key": "elig_doc_compulsory_insurance",
@@ -1161,7 +1183,7 @@
       "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
-      "values": { "PA": true, "PY": false }
+      "values": { "PA": false, "PY": false }
     },
     {
       "key": "dispute_decision_sla_business_days",

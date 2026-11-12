@@ -82,7 +82,12 @@ export class FakeVehicleDocumentStore implements VehicleDocumentStore {
     return {
       outcome,
       itemId: outcome === 'DONE' ? '00000000-0000-4000-8000-0000000000c1' : null,
-      reasons: outcome === 'DONE' ? [] : this.reasons.length > 0 ? [...this.reasons] : [outcome],
+      reasons:
+        outcome === 'DONE' || outcome === 'ELIGIBLE'
+          ? []
+          : this.reasons.length > 0
+            ? [...this.reasons]
+            : [outcome],
     };
   }
 

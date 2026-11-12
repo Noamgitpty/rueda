@@ -76,6 +76,7 @@ async function declareImpl(form: FormData): Promise<DocumentsFormState> {
   if (orgId === null || vehicleId === null) return invalid(formId);
   const holder = text(form, 'titleHolder', 12);
   const km = text(form, 'odometerKm', 8);
+  const vin = text(form, 'vin', 40);
   const errors: { fieldId: string; key: MessageKey }[] = [];
   if (holder !== 'HOST' && holder !== 'THIRD_PARTY') {
     errors.push({ fieldId: `${formId}-holder`, key: 'common.listing.field.required' });
@@ -83,18 +84,32 @@ async function declareImpl(form: FormData): Promise<DocumentsFormState> {
   if (!/^\d{1,7}$/.test(km)) {
     errors.push({ fieldId: `${formId}-km`, key: 'common.listing.field.required' });
   }
+  if (form.get('owner') !== 'on') {
+    errors.push({ fieldId: `${formId}-owner`, key: 'common.vehicleDocs.titleMismatch' });
+  }
+  if (vin !== '' && !/^[A-Za-z0-9 -]{5,40}$/.test(vin)) {
+    errors.push({ fieldId: `${formId}-vin`, key: 'common.listing.field.invalid' });
+  }
   if (errors.length > 0) return { errors };
   const reply = await callApi(
     'PUT',
     `/host/accounts/${orgId}/vehicles/${vehicleId}/declaration`,
     await clientContext(),
-    { titleHolder: holder, lienDeclared: form.get('lien') === 'on', odometerKm: Number(km) },
+    {
+      titleHolder: holder,
+      lienDeclared: form.get('lien') === 'on',
+      odometerKm: Number(km),
+      ownershipAttested: form.get('owner') === 'on',
+      lienAttested: form.get('lienOk') === 'on',
+      vin: vin === '' ? null : vin,
+    },
   );
   if (reply.status !== 200) {
     return {
       errors: errorsOf(reply, formId, {
         titleHolder: `${formId}-holder`,
         odometerKm: `${formId}-km`,
+        vin: `${formId}-vin`,
       }),
     };
   }

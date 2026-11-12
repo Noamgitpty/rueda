@@ -8,6 +8,13 @@
 -- pré-mortem L1-PM-11, L1-PM-14, L1-PM-15, L1-PM-41 à L1-PM-43. Appliquée sous `migrator`, en une
 -- transaction.
 --
+-- Décision du fondateur du 2026-11-12 : « jamais plus lourd que Turo ». Par défaut, AUCUNE pièce
+-- n'est exigée (chaque exigence est un paramètre par pays, false) : l'hôte DÉCLARE (propriétaire ou
+-- autorisé par le propriétaire ; véhicule non gagé ou accord du créancier ; engagements horodatés)
+-- et saisit plaque et VIN ; les contrôles automatiques suffisent et le véhicule devient ELIGIBLE
+-- sans revue de l'ops. Le dépôt des pièces et la revue de l'ops restent disponibles, activables
+-- par pays (assureur), et servent à la demande (signalement, sinistre, contestation).
+--
 -- Principes (ADR-107, PROPOSÉ) :
 --   - pièces du véhicule (`catalog_vehicle_document`, 16 HST-039) : TITLE, OWNER_AUTHORIZATION
 --     (autorisation notariée du propriétaire), PLATE_VIN_PHOTO, INSPECTION (revisado PA,
@@ -78,7 +85,10 @@ ALTER TABLE core.catalog_vehicle
     CHECK (pg_catalog.array_to_string(eligibility_reasons, ',') ~ '^([A-Z][A-Z_]{1,63}(,|$))*$'),
   ADD COLUMN eligibility_submitted_at timestamptz,
   ADD COLUMN eligibility_checked_at timestamptz,
-  ADD COLUMN released_at timestamptz;
+  ADD COLUMN released_at timestamptz,
+  -- engagements de l'hôte (décision « jamais plus lourd que Turo ») : horodatés par la base
+  ADD COLUMN ownership_attested_at timestamptz,
+  ADD COLUMN lien_attested_at timestamptz;
 COMMENT ON COLUMN core.catalog_vehicle.title_holder IS
   'Titulaire du titre déclaré par l''hôte : HOST, ou THIRD_PARTY (autorisation notariée exigée). US-124.';
 COMMENT ON COLUMN core.catalog_vehicle.released_at IS
@@ -94,7 +104,8 @@ CREATE UNIQUE INDEX catalog_vehicle_vin_unique ON core.catalog_vehicle (vin)
   WHERE vin IS NOT NULL AND released_at IS NULL;
 
 GRANT UPDATE (title_holder, lien_declared, odometer_km, eligibility_status, eligibility_reasons,
-              eligibility_submitted_at, eligibility_checked_at, released_at)
+              eligibility_submitted_at, eligibility_checked_at, released_at, ownership_attested_at,
+              lien_attested_at, vin)
   ON core.catalog_vehicle TO catalog_cmd_owner;
 
 -- 2. Tables ---------------------------------------------------------------------------------------
@@ -292,7 +303,8 @@ CREATE POLICY catalog_cmd_read ON core.config_param_definition FOR SELECT TO cat
                 'vehicle_financed_requires_lender_consent', 'elig_age_years_ceiling',
                 'elig_odometer_km_ceiling', 'elig_doc_title',
                 'elig_doc_plate_vin_photo', 'elig_doc_inspection',
-                'elig_doc_compulsory_insurance'));
+                'elig_doc_compulsory_insurance', 'elig_doc_owner_authorization',
+                'elig_doc_lender_consent'));
 DROP POLICY catalog_cmd_read ON core.config_param_value;
 CREATE POLICY catalog_cmd_read ON core.config_param_value FOR SELECT TO catalog_cmd_owner
   USING (key IN ('price_display_step_minor', 'listing_min_photos', 'price_ceiling_daily_minor',
@@ -300,7 +312,8 @@ CREATE POLICY catalog_cmd_read ON core.config_param_value FOR SELECT TO catalog_
                 'vehicle_financed_requires_lender_consent', 'elig_age_years_ceiling',
                 'elig_odometer_km_ceiling', 'elig_doc_title',
                 'elig_doc_plate_vin_photo', 'elig_doc_inspection',
-                'elig_doc_compulsory_insurance'));
+                'elig_doc_compulsory_insurance', 'elig_doc_owner_authorization',
+                'elig_doc_lender_consent'));
 
 -- journal : actions de l'hôte sur ses véhicules (politique recréée sous son nom, élargie)
 DROP POLICY catalog_cmd_audit_insert ON core.audit_audit_log;
@@ -386,24 +399,24 @@ AS $fn$
   SELECT 'vehicle-documents/' || p_org::text || '/' || p_parent::text || '/' || p_file::text
 $fn$;
 
--- Pièce exigée par le pays : `elig_doc_<type>` ; absente ou mal formée ⇒ exigée
--- (fail-closed). Les autres types (autorisation, consentement) dépendent des déclarations.
+-- Pièce exigée par le pays : `elig_doc_<type>` vaut true (décision du fondateur du 2026-11-12,
+-- « jamais plus lourd que Turo » : défaut false, clé absente ou mal formée ⇒ non exigée ; la
+-- déclaration de l'hôte en tient lieu). OWNER_AUTHORIZATION ne vaut que pour un titre d'un tiers,
+-- LENDER_CONSENT que pour un véhicule financé (catalog_vehicle_blockers).
 CREATE FUNCTION core.catalog_document_required(p_type text, p_country text)
   RETURNS boolean
   LANGUAGE sql
   STABLE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT CASE p_type
-           WHEN 'TITLE' THEN COALESCE(core.catalog_param_bool('elig_doc_title', p_country), true)
-           WHEN 'PLATE_VIN_PHOTO'
-             THEN COALESCE(core.catalog_param_bool('elig_doc_plate_vin_photo', p_country), true)
-           WHEN 'INSPECTION'
-             THEN COALESCE(core.catalog_param_bool('elig_doc_inspection', p_country), true)
-           WHEN 'COMPULSORY_INSURANCE'
-             THEN COALESCE(core.catalog_param_bool('elig_doc_compulsory_insurance', p_country), true)
-           ELSE false
-         END
+  SELECT COALESCE(core.catalog_param_bool(CASE p_type
+           WHEN 'TITLE' THEN 'elig_doc_title'
+           WHEN 'PLATE_VIN_PHOTO' THEN 'elig_doc_plate_vin_photo'
+           WHEN 'INSPECTION' THEN 'elig_doc_inspection'
+           WHEN 'COMPULSORY_INSURANCE' THEN 'elig_doc_compulsory_insurance'
+           WHEN 'OWNER_AUTHORIZATION' THEN 'elig_doc_owner_authorization'
+           WHEN 'LENDER_CONSENT' THEN 'elig_doc_lender_consent'
+         END, p_country), false)
 $fn$;
 
 -- État d'une pièce d'un type pour un véhicule : OK, MISSING ou EXPIRED. Non strict (soumission) :
@@ -449,7 +462,7 @@ DECLARE
   r        text[] := '{}';
 BEGIN
   SELECT x.id, x.country_code, x.variant_id, x.year, x.odometer_km, x.title_holder,
-         x.lien_declared, x.released_at
+         x.lien_declared, x.released_at, x.vin, x.ownership_attested_at, x.lien_attested_at
     INTO v
     FROM core.catalog_vehicle AS x WHERE x.id = p_vehicle;
   IF v.id IS NULL THEN
@@ -473,25 +486,33 @@ BEGIN
   IF pg_catalog.date_part('year', v_today)::bigint - v.year > v_age THEN
     r := r || 'VEHICLE_TOO_OLD'::text;
   END IF;
-  IF v.odometer_km IS NULL OR v.title_holder IS NULL THEN
+  -- plaque et VIN saisis (le VIN est exigé pour un véhicule de 1981 ou après : ISO 3779),
+  -- compteur et titulaire déclarés
+  IF v.odometer_km IS NULL OR v.title_holder IS NULL OR (v.vin IS NULL AND v.year >= 1981) THEN
     r := r || 'VEHICLE_FIELD_REQUIRED'::text;
   ELSIF v.odometer_km >= v_km THEN
     -- 08 BR-LIST-02 [NOUS] « < 200 000 km » : le plafond lui-même est refusé
     r := r || 'VEHICLE_MILEAGE_TOO_HIGH'::text;
   END IF;
-  -- titre d'un tiers : autorisation notariée du propriétaire (08 BR-LIST-01, OQ-P2P-02)
-  IF v.title_holder = 'THIRD_PARTY'
-     AND core.catalog_document_state(p_vehicle, 'OWNER_AUTHORIZATION', p_strict, v_today) <> 'OK' THEN
+  -- titre : l'hôte déclare être propriétaire ou autorisé par lui (08 BR-LIST-01, OQ-P2P-02) ;
+  -- l'autorisation notariée n'est exigée que si le pays l'impose (elig_doc_owner_authorization)
+  IF v.ownership_attested_at IS NULL
+     OR (v.title_holder = 'THIRD_PARTY'
+         AND core.catalog_document_required('OWNER_AUTHORIZATION', v.country_code)
+         AND core.catalog_document_state(p_vehicle, 'OWNER_AUTHORIZATION', p_strict, v_today) <> 'OK') THEN
     r := r || 'VEHICLE_TITLE_MISMATCH'::text;
   END IF;
-  -- véhicule financé : consentement écrit du créancier (OQ-BR-28) ; paramètre absent ⇒ exigé
+  -- véhicule financé : accord du créancier DÉCLARÉ (OQ-BR-28 ; paramètre absent ⇒ exigé) ; le
+  -- document du créancier seulement si le pays l'impose (elig_doc_lender_consent)
   v_lender := COALESCE(core.catalog_param_bool('vehicle_financed_requires_lender_consent',
                                                v.country_code), true);
   IF v.lien_declared AND v_lender
-     AND core.catalog_document_state(p_vehicle, 'LENDER_CONSENT', p_strict, v_today) <> 'OK' THEN
+     AND (v.lien_attested_at IS NULL
+          OR (core.catalog_document_required('LENDER_CONSENT', v.country_code)
+              AND core.catalog_document_state(p_vehicle, 'LENDER_CONSENT', p_strict, v_today) <> 'OK')) THEN
     r := r || 'VEHICLE_LENDER_CONSENT_REQUIRED'::text;
   END IF;
-  -- pièces exigées par le pays
+  -- pièces exigées par le pays (aucune par défaut)
   FOREACH v_type IN ARRAY ARRAY['TITLE', 'PLATE_VIN_PHOTO', 'INSPECTION', 'COMPULSORY_INSURANCE'] LOOP
     IF core.catalog_document_required(v_type, v.country_code) THEN
       v_state := core.catalog_document_state(p_vehicle, v_type, p_strict, v_today);
@@ -506,12 +527,30 @@ BEGIN
 END
 $fn$;
 
+-- Au moins une pièce exigée pour ce véhicule par le pays (déclarations comprises) : la soumission
+-- passe alors par la revue de l'ops ; sinon les contrôles automatiques suffisent (ELIGIBLE).
+CREATE FUNCTION core.catalog_vehicle_needs_review(p_vehicle uuid)
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT EXISTS (SELECT 1 FROM pg_catalog.unnest(ARRAY['TITLE', 'PLATE_VIN_PHOTO', 'INSPECTION',
+                                                       'COMPULSORY_INSURANCE']) AS t(doc)
+                  WHERE core.catalog_document_required(t.doc, v.country_code))
+      OR (v.title_holder = 'THIRD_PARTY'
+          AND core.catalog_document_required('OWNER_AUTHORIZATION', v.country_code))
+      OR (v.lien_declared AND core.catalog_document_required('LENDER_CONSENT', v.country_code))
+    FROM core.catalog_vehicle AS v WHERE v.id = p_vehicle
+$fn$;
+
 COMMENT ON FUNCTION core.catalog_param_bool(text, text) IS
   'Paramètre booléen du pays en vigueur à platform.now(), sinon NULL. US-124.';
 COMMENT ON FUNCTION core.catalog_document_key(uuid, uuid, uuid) IS
   'Clé de stockage d''une pièce du véhicule ou d''une contestation (seau DOCUMENTS). US-124.';
 COMMENT ON FUNCTION core.catalog_document_required(text, text) IS
-  'Pièce exigée par le pays (elig_doc_*) ; absente ou mal formée : exigée. US-124.';
+  'Pièce exigée par le pays (elig_doc_*, défaut false : « jamais plus lourd que Turo ») ; absente '
+  'ou mal formée : non exigée. US-124.';
 COMMENT ON FUNCTION core.catalog_document_state(uuid, text, boolean, date) IS
   'État d''une pièce d''un type : OK, MISSING ou EXPIRED (strict : VALID seulement). US-124.';
 COMMENT ON FUNCTION core.catalog_vehicle_blockers(uuid, boolean) IS
@@ -520,11 +559,12 @@ COMMENT ON FUNCTION core.catalog_vehicle_blockers(uuid, boolean) IS
 REVOKE ALL ON FUNCTION core.catalog_param_bool(text, text),
   core.catalog_document_key(uuid, uuid, uuid), core.catalog_document_required(text, text),
   core.catalog_document_state(uuid, text, boolean, date),
-  core.catalog_vehicle_blockers(uuid, boolean) FROM PUBLIC;
+  core.catalog_vehicle_blockers(uuid, boolean), core.catalog_vehicle_needs_review(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.catalog_param_bool(text, text),
   core.catalog_document_key(uuid, uuid, uuid), core.catalog_document_required(text, text),
   core.catalog_document_state(uuid, text, boolean, date),
-  core.catalog_vehicle_blockers(uuid, boolean) TO catalog_cmd_owner;
+  core.catalog_vehicle_blockers(uuid, boolean), core.catalog_vehicle_needs_review(uuid)
+  TO catalog_cmd_owner;
 
 -- 6. Commandes de l'hôte et fonctions de domaine (SECURITY DEFINER, catalog_cmd_owner) -----------
 GRANT CREATE ON SCHEMA core TO catalog_cmd_owner;
@@ -715,12 +755,17 @@ COMMENT ON FUNCTION core.catalog_vehicle_writable(bytea, uuid, uuid) IS
   'revue). Aide interne sous catalog_cmd_owner. US-124 (ADR-107).';
 REVOKE ALL ON FUNCTION core.catalog_vehicle_writable(bytea, uuid, uuid) FROM PUBLIC;
 
--- 6.2 Déclarations de l'hôte (titulaire du titre, prenda, compteur). Un véhicule ELIGIBLE revient
--- PENDING : la revue doit être refaite (fail-closed). Issues : DONE, VEHICLE_FIELD_REQUIRED et
--- celles de catalog_vehicle_writable.
+-- 6.2 Déclarations de l'hôte (titulaire du titre, prenda, compteur) et ENGAGEMENTS horodatés par la
+-- base (« je suis propriétaire ou autorisé par le propriétaire » obligatoire ; « le véhicule n'est
+-- pas gagé, ou j'ai l'accord du créancier » pour un véhicule financé) ; VIN saisi s'il manquait
+-- (normalisé, unique parmi les véhicules non libérés). Un véhicule ELIGIBLE redevient PENDING.
+-- Issues : DONE, VEHICLE_FIELD_REQUIRED, VEHICLE_PLATE_DUPLICATE (VIN pris) et celles de
+-- catalog_vehicle_writable.
 CREATE FUNCTION core.catalog_cmd_declare_vehicle(p_token_hash bytea, p_org uuid, p_vehicle uuid,
                                                  p_title_holder text, p_lien_declared boolean,
-                                                 p_odometer_km integer)
+                                                 p_odometer_km integer,
+                                                 p_ownership_attested boolean,
+                                                 p_lien_attested boolean, p_vin text)
   RETURNS TABLE (outcome text, vehicle_id uuid)
   LANGUAGE plpgsql
   VOLATILE
@@ -729,23 +774,49 @@ CREATE FUNCTION core.catalog_cmd_declare_vehicle(p_token_hash bytea, p_org uuid,
 AS $fn$
 #variable_conflict use_column
 DECLARE
-  w record;
+  w      record;
+  v_cur  record;
+  v_vin  text := core.catalog_normalize_vin(p_vin);
+  v_now  timestamptz := platform.now();
 BEGIN
   SELECT * INTO w FROM core.catalog_vehicle_writable(p_token_hash, p_org, p_vehicle);
   IF w.outcome <> 'OK' THEN
     RETURN QUERY SELECT w.outcome, NULL::uuid;
     RETURN;
   END IF;
+  SELECT x.vin, x.year INTO v_cur FROM core.catalog_vehicle AS x WHERE x.id = p_vehicle;
   IF p_title_holder IS NULL OR p_title_holder NOT IN ('HOST', 'THIRD_PARTY')
-     OR p_lien_declared IS NULL
-     OR p_odometer_km IS NULL OR p_odometer_km NOT BETWEEN 0 AND 3000000 THEN
+     OR p_lien_declared IS NULL OR p_ownership_attested IS NULL
+     OR p_odometer_km IS NULL OR p_odometer_km NOT BETWEEN 0 AND 3000000
+     OR (p_vin IS NOT NULL AND (v_vin IS NULL
+                                OR (v_vin !~ '^[A-HJ-NPR-Z0-9]{17}$'
+                                    AND NOT (v_cur.year < 1981 AND v_vin ~ '^[A-Z0-9]{5,17}$'))))
+     OR (p_vin IS NOT NULL AND v_cur.vin IS NOT NULL AND v_vin IS DISTINCT FROM v_cur.vin) THEN
+    -- le VIN déjà enregistré ne se change pas ici (contestation N-61 si un autre l'a pris)
     RETURN QUERY SELECT 'VEHICLE_FIELD_REQUIRED'::text, NULL::uuid;
     RETURN;
   END IF;
-  UPDATE core.catalog_vehicle AS x
-     SET title_holder = p_title_holder, lien_declared = p_lien_declared,
-         odometer_km = p_odometer_km, eligibility_status = 'PENDING'
-   WHERE x.id = p_vehicle;
+  IF v_vin IS NOT NULL AND v_cur.vin IS NULL THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('cat.vin:' || v_vin, 0));
+    IF EXISTS (SELECT 1 FROM core.catalog_vehicle AS x
+                WHERE x.released_at IS NULL AND x.vin = v_vin AND x.id <> p_vehicle) THEN
+      RETURN QUERY SELECT 'VEHICLE_PLATE_DUPLICATE'::text, NULL::uuid;
+      RETURN;
+    END IF;
+  END IF;
+  BEGIN
+    UPDATE core.catalog_vehicle AS x
+       SET title_holder = p_title_holder, lien_declared = p_lien_declared,
+           odometer_km = p_odometer_km, eligibility_status = 'PENDING',
+           vin = COALESCE(x.vin, v_vin),
+           ownership_attested_at = CASE WHEN p_ownership_attested THEN v_now END,
+           lien_attested_at = CASE WHEN p_lien_declared AND COALESCE(p_lien_attested, false)
+                                   THEN v_now END
+     WHERE x.id = p_vehicle;
+  EXCEPTION WHEN unique_violation THEN
+    RETURN QUERY SELECT 'VEHICLE_PLATE_DUPLICATE'::text, NULL::uuid;
+    RETURN;
+  END;
   INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
                                     subject_id, before, after)
   VALUES (w.user_id, 'P2P_HOST', 'VEHICLE_DECLARATION_SAVED', 'VEHICLE', p_vehicle,
@@ -753,13 +824,16 @@ BEGIN
           pg_catalog.jsonb_build_object('orgId', p_org, 'country', w.country_code,
                                         'titleHolder', p_title_holder,
                                         'lienDeclared', p_lien_declared,
+                                        'ownershipAttested', p_ownership_attested,
+                                        'lienAttested', COALESCE(p_lien_attested, false),
                                         'countries', pg_catalog.jsonb_build_array(w.country_code)));
   RETURN QUERY SELECT 'DONE'::text, p_vehicle;
 END
 $fn$;
-COMMENT ON FUNCTION core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer) IS
-  'Déclarations de l''hôte sur son véhicule (titulaire du titre, prenda, compteur) ; un véhicule '
-  'ELIGIBLE redevient PENDING. SECURITY DEFINER, EXECUTE app_api. US-124 (ADR-107).';
+COMMENT ON FUNCTION core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer, boolean, boolean, text) IS
+  'Déclarations et engagements horodatés de l''hôte (propriétaire ou autorisé ; non gagé ou accord '
+  'du créancier), VIN saisi s''il manquait ; un véhicule ELIGIBLE redevient PENDING. SECURITY '
+  'DEFINER, EXECUTE app_api. US-124 (ADR-107).';
 
 -- 6.3 Droit de déposer une pièce, jugé AVANT l'antivirus (L1-PM-43). Issues : OK et celles de
 -- catalog_vehicle_writable. N'écrit rien.
@@ -893,6 +967,27 @@ BEGIN
     RETURN QUERY SELECT v_r[1], NULL::uuid, v_r;
     RETURN;
   END IF;
+  -- aucune pièce exigée par le pays (défaut « jamais plus lourd que Turo ») : les contrôles
+  -- automatiques et les engagements de l'hôte suffisent, pas de revue de l'ops
+  IF NOT core.catalog_vehicle_needs_review(p_vehicle) THEN
+    INSERT INTO core.catalog_vehicle_eligibility_check (id, vehicle_id, org_id, country_code, kind,
+                                                        result, reasons, actor_user_id, actor_role)
+    VALUES (pg_catalog.gen_random_uuid(), p_vehicle, p_org, w.country_code, 'AUTO_SUBMISSION',
+            'ELIGIBLE', '{}', w.user_id, 'P2P_HOST');
+    UPDATE core.catalog_vehicle AS x
+       SET eligibility_status = 'ELIGIBLE', eligibility_reasons = '{}',
+           eligibility_submitted_at = platform.now()
+     WHERE x.id = p_vehicle;
+    UPDATE core.catalog_vehicle AS x SET eligibility_checked_at = platform.now() WHERE x.id = p_vehicle;
+    INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                      subject_id, before, after)
+    VALUES (w.user_id, 'P2P_HOST', 'VEHICLE_ELIGIBILITY_SUBMITTED', 'VEHICLE', p_vehicle, NULL,
+            pg_catalog.jsonb_build_object('orgId', p_org, 'country', w.country_code,
+                                          'result', 'ELIGIBLE',
+                                          'countries', pg_catalog.jsonb_build_array(w.country_code)));
+    RETURN QUERY SELECT 'ELIGIBLE'::text, NULL::uuid, '{}'::text[];
+    RETURN;
+  END IF;
   SELECT * INTO v_item
     FROM core.support_enqueue_review('LISTING', 'VEHICLE', p_vehicle, w.country_code, w.user_id);
   IF v_item.outcome IS DISTINCT FROM 'CREATED' AND v_item.outcome IS DISTINCT FROM 'EXISTS' THEN
@@ -963,16 +1058,23 @@ AS $fn$
                         OR v.eligibility_checked_at < v.eligibility_submitted_at),
     'submittedAt', v.eligibility_submitted_at,
     'checkedAt', v.eligibility_checked_at,
+    'ownershipAttested', v.ownership_attested_at IS NOT NULL,
+    'lienAttested', v.lien_attested_at IS NOT NULL,
+    'hasVin', v.vin IS NOT NULL,
     'requiredDocuments', (SELECT COALESCE(pg_catalog.jsonb_agg(t.doc ORDER BY t.ord), '[]'::jsonb)
                             FROM (VALUES (1, 'TITLE'), (2, 'PLATE_VIN_PHOTO'), (3, 'INSPECTION'),
                                          (4, 'COMPULSORY_INSURANCE')) AS t(ord, doc)
                            WHERE core.catalog_document_required(t.doc, v.country_code))
                          || CASE WHEN v.title_holder = 'THIRD_PARTY'
+                                      AND core.catalog_document_required('OWNER_AUTHORIZATION',
+                                                                         v.country_code)
                                  THEN '["OWNER_AUTHORIZATION"]'::jsonb ELSE '[]'::jsonb END
                          || CASE WHEN v.lien_declared
                                       AND COALESCE(core.catalog_param_bool(
                                             'vehicle_financed_requires_lender_consent',
                                             v.country_code), true)
+                                      AND core.catalog_document_required('LENDER_CONSENT',
+                                                                         v.country_code)
                                  THEN '["LENDER_CONSENT"]'::jsonb ELSE '[]'::jsonb END,
     'documents', (SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
                            'documentId', d.id, 'type', d.doc_type, 'status', d.status,
@@ -1573,7 +1675,7 @@ COMMENT ON FUNCTION core.catalog_vehicle_live_bookings(uuid) IS
   'fin. Aide interne sous catalog_cmd_owner. US-124.';
 
 REVOKE ALL ON FUNCTION
-  core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer),
+  core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer, boolean, boolean, text),
   core.catalog_vehicle_document_permitted(bytea, uuid, uuid),
   core.catalog_cmd_add_vehicle_document(bytea, uuid, uuid, uuid, text, text, bigint, bytea, date),
   core.catalog_cmd_submit_vehicle_eligibility(bytea, uuid, uuid),
@@ -1589,7 +1691,7 @@ REVOKE ALL ON FUNCTION
   core.catalog_vehicle_claim_dossier(uuid, text),
   core.catalog_vehicle_claim_decide(uuid, text, uuid, text, text, text, jsonb, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-  core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer),
+  core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer, boolean, boolean, text),
   core.catalog_vehicle_document_permitted(bytea, uuid, uuid),
   core.catalog_cmd_add_vehicle_document(bytea, uuid, uuid, uuid, text, text, bigint, bytea, date),
   core.catalog_cmd_submit_vehicle_eligibility(bytea, uuid, uuid),

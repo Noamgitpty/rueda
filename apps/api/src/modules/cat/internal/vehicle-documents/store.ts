@@ -27,6 +27,9 @@ export interface VehicleEligibility {
   readonly titleHolder: TitleHolder | null;
   readonly lienDeclared: boolean;
   readonly odometerKm: number | null;
+  readonly ownershipAttested: boolean;
+  readonly lienAttested: boolean;
+  readonly hasVin: boolean;
   readonly reasons: readonly string[];
   readonly released: boolean;
   readonly publishable: boolean;
@@ -144,8 +147,19 @@ export class PgVehicleDocumentStore implements VehicleDocumentStore {
     const r = await this.#one<{ outcome: string }>(
       'déclaration du véhicule',
       `SELECT r.outcome FROM core.catalog_cmd_declare_vehicle($1, $2::uuid, $3::uuid, $4, $5::boolean,
-                                                              $6::integer) AS r`,
-      [proof, orgId, vehicleId, i.titleHolder, i.lienDeclared, i.odometerKm],
+                                                              $6::integer, $7::boolean,
+                                                              $8::boolean, $9) AS r`,
+      [
+        proof,
+        orgId,
+        vehicleId,
+        i.titleHolder,
+        i.lienDeclared,
+        i.odometerKm,
+        i.ownershipAttested,
+        i.lienAttested,
+        i.vin,
+      ],
     );
     return r?.outcome ?? 'LISTING_UNAVAILABLE';
   }
@@ -271,6 +285,9 @@ export class PgVehicleDocumentStore implements VehicleDocumentStore {
       titleHolder: (b['titleHolder'] ?? null) as TitleHolder | null,
       lienDeclared: b['lienDeclared'] === true,
       odometerKm: typeof b['odometerKm'] === 'number' ? b['odometerKm'] : null,
+      ownershipAttested: b['ownershipAttested'] === true,
+      lienAttested: b['lienAttested'] === true,
+      hasVin: b['hasVin'] === true,
       reasons: Array.isArray(b['reasons']) ? (b['reasons'] as string[]) : [],
       released: b['released'] === true,
       publishable: b['publishable'] === true,

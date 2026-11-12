@@ -82,6 +82,10 @@ export function DeclarationForm(
     readonly holder: 'HOST' | 'THIRD_PARTY' | null;
     readonly lien: boolean;
     readonly odometerKm: number | null;
+    readonly ownershipAttested: boolean;
+    readonly lienAttested: boolean;
+    /** VIN déjà enregistré : le champ n'est pas proposé (il ne se change pas ici). */
+    readonly hasVin: boolean;
   },
 ) {
   const formId = 'a10d-declare';
@@ -116,11 +120,37 @@ export function DeclarationForm(
         )}
       </fieldset>
       <Checkbox
+        id={`${formId}-owner`}
+        name="owner"
+        label={t('web.vehicleDocs.declaration.owner')}
+        aria-required="true"
+        defaultChecked={(f.valueOf('owner') ?? (props.ownershipAttested ? 'on' : '')) === 'on'}
+        error={f.errorOf(`${formId}-owner`)}
+      />
+      <Checkbox
         id={`${formId}-lien`}
         name="lien"
         label={t('web.vehicleDocs.declaration.lien')}
         defaultChecked={(f.valueOf('lien') ?? (props.lien ? 'on' : '')) === 'on'}
       />
+      <Checkbox
+        id={`${formId}-lienOk`}
+        name="lienOk"
+        label={t('web.vehicleDocs.declaration.lienOk')}
+        defaultChecked={(f.valueOf('lienOk') ?? (props.lienAttested ? 'on' : '')) === 'on'}
+      />
+      {!props.hasVin && (
+        <TextField
+          i18n={f.i18n}
+          id={`${formId}-vin`}
+          name="vin"
+          autoCapitalize="characters"
+          maxLength={40}
+          label={t('web.vehicleDocs.declaration.vin')}
+          defaultValue={f.valueOf('vin')}
+          error={f.errorOf(`${formId}-vin`)}
+        />
+      )}
       <TextField
         i18n={f.i18n}
         id={`${formId}-km`}

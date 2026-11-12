@@ -1240,9 +1240,9 @@ export const FR_MESSAGES = {
   'common.vehicleDocs.tooOld': 'La voiture dépasse l’âge maximal autorisé dans ton pays.',
   'common.vehicleDocs.mileageTooHigh': 'Le kilométrage dépasse le maximum autorisé dans ton pays.',
   'common.vehicleDocs.titleMismatch':
-    'Titre : la voiture est au nom d’une autre personne. Ajoute son autorisation notariée.',
+    'Déclare que tu es propriétaire de la voiture ou que le propriétaire t’autorise.',
   'common.vehicleDocs.lenderConsentRequired':
-    'La voiture est financée : ajoute l’accord écrit du créancier.',
+    'La voiture est financée : déclare que tu as l’accord du créancier.',
   'common.vehicleDocs.documentRequired': 'Il manque un document obligatoire de la voiture.',
   'common.vehicleDocs.documentExpired':
     'Un document de la voiture est expiré. Ajoute un document valide.',
@@ -1260,10 +1260,10 @@ export const FR_MESSAGES = {
   'common.vehicleReview.fileNotFound': 'Ce document n’appartient pas à cet élément.',
   'common.vehicleReview.fileUnavailable':
     'Nous n’avons pas pu ouvrir le document. Réessaie plus tard.',
-  'web.vehicleDocs.open': 'Documents',
-  'web.vehicleDocs.title': 'Documents de la voiture',
+  'web.vehicleDocs.open': 'Valider la voiture',
+  'web.vehicleDocs.title': 'Valider ta voiture',
   'web.vehicleDocs.intro':
-    'Nous vérifions chaque voiture avant de la publier : titre, plaque, numéro de châssis (VIN) et contrôle technique.',
+    'Confirme quelques informations et ta voiture est prête à être publiée. Nous ne demandons des documents que si besoin.',
   'web.vehicleDocs.back': 'Retour à mes voitures',
   'web.vehicleDocs.notFound': 'Nous n’avons pas trouvé cette voiture',
   'web.vehicleDocs.status.ELIGIBLE': 'Approuvée',
@@ -1278,10 +1278,11 @@ export const FR_MESSAGES = {
   'web.vehicleDocs.reason.VEHICLE_TOO_OLD': 'La voiture dépasse l’âge maximal.',
   'web.vehicleDocs.reason.VEHICLE_MILEAGE_TOO_HIGH': 'Le kilométrage dépasse le maximum.',
   'web.vehicleDocs.reason.VEHICLE_FIELD_REQUIRED':
-    'Complète les informations de la voiture (titulaire du titre et kilométrage).',
+    'Complète les informations de la voiture : numéro de châssis (VIN), kilométrage et titulaire.',
   'web.vehicleDocs.reason.VEHICLE_TITLE_MISMATCH':
-    'Titre : l’autorisation notariée du propriétaire manque, ou le titulaire ne correspond pas.',
-  'web.vehicleDocs.reason.VEHICLE_LENDER_CONSENT_REQUIRED': 'L’accord écrit du créancier manque.',
+    'Il te reste à déclarer que tu es propriétaire ou autorisé par le propriétaire.',
+  'web.vehicleDocs.reason.VEHICLE_LENDER_CONSENT_REQUIRED':
+    'Il te reste à déclarer que tu as l’accord du créancier.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_REQUIRED': 'Il manque un document obligatoire.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_EXPIRED': 'Un document est expiré.',
   'web.vehicleDocs.reason.VEHICLE_PLATE_MISMATCH': 'La plaque ne correspond pas au titre.',
@@ -1330,10 +1331,10 @@ export const FR_MESSAGES = {
   'web.vehicleDocs.upload.closed':
     'L’envoi de documents n’est pas encore disponible. Tu peux compléter les informations de la voiture.',
   'web.vehicleDocs.upload.tooLarge': 'Le fichier dépasse {max}.',
-  'web.vehicleDocs.submit.title': 'Envoyer pour vérification',
+  'web.vehicleDocs.submit.title': 'Valider',
   'web.vehicleDocs.submit.intro':
-    'Quand tu as tous les documents, envoie la voiture pour vérification.',
-  'web.vehicleDocs.submit.send': 'Envoyer',
+    'Nous vérifions tes informations tout de suite. Si ton pays demande des documents, notre équipe les vérifie.',
+  'web.vehicleDocs.submit.send': 'Valider ma voiture',
   'web.vehicleDocs.claims.title': 'Ta plaque est déjà enregistrée ?',
   'web.vehicleDocs.claims.intro':
     'Si un autre compte a enregistré ta voiture, envoie-nous ton titre et nous vérifions.',
@@ -1397,4 +1398,11 @@ export const FR_MESSAGES = {
   },
   'common.vehicleReview.sameAdmin':
     'Un autre administrateur doit décider : tu as déjà libéré cette plaque.',
+  'common.vehicleDocs.confirmed': 'Voiture validée : tu peux la publier.',
+  'web.vehicleDocs.declaration.owner':
+    'Je suis propriétaire de la voiture ou le propriétaire m’autorise à la louer',
+  'web.vehicleDocs.declaration.lienOk':
+    'La voiture n’est pas gagée, ou j’ai l’accord écrit du créancier',
+  'web.vehicleDocs.declaration.vin': 'Numéro de châssis (VIN)',
+  'web.vehicleDocs.declaration.attested': 'Tu l’as déclaré le {date}.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

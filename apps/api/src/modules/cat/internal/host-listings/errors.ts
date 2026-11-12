@@ -46,6 +46,8 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_DECLARATION_SAVED: { status: 200, messageKey: 'common.vehicleDocs.declarationSaved' },
   VEHICLE_DOCUMENT_ADDED: { status: 201, messageKey: 'common.vehicleDocs.documentAdded' },
   VEHICLE_ELIGIBILITY_SUBMITTED: { status: 200, messageKey: 'common.vehicleDocs.submitted' },
+  // aucune pièce exigée : véhicule validé par les contrôles automatiques (décision du fondateur)
+  VEHICLE_ELIGIBILITY_CONFIRMED: { status: 200, messageKey: 'common.vehicleDocs.confirmed' },
   VEHICLE_CLAIM_OPENED: { status: 201, messageKey: 'common.vehicleDocs.claimOpened' },
   BLOCK_CREATED: { status: 201, messageKey: 'common.calendar.blockCreated' },
   BLOCK_REMOVED: { status: 200, messageKey: 'common.calendar.blockRemoved' },

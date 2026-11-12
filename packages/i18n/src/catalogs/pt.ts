@@ -1206,9 +1206,9 @@ export const PT_MESSAGES = {
   'common.vehicleDocs.tooOld': 'O carro passa da idade máxima permitida.',
   'common.vehicleDocs.mileageTooHigh': 'A quilometragem passa do máximo permitido.',
   'common.vehicleDocs.titleMismatch':
-    'Documento de propriedade: o carro está em nome de outra pessoa. Envie a autorização dela com firma reconhecida.',
+    'Declare que você é o dono do carro ou que o dono autoriza você.',
   'common.vehicleDocs.lenderConsentRequired':
-    'O carro está financiado: envie o consentimento por escrito do credor.',
+    'O carro está financiado: declare que você tem o consentimento do credor.',
   'common.vehicleDocs.documentRequired': 'Falta um documento obrigatório do carro.',
   'common.vehicleDocs.documentExpired':
     'Um documento do carro está vencido. Envie um documento válido.',
@@ -1224,10 +1224,10 @@ export const PT_MESSAGES = {
   'common.vehicleReview.adminRequired': 'Só um administrador pode liberar o carro de outra conta.',
   'common.vehicleReview.fileNotFound': 'Este documento não pertence a este item.',
   'common.vehicleReview.fileUnavailable': 'Não conseguimos abrir o documento. Tente mais tarde.',
-  'web.vehicleDocs.open': 'Documentos',
-  'web.vehicleDocs.title': 'Documentos do carro',
+  'web.vehicleDocs.open': 'Aprovar o carro',
+  'web.vehicleDocs.title': 'Aprovar seu carro',
   'web.vehicleDocs.intro':
-    'Verificamos cada carro antes de anunciá-lo: documento de propriedade, placa, chassi (VIN) e vistoria.',
+    'Confirme alguns dados e seu carro fica pronto para anunciar. Só pedimos documentos quando for preciso.',
   'web.vehicleDocs.back': 'Voltar aos meus carros',
   'web.vehicleDocs.notFound': 'Não encontramos este carro',
   'web.vehicleDocs.status.ELIGIBLE': 'Aprovado',
@@ -1241,11 +1241,11 @@ export const PT_MESSAGES = {
   'web.vehicleDocs.reason.VEHICLE_TOO_OLD': 'O carro passa da idade máxima.',
   'web.vehicleDocs.reason.VEHICLE_MILEAGE_TOO_HIGH': 'A quilometragem passa do máximo.',
   'web.vehicleDocs.reason.VEHICLE_FIELD_REQUIRED':
-    'Complete os dados do carro (titular do documento e quilometragem).',
+    'Complete os dados do carro: número do chassi (VIN), quilometragem e titular.',
   'web.vehicleDocs.reason.VEHICLE_TITLE_MISMATCH':
-    'Documento de propriedade: falta a autorização do dono com firma reconhecida, ou o titular não confere.',
+    'Ainda falta declarar que você é o dono ou tem autorização do dono.',
   'web.vehicleDocs.reason.VEHICLE_LENDER_CONSENT_REQUIRED':
-    'Falta o consentimento por escrito do credor.',
+    'Ainda falta declarar que você tem o consentimento do credor.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_REQUIRED': 'Falta um documento obrigatório.',
   'web.vehicleDocs.reason.VEHICLE_DOCUMENT_EXPIRED': 'Um documento está vencido.',
   'web.vehicleDocs.reason.VEHICLE_PLATE_MISMATCH':
@@ -1296,9 +1296,10 @@ export const PT_MESSAGES = {
   'web.vehicleDocs.upload.closed':
     'O envio de documentos ainda não está disponível. Você pode completar os dados do carro.',
   'web.vehicleDocs.upload.tooLarge': 'O arquivo passa de {max}.',
-  'web.vehicleDocs.submit.title': 'Enviar para análise',
-  'web.vehicleDocs.submit.intro': 'Quando tiver todos os documentos, envie o carro para análise.',
-  'web.vehicleDocs.submit.send': 'Enviar para análise',
+  'web.vehicleDocs.submit.title': 'Aprovar',
+  'web.vehicleDocs.submit.intro':
+    'Verificamos seus dados na hora. Se o país exigir documentos, nossa equipe os analisa.',
+  'web.vehicleDocs.submit.send': 'Aprovar meu carro',
   'web.vehicleDocs.claims.title': 'Sua placa já está cadastrada?',
   'web.vehicleDocs.claims.intro':
     'Se outra conta cadastrou seu carro, envie seu documento de propriedade e vamos analisar.',
@@ -1362,4 +1363,10 @@ export const PT_MESSAGES = {
     other: 'O carro tem {count} reservas em andamento ou futuras: não pode ser liberado.',
   },
   'common.vehicleReview.sameAdmin': 'Outro administrador deve decidir: você já liberou esta placa.',
+  'common.vehicleDocs.confirmed': 'Carro aprovado: você já pode anunciá-lo.',
+  'web.vehicleDocs.declaration.owner': 'Sou o dono do carro ou o dono me autoriza a alugá-lo',
+  'web.vehicleDocs.declaration.lienOk':
+    'O carro não está alienado, ou tenho o consentimento por escrito do credor',
+  'web.vehicleDocs.declaration.vin': 'Número do chassi (VIN)',
+  'web.vehicleDocs.declaration.attested': 'Você declarou em {date}.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
