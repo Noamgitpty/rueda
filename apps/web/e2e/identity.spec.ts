@@ -8,6 +8,9 @@
  * - 16 VER-001 : pays du permis proposé (pays de la configuration), puis départ vers le parcours
  *   HÉBERGÉ du fournisseur (adresse https du fournisseur, interceptée : aucun réseau externe) ;
  * - décision du fournisseur ⇒ « Verificado » (10b §4.3, `web.s04.result.verified`) ;
+ * - décision de l'ops (US-106) : nouvelle pièce demandée ⇒ « Necesitamos otra foto » (10b §4.3,
+ *   `web.s04.result.retake`), conseil de reprise et départ d'une nouvelle session ; refus ⇒
+ *   bandeau d'erreur sans formulaire de départ, retrait du consentement toujours proposé ;
  * - accessibilité : axe-core (WCAG 2.2 A / AA) sans violation ; mobile d'abord.
  * Attendus : 10b §4.3, 16 VER-001 / VER-004 et la story (e2e/oracle.ts), jamais le code testé.
  */
@@ -164,6 +167,48 @@ for (const language of LANGUAGES) {
       await expect(page).toHaveURL(/\/verify-identity$/);
       await expect(page.locator('#s04-consent')).toBeVisible();
       await expect(page.locator('#s04-country')).toHaveCount(0);
+    });
+
+    test('décision de l’ops : nouvelle pièce demandée, puis refus (US-106)', async ({
+      page,
+    }, info) => {
+      const email = `identity-${language}-ops-${slug(info.project.name)}@example.test`;
+      await page.goto('/login');
+      await page.locator('#s15-login-email').fill(email);
+      await page.locator('#s15-login-password').fill(PASSWORD);
+      await page.locator('main form button[type="submit"]').click();
+      await expect(page).toHaveURL(/\/login\/done$/);
+      await page.goto('/verify-identity');
+      await page.locator('#s04-consent').check();
+      await page.locator('main form button[type="submit"]').first().click();
+      await expect(page.locator('#s04-country')).toBeVisible();
+
+      const ops = (status: string, reason: string) =>
+        fetch(
+          `${API}/__e2e/identity/ops?email=${encodeURIComponent(email)}&status=${status}&reason=${reason}`,
+        );
+      // nouvelle pièce demandée (SM-3 MANUAL_REVIEW → MORE_INFO_REQUIRED) : bandeau, conseil, et
+      // la personne peut relancer une session hébergée
+      expect((await ops('MORE_INFO_REQUIRED', 'LICENSE_NOT_ACCEPTED')).status).toBe(200);
+      await page.goto('/verify-identity');
+      const retake = SPEC_TEXT.identityRetake[language];
+      const banner = page.locator('main').getByRole('status').first();
+      await expect(banner).toBeVisible();
+      if (retake !== undefined) await expect(banner).toContainText(retake);
+      await expect(page.locator('#s04-country')).toBeVisible();
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+
+      // refus (SM-3 MANUAL_REVIEW → REJECTED) : aucun départ de session, retrait toujours proposé
+      expect((await ops('REJECTED', 'DUPLICATE_ACCOUNT')).status).toBe(200);
+      await page.goto('/verify-identity');
+      await expect(page.locator('main').getByRole('status').first()).toBeVisible();
+      await expect(page.locator('main #s04-country')).toHaveCount(0);
+      // jamais la catégorie d'un contrôle (BR-VERIF-03) : ni code ni mention de doublon
+      await expect(page.locator('main')).not.toContainText('DUPLICATE');
+      await expect(page.locator('#s04-withdraw-heading')).toBeVisible();
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
     });
   });
 }

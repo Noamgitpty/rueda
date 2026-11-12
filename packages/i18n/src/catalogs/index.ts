@@ -45,9 +45,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `ntf.catalogAdditionApproved.*` et `ntf.catalogAdditionRejected.*`.
  Version 24 : inscription et vérification de l'hôte, profil fiscal (US-123) :
  `common.hostVerification.*`, `web.a07.*` (liste de tâches A07, dont `web.a07.waitingCountry` de
- 10b §4.3) et `web.host.verificationLink`.
+ 10b §4.3) et `web.host.verificationLink`. Version 25 : décision KYC de l'ops (US-106) : états
+ SM-3, motifs, champs du permis, scores, contrôles cochés et refus `backoffice.kyc.*` ; messages
+ au voyageur `web.s04.result.rejected*` et `web.s04.moreInfo.*`.
  */
-export const CATALOG_VERSION = 24;
+export const CATALOG_VERSION = 25;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

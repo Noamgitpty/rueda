@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BusRegistry } from './modules/bus/index.js';
-import type { SqlClient, WorkerTransactions } from './modules/bus/index.js';
+import { assertSafeAlert, BusRegistry } from './modules/bus/index.js';
+import type { AlertChannel, OpsAlert, SqlClient, WorkerTransactions } from './modules/bus/index.js';
 import { CountryConfigService } from './modules/cfg/index.js';
 import { parseBrandName, parsePoolMax } from './worker-config.js';
 import {
@@ -8,12 +8,31 @@ import {
   dispositionSweeperPeriod,
   HOLD_EXPIRY_WORKER,
   registerWorkerTasks,
+  REVIEW_SLA_WATCH_WORKER,
   RISK_PRUNER_WORKER,
   WORKER_TASK_DEFAULTS,
   withDeadlockRetry,
 } from './worker-tasks.js';
 
 const config = new CountryConfigService().config;
+/** Deux pays de la configuration (données CFG, jamais une constante du code). */
+const [C1 = '', C2 = ''] = [...config.countries.keys()];
+
+/**
+ * Canal d'alerte enregistreur (port AlertChannel du module BUS) ; `failing` : envoi en échec.
+ */
+class RecordingAlerts implements AlertChannel {
+  readonly sent: OpsAlert[] = [];
+  failing = false;
+
+  send(alert: OpsAlert): Promise<void> {
+    // même contrôle que tout canal : comptes et codes seulement (17 §6.3)
+    assertSafeAlert(alert);
+    if (this.failing) return Promise.reject(new Error('canal d’alerte indisponible'));
+    this.sent.push(alert);
+    return Promise.resolve();
+  }
+}
 const AT = new Date('2026-11-04T12:00:00.000Z');
 
 /** Transaction enregistreuse : SQL et paramètres, réponses programmées par motif. */
@@ -69,6 +88,7 @@ describe('tâches du travailleur (US-003)', () => {
       'ntf_sender',
       'ops_monitor',
       'reconciliation',
+      'review_sla_watch',
       'risk_pruner',
     ]);
     expect(
@@ -81,6 +101,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['kyc_score_pruner', 3_600, 5],
       ['ops_monitor', 60, 5],
       ['reconciliation', 86_400, 5],
+      ['review_sla_watch', 60, 5],
       ['risk_pruner', 3_600, 5],
     ]);
     // aucun travailleur qui lirait le PSP (lot C, US-061)
@@ -177,6 +198,95 @@ describe('tâches du travailleur (US-003)', () => {
       withDeadlockRetry(transactions(tx, w3, [other]), 'x', () => Promise.resolve('ok')),
     ).rejects.toBe(other);
     expect(w3).toHaveLength(1);
+  });
+
+  // US-106 (16 ADM-002 « SLA dépassé ⇒ alerte au responsable ops ») : comptes de la base relayés,
+  // une alerte P2 par (file, pays), une alerte P1 si un dossier KYC en revue reste hors file
+  it('review_sla_watch : remise en file KYC puis retards signalés ; une alerte par file et pays', async () => {
+    const registry = new BusRegistry();
+    const alerts = new RecordingAlerts();
+    const logs: string[] = [];
+    const { tx, sql } = recordingTx({
+      kyc_worker_enqueue_reviews: [{ enqueued: 1, unqueued: '2', waiting: 3, skipped: '1' }],
+      support_worker_review_sla: [
+        { queue: 'KYC', country_code: C1, breached: 3 },
+        { queue: 'LISTING', country_code: C2, breached: '1' },
+      ],
+    });
+    registerWorkerTasks(registry, {
+      transactions: transactions(tx, []),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      alerts,
+      now: () => AT,
+    });
+    const h = registry.handlerOf(REVIEW_SLA_WATCH_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, tx);
+    const batch = WORKER_TASK_DEFAULTS.reviewSlaWatchBatch;
+    expect(sql).toEqual([
+      `SELECT enqueued, unqueued, waiting, skipped FROM core.kyc_worker_enqueue_reviews($1) [${batch}]`,
+      `SELECT queue, country_code, breached FROM core.support_worker_review_sla($1) [${batch}]`,
+    ]);
+    expect(alerts.sent).toEqual([
+      {
+        code: 'OPS_REVIEW_SLA_BREACH',
+        severity: 'P2',
+        counts: { breached: 3 },
+        labels: { queue: 'KYC', country: C1 },
+      },
+      {
+        code: 'OPS_REVIEW_SLA_BREACH',
+        severity: 'P2',
+        counts: { breached: 1 },
+        labels: { queue: 'LISTING', country: C2 },
+      },
+      {
+        code: 'OPS_KYC_REVIEW_UNQUEUED',
+        severity: 'P1',
+        counts: { unqueued: 2 },
+        labels: { queue: 'KYC' },
+      },
+    ]);
+    expect(logs).toEqual([
+      JSON.stringify({
+        level: 'info',
+        worker: 'review_sla_watch',
+        enqueued: 1,
+        unqueued: 2,
+        waiting: 3,
+        skipped: 1,
+        breached: 4,
+      }),
+    ]);
+  });
+
+  it('review_sla_watch : rien en retard ni hors file ⇒ aucune alerte ; canal en échec ⇒ la passe échoue (rejouée)', async () => {
+    // échecs déjà signalés (`waiting`) : aucune nouvelle alerte P1 (une par dossier, revue US-106)
+    const quiet = recordingTx({
+      kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 5, skipped: 0 }],
+    });
+    const alerts = new RecordingAlerts();
+    const registry = new BusRegistry();
+    registerWorkerTasks(registry, {
+      transactions: transactions(quiet.tx, []),
+      config,
+      brandName: 'x',
+      log: () => undefined,
+      alerts,
+      now: () => AT,
+    });
+    const h = registry.handlerOf(REVIEW_SLA_WATCH_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, quiet.tx);
+    expect(alerts.sent).toEqual([]);
+    const late = recordingTx({
+      kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 0, skipped: 0 }],
+      support_worker_review_sla: [{ queue: 'KYC', country_code: C2, breached: 1 }],
+    });
+    alerts.failing = true;
+    await expect(h.handle({}, late.tx)).rejects.toThrow(/indisponible/);
   });
 
   it('période du balayeur : la plus courte des pays configurés (données CFG)', () => {

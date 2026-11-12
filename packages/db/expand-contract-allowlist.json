@@ -130,6 +130,13 @@
       "line": 642,
       "kind": "dynamic-sql",
       "justification": "US-101 (ADR-092) : appel, dans la commande de console, de la commande de domaine LIÉE à l'action (table support_manual_action_handler, écrite par migration seulement, signature et droits vérifiés à la liaison par déclencheur) ; nom de schéma et de fonction lus dans pg_proc par l'OID lié et cités par format(%I.%I), toutes les valeurs passées par USING (aucun texte du client) ; extension seulement, aucune contraction"
+    },
+    {
+      "path": "packages/db/migrations/0076_kyc_ops_decision.sql",
+      "line": 81,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-106 (ADR-106) : saisie de KYC_DECISION ÉLARGIE (clés des contrôles cochés et valeur MORE_INFO_REQUIRED) sur une ligne de référence écrite par migration seulement ; une ligne, aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N n'envoyait que decision, valeur toujours admise"
     }
   ]
 }

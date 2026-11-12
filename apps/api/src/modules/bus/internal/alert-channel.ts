@@ -27,6 +27,10 @@ export const ALERT_CODES = [
   'OPS_P1_EVENT',
   // rapprochement de l'argent (FIN, US-047, ADR-087) : une alerte P1 par pays en écart
   'FIN_MONEY_RECONCILIATION',
+  // files de revue (US-106, ADR-106) : élément en retard (16 ADM-002, P2) ; dossier KYC en revue
+  // qui ne peut pas être mis en file (P1 : personne ne le verrait)
+  'OPS_REVIEW_SLA_BREACH',
+  'OPS_KYC_REVIEW_UNQUEUED',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 
@@ -39,6 +43,8 @@ export const ALERT_LABEL_KEYS = [
   'event_type',
   'consumer',
   'error_code',
+  // file de revue (US-106) : code de file (KYC, LISTING…)
+  'queue',
 ] as const;
 export type AlertLabelKey = (typeof ALERT_LABEL_KEYS)[number];
 

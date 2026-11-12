@@ -20,7 +20,13 @@ import type {
 } from './api.ts';
 import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
 import type { ConsoleAction, ConsoleState } from './view.tsx';
-import { EVIDENCE_MAX_BYTES, evidenceReasonKey, evidenceRefusal } from './ops-view.tsx';
+import {
+  EVIDENCE_MAX_BYTES,
+  evidenceReasonKey,
+  evidenceRefusal,
+  KYC_CHECKS,
+  KYC_REFUSAL_KEYS,
+} from './ops-view.tsx';
 import type {
   CatalogAdditionView,
   KycDossierView,
@@ -285,6 +291,48 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           notice(r);
         }
       }),
+    // décision KYC (US-106) : action de console KYC_DECISION, un requestId par intention ; la base
+    // juge (élément pris en charge, contrôles cohérents, consentement, permis) ; un refus motivé
+    // est expliqué dans la langue de la vue
+    onKycDecision: (verificationId, decision, checks, reason) => {
+      intent.current = intentFor(
+        intent.current,
+        [
+          'KYC_DECISION',
+          verificationId,
+          decision,
+          ...KYC_CHECKS.map((c) => checks[c]),
+          reason.trim(),
+        ],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action: 'KYC_DECISION',
+          subjectId: verificationId,
+          reason,
+          input: { decision, ...checks },
+        });
+        if (r.ok) {
+          setOps((prev) => ({
+            ...prev,
+            kyc: undefined,
+            notice: { tone: 'success', key: 'backoffice.kyc.decided' },
+          }));
+          const selected = ops.queues?.selected;
+          if (selected !== undefined && selected !== null) await showQueue(selected);
+          return;
+        }
+        const why = r.values?.['reason'];
+        const key =
+          r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? KYC_REFUSAL_KEYS[why]
+            : undefined;
+        notice(key !== undefined ? { status: r.status, messageKey: key } : r);
+      });
+    },
     onOpenCatalog: (itemId) =>
       once(async () => {
         const r = await call<CatalogAdditionView>(

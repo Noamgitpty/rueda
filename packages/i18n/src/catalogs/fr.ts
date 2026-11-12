@@ -343,6 +343,85 @@ export const FR_MESSAGES = {
   'backoffice.kyc.residence': 'Résidence déclarée',
   'backoffice.kyc.unknown': 'Non renseigné',
   'backoffice.kyc.NOT_STARTED': 'Vérification non commencée',
+  'backoffice.kyc.PHONE_VERIFIED': 'Téléphone vérifié',
+  'backoffice.kyc.DOCS_SUBMITTED': 'Pièces envoyées',
+  'backoffice.kyc.AUTO_CHECKS': 'Contrôles automatiques',
+  'backoffice.kyc.MANUAL_REVIEW': 'En revue manuelle',
+  'backoffice.kyc.MORE_INFO_REQUIRED': 'Nouvelle pièce demandée',
+  'backoffice.kyc.APPROVED': 'Approuvée',
+  'backoffice.kyc.RECHECK': 'À revérifier',
+  'backoffice.kyc.EXPIRED': 'Expirée',
+  'backoffice.kyc.REVOKED': 'Retirée',
+  'backoffice.kyc.REJECTED': 'Refusée',
+  'backoffice.kyc.APPEAL': 'En appel',
+  'backoffice.kyc.REJECTED_FINAL': 'Refus définitif',
+  'backoffice.kyc.BANNED': 'Exclue',
+  'backoffice.kyc.reason': 'Motif',
+  'backoffice.kyc.reason.PROVIDER_REVIEW': 'Le fournisseur demande une revue',
+  'backoffice.kyc.reason.PROVIDER_DECLINED': 'Refusé par le fournisseur',
+  'backoffice.kyc.reason.DOCUMENT_MISSING': 'Champs du permis absents',
+  'backoffice.kyc.reason.DOCUMENT_NOT_LICENSE': 'La pièce n’est pas un permis de conduire',
+  'backoffice.kyc.reason.LICENSE_PROVISIONAL': 'Permis provisoire ou non confirmé',
+  'backoffice.kyc.reason.LICENSE_EXPIRED': 'Permis expiré',
+  'backoffice.kyc.reason.CONSENT_WITHDRAWN': 'Consentement biométrique retiré',
+  'backoffice.kyc.reason.LIVENESS_FAILED': 'Preuve de vie ou selfie non concluants',
+  'backoffice.kyc.reason.ID_DOCUMENT_REFUSED': 'Pièce d’identité refusée',
+  'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED': 'Permis hors de la liste acceptée',
+  'backoffice.kyc.reason.DUPLICATE_ACCOUNT': 'Compte en double ou lié',
+  'backoffice.kyc.reason.MORE_INFO_REQUESTED': 'Nouvelle pièce demandée par l’ops',
+  'backoffice.kyc.attempt': 'Tentative et pays du dossier',
+  'backoffice.kyc.consentMissing':
+    'Consentement biométrique absent ou périmé : aucune approbation possible.',
+  'backoffice.kyc.document': 'Permis rendu par le fournisseur',
+  'backoffice.kyc.noDocument': 'Aucun champ de permis reçu.',
+  'backoffice.kyc.documentType': 'Nature de la pièce',
+  'backoffice.kyc.issuingCountry': 'Pays de délivrance',
+  'backoffice.kyc.expiresOn': 'Échéance',
+  'backoffice.kyc.licenseClass': 'Catégorie',
+  'backoffice.kyc.permanent': 'Permis définitif',
+  'backoffice.kyc.yes': 'Oui',
+  'backoffice.kyc.no': 'Non',
+  'backoffice.kyc.biometrics': 'Scores biométriques (lecture journalisée)',
+  'backoffice.kyc.noScores': 'Aucun score conservé (effacé ou non reçu).',
+  'backoffice.kyc.livenessScore': 'Preuve de vie',
+  'backoffice.kyc.faceMatchScore': 'Ressemblance du visage',
+  'backoffice.kyc.percent': '{value} %',
+  'backoffice.kyc.doc.DRIVER_LICENSE': 'Permis de conduire',
+  'backoffice.kyc.doc.NATIONAL_ID': 'Carte d’identité nationale',
+  'backoffice.kyc.doc.FOREIGN_RESIDENT_ID': 'Carte de résident étranger',
+  'backoffice.kyc.doc.PASSPORT': 'Passeport',
+  'backoffice.kyc.doc.IDP': 'Permis international (IDP)',
+  'backoffice.kyc.decisionHeading': 'Décision KYC',
+  'backoffice.kyc.decisionHint':
+    'Cocher chaque contrôle fait dans le portail du fournisseur. Approuver seulement si les quatre sont réussis et si le permis est définitif ; refuser si au moins un a échoué.',
+  'backoffice.kyc.check.livenessCheck': 'Selfie et preuve de vie',
+  'backoffice.kyc.check.idDocumentCheck': 'Pièce d’identité selon le statut',
+  'backoffice.kyc.check.licenseListCheck': 'Permis dans la liste acceptée',
+  'backoffice.kyc.check.duplicateCheck': 'Aucun compte en double ni lié',
+  'backoffice.kyc.passed': 'Réussi',
+  'backoffice.kyc.failed': 'Échoué',
+  'backoffice.kyc.reasonHint':
+    'Entre 10 et 1 000 caractères, conservé au journal avec l’auteur et les contrôles cochés. Jamais visible de la personne.',
+  'backoffice.kyc.decide.APPROVED': 'Approuver',
+  'backoffice.kyc.decide.REJECTED': 'Refuser',
+  'backoffice.kyc.decide.MORE_INFO_REQUIRED': 'Demander une nouvelle pièce',
+  'backoffice.kyc.decided': 'Décision enregistrée au journal ; l’élément de la file est clos.',
+  'backoffice.kyc.refused.CHECKS_REQUIRED':
+    'Décision refusée : les quatre contrôles doivent être cochés.',
+  'backoffice.kyc.refused.CHECKS_INCONSISTENT':
+    'Décision refusée : une approbation exige quatre contrôles réussis, un refus au moins un contrôle échoué.',
+  'backoffice.kyc.refused.ITEM_NOT_CLAIMED':
+    'Décision refusée : prendre d’abord l’élément dans la file KYC.',
+  'backoffice.kyc.refused.NOT_IN_REVIEW':
+    'Décision refusée : le dossier n’est plus en revue (déjà décidé ou consentement retiré).',
+  'backoffice.kyc.refused.SELF_FORBIDDEN':
+    'Décision refusée : personne ne décide sa propre vérification.',
+  'backoffice.kyc.refused.CONSENT_WITHDRAWN':
+    'Approbation refusée : le consentement biométrique en vigueur manque.',
+  'backoffice.kyc.refused.LICENSE_NOT_ACCEPTED':
+    'Approbation refusée : seul un permis de conduire définitif et valable est accepté (un IDP seul ou un permis provisoire ne l’est pas).',
+  'backoffice.kyc.refused.PRODUCTION_BLOCKED':
+    'Décision indisponible : la vérification d’identité est fermée dans cet environnement.',
   'backoffice.profile.heading': 'Fiche 360°',
   'backoffice.profile.intro':
     'Chaque consultation est journalisée avec son motif. Le support et l’ops ont besoin d’un dossier ou d’un élément de file attribué.',
@@ -1035,6 +1114,17 @@ export const FR_MESSAGES = {
   'web.s04.result.verified': 'Vérifié',
   'web.s04.result.retake': 'Il nous faut une autre photo',
   'web.s04.licenseValid': 'Permis valable jusqu’au {date}.',
+  'web.s04.result.rejected':
+    'Ta vérification d’identité n’a pas été approuvée. Tu ne peux pas réserver pour l’instant.',
+  'web.s04.result.rejectedHelp':
+    'Ton compte reste ouvert. Tu peux retirer ton consentement biométrique ci-dessous à tout moment.',
+  'web.s04.moreInfo.LIVENESS_FAILED':
+    'Refais le selfie avec ton permis, visage bien éclairé, sans lunettes de soleil ni chapeau.',
+  'web.s04.moreInfo.ID_DOCUMENT_REFUSED':
+    'Ta pièce d’identité n’a pas pu être acceptée : utilise une pièce valable, adaptée à ton statut (passeport si tu es touriste).',
+  'web.s04.moreInfo.LICENSE_NOT_ACCEPTED':
+    'Il nous faut ton permis de conduire physique et définitif, recto et verso. Un permis international seul ou un permis provisoire ne suffit pas.',
+  'web.s04.moreInfo.generic': 'Recommence la vérification avec des photos nettes de tes pièces.',
   'web.s04.phoneFirst':
     'Vérifie d’abord ton téléphone : il sert à organiser la remise de la voiture.',
   'web.s04.phoneLink': 'Vérifier mon téléphone',

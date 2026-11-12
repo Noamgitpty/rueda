@@ -61,6 +61,8 @@ const READERS = [
   // US-105 (0072) : KYC de production fermé en base (OQ-MK-09, L1-PM-05)
   'core.kyc_cmd_apply_decision',
   'core.kyc_cmd_open_verification',
+  // US-106 (0076) : décision de l'ops fermée en base de production, comme la décision du fournisseur
+  'core.kyc_manual_action_decision',
   'core.payment_cmd_receive_webhook',
   'core.payment_cmd_record_operation',
   'core.payment_cmd_register_submerchant',

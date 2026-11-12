@@ -169,6 +169,16 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'kyc_cmd_owner', cmd: 'a' });
           continue;
         }
+        // décision KYC de l'ops (0076, US-106) : même événement, acteur OPS_AGENT ou ADMIN
+        if (r.pol === 'outbox_outbox_event.kyc_cmd_event_ops') {
+          expect(r).toMatchObject({ roles: 'kyc_cmd_owner', cmd: 'a' });
+          continue;
+        }
+        // alerte de délai des files de revue (0076, US-106) : support.review_queue.sla_breached
+        if (r.pol === 'outbox_outbox_event.iam_staff_sla_event') {
+          expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });
+          continue;
+        }
         // interrupteurs à deux personnes (0073, US-125) : insertion de config.param.changed seulement
         if (r.pol === 'outbox_outbox_event.cmd_golive_event_ins') {
           expect(r).toMatchObject({ roles: 'cmd_golive_owner', cmd: 'a' });
