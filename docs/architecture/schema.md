@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 69 migrations ; 80 tables ; 2 vues ; 412 politiques RLS ; 108 fonctions `SECURITY DEFINER` ; 135 autres fonctions.
+- 70 migrations ; 80 tables ; 2 vues ; 412 politiques RLS ; 108 fonctions `SECURITY DEFINER` ; 135 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -84,6 +84,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0066_iam_phone_otp` | IAM : vérification du téléphone par OTP (code à usage unique envoyé par SMS). |
 | `0067_catalog_host_listings` | CAT : lieux de remise, véhicules et annonces de l'hôte (modèle bêta), clé étrangère du véhicule. |
 | `0068_config_listing_photo_params` | graine complémentaire : paramètres « listing_min_photos* » (US-115 ; 17 §7.2). |
+| `0069_config_listing_price_params` | graine complémentaire : paramètres « price_ceiling_* » (US-115 ; 17 §7.2). |
 
 ## Rôles
 
@@ -826,17 +827,18 @@ Contraintes :
 - `catalog_listing_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `catalog_listing_deposit_policy_id_fkey` : `FOREIGN KEY (deposit_policy_id) REFERENCES core.catalog_deposit_policy(id)`
 - `catalog_listing_mileage_mode_valid` : `CHECK (mileage_mode = ANY (ARRAY['UNLIMITED'::text, 'INCLUDED'::text]))`
-- `catalog_listing_mileage_valid` : `CHECK (mileage_mode = 'UNLIMITED'::text AND included_km_per_day IS NULL AND extra_km_price_minor IS NULL OR mileage_mode = 'INCLUDED'::text AND included_km_per_day >= 1 AND included_km_per_day <= 10000 AND extra_km_price_minor >= 0)`
+- `catalog_listing_mileage_valid` : `CHECK (mileage_mode = 'UNLIMITED'::text AND included_km_per_day IS NULL AND extra_km_price_minor IS NULL OR mileage_mode = 'INCLUDED'::text AND included_km_per_day >= 1 AND included_km_per_day <= 10000 AND extra_km_price_minor >= 0 AND extra_km_price_minor <= '10000000000000'::bigint)`
 - `catalog_listing_party_unique` : `UNIQUE (id, org_id, country_code)`
 - `catalog_listing_pkey` : `PRIMARY KEY (id)`
+- `catalog_listing_price_bound` : `CHECK (daily_price_minor <= '10000000000000'::bigint)`
 - `catalog_listing_price_positive` : `CHECK (daily_price_minor > 0)`
 - `catalog_listing_status_valid` : `CHECK (status = ANY (ARRAY['DRAFT'::text, 'BLOCKED_ELIGIBILITY'::text, 'PENDING_REVIEW'::text, 'LISTED'::text, 'REJECTED'::text, 'SNOOZED'::text, 'UNLISTED'::text, 'RESTRICTED'::text, 'REMOVED_BY_PLATFORM'::text, 'DELETED'::text]))`
 - `catalog_listing_vehicle_fk` : `FOREIGN KEY (vehicle_id, org_id, country_code) REFERENCES core.catalog_vehicle(id, org_id, country_code)`
-- `catalog_listing_vehicle_unique` : `UNIQUE (vehicle_id)`
 
 Index :
 
 - `catalog_listing_org_idx` : `CREATE INDEX catalog_listing_org_idx ON core.catalog_listing USING btree (org_id)`
+- `catalog_listing_vehicle_live_unique` : `CREATE UNIQUE INDEX catalog_listing_vehicle_live_unique ON core.catalog_listing USING btree (vehicle_id) WHERE (status <> 'DELETED'::text)`
 
 Politiques RLS :
 
@@ -1473,7 +1475,7 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
-- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'p2p_private_hosts_enabled'::text]))`
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `go_live_switch`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
@@ -1521,7 +1523,7 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
-- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'p2p_private_hosts_enabled'::text]))`
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text]))`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`

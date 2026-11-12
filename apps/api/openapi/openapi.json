@@ -81,9 +81,7 @@
     "/brand": {
       "get": {
         "operationId": "getPublishedBrand",
-        "tags": [
-          "cfg"
-        ],
+        "tags": ["cfg"],
         "summary": "Version publiée du socle de marque (DSN-002)",
         "parameters": [
           {
@@ -143,9 +141,7 @@
     "/brand/content": {
       "get": {
         "operationId": "getPublishedContent",
-        "tags": [
-          "cfg"
-        ],
+        "tags": ["cfg"],
         "summary": "Blocs de contenu publiés dans une langue, repli es signalé (DSN-004)",
         "parameters": [
           {
@@ -202,9 +198,7 @@
     "/brand/assets/{id}": {
       "get": {
         "operationId": "getBrandAsset",
-        "tags": [
-          "cfg"
-        ],
+        "tags": ["cfg"],
         "summary": "Octets d'un actif publié (type vérifié à l'envoi)",
         "parameters": [
           {
@@ -327,9 +321,7 @@
     "/auth/signup": {
       "post": {
         "operationId": "signup",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Inscription (ACC-001) : réponse identique que l'email soit libre ou pris",
         "requestBody": {
           "required": true,
@@ -425,9 +417,7 @@
     "/auth/login": {
       "post": {
         "operationId": "login",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Connexion : jeton dans le cookie __Host-session seulement",
         "requestBody": {
           "required": true,
@@ -504,9 +494,7 @@
     "/auth/session": {
       "get": {
         "operationId": "getSession",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Principal de la session courante",
         "responses": {
           "200": {
@@ -528,9 +516,7 @@
     "/auth/logout": {
       "post": {
         "operationId": "logout",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Déconnexion (idempotente)",
         "responses": {
           "204": {
@@ -545,9 +531,7 @@
     "/auth/logout-all": {
       "post": {
         "operationId": "logoutAll",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Déconnexion de toutes les sessions",
         "responses": {
           "204": {
@@ -565,9 +549,7 @@
     "/auth/verify-email": {
       "post": {
         "operationId": "verifyEmail",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Vérification de l'adresse (lien à usage unique)",
         "requestBody": {
           "required": true,
@@ -608,10 +590,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "AUTH_LINK_EXPIRED",
-                        "REQUEST_INVALID"
-                      ]
+                      "enum": ["AUTH_LINK_EXPIRED", "REQUEST_INVALID"]
                     }
                   }
                 }
@@ -627,9 +606,7 @@
     "/host/accounts": {
       "post": {
         "operationId": "openHostAccount",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Ouverture du compte d'hôte de la personne de la session (personne physique, un par pays ; US-107)",
         "requestBody": {
           "required": true,
@@ -670,10 +647,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "REQUEST_INVALID",
-                        "COUNTRY_UNKNOWN"
-                      ]
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
                     }
                   }
                 }
@@ -739,10 +713,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "HOST_ENTITY_NOT_ALLOWED",
-                        "HOST_UNDER_AGE"
-                      ]
+                      "enum": ["HOST_ENTITY_NOT_ALLOWED", "HOST_UNDER_AGE"]
                     }
                   }
                 }
@@ -775,9 +746,7 @@
     "/phone": {
       "get": {
         "operationId": "getPhoneState",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "État du téléphone de la personne de la session : numéro vérifié (masqué), code en attente, blocage, pays proposés (US-104)",
         "responses": {
           "200": {
@@ -824,9 +793,7 @@
     "/phone/otp": {
       "post": {
         "operationId": "requestPhoneOtp",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Demande d'un code OTP par SMS pour le numéro saisi (envoi asynchrone ; US-104, 16 VER-013)",
         "requestBody": {
           "required": true,
@@ -887,11 +854,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "REQUEST_INVALID",
-                        "COUNTRY_UNKNOWN",
-                        "PHONE_INVALID"
-                      ]
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN", "PHONE_INVALID"]
                     }
                   }
                 }
@@ -944,10 +907,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "OTP_LOCKED",
-                        "RATE_LIMITED"
-                      ]
+                      "enum": ["OTP_LOCKED", "RATE_LIMITED"]
                     }
                   }
                 }
@@ -967,10 +927,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "OTP_UNAVAILABLE",
-                        "RATE_LIMIT_UNAVAILABLE"
-                      ]
+                      "enum": ["OTP_UNAVAILABLE", "RATE_LIMIT_UNAVAILABLE"]
                     }
                   }
                 }
@@ -983,9 +940,7 @@
     "/phone/verify": {
       "post": {
         "operationId": "verifyPhoneOtp",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Saisie du code OTP : numéro vérifié (US-104, 16 VER-013)",
         "requestBody": {
           "required": true,
@@ -1031,11 +986,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "REQUEST_INVALID",
-                        "OTP_INVALID",
-                        "OTP_EXPIRED"
-                      ]
+                      "enum": ["REQUEST_INVALID", "OTP_INVALID", "OTP_EXPIRED"]
                     }
                   }
                 }
@@ -1114,9 +1065,7 @@
     "/staff/me": {
       "get": {
         "operationId": "staffMe",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "État d'accès de la session à la console interne (US-012)",
         "responses": {
           "200": {
@@ -1146,9 +1095,7 @@
     "/staff/mfa/enroll": {
       "post": {
         "operationId": "staffMfaEnroll",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Enrôlement TOTP, étape 1 : le code remis hors bande ouvre le secret (affiché une fois)",
         "requestBody": {
           "required": true,
@@ -1189,10 +1136,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "REQUEST_INVALID",
-                        "AUTH_TOTP_INVALID"
-                      ]
+                      "enum": ["REQUEST_INVALID", "AUTH_TOTP_INVALID"]
                     }
                   }
                 }
@@ -1218,10 +1162,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "RATE_LIMITED",
-                        "AUTH_TOTP_LOCKED"
-                      ]
+                      "enum": ["RATE_LIMITED", "AUTH_TOTP_LOCKED"]
                     }
                   }
                 }
@@ -1254,9 +1195,7 @@
     "/staff/mfa/verify": {
       "post": {
         "operationId": "staffMfaVerify",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Code TOTP : fin d'enrôlement ou élévation de la session",
         "requestBody": {
           "required": true,
@@ -1297,10 +1236,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "REQUEST_INVALID",
-                        "AUTH_TOTP_INVALID"
-                      ]
+                      "enum": ["REQUEST_INVALID", "AUTH_TOTP_INVALID"]
                     }
                   }
                 }
@@ -1329,10 +1265,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "RATE_LIMITED",
-                        "AUTH_TOTP_LOCKED"
-                      ]
+                      "enum": ["RATE_LIMITED", "AUTH_TOTP_LOCKED"]
                     }
                   }
                 }
@@ -1365,9 +1298,7 @@
     "/staff/members/{id}/suspend": {
       "post": {
         "operationId": "staffSuspend",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Suspension d'un membre du staff (iam.staff_roles_write, portée pays)",
         "parameters": [
           {
@@ -1426,9 +1357,7 @@
     "/staff/members/{id}/reset-totp": {
       "post": {
         "operationId": "staffResetTotp",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Réinitialisation du TOTP d'un autre membre : code d'enrôlement rendu une fois",
         "parameters": [
           {
@@ -1507,9 +1436,7 @@
     "/staff/audit": {
       "get": {
         "operationId": "staffAudit",
-        "tags": [
-          "iam"
-        ],
+        "tags": ["iam"],
         "summary": "Journal d'audit de la console (audit.read ; lignes filtrées en base)",
         "parameters": [
           {
@@ -1563,9 +1490,7 @@
     "/console/actions": {
       "post": {
         "operationId": "consoleAction",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Action de console motivée et idempotente : commande de domaine liée ou enregistrement seul (ADM-001, 17 §10, US-101)",
         "requestBody": {
           "required": true,
@@ -1630,10 +1555,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "STAFF_ACTION_UNAVAILABLE",
-                        "STAFF_ACTION_REFUSED"
-                      ]
+                      "enum": ["STAFF_ACTION_UNAVAILABLE", "STAFF_ACTION_REFUSED"]
                     }
                   }
                 }
@@ -1652,9 +1574,7 @@
     "/console/finance/approvals": {
       "get": {
         "operationId": "consoleFinanceApprovals",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Demandes FINANCE en attente d'une seconde personne (FINANCE et ADMIN du pays, RLS-24)",
         "parameters": [
           {
@@ -1699,9 +1619,7 @@
     "/console/finance/approvals/{id}/approve": {
       "post": {
         "operationId": "consoleFinanceApprove",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Approbation d'une demande FINANCE par une seconde personne distincte (cmd_approve_finance_action, RLS-24)",
         "parameters": [
           {
@@ -1751,10 +1669,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "STAFF_SELF_APPROVAL",
-                        "STAFF_ACTION_REFUSED"
-                      ]
+                      "enum": ["STAFF_SELF_APPROVAL", "STAFF_ACTION_REFUSED"]
                     }
                   }
                 }
@@ -1773,10 +1688,7 @@
     "/console/brand/assets": {
       "post": {
         "operationId": "consoleBrandAsset",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Actif de marque (base64, type réel vérifié, 64 Kio au plus)",
         "requestBody": {
           "required": true,
@@ -1868,10 +1780,7 @@
     "/console/brand/drafts": {
       "post": {
         "operationId": "consoleBrandDraft",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Brouillon de marque (jetons DTCG ou palette du dépôt)",
         "requestBody": {
           "required": true,
@@ -1930,10 +1839,7 @@
                   "$ref": "#/components/schemas/BrandError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "BRAND_TOKENS_INVALID",
-                        "FONT_NOT_APPROVED"
-                      ]
+                      "enum": ["BRAND_TOKENS_INVALID", "FONT_NOT_APPROVED"]
                     }
                   }
                 }
@@ -1946,10 +1852,7 @@
     "/console/brand/versions": {
       "get": {
         "operationId": "consoleBrandVersions",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Historique des versions de marque, brouillons compris",
         "parameters": [
           {
@@ -1994,10 +1897,7 @@
     "/console/brand/versions/{id}": {
       "get": {
         "operationId": "consoleBrandVersion",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Une version de marque (prévisualisation)",
         "parameters": [
           {
@@ -2063,10 +1963,7 @@
     "/console/brand/versions/{id}/publish": {
       "post": {
         "operationId": "consoleBrandPublish",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Publication d’un brouillon (contraste d’US-030 recalculé)",
         "parameters": [
           {
@@ -2172,10 +2069,7 @@
     "/console/brand/rollback": {
       "post": {
         "operationId": "consoleBrandRollback",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Retour arrière en un clic vers la version publiée précédente (ou une cible)",
         "requestBody": {
           "required": true,
@@ -2271,10 +2165,7 @@
     "/console/content/drafts": {
       "post": {
         "operationId": "consoleContentDraft",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Brouillon d’un bloc de contenu (es, en, fr, pt)",
         "requestBody": {
           "required": true,
@@ -2351,10 +2242,7 @@
     "/console/content/gaps": {
       "get": {
         "operationId": "consoleContentGaps",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Blocs publiés à revoir : langue absente, corps hors des règles, clé hors du registre (US-121)",
         "responses": {
           "200": {
@@ -2387,10 +2275,7 @@
     "/console/content/publish": {
       "post": {
         "operationId": "consoleContentPublish",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Publication d’une version d’un bloc de contenu",
         "requestBody": {
           "required": true,
@@ -2482,10 +2367,7 @@
     "/console/content/rollback": {
       "post": {
         "operationId": "consoleContentRollback",
-        "tags": [
-          "sup",
-          "cfg"
-        ],
+        "tags": ["sup", "cfg"],
         "summary": "Retour à la version précédente (ou cible) d’un bloc de contenu",
         "requestBody": {
           "required": true,
@@ -2577,10 +2459,7 @@
     "/console/security/abuse": {
       "get": {
         "operationId": "consoleSecurityAbuse",
-        "tags": [
-          "sup",
-          "risk"
-        ],
+        "tags": ["sup", "risk"],
         "summary": "Tableau des abus agrégés par heure (security.read_abuse)",
         "parameters": [
           {
@@ -2636,9 +2515,7 @@
     "/webhooks/{provider}/{publicWebhookId}": {
       "post": {
         "operationId": "pspWebhook",
-        "tags": [
-          "pay"
-        ],
+        "tags": ["pay"],
         "summary": "Webhook PSP (17 §4.4) : signature sur les octets reçus ; réponse sans corps",
         "parameters": [
           {
@@ -2708,9 +2585,7 @@
     "/legal/documents": {
       "get": {
         "operationId": "listLegalDocuments",
-        "tags": [
-          "ctr"
-        ],
+        "tags": ["ctr"],
         "summary": "Documents juridiques en vigueur (CGU du voyageur, confidentialité, communications) et leur version (US-102)",
         "parameters": [
           {
@@ -2760,10 +2635,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "REQUEST_INVALID",
-                        "COUNTRY_UNKNOWN"
-                      ]
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
                     }
                   }
                 }
@@ -2796,9 +2668,7 @@
     "/legal/documents/{kind}": {
       "get": {
         "operationId": "getLegalDocument",
-        "tags": [
-          "ctr"
-        ],
+        "tags": ["ctr"],
         "summary": "Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté",
         "parameters": [
           {
@@ -2865,10 +2735,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "REQUEST_INVALID",
-                        "COUNTRY_UNKNOWN"
-                      ]
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
                     }
                   }
                 }
@@ -2901,9 +2768,7 @@
     "/legal/consents": {
       "get": {
         "operationId": "getConsents",
-        "tags": [
-          "ctr"
-        ],
+        "tags": ["ctr"],
         "summary": "État des consentements de la session (réacceptation exigée après une version majeure) et historique",
         "responses": {
           "200": {
@@ -2930,9 +2795,7 @@
     "/legal/consents/accept": {
       "post": {
         "operationId": "acceptConsents",
-        "tags": [
-          "ctr"
-        ],
+        "tags": ["ctr"],
         "summary": "Accepter les versions en vigueur des CGU et de la confidentialité (REACCEPT)",
         "requestBody": {
           "required": true,
@@ -3032,9 +2895,7 @@
     "/legal/consents/marketing": {
       "post": {
         "operationId": "setMarketingConsent",
-        "tags": [
-          "ctr"
-        ],
+        "tags": ["ctr"],
         "summary": "Communications commerciales : accord ou révocation (historique conservé)",
         "requestBody": {
           "required": true,
@@ -3114,9 +2975,7 @@
     "/console/queues": {
       "get": {
         "operationId": "consoleQueues",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Files de revue : résumé par file (ouverts, en retard) et éléments d'une file, retard signalé par la base (ADM-029, US-109)",
         "parameters": [
           {
@@ -3181,9 +3040,7 @@
     "/console/queues/items/{id}/claim": {
       "post": {
         "operationId": "consoleQueueClaim",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Prise en charge d'un élément de file (assignation à soi), journalisée (US-109)",
         "parameters": [
           {
@@ -3201,9 +3058,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId"
-                ],
+                "required": ["requestId"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
@@ -3271,9 +3126,7 @@
     "/console/queues/items/{id}/kyc": {
       "post": {
         "operationId": "consoleQueueKycDossier",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Dossier KYC par la file KYC seulement (élément assigné), journalisé READ_C3 avant la lecture (L1-PM-08, US-109)",
         "parameters": [
           {
@@ -3291,10 +3144,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId",
-                  "purpose"
-                ],
+                "required": ["requestId", "purpose"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
@@ -3348,9 +3198,7 @@
     "/console/users/search": {
       "post": {
         "operationId": "consoleUserSearch",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Recherche d'une personne par son e-mail exact, journalisée (ADM-005, US-109)",
         "requestBody": {
           "required": true,
@@ -3358,11 +3206,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId",
-                  "email",
-                  "purpose"
-                ],
+                "required": ["requestId", "email", "purpose"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
@@ -3441,9 +3285,7 @@
     "/console/users/{id}/profile": {
       "post": {
         "operationId": "consoleUserProfile",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Fiche 360° (ADM-005) : couverture par dossier ou élément assigné, journalisée READ_C2_SUPPORT (US-109)",
         "parameters": [
           {
@@ -3461,10 +3303,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId",
-                  "purpose"
-                ],
+                "required": ["requestId", "purpose"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
@@ -3518,9 +3357,7 @@
     "/console/users/{id}/notes": {
       "post": {
         "operationId": "consoleUserNote",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Note interne sur une personne, jamais visible des clients (ADM-005, US-109)",
         "parameters": [
           {
@@ -3538,10 +3375,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId",
-                  "body"
-                ],
+                "required": ["requestId", "body"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
@@ -3609,9 +3443,7 @@
     "/console/cases": {
       "post": {
         "operationId": "consoleCaseOpen",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Ouverture d'un dossier de support assigné à l'acteur (17 §3.2.13, US-109)",
         "requestBody": {
           "required": true,
@@ -3619,12 +3451,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId",
-                  "requesterUserId",
-                  "category",
-                  "channel"
-                ],
+                "required": ["requestId", "requesterUserId", "category", "channel"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
@@ -3634,31 +3461,13 @@
                     "$ref": "#/components/schemas/Uuid"
                   },
                   "category": {
-                    "enum": [
-                      "TRIP",
-                      "PAYMENT",
-                      "ACCOUNT",
-                      "LISTING",
-                      "CLAIM",
-                      "SAFETY",
-                      "OTHER"
-                    ]
+                    "enum": ["TRIP", "PAYMENT", "ACCOUNT", "LISTING", "CLAIM", "SAFETY", "OTHER"]
                   },
                   "priority": {
-                    "enum": [
-                      "LOW",
-                      "NORMAL",
-                      "HIGH",
-                      "URGENT"
-                    ]
+                    "enum": ["LOW", "NORMAL", "HIGH", "URGENT"]
                   },
                   "channel": {
-                    "enum": [
-                      "WHATSAPP",
-                      "EMAIL",
-                      "PHONE",
-                      "IN_APP"
-                    ]
+                    "enum": ["WHATSAPP", "EMAIL", "PHONE", "IN_APP"]
                   }
                 }
               }
@@ -3717,9 +3526,7 @@
     "/console/cases/{id}/status": {
       "post": {
         "operationId": "consoleCaseStatus",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Changement d'état d'un dossier par son assigné ou un ADMIN du pays (US-109)",
         "parameters": [
           {
@@ -3737,21 +3544,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId",
-                  "status"
-                ],
+                "required": ["requestId", "status"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
                     "$ref": "#/components/schemas/Uuid"
                   },
                   "status": {
-                    "enum": [
-                      "PENDING",
-                      "RESOLVED",
-                      "CLOSED"
-                    ]
+                    "enum": ["PENDING", "RESOLVED", "CLOSED"]
                   }
                 }
               }
@@ -3795,9 +3595,7 @@
     "/console/evidence": {
       "post": {
         "operationId": "consoleEvidenceUpload",
-        "tags": [
-          "sup"
-        ],
+        "tags": ["sup"],
         "summary": "Pièce du staff : type réel (JPEG, PNG, HEIC, PDF), taille, droit, antivirus, puis dépôt chiffré (PRIVATE_EVIDENCE, US-109)",
         "requestBody": {
           "required": true,
@@ -3805,12 +3603,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "requestId",
-                  "subjectUserId",
-                  "mime",
-                  "contentBase64"
-                ],
+                "required": ["requestId", "subjectUserId", "mime", "contentBase64"],
                 "additionalProperties": false,
                 "properties": {
                   "requestId": {
@@ -3820,12 +3613,7 @@
                     "$ref": "#/components/schemas/Uuid"
                   },
                   "mime": {
-                    "enum": [
-                      "image/jpeg",
-                      "image/png",
-                      "image/heic",
-                      "application/pdf"
-                    ]
+                    "enum": ["image/jpeg", "image/png", "image/heic", "application/pdf"]
                   },
                   "contentBase64": {
                     "type": "string",
@@ -3928,9 +3716,7 @@
     "/host/accounts/{orgId}/locations": {
       "get": {
         "operationId": "hostLocations",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Lieux de remise du compte d'hôte de la session (exacts : l'hôte seul ; US-115)",
         "parameters": [
           {
@@ -3985,9 +3771,7 @@
       },
       "post": {
         "operationId": "createHostLocation",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Lieu de remise (pays et fuseau du compte d'hôte ; épingle facultative, sans géocodage ; US-115)",
         "parameters": [
           {
@@ -4117,9 +3901,7 @@
     "/host/accounts/{orgId}/vehicles": {
       "get": {
         "operationId": "hostVehicles",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Véhicules du compte d'hôte de la session (US-115)",
         "parameters": [
           {
@@ -4174,9 +3956,7 @@
       },
       "post": {
         "operationId": "createHostVehicle",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Véhicule d'un particulier : plaque et VIN normalisés, uniques ; variante du marché du compte (US-115)",
         "parameters": [
           {
@@ -4264,10 +4044,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "VEHICLE_PLATE_DUPLICATE",
-                        "CATALOG_VARIANT_RETIRED"
-                      ]
+                      "enum": ["VEHICLE_PLATE_DUPLICATE", "CATALOG_VARIANT_RETIRED"]
                     }
                   }
                 }
@@ -4313,9 +4090,7 @@
     "/host/accounts/{orgId}/listings": {
       "get": {
         "operationId": "hostListings",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Annonces du compte d'hôte de la session, hors supprimées (US-115)",
         "parameters": [
           {
@@ -4370,9 +4145,7 @@
       },
       "post": {
         "operationId": "createHostListing",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Annonce DRAFT d'un véhicule du compte (une par véhicule ; prix au pas du pays ; US-115)",
         "parameters": [
           {
@@ -4436,10 +4209,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "HOST_ACCOUNT_NOT_FOUND",
-                        "VEHICLE_NOT_FOUND"
-                      ]
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
                     }
                   }
                 }
@@ -4509,9 +4279,7 @@
     "/host/accounts/{orgId}/listings/{listingId}/pricing": {
       "put": {
         "operationId": "updateHostListingPricing",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Prix journalier et distance incluse (effet sur les nouveaux devis seulement ; un trip confirmé garde son prix ; US-115)",
         "parameters": [
           {
@@ -4583,10 +4351,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "HOST_ACCOUNT_NOT_FOUND",
-                        "LISTING_NOT_FOUND"
-                      ]
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
                     }
                   }
                 }
@@ -4629,10 +4394,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "PRICE_INVALID",
-                        "MILEAGE_CONFIG_INVALID"
-                      ]
+                      "enum": ["PRICE_INVALID", "MILEAGE_CONFIG_INVALID"]
                     }
                   }
                 }
@@ -4655,9 +4417,7 @@
     "/host/accounts/{orgId}/listings/{listingId}/submit": {
       "post": {
         "operationId": "submitHostListing",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, compte ACTIVE, pays ouvert (US-115)",
         "parameters": [
           {
@@ -4709,10 +4469,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "HOST_ACCOUNT_NOT_FOUND",
-                        "LISTING_NOT_FOUND"
-                      ]
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
                     }
                   }
                 }
@@ -4755,10 +4512,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "PHOTO_MIN_COUNT",
-                        "HOST_NOT_ACTIVATED"
-                      ]
+                      "enum": ["PHOTO_MIN_COUNT", "HOST_NOT_ACTIVATED"]
                     }
                   }
                 }
@@ -4771,9 +4525,7 @@
     "/host/accounts/{orgId}/listings/{listingId}/photos": {
       "post": {
         "operationId": "addHostListingPhoto",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Photo d'annonce (JPEG, PNG, WebP ; type réel, dimensions, métadonnées EXIF retirées, antivirus) ; production : 503 tant que l'antivirus ClamAV et le stockage objet ne sont pas branchés (US-115)",
         "parameters": [
           {
@@ -4855,10 +4607,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "HOST_ACCOUNT_NOT_FOUND",
-                        "LISTING_NOT_FOUND"
-                      ]
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
                     }
                   }
                 }
@@ -4934,9 +4683,7 @@
     "/host/accounts/{orgId}/listings/{listingId}": {
       "delete": {
         "operationId": "deleteHostListing",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Suppression d'un brouillon, d'une annonce refusée ou bloquée (SM-2 vers DELETED ; US-115)",
         "parameters": [
           {
@@ -4988,10 +4735,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "HOST_ACCOUNT_NOT_FOUND",
-                        "LISTING_NOT_FOUND"
-                      ]
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
                     }
                   }
                 }
@@ -5027,9 +4771,7 @@
     "/host/accounts/{orgId}/catalog/makes": {
       "get": {
         "operationId": "hostCatalogMakes",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Marques ACTIVE du catalogue de référence (US-113, US-115)",
         "parameters": [
           {
@@ -5086,9 +4828,7 @@
     "/host/accounts/{orgId}/catalog/makes/{makeId}/models": {
       "get": {
         "operationId": "hostCatalogModels",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Modèles ACTIVE d'une marque (US-113, US-115)",
         "parameters": [
           {
@@ -5153,9 +4893,7 @@
     "/host/accounts/{orgId}/catalog/models/{modelId}/variants": {
       "get": {
         "operationId": "hostCatalogVariants",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Variantes ACTIVE d'un modèle, communes ou du marché du compte d'hôte (réserve de la revue d'US-113 ; US-115)",
         "parameters": [
           {
@@ -5249,9 +4987,7 @@
     "/host/accounts/{orgId}/catalog/variants/{variantId}/prefill": {
       "get": {
         "operationId": "hostCatalogPrefill",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Préremplissage du véhicule depuis une variante du marché du compte (US-113, US-115)",
         "parameters": [
           {
@@ -5303,10 +5039,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": [
-                        "HOST_ACCOUNT_NOT_FOUND",
-                        "CATALOG_VARIANT_NOT_FOUND"
-                      ]
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "CATALOG_VARIANT_NOT_FOUND"]
                     }
                   }
                 }
@@ -5319,9 +5052,7 @@
     "/listings/{listingId}": {
       "get": {
         "operationId": "publicListing",
-        "tags": [
-          "cat"
-        ],
+        "tags": ["cat"],
         "summary": "Fiche publique d'une annonce LISTED : colonnes C0, zone approximative du lieu de remise, jamais l'adresse exacte (US-115 critère 4)",
         "parameters": [
           {
@@ -5491,10 +5222,7 @@
               "$ref": "#/components/schemas/AuthBody",
               "properties": {
                 "code": {
-                  "enum": [
-                    "FORBIDDEN",
-                    "2FA_REQUIRED"
-                  ]
+                  "enum": ["FORBIDDEN", "2FA_REQUIRED"]
                 }
               }
             }
@@ -5614,11 +5342,7 @@
               "$ref": "#/components/schemas/AuthBody",
               "properties": {
                 "code": {
-                  "enum": [
-                    "FORBIDDEN",
-                    "2FA_REQUIRED",
-                    "STAFF_CASE_REQUIRED"
-                  ]
+                  "enum": ["FORBIDDEN", "2FA_REQUIRED", "STAFF_CASE_REQUIRED"]
                 }
               }
             }
@@ -5642,12 +5366,7 @@
       },
       "ContentLocale": {
         "type": "string",
-        "enum": [
-          "es",
-          "en",
-          "fr",
-          "pt"
-        ]
+        "enum": ["es", "en", "fr", "pt"]
       },
       "MessageKey": {
         "type": "string",
@@ -5655,10 +5374,7 @@
       },
       "BrandError": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey"
-        ],
+        "required": ["code", "messageKey"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -5681,10 +5397,7 @@
       },
       "AuthBody": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey"
-        ],
+        "required": ["code", "messageKey"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -5697,46 +5410,24 @@
           "values": {
             "type": "object",
             "additionalProperties": {
-              "type": [
-                "string",
-                "number"
-              ]
+              "type": ["string", "number"]
             }
           }
         }
       },
       "AssetView": {
         "type": "object",
-        "required": [
-          "id",
-          "kind",
-          "mime",
-          "bytes",
-          "sha256",
-          "path",
-          "alt"
-        ],
+        "required": ["id", "kind", "mime", "bytes", "sha256", "path", "alt"],
         "additionalProperties": false,
         "properties": {
           "id": {
             "$ref": "#/components/schemas/Uuid"
           },
           "kind": {
-            "enum": [
-              "LOGO",
-              "FAVICON",
-              "PWA_ICON",
-              "HERO_IMAGE",
-              "FONT"
-            ]
+            "enum": ["LOGO", "FAVICON", "PWA_ICON", "HERO_IMAGE", "FONT"]
           },
           "mime": {
-            "enum": [
-              "image/png",
-              "image/jpeg",
-              "image/webp",
-              "font/woff2"
-            ]
+            "enum": ["image/png", "image/jpeg", "image/webp", "font/woff2"]
           },
           "bytes": {
             "type": "integer",
@@ -5752,37 +5443,20 @@
           },
           "alt": {
             "type": "object",
-            "required": [
-              "es",
-              "en",
-              "fr",
-              "pt"
-            ],
+            "required": ["es", "en", "fr", "pt"],
             "additionalProperties": false,
             "properties": {
               "es": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": ["string", "null"]
               },
               "en": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": ["string", "null"]
               },
               "fr": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": ["string", "null"]
               },
               "pt": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": ["string", "null"]
               }
             }
           }
@@ -5829,11 +5503,7 @@
           },
           "assets": {
             "type": "object",
-            "required": [
-              "logo",
-              "favicon",
-              "pwaIcon"
-            ],
+            "required": ["logo", "favicon", "pwaIcon"],
             "additionalProperties": false,
             "properties": {
               "logo": {
@@ -5920,10 +5590,7 @@
             ]
           },
           "format": {
-            "enum": [
-              "plain",
-              "rich"
-            ]
+            "enum": ["plain", "rich"]
           },
           "doc": {
             "$ref": "#/components/schemas/RichDoc"
@@ -5935,11 +5602,7 @@
       },
       "ContentResponse": {
         "type": "object",
-        "required": [
-          "locale",
-          "country",
-          "blocks"
-        ],
+        "required": ["locale", "country", "blocks"],
         "additionalProperties": false,
         "properties": {
           "locale": {
@@ -6013,10 +5676,7 @@
       },
       "LoginRequest": {
         "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
+        "required": ["email", "password"],
         "properties": {
           "email": {
             "type": "string"
@@ -6028,9 +5688,7 @@
       },
       "VerifyEmailRequest": {
         "type": "object",
-        "required": [
-          "token"
-        ],
+        "required": ["token"],
         "properties": {
           "token": {
             "type": "string"
@@ -6039,9 +5697,7 @@
       },
       "LoginResponse": {
         "type": "object",
-        "required": [
-          "expiresAt"
-        ],
+        "required": ["expiresAt"],
         "additionalProperties": false,
         "properties": {
           "expiresAt": {
@@ -6051,25 +5707,14 @@
       },
       "Session": {
         "type": "object",
-        "required": [
-          "userId",
-          "mfaLevel",
-          "expiresAt",
-          "emailVerified",
-          "roles",
-          "hostAccounts"
-        ],
+        "required": ["userId", "mfaLevel", "expiresAt", "emailVerified", "roles", "hostAccounts"],
         "additionalProperties": false,
         "properties": {
           "userId": {
             "$ref": "#/components/schemas/Uuid"
           },
           "mfaLevel": {
-            "enum": [
-              "NONE",
-              "OTP",
-              "TOTP"
-            ]
+            "enum": ["NONE", "OTP", "TOTP"]
           },
           "expiresAt": {
             "$ref": "#/components/schemas/DateTime"
@@ -6084,10 +5729,7 @@
             "maxItems": 2,
             "uniqueItems": true,
             "items": {
-              "enum": [
-                "GUEST",
-                "P2P_HOST"
-              ]
+              "enum": ["GUEST", "P2P_HOST"]
             }
           },
           "hostAccounts": {
@@ -6100,10 +5742,7 @@
       },
       "StaffRole": {
         "type": "object",
-        "required": [
-          "role",
-          "countries"
-        ],
+        "required": ["role", "countries"],
         "additionalProperties": false,
         "properties": {
           "role": {
@@ -6120,10 +5759,7 @@
       },
       "StaffMe": {
         "type": "object",
-        "required": [
-          "state",
-          "roles"
-        ],
+        "required": ["state", "roles"],
         "additionalProperties": false,
         "properties": {
           "state": {
@@ -6146,9 +5782,7 @@
       },
       "MfaEnrollRequest": {
         "type": "object",
-        "required": [
-          "enrollmentCode"
-        ],
+        "required": ["enrollmentCode"],
         "properties": {
           "enrollmentCode": {
             "description": "16 caractères base32 remis hors bande (espaces et tirets ignorés)",
@@ -6158,10 +5792,7 @@
       },
       "MfaEnrollment": {
         "type": "object",
-        "required": [
-          "secret",
-          "otpauthUri"
-        ],
+        "required": ["secret", "otpauthUri"],
         "additionalProperties": false,
         "properties": {
           "secret": {
@@ -6176,9 +5807,7 @@
       },
       "MfaVerifyRequest": {
         "type": "object",
-        "required": [
-          "code"
-        ],
+        "required": ["code"],
         "properties": {
           "code": {
             "type": "string",
@@ -6192,24 +5821,17 @@
       },
       "MfaState": {
         "type": "object",
-        "required": [
-          "state"
-        ],
+        "required": ["state"],
         "additionalProperties": false,
         "properties": {
           "state": {
-            "enum": [
-              "ELEVATED",
-              "ENROLLED"
-            ]
+            "enum": ["ELEVATED", "ENROLLED"]
           }
         }
       },
       "ReasonRequest": {
         "type": "object",
-        "required": [
-          "reason"
-        ],
+        "required": ["reason"],
         "properties": {
           "reason": {
             "type": "string",
@@ -6221,9 +5843,7 @@
       },
       "EnrollmentCode": {
         "type": "object",
-        "required": [
-          "enrollmentCode"
-        ],
+        "required": ["enrollmentCode"],
         "additionalProperties": false,
         "properties": {
           "enrollmentCode": {
@@ -6289,30 +5909,19 @@
             "type": "string"
           },
           "reason": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "before": {
-            "type": [
-              "object",
-              "null"
-            ]
+            "type": ["object", "null"]
           },
           "after": {
-            "type": [
-              "object",
-              "null"
-            ]
+            "type": ["object", "null"]
           }
         }
       },
       "AuditPage": {
         "type": "object",
-        "required": [
-          "entries"
-        ],
+        "required": ["entries"],
         "additionalProperties": false,
         "properties": {
           "entries": {
@@ -6326,12 +5935,7 @@
       },
       "ManualActionRequest": {
         "type": "object",
-        "required": [
-          "requestId",
-          "action",
-          "subjectId",
-          "reason"
-        ],
+        "required": ["requestId", "action", "subjectId", "reason"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid",
@@ -6350,10 +5954,7 @@
             "maxLength": 1000
           },
           "input": {
-            "type": [
-              "object",
-              "null"
-            ],
+            "type": ["object", "null"],
             "description": "4 Kio au plus en JSON ; chaînes seulement (l'agent ne saisit jamais un montant), clés déclarées par l'action (US-101)",
             "maxProperties": 8,
             "propertyNames": {
@@ -6366,10 +5967,7 @@
             }
           },
           "evidence": {
-            "type": [
-              "array",
-              "null"
-            ],
+            "type": ["array", "null"],
             "description": "pièces déjà reçues (seau des preuves) ; obligatoires pour une action d'enregistrement seul (US-101)",
             "maxItems": 20,
             "uniqueItems": true,
@@ -6381,19 +5979,11 @@
       },
       "ActionRecorded": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "actionId"
-        ],
+        "required": ["code", "messageKey", "actionId"],
         "additionalProperties": false,
         "properties": {
           "code": {
-            "enum": [
-              "STAFF_ACTION_RECORDED",
-              "STAFF_ACTION_DONE",
-              "STAFF_ACTION_REQUESTED"
-            ]
+            "enum": ["STAFF_ACTION_RECORDED", "STAFF_ACTION_DONE", "STAFF_ACTION_REQUESTED"]
           },
           "messageKey": {
             "enum": [
@@ -6420,24 +6010,13 @@
       },
       "AssetUploadRequest": {
         "type": "object",
-        "required": [
-          "requestId",
-          "kind",
-          "contentBase64",
-          "licenseNote"
-        ],
+        "required": ["requestId", "kind", "contentBase64", "licenseNote"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid"
           },
           "kind": {
-            "enum": [
-              "LOGO",
-              "FAVICON",
-              "PWA_ICON",
-              "HERO_IMAGE",
-              "FONT"
-            ]
+            "enum": ["LOGO", "FAVICON", "PWA_ICON", "HERO_IMAGE", "FONT"]
           },
           "contentBase64": {
             "type": "string",
@@ -6460,11 +6039,7 @@
       },
       "AssetRegistered": {
         "type": "object",
-        "required": [
-          "assetId",
-          "duplicate",
-          "sha256"
-        ],
+        "required": ["assetId", "duplicate", "sha256"],
         "additionalProperties": false,
         "properties": {
           "assetId": {
@@ -6481,10 +6056,7 @@
       },
       "DraftRequest": {
         "type": "object",
-        "required": [
-          "requestId",
-          "brandName"
-        ],
+        "required": ["requestId", "brandName"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid"
@@ -6545,11 +6117,7 @@
       },
       "DraftSaved": {
         "type": "object",
-        "required": [
-          "versionId",
-          "versionNo",
-          "duplicate"
-        ],
+        "required": ["versionId", "versionNo", "duplicate"],
         "additionalProperties": false,
         "properties": {
           "versionId": {
@@ -6594,11 +6162,7 @@
             "minimum": 1
           },
           "status": {
-            "enum": [
-              "DRAFT",
-              "PUBLISHED",
-              "ARCHIVED"
-            ]
+            "enum": ["DRAFT", "PUBLISHED", "ARCHIVED"]
           },
           "brandName": {
             "type": "string",
@@ -6642,10 +6206,7 @@
             ]
           },
           "contrastCheck": {
-            "type": [
-              "object",
-              "null"
-            ]
+            "type": ["object", "null"]
           },
           "copiedFromId": {
             "anyOf": [
@@ -6697,9 +6258,7 @@
       },
       "StaffBrandVersionList": {
         "type": "object",
-        "required": [
-          "versions"
-        ],
+        "required": ["versions"],
         "additionalProperties": false,
         "properties": {
           "versions": {
@@ -6712,9 +6271,7 @@
       },
       "RequestIdBody": {
         "type": "object",
-        "required": [
-          "requestId"
-        ],
+        "required": ["requestId"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid"
@@ -6723,9 +6280,7 @@
       },
       "RollbackRequest": {
         "type": "object",
-        "required": [
-          "requestId"
-        ],
+        "required": ["requestId"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid"
@@ -6744,10 +6299,7 @@
       },
       "VersionPublished": {
         "type": "object",
-        "required": [
-          "versionId",
-          "versionNo"
-        ],
+        "required": ["versionId", "versionNo"],
         "additionalProperties": false,
         "properties": {
           "versionId": {
@@ -6761,12 +6313,7 @@
       },
       "VersionRolledBack": {
         "type": "object",
-        "required": [
-          "versionId",
-          "versionNo",
-          "copiedFromId",
-          "duplicate"
-        ],
+        "required": ["versionId", "versionNo", "copiedFromId", "duplicate"],
         "additionalProperties": false,
         "properties": {
           "versionId": {
@@ -6793,11 +6340,7 @@
       },
       "ContentDraftRequest": {
         "type": "object",
-        "required": [
-          "requestId",
-          "key",
-          "bodies"
-        ],
+        "required": ["requestId", "key", "bodies"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid"
@@ -6836,11 +6379,7 @@
       },
       "ContentPublishRequest": {
         "type": "object",
-        "required": [
-          "requestId",
-          "key",
-          "versionNo"
-        ],
+        "required": ["requestId", "key", "versionNo"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid"
@@ -6866,10 +6405,7 @@
       },
       "ContentRollbackRequest": {
         "type": "object",
-        "required": [
-          "requestId",
-          "key"
-        ],
+        "required": ["requestId", "key"],
         "properties": {
           "requestId": {
             "$ref": "#/components/schemas/Uuid"
@@ -6902,10 +6438,7 @@
       },
       "ContentVersionSaved": {
         "type": "object",
-        "required": [
-          "versionNo",
-          "duplicate"
-        ],
+        "required": ["versionNo", "duplicate"],
         "additionalProperties": false,
         "properties": {
           "versionNo": {
@@ -6919,9 +6452,7 @@
       },
       "ContentPublished": {
         "type": "object",
-        "required": [
-          "versionNo"
-        ],
+        "required": ["versionNo"],
         "additionalProperties": false,
         "properties": {
           "versionNo": {
@@ -6987,9 +6518,7 @@
       },
       "AbuseBoard": {
         "type": "object",
-        "required": [
-          "rows"
-        ],
+        "required": ["rows"],
         "additionalProperties": false,
         "properties": {
           "rows": {
@@ -7013,18 +6542,12 @@
       },
       "DocumentVersion": {
         "type": "object",
-        "required": [
-          "kind",
-          "version"
-        ],
+        "required": ["kind", "version"],
         "additionalProperties": false,
         "properties": {
           "kind": {
             "type": "string",
-            "enum": [
-              "TOS_GUEST",
-              "PRIVACY"
-            ]
+            "enum": ["TOS_GUEST", "PRIVACY"]
           },
           "version": {
             "type": "integer",
@@ -7034,11 +6557,7 @@
       },
       "LegalDocumentKind": {
         "type": "string",
-        "enum": [
-          "TOS_GUEST",
-          "PRIVACY",
-          "MARKETING"
-        ]
+        "enum": ["TOS_GUEST", "PRIVACY", "MARKETING"]
       },
       "LegalDocumentSummary": {
         "type": "object",
@@ -7085,9 +6604,7 @@
       },
       "LegalDocumentList": {
         "type": "object",
-        "required": [
-          "documents"
-        ],
+        "required": ["documents"],
         "additionalProperties": false,
         "properties": {
           "documents": {
@@ -7165,22 +6682,13 @@
             "type": "boolean"
           },
           "currentVersion": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "requiredVersion": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "acceptedVersion": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "accepted": {
             "type": "boolean"
@@ -7192,14 +6700,7 @@
       },
       "ConsentHistoryEntry": {
         "type": "object",
-        "required": [
-          "kind",
-          "version",
-          "locale",
-          "accepted",
-          "acceptedAt",
-          "context"
-        ],
+        "required": ["kind", "version", "locale", "accepted", "acceptedAt", "context"],
         "additionalProperties": false,
         "properties": {
           "kind": {
@@ -7219,33 +6720,18 @@
           },
           "context": {
             "type": "string",
-            "enum": [
-              "SIGNUP",
-              "REACCEPT",
-              "SETTINGS",
-              "CHECKOUT",
-              "CONTRACT",
-              "KYC"
-            ]
+            "enum": ["SIGNUP", "REACCEPT", "SETTINGS", "CHECKOUT", "CONTRACT", "KYC"]
           }
         }
       },
       "ConsentAcceptResult": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "documents",
-          "marketingOptIn"
-        ],
+        "required": ["code", "messageKey", "documents", "marketingOptIn"],
         "additionalProperties": false,
         "properties": {
           "code": {
             "type": "string",
-            "enum": [
-              "TERMS_CURRENT",
-              "TERMS_REACCEPT_REQUIRED"
-            ]
+            "enum": ["TERMS_CURRENT", "TERMS_REACCEPT_REQUIRED"]
           },
           "messageKey": {
             "$ref": "#/components/schemas/MessageKey"
@@ -7263,21 +6749,12 @@
       },
       "ConsentOverview": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "documents",
-          "marketingOptIn",
-          "history"
-        ],
+        "required": ["code", "messageKey", "documents", "marketingOptIn", "history"],
         "additionalProperties": false,
         "properties": {
           "code": {
             "type": "string",
-            "enum": [
-              "TERMS_CURRENT",
-              "TERMS_REACCEPT_REQUIRED"
-            ]
+            "enum": ["TERMS_CURRENT", "TERMS_REACCEPT_REQUIRED"]
           },
           "messageKey": {
             "$ref": "#/components/schemas/MessageKey"
@@ -7301,9 +6778,7 @@
       },
       "ConsentAcceptRequest": {
         "type": "object",
-        "required": [
-          "documents"
-        ],
+        "required": ["documents"],
         "properties": {
           "documents": {
             "type": "array",
@@ -7317,9 +6792,7 @@
       },
       "MarketingRequest": {
         "type": "object",
-        "required": [
-          "optIn"
-        ],
+        "required": ["optIn"],
         "properties": {
           "optIn": {
             "type": "boolean"
@@ -7328,11 +6801,7 @@
       },
       "MarketingRecorded": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "marketingOptIn"
-        ],
+        "required": ["code", "messageKey", "marketingOptIn"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -7348,34 +6817,21 @@
       },
       "FinanceApprovals": {
         "type": "object",
-        "required": [
-          "approvals"
-        ],
+        "required": ["approvals"],
         "additionalProperties": false,
         "properties": {
           "approvals": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "id",
-                "action",
-                "subjectId",
-                "country",
-                "reason",
-                "requestedAt"
-              ],
+              "required": ["id", "action", "subjectId", "country", "reason", "requestedAt"],
               "additionalProperties": false,
               "properties": {
                 "id": {
                   "$ref": "#/components/schemas/Uuid"
                 },
                 "action": {
-                  "enum": [
-                    "ISSUE_BORDEREAU",
-                    "DECIDE_ADVANCE",
-                    "WRITE_OFF_RECEIVABLE"
-                  ]
+                  "enum": ["ISSUE_BORDEREAU", "DECIDE_ADVANCE", "WRITE_OFF_RECEIVABLE"]
                 },
                 "subjectId": {
                   "$ref": "#/components/schemas/Uuid"
@@ -7396,11 +6852,7 @@
       },
       "FinanceApproved": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "approvalId"
-        ],
+        "required": ["code", "messageKey", "approvalId"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -7417,13 +6869,7 @@
       "HostAccount": {
         "description": "Compte d'hôte dont la personne de la session est titulaire (US-107 ; 17 §3.2.1). Le nom affiché aux voyageurs est le prénom du titulaire [C2], jamais une raison sociale.",
         "type": "object",
-        "required": [
-          "orgId",
-          "country",
-          "role",
-          "status",
-          "displayName"
-        ],
+        "required": ["orgId", "country", "role", "status", "displayName"],
         "additionalProperties": false,
         "properties": {
           "orgId": {
@@ -7436,13 +6882,7 @@
             "const": "P2P_HOST"
           },
           "status": {
-            "enum": [
-              "ONBOARDING",
-              "PENDING_ACTIVATION",
-              "ACTIVE",
-              "SUSPENDED",
-              "OFFBOARDED"
-            ]
+            "enum": ["ONBOARDING", "PENDING_ACTIVATION", "ACTIVE", "SUSPENDED", "OFFBOARDED"]
           },
           "displayName": {
             "type": "string",
@@ -7454,29 +6894,19 @@
       "HostAccountRequest": {
         "description": "Ouverture d'un compte d'hôte (US-107) : pays du compte et déclaration d'une personne physique. Aucun nom ni numéro fiscal n'est reçu ; une donnée de personne morale (legalName, tradeName, companyName, businessName, companyTaxId, legalEntity) ou holderKind LEGAL_ENTITY est refusée (422 HOST_ENTITY_NOT_ALLOWED).",
         "type": "object",
-        "required": [
-          "country",
-          "holderKind"
-        ],
+        "required": ["country", "holderKind"],
         "properties": {
           "country": {
             "$ref": "#/components/schemas/CountryCode"
           },
           "holderKind": {
-            "enum": [
-              "INDIVIDUAL",
-              "LEGAL_ENTITY"
-            ]
+            "enum": ["INDIVIDUAL", "LEGAL_ENTITY"]
           }
         }
       },
       "HostAccountOpened": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "orgId"
-        ],
+        "required": ["code", "messageKey", "orgId"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -7493,10 +6923,7 @@
       "PhoneOtpRequest": {
         "description": "Demande d'OTP (US-104) : pays du numéro (plan de numérotation de la configuration pays) et numéro saisi, forme nationale ou internationale ; seuls les mobiles du pays sont admis.",
         "type": "object",
-        "required": [
-          "phone",
-          "country"
-        ],
+        "required": ["phone", "country"],
         "properties": {
           "phone": {
             "type": "string",
@@ -7511,9 +6938,7 @@
       "PhoneVerifyRequest": {
         "description": "Saisie du code OTP (US-104) : 6 chiffres.",
         "type": "object",
-        "required": [
-          "code"
-        ],
+        "required": ["code"],
         "properties": {
           "code": {
             "type": "string",
@@ -7523,11 +6948,7 @@
       },
       "OtpSent": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "values"
-        ],
+        "required": ["code", "messageKey", "values"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -7538,11 +6959,7 @@
           },
           "values": {
             "type": "object",
-            "required": [
-              "phone",
-              "resendAfterS",
-              "expiresInS"
-            ],
+            "required": ["phone", "resendAfterS", "expiresInS"],
             "additionalProperties": false,
             "properties": {
               "phone": {
@@ -7562,23 +6979,14 @@
       },
       "PhoneState": {
         "type": "object",
-        "required": [
-          "verified",
-          "phone",
-          "pending",
-          "lockedForS",
-          "countries"
-        ],
+        "required": ["verified", "phone", "pending", "lockedForS", "countries"],
         "additionalProperties": false,
         "properties": {
           "verified": {
             "type": "boolean"
           },
           "phone": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "pending": {
             "oneOf": [
@@ -7587,12 +6995,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "phone",
-                  "resendAfterS",
-                  "expiresInS",
-                  "attemptsLeft"
-                ],
+                "required": ["phone", "resendAfterS", "expiresInS", "attemptsLeft"],
                 "additionalProperties": false,
                 "properties": {
                   "phone": {
@@ -7607,10 +7010,7 @@
                     "minimum": 0
                   },
                   "attemptsLeft": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ],
+                    "type": ["integer", "null"],
                     "minimum": 0
                   }
                 }
@@ -7618,23 +7018,14 @@
             ]
           },
           "lockedForS": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 0
           },
           "countries": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "code",
-                "names",
-                "callingCode",
-                "nationalLength",
-                "example"
-              ],
+              "required": ["code", "names", "callingCode", "nationalLength", "example"],
               "additionalProperties": false,
               "properties": {
                 "code": {
@@ -7668,18 +7059,11 @@
         "oneOf": [
           {
             "type": "object",
-            "required": [
-              "t",
-              "v"
-            ],
+            "required": ["t", "v"],
             "additionalProperties": false,
             "properties": {
               "t": {
-                "enum": [
-                  "text",
-                  "strong",
-                  "em"
-                ]
+                "enum": ["text", "strong", "em"]
               },
               "v": {
                 "type": "string",
@@ -7689,11 +7073,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "t",
-              "v",
-              "href"
-            ],
+            "required": ["t", "v", "href"],
             "additionalProperties": false,
             "properties": {
               "t": {
@@ -7717,10 +7097,7 @@
         "oneOf": [
           {
             "type": "object",
-            "required": [
-              "format",
-              "text"
-            ],
+            "required": ["format", "text"],
             "additionalProperties": false,
             "properties": {
               "format": {
@@ -7734,10 +7111,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "format",
-              "blocks"
-            ],
+            "required": ["format", "blocks"],
             "additionalProperties": false,
             "properties": {
               "format": {
@@ -7751,10 +7125,7 @@
                   "oneOf": [
                     {
                       "type": "object",
-                      "required": [
-                        "t",
-                        "c"
-                      ],
+                      "required": ["t", "c"],
                       "additionalProperties": false,
                       "properties": {
                         "t": {
@@ -7771,17 +7142,11 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "t",
-                        "items"
-                      ],
+                      "required": ["t", "items"],
                       "additionalProperties": false,
                       "properties": {
                         "t": {
-                          "enum": [
-                            "ul",
-                            "ol"
-                          ]
+                          "enum": ["ul", "ol"]
                         },
                         "items": {
                           "type": "array",
@@ -7806,9 +7171,7 @@
       },
       "ContentGapList": {
         "type": "object",
-        "required": [
-          "gaps"
-        ],
+        "required": ["gaps"],
         "additionalProperties": false,
         "properties": {
           "gaps": {
@@ -7816,14 +7179,7 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": [
-                "key",
-                "country",
-                "versionNo",
-                "editable",
-                "missing",
-                "invalid"
-              ],
+              "required": ["key", "country", "versionNo", "editable", "missing", "invalid"],
               "properties": {
                 "key": {
                   "type": "string"
@@ -7864,21 +7220,14 @@
       },
       "OpsQueues": {
         "type": "object",
-        "required": [
-          "queues",
-          "items"
-        ],
+        "required": ["queues", "items"],
         "additionalProperties": false,
         "properties": {
           "queues": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "queue",
-                "open",
-                "overdue"
-              ],
+              "required": ["queue", "open", "overdue"],
               "additionalProperties": false,
               "properties": {
                 "queue": {
@@ -7949,10 +7298,7 @@
                   "$ref": "#/components/schemas/CountryCode"
                 },
                 "status": {
-                  "enum": [
-                    "OPEN",
-                    "IN_REVIEW"
-                  ]
+                  "enum": ["OPEN", "IN_REVIEW"]
                 },
                 "slaDueAt": {
                   "$ref": "#/components/schemas/DateTime"
@@ -7977,9 +7323,7 @@
       },
       "OpsItemClaimed": {
         "type": "object",
-        "required": [
-          "itemId"
-        ],
+        "required": ["itemId"],
         "additionalProperties": false,
         "properties": {
           "itemId": {
@@ -8016,9 +7360,7 @@
             "$ref": "#/components/schemas/Uuid"
           },
           "kycStatus": {
-            "enum": [
-              "NOT_STARTED"
-            ]
+            "enum": ["NOT_STARTED"]
           },
           "pseudonymized": {
             "type": "boolean"
@@ -8054,10 +7396,7 @@
       },
       "UserFound": {
         "type": "object",
-        "required": [
-          "userId",
-          "country"
-        ],
+        "required": ["userId", "country"],
         "additionalProperties": false,
         "properties": {
           "userId": {
@@ -8093,11 +7432,7 @@
             "$ref": "#/components/schemas/CountryCode"
           },
           "coverage": {
-            "enum": [
-              "case",
-              "item",
-              "scope"
-            ]
+            "enum": ["case", "item", "scope"]
           },
           "profile": {
             "type": "object",
@@ -8182,15 +7517,11 @@
           },
           "kyc": {
             "type": "object",
-            "required": [
-              "status"
-            ],
+            "required": ["status"],
             "additionalProperties": false,
             "properties": {
               "status": {
-                "enum": [
-                  "NOT_STARTED"
-                ]
+                "enum": ["NOT_STARTED"]
               }
             }
           },
@@ -8201,14 +7532,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "id",
-                "kind",
-                "active",
-                "reason",
-                "createdAt",
-                "liftedAt"
-              ],
+              "required": ["id", "kind", "active", "reason", "createdAt", "liftedAt"],
               "additionalProperties": false,
               "properties": {
                 "id": {
@@ -8257,12 +7581,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "id",
-                "authorRole",
-                "body",
-                "createdAt"
-              ],
+              "required": ["id", "authorRole", "body", "createdAt"],
               "additionalProperties": false,
               "properties": {
                 "id": {
@@ -8284,13 +7603,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "orgId",
-                "country",
-                "status",
-                "displayName",
-                "bookable"
-              ],
+              "required": ["orgId", "country", "status", "displayName", "bookable"],
               "additionalProperties": false,
               "properties": {
                 "orgId": {
@@ -8404,13 +7717,7 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "id",
-                "queue",
-                "status",
-                "slaDueAt",
-                "overdue"
-              ],
+              "required": ["id", "queue", "status", "slaDueAt", "overdue"],
               "additionalProperties": false,
               "properties": {
                 "id": {
@@ -8444,9 +7751,7 @@
       },
       "NoteAdded": {
         "type": "object",
-        "required": [
-          "noteId"
-        ],
+        "required": ["noteId"],
         "additionalProperties": false,
         "properties": {
           "noteId": {
@@ -8456,9 +7761,7 @@
       },
       "CaseOpened": {
         "type": "object",
-        "required": [
-          "caseId"
-        ],
+        "required": ["caseId"],
         "additionalProperties": false,
         "properties": {
           "caseId": {
@@ -8468,30 +7771,20 @@
       },
       "CaseStatusChanged": {
         "type": "object",
-        "required": [
-          "caseId",
-          "status"
-        ],
+        "required": ["caseId", "status"],
         "additionalProperties": false,
         "properties": {
           "caseId": {
             "$ref": "#/components/schemas/Uuid"
           },
           "status": {
-            "enum": [
-              "PENDING",
-              "RESOLVED",
-              "CLOSED"
-            ]
+            "enum": ["PENDING", "RESOLVED", "CLOSED"]
           }
         }
       },
       "EvidenceReceived": {
         "type": "object",
-        "required": [
-          "fileId",
-          "sha256"
-        ],
+        "required": ["fileId", "sha256"],
         "additionalProperties": false,
         "properties": {
           "fileId": {
@@ -8505,10 +7798,7 @@
       },
       "ListingError": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey"
-        ],
+        "required": ["code", "messageKey"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -8522,20 +7812,14 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "field",
-                "reason"
-              ],
+              "required": ["field", "reason"],
               "additionalProperties": false,
               "properties": {
                 "field": {
                   "type": "string"
                 },
                 "reason": {
-                  "enum": [
-                    "REQUIRED",
-                    "INVALID"
-                  ]
+                  "enum": ["REQUIRED", "INVALID"]
                 }
               }
             }
@@ -8548,19 +7832,11 @@
       },
       "LocationRequest": {
         "type": "object",
-        "required": [
-          "label",
-          "addressLine",
-          "city"
-        ],
+        "required": ["label", "addressLine", "city"],
         "additionalProperties": false,
         "properties": {
           "kind": {
-            "enum": [
-              "HOME",
-              "POI",
-              "AIRPORT"
-            ]
+            "enum": ["HOME", "POI", "AIRPORT"]
           },
           "label": {
             "type": "string",
@@ -8575,25 +7851,16 @@
             "maxLength": 80
           },
           "areaLabel": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 80
           },
           "lat": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": -90,
             "maximum": 90
           },
           "lng": {
-            "type": [
-              "number",
-              "null"
-            ],
+            "type": ["number", "null"],
             "minimum": -180,
             "maximum": 180
           }
@@ -8618,11 +7885,7 @@
             "$ref": "#/components/schemas/Uuid"
           },
           "kind": {
-            "enum": [
-              "HOME",
-              "POI",
-              "AIRPORT"
-            ]
+            "enum": ["HOME", "POI", "AIRPORT"]
           },
           "label": {
             "type": "string"
@@ -8634,22 +7897,13 @@
             "type": "string"
           },
           "areaLabel": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "lat": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "lng": {
-            "type": [
-              "number",
-              "null"
-            ]
+            "type": ["number", "null"]
           },
           "timezone": {
             "type": "string"
@@ -8658,9 +7912,7 @@
       },
       "HostLocationList": {
         "type": "object",
-        "required": [
-          "locations"
-        ],
+        "required": ["locations"],
         "additionalProperties": false,
         "properties": {
           "locations": {
@@ -8673,11 +7925,7 @@
       },
       "LocationCreated": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "locationId"
-        ],
+        "required": ["code", "messageKey", "locationId"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -8693,11 +7941,7 @@
       },
       "VehicleCreated": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "vehicleId"
-        ],
+        "required": ["code", "messageKey", "vehicleId"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -8713,11 +7957,7 @@
       },
       "ListingCreated": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "listingId"
-        ],
+        "required": ["code", "messageKey", "listingId"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -8733,10 +7973,7 @@
       },
       "ListingSaved": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey"
-        ],
+        "required": ["code", "messageKey"],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -8749,40 +7986,23 @@
       },
       "ListingStatusChanged": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "status"
-        ],
+        "required": ["code", "messageKey", "status"],
         "additionalProperties": false,
         "properties": {
           "code": {
-            "enum": [
-              "LISTING_SUBMITTED",
-              "LISTING_DELETED"
-            ]
+            "enum": ["LISTING_SUBMITTED", "LISTING_DELETED"]
           },
           "messageKey": {
             "$ref": "#/components/schemas/MessageKey"
           },
           "status": {
-            "enum": [
-              "PENDING_REVIEW",
-              "DELETED"
-            ]
+            "enum": ["PENDING_REVIEW", "DELETED"]
           }
         }
       },
       "VehicleRequest": {
         "type": "object",
-        "required": [
-          "locationId",
-          "plate",
-          "year",
-          "transmission",
-          "seats",
-          "fuelType"
-        ],
+        "required": ["locationId", "plate", "year", "transmission", "seats", "fuelType"],
         "additionalProperties": false,
         "properties": {
           "locationId": {
@@ -8793,30 +8013,18 @@
             "maxLength": 24
           },
           "vin": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 40
           },
           "variantId": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "makeText": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 80
           },
           "modelText": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 80
           },
           "year": {
@@ -8825,17 +8033,11 @@
             "maximum": 2100
           },
           "trim": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 80
           },
           "transmission": {
-            "enum": [
-              "MANUAL",
-              "AUTOMATIC"
-            ]
+            "enum": ["MANUAL", "AUTOMATIC"]
           },
           "seats": {
             "type": "integer",
@@ -8843,18 +8045,10 @@
             "maximum": 60
           },
           "fuelType": {
-            "enum": [
-              "GASOLINE",
-              "DIESEL",
-              "HYBRID",
-              "EV"
-            ]
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
           },
           "odometerKm": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 0
           },
           "gpsInstalled": {
@@ -8900,66 +8094,37 @@
             "type": "string"
           },
           "vin": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "variantId": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "makeText": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "modelText": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "year": {
             "type": "integer"
           },
           "trim": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "valueClass": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "transmission": {
-            "enum": [
-              "MANUAL",
-              "AUTOMATIC"
-            ]
+            "enum": ["MANUAL", "AUTOMATIC"]
           },
           "seats": {
             "type": "integer"
           },
           "fuelType": {
-            "enum": [
-              "GASOLINE",
-              "DIESEL",
-              "HYBRID",
-              "EV"
-            ]
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
           },
           "odometerKm": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "gpsInstalled": {
             "type": "boolean"
@@ -8971,10 +8136,7 @@
             "type": "string"
           },
           "listingId": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "listingStatus": {
             "enum": [
@@ -8995,9 +8157,7 @@
       },
       "HostVehicleList": {
         "type": "object",
-        "required": [
-          "vehicles"
-        ],
+        "required": ["vehicles"],
         "additionalProperties": false,
         "properties": {
           "vehicles": {
@@ -9010,66 +8170,43 @@
       },
       "PricingRequest": {
         "type": "object",
-        "required": [
-          "dailyPriceMinor"
-        ],
+        "required": ["dailyPriceMinor"],
         "additionalProperties": false,
         "properties": {
           "dailyPriceMinor": {
             "$ref": "#/components/schemas/MinorUnits"
           },
           "mileageMode": {
-            "enum": [
-              "UNLIMITED",
-              "INCLUDED"
-            ]
+            "enum": ["UNLIMITED", "INCLUDED"]
           },
           "includedKmPerDay": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 10000
           },
           "extraKmPriceMinor": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         }
       },
       "ListingRequest": {
         "type": "object",
-        "required": [
-          "vehicleId",
-          "dailyPriceMinor"
-        ],
+        "required": ["vehicleId", "dailyPriceMinor"],
         "additionalProperties": false,
         "properties": {
           "dailyPriceMinor": {
             "$ref": "#/components/schemas/MinorUnits"
           },
           "mileageMode": {
-            "enum": [
-              "UNLIMITED",
-              "INCLUDED"
-            ]
+            "enum": ["UNLIMITED", "INCLUDED"]
           },
           "includedKmPerDay": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 10000
           },
           "extraKmPriceMinor": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "vehicleId": {
             "$ref": "#/components/schemas/Uuid"
@@ -9124,22 +8261,13 @@
             "pattern": "^[A-Z]{3}$"
           },
           "mileageMode": {
-            "enum": [
-              "UNLIMITED",
-              "INCLUDED"
-            ]
+            "enum": ["UNLIMITED", "INCLUDED"]
           },
           "includedKmPerDay": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "extraKmPriceMinor": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "instantBook": {
             "type": "boolean"
@@ -9149,20 +8277,13 @@
             "minimum": 0
           },
           "submittedAt": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           }
         }
       },
       "HostListingList": {
         "type": "object",
-        "required": [
-          "listings",
-          "market",
-          "photoUploads"
-        ],
+        "required": ["listings", "market", "photoUploads"],
         "additionalProperties": false,
         "properties": {
           "listings": {
@@ -9177,10 +8298,7 @@
           "photoUploads": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "open",
-              "maxBytes"
-            ],
+            "required": ["open", "maxBytes"],
             "description": "Dépôt des photos : ouvert (antivirus et stockage branchés) ou fermé (503 à l'envoi) ; taille maximale d'une photo, en octets (corps JSON en base64 compris).",
             "properties": {
               "open": {
@@ -9240,31 +8358,19 @@
             "maximum": 4
           },
           "mileageMode": {
-            "enum": [
-              "UNLIMITED",
-              "INCLUDED"
-            ]
+            "enum": ["UNLIMITED", "INCLUDED"]
           },
           "includedKmPerDay": {
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "extraKmPriceMinor": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "instantBook": {
             "type": "boolean"
           },
           "variantId": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "makeName": {
             "type": "string"
@@ -9276,37 +8382,22 @@
             "type": "integer"
           },
           "transmission": {
-            "enum": [
-              "MANUAL",
-              "AUTOMATIC"
-            ]
+            "enum": ["MANUAL", "AUTOMATIC"]
           },
           "seats": {
             "type": "integer"
           },
           "fuelType": {
-            "enum": [
-              "GASOLINE",
-              "DIESEL",
-              "HYBRID",
-              "EV"
-            ]
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
           },
           "locationKind": {
-            "enum": [
-              "HOME",
-              "POI",
-              "AIRPORT"
-            ]
+            "enum": ["HOME", "POI", "AIRPORT"]
           },
           "city": {
             "type": "string"
           },
           "areaLabel": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "approximatePoint": {
             "oneOf": [
@@ -9315,10 +8406,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "lat",
-                  "lng"
-                ],
+                "required": ["lat", "lng"],
                 "additionalProperties": false,
                 "properties": {
                   "lat": {
@@ -9338,9 +8426,7 @@
       },
       "PublicListingResponse": {
         "type": "object",
-        "required": [
-          "listing"
-        ],
+        "required": ["listing"],
         "additionalProperties": false,
         "properties": {
           "listing": {
@@ -9350,21 +8436,14 @@
       },
       "CatalogMakes": {
         "type": "object",
-        "required": [
-          "makes"
-        ],
+        "required": ["makes"],
         "additionalProperties": false,
         "properties": {
           "makes": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "id",
-                "slug",
-                "name",
-                "aliases"
-              ],
+              "required": ["id", "slug", "name", "aliases"],
               "additionalProperties": false,
               "properties": {
                 "id": {
@@ -9389,22 +8468,14 @@
       },
       "CatalogModels": {
         "type": "object",
-        "required": [
-          "models"
-        ],
+        "required": ["models"],
         "additionalProperties": false,
         "properties": {
           "models": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": [
-                "id",
-                "slug",
-                "name",
-                "aliases",
-                "bodyType"
-              ],
+              "required": ["id", "slug", "name", "aliases", "bodyType"],
               "additionalProperties": false,
               "properties": {
                 "id": {
@@ -9432,9 +8503,7 @@
       },
       "CatalogVariants": {
         "type": "object",
-        "required": [
-          "variants"
-        ],
+        "required": ["variants"],
         "additionalProperties": false,
         "properties": {
           "variants": {
@@ -9459,16 +8528,10 @@
                   "type": "integer"
                 },
                 "yearTo": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "trimName": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "transmission": {
                   "type": "string"
@@ -9486,20 +8549,12 @@
       },
       "CatalogPrefill": {
         "type": "object",
-        "required": [
-          "prefill"
-        ],
+        "required": ["prefill"],
         "additionalProperties": false,
         "properties": {
           "prefill": {
             "type": "object",
-            "required": [
-              "variantId",
-              "makeName",
-              "modelName",
-              "seats",
-              "transmission"
-            ],
+            "required": ["variantId", "makeName", "modelName", "seats", "transmission"],
             "properties": {
               "variantId": {
                 "$ref": "#/components/schemas/Uuid"
@@ -9514,10 +8569,7 @@
                 "type": "integer"
               },
               "transmission": {
-                "enum": [
-                  "MANUAL",
-                  "AUTOMATIC"
-                ]
+                "enum": ["MANUAL", "AUTOMATIC"]
               }
             }
           }
@@ -9525,11 +8577,7 @@
       },
       "HostMarket": {
         "type": "object",
-        "required": [
-          "country",
-          "currency",
-          "currencyExponent"
-        ],
+        "required": ["country", "currency", "currencyExponent"],
         "additionalProperties": false,
         "properties": {
           "country": {
@@ -9548,9 +8596,7 @@
       },
       "PhotoRequest": {
         "type": "object",
-        "required": [
-          "dataBase64"
-        ],
+        "required": ["dataBase64"],
         "additionalProperties": false,
         "properties": {
           "dataBase64": {
@@ -9561,11 +8607,7 @@
       },
       "PhotoAdded": {
         "type": "object",
-        "required": [
-          "code",
-          "messageKey",
-          "photoId"
-        ],
+        "required": ["code", "messageKey", "photoId"],
         "additionalProperties": false,
         "properties": {
           "code": {
