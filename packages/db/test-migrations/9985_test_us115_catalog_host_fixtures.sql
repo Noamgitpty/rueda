@@ -26,7 +26,8 @@
 --   test_fixture.us115_set_org_status(uuid, text), test_fixture.us115_set_listing_status(uuid,
 --   text), test_fixture.us115_location_row(uuid), test_fixture.us115_vehicle_row(uuid),
 --   test_fixture.us115_listing_row(uuid), test_fixture.us115_photo_files(uuid),
---   test_fixture.us115_market_variant(text), test_fixture.us115_trip_paid(uuid) ; DELETE des
+--   test_fixture.us115_market_variant(text), test_fixture.us115_trip_paid(uuid),
+--   test_fixture.us115_price_ceiling_version(text, text, jsonb) ; DELETE des
 --   variantes « US115 market » (sous migrator, garde de 0063 levée) ; recréer
 --   test_fixture.register_vehicle de 9750.
 
@@ -232,10 +233,28 @@ AS $fn$
     FROM core.payment_payment_operation o WHERE o.trip_id = p_trip
 $fn$;
 
-REVOKE ALL ON FUNCTION test_fixture.us115_market_variant(text), test_fixture.us115_trip_paid(uuid)
-  FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION test_fixture.us115_market_variant(text), test_fixture.us115_trip_paid(uuid)
-  TO app_api, app_worker;
+-- Nouvelle version d'un paramètre de plafond du prix (price_ceiling_*) valable à platform.now(),
+-- écrite dans la transaction de l'appelant, qui l'ANNULE ensuite (comme config_flag_order de
+-- 9750) : prouve PARAM_MISSING (fail-closed) pour une valeur nulle ou mal formée. Clés fermées.
+CREATE FUNCTION test_fixture.us115_price_ceiling_version(p_key text, p_country text, p_value jsonb)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  IF p_key NOT IN ('price_ceiling_daily_minor', 'price_ceiling_extra_km_minor') THEN
+    RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  INSERT INTO core.config_param_value (key, country_code, scope_type, value, valid_from, change_reason)
+  VALUES (p_key, p_country, 'COUNTRY', p_value, platform.now(), 'test US-115 (annulé)');
+END
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us115_market_variant(text), test_fixture.us115_trip_paid(uuid),
+  test_fixture.us115_price_ceiling_version(text, text, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us115_market_variant(text), test_fixture.us115_trip_paid(uuid),
+  test_fixture.us115_price_ceiling_version(text, text, jsonb) TO app_api, app_worker;
 
 REVOKE ALL ON FUNCTION test_fixture.ensure_catalog_vehicle(uuid, uuid, text),
   test_fixture.us115_set_org_status(uuid, text), test_fixture.us115_set_listing_status(uuid, text),

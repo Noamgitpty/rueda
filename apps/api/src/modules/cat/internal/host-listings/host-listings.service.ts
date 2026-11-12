@@ -22,11 +22,14 @@ import {
   parsePricing,
   parseVehicle,
 } from './model.js';
+import { API_BODY_LIMIT_BYTES } from '../../../../http-hardening.js';
 import {
   isCleanScan,
   PhotoRejectedError,
   preparePhoto,
   DEFAULT_PHOTO_LIMITS,
+  UnavailablePhotoScanner,
+  UnavailablePhotoStorage,
 } from './photo-ingest.js';
 import type { PhotoLimits, PhotoScanner, PhotoStorage } from './photo-ingest.js';
 import { HostListingStoreError } from './store.js';
@@ -192,9 +195,29 @@ export class HostListingsService {
   async listings(
     proof: Buffer,
     orgId: string,
-  ): Promise<{ listings: HostListing[]; market: HostMarket }> {
+  ): Promise<{
+    listings: HostListing[];
+    market: HostMarket;
+    photoUploads: { open: boolean; maxBytes: number };
+  }> {
     const market = await this.#market(proof, orgId);
-    return { listings: await this.#call(() => this.store.listings(proof, orgId)), market };
+    const listings = await this.#call(() => this.store.listings(proof, orgId));
+    return { listings, market, photoUploads: this.photoUploads() };
+  }
+
+  /**
+   * Dépôt des photos annoncé à l'écran AVANT l'envoi (revue ux d'US-115) : fermé tant que
+   * l'antivirus (ClamAV, DEC-FONDATEUR-20) ou le stockage (US-003) ne sont pas branchés ; taille
+   * maximale effective : la plus petite de la limite des photos et du corps JSON en base64.
+   */
+  photoUploads(): { open: boolean; maxBytes: number } {
+    const open =
+      !(this.#photos.scanner instanceof UnavailablePhotoScanner) &&
+      !(this.#photos.storage instanceof UnavailablePhotoStorage);
+    const limits = this.#photos.limits ?? DEFAULT_PHOTO_LIMITS;
+    // base64 : 4 caractères pour 3 octets ; marge pour l'enveloppe JSON
+    const viaJson = Math.floor(((API_BODY_LIMIT_BYTES - 1024) * 3) / 4);
+    return { open, maxBytes: Math.min(limits.maxBytes, viaJson) };
   }
 
   /** Lecture : un compte d'un autre (ou inconnu) rend 404, jamais une liste vide trompeuse. */

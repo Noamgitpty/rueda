@@ -140,3 +140,49 @@
   outline-offset: var(--size-focus-offset);
   border-radius: var(--radius-sm);
 }
+
+.hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+
+.accounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* compte d'hôte : cible pleine (44 px), compte affiché marqué */
+.account {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--size-touch-target);
+  min-inline-size: var(--size-touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+.account[aria-current='page'] {
+  border-color: var(--color-primary);
+  background: var(--color-surface-sunken);
+}
+
+.account:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}

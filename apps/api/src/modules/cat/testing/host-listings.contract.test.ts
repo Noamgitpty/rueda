@@ -374,6 +374,14 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
       (await api.request('DELETE', `${d.base}/listings/${d.listingId}`, { ...textBody(w.a) }))
         .status,
     ).toBe(415);
+    // l'annonce supprimée libère son véhicule : une nouvelle annonce peut être créée
+    const vehicleId = w.store.listingsById.get(d.listingId)?.vehicleId;
+    const again = await api.request('POST', `${d.base}/listings`, {
+      headers: w.a,
+      body: { vehicleId, dailyPriceMinor: '4000' },
+    });
+    expect(again.status).toBe(201);
+    expect((again.json as { listingId: string }).listingId).not.toBe(d.listingId);
   });
 
   it('critère 3 : prix hors pas du pays ⇒ 422 PRICE_INVALID ; distance invalide ⇒ 400 ; une annonce par véhicule ⇒ 409', async () => {
@@ -422,6 +430,12 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     const pricing = (body: unknown) =>
       api.request('PUT', `${base}/listings/${listingId}/pricing`, { headers: w.a, body });
     expect((await pricing({ dailyPriceMinor: '250500' })).status).toBe(422);
+    // plafond de cohérence du pays (16 PRC-001) : au plafond accepté, au-delà PRICE_INVALID
+    w.store.priceCeiling.set(FIRST_COUNTRY, 35_000_000n);
+    expect((await pricing({ dailyPriceMinor: '35000000' })).status).toBe(200);
+    const over = await pricing({ dailyPriceMinor: '35001000' });
+    expect(over.status).toBe(422);
+    expect(over.json).toMatchObject({ code: 'PRICE_INVALID' });
     expect((await pricing({ dailyPriceMinor: '300000', mileageMode: 'INCLUDED' })).status).toBe(
       400,
     );
@@ -547,9 +561,20 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     });
     expect(off.status).toBe(503);
     expect(off.json).toMatchObject({ code: 'PHOTO_UPLOAD_UNAVAILABLE' });
+    // l'écran sait AVANT l'envoi que le dépôt est fermé, et connaît la taille maximale
+    const closedList = await closed.app.api.request('GET', `${d0.base}/listings`, {
+      headers: closed.a,
+    });
+    expect(closedList.json).toMatchObject({ photoUploads: { open: false } });
     const w = await world({ photos: true });
     const api = w.app.api;
     const d = await draft(w);
+    const openList = await api.request('GET', `${d.base}/listings`, { headers: w.a });
+    const uploads = (openList.json as { photoUploads: { open: boolean; maxBytes: number } })
+      .photoUploads;
+    expect(uploads.open).toBe(true);
+    // base64 d'une photo de cette taille, dans son enveloppe JSON, tient dans le corps admis
+    expect(Math.ceil(uploads.maxBytes / 3) * 4 + 64).toBeLessThanOrEqual(100 * 1024);
     const send = (body: unknown, headers = w.a, listingId = d.listingId) =>
       api.request('POST', `${d.base}/listings/${listingId}/photos`, { headers, body });
     const ok = await send({ dataBase64: jpeg });

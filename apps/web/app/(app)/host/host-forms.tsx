@@ -5,7 +5,7 @@
  * champ a son libellé visible ; une erreur est liée à son champ et reprise dans le récapitulatif
  * (10b UX-50) ; les messages viennent du catalogue `@rueda/i18n` (es, en, fr, pt).
  */
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import type { Translator } from '@rueda/i18n';
@@ -278,7 +278,7 @@ function PricingFields({
   f: ReturnType<typeof useForm>;
   prefix: string;
   currency: string;
-  defaults?: { price: string; km: string };
+  defaults?: { price: string; km: string; extraKm: string };
 }) {
   const t = f.t;
   return (
@@ -305,7 +305,7 @@ function PricingFields({
         error={f.errorOf(`${prefix}-km`)}
       />
       <TextField
-        defaultValue={f.valueOf('extraKm')}
+        defaultValue={f.valueOf('extraKm') ?? defaults?.extraKm}
         i18n={f.i18n}
         id={`${prefix}-extra`}
         name="extraKm"
@@ -313,6 +313,7 @@ function PricingFields({
         optional
         inputMode="decimal"
         maxLength={32}
+        error={f.errorOf(`${prefix}-extra`)}
       />
     </>
   );
@@ -323,20 +324,17 @@ export function NewListingForm({
   orgId,
   vehicles,
   currency,
-  exponent,
 }: {
   localeTag: string;
   orgId: string;
   vehicles: readonly { id: string; label: string }[];
   currency: string;
-  exponent: number;
 }) {
   const f = useForm(localeTag, createListingAction, 'a10-new');
   const t = f.t;
   return (
     <FormFrame {...f} formId="a10-new" label={t('web.host.listing.create')}>
       <input type="hidden" name="org" value={orgId} />
-      <input type="hidden" name="exponent" value={exponent} />
       <div className={styles['field']}>
         <label className={styles['strong']} htmlFor="a10-new-car">
           {t('web.host.listing.car')}
@@ -362,29 +360,57 @@ export function ListingForms({
   orgId,
   listingId,
   currency,
-  exponent,
   editable,
+  draft,
+  photos,
   defaults,
 }: {
   localeTag: string;
   orgId: string;
   listingId: string;
   currency: string;
-  exponent: number;
   editable: boolean;
-  defaults: { price: string; km: string };
+  /** Brouillon : « Supprimer le brouillon » ; annonce refusée ou bloquée : « Supprimer l'annonce ». */
+  draft: boolean;
+  /** Dépôt des photos annoncé par l'API : ouvert ou fermé ; taille maximale (octets et libellé). */
+  photos: { open: boolean; maxBytes: number; maxLabel: string };
+  defaults: { price: string; km: string; extraKm: string };
 }) {
   const price = useForm(localeTag, savePriceAction, `a10-${listingId}`);
   const photo = useForm(localeTag, addPhotoAction, `a10-${listingId}-photo`);
   const submit = useForm(localeTag, listingStepAction, `a10-${listingId}-submit`);
   const remove = useForm(localeTag, listingStepAction, `a10-${listingId}-delete`);
   const t = price.t;
+  const photoFormId = `a10-${listingId}-photo`;
+  // photo trop lourde : refusée AVANT l'envoi (avec JavaScript ; sinon l'action serveur refuse)
+  const [tooLarge, setTooLarge] = useState(false);
+  const sendPhoto = (form: FormData) => {
+    const file = form.get('photo');
+    if (file instanceof Blob && file.size > photos.maxBytes) {
+      setTooLarge(true);
+      return;
+    }
+    setTooLarge(false);
+    photo.run(form);
+  };
+  const photoMessages = tooLarge
+    ? [
+        {
+          fieldId: photoFormId,
+          message: t('common.listing.photoTooLarge', { max: photos.maxLabel }),
+        },
+      ]
+    : photo.messages;
+  const photoError = tooLarge
+    ? t('common.listing.photoTooLarge', { max: photos.maxLabel })
+    : photo.formError;
+  const confirmId = `a10-${listingId}-delete-confirm`;
+  const confirmError = remove.errorOf(confirmId);
   return (
     <div className={styles['actions']}>
       <FormFrame {...price} formId={`a10-${listingId}`} label={t('web.host.listing.savePrice')}>
         <input type="hidden" name="org" value={orgId} />
         <input type="hidden" name="listing" value={listingId} />
-        <input type="hidden" name="exponent" value={exponent} />
         <PricingFields
           f={price}
           prefix={`a10-${listingId}`}
@@ -397,29 +423,43 @@ export function ListingForms({
       </FormFrame>
       {editable && (
         <>
-          <FormFrame
-            {...photo}
-            formId={`a10-${listingId}-photo`}
-            label={t('web.host.listing.addPhoto')}
-          >
-            <input type="hidden" name="org" value={orgId} />
-            <input type="hidden" name="listing" value={listingId} />
-            <div className={styles['field']}>
-              <label className={styles['strong']} htmlFor={`a10-${listingId}-file`}>
-                {t('web.host.listing.photo')}
-              </label>
-              <input
-                id={`a10-${listingId}-file`}
-                className={styles['file']}
-                type="file"
-                name="photo"
-                accept="image/jpeg,image/png,image/webp"
-              />
-            </div>
-            <Button type="submit" variant="secondary" block loading={photo.pending}>
-              {t('web.host.listing.addPhoto')}
-            </Button>
-          </FormFrame>
+          {photos.open ? (
+            <FormFrame
+              {...photo}
+              run={sendPhoto}
+              messages={photoMessages}
+              formError={photoError}
+              formId={photoFormId}
+              label={t('web.host.listing.addPhoto')}
+            >
+              <input type="hidden" name="org" value={orgId} />
+              <input type="hidden" name="listing" value={listingId} />
+              <div className={styles['field']}>
+                <label className={styles['strong']} htmlFor={`a10-${listingId}-file`}>
+                  {t('web.host.listing.photo')}
+                </label>
+                <input
+                  id={`a10-${listingId}-file`}
+                  className={styles['file']}
+                  type="file"
+                  name="photo"
+                  accept="image/jpeg,image/png,image/webp"
+                  aria-describedby={`a10-${listingId}-file-hint`}
+                />
+                <p id={`a10-${listingId}-file-hint`} className={styles['hint']}>
+                  {t('web.host.listing.photo.hint', { max: photos.maxLabel })}
+                </p>
+              </div>
+              <Button type="submit" variant="secondary" block loading={photo.pending}>
+                {t('web.host.listing.addPhoto')}
+              </Button>
+            </FormFrame>
+          ) : (
+            // dépôt fermé (antivirus ou stockage pas encore branchés) : dit d'emblée, sans envoi
+            <p id={photoFormId} className={styles['hint']} role="status">
+              {t('web.host.listing.photo.closed')}
+            </p>
+          )}
           <FormFrame
             {...submit}
             formId={`a10-${listingId}-submit`}
@@ -440,8 +480,24 @@ export function ListingForms({
             <input type="hidden" name="org" value={orgId} />
             <input type="hidden" name="listing" value={listingId} />
             <input type="hidden" name="step" value="delete" />
+            <label className={styles['choice']} htmlFor={confirmId}>
+              <input
+                id={confirmId}
+                type="checkbox"
+                name="confirm"
+                value="yes"
+                aria-invalid={confirmError === undefined ? undefined : true}
+                aria-describedby={confirmError === undefined ? undefined : `${confirmId}-error`}
+              />
+              <span>{t('web.host.listing.deleteConfirm')}</span>
+            </label>
+            {confirmError !== undefined && (
+              <p id={`${confirmId}-error`} className={styles['error']}>
+                {confirmError}
+              </p>
+            )}
             <Button type="submit" variant="quiet" block loading={remove.pending}>
-              {t('web.host.listing.delete')}
+              {draft ? t('web.host.listing.delete') : t('web.host.listing.deleteListing')}
             </Button>
           </FormFrame>
         </>

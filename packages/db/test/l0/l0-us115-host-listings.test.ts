@@ -161,8 +161,10 @@ async function listing(
   client: pg.ClientBase,
   h: { hash: Buffer; org: string },
   vehicleId: string | null,
-  price: number,
-  mileage: { mode: string; km?: number | null; extra?: number | null } = { mode: 'UNLIMITED' },
+  price: number | string,
+  mileage: { mode: string; km?: number | null; extra?: number | string | null } = {
+    mode: 'UNLIMITED',
+  },
   instant: boolean | null = null,
 ): Promise<Outcome> {
   const { rows } = await client.query<{ outcome: string; listing_id: string | null }>(
@@ -185,8 +187,10 @@ async function pricing(
   client: pg.ClientBase,
   h: { hash: Buffer; org: string },
   listingId: string,
-  price: number,
-  mileage: { mode: string; km?: number | null; extra?: number | null } = { mode: 'UNLIMITED' },
+  price: number | string,
+  mileage: { mode: string; km?: number | null; extra?: number | string | null } = {
+    mode: 'UNLIMITED',
+  },
 ): Promise<string> {
   const { rows } = await client.query<{ outcome: string }>(
     'SELECT * FROM core.catalog_cmd_update_listing_pricing($1, $2, $3, $4, $5, $6, $7)',
@@ -687,6 +691,36 @@ describe('critère 2 — photos : PHOTO_MIN_COUNT, l’annonce reste DRAFT ; N-3
       });
     },
   );
+
+  it.each(byCountry)(
+    '%s (%s) : supprimer puis recréer — l’annonce DELETED libère son véhicule (une seule annonce non supprimée par véhicule)',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const h = await draft(client, c, priceOf(c, 40));
+        expect(await remove(client, h, h.listing)).toBe('DONE');
+        // le véhicule redevient « sans annonce » dans l'espace de l'hôte
+        const before = await client.query<{ vehicle_id: string; listing_id: string | null }>(
+          'SELECT vehicle_id, listing_id FROM core.catalog_host_vehicles($1, $2)',
+          [h.hash, h.org],
+        );
+        expect(before.rows).toEqual([{ vehicle_id: h.vehicle, listing_id: null }]);
+        const again = await listing(client, h, h.vehicle, priceOf(c, 45));
+        expect(again.outcome).toBe('DONE');
+        expect(again.id).not.toBe(h.listing);
+        expect((await listingRow(client, h.listing))?.status).toBe('DELETED');
+        expect((await listingRow(client, again.id ?? ''))?.status).toBe('DRAFT');
+        const after = await client.query<{ vehicle_id: string; listing_id: string | null }>(
+          'SELECT vehicle_id, listing_id FROM core.catalog_host_vehicles($1, $2)',
+          [h.hash, h.org],
+        );
+        expect(after.rows).toEqual([{ vehicle_id: h.vehicle, listing_id: again.id }]);
+        // une seconde annonce vivante sur le même véhicule reste refusée
+        expect((await listing(client, h, h.vehicle, priceOf(c, 40))).outcome).toBe(
+          'LISTING_EXISTS',
+        );
+      });
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -746,6 +780,69 @@ describe('critère 3 — prix : trip confirmé inchangé ; pas du prix du pays (
                    AND pg_catalog.has_any_column_privilege('catalog_cmd_owner', t.rel, p.priv))`,
         );
         expect(rights.rows[0]?.n).toBe(0);
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : plafond de cohérence du pays (16 PRC-001) — au plafond : accepté ; un pas au-dessus et 10^18 : PRICE_INVALID ; prix du km au-delà : MILEAGE_CONFIG_INVALID',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const ceiling = async (key: string): Promise<bigint> => {
+          const { rows } = await client.query<{ v: string }>(
+            `SELECT value #>> '{}' AS v FROM core.config_param_value
+              WHERE key = $1 AND country_code = $2 AND scope_type = 'COUNTRY'
+              ORDER BY valid_from DESC LIMIT 1`,
+            [key, c.country],
+          );
+          if (!rows[0]) throw new Error(`${key} absent pour ${c.country}`);
+          return BigInt(rows[0].v);
+        };
+        const maxDaily = await ceiling('price_ceiling_daily_minor');
+        const maxKm = await ceiling('price_ceiling_extra_km_minor');
+        const step = BigInt(c.priceStepMinor);
+        // le plafond est lui-même au pas du pays, et sous la borne structurelle de 10^13
+        expect(maxDaily % step).toBe(0n);
+        expect(maxDaily <= 10_000_000_000_000n && maxKm <= 10_000_000_000_000n).toBe(true);
+        const h = await draft(client, c, priceOf(c, 40));
+        expect(await pricing(client, h, h.listing, String(maxDaily))).toBe('DONE');
+        expect(await pricing(client, h, h.listing, String(maxDaily + step))).toBe('PRICE_INVALID');
+        expect(await pricing(client, h, h.listing, '1000000000000000000')).toBe('PRICE_INVALID');
+        expect((await listing(client, h, h.vehicle, '1000000000000000000')).outcome).not.toBe(
+          'DONE',
+        );
+        expect((await listingRow(client, h.listing))?.daily_price_minor).toBe(String(maxDaily));
+        const km = (extra: string) =>
+          pricing(client, h, h.listing, priceOf(c, 40), { mode: 'INCLUDED', km: 200, extra });
+        expect(await km(String(maxKm))).toBe('DONE');
+        expect(await km(String(maxKm + 1n))).toBe('MILEAGE_CONFIG_INVALID');
+        expect(await km('1000000000000000000')).toBe('MILEAGE_CONFIG_INVALID');
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : plafond absent ou nul ⇒ PARAM_MISSING (fail-closed), rien d’écrit',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const h = await draft(client, c, priceOf(c, 40));
+        for (const key of ['price_ceiling_daily_minor', 'price_ceiling_extra_km_minor']) {
+          await client.query('BEGIN');
+          try {
+            await client.query('SELECT test_fixture.us115_price_ceiling_version($1, $2, $3)', [
+              key,
+              c.country,
+              JSON.stringify('0'),
+            ]);
+            expect(await pricing(client, h, h.listing, priceOf(c, 50)), key).toBe('PARAM_MISSING');
+          } finally {
+            await client.query('ROLLBACK');
+          }
+        }
+        expect((await listingRow(client, h.listing))?.daily_price_minor).toBe(
+          String(priceOf(c, 40)),
+        );
+        expect(await pricing(client, h, h.listing, priceOf(c, 50))).toBe('DONE');
       });
     },
   );

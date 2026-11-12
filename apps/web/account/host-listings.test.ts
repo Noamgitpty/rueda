@@ -9,9 +9,11 @@ import { LOCALE_CONFIG } from '../locale-config.ts';
 import {
   fieldsOf,
   hostAccountsOf,
+  inputFromMinor,
   listingsOf,
   messageKeyOf,
   minorFromInput,
+  priceExample,
   publicListingOf,
 } from './host-listings.ts';
 
@@ -31,6 +33,34 @@ describe('saisie du prix (PRC-001, BR-PRICE-01)', () => {
       for (const bad of ['', 'abc', '-5', '1e3', `${n.decimal}5`, `5${n.decimal}`]) {
         expect(minorFromInput(bad, 2, n), bad).toBeNull();
       }
+    });
+
+    it(`${locale.tag} : groupes de milliers à leur place seulement ; saisie ambiguë refusée, jamais lue ×100`, () => {
+      expect(minorFromInput(`1${n.group}234${n.decimal}50`, 2, n)).toBe('123450');
+      expect(minorFromInput(`1${n.group}234${n.group}567`, 0, n)).toBe('1234567');
+      // « 40.50 » là où « . » groupe les milliers (es-PA, pt-BR…) : groupe de 2 chiffres, refusé
+      expect(minorFromInput(`40${n.group}50`, 2, n)).toBeNull();
+      expect(minorFromInput(`1${n.group}23${n.group}456`, 0, n)).toBeNull();
+      expect(minorFromInput(`2${n.group}50${n.decimal}00`, 2, n)).toBeNull();
+      // l'exemple affiché à l'hôte est lui-même une saisie valide
+      expect(minorFromInput(priceExample(2, n), 2, n)).toBe('123450');
+      expect(minorFromInput(priceExample(0, n), 0, n)).toBe('250000');
+    });
+
+    it(`${locale.tag} : aller-retour du prix prérempli (devise à centimes et sans décimale)`, () => {
+      for (const [minor, exponent] of [
+        [4000n, 2],
+        [5n, 2],
+        [0n, 2],
+        [250000n, 0],
+        [35000000n, 0],
+        [1234567n, 3],
+      ] as const) {
+        const shown = inputFromMinor(minor, exponent, n);
+        expect(minorFromInput(shown, exponent, n), shown).toBe(minor.toString());
+      }
+      expect(inputFromMinor(250000n, 0, n)).toBe('250000');
+      expect(inputFromMinor(4000n, 2, n)).toBe(`40${n.decimal}00`);
     });
   }
 });
@@ -60,20 +90,47 @@ describe('lecture défensive des réponses', () => {
             currency: 'XXX',
             mileageMode: 'UNLIMITED',
             includedKmPerDay: null,
+            extraKmPriceMinor: null,
             photos: 2,
+          },
+          {
+            id: ID,
+            vehicleId: ID,
+            status: 'DRAFT',
+            dailyPriceMinor: '300000',
+            currency: 'XXX',
+            mileageMode: 'INCLUDED',
+            includedKmPerDay: 200,
+            extraKmPriceMinor: '2000',
+            photos: 0,
           },
         ],
         market: { country: 'XX', currency: 'XXX', currencyExponent: 0 },
+        photoUploads: { open: false, maxBytes: 75_000 },
       }),
     );
     expect(ok?.listings[0]?.dailyPriceMinor).toBe(250000n);
+    expect(ok?.listings[0]?.extraKmPriceMinor).toBeNull();
+    // le prix du km est relu (préremplissage : jamais remis à 0 par un changement de prix)
+    expect(ok?.listings[1]?.extraKmPriceMinor).toBe(2000n);
     expect(ok?.market.currencyExponent).toBe(0);
+    expect(ok?.photoUploads).toEqual({ open: false, maxBytes: 75_000 });
+    // dépôt des photos non annoncé : réponse refusée
+    expect(
+      listingsOf(
+        reply(200, {
+          listings: [],
+          market: { country: 'XX', currency: 'XXX', currencyExponent: 0 },
+        }),
+      ),
+    ).toBeNull();
     expect(listingsOf(reply(200, { listings: [] }))).toBeNull();
     expect(
       listingsOf(
         reply(200, {
           listings: [{ id: ID, vehicleId: ID, dailyPriceMinor: '1.5' }],
           market: { country: 'XX', currency: 'XXX', currencyExponent: 2 },
+          photoUploads: { open: true, maxBytes: 1 },
         }),
       ),
     ).toBeNull();

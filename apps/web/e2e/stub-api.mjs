@@ -166,10 +166,12 @@ const statusOf = (email) => {
 };
 
 // ---- Espace de l'hôte et fiche publique (US-115) --------------------------------------------
-// Session `H0st…` (43 caractères) inconnue : un compte d'hôte neuf lui est créé (un par parcours,
-// aucun partage d'état entre tests parallèles) ; `N0ho…` : session sans compte d'hôte. Les photos
-// répondent 503 PHOTO_UPLOAD_UNAVAILABLE comme la production (antivirus et stockage pas encore
-// branchés). Fiches publiques : `PUBLIC_ID` publiée, `DOWN_ID` en panne (503), le reste 404.
+// Session `H0st…` (43 caractères) inconnue : deux comptes d'hôte neufs lui sont créés (un par
+// parcours, aucun partage d'état entre tests parallèles) : le premier dans un marché à deux
+// décimales (XTS) où le dépôt des photos est FERMÉ comme en production (antivirus et stockage pas
+// encore branchés : 503), le second dans un marché SANS décimale (XXX, exposant 0, comme le PYG)
+// où le dépôt est ouvert avec une petite taille maximale (413 au-delà) ; `N0ho…` : session sans
+// compte d'hôte. Fiches publiques : `PUBLIC_ID` publiée, `DOWN_ID` en panne (503), le reste 404.
 // Données fictives ; la fiche publique ne porte que des colonnes C0 (aucune adresse exacte).
 const HOST_TOKEN = /^H0st[A-Za-z0-9_-]{39}$/;
 const NOHOST_TOKEN = /^N0ho[A-Za-z0-9_-]{39}$/;
@@ -187,12 +189,27 @@ const hostOf = (req) => {
   if (NOHOST_TOKEN.test(token)) return null;
   if (!HOST_TOKEN.test(token)) return undefined;
   if (!hosts.has(token)) {
-    hosts.set(token, { orgId: uuid(), locations: [], vehicles: [], listings: [] });
+    const account = (market, photoUploads) => ({
+      orgId: uuid(),
+      market,
+      photoUploads,
+      locations: [],
+      vehicles: [],
+      listings: [],
+    });
+    hosts.set(token, {
+      accounts: [
+        account(MARKET, { open: false, maxBytes: 75_000 }),
+        account(MARKET_NO_DECIMALS, { open: true, maxBytes: 2_000 }),
+      ],
+    });
   }
   return hosts.get(token);
 };
-// devise de test ISO 4217 (XTS) : aucune vraie devise écrite ici (ADR-024)
+// devises de test ISO 4217 (XTS, XXX) et pays réservés : aucune vraie devise ni aucun vrai pays
+// écrits ici (ADR-024)
 const MARKET = { country: 'ZZ', currency: 'XTS', currencyExponent: 2 };
+const MARKET_NO_DECIMALS = { country: 'QZ', currency: 'XXX', currencyExponent: 0 };
 
 async function hostRoute(req, res, url) {
   const path = url.pathname;
@@ -208,15 +225,13 @@ async function hostRoute(req, res, url) {
       hostAccounts:
         h === null
           ? []
-          : [
-              {
-                orgId: h.orgId,
-                country: 'ZZ',
-                role: 'P2P_HOST',
-                status: 'ONBOARDING',
-                displayName: 'Ana',
-              },
-            ],
+          : h.accounts.map((a) => ({
+              orgId: a.orgId,
+              country: a.market.country,
+              role: 'P2P_HOST',
+              status: 'ONBOARDING',
+              displayName: 'Ana',
+            })),
     });
   }
   const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
@@ -254,9 +269,10 @@ async function hostRoute(req, res, url) {
       path,
     );
   if (m === null) return false;
-  const h = hostOf(req);
-  if (h === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
-  if (h === null || h.orgId !== m[1]) {
+  const owner = hostOf(req);
+  if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === m[1]);
+  if (h === undefined) {
     return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
   }
   const [, , kind, id, step] = m;
@@ -265,7 +281,8 @@ async function hostRoute(req, res, url) {
     if (kind === 'vehicles') return json(res, 200, { vehicles: h.vehicles });
     return json(res, 200, {
       listings: h.listings.filter((l) => l.status !== 'DELETED'),
-      market: MARKET,
+      market: h.market,
+      photoUploads: h.photoUploads,
     });
   }
   if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
@@ -312,7 +329,11 @@ async function hostRoute(req, res, url) {
         fields: [{ field: 'plate', reason: 'INVALID' }],
       });
     }
-    if ([...hosts.values()].some((x) => x.vehicles.some((v) => v.plate === plate))) {
+    if (
+      [...hosts.values()].some((x) =>
+        x.accounts.some((a) => a.vehicles.some((v) => v.plate === plate)),
+      )
+    ) {
       return err(res, 409, 'VEHICLE_PLATE_DUPLICATE', 'common.listing.plateDuplicate');
     }
     const v = {
@@ -354,7 +375,7 @@ async function hostRoute(req, res, url) {
       vehicleId: v.id,
       status: 'DRAFT',
       dailyPriceMinor: body.dailyPriceMinor,
-      currency: 'XTS',
+      currency: h.market.currency,
       mileageMode: body.mileageMode,
       includedKmPerDay: body.includedKmPerDay ?? null,
       extraKmPriceMinor: body.extraKmPriceMinor ?? null,
@@ -377,13 +398,27 @@ async function hostRoute(req, res, url) {
     if (!/^[1-9][0-9]*$/.test(String(body.dailyPriceMinor))) {
       return err(res, 422, 'PRICE_INVALID', 'common.listing.priceInvalid');
     }
+    if (
+      body.mileageMode === 'INCLUDED' &&
+      !/^(0|[1-9][0-9]*)$/.test(String(body.extraKmPriceMinor))
+    ) {
+      return err(res, 422, 'MILEAGE_CONFIG_INVALID', 'common.listing.mileageInvalid');
+    }
     l.dailyPriceMinor = body.dailyPriceMinor;
     l.mileageMode = body.mileageMode;
     l.includedKmPerDay = body.includedKmPerDay ?? null;
+    l.extraKmPriceMinor = body.extraKmPriceMinor ?? null;
     return err(res, 200, 'LISTING_SAVED', 'common.listing.saved');
   }
   if (req.method === 'POST' && step === 'photos') {
-    return err(res, 503, 'PHOTO_UPLOAD_UNAVAILABLE', 'common.listing.photoUnavailable');
+    if (!h.photoUploads.open) {
+      return err(res, 503, 'PHOTO_UPLOAD_UNAVAILABLE', 'common.listing.photoUnavailable');
+    }
+    if (Buffer.from(String(body.dataBase64 ?? ''), 'base64').length > h.photoUploads.maxBytes) {
+      return err(res, 413, 'REQUEST_TOO_LARGE', 'common.error.server');
+    }
+    l.photos += 1;
+    return err(res, 201, 'PHOTO_ADDED', 'common.listing.photoAdded');
   }
   if (req.method === 'POST' && step === 'submit') {
     if (l.photos < 6) return err(res, 422, 'PHOTO_MIN_COUNT', 'common.listing.photoMinCount');
@@ -391,6 +426,12 @@ async function hostRoute(req, res, url) {
   }
   if (req.method === 'DELETE' && step === undefined) {
     l.status = 'DELETED';
+    // l'annonce supprimée libère son véhicule (index unique partiel de 0067)
+    const freed = h.vehicles.find((x) => x.id === l.vehicleId);
+    if (freed) {
+      freed.listingId = null;
+      freed.listingStatus = null;
+    }
     return json(res, 200, {
       code: 'LISTING_DELETED',
       messageKey: 'common.listing.deleted',

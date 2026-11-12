@@ -3,15 +3,25 @@
  * Actions serveur de l'espace de l'hôte (A10, US-115) : lieu de remise, véhicule, annonce, prix,
  * photo, soumission et suppression. Le site appelle l'API CÔTÉ SERVEUR (`account/api-client.ts`) ;
  * le compte d'hôte et l'annonce viennent de champs cachés que l'API revérifie toujours (un compte
- * ou un objet d'un autre hôte : 404). Formulaires sans JavaScript ; succès : retour à l'écran
- * avec « Guardado ». Jamais de donnée personnelle dans une URL ni dans un journal.
+ * ou un objet d'un autre hôte : 404). La devise, son exposant et la taille maximale d'une photo
+ * sont RELUS de l'API (`GET …/listings`), jamais crus d'un champ du formulaire (revue argent
+ * d'US-115). Formulaires sans JavaScript ; succès : retour à l'écran avec « Guardado ». Jamais de
+ * donnée personnelle dans une URL ni dans un journal.
  */
 import { redirect } from 'next/navigation';
 import { getProfile } from '@rueda/i18n';
 import type { MessageKey } from '@rueda/i18n';
 import { callApi } from '../../../account/api-client.ts';
 import type { ApiResult } from '../../../account/api-client.ts';
-import { fieldsOf, messageKeyOf, minorFromInput } from '../../../account/host-listings.ts';
+import {
+  fieldsOf,
+  formatPhotoMax,
+  listingsOf,
+  messageKeyOf,
+  minorFromInput,
+  priceExample,
+} from '../../../account/host-listings.ts';
+import type { MarketView, PhotoUploadsView } from '../../../account/host-listings.ts';
 import { clientContext } from '../../../account/request.ts';
 import { getRequestLocaleTag } from '../../../i18n.ts';
 import { LOCALE_CONFIG } from '../../../locale-config.ts';
@@ -23,7 +33,7 @@ export interface HostFormState {
   readonly values?: Readonly<Record<string, string>>;
 }
 
-const HIDDEN = new Set(['org', 'listing', 'exponent', 'step', 'photo']);
+const HIDDEN = new Set(['org', 'listing', 'step', 'photo', 'confirm']);
 
 /** Champs texte saisis (jamais les champs cachés ni le fichier), bornés. */
 function keep(form: FormData, state: HostFormState): HostFormState {
@@ -58,7 +68,7 @@ function errorsOf(reply: ApiResult, formId: string, fieldIds: Record<string, str
         : 'common.listing.field.invalid') as MessageKey,
     }));
   }
-  if (reply.status === 'unavailable' || reply.status === 413) {
+  if (reply.status === 'unavailable') {
     return [
       {
         fieldId: formId,
@@ -133,21 +143,50 @@ async function createVehicleImpl(_prev: HostFormState, form: FormData): Promise<
   done(orgId);
 }
 
-/** Tarif saisi dans la langue de la vue, converti en unités mineures avec l'exposant du compte. */
-async function pricingOf(form: FormData, formId: string) {
-  const exponent = Number(text(form, 'exponent', 1));
+/** Marché du compte (devise, exposant) et dépôt des photos, relus de l'API ; `null` : injoignable. */
+async function accountOf(
+  orgId: string,
+): Promise<{ market: MarketView; photoUploads: PhotoUploadsView } | null> {
+  const reply = await callApi('GET', `/host/accounts/${orgId}/listings`, await clientContext());
+  return listingsOf(reply);
+}
+
+const unavailable = (formId: string): HostFormState => ({
+  errors: [{ fieldId: formId, key: 'common.listing.unavailable' }],
+});
+
+/**
+ * Tarif saisi dans la langue de la vue, converti en unités mineures avec l'exposant du compte relu
+ * de l'API. Distance incluse : le prix du km est obligatoire (jamais un 0 implicite), chaque erreur
+ * est rattachée à son champ.
+ */
+async function pricingOf(form: FormData, formId: string, exponent: number) {
   const number = getProfile(LOCALE_CONFIG, await getRequestLocaleTag()).number;
-  const price = minorFromInput(text(form, 'price', 32), exponent, number);
+  const example = { example: priceExample(exponent, number) };
+  const rawPrice = text(form, 'price', 32);
+  const price = minorFromInput(rawPrice, exponent, number);
   const km = text(form, 'km', 6);
   const extra = text(form, 'extraKm', 32);
-  const errors: { fieldId: string; key: MessageKey }[] = [];
-  if (price === null)
-    errors.push({ fieldId: `${formId}-price`, key: 'common.listing.priceInvalid' });
+  const errors: { fieldId: string; key: MessageKey; values?: Record<string, string> }[] = [];
+  if (rawPrice === '') {
+    errors.push({ fieldId: `${formId}-price`, key: 'common.listing.field.required' });
+  } else if (price === null) {
+    errors.push({ fieldId: `${formId}-price`, key: 'common.listing.priceFormat', values: example });
+  }
   let mileage: Record<string, unknown> = { mileageMode: 'UNLIMITED' };
   if (km !== '') {
-    const extraMinor = minorFromInput(extra === '' ? '0' : extra, exponent, number);
-    if (!/^[1-9][0-9]{0,4}$/.test(km) || extraMinor === null) {
+    const extraMinor = extra === '' ? null : minorFromInput(extra, exponent, number);
+    if (!/^[1-9][0-9]{0,4}$/.test(km)) {
       errors.push({ fieldId: `${formId}-km`, key: 'common.listing.mileageInvalid' });
+    }
+    if (extra === '') {
+      errors.push({ fieldId: `${formId}-extra`, key: 'common.listing.field.required' });
+    } else if (extraMinor === null) {
+      errors.push({
+        fieldId: `${formId}-extra`,
+        key: 'common.listing.priceFormat',
+        values: example,
+      });
     }
     mileage = {
       mileageMode: 'INCLUDED',
@@ -161,7 +200,9 @@ async function pricingOf(form: FormData, formId: string) {
 async function createListingImpl(_prev: HostFormState, form: FormData): Promise<HostFormState> {
   const orgId = idOf(form, 'org');
   if (orgId === null) return invalid('a10-new');
-  const p = await pricingOf(form, 'a10-new');
+  const account = await accountOf(orgId);
+  if (account === null) return unavailable('a10-new');
+  const p = await pricingOf(form, 'a10-new', account.market.currencyExponent);
   if (p.errors.length > 0) return { errors: p.errors };
   const reply = await callApi('POST', `/host/accounts/${orgId}/listings`, await clientContext(), {
     vehicleId: idOf(form, 'vehicleId') ?? '',
@@ -176,7 +217,9 @@ async function savePriceImpl(_prev: HostFormState, form: FormData): Promise<Host
   const listingId = idOf(form, 'listing');
   const formId = `a10-${listingId ?? 'x'}`;
   if (orgId === null || listingId === null) return invalid(formId);
-  const p = await pricingOf(form, formId);
+  const account = await accountOf(orgId);
+  if (account === null) return unavailable(formId);
+  const p = await pricingOf(form, formId, account.market.currencyExponent);
   if (p.errors.length > 0) return { errors: p.errors };
   const reply = await callApi(
     'PUT',
@@ -197,6 +240,20 @@ async function addPhotoImpl(_prev: HostFormState, form: FormData): Promise<HostF
   if (!(file instanceof Blob) || file.size === 0) {
     return { errors: [{ fieldId: formId, key: 'common.listing.field.required' }] };
   }
+  const account = await accountOf(orgId);
+  if (account === null) return unavailable(formId);
+  const tag = await getRequestLocaleTag();
+  const tooLarge: HostFormState = {
+    errors: [
+      {
+        fieldId: formId,
+        key: 'common.listing.photoTooLarge',
+        values: { max: formatPhotoMax(account.photoUploads.maxBytes, tag) },
+      },
+    ],
+  };
+  // trop lourde : refus annoncé avant l'envoi (413 de l'API : même message, jamais « plus tard »)
+  if (file.size > account.photoUploads.maxBytes) return tooLarge;
   const data = Buffer.from(await file.arrayBuffer()).toString('base64');
   const reply = await callApi(
     'POST',
@@ -204,6 +261,7 @@ async function addPhotoImpl(_prev: HostFormState, form: FormData): Promise<HostF
     await clientContext(),
     { dataBase64: data },
   );
+  if (reply.status === 413) return tooLarge;
   if (reply.status !== 201) return { errors: errorsOf(reply, formId, {}) };
   done(orgId);
 }
@@ -215,6 +273,12 @@ async function listingStepImpl(_prev: HostFormState, form: FormData): Promise<Ho
   const formId = `a10-${listingId ?? 'x'}-${step}`;
   if (orgId === null || listingId === null || (step !== 'submit' && step !== 'delete')) {
     return invalid(formId);
+  }
+  // suppression (définitive) : case de confirmation cochée, sinon rien n'est envoyé
+  if (step === 'delete' && text(form, 'confirm', 8) !== 'yes') {
+    return {
+      errors: [{ fieldId: `${formId}-confirm`, key: 'common.listing.deleteConfirmRequired' }],
+    };
   }
   const ctx = await clientContext();
   const reply =

@@ -74,7 +74,22 @@ export interface ListingView {
   readonly currency: string;
   readonly mileageMode: string;
   readonly includedKmPerDay: number | null;
+  /** Prix du km supplémentaire (distance incluse), en unités mineures ; `null` en illimité. */
+  readonly extraKmPriceMinor: bigint | null;
   readonly photos: number;
+}
+
+/** Dépôt des photos annoncé par l'API : ouvert ou fermé, et taille maximale d'une photo. */
+export interface PhotoUploadsView {
+  readonly open: boolean;
+  readonly maxBytes: number;
+}
+
+function photoUploadsOf(v: unknown): PhotoUploadsView | null {
+  if (!isObj(v) || typeof v['open'] !== 'boolean') return null;
+  const maxBytes = int(v['maxBytes']);
+  if (maxBytes === null || maxBytes < 0) return null;
+  return { open: v['open'], maxBytes };
 }
 
 function marketOf(v: unknown): MarketView | null {
@@ -136,17 +151,20 @@ export function vehiclesOf(reply: ApiResult): VehicleView[] | null {
 
 export function listingsOf(
   reply: ApiResult,
-): { listings: ListingView[]; market: MarketView } | null {
+): { listings: ListingView[]; market: MarketView; photoUploads: PhotoUploadsView } | null {
   if (reply.status !== 200 || !isObj(reply.json) || !Array.isArray(reply.json['listings'])) {
     return null;
   }
   const market = marketOf(reply.json['market']);
-  if (market === null) return null;
+  const photoUploads = photoUploadsOf(reply.json['photoUploads']);
+  if (market === null || photoUploads === null) return null;
   const listings: ListingView[] = [];
   for (const l of reply.json['listings'] as unknown[]) {
     if (!isObj(l) || !UUID.test(String(l['id'])) || !UUID.test(String(l['vehicleId']))) return null;
     const price = str(l['dailyPriceMinor']);
     if (price === null || !MINOR.test(price)) return null;
+    const extra = l['extraKmPriceMinor'] ?? null;
+    if (extra !== null && (typeof extra !== 'string' || !MINOR.test(extra))) return null;
     listings.push({
       id: String(l['id']),
       vehicleId: String(l['vehicleId']),
@@ -155,10 +173,11 @@ export function listingsOf(
       currency: String(l['currency']),
       mileageMode: String(l['mileageMode']),
       includedKmPerDay: int(l['includedKmPerDay']),
+      extraKmPriceMinor: extra === null ? null : BigInt(extra),
       photos: int(l['photos']) ?? 0,
     });
   }
-  return { listings, market };
+  return { listings, market, photoUploads };
 }
 
 export interface PublicListingView {
@@ -223,27 +242,59 @@ export function publicListingOf(reply: ApiResult): PublicListingView | null {
 }
 
 /**
- * Prix saisi dans la langue de la vue (« 40,00 », « 250.000 », « 40.5 ») → unités mineures (chaîne
- * d'entier), sans flottant : séparateur de groupes retiré, séparateur décimal de la locale, au plus
- * `exponent` décimales (aucune pour une devise sans décimale). Saisie invalide : `null`.
+ * Prix saisi dans la langue de la vue (« 40,00 », « 250.000 », « 1.234,50 ») → unités mineures
+ * (chaîne d'entier), sans flottant : séparateur décimal de la locale, au plus `exponent` décimales
+ * (aucune pour une devise sans décimale). Les séparateurs de groupes ne sont admis qu'à leur place
+ * (groupes de trois chiffres) : une saisie ambiguë comme « 40.50 » dans une locale où « . » groupe
+ * les milliers est REFUSÉE, jamais lue 4 050 (revue argent d'US-115). Saisie invalide : `null`.
  */
 export function minorFromInput(
   raw: string,
   exponent: number,
   number: LocaleProfile['number'],
 ): string | null {
-  const text = raw
-    .trim()
-    .replace(/[\s\u00a0\u202f]/g, '')
-    .split(number.group)
-    .join('');
+  // espaces (dont ins\u00e9cables) ramen\u00e9s \u00e0 une espace : s\u00e9parateur de groupes s'il en est un
+  const text = raw.trim().replace(/[\s\u00a0\u202f]+/g, ' ');
+  const group = /^[\s\u00a0\u202f]+$/.test(number.group) ? ' ' : number.group;
   const parts = text.split(number.decimal);
   if (parts.length > 2) return null;
-  const [whole = '', frac = ''] = parts;
+  const [grouped = '', frac = ''] = parts;
+  let whole = grouped;
+  if (group !== '' && grouped.includes(group)) {
+    const [head = '', ...rest] = grouped.split(group);
+    if (!/^[0-9]{1,3}$/.test(head) || rest.some((g) => !/^[0-9]{3}$/.test(g))) return null;
+    whole = [head, ...rest].join('');
+  }
   if (!/^[0-9]{1,15}$/.test(whole) || !/^[0-9]*$/.test(frac) || frac.length > exponent) return null;
   if (parts.length === 2 && frac.length === 0) return null;
   const digits = `${whole}${frac.padEnd(exponent, '0')}`.replace(/^0+(?=.)/, '');
   return MINOR.test(digits) ? digits : null;
+}
+
+/** Unités mineures → saisie dans la langue de la vue (sans symbole, sans groupe, sans flottant). */
+export function inputFromMinor(
+  minor: bigint,
+  exponent: number,
+  number: LocaleProfile['number'],
+): string {
+  const digits = minor.toString().padStart(exponent + 1, '0');
+  const cut = digits.length - exponent;
+  return exponent === 0 ? digits : `${digits.slice(0, cut)}${number.decimal}${digits.slice(cut)}`;
+}
+
+/** Exemple de saisie d'un prix dans la langue de la vue (« 1.234,50 », « 250.000 »). */
+export function priceExample(exponent: number, number: LocaleProfile['number']): string {
+  if (exponent === 0) return `250${number.group}000`;
+  return `1${number.group}234${number.decimal}${'50'.padEnd(exponent, '0').slice(0, exponent)}`;
+}
+
+/** Taille maximale d'une photo, dans la langue de la vue (« 75 kB »), arrondie vers le bas. */
+export function formatPhotoMax(bytes: number, tag: string): string {
+  return new Intl.NumberFormat(tag, {
+    style: 'unit',
+    unit: 'kilobyte',
+    maximumFractionDigits: 0,
+  }).format(Math.floor(bytes / 1000));
 }
 
 /** Clé de message rendue par l'API (`messageKey`), si elle existe dans le catalogue. */

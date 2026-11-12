@@ -27,10 +27,14 @@
 --     véhicule, sinon CATALOG_VARIANT_NOT_FOUND ; retirée : CATALOG_VARIANT_RETIRED ;
 --   - prix journalier en unités mineures (bigint), > 0, multiple de `price_display_step_minor` du
 --     pays (17 §7.2 `pyg_price_step`, sans objet là où la clé est déclarée non applicable ;
---     absente ailleurs : PARAM_MISSING) ; un trip confirmé n'est jamais touché (le propriétaire
+--     absente ailleurs : PARAM_MISSING) et au plus `price_ceiling_daily_minor` du pays (plafond
+--     de cohérence, 16 PRC-001, PROPOSÉ ; prix du km au plus `price_ceiling_extra_km_minor` ;
+--     clé absente, nulle ou au-delà de 10^13 : PARAM_MISSING) ; borne structurelle de 10^13
+--     unités mineures sur les colonnes, contre le débordement du bigint en aval ; un trip confirmé n'est jamais touché (le propriétaire
 --     des commandes n'a aucun droit sur les trips ni l'argent : 19 US-115 critère 3) ;
 --   - SM-2 utile à la bêta : création DRAFT, soumission DRAFT → PENDING_REVIEW, suppression
---     DRAFT / BLOCKED_ELIGIBILITY / REJECTED → DELETED ; toute autre transition :
+--     DRAFT / BLOCKED_ELIGIBILITY / REJECTED → DELETED (une annonce DELETED libère son
+--     véhicule : index unique partiel, une seule annonce non supprimée par véhicule) ; toute autre transition :
 --     LISTING_TRANSITION_FORBIDDEN (la publication est US-118). Soumission, dans l'ordre :
 --     complétude (photos ≥ `listing_min_photos` du pays : PHOTO_MIN_COUNT, l'annonce reste
 --     DRAFT, 19 US-115 critère 2), compte d'hôte ACTIVE puis `p2p_private_hosts_enabled[pays]`
@@ -101,18 +105,20 @@ GRANT EXECUTE ON FUNCTION core.iam_session_resolve(bytea), core.iam_host_account
   TO catalog_cmd_owner;
 RESET ROLE;
 
--- configuration : devise et fuseau du pays ; trois clés seulement (pas de prix, photos, ouverture
--- du pays aux hôtes particuliers lue par core.config_go_live)
+-- configuration : devise et fuseau du pays ; cinq clés seulement (pas de prix, photos, plafonds de
+-- cohérence des prix, ouverture du pays aux hôtes particuliers lue par core.config_go_live)
 GRANT SELECT (code, currency, time_zone) ON core.config_country TO catalog_cmd_owner;
 CREATE POLICY catalog_cmd_read ON core.config_country FOR SELECT TO catalog_cmd_owner USING (true);
 GRANT SELECT (key, not_applicable_in, go_live_switch) ON core.config_param_definition
   TO catalog_cmd_owner;
 CREATE POLICY catalog_cmd_read ON core.config_param_definition FOR SELECT TO catalog_cmd_owner
-  USING (key IN ('price_display_step_minor', 'listing_min_photos', 'p2p_private_hosts_enabled'));
+  USING (key IN ('price_display_step_minor', 'listing_min_photos', 'price_ceiling_daily_minor',
+                'price_ceiling_extra_km_minor', 'p2p_private_hosts_enabled'));
 GRANT SELECT (key, country_code, scope_type, value, valid_from, valid_to)
   ON core.config_param_value TO catalog_cmd_owner;
 CREATE POLICY catalog_cmd_read ON core.config_param_value FOR SELECT TO catalog_cmd_owner
-  USING (key IN ('price_display_step_minor', 'listing_min_photos', 'p2p_private_hosts_enabled'));
+  USING (key IN ('price_display_step_minor', 'listing_min_photos', 'price_ceiling_daily_minor',
+                'price_ceiling_extra_km_minor', 'p2p_private_hosts_enabled'));
 
 -- catalogue de référence (0063) : statut, marché, années et classe de valeur de la variante
 GRANT SELECT (id, name, status) ON core.catalog_vehicle_make TO catalog_cmd_owner;
@@ -283,7 +289,9 @@ COMMENT ON TABLE core.catalog_deposit_policy IS
 -- 2.4 Annonce (SM-2 ; une annonce par véhicule).
 CREATE TABLE core.catalog_listing (
   id                   uuid        PRIMARY KEY,
-  vehicle_id           uuid        NOT NULL CONSTRAINT catalog_listing_vehicle_unique UNIQUE,
+  -- une annonce VIVANTE par véhicule : index unique partiel ci-dessous (une annonce DELETED libère
+  -- le véhicule, qui peut en recevoir une nouvelle ; ADR-099, écart PROPOSÉ à 17 §3.2.3 « UQ »)
+  vehicle_id           uuid        NOT NULL,
   org_id               uuid        NOT NULL,
   country_code         text        NOT NULL
                        CONSTRAINT catalog_listing_country_format CHECK (country_code ~ '^[A-Z]{2}$'),
@@ -292,7 +300,10 @@ CREATE TABLE core.catalog_listing (
                          ('DRAFT', 'BLOCKED_ELIGIBILITY', 'PENDING_REVIEW', 'LISTED', 'REJECTED',
                           'SNOOZED', 'UNLISTED', 'RESTRICTED', 'REMOVED_BY_PLATFORM', 'DELETED')),
   daily_price_minor    bigint      NOT NULL
-                       CONSTRAINT catalog_listing_price_positive CHECK (daily_price_minor > 0),
+                       CONSTRAINT catalog_listing_price_positive CHECK (daily_price_minor > 0)
+                       -- borne structurelle contre le débordement du bigint en aval (devis, part,
+                       -- taxe, trip fee) ; le plafond de cohérence est un paramètre du pays
+                       CONSTRAINT catalog_listing_price_bound CHECK (daily_price_minor <= 10000000000000),
   currency             text        NOT NULL
                        CONSTRAINT catalog_listing_currency_format CHECK (currency ~ '^[A-Z]{3}$'),
   mileage_mode         text        NOT NULL
@@ -313,11 +324,13 @@ CREATE TABLE core.catalog_listing (
   CONSTRAINT catalog_listing_mileage_valid CHECK (
     (mileage_mode = 'UNLIMITED' AND included_km_per_day IS NULL AND extra_km_price_minor IS NULL)
     OR (mileage_mode = 'INCLUDED' AND included_km_per_day BETWEEN 1 AND 10000
-        AND extra_km_price_minor >= 0)),
+        AND extra_km_price_minor BETWEEN 0 AND 10000000000000)),
   CONSTRAINT catalog_listing_vehicle_fk FOREIGN KEY (vehicle_id, org_id, country_code)
     REFERENCES core.catalog_vehicle (id, org_id, country_code),
   CONSTRAINT catalog_listing_party_unique UNIQUE (id, org_id, country_code)
 );
+CREATE UNIQUE INDEX catalog_listing_vehicle_live_unique ON core.catalog_listing (vehicle_id)
+  WHERE status <> 'DELETED';
 CREATE INDEX catalog_listing_org_idx ON core.catalog_listing (org_id);
 CREATE TRIGGER touch_row BEFORE UPDATE ON core.catalog_listing
   FOR EACH ROW EXECUTE FUNCTION platform.touch_row();
@@ -708,29 +721,37 @@ CREATE FUNCTION core.catalog_pricing_outcome(p_country text, p_price bigint, p_m
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 DECLARE
-  v_step bigint;
+  v_step      bigint;
+  v_max_daily bigint;
+  v_max_km    bigint;
 BEGIN
   IF p_price IS NULL OR p_price <= 0 THEN
     RETURN 'PRICE_INVALID';
   END IF;
   v_step := core.catalog_price_step(p_country);
-  IF v_step IS NULL THEN
+  -- plafonds de cohérence du pays (16 PRC-001, PROPOSÉ) : absents, nuls ou au-delà de la borne
+  -- structurelle (10^13 unités mineures, contre le débordement du bigint en aval) : PARAM_MISSING
+  v_max_daily := core.catalog_param_int('price_ceiling_daily_minor', p_country);
+  v_max_km := core.catalog_param_int('price_ceiling_extra_km_minor', p_country);
+  IF v_step IS NULL OR v_max_daily IS NULL OR v_max_daily NOT BETWEEN 1 AND 10000000000000
+     OR v_max_km IS NULL OR v_max_km NOT BETWEEN 1 AND 10000000000000 THEN
     RETURN 'PARAM_MISSING';
   END IF;
-  IF pg_catalog.mod(p_price, v_step) <> 0 THEN
+  IF pg_catalog.mod(p_price, v_step) <> 0 OR p_price > v_max_daily THEN
     RETURN 'PRICE_INVALID';
   END IF;
   IF p_mode IS NULL OR p_mode NOT IN ('UNLIMITED', 'INCLUDED')
      OR (p_mode = 'UNLIMITED' AND (p_km IS NOT NULL OR p_extra IS NOT NULL))
      OR (p_mode = 'INCLUDED' AND (p_km IS NULL OR p_km NOT BETWEEN 1 AND 10000
-                                  OR p_extra IS NULL OR p_extra < 0)) THEN
+                                  OR p_extra IS NULL OR p_extra < 0 OR p_extra > v_max_km)) THEN
     RETURN 'MILEAGE_CONFIG_INVALID';
   END IF;
   RETURN 'OK';
 END
 $fn$;
 COMMENT ON FUNCTION core.catalog_pricing_outcome(text, bigint, text, integer, bigint) IS
-  'Prix journalier (> 0, multiple du pas du pays) et distance incluse (16 HST-033) : OK, '
+  'Prix journalier (> 0, multiple du pas du pays, au plus price_ceiling_daily_minor) et '
+  'distance incluse (16 HST-033 ; prix du km au plus price_ceiling_extra_km_minor) : OK, '
   'PRICE_INVALID, PARAM_MISSING ou MILEAGE_CONFIG_INVALID. Sous catalog_cmd_owner. US-115.';
 REVOKE ALL ON FUNCTION core.catalog_pricing_outcome(text, bigint, text, integer, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.catalog_pricing_outcome(text, bigint, text, integer, bigint)
@@ -787,7 +808,8 @@ BEGIN
   SELECT k.currency::text INTO v_currency FROM core.config_country AS k
    WHERE k.code::text = h.country_code;
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('cat.listing:' || v_vehicle::text, 0));
-  IF EXISTS (SELECT 1 FROM core.catalog_listing AS x WHERE x.vehicle_id = v_vehicle) THEN
+  IF EXISTS (SELECT 1 FROM core.catalog_listing AS x
+              WHERE x.vehicle_id = v_vehicle AND x.status <> 'DELETED') THEN
     RETURN QUERY SELECT 'LISTING_EXISTS'::text, NULL::uuid;
     RETURN;
   END IF;
@@ -1064,7 +1086,7 @@ AS $fn$
          v.gps_installed, v.lien_declared, v.eligibility_status, l.id, l.status
     FROM core.catalog_host_context(p_token_hash, p_org) AS h
     JOIN core.catalog_vehicle AS v ON v.org_id = p_org AND v.country_code = h.country_code
-    LEFT JOIN core.catalog_listing AS l ON l.vehicle_id = v.id
+    LEFT JOIN core.catalog_listing AS l ON l.vehicle_id = v.id AND l.status <> 'DELETED'
    WHERE h.outcome = 'OK'
    ORDER BY v.created_at, v.id
 $fn$;

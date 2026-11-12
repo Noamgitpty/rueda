@@ -20,6 +20,10 @@
     {
       "path": "packages/db/migrations/0068_config_listing_photo_params.sql",
       "justification": "Graine complémentaire du paramètre listing_min_photos (08 BR-LIST-05, 16 HST-012, 19 US-115) : définition et valeurs PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-115, ADR-099."
+    },
+    {
+      "path": "packages/db/migrations/0069_config_listing_price_params.sql",
+      "justification": "Graine complémentaire des plafonds de cohérence du prix price_ceiling_* (16 PRC-001, HST-033, 19 US-115) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-115, ADR-099."
     }
   ]
 }

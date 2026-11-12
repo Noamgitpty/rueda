@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Badge, Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import type { BadgeTone } from '@rueda/ui';
-import type { MessageKey, Translator } from '@rueda/i18n';
+import type { MessageKey } from '@rueda/i18n';
 import { callApi } from '../../../account/api-client.ts';
 import {
+  formatPhotoMax,
   hostAccountsOf,
+  inputFromMinor,
   listingsOf,
   locationsOf,
   vehiclesOf,
@@ -47,13 +49,13 @@ const STATUSES = new Set([
 const carLabel = (v: VehicleView): string =>
   `${[v.makeText, v.modelText].filter(Boolean).join(' ')} ${v.year} · ${v.plate}`;
 
-/** Unités mineures → saisie dans la langue de la vue (sans symbole, sans flottant). */
-function inputOf(i18n: Translator, minor: bigint, exponent: number): string {
-  const digits = minor.toString().padStart(exponent + 1, '0');
-  const cut = digits.length - exponent;
-  return exponent === 0
-    ? digits
-    : `${digits.slice(0, cut)}${i18n.profile.number.decimal}${digits.slice(cut)}`;
+/** Nom du pays dans la langue de la vue (`Intl.DisplayNames`), sinon son code. */
+function countryName(tag: string, code: string): string {
+  try {
+    return new Intl.DisplayNames([tag], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
 }
 
 /**
@@ -133,12 +135,41 @@ export default async function HostPage({
   const vehicles = vehiclesOf(vehReply);
   const listed = listingsOf(lstReply);
   if (locations === null || vehicles === null || listed === null) return error;
-  const { listings, market } = listed;
+  const { listings, market, photoUploads } = listed;
+  const number = i18n.profile.number;
+  const photos = { ...photoUploads, maxLabel: formatPhotoMax(photoUploads.maxBytes, tag) };
   const free = vehicles.filter((v) => v.listingId === null);
   const statusOf = (l: ListingView): string =>
     STATUSES.has(l.status) ? t(`web.host.status.${l.status}` as MessageKey) : l.status;
   return shell(
     <>
+      {/* compte affiché : pays et devise ; un hôte dans plusieurs pays change de compte ici */}
+      <p className={accountStyles['text']}>
+        {t('web.host.account.market', {
+          country: countryName(tag, account.country),
+          currency: market.currency,
+        })}
+      </p>
+      {accounts.length > 1 && (
+        <nav aria-labelledby="a10-accounts">
+          <h2 id="a10-accounts" className={accountStyles['h2']}>
+            {t('web.host.account.switch')}
+          </h2>
+          <ul className={styles['accounts']}>
+            {accounts.map((a) => (
+              <li key={a.orgId}>
+                <a
+                  className={styles['account']}
+                  href={`/host?org=${a.orgId}`}
+                  aria-current={a.orgId === account.orgId ? 'page' : undefined}
+                >
+                  {countryName(tag, a.country)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
       {query['saved'] === '1' && (
         <Banner tone="success" live="polite" icon="check">
           {t('web.host.saved')}
@@ -234,13 +265,19 @@ export default async function HostPage({
                 orgId={account.orgId}
                 listingId={l.id}
                 currency={market.currency}
-                exponent={market.currencyExponent}
                 editable={editable}
+                draft={l.status === 'DRAFT'}
+                photos={photos}
                 defaults={{
-                  price: inputOf(i18n, l.dailyPriceMinor, market.currencyExponent),
+                  price: inputFromMinor(l.dailyPriceMinor, market.currencyExponent, number),
                   km:
                     l.mileageMode === 'INCLUDED' && l.includedKmPerDay !== null
                       ? String(l.includedKmPerDay)
+                      : '',
+                  // prix du km relu de l'API : un changement de prix ne le remet jamais à 0
+                  extraKm:
+                    l.mileageMode === 'INCLUDED' && l.extraKmPriceMinor !== null
+                      ? inputFromMinor(l.extraKmPriceMinor, market.currencyExponent, number)
                       : '',
                 }}
               />
@@ -257,7 +294,6 @@ export default async function HostPage({
             orgId={account.orgId}
             vehicles={free.map((v) => ({ id: v.id, label: carLabel(v) }))}
             currency={market.currency}
-            exponent={market.currencyExponent}
           />
         )}
       </section>

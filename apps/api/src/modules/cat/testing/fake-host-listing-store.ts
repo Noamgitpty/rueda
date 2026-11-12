@@ -52,6 +52,8 @@ export class FakeHostListingStore implements HostListingStore {
   readonly deposited: string[] = [];
   /** Pas du prix par pays (donnée de test, comme 17 §7.2). */
   readonly priceStep = new Map<string, bigint>();
+  /** Plafond de cohérence du prix journalier par pays (donnée de test ; absent : sans plafond). */
+  readonly priceCeiling = new Map<string, bigint>();
   /** `p2p_private_hosts_enabled[pays]` : toujours false (interrupteur, US-125). */
   readonly minPhotos = 6;
   /** Exposant de la devise des comptes du FAKE. */
@@ -116,7 +118,13 @@ export class FakeHostListingStore implements HostListingStore {
 
   #pricing(country: string, p: PricingInput): string {
     const step = this.priceStep.get(country) ?? 1n;
-    if (p.dailyPriceMinor <= 0n || p.dailyPriceMinor % step !== 0n) return 'PRICE_INVALID';
+    const ceiling = this.priceCeiling.get(country);
+    if (
+      p.dailyPriceMinor <= 0n ||
+      p.dailyPriceMinor % step !== 0n ||
+      (ceiling !== undefined && p.dailyPriceMinor > ceiling)
+    )
+      return 'PRICE_INVALID';
     return 'OK';
   }
 
@@ -128,7 +136,8 @@ export class FakeHostListingStore implements HostListingStore {
     }
     const check = this.#pricing(h.country, input);
     if (check !== 'OK') return Promise.resolve({ outcome: check, id: null });
-    if ([...this.listingsById.values()].some((l) => l.vehicleId === input.vehicleId)) {
+    const live = (l: FakeListing) => l.vehicleId === input.vehicleId && l.status !== 'DELETED';
+    if ([...this.listingsById.values()].some(live)) {
       return Promise.resolve({ outcome: 'LISTING_EXISTS', id: null });
     }
     const id = randomUUID();
@@ -236,7 +245,9 @@ export class FakeHostListingStore implements HostListingStore {
       [...this.vehiclesById.entries()]
         .filter(([, v]) => v.orgId === orgId && this.#host(proof, orgId) !== 'FORBIDDEN')
         .map(([id, { input }]) => {
-          const l = [...this.listingsById.values()].find((x) => x.vehicleId === id);
+          const l = [...this.listingsById.values()].find(
+            (x) => x.vehicleId === id && x.status !== 'DELETED',
+          );
           return {
             id,
             locationId: input.locationId,

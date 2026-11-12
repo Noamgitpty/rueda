@@ -169,6 +169,120 @@ describe('métadonnées retirées, pixels conservés (L1-PM-19)', () => {
   });
 });
 
+describe('liste blanche : rien après EOI, MPF, fragments inconnus (revue sécurité US-115)', () => {
+  const seg = (marker: number, payload: Buffer) => {
+    const h = Buffer.alloc(4);
+    h[0] = 0xff;
+    h[1] = marker;
+    h.writeUInt16BE(payload.length + 2, 2);
+    return Buffer.concat([h, payload]);
+  };
+
+  it('JPEG : octets après EOI (image secondaire, vidéo de « motion photo ») retirés ; coupé au premier EOI', () => {
+    const tail = Buffer.concat([
+      Buffer.from([0xff, 0xd8]),
+      seg(0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), GPS])),
+      Buffer.from('ftypmp42 MotionPhoto_Data GPSLatitude', 'latin1'),
+      Buffer.from([0xff, 0xd9]),
+    ]);
+    const image = Buffer.concat([jpeg(), tail]);
+    const clean = preparePhoto(image);
+    expect(clean.body.equals(preparePhoto(jpeg()).body)).toBe(true);
+    expect(clean.body.subarray(-2).equals(Buffer.from([0xff, 0xd9]))).toBe(true);
+    expect(clean.body.toString('latin1')).not.toMatch(/GPSLatitude|MotionPhoto|Exif/);
+  });
+
+  it('JPEG : APP2 MPF (index d’images secondaires) et APPn entre deux scans retirés ; APP2 ICC conservé', () => {
+    const base = jpeg();
+    const sos = base.indexOf(Buffer.from([0xff, 0xda]));
+    const icc = seg(0xe2, Buffer.from('ICC_PROFILE\0\x01\x01profil-de-couleur', 'latin1'));
+    const mpf = seg(0xe2, Buffer.concat([Buffer.from('MPF\0', 'latin1'), GPS]));
+    // second scan (JPEG progressif) précédé d'un EXIF glissé entre les deux scans
+    const eoi = base.length - 2;
+    const image = Buffer.concat([
+      base.subarray(0, sos),
+      icc,
+      mpf,
+      base.subarray(sos, eoi),
+      seg(0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), GPS])),
+      seg(0xda, Buffer.from([0x01, 0x01, 0x00, 0x00, 0x3f, 0x00])),
+      Buffer.from([0x9a, 0xff, 0x00, 0xbc, 0xff, 0xd3, 0xde]),
+      Buffer.from([0xff, 0xd9]),
+    ]);
+    const clean = preparePhoto(image);
+    expect(clean.body.includes(GPS)).toBe(false);
+    expect(clean.body.includes(Buffer.from('MPF', 'latin1'))).toBe(false);
+    expect(clean.body.includes(Buffer.from('Exif', 'latin1'))).toBe(false);
+    expect(clean.body.includes(Buffer.from('ICC_PROFILE', 'latin1'))).toBe(true);
+    // les deux scans et leurs données (octets bourrés, RSTn) sont conservés
+    expect(
+      clean.body
+        .subarray(-9)
+        .equals(Buffer.from([0x9a, 0xff, 0x00, 0xbc, 0xff, 0xd3, 0xde, 0xff, 0xd9])),
+    ).toBe(true);
+    expect(preparePhoto(clean.body).body.equals(clean.body)).toBe(true);
+  });
+
+  it('JPEG sans EOI : MALFORMED', () => {
+    const base = jpeg();
+    expect(() => preparePhoto(base.subarray(0, base.length - 2))).toThrow(/MALFORMED/);
+  });
+
+  it('PNG : fragment inconnu (caBX, privé) et octets après IEND retirés ; fragments de rendu conservés', () => {
+    const base = png();
+    const iend = base.length - 12;
+    const chunk = (type: string, data: Buffer) => {
+      const len = Buffer.alloc(4);
+      len.writeUInt32BE(data.length);
+      const td = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+      const crc = Buffer.alloc(4);
+      crc.writeUInt32BE(crc32(td));
+      return Buffer.concat([len, td, crc]);
+    };
+    const image = Buffer.concat([
+      base.subarray(0, iend),
+      chunk('caBX', Buffer.concat([Buffer.from('jumb c2pa ', 'latin1'), GPS])),
+      chunk('prVt', GPS),
+      chunk('pHYs', Buffer.alloc(9)),
+      base.subarray(iend),
+      Buffer.from('trailing GPSLatitude', 'latin1'),
+    ]);
+    const clean = preparePhoto(image);
+    expect(clean.body.includes(GPS)).toBe(false);
+    expect(clean.body.toString('latin1')).not.toMatch(/caBX|prVt|trailing/);
+    expect(clean.body.includes(Buffer.from('pHYs', 'latin1'))).toBe(true);
+    expect(clean.body.subarray(-8, -4).toString('latin1')).toBe('IEND');
+  });
+
+  it('WebP : fragment inconnu et octets au-delà de la taille RIFF retirés ; fragment impair final bourré', () => {
+    const base = webp();
+    const extra = (type: string, data: Buffer) => {
+      const h = Buffer.alloc(8);
+      h.write(type, 0, 'latin1');
+      h.writeUInt32LE(data.length, 4);
+      return Buffer.concat([h, data, data.length % 2 === 1 ? Buffer.alloc(1) : Buffer.alloc(0)]);
+    };
+    const body = Buffer.concat([
+      base.subarray(12),
+      extra('C2PA', GPS),
+      extra('ICCP', Buffer.from('icc')),
+    ]);
+    // fragment ICCP de longueur impaire en fin de fichier, sans octet de bourrage
+    const trimmed = body.subarray(0, body.length - 1);
+    const head = Buffer.alloc(12);
+    head.write('RIFF', 0, 'latin1');
+    head.writeUInt32LE(trimmed.length + 4, 4);
+    head.write('WEBP', 8, 'latin1');
+    const image = Buffer.concat([head, trimmed, Buffer.from('after-riff GPSLatitude', 'latin1')]);
+    const clean = preparePhoto(image);
+    expect(clean.body.includes(GPS)).toBe(false);
+    expect(clean.body.toString('latin1')).not.toMatch(/C2PA|after-riff/);
+    expect(clean.body.includes(Buffer.from('ICCP', 'latin1'))).toBe(true);
+    expect(clean.body.readUInt32LE(4)).toBe(clean.body.length - 8);
+    expect(clean.body.length % 2).toBe(0);
+  });
+});
+
 describe('taille et dimensions avant décodage (L1-PM-42)', () => {
   it('fichier trop gros, image géante ou surface excessive : refusés', () => {
     expect(() =>

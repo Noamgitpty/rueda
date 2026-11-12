@@ -36,13 +36,15 @@ export const SPEC_TEXT: Readonly<
     fr: 'BROUILLON — à valider par le juridique',
     pt: 'RASCUNHO — pendente de validação jurídica',
   },
-  // 10b §4.3, lignes `web.a10.empty` et `web.a10.saved` (A10, US-115)
+  // 10b §4.3, lignes `web.a10.empty` et `web.a10.saved` (A10, US-115) ; 10b n'a pas de colonne
+  // pt : texte pt-BR de référence de la story US-115 (DEC-FONDATEUR-18), à reporter dans 10b
   hostEmpty: {
     es: 'Aún no publicaste ningún auto',
     en: "You haven't listed a car yet",
     fr: 'Tu n’as encore publié aucune voiture',
+    pt: 'Você ainda não anunciou nenhum carro',
   },
-  hostSaved: { es: 'Guardado', en: 'Saved', fr: 'Enregistré' },
+  hostSaved: { es: 'Guardado', en: 'Saved', fr: 'Enregistré', pt: 'Salvo' },
   // 10b §4.3, ligne `web.s15.codeSent` (S15, US-104) : début du texte, avant {phone}
   codeSent: {
     es: 'Código enviado a',

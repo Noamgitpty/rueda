@@ -9,8 +9,12 @@
  *      cru ; SVG, HTML, PDF, fichier inconnu : PHOTO_FORMAT ; L1-PM-41) ;
  *   3. dimensions lues dans l'en-tête, avant tout décodage : côté et surface bornés (bombe de
  *      décompression, L1-PM-42) ;
- *   4. métadonnées retirées (EXIF dont GPS, XMP, IPTC, commentaires, textes PNG ; L1-PM-19) :
- *      l'image elle-même n'est pas décodée ; les segments retirés ne portent aucun pixel ;
+ *   4. métadonnées retirées (EXIF dont GPS, XMP, IPTC, MPF, commentaires, textes PNG ;
+ *      L1-PM-19) par LISTE BLANCHE : JPEG coupé au premier EOI (rien après : ni image secondaire
+ *      MPF / Ultra HDR, ni vidéo de « motion photo »), APP2 gardé seulement pour un profil ICC,
+ *      segments APPn entre deux scans retirés ; PNG et WebP : fragments connus seulement, rien
+ *      après IEND ni au-delà de la taille RIFF. L'image n'est pas décodée ; les segments retirés
+ *      ne portent aucun pixel ;
  *   5. antivirus (port `PhotoScanner`, Q-019 ouverte : AUCUN adaptateur réel en production, donc
  *      toujours `PHOTO_UPLOAD_UNAVAILABLE` en production, BOARD N-52) : seul `CLEAN` libère ;
  *   6. dépôt (port `PhotoStorage`, bucket public PUBLIC_LISTING, création seule) : la ligne
@@ -72,10 +76,12 @@ export interface Dimensions {
 }
 
 // ---- JPEG ----------------------------------------------------------------------------------
-// Segments conservés : APP0 (JFIF), APP2 (profil ICC), APP14 (Adobe, transformée de couleur),
-// tables et données. Retirés : APP1 (EXIF, dont GPS, et XMP), APP3 à APP13 et APP15 (IPTC,
-// métadonnées d'appareils), COM (commentaire).
-const JPEG_KEEP_APP = new Set([0xe0, 0xe2, 0xee]);
+// Segments conservés : APP0 (JFIF), APP2 s'il porte un profil ICC (« ICC_PROFILE\0 » ; MPF et
+// autres charges d'APP2 retirées), APP14 (Adobe, transformée de couleur), tables et données.
+// Retirés : APP1 (EXIF, dont GPS, et XMP), APP3 à APP13 et APP15 (IPTC, métadonnées
+// d'appareils), COM (commentaire), et tout ce qui suit le premier EOI.
+const JPEG_KEEP_APP = new Set([0xe0, 0xee]);
+const ICC_PROFILE = Buffer.from('ICC_PROFILE\0', 'latin1');
 const SOF = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
 
 function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
@@ -109,22 +115,53 @@ function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } 
       dims = { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) };
     }
     if (marker === 0xda) {
-      // début du flux compressé : tout le reste (données, marqueurs RST, EOI) est conservé
-      out.push(b.subarray(i));
-      break;
+      // en-tête du scan, puis données compressées jusqu'au prochain marqueur : dans le flux,
+      // 0xFF n'est suivi que de 0x00 (octet bourré) ou d'un RSTn ; tout autre marqueur (table,
+      // scan suivant d'un JPEG progressif, APPn, EOI) reprend l'analyse des segments
+      out.push(segment);
+      let j = i + 2 + len;
+      while (j + 1 < b.length) {
+        const next = b[j + 1] ?? 0;
+        if (b[j] === 0xff && next !== 0x00 && !(next >= 0xd0 && next <= 0xd7) && next !== 0xff) {
+          break;
+        }
+        j += 1;
+      }
+      if (j + 1 >= b.length) throw new PhotoRejectedError('MALFORMED');
+      out.push(b.subarray(i + 2 + len, j));
+      i = j;
+      continue;
     }
+    const icc = marker === 0xe2 && segment.subarray(4, 4 + ICC_PROFILE.length).equals(ICC_PROFILE);
     const metadata =
-      (marker >= 0xe0 && marker <= 0xef && !JPEG_KEEP_APP.has(marker)) || marker === 0xfe;
+      (marker >= 0xe0 && marker <= 0xef && !JPEG_KEEP_APP.has(marker) && !icc) || marker === 0xfe;
     if (!metadata) out.push(segment);
     i += 2 + len;
   }
-  if (dims === null) throw new PhotoRejectedError('MALFORMED');
+  // EOI obligatoire : rien n'est conservé après lui
+  if (dims === null || b[i + 1] !== 0xd9) throw new PhotoRejectedError('MALFORMED');
   return { clean: Buffer.concat(out), dims };
 }
 
 // ---- PNG -----------------------------------------------------------------------------------
-// Fragments retirés : eXIf (EXIF), tEXt, zTXt, iTXt (textes, dont XMP), tIME (date).
-const PNG_DROP = new Set(['eXIf', 'tEXt', 'zTXt', 'iTXt', 'tIME']);
+// LISTE BLANCHE : fragments critiques et de rendu seulement. Tout autre fragment est retiré :
+// eXIf (EXIF), tEXt, zTXt, iTXt (textes, dont XMP), tIME (date), caBX (JUMBF, C2PA), fragments
+// privés ou inconnus ; rien après IEND.
+const PNG_KEEP = new Set([
+  'IHDR',
+  'PLTE',
+  'IDAT',
+  'IEND',
+  'tRNS',
+  'gAMA',
+  'cHRM',
+  'sRGB',
+  'iCCP',
+  'pHYs',
+  'sBIT',
+  'bKGD',
+  'hIST',
+]);
 
 function png(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
   const out: Buffer[] = [b.subarray(0, 8)];
@@ -140,7 +177,7 @@ function png(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
       if (len < 8) throw new PhotoRejectedError('MALFORMED');
       dims = { width: b.readUInt32BE(i + 8), height: b.readUInt32BE(i + 12) };
     }
-    if (!PNG_DROP.has(type)) out.push(b.subarray(i, end));
+    if (PNG_KEEP.has(type)) out.push(b.subarray(i, end));
     i = end;
     if (type === 'IEND') {
       ended = true;
@@ -152,17 +189,24 @@ function png(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
 }
 
 // ---- WebP ----------------------------------------------------------------------------------
-// Fragments retirés : EXIF et XMP ; drapeaux correspondants de VP8X remis à zéro.
+// LISTE BLANCHE : VP8X, VP8, VP8L, ALPH, ANIM, ANMF, ICCP. Retirés : EXIF, XMP et tout autre
+// fragment (privé, inconnu), et les octets au-delà de la taille RIFF ; drapeaux EXIF et XMP de
+// VP8X remis à zéro.
+const WEBP_KEEP = new Set(['VP8X', 'VP8 ', 'VP8L', 'ALPH', 'ANIM', 'ANMF', 'ICCP']);
+
 function webp(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
   const chunks: Buffer[] = [];
   let i = 12;
   let dims: Dimensions | null = null;
-  while (i + 8 <= b.length) {
+  const riff = b.readUInt32LE(4);
+  if (riff < 4 || 8 + riff > b.length) throw new PhotoRejectedError('MALFORMED');
+  const limit = 8 + riff;
+  while (i + 8 <= limit) {
     const type = b.subarray(i, i + 4).toString('latin1');
     const len = b.readUInt32LE(i + 4);
     const end = i + 8 + len + (len % 2);
-    if (i + 8 + len > b.length) throw new PhotoRejectedError('MALFORMED');
-    let chunk = b.subarray(i, Math.min(end, b.length));
+    if (i + 8 + len > limit) throw new PhotoRejectedError('MALFORMED');
+    let chunk = b.subarray(i, Math.min(end, limit));
     if (type === 'VP8X' && len >= 10) {
       chunk = Buffer.from(chunk);
       chunk[8] = (chunk[8] ?? 0) & ~0x0c; // bits EXIF (0x08) et XMP (0x04)
@@ -173,7 +217,10 @@ function webp(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } 
       const bits = b.readUInt32LE(i + 9);
       dims = { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
     }
-    if (type !== 'EXIF' && type !== 'XMP ') chunks.push(chunk);
+    // fragment de longueur impaire en fin de fichier sans octet de bourrage : bourrage ajouté
+    if (chunk.length < end - i)
+      chunk = Buffer.concat([chunk, Buffer.alloc(end - i - chunk.length)]);
+    if (WEBP_KEEP.has(type)) chunks.push(chunk);
     i = end;
   }
   if (dims === null) throw new PhotoRejectedError('MALFORMED');

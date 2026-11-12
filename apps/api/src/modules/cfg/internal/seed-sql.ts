@@ -41,6 +41,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-115',
     refs: '08 BR-LIST-05, 16 HST-012',
   },
+  {
+    prefix: 'price_ceiling_',
+    file: '0069_config_listing_price_params.sql',
+    story: 'US-115',
+    refs: '16 PRC-001, HST-033',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

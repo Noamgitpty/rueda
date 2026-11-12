@@ -358,7 +358,13 @@ export class PgHostListingStore implements HostListingStore {
     deposit: (storageKey: string) => Promise<void>,
   ): Promise<Outcome> {
     if (this.pool === null) throw new HostListingStoreError('photo : pool requis', undefined);
-    const client = await this.pool.connect();
+    // pool épuisé ou base injoignable : erreur typée (503 LISTING_UNAVAILABLE), jamais un 500
+    let client: SqlClient;
+    try {
+      client = await this.pool.connect();
+    } catch (error) {
+      throw new HostListingStoreError('photo : connexion', sqlstateOf(error) ?? '08006');
+    }
     try {
       await client.query('BEGIN');
       const { rows } = await client.query<{
