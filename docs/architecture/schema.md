@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 77 migrations ; 92 tables ; 2 vues ; 499 politiques RLS ; 150 fonctions `SECURITY DEFINER` ; 155 autres fonctions.
+- 78 migrations ; 95 tables ; 2 vues ; 514 politiques RLS ; 153 fonctions `SECURITY DEFINER` ; 155 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -92,6 +92,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0074_catalog_addition_requests` | CAT : file d'ajout au catalogue véhicules (demande de l'hôte, file de l'ops, rattachement de la variante). |
 | `0075_kyc_host_verification` | KYC : inscription et vérification individuelle de l'hôte, filtrage des sanctions, profil |
 | `0076_kyc_ops_decision` | KYC : décision de l'ops (KYC_DECISION), mise en file des revues manuelles, alerte de délai, dossier KYC complété. |
+| `0079_risk_self_booking_linked_accounts` | RISK / AVL : cumul hôte / voyageur, auto-réservation refusée y compris par un compte lié. |
 
 ## Rôles
 
@@ -1972,6 +1973,7 @@ Politiques RLS :
 - `membership_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (EXISTS ( SELECT 1 FROM core.iam_organization o WHERE ((o.id = iam_membership.org_id) AND (o.country_code = ANY (app.country_scope())) AND app.has_staff_role('ADMIN'::text, o.country_code)))))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
+- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 
 Déclencheurs :
 
@@ -2045,6 +2047,7 @@ Politiques RLS :
 - `organization_holder_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (id = app.org_id()) AND app.is_org_holder())`
 - `organization_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('ADMIN'::text, country_code) OR app.has_staff_role('FINANCE'::text, country_code)))`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
+- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 
 Déclencheurs :
 
@@ -2340,6 +2343,7 @@ Politiques RLS :
 - `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
+- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 - `user_account_self_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text])) AND (id = app.actor_id()))`
 
 Déclencheurs :
@@ -2566,6 +2570,7 @@ Politiques RLS :
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `(date_of_birth IS NOT NULL)`
 
 ### `core.kyc_identity_verification`
 
@@ -2621,6 +2626,7 @@ Politiques RLS :
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `is_current` WITH CHECK `is_current`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `(approved_at IS NOT NULL)`
 
 Déclencheurs :
 
@@ -3546,6 +3552,7 @@ Politiques RLS :
 ### `core.risk_account_link`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -3560,9 +3567,39 @@ Politiques RLS :
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `row_version` | `integer` | oui | `0` |
 
+Contraintes :
+
+- `risk_account_link_decided_by_fkey` : `FOREIGN KEY (decided_by) REFERENCES core.iam_user_account(id)`
+- `risk_account_link_decision_valid` : `CHECK (decision = ANY (ARRAY['LINKED'::text, 'NOT_LINKED'::text]))`
+- `risk_account_link_not_decider` : `CHECK (decided_by <> user_low AND decided_by <> user_high)`
+- `risk_account_link_ordered` : `CHECK (user_low < user_high)`
+- `risk_account_link_pair_unique` : `UNIQUE (user_low, user_high)`
+- `risk_account_link_pkey` : `PRIMARY KEY (id)`
+- `risk_account_link_row_version_valid` : `CHECK (row_version >= 0)`
+- `risk_account_link_signal_valid` : `CHECK (signal = ANY (ARRAY['SAME_CARD'::text, 'SAME_DEVICE'::text, 'SAME_DRIVER_LICENSE'::text, 'SAME_IDENTITY'::text, 'SAME_PHONE'::text, 'OTHER'::text]))`
+- `risk_account_link_user_high_fkey` : `FOREIGN KEY (user_high) REFERENCES core.iam_user_account(id)`
+- `risk_account_link_user_low_fkey` : `FOREIGN KEY (user_low) REFERENCES core.iam_user_account(id)`
+
+Index :
+
+- `risk_account_link_high_idx` : `CREATE INDEX risk_account_link_high_idx ON core.risk_account_link USING btree (user_high)`
+
+Politiques RLS :
+
+- `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
+- `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
+- `iam_staff_update` (UPDATE, PERMISSIVE, iam_staff_owner) USING `true` WITH CHECK `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
+
+Déclencheurs :
+
+- `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.risk_account_link FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
 ### `core.risk_assessment`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : aucun
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -3579,6 +3616,30 @@ Politiques RLS :
 | `reviewed_by` | `uuid` | non | — |
 | `decided_at` | `timestamp with time zone` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `risk_assessment_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `risk_assessment_decision_valid` : `CHECK (decision = ANY (ARRAY['AUTO_OK'::text, 'REVIEW'::text, 'REJECT'::text]))`
+- `risk_assessment_dedupe_format` : `CHECK (dedupe_key ~ '^[A-Z][A-Z0-9_]{1,63}:[0-9a-f-]{36}$'::text)`
+- `risk_assessment_explanation_format` : `CHECK (explanation ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
+- `risk_assessment_org_fkey` : `FOREIGN KEY (org_id) REFERENCES core.iam_organization(id)`
+- `risk_assessment_pkey` : `PRIMARY KEY (id)`
+- `risk_assessment_reviewed_by_fkey` : `FOREIGN KEY (reviewed_by) REFERENCES core.iam_user_account(id)`
+- `risk_assessment_reviewed_coherent` : `CHECK ((reviewed_by IS NULL) = (decided_at IS NULL))`
+- `risk_assessment_rules_array` : `CHECK (jsonb_typeof(rules_fired) = 'array'::text AND jsonb_array_length(rules_fired) >= 1)`
+- `risk_assessment_score_range` : `CHECK (score >= 0 AND score <= 100)`
+- `risk_assessment_subject_type_valid` : `CHECK (subject_type = ANY (ARRAY['HOLD'::text, 'TRIP'::text, 'USER'::text]))`
+
+Index :
+
+- `risk_assessment_open_unique` : `CREATE UNIQUE INDEX risk_assessment_open_unique ON core.risk_assessment USING btree (subject_type, subject_id, dedupe_key) WHERE (decided_at IS NULL)`
+
+Politiques RLS :
+
+- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `((subject_type = 'USER'::text) AND (decided_at IS NULL))`
+- `cmd_hold_risk_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((subject_type = 'USER'::text) AND (decision = 'REVIEW'::text) AND (reviewed_by IS NULL) AND (decided_at IS NULL) AND (explanation = 'SELF_BOOKING_LINKED_ACCOUNT'::text) AND (app.actor_kind() = 'GUEST'::text) AND (subject_id = app.actor_id()))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.risk_rate_counter`
 
@@ -3615,6 +3676,7 @@ Politiques RLS :
 ### `core.risk_rule`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : aucun
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -3624,6 +3686,19 @@ Politiques RLS :
 | `severity` | `text` | oui | — |
 | `active` | `boolean` | oui | — |
 | `valid_from` | `timestamp with time zone` | oui | — |
+
+Contraintes :
+
+- `risk_rule_code_format` : `CHECK (code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
+- `risk_rule_description_length` : `CHECK (char_length(btrim(description)) >= 10 AND char_length(btrim(description)) <= 500)`
+- `risk_rule_pkey` : `PRIMARY KEY (code, version)`
+- `risk_rule_severity_valid` : `CHECK (severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text]))`
+- `risk_rule_version_positive` : `CHECK (version >= 1)`
+
+Politiques RLS :
+
+- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.settlement_finance_approval`
 
@@ -4586,6 +4661,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_cmd_record_order(p_hold_id uuid, p_operation_id uuid, p_provider_reference text, p_order_expires_at timestamp with time zone)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_release_own_hold(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_remove_host_block(p_block_id uuid)` | `boolean` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_report_self_booking(p_vehicle_id uuid)` | `void` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_start_payment(p_hold_id uuid, p_psp_account_id uuid, p_method text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
@@ -4696,7 +4772,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.risk_cmd_prune(p_batch integer, p_event_retention_days integer)` | `integer` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_record_abuse(p_kind text, p_scope text, p_key_hash bytea, p_country text, p_signals text[])` | `void` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_sms_reserve(p_country text, p_cap integer, p_critical boolean)` | `TABLE(allowed boolean, sent_today integer, alert boolean)` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; risk_limit_owner: EXECUTE |
+| `core.risk_self_booking_signal(p_guest uuid, p_org uuid)` | `text` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_staff_abuse_board(p_token_hash bytea, p_country text, p_hours integer)` | `TABLE(kind text, scope text, country_code text, bucket_start timestamp with time zone, occurrences bigint, distinct_keys bigint, signals text[], last_at timestamp with time zone)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.risk_staff_decide_account_link(p_token_hash bytea, p_request_id uuid, p_user_a uuid, p_user_b uuid, p_decision text, p_signal text)` | `TABLE(outcome text, link_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.settlement_advance_approvers(p_token_hash bytea, p_advance_id uuid)` | `TABLE(decided_by uuid, decision_second_by uuid, written_off_by uuid, write_off_second_by uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_assert_balanced()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -4704,7 +4782,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.support_close_review_item(p_item_id uuid, p_status text, p_decision text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_add_note(p_token_hash bytea, p_request_id uuid, p_user_id uuid, p_body text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_catalog_addition(p_token_hash bytea, p_request_id uuid, p_item_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -4881,3 +4959,4 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
+
