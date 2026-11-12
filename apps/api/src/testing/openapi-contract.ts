@@ -402,6 +402,9 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/host/accounts/{orgId}': 'modules/cat/testing/host-listings.contract.test.ts',
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
   '/phone': 'modules/iam/testing/phone.contract.test.ts',
+  // vérification d'identité et rappels du fournisseur d'identité (US-105)
+  '/identity': 'modules/kyc/testing/identity.contract.test.ts',
+  '/kyc/webhooks': 'modules/kyc/testing/identity.contract.test.ts',
   '/brand': 'modules/cfg/internal/brand/brand.contract.test.ts',
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',

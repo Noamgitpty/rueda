@@ -815,6 +815,59 @@ export const ES_MESSAGES = {
   'common.vehicle.catalog.notListed': 'Mi auto no está en la lista',
   'common.vehicle.catalog.variantRetired': 'Esta versión ya no está en el catálogo. Elige otra.',
   'common.vehicle.catalog.variantNotFound': 'No encontramos esta versión en el catálogo.',
+  // Vérification d’identité et consentement biométrique (US-105, 16 VER-001, VER-004 ; écran S04,
+  // 10b §4.3 : web.s04.checking, .result.verified, .result.retake ; autres clés PROPOSÉES)
+  'common.kyc.state': 'Estado de tu verificación de identidad.',
+  'common.kyc.consentRecorded': 'Guardamos tu respuesta sobre el consentimiento biométrico.',
+  'common.kyc.consentVersionChanged':
+    'El texto del consentimiento cambió. Léelo de nuevo antes de aceptar.',
+  'common.kyc.consentUnavailable':
+    'No podemos mostrar el consentimiento en este momento. Inténtalo más tarde.',
+  'common.kyc.sessionStarted':
+    'Te llevamos a la página segura de nuestro proveedor de verificación.',
+  'common.kyc.sessionInProgress':
+    'Ya empezaste tu verificación: puedes retomarla donde la dejaste.',
+  'common.kyc.consentMissing':
+    'Para verificar tu identidad, primero acepta el consentimiento biométrico.',
+  'common.kyc.notEligible':
+    'No podemos verificar tu identidad desde aquí. Escríbenos para revisarlo juntos.',
+  'common.kyc.inReview':
+    'Tu verificación está en revisión: te avisamos apenas tengamos la decisión.',
+  'common.kyc.alreadyApproved': 'Tu identidad ya está verificada. No tienes que hacer nada más.',
+  'common.kyc.documentUnsupported':
+    'Todavía no podemos verificar una licencia emitida en ese lugar. Elige otro o escríbenos.',
+  'common.kyc.sessionFailed':
+    'No pudimos abrir la verificación. Inténtalo de nuevo en unos minutos.',
+  'common.kyc.providerUnavailable':
+    'La verificación de identidad no está disponible en este momento. Inténtalo más tarde.',
+  'common.kyc.notApproved': 'Verifica tu identidad y tu licencia antes de pagar.',
+  'common.kyc.licenseExpired':
+    'Tu licencia vence antes del final del viaje. Actualízala para poder pagar.',
+  'common.kyc.driverEligible': 'Tu licencia es válida para todo el viaje.',
+  'web.s04.title': 'Verifica tu identidad',
+  'web.s04.intro': 'Lo hacemos antes del pago para que nadie te cobre si no puedes manejar.',
+  'web.s04.progress': 'Paso {step} de {total}',
+  'web.s04.consent.heading': 'Consentimiento biométrico',
+  'web.s04.consent.checkbox':
+    'Acepto que el proveedor use mis datos biométricos para verificar mi identidad.',
+  'web.s04.consent.submit': 'Aceptar y seguir',
+  'web.s04.consent.required': 'Marca la casilla para aceptar el consentimiento biométrico.',
+  'web.s04.consent.refusal':
+    'Sin este consentimiento no podemos verificarte, y no podrás reservar ni publicar un auto.',
+  'web.s04.consent.withdraw': 'Retirar mi consentimiento',
+  'web.s04.consent.given': 'Aceptaste el consentimiento biométrico.',
+  'web.s04.country': 'Lugar de emisión de tu licencia',
+  'web.s04.start': 'Verificar mi identidad',
+  'web.s04.resume': 'Retomar mi verificación',
+  'web.s04.hosted':
+    'Tomarás las fotos en la página segura del proveedor. Nosotros no guardamos ninguna foto: solo el resultado.',
+  'web.s04.checking': 'Verificando…',
+  'web.s04.result.verified': 'Verificado',
+  'web.s04.result.retake': 'Necesitamos otra foto',
+  'web.s04.licenseValid': 'Licencia válida hasta el {date}.',
+  'web.s04.phoneFirst':
+    'Primero verifica tu teléfono: lo usamos para coordinar la entrega del auto.',
+  'web.s04.phoneLink': 'Verificar mi teléfono',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

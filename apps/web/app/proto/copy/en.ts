@@ -94,13 +94,10 @@ export const EN_PROTO = {
   'web.s04.status.resident': 'You have a {country} ID document',
   'web.s04.status.special': 'Special visa or stay permit',
   'web.s04.status.unsure': "I'm not sure",
-  'web.s04.checking': 'Verifying…',
-  'web.s04.result.verified': 'Verified',
   'web.s04.result.inReview': {
     one: "In review: we'll let you know within {count} hour.",
     other: "In review: we'll let you know within {count} hours.",
   },
-  'web.s04.result.retake': 'We need another photo',
   'web.s04.result.glare':
     "There's glare on your license photo. Tilt it slightly and avoid direct light.",
   'web.s05.protection.title': 'Choose your protection',
@@ -219,8 +216,6 @@ export const EN_PROTO = {
     other: "That code isn't right. You have {count} tries left.",
   },
   'web.s15.emailUsed': 'There is already an account with this email. Log in to continue.',
-  'web.s04.title': 'Verify your identity',
-  'web.s04.intro': "We do it before payment so you're never charged if you can't drive.",
   'web.s04.step.status': 'Status',
   'web.s04.step.documents': 'Documents',
   'web.s04.step.selfie': 'Selfie',

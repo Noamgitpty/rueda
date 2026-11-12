@@ -25,6 +25,8 @@ import { loadBrandParams, UnavailableBrandFileStore } from '../modules/cfg/index
 import type { BrandOptions } from '../modules/cfg/index.js';
 import type { CtrLegalOptions } from '../modules/ctr/index.js';
 import type { IamAuthOptions, StaffOptions } from '../modules/iam/index.js';
+import { kycCountries } from '../modules/kyc/index.js';
+import type { IdentityStore, KycIdentityOptions } from '../modules/kyc/index.js';
 import type { PayWebhookOptions } from '../modules/pay/index.js';
 import {
   AbuseGuard,
@@ -110,6 +112,7 @@ export interface ApiHarnessOverrides {
   readonly ctr?: Partial<CtrLegalOptions>;
   readonly risk?: Partial<RiskHttpOptions>;
   readonly cat?: Partial<CatHostOptions>;
+  readonly kyc?: Partial<KycIdentityOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -272,6 +275,33 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
     catalog: null,
     photos: { scanner: new UnavailablePhotoScanner(), storage: new UnavailablePhotoStorage() },
   };
+  // Vérification d'identité (US-105) : état « non commencé » des sessions connues, aucun
+  // fournisseur (ouverture 503, rappels 404) ; tout autre appel du magasin est imprévu.
+  const kyc: KycIdentityOptions = {
+    store: strict<IdentityStore>(
+      {
+        state: (proof: Buffer) =>
+          Promise.resolve(
+            find(proof) === undefined
+              ? null
+              : {
+                  status: 'NOT_STARTED' as const,
+                  country: null,
+                  reasonCode: null,
+                  licenseExpiresOn: null,
+                  sessionLive: false,
+                  phoneVerified: false,
+                  consent: null,
+                },
+          ),
+      },
+      'IdentityStore',
+    ),
+    providers: { active: null, byCode: new Map() },
+    returnUrl: null,
+    countries: kycCountries(),
+    log: { warn: () => undefined },
+  };
   const config = new CountryConfigService().config;
   const wide: RateLimitPolicy = {
     limit: () => 1_000_000,
@@ -308,6 +338,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...risk, ...overrides.risk },
       { ...ctr, ...overrides.ctr },
       { ...cat, ...overrides.cat },
+      { ...kyc, ...overrides.kyc },
     ),
     {
       rawBody: true,

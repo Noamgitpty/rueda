@@ -31,6 +31,7 @@ import {
 import { postgresCatAdapters } from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
+import { postgresKycAdapters } from './modules/kyc/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
 import { postgresRiskAdapters } from './modules/risk/index.js';
 import {
@@ -77,6 +78,9 @@ async function bootstrap(): Promise<void> {
   // Lieux, véhicules et annonces de l'hôte (US-115) : commandes core.catalog_* sous app_api ;
   // antivirus ClamAV (DEC-FONDATEUR-20, adaptateur à livrer) et stockage objet (US-003) indisponibles : photos 503 (fail-closed).
   const cat = postgresCatAdapters(pool, pool);
+  // Vérification d'identité (US-105) : commandes core.kyc_* sous app_api ; AUCUN fournisseur
+  // d'identité tant que le registre LEG-010 n'est pas validé (OQ-MK-09) : ouverture 503, rappels 404.
+  const kyc = postgresKycAdapters(pool);
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,
@@ -94,6 +98,7 @@ async function bootstrap(): Promise<void> {
       risk,
       ctr,
       cat,
+      kyc,
     ),
     { rawBody: true },
   );

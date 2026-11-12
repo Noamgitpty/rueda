@@ -74,6 +74,20 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `GET` | `/host/accounts/{orgId}/vehicles` | `hostVehicles` | Véhicules du compte d'hôte de la session (US-115) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND |
 | `POST` | `/host/accounts/{orgId}/vehicles` | `createHostVehicle` | Véhicule d'un particulier : plaque et VIN normalisés, uniques ; variante du marché du compte (US-115) | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**404** HOST_ACCOUNT_NOT_FOUND / LOCATION_NOT_FOUND / CATALOG_VARIANT_NOT_FOUND<br>**409** VEHICLE_PLATE_DUPLICATE / CATALOG_VARIANT_RETIRED<br>**415** REQUEST_INVALID<br>**422** VEHICLE_FIELD_REQUIRED |
 
+## `/identity`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/identity` | `getIdentityState` | État de la vérification d'identité de la session : statut SM-3, texte du consentement biométrique en vigueur, pays proposés (US-105, 16 VER-001, VER-004) | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**401** AUTH_REQUIRED<br>**503** KYC_PROVIDER_UNAVAILABLE |
+| `POST` | `/identity/consent` | `recordBiometricConsent` | Consentement biométrique séparé (VER-004) : acceptation de la version affichée ou retrait (US-105) | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**401** AUTH_REQUIRED<br>**403** KYC_NOT_ELIGIBLE<br>**409** KYC_CONSENT_VERSION_CHANGED<br>**415** REQUEST_INVALID<br>**503** KYC_CONSENT_UNAVAILABLE / KYC_PROVIDER_UNAVAILABLE |
+| `POST` | `/identity/verification` | `startIdentityVerification` | Ouverture du parcours hébergé du fournisseur (US-105, 16 VER-001) : sans consentement biométrique, aucune session | **200** application/json<br>**201** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**401** AUTH_REQUIRED<br>**403** KYC_BIOMETRIC_CONSENT_MISSING / PHONE_NOT_VERIFIED / KYC_NOT_ELIGIBLE<br>**409** KYC_IN_REVIEW / KYC_ALREADY_APPROVED<br>**415** REQUEST_INVALID<br>**422** KYC_DOCUMENT_UNSUPPORTED<br>**502** KYC_SESSION_FAILED<br>**503** KYC_PROVIDER_UNAVAILABLE |
+
+## `/kyc`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `POST` | `/kyc/webhooks/{provider}` | `identityWebhook` | Rappel de décision du fournisseur d'identité (US-105) : signature sur les octets reçus (en-tête x-identity-signature) ; réponse sans corps | **200** sans corps<br>**401** sans corps<br>**404** sans corps<br>**503** sans corps |
+
 ## `/legal`
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |

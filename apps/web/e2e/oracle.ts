@@ -17,7 +17,9 @@ export const SPEC_TEXT: Readonly<
     | 'codeSent'
     | 'phoneDigits'
     | 'hostEmpty'
-    | 'hostSaved',
+    | 'hostSaved'
+    | 'identityVerified'
+    | 'identityRetake',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -45,6 +47,13 @@ export const SPEC_TEXT: Readonly<
     pt: 'Você ainda não anunciou nenhum carro',
   },
   hostSaved: { es: 'Guardado', en: 'Saved', fr: 'Enregistré', pt: 'Salvo' },
+  // 10b §4.3, lignes `web.s04.result.verified` et `web.s04.result.retake` (S04, US-105)
+  identityVerified: { es: 'Verificado', en: 'Verified', fr: 'Vérifié' },
+  identityRetake: {
+    es: 'Necesitamos otra foto',
+    en: 'We need another photo',
+    fr: 'Il nous faut une autre photo',
+  },
   // 10b §4.3, ligne `web.s15.codeSent` (S15, US-104) : début du texte, avant {phone}
   codeSent: {
     es: 'Código enviado a',

@@ -1851,6 +1851,124 @@
         "applied_at": "C1",
         "applied_by": "C1"
       }
+    },
+    "core.kyc_identity_verification": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_id": "C1",
+        "country_code": "C1",
+        "status": "C1",
+        "is_current": "C1",
+        "attempt": "C1",
+        "provider": "C1",
+        "provider_session_ref": "C1",
+        "hosted_url": "C1",
+        "session_expires_at": "C1",
+        "decision_reason_code": "C1",
+        "reviewed_by": "C1",
+        "approved_at": "C1",
+        "expires_at": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "row_version": "C1",
+        "created_at": "C1",
+        "updated_at": "C1"
+      }
+    },
+    "core.kyc_identity_document": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "verification_id": "C1",
+        "user_id": "C1",
+        "attempt": "C1",
+        "doc_type": "C1",
+        "issuing_country": "C1",
+        "expiry_date": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "license_class": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "is_permanent": "C1",
+        "provider_document_ref": "C1",
+        "status": "C1",
+        "retention_until": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.kyc_liveness_check": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "verification_id": "C1",
+        "user_id": "C1",
+        "attempt": "C1",
+        "liveness_score": {
+          "class": "C3",
+          "erasure": "purge"
+        },
+        "face_match_score": {
+          "class": "C3",
+          "erasure": "purge"
+        },
+        "result": "C1",
+        "provider_session_ref": "C1",
+        "retention_until": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.kyc_provider_event": {
+      "lifecycle": "T",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "provider": "C1",
+        "event_id": "C1",
+        "session_ref": "C1",
+        "decision": "C1",
+        "outcome": "C1",
+        "received_at": "C1"
+      }
+    },
+    "core.kyc_webhook_rejection": {
+      "lifecycle": "T",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "provider": "C1",
+        "reason": "C1",
+        "body_sha256": "C1",
+        "body_length": "C1",
+        "received_at": "C1"
+      }
     }
   }
 }

@@ -817,4 +817,53 @@ export const PT_MESSAGES = {
   'common.vehicle.catalog.notListed': 'Meu carro não está na lista',
   'common.vehicle.catalog.variantRetired': 'Esta versão não está mais no catálogo. Escolha outra.',
   'common.vehicle.catalog.variantNotFound': 'Não encontramos esta versão no catálogo.',
+  // Vérification d’identité et consentement biométrique (US-105, 16 VER-001, VER-004 ; écran S04,
+  // 10b §4.3 : web.s04.checking, .result.verified, .result.retake ; autres clés PROPOSÉES)
+  'common.kyc.state': 'Situação da checagem da sua identidade.',
+  'common.kyc.consentRecorded': 'Salvamos sua resposta sobre o consentimento biométrico.',
+  'common.kyc.consentVersionChanged':
+    'O texto do consentimento mudou. Leia de novo antes de aceitar.',
+  'common.kyc.consentUnavailable':
+    'Não conseguimos mostrar o consentimento agora. Tente mais tarde.',
+  'common.kyc.sessionStarted': 'Vamos levar você à página segura do nosso fornecedor de checagem.',
+  'common.kyc.sessionInProgress': 'Você já começou sua checagem: pode retomar de onde parou.',
+  'common.kyc.consentMissing':
+    'Para confirmar sua identidade, primeiro aceite o consentimento biométrico.',
+  'common.kyc.notEligible':
+    'Não conseguimos confirmar sua identidade por aqui. Fale com a gente para vermos juntos.',
+  'common.kyc.inReview': 'Sua checagem está em análise: avisamos assim que tivermos a decisão.',
+  'common.kyc.alreadyApproved': 'Sua identidade já está confirmada. Não precisa fazer mais nada.',
+  'common.kyc.documentUnsupported':
+    'Ainda não conseguimos checar uma carteira de motorista emitida nesse local. Escolha outro ou fale com a gente.',
+  'common.kyc.sessionFailed': 'Não conseguimos abrir a checagem. Tente de novo em alguns minutos.',
+  'common.kyc.providerUnavailable':
+    'A checagem de identidade não está disponível agora. Tente mais tarde.',
+  'common.kyc.notApproved': 'Confirme sua identidade e sua carteira de motorista antes de pagar.',
+  'common.kyc.licenseExpired':
+    'Sua carteira de motorista vence antes do fim da viagem. Atualize para poder pagar.',
+  'common.kyc.driverEligible': 'Sua carteira de motorista vale para a viagem inteira.',
+  'web.s04.title': 'Confirme sua identidade',
+  'web.s04.intro':
+    'Fazemos isso antes do pagamento para você nunca ser cobrado se não puder dirigir.',
+  'web.s04.progress': 'Etapa {step} de {total}',
+  'web.s04.consent.heading': 'Consentimento biométrico',
+  'web.s04.consent.checkbox':
+    'Concordo que o fornecedor use meus dados biométricos para confirmar minha identidade.',
+  'web.s04.consent.submit': 'Aceitar e seguir',
+  'web.s04.consent.required': 'Selecione a caixa para aceitar o consentimento biométrico.',
+  'web.s04.consent.refusal':
+    'Sem este consentimento não podemos confirmar sua identidade, e você não poderá reservar nem anunciar um carro.',
+  'web.s04.consent.withdraw': 'Retirar meu consentimento',
+  'web.s04.consent.given': 'Você aceitou o consentimento biométrico.',
+  'web.s04.country': 'Local de emissão da sua carteira de motorista',
+  'web.s04.start': 'Confirmar minha identidade',
+  'web.s04.resume': 'Retomar minha checagem',
+  'web.s04.hosted':
+    'Você vai tirar as fotos na página segura do fornecedor. Não guardamos nenhuma foto: só o resultado.',
+  'web.s04.checking': 'Checando…',
+  'web.s04.result.verified': 'Identidade confirmada',
+  'web.s04.result.retake': 'Precisamos de outra foto',
+  'web.s04.licenseValid': 'Carteira de motorista válida até {date}.',
+  'web.s04.phoneFirst': 'Primeiro confirme seu celular: usamos para combinar a entrega do carro.',
+  'web.s04.phoneLink': 'Confirmar meu celular',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -1,0 +1,595 @@
+/**
+ * Preuves de la vérification d'identité par parcours hébergé et du consentement biométrique
+ * (US-105, migration 0070 ; fixtures 9996) sous les rôles de production app_api et app_worker
+ * (assertion L0-05 en tête de chaque connexion, withRole), au Panama (USD) et au Paraguay (PYG).
+ * Chaque test crée ses propres personnes par les VRAIES commandes (inscription avec consentements,
+ * vérification d'e-mail, session, OTP du téléphone).
+ *
+ * Attendus tirés de 19 US-105, de 16 VER-001 / VER-002 / VER-004 et de 17, jamais du code testé :
+ * - critère 1 : `DOCS_SUBMITTED`, rappel signé « approved » reçu deux fois ⇒ une seule transition
+ *   `APPROVED` (17 §4.5 : un événement `kyc.verification.status_changed` vers APPROVED) ;
+ *   signature invalide ⇒ rejet journalisé ;
+ * - critère 2 : aucun consentement biométrique ⇒ KYC_BIOMETRIC_CONSENT_MISSING et aucune
+ *   session (aucune ligne de vérification) ; VER-004 : une nouvelle version du texte exige une
+ *   nouvelle acceptation ;
+ * - critère 3 : permis expirant avant la fin du trip ⇒ KYC_LICENSE_EXPIRED ;
+ * - critère 4 : aucune image copiée chez nous : scores et référence seulement (17 §1.5 point 3,
+ *   §3.2.2) ;
+ * - 17 §7.2 : rétention des scores = décision + `biometric_appeal_retention_days` du pays
+ *   (valeur des données CFG ; pays sans valeur : la plus courte, 0 jour, OQ-BR-25).
+ */
+import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import type pg from 'pg';
+import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import { COUNTRIES, uuid } from '../support/avl.ts';
+import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+
+const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
+const PROVIDER = 'FAKE';
+const DAY_MS = 86_400_000;
+
+const cfg = (file: string): unknown =>
+  JSON.parse(
+    readFileSync(
+      new URL(`../../../../apps/api/src/modules/cfg/data/${file}`, import.meta.url),
+      'utf8',
+    ),
+  );
+
+/** Plan de numérotation des pays : données de configuration (jamais une constante du code). */
+const NUMBERING = new Map(
+  (
+    cfg('countries.json') as {
+      countries: {
+        code: string;
+        phone: { callingCode: string; nationalLength: number; mobilePrefixes: string[] };
+      }[];
+    }
+  ).countries.map((c) => [c.code, c.phone] as const),
+);
+
+/** 17 §7.2 `biometric_appeal_retention_days` par pays (données CFG). */
+const RETENTION_DAYS = new Map(
+  Object.entries(
+    (
+      cfg('params.json') as { params: { key: string; values?: Record<string, number> }[] }
+    ).params.find((p) => p.key === 'biometric_appeal_retention_days')?.values ?? {},
+  ),
+);
+
+function phoneOf(country: string): string {
+  const p = NUMBERING.get(country);
+  if (p === undefined) throw new Error(`pays sans plan de numérotation : ${country}`);
+  const prefix = p.mobilePrefixes[0] ?? '';
+  let rest = '';
+  while (rest.length < p.nationalLength - prefix.length) rest += String(randomInt(10));
+  return `+${p.callingCode}${prefix}${rest}`;
+}
+
+interface Person {
+  readonly userId: string;
+  readonly token: Buffer;
+}
+
+const commit = <T>(client: pg.ClientBase, fn: () => Promise<T>, virtualNow?: string): Promise<T> =>
+  withTestTransaction(client, { commit: true, ...(virtualNow ? { virtualNow } : {}) }, fn);
+
+/** Personne inscrite, e-mail vérifié, session ouverte ; téléphone vérifié par l'OTP (sauf refus). */
+async function person(
+  client: pg.ClientBase,
+  country: string,
+  options: { readonly phone?: boolean } = {},
+): Promise<Person> {
+  const userId = uuid();
+  const verification = newToken();
+  const r = await client.query<{ ok: boolean }>(
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Ana', 'Pérez', 'es', $4, $5, 86400,
+                                                NULL, $6, $7::jsonb, false) AS ok`,
+    [userId, `kyc-${userId}@example.test`, phcArgon2id(), uuid(), verification.hash, country, DOCS],
+  );
+  if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
+  const v = await client.query<{ ok: boolean }>('SELECT core.iam_cmd_verify_email($1) AS ok', [
+    verification.hash,
+  ]);
+  if (v.rows[0]?.ok !== true) throw new Error('vérification d’e-mail refusée');
+  const t = newToken();
+  const s = await client.query<{ expires_at: Date | null }>(
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
+    [uuid(), userId, t.hash, SESSION_TTL_S],
+  );
+  if (!s.rows[0]?.expires_at) throw new Error('session refusée');
+  const p = { userId, token: t.hash };
+  if (options.phone !== false) await verifyPhone(client, p, country);
+  return p;
+}
+
+/** Téléphone vérifié par les vraies commandes de 0066 (demande, émission, saisie). */
+async function verifyPhone(client: pg.ClientBase, p: Person, country: string): Promise<void> {
+  const code = randomBytes(32);
+  const req = await client.query<{ outcome: string; challenge_id: string }>(
+    'SELECT * FROM core.iam_cmd_phone_otp_request($1, $2, $3)',
+    [p.token, phoneOf(country), country],
+  );
+  if (req.rows[0]?.outcome !== 'SENT') throw new Error('demande d’OTP refusée');
+  await withRole('app_worker', (w) =>
+    commit(w, async () => {
+      await w.query(
+        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+                pg_catalog.set_config('app.worker_name', 'iam_otp_sender', true)`,
+      );
+      const { rows } = await w.query<{ outcome: string }>(
+        'SELECT * FROM core.iam_worker_otp_issue($1, $2)',
+        [req.rows[0]?.challenge_id, code],
+      );
+      if (rows[0]?.outcome !== 'ISSUED') throw new Error('émission de l’OTP refusée');
+    }),
+  );
+  const ver = await client.query<{ outcome: string }>(
+    'SELECT * FROM core.iam_cmd_phone_otp_verify($1, $2::bytea[])',
+    [p.token, [code]],
+  );
+  if (ver.rows[0]?.outcome !== 'PHONE_VERIFIED') throw new Error('saisie de l’OTP refusée');
+}
+
+const one = async <T extends pg.QueryResultRow>(
+  client: pg.ClientBase,
+  sql: string,
+  params: unknown[],
+): Promise<T> => {
+  const { rows } = await client.query<T>(sql, params);
+  return rows[0] as T;
+};
+
+const consent = (
+  c: pg.ClientBase,
+  p: Person,
+  country: string,
+  version: number | null,
+  accepted = true,
+) =>
+  one<{ outcome: string; version: number | null }>(
+    c,
+    'SELECT * FROM core.kyc_cmd_biometric_consent($1, $2, $3, $4)',
+    [p.token, country, version, accepted],
+  );
+
+interface Opened {
+  readonly outcome: string;
+  readonly verification_id: string | null;
+  readonly attempt: number | null;
+  readonly hosted_url: string | null;
+}
+const open = (c: pg.ClientBase, p: Person, country: string) =>
+  one<Opened>(c, 'SELECT * FROM core.kyc_cmd_open_verification($1, $2, $3)', [
+    p.token,
+    country,
+    PROVIDER,
+  ]);
+
+const recordSession = (c: pg.ClientBase, p: Person, o: Opened, sessionRef: string) =>
+  one<{ outcome: string }>(
+    c,
+    'SELECT * FROM core.kyc_cmd_record_session($1, $2, $3, $4, $5, $6, $7)',
+    [
+      p.token,
+      o.verification_id,
+      o.attempt,
+      PROVIDER,
+      sessionRef,
+      `https://identity.fake.invalid/session/${sessionRef}`,
+      new Date(Date.now() + 30 * 60_000).toISOString(),
+    ],
+  );
+
+/** Date ISO (AAAA-MM-JJ) à `days` jours d'aujourd'hui (UTC). */
+const isoDay = (days: number): string =>
+  new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
+
+interface Decision {
+  readonly decision?: string;
+  readonly liveness?: number | null;
+  readonly faceMatch?: number | null;
+  readonly document?: Record<string, unknown> | null;
+}
+const licence = (country: string, expiresOn: string, extra: Record<string, unknown> = {}) => ({
+  kind: 'DRIVER_LICENSE',
+  country,
+  expiresOn,
+  licenseClass: 'B',
+  isPermanent: true,
+  providerDocumentRef: `doc_${randomBytes(4).toString('hex')}`,
+  ...extra,
+});
+
+const apply = (
+  c: pg.ClientBase,
+  eventId: string,
+  sessionRef: string,
+  subjectRef: string,
+  d: Decision,
+) =>
+  one<{ outcome: string; status: string | null }>(
+    c,
+    'SELECT * FROM core.kyc_cmd_apply_decision($1, $2, $3, $4, $5, $6, $7, $8::jsonb)',
+    [
+      PROVIDER,
+      eventId,
+      sessionRef,
+      subjectRef,
+      d.decision ?? 'APPROVED',
+      d.liveness === undefined ? 0.9871 : d.liveness,
+      d.faceMatch === undefined ? 0.9612 : d.faceMatch,
+      d.document === null ? null : JSON.stringify(d.document),
+    ],
+  );
+
+const fixture = <T extends pg.QueryResultRow>(c: pg.ClientBase, fn: string, arg: unknown) =>
+  c.query<T>(`SELECT * FROM test_fixture.${fn}($1)`, [arg]).then((r) => r.rows);
+
+/** Personne consentante, dossier ouvert et session posée (DOCS_SUBMITTED). */
+async function submitted(
+  c: pg.ClientBase,
+  country: string,
+): Promise<{ p: Person; o: Opened; sessionRef: string }> {
+  const p = await person(c, country);
+  expect(await consent(c, p, country, 1)).toEqual({ outcome: 'RECORDED', version: 1 });
+  const o = await open(c, p, country);
+  expect(o).toMatchObject({ outcome: 'READY', attempt: 1 });
+  const sessionRef = `fk_idv_${randomBytes(6).toString('hex')}`;
+  expect(await recordSession(c, p, o, sessionRef)).toEqual({ outcome: 'RECORDED' });
+  return { p, o, sessionRef };
+}
+
+const byCountry = COUNTRIES.map((c) => [c.country, c.currency, c.timezone] as const);
+
+describe('US-105 — consentement biométrique (critère 2, VER-004)', () => {
+  it.each(byCountry)(
+    '%s (%s) : sans consentement, KYC_BIOMETRIC_CONSENT_MISSING et aucune vérification créée',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const p = await person(c, country);
+        expect((await open(c, p, country)).outcome).toBe('CONSENT_MISSING');
+        expect(await fixture(c, 'us105_verification', p.userId)).toEqual([]);
+        const state = await one<Record<string, unknown>>(
+          c,
+          'SELECT * FROM core.kyc_identity_state($1, $2)',
+          [p.token, country],
+        );
+        expect(state).toMatchObject({
+          outcome: 'OK',
+          status: 'NOT_STARTED',
+          consent_version: 1,
+          consent_accepted_version: null,
+          consent_locale: 'es',
+          phone_verified: true,
+        });
+        expect(String(state['consent_body'])).not.toBe('');
+        // un retrait après acceptation referme l'accès
+        expect(await consent(c, p, country, 1)).toEqual({ outcome: 'RECORDED', version: 1 });
+        expect(await consent(c, p, country, null, false)).toEqual({
+          outcome: 'RECORDED',
+          version: 1,
+        });
+        expect((await open(c, p, country)).outcome).toBe('CONSENT_MISSING');
+        expect(await fixture(c, 'us105_consents', p.userId)).toEqual([
+          {
+            doc_kind: 'BIOMETRIC_CONSENT',
+            doc_version: 1,
+            accepted: true,
+            context: 'KYC',
+            country_code: country,
+            c2_withheld: true,
+          },
+          {
+            doc_kind: 'BIOMETRIC_CONSENT',
+            doc_version: 1,
+            accepted: false,
+            context: 'KYC',
+            country_code: country,
+            c2_withheld: true,
+          },
+        ]);
+      });
+    },
+  );
+
+  it('une nouvelle version du texte exige une nouvelle acceptation (transaction annulée)', async () => {
+    await withRole('app_api', async (c) => {
+      const country = COUNTRIES[0].country;
+      const p = await person(c, country);
+      expect(await consent(c, p, country, 1)).toEqual({ outcome: 'RECORDED', version: 1 });
+      await withTestTransaction(c, {}, async () => {
+        const { rows } = await c.query<{ v: number }>(
+          'SELECT test_fixture.us105_publish_biometric_next() AS v',
+        );
+        const next = rows[0]?.v as number;
+        expect(next).toBe(2);
+        expect((await open(c, p, country)).outcome).toBe('CONSENT_MISSING');
+        expect(await consent(c, p, country, 1)).toEqual({
+          outcome: 'VERSION_CHANGED',
+          version: next,
+        });
+        expect(await consent(c, p, country, next)).toEqual({ outcome: 'RECORDED', version: next });
+        expect((await open(c, p, country)).outcome).toBe('READY');
+      });
+    });
+  });
+
+  it('pré-requis : session, téléphone vérifié, pays connu', async () => {
+    await withRole('app_api', async (c) => {
+      const country = COUNTRIES[0].country;
+      const anon = { userId: uuid(), token: newToken().hash };
+      expect((await open(c, anon, country)).outcome).toBe('AUTH_REQUIRED');
+      expect((await consent(c, anon, country, 1)).outcome).toBe('AUTH_REQUIRED');
+      const p = await person(c, country, { phone: false });
+      expect(await consent(c, p, country, 1)).toEqual({ outcome: 'RECORDED', version: 1 });
+      expect((await open(c, p, country)).outcome).toBe('PHONE_NOT_VERIFIED');
+      expect((await open(c, p, 'XX')).outcome).toBe('COUNTRY_UNKNOWN');
+      expect(await fixture(c, 'us105_verification', p.userId)).toEqual([]);
+    });
+  });
+});
+
+describe('US-105 — décision par rappel signé (critère 1)', () => {
+  it.each(byCountry)(
+    '%s (%s) : « approved » reçu deux fois ⇒ une seule transition APPROVED ; un autre événement est périmé',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const { p, o, sessionRef } = await submitted(c, country);
+        const vid = o.verification_id as string;
+        expect((await fixture(c, 'us105_verification', p.userId))[0]).toMatchObject({
+          status: 'DOCS_SUBMITTED',
+          country_code: country,
+          provider: PROVIDER,
+          provider_session_ref: sessionRef,
+        });
+        const expiresOn = isoDay(400);
+        const d = { document: licence(country, expiresOn) };
+        expect(await apply(c, 'evt-1', sessionRef, vid, d)).toEqual({
+          outcome: 'APPLIED',
+          status: 'APPROVED',
+        });
+        expect(await apply(c, 'evt-1', sessionRef, vid, d)).toEqual({
+          outcome: 'DUPLICATE',
+          status: null,
+        });
+        expect(await apply(c, 'evt-2', sessionRef, vid, d)).toEqual({
+          outcome: 'STALE',
+          status: 'APPROVED',
+        });
+
+        const [v] = await fixture<{
+          status: string;
+          approved_at: Date | null;
+          expires_at: Date | null;
+        }>(c, 'us105_verification', p.userId);
+        expect(v?.status).toBe('APPROVED');
+        expect(v?.approved_at).not.toBeNull();
+        const events = await fixture<{
+          payload: { from: string; to: string; user_id: string };
+          actor_role: string;
+          country_code: string;
+        }>(c, 'us105_events', vid);
+        expect(events.map((e) => [e.payload.from, e.payload.to])).toEqual([
+          ['PHONE_VERIFIED', 'DOCS_SUBMITTED'],
+          ['DOCS_SUBMITTED', 'AUTO_CHECKS'],
+          ['AUTO_CHECKS', 'APPROVED'],
+        ]);
+        expect(
+          events.every((e) => e.payload.user_id === p.userId && e.country_code === country),
+        ).toBe(true);
+        expect((await open(c, p, country)).outcome).toBe('ALREADY_APPROVED');
+      });
+    },
+  );
+
+  it('deux rappels distincts concurrents pour la même session : une seule transition APPROVED', async () => {
+    const country = COUNTRIES[1].country;
+    const s = await withRole('app_api', (c) => submitted(c, country));
+    const vid = s.o.verification_id as string;
+    const d = { document: licence(country, isoDay(400)) };
+    const run = (eventId: string) =>
+      withRole('app_api', (c) => commit(c, () => apply(c, eventId, s.sessionRef, vid, d)));
+    const results = await Promise.all([run('evt-a'), run('evt-b')]);
+    expect(results.map((r) => r.outcome).sort()).toEqual(['APPLIED', 'STALE']);
+    await withRole('app_api', async (c) => {
+      const events = await fixture<{ payload: { to: string } }>(c, 'us105_events', vid);
+      expect(events.filter((e) => e.payload.to === 'APPROVED')).toHaveLength(1);
+    });
+  });
+
+  it.each(byCountry)(
+    '%s (%s) : revue manuelle (fournisseur en revue, refusé, permis provisoire, expiré, absent)',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const cases: [Decision, string][] = [
+          [{ decision: 'REVIEW', document: licence(country, isoDay(400)) }, 'PROVIDER_REVIEW'],
+          [{ decision: 'DECLINED', document: licence(country, isoDay(400)) }, 'PROVIDER_DECLINED'],
+          [
+            { document: licence(country, isoDay(400), { isPermanent: false }) },
+            'LICENSE_PROVISIONAL',
+          ],
+          [{ document: licence(country, isoDay(-2)) }, 'LICENSE_EXPIRED'],
+          [{ document: null }, 'DOCUMENT_MISSING'],
+          [
+            { document: licence(country, isoDay(400), { kind: 'PASSPORT' }) },
+            'DOCUMENT_NOT_LICENSE',
+          ],
+        ];
+        for (const [d, reason] of cases) {
+          const s = await submitted(c, country);
+          expect(await apply(c, uuid(), s.sessionRef, s.o.verification_id as string, d)).toEqual({
+            outcome: 'APPLIED',
+            status: 'MANUAL_REVIEW',
+          });
+          expect((await fixture(c, 'us105_verification', s.p.userId))[0]).toMatchObject({
+            status: 'MANUAL_REVIEW',
+            decision_reason_code: reason,
+            approved_at: null,
+          });
+          expect((await open(c, s.p, country)).outcome).toBe('IN_REVIEW');
+        }
+      });
+    },
+  );
+
+  it('rappel d’une session inconnue ou d’un autre sujet : ignoré, rien n’est décidé', async () => {
+    await withRole('app_api', async (c) => {
+      const country = COUNTRIES[0].country;
+      const s = await submitted(c, country);
+      const d = { document: licence(country, isoDay(400)) };
+      expect(
+        (await apply(c, uuid(), 'fk_idv_unknown', s.o.verification_id as string, d)).outcome,
+      ).toBe('UNKNOWN_SESSION');
+      expect((await apply(c, uuid(), s.sessionRef, uuid(), d)).outcome).toBe('UNKNOWN_SESSION');
+      expect((await fixture(c, 'us105_verification', s.p.userId))[0]).toMatchObject({
+        status: 'DOCS_SUBMITTED',
+      });
+    });
+  });
+
+  it('signature invalide : rejet journalisé (empreinte du corps, jamais le corps)', async () => {
+    await withRole('app_api', async (c) => {
+      const body = Buffer.from(JSON.stringify({ eventId: uuid(), decision: 'APPROVED' }));
+      const sha = createHash('sha256').update(body).digest();
+      await c.query('SELECT core.kyc_cmd_record_webhook_rejection($1, $2, $3, $4)', [
+        PROVIDER,
+        'BAD_SIGNATURE',
+        sha,
+        body.length,
+      ]);
+      expect(await fixture(c, 'us105_rejections', sha)).toEqual([
+        { provider: PROVIDER, reason: 'BAD_SIGNATURE', body_length: body.length },
+      ]);
+    });
+  });
+});
+
+describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
+  it.each(byCountry)(
+    '%s (%s) : seuls les scores, la référence et les champs minimaux du permis sont gardés',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const { p, o, sessionRef } = await submitted(c, country);
+        const expiresOn = isoDay(500);
+        const doc = licence(country, expiresOn, {
+          frontImage: `data:image/jpeg;base64,${randomBytes(48).toString('base64')}`,
+          selfieUrl: 'https://identity.fake.invalid/selfie.jpg',
+          number: 'A1234567',
+        });
+        await apply(c, uuid(), sessionRef, o.verification_id as string, {
+          document: doc,
+          liveness: 0.9871,
+          faceMatch: 0.9612,
+        });
+        expect(await fixture(c, 'us105_documents', p.userId)).toEqual([
+          {
+            doc_type: 'DRIVER_LICENSE',
+            issuing_country: country,
+            expiry_date: expect.any(Date) as Date,
+            license_class: 'B',
+            is_permanent: true,
+            provider_document_ref: doc.providerDocumentRef,
+            status: 'ACCEPTED',
+            attempt: 1,
+          },
+        ]);
+        const [l] = await fixture<{
+          liveness_score: string;
+          face_match_score: string;
+          result: string;
+          provider_session_ref: string;
+          retention_days: string;
+        }>(c, 'us105_liveness', p.userId);
+        expect(l).toMatchObject({
+          liveness_score: '0.9871',
+          face_match_score: '0.9612',
+          result: 'APPROVED',
+          provider_session_ref: sessionRef,
+        });
+        expect(Number(l?.retention_days)).toBe(RETENTION_DAYS.get(country) ?? 0);
+
+        // le schéma n'a AUCUNE colonne d'image, de fichier ni de numéro de pièce
+        const { rows } = await c.query<{ rel: string; col: string; typ: string }>(
+          `SELECT c.relname AS rel, a.attname AS col, pg_catalog.format_type(a.atttypid, a.atttypmod) AS typ
+             FROM pg_catalog.pg_attribute AS a
+             JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+             JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'core' AND c.relname LIKE 'kyc\\_%' AND c.relkind = 'r'
+              AND a.attnum > 0 AND NOT a.attisdropped`,
+        );
+        expect(rows.length).toBeGreaterThan(0);
+        expect(
+          rows.filter((r) => /image|file|selfie|photo|front|back|number|blob/.test(r.col)),
+        ).toEqual([]);
+        expect(rows.filter((r) => r.typ === 'bytea').map((r) => `${r.rel}.${r.col}`)).toEqual([
+          'kyc_webhook_rejection.body_sha256',
+        ]);
+      });
+    },
+  );
+
+  it('app_api ne lit ni n’écrit aucune table KYC directement (commandes seulement)', async () => {
+    await withRole('app_api', async (c) => {
+      for (const t of [
+        'kyc_identity_verification',
+        'kyc_identity_document',
+        'kyc_liveness_check',
+        'kyc_provider_event',
+        'kyc_webhook_rejection',
+      ]) {
+        await expect(c.query(`SELECT 1 FROM core.${t} LIMIT 1`)).rejects.toMatchObject({
+          code: '42501',
+        });
+      }
+    });
+  });
+});
+
+describe('US-105 — permis expirant avant la fin du trip (critère 3)', () => {
+  it.each(byCountry)(
+    '%s (%s) : valable jusqu’à la fin du jour d’échéance dans le fuseau du pays du trip',
+    async (country, _currency, timezone) => {
+      await withRole('app_api', async (c) => {
+        const { p, o, sessionRef } = await submitted(c, country);
+        const eligibility = (end: string) =>
+          one<{ outcome: string }>(c, 'SELECT * FROM core.kyc_driver_eligibility($1, $2, $3)', [
+            p.token,
+            end,
+            country,
+          ]).then((r) => r.outcome);
+        // avant toute décision : non approuvé
+        expect(await eligibility(new Date(Date.now() + DAY_MS).toISOString())).toBe(
+          'KYC_NOT_APPROVED',
+        );
+        const expiresOn = isoDay(30);
+        await apply(c, uuid(), sessionRef, o.verification_id as string, {
+          document: licence(country, expiresOn),
+        });
+        // dernière seconde du jour d'échéance, heure locale du pays du trip, puis minuit suivant
+        const { rows } = await c.query<{ last: Date; next: Date }>(
+          `SELECT (($1::date + 1)::timestamp AT TIME ZONE $2) - interval '1 second' AS last,
+                  (($1::date + 1)::timestamp AT TIME ZONE $2) AS next`,
+          [expiresOn, timezone],
+        );
+        const bounds = rows[0] as { last: Date; next: Date };
+        expect(await eligibility(bounds.last.toISOString())).toBe('ELIGIBLE');
+        expect(await eligibility(bounds.next.toISOString())).toBe('KYC_LICENSE_EXPIRED');
+        expect(await eligibility(new Date(bounds.next.getTime() + 40 * DAY_MS).toISOString())).toBe(
+          'KYC_LICENSE_EXPIRED',
+        );
+        expect(
+          (
+            await one<{ outcome: string }>(
+              c,
+              'SELECT * FROM core.kyc_driver_eligibility($1, $2, $3)',
+              [p.token, bounds.last.toISOString(), 'XX'],
+            )
+          ).outcome,
+        ).toBe('COUNTRY_UNKNOWN');
+      });
+    },
+  );
+});

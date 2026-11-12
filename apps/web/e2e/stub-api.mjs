@@ -13,6 +13,11 @@
 // documents à jour) parcourt l'étape OTP de S15. Pays et plans de numérotation : données de
 // configuration du dépôt (countries.json), jamais une constante. Le « SMS » du double porte
 // toujours le code `OTP_CODE` ; 5 codes faux bloquent (16 VER-013).
+//
+// Vérification d'identité (US-105) : un compte `identity-<nom>@example.test` (créé à sa première
+// connexion, documents à jour, téléphone vérifié) parcourt S04 : consentement biométrique v1
+// (texte BROUILLON), ouverture du parcours hébergé (adresse `https://identity.fake.invalid/…`,
+// jamais résolue : le test l'intercepte), décision posée par `GET /__e2e/identity/approve`.
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -47,6 +52,41 @@ const COUNTRIES = JSON.parse(
   mobilePrefixes: c.phone.mobilePrefixes,
 }));
 const phones = new Map();
+
+const IDENTITY_ACCOUNT = /^identity-[a-z0-9-]+@example\.test$/;
+const BIOMETRIC_TITLE = {
+  es: 'Consentimiento para la verificación biométrica (BORRADOR)',
+  en: 'Consent to biometric verification (DRAFT)',
+  fr: 'Consentement à la vérification biométrique (BROUILLON)',
+  pt: 'Consentimento para a checagem biométrica (RASCUNHO)',
+};
+const identities = new Map();
+let identitySessions = 0;
+const identityOf = (email) => {
+  const i = identities.get(email) ?? { consent: null, status: 'NOT_STARTED', session: null };
+  identities.set(email, i);
+  return i;
+};
+const identityView = (i, lang) => ({
+  code: 'KYC_STATE',
+  status: i.status,
+  country: i.session?.country ?? null,
+  reasonCode: null,
+  licenseExpiresOn: i.status === 'APPROVED' ? '2031-06-30' : null,
+  sessionLive: i.status === 'DOCS_SUBMITTED',
+  phoneVerified: true,
+  available: true,
+  consent: {
+    version: 1,
+    accepted: i.consent === 1,
+    locale: lang,
+    title: BIOMETRIC_TITLE[lang],
+    bodyMd: `**${MARK[lang]}**
+
+BIOMETRIC_CONSENT ${lang}`,
+  },
+  countries: COUNTRIES.map((c) => ({ code: c.code, names: c.names })),
+});
 
 /** Même règle que l'API (plan du pays) : forme nationale ou internationale, mobiles seulement. */
 const normalize = (raw, country) => {
@@ -469,6 +509,20 @@ createServer(async (req, res) => {
     if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
     return json(res, 200, { ...statusOf(s.email), history: [] });
   }
+  if (req.method === 'GET' && path === '/__e2e/identity/approve') {
+    const i = identities.get(url.searchParams.get('email') ?? '');
+    if (!i || i.status !== 'DOCS_SUBMITTED')
+      return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    i.status = 'APPROVED';
+    return json(res, 200, { status: i.status });
+  }
+  if (req.method === 'GET' && path === '/identity') {
+    const s = sessionOf(req);
+    if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    // langue préférée du compte : celle du parcours (identity-<langue>-<nom>@example.test)
+    const lang = LANGS.find((l) => s.email.startsWith('identity-' + l + '-')) ?? 'es';
+    return json(res, 200, identityView(identityOf(s.email), lang));
+  }
   if (req.method === 'GET' && path === '/phone') {
     const s = sessionOf(req);
     if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
@@ -562,7 +616,62 @@ createServer(async (req, res) => {
     p.pending = null;
     return err(res, 200, 'PHONE_VERIFIED', 'common.otp.verified');
   }
+  if (path === '/identity/consent') {
+    const s = sessionOf(req);
+    if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    if (typeof body.accepted !== 'boolean') {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    if (body.accepted && body.version !== 1) {
+      return err(res, 409, 'KYC_CONSENT_VERSION_CHANGED', 'common.kyc.consentVersionChanged');
+    }
+    identityOf(s.email).consent = body.accepted ? 1 : null;
+    return json(res, 200, {
+      code: 'KYC_CONSENT_RECORDED',
+      messageKey: 'common.kyc.consentRecorded',
+      version: 1,
+    });
+  }
+  if (path === '/identity/verification') {
+    const s = sessionOf(req);
+    if (!s) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const i = identityOf(s.email);
+    if (i.consent !== 1) {
+      return err(res, 403, 'KYC_BIOMETRIC_CONSENT_MISSING', 'common.kyc.consentMissing');
+    }
+    if (!COUNTRIES.some((c) => c.code === body.country)) {
+      return err(res, 400, 'COUNTRY_UNKNOWN', 'common.legal.countryUnknown');
+    }
+    if (i.status === 'APPROVED') {
+      return err(res, 409, 'KYC_ALREADY_APPROVED', 'common.kyc.alreadyApproved');
+    }
+    const resumed = i.session !== null;
+    if (!resumed) {
+      identitySessions += 1;
+      i.session = {
+        country: body.country,
+        url: `https://identity.fake.invalid/session/fk_idv_${String(identitySessions).padStart(6, '0')}`,
+      };
+    }
+    i.status = 'DOCS_SUBMITTED';
+    return json(res, resumed ? 200 : 201, {
+      code: resumed ? 'KYC_SESSION_IN_PROGRESS' : 'KYC_SESSION_STARTED',
+      messageKey: resumed ? 'common.kyc.sessionInProgress' : 'common.kyc.sessionStarted',
+      hostedUrl: i.session.url,
+      expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+    });
+  }
   if (path === '/auth/login') {
+    if (
+      typeof body.email === 'string' &&
+      IDENTITY_ACCOUNT.test(body.email) &&
+      !accounts.has(body.email)
+    ) {
+      accounts.set(body.email, {
+        password: 'Correct-Horse-9',
+        accepted: { TOS_GUEST: VERSIONS.TOS_GUEST, PRIVACY: VERSIONS.PRIVACY },
+      });
+    }
     if (
       typeof body.email === 'string' &&
       PHONE_ACCOUNT.test(body.email) &&

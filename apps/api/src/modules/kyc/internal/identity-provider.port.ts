@@ -47,6 +47,26 @@ export interface VerificationStatus {
   readonly reasons: readonly string[];
 }
 
+/**
+ * Champs MINIMAUX de la pièce lue par le fournisseur (US-105 ; 17 §3.2.2) : jamais d'image ni de
+ * numéro (zéro copie, 17 §1.5 point 3). Échéance au format AAAA-MM-JJ.
+ */
+export interface IdentityDocumentResult {
+  readonly kind: string;
+  readonly country: string;
+  readonly expiresOn: string | null;
+  readonly licenseClass: string | null;
+  readonly isPermanent: boolean | null;
+  readonly providerDocumentRef: string | null;
+}
+
+/** Contrôles du fournisseur : scores de liveness et de face match (0 à 1, C3) et pièce lue. */
+export interface IdentityChecks {
+  readonly livenessScore: number | null;
+  readonly faceMatchScore: number | null;
+  readonly document: IdentityDocumentResult | null;
+}
+
 export interface IdentityDecisionEvent {
   readonly eventId: string;
   readonly sessionId: string;
@@ -54,6 +74,7 @@ export interface IdentityDecisionEvent {
   readonly decision: IdentityDecision;
   readonly reasons: readonly string[];
   readonly decidedAt: Date;
+  readonly checks: IdentityChecks;
 }
 
 export type IdentityWebhookVerdict =
