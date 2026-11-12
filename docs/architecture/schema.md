@@ -4105,8 +4105,7 @@ Contraintes :
 - `settlement_line_split` : `CHECK ((refund_minor + retained_minor) = amount_minor)`
 - `settlement_line_type_format` : `CHECK (line_type ~ '^[a-z][A-Za-z]{0,62}$'::text)`
 - `settlement_settlement_line_pkey` : `PRIMARY KEY (settlement_id, line_type)`
-- `settlement_settlement_line_settlement_id_fkey` : `FOREIGN KEY (settlement_id) REFER ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 126ms
-ENCES core.settlement_settlement(id)`
+- `settlement_settlement_line_settlement_id_fkey` : `FOREIGN KEY (settlement_id) REFERENCES core.settlement_settlement(id)`
 
 Politiques RLS :
 

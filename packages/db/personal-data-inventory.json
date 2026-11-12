@@ -2143,7 +2143,9 @@
         "activated_at": "C1",
         "row_version": "C1",
         "created_at": "C1",
-        "updated_at": "C1"
+        "updated_at": "C1",
+        "review_started_at": "C1",
+        "auto_review_attempted_at": "C1"
       }
     },
     "core.kyc_sanctions_screening": {
