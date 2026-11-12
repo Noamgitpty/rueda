@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 72 migrations ; 85 tables ; 2 vues ; 435 politiques RLS ; 118 fonctions `SECURITY DEFINER` ; 140 autres fonctions.
+- 72 migrations ; 86 tables ; 2 vues ; 444 politiques RLS ; 121 fonctions `SECURITY DEFINER` ; 140 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -176,6 +176,7 @@ Politiques RLS :
 - `iam_auth_host_insert` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((action_code = 'HOST_ACCOUNT_OPENED'::text) AND (subject_type = 'ORGANIZATION'::text))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
+- `kyc_cmd_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = ANY (ARRAY['KYC_CONSENT_WITHDRAWN'::text, 'KYC_ERASURE_RECORDED'::text])) AND (subject_type = 'USER_ACCOUNT'::text))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['audit_chain_verifier'::text, 'booking_conversion'::text, 'booking_oracle'::text, 'bordereau'::text, 'bus_monitor'::text, 'disposition_sweeper'::text, 'evidence_ingest'::text, 'evidence_verifier'::text, 'hold_expiry'::text, 'ntf_dispatcher'::text, 'ntf_sender'::text, 'ops_monitor'::text, 'outbox_relay'::text, 'payment_command'::text, 'payment_intent_sweeper'::text, 'payout'::text, 'privacy_request'::text, 'reconciliation'::text, 'settlement'::text, 'trip_lifecycle'::text, 'webhook_ingest'::text])))`
 - `worker_select_verifier` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'audit_chain_verifier'::text))`
@@ -2203,6 +2204,45 @@ Déclencheurs :
 - `ctr_signup_consents_required` : `CREATE CONSTRAINT TRIGGER ctr_signup_consents_required AFTER INSERT ON core.iam_user_account DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NOT core.ctr_writer_exempt()) EXECUTE FUNCTION core.ctr_signup_consents_guard()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_user_account FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
+### `core.kyc_erasure_request`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `user_id` | `uuid` | oui | — |
+| `verification_id` | `uuid` | oui | — |
+| `provider` | `text` | oui | — |
+| `provider_session_ref` | `text` | non | — |
+| `status` | `text` | oui | `'PENDING'::text` |
+| `attestation_ref` | `text` | non | — |
+| `requested_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `completed_at` | `timestamp with time zone` | non | — |
+
+Contraintes :
+
+- `kyc_erasure_request_attestation_length` : `CHECK (attestation_ref IS NULL OR length(attestation_ref) >= 1 AND length(attestation_ref) <= 200)`
+- `kyc_erasure_request_done_coherent` : `CHECK (status = 'PENDING'::text AND completed_at IS NULL AND provider_session_ref IS NOT NULL OR status = 'FAILED'::text AND completed_at IS NOT NULL AND provider_session_ref IS NOT NULL OR status = 'DONE'::text AND completed_at IS NOT NULL AND provider_session_ref IS NULL)`
+- `kyc_erasure_request_pkey` : `PRIMARY KEY (id)`
+- `kyc_erasure_request_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
+- `kyc_erasure_request_session_ref_length` : `CHECK (provider_session_ref IS NULL OR length(provider_session_ref) >= 1 AND length(provider_session_ref) <= 200)`
+- `kyc_erasure_request_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'DONE'::text, 'FAILED'::text]))`
+- `kyc_erasure_request_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
+- `kyc_erasure_request_verification_id_fkey` : `FOREIGN KEY (verification_id) REFERENCES core.kyc_identity_verification(id)`
+
+Index :
+
+- `kyc_erasure_request_user_idx` : `CREATE INDEX kyc_erasure_request_user_idx ON core.kyc_erasure_request USING btree (user_id, status)`
+
+Politiques RLS :
+
+- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `(status = 'PENDING'::text)`
+- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
+- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(status = 'PENDING'::text)` WITH CHECK `(status = ANY (ARRAY['DONE'::text, 'FAILED'::text]))`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
 ### `core.kyc_identity_document`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -2244,6 +2284,7 @@ Politiques RLS :
 
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
+- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(provider_document_ref IS NOT NULL)` WITH CHECK `(provider_document_ref IS NULL)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.kyc_identity_verification`
@@ -2297,7 +2338,7 @@ Politiques RLS :
 
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `(is_current AND (status = 'PHONE_VERIFIED'::text) AND (provider_session_ref IS NULL) AND (approved_at IS NULL) AND (reviewed_by IS NULL))`
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
-- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(is_current AND (status <> 'APPROVED'::text))` WITH CHECK `is_current`
+- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `is_current` WITH CHECK `is_current`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.kyc_liveness_check`
@@ -2314,30 +2355,33 @@ Politiques RLS :
 | `liveness_score` | `numeric(5,4)` | non | — |
 | `face_match_score` | `numeric(5,4)` | non | — |
 | `result` | `text` | oui | — |
-| `provider_session_ref` | `text` | oui | — |
+| `provider_session_ref` | `text` | non | — |
 | `retention_until` | `timestamp with time zone` | oui | — |
+| `erased_at` | `timestamp with time zone` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 
 Contraintes :
 
 - `kyc_liveness_check_attempt_positive` : `CHECK (attempt >= 1)`
+- `kyc_liveness_check_erased_coherent` : `CHECK (erased_at IS NULL AND provider_session_ref IS NOT NULL OR erased_at IS NOT NULL AND liveness_score IS NULL AND face_match_score IS NULL AND provider_session_ref IS NULL)`
 - `kyc_liveness_check_face_range` : `CHECK (face_match_score IS NULL OR face_match_score >= 0::numeric AND face_match_score <= 1::numeric)`
 - `kyc_liveness_check_liveness_range` : `CHECK (liveness_score IS NULL OR liveness_score >= 0::numeric AND liveness_score <= 1::numeric)`
 - `kyc_liveness_check_pkey` : `PRIMARY KEY (id)`
 - `kyc_liveness_check_result_valid` : `CHECK (result = ANY (ARRAY['APPROVED'::text, 'DECLINED'::text, 'REVIEW'::text]))`
-- `kyc_liveness_check_session_ref_length` : `CHECK (length(provider_session_ref) >= 1 AND length(provider_session_ref) <= 200)`
+- `kyc_liveness_check_session_ref_length` : `CHECK (provider_session_ref IS NULL OR length(provider_session_ref) >= 1 AND length(provider_session_ref) <= 200)`
 - `kyc_liveness_check_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
 - `kyc_liveness_check_verification_id_fkey` : `FOREIGN KEY (verification_id) REFERENCES core.kyc_identity_verification(id)`
 
 Index :
 
-- `kyc_liveness_check_retention_idx` : `CREATE INDEX kyc_liveness_check_retention_idx ON core.kyc_liveness_check USING btree (retention_until)`
+- `kyc_liveness_check_retention_idx` : `CREATE INDEX kyc_liveness_check_retention_idx ON core.kyc_liveness_check USING btree (retention_until) WHERE (erased_at IS NULL)`
 - `kyc_liveness_check_verification_idx` : `CREATE INDEX kyc_liveness_check_verification_idx ON core.kyc_liveness_check USING btree (verification_id)`
 
 Politiques RLS :
 
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
+- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(erased_at IS NULL)` WITH CHECK `(erased_at IS NOT NULL)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.kyc_provider_event`
@@ -2359,7 +2403,7 @@ Contraintes :
 
 - `kyc_provider_event_decision_valid` : `CHECK (decision = ANY (ARRAY['APPROVED'::text, 'DECLINED'::text, 'REVIEW'::text]))`
 - `kyc_provider_event_event_id_length` : `CHECK (length(event_id) >= 1 AND length(event_id) <= 200)`
-- `kyc_provider_event_outcome_valid` : `CHECK (outcome IS NULL OR (outcome = ANY (ARRAY['APPLIED'::text, 'UNKNOWN_SESSION'::text, 'STALE'::text])))`
+- `kyc_provider_event_outcome_valid` : `CHECK (outcome IS NULL OR (outcome = ANY (ARRAY['APPLIED'::text, 'STALE'::text, 'CONSENT_WITHDRAWN'::text])))`
 - `kyc_provider_event_pkey` : `PRIMARY KEY (id)`
 - `kyc_provider_event_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
 - `kyc_provider_event_session_ref_length` : `CHECK (length(session_ref) >= 1 AND length(session_ref) <= 200)`
@@ -2375,7 +2419,7 @@ Politiques RLS :
 ### `core.kyc_webhook_rejection`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: INSERT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Droits : kyc_cmd_owner: DELETE, INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -2396,11 +2440,13 @@ Contraintes :
 
 Index :
 
-- `kyc_webhook_rejection_received_idx` : `CREATE INDEX kyc_webhook_rejection_received_idx ON core.kyc_webhook_rejection USING btree (received_at)`
+- `kyc_webhook_rejection_received_idx` : `CREATE INDEX kyc_webhook_rejection_received_idx ON core.kyc_webhook_rejection USING btree (provider, received_at)`
 
 Politiques RLS :
 
+- `kyc_cmd_delete` (DELETE, PERMISSIVE, kyc_cmd_owner) USING `(received_at < (platform.now() - make_interval(days => 90)))`
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
+- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.ntf_notification_dispatch`
@@ -2576,7 +2622,7 @@ Politiques RLS :
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
 - `cmd_hold_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = ANY (ARRAY['booking.hold.created'::text, 'booking.hold.released'::text, 'booking.hold.release_deferred'::text, 'booking.hold.payment_in_flight'::text])) AND (app.actor_kind() = 'GUEST'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id = app.actor_id()))`
 - `iam_auth_otp_event_ins` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((((type = 'iam.otp.requested'::text) AND (aggregate_type = 'otp_challenge'::text)) OR ((type = 'iam.phone.verified'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))`
-- `kyc_cmd_event_ins` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text) AND (actor_role = ANY (ARRAY['GUEST'::text, 'SYSTEM'::text])))`
+- `kyc_cmd_event_ins` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text)) OR ((type = 'kyc.consent.withdrawn'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = ANY (ARRAY['GUEST'::text, 'SYSTEM'::text])))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
 - `worker_select_monitor` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['bus_monitor'::text, 'ops_monitor'::text])))`
@@ -4213,10 +4259,13 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_cmd_apply_decision(p_provider text, p_event_id text, p_session_ref text, p_subject_ref text, p_decision text, p_liveness numeric, p_face_match numeric, p_document jsonb)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_biometric_consent(p_token_hash bytea, p_country text, p_version integer, p_accepted boolean)` | `TABLE(outcome text, version integer)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_open_verification(p_token_hash bytea, p_country text, p_provider text)` | `TABLE(outcome text, verification_id uuid, attempt integer, hosted_url text, session_expires_at timestamp with time zone)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.kyc_cmd_record_erasure(p_token_hash bytea, p_request_id uuid, p_outcome text, p_attestation_ref text)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_record_session(p_token_hash bytea, p_verification_id uuid, p_attempt integer, p_provider text, p_session_ref text, p_hosted_url text, p_expires_at timestamp with time zone)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_record_webhook_rejection(p_provider text, p_reason text, p_body_sha256 bytea, p_body_length integer)` | `void` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_driver_eligibility(p_token_hash bytea, p_trip_end timestamp with time zone, p_trip_country text)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_identity_state(p_token_hash bytea, p_country text)` | `TABLE(outcome text, status text, country_code text, reason_code text, license_expires_on date, session_live boolean, phone_verified boolean, consent_version integer, consent_accepted_version integer, consent_locale text, consent_title text, consent_body text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.kyc_pending_erasures(p_token_hash bytea)` | `TABLE(request_id uuid, provider text, session_ref text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.kyc_worker_prune(p_batch integer)` | `integer` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.payment_assert_operation_legs()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.payment_cmd_apply_operation_status(p_operation_id uuid, p_status text, p_source text, p_raw_ref uuid, p_provider_reference text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_receive_webhook(p_account_id uuid, p_provider_event_id text, p_dedup_key bytea, p_signature_valid boolean, p_signed_at timestamp with time zone, p_headers jsonb, p_normalized jsonb)` | `TABLE(outcome text, inbox_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -4391,7 +4440,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_log_access(p_actor uuid, p_role text, p_subject_type text, p_subject_id uuid, p_field text, p_kind text, p_purpose text, p_case_ref text, p_request_id uuid, p_country text)` | `uuid` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_subject_resolver_check(p_resolver regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
-| `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
