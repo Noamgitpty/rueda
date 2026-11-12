@@ -207,7 +207,7 @@ describe('tâches du travailleur (US-003)', () => {
     const alerts = new RecordingAlerts();
     const logs: string[] = [];
     const { tx, sql } = recordingTx({
-      kyc_worker_enqueue_reviews: [{ enqueued: 1, unqueued: '2' }],
+      kyc_worker_enqueue_reviews: [{ enqueued: 1, unqueued: '2', waiting: 3, skipped: '1' }],
       support_worker_review_sla: [
         { queue: 'KYC', country_code: C1, breached: 3 },
         { queue: 'LISTING', country_code: C2, breached: '1' },
@@ -226,7 +226,7 @@ describe('tâches du travailleur (US-003)', () => {
     await h.handle({}, tx);
     const batch = WORKER_TASK_DEFAULTS.reviewSlaWatchBatch;
     expect(sql).toEqual([
-      `SELECT enqueued, unqueued FROM core.kyc_worker_enqueue_reviews($1) [${batch}]`,
+      `SELECT enqueued, unqueued, waiting, skipped FROM core.kyc_worker_enqueue_reviews($1) [${batch}]`,
       `SELECT queue, country_code, breached FROM core.support_worker_review_sla($1) [${batch}]`,
     ]);
     expect(alerts.sent).toEqual([
@@ -255,13 +255,18 @@ describe('tâches du travailleur (US-003)', () => {
         worker: 'review_sla_watch',
         enqueued: 1,
         unqueued: 2,
+        waiting: 3,
+        skipped: 1,
         breached: 4,
       }),
     ]);
   });
 
   it('review_sla_watch : rien en retard ni hors file ⇒ aucune alerte ; canal en échec ⇒ la passe échoue (rejouée)', async () => {
-    const quiet = recordingTx({ kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0 }] });
+    // échecs déjà signalés (`waiting`) : aucune nouvelle alerte P1 (une par dossier, revue US-106)
+    const quiet = recordingTx({
+      kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 5, skipped: 0 }],
+    });
     const alerts = new RecordingAlerts();
     const registry = new BusRegistry();
     registerWorkerTasks(registry, {
@@ -277,7 +282,7 @@ describe('tâches du travailleur (US-003)', () => {
     await h.handle({}, quiet.tx);
     expect(alerts.sent).toEqual([]);
     const late = recordingTx({
-      kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0 }],
+      kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 0, skipped: 0 }],
       support_worker_review_sla: [{ queue: 'KYC', country_code: C2, breached: 1 }],
     });
     alerts.failing = true;

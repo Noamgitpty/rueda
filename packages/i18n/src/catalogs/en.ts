@@ -1049,7 +1049,7 @@ export const EN_MESSAGES = {
   'web.s04.licenseValid': 'License valid until {date}.',
   'web.s04.result.rejected': 'Your identity check was not approved. You cannot book for now.',
   'web.s04.result.rejectedHelp':
-    'If you think this is a mistake, contact support from your account.',
+    'Your account stays open. You can withdraw your biometric consent below at any time.',
   'web.s04.moreInfo.LIVENESS_FAILED':
     'Retake the selfie with your license, face well lit, no sunglasses or hat.',
   'web.s04.moreInfo.ID_DOCUMENT_REFUSED':

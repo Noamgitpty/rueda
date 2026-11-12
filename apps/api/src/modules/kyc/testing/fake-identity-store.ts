@@ -67,6 +67,24 @@ export class FakeIdentityStore implements IdentityStore {
   readonly #events = new Set<string>();
   #ids = 0;
 
+  /** Décision posée sur le dossier de la personne (comme la décision de l'ops, US-106). */
+  setDecision(hashHex: string, status: KycStatus, reasonCode: string | null): void {
+    const p = this.#people.get(hashHex);
+    if (p === undefined) throw new Error('personne inconnue du FAKE');
+    p.verification = {
+      id: `ver_${String(++this.#ids)}`,
+      country: 'ZZ',
+      attempt: 1,
+      provider: 'FAKE',
+      sessionRef: null,
+      hostedUrl: null,
+      sessionExpiresAt: null,
+      ...p.verification,
+      status,
+      reasonCode,
+    };
+  }
+
   /** Personne connue (empreinte hexadécimale de son jeton). */
   addPerson(hashHex: string, options: { phoneVerified?: boolean } = {}): void {
     this.#people.set(hashHex, {

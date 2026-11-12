@@ -200,7 +200,10 @@ export default async function VerifyIdentityPage({
         <Banner tone="danger" live="polite">
           {t('web.s04.result.rejected')}
         </Banner>
-        <p className={styles['muted']}>{t('web.s04.result.rejectedHelp')}</p>
+        {/* renvoie au retrait proposé plus bas : seulement s'il est proposé (consentement donné) */}
+        {state.consent?.accepted === true && (
+          <p className={styles['muted']}>{t('web.s04.result.rejectedHelp')}</p>
+        )}
       </>
     );
   } else if (!OPEN.has(state.status)) {

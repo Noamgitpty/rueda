@@ -34,7 +34,7 @@ SUP ne décide pas les règles des autres modules : une action de console appell
 - **US-106** (ADR-106) : décision KYC de l'ops.
   - `KYC_DECISION` de `POST /console/actions` est liée (commande KYC `core.kyc_manual_action_decision`) : sujet = la vérification courante (`IDENTITY_VERIFICATION`), saisie `decision` et quatre contrôles cochés ; refus du domaine en 409 `STAFF_ACTION_REFUSED` avec `values.reason` (`CHECKS_REQUIRED`, `CHECKS_INCONSISTENT`, `ITEM_NOT_CLAIMED`, `NOT_IN_REVIEW`, `SELF_FORBIDDEN`, `CONSENT_WITHDRAWN`, `LICENSE_NOT_ACCEPTED`, `PRODUCTION_BLOCKED`).
   - La file KYC est alimentée par la base (entrée en `MANUAL_REVIEW`) ; le dossier KYC rend la vérification courante (`verification` : état, motif, permis, scores C3), la fiche 360° son statut SM-3.
-  - Travailleur `review_sla_watch` (`apps/api/src/worker-tasks.ts`, 60 s) : retards signalés une fois par la base, alerte `OPS_REVIEW_SLA_BREACH` (P2) par file et pays ; dossier KYC en revue sans élément : remis en file, sinon alerte `OPS_KYC_REVIEW_UNQUEUED` (P1).
+  - Travailleur `review_sla_watch` (`apps/api/src/worker-tasks.ts`, 60 s) : retards signalés une fois par la base, alerte `OPS_REVIEW_SLA_BREACH` (P2) par file et pays ; dossier KYC en revue sans élément : remis en file, sinon alerte `OPS_KYC_REVIEW_UNQUEUED` (P1), une fois par dossier et par épisode de revue.
 - À venir : gestes commerciaux (US-533), console à rôles complets (US-534), commandes de domaine d'état liées par leurs stories (US-208, US-123, US-124…), mise en file par les commandes productrices (US-108, US-114, US-118, US-209).
 
 ## Entités

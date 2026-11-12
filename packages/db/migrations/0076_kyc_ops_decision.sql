@@ -18,8 +18,9 @@
 --     toute sortie de `MANUAL_REVIEW` qui n'est pas une décision de l'ops (retrait du
 --     consentement : RECHECK) ANNULE l'élément vivant. Une mise en file impossible (personne sans
 --     pays, paramètre absent) ne bloque pas le rappel du fournisseur : le dossier reste en revue
---     (réservation fermée, fail-closed) et le travailleur `review_sla_watch` le remet en file à
---     chaque passe, en alertant tant qu'il n'y parvient pas ;
+--     (réservation fermée, fail-closed) et le travailleur `review_sla_watch` le remet en file
+--     (verrou de la personne, relecture), en alertant UNE fois par épisode de revue
+--     (`review_unqueued_at`) tant qu'il n'y parvient pas ;
 --   - DÉCISION : action de console `KYC_DECISION` (cadre d'US-101 : TOTP, `kyc.decide` dans le
 --     pays de la personne, motif de 10 à 1000 caractères, idempotence, audit en dernier) liée à
 --     la commande de domaine `core.kyc_manual_action_decision`. Saisie (énumérations FERMÉES) :
@@ -68,6 +69,7 @@
 --     core.kyc_staff_status(uuid), core.kyc_worker_enqueue_reviews(integer),
 --     core.support_worker_review_sla(integer);
 --   ALTER TABLE core.support_review_queue_item DROP COLUMN sla_breached_at;
+--   ALTER TABLE core.kyc_identity_verification DROP COLUMN review_unqueued_at;
 --   DROP POLICY kyc_cmd_read_tos ON core.contract_consent ; DROP POLICY kyc_cmd_accept ON
 --     core.kyc_identity_document ; DROP POLICY kyc_cmd_event_ops ON core.outbox_outbox_event ;
 --   DROP POLICY kyc_cmd_select ON core.support_review_queue_item ; DROP POLICY iam_staff_sla_event
@@ -117,6 +119,12 @@ GRANT EXECUTE ON FUNCTION core.support_enqueue_review(text, text, uuid, text, uu
 RESET ROLE;
 -- décision : auteur du dossier, document accepté (IN_REVIEW → ACCEPTED seulement)
 GRANT UPDATE (reviewed_by) ON core.kyc_identity_verification TO kyc_cmd_owner;
+-- remise en file par le travailleur : dernier échec signalé (une alerte par épisode de revue)
+ALTER TABLE core.kyc_identity_verification ADD COLUMN review_unqueued_at timestamptz;
+COMMENT ON COLUMN core.kyc_identity_verification.review_unqueued_at IS
+  'Dernier échec de mise en file KYC par le travailleur review_sla_watch (alerte une fois par '
+  'épisode de revue ; ordre des essais). US-106 (ADR-106).';
+GRANT UPDATE (review_unqueued_at) ON core.kyc_identity_verification TO kyc_cmd_owner;
 GRANT UPDATE (status) ON core.kyc_identity_document TO kyc_cmd_owner;
 CREATE POLICY kyc_cmd_accept ON core.kyc_identity_document FOR UPDATE TO kyc_cmd_owner
   USING (status = 'IN_REVIEW') WITH CHECK (status = 'ACCEPTED');
@@ -434,10 +442,19 @@ GRANT EXECUTE ON FUNCTION core.kyc_staff_dossier(uuid), core.kyc_staff_status(uu
   TO iam_staff_owner;
 
 -- 8. Travailleur review_sla_watch, partie KYC : remise en file des dossiers en revue sans élément --
--- (SECURITY DEFINER, EXECUTE app_worker). Rend le nombre de dossiers remis en file et le nombre de
--- ceux qui restent hors file (alerte).
+-- (SECURITY DEFINER, EXECUTE app_worker). Pour chaque candidat : verrou consultatif de la personne
+-- TENTÉ (même clé que l'ouverture, le rappel, le retrait et la décision ; pris par une autre
+-- transaction : dossier sauté, repris à la passe suivante), puis RELECTURE sous ce verrou (toujours
+-- courant, en MANUAL_REVIEW, sans élément vivant) : un retrait du consentement concurrent ne laisse
+-- jamais d'élément OPEN périmé. Échec de mise en file : marque `review_unqueued_at` ; un dossier
+-- n'est compté dans `unqueued` (alerte P1) qu'à son PREMIER échec de l'épisode de revue (marque
+-- absente ou antérieure au dernier changement d'état), ensuite dans `waiting` (aucune alerte). Ordre :
+-- d'abord les dossiers jamais tentés dans l'épisode, puis les tentés, du plus ancien essai au plus
+-- récent : des dossiers impossibles à mettre en file n'affament jamais la tête du lot.
+-- Issues : enqueued (mis en file), unqueued (nouvel échec : alerte), waiting (échec déjà signalé),
+-- skipped (verrou pris ailleurs).
 CREATE FUNCTION core.kyc_worker_enqueue_reviews(p_batch integer)
-  RETURNS TABLE (enqueued integer, unqueued integer)
+  RETURNS TABLE (enqueued integer, unqueued integer, waiting integer, skipped integer)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -445,10 +462,14 @@ CREATE FUNCTION core.kyc_worker_enqueue_reviews(p_batch integer)
 AS $fn$
 #variable_conflict use_column
 DECLARE
-  v_user uuid;
+  v_c    record;
+  v_v    record;
   v_out  text;
+  v_now  timestamptz := platform.now();
   v_ok   integer := 0;
-  v_ko   integer := 0;
+  v_new  integer := 0;
+  v_wait integer := 0;
+  v_skip integer := 0;
 BEGIN
   IF COALESCE(pg_catalog.current_setting('app.actor_kind', true), '') <> 'WORKER'
      OR COALESCE(pg_catalog.current_setting('app.worker_name', true), '') <> 'review_sla_watch' THEN
@@ -458,23 +479,48 @@ BEGIN
   IF p_batch IS NULL OR p_batch < 1 OR p_batch > 10000 THEN
     RAISE EXCEPTION 'kyc : lot invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  FOR v_user IN
-    SELECT v.user_id FROM core.kyc_identity_verification AS v
+  FOR v_c IN
+    SELECT v.id, v.user_id FROM core.kyc_identity_verification AS v
      WHERE v.is_current AND v.status = 'MANUAL_REVIEW'
        AND NOT EXISTS (SELECT 1 FROM core.support_review_queue_item AS i
                         WHERE i.queue = 'KYC' AND i.subject_type = 'USER_ACCOUNT'
                           AND i.subject_id = v.user_id AND i.status IN ('OPEN', 'IN_REVIEW'))
-     ORDER BY v.updated_at, v.id
+     ORDER BY (v.review_unqueued_at IS NOT NULL AND v.review_unqueued_at >= v.updated_at),
+              v.review_unqueued_at NULLS FIRST, v.updated_at, v.id
      LIMIT p_batch
   LOOP
-    v_out := core.kyc_review_enqueue(v_user, NULL);
+    IF NOT pg_catalog.pg_try_advisory_xact_lock(
+             pg_catalog.hashtextextended('kyc.verification:' || v_c.user_id::text, 0)) THEN
+      v_skip := v_skip + 1;
+      CONTINUE;
+    END IF;
+    -- relecture sous le verrou (nouvel instantané) : l'état a pu changer depuis la liste
+    SELECT v.status, v.updated_at, v.review_unqueued_at INTO v_v
+      FROM core.kyc_identity_verification AS v WHERE v.id = v_c.id AND v.is_current;
+    IF v_v.status IS DISTINCT FROM 'MANUAL_REVIEW'
+       OR EXISTS (SELECT 1 FROM core.support_review_queue_item AS i
+                   WHERE i.queue = 'KYC' AND i.subject_type = 'USER_ACCOUNT'
+                     AND i.subject_id = v_c.user_id AND i.status IN ('OPEN', 'IN_REVIEW')) THEN
+      CONTINUE;
+    END IF;
+    v_out := core.kyc_review_enqueue(v_c.user_id, NULL);
     IF v_out IN ('CREATED', 'EXISTS') THEN
       v_ok := v_ok + 1;
+      IF v_v.review_unqueued_at IS NOT NULL THEN
+        UPDATE core.kyc_identity_verification AS v SET review_unqueued_at = NULL
+         WHERE v.id = v_c.id;
+      END IF;
     ELSE
-      v_ko := v_ko + 1;
+      IF v_v.review_unqueued_at IS NULL OR v_v.review_unqueued_at < v_v.updated_at THEN
+        v_new := v_new + 1;
+      ELSE
+        v_wait := v_wait + 1;
+      END IF;
+      UPDATE core.kyc_identity_verification AS v SET review_unqueued_at = v_now
+       WHERE v.id = v_c.id;
     END IF;
   END LOOP;
-  RETURN QUERY SELECT v_ok, v_ko;
+  RETURN QUERY SELECT v_ok, v_new, v_wait, v_skip;
 END
 $fn$;
 COMMENT ON FUNCTION core.kyc_worker_enqueue_reviews(integer) IS

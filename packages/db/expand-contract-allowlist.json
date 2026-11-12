@@ -133,7 +133,7 @@
     },
     {
       "path": "packages/db/migrations/0076_kyc_ops_decision.sql",
-      "line": 79,
+      "line": 81,
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-106 (ADR-106) : saisie de KYC_DECISION ÉLARGIE (clés des contrôles cochés et valeur MORE_INFO_REQUIRED) sur une ligne de référence écrite par migration seulement ; une ligne, aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N n'envoyait que decision, valeur toujours admise"

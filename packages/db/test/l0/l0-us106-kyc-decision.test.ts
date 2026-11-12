@@ -73,6 +73,7 @@ interface VerificationRow {
   readonly reviewed_by: string | null;
   readonly approved: boolean;
   readonly attempt: number;
+  readonly unqueued_marked: boolean;
 }
 const verification = async (c: pg.ClientBase, userId: string): Promise<VerificationRow> =>
   (
@@ -417,6 +418,32 @@ describe('US-106 — refus de la commande : rien n’est écrit', () => {
   );
 });
 
+// revue code US-106 n° 7 (a) : le verrou de la file vaut pour l'ADMIN aussi (ADR-106 n° 3)
+describe('US-106 — ADMIN sans prise en charge', () => {
+  it.each(byCountry)(
+    '%s (%s) : un ADMIN du pays qui n’a pas pris l’élément ⇒ ITEM_NOT_CLAIMED, rien n’est écrit',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const r = await toReview(c, country);
+        const events = (await fixture(c, 'us105_events', r.verificationId)).length;
+        const admin = await staff(c, 'ADMIN', [country], country);
+        expect(await decide(c, admin, r.verificationId, checks('APPROVED'))).toMatchObject({
+          outcome: 'REFUSED',
+          detail: 'ITEM_NOT_CLAIMED',
+        });
+        expect(await itemsOf(c, r.userId)).toMatchObject([
+          { status: 'OPEN', decision: null, assignee_id: null },
+        ]);
+        expect(await verification(c, r.userId)).toMatchObject({
+          status: 'MANUAL_REVIEW',
+          reviewed_by: null,
+        });
+        expect(await fixture(c, 'us105_events', r.verificationId)).toHaveLength(events);
+      });
+    },
+  );
+});
+
 describe('US-106 — OQ-BR-21 (défaut PROPOSÉ) : liste des permis provisoire', () => {
   it.each(byCountry)(
     '%s (%s) : IDP seul ou permis provisoire ⇒ en revue, jamais APPROVED (LICENSE_NOT_ACCEPTED) ; refus motivé admis',
@@ -559,6 +586,32 @@ const asWorker = async (w: pg.ClientBase): Promise<void> => {
   );
 };
 
+/**
+ * Dossier en revue SANS élément vivant (élément annulé par la sonde productrice de 9990, dossier
+ * inchangé) : ce que le travailleur doit remettre en file.
+ */
+async function orphan(c: pg.ClientBase, country: string) {
+  const x = await toReview(c, country);
+  const [item] = await itemsOf(c, x.userId);
+  expect(
+    await one(c, 'SELECT outcome FROM test_fixture.us109_close($1, $2, $3)', [
+      item?.id,
+      'CANCELLED',
+      'TEST_ORPHAN',
+    ]),
+  ).toEqual({ outcome: 'CLOSED' });
+  return x;
+}
+
+interface Enqueued {
+  readonly enqueued: number;
+  readonly unqueued: number;
+  readonly waiting: number;
+  readonly skipped: number;
+}
+const live = (items: readonly { status: string }[]) =>
+  items.filter((i) => i.status === 'OPEN' || i.status === 'IN_REVIEW');
+
 describe('US-106 — alerte de délai et remise en file (critère 2, travailleur review_sla_watch)', () => {
   it.each(byCountry)(
     '%s (%s) : dossier entré à 09:00 un jour ouvré ; 12:59:59 sans alerte ; 13:00 ⇒ alerte (une seule, événement support.review_queue.sla_breached)',
@@ -624,23 +677,11 @@ describe('US-106 — alerte de délai et remise en file (critère 2, travailleur
   it.each(byCountry)(
     '%s (%s) : dossier en revue sans élément vivant ⇒ remis en file par le travailleur ; réservé à review_sla_watch',
     async (country) => {
-      const r = await withRole('app_api', async (c) => {
-        const x = await toReview(c, country);
-        const [item] = await itemsOf(c, x.userId);
-        // sonde productrice de 9990 : élément annulé sans changer le dossier
-        expect(
-          await one(c, 'SELECT outcome FROM test_fixture.us109_close($1, $2, $3)', [
-            item?.id,
-            'CANCELLED',
-            'TEST_ORPHAN',
-          ]),
-        ).toEqual({ outcome: 'CLOSED' });
-        return x;
-      });
+      const r = await withRole('app_api', (c) => orphan(c, country));
       await withRole('app_worker', async (w) => {
         await withTestTransaction(w, {}, async () => {
           await asWorker(w);
-          const k = await one<{ enqueued: number; unqueued: number }>(
+          const k = await one<Enqueued>(
             w,
             'SELECT * FROM core.kyc_worker_enqueue_reviews(10000)',
             [],
@@ -668,4 +709,88 @@ describe('US-106 — alerte de délai et remise en file (critère 2, travailleur
       });
     },
   );
+
+  // revue code US-106 n° 3 : un retrait du consentement concurrent ne laisse jamais d'élément OPEN
+  // périmé (verrou de la personne tenu par le retrait : dossier sauté, puis plus en revue)
+  it.each(byCountry)(
+    '%s (%s) : remise en file pendant un retrait du consentement non validé ⇒ dossier sauté ; après le retrait ⇒ aucun élément vivant',
+    async (country) => {
+      const x = await withRole('app_api', (c) => orphan(c, country));
+      await withRole('app_api', async (a) => {
+        await withTestTransaction(a, { commit: true }, async () => {
+          expect(
+            await one(a, 'SELECT * FROM core.kyc_cmd_biometric_consent($1, $2, $3, $4)', [
+              x.token,
+              country,
+              null,
+              false,
+            ]),
+          ).toEqual({ outcome: 'RECORDED', version: 1 });
+          // retrait en cours : verrou de la personne tenu, RECHECK pas encore validé
+          await withRole('app_worker', (w) =>
+            withTestTransaction(w, {}, async () => {
+              await asWorker(w);
+              const k = await one<Enqueued>(
+                w,
+                'SELECT * FROM core.kyc_worker_enqueue_reviews(10000)',
+                [],
+              );
+              expect(k.skipped).toBeGreaterThanOrEqual(1);
+              expect(live(await itemsOf(w, x.userId))).toEqual([]);
+            }),
+          );
+        });
+      });
+      await withRole('app_worker', (w) =>
+        withTestTransaction(w, {}, async () => {
+          await asWorker(w);
+          await w.query('SELECT * FROM core.kyc_worker_enqueue_reviews(10000)');
+          expect(live(await itemsOf(w, x.userId))).toEqual([]);
+          expect((await verification(w, x.userId)).status).toBe('RECHECK');
+        }),
+      );
+    },
+  );
+
+  // revue code US-106 n° 4 et n° 7 (d) : un dossier impossible à mettre en file (personne sans pays
+  // de compte : COUNTRY_UNKNOWN) n'occupe pas la tête du lot ; il n'est signalé (alerte P1) qu'une
+  // fois par épisode de revue
+  it('lot : un dossier impossible à mettre en file n’affame pas les suivants ; nouvel échec signalé une fois', async () => {
+    const country = COUNTRIES[0].country;
+    const { x, y } = await withRole('app_api', async (c) => {
+      // X d'abord : le plus ancien, celui que l'ordre « plus ancien d'abord » prendrait toujours
+      const blocked = await orphan(c, country);
+      await c.query('SELECT test_fixture.us106_clear_account_country($1)', [blocked.userId]);
+      return { x: blocked, y: await orphan(c, country) };
+    });
+    await withRole('app_worker', (w) =>
+      withTestTransaction(w, {}, async () => {
+        await asWorker(w);
+        let signalled = 0;
+        let passes = 0;
+        // lots d'UN dossier jusqu'à ce que seuls des échecs déjà signalés restent
+        for (; passes < 2000; passes++) {
+          const k = await one<Enqueued>(w, 'SELECT * FROM core.kyc_worker_enqueue_reviews(1)', []);
+          signalled += k.unqueued;
+          if (k.enqueued === 0 && k.unqueued === 0 && k.skipped === 0) break;
+        }
+        expect(passes).toBeLessThan(2000);
+        expect(signalled).toBeGreaterThanOrEqual(1);
+        expect(live(await itemsOf(w, y.userId))).toMatchObject([{ status: 'OPEN' }]);
+        expect(live(await itemsOf(w, x.userId))).toEqual([]);
+        expect(await verification(w, x.userId)).toMatchObject({
+          status: 'MANUAL_REVIEW',
+          unqueued_marked: true,
+        });
+        // X déjà signalé : une passe complète ne le compte plus en `unqueued` (aucune alerte)
+        const again = await one<Enqueued>(
+          w,
+          'SELECT * FROM core.kyc_worker_enqueue_reviews(10000)',
+          [],
+        );
+        expect(again.unqueued).toBe(0);
+        expect(again.waiting).toBeGreaterThanOrEqual(1);
+      }),
+    );
+  });
 });

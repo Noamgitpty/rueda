@@ -15,7 +15,7 @@
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
- * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1) |
+ * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
  * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
@@ -193,12 +193,20 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
     REVIEW_SLA_WATCH_WORKER,
     d.reviewSlaWatchPeriodSeconds,
     async (_p, tx) => {
-      const k = await tx.query<{ enqueued: unknown; unqueued: unknown }>(
-        'SELECT enqueued, unqueued FROM core.kyc_worker_enqueue_reviews($1)',
-        [d.reviewSlaWatchBatch],
-      );
+      // `unqueued` : dossiers dont l'échec est NOUVEAU (une alerte par épisode de revue, marque en
+      // base) ; `waiting` : échecs déjà signalés ; `skipped` : personne verrouillée ailleurs
+      const k = await tx.query<{
+        enqueued: unknown;
+        unqueued: unknown;
+        waiting: unknown;
+        skipped: unknown;
+      }>('SELECT enqueued, unqueued, waiting, skipped FROM core.kyc_worker_enqueue_reviews($1)', [
+        d.reviewSlaWatchBatch,
+      ]);
       const enqueued = count(k.rows[0]?.enqueued);
       const unqueued = count(k.rows[0]?.unqueued);
+      const waiting = count(k.rows[0]?.waiting);
+      const skipped = count(k.rows[0]?.skipped);
       const { rows } = await tx.query<{ queue: string; country_code: string; breached: unknown }>(
         'SELECT queue, country_code, breached FROM core.support_worker_review_sla($1)',
         [d.reviewSlaWatchBatch],
@@ -222,7 +230,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
           labels: { queue: 'KYC' },
         });
       }
-      line(REVIEW_SLA_WATCH_WORKER, { enqueued, unqueued, breached });
+      line(REVIEW_SLA_WATCH_WORKER, { enqueued, unqueued, waiting, skipped, breached });
     },
   );
 

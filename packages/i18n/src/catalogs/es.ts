@@ -1083,7 +1083,8 @@ export const ES_MESSAGES = {
   'web.s04.licenseValid': 'Licencia válida hasta el {date}.',
   'web.s04.result.rejected':
     'Tu verificación de identidad no fue aprobada. Por ahora no puedes reservar.',
-  'web.s04.result.rejectedHelp': 'Si crees que es un error, escribe al soporte desde tu cuenta.',
+  'web.s04.result.rejectedHelp':
+    'Tu cuenta sigue abierta. Puedes retirar tu consentimiento biométrico aquí abajo cuando quieras.',
   'web.s04.moreInfo.LIVENESS_FAILED':
     'Repite la selfie con tu licencia, la cara bien iluminada, sin lentes de sol ni sombrero.',
   'web.s04.moreInfo.ID_DOCUMENT_REFUSED':

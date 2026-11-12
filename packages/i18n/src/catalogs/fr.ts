@@ -1117,7 +1117,7 @@ export const FR_MESSAGES = {
   'web.s04.result.rejected':
     'Ta vérification d’identité n’a pas été approuvée. Tu ne peux pas réserver pour l’instant.',
   'web.s04.result.rejectedHelp':
-    'Si tu penses qu’il s’agit d’une erreur, écris au support depuis ton compte.',
+    'Ton compte reste ouvert. Tu peux retirer ton consentement biométrique ci-dessous à tout moment.',
   'web.s04.moreInfo.LIVENESS_FAILED':
     'Refais le selfie avec ton permis, visage bien éclairé, sans lunettes de soleil ni chapeau.',
   'web.s04.moreInfo.ID_DOCUMENT_REFUSED':

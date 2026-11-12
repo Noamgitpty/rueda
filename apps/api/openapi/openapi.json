@@ -10681,8 +10681,8 @@
             ]
           },
           "reasonCode": {
-            "type": ["string", "null"],
-            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+            "description": "Catégorie de reprise après une nouvelle pièce demandée (US-106, 08 BR-VERIF-03) ; null pour tout autre état ou motif.",
+            "enum": ["LIVENESS_FAILED", "ID_DOCUMENT_REFUSED", "LICENSE_NOT_ACCEPTED", null]
           },
           "licenseExpiresOn": {
             "type": ["string", "null"],

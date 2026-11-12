@@ -60,11 +60,31 @@ export interface IdentityServiceDeps {
   readonly now?: () => Date;
 }
 
+/**
+ * Motifs montrés au voyageur (US-106 ; 08 BR-VERIF-03 : jamais au-delà d'une catégorie générique) :
+ * seulement le conseil de reprise d'une nouvelle pièce demandée (selfie, pièce d'identité, permis).
+ * Tout autre motif (refus, doublon, revue, retrait…) est masqué : `null`.
+ */
+export const GUEST_REASON_CODES = [
+  'LIVENESS_FAILED',
+  'ID_DOCUMENT_REFUSED',
+  'LICENSE_NOT_ACCEPTED',
+] as const;
+export type GuestReasonCode = (typeof GUEST_REASON_CODES)[number];
+
+export function guestReasonCode(status: string, reason: string | null): GuestReasonCode | null {
+  return status === 'MORE_INFO_REQUIRED' &&
+    (GUEST_REASON_CODES as readonly (string | null)[]).includes(reason)
+    ? (reason as GuestReasonCode)
+    : null;
+}
+
 export interface IdentityStateView {
   readonly code: 'KYC_STATE';
   readonly status: KycStatus;
   readonly country: string | null;
-  readonly reasonCode: string | null;
+  /** Catégorie de reprise seulement (`guestReasonCode`), jamais le motif brut du dossier. */
+  readonly reasonCode: GuestReasonCode | null;
   readonly licenseExpiresOn: string | null;
   readonly sessionLive: boolean;
   readonly phoneVerified: boolean;
@@ -152,7 +172,7 @@ export class IdentityVerificationService {
       code: 'KYC_STATE',
       status: s.status,
       country: s.country,
-      reasonCode: s.reasonCode,
+      reasonCode: guestReasonCode(s.status, s.reasonCode),
       licenseExpiresOn: s.licenseExpiresOn,
       sessionLive: s.sessionLive,
       phoneVerified: s.phoneVerified,

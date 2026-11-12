@@ -1939,7 +1939,8 @@
         },
         "row_version": "C1",
         "created_at": "C1",
-        "updated_at": "C1"
+        "updated_at": "C1",
+        "review_unqueued_at": "C1"
       }
     },
     "core.kyc_identity_document": {

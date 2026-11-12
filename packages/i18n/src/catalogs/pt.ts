@@ -1083,7 +1083,8 @@ export const PT_MESSAGES = {
   'web.s04.licenseValid': 'Carteira de motorista válida até {date}.',
   'web.s04.result.rejected':
     'Sua checagem de identidade não foi aprovada. Por enquanto você não pode reservar.',
-  'web.s04.result.rejectedHelp': 'Se você acha que é um erro, fale com o suporte pela sua conta.',
+  'web.s04.result.rejectedHelp':
+    'Sua conta continua aberta. Você pode retirar seu consentimento biométrico abaixo a qualquer momento.',
   'web.s04.moreInfo.LIVENESS_FAILED':
     'Refaça a selfie com sua carteira, rosto bem iluminado, sem óculos escuros nem chapéu.',
   'web.s04.moreInfo.ID_DOCUMENT_REFUSED':
