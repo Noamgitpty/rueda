@@ -2096,6 +2096,10 @@
         "user_id": "C1",
         "country_code": "C1",
         "status": "C1",
+        "screening_hold": {
+          "class": "C3",
+          "erasure": "purge"
+        },
         "identity_verification_id": "C1",
         "age_ok": "C1",
         "residence_verified": "C1",

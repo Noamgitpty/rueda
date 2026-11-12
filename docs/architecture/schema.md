@@ -2439,6 +2439,7 @@ Politiques RLS :
 | `user_id` | `uuid` | oui | — |
 | `country_code` | `text` | oui | — |
 | `status` | `text` | oui | — |
+| `screening_hold` | `boolean` | oui | `false` |
 | `identity_verification_id` | `uuid` | non | — |
 | `age_ok` | `boolean` | oui | `false` |
 | `residence_verified` | `boolean` | oui | `false` |
@@ -2457,10 +2458,11 @@ Contraintes :
 
 - `kyc_host_verification_activated_approved` : `CHECK (activated_at IS NULL OR status = 'APPROVED'::text)`
 - `kyc_host_verification_approved_complete` : `CHECK (status <> 'APPROVED'::text OR age_ok AND cardinality(missing) = 0 AND identity_verification_id IS NOT NULL AND sanctions_screening_id IS NOT NULL)`
-- `kyc_host_verification_blocked_reason` : `CHECK (status <> 'BLOCKED'::text OR reason_code IS NOT NULL)`
 - `kyc_host_verification_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `kyc_host_verification_decided_by_fkey` : `FOREIGN KEY (decided_by) REFERENCES core.iam_user_account(id)`
 - `kyc_host_verification_decided_coherent` : `CHECK ((status = ANY (ARRAY['APPROVED'::text, 'REJECTED'::text, 'REVOKED'::text])) = (decided_at IS NOT NULL))`
+- `kyc_host_verification_hold_not_approved` : `CHECK (NOT screening_hold OR status <> 'APPROVED'::text)`
+- `kyc_host_verification_hold_reason` : `CHECK (NOT screening_hold OR reason_code IS NOT NULL)`
 - `kyc_host_verification_identity_verification_id_fkey` : `FOREIGN KEY (identity_verification_id) REFERENCES core.kyc_identity_verification(id)`
 - `kyc_host_verification_missing_valid` : `CHECK (array_position(missing, NULL::text) IS NULL AND missing <@ ARRAY['HOST_SCREENING_MISSING'::text, 'HOST_TAX_ID_REQUIRED'::text, 'TERMS_REACCEPT_REQUIRED'::text, 'HOST_KYC_REQUIRED'::text])`
 - `kyc_host_verification_org_fk` : `FOREIGN KEY (org_id, user_id) REFERENCES core.iam_organization(id, holder_user_id)`
@@ -2469,7 +2471,7 @@ Contraintes :
 - `kyc_host_verification_reason_format` : `CHECK (reason_code IS NULL OR reason_code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `kyc_host_verification_row_version_valid` : `CHECK (row_version >= 0)`
 - `kyc_host_verification_screening_fk` : `FOREIGN KEY (sanctions_screening_id) REFERENCES core.kyc_sanctions_screening(id)`
-- `kyc_host_verification_status_valid` : `CHECK (status = ANY (ARRAY['OPEN'::text, 'DOCS_PENDING'::text, 'IN_REVIEW'::text, 'APPROVED'::text, 'REJECTED'::text, 'REVOKED'::text, 'BLOCKED'::text]))`
+- `kyc_host_verification_status_valid` : `CHECK (status = ANY (ARRAY['OPEN'::text, 'DOCS_PENDING'::text, 'IN_REVIEW'::text, 'APPROVED'::text, 'REJECTED'::text, 'REVOKED'::text]))`
 - `kyc_host_verification_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
 
 Index :
