@@ -173,7 +173,7 @@ export class PgIdentityStore implements IdentityStore {
     // décision (0072) et faits vérifiés de la personne (0075, US-123) dans la MÊME instruction
     const [r] = await this.#run<{ outcome: string; status: string | null }>(
       'apply_decision',
-      'SELECT * FROM core.kyc_cmd_apply_decision_facts($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)',
+      'SELECT * FROM core.kyc_cmd_decide_with_facts($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)',
       [
         provider,
         event.eventId,

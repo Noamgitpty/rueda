@@ -12,7 +12,7 @@
 --
 -- Principes (ADR-105, PROPOSÉ) :
 --   - FAITS VÉRIFIÉS du KYC (N-28, N-38) : la date de naissance et le pays de résidence lus par le
---     fournisseur d'identité arrivent avec le rappel signé ; `core.kyc_cmd_apply_decision_facts`
+--     fournisseur d'identité arrivent avec le rappel signé ; `core.kyc_cmd_decide_with_facts`
 --     appelle la commande de 0072 INCHANGÉE puis, si le rappel est appliqué, consigne ces deux
 --     champs (`core.kyc_identity_subject`) dans la même instruction. Règle de priorité : la valeur
 --     VÉRIFIÉE du dossier d'identité courant fait foi ; à défaut, la date déclarée du compte et le
@@ -62,7 +62,7 @@
 --     text, uuid, text), core.kyc_cmd_host_record_screening(bytea, uuid, text, text, text, jsonb,
 --     text), core.kyc_cmd_host_submit(bytea, uuid), core.kyc_cmd_host_save_tax_profile(bytea, uuid,
 --     text, bytea, text, text), core.kyc_host_state(bytea, uuid),
---     core.kyc_cmd_apply_decision_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb),
+--     core.kyc_cmd_decide_with_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb),
 --     core.kyc_host_try_activate(uuid, uuid, text), core.kyc_host_refresh(uuid),
 --     core.kyc_host_activation_allowed(uuid, text), core.kyc_host_blockers(uuid),
 --     core.kyc_host_gates(uuid), core.kyc_host_param(text, text), core.kyc_host_emit_org(uuid, text,
@@ -645,7 +645,7 @@ CREATE POLICY kyc_cmd_host_update ON core.iam_organization FOR UPDATE TO kyc_cmd
 -- Appelle core.kyc_cmd_apply_decision (0072, inchangée) puis, si le rappel est APPLIQUÉ, consigne
 -- la date de naissance et le pays de résidence lus par le fournisseur pour la tentative décidée.
 -- Champ mal formé : ignoré (NULL), jamais une erreur qui perdrait la décision.
-CREATE FUNCTION core.kyc_cmd_apply_decision_facts(p_provider text, p_event_id text,
+CREATE FUNCTION core.kyc_cmd_decide_with_facts(p_provider text, p_event_id text,
                                                   p_session_ref text, p_subject_ref text,
                                                   p_decision text, p_liveness numeric,
                                                   p_face_match numeric, p_document jsonb,
@@ -1026,7 +1026,7 @@ BEGIN
 END
 $fn$;
 
-COMMENT ON FUNCTION core.kyc_cmd_apply_decision_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb) IS
+COMMENT ON FUNCTION core.kyc_cmd_decide_with_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb) IS
   'Décision du fournisseur d''identité (0072, inchangée) et faits vérifiés (date de naissance, '
   'résidence) de la tentative décidée. SECURITY DEFINER, EXECUTE app_api. US-123 (ADR-105).';
 COMMENT ON FUNCTION core.kyc_host_state(bytea, uuid) IS
@@ -1043,13 +1043,13 @@ COMMENT ON FUNCTION core.kyc_cmd_host_record_screening(bytea, uuid, text, text, 
   'opaque) ; correspondance ⇒ BLOCKED. SECURITY DEFINER, EXECUTE app_api. US-123 (ADR-105).';
 
 REVOKE ALL ON FUNCTION
-  core.kyc_cmd_apply_decision_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb),
+  core.kyc_cmd_decide_with_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb),
   core.kyc_host_state(bytea, uuid),
   core.kyc_cmd_host_save_tax_profile(bytea, uuid, text, bytea, text, text),
   core.kyc_cmd_host_submit(bytea, uuid),
   core.kyc_cmd_host_record_screening(bytea, uuid, text, text, text, jsonb, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-  core.kyc_cmd_apply_decision_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb),
+  core.kyc_cmd_decide_with_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb),
   core.kyc_host_state(bytea, uuid),
   core.kyc_cmd_host_save_tax_profile(bytea, uuid, text, bytea, text, text),
   core.kyc_cmd_host_submit(bytea, uuid),
@@ -1216,7 +1216,7 @@ ALTER FUNCTION core.kyc_host_emit_org(uuid, text, integer, text, text, uuid, tex
   OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_host_refresh(uuid) OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_host_try_activate(uuid, uuid, text) OWNER TO kyc_cmd_owner;
-ALTER FUNCTION core.kyc_cmd_apply_decision_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb)
+ALTER FUNCTION core.kyc_cmd_decide_with_facts(text, text, text, text, text, numeric, numeric, jsonb, jsonb)
   OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_host_state(bytea, uuid) OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_cmd_host_save_tax_profile(bytea, uuid, text, bytea, text, text)

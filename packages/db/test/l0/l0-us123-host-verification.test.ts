@@ -200,7 +200,7 @@ const applyFacts = (
 ) =>
   one<{ outcome: string; status: string | null }>(
     c,
-    'SELECT * FROM core.kyc_cmd_apply_decision_facts($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)',
+    'SELECT * FROM core.kyc_cmd_decide_with_facts($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)',
     [
       PROVIDER,
       eventId,
@@ -244,7 +244,7 @@ async function acceptTerms(c: pg.ClientBase, p: Person, org: string): Promise<vo
     'SELECT * FROM core.ctr_cmd_accept_host_terms($1, $2, $3, $4)',
     [p.token, org, t.version, 'es'],
   );
-  expect(a.outcome).toBe('RECORDED');
+  expect(a.outcome).toBe('DONE');
 }
 
 /** Numéro fiscal de test (chiffres, jamais un vrai numéro) et son enveloppe par la clé du sujet. */
@@ -392,7 +392,8 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
   const country = cc.country;
   const minAge = Number(MIN_AGE[country]);
 
-  it('données de test : âge minimal et numéro fiscal exigé tirés de la configuration (17 §7.2)', () => {
+  it('données de test : âge minimal et numéro fiscal exigé tirés de la configuration (17 §7.2)', async () => {
+    await withRole('app_api', async () => undefined); // L0-05
     // OQ-P2P-01 (21 ans) et OQ-P2P-07 (numéro fiscal exigé) : défauts PROPOSÉS des données CFG
     expect(minAge).toBe(21);
     expect(TAX_REQUIRED[country]).toBe(true);
@@ -690,12 +691,17 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         'us123_events',
         org,
       );
-      expect(events.map((e) => e.type)).toEqual([
-        'kyc.host_verification.decided',
+      // même milliseconde possible : l'ordre d'insertion n'est pas comparé
+      expect(events.map((e) => e.type).sort()).toEqual([
         'iam.organization.status_changed',
+        'kyc.host_verification.decided',
       ]);
-      expect(events[0]?.payload).toMatchObject({ org_id: org, decision: 'APPROVED' });
-      expect(events[1]?.payload).toEqual({
+      const byType = (t: string) => events.find((e) => e.type === t)?.payload;
+      expect(byType('kyc.host_verification.decided')).toMatchObject({
+        org_id: org,
+        decision: 'APPROVED',
+      });
+      expect(byType('iam.organization.status_changed')).toEqual({
         org_id: org,
         from: 'ONBOARDING',
         to: 'PENDING_ACTIVATION',

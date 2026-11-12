@@ -892,7 +892,7 @@
       "story": "US-105"
     },
     {
-      "signature": "core.kyc_cmd_apply_decision_facts(text,text,text,text,text,numeric,numeric,jsonb,jsonb)",
+      "signature": "core.kyc_cmd_decide_with_facts(text,text,text,text,text,numeric,numeric,jsonb,jsonb)",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",
       "execute": ["app_api"],
