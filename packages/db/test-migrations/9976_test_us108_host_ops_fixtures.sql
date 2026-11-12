@@ -9,7 +9,7 @@
 --     élément de file, véhicule, journal d'accès) : les attendus des tests viennent de 19 US-108,
 --     16 VER-028 / ADM-004 / HST-019 et 17 §2.4, jamais de ces relectures ;
 --   - contrat d'assureur de TEST (`us108_insurer_contract`) et revue exigée par le pays
---     (`us108_set_review_required`) : appelés SEULEMENT dans des transactions de test ANNULÉES,
+--     (`us108_set_review_required`), classe de valeur d'un véhicule (`us108_set_value_class`) : appelés SEULEMENT dans des transactions de test ANNULÉES,
 --     jamais validées (aucun effet sur les autres preuves).
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1).
 --
@@ -114,11 +114,23 @@ AS $fn$
     FROM core.catalog_vehicle AS v WHERE v.id = p_vehicle
 $fn$;
 
-REVOKE ALL ON FUNCTION test_fixture.us108_insurer_contract(text, integer, text[]),
+-- Classe de valeur d'un véhicule de test (transaction annulée seulement).
+CREATE FUNCTION test_fixture.us108_set_value_class(p_vehicle uuid, p_class text)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.catalog_vehicle SET value_class = p_class WHERE id = p_vehicle
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us108_set_value_class(uuid, text),
+  test_fixture.us108_insurer_contract(text, integer, text[]),
   test_fixture.us108_set_review_required(text, boolean), test_fixture.us108_screening(uuid),
   test_fixture.us108_manual_action(uuid), test_fixture.us108_queue_item(uuid),
   test_fixture.us108_access_log(uuid), test_fixture.us108_vehicle(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION test_fixture.us108_insurer_contract(text, integer, text[]),
+GRANT EXECUTE ON FUNCTION test_fixture.us108_set_value_class(uuid, text),
+  test_fixture.us108_insurer_contract(text, integer, text[]),
   test_fixture.us108_screening(uuid), test_fixture.us108_manual_action(uuid),
   test_fixture.us108_queue_item(uuid), test_fixture.us108_access_log(uuid),
   test_fixture.us108_vehicle(uuid) TO app_api;

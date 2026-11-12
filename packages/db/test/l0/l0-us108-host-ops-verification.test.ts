@@ -818,7 +818,7 @@ async function draft(tx: pg.ClientBase, c: CountryCase): Promise<Draft> {
        FROM core.catalog_vehicle_variant v
        JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
        JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
-      WHERE v.status = 'ACTIVE' AND v.market IS NULL AND v.value_class IS NOT NULL
+      WHERE v.status = 'ACTIVE' AND v.market IS NULL
       ORDER BY v.id LIMIT 1`,
     [],
   );
@@ -830,6 +830,8 @@ async function draft(tx: pg.ClientBase, c: CountryCase): Promise<Draft> {
     [t.hash, acc.org_id, loc.location_id, plate(), null, variant.id, null, null, variant.year_from],
   );
   expect(veh.outcome).toBe('DONE');
+  // classe de valeur fixée (la graine ne classe pas toutes les variantes ; transaction annulée)
+  await tx.query('SELECT test_fixture.us108_set_value_class($1, $2)', [veh.vehicle_id, 'STANDARD']);
   const lst = await one<{ outcome: string; listing_id: string }>(
     tx,
     'SELECT * FROM core.catalog_cmd_create_listing($1, $2, $3, $4, $5, $6, $7, $8)',
