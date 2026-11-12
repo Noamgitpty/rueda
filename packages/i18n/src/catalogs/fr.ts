@@ -907,4 +907,5 @@ export const FR_MESSAGES = {
   'web.calendar.notice.save': 'Enregistrer le préavis',
   'web.calendar.duration.hours': { one: '{count} heure', other: '{count} heures' },
   'web.calendar.duration.days': { one: '{count} jour', other: '{count} jours' },
+  'web.calendar.duration.hoursDecimal': '{value} heures',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

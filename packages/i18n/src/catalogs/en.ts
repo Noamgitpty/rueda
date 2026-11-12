@@ -849,4 +849,5 @@ export const EN_MESSAGES = {
   'web.calendar.notice.save': 'Save advance notice',
   'web.calendar.duration.hours': { one: '{count} hour', other: '{count} hours' },
   'web.calendar.duration.days': { one: '{count} day', other: '{count} days' },
+  'web.calendar.duration.hoursDecimal': '{value} hours',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

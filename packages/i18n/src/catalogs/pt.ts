@@ -880,4 +880,5 @@ export const PT_MESSAGES = {
   'web.calendar.notice.save': 'Salvar antecedência',
   'web.calendar.duration.hours': { one: '{count} hora', other: '{count} horas' },
   'web.calendar.duration.days': { one: '{count} dia', other: '{count} dias' },
+  'web.calendar.duration.hoursDecimal': '{value} horas',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

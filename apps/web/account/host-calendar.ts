@@ -112,7 +112,9 @@ export function durationLabel(i18n: Translator, minutes: number): string {
     return i18n.t('web.calendar.duration.days', { count: minutes / 1_440 });
   }
   const hours = minutes / 60;
-  return i18n.t('web.calendar.duration.hours', {
-    count: Number.isInteger(hours) ? hours : i18n.number(hours),
-  });
+  return Number.isInteger(hours)
+    ? i18n.t('web.calendar.duration.hours', { count: hours })
+    : i18n.t('web.calendar.duration.hoursDecimal', {
+        value: i18n.number(hours, { fractionDigits: 1 }),
+      });
 }

@@ -877,6 +877,7 @@ export const ES_MESSAGES = {
   'web.calendar.notice.save': 'Guardar preaviso',
   'web.calendar.duration.hours': { one: '{count} hora', other: '{count} horas' },
   'web.calendar.duration.days': { one: '{count} día', other: '{count} días' },
+  'web.calendar.duration.hoursDecimal': '{value} horas',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
