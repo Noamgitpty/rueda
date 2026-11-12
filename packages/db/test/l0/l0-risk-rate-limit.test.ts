@@ -118,11 +118,16 @@ describe('tables risk_* : RLS et droits', () => {
       );
       expect(rows).toEqual([
         { relname: 'risk_abuse_event', rls: true, force: true },
+        // US-127 (0079, ADR-110) : constats de l'ops, évaluations, règles déclarées
+        { relname: 'risk_account_link', rls: true, force: true },
+        { relname: 'risk_assessment', rls: true, force: true },
         { relname: 'risk_rate_counter', rls: true, force: true },
+        { relname: 'risk_rule', rls: true, force: true },
       ]);
       const privs = await client.query<{ n: number }>(
         `SELECT count(*)::int AS n
-           FROM unnest(ARRAY['core.risk_abuse_event', 'core.risk_rate_counter']) AS t(tbl),
+           FROM unnest(ARRAY['core.risk_abuse_event', 'core.risk_account_link', 'core.risk_assessment',
+                              'core.risk_rate_counter', 'core.risk_rule']) AS t(tbl),
                 unnest(ARRAY['app_api', 'app_worker', 'app_anon']) AS r(role),
                 unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) AS p(priv)
           WHERE pg_catalog.has_table_privilege(r.role, t.tbl, p.priv)`,
