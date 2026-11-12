@@ -39,7 +39,12 @@ import {
   UnavailableBotChallenge,
 } from '../../src/modules/risk/index.js';
 import type { RateLimitPolicy } from '../../src/modules/risk/index.js';
-import { PgFinanceApprovalStore, PgManualActionStore } from '../../src/modules/sup/index.js';
+import {
+  PgFinanceApprovalStore,
+  PgManualActionStore,
+  PgOpsConsoleStore,
+  unavailableEvidence,
+} from '../../src/modules/sup/index.js';
 import type { SqlPool } from '../../src/modules/sup/index.js';
 
 const PHC =
@@ -197,6 +202,15 @@ beforeAll(async () => {
       mfaWindowMs: 60_000,
     },
   };
+  const singlePool: SqlPool = {
+    query: (text, values) => client.query(text, values as unknown[]),
+    connect: () =>
+      Promise.resolve({
+        query: (text: string, values?: readonly unknown[]) =>
+          client.query(text, values as unknown[]),
+        release: () => undefined,
+      } as Awaited<ReturnType<SqlPool['connect']>>),
+  };
   app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       await postgresIamAdapters(client),
@@ -205,15 +219,10 @@ beforeAll(async () => {
       {
         store: new PgManualActionStore(client),
         // une seule connexion de test : la lecture des demandes y ouvre et ferme sa transaction
-        finance: new PgFinanceApprovalStore({
-          query: (text, values) => client.query(text, values as unknown[]),
-          connect: () =>
-            Promise.resolve({
-              query: (text: string, values?: readonly unknown[]) =>
-                client.query(text, values as unknown[]),
-              release: () => undefined,
-            } as Awaited<ReturnType<SqlPool['connect']>>),
-        }),
+        finance: new PgFinanceApprovalStore(singlePool),
+        // US-109 : commandes réelles ; pièces : adaptateurs de production (indisponibles)
+        ops: new PgOpsConsoleStore(client),
+        evidence: unavailableEvidence(singlePool),
       },
       {
         store: new PgBrandStore(client),

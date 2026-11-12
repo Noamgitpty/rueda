@@ -37,7 +37,12 @@ import {
   UnavailableBotChallenge,
 } from '../modules/risk/index.js';
 import type { RateLimitPolicy } from '../modules/risk/index.js';
-import { PgFinanceApprovalStore, PgManualActionStore } from '../modules/sup/index.js';
+import {
+  PgFinanceApprovalStore,
+  PgManualActionStore,
+  PgOpsConsoleStore,
+  unavailableEvidence,
+} from '../modules/sup/index.js';
 import type { SqlPool } from '../modules/sup/index.js';
 import { ROUTE_MATRIX } from './route-matrix.js';
 
@@ -72,6 +77,42 @@ interface Actor {
 const actors: Actor[] = [];
 /** Trip d'un compte d'hôte, par pays : sujet de POST /console/actions. */
 const tripOf = new Map<string, string>();
+/** Personne inscrite dans le pays (CGU acceptées là) : sujet des routes de la fiche 360° (US-109). */
+const personOf = new Map<string, { id: string; email: string }>();
+
+async function registerIn(country: string): Promise<{ id: string; email: string }> {
+  const id = randomUUID();
+  const email = `us109-${id}@example.test`;
+  const r = await client.query<{ ok: boolean }>(
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Matrice', 'Test', 'es', $4, $5, 86400, NULL, $6, '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]'::jsonb, false) AS ok`,
+    [id, email, PHC, randomUUID(), randomBytes(32), country],
+  );
+  if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
+  await client.query(`SELECT test_fixture.iam_set_account_status($1, 'ACTIVE')`, [id]);
+  return { id, email };
+}
+
+/** Dossier de support OUVERT du pays, assigné à un ADMIN du pays (vraie commande, US-109). */
+async function caseOf(country: string): Promise<string> {
+  const admin = await elevatedStaff('ADMIN', [country]);
+  const caseId = randomUUID();
+  const { rows } = await client.query<{ outcome: string }>(
+    `SELECT outcome FROM core.support_staff_open_case($1, $2, $3, 'ACCOUNT', 'NORMAL', 'PHONE')`,
+    [sha(admin.cookie.slice('__Host-session='.length)), caseId, personOf.get(country)?.id],
+  );
+  if (rows[0]?.outcome !== 'OPENED') throw new Error(`dossier de test : ${rows[0]?.outcome}`);
+  return caseId;
+}
+
+/** Élément de file KYC neuf du pays (vraie mise en file, fixture 9990). */
+async function kycItem(country: string): Promise<string> {
+  const subject = await registerIn(country);
+  const { rows } = await client.query<{ item_id: string }>(
+    `SELECT item_id FROM test_fixture.us109_enqueue('KYC', 'USER_ACCOUNT', $1, $2)`,
+    [subject.id, country],
+  );
+  return rows[0]?.item_id ?? randomUUID();
+}
 
 async function register(): Promise<string> {
   const id = randomUUID();
@@ -326,6 +367,72 @@ async function requestOf(
     case 'POST /legal/consents/marketing':
       return { method: 'POST', path: '/legal/consents/marketing', body: { optIn: false } };
     // compte d'hôte (US-107) : la personne de la session, dans le pays de la cellule
+    // US-109 : files de revue, fiche 360°, notes, dossiers, pièces (sujets du pays de l'acteur)
+    case 'GET /console/queues':
+      return { method: 'GET', path: '/console/queues?queue=KYC&limit=5' };
+    case 'POST /console/queues/items/{id}/claim':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await kycItem(country)}/claim`,
+        body: { requestId: id },
+      };
+    case 'POST /console/queues/items/{id}/kyc':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await kycItem(country)}/kyc`,
+        body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
+      };
+    case 'POST /console/users/search':
+      return {
+        method: 'POST',
+        path: '/console/users/search',
+        body: {
+          requestId: id,
+          email: personOf.get(country)?.email,
+          purpose: 'Matrice US-043 : recherche de test',
+        },
+      };
+    case 'POST /console/users/{id}/profile':
+      return {
+        method: 'POST',
+        path: `/console/users/${personOf.get(country)?.id}/profile`,
+        body: { requestId: id, purpose: 'Matrice US-043 : fiche de test' },
+      };
+    case 'POST /console/users/{id}/notes':
+      return {
+        method: 'POST',
+        path: `/console/users/${personOf.get(country)?.id}/notes`,
+        body: { requestId: id, body: 'Matrice US-043 : note de test' },
+      };
+    case 'POST /console/cases':
+      return {
+        method: 'POST',
+        path: '/console/cases',
+        body: {
+          requestId: id,
+          requesterUserId: personOf.get(country)?.id,
+          category: 'ACCOUNT',
+          priority: 'NORMAL',
+          channel: 'PHONE',
+        },
+      };
+    case 'POST /console/cases/{id}/status':
+      return {
+        method: 'POST',
+        path: `/console/cases/${await caseOf(country)}/status`,
+        body: { requestId: id, status: 'RESOLVED' },
+      };
+    case 'POST /console/evidence':
+      return {
+        method: 'POST',
+        path: '/console/evidence',
+        body: {
+          requestId: id,
+          subjectUserId: personOf.get(country)?.id,
+          mime: 'image/png',
+          contentBase64: PNG.toString('base64'),
+        },
+      };
     case 'POST /host/accounts':
       return {
         method: 'POST',
@@ -515,6 +622,7 @@ beforeAll(async () => {
       '2031-09-03T10:00:00Z',
     ]);
     tripOf.set(c, trip);
+    personOf.set(c, await registerIn(c));
     for (const role of STAFF_ROLES) {
       const s = await elevatedStaff(role, [c]);
       actors.push({
@@ -528,6 +636,15 @@ beforeAll(async () => {
   }
 
   const env = { ...process.env, RUEDA_ENV: 'test' };
+  const singlePool: SqlPool = {
+    query: (text, values) => client.query(text, values as unknown[]),
+    connect: () =>
+      Promise.resolve({
+        query: (text: string, values?: readonly unknown[]) =>
+          client.query(text, values as unknown[]),
+        release: () => undefined,
+      } as Awaited<ReturnType<SqlPool['connect']>>),
+  };
   const wide: RateLimitPolicy = { limit: () => 1_000_000, isCountry: (c) => countries.includes(c) };
   const vault: StaffOptions['vault'] = {
     store: () => Promise.resolve(`fake-vault:${randomUUID()}`),
@@ -552,15 +669,10 @@ beforeAll(async () => {
       {
         store: new PgManualActionStore(client),
         // une seule connexion de test : la lecture des demandes y ouvre et ferme sa transaction
-        finance: new PgFinanceApprovalStore({
-          query: (text, values) => client.query(text, values as unknown[]),
-          connect: () =>
-            Promise.resolve({
-              query: (text: string, values?: readonly unknown[]) =>
-                client.query(text, values as unknown[]),
-              release: () => undefined,
-            } as Awaited<ReturnType<SqlPool['connect']>>),
-        }),
+        finance: new PgFinanceApprovalStore(singlePool),
+        // US-109 : commandes réelles ; pièces : adaptateurs de production (indisponibles, 503)
+        ops: new PgOpsConsoleStore(client),
+        evidence: unavailableEvidence(singlePool),
       },
       {
         store: new PgBrandStore(client),

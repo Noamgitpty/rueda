@@ -2,7 +2,8 @@
  * Écrans de la console interne (US-012 ; écran O01 de 10b, socle d'accès) : connexion, enrôlement
  * TOTP, code TOTP, refus, console (rôles et pays, action motivée, journal). US-101 : catalogue des
  * actions de console groupé (changer un état, enregistrer seulement avec pièces, décisions FINANCE à
- * deux personnes), pièces, et demandes FINANCE en attente à approuver par une seconde personne. Composant de
+ * deux personnes), pièces, et demandes FINANCE en attente à approuver par une seconde personne. US-109 :
+ * files de revue, dossier KYC et fiche 360° (ops-view.tsx). Composant de
  * PRÉSENTATION pur : aucun appel réseau, aucun état (rendu testable dans chaque locale) ; la
  * logique est dans `console-client.tsx`. Composants de `@rueda/ui` seulement, mise en page par les
  * jetons de design (console.module.css) : aucun style en dur.
@@ -11,6 +12,8 @@ import type { FormEvent } from 'react';
 import type { MessageKey, Translator } from '@rueda/i18n';
 import { Badge, Banner, Button, DataTable, EmptyState, ErrorState, TextField } from '@rueda/ui';
 import styles from './console.module.css';
+import { OpsPanels } from './ops-view.tsx';
+import type { OpsHandlers, OpsState } from './ops-view.tsx';
 
 export interface StaffRoleView {
   readonly role: string;
@@ -118,6 +121,8 @@ const GROUP_KEYS: Readonly<Record<keyof typeof ACTION_GROUPS, MessageKey>> = {
 
 /** Rôles qui voient les demandes FINANCE en attente (17 §2.3 fin_read). */
 const APPROVER_ROLES = new Set(['FINANCE', 'ADMIN']);
+/** Rôles qui lisent les fiches 360° (16 ADM-005 : SUPPORT, OPS ; 17 §2.3 : ADMIN). */
+export const PROFILE_ROLES = new Set(['SUPPORT_AGENT', 'OPS_AGENT', 'ADMIN']);
 
 /** Identifiants des pièces saisis (virgules, espaces ou retours à la ligne), en minuscules. */
 export function evidenceOf(text: string): string[] {
@@ -207,12 +212,15 @@ export function ConsoleView({
   state,
   handlers,
   busy = false,
+  ops,
 }: {
   readonly i18n: Translator;
   readonly state: ConsoleState;
   readonly handlers: ConsoleHandlers;
   /** Envoi en cours : bouton en chargement, aucun second envoi (jamais `disabled`, UX-50). */
   readonly busy?: boolean;
+  /** Files de revue et fiche 360° (US-109). */
+  readonly ops?: { readonly state: OpsState; readonly handlers: OpsHandlers } | undefined;
 }) {
   switch (state.kind) {
     case 'loading':
@@ -400,6 +408,16 @@ export function ConsoleView({
           )}
 
           <ContentGaps i18n={i18n} gaps={state.contentGaps} />
+
+          {ops !== undefined && (
+            <OpsPanels
+              i18n={i18n}
+              state={ops.state}
+              handlers={ops.handlers}
+              busy={busy}
+              showProfile={state.roles.some((r) => PROFILE_ROLES.has(r.role))}
+            />
+          )}
 
           <section className={styles['panel']} aria-labelledby="action-heading">
             <h2 id="action-heading" className={styles['heading']}>

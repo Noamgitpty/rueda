@@ -47,6 +47,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'hold_vehicle_unknown', 'VEHICLE_UNAVAILABLE'],
     ['55000', 'hold_host_not_active', 'HOST_NOT_ACTIVATED'],
     ['55000', 'hold_self_booking', 'SELF_BOOKING_FORBIDDEN'],
+    ['55000', 'hold_account_restricted', 'ACCOUNT_RESTRICTED'],
     ['55000', 'hold_param_missing', 'PARAM_MISSING'],
     ['55000', 'hold_guest_limit', 'HOLD_LIMIT_REACHED'],
     ['55000', 'hold_guest_overlap', 'GUEST_OVERLAP'],

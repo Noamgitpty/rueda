@@ -18,6 +18,8 @@ export interface ApiError {
   readonly status: number;
   readonly code: string;
   readonly messageKey: MessageKey;
+  /** Précisions de l'API (`values`), par exemple la cause d'un refus de pièce (US-109). */
+  readonly values?: Readonly<Record<string, unknown>> | undefined;
 }
 
 export type ApiResult<T> =
@@ -56,12 +58,15 @@ export async function request<T>(
     parsed = null;
   }
   if (response.ok) return { ok: true, body: parsed as T };
-  const p = (parsed ?? {}) as { code?: unknown; messageKey?: unknown };
+  const p = (parsed ?? {}) as { code?: unknown; messageKey?: unknown; values?: unknown };
   return {
     ok: false,
     status: response.status,
     code: typeof p.code === 'string' ? p.code : 'UNKNOWN',
     messageKey: messageKeyOf(p.messageKey),
+    ...(p.values !== null && typeof p.values === 'object'
+      ? { values: p.values as Readonly<Record<string, unknown>> }
+      : {}),
   };
 }
 

@@ -28,7 +28,8 @@
  *   `INVALID_PERIOD` : PROPOSÉ par US-022 (période d'occupation mal formée ; migration 0032,
  *   ADR-060) ;
  * - `HOLD_LIMIT_REACHED`, `SELF_BOOKING_FORBIDDEN`, `BOOKING_UNDER_REVIEW` : 16 fiche BKG-014 ;
- *   `HOST_NOT_ACTIVATED` : 16 fiche BKG-012 ; `HOLD_RATE_LIMITED` : 17 §2.5 (M5, 429) — commandes
+ *   `HOST_NOT_ACTIVATED` : 16 fiche BKG-012 ; `ACCOUNT_RESTRICTED` : 19 US-109, 16 ADM-005 (restriction
+ *   active du voyageur, migration 0064, ADR-097) ; `HOLD_RATE_LIMITED` : 17 §2.5 (M5, 429) — commandes
  *   de hold d'US-023 (migration 0037, ADR-063) ;
  * - `HOST_PAYOUT_RAIL_UNAVAILABLE` : 08 E7, 17 §2.8 « Règle d'activation » (nom PROPOSÉ) ;
  *   `LEG_ALREADY_RELEASED` : 17 §2.8 « Erreurs normalisées », §4.3 point 8 — sous-marchands et
@@ -69,6 +70,7 @@ export const DB_BUSINESS_CODES = [
   'HOLD_LIMIT_REACHED',
   'HOLD_RATE_LIMITED',
   'HOST_NOT_ACTIVATED',
+  'ACCOUNT_RESTRICTED',
   'SELF_BOOKING_FORBIDDEN',
   'BOOKING_UNDER_REVIEW',
   'HOST_PAYOUT_RAIL_UNAVAILABLE',
@@ -197,6 +199,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   hold_vehicle_unknown: [SQLSTATE.objectNotInPrerequisiteState, 'VEHICLE_UNAVAILABLE'],
   hold_host_not_active: [SQLSTATE.objectNotInPrerequisiteState, 'HOST_NOT_ACTIVATED'],
   hold_self_booking: [SQLSTATE.objectNotInPrerequisiteState, 'SELF_BOOKING_FORBIDDEN'],
+  // restriction de compte active du voyageur (0064, US-109 ; 16 ADM-005, BKG-012)
+  hold_account_restricted: [SQLSTATE.objectNotInPrerequisiteState, 'ACCOUNT_RESTRICTED'],
   hold_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
   hold_guest_limit: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_LIMIT_REACHED'],
   hold_guest_overlap: [SQLSTATE.objectNotInPrerequisiteState, 'GUEST_OVERLAP'],

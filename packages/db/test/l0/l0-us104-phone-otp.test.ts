@@ -1,5 +1,5 @@
 /**
- * Preuves de la vérification du téléphone par OTP (US-104, migration 0066 ; fixtures 9990) sous
+ * Preuves de la vérification du téléphone par OTP (US-104, migration 0066 ; fixtures 9995) sous
  * les rôles de production app_api et app_worker (assertion L0-05 en tête de chaque connexion,
  * withRole), au Panama (USD) et au Paraguay (PYG). Chaque test crée ses propres personnes par les
  * VRAIES commandes (inscription avec consentements, vérification d'e-mail, ouverture de session).
