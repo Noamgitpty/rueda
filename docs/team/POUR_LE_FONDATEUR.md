@@ -13,38 +13,69 @@
 
 ## 2. Décisions qui engagent un contrat ou une dépense
 
-| #   | Décision                                                           | Ce qu'on sait                                                                                                                                                                                                                                                            | Défaut appliqué en attendant                          |
-| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| 2.1 | **Pays de lancement** (Panama ou Paraguay d'abord)                 | Le code traite les deux pays à égalité                                                                                                                                                                                                                                   | Les deux restent fermés                               |
-| 2.2 | **PSP** (go / no-go)                                               | Pas de solution clé en main ; candidats principaux dLocal et Rapyd, secours Tilopay (PA, avec Yappy) et Bancard (PY) ; étude `docs/specs/09b_PAYMENT_PARTNERS_PA_PY.md`                                                                                                  | PSP simulé (`FAKE`), jamais actif en production       |
-| 2.3 | **Assureur partenaire** (contrat)                                  | Sans contrat, aucun hôte n'est activable. **Questions à lui poser** : quelles preuves de propriété du véhicule il exige, âge et kilométrage maximum, couverture de l'usage en location, franchise                                                                        | `insurer_contract_active` = `false`                   |
-| 2.4 | **Fournisseur de vérification d'identité**                         | Veriff, Sumsub, Shufti, Didit, MetaMap, etc. annoncent PA et PY ; **à faire confirmer par écrit** : permis de conduire PA et PY, passeports et permis étrangers (touristes), vérification du visage, contrôle sur registre officiel, stockage des données (loi 81), prix | Fournisseur simulé                                    |
-| 2.5 | **Fournisseurs SMS et e-mail**                                     | Nécessaires pour le code de vérification du téléphone et les notifications                                                                                                                                                                                               | Envoi simulé, rien ne part en production              |
-| 2.6 | **Hébergement, domaine, budget mensuel** (Q-007)                   | Sauvegardes et alertes (Q-008) et exercice de restauration dans le cloud (Q-009) ont aussi un coût                                                                                                                                                                       | Choix PROPOSÉS dans l'infrastructure, rien n'est créé |
-| 2.7 | **Second approbateur humain** des interrupteurs de mise en service | La commande exige deux personnes distinctes ; sans seconde personne, aucun pays ne peut ouvrir                                                                                                                                                                           | Aucun interrupteur ne peut passer à `true`            |
-| 2.8 | **Jeton GitHub du compte bot**                                     | Les agents utilisent encore le jeton du compte propriétaire ; il faut basculer sur le bot (sans droit d'admin) avant la production                                                                                                                                       | Action de ta part, avant le premier déploiement       |
+Pour chaque point : ce qu'on sait, puis **ma suggestion** (comme Turo, avec le moins de limites possible).
+
+**2.1 Pays de lancement.** Le code traite les deux pays à égalité ; les deux restent fermés en attendant.
+→ **Suggestion** : décider après les réponses du PSP et de l'assureur. Penchant pour **le Panama d'abord** : dollar (pas de conversion), Yappy très répandu, tourisme international, versements Stripe confirmés en secours. Le Paraguay suit avec le même code.
+
+**2.2 PSP.** Pas de solution clé en main ; étude `docs/specs/09b_PAYMENT_PARTNERS_PA_PY.md`. PSP simulé en attendant.
+→ **Suggestion** : **dLocal** si son produit « Platforms » répartit les paiements et paie les particuliers dans les deux pays ; sinon **Rapyd**. **Tilopay** en complément au Panama pour accepter Yappy. Aucun montage où Kmino garde l'argent.
+
+**2.3 Assureur partenaire.** Sans contrat, aucun hôte n'est activable.
+→ **Suggestion** : un contrat comme celui de Turo, où l'assureur couvre le véhicule pendant la location et où les plans de protection sont vendus au voyageur. À négocier : **aucune pièce exigée de l'hôte** au-delà de sa déclaration, de la plaque et du VIN ; âge du véhicule le plus large possible (Turo : environ 12 ans) ; couverture de l'usage en location incluse ; franchise raisonnable.
+
+**2.4 Fournisseur de vérification d'identité.** Veriff, Sumsub, Shufti, Didit, MetaMap annoncent le Panama et le Paraguay.
+→ **Suggestion** : le moins cher de ceux qui confirment **par écrit** le permis de conduire panaméen et paraguayen **et** les permis et passeports étrangers (touristes). Parcours minimal comme Turo : permis plus selfie, pas de justificatif de domicile.
+
+**2.5 Fournisseurs SMS et e-mail.**
+→ **Suggestion** : un fournisseur SMS international avec **WhatsApp en repli** (très utilisé en Amérique latine) et un service d'e-mail transactionnel classique. Petits coûts, à l'usage.
+
+**2.6 Hébergement, domaine, budget mensuel** (Q-007, Q-008, Q-009). Choix proposés dans l'infrastructure, rien n'est créé.
+→ **Suggestion** : démarrer petit (une base gérée et quelques conteneurs), puis grossir avec l'usage. Je te présenterai un chiffrage mensuel avant de créer quoi que ce soit.
+
+**2.7 Second approbateur humain des interrupteurs de mise en service.** La commande exige deux personnes distinctes.
+→ **Suggestion** : un associé ou une personne de confiance (comptable, avocat). Son rôle : approuver l'ouverture d'un pays, rien d'autre.
+
+**2.8 Jeton GitHub du compte bot.** Les agents utilisent encore le jeton du compte propriétaire.
+→ **Suggestion** : basculer sur le jeton du bot (sans droit d'admin) avant le premier déploiement. C'est une manipulation de quelques minutes, je te guiderai.
 
 ## 3. Réglages à trancher en une seule fois (liste groupée, avant la mise en ligne)
 
-Je te présenterai une liste unique avec, pour chaque réglage, la valeur recommandée (comme Turo) ; tu valides ou tu corriges.
+Je te présenterai une liste unique ; pour chaque réglage, ma valeur suggérée (comme Turo, le moins de limites) ; tu valides ou tu corriges.
 
-- **57 paramètres pays « à décider »** (US-110) : durées, délais, seuils ; la production refuse de démarrer tant qu'il en reste un.
-- **Plafonds de prix des annonces** : Panama 5 000 $ par jour et 10 $ par km supplémentaire ; Paraguay 35 000 000 ₲ par jour et 75 000 ₲ par km.
-- **Caution** : plus de caution par défaut (DEC-FONDATEUR-21, aucune caution liée à l'âge). Restent à trancher : caution pour les véhicules de **classe luxe** (oui / non) et son **montant**.
-- **Âge et kilométrage maximum du véhicule** : proposé 10 ans et 200 000 km ; Turo autour de 12 ans et 130 000 miles (guides tiers). L'assureur en imposera probablement un ; « illimité » est possible si tu le préfères.
-- **Préavis de réservation par défaut** : modifiable par chaque hôte ; à aligner sur la valeur par défaut de Turo.
+| Réglage                                                                  | Proposé aujourd'hui                                          | **Ma suggestion**                                                                                                                                                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 57 paramètres pays « à décider » (US-110 : durées, délais, seuils)       | à décider                                                    | Valeurs de Turo, transposées en USD et en PYG ; liste détaillée à venir                                                                                                                |
+| Plafond de prix des annonces                                             | PA 5 000 $/jour, 10 $/km ; PY 35 000 000 ₲/jour, 75 000 ₲/km | Pas de vrai plafond pour l'hôte : seulement un seuil très haut contre les fautes de frappe                                                                                             |
+| Caution, véhicules de classe luxe                                        | caution, montant à décider                                   | **Aucune caution au lancement**, même pour le luxe ; la carte enregistrée et les plans de protection couvrent les frais ; on la réactive par pays seulement si les sinistres l'exigent |
+| Âge et kilométrage maximum du véhicule                                   | 10 ans, 200 000 km                                           | **Aligner sur Turo** (environ 12 ans, environ 210 000 km) ou sur ce que l'assureur accepte, en prenant le plus large ; « illimité » si l'assureur le permet                            |
+| Préavis de réservation par défaut                                        | 3 h                                                          | Valeur par défaut de Turo ; chaque hôte la change comme il veut                                                                                                                        |
+| Pièces du véhicule, revue de l'hôte et des annonces, RUC à l'inscription | désactivés (règle « jamais plus lourd que Turo »)            | **Les laisser désactivés** ; ne les activer que si l'assureur, le PSP ou la loi l'impose                                                                                               |
 
 ## 4. Avis juridiques et comptables à obtenir
 
-| #   | Question                                                                                                                                                                                                                                                                                         | Pour qui                       |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| 4.1 | Conditions générales du voyageur et de l'hôte, consentement biométrique, avertissements réglementaires : textes livrés comme **modèles à valider**                                                                                                                                               | Avocat                         |
-| 4.2 | **Légalité de la location entre particuliers au Panama** : une source non officielle évoque des inspections techniques de l'ATTT depuis 2025 pour les véhicules mis en location ; l'avis d'opération ne semble pas exigé des personnes physiques                                                 | Avocat (PA)                    |
-| 4.3 | **Statut de Kmino** : ne pas devenir transmetteur de fonds (casa de remesas au Panama, enregistrement de PSP au Paraguay) avec le montage retenu                                                                                                                                                 | Avocat, une fois le PSP choisi |
-| 4.4 | **Véhicule gagé (prenda) au Paraguay** : une simple déclaration de l'hôte suffit-elle ?                                                                                                                                                                                                          | Avocat (PY)                    |
-| 4.5 | **Données personnelles** : loi 81 au Panama, conservation, sous-traitants (KYC, antivirus, hébergeur)                                                                                                                                                                                            | Avocat                         |
-| 4.6 | **Fiscalité de l'hôte au Paraguay** : la location d'une voiture par un particulier relève-t-elle de l'IRP, de la TVA ? Le RUC devient obligatoire dans les 30 jours ouvrables après les premiers revenus imposables (RG 69/2020) : c'est l'obligation de l'hôte, pas une condition d'inscription | Comptable (PY)                 |
-| 4.7 | **Facturation électronique et ITBMS au Panama** ; facture de la commission de Kmino                                                                                                                                                                                                              | Comptable (PA)                 |
+Pour chaque point : la question, puis **ma suggestion** de réponse à faire valider.
+
+**4.1 Conditions générales, consentement biométrique, avertissements réglementaires.** Textes livrés comme modèles à valider (avocat).
+→ **Suggestion** : un avocat par pays relit les modèles en une seule fois. Garder des textes courts et clairs, comme Turo, sans clauses inutiles.
+
+**4.2 Légalité de la location entre particuliers au Panama** (avocat). Une source non officielle évoque des inspections de l'ATTT depuis 2025 pour les véhicules en location ; l'avis d'opération ne semble pas exigé des personnes physiques.
+→ **Suggestion** : faire confirmer que c'est permis. Si une inspection est obligatoire, Kmino **informe** l'hôte et lui fait cocher une déclaration, sans collecter de preuve.
+
+**4.3 Statut de Kmino** (avocat, une fois le PSP choisi) : ne pas devenir transmetteur de fonds.
+→ **Suggestion** : un montage où le PSP répartit lui-même chaque paiement ; Kmino ne touche jamais l'argent de l'hôte. L'avocat valide ce montage.
+
+**4.4 Véhicule gagé (prenda) au Paraguay** (avocat).
+→ **Suggestion** : une **simple déclaration** de l'hôte (« non gagé, ou accord du créancier ») qui engage sa responsabilité, comme Turo pour la propriété ; aucun document.
+
+**4.5 Données personnelles** (avocat) : loi 81 au Panama, conservation, sous-traitants.
+→ **Suggestion** : les déclarations obligatoires minimales, et des sous-traitants qui stockent dans la région ou sous contrat conforme. Le code garde déjà le minimum de données.
+
+**4.6 Fiscalité de l'hôte au Paraguay** (comptable) : IRP et TVA sur la location d'une voiture par un particulier. Le RUC devient obligatoire dans les 30 jours ouvrables après les premiers revenus imposables (RG 69/2020) : c'est l'obligation de l'hôte, pas une condition d'inscription.
+→ **Suggestion** : RUC **facultatif** à l'inscription ; un rappel clair de son obligation à l'hôte ; RUC exigé au premier versement seulement si le PSP l'impose.
+
+**4.7 Facturation électronique et ITBMS au Panama** (comptable).
+→ **Suggestion** : Kmino facture uniquement **sa commission** ; vérifier qu'un hôte particulier n'a pas à émettre de facture électronique pour une location occasionnelle, ou que la plateforme peut émettre un reçu pour lui.
 
 ## 5. Quand tu veux, sans urgence
 
