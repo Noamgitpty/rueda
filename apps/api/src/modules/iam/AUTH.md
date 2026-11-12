@@ -39,6 +39,22 @@ E-mails d'identité : `ChannelIdentityNotifier` (port `MessagingChannel` de NTF,
 
 `GET /auth/session` rend aussi `roles` (`GUEST`, plus `P2P_HOST` pour le titulaire d'un compte d'hôte) et `hostAccounts` (`orgId`, `country`, `role`, `status`, `displayName`), lus par `core.iam_host_accounts`. Textes : `common.host.*` (es, en, fr, pt-BR). Ouverture par l'ops : action de console `CREATE_HOST_ACCOUNT` (module SUP, `POST /console/actions`).
 
+## Téléphone par OTP (US-104, ADR-098)
+
+Routes `PhoneController` (`SessionGuard` ; JSON exigé pour les écritures) :
+
+| Route                | Réponses                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /phone`         | 200 : `verified`, `phone` (masqué), `pending` (numéro masqué, `resendAfterS`, `expiresInS`, `attemptsLeft`), `lockedForS`, `countries` (code, noms, indicatif, exemple) ; 401 ; 503 `OTP_UNAVAILABLE`                                                                                                                                                             |
+| `POST /phone/otp`    | corps `{ phone, country }` ; 202 `OTP_SENT` (`values` : numéro masqué, `resendAfterS`, `expiresInS`), identique que le numéro soit libre ou pris ; 200 `PHONE_ALREADY_VERIFIED` ; 400 `REQUEST_INVALID`, `COUNTRY_UNKNOWN`, `PHONE_INVALID` ; 401 ; 403 `PHONE_NOT_ELIGIBLE` ; 429 `OTP_LOCKED`, `RATE_LIMITED` ; 503 `OTP_UNAVAILABLE`, `RATE_LIMIT_UNAVAILABLE` |
+| `POST /phone/verify` | corps `{ code }` (6 chiffres) ; 200 `PHONE_VERIFIED` ; 400 `REQUEST_INVALID` (aucun essai compté), `OTP_INVALID` (`values.attempts`), `OTP_EXPIRED` ; 401 ; 409 `ACCOUNT_DUPLICATE_PHONE` ; 429 `OTP_LOCKED` (`values.minutes`) ; 503 `OTP_UNAVAILABLE`                                                                                                           |
+
+- **Ordre de la demande** : session, corps, pays configuré, numéro normalisé (plan du pays, `countries.json` : mobiles seulement), e-mail vérifié, clé présente, état (blocage, renvoi, déjà vérifié), **plafonds** (`OtpSendGuard` = `AbuseGuard.checkCostlySend` : numéro, IP, compte, indicatif pays, plafond SMS du pays), puis la commande `core.iam_cmd_phone_otp_request`. Rien n'est écrit ni envoyé après un refus.
+- **Code** : tiré par le travailleur `iam_otp_sender` (CSPRNG), envoyé par le port `MessagingChannel` (SMS) ; l'API ne voit jamais un code émis, seulement le code saisi, dont elle calcule l'empreinte HMAC-SHA-256 sous `RUEDA_OTP_KEY`. Clé absente : 503 `OTP_UNAVAILABLE`.
+- **Paramètres** (par pays, lus par la base) : `otp_ttl_min` (10), `otp_max_attempts` (5), `otp_lock_min` (60), `otp_sms_fallback_s` (60) ; plafonds `rate_limit_otp_per_phone_hour`, `rate_limit_otp_per_ip_hour`, `otp_rate_per_account_hour` (5, PROPOSÉ), `otp_rate_per_prefix_hour` (300, PROPOSÉ), `rate_limit_sms_daily_cap`.
+- **Paiement** : `PhoneVerifiedGuard` (403 `PHONE_NOT_VERIFIED`) à poser par US-209 après `SessionGuard`.
+- Textes : `common.otp.*`, `common.error.phoneDigits`, écran `/verify-phone` (`web.s15.*`), es, en, fr, pt-BR.
+
 ## Console interne : MFA du staff (US-012, ADR-062)
 
 `StaffConsoleModule.register(options)` (global, monté par l'API après `IamAuthModule`) exporte `StaffGuard` et `staffPrincipalOf(request)`. Une route de console pose `@UseGuards(StaffGuard)` :

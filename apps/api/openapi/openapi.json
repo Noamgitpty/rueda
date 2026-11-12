@@ -743,6 +743,325 @@
         }
       }
     },
+    "/phone": {
+      "get": {
+        "operationId": "getPhoneState",
+        "tags": ["iam"],
+        "summary": "État du téléphone de la personne de la session : numéro vérifié (masqué), code en attente, blocage, pays proposés (US-104)",
+        "responses": {
+          "200": {
+            "description": "État du téléphone ; numéros masqués (indicatif et deux derniers chiffres)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "503": {
+            "description": "État illisible (base indisponible) : fail-closed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "OTP_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/phone/otp": {
+      "post": {
+        "operationId": "requestPhoneOtp",
+        "tags": ["iam"],
+        "summary": "Demande d'un code OTP par SMS pour le numéro saisi (envoi asynchrone ; US-104, 16 VER-013)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneOtpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Demande acceptée : le code part par SMS (travailleur iam_otp_sender). Réponse identique que le numéro soit libre ou déjà vérifié par un autre compte (aucune énumération) ; même réponse sans nouvel envoi avant otp_sms_fallback_s",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpSent"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Ce numéro est déjà le numéro vérifié du compte : rien n'est envoyé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PHONE_ALREADY_VERIFIED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide, pays inconnu, ou numéro qui n'est pas un mobile du pays (values.digits, values.example)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN", "PHONE_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "E-mail du compte non vérifié, compte fermé ou pseudonymisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PHONE_NOT_ELIGIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "description": "Blocage après trop de codes faux (values.minutes) ou plafond anti-abus dépassé (par numéro, IP, compte, indicatif pays ou plafond SMS du pays ; Retry-After)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              },
+              "Retry-After": {
+                "required": false,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["OTP_LOCKED", "RATE_LIMITED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Clé OTP absente, paramètre du pays absent, base ou compteur indisponible : aucun envoi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["OTP_UNAVAILABLE", "RATE_LIMIT_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/phone/verify": {
+      "post": {
+        "operationId": "verifyPhoneOtp",
+        "tags": ["iam"],
+        "summary": "Saisie du code OTP : numéro vérifié (US-104, 16 VER-013)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Code juste : numéro vérifié (iam.phone.verified)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PHONE_VERIFIED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code mal formé (aucun essai compté), code faux (values.attempts : essais restants) ou expiré (aucun essai compté)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "OTP_INVALID", "OTP_EXPIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "409": {
+            "description": "Code juste, mais numéro déjà vérifié par un autre compte (ACC-014)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "ACCOUNT_DUPLICATE_PHONE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "description": "Blocage : otp_max_attempts codes faux, pour otp_lock_min minutes (values.minutes)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "OTP_LOCKED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Clé OTP absente, paramètre du pays absent ou base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "OTP_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/staff/me": {
       "get": {
         "operationId": "staffMe",
@@ -2653,6 +2972,747 @@
         }
       }
     },
+    "/console/queues": {
+      "get": {
+        "operationId": "consoleQueues",
+        "tags": ["sup"],
+        "summary": "Files de revue : résumé par file (ouverts, en retard) et éléments d'une file, retard signalé par la base (ADM-029, US-109)",
+        "parameters": [
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "KYC",
+                "LISTING",
+                "HOST_VERIFICATION",
+                "RISK_BOOKING",
+                "OVERDUE",
+                "GRAY_MARKET",
+                "CATALOG_ADDITION",
+                "LEG_RECONCILIATION"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résumé et éléments (sans donnée personnelle)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsQueues"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/claim": {
+      "post": {
+        "operationId": "consoleQueueClaim",
+        "tags": ["sup"],
+        "summary": "Prise en charge d'un élément de file (assignation à soi), journalisée (US-109)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Élément pris par l’acteur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsItemClaimed"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "409": {
+            "description": "Élément déjà pris par une autre personne",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "STAFF_ITEM_TAKEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/kyc": {
+      "post": {
+        "operationId": "consoleQueueKycDossier",
+        "tags": ["sup"],
+        "summary": "Dossier KYC par la file KYC seulement (élément assigné), journalisé READ_C3 avant la lecture (L1-PM-08, US-109)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500,
+                    "description": "motif de la consultation, journalisé"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dossier KYC (sans image), accès journalisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycDossier"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/users/search": {
+      "post": {
+        "operationId": "consoleUserSearch",
+        "tags": ["sup"],
+        "summary": "Recherche d'une personne par son e-mail exact, journalisée (ADM-005, US-109)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "email", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "email": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 254
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500,
+                    "description": "motif de la consultation, journalisé"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Personne trouvée dans la portée de l’acteur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFound"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "404": {
+            "description": "Introuvable ou hors portée (même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "STAFF_USER_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/users/{id}/profile": {
+      "post": {
+        "operationId": "consoleUserProfile",
+        "tags": ["sup"],
+        "summary": "Fiche 360° (ADM-005) : couverture par dossier ou élément assigné, journalisée READ_C2_SUPPORT (US-109)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500,
+                    "description": "motif de la consultation, journalisé"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche 360°, accès journalisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile360"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/users/{id}/notes": {
+      "post": {
+        "operationId": "consoleUserNote",
+        "tags": ["sup"],
+        "summary": "Note interne sur une personne, jamais visible des clients (ADM-005, US-109)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "body"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Déjà reçue (même requestId)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteAdded"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Note ajoutée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteAdded"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/cases": {
+      "post": {
+        "operationId": "consoleCaseOpen",
+        "tags": ["sup"],
+        "summary": "Ouverture d'un dossier de support assigné à l'acteur (17 §3.2.13, US-109)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "requesterUserId", "category", "channel"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "requesterUserId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "category": {
+                    "enum": ["TRIP", "PAYMENT", "ACCOUNT", "LISTING", "CLAIM", "SAFETY", "OTHER"]
+                  },
+                  "priority": {
+                    "enum": ["LOW", "NORMAL", "HIGH", "URGENT"]
+                  },
+                  "channel": {
+                    "enum": ["WHATSAPP", "EMAIL", "PHONE", "IN_APP"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Déjà reçu (même requestId)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOpened"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Dossier ouvert",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOpened"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/cases/{id}/status": {
+      "post": {
+        "operationId": "consoleCaseStatus",
+        "tags": ["sup"],
+        "summary": "Changement d'état d'un dossier par son assigné ou un ADMIN du pays (US-109)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "status"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "status": {
+                    "enum": ["PENDING", "RESOLVED", "CLOSED"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "État changé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseStatusChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
+    "/console/evidence": {
+      "post": {
+        "operationId": "consoleEvidenceUpload",
+        "tags": ["sup"],
+        "summary": "Pièce du staff : type réel (JPEG, PNG, HEIC, PDF), taille, droit, antivirus, puis dépôt chiffré (PRIVATE_EVIDENCE, US-109)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "subjectUserId", "mime", "contentBase64"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "subjectUserId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "mime": {
+                    "enum": ["image/jpeg", "image/png", "image/heic", "application/pdf"]
+                  },
+                  "contentBase64": {
+                    "type": "string",
+                    "description": "64 Kio au plus une fois décodé (Bêta)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Déjà reçue (même requestId)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceReceived"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Pièce reçue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceReceived"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbidden"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "422": {
+            "description": "Pièce refusée : taille, type réel ou analyse antivirus (`values.reason` : SIZE, TYPE, SCAN)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_REJECTED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "503": {
+            "description": "Antivirus, coffre ou stockage indisponible : rien n’est déposé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "EVIDENCE_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/host/accounts/{orgId}/locations": {
       "get": {
         "operationId": "hostLocations",
@@ -4268,6 +5328,26 @@
             }
           }
         }
+      },
+      "StaffForbiddenOrCase": {
+        "description": "Sans rôle interne ou sans la permission dans le pays du sujet (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; permission détenue mais aucun dossier ni élément de file assigné ne couvre le sujet (STAFF_CASE_REQUIRED, journalisé)",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthBody",
+              "properties": {
+                "code": {
+                  "enum": ["FORBIDDEN", "2FA_REQUIRED", "STAFF_CASE_REQUIRED"]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "schemas": {
@@ -5840,6 +6920,140 @@
           }
         }
       },
+      "PhoneOtpRequest": {
+        "description": "Demande d'OTP (US-104) : pays du numéro (plan de numérotation de la configuration pays) et numéro saisi, forme nationale ou internationale ; seuls les mobiles du pays sont admis.",
+        "type": "object",
+        "required": ["phone", "country"],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          }
+        }
+      },
+      "PhoneVerifyRequest": {
+        "description": "Saisie du code OTP (US-104) : 6 chiffres.",
+        "type": "object",
+        "required": ["code"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "OtpSent": {
+        "type": "object",
+        "required": ["code", "messageKey", "values"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "OTP_SENT"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "values": {
+            "type": "object",
+            "required": ["phone", "resendAfterS", "expiresInS"],
+            "additionalProperties": false,
+            "properties": {
+              "phone": {
+                "type": "string"
+              },
+              "resendAfterS": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "expiresInS": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "PhoneState": {
+        "type": "object",
+        "required": ["verified", "phone", "pending", "lockedForS", "countries"],
+        "additionalProperties": false,
+        "properties": {
+          "verified": {
+            "type": "boolean"
+          },
+          "phone": {
+            "type": ["string", "null"]
+          },
+          "pending": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": ["phone", "resendAfterS", "expiresInS", "attemptsLeft"],
+                "additionalProperties": false,
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "resendAfterS": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "expiresInS": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "attemptsLeft": {
+                    "type": ["integer", "null"],
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          },
+          "lockedForS": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "names", "callingCode", "nationalLength", "example"],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "names": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "callingCode": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,2}$"
+                },
+                "nationalLength": {
+                  "type": "integer",
+                  "minimum": 4,
+                  "maximum": 14
+                },
+                "example": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
       "RichInline": {
         "description": "Nœud de texte d'un bloc (US-121, ADR-095) : liste blanche fermée, jamais de HTML.",
         "oneOf": [
@@ -6001,6 +7215,584 @@
                 }
               }
             }
+          }
+        }
+      },
+      "OpsQueues": {
+        "type": "object",
+        "required": ["queues", "items"],
+        "additionalProperties": false,
+        "properties": {
+          "queues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["queue", "open", "overdue"],
+              "additionalProperties": false,
+              "properties": {
+                "queue": {
+                  "enum": [
+                    "KYC",
+                    "LISTING",
+                    "HOST_VERIFICATION",
+                    "RISK_BOOKING",
+                    "OVERDUE",
+                    "GRAY_MARKET",
+                    "CATALOG_ADDITION",
+                    "LEG_RECONCILIATION"
+                  ]
+                },
+                "open": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "overdue": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "queue",
+                "subjectType",
+                "subjectId",
+                "country",
+                "status",
+                "slaDueAt",
+                "overdue",
+                "assigned",
+                "assignedToMe",
+                "createdAt"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "queue": {
+                  "enum": [
+                    "KYC",
+                    "LISTING",
+                    "HOST_VERIFICATION",
+                    "RISK_BOOKING",
+                    "OVERDUE",
+                    "GRAY_MARKET",
+                    "CATALOG_ADDITION",
+                    "LEG_RECONCILIATION"
+                  ]
+                },
+                "subjectType": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z_]{1,63}$"
+                },
+                "subjectId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "status": {
+                  "enum": ["OPEN", "IN_REVIEW"]
+                },
+                "slaDueAt": {
+                  "$ref": "#/components/schemas/DateTime"
+                },
+                "overdue": {
+                  "type": "boolean",
+                  "description": "échéance passée : élément signalé (calculé par la base)"
+                },
+                "assigned": {
+                  "type": "boolean"
+                },
+                "assignedToMe": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "$ref": "#/components/schemas/DateTime"
+                }
+              }
+            }
+          }
+        }
+      },
+      "OpsItemClaimed": {
+        "type": "object",
+        "required": ["itemId"],
+        "additionalProperties": false,
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "KycDossier": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "userId",
+          "country",
+          "accessId",
+          "kycStatus",
+          "pseudonymized",
+          "legalFirstName",
+          "legalLastName",
+          "dateOfBirth",
+          "residenceCountry"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "userId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "accessId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "kycStatus": {
+            "enum": ["NOT_STARTED"]
+          },
+          "pseudonymized": {
+            "type": "boolean"
+          },
+          "legalFirstName": {
+            "type": "string"
+          },
+          "legalLastName": {
+            "type": "string"
+          },
+          "dateOfBirth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "residenceCountry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CountryCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "UserFound": {
+        "type": "object",
+        "required": ["userId", "country"],
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          }
+        }
+      },
+      "UserProfile360": {
+        "type": "object",
+        "required": [
+          "accessId",
+          "country",
+          "coverage",
+          "profile",
+          "kyc",
+          "restricted",
+          "restrictions",
+          "notes",
+          "hostAccounts",
+          "trips",
+          "cases",
+          "queueItems"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "accessId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "coverage": {
+            "enum": ["case", "item", "scope"]
+          },
+          "profile": {
+            "type": "object",
+            "required": [
+              "id",
+              "email",
+              "emailVerified",
+              "phone",
+              "phoneVerified",
+              "legalFirstName",
+              "legalLastName",
+              "displayName",
+              "preferredLocale",
+              "residenceCountry",
+              "status",
+              "pseudonymized",
+              "createdAt"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "email": {
+                "type": "string"
+              },
+              "emailVerified": {
+                "type": "boolean"
+              },
+              "phone": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "phoneVerified": {
+                "type": "boolean"
+              },
+              "legalFirstName": {
+                "type": "string"
+              },
+              "legalLastName": {
+                "type": "string"
+              },
+              "displayName": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "preferredLocale": {
+                "type": "string"
+              },
+              "residenceCountry": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CountryCode"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "pseudonymized": {
+                "type": "boolean"
+              },
+              "createdAt": {
+                "$ref": "#/components/schemas/DateTime"
+              }
+            }
+          },
+          "kyc": {
+            "type": "object",
+            "required": ["status"],
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "enum": ["NOT_STARTED"]
+              }
+            }
+          },
+          "restricted": {
+            "type": "boolean"
+          },
+          "restrictions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "kind", "active", "reason", "createdAt", "liftedAt"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "kind": {
+                  "enum": [
+                    "UNPAID_BALANCE",
+                    "CHARGEBACK",
+                    "PAYMENT_PLAN_ACTIVE",
+                    "TS_HOLD",
+                    "KYC_REVOKED",
+                    "POLICY_VIOLATION"
+                  ]
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "createdAt": {
+                  "$ref": "#/components/schemas/DateTime"
+                },
+                "liftedAt": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DateTime"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "authorRole", "body", "createdAt"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "authorRole": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "$ref": "#/components/schemas/DateTime"
+                }
+              }
+            }
+          },
+          "hostAccounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["orgId", "country", "status", "displayName", "bookable"],
+              "additionalProperties": false,
+              "properties": {
+                "orgId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "displayName": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "bookable": {
+                  "type": "boolean",
+                  "description": "faux si le compte n’est pas ACTIVE ou si le titulaire est restreint"
+                }
+              }
+            }
+          },
+          "trips": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "publicRef",
+                "status",
+                "country",
+                "scheduledStart",
+                "scheduledEnd"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "publicRef": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "scheduledStart": {
+                  "$ref": "#/components/schemas/DateTime"
+                },
+                "scheduledEnd": {
+                  "$ref": "#/components/schemas/DateTime"
+                }
+              }
+            }
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "category",
+                "status",
+                "priority",
+                "channel",
+                "assignedToMe",
+                "createdAt"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "string"
+                },
+                "channel": {
+                  "type": "string"
+                },
+                "assignedToMe": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "$ref": "#/components/schemas/DateTime"
+                }
+              }
+            }
+          },
+          "queueItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "queue", "status", "slaDueAt", "overdue"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "queue": {
+                  "enum": [
+                    "KYC",
+                    "LISTING",
+                    "HOST_VERIFICATION",
+                    "RISK_BOOKING",
+                    "OVERDUE",
+                    "GRAY_MARKET",
+                    "CATALOG_ADDITION",
+                    "LEG_RECONCILIATION"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                },
+                "slaDueAt": {
+                  "$ref": "#/components/schemas/DateTime"
+                },
+                "overdue": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "NoteAdded": {
+        "type": "object",
+        "required": ["noteId"],
+        "additionalProperties": false,
+        "properties": {
+          "noteId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "CaseOpened": {
+        "type": "object",
+        "required": ["caseId"],
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "CaseStatusChanged": {
+        "type": "object",
+        "required": ["caseId", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": ["PENDING", "RESOLVED", "CLOSED"]
+          }
+        }
+      },
+      "EvidenceReceived": {
+        "type": "object",
+        "required": ["fileId", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         }
       },

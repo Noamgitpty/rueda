@@ -213,6 +213,13 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
   const sup: SupConsoleOptions = {
     store: strict<SupConsoleOptions['store']>({}, 'ManualActionStore'),
     finance: strict<SupConsoleOptions['finance']>({}, 'FinanceApprovalStore'),
+    ops: strict<SupConsoleOptions['ops']>({}, 'OpsConsoleStore'),
+    evidence: {
+      pool: strict<SupConsoleOptions['evidence']['pool']>({}, 'EvidencePool'),
+      scanner: strict<SupConsoleOptions['evidence']['scanner']>({}, 'EvidenceScanner'),
+      vault: strict<SupConsoleOptions['evidence']['vault']>({}, 'EvidenceVault'),
+      files: strict<SupConsoleOptions['evidence']['files']>({}, 'EvidenceFileStore'),
+    },
   };
   const brand: BrandOptions = {
     store: strict<BrandOptions['store']>(

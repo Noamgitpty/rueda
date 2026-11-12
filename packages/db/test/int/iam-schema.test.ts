@@ -45,8 +45,13 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_organization:
     'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
-  iam_otp_challenge: 'migrator_all:migrator',
-  iam_restriction: 'migrator_all:migrator',
+  // US-104 (0066) : défis OTP écrits par les seules commandes d'iam_auth_owner
+  iam_otp_challenge:
+    'iam_auth_delete:iam_auth_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
+  // US-109 (0064) : restrictions manuelles par le gestionnaire de console d'iam_auth_owner, lues
+  // par la pose d'un hold (cmd_hold_owner) et par la fiche 360° (iam_staff_owner)
+  iam_restriction:
+    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_role_permission:
     'cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_session:
@@ -68,6 +73,10 @@ const IAM_COMMANDS: Record<string, string> = {
   // US-107 (0061) : ouverture du compte d'hôte en libre-service, comptes d'hôte de la session
   'core.iam_cmd_open_host_account(bytea,text,text)': 'iam_auth_owner',
   'core.iam_host_accounts(bytea)': 'iam_auth_owner',
+  // US-104 (0066) : OTP du téléphone (état, demande, saisie) par la personne de la session
+  'core.iam_cmd_phone_otp_request(bytea,text,text)': 'iam_auth_owner',
+  'core.iam_cmd_phone_otp_verify(bytea,bytea[])': 'iam_auth_owner',
+  'core.iam_phone_otp_state(bytea)': 'iam_auth_owner',
   'core.iam_cmd_revoke_all_sessions(bytea)': 'iam_auth_owner',
   'core.iam_cmd_revoke_session(bytea,text)': 'iam_auth_owner',
   'core.iam_cmd_verify_email(bytea)': 'iam_auth_owner',
@@ -91,11 +100,22 @@ const IAM_COMMANDS: Record<string, string> = {
 /** Lecture des coordonnées pour NTF (US-021, migration 0031), exécutable par app_worker seul. */
 const NOTIFICATION_CONTACT = 'core.iam_notification_contact(uuid)';
 /**
+ * Émission et purge des codes OTP (US-104, migration 0066) : exécutables par app_worker SEUL (et
+ * par les seuls travailleurs `iam_otp_sender` et `iam_otp_pruner`, garde dans la fonction).
+ */
+const OTP_WORKER_FUNCTIONS = [
+  'core.iam_worker_otp_issue(uuid,bytea)',
+  'core.iam_worker_otp_prune(integer)',
+];
+/**
  * Gestionnaire de console de CREATE_HOST_ACCOUNT (US-107, 0061) : exécutable par iam_staff_owner
  * SEUL, jamais par un rôle applicatif (garde des liaisons d'ADR-092 : il reçoit l'acteur).
  */
 const HOST_ACCOUNT_HANDLER =
   'core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+/** Gestionnaire de console de RESTRICT_ACCOUNT / LIFT_RESTRICTION (US-109, 0064) : même règle. */
+const RESTRICTION_HANDLER =
+  'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 
 describe('schéma IAM (US-010)', () => {
   it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
@@ -261,20 +281,38 @@ describe('schéma IAM (US-010)', () => {
           public_exec: false,
         },
       ]);
-      expect(rows.filter((r) => r.fn === HOST_ACCOUNT_HANDLER)).toEqual([
-        {
-          fn: HOST_ACCOUNT_HANDLER,
+      for (const handler of [HOST_ACCOUNT_HANDLER, RESTRICTION_HANDLER]) {
+        expect(rows.filter((r) => r.fn === handler)).toEqual([
+          {
+            fn: handler,
+            secdef: true,
+            owner: 'iam_auth_owner',
+            config: ['search_path=pg_catalog, pg_temp'],
+            api: false,
+            worker: false,
+            anon: false,
+            public_exec: false,
+          },
+        ]);
+      }
+      expect(rows.filter((r) => OTP_WORKER_FUNCTIONS.includes(r.fn))).toEqual(
+        OTP_WORKER_FUNCTIONS.map((fn) => ({
+          fn,
           secdef: true,
           owner: 'iam_auth_owner',
           config: ['search_path=pg_catalog, pg_temp'],
           api: false,
-          worker: false,
+          worker: true,
           anon: false,
           public_exec: false,
-        },
-      ]);
+        })),
+      );
       const commands = rows.filter(
-        (r) => r.fn !== NOTIFICATION_CONTACT && r.fn !== HOST_ACCOUNT_HANDLER,
+        (r) =>
+          r.fn !== NOTIFICATION_CONTACT &&
+          r.fn !== HOST_ACCOUNT_HANDLER &&
+          r.fn !== RESTRICTION_HANDLER &&
+          !OTP_WORKER_FUNCTIONS.includes(r.fn),
       );
       expect(commands.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
       for (const r of commands) {

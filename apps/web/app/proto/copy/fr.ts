@@ -148,7 +148,6 @@ export const FR_PROTO = {
   'web.s09.deposit.title': 'Ton dépôt',
   'web.s09c.done': 'Tes photos sont enregistrées',
   'web.checkin.queue.savedOnDevice': 'Enregistré sur ce téléphone',
-  'web.s15.codeSent': 'Code envoyé au {phone}',
   'web.error.datesUnavailable':
     'Cette voiture n’est pas disponible le {date_unavailable}. Nous te proposons de la rendre le {date_suggested}. Utiliser cette date ?',
   'web.error.paymentDeclined':
@@ -225,13 +224,6 @@ export const FR_PROTO = {
   'web.s03.docs.title': 'Ce qu’il te faut',
   'web.s03.error.title': 'Ces dates ne sont pas libres',
   'web.s03.error.use': 'Utiliser cette date',
-  'web.s15.phone': 'Téléphone',
-  'web.s15.code': 'Code à 6 chiffres',
-  'web.s15.verify': 'Vérifier',
-  'web.s15.resendIn': {
-    one: 'Renvoyer dans {count} seconde',
-    other: 'Renvoyer dans {count} secondes',
-  },
   'web.s15.codeInvalid': {
     one: 'Ce code n’est pas le bon. Il te reste {count} essai.',
     other: 'Ce code n’est pas le bon. Il te reste {count} essais.',

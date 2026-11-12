@@ -23,6 +23,7 @@ export type {
   ParamScope,
   ParamType,
   ParamValue,
+  PhoneNumberingConfig,
   TaxLineConfig,
   TaxLineType,
 } from './internal/model.js';

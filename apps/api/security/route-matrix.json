@@ -45,65 +45,14 @@
     "POST /host/accounts": {
       "acces": "session"
     },
-    "GET /host/accounts/{orgId}/locations": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    "GET /phone": {
+      "acces": "session"
     },
-    "POST /host/accounts/{orgId}/locations": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    "POST /phone/otp": {
+      "acces": "session"
     },
-    "GET /host/accounts/{orgId}/vehicles": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
-    },
-    "POST /host/accounts/{orgId}/vehicles": {
-      "acces": "session",
-      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
-    },
-    "GET /host/accounts/{orgId}/listings": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
-    },
-    "POST /host/accounts/{orgId}/listings": {
-      "acces": "session",
-      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
-    },
-    "PUT /host/accounts/{orgId}/listings/{listingId}/pricing": {
-      "acces": "session",
-      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
-    },
-    "POST /host/accounts/{orgId}/listings/{listingId}/submit": {
-      "acces": "session",
-      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
-    },
-    "POST /host/accounts/{orgId}/listings/{listingId}/photos": {
-      "acces": "session",
-      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
-    },
-    "DELETE /host/accounts/{orgId}/listings/{listingId}": {
-      "acces": "session",
-      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
-    },
-    "GET /host/accounts/{orgId}/catalog/makes": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
-    },
-    "GET /host/accounts/{orgId}/catalog/makes/{makeId}/models": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
-    },
-    "GET /host/accounts/{orgId}/catalog/models/{modelId}/variants": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
-    },
-    "GET /host/accounts/{orgId}/catalog/variants/{variantId}/prefill": {
-      "acces": "session",
-      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
-    },
-    "GET /listings/{listingId}": {
-      "acces": "public",
-      "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative (19 US-115 critère 4)"
+    "POST /phone/verify": {
+      "acces": "session"
     },
     "POST /webhooks/{provider}/{publicWebhookId}": {
       "acces": "public",
@@ -159,6 +108,69 @@
       "roles": ["FINANCE", "ADMIN"],
       "portee": "pays",
       "idor": "demande de l'autre pays : 403 journalisé ; demandeur : 409 STAFF_SELF_APPROVAL"
+    },
+    "GET /console/queues": {
+      "acces": "staff",
+      "permission": "kyc.decide ou ops.review_listing_host (permission de chaque file, support_review_queue)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "sans_pays",
+      "idor": "éléments de l’autre pays ou d’une file sans permission : jamais rendus (preuve L0 l0-us109-review-queues-360)"
+    },
+    "POST /console/queues/items/{id}/claim": {
+      "acces": "staff",
+      "permission": "kyc.decide ou ops.review_listing_host (permission de la file de l’élément)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; élément déjà pris : 409 STAFF_ITEM_TAKEN"
+    },
+    "POST /console/queues/items/{id}/kyc": {
+      "acces": "staff",
+      "permission": "kyc.read_sensitive (file KYC, élément assigné ; ADMIN : sa portée), journalisé READ_C3",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès"
+    },
+    "POST /console/users/search": {
+      "acces": "staff",
+      "permission": "support.read_profile",
+      "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
+      "portee": "sans_pays",
+      "idor": "personne de l’autre pays : 404 STAFF_USER_NOT_FOUND journalisé (aucun oracle d’existence)"
+    },
+    "POST /console/users/{id}/profile": {
+      "acces": "staff",
+      "permission": "support.read_profile (dossier ou élément assigné ; ADMIN : sa portée), journalisé READ_C2_SUPPORT",
+      "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "personne de l’autre pays : 403 journalisé ; non couverte : 403 STAFF_CASE_REQUIRED, aucune donnée"
+    },
+    "POST /console/users/{id}/notes": {
+      "acces": "staff",
+      "permission": "support.write_note (même couverture que la fiche)",
+      "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "personne de l’autre pays : 403 journalisé ; non couverte : 403 STAFF_CASE_REQUIRED"
+    },
+    "POST /console/cases": {
+      "acces": "staff",
+      "permission": "support.case_write (dossier assigné à l’acteur, jamais un bris de glace)",
+      "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "demandeur de l’autre pays : 403 journalisé"
+    },
+    "POST /console/cases/{id}/status": {
+      "acces": "staff",
+      "permission": "support.case_write (assigné ; ADMIN : son pays)",
+      "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "dossier de l’autre pays : 403 journalisé ; dossier d’un autre assigné : 403 STAFF_CASE_REQUIRED"
+    },
+    "POST /console/evidence": {
+      "acces": "staff",
+      "permission": "evidence.upload (pays de la personne sujet), jugé avant toute analyse",
+      "roles": ["SUPPORT_AGENT", "OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "personne de l’autre pays : 403 journalisé, rien d’analysé ni de déposé"
     },
     "POST /console/brand/assets": {
       "acces": "staff",
@@ -244,6 +256,66 @@
     },
     "POST /legal/consents/marketing": {
       "acces": "session"
+    },
+    "GET /host/accounts/{orgId}/locations": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "POST /host/accounts/{orgId}/locations": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/vehicles": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "POST /host/accounts/{orgId}/vehicles": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "GET /host/accounts/{orgId}/listings": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "POST /host/accounts/{orgId}/listings": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "PUT /host/accounts/{orgId}/listings/{listingId}/pricing": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "POST /host/accounts/{orgId}/listings/{listingId}/submit": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "POST /host/accounts/{orgId}/listings/{listingId}/photos": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "DELETE /host/accounts/{orgId}/listings/{listingId}": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "GET /host/accounts/{orgId}/catalog/makes": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/catalog/makes/{makeId}/models": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/catalog/models/{modelId}/variants": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /host/accounts/{orgId}/catalog/variants/{variantId}/prefill": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"
+    },
+    "GET /listings/{listingId}": {
+      "acces": "public",
+      "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative (19 US-115 critère 4)"
     }
   }
 }

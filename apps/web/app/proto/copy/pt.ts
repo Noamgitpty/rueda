@@ -145,7 +145,6 @@ export const PT_PROTO = {
   'web.s09.deposit.title': 'Sua caução',
   'web.s09c.done': 'Suas fotos foram salvas',
   'web.checkin.queue.savedOnDevice': 'Salvo neste celular',
-  'web.s15.codeSent': 'Código enviado para {phone}',
   'web.error.datesUnavailable':
     'Este carro não está disponível em {date_unavailable}. Sugerimos devolver em {date_suggested}. Usar essa data?',
   'web.error.paymentDeclined':
@@ -222,10 +221,6 @@ export const PT_PROTO = {
   'web.s03.docs.title': 'O que você precisa',
   'web.s03.error.title': 'Essas datas não estão livres',
   'web.s03.error.use': 'Usar essa data',
-  'web.s15.phone': 'Celular',
-  'web.s15.code': 'Código de 6 dígitos',
-  'web.s15.verify': 'Confirmar código',
-  'web.s15.resendIn': { one: 'Reenviar em {count} segundo', other: 'Reenviar em {count} segundos' },
   'web.s15.codeInvalid': {
     one: 'O código está errado. Você tem mais {count} tentativa.',
     other: 'O código está errado. Você tem mais {count} tentativas.',

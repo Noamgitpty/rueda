@@ -14,7 +14,8 @@
  *   5. boucle (worker-loop.ts) jusqu'à SIGTERM / SIGINT : fin du passage en cours, pool fermé, code 0.
  *
  * Variables (noms seulement, docs/ops/ENV_VARS.md) : `RUEDA_ENV`, `PG*`, `RUEDA_PGPASSWORD_NEXT`
- * (rotation sans coupure, US-051, db-pool.ts), `RUEDA_BRAND_NAME`, `RUEDA_WORKER_POOL_MAX`.
+ * (rotation sans coupure, US-051, db-pool.ts), `RUEDA_BRAND_NAME`, `RUEDA_WORKER_POOL_MAX`,
+ * `RUEDA_OTP_KEY` (empreinte des codes OTP, US-104).
  */
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
@@ -33,6 +34,7 @@ import {
 } from './modules/bus/index.js';
 import type { LeasedSqlClient } from './modules/bus/index.js';
 import { CountryConfigService } from './modules/cfg/index.js';
+import { otpHasherFromEnv } from './modules/iam/index.js';
 import { assertPaymentStartup } from './modules/pay/index.js';
 import { errorLabel, WorkerLoop } from './worker-loop.js';
 import { parseBrandName, parsePoolMax } from './worker-config.js';
@@ -68,6 +70,8 @@ async function bootstrap(): Promise<void> {
     console.log(line);
   };
   const brandName = parseBrandName(process.env['RUEDA_BRAND_NAME']);
+  // OTP du téléphone (US-104) : RUEDA_OTP_KEY (absente : aucun code émis ; mal formée : refus)
+  const otpHasher = otpHasherFromEnv(process.env);
   const app = await NestFactory.createApplicationContext(AppModule);
   // rotation sans coupure du mot de passe (US-051, db-pool.ts)
   const pool = createAppPool({
@@ -89,6 +93,7 @@ async function bootstrap(): Promise<void> {
       brandName,
       log,
       alerts,
+      otpHasher,
     });
     const loop = new WorkerLoop(
       {

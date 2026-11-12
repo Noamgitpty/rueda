@@ -401,6 +401,7 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   // lieux, véhicules et annonces de l'hôte (US-115) ; fiche publique d'une annonce
   '/host/accounts/{orgId}': 'modules/cat/testing/host-listings.contract.test.ts',
   '/listings': 'modules/cat/testing/host-listings.contract.test.ts',
+  '/phone': 'modules/iam/testing/phone.contract.test.ts',
   '/brand': 'modules/cfg/internal/brand/brand.contract.test.ts',
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',

@@ -9,6 +9,7 @@ import type { DynamicModule, INestApplication, LoggerService, Type } from '@nest
 import { NestFactory } from '@nestjs/core';
 import type { AuthStore } from '../internal/auth-store.js';
 import { IamAuthModule } from '../internal/iam-auth.module.js';
+import type { PhoneOtpOptions } from '../internal/iam-auth.module.js';
 import { Argon2idPasswordHasher } from '../internal/password-hasher.js';
 import { DEFAULT_AUTH_POLICY } from '../internal/policy.js';
 import type { AuthPolicy } from '../internal/policy.js';
@@ -59,7 +60,13 @@ export interface AuthHttpHarness {
 
 export async function startAuthApp(
   store: AuthStore,
-  options: { policy?: AuthPolicy; clock?: () => number; imports?: Type[] } = {},
+  options: {
+    policy?: AuthPolicy;
+    clock?: () => number;
+    imports?: Type[];
+    /** OTP du téléphone (US-104) ; absent : OTP indisponible. */
+    phone?: PhoneOtpOptions;
+  } = {},
 ): Promise<AuthHttpHarness> {
   const notifier = new RecordingIdentityNotifier();
   const logger = new CapturingLogger();
@@ -86,6 +93,7 @@ export async function startAuthApp(
             hasher: FAST_HASHER,
             policy: options.policy ?? DEFAULT_AUTH_POLICY,
             ...(options.clock !== undefined ? { clock: options.clock } : {}),
+            ...(options.phone !== undefined ? { phone: options.phone } : {}),
           }),
           // modules consommateurs : ils n'importent PAS IamAuthModule (module global)
           ...(options.imports ?? []),

@@ -34,6 +34,7 @@ export const POST_SEED_PARAMS: readonly {
   readonly refs?: string;
 }[] = [
   { prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' },
+  { prefix: 'otp_rate_', file: '0065_config_otp_rate_params.sql', story: 'US-104' },
   {
     prefix: 'listing_min_photos',
     file: '0068_config_listing_photo_params.sql',

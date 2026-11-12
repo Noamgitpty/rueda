@@ -626,11 +626,137 @@
       "story": "US-107, US-115"
     },
     {
+      "signature": "core.iam_phone_otp_state(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_cmd_phone_otp_request(bytea,text,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_cmd_phone_otp_verify(bytea,bytea[])",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_worker_otp_issue(uuid,bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_worker"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_worker_otp_prune(integer)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_worker"],
+      "story": "US-104"
+    },
+    {
       "signature": "core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
       "execute": ["iam_staff_owner"],
       "story": "US-107"
+    },
+    {
+      "signature": "core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_queues(bytea,text,integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_claim_item(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_kyc_dossier(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_find_user(bytea,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_profile(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_add_note(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_open_case(bytea,uuid,uuid,text,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_set_case_status(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_evidence_permitted(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_staff_record_evidence(bytea,uuid,uuid,text,bigint,bytea)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_enqueue_review(text,text,uuid,text,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": [],
+      "story": "US-109"
+    },
+    {
+      "signature": "core.support_close_review_item(uuid,text,text,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": [],
+      "story": "US-109"
     }
   ]
 }

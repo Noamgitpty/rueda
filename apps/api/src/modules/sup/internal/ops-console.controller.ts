@@ -1,0 +1,340 @@
+/**
+ * Files de revue, fiche 360°, notes internes, dossiers de support et pièces du staff (préfixe
+ * `/console`, US-109 ; 16 ADM-005, ADM-029, ADM-032 ; 17 §2.3 ; écran O01 de 10b ; ADR-097).
+ *
+ * | Route                                   | Réponse (succès)                 | Refus propres                    |
+ * | --------------------------------------- | -------------------------------- | -------------------------------- |
+ * | GET /console/queues?queue=&limit=       | 200 résumé et éléments, retard   | —                                |
+ * |                                         | signalé par la base              |                                  |
+ * | POST /console/queues/items/:id/claim    | 200 élément pris                 | 409 STAFF_ITEM_TAKEN             |
+ * | POST /console/queues/items/:id/kyc      | 200 dossier KYC (journalisé)     | 403 STAFF_CASE_REQUIRED          |
+ * | POST /console/users/search              | 200 identifiant (journalisé)     | 404 STAFF_USER_NOT_FOUND         |
+ * | POST /console/users/:id/profile         | 200 fiche 360° (journalisée)     | 403 STAFF_CASE_REQUIRED          |
+ * | POST /console/users/:id/notes           | 201 note ; 200 rejeu             | 403 STAFF_CASE_REQUIRED          |
+ * | POST /console/cases                     | 201 dossier ; 200 rejeu          | —                                |
+ * | POST /console/cases/:id/status          | 200 état changé                  | 403 STAFF_CASE_REQUIRED          |
+ * | POST /console/evidence                  | 201 pièce ; 200 rejeu            | 422 EVIDENCE_REJECTED, 503       |
+ *
+ * Toutes : StaffGuard (401 AUTH_REQUIRED, 403 FORBIDDEN / 2FA_REQUIRED), 400 REQUEST_INVALID. La
+ * base juge chaque droit (permission EN COURS dans le pays du sujet, couverture) et journalise
+ * chaque refus et chaque lecture de données personnelles AVANT de la rendre. Les lectures qui
+ * rendent une donnée personnelle sont des POST : un motif (`purpose`) est exigé et journalisé.
+ */
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthHttpError, StaffGuard, staffPrincipalOf } from '../../iam/index.js';
+import { EvidenceError, EvidenceService } from './evidence.js';
+import type {
+  CaseCategory,
+  CaseChannel,
+  CasePriority,
+  CaseStatus,
+  OpsConsoleStore,
+  OpsResult,
+} from './ops-console-store.js';
+import { OpsStoreError } from './ops-console-store.js';
+import { OpsHttpError } from './ops-errors.js';
+import { staffActorOf } from './staff-context.js';
+import type { StaffActor } from './staff-context.js';
+import { EVIDENCE_SERVICE, OPS_CONSOLE_STORE } from './tokens.js';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const QUEUE =
+  /^(KYC|LISTING|HOST_VERIFICATION|RISK_BOOKING|OVERDUE|GRAY_MARKET|CATALOG_ADDITION|LEG_RECONCILIATION)$/;
+const CATEGORIES: readonly CaseCategory[] = [
+  'TRIP',
+  'PAYMENT',
+  'ACCOUNT',
+  'LISTING',
+  'CLAIM',
+  'SAFETY',
+  'OTHER',
+];
+const PRIORITIES: readonly CasePriority[] = ['LOW', 'NORMAL', 'HIGH', 'URGENT'];
+const CHANNELS: readonly CaseChannel[] = ['WHATSAPP', 'EMAIL', 'PHONE', 'IN_APP'];
+const STATUSES: readonly CaseStatus[] = ['PENDING', 'RESOLVED', 'CLOSED'];
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+/** Horodatage rendu par la base (jsonb) : normalisé en ISO 8601 UTC (`toISOString`). */
+const DB_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?([+-]\d{2}:\d{2}|Z)$/;
+
+interface StatusResponse {
+  status(code: number): unknown;
+}
+
+function fields(body: unknown): Record<string, unknown> {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw new AuthHttpError('REQUEST_INVALID');
+  }
+  return body as Record<string, unknown>;
+}
+
+const length = (text: string): number => [...text.trim()].length;
+
+function uuidOf(value: unknown): string {
+  if (typeof value !== 'string' || !UUID.test(value)) throw new AuthHttpError('REQUEST_INVALID');
+  return value;
+}
+
+function textOf(value: unknown, min: number, max: number): string {
+  if (typeof value !== 'string' || length(value) < min || length(value) > max) {
+    throw new AuthHttpError('REQUEST_INVALID');
+  }
+  return value.trim();
+}
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T {
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) {
+    throw new AuthHttpError('REQUEST_INVALID');
+  }
+  return value as T;
+}
+
+function actorOf(request: object): StaffActor {
+  const principal = staffPrincipalOf(request);
+  if (principal === null) throw new AuthHttpError('AUTH_REQUIRED');
+  return staffActorOf(principal);
+}
+
+/** Champs d'horodatage rendus par la base (noms de 0064) ; aucun texte libre n'en fait partie. */
+const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd)$/;
+
+/**
+ * Horodatages de la base convertis en ISO 8601 UTC, récursivement, dans les SEULS champs de date :
+ * le texte d'une note, d'un motif ou d'un nom n'est jamais réécrit (revue de code US-109).
+ */
+export function isoDates(value: unknown, key: string | null = null): unknown {
+  if (typeof value === 'string') {
+    return key !== null && DATE_FIELD.test(key) && DB_TIMESTAMP.test(value)
+      ? new Date(value).toISOString()
+      : value;
+  }
+  if (Array.isArray(value)) return value.map((v) => isoDates(v, key));
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, isoDates(v, k)]));
+  }
+  return value;
+}
+
+/** Refus d'accès communs rendus par la base (fail-closed : issue inconnue ⇒ FORBIDDEN). */
+function refusalOf(outcome: string): never {
+  if (outcome === 'AUTH_REQUIRED') throw new AuthHttpError('AUTH_REQUIRED');
+  if (outcome === 'MFA_REQUIRED') throw new AuthHttpError('2FA_REQUIRED');
+  if (outcome === 'CASE_REQUIRED') throw new OpsHttpError('STAFF_CASE_REQUIRED');
+  throw new AuthHttpError('FORBIDDEN');
+}
+
+/** Appel du magasin : 22023 (donnée refusée par la commande) ⇒ 400 ; issue attendue ou refus. */
+async function run(
+  call: () => Promise<OpsResult>,
+  expected: readonly string[],
+): Promise<{ outcome: string; body: Record<string, unknown> }> {
+  let r: OpsResult;
+  try {
+    r = await call();
+  } catch (error) {
+    if (error instanceof OpsStoreError && error.sqlstate === '22023') {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    throw error;
+  }
+  if (!expected.includes(r.outcome)) refusalOf(r.outcome);
+  return { outcome: r.outcome, body: (isoDates(r.body ?? {}) as Record<string, unknown>) ?? {} };
+}
+
+@Controller('console')
+export class OpsConsoleController {
+  constructor(
+    @Inject(OPS_CONSOLE_STORE) private readonly store: OpsConsoleStore,
+    @Inject(EVIDENCE_SERVICE) private readonly evidence: EvidenceService,
+  ) {}
+
+  @Get('queues')
+  @UseGuards(StaffGuard)
+  async queues(
+    @Req() request: object,
+    @Query('queue') queue: unknown,
+    @Query('limit') limit: unknown,
+  ) {
+    const actor = actorOf(request);
+    if (queue !== undefined && (typeof queue !== 'string' || !QUEUE.test(queue))) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    const n = typeof limit === 'string' && /^\d{1,3}$/.test(limit) ? Number(limit) : 50;
+    const { body } = await run(
+      () => this.store.queues(actor, queue ?? null, Math.min(Math.max(n, 1), 200)),
+      ['OK'],
+    );
+    return { queues: body['queues'] ?? [], items: body['items'] ?? [] };
+  }
+
+  @Post('queues/items/:id/claim')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async claim(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const requestId = uuidOf(fields(raw)['requestId']);
+    const r = await run(() => this.store.claim(actor, requestId, itemId), ['CLAIMED', 'TAKEN']);
+    if (r.outcome === 'TAKEN') throw new OpsHttpError('STAFF_ITEM_TAKEN');
+    return { itemId };
+  }
+
+  @Post('queues/items/:id/kyc')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async kyc(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const { body } = await run(
+      () => this.store.kycDossier(actor, requestId, itemId, purpose),
+      ['GRANTED'],
+    );
+    return body;
+  }
+
+  @Post('users/search')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async search(@Req() request: object, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const email = textOf(b['email'], 3, 254);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const r = await run(
+      () => this.store.findUser(actor, requestId, email, purpose),
+      ['FOUND', 'NOT_FOUND'],
+    );
+    if (r.outcome === 'NOT_FOUND') throw new OpsHttpError('STAFF_USER_NOT_FOUND');
+    return { userId: r.body['userId'], country: r.body['country'] };
+  }
+
+  @Post('users/:id/profile')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async profile(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const userId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const { body } = await run(
+      () => this.store.profile(actor, requestId, userId, purpose),
+      ['GRANTED'],
+    );
+    return body;
+  }
+
+  @Post('users/:id/notes')
+  @UseGuards(StaffGuard)
+  async note(
+    @Req() request: object,
+    @Param('id') id: string,
+    @Body() raw: unknown,
+    @Res({ passthrough: true }) response: StatusResponse,
+  ) {
+    const actor = actorOf(request);
+    const userId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const text = textOf(b['body'], 1, 2000);
+    const r = await run(
+      () => this.store.addNote(actor, requestId, userId, text),
+      ['ADDED', 'DUPLICATE'],
+    );
+    response.status(r.outcome === 'DUPLICATE' ? 200 : 201);
+    return { noteId: requestId };
+  }
+
+  @Post('cases')
+  @UseGuards(StaffGuard)
+  async openCase(
+    @Req() request: object,
+    @Body() raw: unknown,
+    @Res({ passthrough: true }) response: StatusResponse,
+  ) {
+    const actor = actorOf(request);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const requester = uuidOf(b['requesterUserId']);
+    const category = oneOf(b['category'], CATEGORIES);
+    const priority = oneOf(b['priority'] ?? 'NORMAL', PRIORITIES);
+    const channel = oneOf(b['channel'], CHANNELS);
+    const r = await run(
+      () => this.store.openCase(actor, requestId, requester, category, priority, channel),
+      ['OPENED', 'DUPLICATE'],
+    );
+    response.status(r.outcome === 'DUPLICATE' ? 200 : 201);
+    return { caseId: requestId };
+  }
+
+  @Post('cases/:id/status')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async caseStatus(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const caseId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const status = oneOf(b['status'], STATUSES);
+    await run(() => this.store.setCaseStatus(actor, requestId, caseId, status), ['UPDATED']);
+    return { caseId, status };
+  }
+
+  @Post('evidence')
+  @UseGuards(StaffGuard)
+  async upload(
+    @Req() request: object,
+    @Body() raw: unknown,
+    @Res({ passthrough: true }) response: StatusResponse,
+  ) {
+    const actor = actorOf(request);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const subjectUserId = uuidOf(b['subjectUserId']);
+    const mime = b['mime'];
+    const content = b['contentBase64'];
+    if (typeof mime !== 'string' || mime.length > 100 || typeof content !== 'string') {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    if (content.length === 0 || content.length % 4 !== 0 || !BASE64.test(content)) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    try {
+      const receipt = await this.evidence.upload(actor, {
+        requestId,
+        subjectUserId,
+        declaredMime: mime,
+        content: Buffer.from(content, 'base64'),
+      });
+      response.status(receipt.duplicate ? 200 : 201);
+      return { fileId: receipt.fileId, sha256: receipt.sha256 };
+    } catch (error) {
+      if (error instanceof EvidenceError) {
+        if (error.kind === 'REJECTED') {
+          throw new OpsHttpError('EVIDENCE_REJECTED', { reason: error.reason });
+        }
+        if (error.kind === 'UNAVAILABLE') throw new OpsHttpError('EVIDENCE_UNAVAILABLE');
+        return refusalOf(error.reason);
+      }
+      if (error instanceof OpsStoreError && error.sqlstate === '22023') {
+        throw new AuthHttpError('REQUEST_INVALID');
+      }
+      throw error;
+    }
+  }
+}

@@ -155,7 +155,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -196,6 +196,15 @@ describe('configuration pays : structure et droits', () => {
             // compte d'hôte (US-107, 0061) : âge minimal de l'hôte (host_min_age_years) seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'iam_auth_host_read', cmd: 'r', roles: 'iam_auth_owner' }]
+              : []),
+            // OTP du téléphone (US-104, 0066) : otp_ttl_min, otp_max_attempts, otp_lock_min,
+            // otp_sms_fallback_s seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'iam_auth_otp_read', cmd: 'r', roles: 'iam_auth_owner' }]
+              : []),
+            // files de revue (US-109, 0064) : délais des files déclarées seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'iam_staff_sla_read', cmd: 'r', roles: 'iam_staff_owner' }]
               : []),
             // inscription (US-102, 0059) : codes pays, pour refuser un pays inconnu avant l'écriture
             ...(t === 'config_country'

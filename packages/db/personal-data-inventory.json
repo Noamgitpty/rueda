@@ -930,7 +930,9 @@
         "created_by": "C1",
         "updated_at": "C1",
         "updated_by": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "country_code": "C1",
+        "issued_at": "C1"
       }
     },
     "core.iam_restriction": {
@@ -1763,6 +1765,70 @@
         "updated_at": "C1",
         "updated_by": "C1",
         "row_version": "C1"
+      }
+    },
+    "core.support_review_queue": {
+      "lifecycle": "C",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "queue": "C1",
+        "permission_code": "C1",
+        "sla_param_key": "C1",
+        "sla_unit_minutes": "C1",
+        "story": "C1"
+      }
+    },
+    "core.support_review_queue_item": {
+      "lifecycle": "B",
+      "subjects": [],
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "queue": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "country_code": "C1",
+        "status": "C1",
+        "sla_due_at": "C1",
+        "assignee_id": "C1",
+        "assigned_at": "C1",
+        "decision": "C1",
+        "decided_at": "C1",
+        "created_at": "C1",
+        "created_by": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.support_internal_note": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "author_user_id",
+          "type": "USER"
+        },
+        {
+          "column": "subject_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "country_code": "C1",
+        "author_user_id": "C1",
+        "author_role": "C1",
+        "body": {
+          "class": "C2",
+          "erasure": "derogation",
+          "justification": "note interne en clair dans un registre en ajout seul (jamais visible des clients) : ni UPDATE (pseudonymisation) ni clé de sujet en Bêta ; consigne : aucun identifiant de pièce ni donnée C3 dans une note",
+          "report": "US-536"
+        },
+        "created_at": "C1"
       }
     },
     "platform.environment_declaration": {

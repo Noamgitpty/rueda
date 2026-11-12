@@ -12,7 +12,7 @@ export type { AuthenticatedPrincipal, AuthenticationPort } from './internal/auth
 
 // Montage par le processus API seulement (api.module.ts) et par les tests.
 export { IamAuthModule } from './internal/iam-auth.module.js';
-export type { IamAuthOptions } from './internal/iam-auth.module.js';
+export type { IamAuthOptions, PhoneOtpOptions } from './internal/iam-auth.module.js';
 export { postgresIamAdapters } from './internal/production.js';
 // Envoi des e-mails d'identité par un canal NTF (US-102) ; production : aucun canal avant le lot C.
 export { ChannelIdentityNotifier } from './internal/channel-notifier.js';
@@ -28,3 +28,15 @@ export { postgresStaffAdapters } from './internal/staff/production.js';
 export { AUTH_MESSAGES, AuthHttpError } from './internal/errors.js';
 // Coordonnées des destinataires de notification pour NTF (US-021, ADR-061 ; IAM → NTF).
 export { postgresNotificationContacts } from './internal/notification-contacts.js';
+// Vérification du téléphone par OTP (US-104, ADR-098) : contrôle bloquant du paiement (US-209),
+// émission asynchrone et purge par le travailleur, empreinte des codes (RUEDA_OTP_KEY).
+export { PhoneVerifiedGuard } from './internal/phone/phone-verified.guard.js';
+export {
+  IAM_OTP_PRUNER_WORKER,
+  IAM_OTP_SENDER_WORKER,
+  OtpSender,
+  registerPhoneOtp,
+} from './internal/phone/otp-sender.js';
+export type { OtpLogEntry, OtpSenderDeps } from './internal/phone/otp-sender.js';
+export { OtpCodeHasher, otpHasherFromEnv } from './internal/phone/otp-code.js';
+export type { OtpSendGuard, OtpSendRequest } from './internal/phone/phone-verification.service.js';

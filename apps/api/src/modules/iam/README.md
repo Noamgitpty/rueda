@@ -8,8 +8,8 @@ D'après 17 §2.2 : comptes, authentification (mot de passe, OTP, TOTP du staff)
 
 État du code :
 
-- **livré** : inscription, vérification de l'e-mail, connexion, sessions, déconnexion, garde `SessionGuard` et port `AuthenticationPort` (US-010, ADR-052) ; inscription avec consentements versionnés (CGU, confidentialité, communications ; US-102, ADR-091) et envoi des e-mails d'identité par un canal NTF (`ChannelIdentityNotifier`) ; MFA TOTP du staff et garde de la console interne `StaffGuard` (US-012, ADR-062) ; coordonnées des destinataires pour NTF (US-021, ADR-061) ; permissions de l'hôte `app.has_permission` en base (US-062) ; compte d'hôte d'une personne physique (US-107, ADR-096) : ouverture en libre-service (`POST /host/accounts`) ou par l'action de console `CREATE_HOST_ACCOUNT`, rôles et comptes d'hôte dans `GET /auth/session` ;
-- **pas encore** : OTP téléphone (US-104), restrictions, invitations de co-hôtes, blocage voyageur, émission d'événements (dont `iam.organization.created`), activation du compte d'hôte (US-123). L'envoi réel de l'e-mail de vérification attend le câblage NTF : `PendingIdentityNotifier` n'envoie rien (fail-closed, le compte reste en attente).
+- **livré** : inscription, vérification de l'e-mail, connexion, sessions, déconnexion, garde `SessionGuard` et port `AuthenticationPort` (US-010, ADR-052) ; inscription avec consentements versionnés (CGU, confidentialité, communications ; US-102, ADR-091) et envoi des e-mails d'identité par un canal NTF (`ChannelIdentityNotifier`) ; MFA TOTP du staff et garde de la console interne `StaffGuard` (US-012, ADR-062) ; coordonnées des destinataires pour NTF (US-021, ADR-061) ; permissions de l'hôte `app.has_permission` en base (US-062) ; compte d'hôte d'une personne physique (US-107, ADR-096) : ouverture en libre-service (`POST /host/accounts`) ou par l'action de console `CREATE_HOST_ACCOUNT`, rôles et comptes d'hôte dans `GET /auth/session` ; vérification du téléphone par OTP (US-104, ADR-098) : routes `/phone`, envoi asynchrone par le travailleur `iam_otp_sender` (code tiré dans le travailleur, empreinte HMAC sous `RUEDA_OTP_KEY`), purge `iam_otp_pruner`, contrôle bloquant `PhoneVerifiedGuard` pour le paiement (US-209) ;
+- **pas encore** : canal SMS réel (lot C : `FAKE` seulement, rien n'est envoyé en production), WhatsApp (lot 5), détection du type de ligne (VoIP), restrictions, invitations de co-hôtes, blocage voyageur, émission d'événements (dont `iam.organization.created`), activation du compte d'hôte (US-123). L'envoi réel de l'e-mail de vérification attend le câblage NTF : `PendingIdentityNotifier` n'envoie rien (fail-closed, le compte reste en attente).
 
 Détail des routes, de la sécurité et des paramètres PROPOSÉS : [`AUTH.md`](AUTH.md).
 
@@ -23,7 +23,7 @@ Entités de 17 §3.2.1 :
 | `email_verification`    | table `core.iam_email_verification` (migration 0010)     |
 | `auth_factor`           | table `core.iam_auth_factor` (migration 0010, TOTP 0033) |
 | `session`               | table `core.iam_session` (migration 0010)                |
-| `otp_challenge`         | table `core.iam_otp_challenge` (migration 0010)          |
+| `otp_challenge`         | table `core.iam_otp_challenge` (0010 ; écrite par 0066)  |
 | `organization`          | table `core.iam_organization` (0010 ; écrite par 0061)   |
 | `membership`            | table `core.iam_membership` (0010 ; écrite par 0061)     |
 | `staff_role_assignment` | table `core.iam_staff_role_assignment` (migration 0010)  |
@@ -35,7 +35,7 @@ Objets propres au code, hors entités de 17 : `core.iam_mfa_proof_key` (clé de 
 
 ## Événements
 
-Aucun événement n'est émis ni consommé par le code aujourd'hui.
+Émis (US-104, migration 0066) : `iam.otp.requested` (`challenge_id` seulement ; consommé par IAM lui-même, travailleur `iam_otp_sender`, PROPOSÉ, à reporter dans 17 §4.5) et `iam.phone.verified` (`user_id`, `channel`, `line_type`, 17 §4.5).
 
 Cible (17 §2.2, §4.5) :
 
@@ -48,15 +48,16 @@ Ports exposés aux autres modules (`index.ts`) :
 
 - authentification : `AUTHENTICATION_PORT` / `AuthenticationPort` (`resolveSession`), `SessionGuard`, `principalOf`, `AuthenticatedPrincipal`, `sessionProofOf` (empreinte du jeton, preuve de possession pour les commandes de CTR, US-102) ; montage `IamAuthModule`, `IamAuthOptions`, `postgresIamAdapters`, `SqlExecutor`, `AuthHttpError` ;
 - console interne : `StaffConsoleModule`, `StaffGuard`, `staffPrincipalOf`, `StaffOptions`, `StaffPrincipal`, `StaffRole`, `postgresStaffAdapters` ;
-- pour NTF : `postgresNotificationContacts` (adaptateur du port `RecipientDirectory` de NTF).
+- pour NTF : `postgresNotificationContacts` (adaptateur du port `RecipientDirectory` de NTF) ;
+- téléphone par OTP (US-104) : `PhoneVerifiedGuard` (contrôle bloquant du paiement, US-209), `PhoneOtpOptions`, `OtpSendGuard` / `OtpSendRequest` (port des plafonds, implémenté par `AbuseGuard` de RISK et injecté par `main.ts`), `OtpSender`, `registerPhoneOtp`, `IAM_OTP_SENDER_WORKER`, `IAM_OTP_PRUNER_WORKER` (travailleur), `OtpCodeHasher`, `otpHasherFromEnv`.
 
 Ports sortants internes : `IdentityNotifier` (`internal/notifier.ts`, vers NTF ; production : `PendingIdentityNotifier`), `TotpSecretVault` (`internal/staff/secret-vault.ts` ; production : `UnavailableTotpVault` tant que le coffre d'US-003 manque), `AuthStore` et `StaffStore` (adaptateurs PostgreSQL). FAKE et contrats : `testing/` (tests seulement, exclu de la compilation de production) ; aucun adaptateur de `@rueda/fake-adapters`.
 
 ## Commandes de test
 
-- Unitaires (vitest, sans base ; config `apps/api/vitest.config.ts`) : `pnpm --filter @rueda/api exec vitest run src/modules/iam` (`internal/*.test.ts`, `internal/staff/*.test.ts`, `testing/fake-auth-store.test.ts`).
+- Unitaires (vitest, sans base ; config `apps/api/vitest.config.ts`) : `pnpm --filter @rueda/api exec vitest run src/modules/iam` (`internal/*.test.ts`, `internal/staff/*.test.ts`, `internal/phone/*.test.ts`, `testing/fake-auth-store.test.ts`, `testing/*.contract.test.ts` dont `phone.contract.test.ts`).
 - Intégration (PostgreSQL réel, sous `app_api`) : `pnpm --filter @rueda/api test:int` ; fichiers du module : `internal/pg-auth-store.int.test.ts`, `internal/staff/pg-staff-store.int.test.ts`. Schéma : `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/iam-schema.test.ts`.
-- Preuves L0 en base : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/iam-sessions.test.ts test/l0/l0-iam-staff-mfa.test.ts test/l0/l0-staff-console.test.ts` ; RLS par acteur : `test/l0/l0-rls-actors.test.ts`, `test/l0/l0-rls-columns.test.ts`.
+- Preuves L0 en base : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/iam-sessions.test.ts test/l0/l0-iam-staff-mfa.test.ts test/l0/l0-staff-console.test.ts test/l0/l0-us104-phone-otp.test.ts` ; RLS par acteur : `test/l0/l0-rls-actors.test.ts`, `test/l0/l0-rls-columns.test.ts`.
 
 - Contrat HTTP (US-041, sans base) : `pnpm --filter @rueda/api exec vitest run src/modules/iam/testing/auth.contract.test.ts` — chaque réponse des routes `/auth` est confrontée à `apps/api/openapi/openapi.json` (corps, codes stables, `Cache-Control`, cookie). Une route ou un code d'erreur nouveau se déclare d'abord dans ce contrat.
 
