@@ -2205,10 +2205,7 @@ Politiques RLS :
 
 Déclencheurs :
 
-- `touch_row` : `CREATE TRI ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 148ms
-   ❯ document du schéma (docs/architecture/schema.md) (1)
-     × est à jour : régénéré depuis la base migrée, identique au fichier commité 146ms
-GGER touch_row BEFORE UPDATE ON core.iam_staff_role_assignment FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+- `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_staff_role_assignment FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
 
 ### `core.iam_user_account`
 
