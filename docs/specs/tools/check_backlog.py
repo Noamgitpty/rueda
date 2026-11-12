@@ -12,7 +12,7 @@ Vérifie :
      PRÉALABLE (LC) ne dépend que de L0-L4, toute ligne Bêta construite (OUI / SIMPLIFIÉ de 04)
      est portée par au moins une story Bêta ;
   7. règle design : toute story « Revue design : OUI » hors E0-D dépend (transitivement) de US-032 ;
-  8. références : vecteurs T01-T68, TJ01-TJ21 (lignes de la table TJ de 08), TA01-TA11, tests C1-C20, RLS-1..28, L0-01..10,
+  8. références : vecteurs T01-T73 (T69-T73 : US-063), TJ01-TJ21 (lignes de la table TJ de 08), TA01-TA11, tests C1-C20, RLS-1..28, L0-01..10,
      identifiants OQ/UXQ (22), BR (08), EC (11), ADR (17), SM (08) existent.
 Affiche ensuite les comptes par lot, les points et le chemin critique (plus long chemin pondéré).
 

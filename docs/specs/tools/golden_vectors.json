@@ -4088,6 +4088,27 @@
       ]
     },
     {
+      "vectorId": "T70",
+      "oracle": "check_t49plus.py",
+      "label": "T70 c avant checkout PREMIUM / LUXE",
+      "normative": true,
+      "expected": [
+        [
+          false,
+          []
+        ],
+        [
+          true,
+          [
+            "CLASS"
+          ]
+        ],
+        {
+          "$int": "30000"
+        }
+      ]
+    },
+    {
       "vectorId": "T71",
       "oracle": "check_t49plus.py",
       "label": "T71 a/b/c/d",
@@ -4118,7 +4139,7 @@
     {
       "vectorId": "T72",
       "oracle": "check_t49plus.py",
-      "label": "T72 a/b/c",
+      "label": "T72 a/b/c/d",
       "normative": true,
       "expected": [
         [
@@ -4133,7 +4154,11 @@
             "RISK"
           ]
         ],
-        "PARAM_MISSING"
+        "PARAM_MISSING",
+        [
+          false,
+          []
+        ]
       ]
     },
     {

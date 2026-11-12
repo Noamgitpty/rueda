@@ -249,21 +249,26 @@ check('T64', (ops, need, hostPayable(4500, 0, need, [], owed1)),
 # ---------- T69-T73 : caution conditionnelle (revise 2026-11-12, caution comme Turo, US-063) ----------
 # Ecrit a partir du texte de BR-PAY-06 (« Caution conditionnelle », « Fail-closed », « Montant unique ») et de
 # la section « Jeux de tests T69-T73 ». None = parametre absent ou donnee inconnue => declencheur vrai.
-PROPOSED = dict(always=False, classes={'LUXE'}, age=30, age_classes={'PREMIUM', 'LUXE'}, risk=True)
+PROPOSED = dict(always=False, classes={'LUXE'}, age=30, age_classes={'PREMIUM', 'LUXE'}, risk=True, risk_deployed=False)
 
 
-def deposit_required(p, cls, driver_ages, flagged):
+def deposit_required(p, cls, driver_ages, flagged, stage='CHECKOUT'):
+    # stage 'PRE_CHECKOUT' : seuls COUNTRY et CLASS (connus du vehicule) ; AGE et RISK non evalues.
+    # risk_deployed False : RISK non evalue (controle non deploye) ; None (absent) ou True : evalue, panne => vrai.
     trig = set()
     if p.get('always') is None or p['always'] is True:
         trig.add('COUNTRY')
     if p.get('classes') is None or cls is None or cls in p['classes']:
         trig.add('CLASS')
+    if stage == 'PRE_CHECKOUT':
+        return (len(trig) > 0, tuple(sorted(trig)))
     youngest = None if driver_ages is None or None in driver_ages else min(driver_ages)
     in_age_classes = p.get('age_classes') is None or cls is None or cls in p['age_classes']
     if in_age_classes and (p.get('age') is None or youngest is None or youngest < p['age']):
         trig.add('AGE')
-    if p.get('risk') is None or (p['risk'] is True and (flagged is None or flagged)):
-        trig.add('RISK')
+    if p.get('risk_deployed') is not False:
+        if p.get('risk') is None or (p['risk'] is True and (flagged is None or flagged)):
+            trig.add('RISK')
     return (len(trig) > 0, tuple(sorted(trig)))
 
 
@@ -282,18 +287,26 @@ check('T69 caution / MIT / jambe HOST / PLATFORM', (r69[0], 1200, allocHost(1200
 r70 = deposit_required(PROPOSED, 'STANDARD', [40], False)
 r59_luxe = deposit_required(PROPOSED, 'LUXE', [40], False)
 check('T70 sans caution / T59 en LUXE', (r70[0], r59_luxe), (False, (True, ('CLASS',))))
+# T70 c : avant le checkout, AGE et RISK inconnus ne valent pas vrai ; LUXE affiche son montant
+AMT_PA_TEST = {'LUXE': 30000}
+r70p = deposit_required(PROPOSED, 'PREMIUM', None, None, stage='PRE_CHECKOUT')
+r70l = deposit_required(PROPOSED, 'LUXE', None, None, stage='PRE_CHECKOUT')
+check('T70 c avant checkout PREMIUM / LUXE', (r70p, r70l, deposit_amount(r70l[0], AMT_PA_TEST, 'LUXE')),
+      ((False, ()), (True, ('CLASS',)), 30000))
 # T71 : seuil d'age strict, classes de l'age, plus jeune conducteur approuve
 check('T71 a/b/c/d', (deposit_required(PROPOSED, 'PREMIUM', [29], False), deposit_required(PROPOSED, 'PREMIUM', [30], False),
                       deposit_required(PROPOSED, 'STANDARD', [22], False), deposit_required(PROPOSED, 'PREMIUM', [45, 26], False)),
       ((True, ('AGE',)), (False, ()), (False, ()), (True, ('AGE',))))
 # T72 : fail-closed (PY)
-r72a = deposit_required(dict(PROPOSED, risk=None), 'STANDARD', [45], False)
-r72b = deposit_required(PROPOSED, 'STANDARD', [45], None)
-check('T72 a/b/c', (r72a, r72b, deposit_amount(r72a[0], {}, 'STANDARD')),
-      ((True, ('RISK',)), (True, ('RISK',)), 'PARAM_MISSING'))
+DEPLOYED = dict(PROPOSED, risk_deployed=True)
+r72a = deposit_required(dict(DEPLOYED, risk=None), 'STANDARD', [45], False)
+r72b = deposit_required(DEPLOYED, 'STANDARD', [45], None)
+r72d = deposit_required(PROPOSED, 'STANDARD', [45], None)
+check('T72 a/b/c/d', (r72a, r72b, deposit_amount(r72a[0], {}, 'STANDARD'), r72d),
+      ((True, ('RISK',)), (True, ('RISK',)), 'PARAM_MISSING', (False, ())))
 # T73 : montant unique non cumule (PY, PYG sans decimale) ; caution imposee par le pays
 AMT_PY = {'LUXE': 1500000, 'STANDARD': 500000}
-r73a = deposit_required(PROPOSED, 'LUXE', [27], True)
+r73a = deposit_required(DEPLOYED, 'LUXE', [27], True)
 r73b = deposit_required(dict(PROPOSED, always=True), 'STANDARD', [45], False)
 check('T73 a/b', (r73a, deposit_amount(r73a[0], AMT_PY, 'LUXE'), r73b, deposit_amount(r73b[0], AMT_PY, 'STANDARD')),
       ((True, ('AGE', 'CLASS', 'RISK')), 1500000, (True, ('COUNTRY',)), 500000))
