@@ -182,9 +182,11 @@ export default async function HostVerificationPage({
     <>
       {/* état du compte d'hôte et du dossier, dit honnêtement (10b UX-40) */}
       {v.orgStatus === 'ACTIVE' ? (
-        <Banner tone="success">{t('web.a07.active')}</Banner>
+        <Banner tone="success" live="polite">
+          {t('web.a07.active')}
+        </Banner>
       ) : v.orgStatus === 'PENDING_ACTIVATION' ? (
-        <Banner tone="info">
+        <Banner tone="info" live="polite">
           {t('web.a07.pendingActivation')}{' '}
           {countryClosed &&
             t('web.a07.waitingCountry', {
@@ -195,7 +197,10 @@ export default async function HostVerificationPage({
       ) : (
         status !== null &&
         STATUS_TONE[status] !== undefined && (
-          <Banner tone={STATUS_TONE[status] === 'neutral' ? 'info' : STATUS_TONE[status]}>
+          <Banner
+            tone={STATUS_TONE[status] === 'neutral' ? 'info' : STATUS_TONE[status]}
+            live="polite"
+          >
             {t(`web.a07.status.${status}` as MessageKey)}
             {status === 'DOCS_PENDING' && missingTasks.length > 0 && (
               <> {t('web.a07.missing', { tasks: missingTasks.join(', ') })}</>
