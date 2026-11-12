@@ -141,8 +141,8 @@ CREATE POLICY catalog_cmd_all ON core.catalog_addition_request TO catalog_cmd_ow
 GRANT UPDATE (variant_id, make_text, model_text, trim_override, value_class)
   ON core.catalog_vehicle TO catalog_cmd_owner;
 
--- échéance de l'élément de file, recopiée sur la demande (file CATALOG_ADDITION seulement)
-GRANT SELECT (id, queue, sla_due_at) ON core.support_review_queue_item TO catalog_cmd_owner;
+-- création et échéance de l'élément de file, recopiées sur la demande (file CATALOG_ADDITION seulement)
+GRANT SELECT (id, queue, sla_due_at, created_at) ON core.support_review_queue_item TO catalog_cmd_owner;
 CREATE POLICY catalog_cmd_read ON core.support_review_queue_item FOR SELECT TO catalog_cmd_owner
   USING (queue = 'CATALOG_ADDITION');
 
@@ -201,7 +201,7 @@ $fn$;
 
 -- Ouverture d'une demande pour un véhicule du compte (appelée par les commandes de l'hôte, sous
 -- catalog_cmd_owner) : ligne OPEN, élément de la file CATALOG_ADDITION (échéance de la base),
--- échéance recopiée. File indisponible (paramètre absent, pays discordant) : erreur, rien n'est
+-- création et échéance recopiées. File indisponible (paramètre absent, pays discordant) : erreur, rien n'est
 -- écrit (fail-closed : jamais un véhicule hors catalogue sans demande). Rend l'id de la demande.
 CREATE FUNCTION core.catalog_addition_open(p_org uuid, p_country text, p_vehicle uuid, p_user uuid,
                                            p_make text, p_model text, p_year integer,
@@ -215,6 +215,7 @@ DECLARE
   v_id   uuid := pg_catalog.gen_random_uuid();
   v_item record;
   v_due  timestamptz;
+  v_at   timestamptz;
 BEGIN
   SELECT * INTO v_item
     FROM core.support_enqueue_review('CATALOG_ADDITION', 'CATALOG_ADDITION_REQUEST', v_id, p_country,
@@ -223,15 +224,16 @@ BEGIN
     RAISE EXCEPTION 'file d''ajout au catalogue indisponible (%)', COALESCE(v_item.outcome, 'NULL')
       USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
-  SELECT i.sla_due_at INTO v_due
+  -- même instant que l'élément : le délai de la demande est exactement celui du paramètre
+  SELECT i.sla_due_at, i.created_at INTO v_due, v_at
     FROM core.support_review_queue_item AS i WHERE i.id = v_item.item_id;
   INSERT INTO core.catalog_addition_request (id, org_id, country_code, vehicle_id, requested_by,
                                              origin, make_text, model_text, year, trim_text,
-                                             vin_masked, review_item_id, sla_due_at)
+                                             vin_masked, review_item_id, sla_due_at, created_at)
   VALUES (v_id, p_org, p_country, p_vehicle, p_user, 'WIZARD_OTHER', pg_catalog.btrim(p_make),
           pg_catalog.btrim(p_model), p_year, NULLIF(pg_catalog.btrim(p_trim), ''),
           CASE WHEN p_vin ~ '^[A-HJ-NPR-Z0-9]{17}$' THEN pg_catalog.left(p_vin, 11) || '******' END,
-          v_item.item_id, v_due);
+          v_item.item_id, v_due, v_at);
   RETURN v_id;
 END
 $fn$;

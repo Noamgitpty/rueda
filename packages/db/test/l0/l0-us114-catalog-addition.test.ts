@@ -618,10 +618,11 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
         expect(audit?.after).toMatchObject({ country, status: 'APPROVED', variantId: variant });
         // le véhicule est publiable : la soumission franchit l'étape du catalogue
         expect(await submit(client, p.h, listing)).toBe('HOST_NOT_ACTIVATED');
-        // élément clos : une seconde décision est refusée, rien ne change
+        // élément clos : invisible au verrou de la console (politique de mise à jour d'US-109 :
+        // éléments OPEN ou IN_REVIEW), même réponse qu'un élément inconnu ; rien ne change
         expect(
           (await resolve(client, ops, p.item, 'REJECT', { reason: 'UNKNOWN_MODEL' })).outcome,
-        ).toBe('CASE_REQUIRED');
+        ).toBe('FORBIDDEN');
         expect((await requestsOf(client, p.vehicle))[0]?.status).toBe('APPROVED');
         expect(await eventsOf(client, p.request.id)).toHaveLength(1);
       });
