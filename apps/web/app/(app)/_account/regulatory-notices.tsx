@@ -23,7 +23,7 @@ export function RegulatoryNotices({
   const t = i18n.t.bind(i18n);
   if (unavailable === true && notices.length === 0) {
     return (
-      <Banner tone="info" live="polite">
+      <Banner tone="info">
         {t('common.regulatory.unavailable')}
       </Banner>
     );

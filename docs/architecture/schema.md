@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 72 migrations ; 81 tables ; 2 vues ; 427 politiques RLS ; 113 fonctions `SECURITY DEFINER` ; 139 autres fonctions.
+- 72 migrations ; 81 tables ; 2 vues ; 427 politiques RLS ; 114 fonctions `SECURITY DEFINER` ; 139 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -1443,7 +1443,7 @@ Contraintes :
 - `go_live_request_approved_at` : `CHECK ((approved_by IS NULL) = (approved_at IS NULL))`
 - `go_live_request_decision_ref_format` : `CHECK (decision_ref ~ '^DEC-FONDATEUR-[0-9]{1,4}$'::text)`
 - `go_live_request_expiry` : `CHECK (expires_at > requested_at)`
-- `go_live_request_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'APPLIED'::text, 'REJECTED'::text, 'EXPIRED'::text]))`
+- `go_live_request_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'APPLIED'::text, 'REJECTED'::text, 'EXPIRED'::text, 'SUPERSEDED'::text, 'CANCELLED'::text]))`
 - `go_live_request_two_people` : `CHECK (approved_by IS NULL OR approved_by <> requested_by)`
 
 Index :
@@ -1454,7 +1454,7 @@ Politiques RLS :
 
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (status = 'PENDING'::text) AND (approved_by IS NULL) AND ((country_code)::text = ANY (app.country_scope())))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `true`
-- `cmd_golive_upd` (UPDATE, PERMISSIVE, cmd_golive_owner) USING `((app.actor_kind() = 'STAFF'::text) AND (status = 'PENDING'::text))` WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (status = ANY (ARRAY['APPLIED'::text, 'REJECTED'::text, 'EXPIRED'::text])) AND ((country_code)::text = ANY (app.country_scope())))`
+- `cmd_golive_upd` (UPDATE, PERMISSIVE, cmd_golive_owner) USING `((app.actor_kind() = 'STAFF'::text) AND (status = 'PENDING'::text))` WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (status = ANY (ARRAY['APPLIED'::text, 'REJECTED'::text, 'EXPIRED'::text, 'SUPERSEDED'::text, 'CANCELLED'::text])) AND ((country_code)::text = ANY (app.country_scope())))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -4024,6 +4024,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_content_cmd_rollback(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_target_version_no integer)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_content_cmd_save_draft(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_bodies jsonb, p_asset_id uuid)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.config_cmd_approve_go_live_switch(p_token_hash bytea, p_request_id uuid)` | `TABLE(outcome text, request_id uuid)` | `cmd_golive_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_golive_owner: EXECUTE |
+| `core.config_cmd_cancel_go_live_switch(p_token_hash bytea, p_request_id uuid)` | `TABLE(outcome text, request_id uuid)` | `cmd_golive_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_golive_owner: EXECUTE |
 | `core.config_cmd_request_go_live_switch(p_token_hash bytea, p_request_id uuid, p_key text, p_country text, p_value boolean, p_decision_ref text)` | `TABLE(outcome text, request_id uuid)` | `cmd_golive_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_golive_owner: EXECUTE |
 | `core.ctr_cmd_accept_documents(p_token_hash bytea, p_documents jsonb)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_cmd_accept_host_terms(p_token_hash bytea, p_org uuid, p_version integer, p_language text)` | `TABLE(outcome text, version integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
