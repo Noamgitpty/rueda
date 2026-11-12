@@ -37,6 +37,17 @@ const KEYS: Readonly<Record<string, MessageKey>> = {
   OTP_LOCKED: 'common.otp.locked',
   OTP_UNAVAILABLE: 'common.otp.unavailable',
   ACCOUNT_DUPLICATE_PHONE: 'common.otp.duplicatePhone',
+  PHONE_NOT_VERIFIED: 'common.otp.phoneRequired',
+  // vérification d'identité (US-105)
+  KYC_CONSENT_VERSION_CHANGED: 'common.kyc.consentVersionChanged',
+  KYC_CONSENT_UNAVAILABLE: 'common.kyc.consentUnavailable',
+  KYC_BIOMETRIC_CONSENT_MISSING: 'common.kyc.consentMissing',
+  KYC_NOT_ELIGIBLE: 'common.kyc.notEligible',
+  KYC_IN_REVIEW: 'common.kyc.inReview',
+  KYC_ALREADY_APPROVED: 'common.kyc.alreadyApproved',
+  KYC_DOCUMENT_UNSUPPORTED: 'common.kyc.documentUnsupported',
+  KYC_SESSION_FAILED: 'common.kyc.sessionFailed',
+  KYC_PROVIDER_UNAVAILABLE: 'common.kyc.providerUnavailable',
 };
 
 export function apiErrorKey(code: string | null, status: number | 'unavailable'): MessageKey {

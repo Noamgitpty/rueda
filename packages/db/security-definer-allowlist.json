@@ -314,8 +314,8 @@
       "signature": "core.iam_session_resolve(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api", "catalog_cmd_owner"],
-      "story": "US-010, US-115"
+      "execute": ["app_api", "catalog_cmd_owner", "kyc_cmd_owner"],
+      "story": "US-010, US-115, US-105"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -862,6 +862,76 @@
       "owner": "catalog_probe_owner",
       "execute": ["app_api"],
       "story": "US-119"
+    },
+    {
+      "signature": "core.kyc_identity_state(bytea,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_biometric_consent(bytea,text,integer,boolean)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_open_verification(bytea,text,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_record_session(bytea,uuid,integer,text,text,text,timestamp with time zone)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_apply_decision(text,text,text,text,text,numeric,numeric,jsonb)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_record_webhook_rejection(text,text,bytea,integer)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_driver_eligibility(bytea,timestamp with time zone,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_pending_erasures(bytea)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_cmd_record_erasure(bytea,uuid,text,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-105"
+    },
+    {
+      "signature": "core.kyc_worker_prune(integer)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-105"
     }
   ]
 }

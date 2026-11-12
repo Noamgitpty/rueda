@@ -23,6 +23,8 @@ const SIGNUP = /signup\.spec\.ts$/;
 const HOST = /host-listings\.spec\.ts$/;
 /** Étape OTP de S15 (US-104) : mêmes largeurs que l'inscription. */
 const PHONE = /phone\.spec\.ts$/;
+/** Vérification d'identité S04 (US-105) : mêmes largeurs que l'inscription. */
+const IDENTITY = /identity\.spec\.ts$/;
 const phone = { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } as const;
 
 export default defineConfig({
@@ -45,12 +47,12 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-360',
-      testMatch: [SHELL, SIGNUP, PHONE, HOST],
+      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY],
       use: { ...phone, viewport: { width: 360, height: 780 } },
     },
     {
       name: 'mobile-390',
-      testMatch: [SHELL, SIGNUP, PHONE, HOST],
+      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY],
       use: { ...phone, viewport: { width: 390, height: 844 } },
     },
     {

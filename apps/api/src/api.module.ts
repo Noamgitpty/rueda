@@ -8,6 +8,8 @@ import { CtrLegalModule } from './modules/ctr/index.js';
 import type { CtrLegalOptions } from './modules/ctr/index.js';
 import type { BrandOptions } from './modules/cfg/index.js';
 import { IamAuthModule, StaffConsoleModule } from './modules/iam/index.js';
+import { KycIdentityModule } from './modules/kyc/index.js';
+import type { KycIdentityOptions } from './modules/kyc/index.js';
 import type { IamAuthOptions, StaffOptions } from './modules/iam/index.js';
 import { PayWebhookModule } from './modules/pay/index.js';
 import type { PayWebhookOptions } from './modules/pay/index.js';
@@ -26,7 +28,9 @@ import type { SupConsoleOptions } from './modules/sup/index.js';
  * réception des webhooks PSP, US-019 ; console interne, US-012 ; socle de marque, US-034 ;
  * limitation de débit et anti-abus, garde global et tableau de sécurité, US-052 ; documents
  * juridiques et consentements versionnés, US-102 ; lieux, véhicules et annonces de l'hôte, US-115 :
- * sans adaptateurs CAT, ses routes répondent 503, fail-closed).
+ * sans adaptateurs CAT, ses routes répondent 503, fail-closed ; vérification d'identité et
+ * consentement biométrique, US-105 : sans adaptateurs KYC, magasin indisponible et aucun
+ * fournisseur, fail-closed).
  */
 @Module({})
 export class ApiModule {
@@ -39,6 +43,7 @@ export class ApiModule {
     risk: RiskHttpOptions,
     ctr: CtrLegalOptions,
     cat?: CatHostOptions,
+    kyc?: KycIdentityOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -51,6 +56,8 @@ export class ApiModule {
         CtrLegalModule.register(ctr),
         // après IAM : routes /host/accounts/{orgId}/… gardées par SessionGuard (US-115)
         CatHostModule.register(cat),
+        // après IAM : routes /identity gardées par SessionGuard ; rappels /kyc/webhooks (US-105)
+        KycIdentityModule.register(kyc),
         PayWebhookModule.register(pay),
         StaffConsoleModule.register(staff),
         SupConsoleModule.register(sup),

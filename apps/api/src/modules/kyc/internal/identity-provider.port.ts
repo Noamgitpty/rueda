@@ -47,6 +47,26 @@ export interface VerificationStatus {
   readonly reasons: readonly string[];
 }
 
+/**
+ * Champs MINIMAUX de la pièce lue par le fournisseur (US-105 ; 17 §3.2.2) : jamais d'image ni de
+ * numéro (zéro copie, 17 §1.5 point 3). Échéance au format AAAA-MM-JJ.
+ */
+export interface IdentityDocumentResult {
+  readonly kind: string;
+  readonly country: string;
+  readonly expiresOn: string | null;
+  readonly licenseClass: string | null;
+  readonly isPermanent: boolean | null;
+  readonly providerDocumentRef: string | null;
+}
+
+/** Contrôles du fournisseur : scores de liveness et de face match (0 à 1, C3) et pièce lue. */
+export interface IdentityChecks {
+  readonly livenessScore: number | null;
+  readonly faceMatchScore: number | null;
+  readonly document: IdentityDocumentResult | null;
+}
+
 export interface IdentityDecisionEvent {
   readonly eventId: string;
   readonly sessionId: string;
@@ -54,6 +74,19 @@ export interface IdentityDecisionEvent {
   readonly decision: IdentityDecision;
   readonly reasons: readonly string[];
   readonly decidedAt: Date;
+  readonly checks: IdentityChecks;
+}
+
+/** Demande d'effacement d'une session chez le fournisseur (retrait du consentement, VER-004). */
+export interface ErasureRequest {
+  readonly idempotencyKey: string;
+  readonly sessionId: string;
+}
+
+/** Attestation d'effacement rendue par le fournisseur (consignée en base). */
+export interface ErasureReceipt {
+  readonly attestationRef: string;
+  readonly erasedAt: Date;
 }
 
 export type IdentityWebhookVerdict =
@@ -68,6 +101,13 @@ export interface IdentityProvider {
   readonly getStatus: (
     sessionId: string,
   ) => Promise<IdentityOutcome<VerificationStatus, 'UNKNOWN_SESSION'>>;
+  /**
+   * Efface chez le fournisseur les images, selfies et données biométriques d'une session
+   * (retrait du consentement, VER-004 ; RISKS L1-PM-39) et rend une attestation. Idempotent.
+   */
+  readonly requestErasure: (
+    request: ErasureRequest,
+  ) => Promise<IdentityOutcome<ErasureReceipt, 'UNKNOWN_SESSION'>>;
   /** Vérifie la signature et la fraîcheur d'un rappel (corps brut), puis le lit. */
   readonly parseWebhook: (
     body: string,

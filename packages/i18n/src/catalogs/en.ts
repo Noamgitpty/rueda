@@ -921,4 +921,54 @@ export const EN_MESSAGES = {
   'web.calendar.duration.hours': { one: '{count} hour', other: '{count} hours' },
   'web.calendar.duration.days': { one: '{count} day', other: '{count} days' },
   'web.calendar.duration.hoursDecimal': '{value} hours',
+  // Vérification d’identité et consentement biométrique (US-105, 16 VER-001, VER-004 ; écran S04,
+  // 10b §4.3 : web.s04.checking, .result.verified, .result.retake ; autres clés PROPOSÉES)
+  'common.kyc.state': 'Status of your identity check.',
+  'common.kyc.consentRecorded': 'We saved your answer about biometric consent.',
+  'common.kyc.consentVersionChanged':
+    'The consent text has changed. Read it again before accepting.',
+  'common.kyc.consentUnavailable': 'We can’t show the consent right now. Try again later.',
+  'common.kyc.sessionStarted': 'We’re taking you to our verification provider’s secure page.',
+  'common.kyc.sessionInProgress':
+    'You already started your check: you can pick it up where you left off.',
+  'common.kyc.consentMissing': 'To verify your identity, first accept the biometric consent.',
+  'common.kyc.notEligible':
+    'We can’t verify your identity from here. Write to us so we can look at it together.',
+  'common.kyc.inReview':
+    'Your check is in review: we’ll let you know as soon as we have a decision.',
+  'common.kyc.alreadyApproved': 'Your identity is already verified. There’s nothing else to do.',
+  'common.kyc.documentUnsupported':
+    'We can’t check a license issued there yet. Choose another one or write to us.',
+  'common.kyc.sessionFailed': 'We couldn’t open the check. Try again in a few minutes.',
+  'common.kyc.providerUnavailable': 'Identity checks aren’t available right now. Try again later.',
+  'common.kyc.notApproved': 'Verify your identity and your license before you pay.',
+  'common.kyc.licenseExpired':
+    'Your license expires before the end of the trip. Update it to be able to pay.',
+  'common.kyc.driverEligible': 'Your license is valid for the whole trip.',
+  'web.s04.title': 'Verify your identity',
+  'web.s04.intro': "We do it before payment so you're never charged if you can't drive.",
+  'web.s04.progress': 'Step {step} of {total}',
+  'web.s04.consent.heading': 'Biometric consent',
+  'web.s04.consent.checkbox':
+    'I agree that the provider may use my biometric data to verify my identity.',
+  'web.s04.consent.submit': 'Accept and continue',
+  'web.s04.consent.required': 'Tick the box to accept the biometric consent.',
+  'web.s04.consent.refusal':
+    'Without this consent we can’t verify you, and you won’t be able to book or list a car.',
+  'web.s04.consent.withdraw': 'Withdraw my consent',
+  'web.s04.consent.withdrawHeading': 'Your biometric consent',
+  'web.s04.consent.withdrawHint':
+    'You can withdraw it at any time. We will ask the provider to delete your biometric data, and you won’t be able to book or list a car until you verify again.',
+  'web.s04.consent.given': 'You accepted the biometric consent.',
+  'web.s04.country': 'Where your license was issued',
+  'web.s04.start': 'Verify my identity',
+  'web.s04.resume': 'Resume my check',
+  'web.s04.hosted':
+    'You’ll take the photos on the provider’s secure page. We don’t keep any photo: only the result.',
+  'web.s04.checking': 'Verifying…',
+  'web.s04.result.verified': 'Verified',
+  'web.s04.result.retake': 'We need another photo',
+  'web.s04.licenseValid': 'License valid until {date}.',
+  'web.s04.phoneFirst': 'First verify your phone: we use it to arrange the car handover.',
+  'web.s04.phoneLink': 'Verify my phone',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

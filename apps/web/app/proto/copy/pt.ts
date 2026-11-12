@@ -99,13 +99,10 @@ export const PT_PROTO = {
   'web.s04.status.resident': 'Você tem um documento de identidade local ({country})',
   'web.s04.status.special': 'Visto especial ou autorização de permanência',
   'web.s04.status.unsure': 'Não tenho certeza',
-  'web.s04.checking': 'Verificando…',
-  'web.s04.result.verified': 'Verificação concluída',
   'web.s04.result.inReview': {
     one: 'Em análise: avisamos você em até {count} hora.',
     other: 'Em análise: avisamos você em até {count} horas.',
   },
-  'web.s04.result.retake': 'Precisamos de outra foto',
   'web.s04.result.glare':
     'A foto da sua carteira saiu com reflexo. Incline um pouco e evite luz direta.',
   'web.s05.protection.title': 'Escolha sua proteção',
@@ -226,9 +223,6 @@ export const PT_PROTO = {
     other: 'O código está errado. Você tem mais {count} tentativas.',
   },
   'web.s15.emailUsed': 'Já existe uma conta com este e-mail. Entre para continuar.',
-  'web.s04.title': 'Confirme sua identidade',
-  'web.s04.intro':
-    'Fazemos isso antes do pagamento para você nunca ser cobrado se não puder dirigir.',
   'web.s04.step.status': 'Situação',
   'web.s04.step.documents': 'Seus documentos',
   'web.s04.step.selfie': 'Selfie',

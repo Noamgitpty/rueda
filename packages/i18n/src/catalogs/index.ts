@@ -37,9 +37,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.listing.*`, `web.host.*`, `web.listing.*`. Version 19 : CGU de l'hôte (US-126) :
  `common.listing.hostTermsRequired`, `web.host.terms.*`, `web.legal.validFrom`,
  `web.legal.translation`, `web.legal.backHost`. Version 20 : calendrier par véhicule, blocages et préavis
- de l'hôte (US-119) : `common.calendar.*`, `web.calendar.*`. Versions 21 et 22 : réservées aux
- stories US-105 et US-125 (demandes de fusion en cours). Version 23 : file d'ajout au catalogue
- véhicules (US-114) : `common.catalogAddition.*`, `web.host.car.catalogHint`, `web.host.catalog.*`,
+ de l'hôte (US-119) : `common.calendar.*`, `web.calendar.*`. Version 21 : vérification d'identité et
+ consentement biométrique (US-105) : `common.kyc.*` et `web.s04.*` (écran S04). Version 22 : réservée
+ à la story US-125 (demande de fusion en cours). Version 23 : file d'ajout au catalogue véhicules
+ (US-114) : `common.catalogAddition.*`, `web.host.car.catalogHint`, `web.host.catalog.*`,
  `backoffice.catalog.*`, `ntf.catalogAdditionApproved.*` et `ntf.catalogAdditionRejected.*`.
  */
 export const CATALOG_VERSION = 23;
