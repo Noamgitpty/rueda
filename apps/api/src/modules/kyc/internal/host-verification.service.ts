@@ -44,7 +44,8 @@ export interface HostVerificationDeps {
 
 export type HostVerificationView = KycBody &
   HostVerificationState & {
-    readonly code: 'HOST_VERIFICATION_STATE' | 'HOST_VERIFICATION_SUBMITTED' | 'HOST_TAX_PROFILE_SAVED';
+    readonly code:
+      'HOST_VERIFICATION_STATE' | 'HOST_VERIFICATION_SUBMITTED' | 'HOST_TAX_PROFILE_SAVED';
   };
 
 /** Champs d'entreprise refusés dans un profil fiscal (personne physique seulement, BR-ACC-06). */
@@ -97,13 +98,19 @@ export class HostVerificationService {
   }
 
   async state(tokenHash: Buffer, orgId: string): Promise<HostVerificationView> {
-    return { ...(await this.#state(tokenHash, orgId)), ...kycBody('HOST_VERIFICATION_STATE'), code: 'HOST_VERIFICATION_STATE' };
+    return {
+      ...(await this.#state(tokenHash, orgId)),
+      ...kycBody('HOST_VERIFICATION_STATE'),
+      code: 'HOST_VERIFICATION_STATE',
+    };
   }
 
   async #state(tokenHash: Buffer, orgId: string): Promise<HostVerificationState> {
     const r = await this.#deps.store.state(tokenHash, orgId).catch(storeFailure);
     if (r.outcome !== 'OK') {
-      throw new KycHttpError(r.outcome === 'AUTH_REQUIRED' ? 'AUTH_REQUIRED' : 'HOST_ACCOUNT_NOT_FOUND');
+      throw new KycHttpError(
+        r.outcome === 'AUTH_REQUIRED' ? 'AUTH_REQUIRED' : 'HOST_ACCOUNT_NOT_FOUND',
+      );
     }
     return r.state;
   }
@@ -153,7 +160,11 @@ export class HostVerificationService {
       .saveTaxProfile(tokenHash, orgId, { kind, envelope: sealed.envelope, regime, taxpayerKind })
       .catch(storeFailure);
     if (outcome !== 'SAVED') throw new KycHttpError(TAX_REFUSALS[outcome]);
-    return { ...(await this.#state(tokenHash, orgId)), ...kycBody('HOST_TAX_PROFILE_SAVED'), code: 'HOST_TAX_PROFILE_SAVED' };
+    return {
+      ...(await this.#state(tokenHash, orgId)),
+      ...kycBody('HOST_TAX_PROFILE_SAVED'),
+      code: 'HOST_TAX_PROFILE_SAVED',
+    };
   }
 
   async submit(tokenHash: Buffer, orgId: string): Promise<HostVerificationView> {
@@ -188,6 +199,10 @@ export class HostVerificationService {
         this.#deps.log.warn('filtrage des sanctions indisponible', { status: out.status });
       }
     }
-    return { ...(await this.#state(tokenHash, orgId)), ...kycBody('HOST_VERIFICATION_SUBMITTED'), code: 'HOST_VERIFICATION_SUBMITTED' };
+    return {
+      ...(await this.#state(tokenHash, orgId)),
+      ...kycBody('HOST_VERIFICATION_SUBMITTED'),
+      code: 'HOST_VERIFICATION_SUBMITTED',
+    };
   }
 }

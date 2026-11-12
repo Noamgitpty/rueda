@@ -266,7 +266,11 @@ describe('US-123 — soumission du dossier et filtrage des sanctions (VER-028)',
     const n = await w.app.api.request('POST', w.base, { headers: w.headers, body: {} });
     expect(n.status).toBe(409);
     expect(n.json).toMatchObject({ code: 'HOST_ACCOUNT_NOT_ELIGIBLE' });
-    for (const refusal of ['HOST_UNDER_AGE', 'HOST_AGE_UNVERIFIED', 'HOST_RESIDENCE_MISMATCH'] as const) {
+    for (const refusal of [
+      'HOST_UNDER_AGE',
+      'HOST_AGE_UNVERIFIED',
+      'HOST_RESIDENCE_MISMATCH',
+    ] as const) {
       w.store.submitRefusal = refusal;
       const x = await w.app.api.request('POST', w.base, { headers: w.headers, body: {} });
       expect(x.status).toBe(403);

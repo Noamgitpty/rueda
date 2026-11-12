@@ -936,15 +936,24 @@ export const PT_MESSAGES = {
   'common.hostVerification.state': 'Situação da sua checagem de anfitrião.',
   'common.hostVerification.submitted': 'Recebemos seu pedido para ser anfitrião.',
   'common.hostVerification.taxSaved': 'Salvamos seu número de identificação fiscal.',
-  'common.hostVerification.ageUnverified': 'Não conseguimos confirmar sua data de nascimento. Faça a checagem de identidade de novo.',
-  'common.hostVerification.kycRequired': 'Primeiro confirme sua identidade e sua carteira de motorista.',
-  'common.hostVerification.residenceMismatch': 'Sua residência confirmada não corresponde ao local da sua conta de anfitrião.',
-  'common.hostVerification.accountNotEligible': 'Sua conta de anfitrião não pode receber este pedido agora. Fale com a gente.',
-  'common.hostVerification.locked': 'Seu pedido já foi analisado. Para mudar algum dado, fale com a gente.',
-  'common.hostVerification.taxKindInvalid': 'Escolha um dos tipos de número de identificação fiscal da lista.',
-  'common.hostVerification.taxIdInvalid': 'Confira seu número de identificação fiscal: só algarismos, letras e hifens.',
-  'common.hostVerification.vaultUnavailable': 'Não conseguimos guardar seu número de identificação fiscal com segurança agora. Tente mais tarde.',
-  'common.hostVerification.unavailable': 'Não conseguimos processar seu pedido de anfitrião agora. Tente mais tarde.',
+  'common.hostVerification.ageUnverified':
+    'Não conseguimos confirmar sua data de nascimento. Faça a checagem de identidade de novo.',
+  'common.hostVerification.kycRequired':
+    'Primeiro confirme sua identidade e sua carteira de motorista.',
+  'common.hostVerification.residenceMismatch':
+    'Sua residência confirmada não corresponde ao local da sua conta de anfitrião.',
+  'common.hostVerification.accountNotEligible':
+    'Sua conta de anfitrião não pode receber este pedido agora. Fale com a gente.',
+  'common.hostVerification.locked':
+    'Seu pedido já foi analisado. Para mudar algum dado, fale com a gente.',
+  'common.hostVerification.taxKindInvalid':
+    'Escolha um dos tipos de número de identificação fiscal da lista.',
+  'common.hostVerification.taxIdInvalid':
+    'Confira seu número de identificação fiscal: só algarismos, letras e hifens.',
+  'common.hostVerification.vaultUnavailable':
+    'Não conseguimos guardar seu número de identificação fiscal com segurança agora. Tente mais tarde.',
+  'common.hostVerification.unavailable':
+    'Não conseguimos processar seu pedido de anfitrião agora. Tente mais tarde.',
   'web.a07.title': 'Torne-se anfitrião',
   'web.a07.intro': 'Conclua estas tarefas. Analisamos seu pedido e avisamos você.',
   'web.a07.loginRequired': 'Entre na sua conta para ver suas tarefas de anfitrião.',
@@ -983,11 +992,15 @@ export const PT_MESSAGES = {
   'web.a07.status.DOCS_PENDING': 'Seu pedido está incompleto.',
   'web.a07.status.IN_REVIEW': 'Estamos analisando seu pedido.',
   'web.a07.status.APPROVED': 'Aprovamos seu pedido.',
-  'web.a07.status.REJECTED': 'Não conseguimos aprovar seu pedido. Fale com a gente para saber mais.',
-  'web.a07.status.BLOCKED': 'Nossa equipe está analisando seu pedido manualmente. Vamos escrever para você.',
+  'web.a07.status.REJECTED':
+    'Não conseguimos aprovar seu pedido. Fale com a gente para saber mais.',
+  'web.a07.status.BLOCKED':
+    'Nossa equipe está analisando seu pedido manualmente. Vamos escrever para você.',
   'web.a07.missing': 'Ainda falta: {tasks}.',
-  'web.a07.waitingCountry': 'Tudo certo do seu lado. Avisaremos quando {brand} abrir para anfitriões em {country}.',
-  'web.a07.pendingActivation': 'Aprovamos seu pedido, mas sua conta de anfitrião ainda não está ativa.',
+  'web.a07.waitingCountry':
+    'Tudo certo do seu lado. Avisaremos quando {brand} abrir para anfitriões em {country}.',
+  'web.a07.pendingActivation':
+    'Aprovamos seu pedido, mas sua conta de anfitrião ainda não está ativa.',
   'web.a07.active': 'Sua conta de anfitrião está ativa.',
   'web.a07.back': 'Voltar ao meu espaço de anfitrião',
   'web.host.verificationLink': 'Minha checagem de anfitrião',

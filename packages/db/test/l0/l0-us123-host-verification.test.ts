@@ -114,7 +114,15 @@ async function person(client: pg.ClientBase, country: string): Promise<Person> {
     client,
     `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Ana María', 'Pérez Gómez', 'es', $4,
                                                 $5, 86400, NULL, $6, $7::jsonb, false) AS ok`,
-    [userId, `host-${userId}@example.test`, phcArgon2id(), uuid(), verification.hash, country, DOCS],
+    [
+      userId,
+      `host-${userId}@example.test`,
+      phcArgon2id(),
+      uuid(),
+      verification.hash,
+      country,
+      DOCS,
+    ],
   );
   if (r.ok !== true) throw new Error('inscription de test refusée');
   const v = await one<{ ok: boolean }>(client, 'SELECT core.iam_cmd_verify_email($1) AS ok', [
@@ -530,8 +538,9 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         ),
       ).toThrow();
       // l'audit ne porte que le type, jamais le numéro
-      const audit = (await fixture<{ action_code: string; after: unknown }>(c, 'us123_audit', org))
-        .filter((a) => a.action_code === 'HOST_TAX_PROFILE_SAVED');
+      const audit = (
+        await fixture<{ action_code: string; after: unknown }>(c, 'us123_audit', org)
+      ).filter((a) => a.action_code === 'HOST_TAX_PROFILE_SAVED');
       expect(audit).toHaveLength(1);
       expect(JSON.stringify(audit)).not.toContain(t.plain);
     });
@@ -729,7 +738,10 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
       const p = await person(c, country);
       // le fournisseur ne rend pas la date : la date DÉCLARÉE du compte sert de repli
       await kycApproved(c, p, country, { residenceCountry: country });
-      await c.query('SELECT test_fixture.us107_set_birth_date($1, $2)', [p.userId, bornYearsAgo(40)]);
+      await c.query('SELECT test_fixture.us107_set_birth_date($1, $2)', [
+        p.userId,
+        bornYearsAgo(40),
+      ]);
       const org = await hostAccount(c, p, country);
       await acceptTerms(c, p, org);
       const kind = data(country).hostTaxIdKinds[0] ?? '';

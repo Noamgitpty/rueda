@@ -78,9 +78,7 @@ export class FakeHostVerificationStore implements HostVerificationStore {
 
   /** Panne simulée : promesse rejetée (comme un pilote de base injoignable). */
   #down<T>(operation: string): Promise<T> | null {
-    return this.failing
-      ? Promise.reject(new HostVerificationStoreError(operation, '08006'))
-      : null;
+    return this.failing ? Promise.reject(new HostVerificationStoreError(operation, '08006')) : null;
   }
 
   #own(tokenHash: Buffer, orgId: string): Account | null {

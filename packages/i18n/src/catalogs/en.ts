@@ -903,15 +903,22 @@ export const EN_MESSAGES = {
   'common.hostVerification.state': 'Status of your host verification.',
   'common.hostVerification.submitted': 'We received your request to become a host.',
   'common.hostVerification.taxSaved': 'We saved your tax number.',
-  'common.hostVerification.ageUnverified': 'We could not confirm your date of birth. Verify your identity again.',
+  'common.hostVerification.ageUnverified':
+    'We could not confirm your date of birth. Verify your identity again.',
   'common.hostVerification.kycRequired': 'First verify your identity and your license.',
-  'common.hostVerification.residenceMismatch': 'Your verified residence does not match the place of your host account.',
-  'common.hostVerification.accountNotEligible': 'Your host account cannot take this request right now. Contact us.',
-  'common.hostVerification.locked': 'Your request was already reviewed. To change any detail, contact us.',
+  'common.hostVerification.residenceMismatch':
+    'Your verified residence does not match the place of your host account.',
+  'common.hostVerification.accountNotEligible':
+    'Your host account cannot take this request right now. Contact us.',
+  'common.hostVerification.locked':
+    'Your request was already reviewed. To change any detail, contact us.',
   'common.hostVerification.taxKindInvalid': 'Choose one of the tax number types in the list.',
-  'common.hostVerification.taxIdInvalid': 'Check your tax number: digits, letters and hyphens only.',
-  'common.hostVerification.vaultUnavailable': 'We cannot store your tax number securely right now. Try again later.',
-  'common.hostVerification.unavailable': 'We cannot process your host request right now. Try again later.',
+  'common.hostVerification.taxIdInvalid':
+    'Check your tax number: digits, letters and hyphens only.',
+  'common.hostVerification.vaultUnavailable':
+    'We cannot store your tax number securely right now. Try again later.',
+  'common.hostVerification.unavailable':
+    'We cannot process your host request right now. Try again later.',
   'web.a07.title': 'Become a host',
   'web.a07.intro': 'Complete these tasks. We review your request and let you know.',
   'web.a07.loginRequired': 'Log in to see your host tasks.',
@@ -953,7 +960,8 @@ export const EN_MESSAGES = {
   'web.a07.status.REJECTED': 'We could not approve your request. Contact us to learn more.',
   'web.a07.status.BLOCKED': 'Our team is reviewing your request by hand. We will write to you.',
   'web.a07.missing': 'Still missing: {tasks}.',
-  'web.a07.waitingCountry': 'You’re all set. We’ll let you know when {brand} opens to hosts in {country}.',
+  'web.a07.waitingCountry':
+    'You’re all set. We’ll let you know when {brand} opens to hosts in {country}.',
   'web.a07.pendingActivation': 'We approved your request, but your host account is not active yet.',
   'web.a07.active': 'Your host account is active.',
   'web.a07.back': 'Back to my host space',

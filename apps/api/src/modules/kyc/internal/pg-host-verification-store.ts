@@ -86,16 +86,16 @@ export class PgHostVerificationStore implements HostVerificationStore {
       throw new HostVerificationStoreError(operation, typeof code === 'string' ? code : undefined);
     }
     const [r] = rows;
-    if (r === undefined) throw new HostVerificationStoreError(`${operation}: aucune ligne`, undefined);
+    if (r === undefined)
+      throw new HostVerificationStoreError(`${operation}: aucune ligne`, undefined);
     return r;
   }
 
   async state(tokenHash: Buffer, orgId: string): Promise<StateResult> {
-    const r = await this.#run<StateRow>(
-      'state',
-      'SELECT * FROM core.kyc_host_state($1, $2)',
-      [tokenHash, orgId],
-    );
+    const r = await this.#run<StateRow>('state', 'SELECT * FROM core.kyc_host_state($1, $2)', [
+      tokenHash,
+      orgId,
+    ]);
     if (r.outcome === 'AUTH_REQUIRED' || r.outcome === 'FORBIDDEN') return { outcome: r.outcome };
     if (r.outcome !== 'OK' || r.country_code === null) {
       throw new HostVerificationStoreError('state: issue inconnue', undefined);
@@ -124,11 +124,7 @@ export class PgHostVerificationStore implements HostVerificationStore {
     };
   }
 
-  async saveTaxProfile(
-    tokenHash: Buffer,
-    orgId: string,
-    p: TaxProfileToSave,
-  ): Promise<TaxOutcome> {
+  async saveTaxProfile(tokenHash: Buffer, orgId: string, p: TaxProfileToSave): Promise<TaxOutcome> {
     const r = await this.#run<{ outcome: string }>(
       'save_tax_profile',
       'SELECT * FROM core.kyc_cmd_host_save_tax_profile($1, $2, $3, $4, $5, $6)',

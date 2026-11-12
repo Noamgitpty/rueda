@@ -937,15 +937,21 @@ export const ES_MESSAGES = {
   'common.hostVerification.state': 'Estado de tu verificación como anfitrión.',
   'common.hostVerification.submitted': 'Recibimos tu solicitud para ser anfitrión.',
   'common.hostVerification.taxSaved': 'Guardamos tu número fiscal.',
-  'common.hostVerification.ageUnverified': 'No pudimos confirmar tu fecha de nacimiento. Vuelve a verificar tu identidad.',
+  'common.hostVerification.ageUnverified':
+    'No pudimos confirmar tu fecha de nacimiento. Vuelve a verificar tu identidad.',
   'common.hostVerification.kycRequired': 'Primero verifica tu identidad y tu licencia.',
-  'common.hostVerification.residenceMismatch': 'Tu residencia verificada no coincide con el lugar de tu cuenta de anfitrión.',
-  'common.hostVerification.accountNotEligible': 'Tu cuenta de anfitrión no puede recibir esta solicitud ahora. Escríbenos.',
-  'common.hostVerification.locked': 'Tu solicitud ya fue revisada. Para cambiar un dato, escríbenos.',
+  'common.hostVerification.residenceMismatch':
+    'Tu residencia verificada no coincide con el lugar de tu cuenta de anfitrión.',
+  'common.hostVerification.accountNotEligible':
+    'Tu cuenta de anfitrión no puede recibir esta solicitud ahora. Escríbenos.',
+  'common.hostVerification.locked':
+    'Tu solicitud ya fue revisada. Para cambiar un dato, escríbenos.',
   'common.hostVerification.taxKindInvalid': 'Elige uno de los tipos de número fiscal de la lista.',
   'common.hostVerification.taxIdInvalid': 'Revisa tu número fiscal: solo cifras, letras y guiones.',
-  'common.hostVerification.vaultUnavailable': 'No podemos guardar tu número fiscal de forma segura en este momento. Inténtalo más tarde.',
-  'common.hostVerification.unavailable': 'No podemos revisar tu solicitud de anfitrión en este momento. Inténtalo más tarde.',
+  'common.hostVerification.vaultUnavailable':
+    'No podemos guardar tu número fiscal de forma segura en este momento. Inténtalo más tarde.',
+  'common.hostVerification.unavailable':
+    'No podemos revisar tu solicitud de anfitrión en este momento. Inténtalo más tarde.',
   'web.a07.title': 'Conviértete en anfitrión',
   'web.a07.intro': 'Completa estas tareas. Revisamos tu solicitud y te avisamos.',
   'web.a07.loginRequired': 'Inicia sesión para ver tus tareas de anfitrión.',
@@ -987,8 +993,10 @@ export const ES_MESSAGES = {
   'web.a07.status.REJECTED': 'No pudimos aprobar tu solicitud. Escríbenos si quieres saber más.',
   'web.a07.status.BLOCKED': 'Nuestro equipo revisa tu solicitud a mano. Te escribiremos.',
   'web.a07.missing': 'Falta: {tasks}.',
-  'web.a07.waitingCountry': 'Todo listo de tu lado. Avisaremos cuando {brand} abra a anfitriones en {country}.',
-  'web.a07.pendingActivation': 'Aprobamos tu solicitud, pero tu cuenta de anfitrión aún no está activa.',
+  'web.a07.waitingCountry':
+    'Todo listo de tu lado. Avisaremos cuando {brand} abra a anfitriones en {country}.',
+  'web.a07.pendingActivation':
+    'Aprobamos tu solicitud, pero tu cuenta de anfitrión aún no está activa.',
   'web.a07.active': 'Tu cuenta de anfitrión está activa.',
   'web.a07.back': 'Volver a mi espacio de anfitrión',
   'web.host.verificationLink': 'Mi verificación de anfitrión',

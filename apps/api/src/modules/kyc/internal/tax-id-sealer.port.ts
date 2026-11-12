@@ -11,8 +11,7 @@
 export const TAX_ID_COLUMN = { table: 'core.kyc_host_tax_profile', column: 'tax_id_enc' } as const;
 
 export type SealOutcome =
-  | { readonly status: 'OK'; readonly envelope: Buffer }
-  | { readonly status: 'UNAVAILABLE' };
+  { readonly status: 'OK'; readonly envelope: Buffer } | { readonly status: 'UNAVAILABLE' };
 
 export interface TaxIdSealer {
   readonly seal: (orgId: string, plaintext: string) => Promise<SealOutcome>;

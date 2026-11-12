@@ -65,9 +65,7 @@ export class FakeSanctionsScreener {
     this.#flags.set(identitySessionRef, result);
   }
 
-  async screen(
-    request: ScreeningRequest,
-  ): Promise<Outcome<ScreeningReport, 'UNKNOWN_SUBJECT'>> {
+  async screen(request: ScreeningRequest): Promise<Outcome<ScreeningReport, 'UNKNOWN_SUBJECT'>> {
     return this.runtime.execute(
       'screen',
       { idempotencyKey: request.idempotencyKey, content: request },

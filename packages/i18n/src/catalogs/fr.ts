@@ -968,15 +968,22 @@ export const FR_MESSAGES = {
   'common.hostVerification.state': 'État de ta vérification d’hôte.',
   'common.hostVerification.submitted': 'Nous avons reçu ta demande pour devenir hôte.',
   'common.hostVerification.taxSaved': 'Nous avons enregistré ton numéro fiscal.',
-  'common.hostVerification.ageUnverified': 'Nous n’avons pas pu confirmer ta date de naissance. Vérifie à nouveau ton identité.',
+  'common.hostVerification.ageUnverified':
+    'Nous n’avons pas pu confirmer ta date de naissance. Vérifie à nouveau ton identité.',
   'common.hostVerification.kycRequired': 'Vérifie d’abord ton identité et ton permis.',
-  'common.hostVerification.residenceMismatch': 'Ta résidence vérifiée ne correspond pas au lieu de ton compte d’hôte.',
-  'common.hostVerification.accountNotEligible': 'Ton compte d’hôte ne peut pas recevoir cette demande pour le moment. Écris-nous.',
-  'common.hostVerification.locked': 'Ta demande a déjà été examinée. Pour changer une information, écris-nous.',
+  'common.hostVerification.residenceMismatch':
+    'Ta résidence vérifiée ne correspond pas au lieu de ton compte d’hôte.',
+  'common.hostVerification.accountNotEligible':
+    'Ton compte d’hôte ne peut pas recevoir cette demande pour le moment. Écris-nous.',
+  'common.hostVerification.locked':
+    'Ta demande a déjà été examinée. Pour changer une information, écris-nous.',
   'common.hostVerification.taxKindInvalid': 'Choisis l’un des types de numéro fiscal de la liste.',
-  'common.hostVerification.taxIdInvalid': 'Vérifie ton numéro fiscal : chiffres, lettres et tirets seulement.',
-  'common.hostVerification.vaultUnavailable': 'Nous ne pouvons pas enregistrer ton numéro fiscal en sécurité pour le moment. Réessaie plus tard.',
-  'common.hostVerification.unavailable': 'Nous ne pouvons pas traiter ta demande d’hôte pour le moment. Réessaie plus tard.',
+  'common.hostVerification.taxIdInvalid':
+    'Vérifie ton numéro fiscal : chiffres, lettres et tirets seulement.',
+  'common.hostVerification.vaultUnavailable':
+    'Nous ne pouvons pas enregistrer ton numéro fiscal en sécurité pour le moment. Réessaie plus tard.',
+  'common.hostVerification.unavailable':
+    'Nous ne pouvons pas traiter ta demande d’hôte pour le moment. Réessaie plus tard.',
   'web.a07.title': 'Deviens hôte',
   'web.a07.intro': 'Termine ces tâches. Nous examinons ta demande et te prévenons.',
   'web.a07.loginRequired': 'Connecte-toi pour voir tes tâches d’hôte.',
@@ -999,7 +1006,8 @@ export const FR_MESSAGES = {
   'web.a07.task.screening': 'Contrôles de sécurité',
   'web.a07.task.screeningHint': 'Nous les faisons quand tu envoies ta demande.',
   'web.a07.task.payments': 'Compte de versement examiné par le prestataire de paiement',
-  'web.a07.task.paymentsHint': 'Le prestataire de paiement s’en charge après l’approbation de ta demande.',
+  'web.a07.task.paymentsHint':
+    'Le prestataire de paiement s’en charge après l’approbation de ta demande.',
   'web.a07.tax.heading': 'Ton numéro fiscal',
   'web.a07.tax.kind': 'Type de numéro',
   'web.a07.tax.number': 'Numéro',
@@ -1011,15 +1019,19 @@ export const FR_MESSAGES = {
   'web.a07.tax.private': 'Nous le gardons chiffré et ne le montrons jamais aux voyageurs.',
   'web.a07.tax.individualOnly': 'Particuliers seulement : nous n’acceptons pas les sociétés.',
   'web.a07.submit': 'Envoyer ma demande',
-  'web.a07.submitHint': 'Tu peux l’envoyer même s’il manque une tâche : nous te dirons ce qui reste.',
+  'web.a07.submitHint':
+    'Tu peux l’envoyer même s’il manque une tâche : nous te dirons ce qui reste.',
   'web.a07.status.DOCS_PENDING': 'Ta demande est incomplète.',
   'web.a07.status.IN_REVIEW': 'Nous examinons ta demande.',
   'web.a07.status.APPROVED': 'Nous avons approuvé ta demande.',
-  'web.a07.status.REJECTED': 'Nous n’avons pas pu approuver ta demande. Écris-nous pour en savoir plus.',
+  'web.a07.status.REJECTED':
+    'Nous n’avons pas pu approuver ta demande. Écris-nous pour en savoir plus.',
   'web.a07.status.BLOCKED': 'Notre équipe examine ta demande à la main. Nous t’écrirons.',
   'web.a07.missing': 'Il manque : {tasks}.',
-  'web.a07.waitingCountry': 'Tout est prêt de ton côté. Nous te préviendrons quand {brand} ouvrira aux hôtes au {country}.',
-  'web.a07.pendingActivation': 'Nous avons approuvé ta demande, mais ton compte d’hôte n’est pas encore actif.',
+  'web.a07.waitingCountry':
+    'Tout est prêt de ton côté. Nous te préviendrons quand {brand} ouvrira aux hôtes au {country}.',
+  'web.a07.pendingActivation':
+    'Nous avons approuvé ta demande, mais ton compte d’hôte n’est pas encore actif.',
   'web.a07.active': 'Ton compte d’hôte est actif.',
   'web.a07.back': 'Retour à mon espace d’hôte',
   'web.host.verificationLink': 'Ma vérification d’hôte',

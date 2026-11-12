@@ -20,7 +20,17 @@
  * La décision de l'ops et l'activation passent par la console (`HOST_VERIFICATION_DECISION`,
  * cadre d'US-101), jamais par ces routes ; aucun interrupteur n'est modifiable ici (17 §0.1).
  */
-import { Controller, Get, HttpCode, Inject, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { SessionGuard, sessionProofOf } from '../../iam/index.js';
 import { KycHttpError } from './errors.js';
 import type { HostVerificationService, HostVerificationView } from './host-verification.service.js';
