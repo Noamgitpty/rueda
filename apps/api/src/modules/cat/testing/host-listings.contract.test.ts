@@ -27,6 +27,7 @@ import {
 import type { Outcome } from '../internal/host-listings/store.js';
 import { VehicleCatalogService } from '../internal/vehicle-catalog/vehicle-catalog.service.js';
 import type { VehicleCatalogStore } from '../internal/vehicle-catalog/store.js';
+import { FakeHostCalendarStore } from './fake-host-calendar-store.js';
 import { FakeHostListingStore } from './fake-host-listing-store.js';
 
 /** FAKE dont l'issue de la base est imposée (règles prouvées en base, non modélisées ici). */
@@ -113,6 +114,7 @@ const catalogStore: VehicleCatalogStore = {
 interface World {
   readonly app: ContractApp;
   readonly store: ForcedStore;
+  readonly calendar: FakeHostCalendarStore;
   readonly orgA: string;
   readonly orgB: string;
   /** Hôte A = acteur « voyageur » du harnais ; hôte B = « staff_sans_mfa ». */
@@ -127,9 +129,11 @@ async function world(
 ): Promise<World> {
   const store = new ForcedStore();
   store.priceStep.set(FIRST_COUNTRY, 1n);
+  const calendar = new FakeHostCalendarStore(store);
   const app = await startContractApp({
     cat: {
       store,
+      calendar,
       catalog: options.catalog === false ? null : new VehicleCatalogService(catalogStore),
       photos:
         options.photos === true
@@ -155,7 +159,15 @@ async function world(
     currency: 'XXX',
     status: 'ONBOARDING',
   });
-  return { app, store, orgA, orgB, a: app.cookie('voyageur'), b: app.cookie('staff_sans_mfa') };
+  return {
+    app,
+    store,
+    calendar,
+    orgA,
+    orgB,
+    a: app.cookie('voyageur'),
+    b: app.cookie('staff_sans_mfa'),
+  };
 }
 
 const LOCATION = {
@@ -613,6 +625,201 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     const down = await api.request('POST', `/host/accounts/${w.orgA}/locations`, {
       headers: w.a,
       body: LOCATION,
+    });
+    expect(down.status).toBe(503);
+    expect(down.json).toMatchObject({ code: 'LISTING_UNAVAILABLE' });
+  });
+
+  // ---- calendrier, blocages et préavis (US-119) ------------------------------------------
+  it('US-119 : calendrier du véhicule, blocage par jours puis par heures, créneau pris ⇒ 409 sans détail, levée, préavis', async () => {
+    const w = await world();
+    const api = w.app.api;
+    const d = await draft(w);
+    const car = `${d.base}/vehicles/${d.vehicleId}`;
+    // annonce non publiée : blocage refusé (409 VEHICLE_NOT_LISTED), calendrier lisible
+    const notListed = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { from: '2036-12-10', to: '2036-12-12' },
+    });
+    expect(notListed.status).toBe(409);
+    expect(notListed.json).toMatchObject({ code: 'VEHICLE_NOT_LISTED' });
+    const listing = w.store.listingsById.get(d.listingId);
+    if (listing) listing.status = 'LISTED';
+    const empty = await api.request('GET', `${car}/calendar`, { headers: w.a });
+    expect(empty.status).toBe(200);
+    expect(empty.json).toMatchObject({
+      vehicle: {
+        id: d.vehicleId,
+        listed: true,
+        locationId: d.locationId,
+        noticeMinutes: null,
+        effectiveNoticeMinutes: 180,
+      },
+      entries: [],
+    });
+    // du 10 au 12 inclus : [10 00:00, 13 00:00) en heure locale du véhicule
+    const days = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { from: '2036-12-10', to: '2036-12-12' },
+    });
+    expect(days.status).toBe(201);
+    expect(days.json).toMatchObject({
+      code: 'BLOCK_CREATED',
+      messageKey: 'common.calendar.blockCreated',
+    });
+    const blockId = (days.json as { blockId: string }).blockId;
+    const hours = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { start: '2036-12-14T08:30', end: '2036-12-14T12:00' },
+    });
+    expect(hours.status).toBe(201);
+    const taken = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { start: '2036-12-11T10:00', end: '2036-12-11T12:00' },
+    });
+    expect(taken.status).toBe(409);
+    expect(taken.json).toEqual({
+      code: 'VEHICLE_UNAVAILABLE',
+      messageKey: 'common.calendar.vehicleUnavailable',
+    });
+    const past = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { from: '2001-01-01', to: '2001-01-02' },
+    });
+    expect(past.status).toBe(422);
+    expect(past.json).toMatchObject({ code: 'INVALID_PERIOD' });
+    const cal = await api.request('GET', `${car}/calendar`, { headers: w.a });
+    expect((cal.json as { entries: unknown[] }).entries).toEqual([
+      expect.objectContaining({
+        id: blockId,
+        kind: 'HOST_BLOCK',
+        startLocal: '2036-12-10T00:00',
+        endLocal: '2036-12-13T00:00',
+        removable: true,
+      }),
+      expect.objectContaining({ startLocal: '2036-12-14T08:30', endLocal: '2036-12-14T12:00' }),
+    ]);
+    // saisie refusée champ par champ : jour impossible, pas de 30 min, mélange, fin avant début
+    for (const body of [
+      { from: '2036-02-30', to: '2036-03-01' },
+      { start: '2036-12-14T08:15', end: '2036-12-14T12:00' },
+      { from: '2036-12-10', end: '2036-12-14T12:00' },
+      { from: '2036-12-12', to: '2036-12-10' },
+      { start: '2036-12-14T12:00', end: '2036-12-14T12:00' },
+    ]) {
+      const r = await api.request('POST', `${car}/blocks`, { headers: w.a, body });
+      expect(r.status, JSON.stringify(body)).toBe(400);
+      expect(r.json).toMatchObject({ code: 'REQUEST_INVALID' });
+    }
+    // levée ; seconde levée : 404 BLOCK_NOT_FOUND
+    const del = await api.request('DELETE', `${car}/blocks/${blockId}`, { headers: w.a });
+    expect(del.status).toBe(200);
+    expect(del.json).toEqual({ code: 'BLOCK_REMOVED', messageKey: 'common.calendar.blockRemoved' });
+    const again = await api.request('DELETE', `${car}/blocks/${blockId}`, { headers: w.a });
+    expect(again.status).toBe(404);
+    expect(again.json).toMatchObject({ code: 'BLOCK_NOT_FOUND' });
+    expect(
+      (await api.request('DELETE', `${car}/blocks/${blockId}`, { ...textBody(w.a) })).status,
+    ).toBe(415);
+    // préavis du lieu : 3 h, puis défaut du pays ; hors bornes ou hors pas : 400
+    const notice = `${d.base}/locations/${d.locationId}/notice`;
+    const set = await api.request('PUT', notice, { headers: w.a, body: { minutes: 180 } });
+    expect(set.status).toBe(200);
+    expect(set.json).toEqual({ code: 'NOTICE_SAVED', messageKey: 'common.calendar.noticeSaved' });
+    const reread = await api.request('GET', `${car}/calendar`, { headers: w.a });
+    expect(
+      (reread.json as { vehicle: { noticeMinutes: number | null } }).vehicle.noticeMinutes,
+    ).toBe(180);
+    const reset = await api.request('PUT', notice, { headers: w.a, body: { minutes: null } });
+    expect(reset.status).toBe(200);
+    for (const minutes of [45, 0, 10_110, 90.5, '180']) {
+      const r = await api.request('PUT', notice, { headers: w.a, body: { minutes } });
+      expect(r.status, String(minutes)).toBe(400);
+    }
+    expect((await api.request('PUT', notice, { headers: w.a, body: {} })).status).toBe(400);
+    expect((await api.request('PUT', notice, { ...textBody(w.a) })).status).toBe(415);
+    expect((await api.request('POST', `${car}/blocks`, { ...textBody(w.a) })).status).toBe(415);
+  });
+
+  it('US-119 : IDOR — un autre hôte, un compte d’autrui, un identifiant mal formé ⇒ 404 ; sans session ⇒ 401 ; compte suspendu ⇒ 403 ; base indisponible ⇒ 503', async () => {
+    const w = await world();
+    const api = w.app.api;
+    const d = await draft(w);
+    const listing = w.store.listingsById.get(d.listingId);
+    if (listing) listing.status = 'LISTED';
+    const car = `${d.base}/vehicles/${d.vehicleId}`;
+    const block = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { from: '2036-12-20', to: '2036-12-20' },
+    });
+    const blockId = (block.json as { blockId: string }).blockId;
+    const bBase = `/host/accounts/${w.orgB}`;
+    const bCar = `${bBase}/vehicles/${d.vehicleId}`;
+    // l'hôte B, avec son propre compte, vise le véhicule, le blocage et le lieu de A
+    const read = await api.request('GET', `${bCar}/calendar`, { headers: w.b });
+    expect(read.status).toBe(404);
+    expect(read.json).toMatchObject({ code: 'VEHICLE_NOT_FOUND' });
+    const put = await api.request('POST', `${bCar}/blocks`, {
+      headers: w.b,
+      body: { from: '2036-12-22', to: '2036-12-22' },
+    });
+    expect(put.status).toBe(404);
+    expect(put.json).toMatchObject({ code: 'VEHICLE_NOT_FOUND' });
+    const del = await api.request('DELETE', `${bCar}/blocks/${blockId}`, { headers: w.b });
+    expect(del.status).toBe(404);
+    expect(del.json).toMatchObject({ code: 'VEHICLE_NOT_FOUND' });
+    const notice = await api.request('PUT', `${bBase}/locations/${d.locationId}/notice`, {
+      headers: w.b,
+      body: { minutes: 240 },
+    });
+    expect(notice.status).toBe(404);
+    expect(notice.json).toMatchObject({ code: 'LOCATION_NOT_FOUND' });
+    // l'hôte B avec le compte de A : 404 HOST_ACCOUNT_NOT_FOUND partout
+    const routes: readonly (readonly ['GET' | 'POST' | 'DELETE' | 'PUT', string, unknown])[] = [
+      ['GET', `${car}/calendar`, undefined],
+      ['POST', `${car}/blocks`, { from: '2036-12-22', to: '2036-12-22' }],
+      ['DELETE', `${car}/blocks/${blockId}`, undefined],
+      ['PUT', `${d.base}/locations/${d.locationId}/notice`, { minutes: 240 }],
+    ];
+    for (const [method, path, body] of routes) {
+      const r = await api.request(method, path, {
+        headers: w.b,
+        ...(body === undefined ? {} : { body }),
+      });
+      expect(r.status, `${method} ${path}`).toBe(404);
+      expect(r.json).toMatchObject({ code: 'HOST_ACCOUNT_NOT_FOUND' });
+    }
+    // identifiants mal formés : 404 comme un identifiant inconnu
+    const badCar = await api.request('GET', `${d.base}/vehicles/pas-un-uuid/calendar`, {
+      headers: w.a,
+    });
+    expect(badCar.json).toMatchObject({ code: 'VEHICLE_NOT_FOUND' });
+    const badBlock = await api.request('DELETE', `${car}/blocks/pas-un-uuid`, { headers: w.a });
+    expect(badBlock.json).toMatchObject({ code: 'BLOCK_NOT_FOUND' });
+    // rien n'a changé chez A
+    const cal = await api.request('GET', `${car}/calendar`, { headers: w.a });
+    expect((cal.json as { entries: { id: string }[] }).entries.map((e) => e.id)).toEqual([blockId]);
+    // sans session
+    for (const [method, path, body] of routes) {
+      const r = await api.request(method, path, body === undefined ? {} : { body });
+      expect(r.status, `${method} ${path}`).toBe(401);
+    }
+    // compte suspendu : aucune écriture
+    const host = w.store.hosts.get(w.app.hash('voyageur'))?.[0];
+    if (host) host.status = 'SUSPENDED';
+    const suspended = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { from: '2036-12-24', to: '2036-12-24' },
+    });
+    expect(suspended.status).toBe(403);
+    expect(suspended.json).toMatchObject({ code: 'HOST_ACCOUNT_SUSPENDED' });
+    if (host) host.status = 'ONBOARDING';
+    // base indisponible
+    w.store.failing = true;
+    expect((await api.request('GET', `${car}/calendar`, { headers: w.a })).status).toBe(503);
+    const down = await api.request('POST', `${car}/blocks`, {
+      headers: w.a,
+      body: { from: '2036-12-24', to: '2036-12-24' },
     });
     expect(down.status).toBe(503);
     expect(down.json).toMatchObject({ code: 'LISTING_UNAVAILABLE' });

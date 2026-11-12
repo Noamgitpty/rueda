@@ -506,6 +506,27 @@ async function requestOf(
       };
     case 'DELETE /host/accounts/{orgId}/listings/{listingId}':
       return { method: 'DELETE', path: `/host/accounts/${id}/listings/${randomUUID()}`, body: {} };
+    // calendrier de l'hôte (US-119) : véhicule, lieu et blocage inconnus du compte ⇒ 404
+    case 'GET /host/accounts/{orgId}/vehicles/{vehicleId}/calendar':
+      return { method: 'GET', path: `/host/accounts/${id}/vehicles/${randomUUID()}/calendar` };
+    case 'POST /host/accounts/{orgId}/vehicles/{vehicleId}/blocks':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/blocks`,
+        body: { from: '2036-12-10', to: '2036-12-12' },
+      };
+    case 'DELETE /host/accounts/{orgId}/vehicles/{vehicleId}/blocks/{blockId}':
+      return {
+        method: 'DELETE',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/blocks/${randomUUID()}`,
+        body: {},
+      };
+    case 'PUT /host/accounts/{orgId}/locations/{locationId}/notice':
+      return {
+        method: 'PUT',
+        path: `/host/accounts/${id}/locations/${randomUUID()}/notice`,
+        body: { minutes: 180 },
+      };
     case 'GET /listings/{listingId}':
       return { method: 'GET', path: `/listings/${randomUUID()}` };
     // téléphone par OTP (US-104) : la personne de la session ; un code faux, jamais un envoi

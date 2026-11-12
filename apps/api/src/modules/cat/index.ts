@@ -47,3 +47,16 @@ export {
 export type { PhotoScanner, PhotoStorage } from './internal/host-listings/photo-ingest.js';
 export { PgHostListingStore, UnavailableHostListingStore } from './internal/host-listings/store.js';
 export type { HostListingStore } from './internal/host-listings/store.js';
+
+// Calendrier par véhicule, blocages et préavis de l'hôte (US-119, ADR-100) : routes
+// /host/accounts/{orgId}/vehicles/{vehicleId}/calendar|blocks, …/locations/{locationId}/notice.
+export {
+  PgHostCalendarStore,
+  UnavailableHostCalendarStore,
+} from './internal/host-calendar/store.js';
+export type {
+  CalendarEntry,
+  CalendarHeader,
+  HostCalendarStore,
+  OccupancyKind,
+} from './internal/host-calendar/store.js';

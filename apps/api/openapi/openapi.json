@@ -4768,6 +4768,443 @@
         }
       }
     },
+    "/host/accounts/{orgId}/vehicles/{vehicleId}/calendar": {
+      "get": {
+        "operationId": "hostVehicleCalendar",
+        "tags": ["cat"],
+        "summary": "Calendrier d'un véhicule de l'hôte : occupations actives à venir (trips, holds, blocages, tampons), bornes locales du véhicule, préavis du lieu ; jamais le voyageur (US-119)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendrier du véhicule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleCalendar"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou véhicule inconnus (ou d'un autre hôte : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/vehicles/{vehicleId}/blocks": {
+      "post": {
+        "operationId": "createHostBlock",
+        "tags": ["cat"],
+        "summary": "Blocage par jours (du … au …, inclus) ou par heures (pas de 30 min) en heure locale du véhicule, par la commande de la table d'occupation unique (US-119)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Blocage enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockCreated"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte d'hôte suspendu ou fermé : aucune écriture",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_SUSPENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte ou véhicule inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Créneau déjà occupé (trip, hold, blocage ou tampon : aucun détail de l'occupation) ou véhicule non publié",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_UNAVAILABLE", "VEHICLE_NOT_LISTED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Période refusée par la base (déjà écoulée)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "INVALID_PERIOD"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/vehicles/{vehicleId}/blocks/{blockId}": {
+      "delete": {
+        "operationId": "deleteHostBlock",
+        "tags": ["cat"],
+        "summary": "Levée d'un blocage manuel actif du véhicule (BLOCK_REMOVED ; US-119)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "blockId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Blocage levé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarDone"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte, véhicule ou blocage inconnus (ou d'un autre hôte, ou déjà levé)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND", "BLOCK_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/locations/{locationId}/notice": {
+      "put": {
+        "operationId": "setHostLocationNotice",
+        "tags": ["cat"],
+        "summary": "Préavis minimum d'un lieu de remise : 60 à 10 080 min au pas de 30, ou null (défaut du pays) ; contrôlé à la pose d'un hold (DATES_NOTICE_TOO_SHORT ; US-119)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Préavis enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarDone"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou lieu inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LOCATION_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          }
+        }
+      }
+    },
     "/host/accounts/{orgId}/catalog/makes": {
       "get": {
         "operationId": "hostCatalogMakes",
@@ -5351,6 +5788,157 @@
       }
     },
     "schemas": {
+      "CalendarEntry": {
+        "type": "object",
+        "required": ["id", "kind", "startsAt", "endsAt", "startLocal", "endLocal", "removable"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "kind": {
+            "enum": ["TRIP", "HOLD", "HOST_BLOCK", "BUFFER"]
+          },
+          "startsAt": {
+            "type": "string"
+          },
+          "endsAt": {
+            "type": "string"
+          },
+          "startLocal": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$"
+          },
+          "endLocal": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$"
+          },
+          "removable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VehicleCalendar": {
+        "type": "object",
+        "required": ["vehicle", "entries"],
+        "additionalProperties": false,
+        "properties": {
+          "vehicle": {
+            "type": "object",
+            "required": [
+              "id",
+              "timezone",
+              "listed",
+              "locationId",
+              "noticeMinutes",
+              "effectiveNoticeMinutes"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "timezone": {
+                "type": "string"
+              },
+              "listed": {
+                "type": "boolean"
+              },
+              "locationId": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "noticeMinutes": {
+                "type": ["integer", "null"]
+              },
+              "effectiveNoticeMinutes": {
+                "type": ["integer", "null"]
+              }
+            }
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarEntry"
+            }
+          }
+        }
+      },
+      "BlockRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["from", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["start", "end"],
+            "additionalProperties": false,
+            "properties": {
+              "start": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$"
+              },
+              "end": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$"
+              }
+            }
+          }
+        ]
+      },
+      "BlockCreated": {
+        "type": "object",
+        "required": ["code", "messageKey", "blockId"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "BLOCK_CREATED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "blockId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "CalendarDone": {
+        "type": "object",
+        "required": ["code", "messageKey"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": ["BLOCK_REMOVED", "NOTICE_SAVED"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          }
+        }
+      },
+      "NoticeRequest": {
+        "type": "object",
+        "required": ["minutes"],
+        "additionalProperties": false,
+        "properties": {
+          "minutes": {
+            "type": ["integer", "null"],
+            "minimum": 60,
+            "maximum": 10080,
+            "multipleOf": 30
+          }
+        }
+      },
       "Uuid": {
         "type": "string",
         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"

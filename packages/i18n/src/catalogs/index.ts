@@ -34,9 +34,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (US-104) : `common.otp.*`, `common.error.phoneDigits` (10b §4.3), clés OTP de S15 du prototype
  US-033 devenues officielles (`web.s15.phone`, `.code`, `.verify`, `.codeSent`, `.resendIn`) et
  nouvelles `web.s15.*`. Version 18 : lieux de remise, véhicules et annonces de l'hôte (US-115) :
- `common.listing.*`, `web.host.*`, `web.listing.*`.
+ `common.listing.*`, `web.host.*`, `web.listing.*`. Version 19 : calendrier par véhicule, blocages
+ et préavis de l'hôte (US-119) : `common.calendar.*`, `web.calendar.*`.
  */
-export const CATALOG_VERSION = 18;
+export const CATALOG_VERSION = 19;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
