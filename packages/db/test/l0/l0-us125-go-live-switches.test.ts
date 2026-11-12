@@ -34,6 +34,7 @@ import {
   DECISION,
   SWITCHES,
   approveSwitch,
+  cancelSwitch,
   freshSession,
   goLive,
   newHash,
@@ -227,7 +228,8 @@ describe.each(COUNTRIES)('US-125 — interrupteurs de mise en service ($country,
         'SELF_APPROVAL',
       );
       expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(false);
-      // une seconde demande sur la même clé : la première est encore en attente
+      // une seconde demande d'OUVERTURE sur la même clé : la première est encore en attente (une
+      // demande de FERMETURE, elle, la remplace : preuve « revue sécurité n° 1 » ci-dessous)
       expect(
         (await requestSwitch(tx, actor('superC'), 'payouts_enabled', c.country, true)).outcome,
       ).toBe('ALREADY_PENDING');
@@ -245,6 +247,30 @@ describe.each(COUNTRIES)('US-125 — interrupteurs de mise en service ($country,
       expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(true);
       // un seul effet : la demande n'est plus en attente
       expect((await approveSwitch(tx, actor('superC'), id)).outcome).toBe('NOT_PENDING');
+      // événement config.param.changed (17 §4.5 : key, scope, valid_from), un seul, de l'approbateur
+      const events = (
+        await tx.query<{
+          type: string;
+          aggregate_type: string;
+          actor_user_id: string;
+          actor_role: string;
+          correlation_id: string;
+          payload: Record<string, unknown>;
+        }>('SELECT * FROM test_fixture.us125_events($1, $2)', ['payouts_enabled', c.country])
+      ).rows.filter((e) => e.correlation_id === id);
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        type: 'config.param.changed',
+        aggregate_type: 'param_value',
+        actor_user_id: actor('superC').userId,
+        actor_role: 'SUPERADMIN',
+        payload: expect.objectContaining({
+          key: 'payouts_enabled',
+          scope: 'COUNTRY',
+          country: c.country,
+        }),
+      });
+      expect(typeof events[0]?.payload['valid_from']).toBe('string');
       // l'autre pays et les autres clés ne bougent pas
       expect(await goLive(tx, 'payouts_enabled', other)).toBe(false);
       for (const k of SWITCHES.filter((s) => s !== 'payouts_enabled')) {
@@ -289,6 +315,120 @@ describe.each(COUNTRIES)('US-125 — interrupteurs de mise en service ($country,
       }
     });
     // transaction annulée : rien n'est resté
+    await allFalse(c.country);
+  });
+
+  it('revue sécurité n° 1 : aucune demande ne retarde une fermeture — demande sans effet refusée (NO_CHANGE), fermeture qui remplace l’ouverture en attente (SUPERSEDED), annulation par le demandeur ou un SUPERADMIN', async () => {
+    await withTestTransaction(api, {}, async (tx) => {
+      // demande sans effet (la valeur est déjà false) : refusée, aucune place occupée
+      expect(
+        (await requestSwitch(tx, actor('admin'), 'payouts_enabled', c.country, false)).outcome,
+      ).toBe('NO_CHANGE');
+      // un ADMIN place une demande d'ouverture ; un SUPERADMIN ferme : la demande est remplacée
+      const opening = await requestSwitch(tx, actor('admin'), 'payouts_enabled', c.country, true);
+      expect(opening.outcome).toBe('REQUESTED');
+      const closing = await requestSwitch(tx, actor('superB'), 'payouts_enabled', c.country, false);
+      expect(closing).toEqual({ outcome: 'SUPERSEDED', request_id: opening.request_id });
+      expect((await approveSwitch(tx, actor('superC'), opening.request_id as string)).outcome).toBe(
+        'NOT_PENDING',
+      );
+      expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(false);
+      const superseded = (await auditOf(tx, actor('superB').userId)).find(
+        (a) => a.action_code === 'GO_LIVE_SWITCH_SUPERSEDED',
+      );
+      expect(superseded).toMatchObject({ subject_id: opening.request_id, reason: DECISION });
+
+      // interrupteur ouvert (deux personnes) : une demande d'ouverture d'un ADMIN est sans effet,
+      // et la fermeture d'urgence passe sans attendre
+      const open = await requestSwitch(tx, actor('superB'), 'payouts_enabled', c.country, true);
+      expect(open.outcome).toBe('REQUESTED');
+      expect((await approveSwitch(tx, actor('superC'), open.request_id as string)).outcome).toBe(
+        'APPLIED',
+      );
+      expect(
+        (await requestSwitch(tx, actor('admin'), 'payouts_enabled', c.country, true)).outcome,
+      ).toBe('NO_CHANGE');
+      const urgent = await requestSwitch(tx, actor('superC'), 'payouts_enabled', c.country, false);
+      expect(urgent.outcome).toBe('REQUESTED');
+      expect((await approveSwitch(tx, actor('superB'), urgent.request_id as string)).outcome).toBe(
+        'APPLIED',
+      );
+      expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(false);
+
+      // annulation : le demandeur (même ADMIN) annule la sienne ; un autre ADMIN ne peut pas ; un
+      // SUPERADMIN du pays annule celle d'un autre ; une demande annulée n'est plus approuvable
+      const mine = await requestSwitch(
+        tx,
+        actor('admin'),
+        'insurer_contract_active',
+        c.country,
+        true,
+      );
+      expect(mine.outcome).toBe('REQUESTED');
+      const mineId = mine.request_id as string;
+      expect((await cancelSwitch(tx, actor('adminExpiring'), mineId)).outcome).toBe('FORBIDDEN');
+      expect((await cancelSwitch(tx, actor(`super_${other}`), mineId)).outcome).toBe('FORBIDDEN');
+      expect((await cancelSwitch(tx, actor('noMfa'), mineId)).outcome).toBe('MFA_REQUIRED');
+      expect((await cancelSwitch(tx, actor('admin'), mineId)).outcome).toBe('CANCELLED');
+      expect((await cancelSwitch(tx, actor('admin'), mineId)).outcome).toBe('NOT_PENDING');
+      expect((await approveSwitch(tx, actor('superB'), mineId)).outcome).toBe('NOT_PENDING');
+      const theirs = await requestSwitch(
+        tx,
+        actor('admin'),
+        'insurer_contract_active',
+        c.country,
+        true,
+      );
+      expect((await cancelSwitch(tx, actor('superB'), theirs.request_id as string)).outcome).toBe(
+        'CANCELLED',
+      );
+      expect((await auditOf(tx, actor('superB').userId)).map((a) => a.action_code)).toContain(
+        'GO_LIVE_SWITCH_CANCELLED',
+      );
+      expect(await goLive(tx, 'insurer_contract_active', c.country)).toBe(false);
+    });
+    await allFalse(c.country);
+  });
+
+  it('revue qa n° 1 : branche migrator de la garde (fixture 9992, sous migrator) — graine à false acceptée ; true, clé non canonique, demande liée, UPDATE et DELETE refusés par param_value_go_live_guard', async () => {
+    const tryAs = (what: string, key = 'payouts_enabled') =>
+      withTestTransaction(api, {}, async (tx) =>
+        tx
+          .query('SELECT test_fixture.us125_migrator_write($1, $2, $3)', [what, key, c.country])
+          .then(
+            () => null,
+            (e: unknown) => e as { code?: string; constraint?: string },
+          ),
+      );
+    expect(await tryAs('insert_false'), 'graine à false').toBeNull();
+    for (const [what, key] of [
+      ['insert_true', 'payouts_enabled'],
+      ['insert_false', 'PAYOUTS_ENABLED'],
+      ['insert_false', ' payouts_enabled'],
+      ['insert_false_with_request', 'payouts_enabled'],
+      ['update', 'payouts_enabled'],
+      ['delete', 'payouts_enabled'],
+    ] as const) {
+      expect(await tryAs(what, key), `${what} ${key}`).toMatchObject({
+        code: '42501',
+        constraint: 'param_value_go_live_guard',
+      });
+    }
+    await allFalse(c.country);
+  });
+
+  it('revue sécurité n° 4 (b) : compte du demandeur plus ACTIVE à l’approbation ⇒ REJECTED, sans effet', async () => {
+    await withTestTransaction(api, {}, async (tx) => {
+      const r = await requestSwitch(tx, actor('admin'), 'funds_holding_enabled', c.country, true);
+      expect(r.outcome).toBe('REQUESTED');
+      await tx.query(`SELECT test_fixture.iam_set_account_status($1, 'RESTRICTED')`, [
+        actor('admin').userId,
+      ]);
+      expect((await approveSwitch(tx, actor('superB'), r.request_id as string)).outcome).toBe(
+        'REJECTED',
+      );
+      expect(await goLive(tx, 'funds_holding_enabled', c.country)).toBe(false);
+    });
     await allFalse(c.country);
   });
 

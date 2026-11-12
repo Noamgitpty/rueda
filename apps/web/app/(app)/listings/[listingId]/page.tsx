@@ -6,6 +6,7 @@ import { publicListingOf } from '../../../../account/host-listings.ts';
 import {
   regulatoryNoticesOf,
   regulatoryNoticesPath,
+  regulatoryNoticesUnavailable,
 } from '../../../../account/regulatory-notices.ts';
 import { clientContext } from '../../../../account/request.ts';
 import { getRequestI18n } from '../../../../i18n.ts';
@@ -67,14 +68,11 @@ export default async function ListingPage({
   }
   const title = `${listing.makeName} ${listing.modelName} ${listing.year}`;
   // US-125 : limite légale connue du pays de l'annonce, pour le voyageur
-  const notices = regulatoryNoticesOf(
-    await callApi('GET', regulatoryNoticesPath(listing.country, 'GUEST'), {
-      ...(await clientContext()),
-      sessionToken: null,
-    }),
-    listing.country,
-    'GUEST',
-  );
+  const noticeReply = await callApi('GET', regulatoryNoticesPath(listing.country, 'GUEST'), {
+    ...(await clientContext()),
+    sessionToken: null,
+  });
+  const notices = regulatoryNoticesOf(noticeReply, listing.country, 'GUEST');
   return (
     <main id={MAIN_ID} tabIndex={-1} className={accountStyles['content']}>
       <div className={styles['media']}>
@@ -98,7 +96,12 @@ export default async function ListingPage({
         </div>
       </header>
 
-      <RegulatoryNotices i18n={i18n} notices={notices} headingId="s03-notices" />
+      <RegulatoryNotices
+        i18n={i18n}
+        notices={notices}
+        headingId="s03-notices"
+        unavailable={regulatoryNoticesUnavailable(noticeReply)}
+      />
 
       <section className={styles['section']} aria-labelledby="s03-features">
         <h2 id="s03-features" className={accountStyles['h2']}>

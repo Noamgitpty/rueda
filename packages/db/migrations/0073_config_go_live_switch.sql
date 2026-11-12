@@ -33,7 +33,8 @@
 --
 -- Retour arrière (base sans dépendance) :
 --   DROP FUNCTION core.config_cmd_request_go_live_switch(bytea, uuid, text, text, boolean, text),
---     core.config_cmd_approve_go_live_switch(bytea, uuid);
+--     core.config_cmd_approve_go_live_switch(bytea, uuid),
+--     core.config_cmd_cancel_go_live_switch(bytea, uuid);
 --   DROP TRIGGER param_value_go_live_guard ON core.config_param_value;
 --   CREATE OR REPLACE FUNCTION core.config_param_value_guard() … corps de 0008 ;
 --   DROP FUNCTION core.config_param_value_go_live_guard(), core.config_go_live_write_refusal(text,
@@ -67,7 +68,8 @@ CREATE TABLE core.config_go_live_switch_request (
   approved_by   uuid,                                          -- = seconde personne
   approved_at   timestamptz,
   status        text        NOT NULL
-    CONSTRAINT go_live_request_status_valid CHECK (status IN ('PENDING', 'APPLIED', 'REJECTED', 'EXPIRED')),
+    CONSTRAINT go_live_request_status_valid CHECK (status IN ('PENDING', 'APPLIED', 'REJECTED', 'EXPIRED',
+                                                              'SUPERSEDED', 'CANCELLED')),
   CONSTRAINT go_live_request_expiry CHECK (expires_at > requested_at),
   CONSTRAINT go_live_request_two_people CHECK (approved_by IS NULL OR approved_by <> requested_by),
   CONSTRAINT go_live_request_applied_shape CHECK ((status = 'APPLIED') = (approved_by IS NOT NULL)),
@@ -88,7 +90,8 @@ CREATE FUNCTION core.config_go_live_request_guard()
 AS $fn$
 BEGIN
   IF TG_OP = 'UPDATE'
-     AND OLD.status = 'PENDING' AND NEW.status IN ('APPLIED', 'REJECTED', 'EXPIRED')
+     AND OLD.status = 'PENDING'
+     AND NEW.status IN ('APPLIED', 'REJECTED', 'EXPIRED', 'SUPERSEDED', 'CANCELLED')
      AND (NEW.id, NEW.key, NEW.country_code, NEW.value, NEW.decision_ref, NEW.requested_by,
           NEW.requested_at, NEW.expires_at)
          IS NOT DISTINCT FROM
@@ -367,7 +370,8 @@ CREATE POLICY cmd_golive_ins ON core.config_go_live_switch_request FOR INSERT TO
               AND country_code = ANY (app.country_scope()));
 CREATE POLICY cmd_golive_upd ON core.config_go_live_switch_request FOR UPDATE TO cmd_golive_owner
   USING (app.actor_kind() = 'STAFF' AND status = 'PENDING')
-  WITH CHECK (app.actor_kind() = 'STAFF' AND status IN ('APPLIED', 'REJECTED', 'EXPIRED')
+  WITH CHECK (app.actor_kind() = 'STAFF'
+              AND status IN ('APPLIED', 'REJECTED', 'EXPIRED', 'SUPERSEDED', 'CANCELLED')
               AND country_code = ANY (app.country_scope()));
 
 -- session de staff, matrice et journal (aides de la console, ADR-062 ; SECURITY INVOKER) : mêmes
@@ -406,9 +410,19 @@ CREATE POLICY cmd_golive_event_ins ON core.outbox_outbox_event FOR INSERT TO cmd
 -- 6. Commandes à deux personnes (SECURITY DEFINER, cmd_golive_owner, EXECUTE au seul app_api) ----
 -- Issues (un refus n'est pas une erreur : il est journalisé puis rendu, l'API répond 403) :
 -- AUTH_REQUIRED (aucune session vivante ou contexte non STAFF : non journalisé), MFA_REQUIRED,
--- FORBIDDEN (permission, rôle, pays : même issue, aucun oracle), DUPLICATE, ALREADY_PENDING,
--- REQUESTED ; puis NOT_PENDING, SELF_APPROVAL, EXPIRED, REJECTED (le demandeur n'a plus le droit),
--- APPLIED. Clé non gardée, pays absent ou référence de décision mal formée : 22023.
+-- FORBIDDEN (permission, rôle, pays : même issue, aucun oracle), DUPLICATE, NO_CHANGE (valeur
+-- demandée = valeur en vigueur), SUPERSEDED (une fermeture a remplacé la demande d'ouverture en
+-- attente, sans nouvelle demande puisque la valeur est déjà false), ALREADY_PENDING, REQUESTED ;
+-- puis NOT_PENDING, SELF_APPROVAL, EXPIRED, REJECTED (le demandeur n'a plus le droit ou son compte
+-- n'est plus ACTIVE), APPLIED ; annulation : NOT_PENDING, CANCELLED. Clé non gardée, pays absent
+-- ou référence de décision mal formée : 22023.
+--
+-- Revue sécurité US-125 n° 1 : aucune demande ne peut retarder une FERMETURE. Une demande sans
+-- effet est refusée (NO_CHANGE) ; une demande à false remplace (SUPERSEDED, journalisé) toute
+-- demande d'ouverture en attente sur la même clé et le même pays ; le demandeur ou un SUPERADMIN
+-- du pays peut annuler une demande en attente. Toutes ces écritures prennent le même verrou
+-- consultatif (clé, pays) que l'approbation : un remplacement et une approbation concurrents sont
+-- sérialisés, et l'approbation relit l'état sous verrou.
 
 CREATE FUNCTION core.config_cmd_request_go_live_switch(p_token_hash bytea, p_request_id uuid,
                                                       p_key text, p_country text,
@@ -424,8 +438,10 @@ DECLARE
   v_s       record;
   v_role    text;
   v_prev    record;
-  v_pending uuid;
+  v_pend_id uuid;
+  v_pend_on boolean;
   v_now     timestamptz;
+  v_super   uuid;
 BEGIN
   SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
   IF v_s.user_id IS NULL OR app.actor_kind() IS DISTINCT FROM 'STAFF' THEN
@@ -480,10 +496,32 @@ BEGIN
   UPDATE core.config_go_live_switch_request AS r SET status = 'EXPIRED'
    WHERE r.key = p_key AND r.country_code::text = p_country AND r.status = 'PENDING'
      AND r.expires_at <= v_now;
-  SELECT r.id INTO v_pending FROM core.config_go_live_switch_request AS r
-   WHERE r.key = p_key AND r.country_code::text = p_country AND r.status = 'PENDING';
-  IF v_pending IS NOT NULL THEN
-    RETURN QUERY SELECT 'ALREADY_PENDING'::text, v_pending;
+  SELECT r.id, r.value INTO v_pend_id, v_pend_on FROM core.config_go_live_switch_request AS r
+   WHERE r.key = p_key AND r.country_code::text = p_country AND r.status = 'PENDING' FOR UPDATE;
+  -- une fermeture remplace toute demande d'ouverture en attente (jamais retardée)
+  IF NOT p_value AND v_pend_id IS NOT NULL AND v_pend_on THEN
+    UPDATE core.config_go_live_switch_request AS r SET status = 'SUPERSEDED'
+     WHERE r.id = v_pend_id;
+    PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'GO_LIVE_SWITCH_SUPERSEDED', 'GO_LIVE_SWITCH',
+                                 v_pend_id, NULL,
+                                 pg_catalog.jsonb_build_object('key', p_key, 'country', p_country,
+                                   'value', v_pend_on, 'supersededBy', p_request_id,
+                                   'decisionRef', p_decision_ref),
+                                 p_decision_ref, p_request_id);
+    v_super := v_pend_id;
+    v_pend_id := NULL;
+  END IF;
+  -- demande sans effet : refusée (elle occuperait la place d'une demande utile)
+  IF p_value = core.config_go_live(p_key, p_country) THEN
+    IF v_super IS NOT NULL THEN
+      RETURN QUERY SELECT 'SUPERSEDED'::text, v_super;
+    ELSE
+      RETURN QUERY SELECT 'NO_CHANGE'::text, NULL::uuid;
+    END IF;
+    RETURN;
+  END IF;
+  IF v_pend_id IS NOT NULL THEN
+    RETURN QUERY SELECT 'ALREADY_PENDING'::text, v_pend_id;
     RETURN;
   END IF;
   -- aucun effet sur la valeur : la demande seule ; échéance 72 h (PROPOSÉ, ADR-103)
@@ -587,9 +625,12 @@ BEGIN
     RETURN QUERY SELECT 'EXPIRED'::text, v_r.id;
     RETURN;
   END IF;
-  -- le demandeur doit encore détenir la permission (rôle retiré entre-temps : demande rejetée)
+  -- le demandeur doit encore détenir la permission et un compte ACTIVE (rôle retiré ou compte
+  -- suspendu entre-temps : demande rejetée)
   IF core.iam_staff_permitted(v_r.requested_by, 'config.go_live_switch', ARRAY[v_r.country_code],
-                              ARRAY['ADMIN', 'SUPERADMIN']) IS NULL THEN
+                              ARRAY['ADMIN', 'SUPERADMIN']) IS NULL
+     OR NOT EXISTS (SELECT 1 FROM core.iam_user_account AS u
+                     WHERE u.id = v_r.requested_by AND u.status = 'ACTIVE') THEN
     UPDATE core.config_go_live_switch_request AS r SET status = 'REJECTED' WHERE r.id = v_r.id;
     PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'GO_LIVE_SWITCH_REJECTED', 'GO_LIVE_SWITCH',
                                  v_r.id, NULL,
@@ -628,20 +669,95 @@ BEGIN
 END
 $fn$;
 
+-- Annulation d'une demande en attente : par son demandeur (même personne, session TOTP) ou par un
+-- SUPERADMIN du pays ; journalisée. Aucun effet sur la valeur.
+CREATE FUNCTION core.config_cmd_cancel_go_live_switch(p_token_hash bytea, p_request_id uuid)
+  RETURNS TABLE (outcome text, request_id uuid)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_s    record;
+  v_r    record;
+  v_role text;
+BEGIN
+  SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
+  IF v_s.user_id IS NULL OR app.actor_kind() IS DISTINCT FROM 'STAFF' THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  IF p_request_id IS NULL THEN
+    RAISE EXCEPTION 'interrupteur : demande absente' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT r.id, r.key, r.country_code::text AS country_code, r.value, r.requested_by, r.status
+    INTO v_r FROM core.config_go_live_switch_request AS r WHERE r.id = p_request_id;
+  IF v_s.mfa_level <> 'TOTP' THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', 'GO_LIVE_SWITCH',
+                                 p_request_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason', '2FA_REQUIRED',
+                                   'attempted', 'CANCEL_GO_LIVE_SWITCH'), NULL, p_request_id);
+    RETURN QUERY SELECT 'MFA_REQUIRED'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  -- le demandeur (ADMIN ou SUPERADMIN) annule la sienne ; sinon, SUPERADMIN du pays seulement
+  IF v_r.id IS NOT NULL THEN
+    v_role := core.iam_staff_permitted(v_s.user_id, 'config.go_live_switch', ARRAY[v_r.country_code],
+                                       CASE WHEN v_r.requested_by = v_s.user_id
+                                            THEN ARRAY['ADMIN', 'SUPERADMIN']
+                                            ELSE ARRAY['SUPERADMIN'] END);
+  END IF;
+  IF v_role IS NULL OR NOT (v_r.country_code = ANY (COALESCE(app.country_scope(), '{}'::text[]))) THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_FORBIDDEN', 'GO_LIVE_SWITCH',
+                                 p_request_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason',
+                                   CASE WHEN v_r.id IS NULL THEN 'SUBJECT_NOT_FOUND'
+                                        ELSE 'PERMISSION_OR_COUNTRY' END,
+                                   'attempted', 'CANCEL_GO_LIVE_SWITCH',
+                                   'permission', 'config.go_live_switch'), NULL, p_request_id);
+    RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('config.go_live:' || v_r.key || ':' || v_r.country_code, 0));
+  PERFORM 1 FROM core.config_go_live_switch_request AS r
+   WHERE r.id = v_r.id AND r.status = 'PENDING' FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'NOT_PENDING'::text, v_r.id;
+    RETURN;
+  END IF;
+  UPDATE core.config_go_live_switch_request AS r SET status = 'CANCELLED' WHERE r.id = v_r.id;
+  PERFORM core.iam_staff_audit(v_s.user_id, v_role, 'GO_LIVE_SWITCH_CANCELLED', 'GO_LIVE_SWITCH',
+                               v_r.id, NULL,
+                               pg_catalog.jsonb_build_object('key', v_r.key,
+                                 'country', v_r.country_code, 'value', v_r.value,
+                                 'requestedBy', v_r.requested_by), NULL, p_request_id);
+  RETURN QUERY SELECT 'CANCELLED'::text, v_r.id;
+END
+$fn$;
+
 COMMENT ON FUNCTION core.config_cmd_request_go_live_switch(bytea, uuid, text, text, boolean, text) IS
   'Demande de changement d''un interrupteur de mise en service (ADMIN ou SUPERADMIN, décision '
   'écrite du fondateur), sans effet : 17 §2.3, RLS-27. US-125.';
 COMMENT ON FUNCTION core.config_cmd_approve_go_live_switch(bytea, uuid) IS
   'Approbation par un SUPERADMIN AUTRE que le demandeur ; nouvelle version, événement et audit '
   'dans la même transaction : 17 §2.3, RLS-27. US-125.';
+COMMENT ON FUNCTION core.config_cmd_cancel_go_live_switch(bytea, uuid) IS
+  'Annulation d''une demande en attente par son demandeur ou un SUPERADMIN du pays, journalisée. '
+  'US-125 (revue sécurité n° 1).';
 
 REVOKE ALL ON FUNCTION core.config_cmd_request_go_live_switch(bytea, uuid, text, text, boolean, text),
-  core.config_cmd_approve_go_live_switch(bytea, uuid) FROM PUBLIC;
+  core.config_cmd_approve_go_live_switch(bytea, uuid),
+  core.config_cmd_cancel_go_live_switch(bytea, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.config_cmd_request_go_live_switch(bytea, uuid, text, text, boolean, text),
-  core.config_cmd_approve_go_live_switch(bytea, uuid) TO app_api;   -- jamais app_worker ni app_anon
+  core.config_cmd_approve_go_live_switch(bytea, uuid),
+  core.config_cmd_cancel_go_live_switch(bytea, uuid) TO app_api;   -- jamais app_worker ni app_anon
 
 GRANT CREATE ON SCHEMA core TO cmd_golive_owner;
 ALTER FUNCTION core.config_cmd_request_go_live_switch(bytea, uuid, text, text, boolean, text)
   OWNER TO cmd_golive_owner;
 ALTER FUNCTION core.config_cmd_approve_go_live_switch(bytea, uuid) OWNER TO cmd_golive_owner;
+ALTER FUNCTION core.config_cmd_cancel_go_live_switch(bytea, uuid) OWNER TO cmd_golive_owner;
 REVOKE CREATE ON SCHEMA core FROM cmd_golive_owner;

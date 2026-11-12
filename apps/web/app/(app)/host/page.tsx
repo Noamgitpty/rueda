@@ -14,7 +14,11 @@ import {
 } from '../../../account/host-listings.ts';
 import type { ListingView, VehicleView } from '../../../account/host-listings.ts';
 import { hostTermsOf } from '../../../account/host-terms.ts';
-import { regulatoryNoticesOf, regulatoryNoticesPath } from '../../../account/regulatory-notices.ts';
+import {
+  regulatoryNoticesOf,
+  regulatoryNoticesPath,
+  regulatoryNoticesUnavailable,
+} from '../../../account/regulatory-notices.ts';
 import { clientContext } from '../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../i18n.ts';
 import accountStyles from '../_account/account.module.css';
@@ -186,7 +190,12 @@ export default async function HostPage({
           </ul>
         </nav>
       )}
-      <RegulatoryNotices i18n={i18n} notices={notices} headingId="a10-notices" />
+      <RegulatoryNotices
+        i18n={i18n}
+        notices={notices}
+        headingId="a10-notices"
+        unavailable={regulatoryNoticesUnavailable(noticeReply)}
+      />
       <section className={styles['section']} aria-labelledby="a10-terms">
         <h2 id="a10-terms" className={accountStyles['h2']}>
           {t('web.host.terms.title')}

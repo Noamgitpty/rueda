@@ -64,6 +64,11 @@ export function regulatoryNoticesOf(
   return out;
 }
 
+/** L'API des avertissements n'a pas répondu (injoignable ou erreur) : l'écran le dit. */
+export function regulatoryNoticesUnavailable(reply: ApiResult): boolean {
+  return reply.status !== 200;
+}
+
 /** Chemin de la lecture des avertissements d'un pays pour un public. */
 export function regulatoryNoticesPath(country: string, audience: NoticeAudience): string {
   return `/regulatory-notices?country=${encodeURIComponent(country)}&audience=${audience}`;

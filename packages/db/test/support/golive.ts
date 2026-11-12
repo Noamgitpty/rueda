@@ -29,6 +29,8 @@ export const REQUEST_SQL =
   'SELECT outcome, request_id FROM core.config_cmd_request_go_live_switch($1, $2, $3, $4, $5, $6)';
 export const APPROVE_SQL =
   'SELECT outcome, request_id FROM core.config_cmd_approve_go_live_switch($1, $2)';
+export const CANCEL_SQL =
+  'SELECT outcome, request_id FROM core.config_cmd_cancel_go_live_switch($1, $2)';
 
 /** Membre du staff : identifiant, empreinte de session (élevée sauf mention), portée pays. */
 export interface StaffActor {
@@ -81,6 +83,17 @@ export async function requestSwitch(
 }
 
 /** Approbation, dans la transaction courante, sous le contexte de `who`. */
+/** Annulation d'une demande en attente, sous le contexte de `who`. */
+export async function cancelSwitch(
+  tx: pg.ClientBase,
+  who: StaffActor,
+  requestId: string,
+): Promise<Outcome> {
+  await asStaff(tx, who);
+  const { rows } = await tx.query<Outcome>(CANCEL_SQL, [who.hash, requestId]);
+  return rows[0] ?? { outcome: '', request_id: null };
+}
+
 export async function approveSwitch(
   tx: pg.ClientBase,
   who: StaffActor,
@@ -134,6 +147,8 @@ export async function openSwitchWindow(
       const req = await freshSession(tx, requester);
       const app = await freshSession(tx, approver);
       const r = await requestSwitch(tx, req, key, country, value);
+      // fermeture d'une fenêtre qui ne s'est pas ouverte : rien à refermer (NO_CHANGE)
+      if (!value && r.outcome === 'NO_CHANGE') return;
       if (r.outcome !== 'REQUESTED' || r.request_id === null) {
         throw new Error(`demande d'interrupteur : ${r.outcome}`);
       }
@@ -153,6 +168,35 @@ export async function openSwitchWindow(
   );
   if (closed) throw new Error(`interrupteur ${key} resté ouvert à ${to}`);
   if (opening !== null) throw opening;
+}
+
+/**
+ * Base de TEST seulement : referme `key` à false dans `country` à l'instant virtuel `at` par la
+ * procédure à deux personnes, quel que soit l'état laissé par une course (déjà false : rien ;
+ * fermeture en attente : approuvée par une personne autre que son demandeur). Vérifie ensuite que
+ * la valeur vaut false à `at` ; lève sinon.
+ */
+export async function ensureClosed(
+  api: pg.ClientBase,
+  a: StaffActor,
+  b: StaffActor,
+  key: SwitchKey,
+  country: string,
+  at: string,
+): Promise<void> {
+  await withTestTransaction(api, { virtualNow: at, commit: true }, async (tx) => {
+    const sa = await freshSession(tx, a);
+    const sb = await freshSession(tx, b);
+    const r = await requestSwitch(tx, sa, key, country, false);
+    if (r.outcome === 'NO_CHANGE') return;
+    if (r.request_id === null) throw new Error(`fermeture : ${r.outcome}`);
+    // REQUESTED (la nôtre, demandée par a) ou ALREADY_PENDING (une fermeture d'un tiers)
+    let applied = (await approveSwitch(tx, sb, r.request_id)).outcome;
+    if (applied === 'SELF_APPROVAL') applied = (await approveSwitch(tx, sa, r.request_id)).outcome;
+    if (applied !== 'APPLIED') throw new Error(`fermeture : ${r.outcome} puis ${applied}`);
+  });
+  const open = await withTestTransaction(api, { virtualNow: at }, (tx) => goLive(tx, key, country));
+  if (open) throw new Error(`interrupteur ${key} resté ouvert à ${at}`);
 }
 
 /** Instant virtuel lointain (années 2500 à 2900), distinct à chaque série : aucune collision. */

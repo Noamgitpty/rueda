@@ -136,7 +136,11 @@ describe('textes des avertissements (catalogue @rueda/i18n, quatre langues)', ()
   });
 
   it('aucune clé common.regulatory.* orpheline : chaque texte appartient à un avertissement déclaré', () => {
-    const expected = new Set<string>(['common.regulatory.heading', 'common.regulatory.version']);
+    const expected = new Set<string>([
+      'common.regulatory.heading',
+      'common.regulatory.version',
+      'common.regulatory.unavailable',
+    ]);
     for (const entry of config.countries.values()) {
       for (const n of entry.regulatoryNotices) {
         for (const audience of n.audiences) {

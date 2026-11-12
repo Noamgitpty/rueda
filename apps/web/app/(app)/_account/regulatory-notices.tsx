@@ -12,13 +12,23 @@ export function RegulatoryNotices({
   i18n,
   notices,
   headingId,
+  unavailable,
 }: {
   readonly i18n: Translator;
   readonly notices: readonly RegulatoryNoticeView[];
   readonly headingId: string;
+  /** L'API des avertissements n'a pas répondu : le dire, plutôt que n'afficher rien. */
+  readonly unavailable?: boolean;
 }) {
-  if (notices.length === 0) return null;
   const t = i18n.t.bind(i18n);
+  if (unavailable === true && notices.length === 0) {
+    return (
+      <Banner tone="info" live="polite">
+        {t('common.regulatory.unavailable')}
+      </Banner>
+    );
+  }
+  if (notices.length === 0) return null;
   return (
     <section aria-labelledby={headingId} className={accountStyles['stackTight']}>
       <h2 id={headingId} className={accountStyles['h2']}>

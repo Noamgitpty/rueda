@@ -10,7 +10,11 @@ import { findForeignStrings } from '@rueda/i18n/testing';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { ApiResult } from '../account/api-client.ts';
-import { regulatoryNoticesOf, regulatoryNoticesPath } from '../account/regulatory-notices.ts';
+import {
+  regulatoryNoticesOf,
+  regulatoryNoticesPath,
+  regulatoryNoticesUnavailable,
+} from '../account/regulatory-notices.ts';
 import type { NoticeAudience } from '../account/regulatory-notices.ts';
 import { LOCALE_CONFIG } from '../locale-config.ts';
 import { RegulatoryNotices } from './(app)/_account/regulatory-notices.tsx';
@@ -132,6 +136,20 @@ describe('RegulatoryNotices : rendu dans les quatre langues', () => {
       expect(html).not.toMatch(/enabled|go_?live|insurer_contract|funds_holding/i);
     }
   });
+
+  it.each(['es', 'en', 'fr', 'pt'])(
+    'API injoignable (%s) : un message le dit dans la langue de la vue',
+    (language) => {
+      const i18n = createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+      const unavailable = regulatoryNoticesUnavailable({ status: 'unavailable' });
+      expect(unavailable).toBe(true);
+      expect(regulatoryNoticesUnavailable(reply(200, body('XX', 'HOST')))).toBe(false);
+      const html = renderToStaticMarkup(
+        <RegulatoryNotices i18n={i18n} notices={[]} headingId="t-n" unavailable={unavailable} />,
+      );
+      expect(html).toContain(i18n.t('common.regulatory.unavailable'));
+    },
+  );
 
   it('aucun avertissement : rien n’est rendu', () => {
     const i18n = createTranslator(getProfile(LOCALE_CONFIG, tagOf('es')));

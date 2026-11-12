@@ -253,6 +253,7 @@ describe('configuration pays : structure et droits', () => {
       // toutes les autres fonctions config_* restent des gardes ou des lectures SECURITY INVOKER
       const COMMANDS = [
         'core.config_cmd_approve_go_live_switch(bytea,uuid)',
+        'core.config_cmd_cancel_go_live_switch(bytea,uuid)',
         'core.config_cmd_request_go_live_switch(bytea,uuid,text,text,boolean,text)',
       ];
       expect(rows.map((r) => r.fn).sort()).toEqual(

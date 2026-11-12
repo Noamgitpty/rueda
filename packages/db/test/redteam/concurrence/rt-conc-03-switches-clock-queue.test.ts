@@ -11,7 +11,9 @@
  * on prouve qu'aucune autre voie n'existe, pour aucun rôle, aucun contexte, aucune astuce de
  * session (RT-CONC-21 à 23), puis que la paire refuse un acteur seul et la même personne deux fois
  * et n'accepte que deux personnes (RT-CONC-24, transaction annulée), une seule fois sous
- * concurrence (RT-CONC-25, demande à false : aucun interrupteur ne s'ouvre).
+ * concurrence (RT-CONC-25) ; une fermeture qui remplace une ouverture en attente, concurrente de
+ * son approbation, ne passe jamais deux fois (RT-CONC-26). RT-CONC-25 et 26 valident sur la base
+ * de TEST seulement, dans une fenêtre d'horloge virtuelle lointaine refermée à false (`finally`).
  * Rôles de production seulement (assertion L0-05 par connectAs / withRole). USD (PA) et PYG (PY).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -32,10 +34,12 @@ import {
 import type { EventCountry } from '../../support/outbox.ts';
 import { at, LONG } from './support.ts';
 import {
-  DECISION,
   approveSwitch,
+  ensureClosed,
+  farInstant,
   freshSession,
   goLive,
+  plusMinutes,
   requestSwitch,
 } from '../../support/golive.ts';
 import type { StaffActor } from '../../support/golive.ts';
@@ -347,6 +351,7 @@ describe.each(COUNTRIES)(
               [
                 ...INVOKER,
                 'config_cmd_approve_go_live_switch',
+                'config_cmd_cancel_go_live_switch',
                 'config_cmd_request_go_live_switch',
               ].sort(),
             );
@@ -406,49 +411,117 @@ describe.each(COUNTRIES)(
     );
 
     it(
-      'RT-CONC-25 (US-125) : deux approbations concurrentes de la même demande par deux SUPERADMIN ⇒ une seule appliquée, l’autre NOT_PENDING (demande à false : aucun interrupteur ne s’ouvre)',
+      'RT-CONC-25 (US-125) : deux approbations concurrentes de la même demande par deux SUPERADMIN ⇒ une seule appliquée, l’autre NOT_PENDING (base de test, fenêtre virtuelle lointaine refermée à false)',
       async () => {
         const [superB, superC] = await twoSuperadmins(api, c.country);
         const superD = (await twoSuperadmins(api, c.country))[0];
-        const id = await inTx(api, { commit: true }, async (tx) => {
-          const r = await requestSwitch(tx, superB, 'funds_holding_enabled', c.country, false);
-          expect(r.outcome).toBe('REQUESTED');
-          return r.request_id as string;
-        });
-        const first = await connectAs('app_api');
-        const second = await connectAs('app_api');
+        const t = farInstant();
         try {
-          const barrier = await Barrier.open(api);
-          const race = [
-            [first, superC],
-            [second, superD],
-          ].map(async ([conn, who]) => {
-            await barrier.wait(conn as pg.Client);
-            return inTx(conn as pg.Client, { commit: true }, async (tx) =>
-              approveSwitch(tx, who as StaffActor, id),
+          const id = await inTx(api, { commit: true, virtualNow: t }, async (tx) => {
+            const r = await requestSwitch(
+              tx,
+              await freshSession(tx, superB),
+              'funds_holding_enabled',
+              c.country,
+              true,
             );
+            expect(r.outcome).toBe('REQUESTED');
+            return r.request_id as string;
           });
-          await barrier.waitForWaiters(2);
-          await barrier.release();
-          const outcomes = (await Promise.all(race)).map((o) => o.outcome).sort();
-          expect(outcomes).toEqual(['APPLIED', 'NOT_PENDING']);
+          const outcomes = await race2(
+            (tx) => freshSession(tx, superC).then((s) => approveSwitch(tx, s, id)),
+            t,
+            (tx) => freshSession(tx, superD).then((s) => approveSwitch(tx, s, id)),
+            t,
+          );
+          expect(outcomes.map((o) => o.outcome).sort()).toEqual(['APPLIED', 'NOT_PENDING']);
         } finally {
-          await releaseClient(second);
-          await releaseClient(first);
+          await ensureClosed(
+            api,
+            superB,
+            superC,
+            'funds_holding_enabled',
+            c.country,
+            plusMinutes(t, 60),
+          );
         }
-        const { rows } = await api.query<{ n: number }>(
-          `SELECT count(*)::int AS n FROM core.config_param_value
-            WHERE key = 'funds_holding_enabled' AND country_code = $1 AND decision_ref = $2
-              AND value = 'false'::jsonb`,
-          [c.country, DECISION],
-        );
-        expect(rows[0]?.n).toBeGreaterThanOrEqual(1);
+        for (const k of SWITCHES) expect(await goLive(api, k, c.country), k).toBe(false);
+      },
+      LONG,
+    );
+
+    it(
+      'RT-CONC-26 (US-125, revue sécurité n° 1) : une fermeture qui remplace une ouverture en attente, concurrente de son approbation ⇒ soit APPLIED puis fermeture REQUESTED, soit SUPERSEDED puis NOT_PENDING, jamais les deux',
+      async () => {
+        const [superB, superC] = await twoSuperadmins(api, c.country);
+        const superD = (await twoSuperadmins(api, c.country))[0];
+        const t = farInstant();
+        try {
+          const id = await inTx(api, { commit: true, virtualNow: t }, async (tx) => {
+            const r = await requestSwitch(
+              tx,
+              await freshSession(tx, superB),
+              'payouts_enabled',
+              c.country,
+              true,
+            );
+            expect(r.outcome).toBe('REQUESTED');
+            return r.request_id as string;
+          });
+          const [approve, close] = await race2(
+            (tx) => freshSession(tx, superC).then((s) => approveSwitch(tx, s, id)),
+            t,
+            (tx) =>
+              freshSession(tx, superD).then((s) =>
+                requestSwitch(tx, s, 'payouts_enabled', c.country, false),
+              ),
+            plusMinutes(t, 1),
+          );
+          const pair = `${approve?.outcome}/${close?.outcome}`;
+          expect(['APPLIED/REQUESTED', 'NOT_PENDING/SUPERSEDED'], pair).toContain(pair);
+          if (close?.outcome === 'SUPERSEDED') expect(close.request_id).toBe(id);
+          // jamais à true après la fermeture demandée
+          const after = await inTx(api, { virtualNow: plusMinutes(t, 2) }, (tx) =>
+            goLive(tx, 'payouts_enabled', c.country),
+          );
+          expect(after).toBe(approve?.outcome === 'APPLIED');
+        } finally {
+          await ensureClosed(api, superB, superC, 'payouts_enabled', c.country, plusMinutes(t, 60));
+        }
         for (const k of SWITCHES) expect(await goLive(api, k, c.country), k).toBe(false);
       },
       LONG,
     );
   },
 );
+
+/** Deux transactions validées sur deux connexions app_api, lâchées ensemble (barrière). */
+async function race2<A, B>(
+  left: (tx: pg.ClientBase) => Promise<A>,
+  leftAt: string,
+  right: (tx: pg.ClientBase) => Promise<B>,
+  rightAt: string,
+): Promise<[A, B]> {
+  const first = await connectAs('app_api');
+  const second = await connectAs('app_api');
+  try {
+    const barrier = await Barrier.open(api);
+    const l = (async () => {
+      await barrier.wait(first);
+      return inTx(first, { commit: true, virtualNow: leftAt }, left);
+    })();
+    const r = (async () => {
+      await barrier.wait(second);
+      return inTx(second, { commit: true, virtualNow: rightAt }, right);
+    })();
+    await barrier.waitForWaiters(2);
+    await barrier.release();
+    return await Promise.all([l, r]);
+  } finally {
+    await releaseClient(second);
+    await releaseClient(first);
+  }
+}
 
 /** Deux SUPERADMIN du pays, sessions élevées, validés (base de test). */
 async function twoSuperadmins(

@@ -792,6 +792,13 @@
       "owner": "cmd_golive_owner",
       "execute": ["app_api"],
       "story": "US-125"
+    },
+    {
+      "signature": "core.config_cmd_cancel_go_live_switch(bytea,uuid)",
+      "family": "cmd_golive",
+      "owner": "cmd_golive_owner",
+      "execute": ["app_api"],
+      "story": "US-125"
     }
   ]
 }
