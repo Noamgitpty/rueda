@@ -1109,7 +1109,7 @@
       "story": "US-124"
     },
     {
-      "signature": "core.catalog_vehicle_claim_decide(uuid,text,uuid,text,text,text)",
+      "signature": "core.catalog_vehicle_claim_decide(uuid,text,uuid,text,text,text,jsonb,uuid)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["iam_staff_owner"],
@@ -1144,7 +1144,7 @@
       "story": "US-124"
     },
     {
-      "signature": "core.support_staff_decide_vehicle_claim(bytea,uuid,uuid,text,text)",
+      "signature": "core.support_staff_decide_vehicle_claim(bytea,uuid,uuid,text,text,jsonb,text)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
       "execute": ["app_api"],

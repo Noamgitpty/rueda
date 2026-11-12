@@ -947,6 +947,58 @@ describe('L1-PM-11 — l’hôte B n’agit jamais sur le véhicule de l’hôte
 });
 
 // ---------------------------------------------------------------------------------------------
+/** Liste de contrôle fermée de la confirmation (ADR-107) : tout PASS par défaut. */
+const claimChecks = (over: Record<string, string> = {}) => ({
+  CLAIMANT_TITLE: 'PASS',
+  CLAIMANT_IDENTITY: 'PASS',
+  PLATE_MATCH: 'PASS',
+  VIN_MATCH: 'NOT_APPLICABLE',
+  ...over,
+});
+const NOTE = 'Titre du demandeur vérifié contre le registre public';
+
+const decideClaimOf =
+  (c: pg.ClientBase, item: string) =>
+  (
+    s: Staff,
+    decision: string,
+    reason: string | null,
+    checklist: unknown = null,
+    note: string | null = null,
+  ) =>
+    call(
+      c,
+      'SELECT * FROM core.support_staff_decide_vehicle_claim($1, $2, $3, $4, $5, $6::jsonb, $7)',
+      [
+        s.hash,
+        uuid(),
+        item,
+        decision,
+        reason,
+        checklist === null ? null : JSON.stringify(checklist),
+        note,
+      ],
+    );
+const readClaim = (c: pg.ClientBase, s: Staff, item: string) =>
+  call(c, 'SELECT * FROM core.support_staff_vehicle_claim($1, $2, $3, $4)', [
+    s.hash,
+    uuid(),
+    item,
+    PURPOSE,
+  ]);
+
+/** Contestation ouverte par `b` contre la plaque `p` ; rend l'élément de file. */
+async function openClaim(c: pg.ClientBase, b: Host, p: string, vinOf: string | null = null) {
+  const r = await c.query<{ outcome: string; claim_id: string }>(
+    'SELECT * FROM core.catalog_cmd_open_vehicle_claim($1, $2, $3, $4, $5, $6, $7, $8)',
+    [b.hash, b.org, p, vinOf, uuid(), 'application/pdf', 4096, randomBytes(32)],
+  );
+  if (r.rows[0]?.outcome !== 'DONE') throw new Error(`contestation : ${r.rows[0]?.outcome}`);
+  const claim = r.rows[0].claim_id;
+  const [item] = await itemsOf(c, claim);
+  return { claim, item: item?.id ?? '' };
+}
+
 describe('N-61 — plaque ou VIN pris par un autre hôte : contestation, libération par un ADMIN', () => {
   it.each(byCountry)(
     '%s (%s) : B reçoit VEHICLE_PLATE_DUPLICATE, conteste avec son titre ; l’OPS lit, ne peut confirmer (ADMIN_REQUIRED) ; l’ADMIN confirme ⇒ le véhicule de A est libéré (INELIGIBLE, annonce REMOVED_BY_PLATFORM) et B enregistre la plaque',
@@ -1020,22 +1072,55 @@ describe('N-61 — plaque ou VIN pris par un autre hôte : contestation, libéra
           targetHolder: { userId: a.userId, legalFirstName: 'Ana' },
           target: { vehicleId: av.id, plate: p, vin: v },
         });
-        const decideClaim = (s: Staff, decision: string, reason: string | null) =>
-          call(
-            client,
-            'SELECT * FROM core.support_staff_decide_vehicle_claim($1, $2, $3, $4, $5)',
-            [s.hash, uuid(), item?.id, decision, reason],
-          );
-        expect((await decideClaim(ops, 'UPHOLD', null)).outcome).toBe('ADMIN_REQUIRED');
-        expect(await vehicleRow(client, av.id)).toMatchObject({ released: false });
-        expect((await decideClaim(admin, 'UPHOLD', 'INSUFFICIENT_PROOF')).outcome).toBe(
-          'CLAIM_REASON_INVALID',
+        const decideClaim = decideClaimOf(client, item?.id ?? '');
+        const checks = claimChecks({ VIN_MATCH: 'PASS' });
+        expect((await decideClaim(ops, 'UPHOLD', null, checks, NOTE)).outcome).toBe(
+          'ADMIN_REQUIRED',
         );
-        const ok = await decideClaim(admin, 'UPHOLD', null);
+        // l'ADMIN n'a pas lu le dossier lui-même (seul l'ops l'a lu) : refus
+        expect((await decideClaim(admin, 'UPHOLD', null, checks, NOTE)).outcome).toBe(
+          'CLAIM_DOSSIER_NOT_READ',
+        );
+        expect((await readClaim(client, admin, item?.id ?? '')).outcome).toBe('GRANTED');
+        expect((await decideClaim(admin, 'UPHOLD', null, checks, null)).outcome).toBe(
+          'CLAIM_NOTE_REQUIRED',
+        );
+        expect(
+          (await decideClaim(admin, 'UPHOLD', 'INSUFFICIENT_PROOF', checks, NOTE)).outcome,
+        ).toBe('CLAIM_REASON_INVALID');
+        // liste fermée : clé manquante, valeur hors liste, case en échec
+        for (const [list, outcome] of [
+          [{ CLAIMANT_TITLE: 'PASS' }, 'CLAIM_CHECKLIST_INVALID'],
+          [{ ...checks, VIN_MATCH: 'MAYBE' }, 'CLAIM_CHECKLIST_INVALID'],
+          [{ ...checks, ALL_VERIFIED: 'PASS' }, 'CLAIM_CHECKLIST_INVALID'],
+          [{ ...checks, PLATE_MATCH: 'FAIL' }, 'CLAIM_CHECKLIST_FAILED'],
+        ] as const) {
+          expect((await decideClaim(admin, 'UPHOLD', null, list, NOTE)).outcome).toBe(outcome);
+        }
+        expect(await vehicleRow(client, av.id)).toMatchObject({ released: false });
+        const ok = await decideClaim(admin, 'UPHOLD', null, checks, NOTE);
         expect(ok).toEqual({
           outcome: 'DECIDED',
           body: { itemId: item?.id, claimId: claim, status: 'UPHELD' },
         });
+        // l'hôte lésé est notifié (événement de l'outbox, sans donnée du demandeur)
+        const events = await client.query('SELECT * FROM test_fixture.us114_events($1)', [av.id]);
+        expect(events.rows).toEqual([
+          expect.objectContaining({
+            type: 'catalog.vehicle.released',
+            aggregate_type: 'catalog_vehicle',
+            country_code: country,
+            actor_user_id: admin.userId,
+            actor_role: 'ADMIN',
+            payload: expect.objectContaining({
+              vehicle_id: av.id,
+              org_id: a.org,
+              host_user_id: a.userId,
+              claim_id: claim,
+            }),
+          }),
+        ]);
+        expect(JSON.stringify(events.rows)).not.toContain(b.userId);
         expect(await vehicleRow(client, av.id)).toMatchObject({
           released: true,
           eligibility_status: 'INELIGIBLE',
@@ -1073,11 +1158,7 @@ describe('N-61 — plaque ou VIN pris par un autre hôte : contestation, libéra
         const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
         expect((await claimItem(client, ops, item?.id ?? '')).outcome).toBe('CLAIMED');
         const decideClaim = (reason: string | null) =>
-          call(
-            client,
-            'SELECT * FROM core.support_staff_decide_vehicle_claim($1, $2, $3, $4, $5)',
-            [ops.hash, uuid(), item?.id, 'DISMISS', reason],
-          );
+          decideClaimOf(client, item?.id ?? '')(ops, 'DISMISS', reason);
         expect((await decideClaim(null)).outcome).toBe('CLAIM_REASON_INVALID');
         expect((await decideClaim('INSUFFICIENT_PROOF')).outcome).toBe('DECIDED');
         const claims = await client.query('SELECT * FROM test_fixture.us124_claims($1)', [b.org]);
@@ -1089,6 +1170,106 @@ describe('N-61 — plaque ou VIN pris par un autre hôte : contestation, libéra
         expect((await vehicle(client, b, country, { year: 2022, plate: p })).outcome).toBe(
           'VEHICLE_PLATE_DUPLICATE',
         );
+      });
+    },
+  );
+});
+
+describe('N-61 — garde-fous de la libération (revue sécurité US-124, constats 1, 2 et 4)', () => {
+  it.each(byCountry)(
+    '%s (%s) : trip à venir sur le véhicule en cause ⇒ CLAIM_TARGET_BOOKED avec la liste (aucune libération) ; témoin trip passé : libéré ; second demandeur sur le véhicule déjà libéré ⇒ CLAIM_TARGET_RELEASED (jamais UPHELD sans effet) ; recours de l’hôte lésé jugé par un autre ADMIN (SAME_ADMIN_FORBIDDEN)',
+    async (country, currency, cc: CountryCase) => {
+      await withRole('app_api', async (client) => {
+        const a = await host(client, country);
+        const b = await host(client, country);
+        const d = await host(client, country);
+        const p = plate();
+        const av = await vehicle(client, a, country, { year: 2022, plate: p });
+        const guest = await host(client, country);
+        const day = 86_400_000;
+        const trip = (start: number, end: number) =>
+          client.query('SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)', [
+            uuid(),
+            guest.userId,
+            a.org,
+            av.id,
+            country,
+            currency,
+            cc.timezone,
+            new Date(Date.now() + start * day),
+            new Date(Date.now() + end * day),
+          ]);
+        await trip(10, 12);
+        const admin = await elevatedStaff(client, 'ADMIN', [country]);
+        const first = await openClaim(client, b, p);
+
+        const upholdFirst = decideClaimOf(client, first.item);
+        const dossier = await readClaim(client, admin, first.item);
+        expect(dossier.body).toMatchObject({
+          bookings: [expect.objectContaining({ kind: 'TRIP' })],
+        });
+        const booked = await upholdFirst(admin, 'UPHOLD', null, claimChecks(), NOTE);
+        expect(booked.outcome).toBe('CLAIM_TARGET_BOOKED');
+        expect(booked.body).toMatchObject({
+          bookings: [expect.objectContaining({ kind: 'TRIP' })],
+        });
+        expect(await vehicleRow(client, av.id)).toMatchObject({ released: false });
+        expect(
+          (await client.query('SELECT * FROM test_fixture.us114_events($1)', [av.id])).rows,
+        ).toEqual([]);
+
+        // TÉMOIN : le même véhicule sans réservation à venir (autre véhicule, trip déjà fini)
+        const q = plate();
+        const free = await vehicle(client, a, country, { year: 2022, plate: q });
+        await client.query(
+          'SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          [
+            uuid(),
+            guest.userId,
+            a.org,
+            free.id,
+            country,
+            currency,
+            cc.timezone,
+            new Date(Date.now() - 5 * day),
+            new Date(Date.now() - 3 * day),
+          ],
+        );
+        const c1 = await openClaim(client, b, q);
+        const c2 = await openClaim(client, d, q);
+        expect((await readClaim(client, admin, c1.item)).outcome).toBe('GRANTED');
+        expect(
+          (await decideClaimOf(client, c1.item)(admin, 'UPHOLD', null, claimChecks(), NOTE))
+            .outcome,
+        ).toBe('DECIDED');
+        expect(await vehicleRow(client, free.id)).toMatchObject({ released: true });
+        // second demandeur : le véhicule en cause est déjà libéré ⇒ refus explicite, reste OPEN
+        const other = await elevatedStaff(client, 'ADMIN', [country]);
+        expect((await readClaim(client, other, c2.item)).outcome).toBe('GRANTED');
+        expect(
+          (await decideClaimOf(client, c2.item)(other, 'UPHOLD', null, claimChecks(), NOTE))
+            .outcome,
+        ).toBe('CLAIM_TARGET_RELEASED');
+        expect(
+          (await client.query('SELECT * FROM test_fixture.us124_claims($1)', [d.org])).rows,
+        ).toEqual(expect.arrayContaining([expect.objectContaining({ status: 'OPEN' })]));
+
+        // recours : B enregistre la plaque ; A la conteste à son tour ; l'ADMIN qui a libéré ne
+        // peut pas confirmer, un autre ADMIN le peut
+        const bv = await vehicle(client, b, country, { year: 2022, plate: q });
+        expect(bv.outcome).toBe('DONE');
+        const back = await openClaim(client, a, q);
+        expect((await readClaim(client, admin, back.item)).outcome).toBe('GRANTED');
+        expect(
+          (await decideClaimOf(client, back.item)(admin, 'UPHOLD', null, claimChecks(), NOTE))
+            .outcome,
+        ).toBe('SAME_ADMIN_FORBIDDEN');
+        expect((await readClaim(client, other, back.item)).outcome).toBe('GRANTED');
+        expect(
+          (await decideClaimOf(client, back.item)(other, 'UPHOLD', null, claimChecks(), NOTE))
+            .outcome,
+        ).toBe('DECIDED');
+        expect(await vehicleRow(client, bv.id)).toMatchObject({ released: true });
       });
     },
   );

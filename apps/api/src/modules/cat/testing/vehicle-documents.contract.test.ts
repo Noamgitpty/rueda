@@ -35,7 +35,16 @@ interface Trace {
 }
 
 /** Antivirus, coffre et stockage de test : sain sauf la chaîne « EICAR » ; panne réglable. */
-function pipeline(trace: Trace, down: { scan: boolean; store: boolean }): DocumentPipeline {
+interface Down {
+  scan: boolean;
+  store: boolean;
+  /** Verdict imposé à l'antivirus (défaut : CLEAN, ou INFECTED si « EICAR »). */
+  verdict?: string;
+  /** Type détecté imposé (défaut : le type déclaré, lu par le serveur sur les octets). */
+  detected?: string | null;
+}
+
+function pipeline(trace: Trace, down: Down): DocumentPipeline {
   return {
     scanner: {
       scan: ({ declaredMime, body }) => {
@@ -45,8 +54,8 @@ function pipeline(trace: Trace, down: { scan: boolean; store: boolean }): Docume
         return Promise.resolve({
           status: 'SCANNED' as const,
           report: {
-            verdict: infected ? ('INFECTED' as const) : ('CLEAN' as const),
-            detectedMime: declaredMime,
+            verdict: down.verdict ?? (infected ? 'INFECTED' : 'CLEAN'),
+            detectedMime: down.detected === undefined ? declaredMime : down.detected,
             threat: infected ? 'Test' : null,
           },
         });
@@ -75,7 +84,7 @@ interface World {
   readonly app: ContractApp;
   readonly docs: FakeVehicleDocumentStore;
   readonly trace: Trace;
-  readonly down: { scan: boolean; store: boolean };
+  readonly down: Down;
   readonly orgA: string;
   readonly orgB: string;
   readonly a: Record<string, string>;
@@ -87,7 +96,7 @@ async function world(open = true): Promise<World> {
   const store = new FakeHostListingStore();
   const docs = new FakeVehicleDocumentStore();
   const trace: Trace = { scans: 0, sealed: 0 };
-  const down = { scan: false, store: false };
+  const down: Down = { scan: false, store: false };
   const app = await startContractApp({
     cat: {
       store,
@@ -260,6 +269,32 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
       { headers: prod.a },
     );
     expect(state.json).toMatchObject({ documentUploads: { open: false } });
+  });
+
+  it('antivirus : seul CLEAN du type réel libère ; type détecté différent du type lu, ou tout autre verdict (INFECTED, MIME_MISMATCH, UNSUPPORTED_TYPE, ENCRYPTED, inconnu) ⇒ 422, rien n’est scellé ni déposé (L1-PM-41, L1-PM-43)', async () => {
+    const w = await world();
+    const path = `/host/accounts/${w.orgA}/vehicles/${randomUUID()}/documents`;
+    const send = () => w.app.api.request('POST', path, { headers: w.a, body: upload(PDF) });
+    for (const detected of ['image/png', 'text/html', null]) {
+      w.down.detected = detected;
+      const r = await send();
+      expect(r.status, String(detected)).toBe(422);
+      expect(r.json).toMatchObject({ code: 'VEHICLE_DOCUMENT_INVALID' });
+    }
+    delete w.down.detected;
+    for (const verdict of ['INFECTED', 'MIME_MISMATCH', 'UNSUPPORTED_TYPE', 'ENCRYPTED', 'X']) {
+      w.down.verdict = verdict;
+      const r = await send();
+      expect(r.status, verdict).toBe(422);
+      expect(r.json).toMatchObject({ code: 'VEHICLE_DOCUMENT_INVALID' });
+    }
+    expect(w.trace.sealed).toBe(0);
+    expect(w.docs.deposited).toEqual([]);
+    // TÉMOIN : CLEAN du type lu ⇒ déposé
+    delete w.down.verdict;
+    expect((await send()).status).toBe(201);
+    expect(w.trace.sealed).toBe(1);
+    expect(w.docs.deposited).toHaveLength(1);
   });
 
   it('soumission : 200 ; 422 avec tous les motifs (« titre ») ; 409 hors catalogue ; 401, 403, 404, 415, 503', async () => {

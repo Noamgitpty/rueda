@@ -211,6 +211,8 @@ CREATE TABLE core.catalog_vehicle_claim (
   dismiss_reason    text
                     CONSTRAINT catalog_vehicle_claim_dismiss_reason_valid
                     CHECK (dismiss_reason IN ('INSUFFICIENT_PROOF', 'CLAIMANT_NOT_OWNER')),
+  -- liste de contrôle fermée de la confirmation (UPHOLD), recopiée de la décision de l'ADMIN
+  checklist         jsonb,
   review_item_id    uuid        REFERENCES core.support_review_queue_item (id),
   decided_by        uuid,
   decided_at        timestamptz,
@@ -219,7 +221,8 @@ CREATE TABLE core.catalog_vehicle_claim (
     REFERENCES core.iam_organization (id, country_code),
   CONSTRAINT catalog_vehicle_claim_decided CHECK (
     (status = 'OPEN') = (decided_by IS NULL) AND (decided_by IS NULL) = (decided_at IS NULL)),
-  CONSTRAINT catalog_vehicle_claim_dismissed CHECK ((status = 'DISMISSED') = (dismiss_reason IS NOT NULL))
+  CONSTRAINT catalog_vehicle_claim_dismissed CHECK ((status = 'DISMISSED') = (dismiss_reason IS NOT NULL)),
+  CONSTRAINT catalog_vehicle_claim_upheld_checked CHECK (status <> 'UPHELD' OR checklist IS NOT NULL)
 );
 -- une contestation ouverte par compte et par véhicule en cause
 CREATE UNIQUE INDEX catalog_vehicle_claim_open_unique ON core.catalog_vehicle_claim
@@ -266,7 +269,7 @@ GRANT SELECT, INSERT ON core.catalog_vehicle_eligibility_check TO catalog_cmd_ow
 CREATE POLICY catalog_cmd_all ON core.catalog_vehicle_eligibility_check TO catalog_cmd_owner
   USING (true) WITH CHECK (true);
 GRANT SELECT, INSERT ON core.catalog_vehicle_claim TO catalog_cmd_owner;
-GRANT UPDATE (status, dismiss_reason, decided_by, decided_at)
+GRANT UPDATE (status, dismiss_reason, checklist, decided_by, decided_at)
   ON core.catalog_vehicle_claim TO catalog_cmd_owner;
 CREATE POLICY catalog_cmd_all ON core.catalog_vehicle_claim TO catalog_cmd_owner
   USING (true) WITH CHECK (true);
@@ -307,6 +310,22 @@ CREATE POLICY catalog_cmd_audit_insert ON core.audit_audit_log FOR INSERT TO cat
                                   'VEHICLE_ELIGIBILITY_SUBMITTED')
                   AND subject_type = 'VEHICLE')
               OR (action_code = 'VEHICLE_CLAIM_OPENED' AND subject_type = 'VEHICLE_CLAIM'));
+
+-- événement de libération d'un véhicule (hôte lésé notifié par NTF) en plus de l'événement de
+-- 0074 (politique recréée sous son nom, élargie ; colonnes déjà accordées par 0074)
+DROP POLICY catalog_cmd_event_insert ON core.outbox_outbox_event;
+CREATE POLICY catalog_cmd_event_insert ON core.outbox_outbox_event FOR INSERT TO catalog_cmd_owner
+  WITH CHECK (((type = 'catalog.addition_request.resolved'
+                AND aggregate_type = 'catalog_addition_request')
+               OR (type = 'catalog.vehicle.released' AND aggregate_type = 'catalog_vehicle'))
+              AND actor_role IN ('OPS_AGENT', 'ADMIN') AND actor_user_id IS NOT NULL);
+
+-- confirmation d'une contestation : la console vérifie que l'ADMIN qui décide a lu le dossier
+-- (ligne du journal d'accès de CETTE contestation) ; lecture limitée au sujet VEHICLE_CLAIM
+GRANT SELECT (actor_user_id, subject_type, subject_id, field_or_file, access_kind)
+  ON core.audit_data_access_log TO iam_staff_owner;
+CREATE POLICY iam_staff_claim_read ON core.audit_data_access_log FOR SELECT TO iam_staff_owner
+  USING (subject_type = 'VEHICLE_CLAIM');
 
 -- files de revue : éléments de la file LISTING en plus de CATALOG_ADDITION (politique recréée)
 DROP POLICY catalog_cmd_read ON core.support_review_queue_item;
@@ -1368,6 +1387,24 @@ BEGIN
 END
 $fn$;
 
+-- Réservations en cours ou à venir d'un véhicule : occupations ACTIVES de type TRIP ou HOLD dont la
+-- fin est future (jamais le voyageur : type, début, fin). Tableau vide : aucune.
+CREATE FUNCTION core.catalog_vehicle_live_bookings(p_vehicle uuid)
+  RETURNS jsonb
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+           'kind', o.kind, 'startsAt', pg_catalog.lower(o.period),
+           'endsAt', pg_catalog.upper(o.period)) ORDER BY pg_catalog.lower(o.period), o.id),
+         '[]'::jsonb)
+    FROM core.booking_vehicle_occupancy AS o
+   WHERE o.vehicle_id = p_vehicle AND o.active AND o.kind IN ('TRIP', 'HOLD')
+     AND pg_catalog.upper(o.period) > platform.now()
+$fn$;
+REVOKE ALL ON FUNCTION core.catalog_vehicle_live_bookings(uuid) FROM PUBLIC;
+
 -- Dossier d'une contestation pour l'ops (C2 ; journalisé par la console) : plaque et VIN saisis,
 -- demandeur (identifiant), titre (fichier), dossier du véhicule en cause.
 CREATE FUNCTION core.catalog_vehicle_claim_dossier(p_claim uuid, p_country text)
@@ -1382,19 +1419,28 @@ AS $fn$
     'claimantUserId', c.claimant_user_id, 'claimantOrgId', c.org_id,
     'titleFileId', c.title_file_id, 'mime', c.mime, 'bytes', c.bytes, 'createdAt', c.created_at,
     'dismissReason', c.dismiss_reason,
-    'target', core.catalog_vehicle_dossier(c.target_vehicle_id, c.country_code))
+    'target', core.catalog_vehicle_dossier(c.target_vehicle_id, c.country_code),
+    'bookings', core.catalog_vehicle_live_bookings(c.target_vehicle_id))
     FROM core.catalog_vehicle_claim AS c
    WHERE c.id = p_claim AND c.country_code = p_country
 $fn$;
 
--- Décision sur une contestation OPEN : UPHOLD (ADMIN seul, contrôlé par la console) libère le
--- véhicule en cause (released_at, INELIGIBLE, motif VEHICLE_RELEASED, annonces vivantes
--- REMOVED_BY_PLATFORM, ligne CLAIM_RELEASE) ; DISMISS motivé. Issues : DECIDED (status, véhicule en
--- cause), NOT_OPEN, COUNTRY_MISMATCH, CLAIM_REASON_INVALID.
+-- Décision sur une contestation OPEN. UPHOLD (ADMIN seul, dossier lu : contrôlés par la console),
+-- dans l'ordre : véhicule en cause déjà libéré ⇒ CLAIM_TARGET_RELEASED (un second demandeur n'est
+-- jamais « confirmé sans effet ») ; liste de contrôle FERMÉE (CLAIMANT_TITLE, CLAIMANT_IDENTITY,
+-- PLATE_MATCH, VIN_MATCH ; PASS / FAIL, VIN_MATCH NOT_APPLICABLE seulement sans VIN saisi) sinon
+-- CLAIM_CHECKLIST_INVALID ; un point en échec ⇒ CLAIM_CHECKLIST_FAILED (rejeter) ; réservation en
+-- cours ou à venir sur le véhicule ⇒ CLAIM_TARGET_BOOKED (liste rendue) ; ADMIN qui a déjà
+-- libéré cette plaque ⇒ SAME_ADMIN_FORBIDDEN (recours de l'hôte lésé jugé par un autre ADMIN).
+-- Alors le véhicule est libéré (released_at, INELIGIBLE, annonces vivantes REMOVED_BY_PLATFORM,
+-- ligne CLAIM_RELEASE) et l'hôte lésé est notifié (événement catalog.vehicle.released). DISMISS :
+-- motif fermé. Issues : DECIDED (status, véhicule en cause, réservations), NOT_OPEN,
+-- COUNTRY_MISMATCH, CLAIM_REASON_INVALID et celles d'UPHOLD.
 CREATE FUNCTION core.catalog_vehicle_claim_decide(p_claim uuid, p_country text, p_actor uuid,
                                                   p_actor_role text, p_decision text,
-                                                  p_reason text)
-  RETURNS TABLE (outcome text, status text, target_vehicle_id uuid)
+                                                  p_reason text, p_checklist jsonb,
+                                                  p_correlation uuid)
+  RETURNS TABLE (outcome text, status text, target_vehicle_id uuid, bookings jsonb)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -1402,40 +1448,75 @@ CREATE FUNCTION core.catalog_vehicle_claim_decide(p_claim uuid, p_country text, 
 AS $fn$
 #variable_conflict use_column
 DECLARE
-  v_now timestamptz := platform.now();
-  c     record;
-  v     record;
+  v_now  timestamptz := platform.now();
+  c      record;
+  v      record;
+  v_keys text[] := ARRAY['CLAIMANT_TITLE', 'CLAIMANT_IDENTITY', 'PLATE_MATCH', 'VIN_MATCH'];
+  v_ok   boolean;
+  v_book jsonb;
 BEGIN
   IF p_claim IS NULL OR p_country IS NULL OR p_actor IS NULL
      OR p_actor_role IS NULL OR p_actor_role NOT IN ('OPS_AGENT', 'ADMIN')
      OR p_decision IS NULL OR p_decision NOT IN ('UPHOLD', 'DISMISS') THEN
     RAISE EXCEPTION 'contestation : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  -- véhicule en cause d'abord, puis la contestation
+  -- véhicule en cause d'abord, puis la contestation (ordre fixe des verrous)
   SELECT x.target_vehicle_id INTO v FROM core.catalog_vehicle_claim AS x WHERE x.id = p_claim;
   IF v.target_vehicle_id IS NULL THEN
-    RETURN QUERY SELECT 'NOT_OPEN'::text, NULL::text, NULL::uuid;
+    RETURN QUERY SELECT 'NOT_OPEN'::text, NULL::text, NULL::uuid, '[]'::jsonb;
     RETURN;
   END IF;
-  SELECT x.id, x.org_id, x.country_code, x.released_at, x.eligibility_status INTO v
+  SELECT x.id, x.org_id, x.country_code, x.released_at, x.created_by INTO v
     FROM core.catalog_vehicle AS x WHERE x.id = v.target_vehicle_id FOR UPDATE;
-  SELECT x.id, x.status, x.country_code INTO c
+  SELECT x.id, x.status, x.country_code, x.plate, x.vin INTO c
     FROM core.catalog_vehicle_claim AS x WHERE x.id = p_claim FOR UPDATE;
   IF c.country_code IS DISTINCT FROM p_country THEN
-    RETURN QUERY SELECT 'COUNTRY_MISMATCH'::text, NULL::text, NULL::uuid;
+    RETURN QUERY SELECT 'COUNTRY_MISMATCH'::text, NULL::text, NULL::uuid, '[]'::jsonb;
     RETURN;
   END IF;
   IF c.status <> 'OPEN' THEN
-    RETURN QUERY SELECT 'NOT_OPEN'::text, c.status, NULL::uuid;
+    RETURN QUERY SELECT 'NOT_OPEN'::text, c.status, NULL::uuid, '[]'::jsonb;
     RETURN;
   END IF;
   IF (p_decision = 'DISMISS' AND (p_reason IS NULL
                                   OR p_reason NOT IN ('INSUFFICIENT_PROOF', 'CLAIMANT_NOT_OWNER')))
      OR (p_decision = 'UPHOLD' AND p_reason IS NOT NULL) THEN
-    RETURN QUERY SELECT 'CLAIM_REASON_INVALID'::text, NULL::text, NULL::uuid;
+    RETURN QUERY SELECT 'CLAIM_REASON_INVALID'::text, NULL::text, NULL::uuid, '[]'::jsonb;
     RETURN;
   END IF;
-  IF p_decision = 'UPHOLD' AND v.released_at IS NULL THEN
+  IF p_decision = 'UPHOLD' THEN
+    IF v.released_at IS NOT NULL THEN
+      RETURN QUERY SELECT 'CLAIM_TARGET_RELEASED'::text, NULL::text, v.id, '[]'::jsonb;
+      RETURN;
+    END IF;
+    v_ok := p_checklist IS NOT NULL AND pg_catalog.jsonb_typeof(p_checklist) = 'object'
+      AND (SELECT pg_catalog.array_agg(k ORDER BY k) FROM pg_catalog.jsonb_object_keys(p_checklist) AS k)
+          = (SELECT pg_catalog.array_agg(k ORDER BY k) FROM pg_catalog.unnest(v_keys) AS k)
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.jsonb_each(p_checklist) AS e(key, value)
+                       WHERE pg_catalog.jsonb_typeof(e.value) <> 'string'
+                          OR NOT ((e.value #>> '{}') IN ('PASS', 'FAIL')
+                                  OR (e.key = 'VIN_MATCH' AND c.vin IS NULL
+                                      AND (e.value #>> '{}') = 'NOT_APPLICABLE')));
+    IF NOT COALESCE(v_ok, false) THEN
+      RETURN QUERY SELECT 'CLAIM_CHECKLIST_INVALID'::text, NULL::text, v.id, '[]'::jsonb;
+      RETURN;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_catalog.jsonb_each_text(p_checklist) AS e(key, value)
+                WHERE e.value = 'FAIL') THEN
+      RETURN QUERY SELECT 'CLAIM_CHECKLIST_FAILED'::text, NULL::text, v.id, '[]'::jsonb;
+      RETURN;
+    END IF;
+    v_book := core.catalog_vehicle_live_bookings(v.id);
+    IF pg_catalog.jsonb_array_length(v_book) > 0 THEN
+      RETURN QUERY SELECT 'CLAIM_TARGET_BOOKED'::text, NULL::text, v.id, v_book;
+      RETURN;
+    END IF;
+    IF EXISTS (SELECT 1 FROM core.catalog_vehicle_claim AS x
+                WHERE x.status = 'UPHELD' AND x.decided_by = p_actor
+                  AND x.country_code = c.country_code AND x.plate = c.plate) THEN
+      RETURN QUERY SELECT 'SAME_ADMIN_FORBIDDEN'::text, NULL::text, v.id, '[]'::jsonb;
+      RETURN;
+    END IF;
     UPDATE core.catalog_vehicle AS x
        SET released_at = v_now, eligibility_status = 'INELIGIBLE',
            eligibility_reasons = ARRAY['VEHICLE_RELEASED'], eligibility_checked_at = v_now
@@ -1448,15 +1529,25 @@ BEGIN
                                                         created_at)
     VALUES (pg_catalog.gen_random_uuid(), v.id, v.org_id, v.country_code, 'CLAIM_RELEASE',
             'INELIGIBLE', ARRAY['VEHICLE_RELEASED'], p_actor, p_actor_role, v_now);
+    -- hôte lésé notifié (NTF) ; aucune donnée du demandeur
+    INSERT INTO core.outbox_outbox_event
+           (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_user_id, actor_role, correlation_id, payload)
+    VALUES ('catalog.vehicle.released', 1, 'catalog_vehicle', v.id, 1, v.country_code, p_actor,
+            p_actor_role, COALESCE(p_correlation, pg_catalog.gen_random_uuid()),
+            pg_catalog.jsonb_build_object('vehicle_id', v.id, 'org_id', v.org_id,
+                                          'host_user_id', v.created_by, 'claim_id', p_claim,
+                                          'reason', 'OWNERSHIP_CLAIM_UPHELD'));
   END IF;
   UPDATE core.catalog_vehicle_claim AS x
      SET status = CASE WHEN p_decision = 'UPHOLD' THEN 'UPHELD' ELSE 'DISMISSED' END,
          dismiss_reason = CASE WHEN p_decision = 'DISMISS' THEN p_reason END,
+         checklist = CASE WHEN p_decision = 'UPHOLD' THEN p_checklist END,
          decided_by = p_actor, decided_at = v_now
    WHERE x.id = p_claim;
   RETURN QUERY SELECT 'DECIDED'::text,
                       CASE WHEN p_decision = 'UPHOLD' THEN 'UPHELD' ELSE 'DISMISSED' END::text,
-                      v.id;
+                      v.id, '[]'::jsonb;
 END
 $fn$;
 
@@ -1473,9 +1564,13 @@ COMMENT ON FUNCTION core.catalog_vehicle_decide(uuid, text, uuid, text, jsonb, j
 COMMENT ON FUNCTION core.catalog_vehicle_claim_dossier(uuid, text) IS
   'Dossier d''une contestation vu par l''ops (C2 ; journalisé par la console). SECURITY DEFINER, '
   'EXECUTE iam_staff_owner seul. US-124 (BOARD N-61).';
-COMMENT ON FUNCTION core.catalog_vehicle_claim_decide(uuid, text, uuid, text, text, text) IS
-  'Décision sur une contestation : UPHOLD libère le véhicule en cause, DISMISS motivé. SECURITY '
-  'DEFINER, EXECUTE iam_staff_owner seul. US-124 (BOARD N-61).';
+COMMENT ON FUNCTION core.catalog_vehicle_claim_decide(uuid, text, uuid, text, text, text, jsonb, uuid) IS
+  'Décision sur une contestation : UPHOLD (liste fermée tout PASS, aucune réservation à venir, autre '
+  'ADMIN que celui qui a libéré la plaque) libère le véhicule et notifie l''hôte lésé ; DISMISS '
+  'motivé. SECURITY DEFINER, EXECUTE iam_staff_owner seul. US-124 (BOARD N-61).';
+COMMENT ON FUNCTION core.catalog_vehicle_live_bookings(uuid) IS
+  'Réservations en cours ou à venir d''un véhicule (occupations actives TRIP / HOLD) : type, début, '
+  'fin. Aide interne sous catalog_cmd_owner. US-124.';
 
 REVOKE ALL ON FUNCTION
   core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer),
@@ -1492,7 +1587,7 @@ REVOKE ALL ON FUNCTION
   core.catalog_vehicle_file(text, uuid, text, uuid),
   core.catalog_vehicle_decide(uuid, text, uuid, text, jsonb, jsonb, uuid),
   core.catalog_vehicle_claim_dossier(uuid, text),
-  core.catalog_vehicle_claim_decide(uuid, text, uuid, text, text, text) FROM PUBLIC;
+  core.catalog_vehicle_claim_decide(uuid, text, uuid, text, text, text, jsonb, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   core.catalog_cmd_declare_vehicle(bytea, uuid, uuid, text, boolean, integer),
   core.catalog_vehicle_document_permitted(bytea, uuid, uuid),
@@ -1507,7 +1602,7 @@ GRANT EXECUTE ON FUNCTION core.catalog_vehicle_dossier(uuid, text),
   core.catalog_vehicle_file(text, uuid, text, uuid),
   core.catalog_vehicle_decide(uuid, text, uuid, text, jsonb, jsonb, uuid),
   core.catalog_vehicle_claim_dossier(uuid, text),
-  core.catalog_vehicle_claim_decide(uuid, text, uuid, text, text, text) TO iam_staff_owner;
+  core.catalog_vehicle_claim_decide(uuid, text, uuid, text, text, text, jsonb, uuid) TO iam_staff_owner;
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM catalog_cmd_owner;
 
@@ -1823,12 +1918,16 @@ END
 $fn$;
 
 -- 7.5 Décision sur une contestation : UPHOLD réservé à l'ADMIN (PROPOSÉ : libérer le véhicule d'un
--- autre hôte), DISMISS motivé ; élément clos ; l'élément vivant de revue du véhicule libéré est
--- annulé ; journal chaîné. Issues : DECIDED, NOT_OPEN, CLAIM_REASON_INVALID, ADMIN_REQUIRED et les
--- issues communes.
+-- autre hôte), qui doit avoir LU le dossier de cette contestation (ligne READ_C2_SUPPORT du journal
+-- d'accès, sinon CLAIM_DOSSIER_NOT_READ), cocher la liste fermée et écrire un motif (10 à 500
+-- caractères, au journal chaîné ; sinon CLAIM_NOTE_REQUIRED) ; DISMISS motivé ; élément clos ;
+-- l'élément vivant de revue du véhicule libéré est annulé ; journal chaîné. Issues : DECIDED,
+-- NOT_OPEN, CLAIM_REASON_INVALID, ADMIN_REQUIRED, CLAIM_DOSSIER_NOT_READ, CLAIM_NOTE_REQUIRED, celles
+-- de la fonction de domaine (CLAIM_TARGET_BOOKED rend `bookings`) et les issues communes.
 CREATE FUNCTION core.support_staff_decide_vehicle_claim(p_token_hash bytea, p_request_id uuid,
                                                         p_item_id uuid, p_decision text,
-                                                        p_reason text)
+                                                        p_reason text, p_checklist jsonb,
+                                                        p_note text)
   RETURNS TABLE (outcome text, body jsonb)
   LANGUAGE plpgsql
   VOLATILE
@@ -1862,11 +1961,28 @@ BEGIN
     RETURN QUERY SELECT 'ADMIN_REQUIRED'::text, NULL::jsonb;
     RETURN;
   END IF;
+  IF p_decision = 'UPHOLD' THEN
+    IF NOT EXISTS (SELECT 1 FROM core.audit_data_access_log AS l
+                    WHERE l.actor_user_id = v_g.user_id AND l.subject_type = 'VEHICLE_CLAIM'
+                      AND l.subject_id = v_g.subject_id AND l.access_kind = 'READ_C2_SUPPORT'
+                      AND l.field_or_file = 'vehicle_claim.dossier') THEN
+      RETURN QUERY SELECT 'CLAIM_DOSSIER_NOT_READ'::text, NULL::jsonb;
+      RETURN;
+    END IF;
+    IF p_note IS NULL OR pg_catalog.char_length(pg_catalog.btrim(p_note)) NOT BETWEEN 10 AND 500 THEN
+      RETURN QUERY SELECT 'CLAIM_NOTE_REQUIRED'::text, NULL::jsonb;
+      RETURN;
+    END IF;
+  END IF;
   SELECT * INTO v_r FROM core.catalog_vehicle_claim_decide(v_g.subject_id, v_g.country_code,
                                                             v_g.user_id, v_g.role, p_decision,
-                                                            p_reason);
+                                                            p_reason, p_checklist, p_request_id);
   IF v_r.outcome = 'COUNTRY_MISMATCH' THEN
     RETURN QUERY SELECT 'FORBIDDEN'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  IF v_r.outcome = 'CLAIM_TARGET_BOOKED' THEN
+    RETURN QUERY SELECT v_r.outcome, pg_catalog.jsonb_build_object('bookings', v_r.bookings);
     RETURN;
   END IF;
   IF v_r.outcome <> 'DECIDED' THEN
@@ -1890,8 +2006,10 @@ BEGIN
                                v_g.subject_id, pg_catalog.jsonb_build_object('status', 'OPEN'),
                                pg_catalog.jsonb_build_object('country', v_g.country_code,
                                  'status', v_r.status, 'reason', p_reason,
+                                 'checklist', CASE WHEN v_r.status = 'UPHELD' THEN p_checklist END,
                                  'targetVehicleId', v_r.target_vehicle_id, 'itemId', p_item_id),
-                               NULL, p_request_id);
+                               CASE WHEN v_r.status = 'UPHELD' THEN pg_catalog.btrim(p_note) END,
+                               p_request_id);
   RETURN QUERY SELECT 'DECIDED'::text, pg_catalog.jsonb_build_object(
     'itemId', p_item_id, 'claimId', v_g.subject_id, 'status', v_r.status);
 END
@@ -1919,18 +2037,19 @@ COMMENT ON FUNCTION core.support_staff_decide_vehicle_eligibility(bytea, uuid, u
 COMMENT ON FUNCTION core.support_staff_vehicle_claim(bytea, uuid, uuid, text) IS
   'Dossier d''une contestation de plaque ou de VIN ; lecture journalisée. SECURITY DEFINER, '
   'EXECUTE app_api. US-124 (BOARD N-61).';
-COMMENT ON FUNCTION core.support_staff_decide_vehicle_claim(bytea, uuid, uuid, text, text) IS
-  'Décision sur une contestation (UPHOLD : ADMIN seul, libère le véhicule en cause ; DISMISS '
-  'motivé), élément clos, journal chaîné. SECURITY DEFINER, EXECUTE app_api. US-124 (BOARD N-61).';
+COMMENT ON FUNCTION core.support_staff_decide_vehicle_claim(bytea, uuid, uuid, text, text, jsonb, text) IS
+  'Décision sur une contestation (UPHOLD : ADMIN seul, dossier lu, liste fermée, motif, aucune '
+  'réservation à venir ; DISMISS motivé), élément clos, journal chaîné. SECURITY DEFINER, EXECUTE '
+  'app_api. US-124 (BOARD N-61).';
 REVOKE ALL ON FUNCTION core.support_staff_vehicle_eligibility(bytea, uuid, uuid, text),
   core.support_staff_vehicle_file(bytea, uuid, uuid, text, uuid, text),
   core.support_staff_decide_vehicle_eligibility(bytea, uuid, uuid, jsonb, jsonb),
   core.support_staff_vehicle_claim(bytea, uuid, uuid, text),
-  core.support_staff_decide_vehicle_claim(bytea, uuid, uuid, text, text) FROM PUBLIC;
+  core.support_staff_decide_vehicle_claim(bytea, uuid, uuid, text, text, jsonb, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.support_staff_vehicle_eligibility(bytea, uuid, uuid, text),
   core.support_staff_vehicle_file(bytea, uuid, uuid, text, uuid, text),
   core.support_staff_decide_vehicle_eligibility(bytea, uuid, uuid, jsonb, jsonb),
   core.support_staff_vehicle_claim(bytea, uuid, uuid, text),
-  core.support_staff_decide_vehicle_claim(bytea, uuid, uuid, text, text) TO app_api;
+  core.support_staff_decide_vehicle_claim(bytea, uuid, uuid, text, text, jsonb, text) TO app_api;
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;

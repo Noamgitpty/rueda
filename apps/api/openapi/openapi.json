@@ -8187,6 +8187,15 @@
                   },
                   "reason": {
                     "enum": ["INSUFFICIENT_PROOF", "CLAIMANT_NOT_OWNER", null]
+                  },
+                  "checklist": {
+                    "type": ["object", "null"],
+                    "description": "UPHOLD : liste fermée CLAIMANT_TITLE, CLAIMANT_IDENTITY, PLATE_MATCH, VIN_MATCH (PASS / FAIL ; VIN_MATCH NOT_APPLICABLE sans VIN saisi)"
+                  },
+                  "note": {
+                    "type": ["string", "null"],
+                    "maxLength": 500,
+                    "description": "UPHOLD : motif de l'ADMIN (10 à 500 caractères), au journal chaîné"
                   }
                 }
               }
@@ -8216,7 +8225,7 @@
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
-            "description": "Sans permission, élément non pris en charge, ou confirmation réservée à l'ADMIN",
+            "description": "Sans permission, élément non pris en charge, confirmation réservée à l'ADMIN, ou ADMIN qui a déjà libéré cette plaque (le recours est jugé par un autre)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -8232,7 +8241,8 @@
                         "FORBIDDEN",
                         "2FA_REQUIRED",
                         "STAFF_CASE_REQUIRED",
-                        "STAFF_ADMIN_REQUIRED"
+                        "STAFF_ADMIN_REQUIRED",
+                        "STAFF_SAME_ADMIN_FORBIDDEN"
                       ]
                     }
                   }
@@ -8247,7 +8257,7 @@
             "$ref": "#/components/responses/StaffRateLimited"
           },
           "409": {
-            "description": "Contestation déjà tranchée",
+            "description": "Contestation déjà tranchée ; dossier non lu par l'ADMIN ; véhicule en cause déjà libéré ; réservations en cours ou à venir (`bookings` : type, début, fin)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -8259,7 +8269,12 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "VEHICLE_CLAIM_CLOSED"
+                      "enum": [
+                        "VEHICLE_CLAIM_CLOSED",
+                        "VEHICLE_CLAIM_DOSSIER_NOT_READ",
+                        "VEHICLE_CLAIM_TARGET_RELEASED",
+                        "VEHICLE_CLAIM_TARGET_BOOKED"
+                      ]
                     }
                   }
                 }
@@ -8267,7 +8282,7 @@
             }
           },
           "422": {
-            "description": "Motif absent (DISMISS) ou en trop (UPHOLD)",
+            "description": "Motif absent ou en trop ; motif de l'ADMIN absent ; liste de contrôle mal formée ou point en échec",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -8279,7 +8294,12 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "VEHICLE_CLAIM_REASON_INVALID"
+                      "enum": [
+                        "VEHICLE_CLAIM_REASON_INVALID",
+                        "VEHICLE_CLAIM_NOTE_REQUIRED",
+                        "VEHICLE_CHECKLIST_INVALID",
+                        "VEHICLE_CLAIM_CHECKLIST_FAILED"
+                      ]
                     }
                   }
                 }
@@ -8913,6 +8933,26 @@
             "type": "object",
             "additionalProperties": {
               "type": ["string", "number"]
+            }
+          },
+          "bookings": {
+            "type": "array",
+            "description": "VEHICLE_CLAIM_TARGET_BOOKED (US-124) : réservations en cours ou à venir du véhicule en cause, sans le voyageur",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "startsAt", "endsAt"],
+              "properties": {
+                "kind": {
+                  "enum": ["TRIP", "HOLD"]
+                },
+                "startsAt": {
+                  "type": "string"
+                },
+                "endsAt": {
+                  "type": "string"
+                }
+              }
             }
           }
         }

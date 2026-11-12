@@ -1352,4 +1352,14 @@ export const PT_MESSAGES = {
   'backoffice.vehicle.claim.done.DISMISSED': 'Contestação recusada.',
   'backoffice.vehicle.purpose': 'Motivo da consulta',
   'web.listing.hostName': 'Anfitrião: {name}',
+  'common.vehicleReview.dossierNotRead': 'Leia o processo da contestação antes de decidir.',
+  'common.vehicleReview.noteRequired': 'Escreva o motivo da decisão (10 a 500 caracteres).',
+  'common.vehicleReview.checksFailed': 'Um ponto de controle não confere: recuse a contestação.',
+  'common.vehicleReview.targetReleased':
+    'O carro em questão já foi liberado: recuse esta contestação.',
+  'common.vehicleReview.targetBooked': {
+    one: 'O carro tem {count} reserva em andamento ou futura: não pode ser liberado.',
+    other: 'O carro tem {count} reservas em andamento ou futuras: não pode ser liberado.',
+  },
+  'common.vehicleReview.sameAdmin': 'Outro administrador deve decidir: você já liberou esta placa.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

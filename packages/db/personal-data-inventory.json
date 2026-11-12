@@ -554,6 +554,7 @@
         "bytes": "C1",
         "status": "C1",
         "dismiss_reason": "C1",
+        "checklist": "C1",
         "review_item_id": "C1",
         "decided_by": "C1",
         "decided_at": "C1",

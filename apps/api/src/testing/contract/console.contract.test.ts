@@ -251,7 +251,13 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
     reasons: ['VEHICLE_VIN_MISMATCH'],
   },
   vehicleClaim: { itemId: ID, claimId: ID, plate: 'AB123', status: 'OPEN', createdAt: AT },
-  decideVehicleClaim: { itemId: ID, claimId: ID, status: 'UPHELD' },
+  decideVehicleClaim: {
+    itemId: ID,
+    claimId: ID,
+    status: 'UPHELD',
+    // rendu par la base avec CLAIM_TARGET_BOOKED seulement
+    bookings: [{ kind: 'TRIP', startsAt: AT, endsAt: AT }],
+  },
   vehicleFile: {
     fileId: ID,
     storageKey: `vehicle-documents/${ID}/${ID}/${ID}`,
@@ -1001,9 +1007,34 @@ describe('contrat HTTP — /console', () => {
     delete ops.outcome['vehicleClaim'];
     await refusals(a, 'POST', claimPath);
     const claimDecide = `${claimPath}/decide`;
-    expect(
-      (await post(claimDecide, { requestId: randomUUID(), decision: 'UPHOLD' })).json,
-    ).toMatchObject({ status: 'UPHELD' });
+    const claimChecklist = {
+      CLAIMANT_TITLE: 'PASS',
+      CLAIMANT_IDENTITY: 'PASS',
+      PLATE_MATCH: 'PASS',
+      VIN_MATCH: 'NOT_APPLICABLE',
+    };
+    const uphold = {
+      requestId: randomUUID(),
+      decision: 'UPHOLD',
+      checklist: claimChecklist,
+      note: 'Titre vérifié contre le registre',
+    };
+    expect((await post(claimDecide, uphold)).json).toMatchObject({ status: 'UPHELD' });
+    for (const body of [
+      { ...uphold, checklist: { ...claimChecklist, ALL_VERIFIED: 'PASS' } },
+      { ...uphold, checklist: [] },
+      { ...uphold, note: 'x'.repeat(501) },
+    ]) {
+      expect((await post(claimDecide, body)).status, JSON.stringify(body)).toBe(400);
+    }
+    ops.outcome['decideVehicleClaim'] = 'CLAIM_TARGET_BOOKED';
+    const booked = await post(claimDecide, uphold);
+    expect(booked.status).toBe(409);
+    expect(booked.json).toMatchObject({
+      code: 'VEHICLE_CLAIM_TARGET_BOOKED',
+      values: { count: 1 },
+      bookings: [{ kind: 'TRIP', startsAt: '2031-07-01T08:00:00.000Z' }],
+    });
     expect((await post(claimDecide, { requestId: randomUUID(), decision: 'KEEP' })).status).toBe(
       400,
     );
@@ -1011,6 +1042,12 @@ describe('contrat HTTP — /console', () => {
       ['ADMIN_REQUIRED', 403, 'STAFF_ADMIN_REQUIRED'],
       ['NOT_OPEN', 409, 'VEHICLE_CLAIM_CLOSED'],
       ['CLAIM_REASON_INVALID', 422, 'VEHICLE_CLAIM_REASON_INVALID'],
+      ['CLAIM_DOSSIER_NOT_READ', 409, 'VEHICLE_CLAIM_DOSSIER_NOT_READ'],
+      ['CLAIM_NOTE_REQUIRED', 422, 'VEHICLE_CLAIM_NOTE_REQUIRED'],
+      ['CLAIM_CHECKLIST_INVALID', 422, 'VEHICLE_CHECKLIST_INVALID'],
+      ['CLAIM_CHECKLIST_FAILED', 422, 'VEHICLE_CLAIM_CHECKLIST_FAILED'],
+      ['CLAIM_TARGET_RELEASED', 409, 'VEHICLE_CLAIM_TARGET_RELEASED'],
+      ['SAME_ADMIN_FORBIDDEN', 403, 'STAFF_SAME_ADMIN_FORBIDDEN'],
     ] as const) {
       ops.outcome['decideVehicleClaim'] = outcome;
       const r = await post(claimDecide, {

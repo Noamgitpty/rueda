@@ -80,6 +80,13 @@ const CHECK_KEYS = new Set([
 ]);
 const CLAIM_DECISIONS: readonly VehicleClaimDecision[] = ['UPHOLD', 'DISMISS'];
 const CLAIM_REASONS = ['INSUFFICIENT_PROOF', 'CLAIMANT_NOT_OWNER'] as const;
+/** Liste de contrôle fermée de la confirmation d'une contestation (0077) ; valeurs jugées en base. */
+const CLAIM_CHECK_KEYS = new Set([
+  'CLAIMANT_TITLE',
+  'CLAIMANT_IDENTITY',
+  'PLATE_MATCH',
+  'VIN_MATCH',
+]);
 const FILE_SUBJECTS = ['VEHICLE', 'VEHICLE_CLAIM'] as const;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -162,7 +169,8 @@ function actorOf(request: object): StaffActor {
 }
 
 /** Champs d'horodatage rendus par la base (noms de 0064, 0076) ; aucun texte libre n'en fait partie. */
-const DATE_FIELD = /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt)$/;
+const DATE_FIELD =
+  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {
@@ -429,15 +437,76 @@ export class OpsConsoleController {
     const decision = oneOf(b['decision'], CLAIM_DECISIONS);
     const reason =
       b['reason'] === undefined || b['reason'] === null ? null : oneOf(b['reason'], CLAIM_REASONS);
+    // UPHOLD : liste fermée (clés jugées ici, valeurs par la base) et motif de l'ADMIN
+    const rawChecks = b['checklist'];
+    let checklist: Record<string, unknown> | null = null;
+    if (rawChecks !== undefined && rawChecks !== null) {
+      if (
+        typeof rawChecks !== 'object' ||
+        Array.isArray(rawChecks) ||
+        Object.keys(rawChecks).some((k) => !CLAIM_CHECK_KEYS.has(k))
+      ) {
+        throw new AuthHttpError('REQUEST_INVALID');
+      }
+      checklist = rawChecks as Record<string, unknown>;
+    }
+    const rawNote = b['note'];
+    if (
+      rawNote !== undefined &&
+      rawNote !== null &&
+      (typeof rawNote !== 'string' || [...rawNote].length > 500)
+    ) {
+      throw new AuthHttpError('REQUEST_INVALID');
+    }
+    const note = typeof rawNote === 'string' ? rawNote : null;
     const r = await run(
-      () => this.store.decideVehicleClaim(actor, requestId, itemId, decision, reason),
-      ['DECIDED', 'NOT_OPEN', 'CLAIM_REASON_INVALID', 'ADMIN_REQUIRED'],
+      () =>
+        this.store.decideVehicleClaim(actor, requestId, itemId, decision, reason, checklist, note),
+      [
+        'DECIDED',
+        'NOT_OPEN',
+        'CLAIM_REASON_INVALID',
+        'ADMIN_REQUIRED',
+        'CLAIM_DOSSIER_NOT_READ',
+        'CLAIM_NOTE_REQUIRED',
+        'CLAIM_CHECKLIST_INVALID',
+        'CLAIM_CHECKLIST_FAILED',
+        'CLAIM_TARGET_RELEASED',
+        'CLAIM_TARGET_BOOKED',
+        'SAME_ADMIN_FORBIDDEN',
+      ],
     );
-    if (r.outcome === 'NOT_OPEN') throw new OpsHttpError('VEHICLE_CLAIM_CLOSED');
-    if (r.outcome === 'CLAIM_REASON_INVALID')
-      throw new OpsHttpError('VEHICLE_CLAIM_REASON_INVALID');
-    if (r.outcome === 'ADMIN_REQUIRED') throw new OpsHttpError('STAFF_ADMIN_REQUIRED');
-    return r.body;
+    switch (r.outcome) {
+      case 'NOT_OPEN':
+        throw new OpsHttpError('VEHICLE_CLAIM_CLOSED');
+      case 'CLAIM_REASON_INVALID':
+        throw new OpsHttpError('VEHICLE_CLAIM_REASON_INVALID');
+      case 'ADMIN_REQUIRED':
+        throw new OpsHttpError('STAFF_ADMIN_REQUIRED');
+      case 'CLAIM_DOSSIER_NOT_READ':
+        throw new OpsHttpError('VEHICLE_CLAIM_DOSSIER_NOT_READ');
+      case 'CLAIM_NOTE_REQUIRED':
+        throw new OpsHttpError('VEHICLE_CLAIM_NOTE_REQUIRED');
+      case 'CLAIM_CHECKLIST_INVALID':
+        throw new OpsHttpError('VEHICLE_CHECKLIST_INVALID');
+      case 'CLAIM_CHECKLIST_FAILED':
+        throw new OpsHttpError('VEHICLE_CLAIM_CHECKLIST_FAILED');
+      case 'CLAIM_TARGET_RELEASED':
+        throw new OpsHttpError('VEHICLE_CLAIM_TARGET_RELEASED');
+      case 'CLAIM_TARGET_BOOKED': {
+        // réservations en cours ou à venir : type, début, fin (jamais le voyageur)
+        const bookings = Array.isArray(r.body['bookings']) ? r.body['bookings'] : [];
+        throw new OpsHttpError(
+          'VEHICLE_CLAIM_TARGET_BOOKED',
+          { count: bookings.length },
+          { bookings: isoDates(bookings) },
+        );
+      }
+      case 'SAME_ADMIN_FORBIDDEN':
+        throw new OpsHttpError('STAFF_SAME_ADMIN_FORBIDDEN');
+      default:
+        return r.body;
+    }
   }
 
   /**

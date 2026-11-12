@@ -1385,4 +1385,16 @@ export const FR_MESSAGES = {
   'backoffice.vehicle.claim.done.DISMISSED': 'Réclamation rejetée.',
   'backoffice.vehicle.purpose': 'Motif de la consultation',
   'web.listing.hostName': 'Hôte : {name}',
+  'common.vehicleReview.dossierNotRead': 'Lis le dossier de la réclamation avant de décider.',
+  'common.vehicleReview.noteRequired': 'Écris le motif de la décision (10 à 500 caractères).',
+  'common.vehicleReview.checksFailed':
+    'Un point de contrôle n’est pas conforme : rejette la réclamation.',
+  'common.vehicleReview.targetReleased':
+    'La voiture en cause a déjà été libérée : rejette cette réclamation.',
+  'common.vehicleReview.targetBooked': {
+    one: 'La voiture a {count} réservation en cours ou à venir : elle ne peut pas être libérée.',
+    other: 'La voiture a {count} réservations en cours ou à venir : elle ne peut pas être libérée.',
+  },
+  'common.vehicleReview.sameAdmin':
+    'Un autre administrateur doit décider : tu as déjà libéré cette plaque.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

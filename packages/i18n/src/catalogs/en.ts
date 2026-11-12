@@ -1305,4 +1305,15 @@ export const EN_MESSAGES = {
   'backoffice.vehicle.claim.done.DISMISSED': 'Claim dismissed.',
   'backoffice.vehicle.purpose': 'Reason for access',
   'web.listing.hostName': 'Host: {name}',
+  'common.vehicleReview.dossierNotRead': 'Read the claim file before deciding.',
+  'common.vehicleReview.noteRequired': 'Write the reason for the decision (10 to 500 characters).',
+  'common.vehicleReview.checksFailed': 'A checkpoint failed: dismiss the claim.',
+  'common.vehicleReview.targetReleased':
+    'The car in question was already released: dismiss this claim.',
+  'common.vehicleReview.targetBooked': {
+    one: 'The car has {count} current or upcoming booking: it cannot be released.',
+    other: 'The car has {count} current or upcoming bookings: it cannot be released.',
+  },
+  'common.vehicleReview.sameAdmin':
+    'Another administrator must decide: you already released this plate.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

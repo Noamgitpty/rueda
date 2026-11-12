@@ -1343,6 +1343,16 @@ export const ES_MESSAGES = {
   'backoffice.vehicle.claim.done.DISMISSED': 'Reclamo rechazado.',
   'backoffice.vehicle.purpose': 'Motivo de la consulta',
   'web.listing.hostName': 'Anfitrión: {name}',
+  'common.vehicleReview.dossierNotRead': 'Lee el expediente del reclamo antes de decidir.',
+  'common.vehicleReview.noteRequired': 'Escribe el motivo de la decisión (10 a 500 caracteres).',
+  'common.vehicleReview.checksFailed': 'Un punto de control no es correcto: rechaza el reclamo.',
+  'common.vehicleReview.targetReleased':
+    'El auto en cuestión ya fue liberado: rechaza este reclamo.',
+  'common.vehicleReview.targetBooked': {
+    one: 'El auto tiene {count} reserva en curso o futura: no se puede liberar.',
+    other: 'El auto tiene {count} reservas en curso o futuras: no se puede liberar.',
+  },
+  'common.vehicleReview.sameAdmin': 'Otro administrador debe decidir: ya liberaste esta placa.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
