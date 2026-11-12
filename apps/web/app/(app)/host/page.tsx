@@ -268,6 +268,14 @@ export default async function HostPage({
             {vehicles.map((v) => (
               <li key={v.id} className={styles['card']}>
                 <span className={styles['strong']}>{carLabel(v)}</span>
+                {/* A06 : calendrier, blocages et préavis du véhicule (US-119) */}
+                <a
+                  className={styles['link']}
+                  href={`/host/vehicles/${v.id}?org=${account.orgId}`}
+                  aria-label={`${t('web.calendar.open')} · ${carLabel(v)}`}
+                >
+                  {t('web.calendar.open')}
+                </a>
               </li>
             ))}
           </ul>

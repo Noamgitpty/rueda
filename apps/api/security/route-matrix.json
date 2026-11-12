@@ -297,6 +297,22 @@
       "acces": "session",
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
     },
+    "DELETE /host/accounts/{orgId}/vehicles/{vehicleId}/blocks/{blockId}": {
+      "acces": "session",
+      "idor": "véhicule, lieu ou blocage d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND ; créneau pris : 409 sans détail de l'occupation (17 §2.3 point 5, L1-PM-11, L1-PM-22 ; preuves base : l0-us119)"
+    },
+    "GET /host/accounts/{orgId}/vehicles/{vehicleId}/calendar": {
+      "acces": "session",
+      "idor": "véhicule, lieu ou blocage d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND ; créneau pris : 409 sans détail de l'occupation (17 §2.3 point 5, L1-PM-11, L1-PM-22 ; preuves base : l0-us119)"
+    },
+    "POST /host/accounts/{orgId}/vehicles/{vehicleId}/blocks": {
+      "acces": "session",
+      "idor": "véhicule, lieu ou blocage d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND ; créneau pris : 409 sans détail de l'occupation (17 §2.3 point 5, L1-PM-11, L1-PM-22 ; preuves base : l0-us119)"
+    },
+    "PUT /host/accounts/{orgId}/locations/{locationId}/notice": {
+      "acces": "session",
+      "idor": "véhicule, lieu ou blocage d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND ; créneau pris : 409 sans détail de l'occupation (17 §2.3 point 5, L1-PM-11, L1-PM-22 ; preuves base : l0-us119)"
+    },
     "GET /host/accounts/{orgId}/catalog/makes": {
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us115)"

@@ -8,7 +8,7 @@ CAT décrit l'offre de l'hôte : lieux de remise, véhicules, documents du véhi
 
 CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe pas le prix d'un trip (PRC). L'import CSV d'une flotte est historique depuis le pivot P2P (`fleet_import_job`, 17 §3.2.3).
 
-État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout arrive avec US-114, la publication avec US-118 et US-509, les documents du véhicule avec US-124, le calendrier avec US-119, l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
+État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout arrive avec US-114, la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
 
 ## Entités
 
@@ -30,6 +30,18 @@ CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe p
 | `testing/fake-host-listing-store.ts`                  | FAKE du magasin (tests de contrat seulement)                                                                                                                                                                                                                                                       |
 
 Codes : ceux de 16 (`VEHICLE_PLATE_DUPLICATE`, `VEHICLE_FIELD_REQUIRED`, `PHOTO_MIN_COUNT`, `PHOTO_FORMAT`, `PRICE_INVALID`, `MILEAGE_CONFIG_INVALID`, `HOST_NOT_ACTIVATED`, `LISTING_TRANSITION_FORBIDDEN`, `REQUEST_MODE_NOT_ALLOWED`) et les PROPOSÉS d'`internal/host-listings/errors.ts`, dont `TERMS_REACCEPT_REQUIRED` (409, CGU de l'hôte à accepter avant la soumission, garde de la commande en base, US-126) ; messages `common.listing.*` en es, en, fr et pt. Photos : `POST /host/accounts/{orgId}/listings/{listingId}/photos` (base64, corps borné à 100 Kio jusqu'à l'URL signée d'US-003) ; en production, antivirus ClamAV (DEC-FONDATEUR-20, adaptateur à livrer) et stockage objet sont indisponibles : 503.
+
+### Calendrier, blocages et préavis de l'hôte (US-119)
+
+| Fichier                                              | Rôle                                                                                                                                                                                   |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `internal/host-calendar/model.ts`                    | saisie : blocage par jours (`from`, `to` inclus) ou par heures (`start`, `end`, pas de 30 min) en heure LOCALE du véhicule ; préavis de 60 à 10 080 min au pas de 30, ou `null` (pays) |
+| `internal/host-calendar/store.ts`                    | port `HostCalendarStore`, `PgHostCalendarStore` (fonctions `core.catalog_*` de 0071, paramètres liés), `UnavailableHostCalendarStore` (503)                                            |
+| `internal/host-calendar/host-calendar.service.ts`    | `HostCalendarService` : issues de la base vers codes stables (`VEHICLE_UNAVAILABLE` sans détail de l'occupation, `VEHICLE_NOT_LISTED`, `BLOCK_NOT_FOUND`, `INVALID_PERIOD`)            |
+| `internal/host-calendar/host-calendar.controller.ts` | `GET …/vehicles/{vehicleId}/calendar`, `POST …/blocks`, `DELETE …/blocks/{blockId}`, `PUT …/locations/{locationId}/notice` (`SessionGuard`) ; tout objet d'un autre hôte : 404         |
+| `testing/fake-host-calendar-store.ts`                | FAKE du calendrier (tests de contrat seulement)                                                                                                                                        |
+
+La disponibilité reste celle d'AVL : un blocage est écrit par la commande `core.booking_cmd_place_host_block` de la table d'occupation unique (exclusion GiST, verrou du véhicule), appelée par `core.catalog_cmd_place_host_block` pour l'hôte de la session (ADR-101). Le préavis du lieu est contrôlé à la pose d'un hold (`DATES_NOTICE_TOO_SHORT`). Écran A06 `/host/vehicles/{vehicleId}` : `apps/web`.
 
 ### Catalogue de référence des véhicules (US-113)
 

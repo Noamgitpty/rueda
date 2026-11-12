@@ -1509,6 +1509,9 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
         'VALIDATED_SANDBOX',
       );
       const w = await world(c, 2, 2);
+      // US-119 (0071) : préavis nul pour les lieux de ce compte (fixture 9994) : la réservation de
+      // dernière minute éprouvée ici part deux minutes après la pose, sous tout préavis du pays
+      await api.query('SELECT test_fixture.us119_set_org_notice($1, 0)', [w.orgId]);
       const [g, h] = w.guests as [string, string];
       const slot = slotOf(w.vehicles[0] as string, w.orgId, T0, 2); // début « 14:00 »
       const holdId = await pose(g, slot, T0);
