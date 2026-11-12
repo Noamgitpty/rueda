@@ -327,13 +327,20 @@ describe('socle (0067) : RLS, droits, propriétaires', () => {
         expect(rows.map((r) => r.relname)).toEqual([...TABLES]);
         const expected: Record<(typeof TABLES)[number], string[]> = {
           catalog_deposit_policy: ['migrator_all:migrator'],
+          // US-119 (0070) : sonde de disponibilité (catalog_probe_owner) et préavis du lieu lu à
+          // la pose d'un hold (cmd_hold_owner)
           catalog_listing: [
             'catalog_cmd_all:catalog_cmd_owner',
             'cmd_hold_read:cmd_hold_owner',
             'migrator_all:migrator',
+            'probe_read:catalog_probe_owner',
           ],
           catalog_listing_photo: ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
-          catalog_location: ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
+          catalog_location: [
+            'catalog_cmd_all:catalog_cmd_owner',
+            'cmd_hold_read:cmd_hold_owner',
+            'migrator_all:migrator',
+          ],
           catalog_vehicle: [
             'catalog_cmd_all:catalog_cmd_owner',
             'cmd_hold_read:cmd_hold_owner',
