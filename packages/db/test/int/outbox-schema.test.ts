@@ -151,6 +151,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_auth_owner', cmd: 'a' });
           continue;
         }
+        // décision de la file d'ajout au catalogue (0074, US-114) : insertion de son seul
+        // événement catalog.addition_request.resolved
+        if (r.pol === 'outbox_outbox_event.catalog_cmd_event_insert') {
+          expect(r).toMatchObject({ roles: 'catalog_cmd_owner', cmd: 'a' });
+          continue;
+        }
         expect(['app_api', 'app_worker'], r.pol).toContain(r.roles);
         expect(['r', 'a', 'w'], r.pol).toContain(r.cmd);
       }

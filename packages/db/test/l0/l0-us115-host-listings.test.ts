@@ -281,7 +281,12 @@ async function commonVariant(client: pg.ClientBase): Promise<{ id: string; year:
   return { id: rows[0].id, year: rows[0].year_from };
 }
 
-/** Hôte complet : compte, lieu, véhicule (hors catalogue), annonce DRAFT au prix donné. */
+/**
+ * Hôte complet : compte, lieu, véhicule (variante commune du catalogue), annonce DRAFT au prix
+ * donné. Depuis US-114 (0074), un véhicule hors catalogue n'est pas publiable
+ * (CATALOG_ADDITION_PENDING, preuve : l0-us114-catalog-addition) : les gardes de la soumission
+ * jugées ici (photos, activation) le sont sur un véhicule rattaché au catalogue.
+ */
 async function draft(
   client: pg.ClientBase,
   c: CountryCase,
@@ -290,7 +295,12 @@ async function draft(
 ): Promise<Host & { location: string; vehicle: string; listing: string }> {
   const h = await host(client, c.country, status);
   const loc = await location(client, h);
-  const veh = await vehicle(client, h, loc.id, { plate: plate() });
+  const common = await commonVariant(client);
+  const veh = await vehicle(client, h, loc.id, {
+    plate: plate(),
+    variantId: common.id,
+    year: common.year,
+  });
   const lst = await listing(client, h, veh.id, price);
   if (!loc.id || !veh.id || !lst.id)
     throw new Error(`préparation : ${loc.outcome} ${veh.outcome} ${lst.outcome}`);
