@@ -14,6 +14,7 @@ export type {
   IdentityDocumentResult,
   IdentityOutcome,
   IdentityProvider,
+  IdentitySubjectFacts,
   IdentityWebhookVerdict,
   StartVerificationRequest,
   VerificationSession,
@@ -43,3 +44,31 @@ export {
 export { PgIdentityStore } from './internal/pg-identity-store.js';
 export { UnavailableIdentityStore } from './internal/identity-store.js';
 export type { IdentityState, IdentityStore, KycStatus } from './internal/identity-store.js';
+
+// Inscription et vérification individuelle de l'hôte, profil fiscal (US-123, ADR-105) : routes
+// /host/accounts/{orgId}/verification ; ports SanctionsScreener et TaxIdSealer (types seulement,
+// adaptateurs injectés) ; décision de l'ops par la console (HOST_VERIFICATION_DECISION, en base).
+export { HostVerificationService } from './internal/host-verification.service.js';
+export type {
+  HostVerificationDeps,
+  HostVerificationLogger,
+  HostVerificationView,
+} from './internal/host-verification.service.js';
+export { unavailableHostVerification } from './internal/kyc-identity.module.js';
+export { PgHostVerificationStore } from './internal/pg-host-verification-store.js';
+export { UnavailableHostVerificationStore } from './internal/host-verification-store.js';
+export type {
+  HostBlocker,
+  HostMissing,
+  HostVerificationState,
+  HostVerificationStore,
+} from './internal/host-verification-store.js';
+export type {
+  SanctionsScreener,
+  ScreeningOutcome,
+  ScreeningReport,
+  ScreeningRequest,
+  ScreeningResult,
+} from './internal/sanctions-screener.port.js';
+export { TAX_ID_COLUMN } from './internal/tax-id-sealer.port.js';
+export type { SealOutcome, TaxIdSealer } from './internal/tax-id-sealer.port.js';

@@ -153,6 +153,12 @@ describe('schéma outbox (US-008)', () => {
         }
         // vérification d'identité (0072, US-105) : insertion de ses seuls événements
         // kyc.verification.status_changed
+        // vérification de l'hôte (0075, US-123) : kyc.host_verification.decided,
+        // iam.organization.status_changed et iam.organization.created seulement
+        if (r.pol === 'outbox_outbox_event.kyc_cmd_host_event_ins') {
+          expect(r).toMatchObject({ roles: 'kyc_cmd_owner', cmd: 'a' });
+          continue;
+        }
         if (r.pol === 'outbox_outbox_event.kyc_cmd_event_ins') {
           expect(r).toMatchObject({ roles: 'kyc_cmd_owner', cmd: 'a' });
           continue;

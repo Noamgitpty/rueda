@@ -1,6 +1,6 @@
 /**
  * Adaptateur PostgreSQL du port `IdentityStore` (production) : appelle les seules fonctions
- * `core.kyc_*` de la migration 0072 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
+ * `core.kyc_*` des migrations 0072 et 0075 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
  * paramétrées uniquement. Une erreur de la base est remplacée par une erreur sans message du
  * serveur ni paramètre (SQLSTATE seulement) ; une issue inconnue de la base est une erreur
  * (fail-closed : jamais un succès supposé).
@@ -169,9 +169,11 @@ export class PgIdentityStore implements IdentityStore {
 
   async applyDecision(provider: string, event: IdentityDecisionEvent): Promise<DecisionResult> {
     const d = event.checks.document;
+    const f = event.checks.subject ?? null;
+    // décision (0072) et faits vérifiés de la personne (0075, US-123) dans la MÊME instruction
     const [r] = await this.#run<{ outcome: string; status: string | null }>(
       'apply_decision',
-      'SELECT * FROM core.kyc_cmd_apply_decision($1, $2, $3, $4, $5, $6, $7, $8::jsonb)',
+      'SELECT * FROM core.kyc_cmd_apply_decision_facts($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)',
       [
         provider,
         event.eventId,
@@ -191,6 +193,10 @@ export class PgIdentityStore implements IdentityStore {
               isPermanent: d.isPermanent,
               providerDocumentRef: d.providerDocumentRef,
             }),
+        // date de naissance et pays de résidence seulement (le port n'en transporte pas d'autres)
+        f === null
+          ? null
+          : JSON.stringify({ dateOfBirth: f.dateOfBirth, residenceCountry: f.residenceCountry }),
       ],
     );
     return {

@@ -8,6 +8,7 @@ export type {
   IdentityDecisionEvent,
   IdentityDocumentResult,
   IdentityDocumentRef,
+  IdentitySubjectFacts,
   StartVerificationRequest,
   VerificationSession,
   VerificationStatus,

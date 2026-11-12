@@ -833,10 +833,13 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
 
   it('couverture : chaque statut déclaré pour /host/accounts/{orgId} est exercé ; chaque statut déclaré pour /listings est exercé', () => {
     const covered = coverageOf(...apps);
-    // les CGU de l'hôte (/host/accounts/{orgId}/terms, US-126) ont leur propre suite (CTR)
+    // les CGU de l'hôte (/host/accounts/{orgId}/terms, US-126) et la vérification de l'hôte
+    // (/host/accounts/{orgId}/verification, US-123) ont leur propre suite (CTR, KYC)
     expect(
       missingCoverage(contract, '/host/accounts/{orgId}', covered).filter(
-        (d) => !d.includes(' /host/accounts/{orgId}/terms'),
+        (d) =>
+          !d.includes(' /host/accounts/{orgId}/terms') &&
+          !d.includes(' /host/accounts/{orgId}/verification'),
       ),
     ).toEqual([]);
     expect(missingCoverage(contract, '/listings', covered)).toEqual([]);

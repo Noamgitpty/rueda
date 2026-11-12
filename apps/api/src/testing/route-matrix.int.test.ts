@@ -556,6 +556,18 @@ async function requestOf(
       return { method: 'POST', path: '/identity/verification', body: { country } };
     case 'POST /kyc/webhooks/{provider}':
       return { method: 'POST', path: '/kyc/webhooks/FAKE', body: {} };
+    // vérification de l'hôte (US-123) : compte d'hôte d'aucun acteur de la cellule ⇒ 404 (IDOR) ;
+    // profil fiscal : aucun coffre en production (503) après le contrôle du compte (404)
+    case 'GET /host/accounts/{orgId}/verification':
+      return { method: 'GET', path: `/host/accounts/${id}/verification` };
+    case 'POST /host/accounts/{orgId}/verification':
+      return { method: 'POST', path: `/host/accounts/${id}/verification`, body: {} };
+    case 'POST /host/accounts/{orgId}/verification/tax-profile':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/verification/tax-profile`,
+        body: { kind: 'TAXPAYER_ID', taxId: '1234567-8' },
+      };
     default:
       throw new Error(`route sans requête de test : ${route}`);
   }

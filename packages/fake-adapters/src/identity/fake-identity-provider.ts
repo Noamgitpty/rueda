@@ -7,7 +7,8 @@
  * constante pays ici. Pièce non configurée ⇒ `UNSUPPORTED_DOCUMENT` (capacité inconnue = « non »).
  *
  * Résultat d'une décision (US-105) : scores de liveness et de face match et champs MINIMAUX de la
- * pièce (type, pays, échéance, classe, caractère définitif, référence chez le fournisseur). Jamais
+ * pièce (type, pays, échéance, classe, caractère définitif, référence chez le fournisseur) ; pour
+ * l'hôte (US-123), faits vérifiés : date de naissance et pays de résidence. Jamais
  * d'image ni de numéro : la lecture du rappel ne garde que ces champs, tout autre champ est ignoré
  * (zéro copie, 17 §1.5 point 3).
  *
@@ -65,11 +66,23 @@ export interface IdentityDocumentResult {
   readonly providerDocumentRef: string | null;
 }
 
-/** Contrôles du fournisseur : scores entre 0 et 1 et pièce lue. */
+/**
+ * Faits VÉRIFIÉS sur la personne (US-123 ; BOARD N-28, N-38) : date de naissance lue sur la pièce
+ * et pays de résidence établi par le fournisseur. Aucun nom, aucun numéro, aucune adresse.
+ */
+export interface IdentitySubjectFacts {
+  /** AAAA-MM-JJ ; `null` : inconnue. */
+  readonly dateOfBirth: string | null;
+  /** Code ISO à deux lettres ; `null` : inconnu. */
+  readonly residenceCountry: string | null;
+}
+
+/** Contrôles du fournisseur : scores entre 0 et 1, pièce lue et, s'ils sont rendus, faits vérifiés. */
 export interface IdentityChecks {
   readonly livenessScore: number | null;
   readonly faceMatchScore: number | null;
   readonly document: IdentityDocumentResult | null;
+  readonly subject?: IdentitySubjectFacts | null;
 }
 
 export interface IdentityDecisionEvent {
@@ -362,8 +375,12 @@ function parseChecks(raw: unknown): IdentityChecks | null {
   const livenessScore = score(c['livenessScore']);
   const faceMatchScore = score(c['faceMatchScore']);
   if (livenessScore === undefined || faceMatchScore === undefined) return null;
+  const subject = parseSubject(c['subject']);
+  if (subject === undefined) return null;
+  const withSubject = subject === null ? {} : { subject };
   const d = c['document'];
-  if (d === undefined || d === null) return { livenessScore, faceMatchScore, document: null };
+  if (d === undefined || d === null)
+    return { livenessScore, faceMatchScore, document: null, ...withSubject };
   if (typeof d !== 'object' || Array.isArray(d)) return null;
   const doc = d as Record<string, unknown>;
   const expiresOn = shortText(doc['expiresOn'], 10);
@@ -399,5 +416,27 @@ function parseChecks(raw: unknown): IdentityChecks | null {
       isPermanent,
       providerDocumentRef,
     },
+    ...withSubject,
   };
+}
+
+/**
+ * Faits vérifiés du rappel (US-123) : forme stricte, champs connus seulement (un nom ou une adresse
+ * ajoutés par le fournisseur sont ignorés). Absents : `null` ; mal formés : `undefined` (MALFORMED).
+ */
+function parseSubject(raw: unknown): IdentitySubjectFacts | null | undefined {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const s = raw as Record<string, unknown>;
+  const dateOfBirth = shortText(s['dateOfBirth'], 10);
+  const residenceCountry = shortText(s['residenceCountry'], 2);
+  if (
+    dateOfBirth === undefined ||
+    (dateOfBirth !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) ||
+    residenceCountry === undefined ||
+    (residenceCountry !== null && !/^[A-Z]{2}$/.test(residenceCountry))
+  ) {
+    return undefined;
+  }
+  return { dateOfBirth, residenceCountry };
 }

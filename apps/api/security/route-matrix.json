@@ -350,6 +350,18 @@
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun consentement écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us126)"
     },
+    "GET /host/accounts/{orgId}/verification": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, rien n'est révélé (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us123)"
+    },
+    "POST /host/accounts/{orgId}/verification": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun dossier écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us123)"
+    },
+    "POST /host/accounts/{orgId}/verification/tax-profile": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND avant tout chiffrement, aucun profil écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us123)"
+    },
     "POST /kyc/webhooks/{provider}": {
       "acces": "public",
       "idor": "rappel d’un fournisseur d’identité : signature du fournisseur exigée sur le corps brut ; le dossier visé est celui de la session du fournisseur ET de la référence opaque du sujet (recoupées en base) ; fournisseur inconnu ⇒ 404 sans écriture"

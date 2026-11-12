@@ -38,9 +38,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.listing.hostTermsRequired`, `web.host.terms.*`, `web.legal.validFrom`,
  `web.legal.translation`, `web.legal.backHost`. Version 20 : calendrier par véhicule, blocages et préavis
  de l'hôte (US-119) : `common.calendar.*`, `web.calendar.*`. Version 21 : vérification d'identité et
- consentement biométrique (US-105) : `common.kyc.*` et `web.s04.*` (écran S04).
+ consentement biométrique (US-105) : `common.kyc.*` et `web.s04.*` (écran S04). Version 24 :
+ inscription et vérification de l'hôte, profil fiscal (US-123) : `common.hostVerification.*`,
+ `web.a07.*` (liste de tâches A07, dont `web.a07.waitingCountry` de 10b §4.3) et
+ `web.host.verificationLink` (versions 22 et 23 : US-125 et US-114, en cours).
  */
-export const CATALOG_VERSION = 21;
+export const CATALOG_VERSION = 24;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

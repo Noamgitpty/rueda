@@ -155,7 +155,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -216,6 +216,11 @@ describe('configuration pays : structure et droits', () => {
               : []),
             // vérification d'identité (US-105, 0072) : codes et fuseaux des pays ; durée de
             // rétention biométrique (biometric_appeal_retention_days) seulement
+            // vérification de l'hôte (US-123, 0075) : âge minimal, numéro fiscal exigé et
+            // interrupteurs p2p_private_hosts_enabled et insurer_contract_active seulement
+            ...(t === 'config_param_definition' || t === 'config_param_value'
+              ? [{ t, pol: 'kyc_cmd_host_read', cmd: 'r', roles: 'kyc_cmd_owner' }]
+              : []),
             ...(t === 'config_country' || t === 'config_param_value'
               ? [{ t, pol: 'kyc_cmd_read', cmd: 'r', roles: 'kyc_cmd_owner' }]
               : []),
