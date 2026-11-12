@@ -432,7 +432,8 @@
         "geo_public": "C0",
         "timezone": "C0",
         "created_at": "C1",
-        "created_by": "C1"
+        "created_by": "C1",
+        "advance_notice_minutes": "C0"
       }
     },
     "core.catalog_vehicle": {

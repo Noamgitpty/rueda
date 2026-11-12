@@ -52,6 +52,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'hold_guest_limit', 'HOLD_LIMIT_REACHED'],
     ['55000', 'hold_guest_overlap', 'GUEST_OVERLAP'],
     ['55000', 'hold_rate_limited', 'HOLD_RATE_LIMITED'],
+    ['55000', 'hold_notice_too_short', 'DATES_NOTICE_TOO_SHORT'],
     ['55000', 'hold_release_terminal', 'INVALID_TRANSITION'],
     ['23000', 'hold_guarded_columns', 'IMMUTABLE_RECORD'],
     ['23000', 'booking_record_no_delete', 'IMMUTABLE_RECORD'],

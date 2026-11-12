@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 72 migrations ; 86 tables ; 2 vues ; 444 politiques RLS ; 121 fonctions `SECURITY DEFINER` ; 140 autres fonctions.
+- 72 migrations ; 80 tables ; 2 vues ; 416 politiques RLS ; 117 fonctions `SECURITY DEFINER` ; 137 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -86,7 +86,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0068_config_listing_photo_params` | graine complémentaire : paramètres « listing_min_photos* » (US-115 ; 17 §7.2). |
 | `0069_config_listing_price_params` | graine complémentaire : paramètres « price_ceiling_* » (US-115 ; 17 §7.2). |
 | `0070_ctr_host_terms` | CTR : CGU de l'hôte versionnées (`TOS_HOST`), acceptation horodatée et garde de la |
-| `0072_kyc_identity_verification` | KYC : vérification d'identité par parcours hébergé et consentement biométrique. |
+| `0071_catalog_host_calendar` | CAT / AVL : calendrier par véhicule, blocages de l'hôte par commande et préavis par lieu. |
 
 ## Rôles
 
@@ -106,8 +106,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `iam_auth_owner` | non | non | non | oui | — |
 | `iam_staff_owner` | non | non | non | oui | — |
 | `integrity_owner` | non | non | non | oui | — |
-| `kyc_cmd_owner` | non | non | non | oui | — |
-| `migrator` | oui | non | non | oui | audit_chain_owner (NOINHERIT), catalog_cmd_owner (NOINHERIT), catalog_probe_owner (NOINHERIT), cmd_golive_owner (NOINHERIT), cmd_hold_owner (NOINHERIT), cmd_money_owner (NOINHERIT), guard_owner (NOINHERIT), host_view_owner (NOINHERIT), iam_auth_owner (NOINHERIT), iam_staff_owner (NOINHERIT), integrity_owner (NOINHERIT), kyc_cmd_owner (NOINHERIT), policy_fn_owner (NOINHERIT), risk_limit_owner (NOINHERIT) |
+| `migrator` | oui | non | non | oui | audit_chain_owner (NOINHERIT), catalog_cmd_owner (NOINHERIT), catalog_probe_owner (NOINHERIT), cmd_golive_owner (NOINHERIT), cmd_hold_owner (NOINHERIT), cmd_money_owner (NOINHERIT), guard_owner (NOINHERIT), host_view_owner (NOINHERIT), iam_auth_owner (NOINHERIT), iam_staff_owner (NOINHERIT), integrity_owner (NOINHERIT), policy_fn_owner (NOINHERIT), risk_limit_owner (NOINHERIT) |
 | `policy_fn_owner` | non | non | non | oui | — |
 | `risk_limit_owner` | non | non | non | oui | — |
 
@@ -116,8 +115,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | Schéma | Propriétaire | Droits |
 | ------ | ------------ | ------ |
 | `app` | `migrator` | app_api: USAGE ; app_worker: USAGE ; catalog_probe_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE |
-| `core` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; kyc_cmd_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; risk_limit_owner: USAGE |
-| `platform` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; catalog_probe_owner: USAGE ; cmd_golive_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; kyc_cmd_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; risk_limit_owner: USAGE |
+| `core` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; catalog_probe_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; risk_limit_owner: USAGE |
+| `platform` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; catalog_probe_owner: USAGE ; cmd_golive_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; risk_limit_owner: USAGE |
 
 ## Tables
 
@@ -176,7 +175,6 @@ Politiques RLS :
 - `iam_auth_host_insert` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((action_code = 'HOST_ACCOUNT_OPENED'::text) AND (subject_type = 'ORGANIZATION'::text))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `kyc_cmd_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = ANY (ARRAY['KYC_CONSENT_WITHDRAWN'::text, 'KYC_ERASURE_RECORDED'::text])) AND (subject_type = 'USER_ACCOUNT'::text))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['audit_chain_verifier'::text, 'booking_conversion'::text, 'booking_oracle'::text, 'bordereau'::text, 'bus_monitor'::text, 'disposition_sweeper'::text, 'evidence_ingest'::text, 'evidence_verifier'::text, 'hold_expiry'::text, 'ntf_dispatcher'::text, 'ntf_sender'::text, 'ops_monitor'::text, 'outbox_relay'::text, 'payment_command'::text, 'payment_intent_sweeper'::text, 'payout'::text, 'privacy_request'::text, 'reconciliation'::text, 'settlement'::text, 'trip_lifecycle'::text, 'webhook_ingest'::text])))`
 - `worker_select_verifier` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'audit_chain_verifier'::text))`
@@ -743,6 +741,7 @@ Index :
 
 Politiques RLS :
 
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `active`
 - `cmd_block_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((kind = 'HOST_BLOCK'::text) AND (source = 'MANUAL'::text) AND active AND (expires_at IS NULL) AND (ref_type IS NULL) AND (ref_id IS NULL) AND (app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()))`
 - `cmd_block_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((kind = 'HOST_BLOCK'::text) AND (source = 'MANUAL'::text) AND active AND (app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()))` WITH CHECK `((kind = 'HOST_BLOCK'::text) AND (source = 'MANUAL'::text) AND (NOT active) AND (deactivated_reason = 'BLOCK_REMOVED'::text) AND (app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()))`
 - `cmd_buffer_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((kind = 'BUFFER'::text) AND (source = 'SYSTEM'::text) AND active AND (expires_at IS NULL) AND (ref_type = 'TRIP'::text) AND (ref_id IS NOT NULL) AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))`
@@ -753,6 +752,7 @@ Politiques RLS :
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `occupancy_host_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()) AND app.host_covers_vehicle(vehicle_id))`
 - `occupancy_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND app.has_staff_role('ADMIN'::text, country_code))`
+- `probe_read` (SELECT, PERMISSIVE, catalog_probe_owner) USING `active`
 - `worker_select` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text, 'hold_expiry'::text, 'trip_lifecycle'::text, 'booking_oracle'::text])))`
 - `worker_update_conversion` (UPDATE, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['booking_conversion'::text, 'disposition_sweeper'::text, 'payment_intent_sweeper'::text])))`
 - `worker_update_expiry` (UPDATE, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'hold_expiry'::text) AND (kind = 'HOLD'::text) AND active)` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'hold_expiry'::text) AND (kind = 'HOLD'::text) AND (NOT active))`
@@ -849,6 +849,7 @@ Politiques RLS :
 - `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `probe_read` (SELECT, PERMISSIVE, catalog_probe_owner) USING `(status = 'LISTED'::text)`
 
 Déclencheurs :
 
@@ -910,6 +911,7 @@ Politiques RLS :
 | `timezone` | `text` | oui | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `created_by` | `uuid` | oui | — |
+| `advance_notice_minutes` | `integer` | non | — |
 
 Contraintes :
 
@@ -920,6 +922,7 @@ Contraintes :
 - `catalog_location_geo_range` : `CHECK (geo[1] >= '-90'::integer::double precision AND geo[1] <= 90::double precision AND geo[0] >= '-180'::integer::double precision AND geo[0] <= 180::double precision)`
 - `catalog_location_kind_valid` : `CHECK (kind = ANY (ARRAY['HOME'::text, 'POI'::text, 'AIRPORT'::text]))`
 - `catalog_location_label_valid` : `CHECK (btrim(place_label) <> ''::text AND char_length(place_label) <= 80)`
+- `catalog_location_notice_valid` : `CHECK (advance_notice_minutes IS NULL OR advance_notice_minutes >= 0 AND advance_notice_minutes <= 10080 AND (advance_notice_minutes % 30) = 0)`
 - `catalog_location_org_fk` : `FOREIGN KEY (org_id, country_code) REFERENCES core.iam_organization(id, country_code)`
 - `catalog_location_party_unique` : `UNIQUE (id, org_id, country_code)`
 - `catalog_location_pkey` : `PRIMARY KEY (id)`
@@ -932,6 +935,7 @@ Index :
 Politiques RLS :
 
 - `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
+- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.catalog_vehicle`
@@ -1380,7 +1384,6 @@ Politiques RLS :
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `risk_limit_select` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 
@@ -1528,13 +1531,12 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
-- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text]))`
-- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text]))`
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text]))`
+- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
 - `iam_auth_otp_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = ANY (ARRAY['otp_ttl_min'::text, 'otp_max_attempts'::text, 'otp_lock_min'::text, 'otp_sms_fallback_s'::text]))`
 - `iam_staff_sla_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = ANY (ARRAY['kyc_review_sla_business_h'::text, 'listing_review_sla_h'::text, 'catalog_addition_sla_business_h'::text, 'review_hold_minutes'::text]))`
-- `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = 'biometric_appeal_retention_days'::text)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -1545,7 +1547,7 @@ Déclencheurs :
 ### `core.contract_consent`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : iam_auth_owner: SELECT ; kyc_cmd_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Droits : iam_auth_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -1592,8 +1594,6 @@ Politiques RLS :
 - `iam_auth_insert` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `true`
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((doc_kind = 'BIOMETRIC_CONSENT'::text) AND (context = 'KYC'::text) AND c2_withheld AND (ip_enc IS NULL) AND (user_agent_enc IS NULL))`
-- `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(doc_kind = 'BIOMETRIC_CONSENT'::text)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -1604,7 +1604,7 @@ Déclencheurs :
 ### `core.contract_document_template`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : iam_auth_owner: SELECT ; iam_staff_owner: SELECT ; kyc_cmd_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+- Droits : iam_auth_owner: SELECT ; iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -1649,7 +1649,6 @@ Politiques RLS :
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(kind = 'BIOMETRIC_CONSENT'::text)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -2194,7 +2193,6 @@ Politiques RLS :
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_auth_update` (UPDATE, PERMISSIVE, iam_auth_owner) USING `(status = ANY (ARRAY['PENDING_EMAIL'::text, 'ACTIVE'::text, 'RESTRICTED'::text]))` WITH CHECK `((status = ANY (ARRAY['ACTIVE'::text, 'RESTRICTED'::text])) AND (email_verified_at IS NOT NULL))`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
 - `user_account_self_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text])) AND (id = app.actor_id()))`
@@ -2203,251 +2201,6 @@ Déclencheurs :
 
 - `ctr_signup_consents_required` : `CREATE CONSTRAINT TRIGGER ctr_signup_consents_required AFTER INSERT ON core.iam_user_account DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NOT core.ctr_writer_exempt()) EXECUTE FUNCTION core.ctr_signup_consents_guard()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_user_account FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
-
-### `core.kyc_erasure_request`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `user_id` | `uuid` | oui | — |
-| `verification_id` | `uuid` | oui | — |
-| `provider` | `text` | oui | — |
-| `provider_session_ref` | `text` | non | — |
-| `status` | `text` | oui | `'PENDING'::text` |
-| `attestation_ref` | `text` | non | — |
-| `requested_at` | `timestamp with time zone` | oui | `platform.now()` |
-| `completed_at` | `timestamp with time zone` | non | — |
-
-Contraintes :
-
-- `kyc_erasure_request_attestation_length` : `CHECK (attestation_ref IS NULL OR length(attestation_ref) >= 1 AND length(attestation_ref) <= 200)`
-- `kyc_erasure_request_done_coherent` : `CHECK (status = 'PENDING'::text AND completed_at IS NULL AND provider_session_ref IS NOT NULL OR status = 'FAILED'::text AND completed_at IS NOT NULL AND provider_session_ref IS NOT NULL OR status = 'DONE'::text AND completed_at IS NOT NULL AND provider_session_ref IS NULL)`
-- `kyc_erasure_request_pkey` : `PRIMARY KEY (id)`
-- `kyc_erasure_request_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
-- `kyc_erasure_request_session_ref_length` : `CHECK (provider_session_ref IS NULL OR length(provider_session_ref) >= 1 AND length(provider_session_ref) <= 200)`
-- `kyc_erasure_request_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'DONE'::text, 'FAILED'::text]))`
-- `kyc_erasure_request_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
-- `kyc_erasure_request_verification_id_fkey` : `FOREIGN KEY (verification_id) REFERENCES core.kyc_identity_verification(id)`
-
-Index :
-
-- `kyc_erasure_request_user_idx` : `CREATE INDEX kyc_erasure_request_user_idx ON core.kyc_erasure_request USING btree (user_id, status)`
-
-Politiques RLS :
-
-- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `(status = 'PENDING'::text)`
-- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
-- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(status = 'PENDING'::text)` WITH CHECK `(status = ANY (ARRAY['DONE'::text, 'FAILED'::text]))`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-### `core.kyc_identity_document`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `verification_id` | `uuid` | oui | — |
-| `user_id` | `uuid` | oui | — |
-| `attempt` | `integer` | oui | — |
-| `doc_type` | `text` | oui | — |
-| `issuing_country` | `character(2)` | oui | — |
-| `expiry_date` | `date` | non | — |
-| `license_class` | `text` | non | — |
-| `is_permanent` | `boolean` | non | — |
-| `provider_document_ref` | `text` | non | — |
-| `status` | `text` | oui | — |
-| `retention_until` | `timestamp with time zone` | non | — |
-| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
-
-Contraintes :
-
-- `kyc_identity_document_attempt_positive` : `CHECK (attempt >= 1)`
-- `kyc_identity_document_class_length` : `CHECK (license_class IS NULL OR length(license_class) >= 1 AND length(license_class) <= 20)`
-- `kyc_identity_document_country_format` : `CHECK (issuing_country ~ '^[A-Z]{2}$'::text)`
-- `kyc_identity_document_pkey` : `PRIMARY KEY (id)`
-- `kyc_identity_document_ref_length` : `CHECK (provider_document_ref IS NULL OR length(provider_document_ref) >= 1 AND length(provider_document_ref) <= 200)`
-- `kyc_identity_document_status_valid` : `CHECK (status = ANY (ARRAY['ACCEPTED'::text, 'IN_REVIEW'::text]))`
-- `kyc_identity_document_type_valid` : `CHECK (doc_type = ANY (ARRAY['DRIVER_LICENSE'::text, 'NATIONAL_ID'::text, 'FOREIGN_RESIDENT_ID'::text, 'PASSPORT'::text, 'IDP'::text]))`
-- `kyc_identity_document_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
-- `kyc_identity_document_verification_id_fkey` : `FOREIGN KEY (verification_id) REFERENCES core.kyc_identity_verification(id)`
-
-Index :
-
-- `kyc_identity_document_verification_idx` : `CREATE INDEX kyc_identity_document_verification_idx ON core.kyc_identity_document USING btree (verification_id, attempt)`
-
-Politiques RLS :
-
-- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
-- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
-- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(provider_document_ref IS NOT NULL)` WITH CHECK `(provider_document_ref IS NULL)`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-### `core.kyc_identity_verification`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `user_id` | `uuid` | oui | — |
-| `country_code` | `character(2)` | oui | — |
-| `status` | `text` | oui | — |
-| `is_current` | `boolean` | oui | `true` |
-| `attempt` | `integer` | oui | `1` |
-| `provider` | `text` | non | — |
-| `provider_session_ref` | `text` | non | — |
-| `hosted_url` | `text` | non | — |
-| `session_expires_at` | `timestamp with time zone` | non | — |
-| `decision_reason_code` | `text` | non | — |
-| `reviewed_by` | `uuid` | non | — |
-| `approved_at` | `timestamp with time zone` | non | — |
-| `expires_at` | `timestamp with time zone` | non | — |
-| `row_version` | `integer` | oui | `0` |
-| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
-| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
-
-Contraintes :
-
-- `kyc_identity_verification_approved_coherent` : `CHECK (status <> 'APPROVED'::text OR approved_at IS NOT NULL AND expires_at IS NOT NULL)`
-- `kyc_identity_verification_attempt_positive` : `CHECK (attempt >= 1)`
-- `kyc_identity_verification_country_code_fkey` : `FOREIGN KEY (country_code) REFERENCES core.config_country(code)`
-- `kyc_identity_verification_hosted_url_format` : `CHECK (hosted_url IS NULL OR hosted_url ~ '^https://'::text AND length(hosted_url) <= 500)`
-- `kyc_identity_verification_pkey` : `PRIMARY KEY (id)`
-- `kyc_identity_verification_provider_format` : `CHECK (provider IS NULL OR provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
-- `kyc_identity_verification_reason_format` : `CHECK (decision_reason_code IS NULL OR decision_reason_code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
-- `kyc_identity_verification_reviewed_by_fkey` : `FOREIGN KEY (reviewed_by) REFERENCES core.iam_user_account(id)`
-- `kyc_identity_verification_row_version_valid` : `CHECK (row_version >= 0)`
-- `kyc_identity_verification_session_pair` : `CHECK ((provider_session_ref IS NULL) = (session_expires_at IS NULL))`
-- `kyc_identity_verification_session_provider` : `CHECK (provider_session_ref IS NULL OR provider IS NOT NULL)`
-- `kyc_identity_verification_session_ref_length` : `CHECK (provider_session_ref IS NULL OR length(provider_session_ref) >= 1 AND length(provider_session_ref) <= 200)`
-- `kyc_identity_verification_status_valid` : `CHECK (status = ANY (ARRAY['NOT_STARTED'::text, 'PHONE_VERIFIED'::text, 'DOCS_SUBMITTED'::text, 'AUTO_CHECKS'::text, 'MANUAL_REVIEW'::text, 'MORE_INFO_REQUIRED'::text, 'APPROVED'::text, 'RECHECK'::text, 'EXPIRED'::text, 'REVOKED'::text, 'REJECTED'::text, 'APPEAL'::text, 'REJECTED_FINAL'::text, 'BANNED'::text]))`
-- `kyc_identity_verification_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
-
-Index :
-
-- `kyc_identity_verification_current_unique` : `CREATE UNIQUE INDEX kyc_identity_verification_current_unique ON core.kyc_identity_verification USING btree (user_id) WHERE is_current`
-- `kyc_identity_verification_session_unique` : `CREATE UNIQUE INDEX kyc_identity_verification_session_unique ON core.kyc_identity_verification USING btree (provider, provider_session_ref) WHERE (provider_session_ref IS NOT NULL)`
-
-Politiques RLS :
-
-- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `(is_current AND (status = 'PHONE_VERIFIED'::text) AND (provider_session_ref IS NULL) AND (approved_at IS NULL) AND (reviewed_by IS NULL))`
-- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
-- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `is_current` WITH CHECK `is_current`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-### `core.kyc_liveness_check`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `verification_id` | `uuid` | oui | — |
-| `user_id` | `uuid` | oui | — |
-| `attempt` | `integer` | oui | — |
-| `liveness_score` | `numeric(5,4)` | non | — |
-| `face_match_score` | `numeric(5,4)` | non | — |
-| `result` | `text` | oui | — |
-| `provider_session_ref` | `text` | non | — |
-| `retention_until` | `timestamp with time zone` | oui | — |
-| `erased_at` | `timestamp with time zone` | non | — |
-| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
-
-Contraintes :
-
-- `kyc_liveness_check_attempt_positive` : `CHECK (attempt >= 1)`
-- `kyc_liveness_check_erased_coherent` : `CHECK (erased_at IS NULL AND provider_session_ref IS NOT NULL OR erased_at IS NOT NULL AND liveness_score IS NULL AND face_match_score IS NULL AND provider_session_ref IS NULL)`
-- `kyc_liveness_check_face_range` : `CHECK (face_match_score IS NULL OR face_match_score >= 0::numeric AND face_match_score <= 1::numeric)`
-- `kyc_liveness_check_liveness_range` : `CHECK (liveness_score IS NULL OR liveness_score >= 0::numeric AND liveness_score <= 1::numeric)`
-- `kyc_liveness_check_pkey` : `PRIMARY KEY (id)`
-- `kyc_liveness_check_result_valid` : `CHECK (result = ANY (ARRAY['APPROVED'::text, 'DECLINED'::text, 'REVIEW'::text]))`
-- `kyc_liveness_check_session_ref_length` : `CHECK (provider_session_ref IS NULL OR length(provider_session_ref) >= 1 AND length(provider_session_ref) <= 200)`
-- `kyc_liveness_check_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
-- `kyc_liveness_check_verification_id_fkey` : `FOREIGN KEY (verification_id) REFERENCES core.kyc_identity_verification(id)`
-
-Index :
-
-- `kyc_liveness_check_retention_idx` : `CREATE INDEX kyc_liveness_check_retention_idx ON core.kyc_liveness_check USING btree (retention_until) WHERE (erased_at IS NULL)`
-- `kyc_liveness_check_verification_idx` : `CREATE INDEX kyc_liveness_check_verification_idx ON core.kyc_liveness_check USING btree (verification_id)`
-
-Politiques RLS :
-
-- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
-- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
-- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(erased_at IS NULL)` WITH CHECK `(erased_at IS NOT NULL)`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-### `core.kyc_provider_event`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `provider` | `text` | oui | — |
-| `event_id` | `text` | oui | — |
-| `session_ref` | `text` | oui | — |
-| `decision` | `text` | oui | — |
-| `outcome` | `text` | non | — |
-| `received_at` | `timestamp with time zone` | oui | `platform.now()` |
-
-Contraintes :
-
-- `kyc_provider_event_decision_valid` : `CHECK (decision = ANY (ARRAY['APPROVED'::text, 'DECLINED'::text, 'REVIEW'::text]))`
-- `kyc_provider_event_event_id_length` : `CHECK (length(event_id) >= 1 AND length(event_id) <= 200)`
-- `kyc_provider_event_outcome_valid` : `CHECK (outcome IS NULL OR (outcome = ANY (ARRAY['APPLIED'::text, 'STALE'::text, 'CONSENT_WITHDRAWN'::text])))`
-- `kyc_provider_event_pkey` : `PRIMARY KEY (id)`
-- `kyc_provider_event_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
-- `kyc_provider_event_session_ref_length` : `CHECK (length(session_ref) >= 1 AND length(session_ref) <= 200)`
-- `kyc_provider_event_unique` : `UNIQUE (provider, event_id)`
-
-Politiques RLS :
-
-- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `(outcome IS NULL)`
-- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
-- `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(outcome IS NULL)` WITH CHECK `(outcome IS NOT NULL)`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-### `core.kyc_webhook_rejection`
-
-- RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : kyc_cmd_owner: DELETE, INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
-
-| Colonne | Type | NOT NULL | Défaut |
-| ------- | ---- | -------- | ------ |
-| `id` | `uuid` | oui | `platform.uuid_v7()` |
-| `provider` | `text` | oui | — |
-| `reason` | `text` | oui | — |
-| `body_sha256` | `bytea` | oui | — |
-| `body_length` | `integer` | oui | — |
-| `received_at` | `timestamp with time zone` | oui | `platform.now()` |
-
-Contraintes :
-
-- `kyc_webhook_rejection_length_valid` : `CHECK (body_length >= 0)`
-- `kyc_webhook_rejection_pkey` : `PRIMARY KEY (id)`
-- `kyc_webhook_rejection_provider_format` : `CHECK (provider ~ '^[A-Z][A-Z0-9_]{1,31}$'::text)`
-- `kyc_webhook_rejection_reason_valid` : `CHECK (reason = ANY (ARRAY['BAD_SIGNATURE'::text, 'STALE'::text, 'MALFORMED'::text]))`
-- `kyc_webhook_rejection_sha256` : `CHECK (octet_length(body_sha256) = 32)`
-
-Index :
-
-- `kyc_webhook_rejection_received_idx` : `CREATE INDEX kyc_webhook_rejection_received_idx ON core.kyc_webhook_rejection USING btree (provider, received_at)`
-
-Politiques RLS :
-
-- `kyc_cmd_delete` (DELETE, PERMISSIVE, kyc_cmd_owner) USING `(received_at < (platform.now() - make_interval(days => 90)))`
-- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
-- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.ntf_notification_dispatch`
 
@@ -2622,7 +2375,6 @@ Politiques RLS :
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
 - `cmd_hold_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = ANY (ARRAY['booking.hold.created'::text, 'booking.hold.released'::text, 'booking.hold.release_deferred'::text, 'booking.hold.payment_in_flight'::text])) AND (app.actor_kind() = 'GUEST'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id = app.actor_id()))`
 - `iam_auth_otp_event_ins` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((((type = 'iam.otp.requested'::text) AND (aggregate_type = 'otp_challenge'::text)) OR ((type = 'iam.phone.verified'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))`
-- `kyc_cmd_event_ins` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text)) OR ((type = 'kyc.consent.withdrawn'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = ANY (ARRAY['GUEST'::text, 'SYSTEM'::text])))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() IS NOT NULL))`
 - `worker_select_monitor` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['bus_monitor'::text, 'ops_monitor'::text])))`
@@ -4190,10 +3942,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_assert_trip_occupancy()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.booking_cmd_place_buffer(p_trip_id uuid, p_start timestamp with time zone)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_place_hold(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_flagged boolean)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
-| `core.booking_cmd_place_host_block(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_place_host_block(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_record_order(p_hold_id uuid, p_operation_id uuid, p_provider_reference text, p_order_expires_at timestamp with time zone)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_release_own_hold(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
-| `core.booking_cmd_remove_host_block(p_block_id uuid)` | `boolean` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_remove_host_block(p_block_id uuid)` | `boolean` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_start_payment(p_hold_id uuid, p_psp_account_id uuid, p_method text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
@@ -4202,12 +3954,18 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_cmd_create_location(p_token_hash bytea, p_org uuid, p_kind text, p_label text, p_address_line text, p_city text, p_area_label text, p_lat numeric, p_lng numeric)` | `TABLE(outcome text, location_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_create_vehicle(p_token_hash bytea, p_org uuid, p_location_id uuid, p_plate text, p_vin text, p_variant_id uuid, p_make_text text, p_model_text text, p_year integer, p_trim text, p_transmission text, p_seats smallint, p_fuel_type text, p_odometer_km integer, p_gps_installed boolean, p_lien_declared boolean)` | `TABLE(outcome text, vehicle_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_delete_listing(p_token_hash bytea, p_org uuid, p_listing_id uuid)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_place_host_block(p_token_hash bytea, p_org uuid, p_vehicle_id uuid, p_start_local timestamp without time zone, p_end_local timestamp without time zone)` | `TABLE(outcome text, block_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_remove_host_block(p_token_hash bytea, p_org uuid, p_vehicle_id uuid, p_block_id uuid)` | `TABLE(outcome text, block_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_set_location_notice(p_token_hash bytea, p_org uuid, p_location_id uuid, p_minutes integer)` | `TABLE(outcome text, location_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_submit_listing(p_token_hash bytea, p_org uuid, p_listing_id uuid)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_update_listing_pricing(p_token_hash bytea, p_org uuid, p_listing_id uuid, p_daily_price_minor bigint, p_mileage_mode text, p_included_km_per_day integer, p_extra_km_price_minor bigint)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_listings(p_token_hash bytea, p_org uuid)` | `TABLE(listing_id uuid, vehicle_id uuid, status text, daily_price_minor bigint, currency text, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, instant_book boolean, photos integer, submitted_at timestamp with time zone)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_locations(p_token_hash bytea, p_org uuid)` | `TABLE(location_id uuid, kind text, place_label text, address_line text, city text, area_label text, geo_lat numeric, geo_lng numeric, timezone text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_host_vehicle_calendar(p_token_hash bytea, p_org uuid, p_vehicle_id uuid)` | `TABLE(outcome text, timezone text, listed boolean, location_id uuid, notice_minutes integer, effective_notice_minutes integer)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_host_vehicle_occupancies(p_token_hash bytea, p_org uuid, p_vehicle_id uuid)` | `TABLE(occupancy_id uuid, kind text, source text, starts_at timestamp with time zone, ends_at timestamp with time zone, start_local text, end_local text, removable boolean)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_vehicles(p_token_hash bytea, p_org uuid)` | `TABLE(vehicle_id uuid, location_id uuid, plate text, vin text, variant_id uuid, make_text text, model_text text, year integer, trim_override text, value_class text, transmission text, seats smallint, fuel_type text, odometer_km integer, gps_installed boolean, lien_declared boolean, eligibility_status text, listing_id uuid, listing_status text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_listing(p_listing_id uuid)` | `TABLE(listing_id uuid, country_code text, daily_price_minor bigint, currency text, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, instant_book boolean, variant_id uuid, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_vehicle_is_free(p_vehicle_id uuid, p_period tstzrange)` | `boolean` | `catalog_probe_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_probe_owner: EXECUTE |
 | `core.cfg_brand_cmd_publish(p_token_hash bytea, p_request_id uuid, p_version_id uuid, p_contrast_check jsonb)` | `TABLE(outcome text, version_id uuid, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_brand_cmd_register_asset(p_token_hash bytea, p_request_id uuid, p_asset_id uuid, p_kind text, p_mime text, p_bytes bigint, p_sha256 bytea, p_alt_es text, p_alt_en text, p_alt_fr text, p_alt_pt text, p_license_note text)` | `TABLE(outcome text, asset_id uuid, storage_key text)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_brand_cmd_rollback(p_token_hash bytea, p_request_id uuid, p_new_version_id uuid, p_target_id uuid, p_contrast_check jsonb)` | `TABLE(outcome text, version_id uuid, version_no integer, copied_from_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -4242,7 +4000,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_manual_action_restriction(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_notification_contact(p_user_id uuid)` | `TABLE(email text, phone_e164 text, preferred_locale text, first_name text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_phone_otp_state(p_token_hash bytea)` | `TABLE(outcome text, verified_phone text, pending_phone text, resend_after_s integer, expires_in_s integer, locked_for_s integer, attempts_left integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
-| `core.iam_session_resolve(p_token_hash bytea)` | `TABLE(session_id uuid, user_id uuid, mfa_level text, expires_at timestamp with time zone, email_verified boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; iam_auth_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.iam_session_resolve(p_token_hash bytea)` | `TABLE(session_id uuid, user_id uuid, mfa_level text, expires_at timestamp with time zone, email_verified boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_staff_audit_read(p_token_hash bytea, p_before_id bigint, p_limit integer)` | `TABLE(id bigint, at timestamp with time zone, actor_user_id uuid, actor_role text, action_code text, subject_type text, subject_id uuid, reason text, before jsonb, after jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_begin(p_token_hash bytea)` | `TABLE(outcome text, user_id uuid, factor_id uuid, roles jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_staff_cmd_data_access(p_token_hash bytea, p_request_id uuid, p_case_id uuid, p_subject_type text, p_subject_id uuid, p_field_or_file text, p_access_kind text, p_purpose text)` | `TABLE(outcome text, access_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -4256,16 +4014,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_staff_read_access(p_token_hash bytea, p_permission text, p_scope text)` | `text` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_worker_otp_issue(p_challenge_id uuid, p_code_hash bytea)` | `TABLE(outcome text, phone_e164 text, country_code text, locale text, expires_in_min integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_worker_otp_prune(p_batch integer)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
-| `core.kyc_cmd_apply_decision(p_provider text, p_event_id text, p_session_ref text, p_subject_ref text, p_decision text, p_liveness numeric, p_face_match numeric, p_document jsonb)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_cmd_biometric_consent(p_token_hash bytea, p_country text, p_version integer, p_accepted boolean)` | `TABLE(outcome text, version integer)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_cmd_open_verification(p_token_hash bytea, p_country text, p_provider text)` | `TABLE(outcome text, verification_id uuid, attempt integer, hosted_url text, session_expires_at timestamp with time zone)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_cmd_record_erasure(p_token_hash bytea, p_request_id uuid, p_outcome text, p_attestation_ref text)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_cmd_record_session(p_token_hash bytea, p_verification_id uuid, p_attempt integer, p_provider text, p_session_ref text, p_hosted_url text, p_expires_at timestamp with time zone)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_cmd_record_webhook_rejection(p_provider text, p_reason text, p_body_sha256 bytea, p_body_length integer)` | `void` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_driver_eligibility(p_token_hash bytea, p_trip_end timestamp with time zone, p_trip_country text)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_identity_state(p_token_hash bytea, p_country text)` | `TABLE(outcome text, status text, country_code text, reason_code text, license_expires_on date, session_live boolean, phone_verified boolean, consent_version integer, consent_accepted_version integer, consent_locale text, consent_title text, consent_body text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_pending_erasures(p_token_hash bytea)` | `TABLE(request_id uuid, provider text, session_ref text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.kyc_worker_prune(p_batch integer)` | `integer` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.payment_assert_operation_legs()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.payment_cmd_apply_operation_status(p_operation_id uuid, p_status text, p_source text, p_raw_ref uuid, p_provider_reference text)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_cmd_receive_webhook(p_account_id uuid, p_provider_event_id text, p_dedup_key bytea, p_signature_valid boolean, p_signed_at timestamp with time zone, p_headers jsonb, p_normalized jsonb)` | `TABLE(outcome text, inbox_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -4339,6 +4087,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_record_poll(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_release_cancelled_holds(p_limit integer)` | `integer` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_vehicle_party(p_vehicle_id uuid)` | `TABLE(org_id uuid, country_code text)` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_effective_notice_minutes(p_vehicle_id uuid)` | `integer` | `migrator` | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_host_context(p_token_hash bytea, p_org uuid)` | `TABLE(outcome text, user_id uuid, country_code text, org_status text)` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_normalize_plate(p_plate text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_normalize_vin(p_vin text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
@@ -4382,10 +4131,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_staff_permitted(p_user uuid, p_permission text, p_countries text[], p_roles text[])` | `text` | `migrator` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_staff_session(p_token_hash bytea, OUT user_id uuid, OUT session_id uuid, OUT mfa_level text)` | `record` | `migrator` | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.iam_totp_step_now()` | `bigint` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
-| `core.kyc_biometric_template(p_country text, p_language text)` | `SETOF core.contract_document_template` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
-| `core.kyc_consent_current(p_user uuid, p_country text)` | `integer` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
-| `core.kyc_emit_status(p_verification uuid, p_user uuid, p_version integer, p_from text, p_to text, p_reason text, p_country text, p_actor uuid, p_actor_role text)` | `void` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
-| `core.kyc_retention_days(p_country text)` | `integer` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.ops_monitor_metrics(p_since timestamp with time zone, p_webhook_failures integer)` | `TABLE(metric text, label text, country_code text, value bigint)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.outbox_begin_receipt(p_event_id uuid)` | `boolean` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.outbox_claim_jobs(p_limit integer, p_lease interval)` | `SETOF core.outbox_scheduled_job` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
@@ -4440,8 +4185,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_log_access(p_actor uuid, p_role text, p_subject_type text, p_subject_id uuid, p_field text, p_kind text, p_purpose text, p_case_ref text, p_request_id uuid, p_country text)` | `uuid` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_subject_resolver_check(p_resolver regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
-| `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
+| `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |

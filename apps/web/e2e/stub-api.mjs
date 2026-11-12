@@ -317,6 +317,124 @@ async function hostRoute(req, res, url) {
       },
     });
   }
+  // ---- Calendrier d'un véhicule (US-119) : occupations, blocages, préavis du lieu -------------
+  // Double : un véhicule qui a une annonce vaut « publié » (le double ne publie jamais, US-118) ;
+  // heures locales comparées comme des chaînes (fuseau UTC du double) ; préavis du pays : 180 min.
+  const cal =
+    /^\/host\/accounts\/([0-9a-f-]{36})\/(?:vehicles\/([0-9a-f-]{36})\/(calendar|blocks)(?:\/([0-9a-f-]{36}))?|locations\/([0-9a-f-]{36})\/notice)$/.exec(
+      path,
+    );
+  if (cal !== null) {
+    const owner = hostOf(req);
+    if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === cal[1]);
+    if (h === undefined) {
+      return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+    }
+    h.blocks ??= [];
+    const [, , vehicleId, what, blockId, locationId] = cal;
+    if (locationId !== undefined) {
+      if (req.method !== 'PUT') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+      if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+        return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+      }
+      const loc = h.locations.find((x) => x.id === locationId);
+      if (!loc) return err(res, 404, 'LOCATION_NOT_FOUND', 'common.listing.locationNotFound');
+      const body = (await readBody(req)) ?? {};
+      const m = body.minutes;
+      if (m !== null && !(Number.isInteger(m) && m >= 60 && m <= 10_080 && m % 30 === 0)) {
+        return json(res, 400, {
+          code: 'REQUEST_INVALID',
+          messageKey: 'common.auth.requestInvalid',
+          fields: [{ field: 'minutes', reason: 'INVALID' }],
+        });
+      }
+      loc.notice = m;
+      return err(res, 200, 'NOTICE_SAVED', 'common.calendar.noticeSaved');
+    }
+    const v = h.vehicles.find((x) => x.id === vehicleId);
+    if (!v) return err(res, 404, 'VEHICLE_NOT_FOUND', 'common.listing.vehicleNotFound');
+    const listed = v.listingId !== null;
+    if (req.method === 'GET' && what === 'calendar' && blockId === undefined) {
+      const loc = h.locations.find((x) => x.id === v.locationId);
+      const notice = loc?.notice ?? null;
+      return json(res, 200, {
+        vehicle: {
+          id: v.id,
+          timezone: 'UTC',
+          listed,
+          locationId: v.locationId,
+          noticeMinutes: notice,
+          effectiveNoticeMinutes: notice ?? 180,
+        },
+        entries: h.blocks
+          .filter((b) => b.vehicleId === v.id && b.active)
+          .sort((a, b) => (a.startLocal < b.startLocal ? -1 : 1))
+          .map((b) => ({
+            id: b.id,
+            kind: 'HOST_BLOCK',
+            startsAt: `${b.startLocal}:00.000Z`,
+            endsAt: `${b.endLocal}:00.000Z`,
+            startLocal: b.startLocal,
+            endLocal: b.endLocal,
+            removable: true,
+          })),
+      });
+    }
+    if (what !== 'blocks') return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+      return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const body = (await readBody(req)) ?? {};
+    if (req.method === 'DELETE' && blockId !== undefined) {
+      const b = h.blocks.find((x) => x.id === blockId && x.vehicleId === v.id && x.active);
+      if (!b) return err(res, 404, 'BLOCK_NOT_FOUND', 'common.calendar.blockNotFound');
+      b.active = false;
+      return err(res, 200, 'BLOCK_REMOVED', 'common.calendar.blockRemoved');
+    }
+    if (req.method !== 'POST' || blockId !== undefined) {
+      return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    }
+    let startLocal;
+    let endLocal;
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    const time = /^\d{4}-\d{2}-\d{2}T\d{2}:(00|30)$/;
+    if (day.test(String(body.from)) && day.test(String(body.to)) && body.to >= body.from) {
+      const next = new Date(`${body.to}T00:00:00.000Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      startLocal = `${body.from}T00:00`;
+      endLocal = `${next.toISOString().slice(0, 10)}T00:00`;
+    } else if (
+      time.test(String(body.start)) &&
+      time.test(String(body.end)) &&
+      body.end > body.start
+    ) {
+      startLocal = body.start;
+      endLocal = body.end;
+    } else {
+      return json(res, 400, {
+        code: 'REQUEST_INVALID',
+        messageKey: 'common.auth.requestInvalid',
+        fields: [{ field: 'from', reason: 'INVALID' }],
+      });
+    }
+    if (!listed) return err(res, 409, 'VEHICLE_NOT_LISTED', 'common.calendar.notListed');
+    if (
+      h.blocks.some(
+        (b) =>
+          b.vehicleId === v.id && b.active && b.startLocal < endLocal && startLocal < b.endLocal,
+      )
+    ) {
+      return err(res, 409, 'VEHICLE_UNAVAILABLE', 'common.calendar.vehicleUnavailable');
+    }
+    const id = uuid();
+    h.blocks.push({ id, vehicleId: v.id, startLocal, endLocal, active: true });
+    return json(res, 201, {
+      code: 'BLOCK_CREATED',
+      messageKey: 'common.calendar.blockCreated',
+      blockId: id,
+    });
+  }
   // CGU de l'hôte (US-126) : version 1 BROUILLON ; acceptation de la version affichée
   const terms = /^\/host\/accounts\/([0-9a-f-]{36})\/terms(\/accept)?$/.exec(path);
   if (terms !== null) {
