@@ -314,6 +314,7 @@ CREATE POLICY catalog_cmd_read ON core.support_review_queue_item FOR SELECT TO c
   USING (queue IN ('CATALOG_ADDITION', 'LISTING'));
 
 -- 4. Nom affiché au voyageur (N-37) : fonction d'iam_auth_owner (seul lecteur des comptes) ------
+GRANT CREATE ON SCHEMA core TO iam_auth_owner;
 SET LOCAL ROLE iam_auth_owner;
 -- Premier mot du prénom LÉGAL du titulaire d'un compte d'hôte ACTIVE (« Ana » pour « Ana María
 -- Pérez Gómez ») : jamais le nom de famille, jamais le nom légal complet (PROPOSÉ, comme Turo) ;
@@ -337,6 +338,7 @@ COMMENT ON FUNCTION core.iam_host_public_first_name(uuid) IS
 REVOKE ALL ON FUNCTION core.iam_host_public_first_name(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.iam_host_public_first_name(uuid) TO catalog_cmd_owner;
 RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM iam_auth_owner;
 
 -- 5. Aides (propriétaire migrator, SECURITY INVOKER, EXECUTE à catalog_cmd_owner) ----------------
 -- Booléen du pays en vigueur ; NULL si absent ou mal formé.
