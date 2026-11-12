@@ -1,6 +1,6 @@
 /**
- * Port et adaptateur PostgreSQL du calendrier de l'hôte (US-119, migration 0072). L'adaptateur
- * n'appelle QUE les fonctions `core.catalog_*` de 0072 (SECURITY DEFINER, propriétaire
+ * Port et adaptateur PostgreSQL du calendrier de l'hôte (US-119, migration 0071). L'adaptateur
+ * n'appelle QUE les fonctions `core.catalog_*` de 0071 (SECURITY DEFINER, propriétaire
  * catalog_cmd_owner, EXECUTE au seul app_api) : app_api n'a aucun droit sur l'occupation. Les
  * blocages passent par la commande de la table d'occupation unique (`booking_cmd_place_host_block`,
  * exclusion GiST, verrou du véhicule) ; l'hôte est désigné par l'empreinte de son jeton (`proof`),

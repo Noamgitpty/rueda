@@ -1,5 +1,5 @@
 /**
- * Routes du calendrier de l'hôte (US-119 ; 16 CAL-001 / CAL-002, CAL-003 ; écran A06 ; ADR-102).
+ * Routes du calendrier de l'hôte (US-119 ; 16 CAL-001 / CAL-002, CAL-003 ; écran A06 ; ADR-101).
  * Gardées par `SessionGuard` (JSON exigé pour une écriture : parade CSRF) ; l'hôte est celui de la
  * session, le compte `{orgId}` l'un de ses comptes titulaires, revérifié en base.
  *

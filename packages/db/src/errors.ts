@@ -39,7 +39,7 @@
  *   US-024 (migrations 0040, 0041, ADR-065) ; `PAYMENT_ATTEMPTS_EXCEEDED` : 16 fiche PAY-017
  *   (`payment_attempts_per_hold`) ;
  * - `DATES_NOTICE_TOO_SHORT` : 16 fiches CAL-003 et LST-006 (départ dans le préavis du lieu de
- *   remise ; migration 0072, US-119, ADR-102).
+ *   remise ; migration 0071, US-119, ADR-101).
  */
 
 /** Codes métier produits par la traduction. */
@@ -208,7 +208,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   hold_guest_limit: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_LIMIT_REACHED'],
   hold_guest_overlap: [SQLSTATE.objectNotInPrerequisiteState, 'GUEST_OVERLAP'],
   hold_rate_limited: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_RATE_LIMITED'],
-  // préavis minimum du lieu de remise (0072, US-119 ; 16 CAL-003)
+  // préavis minimum du lieu de remise (0071, US-119 ; 16 CAL-003)
   hold_notice_too_short: [SQLSTATE.objectNotInPrerequisiteState, 'DATES_NOTICE_TOO_SHORT'],
   hold_release_terminal: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   hold_guarded_columns: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],

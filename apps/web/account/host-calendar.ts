@@ -1,5 +1,5 @@
 /**
- * Lecture défensive de la réponse du calendrier d'un véhicule (US-119, ADR-102) et présentation
+ * Lecture défensive de la réponse du calendrier d'un véhicule (US-119, ADR-101) et présentation
  * des durées de préavis, côté SERVEUR du site seulement. Une réponse mal formée est refusée
  * (`null`) : l'écran affiche son état d'erreur, jamais une donnée partielle. Aucune constante de
  * pays : le fuseau, le préavis du pays et la publication viennent de l'API.

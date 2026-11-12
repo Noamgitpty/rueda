@@ -1,6 +1,6 @@
 /**
  * Preuves du calendrier par véhicule, des blocages de l'hôte et du préavis (US-119, migration
- * 0072) sous le rôle de production app_api (assertion L0-05 en tête de chaque connexion,
+ * 0071) sous le rôle de production app_api (assertion L0-05 en tête de chaque connexion,
  * withRole), en USD (PA) et en PYG (PY). Chaque test crée ses propres personnes, sessions, comptes
  * d'hôte, lieux, véhicules et annonces par les VRAIES commandes (US-107, US-115).
  *
@@ -574,7 +574,7 @@ describe('L1-PM-22 — contexte app.* de l’hôte effacé après la commande, d
             await client.query('ROLLBACK');
           }
         }
-        // levée (0072 6.2) : même preuve, succès puis blocage inconnu
+        // levée (0071 6.2) : même preuve, succès puis blocage inconnu
         await client.query('BEGIN');
         try {
           expect(await unblock(client, a, a.vehicle, kept.id ?? '')).toBe('DONE');
@@ -592,7 +592,7 @@ describe('L1-PM-22 — contexte app.* de l’hôte effacé après la commande, d
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('levée : seul un blocage manuel actif de CE véhicule (0056, 0072 6.2)', () => {
+describe('levée : seul un blocage manuel actif de CE véhicule (0056, 0071 6.2)', () => {
   it.each(byCountry)(
     '%s (%s) : identifiant d’une occupation TRIP ou HOLD du compte, ou blocage d’un autre véhicule du compte ⇒ BLOCK_NOT_FOUND, rien n’est levé',
     async (_country, _currency, c) => {

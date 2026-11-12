@@ -1,10 +1,10 @@
--- 9994 — fixtures des preuves historiques de pose de hold face au préavis (US-119, migration 0072).
+-- 9994 — fixtures des preuves historiques de pose de hold face au préavis (US-119, migration 0071).
 -- TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*`.
 --
--- Depuis 0072, `core.booking_cmd_place_hold` refuse un départ dans le préavis du lieu du véhicule
+-- Depuis 0071, `core.booking_cmd_place_hold` refuse un départ dans le préavis du lieu du véhicule
 -- (défaut du pays : 180 min). Deux preuves antérieures éprouvent des bornes PLUS proches que tout
 -- préavis : C20 (US-024, réservation de dernière minute, départ deux minutes après la pose) et
 -- RT-CONC-02 (US-049, borne « maintenant + 1 s » de la pose). Elles fixent pour les lieux de LEUR

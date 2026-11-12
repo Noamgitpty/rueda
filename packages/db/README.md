@@ -514,9 +514,9 @@ Migrations `0067_catalog_host_listings`, `0068_config_listing_photo_params`, `00
 
 Preuves : `test/l0/l0-us115-host-listings.test.ts` (PA et PY : socle et droits, clés étrangères, critères 1 à 4, N-37, marché de la variante, IDOR A contre B, compte suspendu, gardes de blocage sur la vraie table).
 
-## Calendrier, blocages et préavis de l'hôte (US-119 ; 16 CAL-001 à CAL-003 ; 17 §2.3, §3.2.3 ; ADR-102)
+## Calendrier, blocages et préavis de l'hôte (US-119 ; 16 CAL-001 à CAL-003 ; 17 §2.3, §3.2.3 ; ADR-101)
 
-- Migration `0072_catalog_host_calendar` : colonne `catalog_location.advance_notice_minutes` (60 à 10 080 min, pas de 30 ; `NULL` = défaut du pays) et `core.catalog_effective_notice_minutes(véhicule)` (`SECURITY INVOKER` : lieu, sinon `advance_notice_minutes` du pays, au moins la portée `CATEGORY` de la classe ; `NULL` si absent).
+- Migration `0071_catalog_host_calendar` : colonne `catalog_location.advance_notice_minutes` (60 à 10 080 min, pas de 30 ; `NULL` = défaut du pays) et `core.catalog_effective_notice_minutes(véhicule)` (`SECURITY INVOKER` : lieu, sinon `advance_notice_minutes` du pays, au moins la portée `CATEGORY` de la classe ; `NULL` si absent).
 - Commandes de l'hôte de la session (`catalog_cmd_owner`, `EXECUTE` au seul `app_api`) : `core.catalog_cmd_place_host_block(jeton, compte, véhicule, début local, fin local)` et `core.catalog_cmd_remove_host_block(jeton, compte, véhicule, blocage)` convertissent l'heure locale dans le fuseau du véhicule, posent le contexte `app.*` de l'hôte de la session pour l'appel de `core.booking_cmd_place_host_block` / `core.booking_cmd_remove_host_block` (0032, 0056 : seul écrivain de l'occupation) et l'effacent ; `core.catalog_cmd_set_location_notice`. Lectures : `core.catalog_host_vehicle_calendar`, `core.catalog_host_vehicle_occupancies` (occupations actives à venir, sans voyageur ni `ref_id`).
 - `core.booking_cmd_place_hold` (corps de 0064) : départ avant `platform.now()` + préavis ⇒ `hold_notice_too_short` (`DATES_NOTICE_TOO_SHORT`).
 - Sonde `core.catalog_vehicle_is_free(véhicule, période)` (17 §2.3, RLS-17) : propriétaire `catalog_probe_owner`, booléen seul, `NULL` hors annonce `LISTED`, période arrondie à l'heure ; `EXECUTE` au seul `app_api` (route et limite de débit : US-201).

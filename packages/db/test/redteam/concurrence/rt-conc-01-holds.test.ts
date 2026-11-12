@@ -152,7 +152,7 @@ describe.each(COUNTRIES)('US-049 red team concurrence — holds ($country, $curr
     'RT-CONC-02 : durée nulle ou négative, début passé ou égal à maintenant, fin infinie ⇒ INVALID_PERIOD, aucune occupation créée',
     async () => {
       const w = await world(api, c, 2, 2);
-      // US-119 (0072) : préavis nul pour les lieux de ce compte (fixture 9994), sinon la borne
+      // US-119 (0071) : préavis nul pour les lieux de ce compte (fixture 9994), sinon la borne
       // « maintenant + 1 s » éprouvée ici tomberait dans le préavis du pays (DATES_NOTICE_TOO_SHORT)
       await api.query('SELECT test_fixture.us119_set_org_notice($1, 0)', [w.orgId]);
       const vehicle = w.vehicles[0] as string;
