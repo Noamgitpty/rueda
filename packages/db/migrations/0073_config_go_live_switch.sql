@@ -151,9 +151,9 @@ BEGIN
   IF p_op <> 'INSERT' THEN
     RETURN 'interrupteur : modification interdite (nouvelle version par la procédure à deux personnes)';
   END IF;
-  -- (a) graine à false par migrator, sans demande
+  -- (a) graine à false par migrator, sans demande, clé canonique (minuscules, sans blanc)
   IF current_user = 'migrator' THEN
-    IF p_value = 'false'::jsonb AND p_request_id IS NULL AND p_key = pg_catalog.lower(p_key) THEN
+    IF p_value = 'false'::jsonb AND p_request_id IS NULL AND p_key = pg_catalog.lower(pg_catalog.btrim(p_key)) THEN
       RETURN NULL;
     END IF;
     RETURN 'interrupteur : migrator n''écrit que des graines à false';
