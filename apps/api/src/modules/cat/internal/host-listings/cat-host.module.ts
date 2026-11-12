@@ -6,8 +6,8 @@
  * Adaptateurs choisis par l'appelant : production `postgresCatAdapters(pool)` (magasin et
  * catalogue de référence sous app_api ; antivirus et stockage objet INDISPONIBLES tant que Q-019
  * et US-003 ne sont pas livrés : photos 503, fail-closed) ; tests : FAKE de `../../testing/`.
- * Sans options, toute route répond 503 (aucun magasin). Calendrier de l'hôte (US-119, ADR-100) :
- * magasin `calendar` (production : commandes `core.catalog_*` de 0070).
+ * Sans options, toute route répond 503 (aucun magasin). Calendrier de l'hôte (US-119, ADR-101) :
+ * magasin `calendar` (production : commandes `core.catalog_*` de 0071).
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';

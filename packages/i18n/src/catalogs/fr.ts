@@ -680,6 +680,9 @@ export const FR_MESSAGES = {
   'web.s15.codeHint': 'Il arrive par SMS. Tu peux le coller.',
   'web.legal.version': 'Révision {version}',
   'web.legal.back': 'Retour au formulaire',
+  'web.legal.validFrom': 'En vigueur depuis le {date}',
+  'web.legal.translation': 'Traduction : le texte espagnol fait foi.',
+  'web.legal.backHost': 'Retour à ton espace d’hôte',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
   // US-115 : écrans A10 (espace de l'hôte) et S03 (fiche publique d'une annonce)
   'web.host.title': 'Mettre ta voiture en location',
@@ -758,6 +761,18 @@ export const FR_MESSAGES = {
   'web.host.status.RESTRICTED': 'Restreinte',
   'web.host.status.REMOVED_BY_PLATFORM': 'Retirée par la plateforme',
   'web.host.status.DELETED': 'Supprimée',
+  // US-126 : CGU de l'hôte (A07, LEG-001)
+  'web.host.terms.title': 'Conditions de l’hôte',
+  'web.host.terms.intro':
+    'Tu loues ta propre voiture directement au voyageur ; nous ne sommes qu’intermédiaires et ne sommes pas partie au contrat de location.',
+  'web.host.terms.version': 'Version {version}, en vigueur depuis le {date}',
+  'web.host.terms.read': 'Lire les Conditions de l’hôte',
+  'web.host.terms.required': 'Accepte-les avant d’envoyer ta première annonce.',
+  'web.host.terms.reaccept':
+    'Nous avons publié une nouvelle version. Accepte-la pour continuer à envoyer des annonces.',
+  'web.host.terms.checkbox': 'J’ai lu et j’accepte les Conditions de l’hôte',
+  'web.host.terms.accept': 'Accepter les conditions',
+  'web.host.terms.accepted': 'Tu as accepté la version {version} le {date}.',
   'web.listing.notFound': 'Cette voiture n’est plus disponible',
   'web.listing.notFound.body':
     'L’hôte l’a peut-être retirée. Cherche une autre voiture près de toi.',
@@ -804,6 +819,8 @@ export const FR_MESSAGES = {
   'common.listing.requestModeNotAllowed': 'À l’aéroport, la réservation est toujours immédiate.',
   'common.listing.photoMinCount': 'Ajoute d’autres photos de ta voiture avant d’envoyer l’annonce.',
   'common.listing.photoFormat': 'Cette photo est inutilisable. Envoie une photo JPEG, PNG ou WebP.',
+  'common.listing.hostTermsRequired':
+    'Avant d’envoyer ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
   'common.listing.hostNotActivated':
     'Tout est prêt de ton côté. Tu pourras envoyer ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
   'common.listing.unavailable':

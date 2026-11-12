@@ -1,11 +1,11 @@
--- 0070 — CAT / AVL : calendrier par véhicule, blocages de l'hôte par commande et préavis par lieu.
+-- 0071 — CAT / AVL : calendrier par véhicule, blocages de l'hôte par commande et préavis par lieu.
 -- US-119 ; 19 US-119 ; 16 CAL-001 / CAL-002, CAL-003 / CAL-004, CAL-011 ; 08 BR-BOOK-04, BR-BOOK-05,
 -- BR-BOOK-07 ; 17 §2.3 (sondes publiques `catalog.vehicle_is_free`, RLS-15, RLS-17), §2.5, §3.2.3
 -- (`location.advance_notice_minutes`), §3.2.4, §7.2 (`advance_notice_minutes` : 180, 1 440 classe
--- LUXE) ; ADR-060, ADR-063, ADR-089, ADR-099 ; ADR-100 (cette migration). Appliquée sous
+-- LUXE) ; ADR-060, ADR-063, ADR-089, ADR-099 ; ADR-101 (cette migration). Appliquée sous
 -- `migrator`, en une transaction.
 --
--- Principes (ADR-100, PROPOSÉS, « comme Turo » : docs/team/COMME_TURO.md) :
+-- Principes (ADR-101, PROPOSÉS, « comme Turo » : docs/team/COMME_TURO.md) :
 --   - la table d'occupation unique (0004, 0032) reste la SEULE source de la disponibilité ; un
 --     blocage est une occupation HOST_BLOCK écrite UNIQUEMENT par la commande de 0032 / 0056
 --     (`core.booking_cmd_place_host_block`, cmd_hold_owner, verrou du véhicule, exclusion GiST) ;
@@ -68,7 +68,7 @@ ALTER TABLE core.catalog_location
 COMMENT ON COLUMN core.catalog_location.advance_notice_minutes IS
   'Préavis minimum de l''hôte pour ce lieu (16 CAL-003, 08 BR-BOOK-04), en minutes au pas de 30 ; '
   'l''hôte choisit de 60 à 10 080 (commande) ; 0 (aucun préavis) n''est jamais proposé à l''hôte ; '
-  'NULL : défaut du pays (advance_notice_minutes). US-119 (ADR-100).';
+  'NULL : défaut du pays (advance_notice_minutes). US-119 (ADR-101).';
 
 -- 2. Préavis en vigueur d'un véhicule (SECURITY INVOKER : exécutée sous cmd_hold_owner à la pose
 -- d'un hold et sous catalog_cmd_owner au calendrier ; chacun lit sous sa propre RLS) ------------
@@ -650,19 +650,19 @@ $fn$;
 COMMENT ON FUNCTION core.catalog_cmd_place_host_block(bytea, uuid, uuid, timestamp, timestamp) IS
   'Commande de l''hôte de la session : blocage d''un véhicule publié de son compte, heures locales '
   'du véhicule au pas de 30 min, par la commande booking_cmd_place_host_block (exclusion GiST, '
-  'verrou du véhicule). US-119 (ADR-100).';
+  'verrou du véhicule). US-119 (ADR-101).';
 COMMENT ON FUNCTION core.catalog_cmd_remove_host_block(bytea, uuid, uuid, uuid) IS
   'Commande de l''hôte de la session : levée d''un blocage manuel d''un véhicule de son compte, par '
-  'booking_cmd_remove_host_block. US-119 (ADR-100).';
+  'booking_cmd_remove_host_block. US-119 (ADR-101).';
 COMMENT ON FUNCTION core.catalog_cmd_set_location_notice(bytea, uuid, uuid, integer) IS
   'Commande de l''hôte de la session : préavis minimum d''un lieu de remise (60 à 10 080 min, pas '
-  'de 30 ; NULL = défaut du pays). US-119 (ADR-100).';
+  'de 30 ; NULL = défaut du pays). US-119 (ADR-101).';
 COMMENT ON FUNCTION core.catalog_host_vehicle_calendar(bytea, uuid, uuid) IS
   'Lecture de l''hôte de la session : en-tête du calendrier d''un véhicule (fuseau, publication, '
-  'lieu, préavis). US-119 (ADR-100).';
+  'lieu, préavis). US-119 (ADR-101).';
 COMMENT ON FUNCTION core.catalog_host_vehicle_occupancies(bytea, uuid, uuid) IS
   'Lecture de l''hôte de la session : occupations actives à venir d''un véhicule de son compte, '
-  'sans donnée du voyageur. US-119 (ADR-100).';
+  'sans donnée du voyageur. US-119 (ADR-101).';
 
 REVOKE ALL ON FUNCTION
   core.catalog_cmd_place_host_block(bytea, uuid, uuid, timestamp, timestamp),
@@ -734,7 +734,7 @@ END
 $fn$;
 COMMENT ON FUNCTION core.catalog_vehicle_is_free(uuid, tstzrange) IS
   'Sonde (17 §2.3, RLS-17) : véhicule publié libre sur la période arrondie à l''heure ; NULL hors '
-  'annonce LISTED ; booléen seul. Branchée à la recherche par US-201. US-119 (ADR-100).';
+  'annonce LISTED ; booléen seul. Branchée à la recherche par US-201. US-119 (ADR-101).';
 REVOKE ALL ON FUNCTION core.catalog_vehicle_is_free(uuid, tstzrange) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.catalog_vehicle_is_free(uuid, tstzrange) TO app_api;
 GRANT CREATE ON SCHEMA core TO catalog_probe_owner;

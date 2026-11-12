@@ -8,6 +8,8 @@
  *   champ obligatoire vide ⇒ erreur liée au champ ; photo ⇒ dépôt indisponible annoncé (503 de la
  *   production : antivirus et stockage pas encore branchés) ; soumission sans photos ⇒ refus
  *   annoncé, l'annonce reste en brouillon ; hors connexion ⇒ bandeau de la coquille.
+ * - A10, CGU de l'hôte (US-126) : version, date et brouillon affichés ; case obligatoire jamais
+ *   pré-cochée ; acceptation ⇒ formulaire retiré ; texte servi avec retour vers l'espace de l'hôte.
  * - S03 : zone approximative et mention « dirección exacta al confirmar » ; annonce introuvable ;
  *   API en panne ⇒ état d'erreur.
  * - Accessibilité : axe-core (WCAG 2.2 A / AA) sur `main` sans violation, à chaque état ; mobile
@@ -165,6 +167,45 @@ for (const language of LANGUAGES) {
 
       // l'adresse exacte saisie n'apparaît jamais ailleurs que dans la carte du lieu de l'hôte
       await expect(article).not.toContainText('Calle Secreta');
+    });
+
+    test('A10 : CGU de l’hôte (US-126) — version, date, brouillon ; case obligatoire ; acceptation ⇒ acceptées ; texte servi avec retour vers l’espace', async ({
+      page,
+      context,
+    }) => {
+      await signIn(context, 'H0st');
+      await page.goto('/host');
+      const section = page.locator('section[aria-labelledby="a10-terms"]');
+      await expect(section.locator('h2')).toBeVisible();
+      const link = section.locator('a[href^="/legal/TOS_HOST?"]');
+      await expect(link).toHaveAttribute('href', /from=host/);
+      // version 1 et date d'entrée en vigueur affichées ; brouillon signalé (OQ-BR-24)
+      const line = section.locator('p', { has: page.locator('a[href^="/legal/TOS_HOST?"]') });
+      await expect(line).toContainText('1');
+      await expect(line).toContainText('2026');
+      await expect(section.locator('#a10-terms-form')).toBeVisible();
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+
+      // case non cochée : erreur liée à la case, rien n'est envoyé
+      await section.locator('#a10-terms-form button[type="submit"]').click();
+      await expect(page.locator('#a10-terms-accept')).toHaveAttribute('aria-invalid', 'true');
+      await expectAccessible(page);
+
+      await page.locator('#a10-terms-accept').check();
+      await section.locator('#a10-terms-form button[type="submit"]').click();
+      await expect(page).toHaveURL(/saved=1/);
+      await expect(page.locator('#a10-terms-form')).toHaveCount(0);
+      await expect(page.locator('section[aria-labelledby="a10-terms"]')).toContainText('1');
+      await expectAccessible(page);
+
+      // texte servi : version, brouillon ; hors de l'espagnol, mention de traduction ; retour
+      await page.goto('/legal/TOS_HOST?from=host');
+      await expect(page.locator('main h1')).toBeVisible();
+      await expect(page.locator('main a[href="/host"]')).toBeVisible();
+      await expect(page.locator('main article')).toHaveAttribute('lang', language);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
     });
 
     test('A10 : changer le prix d’une annonce à distance incluse garde le prix du km ; saisie ambiguë refusée ; suppression confirmée libère l’auto', async ({

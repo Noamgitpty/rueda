@@ -658,6 +658,9 @@ export const ES_MESSAGES = {
   'web.s15.codeHint': 'Te llega por SMS. Puedes pegarlo.',
   'web.legal.version': 'Versión {version}',
   'web.legal.back': 'Volver al formulario',
+  'web.legal.validFrom': 'Vigente desde el {date}',
+  'web.legal.translation': 'Traducción: el texto en español hace fe.',
+  'web.legal.backHost': 'Volver a tu espacio de anfitrión',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
   // US-115 : écrans A10 (espace de l'hôte) et S03 (fiche publique d'une annonce)
   'web.host.title': 'Publicar tu auto',
@@ -735,6 +738,18 @@ export const ES_MESSAGES = {
   'web.host.status.RESTRICTED': 'Restringido',
   'web.host.status.REMOVED_BY_PLATFORM': 'Retirado por la plataforma',
   'web.host.status.DELETED': 'Eliminado',
+  // US-126 : CGU de l'hôte (A07, LEG-001)
+  'web.host.terms.title': 'Condiciones del anfitrión',
+  'web.host.terms.intro':
+    'Alquilas tu propio auto directamente al viajero; nosotros solo somos intermediarios y no somos parte del contrato de alquiler.',
+  'web.host.terms.version': 'Versión {version}, vigente desde el {date}',
+  'web.host.terms.read': 'Leer las Condiciones del anfitrión',
+  'web.host.terms.required': 'Acéptalas antes de enviar tu primer anuncio.',
+  'web.host.terms.reaccept':
+    'Publicamos una nueva versión. Acéptala para seguir enviando anuncios.',
+  'web.host.terms.checkbox': 'Leí y acepto las Condiciones del anfitrión',
+  'web.host.terms.accept': 'Aceptar las condiciones',
+  'web.host.terms.accepted': 'Aceptaste la versión {version} el {date}.',
   'web.listing.notFound': 'Este auto ya no está disponible',
   'web.listing.notFound.body': 'Puede que el anfitrión lo haya retirado. Busca otro auto cerca.',
   'web.listing.search': 'Buscar otro auto',
@@ -777,6 +792,8 @@ export const ES_MESSAGES = {
   'common.listing.requestModeNotAllowed': 'En un aeropuerto, la reserva es siempre inmediata.',
   'common.listing.photoMinCount': 'Agrega más fotos de tu auto antes de enviar el anuncio.',
   'common.listing.photoFormat': 'Esta foto no se puede usar. Sube una foto JPEG, PNG o WebP.',
+  'common.listing.hostTermsRequired':
+    'Antes de enviar tu anuncio, lee y acepta la versión vigente de las Condiciones del anfitrión.',
   'common.listing.hostNotActivated':
     'Todo listo de tu lado. Podrás enviar tu anuncio cuando tu cuenta de anfitrión esté activa y abramos a anfitriones aquí.',
   'common.listing.unavailable':

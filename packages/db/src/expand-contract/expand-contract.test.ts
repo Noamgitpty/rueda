@@ -221,12 +221,21 @@ describe('lintExpandContract (arborescence + dérogations)', () => {
   };
   const JUST = 'justification suffisamment longue pour une dérogation nominative';
 
-  it('les migrations du dépôt sont conformes (dérogations comprises)', () => {
-    const result = lintExpandContract(repoRoot);
-    expect(result.allowlistErrors).toEqual([]);
-    expect(result.findings).toEqual([]);
-    expect(result.filesScanned).toBeGreaterThan(50);
-  });
+  // Parcourt toutes les migrations du dépôt (71 au lot 1, et le nombre croît) : 0,4 s en local,
+  // mais plus de 5 s (délai par défaut de vitest) sur un exécuteur de CI chargé par les tâches
+  // parallèles de Turborepo (run 43188707160, PR #117). Délai explicite, sans relâcher l'assertion.
+  const REPO_SCAN_TIMEOUT_MS = 60_000;
+
+  it(
+    'les migrations du dépôt sont conformes (dérogations comprises)',
+    () => {
+      const result = lintExpandContract(repoRoot);
+      expect(result.allowlistErrors).toEqual([]);
+      expect(result.findings).toEqual([]);
+      expect(result.filesScanned).toBeGreaterThan(50);
+    },
+    REPO_SCAN_TIMEOUT_MS,
+  );
 
   it('une contraction sans dérogation échoue ; avec dérogation exacte, elle passe', () => {
     const root = tree({ '0001_x.sql': 'SELECT 1;\nALTER TABLE core.t DROP COLUMN a;\n' });

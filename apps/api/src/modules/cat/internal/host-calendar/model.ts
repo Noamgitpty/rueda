@@ -1,7 +1,7 @@
 /**
  * Saisie du calendrier de l'hôte (US-119 ; 16 CAL-002, CAL-003 ; 08 BR-BOOK-03, BR-BOOK-04,
- * BR-BOOK-07 ; ADR-100). Fonctions pures : la base revérifie tout (commandes
- * `core.catalog_cmd_*` de 0070) et convertit l'heure LOCALE dans le fuseau du véhicule, lu du
+ * BR-BOOK-07 ; ADR-101). Fonctions pures : la base revérifie tout (commandes
+ * `core.catalog_cmd_*` de 0071) et convertit l'heure LOCALE dans le fuseau du véhicule, lu du
  * catalogue (jamais du client, jamais une constante de pays : L1-PM-22).
  *
  * Un blocage se saisit par JOURS (`from`, `to` inclus, `AAAA-MM-JJ`) ou par HEURES (`start`, `end`,

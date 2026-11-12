@@ -164,9 +164,9 @@ describe('schéma core (US-006)', () => {
                       ? 'cmd_money_owner'
                       : r.polname.startsWith('cmd_') // commandes d'occupation (0034, US-022)
                         ? 'cmd_hold_owner'
-                        : r.polname.startsWith('catalog_cmd_') // calendrier de l'hôte (0070, US-119)
+                        : r.polname.startsWith('catalog_cmd_') // calendrier de l'hôte (0071, US-119)
                           ? 'catalog_cmd_owner'
-                          : r.polname.startsWith('probe_') // sonde de disponibilité (0070, US-119)
+                          : r.polname.startsWith('probe_') // sonde de disponibilité (0071, US-119)
                             ? 'catalog_probe_owner'
                             : r.polname.startsWith('worker_')
                               ? 'app_worker'

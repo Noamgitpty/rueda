@@ -10,19 +10,32 @@ import { MAIN_ID } from '../../_shell/main-id.ts';
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
-const KINDS = new Set(['TOS_GUEST', 'PRIVACY', 'MARKETING']);
+// CGU de l'hôte (US-126) : servies comme les documents du voyageur, acceptées depuis /host
+const KINDS = new Set(['TOS_GUEST', 'PRIVACY', 'MARKETING', 'TOS_HOST']);
 
 interface LegalDocumentJson {
   readonly title: string;
   readonly version: number;
   readonly draft: boolean;
   readonly locale: string;
+  readonly validFrom: string;
   readonly bodyMd: string;
 }
 
+/** Date d'entrée en vigueur (UTC : la page publique ne connaît pas le fuseau du lecteur). */
+function validFromOf(i18n: { date(instant: string, timeZone: string): string }, value: unknown) {
+  if (typeof value !== 'string') return null;
+  try {
+    return i18n.date(value, 'UTC');
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Document juridique (CGU du voyageur, confidentialité, communications ; US-102) : version en
- * vigueur, ou version passée (`?version=`) pour relire ce qui a été accepté (16 NFR-17). Une
+ * Document juridique (CGU du voyageur, confidentialité, communications ; US-102 ; CGU de l'hôte,
+ * US-126) : version, date d'entrée en vigueur, mention « traduction » hors de l'espagnol qui fait
+ * foi ; version en vigueur, ou version passée (`?version=`) pour relire ce qui a été accepté (16 NFR-17). Une
  * version non validée par le juridique est marquée « BROUILLON » (OQ-BR-24).
  */
 export default async function LegalDocumentPage({
@@ -54,6 +67,8 @@ export default async function LegalDocumentPage({
   );
   if (reply.status === 404) notFound();
   const doc = reply.status === 200 ? (reply.json as LegalDocumentJson | null) : null;
+  const fromHost = query['from'] === 'host';
+  const since = doc === null ? null : validFromOf(i18n, doc.validFrom);
   return (
     <main id={MAIN_ID} tabIndex={-1} className={styles['content']}>
       {doc === null || typeof doc.bodyMd !== 'string' ? (
@@ -66,14 +81,17 @@ export default async function LegalDocumentPage({
             <h1 className={styles['h1']}>{doc.title}</h1>
             <p className={styles['muted']}>
               <Badge>{t('web.legal.version', { version: String(doc.version) })}</Badge>
+              {since !== null && <> {t('web.legal.validFrom', { date: since })}</>}
             </p>
           </header>
           {doc.draft && <Banner tone="warning">{t('web.legal.draft')}</Banner>}
+          {/* seule la version espagnole fait foi (16 NFR-11) : les autres sont des traductions */}
+          {doc.locale !== 'es' && <p className={styles['muted']}>{t('web.legal.translation')}</p>}
           <div className={styles['document']}>{renderLegalText(doc.bodyMd)}</div>
         </article>
       )}
-      <ButtonLink variant="quiet" href="/signup">
-        {t('web.legal.back')}
+      <ButtonLink variant="quiet" href={fromHost ? '/host' : '/signup'}>
+        {t(fromHost ? 'web.legal.backHost' : 'web.legal.back')}
       </ButtonLink>
     </main>
   );

@@ -54,6 +54,8 @@ export class FakeHostListingStore implements HostListingStore {
   readonly priceStep = new Map<string, bigint>();
   /** Plafond de cohérence du prix journalier par pays (donnée de test ; absent : sans plafond). */
   readonly priceCeiling = new Map<string, bigint>();
+  /** Comptes d'hôte dont la personne a accepté les CGU de l'hôte en vigueur (US-126). */
+  readonly hostTermsAccepted = new Set<string>();
   /** `p2p_private_hosts_enabled[pays]` : toujours false (interrupteur, US-125). */
   readonly minPhotos = 6;
   /** Exposant de la devise des comptes du FAKE. */
@@ -185,6 +187,10 @@ export class FakeHostListingStore implements HostListingStore {
     if (l.status !== 'DRAFT')
       return Promise.resolve({ outcome: 'LISTING_TRANSITION_FORBIDDEN', id: null });
     if (l.photos < this.minPhotos) return Promise.resolve({ outcome: 'PHOTO_MIN_COUNT', id: null });
+    // CGU de l'hôte acceptées (US-126, garde de la commande en base, 0070)
+    if (!this.hostTermsAccepted.has(orgId)) {
+      return Promise.resolve({ outcome: 'TERMS_REACCEPT_REQUIRED', id: null });
+    }
     // compte ACTIVE ET pays ouvert : l'interrupteur vaut false, comme en base (US-125)
     return Promise.resolve({ outcome: 'HOST_NOT_ACTIVATED', id: null });
   }

@@ -9,9 +9,10 @@
  * `REQUEST_MODE_NOT_ALLOWED` (17 §3.2.3), `CATALOG_VARIANT_NOT_FOUND`, `CATALOG_VARIANT_RETIRED`
  * (US-113) ; PROPOSÉS par US-115 (à reporter dans 16 A.8) : `HOST_ACCOUNT_NOT_FOUND`,
  * `HOST_ACCOUNT_SUSPENDED`, `LOCATION_NOT_FOUND`, `LOCATION_FIELD_INVALID`, `VEHICLE_NOT_FOUND`,
- * `LISTING_NOT_FOUND`, `LISTING_EXISTS`, `PHOTO_UPLOAD_UNAVAILABLE`, `LISTING_UNAVAILABLE`.
+ * `LISTING_NOT_FOUND`, `LISTING_EXISTS`, `PHOTO_UPLOAD_UNAVAILABLE`, `LISTING_UNAVAILABLE` ;
+ * `TERMS_REACCEPT_REQUIRED` (16 LEG-001, 19 US-126) : CGU de l'hôte à accepter avant la soumission.
  *
- * Calendrier de l'hôte (US-119, ADR-100) : `VEHICLE_UNAVAILABLE` (16 CAL-011, CAL-002 : créneau
+ * Calendrier de l'hôte (US-119, ADR-101) : `VEHICLE_UNAVAILABLE` (16 CAL-011, CAL-002 : créneau
  * pris, sans détail de l'occupation en cause), PROPOSÉS par US-119 : `BLOCK_CREATED`,
  * `BLOCK_REMOVED`, `NOTICE_SAVED`, `BLOCK_NOT_FOUND`, `VEHICLE_NOT_LISTED`, `INVALID_PERIOD` (code de
  * la base d'US-022), `NOTICE_INVALID`.
@@ -44,6 +45,8 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_PLATE_DUPLICATE: { status: 409, messageKey: 'common.listing.plateDuplicate' },
   LISTING_EXISTS: { status: 409, messageKey: 'common.listing.exists' },
   LISTING_TRANSITION_FORBIDDEN: { status: 409, messageKey: 'common.listing.transitionForbidden' },
+  // CGU de l'hôte non acceptées dans leur version exigée (US-126) : l'annonce reste DRAFT
+  TERMS_REACCEPT_REQUIRED: { status: 409, messageKey: 'common.listing.hostTermsRequired' },
   CATALOG_VARIANT_RETIRED: { status: 409, messageKey: 'common.listing.variantRetired' },
   VEHICLE_UNAVAILABLE: { status: 409, messageKey: 'common.calendar.vehicleUnavailable' },
   VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },

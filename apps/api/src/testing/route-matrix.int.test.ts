@@ -529,6 +529,15 @@ async function requestOf(
       };
     case 'GET /listings/{listingId}':
       return { method: 'GET', path: `/listings/${randomUUID()}` };
+    // CGU de l'hôte (US-126) : compte d'hôte d'aucun acteur de la cellule ⇒ 404 (IDOR)
+    case 'GET /host/accounts/{orgId}/terms':
+      return { method: 'GET', path: `/host/accounts/${id}/terms?locale=es` };
+    case 'POST /host/accounts/{orgId}/terms/accept':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/terms/accept`,
+        body: { version: 1, locale: 'es' },
+      };
     // téléphone par OTP (US-104) : la personne de la session ; un code faux, jamais un envoi
     case 'GET /phone':
       return { method: 'GET', path: '/phone' };

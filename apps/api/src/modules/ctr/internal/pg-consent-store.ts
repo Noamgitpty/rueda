@@ -1,6 +1,6 @@
 /**
  * Adaptateur PostgreSQL du port `ConsentStore` (production) : appelle les seules fonctions
- * `core.ctr_*` de la migration 0059 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
+ * `core.ctr_*` des migrations 0059 et 0070 (`SECURITY DEFINER`, `EXECUTE` au seul `app_api`). Requêtes
  * paramétrées uniquement. Une erreur de la base est remplacée par une erreur sans message du
  * serveur ni paramètre (SQLSTATE seulement) ; les refus métier deviennent `ConsentDocumentsError`.
  */
@@ -9,6 +9,8 @@ import type {
   ConsentStatusRow,
   ConsentStore,
   DocumentVersion,
+  HostTermsOutcome,
+  HostTermsState,
   LegalDocument,
   LegalDocumentKind,
   LegalDocumentSummary,
@@ -185,7 +187,94 @@ export class PgConsentStore implements ConsentStore {
       context: r.context,
     }));
   }
+
+  async hostTerms(
+    proof: Buffer,
+    orgId: string,
+    language: string,
+  ): Promise<HostTermsState | 'AUTH_REQUIRED' | 'FORBIDDEN'> {
+    const rows = await this.#run<{
+      outcome: string;
+      country_code: string | null;
+      version: number | null;
+      is_major: boolean | null;
+      locale: string | null;
+      title: string | null;
+      content_hash: Buffer | null;
+      is_draft: boolean | null;
+      valid_from: Date | null;
+      required_version: number | null;
+      accepted_version: number | null;
+      accepted_at: Date | null;
+      reaccept_required: boolean | null;
+    }>(
+      'host_terms',
+      `SELECT outcome, country_code, version, is_major, locale, title, content_hash, is_draft,
+              valid_from, required_version, accepted_version, accepted_at, reaccept_required
+         FROM core.ctr_host_terms($1, $2::uuid, $3)`,
+      [proof, orgId, language],
+    );
+    const r = rows[0];
+    if (r === undefined || r.outcome === 'AUTH_REQUIRED') return 'AUTH_REQUIRED';
+    if (r.outcome === 'FORBIDDEN' || r.country_code === null) return 'FORBIDDEN';
+    const document =
+      r.outcome === 'OK' &&
+      r.version !== null &&
+      r.is_major !== null &&
+      r.locale !== null &&
+      r.title !== null &&
+      r.content_hash !== null &&
+      r.is_draft !== null &&
+      r.valid_from !== null
+        ? summary({
+            doc_kind: 'TOS_HOST',
+            version: r.version,
+            is_major: r.is_major,
+            locale: r.locale,
+            title: r.title,
+            content_hash: r.content_hash,
+            is_draft: r.is_draft,
+            valid_from: r.valid_from,
+          })
+        : null;
+    return {
+      country: r.country_code,
+      document,
+      requiredVersion: r.required_version,
+      acceptedVersion: r.accepted_version,
+      acceptedAt: r.accepted_at,
+      // fail-closed : une valeur absente vaut « à accepter »
+      reacceptRequired: document === null || r.reaccept_required !== false,
+    };
+  }
+
+  async acceptHostTerms(
+    proof: Buffer,
+    orgId: string,
+    version: number,
+    language: string,
+  ): Promise<HostTermsOutcome> {
+    const rows = await this.#run<{ outcome: string }>(
+      'accept_host_terms',
+      'SELECT outcome FROM core.ctr_cmd_accept_host_terms($1, $2::uuid, $3, $4)',
+      [proof, orgId, version, language],
+    );
+    const outcome = rows[0]?.outcome;
+    if (outcome === undefined || !HOST_TERMS_OUTCOMES.has(outcome)) {
+      throw new ConsentStoreError('accept_host_terms', undefined);
+    }
+    return outcome as HostTermsOutcome;
+  }
 }
+
+const HOST_TERMS_OUTCOMES: ReadonlySet<string> = new Set<HostTermsOutcome>([
+  'DONE',
+  'AUTH_REQUIRED',
+  'FORBIDDEN',
+  'REQUEST_INVALID',
+  'LEGAL_DOCUMENT_UNAVAILABLE',
+  'TERMS_VERSION_CHANGED',
+]);
 
 /**
  * Contrôle de démarrage (L0-05 appliqué à la production) : la connexion tourne sous `app_api`.
