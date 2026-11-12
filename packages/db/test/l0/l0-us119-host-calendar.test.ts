@@ -341,11 +341,6 @@ describe('critère 2 — blocages par commande : chevauchement refusé ; véhicu
           'HOST_BLOCK',
           'TRIP',
         ]);
-        // le contexte de l'hôte posé par la commande est effacé après l'appel
-        const ctx = await client.query<{ kind: string | null; actor: string | null }>(
-          'SELECT app.actor_kind() AS kind, app.actor_id()::text AS actor',
-        );
-        expect(ctx.rows[0]).toEqual({ kind: null, actor: null });
       });
     },
   );
@@ -544,6 +539,205 @@ describe('critère 3 — préavis par lieu de remise (16 CAL-003, 08 BR-BOOK-04)
 });
 
 // ---------------------------------------------------------------------------------------------
+describe('L1-PM-22 — contexte app.* de l’hôte effacé après la commande, dans la MÊME transaction', () => {
+  /** Contexte lu dans la transaction ouverte (jamais après sa fin : set_config(…, true) retombe). */
+  async function contextIn(client: pg.ClientBase) {
+    const { rows } = await client.query<{
+      kind: string | null;
+      actor: string | null;
+      org: string | null;
+    }>('SELECT app.actor_kind() AS kind, app.actor_id()::text AS actor, app.org_id()::text AS org');
+    return rows[0];
+  }
+  const EMPTY = { kind: null, actor: null, org: null };
+
+  it.each(byCountry)(
+    '%s (%s) : BEGIN, commande, lecture, ROLLBACK — succès, VEHICLE_UNAVAILABLE, INVALID_PERIOD de la base, levée',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const a = await car(client, c);
+        const kept = await block(client, a, a.vehicle, '2036-12-01T00:00', '2036-12-02T00:00');
+        expect(kept.outcome).toBe('DONE');
+        const cases: [string, string, string, string][] = [
+          ['succès', '2036-12-05T00:00', '2036-12-06T00:00', 'DONE'],
+          ['créneau pris', '2036-12-01T10:00', '2036-12-01T12:00', 'VEHICLE_UNAVAILABLE'],
+          // forme valide, période déjà écoulée : refus de la commande de 0056 (chemin d'erreur)
+          ['période écoulée', '2001-01-01T00:00', '2001-01-02T00:00', 'INVALID_PERIOD'],
+        ];
+        for (const [label, s, e, expected] of cases) {
+          await client.query('BEGIN');
+          try {
+            expect(await contextIn(client), `${label} : avant`).toEqual(EMPTY);
+            expect((await block(client, a, a.vehicle, s, e)).outcome, label).toBe(expected);
+            expect(await contextIn(client), `${label} : après`).toEqual(EMPTY);
+          } finally {
+            await client.query('ROLLBACK');
+          }
+        }
+        // levée (0070 6.2) : même preuve, succès puis blocage inconnu
+        await client.query('BEGIN');
+        try {
+          expect(await unblock(client, a, a.vehicle, kept.id ?? '')).toBe('DONE');
+          expect(await contextIn(client), 'levée').toEqual(EMPTY);
+        } finally {
+          await client.query('ROLLBACK');
+        }
+        // rien n'a été écrit par les transactions annulées
+        expect((await occupancies(client, a, a.vehicle)).map((o) => o.occupancy_id)).toEqual([
+          kept.id,
+        ]);
+      });
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
+describe('levée : seul un blocage manuel actif de CE véhicule (0056, 0070 6.2)', () => {
+  it.each(byCountry)(
+    '%s (%s) : identifiant d’une occupation TRIP ou HOLD du compte, ou blocage d’un autre véhicule du compte ⇒ BLOCK_NOT_FOUND, rien n’est levé',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const a = await car(client, c);
+        const second = await car(client, c, { owner: a });
+        await client.query(
+          'SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz)',
+          [
+            uuid(),
+            uuid(),
+            a.org,
+            a.vehicle,
+            c.country,
+            c.currency,
+            c.timezone,
+            utcOf(c, '2036-12-20T10:00'),
+            utcOf(c, '2036-12-23T10:00'),
+          ],
+        );
+        // hold validé, à l'horloge réelle, dans 30 jours (au-delà du préavis)
+        const guest = await person(client, c.country);
+        const startUtc = new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 30 * 86_400_000);
+        await withTestTransaction(client, { commit: true }, async (tx) => {
+          const { text, values } = commandCallSql(
+            { kind: 'GUEST', actorId: guest.userId },
+            'core.booking_cmd_place_hold',
+            [
+              { value: a.vehicle, type: 'uuid' },
+              { value: startUtc.toISOString(), type: 'timestamptz' },
+              {
+                value: new Date(startUtc.getTime() + 86_400_000).toISOString(),
+                type: 'timestamptz',
+              },
+              { value: false, type: 'boolean' },
+            ],
+          );
+          await tx.query(text, values);
+        });
+        const otherBlock = await block(
+          client,
+          a,
+          second.vehicle,
+          '2036-12-05T00:00',
+          '2036-12-06T00:00',
+        );
+        expect(otherBlock.outcome).toBe('DONE');
+        const mine = await occupancies(client, a, a.vehicle);
+        expect(mine.map((o) => o.kind).sort()).toEqual(['HOLD', 'TRIP']);
+        for (const o of mine) {
+          expect(await unblock(client, a, a.vehicle, o.occupancy_id), o.kind).toBe(
+            'BLOCK_NOT_FOUND',
+          );
+        }
+        expect(await unblock(client, a, a.vehicle, otherBlock.id ?? '')).toBe('BLOCK_NOT_FOUND');
+        // tout est toujours actif
+        expect((await occupancies(client, a, a.vehicle)).map((o) => o.kind).sort()).toEqual([
+          'HOLD',
+          'TRIP',
+        ]);
+        expect((await occupancies(client, a, second.vehicle)).map((o) => o.occupancy_id)).toEqual([
+          otherBlock.id,
+        ]);
+      });
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
+describe('préavis : plancher de la classe et paramètre absent (08 BR-BOOK-04, 17 §7.2, fail-closed)', () => {
+  it.each(byCountry)(
+    '%s (%s) : véhicule LUXE, préavis de l’hôte 3 h ⇒ en vigueur 1 440 min (17 §7.2) : départ dans 23 h 59 refusé, dans 24 h accepté',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const a = await car(client, c);
+        await client.query('SELECT test_fixture.us119_set_vehicle_class($1, $2)', [
+          a.vehicle,
+          'LUXE',
+        ]);
+        expect(await setNotice(client, a, a.location, 180)).toBe('DONE');
+        expect(await header(client, a, a.vehicle)).toMatchObject({
+          notice_minutes: 180,
+          effective_notice_minutes: 1_440,
+        });
+        const guest = await person(client, c.country);
+        const now = '2036-11-02T15:00:00.000Z';
+        expect(await hold(client, guest.userId, a.vehicle, now, 1_439)).toBe(
+          'DATES_NOTICE_TOO_SHORT',
+        );
+        expect(await hold(client, guest.userId, a.vehicle, now, 1_440)).toBe('OK');
+        // préavis de l'hôte au-dessus du plancher : le sien s'applique
+        expect(await setNotice(client, a, a.location, 2_880)).toBe('DONE');
+        expect((await header(client, a, a.vehicle))?.effective_notice_minutes).toBe(2_880);
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : défaut du pays fermé et aucun préavis de l’hôte ⇒ préavis en vigueur NULL, pose du hold PARAM_MISSING (transaction annulée)',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const a = await car(client, c);
+        const guest = await person(client, c.country);
+        const now = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000).toISOString();
+        await withTestTransaction(client, { virtualNow: now }, async (tx) => {
+          const closed = await tx.query<{ n: number }>(
+            'SELECT test_fixture.us119_close_country_notice($1) AS n',
+            [c.country],
+          );
+          expect(closed.rows[0]?.n).toBe(1);
+          expect(await header(tx, a, a.vehicle)).toMatchObject({
+            outcome: 'DONE',
+            notice_minutes: null,
+            effective_notice_minutes: null,
+          });
+          const start = new Date(Date.parse(now) + 30 * 86_400_000).toISOString();
+          const { text, values } = commandCallSql(
+            { kind: 'GUEST', actorId: guest.userId },
+            'core.booking_cmd_place_hold',
+            [
+              { value: a.vehicle, type: 'uuid' },
+              { value: start, type: 'timestamptz' },
+              {
+                value: new Date(Date.parse(start) + 86_400_000).toISOString(),
+                type: 'timestamptz',
+              },
+              { value: false, type: 'boolean' },
+            ],
+          );
+          const code = await tx.query(text, values).then(
+            () => 'OK',
+            (e: unknown) => translateDbError(e).code,
+          );
+          expect(code).toBe('PARAM_MISSING');
+        });
+        // annulé : le défaut du pays est de nouveau en vigueur
+        expect((await header(client, a, a.vehicle))?.effective_notice_minutes).toBe(
+          COUNTRY_NOTICE_MIN,
+        );
+      });
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
 describe('L1-PM-11 / L1-PM-22 — cloisonnement entre hôtes, par pays', () => {
   it.each(byCountry)(
     '%s (%s) : l’hôte B ne lit, ne bloque, ne lève ni ne règle rien chez A (même réponse qu’un identifiant inconnu) ; même titulaire dans l’autre pays',
@@ -582,6 +776,24 @@ describe('L1-PM-11 / L1-PM-22 — cloisonnement entre hôtes, par pays', () => {
         expect(
           (await header(client, { hash: randomBytes(32), org: a.org }, a.vehicle))?.outcome,
         ).toBe('AUTH_REQUIRED');
+        // même titulaire, son compte d'hôte de l'AUTRE pays : le véhicule, le lieu et le blocage
+        // de son compte de ce pays sont inconnus de ce compte-là
+        const other = COUNTRIES.find((x) => x.country !== c.country);
+        if (other === undefined) throw new Error('un seul pays de test');
+        const opened = await client.query<{ outcome: string; org_id: string | null }>(
+          'SELECT * FROM core.iam_cmd_open_host_account($1, $2, $3)',
+          [a.hash, other.country, 'INDIVIDUAL'],
+        );
+        expect(opened.rows[0]?.outcome).toBe('DONE');
+        const elsewhere = { hash: a.hash, org: opened.rows[0]?.org_id ?? '' };
+        expect((await header(client, elsewhere, a.vehicle))?.outcome).toBe('VEHICLE_NOT_FOUND');
+        expect(await occupancies(client, elsewhere, a.vehicle)).toEqual([]);
+        expect(
+          (await block(client, elsewhere, a.vehicle, '2036-12-10T00:00', '2036-12-11T00:00'))
+            .outcome,
+        ).toBe('VEHICLE_NOT_FOUND');
+        expect(await unblock(client, elsewhere, a.vehicle, r.id ?? '')).toBe('VEHICLE_NOT_FOUND');
+        expect(await setNotice(client, elsewhere, a.location, 240)).toBe('LOCATION_NOT_FOUND');
         // rien n'a changé chez A
         expect((await occupancies(client, a, a.vehicle)).map((o) => o.occupancy_id)).toEqual([
           r.id,
