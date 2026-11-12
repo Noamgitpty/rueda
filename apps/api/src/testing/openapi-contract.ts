@@ -410,6 +410,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/identity': 'modules/kyc/testing/identity.contract.test.ts',
   '/kyc/webhooks': 'modules/kyc/testing/identity.contract.test.ts',
   '/brand': 'modules/cfg/internal/brand/brand.contract.test.ts',
+  // avertissements réglementaires versionnés par pays (US-125)
+  '/regulatory-notices': 'modules/cfg/internal/notices/regulatory-notices.contract.test.ts',
   '/legal': 'modules/ctr/testing/legal.contract.test.ts',
   '/staff': 'testing/contract/staff.contract.test.ts',
   '/console': 'testing/contract/console.contract.test.ts',

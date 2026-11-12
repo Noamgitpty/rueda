@@ -114,6 +114,29 @@ export interface PhoneNumberingConfig {
   readonly example: string;
 }
 
+/** Public d'un avertissement réglementaire : l'hôte (son espace) ou le voyageur (fiche). */
+export const NOTICE_AUDIENCES = ['HOST', 'GUEST'] as const;
+export type NoticeAudience = (typeof NOTICE_AUDIENCES)[number];
+
+/**
+ * Avertissement réglementaire versionné d'un pays (US-125 ; 16 LEG-021) : limite légale connue du
+ * partage de véhicule entre particuliers. Le texte est dans le catalogue `@rueda/i18n`, sous
+ * `common.regulatory.<id>.v<version>.<host|guest>.{title,body}` (es, en, fr, pt) ; une nouvelle
+ * rédaction est une nouvelle version, jamais une réécriture. Aucun pays dans le code : la liste est
+ * ici, par pays (`countries.json`).
+ */
+export interface RegulatoryNotice {
+  /** Identifiant stable (camelCase), segment de la clé du catalogue. */
+  readonly id: string;
+  /** Version du texte (entier ≥ 1). */
+  readonly version: number;
+  /** Date de mise en vigueur du texte (AAAA-MM-JJ). */
+  readonly since: string;
+  readonly audiences: readonly NoticeAudience[];
+  /** Référence de la limite (spécification, question ouverte, avis attendu). */
+  readonly source: string;
+}
+
 export interface CountryConfigEntry {
   readonly code: string;
   readonly names: Readonly<Record<NameLanguage, string>>;
@@ -126,6 +149,8 @@ export interface CountryConfigEntry {
   readonly hostTaxIdKinds: readonly string[];
   /** Plan de numérotation des mobiles (OTP du téléphone, US-104). */
   readonly phone: PhoneNumberingConfig;
+  /** Avertissements réglementaires du pays (US-125) ; liste vide : aucune limite connue. */
+  readonly regulatoryNotices: readonly RegulatoryNotice[];
   readonly taxLines: readonly TaxLineConfig[];
   /** Statut des taux de taxe du pays (17 §7.2 `tax_rate` ; OQ-BR-14, OQ-MK-06 ; US-110). */
   readonly taxDecision: DecisionInfo;

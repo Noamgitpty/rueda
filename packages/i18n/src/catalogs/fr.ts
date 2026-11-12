@@ -1036,4 +1036,22 @@ export const FR_MESSAGES = {
   'web.a07.task.identity': 'Ton identité',
   'web.a07.task.tax': 'Données fiscales',
   'web.a07.task.terms': 'Conditions pour les hôtes',
+  // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
+  'common.regulatory.heading': 'Avertissement important',
+  'common.regulatory.version': 'Version {version} de cet avertissement',
+  'common.regulatory.unavailable':
+    'Les avertissements sont indisponibles pour le moment. Réessaie plus tard.',
+  'common.regulatory.privatePlate.v1.host.title':
+    'Plaque « particular » et location entre particuliers',
+  'common.regulatory.privatePlate.v1.host.body':
+    'Au Panama, une voiture à plaque « particular » est immatriculée pour un usage privé. La location entre particuliers d’une telle voiture fait l’objet d’une analyse juridique en cours. Avant de la publier, vérifie auprès de ton assureur et de ta carte grise que tu peux la proposer.',
+  'common.regulatory.privatePlate.v1.guest.title': 'Une voiture de particulier',
+  'common.regulatory.privatePlate.v1.guest.body':
+    'Cette voiture appartient à un particulier et porte une plaque « particular ». La location entre particuliers avec ce type de plaque fait l’objet d’une analyse juridique en cours au Panama. Vérifie les conditions de location avant de réserver.',
+  'common.regulatory.hostTaxStatus.v1.host.title': 'Ta situation fiscale d’hôte',
+  'common.regulatory.hostTaxStatus.v1.host.body':
+    'Au Paraguay, les revenus tirés de la location de ta voiture peuvent devoir être déclarés selon ta situation fiscale. Le régime fiscal des hôtes particuliers fait l’objet d’une analyse en cours. Renseigne ton numéro fiscal et conserve tes relevés de gains.',
+  'common.regulatory.hostTaxStatus.v1.guest.title': 'Location auprès d’un particulier',
+  'common.regulatory.hostTaxStatus.v1.guest.body':
+    'Cette voiture est louée par un particulier. Au Paraguay, la situation fiscale des hôtes particuliers fait l’objet d’une analyse en cours. Ton reçu détaille ce que tu paies.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

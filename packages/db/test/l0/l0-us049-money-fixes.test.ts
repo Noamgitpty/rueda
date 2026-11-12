@@ -11,8 +11,9 @@
  * - RC-2 : un remboursement exige un règlement et reste borné, jambe par jambe, par la chaîne de
  *   versions (TJ01 / TJ08a : la capture entière n'est remboursable qu'après la requalification FULL).
  * - RC-3 : le versement d'une jambe est refusé à l'ENREGISTREMENT de l'ordre, condition par
- *   condition, jusqu'à l'interrupteur `payouts_enabled[pays]`, qui vaut false (17 §0.1) et
- *   n'est écrit par aucun test.
+ *   condition, jusqu'à l'interrupteur `payouts_enabled[pays]`, qui vaut false (17 §0.1) ; cas
+ *   passant (suite S-04, US-125) : l'interrupteur ouvert par les DEUX personnes de la procédure de
+ *   0073, sur la base de test et dans une fenêtre d'horloge virtuelle lointaine refermée à false.
  * - RC-4 : limite connue, caractérisée dans `redteam-argent-psp-legs` (ARG-34a, story US-202).
  *
  * Attendus : export des oracles (`@rueda/money/golden-vectors`) et vecteurs TJ, jamais le code testé.
@@ -63,6 +64,9 @@ import {
   tj,
   tripOfVector,
 } from '../support/settlement.ts';
+import { farInstant, goLive, openSwitchWindow, plusMinutes } from '../support/golive.ts';
+import type { StaffActor } from '../support/golive.ts';
+import { staff, staffSessionHash } from '../support/rls.ts';
 
 const LEGS = ['HOST', 'INSURER', 'TAX_THIRD_PARTY', 'PLATFORM'] as const;
 const ZERO: Legs = { HOST: 0n, INSURER: 0n, TAX_THIRD_PARTY: 0n, PLATFORM: 0n };
@@ -559,6 +563,98 @@ describe.each(COUNTRIES)(
           [trip],
         );
         expect(ops.rows[0]?.n).toBe(0);
+      });
+    });
+
+    it('S-04 (US-125) : payouts_enabled ouvert par deux personnes distinctes ⇒ le LEG_RELEASE qui remplit toutes les gardes passe, plafonné à la jambe HOST retenue', async () => {
+      // deux personnes : un ADMIN demande, un SUPERADMIN approuve (base de TEST seulement, fenêtre
+      // d'horloge virtuelle lointaine [from, to) refermée à false par la même procédure)
+      const people = await withRole('app_api', async (api) => {
+        const made = await withTestTransaction(api, { commit: true }, async (tx) => {
+          const admin = await staff(tx, 'ADMIN', [c.country]);
+          const superadmin = await staff(tx, 'SUPERADMIN', [c.country]);
+          return [admin, superadmin].map((id) => ({
+            userId: id,
+            hash: Buffer.from(staffSessionHash(id) ?? '', 'hex'),
+            scope: [c.country],
+          }));
+        });
+        const [requester, approver] = made as unknown as [StaffActor, StaffActor];
+        const from = farInstant();
+        const to = plusMinutes(from, 60);
+        await openSwitchWindow(api, requester, approver, 'payouts_enabled', c.country, from, to);
+        return { from, to };
+      });
+      const inside = plusMinutes(people.from, 1);
+      await withRole('app_worker', (client) =>
+        payTx(client, { worker: 'payment_command', virtualNow: inside }, async (tx) => {
+          expect(await goLive(tx, 'payouts_enabled', c.country)).toBe(true);
+          const trip = await insertPayTrip(tx, c);
+          const account = await insertAccount(tx, { country: c.country });
+          expect(
+            await applyMovement(
+              tx,
+              await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency),
+            ),
+          ).toBe('APPLIED');
+          await tx.query(`SELECT test_fixture.us049_set_trip_status($1, 'COMPLETED')`, [trip]);
+          for (const leg of LEGS) {
+            await tx.query(
+              `SELECT test_fixture.us049_set_release_at($1, $2, platform.now() - interval '1 minute')`,
+              [trip, leg],
+            );
+          }
+          await tx.query('SELECT test_fixture.us049_activate_submerchant($1, $2)', [account, trip]);
+          const release = async (amount: bigint): Promise<string> => {
+            const legs: Legs = { ...ZERO, HOST: amount };
+            let op = '';
+            const recorded = await caught(tx, async () => {
+              op = (
+                await recordOperation(tx, {
+                  tripId: trip,
+                  accountId: account,
+                  kind: 'LEG_RELEASE',
+                  amountMinor: amount,
+                  currency: c.currency,
+                  idemPlain: `trip:${trip}:LEG_RELEASE:${uuid()}`,
+                  legs,
+                })
+              ).operation_id;
+            });
+            if (recorded !== null) return `REFUSED:${recorded.constraint ?? recorded.code ?? ''}`;
+            expect(await applySignedStatus(tx, op, 'SUCCEEDED')).toBe('APPLIED');
+            const applied = await caught(tx, () => applyMovement(tx, op));
+            return applied === null ? 'APPLIED' : `REFUSED:${applied.constraint ?? ''}`;
+          };
+          // au-delà de la jambe HOST retenue : refusé (aucun prorata, aucun dépassement)
+          expect(await release(capture.HOST + 1n)).toMatch(
+            /^REFUSED:leg_movement_exceeds_balance$/,
+          );
+          // la jambe HOST exacte : le versement passe (cas passant de RC-3)
+          expect(await release(capture.HOST)).toBe('APPLIED');
+          const { rows } = await tx.query<{ v: string }>(
+            `SELECT released_minor::text AS v FROM core.settlement_trip_leg_balance
+              WHERE trip_id = $1 AND segment_no = 1 AND leg = 'HOST'`,
+            [trip],
+          );
+          expect(BigInt(rows[0]?.v ?? '-1')).toBe(capture.HOST);
+          // plus rien à verser : un second versement est refusé
+          expect(await release(1n)).toMatch(/^REFUSED:leg_already_released$/);
+        }),
+      );
+      // fenêtre refermée : à son terme et maintenant, payouts_enabled vaut false
+      await withRole('app_worker', async (client) => {
+        for (const when of [people.to, undefined]) {
+          await withTestTransaction(
+            client,
+            when === undefined ? {} : { virtualNow: when },
+            async (tx) => {
+              expect(await goLive(tx, 'payouts_enabled', c.country), when ?? 'maintenant').toBe(
+                false,
+              );
+            },
+          );
+        }
       });
     });
   },

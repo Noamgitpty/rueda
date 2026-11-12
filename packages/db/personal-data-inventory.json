@@ -637,6 +637,23 @@
         "exponent": "C1"
       }
     },
+    "core.config_go_live_switch_request": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "key": "C1",
+        "country_code": "C1",
+        "value": "C1",
+        "decision_ref": "C1",
+        "requested_by": "C1",
+        "requested_at": "C1",
+        "expires_at": "C1",
+        "approved_by": "C1",
+        "approved_at": "C1",
+        "status": "C1"
+      }
+    },
     "core.config_holiday_calendar": {
       "lifecycle": "C",
       "export": "none",
@@ -688,7 +705,8 @@
           "report": "US-536"
         },
         "created_at": "C1",
-        "created_by": "C1"
+        "created_by": "C1",
+        "go_live_request_id": "C1"
       }
     },
     "core.contract_consent": {
