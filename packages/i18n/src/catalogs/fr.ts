@@ -1134,4 +1134,5 @@ export const FR_MESSAGES = {
   'backoffice.catalog.choose': 'Choisissez une option',
   'backoffice.catalog.rejectConfirm': 'Je confirme le refus : l’hôte sera prévenu.',
   'backoffice.catalog.ongoing': 'en cours',
+  'backoffice.catalog.specsPending': 'Fiche technique à compléter',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

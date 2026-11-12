@@ -8,6 +8,12 @@
  * ligne Hilux des données de graine (`data/vehicle-catalog.json`) et 17 §3.2.3, jamais le code
  * testé. Le catalogue est commun aux pays (`market` nul) : chaque pays configuré (PA en USD, PY en
  * PYG, lus dans les données CFG) voit les mêmes lignes.
+ *
+ * Import de la douane (suite d'US-113, migration 0078, fixtures 9981, ADR-109) : variantes sans
+ * fiche du marché de la source (`market` du fichier de données, jamais une constante) ; un hôte de
+ * ce marché trouve la marque, le modèle et la variante, et le préremplissage ne rend que marque et
+ * modèle (`specsComplete` faux, aucune valeur technique devinée) ; un hôte d'un autre marché ne
+ * voit ni la marque ni le modèle sans variante pour lui.
  */
 import { readFileSync } from 'node:fs';
 import { connectAs, releaseClient } from '@rueda/db/testing';
@@ -16,7 +22,8 @@ import type {} from '@rueda/db/testing/global-setup';
 import type pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { countryCases } from '../../../../../test/support/countries.js';
-import { parseVehicleCatalog } from './model.js';
+import { parseCustomsCatalog } from './customs-import.js';
+import { catalogId, parseVehicleCatalog } from './model.js';
 import { US_REFERENCE_LABEL } from './prefill.js';
 import { PgVehicleCatalogStore } from './store.js';
 import { VehicleCatalogService } from './vehicle-catalog.service.js';
@@ -24,6 +31,12 @@ import { VehicleCatalogService } from './vehicle-catalog.service.js';
 const SEED = parseVehicleCatalog(
   JSON.parse(readFileSync(new URL('../../data/vehicle-catalog.json', import.meta.url), 'utf8')),
 );
+const CUSTOMS_RAW = JSON.parse(
+  readFileSync(new URL('../../data/vehicle-catalog-dnit.json', import.meta.url), 'utf8'),
+) as unknown;
+const CUSTOMS = parseCustomsCatalog(CUSTOMS_RAW, SEED);
+/** Fixture 9981 : variante sans fiche commune aux pays. */
+const SPECLESS_VARIANT = '11300000-0000-4000-8000-000000000d42';
 /** Fixtures 9970 (base de test seulement). */
 const EPA_VARIANT = '11300000-0000-4000-8000-000000000202';
 const RETIRED_VARIANT = '11300000-0000-4000-8000-000000000203';
@@ -104,3 +117,71 @@ describe.each(countryCases())('catalogue des véhicules, hôte en $country ($cur
     }
   });
 });
+
+describe.each(countryCases())(
+  'import de la douane, hôte en $country ($currency)',
+  ({ country }) => {
+    const sourceMarket = CUSTOMS.market === country;
+    const premio = catalogId('model/toyota/premio');
+    const premioVariant = CUSTOMS.variants.find((v) => v.modelId === premio);
+
+    it('liste de test du rapport : marques et modèles importés listés au seul marché de la source', async () => {
+      const makes = (await catalog.listMakes(country)).map((m) => m.slug);
+      for (const make of CUSTOMS.makes)
+        expect(makes.includes(make.slug), make.slug).toBe(sourceMarket);
+      // marques de la v1 : toujours listées (variantes communes)
+      for (const make of SEED.makes) expect(makes).toContain(make.slug);
+      const toyota = SEED.makes.find((m) => m.slug === 'toyota')?.id ?? '';
+      const models = await catalog.listModels(toyota, country);
+      expect(models.some((o) => o.slug === 'premio')).toBe(sourceMarket);
+      expect(models.some((o) => o.slug === 'hilux')).toBe(true);
+      // sans pays (compatibilité) : tout ce qui est ACTIVE
+      expect((await catalog.listMakes()).length).toBeGreaterThanOrEqual(makes.length);
+    });
+
+    it('modèle importé : carrosserie nulle, variante sans fiche, préremplissage sans valeur devinée', async () => {
+      if (premioVariant === undefined) throw new Error('Premio absent des données de la douane');
+      const toyota = SEED.makes.find((m) => m.slug === 'toyota')?.id ?? '';
+      const model = (await catalog.listModels(toyota)).find((o) => o.slug === 'premio');
+      expect(model?.bodyType).toBeNull();
+      const variants = await catalog.listVariants(premio, premioVariant.yearFrom, country);
+      expect(variants.map((v) => v.id)).toEqual(sourceMarket ? [premioVariant.id] : []);
+      if (sourceMarket) {
+        expect(variants[0]).toMatchObject({ transmission: null, fuelType: null, drive: null });
+        expect(await catalog.prefill(premioVariant.id, country)).toMatchObject({
+          makeName: 'Toyota',
+          modelName: 'Premio',
+          specsComplete: false,
+          bodyType: null,
+          seats: null,
+          transmission: null,
+          fuelType: null,
+          allWheelDrive: null,
+        });
+      } else {
+        await expect(catalog.prefill(premioVariant.id, country)).rejects.toMatchObject({
+          code: 'CATALOG_VARIANT_NOT_FOUND',
+        });
+      }
+    });
+
+    it('Hilux de la v1 : années antérieures par la variante de la douane, fiche v1 intacte ensuite', async () => {
+      const hilux = catalogId('model/toyota/hilux');
+      const old = CUSTOMS.variants.find((v) => v.modelId === hilux);
+      if (old === undefined) throw new Error('variante de la douane du Hilux absente');
+      const before = await catalog.listVariants(hilux, old.yearFrom, country);
+      expect(before.map((v) => v.id)).toEqual(sourceMarket ? [old.id] : []);
+      const recent = await catalog.listVariants(hilux, 2020, country);
+      expect(recent.map((v) => v.transmission).sort()).toEqual(['AT', 'MT']);
+    });
+
+    it('fixture 9981 (sans fiche, commune) : choisissable dans chaque pays, specsComplete faux', async () => {
+      const prefill = await catalog.prefill(SPECLESS_VARIANT, country);
+      expect(prefill).toMatchObject({
+        makeName: 'Marque douane de test',
+        specsComplete: false,
+        labels: { bodyType: null, gearbox: null, fuel: null, drive: null },
+      });
+    });
+  },
+);

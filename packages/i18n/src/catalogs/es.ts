@@ -1096,6 +1096,7 @@ export const ES_MESSAGES = {
   'backoffice.catalog.choose': 'Elige una opción',
   'backoffice.catalog.rejectConfirm': 'Confirmo el rechazo: se avisará al anfitrión.',
   'backoffice.catalog.ongoing': 'en curso',
+  'backoffice.catalog.specsPending': 'Ficha técnica por completar',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

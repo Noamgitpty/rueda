@@ -11,6 +11,11 @@
  * - consommation : rendue avec sa source ; une valeur `EPA_US_REFERENCE` porte toujours le libellé
  *   « référence US » (17 §3.2.3), jamais une valeur nue.
  * Les libellés sont des clés du catalogue i18n (es, en, fr, pt), jamais du texte.
+ *
+ * Variante sans fiche (source sans caractéristiques techniques, ADR-109 : import de la douane) :
+ * carrosserie, places, portes, boîte, carburant et transmission sont `null`, `specsComplete` vaut
+ * `false` ; rien n'est deviné, l'hôte les saisit lui-même (le véhicule les exige) et l'ops les
+ * complète au catalogue. La variante reste choisissable.
  */
 import type { MessageKey } from '@rueda/i18n';
 import { CatalogError } from './errors.js';
@@ -37,16 +42,16 @@ export interface VariantView {
   readonly modelId: string;
   readonly modelName: string;
   readonly modelStatus: CatalogStatus;
-  readonly bodyType: BodyType;
+  readonly bodyType: BodyType | null;
   readonly yearFrom: number;
   readonly yearTo: number | null;
   readonly trimName: string | null;
-  readonly transmission: Gearbox;
-  readonly fuelType: VariantFuel;
-  readonly drive: Drive;
+  readonly transmission: Gearbox | null;
+  readonly fuelType: VariantFuel | null;
+  readonly drive: Drive | null;
   readonly engineCc: number | null;
-  readonly seats: number;
-  readonly doors: number;
+  readonly seats: number | null;
+  readonly doors: number | null;
   readonly valueClass: ValueClass | null;
   readonly consumptionL100km: string | null;
   readonly consumptionSource: ConsumptionSource | null;
@@ -65,22 +70,25 @@ export interface VehiclePrefill {
   readonly makeName: string;
   readonly modelName: string;
   readonly trimName: string | null;
-  readonly bodyType: BodyType;
-  readonly seats: number;
-  readonly doors: number;
-  readonly transmission: VehicleTransmission;
-  readonly gearbox: Gearbox;
+  /** `false` : variante sans fiche (ADR-109), les champs techniques nuls sont à saisir. */
+  readonly specsComplete: boolean;
+  readonly bodyType: BodyType | null;
+  readonly seats: number | null;
+  readonly doors: number | null;
+  readonly transmission: VehicleTransmission | null;
+  readonly gearbox: Gearbox | null;
   readonly fuelType: VehicleFuel | null;
-  readonly variantFuel: VariantFuel;
-  readonly drive: Drive;
-  readonly allWheelDrive: boolean;
+  readonly variantFuel: VariantFuel | null;
+  readonly drive: Drive | null;
+  /** `null` : transmission inconnue (variante sans fiche). */
+  readonly allWheelDrive: boolean | null;
   readonly valueClass: ValueClass | null;
   readonly consumption: ConsumptionPrefill | null;
   readonly labels: {
-    readonly bodyType: MessageKey;
-    readonly gearbox: MessageKey;
-    readonly fuel: MessageKey;
-    readonly drive: MessageKey;
+    readonly bodyType: MessageKey | null;
+    readonly gearbox: MessageKey | null;
+    readonly fuel: MessageKey | null;
+    readonly drive: MessageKey | null;
   };
 }
 
@@ -157,27 +165,36 @@ export function prefillFromVariant(view: VariantView): VehiclePrefill {
           referenceLabel: view.consumptionSource === 'EPA_US_REFERENCE' ? US_REFERENCE_LABEL : null,
         }
       : null;
+  const { bodyType, transmission, fuelType, drive } = view;
+  const specsComplete =
+    bodyType !== null &&
+    transmission !== null &&
+    fuelType !== null &&
+    drive !== null &&
+    view.seats !== null &&
+    view.doors !== null;
   return {
     variantId: view.id,
     makeName: view.makeName,
     modelName: view.modelName,
     trimName: view.trimName,
-    bodyType: view.bodyType,
+    specsComplete,
+    bodyType,
     seats: view.seats,
     doors: view.doors,
-    transmission: TRANSMISSION[view.transmission],
-    gearbox: view.transmission,
-    fuelType: FUEL[view.fuelType],
-    variantFuel: view.fuelType,
-    drive: view.drive,
-    allWheelDrive: view.drive === 'AWD' || view.drive === '4X4',
+    transmission: transmission === null ? null : TRANSMISSION[transmission],
+    gearbox: transmission,
+    fuelType: fuelType === null ? null : FUEL[fuelType],
+    variantFuel: fuelType,
+    drive,
+    allWheelDrive: drive === null ? null : drive === 'AWD' || drive === '4X4',
     valueClass: view.valueClass,
     consumption,
     labels: {
-      bodyType: BODY_TYPE_LABELS[view.bodyType],
-      gearbox: GEARBOX_LABELS[view.transmission],
-      fuel: FUEL_LABELS[view.fuelType],
-      drive: DRIVE_LABELS[view.drive],
+      bodyType: bodyType === null ? null : BODY_TYPE_LABELS[bodyType],
+      gearbox: transmission === null ? null : GEARBOX_LABELS[transmission],
+      fuel: fuelType === null ? null : FUEL_LABELS[fuelType],
+      drive: drive === null ? null : DRIVE_LABELS[drive],
     },
   };
 }

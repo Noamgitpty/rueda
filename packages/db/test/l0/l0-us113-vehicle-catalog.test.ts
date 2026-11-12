@@ -9,9 +9,11 @@
  *   licence : elles ont échoué en entier et aucune de leurs lignes n'est chargée (marque témoin
  *   présente, lignes « zz-us113-rejet-* » absentes) ;
  * - graine (base « production » du banc, migrations de production seules) : exactement les lignes
- *   des données `apps/api/src/modules/cat/data/vehicle-catalog.json`, toutes ACTIVE, toutes avec
- *   source et licence, aucune consommation EPA (OQ-CAT-01 b ouverte), aucune ligne de test ;
- *   catalogue commun aux pays (`market` nul) : PA et PY voient les mêmes lignes ;
+ *   des données `apps/api/src/modules/cat/data/vehicle-catalog.json` (0063) et de l'import de la
+ *   douane `vehicle-catalog-dnit.json` (0078, ADR-109, détail : l0-us113-customs-import), toutes
+ *   ACTIVE, toutes avec source et licence, aucune consommation EPA (OQ-CAT-01 b ouverte), aucune
+ *   ligne de test ; graine v1 commune aux pays (`market` nul), variantes de la douane du seul
+ *   marché de la source ;
  * - visibilité : ACTIVE et RETIRED lisibles, PENDING_REVIEW invisible (file de l'ops, US-114).
  * Valeurs attendues : 17 §3.2.3, 19 US-113 et les données de graine, jamais les politiques testées.
  */
@@ -88,6 +90,27 @@ const SEED = JSON.parse(
 ) as SeedDoc;
 const SEED_MODELS = SEED.makes.flatMap((m) => m.models);
 const SEED_VARIANTS = SEED_MODELS.flatMap((o) => o.variants);
+
+/** Import de la douane (0078) : lignes nouvelles seulement (`existing` = ligne de la v1). */
+interface CustomsDoc {
+  market: string;
+  makes: Array<{
+    slug: string;
+    existing?: boolean;
+    models: Array<{ existing?: boolean; variant: unknown }>;
+  }>;
+}
+const CUSTOMS = JSON.parse(
+  readFileSync(
+    new URL('../../../../apps/api/src/modules/cat/data/vehicle-catalog-dnit.json', import.meta.url),
+    'utf8',
+  ),
+) as CustomsDoc;
+const CUSTOMS_MAKES = CUSTOMS.makes.filter((m) => m.existing !== true).map((m) => m.slug);
+const CUSTOMS_MODELS = CUSTOMS.makes.flatMap((m) => m.models).filter((o) => o.existing !== true);
+const CUSTOMS_VARIANTS = CUSTOMS.makes
+  .flatMap((m) => m.models)
+  .filter((o) => o.variant !== null && o.variant !== undefined);
 
 async function sqlState(client: pg.ClientBase, sql: string): Promise<string> {
   await client.query('SAVEPOINT s');
@@ -286,15 +309,17 @@ describe('graine de production (base « production » du banc)', () => {
         const makes = await client.query<{ slug: string; name: string; status: string }>(
           `SELECT slug, name, status FROM core.catalog_vehicle_make ORDER BY slug`,
         );
-        expect(makes.rows.map((r) => r.slug)).toEqual(SEED.makes.map((m) => m.slug).sort());
+        expect(makes.rows.map((r) => r.slug)).toEqual(
+          [...SEED.makes.map((m) => m.slug), ...CUSTOMS_MAKES].sort(),
+        );
         expect(makes.rows.every((r) => r.status === 'ACTIVE')).toBe(true);
         const counts = await client.query<{ models: number; variants: number }>(
           `SELECT (SELECT count(*)::int FROM core.catalog_vehicle_model WHERE status = 'ACTIVE') AS models,
                   (SELECT count(*)::int FROM core.catalog_vehicle_variant WHERE status = 'ACTIVE') AS variants`,
         );
         expect(counts.rows[0]).toEqual({
-          models: SEED_MODELS.length,
-          variants: SEED_VARIANTS.length,
+          models: SEED_MODELS.length + CUSTOMS_MODELS.length,
+          variants: SEED_VARIANTS.length + CUSTOMS_VARIANTS.length,
         });
         const epa = await client.query<{ n: number }>(
           `SELECT count(*)::int AS n FROM core.catalog_vehicle_variant WHERE consumption_source IS NOT NULL`,
@@ -324,6 +349,9 @@ describe('graine de production (base « production » du banc)', () => {
              JOIN core.catalog_vehicle_model o ON o.id = v.model_id
              JOIN core.catalog_vehicle_make m ON m.id = o.make_id
             WHERE m.slug = 'toyota' AND o.slug = 'hilux'
+              -- variantes de la v1 (communes) ; celle de la douane (0078, années antérieures) est
+              -- prouvée par l0-us113-customs-import
+              AND v.market IS NULL
             ORDER BY v.transmission`,
         );
         expect(rows).toEqual(
@@ -342,7 +370,7 @@ describe('graine de production (base « production » du banc)', () => {
   });
 
   it.each(COUNTRIES)(
-    'catalogue commun aux pays : $country ($currency) voit toutes les variantes (market nul)',
+    'graine v1 commune aux pays : $country ($currency) voit toutes ses variantes (market nul), et celles de la douane au seul marché de la source',
     async ({ country }) => {
       await withRole(
         'app_api',
@@ -352,7 +380,9 @@ describe('graine de production (base « production » du banc)', () => {
               WHERE status = 'ACTIVE' AND (market IS NULL OR market = $1)`,
             [country],
           );
-          expect(rows[0]?.n).toBe(SEED_VARIANTS.length);
+          expect(rows[0]?.n).toBe(
+            SEED_VARIANTS.length + (country === CUSTOMS.market ? CUSTOMS_VARIANTS.length : 0),
+          );
           const known = await client.query<{ ok: boolean }>(
             `SELECT EXISTS (SELECT 1 FROM core.config_country WHERE code = $1) AS ok`,
             [country],

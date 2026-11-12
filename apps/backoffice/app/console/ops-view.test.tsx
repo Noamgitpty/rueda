@@ -5,7 +5,7 @@
  * consultation annoncée comme journalisée (ADM-032), fiche 360° avec statut KYC sans pièce,
  * restriction active annoncée et comptes d'hôte fermés à la réservation (ADM-005), restriction et
  * levée motivées, aucune saisie de montant ; demande d'ajout au catalogue (US-114, 16 ADM-036) :
- * variantes candidates à rattacher, création sous licence, refus motivé, aucune donnée personnelle. Textes attendus : catalogue @rueda/i18n (es fait foi).
+ * variantes candidates à rattacher (variante sans fiche de la douane : « fiche à compléter », ADR-109), création sous licence, refus motivé, aucune donnée personnelle. Textes attendus : catalogue @rueda/i18n (es fait foi).
  */
 import { CATALOGS, createTranslator } from '@rueda/i18n';
 import { findForeignStrings } from '@rueda/i18n/testing';
@@ -311,6 +311,26 @@ describe('O01 : ce que chaque état montre', () => {
     expect(out).not.toMatch(/name="(amount|amountMinor|plate)"/i);
     // un élément pris d'une autre file n'ouvre pas de demande d'ajout
     expect(html(FULL, tag)).not.toContain('value="catalog:');
+  });
+
+  it('variante candidate sans fiche (import de la douane, ADR-109) : « fiche à compléter », jamais « null »', () => {
+    const catalog = CATALOG.catalog;
+    const first = catalog?.candidates[0];
+    if (!catalog || !first) throw new Error('fixture du catalogue absente');
+    const state: OpsState = {
+      ...CATALOG,
+      catalog: {
+        ...catalog,
+        candidates: [{ ...first, transmission: null, fuelType: null, drive: null, seats: null }],
+      },
+    };
+    for (const p of LOCALE_CONFIG.locales) {
+      const out = html(state, p.tag);
+      expect(out, p.tag).toContain(
+        CATALOGS[p.language].messages['backoffice.catalog.specsPending'],
+      );
+      expect(out, p.tag).not.toMatch(/\bnull\b|undefined/);
+    }
   });
 
   it('rôle sans lecture de fiche (FINANCE) : aucun panneau de fiche 360°', () => {
