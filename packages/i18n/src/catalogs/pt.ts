@@ -1021,4 +1021,13 @@ export const PT_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Aluguel com uma pessoa física',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'Este carro é alugado por uma pessoa física. No Paraguai, a situação tributária dos anfitriões pessoas físicas está em análise. Seu recibo mostra o que você paga.',
+  'common.catalogAddition.rejected':
+    'Seu carro não foi incluído no catálogo. Confira o motivo abaixo do carro.',
+  'common.catalogAddition.notAllowed':
+    'Você não pode mais pedir a inclusão deste carro. Se achar que é um erro, fale com o suporte.',
+  'web.host.catalog.final':
+    'Este carro não pode ser anunciado. Se achar que é um erro, fale com o suporte.',
+  'backoffice.catalog.choose': 'Escolha uma opção',
+  'backoffice.catalog.rejectConfirm': 'Confirmo a recusa: o anfitrião será avisado.',
+  'backoffice.catalog.ongoing': 'em produção',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

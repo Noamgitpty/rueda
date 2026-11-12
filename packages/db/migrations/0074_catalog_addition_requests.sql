@@ -14,10 +14,11 @@
 --     échéance posée par la base depuis `catalog_addition_sla_business_h` du pays ; file
 --     indisponible : rien n'est créé, l'erreur est levée) ; 19 US-114 critère 1 ;
 --   - un véhicule sans variante n'est jamais publiable : la soumission de son annonce rend
---     CATALOG_ADDITION_PENDING et l'annonce reste DRAFT (après la complétude des photos, avant les
---     CGU et l'activation) ;
+--     CATALOG_ADDITION_PENDING (CATALOG_ADDITION_REJECTED si la dernière demande est refusée) et
+--     l'annonce reste DRAFT (après la complétude des photos, avant les CGU et l'activation) ;
 --   - après un refus, l'hôte corrige marque et modèle et redemande (`catalog_cmd_request_addition`) ;
 --     une demande OPEN par véhicule (index unique partiel) : CATALOG_REQUEST_DUPLICATE (16 ADM-036) ;
+--     jamais après un refus NOT_ELIGIBLE ni au-delà de trois refus : CATALOG_REQUEST_NOT_ALLOWED ;
 --   - l'ops (permission de la file, `ops.review_listing_host`, dans le pays de l'élément ; élément
 --     pris en charge par lui, ADMIN : sa portée ; TOTP) lit la demande et tranche par la console :
 --     MERGE (variante ACTIVE existante du marché et de l'année du véhicule), APPROVE (marque,
@@ -37,7 +38,8 @@
 -- Défauts PROPOSÉS (fail-closed, ADR-104) : motifs de refus INSUFFICIENT_DETAILS, UNKNOWN_MODEL,
 -- NOT_ELIGIBLE ; VIN masqué = 11 premiers caractères d'un VIN de 17 (constructeur, modèle, année,
 -- usine), numéro de série caché ; licence saisie par l'ops de 10 à 500 caractères ; 30 variantes
--- proposées au rapprochement ; une variante créée vaut pour le seul pays de la demande.
+-- proposées au rapprochement ; une variante créée vaut pour le seul pays de la demande ; trois refus
+-- au plus par véhicule, aucune nouvelle demande après NOT_ELIGIBLE.
 --
 -- Expand / contract : table, index, fonctions et politiques ajoutés ; droits ajoutés aux
 -- propriétaires NOLOGIN ; corps de `core.catalog_cmd_create_vehicle` (0067) et de
@@ -431,9 +433,14 @@ BEGIN
   END IF;
   -- véhicule rattaché au catalogue (16 HST-050 « véhicule en brouillon et non publiable » ;
   -- 19 US-114 critère 1) ; sinon l'annonce reste DRAFT
+  -- (dernière demande refusée : CATALOG_ADDITION_REJECTED, l'hôte voit le motif ; sinon en attente)
   IF EXISTS (SELECT 1 FROM core.catalog_vehicle AS v
               WHERE v.id = v_vehicle AND v.variant_id IS NULL) THEN
-    RETURN QUERY SELECT 'CATALOG_ADDITION_PENDING'::text, NULL::uuid;
+    RETURN QUERY SELECT CASE WHEN (SELECT r.status FROM core.catalog_addition_request AS r
+                                    WHERE r.vehicle_id = v_vehicle
+                                    ORDER BY r.created_at DESC, r.id DESC LIMIT 1) = 'REJECTED'
+                             THEN 'CATALOG_ADDITION_REJECTED' ELSE 'CATALOG_ADDITION_PENDING'
+                        END::text, NULL::uuid;
     RETURN;
   END IF;
   -- CGU de l'hôte acceptées dans leur version exigée, dans le pays du compte (19 US-126 ; 16
@@ -471,7 +478,9 @@ COMMENT ON FUNCTION core.catalog_cmd_submit_listing(bytea, uuid, uuid) IS
 -- Issues : DONE (id de la demande), AUTH_REQUIRED, FORBIDDEN (compte d'un autre),
 -- HOST_ACCOUNT_SUSPENDED, VEHICLE_FIELD_REQUIRED, VEHICLE_NOT_FOUND (véhicule d'un autre compte :
 -- même réponse), CATALOG_ALREADY_LINKED (variante déjà rattachée), CATALOG_REQUEST_DUPLICATE
--- (demande OPEN, 16 ADM-036).
+-- (demande OPEN, 16 ADM-036), CATALOG_REQUEST_NOT_ALLOWED (dernier refus NOT_ELIGIBLE, ou déjà
+-- trois refus pour ce véhicule : PROPOSÉ, ADR-104 ; la file de l'ops n'est jamais inondée). Une
+-- finition absente garde celle du véhicule.
 CREATE FUNCTION core.catalog_cmd_request_addition(p_token_hash bytea, p_org uuid, p_vehicle_id uuid,
                                                   p_make_text text, p_model_text text, p_trim text)
   RETURNS TABLE (outcome text, request_id uuid)
@@ -521,9 +530,18 @@ BEGIN
     RETURN QUERY SELECT 'CATALOG_REQUEST_DUPLICATE'::text, NULL::uuid;
     RETURN;
   END IF;
+  -- véhicule non admis, ou trois refus déjà : plus de nouvelle demande (PROPOSÉ, ADR-104)
+  IF (SELECT r.reject_reason FROM core.catalog_addition_request AS r
+       WHERE r.vehicle_id = p_vehicle_id
+       ORDER BY r.created_at DESC, r.id DESC LIMIT 1) = 'NOT_ELIGIBLE'
+     OR (SELECT pg_catalog.count(*) FROM core.catalog_addition_request AS r
+          WHERE r.vehicle_id = p_vehicle_id AND r.status = 'REJECTED') >= 3 THEN
+    RETURN QUERY SELECT 'CATALOG_REQUEST_NOT_ALLOWED'::text, NULL::uuid;
+    RETURN;
+  END IF;
   UPDATE core.catalog_vehicle AS v
      SET make_text = pg_catalog.btrim(p_make_text), model_text = pg_catalog.btrim(p_model_text),
-         trim_override = NULLIF(pg_catalog.btrim(p_trim), '')
+         trim_override = COALESCE(NULLIF(pg_catalog.btrim(p_trim), ''), v.trim_override)
    WHERE v.id = p_vehicle_id;
   v_id := core.catalog_addition_open(p_org, h.country_code, p_vehicle_id, h.user_id, p_make_text,
                                      p_model_text, v_veh.year, p_trim, v_veh.vin);
@@ -532,7 +550,8 @@ END
 $fn$;
 COMMENT ON FUNCTION core.catalog_cmd_request_addition(bytea, uuid, uuid, text, text, text) IS
   'Nouvelle demande d''ajout au catalogue pour un véhicule hors catalogue du compte de la session '
-  '(une OPEN par véhicule : CATALOG_REQUEST_DUPLICATE). SECURITY DEFINER, EXECUTE app_api. US-114.';
+  '(une OPEN par véhicule : CATALOG_REQUEST_DUPLICATE ; jamais après NOT_ELIGIBLE ni au-delà de '
+  'trois refus : CATALOG_REQUEST_NOT_ALLOWED). SECURITY DEFINER, EXECUTE app_api. US-114.';
 
 -- 4.4 Demandes de l'hôte (la dernière de chaque véhicule) ; session invalide ou compte d'un
 -- autre : 0 ligne. Ni l'auteur de la décision, ni le VIN.
@@ -805,12 +824,13 @@ BEGIN
       VALUES (v_model, v_make, core.catalog_slug(e_model), e_model, e_body, e_seats, e_doors,
               'ACTIVE', 'HOST_REQUEST', v_src_ref, e_license);
     END IF;
-    -- clé naturelle de 0063 (marché = pays de la demande) : une variante existante se rapproche
+    -- clé naturelle de 0063 dans le pays de la demande OU commune aux pays (market nul) : une
+    -- variante existante se rapproche, jamais un doublon d'une variante commune
     IF EXISTS (SELECT 1 FROM core.catalog_vehicle_variant AS v
                 WHERE v.model_id = v_model AND v.year_from = e_from
                   AND v.trim_name IS NOT DISTINCT FROM e_trim AND v.transmission = e_trans
                   AND v.fuel_type = e_fuel AND v.drive = e_drive
-                  AND v.market::text = v_req.country_code) THEN
+                  AND (v.market IS NULL OR v.market::text = v_req.country_code)) THEN
       RETURN QUERY SELECT 'CATALOG_VARIANT_EXISTS'::text, NULL::text, NULL::uuid;
       RETURN;
     END IF;
@@ -873,7 +893,9 @@ REVOKE CREATE ON SCHEMA core FROM catalog_cmd_owner;
 -- l'élément ; élément ouvert de la file CATALOG_ADDITION pris en charge par l'acteur (ADMIN : tout
 -- élément de sa portée) ; TOTP. Refus journalisés (STAFF_ACCESS_DENIED, STAFF_FORBIDDEN) ; issues
 -- communes : AUTH_REQUIRED, MFA_REQUIRED, CASE_REQUIRED (permission détenue, élément non pris en
--- charge, clos ou d'une autre file), FORBIDDEN (introuvable, sans permission, pays discordant).
+-- charge ou d'une autre file), FORBIDDEN (introuvable, sans permission, pays discordant ; un
+-- élément CLOS aussi : la politique de mise à jour d'US-109 le rend invisible au verrou, il rend
+-- donc la réponse d'un élément inconnu ; la branche « clos » de la garde reste un filet).
 GRANT CREATE ON SCHEMA core TO iam_staff_owner;
 SET LOCAL ROLE iam_staff_owner;
 

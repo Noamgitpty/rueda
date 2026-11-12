@@ -987,4 +987,13 @@ export const EN_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Renting from an individual',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'This car is rented out by an individual. In Paraguay, the tax status of individual hosts is under review. Your receipt shows what you pay.',
+  'common.catalogAddition.rejected':
+    'Your car wasn’t added to the catalog. Check the reason under the car.',
+  'common.catalogAddition.notAllowed':
+    'You can no longer ask to add this car. If you think it’s a mistake, contact support.',
+  'web.host.catalog.final':
+    'This car can’t be listed. If you think it’s a mistake, contact support.',
+  'backoffice.catalog.choose': 'Choose an option',
+  'backoffice.catalog.rejectConfirm': 'I confirm the rejection: the host will be notified.',
+  'backoffice.catalog.ongoing': 'ongoing',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

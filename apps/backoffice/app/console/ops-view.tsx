@@ -612,12 +612,24 @@ function SelectField(props: {
   readonly keys: Readonly<Record<string, MessageKey>>;
 }) {
   const { i18n, id, name, label, options, defaultValue, keys } = props;
+  // sans valeur par défaut : aucune présélection, le choix est exigé (revue ux US-114)
   return (
     <div className={styles['group']}>
       <label className={styles['label']} htmlFor={id}>
         {label}
       </label>
-      <select id={id} name={name} defaultValue={defaultValue} className={styles['select']}>
+      <select
+        id={id}
+        name={name}
+        defaultValue={defaultValue ?? ''}
+        required
+        className={styles['select']}
+      >
+        {defaultValue === undefined && (
+          <option value="" disabled>
+            {i18n.t('backoffice.catalog.choose')}
+          </option>
+        )}
         {options.map((o) => (
           <option key={o} value={o}>
             {labelOf(i18n, keys, o)}
@@ -708,7 +720,7 @@ function CatalogPanel({
                   )}
                 </span>
               ),
-              years: `${k.yearFrom}–${k.yearTo ?? ''}`,
+              years: `${k.yearFrom}–${k.yearTo ?? i18n.t('backoffice.catalog.ongoing')}`,
               specs: `${labelOf(i18n, GEARBOX_KEYS, k.transmission)} · ${labelOf(i18n, FUEL_KEYS, k.fuelType)} · ${labelOf(i18n, DRIVE_KEYS, k.drive)} · ${k.seats}`,
               actions: (
                 <Button
@@ -866,7 +878,10 @@ function CatalogPanel({
         className={styles['form']}
         onSubmit={prevent((e) => {
           const reason = submitted(e);
-          if ((REJECT_REASONS as readonly string[]).includes(reason)) {
+          if (
+            fieldOf(e, 'confirmReject') !== '' &&
+            (REJECT_REASONS as readonly string[]).includes(reason)
+          ) {
             handlers.onResolveCatalog(c.itemId, {
               decision: 'REJECT',
               rejectReason: reason as (typeof REJECT_REASONS)[number],
@@ -878,6 +893,11 @@ function CatalogPanel({
           <h3 id="catalog-reject" className={styles['label']}>
             {i18n.t('backoffice.catalog.rejectHeading')}
           </h3>
+          {/* confirmation exigée avant l'envoi : l'hôte est prévenu aussitôt (revue ux US-114) */}
+          <label className={styles['role']} htmlFor="catalog-reject-confirm">
+            <input id="catalog-reject-confirm" type="checkbox" name="confirmReject" required />
+            <span>{i18n.t('backoffice.catalog.rejectConfirm')}</span>
+          </label>
           <div className={styles['actions']}>
             {REJECT_REASONS.map((reason) => (
               <Button

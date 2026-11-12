@@ -298,6 +298,16 @@ describe('O01 : ce que chaque état montre', () => {
       /name="licenseNote"[^>]*minLength="10"|minLength="10"[^>]*name="licenseNote"/i,
     );
     expect(out).toContain('ABCDEFGHJKL******');
+    // aucune présélection de la carrosserie ni de la traction ; refus confirmé
+    expect(out).toMatch(
+      /<select[^>]*name="bodyType"[^>]*>\s*<option value="" disabled="" selected="">/,
+    );
+    expect(out).toMatch(
+      /<select[^>]*name="drive"[^>]*>\s*<option value="" disabled="" selected="">/,
+    );
+    expect(out).toMatch(/<input[^>]*required=""[^>]*name="confirmReject"/);
+    expect(out).toContain(es['backoffice.catalog.rejectConfirm']);
+    expect(out).toContain(es['backoffice.catalog.ongoing']);
     expect(out).not.toMatch(/name="(amount|amountMinor|plate)"/i);
     // un élément pris d'une autre file n'ouvre pas de demande d'ajout
     expect(html(FULL, tag)).not.toContain('value="catalog:');

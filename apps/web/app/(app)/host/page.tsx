@@ -327,13 +327,17 @@ export default async function HostPage({
                           {t(`web.host.catalog.reason.${r.rejectReason}` as MessageKey)}
                         </Banner>
                       )}
-                      <CatalogRequestForm
-                        localeTag={tag}
-                        orgId={account.orgId}
-                        vehicleId={v.id}
-                        makeText={v.makeText ?? ''}
-                        modelText={v.modelText ?? ''}
-                      />
+                      {r.rejectReason === 'NOT_ELIGIBLE' ? (
+                        <p className={accountStyles['muted']}>{t('web.host.catalog.final')}</p>
+                      ) : (
+                        <CatalogRequestForm
+                          localeTag={tag}
+                          orgId={account.orgId}
+                          vehicleId={v.id}
+                          makeText={v.makeText ?? ''}
+                          modelText={v.modelText ?? ''}
+                        />
+                      )}
                     </>
                   )}
                 </li>

@@ -1056,4 +1056,13 @@ export const FR_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Location auprès d’un particulier',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'Cette voiture est louée par un particulier. Au Paraguay, la situation fiscale des hôtes particuliers fait l’objet d’une analyse en cours. Ton reçu détaille ce que tu paies.',
+  'common.catalogAddition.rejected':
+    'Ta voiture n’a pas été ajoutée au catalogue. Consulte la raison sous la voiture.',
+  'common.catalogAddition.notAllowed':
+    'Tu ne peux plus demander l’ajout de cette voiture. Si c’est une erreur, écris au support.',
+  'web.host.catalog.final':
+    'Cette voiture ne peut pas être publiée. Si c’est une erreur, écris au support.',
+  'backoffice.catalog.choose': 'Choisissez une option',
+  'backoffice.catalog.rejectConfirm': 'Je confirme le refus : l’hôte sera prévenu.',
+  'backoffice.catalog.ongoing': 'en cours',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

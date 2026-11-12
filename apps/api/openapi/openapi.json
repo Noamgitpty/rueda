@@ -4477,7 +4477,7 @@
             }
           },
           "409": {
-            "description": "Demande déjà ouverte pour ce véhicule ; véhicule déjà rattaché au catalogue",
+            "description": "Demande déjà ouverte pour ce véhicule ; véhicule déjà rattaché au catalogue ; véhicule non admis ou trois refus : plus de nouvelle demande",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4489,7 +4489,11 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["CATALOG_REQUEST_DUPLICATE", "CATALOG_ALREADY_LINKED"]
+                      "enum": [
+                        "CATALOG_REQUEST_DUPLICATE",
+                        "CATALOG_ALREADY_LINKED",
+                        "CATALOG_REQUEST_NOT_ALLOWED"
+                      ]
                     }
                   }
                 }
@@ -4922,7 +4926,7 @@
             }
           },
           "409": {
-            "description": "Transition absente de SM-2 dans l'état de l'annonce ; CGU de l'hôte à accepter dans leur version exigée (US-126) : l'annonce reste DRAFT ; véhicule hors catalogue en attente de la file d'ajout (US-114) : l'annonce reste DRAFT",
+            "description": "Transition absente de SM-2 dans l'état de l'annonce ; CGU de l'hôte à accepter dans leur version exigée (US-126) : l'annonce reste DRAFT ; véhicule hors catalogue en attente de la file d'ajout (US-114) : l'annonce reste DRAFT ; dernière demande d'ajout refusée",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4937,7 +4941,8 @@
                       "enum": [
                         "LISTING_TRANSITION_FORBIDDEN",
                         "TERMS_REACCEPT_REQUIRED",
-                        "CATALOG_ADDITION_PENDING"
+                        "CATALOG_ADDITION_PENDING",
+                        "CATALOG_ADDITION_REJECTED"
                       ]
                     }
                   }

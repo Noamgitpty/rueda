@@ -13,7 +13,8 @@
  * `TERMS_REACCEPT_REQUIRED` (16 LEG-001, 19 US-126) : CGU de l'hôte à accepter avant la soumission ;
  * `CATALOG_REQUEST_DUPLICATE` (16 ADM-036) et, PROPOSÉS par US-114 (ADR-104) :
  * `CATALOG_ADDITION_PENDING` (véhicule hors catalogue, annonce non publiable),
- * `CATALOG_ALREADY_LINKED` (véhicule déjà rattaché), `CATALOG_REQUEST_CREATED`.
+ * `CATALOG_ALREADY_LINKED` (véhicule déjà rattaché), `CATALOG_ADDITION_REJECTED` (dernière demande
+ * refusée), `CATALOG_REQUEST_NOT_ALLOWED` (refus NOT_ELIGIBLE ou trois refus), `CATALOG_REQUEST_CREATED`.
  *
  * Calendrier de l'hôte (US-119, ADR-101) : `VEHICLE_UNAVAILABLE` (16 CAL-011, CAL-002 : créneau
  * pris, sans détail de l'occupation en cause), PROPOSÉS par US-119 : `BLOCK_CREATED`,
@@ -56,6 +57,10 @@ export const HOST_LISTING_MESSAGES = {
   CATALOG_ADDITION_PENDING: { status: 409, messageKey: 'common.catalogAddition.pending' },
   CATALOG_REQUEST_DUPLICATE: { status: 409, messageKey: 'common.catalogAddition.duplicate' },
   CATALOG_ALREADY_LINKED: { status: 409, messageKey: 'common.catalogAddition.alreadyLinked' },
+  // dernière demande refusée : l'hôte voit le motif (US-114, revue ux)
+  CATALOG_ADDITION_REJECTED: { status: 409, messageKey: 'common.catalogAddition.rejected' },
+  // véhicule non admis, ou trois refus : plus de nouvelle demande (US-114, PROPOSÉ)
+  CATALOG_REQUEST_NOT_ALLOWED: { status: 409, messageKey: 'common.catalogAddition.notAllowed' },
   VEHICLE_UNAVAILABLE: { status: 409, messageKey: 'common.calendar.vehicleUnavailable' },
   VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },

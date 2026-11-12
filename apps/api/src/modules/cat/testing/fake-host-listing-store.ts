@@ -156,8 +156,12 @@ export class FakeHostListingStore implements HostListingStore {
     if (v.input.variantId !== null) {
       return Promise.resolve({ outcome: 'CATALOG_ALREADY_LINKED', id: null });
     }
-    if (this.catalogRequests.get(vehicleId)?.status === 'OPEN') {
+    const last = this.catalogRequests.get(vehicleId);
+    if (last?.status === 'OPEN') {
       return Promise.resolve({ outcome: 'CATALOG_REQUEST_DUPLICATE', id: null });
+    }
+    if (last?.rejectReason === 'NOT_ELIGIBLE') {
+      return Promise.resolve({ outcome: 'CATALOG_REQUEST_NOT_ALLOWED', id: null });
     }
     return Promise.resolve({
       outcome: 'DONE',
@@ -236,7 +240,11 @@ export class FakeHostListingStore implements HostListingStore {
     if (l.photos < this.minPhotos) return Promise.resolve({ outcome: 'PHOTO_MIN_COUNT', id: null });
     // véhicule hors catalogue (US-114) : non publiable
     if (this.vehiclesById.get(l.vehicleId)?.input.variantId === null) {
-      return Promise.resolve({ outcome: 'CATALOG_ADDITION_PENDING', id: null });
+      const rejected = this.catalogRequests.get(l.vehicleId)?.status === 'REJECTED';
+      return Promise.resolve({
+        outcome: rejected ? 'CATALOG_ADDITION_REJECTED' : 'CATALOG_ADDITION_PENDING',
+        id: null,
+      });
     }
     // CGU de l'hôte acceptées (US-126, garde de la commande en base, 0070)
     if (!this.hostTermsAccepted.has(orgId)) {

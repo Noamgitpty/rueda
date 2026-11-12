@@ -5,3 +5,4 @@ module: Catalogue et annonces
 - Ajouté : décision de l'ops dans la console O01 : rapprochement d'une variante existante, création d'une variante sous licence (source `HOST_REQUEST`) ou refus motivé ; le véhicule reçoit sa variante, l'hôte est notifié (e-mail, puis SMS) (US-114)
 - Ajouté : statut de la demande, échéance, motif d'un refus et nouvelle demande dans l'espace de l'hôte (A10), en es, en, fr et pt-BR (US-114)
 - Sécurité : commandes de la console (TOTP, permission de la file dans le pays de l'élément, élément pris en charge, refus journalisés) séparées des fonctions de domaine du catalogue ; aucun droit applicatif sur les demandes (US-114)
+- Sécurité : au plus trois refus par véhicule, aucune nouvelle demande après un refus « véhicule non admis » ; une variante commune n'est jamais doublée (US-114)

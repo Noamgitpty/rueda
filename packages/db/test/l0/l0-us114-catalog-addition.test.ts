@@ -688,7 +688,7 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
   );
 
   it.each(byCountry)(
-    '%s (%s) : APPROVE d’une variante déjà au catalogue ⇒ CATALOG_VARIANT_EXISTS ; saisie invalide (clé inconnue, licence courte, année du véhicule hors des années) ⇒ CATALOG_ENTRY_INVALID ; rien n’est écrit',
+    '%s (%s) : APPROVE d’une variante déjà au catalogue (du pays ou commune) ⇒ CATALOG_VARIANT_EXISTS ; saisie invalide (clé inconnue, licence courte, année du véhicule hors des années) ⇒ CATALOG_ENTRY_INVALID ; rien n’est écrit',
     async (country) => {
       await withRole('app_api', async (client) => {
         const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
@@ -715,6 +715,48 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
             JSON.stringify(entry),
           ).toBe('CATALOG_ENTRY_INVALID');
         }
+        // variante COMMUNE de la graine (market nul) de même clé : à rapprocher, jamais doublée
+        const { rows: seedRows } = await client.query<{
+          id: string;
+          make: string;
+          model: string;
+          year_from: number;
+          trim_name: string | null;
+          transmission: string;
+          fuel_type: string;
+          drive: string;
+        }>(
+          `SELECT v.id, m.name AS make, o.name AS model, v.year_from, v.trim_name, v.transmission,
+                  v.fuel_type, v.drive
+             FROM core.catalog_vehicle_variant v
+             JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
+             JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
+            WHERE v.status = 'ACTIVE' AND v.market IS NULL AND m.slug = 'toyota' AND o.slug = 'hilux'
+            ORDER BY v.year_from, v.id LIMIT 1`,
+        );
+        const sv = seedRows[0];
+        if (!sv) throw new Error('graine : Toyota Hilux absent');
+        const third = await pending(client, country, ops, {
+          make: sv.make,
+          model: sv.model,
+          year: sv.year_from,
+        });
+        expect(
+          (
+            await resolve(client, ops, third.item, 'APPROVE', {
+              entry: {
+                ...entryFor(sv.model, sv.year_from),
+                makeName: sv.make,
+                bodyType: 'PICKUP',
+                trimName: sv.trim_name,
+                transmission: sv.transmission,
+                fuelType: sv.fuel_type,
+                drive: sv.drive,
+              },
+            })
+          ).outcome,
+        ).toBe('CATALOG_VARIANT_EXISTS');
+        expect((await requestsOf(client, third.vehicle))[0]?.status).toBe('OPEN');
         expect((await requestsOf(client, second.vehicle))[0]?.status).toBe('OPEN');
         expect((await vehicleRow(client, second.vehicle))?.variant_id).toBeNull();
         expect(await eventsOf(client, second.request.id)).toEqual([]);
@@ -727,7 +769,7 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
 // ---------------------------------------------------------------------------------------------
 describe('refus motivé : le véhicule reste non publiable ; nouvelle demande de l’hôte', () => {
   it.each(byCountry)(
-    '%s (%s) : REJECT (UNKNOWN_MODEL) ⇒ demande REJECTED, véhicule sans variante, soumission CATALOG_ADDITION_PENDING, hôte notifié ; l’hôte corrige et redemande ⇒ nouvelle demande OPEN ; seconde demande ⇒ CATALOG_REQUEST_DUPLICATE',
+    '%s (%s) : REJECT (UNKNOWN_MODEL) ⇒ demande REJECTED, véhicule sans variante, soumission CATALOG_ADDITION_REJECTED, hôte notifié ; l’hôte corrige et redemande ⇒ nouvelle demande OPEN ; seconde demande ⇒ CATALOG_REQUEST_DUPLICATE',
     async (country, _currency, c: CountryCase) => {
       await withRole('app_api', async (client) => {
         const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
@@ -759,8 +801,10 @@ describe('refus motivé : le véhicule reste non publiable ; nouvelle demande de
           reject_reason: 'UNKNOWN_MODEL',
           host_user_id: p.h.userId,
         });
+        // refus : la soumission le dit (plus rien n'est en attente), l'annonce reste DRAFT
         const listing = await completeListing(client, p.h, c, p.vehicle);
-        expect(await submit(client, p.h, listing)).toBe('CATALOG_ADDITION_PENDING');
+        expect(await submit(client, p.h, listing)).toBe('CATALOG_ADDITION_REJECTED');
+        expect((await listingRow(client, listing))?.status).toBe('DRAFT');
 
         // nouvelle demande, marque et modèle corrigés
         const again = await reRequest(client, p.h, p.vehicle, 'Chery', 'Tiggo 2');
@@ -782,6 +826,8 @@ describe('refus motivé : le véhicule reste non publiable ; nouvelle demande de
         expect((await reRequest(client, p.h, p.vehicle, 'Chery', 'Tiggo 2')).outcome).toBe(
           'CATALOG_REQUEST_DUPLICATE',
         );
+        // de nouveau en attente
+        expect(await submit(client, p.h, listing)).toBe('CATALOG_ADDITION_PENDING');
         // l'hôte relit la DERNIÈRE demande du véhicule
         const mine = await client.query<{ request_id: string; status: string }>(
           'SELECT * FROM core.catalog_host_addition_requests($1, $2)',
@@ -789,6 +835,47 @@ describe('refus motivé : le véhicule reste non publiable ; nouvelle demande de
         );
         expect(mine.rows).toEqual([
           expect.objectContaining({ request_id: again.request_id, status: 'OPEN' }),
+        ]);
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : refus NOT_ELIGIBLE ⇒ plus de nouvelle demande (CATALOG_REQUEST_NOT_ALLOWED) ; trois refus ⇒ plus de nouvelle demande ; rien n’est mis en file',
+    async (country) => {
+      await withRole('app_api', async (client) => {
+        const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
+        // véhicule non admis : aucune nouvelle demande
+        const p = await pending(client, country, ops);
+        expect(
+          (await resolve(client, ops, p.item, 'REJECT', { reason: 'NOT_ELIGIBLE' })).outcome,
+        ).toBe('RESOLVED');
+        expect((await reRequest(client, p.h, p.vehicle, 'Chery', 'Tiggo 2')).outcome).toBe(
+          'CATALOG_REQUEST_NOT_ALLOWED',
+        );
+        expect((await requestsOf(client, p.vehicle)).map((x) => x.status)).toEqual(['REJECTED']);
+        // témoin : un refus d'un autre motif laisse redemander, jusqu'au troisième refus
+        const q = await pending(client, country, ops);
+        let item = q.item;
+        for (let round = 1; round <= 3; round += 1) {
+          expect(
+            (await resolve(client, ops, item, 'REJECT', { reason: 'INSUFFICIENT_DETAILS' }))
+              .outcome,
+          ).toBe('RESOLVED');
+          const again = await reRequest(client, q.h, q.vehicle, 'Chery', `Tiggo ${round}`);
+          if (round < 3) {
+            expect(again.outcome, `refus ${round}`).toBe('DONE');
+            const last = (await requestsOf(client, q.vehicle)).at(-1);
+            item = last?.review_item_id ?? '';
+            expect((await claim(client, ops, item)).outcome).toBe('CLAIMED');
+          } else {
+            expect(again.outcome, 'troisième refus').toBe('CATALOG_REQUEST_NOT_ALLOWED');
+          }
+        }
+        expect((await requestsOf(client, q.vehicle)).map((x) => x.status)).toEqual([
+          'REJECTED',
+          'REJECTED',
+          'REJECTED',
         ]);
       });
     },

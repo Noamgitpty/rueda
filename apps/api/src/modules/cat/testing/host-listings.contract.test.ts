@@ -465,6 +465,12 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     expect(rejected.json).toMatchObject({
       vehicles: [{ catalogRequest: { status: 'REJECTED', rejectReason: 'UNKNOWN_MODEL' } }],
     });
+    const refused = await api.request('POST', `${d.base}/listings/${d.listingId}/submit`, {
+      headers: w.a,
+      body: {},
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.json).toMatchObject({ code: 'CATALOG_ADDITION_REJECTED' });
     const again = await ask({ makeText: 'Chery', modelText: 'Tiggo 2', trim: 'Comfort' });
     expect(again.status).toBe(201);
     expect(again.json).toMatchObject({
@@ -488,6 +494,18 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
         })
       ).status,
     ).toBe(415);
+    // véhicule non admis : plus de nouvelle demande
+    const reopened = w.store.catalogRequests.get(d.vehicleId);
+    if (reopened) {
+      w.store.catalogRequests.set(d.vehicleId, {
+        ...reopened,
+        status: 'REJECTED',
+        rejectReason: 'NOT_ELIGIBLE',
+      });
+    }
+    const notAllowed = await ask({ makeText: 'Chery', modelText: 'Tiggo 2' });
+    expect(notAllowed.status).toBe(409);
+    expect(notAllowed.json).toMatchObject({ code: 'CATALOG_REQUEST_NOT_ALLOWED' });
     // véhicule rattaché au catalogue : rien à demander
     const linked = await draft(w);
     expect((await ask({ makeText: 'Marca', modelText: 'Modelo' }, linked.vehicleId)).status).toBe(

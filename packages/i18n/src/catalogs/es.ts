@@ -1022,6 +1022,15 @@ export const ES_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Alquiler con una persona particular',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'Este auto lo alquila una persona particular. En Paraguay, la situación tributaria de los anfitriones particulares está en revisión. Tu comprobante detalla lo que pagas.',
+  'common.catalogAddition.rejected':
+    'Tu auto no se agregó al catálogo. Revisa el motivo debajo del auto.',
+  'common.catalogAddition.notAllowed':
+    'Ya no puedes pedir agregar este auto. Si crees que es un error, escribe al soporte.',
+  'web.host.catalog.final':
+    'Este auto no se puede publicar. Si crees que es un error, escribe al soporte.',
+  'backoffice.catalog.choose': 'Elige una opción',
+  'backoffice.catalog.rejectConfirm': 'Confirmo el rechazo: se avisará al anfitrión.',
+  'backoffice.catalog.ongoing': 'en curso',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;
