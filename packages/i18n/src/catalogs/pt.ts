@@ -771,6 +771,8 @@ export const PT_MESSAGES = {
   'web.host.cars.needPlace': 'Primeiro adicione um local de entrega.',
   'web.host.car.plate': 'Placa',
   'web.host.car.vin': 'Número do chassi (VIN)',
+  'web.host.car.vinHint':
+    'VIN de 17 caracteres (ex.: 1HGCM82633A004352) ou número do chassi de um carro importado (ex.: GRJ150-0012345).',
   'web.host.car.make': 'Marca',
   'web.host.car.model': 'Modelo',
   'web.host.car.year': 'Ano',
@@ -1368,5 +1370,9 @@ export const PT_MESSAGES = {
   'web.vehicleDocs.declaration.lienOk':
     'O carro não está alienado, ou tenho o consentimento por escrito do credor',
   'web.vehicleDocs.declaration.vin': 'Número do chassi (VIN)',
+  'web.vehicleDocs.declaration.vinHint':
+    'VIN de 17 caracteres (ex.: 1HGCM82633A004352) ou número do chassi de um carro importado (ex.: GRJ150-0012345).',
+  'common.vehicleDocs.vinInvalid':
+    'Este número do chassi não é válido. Digite o VIN de 17 caracteres (sem I, O nem Q) ou o número do chassi do seu carro importado, por exemplo GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'Você declarou em {date}.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

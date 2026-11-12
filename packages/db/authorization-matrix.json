@@ -665,6 +665,19 @@
         "app_anon": []
       }
     },
+    "core.catalog_vehicle_attestation": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.catalog_vehicle_claim": {
       "type": "table",
       "droits": {

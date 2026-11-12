@@ -100,12 +100,16 @@ export function normalizePlate(raw: string): string | null {
   return /^[A-Z0-9]{2,12}$/.test(p) ? p : null;
 }
 
-/** VIN normalisé : ISO 3779 (17 caractères, ni I, O ni Q), ou 5 à 17 avant 1981 (BR-LIST-04). */
-export function normalizeVin(raw: string, year: number): string | null {
+/**
+ * Numéro de châssis normalisé (majuscules, sans espace ni tiret, comme la base) ; caractère
+ * étranger : `null`. Son FORMAT (VIN ISO 3779, ou numéro non ISO comme le châssis court d'une
+ * importation japonaise) est jugé par la base seule, sans année ni pays : `VEHICLE_VIN_INVALID`
+ * (ADR-112).
+ */
+export function normalizeVin(raw: string): string | null {
   if (!/^[A-Za-z0-9 -]{1,40}$/.test(raw)) return null;
   const v = raw.replace(/[ -]/g, '').toUpperCase();
-  if (/^[A-HJ-NPR-Z0-9]{17}$/.test(v)) return v;
-  return year < 1981 && /^[A-Z0-9]{5,17}$/.test(v) ? v : null;
+  return v === '' ? null : v;
 }
 
 class Fields {
@@ -246,8 +250,8 @@ export function parseVehicle(body: Record<string, unknown>): VehicleInput {
   const plate = rawPlate === null ? null : normalizePlate(rawPlate);
   if (rawPlate !== null && plate === null) f.problems.push({ field: 'plate', reason: 'INVALID' });
   const rawVin = f.text('vin', 40, false);
-  const vin = rawVin === null || year === null ? null : normalizeVin(rawVin, year);
-  if (rawVin !== null && year !== null && vin === null) {
+  const vin = rawVin === null ? null : normalizeVin(rawVin);
+  if (rawVin !== null && vin === null) {
     f.problems.push({ field: 'vin', reason: 'INVALID' });
   }
   const variantId = body['variantId'] ?? null;

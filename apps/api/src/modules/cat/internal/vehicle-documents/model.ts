@@ -3,6 +3,8 @@
  * 08 BR-LIST-01 à 03 ; ADR-107). Fonctions pures : la base revérifie tout et décide seule des règles
  * (âge, compteur, catalogue, titre, prenda, pièces exigées par le pays).
  */
+import { CATALOG_LANGUAGES, CATALOG_VERSION, CATALOGS } from '@rueda/i18n';
+import type { CatalogLanguage } from '@rueda/i18n';
 import { FieldValidationError, isUuid } from '../host-listings/model.js';
 import type { FieldProblem } from '../host-listings/model.js';
 
@@ -30,8 +32,52 @@ export interface DeclarationInput {
   readonly ownershipAttested: boolean;
   /** « Le véhicule n'est pas gagé, ou j'ai l'accord écrit du créancier ». */
   readonly lienAttested: boolean;
-  /** VIN saisi s'il manquait (la base le normalise et le refuse s'il est pris). */
+  /**
+   * Numéro de châssis saisi s'il manquait : VIN ISO 3779 ou numéro non ISO (la base le normalise,
+   * juge son format et le refuse s'il est pris ; ADR-112).
+   */
   readonly vin: string | null;
+  /** Langue du catalogue de l'écran où l'hôte a coché ses engagements (défaut : es, qui fait foi). */
+  readonly locale: CatalogLanguage;
+}
+
+/** Libellé des engagements tel qu'affiché à l'hôte : historisé par la base (ADR-112). */
+export interface AttestationWording {
+  readonly locale: CatalogLanguage;
+  readonly catalogVersion: number;
+  readonly ownership: string;
+  readonly lien: string;
+}
+
+/**
+ * Libellé exact des deux engagements dans la langue de l'écran, tiré du catalogue servi par
+ * `@rueda/i18n` (même paquet que le site), avec la version du catalogue.
+ */
+export function attestationWording(locale: CatalogLanguage): AttestationWording {
+  const messages = CATALOGS[locale].messages;
+  const text = (
+    key: 'web.vehicleDocs.declaration.owner' | 'web.vehicleDocs.declaration.lienOk',
+  ) => {
+    const m = messages[key];
+    return typeof m === 'string' ? m : m.other;
+  };
+  return {
+    locale,
+    catalogVersion: CATALOG_VERSION,
+    ownership: text('web.vehicleDocs.declaration.owner'),
+    lien: text('web.vehicleDocs.declaration.lienOk'),
+  };
+}
+
+const LOCALE_TAG = /^[a-z]{2}(-[A-Z]{2})?$/;
+
+/** Langue du catalogue d'une étiquette de locale (`pt`, `es-PY`) ; hors catalogue : null. */
+export function catalogLanguageOf(tag: string): CatalogLanguage | null {
+  if (!LOCALE_TAG.test(tag)) return null;
+  const language = tag.slice(0, 2);
+  return (CATALOG_LANGUAGES as readonly string[]).includes(language)
+    ? (language as CatalogLanguage)
+    : null;
 }
 
 export interface DocumentUploadInput {
@@ -82,9 +128,25 @@ export function parseDeclaration(body: Record<string, unknown>): DeclarationInpu
   const p: FieldProblem[] = [];
   unknownKeys(
     body,
-    ['titleHolder', 'lienDeclared', 'odometerKm', 'ownershipAttested', 'lienAttested', 'vin'],
+    [
+      'titleHolder',
+      'lienDeclared',
+      'odometerKm',
+      'ownershipAttested',
+      'lienAttested',
+      'vin',
+      'locale',
+    ],
     p,
   );
+  const rawLocale = body['locale'];
+  const locale =
+    rawLocale === undefined || rawLocale === null
+      ? 'es'
+      : typeof rawLocale === 'string'
+        ? catalogLanguageOf(rawLocale)
+        : null;
+  if (locale === null) p.push({ field: 'locale', reason: 'INVALID' });
   for (const k of ['ownershipAttested', 'lienAttested'] as const) {
     const v = body[k];
     if (v !== undefined && typeof v !== 'boolean') p.push({ field: k, reason: 'INVALID' });
@@ -120,6 +182,7 @@ export function parseDeclaration(body: Record<string, unknown>): DeclarationInpu
     ownershipAttested: body['ownershipAttested'] === true,
     lienAttested: body['lienAttested'] === true,
     vin: typeof vin === 'string' ? vin : null,
+    locale: locale ?? 'es',
   };
 }
 

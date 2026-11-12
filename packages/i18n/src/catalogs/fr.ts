@@ -793,6 +793,8 @@ export const FR_MESSAGES = {
   'web.host.cars.needPlace': 'Ajoute d’abord un lieu de remise.',
   'web.host.car.plate': 'Plaque d’immatriculation',
   'web.host.car.vin': 'Numéro de châssis (VIN)',
+  'web.host.car.vinHint':
+    'VIN de 17 caractères (ex. : 1HGCM82633A004352) ou numéro de châssis d’une voiture importée (ex. : GRJ150-0012345).',
   'web.host.car.make': 'Marque',
   'web.host.car.model': 'Modèle',
   'web.host.car.year': 'Année',
@@ -1404,5 +1406,9 @@ export const FR_MESSAGES = {
   'web.vehicleDocs.declaration.lienOk':
     'La voiture n’est pas gagée, ou j’ai l’accord écrit du créancier',
   'web.vehicleDocs.declaration.vin': 'Numéro de châssis (VIN)',
+  'web.vehicleDocs.declaration.vinHint':
+    'VIN de 17 caractères (ex. : 1HGCM82633A004352) ou numéro de châssis d’une voiture importée (ex. : GRJ150-0012345).',
+  'common.vehicleDocs.vinInvalid':
+    'Ce numéro de châssis n’est pas valide. Saisis le VIN de 17 caractères (sans I, O ni Q) ou le numéro de châssis de ta voiture importée, par exemple GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'Tu l’as déclaré le {date}.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

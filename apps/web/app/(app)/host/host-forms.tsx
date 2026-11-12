@@ -203,6 +203,7 @@ export function VehicleForm({
         id="a10-car-vin"
         name="vin"
         label={t('web.host.car.vin')}
+        hint={t('web.host.car.vinHint')}
         optional
         autoCapitalize="characters"
         maxLength={40}

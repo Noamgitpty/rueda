@@ -8,6 +8,7 @@
 import { HostListingStoreError } from '../host-listings/store.js';
 import type { SqlClient, SqlExecutor, SqlPool } from '../host-listings/store.js';
 import type { DeclarationInput, DocumentType, EligibilityStatus, TitleHolder } from './model.js';
+import { attestationWording } from './model.js';
 
 export interface DocumentView {
   readonly documentId: string;
@@ -144,11 +145,14 @@ export class PgVehicleDocumentStore implements VehicleDocumentStore {
   }
 
   async declare(proof: Buffer, orgId: string, vehicleId: string, i: DeclarationInput) {
+    // libellé affiché des engagements, historisé par la base avec sa version (ADR-112)
+    const wording = attestationWording(i.locale);
     const r = await this.#one<{ outcome: string }>(
       'déclaration du véhicule',
       `SELECT r.outcome FROM core.catalog_cmd_declare_vehicle($1, $2::uuid, $3::uuid, $4, $5::boolean,
                                                               $6::integer, $7::boolean,
-                                                              $8::boolean, $9) AS r`,
+                                                              $8::boolean, $9, $10, $11::integer,
+                                                              $12, $13) AS r`,
       [
         proof,
         orgId,
@@ -159,6 +163,10 @@ export class PgVehicleDocumentStore implements VehicleDocumentStore {
         i.ownershipAttested,
         i.lienAttested,
         i.vin,
+        wording.locale,
+        wording.catalogVersion,
+        wording.ownership,
+        wording.lien,
       ],
     );
     return r?.outcome ?? 'LISTING_UNAVAILABLE';

@@ -147,6 +147,7 @@ export function DeclarationForm(
           autoCapitalize="characters"
           maxLength={40}
           label={t('web.vehicleDocs.declaration.vin')}
+          hint={t('web.vehicleDocs.declaration.vinHint')}
           defaultValue={f.valueOf('vin')}
           error={f.errorOf(`${formId}-vin`)}
         />

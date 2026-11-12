@@ -50,9 +50,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  au voyageur `web.s04.result.rejected*` et `web.s04.moreInfo.*`.
  Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
  `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
- `backoffice.vehicle.*`.
+ `backoffice.vehicle.*`. Version 31 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro
+ non ISO (correctif d'US-124, ADR-112) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
+ `web.vehicleDocs.declaration.vinHint` (versions 27 à 30 : PR en file).
  */
-export const CATALOG_VERSION = 26;
+export const CATALOG_VERSION = 31;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
