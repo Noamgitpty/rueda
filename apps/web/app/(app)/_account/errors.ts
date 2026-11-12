@@ -9,7 +9,7 @@ export interface FormError {
   /** Identifiant du champ en erreur (`s15-form` : erreur du formulaire entier). */
   readonly fieldId: string;
   readonly key: MessageKey;
-  readonly values?: Readonly<Record<string, number>>;
+  readonly values?: Readonly<Record<string, number | string>>;
 }
 export type FormErrors = readonly FormError[];
 
@@ -28,6 +28,15 @@ const KEYS: Readonly<Record<string, MessageKey>> = {
   TERMS_REACCEPT_REQUIRED: 'common.legal.reacceptRequired',
   LEGAL_DOCUMENT_UNAVAILABLE: 'common.legal.unavailable',
   COUNTRY_UNKNOWN: 'common.legal.countryUnknown',
+  // téléphone par OTP (US-104)
+  PHONE_INVALID: 'common.error.phoneDigits',
+  PHONE_NOT_ELIGIBLE: 'common.otp.notEligible',
+  PHONE_ALREADY_VERIFIED: 'common.otp.alreadyVerified',
+  OTP_INVALID: 'common.otp.invalid',
+  OTP_EXPIRED: 'common.otp.expired',
+  OTP_LOCKED: 'common.otp.locked',
+  OTP_UNAVAILABLE: 'common.otp.unavailable',
+  ACCOUNT_DUPLICATE_PHONE: 'common.otp.duplicatePhone',
 };
 
 export function apiErrorKey(code: string | null, status: number | 'unavailable'): MessageKey {

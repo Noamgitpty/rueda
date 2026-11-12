@@ -11,7 +11,9 @@
  * les octets reçus (17 §4.4). Console interne (US-012) : `RUEDA_STAFF_MFA_PROOF_KEY` (secret géré,
  * hexadécimal ; mal formée : refus de démarrer) et `RUEDA_STAFF_TOTP_ISSUER`. Anti-abus (US-052) :
  * `RUEDA_RATE_LIMIT_KEY` (secret géré, hexadécimal, 32 à 64 octets ; absente en production ou mal
- * formée : refus de démarrer) et, le temps d'une rotation, `RUEDA_RATE_LIMIT_KEY_PREVIOUS`. Rotation
+ * formée : refus de démarrer) et, le temps d'une rotation, `RUEDA_RATE_LIMIT_KEY_PREVIOUS`. OTP du
+ * téléphone (US-104) : `RUEDA_OTP_KEY` (secret géré, hexadécimal, 32 à 64 octets, le même pour le
+ * travailleur ; absente : OTP indisponible ; mal formée : refus de démarrer). Rotation
  * du mot de passe de la base sans coupure (US-051) : `RUEDA_PGPASSWORD_NEXT` (db-pool.ts).
  */
 import 'reflect-metadata';
@@ -45,10 +47,18 @@ async function bootstrap(): Promise<void> {
   // rotation sans coupure du mot de passe (US-051) : PGPASSWORD et, le temps d'une rotation,
   // RUEDA_PGPASSWORD_NEXT (db-pool.ts)
   const pool = createAppPool({ application_name: 'rueda-api' });
-  const iam = await postgresIamAdapters(pool);
-  // Documents juridiques et consentements (US-102) : commandes core.ctr_* sous app_api.
+  // Documents juridiques et consentements (US-102) : commandes core.ctr_* sous app_api (refus de
+  // démarrer si le rôle n'est pas app_api sans SUPERUSER ni BYPASSRLS).
   const ctr = await postgresCtrAdapters(pool);
+  // refus C19 (FAKE en production) AVANT tout autre refus de configuration
   const pay = await postgresPayAdapters(pool, process.env);
+  // Anti-abus (US-052) : compteurs partagés en base, seuils `rate_limit_*` et `otp_rate_*` de la
+  // configuration pays, clé HMAC RUEDA_RATE_LIMIT_KEY (absente en production : refus de démarrer),
+  // défi anti-robot indisponible tant que SUP-013 n'a pas de fournisseur (soupçon ⇒ refus).
+  const risk = postgresRiskAdapters(pool, process.env, new CountryConfigService().config);
+  // OTP du téléphone (US-104) : commandes core.iam_* de 0066, plafonds d'AbuseGuard, empreinte
+  // sous RUEDA_OTP_KEY (absente : OTP indisponible ; mal formée : refus de démarrer).
+  const iam = await postgresIamAdapters(pool, process.env, risk.guard);
   // Console interne (US-012) : coffre TOTP indisponible tant qu'US-003 ne l'a pas livré et clé de
   // preuve lue dans RUEDA_STAFF_MFA_PROOF_KEY (absente : aucune élévation) — fail-closed.
   const staff = postgresStaffAdapters(
@@ -63,10 +73,6 @@ async function bootstrap(): Promise<void> {
     files: new UnavailableBrandFileStore(),
     params: loadBrandParams(),
   };
-  // Anti-abus (US-052) : compteurs partagés en base, seuils `rate_limit_*` de la configuration
-  // pays, clé HMAC RUEDA_RATE_LIMIT_KEY (absente en production : refus de démarrer), défi
-  // anti-robot indisponible tant que SUP-013 n'a pas de fournisseur (soupçon ⇒ refus).
-  const risk = postgresRiskAdapters(pool, process.env, new CountryConfigService().config);
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,

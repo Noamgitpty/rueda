@@ -275,6 +275,21 @@ export const PT_MESSAGES = {
     'Confirme seu e-mail e verifique a situação da sua conta antes de ser anfitrião.',
   'common.host.unavailable':
     'Não é possível abrir contas de anfitrião agora. Tente novamente mais tarde.',
+  // Téléphone par OTP (US-104, 16 VER-013 ; PROPOSÉ, common.error.phoneDigits : 10b §4.3)
+  'common.otp.sent': 'Enviamos um código por SMS.',
+  'common.otp.verified': 'Pronto: seu celular foi confirmado.',
+  'common.otp.alreadyVerified': 'Este número já está confirmado na sua conta.',
+  'common.otp.invalid': 'O código está errado. Tentativas restantes: {attempts}.',
+  'common.otp.expired': 'Este código expirou. Peça um novo.',
+  'common.otp.locked': 'Muitas tentativas. Tente de novo em {minutes} min.',
+  'common.otp.duplicatePhone':
+    'Este número já está confirmado em outra conta. Use outro número ou fale com a gente.',
+  'common.otp.notEligible': 'Confirme seu e-mail antes de verificar seu celular.',
+  'common.otp.phoneRequired': 'Verifique seu celular para continuar.',
+  'common.otp.unavailable': 'Não é possível enviar códigos agora. Tente novamente mais tarde.',
+  'common.otp.sms':
+    '{brand}: seu código é {code}. Vence em {minutes} min. Não compartilhe com ninguém.',
+  'common.error.phoneDigits': 'O número deve ter {digits} dígitos, por exemplo {example}.',
   'backoffice.action.CREATE_HOST_ACCOUNT': 'Criar a conta de anfitrião de uma pessoa',
   // Files de revue, fiche 360°, notes, dossiers, pièces et restrictions (US-109), PROPOSÉS
   'common.ops.caseRequired':
@@ -626,6 +641,22 @@ export const PT_MESSAGES = {
   'web.s15.reaccept.intro': 'Antes da sua próxima reserva, leia e aceite a nova versão.',
   'web.s15.reaccept.cta': 'Aceitar e continuar',
   'web.legal.draft': 'RASCUNHO — pendente de validação jurídica',
+  // Étape OTP de S15 (US-104) : clés du prototype US-033 devenues officielles, puis PROPOSÉES
+  'web.s15.phone': 'Celular',
+  'web.s15.code': 'Código de 6 dígitos',
+  'web.s15.verify': 'Confirmar código',
+  'web.s15.codeSent': 'Código enviado para {phone}',
+  'web.s15.resendIn': { one: 'Reenviar em {count} segundo', other: 'Reenviar em {count} segundos' },
+  'web.s15.phoneTitle': 'Verifique seu celular',
+  'web.s15.phoneIntro':
+    'Usamos o número para combinar a entrega do carro. Nunca mostramos ao anfitrião.',
+  'web.s15.phoneCountry': 'Código internacional (DDI)',
+  'web.s15.phoneHint': 'Por exemplo {example}',
+  'web.s15.sendCode': 'Enviar código',
+  'web.s15.resend': 'Enviar um novo código',
+  'web.s15.changePhone': 'Usar outro número',
+  'web.s15.phoneVerified': 'Celular confirmado: {phone}',
+  'web.s15.codeHint': 'Chega por SMS. Você pode colar.',
   'web.legal.version': 'Versão {version}',
   'web.legal.back': 'Voltar ao formulário',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console

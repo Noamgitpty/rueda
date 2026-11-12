@@ -187,6 +187,32 @@ describe('validation fail-closed (CONFIG_INVALID)', () => {
     ['contrôle tzdata manquant', (s) => (country(s, 'PY')['timeZoneChecks'] = []), /tzdata/],
     ['entité juridique non déclarée', (s) => delete country(s, 'PA')['legalEntity'], /legalEntity/],
     ['champ inconnu', (s) => (country(s, 'PA')['vatRate'] = 7), /champ inconnu « vatRate »/],
+    // US-104 : plan de numérotation des mobiles (OTP du téléphone)
+    [
+      'plan de numérotation absent',
+      (s) => delete country(s, 'PA')['phone'],
+      /phone : objet attendu/,
+    ],
+    [
+      'indicatif invalide',
+      (s) => ((country(s, 'PY')['phone'] as Record<string, unknown>)['callingCode'] = '+595'),
+      /callingCode/,
+    ],
+    [
+      'numéro E.164 trop long',
+      (s) => ((country(s, 'PA')['phone'] as Record<string, unknown>)['nationalLength'] = 14),
+      /15 chiffres/,
+    ],
+    [
+      'préfixe de mobile non numérique',
+      (s) => ((country(s, 'PA')['phone'] as Record<string, unknown>)['mobilePrefixes'] = ['6a']),
+      /mobilePrefixes/,
+    ],
+    [
+      'préfixe interurbain non déclaré',
+      (s) => delete (country(s, 'PY')['phone'] as Record<string, unknown>)['trunkPrefix'],
+      /trunkPrefix/,
+    ],
     [
       'clé en double',
       (s) => s.params.params.push({ ...param(s, 'hold_ttl_minutes') }),

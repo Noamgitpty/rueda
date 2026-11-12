@@ -145,6 +145,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // commandes de l'OTP (0066, US-104) : insertion de leurs seuls événements
+        // iam.otp.requested et iam.phone.verified
+        if (r.pol === 'outbox_outbox_event.iam_auth_otp_event_ins') {
+          expect(r).toMatchObject({ roles: 'iam_auth_owner', cmd: 'a' });
+          continue;
+        }
         expect(['app_api', 'app_worker'], r.pol).toContain(r.roles);
         expect(['r', 'a', 'w'], r.pol).toContain(r.cmd);
       }

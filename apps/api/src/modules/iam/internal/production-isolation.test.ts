@@ -56,7 +56,8 @@ describe('isolement des FAKE IAM', () => {
 
   it('main.ts monte les adaptateurs PostgreSQL de production', () => {
     const main = readFileSync(join(SRC, 'main.ts'), 'utf8');
-    expect(main).toContain('postgresIamAdapters(pool)');
+    // US-104 : OTP du téléphone sur le même pool, plafonds d'AbuseGuard (risk.guard)
+    expect(main).toContain('postgresIamAdapters(pool, process.env, risk.guard)');
     expect(main).not.toMatch(/process\.env\[['"]RUEDA_AUTH/);
   });
 });

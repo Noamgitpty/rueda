@@ -6,6 +6,7 @@
  * pays ; les attentes viennent de 17 §6.6 et de 19 US-052, jamais du code testé :
  * - critère 1 : au-delà de la limite d'OTP par numéro ou par IP ⇒ `RATE_LIMITED`, aucun SMS,
  *   refus journalisé ; code distinct d'`OTP_LOCKED` ;
+ * - US-104 : même règle par compte et par indicatif pays (`otp_rate_*`, parade au SMS pumping) ;
  * - fail-closed : compteur ou paramètre indisponible ⇒ `RATE_LIMIT_UNAVAILABLE`, aucun envoi ;
  * - plafond SMS du pays : un OTP au-delà est refusé ;
  * - routes : repli dégradé en mémoire si la base ne répond pas ;
@@ -108,6 +109,50 @@ describe.each(COUNTRIES)('envois coûteux en $country', ({ country, phone, email
     );
     expect(error.code).toBe('RATE_LIMITED');
     expect(sent).toBe(limit);
+  });
+
+  it('US-104 : OTP au-delà de la limite par COMPTE (numéros et IP différents) ⇒ RATE_LIMITED, aucun SMS', async () => {
+    const store = new MemoryRateCounterStore();
+    const { guard, logs } = setup(store);
+    const limit = paramValue(RATE_LIMIT_PARAMS.otpPerAccount, country);
+    let sent = 0;
+    const send = () => Promise.resolve((sent += 1));
+    const req = (i: number): CostlySendRequest => ({
+      channel: 'SMS_OTP',
+      country,
+      recipient: `${phone}${i}`,
+      ip: `198.51.100.${i}`,
+      account: 'compte-a',
+      prefix: '+1555',
+    });
+    for (let i = 0; i < limit; i += 1) await guard.guardedSend(req(i), send);
+    const error = await refusal(guard.guardedSend(req(99), send));
+    expect(error.code).toBe('RATE_LIMITED');
+    expect(sent).toBe(limit);
+    expect(logs).toContainEqual({ event: 'risk.rate_limited', scope: 'otp_account', country });
+    // un autre compte n'est pas touché
+    await guard.guardedSend({ ...req(98), account: 'compte-b' }, send);
+    expect(sent).toBe(limit + 1);
+  });
+
+  it('US-104 : OTP au-delà de la limite par INDICATIF PAYS (comptes, numéros, IP différents) ⇒ RATE_LIMITED (SMS pumping)', async () => {
+    const { guard, logs } = setup();
+    const limit = paramValue(RATE_LIMIT_PARAMS.otpPerPrefix, country);
+    let sent = 0;
+    const send = () => Promise.resolve((sent += 1));
+    const req = (i: number): CostlySendRequest => ({
+      channel: 'SMS_OTP',
+      country,
+      recipient: `${phone}${i}`,
+      ip: `10.${Math.floor(i / 250)}.${i % 250}.1`,
+      account: `compte-${i}`,
+      prefix: '+1555',
+    });
+    for (let i = 0; i < limit; i += 1) await guard.guardedSend(req(i), send);
+    const error = await refusal(guard.guardedSend(req(limit + 1), send));
+    expect(error.code).toBe('RATE_LIMITED');
+    expect(sent).toBe(limit);
+    expect(logs).toContainEqual({ event: 'risk.rate_limited', scope: 'otp_prefix', country });
   });
 
   it('e-mail coûteux : limite par adresse (casse et espaces ignorés)', async () => {

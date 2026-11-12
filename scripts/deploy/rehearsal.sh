@@ -71,9 +71,9 @@ code="$(http POST "/webhooks/fake/wh_$(printf '%024d' 0)" '{}')"
 say 'API saine ; route de webhook FAKE absente (404)'
 local_compose logs --no-color worker | grep -q '"event":"worker.started"' ||
   fail 'travailleur : démarrage non journalisé'
-local_compose logs --no-color worker | grep -q '"queues":\["booking_oracle","disposition_sweeper","hold_expiry","ntf_dispatcher","ntf_sender","ops_monitor","reconciliation","risk_pruner"\]' ||
+local_compose logs --no-color worker | grep -q '"queues":\["booking_oracle","disposition_sweeper","hold_expiry","iam_otp_pruner","iam_otp_sender","ntf_dispatcher","ntf_sender","ops_monitor","reconciliation","risk_pruner"\]' ||
   fail 'travailleur : files attendues absentes'
-say 'travailleur en marche, huit files déclarées (dont ops_monitor, US-004, et reconciliation, US-047)'
+say 'travailleur en marche, dix files déclarées (dont ops_monitor, US-004, reconciliation, US-047, et iam_otp_sender, iam_otp_pruner, US-104)'
 
 refuse() {
   local why="$1" pattern="$2" out code

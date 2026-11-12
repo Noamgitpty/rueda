@@ -3,6 +3,8 @@
  *
  * 1. Envois COÛTEUX (OTP par SMS, e-mail) — `checkCostlySend` / `guardedSend` :
  *    - limite par destinataire (numéro ou adresse) ET par IP, à l'heure, paramètres du pays ;
+ *    - OTP par SMS (US-104, parade au SMS pumping) : limite aussi par COMPTE demandeur et par
+ *      INDICATIF PAYS du numéro (`otp_rate_per_account_hour`, `otp_rate_per_prefix_hour`) ;
  *    - un OTP par SMS réserve ensuite une unité du plafond journalier SMS du pays ;
  *    - dépassement ⇒ `RATE_LIMITED` (429, délai de reprise), AUCUN envoi, refus journalisé en
  *      base (`risk_abuse_event`). Distinct d'`OTP_LOCKED` (échecs de saisie, VER-013) ;
@@ -43,6 +45,10 @@ export interface CostlySendRequest {
   readonly recipient: string;
   /** IP du client (`request.ip`, réglée par `trust proxy`) ; `null` hors requête HTTP. */
   readonly ip: string | null;
+  /** SMS_OTP (US-104) : compte demandeur (identifiant), haché avant tout comptage. */
+  readonly account?: string | null;
+  /** SMS_OTP (US-104) : indicatif pays du numéro (`+507`…), haché avant tout comptage. */
+  readonly prefix?: string | null;
 }
 
 export type HttpScope = 'api' | 'search' | 'quote' | 'webhook';
@@ -107,13 +113,23 @@ export class AbuseGuard {
   async checkCostlySend(req: CostlySendRequest): Promise<void> {
     const sms = req.channel === 'SMS_OTP';
     const scopeBase = sms ? 'otp' : 'email';
-    let limits: { recipient: number; ip: number; cap: number | null };
+    let limits: {
+      recipient: number;
+      ip: number;
+      cap: number | null;
+      account: number | null;
+      prefix: number | null;
+    };
     try {
       if (!this.#policy.isCountry(req.country)) throw new Error('pays inconnu');
+      const withAccount = sms && req.account !== undefined && req.account !== null;
+      const withPrefix = sms && req.prefix !== undefined && req.prefix !== null;
       limits = {
         recipient: this.#policy.limit(sms ? 'otpPerPhone' : 'emailPerAddress', req.country),
         ip: this.#policy.limit(sms ? 'otpPerIp' : 'emailPerIp', req.country),
         cap: sms ? this.#policy.limit('smsDailyCap', req.country) : null,
+        account: withAccount ? this.#policy.limit('otpPerAccount', req.country) : null,
+        prefix: withPrefix ? this.#policy.limit('otpPerPrefix', req.country) : null,
       };
     } catch {
       this.#log({ event: 'risk.limiter.unavailable', scope: scopeBase, country: req.country });
@@ -131,6 +147,20 @@ export class AbuseGuard {
         scope: `${scopeBase}_ip`,
         keys: this.#hasher.hashes('ip', req.ip),
         limit: limits.ip,
+      });
+    }
+    if (limits.account !== null && req.account !== undefined && req.account !== null) {
+      checks.push({
+        scope: `${scopeBase}_account`,
+        keys: this.#hasher.hashes('account', req.account),
+        limit: limits.account,
+      });
+    }
+    if (limits.prefix !== null && req.prefix !== undefined && req.prefix !== null) {
+      checks.push({
+        scope: `${scopeBase}_prefix`,
+        keys: this.#hasher.hashes('prefix', req.prefix),
+        limit: limits.prefix,
       });
     }
     try {

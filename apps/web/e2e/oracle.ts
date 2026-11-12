@@ -10,7 +10,7 @@ import type { Language } from './fixtures.ts';
 
 export const SPEC_TEXT: Readonly<
   Record<
-    'homeTitle' | 'offlineBanner' | 'signupButton' | 'draftMarker',
+    'homeTitle' | 'offlineBanner' | 'signupButton' | 'draftMarker' | 'codeSent' | 'phoneDigits',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -28,6 +28,18 @@ export const SPEC_TEXT: Readonly<
     en: 'DRAFT — pending legal review',
     fr: 'BROUILLON — à valider par le juridique',
     pt: 'RASCUNHO — pendente de validação jurídica',
+  },
+  // 10b §4.3, ligne `web.s15.codeSent` (S15, US-104) : début du texte, avant {phone}
+  codeSent: {
+    es: 'Código enviado a',
+    en: 'Code sent to',
+    fr: 'Code envoyé au',
+  },
+  // 10b §4.3, ligne `common.error.phoneDigits` (US-104) : début du texte, avant {digits}
+  phoneDigits: {
+    es: 'El número debe tener',
+    en: 'Enter a',
+    fr: 'Le numéro doit comporter',
   },
   homeTitle: {
     es: 'Alquila el auto de un vecino.',

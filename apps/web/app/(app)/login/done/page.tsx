@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Banner } from '@rueda/ui';
+import { Banner, ButtonLink } from '@rueda/ui';
 import { getRequestI18n } from '../../../../i18n.ts';
 import styles from '../../_account/account.module.css';
 import { MAIN_ID } from '../../_shell/main-id.ts';
@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Connecté, documents à jour (US-102). Point d'extension : le retour automatique à l'écran
+ * Connecté, documents à jour (US-102) ; accès à la vérification du téléphone (US-104). Point d'extension : le retour automatique à l'écran
  * d'origine (lien profond, 10b N7) arrive avec la réservation (lot 2).
  */
 export default async function LoginDonePage() {
@@ -21,6 +21,10 @@ export default async function LoginDonePage() {
       <Banner tone="success" live="polite">
         {i18n.t('web.s15.loggedIn')}
       </Banner>
+      {/* US-104 : étape OTP de S15 (16 ACC-001 : après l'e-mail, VER-013) */}
+      <ButtonLink variant="secondary" href="/verify-phone">
+        {i18n.t('web.s15.phoneTitle')}
+      </ButtonLink>
     </main>
   );
 }

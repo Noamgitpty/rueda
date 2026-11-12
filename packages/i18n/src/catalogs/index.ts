@@ -30,9 +30,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  fiche 360°, notes, dossiers, pièces et restrictions (US-109) : `common.ops.*`, `common.evidence.*`,
  `backoffice.queues.*`, `backoffice.queue.*`, `backoffice.kyc.*`, `backoffice.profile.*`,
  `backoffice.restriction.*`, `backoffice.case.*`, `backoffice.evidence.*`, `backoffice.action.RESTRICT_ACCOUNT`
- et `LIFT_RESTRICTION`.
+ et `LIFT_RESTRICTION`. Version 17 : vérification du téléphone par OTP
+ (US-104) : `common.otp.*`, `common.error.phoneDigits` (10b §4.3), clés OTP de S15 du prototype
+ US-033 devenues officielles (`web.s15.phone`, `.code`, `.verify`, `.codeSent`, `.resendIn`) et
+ nouvelles `web.s15.*`.
  */
-export const CATALOG_VERSION = 16;
+export const CATALOG_VERSION = 17;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

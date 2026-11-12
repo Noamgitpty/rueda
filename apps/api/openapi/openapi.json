@@ -743,6 +743,325 @@
         }
       }
     },
+    "/phone": {
+      "get": {
+        "operationId": "getPhoneState",
+        "tags": ["iam"],
+        "summary": "État du téléphone de la personne de la session : numéro vérifié (masqué), code en attente, blocage, pays proposés (US-104)",
+        "responses": {
+          "200": {
+            "description": "État du téléphone ; numéros masqués (indicatif et deux derniers chiffres)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneState"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "503": {
+            "description": "État illisible (base indisponible) : fail-closed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "OTP_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/phone/otp": {
+      "post": {
+        "operationId": "requestPhoneOtp",
+        "tags": ["iam"],
+        "summary": "Demande d'un code OTP par SMS pour le numéro saisi (envoi asynchrone ; US-104, 16 VER-013)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneOtpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Demande acceptée : le code part par SMS (travailleur iam_otp_sender). Réponse identique que le numéro soit libre ou déjà vérifié par un autre compte (aucune énumération) ; même réponse sans nouvel envoi avant otp_sms_fallback_s",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpSent"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Ce numéro est déjà le numéro vérifié du compte : rien n'est envoyé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PHONE_ALREADY_VERIFIED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide, pays inconnu, ou numéro qui n'est pas un mobile du pays (values.digits, values.example)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN", "PHONE_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "E-mail du compte non vérifié, compte fermé ou pseudonymisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PHONE_NOT_ELIGIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "description": "Blocage après trop de codes faux (values.minutes) ou plafond anti-abus dépassé (par numéro, IP, compte, indicatif pays ou plafond SMS du pays ; Retry-After)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              },
+              "Retry-After": {
+                "required": false,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["OTP_LOCKED", "RATE_LIMITED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Clé OTP absente, paramètre du pays absent, base ou compteur indisponible : aucun envoi (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["OTP_UNAVAILABLE", "RATE_LIMIT_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/phone/verify": {
+      "post": {
+        "operationId": "verifyPhoneOtp",
+        "tags": ["iam"],
+        "summary": "Saisie du code OTP : numéro vérifié (US-104, 16 VER-013)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Code juste : numéro vérifié (iam.phone.verified)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PHONE_VERIFIED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code mal formé (aucun essai compté), code faux (values.attempts : essais restants) ou expiré (aucun essai compté)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "OTP_INVALID", "OTP_EXPIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "409": {
+            "description": "Code juste, mais numéro déjà vérifié par un autre compte (ACC-014)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "ACCOUNT_DUPLICATE_PHONE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "429": {
+            "description": "Blocage : otp_max_attempts codes faux, pour otp_lock_min minutes (values.minutes)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "OTP_LOCKED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Clé OTP absente, paramètre du pays absent ou base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "OTP_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/staff/me": {
       "get": {
         "operationId": "staffMe",
@@ -4934,6 +5253,140 @@
           },
           "orgId": {
             "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "PhoneOtpRequest": {
+        "description": "Demande d'OTP (US-104) : pays du numéro (plan de numérotation de la configuration pays) et numéro saisi, forme nationale ou internationale ; seuls les mobiles du pays sont admis.",
+        "type": "object",
+        "required": ["phone", "country"],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          }
+        }
+      },
+      "PhoneVerifyRequest": {
+        "description": "Saisie du code OTP (US-104) : 6 chiffres.",
+        "type": "object",
+        "required": ["code"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "OtpSent": {
+        "type": "object",
+        "required": ["code", "messageKey", "values"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "OTP_SENT"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "values": {
+            "type": "object",
+            "required": ["phone", "resendAfterS", "expiresInS"],
+            "additionalProperties": false,
+            "properties": {
+              "phone": {
+                "type": "string"
+              },
+              "resendAfterS": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "expiresInS": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "PhoneState": {
+        "type": "object",
+        "required": ["verified", "phone", "pending", "lockedForS", "countries"],
+        "additionalProperties": false,
+        "properties": {
+          "verified": {
+            "type": "boolean"
+          },
+          "phone": {
+            "type": ["string", "null"]
+          },
+          "pending": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": ["phone", "resendAfterS", "expiresInS", "attemptsLeft"],
+                "additionalProperties": false,
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "resendAfterS": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "expiresInS": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "attemptsLeft": {
+                    "type": ["integer", "null"],
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          },
+          "lockedForS": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "names", "callingCode", "nationalLength", "example"],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "names": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "callingCode": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,2}$"
+                },
+                "nationalLength": {
+                  "type": "integer",
+                  "minimum": 4,
+                  "maximum": 14
+                },
+                "example": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },

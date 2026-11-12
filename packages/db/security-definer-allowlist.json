@@ -549,6 +549,41 @@
       "story": "US-107"
     },
     {
+      "signature": "core.iam_phone_otp_state(bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_cmd_phone_otp_request(bytea,text,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_cmd_phone_otp_verify(bytea,bytea[])",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_worker_otp_issue(uuid,bytea)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_worker"],
+      "story": "US-104"
+    },
+    {
+      "signature": "core.iam_worker_otp_prune(integer)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_worker"],
+      "story": "US-104"
+    },
+    {
       "signature": "core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",

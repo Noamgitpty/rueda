@@ -964,6 +964,30 @@
       "values": { "PA": 60, "PY": 60 }
     },
     {
+      "key": "otp_rate_per_account_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-104 (envois d'OTP par compte et par heure, parade au SMS pumping)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-104, ADR-098)",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
+      "key": "otp_rate_per_prefix_hour",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §6.6 ; 19 US-104 (envois d'OTP par indicatif pays et par heure, parade au SMS pumping)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "17 §6.6 PROPOSÉ (US-104, ADR-098)",
+      "values": { "PA": 300, "PY": 300 }
+    },
+    {
       "key": "ical_poll_minutes",
       "type": "DURATION",
       "unit": "min",

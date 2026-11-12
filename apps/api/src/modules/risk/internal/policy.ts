@@ -1,6 +1,7 @@
 /**
  * Seuils de la limitation de débit (US-052) : paramètres `rate_limit_*` du registre CFG (17 §7.2,
- * graine 0046), **par pays**, jamais des constantes du code. Une limite sans pays connu (route
+ * graine 0046) et `otp_rate_*` (US-104, graine 0065 : compte et indicatif pays de l'OTP), **par
+ * pays**, jamais des constantes du code. Une limite sans pays connu (route
  * d'API sans pays, webhook) prend la valeur la PLUS STRICTE des pays déclarés : aucune constante
  * pays, et un pays ajouté entre aussitôt dans le calcul.
  *
@@ -29,6 +30,9 @@ export const RATE_LIMIT_PARAMS = {
   webhookPerIp: 'rate_limit_webhook_per_ip_minute',
   signupBurstPerIp: 'rate_limit_signup_burst_per_ip_10min',
   botWeight: 'rate_limit_bot_weight',
+  // US-104 (ADR-098) : groupe `otp_rate_*` (graine 0065 ; 0046 est immuable, ADR-044)
+  otpPerAccount: 'otp_rate_per_account_hour',
+  otpPerPrefix: 'otp_rate_per_prefix_hour',
 } as const;
 
 export type RateLimitParam = keyof typeof RATE_LIMIT_PARAMS;
@@ -49,6 +53,8 @@ export const WINDOWS: Readonly<Record<RateLimitParam, number>> = {
   webhookPerIp: 60,
   signupBurstPerIp: 600,
   botWeight: 1,
+  otpPerAccount: 3600,
+  otpPerPrefix: 3600,
 };
 
 export interface RateLimitPolicy {

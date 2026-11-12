@@ -97,6 +97,23 @@ export interface TimeZoneCheck {
   readonly offsetMinutes: number;
 }
 
+/**
+ * Plan de numérotation des mobiles du pays (UIT-T E.164 ; VER-013, US-104, ADR-098) : sert à
+ * normaliser le numéro saisi pour l'OTP. Aucune constante de pays dans le code : tout est ici.
+ */
+export interface PhoneNumberingConfig {
+  /** Indicatif pays, sans « + » (1 à 3 chiffres). */
+  readonly callingCode: string;
+  /** Longueur du numéro national d'un mobile (sans indicatif ni préfixe interurbain). */
+  readonly nationalLength: number;
+  /** Premiers chiffres admis d'un numéro national de mobile. */
+  readonly mobilePrefixes: readonly string[];
+  /** Préfixe interurbain composé dans le pays avant le numéro national (`null` : aucun). */
+  readonly trunkPrefix: string | null;
+  /** Exemple affiché dans l'aide de saisie (`common.error.phoneDigits`). */
+  readonly example: string;
+}
+
 export interface CountryConfigEntry {
   readonly code: string;
   readonly names: Readonly<Record<NameLanguage, string>>;
@@ -107,6 +124,8 @@ export interface CountryConfigEntry {
   readonly defaultLocale: string;
   readonly locales: readonly string[];
   readonly hostTaxIdKinds: readonly string[];
+  /** Plan de numérotation des mobiles (OTP du téléphone, US-104). */
+  readonly phone: PhoneNumberingConfig;
   readonly taxLines: readonly TaxLineConfig[];
   /** Statut des taux de taxe du pays (17 §7.2 `tax_rate` ; OQ-BR-14, OQ-MK-06 ; US-110). */
   readonly taxDecision: DecisionInfo;

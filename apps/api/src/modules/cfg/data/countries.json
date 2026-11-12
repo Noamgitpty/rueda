@@ -11,6 +11,14 @@
       "defaultLocale": "es-PA",
       "locales": ["es-PA", "en", "fr", "pt"],
       "hostTaxIdKinds": ["CEDULA", "RUC"],
+      "$phone": "Plan de numérotation E.164 du pays (UIT-T E.164) pour l'OTP du téléphone (VER-013, US-104, ADR-098) : indicatif, longueur du numéro national d'un MOBILE, premiers chiffres des mobiles, préfixe interurbain composé avant le numéro national (null : aucun) et exemple affiché. Seuls les mobiles reçoivent un OTP par SMS (parade au SMS pumping vers des lignes fixes ou surtaxées, PROPOSÉ). Panama : mobiles à 8 chiffres commençant par 6 (exemple de 10b §4.3, common.error.phoneDigits). À VALIDER par l'ops (plan de l'ASEP).",
+      "phone": {
+        "callingCode": "507",
+        "nationalLength": 8,
+        "mobilePrefixes": ["6"],
+        "trunkPrefix": null,
+        "example": "6123-4567"
+      },
       "$taxLines": "17 §3.2 tax_line_config ; 08 fait foi pour l'argent : configuration fiscale de 08 E1 (« lignes taxables : P et ses lignes promo, et F ») et BR-PRICE-06 (trip fee soumis à ITBMS / IVA comme service de la plateforme). Taxables : TRIP_PRICE, PROMO_PLATFORM, PROMO_HOST, TRIP_FEE ; third_party = false (dette propre de Kmino, jambe PLATFORM, BR-PRICE-12). Configuration réelle À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [
         {
@@ -68,6 +76,14 @@
       "defaultLocale": "es-PY",
       "locales": ["es-PY", "en", "fr", "pt"],
       "hostTaxIdKinds": ["RUC"],
+      "$phone": "Même règle que PA (VER-013, US-104, ADR-098). Paraguay : mobiles à 9 chiffres commençant par 9, composés avec le préfixe interurbain 0 dans le pays (0981 123 456). À VALIDER par l'ops (plan de la CONATEL).",
+      "phone": {
+        "callingCode": "595",
+        "nationalLength": 9,
+        "mobilePrefixes": ["9"],
+        "trunkPrefix": "0",
+        "example": "0981 123 456"
+      },
       "$taxLines": "Même règle que PA (08 E1, BR-PRICE-06, BR-PRICE-12) avec l'IVA. À VALIDER par l'avis fiscal (OQ-BR-14, OQ-MK-06).",
       "taxLines": [
         {

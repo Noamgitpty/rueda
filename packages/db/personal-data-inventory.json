@@ -768,7 +768,9 @@
         "created_by": "C1",
         "updated_at": "C1",
         "updated_by": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "country_code": "C1",
+        "issued_at": "C1"
       }
     },
     "core.iam_restriction": {

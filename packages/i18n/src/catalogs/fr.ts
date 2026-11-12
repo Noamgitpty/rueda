@@ -281,6 +281,21 @@ export const FR_MESSAGES = {
     'Confirme ton adresse e-mail et vérifie l’état de ton compte avant de devenir hôte.',
   'common.host.unavailable':
     'Impossible d’ouvrir un compte d’hôte pour le moment. Réessaie plus tard.',
+  // Téléphone par OTP (US-104, 16 VER-013 ; PROPOSÉ, common.error.phoneDigits : 10b §4.3)
+  'common.otp.sent': 'Nous t’avons envoyé un code par SMS.',
+  'common.otp.verified': 'C’est fait : ton téléphone est vérifié.',
+  'common.otp.alreadyVerified': 'Ce numéro est déjà vérifié sur ton compte.',
+  'common.otp.invalid': 'Ce code n’est pas le bon. Essais restants : {attempts}.',
+  'common.otp.expired': 'Ce code a expiré. Demandes-en un nouveau.',
+  'common.otp.locked': 'Trop d’essais. Réessaie dans {minutes} min.',
+  'common.otp.duplicatePhone':
+    'Ce numéro est déjà vérifié sur un autre compte. Utilise un autre numéro ou écris-nous.',
+  'common.otp.notEligible': 'Confirme ton adresse e-mail avant de vérifier ton téléphone.',
+  'common.otp.phoneRequired': 'Vérifie ton téléphone pour continuer.',
+  'common.otp.unavailable': 'Impossible d’envoyer un code pour le moment. Réessaie plus tard.',
+  'common.otp.sms':
+    '{brand} : ton code est {code}. Il expire dans {minutes} min. Ne le partage avec personne.',
+  'common.error.phoneDigits': 'Le numéro doit comporter {digits} chiffres, par exemple {example}.',
   'backoffice.action.CREATE_HOST_ACCOUNT': 'Créer le compte d’hôte d’une personne',
   // Files de revue, fiche 360°, notes, dossiers, pièces et restrictions (US-109), PROPOSÉS
   'common.ops.caseRequired':
@@ -644,6 +659,25 @@ export const FR_MESSAGES = {
   'web.s15.reaccept.intro': 'Avant ta prochaine réservation, lis et accepte la nouvelle version.',
   'web.s15.reaccept.cta': 'Accepter et continuer',
   'web.legal.draft': 'BROUILLON — à valider par le juridique',
+  // Étape OTP de S15 (US-104) : clés du prototype US-033 devenues officielles, puis PROPOSÉES
+  'web.s15.phone': 'Téléphone',
+  'web.s15.code': 'Code à 6 chiffres',
+  'web.s15.verify': 'Vérifier',
+  'web.s15.codeSent': 'Code envoyé au {phone}',
+  'web.s15.resendIn': {
+    one: 'Renvoyer dans {count} seconde',
+    other: 'Renvoyer dans {count} secondes',
+  },
+  'web.s15.phoneTitle': 'Vérifie ton téléphone',
+  'web.s15.phoneIntro':
+    'Il sert à organiser la remise de la voiture. Nous ne le montrons jamais à l’hôte.',
+  'web.s15.phoneCountry': 'Indicatif du pays',
+  'web.s15.phoneHint': 'Par exemple {example}',
+  'web.s15.sendCode': 'Envoyer le code',
+  'web.s15.resend': 'Envoyer un nouveau code',
+  'web.s15.changePhone': 'Utiliser un autre numéro',
+  'web.s15.phoneVerified': 'Téléphone vérifié : {phone}',
+  'web.s15.codeHint': 'Il arrive par SMS. Tu peux le coller.',
   'web.legal.version': 'Révision {version}',
   'web.legal.back': 'Retour au formulaire',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console

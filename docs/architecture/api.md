@@ -70,6 +70,14 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `GET` | `/legal/documents` | `listLegalDocuments` | Documents juridiques en vigueur (CGU du voyageur, confidentialité, communications) et leur version (US-102) | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**503** LEGAL_DOCUMENT_UNAVAILABLE |
 | `GET` | `/legal/documents/{kind}` | `getLegalDocument` | Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté | **200** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN<br>**404** LEGAL_DOCUMENT_NOT_FOUND |
 
+## `/phone`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/phone` | `getPhoneState` | État du téléphone de la personne de la session : numéro vérifié (masqué), code en attente, blocage, pays proposés (US-104) | **200** application/json<br>**401** AUTH_REQUIRED<br>**503** OTP_UNAVAILABLE |
+| `POST` | `/phone/otp` | `requestPhoneOtp` | Demande d'un code OTP par SMS pour le numéro saisi (envoi asynchrone ; US-104, 16 VER-013) | **200** PHONE_ALREADY_VERIFIED<br>**202** application/json<br>**400** REQUEST_INVALID / COUNTRY_UNKNOWN / PHONE_INVALID<br>**401** AUTH_REQUIRED<br>**403** PHONE_NOT_ELIGIBLE<br>**415** REQUEST_INVALID<br>**429** OTP_LOCKED / RATE_LIMITED<br>**503** OTP_UNAVAILABLE / RATE_LIMIT_UNAVAILABLE |
+| `POST` | `/phone/verify` | `verifyPhoneOtp` | Saisie du code OTP : numéro vérifié (US-104, 16 VER-013) | **200** PHONE_VERIFIED<br>**400** REQUEST_INVALID / OTP_INVALID / OTP_EXPIRED<br>**401** AUTH_REQUIRED<br>**409** ACCOUNT_DUPLICATE_PHONE<br>**415** REQUEST_INVALID<br>**429** OTP_LOCKED<br>**503** OTP_UNAVAILABLE |
+
 ## `/staff`
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |

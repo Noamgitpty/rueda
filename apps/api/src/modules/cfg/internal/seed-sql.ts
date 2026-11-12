@@ -30,7 +30,10 @@ export const POST_SEED_PARAMS: readonly {
   readonly prefix: string;
   readonly file: string;
   readonly story: string;
-}[] = [{ prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' }];
+}[] = [
+  { prefix: 'rate_limit_', file: '0046_config_rate_limit_params.sql', story: 'US-052' },
+  { prefix: 'otp_rate_', file: '0065_config_otp_rate_params.sql', story: 'US-104' },
+];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */
 export function isPostSeedParam(key: string): boolean {
