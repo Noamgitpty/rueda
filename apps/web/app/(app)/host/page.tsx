@@ -290,6 +290,14 @@ export default async function HostPage({
                       </Badge>
                     )}
                   </div>
+                  {/* A06 : calendrier, blocages et préavis du véhicule (US-119) */}
+                  <a
+                    className={styles['link']}
+                    href={`/host/vehicles/${v.id}?org=${account.orgId}`}
+                    aria-label={`${t('web.calendar.open')} · ${carLabel(v)}`}
+                  >
+                    {t('web.calendar.open')}
+                  </a>
                   {r?.status === 'OPEN' && (
                     <p className={accountStyles['muted']}>
                       {t('web.host.catalog.pending', {

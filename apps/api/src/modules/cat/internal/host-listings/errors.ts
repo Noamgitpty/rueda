@@ -15,6 +15,11 @@
  * `CATALOG_ADDITION_PENDING` (véhicule hors catalogue, annonce non publiable),
  * `CATALOG_ALREADY_LINKED` (véhicule déjà rattaché), `CATALOG_REQUEST_CREATED`.
  *
+ * Calendrier de l'hôte (US-119, ADR-101) : `VEHICLE_UNAVAILABLE` (16 CAL-011, CAL-002 : créneau
+ * pris, sans détail de l'occupation en cause), PROPOSÉS par US-119 : `BLOCK_CREATED`,
+ * `BLOCK_REMOVED`, `NOTICE_SAVED`, `BLOCK_NOT_FOUND`, `VEHICLE_NOT_LISTED`, `INVALID_PERIOD` (code de
+ * la base d'US-022), `NOTICE_INVALID`.
+ *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
  */
@@ -29,6 +34,9 @@ export const HOST_LISTING_MESSAGES = {
   LISTING_DELETED: { status: 200, messageKey: 'common.listing.deleted' },
   PHOTO_ADDED: { status: 201, messageKey: 'common.listing.photoAdded' },
   CATALOG_REQUEST_CREATED: { status: 201, messageKey: 'common.catalogAddition.requested' },
+  BLOCK_CREATED: { status: 201, messageKey: 'common.calendar.blockCreated' },
+  BLOCK_REMOVED: { status: 200, messageKey: 'common.calendar.blockRemoved' },
+  NOTICE_SAVED: { status: 200, messageKey: 'common.calendar.noticeSaved' },
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
   AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },
   HOST_ACCOUNT_SUSPENDED: { status: 403, messageKey: 'common.listing.hostSuspended' },
@@ -36,6 +44,7 @@ export const HOST_LISTING_MESSAGES = {
   LOCATION_NOT_FOUND: { status: 404, messageKey: 'common.listing.locationNotFound' },
   VEHICLE_NOT_FOUND: { status: 404, messageKey: 'common.listing.vehicleNotFound' },
   LISTING_NOT_FOUND: { status: 404, messageKey: 'common.listing.notFound' },
+  BLOCK_NOT_FOUND: { status: 404, messageKey: 'common.calendar.blockNotFound' },
   CATALOG_VARIANT_NOT_FOUND: { status: 404, messageKey: 'common.listing.variantNotFound' },
   VEHICLE_PLATE_DUPLICATE: { status: 409, messageKey: 'common.listing.plateDuplicate' },
   LISTING_EXISTS: { status: 409, messageKey: 'common.listing.exists' },
@@ -47,6 +56,8 @@ export const HOST_LISTING_MESSAGES = {
   CATALOG_ADDITION_PENDING: { status: 409, messageKey: 'common.catalogAddition.pending' },
   CATALOG_REQUEST_DUPLICATE: { status: 409, messageKey: 'common.catalogAddition.duplicate' },
   CATALOG_ALREADY_LINKED: { status: 409, messageKey: 'common.catalogAddition.alreadyLinked' },
+  VEHICLE_UNAVAILABLE: { status: 409, messageKey: 'common.calendar.vehicleUnavailable' },
+  VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
   LOCATION_FIELD_INVALID: { status: 422, messageKey: 'common.listing.locationFieldInvalid' },
   PRICE_INVALID: { status: 422, messageKey: 'common.listing.priceInvalid' },
@@ -55,6 +66,8 @@ export const HOST_LISTING_MESSAGES = {
   PHOTO_MIN_COUNT: { status: 422, messageKey: 'common.listing.photoMinCount' },
   PHOTO_FORMAT: { status: 422, messageKey: 'common.listing.photoFormat' },
   HOST_NOT_ACTIVATED: { status: 422, messageKey: 'common.listing.hostNotActivated' },
+  INVALID_PERIOD: { status: 422, messageKey: 'common.calendar.invalidPeriod' },
+  NOTICE_INVALID: { status: 422, messageKey: 'common.calendar.noticeInvalid' },
   LISTING_UNAVAILABLE: { status: 503, messageKey: 'common.listing.unavailable' },
   PHOTO_UPLOAD_UNAVAILABLE: { status: 503, messageKey: 'common.listing.photoUnavailable' },
 } as const;
