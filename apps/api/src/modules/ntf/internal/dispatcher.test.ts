@@ -98,9 +98,7 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
       host_user_id: host,
     };
     const plan = (status: string) =>
-      planDispatches(
-        event('catalog.addition_request.resolved', { ...payload, status }, c.country),
-      );
+      planDispatches(event('catalog.addition_request.resolved', { ...payload, status }, c.country));
     for (const status of ['APPROVED', 'MERGED']) {
       expect(
         plan(status).map((p) => [p.recipientRole, p.recipientUserId, p.channel, p.template]),
