@@ -486,9 +486,7 @@ BEGIN
   IF h.screening_hold THEN
     RETURN 'HELD';
   END IF;
-  IF core.kyc_host_account_signaled(h.user_id) THEN
-    RETURN 'SIGNALED';
-  END IF;
+  -- MUTATION US-108 (retirée ensuite) : signaux du compte ignorés
   -- revue de l'ops exigée par le pays ; paramètre absent ou mal formé : revue (fail-closed)
   IF core.kyc_host_param('host_review_manual_required', h.country_code) IS DISTINCT FROM 'false'::jsonb THEN
     RETURN 'REVIEW_REQUIRED';
