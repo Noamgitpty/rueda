@@ -4,7 +4,8 @@
  * montre : retard signalé dans une file (16 ADM-029), dossier KYC ouvert par la file seulement et
  * consultation annoncée comme journalisée (ADM-032), fiche 360° avec statut KYC sans pièce,
  * restriction active annoncée et comptes d'hôte fermés à la réservation (ADM-005), restriction et
- * levée motivées, aucune saisie de montant. Textes attendus : catalogue @rueda/i18n (es fait foi).
+ * levée motivées, aucune saisie de montant ; demande d'ajout au catalogue (US-114, 16 ADM-036) :
+ * variantes candidates à rattacher, création sous licence, refus motivé, aucune donnée personnelle. Textes attendus : catalogue @rueda/i18n (es fait foi).
  */
 import { CATALOGS, createTranslator } from '@rueda/i18n';
 import { findForeignStrings } from '@rueda/i18n/testing';
@@ -20,6 +21,8 @@ const noop: OpsHandlers = {
   onShowQueue: () => undefined,
   onClaim: () => undefined,
   onOpenKyc: () => undefined,
+  onOpenCatalog: () => undefined,
+  onResolveCatalog: () => undefined,
   onSearch: () => undefined,
   onOpenProfile: () => undefined,
   onAddNote: () => undefined,
@@ -97,6 +100,55 @@ const FULL: OpsState = {
   notice: { tone: 'success', key: 'backoffice.evidence.received', values: { id: A } },
 };
 
+const CATALOG: OpsState = {
+  queues: {
+    summary: [{ queue: 'CATALOG_ADDITION', open: 1, overdue: 0 }],
+    selected: 'CATALOG_ADDITION',
+    items: [
+      {
+        id: A,
+        queue: 'CATALOG_ADDITION',
+        subjectType: 'CATALOG_ADDITION_REQUEST',
+        subjectId: B,
+        country: 'AA',
+        slaDueAt: AT,
+        overdue: false,
+        assigned: true,
+        assignedToMe: true,
+      },
+    ],
+  },
+  catalog: {
+    itemId: A,
+    requestId: B,
+    country: 'AA',
+    makeText: 'Zzqmake',
+    modelText: 'Xxw 2',
+    year: 2021,
+    trimText: null,
+    vinMasked: 'ABCDEFGHJKL******',
+    transmission: 'MANUAL',
+    seats: 5,
+    fuelType: 'GASOLINE',
+    slaDueAt: AT,
+    candidates: [
+      {
+        variantId: B,
+        make: 'Zzqmake',
+        model: 'Xxw 7',
+        yearFrom: 2020,
+        yearTo: null,
+        trim: null,
+        transmission: 'CVT',
+        fuelType: 'GASOLINE',
+        drive: 'FWD',
+        seats: 5,
+        modelMatch: false,
+      },
+    ],
+  },
+};
+
 const STATES: readonly OpsState[] = [
   {},
   FULL,
@@ -109,6 +161,7 @@ const STATES: readonly OpsState[] = [
     },
   },
   { notice: { tone: 'warning', key: 'common.ops.caseRequired' } },
+  CATALOG,
 ];
 
 const translatorOf = (tag: string) => {
@@ -218,6 +271,46 @@ describe('O01 : ce que chaque état montre', () => {
     expect(failed).toContain(es['backoffice.queues.error']);
     expect(failed).not.toContain(es['backoffice.queues.empty']);
     expect(html(STATES[3] as OpsState, tag)).toContain(es['backoffice.queues.empty']);
+  });
+
+  it('file d’ajout au catalogue : demande ouverte de l’élément pris, variante candidate à rattacher, création sous licence, refus par motif ; aucune plaque, VIN sans numéro de série', () => {
+    const out = html(CATALOG, tag);
+    expect(out).toContain(`value="catalog:${A}"`);
+    for (const key of [
+      'backoffice.catalog.heading',
+      'backoffice.catalog.requested',
+      'backoffice.catalog.candidates',
+      'backoffice.catalog.merge',
+      'backoffice.catalog.approveHeading',
+      'backoffice.catalog.licenseNote',
+      'backoffice.catalog.approve',
+      'backoffice.catalog.rejectHeading',
+      'backoffice.catalog.reject.UNKNOWN_MODEL',
+      'common.vehicle.gearbox.cvt',
+    ] as const) {
+      expect(out, key).toContain(es[key]);
+    }
+    expect(out).toContain(`value="${B}"`);
+    for (const reason of ['INSUFFICIENT_DETAILS', 'UNKNOWN_MODEL', 'NOT_ELIGIBLE']) {
+      expect(out).toContain(`value="${reason}"`);
+    }
+    expect(out).toMatch(
+      /name="licenseNote"[^>]*minLength="10"|minLength="10"[^>]*name="licenseNote"/i,
+    );
+    expect(out).toContain('ABCDEFGHJKL******');
+    // aucune présélection de la carrosserie ni de la traction ; refus confirmé
+    expect(out).toMatch(
+      /<select[^>]*name="bodyType"[^>]*>\s*<option value="" disabled="" selected="">/,
+    );
+    expect(out).toMatch(
+      /<select[^>]*name="drive"[^>]*>\s*<option value="" disabled="" selected="">/,
+    );
+    expect(out).toMatch(/<input[^>]*required=""[^>]*name="confirmReject"/);
+    expect(out).toContain(es['backoffice.catalog.rejectConfirm']);
+    expect(out).toContain(es['backoffice.catalog.ongoing']);
+    expect(out).not.toMatch(/name="(amount|amountMinor|plate)"/i);
+    // un élément pris d'une autre file n'ouvre pas de demande d'ajout
+    expect(html(FULL, tag)).not.toContain('value="catalog:');
   });
 
   it('rôle sans lecture de fiche (FINANCE) : aucun panneau de fiche 360°', () => {

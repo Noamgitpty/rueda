@@ -19,6 +19,7 @@ import {
   createLocationAction,
   createVehicleAction,
   listingStepAction,
+  requestCatalogAction,
   savePriceAction,
 } from './actions.ts';
 import type { HostFormState } from './actions.ts';
@@ -225,6 +226,7 @@ export function VehicleForm({
         maxLength={80}
         error={f.errorOf('a10-car-model')}
       />
+      <p className={styles['hint']}>{t('web.host.car.catalogHint')}</p>
       <TextField
         defaultValue={f.valueOf('year')}
         i18n={f.i18n}
@@ -265,6 +267,56 @@ export function VehicleForm({
       />
       <Button type="submit" block loading={f.pending}>
         {t('web.host.car.add')}
+      </Button>
+    </FormFrame>
+  );
+}
+
+/**
+ * Nouvelle demande d'ajout au catalogue après un refus (US-114) : marque et modèle corrigés,
+ * préremplis de la saisie précédente.
+ */
+export function CatalogRequestForm({
+  localeTag,
+  orgId,
+  vehicleId,
+  makeText,
+  modelText,
+}: {
+  localeTag: string;
+  orgId: string;
+  vehicleId: string;
+  makeText: string;
+  modelText: string;
+}) {
+  const formId = `a10-catalog-${vehicleId}`;
+  const f = useForm(localeTag, requestCatalogAction, formId);
+  const t = f.t;
+  return (
+    <FormFrame {...f} formId={formId} label={t('web.host.catalog.retry')}>
+      <input type="hidden" name="org" value={orgId} />
+      <input type="hidden" name="vehicle" value={vehicleId} />
+      <p className={styles['strong']}>{t('web.host.catalog.retry')}</p>
+      <TextField
+        defaultValue={f.valueOf('makeText') ?? makeText}
+        i18n={f.i18n}
+        id={`${formId}-make`}
+        name="makeText"
+        label={t('web.host.car.make')}
+        maxLength={80}
+        error={f.errorOf(`${formId}-make`)}
+      />
+      <TextField
+        defaultValue={f.valueOf('modelText') ?? modelText}
+        i18n={f.i18n}
+        id={`${formId}-model`}
+        name="modelText"
+        label={t('web.host.car.model')}
+        maxLength={80}
+        error={f.errorOf(`${formId}-model`)}
+      />
+      <Button type="submit" variant="secondary" block loading={f.pending}>
+        {t('web.host.catalog.send')}
       </Button>
     </FormFrame>
   );

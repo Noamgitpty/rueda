@@ -832,6 +832,77 @@ export const ES_MESSAGES = {
   'common.vehicle.catalog.notListed': 'Mi auto no está en la lista',
   'common.vehicle.catalog.variantRetired': 'Esta versión ya no está en el catálogo. Elige otra.',
   'common.vehicle.catalog.variantNotFound': 'No encontramos esta versión en el catálogo.',
+  'common.catalogAddition.requested':
+    'Pedimos agregar tu auto al catálogo. Te avisaremos cuando esté listo.',
+  'common.catalogAddition.pending':
+    'Tu auto todavía no está en el catálogo. Podrás enviar el anuncio cuando el equipo lo agregue.',
+  'common.catalogAddition.duplicate': 'Ya hay una solicitud abierta para este auto.',
+  'common.catalogAddition.alreadyLinked': 'Este auto ya está en el catálogo.',
+  'common.catalogAddition.closed': 'Esta solicitud ya fue resuelta.',
+  'common.catalogAddition.variantExists':
+    'Esta versión ya está en el catálogo. Vincúlala en lugar de crearla.',
+  'common.catalogAddition.variantNotFound':
+    'Esta versión no sirve para este auto: otro mercado, otro año o ya retirada.',
+  'common.catalogAddition.entryInvalid':
+    'Revisa los datos de la versión: hay un valor no válido o no cubren el año del auto.',
+  'web.host.car.catalogHint':
+    'Si tu auto no está en el catálogo, el equipo lo revisa y lo agrega antes de que publiques.',
+  'web.host.catalog.status.OPEN': 'Pendiente de catálogo',
+  'web.host.catalog.status.APPROVED': 'En el catálogo',
+  'web.host.catalog.status.MERGED': 'En el catálogo',
+  'web.host.catalog.status.REJECTED': 'No agregado',
+  'web.host.catalog.pending':
+    'El equipo lo revisa antes del {date}. Mientras tanto, tu anuncio queda en borrador.',
+  'web.host.catalog.reason.INSUFFICIENT_DETAILS': 'Faltan datos para identificar tu auto.',
+  'web.host.catalog.reason.UNKNOWN_MODEL': 'No pudimos identificar la marca o el modelo.',
+  'web.host.catalog.reason.NOT_ELIGIBLE': 'Este vehículo no se puede publicar en la plataforma.',
+  'web.host.catalog.retry': 'Corrige la marca y el modelo, y vuelve a pedirlo',
+  'web.host.catalog.send': 'Volver a pedir',
+  'ntf.catalogAdditionApproved.email.subject': 'Tu auto ya está en el catálogo',
+  'ntf.catalogAdditionApproved.email.body':
+    'Hola, {first_name}. Agregamos tu auto al catálogo de {brand}. Ya puedes enviar tu anuncio desde tu espacio de anfitrión.',
+  'ntf.catalogAdditionApproved.sms.body':
+    '{brand}: tu auto ya está en el catálogo. Ya puedes enviar tu anuncio.',
+  'ntf.catalogAdditionRejected.email.subject': 'No pudimos agregar tu auto al catálogo',
+  'ntf.catalogAdditionRejected.email.body':
+    'Hola, {first_name}. No pudimos agregar tu auto al catálogo de {brand}. En tu espacio de anfitrión ves el motivo y puedes corregir la marca y el modelo.',
+  'ntf.catalogAdditionRejected.sms.body':
+    '{brand}: no pudimos agregar tu auto al catálogo. Motivo en tu espacio de anfitrión.',
+  'backoffice.catalog.open': 'Abrir la solicitud',
+  'backoffice.catalog.heading': 'Solicitud de alta al catálogo',
+  'backoffice.catalog.requested': 'Lo que escribió el anfitrión',
+  'backoffice.catalog.vin': 'VIN (sin número de serie)',
+  'backoffice.catalog.declared': 'Datos declarados del auto',
+  'backoffice.catalog.due': 'Decidir antes del {date}',
+  'backoffice.catalog.candidates': 'Versiones del catálogo para este auto',
+  'backoffice.catalog.noCandidate': 'Ninguna versión del catálogo corresponde a la marca y al año.',
+  'backoffice.catalog.version': 'Versión',
+  'backoffice.catalog.years': 'Años',
+  'backoffice.catalog.modelMatch': 'Mismo modelo',
+  'backoffice.catalog.merge': 'Vincular esta versión',
+  'backoffice.catalog.approveHeading': 'Crear la versión en el catálogo',
+  'backoffice.catalog.makeName': 'Marca',
+  'backoffice.catalog.modelName': 'Modelo',
+  'backoffice.catalog.bodyType': 'Carrocería',
+  'backoffice.catalog.yearFrom': 'Desde el año',
+  'backoffice.catalog.yearTo': 'Hasta el año',
+  'backoffice.catalog.trimName': 'Versión o acabado',
+  'backoffice.catalog.transmission': 'Caja de cambios',
+  'backoffice.catalog.fuel': 'Combustible',
+  'backoffice.catalog.drive': 'Tracción',
+  'backoffice.catalog.seats': 'Asientos',
+  'backoffice.catalog.doors': 'Puertas',
+  'backoffice.catalog.licenseNote': 'Fuente y licencia de los datos',
+  'backoffice.catalog.licenseHint':
+    'Indica de dónde vienen los datos, por ejemplo el título del vehículo. Nunca copies otro sitio ni un anuncio.',
+  'backoffice.catalog.approve': 'Crear y vincular',
+  'backoffice.catalog.rejectHeading': 'Rechazar con un motivo',
+  'backoffice.catalog.reject.INSUFFICIENT_DETAILS': 'Datos insuficientes',
+  'backoffice.catalog.reject.UNKNOWN_MODEL': 'Modelo desconocido',
+  'backoffice.catalog.reject.NOT_ELIGIBLE': 'Vehículo no admitido',
+  'backoffice.catalog.done.APPROVED': 'Versión creada y vinculada. Avisamos al anfitrión.',
+  'backoffice.catalog.done.MERGED': 'Versión vinculada. Avisamos al anfitrión.',
+  'backoffice.catalog.done.REJECTED': 'Solicitud rechazada. Avisamos al anfitrión.',
   'common.calendar.blockCreated': 'Fechas bloqueadas.',
   'common.calendar.blockRemoved': 'Fechas desbloqueadas.',
   'common.calendar.noticeSaved': 'Preaviso guardado.',
@@ -1017,6 +1088,15 @@ export const ES_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Alquiler con una persona particular',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'Este auto lo alquila una persona particular. En Paraguay, la situación tributaria de los anfitriones particulares está en revisión. Tu comprobante detalla lo que pagas.',
+  'common.catalogAddition.rejected':
+    'Tu auto no se agregó al catálogo. Revisa el motivo debajo del auto.',
+  'common.catalogAddition.notAllowed':
+    'Ya no puedes pedir agregar este auto. Si crees que es un error, escribe al soporte.',
+  'web.host.catalog.final':
+    'Este auto no se puede publicar. Si crees que es un error, escribe al soporte.',
+  'backoffice.catalog.choose': 'Elige una opción',
+  'backoffice.catalog.rejectConfirm': 'Confirmo el rechazo: se avisará al anfitrión.',
+  'backoffice.catalog.ongoing': 'en curso',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

@@ -834,6 +834,77 @@ export const PT_MESSAGES = {
   'common.vehicle.catalog.notListed': 'Meu carro não está na lista',
   'common.vehicle.catalog.variantRetired': 'Esta versão não está mais no catálogo. Escolha outra.',
   'common.vehicle.catalog.variantNotFound': 'Não encontramos esta versão no catálogo.',
+  'common.catalogAddition.requested':
+    'Pedimos para incluir seu carro no catálogo. Avisaremos quando estiver pronto.',
+  'common.catalogAddition.pending':
+    'Seu carro ainda não está no catálogo. Você poderá enviar o anúncio quando nossa equipe incluí-lo.',
+  'common.catalogAddition.duplicate': 'Já existe um pedido aberto para este carro.',
+  'common.catalogAddition.alreadyLinked': 'Este carro já está no catálogo.',
+  'common.catalogAddition.closed': 'Este pedido já foi resolvido.',
+  'common.catalogAddition.variantExists':
+    'Esta versão já está no catálogo. Vincule-a em vez de criá-la.',
+  'common.catalogAddition.variantNotFound':
+    'Esta versão não serve para este carro: outro mercado, outro ano ou já retirada.',
+  'common.catalogAddition.entryInvalid':
+    'Confira os dados da versão: há um valor inválido ou eles não cobrem o ano do carro.',
+  'web.host.car.catalogHint':
+    'Se seu carro não estiver no catálogo, nossa equipe confere e inclui antes de você publicar.',
+  'web.host.catalog.status.OPEN': 'Aguardando o catálogo',
+  'web.host.catalog.status.APPROVED': 'No catálogo',
+  'web.host.catalog.status.MERGED': 'No catálogo',
+  'web.host.catalog.status.REJECTED': 'Não incluído',
+  'web.host.catalog.pending':
+    'Nossa equipe confere até {date}. Até lá, seu anúncio fica como rascunho.',
+  'web.host.catalog.reason.INSUFFICIENT_DETAILS': 'Faltam dados para identificar seu carro.',
+  'web.host.catalog.reason.UNKNOWN_MODEL': 'Não conseguimos identificar a marca ou o modelo.',
+  'web.host.catalog.reason.NOT_ELIGIBLE': 'Este veículo não pode ser anunciado na plataforma.',
+  'web.host.catalog.retry': 'Corrija a marca e o modelo e peça de novo',
+  'web.host.catalog.send': 'Pedir de novo',
+  'ntf.catalogAdditionApproved.email.subject': 'Seu carro já está no catálogo',
+  'ntf.catalogAdditionApproved.email.body':
+    'Olá, {first_name}. Incluímos seu carro no catálogo da {brand}. Agora você pode enviar seu anúncio pelo seu espaço de anfitrião.',
+  'ntf.catalogAdditionApproved.sms.body':
+    '{brand}: seu carro já está no catálogo. Você já pode enviar seu anúncio.',
+  'ntf.catalogAdditionRejected.email.subject': 'Não conseguimos incluir seu carro',
+  'ntf.catalogAdditionRejected.email.body':
+    'Olá, {first_name}. Não conseguimos incluir seu carro no catálogo da {brand}. No seu espaço de anfitrião, você vê o motivo e pode corrigir a marca e o modelo.',
+  'ntf.catalogAdditionRejected.sms.body':
+    '{brand}: não conseguimos incluir seu carro no catálogo. Veja o motivo no seu espaço.',
+  'backoffice.catalog.open': 'Abrir o pedido',
+  'backoffice.catalog.heading': 'Pedido de inclusão no catálogo',
+  'backoffice.catalog.requested': 'O que o anfitrião digitou',
+  'backoffice.catalog.vin': 'VIN (número de série oculto)',
+  'backoffice.catalog.declared': 'Dados declarados do carro',
+  'backoffice.catalog.due': 'Decidir até {date}',
+  'backoffice.catalog.candidates': 'Versões do catálogo para este carro',
+  'backoffice.catalog.noCandidate': 'Nenhuma versão do catálogo corresponde à marca e ao ano.',
+  'backoffice.catalog.version': 'Versão',
+  'backoffice.catalog.years': 'Anos',
+  'backoffice.catalog.modelMatch': 'Mesmo modelo',
+  'backoffice.catalog.merge': 'Vincular esta versão',
+  'backoffice.catalog.approveHeading': 'Criar a versão no catálogo',
+  'backoffice.catalog.makeName': 'Marca',
+  'backoffice.catalog.modelName': 'Modelo',
+  'backoffice.catalog.bodyType': 'Carroceria',
+  'backoffice.catalog.yearFrom': 'A partir do ano',
+  'backoffice.catalog.yearTo': 'Até o ano',
+  'backoffice.catalog.trimName': 'Acabamento',
+  'backoffice.catalog.transmission': 'Câmbio',
+  'backoffice.catalog.fuel': 'Combustível',
+  'backoffice.catalog.drive': 'Tração',
+  'backoffice.catalog.seats': 'Assentos',
+  'backoffice.catalog.doors': 'Portas',
+  'backoffice.catalog.licenseNote': 'Fonte e licença dos dados',
+  'backoffice.catalog.licenseHint':
+    'Informe de onde vêm os dados, por exemplo o documento do veículo. Nunca copie outro site nem um anúncio.',
+  'backoffice.catalog.approve': 'Criar e vincular',
+  'backoffice.catalog.rejectHeading': 'Recusar com um motivo',
+  'backoffice.catalog.reject.INSUFFICIENT_DETAILS': 'Dados insuficientes',
+  'backoffice.catalog.reject.UNKNOWN_MODEL': 'Modelo desconhecido',
+  'backoffice.catalog.reject.NOT_ELIGIBLE': 'Veículo não aceito',
+  'backoffice.catalog.done.APPROVED': 'Versão criada e vinculada. Avisamos o anfitrião.',
+  'backoffice.catalog.done.MERGED': 'Versão vinculada. Avisamos o anfitrião.',
+  'backoffice.catalog.done.REJECTED': 'Pedido recusado. Avisamos o anfitrião.',
   'common.calendar.blockCreated': 'Datas bloqueadas.',
   'common.calendar.blockRemoved': 'Datas desbloqueadas.',
   'common.calendar.noticeSaved': 'Antecedência salva.',
@@ -1021,4 +1092,13 @@ export const PT_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Aluguel com uma pessoa física',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'Este carro é alugado por uma pessoa física. No Paraguai, a situação tributária dos anfitriões pessoas físicas está em análise. Seu recibo mostra o que você paga.',
+  'common.catalogAddition.rejected':
+    'Seu carro não foi incluído no catálogo. Confira o motivo abaixo do carro.',
+  'common.catalogAddition.notAllowed':
+    'Você não pode mais pedir a inclusão deste carro. Se achar que é um erro, fale com o suporte.',
+  'web.host.catalog.final':
+    'Este carro não pode ser anunciado. Se achar que é um erro, fale com o suporte.',
+  'backoffice.catalog.choose': 'Escolha uma opção',
+  'backoffice.catalog.rejectConfirm': 'Confirmo a recusa: o anfitrião será avisado.',
+  'backoffice.catalog.ongoing': 'em produção',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

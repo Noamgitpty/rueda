@@ -116,6 +116,19 @@ async function kycItem(country: string): Promise<string> {
   return rows[0]?.item_id ?? randomUUID();
 }
 
+/**
+ * Élément neuf de la file CATALOG_ADDITION du pays (vraie mise en file, fixture 9990 ; US-114) :
+ * aucune demande derrière (sujet neuf) ⇒ un acteur autorisé reçoit 403 STAFF_CASE_REQUIRED (élément
+ * non pris en charge) ou 409 CATALOG_REQUEST_CLOSED (ADMIN), jamais 401 / 403 FORBIDDEN.
+ */
+async function catalogItem(country: string): Promise<string> {
+  const { rows } = await client.query<{ item_id: string }>(
+    `SELECT item_id FROM test_fixture.us109_enqueue('CATALOG_ADDITION', 'CATALOG_ADDITION_REQUEST', $1, $2)`,
+    [randomUUID(), country],
+  );
+  return rows[0]?.item_id ?? randomUUID();
+}
+
 async function register(): Promise<string> {
   const id = randomUUID();
   const r = await client.query<{ ok: boolean }>(
@@ -386,6 +399,19 @@ async function requestOf(
         path: `/console/queues/items/${await kycItem(country)}/kyc`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
+    // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
+    case 'POST /console/queues/items/{id}/catalog-addition':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await catalogItem(country)}/catalog-addition`,
+        body: { requestId: id },
+      };
+    case 'POST /console/queues/items/{id}/catalog-addition/resolve':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await catalogItem(country)}/catalog-addition/resolve`,
+        body: { requestId: id, decision: 'REJECT', rejectReason: 'UNKNOWN_MODEL' },
+      };
     case 'POST /console/users/search':
       return {
         method: 'POST',
@@ -482,6 +508,12 @@ async function requestOf(
           seats: 5,
           fuelType: 'GASOLINE',
         },
+      };
+    case 'POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/catalog-request`,
+        body: { makeText: 'Chery', modelText: 'Tiggo 2' },
       };
     case 'POST /host/accounts/{orgId}/listings':
       return {

@@ -284,6 +284,25 @@ export function parseVehicle(body: Record<string, unknown>): VehicleInput {
   };
 }
 
+/** Nouvelle demande d'ajout au catalogue (US-114) : marque et modèle corrigés par l'hôte. */
+export interface CatalogRequestInput {
+  readonly makeText: string;
+  readonly modelText: string;
+  readonly trim: string | null;
+}
+
+const CATALOG_REQUEST_KEYS = ['makeText', 'modelText', 'trim'];
+
+export function parseCatalogRequest(body: Record<string, unknown>): CatalogRequestInput {
+  const f = new Fields(body);
+  f.unknownKeys(CATALOG_REQUEST_KEYS);
+  const makeText = f.text('makeText', 80);
+  const modelText = f.text('modelText', 80);
+  const trim = f.text('trim', 80, false);
+  f.done();
+  return { makeText: makeText as string, modelText: modelText as string, trim };
+}
+
 const PRICING_KEYS = ['dailyPriceMinor', 'mileageMode', 'includedKmPerDay', 'extraKmPriceMinor'];
 
 function pricingOf(f: Fields): PricingInput {

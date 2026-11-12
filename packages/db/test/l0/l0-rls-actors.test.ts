@@ -671,6 +671,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'booking_guest_occupancy',
           'booking_trip',
           'booking_vehicle_occupancy',
+          // US-114 (0074, ADR-104) : même règle (commandes de l'hôte et fonctions de domaine de
+          // catalog_cmd_owner, console d'iam_staff_owner)
+          'catalog_addition_request',
           // US-115 (0067, ADR-099) : AUCUN droit ni politique d'app_api ; accès par les seules
           // fonctions SECURITY DEFINER de catalog_cmd_owner (hôte désigné par son jeton)
           'catalog_listing',
