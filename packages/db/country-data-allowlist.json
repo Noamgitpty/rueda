@@ -24,6 +24,10 @@
     {
       "path": "packages/db/migrations/0069_config_listing_price_params.sql",
       "justification": "Graine complémentaire des plafonds de cohérence du prix price_ceiling_* (16 PRC-001, HST-033, 19 US-115) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-115, ADR-099."
+    },
+    {
+      "path": "packages/db/migrations/0078_config_vehicle_eligibility_params.sql",
+      "justification": "Graine complémentaire des paramètres d'éligibilité du véhicule elig_* (08 BR-LIST-01, BR-LIST-02, 16 HST-019, HST-039, 19 US-124 : âge et compteur maximaux, pièces exigées par pays) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-124, ADR-107."
     }
   ]
 }

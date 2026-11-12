@@ -1096,6 +1096,74 @@
       "values": { "PA": "1000", "PY": "75000" }
     },
     {
+      "key": "elig_age_years_ceiling",
+      "type": "INT",
+      "unit": "year",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-LIST-02 [NOUS] (≤ 10 ans) ; 16 HST-019 (VEHICLE_TOO_OLD)",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "16 HST-019 « valeurs À DÉCIDER dans ADM-031 » ; OQ-P2P-02 ; J-ADM-031 (US-124)",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "elig_odometer_km_ceiling",
+      "type": "INT",
+      "unit": "km",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "08 BR-LIST-02 [NOUS] (< 200 000 km) ; 16 HST-019 (VEHICLE_MILEAGE_TOO_HIGH)",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "16 HST-019 « valeurs À DÉCIDER dans ADM-031 » ; OQ-P2P-02 ; J-ADM-031 (US-124)",
+      "values": { "PA": 200000, "PY": 200000 }
+    },
+    {
+      "key": "elig_doc_title",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-039 (titre ou registro : registro único vehicular PA, cédula verde PY) ; 08 BR-LIST-01",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "elig_doc_plate_vin_photo",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-039 (photo de la plaque et du VIN) ; 16 HST-019",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "elig_doc_inspection",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-039 (revisado PA, inspección técnica PY) ; 08 BR-LIST-02 [NOUS]",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
+      "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "elig_doc_compulsory_insurance",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-039 (assurance obligatoire minimale SOBAT au Panama ; au Paraguay, déclaration d’une police personnelle)",
+      "status": "PROPOSÉ (défaut à confirmer par le fondateur)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-P2P-02 ; 16 HST-039 (US-124)",
+      "values": { "PA": true, "PY": false }
+    },
+    {
       "key": "dispute_decision_sla_business_days",
       "type": "DURATION",
       "unit": "business_d",
