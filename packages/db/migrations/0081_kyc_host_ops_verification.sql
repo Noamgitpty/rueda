@@ -50,6 +50,7 @@
 --   DROP TABLE core.settlement_insurer_contract, core.settlement_insurer ;
 --   ALTER TABLE core.kyc_sanctions_screening DROP COLUMN manual_action_id ;
 --   DROP POLICY kyc_cmd_host_review_read ON core.config_param_value ;
+--   DROP POLICY catalog_cmd_insurer_read ON core.config_param_definition, core.config_param_value ;
 --   DROP POLICY kyc_cmd_host_queue_select ON core.support_review_queue_item ; révoquer les droits.
 
 -- 1. Droits de kyc_cmd_owner, au plus juste --------------------------------------------------------
@@ -110,9 +111,8 @@ CREATE TABLE core.settlement_insurer_contract (
   vehicle_eligibility  jsonb       NOT NULL
     CONSTRAINT settlement_insurer_contract_eligibility_shape CHECK (
           pg_catalog.jsonb_typeof(vehicle_eligibility) = 'object'
-      AND (SELECT pg_catalog.array_agg(k ORDER BY k)
-             FROM pg_catalog.jsonb_object_keys(vehicle_eligibility) AS k)
-          = ARRAY['maxVehicleAgeYears', 'usages', 'valueClasses']::text[]
+      AND vehicle_eligibility ?& ARRAY['maxVehicleAgeYears', 'usages', 'valueClasses']
+      AND (vehicle_eligibility - ARRAY['maxVehicleAgeYears', 'usages', 'valueClasses']) = '{}'::jsonb
       AND pg_catalog.jsonb_typeof(vehicle_eligibility -> 'maxVehicleAgeYears') = 'number'
       AND (vehicle_eligibility ->> 'maxVehicleAgeYears') ~ '^[0-9]{1,2}$'
       AND pg_catalog.jsonb_typeof(vehicle_eligibility -> 'valueClasses') = 'array'
