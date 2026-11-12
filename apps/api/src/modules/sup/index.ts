@@ -10,6 +10,25 @@ export type { ManualActionStore } from './internal/manual-action-store.js';
 export { PgFinanceApprovalStore } from './internal/finance-approval-store.js';
 export type { FinanceApprovalStore, SqlPool } from './internal/finance-approval-store.js';
 
+// Files de revue, fiche 360°, notes, dossiers et pièces du staff (US-109).
+export { OpsStoreError, PgOpsConsoleStore } from './internal/ops-console-store.js';
+export { OPS_MESSAGES } from './internal/ops-errors.js';
+export type { OpsConsoleStore, OpsResult } from './internal/ops-console-store.js';
+export {
+  EVIDENCE_MAX_BYTES,
+  sniffEvidenceMime,
+  unavailableEvidence,
+  UnavailableEvidenceFileStore,
+  UnavailableEvidenceScanner,
+  UnavailableEvidenceVault,
+} from './internal/evidence.js';
+export type {
+  EvidenceFileStore,
+  EvidenceOptions,
+  EvidenceScanner,
+  EvidenceVault,
+} from './internal/evidence.js';
+
 // Console « Apparence / Marque » (US-034) : montage par le processus API seulement.
 export { SupBrandConsoleModule } from './internal/sup-brand-console.module.js';
 

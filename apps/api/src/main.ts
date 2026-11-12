@@ -30,7 +30,12 @@ import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
 import { postgresRiskAdapters } from './modules/risk/index.js';
-import { PgFinanceApprovalStore, PgManualActionStore } from './modules/sup/index.js';
+import {
+  PgFinanceApprovalStore,
+  PgManualActionStore,
+  PgOpsConsoleStore,
+  unavailableEvidence,
+} from './modules/sup/index.js';
 import { parseTrustProxy } from './trust-proxy.js';
 
 const DEFAULT_PORT = 3000;
@@ -67,7 +72,14 @@ async function bootstrap(): Promise<void> {
       iam,
       pay.webhooks,
       staff,
-      { store: new PgManualActionStore(pool), finance: new PgFinanceApprovalStore(pool) },
+      {
+        store: new PgManualActionStore(pool),
+        finance: new PgFinanceApprovalStore(pool),
+        // files de revue, fiche 360°, notes, dossiers (US-109) ; pièces du staff : antivirus, coffre
+        // KMS et stockage objet indisponibles tant qu'US-003 et Q-019 ne sont pas livrés (503)
+        ops: new PgOpsConsoleStore(pool),
+        evidence: unavailableEvidence(pool),
+      },
       brand,
       risk,
       ctr,

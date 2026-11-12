@@ -46,7 +46,10 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
     'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_otp_challenge: 'migrator_all:migrator',
-  iam_restriction: 'migrator_all:migrator',
+  // US-109 (0064) : restrictions manuelles par le gestionnaire de console d'iam_auth_owner, lues
+  // par la pose d'un hold (cmd_hold_owner) et par la fiche 360° (iam_staff_owner)
+  iam_restriction:
+    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator',
   iam_role_permission:
     'cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_session:
@@ -96,6 +99,9 @@ const NOTIFICATION_CONTACT = 'core.iam_notification_contact(uuid)';
  */
 const HOST_ACCOUNT_HANDLER =
   'core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+/** Gestionnaire de console de RESTRICT_ACCOUNT / LIFT_RESTRICTION (US-109, 0064) : même règle. */
+const RESTRICTION_HANDLER =
+  'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 
 describe('schéma IAM (US-010)', () => {
   it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
@@ -261,20 +267,25 @@ describe('schéma IAM (US-010)', () => {
           public_exec: false,
         },
       ]);
-      expect(rows.filter((r) => r.fn === HOST_ACCOUNT_HANDLER)).toEqual([
-        {
-          fn: HOST_ACCOUNT_HANDLER,
-          secdef: true,
-          owner: 'iam_auth_owner',
-          config: ['search_path=pg_catalog, pg_temp'],
-          api: false,
-          worker: false,
-          anon: false,
-          public_exec: false,
-        },
-      ]);
+      for (const handler of [HOST_ACCOUNT_HANDLER, RESTRICTION_HANDLER]) {
+        expect(rows.filter((r) => r.fn === handler)).toEqual([
+          {
+            fn: handler,
+            secdef: true,
+            owner: 'iam_auth_owner',
+            config: ['search_path=pg_catalog, pg_temp'],
+            api: false,
+            worker: false,
+            anon: false,
+            public_exec: false,
+          },
+        ]);
+      }
       const commands = rows.filter(
-        (r) => r.fn !== NOTIFICATION_CONTACT && r.fn !== HOST_ACCOUNT_HANDLER,
+        (r) =>
+          r.fn !== NOTIFICATION_CONTACT &&
+          r.fn !== HOST_ACCOUNT_HANDLER &&
+          r.fn !== RESTRICTION_HANDLER,
       );
       expect(commands.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
       for (const r of commands) {

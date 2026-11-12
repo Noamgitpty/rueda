@@ -29,6 +29,25 @@ import type {
 } from './manual-action-store.js';
 import type { StaffActor } from './staff-context.js';
 import { SupConsoleModule } from './sup-console.module.js';
+import { unavailableEvidence } from './evidence.js';
+import type { OpsConsoleStore } from './ops-console-store.js';
+import type { SqlPool } from './finance-approval-store.js';
+
+/** Files et fiche 360° (US-109) : hors du champ de ce test, tout appel échoue. */
+const neverCalled = () => Promise.reject(new Error('non prévu par ce test'));
+const ops: OpsConsoleStore = {
+  queues: neverCalled,
+  claim: neverCalled,
+  kycDossier: neverCalled,
+  findUser: neverCalled,
+  profile: neverCalled,
+  addNote: neverCalled,
+  openCase: neverCalled,
+  setCaseStatus: neverCalled,
+  evidencePermitted: neverCalled,
+  recordEvidence: neverCalled,
+};
+const unusedPool: SqlPool = { query: neverCalled, connect: neverCalled };
 
 const TOKEN = 'B'.repeat(43);
 const COOKIE = `__Host-session=${TOKEN}`;
@@ -105,7 +124,7 @@ const finance: FinanceApprovalStore = {
   imports: [
     IamAuthModule.register(iamOptions),
     StaffConsoleModule.register(staffOptions),
-    SupConsoleModule.register({ store, finance }),
+    SupConsoleModule.register({ store, finance, ops, evidence: unavailableEvidence(unusedPool) }),
   ],
 })
 class Root {}

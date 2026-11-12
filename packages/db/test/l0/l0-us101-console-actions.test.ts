@@ -164,6 +164,9 @@ const FINANCE_REQUEST =
 const DECISION = { decision: ['APPROVED', 'REJECTED'] };
 const HOST_ACCOUNT_HANDLER =
   'core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+const RESTRICTION_HANDLER =
+  'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
 
 interface Expected {
   readonly permission: string;
@@ -185,6 +188,27 @@ interface Expected {
  * §1 (PROPOSÉ), citée comme telle.
  */
 const MATRIX: Readonly<Record<string, Expected>> = {
+  RESTRICT_ACCOUNT: {
+    permission: 'ops.restrict_account',
+    subject: 'USER_ACCOUNT',
+    mode: 'DOMAIN_COMMAND',
+    keys: ['kind'],
+    values: RESTRICTION_KINDS,
+    approval: false,
+    handler: RESTRICTION_HANDLER,
+    source:
+      '16 ADM-005 « OPS_AGENT (restrictions) », « restriction avec motif » ; 17 §3.2.1 restriction.kind ; ADR-097 (action, permission et types manuels, PROPOSÉ)',
+  },
+  LIFT_RESTRICTION: {
+    permission: 'ops.restrict_account',
+    subject: 'USER_ACCOUNT',
+    mode: 'DOMAIN_COMMAND',
+    keys: ['kind'],
+    values: RESTRICTION_KINDS,
+    approval: false,
+    handler: RESTRICTION_HANDLER,
+    source: '16 ADM-005 « levée d’une restriction → motif obligatoire » ; ADR-097 (PROPOSÉ)',
+  },
   CREATE_HOST_ACCOUNT: {
     permission: 'ops.review_listing_host',
     subject: 'USER_ACCOUNT',
@@ -389,11 +413,18 @@ async function catalog(client: pg.ClientBase): Promise<Map<string, CatalogRow>> 
 }
 
 describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
-  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107)', async () => {
+  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107), RESTRICT_ACCOUNT et LIFT_RESTRICTION (US-109)', async () => {
     await withRole('app_api', async (client) => {
       const byCode = await catalog(client);
       expect([...byCode.keys()].sort()).toEqual(
-        [...STATE_ACTIONS, ...RECORD_ONLY, ...FINANCE, 'CREATE_HOST_ACCOUNT'].sort(),
+        [
+          ...STATE_ACTIONS,
+          ...RECORD_ONLY,
+          ...FINANCE,
+          'CREATE_HOST_ACCOUNT',
+          'RESTRICT_ACCOUNT',
+          'LIFT_RESTRICTION',
+        ].sort(),
       );
       expect(Object.keys(MATRIX).sort()).toEqual([...byCode.keys()].sort());
     });
