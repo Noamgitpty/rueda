@@ -467,7 +467,7 @@ describe('socle (0077) : RLS, droits, propriétaires', () => {
         `SELECT * FROM core.catalog_vehicle_file('VEHICLE', gen_random_uuid(), 'PA', gen_random_uuid())`,
         `SELECT * FROM core.catalog_vehicle_decide(gen_random_uuid(), 'PA', gen_random_uuid(), 'ADMIN', '{}', '[]', NULL)`,
         `SELECT core.catalog_vehicle_claim_dossier(gen_random_uuid(), 'PA')`,
-        `SELECT * FROM core.catalog_vehicle_claim_decide(gen_random_uuid(), 'PA', gen_random_uuid(), 'ADMIN', 'UPHOLD', NULL)`,
+        `SELECT * FROM core.catalog_vehicle_claim_decide(gen_random_uuid(), 'PA', gen_random_uuid(), 'ADMIN', 'UPHOLD', NULL, NULL, NULL)`,
         'SELECT core.catalog_vehicle_publishable(gen_random_uuid())',
         'SELECT core.catalog_vehicle_blockers(gen_random_uuid(), true)',
         'SELECT core.iam_host_public_first_name(gen_random_uuid())',
