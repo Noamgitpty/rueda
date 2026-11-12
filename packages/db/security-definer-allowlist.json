@@ -168,7 +168,7 @@
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-115"
+      "story": "US-115, US-126"
     },
     {
       "signature": "core.catalog_cmd_update_listing_pricing(bytea,uuid,uuid,bigint,text,integer,bigint)",
@@ -581,7 +581,7 @@
       "family": "iam_auth",
       "owner": "iam_auth_owner",
       "execute": ["app_api"],
-      "story": "US-102"
+      "story": "US-102, US-126"
     },
     {
       "signature": "core.ctr_signup_consents_guard()",
@@ -595,7 +595,28 @@
       "family": "iam_staff",
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
-      "story": "US-102"
+      "story": "US-102, US-126"
+    },
+    {
+      "signature": "core.ctr_host_terms_required(uuid,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["catalog_cmd_owner"],
+      "story": "US-126"
+    },
+    {
+      "signature": "core.ctr_host_terms(bytea,uuid,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-126"
+    },
+    {
+      "signature": "core.ctr_cmd_accept_host_terms(bytea,uuid,integer,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["app_api"],
+      "story": "US-126"
     },
     {
       "signature": "core.iam_staff_cmd_manual_action(bytea,uuid,text,uuid,text,jsonb,uuid[])",

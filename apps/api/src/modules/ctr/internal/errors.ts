@@ -4,7 +4,8 @@
  *
  * Codes : `TERMS_REACCEPT_REQUIRED` (16 ACC-001, US-102) ; `REQUEST_INVALID`, `AUTH_REQUIRED`
  * (US-010) ; PROPOSÉS (à reporter dans 16 A.8) : `TERMS_CURRENT`, `TERMS_VERSION_CHANGED`,
- * `LEGAL_DOCUMENT_UNAVAILABLE`, `LEGAL_DOCUMENT_NOT_FOUND`, `CONSENT_RECORDED`.
+ * `LEGAL_DOCUMENT_UNAVAILABLE`, `LEGAL_DOCUMENT_NOT_FOUND`, `CONSENT_RECORDED` ; CGU de l'hôte
+ * (US-126) : `HOST_ACCOUNT_NOT_FOUND` (code d'US-115, même clé du catalogue).
  */
 import { HttpException } from '@nestjs/common';
 
@@ -17,6 +18,8 @@ export const LEGAL_MESSAGES = {
   COUNTRY_UNKNOWN: { status: 400, messageKey: 'common.legal.countryUnknown' },
   CONSENT_RECORDED: { status: 200, messageKey: 'common.legal.consentRecorded' },
   REQUEST_INVALID: { status: 400, messageKey: 'common.auth.requestInvalid' },
+  // compte d'hôte d'un autre, inconnu ou mal formé (CGU de l'hôte, US-126) : 404, rien n'est révélé
+  HOST_ACCOUNT_NOT_FOUND: { status: 404, messageKey: 'common.listing.hostNotFound' },
   AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },
 } as const;
 

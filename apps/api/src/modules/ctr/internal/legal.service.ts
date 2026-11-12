@@ -5,7 +5,9 @@
  *   le formulaire d'inscription affiche leur version, renvoyée à l'inscription (IAM) ;
  * - état des consentements d'une session : après la publication d'une version MAJEURE, la
  *   réacceptation est exigée avant toute réservation (`TERMS_REACCEPT_REQUIRED`, `TermsGuard`) ;
- * - acceptation des versions en vigueur, accord ou révocation des communications, historique.
+ * - acceptation des versions en vigueur, accord ou révocation des communications, historique ;
+ * - CGU de l'hôte (US-126) : version en vigueur dans le pays du compte d'hôte, acceptation de la
+ *   version affichée (la garde de la soumission d'une annonce est dans la commande en base).
  * Toute écriture passe par une commande en base qui revérifie la session et la version.
  */
 import { Inject, Injectable } from '@nestjs/common';
@@ -16,14 +18,15 @@ import type {
   ConsentStatusRow,
   ConsentStore,
   DocumentVersion,
+  HostTermsState,
   LegalDocument,
   LegalDocumentKind,
   LegalDocumentSummary,
 } from './consent-store.js';
 import {
   ConsentDocumentsError,
-  LEGAL_DOCUMENT_KINDS,
   REQUIRED_DOCUMENT_KINDS,
+  SERVED_DOCUMENT_KINDS,
 } from './consent-store.js';
 import { LegalHttpError } from './errors.js';
 import type { LegalCode } from './errors.js';
@@ -108,7 +111,7 @@ export class LegalService {
     language: string,
     version: number | null,
   ): Promise<LegalDocument> {
-    if (!(LEGAL_DOCUMENT_KINDS as readonly unknown[]).includes(kind)) {
+    if (!(SERVED_DOCUMENT_KINDS as readonly unknown[]).includes(kind)) {
       throw new LegalHttpError('LEGAL_DOCUMENT_NOT_FOUND');
     }
     const doc = await this.store.documentBody(
@@ -145,6 +148,47 @@ export class LegalService {
     const n = await this.store.accept(proof, documents).catch(mapStoreError);
     if (n === null) throw new LegalHttpError('AUTH_REQUIRED');
     return this.overview(proof);
+  }
+
+  /**
+   * CGU de l'hôte d'un compte d'hôte de la session (US-126) : 401 sans session, 404 pour un compte
+   * d'un autre ou inconnu (rien n'est révélé), 503 sans document en vigueur (fail-closed).
+   */
+  async hostTerms(proof: Buffer | null, orgId: string, language: string): Promise<HostTermsState> {
+    if (proof === null) throw new LegalHttpError('AUTH_REQUIRED');
+    const state = await this.store.hostTerms(proof, orgId, language);
+    if (state === 'AUTH_REQUIRED') throw new LegalHttpError('AUTH_REQUIRED');
+    if (state === 'FORBIDDEN') throw new LegalHttpError('HOST_ACCOUNT_NOT_FOUND');
+    if (state.document === null) throw new LegalHttpError('LEGAL_DOCUMENT_UNAVAILABLE');
+    return state;
+  }
+
+  /**
+   * Acceptation de la version AFFICHÉE des CGU de l'hôte (US-126) : `{ version, locale }` ; 409
+   * `TERMS_VERSION_CHANGED` si une autre version est entrée en vigueur entre-temps (rien n'est
+   * écrit). Rend l'état à jour.
+   */
+  async acceptHostTerms(
+    proof: Buffer | null,
+    orgId: string,
+    body: Record<string, unknown>,
+  ): Promise<HostTermsState> {
+    if (proof === null) throw new LegalHttpError('AUTH_REQUIRED');
+    const { version, locale } = body;
+    const language = languageOf(locale);
+    if (
+      typeof version !== 'number' ||
+      !Number.isInteger(version) ||
+      version < 1 ||
+      version > 999_999 ||
+      language === null
+    ) {
+      throw new LegalHttpError('REQUEST_INVALID');
+    }
+    const outcome = await this.store.acceptHostTerms(proof, orgId, version, language);
+    if (outcome === 'FORBIDDEN') throw new LegalHttpError('HOST_ACCOUNT_NOT_FOUND');
+    if (outcome !== 'DONE') throw new LegalHttpError(outcome);
+    return this.hostTerms(proof, orgId, language);
   }
 
   async setMarketing(proof: Buffer | null, optIn: unknown): Promise<boolean> {
