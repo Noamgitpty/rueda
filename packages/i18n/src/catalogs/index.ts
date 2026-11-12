@@ -48,8 +48,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  10b §4.3) et `web.host.verificationLink`. Version 25 : décision KYC de l'ops (US-106) : états
  SM-3, motifs, champs du permis, scores, contrôles cochés et refus `backoffice.kyc.*` ; messages
  au voyageur `web.s04.result.rejected*` et `web.s04.moreInfo.*`.
+ Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
+ `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
+ `backoffice.vehicle.*`.
  */
-export const CATALOG_VERSION = 25;
+export const CATALOG_VERSION = 26;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
