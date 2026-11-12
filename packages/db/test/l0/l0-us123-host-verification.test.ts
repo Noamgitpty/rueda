@@ -41,7 +41,7 @@ import {
 } from '../support/golive.ts';
 import type { StaffActor } from '../support/golive.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
-import { auditOf, elevatedStaff } from '../support/staff.ts';
+import { auditOf, elevatedStaff, installTestProofKey } from '../support/staff.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const PROVIDER = 'FAKE';
@@ -109,6 +109,15 @@ const one = async <T extends pg.QueryResultRow>(
 
 const fixture = <T extends pg.QueryResultRow>(c: pg.ClientBase, fn: string, arg: unknown) =>
   c.query<T>(`SELECT * FROM test_fixture.${fn}($1)`, [arg]).then((r) => r.rows);
+
+/**
+ * Membre du staff élevé par TOTP : la clé de preuve de TEST est (ré)installée d'abord, pour ne pas
+ * dépendre de l'ordre des fichiers (une autre preuve peut la retirer puis la reposer).
+ */
+async function elevated(c: pg.ClientBase, role: string, scope: readonly string[]) {
+  await installTestProofKey(c);
+  return elevatedStaff(c, role, scope);
+}
 
 interface Person {
   readonly userId: string;
@@ -516,7 +525,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('critère 3 : sans numéro fiscal ⇒ dossier incomplet, non approuvable, compte non activable', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { p, org } = await readyHost(c, country, { tax: false });
       const d = (await fixture<{ status: string; missing: string[] }>(c, 'us123_dossier', org))[0];
       expect(d).toMatchObject({ status: 'DOCS_PENDING', missing: ['HOST_TAX_ID_REQUIRED'] });
@@ -598,7 +607,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('critère 4 : KYC approuvé mais sous-marchand du PSP non ACTIVE ⇒ activation refusée', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { p, org } = await readyHost(c, country);
       expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
         status: 'IN_REVIEW',
@@ -637,7 +646,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('critère 5 : correspondance de sanctions ⇒ dossier bloqué, motif journalisé, aucune donnée de la liste copiée', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { p, org } = await readyHost(c, country, { screening: 'NONE' });
       const s = await submit(c, p, org);
       expect(s).toMatchObject({ outcome: 'SUBMITTED', identity_provider: PROVIDER });
@@ -717,7 +726,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('critère 6 : interrupteurs du pays à false ⇒ PENDING_ACTIVATION, jamais ACTIVE (17 §0.1)', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { p, org } = await readyHost(c, country);
       await c.query('SELECT test_fixture.us123_set_submerchant($1, $2)', [org, 'ACTIVE']);
       // la file de revue de l'ops reçoit le dossier complet
@@ -777,8 +786,8 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('revue d’une correspondance (VER-028) : faux positif levé avec motif ⇒ dossier rendu à la revue ; confirmée ⇒ REJECTED', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
-      const finance = await elevatedStaff(c, 'FINANCE', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
+      const finance = await elevated(c, 'FINANCE', [country]);
       const hit = async (): Promise<Ready> => {
         const r = await readyHost(c, country, { screening: 'POTENTIAL_MATCH' });
         expect((await fixture(c, 'us123_dossier', r.org))[0]).toMatchObject({ status: 'BLOCKED' });
@@ -832,7 +841,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('HOST_VERIFICATION_DECISION sans la permission ops.review_listing_host ⇒ FORBIDDEN journalisé, rien ne change', async () => {
     await withRole('app_api', async (c) => {
-      const finance = await elevatedStaff(c, 'FINANCE', [country]);
+      const finance = await elevated(c, 'FINANCE', [country]);
       const { org } = await readyHost(c, country);
       expect((await decide(c, finance, org, 'APPROVED', [country])).outcome).toBe('FORBIDDEN');
       expect((await auditOf(c, finance.userId)).at(-1)?.action_code).toBe('STAFF_FORBIDDEN');
@@ -842,7 +851,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('chemin ACTIVE (base de test, fenêtre d’horloge lointaine) : capacité bloquante inconnue ⇒ refus ; capacités validées et interrupteurs ouverts par deux personnes ⇒ ACTIVE, iam.organization.created une seule fois', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { p, org } = await readyHost(c, country);
       await c.query('SELECT test_fixture.us123_set_submerchant($1, $2)', [org, 'ACTIVE']);
       expect((await decide(c, ops, org, 'APPROVED', [country])).outcome).toBe('DONE');
@@ -951,7 +960,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('N-38 : âge revérifié à l’activation (date déclarée en repli, devenue trop récente)', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const p = await person(c, country);
       // le fournisseur ne rend pas la date : la date DÉCLARÉE du compte sert de repli
       await kycApproved(c, p, country, { residenceCountry: country });
@@ -1005,7 +1014,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('N-66 : CGU de l’hôte non acceptées ⇒ pièce manquante et décision refusée', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { org } = await readyHost(c, country, { terms: false });
       expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
         status: 'DOCS_PENDING',
@@ -1041,7 +1050,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
 
   it('refus de l’ops : dossier REJECTED, plus aucune décision ; un rappel d’identité rejoué n’écrit aucun second fait', async () => {
     await withRole('app_api', async (c) => {
-      const ops = await elevatedStaff(c, 'OPS_AGENT', [country]);
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { org } = await readyHost(c, country);
       expect((await decide(c, ops, org, 'REJECTED', [country])).outcome).toBe('DONE');
       expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({ status: 'REJECTED' });
