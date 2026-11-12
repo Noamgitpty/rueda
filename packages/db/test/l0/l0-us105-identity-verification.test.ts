@@ -531,6 +531,30 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
     },
   );
 
+  it('tables KYC : RLS ENABLE + FORCE, propriétaire migrator, politique migrator_all', async () => {
+    await withRole('app_api', async (c) => {
+      const { rows } = await c.query<{ t: string; ok: boolean }>(
+        `SELECT c.relname AS t,
+                c.relrowsecurity AND c.relforcerowsecurity
+                AND pg_catalog.pg_get_userbyid(c.relowner) = 'migrator'
+                AND EXISTS (SELECT 1 FROM pg_catalog.pg_policy p
+                             WHERE p.polrelid = c.oid AND p.polname = 'migrator_all') AS ok
+           FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'core' AND c.relkind = 'r' AND c.relname LIKE 'kyc%'
+          ORDER BY 1`,
+      );
+      expect(rows).toEqual(
+        [
+          'kyc_identity_document',
+          'kyc_identity_verification',
+          'kyc_liveness_check',
+          'kyc_provider_event',
+          'kyc_webhook_rejection',
+        ].map((t) => ({ t, ok: true })),
+      );
+    });
+  });
+
   it('app_api ne lit ni n’écrit aucune table KYC directement (commandes seulement)', async () => {
     await withRole('app_api', async (c) => {
       for (const t of [
