@@ -28,7 +28,7 @@ import { withRole } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
-import { elevatedStaff } from '../support/staff.ts';
+import { elevatedStaff as elevatedRaw, installTestProofKey } from '../support/staff.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const byCountry = COUNTRIES.map((c) => [c.country, c.currency, c] as const);
@@ -55,7 +55,13 @@ const CHECK_KEYS = [
 ] as const;
 const PURPOSE = 'Contrôle du titre et du registre du véhicule';
 
-type Staff = Awaited<ReturnType<typeof elevatedStaff>>;
+type Staff = Awaited<ReturnType<typeof elevatedRaw>>;
+
+/** Staff élevé par TOTP (clé de preuve de test installée d'abord, comme l0-us123). */
+async function elevatedStaff(c: pg.ClientBase, role: string, scope: readonly string[]) {
+  await installTestProofKey(c);
+  return elevatedRaw(c, role, scope);
+}
 
 interface Host {
   readonly userId: string;
@@ -742,7 +748,7 @@ describe('critère 2 — plaque ou VIN discordants avec le titre : le véhicule 
 // ---------------------------------------------------------------------------------------------
 describe('critère 3 — véhicule financé sans consentement écrit du créancier : non publiable', () => {
   it.each(byCountry)(
-    '%s (%s) : prenda déclarée, vehicle_financed_requires_lender_consent = true ⇒ VEHICLE_LENDER_CONSENT_REQUIRED ; clé absente ⇒ même refus (fail-closed) ; consentement refusé par l’ops ⇒ non publiable ; témoin avec consentement : ELIGIBLE et publiable',
+    '%s (%s) : prenda déclarée, vehicle_financed_requires_lender_consent = true ⇒ VEHICLE_LENDER_CONSENT_REQUIRED ; témoin du paramètre à false : soumis ; consentement refusé par l’ops ⇒ non publiable ; témoin avec consentement : ELIGIBLE et publiable',
     async (country, _currency, cc: CountryCase) => {
       await withRole('app_api', async (client) => {
         const h = await host(client, country);
@@ -753,17 +759,11 @@ describe('critère 3 — véhicule financé sans consentement écrit du créanci
           item: null,
         });
         expect(await itemsOf(client, id)).toEqual([]);
-        // clé absente ou mal formée (transaction annulée) ⇒ exigé quand même
+        // TÉMOIN du paramètre (transaction annulée) : false ⇒ la soumission franchit la règle ;
+        // une clé absente vaut true (COALESCE de catalog_vehicle_blockers : la garde de la
+        // configuration refuse d'écrire une valeur nulle ou mal typée)
         await client.query('BEGIN');
         try {
-          await client.query('SELECT test_fixture.us124_param_version($1, $2, $3::jsonb)', [
-            'vehicle_financed_requires_lender_consent',
-            country,
-            'null',
-          ]);
-          expect((await submitVehicle(client, h, id)).outcome).toBe(
-            'VEHICLE_LENDER_CONSENT_REQUIRED',
-          );
           // TÉMOIN du paramètre : false ⇒ la soumission franchit la règle
           await client.query('SELECT test_fixture.us124_param_version($1, $2, $3::jsonb)', [
             'vehicle_financed_requires_lender_consent',
@@ -840,14 +840,14 @@ describe('critère 4 — hors catalogue ou au-delà de l’âge maximal du pays 
         expect(await declare(client, h, km, { km: KM_CEILING - 1 })).toBe('DONE');
         expect((await submitVehicle(client, h, km)).outcome).toBe('DONE');
 
-        // seuil d'âge absent ou mal formé ⇒ PARAM_MISSING, jamais soumis (fail-closed)
+        // seuil d'âge inutilisable (0) ⇒ PARAM_MISSING, jamais soumis (fail-closed)
         const fresh = await complete(client, h, country, { year: 2023 });
         await client.query('BEGIN');
         try {
           await client.query('SELECT test_fixture.us124_param_version($1, $2, $3::jsonb)', [
             'elig_age_years_ceiling',
             country,
-            'null',
+            '0',
           ]);
           expect((await submitVehicle(client, h, fresh)).outcome).toBe('PARAM_MISSING');
         } finally {
