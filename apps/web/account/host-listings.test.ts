@@ -173,29 +173,37 @@ describe('lecture défensive des réponses', () => {
   });
 
   it('fiche publique : colonnes attendues seulement, montant en bigint', () => {
-    const l = publicListingOf(
-      reply(200, {
-        listing: {
-          id: ID,
-          dailyPriceMinor: '4000',
-          currency: 'XXX',
-          currencyExponent: 2,
-          mileageMode: 'INCLUDED',
-          includedKmPerDay: 250,
-          instantBook: true,
-          makeName: 'Marca',
-          modelName: 'Modelo',
-          year: 2021,
-          transmission: 'AUTOMATIC',
-          seats: 5,
-          fuelType: 'GASOLINE',
-          city: 'Ciudad',
-          areaLabel: 'Zona',
-        },
-      }),
-    );
-    expect(l).toMatchObject({ dailyPriceMinor: 4000n, city: 'Ciudad', areaLabel: 'Zona' });
+    const listing = {
+      id: ID,
+      country: 'XX',
+      dailyPriceMinor: '4000',
+      currency: 'XXX',
+      currencyExponent: 2,
+      mileageMode: 'INCLUDED',
+      includedKmPerDay: 250,
+      instantBook: true,
+      makeName: 'Marca',
+      modelName: 'Modelo',
+      year: 2021,
+      transmission: 'AUTOMATIC',
+      seats: 5,
+      fuelType: 'GASOLINE',
+      city: 'Ciudad',
+      areaLabel: 'Zona',
+    };
+    const l = publicListingOf(reply(200, { listing }));
+    expect(l).toMatchObject({
+      country: 'XX',
+      dailyPriceMinor: 4000n,
+      city: 'Ciudad',
+      areaLabel: 'Zona',
+    });
     expect(publicListingOf(reply(404, { code: 'LISTING_NOT_FOUND' }))).toBeNull();
+    // US-125 : le pays porte les avertissements réglementaires ; absent ou mal formé ⇒ illisible
+    const withoutCountry: Record<string, unknown> = { ...listing };
+    delete withoutCountry['country'];
+    expect(publicListingOf(reply(200, { listing: withoutCountry }))).toBeNull();
+    expect(publicListingOf(reply(200, { listing: { ...listing, country: 'xx' } }))).toBeNull();
   });
 
   it('clé de message de l’API seulement si elle est au catalogue ; champs refusés sans valeur', () => {

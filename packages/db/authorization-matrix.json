@@ -973,6 +973,19 @@
         "sans_nom": "tout"
       }
     },
+    "core.config_go_live_switch_request": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.config_holiday_calendar": {
       "type": "table",
       "droits": {

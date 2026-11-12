@@ -175,6 +175,15 @@ describe('schéma d’audit (US-009)', () => {
           expect(r.cmd, where).toBe('a');
           continue;
         }
+        if (r.roles === 'cmd_golive_owner') {
+          // US-125 (0073) : interrupteurs à deux personnes, journal en ajout seul (+ RETURNING id)
+          expect(
+            ['audit_audit_log.cmd_golive_ins', 'audit_audit_log.cmd_golive_sel'],
+            where,
+          ).toContain(where);
+          expect(['a', 'r'], where).toContain(r.cmd);
+          continue;
+        }
         if (r.roles === 'audit_chain_owner') {
           // US-011 (0026) : lecture et verrou des clés, avance de la tête ; aucun INSERT / DELETE
           expect(['r', 'w'], where).toContain(r.cmd);
