@@ -882,6 +882,77 @@ export const EN_MESSAGES = {
   'common.vehicle.catalog.variantRetired':
     'This version is no longer in the catalog. Choose another one.',
   'common.vehicle.catalog.variantNotFound': 'We couldn’t find this version in the catalog.',
+  'common.catalogAddition.requested':
+    'We asked to add your car to the catalog. We’ll let you know when it’s ready.',
+  'common.catalogAddition.pending':
+    'Your car isn’t in the catalog yet. You can submit the listing once our team adds it.',
+  'common.catalogAddition.duplicate': 'There’s already an open request for this car.',
+  'common.catalogAddition.alreadyLinked': 'This car is already in the catalog.',
+  'common.catalogAddition.closed': 'This request has already been resolved.',
+  'common.catalogAddition.variantExists':
+    'This version is already in the catalog. Link it instead of creating it.',
+  'common.catalogAddition.variantNotFound':
+    'This version doesn’t fit this car: another market, another year or retired.',
+  'common.catalogAddition.entryInvalid':
+    'Check the version details: a value is invalid or they don’t cover the car’s year.',
+  'web.host.car.catalogHint':
+    'If your car isn’t in the catalog, our team reviews it and adds it before you publish.',
+  'web.host.catalog.status.OPEN': 'Awaiting catalog',
+  'web.host.catalog.status.APPROVED': 'In the catalog',
+  'web.host.catalog.status.MERGED': 'In the catalog',
+  'web.host.catalog.status.REJECTED': 'Not added',
+  'web.host.catalog.pending':
+    'Our team reviews it by {date}. Until then, your listing stays a draft.',
+  'web.host.catalog.reason.INSUFFICIENT_DETAILS': 'We need more details to identify your car.',
+  'web.host.catalog.reason.UNKNOWN_MODEL': 'We couldn’t identify the make or the model.',
+  'web.host.catalog.reason.NOT_ELIGIBLE': 'This vehicle can’t be listed on the platform.',
+  'web.host.catalog.retry': 'Fix the make and model, then ask again',
+  'web.host.catalog.send': 'Ask again',
+  'ntf.catalogAdditionApproved.email.subject': 'Your car is now in the catalog',
+  'ntf.catalogAdditionApproved.email.body':
+    'Hi {first_name}. We added your car to the {brand} catalog. You can now submit your listing from your host space.',
+  'ntf.catalogAdditionApproved.sms.body':
+    '{brand}: your car is now in the catalog. You can submit your listing.',
+  'ntf.catalogAdditionRejected.email.subject': 'We couldn’t add your car to the catalog',
+  'ntf.catalogAdditionRejected.email.body':
+    'Hi {first_name}. We couldn’t add your car to the {brand} catalog. Your host space shows why and lets you fix the make and model.',
+  'ntf.catalogAdditionRejected.sms.body':
+    '{brand}: we couldn’t add your car to the catalog. Reason in your host space.',
+  'backoffice.catalog.open': 'Open the request',
+  'backoffice.catalog.heading': 'Catalog addition request',
+  'backoffice.catalog.requested': 'What the host entered',
+  'backoffice.catalog.vin': 'VIN (serial number hidden)',
+  'backoffice.catalog.declared': 'Declared car details',
+  'backoffice.catalog.due': 'Decide by {date}',
+  'backoffice.catalog.candidates': 'Catalog versions for this car',
+  'backoffice.catalog.noCandidate': 'No catalog version matches the make and the year.',
+  'backoffice.catalog.version': 'Version',
+  'backoffice.catalog.years': 'Years',
+  'backoffice.catalog.modelMatch': 'Same model',
+  'backoffice.catalog.merge': 'Link this version',
+  'backoffice.catalog.approveHeading': 'Create the version in the catalog',
+  'backoffice.catalog.makeName': 'Make',
+  'backoffice.catalog.modelName': 'Model',
+  'backoffice.catalog.bodyType': 'Body type',
+  'backoffice.catalog.yearFrom': 'From year',
+  'backoffice.catalog.yearTo': 'Until year',
+  'backoffice.catalog.trimName': 'Trim',
+  'backoffice.catalog.transmission': 'Gearbox',
+  'backoffice.catalog.fuel': 'Fuel',
+  'backoffice.catalog.drive': 'Drive',
+  'backoffice.catalog.seats': 'Seats',
+  'backoffice.catalog.doors': 'Doors',
+  'backoffice.catalog.licenseNote': 'Data source and license',
+  'backoffice.catalog.licenseHint':
+    'Say where the data comes from, for example the vehicle title. Never copy another site or a listing.',
+  'backoffice.catalog.approve': 'Create and link',
+  'backoffice.catalog.rejectHeading': 'Reject with a reason',
+  'backoffice.catalog.reject.INSUFFICIENT_DETAILS': 'Not enough details',
+  'backoffice.catalog.reject.UNKNOWN_MODEL': 'Unknown model',
+  'backoffice.catalog.reject.NOT_ELIGIBLE': 'Vehicle not accepted',
+  'backoffice.catalog.done.APPROVED': 'Version created and linked. We notified the host.',
+  'backoffice.catalog.done.MERGED': 'Version linked. We notified the host.',
+  'backoffice.catalog.done.REJECTED': 'Request rejected. We notified the host.',
   'common.calendar.blockCreated': 'Dates blocked.',
   'common.calendar.blockRemoved': 'Dates unblocked.',
   'common.calendar.noticeSaved': 'Advance notice saved.',
@@ -1004,4 +1075,13 @@ export const EN_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Renting from an individual',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'This car is rented out by an individual. In Paraguay, the tax status of individual hosts is under review. Your receipt shows what you pay.',
+  'common.catalogAddition.rejected':
+    'Your car wasn’t added to the catalog. Check the reason under the car.',
+  'common.catalogAddition.notAllowed':
+    'You can no longer ask to add this car. If you think it’s a mistake, contact support.',
+  'web.host.catalog.final':
+    'This car can’t be listed. If you think it’s a mistake, contact support.',
+  'backoffice.catalog.choose': 'Choose an option',
+  'backoffice.catalog.rejectConfirm': 'I confirm the rejection: the host will be notified.',
+  'backoffice.catalog.ongoing': 'ongoing',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -941,6 +941,79 @@ export const FR_MESSAGES = {
     'Cette version n’est plus au catalogue. Choisis-en une autre.',
   'common.vehicle.catalog.variantNotFound':
     'Nous n’avons pas trouvé cette version dans le catalogue.',
+  'common.catalogAddition.requested':
+    'Nous avons demandé l’ajout de ta voiture au catalogue. Nous te préviendrons quand ce sera prêt.',
+  'common.catalogAddition.pending':
+    'Ta voiture n’est pas encore au catalogue. Tu pourras envoyer l’annonce quand l’équipe l’aura ajoutée.',
+  'common.catalogAddition.duplicate': 'Une demande est déjà ouverte pour cette voiture.',
+  'common.catalogAddition.alreadyLinked': 'Cette voiture est déjà au catalogue.',
+  'common.catalogAddition.closed': 'Cette demande a déjà été tranchée.',
+  'common.catalogAddition.variantExists':
+    'Cette version est déjà au catalogue. Rattachez-la au lieu de la créer.',
+  'common.catalogAddition.variantNotFound':
+    'Cette version ne convient pas à cette voiture : autre marché, autre année ou retirée.',
+  'common.catalogAddition.entryInvalid':
+    'Vérifiez la version : une valeur est invalide ou elle ne couvre pas l’année de la voiture.',
+  'web.host.car.catalogHint':
+    'Si ta voiture n’est pas au catalogue, l’équipe la vérifie et l’ajoute avant ta publication.',
+  'web.host.catalog.status.OPEN': 'En attente du catalogue',
+  'web.host.catalog.status.APPROVED': 'Au catalogue',
+  'web.host.catalog.status.MERGED': 'Au catalogue',
+  'web.host.catalog.status.REJECTED': 'Non ajoutée',
+  'web.host.catalog.pending':
+    'L’équipe la vérifie avant le {date}. D’ici là, ton annonce reste en brouillon.',
+  'web.host.catalog.reason.INSUFFICIENT_DETAILS':
+    'Il manque des informations pour identifier ta voiture.',
+  'web.host.catalog.reason.UNKNOWN_MODEL': 'Nous n’avons pas pu identifier la marque ou le modèle.',
+  'web.host.catalog.reason.NOT_ELIGIBLE': 'Ce véhicule ne peut pas être publié sur la plateforme.',
+  'web.host.catalog.retry': 'Corrige la marque et le modèle, puis redemande',
+  'web.host.catalog.send': 'Redemander',
+  'ntf.catalogAdditionApproved.email.subject': 'Ta voiture est au catalogue',
+  'ntf.catalogAdditionApproved.email.body':
+    'Bonjour {first_name}. Nous avons ajouté ta voiture au catalogue de {brand}. Tu peux maintenant envoyer ton annonce depuis ton espace hôte.',
+  'ntf.catalogAdditionApproved.sms.body':
+    '{brand} : ta voiture est au catalogue. Tu peux envoyer ton annonce.',
+  'ntf.catalogAdditionRejected.email.subject': 'Ta voiture n’a pas été ajoutée au catalogue',
+  'ntf.catalogAdditionRejected.email.body':
+    'Bonjour {first_name}. Nous n’avons pas pu ajouter ta voiture au catalogue de {brand}. Ton espace hôte indique la raison et te permet de corriger la marque et le modèle.',
+  'ntf.catalogAdditionRejected.sms.body':
+    '{brand} : ta voiture n’a pas été ajoutée au catalogue. Raison dans ton espace hôte.',
+  'backoffice.catalog.open': 'Ouvrir la demande',
+  'backoffice.catalog.heading': 'Demande d’ajout au catalogue',
+  'backoffice.catalog.requested': 'Saisie de l’hôte',
+  'backoffice.catalog.vin': 'VIN (numéro de série masqué)',
+  'backoffice.catalog.declared': 'Caractéristiques déclarées',
+  'backoffice.catalog.due': 'À trancher avant le {date}',
+  'backoffice.catalog.candidates': 'Versions du catalogue pour cette voiture',
+  'backoffice.catalog.noCandidate':
+    'Aucune version du catalogue ne correspond à la marque et à l’année.',
+  'backoffice.catalog.version': 'Version',
+  'backoffice.catalog.years': 'Années',
+  'backoffice.catalog.modelMatch': 'Même modèle',
+  'backoffice.catalog.merge': 'Rattacher cette version',
+  'backoffice.catalog.approveHeading': 'Créer la version au catalogue',
+  'backoffice.catalog.makeName': 'Marque',
+  'backoffice.catalog.modelName': 'Modèle',
+  'backoffice.catalog.bodyType': 'Carrosserie',
+  'backoffice.catalog.yearFrom': 'À partir de l’année',
+  'backoffice.catalog.yearTo': 'Jusqu’à l’année',
+  'backoffice.catalog.trimName': 'Finition',
+  'backoffice.catalog.transmission': 'Boîte de vitesses',
+  'backoffice.catalog.fuel': 'Carburant',
+  'backoffice.catalog.drive': 'Transmission',
+  'backoffice.catalog.seats': 'Places',
+  'backoffice.catalog.doors': 'Portes',
+  'backoffice.catalog.licenseNote': 'Source et licence des données',
+  'backoffice.catalog.licenseHint':
+    'Indiquez d’où viennent les données, par exemple le titre du véhicule. Ne copiez jamais un autre site ni une annonce.',
+  'backoffice.catalog.approve': 'Créer et rattacher',
+  'backoffice.catalog.rejectHeading': 'Refuser avec un motif',
+  'backoffice.catalog.reject.INSUFFICIENT_DETAILS': 'Informations insuffisantes',
+  'backoffice.catalog.reject.UNKNOWN_MODEL': 'Modèle inconnu',
+  'backoffice.catalog.reject.NOT_ELIGIBLE': 'Véhicule non admis',
+  'backoffice.catalog.done.APPROVED': 'Version créée et rattachée. L’hôte est prévenu.',
+  'backoffice.catalog.done.MERGED': 'Version rattachée. L’hôte est prévenu.',
+  'backoffice.catalog.done.REJECTED': 'Demande refusée. L’hôte est prévenu.',
   'common.calendar.blockCreated': 'Dates bloquées.',
   'common.calendar.blockRemoved': 'Dates débloquées.',
   'common.calendar.noticeSaved': 'Préavis enregistré.',
@@ -1073,4 +1146,13 @@ export const FR_MESSAGES = {
   'common.regulatory.hostTaxStatus.v1.guest.title': 'Location auprès d’un particulier',
   'common.regulatory.hostTaxStatus.v1.guest.body':
     'Cette voiture est louée par un particulier. Au Paraguay, la situation fiscale des hôtes particuliers fait l’objet d’une analyse en cours. Ton reçu détaille ce que tu paies.',
+  'common.catalogAddition.rejected':
+    'Ta voiture n’a pas été ajoutée au catalogue. Consulte la raison sous la voiture.',
+  'common.catalogAddition.notAllowed':
+    'Tu ne peux plus demander l’ajout de cette voiture. Si c’est une erreur, écris au support.',
+  'web.host.catalog.final':
+    'Cette voiture ne peut pas être publiée. Si c’est une erreur, écris au support.',
+  'backoffice.catalog.choose': 'Choisissez une option',
+  'backoffice.catalog.rejectConfirm': 'Je confirme le refus : l’hôte sera prévenu.',
+  'backoffice.catalog.ongoing': 'en cours',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -141,11 +141,28 @@ async function completeDraft(client: pg.ClientBase, h: Host, c: CountryCase): Pr
                                                     'Zona', 8.9837, -79.5198)`,
     [h.hash, h.org],
   );
+  // véhicule rattaché au catalogue (variante commune de la graine) : depuis US-114 (0074), un
+  // véhicule hors catalogue n'est pas publiable (CATALOG_ADDITION_PENDING, l0-us114)
+  const variant = await client.query<{ id: string; year_from: number }>(
+    `SELECT v.id, v.year_from
+       FROM core.catalog_vehicle_variant v
+       JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
+       JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
+      WHERE v.status = 'ACTIVE' AND v.market IS NULL
+      ORDER BY v.id LIMIT 1`,
+  );
   const veh = await client.query<{ outcome: string; vehicle_id: string | null }>(
-    `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
-                                                   2021, NULL, 'AUTOMATIC', 5::smallint,
+    `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, $5, NULL, NULL,
+                                                   $6, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
-    [h.hash, h.org, loc.rows[0]?.location_id, `T${randomBytes(4).toString('hex').toUpperCase()}`],
+    [
+      h.hash,
+      h.org,
+      loc.rows[0]?.location_id,
+      `T${randomBytes(4).toString('hex').toUpperCase()}`,
+      variant.rows[0]?.id,
+      variant.rows[0]?.year_from,
+    ],
   );
   const lst = await client.query<{ outcome: string; listing_id: string | null }>(
     `SELECT * FROM core.catalog_cmd_create_listing($1, $2, $3, $4, 'UNLIMITED', NULL, NULL, NULL)`,

@@ -3,9 +3,11 @@
  * ADM-032 journal d'accès) : files de revue avec retard signalé, dossier KYC ouvert par la file
  * seulement, fiche 360° (recherche, identité, statut KYC sans pièce, restrictions, comptes d'hôte
  * fermés à la réservation, trips, dossiers, notes), restriction et levée motivées, ouverture d'un
- * dossier, ajout d'une pièce. US-106 : dossier KYC complété (état SM-3, motif, champs minimaux du
- * permis, scores, consentement) et décision `KYC_DECISION` (quatre contrôles cochés, motif) ;
- * statut SM-3 dans la fiche. Composant de PRÉSENTATION pur : aucun appel réseau ni état ; la
+ * dossier, ajout d'une pièce ; demande d'ajout au catalogue (US-114 ; 16 ADM-036 : rapprocher d'une
+ * variante existante, créer la variante sous licence, ou refuser avec un motif). US-106 : dossier
+ * KYC complété (état SM-3, motif, champs minimaux du permis, scores, consentement) et décision
+ * `KYC_DECISION` (quatre contrôles cochés, motif) ; statut SM-3 dans la fiche. Composant de
+ * PRÉSENTATION pur : aucun appel réseau ni état ; la
  * logique est dans `console-client.tsx`. Composants de `@rueda/ui` ; mise en page par les jetons
  * (console.module.css). La base reste juge de chaque droit et journalise chaque consultation.
  */
@@ -123,6 +125,57 @@ export interface KycDossierView {
   readonly residenceCountry: string | null;
 }
 
+/** Demande d'ajout au catalogue d'un élément CATALOG_ADDITION pris en charge (US-114). */
+export interface CatalogAdditionView {
+  readonly itemId: string;
+  readonly requestId: string;
+  readonly country: string;
+  readonly makeText: string;
+  readonly modelText: string;
+  readonly year: number;
+  readonly trimText: string | null;
+  readonly vinMasked: string | null;
+  readonly transmission: 'MANUAL' | 'AUTOMATIC';
+  readonly seats: number;
+  readonly fuelType: 'GASOLINE' | 'DIESEL' | 'HYBRID' | 'EV';
+  readonly slaDueAt: string;
+  readonly candidates: readonly {
+    readonly variantId: string;
+    readonly make: string;
+    readonly model: string;
+    readonly yearFrom: number;
+    readonly yearTo: number | null;
+    readonly trim: string | null;
+    readonly transmission: string;
+    readonly fuelType: string;
+    readonly drive: string;
+    readonly seats: number;
+    readonly modelMatch: boolean;
+  }[];
+}
+
+export const BODY_TYPES = [
+  'SUV',
+  'PICKUP',
+  'SEDAN',
+  'HATCHBACK',
+  'VAN',
+  'MINIVAN',
+  'COUPE',
+  'CONVERTIBLE',
+  'WAGON',
+] as const;
+export const GEARBOXES = ['MT', 'AT', 'CVT', 'DCT'] as const;
+export const FUELS = ['GASOLINE', 'DIESEL', 'HYBRID', 'PHEV', 'EV', 'LPG'] as const;
+export const DRIVES = ['FWD', 'RWD', 'AWD', '4X4'] as const;
+export const REJECT_REASONS = ['INSUFFICIENT_DETAILS', 'UNKNOWN_MODEL', 'NOT_ELIGIBLE'] as const;
+
+/** Décision de l'ops (la base juge chaque valeur, l'année et le marché). */
+export type CatalogResolutionInput =
+  | { readonly decision: 'MERGE'; readonly variantId: string }
+  | { readonly decision: 'APPROVE'; readonly entry: Readonly<Record<string, unknown>> }
+  | { readonly decision: 'REJECT'; readonly rejectReason: (typeof REJECT_REASONS)[number] };
+
 export interface ProfileView {
   readonly country: string;
   readonly profile: {
@@ -180,6 +233,7 @@ export interface OpsState {
       }
     | undefined;
   readonly kyc?: KycDossierView | undefined;
+  readonly catalog?: CatalogAdditionView | undefined;
   readonly profile?: ProfileView | undefined;
   readonly notice?:
     | {
@@ -228,6 +282,8 @@ export interface OpsHandlers {
     checks: Readonly<Record<KycCheck, KycCheckResult>>,
     reason: string,
   ) => void;
+  readonly onOpenCatalog: (itemId: string) => void;
+  readonly onResolveCatalog: (itemId: string, resolution: CatalogResolutionInput) => void;
   readonly onSearch: (email: string, purpose: string) => void;
   readonly onOpenProfile: (userId: string, purpose: string) => void;
   readonly onAddNote: (userId: string, body: string) => void;
@@ -338,6 +394,42 @@ function checkOf(event: FormEvent<HTMLFormElement>, name: KycCheck): KycCheckRes
   const v = new FormData(event.currentTarget).get(name);
   return v === 'PASSED' || v === 'FAILED' ? v : null;
 }
+// libellés du catalogue de référence (US-113, `common.vehicle.*`)
+const BODY_KEYS: Readonly<Record<(typeof BODY_TYPES)[number], MessageKey>> = {
+  SUV: 'common.vehicle.bodyType.suv',
+  PICKUP: 'common.vehicle.bodyType.pickup',
+  SEDAN: 'common.vehicle.bodyType.sedan',
+  HATCHBACK: 'common.vehicle.bodyType.hatchback',
+  VAN: 'common.vehicle.bodyType.van',
+  MINIVAN: 'common.vehicle.bodyType.minivan',
+  COUPE: 'common.vehicle.bodyType.coupe',
+  CONVERTIBLE: 'common.vehicle.bodyType.convertible',
+  WAGON: 'common.vehicle.bodyType.wagon',
+};
+const GEARBOX_KEYS: Readonly<Record<string, MessageKey>> = {
+  MT: 'common.vehicle.gearbox.manual',
+  AT: 'common.vehicle.gearbox.automatic',
+  CVT: 'common.vehicle.gearbox.cvt',
+  DCT: 'common.vehicle.gearbox.dualClutch',
+  MANUAL: 'common.vehicle.gearbox.manual',
+  AUTOMATIC: 'common.vehicle.gearbox.automatic',
+};
+const FUEL_KEYS: Readonly<Record<string, MessageKey>> = {
+  GASOLINE: 'common.vehicle.fuel.gasoline',
+  DIESEL: 'common.vehicle.fuel.diesel',
+  HYBRID: 'common.vehicle.fuel.hybrid',
+  PHEV: 'common.vehicle.fuel.plugInHybrid',
+  EV: 'common.vehicle.fuel.electric',
+  LPG: 'common.vehicle.fuel.lpg',
+};
+const DRIVE_KEYS: Readonly<Record<string, MessageKey>> = {
+  FWD: 'common.vehicle.drive.front',
+  RWD: 'common.vehicle.drive.rear',
+  AWD: 'common.vehicle.drive.allWheel',
+  '4X4': 'common.vehicle.drive.fourByFour',
+};
+const labelOf = (i18n: Translator, keys: Readonly<Record<string, MessageKey>>, v: string) =>
+  keys[v] ? i18n.t(keys[v] as MessageKey) : v;
 
 const RESTRICTION_KEYS: Readonly<Record<string, MessageKey>> = {
   TS_HOLD: 'backoffice.restriction.TS_HOLD',
@@ -460,6 +552,8 @@ export function OpsPanels({
                 } else if (verb === 'claim' && target !== undefined) handlers.onClaim(target);
                 else if (verb === 'kyc' && target !== undefined) {
                   handlers.onOpenKyc(target, fieldOf(e, 'purpose'));
+                } else if (verb === 'catalog' && target !== undefined) {
+                  handlers.onOpenCatalog(target);
                 }
               })}
             >
@@ -543,6 +637,17 @@ export function OpsPanels({
                                 {i18n.t('backoffice.queues.claim')}
                               </Button>
                             )}
+                            {item.queue === 'CATALOG_ADDITION' && item.assignedToMe && (
+                              <Button
+                                type="submit"
+                                name="op"
+                                value={`catalog:${item.id}`}
+                                variant="primary"
+                                loading={busy}
+                              >
+                                {i18n.t('backoffice.catalog.open')}
+                              </Button>
+                            )}
                             {item.queue === 'KYC' && item.assignedToMe && (
                               <Button
                                 type="submit"
@@ -571,6 +676,10 @@ export function OpsPanels({
 
       {state.kyc !== undefined && (
         <KycPanel i18n={i18n} kyc={state.kyc} handlers={handlers} busy={busy} />
+      )}
+
+      {state.catalog !== undefined && (
+        <CatalogPanel i18n={i18n} c={state.catalog} handlers={handlers} busy={busy} />
       )}
 
       {showProfile && (
@@ -619,6 +728,322 @@ export function OpsPanels({
         </section>
       )}
     </>
+  );
+}
+
+function SelectField(props: {
+  readonly i18n: Translator;
+  readonly id: string;
+  readonly name: string;
+  readonly label: string;
+  readonly options: readonly string[];
+  readonly defaultValue?: string | undefined;
+  readonly keys: Readonly<Record<string, MessageKey>>;
+}) {
+  const { i18n, id, name, label, options, defaultValue, keys } = props;
+  // sans valeur par défaut : aucune présélection, le choix est exigé (revue ux US-114)
+  return (
+    <div className={styles['group']}>
+      <label className={styles['label']} htmlFor={id}>
+        {label}
+      </label>
+      <select
+        id={id}
+        name={name}
+        defaultValue={defaultValue ?? ''}
+        required
+        className={styles['select']}
+      >
+        {defaultValue === undefined && (
+          <option value="" disabled>
+            {i18n.t('backoffice.catalog.choose')}
+          </option>
+        )}
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {labelOf(i18n, keys, o)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+const intOf = (raw: string): number | null => (/^[0-9]{1,4}$/.test(raw) ? Number(raw) : null);
+
+/**
+ * Demande d'ajout au catalogue (US-114) : saisie de l'hôte, variantes candidates à rattacher,
+ * création d'une variante sous licence (la marque et le modèle existants sont repris par la base),
+ * refus motivé. Aucune donnée personnelle (VIN sans numéro de série).
+ */
+function CatalogPanel({
+  i18n,
+  c,
+  handlers,
+  busy,
+}: {
+  readonly i18n: Translator;
+  readonly c: CatalogAdditionView;
+  readonly handlers: OpsHandlers;
+  readonly busy: boolean;
+}) {
+  const gearbox = c.transmission === 'MANUAL' ? 'MT' : 'AT';
+  return (
+    <section className={styles['panel']} aria-labelledby="catalog-heading">
+      <h2 id="catalog-heading" className={styles['heading']} tabIndex={-1}>
+        {i18n.t('backoffice.catalog.heading')}
+      </h2>
+      <p className={styles['muted']}>
+        {i18n.t('backoffice.catalog.due', { date: `${i18n.dateTime(c.slaDueAt, 'UTC')} UTC` })}
+      </p>
+      <div className={styles['group']}>
+        <h3 className={styles['label']}>{i18n.t('backoffice.catalog.requested')}</h3>
+        <p>
+          {c.makeText} {c.modelText} {c.year}
+          {c.trimText !== null ? ` · ${c.trimText}` : ''} · {c.country}
+        </p>
+        {c.vinMasked !== null && (
+          <p className={styles['role']}>
+            <span className={styles['label']}>{i18n.t('backoffice.catalog.vin')}</span>
+            <code className={styles['code']}>{c.vinMasked}</code>
+          </p>
+        )}
+        <p className={styles['role']}>
+          <span className={styles['label']}>{i18n.t('backoffice.catalog.declared')}</span>
+          <span>
+            {labelOf(i18n, GEARBOX_KEYS, c.transmission)} · {labelOf(i18n, FUEL_KEYS, c.fuelType)} ·{' '}
+            {c.seats}
+          </span>
+        </p>
+      </div>
+
+      <form
+        className={styles['form']}
+        onSubmit={prevent((e) => {
+          const variantId = submitted(e);
+          if (variantId !== '') {
+            handlers.onResolveCatalog(c.itemId, { decision: 'MERGE', variantId });
+          }
+        })}
+      >
+        <DataTable
+          id="catalog-candidates"
+          caption={i18n.t('backoffice.catalog.candidates')}
+          columns={[
+            { key: 'version', header: i18n.t('backoffice.catalog.version') },
+            { key: 'years', header: i18n.t('backoffice.catalog.years') },
+            { key: 'specs', header: i18n.t('backoffice.catalog.declared') },
+            { key: 'actions', header: i18n.t('backoffice.queues.actions') },
+          ]}
+          rows={c.candidates.map((k) => ({
+            id: k.variantId,
+            cells: {
+              version: (
+                <span className={styles['role']}>
+                  <span>
+                    {k.make} {k.model}
+                    {k.trim !== null ? ` · ${k.trim}` : ''}
+                  </span>
+                  {k.modelMatch && (
+                    <Badge tone="success">{i18n.t('backoffice.catalog.modelMatch')}</Badge>
+                  )}
+                </span>
+              ),
+              years: `${k.yearFrom}–${k.yearTo ?? i18n.t('backoffice.catalog.ongoing')}`,
+              specs: `${labelOf(i18n, GEARBOX_KEYS, k.transmission)} · ${labelOf(i18n, FUEL_KEYS, k.fuelType)} · ${labelOf(i18n, DRIVE_KEYS, k.drive)} · ${k.seats}`,
+              actions: (
+                <Button
+                  type="submit"
+                  name="variant"
+                  value={k.variantId}
+                  variant="secondary"
+                  loading={busy}
+                >
+                  {i18n.t('backoffice.catalog.merge')}
+                </Button>
+              ),
+            },
+          }))}
+          empty={<EmptyState title={i18n.t('backoffice.catalog.noCandidate')} headingLevel={3} />}
+        />
+      </form>
+
+      <form
+        className={styles['form']}
+        aria-labelledby="catalog-approve"
+        onSubmit={prevent((e) => {
+          const yearTo = fieldOf(e, 'yearTo').trim();
+          handlers.onResolveCatalog(c.itemId, {
+            decision: 'APPROVE',
+            entry: {
+              makeName: fieldOf(e, 'makeName').trim(),
+              modelName: fieldOf(e, 'modelName').trim(),
+              bodyType: fieldOf(e, 'bodyType'),
+              yearFrom: intOf(fieldOf(e, 'yearFrom').trim()),
+              yearTo: yearTo === '' ? null : intOf(yearTo),
+              trimName: fieldOf(e, 'trimName').trim() || null,
+              transmission: fieldOf(e, 'transmission'),
+              fuelType: fieldOf(e, 'fuelType'),
+              drive: fieldOf(e, 'drive'),
+              seats: intOf(fieldOf(e, 'seats').trim()),
+              doors: intOf(fieldOf(e, 'doors').trim()),
+              licenseNote: fieldOf(e, 'licenseNote').trim(),
+            },
+          });
+        })}
+      >
+        <h3 id="catalog-approve" className={styles['label']}>
+          {i18n.t('backoffice.catalog.approveHeading')}
+        </h3>
+        <TextField
+          i18n={i18n}
+          id="catalog-make"
+          name="makeName"
+          maxLength={80}
+          defaultValue={c.makeText}
+          label={i18n.t('backoffice.catalog.makeName')}
+        />
+        <TextField
+          i18n={i18n}
+          id="catalog-model"
+          name="modelName"
+          maxLength={80}
+          defaultValue={c.modelText}
+          label={i18n.t('backoffice.catalog.modelName')}
+        />
+        <SelectField
+          i18n={i18n}
+          id="catalog-body"
+          name="bodyType"
+          label={i18n.t('backoffice.catalog.bodyType')}
+          options={BODY_TYPES}
+          keys={BODY_KEYS}
+        />
+        <TextField
+          i18n={i18n}
+          id="catalog-year-from"
+          name="yearFrom"
+          inputMode="numeric"
+          maxLength={4}
+          defaultValue={String(c.year)}
+          label={i18n.t('backoffice.catalog.yearFrom')}
+        />
+        <TextField
+          i18n={i18n}
+          id="catalog-year-to"
+          name="yearTo"
+          inputMode="numeric"
+          maxLength={4}
+          optional
+          label={i18n.t('backoffice.catalog.yearTo')}
+        />
+        <TextField
+          i18n={i18n}
+          id="catalog-trim"
+          name="trimName"
+          maxLength={80}
+          optional
+          defaultValue={c.trimText ?? undefined}
+          label={i18n.t('backoffice.catalog.trimName')}
+        />
+        <SelectField
+          i18n={i18n}
+          id="catalog-gearbox"
+          name="transmission"
+          label={i18n.t('backoffice.catalog.transmission')}
+          options={GEARBOXES}
+          defaultValue={gearbox}
+          keys={GEARBOX_KEYS}
+        />
+        <SelectField
+          i18n={i18n}
+          id="catalog-fuel"
+          name="fuelType"
+          label={i18n.t('backoffice.catalog.fuel')}
+          options={FUELS}
+          defaultValue={c.fuelType}
+          keys={FUEL_KEYS}
+        />
+        <SelectField
+          i18n={i18n}
+          id="catalog-drive"
+          name="drive"
+          label={i18n.t('backoffice.catalog.drive')}
+          options={DRIVES}
+          keys={DRIVE_KEYS}
+        />
+        <TextField
+          i18n={i18n}
+          id="catalog-seats"
+          name="seats"
+          inputMode="numeric"
+          maxLength={2}
+          defaultValue={String(c.seats)}
+          label={i18n.t('backoffice.catalog.seats')}
+        />
+        <TextField
+          i18n={i18n}
+          id="catalog-doors"
+          name="doors"
+          inputMode="numeric"
+          maxLength={1}
+          label={i18n.t('backoffice.catalog.doors')}
+        />
+        <TextField
+          i18n={i18n}
+          id="catalog-license"
+          name="licenseNote"
+          minLength={10}
+          maxLength={500}
+          label={i18n.t('backoffice.catalog.licenseNote')}
+          hint={i18n.t('backoffice.catalog.licenseHint')}
+        />
+        <Button type="submit" variant="primary" loading={busy}>
+          {i18n.t('backoffice.catalog.approve')}
+        </Button>
+      </form>
+
+      <form
+        className={styles['form']}
+        onSubmit={prevent((e) => {
+          const reason = submitted(e);
+          if (
+            fieldOf(e, 'confirmReject') !== '' &&
+            (REJECT_REASONS as readonly string[]).includes(reason)
+          ) {
+            handlers.onResolveCatalog(c.itemId, {
+              decision: 'REJECT',
+              rejectReason: reason as (typeof REJECT_REASONS)[number],
+            });
+          }
+        })}
+      >
+        <div role="group" aria-labelledby="catalog-reject" className={styles['group']}>
+          <h3 id="catalog-reject" className={styles['label']}>
+            {i18n.t('backoffice.catalog.rejectHeading')}
+          </h3>
+          {/* confirmation exigée avant l'envoi : l'hôte est prévenu aussitôt (revue ux US-114) */}
+          <label className={styles['role']} htmlFor="catalog-reject-confirm">
+            <input id="catalog-reject-confirm" type="checkbox" name="confirmReject" required />
+            <span>{i18n.t('backoffice.catalog.rejectConfirm')}</span>
+          </label>
+          <div className={styles['actions']}>
+            {REJECT_REASONS.map((reason) => (
+              <Button
+                key={reason}
+                type="submit"
+                name="reason"
+                value={reason}
+                variant="quiet"
+                loading={busy}
+              >
+                {i18n.t(`backoffice.catalog.reject.${reason}`)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </form>
+    </section>
   );
 }
 

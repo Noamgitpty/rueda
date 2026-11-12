@@ -154,7 +154,7 @@
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-115"
+      "story": "US-115, US-114"
     },
     {
       "signature": "core.catalog_cmd_delete_listing(bytea,uuid,uuid)",
@@ -168,7 +168,7 @@
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-115, US-126"
+      "story": "US-115, US-126, US-114"
     },
     {
       "signature": "core.catalog_cmd_update_listing_pricing(bytea,uuid,uuid,bigint,text,integer,bigint)",
@@ -769,8 +769,8 @@
       "signature": "core.support_enqueue_review(text,text,uuid,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": ["kyc_cmd_owner"],
-      "story": "US-109, US-106"
+      "execute": ["catalog_cmd_owner", "kyc_cmd_owner"],
+      "story": "US-109, US-114, US-106"
     },
     {
       "signature": "core.support_close_review_item(uuid,text,text,uuid)",
@@ -778,6 +778,48 @@
       "owner": "iam_staff_owner",
       "execute": ["kyc_cmd_owner"],
       "story": "US-109, US-106"
+    },
+    {
+      "signature": "core.catalog_cmd_request_addition(bytea,uuid,uuid,text,text,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-114"
+    },
+    {
+      "signature": "core.catalog_host_addition_requests(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-114"
+    },
+    {
+      "signature": "core.catalog_addition_detail(uuid,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-114"
+    },
+    {
+      "signature": "core.catalog_resolve_addition(uuid,text,uuid,text,text,uuid,jsonb,text,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-114"
+    },
+    {
+      "signature": "core.support_staff_catalog_addition(bytea,uuid,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-114"
+    },
+    {
+      "signature": "core.support_staff_resolve_catalog_addition(bytea,uuid,uuid,text,uuid,jsonb,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-114"
     },
     {
       "signature": "core.catalog_cmd_place_host_block(bytea,uuid,uuid,timestamp without time zone,timestamp without time zone)",

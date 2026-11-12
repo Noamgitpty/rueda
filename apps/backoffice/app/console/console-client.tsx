@@ -28,6 +28,7 @@ import {
   KYC_REFUSAL_KEYS,
 } from './ops-view.tsx';
 import type {
+  CatalogAdditionView,
   KycDossierView,
   ManualRestriction,
   OpsHandlers,
@@ -332,6 +333,36 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         notice(key !== undefined ? { status: r.status, messageKey: key } : r);
       });
     },
+    onOpenCatalog: (itemId) =>
+      once(async () => {
+        const r = await call<CatalogAdditionView>(
+          'POST',
+          `/console/queues/items/${itemId}/catalog-addition`,
+          { requestId: crypto.randomUUID() },
+        );
+        if (r.ok) setOps((prev) => ({ ...prev, catalog: r.body, notice: undefined }));
+        else {
+          setOps((prev) => ({ ...prev, catalog: undefined }));
+          notice(r);
+        }
+      }),
+    onResolveCatalog: (itemId, resolution) =>
+      once(async () => {
+        const r = await call<{ status: 'APPROVED' | 'MERGED' | 'REJECTED' }>(
+          'POST',
+          `/console/queues/items/${itemId}/catalog-addition/resolve`,
+          { requestId: crypto.randomUUID(), ...resolution },
+        );
+        if (r.ok) {
+          setOps((prev) => ({
+            ...prev,
+            catalog: undefined,
+            notice: { tone: 'success', key: `backoffice.catalog.done.${r.body.status}` },
+          }));
+          const selected = ops.queues?.selected;
+          if (selected !== undefined && selected !== null) await showQueue(selected);
+        } else notice(r);
+      }),
     onSearch: (email, purpose) =>
       once(async () => {
         const r = await call<{ userId: string }>('POST', '/console/users/search', {

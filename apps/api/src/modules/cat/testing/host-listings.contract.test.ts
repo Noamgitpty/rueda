@@ -3,7 +3,9 @@
  * publique `/listings/{listingId}`, sur l'application RÉELLE (ApiModule, harnais d'US-043) et le
  * FAKE du magasin (sans base) : chaque réponse est confrontée à `apps/api/openapi/openapi.json`.
  * Attendus : 19 US-115 (doublon de plaque, PHOTO_MIN_COUNT, prix au pas du pays, zone seule avant
- * confirmation), 16 HST-005 / HST-011 / HST-012 / PRC-001 / HST-033, 17 §2.3 point 5 (IDOR : 404).
+ * confirmation), 16 HST-005 / HST-011 / HST-012 / PRC-001 / HST-033, 17 §2.3 point 5 (IDOR : 404) ;
+ * 19 US-114 et 16 ADM-036 (véhicule hors catalogue : demande d'ajout, annonce non publiable,
+ * CATALOG_REQUEST_DUPLICATE).
  * Les règles elles-mêmes sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us115-*). Données
  * fictives.
  */
@@ -191,15 +193,25 @@ const vehicleBody = (locationId: string, plate: string) => ({
   fuelType: 'GASOLINE',
 });
 
-async function draft(w: World) {
+/** Véhicule rattaché au catalogue (variante) : publiable (US-114). */
+const linkedBody = (locationId: string, plate: string) => ({
+  ...vehicleBody(locationId, plate),
+  makeText: undefined,
+  modelText: undefined,
+  variantId: VARIANT,
+});
+
+async function draft(w: World, options: { offCatalog?: boolean } = {}) {
   const api = w.app.api;
   const base = `/host/accounts/${w.orgA}`;
   const loc = await api.request('POST', `${base}/locations`, { headers: w.a, body: LOCATION });
   expect(loc.status).toBe(201);
   const locationId = (loc.json as { locationId: string }).locationId;
+  const plate = `ab-${randomUUID().slice(0, 6)}`;
   const veh = await api.request('POST', `${base}/vehicles`, {
     headers: w.a,
-    body: vehicleBody(locationId, `ab-${randomUUID().slice(0, 6)}`),
+    body:
+      options.offCatalog === true ? vehicleBody(locationId, plate) : linkedBody(locationId, plate),
   });
   expect(veh.status).toBe(201);
   const vehicleId = (veh.json as { vehicleId: string }).vehicleId;
@@ -400,6 +412,122 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     });
     expect(again.status).toBe(201);
     expect((again.json as { listingId: string }).listingId).not.toBe(d.listingId);
+  });
+
+  it('US-114 : véhicule hors catalogue ⇒ demande d’ajout OPEN lue avec le véhicule ; soumission ⇒ 409 CATALOG_ADDITION_PENDING (annonce DRAFT) ; nouvelle demande ⇒ 409 CATALOG_REQUEST_DUPLICATE tant qu’une demande est ouverte, 201 après un refus ; véhicule rattaché ⇒ 409 CATALOG_ALREADY_LINKED', async () => {
+    const w = await world();
+    const api = w.app.api;
+    const d = await draft(w, { offCatalog: true });
+    const vehicles = await api.request('GET', `${d.base}/vehicles`, { headers: w.a });
+    expect(vehicles.status).toBe(200);
+    expect(vehicles.json).toMatchObject({
+      vehicles: [
+        {
+          id: d.vehicleId,
+          variantId: null,
+          catalogRequest: {
+            status: 'OPEN',
+            makeText: 'Marca',
+            modelText: 'Modelo',
+            rejectReason: null,
+          },
+        },
+      ],
+    });
+    const l = w.store.listingsById.get(d.listingId);
+    if (l) l.photos = 6;
+    w.store.hostTermsAccepted.add(w.orgA);
+    const pending = await api.request('POST', `${d.base}/listings/${d.listingId}/submit`, {
+      headers: w.a,
+      body: {},
+    });
+    expect(pending.status).toBe(409);
+    expect(pending.json).toMatchObject({
+      code: 'CATALOG_ADDITION_PENDING',
+      messageKey: 'common.catalogAddition.pending',
+    });
+    expect(w.store.listingsById.get(d.listingId)?.status).toBe('DRAFT');
+    const ask = (body: unknown, vehicleId = d.vehicleId, headers = w.a, base = d.base) =>
+      api.request('POST', `${base}/vehicles/${vehicleId}/catalog-request`, { headers, body });
+    const dup = await ask({ makeText: 'Chery', modelText: 'Tiggo 2' });
+    expect(dup.status).toBe(409);
+    expect(dup.json).toMatchObject({ code: 'CATALOG_REQUEST_DUPLICATE' });
+    // refus de l'ops (décision prouvée en base, l0-us114) : l'hôte redemande
+    const open = w.store.catalogRequests.get(d.vehicleId);
+    if (open) {
+      w.store.catalogRequests.set(d.vehicleId, {
+        ...open,
+        status: 'REJECTED',
+        rejectReason: 'UNKNOWN_MODEL',
+      });
+    }
+    const rejected = await api.request('GET', `${d.base}/vehicles`, { headers: w.a });
+    expect(rejected.json).toMatchObject({
+      vehicles: [{ catalogRequest: { status: 'REJECTED', rejectReason: 'UNKNOWN_MODEL' } }],
+    });
+    const refused = await api.request('POST', `${d.base}/listings/${d.listingId}/submit`, {
+      headers: w.a,
+      body: {},
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.json).toMatchObject({ code: 'CATALOG_ADDITION_REJECTED' });
+    const again = await ask({ makeText: 'Chery', modelText: 'Tiggo 2', trim: 'Comfort' });
+    expect(again.status).toBe(201);
+    expect(again.json).toMatchObject({
+      code: 'CATALOG_REQUEST_CREATED',
+      messageKey: 'common.catalogAddition.requested',
+    });
+    expect((again.json as { requestId: string }).requestId).toMatch(/^[0-9a-f-]{36}$/);
+    // saisie refusée avant la base : 400 avec `fields`
+    for (const body of [
+      {},
+      { makeText: 'Chery' },
+      { makeText: 'Chery', modelText: 'x', extra: 1 },
+    ]) {
+      const bad = await ask(body);
+      expect(bad.status, JSON.stringify(body)).toBe(400);
+    }
+    expect(
+      (
+        await api.request('POST', `${d.base}/vehicles/${d.vehicleId}/catalog-request`, {
+          ...textBody(w.a),
+        })
+      ).status,
+    ).toBe(415);
+    // véhicule non admis : plus de nouvelle demande
+    const reopened = w.store.catalogRequests.get(d.vehicleId);
+    if (reopened) {
+      w.store.catalogRequests.set(d.vehicleId, {
+        ...reopened,
+        status: 'REJECTED',
+        rejectReason: 'NOT_ELIGIBLE',
+      });
+    }
+    const notAllowed = await ask({ makeText: 'Chery', modelText: 'Tiggo 2' });
+    expect(notAllowed.status).toBe(409);
+    expect(notAllowed.json).toMatchObject({ code: 'CATALOG_REQUEST_NOT_ALLOWED' });
+    // véhicule rattaché au catalogue : rien à demander
+    const linked = await draft(w);
+    expect((await ask({ makeText: 'Marca', modelText: 'Modelo' }, linked.vehicleId)).status).toBe(
+      409,
+    );
+    // véhicule d'un autre (ou inconnu, ou identifiant mal formé) : 404
+    const bBase = `/host/accounts/${w.orgB}`;
+    expect(
+      (await ask({ makeText: 'Chery', modelText: 'Tiggo 2' }, d.vehicleId, w.b, bBase)).status,
+    ).toBe(404);
+    expect((await ask({ makeText: 'Chery', modelText: 'Tiggo 2' }, 'pas-un-uuid')).status).toBe(
+      404,
+    );
+    expect((await ask({ makeText: 'Chery', modelText: 'Tiggo 2' }, d.vehicleId, w.b)).status).toBe(
+      404,
+    );
+    expect((await ask({ makeText: 'Chery', modelText: 'Tiggo 2' }, d.vehicleId, {})).status).toBe(
+      401,
+    );
+    w.store.failing = true;
+    expect((await ask({ makeText: 'Chery', modelText: 'Tiggo 2' })).status).toBe(503);
+    w.store.failing = false;
   });
 
   it('critère 3 : prix hors pas du pays ⇒ 422 PRICE_INVALID ; distance invalide ⇒ 400 ; une annonce par véhicule ⇒ 409', async () => {
