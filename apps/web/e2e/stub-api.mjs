@@ -63,7 +63,12 @@ const BIOMETRIC_TITLE = {
 const identities = new Map();
 let identitySessions = 0;
 const identityOf = (email) => {
-  const i = identities.get(email) ?? { consent: null, status: 'NOT_STARTED', session: null };
+  const i = identities.get(email) ?? {
+    consent: null,
+    status: 'NOT_STARTED',
+    session: null,
+    reason: null,
+  };
   identities.set(email, i);
   return i;
 };
@@ -71,7 +76,7 @@ const identityView = (i, lang) => ({
   code: 'KYC_STATE',
   status: i.status,
   country: i.session?.country ?? null,
-  reasonCode: null,
+  reasonCode: i.reason ?? null,
   licenseExpiresOn: i.status === 'APPROVED' ? '2031-06-30' : null,
   sessionLive: i.status === 'DOCS_SUBMITTED',
   phoneVerified: true,
@@ -811,6 +816,17 @@ ${kind} ${lang}`,
     if (!i || i.status !== 'DOCS_SUBMITTED')
       return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
     i.status = 'APPROVED';
+    return json(res, 200, { status: i.status });
+  }
+  // décision de l'ops (US-106) : état et motif posés comme par KYC_DECISION (dossier en revue)
+  if (req.method === 'GET' && path === '/__e2e/identity/ops') {
+    const i = identityOf(url.searchParams.get('email') ?? '');
+    const status = url.searchParams.get('status');
+    const reason = url.searchParams.get('reason');
+    if (!['MANUAL_REVIEW', 'REJECTED', 'MORE_INFO_REQUIRED'].includes(status ?? ''))
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    i.status = status;
+    i.reason = reason !== null && /^[A-Z_]{2,40}$/.test(reason) ? reason : null;
     return json(res, 200, { status: i.status });
   }
   if (req.method === 'GET' && path === '/identity') {

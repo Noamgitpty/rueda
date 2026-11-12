@@ -4,7 +4,9 @@
  * seulement, fiche 360° (recherche, identité, statut KYC sans pièce, restrictions, comptes d'hôte
  * fermés à la réservation, trips, dossiers, notes), restriction et levée motivées, ouverture d'un
  * dossier, ajout d'une pièce ; demande d'ajout au catalogue (US-114 ; 16 ADM-036 : rapprocher d'une
- * variante existante, créer la variante sous licence, ou refuser avec un motif). Composant de
+ * variante existante, créer la variante sous licence, ou refuser avec un motif). US-106 : dossier
+ * KYC complété (état SM-3, motif, champs minimaux du permis, scores, consentement) et décision
+ * `KYC_DECISION` (quatre contrôles cochés, motif) ; statut SM-3 dans la fiche. Composant de
  * PRÉSENTATION pur : aucun appel réseau ni état ; la
  * logique est dans `console-client.tsx`. Composants de `@rueda/ui` ; mise en page par les jetons
  * (console.module.css). La base reste juge de chaque droit et journalise chaque consultation.
@@ -57,10 +59,66 @@ export interface QueueItemView {
   readonly assignedToMe: boolean;
 }
 
+/** États SM-3 de la vérification (08 SM-3 ; 17 §3.2.2). */
+export const KYC_STATUSES = [
+  'NOT_STARTED',
+  'PHONE_VERIFIED',
+  'DOCS_SUBMITTED',
+  'AUTO_CHECKS',
+  'MANUAL_REVIEW',
+  'MORE_INFO_REQUIRED',
+  'APPROVED',
+  'RECHECK',
+  'EXPIRED',
+  'REVOKED',
+  'REJECTED',
+  'APPEAL',
+  'REJECTED_FINAL',
+  'BANNED',
+] as const;
+export type KycStatus = (typeof KYC_STATUSES)[number];
+
+/** Décisions de l'ops (SM-3 : MANUAL_REVIEW → …) et contrôles cochés (19 US-106). */
+export const KYC_DECISIONS = ['APPROVED', 'REJECTED', 'MORE_INFO_REQUIRED'] as const;
+export type KycDecision = (typeof KYC_DECISIONS)[number];
+export const KYC_CHECKS = [
+  'livenessCheck',
+  'idDocumentCheck',
+  'licenseListCheck',
+  'duplicateCheck',
+] as const;
+export type KycCheck = (typeof KYC_CHECKS)[number];
+export type KycCheckResult = 'PASSED' | 'FAILED';
+
+export interface KycVerificationView {
+  readonly id: string;
+  readonly status: KycStatus;
+  readonly reasonCode: string | null;
+  readonly attempt: number;
+  readonly country: string;
+  readonly consentCurrent: boolean;
+  readonly document: {
+    readonly type: string;
+    readonly issuingCountry: string;
+    readonly expiresOn: string | null;
+    readonly licenseClass: string | null;
+    readonly permanent: boolean | null;
+    readonly status: 'ACCEPTED' | 'IN_REVIEW';
+  } | null;
+  readonly liveness: {
+    readonly result: 'APPROVED' | 'DECLINED' | 'REVIEW';
+    readonly livenessScore: number | null;
+    readonly faceMatchScore: number | null;
+    readonly erased: boolean;
+  } | null;
+}
+
 export interface KycDossierView {
   readonly itemId: string;
   readonly userId: string;
-  readonly kycStatus: 'NOT_STARTED';
+  readonly kycStatus: KycStatus;
+  /** Vérification courante (US-106) ; `null` sans vérification. */
+  readonly verification: KycVerificationView | null;
   readonly legalFirstName: string;
   readonly legalLastName: string;
   readonly dateOfBirth: string | null;
@@ -131,7 +189,7 @@ export interface ProfileView {
     readonly legalLastName: string;
     readonly status: string;
   };
-  readonly kyc: { readonly status: 'NOT_STARTED' };
+  readonly kyc: { readonly status: KycStatus };
   readonly restricted: boolean;
   readonly restrictions: readonly {
     readonly id: string;
@@ -218,6 +276,13 @@ export interface OpsHandlers {
   readonly onShowQueue: (queue: Queue) => void;
   readonly onClaim: (itemId: string) => void;
   readonly onOpenKyc: (itemId: string, purpose: string) => void;
+  /** Décision KYC (US-106) : vérification, décision, contrôles cochés, motif. */
+  readonly onKycDecision: (
+    verificationId: string,
+    decision: KycDecision,
+    checks: Readonly<Record<KycCheck, KycCheckResult>>,
+    reason: string,
+  ) => void;
   readonly onOpenCatalog: (itemId: string) => void;
   readonly onResolveCatalog: (itemId: string, resolution: CatalogResolutionInput) => void;
   readonly onSearch: (email: string, purpose: string) => void;
@@ -245,6 +310,91 @@ const QUEUE_KEYS: Readonly<Record<Queue, MessageKey>> = {
   LEG_RECONCILIATION: 'backoffice.queue.LEG_RECONCILIATION',
 };
 
+const KYC_STATUS_KEYS: Readonly<Record<KycStatus, MessageKey>> = {
+  NOT_STARTED: 'backoffice.kyc.NOT_STARTED',
+  PHONE_VERIFIED: 'backoffice.kyc.PHONE_VERIFIED',
+  DOCS_SUBMITTED: 'backoffice.kyc.DOCS_SUBMITTED',
+  AUTO_CHECKS: 'backoffice.kyc.AUTO_CHECKS',
+  MANUAL_REVIEW: 'backoffice.kyc.MANUAL_REVIEW',
+  MORE_INFO_REQUIRED: 'backoffice.kyc.MORE_INFO_REQUIRED',
+  APPROVED: 'backoffice.kyc.APPROVED',
+  RECHECK: 'backoffice.kyc.RECHECK',
+  EXPIRED: 'backoffice.kyc.EXPIRED',
+  REVOKED: 'backoffice.kyc.REVOKED',
+  REJECTED: 'backoffice.kyc.REJECTED',
+  APPEAL: 'backoffice.kyc.APPEAL',
+  REJECTED_FINAL: 'backoffice.kyc.REJECTED_FINAL',
+  BANNED: 'backoffice.kyc.BANNED',
+};
+
+/** Libellé d'un état SM-3 ; état inconnu (contrat rompu) : le code brut. */
+export function kycStatusLabel(i18n: Translator, status: string): string {
+  return (KYC_STATUSES as readonly string[]).includes(status)
+    ? i18n.t(KYC_STATUS_KEYS[status as KycStatus])
+    : status;
+}
+
+/** Motifs du dossier (0072 : fournisseur et permis ; 0076 : décision de l'ops). */
+export const KYC_REASON_KEYS: Readonly<Record<string, MessageKey>> = {
+  PROVIDER_REVIEW: 'backoffice.kyc.reason.PROVIDER_REVIEW',
+  PROVIDER_DECLINED: 'backoffice.kyc.reason.PROVIDER_DECLINED',
+  DOCUMENT_MISSING: 'backoffice.kyc.reason.DOCUMENT_MISSING',
+  DOCUMENT_NOT_LICENSE: 'backoffice.kyc.reason.DOCUMENT_NOT_LICENSE',
+  LICENSE_PROVISIONAL: 'backoffice.kyc.reason.LICENSE_PROVISIONAL',
+  LICENSE_EXPIRED: 'backoffice.kyc.reason.LICENSE_EXPIRED',
+  CONSENT_WITHDRAWN: 'backoffice.kyc.reason.CONSENT_WITHDRAWN',
+  LIVENESS_FAILED: 'backoffice.kyc.reason.LIVENESS_FAILED',
+  ID_DOCUMENT_REFUSED: 'backoffice.kyc.reason.ID_DOCUMENT_REFUSED',
+  LICENSE_NOT_ACCEPTED: 'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED',
+  DUPLICATE_ACCOUNT: 'backoffice.kyc.reason.DUPLICATE_ACCOUNT',
+  MORE_INFO_REQUESTED: 'backoffice.kyc.reason.MORE_INFO_REQUESTED',
+};
+
+/** Refus de la commande de décision (`values.reason` d'un 409 STAFF_ACTION_REFUSED). */
+export const KYC_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
+  CHECKS_REQUIRED: 'backoffice.kyc.refused.CHECKS_REQUIRED',
+  CHECKS_INCONSISTENT: 'backoffice.kyc.refused.CHECKS_INCONSISTENT',
+  ITEM_NOT_CLAIMED: 'backoffice.kyc.refused.ITEM_NOT_CLAIMED',
+  NOT_IN_REVIEW: 'backoffice.kyc.refused.NOT_IN_REVIEW',
+  NOT_FOUND: 'backoffice.kyc.refused.NOT_IN_REVIEW',
+  SELF_FORBIDDEN: 'backoffice.kyc.refused.SELF_FORBIDDEN',
+  CONSENT_WITHDRAWN: 'backoffice.kyc.refused.CONSENT_WITHDRAWN',
+  LICENSE_NOT_ACCEPTED: 'backoffice.kyc.refused.LICENSE_NOT_ACCEPTED',
+  PRODUCTION_BLOCKED: 'backoffice.kyc.refused.PRODUCTION_BLOCKED',
+};
+
+const KYC_DOC_KEYS: Readonly<Record<string, MessageKey>> = {
+  DRIVER_LICENSE: 'backoffice.kyc.doc.DRIVER_LICENSE',
+  NATIONAL_ID: 'backoffice.kyc.doc.NATIONAL_ID',
+  FOREIGN_RESIDENT_ID: 'backoffice.kyc.doc.FOREIGN_RESIDENT_ID',
+  PASSPORT: 'backoffice.kyc.doc.PASSPORT',
+  IDP: 'backoffice.kyc.doc.IDP',
+};
+
+const KYC_CHECK_KEYS: Readonly<Record<KycCheck, MessageKey>> = {
+  livenessCheck: 'backoffice.kyc.check.livenessCheck',
+  idDocumentCheck: 'backoffice.kyc.check.idDocumentCheck',
+  licenseListCheck: 'backoffice.kyc.check.licenseListCheck',
+  duplicateCheck: 'backoffice.kyc.check.duplicateCheck',
+};
+
+const KYC_DECISION_KEYS: Readonly<Record<KycDecision, MessageKey>> = {
+  APPROVED: 'backoffice.kyc.decide.APPROVED',
+  REJECTED: 'backoffice.kyc.decide.REJECTED',
+  MORE_INFO_REQUIRED: 'backoffice.kyc.decide.MORE_INFO_REQUIRED',
+};
+
+/** Score [C3] de 0 à 1, en pourcentage entier. */
+const score = (i18n: Translator, value: number | null): string =>
+  value === null
+    ? i18n.t('backoffice.kyc.unknown')
+    : i18n.t('backoffice.kyc.percent', { value: String(Math.round(value * 100)) });
+
+/** Valeur d'un contrôle coché dans le formulaire (radio requis), ou `null`. */
+function checkOf(event: FormEvent<HTMLFormElement>, name: KycCheck): KycCheckResult | null {
+  const v = new FormData(event.currentTarget).get(name);
+  return v === 'PASSED' || v === 'FAILED' ? v : null;
+}
 // libellés du catalogue de référence (US-113, `common.vehicle.*`)
 const BODY_KEYS: Readonly<Record<(typeof BODY_TYPES)[number], MessageKey>> = {
   SUV: 'common.vehicle.bodyType.suv',
@@ -526,28 +676,7 @@ export function OpsPanels({
       )}
 
       {state.kyc !== undefined && (
-        <section className={styles['panel']} aria-labelledby="kyc-heading">
-          <h2 id="kyc-heading" className={styles['heading']} tabIndex={-1}>
-            {i18n.t('backoffice.kyc.heading')}
-          </h2>
-          <Banner tone="info" live="polite">
-            {i18n.t('backoffice.kyc.logged')}
-          </Banner>
-          <p>
-            {state.kyc.legalFirstName} {state.kyc.legalLastName}
-          </p>
-          <p className={styles['role']}>
-            <span className={styles['label']}>{i18n.t('backoffice.kyc.birthDate')}</span>
-            <span>{state.kyc.dateOfBirth ?? i18n.t('backoffice.kyc.unknown')}</span>
-          </p>
-          <p className={styles['role']}>
-            <span className={styles['label']}>{i18n.t('backoffice.kyc.residence')}</span>
-            <span>{state.kyc.residenceCountry ?? i18n.t('backoffice.kyc.unknown')}</span>
-          </p>
-          <Badge tone="neutral" icon={null}>
-            {i18n.t('backoffice.kyc.NOT_STARTED')}
-          </Badge>
-        </section>
+        <KycPanel i18n={i18n} kyc={state.kyc} handlers={handlers} busy={busy} />
       )}
 
       {state.catalog !== undefined && (
@@ -960,7 +1089,7 @@ function ProfileDetails({
         <span className={styles['role']}>
           <span className={styles['label']}>{i18n.t('backoffice.profile.kycStatus')}</span>
           <Badge tone="neutral" icon={null}>
-            {i18n.t('backoffice.kyc.NOT_STARTED')}
+            {kycStatusLabel(i18n, p.kyc.status)}
           </Badge>
         </span>
       </div>
@@ -1220,5 +1349,206 @@ function ProfileDetails({
         </Button>
       </form>
     </div>
+  );
+}
+
+/** Ligne libellé / valeur du dossier. */
+function Fact({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <p className={styles['role']}>
+      <span className={styles['label']}>{label}</span>
+      <span>{value}</span>
+    </p>
+  );
+}
+
+/**
+ * Dossier KYC ouvert par la file (consultation journalisée READ_C3) et décision de l'ops
+ * (US-106) : état SM-3, motif, champs minimaux du permis, scores [C3], consentement ; aucune image
+ * (parcours hébergé, 17 §1.5). Formulaire de décision pour un dossier en revue seulement : quatre
+ * contrôles cochés (jamais pré-cochés), motif obligatoire, puis approuver, refuser ou demander une
+ * nouvelle photo. La base reste juge (élément pris en charge, cohérence, consentement, permis).
+ */
+function KycPanel({
+  i18n,
+  kyc,
+  handlers,
+  busy,
+}: {
+  readonly i18n: Translator;
+  readonly kyc: KycDossierView;
+  readonly handlers: OpsHandlers;
+  readonly busy: boolean;
+}) {
+  const v = kyc.verification;
+  const yesNo = (b: boolean | null): string =>
+    b === null
+      ? i18n.t('backoffice.kyc.unknown')
+      : i18n.t(b ? 'backoffice.kyc.yes' : 'backoffice.kyc.no');
+  return (
+    <section className={styles['panel']} aria-labelledby="kyc-heading">
+      <h2 id="kyc-heading" className={styles['heading']} tabIndex={-1}>
+        {i18n.t('backoffice.kyc.heading')}
+      </h2>
+      <Banner tone="info" live="polite">
+        {i18n.t('backoffice.kyc.logged')}
+      </Banner>
+      <p>
+        {kyc.legalFirstName} {kyc.legalLastName}
+      </p>
+      <Fact
+        label={i18n.t('backoffice.kyc.birthDate')}
+        value={kyc.dateOfBirth ?? i18n.t('backoffice.kyc.unknown')}
+      />
+      <Fact
+        label={i18n.t('backoffice.kyc.residence')}
+        value={kyc.residenceCountry ?? i18n.t('backoffice.kyc.unknown')}
+      />
+      <span className={styles['role']}>
+        <span className={styles['label']}>{i18n.t('backoffice.profile.kycStatus')}</span>
+        <Badge tone={kyc.kycStatus === 'MANUAL_REVIEW' ? 'warning' : 'neutral'} icon={null}>
+          {kycStatusLabel(i18n, kyc.kycStatus)}
+        </Badge>
+      </span>
+      {v !== null && (
+        <>
+          {v.reasonCode !== null && (
+            <Fact
+              label={i18n.t('backoffice.kyc.reason')}
+              value={
+                KYC_REASON_KEYS[v.reasonCode]
+                  ? i18n.t(KYC_REASON_KEYS[v.reasonCode] as MessageKey)
+                  : v.reasonCode
+              }
+            />
+          )}
+          <Fact
+            label={i18n.t('backoffice.kyc.attempt')}
+            value={`${String(v.attempt)} · ${v.country}`}
+          />
+          {!v.consentCurrent && (
+            <Banner tone="warning" live="polite">
+              {i18n.t('backoffice.kyc.consentMissing')}
+            </Banner>
+          )}
+          <h3 className={styles['label']}>{i18n.t('backoffice.kyc.document')}</h3>
+          {v.document === null ? (
+            <p className={styles['muted']}>{i18n.t('backoffice.kyc.noDocument')}</p>
+          ) : (
+            <>
+              <Fact
+                label={i18n.t('backoffice.kyc.documentType')}
+                value={
+                  KYC_DOC_KEYS[v.document.type]
+                    ? i18n.t(KYC_DOC_KEYS[v.document.type] as MessageKey)
+                    : v.document.type
+                }
+              />
+              <Fact
+                label={i18n.t('backoffice.kyc.issuingCountry')}
+                value={v.document.issuingCountry}
+              />
+              <Fact
+                label={i18n.t('backoffice.kyc.expiresOn')}
+                value={v.document.expiresOn ?? i18n.t('backoffice.kyc.unknown')}
+              />
+              <Fact
+                label={i18n.t('backoffice.kyc.licenseClass')}
+                value={v.document.licenseClass ?? i18n.t('backoffice.kyc.unknown')}
+              />
+              <Fact
+                label={i18n.t('backoffice.kyc.permanent')}
+                value={yesNo(v.document.permanent)}
+              />
+            </>
+          )}
+          <h3 className={styles['label']}>{i18n.t('backoffice.kyc.biometrics')}</h3>
+          {v.liveness === null || v.liveness.erased ? (
+            <p className={styles['muted']}>{i18n.t('backoffice.kyc.noScores')}</p>
+          ) : (
+            <>
+              <Fact
+                label={i18n.t('backoffice.kyc.livenessScore')}
+                value={score(i18n, v.liveness.livenessScore)}
+              />
+              <Fact
+                label={i18n.t('backoffice.kyc.faceMatchScore')}
+                value={score(i18n, v.liveness.faceMatchScore)}
+              />
+            </>
+          )}
+          {v.status === 'MANUAL_REVIEW' && (
+            <form
+              className={styles['form']}
+              aria-labelledby="kyc-decision-heading"
+              onSubmit={prevent((e) => {
+                const decision = submitted(e);
+                const values = KYC_CHECKS.map((c) => [c, checkOf(e, c)] as const);
+                if (
+                  (KYC_DECISIONS as readonly string[]).includes(decision) &&
+                  values.every(([, r]) => r !== null)
+                ) {
+                  handlers.onKycDecision(
+                    v.id,
+                    decision as KycDecision,
+                    Object.fromEntries(values) as Record<KycCheck, KycCheckResult>,
+                    fieldOf(e, 'reason'),
+                  );
+                }
+              })}
+            >
+              <h3 id="kyc-decision-heading" className={styles['label']}>
+                {i18n.t('backoffice.kyc.decisionHeading')}
+              </h3>
+              <p className={styles['muted']}>{i18n.t('backoffice.kyc.decisionHint')}</p>
+              {KYC_CHECKS.map((check) => (
+                <fieldset key={check} className={styles['checks']}>
+                  <legend className={styles['label']}>{i18n.t(KYC_CHECK_KEYS[check])}</legend>
+                  {(['PASSED', 'FAILED'] as const).map((result) => (
+                    <label key={result} className={styles['choice']}>
+                      <input
+                        type="radio"
+                        name={check}
+                        value={result}
+                        required
+                        className={styles['choiceInput']}
+                      />
+                      <span>
+                        {i18n.t(
+                          result === 'PASSED' ? 'backoffice.kyc.passed' : 'backoffice.kyc.failed',
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              ))}
+              <TextField
+                i18n={i18n}
+                id="kyc-reason"
+                name="reason"
+                minLength={10}
+                maxLength={1000}
+                label={i18n.t('backoffice.action.reason')}
+                hint={i18n.t('backoffice.kyc.reasonHint')}
+              />
+              <div className={styles['actions']}>
+                {KYC_DECISIONS.map((decision) => (
+                  <Button
+                    key={decision}
+                    type="submit"
+                    name="op"
+                    value={decision}
+                    variant={decision === 'APPROVED' ? 'primary' : 'secondary'}
+                    loading={busy}
+                  >
+                    {i18n.t(KYC_DECISION_KEYS[decision])}
+                  </Button>
+                ))}
+              </div>
+            </form>
+          )}
+        </>
+      )}
+    </section>
   );
 }

@@ -1,4 +1,6 @@
-"""Export des vecteurs dorés T01-T68, TJ01-TJ21 et TA01-TA11 (US-016), lu par le harnais TypeScript.
+"""Export des vecteurs dorés T01-T73, TJ01-TJ21 et TA01-TA11 (US-016), lu par le harnais TypeScript.
+(T69-T73 : révisé 2026-11-12, caution comme Turo, US-063 ; contrôles de `check_t49plus.py`, couverture
+vérifiée à part pour garder la ligne « Couverture T01-T68 » attendue par registry.json.)
 
 Les valeurs attendues viennent UNIQUEMENT des oracles déjà audités de ce dossier, chargés tels quels
 (aucune ligne recopiée, aucun fichier modifié) :
@@ -6,7 +8,7 @@ Les valeurs attendues viennent UNIQUEMENT des oracles déjà audités de ce doss
   `run_execution_vectors`) ; chaque résultat calculé est comparé à la valeur recopiée dans `VECT`
   par l'oracle, puis aux cellules de la ligne « | Txx | » de 08 ;
 - TJ01-TJ21 : `check_legs.py` (dictionnaire `EXPECTED`), comparé aux cellules des lignes « | TJxx | » de 08 ;
-- T49-T68 : contrôles `check(...)` de `check_t49plus.py`, `check_verif12_fixes.py` et `check_t66_68.py` ;
+- T49-T73 : contrôles `check(...)` de `check_t49plus.py`, `check_verif12_fixes.py` et `check_t66_68.py` ;
 - TA01-TA11 : contrôles de `check_ta_consolidation.py` et fonctions de `verif15_ta.py` (16 A.8.1).
 Pour les scripts qui contrôlent par `check(label, obtenu, attendu)`, la définition de `check` est retirée de
 l'arbre syntaxique au chargement et remplacée par un enregistreur : chaque attente est exportée et chaque écart
@@ -360,8 +362,12 @@ missing = [f"T{n:02d}" for n in range(1, 69) if f"T{n:02d}" not in covered_t
            and not any((v or "").startswith(f"T{n:02d}") for v in covered_t)]
 if missing:
     err(f"vecteurs T sans attente d'oracle : {missing}")
-if set(ROWS_T) != {f"T{n:02d}" for n in range(1, 69)}:
-    err(f"lignes T de 08 : {len(ROWS_T)} (T01-T68 attendues)")
+# T69-T73 (révisé 2026-11-12, caution comme Turo, US-063) : couverts par check_t49plus.py, contrôlés ici à part
+missing_ct = [f"T{n}" for n in range(69, 74) if f"T{n}" not in covered_t]
+if missing_ct:
+    err(f"vecteurs T69-T73 sans attente d'oracle : {missing_ct}")
+if set(ROWS_T) != {f"T{n:02d}" for n in range(1, 74)}:
+    err(f"lignes T de 08 : {len(ROWS_T)} (T01-T73 attendues)")
 curs = {x["currency"] for x in settlement} | {x["currency"] for x in legs}
 if curs != set(CURRENCIES):
     err(f"devises couvertes {sorted(curs)} != {sorted(CURRENCIES)}")
