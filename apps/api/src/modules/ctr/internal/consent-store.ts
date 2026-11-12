@@ -1,7 +1,8 @@
 /**
  * Port de persistance des documents juridiques et des consentements (US-102 ; 17 §3.2.6 ; 16
  * LEG-001, LEG-002, NFR-17). Deux implémentations :
- * - `PgConsentStore` (production) : fonctions `core.ctr_*` de la migration 0059 sous `app_api` ;
+ * - `PgConsentStore` (production) : fonctions `core.ctr_*` des migrations 0059 et 0070 (CGU de
+ *   l'hôte, US-126) sous `app_api` ;
  * - `FakeConsentStore` (`../testing/`, TESTS SEULEMENT, exclu de la compilation de production).
  *
  * Le titulaire est désigné par l'empreinte SHA-256 du jeton de session (`sessionProofOf` d'IAM),
@@ -10,9 +11,15 @@
 
 /** Documents que l'inscription et le compte voyageur font accepter (US-102). */
 export const LEGAL_DOCUMENT_KINDS = ['TOS_GUEST', 'PRIVACY', 'MARKETING'] as const;
-export type LegalDocumentKind = (typeof LEGAL_DOCUMENT_KINDS)[number];
+export type GuestDocumentKind = (typeof LEGAL_DOCUMENT_KINDS)[number];
+/**
+ * Documents dont le texte est servi (`GET /legal/documents/{kind}`) : ceux du voyageur et les CGU
+ * de l'hôte (US-126, acceptées depuis l'espace de l'hôte, jamais à l'inscription).
+ */
+export const SERVED_DOCUMENT_KINDS = [...LEGAL_DOCUMENT_KINDS, 'TOS_HOST'] as const;
+export type LegalDocumentKind = (typeof SERVED_DOCUMENT_KINDS)[number];
 /** Documents requis (sans eux : aucun compte, aucune réservation). */
-export type RequiredDocumentKind = Exclude<LegalDocumentKind, 'MARKETING'>;
+export type RequiredDocumentKind = Exclude<GuestDocumentKind, 'MARKETING'>;
 export const REQUIRED_DOCUMENT_KINDS: readonly RequiredDocumentKind[] = ['TOS_GUEST', 'PRIVACY'];
 
 export interface LegalDocumentSummary {
@@ -67,6 +74,29 @@ export class ConsentDocumentsError extends Error {
   }
 }
 
+/**
+ * CGU de l'hôte d'un compte d'hôte de la session (US-126) : portée = pays du compte d'hôte ;
+ * `document` null = aucun document en vigueur (fail-closed : réacceptation exigée).
+ */
+export interface HostTermsState {
+  readonly country: string;
+  readonly document: LegalDocumentSummary | null;
+  /** Plus haute version MAJEURE en vigueur : l'acceptation doit l'atteindre. */
+  readonly requiredVersion: number | null;
+  readonly acceptedVersion: number | null;
+  readonly acceptedAt: Date | null;
+  readonly reacceptRequired: boolean;
+}
+
+/** Issue d'une lecture ou d'une acceptation des CGU de l'hôte (commandes de 0070). */
+export type HostTermsOutcome =
+  | 'DONE'
+  | 'AUTH_REQUIRED'
+  | 'FORBIDDEN'
+  | 'REQUEST_INVALID'
+  | 'LEGAL_DOCUMENT_UNAVAILABLE'
+  | 'TERMS_VERSION_CHANGED';
+
 export interface ConsentStore {
   /** Documents en vigueur pour le pays (null = communs) et la langue. */
   publishedDocuments(country: string | null, language: string): Promise<LegalDocumentSummary[]>;
@@ -85,4 +115,17 @@ export interface ConsentStore {
   setMarketing(proof: Buffer, optIn: boolean): Promise<'CHANGED' | 'UNCHANGED' | null>;
   /** Historique (200 lignes au plus, de la plus récente à la plus ancienne). */
   history(proof: Buffer): Promise<ConsentHistoryRow[]>;
+  /** CGU de l'hôte d'un compte d'hôte de la session (`core.ctr_host_terms`, US-126). */
+  hostTerms(
+    proof: Buffer,
+    orgId: string,
+    language: string,
+  ): Promise<HostTermsState | 'AUTH_REQUIRED' | 'FORBIDDEN'>;
+  /** Acceptation de la version affichée (`core.ctr_cmd_accept_host_terms`, US-126). */
+  acceptHostTerms(
+    proof: Buffer,
+    orgId: string,
+    version: number,
+    language: string,
+  ): Promise<HostTermsOutcome>;
 }

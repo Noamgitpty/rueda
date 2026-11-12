@@ -631,6 +631,9 @@ export const EN_MESSAGES = {
   'web.s15.codeHint': 'It arrives by text message. You can paste it.',
   'web.legal.version': 'Version {version}',
   'web.legal.back': 'Back to the form',
+  'web.legal.validFrom': 'In force since {date}',
+  'web.legal.translation': 'Translation: the Spanish text prevails.',
+  'web.legal.backHost': 'Back to your host space',
   // US-113 : catalogue de référence des véhicules (16 HST-050), libellés partagés web / console
   // US-115 : écrans A10 (espace de l'hôte) et S03 (fiche publique d'une annonce)
   'web.host.title': 'List your car',
@@ -708,6 +711,17 @@ export const EN_MESSAGES = {
   'web.host.status.RESTRICTED': 'Restricted',
   'web.host.status.REMOVED_BY_PLATFORM': 'Removed by the platform',
   'web.host.status.DELETED': 'Deleted',
+  // US-126 : CGU de l'hôte (A07, LEG-001)
+  'web.host.terms.title': 'Host terms',
+  'web.host.terms.intro':
+    'You rent out your own car directly to the guest; we are only an intermediary and are not a party to the rental contract.',
+  'web.host.terms.version': 'Version {version}, in force since {date}',
+  'web.host.terms.read': 'Read the Host terms',
+  'web.host.terms.required': 'Accept them before submitting your first listing.',
+  'web.host.terms.reaccept': 'We published a new version. Accept it to keep submitting listings.',
+  'web.host.terms.checkbox': 'I have read and accept the Host terms',
+  'web.host.terms.accept': 'Accept the terms',
+  'web.host.terms.accepted': 'You accepted version {version} on {date}.',
   'web.listing.notFound': 'This car is no longer available',
   'web.listing.notFound.body': 'The host may have removed it. Look for another car nearby.',
   'web.listing.search': 'Find another car',
@@ -750,6 +764,8 @@ export const EN_MESSAGES = {
   'common.listing.requestModeNotAllowed': 'At an airport, bookings are always instant.',
   'common.listing.photoMinCount': 'Add more photos of your car before submitting the listing.',
   'common.listing.photoFormat': 'This photo cannot be used. Upload a JPEG, PNG or WebP photo.',
+  'common.listing.hostTermsRequired':
+    'Before submitting your listing, read and accept the current version of the Host terms.',
   'common.listing.hostNotActivated':
     'All set on your side. You can submit your listing once your host account is active and we open to hosts here.',
   'common.listing.unavailable': 'We cannot save your listing right now. Try again later.',

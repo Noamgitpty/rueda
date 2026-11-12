@@ -13,13 +13,23 @@ import {
   vehiclesOf,
 } from '../../../account/host-listings.ts';
 import type { ListingView, VehicleView } from '../../../account/host-listings.ts';
+<<<<<<< HEAD
 import { regulatoryNoticesOf, regulatoryNoticesPath } from '../../../account/regulatory-notices.ts';
+=======
+import { hostTermsOf } from '../../../account/host-terms.ts';
+>>>>>>> origin/main
 import { clientContext } from '../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../i18n.ts';
 import accountStyles from '../_account/account.module.css';
 import { RegulatoryNotices } from '../_account/regulatory-notices.tsx';
 import { MAIN_ID } from '../_shell/main-id.ts';
-import { ListingForms, LocationForm, NewListingForm, VehicleForm } from './host-forms.tsx';
+import {
+  HostTermsForm,
+  ListingForms,
+  LocationForm,
+  NewListingForm,
+  VehicleForm,
+} from './host-forms.tsx';
 import styles from './host.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -62,7 +72,8 @@ function countryName(tag: string, code: string): string {
 
 /**
  * A10 — espace de l'hôte (US-115 ; 10b §4.1, maquette US-033 : « Publicar tu auto ») : lieux de
- * remise, autos, annonces (brouillon, prix, photos, soumission). Le serveur lit l'API avec la
+ * remise, autos, annonces (brouillon, prix, photos, soumission) ; CGU de l'hôte (US-126 : version,
+ * date, brouillon, acceptation de la version affichée avant la soumission). Le serveur lit l'API avec la
  * session de l'hôte ; un compte d'un autre hôte n'est jamais lisible (404 de l'API). États :
  * sans session, sans compte d'hôte, vide, erreur (API injoignable), chargement (`loading.tsx`) ;
  * hors connexion : bandeau de la coquille et écran `/offline` du service worker.
@@ -128,6 +139,7 @@ export default async function HostPage({
   const account = accounts.find((a) => a.orgId === wanted) ?? accounts[0];
   if (account === undefined) return error;
   const base = `/host/accounts/${account.orgId}`;
+<<<<<<< HEAD
   const [locReply, vehReply, lstReply, noticeReply] = await Promise.all([
     callApi('GET', `${base}/locations`, ctx),
     callApi('GET', `${base}/vehicles`, ctx),
@@ -136,6 +148,16 @@ export default async function HostPage({
     callApi('GET', regulatoryNoticesPath(account.country, 'HOST'), { ...ctx, sessionToken: null }),
   ]);
   const notices = regulatoryNoticesOf(noticeReply, account.country, 'HOST');
+=======
+  const [locReply, vehReply, lstReply, termsReply] = await Promise.all([
+    callApi('GET', `${base}/locations`, ctx),
+    callApi('GET', `${base}/vehicles`, ctx),
+    callApi('GET', `${base}/listings`, ctx),
+    callApi('GET', `${base}/terms?${new URLSearchParams({ locale: tag }).toString()}`, ctx),
+  ]);
+  // CGU de l'hôte (US-126) : illisibles ⇒ « indisponibles », jamais une acceptation présumée
+  const terms = hostTermsOf(termsReply);
+>>>>>>> origin/main
   const locations = locationsOf(locReply);
   const vehicles = vehiclesOf(vehReply);
   const listed = listingsOf(lstReply);
@@ -175,7 +197,57 @@ export default async function HostPage({
           </ul>
         </nav>
       )}
+<<<<<<< HEAD
       <RegulatoryNotices i18n={i18n} notices={notices} headingId="a10-notices" />
+=======
+      <section className={styles['section']} aria-labelledby="a10-terms">
+        <h2 id="a10-terms" className={accountStyles['h2']}>
+          {t('web.host.terms.title')}
+        </h2>
+        <p className={accountStyles['muted']}>{t('web.host.terms.intro')}</p>
+        {terms === null ? (
+          <Banner tone="danger">{t('common.legal.unavailable')}</Banner>
+        ) : (
+          <>
+            {terms.draft && <Banner tone="warning">{t('web.legal.draft')}</Banner>}
+            <p className={accountStyles['text']}>
+              <a
+                className={styles['link']}
+                href={`/legal/TOS_HOST?${new URLSearchParams({ country: account.country, from: 'host' }).toString()}`}
+                target="_blank"
+                rel="noopener"
+              >
+                {t('web.host.terms.read')}
+              </a>{' '}
+              <Badge>
+                {t('web.host.terms.version', {
+                  version: String(terms.version),
+                  date: i18n.date(terms.validFrom, terms.timeZone),
+                })}
+              </Badge>
+            </p>
+            {terms.acceptedVersion !== null && terms.acceptedAt !== null && (
+              <p className={accountStyles['text']}>
+                {t('web.host.terms.accepted', {
+                  version: String(terms.acceptedVersion),
+                  date: i18n.date(terms.acceptedAt, terms.timeZone),
+                })}
+              </p>
+            )}
+            {terms.reacceptRequired && (
+              <>
+                <Banner tone="warning">
+                  {terms.acceptedVersion === null
+                    ? t('web.host.terms.required')
+                    : t('web.host.terms.reaccept')}
+                </Banner>
+                <HostTermsForm localeTag={tag} orgId={account.orgId} version={terms.version} />
+              </>
+            )}
+          </>
+        )}
+      </section>
+>>>>>>> origin/main
       {query['saved'] === '1' && (
         <Banner tone="success" live="polite" icon="check">
           {t('web.host.saved')}

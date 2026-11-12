@@ -69,10 +69,20 @@ async function session(client: pg.ClientBase, userId: string): Promise<Buffer> {
   return t.hash;
 }
 
-/** Hôte : personne, compte d'hôte ouvert en libre-service (ONBOARDING) ; statut forcé au besoin. */
+/**
+ * Hôte : personne, compte d'hôte ouvert en libre-service (ONBOARDING) ; statut forcé au besoin.
+ * Les CGU de l'hôte en vigueur (graine 0070, v1) sont acceptées par la vraie commande d'US-126 :
+ * la garde TERMS_REACCEPT_REQUIRED de la soumission est prouvée par l0-us126-host-terms.
+ */
 async function host(client: pg.ClientBase, country: string, status?: string): Promise<Host> {
   const p = await person(client, country);
-  return { ...p, org: await openAccount(client, p.hash, country, status) };
+  const org = await openAccount(client, p.hash, country, status);
+  const terms = await client.query<{ outcome: string }>(
+    'SELECT * FROM core.ctr_cmd_accept_host_terms($1, $2, 1, $3)',
+    [p.hash, org, 'es'],
+  );
+  if (terms.rows[0]?.outcome !== 'DONE') throw new Error('CGU de l’hôte refusées');
+  return { ...p, org };
 }
 
 async function openAccount(

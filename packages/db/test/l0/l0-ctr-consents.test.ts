@@ -37,17 +37,24 @@ import {
 const T0 = '2031-05-04T10:00:00.000Z';
 /**
  * Requête nommée GL-15 (docs/ops/GO_LIVE_CHECKLIST.md) : documents EN VIGUEUR et BROUILLON (CGU du
- * voyageur, confidentialité, communications), dans TOUTES les portées atteignables : chaque pays de
- * la configuration ET la portée NULL (documents communs, servis aux comptes sans pays : locales sans
- * région), dans chaque langue. Elle doit rendre zéro ligne avant la mise en service.
+ * voyageur, confidentialité, communications ; CGU de l'hôte depuis US-126), dans TOUTES les portées
+ * atteignables : chaque pays de la configuration ET la portée NULL (documents communs, servis aux
+ * comptes sans pays : locales sans région), dans chaque langue. Elle doit rendre zéro ligne avant
+ * la mise en service.
  */
 export const GL15_DRAFTS = `
   SELECT k.code AS code, d.doc_kind, d.version, d.locale
     FROM (SELECT c.code::text AS code FROM core.config_country AS c
           UNION ALL SELECT NULL::text) AS k
    CROSS JOIN unnest(ARRAY['es', 'en', 'fr', 'pt']) AS l(lang)
-   CROSS JOIN LATERAL core.ctr_published_documents(k.code, l.lang) AS d
-   WHERE d.is_draft AND d.doc_kind IN ('TOS_GUEST', 'PRIVACY', 'MARKETING')`;
+   CROSS JOIN LATERAL (
+     SELECT p.doc_kind, p.version, p.locale, p.is_draft
+       FROM core.ctr_published_documents(k.code, l.lang) AS p
+     UNION ALL
+     SELECT b.doc_kind, b.version, b.locale, b.is_draft
+       FROM core.ctr_document_body('TOS_HOST', k.code, l.lang, NULL) AS b
+   ) AS d
+   WHERE d.is_draft AND d.doc_kind IN ('TOS_GUEST', 'PRIVACY', 'MARKETING', 'TOS_HOST')`;
 /** Versions en vigueur de la graine (0059) : CGU et confidentialité v1. */
 const CURRENT_V1 = [
   { kind: 'TOS_GUEST', version: 1 },
@@ -405,7 +412,8 @@ describe('critère 3 — version majeure publiée : réacceptation avant toute r
           null,
           '22023',
         );
-        await expectConstraint(tx, () => publish(tx, admin.hash, 'TOS_HOST'), null, '22023');
+        // genre hors des documents publiables (TOS_HOST l'est depuis US-126)
+        await expectConstraint(tx, () => publish(tx, admin.hash, 'RENTAL_CONTRACT'), null, '22023');
         await expectConstraint(
           tx,
           () => publish(tx, admin.hash, 'TOS_GUEST', { validFrom: '2001-01-01T00:00:00Z' }),
@@ -564,8 +572,8 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
   it('GL-15 (mise en service) : la requête nommée voit tout document BROUILLON en vigueur, pays et portée commune', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{ code: string | null; doc_kind: string }>(GL15_DRAFTS);
-      // graine 0059 : brouillons partout ⇒ la mise en service est bloquée (OQ-BR-24)
-      const kinds = ['MARKETING', 'PRIVACY', 'TOS_GUEST'];
+      // graines 0059 et 0070 : brouillons partout ⇒ la mise en service est bloquée (OQ-BR-24)
+      const kinds = ['MARKETING', 'PRIVACY', 'TOS_GUEST', 'TOS_HOST'];
       expect(new Set(rows.map((r) => `${r.code ?? 'NULL'}:${r.doc_kind}`))).toEqual(
         new Set([...ALL, 'NULL'].flatMap((c) => kinds.map((k) => `${c}:${k}`))),
       );
@@ -577,7 +585,7 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
       const admin = await elevatedStaff(client, 'ADMIN', ALL);
       await withTestTransaction(client, {}, async (tx) => {
         for (const country of ALL) {
-          for (const kind of ['TOS_GUEST', 'PRIVACY', 'MARKETING']) {
+          for (const kind of ['TOS_GUEST', 'PRIVACY', 'MARKETING', 'TOS_HOST']) {
             const r = await publish(tx, admin.hash, kind, { country, reviewRef: 'AVIS-TEST-1' });
             expect(r?.outcome).toBe('PUBLISHED');
           }

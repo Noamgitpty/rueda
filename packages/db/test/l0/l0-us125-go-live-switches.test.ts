@@ -1,5 +1,5 @@
 /**
- * Preuves des interrupteurs de mise en service par pays (US-125, migration 0070 ; RLS-27) sous les
+ * Preuves des interrupteurs de mise en service par pays (US-125, migration 0071 ; RLS-27) sous les
  * rôles de PRODUCTION (assertion L0-05 en tête de chaque connexion : connectAs / withRole), au
  * Panama (USD) et au Paraguay (PYG). Chaque écriture à true se fait dans une transaction ANNULÉE ;
  * à la fin de chaque preuve, les quatre interrupteurs valent false.

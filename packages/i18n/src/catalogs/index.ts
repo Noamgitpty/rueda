@@ -34,10 +34,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (US-104) : `common.otp.*`, `common.error.phoneDigits` (10b §4.3), clés OTP de S15 du prototype
  US-033 devenues officielles (`web.s15.phone`, `.code`, `.verify`, `.codeSent`, `.resendIn`) et
  nouvelles `web.s15.*`. Version 18 : lieux de remise, véhicules et annonces de l'hôte (US-115) :
- `common.listing.*`, `web.host.*`, `web.listing.*`. Version 19 : interrupteurs par pays et
+ `common.listing.*`, `web.host.*`, `web.listing.*`. Version 19 : CGU de l'hôte (US-126) :
+ `common.listing.hostTermsRequired`, `web.host.terms.*`, `web.legal.validFrom`,
+ `web.legal.translation`, `web.legal.backHost`. Version 20 : interrupteurs par pays et
  avertissements réglementaires versionnés (US-125) : `common.regulatory.*`.
  */
-export const CATALOG_VERSION = 19;
+export const CATALOG_VERSION = 20;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

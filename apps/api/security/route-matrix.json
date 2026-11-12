@@ -319,6 +319,14 @@
     "GET /listings/{listingId}": {
       "acces": "public",
       "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative (19 US-115 critère 4)"
+    },
+    "GET /host/accounts/{orgId}/terms": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us126)"
+    },
+    "POST /host/accounts/{orgId}/terms/accept": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND, aucun consentement écrit (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us126)"
     }
   }
 }

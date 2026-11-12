@@ -1,4 +1,4 @@
--- 0070 — CFG : interrupteurs de mise en service par pays, changés seulement par deux personnes.
+-- 0071 — CFG : interrupteurs de mise en service par pays, changés seulement par deux personnes.
 -- US-125 ; 19 US-125 ; 17 §0.1 (interrupteurs), §2.3 (commandes `cmd_request_go_live_switch` /
 -- `cmd_approve_go_live_switch`, propriétaire `cmd_golive_owner`, trigger
 -- `param_value_go_live_guard`, RLS-27), §7.2 ; ADR-046 (mécanisme PROPOSÉ) ; DEC-FONDATEUR-15 ;

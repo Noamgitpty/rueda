@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 70 migrations ; 80 tables ; 2 vues ; 412 politiques RLS ; 108 fonctions `SECURITY DEFINER` ; 135 autres fonctions.
+- 71 migrations ; 80 tables ; 2 vues ; 412 politiques RLS ; 111 fonctions `SECURITY DEFINER` ; 136 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -85,6 +85,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0067_catalog_host_listings` | CAT : lieux de remise, véhicules et annonces de l'hôte (modèle bêta), clé étrangère du véhicule. |
 | `0068_config_listing_photo_params` | graine complémentaire : paramètres « listing_min_photos* » (US-115 ; 17 §7.2). |
 | `0069_config_listing_price_params` | graine complémentaire : paramètres « price_ceiling_* » (US-115 ; 17 §7.2). |
+| `0070_ctr_host_terms` | CTR : CGU de l'hôte versionnées (`TOS_HOST`), acceptation horodatée et garde de la |
 
 ## Rôles
 
@@ -1564,7 +1565,7 @@ Contraintes :
 
 - `consent_c2_key_complete` : `CHECK (ip_enc IS NULL AND user_agent_enc IS NULL OR key_subject_type IS NOT NULL AND key_subject_id IS NOT NULL)`
 - `consent_c2_withheld_coherent` : `CHECK (NOT c2_withheld OR ip_enc IS NULL AND user_agent_enc IS NULL)`
-- `consent_context_valid` : `CHECK (context = ANY (ARRAY['SIGNUP'::text, 'REACCEPT'::text, 'SETTINGS'::text, 'CHECKOUT'::text, 'CONTRACT'::text, 'KYC'::text]))`
+- `consent_context_valid` : `CHECK (context = ANY (ARRAY['SIGNUP'::text, 'REACCEPT'::text, 'SETTINGS'::text, 'CHECKOUT'::text, 'CONTRACT'::text, 'KYC'::text, 'HOST_ONBOARDING'::text]))`
 - `consent_doc_kind_valid` : `CHECK (doc_kind = ANY (ARRAY['TOS_GUEST'::text, 'TOS_HOST'::text, 'PRIVACY'::text, 'MARKETING'::text, 'BIOMETRIC_CONSENT'::text, 'DAMAGE_TERMS'::text, 'CANCELLATION_POLICY'::text]))`
 - `consent_doc_version_positive` : `CHECK (doc_version >= 1)`
 - `consent_key_pair` : `CHECK ((key_subject_type IS NULL) = (key_subject_id IS NULL))`
@@ -3961,10 +3962,13 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.cfg_content_cmd_rollback(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_target_version_no integer)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_content_cmd_save_draft(p_token_hash bytea, p_request_id uuid, p_block_key text, p_country text, p_bodies jsonb, p_asset_id uuid)` | `TABLE(outcome text, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.ctr_cmd_accept_documents(p_token_hash bytea, p_documents jsonb)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_cmd_accept_host_terms(p_token_hash bytea, p_org uuid, p_version integer, p_language text)` | `TABLE(outcome text, version integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_cmd_set_marketing(p_token_hash bytea, p_opt_in boolean)` | `text` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_consent_history(p_token_hash bytea)` | `TABLE(doc_kind text, doc_version integer, locale text, accepted boolean, accepted_at timestamp with time zone, context text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_consent_status(p_token_hash bytea)` | `TABLE(doc_kind text, required boolean, current_version integer, required_version integer, accepted_version integer, accepted boolean, reaccept_required boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_document_body(p_kind text, p_country text, p_language text, p_version integer)` | `TABLE(doc_kind text, version integer, is_major boolean, locale text, title text, body_md text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_host_terms(p_token_hash bytea, p_org uuid, p_language text)` | `TABLE(outcome text, country_code text, version integer, is_major boolean, locale text, title text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone, required_version integer, accepted_version integer, accepted_at timestamp with time zone, reaccept_required boolean)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.ctr_host_terms_required(p_user_id uuid, p_country text)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_published_documents(p_country text, p_language text)` | `TABLE(doc_kind text, version integer, is_major boolean, locale text, title text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.ctr_signup_consents_guard()` | `trigger` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE |
 | `core.ctr_staff_cmd_publish_document(p_token_hash bytea, p_request_id uuid, p_kind text, p_country text, p_is_major boolean, p_valid_from timestamp with time zone, p_legal_review_ref text, p_bodies jsonb)` | `TABLE(outcome text, version integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -4094,6 +4098,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.ctr_account_country(p_user_id uuid)` | `text` | `migrator` | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_consent_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.ctr_current_template(p_kind text, p_country text, p_language text, p_major_only boolean)` | `SETOF core.contract_document_template` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
+| `core.ctr_host_terms_state(p_user_id uuid, p_country text, p_language text)` | `TABLE(template_id uuid, version integer, is_major boolean, locale text, title text, content_hash bytea, is_draft boolean, valid_from timestamp with time zone, required_version integer, accepted_version integer, accepted_at timestamp with time zone, reaccept_required boolean)` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_no_truncate()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.ctr_record_consent(p_user_id uuid, p_template_id uuid, p_accepted boolean, p_context text, p_country text)` | `void` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_template_guard()` | `trigger` | `migrator` | migrator: EXECUTE |

@@ -1,5 +1,5 @@
 /**
- * Aides des preuves des interrupteurs de mise en service (US-125, migration 0070 ; 17 §0.1, §2.3,
+ * Aides des preuves des interrupteurs de mise en service (US-125, migration 0071 ; 17 §0.1, §2.3,
  * RLS-27) : appel des VRAIES commandes à deux personnes `core.config_cmd_request_go_live_switch`
  * et `core.config_cmd_approve_go_live_switch` sous app_api, contexte STAFF posé par la vraie couche
  * (`setSessionContext`) ; l'identité vient de la session désignée par l'empreinte du jeton.
