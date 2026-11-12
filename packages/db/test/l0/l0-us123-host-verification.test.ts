@@ -332,7 +332,15 @@ const state = (c: pg.ClientBase, p: Person, org: string) =>
 
 /** État lu à un instant virtuel (fenêtre d'interrupteurs ouverts : base de test seulement). */
 const stateAt = (c: pg.ClientBase, p: Person, org: string, at: string) =>
-  withTestTransaction(c, { virtualNow: at }, (tx) => state(tx, p, org));
+  withTestTransaction(c, { virtualNow: at }, async (tx) => {
+    // la session de l'hôte est ouverte à l'instant virtuel (celle d'aujourd'hui y a expiré)
+    const t = newToken();
+    await tx.query(
+      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
+      [uuid(), p.userId, t.hash, SESSION_TTL_S],
+    );
+    return state(tx, { userId: p.userId, token: t.hash }, org);
+  });
 
 interface ActOutcome {
   readonly outcome: string;
