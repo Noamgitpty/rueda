@@ -240,7 +240,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_definition' || t === 'config_param_value'
               ? [{ t, pol: 'kyc_cmd_host_read', cmd: 'r', roles: 'kyc_cmd_owner' }]
               : []),
-            // revue de l'hôte par exception (US-108, 0081) : host_manual_review_required seulement
+            // revue de l'hôte par exception (US-108, 0081) : host_review_manual_required et host_review_auto_delay_minutes seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'kyc_cmd_host_review_read', cmd: 'r', roles: 'kyc_cmd_owner' }]
               : []),

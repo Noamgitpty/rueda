@@ -207,7 +207,7 @@ describe('tâches du travailleur (US-003)', () => {
     const alerts = new RecordingAlerts();
     const logs: string[] = [];
     const { tx, sql } = recordingTx({
-      kyc_worker_auto_review_hosts: [{ approved: 2, kept: '1', skipped: 0 }],
+      kyc_worker_auto_review_hosts: [{ approved: 2, kept: '1', skipped: 0, failed: 0 }],
       kyc_worker_enqueue_reviews: [{ enqueued: 1, unqueued: '2', waiting: 3, skipped: '1' }],
       support_worker_review_sla: [
         { queue: 'KYC', country_code: C1, breached: 3 },
@@ -228,7 +228,9 @@ describe('tâches du travailleur (US-003)', () => {
     const batch = WORKER_TASK_DEFAULTS.reviewSlaWatchBatch;
     expect(sql).toEqual([
       // US-108 : revue de l'hôte par exception, d'abord (tous les comptes : NULL)
-      `SELECT approved, kept, skipped FROM core.kyc_worker_auto_review_hosts($1, NULL) [${batch}]`,
+      'SAVEPOINT host_auto_review []',
+      `SELECT approved, kept, skipped, failed FROM core.kyc_worker_auto_review_hosts($1, NULL) [${batch}]`,
+      'RELEASE SAVEPOINT host_auto_review []',
       `SELECT enqueued, unqueued, waiting, skipped FROM core.kyc_worker_enqueue_reviews($1) [${batch}]`,
       `SELECT queue, country_code, breached FROM core.support_worker_review_sla($1) [${batch}]`,
     ]);
@@ -259,6 +261,7 @@ describe('tâches du travailleur (US-003)', () => {
         hostsApproved: 2,
         hostsKept: 1,
         hostsSkipped: 0,
+        hostsFailed: 0,
         enqueued: 1,
         unqueued: 2,
         waiting: 3,
@@ -268,10 +271,42 @@ describe('tâches du travailleur (US-003)', () => {
     ]);
   });
 
+  // US-108 (revues code et architecture) : une erreur de la partie hôtes est isolée par un point
+  // de sauvegarde ; la remise en file KYC et les alertes de retard continuent
+  it('review_sla_watch : erreur de l’approbation automatique des hôtes isolée, alertes de retard envoyées', async () => {
+    const registry = new BusRegistry();
+    const alerts = new RecordingAlerts();
+    const logs: string[] = [];
+    const base = recordingTx({
+      kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 0, skipped: 0 }],
+      support_worker_review_sla: [{ queue: 'KYC', country_code: C1, breached: 1 }],
+    });
+    const tx: SqlClient = {
+      query: <R>(text: string, params?: readonly unknown[]) =>
+        text.includes('kyc_worker_auto_review_hosts')
+          ? Promise.reject(new Error('dossier en échec'))
+          : base.tx.query<R>(text, params),
+    };
+    registerWorkerTasks(registry, {
+      transactions: transactions(tx, []),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      alerts,
+      now: () => AT,
+    });
+    const h = registry.handlerOf(REVIEW_SLA_WATCH_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, tx);
+    expect(base.sql).toContain('ROLLBACK TO SAVEPOINT host_auto_review []');
+    expect(alerts.sent.map((a) => a.code)).toEqual(['OPS_REVIEW_SLA_BREACH']);
+    expect(logs[0]).toContain('"hostsFailed":-1');
+  });
+
   it('review_sla_watch : rien en retard ni hors file ⇒ aucune alerte ; canal en échec ⇒ la passe échoue (rejouée)', async () => {
     // échecs déjà signalés (`waiting`) : aucune nouvelle alerte P1 (une par dossier, revue US-106)
     const quiet = recordingTx({
-      kyc_worker_auto_review_hosts: [{ approved: 0, kept: 0, skipped: 0 }],
+      kyc_worker_auto_review_hosts: [{ approved: 0, kept: 0, skipped: 0, failed: 0 }],
       kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 5, skipped: 0 }],
     });
     const alerts = new RecordingAlerts();
@@ -289,7 +324,7 @@ describe('tâches du travailleur (US-003)', () => {
     await h.handle({}, quiet.tx);
     expect(alerts.sent).toEqual([]);
     const late = recordingTx({
-      kyc_worker_auto_review_hosts: [{ approved: 0, kept: 0, skipped: 0 }],
+      kyc_worker_auto_review_hosts: [{ approved: 0, kept: 0, skipped: 0, failed: 0 }],
       kyc_worker_enqueue_reviews: [{ enqueued: 0, unqueued: 0, waiting: 0, skipped: 0 }],
       support_worker_review_sla: [{ queue: 'KYC', country_code: C2, breached: 1 }],
     });

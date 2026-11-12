@@ -402,7 +402,7 @@ export const PT_MESSAGES = {
   'backoffice.queues.openHost': 'Abrir o dossiê do anfitrião',
   'backoffice.host.heading': 'Dossiê do anfitrião',
   'backoffice.host.intro':
-    'Revisão por exceção: os dossiês completos e sem alertas são aprovados automaticamente. Este dossiê está aqui por causa de um alerta.',
+    'Revisão por exceção: um dossiê completo e sem alertas é aprovado automaticamente ao fim do prazo de revisão. Os motivos de alerta, se houver, aparecem abaixo.',
   'backoffice.host.status': 'Situação do dossiê',
   'backoffice.host.status.NOT_SUBMITTED': 'Não enviado',
   'backoffice.host.status.OPEN': 'Aberto',
@@ -415,6 +415,8 @@ export const PT_MESSAGES = {
     'Retenção por sanções: possível correspondência para um ADMIN revisar. O anfitrião nunca é avisado.',
   'backoffice.host.reviewReasons': 'Motivo da revisão',
   'backoffice.host.reason.SCREENING_HOLD': 'Correspondência em uma lista de sanções',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED':
+    'Conta restrita, encerrada ou com uma retenção ativa',
   'backoffice.host.reason.COUNTRY_REVIEW':
     'A configuração exige uma revisão da equipe de operações',
   'backoffice.host.noReason': 'Nenhum alerta',
@@ -447,6 +449,7 @@ export const PT_MESSAGES = {
     one: '{count} documento anexado à triagem',
     other: '{count} documentos anexados à triagem',
   },
+  'backoffice.host.subject': 'Identificador da conta de anfitrião',
   'backoffice.host.screeningHeading': 'Triagem manual de sanções',
   'backoffice.host.screeningHint':
     'Consulte cada lista e depois informe o resultado. Uma correspondência vai para um ADMIN; o anfitrião nunca é avisado.',
@@ -936,6 +939,10 @@ export const PT_MESSAGES = {
   'common.listing.photoFormat': 'Esta foto não pode ser usada. Envie uma foto JPEG, PNG ou WebP.',
   'common.listing.hostTermsRequired':
     'Antes de enviar seu anúncio, leia e aceite a versão vigente das Condições do anfitrião.',
+  'common.listing.vehicleNotCovered':
+    'Este veículo não atende às condições da proteção das viagens (idade, valor ou uso). Ele não pode ser publicado.',
+  'common.listing.insurerInactive':
+    'Tudo pronto do seu lado. A proteção das viagens ainda não está disponível aqui; você poderá enviar seu anúncio quando estiver.',
   'common.listing.hostNotActivated':
     'Tudo pronto do seu lado. Você poderá enviar seu anúncio quando sua conta de anfitrião estiver ativa e abrirmos para anfitriões aqui.',
   'common.listing.unavailable':

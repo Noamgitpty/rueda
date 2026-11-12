@@ -399,7 +399,7 @@ export const ES_MESSAGES = {
   'backoffice.queues.openHost': 'Abrir el expediente del anfitrión',
   'backoffice.host.heading': 'Expediente del anfitrión',
   'backoffice.host.intro':
-    'Revisión por excepción: los expedientes completos y sin alertas se aprueban solos. Este expediente llegó aquí por una alerta.',
+    'Revisión por excepción: un expediente completo y sin alertas se aprueba solo al cumplirse el plazo de revisión. Los motivos de alerta, si los hay, aparecen abajo.',
   'backoffice.host.status': 'Estado del expediente',
   'backoffice.host.status.NOT_SUBMITTED': 'No enviado',
   'backoffice.host.status.OPEN': 'Abierto',
@@ -412,6 +412,8 @@ export const ES_MESSAGES = {
     'Retención por sanciones: coincidencia posible que revisa un ADMIN. El anfitrión no recibe ningún aviso.',
   'backoffice.host.reviewReasons': 'Motivo de la revisión',
   'backoffice.host.reason.SCREENING_HOLD': 'Coincidencia en una lista de sanciones',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED':
+    'Cuenta restringida, cerrada o con una retención activa',
   'backoffice.host.reason.COUNTRY_REVIEW':
     'La configuración exige una revisión del equipo de operaciones',
   'backoffice.host.noReason': 'Ninguna alerta',
@@ -444,6 +446,7 @@ export const ES_MESSAGES = {
     one: '{count} documento adjunto al filtrado',
     other: '{count} documentos adjuntos al filtrado',
   },
+  'backoffice.host.subject': 'Identificador de la cuenta de anfitrión',
   'backoffice.host.screeningHeading': 'Filtrado manual de sanciones',
   'backoffice.host.screeningHint':
     'Consulta cada lista y luego indica su resultado. Una coincidencia pasa a un ADMIN; el anfitrión no recibe ningún aviso.',
@@ -936,6 +939,10 @@ export const ES_MESSAGES = {
   'common.listing.photoFormat': 'Esta foto no se puede usar. Sube una foto JPEG, PNG o WebP.',
   'common.listing.hostTermsRequired':
     'Antes de enviar tu anuncio, lee y acepta la versión vigente de las Condiciones del anfitrión.',
+  'common.listing.vehicleNotCovered':
+    'Este vehículo no cumple las condiciones de la protección de los viajes (antigüedad, valor o uso). No se puede publicar.',
+  'common.listing.insurerInactive':
+    'Todo listo de tu lado. La protección de los viajes todavía no está disponible aquí; podrás enviar tu anuncio cuando lo esté.',
   'common.listing.hostNotActivated':
     'Todo listo de tu lado. Podrás enviar tu anuncio cuando tu cuenta de anfitrión esté activa y abramos a anfitriones aquí.',
   'common.listing.unavailable':

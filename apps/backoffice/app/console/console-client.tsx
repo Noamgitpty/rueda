@@ -30,6 +30,8 @@ import {
   SANCTIONS_LISTS,
 } from './ops-view.tsx';
 import type {
+  SanctionsList,
+  SanctionsListResult,
   CatalogAdditionView,
   HostDossierView,
   KycDossierView,
@@ -199,6 +201,50 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           r.ok
             ? { tone: 'success', key: messageKeyOf(r.body.messageKey) }
             : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
+        );
+      });
+    },
+    // US-108 : filtrage manuel des sanctions depuis le formulaire de la console (même action que le
+    // dossier ouvert par la file) ; un requestId par intention
+    onHostScreening: (
+      orgId: string,
+      results: Readonly<Record<SanctionsList, SanctionsListResult>>,
+      reason: string,
+      evidence: readonly string[],
+    ) => {
+      const subject = orgId.trim().toLowerCase();
+      intent.current = intentFor(
+        intent.current,
+        [
+          'HOST_SANCTIONS_SCREENING',
+          subject,
+          ...SANCTIONS_LISTS.map((l) => results[l]),
+          reason.trim(),
+          evidence,
+        ],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action: 'HOST_SANCTIONS_SCREENING',
+          subjectId: subject,
+          reason,
+          input: { ...results },
+          ...(evidence.length > 0 ? { evidence } : {}),
+        });
+        const why = r.ok ? undefined : r.values?.['reason'];
+        const refusal =
+          !r.ok && r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? HOST_SCREENING_REFUSAL_KEYS[why]
+            : undefined;
+        await refresh(
+          r.ok
+            ? { tone: 'success', key: 'backoffice.host.recorded' }
+            : refusal !== undefined
+              ? { tone: 'warning', key: refusal }
+              : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
         );
       });
     },

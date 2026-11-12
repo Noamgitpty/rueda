@@ -165,7 +165,7 @@ export interface HostDossierView {
   readonly country: string;
   readonly status: HostStatus;
   readonly screeningHold: boolean;
-  readonly reviewReasons: readonly ('SCREENING_HOLD' | 'COUNTRY_REVIEW')[];
+  readonly reviewReasons: readonly ('SCREENING_HOLD' | 'ACCOUNT_RESTRICTED' | 'COUNTRY_REVIEW')[];
   readonly screening: {
     readonly source: string;
     readonly screenedAt: string;
@@ -1659,8 +1659,11 @@ const HOST_STATUS_KEYS: Readonly<Record<HostStatus, MessageKey>> = {
   REJECTED: 'backoffice.host.status.REJECTED',
   REVOKED: 'backoffice.host.status.REVOKED',
 };
-const HOST_REASON_KEYS: Readonly<Record<'SCREENING_HOLD' | 'COUNTRY_REVIEW', MessageKey>> = {
+const HOST_REASON_KEYS: Readonly<
+  Record<'SCREENING_HOLD' | 'ACCOUNT_RESTRICTED' | 'COUNTRY_REVIEW', MessageKey>
+> = {
   SCREENING_HOLD: 'backoffice.host.reason.SCREENING_HOLD',
+  ACCOUNT_RESTRICTED: 'backoffice.host.reason.ACCOUNT_RESTRICTED',
   COUNTRY_REVIEW: 'backoffice.host.reason.COUNTRY_REVIEW',
 };
 const HOST_RESULT_KEYS: Readonly<

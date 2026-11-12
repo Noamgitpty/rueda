@@ -385,7 +385,7 @@ export const EN_MESSAGES = {
   'backoffice.queues.openHost': 'Open the host file',
   'backoffice.host.heading': 'Host file',
   'backoffice.host.intro':
-    'Review by exception: complete files without alerts are approved automatically. This file is here because of an alert.',
+    'Review by exception: a complete file without alerts is approved automatically once the review period ends. Alert reasons, if any, appear below.',
   'backoffice.host.status': 'File status',
   'backoffice.host.status.NOT_SUBMITTED': 'Not submitted',
   'backoffice.host.status.OPEN': 'Open',
@@ -398,6 +398,7 @@ export const EN_MESSAGES = {
     'Sanctions hold: a possible match for an ADMIN to review. The host is never told.',
   'backoffice.host.reviewReasons': 'Reason for the review',
   'backoffice.host.reason.SCREENING_HOLD': 'Match on a sanctions list',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED': 'Account restricted, closed or under an active hold',
   'backoffice.host.reason.COUNTRY_REVIEW': 'The settings require a review by the operations team',
   'backoffice.host.noReason': 'No alert',
   'backoffice.host.checklist': 'Checklist',
@@ -429,6 +430,7 @@ export const EN_MESSAGES = {
     one: '{count} document attached to the screening',
     other: '{count} documents attached to the screening',
   },
+  'backoffice.host.subject': 'Host account identifier',
   'backoffice.host.screeningHeading': 'Manual sanctions screening',
   'backoffice.host.screeningHint':
     'Check each list, then give its result. A match goes to an ADMIN; the host is never told.',
@@ -904,6 +906,10 @@ export const EN_MESSAGES = {
   'common.listing.photoFormat': 'This photo cannot be used. Upload a JPEG, PNG or WebP photo.',
   'common.listing.hostTermsRequired':
     'Before submitting your listing, read and accept the current version of the Host terms.',
+  'common.listing.vehicleNotCovered':
+    'This vehicle does not meet the trip protection conditions (age, value or use). It cannot be listed.',
+  'common.listing.insurerInactive':
+    'You are all set. Trip protection is not available here yet; you can submit your listing once it is.',
   'common.listing.hostNotActivated':
     'All set on your side. You can submit your listing once your host account is active and we open to hosts here.',
   'common.listing.unavailable': 'We cannot save your listing right now. Try again later.',

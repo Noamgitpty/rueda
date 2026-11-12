@@ -7,7 +7,7 @@
  * refermée par la procédure à deux personnes d'US-125.
  *
  * Attendus tirés de 19 US-108 (critères 1 à 4), de 16 VER-028 / ADM-004 / HST-019 / A.8, de 17
- * §0.1, §2.4, de 22 OQ-P2P-03, des données CFG (`params.json` : `host_manual_review_required`,
+ * §0.1, §2.4, de 22 OQ-P2P-03, des données CFG (`params.json` : `host_review_manual_required`,
  * `listing_min_photos`) et de la consigne du fondateur du 2026-11-12 (« jamais plus lourd que
  * Turo » : revue par exception), jamais du code testé :
  * - critère 1 : sans filtrage, activation refusée (HOST_SCREENING_MISSING) ; source et date du
@@ -71,7 +71,9 @@ const paramValues = (key: string): Record<string, unknown> =>
     cfg('params.json') as { params: { key: string; values?: Record<string, unknown> }[] }
   ).params.find((p) => p.key === key)?.values ?? {};
 /** Consigne du fondateur du 2026-11-12 : revue de l'ops par exception (défaut false). */
-const REVIEW_REQUIRED = paramValues('host_manual_review_required');
+const REVIEW_REQUIRED = paramValues('host_review_manual_required');
+/** Délai uniforme avant toute approbation automatique (revues sécurité et qa d'US-108). */
+const DELAY = paramValues('host_review_auto_delay_minutes');
 /** 17 §7.2 `listing_min_photos` (BR-LIST-05). */
 const MIN_PHOTOS = paramValues('listing_min_photos');
 
@@ -357,26 +359,69 @@ function act(
 
 const ALL_CLEAR = { unList: 'CLEAR', ofacList: 'CLEAR', nationalList: 'CLEAR' };
 
-/** Passe ciblée du travailleur review_sla_watch (partie hôtes), sous app_worker. */
+interface Counts {
+  readonly approved: number;
+  readonly kept: number;
+  readonly skipped: number;
+  readonly failed: number;
+}
+const NONE: Counts = { approved: 0, kept: 0, skipped: 0, failed: 0 };
+
+/**
+ * Passe ciblée du travailleur review_sla_watch (partie hôtes), sous app_worker, à l'instant `at`
+ * (horloge virtuelle ; absent : maintenant). `inTx` : préparation dans la MÊME transaction, alors
+ * ANNULÉE (paramètre de pays de test).
+ */
 async function autoReview(
   org: string,
-  inTx?: (w: pg.ClientBase) => Promise<void>,
-): Promise<{ approved: number; kept: number; skipped: number }> {
+  options: { readonly at?: string; readonly inTx?: (w: pg.ClientBase) => Promise<void> } = {},
+): Promise<Counts> {
   return withRole('app_worker', (w) =>
-    withTestTransaction(w, { commit: inTx === undefined }, async (tx) => {
-      await tx.query(
-        `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
-                pg_catalog.set_config('app.worker_name', 'review_sla_watch', true)`,
-      );
-      if (inTx !== undefined) await inTx(tx);
-      return one<{ approved: number; kept: number; skipped: number }>(
-        tx,
-        'SELECT * FROM core.kyc_worker_auto_review_hosts($1, $2)',
-        [10, org],
-      );
-    }),
+    withTestTransaction(
+      w,
+      {
+        commit: options.inTx === undefined,
+        ...(options.at === undefined ? {} : { virtualNow: options.at }),
+      },
+      async (tx) => {
+        await tx.query(
+          `SELECT pg_catalog.set_config('app.actor_kind', 'WORKER', true),
+                  pg_catalog.set_config('app.worker_name', 'review_sla_watch', true)`,
+        );
+        if (options.inTx !== undefined) await options.inTx(tx);
+        const r = await one<Counts>(tx, 'SELECT * FROM core.kyc_worker_auto_review_hosts($1, $2)', [
+          10,
+          org,
+        ]);
+        return {
+          approved: Number(r.approved),
+          kept: Number(r.kept),
+          skipped: Number(r.skipped),
+          failed: Number(r.failed),
+        };
+      },
+    ),
   );
 }
+
+/** État vu par l'hôte à l'instant virtuel `at` (session neuve ouverte à cet instant). */
+const stateAt = (c: pg.ClientBase, p: Person, org: string, at: string) =>
+  withTestTransaction(c, { virtualNow: at }, async (tx) => {
+    const t = newToken();
+    await tx.query(
+      `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
+      [uuid(), p.userId, t.hash, SESSION_TTL_S],
+    );
+    return state(tx, { userId: p.userId, token: t.hash }, org);
+  });
+
+/** Ce que l'hôte voit de son dossier (état, compte, pièces manquantes, blocages). */
+const shape = (s: HostState) => ({
+  verification_status: s.verification_status,
+  org_status: s.org_status,
+  missing: s.missing,
+  blockers: [...(s.blockers ?? [])].sort(),
+});
 
 const hostDossier = (c: pg.ClientBase, s: { readonly hash: Buffer }, itemId: string) =>
   one<{ outcome: string; body: Record<string, unknown> | null }>(
@@ -395,18 +440,30 @@ const claim = (c: pg.ClientBase, s: { readonly hash: Buffer }, itemId: string) =
 const orgStatus = async (c: pg.ClientBase, org: string): Promise<string | undefined> =>
   (await fixture<{ us123_org_status: string }>(c, 'us123_org_status', org))[0]?.us123_org_status;
 
+/** Élément vivant (ou le dernier) de la file HOST_VERIFICATION du compte (fixture 9976). */
+async function itemOf(c: pg.ClientBase, org: string): Promise<{ id: string; status: string }> {
+  const [item] = await fixture<{ id: string; status: string }>(c, 'us108_queue_item', org);
+  if (item === undefined) throw new Error('aucun élément de file');
+  return item;
+}
+
 describe.each(COUNTRIES)(
   'US-108 — vérification de l’hôte par exception, $country ($currency)',
   (cc) => {
     const country = cc.country;
+    /** Délai uniforme avant toute approbation automatique (params.json, PROPOSÉ). */
+    const delay = Number(DELAY[country]);
+    /** Instant à `minutes` de maintenant. */
+    const at = (minutes: number): string => new Date(Date.now() + minutes * 60_000).toISOString();
 
-    it('données de test : revue de l’ops par exception, paramètre à false par défaut (consigne du fondateur)', async () => {
+    it('données de test : revue par exception (false) et délai uniforme de 24 h tirés de la configuration', async () => {
       await withRole('app_api', async () => undefined); // L0-05
       expect(REVIEW_REQUIRED[country]).toBe(false);
+      expect(delay).toBe(1440);
       expect(Number(MIN_PHOTOS[country])).toBeGreaterThan(0);
     });
 
-    it('critère 1 : sans filtrage ⇒ HOST_SCREENING_MISSING ; filtrage manuel de l’ops ⇒ source, date et relecteur au dossier', async () => {
+    it('critère 1 : sans prestataire, le dossier attend le filtrage dans la file de l’ops ; refus HOST_SCREENING_MISSING ; filtrage manuel depuis le dossier de la file ⇒ source, date et relecteur', async () => {
       await withRole('app_api', async (c) => {
         const ops = await elevated(c, 'OPS_AGENT', [country]);
         const { p, org, submitted } = await readyHost(c, country, 'NONE');
@@ -414,17 +471,35 @@ describe.each(COUNTRIES)(
         expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
           status: 'DOCS_PENDING',
         });
+        // l'ops atteint le dossier par la file HOST_VERIFICATION (écran O01), jamais par un
+        // identifiant saisi
+        const item = await itemOf(c, org);
+        expect(item.status).toBe('OPEN');
+        expect((await claim(c, ops, item.id)).outcome).toBe('CLAIMED');
+        const read = await hostDossier(c, ops, item.id);
+        expect(read.outcome).toBe('GRANTED');
+        const body = read.body ?? {};
+        expect(body).toMatchObject({ status: 'DOCS_PENDING', screening: null });
+        expect(
+          (body['checklist'] as { item: string; state: string }[]).find(
+            (x) => x.item === 'SANCTIONS',
+          ),
+        ).toEqual({ item: 'SANCTIONS', state: 'MISSING' });
+        const subject = String(body['orgId']);
+        expect(subject).toBe(org);
         // l'ops tente de l'activer : refus motivé « filtrage manquant », rien n'est écrit
         expect(
-          await act(c, ops, 'HOST_VERIFICATION_DECISION', org, { decision: 'APPROVED' }, [country]),
+          await act(c, ops, 'HOST_VERIFICATION_DECISION', subject, { decision: 'APPROVED' }, [
+            country,
+          ]),
         ).toMatchObject({ outcome: 'REFUSED', detail: 'HOST_SCREENING_MISSING' });
         expect(await orgStatus(c, org)).toBe('ONBOARDING');
         // saisie incomplète : refus du cadre (22023), rien n'est écrit
         await expect(
-          act(c, ops, 'HOST_SANCTIONS_SCREENING', org, { unList: 'CLEAR' }, [country]),
+          act(c, ops, 'HOST_SANCTIONS_SCREENING', subject, { unList: 'CLEAR' }, [country]),
         ).rejects.toMatchObject({ code: '22023' });
         // filtrage manuel (VER-028 : recherche, résultat, consigné avec source, date, auteur)
-        const done = await act(c, ops, 'HOST_SANCTIONS_SCREENING', org, ALL_CLEAR, [country]);
+        const done = await act(c, ops, 'HOST_SANCTIONS_SCREENING', subject, ALL_CLEAR, [country]);
         expect(done).toMatchObject({ outcome: 'DONE', domain_ref: submitted.verification_id });
         const [scr] = await fixture<{
           provider: string;
@@ -444,7 +519,6 @@ describe.each(COUNTRIES)(
           lists_version: { UN: today(country), OFAC: today(country), NATIONAL: today(country) },
         });
         expect(scr?.screened_at).toBeInstanceOf(Date);
-        // action de console : motif, saisie, auteur (cadre d'US-101)
         expect((await fixture(c, 'us108_manual_action', done.action_id))[0]).toMatchObject({
           action_code: 'HOST_SANCTIONS_SCREENING',
           subject_id: org,
@@ -453,39 +527,32 @@ describe.each(COUNTRIES)(
           reason: REASON,
           outcome: 'DONE',
         });
-        // dossier complet : en revue ; journal : source et résultat, codes seulement
+        // dossier complet : en revue, même élément de file ; journal : source et résultat
         expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
           status: 'IN_REVIEW',
           missing: [],
           screening_hold: false,
         });
+        expect((await itemOf(c, org)).id).toBe(item.id);
         const audit = await fixture<{ action_code: string; after: Record<string, unknown> }>(
           c,
           'us123_audit',
           org,
         );
         expect(audit.find((a) => a.action_code === 'HOST_SANCTIONS_SCREENED')?.after).toMatchObject(
-          {
-            result: 'CLEAR',
-            source: 'OPS_MANUAL',
-          },
+          { result: 'CLEAR', source: 'OPS_MANUAL' },
         );
         expect((await state(c, p, org)).missing).toEqual([]);
-        // un second filtrage du même dossier est refusé
         expect(
-          await act(c, ops, 'HOST_SANCTIONS_SCREENING', org, ALL_CLEAR, [country]),
+          await act(c, ops, 'HOST_SANCTIONS_SCREENING', subject, ALL_CLEAR, [country]),
         ).toMatchObject({ outcome: 'REFUSED', detail: 'HOST_ALREADY_SCREENED' });
       });
     });
 
-    it('filtrage manuel avec une correspondance ⇒ retenue, escalade, jamais approuvé sans l’ops ; l’hôte n’en voit rien', async () => {
+    it('filtrage manuel avec une correspondance ⇒ retenue, escalade, jamais approuvé par le travailleur', async () => {
       await withRole('app_api', async (c) => {
         const ops = await elevated(c, 'OPS_AGENT', [country]);
-        const clean = await readyHost(c, country, 'NONE');
         const held = await readyHost(c, country, 'NONE');
-        expect(
-          (await act(c, ops, 'HOST_SANCTIONS_SCREENING', clean.org, ALL_CLEAR, [country])).outcome,
-        ).toBe('DONE');
         const r = await act(
           c,
           ops,
@@ -518,47 +585,105 @@ describe.each(COUNTRIES)(
             reason_code: 'HOST_SANCTIONS_HIT',
           },
         ]);
-        // indiscernable par l'hôte : même état qu'un dossier propre
-        const shape = (s: HostState) => ({
-          verification_status: s.verification_status,
-          org_status: s.org_status,
-          missing: s.missing,
-          blockers: [...(s.blockers ?? [])].sort(),
-        });
-        const sHeld = await state(c, held.p, held.org);
-        expect(shape(sHeld)).toEqual(shape(await state(c, clean.p, clean.org)));
-        expect(JSON.stringify(sHeld)).not.toMatch(/SANCTION|HOLD|MATCH|OPS_MANUAL/i);
-        // le travailleur ne touche jamais un dossier retenu
-        expect(await autoReview(held.org)).toEqual({ approved: 0, kept: 0, skipped: 0 });
+        expect(JSON.stringify(await state(c, held.p, held.org))).not.toMatch(
+          /SANCTION|HOLD|MATCH|OPS_MANUAL/i,
+        );
+        // le travailleur ne touche jamais un dossier retenu, avant comme après le délai
+        expect(await autoReview(held.org)).toEqual(NONE);
+        expect(await autoReview(held.org, { at: at(delay + 5) })).toEqual(NONE);
         expect((await fixture(c, 'us123_dossier', held.org))[0]).toMatchObject({
           status: 'IN_REVIEW',
         });
       });
     });
 
-    it('revue par exception : un dossier complet et propre est approuvé par le travailleur, sans l’ops ; le compte reste en attente (interrupteurs à false)', async () => {
+    it('indiscernabilité (US-123) APRÈS les passes du travailleur : dossiers propre, retenu, retenu puis levé par un ADMIN et signalé identiques à chaque instant avant le délai uniforme ; levé dans le délai = même chemin que le propre', async () => {
+      await withRole('app_api', async (c) => {
+        const admin = await elevated(c, 'ADMIN', [country]);
+        const clean = await readyHost(c, country);
+        const held = await readyHost(c, country, 'POTENTIAL_MATCH');
+        const cleared = await readyHost(c, country, 'POTENTIAL_MATCH');
+        const signaled = await readyHost(c, country);
+        await c.query('SELECT test_fixture.us109_restrict_directly($1, $2)', [
+          signaled.p.userId,
+          'TS_HOLD',
+        ]);
+        const all = [clean, held, cleared, signaled];
+        const pass = async (when: string) => {
+          for (const h of all) await autoReview(h.org, { at: when });
+        };
+        const seen = async (when: string) => {
+          const out = [];
+          for (const h of all) out.push(shape(await stateAt(c, h.p, h.org, when)));
+          return out;
+        };
+        const identicalAt = async (when: string) => {
+          await pass(when);
+          const s = await seen(when);
+          for (const x of s) expect(x).toEqual(s[0]);
+          expect(s[0]).toMatchObject({
+            verification_status: 'IN_REVIEW',
+            org_status: 'ONBOARDING',
+          });
+        };
+        // avant le délai : passes du travailleur à plusieurs instants, rien ne diverge
+        await identicalAt(at(1));
+        await identicalAt(at(60));
+        // un ADMIN lève la retenue de `cleared` dans le délai (faux positif)
+        expect(
+          (
+            await act(
+              c,
+              admin,
+              'HOST_SCREENING_REVIEW',
+              cleared.org,
+              { decision: 'CLEARED' },
+              [country],
+              {
+                at: at(120),
+              },
+            )
+          ).outcome,
+        ).toBe('DONE');
+        await identicalAt(at(121));
+        await identicalAt(at(delay - 1));
+        // délai échu : le propre et le levé suivent EXACTEMENT le même chemin
+        await pass(at(delay + 5));
+        const after = await seen(at(delay + 5));
+        expect(after[0]).toMatchObject({
+          verification_status: 'APPROVED',
+          org_status: 'PENDING_ACTIVATION',
+        });
+        expect(after[2]).toEqual(after[0]);
+        // résidu déclaré dans ADR-111 : une retenue ou un signal non levés au-delà du délai
+        // restent en revue (identiques entre eux : aucune distinction sanctions / compte)
+        expect(after[1]).toMatchObject({ verification_status: 'IN_REVIEW' });
+        expect(after[3]).toEqual(after[1]);
+      });
+    });
+
+    it('revue par exception : un dossier complet et propre est approuvé par le travailleur après le délai uniforme seulement, sans l’ops ; le compte reste en attente', async () => {
       await withRole('app_api', async (c) => {
         const { p, org } = await readyHost(c, country);
         expect(await fixture(c, 'us123_queue_items', org)).toEqual([
           { queue: 'HOST_VERIFICATION', status: 'OPEN', decision: null },
         ]);
-        expect(await autoReview(org)).toEqual({ approved: 1, kept: 0, skipped: 0 });
+        // délai non échu : rien
+        expect(await autoReview(org)).toEqual(NONE);
+        expect(await autoReview(org, { at: at(delay - 2) })).toEqual(NONE);
+        expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({ status: 'IN_REVIEW' });
+        expect(await autoReview(org, { at: at(delay + 5) })).toEqual({ ...NONE, approved: 1 });
         expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
           status: 'APPROVED',
           decided_by: null,
           missing: [],
           activated_at: null,
         });
-        // élément de file clôturé sans action de l'ops
         expect(await fixture(c, 'us123_queue_items', org)).toEqual([
           { queue: 'HOST_VERIFICATION', status: 'DONE', decision: 'AUTO_APPROVED' },
         ]);
         expect(await orgStatus(c, org)).toBe('PENDING_ACTIVATION');
-        const events = await fixture<{
-          type: string;
-          actor_role: string;
-          payload: Record<string, unknown>;
-        }>(c, 'us123_events', org);
+        const events = await fixture<{ type: string; actor_role: string }>(c, 'us123_events', org);
         expect(events.map((e) => `${e.type}:${e.actor_role}`).sort()).toEqual([
           'iam.organization.status_changed:SYSTEM',
           'kyc.host_verification.decided:SYSTEM',
@@ -572,38 +697,69 @@ describe.each(COUNTRIES)(
           actor_role: 'SYSTEM',
           after: { decision: 'APPROVED', mode: 'AUTOMATIC' },
         });
-        // aucun hôte actif tant que l'assureur n'a pas de contrat actif (17 §0.1)
-        expect((await state(c, p, org)).blockers).toEqual(
+        expect((await stateAt(c, p, org, at(delay + 6))).blockers).toEqual(
           expect.arrayContaining(['INSURER_CONTRACT_INACTIVE']),
         );
-        // passe suivante : rien à faire
-        expect(await autoReview(org)).toEqual({ approved: 0, kept: 0, skipped: 0 });
+        expect(await autoReview(org, { at: at(delay + 6) })).toEqual(NONE);
+      });
+    });
+
+    it('signaux du compte (état RESTRICTED ou restriction active) ⇒ aucune approbation automatique, dossier laissé à l’ops avec son motif', async () => {
+      await withRole('app_api', async (c) => {
+        const ops = await elevated(c, 'OPS_AGENT', [country]);
+        const restricted = await readyHost(c, country);
+        await c.query('SELECT test_fixture.iam_set_account_status($1, $2)', [
+          restricted.p.userId,
+          'RESTRICTED',
+        ]);
+        const held = await readyHost(c, country);
+        await c.query('SELECT test_fixture.us109_restrict_directly($1, $2)', [
+          held.p.userId,
+          'POLICY_VIOLATION',
+        ]);
+        for (const h of [restricted, held]) {
+          expect(await autoReview(h.org, { at: at(delay + 5) })).toEqual({ ...NONE, kept: 1 });
+          expect((await fixture(c, 'us123_dossier', h.org))[0]).toMatchObject({
+            status: 'IN_REVIEW',
+          });
+        }
+        const item = await itemOf(c, held.org);
+        expect((await claim(c, ops, item.id)).outcome).toBe('CLAIMED');
+        const r = await hostDossier(c, ops, item.id);
+        expect(r.body).toMatchObject({ reviewReasons: ['ACCOUNT_RESTRICTED'] });
+        // un élément pris en charge par l'ops reste à sa décision
+        const clean = await readyHost(c, country);
+        expect((await claim(c, ops, (await itemOf(c, clean.org)).id)).outcome).toBe('CLAIMED');
+        expect(await autoReview(clean.org, { at: at(delay + 5) })).toEqual({ ...NONE, kept: 1 });
       });
     });
 
     it('revue par exception : pays dont le paramètre impose la revue ⇒ dossier laissé à l’ops ; hors du contexte du travailleur ⇒ refus', async () => {
       await withRole('app_api', async (c) => {
         const { org } = await readyHost(c, country);
-        // transaction annulée : le pays impose la revue de l'ops
         expect(
-          await autoReview(org, async (w) => {
-            await w.query('SELECT test_fixture.us108_set_review_required($1, $2)', [country, true]);
+          await autoReview(org, {
+            at: at(delay + 5),
+            inTx: async (w) => {
+              await w.query('SELECT test_fixture.us108_set_review_required($1, $2)', [
+                country,
+                true,
+              ]);
+            },
           }),
-        ).toEqual({ approved: 0, kept: 1, skipped: 0 });
+        ).toEqual({ ...NONE, kept: 1 });
         expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({ status: 'IN_REVIEW' });
         await withRole('app_worker', async (w) => {
           await expect(
             w.query('SELECT * FROM core.kyc_worker_auto_review_hosts($1, $2)', [10, org]),
           ).rejects.toMatchObject({ code: '42501' });
         });
-        // aucun droit d'app_api
         await expect(
           withTestTransaction(c, {}, (tx) =>
             tx.query('SELECT * FROM core.kyc_worker_auto_review_hosts($1, $2)', [10, org]),
           ),
         ).rejects.toMatchObject({ code: '42501' });
-        // paramètre graine (false) : approuvé
-        expect((await autoReview(org)).approved).toBe(1);
+        expect((await autoReview(org, { at: at(delay + 5) })).approved).toBe(1);
       });
     });
 
@@ -612,12 +768,12 @@ describe.each(COUNTRIES)(
         const ops = await elevated(c, 'OPS_AGENT', [country]);
         const { org } = await readyHost(c, country);
         await c.query('SELECT test_fixture.us123_set_submerchant($1, $2)', [org, 'ACTIVE']);
-        expect((await autoReview(org)).approved).toBe(1);
+        expect((await autoReview(org, { at: at(delay + 5) })).approved).toBe(1);
         expect(await orgStatus(c, org)).toBe('PENDING_ACTIVATION');
         const from = farInstant();
         const caps = plusMinutes(from, 60);
         const to = plusMinutes(from, 120);
-        for (const [status, at] of [
+        for (const [status, when] of [
           ['UNKNOWN', from],
           ['VALIDATED_SANDBOX', caps],
           ['UNKNOWN', to],
@@ -625,13 +781,13 @@ describe.each(COUNTRIES)(
           await c.query('SELECT test_fixture.us123_set_capabilities($1, $2, $3)', [
             country,
             status,
-            at,
+            when,
           ]);
         }
         const people = await withTestTransaction(c, { commit: true }, async (tx) => {
-          const admin = await rlsStaff(tx, 'ADMIN', [country]);
-          const superadmin = await rlsStaff(tx, 'SUPERADMIN', [country]);
-          return [admin, superadmin].map((id): StaffActor => ({
+          const a = await rlsStaff(tx, 'ADMIN', [country]);
+          const s = await rlsStaff(tx, 'SUPERADMIN', [country]);
+          return [a, s].map((id): StaffActor => ({
             userId: id,
             hash: Buffer.from(staffSessionHash(id) ?? '', 'hex'),
             scope: [country],
@@ -639,7 +795,6 @@ describe.each(COUNTRIES)(
         });
         const [requester, approver] = people as [StaffActor, StaffActor];
         try {
-          // SEUL le pays est ouvert aux hôtes : insurer_contract_active reste à false
           await openSwitchWindow(
             c,
             requester,
@@ -649,16 +804,14 @@ describe.each(COUNTRIES)(
             from,
             to,
           );
-          const decide = (at: string) =>
+          const decide = (when: string) =>
             act(c, ops, 'HOST_VERIFICATION_DECISION', org, { decision: 'APPROVED' }, [country], {
-              at,
+              at: when,
             });
-          // critère 4 : capacité bloquante inconnue
           expect(await decide(plusMinutes(from, 10))).toMatchObject({
             outcome: 'REFUSED',
             detail: 'HOST_PAYOUT_RAIL_UNAVAILABLE',
           });
-          // critère 2 : capacités validées, contrat d'assureur inactif
           expect(await decide(plusMinutes(from, 70))).toMatchObject({
             outcome: 'REFUSED',
             detail: 'INSURER_CONTRACT_INACTIVE',
@@ -679,9 +832,7 @@ describe.each(COUNTRIES)(
         const ops = await elevated(c, 'OPS_AGENT', [country]);
         const support = await elevated(c, 'SUPPORT_AGENT', [country]);
         const { org } = await readyHost(c, country, 'POTENTIAL_MATCH');
-        const [item] = await fixture<{ id: string; status: string }>(c, 'us108_queue_item', org);
-        if (item === undefined) throw new Error('aucun élément de file');
-        // élément non pris en charge : refus journalisé ; sans la permission : FORBIDDEN
+        const item = await itemOf(c, org);
         expect((await hostDossier(c, ops, item.id)).outcome).toBe('CASE_REQUIRED');
         expect((await hostDossier(c, support, item.id)).outcome).toBe('FORBIDDEN');
         expect(
@@ -702,7 +853,6 @@ describe.each(COUNTRIES)(
           screening: { source: SCREENER, result: 'POTENTIAL_MATCH', manualActionId: null },
           evidenceFileIds: [],
         });
-        // liste de contrôle FERMÉE : dix éléments, dans cet ordre
         const checklist = body['checklist'] as { item: string; state: string }[];
         expect(checklist.map((x) => x.item)).toEqual([
           'IDENTITY',
@@ -720,10 +870,8 @@ describe.each(COUNTRIES)(
         expect(stateOf('SANCTIONS')).toBe('HELD');
         expect(stateOf('IDENTITY')).toBe('OK');
         expect(stateOf('INSURER_CONTRACT')).toBe('BLOCKED');
-        // ni référence chez le prestataire ni version de liste dans la réponse
         for (const leak of Object.values(LISTS)) expect(JSON.stringify(body)).not.toContain(leak);
         expect(JSON.stringify(body)).not.toMatch(/case_/);
-        // journal d'accès AVANT la donnée
         expect(await fixture(c, 'us108_access_log', ops.userId)).toEqual([
           {
             subject_type: 'ORGANIZATION',
@@ -749,7 +897,6 @@ describe.each(COUNTRIES)(
           (await act(c, foreignOps, 'HOST_SANCTIONS_SCREENING', org, ALL_CLEAR, [other])).outcome,
         ).toBe('FORBIDDEN');
         expect(await fixture(c, 'us108_screening', org)).toEqual([]);
-        // aucun droit direct des rôles applicatifs sur le contrat d'assureur
         await expect(
           withTestTransaction(c, {}, (tx) =>
             tx.query('SELECT * FROM core.settlement_insurer_contract'),

@@ -5026,7 +5026,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Photos en nombre insuffisant ; compte d'hôte non activé ou pays fermé : l'annonce reste DRAFT",
+            "description": "Photos en nombre insuffisant ; compte d'hôte non activé ou pays fermé ; véhicule hors des critères du contrat de l'assureur ou contrat d'assureur inactif (US-108) : l'annonce reste DRAFT",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -5038,7 +5038,12 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["PHOTO_MIN_COUNT", "HOST_NOT_ACTIVATED"]
+                      "enum": [
+                        "PHOTO_MIN_COUNT",
+                        "HOST_NOT_ACTIVATED",
+                        "VEHICLE_NOT_COVERED",
+                        "INSURER_CONTRACT_INACTIVE"
+                      ]
                     }
                   }
                 }
@@ -9642,7 +9647,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["SCREENING_HOLD", "COUNTRY_REVIEW"]
+              "enum": ["SCREENING_HOLD", "ACCOUNT_RESTRICTED", "COUNTRY_REVIEW"]
             },
             "description": "motifs de la revue par exception"
           },

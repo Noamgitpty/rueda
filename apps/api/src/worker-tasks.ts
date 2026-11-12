@@ -195,13 +195,33 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
     async (_p, tx) => {
       // US-108 (ADR-111) : revue de l'hôte PAR EXCEPTION — dossiers complets et propres approuvés
       // sans l'ops ; retenue de sanctions et pays qui imposent la revue laissés à l'ops
-      const hosts = await tx.query<{ approved: unknown; kept: unknown; skipped: unknown }>(
-        'SELECT approved, kept, skipped FROM core.kyc_worker_auto_review_hosts($1, NULL)',
-        [d.reviewSlaWatchBatch],
-      );
-      const hostsApproved = count(hosts.rows[0]?.approved);
-      const hostsKept = count(hosts.rows[0]?.kept);
-      const hostsSkipped = count(hosts.rows[0]?.skipped);
+      // (délai uniforme avant toute approbation). Isolée par un point de sauvegarde : une erreur de
+      // cette partie ne fait tomber ni la remise en file KYC ni les alertes de retard (revues
+      // code et architecture d'US-108) ; la base isole déjà chaque dossier (`failed`).
+      let hostsApproved = 0;
+      let hostsKept = 0;
+      let hostsSkipped = 0;
+      let hostsFailed: number;
+      await tx.query('SAVEPOINT host_auto_review');
+      try {
+        const hosts = await tx.query<{
+          approved: unknown;
+          kept: unknown;
+          skipped: unknown;
+          failed: unknown;
+        }>(
+          'SELECT approved, kept, skipped, failed FROM core.kyc_worker_auto_review_hosts($1, NULL)',
+          [d.reviewSlaWatchBatch],
+        );
+        hostsApproved = count(hosts.rows[0]?.approved);
+        hostsKept = count(hosts.rows[0]?.kept);
+        hostsSkipped = count(hosts.rows[0]?.skipped);
+        hostsFailed = count(hosts.rows[0]?.failed);
+        await tx.query('RELEASE SAVEPOINT host_auto_review');
+      } catch {
+        await tx.query('ROLLBACK TO SAVEPOINT host_auto_review');
+        hostsFailed = -1;
+      }
       // `unqueued` : dossiers dont l'échec est NOUVEAU (une alerte par épisode de revue, marque en
       // base) ; `waiting` : échecs déjà signalés ; `skipped` : personne verrouillée ailleurs
       const k = await tx.query<{
@@ -243,6 +263,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
         hostsApproved,
         hostsKept,
         hostsSkipped,
+        hostsFailed,
         enqueued,
         unqueued,
         waiting,

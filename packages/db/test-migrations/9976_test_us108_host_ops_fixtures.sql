@@ -49,7 +49,7 @@ CREATE FUNCTION test_fixture.us108_set_review_required(p_country text, p_value b
   SET search_path = pg_catalog, pg_temp
 AS $fn$
   INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
-  VALUES ('host_manual_review_required', p_country, 'COUNTRY', pg_catalog.to_jsonb(p_value),
+  VALUES ('host_review_manual_required', p_country, 'COUNTRY', pg_catalog.to_jsonb(p_value),
           'test US-108 (transaction annulée)')
 $fn$;
 

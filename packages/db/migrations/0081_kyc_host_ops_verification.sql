@@ -6,18 +6,25 @@
 -- BR-LIST-01, BR-PROT-01, BR-PROT-10 ; 17 §0.1, §2.4 (KYC de l'hôte, couverture du véhicule),
 -- §3.2.2, §3.2.13 (`insurer`, `insurer_contract`, `manual_action`), §10 ; 22 OQ-P2P-03, OQ-BR-16 ;
 -- consigne du fondateur du 2026-11-12 « jamais plus lourd que Turo » ; ADR-105, ADR-111 (cette
--- migration). Appliquée sous `migrator`. Paramètre `host_manual_review_required` : graine 0082.
+-- migration). Appliquée sous `migrator`. Paramètre `host_review_manual_required` : graine 0082.
 --
 -- Principes (ADR-111, PROPOSÉ) :
 --   - revue PAR EXCEPTION (consigne du fondateur, comme Turo) : un dossier complet et propre
 --     (KYC approuvé, âge, résidence, filtrage CLEAR, profil fiscal, CGU) est APPROUVÉ par le
 --     travailleur `review_sla_watch` (acteur SYSTEM), sans l'ops ; l'ops n'intervient que sur
 --     signal : retenue de sanctions (`screening_hold`, US-123) ou pays dont
---     `host_manual_review_required[pays]` vaut true (absent : revue exigée, fail-closed ; graine
+--     `host_review_manual_required[pays]` vaut true (absent : revue exigée, fail-closed ; graine
 --     false). Aucune pièce n'est demandée à l'hôte ici ;
---   - l'approbation automatique a lieu HORS de la requête de l'hôte (travailleur) : les réponses
---     de la soumission et du filtrage restent IDENTIQUES pour un dossier propre et pour un dossier
---     retenu (indiscernabilité d'US-123) ; seule la durée diffère, écart déjà admis par ADR-105 ;
+--   - indiscernabilité d'US-123 : AUCUNE approbation automatique avant un délai UNIFORME compté
+--     depuis la première entrée en revue (`host_review_auto_delay_minutes[pays]`, PROPOSÉ 24 h,
+--     absent = jamais) : pendant ce délai, un dossier propre, retenu, signalé ou levé par un ADMIN
+--     est vu de l'hôte exactement pareil (même statut réel, rien n'est écrit) ; un faux positif
+--     levé dans le délai suit le même chemin que le propre. Résidu observable (ADR-111) : une
+--     retenue ou un signal non levés au-delà du délai, et le refus final ;
+--   - signaux du compte (état RESTRICTED, CLOSED, BANNED ; restriction active TS_HOLD,
+--     POLICY_VIOLATION, KYC_REVOKED, CHARGEBACK) : jamais d'approbation automatique ;
+--   - un dossier dont SEUL le filtrage manque est mis en file HOST_VERIFICATION (filtrage manuel
+--     depuis l'écran O01, aucun prestataire en production) ;
 --   - filtrage MANUEL des sanctions par l'ops (`HOST_SANCTIONS_SCREENING`, repli de la bêta tant
 --     qu'aucun prestataire n'est branché) : listes consultées et résultat par liste (énumération
 --     fermée), source `OPS_MANUAL`, date de la base, relecteur, action de console liée ; même suite
@@ -45,8 +52,12 @@
 --     core.kyc_staff_host_dossier(uuid),
 --     core.kyc_manual_action_host_sanctions_screening(bytea, uuid, text, uuid, jsonb, text, uuid, text),
 --     core.kyc_worker_auto_review_hosts(integer, uuid), core.kyc_host_auto_approve(uuid),
+--     core.kyc_host_account_signaled(uuid), core.kyc_host_review_due(text, timestamptz),
 --     core.settlement_insurer_vehicle_coverage(text, text, integer, text, text) ;
---   réappliquer core.catalog_cmd_submit_listing de 0074 ;
+--   réappliquer core.catalog_cmd_submit_listing de 0074 et core.kyc_host_refresh de 0075 ;
+--   ALTER TABLE core.kyc_host_verification DROP COLUMN review_started_at,
+--     DROP COLUMN auto_review_attempted_at ; DROP POLICY kyc_cmd_host_signal_read ON
+--     core.iam_restriction ;
 --   DROP TABLE core.settlement_insurer_contract, core.settlement_insurer ;
 --   ALTER TABLE core.kyc_sanctions_screening DROP COLUMN manual_action_id ;
 --   DROP POLICY kyc_cmd_host_review_read ON core.config_param_value ;
@@ -54,9 +65,10 @@
 --   DROP POLICY kyc_cmd_host_queue_select ON core.support_review_queue_item ; révoquer les droits.
 
 -- 1. Droits de kyc_cmd_owner, au plus juste --------------------------------------------------------
--- revue manuelle exigée par le pays (graine 0082 ; absent = revue exigée)
+-- revue manuelle exigée par le pays et délai uniforme avant toute approbation automatique (graine
+-- 0082 ; absents = revue exigée, aucune approbation automatique)
 CREATE POLICY kyc_cmd_host_review_read ON core.config_param_value FOR SELECT TO kyc_cmd_owner
-  USING (key = 'host_manual_review_required');
+  USING (key IN ('host_review_manual_required', 'host_review_auto_delay_minutes'));
 -- élément vivant de la file HOST_VERIFICATION (lecture seule ; clôture par la fonction
 -- d'iam_staff_owner accordée en 0075)
 CREATE POLICY kyc_cmd_host_queue_select ON core.support_review_queue_item FOR SELECT TO kyc_cmd_owner
@@ -328,11 +340,128 @@ COMMENT ON FUNCTION core.catalog_cmd_submit_listing(bytea, uuid, uuid) IS
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM catalog_cmd_owner;
 
--- 6. Approbation automatique d'un dossier propre (SECURITY INVOKER, EXECUTE au seul kyc_cmd_owner) -
--- Appelée par le travailleur sous le verrou du compte d'hôte. Issues : APPROVED (dossier approuvé,
--- activation tentée : compte ACTIVE ou PENDING_ACTIVATION), REVIEW_REQUIRED (pays qui impose la
--- revue de l'ops, ou paramètre absent), HELD (retenue de sanctions), NOT_READY (dossier absent,
--- hors revue, ou un contrôle n'est plus rempli : laissé à l'ops), rien n'est alors écrit.
+-- 6. Revue par exception : date d'entrée en revue, échéance uniforme, signaux, approbation ---------
+-- 6.1 Dossier : instant de la PREMIÈRE entrée en revue (point de départ du délai uniforme, identique
+-- pour un dossier propre et pour un dossier retenu, qui entrent en revue par le même calcul) ;
+-- dernière passe du travailleur qui l'a laissé à l'ops (ordre de la passe : aucune famine).
+ALTER TABLE core.kyc_host_verification
+  ADD COLUMN review_started_at timestamptz,
+  ADD COLUMN auto_review_attempted_at timestamptz;
+COMMENT ON COLUMN core.kyc_host_verification.review_started_at IS
+  'Première entrée en revue (IN_REVIEW) : départ du délai uniforme avant toute approbation '
+  'automatique (host_review_auto_delay_minutes). US-108 (ADR-111).';
+COMMENT ON COLUMN core.kyc_host_verification.auto_review_attempted_at IS
+  'Dernière passe du travailleur review_sla_watch qui a laissé le dossier à l''ops (ordre de la '
+  'passe). US-108 (ADR-111).';
+GRANT UPDATE (review_started_at, auto_review_attempted_at) ON core.kyc_host_verification
+  TO kyc_cmd_owner;
+
+-- 6.2 Statut d'un dossier encore ouvert recalculé (corps de 0075 recopié ; deux changements marqués
+-- US-108) : date de première entrée en revue ; mise en file AUSSI d'un dossier dont la seule pièce
+-- manquante est le filtrage des sanctions (aucun prestataire : filtrage manuel par l'ops depuis la
+-- file, écran O01). Le parcours de l'hôte est inchangé (mêmes statut et pièces manquantes).
+GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
+SET LOCAL ROLE kyc_cmd_owner;
+CREATE OR REPLACE FUNCTION core.kyc_host_refresh(p_dossier uuid)
+  RETURNS text
+  LANGUAGE plpgsql
+  VOLATILE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  h        record;
+  g        record;
+  v_miss   text[] := '{}';
+  v_status text;
+BEGIN
+  SELECT d.* INTO h FROM core.kyc_host_verification AS d WHERE d.id = p_dossier;
+  IF h.id IS NULL OR h.status NOT IN ('OPEN', 'DOCS_PENDING', 'IN_REVIEW') THEN
+    RETURN h.status;
+  END IF;
+  SELECT * INTO g FROM core.kyc_host_gates(h.org_id);
+  IF g.kyc_id IS NULL THEN v_miss := v_miss || 'HOST_KYC_REQUIRED'::text; END IF;
+  IF g.screening_id IS NULL THEN v_miss := v_miss || 'HOST_SCREENING_MISSING'::text; END IF;
+  IF g.tax <> 'OK' THEN v_miss := v_miss || 'HOST_TAX_ID_REQUIRED'::text; END IF;
+  IF NOT g.terms_ok THEN v_miss := v_miss || 'TERMS_REACCEPT_REQUIRED'::text; END IF;
+  v_status := CASE WHEN pg_catalog.cardinality(v_miss) = 0 THEN 'IN_REVIEW' ELSE 'DOCS_PENDING' END;
+  -- dossier complet : file de revue de l'ops (échéance du pays ; paramètre absent : pas de file,
+  -- le dossier reste visible dans la console)
+  IF v_status = 'IN_REVIEW' AND h.status <> 'IN_REVIEW' THEN
+    PERFORM 1 FROM core.support_enqueue_review('HOST_VERIFICATION', 'ORGANIZATION', h.org_id,
+                                                g.country_code, h.user_id);
+  -- US-108 : seul le filtrage des sanctions manque ⇒ file de l'ops (filtrage manuel depuis O01) ;
+  -- un élément vivant existant est gardé (EXISTS)
+  ELSIF v_status = 'DOCS_PENDING' AND v_miss = ARRAY['HOST_SCREENING_MISSING']::text[] THEN
+    PERFORM 1 FROM core.support_enqueue_review('HOST_VERIFICATION', 'ORGANIZATION', h.org_id,
+                                                g.country_code, h.user_id);
+  END IF;
+  UPDATE core.kyc_host_verification AS d
+     SET status = v_status, missing = v_miss, identity_verification_id = g.kyc_id,
+         age_ok = (g.age = 'OK'), residence_verified = (g.residence = 'VERIFIED'),
+         tax_id_checked_at = CASE WHEN g.tax = 'OK' THEN COALESCE(d.tax_id_checked_at, platform.now()) END,
+         -- US-108 : première entrée en revue, jamais déplacée ensuite
+         review_started_at = CASE WHEN v_status = 'IN_REVIEW'
+                                  THEN COALESCE(d.review_started_at, platform.now())
+                                  ELSE d.review_started_at END,
+         row_version = d.row_version + 1, updated_at = platform.now()
+   WHERE d.id = h.id;
+  RETURN v_status;
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
+
+-- 6.3 Échéance du délai uniforme (SECURITY INVOKER, EXECUTE au seul kyc_cmd_owner) : vraie si le
+-- dossier est entré en revue depuis au moins `host_review_auto_delay_minutes[pays]` minutes
+-- (PROPOSÉ 1440, comme le délai d'approbation annoncé par Turo) ; paramètre absent ou mal formé :
+-- jamais due (aucune approbation automatique, fail-closed).
+CREATE FUNCTION core.kyc_host_review_due(p_country text, p_started timestamptz)
+  RETURNS boolean
+  LANGUAGE plpgsql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v jsonb := core.kyc_host_param('host_review_auto_delay_minutes', p_country);
+BEGIN
+  IF p_started IS NULL OR v IS NULL OR pg_catalog.jsonb_typeof(v) <> 'number'
+     OR (v #>> '{}') !~ '^[0-9]{1,6}$' THEN
+    RETURN false;
+  END IF;
+  RETURN p_started + pg_catalog.make_interval(mins => (v #>> '{}')::integer) <= platform.now();
+END
+$fn$;
+REVOKE ALL ON FUNCTION core.kyc_host_review_due(text, timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.kyc_host_review_due(text, timestamptz) TO kyc_cmd_owner;
+
+-- 6.4 Signaux du compte de la personne (17 §3.2.1) : compte RESTRICTED, CLOSED ou BANNED, ou
+-- restriction ACTIVE de confiance et sécurité, de conformité, de KYC ou d'impayé de carte
+-- (TS_HOLD, POLICY_VIOLATION, KYC_REVOKED, CHARGEBACK) ⇒ jamais d'approbation automatique.
+GRANT SELECT (user_id, kind, active) ON core.iam_restriction TO kyc_cmd_owner;
+CREATE POLICY kyc_cmd_host_signal_read ON core.iam_restriction FOR SELECT TO kyc_cmd_owner
+  USING (true);
+CREATE FUNCTION core.kyc_host_account_signaled(p_user uuid)
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT COALESCE((SELECT u.status IN ('RESTRICTED', 'CLOSED', 'BANNED')
+                     FROM core.iam_user_account AS u WHERE u.id = p_user), true)
+      OR EXISTS (SELECT 1 FROM core.iam_restriction AS r
+                  WHERE r.user_id = p_user AND r.active
+                    AND r.kind IN ('TS_HOLD', 'POLICY_VIOLATION', 'KYC_REVOKED', 'CHARGEBACK'))
+$fn$;
+REVOKE ALL ON FUNCTION core.kyc_host_account_signaled(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.kyc_host_account_signaled(uuid) TO kyc_cmd_owner;
+
+-- 6.5 Approbation automatique (SECURITY INVOKER, EXECUTE au seul kyc_cmd_owner). Appelée par le
+-- travailleur sous le verrou du compte d'hôte. Issues : APPROVED (dossier approuvé, activation
+-- tentée : compte ACTIVE ou PENDING_ACTIVATION), NOT_DUE (délai uniforme non écoulé : rien ne
+-- change, pour aucun dossier), HELD (retenue de sanctions), SIGNALED (compte restreint ou fermé),
+-- REVIEW_REQUIRED (pays qui impose la revue de l'ops, ou paramètre absent), CLAIMED (élément pris
+-- en charge par un membre de l'ops : sa décision), NOT_READY (dossier absent, hors revue, ou un
+-- contrôle n'est plus rempli). Hors APPROVED, rien n'est écrit sur le dossier.
 CREATE FUNCTION core.kyc_host_auto_approve(p_org uuid)
   RETURNS text
   LANGUAGE plpgsql
@@ -343,18 +472,34 @@ DECLARE
   h      record;
   g      record;
   v_ver  integer;
-  v_item uuid;
+  v_item record;
 BEGIN
   SELECT d.* INTO h FROM core.kyc_host_verification AS d WHERE d.org_id = p_org;
   IF h.id IS NULL OR h.status <> 'IN_REVIEW' THEN
     RETURN 'NOT_READY';
   END IF;
+  -- délai uniforme d'abord : avant l'échéance, un dossier propre et un dossier retenu ou signalé
+  -- restent identiques (aucune écriture)
+  IF NOT core.kyc_host_review_due(h.country_code, COALESCE(h.review_started_at, h.updated_at)) THEN
+    RETURN 'NOT_DUE';
+  END IF;
   IF h.screening_hold THEN
     RETURN 'HELD';
   END IF;
+  IF core.kyc_host_account_signaled(h.user_id) THEN
+    RETURN 'SIGNALED';
+  END IF;
   -- revue de l'ops exigée par le pays ; paramètre absent ou mal formé : revue (fail-closed)
-  IF core.kyc_host_param('host_manual_review_required', h.country_code) IS DISTINCT FROM 'false'::jsonb THEN
+  IF core.kyc_host_param('host_review_manual_required', h.country_code) IS DISTINCT FROM 'false'::jsonb THEN
     RETURN 'REVIEW_REQUIRED';
+  END IF;
+  SELECT i.id, i.assignee_id INTO v_item
+    FROM core.support_review_queue_item AS i
+   WHERE i.queue = 'HOST_VERIFICATION' AND i.subject_type = 'ORGANIZATION' AND i.subject_id = p_org
+     AND i.status IN ('OPEN', 'IN_REVIEW')
+   LIMIT 1;
+  IF v_item.assignee_id IS NOT NULL THEN
+    RETURN 'CLAIMED';
   END IF;
   -- mêmes contrôles que la décision APPROVED de l'ops (0075), à l'horloge de la base
   SELECT * INTO g FROM core.kyc_host_gates(p_org);
@@ -382,13 +527,8 @@ BEGIN
                                         'decision', 'APPROVED'),
           p_org::text);
   -- élément vivant de la file (posé par la mise en revue) clôturé : aucune action de l'ops
-  SELECT i.id INTO v_item
-    FROM core.support_review_queue_item AS i
-   WHERE i.queue = 'HOST_VERIFICATION' AND i.subject_type = 'ORGANIZATION' AND i.subject_id = p_org
-     AND i.status IN ('OPEN', 'IN_REVIEW')
-   LIMIT 1;
-  IF v_item IS NOT NULL THEN
-    PERFORM 1 FROM core.support_close_review_item(v_item, 'DONE', 'AUTO_APPROVED', NULL);
+  IF v_item.id IS NOT NULL THEN
+    PERFORM 1 FROM core.support_close_review_item(v_item.id, 'DONE', 'AUTO_APPROVED', NULL);
   END IF;
   INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
                                     subject_id, before, after)
@@ -407,13 +547,16 @@ REVOKE ALL ON FUNCTION core.kyc_host_auto_approve(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.kyc_host_auto_approve(uuid) TO kyc_cmd_owner;
 
 -- 7. Travailleur review_sla_watch, partie hôtes (SECURITY DEFINER, EXECUTE app_worker) -------------
--- Dossiers IN_REVIEW non retenus, du plus ancien au plus récent ; pour chacun, verrou consultatif
--- du compte d'hôte TENTÉ (même clé que la soumission, le filtrage et les décisions ; pris ailleurs :
--- dossier sauté, repris à la passe suivante), puis core.kyc_host_auto_approve sous ce verrou.
--- `p_org` restreint la passe à un compte (relance ciblée ; preuves). Issues : approved, kept
--- (revue de l'ops exigée ou contrôle non rempli : laissés à l'ops), skipped (verrou pris).
+-- Dossiers IN_REVIEW non retenus dont le délai uniforme est échu, jamais tentés d'abord, puis du
+-- plus anciennement tenté au plus récent (un dossier laissé à l'ops ne bloque jamais la tête du
+-- lot) ; pour chacun, verrou consultatif du compte d'hôte TENTÉ (même clé que la soumission, le
+-- filtrage et les décisions ; pris ailleurs : sauté, repris à la passe suivante), puis
+-- core.kyc_host_auto_approve dans un sous-bloc : une erreur sur un dossier est isolée (comptée,
+-- dossier repris plus tard) et ne fait tomber ni la passe ni les alertes de retard. `p_org`
+-- restreint la passe à un compte (relance ciblée ; preuves). Issues : approved, kept (laissés à
+-- l'ops), skipped (verrou pris), failed (erreur isolée).
 CREATE FUNCTION core.kyc_worker_auto_review_hosts(p_batch integer, p_org uuid)
-  RETURNS TABLE (approved integer, kept integer, skipped integer)
+  RETURNS TABLE (approved integer, kept integer, skipped integer, failed integer)
   LANGUAGE plpgsql
   VOLATILE
   SECURITY DEFINER
@@ -422,9 +565,11 @@ AS $fn$
 #variable_conflict use_column
 DECLARE
   v_c    record;
+  v_out  text;
   v_ok   integer := 0;
   v_keep integer := 0;
   v_skip integer := 0;
+  v_fail integer := 0;
 BEGIN
   IF COALESCE(pg_catalog.current_setting('app.actor_kind', true), '') <> 'WORKER'
      OR COALESCE(pg_catalog.current_setting('app.worker_name', true), '') <> 'review_sla_watch' THEN
@@ -435,10 +580,11 @@ BEGIN
     RAISE EXCEPTION 'kyc : lot invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
   FOR v_c IN
-    SELECT d.org_id FROM core.kyc_host_verification AS d
+    SELECT d.id, d.org_id FROM core.kyc_host_verification AS d
      WHERE d.status = 'IN_REVIEW' AND NOT d.screening_hold
        AND (p_org IS NULL OR d.org_id = p_org)
-     ORDER BY d.updated_at, d.id
+       AND core.kyc_host_review_due(d.country_code, COALESCE(d.review_started_at, d.updated_at))
+     ORDER BY d.auto_review_attempted_at NULLS FIRST, d.review_started_at, d.id
      LIMIT p_batch
   LOOP
     IF NOT pg_catalog.pg_try_advisory_xact_lock(
@@ -446,18 +592,26 @@ BEGIN
       v_skip := v_skip + 1;
       CONTINUE;
     END IF;
-    IF core.kyc_host_auto_approve(v_c.org_id) = 'APPROVED' THEN
+    BEGIN
+      v_out := core.kyc_host_auto_approve(v_c.org_id);
+    EXCEPTION WHEN OTHERS THEN
+      v_out := 'FAILED';
+    END;
+    IF v_out = 'APPROVED' THEN
       v_ok := v_ok + 1;
     ELSE
-      v_keep := v_keep + 1;
+      IF v_out = 'FAILED' THEN v_fail := v_fail + 1; ELSE v_keep := v_keep + 1; END IF;
+      UPDATE core.kyc_host_verification AS d SET auto_review_attempted_at = platform.now()
+       WHERE d.id = v_c.id;
     END IF;
   END LOOP;
-  RETURN QUERY SELECT v_ok, v_keep, v_skip;
+  RETURN QUERY SELECT v_ok, v_keep, v_skip, v_fail;
 END
 $fn$;
 COMMENT ON FUNCTION core.kyc_worker_auto_review_hosts(integer, uuid) IS
-  'Approbation automatique des dossiers d''hôte complets et propres (revue de l''ops par '
-  'exception), travailleur review_sla_watch. SECURITY DEFINER, EXECUTE app_worker. US-108 (ADR-111).';
+  'Approbation automatique des dossiers d''hôte complets et propres après le délai uniforme '
+  '(revue de l''ops par exception), travailleur review_sla_watch. SECURITY DEFINER, EXECUTE '
+  'app_worker. US-108 (ADR-111).';
 REVOKE ALL ON FUNCTION core.kyc_worker_auto_review_hosts(integer, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.kyc_worker_auto_review_hosts(integer, uuid) TO app_worker;
 
@@ -587,7 +741,8 @@ GRANT EXECUTE ON FUNCTION core.kyc_manual_action_host_sanctions_screening(bytea,
 -- Appelé par core.support_staff_host_dossier APRÈS la ligne du journal d'accès, et par elle seule.
 -- Liste de contrôle FERMÉE, dans cet ordre (états OK, MISSING, BLOCKED, HELD) : IDENTITY, AGE,
 -- RESIDENCE, SANCTIONS, TAX_PROFILE, HOST_TERMS, PAYOUT_ACCOUNT, PSP_CAPABILITIES, COUNTRY_OPEN,
--- INSURER_CONTRACT. Motifs de la revue par exception : SCREENING_HOLD, COUNTRY_REVIEW. Filtrage :
+-- INSURER_CONTRACT. Motifs de la revue par exception : SCREENING_HOLD, ACCOUNT_RESTRICTED,
+-- COUNTRY_REVIEW. Filtrage :
 -- source, date, résultat, relecteur, action liée ; jamais une référence chez le prestataire ni une
 -- version de liste.
 CREATE FUNCTION core.kyc_staff_host_dossier(p_org uuid)
@@ -614,8 +769,9 @@ BEGIN
   END IF;
   SELECT x.provider, x.screened_at, x.result, x.reviewer, x.manual_action_id INTO s
     FROM core.kyc_sanctions_screening AS x WHERE x.id = g.screening_id;
-  v_rev := core.kyc_host_param('host_manual_review_required', g.country_code);
+  v_rev := core.kyc_host_param('host_review_manual_required', g.country_code);
   IF COALESCE(h.screening_hold, false) THEN v_why := v_why || 'SCREENING_HOLD'::text; END IF;
+  IF core.kyc_host_account_signaled(g.user_id) THEN v_why := v_why || 'ACCOUNT_RESTRICTED'::text; END IF;
   IF v_rev IS DISTINCT FROM 'false'::jsonb THEN v_why := v_why || 'COUNTRY_REVIEW'::text; END IF;
   RETURN pg_catalog.jsonb_build_object(
     'orgId', p_org, 'country', g.country_code, 'orgStatus', g.org_status,
@@ -672,6 +828,8 @@ VALUES ('HOST_SANCTIONS_SCREENING', 'ops.review_listing_host', 'DOMAIN_COMMAND',
 -- propriétaire NOLOGIN (mécanique de 0075 : CREATE le temps du transfert seulement)
 GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_host_auto_approve(uuid) OWNER TO kyc_cmd_owner;
+ALTER FUNCTION core.kyc_host_review_due(text, timestamptz) OWNER TO kyc_cmd_owner;
+ALTER FUNCTION core.kyc_host_account_signaled(uuid) OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_worker_auto_review_hosts(integer, uuid) OWNER TO kyc_cmd_owner;
 ALTER FUNCTION core.kyc_manual_action_host_sanctions_screening(bytea, uuid, text, uuid, jsonb, text, uuid, text)
   OWNER TO kyc_cmd_owner;

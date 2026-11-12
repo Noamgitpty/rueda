@@ -556,4 +556,33 @@ describe('O01 : ce que chaque état montre', () => {
     expect(render('OPS_AGENT')).toContain(es['backoffice.profile.heading']);
     expect(render('FINANCE')).not.toContain(es['backoffice.profile.heading']);
   });
+
+  it('console élevée (US-108) : filtrage manuel des sanctions par un compte d’hôte pour OPS et ADMIN, jamais pour FINANCE ; trois listes jamais pré-cochées', () => {
+    const render = (role: string) =>
+      renderToStaticMarkup(
+        <ConsoleView
+          i18n={translatorOf(tag)}
+          state={{ kind: 'console', roles: [{ role, countries: ['AA'] }], entries: [] }}
+          handlers={{
+            onLogin: () => undefined,
+            onReveal: () => undefined,
+            onVerify: () => undefined,
+            onAction: () => undefined,
+            onHostScreening: () => undefined,
+            onApprove: () => undefined,
+            onSignOut: () => undefined,
+          }}
+          ops={{ state: {}, handlers: noop }}
+        />,
+      );
+    for (const role of ['OPS_AGENT', 'ADMIN']) {
+      const out = render(role);
+      expect(out).toContain(es['backoffice.host.subject']);
+      for (const list of ['unList', 'ofacList', 'nationalList']) {
+        expect(out).toContain(`name="${list}" value="CLEAR"`);
+      }
+      expect(out).not.toMatch(/checked/);
+    }
+    expect(render('FINANCE')).not.toContain(es['backoffice.host.subject']);
+  });
 });

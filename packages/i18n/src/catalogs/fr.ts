@@ -409,7 +409,7 @@ export const FR_MESSAGES = {
   'backoffice.queues.openHost': 'Ouvrir le dossier de l’hôte',
   'backoffice.host.heading': 'Dossier de l’hôte',
   'backoffice.host.intro':
-    'Revue par exception : les dossiers complets et sans signal sont approuvés automatiquement. Ce dossier est ici à cause d’un signal.',
+    'Revue par exception : un dossier complet et sans signal est approuvé automatiquement à la fin du délai de revue. Les motifs de signal, s’il y en a, figurent ci-dessous.',
   'backoffice.host.status': 'État du dossier',
   'backoffice.host.status.NOT_SUBMITTED': 'Non soumis',
   'backoffice.host.status.OPEN': 'Ouvert',
@@ -422,6 +422,8 @@ export const FR_MESSAGES = {
     'Retenue de sanctions : correspondance possible à revoir par un ADMIN. L’hôte n’en est jamais informé.',
   'backoffice.host.reviewReasons': 'Motif de la revue',
   'backoffice.host.reason.SCREENING_HOLD': 'Correspondance sur une liste de sanctions',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED':
+    'Compte restreint, fermé ou sous une restriction active',
   'backoffice.host.reason.COUNTRY_REVIEW':
     'La configuration impose une revue par l’équipe des opérations',
   'backoffice.host.noReason': 'Aucun signal',
@@ -454,6 +456,7 @@ export const FR_MESSAGES = {
     one: '{count} pièce jointe au filtrage',
     other: '{count} pièces jointes au filtrage',
   },
+  'backoffice.host.subject': 'Identifiant du compte d’hôte',
   'backoffice.host.screeningHeading': 'Filtrage manuel des sanctions',
   'backoffice.host.screeningHint':
     'Consultez chaque liste, puis indiquez son résultat. Une correspondance passe à un ADMIN ; l’hôte n’en est jamais informé.',
@@ -962,6 +965,10 @@ export const FR_MESSAGES = {
   'common.listing.photoFormat': 'Cette photo est inutilisable. Envoie une photo JPEG, PNG ou WebP.',
   'common.listing.hostTermsRequired':
     'Avant d’envoyer ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
+  'common.listing.vehicleNotCovered':
+    'Ce véhicule ne remplit pas les conditions de la protection des voyages (âge, valeur ou usage). Il ne peut pas être publié.',
+  'common.listing.insurerInactive':
+    'Tout est prêt de votre côté. La protection des voyages n’est pas encore disponible ici ; vous pourrez envoyer votre annonce dès qu’elle le sera.',
   'common.listing.hostNotActivated':
     'Tout est prêt de ton côté. Tu pourras envoyer ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
   'common.listing.unavailable':
