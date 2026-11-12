@@ -11,11 +11,17 @@ import type {
   ConsentStatusRow,
   ConsentStore,
   DocumentVersion,
+  HostTermsOutcome,
+  HostTermsState,
   LegalDocument,
   LegalDocumentKind,
   LegalDocumentSummary,
 } from '../internal/consent-store.js';
-import { ConsentDocumentsError, LEGAL_DOCUMENT_KINDS } from '../internal/consent-store.js';
+import {
+  ConsentDocumentsError,
+  LEGAL_DOCUMENT_KINDS,
+  SERVED_DOCUMENT_KINDS,
+} from '../internal/consent-store.js';
 
 interface FakeVersion {
   readonly kind: LegalDocumentKind;
@@ -36,7 +42,7 @@ interface FakeRow {
 const LANGS = ['es', 'en', 'fr', 'pt'];
 
 export class FakeConsentStore implements ConsentStore {
-  readonly versions: FakeVersion[] = LEGAL_DOCUMENT_KINDS.map((kind) => ({
+  readonly versions: FakeVersion[] = SERVED_DOCUMENT_KINDS.map((kind) => ({
     kind,
     version: 1,
     isMajor: true,
@@ -44,6 +50,13 @@ export class FakeConsentStore implements ConsentStore {
   }));
   readonly rows: FakeRow[] = [];
   readonly #sessions = new Map<string, string>();
+  /** Comptes d'hôte : identifiant → titulaire et pays (comme `core.iam_host_accounts`). */
+  readonly #hostAccounts = new Map<string, { userId: string; country: string }>();
+
+  /** Associe un compte d'hôte à son titulaire et à son pays (US-126). */
+  bindHostAccount(orgId: string, userId: string, country: string): void {
+    this.#hostAccounts.set(orgId, { userId, country });
+  }
 
   /** Associe une session (empreinte du jeton) à un compte. */
   bindSession(proof: Buffer, userId: string): void {
@@ -191,6 +204,71 @@ export class FakeConsentStore implements ConsentStore {
       at: new Date(),
     });
     return 'CHANGED' as const;
+  }
+
+  /**
+   * CGU de l'hôte (US-126) : documents communs seulement dans le FAKE (la portée par pays est
+   * prouvée sur PostgreSQL par `l0-us126-host-terms`) ; réacceptation exigée si jamais acceptées
+   * ou acceptées sous la plus haute version MAJEURE ; aucun document ⇒ exigée (fail-closed).
+   */
+  async hostTerms(
+    proof: Buffer,
+    orgId: string,
+    language: string,
+  ): Promise<HostTermsState | 'AUTH_REQUIRED' | 'FORBIDDEN'> {
+    const userId = this.#user(proof);
+    if (userId === undefined) return 'AUTH_REQUIRED';
+    const account = this.#hostAccounts.get(orgId);
+    if (account?.userId !== userId) return 'FORBIDDEN';
+    const current = this.#current('TOS_HOST');
+    const required = this.#current('TOS_HOST', true)?.version ?? null;
+    const last = this.#last(userId, 'TOS_HOST', true);
+    const accepted = last?.version ?? null;
+    const document = current === undefined ? null : this.#summary(current, language);
+    return {
+      country: account.country,
+      document:
+        document === null
+          ? null
+          : {
+              kind: document.kind,
+              version: document.version,
+              isMajor: document.isMajor,
+              locale: document.locale,
+              title: document.title,
+              contentHash: document.contentHash,
+              draft: document.draft,
+              validFrom: document.validFrom,
+            },
+      requiredVersion: required,
+      acceptedVersion: accepted,
+      acceptedAt: last?.at ?? null,
+      reacceptRequired:
+        document === null || accepted === null || (required !== null && accepted < required),
+    };
+  }
+
+  async acceptHostTerms(
+    proof: Buffer,
+    orgId: string,
+    version: number,
+    language: string,
+  ): Promise<HostTermsOutcome> {
+    const state = await this.hostTerms(proof, orgId, language);
+    if (state === 'AUTH_REQUIRED' || state === 'FORBIDDEN') return state;
+    if (!LANGS.includes(language)) return 'REQUEST_INVALID';
+    if (state.document === null) return 'LEGAL_DOCUMENT_UNAVAILABLE';
+    if (state.document.version !== version) return 'TERMS_VERSION_CHANGED';
+    const userId = this.#user(proof) as string;
+    this.rows.push({
+      userId,
+      kind: 'TOS_HOST',
+      version,
+      accepted: true,
+      context: this.#last(userId, 'TOS_HOST', true) === undefined ? 'HOST_ONBOARDING' : 'REACCEPT',
+      at: new Date(),
+    });
+    return 'DONE';
   }
 
   async history(proof: Buffer): Promise<ConsentHistoryRow[]> {

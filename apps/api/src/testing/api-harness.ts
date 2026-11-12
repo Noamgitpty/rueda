@@ -244,6 +244,11 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
         accept: (proof: Buffer) => Promise.resolve(find(proof) === undefined ? null : 0),
         setMarketing: (proof: Buffer) =>
           Promise.resolve(find(proof) === undefined ? null : ('UNCHANGED' as const)),
+        // CGU de l'hôte (US-126) : aucun compte d'hôte dans le harnais ⇒ FORBIDDEN (404, IDOR)
+        hostTerms: (proof: Buffer) =>
+          Promise.resolve(find(proof) === undefined ? 'AUTH_REQUIRED' : 'FORBIDDEN'),
+        acceptHostTerms: (proof: Buffer) =>
+          Promise.resolve(find(proof) === undefined ? 'AUTH_REQUIRED' : 'FORBIDDEN'),
       },
       'ConsentStore',
     ),

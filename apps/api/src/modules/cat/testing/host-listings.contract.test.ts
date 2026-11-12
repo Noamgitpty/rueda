@@ -339,7 +339,7 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     expect((await api.request('POST', `${base}/vehicles`, { ...textBody(w.a) })).status).toBe(415);
   });
 
-  it('critère 2 et N-37 : soumission sans assez de photos ⇒ 422 PHOTO_MIN_COUNT ; hôte non activé ⇒ 422 HOST_NOT_ACTIVATED ; transitions de SM-2', async () => {
+  it('critère 2 et N-37 : soumission sans assez de photos ⇒ 422 PHOTO_MIN_COUNT ; CGU de l’hôte non acceptées ⇒ 409 TERMS_REACCEPT_REQUIRED (US-126) ; hôte non activé ⇒ 422 HOST_NOT_ACTIVATED ; transitions de SM-2', async () => {
     const w = await world();
     const api = w.app.api;
     const d = await draft(w);
@@ -350,6 +350,12 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     expect(few.json).toMatchObject({ code: 'PHOTO_MIN_COUNT' });
     const l = w.store.listingsById.get(d.listingId);
     if (l) l.photos = 6;
+    // CGU de l'hôte non acceptées (US-126) : 409, l'annonce reste DRAFT
+    const terms = await submit();
+    expect(terms.status).toBe(409);
+    expect(terms.json).toMatchObject({ code: 'TERMS_REACCEPT_REQUIRED' });
+    expect(w.store.listingsById.get(d.listingId)?.status).toBe('DRAFT');
+    w.store.hostTermsAccepted.add(w.orgA);
     expect((await submit()).json).toMatchObject({ code: 'HOST_NOT_ACTIVATED' });
     expect(w.store.listingsById.get(d.listingId)?.status).toBe('DRAFT');
     w.store.forced = 'DONE';
@@ -620,7 +626,12 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
 
   it('couverture : chaque statut déclaré pour /host/accounts/{orgId} est exercé ; chaque statut déclaré pour /listings est exercé', () => {
     const covered = coverageOf(...apps);
-    expect(missingCoverage(contract, '/host/accounts/{orgId}', covered)).toEqual([]);
+    // les CGU de l'hôte (/host/accounts/{orgId}/terms, US-126) ont leur propre suite (CTR)
+    expect(
+      missingCoverage(contract, '/host/accounts/{orgId}', covered).filter(
+        (d) => !d.includes(' /host/accounts/{orgId}/terms'),
+      ),
+    ).toEqual([]);
     expect(missingCoverage(contract, '/listings', covered)).toEqual([]);
   });
 });

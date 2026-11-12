@@ -196,6 +196,8 @@ const hostOf = (req) => {
       locations: [],
       vehicles: [],
       listings: [],
+      // CGU de l'hôte (US-126) : jamais acceptées à l'ouverture
+      terms: { acceptedVersion: null, acceptedAt: null },
     });
     hosts.set(token, {
       accounts: [
@@ -209,6 +211,17 @@ const hostOf = (req) => {
 // devises de test ISO 4217 (XTS, XXX) et pays réservés : aucune vraie devise ni aucun vrai pays
 // écrits ici (ADR-024)
 const MARKET = { country: 'ZZ', currency: 'XTS', currencyExponent: 2 };
+const HOST_TERMS_VERSION = 1;
+const hostTermsDoc = (lang) => ({
+  kind: 'TOS_HOST',
+  version: HOST_TERMS_VERSION,
+  isMajor: true,
+  locale: lang,
+  title: `TOS_HOST (${lang})`,
+  contentHash: '0'.repeat(64),
+  draft: true,
+  validFrom: '2026-01-01T00:00:00.000Z',
+});
 const MARKET_NO_DECIMALS = { country: 'QZ', currency: 'XXX', currencyExponent: 0 };
 
 async function hostRoute(req, res, url) {
@@ -262,6 +275,48 @@ async function hostRoute(req, res, url) {
         approximatePoint: { lat: 8.98, lng: -79.52 },
         timezone: 'UTC',
       },
+    });
+  }
+  // CGU de l'hôte (US-126) : version 1 BROUILLON ; acceptation de la version affichée
+  const terms = /^\/host\/accounts\/([0-9a-f-]{36})\/terms(\/accept)?$/.exec(path);
+  if (terms !== null) {
+    const owner = hostOf(req);
+    if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === terms[1]);
+    if (h === undefined) {
+      return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+    }
+    let lang = languageOf(url);
+    if (req.method === 'POST' && terms[2] !== undefined) {
+      if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+        return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+      }
+      const body = (await readBody(req)) ?? {};
+      lang = LANGS.includes(String(body.locale).slice(0, 2))
+        ? String(body.locale).slice(0, 2)
+        : null;
+      if (lang === null || !Number.isInteger(body.version)) {
+        return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+      }
+      if (body.version !== HOST_TERMS_VERSION) {
+        return err(res, 409, 'TERMS_VERSION_CHANGED', 'common.legal.versionChanged');
+      }
+      h.terms = { acceptedVersion: HOST_TERMS_VERSION, acceptedAt: new Date().toISOString() };
+    } else if (req.method !== 'GET' || terms[2] !== undefined) {
+      return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    }
+    if (lang === null) return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    const pending = h.terms.acceptedVersion !== HOST_TERMS_VERSION;
+    return json(res, 200, {
+      code: pending ? 'TERMS_REACCEPT_REQUIRED' : 'TERMS_CURRENT',
+      messageKey: pending ? 'common.legal.reacceptRequired' : 'common.legal.current',
+      country: h.market.country,
+      timeZone: 'UTC',
+      document: hostTermsDoc(lang),
+      requiredVersion: HOST_TERMS_VERSION,
+      acceptedVersion: h.terms.acceptedVersion,
+      acceptedAt: h.terms.acceptedAt,
+      reacceptRequired: pending,
     });
   }
   const m =
@@ -422,6 +477,9 @@ async function hostRoute(req, res, url) {
   }
   if (req.method === 'POST' && step === 'submit') {
     if (l.photos < 6) return err(res, 422, 'PHOTO_MIN_COUNT', 'common.listing.photoMinCount');
+    if (h.terms.acceptedVersion !== HOST_TERMS_VERSION) {
+      return err(res, 409, 'TERMS_REACCEPT_REQUIRED', 'common.listing.hostTermsRequired');
+    }
     return err(res, 422, 'HOST_NOT_ACTIVATED', 'common.listing.hostNotActivated');
   }
   if (req.method === 'DELETE' && step === undefined) {
@@ -460,6 +518,14 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && kind !== undefined) {
     const lang = languageOf(url);
     if (lang === null) return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    if (kind === 'TOS_HOST') {
+      return json(res, 200, {
+        ...hostTermsDoc(lang),
+        bodyMd: `**${MARK[lang]}**
+
+${kind} ${lang}`,
+      });
+    }
     if (!(kind in VERSIONS))
       return err(res, 404, 'LEGAL_DOCUMENT_NOT_FOUND', 'common.legal.notFound');
     return json(res, 200, { ...doc(kind, lang), bodyMd: `**${MARK[lang]}**\n\n${kind} ${lang}` });

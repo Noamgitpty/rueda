@@ -9,7 +9,8 @@
  * `REQUEST_MODE_NOT_ALLOWED` (17 §3.2.3), `CATALOG_VARIANT_NOT_FOUND`, `CATALOG_VARIANT_RETIRED`
  * (US-113) ; PROPOSÉS par US-115 (à reporter dans 16 A.8) : `HOST_ACCOUNT_NOT_FOUND`,
  * `HOST_ACCOUNT_SUSPENDED`, `LOCATION_NOT_FOUND`, `LOCATION_FIELD_INVALID`, `VEHICLE_NOT_FOUND`,
- * `LISTING_NOT_FOUND`, `LISTING_EXISTS`, `PHOTO_UPLOAD_UNAVAILABLE`, `LISTING_UNAVAILABLE`.
+ * `LISTING_NOT_FOUND`, `LISTING_EXISTS`, `PHOTO_UPLOAD_UNAVAILABLE`, `LISTING_UNAVAILABLE` ;
+ * `TERMS_REACCEPT_REQUIRED` (16 LEG-001, 19 US-126) : CGU de l'hôte à accepter avant la soumission.
  *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
@@ -35,6 +36,8 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_PLATE_DUPLICATE: { status: 409, messageKey: 'common.listing.plateDuplicate' },
   LISTING_EXISTS: { status: 409, messageKey: 'common.listing.exists' },
   LISTING_TRANSITION_FORBIDDEN: { status: 409, messageKey: 'common.listing.transitionForbidden' },
+  // CGU de l'hôte non acceptées dans leur version exigée (US-126) : l'annonce reste DRAFT
+  TERMS_REACCEPT_REQUIRED: { status: 409, messageKey: 'common.listing.hostTermsRequired' },
   CATALOG_VARIANT_RETIRED: { status: 409, messageKey: 'common.listing.variantRetired' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
   LOCATION_FIELD_INVALID: { status: 422, messageKey: 'common.listing.locationFieldInvalid' },
