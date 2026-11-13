@@ -54,8 +54,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 27 : fiche technique à compléter d'une variante
  sans fiche du catalogue (import de la douane, suite d'US-113, ADR-109) :
  `backoffice.catalog.specsPending`.
+ Version 28 : refus d'une réservation par l'hôte lui-même ou par un compte lié (US-127) :
+ `common.booking.selfBookingForbidden.*`.
  */
-export const CATALOG_VERSION = 27;
+export const CATALOG_VERSION = 28;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
