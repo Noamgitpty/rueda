@@ -92,39 +92,9 @@ CREATE POLICY catalog_cmd_publish_audit ON core.audit_audit_log FOR INSERT TO ca
   WITH CHECK (action_code IN ('LISTING_PUBLISHED', 'LISTING_UNLISTED', 'LISTING_REJECTED')
               AND subject_type = 'LISTING');
 
--- 2. Fonctions de domaine (catalog_cmd_owner) ----------------------------------------------------
-GRANT CREATE ON SCHEMA core TO catalog_cmd_owner;
-SET LOCAL ROLE catalog_cmd_owner;
-
--- 2.1 Zone affichée qui ressemble à une adresse exacte (N-62 ; PROPOSÉ, ADR-114). Motifs, sans
--- tenir compte de la casse : un nombre de trois chiffres ou plus (numéro de maison, code postal) ;
--- une marque de numéro suivie d'un chiffre (« N° 12 », « Nº », « n. », « nro », « núm », « # ») ;
--- un mot de voie ou de logement suivi d'un numéro (« Calle 50 », « Av. 3 », « apto 12 »,
--- « casa 4 », « torre 2 », « edificio 9 »…) ; un angle de rues (« esquina », « esq. », « c/ »).
--- Une zone (« Barrio Norte », « Costa del Este », « Villa Morra », « Vía España ») passe.
-CREATE FUNCTION core.catalog_area_label_is_address(p_area text)
-  RETURNS boolean
-  LANGUAGE sql
-  IMMUTABLE
-  PARALLEL SAFE
-  SET search_path = pg_catalog, pg_temp
-AS $fn$
-  SELECT p_area IS NOT NULL AND (
-       p_area ~ '[0-9]{3,}'
-    OR p_area ~* '(^|[^a-z0-9áéíóúñüç])(n[°º.]|nro\.?|n[uú]m(ero)?\.?|#)[[:space:]]*[0-9]'
-    OR p_area ~* ('(^|[^a-z0-9áéíóúñüç])(calle|avenida|avda|av|v[ií]a|carrera|cra|street|st|'
-                  || 'rua|rue|pasaje|psje|casa|apto|apartamento|apt|depto|dpto|departamento|'
-                  || 'piso|lote|manzana|mz|edificio|edif|torre|local|oficina)\.?[[:space:]]*[0-9]')
-    OR p_area ~* '(^|[^a-z0-9áéíóúñüç])(esquina|esq)([^a-z0-9áéíóúñüç]|$)'
-    OR p_area ~* '(^|[[:space:]])c/')
-$fn$;
-COMMENT ON FUNCTION core.catalog_area_label_is_address(text) IS
-  'Zone affichée qui ressemble à une adresse exacte (numéro de rue, voie ou logement numéroté, '
-  'angle de rues) : refusée à la création du lieu et à la publication (BOARD N-62, filtre '
-  'automatique, PROPOSÉ). Aide interne sous catalog_cmd_owner. US-118 (ADR-114).';
-
--- 2.2 Motifs du véhicule (corps de 0077 recopié SANS la règle « hors catalogue » :
--- DEC-FONDATEUR-22, un véhicule hors catalogue ne bloque pas l'annonce ; US-114 suit son cours)
+-- 1 bis. Motifs du véhicule (corps de 0077 recopié SANS la règle « hors catalogue » :
+-- DEC-FONDATEUR-22, un véhicule hors catalogue ne bloque pas l'annonce ; US-114 suit son cours).
+-- Propriétaire migrator (0077) et EXECUTE à catalog_cmd_owner inchangés : remplacée sous migrator.
 CREATE OR REPLACE FUNCTION core.catalog_vehicle_blockers(p_vehicle uuid, p_strict boolean)
   RETURNS text[]
   LANGUAGE plpgsql
@@ -204,7 +174,38 @@ BEGIN
 END
 $fn$;
 
--- 2.3 Premier motif qui empêche de publier une annonce (NULL : publiable), après la complétude et
+-- 2. Fonctions de domaine (catalog_cmd_owner) ----------------------------------------------------
+GRANT CREATE ON SCHEMA core TO catalog_cmd_owner;
+SET LOCAL ROLE catalog_cmd_owner;
+
+-- 2.1 Zone affichée qui ressemble à une adresse exacte (N-62 ; PROPOSÉ, ADR-114). Motifs, sans
+-- tenir compte de la casse : un nombre de trois chiffres ou plus (numéro de maison, code postal) ;
+-- une marque de numéro suivie d'un chiffre (« N° 12 », « Nº », « n. », « nro », « núm », « # ») ;
+-- un mot de voie ou de logement suivi d'un numéro (« Calle 50 », « Av. 3 », « apto 12 »,
+-- « casa 4 », « torre 2 », « edificio 9 »…) ; un angle de rues (« esquina », « esq. », « c/ »).
+-- Une zone (« Barrio Norte », « Costa del Este », « Villa Morra », « Vía España ») passe.
+CREATE FUNCTION core.catalog_area_label_is_address(p_area text)
+  RETURNS boolean
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT p_area IS NOT NULL AND (
+       p_area ~ '[0-9]{3,}'
+    OR p_area ~* '(^|[^a-z0-9áéíóúñüç])(n[°º.]|nro\.?|n[uú]m(ero)?\.?|#)[[:space:]]*[0-9]'
+    OR p_area ~* ('(^|[^a-z0-9áéíóúñüç])(calle|avenida|avda|av|v[ií]a|carrera|cra|street|st|'
+                  || 'rua|rue|pasaje|psje|casa|apto|apartamento|apt|depto|dpto|departamento|'
+                  || 'piso|lote|manzana|mz|edificio|edif|torre|local|oficina)\.?[[:space:]]*[0-9]')
+    OR p_area ~* '(^|[^a-z0-9áéíóúñüç])(esquina|esq)([^a-z0-9áéíóúñüç]|$)'
+    OR p_area ~* '(^|[[:space:]])c/')
+$fn$;
+COMMENT ON FUNCTION core.catalog_area_label_is_address(text) IS
+  'Zone affichée qui ressemble à une adresse exacte (numéro de rue, voie ou logement numéroté, '
+  'angle de rues) : refusée à la création du lieu et à la publication (BOARD N-62, filtre '
+  'automatique, PROPOSÉ). Aide interne sous catalog_cmd_owner. US-118 (ADR-114).';
+
+-- 2.2 Premier motif qui empêche de publier une annonce (NULL : publiable), après la complétude et
 -- avant l'écriture, dans l'ordre : zone, CGU de l'hôte, compte d'hôte ACTIVE et pays ouvert,
 -- véhicule publiable, contrat d'assureur. `p_user` : personne dont on lit les CGU (hôte de la
 -- session, ou titulaire du compte à l'approbation de l'ops).
@@ -273,7 +274,7 @@ COMMENT ON FUNCTION core.catalog_listing_publish_blocker(uuid, uuid, text, text)
   'véhicule publiable, contrat d''assureur) ; NULL : publiable. Aide interne sous '
   'catalog_cmd_owner. US-118 (ADR-114).';
 
--- 2.4 Lieu de remise (corps de 0067 recopié ; une étape ajoutée : la zone affichée ne doit pas
+-- 2.3 Lieu de remise (corps de 0067 recopié ; une étape ajoutée : la zone affichée ne doit pas
 -- contenir une adresse exacte, BOARD N-62)
 CREATE OR REPLACE FUNCTION core.catalog_cmd_create_location(p_token_hash bytea, p_org uuid,
                                                             p_kind text, p_label text,
@@ -341,7 +342,7 @@ COMMENT ON FUNCTION core.catalog_cmd_create_location(bytea, uuid, text, text, te
   'adresse exacte (LOCATION_AREA_ADDRESS). SECURITY DEFINER, EXECUTE app_api. US-115 (ADR-099) ; '
   'US-118 (ADR-114).';
 
--- 2.5 Publication (corps de 0074 remplacé). Issues : LISTED (publiée), PENDING_REVIEW (revue exigée
+-- 2.4 Publication (corps de 0074 remplacé). Issues : LISTED (publiée), PENDING_REVIEW (revue exigée
 -- par le pays), AUTH_REQUIRED, FORBIDDEN, LISTING_NOT_FOUND, LISTING_TRANSITION_FORBIDDEN,
 -- PARAM_MISSING, PHOTO_MIN_COUNT et les motifs de core.catalog_listing_publish_blocker.
 CREATE OR REPLACE FUNCTION core.catalog_cmd_submit_listing(p_token_hash bytea, p_org uuid,
@@ -448,7 +449,7 @@ COMMENT ON FUNCTION core.catalog_cmd_submit_listing(bytea, uuid, uuid) IS
   'contrat d''assureur ; journalisée. SECURITY DEFINER, EXECUTE app_api. US-115 (ADR-099) ; US-126 '
   '(ADR-100) ; US-114 (ADR-104) ; US-118 (ADR-114).';
 
--- 2.6 Retrait par l'hôte : LISTED → UNLISTED, refusé tant qu'un trip est à venir (OQ-BR-29,
+-- 2.5 Retrait par l'hôte : LISTED → UNLISTED, refusé tant qu'un trip est à venir (OQ-BR-29,
 -- BR-LIST-09). Issues : DONE, AUTH_REQUIRED, FORBIDDEN, LISTING_NOT_FOUND,
 -- LISTING_TRANSITION_FORBIDDEN, LISTING_HAS_FUTURE_TRIPS.
 CREATE FUNCTION core.catalog_cmd_unlist_listing(p_token_hash bytea, p_org uuid, p_listing_id uuid)
@@ -503,7 +504,7 @@ COMMENT ON FUNCTION core.catalog_cmd_unlist_listing(bytea, uuid, uuid) IS
   'à venir (LISTING_HAS_FUTURE_TRIPS) ; journalisé. SECURITY DEFINER, EXECUTE app_api. US-118 '
   '(ADR-114).';
 
--- 2.7 Suppression (corps de 0067 recopié ; UNLISTED → DELETED ajoutée, refusée tant qu'un trip est
+-- 2.6 Suppression (corps de 0067 recopié ; UNLISTED → DELETED ajoutée, refusée tant qu'un trip est
 -- à venir : SM-2, BR-LIST-09)
 CREATE OR REPLACE FUNCTION core.catalog_cmd_delete_listing(p_token_hash bytea, p_org uuid,
                                                            p_listing_id uuid)
@@ -559,7 +560,7 @@ COMMENT ON FUNCTION core.catalog_cmd_delete_listing(bytea, uuid, uuid) IS
   'tant qu''un trip est à venir) ; journalisée. SECURITY DEFINER, EXECUTE app_api. US-115 '
   '(ADR-099) ; US-118 (ADR-114).';
 
--- 2.8 Décision de l'ops sur une annonce en revue (fonction de domaine, appelée par la console).
+-- 2.7 Décision de l'ops sur une annonce en revue (fonction de domaine, appelée par la console).
 -- APPROVE : tous les contrôles automatiques revérifiés (16 HST-016 : `insurer_contract_active` à
 -- false ⇒ INSURER_CONTRACT_INACTIVE, l'annonce reste PENDING_REVIEW) ; REJECT : motif d'une liste
 -- fermée (16 ADM-003 `DECISION_RATIONALE_REQUIRED`). Issues : DECIDED (statut rendu),
