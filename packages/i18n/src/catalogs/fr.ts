@@ -1410,4 +1410,5 @@ export const FR_MESSAGES = {
     'La voiture n’est pas gagée, ou j’ai l’accord écrit du créancier',
   'web.vehicleDocs.declaration.vin': 'Numéro de châssis (VIN)',
   'web.vehicleDocs.declaration.attested': 'Tu l’as déclaré le {date}.',
+  'backoffice.catalog.specsPending': 'Fiche technique à compléter',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
