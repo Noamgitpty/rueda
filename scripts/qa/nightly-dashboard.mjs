@@ -280,7 +280,9 @@ export function replayOf(jobName, startedIso, artifacts) {
   if (/rapprochement/i.test(jobName)) return { commands: [RECONCILIATION_REPLAY], note: null };
   if (/e2e web/i.test(jobName)) {
     return {
-      commands: ['pnpm turbo run build --filter=@rueda/web && pnpm --filter @rueda/web test:e2e'],
+      commands: [
+        'pnpm turbo run build --filter=@rueda/web --filter=@rueda/backoffice && pnpm --filter @rueda/web test:e2e',
+      ],
       note: 'Chrome installé',
     };
   }

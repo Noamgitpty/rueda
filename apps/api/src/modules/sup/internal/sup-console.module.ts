@@ -12,12 +12,21 @@ import type { FinanceApprovalStore } from './finance-approval-store.js';
 import type { ManualActionStore } from './manual-action-store.js';
 import { OpsConsoleController } from './ops-console.controller.js';
 import type { OpsConsoleStore } from './ops-console-store.js';
+import { UnavailableDocumentFileStore, UnavailableDocumentVault } from '../../cat/index.js';
+import type { DocumentFileStore, DocumentVault } from '../../cat/index.js';
 import {
   EVIDENCE_SERVICE,
   FINANCE_APPROVAL_STORE,
   MANUAL_ACTION_STORE,
   OPS_CONSOLE_STORE,
+  VEHICLE_FILES,
 } from './tokens.js';
+
+/** Lecture des pièces du véhicule par l'ops (US-124) : stockage et coffre du seau DOCUMENTS. */
+export interface VehicleFilesOptions {
+  readonly files: DocumentFileStore;
+  readonly vault: DocumentVault;
+}
 
 export interface SupConsoleOptions {
   readonly store: ManualActionStore;
@@ -27,6 +36,8 @@ export interface SupConsoleOptions {
   readonly ops: OpsConsoleStore;
   /** Pièces du staff : transaction, antivirus, coffre, stockage (US-109 ; production : indisponibles). */
   readonly evidence: EvidenceOptions;
+  /** Pièces du véhicule lues par l'ops (US-124) ; absent : indisponibles (503, fail-closed). */
+  readonly vehicleFiles?: VehicleFilesOptions;
 }
 
 @Module({})
@@ -42,6 +53,13 @@ export class SupConsoleModule {
         {
           provide: EVIDENCE_SERVICE,
           useValue: new EvidenceService(options.ops, options.evidence),
+        },
+        {
+          provide: VEHICLE_FILES,
+          useValue: options.vehicleFiles ?? {
+            files: new UnavailableDocumentFileStore(),
+            vault: new UnavailableDocumentVault(),
+          },
         },
       ],
     };

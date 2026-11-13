@@ -2132,15 +2132,16 @@ Révision P2P (US-058) : le voyageur paie **Kmino, marchand de référence**, su
 
 #### US-701 — Caution de la plateforme et fenêtre de rétention
 - **Epic** : E6
-- **Récit** : En tant que voyageur, je veux une caution pré-autorisée par Kmino sur ma carte seulement quand elle tient dans la validité du PSP, afin de ne pas être débité à tort.
+- **Récit** : En tant que voyageur, je veux une caution pré-autorisée par Kmino sur ma carte seulement quand un déclencheur l'exige (révisé 2026-11-12, caution comme Turo) et qu'elle tient dans la validité du PSP, afin de ne pas être débité à tort.
 - **Features** : PAY-011, PAY-036
-- **Références** : 16 fiche PAY-011 / PAY-012 / PAY-036 ; BR-PAY-06 ; ADR-016 ; **T57, T59** ; EC-27, EC-56 ; 10b §3.5
+- **Références** : 16 fiche PAY-011 / PAY-012 / PAY-036 ; BR-PAY-06 ; ADR-016 ; ADR « caution comme Turo » (`docs/adr/`, US-063) ; **T57, T59, T69–T73** ; EC-27, EC-56 ; 10b §3.5
 - **Critères d'acceptation** :
   - Given T57, When la décision est prise à fin + 70 h, Then capture 12,00 et void 288,00, la réclamation de dommage ne suspendant pas la libération ; T59 ⇒ pas de pré-autorisation unique.
   - Given une capture de frais annexes sur la caution (carburant), When elle est postée, Then ses jambes suivent 08 BR-PAY-06 (carburant à 100 % pour l'hôte) et la somme est contrôlée.
   - Given `H_requise` calculée par la formule unique de BR-PAY-06, When `H_requise ≤ V` (`MAX_HOLD_HOURS` validé), Then pré-autorisation unique à `auth_at` ; sinon rails de US-225.
+  - (révisé 2026-11-12, caution comme Turo) Given T70 c, When un visiteur ouvre la fiche, Then seuls `COUNTRY` et `CLASS` sont évalués (montant ou mention générique). Given T69 à T73 (PA en USD, PY en PYG), When les déclencheurs de BR-PAY-06 sont évalués au checkout, Then la caution n'est prise que si l'un d'eux est vrai, un déclencheur inconnu l'exige, son montant est unique (`deposit_amount[pays][classe]`) et `deposit_hold` fige `mechanism` (`NOT_REQUIRED` le cas échéant), `triggers` et `params_snapshot`, lisibles par l'ops seulement (jamais par le voyageur ni l'hôte) ; sans caution, les frais post-trip passent par MIT (T69). Le montant vient du seul paramètre `deposit_amount` (pas de `catalog_deposit_policy.amount_minor`).
 - **Notes techniques** : `deposit_hold` sur le compte marchand de Kmino ; aucun dommage n'est recouvré sur la caution (débit séparé, US-703) ; remontée de l'ex-lot LB (analyse pivot §e.3), sans renumérotation (§1.1).
-- **Dépendances** : US-223, US-061
+- **Dépendances** : US-223, US-061 ; US-115 (`value_class` du catalogue, déclencheur `CLASS`) ; US-209 (contrôle de risque ADM-029, pour le déclencheur `RISK` seulement : tant qu'il n'est pas livré, `risk_control_deployed[pays]` = `false`) (révisé 2026-11-12, caution comme Turo)
 - **Estimation** : 8 pts
 - **Lot** : L2
 - **Tranche bêta** : OUI
@@ -2149,11 +2150,12 @@ Révision P2P (US-058) : le voyageur paie **Kmino, marchand de référence**, su
 
 #### US-225 — Caution : rails de la pré-autorisation, ré-autorisation, débit puis remboursement, refus
 - **Epic** : E6
-- **Récit** : En tant que voyageur, je veux savoir avant de payer si ma caution est possible pour la durée de mon trip, afin de ne jamais découvrir un refus le jour de la remise.
+- **Récit** : En tant que voyageur, je veux savoir avant de payer si mon trip exige une caution et, si oui, si elle est possible pour sa durée (révisé 2026-11-12, caution comme Turo), afin de ne jamais découvrir un refus le jour de la remise.
 - **Features** : PAY-011, PAY-036
-- **Références** : 16 fiches PAY-011, PAY-036 ; BR-PAY-06 ; **T57, T58, T59** ; OQ-P2P-04 ; 10b §3.5 ; NOUVELLE-07 de l'analyse pivot §e.5
+- **Références** : 16 fiches PAY-011, PAY-036 ; BR-PAY-06 ; **T57, T58, T59, T70** ; OQ-P2P-04 ; ADR « caution comme Turo » (`docs/adr/`, US-063) ; 10b §3.5 ; NOUVELLE-07 de l'analyse pivot §e.5
 - **Critères d'acceptation** :
-  - Given T59 (trip de 3 j + 25 min chez un PSP à 7 j) et `SUPPORTS_REAUTH` non validé, When le voyageur ouvre le paiement, Then `DEPOSIT_RAIL_UNAVAILABLE` est affiché **avant** le paiement, en es et en.
+  - Given T59 (trip de 3 j + 25 min chez un PSP à 7 j, véhicule `LUXE` donc caution exigée) et `SUPPORTS_REAUTH` non validé, When le voyageur ouvre le paiement, Then `DEPOSIT_RAIL_UNAVAILABLE` est affiché **avant** le paiement, en es, en, fr et pt-BR.
+  - (révisé 2026-11-12, caution comme Turo) Given T70 (même trip sur un véhicule `STANDARD`, aucun déclencheur), When le voyageur ouvre le paiement, Then aucun rail de caution n'est évalué et la réservation est possible.
   - Given `SUPPORTS_REAUTH` validé, When la fenêtre approche de son expiration, Then une ré-autorisation est demandée avant l'échéance et, refusée, le trip est signalé à l'ops sans débit.
   - Given le rail « débit puis remboursement » plafonné par `deposit_charge_cap[pays]`, When `funds_holding_enabled[pays]` = `false`, Then ce rail est fermé et la réservation est refusée avant le paiement.
   - Given T58 (PSP sans capture partielle), When la caution est décidée, Then void 300,00 puis débit MIT 12,00.

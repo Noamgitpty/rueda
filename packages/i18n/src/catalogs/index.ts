@@ -47,9 +47,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.hostVerification.*`, `web.a07.*` (liste de tâches A07, dont `web.a07.waitingCountry` de
  10b §4.3) et `web.host.verificationLink`. Version 25 : décision KYC de l'ops (US-106) : états
  SM-3, motifs, champs du permis, scores, contrôles cochés et refus `backoffice.kyc.*` ; messages
- au voyageur `web.s04.result.rejected*` et `web.s04.moreInfo.*`. Version 28 : refus d'une
- réservation par l'hôte lui-même ou par un compte lié (US-127) : `common.booking.selfBookingForbidden.*`
- (versions 26 et 27 réservées par l'orchestrateur à US-124 et à l'import du catalogue).
+ au voyageur `web.s04.result.rejected*` et `web.s04.moreInfo.*`.
+ Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
+ `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
+ `backoffice.vehicle.*`.
+ Version 27 : fiche technique à compléter d'une variante
+ sans fiche du catalogue (import de la douane, suite d'US-113, ADR-109) :
+ `backoffice.catalog.specsPending`.
+ Version 28 : refus d'une réservation par l'hôte lui-même ou par un compte lié (US-127) :
+ `common.booking.selfBookingForbidden.*`.
  */
 export const CATALOG_VERSION = 28;
 

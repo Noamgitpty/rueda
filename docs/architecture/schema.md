@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 78 migrations ; 95 tables ; 2 vues ; 514 politiques RLS ; 153 fonctions `SECURITY DEFINER` ; 155 autres fonctions.
+- 80 migrations ; 95 tables ; 2 vues ; 507 politiques RLS ; 171 fonctions `SECURITY DEFINER` ; 168 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -92,7 +92,9 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0074_catalog_addition_requests` | CAT : file d'ajout au catalogue véhicules (demande de l'hôte, file de l'ops, rattachement de la variante). |
 | `0075_kyc_host_verification` | KYC : inscription et vérification individuelle de l'hôte, filtrage des sanctions, profil |
 | `0076_kyc_ops_decision` | KYC : décision de l'ops (KYC_DECISION), mise en file des revues manuelles, alerte de délai, dossier KYC complété. |
-| `0080_risk_self_booking_linked_accounts` | RISK / AVL : cumul hôte / voyageur, auto-réservation refusée y compris par un compte lié. |
+| `0077_catalog_vehicle_documents` | CAT : documents et éligibilité du véhicule (titre, prenda, plaque, châssis, inspection, âge), contestation de plaque. |
+| `0078_config_vehicle_eligibility_params` | graine complémentaire : paramètres « elig_* » (US-124 ; 17 §7.2). |
+| `0079_catalog_customs_import` | CAT : import des marques et modèles déclarés à la douane (suite d'US-113 ; ADR-109, |
 
 ## Rôles
 
@@ -176,7 +178,7 @@ Index :
 Politiques RLS :
 
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
-- `catalog_cmd_audit_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((action_code = ANY (ARRAY['LISTING_SUBMITTED'::text, 'LISTING_DELETED'::text])) AND (subject_type = 'LISTING'::text))`
+- `catalog_cmd_audit_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `(((action_code = ANY (ARRAY['LISTING_SUBMITTED'::text, 'LISTING_DELETED'::text])) AND (subject_type = 'LISTING'::text)) OR ((action_code = ANY (ARRAY['VEHICLE_DECLARATION_SAVED'::text, 'VEHICLE_DOCUMENT_RECEIVED'::text, 'VEHICLE_ELIGIBILITY_SUBMITTED'::text])) AND (subject_type = 'VEHICLE'::text)) OR ((action_code = 'VEHICLE_CLAIM_OPENED'::text) AND (subject_type = 'VEHICLE_CLAIM'::text)))`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `true`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `true`
 - `cmd_money_ins` (INSERT, PERMISSIVE, cmd_money_owner) WITH CHECK `true`
@@ -262,6 +264,7 @@ Index :
 Politiques RLS :
 
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
+- `iam_staff_claim_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(subject_type = 'VEHICLE_CLAIM'::text)`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['audit_chain_verifier'::text, 'booking_conversion'::text, 'booking_oracle'::text, 'bordereau'::text, 'bus_monitor'::text, 'disposition_sweeper'::text, 'evidence_ingest'::text, 'evidence_verifier'::text, 'hold_expiry'::text, 'ntf_dispatcher'::text, 'ntf_sender'::text, 'ops_monitor'::text, 'outbox_relay'::text, 'payment_command'::text, 'payment_intent_sweeper'::text, 'payout'::text, 'privacy_request'::text, 'reconciliation'::text, 'settlement'::text, 'trip_lifecycle'::text, 'webhook_ingest'::text])))`
@@ -320,6 +323,7 @@ Index :
 Politiques RLS :
 
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
+- `catalog_cmd_doc_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((bucket = 'DOCUMENTS'::text) AND (classification = 'C2'::text) AND (source = 'HOST_UPLOAD'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (enc_subject_id = uploader_user_id) AND (retention_class = 'VEHICLE_DOCUMENT'::text) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/heic'::text, 'application/pdf'::text])))`
 - `catalog_cmd_photo_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((bucket = 'PUBLIC_LISTING'::text) AND (classification = 'C0'::text) AND (source = 'HOST_UPLOAD'::text) AND (enc_subject_type IS NULL) AND (retention_class = 'LISTING_PHOTO'::text) AND (mime = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text])))`
 - `iam_staff_evidence_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'PRIVATE_EVIDENCE'::text) AND (classification = 'C2'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type = 'USER'::text) AND (enc_subject_id IS NOT NULL) AND (retention_class = 'STAFF_EVIDENCE'::text))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((bucket = 'BRAND'::text) AND (classification = 'C0'::text) AND (source = 'STAFF_UPLOAD'::text) AND (enc_subject_type IS NULL) AND (retention_class = 'BRAND_PUBLIC'::text))`
@@ -1043,10 +1047,18 @@ Politiques RLS :
 | `gps_installed` | `boolean` | oui | `false` |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `created_by` | `uuid` | oui | — |
+| `title_holder` | `text` | non | — |
+| `eligibility_reasons` | `text[]` | oui | `'{}'::text[]` |
+| `eligibility_submitted_at` | `timestamp with time zone` | non | — |
+| `eligibility_checked_at` | `timestamp with time zone` | non | — |
+| `released_at` | `timestamp with time zone` | non | — |
+| `ownership_attested_at` | `timestamp with time zone` | non | — |
+| `lien_attested_at` | `timestamp with time zone` | non | — |
 
 Contraintes :
 
 - `catalog_vehicle_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `catalog_vehicle_eligibility_reasons_format` : `CHECK (array_to_string(eligibility_reasons, ','::text) ~ '^([A-Z][A-Z_]{1,63}(,\|$))*$'::text)`
 - `catalog_vehicle_eligibility_valid` : `CHECK (eligibility_status = ANY (ARRAY['ELIGIBLE'::text, 'INELIGIBLE'::text, 'PENDING'::text]))`
 - `catalog_vehicle_fuel_valid` : `CHECK (fuel_type = ANY (ARRAY['GASOLINE'::text, 'DIESEL'::text, 'HYBRID'::text, 'EV'::text]))`
 - `catalog_vehicle_identity` : `CHECK (variant_id IS NOT NULL AND make_text IS NULL AND model_text IS NULL OR variant_id IS NULL AND make_text IS NOT NULL AND model_text IS NOT NULL)`
@@ -1060,9 +1072,10 @@ Contraintes :
 - `catalog_vehicle_pkey` : `PRIMARY KEY (id)`
 - `catalog_vehicle_plate_category_valid` : `CHECK (plate_category = 'PARTICULAR'::text)`
 - `catalog_vehicle_plate_normalized` : `CHECK (plate ~ '^[A-Z0-9]{2,12}$'::text)`
-- `catalog_vehicle_plate_unique` : `UNIQUE (country_code, plate)`
+- `catalog_vehicle_plate_unique` : `EXCLUDE USING btree (country_code WITH =, plate WITH =) WHERE (released_at IS NULL)`
 - `catalog_vehicle_seats_range` : `CHECK (seats >= 1 AND seats <= 60)`
 - `catalog_vehicle_timezone_valid` : `CHECK (btrim(timezone) <> ''::text)`
+- `catalog_vehicle_title_holder_valid` : `CHECK (title_holder = ANY (ARRAY['HOST'::text, 'THIRD_PARTY'::text]))`
 - `catalog_vehicle_transmission_valid` : `CHECK (transmission = ANY (ARRAY['MANUAL'::text, 'AUTOMATIC'::text]))`
 - `catalog_vehicle_trim_valid` : `CHECK (trim_override IS NULL OR btrim(trim_override) <> ''::text AND char_length(trim_override) <= 80)`
 - `catalog_vehicle_value_class_valid` : `CHECK (value_class = ANY (ARRAY['STANDARD'::text, 'PREMIUM'::text, 'LUXE'::text]))`
@@ -1074,7 +1087,7 @@ Contraintes :
 Index :
 
 - `catalog_vehicle_org_idx` : `CREATE INDEX catalog_vehicle_org_idx ON core.catalog_vehicle USING btree (org_id)`
-- `catalog_vehicle_vin_unique` : `CREATE UNIQUE INDEX catalog_vehicle_vin_unique ON core.catalog_vehicle USING btree (vin) WHERE (vin IS NOT NULL)`
+- `catalog_vehicle_vin_unique` : `CREATE UNIQUE INDEX catalog_vehicle_vin_unique ON core.catalog_vehicle USING btree (vin) WHERE ((vin IS NOT NULL) AND (released_at IS NULL))`
 
 Politiques RLS :
 
@@ -1082,6 +1095,166 @@ Politiques RLS :
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
+
+### `core.catalog_vehicle_claim`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : catalog_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `org_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `claimant_user_id` | `uuid` | oui | — |
+| `plate` | `text` | oui | — |
+| `vin` | `text` | non | — |
+| `target_vehicle_id` | `uuid` | oui | — |
+| `title_file_id` | `uuid` | oui | — |
+| `mime` | `text` | oui | — |
+| `bytes` | `bigint` | oui | — |
+| `status` | `text` | oui | `'OPEN'::text` |
+| `dismiss_reason` | `text` | non | — |
+| `checklist` | `jsonb` | non | — |
+| `review_item_id` | `uuid` | non | — |
+| `decided_by` | `uuid` | non | — |
+| `decided_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `catalog_vehicle_claim_bytes_range` : `CHECK (bytes >= 1 AND bytes <= 10485760)`
+- `catalog_vehicle_claim_claimant_user_id_fkey` : `FOREIGN KEY (claimant_user_id) REFERENCES core.iam_user_account(id)`
+- `catalog_vehicle_claim_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `catalog_vehicle_claim_decided` : `CHECK ((status = 'OPEN'::text) = (decided_by IS NULL) AND (decided_by IS NULL) = (decided_at IS NULL))`
+- `catalog_vehicle_claim_dismiss_reason_valid` : `CHECK (dismiss_reason = ANY (ARRAY['INSUFFICIENT_PROOF'::text, 'CLAIMANT_NOT_OWNER'::text]))`
+- `catalog_vehicle_claim_dismissed` : `CHECK ((status = 'DISMISSED'::text) = (dismiss_reason IS NOT NULL))`
+- `catalog_vehicle_claim_file_unique` : `UNIQUE (title_file_id)`
+- `catalog_vehicle_claim_mime_valid` : `CHECK (mime = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/heic'::text, 'application/pdf'::text]))`
+- `catalog_vehicle_claim_org_fk` : `FOREIGN KEY (org_id, country_code) REFERENCES core.iam_organization(id, country_code)`
+- `catalog_vehicle_claim_pkey` : `PRIMARY KEY (id)`
+- `catalog_vehicle_claim_plate_normalized` : `CHECK (plate ~ '^[A-Z0-9]{2,12}$'::text)`
+- `catalog_vehicle_claim_review_item_id_fkey` : `FOREIGN KEY (review_item_id) REFERENCES core.support_review_queue_item(id)`
+- `catalog_vehicle_claim_status_valid` : `CHECK (status = ANY (ARRAY['OPEN'::text, 'UPHELD'::text, 'DISMISSED'::text]))`
+- `catalog_vehicle_claim_target_vehicle_id_fkey` : `FOREIGN KEY (target_vehicle_id) REFERENCES core.catalog_vehicle(id)`
+- `catalog_vehicle_claim_title_file_id_fkey` : `FOREIGN KEY (title_file_id) REFERENCES core.audit_file_asset(id)`
+- `catalog_vehicle_claim_upheld_checked` : `CHECK (status <> 'UPHELD'::text OR checklist IS NOT NULL)`
+- `catalog_vehicle_claim_vin_format` : `CHECK (vin ~ '^[A-Z0-9]{5,17}$'::text)`
+
+Index :
+
+- `catalog_vehicle_claim_open_unique` : `CREATE UNIQUE INDEX catalog_vehicle_claim_open_unique ON core.catalog_vehicle_claim USING btree (org_id, target_vehicle_id) WHERE (status = 'OPEN'::text)`
+- `catalog_vehicle_claim_target_idx` : `CREATE INDEX catalog_vehicle_claim_target_idx ON core.catalog_vehicle_claim USING btree (target_vehicle_id)`
+
+Politiques RLS :
+
+- `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `catalog_vehicle_claim_no_delete` : `CREATE TRIGGER catalog_vehicle_claim_no_delete BEFORE DELETE ON core.catalog_vehicle_claim FOR EACH ROW EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+- `catalog_vehicle_claim_no_truncate` : `CREATE TRIGGER catalog_vehicle_claim_no_truncate BEFORE TRUNCATE ON core.catalog_vehicle_claim FOR EACH STATEMENT EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+
+### `core.catalog_vehicle_document`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : catalog_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `vehicle_id` | `uuid` | oui | — |
+| `org_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `doc_type` | `text` | oui | — |
+| `file_id` | `uuid` | oui | — |
+| `mime` | `text` | oui | — |
+| `bytes` | `bigint` | oui | — |
+| `status` | `text` | oui | `'SUBMITTED'::text` |
+| `valid_until` | `date` | non | — |
+| `reject_reason` | `text` | non | — |
+| `uploaded_by` | `uuid` | oui | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `reviewed_by` | `uuid` | non | — |
+| `reviewed_at` | `timestamp with time zone` | non | — |
+
+Contraintes :
+
+- `catalog_vehicle_document_bytes_range` : `CHECK (bytes >= 1 AND bytes <= 10485760)`
+- `catalog_vehicle_document_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `catalog_vehicle_document_file_id_fkey` : `FOREIGN KEY (file_id) REFERENCES core.audit_file_asset(id)`
+- `catalog_vehicle_document_file_unique` : `UNIQUE (file_id)`
+- `catalog_vehicle_document_mime_valid` : `CHECK (mime = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/heic'::text, 'application/pdf'::text]))`
+- `catalog_vehicle_document_pkey` : `PRIMARY KEY (id)`
+- `catalog_vehicle_document_reject_reason_valid` : `CHECK (reject_reason = ANY (ARRAY['ILLEGIBLE'::text, 'EXPIRED'::text, 'MISMATCH'::text, 'WRONG_DOCUMENT'::text, 'SUSPECTED_FORGERY'::text]))`
+- `catalog_vehicle_document_rejected` : `CHECK ((status = 'REJECTED'::text) = (reject_reason IS NOT NULL))`
+- `catalog_vehicle_document_reviewed` : `CHECK ((reviewed_by IS NULL) = (reviewed_at IS NULL))`
+- `catalog_vehicle_document_status_valid` : `CHECK (status = ANY (ARRAY['SUBMITTED'::text, 'VALID'::text, 'REJECTED'::text, 'SUPERSEDED'::text]))`
+- `catalog_vehicle_document_type_valid` : `CHECK (doc_type = ANY (ARRAY['TITLE'::text, 'OWNER_AUTHORIZATION'::text, 'PLATE_VIN_PHOTO'::text, 'INSPECTION'::text, 'LENDER_CONSENT'::text, 'COMPULSORY_INSURANCE'::text]))`
+- `catalog_vehicle_document_valid_until_range` : `CHECK (valid_until >= '1950-01-01'::date AND valid_until <= '2100-12-31'::date)`
+- `catalog_vehicle_document_vehicle_fk` : `FOREIGN KEY (vehicle_id, org_id, country_code) REFERENCES core.catalog_vehicle(id, org_id, country_code)`
+
+Index :
+
+- `catalog_vehicle_document_live_unique` : `CREATE UNIQUE INDEX catalog_vehicle_document_live_unique ON core.catalog_vehicle_document USING btree (vehicle_id, doc_type) WHERE (status = ANY (ARRAY['SUBMITTED'::text, 'VALID'::text]))`
+- `catalog_vehicle_document_org_idx` : `CREATE INDEX catalog_vehicle_document_org_idx ON core.catalog_vehicle_document USING btree (org_id)`
+
+Politiques RLS :
+
+- `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `catalog_vehicle_document_no_delete` : `CREATE TRIGGER catalog_vehicle_document_no_delete BEFORE DELETE ON core.catalog_vehicle_document FOR EACH ROW EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+- `catalog_vehicle_document_no_truncate` : `CREATE TRIGGER catalog_vehicle_document_no_truncate BEFORE TRUNCATE ON core.catalog_vehicle_document FOR EACH STATEMENT EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+
+### `core.catalog_vehicle_eligibility_check`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : catalog_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `vehicle_id` | `uuid` | oui | — |
+| `org_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `kind` | `text` | oui | — |
+| `result` | `text` | oui | — |
+| `reasons` | `text[]` | oui | `'{}'::text[]` |
+| `checklist` | `jsonb` | non | — |
+| `actor_user_id` | `uuid` | oui | — |
+| `actor_role` | `text` | oui | — |
+| `review_item_id` | `uuid` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `catalog_vehicle_check_checklist` : `CHECK ((kind = 'OPS_REVIEW'::text) = (checklist IS NOT NULL))`
+- `catalog_vehicle_check_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `catalog_vehicle_check_kind_valid` : `CHECK (kind = ANY (ARRAY['AUTO_SUBMISSION'::text, 'OPS_REVIEW'::text, 'CLAIM_RELEASE'::text]))`
+- `catalog_vehicle_check_reasons_format` : `CHECK (array_to_string(reasons, ','::text) ~ '^([A-Z][A-Z_]{1,63}(,\|$))*$'::text)`
+- `catalog_vehicle_check_result_valid` : `CHECK (result = ANY (ARRAY['SUBMITTED'::text, 'REFUSED'::text, 'ELIGIBLE'::text, 'PENDING'::text, 'INELIGIBLE'::text]))`
+- `catalog_vehicle_check_role_valid` : `CHECK (actor_role = ANY (ARRAY['P2P_HOST'::text, 'OPS_AGENT'::text, 'ADMIN'::text]))`
+- `catalog_vehicle_check_vehicle_fk` : `FOREIGN KEY (vehicle_id, org_id, country_code) REFERENCES core.catalog_vehicle(id, org_id, country_code)`
+- `catalog_vehicle_eligibility_check_pkey` : `PRIMARY KEY (id)`
+- `catalog_vehicle_eligibility_check_review_item_id_fkey` : `FOREIGN KEY (review_item_id) REFERENCES core.support_review_queue_item(id)`
+
+Index :
+
+- `catalog_vehicle_check_vehicle_idx` : `CREATE INDEX catalog_vehicle_check_vehicle_idx ON core.catalog_vehicle_eligibility_check USING btree (vehicle_id, created_at)`
+
+Politiques RLS :
+
+- `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `catalog_vehicle_check_append_only` : `CREATE TRIGGER catalog_vehicle_check_append_only BEFORE DELETE OR UPDATE ON core.catalog_vehicle_eligibility_check FOR EACH ROW EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+- `catalog_vehicle_check_no_truncate` : `CREATE TRIGGER catalog_vehicle_check_no_truncate BEFORE TRUNCATE ON core.catalog_vehicle_eligibility_check FOR EACH STATEMENT EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
 
 ### `core.catalog_vehicle_make`
 
@@ -1109,7 +1282,7 @@ Contraintes :
 - `catalog_vehicle_make_pkey` : `PRIMARY KEY (id)`
 - `catalog_vehicle_make_slug_check` : `CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)`
 - `catalog_vehicle_make_slug_key` : `UNIQUE (slug)`
-- `catalog_vehicle_make_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_make_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text, 'DNIT_ADUANAS_PY'::text]))`
 - `catalog_vehicle_make_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
 - `catalog_vehicle_make_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
 
@@ -1137,9 +1310,9 @@ Déclencheurs :
 | `slug` | `text` | oui | — |
 | `name` | `text` | oui | — |
 | `aliases` | `text[]` | oui | `ARRAY[]::text[]` |
-| `body_type` | `text` | oui | — |
-| `seats_default` | `smallint` | oui | — |
-| `doors_default` | `smallint` | oui | — |
+| `body_type` | `text` | non | — |
+| `seats_default` | `smallint` | non | — |
+| `doors_default` | `smallint` | non | — |
 | `status` | `text` | oui | `'ACTIVE'::text` |
 | `source` | `text` | oui | — |
 | `source_ref` | `text` | non | — |
@@ -1157,8 +1330,9 @@ Contraintes :
 - `catalog_vehicle_model_pkey` : `PRIMARY KEY (id)`
 - `catalog_vehicle_model_seats_default_check` : `CHECK (seats_default >= 1 AND seats_default <= 60)`
 - `catalog_vehicle_model_slug_check` : `CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)`
-- `catalog_vehicle_model_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_model_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text, 'DNIT_ADUANAS_PY'::text]))`
 - `catalog_vehicle_model_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
+- `catalog_vehicle_model_specs_complete` : `CHECK (source = 'DNIT_ADUANAS_PY'::text OR body_type IS NOT NULL AND seats_default IS NOT NULL AND doors_default IS NOT NULL)`
 - `catalog_vehicle_model_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
 
 Politiques RLS :
@@ -1185,16 +1359,16 @@ Déclencheurs :
 | `year_from` | `integer` | oui | — |
 | `year_to` | `integer` | non | — |
 | `trim_name` | `text` | non | — |
-| `transmission` | `text` | oui | — |
-| `fuel_type` | `text` | oui | — |
-| `drive` | `text` | oui | — |
+| `transmission` | `text` | non | — |
+| `fuel_type` | `text` | non | — |
+| `drive` | `text` | non | — |
 | `engine_cc` | `integer` | non | — |
 | `engine_cylinders` | `smallint` | non | — |
 | `power_hp` | `integer` | non | — |
 | `consumption_l_100km` | `numeric(3,1)` | non | — |
 | `consumption_source` | `text` | non | — |
-| `seats` | `smallint` | oui | — |
-| `doors` | `smallint` | oui | — |
+| `seats` | `smallint` | non | — |
+| `doors` | `smallint` | non | — |
 | `cargo_l` | `integer` | non | — |
 | `value_class` | `text` | non | — |
 | `market` | `character(2)` | non | — |
@@ -1225,8 +1399,9 @@ Contraintes :
 - `catalog_vehicle_variant_pkey` : `PRIMARY KEY (id)`
 - `catalog_vehicle_variant_power_hp_check` : `CHECK (power_hp >= 1 AND power_hp <= 2000)`
 - `catalog_vehicle_variant_seats_check` : `CHECK (seats >= 1 AND seats <= 60)`
-- `catalog_vehicle_variant_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_variant_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text, 'DNIT_ADUANAS_PY'::text]))`
 - `catalog_vehicle_variant_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
+- `catalog_vehicle_variant_specs_complete` : `CHECK (source = 'DNIT_ADUANAS_PY'::text OR transmission IS NOT NULL AND fuel_type IS NOT NULL AND drive IS NOT NULL AND seats IS NOT NULL AND doors IS NOT NULL)`
 - `catalog_vehicle_variant_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
 - `catalog_vehicle_variant_transmission_check` : `CHECK (transmission = ANY (ARRAY['MT'::text, 'AT'::text, 'CVT'::text, 'DCT'::text]))`
 - `catalog_vehicle_variant_trim_name_check` : `CHECK (trim_name IS NULL OR btrim(trim_name) <> ''::text AND length(trim_name) <= 80)`
@@ -1609,7 +1784,7 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
-- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text]))`
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `go_live_switch`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `go_live_switch`
 - `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
@@ -1661,7 +1836,7 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
-- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text]))`
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text]))`
@@ -1973,7 +2148,6 @@ Politiques RLS :
 - `membership_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (EXISTS ( SELECT 1 FROM core.iam_organization o WHERE ((o.id = iam_membership.org_id) AND (o.country_code = ANY (app.country_scope())) AND app.has_staff_role('ADMIN'::text, o.country_code)))))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
-- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 
 Déclencheurs :
 
@@ -2047,7 +2221,6 @@ Politiques RLS :
 - `organization_holder_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (id = app.org_id()) AND app.is_org_holder())`
 - `organization_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('ADMIN'::text, country_code) OR app.has_staff_role('FINANCE'::text, country_code)))`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
-- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 
 Déclencheurs :
 
@@ -2343,7 +2516,6 @@ Politiques RLS :
 - `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
-- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 - `user_account_self_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text])) AND (id = app.actor_id()))`
 
 Déclencheurs :
@@ -2570,7 +2742,6 @@ Politiques RLS :
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `(date_of_birth IS NOT NULL)`
 
 ### `core.kyc_identity_verification`
 
@@ -2626,7 +2797,6 @@ Politiques RLS :
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `is_current` WITH CHECK `is_current`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `(approved_at IS NOT NULL)`
 
 Déclencheurs :
 
@@ -2956,7 +3126,7 @@ Index :
 Politiques RLS :
 
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
-- `catalog_cmd_event_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((type = 'catalog.addition_request.resolved'::text) AND (aggregate_type = 'catalog_addition_request'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
+- `catalog_cmd_event_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((((type = 'catalog.addition_request.resolved'::text) AND (aggregate_type = 'catalog_addition_request'::text)) OR ((type = 'catalog.vehicle.released'::text) AND (aggregate_type = 'catalog_vehicle'::text))) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_golive_event_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((type = 'config.param.changed'::text) AND (aggregate_type = 'param_value'::text) AND (actor_role = 'SUPERADMIN'::text) AND (actor_user_id IS NOT NULL))`
 - `cmd_hold_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = ANY (ARRAY['booking.hold.created'::text, 'booking.hold.released'::text, 'booking.hold.release_deferred'::text, 'booking.hold.payment_in_flight'::text])) AND (app.actor_kind() = 'GUEST'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id = app.actor_id()))`
 - `iam_auth_otp_event_ins` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((((type = 'iam.otp.requested'::text) AND (aggregate_type = 'otp_challenge'::text)) OR ((type = 'iam.phone.verified'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))`
@@ -3552,7 +3722,6 @@ Politiques RLS :
 ### `core.risk_account_link`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : iam_staff_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -3563,43 +3732,13 @@ Politiques RLS :
 | `signal` | `text` | oui | — |
 | `decided_by` | `uuid` | oui | — |
 | `decided_at` | `timestamp with time zone` | oui | — |
-| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
-| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
-| `row_version` | `integer` | oui | `0` |
-
-Contraintes :
-
-- `risk_account_link_decided_by_fkey` : `FOREIGN KEY (decided_by) REFERENCES core.iam_user_account(id)`
-- `risk_account_link_decision_valid` : `CHECK (decision = ANY (ARRAY['LINKED'::text, 'NOT_LINKED'::text]))`
-- `risk_account_link_not_decider` : `CHECK (decided_by <> user_low AND decided_by <> user_high)`
-- `risk_account_link_ordered` : `CHECK (user_low < user_high)`
-- `risk_account_link_pair_unique` : `UNIQUE (user_low, user_high)`
-- `risk_account_link_pkey` : `PRIMARY KEY (id)`
-- `risk_account_link_row_version_valid` : `CHECK (row_version >= 0)`
-- `risk_account_link_signal_valid` : `CHECK (signal = ANY (ARRAY['SAME_CARD'::text, 'SAME_DEVICE'::text, 'SAME_DRIVER_LICENSE'::text, 'SAME_IDENTITY'::text, 'SAME_PHONE'::text, 'OTHER'::text]))`
-- `risk_account_link_user_high_fkey` : `FOREIGN KEY (user_high) REFERENCES core.iam_user_account(id)`
-- `risk_account_link_user_low_fkey` : `FOREIGN KEY (user_low) REFERENCES core.iam_user_account(id)`
-
-Index :
-
-- `risk_account_link_high_idx` : `CREATE INDEX risk_account_link_high_idx ON core.risk_account_link USING btree (user_high)`
-
-Politiques RLS :
-
-- `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
-- `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
-- `iam_staff_update` (UPDATE, PERMISSIVE, iam_staff_owner) USING `true` WITH CHECK `true`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
-
-Déclencheurs :
-
-- `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.risk_account_link FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+| `created_at` | `timestamp with time zone` | oui | — |
+| `updated_at` | `timestamp with time zone` | oui | — |
+| `row_version` | `integer` | oui | — |
 
 ### `core.risk_assessment`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : aucun
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -3615,31 +3754,7 @@ Déclencheurs :
 | `explanation` | `text` | oui | — |
 | `reviewed_by` | `uuid` | non | — |
 | `decided_at` | `timestamp with time zone` | non | — |
-| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
-
-Contraintes :
-
-- `risk_assessment_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
-- `risk_assessment_decision_valid` : `CHECK (decision = ANY (ARRAY['AUTO_OK'::text, 'REVIEW'::text, 'REJECT'::text]))`
-- `risk_assessment_dedupe_format` : `CHECK (dedupe_key ~ '^[A-Z][A-Z0-9_]{1,63}:[0-9a-f-]{36}$'::text)`
-- `risk_assessment_explanation_format` : `CHECK (explanation ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
-- `risk_assessment_org_fkey` : `FOREIGN KEY (org_id) REFERENCES core.iam_organization(id)`
-- `risk_assessment_pkey` : `PRIMARY KEY (id)`
-- `risk_assessment_reviewed_by_fkey` : `FOREIGN KEY (reviewed_by) REFERENCES core.iam_user_account(id)`
-- `risk_assessment_reviewed_coherent` : `CHECK ((reviewed_by IS NULL) = (decided_at IS NULL))`
-- `risk_assessment_rules_array` : `CHECK (jsonb_typeof(rules_fired) = 'array'::text AND jsonb_array_length(rules_fired) >= 1)`
-- `risk_assessment_score_range` : `CHECK (score >= 0 AND score <= 100)`
-- `risk_assessment_subject_type_valid` : `CHECK (subject_type = ANY (ARRAY['HOLD'::text, 'TRIP'::text, 'USER'::text]))`
-
-Index :
-
-- `risk_assessment_open_unique` : `CREATE UNIQUE INDEX risk_assessment_open_unique ON core.risk_assessment USING btree (subject_type, subject_id, dedupe_key) WHERE (decided_at IS NULL)`
-
-Politiques RLS :
-
-- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `((subject_type = 'USER'::text) AND (decided_at IS NULL))`
-- `cmd_hold_risk_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((subject_type = 'USER'::text) AND (decision = 'REVIEW'::text) AND (reviewed_by IS NULL) AND (decided_at IS NULL) AND (explanation = 'SELF_BOOKING_LINKED_ACCOUNT'::text) AND (app.actor_kind() = 'GUEST'::text) AND (subject_id = app.actor_id()))`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+| `created_at` | `timestamp with time zone` | oui | — |
 
 ### `core.risk_rate_counter`
 
@@ -3676,7 +3791,6 @@ Politiques RLS :
 ### `core.risk_rule`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
-- Droits : aucun
 
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
@@ -3686,19 +3800,6 @@ Politiques RLS :
 | `severity` | `text` | oui | — |
 | `active` | `boolean` | oui | — |
 | `valid_from` | `timestamp with time zone` | oui | — |
-
-Contraintes :
-
-- `risk_rule_code_format` : `CHECK (code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
-- `risk_rule_description_length` : `CHECK (char_length(btrim(description)) >= 10 AND char_length(btrim(description)) <= 500)`
-- `risk_rule_pkey` : `PRIMARY KEY (code, version)`
-- `risk_rule_severity_valid` : `CHECK (severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text]))`
-- `risk_rule_version_positive` : `CHECK (version >= 1)`
-
-Politiques RLS :
-
-- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
-- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.settlement_finance_approval`
 
@@ -4507,7 +4608,7 @@ Index :
 
 Politiques RLS :
 
-- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(queue = 'CATALOG_ADDITION'::text)`
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(queue = ANY (ARRAY['CATALOG_ADDITION'::text, 'LISTING'::text]))`
 - `iam_staff_close` (UPDATE, PERMISSIVE, iam_staff_owner) USING `(status = ANY (ARRAY['OPEN'::text, 'IN_REVIEW'::text]))` WITH CHECK `((status = ANY (ARRAY['DONE'::text, 'CANCELLED'::text])) AND (decided_at IS NOT NULL))`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `(status = 'OPEN'::text)`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
@@ -4661,31 +4762,45 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_cmd_record_order(p_hold_id uuid, p_operation_id uuid, p_provider_reference text, p_order_expires_at timestamp with time zone)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_release_own_hold(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_remove_host_block(p_block_id uuid)` | `boolean` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
-| `core.booking_cmd_report_self_booking(p_vehicle_id uuid)` | `void` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_start_payment(p_hold_id uuid, p_psp_account_id uuid, p_method text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.catalog_addition_detail(p_addition_id uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_cmd_add_listing_photo(p_token_hash bytea, p_org uuid, p_listing_id uuid, p_photo_id uuid, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, photo_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_add_vehicle_document(p_token_hash bytea, p_org uuid, p_vehicle uuid, p_file_id uuid, p_doc_type text, p_mime text, p_bytes bigint, p_sha256 bytea, p_valid_until date)` | `TABLE(outcome text, document_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_create_listing(p_token_hash bytea, p_org uuid, p_vehicle_id uuid, p_daily_price_minor bigint, p_mileage_mode text, p_included_km_per_day integer, p_extra_km_price_minor bigint, p_instant_book boolean)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_create_location(p_token_hash bytea, p_org uuid, p_kind text, p_label text, p_address_line text, p_city text, p_area_label text, p_lat numeric, p_lng numeric)` | `TABLE(outcome text, location_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_create_vehicle(p_token_hash bytea, p_org uuid, p_location_id uuid, p_plate text, p_vin text, p_variant_id uuid, p_make_text text, p_model_text text, p_year integer, p_trim text, p_transmission text, p_seats smallint, p_fuel_type text, p_odometer_km integer, p_gps_installed boolean, p_lien_declared boolean)` | `TABLE(outcome text, vehicle_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_declare_vehicle(p_token_hash bytea, p_org uuid, p_vehicle uuid, p_title_holder text, p_lien_declared boolean, p_odometer_km integer, p_ownership_attested boolean, p_lien_attested boolean, p_vin text)` | `TABLE(outcome text, vehicle_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_delete_listing(p_token_hash bytea, p_org uuid, p_listing_id uuid)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_open_vehicle_claim(p_token_hash bytea, p_org uuid, p_plate text, p_vin text, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, claim_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_place_host_block(p_token_hash bytea, p_org uuid, p_vehicle_id uuid, p_start_local timestamp without time zone, p_end_local timestamp without time zone)` | `TABLE(outcome text, block_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_remove_host_block(p_token_hash bytea, p_org uuid, p_vehicle_id uuid, p_block_id uuid)` | `TABLE(outcome text, block_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_request_addition(p_token_hash bytea, p_org uuid, p_vehicle_id uuid, p_make_text text, p_model_text text, p_trim text)` | `TABLE(outcome text, request_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_set_location_notice(p_token_hash bytea, p_org uuid, p_location_id uuid, p_minutes integer)` | `TABLE(outcome text, location_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_submit_listing(p_token_hash bytea, p_org uuid, p_listing_id uuid)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_submit_vehicle_eligibility(p_token_hash bytea, p_org uuid, p_vehicle uuid)` | `TABLE(outcome text, item_id uuid, reasons text[])` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_update_listing_pricing(p_token_hash bytea, p_org uuid, p_listing_id uuid, p_daily_price_minor bigint, p_mileage_mode text, p_included_km_per_day integer, p_extra_km_price_minor bigint)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_addition_requests(p_token_hash bytea, p_org uuid)` | `TABLE(request_id uuid, vehicle_id uuid, status text, make_text text, model_text text, reject_reason text, sla_due_at timestamp with time zone, created_at timestamp with time zone, reviewed_at timestamp with time zone)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_listings(p_token_hash bytea, p_org uuid)` | `TABLE(listing_id uuid, vehicle_id uuid, status text, daily_price_minor bigint, currency text, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, instant_book boolean, photos integer, submitted_at timestamp with time zone)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_locations(p_token_hash bytea, p_org uuid)` | `TABLE(location_id uuid, kind text, place_label text, address_line text, city text, area_label text, geo_lat numeric, geo_lng numeric, timezone text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_vehicle_calendar(p_token_hash bytea, p_org uuid, p_vehicle_id uuid)` | `TABLE(outcome text, timezone text, listed boolean, location_id uuid, notice_minutes integer, effective_notice_minutes integer)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_host_vehicle_claims(p_token_hash bytea, p_org uuid)` | `TABLE(claim_id uuid, plate text, status text, dismiss_reason text, created_at timestamp with time zone, decided_at timestamp with time zone)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_host_vehicle_eligibility(p_token_hash bytea, p_org uuid)` | `TABLE(vehicle_id uuid, body jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_vehicle_occupancies(p_token_hash bytea, p_org uuid, p_vehicle_id uuid)` | `TABLE(occupancy_id uuid, kind text, source text, starts_at timestamp with time zone, ends_at timestamp with time zone, start_local text, end_local text, removable boolean)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_host_vehicles(p_token_hash bytea, p_org uuid)` | `TABLE(vehicle_id uuid, location_id uuid, plate text, vin text, variant_id uuid, make_text text, model_text text, year integer, trim_override text, value_class text, transmission text, seats smallint, fuel_type text, odometer_km integer, gps_installed boolean, lien_declared boolean, eligibility_status text, listing_id uuid, listing_status text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_public_host_name(p_listing_id uuid)` | `TABLE(host_first_name text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_listing(p_listing_id uuid)` | `TABLE(listing_id uuid, country_code text, daily_price_minor bigint, currency text, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, instant_book boolean, variant_id uuid, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_resolve_addition(p_addition_id uuid, p_country text, p_actor uuid, p_actor_role text, p_decision text, p_variant_id uuid, p_entry jsonb, p_reject_reason text, p_correlation uuid)` | `TABLE(outcome text, status text, variant_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.catalog_vehicle_claim_decide(p_claim uuid, p_country text, p_actor uuid, p_actor_role text, p_decision text, p_reason text, p_checklist jsonb, p_correlation uuid)` | `TABLE(outcome text, status text, target_vehicle_id uuid, bookings jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.catalog_vehicle_claim_dossier(p_claim uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.catalog_vehicle_claim_permitted(p_token_hash bytea, p_org uuid, p_plate text, p_vin text)` | `TABLE(outcome text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_vehicle_decide(p_vehicle uuid, p_country text, p_actor uuid, p_actor_role text, p_checklist jsonb, p_documents jsonb, p_item uuid)` | `TABLE(outcome text, result text, reasons text[])` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.catalog_vehicle_document_permitted(p_token_hash bytea, p_org uuid, p_vehicle uuid)` | `TABLE(outcome text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_vehicle_dossier(p_vehicle uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.catalog_vehicle_file(p_subject_type text, p_subject_id uuid, p_country text, p_file_id uuid)` | `TABLE(storage_key text, mime text, bytes bigint, subject_user_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_vehicle_is_free(p_vehicle_id uuid, p_period tstzrange)` | `boolean` | `catalog_probe_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_probe_owner: EXECUTE |
+| `core.catalog_vehicle_publishable(p_vehicle uuid)` | `boolean` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE |
 | `core.cfg_brand_cmd_publish(p_token_hash bytea, p_request_id uuid, p_version_id uuid, p_contrast_check jsonb)` | `TABLE(outcome text, version_id uuid, version_no integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_brand_cmd_register_asset(p_token_hash bytea, p_request_id uuid, p_asset_id uuid, p_kind text, p_mime text, p_bytes bigint, p_sha256 bytea, p_alt_es text, p_alt_en text, p_alt_fr text, p_alt_pt text, p_license_note text)` | `TABLE(outcome text, asset_id uuid, storage_key text)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.cfg_brand_cmd_rollback(p_token_hash bytea, p_request_id uuid, p_new_version_id uuid, p_target_id uuid, p_contrast_check jsonb)` | `TABLE(outcome text, version_id uuid, version_no integer, copied_from_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -4719,6 +4834,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_cmd_revoke_session(p_token_hash bytea, p_reason text)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_cmd_verify_email(p_token_hash bytea)` | `boolean` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_host_accounts(p_token_hash bytea)` | `TABLE(org_id uuid, country_code text, role text, org_status text, display_name text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; iam_auth_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.iam_host_public_first_name(p_org uuid)` | `text` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_manual_action_create_host_account(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_manual_action_restriction(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_notification_contact(p_user_id uuid)` | `TABLE(email text, phone_e164 text, preferred_locale text, first_name text)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
@@ -4772,9 +4888,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.risk_cmd_prune(p_batch integer, p_event_retention_days integer)` | `integer` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_record_abuse(p_kind text, p_scope text, p_key_hash bytea, p_country text, p_signals text[])` | `void` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_sms_reserve(p_country text, p_cap integer, p_critical boolean)` | `TABLE(allowed boolean, sent_today integer, alert boolean)` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; risk_limit_owner: EXECUTE |
-| `core.risk_self_booking_signal(p_guest uuid, p_org uuid)` | `text` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_staff_abuse_board(p_token_hash bytea, p_country text, p_hours integer)` | `TABLE(kind text, scope text, country_code text, bucket_start timestamp with time zone, occurrences bigint, distinct_keys bigint, signals text[], last_at timestamp with time zone)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
-| `core.risk_staff_decide_account_link(p_token_hash bytea, p_request_id uuid, p_user_a uuid, p_user_b uuid, p_decision text, p_signal text)` | `TABLE(outcome text, link_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.settlement_advance_approvers(p_token_hash bytea, p_advance_id uuid)` | `TABLE(decided_by uuid, decision_second_by uuid, written_off_by uuid, write_off_second_by uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_assert_balanced()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -4782,11 +4896,13 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_cmd_record(p_settlement_id uuid, p_trip_id uuid, p_segment_no integer, p_version integer, p_supersedes_id uuid, p_trip_row_version integer, p_record jsonb)` | `uuid` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_request_finance_action(p_token_hash bytea, p_request_id uuid, p_action text, p_subject_id uuid, p_reason text)` | `TABLE(outcome text, approval_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.support_close_review_item(p_item_id uuid, p_status text, p_decision text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
-| `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.support_enqueue_review(p_queue text, p_subject_type text, p_subject_id uuid, p_country text, p_actor uuid)` | `TABLE(outcome text, item_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.support_manual_action_finance_request(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_add_note(p_token_hash bytea, p_request_id uuid, p_user_id uuid, p_body text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_catalog_addition(p_token_hash bytea, p_request_id uuid, p_item_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_claim_item(p_token_hash bytea, p_request_id uuid, p_item_id uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_decide_vehicle_claim(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_decision text, p_reason text, p_checklist jsonb, p_note text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_decide_vehicle_eligibility(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_checklist jsonb, p_documents jsonb)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_evidence_permitted(p_token_hash bytea, p_request_id uuid, p_subject_user uuid)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_find_user(p_token_hash bytea, p_request_id uuid, p_email text, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_kyc_dossier(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -4796,6 +4912,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_record_evidence(p_token_hash bytea, p_request_id uuid, p_subject_user uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_resolve_catalog_addition(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_decision text, p_variant_id uuid, p_entry jsonb, p_reject_reason text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_staff_set_case_status(p_token_hash bytea, p_request_id uuid, p_case_id uuid, p_status text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_vehicle_claim(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_vehicle_eligibility(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.support_staff_vehicle_file(p_token_hash bytea, p_request_id uuid, p_item_id uuid, p_subject_type text, p_file_id uuid, p_purpose text)` | `TABLE(outcome text, body jsonb)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.support_worker_review_sla(p_batch integer)` | `TABLE(queue text, country_code text, breached integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_staff_owner: EXECUTE |
 | `platform.declared_environment()` | `text` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE |
 | `platform.guest_hold_guard(p_period tstzrange)` | `TABLE(live_holds integer, trip_overlap boolean)` | `guard_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE ; guard_owner: EXECUTE |
@@ -4839,15 +4958,24 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_release_cancelled_holds(p_limit integer)` | `integer` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_vehicle_party(p_vehicle_id uuid)` | `TABLE(org_id uuid, country_code text)` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_addition_open(p_org uuid, p_country text, p_vehicle uuid, p_user uuid, p_make text, p_model text, p_year integer, p_trim text, p_vin text)` | `uuid` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_document_key(p_org uuid, p_parent uuid, p_file uuid)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_document_required(p_type text, p_country text)` | `boolean` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_document_state(p_vehicle uuid, p_type text, p_strict boolean, p_today date)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_effective_notice_minutes(p_vehicle_id uuid)` | `integer` | `migrator` | catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_host_context(p_token_hash bytea, p_org uuid)` | `TABLE(outcome text, user_id uuid, country_code text, org_status text)` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_normalize_plate(p_plate text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_normalize_vin(p_vin text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_param_bool(p_key text, p_country text)` | `boolean` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_param_int(p_key text, p_country text)` | `bigint` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_price_step(p_country text)` | `bigint` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_pricing_outcome(p_country text, p_price bigint, p_mode text, p_km integer, p_extra bigint)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_slug(p_name text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_vehicle_blockers(p_vehicle uuid, p_strict boolean)` | `text[]` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_vehicle_claim_target(p_token_hash bytea, p_org uuid, p_plate text, p_vin text)` | `TABLE(outcome text, user_id uuid, country_code text, target uuid, plate text, vin text)` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
+| `core.catalog_vehicle_live_bookings(p_vehicle uuid)` | `jsonb` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
+| `core.catalog_vehicle_needs_review(p_vehicle uuid)` | `boolean` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.catalog_vehicle_writable(p_token_hash bytea, p_org uuid, p_vehicle uuid)` | `TABLE(outcome text, user_id uuid, country_code text, eligibility_status text)` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.cfg_brand_asset_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_brand_authorize(p_token_hash bytea, p_permission text, p_country text, p_attempted text, p_subject_type text, p_subject_id uuid, p_request_id uuid, OUT outcome text, OUT actor uuid, OUT actor_role text)` | `record` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.cfg_brand_body_allowed(p_body text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
@@ -4951,7 +5079,11 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_catalog_item(p_user uuid, p_item_id uuid, p_attempted text, p_request_id uuid, OUT refusal text, OUT role text, OUT subject_id uuid, OUT country_code text)` | `record` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_covers_user(p_actor uuid, p_role text, p_user uuid, p_country text)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_staff_holds_permission(p_user uuid, p_permission text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_staff_legal_names(p_user uuid)` | `jsonb` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_log_access(p_actor uuid, p_role text, p_subject_type text, p_subject_id uuid, p_field text, p_kind text, p_purpose text, p_case_ref text, p_request_id uuid, p_country text)` | `uuid` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_staff_org_holder_names(p_org uuid)` | `jsonb` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
+| `core.support_staff_vehicle_gate(p_token_hash bytea, p_item_id uuid, p_subject_type text, p_attempted text, p_request_id uuid, OUT refusal text, OUT user_id uuid, OUT role text, OUT subject_id uuid, OUT country_code text)` | `record` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
+| `core.support_staff_vehicle_item(p_user uuid, p_item_id uuid, p_subject_type text, p_attempted text, p_request_id uuid, OUT refusal text, OUT role text, OUT subject_id uuid, OUT country_code text)` | `record` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_subject_resolver_check(p_resolver regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |

@@ -13,31 +13,12 @@
  * Attendus : 10b §4.3 et la story (e2e/oracle.ts), jamais le code testé.
  */
 import { randomBytes } from 'node:crypto';
-import { createRequire } from 'node:module';
-import type { BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext } from '@playwright/test';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import { expectAccessible } from './axe.ts';
 import { SPEC_TEXT } from './oracle.ts';
 
-const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const API = `http://127.0.0.1:${process.env['RUEDA_E2E_API_PORT'] ?? '3199'}`;
-
-async function expectAccessible(page: Page): Promise<void> {
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.addScriptTag({ path: AXE });
-  const violations = await page.evaluate(async () => {
-    const axe = (
-      window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<unknown> } }
-    ).axe;
-    const r = (await axe.run(
-      { include: ['main'] },
-      {
-        runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
-      },
-    )) as { violations: { id: string; nodes: { target: string[] }[] }[] };
-    return r.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
-  });
-  expect(violations, 'violations axe-core').toEqual([]);
-}
 
 /** Session d'hôte neuf du double (`H0st…`, deux comptes d'hôte) ; rend le jeton. */
 async function signIn(context: BrowserContext): Promise<string> {

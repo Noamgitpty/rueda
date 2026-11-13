@@ -162,10 +162,13 @@ describe('schéma d’audit (US-009)', () => {
         }
         if (r.roles === 'catalog_cmd_owner') {
           // US-115 (0067) : soumission et suppression d'annonce journalisées ; fichier d'une photo
-          // d'annonce (bucket public, C0) ; INSERT seulement
+          // d'annonce (bucket public, C0) ; US-124 (0077) : actions de l'hôte sur ses véhicules
+          // journalisées, fichier d'une pièce du véhicule (seau DOCUMENTS, C2, clé de l'hôte) ;
+          // INSERT seulement
           expect(
             [
               'audit_audit_log.catalog_cmd_audit_insert',
+              'audit_file_asset.catalog_cmd_doc_insert',
               'audit_file_asset.catalog_cmd_photo_insert',
             ],
             where,

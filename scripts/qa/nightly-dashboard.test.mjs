@@ -361,7 +361,7 @@ test('board : section créée, bogues ajoutés une fois (clé run + job), reste 
   assert.match(first.text, /\| BUG-N20261105-01 \| 2026-11-05 \| S1 \| Parcours dorés/);
   assert.ok(
     first.text.includes(
-      '| `pnpm turbo run build --filter=@rueda/web && pnpm --filter @rueda/web test:e2e` |',
+      '| `pnpm turbo run build --filter=@rueda/web --filter=@rueda/backoffice && pnpm --filter @rueda/web test:e2e` |',
     ),
   );
   const second = applyToBoard(report, first.text);

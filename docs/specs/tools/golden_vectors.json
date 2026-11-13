@@ -4055,6 +4055,162 @@
       ]
     },
     {
+      "vectorId": "T69",
+      "oracle": "check_t49plus.py",
+      "label": "T69 caution / MIT / jambe HOST / PLATFORM",
+      "normative": true,
+      "expected": [
+        false,
+        {
+          "$int": "1200"
+        },
+        {
+          "$int": "1200"
+        },
+        {
+          "$int": "0"
+        }
+      ]
+    },
+    {
+      "vectorId": "T70",
+      "oracle": "check_t49plus.py",
+      "label": "T70 sans caution / T59 en LUXE",
+      "normative": true,
+      "expected": [
+        false,
+        [
+          true,
+          [
+            "CLASS"
+          ]
+        ]
+      ]
+    },
+    {
+      "vectorId": "T70",
+      "oracle": "check_t49plus.py",
+      "label": "T70 c avant checkout PREMIUM / LUXE",
+      "normative": true,
+      "expected": [
+        [
+          false,
+          []
+        ],
+        [
+          true,
+          [
+            "CLASS"
+          ]
+        ],
+        {
+          "$int": "30000"
+        }
+      ]
+    },
+    {
+      "vectorId": "T71",
+      "oracle": "check_t49plus.py",
+      "label": "T71 a/b/c (valeurs PROPOSEES)",
+      "normative": true,
+      "expected": [
+        [
+          false,
+          []
+        ],
+        [
+          false,
+          []
+        ],
+        [
+          true,
+          [
+            "CLASS"
+          ]
+        ]
+      ]
+    },
+    {
+      "vectorId": "T71",
+      "oracle": "check_t49plus.py",
+      "label": "T71 d/e/f (age active) / g (absent)",
+      "normative": true,
+      "expected": [
+        [
+          true,
+          [
+            "AGE"
+          ]
+        ],
+        [
+          false,
+          []
+        ],
+        [
+          false,
+          []
+        ],
+        [
+          true,
+          [
+            "AGE"
+          ]
+        ]
+      ]
+    },
+    {
+      "vectorId": "T72",
+      "oracle": "check_t49plus.py",
+      "label": "T72 a/b/c/d",
+      "normative": true,
+      "expected": [
+        [
+          true,
+          [
+            "RISK"
+          ]
+        ],
+        [
+          true,
+          [
+            "RISK"
+          ]
+        ],
+        "PARAM_MISSING",
+        [
+          false,
+          []
+        ]
+      ]
+    },
+    {
+      "vectorId": "T73",
+      "oracle": "check_t49plus.py",
+      "label": "T73 a/b",
+      "normative": true,
+      "expected": [
+        [
+          true,
+          [
+            "CLASS",
+            "RISK"
+          ]
+        ],
+        {
+          "$int": "1500000"
+        },
+        [
+          true,
+          [
+            "COUNTRY"
+          ]
+        ],
+        {
+          "$int": "500000"
+        }
+      ]
+    },
+    {
       "vectorId": "T33",
       "oracle": "check_verif12_fixes.py",
       "label": "T33 premiere imputation",

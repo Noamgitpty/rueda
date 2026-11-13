@@ -131,6 +131,11 @@ export interface PublicListing {
   /** Point arrondi au centième de degré (≈ 1,1 km), ou `null` sans épingle (ADR-099). */
   readonly approximatePoint: { readonly lat: number; readonly lng: number } | null;
   readonly timezone: string;
+  /**
+   * Nom de l'hôte affiché au voyageur (BOARD N-37, US-124) : premier mot du prénom légal d'un
+   * compte ACTIVE, jamais le nom de famille ni le nom légal complet ; `null` sinon.
+   */
+  readonly hostFirstName: string | null;
 }
 
 /** Marché du compte d'hôte : pays, devise et exposant de la devise (config_currency, 17 §1.2). */
@@ -543,6 +548,11 @@ export class PgHostListingStore implements HostListingStore {
     );
     const r = rows[0];
     if (r === undefined) return null;
+    const host = await this.#rows<{ host_first_name: string | null }>(
+      'nom de l’hôte',
+      'SELECT r.host_first_name FROM core.catalog_public_host_name($1::uuid) AS r',
+      [listingId],
+    );
     const lat = num(r['geo_public_lat']);
     const lng = num(r['geo_public_lng']);
     return {
@@ -567,6 +577,7 @@ export class PgHostListingStore implements HostListingStore {
       areaLabel: str(r['area_label']),
       approximatePoint: lat === null || lng === null ? null : { lat, lng },
       timezone: String(r['timezone']),
+      hostFirstName: str(host[0]?.host_first_name),
     };
   }
 }

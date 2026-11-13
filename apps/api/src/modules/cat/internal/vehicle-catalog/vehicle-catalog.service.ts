@@ -13,12 +13,14 @@ import type { MakeOption, ModelOption, VariantOption, VehicleCatalogStore } from
 export class VehicleCatalogService {
   constructor(private readonly store: VehicleCatalogStore) {}
 
-  listMakes(): Promise<MakeOption[]> {
-    return this.store.listMakes();
+  /** `country` : pays du compte d'hôte ; une marque sans variante de ce marché est masquée. */
+  listMakes(country: string | null = null): Promise<MakeOption[]> {
+    return this.store.listMakes(country);
   }
 
-  listModels(makeId: string): Promise<ModelOption[]> {
-    return this.store.listModels(makeId);
+  /** `country` : pays du compte d'hôte ; un modèle sans variante de ce marché est masqué. */
+  listModels(makeId: string, country: string | null = null): Promise<ModelOption[]> {
+    return this.store.listModels(makeId, country);
   }
 
   /**
