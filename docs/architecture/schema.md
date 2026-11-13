@@ -3830,9 +3830,6 @@ Contraintes :
 
 Index :
 
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 - `finance_approval_one_pending` : `CREATE UNIQUE INDEX finance_approval_one_pending ON core.settlement_finance_approval USING btree (action, subject_id) WHERE (status = 'PENDING'::text)`
 
 Politiques RLS :
@@ -4331,10 +4328,7 @@ Déclencheurs :
 Contraintes :
 
 - `settlement_trip_leg_balance_pkey` : `PRIMARY KEY (trip_id, segment_no, leg)`
-- `trip_leg_balance_ ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 138ms
-   ❯ document du schéma (docs/architecture/schema.md) (1)
-     × est à jour : régénéré depuis la base migrée, identique au fichier commité 136ms
-amounts_nonneg` : `CHECK (captured_minor >= 0 AND refunded_minor >= 0 AND reallocated_in_minor >= 0 AND reallocated_out_minor >= 0 AND released_minor >= 0)`
+- `trip_leg_balance_amounts_nonneg` : `CHECK (captured_minor >= 0 AND refunded_minor >= 0 AND reallocated_in_minor >= 0 AND reallocated_out_minor >= 0 AND released_minor >= 0)`
 - `trip_leg_balance_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `trip_leg_balance_frozen_reason_valid` : `CHECK (frozen_reason = ANY (ARRAY['CHARGEBACK'::text, 'DISPUTE'::text, 'CLAIM'::text]))`
 - `trip_leg_balance_frozen_shape` : `CHECK (frozen = (frozen_reason IS NOT NULL))`
@@ -5096,4 +5090,3 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
-
