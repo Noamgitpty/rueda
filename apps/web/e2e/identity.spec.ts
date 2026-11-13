@@ -15,12 +15,10 @@
  * Attendus : 10b §4.3, 16 VER-001 / VER-004 et la story (e2e/oracle.ts), jamais le code testé.
  */
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import type { Page } from '@playwright/test';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import { expectAccessible } from './axe.ts';
 import { SPEC_TEXT } from './oracle.ts';
 
-const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const PASSWORD = 'Correct-Horse-9';
 const API = `http://127.0.0.1:${process.env['RUEDA_E2E_API_PORT'] ?? '3199'}`;
 const HOSTED = /^https:\/\/identity\.fake\.invalid\/session\/fk_idv_\d{6}$/;
@@ -31,21 +29,6 @@ const COUNTRIES = (
     readFileSync(new URL('../../api/src/modules/cfg/data/countries.json', import.meta.url), 'utf8'),
   ) as { countries: { code: string }[] }
 ).countries;
-
-async function expectAccessible(page: Page): Promise<void> {
-  await page.addScriptTag({ path: AXE });
-  const violations = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (o: unknown) => Promise<unknown> } }).axe;
-    const r = (await (axe.run as (context: unknown, options: unknown) => Promise<unknown>)(
-      { include: ['main'] },
-      {
-        runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
-      },
-    )) as { violations: { id: string; nodes: { target: string[] }[] }[] };
-    return r.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
-  });
-  expect(violations, 'violations axe-core').toEqual([]);
-}
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
