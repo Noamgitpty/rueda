@@ -740,6 +740,8 @@ describe('revue de l’ops seulement si le pays l’exige (listing_manual_review
         expect((await auditOf(tx, id)).map((l) => [l.action_code, l.actor_role])).toEqual([
           ['LISTING_SUBMITTED', 'P2P_HOST'],
           ['LISTING_PUBLISHED', 'OPS_AGENT'],
+          // journal chaîné de la console (codes seulement), écrit en dernier
+          ['LISTING_REVIEW_DECIDED', 'OPS_AGENT'],
         ]);
         // décision sur une annonce plus en revue
         expect((await decide(tx, agent, item, 'REJECT', 'PHOTO_QUALITY')).outcome).not.toBe(
@@ -780,7 +782,11 @@ describe('revue de l’ops seulement si le pays l’exige (listing_manual_review
         expect((await row(tx, id))?.status).toBe('REJECTED');
         expect((await itemsOf(tx, id))[0]).toMatchObject({ status: 'DONE', decision: 'REJECTED' });
         const log = await auditOf(tx, id);
-        expect(log.map((l) => l.action_code)).toEqual(['LISTING_SUBMITTED', 'LISTING_REJECTED']);
+        expect(log.map((l) => l.action_code)).toEqual([
+          'LISTING_SUBMITTED',
+          'LISTING_REJECTED',
+          'LISTING_REVIEW_DECIDED',
+        ]);
         expect(log[1]?.payload).toContain('ADDRESS_VISIBLE');
         // SM-2 : REJECTED → correction et nouvelle soumission, de nouveau en revue
         expect(await publish(tx, h, id)).toBe('PENDING_REVIEW');
