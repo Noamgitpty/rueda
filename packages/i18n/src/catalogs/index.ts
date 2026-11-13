@@ -51,8 +51,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
  `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
  `backoffice.vehicle.*`.
+ Version 32 (numéro réservé, versions 27 à 31 aux stories en file) : publication immédiate d'une
+ annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
+ `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`, `.insurerInactive`,
+ `.areaLooksLikeAddress`, `common.listingReview.*`, `web.host.listing.unlist`, `.relist` ; sens
+ changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
+ `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
+ `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
  */
-export const CATALOG_VERSION = 26;
+export const CATALOG_VERSION = 32;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

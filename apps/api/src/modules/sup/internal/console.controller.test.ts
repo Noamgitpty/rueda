@@ -50,6 +50,7 @@ const ops: OpsConsoleStore = {
   resolveCatalogAddition: neverCalled,
   vehicleEligibility: neverCalled,
   decideVehicleEligibility: neverCalled,
+  decideListing: neverCalled,
   vehicleClaim: neverCalled,
   decideVehicleClaim: neverCalled,
   vehicleFile: neverCalled,

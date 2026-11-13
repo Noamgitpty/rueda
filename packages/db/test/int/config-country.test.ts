@@ -179,6 +179,11 @@ describe('configuration pays : structure et droits', () => {
         expect(rows).toEqual(
           [...TABLES].sort().flatMap((t) => [
             { t, pol: 'app_read', cmd: 'r', roles: 'app_api,app_worker' },
+            // publication d'une annonce (US-118, 0084) : revue exigée par le pays et interrupteur
+            // du contrat d'assureur seulement
+            ...(t === 'config_param_definition' || t === 'config_param_value'
+              ? [{ t, pol: 'catalog_cmd_publish_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
+              : []),
             // commandes de l'hôte (US-115, 0067) : devise et fuseau du pays ; pas de prix, minimum
             // de photos et ouverture du pays aux hôtes particuliers seulement
             ...(t === 'config_country' ||

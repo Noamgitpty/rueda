@@ -53,6 +53,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-124',
     refs: '08 BR-LIST-01, BR-LIST-02, 16 HST-019, HST-039',
   },
+  {
+    prefix: 'listing_manual_review',
+    file: '0085_config_listing_review_params.sql',
+    story: 'US-118',
+    refs: '16 HST-016, ADM-003 ; DEC-FONDATEUR-22',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

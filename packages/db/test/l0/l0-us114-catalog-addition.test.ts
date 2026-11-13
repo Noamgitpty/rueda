@@ -14,10 +14,11 @@
  * resolved_variant_id ; NTF vers le demandeur), §7.2 (`catalog_addition_sla_business_h` = 24) et
  * de 08 BR-LIST-05 (au moins 6 photos), jamais du code testé.
  *
- * Absence d'effet : chaque refus est comparé à un TÉMOIN qui ne diffère que par la condition
- * éprouvée (même hôte, même annonce complète, véhicule rattaché au catalogue ⇒ la soumission
- * franchit l'étape du catalogue et s'arrête à l'activation, HOST_NOT_ACTIVATED) : si la garde du
- * catalogue disparaissait, le refus deviendrait celui du témoin et le test échouerait.
+ * Décision du fondateur DEC-FONDATEUR-22 (US-118, 0084) : un véhicule hors catalogue NE BLOQUE PLUS
+ * l'annonce (marque et modèle saisis suffisent, la demande suit son cours) ; la soumission d'une
+ * annonce dont la demande est ouverte ou refusée s'arrête donc, comme son témoin rattaché, à
+ * l'ouverture du pays (HOST_NOT_ACTIVATED) ; la publication elle-même est prouvée par
+ * l0-us118-listing-publication.
  */
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -407,7 +408,7 @@ describe('socle (0074) : RLS, droits, propriétaires', () => {
 // ---------------------------------------------------------------------------------------------
 describe('critère 1 — véhicule absent du catalogue : demande d’ajout, aucune annonce publiée', () => {
   it.each(byCountry)(
-    '%s (%s) : « Chery Tiggo 2 » saisi par l’hôte ⇒ demande OPEN et élément CATALOG_ADDITION (24 h) ; soumission refusée CATALOG_ADDITION_PENDING, annonce DRAFT (témoin rattaché : HOST_NOT_ACTIVATED)',
+    '%s (%s) : « Chery Tiggo 2 » saisi par l’hôte ⇒ demande OPEN et élément CATALOG_ADDITION (24 h) ; la demande ne bloque plus l’annonce (US-118, DEC-FONDATEUR-22 : arrêt à l’ouverture du pays comme le témoin rattaché)',
     async (country, _currency, c: CountryCase) => {
       await withRole('app_api', async (client) => {
         // compte ACTIVE : seule l'ouverture du pays (false) arrête le témoin
@@ -463,9 +464,10 @@ describe('critère 1 — véhicule absent du catalogue : demande d’ajout, aucu
         expect(mine.rows[0]).toMatchObject({ request_id: r.id, vehicle_id: id, status: 'OPEN' });
         expect(JSON.stringify(mine.rows[0])).not.toContain(v.slice(0, 11));
 
-        // aucune annonce publiée : la soumission est refusée, l'annonce reste DRAFT
+        // US-118 (DEC-FONDATEUR-22) : la demande ne bloque plus l'annonce ; la soumission franchit
+        // l'étape du catalogue et s'arrête à l'ouverture du pays (false : 16 HST-005), DRAFT
         const listing = await completeListing(client, h, c, id);
-        expect(await submit(client, h, listing)).toBe('CATALOG_ADDITION_PENDING');
+        expect(await submit(client, h, listing)).toBe('HOST_NOT_ACTIVATED');
         expect(await listingRow(client, listing)).toMatchObject({
           status: 'DRAFT',
           submitted_at: null,
@@ -538,7 +540,8 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
         for (const k of candidates) expect(k['make']).toBe('Chery');
 
         const listing = await completeListing(client, p.h, c, p.vehicle);
-        expect(await submit(client, p.h, listing)).toBe('CATALOG_ADDITION_PENDING');
+        // US-118 : la demande ouverte ne bloque plus (arrêt à l'ouverture du pays)
+        expect(await submit(client, p.h, listing)).toBe('HOST_NOT_ACTIVATED');
 
         const r = await resolve(client, ops, p.item, 'APPROVE', {
           entry: entryFor('Tiggo 2', 2017),
@@ -767,9 +770,9 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('refus motivé : le véhicule reste non publiable ; nouvelle demande de l’hôte', () => {
+describe('refus motivé : sans effet sur l’annonce (US-118) ; nouvelle demande de l’hôte', () => {
   it.each(byCountry)(
-    '%s (%s) : REJECT (UNKNOWN_MODEL) ⇒ demande REJECTED, véhicule sans variante, soumission CATALOG_ADDITION_REJECTED, hôte notifié ; l’hôte corrige et redemande ⇒ nouvelle demande OPEN ; seconde demande ⇒ CATALOG_REQUEST_DUPLICATE',
+    '%s (%s) : REJECT (UNKNOWN_MODEL) ⇒ demande REJECTED, véhicule sans variante, annonce non bloquée (US-118), hôte notifié ; l’hôte corrige et redemande ⇒ nouvelle demande OPEN ; seconde demande ⇒ CATALOG_REQUEST_DUPLICATE',
     async (country, _currency, c: CountryCase) => {
       await withRole('app_api', async (client) => {
         const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
@@ -801,9 +804,10 @@ describe('refus motivé : le véhicule reste non publiable ; nouvelle demande de
           reject_reason: 'UNKNOWN_MODEL',
           host_user_id: p.h.userId,
         });
-        // refus : la soumission le dit (plus rien n'est en attente), l'annonce reste DRAFT
+        // refus de la demande : il ne bloque pas l'annonce non plus (US-118), arrêt à l'ouverture
+        // du pays ; l'annonce reste DRAFT
         const listing = await completeListing(client, p.h, c, p.vehicle);
-        expect(await submit(client, p.h, listing)).toBe('CATALOG_ADDITION_REJECTED');
+        expect(await submit(client, p.h, listing)).toBe('HOST_NOT_ACTIVATED');
         expect((await listingRow(client, listing))?.status).toBe('DRAFT');
 
         // nouvelle demande, marque et modèle corrigés
@@ -826,8 +830,8 @@ describe('refus motivé : le véhicule reste non publiable ; nouvelle demande de
         expect((await reRequest(client, p.h, p.vehicle, 'Chery', 'Tiggo 2')).outcome).toBe(
           'CATALOG_REQUEST_DUPLICATE',
         );
-        // de nouveau en attente
-        expect(await submit(client, p.h, listing)).toBe('CATALOG_ADDITION_PENDING');
+        // de nouveau en attente : toujours sans effet sur l'annonce (US-118)
+        expect(await submit(client, p.h, listing)).toBe('HOST_NOT_ACTIVATED');
         // l'hôte relit la DERNIÈRE demande du véhicule
         const mine = await client.query<{ request_id: string; status: string }>(
           'SELECT * FROM core.catalog_host_addition_requests($1, $2)',

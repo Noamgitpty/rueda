@@ -735,7 +735,7 @@ export const EN_MESSAGES = {
   'web.host.place.label': 'Name of the spot (only you see it)',
   'web.host.place.address': 'Exact address',
   'web.host.place.city': 'City',
-  'web.host.place.area': 'Neighborhood or area (travelers see it)',
+  'web.host.place.area': 'Neighborhood or area, no street or number (travelers see it)',
   'web.host.place.privacy': 'The exact address is shown only after booking.',
   'web.host.place.add': 'Save the spot',
   'web.host.cars.title': 'Your cars',
@@ -767,8 +767,10 @@ export const EN_MESSAGES = {
   'web.host.listing.savePrice': 'Save the price',
   'web.host.listing.photo': 'Car photo (JPEG, PNG or WebP)',
   'web.host.listing.addPhoto': 'Add the photo',
-  'web.host.listing.submit': 'Send for review',
+  'web.host.listing.submit': 'Publish the listing',
   'web.host.listing.delete': 'Delete the draft',
+  'web.host.listing.unlist': 'Take the listing down',
+  'web.host.listing.relist': 'Publish again',
   'web.host.account.market': 'Account: {country} · prices in {currency}',
   'web.host.account.switch': 'Your host accounts',
   'web.host.listing.photo.hint': 'Up to {max} per photo.',
@@ -818,8 +820,18 @@ export const EN_MESSAGES = {
   'common.listing.created': 'Listing draft created.',
   'common.listing.saved': 'Saved',
   'common.listing.submitted': 'Your listing was sent for review.',
-  'common.listing.photoAdded': 'Photo added. We review it before publishing.',
-  'common.listing.deleted': 'Draft deleted.',
+  'common.listing.published': 'Your listing is live.',
+  'common.listing.unlisted': 'Your listing was taken down. You can publish it again anytime.',
+  'common.listing.hasFutureTrips':
+    'Your car has upcoming booked trips. You can take the listing down once they end or are canceled.',
+  'common.listing.vehicleEligibilityRequired':
+    'Before publishing, confirm your car’s details (ownership, mileage and chassis number).',
+  'common.listing.insurerInactive':
+    'We can’t publish listings here yet: insurance protection isn’t available in your country yet.',
+  'common.listing.areaLooksLikeAddress':
+    'Enter only the neighborhood or area, with no street or number: travelers see it before booking.',
+  'common.listing.photoAdded': 'Photo added.',
+  'common.listing.deleted': 'Listing deleted.',
   'common.listing.hostSuspended':
     'Your host account is suspended: you cannot change your listings.',
   'common.listing.hostNotFound': 'We could not find this host account.',
@@ -840,12 +852,12 @@ export const EN_MESSAGES = {
   'common.listing.priceInvalid': 'The daily price is not valid for this currency.',
   'common.listing.mileageInvalid': 'Check the included distance and the price per extra kilometer.',
   'common.listing.requestModeNotAllowed': 'At an airport, bookings are always instant.',
-  'common.listing.photoMinCount': 'Add more photos of your car before submitting the listing.',
+  'common.listing.photoMinCount': 'Add more photos of your car before publishing the listing.',
   'common.listing.photoFormat': 'This photo cannot be used. Upload a JPEG, PNG or WebP photo.',
   'common.listing.hostTermsRequired':
-    'Before submitting your listing, read and accept the current version of the Host terms.',
+    'Before publishing your listing, read and accept the current version of the Host terms.',
   'common.listing.hostNotActivated':
-    'All set on your side. You can submit your listing once your host account is active and we open to hosts here.',
+    'All set on your side. You can publish your listing once your host account is active and we open to hosts here.',
   'common.listing.unavailable': 'We cannot save your listing right now. Try again later.',
   'common.listing.photoUnavailable': 'We cannot receive photos yet. Try again later.',
   'common.listing.field.required': 'This field is required.',
@@ -1175,6 +1187,10 @@ export const EN_MESSAGES = {
     'We could not accept this file. Upload a photo (JPG, PNG, HEIC) or a PDF.',
   'common.vehicleDocs.uploadUnavailable': 'Document upload is not available yet. Try again later.',
   'common.vehicleReview.closed': 'This car is no longer under review.',
+  'common.listingReview.closed': 'This listing is no longer under review.',
+  'common.listingReview.rationaleRequired': 'Choose the reason for the rejection.',
+  'common.listingReview.notPublishable':
+    'Can’t approve: the listing fails an automatic check ({reason}).',
   'common.vehicleReview.checklistInvalid':
     'Mark every checkpoint and give a verdict for every document.',
   'common.vehicleReview.claimClosed': 'This claim has already been decided.',

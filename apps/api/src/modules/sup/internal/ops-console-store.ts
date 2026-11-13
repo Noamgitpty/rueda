@@ -134,6 +134,17 @@ export interface OpsConsoleStore {
     checklist: Record<string, unknown> | null,
     note: string | null,
   ): Promise<OpsResult>;
+  /**
+   * Décision sur une annonce en revue (US-118) : APPROVE (contrôles automatiques revérifiés par la
+   * base) ou REJECT motivé (liste fermée).
+   */
+  decideListing(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    decision: ListingReviewDecision,
+    reason: string | null,
+  ): Promise<OpsResult>;
   /** Accès journalisé au fichier d'une pièce couvert par l'élément (US-124). */
   vehicleFile(
     actor: StaffActor,
@@ -144,6 +155,9 @@ export interface OpsConsoleStore {
     purpose: string,
   ): Promise<OpsResult>;
 }
+
+/** Décision sur une annonce en revue (US-118 ; revue exigée par le pays seulement). */
+export type ListingReviewDecision = 'APPROVE' | 'REJECT';
 
 /** Décision sur une contestation de plaque ou de VIN (US-124, BOARD N-61). */
 export type VehicleClaimDecision = 'UPHOLD' | 'DISMISS';
@@ -183,6 +197,8 @@ export const VEHICLE_CLAIM_SQL =
   'SELECT outcome, body FROM core.support_staff_vehicle_claim($1, $2, $3, $4)';
 export const DECIDE_VEHICLE_CLAIM_SQL =
   'SELECT outcome, body FROM core.support_staff_decide_vehicle_claim($1, $2, $3, $4, $5, $6::jsonb, $7)';
+export const DECIDE_LISTING_SQL =
+  'SELECT outcome, body FROM core.support_staff_decide_listing($1, $2, $3, $4, $5)';
 export const VEHICLE_FILE_SQL =
   'SELECT outcome, body FROM core.support_staff_vehicle_file($1, $2, $3, $4, $5, $6)';
 export const RESOLVE_CATALOG_ADDITION_SQL =
@@ -298,6 +314,22 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
       itemId,
       JSON.stringify(checklist),
       JSON.stringify(documents),
+    ]);
+  }
+
+  decideListing(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    decision: ListingReviewDecision,
+    reason: string | null,
+  ) {
+    return one(this.#db, DECIDE_LISTING_SQL, [
+      actor.tokenHash,
+      requestId,
+      itemId,
+      decision,
+      reason,
     ]);
   }
 

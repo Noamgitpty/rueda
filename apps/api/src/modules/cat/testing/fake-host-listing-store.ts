@@ -3,8 +3,9 @@
  * la compilation de production). Reproduit les issues des commandes `core.catalog_*` de 0067 que
  * les tests de contrat HTTP observent ; les règles elles-mêmes (propriété, pays, doublons, pas du
  * prix, SM-2) sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us115-host-listings.test.ts).
- * File d'ajout au catalogue (US-114, 0074) : un véhicule hors catalogue ouvre sa demande, sa
- * soumission rend CATALOG_ADDITION_PENDING (preuves : l0-us114-catalog-addition).
+ * File d'ajout au catalogue (US-114, 0074) : un véhicule hors catalogue ouvre sa demande ; depuis
+ * US-118 (0084, DEC-FONDATEUR-22), elle ne bloque plus la publication. Publication, retrait et
+ * zone affichée (US-118) : preuves l0-us118-listing-publication.
  */
 import { randomUUID } from 'node:crypto';
 import { HostListingStoreError } from '../internal/host-listings/store.js';
@@ -68,6 +69,8 @@ export class FakeHostListingStore implements HostListingStore {
   exponent = 2;
   /** Panne simulée de la base. */
   failing = false;
+  /** Annonces dont le véhicule a un trip ou un hold à venir (US-118 : retrait refusé). */
+  readonly futureTrips = new Set<string>();
   /** Nom affiché au voyageur par compte d'hôte (N-37, US-124 : premier mot du prénom légal). */
   readonly hostFirstNames = new Map<string, string>();
 
@@ -104,6 +107,10 @@ export class FakeHostListingStore implements HostListingStore {
   createLocation(proof: Buffer, orgId: string, input: LocationInput): Promise<Outcome> {
     const h = this.#write(proof, orgId);
     if ('outcome' in h) return Promise.resolve(h);
+    // zone affichée qui ressemble à une adresse (filtre de la base, 0084 ; modèle réduit ici)
+    if (input.areaLabel !== null && /[0-9]{3,}|\bcalle\s*[0-9]/i.test(input.areaLabel)) {
+      return Promise.resolve({ outcome: 'LOCATION_AREA_ADDRESS', id: null });
+    }
     const id = randomUUID();
     this.locationsById.set(id, { orgId, input });
     return Promise.resolve({ outcome: 'DONE', id });
@@ -237,17 +244,10 @@ export class FakeHostListingStore implements HostListingStore {
     if (h === 'FORBIDDEN') return Promise.resolve({ outcome: 'FORBIDDEN', id: null });
     const l = this.#listing(orgId, listingId);
     if (l === undefined) return Promise.resolve({ outcome: 'LISTING_NOT_FOUND', id: null });
-    if (l.status !== 'DRAFT')
+    if (!['DRAFT', 'REJECTED', 'UNLISTED'].includes(l.status))
       return Promise.resolve({ outcome: 'LISTING_TRANSITION_FORBIDDEN', id: null });
     if (l.photos < this.minPhotos) return Promise.resolve({ outcome: 'PHOTO_MIN_COUNT', id: null });
-    // véhicule hors catalogue (US-114) : non publiable
-    if (this.vehiclesById.get(l.vehicleId)?.input.variantId === null) {
-      const rejected = this.catalogRequests.get(l.vehicleId)?.status === 'REJECTED';
-      return Promise.resolve({
-        outcome: rejected ? 'CATALOG_ADDITION_REJECTED' : 'CATALOG_ADDITION_PENDING',
-        id: null,
-      });
-    }
+    // véhicule hors catalogue : ne bloque plus (US-118, DEC-FONDATEUR-22)
     // CGU de l'hôte acceptées (US-126, garde de la commande en base, 0070)
     if (!this.hostTermsAccepted.has(orgId)) {
       return Promise.resolve({ outcome: 'TERMS_REACCEPT_REQUIRED', id: null });
@@ -261,10 +261,29 @@ export class FakeHostListingStore implements HostListingStore {
     if (h === 'FORBIDDEN') return Promise.resolve({ outcome: 'FORBIDDEN', id: null });
     const l = this.#listing(orgId, listingId);
     if (l === undefined) return Promise.resolve({ outcome: 'LISTING_NOT_FOUND', id: null });
-    if (!['DRAFT', 'BLOCKED_ELIGIBILITY', 'REJECTED'].includes(l.status)) {
+    if (!['DRAFT', 'BLOCKED_ELIGIBILITY', 'REJECTED', 'UNLISTED'].includes(l.status)) {
       return Promise.resolve({ outcome: 'LISTING_TRANSITION_FORBIDDEN', id: null });
     }
+    if (l.status === 'UNLISTED' && this.futureTrips.has(listingId)) {
+      return Promise.resolve({ outcome: 'LISTING_HAS_FUTURE_TRIPS', id: null });
+    }
     l.status = 'DELETED';
+    return Promise.resolve({ outcome: 'DONE', id: listingId });
+  }
+
+  unlistListing(proof: Buffer, orgId: string, listingId: string): Promise<Outcome> {
+    if (this.failing) return Promise.reject(new HostListingStoreError('panne', '08006'));
+    const h = this.#host(proof, orgId);
+    if (h === 'FORBIDDEN') return Promise.resolve({ outcome: 'FORBIDDEN', id: null });
+    const l = this.#listing(orgId, listingId);
+    if (l === undefined) return Promise.resolve({ outcome: 'LISTING_NOT_FOUND', id: null });
+    if (l.status !== 'LISTED') {
+      return Promise.resolve({ outcome: 'LISTING_TRANSITION_FORBIDDEN', id: null });
+    }
+    if (this.futureTrips.has(listingId)) {
+      return Promise.resolve({ outcome: 'LISTING_HAS_FUTURE_TRIPS', id: null });
+    }
+    l.status = 'UNLISTED';
     return Promise.resolve({ outcome: 'DONE', id: listingId });
   }
 
