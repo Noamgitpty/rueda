@@ -45,3 +45,4 @@ apps/web/e2e/__screenshots__/win32/
 apps/web/e2e/__screenshots__/darwin/
 apps/web/test-results/
 apps/web/playwright-report/
+apps/web/ecarts/

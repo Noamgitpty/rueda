@@ -120,14 +120,17 @@ jobs:
       - name: références proposées (échec seulement, le job reste en échec)
         if: failure()
         working-directory: apps/web
-        run: pnpm exec playwright test --last-failed --update-snapshots=changed --reporter=list || true
+        # le rejeu réécrit test-results/ : les écarts (expected, actual, diff) sont mis de côté avant
+        run: |
+          cp -r test-results ecarts || true
+          pnpm exec playwright test --last-failed --update-snapshots=changed --reporter=list || true
       - name: artefact de la régression visuelle (échec seulement)
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: regression-visuelle
           path: |
-            apps/web/test-results/
+            apps/web/ecarts/
             apps/web/e2e/__screenshots__/linux/
           if-no-files-found: ignore
           retention-days: 14
