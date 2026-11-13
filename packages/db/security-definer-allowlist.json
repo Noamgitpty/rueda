@@ -77,7 +77,7 @@
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
-      "story": "US-023"
+      "story": "US-023, US-127"
     },
     {
       "signature": "core.booking_cmd_place_host_block(uuid,timestamp with time zone,timestamp with time zone)",
@@ -112,7 +112,7 @@
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_worker"],
-      "story": "US-024"
+      "story": "US-024, US-127"
     },
     {
       "signature": "core.booking_cmd_remove_host_block(uuid)",
@@ -154,7 +154,7 @@
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-115, US-114"
+      "story": "US-115, US-114, US-124"
     },
     {
       "signature": "core.catalog_cmd_delete_listing(bytea,uuid,uuid)",
@@ -769,8 +769,8 @@
       "signature": "core.support_enqueue_review(text,text,uuid,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": ["catalog_cmd_owner", "kyc_cmd_owner"],
-      "story": "US-109, US-114, US-123, US-106"
+      "execute": ["catalog_cmd_owner", "cmd_hold_owner", "kyc_cmd_owner"],
+      "story": "US-109, US-114, US-123, US-106, US-127"
     },
     {
       "signature": "core.support_close_review_item(uuid,text,text,uuid)",
@@ -1004,6 +1004,153 @@
       "story": "US-125"
     },
     {
+      "signature": "core.iam_host_public_first_name(uuid)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["catalog_cmd_owner"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_cmd_declare_vehicle(bytea,uuid,uuid,text,boolean,integer,boolean,boolean,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_document_permitted(bytea,uuid,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_cmd_add_vehicle_document(bytea,uuid,uuid,uuid,text,text,bigint,bytea,date)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_cmd_submit_vehicle_eligibility(bytea,uuid,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_publishable(uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": [],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_host_vehicle_eligibility(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_claim_permitted(bytea,uuid,text,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_cmd_open_vehicle_claim(bytea,uuid,text,text,uuid,text,bigint,bytea)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_host_vehicle_claims(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_public_host_name(uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_dossier(uuid,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_file(text,uuid,text,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_decide(uuid,text,uuid,text,jsonb,jsonb,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_claim_dossier(uuid,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.catalog_vehicle_claim_decide(uuid,text,uuid,text,text,text,jsonb,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.support_staff_vehicle_eligibility(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.support_staff_vehicle_file(bytea,uuid,uuid,text,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.support_staff_decide_vehicle_eligibility(bytea,uuid,uuid,jsonb,jsonb)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.support_staff_vehicle_claim(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
+      "signature": "core.support_staff_decide_vehicle_claim(bytea,uuid,uuid,text,text,jsonb,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-124"
+    },
+    {
       "signature": "core.kyc_verification_review_queue()",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",
@@ -1051,6 +1198,27 @@
       "owner": "iam_staff_owner",
       "execute": ["app_worker"],
       "story": "US-106"
+    },
+    {
+      "signature": "core.risk_self_booking_signal(uuid,uuid)",
+      "family": "risk_limit",
+      "owner": "risk_limit_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-127"
+    },
+    {
+      "signature": "core.booking_cmd_report_self_booking(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-127"
+    },
+    {
+      "signature": "core.risk_staff_decide_account_link(bytea,uuid,uuid,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-127"
     },
     {
       "signature": "core.kyc_worker_auto_review_hosts(integer,uuid)",

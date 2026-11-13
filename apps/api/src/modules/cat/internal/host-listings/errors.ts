@@ -21,6 +21,14 @@
  * `BLOCK_REMOVED`, `NOTICE_SAVED`, `BLOCK_NOT_FOUND`, `VEHICLE_NOT_LISTED`, `INVALID_PERIOD` (code de
  * la base d'US-022), `NOTICE_INVALID`.
  *
+ * Pièces et éligibilité du véhicule (US-124, ADR-107) : codes de 16 HST-019 / HST-039
+ * (`VEHICLE_TOO_OLD`, `VEHICLE_MILEAGE_TOO_HIGH`, `VEHICLE_TITLE_MISMATCH`,
+ * `VEHICLE_LENDER_CONSENT_REQUIRED`, `VEHICLE_DOCUMENT_REQUIRED`, `VEHICLE_DOCUMENT_EXPIRED`) ;
+ * PROPOSÉS par US-124 : `VEHICLE_DECLARATION_SAVED`, `VEHICLE_DOCUMENT_ADDED`,
+ * `VEHICLE_ELIGIBILITY_SUBMITTED`, `VEHICLE_UNDER_REVIEW`, `VEHICLE_INELIGIBLE`, `VEHICLE_RELEASED`,
+ * `VEHICLE_ALREADY_ELIGIBLE`, `VEHICLE_DOCUMENT_INVALID`, `VEHICLE_DOCUMENT_UNAVAILABLE` ;
+ * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE`.
+ *
  * Couverture de l'assureur à la soumission (US-108, ADR-111) : `VEHICLE_NOT_COVERED` (16 A.8,
  * HST-019) et `INSURER_CONTRACT_INACTIVE` (16 A.8 ; aucun contrat en vigueur ou interrupteur fermé).
  *
@@ -38,6 +46,12 @@ export const HOST_LISTING_MESSAGES = {
   LISTING_DELETED: { status: 200, messageKey: 'common.listing.deleted' },
   PHOTO_ADDED: { status: 201, messageKey: 'common.listing.photoAdded' },
   CATALOG_REQUEST_CREATED: { status: 201, messageKey: 'common.catalogAddition.requested' },
+  VEHICLE_DECLARATION_SAVED: { status: 200, messageKey: 'common.vehicleDocs.declarationSaved' },
+  VEHICLE_DOCUMENT_ADDED: { status: 201, messageKey: 'common.vehicleDocs.documentAdded' },
+  VEHICLE_ELIGIBILITY_SUBMITTED: { status: 200, messageKey: 'common.vehicleDocs.submitted' },
+  // aucune pièce exigée : véhicule validé par les contrôles automatiques (décision du fondateur)
+  VEHICLE_ELIGIBILITY_CONFIRMED: { status: 200, messageKey: 'common.vehicleDocs.confirmed' },
+  VEHICLE_CLAIM_OPENED: { status: 201, messageKey: 'common.vehicleDocs.claimOpened' },
   BLOCK_CREATED: { status: 201, messageKey: 'common.calendar.blockCreated' },
   BLOCK_REMOVED: { status: 200, messageKey: 'common.calendar.blockRemoved' },
   NOTICE_SAVED: { status: 200, messageKey: 'common.calendar.noticeSaved' },
@@ -65,6 +79,13 @@ export const HOST_LISTING_MESSAGES = {
   // véhicule non admis, ou trois refus : plus de nouvelle demande (US-114, PROPOSÉ)
   CATALOG_REQUEST_NOT_ALLOWED: { status: 409, messageKey: 'common.catalogAddition.notAllowed' },
   VEHICLE_UNAVAILABLE: { status: 409, messageKey: 'common.calendar.vehicleUnavailable' },
+  // pièces et éligibilité du véhicule (US-124)
+  VEHICLE_UNDER_REVIEW: { status: 409, messageKey: 'common.vehicleDocs.underReview' },
+  VEHICLE_INELIGIBLE: { status: 409, messageKey: 'common.vehicleDocs.ineligible' },
+  VEHICLE_RELEASED: { status: 409, messageKey: 'common.vehicleDocs.released' },
+  VEHICLE_ALREADY_ELIGIBLE: { status: 409, messageKey: 'common.vehicleDocs.alreadyEligible' },
+  CLAIM_NOT_NEEDED: { status: 409, messageKey: 'common.vehicleDocs.claimNotNeeded' },
+  CLAIM_DUPLICATE: { status: 409, messageKey: 'common.vehicleDocs.claimDuplicate' },
   VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
   LOCATION_FIELD_INVALID: { status: 422, messageKey: 'common.listing.locationFieldInvalid' },
@@ -79,9 +100,20 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_NOT_COVERED: { status: 422, messageKey: 'common.listing.vehicleNotCovered' },
   INSURER_CONTRACT_INACTIVE: { status: 422, messageKey: 'common.listing.insurerInactive' },
   INVALID_PERIOD: { status: 422, messageKey: 'common.calendar.invalidPeriod' },
+  VEHICLE_TOO_OLD: { status: 422, messageKey: 'common.vehicleDocs.tooOld' },
+  VEHICLE_MILEAGE_TOO_HIGH: { status: 422, messageKey: 'common.vehicleDocs.mileageTooHigh' },
+  VEHICLE_TITLE_MISMATCH: { status: 422, messageKey: 'common.vehicleDocs.titleMismatch' },
+  VEHICLE_LENDER_CONSENT_REQUIRED: {
+    status: 422,
+    messageKey: 'common.vehicleDocs.lenderConsentRequired',
+  },
+  VEHICLE_DOCUMENT_REQUIRED: { status: 422, messageKey: 'common.vehicleDocs.documentRequired' },
+  VEHICLE_DOCUMENT_EXPIRED: { status: 422, messageKey: 'common.vehicleDocs.documentExpired' },
+  VEHICLE_DOCUMENT_INVALID: { status: 422, messageKey: 'common.vehicleDocs.documentInvalid' },
   NOTICE_INVALID: { status: 422, messageKey: 'common.calendar.noticeInvalid' },
   LISTING_UNAVAILABLE: { status: 503, messageKey: 'common.listing.unavailable' },
   PHOTO_UPLOAD_UNAVAILABLE: { status: 503, messageKey: 'common.listing.photoUnavailable' },
+  VEHICLE_DOCUMENT_UNAVAILABLE: { status: 503, messageKey: 'common.vehicleDocs.uploadUnavailable' },
 } as const;
 
 export type HostListingCode = keyof typeof HOST_LISTING_MESSAGES;
@@ -101,13 +133,20 @@ export interface FieldDetail {
   readonly reason: 'REQUIRED' | 'INVALID';
 }
 
-/** Erreur HTTP des routes de l'hôte : corps `{ code, messageKey[, fields] }`. */
+/**
+ * Erreur HTTP des routes de l'hôte : corps `{ code, messageKey[, fields][, reasons] }` (`reasons` :
+ * tous les motifs d'un refus d'éligibilité, US-124).
+ */
 export class HostListingHttpError extends HttpException {
   readonly code: HostListingCode;
 
-  constructor(code: HostListingCode, fields?: readonly FieldDetail[]) {
+  constructor(code: HostListingCode, fields?: readonly FieldDetail[], reasons?: readonly string[]) {
     super(
-      fields === undefined ? hostListingBody(code) : { ...hostListingBody(code), fields },
+      {
+        ...hostListingBody(code),
+        ...(fields === undefined ? {} : { fields }),
+        ...(reasons === undefined ? {} : { reasons }),
+      },
       HOST_LISTING_MESSAGES[code].status,
     );
     this.code = code;

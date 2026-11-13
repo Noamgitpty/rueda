@@ -26,6 +26,14 @@
       "justification": "Graine complémentaire des plafonds de cohérence du prix price_ceiling_* (16 PRC-001, HST-033, 19 US-115) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-115, ADR-099."
     },
     {
+      "path": "packages/db/migrations/0078_config_vehicle_eligibility_params.sql",
+      "justification": "Graine complémentaire des paramètres d'éligibilité du véhicule elig_* (08 BR-LIST-01, BR-LIST-02, 16 HST-019, HST-039, 19 US-124 : âge et compteur maximaux, pièces exigées par pays) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-124, ADR-107."
+    },
+    {
+      "path": "packages/db/migrations/0079_catalog_customs_import.sql",
+      "justification": "Graine de l'import de la douane au catalogue des véhicules (suite d'US-113, ADR-109) : le marché des variantes sans fiche (`market`) est celui de la source (données ouvertes de la DNIT), lu dans apps/api/src/modules/cat/data/vehicle-catalog-dnit.json et rendu par apps/api/src/modules/cat/internal/vehicle-catalog/customs-import.ts ; le test customs-import.test.ts échoue si la section générée diffère du rendu. Aucun code ne nomme le pays."
+    },
+    {
       "path": "packages/db/migrations/0082_config_host_review_params.sql",
       "justification": "Graine complémentaire des paramètres host_review_* (host_review_manual_required, host_review_auto_delay_minutes ; 19 US-108, 16 ADM-004 ; consigne du fondateur du 2026-11-12, revue de l'hôte par exception) : définition et valeurs PROPOSÉES PA / PY (false), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-108, ADR-111."
     }

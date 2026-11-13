@@ -148,6 +148,21 @@ async function catalogItem(country: string): Promise<string> {
   return rows[0]?.item_id ?? randomUUID();
 }
 
+/**
+ * Element neuf de la file LISTING du pays, sujet VEHICLE ou VEHICLE_CLAIM (US-124) : aucun vehicule
+ * ni contestation derriere ; un acteur autorise recoit 403 STAFF_CASE_REQUIRED (non pris en charge)
+ * ou 409 / 404 (ADMIN), jamais 401 / 403 FORBIDDEN.
+ */
+async function vehicleItem(country: string, subject: 'VEHICLE' | 'VEHICLE_CLAIM'): Promise<string> {
+  const { rows } = await client.query<{ item_id: string }>(
+    `SELECT item_id FROM test_fixture.us109_enqueue('LISTING', $3, $1, $2)`,
+    [randomUUID(), country, subject],
+  );
+  return rows[0]?.item_id ?? randomUUID();
+}
+
+const PDF64 = Buffer.from('%PDF-1.7 de test', 'latin1').toString('base64');
+
 async function register(): Promise<string> {
   const id = randomUUID();
   const r = await client.query<{ ok: boolean }>(
@@ -438,6 +453,37 @@ async function requestOf(
         path: `/console/queues/items/${await catalogItem(country)}/catalog-addition/resolve`,
         body: { requestId: id, decision: 'REJECT', rejectReason: 'UNKNOWN_MODEL' },
       };
+    // revue du vehicule et contestations (US-124)
+    case 'POST /console/queues/items/{id}/vehicle':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await vehicleItem(country, 'VEHICLE')}/vehicle`,
+        body: { requestId: id, purpose: 'Matrice US-043 : vehicule de test' },
+      };
+    case 'POST /console/queues/items/{id}/vehicle/decide':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await vehicleItem(country, 'VEHICLE')}/vehicle/decide`,
+        body: { requestId: id, checklist: {}, documents: [] },
+      };
+    case 'POST /console/queues/items/{id}/vehicle-claim':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await vehicleItem(country, 'VEHICLE_CLAIM')}/vehicle-claim`,
+        body: { requestId: id, purpose: 'Matrice US-043 : contestation de test' },
+      };
+    case 'POST /console/queues/items/{id}/vehicle-claim/decide':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await vehicleItem(country, 'VEHICLE_CLAIM')}/vehicle-claim/decide`,
+        body: { requestId: id, decision: 'DISMISS', reason: 'INSUFFICIENT_PROOF' },
+      };
+    case 'POST /console/queues/items/{id}/files/{fileId}':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await vehicleItem(country, 'VEHICLE')}/files/${randomUUID()}`,
+        body: { requestId: id, purpose: 'Matrice US-043 : piece de test', subject: 'VEHICLE' },
+      };
     case 'POST /console/users/search':
       return {
         method: 'POST',
@@ -534,6 +580,34 @@ async function requestOf(
           seats: 5,
           fuelType: 'GASOLINE',
         },
+      };
+    // pieces et eligibilite du vehicule, contestations (US-124) : compte d'aucun acteur => 404
+    case 'GET /host/accounts/{orgId}/vehicle-eligibility':
+    case 'GET /host/accounts/{orgId}/vehicle-claims':
+      return { method: 'GET', path: `/host/accounts/${id}/${route.split('{orgId}/')[1] ?? ''}` };
+    case 'PUT /host/accounts/{orgId}/vehicles/{vehicleId}/declaration':
+      return {
+        method: 'PUT',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/declaration`,
+        body: { titleHolder: 'HOST', lienDeclared: false, odometerKm: 1000 },
+      };
+    case 'POST /host/accounts/{orgId}/vehicles/{vehicleId}/documents':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/documents`,
+        body: { requestId: randomUUID(), type: 'TITLE', dataBase64: PDF64 },
+      };
+    case 'POST /host/accounts/{orgId}/vehicles/{vehicleId}/eligibility':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/eligibility`,
+        body: {},
+      };
+    case 'POST /host/accounts/{orgId}/vehicle-claims':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/vehicle-claims`,
+        body: { requestId: randomUUID(), plate: 'ZZ-0001', dataBase64: PDF64 },
       };
     case 'POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request':
       return {

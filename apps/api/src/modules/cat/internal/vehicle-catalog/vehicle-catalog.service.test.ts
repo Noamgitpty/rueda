@@ -183,7 +183,9 @@ describe('critère 2 : un Toyota Hilux de la graine préremplit le véhicule', (
 
   it('libellés : clés du catalogue i18n, présentes et non vides dans les quatre langues', async () => {
     const prefill = await service.prefill((await hiluxVariant(2020, 'MT')).id);
+    expect(prefill.specsComplete).toBe(true);
     for (const key of Object.values(prefill.labels)) {
+      if (key === null) throw new Error('libellé absent pour une variante avec fiche');
       for (const lang of CATALOG_LANGUAGES) {
         const message = CATALOGS[lang].messages[key];
         expect(typeof message === 'string' && message.trim() !== '', `${lang} ${key}`).toBe(true);
@@ -293,5 +295,48 @@ describe('variante retirée ou inconnue', () => {
     } catch (error) {
       expect((error as CatalogError).code).toBe('CATALOG_VARIANT_NOT_FOUND');
     }
+  });
+});
+
+describe('variante sans fiche (import de la douane, ADR-109)', () => {
+  const specless = viewOf({
+    bodyType: null,
+    transmission: null,
+    fuelType: null,
+    drive: null,
+    seats: null,
+    doors: null,
+  });
+
+  it('choisissable : préremplit marque, modèle et rien d’autre, jamais une valeur devinée', () => {
+    expect(prefillFromVariant(specless)).toEqual({
+      variantId: specless.id,
+      makeName: 'Marque de test',
+      modelName: 'Modèle de test',
+      trimName: null,
+      specsComplete: false,
+      bodyType: null,
+      seats: null,
+      doors: null,
+      transmission: null,
+      gearbox: null,
+      fuelType: null,
+      variantFuel: null,
+      drive: null,
+      allWheelDrive: null,
+      valueClass: null,
+      consumption: null,
+      labels: { bodyType: null, gearbox: null, fuel: null, drive: null },
+    });
+  });
+
+  it('une seule caractéristique manquante suffit à marquer la fiche incomplète', () => {
+    expect(prefillFromVariant(viewOf({ seats: null })).specsComplete).toBe(false);
+    expect(prefillFromVariant(viewOf({ drive: null })).allWheelDrive).toBeNull();
+    expect(prefillFromVariant(viewOf({})).specsComplete).toBe(true);
+  });
+
+  it('statuts : une variante sans fiche retirée reste refusée (CATALOG_VARIANT_RETIRED)', () => {
+    expect(() => prefillFromVariant({ ...specless, status: 'RETIRED' })).toThrow(CatalogError);
   });
 });

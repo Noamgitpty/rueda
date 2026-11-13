@@ -196,10 +196,11 @@ export interface CatalogAdditionView {
     readonly yearFrom: number;
     readonly yearTo: number | null;
     readonly trim: string | null;
-    readonly transmission: string;
-    readonly fuelType: string;
-    readonly drive: string;
-    readonly seats: number;
+    /** `null` : variante sans fiche (import de la douane, ADR-109), à compléter par l'ops. */
+    readonly transmission: string | null;
+    readonly fuelType: string | null;
+    readonly drive: string | null;
+    readonly seats: number | null;
     readonly modelMatch: boolean;
   }[];
 }
@@ -929,7 +930,13 @@ function CatalogPanel({
                 </span>
               ),
               years: `${k.yearFrom}–${k.yearTo ?? i18n.t('backoffice.catalog.ongoing')}`,
-              specs: `${labelOf(i18n, GEARBOX_KEYS, k.transmission)} · ${labelOf(i18n, FUEL_KEYS, k.fuelType)} · ${labelOf(i18n, DRIVE_KEYS, k.drive)} · ${k.seats}`,
+              specs:
+                k.transmission === null ||
+                k.fuelType === null ||
+                k.drive === null ||
+                k.seats === null
+                  ? i18n.t('backoffice.catalog.specsPending')
+                  : `${labelOf(i18n, GEARBOX_KEYS, k.transmission)} · ${labelOf(i18n, FUEL_KEYS, k.fuelType)} · ${labelOf(i18n, DRIVE_KEYS, k.drive)} · ${k.seats}`,
               actions: (
                 <Button
                   type="submit"

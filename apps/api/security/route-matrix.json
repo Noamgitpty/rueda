@@ -163,6 +163,41 @@
       "portee": "pays",
       "idor": "élément de l’autre pays : 403 journalisé, rien n’est écrit ; non pris en charge : 403 STAFF_CASE_REQUIRED (preuve L0 l0-us114-catalog-addition)"
     },
+    "POST /console/queues/items/{id}/vehicle": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file LISTING, sujet VEHICLE, élément pris en charge ; ADMIN : sa portée)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre sujet : 403 STAFF_CASE_REQUIRED journalisé, aucune donnée, aucune ligne d’accès (preuve L0 l0-us124-vehicle-documents)"
+    },
+    "POST /console/queues/items/{id}/vehicle/decide": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file LISTING, sujet VEHICLE, élément pris en charge ; ADMIN : sa portée)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre sujet : 403 STAFF_CASE_REQUIRED journalisé, aucune donnée, aucune ligne d’accès (preuve L0 l0-us124-vehicle-documents)"
+    },
+    "POST /console/queues/items/{id}/vehicle-claim": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file LISTING, sujet VEHICLE_CLAIM, élément pris en charge ; ADMIN : sa portée)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre sujet : 403 STAFF_CASE_REQUIRED journalisé, aucune donnée, aucune ligne d’accès (preuve L0 l0-us124-vehicle-documents)"
+    },
+    "POST /console/queues/items/{id}/vehicle-claim/decide": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file LISTING, sujet VEHICLE_CLAIM, élément pris en charge ; ADMIN : sa portée) ; UPHOLD : ADMIN seul (403 STAFF_ADMIN_REQUIRED)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre sujet : 403 STAFF_CASE_REQUIRED journalisé, aucune donnée, aucune ligne d’accès (preuve L0 l0-us124-vehicle-documents)"
+    },
+    "POST /console/queues/items/{id}/files/{fileId}": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file LISTING, sujet VEHICLE ou VEHICLE_CLAIM, élément pris en charge ; ADMIN : sa portée) ; pièce hors de l’élément : 404",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre sujet : 403 STAFF_CASE_REQUIRED journalisé, aucune donnée, aucune ligne d’accès (preuve L0 l0-us124-vehicle-documents)"
+    },
     "POST /console/users/search": {
       "acces": "staff",
       "permission": "support.read_profile",
@@ -309,6 +344,30 @@
     "POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request": {
       "acces": "session",
       "idor": "véhicule d'un autre hôte sous son propre compte : 404 VEHICLE_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us114)"
+    },
+    "GET /host/accounts/{orgId}/vehicle-eligibility": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us124)"
+    },
+    "PUT /host/accounts/{orgId}/vehicles/{vehicleId}/declaration": {
+      "acces": "session",
+      "idor": "véhicule d'un autre hôte sous son propre compte : 404 VEHICLE_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us124)"
+    },
+    "POST /host/accounts/{orgId}/vehicles/{vehicleId}/documents": {
+      "acces": "session",
+      "idor": "véhicule d'un autre hôte sous son propre compte : 404 VEHICLE_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us124) ; droit jugé par la base avant l'antivirus"
+    },
+    "POST /host/accounts/{orgId}/vehicles/{vehicleId}/eligibility": {
+      "acces": "session",
+      "idor": "véhicule d'un autre hôte sous son propre compte : 404 VEHICLE_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us124)"
+    },
+    "GET /host/accounts/{orgId}/vehicle-claims": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us124)"
+    },
+    "POST /host/accounts/{orgId}/vehicle-claims": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us124) ; rien n'est révélé du compte en cause (BOARD N-61)"
     },
     "GET /host/accounts/{orgId}/listings": {
       "acces": "session",

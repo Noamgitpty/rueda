@@ -7111,6 +7111,1407 @@
           }
         }
       }
+    },
+    "/host/accounts/{orgId}/vehicle-eligibility": {
+      "get": {
+        "operationId": "hostVehicleEligibility",
+        "tags": ["cat"],
+        "summary": "Éligibilité des véhicules du compte : statut, motifs, pièces exigées et déposées, sans clé de stockage ni plaque (US-124, 16 HST-019)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Éligibilité et dépôt des pièces (ouvert ou fermé, taille maximale)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleEligibilityList"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte inconnu (ou d'un autre hôte : même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/vehicles/{vehicleId}/declaration": {
+      "put": {
+        "operationId": "declareHostVehicle",
+        "tags": ["cat"],
+        "summary": "Déclarations et engagements horodatés de l'hôte (propriétaire ou autorisé ; non gagé ou accord du créancier), titulaire du titre, prenda, compteur, VIN ; un véhicule éligible redevient PENDING (US-124, « jamais plus lourd que Turo »)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleDeclarationBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Déclarations enregistrées",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_DECLARATION_SAVED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte d'hôte suspendu ou fermé : aucune écriture",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_SUSPENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte ou véhicule inconnus (ou d'un autre hôte : même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Véhicule en revue, définitivement inéligible ou libéré après une contestation",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "VEHICLE_UNDER_REVIEW",
+                        "VEHICLE_INELIGIBLE",
+                        "VEHICLE_RELEASED",
+                        "VEHICLE_PLATE_DUPLICATE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/vehicles/{vehicleId}/documents": {
+      "post": {
+        "operationId": "addHostVehicleDocument",
+        "tags": ["cat"],
+        "summary": "Pièce du véhicule (titre, autorisation notariée, plaque et VIN, inspection, consentement du créancier, assurance obligatoire) : type réel, antivirus, seau privé chiffré ; production : 503 tant qu'antivirus, coffre et stockage ne sont pas branchés (US-124, 16 HST-039)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleDocumentBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pièce déposée (SUBMITTED, revue par l'ops)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleDocumentAdded"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte d'hôte suspendu ou fermé : aucune écriture",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_SUSPENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte ou véhicule inconnus (ou d'un autre hôte : même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Véhicule en revue, définitivement inéligible ou libéré après une contestation",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_UNDER_REVIEW", "VEHICLE_INELIGIBLE", "VEHICLE_RELEASED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Fichier refusé : taille, type réel hors liste (JPEG, PNG, HEIC, PDF) ou antivirus",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_DOCUMENT_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Antivirus, coffre, stockage ou base indisponibles : rien n'est déposé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_DOCUMENT_UNAVAILABLE", "LISTING_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/vehicles/{vehicleId}/eligibility": {
+      "post": {
+        "operationId": "submitHostVehicleEligibility",
+        "tags": ["cat"],
+        "summary": "Soumission du véhicule à la revue de l'ops : règles automatiques du pays (catalogue, âge, compteur, titre, prenda, pièces exigées) ; tous les motifs dans `reasons` (US-124)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "VEHICLE_ELIGIBILITY_CONFIRMED : aucune pièce exigée par le pays, véhicule validé par les contrôles automatiques (itemId nul) ; VEHICLE_ELIGIBILITY_SUBMITTED : pièces exigées, élément de la file LISTING",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleEligibilitySubmitted"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte d'hôte suspendu ou fermé : aucune écriture",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_SUSPENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte ou véhicule inconnus (ou d'un autre hôte : même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "VEHICLE_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Véhicule hors catalogue, en revue, inéligible, libéré ou déjà éligible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "CATALOG_ADDITION_PENDING",
+                        "VEHICLE_UNDER_REVIEW",
+                        "VEHICLE_INELIGIBLE",
+                        "VEHICLE_RELEASED",
+                        "VEHICLE_ALREADY_ELIGIBLE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Règle du pays non remplie (motif « titre » : VEHICLE_TITLE_MISMATCH)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "VEHICLE_TOO_OLD",
+                        "VEHICLE_MILEAGE_TOO_HIGH",
+                        "VEHICLE_FIELD_REQUIRED",
+                        "VEHICLE_TITLE_MISMATCH",
+                        "VEHICLE_LENDER_CONSENT_REQUIRED",
+                        "VEHICLE_DOCUMENT_REQUIRED",
+                        "VEHICLE_DOCUMENT_EXPIRED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/vehicle-claims": {
+      "get": {
+        "operationId": "hostVehicleClaims",
+        "tags": ["cat"],
+        "summary": "Contestations de plaque ou de VIN du compte : statut seulement, rien du compte en cause (US-124, BOARD N-61)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contestations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleClaimList"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte inconnu (ou d'un autre hôte : même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "openHostVehicleClaim",
+        "tags": ["cat"],
+        "summary": "Contestation d'une plaque ou d'un VIN déjà enregistrés par un autre compte du pays, avec le titre du demandeur (pièce privée, antivirus) ; décision par l'ops, confirmation par un ADMIN (US-124, BOARD N-61)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleClaimBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contestation ouverte (file LISTING)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleClaimOpened"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Corps invalide : champs refusés dans `fields` (UX-50), jamais leur valeur",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte d'hôte suspendu ou fermé : aucune écriture",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_SUSPENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte inconnu (ou d'un autre hôte : même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Aucun autre compte n'a cette plaque ni ce VIN ; contestation déjà ouverte",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["CLAIM_NOT_NEEDED", "CLAIM_DUPLICATE"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Plaque ou VIN invalides ; fichier refusé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_FIELD_REQUIRED", "VEHICLE_DOCUMENT_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Antivirus, coffre, stockage ou base indisponibles",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_DOCUMENT_UNAVAILABLE", "LISTING_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/vehicle": {
+      "post": {
+        "operationId": "consoleVehicleEligibility",
+        "tags": ["sup"],
+        "summary": "Dossier d'un véhicule en revue (élément LISTING, sujet VEHICLE, pris en charge ; ADMIN : sa portée) : plaque, VIN, pièces, titulaire ; lecture journalisée avant d'être rendue (US-124)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleVehicleBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "409": {
+            "description": "Véhicule plus en revue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_REVIEW_CLOSED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/vehicle/decide": {
+      "post": {
+        "operationId": "consoleDecideVehicleEligibility",
+        "tags": ["sup"],
+        "summary": "Décision sur un véhicule : liste de contrôle fermée (PASS / FAIL, registre NOT_CONSULTABLE admis) et verdict par pièce ; résultat calculé par la base (ELIGIBLE, PENDING, INELIGIBLE) ; élément clos (US-124)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "checklist", "documents"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "checklist": {
+                    "type": "object"
+                  },
+                  "documents": {
+                    "type": "array",
+                    "maxItems": 20
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleVehicleBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "409": {
+            "description": "Véhicule plus en revue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_REVIEW_CLOSED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Liste de contrôle incomplète ou mal formée, pièce sans verdict",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_CHECKLIST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/vehicle-claim": {
+      "post": {
+        "operationId": "consoleVehicleClaim",
+        "tags": ["sup"],
+        "summary": "Dossier d'une contestation de plaque ou de VIN (sujet VEHICLE_CLAIM) : demandeur, véhicule en cause et leurs titulaires ; lecture journalisée (US-124, BOARD N-61)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleVehicleBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "409": {
+            "description": "Contestation déjà tranchée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_CLAIM_CLOSED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/vehicle-claim/decide": {
+      "post": {
+        "operationId": "consoleDecideVehicleClaim",
+        "tags": ["sup"],
+        "summary": "Décision sur une contestation : UPHOLD (ADMIN seul : véhicule en cause libéré, annonces retirées) ou DISMISS motivé ; élément clos, journal chaîné (US-124, BOARD N-61)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "decision"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "decision": {
+                    "enum": ["UPHOLD", "DISMISS"]
+                  },
+                  "reason": {
+                    "enum": ["INSUFFICIENT_PROOF", "CLAIMANT_NOT_OWNER", null]
+                  },
+                  "checklist": {
+                    "type": ["object", "null"],
+                    "description": "UPHOLD : liste fermée CLAIMANT_TITLE, CLAIMANT_IDENTITY, PLATE_MATCH, VIN_MATCH (PASS / FAIL ; VIN_MATCH NOT_APPLICABLE sans VIN saisi)"
+                  },
+                  "note": {
+                    "type": ["string", "null"],
+                    "maxLength": 500,
+                    "description": "UPHOLD : motif de l'ADMIN (10 à 500 caractères), au journal chaîné"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleVehicleBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "description": "Sans permission, élément non pris en charge, confirmation réservée à l'ADMIN, ou ADMIN qui a déjà libéré cette plaque (le recours est jugé par un autre)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "FORBIDDEN",
+                        "2FA_REQUIRED",
+                        "STAFF_CASE_REQUIRED",
+                        "STAFF_ADMIN_REQUIRED",
+                        "STAFF_SAME_ADMIN_FORBIDDEN"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "409": {
+            "description": "Contestation déjà tranchée ; dossier non lu par l'ADMIN ; véhicule en cause déjà libéré ; réservations en cours ou à venir (`bookings` : type, début, fin)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "VEHICLE_CLAIM_CLOSED",
+                        "VEHICLE_CLAIM_DOSSIER_NOT_READ",
+                        "VEHICLE_CLAIM_TARGET_RELEASED",
+                        "VEHICLE_CLAIM_TARGET_BOOKED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Motif absent ou en trop ; motif de l'ADMIN absent ; liste de contrôle mal formée ou point en échec",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "VEHICLE_CLAIM_REASON_INVALID",
+                        "VEHICLE_CLAIM_NOTE_REQUIRED",
+                        "VEHICLE_CHECKLIST_INVALID",
+                        "VEHICLE_CLAIM_CHECKLIST_FAILED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/files/{fileId}": {
+      "post": {
+        "operationId": "consoleVehicleFile",
+        "tags": ["sup"],
+        "summary": "Pièce couverte par l'élément (véhicule ou contestation) : droit et journal par la base avant la lecture, objet du seau privé déchiffré, rendu en base64 ; production : 503 (US-124)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose", "subject"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500
+                  },
+                  "subject": {
+                    "enum": ["VEHICLE", "VEHICLE_CLAIM"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleVehicleFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "404": {
+            "description": "Pièce hors de l'élément",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_FILE_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Stockage ou coffre indisponibles (production) : rien n'est rendu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "VEHICLE_FILE_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7614,6 +9015,26 @@
             "type": "object",
             "additionalProperties": {
               "type": ["string", "number"]
+            }
+          },
+          "bookings": {
+            "type": "array",
+            "description": "VEHICLE_CLAIM_TARGET_BOOKED (US-124) : réservations en cours ou à venir du véhicule en cause, sans le voyageur",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "startsAt", "endsAt"],
+              "properties": {
+                "kind": {
+                  "enum": ["TRIP", "HOLD"]
+                },
+                "startsAt": {
+                  "type": "string"
+                },
+                "endsAt": {
+                  "type": "string"
+                }
+              }
             }
           }
         }
@@ -10418,6 +11839,13 @@
                 }
               }
             }
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z_]+$"
+            }
           }
         }
       },
@@ -10942,7 +12370,8 @@
           "city",
           "areaLabel",
           "approximatePoint",
-          "timezone"
+          "timezone",
+          "hostFirstName"
         ],
         "properties": {
           "id": {
@@ -11027,6 +12456,11 @@
           },
           "timezone": {
             "type": "string"
+          },
+          "hostFirstName": {
+            "type": ["string", "null"],
+            "maxLength": 40,
+            "description": "Premier mot du prénom légal de l'hôte (compte ACTIVE), jamais le nom de famille (BOARD N-37, US-124)"
           }
         }
       },
@@ -11841,6 +13275,348 @@
                 "HOST_NOT_ACTIVATED"
               ]
             }
+          }
+        }
+      },
+      "VehicleDocumentView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "documentId",
+          "type",
+          "status",
+          "validUntil",
+          "rejectReason",
+          "mime",
+          "bytes",
+          "createdAt"
+        ],
+        "properties": {
+          "documentId": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "TITLE",
+              "OWNER_AUTHORIZATION",
+              "PLATE_VIN_PHOTO",
+              "INSPECTION",
+              "LENDER_CONSENT",
+              "COMPULSORY_INSURANCE"
+            ]
+          },
+          "status": {
+            "enum": ["SUBMITTED", "VALID", "REJECTED"]
+          },
+          "validUntil": {
+            "type": ["string", "null"]
+          },
+          "rejectReason": {
+            "type": ["string", "null"]
+          },
+          "mime": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        }
+      },
+      "VehicleEligibilityView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vehicleId",
+          "eligibilityStatus",
+          "titleHolder",
+          "lienDeclared",
+          "odometerKm",
+          "reasons",
+          "released",
+          "publishable",
+          "underReview",
+          "submittedAt",
+          "checkedAt",
+          "requiredDocuments",
+          "documents",
+          "ownershipAttested",
+          "lienAttested",
+          "hasVin"
+        ],
+        "properties": {
+          "vehicleId": {
+            "type": "string"
+          },
+          "eligibilityStatus": {
+            "enum": ["ELIGIBLE", "INELIGIBLE", "PENDING"]
+          },
+          "titleHolder": {
+            "enum": ["HOST", "THIRD_PARTY", null]
+          },
+          "lienDeclared": {
+            "type": "boolean"
+          },
+          "odometerKm": {
+            "type": ["integer", "null"]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "released": {
+            "type": "boolean"
+          },
+          "publishable": {
+            "type": "boolean"
+          },
+          "underReview": {
+            "type": "boolean"
+          },
+          "submittedAt": {
+            "type": ["string", "null"]
+          },
+          "checkedAt": {
+            "type": ["string", "null"]
+          },
+          "requiredDocuments": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "TITLE",
+                "OWNER_AUTHORIZATION",
+                "PLATE_VIN_PHOTO",
+                "INSPECTION",
+                "LENDER_CONSENT",
+                "COMPULSORY_INSURANCE"
+              ]
+            }
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleDocumentView"
+            }
+          },
+          "ownershipAttested": {
+            "type": "boolean"
+          },
+          "lienAttested": {
+            "type": "boolean"
+          },
+          "hasVin": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VehicleEligibilityList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["vehicles", "documentUploads"],
+        "properties": {
+          "vehicles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleEligibilityView"
+            }
+          },
+          "documentUploads": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["open", "maxBytes"],
+            "properties": {
+              "open": {
+                "type": "boolean"
+              },
+              "maxBytes": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "VehicleDeclarationBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["titleHolder", "lienDeclared", "odometerKm"],
+        "properties": {
+          "titleHolder": {
+            "enum": ["HOST", "THIRD_PARTY"]
+          },
+          "lienDeclared": {
+            "type": "boolean"
+          },
+          "odometerKm": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000000
+          },
+          "ownershipAttested": {
+            "type": "boolean",
+            "description": "« Je suis propriétaire ou autorisé par le propriétaire » (engagement horodaté ; exigé pour l'éligibilité)"
+          },
+          "lienAttested": {
+            "type": "boolean",
+            "description": "« Le véhicule n'est pas gagé, ou j'ai l'accord écrit du créancier »"
+          },
+          "vin": {
+            "type": ["string", "null"],
+            "description": "VIN saisi s'il manquait (normalisé ; pris par un autre véhicule : 409 VEHICLE_PLATE_DUPLICATE)"
+          }
+        }
+      },
+      "VehicleDocumentBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "type", "dataBase64"],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "TITLE",
+              "OWNER_AUTHORIZATION",
+              "PLATE_VIN_PHOTO",
+              "INSPECTION",
+              "LENDER_CONSENT",
+              "COMPULSORY_INSURANCE"
+            ]
+          },
+          "validUntil": {
+            "type": ["string", "null"]
+          },
+          "dataBase64": {
+            "type": "string"
+          }
+        }
+      },
+      "VehicleClaimBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "plate", "dataBase64"],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "vin": {
+            "type": ["string", "null"]
+          },
+          "dataBase64": {
+            "type": "string"
+          }
+        }
+      },
+      "VehicleDocumentAdded": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageKey", "documentId"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "documentId": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "VehicleEligibilitySubmitted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageKey", "itemId"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "itemId": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "VehicleClaimOpened": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageKey", "claimId"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "claimId": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "VehicleClaimList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claims"],
+        "properties": {
+          "claims": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["claimId", "plate", "status", "dismissReason", "createdAt", "decidedAt"],
+              "properties": {
+                "claimId": {
+                  "type": "string"
+                },
+                "plate": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": ["OPEN", "UPHELD", "DISMISSED"]
+                },
+                "dismissReason": {
+                  "type": ["string", "null"]
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "decidedAt": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsoleVehicleBody": {
+        "type": "object",
+        "description": "Dossier ou décision de la revue du véhicule (US-124)"
+      },
+      "ConsoleVehicleFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fileId", "mime", "bytes", "dataBase64"],
+        "properties": {
+          "fileId": {
+            "type": "string"
+          },
+          "mime": {
+            "enum": ["image/jpeg", "image/png", "image/heic", "application/pdf"]
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "dataBase64": {
+            "type": "string"
           }
         }
       }

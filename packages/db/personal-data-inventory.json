@@ -514,7 +514,108 @@
         "lien_declared": "C1",
         "gps_installed": "C1",
         "created_at": "C1",
-        "created_by": "C1"
+        "created_by": "C1",
+        "title_holder": "C1",
+        "eligibility_reasons": "C1",
+        "eligibility_submitted_at": "C1",
+        "eligibility_checked_at": "C1",
+        "released_at": "C1",
+        "ownership_attested_at": "C1",
+        "lien_attested_at": "C1"
+      }
+    },
+    "core.catalog_vehicle_claim": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "claimant_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "claimant_user_id": "C1",
+        "plate": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "vin": {
+          "class": "C2",
+          "erasure": "pseudonymisation"
+        },
+        "target_vehicle_id": "C1",
+        "title_file_id": "C1",
+        "mime": "C1",
+        "bytes": "C1",
+        "status": "C1",
+        "dismiss_reason": "C1",
+        "checklist": "C1",
+        "review_item_id": "C1",
+        "decided_by": "C1",
+        "decided_at": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.catalog_vehicle_document": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "uploaded_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "vehicle_id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "doc_type": "C1",
+        "file_id": "C1",
+        "mime": "C1",
+        "bytes": "C1",
+        "status": "C1",
+        "valid_until": "C1",
+        "reject_reason": "C1",
+        "uploaded_by": "C1",
+        "created_at": "C1",
+        "reviewed_by": "C1",
+        "reviewed_at": "C1"
+      }
+    },
+    "core.catalog_vehicle_eligibility_check": {
+      "lifecycle": "D",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "vehicle_id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "kind": "C1",
+        "result": "C1",
+        "reasons": "C1",
+        "checklist": "C1",
+        "actor_user_id": "C1",
+        "actor_role": "C1",
+        "review_item_id": "C1",
+        "created_at": "C1"
       }
     },
     "core.catalog_vehicle_make": {
@@ -1473,6 +1574,61 @@
         "signals": "C1"
       }
     },
+    "core.risk_account_link": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_low",
+          "type": "USER"
+        },
+        {
+          "column": "user_high",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_low": "C1",
+        "user_high": "C1",
+        "decision": "C1",
+        "signal": "C1",
+        "decided_by": "C1",
+        "decided_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.risk_assessment": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "subject_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "country_code": "C1",
+        "org_id": "C1",
+        "rules_fired": "C1",
+        "score": "C1",
+        "decision": "C1",
+        "dedupe_key": "C1",
+        "explanation": "C1",
+        "reviewed_by": "C1",
+        "decided_at": "C1",
+        "created_at": "C1"
+      }
+    },
     "core.risk_rate_counter": {
       "lifecycle": "T",
       "export": "none",
@@ -1485,6 +1641,18 @@
         "window_end": "C1",
         "country_code": "C1",
         "hits": "C1"
+      }
+    },
+    "core.risk_rule": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "version": "C1",
+        "description": "C1",
+        "severity": "C1",
+        "active": "C1",
+        "valid_from": "C1"
       }
     },
     "core.settlement_finance_approval": {

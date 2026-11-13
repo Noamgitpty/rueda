@@ -40,10 +40,11 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
     'iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
   // US-049 (0056) : lecture des appartenances par les commandes de hold (auto-réservation)
   // US-107 (0061) : ouverture du compte d'hôte par les commandes d'iam_auth_owner
+  // US-127 (0080) : lecture par le jugement du lien hôte / voyageur (risk_limit_owner)
   iam_membership:
-    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
   iam_organization:
-    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner',
+    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   // US-104 (0066) : défis OTP écrits par les seules commandes d'iam_auth_owner
   iam_otp_challenge:
@@ -61,7 +62,7 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   iam_staff_role_assignment:
     'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_user_account:
-    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;user_account_self_read:app_api',
+    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
 };
 
 // Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).
@@ -115,6 +116,11 @@ const OTP_WORKER_FUNCTIONS = [
  */
 const HOST_ACCOUNT_HANDLER =
   'core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+/**
+ * Nom affiché au voyageur (US-124, 0077, BOARD N-37) : premier mot du prénom légal ; exécutable par
+ * catalog_cmd_owner SEUL (fiche publique d'une annonce), jamais par un rôle applicatif.
+ */
+const PUBLIC_FIRST_NAME = 'core.iam_host_public_first_name(uuid)';
 /** Gestionnaire de console de RESTRICT_ACCOUNT / LIFT_RESTRICTION (US-109, 0064) : même règle. */
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
@@ -283,7 +289,7 @@ describe('schéma IAM (US-010)', () => {
           public_exec: false,
         },
       ]);
-      for (const handler of [HOST_ACCOUNT_HANDLER, RESTRICTION_HANDLER]) {
+      for (const handler of [HOST_ACCOUNT_HANDLER, RESTRICTION_HANDLER, PUBLIC_FIRST_NAME]) {
         expect(rows.filter((r) => r.fn === handler)).toEqual([
           {
             fn: handler,
@@ -314,6 +320,7 @@ describe('schéma IAM (US-010)', () => {
           r.fn !== NOTIFICATION_CONTACT &&
           r.fn !== HOST_ACCOUNT_HANDLER &&
           r.fn !== RESTRICTION_HANDLER &&
+          r.fn !== PUBLIC_FIRST_NAME &&
           !OTP_WORKER_FUNCTIONS.includes(r.fn),
       );
       expect(commands.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());

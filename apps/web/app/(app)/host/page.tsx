@@ -322,6 +322,14 @@ export default async function HostPage({
                   >
                     {t('web.calendar.open')}
                   </a>
+                  {/* documents et éligibilité du véhicule (US-124) */}
+                  <a
+                    className={styles['link']}
+                    href={`/host/vehicles/${v.id}/documents?org=${account.orgId}`}
+                    aria-label={`${t('web.vehicleDocs.open')} · ${carLabel(v)}`}
+                  >
+                    {t('web.vehicleDocs.open')}
+                  </a>
                   {r?.status === 'OPEN' && (
                     <p className={accountStyles['muted']}>
                       {t('web.host.catalog.pending', {
@@ -354,6 +362,13 @@ export default async function HostPage({
             })}
           </ul>
         )}
+        {/* plaque ou VIN déjà enregistrés par un autre compte : contestation (US-124, N-61) */}
+        <p className={accountStyles['muted']}>
+          {t('web.vehicleDocs.claims.title')}{' '}
+          <a className={styles['link']} href={`/host/claims?org=${account.orgId}`}>
+            {t('web.vehicleDocs.claims.open')}
+          </a>
+        </p>
         {locations.length === 0 ? (
           <p className={accountStyles['muted']}>{t('web.host.cars.needPlace')}</p>
         ) : (

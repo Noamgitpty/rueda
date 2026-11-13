@@ -16,11 +16,13 @@ export function LanguageMenu({
   const current = i18n.profile;
   return (
     <details className={styles['language']}>
-      <summary
-        className={styles['languageToggle']}
-        aria-label={i18n.t('common.locale.current', { language: current.displayName })}
-      >
-        <span aria-hidden="true">{current.language.toUpperCase()}</span>
+      {/* Nom accessible = code visible puis libellé complet (WCAG 2.5.3, « label in name » :
+          axe le refusait quand `aria-label` remplaçait le code affiché ; US-044). */}
+      <summary className={styles['languageToggle']}>
+        <span>{current.language.toUpperCase()}</span>
+        <span className={styles['srOnly']}>
+          {i18n.t('common.locale.current', { language: current.displayName })}
+        </span>
       </summary>
       <div className={styles['languagePanel']}>
         <p className={styles['languageTitle']}>{i18n.t('common.locale.switchLabel')}</p>
