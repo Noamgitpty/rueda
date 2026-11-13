@@ -18,9 +18,26 @@ import type { CatalogErrorCode } from './errors.js';
 export const CATALOG_STATUSES = ['ACTIVE', 'PENDING_REVIEW', 'RETIRED'] as const;
 export type CatalogStatus = (typeof CATALOG_STATUSES)[number];
 
-/** Sources d'une ligne (17 §3.2.3 ; `AGENCY_REQUEST` historique, hors produit : DEC-FONDATEUR-13). */
-export const CATALOG_SOURCES = ['WIKIDATA', 'NHTSA_VPIC', 'OPS_CURATED', 'HOST_REQUEST'] as const;
+/**
+ * Sources d'une ligne (17 §3.2.3 ; `AGENCY_REQUEST` historique, hors produit : DEC-FONDATEUR-13) ;
+ * `DNIT_ADUANAS_PY` : données ouvertes de la douane (DNIT – Gerencia General de Aduanas), suite
+ * d'US-113, migration 0079, ADR-109.
+ */
+export const CATALOG_SOURCES = [
+  'WIKIDATA',
+  'NHTSA_VPIC',
+  'OPS_CURATED',
+  'HOST_REQUEST',
+  'DNIT_ADUANAS_PY',
+] as const;
 export type CatalogSource = (typeof CATALOG_SOURCES)[number];
+
+/**
+ * Sources sans caractéristiques techniques (ADR-109) : leurs lignes peuvent n'avoir ni carrosserie,
+ * ni places, ni portes, ni boîte, ni carburant, ni transmission (« à compléter par l'ops ») ; la
+ * base refuse une ligne sans fiche de toute autre source (0079).
+ */
+export const SPECLESS_SOURCES: readonly CatalogSource[] = ['DNIT_ADUANAS_PY'];
 
 export const BODY_TYPES = [
   'SUV',

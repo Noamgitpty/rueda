@@ -51,6 +51,9 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
  `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
  `backoffice.vehicle.*`.
+ Version 27 : fiche technique à compléter d'une variante
+ sans fiche du catalogue (import de la douane, suite d'US-113, ADR-109) :
+ `backoffice.catalog.specsPending`.
  Version 32 (numéro réservé, versions 27 à 31 aux stories en file) : publication immédiate d'une
  annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
  `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`, `.insurerInactive`,

@@ -1377,6 +1377,7 @@ export const ES_MESSAGES = {
     'El auto no está prendado, o tengo el acuerdo escrito del acreedor',
   'web.vehicleDocs.declaration.vin': 'Número de chasis (VIN)',
   'web.vehicleDocs.declaration.attested': 'Lo declaraste el {date}.',
+  'backoffice.catalog.specsPending': 'Ficha técnica por completar',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

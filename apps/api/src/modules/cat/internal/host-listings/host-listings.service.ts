@@ -291,13 +291,13 @@ export class HostListingsService {
   }
 
   async makes(proof: Buffer, orgId: string): Promise<MakeOption[]> {
-    await this.#country(proof, orgId);
-    return this.#call(() => this.#catalog().listMakes());
+    const country = await this.#country(proof, orgId);
+    return this.#call(() => this.#catalog().listMakes(country));
   }
 
   async models(proof: Buffer, orgId: string, makeId: string): Promise<ModelOption[]> {
-    await this.#country(proof, orgId);
-    return this.#call(() => this.#catalog().listModels(makeId));
+    const country = await this.#country(proof, orgId);
+    return this.#call(() => this.#catalog().listModels(makeId, country));
   }
 
   async variants(

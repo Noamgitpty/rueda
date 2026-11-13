@@ -1386,4 +1386,5 @@ export const PT_MESSAGES = {
     'O carro não está alienado, ou tenho o consentimento por escrito do credor',
   'web.vehicleDocs.declaration.vin': 'Número do chassi (VIN)',
   'web.vehicleDocs.declaration.attested': 'Você declarou em {date}.',
+  'backoffice.catalog.specsPending': 'Ficha técnica a completar',
 } as const satisfies Readonly<Record<MessageKey, Message>>;
