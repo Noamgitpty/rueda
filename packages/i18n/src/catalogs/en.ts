@@ -1323,4 +1323,5 @@ export const EN_MESSAGES = {
     'The car has no lien, or I have the lender’s written consent',
   'web.vehicleDocs.declaration.vin': 'Chassis number (VIN)',
   'web.vehicleDocs.declaration.attested': 'You declared it on {date}.',
+  'backoffice.catalog.specsPending': 'Specs to complete',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -51,8 +51,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
  `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
  `backoffice.vehicle.*`.
+ Version 27 : fiche technique à compléter d'une variante
+ sans fiche du catalogue (import de la douane, suite d'US-113, ADR-109) :
+ `backoffice.catalog.specsPending`.
  */
-export const CATALOG_VERSION = 26;
+export const CATALOG_VERSION = 27;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

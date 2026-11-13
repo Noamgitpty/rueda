@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 79 migrations ; 95 tables ; 2 vues ; 507 politiques RLS ; 171 fonctions `SECURITY DEFINER` ; 168 autres fonctions.
+- 80 migrations ; 95 tables ; 2 vues ; 507 politiques RLS ; 171 fonctions `SECURITY DEFINER` ; 168 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -94,6 +94,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0076_kyc_ops_decision` | KYC : décision de l'ops (KYC_DECISION), mise en file des revues manuelles, alerte de délai, dossier KYC complété. |
 | `0077_catalog_vehicle_documents` | CAT : documents et éligibilité du véhicule (titre, prenda, plaque, châssis, inspection, âge), contestation de plaque. |
 | `0078_config_vehicle_eligibility_params` | graine complémentaire : paramètres « elig_* » (US-124 ; 17 §7.2). |
+| `0079_catalog_customs_import` | CAT : import des marques et modèles déclarés à la douane (suite d'US-113 ; ADR-109, |
 
 ## Rôles
 
@@ -1281,7 +1282,7 @@ Contraintes :
 - `catalog_vehicle_make_pkey` : `PRIMARY KEY (id)`
 - `catalog_vehicle_make_slug_check` : `CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)`
 - `catalog_vehicle_make_slug_key` : `UNIQUE (slug)`
-- `catalog_vehicle_make_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_make_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text, 'DNIT_ADUANAS_PY'::text]))`
 - `catalog_vehicle_make_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
 - `catalog_vehicle_make_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
 
@@ -1309,9 +1310,9 @@ Déclencheurs :
 | `slug` | `text` | oui | — |
 | `name` | `text` | oui | — |
 | `aliases` | `text[]` | oui | `ARRAY[]::text[]` |
-| `body_type` | `text` | oui | — |
-| `seats_default` | `smallint` | oui | — |
-| `doors_default` | `smallint` | oui | — |
+| `body_type` | `text` | non | — |
+| `seats_default` | `smallint` | non | — |
+| `doors_default` | `smallint` | non | — |
 | `status` | `text` | oui | `'ACTIVE'::text` |
 | `source` | `text` | oui | — |
 | `source_ref` | `text` | non | — |
@@ -1329,8 +1330,9 @@ Contraintes :
 - `catalog_vehicle_model_pkey` : `PRIMARY KEY (id)`
 - `catalog_vehicle_model_seats_default_check` : `CHECK (seats_default >= 1 AND seats_default <= 60)`
 - `catalog_vehicle_model_slug_check` : `CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text)`
-- `catalog_vehicle_model_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_model_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text, 'DNIT_ADUANAS_PY'::text]))`
 - `catalog_vehicle_model_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
+- `catalog_vehicle_model_specs_complete` : `CHECK (source = 'DNIT_ADUANAS_PY'::text OR body_type IS NOT NULL AND seats_default IS NOT NULL AND doors_default IS NOT NULL)`
 - `catalog_vehicle_model_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
 
 Politiques RLS :
@@ -1357,16 +1359,16 @@ Déclencheurs :
 | `year_from` | `integer` | oui | — |
 | `year_to` | `integer` | non | — |
 | `trim_name` | `text` | non | — |
-| `transmission` | `text` | oui | — |
-| `fuel_type` | `text` | oui | — |
-| `drive` | `text` | oui | — |
+| `transmission` | `text` | non | — |
+| `fuel_type` | `text` | non | — |
+| `drive` | `text` | non | — |
 | `engine_cc` | `integer` | non | — |
 | `engine_cylinders` | `smallint` | non | — |
 | `power_hp` | `integer` | non | — |
 | `consumption_l_100km` | `numeric(3,1)` | non | — |
 | `consumption_source` | `text` | non | — |
-| `seats` | `smallint` | oui | — |
-| `doors` | `smallint` | oui | — |
+| `seats` | `smallint` | non | — |
+| `doors` | `smallint` | non | — |
 | `cargo_l` | `integer` | non | — |
 | `value_class` | `text` | non | — |
 | `market` | `character(2)` | non | — |
@@ -1397,8 +1399,9 @@ Contraintes :
 - `catalog_vehicle_variant_pkey` : `PRIMARY KEY (id)`
 - `catalog_vehicle_variant_power_hp_check` : `CHECK (power_hp >= 1 AND power_hp <= 2000)`
 - `catalog_vehicle_variant_seats_check` : `CHECK (seats >= 1 AND seats <= 60)`
-- `catalog_vehicle_variant_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text]))`
+- `catalog_vehicle_variant_source_check` : `CHECK (source = ANY (ARRAY['WIKIDATA'::text, 'NHTSA_VPIC'::text, 'OPS_CURATED'::text, 'HOST_REQUEST'::text, 'DNIT_ADUANAS_PY'::text]))`
 - `catalog_vehicle_variant_source_ref_check` : `CHECK (source_ref IS NULL OR btrim(source_ref) <> ''::text)`
+- `catalog_vehicle_variant_specs_complete` : `CHECK (source = 'DNIT_ADUANAS_PY'::text OR transmission IS NOT NULL AND fuel_type IS NOT NULL AND drive IS NOT NULL AND seats IS NOT NULL AND doors IS NOT NULL)`
 - `catalog_vehicle_variant_status_check` : `CHECK (status = ANY (ARRAY['ACTIVE'::text, 'PENDING_REVIEW'::text, 'RETIRED'::text]))`
 - `catalog_vehicle_variant_transmission_check` : `CHECK (transmission = ANY (ARRAY['MT'::text, 'AT'::text, 'CVT'::text, 'DCT'::text]))`
 - `catalog_vehicle_variant_trim_name_check` : `CHECK (trim_name IS NULL OR btrim(trim_name) <> ''::text AND length(trim_name) <= 80)`
