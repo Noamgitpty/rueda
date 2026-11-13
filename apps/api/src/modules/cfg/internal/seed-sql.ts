@@ -53,6 +53,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-124',
     refs: '08 BR-LIST-01, BR-LIST-02, 16 HST-019, HST-039',
   },
+  {
+    prefix: 'host_tax_id_required_for_activation',
+    file: '0085_config_host_tax_id_params.sql',
+    story: 'US-123',
+    refs: 'DEC-FONDATEUR-22, ADR-115',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

@@ -27,6 +27,8 @@ interface VerificationView {
   readonly missing: readonly string[];
   readonly kycApproved: boolean;
   readonly ageStatus: string;
+  /** Numéro fiscal exigé (pays ou PSP du versement, ADR-115) ; forme inattendue ⇒ exigé. */
+  readonly taxRequired: boolean;
   readonly taxSaved: boolean;
   readonly taxKind: string | null;
   readonly taxKinds: readonly string[];
@@ -61,6 +63,7 @@ function viewOf(reply: ApiResult): VerificationView | null {
     missing: codes(j['missing']),
     kycApproved: j['kycApproved'] === true,
     ageStatus: typeof j['ageStatus'] === 'string' ? j['ageStatus'] : 'UNVERIFIED',
+    taxRequired: j['taxRequired'] !== false,
     taxSaved: j['taxSaved'] === true,
     taxKind: typeof kind === 'string' && CODE.test(kind) ? kind : null,
     taxKinds: codes(j['taxKinds']),
@@ -95,11 +98,14 @@ const MISSING_TASK: Readonly<Record<string, MessageKey>> = {
 const COUNTRY_CLOSED = new Set(['P2P_HOSTS_DISABLED', 'INSURER_CONTRACT_INACTIVE']);
 // en revue : plus de modification (une revue et un filtrage escaladé sont indiscernables, VER-028)
 const EDITABLE = new Set(['OPEN', 'DOCS_PENDING']);
+// numéro fiscal facultatif (ADR-115) : un PREMIER numéro reste possible en revue ou approuvé
+const TAX_FIRST_ENTRY = new Set(['IN_REVIEW', 'APPROVED']);
 
 /**
  * A07 — « Deviens hôte » : liste de tâches de l'hôte (US-123 ; 16 HST-049 / FIN-008 ; 10b A07,
  * UX-40). Chaque tâche a un statut et, s'il y a lieu, une action : identité et permis (S04), âge,
- * numéro fiscal (formulaire), CGU de l'hôte (espace de l'hôte, US-126), contrôles de sécurité (faits
+ * numéro fiscal (formulaire ; facultatif si ni le pays ni le PSP ne l'exigent, avec un rappel de
+ * l'obligation fiscale de l'hôte, ADR-115), CGU de l'hôte (espace de l'hôte, US-126), contrôles de sécurité (faits
  * par Kmino à l'envoi), compte de versement revu par le prestataire de paiement. Le statut du
  * dossier et du compte d'hôte est dit honnêtement : pays pas encore ouvert ⇒
  * `web.a07.waitingCountry`, sans date promise (fail-closed). Aucune donnée personnelle affichée
@@ -166,6 +172,7 @@ export default async function HostVerificationPage({
 
   const status = v.verificationStatus;
   const editable = status === null || EDITABLE.has(status);
+  const taxEditable = editable || (!v.taxSaved && status !== null && TAX_FIRST_ENTRY.has(status));
   const approved = status === 'APPROVED';
   const countryClosed = v.blockers.some((b) => COUNTRY_CLOSED.has(b));
   const badge = (done: boolean, waiting = false) => (
@@ -232,14 +239,26 @@ export default async function HostVerificationPage({
           </li>
           <li className={accountStyles['stackTight']}>
             <p className={accountStyles['text']}>
-              {badge(v.taxSaved)} {t('web.a07.task.tax')}
+              {!v.taxSaved && !v.taxRequired ? (
+                <Badge tone="neutral">{t('web.a07.optional')}</Badge>
+              ) : (
+                badge(v.taxSaved)
+              )}{' '}
+              {t('web.a07.task.tax')}
             </p>
             {v.taxSaved && v.taxKind !== null && (
               <p className={accountStyles['muted']}>
                 {t('web.a07.tax.saved', { kind: v.taxKind })}
               </p>
             )}
-            {editable && v.taxKinds.length > 0 && (
+            {!v.taxSaved && !v.taxRequired && (
+              <p className={accountStyles['muted']}>{t('web.a07.tax.optionalHint')}</p>
+            )}
+            {/* rappel de l'obligation fiscale de l'hôte (ADR-115) : son affaire, pas une condition */}
+            <p className={accountStyles['muted']}>
+              {t('web.a07.tax.reminder', { country: countryName(tag, v.country) })}
+            </p>
+            {taxEditable && v.taxKinds.length > 0 && (
               <TaxForm localeTag={tag} orgId={account.orgId} kinds={v.taxKinds} />
             )}
           </li>

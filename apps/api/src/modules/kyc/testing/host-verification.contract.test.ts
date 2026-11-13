@@ -46,7 +46,12 @@ interface World {
 const apps: ContractApp[] = [];
 
 async function world(
-  options: { screener?: boolean; sealer?: boolean; kycApproved?: boolean } = {},
+  options: {
+    screener?: boolean;
+    sealer?: boolean;
+    kycApproved?: boolean;
+    taxRequired?: boolean;
+  } = {},
 ): Promise<World> {
   const store = new FakeHostVerificationStore();
   const sealer = new FakeTaxIdSealer();
@@ -71,6 +76,7 @@ async function world(
   const org = randomUUID();
   store.addAccount(app.hash('voyageur'), org, FIRST_COUNTRY, TAX_KINDS, {
     kycApproved: options.kycApproved !== false,
+    taxRequired: options.taxRequired !== false,
   });
   return {
     app,
@@ -264,6 +270,50 @@ describe('US-123 — soumission du dossier et filtrage des sanctions (VER-028)',
     });
     expect(clean[3]).toMatchObject({ status: 200, json: { verificationStatus: 'IN_REVIEW' } });
     expect(clean[4]).toMatchObject({ status: 409 });
+    expect(JSON.stringify(flagged)).not.toMatch(/SANCTION|MATCH|BLOCKED|HOLD|fk_aml/i);
+  });
+
+  it('numéro facultatif (ADR-115, paramètre désactivé) : dossier complet sans numéro, premier numéro admis en revue ; avec une correspondance, réponses identiques à chaque étape', async () => {
+    const run = async (hit: boolean) => {
+      const w = await world({ taxRequired: false });
+      if (hit) w.screener.flag(`fk_idv_${w.org.slice(0, 8)}`, 'POTENTIAL_MATCH');
+      const seen: unknown[] = [];
+      const step = async (method: 'GET' | 'POST', path: string, body?: unknown) => {
+        const r = await w.app.api.request(method, path, {
+          headers: w.headers,
+          ...(body === undefined ? {} : { body }),
+        });
+        seen.push({ status: r.status, json: r.json });
+      };
+      await step('GET', w.base);
+      await step('POST', w.base, {});
+      await step('GET', w.base);
+      await step('POST', `${w.base}/tax-profile`, { kind: KIND, taxId: '1234567-8' });
+      await step('POST', `${w.base}/tax-profile`, { kind: KIND, taxId: '7654321-0' });
+      await step('GET', w.base);
+      expect(w.store.holdOf(w.org)).toBe(hit);
+      return seen;
+    };
+    const clean = await run(false);
+    const flagged = await run(true);
+    expect(flagged).toEqual(clean);
+    expect(clean[0]).toMatchObject({ status: 200, json: { taxRequired: false, taxSaved: false } });
+    expect(clean[1]).toMatchObject({
+      status: 200,
+      json: { verificationStatus: 'IN_REVIEW', missing: [] },
+    });
+    expect((clean[2] as { json: { blockers: string[] } }).json.blockers).not.toContain(
+      'HOST_TAX_ID_REQUIRED',
+    );
+    expect(clean[3]).toMatchObject({
+      status: 200,
+      json: { code: 'HOST_TAX_PROFILE_SAVED', taxSaved: true, taxKind: KIND },
+    });
+    expect(clean[4]).toMatchObject({ status: 409 });
+    expect(clean[5]).toMatchObject({
+      status: 200,
+      json: { verificationStatus: 'IN_REVIEW', taxSaved: true },
+    });
     expect(JSON.stringify(flagged)).not.toMatch(/SANCTION|MATCH|BLOCKED|HOLD|fk_aml/i);
   });
 

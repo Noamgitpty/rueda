@@ -22,7 +22,7 @@ Entités de 17 §3.2.2 (migrations `0072` et `0075`, écritures par commandes `c
 | `host_verification`         | `core.kyc_host_verification` (US-123 ; un dossier par compte d'hôte)            |
 | `sanctions_screening`       | `core.kyc_sanctions_screening` (US-123 ; aucune entrée de liste copiée)         |
 
-Tables techniques (US-105) : `core.kyc_provider_event` (idempotence des rappels), `core.kyc_webhook_rejection` (rappels rejetés : empreinte du corps). US-123 : `core.kyc_identity_subject` (date de naissance et résidence vérifiées, C2) et `core.kyc_host_tax_profile` (profil fiscal, numéro chiffré `tax_id_enc`, FIN-008, hébergé par KYC le temps de l'inscription, PROPOSÉ).
+Tables techniques (US-105) : `core.kyc_provider_event` (idempotence des rappels), `core.kyc_webhook_rejection` (rappels rejetés : empreinte du corps). US-123 : `core.kyc_identity_subject` (date de naissance et résidence vérifiées, C2) et `core.kyc_host_tax_profile` (profil fiscal, numéro chiffré `tax_id_enc`, FIN-008, hébergé par KYC le temps de l'inscription, PROPOSÉ). Numéro fiscal **facultatif** par défaut (ADR-115, 0085 et 0086) : exigé au dossier seulement si `host_tax_id_required_for_activation[pays]` vaut `true` ou est absent (graine `false` en PA et en PY), et avant l'activation si le PSP du sous-marchand `ACTIVE` n'a pas validé `SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID` ; un premier numéro reste admis en revue ou après l'approbation.
 
 `beneficial_owner`, `insurance_policy` et `insurance_policy_vehicle` sont historiques, sans objet (pivot P2P). La vue `core.booking_host_guest_v` (US-062) rend un statut de vérification du voyageur à `NULL` jusqu'à l'arrivée de ces tables.
 

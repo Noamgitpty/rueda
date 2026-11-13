@@ -1550,6 +1550,17 @@
       "values": { "PA": true, "PY": true }
     },
     {
+      "key": "host_tax_id_required_for_activation",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "DEC-FONDATEUR-22 (jamais plus lourd que Turo) ; DNIT RG 69/2020 (inscription au RUC : obligation de l’hôte, 30 jours ouvrables après les premiers revenus) ; ADR-115",
+      "status": "PROPOSÉ ; absent ⇒ numéro exigé",
+      "decision": "PROPOSED",
+      "decisionRef": "DEC-FONDATEUR-22 (2026-11-12) ; remplace la lecture de p2p_host_requires_tax_id par l’activation (ADR-115)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
       "key": "vehicle_financed_requires_lender_consent",
       "type": "BOOL",
       "scopes": ["COUNTRY"],

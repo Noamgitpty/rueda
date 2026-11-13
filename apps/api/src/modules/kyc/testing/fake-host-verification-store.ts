@@ -4,6 +4,8 @@
  * des commandes `core.kyc_*` de 0075 utiles aux contrats d'API (compte de la session, profil
  * fiscal, soumission, filtrage, pièces manquantes). Les règles elles-mêmes (âge, résidence,
  * activation, interrupteurs) sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us123-*).
+ * Numéro fiscal (ADR-115, 0085 et 0086) : `taxRequired` du compte (défaut true, paramètre activé) ; false :
+ * numéro facultatif, premier numéro admis en revue ou après l'approbation.
  */
 import type {
   HostMissing,
@@ -28,6 +30,8 @@ interface Account {
   ageStatus: HostVerificationState['ageStatus'];
   residenceStatus: HostVerificationState['residenceStatus'];
   termsAccepted: boolean;
+  /** Numéro fiscal exigé (paramètre du pays ou PSP du versement, ADR-115). */
+  taxRequired: boolean;
   orgStatus: HostVerificationState['orgStatus'];
   verificationStatus: HostVerificationState['verificationStatus'];
   tax: { kind: string; envelope: Buffer; regime: string | null } | null;
@@ -49,7 +53,15 @@ export class FakeHostVerificationStore implements HostVerificationStore {
     country: string,
     taxKinds: readonly string[],
     checks: Partial<
-      Pick<Account, 'kycApproved' | 'ageStatus' | 'residenceStatus' | 'termsAccepted' | 'orgStatus'>
+      Pick<
+        Account,
+        | 'kycApproved'
+        | 'ageStatus'
+        | 'residenceStatus'
+        | 'termsAccepted'
+        | 'orgStatus'
+        | 'taxRequired'
+      >
     > = {},
   ): void {
     this.#accounts.set(orgId, {
@@ -60,6 +72,7 @@ export class FakeHostVerificationStore implements HostVerificationStore {
       ageStatus: checks.ageStatus ?? 'OK',
       residenceStatus: checks.residenceStatus ?? 'VERIFIED',
       termsAccepted: checks.termsAccepted ?? true,
+      taxRequired: checks.taxRequired ?? true,
       orgStatus: checks.orgStatus ?? 'ONBOARDING',
       verificationStatus: null,
       tax: null,
@@ -97,7 +110,7 @@ export class FakeHostVerificationStore implements HostVerificationStore {
     const m: HostMissing[] = [];
     if (!a.kycApproved) m.push('HOST_KYC_REQUIRED');
     if (a.screening === null) m.push('HOST_SCREENING_MISSING');
-    if (a.tax === null) m.push('HOST_TAX_ID_REQUIRED');
+    if (a.taxRequired && a.tax === null) m.push('HOST_TAX_ID_REQUIRED');
     if (!a.termsAccepted) m.push('TERMS_REACCEPT_REQUIRED');
     return m;
   }
@@ -121,7 +134,7 @@ export class FakeHostVerificationStore implements HostVerificationStore {
         ? []
         : [
             ...(a.ageStatus === 'UNDER_AGE' ? (['HOST_UNDER_AGE'] as const) : []),
-            ...(a.tax === null ? (['HOST_TAX_ID_REQUIRED'] as const) : []),
+            ...(a.taxRequired && a.tax === null ? (['HOST_TAX_ID_REQUIRED'] as const) : []),
             ...(a.termsAccepted ? [] : (['TERMS_REACCEPT_REQUIRED'] as const)),
             ...(a.verificationStatus === 'APPROVED'
               ? []
@@ -141,7 +154,7 @@ export class FakeHostVerificationStore implements HostVerificationStore {
         kycApproved: a.kycApproved,
         ageStatus: a.ageStatus,
         residenceStatus: a.residenceStatus,
-        taxRequired: true,
+        taxRequired: a.taxRequired,
         taxSaved: a.tax !== null,
         taxKind: a.tax?.kind ?? null,
         taxKinds: [...a.taxKinds],
@@ -160,7 +173,12 @@ export class FakeHostVerificationStore implements HostVerificationStore {
     if (p.taxpayerKind !== 'INDIVIDUAL') return Promise.resolve('HOST_ENTITY_NOT_ALLOWED');
     if (!a.taxKinds.includes(p.kind)) return Promise.resolve('HOST_TAX_ID_KIND_INVALID');
     if (p.envelope.length < 30 || p.envelope[0] !== 1) return Promise.resolve('REQUEST_INVALID');
-    if (['IN_REVIEW', 'APPROVED', 'REJECTED', 'REVOKED'].includes(a.verificationStatus ?? '')) {
+    // refusé ou révoqué : verrouillé ; en revue ou approuvé : premier numéro seulement (ADR-115)
+    const status = a.verificationStatus ?? '';
+    if (
+      ['REJECTED', 'REVOKED'].includes(status) ||
+      (['IN_REVIEW', 'APPROVED'].includes(status) && a.tax !== null)
+    ) {
       return Promise.resolve('HOST_VERIFICATION_LOCKED');
     }
     a.tax = { kind: p.kind, envelope: p.envelope, regime: p.regime };

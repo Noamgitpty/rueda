@@ -51,8 +51,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 26 : documents et éligibilité du véhicule, contestation de plaque (US-124) :
  `common.vehicleDocs.*`, `common.vehicleReview.*`, `web.vehicleDocs.*`, `web.listing.hostName` et
  `backoffice.vehicle.*`.
+ Version 33 (numéro réservé par l'orchestrateur ; 27 à 32 aux PR en file) : numéro fiscal de
+ l'hôte facultatif, « jamais plus lourd que Turo » (US-123, ADR-115) : `web.a07.optional`,
+ `web.a07.tax.optionalHint` et `web.a07.tax.reminder` (rappel de l'obligation fiscale de l'hôte).
  */
-export const CATALOG_VERSION = 26;
+export const CATALOG_VERSION = 33;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

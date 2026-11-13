@@ -1143,6 +1143,11 @@ export const PT_MESSAGES = {
   'web.a07.tax.saved': 'Número salvo ({kind}).',
   'web.a07.tax.private': 'Guardamos com criptografia e nunca mostramos aos viajantes.',
   'web.a07.tax.individualOnly': 'Somente pessoas físicas: não aceitamos empresas.',
+  'web.a07.optional': 'Opcional',
+  'web.a07.tax.optionalHint':
+    'Você pode adicionar seu número fiscal agora ou mais tarde. Só vamos pedir se nosso provedor de pagamentos precisar dele para pagar você.',
+  'web.a07.tax.reminder':
+    'Seus impostos são responsabilidade sua. Pelas regras fiscais locais ({country}), talvez você precise se inscrever na autoridade tributária, por exemplo para obter um número de contribuinte, dentro de um prazo após sua primeira renda com aluguel. Consulte a autoridade tributária ou um contador.',
   'web.a07.submit': 'Enviar meu pedido',
   'web.a07.submitHint': 'Você pode enviar mesmo se faltar uma tarefa: diremos o que falta.',
   'web.a07.status.DOCS_PENDING': 'Seu pedido está incompleto.',
