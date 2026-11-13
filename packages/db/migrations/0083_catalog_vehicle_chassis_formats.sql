@@ -49,7 +49,7 @@ CREATE FUNCTION core.catalog_vin_kind(p_vin text)
   IMMUTABLE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT CASE WHEN p_vin ~ '^[A-Z0-9]{17}$' THEN 'ISO_3779'
+  SELECT CASE WHEN p_vin ~ '^[A-HJ-NPR-Z0-9]{17}$' THEN 'ISO_3779'
               WHEN p_vin ~ '^[A-Z0-9]{5,16}$' THEN 'CHASSIS'
          END
 $fn$;
@@ -62,7 +62,7 @@ GRANT EXECUTE ON FUNCTION core.catalog_vin_kind(text) TO catalog_cmd_owner;
 -- Filet de la table : les deux mêmes formats, sans année (recréée sous son nom).
 ALTER TABLE core.catalog_vehicle DROP CONSTRAINT catalog_vehicle_vin_iso;
 ALTER TABLE core.catalog_vehicle ADD CONSTRAINT catalog_vehicle_vin_iso
-  CHECK (vin IS NULL OR vin ~ '^[A-Z0-9]{17}$' OR vin ~ '^[A-Z0-9]{5,16}$');
+  CHECK (vin IS NULL OR vin ~ '^[A-HJ-NPR-Z0-9]{17}$' OR vin ~ '^[A-Z0-9]{5,16}$');
 COMMENT ON CONSTRAINT catalog_vehicle_vin_iso ON core.catalog_vehicle IS
   'Numéro de châssis normalisé : VIN ISO 3779 (17 caractères sans I, O, Q) ou numéro non ISO de '
   '5 à 16 caractères ; aucune année ni aucun pays (ADR-113). US-124.';
