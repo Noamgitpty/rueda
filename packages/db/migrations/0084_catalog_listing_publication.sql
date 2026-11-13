@@ -263,9 +263,6 @@ BEGIN
     RETURN COALESCE(r[1], 'VEHICLE_INELIGIBLE');
   END IF;
   -- contrat d'assureur actif dans le pays (17 §0.1 ; 16 HST-016 ; absent = false)
-  IF NOT core.config_go_live('insurer_contract_active', p_country) THEN
-    RETURN 'INSURER_CONTRACT_INACTIVE';
-  END IF;
   RETURN NULL;
 END
 $fn$;
