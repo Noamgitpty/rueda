@@ -1081,7 +1081,7 @@ Contraintes :
 - `catalog_vehicle_value_class_valid` : `CHECK (value_class = ANY (ARRAY['STANDARD'::text, 'PREMIUM'::text, 'LUXE'::text]))`
 - `catalog_vehicle_variant_id_fkey` : `FOREIGN KEY (variant_id) REFERENCES core.catalog_vehicle_variant(id)`
 - `catalog_vehicle_vin_format` : `CHECK (vin ~ '^[A-Z0-9]{5,17}$'::text)`
-- `catalog_vehicle_vin_iso` : `CHECK (vin IS NULL OR vin ~ '^[A-HJ-NPR-Z0-9]{17}$'::text OR vin ~ '^[A-Z0-9]{5,16}$'::text)`
+- `catalog_vehicle_vin_iso` : `CHECK (vin IS NULL OR vin ~ '^[A-Z0-9]{17}$'::text OR vin ~ '^[A-Z0-9]{5,16}$'::text)`
 - `catalog_vehicle_year_range` : `CHECK (year >= 1950 AND year <= 2100)`
 
 Index :
