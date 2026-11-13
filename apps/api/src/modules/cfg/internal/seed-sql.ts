@@ -47,6 +47,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-115',
     refs: '16 PRC-001, HST-033',
   },
+  {
+    prefix: 'elig_',
+    file: '0078_config_vehicle_eligibility_params.sql',
+    story: 'US-124',
+    refs: '08 BR-LIST-01, BR-LIST-02, 16 HST-019, HST-039',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

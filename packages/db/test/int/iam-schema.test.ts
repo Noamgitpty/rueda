@@ -114,6 +114,11 @@ const OTP_WORKER_FUNCTIONS = [
  */
 const HOST_ACCOUNT_HANDLER =
   'core.iam_manual_action_create_host_account(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+/**
+ * Nom affiché au voyageur (US-124, 0077, BOARD N-37) : premier mot du prénom légal ; exécutable par
+ * catalog_cmd_owner SEUL (fiche publique d'une annonce), jamais par un rôle applicatif.
+ */
+const PUBLIC_FIRST_NAME = 'core.iam_host_public_first_name(uuid)';
 /** Gestionnaire de console de RESTRICT_ACCOUNT / LIFT_RESTRICTION (US-109, 0064) : même règle. */
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
@@ -282,7 +287,7 @@ describe('schéma IAM (US-010)', () => {
           public_exec: false,
         },
       ]);
-      for (const handler of [HOST_ACCOUNT_HANDLER, RESTRICTION_HANDLER]) {
+      for (const handler of [HOST_ACCOUNT_HANDLER, RESTRICTION_HANDLER, PUBLIC_FIRST_NAME]) {
         expect(rows.filter((r) => r.fn === handler)).toEqual([
           {
             fn: handler,
@@ -313,6 +318,7 @@ describe('schéma IAM (US-010)', () => {
           r.fn !== NOTIFICATION_CONTACT &&
           r.fn !== HOST_ACCOUNT_HANDLER &&
           r.fn !== RESTRICTION_HANDLER &&
+          r.fn !== PUBLIC_FIRST_NAME &&
           !OTP_WORKER_FUNCTIONS.includes(r.fn),
       );
       expect(commands.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
