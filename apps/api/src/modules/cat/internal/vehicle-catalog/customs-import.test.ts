@@ -1,6 +1,7 @@
 /**
- * Suite d'US-113 — import de la douane (ADR-109) : la section générée de la migration 0079 est le
- * rendu exact des données, aucune ligne sans source ni licence validée ne peut être rendue, aucune
+ * Suite d'US-113 — import de la douane (ADR-109 ; lots et catalogue partagé : N-101, ADR-123) : la
+ * section générée de chaque migration de lot (0079 pour le lot 1, 0096 pour le lot 2) est le rendu
+ * exact des données, aucune ligne sans source ni licence validée ne peut être rendue, aucune
  * ligne ne double la graine v1, et la v1 n'est jamais recréée ni chevauchée.
  * Côté base : test-migrations/9981 (sous migrator) et test/l0/l0-us113-customs-import.test.ts.
  * Réécrire la section après une modification des données (avant toute application en environnement
@@ -9,7 +10,8 @@
  * Valeurs attendues : le rapport d'import du 2026-11-12 (liste de test de SRC_VEHICLE_DATA §1) et
  * les données elles-mêmes, jamais le code testé.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CatalogError } from './errors.js';
 import { catalogId, parseVehicleCatalog } from './model.js';
@@ -17,6 +19,7 @@ import {
   CUSTOMS_BEGIN,
   CUSTOMS_END,
   CUSTOMS_MIGRATION_FILE,
+  CUSTOMS_MIGRATIONS,
   duplicateKey,
   extractCustomsSection,
   parseCustomsCatalog,
@@ -25,10 +28,9 @@ import {
 
 const v1Url = new URL('../../data/vehicle-catalog.json', import.meta.url);
 const dataUrl = new URL('../../data/vehicle-catalog-dnit.json', import.meta.url);
-const migrationUrl = new URL(
-  `../../../../../../../packages/db/migrations/${CUSTOMS_MIGRATION_FILE}`,
-  import.meta.url,
-);
+const migrationUrlOf = (file: string): URL =>
+  new URL(`../../../../../../../packages/db/migrations/${file}`, import.meta.url);
+const migrationUrl = migrationUrlOf(CUSTOMS_MIGRATION_FILE);
 const V1 = parseVehicleCatalog(JSON.parse(readFileSync(v1Url, 'utf8')) as unknown);
 
 type Row = Record<string, unknown>;
@@ -57,24 +59,69 @@ function codeOf(fn: () => unknown): string {
   return 'OK';
 }
 
-describe('migration 0079 : graine générée de la douane', () => {
+describe('migrations 0079 et 0096 : graine générée de la douane, un lot par migration', () => {
   const data = parseCustomsCatalog(raw(), V1);
   const rendered = renderCustomsSeedSql(data);
 
   if (process.env['RUEDA_WRITE_CATALOG_SEED'] === '1') {
-    const current = readFileSync(migrationUrl, 'utf8').replaceAll('\r\n', '\n');
-    const begin = current.indexOf(CUSTOMS_BEGIN);
-    const end = current.indexOf(CUSTOMS_END);
-    if (begin < 0 || end < begin) throw new Error('marqueurs absents de la migration 0079');
-    writeFileSync(
-      migrationUrl,
-      current.slice(0, begin) + rendered + current.slice(end + CUSTOMS_END.length + 1),
-    );
+    for (const [lot, file] of Object.entries(CUSTOMS_MIGRATIONS)) {
+      const url = migrationUrlOf(file);
+      const current = readFileSync(url, 'utf8').replaceAll('\r\n', '\n');
+      const begin = current.indexOf(CUSTOMS_BEGIN);
+      const end = current.indexOf(CUSTOMS_END);
+      if (begin < 0 || end < begin) throw new Error(`marqueurs absents de la migration ${file}`);
+      writeFileSync(
+        url,
+        current.slice(0, begin) +
+          renderCustomsSeedSql(data, Number(lot)) +
+          current.slice(end + CUSTOMS_END.length + 1),
+      );
+    }
   }
 
   it('la section de la migration est le rendu exact des données', () => {
     const section = extractCustomsSection(readFileSync(migrationUrl, 'utf8'));
     expect(section).toBe(rendered);
+  });
+
+  it('chaque lot a sa migration, dont la section est le rendu exact de ses seules lignes', () => {
+    expect(CUSTOMS_MIGRATIONS[1]).toBe(CUSTOMS_MIGRATION_FILE);
+    const lots = new Set([...data.makes, ...data.models, ...data.variants].map((x) => x.lot));
+    for (const lot of lots) expect(CUSTOMS_MIGRATIONS[lot], `lot ${lot}`).toBeDefined();
+    for (const [lot, file] of Object.entries(CUSTOMS_MIGRATIONS)) {
+      const url = migrationUrlOf(file);
+      expect(existsSync(url), file).toBe(true);
+      expect(extractCustomsSection(readFileSync(url, 'utf8')), file).toBe(
+        renderCustomsSeedSql(data, Number(lot)),
+      );
+    }
+    // une ligne n'est rendue que dans la migration de son lot (jamais deux fois)
+    const lot2 = renderCustomsSeedSql(data, 2);
+    for (const v of data.variants.filter((x) => x.lot === 1))
+      expect(lot2.includes(v.id), v.modelSlug).toBe(false);
+  });
+
+  it('lot 2 (N-101) : JMC Vigor rétabli, variante sans fiche commune à tous les pays', () => {
+    const jmc = data.makes.find((m) => m.slug === 'jmc');
+    const vigor = data.models.find((o) => o.slug === 'vigor' && o.makeId === jmc?.id);
+    expect(jmc?.lot).toBe(1);
+    expect(vigor?.lot).toBe(2);
+    const variant = data.variants.find((v) => v.modelId === vigor?.id);
+    // rapport : JMC Vigor, 34 unités importées de 2015 à 2018, sans année-modèle lue
+    expect(variant).toMatchObject({ lot: 2, market: null, yearFrom: 2014, yearTo: null });
+    const sql = renderCustomsSeedSql(data, 2);
+    expect(sql).not.toContain('INSERT INTO core.catalog_vehicle_make');
+    expect(sql).toContain(`'${vigor?.id ?? '?'}'`);
+    expect(sql).toMatch(/, NULL, 1\)\n {2}\) AS r \(id, model_id, year_from, year_to, market/);
+  });
+
+  it('empreinte du CSV source consignée (revue de code US-113 n° 3)', () => {
+    expect(data.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
+    // extrait du 2026-11-12 joint au rapport d'analyse (catalogue-douane-py.csv)
+    expect(data.sourceSha256).toBe(
+      'e72363eea995bc7212c6f12c5267909b51c19e6084201c38552dd15135bd401a',
+    );
+    expect(createHash('sha256').update('').digest('hex')).not.toBe(data.sourceSha256);
   });
 
   it('au moins 600 modèles nouveaux et 50 marques nouvelles, chacun avec une variante sans fiche', () => {
@@ -86,7 +133,8 @@ describe('migration 0079 : graine générée de la douane', () => {
     const withVariant = new Set(data.variants.map((v) => v.modelId));
     for (const o of data.models) expect(withVariant.has(o.id), o.slug).toBe(true);
     for (const v of data.variants) {
-      expect(v.market).toBe(raw()['market']);
+      // marché à l'insertion : la source pour le lot 1 (0079), commun dès sharedFromLot (ADR-123)
+      expect(v.market).toBe(v.lot >= data.sharedFromLot ? null : raw()['market']);
       expect(v.provenance.source).toBe('DNIT_ADUANAS_PY');
     }
   });
@@ -254,6 +302,42 @@ describe('le générateur refuse fail-closed', () => {
       },
       (d) => {
         delete d['market'];
+      },
+    ];
+    for (const [i, edit] of cases.entries()) {
+      const d = raw();
+      edit(d);
+      expect(
+        codeOf(() => parseCustomsCatalog(d, V1)),
+        `cas ${i}`,
+      ).toBe('CATALOG_DATA_INVALID');
+    }
+  });
+
+  it('lot inconnu, lot d’un modèle antérieur à sa marque, lot sur une ligne de la v1, partage ou empreinte invalides ⇒ CATALOG_DATA_INVALID', () => {
+    const cases: Array<(d: Row) => void> = [
+      (d) => {
+        firstNew(d).model['lot'] = 99;
+      },
+      (d) => {
+        firstNew(d).model['lot'] = 0;
+      },
+      (d) => {
+        const { make } = firstNew(d);
+        make['lot'] = 2;
+        for (const o of modelsOf(make)) delete o['lot'];
+      },
+      (d) => {
+        makeBySlug(d, 'toyota')['lot'] = 2;
+      },
+      (d) => {
+        delete d['sharedFromLot'];
+      },
+      (d) => {
+        d['sourceSha256'] = 'abc';
+      },
+      (d) => {
+        delete d['sourceSha256'];
       },
     ];
     for (const [i, edit] of cases.entries()) {

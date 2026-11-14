@@ -296,7 +296,7 @@ async function seedVariant(
        FROM core.catalog_vehicle_variant v
        JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
        JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
-      WHERE v.status = 'ACTIVE' AND v.market IS NULL AND m.slug = $1 AND o.slug = $2
+      WHERE v.status = 'ACTIVE' AND v.market IS NULL AND v.transmission IS NOT NULL AND m.slug = $1 AND o.slug = $2
       ORDER BY v.year_from, v.id LIMIT 1`,
     [make, model],
   );
@@ -734,7 +734,7 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
              FROM core.catalog_vehicle_variant v
              JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
              JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
-            WHERE v.status = 'ACTIVE' AND v.market IS NULL AND m.slug = 'toyota' AND o.slug = 'hilux'
+            WHERE v.status = 'ACTIVE' AND v.market IS NULL AND v.transmission IS NOT NULL AND m.slug = 'toyota' AND o.slug = 'hilux'
             ORDER BY v.year_from, v.id LIMIT 1`,
         );
         const sv = seedRows[0];

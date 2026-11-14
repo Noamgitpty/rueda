@@ -12,8 +12,8 @@
  *   des données `apps/api/src/modules/cat/data/vehicle-catalog.json` (0063) et de l'import de la
  *   douane `vehicle-catalog-dnit.json` (0079, ADR-109, détail : l0-us113-customs-import), toutes
  *   ACTIVE, toutes avec source et licence, aucune consommation EPA (OQ-CAT-01 b ouverte), aucune
- *   ligne de test ; graine v1 commune aux pays (`market` nul), variantes de la douane du seul
- *   marché de la source ;
+ *   ligne de test ; graine v1 commune aux pays (`market` nul), variantes de la douane communes
+ *   aussi depuis 0095 (N-101, ADR-123 ; lot 2 : 0096) ;
  * - visibilité : ACTIVE et RETIRED lisibles, PENDING_REVIEW invisible (file de l'ops, US-114).
  * Valeurs attendues : 17 §3.2.3, 19 US-113 et les données de graine, jamais les politiques testées.
  */
@@ -349,9 +349,9 @@ describe('graine de production (base « production » du banc)', () => {
              JOIN core.catalog_vehicle_model o ON o.id = v.model_id
              JOIN core.catalog_vehicle_make m ON m.id = o.make_id
             WHERE m.slug = 'toyota' AND o.slug = 'hilux'
-              -- variantes de la v1 (communes) ; celle de la douane (0079, années antérieures) est
-              -- prouvée par l0-us113-customs-import
-              AND v.market IS NULL
+              -- variantes de la v1 (avec fiche) ; celle de la douane (0079, années antérieures,
+              -- commune depuis 0095) est prouvée par l0-us113-customs-import
+              AND v.transmission IS NOT NULL
             ORDER BY v.transmission`,
         );
         expect(rows).toEqual(
@@ -370,7 +370,7 @@ describe('graine de production (base « production » du banc)', () => {
   });
 
   it.each(COUNTRIES)(
-    'graine v1 commune aux pays : $country ($currency) voit toutes ses variantes (market nul), et celles de la douane au seul marché de la source',
+    'catalogue commun aux pays : $country ($currency) voit toutes les variantes de la v1 et de la douane (market nul depuis 0095, N-101)',
     async ({ country }) => {
       await withRole(
         'app_api',
@@ -380,9 +380,7 @@ describe('graine de production (base « production » du banc)', () => {
               WHERE status = 'ACTIVE' AND (market IS NULL OR market = $1)`,
             [country],
           );
-          expect(rows[0]?.n).toBe(
-            SEED_VARIANTS.length + (country === CUSTOMS.market ? CUSTOMS_VARIANTS.length : 0),
-          );
+          expect(rows[0]?.n).toBe(SEED_VARIANTS.length + CUSTOMS_VARIANTS.length);
           const known = await client.query<{ ok: boolean }>(
             `SELECT EXISTS (SELECT 1 FROM core.config_country WHERE code = $1) AS ok`,
             [country],

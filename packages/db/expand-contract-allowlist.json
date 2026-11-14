@@ -151,6 +151,13 @@
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-111 (ADR-118) : HANDLE_DSR passe de RECORD_ONLY à DOMAIN_COMMAND (saisie fermée kind et step, commande liée core.privacy_manual_action_dsr) sur une ligne de référence écrite par migration seulement ; une ligne ; les lignes manual_action existantes gardent leur mode ; la version N, qui envoyait HANDLE_DSR sans saisie, reçoit un refus métier DSR_INPUT_REQUIRED (aucune écriture), jamais une acceptation"
+    },
+    {
+      "path": "packages/db/migrations/0095_catalog_customs_shared.sql",
+      "line": 30,
+      "kind": "data-update",
+      "dataTables": ["core.catalog_vehicle_variant"],
+      "justification": "N-101 (ADR-123) : variantes sans fiche de l'import de la douane (source DNIT_ADUANAS_PY, 0079) rendues communes à tous les pays (market nul) ; une seule colonne écrite, aucun statut changé, même nombre de lignes ; lignes de référence écrites par migration seulement ; la version N lit déjà market nul comme « commun » (store.ts, fonctions de 0067, 0074, 0077, 0083) ; un véhicule déjà créé sur ces variantes reste valide"
     }
   ]
 }

@@ -204,6 +204,7 @@ BEGIN
     JOIN core.catalog_vehicle_model o ON o.id = x.model_id AND o.status = 'ACTIVE'
     JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
    WHERE x.status = 'ACTIVE' AND x.market IS NULL
+     AND x.transmission IS NOT NULL -- avec fiche : la douane est commune depuis 0095 (N-101)
    ORDER BY x.id
    LIMIT 1;
   INSERT INTO core.catalog_vehicle_variant (id, model_id, year_from, year_to, trim_name,
