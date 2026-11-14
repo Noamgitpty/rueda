@@ -906,6 +906,13 @@
       "story": "US-105"
     },
     {
+      "signature": "core.kyc_cmd_change_legal_name(bytea,text,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-103"
+    },
+    {
       "signature": "core.kyc_cmd_record_webhook_rejection(text,text,bytea,integer)",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",
@@ -1275,6 +1282,41 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-108"
+    },
+    {
+      "signature": "core.privacy_kyc_register_gate(text)",
+      "family": "privacy_cmd",
+      "owner": "privacy_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-111"
+    },
+    {
+      "signature": "core.privacy_manual_action_dsr(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "privacy_cmd",
+      "owner": "privacy_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-111"
+    },
+    {
+      "signature": "core.privacy_worker_dsr_overdue(integer)",
+      "family": "privacy_cmd",
+      "owner": "privacy_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-111"
+    },
+    {
+      "signature": "core.privacy_worker_retention_sweep(integer)",
+      "family": "privacy_cmd",
+      "owner": "privacy_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-111"
+    },
+    {
+      "signature": "core.privacy_worker_stale_kyc_erasures(integer)",
+      "family": "privacy_cmd",
+      "owner": "privacy_cmd_owner",
+      "execute": ["app_worker"],
+      "story": "US-111"
     }
   ]
 }

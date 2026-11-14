@@ -198,6 +198,34 @@ describe('US-105 — POST /identity/verification (critère 2 et parcours héberg
     });
   });
 
+  // US-111 (16 LEG-010) : en production, registre Ley 81 du pays non validé ⇒ refus jugé en base
+  // AVANT tout fournisseur, même branché ; aucune session, aucune écriture
+  it('registre non validé (production) : 503 KYC_PRODUCTION_BLOCKED_NO_REGISTER et AUCUNE session chez le fournisseur', async () => {
+    const w = await world();
+    await consented(w);
+    w.store.registerGateOutcome = 'KYC_PRODUCTION_BLOCKED_NO_REGISTER';
+    const r = await w.app.api.request('POST', '/identity/verification', {
+      headers: w.guest,
+      body: { country: FIRST_COUNTRY },
+    });
+    expect(r.status).toBe(503);
+    expect(r.json).toMatchObject({
+      code: 'KYC_PRODUCTION_BLOCKED_NO_REGISTER',
+      messageKey: 'common.kyc.providerUnavailable',
+    });
+    expect(await w.kyc.getStatus('fk_idv_000001')).toEqual({
+      status: 'REFUSED',
+      reason: 'UNKNOWN_SESSION',
+    });
+    // registre validé : l'ouverture reprend
+    w.store.registerGateOutcome = null;
+    const ok = await w.app.api.request('POST', '/identity/verification', {
+      headers: w.guest,
+      body: { country: FIRST_COUNTRY },
+    });
+    expect(ok.status).toBe(201);
+  });
+
   it('session hébergée ouverte (201), reprise (200) ; adresse sans donnée du sujet', async () => {
     const w = await world();
     await consented(w);
@@ -492,6 +520,67 @@ describe('US-105 — retrait du consentement biométrique (VER-004, RISKS L1-PM-
 
 afterAll(async () => {
   await closeContractApps();
+});
+
+// US-103 (16 ACC-006 ; 19 US-103 critère 1) : les règles (verrou, RECHECK, rapprochement) sont
+// prouvées sur PostgreSQL (packages/db/test/l0/l0-us103-legal-name.test.ts) ; ici, le contrat HTTP.
+describe('US-103 — POST /identity/legal-name (nom légal identique au permis)', () => {
+  const NAME = { legalFirstName: 'José Luis', legalLastName: 'Núñez de la Cruz' };
+
+  it('dossier approuvé : nom enregistré, RECHECK ; même nom : rien ne change', async () => {
+    const w = await world();
+    const post = (body: unknown) =>
+      w.app.api.request('POST', '/identity/legal-name', { headers: w.guest, body });
+    w.store.setDecision(w.guestHash, 'APPROVED', null);
+    const r = await post({ legalFirstName: '  José   Luis ', legalLastName: 'Núñez de la Cruz' });
+    expect(r.status).toBe(200);
+    expect(r.json).toMatchObject({ code: 'LEGAL_NAME_UPDATED', status: 'RECHECK' });
+    expect(w.store.legalNameOf(w.guestHash)).toEqual({
+      first: 'José Luis',
+      last: 'Núñez de la Cruz',
+    });
+    expect(w.store.statusOf(w.guestHash)).toBe('RECHECK');
+    const same = await post(NAME);
+    expect(same.status).toBe(200);
+    expect(same.json).toMatchObject({ code: 'LEGAL_NAME_UNCHANGED', status: 'RECHECK' });
+  });
+
+  it('refus : corps, nom vide, session, compte, décision en cours, base', async () => {
+    const w = await world();
+    const api = w.app.api;
+    const post = (body: unknown) =>
+      api.request('POST', '/identity/legal-name', { headers: w.guest, body });
+    expect((await post({ legalFirstName: 'Ana' })).json).toMatchObject({ code: 'REQUEST_INVALID' });
+    expect((await post({ legalFirstName: 1, legalLastName: 'Pérez' })).status).toBe(400);
+    const blank = await post({ legalFirstName: '   ', legalLastName: 'Pérez' });
+    expect(blank.status).toBe(400);
+    expect(blank.json).toMatchObject({ code: 'PROFILE_NAME_REQUIRED' });
+    expect(
+      (await post({ legalFirstName: 'Ana', legalLastName: 'x'.repeat(401) })).json,
+    ).toMatchObject({ code: 'PROFILE_NAME_REQUIRED' });
+    expect(
+      (await api.request('POST', '/identity/legal-name', { ...textBody(w.guest) })).status,
+    ).toBe(415);
+    expect((await api.request('POST', '/identity/legal-name', { body: NAME })).status).toBe(401);
+    w.store.setDecision(w.guestHash, 'MANUAL_REVIEW', 'LEGAL_NAME_MISMATCH');
+    const locked = await post(NAME);
+    expect(locked.status).toBe(409);
+    expect(locked.json).toMatchObject({ code: 'PROFILE_NAME_LOCKED_PENDING_REVIEW' });
+    expect(w.store.legalNameOf(w.guestHash)).toEqual({ first: 'Ana', last: 'Pérez' });
+    w.store.failing = true;
+    expect((await post(NAME)).status).toBe(503);
+  });
+
+  it('compte non éligible (issue de la base) : 403 KYC_NOT_ELIGIBLE', async () => {
+    const w = await world();
+    w.store.legalNameRefusal = 'NOT_ELIGIBLE';
+    const r = await w.app.api.request('POST', '/identity/legal-name', {
+      headers: w.guest,
+      body: NAME,
+    });
+    expect(r.status).toBe(403);
+    expect(r.json).toMatchObject({ code: 'KYC_NOT_ELIGIBLE' });
+  });
 });
 
 describe('US-105 — couverture du contrat', () => {

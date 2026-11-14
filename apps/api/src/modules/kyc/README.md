@@ -22,7 +22,7 @@ Entités de 17 §3.2.2 (migrations `0072` et `0075`, écritures par commandes `c
 | `host_verification`         | `core.kyc_host_verification` (US-123 ; un dossier par compte d'hôte)            |
 | `sanctions_screening`       | `core.kyc_sanctions_screening` (US-123 ; aucune entrée de liste copiée)         |
 
-Tables techniques (US-105) : `core.kyc_provider_event` (idempotence des rappels), `core.kyc_webhook_rejection` (rappels rejetés : empreinte du corps). US-123 : `core.kyc_identity_subject` (date de naissance et résidence vérifiées, C2) et `core.kyc_host_tax_profile` (profil fiscal, numéro chiffré `tax_id_enc`, FIN-008, hébergé par KYC le temps de l'inscription, PROPOSÉ).
+Tables techniques (US-105) : `core.kyc_provider_event` (idempotence des rappels), `core.kyc_webhook_rejection` (rappels rejetés : empreinte du corps). US-123 : `core.kyc_identity_subject` (date de naissance et résidence vérifiées, C2) et `core.kyc_host_tax_profile` (profil fiscal, numéro chiffré `tax_id_enc`, FIN-008, hébergé par KYC le temps de l'inscription, PROPOSÉ). Numéro fiscal **facultatif** par défaut (ADR-115, 0086 et 0087) : exigé au dossier seulement si `host_tax_id_required_for_activation[pays]` vaut `true` ou est absent (graine `false` en PA et en PY), et avant l'activation si le PSP du sous-marchand `ACTIVE` n'a pas validé `SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID` ; un premier numéro reste admis en revue ou après l'approbation.
 
 `beneficial_owner`, `insurance_policy` et `insurance_policy_vehicle` sont historiques, sans objet (pivot P2P). La vue `core.booking_host_guest_v` (US-062) rend un statut de vérification du voyageur à `NULL` jusqu'à l'arrivée de ces tables.
 
@@ -51,6 +51,10 @@ Cible (17 §2.2, §4.5) :
 - Le voyageur ne voit qu'une catégorie (S04 : refus annoncé ; nouvelle pièce : conseil de reprise et nouvelle session).
 - Le dossier KYC de la file (`POST /console/queues/items/:id/kyc`) rend la vérification courante (état, motif, champs du permis, scores C3) : c'est la seule lecture des tables KYC par le staff.
 
+## Registre Ley 81 (US-111, ADR-118)
+
+`POST /identity/verification` juge d'abord, en base, la garde du registre du pays (`IdentityStore.registerGate`, `core.privacy_kyc_register_gate`) : en production, registre non validé ou aucun fournisseur KYC contractuel inscrit ⇒ 503 `KYC_PRODUCTION_BLOCKED_NO_REGISTER` (texte `common.kyc.providerUnavailable`), même si un fournisseur était branché ; aucune écriture. Hors production : aucune garde.
+
 ## Ports
 
 - `IdentityProvider` (`internal/identity-provider.port.ts`, US-020, ADR-058) : `supportsDocument`, `startVerification` (session hébergée, référence opaque du sujet), `getStatus` (rapprochement si le rappel se perd), `parseWebhook` (signature et fraîcheur du rappel, corps brut). Échecs en valeurs (`OK`, `REFUSED`, `UNAVAILABLE`, `TIMEOUT`) ; pièce non prise en charge ⇒ `UNSUPPORTED_DOCUMENT` (capacité inconnue = « non ») ; pays et types de pièce sont des données de CFG.
@@ -73,12 +77,13 @@ Décision de l'ops et activation : action de console `HOST_VERIFICATION_DECISION
 
 ## Routes (US-105)
 
-| Route                           | Accès   | Réponse                                                                                            |
-| ------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| `GET /identity`                 | session | 200 `KYC_STATE` (statut, consentement en vigueur, téléphone, pays) ; 400 ; 401 ; 503               |
-| `POST /identity/consent`        | session | 200 `KYC_CONSENT_RECORDED` ; 400 ; 401 ; 403 ; 409 `KYC_CONSENT_VERSION_CHANGED` ; 415 ; 503       |
-| `POST /identity/verification`   | session | 201 / 200 (reprise) adresse hébergée ; 403 `KYC_BIOMETRIC_CONSENT_MISSING` ; 409 ; 422 ; 502 ; 503 |
-| `POST /kyc/webhooks/{provider}` | public  | 200 ; 401 (rejet journalisé) ; 404 (fournisseur inconnu) ; 503 — sans corps                        |
+| Route                           | Accès   | Réponse                                                                                                                                                    |
+| ------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /identity`                 | session | 200 `KYC_STATE` (statut, consentement en vigueur, téléphone, pays) ; 400 ; 401 ; 503                                                                       |
+| `POST /identity/legal-name`     | session | 200 `LEGAL_NAME_UPDATED`, `LEGAL_NAME_UNCHANGED` ; 400 `PROFILE_NAME_REQUIRED` ; 401 ; 403 ; 409 `PROFILE_NAME_LOCKED_PENDING_REVIEW` ; 415 ; 503 (US-103) |
+| `POST /identity/consent`        | session | 200 `KYC_CONSENT_RECORDED` ; 400 ; 401 ; 403 ; 409 `KYC_CONSENT_VERSION_CHANGED` ; 415 ; 503                                                               |
+| `POST /identity/verification`   | session | 201 / 200 (reprise) adresse hébergée ; 403 `KYC_BIOMETRIC_CONSENT_MISSING` ; 409 ; 422 ; 502 ; 503                                                         |
+| `POST /kyc/webhooks/{provider}` | public  | 200 ; 401 (rejet journalisé) ; 404 (fournisseur inconnu) ; 503 — sans corps                                                                                |
 
 Production : aucun fournisseur tant que le registre LEG-010 n'est pas validé (OQ-MK-09) : ouverture 503 `KYC_PROVIDER_UNAVAILABLE`, rappels 404. Contrôle bloquant du paiement : `IdentityVerificationService.assertDriverEligible(preuve, fin du trip, pays du trip)` (jeton `KYC_IDENTITY_SERVICE`, module global), à poser par US-209 (`KYC_LICENSE_EXPIRED`, `KYC_NOT_APPROVED`).
 
@@ -91,3 +96,10 @@ API publique (`index.ts`) : `KycModule`, les types des ports (`IdentityProvider`
 - e2e (écran S04, 360 et 390 px, 4 langues) : `apps/web/e2e/identity.spec.ts`.
 
 Les tests d'intégration et L0 demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
+
+## Nom légal identique au permis (US-103, ADR-117)
+
+- Le fournisseur rend le nom du titulaire lu sur le permis (`holderGivenNames`, `holderSurnames`, [C2], champs facultatifs du port `IdentityProvider`) ; l'adaptateur PostgreSQL le passe à la décision sans le journaliser.
+- La base rapproche ce nom du nom légal du compte (`core.kyc_legal_name_match`, règle tolérante d'ADR-117 : casse, accents, apostrophes, tirets, particules, deuxième prénom, un seul des deux apellidos) : concordant ⇒ `APPROVED` sans revue ; discordant ⇒ `MANUAL_REVIEW` `LEGAL_NAME_MISMATCH` ; absent ⇒ `MANUAL_REVIEW` `LEGAL_NAME_MISSING` (file KYC d'US-106, nom lu montré à l'ops).
+- `POST /identity/legal-name` (`IdentityVerificationService.changeLegalName`) : changement du nom par la personne ; refusé pendant une décision en cours (409) ; un dossier approuvé repasse `RECHECK` (paiement et remise refusés jusqu'à une nouvelle vérification).
+- Le contrat et le contrôle de remise reprendront le nom du compte caractère pour caractère ; l'autre partie ne voit que le prénom (ADR-107).

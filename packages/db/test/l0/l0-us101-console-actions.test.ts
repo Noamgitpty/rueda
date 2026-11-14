@@ -156,9 +156,10 @@ const RECORD_ONLY = [
   'RECORD_CHARGEBACK',
   'OPEN_INCIDENT',
   'RECORD_REVIEW',
-  'HANDLE_DSR',
 ] as const;
 const FINANCE = ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'] as const;
+// US-111 (0090, ADR-118) : demande de personne liée à sa commande (table data_subject_request)
+const DSR_HANDLER = 'core.privacy_manual_action_dsr(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 
 const FINANCE_REQUEST =
   'core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
@@ -406,11 +407,16 @@ const MATRIX: Readonly<Record<string, Expected>> = {
   HANDLE_DSR: {
     permission: 'data.export',
     subject: 'SUPPORT_CASE',
-    mode: 'RECORD_ONLY',
-    keys: [],
-    values: {},
+    mode: 'DOMAIN_COMMAND',
+    keys: ['kind', 'step'],
+    values: {
+      kind: ['ACCESS', 'RECTIFICATION', 'DELETION', 'OPPOSITION', 'PORTABILITY'],
+      step: ['RECEIVED', 'VERIFYING', 'IN_PROGRESS', 'BLOCKED_LEGAL_HOLD', 'DONE', 'REJECTED'],
+    },
     approval: false,
-    source: '17 §2.3 « data.export » (ADMIN, journalisé) ; ADR-092 §1',
+    handler: DSR_HANDLER,
+    source:
+      '17 §2.3 « data.export » (ADMIN, journalisé) ; 17 §3.2.13 data_subject_request (kind, status) ; 19 US-111 « délai et traitement suivis » ; ADR-118 (action d’état liée, PROPOSÉ)',
   },
   ISSUE_BORDEREAU: {
     permission: 'finance.insurer_bordereau',
@@ -470,6 +476,8 @@ describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
           ...RECORD_ONLY,
           ...FINANCE,
           'CREATE_HOST_ACCOUNT',
+          // US-111 (0090) : demande de personne, action d'état liée (ADR-118)
+          'HANDLE_DSR',
           'RESTRICT_ACCOUNT',
           'LIFT_RESTRICTION',
           // US-123 (0075) : revue d'une correspondance de sanctions
@@ -955,9 +963,8 @@ describe('critère 2 — action d’enregistrement seul : motif obligatoire et p
     async (country, _currency, i) => {
       await withRole('app_api', async (client) => {
         const admin = await elevatedStaff(client, 'ADMIN', [country]);
-        const cases = [world.cases.firstA1, world.cases.secondA1];
         for (const a of RECORD_ONLY) {
-          const subject = a === 'HANDLE_DSR' ? (cases[i] ?? '') : trip(i);
+          const subject = trip(i);
           const auditBefore = (await auditOf(client, admin.userId)).length;
           const other = await evidence(client, 'DOCUMENTS');
           for (const ev of [[], [other], [uuid()]]) {

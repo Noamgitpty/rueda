@@ -69,6 +69,8 @@ const READERS = [
   'core.payment_psp_account_fake_guard',
   'core.payment_resolve_webhook_account',
   'core.payment_startup_guard',
+  // US-111 (0090) : KYC de production fermé sans registre Ley 81 validé (OQ-MK-09)
+  'core.privacy_kyc_register_gate',
 ];
 
 describe('US-043 — aucune garde d’environnement ouverte (pg_proc, base de production)', () => {

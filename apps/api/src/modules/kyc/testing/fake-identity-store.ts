@@ -14,9 +14,11 @@ import type {
   IdentityState,
   IdentityStore,
   KycStatus,
+  LegalNameResult,
   OpenResult,
   PendingErasure,
   RecordOutcome,
+  RegisterGate,
   SessionToRecord,
   WebhookRejectionReason,
 } from '../internal/identity-store.js';
@@ -24,6 +26,7 @@ import { IdentityStoreError } from '../internal/identity-store.js';
 
 interface Person {
   phoneVerified: boolean;
+  legalName: { first: string; last: string };
   consentVersion: number | null;
   verification: {
     id: string;
@@ -45,6 +48,10 @@ export class FakeIdentityStore implements IdentityStore {
   failing = false;
   /** Refus imposé du consentement (compte non éligible, texte indisponible). */
   consentRefusal: Exclude<ConsentOutcome, 'RECORDED' | 'VERSION_CHANGED'> | null = null;
+  /** Refus imposé du changement de nom (compte non éligible, US-103). */
+  legalNameRefusal: 'NOT_ELIGIBLE' | null = null;
+  /** Garde du registre Ley 81 imposée (US-111) : `null` = registre non exigé (hors production). */
+  registerGateOutcome: RegisterGate = null;
   /** Issue imposée du contrôle d'éligibilité. */
   eligibilityOutcome: EligibilityOutcome = 'KYC_NOT_APPROVED';
   readonly decisions: { readonly eventId: string; readonly outcome: string }[] = [];
@@ -89,6 +96,7 @@ export class FakeIdentityStore implements IdentityStore {
   addPerson(hashHex: string, options: { phoneVerified?: boolean } = {}): void {
     this.#people.set(hashHex, {
       phoneVerified: options.phoneVerified ?? true,
+      legalName: { first: 'Ana', last: 'Pérez' },
       consentVersion: null,
       verification: null,
     });
@@ -163,6 +171,11 @@ export class FakeIdentityStore implements IdentityStore {
     } catch (error) {
       return Promise.reject(error as Error);
     }
+  }
+
+  registerGate(): Promise<RegisterGate> {
+    if (this.failing) return Promise.reject(new IdentityStoreError('fake', '08006'));
+    return Promise.resolve(this.registerGateOutcome);
   }
 
   open(tokenHash: Buffer, country: string, provider: string): Promise<OpenResult> {
@@ -294,6 +307,42 @@ export class FakeIdentityStore implements IdentityStore {
       length: bodyLength,
     });
     return Promise.resolve();
+  }
+
+  /** Nom légal courant de la personne (lecture du test). */
+  legalNameOf(hashHex: string): { readonly first: string; readonly last: string } | null {
+    return this.#people.get(hashHex)?.legalName ?? null;
+  }
+
+  /** Issues de `core.kyc_cmd_change_legal_name` (0088) utiles aux contrats d'API. */
+  changeLegalName(tokenHash: Buffer, first: string, last: string): Promise<LegalNameResult> {
+    try {
+      const p = this.#person(tokenHash);
+      if (p === undefined) return Promise.resolve({ outcome: 'AUTH_REQUIRED', status: null });
+      if (this.legalNameRefusal !== null) {
+        return Promise.resolve({ outcome: this.legalNameRefusal, status: null });
+      }
+      const f = first.trim().replace(/\s+/g, ' ');
+      const l = last.trim().replace(/\s+/g, ' ');
+      const status = p.verification?.status ?? 'NOT_STARTED';
+      if (f.length < 1 || f.length > 100 || l.length < 1 || l.length > 100) {
+        return Promise.resolve({ outcome: 'NAME_REQUIRED', status: null });
+      }
+      if (status === 'AUTO_CHECKS' || status === 'MANUAL_REVIEW' || status === 'APPEAL') {
+        return Promise.resolve({ outcome: 'LOCKED_PENDING_REVIEW', status });
+      }
+      if (p.legalName.first === f && p.legalName.last === l) {
+        return Promise.resolve({ outcome: 'UNCHANGED', status });
+      }
+      p.legalName = { first: f, last: l };
+      if (p.verification !== null && status === 'APPROVED') {
+        p.verification.status = 'RECHECK';
+        p.verification.reasonCode = 'LEGAL_NAME_CHANGED';
+      }
+      return Promise.resolve({ outcome: 'CHANGED', status: p.verification?.status ?? status });
+    } catch (error) {
+      return Promise.reject(error as Error);
+    }
   }
 
   eligibility(tokenHash: Buffer): Promise<EligibilityOutcome> {

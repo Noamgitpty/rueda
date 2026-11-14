@@ -12,6 +12,7 @@ import {
   ELIGIBILITY_OUTCOMES,
   IdentityStoreError,
   KYC_STATUSES,
+  LEGAL_NAME_OUTCOMES,
   OPEN_OUTCOMES,
   RECORD_OUTCOMES,
 } from './identity-store.js';
@@ -23,9 +24,11 @@ import type {
   IdentityState,
   IdentityStore,
   KycStatus,
+  LegalNameResult,
   OpenResult,
   PendingErasure,
   RecordOutcome,
+  RegisterGate,
   SessionToRecord,
   WebhookRejectionReason,
 } from './identity-store.js';
@@ -137,6 +140,18 @@ export class PgIdentityStore implements IdentityStore {
     };
   }
 
+  async registerGate(country: string): Promise<RegisterGate> {
+    const [r] = await this.#run<{ code: string | null }>(
+      'register_gate',
+      'SELECT core.privacy_kyc_register_gate($1) AS code',
+      [country],
+    );
+    const code = r?.code ?? null;
+    if (code === null || code === 'KYC_PRODUCTION_BLOCKED_NO_REGISTER') return code;
+    // code inconnu : fail-closed (jamais une ouverture)
+    throw new IdentityStoreError('register_gate', undefined);
+  }
+
   async open(tokenHash: Buffer, country: string, provider: string): Promise<OpenResult> {
     const [r] = await this.#run<{
       outcome: string;
@@ -155,6 +170,22 @@ export class PgIdentityStore implements IdentityStore {
       attempt: r?.attempt ?? null,
       hostedUrl: r?.hosted_url ?? null,
       sessionExpiresAt: r?.session_expires_at ?? null,
+    };
+  }
+
+  async changeLegalName(tokenHash: Buffer, first: string, last: string): Promise<LegalNameResult> {
+    // le nom [C2] n'est jamais journalisé : une erreur ne garde que l'opération et le SQLSTATE
+    const [r] = await this.#run<{ outcome: string; status: string | null }>(
+      'change_legal_name',
+      'SELECT * FROM core.kyc_cmd_change_legal_name($1, $2, $3)',
+      [tokenHash, first, last],
+    );
+    return {
+      outcome: member(LEGAL_NAME_OUTCOMES, r?.outcome, 'change_legal_name'),
+      status:
+        r?.status === null || r?.status === undefined
+          ? null
+          : member(KYC_STATUSES, r.status, 'change_legal_name'),
     };
   }
 
@@ -182,7 +213,8 @@ export class PgIdentityStore implements IdentityStore {
         event.decision,
         event.checks.livenessScore,
         event.checks.faceMatchScore,
-        // champs minimaux seulement : aucune image ni numéro (le port n'en transporte pas)
+        // champs minimaux seulement : aucune image ni numéro (le port n'en transporte pas) ; nom
+        // du titulaire [C2] rapproché en base du nom légal du compte (US-103), jamais journalisé
         d === null
           ? null
           : JSON.stringify({
@@ -192,6 +224,8 @@ export class PgIdentityStore implements IdentityStore {
               licenseClass: d.licenseClass,
               isPermanent: d.isPermanent,
               providerDocumentRef: d.providerDocumentRef,
+              holderGivenNames: d.holderGivenNames ?? null,
+              holderSurnames: d.holderSurnames ?? null,
             }),
         // date de naissance et pays de résidence seulement (le port n'en transporte pas d'autres)
         f === null

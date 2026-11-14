@@ -171,11 +171,13 @@ describe('schéma core (US-006)', () => {
                           ? 'catalog_cmd_owner'
                           : r.polname.startsWith('probe_') // sonde de disponibilité (0071, US-119)
                             ? 'catalog_probe_owner'
-                            : r.polname.startsWith('worker_')
-                              ? 'app_worker'
-                              : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
-                                ? 'host_view_owner'
-                                : 'app_api';
+                            : r.polname.startsWith('privacy_cmd_') // rétention des trips clos (0090, US-111)
+                              ? 'privacy_cmd_owner'
+                              : r.polname.startsWith('worker_')
+                                ? 'app_worker'
+                                : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
+                                  ? 'host_view_owner'
+                                  : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)

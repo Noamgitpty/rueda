@@ -65,6 +65,18 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-118',
     refs: '16 HST-016, ADM-003 ; DEC-FONDATEUR-22',
   },
+  {
+    prefix: 'host_tax_id_required_for_activation',
+    file: '0086_config_host_tax_id_params.sql',
+    story: 'US-123',
+    refs: 'DEC-FONDATEUR-22, ADR-115',
+  },
+  {
+    prefix: 'privacy_',
+    file: '0089_config_privacy_params.sql',
+    story: 'US-111',
+    refs: '19 US-111, 16 LEG-009 / LEG-010, OQ-BR-25, OQ-MK-09',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

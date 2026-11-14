@@ -16,6 +16,8 @@
  * `HOST_AGE_UNVERIFIED`, `HOST_KYC_REQUIRED`, `HOST_RESIDENCE_MISMATCH`, `HOST_ACCOUNT_NOT_ELIGIBLE`,
  * `HOST_VERIFICATION_LOCKED`, `HOST_TAX_ID_KIND_INVALID`, `HOST_TAX_ID_INVALID`,
  * `HOST_TAX_VAULT_UNAVAILABLE`, `HOST_VERIFICATION_UNAVAILABLE`.
+ * Nom légal (US-103, ADR-117) : `PROFILE_NAME_REQUIRED`, `PROFILE_NAME_LOCKED_PENDING_REVIEW`
+ * (16 ACC-006) ; PROPOSÉS : `LEGAL_NAME_UPDATED`, `LEGAL_NAME_UNCHANGED`.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -34,9 +36,20 @@ export const KYC_MESSAGES = {
   KYC_DOCUMENT_UNSUPPORTED: { status: 422, messageKey: 'common.kyc.documentUnsupported' },
   KYC_SESSION_FAILED: { status: 502, messageKey: 'common.kyc.sessionFailed' },
   KYC_PROVIDER_UNAVAILABLE: { status: 503, messageKey: 'common.kyc.providerUnavailable' },
+  // US-111 (16 LEG-010, ADR-118) : registre Ley 81 du pays non validé en production ; même texte
+  // que l'indisponibilité du fournisseur (aucun détail juridique montré à la personne)
+  KYC_PRODUCTION_BLOCKED_NO_REGISTER: {
+    status: 503,
+    messageKey: 'common.kyc.providerUnavailable',
+  },
   KYC_NOT_APPROVED: { status: 403, messageKey: 'common.kyc.notApproved' },
   KYC_LICENSE_EXPIRED: { status: 403, messageKey: 'common.kyc.licenseExpired' },
   KYC_DRIVER_ELIGIBLE: { status: 200, messageKey: 'common.kyc.driverEligible' },
+  // Nom légal identique au permis (US-103, ADR-117 ; 16 ACC-006)
+  LEGAL_NAME_UPDATED: { status: 200, messageKey: 'common.kyc.legalNameUpdated' },
+  LEGAL_NAME_UNCHANGED: { status: 200, messageKey: 'common.kyc.legalNameUnchanged' },
+  PROFILE_NAME_REQUIRED: { status: 400, messageKey: 'common.kyc.legalNameRequired' },
+  PROFILE_NAME_LOCKED_PENDING_REVIEW: { status: 409, messageKey: 'common.kyc.legalNameLocked' },
   // Vérification de l'hôte (US-123, ADR-105) : HOST_UNDER_AGE, HOST_ENTITY_NOT_ALLOWED (16 A.8,
   // clés d'US-107), HOST_ACCOUNT_NOT_FOUND (code d'US-115) ; les autres sont PROPOSÉS.
   HOST_VERIFICATION_STATE: { status: 200, messageKey: 'common.hostVerification.state' },

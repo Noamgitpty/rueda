@@ -148,6 +148,28 @@ const IN_REVIEW: OpsState = {
     residenceCountry: null,
   },
 };
+/** Dossier en revue pour un nom discordant (US-103) : nom du permis et verdict montrés à l'ops. */
+const NAME_MISMATCH: OpsState = {
+  kyc: {
+    ...(IN_REVIEW.kyc as NonNullable<OpsState['kyc']>),
+    verification: {
+      ...(IN_REVIEW.kyc?.verification as NonNullable<NonNullable<OpsState['kyc']>['verification']>),
+      reasonCode: 'LEGAL_NAME_MISMATCH',
+      consentCurrent: true,
+      document: {
+        type: 'DRIVER_LICENSE',
+        issuingCountry: 'ZZ',
+        expiresOn: '2031-01-31',
+        licenseClass: 'B',
+        permanent: true,
+        status: 'IN_REVIEW',
+        holderGivenNames: 'Qqz',
+        holderSurnames: 'Wwk Vvj',
+        nameMatch: 'MISMATCH',
+      },
+    },
+  },
+};
 const DECIDED: OpsState = {
   kyc: {
     ...(IN_REVIEW.kyc as NonNullable<OpsState['kyc']>),
@@ -264,6 +286,7 @@ const STATES: readonly OpsState[] = [
   CATALOG,
   HELD_HOST,
   UNSCREENED_HOST,
+  NAME_MISMATCH,
 ];
 
 const translatorOf = (tag: string) => {
@@ -444,6 +467,25 @@ describe('O01 : ce que chaque état montre', () => {
     expect(out).not.toContain('<img');
   });
 
+  it.each(LOCALE_CONFIG.locales.map((p) => [p.tag] as const))(
+    '%s : dossier en revue pour un nom discordant (US-103) : motif, nom lu sur le permis et verdict, à côté du nom légal du compte',
+    (locale) => {
+      const out = html(NAME_MISMATCH, locale);
+      const t = translatorOf(locale);
+      expect(out).toContain(t.t('backoffice.kyc.reason.LEGAL_NAME_MISMATCH'));
+      expect(out).toContain(t.t('backoffice.kyc.holderName'));
+      expect(out).toContain('Qqz Wwk Vvj');
+      expect(out).toContain(t.t('backoffice.kyc.nameMatch'));
+      expect(out).toContain(t.t('backoffice.kyc.nameMatch.MISMATCH'));
+      // nom légal du compte, à comparer
+      expect(out).toContain('Zzq');
+      // dossier antérieur à US-103 : nom inconnu, aucun verdict
+      const before = html(IN_REVIEW, locale);
+      expect(before).toContain(t.t('backoffice.kyc.holderName'));
+      expect(before).not.toContain(t.t('backoffice.kyc.nameMatch'));
+    },
+  );
+
   it('dossier décidé ou scores effacés (US-106) : aucun formulaire de décision, scores annoncés absents', () => {
     const out = html(DECIDED, tag);
     expect(out).toContain(es['backoffice.kyc.REJECTED']);
@@ -475,6 +517,10 @@ describe('O01 : ce que chaque état montre', () => {
         'LICENSE_NOT_ACCEPTED',
         'DUPLICATE_ACCOUNT',
         'MORE_INFO_REQUESTED',
+        // 0088 (US-103) : nom légal discordant, illisible sur le permis, changé après approbation
+        'LEGAL_NAME_MISMATCH',
+        'LEGAL_NAME_MISSING',
+        'LEGAL_NAME_CHANGED',
       ].sort(),
     );
     expect(Object.keys(KYC_REFUSAL_KEYS).sort()).toEqual(

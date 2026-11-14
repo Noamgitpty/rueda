@@ -484,6 +484,9 @@ export const EN_MESSAGES = {
   'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED': 'License not on the accepted list',
   'backoffice.kyc.reason.DUPLICATE_ACCOUNT': 'Duplicate or linked account',
   'backoffice.kyc.reason.MORE_INFO_REQUESTED': 'New document requested by ops',
+  'backoffice.kyc.reason.LEGAL_NAME_MISMATCH': 'Account name does not match the license',
+  'backoffice.kyc.reason.LEGAL_NAME_MISSING': 'Holder name missing or unreadable on the license',
+  'backoffice.kyc.reason.LEGAL_NAME_CHANGED': 'Legal name changed after approval',
   'backoffice.kyc.attempt': 'Attempt and file country',
   'backoffice.kyc.consentMissing':
     'Biometric consent missing or out of date: approval is not possible.',
@@ -494,6 +497,11 @@ export const EN_MESSAGES = {
   'backoffice.kyc.expiresOn': 'Expiry',
   'backoffice.kyc.licenseClass': 'Class',
   'backoffice.kyc.permanent': 'Permanent license',
+  'backoffice.kyc.holderName': 'Name on the license',
+  'backoffice.kyc.nameMatch': 'Account and license names',
+  'backoffice.kyc.nameMatch.MATCH': 'They match',
+  'backoffice.kyc.nameMatch.MISMATCH': 'They differ: compare them',
+  'backoffice.kyc.nameMatch.MISSING': 'The license name was not read',
   'backoffice.kyc.yes': 'Yes',
   'backoffice.kyc.no': 'No',
   'backoffice.kyc.biometrics': 'Biometric scores (logged read)',
@@ -583,6 +591,34 @@ export const EN_MESSAGES = {
   'backoffice.host.refused.HOST_ALREADY_SCREENED': 'This file already has a recorded screening.',
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY': 'The host has not submitted the file yet.',
   'backoffice.host.refused.SELF_FORBIDDEN': 'You cannot screen your own account.',
+  'backoffice.dsr.hint':
+    'Record each step of a request received through a support case: the legal deadline is tracked and a delay is flagged.',
+  'backoffice.dsr.subject': 'Support case identifier',
+  'backoffice.dsr.kind': 'Request type',
+  'backoffice.dsr.kind.ACCESS': 'Access',
+  'backoffice.dsr.kind.RECTIFICATION': 'Rectification',
+  'backoffice.dsr.kind.DELETION': 'Erasure',
+  'backoffice.dsr.kind.OPPOSITION': 'Objection',
+  'backoffice.dsr.kind.PORTABILITY': 'Portability',
+  'backoffice.dsr.step': 'Step',
+  'backoffice.dsr.step.RECEIVED': 'Received',
+  'backoffice.dsr.step.VERIFYING': 'Identity check',
+  'backoffice.dsr.step.IN_PROGRESS': 'In progress (identity verified)',
+  'backoffice.dsr.step.BLOCKED_LEGAL_HOLD': 'On hold under a legal retention duty',
+  'backoffice.dsr.step.DONE': 'Answered',
+  'backoffice.dsr.step.REJECTED': 'Rejected',
+  'backoffice.dsr.record': 'Record the step',
+  'backoffice.dsr.recorded': 'Step recorded; the deadline keeps running until the answer.',
+  'backoffice.dsr.refused.DSR_INPUT_REQUIRED': 'Give the request type and the step.',
+  'backoffice.dsr.refused.DSR_NOT_OPEN':
+    'This case has no request yet: record the “Received” step first.',
+  'backoffice.dsr.refused.DSR_ALREADY_OPEN': 'This case already has an open request.',
+  'backoffice.dsr.refused.DSR_KIND_MISMATCH':
+    'The type does not match the open request of this case.',
+  'backoffice.dsr.refused.DSR_TRANSITION_INVALID':
+    'This step cannot follow the current step of the request.',
+  'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
+    'The response deadline of this country is not configured: nothing was recorded.',
   'backoffice.kyc.refused.CHECKS_REQUIRED': 'Decision refused: all four checks must be ticked.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':
     'Decision refused: approval needs four passed checks, rejection at least one failed check.',
@@ -1243,6 +1279,13 @@ export const EN_MESSAGES = {
   'common.kyc.licenseExpired':
     'Your license expires before the end of the trip. Update it to be able to pay.',
   'common.kyc.driverEligible': 'Your license is valid for the whole trip.',
+  'common.kyc.legalNameUpdated':
+    'We saved your name. If your identity was already verified, verify it again before your next trip.',
+  'common.kyc.legalNameUnchanged': 'Your name was already this one. We changed nothing.',
+  'common.kyc.legalNameRequired':
+    'Enter your first and last names as shown on your driver’s license.',
+  'common.kyc.legalNameLocked':
+    'We are reviewing your identity. You can change your name once we are done.',
   'web.s04.title': 'Verify your identity',
   'web.s04.intro': "We do it before payment so you're never charged if you can't drive.",
   'web.s04.progress': 'Step {step} of {total}',
@@ -1327,6 +1370,11 @@ export const EN_MESSAGES = {
   'web.a07.tax.saved': 'Number saved ({kind}).',
   'web.a07.tax.private': 'We store it encrypted and never show it to travelers.',
   'web.a07.tax.individualOnly': 'Individuals only: we do not accept companies.',
+  'web.a07.optional': 'Optional',
+  'web.a07.tax.optionalHint':
+    'You can add your tax number now or later. We will only ask for it if our payment provider needs it to pay you.',
+  'web.a07.tax.reminder':
+    'Your taxes are your responsibility. Under local tax rules, you may have to register with the tax authority, for example to get a taxpayer number, within a set time after your first rental income. Check with the tax authority or an accountant.',
   'web.a07.submit': 'Send my request',
   'web.a07.submitHint': 'You can send it even if a task is missing: we will tell you what is left.',
   'web.a07.status.DOCS_PENDING': 'Your request is incomplete.',

@@ -18,8 +18,8 @@ import type {
   ContentGapsBody,
   MeBody,
 } from './api.ts';
-import { ConsoleView, SCREEN_HEADINGS } from './view.tsx';
-import type { ConsoleAction, ConsoleState } from './view.tsx';
+import { ConsoleView, DSR_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
+import type { ConsoleAction, ConsoleState, DsrKind, DsrStep } from './view.tsx';
 import {
   EVIDENCE_MAX_BYTES,
   evidenceReasonKey,
@@ -242,6 +242,45 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         await refresh(
           r.ok
             ? { tone: 'success', key: 'backoffice.host.recorded' }
+            : refusal !== undefined
+              ? { tone: 'warning', key: refusal }
+              : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
+        );
+      });
+    },
+    // US-111 : demande de personne (HANDLE_DSR) sur un dossier de support, saisie fermée (type,
+    // étape) ; un requestId par intention ; la base juge la transition et pose l'échéance
+    onDataRequest: (
+      caseId: string,
+      kind: DsrKind,
+      step: DsrStep,
+      reason: string,
+      evidence: readonly string[],
+    ) => {
+      const subject = caseId.trim().toLowerCase();
+      intent.current = intentFor(
+        intent.current,
+        ['HANDLE_DSR', subject, kind, step, reason.trim(), evidence],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action: 'HANDLE_DSR',
+          subjectId: subject,
+          reason,
+          input: { kind, step },
+          ...(evidence.length > 0 ? { evidence } : {}),
+        });
+        const why = r.ok ? undefined : r.values?.['reason'];
+        const refusal =
+          !r.ok && r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? DSR_REFUSAL_KEYS[why]
+            : undefined;
+        await refresh(
+          r.ok
+            ? { tone: 'success', key: 'backoffice.dsr.recorded' }
             : refusal !== undefined
               ? { tone: 'warning', key: refusal }
               : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
