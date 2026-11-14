@@ -11,7 +11,12 @@ import { EDITABLE_BLOCKS, INTERNAL_HREF_PATTERN, isInternalHref } from '@rueda/i
 import type { EditableBlocks } from '@rueda/i18n';
 import { InMemoryFileStore } from '@rueda/fake-adapters/files';
 import { describe, expect, it } from 'vitest';
-import { BrandAccessError, BrandConsoleService, BrandReadService } from './brand.service.js';
+import {
+  BrandAccessError,
+  BrandConsoleService,
+  BrandReadService,
+  UnavailableBrandScanner,
+} from './brand.service.js';
 import type { BrandOptions } from './brand.service.js';
 import type { ContentLocale } from './checks.js';
 import { BrandError } from './errors.js';
@@ -59,6 +64,7 @@ function setup(blocks?: EditableBlocks) {
   const options: BrandOptions = {
     store: store as unknown as BrandStore,
     files: new InMemoryFileStore(),
+    scanner: new UnavailableBrandScanner(),
     params: PARAMS,
     newId: id,
     nowMs: () => 0,

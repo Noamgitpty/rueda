@@ -13,11 +13,20 @@ import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { PALETTE_IDS, paletteDocument } from '@rueda/design-tokens';
 import { CATALOG_LANGUAGES } from '@rueda/i18n';
-import { InMemoryFileStore } from '@rueda/fake-adapters/files';
+import {
+  FAKE_MALWARE_MARKER,
+  FakeUploadScanner,
+  InMemoryFileStore,
+} from '@rueda/fake-adapters/files';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BrandModule } from './brand.module.js';
-import { BrandConsoleService, BrandReadService, sniffBrandMime } from './brand.service.js';
-import type { BrandOptions } from './brand.service.js';
+import {
+  BrandConsoleService,
+  BrandReadService,
+  sniffBrandMime,
+  UnavailableBrandScanner,
+} from './brand.service.js';
+import type { BrandOptions, BrandScanner } from './brand.service.js';
 import {
   assertBlockKey,
   assertBodies,
@@ -215,7 +224,10 @@ class MemoryStore implements BrandStore {
   }
 }
 
-function setup(nowMs = () => 0): {
+function setup(
+  nowMs = () => 0,
+  scanner: BrandScanner = new FakeUploadScanner(),
+): {
   store: MemoryStore;
   console: BrandConsoleService;
   read: BrandReadService;
@@ -225,6 +237,7 @@ function setup(nowMs = () => 0): {
   const options: BrandOptions = {
     store,
     files: new InMemoryFileStore(),
+    scanner,
     params: PARAMS,
     newId: id,
     nowMs,
@@ -498,6 +511,100 @@ describe('BrandConsoleService : le contrôle précède la base', () => {
     expect(store.calls).toEqual(['registerAsset']);
     const got = await options.files.get('BRAND', `brand/${r.assetId}`);
     expect(got).toMatchObject({ status: 'FOUND' });
+  });
+});
+
+describe('US-120 : logo SVG du brouillon (jeton brand.logo)', () => {
+  it('logo avec script : BRAND_TOKENS_INVALID nommant le jeton, rien écrit', async () => {
+    const { store, console } = setup();
+    const tokens = paletteDocument('lienzo-tinta') as { brand: { logo: { $value: string } } };
+    tokens.brand.logo.$value = '<svg xmlns="http://www.w3.org/2000/svg"><script>x</script></svg>';
+    const e = await rejection(
+      console.saveDraft(HASH, { requestId: id(), brandName: 'Kmino', tokens }),
+    );
+    expect(e.code).toBe('BRAND_TOKENS_INVALID');
+    expect(e.details).toEqual({ problems: ['brand.logo : script'] });
+    expect(store.calls).toEqual([]);
+  });
+
+  it('logo de la palette : accepté', async () => {
+    const { store, console } = setup();
+    await console.saveDraft(HASH, {
+      requestId: id(),
+      brandName: 'Kmino',
+      tokens: paletteDocument('lienzo-tinta'),
+    });
+    expect(store.calls).toEqual(['saveDraft']);
+  });
+});
+
+describe('US-120 : antivirus des actifs de marque, fail-closed (DEC-FONDATEUR-20)', () => {
+  const PNG = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(16)]);
+  const ALT = { es: 'Logotipo', en: 'Logo', fr: 'Logo', pt: 'Logotipo' };
+  const upload = (body: Buffer, kind = 'LOGO') => ({
+    requestId: id(),
+    kind,
+    body,
+    alt: kind === 'FONT' ? undefined : ALT,
+    licenseNote: 'propre',
+  });
+
+  it('antivirus indisponible (défaut de production) : 503 BRAND_ASSET_UNAVAILABLE, rien écrit', async () => {
+    const { store, console } = setup(undefined, new UnavailableBrandScanner());
+    const e = await rejection(console.registerAsset(HASH, upload(PNG)));
+    expect(e.code).toBe('BRAND_ASSET_UNAVAILABLE');
+    expect(e.details).toEqual({ reason: 'SCAN' });
+    expect(store.calls).toEqual([]);
+  });
+
+  it('antivirus en panne ou trop lent : 503, rien écrit', async () => {
+    for (const kind of ['UNAVAILABLE', 'TIMEOUT_BEFORE'] as const) {
+      const scanner = new FakeUploadScanner();
+      scanner.script.script('scan', { kind });
+      const { store, console } = setup(undefined, scanner);
+      const e = await rejection(console.registerAsset(HASH, upload(PNG)));
+      expect(e.code, kind).toBe('BRAND_ASSET_UNAVAILABLE');
+      expect(store.calls, kind).toEqual([]);
+    }
+  });
+
+  it('fichier infecté : BRAND_ASSET_INVALID (SCAN), ni ligne en base ni dépôt', async () => {
+    const { store, console, options } = setup();
+    const infected = Buffer.concat([PNG, Buffer.from(FAKE_MALWARE_MARKER, 'latin1')]);
+    const e = await rejection(console.registerAsset(HASH, upload(infected)));
+    expect(e.code).toBe('BRAND_ASSET_INVALID');
+    expect(e.details).toEqual({ reason: 'SCAN' });
+    expect(store.calls).toEqual([]);
+    expect(await options.files.get('BRAND', 'brand/anything')).toMatchObject({
+      status: 'NOT_FOUND',
+    });
+  });
+
+  it("type que l'antivirus ne reconnaît pas comme le type réel : refusé (aucun « peut-être »)", async () => {
+    // police WOFF2 : le FAKE ne la reconnaît pas (UNSUPPORTED_TYPE) ; seul CLEAN du bon type passe
+    const { store, console } = setup();
+    const woff2 = Buffer.concat([Buffer.from('wOF2', 'latin1'), Buffer.alloc(16)]);
+    const e = await rejection(console.registerAsset(HASH, upload(woff2, 'FONT')));
+    expect(e.code).toBe('BRAND_ASSET_INVALID');
+    expect(e.details).toEqual({ reason: 'SCAN' });
+    expect(store.calls).toEqual([]);
+  });
+
+  it('taille : vide ou au-delà de assetMaxBytes refusé AVANT l’antivirus', async () => {
+    let scans = 0;
+    const counting: BrandScanner = {
+      scan: () => {
+        scans += 1;
+        return Promise.resolve({ status: 'UNAVAILABLE' });
+      },
+    };
+    const { console } = setup(undefined, counting);
+    for (const body of [Buffer.alloc(0), Buffer.alloc(PARAMS.assetMaxBytes + 1)]) {
+      const e = await rejection(console.registerAsset(HASH, upload(body)));
+      expect(e.code).toBe('BRAND_ASSET_INVALID');
+      expect(e.details?.['reason']).toBe('SIZE');
+    }
+    expect(scans).toBe(0);
   });
 });
 

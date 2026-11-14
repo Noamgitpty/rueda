@@ -64,11 +64,14 @@ export {
   BrandReadService,
   sniffBrandMime,
   UnavailableBrandFileStore,
+  UnavailableBrandScanner,
 } from './internal/brand/brand.service.js';
 export type {
   AssetUpload,
   BrandFileStore,
   BrandOptions,
+  BrandScanner,
+  BrandScanResult,
   ContentGap,
   ContentView,
   DraftInput,

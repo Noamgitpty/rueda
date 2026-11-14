@@ -1,0 +1,235 @@
+/*
+ * Écran « Apparence / Marque » (US-120, O02) : mise en page mobile-first, uniquement par les jetons
+ * du thème (US-030). Les cadres d'aperçu lisent les variables du BROUILLON, posées par
+ * `previewStyleSheet` sur l'attribut `data-brand-preview` (aucune variable sur `:root`).
+ */
+.stack {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.panel {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  min-inline-size: 0;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-lg);
+}
+
+.subheading {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-md);
+}
+
+.label {
+  margin: 0;
+  font-weight: var(--font-weight-heading);
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.code {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.version {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fieldset {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-inline-size: 0;
+}
+
+.fieldset > legend {
+  padding: 0 var(--space-2);
+  font-weight: var(--font-weight-heading);
+}
+
+.select,
+.textarea,
+.file {
+  inline-size: 100%;
+  min-block-size: var(--size-touch-target);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.textarea {
+  resize: vertical;
+}
+
+.select:focus-visible,
+.textarea:focus-visible,
+.file:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+/* ---- Aperçu ------------------------------------------------------------------------------- */
+
+.previewPanel {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.framesMobile,
+.framesDesktop {
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+
+/* Mobile : cadres de la largeur d'un téléphone (360 px), côte à côte s'il y a la place */
+.framesMobile {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22.5rem), 1fr));
+}
+
+.figure {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.framesMobile .figure {
+  max-inline-size: 22.5rem;
+}
+
+.caption {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Le cadre lit les variables du brouillon (fond, texte, polices posés par previewStyleSheet) */
+.frame {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.previewBrand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+}
+
+.previewLogo {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+}
+
+.previewTitle {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-heading);
+  font-size: var(--font-size-xl);
+  line-height: var(--font-line-height-heading);
+}
+
+.previewMuted {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.previewField {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.previewList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.previewSelected {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+}
+
+.previewRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.previewCar {
+  inline-size: 100%;
+  block-size: auto;
+}
+
+.previewMailHead {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}

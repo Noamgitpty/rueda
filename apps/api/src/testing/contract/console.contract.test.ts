@@ -469,6 +469,7 @@ describe('contrat HTTP — /console', () => {
   const apps: ContractApp[] = [];
   const brand = new TunableBrandStore();
   let filesUp = true;
+  let brandScan: 'CLEAN' | 'INFECTED' | 'DOWN' = 'CLEAN';
   let action: Awaited<ReturnType<ManualActionStore['record']>>['outcome'] = 'RECORDED';
   let actionDetail: string | null = null;
   let approval: Awaited<ReturnType<FinanceApprovalStore['approve']>> = 'APPROVED';
@@ -553,6 +554,18 @@ describe('contrat HTTP — /console', () => {
         files: {
           put: () => Promise.resolve({ status: filesUp ? 'STORED' : 'UNAVAILABLE' }),
           get: () => Promise.resolve({ status: 'NOT_FOUND' }),
+        },
+        // US-120 : antivirus des actifs (double du port ; verdict piloté par le test)
+        scanner: {
+          scan: ({ declaredMime }: { declaredMime: string }) =>
+            Promise.resolve(
+              brandScan === 'DOWN'
+                ? { status: 'UNAVAILABLE' as const }
+                : {
+                    status: 'SCANNED' as const,
+                    report: { verdict: brandScan, detectedMime: declaredMime },
+                  },
+            ),
         },
       },
       risk: {
@@ -683,6 +696,18 @@ describe('contrat HTTP — /console', () => {
     filesUp = false;
     expect((await post('/console/brand/assets', asset)).status).toBe(503);
     filesUp = true;
+    // US-120 : antivirus en panne => 503 ; fichier infecté => 422 (DEC-FONDATEUR-20)
+    brandScan = 'DOWN';
+    expect((await post('/console/brand/assets', asset)).json).toMatchObject({
+      code: 'BRAND_ASSET_UNAVAILABLE',
+      details: { reason: 'SCAN' },
+    });
+    brandScan = 'INFECTED';
+    expect((await post('/console/brand/assets', asset)).json).toMatchObject({
+      code: 'BRAND_ASSET_INVALID',
+      details: { reason: 'SCAN' },
+    });
+    brandScan = 'CLEAN';
     brand.fail = uniqueViolation();
     expect((await post('/console/brand/assets', asset)).status).toBe(409);
 

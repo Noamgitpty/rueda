@@ -59,8 +59,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 29 : dossier de l'hôte signalé dans la console (US-108, revue par exception) :
  `backoffice.host.*`, `backoffice.queues.openHost`, `common.listing.vehicleNotCovered` et
  `common.listing.insurerInactive`.
+ Version 34 (numéro réservé par l'orchestrateur ; 30 à 33 aux PR en file) : écran « Apparence et
+ marque » du back-office (US-120, O02) : `backoffice.o02.*`.
  */
-export const CATALOG_VERSION = 29;
+export const CATALOG_VERSION = 34;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

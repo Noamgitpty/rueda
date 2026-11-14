@@ -19,6 +19,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  logoProblems,
   paletteDocument,
   themeStyleSheet,
   TOKENS_SCHEMA_VERSION,
@@ -74,9 +75,35 @@ export class UnavailableBrandFileStore implements BrandFileStore {
   }
 }
 
+/**
+ * Antivirus et type réel des actifs de marque (US-120 ; DEC-FONDATEUR-20 : ClamAV auto-hébergé,
+ * fail-closed ; même forme que `UploadScanner` d'AUD et que les ports des photos et des pièces).
+ * Seul un verdict `CLEAN` dont le type détecté est le type réel lu dans les octets libère l'actif.
+ */
+export type BrandScanResult =
+  | {
+      readonly status: 'SCANNED';
+      readonly report: { readonly verdict: string; readonly detectedMime: string | null };
+    }
+  | { readonly status: 'UNAVAILABLE' }
+  | { readonly status: 'TIMEOUT' };
+
+export interface BrandScanner {
+  scan(request: { readonly declaredMime: string; readonly body: Buffer }): Promise<BrandScanResult>;
+}
+
+/** Antivirus indisponible (production tant que l'adaptateur ClamAV n'est pas livré) : rien ne passe. */
+export class UnavailableBrandScanner implements BrandScanner {
+  scan(): Promise<BrandScanResult> {
+    return Promise.resolve({ status: 'UNAVAILABLE' });
+  }
+}
+
 export interface BrandOptions {
   readonly store: BrandStore;
   readonly files: BrandFileStore;
+  /** Antivirus des actifs (US-120) : `UnavailableBrandScanner` en production (fail-closed). */
+  readonly scanner: BrandScanner;
   readonly params: BrandParams;
   /** Identifiants des nouvelles lignes (UUID v4 par défaut ; injectable pour les tests). */
   readonly newId?: () => string;
@@ -371,6 +398,7 @@ export interface ContentGap {
 export class BrandConsoleService {
   readonly #store: BrandStore;
   readonly #files: BrandFileStore;
+  readonly #scanner: BrandScanner;
   readonly #params: BrandParams;
   readonly #read: BrandReadService;
   readonly #newId: () => string;
@@ -379,13 +407,17 @@ export class BrandConsoleService {
   constructor(options: BrandOptions, read: BrandReadService) {
     this.#store = options.store;
     this.#files = options.files;
+    this.#scanner = options.scanner;
     this.#params = options.params;
     this.#read = read;
     this.#newId = options.newId ?? randomUUID;
     this.#registry = options.blocks ?? EDITABLE_BLOCKS;
   }
 
-  /** Actif de marque : type réel contrôlé, ligne en base AVANT le dépôt (création seule). */
+  /**
+   * Actif de marque : taille, type réel, antivirus (US-120), puis ligne en base AVANT le dépôt
+   * (création seule).
+   */
   async registerAsset(tokenHash: Buffer, upload: AssetUpload) {
     const kind = upload.kind as AssetKind;
     if (!KINDS.includes(kind)) throw new BrandError('REQUEST_INVALID');
@@ -399,6 +431,15 @@ export class BrandConsoleService {
     const allowed =
       kind === 'FONT' ? mime === 'font/woff2' : mime !== null && mime !== 'font/woff2';
     if (mime === null || !allowed) throw new BrandError('BRAND_ASSET_INVALID', { reason: 'TYPE' });
+    // antivirus AVANT toute écriture (US-120, DEC-FONDATEUR-20) : panne ou délai => 503, rien
+    // n'est écrit ; verdict autre que CLEAN, ou type détecté différent du type réel => refus
+    const scan = await this.#scanner.scan({ declaredMime: mime, body: upload.body });
+    if (scan.status !== 'SCANNED') {
+      throw new BrandError('BRAND_ASSET_UNAVAILABLE', { reason: 'SCAN' });
+    }
+    if (scan.report.verdict !== 'CLEAN' || scan.report.detectedMime !== mime) {
+      throw new BrandError('BRAND_ASSET_INVALID', { reason: 'SCAN' });
+    }
     let alt: Record<ContentLocale, string> | null = null;
     if (kind !== 'FONT') {
       const a = (upload.alt ?? {}) as Record<string, unknown>;
@@ -473,6 +514,9 @@ export class BrandConsoleService {
     }
     const theme = themeOf(tokens);
     assertFontsApproved(theme, this.#params);
+    // logo SVG (jeton `brand.logo*`, US-120, ADR-116) : aucun script, lien ni ressource externe
+    const logos = logoProblems(tokens);
+    if (logos.length > 0) throw new BrandError('BRAND_TOKENS_INVALID', { problems: logos });
     const r = await this.#store.saveDraft(tokenHash, {
       requestId: input.requestId,
       versionId: this.#newId(),
