@@ -37,6 +37,9 @@
  * base juge chaque droit (permission EN COURS dans le pays du sujet, couverture) et journalise
  * chaque refus et chaque lecture de données personnelles AVANT de la rendre. Les lectures qui
  * rendent une donnée personnelle sont des POST : un motif (`purpose`) est exigé et journalisé.
+ * Séparation des tâches (US-122, ADR-122) : un élément des files LISTING et CATALOG_ADDITION dont le
+ * sujet concerne l'agent (son compte, son véhicule, sa contestation, sa demande, un compte lié)
+ * rend 403 STAFF_SELF_FORBIDDEN, journalisé.
  */
 import {
   Body,
@@ -254,6 +257,7 @@ function refusalOf(outcome: string): never {
   if (outcome === 'AUTH_REQUIRED') throw new AuthHttpError('AUTH_REQUIRED');
   if (outcome === 'MFA_REQUIRED') throw new AuthHttpError('2FA_REQUIRED');
   if (outcome === 'CASE_REQUIRED') throw new OpsHttpError('STAFF_CASE_REQUIRED');
+  if (outcome === 'SELF_FORBIDDEN') throw new OpsHttpError('STAFF_SELF_FORBIDDEN');
   throw new AuthHttpError('FORBIDDEN');
 }
 

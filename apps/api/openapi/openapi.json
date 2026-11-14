@@ -8177,7 +8177,7 @@
             }
           },
           "409": {
-            "description": "Aucun autre compte n'a cette plaque ni ce VIN ; contestation déjà ouverte",
+            "description": "Aucun autre compte n'a cette plaque ni ce VIN ; contestation déjà ouverte ; plafond de contestations ouvertes du compte atteint (CLAIM_LIMIT_REACHED, paramètre plate_claims_open_per_host du pays, US-122)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -8189,7 +8189,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["CLAIM_NOT_NEEDED", "CLAIM_DUPLICATE"]
+                      "enum": ["CLAIM_NOT_NEEDED", "CLAIM_DUPLICATE", "CLAIM_LIMIT_REACHED"]
                     }
                   }
                 }
@@ -8725,7 +8725,7 @@
             "$ref": "#/components/responses/StaffAuthRequired"
           },
           "403": {
-            "description": "Sans permission, élément non pris en charge, confirmation réservée à l'ADMIN, ou ADMIN qui a déjà libéré cette plaque (le recours est jugé par un autre)",
+            "description": "Sans permission, élément non pris en charge, confirmation réservée à l'ADMIN, ou ADMIN qui a déjà libéré cette plaque (le recours est jugé par un autre) ; contestation qui concerne l'agent (STAFF_SELF_FORBIDDEN, US-122)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -8742,7 +8742,8 @@
                         "2FA_REQUIRED",
                         "STAFF_CASE_REQUIRED",
                         "STAFF_ADMIN_REQUIRED",
-                        "STAFF_SAME_ADMIN_FORBIDDEN"
+                        "STAFF_SAME_ADMIN_FORBIDDEN",
+                        "STAFF_SELF_FORBIDDEN"
                       ]
                     }
                   }
@@ -9158,7 +9159,7 @@
         }
       },
       "StaffForbiddenOrCase": {
-        "description": "Sans rôle interne ou sans la permission dans le pays du sujet (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; permission détenue mais aucun dossier ni élément de file assigné ne couvre le sujet (STAFF_CASE_REQUIRED, journalisé)",
+        "description": "Sans rôle interne ou sans la permission dans le pays du sujet (FORBIDDEN, journalisé) ; session non élevée (2FA_REQUIRED) ; permission détenue mais aucun dossier ni élément de file assigné ne couvre le sujet (STAFF_CASE_REQUIRED, journalisé) ; sujet qui concerne l'agent : son compte, son véhicule, sa contestation, sa demande ou un compte lié (STAFF_SELF_FORBIDDEN, journalisé, US-122)",
         "headers": {
           "Cache-Control": {
             "$ref": "#/components/headers/NoStore"
@@ -9170,7 +9171,12 @@
               "$ref": "#/components/schemas/AuthBody",
               "properties": {
                 "code": {
-                  "enum": ["FORBIDDEN", "2FA_REQUIRED", "STAFF_CASE_REQUIRED"]
+                  "enum": [
+                    "FORBIDDEN",
+                    "2FA_REQUIRED",
+                    "STAFF_CASE_REQUIRED",
+                    "STAFF_SELF_FORBIDDEN"
+                  ]
                 }
               }
             }

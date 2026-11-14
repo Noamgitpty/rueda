@@ -17,6 +17,7 @@ import {
   assertContrast,
   buildTheme,
   getActiveTheme,
+  logoProblem,
   paletteDocument,
   resolveSelection,
   themeStyleSheet,
@@ -67,9 +68,13 @@ export function validBrandName(value: unknown): string | undefined {
   return name;
 }
 
+/**
+ * Logo lu : le même contrôle par liste blanche que l'enregistrement (`logoProblem`, US-122,
+ * ADR-122) ; un logo refusé n'est pas affiché (le nom de la marque reste).
+ */
 function validLogo(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length > MAX_LOGO_LENGTH) return undefined;
-  return value.trimStart().startsWith('<svg') ? value : undefined;
+  return logoProblem(value) === null ? value : undefined;
 }
 
 function logoOf(doc: unknown): BrandLogo {

@@ -56,6 +56,38 @@ describe('logo SVG de la marque', () => {
     expect(logoProblem(svg)).not.toBeNull();
   });
 
+  // US-122 (red team F-L1-B-01, ADR-122) : liste blanche par analyse XML
+  it.each([
+    ['gestionnaire collé', '<svg xmlns="http://www.w3.org/2000/svg"onload="x()"></svg>'],
+    ['gestionnaire après une barre', '<svg/onload=x()></svg>'],
+    ['élément préfixé', wrap('<svg:script xmlns:svg="http://www.w3.org/2000/svg">x</svg:script>')],
+    ['attribut préfixé', wrap('<rect xml:base="https://example.test/"/>')],
+    ['espace de noms inconnu', wrap('<g xmlns:ev="http://www.w3.org/2001/xml-events"/>')],
+    ['xmlns étranger', '<svg xmlns="http://www.w3.org/1999/xhtml"></svg>'],
+    ['attribut hors liste', wrap('<rect data-x="1"/>')],
+    ['élément style', wrap('<style>rect{fill:red}</style>')],
+    ['échappement CSS', wrap('<rect style="fill:\\72 ed"/>')],
+    ['image-set', wrap('<rect style="fill:image-set(&quot;x&quot; 1x)"/>')],
+    ['entité dans un texte', wrap('<text>&amp;</text>')],
+    ['commentaire', wrap('<!-- x -->')],
+    ['texte hors élément de texte', wrap('alert(1)')],
+    ['valeur sans guillemets', '<svg width=1></svg>'],
+    ['balise non fermée', '<svg xmlns="http://www.w3.org/2000/svg"><g></svg>'],
+    ['href vers un autre élément que use', wrap('<g href="#a"/>')],
+  ])('refuse (liste blanche) : %s', (_why, svg) => {
+    expect(logoProblem(svg)).not.toBeNull();
+  });
+
+  it('admet un logo usuel : groupes, dégradé, découpe, titre et texte', () => {
+    expect(
+      logoProblem(
+        wrap(
+          '<title>Marque</title><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#000"/></linearGradient><clipPath id="c"><rect width="4" height="4"/></clipPath></defs><g clip-path="url(#c)" transform="translate(1 1)"><path d="M0 0h4" stroke="url(#g)"/><text x="1" y="2" font-size="2">K</text></g>',
+        ),
+      ),
+    ).toBeNull();
+  });
+
   it('taille bornée ; un texte est exigé', () => {
     expect(logoProblem('')).not.toBeNull();
     expect(logoProblem(`<svg>${' '.repeat(LOGO_MAX_LENGTH)}</svg>`)).not.toBeNull();

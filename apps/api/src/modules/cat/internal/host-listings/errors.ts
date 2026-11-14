@@ -28,6 +28,8 @@
  * `VEHICLE_ELIGIBILITY_SUBMITTED`, `VEHICLE_UNDER_REVIEW`, `VEHICLE_INELIGIBLE`, `VEHICLE_RELEASED`,
  * `VEHICLE_ALREADY_ELIGIBLE`, `VEHICLE_DOCUMENT_INVALID`, `VEHICLE_DOCUMENT_UNAVAILABLE` ;
  * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE` ;
+ * PROPOSÉ par US-122 (red team F-L1-V-01, ADR-122) : `CLAIM_LIMIT_REACHED` (plafond de contestations
+ * ouvertes du compte, paramètre `plate_claims_open_per_host` du pays) ;
  * PROPOSÉ par le correctif d'US-124 (ADR-113) : `VEHICLE_VIN_INVALID` (numéro de châssis ni VIN
  * ISO 3779 ni numéro non ISO de 5 à 16 caractères ; création et déclaration du véhicule).
  *
@@ -105,6 +107,7 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_ALREADY_ELIGIBLE: { status: 409, messageKey: 'common.vehicleDocs.alreadyEligible' },
   CLAIM_NOT_NEEDED: { status: 409, messageKey: 'common.vehicleDocs.claimNotNeeded' },
   CLAIM_DUPLICATE: { status: 409, messageKey: 'common.vehicleDocs.claimDuplicate' },
+  CLAIM_LIMIT_REACHED: { status: 409, messageKey: 'common.vehicleDocs.claimLimitReached' },
   VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
   // numéro de châssis mal formé : message dédié avec les deux formats admis (ADR-113)

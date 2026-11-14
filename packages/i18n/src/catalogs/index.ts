@@ -80,8 +80,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 39 : demandes des personnes saisies par l'action de console HANDLE_DSR (US-111,
  ADR-118) : `backoffice.dsr.*` (type, étape, refus) ; sens de `backoffice.action.HANDLE_DSR`
  inchangé (titre du formulaire).
+ Version 40 : correctifs de la red team du lot 1 (US-122, ADR-122) : `common.ops.selfForbidden`
+ (séparation des tâches de la console) et `common.vehicleDocs.claimLimitReached` (plafond de
+ contestations ouvertes).
  */
-export const CATALOG_VERSION = 39;
+export const CATALOG_VERSION = 40;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

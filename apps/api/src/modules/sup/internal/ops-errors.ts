@@ -11,6 +11,9 @@ import { HttpException } from '@nestjs/common';
 export const OPS_MESSAGES = {
   // la permission est détenue, mais aucun dossier ni élément de file assigné ne couvre le sujet
   STAFF_CASE_REQUIRED: { status: 403, messageKey: 'common.ops.caseRequired' },
+  // séparation des tâches (US-122, ADR-122) : le sujet concerne l'agent (son compte, son véhicule,
+  // sa contestation, sa demande, ou un compte lié) : jamais traité par lui
+  STAFF_SELF_FORBIDDEN: { status: 403, messageKey: 'common.ops.selfForbidden' },
   STAFF_ITEM_TAKEN: { status: 409, messageKey: 'common.ops.itemTaken' },
   STAFF_USER_NOT_FOUND: { status: 404, messageKey: 'common.ops.userNotFound' },
   EVIDENCE_REJECTED: { status: 422, messageKey: 'common.evidence.rejected' },
