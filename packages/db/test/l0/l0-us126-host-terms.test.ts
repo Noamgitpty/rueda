@@ -148,7 +148,7 @@ async function completeDraft(client: pg.ClientBase, h: Host, c: CountryCase): Pr
        FROM core.catalog_vehicle_variant v
        JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
        JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
-      WHERE v.status = 'ACTIVE' AND v.market IS NULL
+      WHERE v.status = 'ACTIVE' AND v.market IS NULL AND v.transmission IS NOT NULL
       ORDER BY v.id LIMIT 1`,
   );
   const veh = await client.query<{ outcome: string; vehicle_id: string | null }>(

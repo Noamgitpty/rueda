@@ -1,7 +1,9 @@
 {
-  "$comment": "Import de la douane du Paraguay (suite d'US-113, ADR-109) : marques et modèles d'au moins `minUnits` unités importées (8703 et 8704 jusqu'à 5 t, régimes définitifs, échantillon 1997–2026), normalisés et rapprochés de la graine v1 par scripts/catalog/dnit-import.mjs. Aucune caractéristique technique : la douane n'en donne pas (à compléter par l'ops). `existing` : ligne de la graine v1, jamais recréée ; `variant` : variante sans fiche, années indicatives, du marché `market` ; `units` et `imported` : traçabilité, jamais chargés. La migration 0079 contient le rendu (apps/api/src/modules/cat/internal/vehicle-catalog/customs-import.ts).",
+  "$comment": "Import de la douane du Paraguay (suite d'US-113, ADR-109) : marques et modèles d'au moins `minUnits` unités importées (8703 et 8704 jusqu'à 5 t, régimes définitifs, échantillon 1997–2026), normalisés et rapprochés de la graine v1 par scripts/catalog/dnit-import.mjs. Aucune caractéristique technique : la douane n'en donne pas (à compléter par l'ops). `existing` : ligne de la graine v1, jamais recréée ; `variant` : variante sans fiche, années indicatives, insérée au marché `market` (pays de la source) pour le lot 1, commune à tous les pays dès `sharedFromLot` (la migration 0095 a rendu communes celles du lot 1, ADR-123) ; `lot` : lot d'import (1 par défaut : migration 0079 ; 2 : 0096) ; `sourceSha256` : empreinte du CSV source ; `units` et `imported` : traçabilité, jamais chargés. Rendu : apps/api/src/modules/cat/internal/vehicle-catalog/customs-import.ts.",
   "version": 1,
   "market": "PY",
+  "sharedFromLot": 2,
+  "sourceSha256": "e72363eea995bc7212c6f12c5267909b51c19e6084201c38552dd15135bd401a",
   "minUnits": 30,
   "sourceLicenses": {
     "DNIT_ADUANAS_PY": {
@@ -3703,6 +3705,18 @@
           "provenance": "dnit-aduanas-2026-11",
           "units": 197,
           "imported": [2009, 2015]
+        },
+        {
+          "slug": "vigor",
+          "name": "Vigor",
+          "lot": 2,
+          "variant": {
+            "yearFrom": 2014,
+            "yearTo": null
+          },
+          "provenance": "dnit-aduanas-2026-11",
+          "units": 34,
+          "imported": [2015, 2018]
         }
       ]
     },
