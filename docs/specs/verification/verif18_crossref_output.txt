@@ -1,39 +1,39 @@
 ## 1. Identifiants cites mais non definis
 - BR : 199 distincts cites, 199 definis, 0 cites sans definition
 - SM : 11 distincts cites, 10 definis, 1 cites sans definition
-    * SM-x : 17_:950
+    * SM-x : 17_:1204
 - EC : 57 distincts cites, 57 definis, 0 cites sans definition
 - TA : 11 distincts cites, 11 definis, 0 cites sans definition
 - OQ : 85 distincts cites, 85 definis, 0 cites sans definition
 - UXQ : 13 distincts cites, 13 definis, 0 cites sans definition
-- DEC : 10 distincts cites, 10 definis, 0 cites sans definition
-- ADR : 40 distincts cites, 40 definis, 0 cites sans definition
-- RLS : 20 distincts cites, 20 definis, 0 cites sans definition
+- DEC : 17 distincts cites, 17 definis, 0 cites sans definition
+- ADR : 46 distincts cites, 46 definis, 0 cites sans definition
+- RLS : 28 distincts cites, 28 definis, 0 cites sans definition
 - L0 : 10 distincts cites, 10 definis, 0 cites sans definition
 - FEAT : 652 distincts cites, 676 definis, 1 cites sans definition
-    * SHA-256 : 10b:283, 16_:1347, 16_:2317, 16_:2355, 16_:2525
-- T (vecteurs de 08) : 68 definis (max T68) ; tokens T<nn> cites hors definition inconnus : {}
+    * SHA-256 : 10b:288, 16_:1284, 16_:2124, 16_:2306, 16_:2318
+- T (vecteurs de 08) : 73 definis (max T73) ; tokens T<nn> cites hors definition inconnus : {}
 ## 2. Definis mais jamais cites hors definition
-- OQ sans aucune citation hors ligne de definition : 4 -> ['OQ-PAY-09', 'OQ-PAY-14', 'OQ-PAY-16', 'OQ-ARCH-02']
-- ADR sans aucune citation hors ligne de definition : 8 -> ['ADR-008', 'ADR-010', 'ADR-015', 'ADR-016', 'ADR-018', 'ADR-020', 'ADR-022', 'ADR-023']
-- RLS sans aucune citation hors ligne de definition : 10 -> ['RLS-2', 'RLS-3', 'RLS-4', 'RLS-5', 'RLS-7', 'RLS-8', 'RLS-9', 'RLS-10', 'RLS-11', 'RLS-16']
+- OQ sans aucune citation hors ligne de definition : 2 -> ['OQ-PAY-14', 'OQ-PAY-16']
+- ADR sans aucune citation hors ligne de definition : 9 -> ['ADR-008', 'ADR-010', 'ADR-015', 'ADR-016', 'ADR-018', 'ADR-022', 'ADR-023', 'ADR-042', 'ADR-043']
+- RLS sans aucune citation hors ligne de definition : 13 -> ['RLS-3', 'RLS-4', 'RLS-5', 'RLS-7', 'RLS-8', 'RLS-9', 'RLS-10', 'RLS-11', 'RLS-16', 'RLS-22', 'RLS-23', 'RLS-25', 'RLS-26']
 - L0 sans aucune citation hors ligne de definition : 0 -> []
 - UXQ sans aucune citation hors ligne de definition : 0 -> []
 - SM sans aucune citation hors ligne de definition : 0 -> []
-- TA sans aucune citation hors ligne de definition : 0 -> []
-- T sans citation hors ligne de definition (dans 08/11/16/17/18/22/10b) : 3 -> ['T04', 'T10', 'T21']
+- TA sans aucune citation hors ligne de definition : 3 -> ['TA02', 'TA03', 'TA05']
+- T sans citation hors ligne de definition (dans 08/11/16/17/18/22/10b) : 2 -> ['T04', 'T21']
 - BR definies : 199 ; non citees dans 04 (regles_liees/notes/dependances) : 10 -> ['BR-CXL-03', 'BR-CXL-15', 'BR-CXL-16', 'BR-FUEL-02', 'BR-FUEL-03', 'BR-PROT-08', 'BR-RETURN-05', 'BR-RETURN-07', 'BR-TRUST-09', 'BR-TT-05']
-  dont non citees non plus dans 16 : 7 -> ['BR-CXL-16', 'BR-FUEL-02', 'BR-FUEL-03', 'BR-PROT-08', 'BR-RETURN-05', 'BR-TRUST-09', 'BR-TT-05']
+  dont non citees non plus dans 16 : 5 -> ['BR-CXL-16', 'BR-FUEL-02', 'BR-FUEL-03', 'BR-RETURN-05', 'BR-TT-05']
   dont non citees dans 11/17/18 non plus : 0 -> []
-- Features P0 : 179 ; sans fiche titree dans 16 : ['ACC-001', 'ACC-006', 'ACC-008', 'ACC-014', 'ACC-029', 'VER-001', 'VER-002', 'VER-003', 'VER-004', 'VER-005', 'VER-006', 'VER-007', 'VER-013', 'VER-015', 'VER-027', 'VER-028', 'SRC-001', 'SRC-002', 'SRC-008', 'SRC-011', 'SRC-012', 'SRC-042', 'LST-002', 'LST-003', 'LST-006', 'LST-007', 'LST-008', 'LST-010', 'LST-012', 'LST-013', 'LST-020', 'BKG-001', 'BKG-002', 'BKG-006', 'BKG-008', 'BKG-012', 'BKG-014', 'BKG-016', 'BKG-018', 'BKG-019', 'BKG-022', 'BKG-023', 'BKG-025', 'BKG-027', 'BKG-028', 'BKG-032', 'BKG-035', 'PAY-001', 'PAY-002', 'PAY-004', 'PAY-006', 'PAY-011', 'PAY-012', 'PAY-015', 'PAY-017', 'PAY-018', 'PAY-019', 'PAY-021', 'PRC-001', 'PRC-012', 'PRC-020', 'PRC-021', 'PRC-025', 'TRP-002', 'TRP-004', 'TRP-007', 'TRP-015', 'TRP-033', 'TRP-035', 'TRP-038', 'TRP-045', 'MSG-001', 'MSG-007', 'NTF-001', 'NTF-002', 'NTF-007', 'NTF-011', 'REV-001', 'REV-010', 'HST-005', 'HST-011', 'HST-012', 'HST-016', 'HST-019', 'HST-026', 'HST-033', 'HST-039', 'CAL-001', 'CAL-002', 'CAL-003', 'CAL-004', 'CAL-009', 'CAL-011', 'HDB-001', 'HDB-002', 'PYO-001', 'PYO-002', 'PYO-007', 'PYO-013', 'FLT-001', 'FLT-003', 'FLT-011', 'CLM-001', 'CLM-002', 'CLM-006', 'CLM-021', 'PRT-003', 'PRT-009', 'PRT-013', 'SUP-004', 'SUP-011', 'ADM-001', 'ADM-002', 'ADM-003', 'ADM-004', 'ADM-005', 'ADM-006', 'ADM-007', 'ADM-008', 'ADM-014', 'ADM-022', 'ADM-029', 'FIN-001', 'FIN-002', 'FIN-003', 'FIN-004', 'FIN-005', 'I18N-003', 'I18N-004', 'I18N-005', 'LEG-001', 'LEG-002', 'LEG-009', 'LEG-010', 'LEG-011', 'LEG-014', 'LEG-015', 'LEG-020', 'LEG-024', 'PAY-033', 'FIN-018', 'FIN-019', 'LEG-025', 'PRT-019', 'LEG-026', 'LEG-027', 'TRP-052', 'ADM-031', 'CLM-034', 'PAY-034', 'PAY-035', 'ADM-032', 'ADM-033', 'ADM-034', 'ADM-035', 'ADM-036', 'PAY-036', 'PAY-037', 'PAY-038', 'PAY-041', 'SUP-020', 'TRP-056', 'TRP-057', 'HST-050', 'DSN-001', 'DSN-002', 'DSN-003', 'DSN-004', 'DSN-005', 'DSN-006', 'DSN-007', 'PLT-001', 'PLT-002', 'PLT-003', 'PLT-004', 'PLT-005', 'PAY-042', 'FIN-020', 'VER-029']
-- Features P0 sans BR en regles_liees : 40 -> ['VER-028', 'SRC-001', 'SRC-002', 'BKG-027', 'TRP-045', 'NTF-001', 'NTF-002', 'HDB-001', 'HDB-002', 'SUP-011', 'ADM-001', 'ADM-014', 'FIN-005', 'I18N-003', 'LEG-010', 'LEG-011', 'LEG-014', 'LEG-015', 'FIN-019', 'ADM-032', 'ADM-033', 'ADM-034', 'ADM-035', 'ADM-036', 'PAY-041', 'SUP-020', 'TRP-056', 'TRP-057', 'DSN-001', 'DSN-002', 'DSN-003', 'DSN-004', 'DSN-005', 'DSN-006', 'DSN-007', 'PLT-001', 'PLT-002', 'PLT-003', 'PLT-004', 'PLT-005']
+- Features P0 : 178 ; sans fiche titree dans 16 : ['ACC-001', 'ACC-006', 'ACC-014', 'VER-001', 'VER-002', 'VER-003', 'VER-004', 'VER-005', 'VER-006', 'VER-007', 'VER-013', 'VER-015', 'VER-028', 'SRC-001', 'SRC-002', 'SRC-008', 'SRC-011', 'SRC-012', 'SRC-042', 'LST-002', 'LST-003', 'LST-006', 'LST-007', 'LST-008', 'LST-010', 'LST-012', 'LST-013', 'LST-020', 'BKG-001', 'BKG-002', 'BKG-003', 'BKG-006', 'BKG-008', 'BKG-012', 'BKG-014', 'BKG-016', 'BKG-018', 'BKG-019', 'BKG-022', 'BKG-023', 'BKG-025', 'BKG-027', 'BKG-028', 'BKG-032', 'BKG-035', 'PAY-001', 'PAY-002', 'PAY-004', 'PAY-006', 'PAY-011', 'PAY-012', 'PAY-015', 'PAY-017', 'PAY-018', 'PAY-019', 'PAY-021', 'PRC-001', 'PRC-012', 'PRC-018', 'PRC-020', 'PRC-021', 'PRC-025', 'TRP-002', 'TRP-004', 'TRP-007', 'TRP-015', 'TRP-033', 'TRP-035', 'TRP-038', 'TRP-045', 'MSG-001', 'MSG-007', 'NTF-001', 'NTF-002', 'NTF-007', 'NTF-011', 'REV-001', 'REV-002', 'REV-004', 'REV-010', 'HST-005', 'HST-011', 'HST-012', 'HST-016', 'HST-019', 'HST-026', 'HST-033', 'HST-039', 'HST-048', 'CAL-001', 'CAL-002', 'CAL-003', 'CAL-004', 'CAL-011', 'HDB-001', 'HDB-002', 'PYO-001', 'PYO-002', 'PYO-003', 'PYO-007', 'PYO-013', 'CLM-001', 'CLM-002', 'CLM-006', 'CLM-021', 'PRT-001', 'PRT-002', 'PRT-003', 'PRT-007', 'PRT-008', 'PRT-011', 'PRT-013', 'PRT-015', 'SUP-004', 'SUP-011', 'ADM-001', 'ADM-002', 'ADM-003', 'ADM-004', 'ADM-005', 'ADM-006', 'ADM-007', 'ADM-008', 'ADM-014', 'ADM-022', 'ADM-027', 'ADM-029', 'FIN-001', 'FIN-002', 'FIN-003', 'FIN-004', 'FIN-005', 'FIN-008', 'I18N-003', 'I18N-004', 'I18N-005', 'LEG-001', 'LEG-002', 'LEG-009', 'LEG-010', 'LEG-011', 'LEG-014', 'LEG-015', 'LEG-021', 'LEG-024', 'FIN-018', 'LEG-026', 'ADM-031', 'CLM-034', 'PAY-034', 'ADM-032', 'ADM-033', 'ADM-034', 'ADM-035', 'ADM-036', 'PAY-036', 'PAY-037', 'PAY-041', 'SUP-020', 'TRP-056', 'TRP-057', 'HST-049', 'HST-050', 'DSN-001', 'DSN-002', 'DSN-003', 'DSN-004', 'DSN-005', 'DSN-006', 'DSN-007', 'PLT-001', 'PLT-002', 'PLT-003', 'PLT-004', 'PLT-005', 'PAY-042', 'FIN-020', 'VER-029']
+- Features P0 sans BR en regles_liees : 41 -> ['VER-028', 'SRC-001', 'SRC-002', 'BKG-027', 'TRP-045', 'NTF-001', 'NTF-002', 'HDB-001', 'HDB-002', 'SUP-011', 'ADM-001', 'ADM-014', 'ADM-027', 'FIN-005', 'I18N-003', 'LEG-010', 'LEG-011', 'LEG-014', 'LEG-015', 'LEG-021', 'ADM-032', 'ADM-033', 'ADM-034', 'ADM-035', 'ADM-036', 'PAY-041', 'SUP-020', 'TRP-056', 'TRP-057', 'DSN-001', 'DSN-002', 'DSN-003', 'DSN-004', 'DSN-005', 'DSN-006', 'DSN-007', 'PLT-001', 'PLT-002', 'PLT-003', 'PLT-004', 'PLT-005']
 - EC (11) sans aucune BR dans leur section : 0 -> []
 - EC (11) jamais cites ailleurs (04/08/16/17/18/22/10b) : 4 -> ['EC-21', 'EC-22', 'EC-23', 'EC-25']
-- C-tests : 20 definis ; tokens C<n> non definis (bruit possible) : {('17_', 'C0'): 13}
+- C-tests : 20 definis ; tokens C<n> non definis (bruit possible) : {('17_', 'C0'): 15}
 - ecrans S cites dans 16_ inconnus de 10b : []
 - ecrans S cites dans 18_ inconnus de 10b : []
 - ecrans S cites dans 17_ inconnus de 10b : []
 - ecrans S cites dans 22_ inconnus de 10b : []
 - ecrans A cites dans 16_ inconnus de 10b : []
-- ecrans A cites dans 18_ inconnus de 10b : []
+- ecrans A cites dans 18_ inconnus de 10b : ['A24']
 - ecrans de 10b jamais cites par 16 : []

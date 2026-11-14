@@ -7,8 +7,8 @@
 -- Rôle : sur l'horloge RÉELLE (`platform.now()` = `clock_timestamp()`, aucun `app.virtual_now`),
 -- un hold n'échoit qu'après `hold_ttl_minutes` (graine : 10 min). La passe en horloge réelle de
 -- l0-06-real-clock.test.ts pose donc ses holds pendant une courte FENÊTRE où `hold_ttl_minutes`
--- vaut 1 min pour le pays : une version de paramètre ordinaire, non rétroactive (valid_from =
--- platform.now()), fermée d'emblée (valid_to = platform.now() + fenêtre, au plus 60 s). Les holds
+-- vaut 1 min pour le pays : une version de paramètre ordinaire, non rétroactive (valid_from posé
+-- par la garde à platform.now()), fermée d'emblée (valid_to = platform.now() + fenêtre, au plus 60 s). Les holds
 -- posés hors de la fenêtre gardent la graine ; aucune autre clé n'est écrite. Le fichier de test
 -- tourne seul (projet l0-concurrence) : aucun autre fichier ne pose de hold pendant la fenêtre.
 --
@@ -33,7 +33,9 @@ BEGIN
   v_to := v_from + pg_catalog.make_interval(secs => p_window_s);
   INSERT INTO core.config_param_value (key, country_code, scope_type, value, valid_from, valid_to,
                                        change_reason)
-  VALUES ('hold_ttl_minutes', p_country_code, 'COUNTRY', '1'::jsonb, v_from, v_to,
+  -- valid_from NULL : la garde config_param_value_guard le pose à SON platform.now() (un instant
+  -- lu plus tôt dans la fonction serait déjà « rétroactif », PARAM_RETROACTIVE)
+  VALUES ('hold_ttl_minutes', p_country_code, 'COUNTRY', '1'::jsonb, NULL, v_to,
           'test US-045 : passe C2 / C5 / C15 en horloge réelle (fenêtre fermée)');
   RETURN v_to;
 END
