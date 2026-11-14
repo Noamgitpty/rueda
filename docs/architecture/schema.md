@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 81 migrations ; 98 tables ; 2 vues ; 522 politiques RLS ; 174 fonctions `SECURITY DEFINER` ; 168 autres fonctions.
+- 83 migrations ; 98 tables ; 2 vues ; 522 politiques RLS ; 174 fonctions `SECURITY DEFINER` ; 170 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -96,6 +96,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0078_config_vehicle_eligibility_params` | graine complémentaire : paramètres « elig_* » (US-124 ; 17 §7.2). |
 | `0079_catalog_customs_import` | CAT : import des marques et modèles déclarés à la douane (suite d'US-113 ; ADR-109, |
 | `0080_risk_self_booking_linked_accounts` | RISK / AVL : cumul hôte / voyageur, auto-réservation refusée y compris par un compte lié. |
+| `0086_config_host_tax_id_params` | graine complémentaire : paramètres « host_tax_id_required_for_activation* » (US-123 ; 17 §7.2). |
+| `0087_kyc_host_tax_id_optional` | KYC : numéro fiscal de l'hôte facultatif à l'activation (« jamais plus lourd que Turo »). |
 
 ## Rôles
 
@@ -1845,7 +1847,7 @@ Politiques RLS :
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
 - `iam_auth_otp_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = ANY (ARRAY['otp_ttl_min'::text, 'otp_max_attempts'::text, 'otp_lock_min'::text, 'otp_sms_fallback_s'::text]))`
 - `iam_staff_sla_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = ANY (ARRAY['kyc_review_sla_business_h'::text, 'listing_review_sla_h'::text, 'catalog_addition_sla_business_h'::text, 'review_hold_minutes'::text]))`
-- `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_min_age_years'::text, 'p2p_host_requires_tax_id'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
+- `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_min_age_years'::text, 'p2p_host_requires_tax_id'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text, 'host_tax_id_required_for_activation'::text]))`
 - `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = 'biometric_appeal_retention_days'::text)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
@@ -5101,7 +5103,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_host_emit_org(p_org uuid, p_type text, p_version integer, p_from text, p_to text, p_actor uuid, p_actor_role text, p_country text)` | `uuid` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_gates(p_org uuid)` | `TABLE(org_id uuid, user_id uuid, country_code text, org_status text, kyc_id uuid, age text, residence text, tax text, terms_ok boolean, screening_id uuid, screening_result text, submerchant_ok boolean, capabilities_ok boolean, p2p_open boolean, insurer_open boolean)` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_param(p_key text, p_country text)` | `jsonb` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
+| `core.kyc_host_psp_requires_tax_id(p_org uuid)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_refresh(p_dossier uuid)` | `text` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
+| `core.kyc_host_tax_saved(p_org uuid)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_try_activate(p_org uuid, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, blockers text[], event_ids uuid[])` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_retention_days(p_country text)` | `integer` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_review_enqueue(p_user uuid, p_actor uuid)` | `text` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |

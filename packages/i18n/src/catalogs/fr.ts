@@ -1179,7 +1179,7 @@ export const FR_MESSAGES = {
   'web.a07.tax.optionalHint':
     'Tu peux ajouter ton numéro fiscal maintenant ou plus tard. Nous ne te le demanderons que si notre prestataire de paiement en a besoin pour te payer.',
   'web.a07.tax.reminder':
-    'Tes impôts relèvent de ta responsabilité. Dans ton pays ({country}), tu dois peut-être t’inscrire auprès de l’administration fiscale, par exemple pour obtenir un numéro de contribuable, dans un délai fixé après tes premiers revenus de location. Renseigne-toi auprès de l’administration fiscale ou d’un comptable.',
+    'Tes impôts relèvent de ta responsabilité. Selon les règles fiscales locales, tu dois peut-être t’inscrire auprès de l’administration fiscale, par exemple pour obtenir un numéro de contribuable, dans un délai fixé après tes premiers revenus de location. Renseigne-toi auprès de l’administration fiscale ou d’un comptable.',
   'web.a07.submit': 'Envoyer ma demande',
   'web.a07.submitHint':
     'Tu peux l’envoyer même s’il manque une tâche : nous te dirons ce qui reste.',

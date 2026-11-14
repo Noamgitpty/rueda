@@ -1147,7 +1147,7 @@ export const PT_MESSAGES = {
   'web.a07.tax.optionalHint':
     'Você pode adicionar seu número fiscal agora ou mais tarde. Só vamos pedir se nosso provedor de pagamentos precisar dele para pagar você.',
   'web.a07.tax.reminder':
-    'Seus impostos são responsabilidade sua. Pelas regras fiscais locais ({country}), talvez você precise se inscrever na autoridade tributária, por exemplo para obter um número de contribuinte, dentro de um prazo após sua primeira renda com aluguel. Consulte a autoridade tributária ou um contador.',
+    'Seus impostos são responsabilidade sua. Pelas regras fiscais locais, talvez você precise se inscrever na autoridade tributária, por exemplo para obter um número de contribuinte, dentro de um prazo após sua primeira renda com aluguel. Consulte a autoridade tributária ou um contador.',
   'web.a07.submit': 'Enviar meu pedido',
   'web.a07.submitHint': 'Você pode enviar mesmo se faltar uma tarefa: diremos o que falta.',
   'web.a07.status.DOCS_PENDING': 'Seu pedido está incompleto.',

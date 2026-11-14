@@ -255,9 +255,7 @@ export default async function HostVerificationPage({
               <p className={accountStyles['muted']}>{t('web.a07.tax.optionalHint')}</p>
             )}
             {/* rappel de l'obligation fiscale de l'hôte (ADR-115) : son affaire, pas une condition */}
-            <p className={accountStyles['muted']}>
-              {t('web.a07.tax.reminder', { country: countryName(tag, v.country) })}
-            </p>
+            <p className={accountStyles['muted']}>{t('web.a07.tax.reminder')}</p>
             {taxEditable && v.taxKinds.length > 0 && (
               <TaxForm localeTag={tag} orgId={account.orgId} kinds={v.taxKinds} />
             )}
