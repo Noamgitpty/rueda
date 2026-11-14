@@ -98,7 +98,7 @@ describe('ADR-122 — aides de la garde : aucun rôle applicatif, propriétaire 
                               'support_org_people', 'kyc_legal_name_bag', 'kyc_legal_name_bags_match')
           ORDER BY 1`,
       );
-      expect(rows.map((r) => r.fn)).toEqual([
+      expect(rows.map((r) => r.fn).sort()).toEqual([
         'core.kyc_legal_name_bag(text,text)',
         'core.kyc_legal_name_bags_match(text[],text[])',
         'core.support_actor_conflict(uuid,text,uuid)',
@@ -318,6 +318,7 @@ describe.each(byCountry)(
       await rolledBack(async (tx) => {
         await installTestProofKey(tx);
         const h = await hostOf(tx, country);
+        await tx.query('SELECT test_fixture.us109_subject_key($1)', [h.userId]);
         const item = await vehicleInReview(tx, h, cc);
         // l'agent titulaire prend l'élément ; le co-hôte est ADMIN (aucune prise en charge exigée)
         const self = await elevateAs(tx, h.userId, 'OPS_AGENT', [country]);
@@ -347,6 +348,7 @@ describe.each(byCountry)(
         await installTestProofKey(tx);
         const owner = await hostOf(tx, country);
         const claimant = await hostOf(tx, country);
+        await tx.query('SELECT test_fixture.us109_subject_key($1)', [claimant.userId]);
         const p = plate();
         expect((await vehicleOf(tx, owner, cc, { plate: p })).outcome).toBe('DONE');
         const opened = await first<{ outcome: string; claim_id: string }>(
@@ -441,6 +443,7 @@ describe.each(byCountry)(
       await rolledBack(async (tx) => {
         const victim = await hostOf(tx, country);
         const attacker = await hostOf(tx, country);
+        await tx.query('SELECT test_fixture.us109_subject_key($1)', [attacker.userId]);
         const plates: string[] = [];
         for (let i = 0; i <= max; i += 1) {
           const p = plate();
