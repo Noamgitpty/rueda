@@ -117,6 +117,25 @@ async function kycItem(country: string): Promise<string> {
 }
 
 /**
+ * Élément neuf de la file HOST_VERIFICATION du pays (US-108) : compte d'hôte neuf du pays, vraie
+ * mise en file (fixture 9990) ⇒ OPS : 403 STAFF_CASE_REQUIRED (non pris en charge) ; ADMIN : 200.
+ */
+async function hostItem(country: string): Promise<string> {
+  const holder = await registerIn(country);
+  const org = randomUUID();
+  await client.query('SELECT test_fixture.iam_insert_organization($1, $2, $3)', [
+    org,
+    holder.id,
+    country,
+  ]);
+  const { rows } = await client.query<{ item_id: string }>(
+    `SELECT item_id FROM test_fixture.us109_enqueue('HOST_VERIFICATION', 'ORGANIZATION', $1, $2)`,
+    [org, country],
+  );
+  return rows[0]?.item_id ?? randomUUID();
+}
+
+/**
  * Élément neuf de la file CATALOG_ADDITION du pays (vraie mise en file, fixture 9990 ; US-114) :
  * aucune demande derrière (sujet neuf) ⇒ un acteur autorisé reçoit 403 STAFF_CASE_REQUIRED (élément
  * non pris en charge) ou 409 CATALOG_REQUEST_CLOSED (ADMIN), jamais 401 / 403 FORBIDDEN.
@@ -415,6 +434,13 @@ async function requestOf(
       return {
         method: 'POST',
         path: `/console/queues/items/${await kycItem(country)}/kyc`,
+        body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
+      };
+    // US-108 : dossier de l'hôte signalé (élément du pays de l'acteur)
+    case 'POST /console/queues/items/{id}/host-verification':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await hostItem(country)}/host-verification`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)

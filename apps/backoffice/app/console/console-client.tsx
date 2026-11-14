@@ -24,11 +24,16 @@ import {
   EVIDENCE_MAX_BYTES,
   evidenceReasonKey,
   evidenceRefusal,
+  HOST_SCREENING_REFUSAL_KEYS,
   KYC_CHECKS,
   KYC_REFUSAL_KEYS,
+  SANCTIONS_LISTS,
 } from './ops-view.tsx';
 import type {
+  SanctionsList,
+  SanctionsListResult,
   CatalogAdditionView,
+  HostDossierView,
   KycDossierView,
   ManualRestriction,
   OpsHandlers,
@@ -199,6 +204,50 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         );
       });
     },
+    // US-108 : filtrage manuel des sanctions depuis le formulaire de la console (même action que le
+    // dossier ouvert par la file) ; un requestId par intention
+    onHostScreening: (
+      orgId: string,
+      results: Readonly<Record<SanctionsList, SanctionsListResult>>,
+      reason: string,
+      evidence: readonly string[],
+    ) => {
+      const subject = orgId.trim().toLowerCase();
+      intent.current = intentFor(
+        intent.current,
+        [
+          'HOST_SANCTIONS_SCREENING',
+          subject,
+          ...SANCTIONS_LISTS.map((l) => results[l]),
+          reason.trim(),
+          evidence,
+        ],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action: 'HOST_SANCTIONS_SCREENING',
+          subjectId: subject,
+          reason,
+          input: { ...results },
+          ...(evidence.length > 0 ? { evidence } : {}),
+        });
+        const why = r.ok ? undefined : r.values?.['reason'];
+        const refusal =
+          !r.ok && r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? HOST_SCREENING_REFUSAL_KEYS[why]
+            : undefined;
+        await refresh(
+          r.ok
+            ? { tone: 'success', key: 'backoffice.host.recorded' }
+            : refusal !== undefined
+              ? { tone: 'warning', key: refusal }
+              : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
+        );
+      });
+    },
     onApprove: (approvalId: string) => {
       once(async () => {
         const r = await call('POST', `/console/finance/approvals/${approvalId}/approve`, {});
@@ -329,6 +378,60 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         const key =
           r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
             ? KYC_REFUSAL_KEYS[why]
+            : undefined;
+        notice(key !== undefined ? { status: r.status, messageKey: key } : r);
+      });
+    },
+    // dossier de l'hôte signalé (US-108) : lecture journalisée par la base avant la réponse
+    onOpenHost: (itemId, purpose) =>
+      once(async () => {
+        const r = await call<HostDossierView>(
+          'POST',
+          `/console/queues/items/${itemId}/host-verification`,
+          { requestId: crypto.randomUUID(), purpose },
+        );
+        if (r.ok) setOps((prev) => ({ ...prev, host: r.body, notice: undefined }));
+        else {
+          setOps((prev) => ({ ...prev, host: undefined }));
+          notice(r);
+        }
+      }),
+    // filtrage manuel des sanctions (US-108) : action HOST_SANCTIONS_SCREENING, un requestId par
+    // intention ; la base juge (dossier soumis, non filtré, auteur distinct du titulaire)
+    onHostScreening: (orgId, results, reason) => {
+      intent.current = intentFor(
+        intent.current,
+        [
+          'HOST_SANCTIONS_SCREENING',
+          orgId,
+          ...SANCTIONS_LISTS.map((l) => results[l]),
+          reason.trim(),
+        ],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action: 'HOST_SANCTIONS_SCREENING',
+          subjectId: orgId,
+          reason,
+          input: { ...results },
+        });
+        if (r.ok) {
+          setOps((prev) => ({
+            ...prev,
+            host: undefined,
+            notice: { tone: 'success', key: 'backoffice.host.recorded' },
+          }));
+          const selected = ops.queues?.selected;
+          if (selected !== undefined && selected !== null) await showQueue(selected);
+          return;
+        }
+        const why = r.values?.['reason'];
+        const key =
+          r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? HOST_SCREENING_REFUSAL_KEYS[why]
             : undefined;
         notice(key !== undefined ? { status: r.status, messageKey: key } : r);
       });

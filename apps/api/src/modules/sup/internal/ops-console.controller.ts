@@ -8,6 +8,8 @@
  * |                                         | signalé par la base              |                                  |
  * | POST /console/queues/items/:id/claim    | 200 élément pris                 | 409 STAFF_ITEM_TAKEN             |
  * | POST /console/queues/items/:id/kyc      | 200 dossier KYC (journalisé)     | 403 STAFF_CASE_REQUIRED          |
+ * | POST /console/queues/items/:id/         | 200 dossier de l'hôte, liste de  | 403 STAFF_CASE_REQUIRED          |
+ * |      host-verification (US-108)         | contrôle (journalisé)            |                                  |
  * | POST /console/users/search              | 200 identifiant (journalisé)     | 404 STAFF_USER_NOT_FOUND         |
  * | POST /console/users/:id/profile         | 200 fiche 360° (journalisée)     | 403 STAFF_CASE_REQUIRED          |
  * | POST /console/users/:id/notes           | 201 note ; 200 rejeu             | 403 STAFF_CASE_REQUIRED          |
@@ -200,8 +202,9 @@ function actorOf(request: object): StaffActor {
 }
 
 /** Champs d'horodatage rendus par la base (noms de 0064, 0076) ; aucun texte libre n'en fait partie. */
+// US-108 : instants du dossier de l'hôte (screenedAt, decidedAt, activatedAt)
 const DATE_FIELD =
-  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt)$/;
+  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {
@@ -322,6 +325,24 @@ export class OpsConsoleController {
     const purpose = textOf(b['purpose'], 10, 500);
     const { body } = await run(
       () => this.store.kycDossier(actor, requestId, itemId, purpose),
+      ['GRANTED'],
+    );
+    return body;
+  }
+
+  // US-108 (ADR-111) : dossier de l'hôte signalé (revue par exception) ; liste de contrôle calculée
+  // par la base, retenue de sanctions visible du staff seulement ; lecture journalisée d'abord
+  @Post('queues/items/:id/host-verification')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async hostVerification(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const { body } = await run(
+      () => this.store.hostDossier(actor, requestId, itemId, purpose),
       ['GRANTED'],
     );
     return body;

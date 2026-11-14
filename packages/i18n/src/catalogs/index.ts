@@ -56,15 +56,21 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `backoffice.catalog.specsPending`.
  Version 28 : refus d'une réservation par l'hôte lui-même ou par un compte lié (US-127) :
  `common.booking.selfBookingForbidden.*`.
- Version 32 (numéro réservé, versions 27 à 31 aux stories en file) : publication immédiate d'une
+ Version 29 : dossier de l'hôte signalé dans la console (US-108, revue par exception) :
+ `backoffice.host.*`, `backoffice.queues.openHost`, `common.listing.vehicleNotCovered` et
+ `common.listing.insurerInactive`.
+ Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
+ d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
+ `web.vehicleDocs.declaration.vinHint`.
+ Version 31 : publication immédiate d'une
  annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
- `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`, `.insurerInactive`,
+ `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`,
  `.areaLooksLikeAddress`, `.cityInvalid`, `.vehicleDescriptionInvalid`, `common.listingReview.*`, `web.host.listing.unlist`, `.relist` ; sens
  changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
  `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
  `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
  */
-export const CATALOG_VERSION = 32;
+export const CATALOG_VERSION = 31;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

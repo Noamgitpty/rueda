@@ -34,12 +34,15 @@ describe('plaque et VIN (critère 1, L1-PM-20)', () => {
     expect(normalizePlate('-')).toBeNull();
   });
 
-  it('VIN ISO 3779 (17, ni I, O ni Q) ; 5 à 17 avant 1981', () => {
-    expect(normalizeVin('1hgcm 82633a00435-2', 2021)).toBe('1HGCM82633A004352');
-    expect(normalizeVin('1hgcm82633a004352', 2021)).toBe('1HGCM82633A004352');
-    expect(normalizeVin('IOQ45678901234567', 2021)).toBeNull();
-    expect(normalizeVin('AB123', 1975)).toBe('AB123');
-    expect(normalizeVin('AB123', 1985)).toBeNull();
+  it('numéro de châssis normalisé (majuscules, sans espace ni tiret), sans année ; format jugé par la base (ADR-113)', () => {
+    expect(normalizeVin('1hgcm 82633a00435-2')).toBe('1HGCM82633A004352');
+    expect(normalizeVin('1hgcm82633a004352')).toBe('1HGCM82633A004352');
+    // châssis court d'une importation japonaise : normalisé, jamais refusé ici
+    expect(normalizeVin('grj150-0012345')).toBe('GRJ1500012345');
+    // 17 caractères avec I, O, Q : transmis, la base répond VEHICLE_VIN_INVALID
+    expect(normalizeVin('IOQ45678901234567')).toBe('IOQ45678901234567');
+    expect(normalizeVin('GRJ150.0012345')).toBeNull();
+    expect(normalizeVin(' - ')).toBeNull();
   });
 });
 

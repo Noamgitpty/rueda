@@ -39,6 +39,7 @@ const ops: OpsConsoleStore = {
   queues: neverCalled,
   claim: neverCalled,
   kycDossier: neverCalled,
+  hostDossier: neverCalled,
   findUser: neverCalled,
   profile: neverCalled,
   addNote: neverCalled,

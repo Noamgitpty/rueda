@@ -171,6 +171,8 @@ const HOST_VERIFICATION_HANDLER =
 // US-123 (0075) : revue humaine d'une correspondance de sanctions (PROPOSÉE, ADR-105)
 const SCREENING_REVIEW_HANDLER =
   'core.kyc_manual_action_host_screening_review(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+const SANCTIONS_SCREENING_HANDLER =
+  'core.kyc_manual_action_host_sanctions_screening(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
@@ -237,6 +239,21 @@ const MATRIX: Readonly<Record<string, Expected>> = {
     approval: false,
     handler: SCREENING_REVIEW_HANDLER,
     source: '16 VER-028 (parcours alternatif, permissions OPS_AGENT et ADMIN) ; ADR-105 (PROPOSÉ)',
+  },
+  HOST_SANCTIONS_SCREENING: {
+    permission: 'ops.review_listing_host',
+    subject: 'ORGANIZATION',
+    mode: 'DOMAIN_COMMAND',
+    keys: ['unList', 'ofacList', 'nationalList'],
+    values: {
+      unList: ['CLEAR', 'MATCH'],
+      ofacList: ['CLEAR', 'MATCH'],
+      nationalList: ['CLEAR', 'MATCH'],
+    },
+    approval: false,
+    handler: SANCTIONS_SCREENING_HANDLER,
+    source:
+      '16 VER-028 (recherche, résultat, consigné : source, date, auteur) ; 19 US-108 ; ADR-111 (PROPOSÉ)',
   },
   CREATE_HOST_ACCOUNT: {
     permission: 'ops.review_listing_host',
@@ -444,7 +461,7 @@ async function catalog(client: pg.ClientBase): Promise<Map<string, CatalogRow>> 
 }
 
 describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
-  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107), RESTRICT_ACCOUNT et LIFT_RESTRICTION (US-109), HOST_SCREENING_REVIEW (US-123)', async () => {
+  it('le catalogue minimal de 17 §10 : les 19 actions de 19 US-101, plus CREATE_HOST_ACCOUNT (US-107), RESTRICT_ACCOUNT et LIFT_RESTRICTION (US-109), HOST_SCREENING_REVIEW (US-123), HOST_SANCTIONS_SCREENING (US-108)', async () => {
     await withRole('app_api', async (client) => {
       const byCode = await catalog(client);
       expect([...byCode.keys()].sort()).toEqual(
@@ -457,6 +474,8 @@ describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
           'LIFT_RESTRICTION',
           // US-123 (0075) : revue d'une correspondance de sanctions
           'HOST_SCREENING_REVIEW',
+          // US-108 (0081) : filtrage manuel des sanctions par l'ops
+          'HOST_SANCTIONS_SCREENING',
         ].sort(),
       );
       expect(Object.keys(MATRIX).sort()).toEqual([...byCode.keys()].sort());

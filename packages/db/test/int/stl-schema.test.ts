@@ -22,6 +22,11 @@ const US062_TABLES = [
   'settlement_insurer_bordereau',
   'settlement_insurer_bordereau_line',
 ] as const;
+/**
+ * Assureur partenaire et contrat d'US-108 (0081, ADR-111) : aucun droit des rôles applicatifs,
+ * lecture par catalog_cmd_owner seulement ; prouvés par l0-us108-host-ops-verification.test.ts.
+ */
+const US108_TABLES = ['settlement_insurer', 'settlement_insurer_contract'] as const;
 /** Tables en ajout seul : un règlement n'est jamais modifié (08 E4). */
 const APPEND_ONLY = STL_TABLES.filter((t) => t !== 'settlement_trip_leg_balance');
 
@@ -43,7 +48,9 @@ describe('schéma STL (US-018, 0027)', () => {
           WHERE n.nspname = 'core' AND c.relkind IN ('r', 'p') AND c.relname ~ '^settlement_'
           ORDER BY 1`,
       );
-      expect(rows.map((r) => r.t)).toEqual([...STL_TABLES, ...US062_TABLES].sort());
+      expect(rows.map((r) => r.t)).toEqual(
+        [...STL_TABLES, ...US062_TABLES, ...US108_TABLES].sort(),
+      );
       for (const r of rows) {
         expect(r, r.t).toMatchObject({ rls: true, force: true, owner: 'migrator', m: true });
       }

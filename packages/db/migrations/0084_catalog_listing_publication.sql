@@ -35,7 +35,7 @@
 --     (téléphone, courriel, web, messagerie) ; à la création du lieu et à la publication, jamais
 --     une revue humaine ; ils réduisent le risque sans le supprimer (ADR-114) ;
 --   - véhicule hors catalogue : la règle CATALOG_ADDITION_PENDING sort de
---     `core.catalog_vehicle_blockers` (corps de 0077 recopié sans elle) ;
+--     `core.catalog_vehicle_blockers` (corps de 0083 recopié sans elle) ;
 --   - retrait par l'hôte (`core.catalog_cmd_unlist_listing`) : LISTED → UNLISTED ; suppression
 --     UNLISTED → DELETED ajoutée ; l'un et l'autre refusés tant qu'une occupation TRIP ou HOLD du
 --     véhicule finit dans le futur (`LISTING_HAS_FUTURE_TRIPS`, OQ-BR-29, BR-LIST-09) ;
@@ -52,7 +52,7 @@
 --
 -- Expand / contract : fonctions, politiques et droits ajoutés ; corps de
 -- `core.catalog_cmd_create_location` (0067), `core.catalog_cmd_delete_listing` (0067),
--- `core.catalog_cmd_submit_listing` (0074) et `core.catalog_vehicle_blockers` (0077) remplacés à
+-- `core.catalog_cmd_submit_listing` (0081) et `core.catalog_vehicle_blockers` (0083) remplacés à
 -- signature, propriétaire et droits identiques. Le COMPORTEMENT change volontairement : aucune
 -- annonce n'a pu être soumise en production (`p2p_private_hosts_enabled` et
 -- `insurer_contract_active` valent false partout) ; l'issue de la soumission devient LISTED ou
@@ -61,7 +61,7 @@
 --
 -- Retour arrière :
 --   réappliquer core.catalog_cmd_create_location et core.catalog_cmd_delete_listing de 0067,
---     core.catalog_cmd_submit_listing de 0074 et core.catalog_vehicle_blockers de 0077 (sous
+--     core.catalog_cmd_submit_listing de 0081 et core.catalog_vehicle_blockers de 0083 (sous
 --     catalog_cmd_owner) ;
 --   DROP FUNCTION core.support_staff_decide_listing(bytea, uuid, uuid, text, text),
 --     core.catalog_listing_decide(uuid, text, uuid, text, text, text),
@@ -79,14 +79,14 @@
 -- 1. Droits de catalog_cmd_owner, au plus juste -------------------------------------------------
 -- date de publication (17 §3.2.3 `published_at`)
 GRANT UPDATE (published_at) ON core.catalog_listing TO catalog_cmd_owner;
--- revue par pays et interrupteur du contrat d'assureur (lus par catalog_param_bool et
--- core.config_go_live) : ces deux clés seulement
+-- revue exigée par le pays (lue par catalog_param_bool) : cette clé seulement ; l'interrupteur
+-- insurer_contract_active est déjà lisible (politique catalog_cmd_insurer_read de 0081)
 CREATE POLICY catalog_cmd_publish_read ON core.config_param_definition FOR SELECT
   TO catalog_cmd_owner
-  USING (key IN ('listing_manual_review_required', 'insurer_contract_active'));
+  USING (key = 'listing_manual_review_required');
 CREATE POLICY catalog_cmd_publish_read ON core.config_param_value FOR SELECT
   TO catalog_cmd_owner
-  USING (key IN ('listing_manual_review_required', 'insurer_contract_active'));
+  USING (key = 'listing_manual_review_required');
 -- statut et titulaire du compte d'hôte, revérifiés à l'approbation de l'ops (aucune autre colonne)
 GRANT SELECT (id, holder_user_id, status) ON core.iam_organization TO catalog_cmd_owner;
 CREATE POLICY catalog_cmd_read ON core.iam_organization FOR SELECT TO catalog_cmd_owner
@@ -96,7 +96,7 @@ CREATE POLICY catalog_cmd_publish_audit ON core.audit_audit_log FOR INSERT TO ca
   WITH CHECK (action_code IN ('LISTING_PUBLISHED', 'LISTING_UNLISTED', 'LISTING_REJECTED')
               AND subject_type = 'LISTING');
 
--- 1 bis. Motifs du véhicule (corps de 0077 recopié SANS la règle « hors catalogue » :
+-- 1 bis. Motifs du véhicule (corps de 0083 recopié, VIN ISO ou non ISO, SANS la règle « hors catalogue » :
 -- DEC-FONDATEUR-22, un véhicule hors catalogue ne bloque pas l'annonce ; US-114 suit son cours).
 -- Propriétaire migrator (0077) et EXECUTE à catalog_cmd_owner inchangés : remplacée sous migrator.
 CREATE OR REPLACE FUNCTION core.catalog_vehicle_blockers(p_vehicle uuid, p_strict boolean)
@@ -137,9 +137,9 @@ BEGIN
   IF pg_catalog.date_part('year', v_today)::bigint - v.year > v_age THEN
     r := r || 'VEHICLE_TOO_OLD'::text;
   END IF;
-  -- plaque et VIN saisis (le VIN est exigé pour un véhicule de 1981 ou après : ISO 3779),
-  -- compteur et titulaire déclarés
-  IF v.odometer_km IS NULL OR v.title_holder IS NULL OR (v.vin IS NULL AND v.year >= 1981) THEN
+  -- plaque et numéro de châssis saisis (VIN ISO 3779 ou numéro non ISO, quelle que soit l'année :
+  -- tout véhicule en porte un ; ADR-113), compteur et titulaire déclarés
+  IF v.odometer_km IS NULL OR v.title_holder IS NULL OR v.vin IS NULL THEN
     r := r || 'VEHICLE_FIELD_REQUIRED'::text;
   ELSIF v.odometer_km >= v_km THEN
     -- 08 BR-LIST-02 [NOUS] « < 200 000 km » : le plafond lui-même est refusé
@@ -299,8 +299,9 @@ COMMENT ON FUNCTION core.catalog_vehicle_text_is_invalid(text) IS
   '(VEHICLE_DESCRIPTION_INVALID). Aide interne sous catalog_cmd_owner. US-118 (ADR-114).';
 
 -- 2.2 Premier motif qui empêche de publier une annonce (NULL : publiable), après la complétude et
--- avant l'écriture, dans l'ordre : zone, CGU de l'hôte, compte d'hôte ACTIVE et pays ouvert,
--- véhicule publiable, contrat d'assureur. `p_user` : personne dont on lit les CGU (hôte de la
+-- avant l'écriture, dans l'ordre : zone, ville, marque et modèle saisis, CGU de l'hôte, couverture
+-- du véhicule par le contrat (VEHICLE_NOT_COVERED, US-108), compte d'hôte ACTIVE et pays ouvert,
+-- contrat d'assureur en vigueur et interrupteur (gardes du pays, comme 0081), véhicule publiable. `p_user` : personne dont on lit les CGU (hôte de la
 -- session, ou titulaire du compte à l'approbation de l'ops).
 CREATE FUNCTION core.catalog_listing_publish_blocker(p_listing uuid, p_user uuid, p_country text,
                                                      p_org_status text)
@@ -310,11 +311,13 @@ CREATE FUNCTION core.catalog_listing_publish_blocker(p_listing uuid, p_user uuid
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 DECLARE
-  v record;
-  r text[];
+  v     record;
+  v_cov record;
+  r     text[];
 BEGIN
   SELECT x.id, x.eligibility_status, x.released_at, x.eligibility_submitted_at,
-         x.eligibility_checked_at, x.make_text, x.model_text, o.area_label, o.city
+         x.eligibility_checked_at, x.make_text, x.model_text, x.year, x.value_class,
+         x.plate_category, x.timezone, o.area_label, o.city
     INTO v
     FROM core.catalog_listing AS l
     JOIN core.catalog_vehicle AS x ON x.id = l.vehicle_id AND x.org_id = l.org_id
@@ -339,11 +342,25 @@ BEGIN
   IF p_user IS NULL OR core.ctr_host_terms_required(p_user, p_country) THEN
     RETURN 'TERMS_REACCEPT_REQUIRED';
   END IF;
+  -- US-108 (0081, corps recopié) : véhicule hors des critères du contrat de l'assureur en vigueur
+  -- (âge, valeur, usage ; une donnée inconnue n'est jamais couverte) ⇒ VEHICLE_NOT_COVERED
+  SELECT * INTO v_cov
+    FROM core.settlement_insurer_vehicle_coverage(p_country, v.timezone, v.year, v.value_class,
+                                                  v.plate_category);
+  IF v_cov.outcome = 'NOT_COVERED' THEN
+    RETURN 'VEHICLE_NOT_COVERED';
+  END IF;
   -- compte d'hôte activé (sa vérification est APPROVED : garde de 0075) et pays ouvert aux hôtes
   -- particuliers (16 HST-005, BOARD N-37)
   IF p_org_status IS DISTINCT FROM 'ACTIVE'
      OR NOT core.config_go_live('p2p_private_hosts_enabled', p_country) THEN
     RETURN 'HOST_NOT_ACTIVATED';
+  END IF;
+  -- contrat d'assureur en vigueur couvrant le véhicule et interrupteur ouvert (US-108, 0081 ;
+  -- 17 §0.1 ; 16 HST-016 ; absent = false)
+  IF v_cov.outcome IS DISTINCT FROM 'COVERED'
+     OR NOT core.config_go_live('insurer_contract_active', p_country) THEN
+    RETURN 'INSURER_CONTRACT_INACTIVE';
   END IF;
   -- véhicule publiable (US-124) ; le motif est rendu (19 US-118 critère 2)
   IF v.released_at IS NOT NULL THEN
@@ -362,10 +379,6 @@ BEGIN
     -- ELIGIBLE mais une règle stricte ne tient plus (pièce expirée, consentement) : la première
     r := core.catalog_vehicle_blockers(v.id, true);
     RETURN COALESCE(r[1], 'VEHICLE_INELIGIBLE');
-  END IF;
-  -- contrat d'assureur actif dans le pays (17 §0.1 ; 16 HST-016 ; absent = false)
-  IF NOT core.config_go_live('insurer_contract_active', p_country) THEN
-    RETURN 'INSURER_CONTRACT_INACTIVE';
   END IF;
   RETURN NULL;
 END
@@ -448,7 +461,8 @@ COMMENT ON FUNCTION core.catalog_cmd_create_location(bytea, uuid, text, text, te
   'adresse exacte (LOCATION_AREA_ADDRESS). SECURITY DEFINER, EXECUTE app_api. US-115 (ADR-099) ; '
   'US-118 (ADR-114).';
 
--- 2.4 Publication (corps de 0074 remplacé). Issues : LISTED (publiée), PENDING_REVIEW (revue exigée
+-- 2.4 Publication (corps de 0081 remplacé ; couverture de l'assureur d'US-108 conservée dans
+-- core.catalog_listing_publish_blocker). Issues : LISTED (publiée), PENDING_REVIEW (revue exigée
 -- par le pays), AUTH_REQUIRED, FORBIDDEN, LISTING_NOT_FOUND, LISTING_TRANSITION_FORBIDDEN,
 -- PARAM_MISSING, PHOTO_MIN_COUNT et les motifs de core.catalog_listing_publish_blocker.
 CREATE OR REPLACE FUNCTION core.catalog_cmd_submit_listing(p_token_hash bytea, p_org uuid,

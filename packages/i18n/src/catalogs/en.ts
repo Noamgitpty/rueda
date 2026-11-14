@@ -382,6 +382,68 @@ export const EN_MESSAGES = {
   'backoffice.kyc.decide.REJECTED': 'Reject',
   'backoffice.kyc.decide.MORE_INFO_REQUIRED': 'Request a new document',
   'backoffice.kyc.decided': 'Decision logged; the queue item is closed.',
+  'backoffice.queues.openHost': 'Open the host file',
+  'backoffice.host.heading': 'Host file',
+  'backoffice.host.intro':
+    'Review by exception: a complete file without alerts is approved automatically once the review period ends. Alert reasons, if any, appear below.',
+  'backoffice.host.status': 'File status',
+  'backoffice.host.status.NOT_SUBMITTED': 'Not submitted',
+  'backoffice.host.status.OPEN': 'Open',
+  'backoffice.host.status.DOCS_PENDING': 'Incomplete',
+  'backoffice.host.status.IN_REVIEW': 'In review',
+  'backoffice.host.status.APPROVED': 'Approved',
+  'backoffice.host.status.REJECTED': 'Rejected',
+  'backoffice.host.status.REVOKED': 'Revoked',
+  'backoffice.host.hold':
+    'Sanctions hold: a possible match for an ADMIN to review. The host is never told.',
+  'backoffice.host.reviewReasons': 'Reason for the review',
+  'backoffice.host.reason.SCREENING_HOLD': 'Match on a sanctions list',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED': 'Account restricted, closed or under an active hold',
+  'backoffice.host.reason.COUNTRY_REVIEW': 'The settings require a review by the operations team',
+  'backoffice.host.noReason': 'No alert',
+  'backoffice.host.checklist': 'Checklist',
+  'backoffice.host.item.IDENTITY': 'Verified identity',
+  'backoffice.host.item.AGE': 'Minimum age',
+  'backoffice.host.item.RESIDENCE': 'Residence',
+  'backoffice.host.item.SANCTIONS': 'Sanctions lists',
+  'backoffice.host.item.TAX_PROFILE': 'Tax profile',
+  'backoffice.host.item.HOST_TERMS': 'Host terms accepted',
+  'backoffice.host.item.PAYOUT_ACCOUNT': 'Payout account with the provider',
+  'backoffice.host.item.PSP_CAPABILITIES': 'Payment provider capabilities',
+  'backoffice.host.item.COUNTRY_OPEN': 'Market open to private hosts',
+  'backoffice.host.item.INSURER_CONTRACT': 'Insurer contract active',
+  'backoffice.host.state.OK': 'Done',
+  'backoffice.host.state.MISSING': 'Missing',
+  'backoffice.host.state.BLOCKED': 'Blocked',
+  'backoffice.host.state.HELD': 'On hold',
+  'backoffice.host.screening': 'Sanctions screening',
+  'backoffice.host.source': 'Source',
+  'backoffice.host.source.OPS_MANUAL': 'Manual check by the operations team',
+  'backoffice.host.source.MANUAL': 'Review by an ADMIN',
+  'backoffice.host.screenedAt': 'Screening date',
+  'backoffice.host.result': 'Result',
+  'backoffice.host.result.CLEAR': 'No match',
+  'backoffice.host.result.POTENTIAL_MATCH': 'Possible match',
+  'backoffice.host.result.CONFIRMED_MATCH': 'Confirmed match',
+  'backoffice.host.noScreening': 'No screening recorded yet.',
+  'backoffice.host.evidence': {
+    one: '{count} document attached to the screening',
+    other: '{count} documents attached to the screening',
+  },
+  'backoffice.host.subject': 'Host account identifier',
+  'backoffice.host.screeningHeading': 'Manual sanctions screening',
+  'backoffice.host.screeningHint':
+    'Check each list, then give its result. A match goes to an ADMIN; the host is never told.',
+  'backoffice.host.list.unList': 'United Nations consolidated list',
+  'backoffice.host.list.ofacList': 'OFAC list',
+  'backoffice.host.list.nationalList': 'National list for the account',
+  'backoffice.host.clear': 'No match',
+  'backoffice.host.match': 'Possible match',
+  'backoffice.host.record': 'Record the screening',
+  'backoffice.host.recorded': 'Screening recorded.',
+  'backoffice.host.refused.HOST_ALREADY_SCREENED': 'This file already has a recorded screening.',
+  'backoffice.host.refused.HOST_VERIFICATION_NOT_READY': 'The host has not submitted the file yet.',
+  'backoffice.host.refused.SELF_FORBIDDEN': 'You cannot screen your own account.',
   'backoffice.kyc.refused.CHECKS_REQUIRED': 'Decision refused: all four checks must be ticked.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':
     'Decision refused: approval needs four passed checks, rejection at least one failed check.',
@@ -742,6 +804,8 @@ export const EN_MESSAGES = {
   'web.host.cars.needPlace': 'First add a handover spot.',
   'web.host.car.plate': 'License plate',
   'web.host.car.vin': 'Chassis number (VIN)',
+  'web.host.car.vinHint':
+    '17-character VIN (e.g. 1HGCM82633A004352) or chassis number of an imported car (e.g. GRJ150-0012345).',
   'web.host.car.make': 'Make',
   'web.host.car.model': 'Model',
   'web.host.car.year': 'Year',
@@ -826,8 +890,6 @@ export const EN_MESSAGES = {
     'Your car has upcoming booked trips. You can take the listing down once they end or are canceled.',
   'common.listing.vehicleEligibilityRequired':
     'Before publishing, confirm your car’s details (ownership, mileage and chassis number).',
-  'common.listing.insurerInactive':
-    'We can’t publish listings here yet: insurance protection isn’t available in your country yet.',
   'common.listing.areaLooksLikeAddress':
     'Enter only the neighborhood or area, with no street or number: travelers see it before booking.',
   'common.listing.cityInvalid': 'Enter only the city, with no address, phone number or link.',
@@ -859,6 +921,10 @@ export const EN_MESSAGES = {
   'common.listing.photoFormat': 'This photo cannot be used. Upload a JPEG, PNG or WebP photo.',
   'common.listing.hostTermsRequired':
     'Before publishing your listing, read and accept the current version of the Host terms.',
+  'common.listing.vehicleNotCovered':
+    'This vehicle does not meet the trip protection conditions (age, value or use). It cannot be listed.',
+  'common.listing.insurerInactive':
+    'You are all set. Trip protection is not available here yet; you can publish your listing once it is.',
   'common.listing.hostNotActivated':
     'All set on your side. You can publish your listing once your host account is active and we open to hosts here.',
   'common.listing.unavailable': 'We cannot save your listing right now. Try again later.',
@@ -1346,6 +1412,10 @@ export const EN_MESSAGES = {
   'web.vehicleDocs.declaration.lienOk':
     'The car has no lien, or I have the lender’s written consent',
   'web.vehicleDocs.declaration.vin': 'Chassis number (VIN)',
+  'web.vehicleDocs.declaration.vinHint':
+    '17-character VIN (e.g. 1HGCM82633A004352) or chassis number of an imported car (e.g. GRJ150-0012345).',
+  'common.vehicleDocs.vinInvalid':
+    'This chassis number is not valid. Enter the 17-character VIN (no I, O or Q) or the chassis number of your imported car, for example GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'You declared it on {date}.',
   'backoffice.catalog.specsPending': 'Specs to complete',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

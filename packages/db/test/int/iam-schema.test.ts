@@ -52,8 +52,9 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
     'iam_auth_delete:iam_auth_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
   // US-109 (0064) : restrictions manuelles par le gestionnaire de console d'iam_auth_owner, lues
   // par la pose d'un hold (cmd_hold_owner) et par la fiche 360° (iam_staff_owner)
+  // US-108 (0081) : signaux du compte lus par l'approbation automatique (kyc_cmd_owner)
   iam_restriction:
-    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator',
+    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_signal_read:kyc_cmd_owner;migrator_all:migrator',
   // US-125 (0073) : session, rôles et matrice lus par les commandes des interrupteurs
   iam_role_permission:
     'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',

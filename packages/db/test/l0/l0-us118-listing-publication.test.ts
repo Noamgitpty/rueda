@@ -152,6 +152,9 @@ async function vehicle(
   );
   const id = rows[0]?.vehicle_id;
   if (rows[0]?.outcome !== 'DONE' || !id) throw new Error(`véhicule : ${rows[0]?.outcome}`);
+  // classe de valeur connue (couverture de l'assureur, US-108 : une donnée inconnue n'est jamais
+  // couverte ; la graine ne classe pas toutes les variantes, un véhicule hors catalogue non plus)
+  await c.query('SELECT test_fixture.us108_set_value_class($1, $2)', [id, 'STANDARD']);
   return id;
 }
 
@@ -224,7 +227,10 @@ const itemsOf = async (c: Tx, subject: string) =>
     }>('SELECT * FROM test_fixture.us124_vehicle_items($1)', [subject])
   ).rows;
 
-/** Pièces non exigées et revue du pays fixée à `review`, dans la transaction annulée. */
+/**
+ * Pièces non exigées, revue du pays fixée à `review` et contrat d'assureur en vigueur (US-108),
+ * dans la transaction annulée.
+ */
 async function countryRules(c: Tx, country: string, review: boolean): Promise<void> {
   for (const key of DOC_PARAMS) {
     await c.query('SELECT test_fixture.us124_param_version($1, $2, $3::jsonb)', [
@@ -237,6 +243,12 @@ async function countryRules(c: Tx, country: string, review: boolean): Promise<vo
     'listing_manual_review_required',
     country,
     review ? 'true' : 'false',
+  ]);
+  // contrat d'assureur en vigueur couvrant les véhicules de test (US-108, 0081)
+  await c.query('SELECT test_fixture.us108_insurer_contract($1, $2, $3)', [
+    country,
+    50,
+    ['STANDARD', 'PREMIUM', 'LUXE'],
   ]);
 }
 
@@ -456,7 +468,7 @@ describe('socle (0084, 0085) : paramètre, droits, propriétaires', () => {
 // ---------------------------------------------------------------------------------------------
 describe('publication immédiate (DEC-FONDATEUR-22) : contrôles automatiques, motif rendu, journal', () => {
   it.each(byCountry)(
-    '%s (%s) : pays fermé ⇒ HOST_NOT_ACTIVATED ; véhicule non confirmé ⇒ VEHICLE_ELIGIBILITY_REQUIRED ; sans contrat d’assureur ⇒ INSURER_CONTRACT_INACTIVE ; tout passe ⇒ LISTED sans revue, fiche publique, journal ; seconde publication ⇒ LISTING_TRANSITION_FORBIDDEN',
+    '%s (%s) : pays fermé ⇒ HOST_NOT_ACTIVATED ; interrupteur de l’assureur fermé ⇒ INSURER_CONTRACT_INACTIVE ; véhicule non confirmé ⇒ VEHICLE_ELIGIBILITY_REQUIRED ; tout passe ⇒ LISTED sans revue, fiche publique, journal ; seconde publication ⇒ LISTING_TRANSITION_FORBIDDEN',
     async (country, _currency, cc) => {
       await rolledBack(async (tx) => {
         await countryRules(tx, country, false);
@@ -466,10 +478,7 @@ describe('publication immédiate (DEC-FONDATEUR-22) : contrôles automatiques, m
         // interrupteurs fermés (graine) : hôte non activable, l'annonce reste DRAFT
         expect(await publish(tx, h, id)).toBe('HOST_NOT_ACTIVATED');
         await openSwitch(tx, 'p2p_private_hosts_enabled', country);
-        // véhicule pas encore confirmé par l'hôte (US-124) : motif rendu, DRAFT
-        expect(await publish(tx, h, id)).toBe('VEHICLE_ELIGIBILITY_REQUIRED');
-        await confirmVehicle(tx, h, v);
-        // contrat d'assureur inactif dans le pays (17 §0.1) : DRAFT, rien de public
+        // contrat en vigueur mais interrupteur de l'assureur fermé (17 §0.1) : DRAFT, rien de public
         expect(await publish(tx, h, id)).toBe('INSURER_CONTRACT_INACTIVE');
         expect(await row(tx, id)).toMatchObject({
           status: 'DRAFT',
@@ -477,8 +486,12 @@ describe('publication immédiate (DEC-FONDATEUR-22) : contrôles automatiques, m
           published_at: null,
         });
         expect(await isPublic(tx, id)).toBe(false);
-        // TÉMOIN : tout passe ⇒ publiée sur-le-champ, aucune revue de l'ops
         await openSwitch(tx, 'insurer_contract_active', country);
+        // véhicule pas encore confirmé par l'hôte (US-124) : motif rendu, DRAFT
+        expect(await publish(tx, h, id)).toBe('VEHICLE_ELIGIBILITY_REQUIRED');
+        expect((await row(tx, id))?.status).toBe('DRAFT');
+        // TÉMOIN : tout passe ⇒ publiée sur-le-champ, aucune revue de l'ops
+        await confirmVehicle(tx, h, v);
         expect(await publish(tx, h, id)).toBe('LISTED');
         const after = await row(tx, id);
         expect(after?.status).toBe('LISTED');

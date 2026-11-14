@@ -70,6 +70,7 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - Routes : `GET /host/accounts/{orgId}/vehicle-eligibility`, `PUT …/vehicles/{vehicleId}/declaration`, `POST …/vehicles/{vehicleId}/documents` (503 en production : antivirus, coffre et stockage pas encore livrés), `POST …/vehicles/{vehicleId}/eligibility` (motifs dans `reasons`), `GET|POST …/vehicle-claims`. Console (SUP) : `POST /console/queues/items/{id}/vehicle|vehicle/decide|vehicle-claim|vehicle-claim/decide|files/{fileId}`.
 - Ports `DocumentScanner`, `DocumentVault`, `DocumentFileStore` (`internal/vehicle-documents/ports.ts`, exportés par `index.ts` pour la console) ; production : `UNAVAILABLE_DOCUMENTS`.
 - Fiche publique : `hostFirstName` (premier mot du prénom légal, BOARD N-37).
+- Correctif (migration `0083_catalog_vehicle_chassis_formats`, ADR-113) : numéro de châssis VIN ISO 3779 ou non ISO (5 à 16 caractères, châssis court d'importation japonaise), sans règle d'année ; refus `VEHICLE_VIN_INVALID` (422, `common.vehicleDocs.vinInvalid`) à la création et à la déclaration ; `normalizeVin` ne juge que les caractères. `PUT …/declaration` accepte `locale` (langue de l'écran, défaut `es`) : la base historise chaque engagement avec la version du catalogue et le libellé exact (`catalog_vehicle_attestation`, ajout seul).
 
 ### Publication immédiate, retrait, revue de l'ops sur signal (US-118, ADR-114)
 

@@ -332,8 +332,15 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     });
     expect(bad.status).toBe(400);
     const fields = (bad.json as { fields: { field: string }[] }).fields.map((f) => f.field).sort();
-    expect(fields).toEqual(['plate', 'seats', 'vin']);
+    // le format du numéro de châssis est jugé par la base (ADR-113) : ici, seuls les caractères
+    expect(fields).toEqual(['plate', 'seats']);
     expect(bad.text).not.toContain('IOQ');
+    const dotted = await api.request('POST', `${base}/vehicles`, {
+      headers: w.a,
+      body: { ...vehicleBody(locationId, 'cd-9'), vin: 'GRJ150.0012345' },
+    });
+    expect(dotted.status).toBe(400);
+    expect(dotted.json).toMatchObject({ fields: [{ field: 'vin', reason: 'INVALID' }] });
     // emplacement d'un autre (ou inconnu) : 404
     expect(
       (
@@ -353,6 +360,17 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
         })
       ).status,
     ).toBe(422);
+    // numéro de châssis refusé par la base : message dédié (ADR-113)
+    w.store.forced = 'VEHICLE_VIN_INVALID';
+    const vinRefused = await api.request('POST', `${base}/vehicles`, {
+      headers: w.a,
+      body: { ...vehicleBody(locationId, 'yy-2'), vin: 'IOQ45678901234567' },
+    });
+    expect(vinRefused.status).toBe(422);
+    expect(vinRefused.json).toMatchObject({
+      code: 'VEHICLE_VIN_INVALID',
+      messageKey: 'common.vehicleDocs.vinInvalid',
+    });
     // lieu : corps invalide, épingle à moitié posée, 415
     for (const body of [{}, { ...LOCATION, lng: undefined }, { ...LOCATION, extra: 1 }]) {
       expect((await api.request('POST', `${base}/locations`, { headers: w.a, body })).status).toBe(
@@ -382,6 +400,13 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     w.store.hostTermsAccepted.add(w.orgA);
     expect((await submit()).json).toMatchObject({ code: 'HOST_NOT_ACTIVATED' });
     expect(w.store.listingsById.get(d.listingId)?.status).toBe('DRAFT');
+    // US-108 : couverture de l'assureur à la soumission (16 A.8) : 422, l'annonce reste DRAFT
+    for (const code of ['VEHICLE_NOT_COVERED', 'INSURER_CONTRACT_INACTIVE'] as const) {
+      w.store.forced = code;
+      const refused = await submit();
+      expect(refused.status).toBe(422);
+      expect(refused.json).toMatchObject({ code });
+    }
     // US-118 : publiée dès les contrôles automatiques (LISTED) ; revue exigée par le pays
     // (PENDING_REVIEW) ; motifs de refus de la base traduits (code et statut HTTP de 16)
     w.store.forced = 'LISTED';
