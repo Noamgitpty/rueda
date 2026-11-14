@@ -2851,6 +2851,7 @@ Politiques RLS :
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `review_unqueued_at` | `timestamp with time zone` | non | — |
+| `first_approved_at` | `timestamp with time zone` | non | — |
 
 Contraintes :
 

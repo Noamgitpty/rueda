@@ -181,6 +181,11 @@ export async function toReview(
     readonly sessionExpiresAt?: string;
     /** Nom légal déclaré (US-103) ; « Ana Pérez » par défaut. */
     readonly names?: LegalName;
+    /**
+     * Faits vérifiés rendus avec le rappel (date de naissance, pays de résidence ; US-123) : la
+     * décision passe alors par `core.kyc_cmd_decide_with_facts` (0075), comme l'API.
+     */
+    readonly subject?: { readonly dateOfBirth: string; readonly residenceCountry: string };
   } = {},
 ): Promise<Reviewed> {
   const p = await person(client, country, options.names);
@@ -213,20 +218,28 @@ export async function toReview(
   if (s.outcome !== 'RECORDED') throw new Error(`session refusée : ${s.outcome}`);
   const document =
     options.document === undefined ? licence(country, isoDay(400)) : options.document;
-  const d = await one<{ outcome: string; status: string }>(
-    client,
-    'SELECT * FROM core.kyc_cmd_apply_decision($1, $2, $3, $4, $5, $6, $7, $8::jsonb)',
-    [
-      PROVIDER,
-      `evt_${randomBytes(6).toString('hex')}`,
-      sessionRef,
-      o.verification_id,
-      options.decision ?? 'REVIEW',
-      0.4211,
-      0.8875,
-      document === null ? null : JSON.stringify(document),
-    ],
-  );
+  const args = [
+    PROVIDER,
+    `evt_${randomBytes(6).toString('hex')}`,
+    sessionRef,
+    o.verification_id,
+    options.decision ?? 'REVIEW',
+    0.4211,
+    0.8875,
+    document === null ? null : JSON.stringify(document),
+  ];
+  const d =
+    options.subject === undefined
+      ? await one<{ outcome: string; status: string }>(
+          client,
+          'SELECT * FROM core.kyc_cmd_apply_decision($1, $2, $3, $4, $5, $6, $7, $8::jsonb)',
+          args,
+        )
+      : await one<{ outcome: string; status: string }>(
+          client,
+          'SELECT * FROM core.kyc_cmd_decide_with_facts($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)',
+          [...args, JSON.stringify(options.subject)],
+        );
   if (d.outcome !== 'APPLIED') throw new Error(`rappel refusé : ${d.outcome}`);
   return { ...p, verificationId: o.verification_id, sessionRef };
 }

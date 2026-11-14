@@ -17,7 +17,7 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
-import { withRole } from '../../src/testing/index.ts';
+import { connectAs, releaseClient, withRole } from '../../src/testing/index.ts';
 import { COUNTRIES } from '../support/avl.ts';
 import {
   checks,
@@ -604,8 +604,95 @@ describe('US-103 — index du chemin de la pose (signal d’auto-réservation, A
       expect(defs['iam_organization_holder_idx']).toMatch(/iam_organization .*\(holder_user_id\)/);
       expect(defs['membership_org_live_idx']).toMatch(/\(org_id, user_id\) WHERE/);
       expect(defs['kyc_identity_verification_approved_user_idx']).toMatch(
-        /\(user_id\) WHERE \(approved_at IS NOT NULL\)/,
+        /\(user_id\) WHERE \(first_approved_at IS NOT NULL\)/,
       );
     });
   });
+});
+
+/** Attend que la connexion `pid` soit bloquée sur un verrou (verrou consultatif de la personne). */
+async function blocked(c: pg.ClientBase, pid: number | undefined): Promise<boolean> {
+  for (let k = 0; k < 100; k += 1) {
+    const { rows } = await c.query<{ w: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_stat_activity
+                       WHERE pid = $1 AND wait_event_type = 'Lock') AS w`,
+      [pid],
+    );
+    if (rows[0]?.w === true) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return false;
+}
+
+describe('US-103 — entrelacement : changement du nom contre décision de l’ops (deux connexions)', () => {
+  it.each(byCountry)(
+    '%s (%s) : la décision APPROVED tient le verrou de la personne ; le changement attend, puis voit APPROVED et repasse le dossier en RECHECK',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        const r = await toReview(c, country);
+        const [item] = await itemsOf(c, r.userId);
+        const ops = await staff(c, 'OPS_AGENT', [country], country);
+        expect((await claim(c, ops, item?.id ?? '')).outcome).toBe('CLAIMED');
+        const a = await connectAs('app_api');
+        const b = await connectAs('app_api');
+        try {
+          // A : décision de l'ops dans une transaction ouverte (verrou de la personne tenu)
+          await a.query('BEGIN');
+          expect((await decide(a, ops, r.verificationId, checks('APPROVED'))).outcome).toBe('DONE');
+          const pidB = (await b.query<{ pid: number }>('SELECT pg_catalog.pg_backend_pid() AS pid'))
+            .rows[0]?.pid;
+          // B : changement du nom lancé pendant ce temps : bloqué, jamais jugé sur l'état d'avant
+          const pending = change(b, r.token, 'Ana María', 'Pérez Gómez');
+          expect(await blocked(c, pidB)).toBe(true);
+          await a.query('COMMIT');
+          expect(await pending).toEqual({ outcome: 'CHANGED', status: 'RECHECK' });
+          expect(await current(c, r.userId)).toMatchObject({
+            status: 'RECHECK',
+            decision_reason_code: 'LEGAL_NAME_CHANGED',
+          });
+        } finally {
+          await a.query('ROLLBACK').catch(() => undefined);
+          await releaseClient(a);
+          await releaseClient(b);
+        }
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : le changement tient le verrou ; la décision de l’ops attend, puis s’applique au dossier en revue (nom changé seulement hors revue)',
+    async (country) => {
+      await withRole('app_api', async (c) => {
+        // A (changement, dossier en revue) prend le verrou et rend LOCKED_PENDING_REVIEW sans
+        // rien écrire ; B (décision de l'ops) attend la fin de A, puis approuve le nom inchangé
+        const r = await toReview(c, country);
+        const [item] = await itemsOf(c, r.userId);
+        const ops = await staff(c, 'OPS_AGENT', [country], country);
+        expect((await claim(c, ops, item?.id ?? '')).outcome).toBe('CLAIMED');
+        const a = await connectAs('app_api');
+        const b = await connectAs('app_api');
+        try {
+          await a.query('BEGIN');
+          expect(await change(a, r.token, 'Rosa', 'Benítez')).toEqual({
+            outcome: 'LOCKED_PENDING_REVIEW',
+            status: 'MANUAL_REVIEW',
+          });
+          const pidB = (await b.query<{ pid: number }>('SELECT pg_catalog.pg_backend_pid() AS pid'))
+            .rows[0]?.pid;
+          const pending = decide(b, ops, r.verificationId, checks('APPROVED'));
+          expect(await blocked(c, pidB)).toBe(true);
+          await a.query('COMMIT');
+          expect((await pending).outcome).toBe('DONE');
+          expect((await current(c, r.userId)).status).toBe('APPROVED');
+          expect(
+            await fixture<{ legal_first_name: string }>(c, 'us103_account_name', r.userId),
+          ).toMatchObject([{ legal_first_name: 'Ana', legal_last_name: 'Pérez' }]);
+        } finally {
+          await a.query('ROLLBACK').catch(() => undefined);
+          await releaseClient(a);
+          await releaseClient(b);
+        }
+      });
+    },
+  );
 });

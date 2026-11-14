@@ -42,8 +42,13 @@
 --   - dossier KYC de la file (`core.kyc_staff_dossier`, corps de 0076 recopié) : nom lu sur le
 --     permis et verdict du rapprochement en plus.
 --
+--   - garde d'auto-réservation : `identity_verification.first_approved_at` (première approbation,
+--     jamais remise à NULL, déclencheur) ; un RECHECK n'éteint plus SAME_IDENTITY (revues code et
+--     sécurité d'US-103).
+--
 -- Écarts PROPOSÉS avec 17 §3.2.2 (à reporter, ADR-117) : `identity_document` gagne
--- `holder_given_names`, `holder_surnames` [C2] et `name_match` ; `user_account.name_changed_at`
+-- `holder_given_names`, `holder_surnames` [C2] et `name_match`, `identity_verification`
+-- gagne `first_approved_at` ; `user_account.name_changed_at`
 -- (16 ACC-006) n'est pas ajoutée : l'instant du changement est celui de l'audit.
 --
 -- Retour arrière :
@@ -58,6 +63,10 @@
 --   DROP POLICY kyc_cmd_name_update ON core.iam_user_account ;
 --   DROP POLICY kyc_cmd_name_audit_insert ON core.audit_audit_log ;
 --   DROP POLICY risk_link_read ON core.kyc_identity_document ;
+--   DROP TRIGGER kyc_first_approved_keep ON core.kyc_identity_verification ;
+--   DROP FUNCTION core.kyc_first_approved_keep() ; DROP POLICY risk_link_read_once ON
+--   core.kyc_identity_verification ; ALTER TABLE core.kyc_identity_verification DROP COLUMN
+--   first_approved_at ;
 --   DROP INDEX core.iam_organization_holder_idx, core.membership_org_live_idx,
 --     core.kyc_identity_verification_approved_user_idx ; révoquer les droits ci-dessous.
 
@@ -79,6 +88,47 @@ COMMENT ON COLUMN core.kyc_identity_document.holder_surnames IS
 COMMENT ON COLUMN core.kyc_identity_document.name_match IS
   'Rapprochement du nom légal du compte et du nom lu (core.kyc_legal_name_match) à la décision : '
   'MATCH, MISMATCH, MISSING ; NULL avant US-103. US-103 (ADR-117).';
+
+-- 1 bis. Marque durable d'approbation (revues code n° 1 et sécurité n° 1 d'US-103) ------------
+-- `approved_at` est remis à NULL par un RECHECK (changement du nom, retrait du consentement) ;
+-- `first_approved_at` garde l'instant de la PREMIÈRE approbation et n'est jamais remise à NULL :
+-- c'est l'« identité approuvée au moins une fois » qu'attend le signal SAME_IDENTITY (ADR-110
+-- n° 2). Posée et gardée par un déclencheur pour TOUT écrivain (fournisseur, ops, fixtures), sans
+-- recopier leurs commandes ; lue par le seul signal (droit de colonne de risk_limit_owner), elle
+-- n'expose rien de plus.
+ALTER TABLE core.kyc_identity_verification
+  ADD COLUMN first_approved_at timestamptz;
+COMMENT ON COLUMN core.kyc_identity_verification.first_approved_at IS
+  'Instant de la première approbation (jamais remis à NULL, même après RECHECK ou retrait) : '
+  '« identité approuvée au moins une fois » du signal SAME_IDENTITY. US-103 (ADR-110, ADR-117).';
+
+CREATE FUNCTION core.kyc_first_approved_keep()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  IF TG_OP = 'UPDATE' AND OLD.first_approved_at IS NOT NULL THEN
+    -- jamais remise à NULL ni déplacée
+    NEW.first_approved_at := OLD.first_approved_at;
+  ELSIF NEW.approved_at IS NOT NULL THEN
+    NEW.first_approved_at := NEW.approved_at;
+  ELSE
+    NEW.first_approved_at := NULL;
+  END IF;
+  RETURN NEW;
+END
+$fn$;
+COMMENT ON FUNCTION core.kyc_first_approved_keep() IS
+  'Déclencheur : pose first_approved_at à la première approbation, ne la remet jamais à NULL. '
+  'US-103 (ADR-117).';
+REVOKE ALL ON FUNCTION core.kyc_first_approved_keep() FROM PUBLIC;
+CREATE TRIGGER kyc_first_approved_keep
+  BEFORE INSERT OR UPDATE ON core.kyc_identity_verification
+  FOR EACH ROW EXECUTE FUNCTION core.kyc_first_approved_keep();
+-- dossiers déjà approuvés (base de production : aucun, KYC fermé, OQ-MK-09)
+UPDATE core.kyc_identity_verification AS v SET first_approved_at = v.approved_at
+ WHERE v.approved_at IS NOT NULL AND v.first_approved_at IS NULL;
 
 -- 2. Fonctions pures du rapprochement (SECURITY INVOKER, IMMUTABLE) ----------------------------
 -- Mots normalisés d'un nom : apostrophes retirées sans séparer (D'Ávila = Dávila), décomposition
@@ -181,7 +231,11 @@ CREATE POLICY kyc_cmd_name_update ON core.iam_user_account FOR UPDATE TO kyc_cmd
 CREATE POLICY kyc_cmd_name_audit_insert ON core.audit_audit_log FOR INSERT TO kyc_cmd_owner
   WITH CHECK (action_code = 'LEGAL_NAME_CHANGED' AND subject_type = 'USER_ACCOUNT');
 
--- 4. Droits de risk_limit_owner : nom lu sur le permis (signal SAME_IDENTITY) -----------------
+-- 4. Droits de risk_limit_owner : nom lu sur le permis et approbation durable (SAME_IDENTITY) --
+GRANT SELECT (first_approved_at) ON core.kyc_identity_verification TO risk_limit_owner;
+-- s'ajoute (OU) à la politique de 0080 (approved_at IS NOT NULL), qu'elle contient
+CREATE POLICY risk_link_read_once ON core.kyc_identity_verification FOR SELECT TO risk_limit_owner
+  USING (first_approved_at IS NOT NULL);
 GRANT SELECT (id, verification_id, holder_given_names, holder_surnames, created_at)
   ON core.kyc_identity_document TO risk_limit_owner;
 CREATE POLICY risk_link_read ON core.kyc_identity_document FOR SELECT TO risk_limit_owner
@@ -541,10 +595,10 @@ CREATE INDEX iam_organization_holder_idx ON core.iam_organization (holder_user_i
 -- par la personne
 CREATE INDEX membership_org_live_idx ON core.iam_membership (org_id, user_id)
   WHERE status IN ('ACTIVE', 'INVITED');
--- vérification approuvée d'une personne (courante ou non) : l'unicité partielle ne couvre que la
--- vérification courante
+-- vérification approuvée au moins une fois d'une personne (courante ou non) : l'unicité partielle
+-- ne couvre que la vérification courante
 CREATE INDEX kyc_identity_verification_approved_user_idx
-  ON core.kyc_identity_verification (user_id) WHERE approved_at IS NOT NULL;
+  ON core.kyc_identity_verification (user_id) WHERE first_approved_at IS NOT NULL;
 
 -- 7. Sous risk_limit_owner : signal SAME_IDENTITY sur le nom lu sur le permis ------------------
 -- (définition de 0080 recopiée ; seuls les CTE d'identité changent, marqués US-103 : clé du nom
@@ -576,8 +630,10 @@ AS $fn$
   auto_host AS (
     SELECT p.user_id FROM pair AS p WHERE p.decision IS DISTINCT FROM 'NOT_LINKED'
   ),
-  -- identité vérifiée : US-103, clé du NOM LU SUR LE PERMIS de la vérification approuvée (le plus
-  -- récent), sinon du nom légal déclaré ; date de naissance rendue par le fournisseur ; comptes
+  -- identité vérifiée : US-103, vérification approuvée AU MOINS UNE FOIS (`first_approved_at` :
+  -- un RECHECK, par changement du nom ou retrait du consentement, n'éteint pas le signal), clé du
+  -- NOM LU SUR LE PERMIS (le plus récent ; clé vide « | » d'un permis non latin : nom déclaré),
+  -- sinon du nom légal déclaré ; date de naissance rendue par le fournisseur ; comptes
   -- pseudonymisés exclus. US-103 (performance de la pose) : le voyageur et les personnes du côté
   -- hôte sont lus séparément, par clé (plus de `u.id = p_guest OR u.id IN (…)`, qui parcourait
   -- les comptes) ; un voyageur sans identité vérifiée (cas courant) ne lit aucune identité de
@@ -585,14 +641,15 @@ AS $fn$
   ident_guest AS (
     SELECT u.id AS user_id,
            COALESCE(
-             (SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
-                FROM core.kyc_identity_document AS d
-               WHERE d.verification_id = v.id
-               ORDER BY d.created_at DESC, d.id DESC LIMIT 1),
+             NULLIF((SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
+                       FROM core.kyc_identity_document AS d
+                      WHERE d.verification_id = v.id
+                      ORDER BY d.created_at DESC, d.id DESC LIMIT 1), '|'),
              core.kyc_legal_name_key(u.legal_first_name, u.legal_last_name)) AS name_key,
            s.date_of_birth
       FROM core.iam_user_account AS u
-      JOIN core.kyc_identity_verification AS v ON v.user_id = u.id AND v.approved_at IS NOT NULL
+      JOIN core.kyc_identity_verification AS v
+        ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
       JOIN core.kyc_identity_subject AS s
         ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
      WHERE u.id = p_guest AND u.pseudonymized_at IS NULL
@@ -600,15 +657,16 @@ AS $fn$
   ident_host AS (
     SELECT u.id AS user_id,
            COALESCE(
-             (SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
-                FROM core.kyc_identity_document AS d
-               WHERE d.verification_id = v.id
-               ORDER BY d.created_at DESC, d.id DESC LIMIT 1),
+             NULLIF((SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
+                       FROM core.kyc_identity_document AS d
+                      WHERE d.verification_id = v.id
+                      ORDER BY d.created_at DESC, d.id DESC LIMIT 1), '|'),
              core.kyc_legal_name_key(u.legal_first_name, u.legal_last_name)) AS name_key,
            s.date_of_birth
       FROM auto_host AS a
       JOIN core.iam_user_account AS u ON u.id = a.user_id
-      JOIN core.kyc_identity_verification AS v ON v.user_id = u.id AND v.approved_at IS NOT NULL
+      JOIN core.kyc_identity_verification AS v
+        ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
       JOIN core.kyc_identity_subject AS s
         ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
      WHERE u.pseudonymized_at IS NULL AND u.id <> p_guest

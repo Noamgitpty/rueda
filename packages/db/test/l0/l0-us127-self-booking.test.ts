@@ -31,7 +31,7 @@ import { connectAs, releaseClient, withRole } from '../../src/testing/index.ts';
 import { COUNTRIES, inTx, placeHold, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { Barrier, placeHoldCommand, registerVehicles } from '../support/concurrency.ts';
-import { one, person, staff } from '../support/kyc.ts';
+import { isoDay, licence, one, person, staff, toReview } from '../support/kyc.ts';
 import type { Staff } from '../support/kyc.ts';
 import { auditOf } from '../support/staff.ts';
 
@@ -349,6 +349,72 @@ describe.each(COUNTRIES)('US-127 critère 2 — comptes liés ($country, $curren
         [{ code: RULE, version: 1, signal: 'SAME_IDENTITY' }],
       ]);
       expect(await pose(client, namesake, a.vehicle, a.org, slot())).toBe('OK');
+    });
+  });
+
+  // US-103, revues code et sécurité n° 1 : un RECHECK (changement du nom, retrait du consentement
+  // biométrique) remet approved_at à NULL ; l'identité approuvée AU MOINS UNE FOIS
+  // (first_approved_at) garde le signal : la garde ne s'éteint par aucun geste du membre.
+  it('US-103 : hôte puis voyageur en RECHECK (changement du nom, retrait du consentement) : SAME_IDENTITY tient', async () => {
+    await withRole('app_api', async (client) => {
+      const birth = '1991-02-17';
+      const approvedAs = (first: string, last: string) =>
+        toReview(client, c.country, {
+          decision: 'APPROVED',
+          names: { first, last },
+          document: licence(c.country, isoDay(400), {
+            holderGivenNames: 'MARIA JOSE',
+            holderSurnames: 'NUNEZ PEREZ',
+          }),
+          subject: { dateOfBirth: birth, residenceCountry: c.country },
+        });
+      const host = await approvedAs('María José', 'Núñez Pérez');
+      const h = await orgFor(client, host.userId, c);
+      // nom déclaré plus court, même permis : approuvé (US-103), même identité que l'hôte
+      const guest = await approvedAs('María', 'Núñez');
+      expect(await pose(client, guest.userId, h.vehicle, h.org, slot())).toBe(
+        'SELF_BOOKING_FORBIDDEN',
+      );
+
+      // l'hôte change son nom : son dossier passe RECHECK, la garde tient
+      expect(
+        await one<{ outcome: string; status: string }>(
+          client,
+          'SELECT * FROM core.kyc_cmd_change_legal_name($1, $2, $3)',
+          [host.token, 'María José', 'Núñez Pérez de Ríos'],
+        ),
+      ).toEqual({ outcome: 'CHANGED', status: 'RECHECK' });
+      expect(await pose(client, guest.userId, h.vehicle, h.org, slot())).toBe(
+        'SELF_BOOKING_FORBIDDEN',
+      );
+
+      // le voyageur change aussi son nom : RECHECK des deux côtés, la garde tient
+      expect(
+        (
+          await one<{ outcome: string; status: string }>(
+            client,
+            'SELECT * FROM core.kyc_cmd_change_legal_name($1, $2, $3)',
+            [guest.token, 'María José', 'Núñez'],
+          )
+        ).status,
+      ).toBe('RECHECK');
+      expect(await pose(client, guest.userId, h.vehicle, h.org, slot())).toBe(
+        'SELF_BOOKING_FORBIDDEN',
+      );
+
+      // retrait du consentement biométrique par l'hôte : même résultat
+      expect(
+        (
+          await one<{ outcome: string }>(
+            client,
+            'SELECT * FROM core.kyc_cmd_biometric_consent($1, $2, $3, $4)',
+            [host.token, c.country, null, false],
+          )
+        ).outcome,
+      ).toBe('RECORDED');
+      expect(await pose(client, guest.userId, h.vehicle, h.org, slot())).toBe(
+        'SELF_BOOKING_FORBIDDEN',
+      );
     });
   });
 
