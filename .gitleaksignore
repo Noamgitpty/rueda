@@ -10,3 +10,6 @@
 # publique et versionnée, aucun secret) pris pour une clé d'API à cause du nom KEYS_FORMAT,
 # renommé ESCROW_FORMAT au commit suivant.
 827cf4e737e60a4ddd19d67a84a2811525cd9ae2:packages/db/src/portability/keys.ts:generic-api-key:26
+# US-036 : même faux positif, cité par le rapport de revue sécurité (identifiant de FORMAT public
+# « rueda-subject-keys-escrow-v1 » sous l'ancien nom KEYS_FORMAT, aucun secret).
+10728ca39942c8bf0f0ea983aa9fa364b6fe5c98:docs/team/reviews/US-036/securite-2026-11-14.md:generic-api-key:17
