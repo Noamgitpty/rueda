@@ -359,9 +359,7 @@ BEGIN
 END
 $fn$;
 
-RESET ROLE;
-REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
-
+-- commentaires et droits des nouvelles fonctions, posés par leur propriétaire
 COMMENT ON FUNCTION core.kyc_host_tax_saved(uuid) IS
   'Numéro fiscal de l''hôte enregistré, type admis dans le pays du compte. US-123 (ADR-115).';
 COMMENT ON FUNCTION core.kyc_host_psp_requires_tax_id(uuid) IS
@@ -371,3 +369,6 @@ REVOKE ALL ON FUNCTION core.kyc_host_tax_saved(uuid), core.kyc_host_psp_requires
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.kyc_host_tax_saved(uuid), core.kyc_host_psp_requires_tax_id(uuid)
   TO kyc_cmd_owner;
+
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
