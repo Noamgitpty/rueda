@@ -15,6 +15,13 @@
 // variantes d'écriture et alias rapprochés, noms commerciaux rétablis ; la graine v1
 // (vehicle-catalog.json) garde ses lignes : un modèle déjà présent n'est jamais recréé, il ne
 // reçoit qu'une variante de la douane pour les années que la v1 ne couvre pas.
+//
+// Lots (N-101, ADR-123) : une migration appliquée est immuable (ADR-044). Une ligne ajoutée après
+// 0079 porte son lot (`LOTS`), rendu dans la migration de ce lot ; dès `SHARED_FROM_LOT`, la
+// variante est commune à tous les pays (`market` nul), comme 0095 l'a fait pour le lot 1.
+// L'empreinte SHA-256 du CSV est écrite dans le JSON (`sourceSha256`) : l'ops sait quel extrait a
+// produit la liste ; rejouer le script sur un autre extrait change l'empreinte, visible au diff.
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -41,12 +48,25 @@ const EXCLUDE = {
   Haval: ['Cilind'],
   'Great Wall': ['Cil', 'Vehic'],
   DFSK: ['Total', 'Familiar', 'Sentadas'],
-  JMC: ['Total', 'Kits', 'Vigor', 'BD'],
+  JMC: ['Total', 'Kits', 'BD'],
   JAC: ['Lhd', 'Class'],
   Changan: ['Deepal'],
 };
 
-/** Variantes d'écriture, abréviations et noms régionaux rapprochés d'un modèle de la même marque. */
+/**
+ * Lignes ajoutées après la migration 0079 (lot 1) : marque → modèle → lot. Lot 2 (N-101, revue de
+ * code US-113 n° 4) : JMC Vigor, vrai modèle (« CAMIONETA DOBLE CABINA MARCA JMC, MODELO VIGOR »),
+ * écarté à tort par le lot 1.
+ */
+const LOTS = { JMC: { Vigor: 2 } };
+/** Premier lot dont les variantes sont communes à tous les pays (0095 a ouvert le lot 1). */
+const SHARED_FROM_LOT = 2;
+
+/**
+ * Variantes d'écriture, abréviations et noms régionaux rapprochés d'un modèle de la même marque.
+ * Revus par N-101 sur les libellés bruts du CSV : « CHEVROLET TRUCKER LS 1.2 FLEX TURBO » est une
+ * coquille du Tracker ; « MODELO ECO SPORT 1.4L » est l'EcoSport : rapprochements CONFIRMÉS.
+ */
 const MERGE = {
   Toyota: {
     Fun: 'Funcargo',
@@ -186,7 +206,9 @@ function main() {
   }
   const minUnits = Number.parseInt(values.min, 10);
   const v1 = JSON.parse(readFileSync(V1, 'utf8'));
-  const all = parseCsv(readFileSync(values.csv, 'utf8'));
+  const csvBytes = readFileSync(values.csv);
+  const sourceSha256 = createHash('sha256').update(csvBytes).digest('hex');
+  const all = parseCsv(csvBytes.toString('utf8'));
   const kept = all.filter((r) => int(r.unites_importees) >= minUnits);
 
   const stats = { csvRows: all.length, aboveMin: kept.length, excluded: [], merged: [], v1: [] };
@@ -246,9 +268,10 @@ function main() {
       let yearFrom = Math.max(YEAR_FLOOR, a.yearMin ?? (a.firstImport ?? YEAR_FLOOR) - 1);
       let yearTo = lastSeen >= STILL_IMPORTED_FROM ? null : a.yearMax;
       const v1Model = v1Models.get(keyOf(a.name));
+      const lot = LOTS[make]?.[a.name];
       const entry = v1Model
         ? { slug: v1Model.slug, name: v1Model.name, existing: true }
-        : { slug: slugOf(a.name), name: a.name };
+        : { slug: slugOf(a.name), name: a.name, ...(lot ? { lot } : {}) };
       if (v1Model) {
         // variante de la douane seulement pour les années antérieures à la v1
         const v1From = Math.min(...v1Model.variants.map((v) => v.yearFrom));
@@ -287,9 +310,11 @@ function main() {
 
   const doc = {
     $comment:
-      "Import de la douane du Paraguay (suite d'US-113, ADR-109) : marques et modèles d'au moins `minUnits` unités importées (8703 et 8704 jusqu'à 5 t, régimes définitifs, échantillon 1997–2026), normalisés et rapprochés de la graine v1 par scripts/catalog/dnit-import.mjs. Aucune caractéristique technique : la douane n'en donne pas (à compléter par l'ops). `existing` : ligne de la graine v1, jamais recréée ; `variant` : variante sans fiche, années indicatives, du marché `market` ; `units` et `imported` : traçabilité, jamais chargés. La migration 0079 contient le rendu (apps/api/src/modules/cat/internal/vehicle-catalog/customs-import.ts).",
+      "Import de la douane du Paraguay (suite d'US-113, ADR-109) : marques et modèles d'au moins `minUnits` unités importées (8703 et 8704 jusqu'à 5 t, régimes définitifs, échantillon 1997–2026), normalisés et rapprochés de la graine v1 par scripts/catalog/dnit-import.mjs. Aucune caractéristique technique : la douane n'en donne pas (à compléter par l'ops). `existing` : ligne de la graine v1, jamais recréée ; `variant` : variante sans fiche, années indicatives, insérée au marché `market` (pays de la source) pour le lot 1, commune à tous les pays dès `sharedFromLot` (la migration 0095 a rendu communes celles du lot 1, ADR-123) ; `lot` : lot d'import (1 par défaut : migration 0079 ; 2 : 0096) ; `sourceSha256` : empreinte du CSV source ; `units` et `imported` : traçabilité, jamais chargés. Rendu : apps/api/src/modules/cat/internal/vehicle-catalog/customs-import.ts.",
     version: 1,
     market: values.market,
+    sharedFromLot: SHARED_FROM_LOT,
+    sourceSha256,
     minUnits,
     sourceLicenses: {
       DNIT_ADUANAS_PY: {

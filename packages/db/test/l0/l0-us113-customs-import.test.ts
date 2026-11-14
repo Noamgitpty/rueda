@@ -8,9 +8,11 @@
  *   toute ligne de la douane non vérifiée, avec référence et note de licence) ;
  * - graine (base « production » du banc) : nombre de marques, modèles et variantes chargés, aucun
  *   doublon de marque ni de modèle après normalisation, modèles de la liste de test du rapport
- *   présents et choisissables, variantes sans fiche du seul marché de la source, lues par app_api ;
- * - parcours de l'hôte : un véhicule se crée sur une variante sans fiche de son marché (l'hôte
- *   saisit lui-même boîte, places et carburant) ; d'un autre marché : CATALOG_VARIANT_NOT_FOUND.
+ *   présents et choisissables, variantes sans fiche communes à tous les pays depuis 0095 (N-101,
+ *   ADR-123 ; lot 2 : 0096), lues par app_api ;
+ * - parcours de l'hôte : un véhicule se crée sur une variante sans fiche dans CHAQUE pays (l'hôte
+ *   saisit lui-même boîte, places et carburant) ; hors des années : CATALOG_VARIANT_NOT_FOUND.
+ *   Parcours jusqu'à l'annonce publique : l0-n101-catalogue-pa.test.ts.
  * Valeurs attendues : le fichier de données `vehicle-catalog-dnit.json` (lu ici sans le code de
  * l'API), le rapport d'import du 2026-11-12 et 17 §3.2.3, jamais le code testé.
  */
@@ -172,7 +174,8 @@ describe('graine de la douane (base « production » du banc)', () => {
               AND seats IS NULL AND doors IS NULL AND trim_name IS NULL AND status = 'ACTIVE'
             GROUP BY market`,
         );
-        expect(variants.rows).toEqual([{ market: CUSTOMS.market, n: VARIANTS.length }]);
+        // communes à tous les pays depuis 0095 (N-101) ; aucune ne garde le marché de la source
+        expect(variants.rows).toEqual([{ market: null, n: VARIANTS.length }]);
         // au moins 600 modèles et 50 marques nouveaux (rapport : 758 modèles d'au moins 30 unités)
         expect(NEW_MODELS.length).toBeGreaterThanOrEqual(600);
         expect(NEW_MAKES.length).toBeGreaterThanOrEqual(50);
@@ -209,7 +212,7 @@ describe('graine de la douane (base « production » du banc)', () => {
   });
 
   it.each(COUNTRIES)(
-    'liste de test du rapport : chaque modèle est choisissable ; $country ($currency) voit les variantes de la douane au seul marché de la source',
+    'liste de test du rapport : chaque modèle est choisissable en $country ($currency) ; aucune variante de la douane n’est réservée à un pays (0095)',
     async ({ country }) => {
       await withRole(
         'app_api',
@@ -222,7 +225,7 @@ describe('graine de la douane (base « production » du banc)', () => {
                  JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
                 WHERE m.slug = $1 AND o.name = $2 AND v.status = 'ACTIVE'
                   AND (v.market IS NULL OR v.market::text = $3)`,
-              [make, model, CUSTOMS.market],
+              [make, model, country],
             );
             expect(rows[0]?.n, `${make} ${model}`).toBeGreaterThan(0);
           }
@@ -231,7 +234,7 @@ describe('graine de la douane (base « production » du banc)', () => {
               WHERE status = 'ACTIVE' AND market::text = $1`,
             [country],
           );
-          expect(own.rows[0]?.n).toBe(country === CUSTOMS.market ? VARIANTS.length : 0);
+          expect(own.rows[0]?.n).toBe(0);
         },
         { database: 'production' },
       );
@@ -338,9 +341,9 @@ async function createVehicle(
   return rows[0]?.outcome ?? '';
 }
 
-describe('parcours de l’hôte : une variante sans fiche est choisissable (ADR-109)', () => {
+describe('parcours de l’hôte : une variante sans fiche est choisissable (ADR-109, ADR-123)', () => {
   it.each(COUNTRIES)(
-    '$country ($currency) : variante de la douane du marché ⇒ DONE, d’un autre marché ⇒ CATALOG_VARIANT_NOT_FOUND ; variante sans fiche commune (9981) ⇒ DONE',
+    '$country ($currency) : variante de la douane (commune depuis 0095) ⇒ DONE ; variante sans fiche commune (9981) ⇒ DONE',
     async ({ country }) => {
       await withRole('app_api', async (client) => {
         await client.query('BEGIN');
@@ -354,9 +357,7 @@ describe('parcours de l’hôte : une variante sans fiche est choisissable (ADR-
           );
           const p = premio.rows[0];
           if (!p) throw new Error('variante Premio de la douane absente');
-          expect(await createVehicle(client, h, p.id, p.year_from)).toBe(
-            country === CUSTOMS.market ? 'DONE' : 'CATALOG_VARIANT_NOT_FOUND',
-          );
+          expect(await createVehicle(client, h, p.id, p.year_from)).toBe('DONE');
           expect(await createVehicle(client, h, '11300000-0000-4000-8000-000000000d42', 2010)).toBe(
             'DONE',
           );

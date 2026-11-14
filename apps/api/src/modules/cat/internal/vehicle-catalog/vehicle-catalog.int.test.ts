@@ -10,10 +10,9 @@
  * PYG, lus dans les données CFG) voit les mêmes lignes.
  *
  * Import de la douane (suite d'US-113, migration 0079, fixtures 9981, ADR-109) : variantes sans
- * fiche du marché de la source (`market` du fichier de données, jamais une constante) ; un hôte de
- * ce marché trouve la marque, le modèle et la variante, et le préremplissage ne rend que marque et
- * modèle (`specsComplete` faux, aucune valeur technique devinée) ; un hôte d'un autre marché ne
- * voit ni la marque ni le modèle sans variante pour lui.
+ * fiche communes à tous les pays depuis 0095 (N-101, ADR-123 ; lot 2 : 0096) ; un hôte de CHAQUE
+ * pays trouve la marque, le modèle et la variante, et le préremplissage ne rend que marque et
+ * modèle (`specsComplete` faux, aucune valeur technique devinée).
  */
 import { readFileSync } from 'node:fs';
 import { connectAs, releaseClient } from '@rueda/db/testing';
@@ -121,19 +120,20 @@ describe.each(countryCases())('catalogue des véhicules, hôte en $country ($cur
 describe.each(countryCases())(
   'import de la douane, hôte en $country ($currency)',
   ({ country }) => {
-    const sourceMarket = CUSTOMS.market === country;
     const premio = catalogId('model/toyota/premio');
     const premioVariant = CUSTOMS.variants.find((v) => v.modelId === premio);
 
-    it('liste de test du rapport : marques et modèles importés listés au seul marché de la source', async () => {
+    it('liste de test du rapport : marques et modèles importés listés dans chaque pays (N-101)', async () => {
       const makes = (await catalog.listMakes(country)).map((m) => m.slug);
-      for (const make of CUSTOMS.makes)
-        expect(makes.includes(make.slug), make.slug).toBe(sourceMarket);
+      for (const make of CUSTOMS.makes) expect(makes, make.slug).toContain(make.slug);
       // marques de la v1 : toujours listées (variantes communes)
       for (const make of SEED.makes) expect(makes).toContain(make.slug);
       const toyota = SEED.makes.find((m) => m.slug === 'toyota')?.id ?? '';
       const models = await catalog.listModels(toyota, country);
-      expect(models.some((o) => o.slug === 'premio')).toBe(sourceMarket);
+      expect(models.some((o) => o.slug === 'premio')).toBe(true);
+      // lot 2 (0096) : JMC Vigor rétabli, proposé dans chaque pays
+      const jmc = CUSTOMS.makes.find((m) => m.slug === 'jmc')?.id ?? '';
+      expect((await catalog.listModels(jmc, country)).map((o) => o.slug)).toContain('vigor');
       expect(models.some((o) => o.slug === 'hilux')).toBe(true);
       // sans pays (compatibilité) : tout ce qui est ACTIVE
       expect((await catalog.listMakes()).length).toBeGreaterThanOrEqual(makes.length);
@@ -145,24 +145,18 @@ describe.each(countryCases())(
       const model = (await catalog.listModels(toyota)).find((o) => o.slug === 'premio');
       expect(model?.bodyType).toBeNull();
       const variants = await catalog.listVariants(premio, premioVariant.yearFrom, country);
-      expect(variants.map((v) => v.id)).toEqual(sourceMarket ? [premioVariant.id] : []);
-      if (sourceMarket) {
-        expect(variants[0]).toMatchObject({ transmission: null, fuelType: null, drive: null });
-        expect(await catalog.prefill(premioVariant.id, country)).toMatchObject({
-          makeName: 'Toyota',
-          modelName: 'Premio',
-          specsComplete: false,
-          bodyType: null,
-          seats: null,
-          transmission: null,
-          fuelType: null,
-          allWheelDrive: null,
-        });
-      } else {
-        await expect(catalog.prefill(premioVariant.id, country)).rejects.toMatchObject({
-          code: 'CATALOG_VARIANT_NOT_FOUND',
-        });
-      }
+      expect(variants.map((v) => v.id)).toEqual([premioVariant.id]);
+      expect(variants[0]).toMatchObject({ transmission: null, fuelType: null, drive: null });
+      expect(await catalog.prefill(premioVariant.id, country)).toMatchObject({
+        makeName: 'Toyota',
+        modelName: 'Premio',
+        specsComplete: false,
+        bodyType: null,
+        seats: null,
+        transmission: null,
+        fuelType: null,
+        allWheelDrive: null,
+      });
     });
 
     it('Hilux de la v1 : années antérieures par la variante de la douane, fiche v1 intacte ensuite', async () => {
@@ -170,7 +164,7 @@ describe.each(countryCases())(
       const old = CUSTOMS.variants.find((v) => v.modelId === hilux);
       if (old === undefined) throw new Error('variante de la douane du Hilux absente');
       const before = await catalog.listVariants(hilux, old.yearFrom, country);
-      expect(before.map((v) => v.id)).toEqual(sourceMarket ? [old.id] : []);
+      expect(before.map((v) => v.id)).toEqual([old.id]);
       const recent = await catalog.listVariants(hilux, 2020, country);
       expect(recent.map((v) => v.transmission).sort()).toEqual(['AT', 'MT']);
     });

@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 95 migrations ; 107 tables ; 2 vues ; 575 politiques RLS ; 191 fonctions `SECURITY DEFINER` ; 196 autres fonctions.
+- 97 migrations ; 107 tables ; 2 vues ; 575 politiques RLS ; 191 fonctions `SECURITY DEFINER` ; 196 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -110,6 +110,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0092_audit_security_incident` | AUD : registre des incidents de sécurité et des violations de données (délais de notification). |
 | `0093_support_redteam_l1_fixes` | SUP / RISK / CAT : correctifs de la red team du lot 1 (séparation des tâches, auto-réservation, contestations, filtre de contact). |
 | `0094_config_plate_claim_params` | graine complémentaire : paramètres « plate_claims_* » (US-122 ; 17 §7.2). |
+| `0095_catalog_customs_shared` | CAT : catalogue de la douane partagé entre les pays (N-101, suite de l'import de la douane ; |
+| `0096_catalog_customs_curation` | CAT : curation de l'import de la douane, lot 2 (N-101 ; ADR-123, ADR-109 §7 ; revue de |
 
 ## Rôles
 

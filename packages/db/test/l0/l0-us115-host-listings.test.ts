@@ -274,7 +274,7 @@ async function commonVariant(client: pg.ClientBase): Promise<{ id: string; year:
        FROM core.catalog_vehicle_variant v
        JOIN core.catalog_vehicle_model o ON o.id = v.model_id AND o.status = 'ACTIVE'
        JOIN core.catalog_vehicle_make m ON m.id = o.make_id AND m.status = 'ACTIVE'
-      WHERE v.status = 'ACTIVE' AND v.market IS NULL
+      WHERE v.status = 'ACTIVE' AND v.market IS NULL AND v.transmission IS NOT NULL
       ORDER BY v.id LIMIT 1`,
   );
   if (!rows[0]) throw new Error('graine du catalogue vide');
