@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 93 migrations ; 107 tables ; 2 vues ; 567 politiques RLS ; 191 fonctions `SECURITY DEFINER` ; 191 autres fonctions.
+- 95 migrations ; 107 tables ; 2 vues ; 567 politiques RLS ; 191 fonctions `SECURITY DEFINER` ; 191 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -108,6 +108,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0090_audit_privacy_register` | AUD : registre Ley 81 (traitements, sous-traitants, règles de rétention), demandes des personnes, pseudonymisation des trips clos. |
 | `0091_config_security_incident_params` | graine complémentaire : paramètres « security_incident_* » (US-112 ; 17 §7.2). |
 | `0092_audit_security_incident` | AUD : registre des incidents de sécurité et des violations de données (délais de notification). |
+| `0095_catalog_customs_shared` | CAT : catalogue de la douane partagé entre les pays (N-101, suite de l'import de la douane ; |
+| `0096_catalog_customs_curation` | CAT : curation de l'import de la douane, lot 2 (N-101 ; ADR-123, ADR-109 §7 ; revue de |
 
 ## Rôles
 
