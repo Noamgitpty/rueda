@@ -2199,6 +2199,7 @@ Contraintes :
 Index :
 
 - `membership_one_active_holder` : `CREATE UNIQUE INDEX membership_one_active_holder ON core.iam_membership USING btree (org_id) WHERE ((role = 'P2P_HOST'::text) AND (status = 'ACTIVE'::text))`
+- `membership_org_live_idx` : `CREATE INDEX membership_org_live_idx ON core.iam_membership USING btree (org_id, user_id) WHERE (status = ANY (ARRAY['ACTIVE'::text, 'INVITED'::text]))`
 - `membership_user_idx` : `CREATE INDEX membership_user_idx ON core.iam_membership USING btree (user_id) WHERE (status = 'ACTIVE'::text)`
 
 Politiques RLS :
@@ -2270,6 +2271,10 @@ Contraintes :
 - `organization_id_holder_unique` : `UNIQUE (id, holder_user_id)`
 - `organization_kind_valid` : `CHECK (kind = 'P2P_HOST_INDIVIDUAL'::text)`
 - `organization_status_valid` : `CHECK (status = ANY (ARRAY['ONBOARDING'::text, 'PENDING_ACTIVATION'::text, 'ACTIVE'::text, 'SUSPENDED'::text, 'OFFBOARDED'::text]))`
+
+Index :
+
+- `iam_organization_holder_idx` : `CREATE INDEX iam_organization_holder_idx ON core.iam_organization USING btree (holder_user_id)`
 
 Politiques RLS :
 
@@ -2866,6 +2871,7 @@ Contraintes :
 
 Index :
 
+- `kyc_identity_verification_approved_user_idx` : `CREATE INDEX kyc_identity_verification_approved_user_idx ON core.kyc_identity_verification USING btree (user_id) WHERE (approved_at IS NOT NULL)`
 - `kyc_identity_verification_current_unique` : `CREATE UNIQUE INDEX kyc_identity_verification_current_unique ON core.kyc_identity_verification USING btree (user_id) WHERE is_current`
 - `kyc_identity_verification_session_unique` : `CREATE UNIQUE INDEX kyc_identity_verification_session_unique ON core.kyc_identity_verification USING btree (provider, provider_session_ref) WHERE (provider_session_ref IS NOT NULL)`
 
