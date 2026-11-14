@@ -54,7 +54,7 @@
 -- Retour arrière :
 --   réappliquer les définitions de 0072 de core.kyc_cmd_apply_decision et de 0076 de
 --     core.kyc_staff_dossier (sous kyc_cmd_owner), de 0080 de core.risk_self_booking_signal (sous
---     risk_limit_owner) ;
+--     risk_limit_owner ; fonction SQL de 0080 au lieu de la PL/pgSQL d'ici) ;
 --   DROP FUNCTION core.kyc_cmd_change_legal_name(bytea, text, text),
 --     core.kyc_legal_name_match(text, text, text, text), core.kyc_legal_name_key(text, text),
 --     core.kyc_name_tokens(text);
@@ -601,103 +601,127 @@ CREATE INDEX kyc_identity_verification_approved_user_idx
   ON core.kyc_identity_verification (user_id) WHERE first_approved_at IS NOT NULL;
 
 -- 7. Sous risk_limit_owner : signal SAME_IDENTITY sur le nom lu sur le permis ------------------
--- (définition de 0080 recopiée ; seuls les CTE d'identité changent, marqués US-103 : clé du nom
--- lu sur le permis, voyageur et côté hôte lus par clé)
+-- (jugement de 0080 réécrit en PL/pgSQL, MÊME RÉSULTAT : mêmes signaux, même priorité DIRECT,
+-- constat LINKED (son signal, le premier dans l'ordre alphabétique), SAME_IDENTITY, SAME_PHONE,
+-- sinon NULL). Marqué US-103 :
+--   - identité approuvée AU MOINS UNE FOIS (`first_approved_at`) : un RECHECK (changement du nom,
+--     retrait du consentement) n'éteint pas le signal (revues code et sécurité n° 1) ;
+--   - clé du NOM LU SUR LE PERMIS (le plus récent ; clé vide « | » d'un permis non latin : nom
+--     déclaré), sinon du nom légal déclaré ; date de naissance rendue par le fournisseur ;
+--     comptes pseudonymisés exclus ;
+--   - performance de la pose (appelée à chaque pose ; p95 de L0-02 dépassé) : plans gardés par
+--     PL/pgSQL (une fonction SQL `SECURITY DEFINER` est replanifiée à chaque appel), sorties dès
+--     qu'un signal de rang supérieur est trouvé, identités lues par clé et seulement si le
+--     voyageur en a une.
 GRANT CREATE ON SCHEMA core TO risk_limit_owner;
 SET LOCAL ROLE risk_limit_owner;
 CREATE OR REPLACE FUNCTION core.risk_self_booking_signal(p_guest uuid, p_org uuid)
   RETURNS text
-  LANGUAGE sql
+  LANGUAGE plpgsql
   STABLE
   SECURITY DEFINER
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  WITH host AS (
-    SELECT o.holder_user_id AS user_id FROM core.iam_organization AS o WHERE o.id = p_org
+DECLARE
+  v_holder uuid;
+  v_host   uuid[];
+  v_auto   uuid[];
+  v_signal text;
+  v_key    text;
+  v_birth  date;
+BEGIN
+  -- entrée absente ou compte inconnu : aucun lien jugeable, fail-closed
+  IF p_guest IS NULL OR p_org IS NULL THEN
+    RETURN 'DIRECT';
+  END IF;
+  SELECT o.holder_user_id INTO v_holder FROM core.iam_organization AS o WHERE o.id = p_org;
+  IF v_holder IS NULL THEN
+    RETURN 'DIRECT';
+  END IF;
+  -- personnes du côté hôte : titulaire du compte du véhicule et membres ACTIVE / INVITED de tous
+  -- les comptes d'hôte de ce titulaire (tous pays)
+  v_host := ARRAY(
+    SELECT v_holder
     UNION
     SELECT m.user_id
-      FROM core.iam_organization AS o
-      JOIN core.iam_organization AS o2 ON o2.holder_user_id = o.holder_user_id
+      FROM core.iam_organization AS o2
       JOIN core.iam_membership AS m ON m.org_id = o2.id AND m.status IN ('ACTIVE', 'INVITED')
-     WHERE o.id = p_org
-  ),
-  pair AS (
-    SELECT h.user_id, l.decision, l.signal
-      FROM host AS h
-      LEFT JOIN core.risk_account_link AS l
-        ON l.user_low = LEAST(h.user_id, p_guest) AND l.user_high = GREATEST(h.user_id, p_guest)
-  ),
-  auto_host AS (
-    SELECT p.user_id FROM pair AS p WHERE p.decision IS DISTINCT FROM 'NOT_LINKED'
-  ),
-  -- identité vérifiée : US-103, vérification approuvée AU MOINS UNE FOIS (`first_approved_at` :
-  -- un RECHECK, par changement du nom ou retrait du consentement, n'éteint pas le signal), clé du
-  -- NOM LU SUR LE PERMIS (le plus récent ; clé vide « | » d'un permis non latin : nom déclaré),
-  -- sinon du nom légal déclaré ; date de naissance rendue par le fournisseur ; comptes
-  -- pseudonymisés exclus. US-103 (performance de la pose) : le voyageur et les personnes du côté
-  -- hôte sont lus séparément, par clé (plus de `u.id = p_guest OR u.id IN (…)`, qui parcourait
-  -- les comptes) ; un voyageur sans identité vérifiée (cas courant) ne lit aucune identité de
-  -- l'hôte. Même résultat qu'en 0080 (h.user_id <> g.user_id : le voyageur exclu côté hôte).
-  ident_guest AS (
-    SELECT u.id AS user_id,
-           COALESCE(
-             NULLIF((SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
-                       FROM core.kyc_identity_document AS d
-                      WHERE d.verification_id = v.id
-                      ORDER BY d.created_at DESC, d.id DESC LIMIT 1), '|'),
-             core.kyc_legal_name_key(u.legal_first_name, u.legal_last_name)) AS name_key,
-           s.date_of_birth
-      FROM core.iam_user_account AS u
-      JOIN core.kyc_identity_verification AS v
-        ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
-      JOIN core.kyc_identity_subject AS s
-        ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
-     WHERE u.id = p_guest AND u.pseudonymized_at IS NULL
-  ),
-  ident_host AS (
-    SELECT u.id AS user_id,
-           COALESCE(
-             NULLIF((SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
-                       FROM core.kyc_identity_document AS d
-                      WHERE d.verification_id = v.id
-                      ORDER BY d.created_at DESC, d.id DESC LIMIT 1), '|'),
-             core.kyc_legal_name_key(u.legal_first_name, u.legal_last_name)) AS name_key,
-           s.date_of_birth
-      FROM auto_host AS a
-      JOIN core.iam_user_account AS u ON u.id = a.user_id
-      JOIN core.kyc_identity_verification AS v
-        ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
-      JOIN core.kyc_identity_subject AS s
-        ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
-     WHERE u.pseudonymized_at IS NULL AND u.id <> p_guest
-       AND EXISTS (SELECT 1 FROM ident_guest)
-  ),
-  signals AS (
-    SELECT 0 AS rank, 'DIRECT' AS signal
-     WHERE p_guest IS NULL OR p_org IS NULL OR NOT EXISTS (SELECT 1 FROM host)
-    UNION ALL
-    SELECT 1, 'DIRECT' WHERE EXISTS (SELECT 1 FROM host AS h WHERE h.user_id = p_guest)
-    UNION ALL
-    SELECT 2, p.signal FROM pair AS p WHERE p.decision = 'LINKED'
-    UNION ALL
-    SELECT 3, 'SAME_IDENTITY'
-     WHERE EXISTS (SELECT 1
-                     FROM ident_guest AS g
-                     JOIN ident_host AS h ON h.name_key = g.name_key
-                                         AND h.date_of_birth = g.date_of_birth
-                    WHERE g.name_key <> '|')
-    UNION ALL
-    SELECT 4, 'SAME_PHONE'
-     WHERE EXISTS (SELECT 1
-                     FROM core.iam_user_account AS g
-                     JOIN core.iam_user_account AS h
-                       ON h.id IN (SELECT a.user_id FROM auto_host AS a)
-                    WHERE g.id = p_guest AND g.pseudonymized_at IS NULL
-                      AND h.pseudonymized_at IS NULL AND g.phone_e164 IS NOT NULL
-                      AND g.phone_e164 = h.phone_e164
-                      AND (g.phone_verified_at IS NOT NULL OR h.phone_verified_at IS NOT NULL))
-  )
-  SELECT s.signal FROM signals AS s ORDER BY s.rank, s.signal LIMIT 1
+     WHERE o2.holder_user_id = v_holder);
+  IF p_guest = ANY (v_host) THEN
+    RETURN 'DIRECT';
+  END IF;
+  -- constat LINKED de l'ops sur une paire (voyageur, personne du côté hôte)
+  SELECT l.signal INTO v_signal
+    FROM pg_catalog.unnest(v_host) AS h(user_id)
+    JOIN core.risk_account_link AS l
+      ON l.user_low = LEAST(h.user_id, p_guest) AND l.user_high = GREATEST(h.user_id, p_guest)
+   WHERE l.decision = 'LINKED'
+   ORDER BY l.signal LIMIT 1;
+  IF v_signal IS NOT NULL THEN
+    RETURN v_signal;
+  END IF;
+  -- signaux automatiques : toutes les personnes du côté hôte sauf celles constatées NOT_LINKED
+  v_auto := ARRAY(
+    SELECT h.user_id
+      FROM pg_catalog.unnest(v_host) AS h(user_id)
+     WHERE NOT EXISTS (SELECT 1 FROM core.risk_account_link AS l
+                        WHERE l.user_low = LEAST(h.user_id, p_guest)
+                          AND l.user_high = GREATEST(h.user_id, p_guest)
+                          AND l.decision = 'NOT_LINKED'));
+  IF pg_catalog.cardinality(v_auto) = 0 THEN
+    RETURN NULL;
+  END IF;
+  -- SAME_IDENTITY : identités du voyageur (chacune de ses vérifications approuvées une fois) ;
+  -- aucune ⇒ aucune lecture côté hôte (cas courant)
+  IF EXISTS (
+    WITH g AS (
+      SELECT COALESCE(
+               NULLIF((SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
+                         FROM core.kyc_identity_document AS d
+                        WHERE d.verification_id = v.id
+                        ORDER BY d.created_at DESC, d.id DESC LIMIT 1), '|'),
+               core.kyc_legal_name_key(u.legal_first_name, u.legal_last_name)) AS name_key,
+             s.date_of_birth
+        FROM core.iam_user_account AS u
+        JOIN core.kyc_identity_verification AS v
+          ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
+        JOIN core.kyc_identity_subject AS s
+          ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
+       WHERE u.id = p_guest AND u.pseudonymized_at IS NULL
+    ),
+    h AS (
+      SELECT COALESCE(
+               NULLIF((SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
+                         FROM core.kyc_identity_document AS d
+                        WHERE d.verification_id = v.id
+                        ORDER BY d.created_at DESC, d.id DESC LIMIT 1), '|'),
+               core.kyc_legal_name_key(u.legal_first_name, u.legal_last_name)) AS name_key,
+             s.date_of_birth
+        FROM pg_catalog.unnest(v_auto) AS a(user_id)
+        JOIN core.iam_user_account AS u ON u.id = a.user_id
+        JOIN core.kyc_identity_verification AS v
+          ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
+        JOIN core.kyc_identity_subject AS s
+          ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
+       WHERE u.pseudonymized_at IS NULL
+         AND EXISTS (SELECT 1 FROM g)
+    )
+    SELECT 1 FROM g JOIN h ON h.name_key = g.name_key AND h.date_of_birth = g.date_of_birth
+     WHERE g.name_key <> '|') THEN
+    RETURN 'SAME_IDENTITY';
+  END IF;
+  -- SAME_PHONE : même numéro, vérifié sur l'un des deux comptes au moins
+  IF EXISTS (SELECT 1
+               FROM core.iam_user_account AS g
+               JOIN core.iam_user_account AS h ON h.id = ANY (v_auto)
+              WHERE g.id = p_guest AND g.pseudonymized_at IS NULL
+                AND h.pseudonymized_at IS NULL AND g.phone_e164 IS NOT NULL
+                AND g.phone_e164 = h.phone_e164
+                AND (g.phone_verified_at IS NOT NULL OR h.phone_verified_at IS NOT NULL)) THEN
+    RETURN 'SAME_PHONE';
+  END IF;
+  RETURN NULL;
+END
 $fn$;
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM risk_limit_owner;
