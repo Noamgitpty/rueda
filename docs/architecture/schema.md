@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 83 migrations ; 100 tables ; 2 vues ; 531 politiques RLS ; 178 fonctions `SECURITY DEFINER` ; 172 autres fonctions.
+- 84 migrations ; 101 tables ; 2 vues ; 534 politiques RLS ; 179 fonctions `SECURITY DEFINER` ; 174 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -98,6 +98,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0080_risk_self_booking_linked_accounts` | RISK / AVL : cumul hôte / voyageur, auto-réservation refusée y compris par un compte lié. |
 | `0081_kyc_host_ops_verification` | KYC : vérification de l'hôte par l'ops PAR EXCEPTION (approbation automatique, filtrage |
 | `0082_config_host_review_params` | graine complémentaire : paramètres « host_review_* » (US-108 ; 17 §7.2). |
+| `0083_catalog_vehicle_chassis_formats` | CAT : numéro de châssis en deux formats (VIN ISO 3779 ou numéro non ISO) et historique des engagements de l'hôte. |
 
 ## Rôles
 
@@ -1084,7 +1085,7 @@ Contraintes :
 - `catalog_vehicle_value_class_valid` : `CHECK (value_class = ANY (ARRAY['STANDARD'::text, 'PREMIUM'::text, 'LUXE'::text]))`
 - `catalog_vehicle_variant_id_fkey` : `FOREIGN KEY (variant_id) REFERENCES core.catalog_vehicle_variant(id)`
 - `catalog_vehicle_vin_format` : `CHECK (vin ~ '^[A-Z0-9]{5,17}$'::text)`
-- `catalog_vehicle_vin_iso` : `CHECK (vin IS NULL OR vin ~ '^[A-HJ-NPR-Z0-9]{17}$'::text OR year < 1981)`
+- `catalog_vehicle_vin_iso` : `CHECK (vin IS NULL OR vin ~ '^[A-HJ-NPR-Z0-9]{17}$'::text OR vin ~ '^[A-Z0-9]{5,16}$'::text)`
 - `catalog_vehicle_year_range` : `CHECK (year >= 1950 AND year <= 2100)`
 
 Index :
@@ -1098,6 +1099,54 @@ Politiques RLS :
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
+
+### `core.catalog_vehicle_attestation`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : catalog_cmd_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `gen_random_uuid()` |
+| `vehicle_id` | `uuid` | oui | — |
+| `org_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `user_id` | `uuid` | oui | — |
+| `statement` | `text` | oui | — |
+| `statement_key` | `text` | oui | — |
+| `catalog_version` | `integer` | non | — |
+| `locale` | `text` | non | — |
+| `statement_text` | `text` | non | — |
+| `attested_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `catalog_vehicle_attestation_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `catalog_vehicle_attestation_key_matches` : `CHECK ((statement = 'OWNERSHIP'::text) = (statement_key = 'web.vehicleDocs.declaration.owner'::text))`
+- `catalog_vehicle_attestation_key_valid` : `CHECK (statement_key = ANY (ARRAY['web.vehicleDocs.declaration.owner'::text, 'web.vehicleDocs.declaration.lienOk'::text]))`
+- `catalog_vehicle_attestation_locale_valid` : `CHECK (locale = ANY (ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt'::text]))`
+- `catalog_vehicle_attestation_pkey` : `PRIMARY KEY (id)`
+- `catalog_vehicle_attestation_statement_valid` : `CHECK (statement = ANY (ARRAY['OWNERSHIP'::text, 'LIEN'::text]))`
+- `catalog_vehicle_attestation_text_valid` : `CHECK (btrim(statement_text) <> ''::text AND char_length(statement_text) <= 500)`
+- `catalog_vehicle_attestation_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
+- `catalog_vehicle_attestation_vehicle_fk` : `FOREIGN KEY (vehicle_id, org_id, country_code) REFERENCES core.catalog_vehicle(id, org_id, country_code)`
+- `catalog_vehicle_attestation_version_range` : `CHECK (catalog_version >= 1 AND catalog_version <= 999999)`
+- `catalog_vehicle_attestation_wording` : `CHECK ((catalog_version IS NULL) = (locale IS NULL) AND (locale IS NULL) = (statement_text IS NULL))`
+
+Index :
+
+- `catalog_vehicle_attestation_vehicle_idx` : `CREATE INDEX catalog_vehicle_attestation_vehicle_idx ON core.catalog_vehicle_attestation USING btree (vehicle_id, attested_at)`
+
+Politiques RLS :
+
+- `catalog_cmd_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `true`
+- `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `catalog_vehicle_attestation_append_only` : `CREATE TRIGGER catalog_vehicle_attestation_append_only BEFORE DELETE OR UPDATE ON core.catalog_vehicle_attestation FOR EACH ROW EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
+- `catalog_vehicle_attestation_no_truncate` : `CREATE TRIGGER catalog_vehicle_attestation_no_truncate BEFORE TRUNCATE ON core.catalog_vehicle_attestation FOR EACH STATEMENT EXECUTE FUNCTION core.catalog_vehicle_no_delete()`
 
 ### `core.catalog_vehicle_claim`
 
@@ -4926,6 +4975,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_cmd_create_location(p_token_hash bytea, p_org uuid, p_kind text, p_label text, p_address_line text, p_city text, p_area_label text, p_lat numeric, p_lng numeric)` | `TABLE(outcome text, location_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_create_vehicle(p_token_hash bytea, p_org uuid, p_location_id uuid, p_plate text, p_vin text, p_variant_id uuid, p_make_text text, p_model_text text, p_year integer, p_trim text, p_transmission text, p_seats smallint, p_fuel_type text, p_odometer_km integer, p_gps_installed boolean, p_lien_declared boolean)` | `TABLE(outcome text, vehicle_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_declare_vehicle(p_token_hash bytea, p_org uuid, p_vehicle uuid, p_title_holder text, p_lien_declared boolean, p_odometer_km integer, p_ownership_attested boolean, p_lien_attested boolean, p_vin text)` | `TABLE(outcome text, vehicle_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_cmd_declare_vehicle(p_token_hash bytea, p_org uuid, p_vehicle uuid, p_title_holder text, p_lien_declared boolean, p_odometer_km integer, p_ownership_attested boolean, p_lien_attested boolean, p_vin text, p_locale text, p_catalog_version integer, p_ownership_text text, p_lien_text text)` | `TABLE(outcome text, vehicle_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_delete_listing(p_token_hash bytea, p_org uuid, p_listing_id uuid)` | `TABLE(outcome text, listing_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_open_vehicle_claim(p_token_hash bytea, p_org uuid, p_plate text, p_vin text, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, claim_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_place_host_block(p_token_hash bytea, p_org uuid, p_vehicle_id uuid, p_start_local timestamp without time zone, p_end_local timestamp without time zone)` | `TABLE(outcome text, block_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
@@ -5132,10 +5182,12 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_slug(p_name text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_blockers(p_vehicle uuid, p_strict boolean)` | `text[]` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_claim_target(p_token_hash bytea, p_org uuid, p_plate text, p_vin text)` | `TABLE(outcome text, user_id uuid, country_code text, target uuid, plate text, vin text)` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
+| `core.catalog_vehicle_declare(p_token_hash bytea, p_org uuid, p_vehicle uuid, p_title_holder text, p_lien_declared boolean, p_odometer_km integer, p_ownership_attested boolean, p_lien_attested boolean, p_vin text, p_locale text, p_catalog_version integer, p_ownership_text text, p_lien_text text)` | `TABLE(outcome text, vehicle_id uuid)` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_vehicle_live_bookings(p_vehicle uuid)` | `jsonb` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_vehicle_needs_review(p_vehicle uuid)` | `boolean` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.catalog_vehicle_writable(p_token_hash bytea, p_org uuid, p_vehicle uuid)` | `TABLE(outcome text, user_id uuid, country_code text, eligibility_status text)` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
+| `core.catalog_vin_kind(p_vin text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.cfg_brand_asset_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_brand_authorize(p_token_hash bytea, p_permission text, p_country text, p_attempted text, p_subject_type text, p_subject_id uuid, p_request_id uuid, OUT outcome text, OUT actor uuid, OUT actor_role text)` | `record` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.cfg_brand_body_allowed(p_body text)` | `boolean` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
