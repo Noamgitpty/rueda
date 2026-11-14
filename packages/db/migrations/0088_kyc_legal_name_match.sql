@@ -57,7 +57,9 @@
 --     DROP COLUMN holder_surnames, DROP COLUMN name_match ;
 --   DROP POLICY kyc_cmd_name_update ON core.iam_user_account ;
 --   DROP POLICY kyc_cmd_name_audit_insert ON core.audit_audit_log ;
---   DROP POLICY risk_link_read ON core.kyc_identity_document ; révoquer les droits ci-dessous.
+--   DROP POLICY risk_link_read ON core.kyc_identity_document ;
+--   DROP INDEX core.iam_organization_holder_idx, core.membership_org_live_idx,
+--     core.kyc_identity_verification_approved_user_idx ; révoquer les droits ci-dessous.
 
 -- 1. Colonnes du permis : nom du titulaire et verdict du rapprochement -------------------------
 ALTER TABLE core.kyc_identity_document
@@ -525,8 +527,28 @@ GRANT EXECUTE ON FUNCTION core.kyc_cmd_change_legal_name(bytea, text, text) TO a
 ALTER FUNCTION core.kyc_cmd_change_legal_name(bytea, text, text) OWNER TO kyc_cmd_owner;
 REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
 
--- 6. Sous risk_limit_owner : signal SAME_IDENTITY sur le nom lu sur le permis ------------------
--- (définition de 0080 recopiée ; seule la clé de nom du CTE `ident` change, marquée US-103)
+-- 6. Index du chemin de la pose (US-103 ; revue d'US-127 ; deux dépassements du p95 de pose de
+-- L0-02) : jointures et filtres de core.risk_self_booking_signal, appelée à chaque pose. Tables
+-- petites en Bêta, création dans la transaction de la migration (aucune migration du projet
+-- n'utilise CONCURRENTLY). Les autres chemins ont déjà leur index : risk_account_link
+-- (risk_account_link_pair_unique), kyc_identity_subject (kyc_identity_subject_attempt_unique),
+-- kyc_identity_document (kyc_identity_document_verification_idx), iam_user_account (clé
+-- primaire ; le téléphone est comparé entre comptes déjà désignés).
+-- comptes d'hôte d'un même titulaire (o2.holder_user_id = o.holder_user_id) : l'unicité
+-- (country_code, holder_user_id) ne sert pas une recherche par titulaire seul
+CREATE INDEX iam_organization_holder_idx ON core.iam_organization (holder_user_id);
+-- membres vivants (ACTIVE, INVITED) d'un compte d'hôte : l'unicité (user_id, org_id, role) commence
+-- par la personne
+CREATE INDEX membership_org_live_idx ON core.iam_membership (org_id, user_id)
+  WHERE status IN ('ACTIVE', 'INVITED');
+-- vérification approuvée d'une personne (courante ou non) : l'unicité partielle ne couvre que la
+-- vérification courante
+CREATE INDEX kyc_identity_verification_approved_user_idx
+  ON core.kyc_identity_verification (user_id) WHERE approved_at IS NOT NULL;
+
+-- 7. Sous risk_limit_owner : signal SAME_IDENTITY sur le nom lu sur le permis ------------------
+-- (définition de 0080 recopiée ; seuls les CTE d'identité changent, marqués US-103 : clé du nom
+-- lu sur le permis, voyageur et côté hôte lus par clé)
 GRANT CREATE ON SCHEMA core TO risk_limit_owner;
 SET LOCAL ROLE risk_limit_owner;
 CREATE OR REPLACE FUNCTION core.risk_self_booking_signal(p_guest uuid, p_org uuid)
@@ -556,8 +578,11 @@ AS $fn$
   ),
   -- identité vérifiée : US-103, clé du NOM LU SUR LE PERMIS de la vérification approuvée (le plus
   -- récent), sinon du nom légal déclaré ; date de naissance rendue par le fournisseur ; comptes
-  -- pseudonymisés exclus
-  ident AS (
+  -- pseudonymisés exclus. US-103 (performance de la pose) : le voyageur et les personnes du côté
+  -- hôte sont lus séparément, par clé (plus de `u.id = p_guest OR u.id IN (…)`, qui parcourait
+  -- les comptes) ; un voyageur sans identité vérifiée (cas courant) ne lit aucune identité de
+  -- l'hôte. Même résultat qu'en 0080 (h.user_id <> g.user_id : le voyageur exclu côté hôte).
+  ident_guest AS (
     SELECT u.id AS user_id,
            COALESCE(
              (SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
@@ -570,8 +595,24 @@ AS $fn$
       JOIN core.kyc_identity_verification AS v ON v.user_id = u.id AND v.approved_at IS NOT NULL
       JOIN core.kyc_identity_subject AS s
         ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
-     WHERE u.pseudonymized_at IS NULL
-       AND (u.id = p_guest OR u.id IN (SELECT a.user_id FROM auto_host AS a))
+     WHERE u.id = p_guest AND u.pseudonymized_at IS NULL
+  ),
+  ident_host AS (
+    SELECT u.id AS user_id,
+           COALESCE(
+             (SELECT core.kyc_legal_name_key(d.holder_given_names, d.holder_surnames)
+                FROM core.kyc_identity_document AS d
+               WHERE d.verification_id = v.id
+               ORDER BY d.created_at DESC, d.id DESC LIMIT 1),
+             core.kyc_legal_name_key(u.legal_first_name, u.legal_last_name)) AS name_key,
+           s.date_of_birth
+      FROM auto_host AS a
+      JOIN core.iam_user_account AS u ON u.id = a.user_id
+      JOIN core.kyc_identity_verification AS v ON v.user_id = u.id AND v.approved_at IS NOT NULL
+      JOIN core.kyc_identity_subject AS s
+        ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
+     WHERE u.pseudonymized_at IS NULL AND u.id <> p_guest
+       AND EXISTS (SELECT 1 FROM ident_guest)
   ),
   signals AS (
     SELECT 0 AS rank, 'DIRECT' AS signal
@@ -583,10 +624,10 @@ AS $fn$
     UNION ALL
     SELECT 3, 'SAME_IDENTITY'
      WHERE EXISTS (SELECT 1
-                     FROM ident AS g
-                     JOIN ident AS h ON h.user_id <> g.user_id AND h.name_key = g.name_key
-                                    AND h.date_of_birth = g.date_of_birth
-                    WHERE g.user_id = p_guest AND g.name_key <> '|')
+                     FROM ident_guest AS g
+                     JOIN ident_host AS h ON h.name_key = g.name_key
+                                         AND h.date_of_birth = g.date_of_birth
+                    WHERE g.name_key <> '|')
     UNION ALL
     SELECT 4, 'SAME_PHONE'
      WHERE EXISTS (SELECT 1

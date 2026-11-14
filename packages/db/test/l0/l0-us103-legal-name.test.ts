@@ -584,3 +584,28 @@ describe('US-103 — seule la commande KYC écrit le nom légal (RLS, droits de 
     });
   });
 });
+
+describe('US-103 — index du chemin de la pose (signal d’auto-réservation, ADR-110, ADR-117)', () => {
+  it('titulaire des comptes d’hôte, membres vivants et vérification approuvée sont indexés', async () => {
+    await withRole('app_api', async (c) => {
+      const { rows } = await c.query<{ name: string; def: string }>(
+        `SELECT cl.relname::text AS name, pg_catalog.pg_get_indexdef(i.indexrelid) AS def
+           FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class cl ON cl.oid = i.indexrelid
+          WHERE cl.relname = ANY ($1::text[])`,
+        [
+          [
+            'iam_organization_holder_idx',
+            'membership_org_live_idx',
+            'kyc_identity_verification_approved_user_idx',
+          ],
+        ],
+      );
+      const defs = Object.fromEntries(rows.map((r) => [r.name, r.def]));
+      expect(defs['iam_organization_holder_idx']).toMatch(/iam_organization .*\(holder_user_id\)/);
+      expect(defs['membership_org_live_idx']).toMatch(/\(org_id, user_id\) WHERE/);
+      expect(defs['kyc_identity_verification_approved_user_idx']).toMatch(
+        /\(user_id\) WHERE \(approved_at IS NOT NULL\)/,
+      );
+    });
+  });
+});
