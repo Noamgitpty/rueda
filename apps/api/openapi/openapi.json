@@ -4173,7 +4173,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Zone affichée qui ressemble à une adresse exacte (numéro de rue, voie ou logement numérotés, angle de rues ; BOARD N-62, US-118) : `fields` désigne `areaLabel`, rien n'est écrit",
+            "description": "Zone ou ville affichées qui ressemblent à une adresse exacte ou portent un contact (téléphone, courriel, lien ; BOARD N-62, US-118) : `fields` désigne `areaLabel` ou `city`, rien n'est écrit",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4185,7 +4185,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "const": "LOCATION_AREA_ADDRESS"
+                      "enum": ["LOCATION_AREA_ADDRESS", "LOCATION_CITY_INVALID"]
                     }
                   }
                 }
@@ -4976,7 +4976,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Photos en nombre insuffisant ; zone affichée qui ressemble à une adresse exacte ; compte d'hôte non activé ou pays fermé ; aucun contrat d'assureur actif dans le pays ; règle stricte du véhicule en échec (pièce expirée ou manquante, consentement du créancier…) : l'annonce garde son état",
+            "description": "Photos en nombre insuffisant ; zone ou ville affichées, marque ou modèle saisis qui portent une adresse ou un contact ; compte d'hôte non activé ou pays fermé ; aucun contrat d'assureur actif dans le pays ; règle stricte du véhicule en échec (pièce expirée ou manquante, consentement du créancier…) : l'annonce garde son état",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4991,6 +4991,8 @@
                       "enum": [
                         "PHOTO_MIN_COUNT",
                         "LOCATION_AREA_ADDRESS",
+                        "LOCATION_CITY_INVALID",
+                        "VEHICLE_DESCRIPTION_INVALID",
                         "HOST_NOT_ACTIVATED",
                         "INSURER_CONTRACT_INACTIVE",
                         "VEHICLE_TOO_OLD",

@@ -399,6 +399,8 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     for (const [outcome, status, messageKey] of [
       ['INSURER_CONTRACT_INACTIVE', 422, 'common.listing.insurerInactive'],
       ['LOCATION_AREA_ADDRESS', 422, 'common.listing.areaLooksLikeAddress'],
+      ['LOCATION_CITY_INVALID', 422, 'common.listing.cityInvalid'],
+      ['VEHICLE_DESCRIPTION_INVALID', 422, 'common.listing.vehicleDescriptionInvalid'],
       ['VEHICLE_ELIGIBILITY_REQUIRED', 409, 'common.listing.vehicleEligibilityRequired'],
       ['VEHICLE_UNDER_REVIEW', 409, 'common.vehicleDocs.underReview'],
       ['VEHICLE_INELIGIBLE', 409, 'common.vehicleDocs.ineligible'],
@@ -511,13 +513,25 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     const before = w.store.locationsById.size;
     const area = await api.request('POST', `${d.base}/locations`, {
       headers: w.a,
-      body: { ...LOCATION, areaLabel: 'Calle 50' },
+      body: { ...LOCATION, areaLabel: 'Calle 50 #12' },
     });
     expect(area.status).toBe(422);
     expect(area.json).toEqual({
       code: 'LOCATION_AREA_ADDRESS',
       messageKey: 'common.listing.areaLooksLikeAddress',
       fields: [{ field: 'areaLabel', reason: 'INVALID' }],
+    });
+    expect(w.store.locationsById.size).toBe(before);
+    // ville qui porte une adresse ou un contact (revue sécurité) : 422, champ désigné
+    const city = await api.request('POST', `${d.base}/locations`, {
+      headers: w.a,
+      body: { ...LOCATION, city: 'Ciudad ana@example.test' },
+    });
+    expect(city.status).toBe(422);
+    expect(city.json).toEqual({
+      code: 'LOCATION_CITY_INVALID',
+      messageKey: 'common.listing.cityInvalid',
+      fields: [{ field: 'city', reason: 'INVALID' }],
     });
     expect(w.store.locationsById.size).toBe(before);
   });

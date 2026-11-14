@@ -33,7 +33,8 @@
  * (`LISTING_HAS_FUTURE_TRIPS`, `INSURER_CONTRACT_INACTIVE`) ; PROPOSÉS par US-118 :
  * `LISTING_PUBLISHED` (publiée dès les contrôles automatiques, DEC-FONDATEUR-22),
  * `LISTING_UNLISTED`, `LOCATION_AREA_ADDRESS` (zone affichée qui ressemble à une adresse exacte,
- * BOARD N-62), `VEHICLE_ELIGIBILITY_REQUIRED` (véhicule pas encore confirmé par l'hôte, US-124).
+ * BOARD N-62), `LOCATION_CITY_INVALID`, `VEHICLE_DESCRIPTION_INVALID` (textes publics :
+ * adresse ou contact), `VEHICLE_ELIGIBILITY_REQUIRED` (véhicule pas encore confirmé par l'hôte, US-124).
  *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
@@ -112,6 +113,13 @@ export const HOST_LISTING_MESSAGES = {
   INSURER_CONTRACT_INACTIVE: { status: 422, messageKey: 'common.listing.insurerInactive' },
   // zone affichée qui ressemble à une adresse exacte (BOARD N-62 ; US-118)
   LOCATION_AREA_ADDRESS: { status: 422, messageKey: 'common.listing.areaLooksLikeAddress' },
+  // ville affichée qui ressemble à une adresse ou porte un contact (revue sécurité US-118)
+  LOCATION_CITY_INVALID: { status: 422, messageKey: 'common.listing.cityInvalid' },
+  // marque ou modèle saisis (hors catalogue) qui portent une adresse ou un contact (US-118)
+  VEHICLE_DESCRIPTION_INVALID: {
+    status: 422,
+    messageKey: 'common.listing.vehicleDescriptionInvalid',
+  },
   INVALID_PERIOD: { status: 422, messageKey: 'common.calendar.invalidPeriod' },
   VEHICLE_TOO_OLD: { status: 422, messageKey: 'common.vehicleDocs.tooOld' },
   VEHICLE_MILEAGE_TOO_HIGH: { status: 422, messageKey: 'common.vehicleDocs.mileageTooHigh' },

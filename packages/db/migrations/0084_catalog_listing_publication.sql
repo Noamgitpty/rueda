@@ -28,10 +28,12 @@
 --     pays (`insurer_contract_active`, absent = false, `INSURER_CONTRACT_INACTIVE`) ; tout refus
 --     laisse l'annonce dans son état ; issue LISTED (publiée, `published_at`) ou PENDING_REVIEW
 --     (revue exigée par le pays : élément de la file LISTING, sujet LISTING) ;
---   - zone affichée (`area_label`, saisie libre, publique) : filtre AUTOMATIQUE
---     `core.catalog_area_label_is_address` (numéro de 3 chiffres ou plus, marque de numéro « N° »,
---     « nro », « # », mot de voie ou de logement suivi d'un numéro, angle de rues « esquina »,
---     « esq. », « c/ ») ; refus à la création du lieu et à la publication, jamais une revue humaine ;
+--   - textes publics saisis par l'hôte : zone (`area_label`) et ville (`city`) du lieu ⇒
+--     LOCATION_AREA_ADDRESS / LOCATION_CITY_INVALID ; marque et modèle d'un véhicule hors
+--     catalogue ⇒ VEHICLE_DESCRIPTION_INVALID ; filtres AUTOMATIQUES après normalisation (NFKC,
+--     invisibles retirés) : marques d'adresse, nombre de 3 chiffres (zone et ville), contacts
+--     (téléphone, courriel, web, messagerie) ; à la création du lieu et à la publication, jamais
+--     une revue humaine ; ils réduisent le risque sans le supprimer (ADR-114) ;
 --   - véhicule hors catalogue : la règle CATALOG_ADDITION_PENDING sort de
 --     `core.catalog_vehicle_blockers` (corps de 0077 recopié sans elle) ;
 --   - retrait par l'hôte (`core.catalog_cmd_unlist_listing`) : LISTED → UNLISTED ; suppression
@@ -65,7 +67,9 @@
 --     core.catalog_listing_decide(uuid, text, uuid, text, text, text),
 --     core.catalog_cmd_unlist_listing(bytea, uuid, uuid),
 --     core.catalog_listing_publish_blocker(uuid, uuid, text, text),
---     core.catalog_area_label_is_address(text) ;
+--     core.catalog_area_label_is_address(text), core.catalog_vehicle_text_is_invalid(text),
+--     core.catalog_text_has_address_marker(text), core.catalog_text_has_contact(text),
+--     core.catalog_public_text_norm(text) ;
 --   DROP POLICY catalog_cmd_publish_read ON core.config_param_definition, core.config_param_value ;
 --   DROP POLICY catalog_cmd_publish_audit ON core.audit_audit_log ;
 --   DROP POLICY catalog_cmd_read ON core.iam_organization ;
@@ -178,12 +182,78 @@ $fn$;
 GRANT CREATE ON SCHEMA core TO catalog_cmd_owner;
 SET LOCAL ROLE catalog_cmd_owner;
 
--- 2.1 Zone affichée qui ressemble à une adresse exacte (N-62 ; PROPOSÉ, ADR-114). Motifs, sans
--- tenir compte de la casse : un nombre de trois chiffres ou plus (numéro de maison, code postal) ;
--- une marque de numéro suivie d'un chiffre (« N° 12 », « Nº », « n. », « nro », « núm », « # ») ;
--- un mot de voie ou de logement suivi d'un numéro (« Calle 50 », « Av. 3 », « apto 12 »,
--- « casa 4 », « torre 2 », « edificio 9 »…) ; un angle de rues (« esquina », « esq. », « c/ »).
--- Une zone (« Barrio Norte », « Costa del Este », « Villa Morra », « Vía España ») passe.
+-- 2.1 Textes publics saisis par l'hôte (N-62 ; PROPOSÉ, ADR-114) : zone (`area_label`), ville
+-- (`city`) du lieu, marque et modèle saisis d'un véhicule hors catalogue (`make_text`,
+-- `model_text`). Filtres AUTOMATIQUES (jamais une revue humaine) qui RÉDUISENT le risque d'une
+-- adresse exacte ou d'un contact hors plateforme sans prétendre à l'exhaustivité ; règles
+-- volontairement étroites pour ne pas gêner l'hôte honnête (DEC-FONDATEUR-22).
+-- Normalisation avant tout filtre : NFKC (chiffres pleine chasse, « № »…), puis retrait des
+-- caractères invisibles ou de liaison (espaces de largeur nulle, U+2060 à U+2064, U+FEFF, trait
+-- d'union conditionnel, sélecteurs de variante, touche d'émoji U+20E3 : « 1️⃣ » devient « 1 »).
+CREATE FUNCTION core.catalog_public_text_norm(p_text text)
+  RETURNS text
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT pg_catalog.regexp_replace(pg_catalog.normalize(p_text, NFKC),
+                                   '[\u00AD\u200B-\u200F\u2060-\u2064\uFEFF\uFE00-\uFE0F\u20E3]',
+                                   '', 'g')
+$fn$;
+
+-- Contact hors plateforme : numéro de téléphone (7 chiffres ou plus, séparateurs admis), courriel
+-- ou identifiant « @… », adresse web ou nom de domaine (« exemple.com », extension de 2 ou 3
+-- lettres), messagerie nommée.
+CREATE FUNCTION core.catalog_text_has_contact(p_text text)
+  RETURNS boolean
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  WITH t AS (SELECT core.catalog_public_text_norm(p_text) AS v)
+  SELECT p_text IS NOT NULL AND (
+       t.v ~ '[0-9]([[:space:]().-]*[0-9]){6,}'
+    OR t.v ~* '@[a-z0-9_.]{2,}'
+    OR t.v ~* '(https?:|www\.|wa\.me|t\.me)'
+    OR t.v ~* '[a-z0-9-]{2,}\.[a-z]{2,3}(/|[[:space:]]|$)'
+    OR t.v ~* '(whatsapp|telegram|instagram|facebook|tiktok|wsp)')
+    FROM t
+$fn$;
+
+-- Marques d'une adresse exacte, après normalisation, sans tenir compte de la casse :
+--   - marque de numéro suivie d'un chiffre (« N° 12 », « No. 12 », « nro », « núm », « #12 ») ;
+--   - logement numéroté (« casa 4 », « apto 12 », « torre 2 », « PH 12B », « bloque 5 »…) ;
+--   - voie numérotée SUIVIE d'un autre numéro (« Calle 50 #12 », « Cll. 50 12 », « Calle: 74 Este
+--     15 ») : une voie seule (« Calle 50 », quartier connu de Panamá ; « Avenida 25 de Mayo »)
+--     passe ;
+--   - angle de rues : « esq. », « c/ », ou « esquina » après un nom (« Esquina Tropical » passe).
+CREATE FUNCTION core.catalog_text_has_address_marker(p_text text)
+  RETURNS boolean
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  WITH t AS (SELECT core.catalog_public_text_norm(p_text) AS v)
+  SELECT p_text IS NOT NULL AND (
+       t.v ~ '#[[:space:]]*[0-9]'
+    OR t.v ~* '(^|[^a-z0-9áéíóúñüç])(n[o°º]|nro|n[uú]m(ero)?)[.:]?[[:space:]]*[0-9]'
+    OR t.v ~* ('(^|[^a-z0-9áéíóúñüç])(casa|apto|apartamento|apt|depto|dpto|departamento|piso|'
+               || 'lote|manzana|mz|edificio|edif|torre|local|oficina|bloque|blq|ph)'
+               || '[-.:,]*[[:space:]]*[0-9]')
+    OR t.v ~* ('(^|[^a-z0-9áéíóúñüç])(calle|cll|cl|avenida|avda|ave|av|v[ií]a|carrera|cra|'
+               || 'street|st|rua|rue|pasaje|psje)[-.:,]*[[:space:]]*[0-9]+[^0-9]+[0-9]')
+    OR t.v ~* '(^|[^a-z0-9áéíóúñüç])esq\.'
+    OR t.v ~* '[a-z0-9áéíóúñüç][.,]?[[:space:]]+(esquina|esq)([^a-z0-9áéíóúñüç]|$)'
+    OR t.v ~* '(^|[[:space:]])c/')
+    FROM t
+$fn$;
+
+-- Zone ou ville affichées : marque d'adresse, nombre de trois chiffres ou plus (numéro de maison,
+-- code postal) ou contact. Une zone (« Barrio Norte », « Costa del Este », « Calle 50 »,
+-- « Zona 1 ») passe.
 CREATE FUNCTION core.catalog_area_label_is_address(p_area text)
   RETURNS boolean
   LANGUAGE sql
@@ -191,19 +261,41 @@ CREATE FUNCTION core.catalog_area_label_is_address(p_area text)
   PARALLEL SAFE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT p_area IS NOT NULL AND (
-       p_area ~ '[0-9]{3,}'
-    OR p_area ~* '(^|[^a-z0-9áéíóúñüç])(n[°º.]|nro\.?|n[uú]m(ero)?\.?|#)[[:space:]]*[0-9]'
-    OR p_area ~* ('(^|[^a-z0-9áéíóúñüç])(calle|avenida|avda|av|v[ií]a|carrera|cra|street|st|'
-                  || 'rua|rue|pasaje|psje|casa|apto|apartamento|apt|depto|dpto|departamento|'
-                  || 'piso|lote|manzana|mz|edificio|edif|torre|local|oficina)\.?[[:space:]]*[0-9]')
-    OR p_area ~* '(^|[^a-z0-9áéíóúñüç])(esquina|esq)([^a-z0-9áéíóúñüç]|$)'
-    OR p_area ~* '(^|[[:space:]])c/')
+  SELECT p_area IS NOT NULL
+         AND (core.catalog_public_text_norm(p_area) ~ '[0-9]{3,}'
+              OR core.catalog_text_has_address_marker(p_area)
+              OR core.catalog_text_has_contact(p_area))
 $fn$;
+
+-- Marque ou modèle saisis (véhicule hors catalogue) : marque d'adresse ou contact ; jamais la
+-- règle des trois chiffres (« Peugeot 208 », « Ram 1500 » passent).
+CREATE FUNCTION core.catalog_vehicle_text_is_invalid(p_text text)
+  RETURNS boolean
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT p_text IS NOT NULL
+         AND (core.catalog_text_has_address_marker(p_text)
+              OR core.catalog_text_has_contact(p_text))
+$fn$;
+COMMENT ON FUNCTION core.catalog_public_text_norm(text) IS
+  'Texte public normalisé (NFKC, caractères invisibles retirés) avant les filtres. Aide interne '
+  'sous catalog_cmd_owner. US-118 (ADR-114).';
+COMMENT ON FUNCTION core.catalog_text_has_contact(text) IS
+  'Téléphone, courriel, identifiant, adresse web ou messagerie dans un texte public. Aide interne '
+  'sous catalog_cmd_owner. US-118 (ADR-114).';
+COMMENT ON FUNCTION core.catalog_text_has_address_marker(text) IS
+  'Marque d''une adresse exacte (numéro, logement numéroté, voie suivie d''un numéro, angle de '
+  'rues). Aide interne sous catalog_cmd_owner. US-118 (ADR-114).';
 COMMENT ON FUNCTION core.catalog_area_label_is_address(text) IS
-  'Zone affichée qui ressemble à une adresse exacte (numéro de rue, voie ou logement numéroté, '
-  'angle de rues) : refusée à la création du lieu et à la publication (BOARD N-62, filtre '
-  'automatique, PROPOSÉ). Aide interne sous catalog_cmd_owner. US-118 (ADR-114).';
+  'Zone ou ville affichées qui ressemblent à une adresse exacte ou portent un contact : refusées à '
+  'la création du lieu et à la publication (BOARD N-62, filtre automatique, PROPOSÉ). Aide interne '
+  'sous catalog_cmd_owner. US-118 (ADR-114).';
+COMMENT ON FUNCTION core.catalog_vehicle_text_is_invalid(text) IS
+  'Marque ou modèle saisis qui portent une adresse ou un contact : publication refusée '
+  '(VEHICLE_DESCRIPTION_INVALID). Aide interne sous catalog_cmd_owner. US-118 (ADR-114).';
 
 -- 2.2 Premier motif qui empêche de publier une annonce (NULL : publiable), après la complétude et
 -- avant l'écriture, dans l'ordre : zone, CGU de l'hôte, compte d'hôte ACTIVE et pays ouvert,
@@ -221,7 +313,7 @@ DECLARE
   r text[];
 BEGIN
   SELECT x.id, x.eligibility_status, x.released_at, x.eligibility_submitted_at,
-         x.eligibility_checked_at, o.area_label
+         x.eligibility_checked_at, x.make_text, x.model_text, o.area_label, o.city
     INTO v
     FROM core.catalog_listing AS l
     JOIN core.catalog_vehicle AS x ON x.id = l.vehicle_id AND x.org_id = l.org_id
@@ -233,6 +325,14 @@ BEGIN
   -- zone publique sans adresse exacte (BOARD N-62)
   IF core.catalog_area_label_is_address(v.area_label) THEN
     RETURN 'LOCATION_AREA_ADDRESS';
+  END IF;
+  IF core.catalog_area_label_is_address(v.city) THEN
+    RETURN 'LOCATION_CITY_INVALID';
+  END IF;
+  -- marque et modèle saisis d'un véhicule hors catalogue (texte public, plus relu par l'ops)
+  IF core.catalog_vehicle_text_is_invalid(v.make_text)
+     OR core.catalog_vehicle_text_is_invalid(v.model_text) THEN
+    RETURN 'VEHICLE_DESCRIPTION_INVALID';
   END IF;
   -- CGU de l'hôte acceptées dans leur version exigée, dans le pays du compte (US-126, L1-PM-28)
   IF p_user IS NULL OR core.ctr_host_terms_required(p_user, p_country) THEN
@@ -317,6 +417,11 @@ BEGIN
   -- zone publique (16 HST-011, OQ-P2P-05) : jamais une adresse exacte (BOARD N-62)
   IF core.catalog_area_label_is_address(p_area_label) THEN
     RETURN QUERY SELECT 'LOCATION_AREA_ADDRESS'::text, NULL::uuid;
+    RETURN;
+  END IF;
+  -- ville affichée : même filtre (texte libre public)
+  IF core.catalog_area_label_is_address(p_city) THEN
+    RETURN QUERY SELECT 'LOCATION_CITY_INVALID'::text, NULL::uuid;
     RETURN;
   END IF;
   -- fuseau du pays du compte d'hôte (17 §3.2.3 : « un véhicule hérite du fuseau de son lieu »)
@@ -639,6 +744,8 @@ COMMENT ON FUNCTION core.catalog_listing_decide(uuid, text, uuid, text, text, te
   'iam_staff_owner seul. US-118 (ADR-114).';
 
 REVOKE ALL ON FUNCTION core.catalog_area_label_is_address(text),
+  core.catalog_public_text_norm(text), core.catalog_text_has_contact(text),
+  core.catalog_text_has_address_marker(text), core.catalog_vehicle_text_is_invalid(text),
   core.catalog_listing_publish_blocker(uuid, uuid, text, text),
   core.catalog_cmd_unlist_listing(bytea, uuid, uuid),
   core.catalog_listing_decide(uuid, text, uuid, text, text, text) FROM PUBLIC;

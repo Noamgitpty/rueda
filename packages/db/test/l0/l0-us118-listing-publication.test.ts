@@ -79,11 +79,12 @@ const createLocation = async (
   c: Tx,
   h: { hash: Buffer; org: string },
   area: string | null,
+  city = 'Ciudad Uno',
 ): Promise<{ outcome: string; id: string | null }> => {
   const { rows } = await c.query<{ outcome: string; location_id: string | null }>(
     `SELECT * FROM core.catalog_cmd_create_location($1, $2, 'HOME', 'Casa', 'Calle Ficticia 123',
-                                                    'Ciudad Uno', $3, NULL, NULL)`,
-    [h.hash, h.org, area],
+                                                    $4, $3, NULL, NULL)`,
+    [h.hash, h.org, area, city],
   );
   return { outcome: rows[0]?.outcome ?? '', id: rows[0]?.location_id ?? null };
 };
@@ -127,7 +128,7 @@ async function vehicle(
   c: Tx,
   h: Host,
   cc: CountryCase,
-  o: { offCatalog?: boolean; location?: string } = {},
+  o: { offCatalog?: boolean; location?: string; make?: string; model?: string } = {},
 ): Promise<string> {
   const variant = o.offCatalog
     ? null
@@ -144,8 +145,8 @@ async function vehicle(
       plate(),
       vin(),
       variant ?? null,
-      o.offCatalog ? 'Chery' : null,
-      o.offCatalog ? 'Tiggo 2' : null,
+      o.offCatalog ? (o.make ?? 'Chery') : null,
+      o.offCatalog ? (o.model ?? 'Tiggo 2') : null,
       localYear(cc) - 2,
     ],
   );
@@ -344,6 +345,8 @@ describe('socle (0084, 0085) : paramètre, droits, propriétaires', () => {
                   pg_catalog.has_function_privilege('iam_staff_owner', p.oid, 'EXECUTE') AS staff
              FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
             WHERE n.nspname = 'core' AND p.proname IN ('catalog_area_label_is_address',
+                  'catalog_public_text_norm', 'catalog_text_has_contact',
+                  'catalog_text_has_address_marker', 'catalog_vehicle_text_is_invalid',
                   'catalog_listing_publish_blocker', 'catalog_cmd_unlist_listing',
                   'catalog_listing_decide', 'support_staff_decide_listing')
             ORDER BY 1`,
@@ -378,6 +381,42 @@ describe('socle (0084, 0085) : paramètre, droits, propriétaires', () => {
           },
           {
             fn: 'core.catalog_listing_publish_blocker(uuid,uuid,text,text)',
+            owner: 'catalog_cmd_owner',
+            secdef: false,
+            api: false,
+            worker: false,
+            anon: false,
+            staff: false,
+          },
+          {
+            fn: 'core.catalog_public_text_norm(text)',
+            owner: 'catalog_cmd_owner',
+            secdef: false,
+            api: false,
+            worker: false,
+            anon: false,
+            staff: false,
+          },
+          {
+            fn: 'core.catalog_text_has_address_marker(text)',
+            owner: 'catalog_cmd_owner',
+            secdef: false,
+            api: false,
+            worker: false,
+            anon: false,
+            staff: false,
+          },
+          {
+            fn: 'core.catalog_text_has_contact(text)',
+            owner: 'catalog_cmd_owner',
+            secdef: false,
+            api: false,
+            worker: false,
+            anon: false,
+            staff: false,
+          },
+          {
+            fn: 'core.catalog_vehicle_text_is_invalid(text)',
             owner: 'catalog_cmd_owner',
             secdef: false,
             api: false,
@@ -521,10 +560,52 @@ describe('publication immédiate (DEC-FONDATEUR-22) : contrôles automatiques, m
 });
 
 // ---------------------------------------------------------------------------------------------
+describe('revue sécurité n° 1 — marque et modèle saisis (hors catalogue) : ni adresse ni contact', () => {
+  it.each(byCountry)(
+    '%s (%s) : modèle avec téléphone, courriel ou adresse ⇒ VEHICLE_DESCRIPTION_INVALID (DRAFT) ; témoins « Peugeot 208 », « Ram 1500 » ⇒ LISTED',
+    async (country, _currency, cc) => {
+      await rolledBack(async (tx) => {
+        await countryRules(tx, country, false);
+        await openSwitch(tx, 'p2p_private_hosts_enabled', country);
+        await openSwitch(tx, 'insurer_contract_active', country);
+        const h = await host(tx, country);
+        for (const [make, model] of [
+          ['Chery', 'Tiggo 2 llamar 6123-4567'],
+          ['Chery', 'Tiggo ana@example.test'],
+          ['Toyota wa.me', 'Yaris'],
+          ['Kia', 'Rio casa 12'],
+        ] as const) {
+          const v = await vehicle(tx, h, cc, { offCatalog: true, make, model });
+          await confirmVehicle(tx, h, v);
+          const id = await listing(tx, h, cc, v);
+          expect(await publish(tx, h, id), `${make} ${model}`).toBe('VEHICLE_DESCRIPTION_INVALID');
+          expect((await row(tx, id))?.status).toBe('DRAFT');
+          expect(await isPublic(tx, id)).toBe(false);
+        }
+        for (const [make, model] of [
+          ['Peugeot', '208'],
+          ['Ram', '1500'],
+        ] as const) {
+          const v = await vehicle(tx, h, cc, { offCatalog: true, make, model });
+          await confirmVehicle(tx, h, v);
+          const id = await listing(tx, h, cc, v);
+          expect(await publish(tx, h, id), `${make} ${model}`).toBe('LISTED');
+        }
+      });
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------------------------
 describe('BOARD N-62 — zone affichée sans adresse exacte (filtre automatique)', () => {
   /** Adresses exactes ou angles de rues : refusés (numéro de rue, voie ou logement numérotés). */
   const ADDRESSES = [
-    'Calle 50',
+    'Calle 50 #12',
+    'Cll. 50 12',
+    'Calle: 74 Este 15',
+    'Casa No. 12',
+    'PH 12B',
+    'Bloque 5',
     'Av. Mariscal López 1234',
     'Edificio Sol, apto 12',
     'Casa 23',
@@ -535,6 +616,15 @@ describe('BOARD N-62 — zone affichée sans adresse exacte (filtre automatique)
     'Mcal. López esq. Kubitschek',
     'Palma c/ Alberdi',
     '12345',
+    // contournements : chiffres pleine chasse, touches d'émoji, espace de largeur nulle
+    '\uFF11\uFF12\uFF13\uFF14',
+    'Casa 1\uFE0F\u20E32\uFE0F\u20E3',
+    'N\u200B° 12',
+    // contacts hors plateforme
+    'Llamar al 6123-4567',
+    'ana@example.test',
+    'www.ejemplo.test',
+    'WhatsApp Ana',
   ];
   /** Quartiers et zones : admis. */
   const AREAS = [
@@ -544,10 +634,17 @@ describe('BOARD N-62 — zone affichée sans adresse exacte (filtre automatique)
     'Vía España',
     'Zona 1',
     'Obarrio',
+    // voie seule : quartier connu (faux positif corrigé, revue sécurité n° 3)
+    'Calle 50',
+    'Avenida 25 de Mayo',
+    'Esquina Tropical',
   ];
+  /** Villes : même filtre (texte libre public, revue sécurité n° 1). */
+  const BAD_CITIES = ['Calle 50 #12', 'Ciudad 6123-4567', 'Casa 4'];
+  const CITIES = ['Ciudad de Panamá', 'Ciudad del Este', 'San Lorenzo'];
 
   it.each(byCountry)(
-    '%s (%s) : création du lieu ⇒ LOCATION_AREA_ADDRESS, rien n’est écrit (témoins : quartiers admis) ; lieu antérieur au filtre ⇒ publication refusée, zone corrigée ⇒ LISTED',
+    '%s (%s) : création du lieu ⇒ LOCATION_AREA_ADDRESS ou LOCATION_CITY_INVALID (normalisation NFKC, invisibles, contacts), rien n’est écrit (témoins : quartiers et villes admis, « Calle 50 ») ; lieu antérieur au filtre ⇒ publication refusée, zone et ville corrigées ⇒ LISTED',
     async (country, _currency, cc) => {
       await rolledBack(async (tx) => {
         await countryRules(tx, country, false);
@@ -564,6 +661,15 @@ describe('BOARD N-62 — zone affichée sans adresse exacte (filtre automatique)
           expect((await createLocation(tx, h, area)).outcome, area).toBe('DONE');
         }
         expect(await locations()).toBe(before + AREAS.length);
+        for (const city of BAD_CITIES) {
+          expect((await createLocation(tx, h, 'Barrio Norte', city)).outcome, city).toBe(
+            'LOCATION_CITY_INVALID',
+          );
+        }
+        for (const city of CITIES) {
+          expect((await createLocation(tx, h, 'Barrio Norte', city)).outcome, city).toBe('DONE');
+        }
+        expect(await locations()).toBe(before + AREAS.length + CITIES.length);
 
         await openSwitch(tx, 'p2p_private_hosts_enabled', country);
         await openSwitch(tx, 'insurer_contract_active', country);
@@ -577,8 +683,13 @@ describe('BOARD N-62 — zone affichée sans adresse exacte (filtre automatique)
         ]);
         expect(await publish(tx, h, id)).toBe('LOCATION_AREA_ADDRESS');
         expect((await row(tx, id))?.status).toBe('DRAFT');
-        // TÉMOIN : zone corrigée
+        // ville écrite avant le filtre : refusée à la publication
         await tx.query('SELECT test_fixture.us118_set_area($1, $2)', [h.location, 'Barrio Norte']);
+        await tx.query('SELECT test_fixture.us118_set_city($1, $2)', [h.location, 'Tel 6123 4567']);
+        expect(await publish(tx, h, id)).toBe('LOCATION_CITY_INVALID');
+        expect((await row(tx, id))?.status).toBe('DRAFT');
+        // TÉMOIN : zone et ville corrigées
+        await tx.query('SELECT test_fixture.us118_set_city($1, $2)', [h.location, 'Ciudad Uno']);
         expect(await publish(tx, h, id)).toBe('LISTED');
       });
     },
@@ -640,6 +751,25 @@ describe('critère 4 et SM-2 — retrait, remise en ligne, suppression (OQ-BR-29
           'LISTING_PUBLISHED',
           'LISTING_UNLISTED',
         ]);
+        // un HOLD à venir (paiement en cours) bloque aussi le retrait (revue sécurité)
+        const holdCar = await vehicle(tx, h, cc);
+        await confirmVehicle(tx, h, holdCar);
+        const held = await listing(tx, h, cc, holdCar);
+        expect(await publish(tx, h, held)).toBe('LISTED');
+        await tx.query(
+          `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, 'HOLD',
+                    pg_catalog.tstzrange($5::timestamptz, $6::timestamptz, '[)'))`,
+          [
+            uuid(),
+            holdCar,
+            h.org,
+            country,
+            new Date(Date.now() + 30 * day),
+            new Date(Date.now() + 32 * day),
+          ],
+        );
+        expect(await unlist(tx, h, held)).toBe('LISTING_HAS_FUTURE_TRIPS');
+        expect((await row(tx, held))?.status).toBe('LISTED');
         // suppression d'une annonce retirée : refusée si un trip est à venir, permise sinon
         await trip(freeCar, 20, 22);
         expect(await remove(tx, h, free)).toBe('LISTING_HAS_FUTURE_TRIPS');

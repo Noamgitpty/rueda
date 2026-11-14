@@ -862,6 +862,9 @@ export const PT_MESSAGES = {
     'Ainda não podemos publicar anúncios aqui: a proteção do seguro ainda não está disponível.',
   'common.listing.areaLooksLikeAddress':
     'Informe só o bairro ou a região, sem rua nem número: o viajante vê antes de reservar.',
+  'common.listing.cityInvalid': 'Informe só a cidade, sem endereço, telefone nem link.',
+  'common.listing.vehicleDescriptionInvalid':
+    'Escreva só a marca e o modelo do carro, sem telefone, link nem endereço.',
   'common.listing.photoAdded': 'Foto adicionada.',
   'common.listing.deleted': 'Anúncio excluído.',
   'common.listing.hostSuspended':

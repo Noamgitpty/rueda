@@ -883,6 +883,9 @@ export const FR_MESSAGES = {
     'Nous ne pouvons pas encore publier d’annonces ici : la protection de l’assurance n’est pas encore disponible dans ton pays.',
   'common.listing.areaLooksLikeAddress':
     'Indique seulement le quartier ou la zone, sans rue ni numéro : le voyageur le voit avant de réserver.',
+  'common.listing.cityInvalid': 'Indique seulement la ville, sans adresse, téléphone ni lien.',
+  'common.listing.vehicleDescriptionInvalid':
+    'Écris seulement la marque et le modèle de la voiture, sans téléphone, lien ni adresse.',
   'common.listing.photoAdded': 'Photo ajoutée.',
   'common.listing.deleted': 'Annonce supprimée.',
   'common.listing.hostSuspended':

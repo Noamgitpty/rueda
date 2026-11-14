@@ -108,8 +108,11 @@ export class FakeHostListingStore implements HostListingStore {
     const h = this.#write(proof, orgId);
     if ('outcome' in h) return Promise.resolve(h);
     // zone affichée qui ressemble à une adresse (filtre de la base, 0084 ; modèle réduit ici)
-    if (input.areaLabel !== null && /[0-9]{3,}|\bcalle\s*[0-9]/i.test(input.areaLabel)) {
+    if (input.areaLabel !== null && /[0-9]{3,}|@|\bcalle\s*[0-9]+\D+[0-9]/i.test(input.areaLabel)) {
       return Promise.resolve({ outcome: 'LOCATION_AREA_ADDRESS', id: null });
+    }
+    if (/[0-9]{3,}|@|\bcalle\s*[0-9]+\D+[0-9]/i.test(input.city)) {
+      return Promise.resolve({ outcome: 'LOCATION_CITY_INVALID', id: null });
     }
     const id = randomUUID();
     this.locationsById.set(id, { orgId, input });

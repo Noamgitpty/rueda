@@ -93,6 +93,8 @@ const LISTING_REJECT_REASONS = [
 /** Motifs de la base qui empêchent l'approbation (contrôles automatiques revérifiés, 0084). */
 const LISTING_BLOCKERS = [
   'LOCATION_AREA_ADDRESS',
+  'LOCATION_CITY_INVALID',
+  'VEHICLE_DESCRIPTION_INVALID',
   'TERMS_REACCEPT_REQUIRED',
   'HOST_NOT_ACTIVATED',
   'VEHICLE_RELEASED',

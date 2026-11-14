@@ -103,6 +103,9 @@ async function createLocationImpl(_prev: HostFormState, form: FormData): Promise
   if (reply.status === 422 && messageKeyOf(reply) === 'common.listing.areaLooksLikeAddress') {
     return { errors: [{ fieldId: 'a10-place-area', key: 'common.listing.areaLooksLikeAddress' }] };
   }
+  if (reply.status === 422 && messageKeyOf(reply) === 'common.listing.cityInvalid') {
+    return { errors: [{ fieldId: 'a10-place-city', key: 'common.listing.cityInvalid' }] };
+  }
   if (reply.status !== 201) {
     return {
       errors: errorsOf(reply, 'a10-place-form', {

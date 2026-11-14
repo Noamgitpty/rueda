@@ -102,6 +102,11 @@ export class HostListingsService {
         { field: 'areaLabel', reason: 'INVALID' },
       ]);
     }
+    if (r.outcome === 'LOCATION_CITY_INVALID') {
+      throw new HostListingHttpError('LOCATION_CITY_INVALID', [
+        { field: 'city', reason: 'INVALID' },
+      ]);
+    }
     return { ...this.#done(r.outcome, 'LOCATION_CREATED'), locationId: r.id as string };
   }
 

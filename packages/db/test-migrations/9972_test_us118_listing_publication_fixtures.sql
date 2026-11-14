@@ -10,7 +10,7 @@
 -- ADM-003, 08 SM-2 / BR-LIST-09, 22 OQ-BR-29 et du BOARD N-62, jamais de ces fixtures.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us118_listing(uuid),
---   test_fixture.us118_param_version(text, text, jsonb), test_fixture.us118_set_area(uuid, text).
+--   test_fixture.us118_param_version(text, text, jsonb), test_fixture.us118_set_area(uuid, text), test_fixture.us118_set_city(uuid, text).
 
 -- Statut et dates d'une annonce.
 CREATE FUNCTION test_fixture.us118_listing(p_listing uuid)
@@ -50,9 +50,19 @@ AS $fn$
   UPDATE core.catalog_location SET area_label = p_area WHERE id = p_location
 $fn$;
 
-REVOKE ALL ON FUNCTION test_fixture.us118_listing(uuid),
+-- Ville d'un lieu posée directement (lieu antérieur au filtre de la commande, 0084).
+CREATE FUNCTION test_fixture.us118_set_city(p_location uuid, p_city text)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.catalog_location SET city = p_city WHERE id = p_location
+$fn$;
+
+REVOKE ALL ON FUNCTION test_fixture.us118_listing(uuid), test_fixture.us118_set_city(uuid, text),
   test_fixture.us118_param_version(text, text, jsonb), test_fixture.us118_set_area(uuid, text)
   FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION test_fixture.us118_listing(uuid),
+GRANT EXECUTE ON FUNCTION test_fixture.us118_listing(uuid), test_fixture.us118_set_city(uuid, text),
   test_fixture.us118_param_version(text, text, jsonb), test_fixture.us118_set_area(uuid, text)
   TO app_api;
