@@ -547,8 +547,8 @@ describe('US-103 — seule la commande KYC écrit le nom légal (RLS, droits de 
     await withRole('app_api', async (c) => {
       const { rows } = await c.query<{ role: string; first: boolean; last: boolean }>(
         `SELECT r AS role,
-                pg_catalog.has_column_privilege(r, 'core.iam_user_account', 'legal_first_name', 'UPDATE') AS first,
-                pg_catalog.has_column_privilege(r, 'core.iam_user_account', 'legal_last_name', 'UPDATE') AS last
+                pg_catalog.has_column_privilege(r::name, 'core.iam_user_account', 'legal_first_name', 'UPDATE') AS first,
+                pg_catalog.has_column_privilege(r::name, 'core.iam_user_account', 'legal_last_name', 'UPDATE') AS last
            FROM pg_catalog.unnest($1::text[]) AS r
           ORDER BY r`,
         [
@@ -576,7 +576,7 @@ describe('US-103 — seule la commande KYC écrit le nom légal (RLS, droits de 
       );
       // le nom lu sur le permis [C2] n'est lisible par aucun rôle applicatif
       const { rows: doc } = await c.query<{ r: string; ok: boolean }>(
-        `SELECT r, pg_catalog.has_column_privilege(r, 'core.kyc_identity_document',
+        `SELECT r, pg_catalog.has_column_privilege(r::name, 'core.kyc_identity_document',
                                                   'holder_surnames', 'SELECT') AS ok
            FROM pg_catalog.unnest(ARRAY['app_api', 'app_worker', 'app_anon']) AS r`,
       );
