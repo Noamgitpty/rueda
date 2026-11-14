@@ -9,3 +9,10 @@
 - Tests ajoutés et état : voir le rapport (nombre de scénarios, bloqués, en faille). Décisions prises (ADR / DECISIONS) : aucune.
 - **Correctifs (2026-11-14, dev-correctifs, claude-opus-5-5)** : les sept constats sont corrigés sur cette branche (commit `fdfab0c5`, ADR-122), sans modifier les tests de la red team : migration 0093 (garde unique `core.support_actor_conflict` dans la console et les files LISTING / CATALOG_ADDITION, sac de mots du signal `SAME_IDENTITY`, plafond `CLAIM_LIMIT_REACHED`, filtre de contact), graine générée 0094 (`plate_claims_open_per_host` = 5, PROPOSÉ), fixture 9954, `logoProblem` en liste blanche XML (aussi à la lecture par le site), API (403 `STAFF_SELF_FORBIDDEN`, 409 `CLAIM_LIMIT_REACHED`), catalogue i18n v40. Non-régression : `rt-l1-08-correctifs.test.ts`. Détail : rapport, section « Correctifs ».
 - Reste après les correctifs : `numbering` rouge tant qu'US-112 n'a pas pris 0091 et 0092 (renuméroter 0093 / 0094 si besoin) ; hachage du numéro de permis reporté au connecteur KYC réel (lot C) ; revues à refaire au SHA final (code, architecture, argent, qa, sécurité).
+
+## PR n° 2 (red-team, claude-sonnet-5-5) : passe n° 2 du lot 1
+
+- Fait : tests `rt-l1-09` à `rt-l1-13` (droits des personnes D01 à D04, téléversements A15 à A17, hôte défaillant T01, A03, A10, entrées de console hors de la garde), aides `support-p2.ts`, fixture 9952 (trois lectures), rapport `docs/team/redteam/L1-passe2.md`. Aucun correctif, aucune migration.
+- Constats : F2-A03-01 et F2-C-04 (élevées), F2-C-01 à C-03, C-05, F2-D-01 à D-03, F2-U-01, F2-T-01, T-02 (moyennes), F2-U-02 (faible). Détail et parades dans le rapport.
+- Reste : décision de l'orchestrateur sur chaque constat ; la CI fait foi (tests non exécutés en local, PostgreSQL non démarré). Rejouer : `pnpm --filter @rueda/db test:l0 -- redteam/l1`.
+- Pièges : un test rouge de ces fichiers est une faille, sauf erreur de fixture constatée en CI (alors corriger le test). Fixture 9952 réservée à cette passe.
