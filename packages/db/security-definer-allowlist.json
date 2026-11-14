@@ -1338,6 +1338,41 @@
       "owner": "iam_staff_owner",
       "execute": ["app_worker"],
       "story": "US-112"
+    },
+    {
+      "signature": "core.support_staff_conflict(uuid,text,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["cmd_money_owner"],
+      "story": "US-122"
+    },
+    {
+      "signature": "core.kyc_cmd_retry_erasure(bytea,uuid)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-122"
+    },
+    {
+      "signature": "core.kyc_consent_withdrawn(uuid)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-122"
+    },
+    {
+      "signature": "core.booking_notify_host_restricted(uuid,uuid,text,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_auth_owner"],
+      "story": "US-122"
+    },
+    {
+      "signature": "core.kyc_host_identity_duplicate(uuid)",
+      "family": "risk_limit",
+      "owner": "risk_limit_owner",
+      "execute": ["kyc_cmd_owner"],
+      "story": "US-122"
     }
   ]
 }
