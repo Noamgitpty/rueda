@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 84 migrations ; 101 tables ; 2 vues ; 534 politiques RLS ; 179 fonctions `SECURITY DEFINER` ; 174 autres fonctions.
+- 85 migrations ; 101 tables ; 2 vues ; 537 politiques RLS ; 180 fonctions `SECURITY DEFINER` ; 177 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -99,6 +99,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0081_kyc_host_ops_verification` | KYC : vérification de l'hôte par l'ops PAR EXCEPTION (approbation automatique, filtrage |
 | `0082_config_host_review_params` | graine complémentaire : paramètres « host_review_* » (US-108 ; 17 §7.2). |
 | `0083_catalog_vehicle_chassis_formats` | CAT : numéro de châssis en deux formats (VIN ISO 3779 ou numéro non ISO) et historique des engagements de l'hôte. |
+| `0088_kyc_legal_name_match` | KYC : nom légal du compte rapproché du nom lu sur le permis, changement du nom légal. |
 
 ## Rôles
 
@@ -192,6 +193,7 @@ Politiques RLS :
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `kyc_cmd_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = ANY (ARRAY['KYC_CONSENT_WITHDRAWN'::text, 'KYC_ERASURE_RECORDED'::text])) AND (subject_type = 'USER_ACCOUNT'::text))`
 - `kyc_cmd_host_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = ANY (ARRAY['HOST_VERIFICATION_SUBMITTED'::text, 'HOST_SANCTIONS_SCREENED'::text, 'HOST_TAX_PROFILE_SAVED'::text, 'HOST_VERIFICATION_DECIDED'::text, 'HOST_ACCOUNT_STATUS_CHANGED'::text, 'HOST_SCREENING_REVIEWED'::text])) AND (subject_type = 'ORGANIZATION'::text))`
+- `kyc_cmd_name_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = 'LEGAL_NAME_CHANGED'::text) AND (subject_type = 'USER_ACCOUNT'::text))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `worker_insert` (INSERT, PERMISSIVE, app_worker) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = ANY (ARRAY['audit_chain_verifier'::text, 'booking_conversion'::text, 'booking_oracle'::text, 'bordereau'::text, 'bus_monitor'::text, 'disposition_sweeper'::text, 'evidence_ingest'::text, 'evidence_verifier'::text, 'hold_expiry'::text, 'ntf_dispatcher'::text, 'ntf_sender'::text, 'ops_monitor'::text, 'outbox_relay'::text, 'payment_command'::text, 'payment_intent_sweeper'::text, 'payout'::text, 'privacy_request'::text, 'reconciliation'::text, 'settlement'::text, 'trip_lifecycle'::text, 'webhook_ingest'::text])))`
 - `worker_select_verifier` (SELECT, PERMISSIVE, app_worker) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'audit_chain_verifier'::text))`
@@ -2571,6 +2573,7 @@ Politiques RLS :
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_auth_update` (UPDATE, PERMISSIVE, iam_auth_owner) USING `(status = ANY (ARRAY['PENDING_EMAIL'::text, 'ACTIVE'::text, 'RESTRICTED'::text]))` WITH CHECK `((status = ANY (ARRAY['ACTIVE'::text, 'RESTRICTED'::text])) AND (email_verified_at IS NOT NULL))`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
+- `kyc_cmd_name_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `((pseudonymized_at IS NULL) AND (status = ANY (ARRAY['ACTIVE'::text, 'RESTRICTED'::text])))` WITH CHECK `((pseudonymized_at IS NULL) AND (status = ANY (ARRAY['ACTIVE'::text, 'RESTRICTED'::text])))`
 - `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
@@ -2753,9 +2756,12 @@ Contraintes :
 - `kyc_identity_document_attempt_positive` : `CHECK (attempt >= 1)`
 - `kyc_identity_document_class_length` : `CHECK (license_class IS NULL OR length(license_class) >= 1 AND length(license_class) <= 20)`
 - `kyc_identity_document_country_format` : `CHECK (issuing_country ~ '^[A-Z]{2}$'::text)`
+- `kyc_identity_document_given_names_length` : `CHECK (holder_given_names IS NULL OR char_length(holder_given_names) >= 1 AND char_length(holder_given_names) <= 200)`
+- `kyc_identity_document_name_match_valid` : `CHECK (name_match IS NULL OR (name_match = ANY (ARRAY['MATCH'::text, 'MISMATCH'::text, 'MISSING'::text])))`
 - `kyc_identity_document_pkey` : `PRIMARY KEY (id)`
 - `kyc_identity_document_ref_length` : `CHECK (provider_document_ref IS NULL OR length(provider_document_ref) >= 1 AND length(provider_document_ref) <= 200)`
 - `kyc_identity_document_status_valid` : `CHECK (status = ANY (ARRAY['ACCEPTED'::text, 'IN_REVIEW'::text]))`
+- `kyc_identity_document_surnames_length` : `CHECK (holder_surnames IS NULL OR char_length(holder_surnames) >= 1 AND char_length(holder_surnames) <= 200)`
 - `kyc_identity_document_type_valid` : `CHECK (doc_type = ANY (ARRAY['DRIVER_LICENSE'::text, 'NATIONAL_ID'::text, 'FOREIGN_RESIDENT_ID'::text, 'PASSPORT'::text, 'IDP'::text]))`
 - `kyc_identity_document_user_id_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
 - `kyc_identity_document_verification_id_fkey` : `FOREIGN KEY (verification_id) REFERENCES core.kyc_identity_verification(id)`
@@ -2771,6 +2777,7 @@ Politiques RLS :
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `(provider_document_ref IS NOT NULL)` WITH CHECK `(provider_document_ref IS NULL)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `((holder_given_names IS NOT NULL) AND (holder_surnames IS NOT NULL))`
 
 ### `core.kyc_identity_subject`
 
@@ -5062,6 +5069,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_worker_otp_prune(p_batch integer)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.kyc_cmd_apply_decision(p_provider text, p_event_id text, p_session_ref text, p_subject_ref text, p_decision text, p_liveness numeric, p_face_match numeric, p_document jsonb)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_biometric_consent(p_token_hash bytea, p_country text, p_version integer, p_accepted boolean)` | `TABLE(outcome text, version integer)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.kyc_cmd_change_legal_name(p_token_hash bytea, p_first text, p_last text)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_decide_with_facts(p_provider text, p_event_id text, p_session_ref text, p_subject_ref text, p_decision text, p_liveness numeric, p_face_match numeric, p_document jsonb, p_subject jsonb)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_host_record_screening(p_token_hash bytea, p_org uuid, p_provider text, p_request_key text, p_result text, p_lists_version jsonb, p_match_ref text)` | `TABLE(outcome text, status text, missing text[])` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_host_save_tax_profile(p_token_hash bytea, p_org uuid, p_kind text, p_tax_id_enc bytea, p_regime text, p_taxpayer_kind text)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
@@ -5243,6 +5251,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_host_refresh(p_dossier uuid)` | `text` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_review_due(p_country text, p_started timestamp with time zone)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_try_activate(p_org uuid, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, blockers text[], event_ids uuid[])` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
+| `core.kyc_legal_name_key(p_given text, p_surnames text)` | `text` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |
+| `core.kyc_legal_name_match(p_declared_first text, p_declared_last text, p_license_given text, p_license_surnames text)` | `text` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |
+| `core.kyc_name_tokens(p_name text)` | `text[]` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.kyc_retention_days(p_country text)` | `integer` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_review_enqueue(p_user uuid, p_actor uuid)` | `text` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.ops_monitor_metrics(p_since timestamp with time zone, p_webhook_failures integer)` | `TABLE(metric text, label text, country_code text, value bigint)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
