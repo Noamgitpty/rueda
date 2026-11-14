@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 87 migrations ; 101 tables ; 2 vues ; 542 politiques RLS ; 183 fonctions `SECURITY DEFINER` ; 184 autres fonctions.
+- 88 migrations ; 101 tables ; 2 vues ; 538 politiques RLS ; 182 fonctions `SECURITY DEFINER` ; 182 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -101,6 +101,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0083_catalog_vehicle_chassis_formats` | CAT : numéro de châssis en deux formats (VIN ISO 3779 ou numéro non ISO) et historique des engagements de l'hôte. |
 | `0084_catalog_listing_publication` | CAT : publication immédiate d'une annonce (comme Turo), retrait et revue de l'ops sur signal. |
 | `0085_config_listing_review_params` | graine complémentaire : paramètres « listing_manual_review* » (US-118 ; 17 §7.2). |
+| `0086_config_host_tax_id_params` | graine complémentaire : paramètres « host_tax_id_required_for_activation* » (US-123 ; 17 §7.2). |
+| `0087_kyc_host_tax_id_optional` | KYC : numéro fiscal de l'hôte facultatif à l'activation (« jamais plus lourd que Turo »). |
 | `0088_kyc_legal_name_match` | KYC : nom légal du compte rapproché du nom lu sur le permis, changement du nom légal. |
 
 ## Rôles
@@ -1905,7 +1907,7 @@ Politiques RLS :
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
 - `iam_auth_otp_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = ANY (ARRAY['otp_ttl_min'::text, 'otp_max_attempts'::text, 'otp_lock_min'::text, 'otp_sms_fallback_s'::text]))`
 - `iam_staff_sla_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = ANY (ARRAY['kyc_review_sla_business_h'::text, 'listing_review_sla_h'::text, 'catalog_addition_sla_business_h'::text, 'review_hold_minutes'::text]))`
-- `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_min_age_years'::text, 'p2p_host_requires_tax_id'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
+- `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_min_age_years'::text, 'p2p_host_requires_tax_id'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text, 'host_tax_id_required_for_activation'::text]))`
 - `kyc_cmd_host_review_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_review_manual_required'::text, 'host_review_auto_delay_minutes'::text]))`
 - `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = 'biometric_appeal_retention_days'::text)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
@@ -5273,8 +5275,10 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_host_emit_org(p_org uuid, p_type text, p_version integer, p_from text, p_to text, p_actor uuid, p_actor_role text, p_country text)` | `uuid` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_gates(p_org uuid)` | `TABLE(org_id uuid, user_id uuid, country_code text, org_status text, kyc_id uuid, age text, residence text, tax text, terms_ok boolean, screening_id uuid, screening_result text, submerchant_ok boolean, capabilities_ok boolean, p2p_open boolean, insurer_open boolean)` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_param(p_key text, p_country text)` | `jsonb` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
+| `core.kyc_host_psp_requires_tax_id(p_org uuid)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_refresh(p_dossier uuid)` | `text` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_review_due(p_country text, p_started timestamp with time zone)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
+| `core.kyc_host_tax_saved(p_org uuid)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_try_activate(p_org uuid, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, blockers text[], event_ids uuid[])` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_legal_name_key(p_given text, p_surnames text)` | `text` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.kyc_legal_name_match(p_declared_first text, p_declared_last text, p_license_given text, p_license_surnames text)` | `text` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |

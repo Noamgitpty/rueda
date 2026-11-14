@@ -1383,6 +1383,11 @@ export const ES_MESSAGES = {
   'web.a07.tax.saved': 'Número guardado ({kind}).',
   'web.a07.tax.private': 'Lo guardamos cifrado y nunca lo mostramos a los viajeros.',
   'web.a07.tax.individualOnly': 'Solo personas físicas: no aceptamos empresas.',
+  'web.a07.optional': 'Opcional',
+  'web.a07.tax.optionalHint':
+    'Puedes agregar tu número fiscal ahora o más tarde. Solo te lo pediremos si nuestro proveedor de pagos lo necesita para pagarte.',
+  'web.a07.tax.reminder':
+    'Tus impuestos son tu responsabilidad. Según las reglas fiscales locales, es posible que debas inscribirte ante la administración tributaria, por ejemplo para obtener un número de contribuyente, dentro de un plazo después de tus primeros ingresos por alquiler. Consulta con la administración tributaria o con un contador.',
   'web.a07.submit': 'Enviar mi solicitud',
   'web.a07.submitHint': 'Puedes enviarla aunque falte una tarea: te diremos qué falta.',
   'web.a07.status.DOCS_PENDING': 'Tu solicitud está incompleta.',
