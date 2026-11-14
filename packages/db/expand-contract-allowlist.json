@@ -137,6 +137,13 @@
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-106 (ADR-106) : saisie de KYC_DECISION ÉLARGIE (clés des contrôles cochés et valeur MORE_INFO_REQUIRED) sur une ligne de référence écrite par migration seulement ; une ligne, aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N n'envoyait que decision, valeur toujours admise"
+    },
+    {
+      "path": "packages/db/migrations/0090_audit_privacy_register.sql",
+      "line": 717,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-111 (ADR-118) : HANDLE_DSR passe de RECORD_ONLY à DOMAIN_COMMAND (saisie fermée kind et step, commande liée core.audit_manual_action_dsr) sur une ligne de référence écrite par migration seulement ; une ligne ; les lignes manual_action existantes gardent leur mode ; la version N, qui envoyait HANDLE_DSR sans saisie, reçoit un refus métier DSR_INPUT_REQUIRED (aucune écriture), jamais une acceptation"
     }
   ]
 }

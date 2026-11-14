@@ -1,0 +1,53 @@
+# Registro de actividades de tratamiento — GABARIT À VALIDER PAR L'AVOCAT
+
+> **Gabarit (US-111, ADR-118), non validé.** Ce document est rédigé en espagnol pour l'avocat (Panama, Ley 81/2019 et DE 285/2021 ; Paraguay, Ley 7593/2025). Il reprend les codes de la base (`core.audit_processing_activity`, `core.audit_subprocessor`, `core.audit_retention_rule`, migration 0090) ; toute modification passe par une migration revue. Tant que l'avocat ne l'a pas validé et que le fondateur ne l'a pas décidé par écrit, `privacy_register_validated` reste à `false` dans chaque pays et le KYC de production reste fermé (`KYC_PRODUCTION_BLOCKED_NO_REGISTER`). Les points marqués **[A DECIDIR]** sont les questions OQ-BR-25, OQ-MK-09 et UXQ-11 de `docs/specs/22_OPEN_QUESTIONS.md`.
+
+**BORRADOR — pendiente de validación jurídica.**
+
+## 1. Responsable del tratamiento
+
+- Responsable: Kmino, plataforma de alquiler de vehículos entre particulares, comerciante de referencia frente al viajero (razón social, domicilio y RUC **[A DECIDIR]**, 19 F-19).
+- Contacto de protección de datos: **[A DECIDIR]** (19 F-19 ; en Paraguay, punto de contacto ante la Agencia Nacional de Protección de Datos Personales).
+- Anfitriones particulares: reciben solo los datos mínimos del viajero necesarios para la entrega (nombre, foto, edad, nota y estado de verificación; nunca el número de licencia ni la imagen del documento). Su calidad (responsable independiente o encargado) **[A DECIDIR]** (OQ-MK-09).
+
+## 2. Actividades de tratamiento
+
+| Código                  | Finalidad                                                       | Base legal                        | Datos                                                 | Sensibles | Destinatarios              | Encargados               | Conservación                                                                                                                                                       |
+| ----------------------- | --------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------- | --------- | -------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ACCOUNT`               | crear y gestionar la cuenta                                     | contrato                          | identificación, contacto                              | no        | —                          | hospedaje, correo        | registro de auditoría: `audit_log_retention_years`                                                                                                                 |
+| `PHONE_VERIFICATION`    | verificar el teléfono (código de un solo uso)                   | contrato                          | teléfono                                              | no        | —                          | hospedaje, SMS           | códigos: 30 días                                                                                                                                                   |
+| `IDENTITY_BIOMETRICS`   | verificar la identidad y la licencia del conductor              | consentimiento expreso y separado | selfie, prueba de vida, comparación facial, documento | **sí**    | —                          | hospedaje, proveedor KYC | puntuaciones: decisión + `biometric_appeal_retention_days`; imágenes: solo en el proveedor KYC, plazo contractual más corto                                        |
+| `HOST_VERIFICATION`     | verificar al anfitrión (edad, sanciones, identificación fiscal) | obligación legal                  | identificación, número fiscal cifrado                 | no        | —                          | hospedaje                | **[A DECIDIR]** (OQ-BR-25)                                                                                                                                         |
+| `VEHICLE_LISTING`       | publicar el vehículo y sus compromisos                          | contrato                          | placa, número de chasis, ubicación aproximada         | no        | viajero                    | hospedaje, antivirus     | compromisos: `privacy_vehicle_attestation_retention_months` tras el último viaje                                                                                   |
+| `BOOKING_PAYMENT`       | reservar, cobrar y repartir el pago                             | contrato                          | viaje, pagos (sin datos de tarjeta)                   | no        | anfitrión, asegurador, PSP | hospedaje, PSP           | viaje cerrado sin litigio: seudonimizado a `evidence_retention_months` (≥ 15 meses tras la última operación monetaria); contabilidad: plazo fiscal **[A DECIDIR]** |
+| `NOTIFICATIONS`         | avisos de servicio                                              | contrato                          | contacto                                              | no        | —                          | hospedaje, correo, SMS   | **[A DECIDIR]**                                                                                                                                                    |
+| `DATA_SUBJECT_REQUESTS` | atender las solicitudes de las personas                         | obligación legal                  | expediente de soporte                                 | no        | autoridad                  | hospedaje                | registro de auditoría                                                                                                                                              |
+| `SECURITY_AUDIT`        | seguridad y trazabilidad                                        | interés legítimo                  | registros técnicos                                    | no        | autoridad                  | hospedaje                | `audit_log_retention_years`                                                                                                                                        |
+| `REFUND_BANK_TRANSFER`  | reembolso por transferencia                                     | contrato                          | datos bancarios                                       | no        | PSP                        | hospedaje                | **no recopilados en Beta** (UXQ-11: Kmino único responsable, nunca visibles para el anfitrión)                                                                     |
+
+## 3. Encargados del tratamiento (estado actual)
+
+| Código             | Servicio                  | Estado                            | Países                    | Garantía de transferencia                                                                           |
+| ------------------ | ------------------------- | --------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `KYC_FAKE`         | verificación de identidad | simulado (sin datos reales)       | —                         | contrato, cláusulas y certificado de supresión **[A DECIDIR]** antes de la primera recolección real |
+| `SMS_FAKE`         | SMS                       | simulado                          | —                         | **[A DECIDIR]**                                                                                     |
+| `EMAIL_FAKE`       | correo                    | simulado                          | —                         | **[A DECIDIR]**                                                                                     |
+| `ANTIVIRUS_CLAMAV` | antivirus de archivos     | autoalojado (DEC-FONDATEUR-20)    | US (región del hospedaje) | no requerida (sin tercero)                                                                          |
+| `HOSTING_AWS`      | hospedaje                 | previsto, sin contrato registrado | US (us-east-1)            | **[A DECIDIR]** (OQ-MK-09: transferencia fuera de Panamá y de Paraguay)                             |
+| `PSP_FAKE`         | PSP del marketplace       | simulado                          | —                         | **[A DECIDIR]** tras la decisión go / no-go del PSP                                                 |
+
+## 4. Derechos de las personas
+
+Acceso, rectificación, supresión, oposición y portabilidad, por un expediente de soporte. Cada etapa se registra en la consola (`HANDLE_DSR`); el plazo de respuesta es `privacy_dsr_response_days` (10 días naturales, PROPOSÉ) **[A DECIDIR]** (OQ-MK-09). La supresión es una seudonimización (nunca se borran los registros contables ni las pruebas bajo conservación legal); en los registros inmutables, destrucción de la clave propia de la persona.
+
+## 5. Violaciones de seguridad
+
+Procedimiento de detección, calificación, registro y notificación a la autoridad y a las personas: US-112 (plazo de notificación propuesto 72 h) **[A DECIDIR]** (OQ-MK-09).
+
+## 6. Puntos para el abogado
+
+1. Inscripción o declaración de los tratamientos ante la ANTAI (Panamá) y la autoridad paraguaya.
+2. Transferencias internacionales (hospedaje en Estados Unidos, proveedor KYC): consentimiento, cláusulas o país adecuado.
+3. Biometría como dato sensible: forma del consentimiento expreso (texto `BIOMETRIC_CONSENT`).
+4. Plazos legales de conservación por categoría (OQ-BR-25) y plazo de respuesta a las solicitudes.
+5. Calidad del anfitrión particular frente a los datos del viajero.

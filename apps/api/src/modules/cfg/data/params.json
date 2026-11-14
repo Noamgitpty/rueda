@@ -1820,6 +1820,41 @@
       "decision": "PROPOSED",
       "decisionRef": "17 §6.6 PROPOSÉ (US-052)",
       "values": { "PA": 4, "PY": 4 }
+    },
+    {
+      "key": "privacy_dsr_response_days",
+      "type": "DURATION",
+      "unit": "d",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "19 US-111 ; 16 LEG-010 ; 17 §3.2.13 data_subject_request.due_at (délai légal à confirmer) ; défaut prudent en jours civils, plus court qu'un délai en jours ouvrés",
+      "status": "PROPOSÉ ; OQ-MK-09 (Ley 81, Ley 7593)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-MK-09 (avis juridique) ; ADR-118 (US-111)",
+      "values": { "PA": 10, "PY": 10 }
+    },
+    {
+      "key": "privacy_register_validated",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "FALSE",
+      "source": "19 US-111 ; 16 LEG-010 (registre validé par l'avocat avant la première collecte réelle ; sinon KYC_PRODUCTION_BLOCKED_NO_REGISTER)",
+      "status": "PROPOSÉ, fail-closed ; OQ-MK-09",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-MK-09 (avis juridique) ; 19 F-19 (responsable des données) ; ADR-118 (US-111)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "privacy_vehicle_attestation_retention_months",
+      "type": "DURATION",
+      "unit": "month",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "19 US-111 ; 08 BR-LIST-04 (engagements horodatés de l'hôte, catalog_vehicle_attestation, US-124) : durée comptée depuis la fin du dernier trip du véhicule ; lignes en ajout seul, sans donnée C2 ni C3",
+      "status": "PROPOSÉ ; OQ-BR-25",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-25 (avis juridique) ; ADR-118 (US-111)",
+      "values": { "PA": 60, "PY": 60 }
     }
   ]
 }

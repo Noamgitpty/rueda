@@ -444,6 +444,34 @@ export const EN_MESSAGES = {
   'backoffice.host.refused.HOST_ALREADY_SCREENED': 'This file already has a recorded screening.',
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY': 'The host has not submitted the file yet.',
   'backoffice.host.refused.SELF_FORBIDDEN': 'You cannot screen your own account.',
+  'backoffice.dsr.hint':
+    'Record each step of a request received through a support case: the legal deadline is tracked and a delay is flagged.',
+  'backoffice.dsr.subject': 'Support case identifier',
+  'backoffice.dsr.kind': 'Request type',
+  'backoffice.dsr.kind.ACCESS': 'Access',
+  'backoffice.dsr.kind.RECTIFICATION': 'Rectification',
+  'backoffice.dsr.kind.DELETION': 'Erasure',
+  'backoffice.dsr.kind.OPPOSITION': 'Objection',
+  'backoffice.dsr.kind.PORTABILITY': 'Portability',
+  'backoffice.dsr.step': 'Step',
+  'backoffice.dsr.step.RECEIVED': 'Received',
+  'backoffice.dsr.step.VERIFYING': 'Identity check',
+  'backoffice.dsr.step.IN_PROGRESS': 'In progress (identity verified)',
+  'backoffice.dsr.step.BLOCKED_LEGAL_HOLD': 'On hold under a legal retention duty',
+  'backoffice.dsr.step.DONE': 'Answered',
+  'backoffice.dsr.step.REJECTED': 'Rejected',
+  'backoffice.dsr.record': 'Record the step',
+  'backoffice.dsr.recorded': 'Step recorded; the deadline keeps running until the answer.',
+  'backoffice.dsr.refused.DSR_INPUT_REQUIRED': 'Give the request type and the step.',
+  'backoffice.dsr.refused.DSR_NOT_OPEN':
+    'This case has no request yet: record the “Received” step first.',
+  'backoffice.dsr.refused.DSR_ALREADY_OPEN': 'This case already has an open request.',
+  'backoffice.dsr.refused.DSR_KIND_MISMATCH':
+    'The type does not match the open request of this case.',
+  'backoffice.dsr.refused.DSR_TRANSITION_INVALID':
+    'This step cannot follow the current step of the request.',
+  'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
+    'The response deadline of this country is not configured: nothing was recorded.',
   'backoffice.kyc.refused.CHECKS_REQUIRED': 'Decision refused: all four checks must be ticked.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':
     'Decision refused: approval needs four passed checks, rejection at least one failed check.',

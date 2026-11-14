@@ -27,7 +27,7 @@
 import { createHash } from 'node:crypto';
 import type { IdentityProvider } from './identity-provider.port.js';
 import { IdentityStoreError } from './identity-store.js';
-import type { IdentityState, IdentityStore, KycStatus } from './identity-store.js';
+import type { IdentityState, IdentityStore, KycStatus, RegisterGate } from './identity-store.js';
 import { KycHttpError } from './errors.js';
 import type { KycCode } from './errors.js';
 
@@ -280,6 +280,16 @@ export class IdentityVerificationService {
     if (view !== undefined && (typeof view !== 'string' || !LOCALE.test(view))) {
       throw new KycHttpError('REQUEST_INVALID');
     }
+    // US-111 (16 LEG-010) : en production, registre Ley 81 du pays validé et fournisseur KYC
+    // contractuel inscrit, jugés EN BASE avant tout fournisseur (même si un fournisseur était
+    // branché) ; aucune écriture
+    let gate: RegisterGate;
+    try {
+      gate = await this.#deps.store.registerGate(country);
+    } catch (error) {
+      storeFailure(error);
+    }
+    if (gate !== null) throw new KycHttpError(gate);
     const active = this.#deps.providers.active;
     const returnUrl = this.#deps.returnUrl;
     // KYC de production désactivé tant que le registre n'est pas validé (OQ-MK-09) : aucun

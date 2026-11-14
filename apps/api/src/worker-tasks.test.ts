@@ -7,6 +7,7 @@ import {
   DISPOSITION_SWEEPER_WORKER,
   dispositionSweeperPeriod,
   HOLD_EXPIRY_WORKER,
+  PRIVACY_REQUEST_WORKER,
   registerWorkerTasks,
   REVIEW_SLA_WATCH_WORKER,
   RISK_PRUNER_WORKER,
@@ -87,6 +88,7 @@ describe('tâches du travailleur (US-003)', () => {
       'ntf_dispatcher',
       'ntf_sender',
       'ops_monitor',
+      'privacy_request',
       'reconciliation',
       'review_sla_watch',
       'risk_pruner',
@@ -100,6 +102,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['iam_otp_pruner', 3_600, 5],
       ['kyc_score_pruner', 3_600, 5],
       ['ops_monitor', 60, 5],
+      ['privacy_request', 3_600, 5],
       ['reconciliation', 86_400, 5],
       ['review_sla_watch', 60, 5],
       ['risk_pruner', 3_600, 5],
@@ -269,6 +272,91 @@ describe('tâches du travailleur (US-003)', () => {
         breached: 4,
       }),
     ]);
+  });
+
+  // US-111 (16 LEG-009 « tâche de purge → pseudonymisation tracée », LEG-010) : comptes de la base
+  // relayés, une alerte P1 par pays en retard, une alerte P1 si un effacement KYC est en souffrance
+  it('privacy_request : pseudonymisation, retards des demandes par pays, effacements KYC en souffrance ; alertes P1 ; comptes journalisés', async () => {
+    const registry = new BusRegistry();
+    const alerts = new RecordingAlerts();
+    const logs: string[] = [];
+    const { tx, sql } = recordingTx({
+      audit_worker_retention_sweep: [{ n: '3' }],
+      audit_worker_dsr_overdue: [
+        { country_code: C1, overdue: 2 },
+        { country_code: C2, overdue: '1' },
+      ],
+      audit_worker_stale_kyc_erasures: [{ n: 4 }],
+    });
+    registerWorkerTasks(registry, {
+      transactions: transactions(tx, []),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      alerts,
+      now: () => AT,
+    });
+    const h = registry.handlerOf(PRIVACY_REQUEST_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, tx);
+    const d = WORKER_TASK_DEFAULTS;
+    expect(sql).toEqual([
+      `SELECT core.audit_worker_retention_sweep($1) AS n [${d.privacyBatch}]`,
+      `SELECT country_code, overdue FROM core.audit_worker_dsr_overdue($1) [${d.privacyBatch}]`,
+      `SELECT core.audit_worker_stale_kyc_erasures($1) AS n [${d.kycErasureStaleMinutes}]`,
+    ]);
+    expect(alerts.sent).toEqual([
+      {
+        code: 'PRIVACY_DSR_OVERDUE',
+        severity: 'P1',
+        counts: { overdue: 2 },
+        labels: { country: C1 },
+      },
+      {
+        code: 'PRIVACY_DSR_OVERDUE',
+        severity: 'P1',
+        counts: { overdue: 1 },
+        labels: { country: C2 },
+      },
+      { code: 'PRIVACY_KYC_ERASURE_STALE', severity: 'P1', counts: { stale: 4 } },
+    ]);
+    expect(logs).toEqual([
+      JSON.stringify({
+        level: 'info',
+        worker: 'privacy_request',
+        pseudonymised: 3,
+        overdue: 3,
+        stale: 4,
+      }),
+    ]);
+  });
+
+  it('privacy_request : rien en retard ni en souffrance ⇒ aucune alerte ; canal en échec ⇒ la passe échoue (rejouée)', async () => {
+    const quiet = recordingTx({
+      audit_worker_retention_sweep: [{ n: 0 }],
+      audit_worker_stale_kyc_erasures: [{ n: 0 }],
+    });
+    const alerts = new RecordingAlerts();
+    const registry = new BusRegistry();
+    registerWorkerTasks(registry, {
+      transactions: transactions(quiet.tx, []),
+      config,
+      brandName: 'x',
+      log: () => undefined,
+      alerts,
+      now: () => AT,
+    });
+    const h = registry.handlerOf(PRIVACY_REQUEST_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, quiet.tx);
+    expect(alerts.sent).toEqual([]);
+    const late = recordingTx({
+      audit_worker_retention_sweep: [{ n: 0 }],
+      audit_worker_dsr_overdue: [{ country_code: C1, overdue: 1 }],
+      audit_worker_stale_kyc_erasures: [{ n: 0 }],
+    });
+    alerts.failing = true;
+    await expect(h.handle({}, late.tx)).rejects.toThrow('canal d’alerte indisponible');
   });
 
   // US-108 (revues code et architecture) : une erreur de la partie hôtes est isolée par un point

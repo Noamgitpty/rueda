@@ -471,6 +471,34 @@ export const FR_MESSAGES = {
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY':
     'L’hôte n’a pas encore soumis son dossier.',
   'backoffice.host.refused.SELF_FORBIDDEN': 'Vous ne pouvez pas filtrer votre propre compte.',
+  'backoffice.dsr.hint':
+    'Enregistrez chaque étape d’une demande reçue par un dossier de support\u00a0: le délai légal est suivi et un retard est signalé.',
+  'backoffice.dsr.subject': 'Identifiant du dossier de support',
+  'backoffice.dsr.kind': 'Type de demande',
+  'backoffice.dsr.kind.ACCESS': 'Accès',
+  'backoffice.dsr.kind.RECTIFICATION': 'Rectification',
+  'backoffice.dsr.kind.DELETION': 'Effacement',
+  'backoffice.dsr.kind.OPPOSITION': 'Opposition',
+  'backoffice.dsr.kind.PORTABILITY': 'Portabilité',
+  'backoffice.dsr.step': 'Étape',
+  'backoffice.dsr.step.RECEIVED': 'Reçue',
+  'backoffice.dsr.step.VERIFYING': 'Vérification de l’identité',
+  'backoffice.dsr.step.IN_PROGRESS': 'En cours (identité vérifiée)',
+  'backoffice.dsr.step.BLOCKED_LEGAL_HOLD': 'Suspendue par une obligation légale de conservation',
+  'backoffice.dsr.step.DONE': 'Répondue',
+  'backoffice.dsr.step.REJECTED': 'Refusée',
+  'backoffice.dsr.record': 'Enregistrer l’étape',
+  'backoffice.dsr.recorded': 'Étape enregistrée\u00a0; le délai court jusqu’à la réponse.',
+  'backoffice.dsr.refused.DSR_INPUT_REQUIRED': 'Indiquez le type de demande et l’étape.',
+  'backoffice.dsr.refused.DSR_NOT_OPEN':
+    'Ce dossier n’a pas encore de demande\u00a0: enregistrez d’abord l’étape «\u00a0Reçue\u00a0».',
+  'backoffice.dsr.refused.DSR_ALREADY_OPEN': 'Ce dossier a déjà une demande ouverte.',
+  'backoffice.dsr.refused.DSR_KIND_MISMATCH':
+    'Le type ne correspond pas à celui de la demande ouverte sur ce dossier.',
+  'backoffice.dsr.refused.DSR_TRANSITION_INVALID':
+    'Cette étape ne peut pas suivre l’étape actuelle de la demande.',
+  'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
+    'Le délai de réponse de ce pays n’est pas configuré\u00a0: rien n’a été enregistré.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Décision refusée : les quatre contrôles doivent être cochés.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':

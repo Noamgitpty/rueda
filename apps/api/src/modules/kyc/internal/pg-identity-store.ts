@@ -26,6 +26,7 @@ import type {
   OpenResult,
   PendingErasure,
   RecordOutcome,
+  RegisterGate,
   SessionToRecord,
   WebhookRejectionReason,
 } from './identity-store.js';
@@ -135,6 +136,18 @@ export class PgIdentityStore implements IdentityStore {
       outcome: member<ConsentOutcome>(CONSENT_OUTCOMES, r?.outcome, 'consent'),
       version: r?.version ?? null,
     };
+  }
+
+  async registerGate(country: string): Promise<RegisterGate> {
+    const [r] = await this.#run<{ code: string | null }>(
+      'register_gate',
+      'SELECT core.audit_kyc_register_gate($1) AS code',
+      [country],
+    );
+    const code = r?.code ?? null;
+    if (code === null || code === 'KYC_PRODUCTION_BLOCKED_NO_REGISTER') return code;
+    // code inconnu : fail-closed (jamais une ouverture)
+    throw new IdentityStoreError('register_gate', undefined);
   }
 
   async open(tokenHash: Buffer, country: string, provider: string): Promise<OpenResult> {

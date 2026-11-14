@@ -17,6 +17,7 @@ import type {
   OpenResult,
   PendingErasure,
   RecordOutcome,
+  RegisterGate,
   SessionToRecord,
   WebhookRejectionReason,
 } from '../internal/identity-store.js';
@@ -45,6 +46,8 @@ export class FakeIdentityStore implements IdentityStore {
   failing = false;
   /** Refus imposé du consentement (compte non éligible, texte indisponible). */
   consentRefusal: Exclude<ConsentOutcome, 'RECORDED' | 'VERSION_CHANGED'> | null = null;
+  /** Garde du registre Ley 81 imposée (US-111) : `null` = registre non exigé (hors production). */
+  registerGateOutcome: RegisterGate = null;
   /** Issue imposée du contrôle d'éligibilité. */
   eligibilityOutcome: EligibilityOutcome = 'KYC_NOT_APPROVED';
   readonly decisions: { readonly eventId: string; readonly outcome: string }[] = [];
@@ -163,6 +166,11 @@ export class FakeIdentityStore implements IdentityStore {
     } catch (error) {
       return Promise.reject(error as Error);
     }
+  }
+
+  registerGate(): Promise<RegisterGate> {
+    if (this.failing) return Promise.reject(new IdentityStoreError('fake', '08006'));
+    return Promise.resolve(this.registerGateOutcome);
   }
 
   open(tokenHash: Buffer, country: string, provider: string): Promise<OpenResult> {

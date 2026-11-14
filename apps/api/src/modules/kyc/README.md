@@ -51,6 +51,10 @@ Cible (17 §2.2, §4.5) :
 - Le voyageur ne voit qu'une catégorie (S04 : refus annoncé ; nouvelle pièce : conseil de reprise et nouvelle session).
 - Le dossier KYC de la file (`POST /console/queues/items/:id/kyc`) rend la vérification courante (état, motif, champs du permis, scores C3) : c'est la seule lecture des tables KYC par le staff.
 
+## Registre Ley 81 (US-111, ADR-118)
+
+`POST /identity/verification` juge d'abord, en base, la garde du registre du pays (`IdentityStore.registerGate`, `core.audit_kyc_register_gate`) : en production, registre non validé ou aucun fournisseur KYC contractuel inscrit ⇒ 503 `KYC_PRODUCTION_BLOCKED_NO_REGISTER` (texte `common.kyc.providerUnavailable`), même si un fournisseur était branché ; aucune écriture. Hors production : aucune garde.
+
 ## Ports
 
 - `IdentityProvider` (`internal/identity-provider.port.ts`, US-020, ADR-058) : `supportsDocument`, `startVerification` (session hébergée, référence opaque du sujet), `getStatus` (rapprochement si le rappel se perd), `parseWebhook` (signature et fraîcheur du rappel, corps brut). Échecs en valeurs (`OK`, `REFUSED`, `UNAVAILABLE`, `TIMEOUT`) ; pièce non prise en charge ⇒ `UNSUPPORTED_DOCUMENT` (capacité inconnue = « non ») ; pays et types de pièce sont des données de CFG.

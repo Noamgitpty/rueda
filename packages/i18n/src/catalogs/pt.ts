@@ -463,6 +463,34 @@ export const PT_MESSAGES = {
   'backoffice.host.refused.HOST_ALREADY_SCREENED': 'Este dossiê já tem uma triagem registrada.',
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY': 'O anfitrião ainda não enviou o dossiê.',
   'backoffice.host.refused.SELF_FORBIDDEN': 'Você não pode fazer a triagem da sua própria conta.',
+  'backoffice.dsr.hint':
+    'Registre cada etapa de uma solicitação recebida por um atendimento de suporte: o prazo legal é acompanhado e um atraso é sinalizado.',
+  'backoffice.dsr.subject': 'Identificador do atendimento de suporte',
+  'backoffice.dsr.kind': 'Tipo de solicitação',
+  'backoffice.dsr.kind.ACCESS': 'Acesso',
+  'backoffice.dsr.kind.RECTIFICATION': 'Correção',
+  'backoffice.dsr.kind.DELETION': 'Eliminação',
+  'backoffice.dsr.kind.OPPOSITION': 'Oposição',
+  'backoffice.dsr.kind.PORTABILITY': 'Portabilidade',
+  'backoffice.dsr.step': 'Etapa',
+  'backoffice.dsr.step.RECEIVED': 'Recebida',
+  'backoffice.dsr.step.VERIFYING': 'Verificação de identidade',
+  'backoffice.dsr.step.IN_PROGRESS': 'Em andamento (identidade verificada)',
+  'backoffice.dsr.step.BLOCKED_LEGAL_HOLD': 'Suspensa por uma obrigação legal de guarda',
+  'backoffice.dsr.step.DONE': 'Respondida',
+  'backoffice.dsr.step.REJECTED': 'Recusada',
+  'backoffice.dsr.record': 'Registrar a etapa',
+  'backoffice.dsr.recorded': 'Etapa registrada; o prazo continua correndo até a resposta.',
+  'backoffice.dsr.refused.DSR_INPUT_REQUIRED': 'Informe o tipo de solicitação e a etapa.',
+  'backoffice.dsr.refused.DSR_NOT_OPEN':
+    'Este atendimento ainda não tem solicitação: registre primeiro a etapa “Recebida”.',
+  'backoffice.dsr.refused.DSR_ALREADY_OPEN': 'Este atendimento já tem uma solicitação aberta.',
+  'backoffice.dsr.refused.DSR_KIND_MISMATCH':
+    'O tipo não corresponde ao da solicitação aberta neste atendimento.',
+  'backoffice.dsr.refused.DSR_TRANSITION_INVALID':
+    'Esta etapa não pode seguir a etapa atual da solicitação.',
+  'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
+    'O prazo legal de resposta ainda não está configurado: nada foi registrado.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Decisão recusada: as quatro checagens precisam ser marcadas.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':

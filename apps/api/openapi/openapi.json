@@ -6662,7 +6662,7 @@
             }
           },
           "503": {
-            "description": "Aucun fournisseur (KYC de production désactivé, OQ-MK-09), fournisseur en panne ou issue inconnue, base indisponible",
+            "description": "Production : registre Ley 81 du pays non validé (KYC_PRODUCTION_BLOCKED_NO_REGISTER, US-111) ; aucun fournisseur (KYC de production désactivé, OQ-MK-09), fournisseur en panne ou issue inconnue, base indisponible",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -6674,7 +6674,7 @@
                   "$ref": "#/components/schemas/AuthBody",
                   "properties": {
                     "code": {
-                      "const": "KYC_PROVIDER_UNAVAILABLE"
+                      "enum": ["KYC_PRODUCTION_BLOCKED_NO_REGISTER", "KYC_PROVIDER_UNAVAILABLE"]
                     }
                   }
                 }

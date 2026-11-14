@@ -59,6 +59,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-108',
     refs: '19 US-108, 16 ADM-004, consigne du fondateur du 2026-11-12',
   },
+  {
+    prefix: 'privacy_',
+    file: '0089_config_privacy_params.sql',
+    story: 'US-111',
+    refs: '19 US-111, 16 LEG-009 / LEG-010, OQ-BR-25, OQ-MK-09',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */
