@@ -56,8 +56,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `backoffice.catalog.specsPending`.
  Version 28 : refus d'une réservation par l'hôte lui-même ou par un compte lié (US-127) :
  `common.booking.selfBookingForbidden.*`.
+ Version 29 : dossier de l'hôte signalé dans la console (US-108, revue par exception) :
+ `backoffice.host.*`, `backoffice.queues.openHost`, `common.listing.vehicleNotCovered` et
+ `common.listing.insurerInactive`.
  */
-export const CATALOG_VERSION = 28;
+export const CATALOG_VERSION = 29;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

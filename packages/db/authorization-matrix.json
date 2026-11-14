@@ -2103,6 +2103,32 @@
         "staff_sans_session": "aucune"
       }
     },
+    "core.settlement_insurer": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.settlement_insurer_contract": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.settlement_insurer_bordereau": {
       "type": "table",
       "droits": {

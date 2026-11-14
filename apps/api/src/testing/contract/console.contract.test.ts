@@ -168,6 +168,44 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       },
     ],
   },
+  // US-108 : dossier de l'hôte signalé (liste de contrôle fermée, retenue visible du staff)
+  hostDossier: {
+    orgId: ID,
+    country: FIRST_COUNTRY,
+    orgStatus: 'PENDING_ACTIVATION',
+    verificationId: ID,
+    status: 'IN_REVIEW',
+    screeningHold: true,
+    reasonCode: 'HOST_SANCTIONS_HIT',
+    missing: [],
+    decidedAt: null,
+    decidedBy: null,
+    activatedAt: null,
+    reviewReasons: ['SCREENING_HOLD'],
+    blockers: ['HOST_VERIFICATION_NOT_APPROVED', 'INSURER_CONTRACT_INACTIVE'],
+    screening: {
+      source: 'OPS_MANUAL',
+      screenedAt: '2031-07-01T08:00:00.123456+00:00',
+      result: 'POTENTIAL_MATCH',
+      reviewerId: ID,
+      manualActionId: ID,
+    },
+    checklist: [
+      { item: 'IDENTITY', state: 'OK' },
+      { item: 'AGE', state: 'OK' },
+      { item: 'RESIDENCE', state: 'OK' },
+      { item: 'SANCTIONS', state: 'HELD' },
+      { item: 'TAX_PROFILE', state: 'OK' },
+      { item: 'HOST_TERMS', state: 'OK' },
+      { item: 'PAYOUT_ACCOUNT', state: 'MISSING' },
+      { item: 'PSP_CAPABILITIES', state: 'BLOCKED' },
+      { item: 'COUNTRY_OPEN', state: 'BLOCKED' },
+      { item: 'INSURER_CONTRACT', state: 'BLOCKED' },
+    ],
+    itemId: ID,
+    accessId: ID,
+    evidenceFileIds: [ID],
+  },
   kycDossier: {
     itemId: ID,
     userId: ID,
@@ -342,6 +380,9 @@ class TunableOpsStore implements OpsConsoleStore {
   }
   kycDossier() {
     return this.#r('kycDossier', 'GRANTED');
+  }
+  hostDossier() {
+    return this.#r('hostDossier', 'GRANTED');
   }
   findUser() {
     return this.#r('findUser', 'FOUND');
@@ -870,6 +911,23 @@ describe('contrat HTTP — /console', () => {
       code: 'STAFF_CASE_REQUIRED',
     });
     await refusals(a, 'POST', kyc);
+
+    // dossier de l'hôte (US-108) : 200, 400, 403 (dont STAFF_CASE_REQUIRED)
+    const host = `/console/queues/items/${ID}/host-verification`;
+    const hostRead = await post(host, { requestId: randomUUID(), purpose });
+    expect(hostRead.status).toBe(200);
+    expect(hostRead.json).toMatchObject({
+      screeningHold: true,
+      screening: { screenedAt: '2031-07-01T08:00:00.123Z', source: 'OPS_MANUAL' },
+      checklist: expect.arrayContaining([{ item: 'SANCTIONS', state: 'HELD' }]),
+    });
+    expect((await post(host, { requestId: randomUUID(), purpose: 'court' })).status).toBe(400);
+    ops.outcome['hostDossier'] = 'CASE_REQUIRED';
+    expect((await post(host, { requestId: randomUUID(), purpose })).json).toMatchObject({
+      code: 'STAFF_CASE_REQUIRED',
+    });
+    delete ops.outcome['hostDossier'];
+    await refusals(a, 'POST', host);
 
     // file d'ajout au catalogue (US-114) : lecture 200, 400, 403, 409 ; décision 200, 400, 403,
     // 409, 422

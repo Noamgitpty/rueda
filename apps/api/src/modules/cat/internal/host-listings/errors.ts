@@ -29,6 +29,9 @@
  * `VEHICLE_ALREADY_ELIGIBLE`, `VEHICLE_DOCUMENT_INVALID`, `VEHICLE_DOCUMENT_UNAVAILABLE` ;
  * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE`.
  *
+ * Couverture de l'assureur à la soumission (US-108, ADR-111) : `VEHICLE_NOT_COVERED` (16 A.8,
+ * HST-019) et `INSURER_CONTRACT_INACTIVE` (16 A.8 ; aucun contrat en vigueur ou interrupteur fermé).
+ *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
  */
@@ -92,6 +95,10 @@ export const HOST_LISTING_MESSAGES = {
   PHOTO_MIN_COUNT: { status: 422, messageKey: 'common.listing.photoMinCount' },
   PHOTO_FORMAT: { status: 422, messageKey: 'common.listing.photoFormat' },
   HOST_NOT_ACTIVATED: { status: 422, messageKey: 'common.listing.hostNotActivated' },
+  // US-108 (ADR-111) : véhicule hors des critères du contrat de l'assureur partenaire (16 A.8) ;
+  // couverture jamais vérifiable sans contrat en vigueur ni interrupteur ouvert : l'annonce reste DRAFT
+  VEHICLE_NOT_COVERED: { status: 422, messageKey: 'common.listing.vehicleNotCovered' },
+  INSURER_CONTRACT_INACTIVE: { status: 422, messageKey: 'common.listing.insurerInactive' },
   INVALID_PERIOD: { status: 422, messageKey: 'common.calendar.invalidPeriod' },
   VEHICLE_TOO_OLD: { status: 422, messageKey: 'common.vehicleDocs.tooOld' },
   VEHICLE_MILEAGE_TOO_HIGH: { status: 422, messageKey: 'common.vehicleDocs.mileageTooHigh' },

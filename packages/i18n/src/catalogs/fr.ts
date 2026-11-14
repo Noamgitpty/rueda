@@ -406,6 +406,71 @@ export const FR_MESSAGES = {
   'backoffice.kyc.decide.REJECTED': 'Refuser',
   'backoffice.kyc.decide.MORE_INFO_REQUIRED': 'Demander une nouvelle pièce',
   'backoffice.kyc.decided': 'Décision enregistrée au journal ; l’élément de la file est clos.',
+  'backoffice.queues.openHost': 'Ouvrir le dossier de l’hôte',
+  'backoffice.host.heading': 'Dossier de l’hôte',
+  'backoffice.host.intro':
+    'Revue par exception : un dossier complet et sans signal est approuvé automatiquement à la fin du délai de revue. Les motifs de signal, s’il y en a, figurent ci-dessous.',
+  'backoffice.host.status': 'État du dossier',
+  'backoffice.host.status.NOT_SUBMITTED': 'Non soumis',
+  'backoffice.host.status.OPEN': 'Ouvert',
+  'backoffice.host.status.DOCS_PENDING': 'Incomplet',
+  'backoffice.host.status.IN_REVIEW': 'En revue',
+  'backoffice.host.status.APPROVED': 'Approuvé',
+  'backoffice.host.status.REJECTED': 'Refusé',
+  'backoffice.host.status.REVOKED': 'Révoqué',
+  'backoffice.host.hold':
+    'Retenue de sanctions : correspondance possible à revoir par un ADMIN. L’hôte n’en est jamais informé.',
+  'backoffice.host.reviewReasons': 'Motif de la revue',
+  'backoffice.host.reason.SCREENING_HOLD': 'Correspondance sur une liste de sanctions',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED':
+    'Compte restreint, fermé ou sous une restriction active',
+  'backoffice.host.reason.COUNTRY_REVIEW':
+    'La configuration impose une revue par l’équipe des opérations',
+  'backoffice.host.noReason': 'Aucun signal',
+  'backoffice.host.checklist': 'Liste de contrôle',
+  'backoffice.host.item.IDENTITY': 'Identité vérifiée',
+  'backoffice.host.item.AGE': 'Âge minimal',
+  'backoffice.host.item.RESIDENCE': 'Résidence',
+  'backoffice.host.item.SANCTIONS': 'Listes de sanctions',
+  'backoffice.host.item.TAX_PROFILE': 'Profil fiscal',
+  'backoffice.host.item.HOST_TERMS': 'Conditions de l’hôte acceptées',
+  'backoffice.host.item.PAYOUT_ACCOUNT': 'Compte de versement chez le prestataire',
+  'backoffice.host.item.PSP_CAPABILITIES': 'Capacités du prestataire de paiement',
+  'backoffice.host.item.COUNTRY_OPEN': 'Marché ouvert aux hôtes particuliers',
+  'backoffice.host.item.INSURER_CONTRACT': 'Contrat de l’assureur actif',
+  'backoffice.host.state.OK': 'Rempli',
+  'backoffice.host.state.MISSING': 'Manquant',
+  'backoffice.host.state.BLOCKED': 'Bloqué',
+  'backoffice.host.state.HELD': 'Retenu',
+  'backoffice.host.screening': 'Filtrage des sanctions',
+  'backoffice.host.source': 'Source',
+  'backoffice.host.source.OPS_MANUAL': 'Consultation manuelle par l’équipe des opérations',
+  'backoffice.host.source.MANUAL': 'Revue par un ADMIN',
+  'backoffice.host.screenedAt': 'Date du filtrage',
+  'backoffice.host.result': 'Résultat',
+  'backoffice.host.result.CLEAR': 'Aucune correspondance',
+  'backoffice.host.result.POTENTIAL_MATCH': 'Correspondance possible',
+  'backoffice.host.result.CONFIRMED_MATCH': 'Correspondance confirmée',
+  'backoffice.host.noScreening': 'Aucun filtrage enregistré pour l’instant.',
+  'backoffice.host.evidence': {
+    one: '{count} pièce jointe au filtrage',
+    other: '{count} pièces jointes au filtrage',
+  },
+  'backoffice.host.subject': 'Identifiant du compte d’hôte',
+  'backoffice.host.screeningHeading': 'Filtrage manuel des sanctions',
+  'backoffice.host.screeningHint':
+    'Consultez chaque liste, puis indiquez son résultat. Une correspondance passe à un ADMIN ; l’hôte n’en est jamais informé.',
+  'backoffice.host.list.unList': 'Liste consolidée des Nations unies',
+  'backoffice.host.list.ofacList': 'Liste OFAC',
+  'backoffice.host.list.nationalList': 'Liste nationale du compte',
+  'backoffice.host.clear': 'Aucune correspondance',
+  'backoffice.host.match': 'Correspondance possible',
+  'backoffice.host.record': 'Enregistrer le filtrage',
+  'backoffice.host.recorded': 'Filtrage enregistré.',
+  'backoffice.host.refused.HOST_ALREADY_SCREENED': 'Ce dossier a déjà un filtrage enregistré.',
+  'backoffice.host.refused.HOST_VERIFICATION_NOT_READY':
+    'L’hôte n’a pas encore soumis son dossier.',
+  'backoffice.host.refused.SELF_FORBIDDEN': 'Vous ne pouvez pas filtrer votre propre compte.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Décision refusée : les quatre contrôles doivent être cochés.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':
@@ -900,6 +965,10 @@ export const FR_MESSAGES = {
   'common.listing.photoFormat': 'Cette photo est inutilisable. Envoie une photo JPEG, PNG ou WebP.',
   'common.listing.hostTermsRequired':
     'Avant d’envoyer ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
+  'common.listing.vehicleNotCovered':
+    'Ce véhicule ne remplit pas les conditions de la protection des voyages (âge, valeur ou usage). Il ne peut pas être publié.',
+  'common.listing.insurerInactive':
+    'Tout est prêt de votre côté. La protection des voyages n’est pas encore disponible ici ; vous pourrez envoyer votre annonce dès qu’elle le sera.',
   'common.listing.hostNotActivated':
     'Tout est prêt de ton côté. Tu pourras envoyer ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
   'common.listing.unavailable':
