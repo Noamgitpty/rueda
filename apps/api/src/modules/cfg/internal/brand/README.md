@@ -48,9 +48,16 @@ Contrôles avant toute écriture : format des jetons (`BRAND_TOKENS_INVALID`), p
 
 `../../data/brand.json` (PROPOSÉS, validés au démarrage, `CONFIG_INVALID` sinon) : `approvedFonts` (famille et licence ; au départ toutes les polices des palettes US-028), `readCacheTtlSeconds` (30, au plus 60), `assetMaxBytes` (65 536 : la limite JSON de l'API borne aussi le téléversement en base64). Ajouter une police : vérifier sa licence, l'inscrire, demande de fusion.
 
+## Écran et contrôles d'US-120 (ADR-116)
+
+- L'écran « Apparence et marque » du back-office (`apps/backoffice/app/brand/`) appelle ces routes.
+- **Antivirus des actifs** : port `BrandScanner` (`BrandOptions.scanner`), après la taille, le type réel et la commande de la base (droits jugés d'abord : 403 sans antivirus), avant le dépôt (aucun octet stocké sans verdict `CLEAN`). Panne ou délai : `503 BRAND_ASSET_UNAVAILABLE` (`reason: SCAN`) ; verdict autre que `CLEAN` ou type détecté différent : `422 BRAND_ASSET_INVALID` (`reason: SCAN`). Production : `UnavailableBrandScanner` (DEC-FONDATEUR-20, fail-closed) ; tests : `FakeUploadScanner`.
+- **Logo SVG** (jetons `brand.logo`, `brand.logoDark`, `brand.logoMono`) : `logoProblems` de `@rueda/design-tokens` à l'enregistrement d'un brouillon (`BRAND_TOKENS_INVALID` nommant le jeton).
+
 ## Ports
 
 - `BrandStore` / `PgBrandStore` (`store.ts`) : un appel de commande = une instruction en autocommit (ADR-056).
+- `BrandScanner` (`brand.service.ts`) : antivirus des actifs ; `UnavailableBrandScanner` en production.
 - `BrandFileStore` (`brand.service.ts`) : création seule ; FAKE `InMemoryFileStore` en test ; `UnavailableBrandFileStore` en production tant qu'US-003 n'a pas livré le stockage objet.
 
 ## Événements

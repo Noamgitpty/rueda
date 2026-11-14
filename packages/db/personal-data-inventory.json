@@ -524,6 +524,33 @@
         "lien_attested_at": "C1"
       }
     },
+    "core.catalog_vehicle_attestation": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "vehicle_id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "user_id": "C1",
+        "statement": "C1",
+        "statement_key": "C1",
+        "catalog_version": "C1",
+        "locale": "C1",
+        "statement_text": "C1",
+        "attested_at": "C1"
+      }
+    },
     "core.catalog_vehicle_claim": {
       "lifecycle": "D",
       "subjects": [
@@ -1676,6 +1703,35 @@
         "status": "C1"
       }
     },
+    "core.settlement_insurer": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "country_code": "C1",
+        "name": "C1",
+        "kind": "C1",
+        "license_ref": "C1",
+        "status": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.settlement_insurer_contract": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "insurer_id": "C1",
+        "country_code": "C1",
+        "version": "C1",
+        "vehicle_eligibility": "C1",
+        "signed_at": "C1",
+        "valid_from": "C1",
+        "valid_to": "C1",
+        "document_file_id": "C1",
+        "created_at": "C1"
+      }
+    },
     "core.settlement_insurer_bordereau": {
       "lifecycle": "A",
       "export": "none",
@@ -2282,7 +2338,9 @@
         "activated_at": "C1",
         "row_version": "C1",
         "created_at": "C1",
-        "updated_at": "C1"
+        "updated_at": "C1",
+        "review_started_at": "C1",
+        "auto_review_attempted_at": "C1"
       }
     },
     "core.kyc_sanctions_screening": {
@@ -2312,7 +2370,8 @@
         },
         "screened_at": "C1",
         "reviewer": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "manual_action_id": "C1"
       }
     },
     "core.kyc_host_tax_profile": {

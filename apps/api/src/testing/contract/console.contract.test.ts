@@ -168,6 +168,44 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       },
     ],
   },
+  // US-108 : dossier de l'hôte signalé (liste de contrôle fermée, retenue visible du staff)
+  hostDossier: {
+    orgId: ID,
+    country: FIRST_COUNTRY,
+    orgStatus: 'PENDING_ACTIVATION',
+    verificationId: ID,
+    status: 'IN_REVIEW',
+    screeningHold: true,
+    reasonCode: 'HOST_SANCTIONS_HIT',
+    missing: [],
+    decidedAt: null,
+    decidedBy: null,
+    activatedAt: null,
+    reviewReasons: ['SCREENING_HOLD'],
+    blockers: ['HOST_VERIFICATION_NOT_APPROVED', 'INSURER_CONTRACT_INACTIVE'],
+    screening: {
+      source: 'OPS_MANUAL',
+      screenedAt: '2031-07-01T08:00:00.123456+00:00',
+      result: 'POTENTIAL_MATCH',
+      reviewerId: ID,
+      manualActionId: ID,
+    },
+    checklist: [
+      { item: 'IDENTITY', state: 'OK' },
+      { item: 'AGE', state: 'OK' },
+      { item: 'RESIDENCE', state: 'OK' },
+      { item: 'SANCTIONS', state: 'HELD' },
+      { item: 'TAX_PROFILE', state: 'OK' },
+      { item: 'HOST_TERMS', state: 'OK' },
+      { item: 'PAYOUT_ACCOUNT', state: 'MISSING' },
+      { item: 'PSP_CAPABILITIES', state: 'BLOCKED' },
+      { item: 'COUNTRY_OPEN', state: 'BLOCKED' },
+      { item: 'INSURER_CONTRACT', state: 'BLOCKED' },
+    ],
+    itemId: ID,
+    accessId: ID,
+    evidenceFileIds: [ID],
+  },
   kycDossier: {
     itemId: ID,
     userId: ID,
@@ -250,6 +288,8 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
     result: 'PENDING',
     reasons: ['VEHICLE_VIN_MISMATCH'],
   },
+  // revue d'une annonce (US-118)
+  decideListing: { itemId: ID, listingId: ID, status: 'LISTED' },
   vehicleClaim: { itemId: ID, claimId: ID, plate: 'AB123', status: 'OPEN', createdAt: AT },
   decideVehicleClaim: {
     itemId: ID,
@@ -343,6 +383,9 @@ class TunableOpsStore implements OpsConsoleStore {
   kycDossier() {
     return this.#r('kycDossier', 'GRANTED');
   }
+  hostDossier() {
+    return this.#r('hostDossier', 'GRANTED');
+  }
   findUser() {
     return this.#r('findUser', 'FOUND');
   }
@@ -372,6 +415,9 @@ class TunableOpsStore implements OpsConsoleStore {
   }
   decideVehicleEligibility() {
     return this.#r('decideVehicleEligibility', 'DECIDED');
+  }
+  decideListing() {
+    return this.#r('decideListing', 'DECIDED');
   }
   vehicleClaim() {
     return this.#r('vehicleClaim', 'GRANTED');
@@ -428,6 +474,7 @@ describe('contrat HTTP — /console', () => {
   const apps: ContractApp[] = [];
   const brand = new TunableBrandStore();
   let filesUp = true;
+  let brandScan: 'CLEAN' | 'INFECTED' | 'DOWN' = 'CLEAN';
   let action: Awaited<ReturnType<ManualActionStore['record']>>['outcome'] = 'RECORDED';
   let actionDetail: string | null = null;
   let approval: Awaited<ReturnType<FinanceApprovalStore['approve']>> = 'APPROVED';
@@ -512,6 +559,18 @@ describe('contrat HTTP — /console', () => {
         files: {
           put: () => Promise.resolve({ status: filesUp ? 'STORED' : 'UNAVAILABLE' }),
           get: () => Promise.resolve({ status: 'NOT_FOUND' }),
+        },
+        // US-120 : antivirus des actifs (double du port ; verdict piloté par le test)
+        scanner: {
+          scan: ({ declaredMime }: { declaredMime: string }) =>
+            Promise.resolve(
+              brandScan === 'DOWN'
+                ? { status: 'UNAVAILABLE' as const }
+                : {
+                    status: 'SCANNED' as const,
+                    report: { verdict: brandScan, detectedMime: declaredMime },
+                  },
+            ),
         },
       },
       risk: {
@@ -642,6 +701,18 @@ describe('contrat HTTP — /console', () => {
     filesUp = false;
     expect((await post('/console/brand/assets', asset)).status).toBe(503);
     filesUp = true;
+    // US-120 : antivirus en panne => 503 ; fichier infecté => 422 (DEC-FONDATEUR-20)
+    brandScan = 'DOWN';
+    expect((await post('/console/brand/assets', asset)).json).toMatchObject({
+      code: 'BRAND_ASSET_UNAVAILABLE',
+      details: { reason: 'SCAN' },
+    });
+    brandScan = 'INFECTED';
+    expect((await post('/console/brand/assets', asset)).json).toMatchObject({
+      code: 'BRAND_ASSET_INVALID',
+      details: { reason: 'SCAN' },
+    });
+    brandScan = 'CLEAN';
     brand.fail = uniqueViolation();
     expect((await post('/console/brand/assets', asset)).status).toBe(409);
 
@@ -871,6 +942,23 @@ describe('contrat HTTP — /console', () => {
     });
     await refusals(a, 'POST', kyc);
 
+    // dossier de l'hôte (US-108) : 200, 400, 403 (dont STAFF_CASE_REQUIRED)
+    const host = `/console/queues/items/${ID}/host-verification`;
+    const hostRead = await post(host, { requestId: randomUUID(), purpose });
+    expect(hostRead.status).toBe(200);
+    expect(hostRead.json).toMatchObject({
+      screeningHold: true,
+      screening: { screenedAt: '2031-07-01T08:00:00.123Z', source: 'OPS_MANUAL' },
+      checklist: expect.arrayContaining([{ item: 'SANCTIONS', state: 'HELD' }]),
+    });
+    expect((await post(host, { requestId: randomUUID(), purpose: 'court' })).status).toBe(400);
+    ops.outcome['hostDossier'] = 'CASE_REQUIRED';
+    expect((await post(host, { requestId: randomUUID(), purpose })).json).toMatchObject({
+      code: 'STAFF_CASE_REQUIRED',
+    });
+    delete ops.outcome['hostDossier'];
+    await refusals(a, 'POST', host);
+
     // file d'ajout au catalogue (US-114) : lecture 200, 400, 403, 409 ; décision 200, 400, 403,
     // 409, 422
     const addition = `/console/queues/items/${ID}/catalog-addition`;
@@ -992,6 +1080,47 @@ describe('contrat HTTP — /console', () => {
     }
     delete ops.outcome['decideVehicleEligibility'];
     await refusals(a, 'POST', decide);
+
+    // revue d'une annonce (US-118, revue exigée par le pays) : 200, 400, 403, 409, 422
+    const listingDecide = `/console/queues/items/${ID}/listing/decide`;
+    const approve = { requestId: randomUUID(), decision: 'APPROVE' };
+    expect((await post(listingDecide, approve)).json).toEqual({
+      itemId: ID,
+      listingId: ID,
+      status: 'LISTED',
+    });
+    for (const body of [
+      { requestId: randomUUID(), decision: 'PUBLISH' },
+      { requestId: randomUUID(), decision: 'REJECT', reason: 'OTHER' },
+      { requestId: 'x', decision: 'APPROVE' },
+    ]) {
+      expect((await post(listingDecide, body)).status, JSON.stringify(body)).toBe(400);
+    }
+    for (const [outcome, status, code] of [
+      ['NOT_UNDER_REVIEW', 409, 'LISTING_REVIEW_CLOSED'],
+      ['DECISION_RATIONALE_REQUIRED', 422, 'DECISION_RATIONALE_REQUIRED'],
+      ['INSURER_CONTRACT_INACTIVE', 422, 'INSURER_CONTRACT_INACTIVE'],
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+    ] as const) {
+      ops.outcome['decideListing'] = outcome;
+      const r = await post(listingDecide, {
+        requestId: randomUUID(),
+        decision: 'REJECT',
+        reason: 'PHOTO_QUALITY',
+      });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    ops.outcome['decideListing'] = 'HOST_NOT_ACTIVATED';
+    const blocked = await post(listingDecide, approve);
+    expect(blocked.status).toBe(409);
+    expect(blocked.json).toEqual({
+      code: 'LISTING_NOT_PUBLISHABLE',
+      messageKey: 'common.listingReview.notPublishable',
+      values: { reason: 'HOST_NOT_ACTIVATED' },
+    });
+    delete ops.outcome['decideListing'];
+    await refusals(a, 'POST', listingDecide);
 
     // contestation (BOARD N-61) : lecture 200, 400, 403, 409 ; décision 200, 400, 403 (dont
     // STAFF_ADMIN_REQUIRED), 409, 422

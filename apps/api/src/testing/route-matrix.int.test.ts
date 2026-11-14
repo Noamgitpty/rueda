@@ -25,7 +25,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
 import { postgresCatAdapters } from '../modules/cat/index.js';
-import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from '../modules/cfg/index.js';
+import {
+  loadBrandParams,
+  PgBrandStore,
+  UnavailableBrandFileStore,
+  UnavailableBrandScanner,
+} from '../modules/cfg/index.js';
 import { PgConsentStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
@@ -117,6 +122,25 @@ async function kycItem(country: string): Promise<string> {
 }
 
 /**
+ * Élément neuf de la file HOST_VERIFICATION du pays (US-108) : compte d'hôte neuf du pays, vraie
+ * mise en file (fixture 9990) ⇒ OPS : 403 STAFF_CASE_REQUIRED (non pris en charge) ; ADMIN : 200.
+ */
+async function hostItem(country: string): Promise<string> {
+  const holder = await registerIn(country);
+  const org = randomUUID();
+  await client.query('SELECT test_fixture.iam_insert_organization($1, $2, $3)', [
+    org,
+    holder.id,
+    country,
+  ]);
+  const { rows } = await client.query<{ item_id: string }>(
+    `SELECT item_id FROM test_fixture.us109_enqueue('HOST_VERIFICATION', 'ORGANIZATION', $1, $2)`,
+    [org, country],
+  );
+  return rows[0]?.item_id ?? randomUUID();
+}
+
+/**
  * Élément neuf de la file CATALOG_ADDITION du pays (vraie mise en file, fixture 9990 ; US-114) :
  * aucune demande derrière (sujet neuf) ⇒ un acteur autorisé reçoit 403 STAFF_CASE_REQUIRED (élément
  * non pris en charge) ou 409 CATALOG_REQUEST_CLOSED (ADMIN), jamais 401 / 403 FORBIDDEN.
@@ -130,11 +154,14 @@ async function catalogItem(country: string): Promise<string> {
 }
 
 /**
- * Element neuf de la file LISTING du pays, sujet VEHICLE ou VEHICLE_CLAIM (US-124) : aucun vehicule
- * ni contestation derriere ; un acteur autorise recoit 403 STAFF_CASE_REQUIRED (non pris en charge)
+ * Element neuf de la file LISTING du pays, sujet VEHICLE, VEHICLE_CLAIM (US-124) ou LISTING (US-118) :
+ * aucun vehicule, contestation ni annonce derriere ; un acteur autorise recoit 403 STAFF_CASE_REQUIRED (non pris en charge)
  * ou 409 / 404 (ADMIN), jamais 401 / 403 FORBIDDEN.
  */
-async function vehicleItem(country: string, subject: 'VEHICLE' | 'VEHICLE_CLAIM'): Promise<string> {
+async function vehicleItem(
+  country: string,
+  subject: 'VEHICLE' | 'VEHICLE_CLAIM' | 'LISTING',
+): Promise<string> {
   const { rows } = await client.query<{ item_id: string }>(
     `SELECT item_id FROM test_fixture.us109_enqueue('LISTING', $3, $1, $2)`,
     [randomUUID(), country, subject],
@@ -414,6 +441,13 @@ async function requestOf(
         path: `/console/queues/items/${await kycItem(country)}/kyc`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
+    // US-108 : dossier de l'hôte signalé (élément du pays de l'acteur)
+    case 'POST /console/queues/items/{id}/host-verification':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await hostItem(country)}/host-verification`,
+        body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
+      };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
     case 'POST /console/queues/items/{id}/catalog-addition':
       return {
@@ -439,6 +473,13 @@ async function requestOf(
         method: 'POST',
         path: `/console/queues/items/${await vehicleItem(country, 'VEHICLE')}/vehicle/decide`,
         body: { requestId: id, checklist: {}, documents: [] },
+      };
+    // revue d'une annonce (US-118) : élément LISTING neuf, sujet LISTING, aucune annonce derrière
+    case 'POST /console/queues/items/{id}/listing/decide':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await vehicleItem(country, 'LISTING')}/listing/decide`,
+        body: { requestId: id, decision: 'REJECT', reason: 'PHOTO_QUALITY' },
       };
     case 'POST /console/queues/items/{id}/vehicle-claim':
       return {
@@ -605,6 +646,12 @@ async function requestOf(
       return {
         method: 'POST',
         path: `/host/accounts/${id}/listings/${randomUUID()}/submit`,
+        body: {},
+      };
+    case 'POST /host/accounts/{orgId}/listings/{listingId}/unlist':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/listings/${randomUUID()}/unlist`,
         body: {},
       };
     case 'POST /host/accounts/{orgId}/listings/{listingId}/photos':
@@ -907,6 +954,7 @@ beforeAll(async () => {
       {
         store: new PgBrandStore(client),
         files: new UnavailableBrandFileStore(),
+        scanner: new UnavailableBrandScanner(),
         params: loadBrandParams(),
       },
       {

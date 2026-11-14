@@ -15,8 +15,9 @@ export {
 export type { Mode, SemanticColor, Theme, ThemeToken } from './build.ts';
 export { checkContrast, CONTRAST_RULES, GLASS_TEXT, ThemeContrastError } from './contrast.ts';
 export type { ContrastFailure, ContrastRule } from './contrast.ts';
-export { BASE_CSS, themeStyleSheet } from './css.ts';
+export { BASE_CSS, previewStyleSheet, themeStyleSheet } from './css.ts';
 export { themeFontFamilies } from './fonts.ts';
+export { LOGO_MAX_LENGTH, LOGO_TOKEN_PATHS, logoProblem, logoProblems } from './logo.ts';
 export {
   cssVariableOf,
   MOTION_RULES,

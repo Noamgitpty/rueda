@@ -56,11 +56,26 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `backoffice.catalog.specsPending`.
  Version 28 : refus d'une réservation par l'hôte lui-même ou par un compte lié (US-127) :
  `common.booking.selfBookingForbidden.*`.
- Version 33 (numéro réservé par l'orchestrateur ; 27 à 32 aux PR en file) : numéro fiscal de
+ Version 29 : dossier de l'hôte signalé dans la console (US-108, revue par exception) :
+ `backoffice.host.*`, `backoffice.queues.openHost`, `common.listing.vehicleNotCovered` et
+ `common.listing.insurerInactive`.
+ Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
+ d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
+ `web.vehicleDocs.declaration.vinHint`.
+ Version 31 : publication immédiate d'une
+ annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
+ `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`,
+ `.areaLooksLikeAddress`, `.cityInvalid`, `.vehicleDescriptionInvalid`, `common.listingReview.*`, `web.host.listing.unlist`, `.relist` ; sens
+ changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
+ `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
+ `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
+ Version 34 (numéro réservé par l'orchestrateur ; 32 et 33 aux PR en file) : écran « Apparence et
+ marque » du back-office (US-120, O02) : `backoffice.o02.*`.
+ Version 37 (numéro attribué par l'orchestrateur ; 35 et 36 à US-103 et US-111) : numéro fiscal de
  l'hôte facultatif, « jamais plus lourd que Turo » (US-123, ADR-115) : `web.a07.optional`,
  `web.a07.tax.optionalHint` et `web.a07.tax.reminder` (rappel de l'obligation fiscale de l'hôte).
  */
-export const CATALOG_VERSION = 33;
+export const CATALOG_VERSION = 37;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

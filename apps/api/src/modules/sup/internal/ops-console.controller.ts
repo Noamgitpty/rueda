@@ -8,6 +8,8 @@
  * |                                         | signalé par la base              |                                  |
  * | POST /console/queues/items/:id/claim    | 200 élément pris                 | 409 STAFF_ITEM_TAKEN             |
  * | POST /console/queues/items/:id/kyc      | 200 dossier KYC (journalisé)     | 403 STAFF_CASE_REQUIRED          |
+ * | POST /console/queues/items/:id/         | 200 dossier de l'hôte, liste de  | 403 STAFF_CASE_REQUIRED          |
+ * |      host-verification (US-108)         | contrôle (journalisé)            |                                  |
  * | POST /console/users/search              | 200 identifiant (journalisé)     | 404 STAFF_USER_NOT_FOUND         |
  * | POST /console/users/:id/profile         | 200 fiche 360° (journalisée)     | 403 STAFF_CASE_REQUIRED          |
  * | POST /console/users/:id/notes           | 201 note ; 200 rejeu             | 403 STAFF_CASE_REQUIRED          |
@@ -26,6 +28,8 @@
  * |      vehicle-claim (US-124, N-61)       |                                  |                                  |
  * | POST /console/queues/items/:id/         | 200 UPHELD / DISMISSED           | 403 STAFF_ADMIN_REQUIRED ; 409 ; |
  * |      vehicle-claim/decide               |                                  | 422                              |
+ * | POST /console/queues/items/:id/listing/ | 200 LISTED ou REJECTED, élément  | 409 LISTING_REVIEW_CLOSED,       |
+ * |      decide (US-118)                    | clos                             | LISTING_NOT_PUBLISHABLE ; 422    |
  * | POST /console/queues/items/:id/files/   | 200 pièce (base64, journalisée)  | 404 VEHICLE_FILE_NOT_FOUND ; 503 |
  * |      :fileId (US-124)                   |                                  |                                  |
  *
@@ -59,6 +63,7 @@ import type {
   CaseStatus,
   OpsConsoleStore,
   OpsResult,
+  ListingReviewDecision,
   VehicleClaimDecision,
 } from './ops-console-store.js';
 import { OpsStoreError } from './ops-console-store.js';
@@ -79,6 +84,34 @@ const CHECK_KEYS = new Set([
   'REGISTRY',
 ]);
 const CLAIM_DECISIONS: readonly VehicleClaimDecision[] = ['UPHOLD', 'DISMISS'];
+/** Revue d'une annonce (US-118) : décision et motifs fermés d'un refus (ADR-114, PROPOSÉS). */
+const LISTING_DECISIONS: readonly ListingReviewDecision[] = ['APPROVE', 'REJECT'];
+const LISTING_REJECT_REASONS = [
+  'PHOTO_QUALITY',
+  'ADDRESS_VISIBLE',
+  'VEHICLE_MISMATCH',
+  'PROHIBITED_CONTENT',
+] as const;
+/** Motifs de la base qui empêchent l'approbation (contrôles automatiques revérifiés, 0084). */
+const LISTING_BLOCKERS = [
+  'LOCATION_AREA_ADDRESS',
+  'LOCATION_CITY_INVALID',
+  'VEHICLE_DESCRIPTION_INVALID',
+  'TERMS_REACCEPT_REQUIRED',
+  'HOST_NOT_ACTIVATED',
+  'VEHICLE_RELEASED',
+  'VEHICLE_INELIGIBLE',
+  'VEHICLE_UNDER_REVIEW',
+  'VEHICLE_ELIGIBILITY_REQUIRED',
+  'VEHICLE_TOO_OLD',
+  'VEHICLE_FIELD_REQUIRED',
+  'VEHICLE_MILEAGE_TOO_HIGH',
+  'VEHICLE_TITLE_MISMATCH',
+  'VEHICLE_LENDER_CONSENT_REQUIRED',
+  'VEHICLE_DOCUMENT_EXPIRED',
+  'VEHICLE_DOCUMENT_REQUIRED',
+  'PARAM_MISSING',
+] as const;
 const CLAIM_REASONS = ['INSUFFICIENT_PROOF', 'CLAIMANT_NOT_OWNER'] as const;
 /** Liste de contrôle fermée de la confirmation d'une contestation (0077) ; valeurs jugées en base. */
 const CLAIM_CHECK_KEYS = new Set([
@@ -169,8 +202,9 @@ function actorOf(request: object): StaffActor {
 }
 
 /** Champs d'horodatage rendus par la base (noms de 0064, 0076) ; aucun texte libre n'en fait partie. */
+// US-108 : instants du dossier de l'hôte (screenedAt, decidedAt, activatedAt)
 const DATE_FIELD =
-  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt)$/;
+  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {
@@ -291,6 +325,24 @@ export class OpsConsoleController {
     const purpose = textOf(b['purpose'], 10, 500);
     const { body } = await run(
       () => this.store.kycDossier(actor, requestId, itemId, purpose),
+      ['GRANTED'],
+    );
+    return body;
+  }
+
+  // US-108 (ADR-111) : dossier de l'hôte signalé (revue par exception) ; liste de contrôle calculée
+  // par la base, retenue de sanctions visible du staff seulement ; lecture journalisée d'abord
+  @Post('queues/items/:id/host-verification')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async hostVerification(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const { body } = await run(
+      () => this.store.hostDossier(actor, requestId, itemId, purpose),
       ['GRANTED'],
     );
     return body;
@@ -507,6 +559,48 @@ export class OpsConsoleController {
       default:
         return r.body;
     }
+  }
+
+  /**
+   * Décision sur une annonce en revue (US-118 ; revue exigée par le pays seulement,
+   * `listing_manual_review_required`) : APPROVE revérifie en base tous les contrôles automatiques
+   * (un refus laisse l'annonce en revue) ; REJECT exige un motif de la liste fermée.
+   */
+  @Post('queues/items/:id/listing/decide')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async decideListing(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const decision = oneOf(b['decision'], LISTING_DECISIONS);
+    // motif : chaîne de la liste fermée, ou absent ; la base exige sa présence pour un refus
+    const reason =
+      b['reason'] === undefined || b['reason'] === null
+        ? null
+        : oneOf(b['reason'], LISTING_REJECT_REASONS);
+    const r = await run(
+      () => this.store.decideListing(actor, requestId, itemId, decision, reason),
+      [
+        'DECIDED',
+        'NOT_UNDER_REVIEW',
+        'DECISION_RATIONALE_REQUIRED',
+        'INSURER_CONTRACT_INACTIVE',
+        ...LISTING_BLOCKERS,
+      ],
+    );
+    if (r.outcome === 'DECIDED') return r.body;
+    if (r.outcome === 'NOT_UNDER_REVIEW') throw new OpsHttpError('LISTING_REVIEW_CLOSED');
+    if (r.outcome === 'DECISION_RATIONALE_REQUIRED') {
+      throw new OpsHttpError('DECISION_RATIONALE_REQUIRED');
+    }
+    if (r.outcome === 'INSURER_CONTRACT_INACTIVE') {
+      throw new OpsHttpError('INSURER_CONTRACT_INACTIVE');
+    }
+    // approbation refusée par un contrôle automatique : motif de la base (`values.reason`),
+    // l'annonce reste en revue
+    throw new OpsHttpError('LISTING_NOT_PUBLISHABLE', { reason: r.outcome });
   }
 
   /**

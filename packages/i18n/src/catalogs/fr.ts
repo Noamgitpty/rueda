@@ -227,6 +227,149 @@ export const FR_MESSAGES = {
     '{key} · {scope} : cette clé n’est pas un texte modifiable ; elle n’est jamais affichée.',
   'backoffice.content.gaps.common': 'commun',
   'backoffice.content.gaps.error': 'Impossible de vérifier les textes publiés.',
+  'backoffice.o02.open': 'Apparence et marque',
+  'backoffice.o02.title': 'Apparence et marque',
+  'backoffice.o02.intro':
+    "Changez le nom, le logo, les couleurs, les polices et les textes de l'accueil. Le site ne change pas tant que vous ne publiez pas.",
+  'backoffice.o02.back': 'Retour à la console',
+  'backoffice.o02.denied':
+    'Cet écran est réservé aux administrateurs dont la session est vérifiée. Ouvrez la console et connectez-vous avec votre code.',
+  'backoffice.o02.noVersion':
+    "Aucune version n'est encore publiée : le site utilise le thème par défaut (Lienzo · Tinta).",
+  'backoffice.o02.loadError': "Impossible de charger l'historique des versions. Rechargez la page.",
+  'backoffice.o02.history.title': 'Historique des versions',
+  'backoffice.o02.history.version': 'Version {no} · {name}',
+  'backoffice.o02.history.publish': 'Publier la version {no}',
+  'backoffice.o02.status.DRAFT': 'Brouillon',
+  'backoffice.o02.status.PUBLISHED': 'Publiée',
+  'backoffice.o02.status.ARCHIVED': 'Archivée',
+  'backoffice.o02.rollback.action': 'Revenir à la version précédente',
+  'backoffice.o02.rollback.hint':
+    "Rétablit en un clic la version publiée avant l'actuelle. L'action est inscrite au journal.",
+  'backoffice.o02.rollback.done':
+    'Version précédente rétablie (version {no}). Le site l’affiche en moins d’une minute.',
+  'backoffice.o02.publish.done': 'Version {no} publiée. Le site l’affiche en moins d’une minute.',
+  'backoffice.o02.publish.refused':
+    "Publication refusée : ces paires de couleurs n'atteignent pas le contraste minimal (WCAG 2.2 AA).",
+  'backoffice.o02.contrast.pair': '{pair}, mode {mode} : {ratio}:1 (minimum {min}:1)',
+  'backoffice.o02.contrast.ok':
+    'Contraste AA : toutes les paires de couleurs passent. Ce brouillon peut être publié.',
+  'backoffice.o02.contrast.failing': {
+    one: "{count} paire de couleurs n'atteint pas le contraste : la publication sera refusée.",
+    other:
+      "{count} paires de couleurs n'atteignent pas le contraste : la publication sera refusée.",
+  },
+  'backoffice.o02.mode.light': 'clair',
+  'backoffice.o02.mode.dark': 'sombre',
+  'backoffice.o02.draft.title': 'Nouveau brouillon',
+  'backoffice.o02.draft.base': 'Point de départ',
+  'backoffice.o02.draft.fromVersion': 'Version {no} · {name}',
+  'backoffice.o02.draft.fromPalette': 'Palette {palette}',
+  'backoffice.o02.draft.fromPaletteFailing':
+    'Palette {palette} (contraste insuffisant : corrigez les couleurs avant de publier)',
+  'backoffice.o02.draft.brandName': 'Nom de la marque',
+  'backoffice.o02.draft.colors': 'Couleurs, mode {mode}',
+  'backoffice.o02.draft.invalid': "Ce brouillon n'est pas valide : corrigez les champs signalés.",
+  'backoffice.o02.draft.save': 'Enregistrer le brouillon',
+  'backoffice.o02.draft.saved':
+    "Brouillon enregistré (version {no}). Vérifiez-le dans l'aperçu et publiez-le depuis l'historique.",
+  'backoffice.o02.color.primary': "Couleur d'action",
+  'backoffice.o02.color.onPrimary': "Texte sur la couleur d'action",
+  'backoffice.o02.color.accent': 'Accent',
+  'backoffice.o02.color.onAccent': "Texte sur l'accent",
+  'backoffice.o02.color.surface': 'Fond de page',
+  'backoffice.o02.color.surfaceRaised': 'Fond des cartes',
+  'backoffice.o02.color.text': 'Texte',
+  'backoffice.o02.color.textMuted': 'Texte secondaire',
+  'backoffice.o02.color.hint': 'Format #RRGGBB : six chiffres hexadécimaux.',
+  'backoffice.o02.color.invalid': 'Saisissez une couleur au format #RRGGBB.',
+  'backoffice.o02.font.heading': 'Police des titres',
+  'backoffice.o02.font.body': 'Police du texte',
+  'backoffice.o02.font.keep': 'Celle du point de départ',
+  'backoffice.o02.font.hint': 'Uniquement les polices de la liste approuvée (licence vérifiée).',
+  'backoffice.o02.logo.light': 'Logo (fichier SVG)',
+  'backoffice.o02.logo.dark': 'Logo pour le mode sombre (fichier SVG)',
+  'backoffice.o02.logo.hint':
+    'SVG simple, de 20 000 caractères au plus, sans script, lien ni ressource externe. Sans fichier, le logo du point de départ est conservé.',
+  'backoffice.o02.logo.invalid':
+    'Logo refusé : il doit être un SVG simple, sans script, lien ni ressource externe.',
+  'backoffice.o02.preview.title': 'Aperçu',
+  'backoffice.o02.preview.hint':
+    'Voici le site avec ce brouillon. Le site public ne change pas tant que vous ne publiez pas.',
+  'backoffice.o02.preview.options': "Options de l'aperçu",
+  'backoffice.o02.preview.light': 'Clair',
+  'backoffice.o02.preview.dark': 'Sombre',
+  'backoffice.o02.preview.mobile': 'Mobile',
+  'backoffice.o02.preview.desktop': 'Ordinateur',
+  'backoffice.o02.preview.unavailable':
+    "Aperçu indisponible : le thème du brouillon n'est pas valide.",
+  'backoffice.o02.preview.s01': 'Accueil',
+  'backoffice.o02.preview.s03': 'Fiche de la voiture',
+  'backoffice.o02.preview.s05': 'Paiement',
+  'backoffice.o02.preview.a02': "Espace de l'hôte",
+  'backoffice.o02.preview.email': 'E-mail',
+  'backoffice.o02.sample.where': 'Où voulez-vous prendre la voiture ?',
+  'backoffice.o02.sample.search': 'Chercher une voiture',
+  'backoffice.o02.sample.car': "Voiture d'exemple · 2020",
+  'backoffice.o02.sample.host': 'Ana',
+  'backoffice.o02.sample.guest': 'Luis',
+  'backoffice.o02.sample.verified': 'Identité vérifiée',
+  'backoffice.o02.sample.checkout': 'Confirmez et payez',
+  'backoffice.o02.sample.plan1': 'Protection de base',
+  'backoffice.o02.sample.plan2': 'Protection standard',
+  'backoffice.o02.sample.plan3': 'Protection complète',
+  'backoffice.o02.sample.checkoutNote': "L'hôte vous remet la voiture au lieu convenu.",
+  'backoffice.o02.sample.pay': 'Confirmer et payer',
+  'backoffice.o02.sample.greeting': 'Bonjour, Ana',
+  'backoffice.o02.sample.confirmed': 'Confirmée',
+  'backoffice.o02.sample.pending': 'À approuver',
+  'backoffice.o02.sample.late': 'En retard',
+  'backoffice.o02.sample.nextTrip': 'Prochaine remise : demain',
+  'backoffice.o02.sample.addCar': 'Ajouter une voiture',
+  'backoffice.o02.sample.mailTitle': 'Votre réservation est confirmée',
+  'backoffice.o02.sample.mailBody':
+    'Ana vous attend au lieu convenu. Consultez les détails de votre location.',
+  'backoffice.o02.sample.mailCta': 'Voir ma réservation',
+  'backoffice.o02.sample.mailFooter':
+    'Vous recevez cet e-mail parce que vous avez réservé une voiture.',
+  'backoffice.o02.assets.title': 'Images de la marque',
+  'backoffice.o02.assets.hint':
+    "PNG, JPEG ou WebP de 64 Ko au plus. Chaque image passe par l'antivirus avant d'être enregistrée ; si l'antivirus est indisponible, elle est refusée.",
+  'backoffice.o02.assets.kind': "Type d'image",
+  'backoffice.o02.assets.kind.LOGO': 'Logo',
+  'backoffice.o02.assets.kind.FAVICON': "Icône d'onglet",
+  'backoffice.o02.assets.kind.PWA_ICON': "Icône de l'application",
+  'backoffice.o02.assets.kind.HERO_IMAGE': "Image de l'accueil",
+  'backoffice.o02.assets.file': 'Fichier',
+  'backoffice.o02.assets.alt': 'Texte alternatif en {language}',
+  'backoffice.o02.assets.license': "Origine et licence de l'image",
+  'backoffice.o02.assets.upload': "Envoyer l'image",
+  'backoffice.o02.assets.done': "Image reçue et analysée par l'antivirus.",
+  'backoffice.o02.assets.empty': 'Choisissez un fichier.',
+  'backoffice.o02.assets.tooBig': "L'image dépasse {max} Ko.",
+  'backoffice.o02.assets.badType': 'Seules les images PNG, JPEG ou WebP sont acceptées.',
+  'backoffice.o02.content.title': "Textes de l'accueil",
+  'backoffice.o02.content.key': 'Texte à modifier',
+  'backoffice.o02.content.body': 'Texte en {language}',
+  'backoffice.o02.content.hintPlain':
+    'Une seule ligne, {max} caractères au plus, dans les quatre langues.',
+  'backoffice.o02.content.hintRich':
+    'Paragraphes, listes, **gras**, *italique* et liens internes ; {max} caractères au plus, dans les quatre langues.',
+  'backoffice.o02.content.publish': 'Enregistrer et publier',
+  'backoffice.o02.content.rollback': 'Revenir au texte précédent',
+  'backoffice.o02.content.published':
+    'Texte publié dans les quatre langues (version {no}). Le site l’affiche en moins d’une minute.',
+  'backoffice.o02.content.rolledBack': 'Texte précédent rétabli.',
+  'backoffice.o02.content.refused': "Rien n'a été enregistré :",
+  'backoffice.o02.content.legal':
+    'Modification impossible ici : le mot « {word} » désigne un texte juridique (conditions, contrat, confidentialité, assurance…). Les textes juridiques sont des gabarits versionnés, hors de cet écran.',
+  'backoffice.o02.content.zwj':
+    'Texte en {language} : il contient un caractère de liaison invisible (ZWJ). Les émojis composés, comme les familles, une personne et son métier ou certains drapeaux, ne sont pas acceptés, car ce caractère peut déguiser un texte. Utilisez un émoji simple.',
+  'backoffice.o02.content.blank':
+    'Texte en {language} : il est vide ou ne contient que des espaces.',
+  'backoffice.o02.content.tooLong': 'Texte en {language} : il dépasse {max} caractères.',
+  'backoffice.o02.content.format':
+    'Texte en {language} : format non autorisé (ni HTML, ni lien externe, ni caractère invisible ; une seule ligne pour les textes simples).',
   'backoffice.journal.caption': 'Journal d’activité',
   'backoffice.journal.when': 'Date et heure',
   'backoffice.journal.who': 'Auteur',
@@ -406,6 +549,71 @@ export const FR_MESSAGES = {
   'backoffice.kyc.decide.REJECTED': 'Refuser',
   'backoffice.kyc.decide.MORE_INFO_REQUIRED': 'Demander une nouvelle pièce',
   'backoffice.kyc.decided': 'Décision enregistrée au journal ; l’élément de la file est clos.',
+  'backoffice.queues.openHost': 'Ouvrir le dossier de l’hôte',
+  'backoffice.host.heading': 'Dossier de l’hôte',
+  'backoffice.host.intro':
+    'Revue par exception : un dossier complet et sans signal est approuvé automatiquement à la fin du délai de revue. Les motifs de signal, s’il y en a, figurent ci-dessous.',
+  'backoffice.host.status': 'État du dossier',
+  'backoffice.host.status.NOT_SUBMITTED': 'Non soumis',
+  'backoffice.host.status.OPEN': 'Ouvert',
+  'backoffice.host.status.DOCS_PENDING': 'Incomplet',
+  'backoffice.host.status.IN_REVIEW': 'En revue',
+  'backoffice.host.status.APPROVED': 'Approuvé',
+  'backoffice.host.status.REJECTED': 'Refusé',
+  'backoffice.host.status.REVOKED': 'Révoqué',
+  'backoffice.host.hold':
+    'Retenue de sanctions : correspondance possible à revoir par un ADMIN. L’hôte n’en est jamais informé.',
+  'backoffice.host.reviewReasons': 'Motif de la revue',
+  'backoffice.host.reason.SCREENING_HOLD': 'Correspondance sur une liste de sanctions',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED':
+    'Compte restreint, fermé ou sous une restriction active',
+  'backoffice.host.reason.COUNTRY_REVIEW':
+    'La configuration impose une revue par l’équipe des opérations',
+  'backoffice.host.noReason': 'Aucun signal',
+  'backoffice.host.checklist': 'Liste de contrôle',
+  'backoffice.host.item.IDENTITY': 'Identité vérifiée',
+  'backoffice.host.item.AGE': 'Âge minimal',
+  'backoffice.host.item.RESIDENCE': 'Résidence',
+  'backoffice.host.item.SANCTIONS': 'Listes de sanctions',
+  'backoffice.host.item.TAX_PROFILE': 'Profil fiscal',
+  'backoffice.host.item.HOST_TERMS': 'Conditions de l’hôte acceptées',
+  'backoffice.host.item.PAYOUT_ACCOUNT': 'Compte de versement chez le prestataire',
+  'backoffice.host.item.PSP_CAPABILITIES': 'Capacités du prestataire de paiement',
+  'backoffice.host.item.COUNTRY_OPEN': 'Marché ouvert aux hôtes particuliers',
+  'backoffice.host.item.INSURER_CONTRACT': 'Contrat de l’assureur actif',
+  'backoffice.host.state.OK': 'Rempli',
+  'backoffice.host.state.MISSING': 'Manquant',
+  'backoffice.host.state.BLOCKED': 'Bloqué',
+  'backoffice.host.state.HELD': 'Retenu',
+  'backoffice.host.screening': 'Filtrage des sanctions',
+  'backoffice.host.source': 'Source',
+  'backoffice.host.source.OPS_MANUAL': 'Consultation manuelle par l’équipe des opérations',
+  'backoffice.host.source.MANUAL': 'Revue par un ADMIN',
+  'backoffice.host.screenedAt': 'Date du filtrage',
+  'backoffice.host.result': 'Résultat',
+  'backoffice.host.result.CLEAR': 'Aucune correspondance',
+  'backoffice.host.result.POTENTIAL_MATCH': 'Correspondance possible',
+  'backoffice.host.result.CONFIRMED_MATCH': 'Correspondance confirmée',
+  'backoffice.host.noScreening': 'Aucun filtrage enregistré pour l’instant.',
+  'backoffice.host.evidence': {
+    one: '{count} pièce jointe au filtrage',
+    other: '{count} pièces jointes au filtrage',
+  },
+  'backoffice.host.subject': 'Identifiant du compte d’hôte',
+  'backoffice.host.screeningHeading': 'Filtrage manuel des sanctions',
+  'backoffice.host.screeningHint':
+    'Consultez chaque liste, puis indiquez son résultat. Une correspondance passe à un ADMIN ; l’hôte n’en est jamais informé.',
+  'backoffice.host.list.unList': 'Liste consolidée des Nations unies',
+  'backoffice.host.list.ofacList': 'Liste OFAC',
+  'backoffice.host.list.nationalList': 'Liste nationale du compte',
+  'backoffice.host.clear': 'Aucune correspondance',
+  'backoffice.host.match': 'Correspondance possible',
+  'backoffice.host.record': 'Enregistrer le filtrage',
+  'backoffice.host.recorded': 'Filtrage enregistré.',
+  'backoffice.host.refused.HOST_ALREADY_SCREENED': 'Ce dossier a déjà un filtrage enregistré.',
+  'backoffice.host.refused.HOST_VERIFICATION_NOT_READY':
+    'L’hôte n’a pas encore soumis son dossier.',
+  'backoffice.host.refused.SELF_FORBIDDEN': 'Vous ne pouvez pas filtrer votre propre compte.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Décision refusée : les quatre contrôles doivent être cochés.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':
@@ -786,13 +994,15 @@ export const FR_MESSAGES = {
   'web.host.place.label': 'Nom du lieu (toi seul le vois)',
   'web.host.place.address': 'Adresse exacte',
   'web.host.place.city': 'Ville',
-  'web.host.place.area': 'Quartier ou zone (le voyageur le voit)',
+  'web.host.place.area': 'Quartier ou zone, sans rue ni numéro (le voyageur le voit)',
   'web.host.place.privacy': 'L’adresse exacte n’apparaît qu’après la réservation.',
   'web.host.place.add': 'Enregistrer le lieu',
   'web.host.cars.title': 'Tes voitures',
   'web.host.cars.needPlace': 'Ajoute d’abord un lieu de remise.',
   'web.host.car.plate': 'Plaque d’immatriculation',
   'web.host.car.vin': 'Numéro de châssis (VIN)',
+  'web.host.car.vinHint':
+    'VIN de 17 caractères (ex. : 1HGCM82633A004352) ou numéro de châssis d’une voiture importée (ex. : GRJ150-0012345).',
   'web.host.car.make': 'Marque',
   'web.host.car.model': 'Modèle',
   'web.host.car.year': 'Année',
@@ -818,8 +1028,10 @@ export const FR_MESSAGES = {
   'web.host.listing.savePrice': 'Enregistrer le prix',
   'web.host.listing.photo': 'Photo de la voiture (JPEG, PNG ou WebP)',
   'web.host.listing.addPhoto': 'Ajouter la photo',
-  'web.host.listing.submit': 'Envoyer en revue',
+  'web.host.listing.submit': 'Publier l’annonce',
   'web.host.listing.delete': 'Supprimer le brouillon',
+  'web.host.listing.unlist': 'Retirer l’annonce',
+  'web.host.listing.relist': 'Republier',
   'web.host.account.market': 'Compte : {country} · prix en {currency}',
   'web.host.account.switch': 'Tes comptes d’hôte',
   'web.host.listing.photo.hint': 'Jusqu’à {max} par photo.',
@@ -871,8 +1083,19 @@ export const FR_MESSAGES = {
   'common.listing.created': 'Brouillon de l’annonce créé.',
   'common.listing.saved': 'Enregistré',
   'common.listing.submitted': 'Ton annonce est envoyée en revue.',
-  'common.listing.photoAdded': 'Photo ajoutée. Nous la vérifions avant la publication.',
-  'common.listing.deleted': 'Brouillon supprimé.',
+  'common.listing.published': 'Ton annonce est publiée.',
+  'common.listing.unlisted': 'Ton annonce est retirée. Tu peux la republier quand tu veux.',
+  'common.listing.hasFutureTrips':
+    'Ta voiture a des voyages réservés à venir. Tu pourras retirer l’annonce quand ils seront terminés ou annulés.',
+  'common.listing.vehicleEligibilityRequired':
+    'Avant de publier, confirme les informations de ta voiture (propriété, kilométrage et numéro de châssis).',
+  'common.listing.areaLooksLikeAddress':
+    'Indique seulement le quartier ou la zone, sans rue ni numéro : le voyageur le voit avant de réserver.',
+  'common.listing.cityInvalid': 'Indique seulement la ville, sans adresse, téléphone ni lien.',
+  'common.listing.vehicleDescriptionInvalid':
+    'Écris seulement la marque et le modèle de la voiture, sans téléphone, lien ni adresse.',
+  'common.listing.photoAdded': 'Photo ajoutée.',
+  'common.listing.deleted': 'Annonce supprimée.',
   'common.listing.hostSuspended':
     'Ton compte d’hôte est suspendu : tu ne peux pas modifier tes annonces.',
   'common.listing.hostNotFound': 'Ce compte d’hôte est introuvable.',
@@ -896,12 +1119,17 @@ export const FR_MESSAGES = {
   'common.listing.mileageInvalid':
     'Vérifie la distance incluse et le prix du kilomètre supplémentaire.',
   'common.listing.requestModeNotAllowed': 'À l’aéroport, la réservation est toujours immédiate.',
-  'common.listing.photoMinCount': 'Ajoute d’autres photos de ta voiture avant d’envoyer l’annonce.',
+  'common.listing.photoMinCount':
+    'Ajoute d’autres photos de ta voiture avant de publier l’annonce.',
   'common.listing.photoFormat': 'Cette photo est inutilisable. Envoie une photo JPEG, PNG ou WebP.',
   'common.listing.hostTermsRequired':
-    'Avant d’envoyer ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
+    'Avant de publier ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
+  'common.listing.vehicleNotCovered':
+    'Ce véhicule ne remplit pas les conditions de la protection des voyages (âge, valeur ou usage). Il ne peut pas être publié.',
+  'common.listing.insurerInactive':
+    'Tout est prêt de votre côté. La protection des voyages n’est pas encore disponible ici ; vous pourrez publier votre annonce dès qu’elle le sera.',
   'common.listing.hostNotActivated':
-    'Tout est prêt de ton côté. Tu pourras envoyer ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
+    'Tout est prêt de ton côté. Tu pourras publier ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
   'common.listing.unavailable':
     'Impossible d’enregistrer ton annonce pour le moment. Réessaie plus tard.',
   'common.listing.photoUnavailable':
@@ -1261,6 +1489,10 @@ export const FR_MESSAGES = {
   'common.vehicleDocs.uploadUnavailable':
     'L’envoi de documents n’est pas encore disponible. Réessaie plus tard.',
   'common.vehicleReview.closed': 'Cette voiture n’est plus en vérification.',
+  'common.listingReview.closed': 'Cette annonce n’est plus en revue.',
+  'common.listingReview.rationaleRequired': 'Choisis le motif du refus.',
+  'common.listingReview.notPublishable':
+    'Approbation impossible : l’annonce échoue à un contrôle automatique ({reason}).',
   'common.vehicleReview.checklistInvalid':
     'Coche chaque point de contrôle et donne un verdict pour chaque document.',
   'common.vehicleReview.claimClosed': 'Cette réclamation a déjà été tranchée.',
@@ -1414,6 +1646,10 @@ export const FR_MESSAGES = {
   'web.vehicleDocs.declaration.lienOk':
     'La voiture n’est pas gagée, ou j’ai l’accord écrit du créancier',
   'web.vehicleDocs.declaration.vin': 'Numéro de châssis (VIN)',
+  'web.vehicleDocs.declaration.vinHint':
+    'VIN de 17 caractères (ex. : 1HGCM82633A004352) ou numéro de châssis d’une voiture importée (ex. : GRJ150-0012345).',
+  'common.vehicleDocs.vinInvalid':
+    'Ce numéro de châssis n’est pas valide. Saisis le VIN de 17 caractères (sans I, O ni Q) ou le numéro de châssis de ta voiture importée, par exemple GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'Tu l’as déclaré le {date}.',
   'backoffice.catalog.specsPending': 'Fiche technique à compléter',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

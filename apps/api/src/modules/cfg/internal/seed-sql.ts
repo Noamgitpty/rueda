@@ -54,6 +54,18 @@ export const POST_SEED_PARAMS: readonly {
     refs: '08 BR-LIST-01, BR-LIST-02, 16 HST-019, HST-039',
   },
   {
+    prefix: 'host_review_',
+    file: '0082_config_host_review_params.sql',
+    story: 'US-108',
+    refs: '19 US-108, 16 ADM-004, consigne du fondateur du 2026-11-12',
+  },
+  {
+    prefix: 'listing_manual_review',
+    file: '0085_config_listing_review_params.sql',
+    story: 'US-118',
+    refs: '16 HST-016, ADM-003 ; DEC-FONDATEUR-22',
+  },
+  {
     prefix: 'host_tax_id_required_for_activation',
     file: '0086_config_host_tax_id_params.sql',
     story: 'US-123',

@@ -24,7 +24,7 @@ import type { EditableBlock } from '@rueda/i18n';
 import { connectAs, releaseClient } from '@rueda/db/testing';
 // types du contexte fourni par le globalSetup du banc (inject('ruedaBench'))
 import type {} from '@rueda/db/testing/global-setup';
-import { InMemoryFileStore } from '@rueda/fake-adapters/files';
+import { FakeUploadScanner, InMemoryFileStore } from '@rueda/fake-adapters/files';
 import type pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BrandAccessError, BrandConsoleService, BrandReadService } from './brand.service.js';
@@ -52,6 +52,7 @@ beforeEach(async () => {
   const options = {
     store: new PgBrandStore(client),
     files: new InMemoryFileStore(),
+    scanner: new FakeUploadScanner(),
     params: loadBrandParams(),
     blocks: REGISTRY,
   };

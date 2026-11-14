@@ -10,10 +10,19 @@
  */
 import type { FormEvent } from 'react';
 import type { MessageKey, Translator } from '@rueda/i18n';
-import { Badge, Banner, Button, DataTable, EmptyState, ErrorState, TextField } from '@rueda/ui';
+import {
+  Badge,
+  Banner,
+  Button,
+  ButtonLink,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  TextField,
+} from '@rueda/ui';
 import styles from './console.module.css';
-import { OpsPanels } from './ops-view.tsx';
-import type { OpsHandlers, OpsState } from './ops-view.tsx';
+import { OpsPanels, SANCTIONS_LISTS } from './ops-view.tsx';
+import type { OpsHandlers, OpsState, SanctionsList, SanctionsListResult } from './ops-view.tsx';
 
 export interface StaffRoleView {
   readonly role: string;
@@ -119,6 +128,14 @@ const GROUP_KEYS: Readonly<Record<keyof typeof ACTION_GROUPS, MessageKey>> = {
   finance: 'backoffice.action.groupFinance',
 };
 
+/** US-108 : rôles qui détiennent `ops.review_listing_host` (filtrage manuel ; la base reste juge). */
+const SCREENING_ROLES = new Set(['OPS_AGENT', 'ADMIN']);
+const SANCTIONS_LIST_KEYS: Readonly<Record<SanctionsList, MessageKey>> = {
+  unList: 'backoffice.host.list.unList',
+  ofacList: 'backoffice.host.list.ofacList',
+  nationalList: 'backoffice.host.list.nationalList',
+};
+
 /** Rôles qui voient les demandes FINANCE en attente (17 §2.3 fin_read). */
 const APPROVER_ROLES = new Set(['FINANCE', 'ADMIN']);
 /** Rôles qui lisent les fiches 360° (16 ADM-005 : SUPPORT, OPS ; 17 §2.3 : ADMIN). */
@@ -143,6 +160,16 @@ export interface ConsoleHandlers {
   readonly onAction: (
     action: ConsoleAction,
     subjectId: string,
+    reason: string,
+    evidence: readonly string[],
+  ) => void;
+  /**
+   * US-108 : filtrage manuel des sanctions (`HOST_SANCTIONS_SCREENING`) sur un compte d'hôte, saisie
+   * fermée par liste ; le même formulaire existe dans le dossier ouvert depuis la file (O01).
+   */
+  readonly onHostScreening?: (
+    orgId: string,
+    results: Readonly<Record<SanctionsList, SanctionsListResult>>,
     reason: string,
     evidence: readonly string[],
   ) => void;
@@ -396,6 +423,12 @@ export function ConsoleView({
                 </li>
               ))}
             </ul>
+            {/* US-120 : écran « Apparence / Marque » (O02), rôle ADMIN ; l'API reste juge */}
+            {state.roles.some((r) => r.role === 'ADMIN') && (
+              <ButtonLink href="/brand" variant="secondary">
+                {i18n.t('backoffice.o02.open')}
+              </ButtonLink>
+            )}
             <Button variant="quiet" onClick={handlers.onSignOut}>
               {i18n.t('backoffice.console.signOut')}
             </Button>
@@ -493,6 +526,91 @@ export function ConsoleView({
               ))}
             </form>
           </section>
+
+          {handlers.onHostScreening !== undefined &&
+            state.roles.some((r) => SCREENING_ROLES.has(r.role)) && (
+              <section className={styles['panel']} aria-labelledby="screening-action-heading">
+                <h2 id="screening-action-heading" className={styles['heading']}>
+                  {i18n.t('backoffice.host.screeningHeading')}
+                </h2>
+                <p className={styles['muted']}>{i18n.t('backoffice.host.screeningHint')}</p>
+                <form
+                  className={styles['form']}
+                  onSubmit={prevent((e) => {
+                    const values = SANCTIONS_LISTS.map((l) => {
+                      const v = new FormData(e.currentTarget).get(l);
+                      return [l, v === 'CLEAR' || v === 'MATCH' ? v : null] as const;
+                    });
+                    if (values.every(([, r]) => r !== null)) {
+                      handlers.onHostScreening?.(
+                        fieldOf(e, 'orgId'),
+                        Object.fromEntries(values) as Record<SanctionsList, SanctionsListResult>,
+                        fieldOf(e, 'reason'),
+                        evidenceOf(fieldOf(e, 'evidence')),
+                      );
+                    }
+                  })}
+                >
+                  <TextField
+                    i18n={i18n}
+                    id="screening-org"
+                    name="orgId"
+                    autoComplete="off"
+                    spellCheck={false}
+                    label={i18n.t('backoffice.host.subject')}
+                  />
+                  {SANCTIONS_LISTS.map((list) => (
+                    <fieldset key={list} className={styles['checks']}>
+                      <legend className={styles['label']}>
+                        {i18n.t(SANCTIONS_LIST_KEYS[list])}
+                      </legend>
+                      {(['CLEAR', 'MATCH'] as const).map((result) => (
+                        <label key={result} className={styles['choice']}>
+                          <input
+                            type="radio"
+                            name={list}
+                            value={result}
+                            required
+                            className={styles['choiceInput']}
+                          />
+                          <span>
+                            {i18n.t(
+                              result === 'CLEAR'
+                                ? 'backoffice.host.clear'
+                                : 'backoffice.host.match',
+                            )}
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  ))}
+                  <TextField
+                    i18n={i18n}
+                    id="screening-reason"
+                    name="reason"
+                    minLength={10}
+                    maxLength={1000}
+                    label={i18n.t('backoffice.action.reason')}
+                    hint={i18n.t('backoffice.action.reasonHint')}
+                  />
+                  <TextField
+                    i18n={i18n}
+                    id="screening-evidence"
+                    name="evidence"
+                    autoComplete="off"
+                    spellCheck={false}
+                    optional
+                    label={i18n.t('backoffice.action.evidence')}
+                    hint={i18n.t('backoffice.action.evidenceHint')}
+                  />
+                  <div className={styles['actions']}>
+                    <Button type="submit" variant="primary" loading={busy}>
+                      {i18n.t('backoffice.host.record')}
+                    </Button>
+                  </div>
+                </form>
+              </section>
+            )}
 
           {state.roles.some((r) => APPROVER_ROLES.has(r.role)) &&
             (state.approvalsError ? (

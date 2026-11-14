@@ -8,7 +8,7 @@ CAT décrit l'offre de l'hôte : lieux de remise, véhicules, documents du véhi
 
 CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe pas le prix d'un trip (PRC). L'import CSV d'une flotte est historique depuis le pivot P2P (`fleet_import_job`, 17 §3.2.3).
 
-État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout au catalogue est livrée par US-114 (ADR-104 : un véhicule hors catalogue ouvre sa demande, son annonce n'est pas publiable tant que l'ops ne l'a pas rattaché à une variante ; route `POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request` ; `GET …/vehicles` rend `catalogRequest`), la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
+État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout au catalogue est livrée par US-114 (ADR-104 : un véhicule hors catalogue ouvre sa demande, son annonce n'était pas publiable tant que l'ops ne l'avait pas rattaché à une variante, levé par US-118 et DEC-FONDATEUR-22 ; route `POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request` ; `GET …/vehicles` rend `catalogRequest`), la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
 
 ## Entités
 
@@ -70,6 +70,15 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - Routes : `GET /host/accounts/{orgId}/vehicle-eligibility`, `PUT …/vehicles/{vehicleId}/declaration`, `POST …/vehicles/{vehicleId}/documents` (503 en production : antivirus, coffre et stockage pas encore livrés), `POST …/vehicles/{vehicleId}/eligibility` (motifs dans `reasons`), `GET|POST …/vehicle-claims`. Console (SUP) : `POST /console/queues/items/{id}/vehicle|vehicle/decide|vehicle-claim|vehicle-claim/decide|files/{fileId}`.
 - Ports `DocumentScanner`, `DocumentVault`, `DocumentFileStore` (`internal/vehicle-documents/ports.ts`, exportés par `index.ts` pour la console) ; production : `UNAVAILABLE_DOCUMENTS`.
 - Fiche publique : `hostFirstName` (premier mot du prénom légal, BOARD N-37).
+- Correctif (migration `0083_catalog_vehicle_chassis_formats`, ADR-113) : numéro de châssis VIN ISO 3779 ou non ISO (5 à 16 caractères, châssis court d'importation japonaise), sans règle d'année ; refus `VEHICLE_VIN_INVALID` (422, `common.vehicleDocs.vinInvalid`) à la création et à la déclaration ; `normalizeVin` ne juge que les caractères. `PUT …/declaration` accepte `locale` (langue de l'écran, défaut `es`) : la base historise chaque engagement avec la version du catalogue et le libellé exact (`catalog_vehicle_attestation`, ajout seul).
+
+### Publication immédiate, retrait, revue de l'ops sur signal (US-118, ADR-114)
+
+- Écart assumé avec 19 US-118 (« après revue de l'ops ») : **DEC-FONDATEUR-22**, comme Turo. `POST …/listings/{listingId}/submit` publie (`LISTING_PUBLISHED`, `LISTED`) dès que les contrôles automatiques passent : photos, zone affichée sans adresse exacte (`LOCATION_AREA_ADDRESS`, BOARD N-62), CGU de l'hôte, compte `ACTIVE` et pays ouvert, véhicule publiable (`VEHICLE_ELIGIBILITY_REQUIRED`, `VEHICLE_UNDER_REVIEW`, `VEHICLE_INELIGIBLE`…), `insurer_contract_active` (`INSURER_CONTRACT_INACTIVE`). Revue de l'ops seulement si `listing_manual_review_required[pays]` vaut true (false en PA et PY ; absent ⇒ revue) : `LISTING_SUBMITTED`, `PENDING_REVIEW`.
+- Un véhicule hors catalogue ne bloque plus l'annonce (US-114 suit son cours).
+- `POST …/listings/{listingId}/unlist` : `LISTED` → `UNLISTED` ; retrait et suppression d'une annonce retirée refusés tant qu'un trip est à venir (`LISTING_HAS_FUTURE_TRIPS`, OQ-BR-29). Remise en ligne : `submit`.
+- Console (SUP) : `POST /console/queues/items/{id}/listing/decide` (`APPROVE` revérifié en base, `REJECT` motivé : `PHOTO_QUALITY`, `ADDRESS_VISIBLE`, `VEHICLE_MISMATCH`, `PROHIBITED_CONTENT`).
+- Migrations `0084_catalog_listing_publication` et `0085_config_listing_review_params` (générée).
 
 ## Événements
 

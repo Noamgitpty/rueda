@@ -27,7 +27,19 @@
  * PROPOSÉS par US-124 : `VEHICLE_DECLARATION_SAVED`, `VEHICLE_DOCUMENT_ADDED`,
  * `VEHICLE_ELIGIBILITY_SUBMITTED`, `VEHICLE_UNDER_REVIEW`, `VEHICLE_INELIGIBLE`, `VEHICLE_RELEASED`,
  * `VEHICLE_ALREADY_ELIGIBLE`, `VEHICLE_DOCUMENT_INVALID`, `VEHICLE_DOCUMENT_UNAVAILABLE` ;
- * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE`.
+ * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE` ;
+ * PROPOSÉ par le correctif d'US-124 (ADR-113) : `VEHICLE_VIN_INVALID` (numéro de châssis ni VIN
+ * ISO 3779 ni numéro non ISO de 5 à 16 caractères ; création et déclaration du véhicule).
+ *
+ * Couverture de l'assureur à la soumission (US-108, ADR-111) : `VEHICLE_NOT_COVERED` (16 A.8,
+ * HST-019) et `INSURER_CONTRACT_INACTIVE` (16 A.8 ; aucun contrat en vigueur ou interrupteur fermé).
+ *
+ * Publication et retrait (US-118, ADR-114) : codes de 16 HST-016 / HST-026
+ * (`LISTING_HAS_FUTURE_TRIPS`, `INSURER_CONTRACT_INACTIVE`) ; PROPOSÉS par US-118 :
+ * `LISTING_PUBLISHED` (publiée dès les contrôles automatiques, DEC-FONDATEUR-22),
+ * `LISTING_UNLISTED`, `LOCATION_AREA_ADDRESS` (zone affichée qui ressemble à une adresse exacte,
+ * BOARD N-62), `LOCATION_CITY_INVALID`, `VEHICLE_DESCRIPTION_INVALID` (textes publics :
+ * adresse ou contact), `VEHICLE_ELIGIBILITY_REQUIRED` (véhicule pas encore confirmé par l'hôte, US-124).
  *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
@@ -40,6 +52,9 @@ export const HOST_LISTING_MESSAGES = {
   LISTING_CREATED: { status: 201, messageKey: 'common.listing.created' },
   LISTING_SAVED: { status: 200, messageKey: 'common.listing.saved' },
   LISTING_SUBMITTED: { status: 200, messageKey: 'common.listing.submitted' },
+  // publiée dès les contrôles automatiques (US-118, DEC-FONDATEUR-22)
+  LISTING_PUBLISHED: { status: 200, messageKey: 'common.listing.published' },
+  LISTING_UNLISTED: { status: 200, messageKey: 'common.listing.unlisted' },
   LISTING_DELETED: { status: 200, messageKey: 'common.listing.deleted' },
   PHOTO_ADDED: { status: 201, messageKey: 'common.listing.photoAdded' },
   CATALOG_REQUEST_CREATED: { status: 201, messageKey: 'common.catalogAddition.requested' },
@@ -67,6 +82,13 @@ export const HOST_LISTING_MESSAGES = {
   // CGU de l'hôte non acceptées dans leur version exigée (US-126) : l'annonce reste DRAFT
   TERMS_REACCEPT_REQUIRED: { status: 409, messageKey: 'common.listing.hostTermsRequired' },
   CATALOG_VARIANT_RETIRED: { status: 409, messageKey: 'common.listing.variantRetired' },
+  // retrait ou suppression refusés tant qu'un trip est à venir (OQ-BR-29, BR-LIST-09 ; US-118)
+  LISTING_HAS_FUTURE_TRIPS: { status: 409, messageKey: 'common.listing.hasFutureTrips' },
+  // véhicule pas encore confirmé par l'hôte (déclarations d'US-124) : publication refusée
+  VEHICLE_ELIGIBILITY_REQUIRED: {
+    status: 409,
+    messageKey: 'common.listing.vehicleEligibilityRequired',
+  },
   // véhicule hors catalogue (US-114) : l'annonce reste DRAFT jusqu'à la décision de l'ops
   CATALOG_ADDITION_PENDING: { status: 409, messageKey: 'common.catalogAddition.pending' },
   CATALOG_REQUEST_DUPLICATE: { status: 409, messageKey: 'common.catalogAddition.duplicate' },
@@ -85,6 +107,8 @@ export const HOST_LISTING_MESSAGES = {
   CLAIM_DUPLICATE: { status: 409, messageKey: 'common.vehicleDocs.claimDuplicate' },
   VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
+  // numéro de châssis mal formé : message dédié avec les deux formats admis (ADR-113)
+  VEHICLE_VIN_INVALID: { status: 422, messageKey: 'common.vehicleDocs.vinInvalid' },
   LOCATION_FIELD_INVALID: { status: 422, messageKey: 'common.listing.locationFieldInvalid' },
   PRICE_INVALID: { status: 422, messageKey: 'common.listing.priceInvalid' },
   MILEAGE_CONFIG_INVALID: { status: 422, messageKey: 'common.listing.mileageInvalid' },
@@ -92,6 +116,19 @@ export const HOST_LISTING_MESSAGES = {
   PHOTO_MIN_COUNT: { status: 422, messageKey: 'common.listing.photoMinCount' },
   PHOTO_FORMAT: { status: 422, messageKey: 'common.listing.photoFormat' },
   HOST_NOT_ACTIVATED: { status: 422, messageKey: 'common.listing.hostNotActivated' },
+  // US-108 (ADR-111) : véhicule hors des critères du contrat de l'assureur partenaire (16 A.8) ;
+  // couverture jamais vérifiable sans contrat en vigueur ni interrupteur ouvert : l'annonce reste DRAFT
+  VEHICLE_NOT_COVERED: { status: 422, messageKey: 'common.listing.vehicleNotCovered' },
+  INSURER_CONTRACT_INACTIVE: { status: 422, messageKey: 'common.listing.insurerInactive' },
+  // zone affichée qui ressemble à une adresse exacte (BOARD N-62 ; US-118)
+  LOCATION_AREA_ADDRESS: { status: 422, messageKey: 'common.listing.areaLooksLikeAddress' },
+  // ville affichée qui ressemble à une adresse ou porte un contact (revue sécurité US-118)
+  LOCATION_CITY_INVALID: { status: 422, messageKey: 'common.listing.cityInvalid' },
+  // marque ou modèle saisis (hors catalogue) qui portent une adresse ou un contact (US-118)
+  VEHICLE_DESCRIPTION_INVALID: {
+    status: 422,
+    messageKey: 'common.listing.vehicleDescriptionInvalid',
+  },
   INVALID_PERIOD: { status: 422, messageKey: 'common.calendar.invalidPeriod' },
   VEHICLE_TOO_OLD: { status: 422, messageKey: 'common.vehicleDocs.tooOld' },
   VEHICLE_MILEAGE_TOO_HIGH: { status: 422, messageKey: 'common.vehicleDocs.mileageTooHigh' },

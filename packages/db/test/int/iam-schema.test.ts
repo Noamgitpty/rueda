@@ -43,16 +43,18 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   // US-127 (0080) : lecture par le jugement du lien hôte / voyageur (risk_limit_owner)
   iam_membership:
     'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
+  // US-118 (0084) : statut et titulaire du compte d'hôte relus à l'approbation d'une annonce
   iam_organization:
-    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
+    'catalog_cmd_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   // US-104 (0066) : défis OTP écrits par les seules commandes d'iam_auth_owner
   iam_otp_challenge:
     'iam_auth_delete:iam_auth_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;migrator_all:migrator',
   // US-109 (0064) : restrictions manuelles par le gestionnaire de console d'iam_auth_owner, lues
   // par la pose d'un hold (cmd_hold_owner) et par la fiche 360° (iam_staff_owner)
+  // US-108 (0081) : signaux du compte lus par l'approbation automatique (kyc_cmd_owner)
   iam_restriction:
-    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator',
+    'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_signal_read:kyc_cmd_owner;migrator_all:migrator',
   // US-125 (0073) : session, rôles et matrice lus par les commandes des interrupteurs
   iam_role_permission:
     'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_staff_select:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',

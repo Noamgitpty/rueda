@@ -520,10 +520,11 @@ describe('critère 1 — plaque ou VIN déjà enregistrés : VEHICLE_PLATE_DUPLI
         expect((await vehicle(client, b, lb, { plate: `А${p.slice(1)}` })).outcome).toBe(
           'VEHICLE_FIELD_REQUIRED',
         );
-        // VIN mal formé (I, O, Q interdits par ISO 3779) pour un véhicule récent
+        // VIN mal formé (17 caractères : lu comme ISO 3779, qui interdit I, O et Q) : refus dédié
+        // (US-124, correctif, ADR-113)
         expect(
           (await vehicle(client, b, lb, { plate: plate(), vin: 'IOQ45678901234567' })).outcome,
-        ).toBe('VEHICLE_FIELD_REQUIRED');
+        ).toBe('VEHICLE_VIN_INVALID');
       });
       // deux créations concurrentes de la même plaque : une seule réussit
       await withRole('app_api', async (x) => {

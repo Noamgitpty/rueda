@@ -185,7 +185,7 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
     expect((await w.app.api.request('GET', path, { headers: w.a })).status).toBe(503);
   });
 
-  it('déclarations : 200, 400 (champ lié), 401, 403, 404, 409, 415, 503', async () => {
+  it('déclarations : 200, 400 (champ lié), 401, 403, 404, 409, 415, 422 (numéro de châssis), 503', async () => {
     const w = await world();
     const path = `/host/accounts/${w.orgA}/vehicles/${randomUUID()}/declaration`;
     const body = {
@@ -207,7 +207,21 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
       ownershipAttested: true,
       lienAttested: true,
       vin: '1hgcm82633a004352',
+      // langue de l'écran absente : es, qui fait foi (libellé historisé, ADR-113)
+      locale: 'es',
     });
+    // langue de l'écran : celle du catalogue (pt-BR ⇒ pt) ; hors catalogue ⇒ 400
+    expect((await send({ ...body, locale: 'pt-BR' })).json).toMatchObject({
+      code: 'VEHICLE_DECLARATION_SAVED',
+    });
+    expect(w.docs.declared.at(-1)).toMatchObject({ locale: 'pt' });
+    expect((await send({ ...body, locale: 'de' })).json).toMatchObject({
+      code: 'REQUEST_INVALID',
+      fields: [{ field: 'locale', reason: 'INVALID' }],
+    });
+    // châssis court d'une importation japonaise : transmis tel quel, la base juge (ADR-113)
+    expect((await send({ ...body, vin: 'GRJ150-0012345' })).status).toBe(200);
+    expect(w.docs.declared.at(-1)).toMatchObject({ vin: 'GRJ150-0012345' });
     expect((await send({ ...body, titleHolder: 'OWNER' })).json).toMatchObject({
       code: 'REQUEST_INVALID',
       fields: [{ field: 'titleHolder', reason: 'INVALID' }],
@@ -217,6 +231,8 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
       ['HOST_ACCOUNT_SUSPENDED', 403],
       ['VEHICLE_NOT_FOUND', 404],
       ['VEHICLE_UNDER_REVIEW', 409],
+      ['VEHICLE_VIN_INVALID', 422],
+      ['VEHICLE_FIELD_REQUIRED', 422],
     ] as const) {
       w.docs.outcome['declare'] = outcome;
       const r = await send(body);

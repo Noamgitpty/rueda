@@ -26,6 +26,7 @@ import {
   loadBrandParams,
   PgBrandStore,
   UnavailableBrandFileStore,
+  UnavailableBrandScanner,
 } from '../../src/modules/cfg/index.js';
 import { PgConsentStore } from '../../src/modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../../src/modules/iam/index.js';
@@ -227,6 +228,7 @@ beforeAll(async () => {
       {
         store: new PgBrandStore(client),
         files: new UnavailableBrandFileStore(),
+        scanner: new UnavailableBrandScanner(),
         params: loadBrandParams(),
       },
       {

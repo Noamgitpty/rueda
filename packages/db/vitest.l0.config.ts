@@ -13,7 +13,15 @@ import { databaseTestOptions } from './vitest.shared.ts';
 // cours n'est touché).
 // US-025 : le fuzz C11 (et l'oracle C12) a sa propre configuration (`vitest.c11.config.ts`,
 // `pnpm --filter @rueda/db test:c11`) et son propre job de CI, en parallèle de celui-ci (ADR-068).
-const ISOLATED = ['test/l0/l0-02-concurrency.test.ts', 'test/l0/l0-us024-conversion.test.ts'];
+// US-118 : la publication est prouvée dans des transactions annulées qui ouvrent les interrupteurs
+// (deux personnes), posent un contrat d'assureur (une version en vigueur par pays : exclusion) et
+// élèvent des membres du staff ; ces lignes partagées, tenues toute la transaction, provoquaient des
+// interblocages avec les fichiers parallèles (US-108, US-114) : le fichier tourne donc seul, après.
+const ISOLATED = [
+  'test/l0/l0-02-concurrency.test.ts',
+  'test/l0/l0-us024-conversion.test.ts',
+  'test/l0/l0-us118-listing-publication.test.ts',
+];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres
 // fichiers (le hold et la conversion lancent des balayages sur toute la base), un fichier à la fois.

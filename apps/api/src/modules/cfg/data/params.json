@@ -1072,6 +1072,17 @@
       "values": { "PA": 6, "PY": 6 }
     },
     {
+      "key": "listing_manual_review_required",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-016, ADM-003 (revue de l'annonce par l'ops) ; DEC-FONDATEUR-22 « jamais plus lourd que Turo » : publication dès les contrôles automatiques, revue seulement si le pays l'exige (absent : exigée)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "DEC-FONDATEUR-22 ; ADR-114 PROPOSÉ (US-118)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
       "key": "price_ceiling_daily_minor",
       "type": "MONEY",
       "scopes": ["COUNTRY"],
@@ -1548,6 +1559,29 @@
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-PAY-09, OQ-P2P-07 (colonne « Source » de 17 §7.2 ; 17 : PROPOSÉ)",
       "values": { "PA": true, "PY": true }
+    },
+    {
+      "key": "host_review_manual_required",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "19 US-108 ; 16 ADM-004 ; consigne du fondateur du 2026-11-12 (vérification par exception, comme Turo)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "consigne du fondateur du 2026-11-12 « jamais plus lourd que Turo » ; ADR-111",
+      "values": { "PA": false, "PY": false }
+    },
+    {
+      "key": "host_review_auto_delay_minutes",
+      "type": "INT",
+      "unit": "min",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "19 US-108 ; 16 VER-028 (aucun oracle de la retenue de sanctions) ; ADR-105, ADR-111 (délai uniforme avant toute approbation automatique, comme le délai d'approbation annoncé par Turo)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "revues sécurité et qa d'US-108 (2026-11-12) ; ADR-111",
+      "values": { "PA": 1440, "PY": 1440 }
     },
     {
       "key": "host_tax_id_required_for_activation",

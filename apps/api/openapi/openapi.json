@@ -3254,6 +3254,78 @@
         }
       }
     },
+    "/console/queues/items/{id}/host-verification": {
+      "post": {
+        "operationId": "consoleQueueHostDossier",
+        "tags": ["sup"],
+        "summary": "Dossier de l'hôte par la file HOST_VERIFICATION seulement (élément assigné ; ADMIN : sa portée) : liste de contrôle fermée calculée en base, retenue de sanctions visible du staff, source et date du filtrage ; journalisé READ_C2_SUPPORT avant la lecture (US-108)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500,
+                    "description": "motif de la consultation, journalisé"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dossier de l'hôte, accès journalisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostDossier"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
     "/console/queues/items/{id}/catalog-addition": {
       "post": {
         "operationId": "consoleCatalogAddition",
@@ -4172,6 +4244,26 @@
           "415": {
             "$ref": "#/components/responses/NotJson"
           },
+          "422": {
+            "description": "Zone ou ville affichées qui ressemblent à une adresse exacte ou portent un contact (téléphone, courriel, lien ; BOARD N-62, US-118) : `fields` désigne `areaLabel` ou `city`, rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["LOCATION_AREA_ADDRESS", "LOCATION_CITY_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
           "503": {
             "description": "Base indisponible : rien n'est écrit",
             "headers": {
@@ -4362,7 +4454,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Champ obligatoire absent ou invalide selon la base",
+            "description": "Champ obligatoire absent ou invalide selon la base ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-113)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4374,7 +4466,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "const": "VEHICLE_FIELD_REQUIRED"
+                      "enum": ["VEHICLE_FIELD_REQUIRED", "VEHICLE_VIN_INVALID"]
                     }
                   }
                 }
@@ -4867,7 +4959,7 @@
       "post": {
         "operationId": "submitHostListing",
         "tags": ["cat"],
-        "summary": "Soumission SM-2 DRAFT vers PENDING_REVIEW : photos, véhicule au catalogue (US-114), CGU de l'hôte (US-126), compte ACTIVE, pays ouvert (US-115)",
+        "summary": "Publication SM-2 (DRAFT, REJECTED, UNLISTED vers LISTED dès les contrôles automatiques ; PENDING_REVIEW si le pays exige la revue de l'ops) : photos, zone sans adresse exacte, CGU de l'hôte (US-126), compte ACTIVE, pays ouvert, véhicule publiable (US-124), contrat d'assureur (US-118, DEC-FONDATEUR-22)",
         "parameters": [
           {
             "name": "orgId",
@@ -4888,7 +4980,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Annonce en revue",
+            "description": "Annonce publiée (LISTING_PUBLISHED, LISTED) ou en revue (LISTING_SUBMITTED, PENDING_REVIEW)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4926,7 +5018,7 @@
             }
           },
           "409": {
-            "description": "Transition absente de SM-2 dans l'état de l'annonce ; CGU de l'hôte à accepter dans leur version exigée (US-126) : l'annonce reste DRAFT ; véhicule hors catalogue en attente de la file d'ajout (US-114) : l'annonce reste DRAFT ; dernière demande d'ajout refusée",
+            "description": "Transition absente de SM-2 dans l'état de l'annonce ; CGU de l'hôte à accepter dans leur version exigée (US-126) ; véhicule non confirmé par l'hôte, en revue, non admis ou libéré (US-124) : l'annonce garde son état",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4941,8 +5033,10 @@
                       "enum": [
                         "LISTING_TRANSITION_FORBIDDEN",
                         "TERMS_REACCEPT_REQUIRED",
-                        "CATALOG_ADDITION_PENDING",
-                        "CATALOG_ADDITION_REJECTED"
+                        "VEHICLE_ELIGIBILITY_REQUIRED",
+                        "VEHICLE_UNDER_REVIEW",
+                        "VEHICLE_INELIGIBLE",
+                        "VEHICLE_RELEASED"
                       ]
                     }
                   }
@@ -4954,7 +5048,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Photos en nombre insuffisant ; compte d'hôte non activé ou pays fermé : l'annonce reste DRAFT",
+            "description": "Photos en nombre insuffisant ; véhicule hors des critères du contrat de l'assureur (US-108) ; zone ou ville affichées, marque ou modèle saisis qui portent une adresse ou un contact ; compte d'hôte non activé ou pays fermé ; aucun contrat d'assureur actif dans le pays ; règle stricte du véhicule en échec (pièce expirée ou manquante, consentement du créancier…) : l'annonce garde son état",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4966,7 +5060,150 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["PHOTO_MIN_COUNT", "HOST_NOT_ACTIVATED"]
+                      "enum": [
+                        "PHOTO_MIN_COUNT",
+                        "LOCATION_AREA_ADDRESS",
+                        "LOCATION_CITY_INVALID",
+                        "VEHICLE_DESCRIPTION_INVALID",
+                        "HOST_NOT_ACTIVATED",
+                        "VEHICLE_NOT_COVERED",
+                        "INSURER_CONTRACT_INACTIVE",
+                        "VEHICLE_TOO_OLD",
+                        "VEHICLE_FIELD_REQUIRED",
+                        "VEHICLE_MILEAGE_TOO_HIGH",
+                        "VEHICLE_TITLE_MISMATCH",
+                        "VEHICLE_LENDER_CONSENT_REQUIRED",
+                        "VEHICLE_DOCUMENT_REQUIRED",
+                        "VEHICLE_DOCUMENT_EXPIRED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible, ou issue inconnue de la base : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/listings/{listingId}/unlist": {
+      "post": {
+        "operationId": "unlistHostListing",
+        "tags": ["cat"],
+        "summary": "Retrait par l'hôte (SM-2 LISTED vers UNLISTED), refusé tant qu'un trip ou un hold du véhicule est à venir (OQ-BR-29, BR-LIST-09 ; US-118)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Annonce retirée (LISTING_UNLISTED, UNLISTED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingStatusChanged"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou annonce inconnus (ou d'un autre hôte)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "LISTING_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transition absente de SM-2 (annonce non publiée) ; trip ou hold du véhicule à venir : l'annonce reste publiée",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["LISTING_TRANSITION_FORBIDDEN", "LISTING_HAS_FUTURE_TRIPS"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible, ou issue inconnue de la base : rien n'est écrit",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
                     }
                   }
                 }
@@ -5138,7 +5375,7 @@
       "delete": {
         "operationId": "deleteHostListing",
         "tags": ["cat"],
-        "summary": "Suppression d'un brouillon, d'une annonce refusée ou bloquée (SM-2 vers DELETED ; US-115)",
+        "summary": "Suppression d'un brouillon, d'une annonce refusée, bloquée ou retirée (SM-2 vers DELETED ; US-115, US-118)",
         "parameters": [
           {
             "name": "orgId",
@@ -5197,7 +5434,7 @@
             }
           },
           "409": {
-            "description": "Transition absente de SM-2 dans l'état de l'annonce",
+            "description": "Transition absente de SM-2 dans l'état de l'annonce ; annonce retirée dont le véhicule a un trip ou un hold à venir (OQ-BR-29)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -5209,7 +5446,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "const": "LISTING_TRANSITION_FORBIDDEN"
+                      "enum": ["LISTING_TRANSITION_FORBIDDEN", "LISTING_HAS_FUTURE_TRIPS"]
                     }
                   }
                 }
@@ -7257,6 +7494,26 @@
           "415": {
             "$ref": "#/components/responses/NotJson"
           },
+          "422": {
+            "description": "Champ refusé par la base (VIN déjà enregistré différent, libellé des engagements) ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-113)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_FIELD_REQUIRED", "VEHICLE_VIN_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
+          },
           "503": {
             "description": "Base indisponible : rien n'est écrit",
             "headers": {
@@ -8060,6 +8317,124 @@
                   "properties": {
                     "code": {
                       "const": "VEHICLE_CHECKLIST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/queues/items/{id}/listing/decide": {
+      "post": {
+        "operationId": "consoleDecideListing",
+        "tags": ["sup"],
+        "summary": "Décision sur une annonce en revue (revue exigée par le pays, `listing_manual_review_required`) : APPROVE revérifie en base tous les contrôles automatiques (l'annonce reste en revue sinon) ; REJECT exige un motif de la liste fermée ; élément clos (US-118)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "decision"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "decision": {
+                    "enum": ["APPROVE", "REJECT"]
+                  },
+                  "reason": {
+                    "enum": [
+                      "PHOTO_QUALITY",
+                      "ADDRESS_VISIBLE",
+                      "VEHICLE_MISMATCH",
+                      "PROHIBITED_CONTENT",
+                      null
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Réponse",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleListingDecision"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          },
+          "409": {
+            "description": "Annonce plus en revue ; approbation refusée par un contrôle automatique (`values.reason` : motif de la base) : l'annonce reste en revue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["LISTING_REVIEW_CLOSED", "LISTING_NOT_PUBLISHABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Refus sans motif de la liste fermée (16 ADM-003) ; aucun contrat d'assureur actif dans le pays (16 HST-016) : l'annonce reste en revue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["DECISION_RATIONALE_REQUIRED", "INSURER_CONTRACT_INACTIVE"]
                     }
                   }
                 }
@@ -10878,6 +11253,226 @@
           }
         }
       },
+      "HostDossier": {
+        "type": "object",
+        "required": [
+          "orgId",
+          "country",
+          "orgStatus",
+          "verificationId",
+          "status",
+          "screeningHold",
+          "reasonCode",
+          "missing",
+          "decidedAt",
+          "decidedBy",
+          "activatedAt",
+          "reviewReasons",
+          "blockers",
+          "screening",
+          "checklist",
+          "itemId",
+          "accessId",
+          "evidenceFileIds"
+        ],
+        "additionalProperties": false,
+        "description": "US-108 (ADR-111) : dossier de l'hôte pour l'ops (revue par exception). Jamais de référence chez le prestataire de filtrage ni de version de liste.",
+        "properties": {
+          "orgId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "orgStatus": {
+            "type": "string",
+            "enum": ["ONBOARDING", "PENDING_ACTIVATION", "ACTIVE", "SUSPENDED", "OFFBOARDED"]
+          },
+          "verificationId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NOT_SUBMITTED",
+              "OPEN",
+              "DOCS_PENDING",
+              "IN_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "REVOKED"
+            ]
+          },
+          "screeningHold": {
+            "type": "boolean",
+            "description": "retenue de sanctions (US-123) : visible du staff seulement, jamais de l’hôte"
+          },
+          "reasonCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+            }
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decidedBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "activatedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["SCREENING_HOLD", "ACCOUNT_RESTRICTED", "COUNTRY_REVIEW"]
+            },
+            "description": "motifs de la revue par exception"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+            }
+          },
+          "screening": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostDossierScreening"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checklist": {
+            "type": "array",
+            "minItems": 10,
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/HostDossierCheck"
+            }
+          },
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "accessId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "evidenceFileIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        }
+      },
+      "HostDossierScreening": {
+        "type": "object",
+        "required": ["source", "screenedAt", "result", "reviewerId", "manualActionId"],
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "screenedAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["CLEAR", "POTENTIAL_MATCH", "CONFIRMED_MATCH"]
+          },
+          "reviewerId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualActionId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HostDossierCheck": {
+        "type": "object",
+        "required": ["item", "state"],
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "type": "string",
+            "enum": [
+              "IDENTITY",
+              "AGE",
+              "RESIDENCE",
+              "SANCTIONS",
+              "TAX_PROFILE",
+              "HOST_TERMS",
+              "PAYOUT_ACCOUNT",
+              "PSP_CAPABILITIES",
+              "COUNTRY_OPEN",
+              "INSURER_CONTRACT"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": ["OK", "MISSING", "BLOCKED", "HELD"]
+          }
+        }
+      },
       "KycDossier": {
         "type": "object",
         "required": [
@@ -11716,13 +12311,18 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "enum": ["LISTING_SUBMITTED", "LISTING_DELETED"]
+            "enum": [
+              "LISTING_PUBLISHED",
+              "LISTING_SUBMITTED",
+              "LISTING_UNLISTED",
+              "LISTING_DELETED"
+            ]
           },
           "messageKey": {
             "$ref": "#/components/schemas/MessageKey"
           },
           "status": {
-            "enum": ["PENDING_REVIEW", "DELETED"]
+            "enum": ["LISTED", "PENDING_REVIEW", "UNLISTED", "DELETED"]
           }
         }
       },
@@ -13168,7 +13768,11 @@
           },
           "vin": {
             "type": ["string", "null"],
-            "description": "VIN saisi s'il manquait (normalisé ; pris par un autre véhicule : 409 VEHICLE_PLATE_DUPLICATE)"
+            "description": "Numéro de châssis saisi s'il manquait : VIN ISO 3779 (17 caractères sans I, O, Q) ou numéro non ISO de 5 à 16 lettres ou chiffres (tirets et espaces retirés) ; mal formé : 422 VEHICLE_VIN_INVALID ; pris par un autre véhicule : 409 VEHICLE_PLATE_DUPLICATE"
+          },
+          "locale": {
+            "type": ["string", "null"],
+            "description": "Langue de l'écran où l'hôte a coché ses engagements (es, en, fr, pt, ou étiquette comme pt-BR) ; absente : es. Le libellé affiché et la version du catalogue sont historisés (ADR-113)"
           }
         }
       },
@@ -13303,6 +13907,23 @@
       "ConsoleVehicleBody": {
         "type": "object",
         "description": "Dossier ou décision de la revue du véhicule (US-124)"
+      },
+      "ConsoleListingDecision": {
+        "type": "object",
+        "description": "Décision de l'ops sur une annonce en revue (US-118)",
+        "required": ["itemId", "listingId", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "listingId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "enum": ["LISTED", "REJECTED"]
+          }
+        }
       },
       "ConsoleVehicleFile": {
         "type": "object",

@@ -27,6 +27,7 @@ import {
   loadBrandParams,
   PgBrandStore,
   UnavailableBrandFileStore,
+  UnavailableBrandScanner,
 } from './modules/cfg/index.js';
 import { postgresCatAdapters } from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
@@ -69,10 +70,12 @@ async function bootstrap(): Promise<void> {
     process.env['RUEDA_STAFF_TOTP_ISSUER'] ?? 'staff-console',
   );
   // Socle de marque (US-034) : lecture et commandes en base ; stockage objet des actifs
-  // indisponible tant qu'US-003 ne l'a pas livré (fail-closed, aucun FAKE en production).
+  // indisponible tant qu'US-003 ne l'a pas livré, antivirus ClamAV (DEC-FONDATEUR-20, US-120)
+  // tant que son adaptateur n'est pas livré (fail-closed, aucun FAKE en production).
   const brand = {
     store: new PgBrandStore(pool),
     files: new UnavailableBrandFileStore(),
+    scanner: new UnavailableBrandScanner(),
     params: loadBrandParams(),
   };
   // Lieux, véhicules et annonces de l'hôte (US-115) : commandes core.catalog_* sous app_api ;
