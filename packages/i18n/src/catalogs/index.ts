@@ -69,8 +69,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
  `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
  `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
+ Version 34 (numéro réservé par l'orchestrateur ; 32 et 33 aux PR en file) : écran « Apparence et
+ marque » du back-office (US-120, O02) : `backoffice.o02.*`.
  */
-export const CATALOG_VERSION = 31;
+export const CATALOG_VERSION = 34;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

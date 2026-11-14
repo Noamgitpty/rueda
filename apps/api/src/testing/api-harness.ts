@@ -21,7 +21,11 @@ import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
 import { UnavailablePhotoScanner, UnavailablePhotoStorage } from '../modules/cat/index.js';
 import type { CatHostOptions, HostListingStore } from '../modules/cat/index.js';
-import { loadBrandParams, UnavailableBrandFileStore } from '../modules/cfg/index.js';
+import {
+  loadBrandParams,
+  UnavailableBrandFileStore,
+  UnavailableBrandScanner,
+} from '../modules/cfg/index.js';
 import type { BrandOptions } from '../modules/cfg/index.js';
 import type { CtrLegalOptions } from '../modules/ctr/index.js';
 import type { IamAuthOptions, StaffOptions } from '../modules/iam/index.js';
@@ -234,6 +238,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       'BrandStore',
     ),
     files: new UnavailableBrandFileStore(),
+    scanner: new UnavailableBrandScanner(),
     params: loadBrandParams(),
   };
   // Consentements (US-102) : une session connue a des CGU à jour (aucune ligne) ; inconnue : 401.

@@ -10,7 +10,16 @@
  */
 import type { FormEvent } from 'react';
 import type { MessageKey, Translator } from '@rueda/i18n';
-import { Badge, Banner, Button, DataTable, EmptyState, ErrorState, TextField } from '@rueda/ui';
+import {
+  Badge,
+  Banner,
+  Button,
+  ButtonLink,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  TextField,
+} from '@rueda/ui';
 import styles from './console.module.css';
 import { OpsPanels, SANCTIONS_LISTS } from './ops-view.tsx';
 import type { OpsHandlers, OpsState, SanctionsList, SanctionsListResult } from './ops-view.tsx';
@@ -414,6 +423,12 @@ export function ConsoleView({
                 </li>
               ))}
             </ul>
+            {/* US-120 : écran « Apparence / Marque » (O02), rôle ADMIN ; l'API reste juge */}
+            {state.roles.some((r) => r.role === 'ADMIN') && (
+              <ButtonLink href="/brand" variant="secondary">
+                {i18n.t('backoffice.o02.open')}
+              </ButtonLink>
+            )}
             <Button variant="quiet" onClick={handlers.onSignOut}>
               {i18n.t('backoffice.console.signOut')}
             </Button>

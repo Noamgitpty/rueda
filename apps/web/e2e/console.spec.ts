@@ -1,5 +1,6 @@
 /**
- * Balayage des écrans de la console interne (`apps/backoffice`, US-012, US-101, US-109, US-121),
+ * Balayage des écrans de la console interne (`apps/backoffice`, US-012, US-101, US-109, US-121 ;
+ * US-120 : écran « Apparence / Marque », `/brand`, avec l'aperçu du brouillon),
  * US-044 : chaque état d'accès et la console elle-même, dans les quatre langues, en clair puis en
  * sombre, à 360 et 390 px.
  *
@@ -13,6 +14,7 @@
  * - Les comportements de la console (actions, files, fiche 360°) restent prouvés par ses tests
  *   unitaires (apps/backoffice) ; ici, seulement le rendu et l'accessibilité de chaque écran.
  */
+import { readFileSync } from 'node:fs';
 import type { Page, Route } from '@playwright/test';
 import { expectAccessible } from './axe.ts';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
@@ -88,8 +90,53 @@ const CONSOLE: Api = {
   },
 };
 
-/** Écran, titre qui reçoit le focus (view.tsx, SCREEN_HEADINGS) et réponses de l'API. */
-const SCREENS: readonly { readonly name: string; readonly heading: string; readonly api: Api }[] = [
+/**
+ * Écran « Apparence / Marque » (US-120) : une version publiée à la palette par défaut (fichier
+ * US-028, source unique, lu tel quel) et un brouillon ; aucun texte publié (catalogue livré).
+ */
+const TINTA = JSON.parse(
+  readFileSync(
+    new URL('../../../docs/design/US-028/tokens-lienzo-tinta.json', import.meta.url),
+    'utf8',
+  ),
+) as Body;
+const BRAND: Api = {
+  '/staff/me': me('ELEVATED', ['ADMIN']),
+  '/console/brand/versions': {
+    status: 200,
+    body: {
+      versions: [
+        {
+          id: '01200000-0000-4000-8000-000000000002',
+          versionNo: 2,
+          status: 'DRAFT',
+          brandName: 'Kmino',
+          tokens: TINTA,
+          createdAt: AT,
+          publishedAt: null,
+        },
+        {
+          id: '01200000-0000-4000-8000-000000000001',
+          versionNo: 1,
+          status: 'PUBLISHED',
+          brandName: 'Kmino',
+          tokens: TINTA,
+          createdAt: AT,
+          publishedAt: AT,
+        },
+      ],
+    },
+  },
+  '/brand/content': { status: 200, body: { locale: 'es', country: null, blocks: [] } },
+};
+
+/** Écran, titre qui reçoit le focus (view.tsx, SCREEN_HEADINGS), chemin et réponses de l'API. */
+const SCREENS: readonly {
+  readonly name: string;
+  readonly heading: string;
+  readonly api: Api;
+  readonly path?: string;
+}[] = [
   {
     name: 'console-connexion',
     heading: 'login-heading',
@@ -112,6 +159,7 @@ const SCREENS: readonly { readonly name: string; readonly heading: string; reado
     api: { '/staff/me': me('LOCKED') },
   },
   { name: 'console', heading: 'roles-heading', api: CONSOLE },
+  { name: 'console-apparence', heading: 'o02-heading', api: BRAND, path: '/brand' },
 ];
 
 /** Toute requête `/api/*` reçoit le corps fixe de l'écran ; une route inconnue : 404. */
@@ -134,7 +182,7 @@ for (const screen of SCREENS) {
 
       test('axe, mobile d’abord et capture', async ({ page }, info) => {
         await serve(page, screen.api);
-        await page.goto('/');
+        await page.goto(screen.path ?? '/');
         await expect(page.locator('html')).toHaveAttribute('lang', tagOf(language));
         // l'écran choisi d'après `GET /staff/me` a remplacé l'état de chargement
         await expect(page.locator(`#${screen.heading}`)).toBeFocused();
