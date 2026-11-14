@@ -441,11 +441,11 @@ describe('US-036 — exercice de portabilité (changement d’hébergeur)', () =
       // politique absente, ajoutée ou modifiée reste un écart.
       const canon = (l: string): string => (l.startsWith('policy ') ? l.replace(/[()\s]/g, '') : l);
       const lines = (await catalogLines(admin)).map(canon);
-      const source = (state.catalog ?? []).map(canon);
-      const before = new Set(source);
+      const sourceLines = (state.catalog ?? []).map(canon);
+      const before = new Set(sourceLines);
       const after = new Set(lines);
       expect({
-        missing: source.filter((l) => !after.has(l)),
+        missing: sourceLines.filter((l) => !after.has(l)),
         extra: lines.filter((l) => !before.has(l)),
       }).toEqual({ missing: [], extra: [] });
       expect(await perCountry(admin)).toEqual(state.perCountry);
