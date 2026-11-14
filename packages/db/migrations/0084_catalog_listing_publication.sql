@@ -197,7 +197,8 @@ CREATE FUNCTION core.catalog_public_text_norm(p_text text)
   PARALLEL SAFE
   SET search_path = pg_catalog, pg_temp
 AS $fn$
-  SELECT pg_catalog.regexp_replace(pg_catalog.normalize(p_text, NFKC),
+  -- `normalize(…, NFKC)` : forme SQL (mot clé), jamais qualifiée ; search_path figé à pg_catalog
+  SELECT pg_catalog.regexp_replace(normalize(p_text, NFKC),
                                    '[\u00AD\u200B-\u200F\u2060-\u2064\uFEFF\uFE00-\uFE0F\u20E3]',
                                    '', 'g')
 $fn$;
