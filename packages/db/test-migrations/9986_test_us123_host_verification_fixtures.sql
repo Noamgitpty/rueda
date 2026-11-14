@@ -181,8 +181,8 @@ $fn$;
 
 -- Allègement ADR-115 (migrations 0086, 0087) : nouvelle version de host_tax_id_required_for_activation
 -- valable à platform.now(), écrite dans la transaction de l'appelant, qui l'ANNULE ensuite (comme
--- us124_param_version) ; p_value NULL : la valeur en vigueur du pays est FERMÉE (valid_to =
--- platform.now()), la clé devient absente et prouve le repli fail-closed. Clé fermée.
+-- us124_param_version) ; p_value NULL : la valeur en vigueur du pays est FERMÉE (valid_to un
+-- instant plus tard, attendu), la clé devient absente et prouve le repli fail-closed. Clé fermée.
 CREATE FUNCTION test_fixture.us123_param_version(p_key text, p_country text, p_value jsonb)
   RETURNS void
   LANGUAGE plpgsql
@@ -194,9 +194,13 @@ BEGIN
     RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
   END IF;
   IF p_value IS NULL THEN
-    UPDATE core.config_param_value SET valid_to = platform.now()
+    -- platform.now() vaut clock_timestamp() : la garde refuse un valid_to déjà passé quand elle le
+    -- relit ; on ferme donc 10 ms plus tard, puis on attend que la fermeture soit en vigueur
+    UPDATE core.config_param_value
+       SET valid_to = platform.now() + pg_catalog.make_interval(secs => 0.01)
      WHERE key = p_key AND country_code = p_country AND scope_type = 'COUNTRY'
        AND valid_to IS NULL;
+    PERFORM pg_catalog.pg_sleep(0.05);
     RETURN;
   END IF;
   INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
