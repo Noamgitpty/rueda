@@ -331,6 +331,10 @@ BEGIN
     RETURN 'LOCATION_CITY_INVALID';
   END IF;
   -- marque et modèle saisis d'un véhicule hors catalogue (texte public, plus relu par l'ops)
+  IF core.catalog_vehicle_text_is_invalid(v.make_text)
+     OR core.catalog_vehicle_text_is_invalid(v.model_text) THEN
+    RETURN 'VEHICLE_DESCRIPTION_INVALID';
+  END IF;
   -- CGU de l'hôte acceptées dans leur version exigée, dans le pays du compte (US-126, L1-PM-28)
   IF p_user IS NULL OR core.ctr_host_terms_required(p_user, p_country) THEN
     RETURN 'TERMS_REACCEPT_REQUIRED';
