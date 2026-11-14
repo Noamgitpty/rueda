@@ -72,6 +72,12 @@ export const POST_SEED_PARAMS: readonly {
     refs: 'DEC-FONDATEUR-22, ADR-115',
   },
   {
+    prefix: 'privacy_',
+    file: '0089_config_privacy_params.sql',
+    story: 'US-111',
+    refs: '19 US-111, 16 LEG-009 / LEG-010, OQ-BR-25, OQ-MK-09',
+  },
+  {
     prefix: 'security_incident_',
     file: '0093_config_security_incident_params.sql',
     story: 'US-112',

@@ -31,6 +31,10 @@ export const ALERT_CODES = [
   // qui ne peut pas être mis en file (P1 : personne ne le verrait)
   'OPS_REVIEW_SLA_BREACH',
   'OPS_KYC_REVIEW_UNQUEUED',
+  // rétention et demandes des personnes (US-111, ADR-118) : demande en retard sur son délai légal
+  // (P1, par pays) ; demande d'effacement au fournisseur KYC en attente ou en échec (P1)
+  'PRIVACY_DSR_OVERDUE',
+  'PRIVACY_KYC_ERASURE_STALE',
   // registre des incidents (US-112, ADR-121) : déclaration nouvelle (alerte au fondateur, 17 §6.4)
   // et échéance de notification d'une violation dépassée (OQ-MK-09), une fois chacune
   'SECURITY_INCIDENT_OPENED',

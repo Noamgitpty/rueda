@@ -36,6 +36,12 @@ export const KYC_MESSAGES = {
   KYC_DOCUMENT_UNSUPPORTED: { status: 422, messageKey: 'common.kyc.documentUnsupported' },
   KYC_SESSION_FAILED: { status: 502, messageKey: 'common.kyc.sessionFailed' },
   KYC_PROVIDER_UNAVAILABLE: { status: 503, messageKey: 'common.kyc.providerUnavailable' },
+  // US-111 (16 LEG-010, ADR-118) : registre Ley 81 du pays non validé en production ; même texte
+  // que l'indisponibilité du fournisseur (aucun détail juridique montré à la personne)
+  KYC_PRODUCTION_BLOCKED_NO_REGISTER: {
+    status: 503,
+    messageKey: 'common.kyc.providerUnavailable',
+  },
   KYC_NOT_APPROVED: { status: 403, messageKey: 'common.kyc.notApproved' },
   KYC_LICENSE_EXPIRED: { status: 403, messageKey: 'common.kyc.licenseExpired' },
   KYC_DRIVER_ELIGIBLE: { status: 200, messageKey: 'common.kyc.driverEligible' },

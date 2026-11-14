@@ -144,6 +144,13 @@
       "kind": "data-update",
       "dataTables": ["core.kyc_identity_verification"],
       "justification": "US-103 (ADR-117 ; revues code et sécurité n° 1) : colonne NOUVELLE first_approved_at (marque durable de la première approbation) remplie depuis approved_at pour les dossiers déjà approuvés ; aucune autre colonne écrite, aucun statut changé, même nombre de lignes ; base de production sans dossier (KYC fermé en production, OQ-MK-09) ; la version N n'écrit jamais cette colonne (le déclencheur de la même migration la pose ensuite)"
+    },
+    {
+      "path": "packages/db/migrations/0090_audit_privacy_register.sql",
+      "line": 732,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-111 (ADR-118) : HANDLE_DSR passe de RECORD_ONLY à DOMAIN_COMMAND (saisie fermée kind et step, commande liée core.privacy_manual_action_dsr) sur une ligne de référence écrite par migration seulement ; une ligne ; les lignes manual_action existantes gardent leur mode ; la version N, qui envoyait HANDLE_DSR sans saisie, reçoit un refus métier DSR_INPUT_REQUIRED (aucune écriture), jamais une acceptation"
     }
   ]
 }

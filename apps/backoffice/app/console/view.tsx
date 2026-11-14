@@ -2,7 +2,8 @@
  * Écrans de la console interne (US-012 ; écran O01 de 10b, socle d'accès) : connexion, enrôlement
  * TOTP, code TOTP, refus, console (rôles et pays, action motivée, journal). US-101 : catalogue des
  * actions de console groupé (changer un état, enregistrer seulement avec pièces, décisions FINANCE à
- * deux personnes), pièces, et demandes FINANCE en attente à approuver par une seconde personne. US-109 :
+ * deux personnes), pièces, et demandes FINANCE en attente à approuver par une seconde personne. US-111 :
+ * demande de personne (HANDLE_DSR) saisie par type et étape, dans son propre formulaire. US-109 :
  * files de revue, dossier KYC et fiche 360° (ops-view.tsx). Composant de
  * PRÉSENTATION pur : aucun appel réseau, aucun état (rendu testable dans chaque locale) ; la
  * logique est dans `console-client.tsx`. Composants de `@rueda/ui` seulement, mise en page par les
@@ -105,14 +106,7 @@ export const ACTION_GROUPS = {
     // US-107 : compte d'hôte d'une personne inscrite (sujet : son compte de personne)
     'CREATE_HOST_ACCOUNT',
   ],
-  record: [
-    'RECORD_CLAIM',
-    'ISSUE_DECISION',
-    'RECORD_CHARGEBACK',
-    'OPEN_INCIDENT',
-    'RECORD_REVIEW',
-    'HANDLE_DSR',
-  ],
+  record: ['RECORD_CLAIM', 'ISSUE_DECISION', 'RECORD_CHARGEBACK', 'OPEN_INCIDENT', 'RECORD_REVIEW'],
   finance: ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'],
 } as const;
 export type ConsoleAction = (typeof ACTION_GROUPS)[keyof typeof ACTION_GROUPS][number];
@@ -134,6 +128,51 @@ const SANCTIONS_LIST_KEYS: Readonly<Record<SanctionsList, MessageKey>> = {
   unList: 'backoffice.host.list.unList',
   ofacList: 'backoffice.host.list.ofacList',
   nationalList: 'backoffice.host.list.nationalList',
+};
+
+/** US-111 : rôles qui détiennent `data.export` (17 §2.3 ; la base reste juge). */
+const DSR_ROLES = new Set(['ADMIN', 'SUPERADMIN']);
+/** Énumérations fermées de HANDLE_DSR (catalogue de 0090, ADR-118). */
+export const DSR_KINDS = [
+  'ACCESS',
+  'RECTIFICATION',
+  'DELETION',
+  'OPPOSITION',
+  'PORTABILITY',
+] as const;
+export type DsrKind = (typeof DSR_KINDS)[number];
+export const DSR_STEPS = [
+  'RECEIVED',
+  'VERIFYING',
+  'IN_PROGRESS',
+  'BLOCKED_LEGAL_HOLD',
+  'DONE',
+  'REJECTED',
+] as const;
+export type DsrStep = (typeof DSR_STEPS)[number];
+const DSR_KIND_KEYS: Readonly<Record<DsrKind, MessageKey>> = {
+  ACCESS: 'backoffice.dsr.kind.ACCESS',
+  RECTIFICATION: 'backoffice.dsr.kind.RECTIFICATION',
+  DELETION: 'backoffice.dsr.kind.DELETION',
+  OPPOSITION: 'backoffice.dsr.kind.OPPOSITION',
+  PORTABILITY: 'backoffice.dsr.kind.PORTABILITY',
+};
+const DSR_STEP_KEYS: Readonly<Record<DsrStep, MessageKey>> = {
+  RECEIVED: 'backoffice.dsr.step.RECEIVED',
+  VERIFYING: 'backoffice.dsr.step.VERIFYING',
+  IN_PROGRESS: 'backoffice.dsr.step.IN_PROGRESS',
+  BLOCKED_LEGAL_HOLD: 'backoffice.dsr.step.BLOCKED_LEGAL_HOLD',
+  DONE: 'backoffice.dsr.step.DONE',
+  REJECTED: 'backoffice.dsr.step.REJECTED',
+};
+/** Refus de HANDLE_DSR expliqués (issue de la commande de domaine, 0090). */
+export const DSR_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
+  DSR_INPUT_REQUIRED: 'backoffice.dsr.refused.DSR_INPUT_REQUIRED',
+  DSR_NOT_OPEN: 'backoffice.dsr.refused.DSR_NOT_OPEN',
+  DSR_ALREADY_OPEN: 'backoffice.dsr.refused.DSR_ALREADY_OPEN',
+  DSR_KIND_MISMATCH: 'backoffice.dsr.refused.DSR_KIND_MISMATCH',
+  DSR_TRANSITION_INVALID: 'backoffice.dsr.refused.DSR_TRANSITION_INVALID',
+  DSR_DELAY_UNKNOWN: 'backoffice.dsr.refused.DSR_DELAY_UNKNOWN',
 };
 
 /** Rôles qui voient les demandes FINANCE en attente (17 §2.3 fin_read). */
@@ -173,6 +212,17 @@ export interface ConsoleHandlers {
     reason: string,
     evidence: readonly string[],
   ) => void;
+  /**
+   * US-111 : demande de personne (`HANDLE_DSR`) reçue par un dossier de support, saisie fermée par
+   * type et étape ; l'échéance légale est suivie par la base.
+   */
+  readonly onDataRequest?: (
+    caseId: string,
+    kind: DsrKind,
+    step: DsrStep,
+    reason: string,
+    evidence: readonly string[],
+  ) => void;
   readonly onApprove: (approvalId: string) => void;
   readonly onSignOut: () => void;
 }
@@ -202,7 +252,6 @@ const ACTION_KEYS: Readonly<Record<ConsoleAction, MessageKey>> = {
   RECORD_CHARGEBACK: 'backoffice.action.RECORD_CHARGEBACK',
   OPEN_INCIDENT: 'backoffice.action.OPEN_INCIDENT',
   RECORD_REVIEW: 'backoffice.action.RECORD_REVIEW',
-  HANDLE_DSR: 'backoffice.action.HANDLE_DSR',
   ISSUE_BORDEREAU: 'backoffice.action.ISSUE_BORDEREAU',
   DECIDE_ADVANCE: 'backoffice.action.DECIDE_ADVANCE',
   WRITE_OFF_RECEIVABLE: 'backoffice.action.WRITE_OFF_RECEIVABLE',
@@ -606,6 +655,99 @@ export function ConsoleView({
                   <div className={styles['actions']}>
                     <Button type="submit" variant="primary" loading={busy}>
                       {i18n.t('backoffice.host.record')}
+                    </Button>
+                  </div>
+                </form>
+              </section>
+            )}
+
+          {handlers.onDataRequest !== undefined &&
+            state.roles.some((r) => DSR_ROLES.has(r.role)) && (
+              <section className={styles['panel']} aria-labelledby="dsr-heading">
+                <h2 id="dsr-heading" className={styles['heading']}>
+                  {i18n.t('backoffice.action.HANDLE_DSR')}
+                </h2>
+                <p className={styles['muted']}>{i18n.t('backoffice.dsr.hint')}</p>
+                <form
+                  className={styles['form']}
+                  onSubmit={prevent((e) => {
+                    const data = new FormData(e.currentTarget);
+                    const kind = data.get('dsrKind');
+                    const step = data.get('dsrStep');
+                    if (
+                      (DSR_KINDS as readonly unknown[]).includes(kind) &&
+                      (DSR_STEPS as readonly unknown[]).includes(step)
+                    ) {
+                      handlers.onDataRequest?.(
+                        fieldOf(e, 'caseId'),
+                        kind as DsrKind,
+                        step as DsrStep,
+                        fieldOf(e, 'reason'),
+                        evidenceOf(fieldOf(e, 'evidence')),
+                      );
+                    }
+                  })}
+                >
+                  <TextField
+                    i18n={i18n}
+                    id="dsr-case"
+                    name="caseId"
+                    autoComplete="off"
+                    spellCheck={false}
+                    label={i18n.t('backoffice.dsr.subject')}
+                  />
+                  <fieldset className={styles['checks']}>
+                    <legend className={styles['label']}>{i18n.t('backoffice.dsr.kind')}</legend>
+                    {DSR_KINDS.map((k) => (
+                      <label key={k} className={styles['choice']}>
+                        <input
+                          type="radio"
+                          name="dsrKind"
+                          value={k}
+                          required
+                          className={styles['choiceInput']}
+                        />
+                        <span>{i18n.t(DSR_KIND_KEYS[k])}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <fieldset className={styles['checks']}>
+                    <legend className={styles['label']}>{i18n.t('backoffice.dsr.step')}</legend>
+                    {DSR_STEPS.map((st) => (
+                      <label key={st} className={styles['choice']}>
+                        <input
+                          type="radio"
+                          name="dsrStep"
+                          value={st}
+                          required
+                          className={styles['choiceInput']}
+                        />
+                        <span>{i18n.t(DSR_STEP_KEYS[st])}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <TextField
+                    i18n={i18n}
+                    id="dsr-reason"
+                    name="reason"
+                    minLength={10}
+                    maxLength={1000}
+                    label={i18n.t('backoffice.action.reason')}
+                    hint={i18n.t('backoffice.action.reasonHint')}
+                  />
+                  <TextField
+                    i18n={i18n}
+                    id="dsr-evidence"
+                    name="evidence"
+                    autoComplete="off"
+                    spellCheck={false}
+                    optional
+                    label={i18n.t('backoffice.action.evidence')}
+                    hint={i18n.t('backoffice.action.evidenceHint')}
+                  />
+                  <div className={styles['actions']}>
+                    <Button type="submit" variant="primary" loading={busy}>
+                      {i18n.t('backoffice.dsr.record')}
                     </Button>
                   </div>
                 </form>

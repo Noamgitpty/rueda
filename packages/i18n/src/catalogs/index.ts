@@ -77,8 +77,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 38 : nom légal identique au permis (US-103, ADR-117) : `common.kyc.legalName*`
  (changement du nom), `backoffice.kyc.reason.LEGAL_NAME_*`, `backoffice.kyc.holderName` et
  `backoffice.kyc.nameMatch.*` (dossier KYC de la console).
+ Version 39 : demandes des personnes saisies par l'action de console HANDLE_DSR (US-111,
+ ADR-118) : `backoffice.dsr.*` (type, étape, refus) ; sens de `backoffice.action.HANDLE_DSR`
+ inchangé (titre du formulaire).
  */
-export const CATALOG_VERSION = 38;
+export const CATALOG_VERSION = 39;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

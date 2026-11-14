@@ -612,6 +612,34 @@ export const ES_MESSAGES = {
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY':
     'El anfitrión todavía no envió su expediente.',
   'backoffice.host.refused.SELF_FORBIDDEN': 'No puedes filtrar tu propia cuenta.',
+  'backoffice.dsr.hint':
+    'Registra cada etapa de una solicitud recibida por un expediente de soporte: el plazo legal se sigue y un retraso se señala.',
+  'backoffice.dsr.subject': 'Identificador del expediente de soporte',
+  'backoffice.dsr.kind': 'Tipo de solicitud',
+  'backoffice.dsr.kind.ACCESS': 'Acceso',
+  'backoffice.dsr.kind.RECTIFICATION': 'Rectificación',
+  'backoffice.dsr.kind.DELETION': 'Supresión',
+  'backoffice.dsr.kind.OPPOSITION': 'Oposición',
+  'backoffice.dsr.kind.PORTABILITY': 'Portabilidad',
+  'backoffice.dsr.step': 'Etapa',
+  'backoffice.dsr.step.RECEIVED': 'Recibida',
+  'backoffice.dsr.step.VERIFYING': 'Verificación de identidad',
+  'backoffice.dsr.step.IN_PROGRESS': 'En curso (identidad verificada)',
+  'backoffice.dsr.step.BLOCKED_LEGAL_HOLD': 'Suspendida por una obligación legal de conservación',
+  'backoffice.dsr.step.DONE': 'Respondida',
+  'backoffice.dsr.step.REJECTED': 'Rechazada',
+  'backoffice.dsr.record': 'Registrar la etapa',
+  'backoffice.dsr.recorded': 'Etapa registrada; el plazo sigue en curso hasta la respuesta.',
+  'backoffice.dsr.refused.DSR_INPUT_REQUIRED': 'Indica el tipo de solicitud y la etapa.',
+  'backoffice.dsr.refused.DSR_NOT_OPEN':
+    'Este expediente aún no tiene solicitud: registra primero la etapa «Recibida».',
+  'backoffice.dsr.refused.DSR_ALREADY_OPEN': 'Este expediente ya tiene una solicitud abierta.',
+  'backoffice.dsr.refused.DSR_KIND_MISMATCH':
+    'El tipo no coincide con el de la solicitud abierta en este expediente.',
+  'backoffice.dsr.refused.DSR_TRANSITION_INVALID':
+    'Esta etapa no puede seguir a la etapa actual de la solicitud.',
+  'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
+    'El plazo legal de respuesta aún no está configurado: no se registró nada.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Decisión rechazada: hay que marcar los cuatro controles.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':

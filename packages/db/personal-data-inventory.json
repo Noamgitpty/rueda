@@ -173,6 +173,92 @@
         "destroy_request_id": "C1"
       }
     },
+    "core.audit_subprocessor": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "service": "C1",
+        "name": "C1",
+        "mode": "C1",
+        "processing_countries": "C1",
+        "data_classes": "C1",
+        "contract_ref": "C1",
+        "transfer_safeguard": "C1",
+        "retention_terms": "C1",
+        "valid_from": "C1",
+        "valid_to": "C1",
+        "story": "C1"
+      }
+    },
+    "core.audit_retention_rule": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "param_key": "C1",
+        "anchor": "C1",
+        "action": "C1",
+        "tables": "C1",
+        "enforced_by": "C1",
+        "story": "C1"
+      }
+    },
+    "core.audit_processing_activity": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "legal_basis": "C1",
+        "data_classes": "C1",
+        "sensitive": "C1",
+        "recipients": "C1",
+        "subprocessors": "C1",
+        "retention_rules": "C1",
+        "collected_in_beta": "C1",
+        "story": "C1"
+      }
+    },
+    "core.audit_data_subject_request": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "support_case_id": "C1",
+        "user_id": "C1",
+        "country_code": "C1",
+        "kind": "C1",
+        "status": "C1",
+        "received_at": "C1",
+        "due_at": "C1",
+        "identity_verified_at": "C1",
+        "closed_at": "C1",
+        "handled_by": "C1",
+        "updated_at": "C1",
+        "overdue_alerted_at": "C1"
+      }
+    },
+    "core.audit_retention_log": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "rule_code": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "country_code": "C1",
+        "action": "C1",
+        "columns": "C1",
+        "due_at": "C1",
+        "at": "C1"
+      }
+    },
     "core.booking_checkout_hold": {
       "lifecycle": "B",
       "subjects": [
