@@ -1,6 +1,6 @@
 # Pour le fondateur — ce qui t'attend, en un seul endroit
 
-> Tenu par l'orchestrateur et mis à jour à chaque nouvelle question. Dernière mise à jour : **2026-11-14** (suites d'US-036, US-111 et US-112).
+> Tenu par l'orchestrateur et mis à jour à chaque nouvelle question. Dernière mise à jour : **2026-11-14** (porte du lot 1 : branches mortes, §5 ; avant : suites d'US-036, US-111 et US-112).
 > **Rien ici ne bloque le développement.** Chaque point est nécessaire avant la mise en ligne d'un pays, ou utile plus tôt pour gagner du temps. Tant qu'un point est ouvert, l'équipe applique un défaut prudent marqué PROPOSÉ, et les interrupteurs de mise en service restent à `false`.
 > Règle permanente : **jamais plus lourd que Turo** (2026-11-12). Tout contrôle plus lourd est désactivé par défaut et ne sera activé que si la loi ou un contrat l'impose, après t'en avoir parlé.
 
@@ -92,6 +92,7 @@ Pour chaque point : la question, puis **ma suggestion** de réponse à faire val
 
 ## 5. Quand tu veux, sans urgence
 
+- **Supprimer deux branches mortes sur GitHub** (porte du lot 1, incident I-L1-5). Depuis le 2026-11-12, la suite de nuit est rouge à cause de gitleaks. Les seuls constats sont de faux positifs (champs `"key"` du catalogue des véhicules, une revue), et ils ne se trouvent que sur deux branches de PR fermées : `story/US-113-catalogue-vehicules` (#105) et `story/US-036-portabilite` (#142). `main` est propre. Depuis l'incident du 2026-11-12, aucun agent ne supprime de branche distante sans ton accord écrit. **Ma suggestion** : réponds « oui, supprime les branches des PR fermées » une fois pour toutes. L'orchestrateur supprimera alors ces deux branches, puis chaque branche de PR à sa fermeture. C'est ce que fait GitHub par défaut, et la nuit repasse au vert sans qu'on affaiblisse gitleaks.
 - **Relecture des textes en portugais** par un natif (« confirmado » dans la vérification du téléphone, vocabulaire « vérifier / confirmer »).
 - **Revue des parcours** : artefact déjà publié (lien dans la conversation avec l'orchestrateur).
 
