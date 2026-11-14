@@ -67,6 +67,18 @@ describe('version publiée par GET /brand', () => {
     expect(brand?.active.theme.id).toBe('lienzo-grafito');
   });
 
+  it('logo publié hors de la liste blanche (US-122, ADR-122) : jamais affiché, le nom reste', () => {
+    const tokens = paletteDocument('lienzo-grafito') as Record<string, Record<string, unknown>>;
+    const evil = '<svg xmlns="http://www.w3.org/2000/svg"onload="alert(1)"></svg>';
+    const doc = {
+      ...tokens,
+      brand: { ...tokens['brand'], logo: { $value: evil, $type: 'string' } },
+    };
+    const brand = brandFromPublished(published({ tokens: doc }), {});
+    expect(brand?.logo.light).toBeUndefined();
+    expect(brand?.name).toBe('Otro');
+  });
+
   it('refuse (fail-closed) un document invalide, un contraste insuffisant ou un nom douteux', () => {
     expect(brandFromPublished(published({ tokens: { color: {} } }), {})).toBeUndefined();
     // Azur échoue au contraste AA (passation US-030) : refusée ici aussi.

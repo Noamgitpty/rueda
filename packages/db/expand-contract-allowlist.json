@@ -151,6 +151,18 @@
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-111 (ADR-118) : HANDLE_DSR passe de RECORD_ONLY à DOMAIN_COMMAND (saisie fermée kind et step, commande liée core.privacy_manual_action_dsr) sur une ligne de référence écrite par migration seulement ; une ligne ; les lignes manual_action existantes gardent leur mode ; la version N, qui envoyait HANDLE_DSR sans saisie, reçoit un refus métier DSR_INPUT_REQUIRED (aucune écriture), jamais une acceptation"
+    },
+    {
+      "path": "packages/db/migrations/0093_support_redteam_l1_fixes.sql",
+      "line": 283,
+      "kind": "dynamic-sql",
+      "justification": "US-122 (ADR-122) : définition de 0060 recopiée à l'identique (ligne 535 de 0060, même dérogation) pour ajouter la garde de séparation des tâches ; appel du résolveur de pays DÉCLARÉ pour le type du sujet, nom lu dans pg_proc par l'OID déclaré et cité par format(%I.%I), identifiant passé par USING (aucun texte du client) ; extension seulement, aucune contraction"
+    },
+    {
+      "path": "packages/db/migrations/0093_support_redteam_l1_fixes.sql",
+      "line": 403,
+      "kind": "dynamic-sql",
+      "justification": "US-122 (ADR-122) : définition de 0060 recopiée à l'identique (ligne 642 de 0060, même dérogation) pour ajouter la garde de séparation des tâches ; appel de la commande de domaine LIÉE à l'action, nom lu dans pg_proc par l'OID lié et cité par format(%I.%I), toutes les valeurs passées par USING (aucun texte du client) ; extension seulement, aucune contraction"
     }
   ]
 }

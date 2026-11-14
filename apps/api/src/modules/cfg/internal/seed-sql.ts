@@ -77,6 +77,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-111',
     refs: '19 US-111, 16 LEG-009 / LEG-010, OQ-BR-25, OQ-MK-09',
   },
+  {
+    prefix: 'plate_claims_',
+    file: '0094_config_plate_claim_params.sql',
+    story: 'US-122',
+    refs: 'BOARD N-61, red team F-L1-V-01, ADR-122',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

@@ -1013,6 +1013,8 @@ describe('contrat HTTP — /console', () => {
       ['CATALOG_VARIANT_NOT_FOUND', 422, 'CATALOG_VARIANT_NOT_FOUND'],
       ['CATALOG_ENTRY_INVALID', 422, 'CATALOG_ENTRY_INVALID'],
       ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+      // séparation des tâches (US-122, ADR-122) : la demande concerne l'agent
+      ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
       ['FORBIDDEN', 403, 'FORBIDDEN'],
     ] as const) {
       ops.outcome['resolveCatalogAddition'] = outcome;
@@ -1040,6 +1042,7 @@ describe('contrat HTTP — /console', () => {
     for (const [outcome, status, code] of [
       ['NOT_UNDER_REVIEW', 409, 'VEHICLE_REVIEW_CLOSED'],
       ['CASE_REQUIRED', 403, 'STAFF_CASE_REQUIRED'],
+      ['SELF_FORBIDDEN', 403, 'STAFF_SELF_FORBIDDEN'],
     ] as const) {
       ops.outcome['vehicleEligibility'] = outcome;
       const r = await post(vehicle, { requestId: randomUUID(), purpose });

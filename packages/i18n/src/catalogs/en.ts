@@ -416,6 +416,8 @@ export const EN_MESSAGES = {
   // Files de revue, fiche 360°, notes, dossiers, pièces et restrictions (US-109), PROPOSÉS
   'common.ops.caseRequired':
     'To view or annotate this profile, open a support case or claim a queue item that covers it.',
+  'common.ops.selfForbidden':
+    'You cannot handle a file that concerns you (your account, your car or a linked account). Another team member must do it.',
   'common.ops.itemTaken': 'Another team member has already claimed this item.',
   'common.ops.userNotFound': 'Nobody with that email address within your scope.',
   'common.evidence.rejected':
@@ -1436,6 +1438,8 @@ export const EN_MESSAGES = {
     'No other account has this plate or VIN: you can register your car.',
   'common.vehicleDocs.claimDuplicate':
     'You already sent a claim for this car. We are reviewing it.',
+  'common.vehicleDocs.claimLimitReached':
+    'You already have several claims under review. Wait for our answer before sending another one.',
   'common.vehicleDocs.tooOld': 'The car is older than the maximum age allowed in your country.',
   'common.vehicleDocs.mileageTooHigh': 'The mileage is above the maximum allowed in your country.',
   'common.vehicleDocs.titleMismatch':

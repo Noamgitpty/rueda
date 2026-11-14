@@ -432,6 +432,8 @@ export const ES_MESSAGES = {
   // Files de revue, fiche 360°, notes, dossiers, pièces et restrictions (US-109), PROPOSÉS
   'common.ops.caseRequired':
     'Para ver o anotar esta ficha, abre un caso o toma un elemento de la cola que la cubra.',
+  'common.ops.selfForbidden':
+    'No puedes tratar un expediente que te concierne (tu cuenta, tu auto o una cuenta vinculada). Otra persona del equipo debe hacerlo.',
   'common.ops.itemTaken': 'Otra persona del equipo ya tomó este elemento.',
   'common.ops.userNotFound': 'No encontramos a nadie con ese correo en tu alcance.',
   'common.evidence.rejected':
@@ -1479,6 +1481,8 @@ export const ES_MESSAGES = {
     'Ninguna otra cuenta tiene esta placa ni este VIN: puedes registrar tu auto.',
   'common.vehicleDocs.claimDuplicate':
     'Ya enviaste un reclamo por este auto. Lo estamos revisando.',
+  'common.vehicleDocs.claimLimitReached':
+    'Ya tienes varios reclamos en revisión. Espera nuestra respuesta antes de enviar otro.',
   'common.vehicleDocs.tooOld': 'El auto supera la antigüedad máxima permitida.',
   'common.vehicleDocs.mileageTooHigh': 'El kilometraje supera el máximo permitido.',
   'common.vehicleDocs.titleMismatch':
