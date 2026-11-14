@@ -1168,6 +1168,11 @@ export const PT_MESSAGES = {
   'web.a07.task.identity': 'Sua identidade',
   'web.a07.task.tax': 'Dados fiscais',
   'web.a07.task.terms': 'Termos para anfitriões',
+  // US-127 : refus d'une réservation par l'hôte lui-même ou un compte lié (16 ACC-014,
+  // SELF_BOOKING_FORBIDDEN) ; le même texte dans tous les cas, sans dire pourquoi (ADR-110)
+  'common.booking.selfBookingForbidden.title': 'Você não pode reservar este carro',
+  'common.booking.selfBookingForbidden.body':
+    'Este carro não pode ser reservado com a sua conta. Escolha outro carro ou fale com a gente se achar que é um engano.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Aviso importante',
   'common.regulatory.version': 'Versão {version} deste aviso',

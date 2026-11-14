@@ -54,6 +54,8 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 27 : fiche technique à compléter d'une variante
  sans fiche du catalogue (import de la douane, suite d'US-113, ADR-109) :
  `backoffice.catalog.specsPending`.
+ Version 28 : refus d'une réservation par l'hôte lui-même ou par un compte lié (US-127) :
+ `common.booking.selfBookingForbidden.*`.
  Version 33 (numéro réservé par l'orchestrateur ; 27 à 32 aux PR en file) : numéro fiscal de
  l'hôte facultatif, « jamais plus lourd que Turo » (US-123, ADR-115) : `web.a07.optional`,
  `web.a07.tax.optionalHint` et `web.a07.tax.reminder` (rappel de l'obligation fiscale de l'hôte).

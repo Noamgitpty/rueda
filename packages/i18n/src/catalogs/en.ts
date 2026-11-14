@@ -1130,6 +1130,11 @@ export const EN_MESSAGES = {
   'web.a07.task.identity': 'Your identity',
   'web.a07.task.tax': 'Tax details',
   'web.a07.task.terms': 'Host terms',
+  // US-127 : refus d'une réservation par l'hôte lui-même ou un compte lié (16 ACC-014,
+  // SELF_BOOKING_FORBIDDEN) ; le même texte dans tous les cas, sans dire pourquoi (ADR-110)
+  'common.booking.selfBookingForbidden.title': "You can't book this car",
+  'common.booking.selfBookingForbidden.body':
+    "This car can't be booked with your account. Choose another car, or contact us if you think this is a mistake.",
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Important notice',
   'common.regulatory.version': 'Version {version} of this notice',
