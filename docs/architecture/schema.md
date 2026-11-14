@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 83 migrations ; 98 tables ; 2 vues ; 526 politiques RLS ; 177 fonctions `SECURITY DEFINER` ; 170 autres fonctions.
+- 83 migrations ; 98 tables ; 2 vues ; 526 politiques RLS ; 177 fonctions `SECURITY DEFINER` ; 174 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -5058,12 +5058,16 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_param_int(p_key text, p_country text)` | `bigint` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_price_step(p_country text)` | `bigint` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_pricing_outcome(p_country text, p_price bigint, p_mode text, p_km integer, p_extra bigint)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_public_text_norm(p_text text)` | `text` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_slug(p_name text)` | `text` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
+| `core.catalog_text_has_address_marker(p_text text)` | `boolean` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
+| `core.catalog_text_has_contact(p_text text)` | `boolean` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_vehicle_blockers(p_vehicle uuid, p_strict boolean)` | `text[]` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_claim_target(p_token_hash bytea, p_org uuid, p_plate text, p_vin text)` | `TABLE(outcome text, user_id uuid, country_code text, target uuid, plate text, vin text)` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_vehicle_live_bookings(p_vehicle uuid)` | `jsonb` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_vehicle_needs_review(p_vehicle uuid)` | `boolean` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_vehicle_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.catalog_vehicle_text_is_invalid(p_text text)` | `boolean` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.catalog_vehicle_writable(p_token_hash bytea, p_org uuid, p_vehicle uuid)` | `TABLE(outcome text, user_id uuid, country_code text, eligibility_status text)` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |
 | `core.cfg_brand_asset_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.cfg_brand_authorize(p_token_hash bytea, p_permission text, p_country text, p_attempted text, p_subject_type text, p_subject_id uuid, p_request_id uuid, OUT outcome text, OUT actor uuid, OUT actor_role text)` | `record` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
