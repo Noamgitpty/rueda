@@ -800,3 +800,479 @@ END
 $fn$;
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
+
+-- 2. Droits des personnes (F2-D-01 à D-03) --------------------------------------------------------
+-- 2.1 Reprise d'un effacement refusé : FAILED -> PENDING (la référence de session est conservée
+-- par FAILED, exigée par PENDING) ; aucune autre transition ouverte par cette politique
+CREATE POLICY kyc_cmd_erasure_reopen ON core.kyc_erasure_request FOR UPDATE TO kyc_cmd_owner
+  USING (status = 'FAILED') WITH CHECK (status = 'PENDING' AND completed_at IS NULL);
+
+-- 2.3 Sous kyc_cmd_owner : reprise par la personne et lecture du consentement retiré
+GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
+SET LOCAL ROLE kyc_cmd_owner;
+
+-- Reprise d'une demande d'effacement refusée par le fournisseur (F2-D-02 ; 16 VER-004) : la
+-- personne de la session remet SA demande FAILED à traiter (PENDING) ; l'API la rejoue auprès du
+-- fournisseur. Issues : RECORDED, AUTH_REQUIRED, NOT_FOUND (demande d'un autre, inconnue ou non
+-- FAILED). Une seule personne suffit : aucun argent, aucune décision sur autrui (17 §10).
+CREATE FUNCTION core.kyc_cmd_retry_erasure(p_token_hash bytea, p_request_id uuid)
+  RETURNS TABLE (outcome text)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_user uuid;
+  v_id   uuid;
+BEGIN
+  IF p_request_id IS NULL THEN
+    RAISE EXCEPTION 'kyc : demande d''effacement absente' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
+  IF v_user IS NULL THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text;
+    RETURN;
+  END IF;
+  UPDATE core.kyc_erasure_request AS e
+     SET status = 'PENDING', completed_at = NULL, attestation_ref = NULL
+   WHERE e.id = p_request_id AND e.user_id = v_user AND e.status = 'FAILED'
+  RETURNING e.id INTO v_id;
+  IF v_id IS NULL THEN
+    RETURN QUERY SELECT 'NOT_FOUND'::text;
+    RETURN;
+  END IF;
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after)
+  VALUES (v_user, 'GUEST', 'KYC_ERASURE_RETRIED', 'USER_ACCOUNT', v_user,
+          pg_catalog.jsonb_build_object('status', 'FAILED', 'requestId', v_id),
+          pg_catalog.jsonb_build_object('status', 'PENDING', 'requestId', v_id));
+  RETURN QUERY SELECT 'RECORDED'::text;
+END
+$fn$;
+
+-- Consentement biométrique retiré (F2-D-03) : la vérification courante de la personne est en
+-- RECHECK pour CONSENT_WITHDRAWN. Personne absente : vrai (fail-closed).
+CREATE FUNCTION core.kyc_consent_withdrawn(p_user uuid)
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT p_user IS NULL
+      OR EXISTS (SELECT 1 FROM core.kyc_identity_verification AS v
+                  WHERE v.user_id = p_user AND v.is_current AND v.status = 'RECHECK'
+                    AND v.decision_reason_code = 'CONSENT_WITHDRAWN')
+$fn$;
+COMMENT ON FUNCTION core.kyc_cmd_retry_erasure(bytea, uuid) IS
+  'Reprise d''une demande d''effacement refusée par le fournisseur (FAILED -> PENDING) par la '
+  'personne de la session, journalisée. SECURITY DEFINER, EXECUTE app_api. US-122 (ADR-124, F2-D-02).';
+COMMENT ON FUNCTION core.kyc_consent_withdrawn(uuid) IS
+  'Consentement biométrique retiré (vérification courante RECHECK / CONSENT_WITHDRAWN) ; personne '
+  'absente : vrai. SECURITY DEFINER, EXECUTE cmd_hold_owner. US-122 (ADR-124, F2-D-03).';
+REVOKE ALL ON FUNCTION core.kyc_cmd_retry_erasure(bytea, uuid), core.kyc_consent_withdrawn(uuid)
+  FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.kyc_cmd_retry_erasure(bytea, uuid) TO app_api;
+GRANT EXECUTE ON FUNCTION core.kyc_consent_withdrawn(uuid) TO cmd_hold_owner;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
+
+-- 2.2 Demandes en retard, gelées comprises (définition de 0090 recopiée ; bloc US-122) -----
+GRANT CREATE ON SCHEMA core TO privacy_cmd_owner;
+SET LOCAL ROLE privacy_cmd_owner;
+CREATE OR REPLACE FUNCTION core.privacy_worker_dsr_overdue(p_batch integer)
+  RETURNS TABLE (country_code text, overdue integer)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_now timestamptz := platform.now();
+BEGIN
+  PERFORM core.privacy_worker_guard();
+  IF p_batch IS NULL OR p_batch < 1 OR p_batch > 10000 THEN
+    RAISE EXCEPTION 'aud : lot invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  RETURN QUERY
+    WITH late AS (
+      SELECT d.id FROM core.audit_data_subject_request AS d
+       -- US-122 (ADR-124, F2-D-01) : une demande gelée (BLOCKED_LEGAL_HOLD) passée son échéance
+       -- est signalée comme les autres : un gel ne rend jamais une demande invisible
+       WHERE d.closed_at IS NULL
+         AND d.overdue_alerted_at IS NULL AND d.due_at <= v_now
+       ORDER BY d.due_at LIMIT p_batch
+       FOR UPDATE SKIP LOCKED
+    ), marked AS (
+      UPDATE core.audit_data_subject_request AS d SET overdue_alerted_at = v_now
+        FROM late WHERE d.id = late.id
+      RETURNING d.country_code
+    )
+    SELECT m.country_code, pg_catalog.count(*)::integer FROM marked AS m
+     GROUP BY m.country_code ORDER BY m.country_code;
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM privacy_cmd_owner;
+
+-- 2.4 Consentement biométrique : un retrait reprend les effacements refusés (définition de 0072
+-- recopiée ; bloc US-122) ; sous kyc_cmd_owner
+GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
+SET LOCAL ROLE kyc_cmd_owner;
+CREATE OR REPLACE FUNCTION core.kyc_cmd_biometric_consent(p_token_hash bytea, p_country text,
+                                               p_version integer, p_accepted boolean)
+  RETURNS TABLE (outcome text, version integer)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_user    uuid;
+  v_acc     record;
+  v_country text;
+  v_t       core.contract_document_template%ROWTYPE;
+  v_v       record;
+  v_now     timestamptz := platform.now();
+  v_n       integer := 0;
+BEGIN
+  IF p_accepted IS NULL THEN
+    RAISE EXCEPTION 'kyc : consentement invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT s.user_id INTO v_user FROM core.iam_session_resolve(p_token_hash) AS s;
+  IF v_user IS NULL THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::integer;
+    RETURN;
+  END IF;
+  SELECT u.id, u.status, u.email_verified_at, u.pseudonymized_at, u.preferred_locale INTO v_acc
+    FROM core.iam_user_account AS u WHERE u.id = v_user;
+  -- le retrait reste possible pour tout compte qui a une session (droit de la personne)
+  IF p_accepted AND (v_acc.id IS NULL OR v_acc.email_verified_at IS NULL
+                     OR v_acc.pseudonymized_at IS NOT NULL
+                     OR v_acc.status NOT IN ('ACTIVE', 'RESTRICTED')) THEN
+    RETURN QUERY SELECT 'NOT_ELIGIBLE'::text, NULL::integer;
+    RETURN;
+  END IF;
+  -- portée : pays du dossier courant s'il existe, sinon (retrait) celui du dernier consentement
+  -- biométrique, sinon le pays du parcours (connu de la config)
+  SELECT v.country_code::text INTO v_country FROM core.kyc_identity_verification AS v
+   WHERE v.user_id = v_user AND v.is_current;
+  IF v_country IS NULL AND NOT p_accepted THEN
+    SELECT c.country_code::text INTO v_country FROM core.contract_consent AS c
+     WHERE c.user_id = v_user AND c.doc_kind = 'BIOMETRIC_CONSENT'
+     ORDER BY c.seq DESC LIMIT 1;
+  END IF;
+  IF v_country IS NULL THEN
+    IF p_country IS NULL
+       OR NOT EXISTS (SELECT 1 FROM core.config_country AS k WHERE k.code::text = p_country) THEN
+      RETURN QUERY SELECT 'COUNTRY_UNKNOWN'::text, NULL::integer;
+      RETURN;
+    END IF;
+    v_country := p_country;
+  END IF;
+  SELECT * INTO v_t FROM core.kyc_biometric_template(v_country,
+                                                     pg_catalog.split_part(v_acc.preferred_locale, '-', 1));
+  IF v_t.id IS NULL THEN
+    RETURN QUERY SELECT 'CONSENT_UNAVAILABLE'::text, NULL::integer;
+    RETURN;
+  END IF;
+  IF p_accepted AND p_version IS DISTINCT FROM v_t.version THEN
+    RETURN QUERY SELECT 'VERSION_CHANGED'::text, v_t.version;
+    RETURN;
+  END IF;
+  -- consentement, ouverture et décision d'une personne : un seul à la fois
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('kyc.verification:' || v_user::text, 0));
+  INSERT INTO core.contract_consent (user_id, template_id, doc_kind, doc_version, locale, accepted,
+                                     accepted_at, context, country_code, c2_withheld)
+  VALUES (v_user, v_t.id, v_t.kind, v_t.version, v_t.locale, p_accepted, v_now, 'KYC',
+          v_country, true);
+  IF p_accepted THEN
+    RETURN QUERY SELECT 'RECORDED'::text, v_t.version;
+    RETURN;
+  END IF;
+
+  -- US-122 (ADR-124, F2-D-02) : un nouveau retrait reprend aussi les demandes d'effacement que
+  -- le fournisseur a refusées (FAILED) : elles redeviennent à traiter, jamais abandonnées
+  UPDATE core.kyc_erasure_request AS e
+     SET status = 'PENDING', completed_at = NULL, attestation_ref = NULL
+   WHERE e.user_id = v_user AND e.status = 'FAILED';
+  -- retrait : effacement et réexamen du dossier courant
+  SELECT v.* INTO v_v FROM core.kyc_identity_verification AS v
+   WHERE v.user_id = v_user AND v.is_current;
+  IF v_v.id IS NOT NULL THEN
+    INSERT INTO core.kyc_erasure_request (user_id, verification_id, provider, provider_session_ref)
+    SELECT v_user, v_v.id, v_v.provider, r.ref
+      FROM (SELECT v_v.provider_session_ref AS ref WHERE v_v.provider_session_ref IS NOT NULL
+            UNION
+            SELECT l.provider_session_ref FROM core.kyc_liveness_check AS l
+             WHERE l.verification_id = v_v.id AND l.erased_at IS NULL) AS r
+     WHERE v_v.provider IS NOT NULL;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    UPDATE core.kyc_liveness_check AS l
+       SET liveness_score = NULL, face_match_score = NULL, provider_session_ref = NULL,
+           erased_at = v_now
+     WHERE l.verification_id = v_v.id AND l.erased_at IS NULL;
+    UPDATE core.kyc_identity_document AS d SET provider_document_ref = NULL
+     WHERE d.verification_id = v_v.id AND d.provider_document_ref IS NOT NULL;
+    IF v_v.status IN ('PHONE_VERIFIED', 'DOCS_SUBMITTED', 'AUTO_CHECKS', 'MANUAL_REVIEW',
+                      'MORE_INFO_REQUIRED', 'APPROVED', 'RECHECK') THEN
+      UPDATE core.kyc_identity_verification AS v
+         SET status = 'RECHECK', decision_reason_code = 'CONSENT_WITHDRAWN',
+             attempt = v_v.attempt + 1, provider_session_ref = NULL, hosted_url = NULL,
+             session_expires_at = NULL, approved_at = NULL, expires_at = NULL,
+             row_version = v_v.row_version + 1, updated_at = v_now
+       WHERE v.id = v_v.id;
+      IF v_v.status <> 'RECHECK' THEN
+        PERFORM core.kyc_emit_status(v_v.id, v_user, v_v.row_version + 1, v_v.status, 'RECHECK',
+                                     'CONSENT_WITHDRAWN', v_v.country_code::text, v_user, 'GUEST');
+      END IF;
+    END IF;
+  END IF;
+  INSERT INTO core.outbox_outbox_event
+         (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+          actor_user_id, actor_role, correlation_id, payload, partition_key)
+  VALUES ('kyc.consent.withdrawn', 1, 'user_account', v_user, 0, v_country, v_user, 'GUEST',
+          pg_catalog.gen_random_uuid(),
+          pg_catalog.jsonb_build_object('user_id', v_user, 'verification_id', v_v.id,
+                                        'version', v_t.version, 'withdrawn_at', v_now,
+                                        'erasure_requests', v_n),
+          v_user::text);
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after)
+  VALUES (v_user, 'GUEST', 'KYC_CONSENT_WITHDRAWN', 'USER_ACCOUNT', v_user,
+          pg_catalog.jsonb_build_object('status', COALESCE(v_v.status, 'NOT_STARTED')),
+          pg_catalog.jsonb_build_object('status', CASE WHEN v_v.id IS NULL THEN 'NOT_STARTED'
+                                                       ELSE 'RECHECK' END,
+                                        'version', v_t.version, 'erasureRequests', v_n,
+                                        'country', v_country));
+  RETURN QUERY SELECT 'RECORDED'::text, v_t.version;
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
+
+-- 2.5 Pose d'un hold : consentement biométrique retiré refusé (définition de 0080 recopiée ;
+-- bloc US-122) ; sous cmd_hold_owner
+GRANT CREATE ON SCHEMA core TO cmd_hold_owner;
+SET LOCAL ROLE cmd_hold_owner;
+CREATE OR REPLACE FUNCTION core.booking_cmd_place_hold(
+  p_vehicle_id uuid,
+  p_start      timestamptz,
+  p_end        timestamptz,
+  p_flagged    boolean
+)
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_guest      uuid := app.actor_id();
+  v_org        uuid;
+  v_country    text;
+  v_holder     uuid;
+  v_org_status text;
+  v_buffer     integer;
+  v_ttl        integer;
+  v_max_total  integer;
+  v_max_live   integer;
+  v_rate       integer;
+  v_grace      integer;
+  v_order      text;
+  v_review     boolean;
+  v_minutes    integer;
+  v_live       integer;
+  v_overlap    boolean;
+  v_recent     integer;
+  v_now        timestamptz;
+  v_expires_at timestamptz;
+  v_period     tstzrange;
+  v_hold       uuid := pg_catalog.gen_random_uuid();
+  v_occupancy  uuid := pg_catalog.gen_random_uuid();
+  v_max_days   integer;
+  v_notice     integer;
+BEGIN
+  IF app.actor_kind() IS DISTINCT FROM 'GUEST' OR v_guest IS NULL THEN
+    RAISE EXCEPTION 'hold: forbidden'
+      USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'hold_forbidden';
+  END IF;
+  -- US-049 (RT-CONC-02) : bornes finies (une fin infinie occuperait le véhicule sans limite)
+  IF p_vehicle_id IS NULL OR p_start IS NULL OR p_end IS NULL OR NOT pg_catalog.isfinite(p_start)
+     OR NOT pg_catalog.isfinite(p_end) OR p_end <= p_start OR p_start <= platform.now() THEN
+    RAISE EXCEPTION 'hold: invalid period'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'occupancy_period_invalid';
+  END IF;
+
+  SELECT p.org_id, p.country_code INTO v_org, v_country
+    FROM core.booking_vehicle_party(p_vehicle_id) AS p;
+  IF v_org IS NULL OR v_country IS NULL THEN
+    RAISE EXCEPTION 'hold: vehicle unknown'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_vehicle_unknown';
+  END IF;
+  SELECT o.holder_user_id, o.status INTO v_holder, v_org_status
+    FROM core.iam_organization o
+   WHERE o.id = v_org AND o.country_code = v_country;
+  IF v_org_status IS DISTINCT FROM 'ACTIVE' THEN
+    RAISE EXCEPTION 'hold: host not active'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_host_not_active';
+  END IF;
+  -- self_booking_forbidden (16 BKG-012, ACC-014 ; OQ-P2P-09). US-049 (F-RLS-02) : le titulaire et
+  -- tout membre du compte d'hôte du véhicule. US-127 (ADR-110) : aussi tout membre d'un autre
+  -- compte d'hôte du titulaire (autre pays) et tout compte lié à l'une de ces personnes (constat
+  -- de l'ops, même identité vérifiée, même téléphone). Le même refus, sans détail, avant toute
+  -- lecture de l'occupation ; le signalement à l'ops est la commande
+  -- core.booking_cmd_report_self_booking (transaction distincte : ce refus annule celle-ci)
+  IF core.risk_self_booking_signal(v_guest, v_org) IS NOT NULL THEN
+    RAISE EXCEPTION 'hold: self booking'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_self_booking';
+  END IF;
+  -- US-109 (16 ADM-005, BKG-012 ; 08 BR-ACC-10) : une restriction ACTIVE du voyageur refuse toute
+  -- réservation ; celle du titulaire du compte d'hôte ferme ses véhicules (L1-PM-33)
+  IF EXISTS (SELECT 1 FROM core.iam_restriction r WHERE r.user_id = v_guest AND r.active) THEN
+    RAISE EXCEPTION 'hold: account restricted'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_account_restricted';
+  END IF;
+  IF EXISTS (SELECT 1 FROM core.iam_restriction r WHERE r.user_id = v_holder AND r.active) THEN
+    RAISE EXCEPTION 'hold: host not active'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_host_not_active';
+  END IF;
+  -- US-122 (ADR-124, F2-D-03 ; 16 VER-004 « paiement refusé ») : consentement biométrique
+  -- retiré (vérification courante en RECHECK, CONSENT_WITHDRAWN) : aucune réservation. Le
+  -- contrôle complet de l'éligibilité du conducteur à la pose reste à US-209
+  IF core.kyc_consent_withdrawn(v_guest) THEN
+    RAISE EXCEPTION 'hold: biometric consent withdrawn'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_kyc_consent_withdrawn';
+  END IF;
+
+  v_buffer    := core.booking_param_int('buffer_minutes', v_country);
+  v_ttl       := core.booking_param_int('hold_ttl_minutes', v_country);
+  v_max_total := core.booking_param_int('hold_max_total_minutes', v_country);
+  v_max_live  := core.booking_param_int('max_active_holds_per_guest', v_country);
+  v_rate      := core.booking_param_int('hold_creations_per_guest_vehicle_hour', v_country);
+  v_grace     := core.booking_param_int('sweep_grace_s', v_country);
+  v_max_days  := core.booking_param_int('max_trip_days', v_country);  -- US-049 (RT-CONC-02)
+  v_review    := COALESCE(p_flagged, true)
+                 AND COALESCE(core.booking_param_text('flagged_booking_payment_order', v_country),
+                              'REVIEW_BEFORE_CHARGE') IS DISTINCT FROM 'PAY_THEN_REVIEW';
+  IF v_review THEN
+    v_minutes := core.booking_param_int('review_hold_minutes', v_country);
+  ELSE
+    v_minutes := LEAST(v_ttl, v_max_total);
+  END IF;
+  -- US-119 (16 CAL-003, 08 BR-BOOK-04) : préavis du lieu de remise du véhicule, sinon du pays
+  v_notice    := core.catalog_effective_notice_minutes(p_vehicle_id);
+  IF v_buffer IS NULL OR v_ttl IS NULL OR v_max_total IS NULL OR v_max_live IS NULL
+     OR v_rate IS NULL OR v_grace IS NULL OR v_minutes IS NULL OR v_minutes < 1
+     OR v_max_days IS NULL OR v_max_days < 1 OR v_notice IS NULL THEN
+    RAISE EXCEPTION 'hold: parameter missing'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_param_missing';
+  END IF;
+  -- US-049 (RT-CONC-02) : durée de location au plus max_trip_days jours du pays (17 §7.2, ADM-031)
+  IF p_end - p_start > pg_catalog.make_interval(days => v_max_days) THEN
+    RAISE EXCEPTION 'hold: invalid period'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'occupancy_period_invalid';
+  END IF;
+  -- US-119 : départ au plus tôt à platform.now() + préavis (borne incluse : 3 h pile acceptée,
+  -- 2 h 59 refusée)
+  IF p_start < platform.now() + pg_catalog.make_interval(mins => v_notice) THEN
+    RAISE EXCEPTION 'hold: advance notice too short'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_notice_too_short';
+  END IF;
+  v_period := core.booking_occupied_period(p_start, p_end, v_buffer);
+
+  -- 0. verrous : guest puis véhicule (ordre global, 17 §2.5, VERIF_16-M2)
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('guest:' || v_guest::text, 0));
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('veh:' || p_vehicle_id::text, 0));
+
+  -- 2a. expiration ciblée : texte EXPIRY_2A_SQL de test/support/expiry-2a.ts (17 §2.5,
+  -- VERIF_16-M14, VERIF_17-A3 / A6), aux paramètres près (égalité vérifiée par expiry-2a.test.ts)
+  WITH t AS (SELECT platform.now() AS ts),
+     due AS (
+       SELECT h.id, h.occupancy_id
+         FROM core.booking_checkout_hold h, t
+        WHERE (h.vehicle_id = p_vehicle_id OR h.guest_user_id = v_guest)
+          AND h.status IN ('ACTIVE', 'PAYMENT_IN_FLIGHT')
+          AND h.expires_at <= t.ts
+          AND (h.payment_in_flight_until IS NULL OR h.payment_in_flight_until <= t.ts)
+          AND NOT EXISTS (SELECT 1 FROM core.payment_payment_operation o
+                           WHERE o.hold_id = h.id AND o.purpose = 'RENT'
+                             AND ( ( o.status IN ('PENDING','SUBMITTED','UNKNOWN')
+                                     AND (h.last_polled_at IS NULL OR h.last_polled_at < h.payment_in_flight_until)
+                                     AND t.ts < h.payment_in_flight_until + make_interval(secs => v_grace) )
+                                OR ( o.status = 'SUCCEEDED'
+                                     AND NOT EXISTS (SELECT 1 FROM core.booking_payment_disposition d
+                                                      WHERE d.operation_id = o.id) ) ))
+        FOR UPDATE OF h SKIP LOCKED
+     ), expired AS (
+       UPDATE core.booking_checkout_hold SET status = 'EXPIRED', expired_at = (SELECT ts FROM t)
+        WHERE id IN (SELECT id FROM due)
+       RETURNING occupancy_id
+     )
+     UPDATE core.booking_vehicle_occupancy
+        SET active = false, deactivated_reason = 'HOLD_EXPIRED'
+      WHERE id IN (SELECT occupancy_id FROM expired)
+        AND kind = 'HOLD';
+
+  -- 2b. contrôles entre hôtes, sous le verrou du voyageur (17 §2.3, RLS-3, RLS-4) : holds vivants
+  -- tous hôtes confondus, chevauchement avec ses trips (période sans tampon, BR-BOOK-08)
+  SELECT g.live_holds, g.trip_overlap INTO v_live, v_overlap
+    FROM platform.guest_hold_guard(pg_catalog.tstzrange(p_start, p_end, '[)')) AS g;
+  IF v_live IS NULL THEN
+    RAISE EXCEPTION 'hold: forbidden'
+      USING ERRCODE = 'insufficient_privilege', CONSTRAINT = 'hold_forbidden';
+  END IF;
+  IF v_overlap THEN
+    RAISE EXCEPTION 'hold: guest overlap'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_guest_overlap';
+  END IF;
+  IF v_live >= v_max_live THEN
+    RAISE EXCEPTION 'hold: live hold limit reached'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_guest_limit';
+  END IF;
+  -- rotation (17 §2.5 M5) : poses du voyageur sur ce véhicule dans l'heure glissante
+  v_now := platform.now();
+  SELECT pg_catalog.count(*)::integer INTO v_recent
+    FROM core.booking_checkout_hold h
+   WHERE h.guest_user_id = v_guest AND h.vehicle_id = p_vehicle_id
+     AND h.created_at > v_now - pg_catalog.make_interval(hours => 1);
+  IF v_recent >= v_rate THEN
+    RAISE EXCEPTION 'hold: rate limited'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'hold_rate_limited';
+  END IF;
+
+  -- 2c. occupation HOLD [début, fin + tampon) puis hold ; pas de guest_occupancy (17 §2.5)
+  v_expires_at := v_now + pg_catalog.make_interval(mins => v_minutes);
+  -- 23P01 vehicle_occupancy_no_overlap possible ici : créneau pris (2d : VEHICLE_UNAVAILABLE)
+  INSERT INTO core.booking_vehicle_occupancy
+         (id, vehicle_id, org_id, country_code, kind, source, period, active, expires_at,
+          ref_type, ref_id, created_by)
+  VALUES (v_occupancy, p_vehicle_id, v_org, v_country, 'HOLD', 'CHECKOUT', v_period, true,
+          v_expires_at, 'HOLD', v_hold, v_guest);
+  -- 23505 one_live_hold_per_guest_vehicle possible ici : hold vivant du même voyageur
+  INSERT INTO core.booking_checkout_hold
+         (id, guest_user_id, vehicle_id, org_id, country_code, occupancy_id, kind, status,
+          expires_at, review_required, created_at, created_by)
+  VALUES (v_hold, v_guest, p_vehicle_id, v_org, v_country, v_occupancy, 'CHECKOUT', 'ACTIVE',
+          v_expires_at, v_review, v_now, v_guest);
+
+  -- booking.hold.created (17 §2.5 : seul événement avant la preuve de paiement) ; aucune donnée
+  -- du voyageur dans le contenu (l'acteur est dans l'enveloppe)
+  INSERT INTO core.outbox_outbox_event
+         (type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+          actor_user_id, actor_role, correlation_id, payload, partition_key)
+  VALUES ('booking.hold.created', 1, 'checkout_hold', v_hold, 0, v_country, v_guest, 'GUEST',
+          pg_catalog.gen_random_uuid(),
+          pg_catalog.jsonb_build_object('hold_id', v_hold, 'vehicle_id', p_vehicle_id,
+                                        'org_id', v_org, 'expires_at', v_expires_at,
+                                        'review_required', v_review),
+          v_hold::text);
+  RETURN v_hold;
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
