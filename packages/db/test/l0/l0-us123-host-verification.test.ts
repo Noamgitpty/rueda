@@ -427,13 +427,13 @@ async function decideIn(
 }
 
 /**
- * Version de `host_tax_id_required_for_activation` (JSON) posée dans une transaction ANNULÉE à la
+ * Version de `host_tax_id_required_for_activation` (JSON ; null : valeur fermée, clé absente) posée dans une transaction ANNULÉE à la
  * fin (fixture 9986) : la preuve s'exécute dans cette transaction.
  */
 async function withTaxParam<T>(
   c: pg.ClientBase,
   country: string,
-  value: string,
+  value: string | null,
   fn: () => Promise<T>,
 ): Promise<T> {
   await c.query('BEGIN');
@@ -576,26 +576,33 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
     });
   });
 
-  it('critère 3, paramètre activé (true, ou mal formé : fail-closed) : sans numéro fiscal ⇒ dossier incomplet, non approuvable, compte non activable', async () => {
+  it('critère 3, paramètre activé (true, ou clé absente : fail-closed) : sans numéro fiscal ⇒ dossier incomplet, non approuvable, compte non activable', async () => {
     await withRole('app_api', async (c) => {
       const ops = await elevated(c, 'OPS_AGENT', [country]);
-      // 'null' : valeur mal formée, traitée comme une clé absente ⇒ numéro exigé (fail-closed)
-      for (const value of ['true', 'null']) {
+      // null : valeur en vigueur fermée, clé absente ⇒ numéro exigé (fail-closed)
+      for (const value of ['true', null]) {
         await withTaxParam(c, country, value, async () => {
           const { p, org } = await readyHost(c, country, { tax: false });
           const d = (
             await fixture<{ status: string; missing: string[] }>(c, 'us123_dossier', org)
           )[0];
-          expect(d, value).toMatchObject({
+          expect(d, String(value)).toMatchObject({
             status: 'DOCS_PENDING',
             missing: ['HOST_TAX_ID_REQUIRED'],
           });
           const st = await state(c, p, org);
-          expect(st, value).toMatchObject({ tax_required: true, tax_saved: false, tax_kind: null });
+          expect(st, String(value)).toMatchObject({
+            tax_required: true,
+            tax_saved: false,
+            tax_kind: null,
+          });
           expect(st.tax_kinds).toEqual(data(country).hostTaxIdKinds);
           expect(st.blockers).toContain('HOST_TAX_ID_REQUIRED');
           const r = await decideIn(c, ops, org, 'APPROVED', [country]);
-          expect(r, value).toMatchObject({ outcome: 'REFUSED', detail: 'HOST_TAX_ID_REQUIRED' });
+          expect(r, String(value)).toMatchObject({
+            outcome: 'REFUSED',
+            detail: 'HOST_TAX_ID_REQUIRED',
+          });
           expect(await fixture(c, 'us123_org_status', org)).toEqual([
             { us123_org_status: 'ONBOARDING' },
           ]);
