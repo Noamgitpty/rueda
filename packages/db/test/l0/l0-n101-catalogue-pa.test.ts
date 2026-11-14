@@ -75,8 +75,12 @@ describe('catalogue de la douane partagé (0095, 0096)', () => {
       'app_api',
       async (client) => {
         const { rows } = await client.query<{ market: string | null; n: number }>(
+          // app_api ne lit pas la provenance (0063) : en base « production », les variantes sans
+          // fiche sont exactement celles de la douane (la v1 a toujours la sienne)
           `SELECT market::text AS market, count(*)::int AS n FROM core.catalog_vehicle_variant
-            WHERE source = 'DNIT_ADUANAS_PY' GROUP BY market`,
+            WHERE transmission IS NULL AND fuel_type IS NULL AND drive IS NULL
+              AND seats IS NULL AND doors IS NULL AND trim_name IS NULL
+            GROUP BY market`,
         );
         expect(rows).toEqual([{ market: null, n: VARIANTS.length }]);
         const vigor = await client.query<{ name: string; year_from: number; year_to: null }>(
@@ -156,7 +160,8 @@ describe('catalogue de la douane partagé (0095, 0096)', () => {
         `SELECT count(*)::int AS n FROM core.catalog_vehicle_variant v
            JOIN core.catalog_vehicle_model o ON o.id = v.model_id
            JOIN core.catalog_vehicle_make m ON m.id = o.make_id
-          WHERE v.source = 'DNIT_ADUANAS_PY' AND m.slug NOT LIKE 'zz-%' AND v.status <> 'ACTIVE'`,
+          WHERE v.transmission IS NULL AND v.trim_name IS NULL AND m.slug NOT LIKE 'zz-%'
+            AND v.status <> 'ACTIVE'`,
       );
       expect(retired.rows[0]?.n).toBe(0);
     });
@@ -223,8 +228,8 @@ async function customsVariant(c: Tx, make: string, model: string): Promise<strin
     `SELECT v.id FROM core.catalog_vehicle_variant v
        JOIN core.catalog_vehicle_model o ON o.id = v.model_id
        JOIN core.catalog_vehicle_make m ON m.id = o.make_id
-      WHERE m.slug = $1 AND o.slug = $2 AND v.source = 'DNIT_ADUANAS_PY'
-        AND v.transmission IS NULL AND v.status = 'ACTIVE'`,
+      WHERE m.slug = $1 AND o.slug = $2 AND v.transmission IS NULL AND v.trim_name IS NULL
+        AND v.status = 'ACTIVE'`,
     [make, model],
   );
   if (rows.length !== 1 || !rows[0]) throw new Error(`variante de la douane ${make} ${model}`);
