@@ -4,7 +4,7 @@
  *
  * Un service de l'hébergeur (stockage objet, clés, secrets, files, courriel…) ne s'utilise que
  * derrière un port documenté (docs/ops/PORTABILITY.md), et son adaptateur arrive avec le choix de
- * l'hébergeur (Q-007). Ce test balaie les fichiers suivis par git et échoue sur :
+ * l'hébergeur (Q-007). Ce test balaie les sources (hors `node_modules` et sorties de compilation) et échoue sur :
  *   1. un SDK de fournisseur importé ou déclaré dans un `package.json` ;
  *   2. une constante de fournisseur : nom d'hôte de service, ARN, code de région.
  * L'IaC (`infra/`), l'image (`docker/`), les scripts de déploiement (`scripts/deploy/`) et la
@@ -12,8 +12,7 @@
  * inventoriés dans PORTABILITY.md. Un ajout légitime (adaptateur réel, lot C) passe par une
  * exception écrite ici, sous revue d'architecture.
  */
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -53,14 +52,21 @@ const PROVIDER_CONSTANTS: readonly RegExp[] = [
 
 const CODE = /\.(?:[cm]?[jt]sx?)$/;
 
-function trackedFiles(): string[] {
-  return execFileSync('git', ['ls-files', '-z', '--', 'apps', 'packages', 'package.json'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  })
-    .split('\0')
-    .filter((f) => f !== '' && f !== SELF && !f.includes('node_modules/'));
+/** Fichiers sources (le conteneur du guide d'installation n'a pas git : parcours du disque). */
+const SKIP = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.turbo', 'out']);
+function sourceFiles(): string[] {
+  const out: string[] = ['package.json'];
+  const walk = (rel: string): void => {
+    for (const entry of readdirSync(join(ROOT, rel), { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || SKIP.has(entry.name)) continue;
+      const path = `${rel}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (path !== SELF) out.push(path);
+    }
+  };
+  walk('apps');
+  walk('packages');
+  return out;
 }
 
 const isProviderPackage = (name: string): boolean =>
@@ -121,7 +127,7 @@ describe('US-036 — code neutre vis-à-vis du fournisseur cloud', () => {
   });
 
   it('apps/ et packages/ : aucun SDK de fournisseur, aucune constante de fournisseur', () => {
-    const files = trackedFiles();
+    const files = sourceFiles();
     expect(files.length).toBeGreaterThan(100); // fail-closed : un balayage vide est un échec
     const findings: string[] = [];
     for (const file of files) {

@@ -294,6 +294,13 @@ export async function verifyRestoredDatabase(
  * avant sauvegarde et après restauration ⇔ rôles et RLS intacts. SHA-256 d'un texte trié.
  */
 export async function catalogFingerprint(admin: pg.ClientBase): Promise<string> {
+  return createHash('sha256')
+    .update((await catalogLines(admin)).join('\n'), 'utf8')
+    .digest('hex');
+}
+
+/** Lignes triées de l'empreinte du catalogue (diagnostic d'un écart : US-036). */
+export async function catalogLines(admin: pg.ClientBase): Promise<string[]> {
   const { rows } = await admin.query<{ line: string }>(
     `SELECT line FROM (
        SELECT 'role ' || r.rolname || ' ' || r.rolsuper::text || r.rolbypassrls::text || r.rolcanlogin::text
@@ -325,9 +332,7 @@ export async function catalogFingerprint(admin: pg.ClientBase): Promise<string> 
      ) x ORDER BY line`,
     [[...MANAGED_ROLES], [...APP_SCHEMAS]],
   );
-  return createHash('sha256')
-    .update(rows.map((r) => r.line).join('\n'), 'utf8')
-    .digest('hex');
+  return rows.map((r) => r.line);
 }
 
 export interface DataFingerprint {

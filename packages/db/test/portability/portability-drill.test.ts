@@ -39,7 +39,7 @@ import {
 import type { Bucket, Classification, SubjectRef } from '../../src/audit/index.ts';
 import { FsFileStore } from '../../src/portability/fs-file-store.ts';
 import { LocalKeyWrapper } from '../../src/portability/local-key-wrapper.ts';
-import { catalogFingerprint, dataFingerprint } from '../../src/restore/verify.ts';
+import { catalogLines, dataFingerprint } from '../../src/restore/verify.ts';
 import type { DataFingerprint } from '../../src/restore/verify.ts';
 import { LOGIN_ROLES } from '../../src/roles.ts';
 import { randomPassword } from '../../src/scram.ts';
@@ -110,7 +110,7 @@ const state: {
   trips: Map<string, string[]>;
   admins: Map<string, string>;
   fingerprint?: DataFingerprint;
-  catalog?: string;
+  catalog?: string[];
   perCountry?: Record<string, number>;
   outputs: string[];
 } = { secrets: [], uploads: [], trips: new Map(), admins: new Map(), outputs: [] };
@@ -346,7 +346,7 @@ describe('US-036 — exercice de portabilité (changement d’hébergeur)', () =
     const admin = await openSourceAdmin();
     try {
       state.fingerprint = await dataFingerprint(admin);
-      state.catalog = await catalogFingerprint(admin);
+      state.catalog = await catalogLines(admin);
       state.perCountry = await perCountry(admin);
       // DEK en clair de chaque sujet (oracle du contrôle de fuite), lues à la source
       const wrapper = new LocalKeyWrapper(
@@ -435,7 +435,14 @@ describe('US-036 — exercice de portabilité (changement d’hébergeur)', () =
     const api = await openTarget('app_api'); // L0-05 sur la cible
     try {
       expect(await dataFingerprint(admin)).toEqual(state.fingerprint);
-      expect(await catalogFingerprint(admin)).toBe(state.catalog);
+      // écart montré ligne à ligne (rôle, politique, droits, fonction) plutôt qu'une empreinte
+      const lines = await catalogLines(admin);
+      const before = new Set(state.catalog);
+      const after = new Set(lines);
+      expect({
+        missing: (state.catalog ?? []).filter((l) => !after.has(l)),
+        extra: lines.filter((l) => !before.has(l)),
+      }).toEqual({ missing: [], extra: [] });
       expect(await perCountry(admin)).toEqual(state.perCountry);
       // chaque clé vivante est enveloppée par la clé maîtresse de la CIBLE, aucune par la source
       const target = LocalKeyWrapper.fromFile(paths().targetMaster, { RUEDA_ENV: ENVIRONMENT });
@@ -537,7 +544,12 @@ describe('US-036 — exercice de portabilité (changement d’hébergeur)', () =
         'files-manifest.json',
       ]),
     );
-    expect(names.some((n) => /master|private|secret/i.test(n))).toBe(false);
+    // aucun fichier de clé à la racine de l'export (les objets sont sous files/<bucket>/)
+    const top = names.filter((n) => !n.startsWith('files/'));
+    expect(
+      top.some((n) => /master|private|secret|[.]pem$/i.test(n)),
+      top.join(', '),
+    ).toBe(false);
     for (const f of files) {
       const text = readFileSync(f).toString('latin1');
       for (const s of state.secrets) expect(text.includes(s), f).toBe(false);
