@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 87 migrations ; 101 tables ; 2 vues ; 541 politiques RLS ; 183 fonctions `SECURITY DEFINER` ; 183 autres fonctions.
+- 87 migrations ; 101 tables ; 2 vues ; 542 politiques RLS ; 183 fonctions `SECURITY DEFINER` ; 184 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -2872,7 +2872,7 @@ Contraintes :
 
 Index :
 
-- `kyc_identity_verification_approved_user_idx` : `CREATE INDEX kyc_identity_verification_approved_user_idx ON core.kyc_identity_verification USING btree (user_id) WHERE (approved_at IS NOT NULL)`
+- `kyc_identity_verification_approved_user_idx` : `CREATE INDEX kyc_identity_verification_approved_user_idx ON core.kyc_identity_verification USING btree (user_id) WHERE (first_approved_at IS NOT NULL)`
 - `kyc_identity_verification_current_unique` : `CREATE UNIQUE INDEX kyc_identity_verification_current_unique ON core.kyc_identity_verification USING btree (user_id) WHERE is_current`
 - `kyc_identity_verification_session_unique` : `CREATE UNIQUE INDEX kyc_identity_verification_session_unique ON core.kyc_identity_verification USING btree (provider, provider_session_ref) WHERE (provider_session_ref IS NOT NULL)`
 
@@ -2883,9 +2883,11 @@ Politiques RLS :
 - `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `is_current` WITH CHECK `is_current`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `(approved_at IS NOT NULL)`
+- `risk_link_read_once` (SELECT, PERMISSIVE, risk_limit_owner) USING `(first_approved_at IS NOT NULL)`
 
 Déclencheurs :
 
+- `kyc_first_approved_keep` : `CREATE TRIGGER kyc_first_approved_keep BEFORE INSERT OR UPDATE ON core.kyc_identity_verification FOR EACH ROW EXECUTE FUNCTION core.kyc_first_approved_keep()`
 - `kyc_verification_review_queue` : `CREATE TRIGGER kyc_verification_review_queue AFTER UPDATE OF status ON core.kyc_identity_verification FOR EACH ROW WHEN (old.status IS DISTINCT FROM new.status) EXECUTE FUNCTION core.kyc_verification_review_queue()`
 
 ### `core.kyc_liveness_check`
@@ -5263,6 +5265,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_biometric_template(p_country text, p_language text)` | `SETOF core.contract_document_template` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_consent_current(p_user uuid, p_country text)` | `integer` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_emit_status(p_verification uuid, p_user uuid, p_version integer, p_from text, p_to text, p_reason text, p_country text, p_actor uuid, p_actor_role text)` | `void` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
+| `core.kyc_first_approved_keep()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.kyc_host_account_signaled(p_user uuid)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_activation_allowed(p_org uuid, p_country text)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_auto_approve(p_org uuid)` | `text` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
