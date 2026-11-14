@@ -436,11 +436,16 @@ describe('US-036 — exercice de portabilité (changement d’hébergeur)', () =
     try {
       expect(await dataFingerprint(admin)).toEqual(state.fingerprint);
       // écart montré ligne à ligne (rôle, politique, droits, fonction) plutôt qu'une empreinte
-      const lines = await catalogLines(admin);
-      const before = new Set(state.catalog);
+      // pg_dump ré-analyse l'expression d'une politique : `(a OR b) OR c` devient `a OR b OR c`
+      // (même sens). Les lignes de politique sont comparées sans parenthèses ni blancs ; une
+      // politique absente, ajoutée ou modifiée reste un écart.
+      const canon = (l: string): string => (l.startsWith('policy ') ? l.replace(/[()\s]/g, '') : l);
+      const lines = (await catalogLines(admin)).map(canon);
+      const source = (state.catalog ?? []).map(canon);
+      const before = new Set(source);
       const after = new Set(lines);
       expect({
-        missing: (state.catalog ?? []).filter((l) => !after.has(l)),
+        missing: source.filter((l) => !after.has(l)),
         extra: lines.filter((l) => !before.has(l)),
       }).toEqual({ missing: [], extra: [] });
       expect(await perCountry(admin)).toEqual(state.perCountry);

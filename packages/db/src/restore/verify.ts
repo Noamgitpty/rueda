@@ -291,7 +291,9 @@ export async function verifyRestoredDatabase(
 /**
  * Empreinte du CATALOGUE de sécurité (rôles gérés et leurs attributs, appartenances, politiques
  * RLS, drapeaux RLS, droits des tables et des fonctions, propriétaires, SECURITY DEFINER) : égale
- * avant sauvegarde et après restauration ⇔ rôles et RLS intacts. SHA-256 d'un texte trié.
+ * avant sauvegarde et après restauration ⇔ rôles et RLS intacts. SHA-256 d'un texte trié. Droits
+ * absents (NULL) = droits par défaut du propriétaire (`acldefault`) : une restauration LOGIQUE
+ * (pg_restore, US-036) n'écrit pas une ACL égale au défaut, sans rien changer aux droits.
  */
 export async function catalogFingerprint(admin: pg.ClientBase): Promise<string> {
   return createHash('sha256')
@@ -320,12 +322,12 @@ export async function catalogLines(admin: pg.ClientBase): Promise<string[]> {
        UNION ALL
        SELECT 'rel ' || n.nspname || '.' || c.relname || ' ' || c.relkind::text || ' '
               || c.relrowsecurity::text || c.relforcerowsecurity::text || ' '
-              || pg_catalog.pg_get_userbyid(c.relowner) || ' ' || coalesce(c.relacl::text, '')
+              || pg_catalog.pg_get_userbyid(c.relowner) || ' ' || coalesce(c.relacl, pg_catalog.acldefault(CASE c.relkind WHEN 'S' THEN 's' ELSE 'r' END::"char", c.relowner))::text
          FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = ANY($2::text[]) AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
        UNION ALL
        SELECT 'fn ' || p.oid::regprocedure::text || ' ' || pg_catalog.pg_get_userbyid(p.proowner)
-              || ' ' || p.prosecdef::text || ' ' || coalesce(p.proacl::text, '') || ' '
+              || ' ' || p.prosecdef::text || ' ' || coalesce(p.proacl, pg_catalog.acldefault('f', p.proowner))::text || ' '
               || coalesce(p.proconfig::text, '') || ' ' || md5(p.prosrc)
          FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = ANY($2::text[])
