@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 99 migrations ; 107 tables ; 2 vues ; 581 politiques RLS ; 196 fonctions `SECURITY DEFINER` ; 197 autres fonctions.
+- 99 migrations ; 107 tables ; 2 vues ; 582 politiques RLS ; 196 fonctions `SECURITY DEFINER` ; 197 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -208,6 +208,7 @@ Politiques RLS :
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `kyc_cmd_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = ANY (ARRAY['KYC_CONSENT_WITHDRAWN'::text, 'KYC_ERASURE_RECORDED'::text])) AND (subject_type = 'USER_ACCOUNT'::text))`
+- `kyc_cmd_erasure_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = 'KYC_ERASURE_RETRIED'::text) AND (subject_type = 'USER_ACCOUNT'::text))`
 - `kyc_cmd_host_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = ANY (ARRAY['HOST_VERIFICATION_SUBMITTED'::text, 'HOST_SANCTIONS_SCREENED'::text, 'HOST_TAX_PROFILE_SAVED'::text, 'HOST_VERIFICATION_DECIDED'::text, 'HOST_ACCOUNT_STATUS_CHANGED'::text, 'HOST_SCREENING_REVIEWED'::text])) AND (subject_type = 'ORGANIZATION'::text))`
 - `kyc_cmd_name_audit_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((action_code = 'LEGAL_NAME_CHANGED'::text) AND (subject_type = 'USER_ACCOUNT'::text))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
