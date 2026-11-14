@@ -117,7 +117,9 @@ describe('US-111 critère 1 — KYC de production sans registre validé', () => 
   it('hors production (base de test) : aucune garde, quel que soit le pays', async () => {
     await withRole('app_api', async (c) => {
       for (const { country } of COUNTRIES) {
-        expect(await one(c, 'SELECT core.privacy_kyc_register_gate($1) AS code', [country])).toEqual({
+        expect(
+          await one(c, 'SELECT core.privacy_kyc_register_gate($1) AS code', [country]),
+        ).toEqual({
           code: null,
         });
       }
