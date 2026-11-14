@@ -314,6 +314,13 @@ Aucune migration de production : les index de 2a (`checkout_hold_vehicle_status_
 - **Mesures** : lignes `[L0-02]` et `[L0-04]` du journal CI (40P01, rejeux, p50 / p95 / max, plan et temps d'exécution de 2a), à joindre au rapport L0 (US-027).
 - **L0-04** : 10 000 holds sur 1 000 véhicules par pays (`l0_seed_expiry_bench`, puis `ANALYZE`) ; plan `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` sous `app_worker` (`hold_expiry`), RLS comprise.
 
+## Performance de fumée et horloge réelle (US-045 ; 17 §6.7, §1.3 point 2 bis, §11 L0-06 ; ADR-119)
+
+Aucune migration de production. Aides `test/support/perf.ts` (tests unitaires `perf.test.ts`) ; fixture de test `test-migrations/9962_test_us045_real_clock_fixtures.sql`.
+
+- **Séries** : `pose.c1.autocommit` et `pose.c1.transactionnelle` (L0-02), `conversion.sequentielle` (l0-us024), `calendrier.sequentielle` (l0-us119), `publication.sequentielle` (l0-us118), en PA et en PY. `recordPerf` écrit une ligne `[PERF] {…}` et, si `RUEDA_QA_REPORT_DIR` est défini, `perf-<série>-<pays>.json` (artefact `perf-fumee` du job `base de données`). Cibles de 17 §6.7 sans changement ; seule la pose en autocommit est bloquante, les autres séries sont des alertes du tableau de bord QA ([`docs/qa/PERFORMANCE_FUMEE.md`](../../docs/qa/PERFORMANCE_FUMEE.md)).
+- **L0-06 en horloge réelle** (`test/l0/l0-06-real-clock.test.ts`, projet `l0-concurrence`) : C2, C5, C15 (a) et (c) sans `app.virtual_now`. `test_fixture.us045_short_hold_ttl(pays, fenêtre_s)` (`app_api`) écrit une version ordinaire de `hold_ttl_minutes` = 1 min, valable de `platform.now()` à `platform.now()` + fenêtre (au plus 60 s), le temps des poses ; aucune colonne gardée n'est écrite. Retour arrière : `DROP FUNCTION test_fixture.us045_short_hold_ttl(text, integer)`.
+
 ## Table d'occupation unique (US-022 ; 16 CAL-011, CAL-004 ; 08 BR-BOOK-05, BR-BOOK-07 ; 17 §2.5 ; ADR-060)
 
 `core.booking_vehicle_occupancy` est la seule source de vérité de la disponibilité d'un véhicule, tous canaux confondus : `HOLD` (checkout), `TRIP`, `HOST_BLOCK` (blocage manuel de l'hôte), `BUFFER` (tampon autonome). Une seule exclusion GiST `WHERE (active)` ; tout écrivain prend le verrou consultatif du véhicule (17 §2.5 M2).

@@ -136,7 +136,8 @@ jobs:
 
   tableau-de-bord-qa:
     # US-047, ADR-087 : tableau de bord QA de la nuit. Lit l'état de chaque job du run (API, lecture
-    # seule) et ses artefacts (graines d'échec C11, rapport de rapprochement, rapport de mutation),
+    # seule) et ses artefacts (graines d'échec C11, rapport de rapprochement, rapport de mutation,
+    # performance de fumée d'US-045 / ADR-119),
     # publie le résumé du run et l'artefact `tableau-de-bord-qa` (90 jours) avec les bogues à créer
     # et leur scénario rejouable. Aucune écriture dans le dépôt : l'orchestrateur verse les bogues
     # au tableau des stories (`node scripts/qa/nightly-dashboard.mjs board`).
@@ -178,7 +179,7 @@ jobs:
           done
           gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.run_started_at' > "$RUNNER_TEMP/qa/started"
           # artefacts absents (nuit verte : aucune graine d'échec) : rien à télécharger
-          for pattern in 'c11-failures-*' 'rapprochement-rapport' 'mutation-money'; do
+          for pattern in 'c11-failures-*' 'rapprochement-rapport' 'mutation-money' 'perf-fumee'; do
             gh run download "$RUN_ID" --repo "$REPO" --pattern "$pattern" --dir "$RUNNER_TEMP/qa/artefacts" \
               || echo "aucun artefact $pattern"
           done

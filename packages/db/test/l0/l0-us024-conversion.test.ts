@@ -33,6 +33,14 @@ import {
   waitUntilBlocked,
 } from '../support/concurrency.ts';
 import { legsJson } from '../support/pay.ts';
+import {
+  benchPgVersion,
+  recordPerf,
+  SMOKE_SAMPLES,
+  SMOKE_WARMUP,
+  summarize,
+  timed,
+} from '../support/perf.ts';
 
 // --- Paramètres de 17 §7.2 (graine US-013) -------------------------------------------------------
 const HOLD_MAX_TOTAL_MIN = 20; // hold_max_total_minutes
@@ -1785,6 +1793,40 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
           false,
         ),
       ).rejects.toMatchObject({ code: '42501' });
+    },
+    LONG,
+  );
+
+  // ---------------------------------------------------------------------------------------------
+  // US-045 : performance de fumée de la conversion (17 §6.7, ADR-119) — mesure consignée, alerte
+  // au tableau de bord QA au-delà de la cible ; l'exactitude de chaque conversion est exigée.
+  // ---------------------------------------------------------------------------------------------
+  it(
+    'fumée de performance (US-045) : conversion gardée séquentielle, p95 consigné, chaque issue CONVERTED',
+    async () => {
+      const T0 = era(30);
+      const total = SMOKE_WARMUP + SMOKE_SAMPLES;
+      const w = await world(c, total, total);
+      const ms: number[] = [];
+      for (let i = 0; i < total; i += 1) {
+        const g = w.guests[i] as string;
+        const slot = slotLater(w.vehicles[i] as string, w.orgId, T0);
+        const holdId = await pose(g, slot, T0);
+        await setTerms(holdId, c, slot);
+        const { operationId } = await order(g, holdId, w.account, at(T0, 1));
+        expect(await applyStatus(operationId, 'SUCCEEDED', at(T0, 2))).toBe('APPLIED');
+        const { value, ms: d } = await timed(() => convert(operationId, at(T0, 3)));
+        expect(value).toMatchObject({ outcome: 'CONVERTED', reacquired: false });
+        if (i >= SMOKE_WARMUP) ms.push(d);
+      }
+      const record = recordPerf({
+        series: 'conversion.sequentielle',
+        country: c.country,
+        summary: summarize(ms),
+        pgVersion: await benchPgVersion(),
+        details: { warmup: SMOKE_WARMUP, form: 'transaction booking_conversion (BEGIN … COMMIT)' },
+      });
+      expect(record.n).toBe(SMOKE_SAMPLES);
     },
     LONG,
   );

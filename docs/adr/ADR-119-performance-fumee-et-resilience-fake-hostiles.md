@@ -1,0 +1,34 @@
+# ADR-119 — Performance de fumée par chemin critique, historique des p95 par commit, FAKE hostiles au niveau des consommateurs
+
+- **Statut** : PROPOSÉ (US-045, agent QA, claude-opus-5-5, 2026-11-14). Revues exigées : code, architecture, QA (`review-requirements.json`, US-045) ; sécurité (`.github/`, `packages/db/`, `packages/fake-adapters/` non touché) ; argent et sécurité pour la note de 17 §2.5 (`docs/specs/17`).
+- **Sources** : 19 US-045 (critères), §1.8 (« Performance (fumée) », « Résilience ») ; 17 §6.7 (cibles PROPOSÉES), §2.5 (C1, C2, C5, C15, C16, C17, C19), §1.3 point 2 bis et §11 L0-06 ; ADR-032 (mode hostile), ADR-056 point 4 (formes d'appel de C1), ADR-087 (tableau de bord QA) ; suites N-16 et N-17 du BOARD.
+
+## Contexte
+
+1. Seule la pose (C1, L0-02) était mesurée, et seulement dans le journal. Une régression ne pouvait pas être rattachée à son commit : le p95 bloquant de C1 a dépassé 300 ms deux fois sur des PR la semaine du 2026-11-09 (310 puis 305 ms ; cause : garde d'auto-réservation sans index, corrigée par US-103, PR #138, pire cas mesuré ensuite 263 ms).
+2. La forme transactionnelle de C1 (ADR-056 point 4) dépasse 300 ms sur `main` depuis au moins le 2026-11-04 (N-16).
+3. La nuit (ADR-087) déclarait la famille « résilience » « à venir » ; les FAKE avaient un mode hostile (ADR-032) testé surtout au niveau des FAKE eux-mêmes.
+4. L0-06 exigeait une passe de C2, C5 et C15 sans horloge virtuelle (N-17).
+
+## Décision
+
+1. **Séries de fumée** (`packages/db/test/support/perf.ts`) : `pose.c1.autocommit`, `pose.c1.transactionnelle` (les deux courses de L0-02), `conversion.sequentielle` (`core.booking_convert_payment` sous `booking_conversion`, transaction complète), `calendrier.sequentielle` (en-tête et occupations de l'hôte, 12 blocages), `publication.sequentielle` (`catalog_cmd_submit_listing`, dans la transaction annulée, sans `COMMIT`). Chaque série tourne en PA et en PY, sous les rôles de production, avec 6 appels de chauffe écartés (plans « custom », ADR-056) et 40 échantillons ; l'issue de chaque appel est vérifiée. Durées côté client (aller-retour vu de l'API).
+2. **Cibles** : celles de 17 §6.7, sans changement. Rattachement PROPOSÉ : pose → « Création de hold < 300 ms » ; conversion → « Délai webhook → trip BOOKED < 10 s » (la conversion en est une étape) ; calendrier → « Fiche véhicule < 500 ms côté serveur » ; publication → **aucune cible** (consignée sans alerte). Seule `pose.c1.autocommit` est **bloquante** (son test échoue déjà, ADR-056) ; les autres sont des **alertes**. Aucun seuil n'est relâché ni ajouté : une alerte reste une alerte.
+3. **Publication à chaque passage** : `recordPerf` écrit une ligne `[PERF] {…}` et, si `RUEDA_QA_REPORT_DIR` est défini, `perf-<série>-<pays>.json` (schéma `rueda.perf-fumee/1` : n, p50, p95, max, cible, marge, alerte, commit, run, machine). Le job `base de données` de ci.yml publie l'artefact `perf-fumee` (`if: always()`, 90 jours) : un dépassement reste dans l'historique, même quand le test échoue. Aucun statut requis n'est ajouté, aucun job nouveau.
+4. **Attribution par commit** : `scripts/qa/perf-history.mjs` (lecture seule, `gh`) reconstruit l'historique des runs de ci.yml sur `main` (artefact, sinon le journal `[PERF]` ou, avant US-045, `[L0-02] C1 …`) et nomme, pour chaque série, pays et **modèle de processeur**, le dernier commit sous la cible et le premier au-dessus. Deux machines ne sont jamais comparées : le job `guide d'installation` (docker compose) et le job `base de données` (Testcontainers) ne mesurent pas sur le même hôte, et l'historique de `main` montre deux régimes de runner (p95 autocommit ≈ 80 à 110 ms contre 150 à 250 ms à code proche).
+5. **Tableau de bord QA** : la famille « Résilience et performance de fumée » devient **obligatoire**. Ses jobs attendus sont `qualité` (FAKE hostiles) et `base de données` (fumée, L0-06, C17), comptés aussi dans le reste de la CI (`alsoMatch`). Rapport absent alors que le job a réussi, série absente dans un pays mesuré, ou p95 ≥ cible ⇒ bogue S2 et nuit rouge. Le tableau affiche chaque série, sa cible et sa marge.
+6. **FAKE hostiles au niveau des consommateurs** (`resilience-*.test.ts` d'`apps/api`, tests unitaires sur les vrais FAKE scriptés, horloges virtuelles) : PSP (tempête de webhooks en double, inversés, retardés et rejoués ; lecture `LOOKUP` en panne ; PSP qui ignore l'idempotence ; panne prolongée), KYC (délais dépassés avant et après l'effet, retard, rappel perdu, hors d'ordre, doublon tardif, effacement en panne), SMS (`NotificationSender`, `OtpSender`), antivirus (photos d'annonce, documents du véhicule, sinistre). Chaque chemin est prouvé fail-closed, idempotent et sans double effet par nos soins. Le travailleur arrêté reste prouvé par C17 (`disposition_sweeper`), C19 par ses tests existants (garde, isolement de l'image, démarrage, base).
+7. **L0-06 en horloge réelle** (`l0-06-real-clock.test.ts`, fixture de test 9962) : C2, C5, C15 (a) et (c) sur `platform.now()` réel, sans `app.virtual_now` (vérifié dans chaque transaction). Les holds échoient en temps réel : `us045_short_hold_ttl` ouvre pour le pays une version de `hold_ttl_minutes` = 1 min fermée d'emblée (au plus 60 s, non rétroactive), le temps des poses ; le test attend l'échéance (≈ 1 min par pays). Le fichier tourne seul (projet `l0-concurrence`).
+8. **N-16** : révision ouverte dans 17 §2.5 (note PROPOSÉE sous le plan de test), seuil inchangé ; le choix entre les deux pistes d'ADR-056 revient à la story qui livre la pose de l'API, avant le lot 2.
+
+## Conséquences
+
+- Coût CI : quatre séries de 46 appels par pays (quelques secondes chacune) et la passe en horloge réelle (≈ 2 × 65 s) dans `base de données` ; mesuré sur la PR (passation US-045).
+- Les constats des tests de résilience qui ne sont pas des défauts du code testé (la sûreté d'un rejeu `PENDING` repose sur l'idempotence du PSP ; un rappel KYC perdu n'est pas rattrapé par `getStatus` ; le FAKE ne simule pas une lecture `LOOKUP` illisible) sont versés aux suites (passation US-045) : ils relèvent de la porte go / no-go du PSP, du rapprochement (US-047) et du paquet des FAKE.
+
+## Alternatives écartées
+
+- **Job ou workflow de performance dédié** : un runner de plus ne mesure pas la même machine que les autres, et ADR-056 (« Stabilité de la mesure ») n'a montré aucun effet du voisinage dans `base de données`.
+- **Historique écrit dans le dépôt par la CI** : exigerait `contents: write` (moindre privilège, ADR-087). Les artefacts et les journaux suffisent, en lecture seule.
+- **Relever la cible de la forme transactionnelle, ou en faire un seuil bloquant** : interdit (relâcher) ou hors du périmètre (décision de la révision de 17 §2.5).
+- **Inventer une cible pour la publication** : aucune n'existe dans 17 §6.7 ; elle se décide dans la révision, pas dans un test.

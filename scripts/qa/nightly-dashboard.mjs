@@ -14,8 +14,9 @@
 //           une famille obligatoire absente rend la nuit rouge même si chaque job a réussi).
 //
 // Familles de 19 §1.8 (« Chaque nuit : régression complète ») : parcours dorés, fuzz C11 à
-// 10 000, propriétés monétaires et oracles, mutation, rapprochement ; résilience et performance
-// arrivent avec US-045 (lot 1). Une famille obligatoire sans aucun job est ABSENTE : verdict rouge
+// 10 000, propriétés monétaires et oracles, mutation, rapprochement, résilience et performance de
+// fumée (US-045, ADR-119 : rapports `perf-fumee`, alerte par série au-dessus de sa cible de 17 §6.7).
+// Une famille obligatoire sans aucun job est ABSENTE : verdict rouge
 // et bogue (fail-closed). Gravité PROPOSÉE : S1 pour l'argent et la concurrence (19 §1.8, 16 :
 // « tout écart … ouvre un bogue S1 »), S2 sinon.
 //
@@ -37,6 +38,8 @@ export const DASHBOARD_JSON = 'qa-dashboard.json';
 export const DASHBOARD_MD = 'qa-dashboard.md';
 export const BOARD_SECTION = '## Bogues de la régression de nuit';
 export const SELF_JOB = /^tableau de bord QA/;
+
+const RESILIENCE_FAMILY = 'Résilience et performance de fumée';
 
 /** Un job attendu : au moins un job terminé avec succès dont le nom correspond. */
 const job = (label, re) => ({ label, re });
@@ -103,13 +106,22 @@ export const FAMILIES = [
     expected: [job('mutation de @rueda/money', /mutation de @rueda\/money/)],
   },
   {
+    // US-045 (ADR-119) : les preuves vivent dans les jobs de la suite rejouée — `qualité` pour les
+    // FAKE hostiles (`resilience-*.test.ts` de l'API, mode hostile de chaque port), `base de
+    // données` pour la performance de fumée (L0-02, conversion, calendrier, publication), la passe
+    // en horloge réelle (L0-06) et le travailleur arrêté (C17). `alsoMatch` les compte ici SANS les
+    // retirer du « reste de la CI ». Le rapport `perf-fumee` est exigé (fail-closed) et toute série
+    // au-dessus de sa cible ouvre une alerte (S2), même si le job est vert.
     id: 'resilience',
-    label: 'Résilience et performance',
-    required: false,
+    label: RESILIENCE_FAMILY,
+    required: true,
     severity: 'S2',
-    pending: 'à venir avec US-045 (lot 1)',
     match: [/résilience|performance/i],
-    expected: [],
+    alsoMatch: [/qualité \(lint/, /base de données \(PostgreSQL/],
+    expected: [
+      job('FAKE hostiles (qualité)', /qualité \(lint/),
+      job('performance de fumée (base de données)', /base de données \(PostgreSQL/),
+    ],
   },
   {
     id: 'ci',
@@ -223,7 +235,52 @@ export function parseJobs(text) {
 /** Familles d'un job (au moins une : « ci » à défaut). */
 export function familiesOf(name) {
   const ids = FAMILIES.filter((f) => f.match.some((re) => re.test(name))).map((f) => f.id);
-  return ids.length > 0 ? ids : ['ci'];
+  const also = FAMILIES.filter((f) => (f.alsoMatch ?? []).some((re) => re.test(name))).map(
+    (f) => f.id,
+  );
+  return [...(ids.length > 0 ? ids : ['ci']), ...also.filter((id) => !ids.includes(id))];
+}
+
+/** Séries de performance attendues dans chaque pays (packages/db/test/support/perf.ts, ADR-119). */
+export const PERF_SERIES = [
+  'pose.c1.autocommit',
+  'pose.c1.transactionnelle',
+  'conversion.sequentielle',
+  'calendrier.sequentielle',
+  'publication.sequentielle',
+];
+const PERF_SCHEMA = 'rueda.perf-fumee/1';
+const PERF_REPLAY = 'RUEDA_PG_TESTCONTAINERS=1 pnpm test:l0';
+
+/**
+ * Lit un rapport de performance ; `null` s'il est illisible ou d'un autre schéma (compté illisible,
+ * fail-closed). Ne garde que des nombres et des noms fermés : aucun texte libre n'atteint le
+ * Markdown, sauf le modèle de processeur, neutralisé par `cell`.
+ */
+export function perfRecord(raw) {
+  if (raw === null || typeof raw !== 'object' || raw.schema !== PERF_SCHEMA) return null;
+  if (!PERF_SERIES.includes(raw.series) || !/^[A-Z]{2}$/.test(String(raw.country))) return null;
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const p95 = num(raw.p95);
+  if (p95 === null || num(raw.n) === null) return null;
+  const targetMs = raw.target?.ms === null ? null : num(raw.target?.ms);
+  if (targetMs === null && raw.target?.ms !== null) return null;
+  const sha = raw.run?.sha;
+  return {
+    series: raw.series,
+    country: raw.country,
+    n: raw.n,
+    p50: num(raw.p50),
+    p95,
+    max: num(raw.max),
+    targetMs,
+    blocking: raw.target?.blocking === true,
+    marginMs: targetMs === null ? null : Math.round((targetMs - p95) * 10) / 10,
+    alert: targetMs !== null && p95 >= targetMs,
+    sha: typeof sha === 'string' && /^[0-9a-f]{7,40}$/.test(sha) ? sha : null,
+    cpu: typeof raw.run?.machine?.cpuModel === 'string' ? raw.run.machine.cpuModel : null,
+    cores: num(raw.run?.machine?.cores),
+  };
 }
 
 /** Verdict d'un job terminé ; un job en cours (hors ce job) ou inconnu compte comme un échec. */
@@ -296,7 +353,7 @@ export function replayOf(jobName, startedIso, artifacts) {
 
 /** Lit les artefacts téléchargés (`gh run download`) ; absents = rien (non fail-closed ici). */
 export function readArtifacts(dir) {
-  const out = { c11: {}, reconciliation: null, mutation: null, unreadable: [] };
+  const out = { c11: {}, reconciliation: null, mutation: null, perf: null, unreadable: [] };
   if (dir === undefined || !existsSync(dir)) return out;
   for (const name of readdirSync(dir)) {
     const m = /^c11-failures-([0-9])$/.exec(name);
@@ -323,6 +380,21 @@ export function readArtifacts(dir) {
       out.reconciliation = JSON.parse(readFileSync(rec, 'utf8'));
     } catch {
       out.unreadable.push('rapprochement-rapport');
+    }
+  }
+  const perfDir = join(dir, 'perf-fumee');
+  if (existsSync(perfDir)) {
+    out.perf = [];
+    for (const name of readdirSync(perfDir).sort()) {
+      if (!/^perf-.+\.json$/.test(name)) continue;
+      let r;
+      try {
+        r = perfRecord(JSON.parse(readFileSync(join(perfDir, name), 'utf8')));
+      } catch {
+        r = null;
+      }
+      if (r === null) out.unreadable.push(`perf-fumee/${name}`);
+      else out.perf.push(r);
     }
   }
   const mut = join(dir, 'mutation-money', 'mutation.json');
@@ -480,6 +552,51 @@ export function buildDashboard({ jobs, artifacts, runUrl, runId, sha, started, e
       url: runUrl,
     });
   }
+  // performance de fumée (US-045, ADR-119) : rapport exigé dès que le job qui le produit a réussi ;
+  // chaque série dans chaque pays mesuré ; une série au-dessus de sa cible = alerte (S2), même si
+  // le job est vert (aucun seuil relâché : seul C1 en autocommit fait échouer son test)
+  const perfJob = families
+    .find((f) => f.id === 'resilience')
+    .jobs.find((j) => /base de données \(PostgreSQL/.test(j.name) && j.verdict === 'OK');
+  const perf = artifacts.perf ?? null;
+  if (perfJob && (perf === null || perf.length === 0)) {
+    bugs.push({
+      key: `${runId}:perf:rapport`,
+      family: RESILIENCE_FAMILY,
+      job: 'rapport de performance de fumée absent (artefact perf-fumee)',
+      severity: 'S2',
+      replay: { commands: [PERF_REPLAY], note: 'avec RUEDA_QA_REPORT_DIR défini' },
+      url: perfJob.url ?? runUrl,
+    });
+  } else if (perf !== null && perf.length > 0) {
+    const countries = [...new Set(perf.map((r) => r.country))].sort();
+    for (const country of countries) {
+      for (const series of PERF_SERIES) {
+        if (perf.some((r) => r.country === country && r.series === series)) continue;
+        bugs.push({
+          key: `${runId}:perf:manque:${series}:${country}`,
+          family: RESILIENCE_FAMILY,
+          job: `série de performance absente : ${series} (${country})`,
+          severity: 'S2',
+          replay: { commands: [PERF_REPLAY], note: null },
+          url: runUrl,
+        });
+      }
+    }
+    for (const r of perf.filter((x) => x.alert)) {
+      bugs.push({
+        key: `${runId}:perf:alerte:${r.series}:${r.country}`,
+        family: RESILIENCE_FAMILY,
+        job: `alerte de performance : ${r.series} (${r.country}) p95 ${r.p95} ms ≥ cible ${r.targetMs} ms`,
+        severity: 'S2',
+        replay: {
+          commands: [PERF_REPLAY],
+          note: 'historique par commit : node scripts/qa/perf-history.mjs (ADR-119)',
+        },
+        url: runUrl,
+      });
+    }
+  }
   if (artifacts.unreadable.length > 0) {
     bugs.push({
       key: `${runId}:artefacts`,
@@ -507,6 +624,7 @@ export function buildDashboard({ jobs, artifacts, runUrl, runId, sha, started, e
     families,
     reconciliation: artifacts.reconciliation,
     mutation: artifacts.mutation,
+    performance: artifacts.perf ?? null,
     bugs,
   };
 }
@@ -545,6 +663,27 @@ export function renderMarkdown(d) {
         lines.push(`| ${cell(check)} | ${cell(key)} | ${cell(total)} |`);
       }
     }
+  }
+  if (d.performance && d.performance.length > 0) {
+    lines.push(
+      '',
+      '## Performance de fumée (US-045, ADR-119)',
+      '',
+      '| Série | Pays | n | p50 | p95 | max | Cible | Marge | État |',
+      '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    );
+    for (const r of d.performance) {
+      const target = r.targetMs === null ? '—' : `${r.targetMs}${r.blocking ? ' (bloquant)' : ''}`;
+      const margin = r.marginMs === null ? '—' : `${r.marginMs}`;
+      lines.push(
+        `| ${cell(r.series)} | ${cell(r.country)} | ${r.n} | ${r.p50} | ${r.p95} | ${r.max} | ${target} | ${margin} | ${r.alert ? 'ALERTE' : 'ok'} |`,
+      );
+    }
+    const m = d.performance[0];
+    lines.push(
+      '',
+      `Machine : ${cell(m.cpu ?? 'inconnue')}, ${m.cores ?? '?'} cœurs ; durées en ms, côté client.`,
+    );
   }
   lines.push('', `## Bogues (${d.bugs.length})`, '');
   if (d.bugs.length === 0) lines.push('Aucun.');

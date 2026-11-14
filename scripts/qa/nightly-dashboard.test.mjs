@@ -15,6 +15,8 @@ import {
   main,
   mutationScore,
   parseJobs,
+  PERF_SERIES,
+  perfRecord,
   readArtifacts,
   reconciliationViolations,
   renderMarkdown,
@@ -83,7 +85,28 @@ const REC_REPORT = {
   argent_X: { violations: '0', checks: { SETTLEMENT_LEGS_SUM: { total: '0', byCountry: {} } } },
   c12_X: { TRIP_WITHOUT_ACTIVE_OCCUPANCY: '0' },
 };
-const GREEN = { c11: {}, reconciliation: REC_REPORT, mutation: null, unreadable: [] };
+/** Rapport de performance (packages/db/test/support/perf.ts) : pays de test neutres X et Y. */
+const perfRaw = (series, country, p95, ms = 300) => ({
+  schema: 'rueda.perf-fumee/1',
+  series,
+  country,
+  n: 40,
+  p50: p95 / 2,
+  p95,
+  max: p95 + 1,
+  target: { ms: series.startsWith('publication') ? null : ms, ref: 'x', blocking: false },
+  run: { sha: 'b'.repeat(40), machine: { cpuModel: 'CPU de test', cores: 4 } },
+});
+const PERF_OK = ['XA', 'YB'].flatMap((cc) =>
+  PERF_SERIES.map((s) => perfRecord(perfRaw(s, cc, 100))),
+);
+const GREEN = {
+  c11: {},
+  reconciliation: REC_REPORT,
+  mutation: null,
+  perf: PERF_OK,
+  unreadable: [],
+};
 const build = (jobs, artifacts = GREEN, run = RUN) => buildDashboard({ ...run, jobs, artifacts });
 const verdicts = (d) => Object.fromEntries(d.families.map((f) => [f.id, f.verdict]));
 
@@ -109,7 +132,7 @@ test('verdict d’un job : seul « success » est OK ; en cours ou annulé = éc
   assert.equal(verdictOf({ name: 'x', status: 'in_progress', conclusion: null }), 'INCOMPLET');
 });
 
-test('nuit verte : toutes les familles OK, résilience à venir, jobs des PR ignorés, aucun bogue', () => {
+test('nuit verte : toutes les familles OK (résilience et performance comprises), jobs des PR ignorés, aucun bogue', () => {
   const d = build(nightJobs());
   assert.equal(d.verdict, 'VERT');
   assert.deepEqual(verdicts(d), {
@@ -118,7 +141,7 @@ test('nuit verte : toutes les familles OK, résilience à venir, jobs des PR ign
     fuzz: 'OK',
     proprietes: 'OK',
     mutation: 'OK',
-    resilience: 'À VENIR',
+    resilience: 'OK',
     ci: 'OK',
   });
   assert.equal(d.families.find((f) => f.id === 'fuzz').jobs.length, 10);
@@ -445,4 +468,89 @@ test('main : build, verdict puis board de bout en bout ; commande inconnue refus
   assert.match(readFileSync(boardFile, 'utf8'), /BUG-N20261105-01/);
   assert.throws(() => main(['autre']), /build, board ou verdict/);
   assert.throws(() => main(['build', '--jobs']), /valeur manquante/);
+});
+
+// --- US-045 (ADR-119) : résilience et performance de fumée --------------------------------------
+
+const DB = 'suite complète / base de données (PostgreSQL 16 réel, test:int, test:l0)';
+const QUALITY = 'suite complète / qualité (lint, types, unitaires, build, format)';
+
+test('résilience : qualité et base de données comptent aussi dans la famille, sans quitter le reste de la CI', () => {
+  assert.deepEqual(familiesOf(DB), ['ci', 'resilience']);
+  assert.deepEqual(familiesOf(QUALITY), ['ci', 'resilience']);
+  const d = build(nightJobs());
+  const res = d.families.find((f) => f.id === 'resilience');
+  assert.equal(res.verdict, 'OK');
+  assert.equal(res.required, true);
+  assert.equal(d.families.find((f) => f.id === 'ci').verdict, 'OK');
+  assert.match(renderMarkdown(d), /Performance de fumée/);
+  assert.match(
+    renderMarkdown(d),
+    /\| pose\.c1\.transactionnelle \| XA \| 40 \| 50 \| 100 \| 101 \| 300 \| 200 \| ok \|/,
+  );
+});
+
+test('performance : rapport absent alors que le job a réussi ⇒ ROUGE (fail-closed)', () => {
+  const d = build(nightJobs(), { ...GREEN, perf: null });
+  assert.equal(d.verdict, 'ROUGE');
+  assert.deepEqual(
+    d.bugs.map((b) => b.job),
+    ['rapport de performance de fumée absent (artefact perf-fumee)'],
+  );
+});
+
+test('performance : p95 ≥ cible ⇒ alerte S2 par série et pays, job vert ; sous la cible ⇒ rien', () => {
+  const perf = PERF_OK.map((r) =>
+    r.series === 'pose.c1.transactionnelle' && r.country === 'YB'
+      ? perfRecord(perfRaw(r.series, r.country, 305))
+      : r,
+  );
+  const d = build(nightJobs(), { ...GREEN, perf });
+  assert.equal(d.verdict, 'ROUGE');
+  assert.equal(d.bugs.length, 1);
+  assert.equal(d.bugs[0].severity, 'S2');
+  assert.equal(
+    d.bugs[0].job,
+    'alerte de performance : pose.c1.transactionnelle (YB) p95 305 ms ≥ cible 300 ms',
+  );
+  assert.match(renderMarkdown(d), /\| 305 \| 306 \| 300 \| -5 \| ALERTE \|/);
+  // exactement à la cible : alerte (« < 300 ms » de 17 §6.7) ; juste sous la cible : aucune
+  assert.equal(perfRecord(perfRaw('pose.c1.autocommit', 'XA', 300)).alert, true);
+  assert.equal(perfRecord(perfRaw('pose.c1.autocommit', 'XA', 299.9)).alert, false);
+  // sans cible (publication) : jamais d'alerte, marge vide
+  assert.deepEqual(
+    (({ alert, marginMs }) => ({ alert, marginMs }))(
+      perfRecord(perfRaw('publication.sequentielle', 'XA', 99_999)),
+    ),
+    { alert: false, marginMs: null },
+  );
+});
+
+test('performance : série manquante dans un pays ⇒ bogue ; rapport d’un autre schéma ⇒ illisible', () => {
+  const perf = PERF_OK.filter(
+    (r) => !(r.series === 'calendrier.sequentielle' && r.country === 'XA'),
+  );
+  const d = build(nightJobs(), { ...GREEN, perf });
+  assert.deepEqual(
+    d.bugs.map((b) => b.job),
+    ['série de performance absente : calendrier.sequentielle (XA)'],
+  );
+  assert.equal(perfRecord({ ...perfRaw('pose.c1.autocommit', 'XA', 1), schema: 'autre' }), null);
+  assert.equal(perfRecord({ ...perfRaw('inconnue', 'XA', 1) }), null);
+  assert.equal(perfRecord({ ...perfRaw('pose.c1.autocommit', 'XA', 1), p95: '1' }), null);
+});
+
+test('performance : readArtifacts lit perf-fumee/, compte un fichier illisible', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qa-perf-'));
+  mkdirSync(join(dir, 'perf-fumee'));
+  writeFileSync(
+    join(dir, 'perf-fumee', 'perf-pose.c1.autocommit-XA.json'),
+    JSON.stringify(perfRaw('pose.c1.autocommit', 'XA', 155)),
+  );
+  writeFileSync(join(dir, 'perf-fumee', 'perf-x-XA.json'), '{');
+  const a = readArtifacts(dir);
+  assert.equal(a.perf.length, 1);
+  assert.equal(a.perf[0].p95, 155);
+  assert.equal(a.perf[0].marginMs, 145);
+  assert.deepEqual(a.unreadable, ['perf-fumee/perf-x-XA.json']);
 });

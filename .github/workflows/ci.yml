@@ -52,6 +52,9 @@ jobs:
     env:
       # Le harnais d'US-005 démarre postgres:16 par Testcontainers sur le Docker du runner (ADR-043).
       RUEDA_PG_TESTCONTAINERS: '1'
+      # US-045, ADR-119 : rapports de la performance de fumée (un JSON par série et par pays),
+      # publiés en artefact pour l'historique des p95 par commit et le tableau de bord QA de la nuit.
+      RUEDA_QA_REPORT_DIR: ${{ github.workspace }}/qa-perf
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -68,6 +71,16 @@ jobs:
         run: bash scripts/ci/pg-smoke.sh
       - run: pnpm test:int
       - run: pnpm test:l0
+      - name: rapports de la performance de fumée
+        # toujours publiés, même sur échec : un dépassement reste dans l'historique (ADR-119) ;
+        # leur absence est relevée par le tableau de bord QA (fail-closed), pas ici
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-fumee
+          path: qa-perf/
+          if-no-files-found: ignore
+          retention-days: 90
 
   fuzz-c11:
     # US-025, ADR-068 : fuzz d'entrelacements C11 en mode court (1 000 exécutions, graine fixe) et
