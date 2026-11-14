@@ -71,8 +71,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
  Version 34 (numéro réservé par l'orchestrateur ; 32 et 33 aux PR en file) : écran « Apparence et
  marque » du back-office (US-120, O02) : `backoffice.o02.*`.
+ Version 37 (numéro attribué par l'orchestrateur ; 35 et 36 à US-103 et US-111) : numéro fiscal de
+ l'hôte facultatif, « jamais plus lourd que Turo » (US-123, ADR-115) : `web.a07.optional`,
+ `web.a07.tax.optionalHint` et `web.a07.tax.reminder` (rappel de l'obligation fiscale de l'hôte).
  */
-export const CATALOG_VERSION = 34;
+export const CATALOG_VERSION = 37;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

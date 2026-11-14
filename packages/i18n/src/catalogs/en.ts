@@ -1327,6 +1327,11 @@ export const EN_MESSAGES = {
   'web.a07.tax.saved': 'Number saved ({kind}).',
   'web.a07.tax.private': 'We store it encrypted and never show it to travelers.',
   'web.a07.tax.individualOnly': 'Individuals only: we do not accept companies.',
+  'web.a07.optional': 'Optional',
+  'web.a07.tax.optionalHint':
+    'You can add your tax number now or later. We will only ask for it if our payment provider needs it to pay you.',
+  'web.a07.tax.reminder':
+    'Your taxes are your responsibility. Under local tax rules, you may have to register with the tax authority, for example to get a taxpayer number, within a set time after your first rental income. Check with the tax authority or an accountant.',
   'web.a07.submit': 'Send my request',
   'web.a07.submitHint': 'You can send it even if a task is missing: we will tell you what is left.',
   'web.a07.status.DOCS_PENDING': 'Your request is incomplete.',

@@ -54,6 +54,9 @@ export const CAPABILITIES = {
   WEBHOOK_RETRY_POLICY: def('enum', false),
   WEBHOOK_ORDERING_GUARANTEE: def('enum', false),
   SUPPORTS_RESTRICTED_API_KEYS: def('bool', false),
+  // ADR-115 (PROPOSÉ ; écart à reporter dans 17 §2.8) : versement à un hôte sans numéro fiscal ;
+  // non bloquante pour tous, mais inconnue ⇒ numéro fiscal exigé à l'activation (KYC, 0087)
+  SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID: def('bool', false),
 } as const;
 
 export type CapabilityName = keyof typeof CAPABILITIES;
