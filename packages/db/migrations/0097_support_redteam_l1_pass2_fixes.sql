@@ -31,7 +31,8 @@
 -- Retour arrière :
 --   réappliquer core.support_staff_claim_item de 0064, core.support_staff_kyc_dossier et
 --     core.support_staff_profile de 0076, core.support_staff_host_dossier de 0081,
---     core.risk_staff_decide_account_link de 0080, core.support_subject_parties de 0093 (sous
+--     core.risk_staff_decide_account_link de 0080, core.support_subject_parties,
+--     core.support_staff_vehicle_item et core.support_staff_catalog_item de 0093 (sous
 --     iam_staff_owner) ; core.settlement_cmd_request_finance_action et
 --     core.settlement_cmd_approve_finance_action de 0036 (sous cmd_money_owner) ;
 --     core.privacy_worker_dsr_overdue de 0090 (sous privacy_cmd_owner) ;
@@ -190,8 +191,8 @@ GRANT EXECUTE ON FUNCTION core.support_staff_conflict(uuid, text, uuid) TO cmd_m
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
 
--- 1.3 Entrées de la console sous iam_staff_owner (définitions de 0064, 0076, 0081, 0080
--- recopiées à l'identique ; seuls les blocs marqués US-122 (ADR-124) changent) ------------
+-- 1.3 Entrées de la console sous iam_staff_owner (définitions de 0064, 0076, 0081, 0080 et
+-- 0093 recopiées à l'identique ; seuls les blocs marqués US-122 (ADR-124) changent) -------
 GRANT CREATE ON SCHEMA core TO iam_staff_owner;
 SET LOCAL ROLE iam_staff_owner;
 CREATE OR REPLACE FUNCTION core.support_staff_claim_item(p_token_hash bytea, p_request_id uuid, p_item_id uuid)
@@ -568,6 +569,131 @@ BEGIN
                                  'decision', p_decision, 'signal', p_signal),
                                NULL, p_request_id);
   RETURN QUERY SELECT 'RECORDED'::text, v_id;
+END
+$fn$;
+CREATE OR REPLACE FUNCTION core.support_staff_vehicle_item(p_user uuid, p_item_id uuid, p_subject_type text,
+                                                p_attempted text, p_request_id uuid,
+                                                OUT refusal text, OUT role text,
+                                                OUT subject_id uuid, OUT country_code text)
+  LANGUAGE plpgsql
+  VOLATILE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_item   record;
+  v_reason text;
+BEGIN
+  SELECT i.id, i.queue, i.subject_type, i.subject_id, i.country_code, i.status, i.assignee_id,
+         q.permission_code
+    INTO v_item
+    FROM core.support_review_queue_item AS i
+    JOIN core.support_review_queue AS q ON q.queue = i.queue
+   WHERE i.id = p_item_id
+     FOR UPDATE OF i;
+  IF v_item.id IS NOT NULL THEN
+    role := core.iam_staff_permitted(p_user, v_item.permission_code, ARRAY[v_item.country_code], NULL);
+  END IF;
+  v_reason := CASE
+    WHEN v_item.id IS NULL THEN 'SUBJECT_NOT_FOUND'
+    WHEN v_item.queue <> 'LISTING' OR v_item.subject_type <> p_subject_type THEN 'CASE'
+    WHEN role IS NULL THEN 'PERMISSION'
+    -- US-122 (ADR-124) : un sujet qui concerne l'agent est refusé comme tel avant tout
+    -- contrôle de prise en charge (la prise de l'élément lui est refusée aussi)
+    WHEN core.support_actor_conflict(p_user, v_item.subject_type, v_item.subject_id)
+      THEN 'SELF'
+    WHEN v_item.status NOT IN ('OPEN', 'IN_REVIEW') THEN 'CASE'
+    WHEN role <> 'ADMIN' AND v_item.assignee_id IS DISTINCT FROM p_user THEN 'CASE'
+    ELSE NULL END;
+  IF v_reason IS NOT NULL THEN
+    PERFORM core.iam_staff_audit(p_user, COALESCE(role, 'STAFF'), 'STAFF_FORBIDDEN',
+                                 'REVIEW_QUEUE_ITEM', p_item_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason', v_reason,
+                                   'attempted', p_attempted)
+                                 || CASE WHEN v_item.country_code IS NULL THEN '{}'::jsonb
+                                         ELSE pg_catalog.jsonb_build_object('country',
+                                                v_item.country_code) END,
+                                 NULL, p_request_id);
+    refusal := CASE WHEN v_reason = 'SELF' THEN 'SELF_FORBIDDEN'
+                    WHEN role IS NOT NULL AND v_reason = 'CASE' THEN 'CASE_REQUIRED'
+                    ELSE 'FORBIDDEN' END;
+    RETURN;
+  END IF;
+  -- US-122 (ADR-122, F-L1-C-03) : jamais un élément dont le sujet concerne l'acteur (titulaire ou
+  -- membre du compte, demandeur, compte du véhicule contesté, compte lié LINKED) ; journalisé
+  IF core.support_actor_conflict(p_user, v_item.subject_type, v_item.subject_id) THEN
+    PERFORM core.iam_staff_audit(p_user, role, 'STAFF_FORBIDDEN', 'REVIEW_QUEUE_ITEM', p_item_id,
+                                 NULL,
+                                 pg_catalog.jsonb_build_object('reason', 'SELF',
+                                   'attempted', p_attempted, 'country', v_item.country_code),
+                                 NULL, p_request_id);
+    refusal := 'SELF_FORBIDDEN';
+    RETURN;
+  END IF;
+  subject_id := v_item.subject_id;
+  country_code := v_item.country_code;
+END
+$fn$;
+CREATE OR REPLACE FUNCTION core.support_staff_catalog_item(p_user uuid, p_item_id uuid, p_attempted text,
+                                                p_request_id uuid,
+                                                OUT refusal text, OUT role text,
+                                                OUT subject_id uuid, OUT country_code text)
+  LANGUAGE plpgsql
+  VOLATILE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_item   record;
+  v_reason text;
+BEGIN
+  SELECT i.id, i.queue, i.subject_type, i.subject_id, i.country_code, i.status, i.assignee_id,
+         q.permission_code
+    INTO v_item
+    FROM core.support_review_queue_item AS i
+    JOIN core.support_review_queue AS q ON q.queue = i.queue
+   WHERE i.id = p_item_id
+     FOR UPDATE OF i;
+  IF v_item.id IS NOT NULL THEN
+    role := core.iam_staff_permitted(p_user, v_item.permission_code, ARRAY[v_item.country_code], NULL);
+  END IF;
+  v_reason := CASE
+    WHEN v_item.id IS NULL THEN 'SUBJECT_NOT_FOUND'
+    WHEN v_item.queue <> 'CATALOG_ADDITION' OR v_item.subject_type <> 'CATALOG_ADDITION_REQUEST'
+      THEN 'CASE'
+    WHEN role IS NULL THEN 'PERMISSION'
+    -- US-122 (ADR-124) : un sujet qui concerne l'agent est refusé comme tel avant tout
+    -- contrôle de prise en charge (la prise de l'élément lui est refusée aussi)
+    WHEN core.support_actor_conflict(p_user, v_item.subject_type, v_item.subject_id)
+      THEN 'SELF'
+    WHEN v_item.status NOT IN ('OPEN', 'IN_REVIEW') THEN 'CASE'
+    WHEN role <> 'ADMIN' AND v_item.assignee_id IS DISTINCT FROM p_user THEN 'CASE'
+    ELSE NULL END;
+  IF v_reason IS NOT NULL THEN
+    PERFORM core.iam_staff_audit(p_user, COALESCE(role, 'STAFF'), 'STAFF_FORBIDDEN',
+                                 'REVIEW_QUEUE_ITEM', p_item_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason', v_reason,
+                                   'attempted', p_attempted)
+                                 || CASE WHEN v_item.country_code IS NULL THEN '{}'::jsonb
+                                         ELSE pg_catalog.jsonb_build_object('country',
+                                                v_item.country_code) END,
+                                 NULL, p_request_id);
+    refusal := CASE WHEN v_reason = 'SELF' THEN 'SELF_FORBIDDEN'
+                    WHEN role IS NOT NULL AND v_reason = 'CASE' THEN 'CASE_REQUIRED'
+                    ELSE 'FORBIDDEN' END;
+    RETURN;
+  END IF;
+  -- US-122 (ADR-122, F-L1-C-03) : jamais un élément dont le sujet concerne l'acteur (titulaire ou
+  -- membre du compte, demandeur, compte du véhicule contesté, compte lié LINKED) ; journalisé
+  IF core.support_actor_conflict(p_user, v_item.subject_type, v_item.subject_id) THEN
+    PERFORM core.iam_staff_audit(p_user, role, 'STAFF_FORBIDDEN', 'REVIEW_QUEUE_ITEM', p_item_id,
+                                 NULL,
+                                 pg_catalog.jsonb_build_object('reason', 'SELF',
+                                   'attempted', p_attempted, 'country', v_item.country_code),
+                                 NULL, p_request_id);
+    refusal := 'SELF_FORBIDDEN';
+    RETURN;
+  END IF;
+  subject_id := v_item.subject_id;
+  country_code := v_item.country_code;
 END
 $fn$;
 RESET ROLE;

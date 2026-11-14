@@ -401,13 +401,14 @@ describe('US-106 — refus de la commande : rien n’est écrit', () => {
   );
 
   it.each(byCountry)(
-    '%s (%s) : jamais sa propre vérification (SELF_FORBIDDEN), même avec l’élément pris en charge',
+    '%s (%s) : jamais sa propre vérification (SELF_FORBIDDEN), ni la prise de son propre élément (US-122, ADR-124)',
     async (country) => {
       await withRole('app_api', async (c) => {
         const r = await toReview(c, country);
         const me = await elevateAs(c, r.userId, 'OPS_AGENT', [country]);
         const [item] = await itemsOf(c, r.userId);
-        expect((await claim(c, me, item?.id ?? '')).outcome).toBe('CLAIMED');
+        // US-122 (ADR-124, F2-C-02) : la prise de son propre élément KYC est refusée elle aussi
+        expect((await claim(c, me, item?.id ?? '')).outcome).toBe('SELF_FORBIDDEN');
         expect(await decide(c, me, r.verificationId, checks('APPROVED'))).toMatchObject({
           outcome: 'REFUSED',
           detail: 'SELF_FORBIDDEN',
