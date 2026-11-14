@@ -154,11 +154,14 @@ async function catalogItem(country: string): Promise<string> {
 }
 
 /**
- * Element neuf de la file LISTING du pays, sujet VEHICLE ou VEHICLE_CLAIM (US-124) : aucun vehicule
- * ni contestation derriere ; un acteur autorise recoit 403 STAFF_CASE_REQUIRED (non pris en charge)
+ * Element neuf de la file LISTING du pays, sujet VEHICLE, VEHICLE_CLAIM (US-124) ou LISTING (US-118) :
+ * aucun vehicule, contestation ni annonce derriere ; un acteur autorise recoit 403 STAFF_CASE_REQUIRED (non pris en charge)
  * ou 409 / 404 (ADMIN), jamais 401 / 403 FORBIDDEN.
  */
-async function vehicleItem(country: string, subject: 'VEHICLE' | 'VEHICLE_CLAIM'): Promise<string> {
+async function vehicleItem(
+  country: string,
+  subject: 'VEHICLE' | 'VEHICLE_CLAIM' | 'LISTING',
+): Promise<string> {
   const { rows } = await client.query<{ item_id: string }>(
     `SELECT item_id FROM test_fixture.us109_enqueue('LISTING', $3, $1, $2)`,
     [randomUUID(), country, subject],
@@ -471,6 +474,13 @@ async function requestOf(
         path: `/console/queues/items/${await vehicleItem(country, 'VEHICLE')}/vehicle/decide`,
         body: { requestId: id, checklist: {}, documents: [] },
       };
+    // revue d'une annonce (US-118) : élément LISTING neuf, sujet LISTING, aucune annonce derrière
+    case 'POST /console/queues/items/{id}/listing/decide':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await vehicleItem(country, 'LISTING')}/listing/decide`,
+        body: { requestId: id, decision: 'REJECT', reason: 'PHOTO_QUALITY' },
+      };
     case 'POST /console/queues/items/{id}/vehicle-claim':
       return {
         method: 'POST',
@@ -636,6 +646,12 @@ async function requestOf(
       return {
         method: 'POST',
         path: `/host/accounts/${id}/listings/${randomUUID()}/submit`,
+        body: {},
+      };
+    case 'POST /host/accounts/{orgId}/listings/{listingId}/unlist':
+      return {
+        method: 'POST',
+        path: `/host/accounts/${id}/listings/${randomUUID()}/unlist`,
         body: {},
       };
     case 'POST /host/accounts/{orgId}/listings/{listingId}/photos':

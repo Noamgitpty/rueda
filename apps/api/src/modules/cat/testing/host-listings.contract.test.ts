@@ -332,8 +332,15 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     });
     expect(bad.status).toBe(400);
     const fields = (bad.json as { fields: { field: string }[] }).fields.map((f) => f.field).sort();
-    expect(fields).toEqual(['plate', 'seats', 'vin']);
+    // le format du numéro de châssis est jugé par la base (ADR-113) : ici, seuls les caractères
+    expect(fields).toEqual(['plate', 'seats']);
     expect(bad.text).not.toContain('IOQ');
+    const dotted = await api.request('POST', `${base}/vehicles`, {
+      headers: w.a,
+      body: { ...vehicleBody(locationId, 'cd-9'), vin: 'GRJ150.0012345' },
+    });
+    expect(dotted.status).toBe(400);
+    expect(dotted.json).toMatchObject({ fields: [{ field: 'vin', reason: 'INVALID' }] });
     // emplacement d'un autre (ou inconnu) : 404
     expect(
       (
@@ -353,6 +360,17 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
         })
       ).status,
     ).toBe(422);
+    // numéro de châssis refusé par la base : message dédié (ADR-113)
+    w.store.forced = 'VEHICLE_VIN_INVALID';
+    const vinRefused = await api.request('POST', `${base}/vehicles`, {
+      headers: w.a,
+      body: { ...vehicleBody(locationId, 'yy-2'), vin: 'IOQ45678901234567' },
+    });
+    expect(vinRefused.status).toBe(422);
+    expect(vinRefused.json).toMatchObject({
+      code: 'VEHICLE_VIN_INVALID',
+      messageKey: 'common.vehicleDocs.vinInvalid',
+    });
     // lieu : corps invalide, épingle à moitié posée, 415
     for (const body of [{}, { ...LOCATION, lng: undefined }, { ...LOCATION, extra: 1 }]) {
       expect((await api.request('POST', `${base}/locations`, { headers: w.a, body })).status).toBe(
@@ -389,12 +407,40 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
       expect(refused.status).toBe(422);
       expect(refused.json).toMatchObject({ code });
     }
-    w.store.forced = 'DONE';
+    // US-118 : publiée dès les contrôles automatiques (LISTED) ; revue exigée par le pays
+    // (PENDING_REVIEW) ; motifs de refus de la base traduits (code et statut HTTP de 16)
+    w.store.forced = 'LISTED';
     const done = await submit();
     expect(done.status).toBe(200);
-    expect(done.json).toMatchObject({ code: 'LISTING_SUBMITTED', status: 'PENDING_REVIEW' });
-    w.store.forced = 'LISTING_TRANSITION_FORBIDDEN';
-    expect((await submit()).status).toBe(409);
+    expect(done.json).toMatchObject({
+      code: 'LISTING_PUBLISHED',
+      messageKey: 'common.listing.published',
+      status: 'LISTED',
+    });
+    w.store.forced = 'PENDING_REVIEW';
+    const review = await submit();
+    expect(review.status).toBe(200);
+    expect(review.json).toMatchObject({ code: 'LISTING_SUBMITTED', status: 'PENDING_REVIEW' });
+    for (const [outcome, status, messageKey] of [
+      ['INSURER_CONTRACT_INACTIVE', 422, 'common.listing.insurerInactive'],
+      ['LOCATION_AREA_ADDRESS', 422, 'common.listing.areaLooksLikeAddress'],
+      ['LOCATION_CITY_INVALID', 422, 'common.listing.cityInvalid'],
+      ['VEHICLE_DESCRIPTION_INVALID', 422, 'common.listing.vehicleDescriptionInvalid'],
+      ['VEHICLE_ELIGIBILITY_REQUIRED', 409, 'common.listing.vehicleEligibilityRequired'],
+      ['VEHICLE_UNDER_REVIEW', 409, 'common.vehicleDocs.underReview'],
+      ['VEHICLE_INELIGIBLE', 409, 'common.vehicleDocs.ineligible'],
+      ['VEHICLE_RELEASED', 409, 'common.vehicleDocs.released'],
+      ['VEHICLE_DOCUMENT_EXPIRED', 422, 'common.vehicleDocs.documentExpired'],
+      ['LISTING_TRANSITION_FORBIDDEN', 409, 'common.listing.transitionForbidden'],
+    ] as const) {
+      w.store.forced = outcome;
+      const r = await submit();
+      expect(r.status, outcome).toBe(status);
+      expect(r.json, outcome).toEqual({ code: outcome, messageKey });
+    }
+    // issue inconnue de la base (version N servie pendant un déploiement) : 503, jamais 200
+    w.store.forced = 'DONE';
+    expect((await submit()).status).toBe(503);
     w.store.forced = null;
     expect(
       (await api.request('POST', `${d.base}/listings/${d.listingId}/submit`, { ...textBody(w.a) }))
@@ -421,7 +467,101 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     expect((again.json as { listingId: string }).listingId).not.toBe(d.listingId);
   });
 
-  it('US-114 : véhicule hors catalogue ⇒ demande d’ajout OPEN lue avec le véhicule ; soumission ⇒ 409 CATALOG_ADDITION_PENDING (annonce DRAFT) ; nouvelle demande ⇒ 409 CATALOG_REQUEST_DUPLICATE tant qu’une demande est ouverte, 201 après un refus ; véhicule rattaché ⇒ 409 CATALOG_ALREADY_LINKED', async () => {
+  it('US-118 : retrait LISTED → UNLISTED (200), trip à venir ⇒ 409 LISTING_HAS_FUTURE_TRIPS, annonce non publiée ⇒ 409 ; remise en ligne par la publication ; suppression d’une annonce retirée ; zone qui ressemble à une adresse ⇒ 422 LOCATION_AREA_ADDRESS rattaché au champ', async () => {
+    const w = await world();
+    const api = w.app.api;
+    const d = await draft(w);
+    const unlist = (headers = w.a, listingId = d.listingId) =>
+      api.request('POST', `${d.base}/listings/${listingId}/unlist`, { headers, body: {} });
+    // brouillon : rien à retirer (SM-2)
+    const notListed = await unlist();
+    expect(notListed.status).toBe(409);
+    expect(notListed.json).toEqual({
+      code: 'LISTING_TRANSITION_FORBIDDEN',
+      messageKey: 'common.listing.transitionForbidden',
+    });
+    // annonce publiée (publication prouvée en base, l0-us118) ; trip à venir : retrait refusé
+    const l = w.store.listingsById.get(d.listingId);
+    if (l) l.status = 'LISTED';
+    w.store.futureTrips.add(d.listingId);
+    const busy = await unlist();
+    expect(busy.status).toBe(409);
+    expect(busy.json).toEqual({
+      code: 'LISTING_HAS_FUTURE_TRIPS',
+      messageKey: 'common.listing.hasFutureTrips',
+    });
+    expect(w.store.listingsById.get(d.listingId)?.status).toBe('LISTED');
+    w.store.futureTrips.delete(d.listingId);
+    const done = await unlist();
+    expect(done.status).toBe(200);
+    expect(done.json).toEqual({
+      code: 'LISTING_UNLISTED',
+      messageKey: 'common.listing.unlisted',
+      status: 'UNLISTED',
+    });
+    // annonce retirée : suppression refusée tant qu'un trip est à venir, permise ensuite
+    w.store.futureTrips.add(d.listingId);
+    const delBusy = await api.request('DELETE', `${d.base}/listings/${d.listingId}`, {
+      headers: w.a,
+    });
+    expect(delBusy.status).toBe(409);
+    expect(delBusy.json).toMatchObject({ code: 'LISTING_HAS_FUTURE_TRIPS' });
+    w.store.futureTrips.delete(d.listingId);
+    // IDOR : B, compte d'un autre, identifiant mal formé ⇒ 404 ; sans session ⇒ 401 ; texte ⇒ 415
+    expect((await unlist(w.b)).status).toBe(404);
+    expect(
+      (
+        await api.request('POST', `/host/accounts/${w.orgB}/listings/${d.listingId}/unlist`, {
+          headers: w.a,
+          body: {},
+        })
+      ).status,
+    ).toBe(404);
+    expect((await unlist(w.a, 'pas-un-uuid')).json).toMatchObject({ code: 'LISTING_NOT_FOUND' });
+    expect(
+      (await api.request('POST', `${d.base}/listings/${d.listingId}/unlist`, { body: {} })).status,
+    ).toBe(401);
+    expect(
+      (await api.request('POST', `${d.base}/listings/${d.listingId}/unlist`, { ...textBody(w.a) }))
+        .status,
+    ).toBe(415);
+    w.store.failing = true;
+    const down = await unlist();
+    expect(down.status).toBe(503);
+    expect(down.json).toMatchObject({ code: 'LISTING_UNAVAILABLE' });
+    w.store.failing = false;
+    const removed = await api.request('DELETE', `${d.base}/listings/${d.listingId}`, {
+      headers: w.a,
+    });
+    expect(removed.json).toMatchObject({ code: 'LISTING_DELETED', status: 'DELETED' });
+    // zone affichée qui ressemble à une adresse (BOARD N-62) : 422, champ désigné, rien d'écrit
+    const before = w.store.locationsById.size;
+    const area = await api.request('POST', `${d.base}/locations`, {
+      headers: w.a,
+      body: { ...LOCATION, areaLabel: 'Calle 50 #12' },
+    });
+    expect(area.status).toBe(422);
+    expect(area.json).toEqual({
+      code: 'LOCATION_AREA_ADDRESS',
+      messageKey: 'common.listing.areaLooksLikeAddress',
+      fields: [{ field: 'areaLabel', reason: 'INVALID' }],
+    });
+    expect(w.store.locationsById.size).toBe(before);
+    // ville qui porte une adresse ou un contact (revue sécurité) : 422, champ désigné
+    const city = await api.request('POST', `${d.base}/locations`, {
+      headers: w.a,
+      body: { ...LOCATION, city: 'Ciudad ana@example.test' },
+    });
+    expect(city.status).toBe(422);
+    expect(city.json).toEqual({
+      code: 'LOCATION_CITY_INVALID',
+      messageKey: 'common.listing.cityInvalid',
+      fields: [{ field: 'city', reason: 'INVALID' }],
+    });
+    expect(w.store.locationsById.size).toBe(before);
+  });
+
+  it('US-114 : véhicule hors catalogue ⇒ demande d’ajout OPEN lue avec le véhicule ; elle ne bloque plus la publication (US-118, DEC-FONDATEUR-22 : la soumission va jusqu’à l’activation) ; nouvelle demande ⇒ 409 CATALOG_REQUEST_DUPLICATE tant qu’une demande est ouverte, 201 après un refus ; véhicule rattaché ⇒ 409 CATALOG_ALREADY_LINKED', async () => {
     const w = await world();
     const api = w.app.api;
     const d = await draft(w, { offCatalog: true });
@@ -448,11 +588,9 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
       headers: w.a,
       body: {},
     });
-    expect(pending.status).toBe(409);
-    expect(pending.json).toMatchObject({
-      code: 'CATALOG_ADDITION_PENDING',
-      messageKey: 'common.catalogAddition.pending',
-    });
+    // plus de CATALOG_ADDITION_PENDING : la garde suivante (pays fermé) répond
+    expect(pending.status).toBe(422);
+    expect(pending.json).toMatchObject({ code: 'HOST_NOT_ACTIVATED' });
     expect(w.store.listingsById.get(d.listingId)?.status).toBe('DRAFT');
     const ask = (body: unknown, vehicleId = d.vehicleId, headers = w.a, base = d.base) =>
       api.request('POST', `${base}/vehicles/${vehicleId}/catalog-request`, { headers, body });
@@ -476,8 +614,8 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
       headers: w.a,
       body: {},
     });
-    expect(refused.status).toBe(409);
-    expect(refused.json).toMatchObject({ code: 'CATALOG_ADDITION_REJECTED' });
+    expect(refused.status).toBe(422);
+    expect(refused.json).toMatchObject({ code: 'HOST_NOT_ACTIVATED' });
     const again = await ask({ makeText: 'Chery', modelText: 'Tiggo 2', trim: 'Comfort' });
     expect(again.status).toBe(201);
     expect(again.json).toMatchObject({

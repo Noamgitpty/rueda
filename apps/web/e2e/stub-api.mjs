@@ -596,7 +596,7 @@ async function hostRoute(req, res, url) {
     });
   }
   const m =
-    /^\/host\/accounts\/([0-9a-f-]{36})\/(locations|vehicles|listings)(?:\/([0-9a-f-]{36})(?:\/(pricing|submit|photos))?)?$/.exec(
+    /^\/host\/accounts\/([0-9a-f-]{36})\/(locations|vehicles|listings)(?:\/([0-9a-f-]{36})(?:\/(pricing|submit|unlist|photos))?)?$/.exec(
       path,
     );
   if (m === null) return false;
@@ -629,6 +629,14 @@ async function hostRoute(req, res, url) {
         code: 'REQUEST_INVALID',
         messageKey: 'common.auth.requestInvalid',
         fields: fields.map((field) => ({ field, reason: 'REQUIRED' })),
+      });
+    }
+    // zone qui ressemble à une adresse exacte (filtre de la base, BOARD N-62 ; modèle réduit)
+    if (typeof body.areaLabel === 'string' && /[0-9]{3,}|\bcalle\s*[0-9]/i.test(body.areaLabel)) {
+      return json(res, 422, {
+        code: 'LOCATION_AREA_ADDRESS',
+        messageKey: 'common.listing.areaLooksLikeAddress',
+        fields: [{ field: 'areaLabel', reason: 'INVALID' }],
       });
     }
     const loc = {
@@ -752,11 +760,35 @@ async function hostRoute(req, res, url) {
     return err(res, 201, 'PHOTO_ADDED', 'common.listing.photoAdded');
   }
   if (req.method === 'POST' && step === 'submit') {
+    if (!['DRAFT', 'REJECTED', 'UNLISTED'].includes(l.status)) {
+      return err(res, 409, 'LISTING_TRANSITION_FORBIDDEN', 'common.listing.transitionForbidden');
+    }
     if (l.photos < 6) return err(res, 422, 'PHOTO_MIN_COUNT', 'common.listing.photoMinCount');
     if (h.terms.acceptedVersion !== HOST_TERMS_VERSION) {
       return err(res, 409, 'TERMS_REACCEPT_REQUIRED', 'common.listing.hostTermsRequired');
     }
-    return err(res, 422, 'HOST_NOT_ACTIVATED', 'common.listing.hostNotActivated');
+    // US-118 : le second compte du double tient lieu de compte activé dans un pays ouvert, au
+    // véhicule confirmé et assuré : publié dès les contrôles automatiques (DEC-FONDATEUR-22)
+    if (h.market !== MARKET_NO_DECIMALS) {
+      return err(res, 422, 'HOST_NOT_ACTIVATED', 'common.listing.hostNotActivated');
+    }
+    l.status = 'LISTED';
+    return json(res, 200, {
+      code: 'LISTING_PUBLISHED',
+      messageKey: 'common.listing.published',
+      status: 'LISTED',
+    });
+  }
+  if (req.method === 'POST' && step === 'unlist') {
+    if (l.status !== 'LISTED') {
+      return err(res, 409, 'LISTING_TRANSITION_FORBIDDEN', 'common.listing.transitionForbidden');
+    }
+    l.status = 'UNLISTED';
+    return json(res, 200, {
+      code: 'LISTING_UNLISTED',
+      messageKey: 'common.listing.unlisted',
+      status: 'UNLISTED',
+    });
   }
   if (req.method === 'DELETE' && step === undefined) {
     l.status = 'DELETED';

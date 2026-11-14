@@ -16,8 +16,11 @@
  * | GET  /host/accounts/{orgId}/listings                        | 200 annonces                              |
  * | POST /host/accounts/{orgId}/listings                        | 201 LISTING_CREATED (DRAFT)               |
  * | PUT  /host/accounts/{orgId}/listings/{listingId}/pricing    | 200 LISTING_SAVED                         |
- * | POST /host/accounts/{orgId}/listings/{listingId}/submit     | 200 LISTING_SUBMITTED ; 422 photos, hôte ; |
- * |                                                             | 409 CATALOG_ADDITION_PENDING (US-114)     |
+ * | POST /host/accounts/{orgId}/listings/{listingId}/submit     | 200 LISTING_PUBLISHED (LISTED) ou         |
+ * |                                                             | LISTING_SUBMITTED (revue du pays) ;       |
+ * |                                                             | 422 photos, zone, hôte, assureur ;        |
+ * |                                                             | 409 véhicule, CGU (US-118)                |
+ * | POST /host/accounts/{orgId}/listings/{listingId}/unlist     | 200 LISTING_UNLISTED ; 409 trip à venir   |
  * | POST /host/accounts/{orgId}/listings/{listingId}/photos     | 201 PHOTO_ADDED ; 422 ; 503 (production)  |
  * | DELETE /host/accounts/{orgId}/listings/{listingId}          | 200 LISTING_DELETED                       |
  * | GET  /host/accounts/{orgId}/catalog/…                       | 200 listes de choix du marché du compte   |
@@ -164,6 +167,18 @@ export class HostListingsController {
     @Param('listingId') listingId: string,
   ) {
     const r = await this.listings.submit(proofOf(request), orgOf(orgId), listingOf(listingId));
+    return { ...hostListingBody(r.code), status: r.status };
+  }
+
+  /** Retrait par l'hôte LISTED → UNLISTED (US-118) ; 409 LISTING_HAS_FUTURE_TRIPS (OQ-BR-29). */
+  @Post('accounts/:orgId/listings/:listingId/unlist')
+  @HttpCode(200)
+  async unlist(
+    @Req() request: Req,
+    @Param('orgId') orgId: string,
+    @Param('listingId') listingId: string,
+  ) {
+    const r = await this.listings.unlist(proofOf(request), orgOf(orgId), listingOf(listingId));
     return { ...hostListingBody(r.code), status: r.status };
   }
 

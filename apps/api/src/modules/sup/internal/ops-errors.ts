@@ -1,6 +1,6 @@
 /**
  * Réponses propres aux files de revue, à la fiche 360°, aux pièces du staff (US-109) et à la file
- * d'ajout au catalogue (US-114, ADR-104) : code
+ * d'ajout au catalogue (US-114, ADR-104) et à la revue d'une annonce (US-118, ADR-114) : code
  * stable (16 A.8, `SCREAMING_SNAKE_CASE`, PROPOSÉS, à reporter dans 16 A.8) et clé de message du
  * catalogue `@rueda/i18n` (es, en, fr, pt-BR). Jamais de détail technique ni de donnée personnelle.
  * Les refus d'accès communs (AUTH_REQUIRED, FORBIDDEN, 2FA_REQUIRED, REQUEST_INVALID) restent ceux
@@ -45,6 +45,16 @@ export const OPS_MESSAGES = {
   VEHICLE_CLAIM_TARGET_RELEASED: { status: 409, messageKey: 'common.vehicleReview.targetReleased' },
   VEHICLE_CLAIM_TARGET_BOOKED: { status: 409, messageKey: 'common.vehicleReview.targetBooked' },
   STAFF_SAME_ADMIN_FORBIDDEN: { status: 403, messageKey: 'common.vehicleReview.sameAdmin' },
+  // revue d'une annonce (US-118, revue exigée par le pays) : annonce plus en revue ; refus sans
+  // motif de la liste fermée (16 ADM-003) ; approbation refusée par un contrôle automatique
+  // (`reason` : le motif de la base) ; contrat d'assureur inactif (16 HST-016)
+  LISTING_REVIEW_CLOSED: { status: 409, messageKey: 'common.listingReview.closed' },
+  DECISION_RATIONALE_REQUIRED: {
+    status: 422,
+    messageKey: 'common.listingReview.rationaleRequired',
+  },
+  LISTING_NOT_PUBLISHABLE: { status: 409, messageKey: 'common.listingReview.notPublishable' },
+  INSURER_CONTRACT_INACTIVE: { status: 422, messageKey: 'common.listing.insurerInactive' },
   // pièce : hors de l'élément ; coffre ou stockage indisponibles (production : 503)
   VEHICLE_FILE_NOT_FOUND: { status: 404, messageKey: 'common.vehicleReview.fileNotFound' },
   VEHICLE_FILE_UNAVAILABLE: { status: 503, messageKey: 'common.vehicleReview.fileUnavailable' },

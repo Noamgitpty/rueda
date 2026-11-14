@@ -78,7 +78,13 @@ function errorsOf(reply: ApiResult, formId: string, fieldIds: Record<string, str
       },
     ];
   }
-  return [{ fieldId: formId, key: messageKeyOf(reply) ?? 'common.error.server' }];
+  const key = messageKeyOf(reply);
+  // numéro de châssis refusé par la base : message dédié, sous le champ (ADR-113)
+  const vinField = fieldIds['vin'];
+  if (key === 'common.vehicleDocs.vinInvalid' && vinField !== undefined) {
+    return [{ fieldId: vinField, key }];
+  }
+  return [{ fieldId: formId, key: key ?? 'common.error.server' }];
 }
 
 function done(orgId: string): never {
@@ -99,6 +105,13 @@ async function createLocationImpl(_prev: HostFormState, form: FormData): Promise
     city: text(form, 'city', 80),
     areaLabel: opt(form, 'areaLabel', 80),
   });
+  // zone qui ressemble à une adresse exacte (BOARD N-62, US-118) : message propre, sur le champ
+  if (reply.status === 422 && messageKeyOf(reply) === 'common.listing.areaLooksLikeAddress') {
+    return { errors: [{ fieldId: 'a10-place-area', key: 'common.listing.areaLooksLikeAddress' }] };
+  }
+  if (reply.status === 422 && messageKeyOf(reply) === 'common.listing.cityInvalid') {
+    return { errors: [{ fieldId: 'a10-place-city', key: 'common.listing.cityInvalid' }] };
+  }
   if (reply.status !== 201) {
     return {
       errors: errorsOf(reply, 'a10-place-form', {
@@ -297,7 +310,11 @@ async function listingStepImpl(_prev: HostFormState, form: FormData): Promise<Ho
   const listingId = idOf(form, 'listing');
   const step = text(form, 'step', 8);
   const formId = `a10-${listingId ?? 'x'}-${step}`;
-  if (orgId === null || listingId === null || (step !== 'submit' && step !== 'delete')) {
+  if (
+    orgId === null ||
+    listingId === null ||
+    (step !== 'submit' && step !== 'delete' && step !== 'unlist')
+  ) {
     return invalid(formId);
   }
   // suppression (définitive) : case de confirmation cochée, sinon rien n'est envoyé
@@ -307,10 +324,11 @@ async function listingStepImpl(_prev: HostFormState, form: FormData): Promise<Ho
     };
   }
   const ctx = await clientContext();
+  // publication (US-118 : publiée dès les contrôles automatiques), retrait ou suppression
   const reply =
-    step === 'submit'
-      ? await callApi('POST', `/host/accounts/${orgId}/listings/${listingId}/submit`, ctx, {})
-      : await callApi('DELETE', `/host/accounts/${orgId}/listings/${listingId}`, ctx, {});
+    step === 'delete'
+      ? await callApi('DELETE', `/host/accounts/${orgId}/listings/${listingId}`, ctx, {})
+      : await callApi('POST', `/host/accounts/${orgId}/listings/${listingId}/${step}`, ctx, {});
   if (reply.status !== 200) return { errors: errorsOf(reply, formId, {}) };
   done(orgId);
 }

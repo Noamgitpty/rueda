@@ -421,6 +421,7 @@ export default async function HostPage({
                 listingId={l.id}
                 currency={market.currency}
                 editable={editable}
+                status={l.status}
                 draft={l.status === 'DRAFT'}
                 photos={photos}
                 defaults={{

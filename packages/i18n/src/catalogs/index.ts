@@ -59,7 +59,17 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 29 : dossier de l'hôte signalé dans la console (US-108, revue par exception) :
  `backoffice.host.*`, `backoffice.queues.openHost`, `common.listing.vehicleNotCovered` et
  `common.listing.insurerInactive`.
- Version 34 (numéro réservé par l'orchestrateur ; 30 à 33 aux PR en file) : écran « Apparence et
+ Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
+ d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
+ `web.vehicleDocs.declaration.vinHint`.
+ Version 31 : publication immédiate d'une
+ annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
+ `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`,
+ `.areaLooksLikeAddress`, `.cityInvalid`, `.vehicleDescriptionInvalid`, `common.listingReview.*`, `web.host.listing.unlist`, `.relist` ; sens
+ changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
+ `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
+ `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
+ Version 34 (numéro réservé par l'orchestrateur ; 32 et 33 aux PR en file) : écran « Apparence et
  marque » du back-office (US-120, O02) : `backoffice.o02.*`.
  */
 export const CATALOG_VERSION = 34;

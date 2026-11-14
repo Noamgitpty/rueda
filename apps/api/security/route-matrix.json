@@ -177,6 +177,13 @@
       "portee": "pays",
       "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre sujet : 403 STAFF_CASE_REQUIRED journalisé, aucune donnée, aucune ligne d’accès (preuve L0 l0-us124-vehicle-documents)"
     },
+    "POST /console/queues/items/{id}/listing/decide": {
+      "acces": "staff",
+      "permission": "ops.review_listing_host (file LISTING, sujet LISTING, élément pris en charge ; ADMIN : sa portée)",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non pris en charge ou autre sujet : 403 STAFF_CASE_REQUIRED journalisé, rien n’est écrit (preuve L0 l0-us118-listing-publication)"
+    },
     "POST /console/queues/items/{id}/vehicle-claim": {
       "acces": "staff",
       "permission": "ops.review_listing_host (file LISTING, sujet VEHICLE_CLAIM, élément pris en charge ; ADMIN : sa portée)",
@@ -382,6 +389,10 @@
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
     },
     "POST /host/accounts/{orgId}/listings/{listingId}/submit": {
+      "acces": "session",
+      "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
+    },
+    "POST /host/accounts/{orgId}/listings/{listingId}/unlist": {
       "acces": "session",
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
     },

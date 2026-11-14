@@ -12,7 +12,8 @@
  * VEHICLE_DOCUMENT_REQUIRED » ; SOBAT au Panama), de 08 BR-LIST-01 (titre au nom de l'hôte ou
  * autorisation notariée), BR-LIST-02 [NOUS] (≤ 10 ans, < 200 000 km), BR-LIST-03 (titres
  * interdits), de 22 OQ-P2P-02 / OQ-BR-28 (`vehicle_financed_requires_lender_consent` = true,
- * fail-closed) et OQ-CAT-01 (g) (hors catalogue jamais publiable), du pré-mortem L1-PM-11, L1-PM-14
+ * fail-closed) et OQ-CAT-01 (g) (hors catalogue jamais publiable, levé par DEC-FONDATEUR-22 et
+ * US-118 : la demande d'ajout ne bloque plus), du pré-mortem L1-PM-11, L1-PM-14
  * (liste de contrôle par pièce, aucune case « tout vérifié »), L1-PM-15 et L1-PM-43, et du BOARD
  * N-37 (jamais le nom légal complet au voyageur) et N-61 (contestation et libération par l'ops),
  * jamais du code testé.
@@ -963,17 +964,18 @@ describe('critère 3 — véhicule financé : accord du créancier déclaré (d�
 });
 
 // ---------------------------------------------------------------------------------------------
-describe('critère 4 — hors catalogue ou au-delà de l’âge maximal du pays : refus', () => {
+describe('critère 4 — au-delà de l’âge maximal du pays : refus ; hors catalogue admis (US-118)', () => {
   it.each(byCountry)(
-    '%s (%s) : véhicule hors catalogue ⇒ CATALOG_ADDITION_PENDING ; 11 ans au seuil 10 ⇒ VEHICLE_TOO_OLD (témoin 10 ans : ELIGIBLE) ; compteur au plafond ⇒ VEHICLE_MILEAGE_TOO_HIGH (témoin un km de moins : ELIGIBLE)',
+    '%s (%s) : véhicule hors catalogue ⇒ ELIGIBLE depuis US-118 (DEC-FONDATEUR-22 : marque et modèle saisis suffisent) ; 11 ans au seuil 10 ⇒ VEHICLE_TOO_OLD (témoin 10 ans : ELIGIBLE) ; compteur au plafond ⇒ VEHICLE_MILEAGE_TOO_HIGH (témoin un km de moins : ELIGIBLE)',
     async (country, _currency, cc: CountryCase) => {
       await withRole('app_api', async (client) => {
         await docRules(client, country, []);
         const h = await host(client, country);
+        // US-118 (0084, DEC-FONDATEUR-22) : la demande d'ajout au catalogue ne bloque plus
         const off = await complete(client, h, country, { year: 2022, offCatalog: true });
         expect(await submitVehicle(client, h, off)).toMatchObject({
-          outcome: 'CATALOG_ADDITION_PENDING',
-          reasons: ['CATALOG_ADDITION_PENDING'],
+          outcome: 'ELIGIBLE',
+          reasons: [],
         });
 
         const year = localYear(cc);
