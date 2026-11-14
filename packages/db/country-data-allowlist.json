@@ -38,6 +38,10 @@
       "justification": "Graine complémentaire des paramètres host_review_* (host_review_manual_required, host_review_auto_delay_minutes ; 19 US-108, 16 ADM-004 ; consigne du fondateur du 2026-11-12, revue de l'hôte par exception) : définition et valeurs PROPOSÉES PA / PY (false), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-108, ADR-111."
     },
     {
+      "path": "packages/db/migrations/0085_config_listing_review_params.sql",
+      "justification": "Graine complémentaire du paramètre listing_manual_review_required (16 HST-016, ADM-003, 19 US-118 ; DEC-FONDATEUR-22 : revue de l'ops seulement si le pays l'exige) : définition et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044). US-118, ADR-114."
+    },
+    {
       "path": "packages/db/migrations/0089_config_privacy_params.sql",
       "justification": "Graine complémentaire des paramètres privacy_* (19 US-111, 16 LEG-009 / LEG-010, OQ-BR-25, OQ-MK-09) : définitions et valeurs PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-111, ADR-118."
     }

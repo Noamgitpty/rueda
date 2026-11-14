@@ -10,6 +10,8 @@
  *   annoncé, l'annonce reste en brouillon ; hors connexion ⇒ bandeau de la coquille.
  * - A10, CGU de l'hôte (US-126) : version, date et brouillon affichés ; case obligatoire jamais
  *   pré-cochée ; acceptation ⇒ formulaire retiré ; texte servi avec retour vers l'espace de l'hôte.
+ * - A10, publication (US-118) : zone qui ressemble à une adresse ⇒ refus sur le champ ;
+ *   publication dès les contrôles automatiques (DEC-FONDATEUR-22) ; retrait ; remise en ligne.
  * - S03 : zone approximative et mention « dirección exacta al confirmar » ; annonce introuvable ;
  *   API en panne ⇒ état d'erreur.
  * - Accessibilité : axe-core (WCAG 2.2 A / AA) sur `main` sans violation, à chaque état ; mobile
@@ -289,6 +291,65 @@ for (const language of LANGUAGES) {
       });
       await photo.locator('button[type="submit"]').click();
       await expect(page).toHaveURL(/saved=1/);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+    });
+
+    test('A10 (US-118) : zone qui ressemble à une adresse ⇒ refus sur le champ ; publication dès les contrôles automatiques ; retrait ; remise en ligne proposée', async ({
+      page,
+      context,
+    }) => {
+      const n = numberOf(tagOf(language));
+      await signIn(context, 'H0st');
+      await page.goto('/host');
+      // second compte du double : compte activé, pays ouvert, véhicule confirmé et assuré
+      const accounts = page.locator('nav[aria-labelledby="a10-accounts"] a');
+      await accounts.nth(1).click();
+      await expect(accounts.nth(1)).toHaveAttribute('aria-current', 'page');
+      await page.locator('#a10-terms-accept').check();
+      await page.locator('#a10-terms-form button[type="submit"]').click();
+      await expect(page).toHaveURL(/saved=1/);
+      // BOARD N-62 : la zone publique ne contient jamais une adresse exacte (rue et numéro)
+      await page.locator('#a10-place-label').fill('Casa');
+      await page.locator('#a10-place-address').fill('Calle Secreta 123');
+      await page.locator('#a10-place-city').fill('Ciudad Ficticia');
+      await page.locator('#a10-place-area').fill('Calle 50');
+      await page.locator('#a10-place-form button[type="submit"]').click();
+      await expect(page.locator('#a10-place-area')).toHaveAttribute('aria-invalid', 'true');
+      await expectAccessible(page);
+      await placeAndCar(page);
+      await page.locator('#a10-new-price').fill(`250${n.group}000`);
+      await page.locator('#a10-new button[type="submit"]').click();
+      const article = page.locator('main article');
+      await expect(article).toHaveCount(1);
+      // photos minimales (08 BR-LIST-05 : 6), puis publication immédiate (DEC-FONDATEUR-22)
+      for (let i = 0; i < 6; i += 1) {
+        const photo = article.locator('form[id$="-photo"]');
+        await photo.locator('input[type="file"]').setInputFiles({
+          name: `auto-${i}.jpg`,
+          mimeType: 'image/jpeg',
+          buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0xff, 0xd9]),
+        });
+        await photo.locator('button[type="submit"]').click();
+        // compteur de photos de la carte (« N foto(s) », « N photo(s) ») : dépôt pris en compte
+        await expect(article.locator('p').first()).toContainText(
+          new RegExp(`(^|\\D)${i + 1}\\s+(foto|photo)`, 'i'),
+        );
+      }
+      await article.locator('form[id$="-submit"] button[type="submit"]').click();
+      // publiée : lien vers la fiche publique, retrait proposé ; ni photo ni publication
+      await expect(article.locator('a[href^="/listings/"]')).toBeVisible();
+      await expect(article.locator('form[id$="-unlist"]')).toBeVisible();
+      await expect(article.locator('form[id$="-submit"]')).toHaveCount(0);
+      await expect(article.locator('form[id$="-photo"]')).toHaveCount(0);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+      // retrait par l'hôte : annonce retirée, remise en ligne et suppression proposées
+      await article.locator('form[id$="-unlist"] button[type="submit"]').click();
+      await expect(article.locator('form[id$="-unlist"]')).toHaveCount(0);
+      await expect(article.locator('form[id$="-submit"]')).toBeVisible();
+      await expect(article.locator('form[id$="-delete"]')).toBeVisible();
+      await expect(article.locator('a[href^="/listings/"]')).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);
     });

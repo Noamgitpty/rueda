@@ -165,7 +165,13 @@ export interface HostListingStore {
     listingId: string,
     input: PricingInput,
   ): Promise<Outcome>;
+  /**
+   * Publication (US-118) : issue `LISTED` (publiée dès les contrôles automatiques) ou
+   * `PENDING_REVIEW` (revue exigée par le pays), sinon le motif du refus.
+   */
   submitListing(proof: Buffer, orgId: string, listingId: string): Promise<Outcome>;
+  /** Retrait par l'hôte LISTED → UNLISTED (US-118) ; refusé si un trip est à venir. */
+  unlistListing(proof: Buffer, orgId: string, listingId: string): Promise<Outcome>;
   deleteListing(proof: Buffer, orgId: string, listingId: string): Promise<Outcome>;
   /** Nouvelle demande d'ajout au catalogue d'un véhicule hors catalogue (US-114) ; `id` = demande. */
   requestCatalogAddition(
@@ -212,6 +218,7 @@ export class UnavailableHostListingStore implements HostListingStore {
   createListing = (): Promise<Outcome> => this.#fail();
   updatePricing = (): Promise<Outcome> => this.#fail();
   submitListing = (): Promise<Outcome> => this.#fail();
+  unlistListing = (): Promise<Outcome> => this.#fail();
   deleteListing = (): Promise<Outcome> => this.#fail();
   requestCatalogAddition = (): Promise<Outcome> => this.#fail();
   addPhoto = (): Promise<Outcome> => this.#fail();
@@ -368,6 +375,15 @@ export class PgHostListingStore implements HostListingStore {
       'soumission',
       `SELECT r.outcome, r.listing_id::text AS id
          FROM core.catalog_cmd_submit_listing($1, $2::uuid, $3::uuid) AS r`,
+      [proof, orgId, listingId],
+    );
+  }
+
+  unlistListing(proof: Buffer, orgId: string, listingId: string): Promise<Outcome> {
+    return this.#outcome(
+      'retrait',
+      `SELECT r.outcome, r.listing_id::text AS id
+         FROM core.catalog_cmd_unlist_listing($1, $2::uuid, $3::uuid) AS r`,
       [proof, orgId, listingId],
     );
   }

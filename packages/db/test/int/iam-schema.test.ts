@@ -43,8 +43,9 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   // US-127 (0080) : lecture par le jugement du lien hôte / voyageur (risk_limit_owner)
   iam_membership:
     'cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;membership_host_read:app_api;membership_staff_read:app_api;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
+  // US-118 (0084) : statut et titulaire du compte d'hôte relus à l'approbation d'une annonce
   iam_organization:
-    'cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
+    'catalog_cmd_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;organization_holder_read:app_api;organization_staff_read:app_api;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner',
   iam_mfa_proof_key: 'iam_staff_select:iam_staff_owner;migrator_all:migrator',
   // US-104 (0066) : défis OTP écrits par les seules commandes d'iam_auth_owner
   iam_otp_challenge:

@@ -879,7 +879,7 @@ export const FR_MESSAGES = {
   'web.host.place.label': 'Nom du lieu (toi seul le vois)',
   'web.host.place.address': 'Adresse exacte',
   'web.host.place.city': 'Ville',
-  'web.host.place.area': 'Quartier ou zone (le voyageur le voit)',
+  'web.host.place.area': 'Quartier ou zone, sans rue ni numéro (le voyageur le voit)',
   'web.host.place.privacy': 'L’adresse exacte n’apparaît qu’après la réservation.',
   'web.host.place.add': 'Enregistrer le lieu',
   'web.host.cars.title': 'Tes voitures',
@@ -913,8 +913,10 @@ export const FR_MESSAGES = {
   'web.host.listing.savePrice': 'Enregistrer le prix',
   'web.host.listing.photo': 'Photo de la voiture (JPEG, PNG ou WebP)',
   'web.host.listing.addPhoto': 'Ajouter la photo',
-  'web.host.listing.submit': 'Envoyer en revue',
+  'web.host.listing.submit': 'Publier l’annonce',
   'web.host.listing.delete': 'Supprimer le brouillon',
+  'web.host.listing.unlist': 'Retirer l’annonce',
+  'web.host.listing.relist': 'Republier',
   'web.host.account.market': 'Compte : {country} · prix en {currency}',
   'web.host.account.switch': 'Tes comptes d’hôte',
   'web.host.listing.photo.hint': 'Jusqu’à {max} par photo.',
@@ -966,8 +968,19 @@ export const FR_MESSAGES = {
   'common.listing.created': 'Brouillon de l’annonce créé.',
   'common.listing.saved': 'Enregistré',
   'common.listing.submitted': 'Ton annonce est envoyée en revue.',
-  'common.listing.photoAdded': 'Photo ajoutée. Nous la vérifions avant la publication.',
-  'common.listing.deleted': 'Brouillon supprimé.',
+  'common.listing.published': 'Ton annonce est publiée.',
+  'common.listing.unlisted': 'Ton annonce est retirée. Tu peux la republier quand tu veux.',
+  'common.listing.hasFutureTrips':
+    'Ta voiture a des voyages réservés à venir. Tu pourras retirer l’annonce quand ils seront terminés ou annulés.',
+  'common.listing.vehicleEligibilityRequired':
+    'Avant de publier, confirme les informations de ta voiture (propriété, kilométrage et numéro de châssis).',
+  'common.listing.areaLooksLikeAddress':
+    'Indique seulement le quartier ou la zone, sans rue ni numéro : le voyageur le voit avant de réserver.',
+  'common.listing.cityInvalid': 'Indique seulement la ville, sans adresse, téléphone ni lien.',
+  'common.listing.vehicleDescriptionInvalid':
+    'Écris seulement la marque et le modèle de la voiture, sans téléphone, lien ni adresse.',
+  'common.listing.photoAdded': 'Photo ajoutée.',
+  'common.listing.deleted': 'Annonce supprimée.',
   'common.listing.hostSuspended':
     'Ton compte d’hôte est suspendu : tu ne peux pas modifier tes annonces.',
   'common.listing.hostNotFound': 'Ce compte d’hôte est introuvable.',
@@ -991,16 +1004,17 @@ export const FR_MESSAGES = {
   'common.listing.mileageInvalid':
     'Vérifie la distance incluse et le prix du kilomètre supplémentaire.',
   'common.listing.requestModeNotAllowed': 'À l’aéroport, la réservation est toujours immédiate.',
-  'common.listing.photoMinCount': 'Ajoute d’autres photos de ta voiture avant d’envoyer l’annonce.',
+  'common.listing.photoMinCount':
+    'Ajoute d’autres photos de ta voiture avant de publier l’annonce.',
   'common.listing.photoFormat': 'Cette photo est inutilisable. Envoie une photo JPEG, PNG ou WebP.',
   'common.listing.hostTermsRequired':
-    'Avant d’envoyer ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
+    'Avant de publier ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
   'common.listing.vehicleNotCovered':
     'Ce véhicule ne remplit pas les conditions de la protection des voyages (âge, valeur ou usage). Il ne peut pas être publié.',
   'common.listing.insurerInactive':
-    'Tout est prêt de votre côté. La protection des voyages n’est pas encore disponible ici ; vous pourrez envoyer votre annonce dès qu’elle le sera.',
+    'Tout est prêt de votre côté. La protection des voyages n’est pas encore disponible ici ; vous pourrez publier votre annonce dès qu’elle le sera.',
   'common.listing.hostNotActivated':
-    'Tout est prêt de ton côté. Tu pourras envoyer ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
+    'Tout est prêt de ton côté. Tu pourras publier ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
   'common.listing.unavailable':
     'Impossible d’enregistrer ton annonce pour le moment. Réessaie plus tard.',
   'common.listing.photoUnavailable':
@@ -1355,6 +1369,10 @@ export const FR_MESSAGES = {
   'common.vehicleDocs.uploadUnavailable':
     'L’envoi de documents n’est pas encore disponible. Réessaie plus tard.',
   'common.vehicleReview.closed': 'Cette voiture n’est plus en vérification.',
+  'common.listingReview.closed': 'Cette annonce n’est plus en revue.',
+  'common.listingReview.rationaleRequired': 'Choisis le motif du refus.',
+  'common.listingReview.notPublishable':
+    'Approbation impossible : l’annonce échoue à un contrôle automatique ({reason}).',
   'common.vehicleReview.checklistInvalid':
     'Coche chaque point de contrôle et donne un verdict pour chaque document.',
   'common.vehicleReview.claimClosed': 'Cette réclamation a déjà été tranchée.',

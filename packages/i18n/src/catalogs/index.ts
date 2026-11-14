@@ -62,7 +62,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
  d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
  `web.vehicleDocs.declaration.vinHint`.
- Versions 31 à 35 : réservées par l'orchestrateur aux PR du lot 1 en cours de fusion.
+ Version 31 : publication immédiate d'une
+ annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
+ `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`,
+ `.areaLooksLikeAddress`, `.cityInvalid`, `.vehicleDescriptionInvalid`, `common.listingReview.*`, `web.host.listing.unlist`, `.relist` ; sens
+ changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
+ `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
+ `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
+ Versions 32 à 35 : réservées par l'orchestrateur aux PR du lot 1 en cours de fusion.
  Version 36 : demandes des personnes saisies par l'action de console HANDLE_DSR (US-111,
  ADR-118) : `backoffice.dsr.*` (type, étape, refus) ; sens de `backoffice.action.HANDLE_DSR`
  inchangé (titre du formulaire).

@@ -447,6 +447,7 @@ export function ListingForms({
   listingId,
   currency,
   editable,
+  status,
   draft,
   photos,
   defaults,
@@ -455,7 +456,10 @@ export function ListingForms({
   orgId: string;
   listingId: string;
   currency: string;
+  /** Brouillon, refusée ou bloquée : photos, publication et suppression. */
   editable: boolean;
+  /** Statut SM-2 : LISTED ⇒ retrait ; UNLISTED ⇒ remise en ligne et suppression (US-118). */
+  status: string;
   /** Brouillon : « Supprimer le brouillon » ; annonce refusée ou bloquée : « Supprimer l'annonce ». */
   draft: boolean;
   /** Dépôt des photos annoncé par l'API : ouvert ou fermé ; taille maximale (octets et libellé). */
@@ -466,6 +470,8 @@ export function ListingForms({
   const photo = useForm(localeTag, addPhotoAction, `a10-${listingId}-photo`);
   const submit = useForm(localeTag, listingStepAction, `a10-${listingId}-submit`);
   const remove = useForm(localeTag, listingStepAction, `a10-${listingId}-delete`);
+  const unlist = useForm(localeTag, listingStepAction, `a10-${listingId}-unlist`);
+  const unlisted = status === 'UNLISTED';
   const t = price.t;
   const photoFormId = `a10-${listingId}-photo`;
   // photo trop lourde : refusée AVANT l'envoi (avec JavaScript ; sinon l'action serveur refuse)
@@ -507,86 +513,103 @@ export function ListingForms({
           {t('web.host.listing.savePrice')}
         </Button>
       </FormFrame>
-      {editable && (
-        <>
-          {photos.open ? (
-            <FormFrame
-              {...photo}
-              run={sendPhoto}
-              messages={photoMessages}
-              formError={photoError}
-              formId={photoFormId}
-              label={t('web.host.listing.addPhoto')}
-            >
-              <input type="hidden" name="org" value={orgId} />
-              <input type="hidden" name="listing" value={listingId} />
-              <div className={styles['field']}>
-                <label className={styles['strong']} htmlFor={`a10-${listingId}-file`}>
-                  {t('web.host.listing.photo')}
-                </label>
-                <input
-                  id={`a10-${listingId}-file`}
-                  className={styles['file']}
-                  type="file"
-                  name="photo"
-                  accept="image/jpeg,image/png,image/webp"
-                  aria-describedby={`a10-${listingId}-file-hint`}
-                />
-                <p id={`a10-${listingId}-file-hint`} className={styles['hint']}>
-                  {t('web.host.listing.photo.hint', { max: photos.maxLabel })}
-                </p>
-              </div>
-              <Button type="submit" variant="secondary" block loading={photo.pending}>
-                {t('web.host.listing.addPhoto')}
-              </Button>
-            </FormFrame>
-          ) : (
-            // dépôt fermé (antivirus ou stockage pas encore branchés) : dit d'emblée, sans envoi
-            <p id={photoFormId} className={styles['hint']} role="status">
-              {t('web.host.listing.photo.closed')}
+      {editable &&
+        (photos.open ? (
+          <FormFrame
+            {...photo}
+            run={sendPhoto}
+            messages={photoMessages}
+            formError={photoError}
+            formId={photoFormId}
+            label={t('web.host.listing.addPhoto')}
+          >
+            <input type="hidden" name="org" value={orgId} />
+            <input type="hidden" name="listing" value={listingId} />
+            <div className={styles['field']}>
+              <label className={styles['strong']} htmlFor={`a10-${listingId}-file`}>
+                {t('web.host.listing.photo')}
+              </label>
+              <input
+                id={`a10-${listingId}-file`}
+                className={styles['file']}
+                type="file"
+                name="photo"
+                accept="image/jpeg,image/png,image/webp"
+                aria-describedby={`a10-${listingId}-file-hint`}
+              />
+              <p id={`a10-${listingId}-file-hint`} className={styles['hint']}>
+                {t('web.host.listing.photo.hint', { max: photos.maxLabel })}
+              </p>
+            </div>
+            <Button type="submit" variant="secondary" block loading={photo.pending}>
+              {t('web.host.listing.addPhoto')}
+            </Button>
+          </FormFrame>
+        ) : (
+          // dépôt fermé (antivirus ou stockage pas encore branchés) : dit d'emblée, sans envoi
+          <p id={photoFormId} className={styles['hint']} role="status">
+            {t('web.host.listing.photo.closed')}
+          </p>
+        ))}
+      {/* publication dès les contrôles automatiques (US-118) ; annonce retirée : remise en ligne */}
+      {(editable || unlisted) && (
+        <FormFrame
+          {...submit}
+          formId={`a10-${listingId}-submit`}
+          label={unlisted ? t('web.host.listing.relist') : t('web.host.listing.submit')}
+        >
+          <input type="hidden" name="org" value={orgId} />
+          <input type="hidden" name="listing" value={listingId} />
+          <input type="hidden" name="step" value="submit" />
+          <Button type="submit" block loading={submit.pending}>
+            {unlisted ? t('web.host.listing.relist') : t('web.host.listing.submit')}
+          </Button>
+        </FormFrame>
+      )}
+      {/* retrait par l'hôte (refusé tant qu'un trip est à venir : message de l'API) */}
+      {status === 'LISTED' && (
+        <FormFrame
+          {...unlist}
+          formId={`a10-${listingId}-unlist`}
+          label={t('web.host.listing.unlist')}
+        >
+          <input type="hidden" name="org" value={orgId} />
+          <input type="hidden" name="listing" value={listingId} />
+          <input type="hidden" name="step" value="unlist" />
+          <Button type="submit" variant="secondary" block loading={unlist.pending}>
+            {t('web.host.listing.unlist')}
+          </Button>
+        </FormFrame>
+      )}
+      {(editable || unlisted) && (
+        <FormFrame
+          {...remove}
+          formId={`a10-${listingId}-delete`}
+          label={t('web.host.listing.delete')}
+        >
+          <input type="hidden" name="org" value={orgId} />
+          <input type="hidden" name="listing" value={listingId} />
+          <input type="hidden" name="step" value="delete" />
+          <label className={styles['choice']} htmlFor={confirmId}>
+            <input
+              id={confirmId}
+              type="checkbox"
+              name="confirm"
+              value="yes"
+              aria-invalid={confirmError === undefined ? undefined : true}
+              aria-describedby={confirmError === undefined ? undefined : `${confirmId}-error`}
+            />
+            <span>{t('web.host.listing.deleteConfirm')}</span>
+          </label>
+          {confirmError !== undefined && (
+            <p id={`${confirmId}-error`} className={styles['error']}>
+              {confirmError}
             </p>
           )}
-          <FormFrame
-            {...submit}
-            formId={`a10-${listingId}-submit`}
-            label={t('web.host.listing.submit')}
-          >
-            <input type="hidden" name="org" value={orgId} />
-            <input type="hidden" name="listing" value={listingId} />
-            <input type="hidden" name="step" value="submit" />
-            <Button type="submit" block loading={submit.pending}>
-              {t('web.host.listing.submit')}
-            </Button>
-          </FormFrame>
-          <FormFrame
-            {...remove}
-            formId={`a10-${listingId}-delete`}
-            label={t('web.host.listing.delete')}
-          >
-            <input type="hidden" name="org" value={orgId} />
-            <input type="hidden" name="listing" value={listingId} />
-            <input type="hidden" name="step" value="delete" />
-            <label className={styles['choice']} htmlFor={confirmId}>
-              <input
-                id={confirmId}
-                type="checkbox"
-                name="confirm"
-                value="yes"
-                aria-invalid={confirmError === undefined ? undefined : true}
-                aria-describedby={confirmError === undefined ? undefined : `${confirmId}-error`}
-              />
-              <span>{t('web.host.listing.deleteConfirm')}</span>
-            </label>
-            {confirmError !== undefined && (
-              <p id={`${confirmId}-error`} className={styles['error']}>
-                {confirmError}
-              </p>
-            )}
-            <Button type="submit" variant="quiet" block loading={remove.pending}>
-              {draft ? t('web.host.listing.delete') : t('web.host.listing.deleteListing')}
-            </Button>
-          </FormFrame>
-        </>
+          <Button type="submit" variant="quiet" block loading={remove.pending}>
+            {draft ? t('web.host.listing.delete') : t('web.host.listing.deleteListing')}
+          </Button>
+        </FormFrame>
       )}
     </div>
   );

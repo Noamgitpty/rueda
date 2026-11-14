@@ -60,6 +60,12 @@ export const POST_SEED_PARAMS: readonly {
     refs: '19 US-108, 16 ADM-004, consigne du fondateur du 2026-11-12',
   },
   {
+    prefix: 'listing_manual_review',
+    file: '0085_config_listing_review_params.sql',
+    story: 'US-118',
+    refs: '16 HST-016, ADM-003 ; DEC-FONDATEUR-22',
+  },
+  {
     prefix: 'privacy_',
     file: '0089_config_privacy_params.sql',
     story: 'US-111',

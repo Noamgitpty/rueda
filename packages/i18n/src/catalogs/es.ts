@@ -857,7 +857,7 @@ export const ES_MESSAGES = {
   'web.host.place.label': 'Nombre del lugar (solo lo ves tú)',
   'web.host.place.address': 'Dirección exacta',
   'web.host.place.city': 'Ciudad o localidad',
-  'web.host.place.area': 'Barrio o zona (lo ve el viajero)',
+  'web.host.place.area': 'Barrio o zona, sin calle ni número (lo ve el viajero)',
   'web.host.place.privacy': 'La dirección exacta se muestra solo después de reservar.',
   'web.host.place.add': 'Guardar el lugar',
   'web.host.cars.title': 'Tus autos',
@@ -891,8 +891,10 @@ export const ES_MESSAGES = {
   'web.host.listing.savePrice': 'Guardar el precio',
   'web.host.listing.photo': 'Foto del auto (JPEG, PNG o WebP)',
   'web.host.listing.addPhoto': 'Agregar la foto',
-  'web.host.listing.submit': 'Enviar a revisión',
+  'web.host.listing.submit': 'Publicar el anuncio',
   'web.host.listing.delete': 'Eliminar el borrador',
+  'web.host.listing.unlist': 'Retirar el anuncio',
+  'web.host.listing.relist': 'Volver a publicar',
   'web.host.account.market': 'Cuenta: {country} · precios en {currency}',
   'web.host.account.switch': 'Tus cuentas de anfitrión',
   'web.host.listing.photo.hint': 'Hasta {max} por foto.',
@@ -943,8 +945,19 @@ export const ES_MESSAGES = {
   'common.listing.created': 'Borrador del anuncio creado.',
   'common.listing.saved': 'Guardado',
   'common.listing.submitted': 'Enviamos tu anuncio a revisión.',
-  'common.listing.photoAdded': 'Foto agregada. La revisamos antes de publicar.',
-  'common.listing.deleted': 'Borrador eliminado.',
+  'common.listing.published': 'Tu anuncio está publicado.',
+  'common.listing.unlisted': 'Retiramos tu anuncio. Puedes volver a publicarlo cuando quieras.',
+  'common.listing.hasFutureTrips':
+    'Tu auto tiene viajes reservados por venir. Podrás retirar el anuncio cuando terminen o se cancelen.',
+  'common.listing.vehicleEligibilityRequired':
+    'Antes de publicar, confirma los datos de tu auto (propiedad, kilometraje y número de chasis).',
+  'common.listing.areaLooksLikeAddress':
+    'Indica solo el barrio o la zona, sin calle ni número: el viajero lo ve antes de reservar.',
+  'common.listing.cityInvalid': 'Indica solo la ciudad, sin dirección, teléfono ni enlace.',
+  'common.listing.vehicleDescriptionInvalid':
+    'Escribe solo la marca y el modelo del auto, sin teléfono, enlace ni dirección.',
+  'common.listing.photoAdded': 'Foto agregada.',
+  'common.listing.deleted': 'Anuncio eliminado.',
   'common.listing.hostSuspended':
     'Tu cuenta de anfitrión está suspendida: no puedes modificar tus anuncios.',
   'common.listing.hostNotFound': 'No encontramos esta cuenta de anfitrión.',
@@ -965,16 +978,16 @@ export const ES_MESSAGES = {
   'common.listing.priceInvalid': 'El precio por día no es válido para esta moneda.',
   'common.listing.mileageInvalid': 'Revisa la distancia incluida y el precio por kilómetro extra.',
   'common.listing.requestModeNotAllowed': 'En un aeropuerto, la reserva es siempre inmediata.',
-  'common.listing.photoMinCount': 'Agrega más fotos de tu auto antes de enviar el anuncio.',
+  'common.listing.photoMinCount': 'Agrega más fotos de tu auto antes de publicar el anuncio.',
   'common.listing.photoFormat': 'Esta foto no se puede usar. Sube una foto JPEG, PNG o WebP.',
   'common.listing.hostTermsRequired':
-    'Antes de enviar tu anuncio, lee y acepta la versión vigente de las Condiciones del anfitrión.',
+    'Antes de publicar tu anuncio, lee y acepta la versión vigente de las Condiciones del anfitrión.',
   'common.listing.vehicleNotCovered':
     'Este vehículo no cumple las condiciones de la protección de los viajes (antigüedad, valor o uso). No se puede publicar.',
   'common.listing.insurerInactive':
-    'Todo listo de tu lado. La protección de los viajes todavía no está disponible aquí; podrás enviar tu anuncio cuando lo esté.',
+    'Todo listo de tu lado. La protección de los viajes todavía no está disponible aquí; podrás publicar tu anuncio cuando lo esté.',
   'common.listing.hostNotActivated':
-    'Todo listo de tu lado. Podrás enviar tu anuncio cuando tu cuenta de anfitrión esté activa y abramos a anfitriones aquí.',
+    'Todo listo de tu lado. Podrás publicar tu anuncio cuando tu cuenta de anfitrión esté activa y abramos a anfitriones aquí.',
   'common.listing.unavailable':
     'No podemos guardar tu anuncio en este momento. Inténtalo más tarde.',
   'common.listing.photoUnavailable': 'Todavía no podemos recibir fotos. Inténtalo más tarde.',
@@ -1317,6 +1330,10 @@ export const ES_MESSAGES = {
   'common.vehicleDocs.uploadUnavailable':
     'El envío de documentos aún no está disponible. Inténtalo más tarde.',
   'common.vehicleReview.closed': 'Este auto ya no está en revisión.',
+  'common.listingReview.closed': 'Este anuncio ya no está en revisión.',
+  'common.listingReview.rationaleRequired': 'Elige el motivo del rechazo.',
+  'common.listingReview.notPublishable':
+    'No se puede aprobar: el anuncio no pasa un control automático ({reason}).',
   'common.vehicleReview.checklistInvalid':
     'Marca cada punto de control y da un veredicto para cada documento.',
   'common.vehicleReview.claimClosed': 'Este reclamo ya fue resuelto.',

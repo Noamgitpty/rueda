@@ -1072,6 +1072,17 @@
       "values": { "PA": 6, "PY": 6 }
     },
     {
+      "key": "listing_manual_review_required",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-016, ADM-003 (revue de l'annonce par l'ops) ; DEC-FONDATEUR-22 « jamais plus lourd que Turo » : publication dès les contrôles automatiques, revue seulement si le pays l'exige (absent : exigée)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "DEC-FONDATEUR-22 ; ADR-114 PROPOSÉ (US-118)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
       "key": "price_ceiling_daily_minor",
       "type": "MONEY",
       "scopes": ["COUNTRY"],
