@@ -24,8 +24,6 @@
         "RUEDA_PG_*",
         "RUEDA_C11_*",
         "RUEDA_QA_REPORT_DIR",
-        "ImageOS",
-        "ImageVersion",
         "DOCKER_*",
         "TESTCONTAINERS_*"
       ],
