@@ -1096,7 +1096,7 @@ describe.each(COUNTRIES)(
       });
     });
 
-    it('véhicule couvert : la garde de couverture laisse passer (compte non activé, puis interrupteurs ouverts ⇒ soumis)', async () => {
+    it('véhicule couvert : la garde de couverture laisse passer (compte non activé, puis interrupteurs ouverts ⇒ contrôle suivant, US-118)', async () => {
       await withRole('app_api', (c) =>
         withTestTransaction(c, {}, async (tx) => {
           const d = await draft(tx, cc);
@@ -1120,8 +1120,10 @@ describe.each(COUNTRIES)(
           // contrat en vigueur mais interrupteur de l'assureur fermé : refus (17 §0.1)
           expect(await submitListing(tx, d)).toBe('INSURER_CONTRACT_INACTIVE');
           await openInTx(tx, 'insurer_contract_active', country);
-          expect(await submitListing(tx, d)).toBe('DONE');
-          expect(await listingStatus(tx, d.listing)).toBe('PENDING_REVIEW');
+          // US-118 (0084) : couverture et interrupteurs franchis, la publication s'arrête au
+          // véhicule non encore confirmé par l'hôte (US-124) ; publication prouvée par l0-us118
+          expect(await submitListing(tx, d)).toBe('VEHICLE_ELIGIBILITY_REQUIRED');
+          expect(await listingStatus(tx, d.listing)).toBe('DRAFT');
         }),
       );
     });

@@ -147,7 +147,7 @@
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-115"
+      "story": "US-115, US-118"
     },
     {
       "signature": "core.catalog_cmd_create_vehicle(bytea,uuid,uuid,text,text,uuid,text,text,integer,text,text,smallint,text,integer,boolean,boolean)",
@@ -161,14 +161,21 @@
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-115"
+      "story": "US-115, US-118"
     },
     {
       "signature": "core.catalog_cmd_submit_listing(bytea,uuid,uuid)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-115, US-126, US-114"
+      "story": "US-115, US-126, US-114, US-118"
+    },
+    {
+      "signature": "core.catalog_cmd_unlist_listing(bytea,uuid,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-118"
     },
     {
       "signature": "core.catalog_cmd_update_listing_pricing(bytea,uuid,uuid,bigint,text,integer,bigint)",
@@ -1109,6 +1116,13 @@
       "story": "US-124"
     },
     {
+      "signature": "core.catalog_listing_decide(uuid,text,uuid,text,text,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-118"
+    },
+    {
       "signature": "core.catalog_vehicle_claim_dossier(uuid,text)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
@@ -1142,6 +1156,13 @@
       "owner": "iam_staff_owner",
       "execute": ["app_api"],
       "story": "US-124"
+    },
+    {
+      "signature": "core.support_staff_decide_listing(bytea,uuid,uuid,text,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-118"
     },
     {
       "signature": "core.support_staff_vehicle_claim(bytea,uuid,uuid,text)",

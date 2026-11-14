@@ -65,6 +65,7 @@ function storeOf(trace: Trace, permitted = 'PERMITTED', recorded = 'RECORDED'): 
     resolveCatalogAddition: never,
     vehicleEligibility: never,
     decideVehicleEligibility: never,
+    decideListing: never,
     vehicleClaim: never,
     decideVehicleClaim: never,
     vehicleFile: never,

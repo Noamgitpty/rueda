@@ -95,6 +95,18 @@ export class HostListingsService {
       input = parseLocation(body);
     });
     const r = await this.#call(() => this.store.createLocation(proof, orgId, input));
+    // zone affichée qui ressemble à une adresse exacte (BOARD N-62, filtre de la base) : refus
+    // rattaché au champ, avec son propre message
+    if (r.outcome === 'LOCATION_AREA_ADDRESS') {
+      throw new HostListingHttpError('LOCATION_AREA_ADDRESS', [
+        { field: 'areaLabel', reason: 'INVALID' },
+      ]);
+    }
+    if (r.outcome === 'LOCATION_CITY_INVALID') {
+      throw new HostListingHttpError('LOCATION_CITY_INVALID', [
+        { field: 'city', reason: 'INVALID' },
+      ]);
+    }
     return { ...this.#done(r.outcome, 'LOCATION_CREATED'), locationId: r.id as string };
   }
 
@@ -130,9 +142,25 @@ export class HostListingsService {
     return this.#done(r.outcome, 'LISTING_SAVED');
   }
 
+  /**
+   * Publication (US-118, ADR-114) : publiée dès que les contrôles automatiques passent
+   * (DEC-FONDATEUR-22) ; en revue seulement si le pays l'exige (`listing_manual_review_required`).
+   */
   async submit(proof: Buffer, orgId: string, listingId: string) {
     const r = await this.#call(() => this.store.submitListing(proof, orgId, listingId));
-    return { ...this.#done(r.outcome, 'LISTING_SUBMITTED'), status: 'PENDING_REVIEW' as const };
+    if (r.outcome === 'LISTED') {
+      return { code: 'LISTING_PUBLISHED' as const, status: 'LISTED' as const };
+    }
+    if (r.outcome === 'PENDING_REVIEW') {
+      return { code: 'LISTING_SUBMITTED' as const, status: 'PENDING_REVIEW' as const };
+    }
+    throw new HostListingHttpError(outcomeCode(r.outcome));
+  }
+
+  /** Retrait par l'hôte (US-118) : refusé tant qu'un trip est à venir (OQ-BR-29). */
+  async unlist(proof: Buffer, orgId: string, listingId: string) {
+    const r = await this.#call(() => this.store.unlistListing(proof, orgId, listingId));
+    return { ...this.#done(r.outcome, 'LISTING_UNLISTED'), status: 'UNLISTED' as const };
   }
 
   /** Nouvelle demande d'ajout au catalogue (US-114) : après un refus, marque et modèle corrigés. */

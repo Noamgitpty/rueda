@@ -62,8 +62,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
  d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
  `web.vehicleDocs.declaration.vinHint`.
+ Version 31 : publication immédiate d'une
+ annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
+ `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`,
+ `.areaLooksLikeAddress`, `.cityInvalid`, `.vehicleDescriptionInvalid`, `common.listingReview.*`, `web.host.listing.unlist`, `.relist` ; sens
+ changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
+ `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
+ `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
  */
-export const CATALOG_VERSION = 30;
+export const CATALOG_VERSION = 31;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
