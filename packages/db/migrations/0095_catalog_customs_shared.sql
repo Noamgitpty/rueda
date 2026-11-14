@@ -30,7 +30,7 @@
 UPDATE core.catalog_vehicle_variant
    SET market = NULL
  WHERE source = 'DNIT_ADUANAS_PY'
-   AND market IS NOT NULL;
+   AND market IS NULL; -- MUTATION N-101 : partage neutralisé
 
 COMMENT ON COLUMN core.catalog_vehicle_variant.market IS
   'Pays où la variante est proposée ; NULL = commune à tous les pays (17 §3.2.3). Les variantes de '
