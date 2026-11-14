@@ -281,12 +281,12 @@ describe('tâches du travailleur (US-003)', () => {
     const alerts = new RecordingAlerts();
     const logs: string[] = [];
     const { tx, sql } = recordingTx({
-      audit_worker_retention_sweep: [{ n: '3' }],
-      audit_worker_dsr_overdue: [
+      privacy_worker_retention_sweep: [{ n: '3' }],
+      privacy_worker_dsr_overdue: [
         { country_code: C1, overdue: 2 },
         { country_code: C2, overdue: '1' },
       ],
-      audit_worker_stale_kyc_erasures: [{ n: 4 }],
+      privacy_worker_stale_kyc_erasures: [{ n: 4 }],
     });
     registerWorkerTasks(registry, {
       transactions: transactions(tx, []),
@@ -301,9 +301,9 @@ describe('tâches du travailleur (US-003)', () => {
     await h.handle({}, tx);
     const d = WORKER_TASK_DEFAULTS;
     expect(sql).toEqual([
-      `SELECT core.audit_worker_retention_sweep($1) AS n [${d.privacyBatch}]`,
-      `SELECT country_code, overdue FROM core.audit_worker_dsr_overdue($1) [${d.privacyBatch}]`,
-      `SELECT core.audit_worker_stale_kyc_erasures($1) AS n [${d.kycErasureStaleMinutes}]`,
+      `SELECT core.privacy_worker_retention_sweep($1) AS n [${d.privacyBatch}]`,
+      `SELECT country_code, overdue FROM core.privacy_worker_dsr_overdue($1) [${d.privacyBatch}]`,
+      `SELECT core.privacy_worker_stale_kyc_erasures($1) AS n [${d.kycErasureStaleMinutes}]`,
     ]);
     expect(alerts.sent).toEqual([
       {
@@ -333,8 +333,8 @@ describe('tâches du travailleur (US-003)', () => {
 
   it('privacy_request : rien en retard ni en souffrance ⇒ aucune alerte ; canal en échec ⇒ la passe échoue (rejouée)', async () => {
     const quiet = recordingTx({
-      audit_worker_retention_sweep: [{ n: 0 }],
-      audit_worker_stale_kyc_erasures: [{ n: 0 }],
+      privacy_worker_retention_sweep: [{ n: 0 }],
+      privacy_worker_stale_kyc_erasures: [{ n: 0 }],
     });
     const alerts = new RecordingAlerts();
     const registry = new BusRegistry();
@@ -351,9 +351,9 @@ describe('tâches du travailleur (US-003)', () => {
     await h.handle({}, quiet.tx);
     expect(alerts.sent).toEqual([]);
     const late = recordingTx({
-      audit_worker_retention_sweep: [{ n: 0 }],
-      audit_worker_dsr_overdue: [{ country_code: C1, overdue: 1 }],
-      audit_worker_stale_kyc_erasures: [{ n: 0 }],
+      privacy_worker_retention_sweep: [{ n: 0 }],
+      privacy_worker_dsr_overdue: [{ country_code: C1, overdue: 1 }],
+      privacy_worker_stale_kyc_erasures: [{ n: 0 }],
     });
     alerts.failing = true;
     await expect(h.handle({}, late.tx)).rejects.toThrow('canal d’alerte indisponible');

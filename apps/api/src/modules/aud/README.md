@@ -46,7 +46,7 @@ Les FAKE sont refusés hors `RUEDA_ENV` = `development` ou `test` (`packages/fak
 
 ## Rétention, demandes des personnes et registre Ley 81 (US-111, ADR-118)
 
-- **Garde du KYC de production** : `core.audit_kyc_register_gate(pays)` ; appelée par KYC (`IdentityStore.registerGate`) avant toute ouverture : `KYC_PRODUCTION_BLOCKED_NO_REGISTER` (503) en production tant que `privacy_register_validated` du pays n'est pas `true` ou qu'aucun fournisseur KYC `CONTRACTED` n'est inscrit.
+- **Garde du KYC de production** : `core.privacy_kyc_register_gate(pays)` ; appelée par KYC (`IdentityStore.registerGate`) avant toute ouverture : `KYC_PRODUCTION_BLOCKED_NO_REGISTER` (503) en production tant que `privacy_register_validated` du pays n'est pas `true` ou qu'aucun fournisseur KYC `CONTRACTED` n'est inscrit.
 - **Travailleur `privacy_request`** (`apps/api/src/worker-tasks.ts`, toutes les heures) : pseudonymisation des trips clos sans litige à `evidence_retention_months`, retards des demandes (`PRIVACY_DSR_OVERDUE`), effacements KYC en souffrance (`PRIVACY_KYC_ERASURE_STALE`) ; `docs/ops/MONITORING.md`.
 - **Demandes des personnes** : action de console `HANDLE_DSR` (saisie `kind`, `step`), formulaire dédié du back-office (ADMIN, SUPERADMIN).
 - **Gabarits juridiques à valider par l'avocat** : `docs/legal/registro-tratamientos-ley81.md`, `docs/legal/politica-privacidad-borrador.md`.

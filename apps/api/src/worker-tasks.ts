@@ -15,7 +15,7 @@
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
- * | `privacy_request`     | 1 h                                        | `core.audit_worker_retention_sweep`, `core.audit_worker_dsr_overdue` puis `core.audit_worker_stale_kyc_erasures` (0090, US-111) : trips clos sans litige pseudonymisés à l'échéance (`evidence_retention_months`), purge journalisée ; demandes des personnes en retard signalées une fois ; demandes d'effacement KYC en attente ou en échec ; alertes `PRIVACY_DSR_OVERDUE` (P1, par pays), `PRIVACY_KYC_ERASURE_STALE` (P1) |
+ * | `privacy_request`     | 1 h                                        | `core.privacy_worker_retention_sweep`, `core.privacy_worker_dsr_overdue` puis `core.privacy_worker_stale_kyc_erasures` (0090, US-111) : trips clos sans litige pseudonymisés à l'échéance (`evidence_retention_months`), purge journalisée ; demandes des personnes en retard signalées une fois ; demandes d'effacement KYC en attente ou en échec ; alertes `PRIVACY_DSR_OVERDUE` (P1, par pays), `PRIVACY_KYC_ERASURE_STALE` (P1) |
  * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_auto_review_hosts` (0081, US-108 : dossiers d'hôte propres approuvés sans l'ops), `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
@@ -300,11 +300,11 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   // n'est branché au travailleur). Un envoi en échec annule la passe (marques comprises).
   registry.registerPeriodic(PRIVACY_REQUEST_WORKER, d.privacyPeriodSeconds, async (_p, tx) => {
     const swept = await tx.query<{ n: unknown }>(
-      'SELECT core.audit_worker_retention_sweep($1) AS n',
+      'SELECT core.privacy_worker_retention_sweep($1) AS n',
       [d.privacyBatch],
     );
     const late = await tx.query<{ country_code: string; overdue: unknown }>(
-      'SELECT country_code, overdue FROM core.audit_worker_dsr_overdue($1)',
+      'SELECT country_code, overdue FROM core.privacy_worker_dsr_overdue($1)',
       [d.privacyBatch],
     );
     let overdue = 0;
@@ -320,7 +320,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
     }
     const stale = count(
       (
-        await tx.query<{ n: unknown }>('SELECT core.audit_worker_stale_kyc_erasures($1) AS n', [
+        await tx.query<{ n: unknown }>('SELECT core.privacy_worker_stale_kyc_erasures($1) AS n', [
           d.kycErasureStaleMinutes,
         ])
       ).rows[0]?.n,

@@ -141,7 +141,7 @@ export class PgIdentityStore implements IdentityStore {
   async registerGate(country: string): Promise<RegisterGate> {
     const [r] = await this.#run<{ code: string | null }>(
       'register_gate',
-      'SELECT core.audit_kyc_register_gate($1) AS code',
+      'SELECT core.privacy_kyc_register_gate($1) AS code',
       [country],
     );
     const code = r?.code ?? null;

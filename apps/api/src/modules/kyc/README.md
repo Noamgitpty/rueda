@@ -53,7 +53,7 @@ Cible (17 §2.2, §4.5) :
 
 ## Registre Ley 81 (US-111, ADR-118)
 
-`POST /identity/verification` juge d'abord, en base, la garde du registre du pays (`IdentityStore.registerGate`, `core.audit_kyc_register_gate`) : en production, registre non validé ou aucun fournisseur KYC contractuel inscrit ⇒ 503 `KYC_PRODUCTION_BLOCKED_NO_REGISTER` (texte `common.kyc.providerUnavailable`), même si un fournisseur était branché ; aucune écriture. Hors production : aucune garde.
+`POST /identity/verification` juge d'abord, en base, la garde du registre du pays (`IdentityStore.registerGate`, `core.privacy_kyc_register_gate`) : en production, registre non validé ou aucun fournisseur KYC contractuel inscrit ⇒ 503 `KYC_PRODUCTION_BLOCKED_NO_REGISTER` (texte `common.kyc.providerUnavailable`), même si un fournisseur était branché ; aucune écriture. Hors production : aucune garde.
 
 ## Ports
 

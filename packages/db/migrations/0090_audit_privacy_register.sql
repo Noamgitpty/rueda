@@ -11,7 +11,7 @@
 --     (`audit_processing_activity`) et règles de rétention (`audit_retention_rule`, chaque durée
 --     est un paramètre PAR PAYS, jamais une constante). Le texte juridique est un gabarit à
 --     valider par l'avocat (docs/legal/), hors base ;
---   - critère 1 : `core.audit_kyc_register_gate(pays)` rend `KYC_PRODUCTION_BLOCKED_NO_REGISTER`
+--   - critère 1 : `core.privacy_kyc_register_gate(pays)` rend `KYC_PRODUCTION_BLOCKED_NO_REGISTER`
 --     en production (environnement inconnu = production) tant que le registre du pays n'est pas
 --     validé (`privacy_register_validated`, fail-closed FALSE) ou qu'aucun fournisseur KYC
 --     contractuel en vigueur n'est inscrit. Hors production : rien (données synthétiques, ADM-034) ;
@@ -22,7 +22,7 @@
 --     `audit_retention_log` (ajout seul). Lignes comptables, opérations, jambes, audit chaîné et
 --     preuves : jamais touchés (17 §3.1.3 classe E). Paramètre absent : rien n'est purgé ;
 --   - critère 3 : `HANDLE_DSR` devient une action d'état liée à
---     `core.audit_manual_action_dsr` (cadre d'US-101) : saisie fermée `kind` et `step`, une
+--     `core.privacy_manual_action_dsr` (cadre d'US-101) : saisie fermée `kind` et `step`, une
 --     demande par dossier de support, échéance = réception + `privacy_dsr_response_days` du pays
 --     du dossier (paramètre absent : refus `DSR_DELAY_UNKNOWN`) ; machine d'états fermée ; le
 --     travailleur signale une fois chaque demande en retard ;
@@ -38,11 +38,11 @@
 --   DELETE FROM core.support_manual_action_handler WHERE action_code = 'HANDLE_DSR';
 --   UPDATE core.support_manual_action_catalog SET mode = 'RECORD_ONLY', available = true,
 --     input_keys = '{}', input_values = '{}' WHERE action_code = 'HANDLE_DSR';
---   DROP FUNCTION core.audit_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text),
---     core.audit_kyc_register_gate(text), core.audit_worker_retention_sweep(integer),
---     core.audit_worker_dsr_overdue(integer), core.audit_worker_stale_kyc_erasures(integer),
---     core.audit_privacy_param(text, text), core.audit_privacy_worker_guard(),
---     core.audit_privacy_append_only();
+--   DROP FUNCTION core.privacy_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text),
+--     core.privacy_kyc_register_gate(text), core.privacy_worker_retention_sweep(integer),
+--     core.privacy_worker_dsr_overdue(integer), core.privacy_worker_stale_kyc_erasures(integer),
+--     core.privacy_param(text, text), core.privacy_worker_guard(),
+--     core.privacy_append_only();
 --   DROP TABLE core.audit_retention_log, core.audit_data_subject_request,
 --     core.audit_processing_activity, core.audit_retention_rule, core.audit_subprocessor;
 --   DROP POLICY privacy_cmd_* (tables existantes ci-dessous) ; révoquer les droits de
@@ -279,7 +279,7 @@ COMMENT ON TABLE core.audit_retention_log IS
   'AUD : journal des purges et pseudonymisations (LEG-009), une ligne par sujet et par règle ; '
   'ajout seul, aucune donnée personnelle. US-111 (ADR-118).';
 
-CREATE FUNCTION core.audit_privacy_append_only()
+CREATE FUNCTION core.privacy_append_only()
   RETURNS trigger
   LANGUAGE plpgsql
   SET search_path = pg_catalog, pg_temp
@@ -289,11 +289,11 @@ BEGIN
     USING ERRCODE = 'insufficient_privilege';
 END
 $fn$;
-REVOKE ALL ON FUNCTION core.audit_privacy_append_only() FROM PUBLIC;
+REVOKE ALL ON FUNCTION core.privacy_append_only() FROM PUBLIC;
 CREATE TRIGGER audit_retention_log_append_only BEFORE UPDATE OR DELETE ON core.audit_retention_log
-  FOR EACH ROW EXECUTE FUNCTION core.audit_privacy_append_only();
+  FOR EACH ROW EXECUTE FUNCTION core.privacy_append_only();
 CREATE TRIGGER audit_retention_log_no_truncate BEFORE TRUNCATE ON core.audit_retention_log
-  FOR EACH STATEMENT EXECUTE FUNCTION core.audit_privacy_append_only();
+  FOR EACH STATEMENT EXECUTE FUNCTION core.privacy_append_only();
 
 -- 6. RLS (ENABLE + FORCE) et droits ---------------------------------------------------------------
 ALTER TABLE core.audit_subprocessor ENABLE ROW LEVEL SECURITY;
@@ -369,7 +369,7 @@ GRANT EXECUTE ON FUNCTION platform.now(), platform.uuid_v7(), platform.deploymen
 
 -- 7. Primitives (SECURITY INVOKER ; EXECUTE au seul privacy_cmd_owner) ----------------------------
 -- Valeur en vigueur (jsonb) d'un paramètre de portée pays, NULL si absente.
-CREATE FUNCTION core.audit_privacy_param(p_key text, p_country text)
+CREATE FUNCTION core.privacy_param(p_key text, p_country text)
   RETURNS jsonb
   LANGUAGE sql
   STABLE
@@ -386,11 +386,11 @@ AS $fn$
    ORDER BY v.valid_from DESC
    LIMIT 1
 $fn$;
-REVOKE ALL ON FUNCTION core.audit_privacy_param(text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.audit_privacy_param(text, text) TO privacy_cmd_owner;
+REVOKE ALL ON FUNCTION core.privacy_param(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.privacy_param(text, text) TO privacy_cmd_owner;
 
 -- Réservé au travailleur `privacy_request` (contexte posé par la couche BUS).
-CREATE FUNCTION core.audit_privacy_worker_guard()
+CREATE FUNCTION core.privacy_worker_guard()
   RETURNS void
   LANGUAGE plpgsql
   STABLE
@@ -404,14 +404,14 @@ BEGIN
   END IF;
 END
 $fn$;
-REVOKE ALL ON FUNCTION core.audit_privacy_worker_guard() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.audit_privacy_worker_guard() TO privacy_cmd_owner;
+REVOKE ALL ON FUNCTION core.privacy_worker_guard() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.privacy_worker_guard() TO privacy_cmd_owner;
 
 -- 8. Critère 1 : garde du KYC de production (SECURITY DEFINER, EXECUTE app_api) -----------------
 -- NULL : rien ne s'y oppose ; sinon le code du refus. Environnement inconnu = production
 -- (L1-PM-05). Production : registre du pays validé (privacy_register_validated = true, absent =
 -- false) ET un fournisseur KYC CONTRACTED en vigueur inscrit au registre des sous-traitants.
-CREATE FUNCTION core.audit_kyc_register_gate(p_country text)
+CREATE FUNCTION core.privacy_kyc_register_gate(p_country text)
   RETURNS text
   LANGUAGE plpgsql
   STABLE
@@ -427,7 +427,7 @@ BEGIN
   IF COALESCE(platform.deployment_env(), 'production') <> 'production' THEN
     RETURN NULL;
   END IF;
-  IF core.audit_privacy_param('privacy_register_validated', p_country) IS DISTINCT FROM 'true'::jsonb
+  IF core.privacy_param('privacy_register_validated', p_country) IS DISTINCT FROM 'true'::jsonb
      OR NOT EXISTS (SELECT 1 FROM core.audit_subprocessor AS s
                      WHERE s.service = 'KYC' AND s.mode = 'CONTRACTED'
                        AND s.valid_from <= v_now AND (s.valid_to IS NULL OR s.valid_to > v_now)) THEN
@@ -445,7 +445,7 @@ $fn$;
 -- IN_PROGRESS atteste l'identité vérifiée (motif et pièces journalisés par le cadre). Refus
 -- métier (aucune écriture) : DSR_INPUT_REQUIRED, DSR_NOT_OPEN, DSR_ALREADY_OPEN, DSR_KIND_MISMATCH,
 -- DSR_TRANSITION_INVALID, DSR_DELAY_UNKNOWN. Issue DONE, ref_id = la demande.
-CREATE FUNCTION core.audit_manual_action_dsr(p_token_hash bytea, p_action_id uuid,
+CREATE FUNCTION core.privacy_manual_action_dsr(p_token_hash bytea, p_action_id uuid,
                                              p_action_code text, p_subject_id uuid,
                                              p_input jsonb, p_reason text,
                                              p_actor uuid, p_actor_role text)
@@ -490,7 +490,7 @@ BEGIN
       RETURN QUERY SELECT 'DSR_INPUT_REQUIRED'::text, NULL::uuid, '{}'::uuid[];
       RETURN;
     END IF;
-    v_days := core.audit_privacy_param('privacy_dsr_response_days', v_case.country_code::text);
+    v_days := core.privacy_param('privacy_dsr_response_days', v_case.country_code::text);
     IF v_days IS NULL OR pg_catalog.jsonb_typeof(v_days) <> 'number'
        OR (v_days #>> '{}') !~ '^[0-9]{1,3}$' OR (v_days #>> '{}')::integer < 1 THEN
       RETURN QUERY SELECT 'DSR_DELAY_UNKNOWN'::text, NULL::uuid, '{}'::uuid[];
@@ -540,7 +540,7 @@ $fn$;
 -- date du trip : motifs C2 remplacés par le marqueur PSEUDONYMISED, une ligne au journal par trip.
 -- Pays sans durée : aucun trip traité (conservation, jamais une purge à l'aveugle). Lignes
 -- verrouillées ailleurs : sautées (passe suivante). Rend le nombre de trips traités.
-CREATE FUNCTION core.audit_worker_retention_sweep(p_batch integer)
+CREATE FUNCTION core.privacy_worker_retention_sweep(p_batch integer)
   RETURNS integer
   LANGUAGE plpgsql
   VOLATILE
@@ -553,7 +553,7 @@ DECLARE
   v_cols text[];
   v_n    integer := 0;
 BEGIN
-  PERFORM core.audit_privacy_worker_guard();
+  PERFORM core.privacy_worker_guard();
   IF p_batch IS NULL OR p_batch < 1 OR p_batch > 10000 THEN
     RAISE EXCEPTION 'aud : lot de purge invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
@@ -561,7 +561,7 @@ BEGIN
     WITH months AS (
       SELECT c.country_code, (c.v #>> '{}')::integer AS n
         FROM (SELECT DISTINCT t.country_code,
-                     core.audit_privacy_param('evidence_retention_months', t.country_code) AS v
+                     core.privacy_param('evidence_retention_months', t.country_code) AS v
                 FROM core.booking_trip AS t) AS c
        WHERE pg_catalog.jsonb_typeof(c.v) = 'number' AND (c.v #>> '{}') ~ '^[0-9]{1,3}$'
          AND (c.v #>> '{}')::integer >= 1
@@ -616,7 +616,7 @@ $fn$;
 
 -- Demandes des personnes passées au-delà de leur échéance sans réponse : marquées UNE fois,
 -- comptées par pays (une alerte par pays). Rend seulement les pays qui ont un nouveau retard.
-CREATE FUNCTION core.audit_worker_dsr_overdue(p_batch integer)
+CREATE FUNCTION core.privacy_worker_dsr_overdue(p_batch integer)
   RETURNS TABLE (country_code text, overdue integer)
   LANGUAGE plpgsql
   VOLATILE
@@ -627,7 +627,7 @@ AS $fn$
 DECLARE
   v_now timestamptz := platform.now();
 BEGIN
-  PERFORM core.audit_privacy_worker_guard();
+  PERFORM core.privacy_worker_guard();
   IF p_batch IS NULL OR p_batch < 1 OR p_batch > 10000 THEN
     RAISE EXCEPTION 'aud : lot invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
@@ -651,7 +651,7 @@ $fn$;
 -- Demandes d'effacement au fournisseur KYC (US-105) restées PENDING ou FAILED au-delà de
 -- p_after_minutes : comptées (reprise par l'ops ; nouvel essai automatique quand un fournisseur
 -- réel sera branché au travailleur, lot C). Aucune référence de session lue.
-CREATE FUNCTION core.audit_worker_stale_kyc_erasures(p_after_minutes integer)
+CREATE FUNCTION core.privacy_worker_stale_kyc_erasures(p_after_minutes integer)
   RETURNS integer
   LANGUAGE plpgsql
   STABLE
@@ -661,7 +661,7 @@ AS $fn$
 DECLARE
   v_now timestamptz := platform.now();
 BEGIN
-  PERFORM core.audit_privacy_worker_guard();
+  PERFORM core.privacy_worker_guard();
   IF p_after_minutes IS NULL OR p_after_minutes < 1 OR p_after_minutes > 100000 THEN
     RAISE EXCEPTION 'aud : délai invalide' USING ERRCODE = 'invalid_parameter_value';
   END IF;
@@ -672,43 +672,43 @@ BEGIN
 END
 $fn$;
 
-COMMENT ON FUNCTION core.audit_kyc_register_gate(text) IS
+COMMENT ON FUNCTION core.privacy_kyc_register_gate(text) IS
   'Garde du KYC de production (LEG-010) : KYC_PRODUCTION_BLOCKED_NO_REGISTER tant que le registre '
   'du pays n''est pas validé ou qu''aucun fournisseur KYC contractuel n''est inscrit ; NULL hors '
   'production. SECURITY DEFINER, EXECUTE app_api. US-111 (ADR-118).';
-COMMENT ON FUNCTION core.audit_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text) IS
+COMMENT ON FUNCTION core.privacy_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text) IS
   'Commande liée à HANDLE_DSR (cadre d''US-101) : ouverture et étapes d''une demande de personne, '
   'échéance privacy_dsr_response_days. EXECUTE iam_staff_owner. US-111 (ADR-118).';
-COMMENT ON FUNCTION core.audit_worker_retention_sweep(integer) IS
+COMMENT ON FUNCTION core.privacy_worker_retention_sweep(integer) IS
   'Pseudonymisation des trips clos sans litige à échéance (evidence_retention_months), journalisée '
   'dans audit_retention_log ; travailleur privacy_request. SECURITY DEFINER, EXECUTE app_worker. '
   'US-111 (ADR-118).';
-COMMENT ON FUNCTION core.audit_worker_dsr_overdue(integer) IS
+COMMENT ON FUNCTION core.privacy_worker_dsr_overdue(integer) IS
   'Demandes des personnes en retard, signalées une fois, comptées par pays ; travailleur '
   'privacy_request. SECURITY DEFINER, EXECUTE app_worker. US-111 (ADR-118).';
-COMMENT ON FUNCTION core.audit_worker_stale_kyc_erasures(integer) IS
+COMMENT ON FUNCTION core.privacy_worker_stale_kyc_erasures(integer) IS
   'Demandes d''effacement KYC en attente ou en échec, comptées ; travailleur privacy_request. '
   'SECURITY DEFINER, EXECUTE app_worker. US-111 (ADR-118).';
 
-REVOKE ALL ON FUNCTION core.audit_kyc_register_gate(text),
-  core.audit_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text),
-  core.audit_worker_retention_sweep(integer), core.audit_worker_dsr_overdue(integer),
-  core.audit_worker_stale_kyc_erasures(integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.audit_kyc_register_gate(text) TO app_api;
-GRANT EXECUTE ON FUNCTION core.audit_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text)
+REVOKE ALL ON FUNCTION core.privacy_kyc_register_gate(text),
+  core.privacy_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text),
+  core.privacy_worker_retention_sweep(integer), core.privacy_worker_dsr_overdue(integer),
+  core.privacy_worker_stale_kyc_erasures(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.privacy_kyc_register_gate(text) TO app_api;
+GRANT EXECUTE ON FUNCTION core.privacy_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text)
   TO iam_staff_owner;
-GRANT EXECUTE ON FUNCTION core.audit_worker_retention_sweep(integer),
-  core.audit_worker_dsr_overdue(integer), core.audit_worker_stale_kyc_erasures(integer)
+GRANT EXECUTE ON FUNCTION core.privacy_worker_retention_sweep(integer),
+  core.privacy_worker_dsr_overdue(integer), core.privacy_worker_stale_kyc_erasures(integer)
   TO app_worker;
 
 -- Propriétaire NOLOGIN (CREATE le temps du transfert seulement).
 GRANT CREATE ON SCHEMA core TO privacy_cmd_owner;
-ALTER FUNCTION core.audit_kyc_register_gate(text) OWNER TO privacy_cmd_owner;
-ALTER FUNCTION core.audit_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text)
+ALTER FUNCTION core.privacy_kyc_register_gate(text) OWNER TO privacy_cmd_owner;
+ALTER FUNCTION core.privacy_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text)
   OWNER TO privacy_cmd_owner;
-ALTER FUNCTION core.audit_worker_retention_sweep(integer) OWNER TO privacy_cmd_owner;
-ALTER FUNCTION core.audit_worker_dsr_overdue(integer) OWNER TO privacy_cmd_owner;
-ALTER FUNCTION core.audit_worker_stale_kyc_erasures(integer) OWNER TO privacy_cmd_owner;
+ALTER FUNCTION core.privacy_worker_retention_sweep(integer) OWNER TO privacy_cmd_owner;
+ALTER FUNCTION core.privacy_worker_dsr_overdue(integer) OWNER TO privacy_cmd_owner;
+ALTER FUNCTION core.privacy_worker_stale_kyc_erasures(integer) OWNER TO privacy_cmd_owner;
 REVOKE CREATE ON SCHEMA core FROM privacy_cmd_owner;
 
 -- 11. Catalogue des actions : HANDLE_DSR devient une action d'état liée ---------------------------
@@ -726,5 +726,5 @@ UPDATE core.support_manual_action_catalog
 -- qu'iam_staff_owner, EXECUTE à iam_staff_owner et à aucun rôle applicatif)
 INSERT INTO core.support_manual_action_handler (action_code, handler, story)
 VALUES ('HANDLE_DSR',
-        'core.audit_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text)'::regprocedure,
+        'core.privacy_manual_action_dsr(bytea, uuid, text, uuid, jsonb, text, uuid, text)'::regprocedure,
         'US-111');

@@ -159,7 +159,7 @@ const RECORD_ONLY = [
 ] as const;
 const FINANCE = ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'] as const;
 // US-111 (0090, ADR-118) : demande de personne liée à sa commande (table data_subject_request)
-const DSR_HANDLER = 'core.audit_manual_action_dsr(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+const DSR_HANDLER = 'core.privacy_manual_action_dsr(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 
 const FINANCE_REQUEST =
   'core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)';

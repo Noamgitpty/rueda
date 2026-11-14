@@ -63,7 +63,7 @@ const setNow = (tx: pg.ClientBase, at: string) =>
   tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [at]);
 
 const sweep = async (tx: pg.ClientBase): Promise<number> =>
-  (await one<{ n: number }>(tx, 'SELECT core.audit_worker_retention_sweep($1) AS n', [10000])).n;
+  (await one<{ n: number }>(tx, 'SELECT core.privacy_worker_retention_sweep($1) AS n', [10000])).n;
 
 const tripOf = (tx: pg.ClientBase, id: string) =>
   one<{
@@ -117,12 +117,12 @@ describe('US-111 critère 1 — KYC de production sans registre validé', () => 
   it('hors production (base de test) : aucune garde, quel que soit le pays', async () => {
     await withRole('app_api', async (c) => {
       for (const { country } of COUNTRIES) {
-        expect(await one(c, 'SELECT core.audit_kyc_register_gate($1) AS code', [country])).toEqual({
+        expect(await one(c, 'SELECT core.privacy_kyc_register_gate($1) AS code', [country])).toEqual({
           code: null,
         });
       }
       await expect(
-        c.query('SELECT core.audit_kyc_register_gate($1)', ['p1']),
+        c.query('SELECT core.privacy_kyc_register_gate($1)', ['p1']),
       ).rejects.toMatchObject({ code: '22023' });
     });
   });
@@ -141,7 +141,7 @@ describe('US-111 critère 1 — KYC de production sans registre validé', () => 
               (
                 await one<{ code: string | null }>(
                   tx,
-                  'SELECT core.audit_kyc_register_gate($1) AS code',
+                  'SELECT core.privacy_kyc_register_gate($1) AS code',
                   [k],
                 )
               ).code;
@@ -348,13 +348,13 @@ describe('US-111 critère 2 — trip clos sans litige : pseudonymisation et purg
       );
       await worker(w, '2033-01-01T00:00:00Z', async (tx) => {
         await expect(
-          tx.query('SELECT core.audit_worker_retention_sweep($1)', [0]),
+          tx.query('SELECT core.privacy_worker_retention_sweep($1)', [0]),
         ).rejects.toMatchObject({ code: '22023' });
       });
     });
     await withRole('app_api', async (c) => {
       await expect(
-        c.query('SELECT core.audit_worker_retention_sweep($1)', [10]),
+        c.query('SELECT core.privacy_worker_retention_sweep($1)', [10]),
       ).rejects.toMatchObject({ code: '42501' });
     });
   });
@@ -488,7 +488,7 @@ describe('US-111 critère 3 — demande de personne saisie par HANDLE_DSR : dél
         await worker(w, late, async (tx) => {
           const first = (
             await tx.query<{ country_code: string; overdue: number }>(
-              'SELECT * FROM core.audit_worker_dsr_overdue($1)',
+              'SELECT * FROM core.privacy_worker_dsr_overdue($1)',
               [10000],
             )
           ).rows;
@@ -496,7 +496,7 @@ describe('US-111 critère 3 — demande de personne saisie par HANDLE_DSR : dél
           expect((await dsrOf(tx, dsrId.caseId))[0]?.overdue_alerted_at).toEqual(new Date(late));
           const second = (
             await tx.query<{ country_code: string; overdue: number }>(
-              'SELECT * FROM core.audit_worker_dsr_overdue($1)',
+              'SELECT * FROM core.privacy_worker_dsr_overdue($1)',
               [10000],
             )
           ).rows;
@@ -504,7 +504,7 @@ describe('US-111 critère 3 — demande de personne saisie par HANDLE_DSR : dél
         });
         // avant l'échéance : rien
         await worker(w, new Date(dsrId.due.getTime() - 60_000).toISOString(), async (tx) => {
-          await tx.query('SELECT * FROM core.audit_worker_dsr_overdue($1)', [10000]);
+          await tx.query('SELECT * FROM core.privacy_worker_dsr_overdue($1)', [10000]);
           expect((await dsrOf(tx, dsrId.caseId))[0]?.overdue_alerted_at).toBeNull();
         });
       });
@@ -536,7 +536,7 @@ describe('US-111 — reprise des demandes d’effacement KYC en attente ou en é
             (
               await one<{ n: number }>(
                 tx,
-                'SELECT core.audit_worker_stale_kyc_erasures($1) AS n',
+                'SELECT core.privacy_worker_stale_kyc_erasures($1) AS n',
                 [60],
               )
             ).n;
