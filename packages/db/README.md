@@ -18,6 +18,7 @@ Le paquet ne publie pas d'événement de domaine lui-même : il fournit l'outbox
 
 - `FileStore`, `UploadScanner` et `KeyWrapper`, déclarés par `@rueda/db/audit` (section « Audit, clés par sujet et magasin de preuves ») ; FAKE fournis par `@rueda/fake-adapters/files` et `FakeKeyWrapper` (`@rueda/db/testing`).
 - Côté base des ports de paiement : sections « Port PaymentProvider » et « Port de place de marché ».
+- Adaptateurs **locaux** (non FAKE) de `KeyWrapper` et `FileStore` : `LocalKeyWrapper` (refusé en production) et `FsFileStore`, dans `src/portability/` (section « Portabilité »). Inventaire de tous les services de l'hébergeur, de leurs ports et de leurs alternatives : `docs/ops/PORTABILITY.md` §1.
 
 ## Arborescence
 
@@ -142,6 +143,20 @@ Code TypeScript (`@rueda/db/audit`) : `appendAuditLog` (IP de l'acteur chiffrée
 Codes PROPOSÉS : `audit_log_append_only`, `data_access_log_append_only`, `audit_chain_head_guard`, `subject_key_immutable`, `file_asset_immutable` → `IMMUTABLE_RECORD` ; `audit_log_key_destroyed`, `subject_key_not_live` → `SUBJECT_ERASED` ; `subject_key_legal_hold` → `LEGAL_HOLD_ACTIVE`.
 
 **Fixtures de test** (`test-migrations/9150`) : `destroy_subject_key`, `set_file_legal_hold`, `owner_tamper_audit_log` (simule un propriétaire qui altère le journal, à n'appeler que dans une transaction annulée) et `lock_audit_log` (à prendre avant toute écriture quand le trigger est désactivé, pour éviter un interblocage).
+
+## Portabilité (US-036 ; 17 §6.1, §6.4 ; ADR-120)
+
+`src/portability/` : changer d'hébergeur sans perte (runbook `docs/ops/PORTABILITY.md`, exercice `scripts/ops/portability-drill.sh` à la fin du job CI « reprise »). Aucune migration.
+
+- `local-key-wrapper.ts` : `LocalKeyWrapper`, adaptateur local du port `KeyWrapper` (AES-256-GCM, clé maîtresse de 32 octets lue dans un fichier, AAD liée au sujet et à la clé ; enveloppe de 61 octets) ; admis en `development`, `test`, `preproduction`, **refusé en production** et si `RUEDA_ENV` est absente.
+- `fs-file-store.ts` : `FsFileStore`, adaptateur système de fichiers du port `FileStore` (création seule par lien physique exclusif, aucune clé hors de la racine).
+- `escrow.ts` : séquestre du fondateur (RSA-OAEP-SHA-256, 3 072 bits au moins) ; `EscrowSealer` (clé publique, export) et `EscrowOpener` (clé privée, import seulement).
+- `keys.ts` : `exportSubjectKeys` (chaque DEK vivante déroulée par la source, ré-enveloppée pour le séquestre ; fail-closed) et `importSubjectKeys` (table vide exigée, ré-enveloppe par la cible, relecture vérifiée, une transaction) ; insertion entre les sections `data` et `post-data` de `pg_restore` (le trigger de 0016 et la clé étrangère de `file_asset` arrivent avec `post-data`).
+- `files.ts` : `exportFiles` / `importFiles` (objets du registre `file_asset`, octet pour octet, manifeste SHA-256).
+- `main.ts`, `cli.ts` : `node packages/db/src/portability/cli.ts prepare-target | export-keys | import-keys | export-files | import-files`, sous le rôle d'administration de l'instance ; adaptateurs choisis par `RUEDA_KEY_WRAPPER` (`local`) et `RUEDA_FILE_STORE` (`fs`), tout autre nom refusé (Q-007).
+- `provider-neutral.test.ts` : `apps/` et `packages/` n'importent aucun SDK de fournisseur cloud et ne contiennent aucune constante de fournisseur (hôte, ARN, région).
+
+Tests : `src/portability/portability.test.ts` (unitaires, sans base) ; `test/portability/portability-drill.test.ts` (`pnpm --filter @rueda/db test:portability`, lancé par `scripts/ops/portability-drill.sh` : aller-retour complet sous les rôles de production, L0-05).
 
 ## Outbox et file (US-008 ; 17 §4.1, §4.2 ; ADR-050)
 
