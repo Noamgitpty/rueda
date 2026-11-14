@@ -78,6 +78,12 @@ export const POST_SEED_PARAMS: readonly {
     refs: '19 US-111, 16 LEG-009 / LEG-010, OQ-BR-25, OQ-MK-09',
   },
   {
+    prefix: 'security_incident_',
+    file: '0091_config_security_incident_params.sql',
+    story: 'US-112',
+    refs: '19 US-112, 16 LEG-010 / ADM-035, OQ-MK-09',
+  },
+  {
     prefix: 'plate_claims_',
     file: '0094_config_plate_claim_params.sql',
     story: 'US-122',

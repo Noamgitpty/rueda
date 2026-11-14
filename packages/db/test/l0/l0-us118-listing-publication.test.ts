@@ -30,6 +30,14 @@ import type { CountryCase } from '../support/avl.ts';
 import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts';
 import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import {
+  benchPgVersion,
+  recordPerf,
+  SMOKE_SAMPLES,
+  SMOKE_WARMUP,
+  summarize,
+  timed,
+} from '../support/perf.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 import { elevatedStaff as elevatedRaw, installTestProofKey } from '../support/staff.ts';
 
@@ -936,5 +944,44 @@ describe('revue de l’ops seulement si le pays l’exige (listing_manual_review
         expect((await itemsOf(tx, id)).filter((i) => i.status === 'OPEN')).toHaveLength(1);
       });
     },
+  );
+});
+
+// US-045 : performance de fumée de la publication d'une annonce (catalog_cmd_submit_listing, ADR-119) :
+// annonces prêtes d'un même hôte, interrupteurs ouverts dans la transaction ANNULÉE (procédure à deux
+// personnes d'US-125) ; chaque publication doit rendre LISTED. Aucune cible dans 17 §6.7 : durée
+// consignée sans alerte (révision proposée, N-16). Mesure dans la transaction : sans le COMMIT.
+describe('US-045 — fumée de performance : publication d’une annonce', () => {
+  it.each(byCountry)(
+    '%s (%s) : publications séquentielles, p95 consigné, chaque issue LISTED',
+    async (country, _currency, cc) => {
+      await rolledBack(async (tx) => {
+        await countryRules(tx, country, false);
+        await openSwitch(tx, 'p2p_private_hosts_enabled', country);
+        await openSwitch(tx, 'insurer_contract_active', country);
+        const h = await host(tx, country);
+        const ready: string[] = [];
+        for (let i = 0; i < SMOKE_WARMUP + SMOKE_SAMPLES; i += 1) {
+          const v = await vehicle(tx, h, cc);
+          ready.push(await listing(tx, h, cc, v));
+          await confirmVehicle(tx, h, v);
+        }
+        const ms: number[] = [];
+        for (const [i, id] of ready.entries()) {
+          const { value, ms: d } = await timed(() => publish(tx, h, id));
+          expect(value).toBe('LISTED');
+          if (i >= SMOKE_WARMUP) ms.push(d);
+        }
+        const record = recordPerf({
+          series: 'publication.sequentielle',
+          country,
+          summary: summarize(ms),
+          pgVersion: await benchPgVersion(),
+          details: { warmup: SMOKE_WARMUP, form: 'dans une transaction annulée, sans COMMIT' },
+        });
+        expect(record.n).toBe(SMOKE_SAMPLES);
+      });
+    },
+    180_000,
   );
 });

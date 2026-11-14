@@ -1889,6 +1889,30 @@
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-BR-25 (avis juridique) ; ADR-118 (US-111)",
       "values": { "PA": 60, "PY": 60 }
+    },
+    {
+      "key": "security_incident_authority_notice_hours",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "19 US-112 ; 16 LEG-010, ADM-035 ; 17 §3.2.13 security_incident.authority_notification_due_at, §6.4 : délai de notification d'une violation de données à l'autorité, compté depuis la détection (security_incident.detected_at) ; valeur absente ⇒ échéance immédiate (fail-closed, ADR-121)",
+      "status": "PROPOSÉ ; OQ-MK-09 (défaut 72 h, à confirmer par l’avocat PA et PY)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-MK-09 (défaut de 22 : 72 h) ; ADR-121",
+      "values": { "PA": 72, "PY": 72 }
+    },
+    {
+      "key": "security_incident_subjects_notice_hours",
+      "type": "DURATION",
+      "unit": "h",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "19 US-112 ; 16 LEG-010 (notification aux personnes) ; 17 §3.2.13 security_incident.subjects_notified_at : délai de notification d'une violation aux personnes concernées, compté depuis la détection ; valeur absente ⇒ échéance immédiate (fail-closed, ADR-121)",
+      "status": "PROPOSÉ ; OQ-MK-09 (même délai que l’autorité en attendant l’avis)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-MK-09 (défaut prudent : 72 h, aligné sur l’autorité) ; ADR-121",
+      "values": { "PA": 72, "PY": 72 }
     }
   ]
 }

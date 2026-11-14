@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 91 migrations ; 106 tables ; 2 vues ; 561 politiques RLS ; 188 fonctions `SECURITY DEFINER` ; 189 autres fonctions.
+- 93 migrations ; 107 tables ; 2 vues ; 567 politiques RLS ; 191 fonctions `SECURITY DEFINER` ; 191 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -106,6 +106,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0088_kyc_legal_name_match` | KYC : nom légal du compte rapproché du nom lu sur le permis, changement du nom légal. |
 | `0089_config_privacy_params` | graine complémentaire : paramètres « privacy_* » (US-111 ; 17 §7.2). |
 | `0090_audit_privacy_register` | AUD : registre Ley 81 (traitements, sous-traitants, règles de rétention), demandes des personnes, pseudonymisation des trips clos. |
+| `0091_config_security_incident_params` | graine complémentaire : paramètres « security_incident_* » (US-112 ; 17 §7.2). |
+| `0092_audit_security_incident` | AUD : registre des incidents de sécurité et des violations de données (délais de notification). |
 
 ## Rôles
 
@@ -496,6 +498,68 @@ Politiques RLS :
 
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `privacy_cmd_read` (SELECT, PERMISSIVE, privacy_cmd_owner) USING `true`
+
+### `core.audit_security_incident`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : iam_staff_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `country_code` | `character(2)` | oui | — |
+| `kind` | `text` | oui | — |
+| `severity` | `text` | oui | — |
+| `personal_data_involved` | `boolean` | non | — |
+| `subjects_count_estimate` | `integer` | non | — |
+| `detected_at` | `timestamp with time zone` | oui | — |
+| `reported_at` | `timestamp with time zone` | oui | — |
+| `reported_by` | `uuid` | oui | — |
+| `authority_notification_due_at` | `timestamp with time zone` | oui | — |
+| `subjects_notification_due_at` | `timestamp with time zone` | oui | — |
+| `contained_at` | `timestamp with time zone` | non | — |
+| `authority_notified_at` | `timestamp with time zone` | non | — |
+| `subjects_notified_at` | `timestamp with time zone` | non | — |
+| `closed_at` | `timestamp with time zone` | non | — |
+| `status` | `text` | oui | — |
+| `postmortem_file_id` | `uuid` | non | — |
+| `updated_at` | `timestamp with time zone` | oui | — |
+| `updated_by` | `uuid` | oui | — |
+| `opened_alerted_at` | `timestamp with time zone` | non | — |
+| `authority_overdue_alerted_at` | `timestamp with time zone` | non | — |
+| `subjects_overdue_alerted_at` | `timestamp with time zone` | non | — |
+
+Contraintes :
+
+- `audit_security_incident_closed` : `CHECK ((status = 'CLOSED'::text) = (closed_at IS NOT NULL) AND (closed_at IS NULL OR postmortem_file_id IS NOT NULL AND contained_at IS NOT NULL))`
+- `audit_security_incident_closed_notified` : `CHECK (closed_at IS NULL OR personal_data_involved IS FALSE OR authority_notified_at IS NOT NULL AND subjects_notified_at IS NOT NULL)`
+- `audit_security_incident_country_code_fkey` : `FOREIGN KEY (country_code) REFERENCES core.config_country(code)`
+- `audit_security_incident_detected` : `CHECK (detected_at <= reported_at)`
+- `audit_security_incident_due` : `CHECK (authority_notification_due_at >= detected_at AND subjects_notification_due_at >= detected_at)`
+- `audit_security_incident_kind_valid` : `CHECK (kind = ANY (ARRAY['DATA_BREACH'::text, 'CREDENTIAL_LEAK'::text, 'PSP_CREDENTIAL_COMPROMISE'::text, 'AVAILABILITY'::text, 'OTHER'::text]))`
+- `audit_security_incident_pkey` : `PRIMARY KEY (id)`
+- `audit_security_incident_postmortem_file_id_fkey` : `FOREIGN KEY (postmortem_file_id) REFERENCES core.audit_file_asset(id)`
+- `audit_security_incident_reported_by_fkey` : `FOREIGN KEY (reported_by) REFERENCES core.iam_user_account(id)`
+- `audit_security_incident_severity_valid` : `CHECK (severity = ANY (ARRAY['CRITICAL'::text, 'HIGH'::text, 'MEDIUM'::text, 'LOW'::text]))`
+- `audit_security_incident_status_valid` : `CHECK (status = ANY (ARRAY['OPEN'::text, 'CONTAINED'::text, 'NOTIFIED'::text, 'CLOSED'::text]))`
+- `audit_security_incident_subjects_valid` : `CHECK (subjects_count_estimate IS NULL OR subjects_count_estimate >= 0)`
+- `audit_security_incident_updated_by_fkey` : `FOREIGN KEY (updated_by) REFERENCES core.iam_user_account(id)`
+
+Index :
+
+- `audit_security_incident_open_idx` : `CREATE INDEX audit_security_incident_open_idx ON core.audit_security_incident USING btree (country_code) WHERE (closed_at IS NULL)`
+
+Politiques RLS :
+
+- `iam_staff_incident_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((status = 'OPEN'::text) AND (closed_at IS NULL) AND (contained_at IS NULL) AND (authority_notified_at IS NULL) AND (subjects_notified_at IS NULL) AND (opened_alerted_at IS NULL))`
+- `iam_staff_incident_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
+- `iam_staff_incident_update` (UPDATE, PERMISSIVE, iam_staff_owner) USING `true` WITH CHECK `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `audit_security_incident_guard` : `CREATE TRIGGER audit_security_incident_guard BEFORE DELETE OR UPDATE ON core.audit_security_incident FOR EACH ROW EXECUTE FUNCTION core.security_incident_guard()`
+- `audit_security_incident_no_truncate` : `CREATE TRIGGER audit_security_incident_no_truncate BEFORE TRUNCATE ON core.audit_security_incident FOR EACH STATEMENT EXECUTE FUNCTION core.security_incident_guard()`
 
 ### `core.audit_subject_key`
 
@@ -2098,6 +2162,7 @@ Politiques RLS :
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
 - `iam_auth_otp_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = ANY (ARRAY['otp_ttl_min'::text, 'otp_max_attempts'::text, 'otp_lock_min'::text, 'otp_sms_fallback_s'::text]))`
+- `iam_staff_incident_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = ANY (ARRAY['security_incident_authority_notice_hours'::text, 'security_incident_subjects_notice_hours'::text]))`
 - `iam_staff_sla_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `(key = ANY (ARRAY['kyc_review_sla_business_h'::text, 'listing_review_sla_h'::text, 'catalog_addition_sla_business_h'::text, 'review_hold_minutes'::text]))`
 - `kyc_cmd_host_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_min_age_years'::text, 'p2p_host_requires_tax_id'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text, 'host_tax_id_required_for_activation'::text]))`
 - `kyc_cmd_host_review_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = ANY (ARRAY['host_review_manual_required'::text, 'host_review_auto_delay_minutes'::text]))`
@@ -3417,6 +3482,7 @@ Politiques RLS :
 - `cmd_golive_event_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((type = 'config.param.changed'::text) AND (aggregate_type = 'param_value'::text) AND (actor_role = 'SUPERADMIN'::text) AND (actor_user_id IS NOT NULL))`
 - `cmd_hold_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = ANY (ARRAY['booking.hold.created'::text, 'booking.hold.released'::text, 'booking.hold.release_deferred'::text, 'booking.hold.payment_in_flight'::text])) AND (app.actor_kind() = 'GUEST'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id = app.actor_id()))`
 - `iam_auth_otp_event_ins` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((((type = 'iam.otp.requested'::text) AND (aggregate_type = 'otp_challenge'::text)) OR ((type = 'iam.phone.verified'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))`
+- `iam_staff_incident_event` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((type = 'security.incident.opened'::text) AND (aggregate_type = 'security_incident'::text) AND (actor_user_id IS NOT NULL) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text, 'SUPERADMIN'::text])))`
 - `iam_staff_sla_event` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((type = 'support.review_queue.sla_breached'::text) AND (aggregate_type = 'review_queue_item'::text) AND (actor_role = 'SYSTEM'::text))`
 - `kyc_cmd_event_ins` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text)) OR ((type = 'kyc.consent.withdrawn'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = ANY (ARRAY['GUEST'::text, 'SYSTEM'::text])))`
 - `kyc_cmd_event_ops` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `((type = 'kyc.verification.status_changed'::text) AND (aggregate_type = 'identity_verification'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
@@ -5330,6 +5396,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.risk_self_booking_signal(p_guest uuid, p_org uuid)` | `text` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_staff_abuse_board(p_token_hash bytea, p_country text, p_hours integer)` | `TABLE(kind text, scope text, country_code text, bucket_start timestamp with time zone, occurrences bigint, distinct_keys bigint, signals text[], last_at timestamp with time zone)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.risk_staff_decide_account_link(p_token_hash bytea, p_request_id uuid, p_user_a uuid, p_user_b uuid, p_decision text, p_signal text)` | `TABLE(outcome text, link_id uuid)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.security_incident_cmd_open(p_token_hash bytea, p_request_id uuid, p_country text, p_kind text, p_severity text, p_personal_data boolean, p_subjects_estimate integer, p_detected_at timestamp with time zone)` | `TABLE(outcome text, incident_id uuid, authority_due_at timestamp with time zone, subjects_due_at timestamp with time zone)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.security_incident_cmd_step(p_token_hash bytea, p_request_id uuid, p_incident_id uuid, p_step text, p_postmortem_file_id uuid)` | `TABLE(outcome text, incident_id uuid, status text)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
+| `core.security_incident_worker_watch(p_batch integer)` | `TABLE(signal text, country_code text, n integer)` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.settlement_advance_approvers(p_token_hash bytea, p_advance_id uuid)` | `TABLE(decided_by uuid, decision_second_by uuid, written_off_by uuid, write_off_second_by uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.settlement_assert_balanced()` | `trigger` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | cmd_money_owner: EXECUTE |
 | `core.settlement_cmd_apply_leg_movement(p_operation_id uuid)` | `text` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
@@ -5511,6 +5580,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.privacy_param(p_key text, p_country text)` | `jsonb` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_guard()` | `void` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.risk_log_abuse(p_kind text, p_scope text, p_key_hash bytea, p_country text, p_signals text[])` | `void` | `migrator` | migrator: EXECUTE ; risk_limit_owner: EXECUTE |
+| `core.security_incident_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.security_incident_notice_hours(p_key text, p_country text)` | `integer` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_finance_approval_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_guard_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_insurer_bordereau_guard()` | `trigger` | `migrator` | migrator: EXECUTE |

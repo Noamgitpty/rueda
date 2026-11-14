@@ -1,0 +1,32 @@
+{
+  "$comment": "Objectifs de reprise (RPO / RTO) PROPOSÉS par scénario (US-112, ADR-121 ; 16 ADM-035 ; 17 §6.4). Source unique : l'exercice de restauration de la CI (job « reprise », packages/db/test/drill/restore-drill.test.ts) échoue si une mesure dépasse l'objectif de son scénario ; le plan de reprise (docs/ops/DISASTER_RECOVERY.md) les cite. Secondes. « required » = exigence de 17 §6.4 (RPO 24 h, RTO 8 h), jamais dépassée par un objectif. RTO compté pendant les heures couvertes (plage du support, SUP-020) ; hors plage : mode dégradé de 17 §6.4, réponse au mieux. À DÉCIDER par le fondateur (POUR_LE_FONDATEUR.md §3) ; changer une valeur = revue sécurité et architecture. Les choix qui coûtent (copie hors compte, exercice cloud) restent ceux de Q-008 et Q-009.",
+  "status": "PROPOSÉ",
+  "decisionRef": "16 ADM-035 (À DÉCIDER) ; 17 §6.4 ; Q-008, Q-009 ; ADR-121",
+  "required": { "rpoS": 86400, "rtoS": 28800 },
+  "scenarios": {
+    "instant": {
+      "label": "erreur récente (donnée corrompue, migration fautive) : restauration à un instant donné",
+      "drill": "A",
+      "rpoS": 900,
+      "rtoS": 14400
+    },
+    "latest": {
+      "label": "perte de l'instance ou de la zone : bascule Multi-AZ, sinon restauration au plus récent des journaux",
+      "drill": "B",
+      "rpoS": 900,
+      "rtoS": 14400
+    },
+    "region": {
+      "label": "perte du compte ou de la région : copie quotidienne hors compte (exercice cloud du fondateur, Q-009)",
+      "drill": null,
+      "rpoS": 86400,
+      "rtoS": 28800
+    },
+    "files": {
+      "label": "photos, preuves et PDF : versionnage et sauvegarde quotidienne des compartiments",
+      "drill": null,
+      "rpoS": 86400,
+      "rtoS": 28800
+    }
+  }
+}

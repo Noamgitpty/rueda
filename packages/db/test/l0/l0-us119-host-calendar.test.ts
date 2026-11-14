@@ -25,6 +25,14 @@ import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import {
+  benchPgVersion,
+  recordPerf,
+  SMOKE_SAMPLES,
+  SMOKE_WARMUP,
+  summarize,
+  timed,
+} from '../support/perf.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 /** Décalage UTC de décembre du fuseau du pays, en heures (donnée IANA, voir l'en-tête). */
@@ -830,4 +838,50 @@ describe('L1-PM-11 / L1-PM-22 — cloisonnement entre hôtes, par pays', () => {
       });
     }
   });
+});
+
+// US-045 : performance de fumée de la lecture du calendrier de l'hôte (17 §6.7, ADR-119) : en-tête
+// et occupations d'un véhicule portant des blocages, sous app_api ; durée consignée, alerte au
+// tableau de bord QA au-delà de la cible ; le contenu lu est vérifié à chaque appel.
+describe('US-045 — fumée de performance : lecture du calendrier de l’hôte', () => {
+  /** Blocages posés sur le véhicule mesuré : un calendrier non vide, comme celui d'un hôte actif. */
+  const BLOCKS = 12;
+  it.each(byCountry)(
+    '%s (%s) : en-tête + occupations, p95 consigné, contenu exact à chaque lecture',
+    async (_country, _currency, c) => {
+      await withRole('app_api', async (client) => {
+        const a = await car(client, c);
+        for (let i = 0; i < BLOCKS; i += 1) {
+          const day = String(1 + 2 * i).padStart(2, '0');
+          const r = await block(
+            client,
+            a,
+            a.vehicle,
+            `2037-01-${day}T00:00`,
+            `2037-01-${day}T12:00`,
+          );
+          expect(r.outcome).toBe('DONE');
+        }
+        const ms: number[] = [];
+        for (let i = 0; i < SMOKE_WARMUP + SMOKE_SAMPLES; i += 1) {
+          const { value, ms: d } = await timed(async () => ({
+            head: await header(client, a, a.vehicle),
+            occ: await occupancies(client, a, a.vehicle),
+          }));
+          expect(value.head?.outcome).toBe('DONE');
+          expect(value.occ).toHaveLength(BLOCKS);
+          if (i >= SMOKE_WARMUP) ms.push(d);
+        }
+        const record = recordPerf({
+          series: 'calendrier.sequentielle',
+          country: c.country,
+          summary: summarize(ms),
+          pgVersion: await benchPgVersion(),
+          details: { warmup: SMOKE_WARMUP, blocks: BLOCKS, calls: 2 },
+        });
+        expect(record.n).toBe(SMOKE_SAMPLES);
+      });
+    },
+    120_000,
+  );
 });
