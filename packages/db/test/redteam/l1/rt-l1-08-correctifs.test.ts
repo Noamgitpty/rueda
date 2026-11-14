@@ -466,19 +466,26 @@ describe.each(byCountry)(
           [attacker.hash, attacker.org, plates.at(-1)],
         );
         expect(permitted.outcome).toBe('CLAIM_LIMIT_REACHED');
-        // fail-closed : une valeur mal formée du paramètre ⇒ aucune contestation
+        // fail-closed : paramètre ABSENT du pays (version fermée dans la transaction annulée ; une
+        // valeur mal formée ne peut pas être écrite, la garde de type la refuse) ⇒ aucune
+        // contestation. Témoin : avant la fermeture, un compte neuf peut contester.
         const fresh = await hostOf(tx, country);
-        await tx.query('SELECT test_fixture.us122_param_version($1, $2, $3::jsonb)', [
-          'plate_claims_open_per_host',
-          country,
-          '"beaucoup"',
-        ]);
-        const refused = await first<{ outcome: string }>(
+        const permittedOf = async () =>
+          (
+            await first<{ outcome: string }>(
+              tx,
+              'SELECT * FROM core.catalog_vehicle_claim_permitted($1, $2, $3, NULL)',
+              [fresh.hash, fresh.org, plates[0]],
+            )
+          ).outcome;
+        expect(await permittedOf()).toBe('OK');
+        const closed = await first<{ n: number }>(
           tx,
-          'SELECT * FROM core.catalog_vehicle_claim_permitted($1, $2, $3, NULL)',
-          [fresh.hash, fresh.org, plates[0]],
+          'SELECT test_fixture.us122_param_close($1, $2) AS n',
+          ['plate_claims_open_per_host', country],
         );
-        expect(refused.outcome).toBe('CLAIM_LIMIT_REACHED');
+        expect(closed.n).toBeGreaterThan(0);
+        expect(await permittedOf()).toBe('CLAIM_LIMIT_REACHED');
       });
     });
   },
