@@ -1,4 +1,4 @@
--- 0085 — graine complémentaire : paramètres « host_tax_id_required_for_activation* » (US-123 ; 17 §7.2).
+-- 0086 — graine complémentaire : paramètres « host_tax_id_required_for_activation* » (US-123 ; 17 §7.2).
 -- FICHIER GÉNÉRÉ depuis apps/api/src/modules/cfg/data/params.json par seed-sql.ts
 -- (renderParamSeedSql) : ne pas l’éditer à la main (test seed-sql.test.ts). Appliquée sous
 -- `migrator`. 0009 est immuable (ADR-044) : elle reste rendue sans ces paramètres (ADR-075).

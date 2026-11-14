@@ -1,5 +1,5 @@
--- 0086 — KYC : numéro fiscal de l'hôte facultatif à l'activation (« jamais plus lourd que Turo »).
--- US-123 (allègement) ; DEC-FONDATEUR-22 ; ADR-115 (cette migration et la graine générée 0085 ;
+-- 0087 — KYC : numéro fiscal de l'hôte facultatif à l'activation (« jamais plus lourd que Turo »).
+-- US-123 (allègement) ; DEC-FONDATEUR-22 ; ADR-115 (cette migration et la graine générée 0086 ;
 -- complète ADR-105) ;
 -- 17 §2.4 (règle d'activation), §2.8 (capacités du PSP : inconnue = « non ») ; 16 HST-049 / FIN-008 ;
 -- 22 OQ-P2P-07 ; DNIT RG 69/2020 (inscription au RUC : obligation de l'hôte dans les 30 jours
@@ -8,7 +8,7 @@
 --
 -- Principes (ADR-115, PROPOSÉ) :
 --   - paramètre de pays `host_tax_id_required_for_activation` (BOOL, portée COUNTRY, graine générée
---     0085) : true ⇒ le
+--     0086) : true ⇒ le
 --     numéro fiscal est une pièce du dossier (comportement de 0075) ; ABSENT ou mal formé ⇒ exigé
 --     (fail-closed) ; graine false en PA et en PY (DEC-FONDATEUR-22). Il remplace, pour le dossier
 --     et l'activation, la lecture de `p2p_host_requires_tax_id` (0009 immuable : la clé reste,
@@ -32,7 +32,7 @@
 --   recréer les quatre fonctions avec les corps de 0075 ; DROP FUNCTION
 --   core.kyc_host_psp_requires_tax_id(uuid), core.kyc_host_tax_saved(uuid) ; recréer la politique
 --   kyc_cmd_host_read de core.config_param_value avec la liste de 0075 ; DELETE de la capacité
---   SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID du catalogue (la graine 0085 a son propre retour arrière).
+--   SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID du catalogue (la graine 0086 a son propre retour arrière).
 
 -- 1. Capacité du PSP (17 §2.8 ; même liste que CAPABILITIES, module PAY) --------------------------
 -- NON bloquante pour tous les hôtes : elle ne décide que du numéro fiscal au versement ; inconnue

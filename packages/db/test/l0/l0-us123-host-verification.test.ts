@@ -10,7 +10,7 @@
  * Attendus tirés de 19 US-123 (critères 1 à 6), de 16 HST-049 / FIN-008 / VER-028 / A.8, de 17
  * §0.1, §2.4, §4.5, de 08 BR-ACC-06, de 22 OQ-P2P-01 / OQ-P2P-07 et des données CFG
  * (`params.json` : `host_min_age_years`, `host_tax_id_required_for_activation` ; `countries.json` :
- * `hostTaxIdKinds`), de DEC-FONDATEUR-22 et d'ADR-115 (allègement, migrations 0085 et 0086), jamais du code
+ * `hostTaxIdKinds`), de DEC-FONDATEUR-22 et d'ADR-115 (allègement, migrations 0086 et 0087), jamais du code
  * testé :
  * - critère 1 : 20 ans, `host_min_age_years` = 21 ⇒ refus HOST_UNDER_AGE (rien n'est écrit) ;
  * - critère 2 : personne morale ⇒ HOST_ENTITY_NOT_ALLOWED ;

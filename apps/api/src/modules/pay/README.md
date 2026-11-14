@@ -40,7 +40,7 @@ Entités de 17 §3.2.7 :
 | `payment_plan_installment` | cible 17, pas encore créée                                                                       |
 | `credit_lot`               | cible 17, pas encore créée                                                                       |
 
-Hors entités de 17 : `core.payment_psp_capability_catalog` (catalogue des capacités, migration 0039 ; `SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID` ajoutée par 0086, non bloquante, lue par le KYC de l'hôte : inconnue ⇒ numéro fiscal exigé avant l'activation, ADR-115). Commandes `SECURITY DEFINER` (famille `cmd_money`) : `core.payment_cmd_record_operation`, `payment_cmd_apply_operation_status`, `payment_cmd_receive_webhook` (0028), `payment_cmd_register_submerchant`, `payment_cmd_record_submerchant_status` (0039). Détail : `packages/db/README.md`, sections « Port PaymentProvider » et « Port de place de marché ».
+Hors entités de 17 : `core.payment_psp_capability_catalog` (catalogue des capacités, migration 0039 ; `SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID` ajoutée par 0087, non bloquante, lue par le KYC de l'hôte : inconnue ⇒ numéro fiscal exigé avant l'activation, ADR-115). Commandes `SECURITY DEFINER` (famille `cmd_money`) : `core.payment_cmd_record_operation`, `payment_cmd_apply_operation_status`, `payment_cmd_receive_webhook` (0028), `payment_cmd_register_submerchant`, `payment_cmd_record_submerchant_status` (0039). Détail : `packages/db/README.md`, sections « Port PaymentProvider » et « Port de place de marché ».
 
 ## Événements
 

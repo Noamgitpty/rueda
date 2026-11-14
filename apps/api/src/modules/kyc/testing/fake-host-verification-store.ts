@@ -4,7 +4,7 @@
  * des commandes `core.kyc_*` de 0075 utiles aux contrats d'API (compte de la session, profil
  * fiscal, soumission, filtrage, pièces manquantes). Les règles elles-mêmes (âge, résidence,
  * activation, interrupteurs) sont prouvées sur PostgreSQL (packages/db/test/l0/l0-us123-*).
- * Numéro fiscal (ADR-115, 0085 et 0086) : `taxRequired` du compte (défaut true, paramètre activé) ; false :
+ * Numéro fiscal (ADR-115, 0086 et 0087) : `taxRequired` du compte (défaut true, paramètre activé) ; false :
  * numéro facultatif, premier numéro admis en revue ou après l'approbation.
  */
 import type {

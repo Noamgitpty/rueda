@@ -12,7 +12,7 @@
 --   - sous-marchand du PSP posé directement (compte FAKE de test du pays, statut demandé) : le
 --     KYC du PSP est simulé ici, l'enregistrement par le travailleur `payment_command` est prouvé
 --     par l0-pay-marketplace (US-061).
---   - allègement ADR-115 (0085, 0086) : version du paramètre host_tax_id_required_for_activation et
+--   - allègement ADR-115 (0086, 0087) : version du paramètre host_tax_id_required_for_activation et
 --     capacité SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID du PSP FAKE, écrites dans une transaction
 --     ANNULÉE par le test.
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1) : la preuve du chemin ACTIVE
@@ -179,7 +179,7 @@ AS $fn$
    WHERE c.blocking <> 'NO'
 $fn$;
 
--- Allègement ADR-115 (migrations 0085, 0086) : nouvelle version de host_tax_id_required_for_activation
+-- Allègement ADR-115 (migrations 0086, 0087) : nouvelle version de host_tax_id_required_for_activation
 -- valable à platform.now(), écrite dans la transaction de l'appelant, qui l'ANNULE ensuite (comme
 -- us124_param_version) ; une valeur JSON nulle prouve le repli fail-closed (clé mal formée). Clé
 -- fermée.

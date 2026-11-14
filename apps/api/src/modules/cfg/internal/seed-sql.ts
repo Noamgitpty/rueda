@@ -55,7 +55,7 @@ export const POST_SEED_PARAMS: readonly {
   },
   {
     prefix: 'host_tax_id_required_for_activation',
-    file: '0085_config_host_tax_id_params.sql',
+    file: '0086_config_host_tax_id_params.sql',
     story: 'US-123',
     refs: 'DEC-FONDATEUR-22, ADR-115',
   },
