@@ -134,7 +134,8 @@ describe('US-111 critère 1 — KYC de production sans registre validé', () => 
     async (country) => {
       const other = COUNTRIES.find((x) => x.country !== country)?.country ?? '';
       await withRole('app_api', async (c) => {
-        for (const env of ['production', '']) {
+        // '__null__' : environnement non déclaré (fixture 9880), lu comme la production (L1-PM-05)
+        for (const env of ['production', '__null__']) {
           await withTestTransaction(c, {}, async (tx) => {
             await tx.query(`SELECT pg_catalog.set_config('app.test_deployment_env', $1, true)`, [
               env,
