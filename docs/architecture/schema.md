@@ -470,9 +470,6 @@ Déclencheurs :
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
 | `code` | `text` | oui | — |
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 | `param_key` | `text` | oui | — |
 | `anchor` | `text` | oui | — |
 | `action` | `text` | oui | — |
@@ -4167,10 +4164,7 @@ Contraintes :
 - `finance_approval_reason_length` : `CHECK (char_length(btrim(reason)) >= 10 AND char_length(btrim(reason)) <= 1000)`
 - `finance_approval_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text, 'EXPIRED'::text]))`
 - `finance_approval_two_people` : `CHECK (approved_by IS NULL OR approved_by <> requested_by)`
-- `settle ❯ test/int/schema-doc.test.ts (1 test | 1 failed) 174ms
-   ❯ document du schéma (docs/architecture/schema.md) (1)
-     × est à jour : régénéré depuis la base migrée, identique au fichier commité 173ms
-ment_finance_approval_approved_by_fkey` : `FOREIGN KEY (approved_by) REFERENCES core.iam_user_account(id)`
+- `settlement_finance_approval_approved_by_fkey` : `FOREIGN KEY (approved_by) REFERENCES core.iam_user_account(id)`
 - `settlement_finance_approval_pkey` : `PRIMARY KEY (id)`
 - `settlement_finance_approval_requested_by_fkey` : `FOREIGN KEY (requested_by) REFERENCES core.iam_user_account(id)`
 
