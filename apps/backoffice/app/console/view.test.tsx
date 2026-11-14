@@ -14,7 +14,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
 import { intentFor, messageKeyOf, screenFor } from './api.ts';
-import { ACTION_GROUPS, ConsoleView, evidenceOf } from './view.tsx';
+import {
+  ACTION_GROUPS,
+  ConsoleView,
+  DSR_KINDS,
+  DSR_REFUSAL_KEYS,
+  DSR_STEPS,
+  evidenceOf,
+} from './view.tsx';
 import type { ConsoleHandlers, ConsoleState } from './view.tsx';
 
 const noop: ConsoleHandlers = {
@@ -83,6 +90,15 @@ const STATES: readonly ConsoleState[] = [
     approvalsError: true,
   },
 ];
+
+/** Texte tel que React l'échappe dans le balisage statique (apostrophes, guillemets, chevrons). */
+const escape = (text: string): string =>
+  text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#x27;');
 
 const html = (state: ConsoleState, tag: string): string => {
   const profile = LOCALE_CONFIG.locales.find((p) => p.tag === tag);
@@ -273,6 +289,72 @@ describe('US-101 : catalogue des actions, pièces, demandes FINANCE', () => {
   it('pièces : virgules, espaces et retours à la ligne ; doublons retirés ; minuscules', () => {
     expect(evidenceOf(` A1, b2${'\n'}A1 ;c3  `)).toEqual(['a1', 'b2', 'c3']);
     expect(evidenceOf('')).toEqual([]);
+  });
+});
+
+// US-111 (19 US-111 « demande saisie (HANDLE_DSR) : délai et traitement suivis ») : formulaire
+// propre, saisie fermée (type, étape), réservé aux rôles qui ont data.export (17 §2.3)
+describe('US-111 : demande de personne (HANDLE_DSR), dans chaque locale', () => {
+  const withDsr: ConsoleHandlers = { ...noop, onDataRequest: () => undefined };
+  const admin: ConsoleState = {
+    kind: 'console',
+    roles: [{ role: 'ADMIN', countries: ['AA'] }],
+    entries: [],
+  };
+  const render = (state: ConsoleState, tag: string): string => {
+    const profile = LOCALE_CONFIG.locales.find((p) => p.tag === tag);
+    if (profile === undefined) throw new Error(tag);
+    return renderToStaticMarkup(
+      <ConsoleView i18n={createTranslator(profile)} state={state} handlers={withDsr} />,
+    );
+  };
+
+  it.each(LOCALE_CONFIG.locales.map((p) => [p.tag, p] as const))(
+    '%s : titre, cinq types, six étapes, dossier, motif et pièces ; une seule langue',
+    (tag, profile) => {
+      const messages = CATALOGS[profile.language].messages;
+      const out = render(admin, tag);
+      expect(findForeignStrings(out.replace(/<[^>]+>/g, ' '), profile.language)).toEqual([]);
+      for (const key of [
+        'backoffice.action.HANDLE_DSR',
+        'backoffice.dsr.hint',
+        'backoffice.dsr.subject',
+        'backoffice.dsr.kind',
+        'backoffice.dsr.step',
+        'backoffice.dsr.record',
+      ] as const) {
+        expect(out, key).toContain(escape(messages[key] as string));
+      }
+      for (const k of DSR_KINDS) expect(out, k).toContain(`name="dsrKind" value="${k}"`);
+      for (const st of DSR_STEPS) expect(out, st).toContain(`name="dsrStep" value="${st}"`);
+      expect(out).toContain('name="caseId"');
+      // HANDLE_DSR n'est plus une action sans saisie du formulaire générique
+      expect(out).not.toContain('value="HANDLE_DSR"');
+    },
+  );
+
+  it('sans data.export (OPS, SUPPORT, FINANCE) : aucun formulaire de demande', () => {
+    const tag = LOCALE_CONFIG.locales[0]?.tag ?? '';
+    for (const role of ['OPS_AGENT', 'SUPPORT_AGENT', 'FINANCE']) {
+      const out = render(
+        { kind: 'console', roles: [{ role, countries: ['AA'] }], entries: [] },
+        tag,
+      );
+      expect(out, role).not.toContain('name="dsrKind"');
+    }
+  });
+
+  it('chaque refus de la commande liée a son texte', () => {
+    expect(Object.keys(DSR_REFUSAL_KEYS).sort()).toEqual(
+      [
+        'DSR_ALREADY_OPEN',
+        'DSR_DELAY_UNKNOWN',
+        'DSR_INPUT_REQUIRED',
+        'DSR_KIND_MISMATCH',
+        'DSR_NOT_OPEN',
+        'DSR_TRANSITION_INVALID',
+      ].sort(),
+    );
   });
 });
 

@@ -158,6 +158,13 @@ export interface LegalNameResult {
   /** Statut SM-3 après le changement (`RECHECK` si le dossier était approuvé). */
   readonly status: KycStatus | null;
 }
+
+/**
+ * Garde du KYC de production (US-111, LEG-010, ADR-118) : `KYC_PRODUCTION_BLOCKED_NO_REGISTER` en
+ * production tant que le registre Ley 81 du pays n'est pas validé ou qu'aucun fournisseur KYC
+ * contractuel n'est inscrit ; `null` hors production (données synthétiques).
+ */
+export type RegisterGate = 'KYC_PRODUCTION_BLOCKED_NO_REGISTER' | null;
 export type EligibilityOutcome = (typeof ELIGIBILITY_OUTCOMES)[number];
 
 export interface IdentityStore {
@@ -169,6 +176,8 @@ export interface IdentityStore {
     version: number | null,
     accepted: boolean,
   ): Promise<{ readonly outcome: ConsentOutcome; readonly version: number | null }>;
+  /** Garde du registre Ley 81 du pays (US-111), jugée en base avant toute ouverture. */
+  registerGate(country: string): Promise<RegisterGate>;
   /** Juge et prépare une tentative ; aucune écriture hors READY. */
   open(tokenHash: Buffer, country: string, provider: string): Promise<OpenResult>;
   /** Pose la session hébergée sur la tentative courante (SM-3 DOCS_SUBMITTED). */
@@ -218,6 +227,9 @@ export class UnavailableIdentityStore implements IdentityStore {
   }
   consent(): Promise<{ readonly outcome: ConsentOutcome; readonly version: number | null }> {
     return Promise.reject(new IdentityStoreError('consent', undefined));
+  }
+  registerGate(): Promise<RegisterGate> {
+    return Promise.reject(new IdentityStoreError('register_gate', undefined));
   }
   open(): Promise<OpenResult> {
     return Promise.reject(new IdentityStoreError('open', undefined));

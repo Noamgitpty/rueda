@@ -22,7 +22,8 @@ DECLARE
   v_owners text[] := ARRAY['guard_owner', 'catalog_probe_owner', 'policy_fn_owner', 'cmd_hold_owner',
                            'iam_auth_owner', 'integrity_owner', 'audit_chain_owner', 'cmd_money_owner',
                            'cmd_golive_owner', 'iam_staff_owner', 'host_view_owner',
-                           'risk_limit_owner', 'catalog_cmd_owner', 'kyc_cmd_owner'];
+                           'risk_limit_owner', 'catalog_cmd_owner', 'kyc_cmd_owner',
+                           'privacy_cmd_owner'];
   v_managed text[] := ARRAY['migrator', 'app_api', 'app_worker', 'app_anon'] || v_owners;
 BEGIN
   FOR r IN
@@ -54,7 +55,9 @@ BEGIN
       -- US-115 (ADR-099) : lieux, véhicules et annonces de l'hôte (core.catalog_cmd_*)
       ('catalog_cmd_owner',   false),
       -- US-105 (ADR-102) : vérification d'identité et consentement biométrique (core.kyc_cmd_*)
-      ('kyc_cmd_owner',       false)
+      ('kyc_cmd_owner',       false),
+      -- US-111 (ADR-118) : registre Ley 81, demandes des personnes, rétention (core.audit_*privacy*)
+      ('privacy_cmd_owner',   false)
     ) AS t(role_name, can_login)
   LOOP
     BEGIN

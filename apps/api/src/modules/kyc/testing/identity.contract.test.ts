@@ -198,6 +198,34 @@ describe('US-105 — POST /identity/verification (critère 2 et parcours héberg
     });
   });
 
+  // US-111 (16 LEG-010) : en production, registre Ley 81 du pays non validé ⇒ refus jugé en base
+  // AVANT tout fournisseur, même branché ; aucune session, aucune écriture
+  it('registre non validé (production) : 503 KYC_PRODUCTION_BLOCKED_NO_REGISTER et AUCUNE session chez le fournisseur', async () => {
+    const w = await world();
+    await consented(w);
+    w.store.registerGateOutcome = 'KYC_PRODUCTION_BLOCKED_NO_REGISTER';
+    const r = await w.app.api.request('POST', '/identity/verification', {
+      headers: w.guest,
+      body: { country: FIRST_COUNTRY },
+    });
+    expect(r.status).toBe(503);
+    expect(r.json).toMatchObject({
+      code: 'KYC_PRODUCTION_BLOCKED_NO_REGISTER',
+      messageKey: 'common.kyc.providerUnavailable',
+    });
+    expect(await w.kyc.getStatus('fk_idv_000001')).toEqual({
+      status: 'REFUSED',
+      reason: 'UNKNOWN_SESSION',
+    });
+    // registre validé : l'ouverture reprend
+    w.store.registerGateOutcome = null;
+    const ok = await w.app.api.request('POST', '/identity/verification', {
+      headers: w.guest,
+      body: { country: FIRST_COUNTRY },
+    });
+    expect(ok.status).toBe(201);
+  });
+
   it('session hébergée ouverte (201), reprise (200) ; adresse sans donnée du sujet', async () => {
     const w = await world();
     await consented(w);
