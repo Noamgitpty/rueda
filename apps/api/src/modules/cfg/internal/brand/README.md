@@ -51,7 +51,7 @@ Contrôles avant toute écriture : format des jetons (`BRAND_TOKENS_INVALID`), p
 ## Écran et contrôles d'US-120 (ADR-116)
 
 - L'écran « Apparence et marque » du back-office (`apps/backoffice/app/brand/`) appelle ces routes.
-- **Antivirus des actifs** : port `BrandScanner` (`BrandOptions.scanner`), après la taille et le type réel, avant toute écriture. Panne ou délai : `503 BRAND_ASSET_UNAVAILABLE` (`reason: SCAN`) ; verdict autre que `CLEAN` ou type détecté différent : `422 BRAND_ASSET_INVALID` (`reason: SCAN`). Production : `UnavailableBrandScanner` (DEC-FONDATEUR-20, fail-closed) ; tests : `FakeUploadScanner`.
+- **Antivirus des actifs** : port `BrandScanner` (`BrandOptions.scanner`), après la taille, le type réel et la commande de la base (droits jugés d'abord : 403 sans antivirus), avant le dépôt (aucun octet stocké sans verdict `CLEAN`). Panne ou délai : `503 BRAND_ASSET_UNAVAILABLE` (`reason: SCAN`) ; verdict autre que `CLEAN` ou type détecté différent : `422 BRAND_ASSET_INVALID` (`reason: SCAN`). Production : `UnavailableBrandScanner` (DEC-FONDATEUR-20, fail-closed) ; tests : `FakeUploadScanner`.
 - **Logo SVG** (jetons `brand.logo`, `brand.logoDark`, `brand.logoMono`) : `logoProblems` de `@rueda/design-tokens` à l'enregistrement d'un brouillon (`BRAND_TOKENS_INVALID` nommant le jeton).
 
 ## Ports

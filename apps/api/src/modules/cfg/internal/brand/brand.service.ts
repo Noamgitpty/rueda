@@ -415,8 +415,8 @@ export class BrandConsoleService {
   }
 
   /**
-   * Actif de marque : taille, type réel, antivirus (US-120), puis ligne en base AVANT le dépôt
-   * (création seule).
+   * Actif de marque : taille, type réel, ligne en base (droits jugés par la commande), antivirus
+   * (US-120), puis dépôt (création seule).
    */
   async registerAsset(tokenHash: Buffer, upload: AssetUpload) {
     const kind = upload.kind as AssetKind;
@@ -431,15 +431,6 @@ export class BrandConsoleService {
     const allowed =
       kind === 'FONT' ? mime === 'font/woff2' : mime !== null && mime !== 'font/woff2';
     if (mime === null || !allowed) throw new BrandError('BRAND_ASSET_INVALID', { reason: 'TYPE' });
-    // antivirus AVANT toute écriture (US-120, DEC-FONDATEUR-20) : panne ou délai => 503, rien
-    // n'est écrit ; verdict autre que CLEAN, ou type détecté différent du type réel => refus
-    const scan = await this.#scanner.scan({ declaredMime: mime, body: upload.body });
-    if (scan.status !== 'SCANNED') {
-      throw new BrandError('BRAND_ASSET_UNAVAILABLE', { reason: 'SCAN' });
-    }
-    if (scan.report.verdict !== 'CLEAN' || scan.report.detectedMime !== mime) {
-      throw new BrandError('BRAND_ASSET_INVALID', { reason: 'SCAN' });
-    }
     let alt: Record<ContentLocale, string> | null = null;
     if (kind !== 'FONT') {
       const a = (upload.alt ?? {}) as Record<string, unknown>;
@@ -478,6 +469,18 @@ export class BrandConsoleService {
     });
     access(r.outcome);
     if (r.assetId === null || r.storageKey === null) throw new BrandError('BRAND_ASSET_INVALID');
+    // antivirus APRÈS la commande (qui juge droits, TOTP et portée : un rôle sans droit reçoit
+    // 403, jamais l'avis de l'antivirus) et AVANT le dépôt : aucun octet n'est stocké ni servi
+    // sans verdict CLEAN du type réel (US-120, DEC-FONDATEUR-20). Panne ou délai => 503 ;
+    // verdict autre que CLEAN, ou type détecté différent => 422. La ligne `file_asset` reste sans
+    // objet déposé, comme après une panne du stockage : l'actif n'est jamais servi.
+    const scan = await this.#scanner.scan({ declaredMime: mime, body: upload.body });
+    if (scan.status !== 'SCANNED') {
+      throw new BrandError('BRAND_ASSET_UNAVAILABLE', { reason: 'SCAN', assetId: r.assetId });
+    }
+    if (scan.report.verdict !== 'CLEAN' || scan.report.detectedMime !== mime) {
+      throw new BrandError('BRAND_ASSET_INVALID', { reason: 'SCAN' });
+    }
     const put = await this.#files.put('BRAND', r.storageKey, upload.body);
     // CONFLICT : objet déjà déposé sous cette clé (rejeu de la même requête) ; rien n'est écrasé
     if (put.status !== 'STORED' && put.status !== 'CONFLICT') {

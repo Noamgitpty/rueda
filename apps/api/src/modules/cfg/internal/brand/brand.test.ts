@@ -549,45 +549,83 @@ describe('US-120 : antivirus des actifs de marque, fail-closed (DEC-FONDATEUR-20
     licenseNote: 'propre',
   });
 
-  it('antivirus indisponible (défaut de production) : 503 BRAND_ASSET_UNAVAILABLE, rien écrit', async () => {
-    const { store, console } = setup(undefined, new UnavailableBrandScanner());
+  /** Dépôts tentés : aucun octet ne doit atteindre le stockage sans verdict CLEAN. */
+  const puts = (options: BrandOptions): string[] => {
+    const keys: string[] = [];
+    const files = options.files;
+    const original = files.put.bind(files);
+    files.put = (bucket, key, body) => {
+      keys.push(key);
+      return original(bucket, key, body);
+    };
+    return keys;
+  };
+
+  it('antivirus indisponible (défaut de production) : 503 après la commande, aucun dépôt', async () => {
+    const { store, console, options } = setup(undefined, new UnavailableBrandScanner());
+    const stored = puts(options);
     const e = await rejection(console.registerAsset(HASH, upload(PNG)));
     expect(e.code).toBe('BRAND_ASSET_UNAVAILABLE');
-    expect(e.details).toEqual({ reason: 'SCAN' });
-    expect(store.calls).toEqual([]);
+    expect(e.details?.['reason']).toBe('SCAN');
+    // la commande passe d'abord : elle juge droits et portée (un rôle sans droit reçoit 403)
+    expect(store.calls).toEqual(['registerAsset']);
+    expect(stored).toEqual([]);
   });
 
-  it('antivirus en panne ou trop lent : 503, rien écrit', async () => {
+  it('rôle sans droit : 403 de la commande, l’antivirus n’est pas consulté', async () => {
+    let scans = 0;
+    const counting: BrandScanner = {
+      scan: () => {
+        scans += 1;
+        return Promise.resolve({ status: 'UNAVAILABLE' });
+      },
+    };
+    const { store, console } = setup(undefined, counting);
+    store.outcome = 'FORBIDDEN';
+    await expect(console.registerAsset(HASH, upload(PNG))).rejects.toMatchObject({
+      outcome: 'FORBIDDEN',
+    });
+    expect(scans).toBe(0);
+  });
+
+  it('antivirus en panne ou trop lent : 503, aucun dépôt', async () => {
     for (const kind of ['UNAVAILABLE', 'TIMEOUT_BEFORE'] as const) {
       const scanner = new FakeUploadScanner();
       scanner.script.script('scan', { kind });
-      const { store, console } = setup(undefined, scanner);
+      const { console, options } = setup(undefined, scanner);
+      const stored = puts(options);
       const e = await rejection(console.registerAsset(HASH, upload(PNG)));
       expect(e.code, kind).toBe('BRAND_ASSET_UNAVAILABLE');
-      expect(store.calls, kind).toEqual([]);
+      expect(stored, kind).toEqual([]);
     }
   });
 
-  it('fichier infecté : BRAND_ASSET_INVALID (SCAN), ni ligne en base ni dépôt', async () => {
-    const { store, console, options } = setup();
+  it('fichier infecté : BRAND_ASSET_INVALID (SCAN), aucun dépôt', async () => {
+    const { console, options } = setup();
+    const stored = puts(options);
     const infected = Buffer.concat([PNG, Buffer.from(FAKE_MALWARE_MARKER, 'latin1')]);
     const e = await rejection(console.registerAsset(HASH, upload(infected)));
     expect(e.code).toBe('BRAND_ASSET_INVALID');
     expect(e.details).toEqual({ reason: 'SCAN' });
-    expect(store.calls).toEqual([]);
-    expect(await options.files.get('BRAND', 'brand/anything')).toMatchObject({
-      status: 'NOT_FOUND',
-    });
+    expect(stored).toEqual([]);
   });
 
   it("type que l'antivirus ne reconnaît pas comme le type réel : refusé (aucun « peut-être »)", async () => {
     // police WOFF2 : le FAKE ne la reconnaît pas (UNSUPPORTED_TYPE) ; seul CLEAN du bon type passe
-    const { store, console } = setup();
+    const { console, options } = setup();
+    const stored = puts(options);
     const woff2 = Buffer.concat([Buffer.from('wOF2', 'latin1'), Buffer.alloc(16)]);
     const e = await rejection(console.registerAsset(HASH, upload(woff2, 'FONT')));
     expect(e.code).toBe('BRAND_ASSET_INVALID');
     expect(e.details).toEqual({ reason: 'SCAN' });
-    expect(store.calls).toEqual([]);
+    expect(stored).toEqual([]);
+  });
+
+  it('fichier sain : déposé une fois', async () => {
+    const { console, options } = setup();
+    const stored = puts(options);
+    await console.registerAsset(HASH, upload(PNG));
+    expect(stored).toHaveLength(1);
   });
 
   it('taille : vide ou au-delà de assetMaxBytes refusé AVANT l’antivirus', async () => {
