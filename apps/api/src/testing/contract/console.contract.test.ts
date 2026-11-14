@@ -288,6 +288,8 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
     result: 'PENDING',
     reasons: ['VEHICLE_VIN_MISMATCH'],
   },
+  // revue d'une annonce (US-118)
+  decideListing: { itemId: ID, listingId: ID, status: 'LISTED' },
   vehicleClaim: { itemId: ID, claimId: ID, plate: 'AB123', status: 'OPEN', createdAt: AT },
   decideVehicleClaim: {
     itemId: ID,
@@ -414,6 +416,9 @@ class TunableOpsStore implements OpsConsoleStore {
   decideVehicleEligibility() {
     return this.#r('decideVehicleEligibility', 'DECIDED');
   }
+  decideListing() {
+    return this.#r('decideListing', 'DECIDED');
+  }
   vehicleClaim() {
     return this.#r('vehicleClaim', 'GRANTED');
   }
@@ -469,6 +474,7 @@ describe('contrat HTTP — /console', () => {
   const apps: ContractApp[] = [];
   const brand = new TunableBrandStore();
   let filesUp = true;
+  let brandScan: 'CLEAN' | 'INFECTED' | 'DOWN' = 'CLEAN';
   let action: Awaited<ReturnType<ManualActionStore['record']>>['outcome'] = 'RECORDED';
   let actionDetail: string | null = null;
   let approval: Awaited<ReturnType<FinanceApprovalStore['approve']>> = 'APPROVED';
@@ -553,6 +559,18 @@ describe('contrat HTTP — /console', () => {
         files: {
           put: () => Promise.resolve({ status: filesUp ? 'STORED' : 'UNAVAILABLE' }),
           get: () => Promise.resolve({ status: 'NOT_FOUND' }),
+        },
+        // US-120 : antivirus des actifs (double du port ; verdict piloté par le test)
+        scanner: {
+          scan: ({ declaredMime }: { declaredMime: string }) =>
+            Promise.resolve(
+              brandScan === 'DOWN'
+                ? { status: 'UNAVAILABLE' as const }
+                : {
+                    status: 'SCANNED' as const,
+                    report: { verdict: brandScan, detectedMime: declaredMime },
+                  },
+            ),
         },
       },
       risk: {
@@ -683,6 +701,18 @@ describe('contrat HTTP — /console', () => {
     filesUp = false;
     expect((await post('/console/brand/assets', asset)).status).toBe(503);
     filesUp = true;
+    // US-120 : antivirus en panne => 503 ; fichier infecté => 422 (DEC-FONDATEUR-20)
+    brandScan = 'DOWN';
+    expect((await post('/console/brand/assets', asset)).json).toMatchObject({
+      code: 'BRAND_ASSET_UNAVAILABLE',
+      details: { reason: 'SCAN' },
+    });
+    brandScan = 'INFECTED';
+    expect((await post('/console/brand/assets', asset)).json).toMatchObject({
+      code: 'BRAND_ASSET_INVALID',
+      details: { reason: 'SCAN' },
+    });
+    brandScan = 'CLEAN';
     brand.fail = uniqueViolation();
     expect((await post('/console/brand/assets', asset)).status).toBe(409);
 
@@ -1050,6 +1080,47 @@ describe('contrat HTTP — /console', () => {
     }
     delete ops.outcome['decideVehicleEligibility'];
     await refusals(a, 'POST', decide);
+
+    // revue d'une annonce (US-118, revue exigée par le pays) : 200, 400, 403, 409, 422
+    const listingDecide = `/console/queues/items/${ID}/listing/decide`;
+    const approve = { requestId: randomUUID(), decision: 'APPROVE' };
+    expect((await post(listingDecide, approve)).json).toEqual({
+      itemId: ID,
+      listingId: ID,
+      status: 'LISTED',
+    });
+    for (const body of [
+      { requestId: randomUUID(), decision: 'PUBLISH' },
+      { requestId: randomUUID(), decision: 'REJECT', reason: 'OTHER' },
+      { requestId: 'x', decision: 'APPROVE' },
+    ]) {
+      expect((await post(listingDecide, body)).status, JSON.stringify(body)).toBe(400);
+    }
+    for (const [outcome, status, code] of [
+      ['NOT_UNDER_REVIEW', 409, 'LISTING_REVIEW_CLOSED'],
+      ['DECISION_RATIONALE_REQUIRED', 422, 'DECISION_RATIONALE_REQUIRED'],
+      ['INSURER_CONTRACT_INACTIVE', 422, 'INSURER_CONTRACT_INACTIVE'],
+      ['FORBIDDEN', 403, 'FORBIDDEN'],
+    ] as const) {
+      ops.outcome['decideListing'] = outcome;
+      const r = await post(listingDecide, {
+        requestId: randomUUID(),
+        decision: 'REJECT',
+        reason: 'PHOTO_QUALITY',
+      });
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code });
+    }
+    ops.outcome['decideListing'] = 'HOST_NOT_ACTIVATED';
+    const blocked = await post(listingDecide, approve);
+    expect(blocked.status).toBe(409);
+    expect(blocked.json).toEqual({
+      code: 'LISTING_NOT_PUBLISHABLE',
+      messageKey: 'common.listingReview.notPublishable',
+      values: { reason: 'HOST_NOT_ACTIVATED' },
+    });
+    delete ops.outcome['decideListing'];
+    await refusals(a, 'POST', listingDecide);
 
     // contestation (BOARD N-61) : lecture 200, 400, 403, 409 ; décision 200, 400, 403 (dont
     // STAFF_ADMIN_REQUIRED), 409, 422

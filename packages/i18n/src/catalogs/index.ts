@@ -62,7 +62,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
  d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
  `web.vehicleDocs.declaration.vinHint`.
- Versions 31 à 34 : réservées aux stories en cours (US-118, allègements, US-120).
+ Version 31 : publication immédiate d'une
+ annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
+ `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`,
+ `.areaLooksLikeAddress`, `.cityInvalid`, `.vehicleDescriptionInvalid`, `common.listingReview.*`, `web.host.listing.unlist`, `.relist` ; sens
+ changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
+ `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
+ `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
+ Version 34 (numéro réservé par l'orchestrateur ; 32 et 33 aux PR en file) : écran « Apparence et
+ marque » du back-office (US-120, O02) : `backoffice.o02.*`.
  Version 35 : nom légal identique au permis (US-103, ADR-117) : `common.kyc.legalName*`
  (changement du nom), `backoffice.kyc.reason.LEGAL_NAME_*`, `backoffice.kyc.holderName` et
  `backoffice.kyc.nameMatch.*` (dossier KYC de la console).

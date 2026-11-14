@@ -168,10 +168,12 @@ describe('schéma d’audit (US-009)', () => {
           // US-115 (0067) : soumission et suppression d'annonce journalisées ; fichier d'une photo
           // d'annonce (bucket public, C0) ; US-124 (0077) : actions de l'hôte sur ses véhicules
           // journalisées, fichier d'une pièce du véhicule (seau DOCUMENTS, C2, clé de l'hôte) ;
+          // US-118 (0084) : publication, retrait et refus d'une annonce journalisés ;
           // INSERT seulement
           expect(
             [
               'audit_audit_log.catalog_cmd_audit_insert',
+              'audit_audit_log.catalog_cmd_publish_audit',
               'audit_file_asset.catalog_cmd_doc_insert',
               'audit_file_asset.catalog_cmd_photo_insert',
             ],
