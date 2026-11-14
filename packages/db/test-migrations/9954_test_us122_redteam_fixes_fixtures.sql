@@ -4,7 +4,7 @@
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).
 --
 -- Paramètre ABSENT dans la transaction de l'appelant, qui l'ANNULE ensuite : la version ouverte du
--- plafond de contestations est fermée à platform.now() (seule écriture que la garde
+-- plafond de contestations est fermée 10 ms plus tard (seule écriture que la garde
 -- core.config_param_value_guard admet sur une valeur existante ; une valeur mal formée ne peut pas
 -- être écrite, la garde de type la refuse). Clé fermée. SECURITY DEFINER sous migrator,
 -- search_path figé, EXECUTE au seul app_api. Les attendus du test viennent du rapport de la red
@@ -24,10 +24,15 @@ BEGIN
   IF p_key NOT IN ('plate_claims_open_per_host') THEN
     RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  -- même motif que us123_param_version (9986) : platform.now() vaut clock_timestamp(), la garde
+  -- refuse un valid_to déjà passé quand elle le relit ; on ferme donc 10 ms plus tard, puis on
+  -- attend que la fermeture soit en vigueur
   UPDATE core.config_param_value AS v
-     SET valid_to = platform.now()
-   WHERE v.key = p_key AND v.country_code = p_country AND v.valid_to IS NULL;
+     SET valid_to = platform.now() + pg_catalog.make_interval(secs => 0.01)
+   WHERE v.key = p_key AND v.country_code = p_country AND v.scope_type = 'COUNTRY'
+     AND v.valid_to IS NULL;
   GET DIAGNOSTICS v_n = ROW_COUNT;
+  PERFORM pg_catalog.pg_sleep(0.05);
   RETURN v_n;
 END
 $fn$;
