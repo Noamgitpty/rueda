@@ -954,6 +954,9 @@ REVOKE CREATE ON SCHEMA core FROM cmd_money_owner;
 -- par FAILED, exigée par PENDING) ; aucune autre transition ouverte par cette politique
 CREATE POLICY kyc_cmd_erasure_reopen ON core.kyc_erasure_request FOR UPDATE TO kyc_cmd_owner
   USING (status = 'FAILED') WITH CHECK (status = 'PENDING' AND completed_at IS NULL);
+-- journal de la reprise (KYC_ERASURE_RETRIED, sujet la personne) : seul code ajouté
+CREATE POLICY kyc_cmd_erasure_audit_insert ON core.audit_audit_log FOR INSERT TO kyc_cmd_owner
+  WITH CHECK (action_code = 'KYC_ERASURE_RETRIED' AND subject_type = 'USER_ACCOUNT');
 
 -- 2.3 Sous kyc_cmd_owner : reprise par la personne et lecture du consentement retiré
 GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
@@ -1496,12 +1499,13 @@ BEGIN
     RETURN QUERY SELECT 'PHOTO_FORMAT'::text, NULL::uuid, NULL::text;
     RETURN;
   END IF;
-  -- US-122 (ADR-124, F2-U-02) : photos de la galerie (refusées exclues), annonce verrouillée
+  -- US-122 (ADR-124, F2-U-02) : photos de la galerie (refusées et retirées exclues), annonce verrouillée
   -- ci-dessus ; paramètre absent ou mal formé : refus
   v_max_n := core.catalog_param_int('upload_gallery_photos_max', h.country_code);
   IF v_max_n IS NULL OR v_max_n < 1
      OR (SELECT pg_catalog.count(*) FROM core.catalog_listing_photo AS p
-          WHERE p.listing_id = p_listing_id AND p.status <> 'REJECTED') >= v_max_n THEN
+          WHERE p.listing_id = p_listing_id AND p.status <> 'REJECTED'
+            AND p.deleted_at IS NULL) >= v_max_n THEN
     RETURN QUERY SELECT 'PHOTO_LIMIT_REACHED'::text, NULL::uuid, NULL::text;
     RETURN;
   END IF;

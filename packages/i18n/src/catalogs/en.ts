@@ -1180,9 +1180,9 @@ export const EN_MESSAGES = {
     '{brand}: we couldn’t add your car to the catalog. Reason in your host space.',
   'ntf.tripHostRestricted.email.subject': 'Booking {booking_ref}: an update about your host',
   'ntf.tripHostRestricted.email.body':
-    'Hi {first_name}. We are reviewing the account of the host of your booking {booking_ref}. Your booking is still on record and we will keep you posted. If it is cancelled, you get a full refund. Details in the app.',
+    'Hi {first_name}. We are reviewing the account of the host of your booking {booking_ref}. Your booking is still on record and we will keep you posted. If the host cancels it, you get a full refund. Details in the app.',
   'ntf.tripHostRestricted.sms.body':
-    '{brand}: we are reviewing the host account for your booking {booking_ref}. Full refund if it is cancelled. Details in the app.',
+    '{brand}: we are reviewing the host account for your booking {booking_ref}. Full refund if the host cancels it. Details in the app.',
   'backoffice.catalog.open': 'Open the request',
   'backoffice.catalog.heading': 'Catalog addition request',
   'backoffice.catalog.requested': 'What the host entered',

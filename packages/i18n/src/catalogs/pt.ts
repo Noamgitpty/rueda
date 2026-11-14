@@ -1218,9 +1218,9 @@ export const PT_MESSAGES = {
     '{brand}: não conseguimos incluir seu carro no catálogo. Veja o motivo no seu espaço.',
   'ntf.tripHostRestricted.email.subject': 'Reserva {booking_ref}: aviso sobre seu anfitrião',
   'ntf.tripHostRestricted.email.body':
-    'Olá, {first_name}. Estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua registrada e vamos manter você informado. Se ela for cancelada, você recebe o reembolso integral. Detalhes no app.',
+    'Olá, {first_name}. Estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua registrada e vamos manter você informado. Se o anfitrião cancelar, você recebe o reembolso integral. Detalhes no app.',
   'ntf.tripHostRestricted.sms.body':
-    '{brand}: estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Reembolso integral se ela for cancelada. Detalhes no app.',
+    '{brand}: estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Reembolso integral se o anfitrião cancelar. Detalhes no app.',
   'backoffice.catalog.open': 'Abrir o pedido',
   'backoffice.catalog.heading': 'Pedido de inclusão no catálogo',
   'backoffice.catalog.requested': 'O que o anfitrião digitou',

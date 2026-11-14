@@ -1248,9 +1248,9 @@ export const FR_MESSAGES = {
     '{brand} : ta voiture n’a pas été ajoutée au catalogue. Raison dans ton espace hôte.',
   'ntf.tripHostRestricted.email.subject': 'Réservation {booking_ref} : information sur ton hôte',
   'ntf.tripHostRestricted.email.body':
-    'Bonjour {first_name}. Nous examinons le compte de l’hôte de ta réservation {booking_ref}. Ta réservation reste enregistrée et nous te tenons informé. Si elle est annulée, tu es remboursé intégralement. Détails dans l’appli.',
+    'Bonjour {first_name}. Nous examinons le compte de l’hôte de ta réservation {booking_ref}. Ta réservation reste enregistrée et nous te tenons informé. Si l’hôte l’annule, tu es remboursé intégralement. Détails dans l’appli.',
   'ntf.tripHostRestricted.sms.body':
-    '{brand} : nous examinons le compte de l’hôte de ta réservation {booking_ref}. Remboursement intégral si elle est annulée. Détails dans l’appli.',
+    '{brand} : nous examinons le compte de l’hôte de ta réservation {booking_ref}. Remboursement intégral si l’hôte l’annule. Détails dans l’appli.',
   'backoffice.catalog.open': 'Ouvrir la demande',
   'backoffice.catalog.heading': 'Demande d’ajout au catalogue',
   'backoffice.catalog.requested': 'Saisie de l’hôte',

@@ -156,6 +156,8 @@ describe('schéma d’audit (US-009)', () => {
           expect(
             [
               'audit_audit_log.kyc_cmd_audit_insert',
+              // US-122 (0097, ADR-124) : reprise d'un effacement refusé (KYC_ERASURE_RETRIED)
+              'audit_audit_log.kyc_cmd_erasure_audit_insert',
               'audit_audit_log.kyc_cmd_host_audit_insert',
               'audit_audit_log.kyc_cmd_name_audit_insert',
             ],
