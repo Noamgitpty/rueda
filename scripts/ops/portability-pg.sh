@@ -19,7 +19,7 @@
 set -euo pipefail
 
 mode="${1:?usage : portability-pg.sh dump|restore <dossier> [section]}"
-dir="$(cd "${2:?dossier d'export attendu}" && pwd)"
+dir="$(cd "${2:?dossier de l’export attendu}" && pwd)"
 : "${PGHOST:?PGHOST absente}" "${PGDATABASE:?PGDATABASE absente}"
 : "${RUEDA_DB_ADMIN_USER:?RUEDA_DB_ADMIN_USER absente}"
 : "${RUEDA_DB_ADMIN_PASSWORD:?RUEDA_DB_ADMIN_PASSWORD absente}"
@@ -59,7 +59,13 @@ case "$mode" in
       --exclude-table-data=core.audit_subject_key --file=/export/base.dump
     chmod 600 "$dir/base.dump"
     # contrôle fail-closed : aucune donnée de clé de sujet dans la copie de la base
-    if pgtool pg_restore --list /export/base.dump | grep -E 'TABLE DATA core audit_subject_key' >/dev/null; then
+    # (liste lue d'abord : un échec de pg_restore arrête le script, jamais un « rien trouvé »)
+    listing="$(pgtool pg_restore --list /export/base.dump)"
+    [ -n "$listing" ] || {
+      echo "liste de l'archive vide : export refusé" >&2
+      exit 1
+    }
+    if grep -E 'TABLE DATA core audit_subject_key' <<<"$listing" >/dev/null; then
       echo "la copie de la base contient core.audit_subject_key : export refusé" >&2
       rm -f "$dir/base.dump"
       exit 1
