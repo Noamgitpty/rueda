@@ -163,6 +163,13 @@
       "line": 403,
       "kind": "dynamic-sql",
       "justification": "US-122 (ADR-122) : définition de 0060 recopiée à l'identique (ligne 642 de 0060, même dérogation) pour ajouter la garde de séparation des tâches ; appel de la commande de domaine LIÉE à l'action, nom lu dans pg_proc par l'OID lié et cité par format(%I.%I), toutes les valeurs passées par USING (aucun texte du client) ; extension seulement, aucune contraction"
+    },
+    {
+      "path": "packages/db/migrations/0095_catalog_customs_shared.sql",
+      "line": 30,
+      "kind": "data-update",
+      "dataTables": ["core.catalog_vehicle_variant"],
+      "justification": "N-101 (ADR-123) : variantes sans fiche de l'import de la douane (source DNIT_ADUANAS_PY, 0079) rendues communes à tous les pays (market nul) ; une seule colonne écrite, aucun statut changé, même nombre de lignes ; lignes de référence écrites par migration seulement ; la version N lit déjà market nul comme « commun » (store.ts, fonctions de 0067, 0074, 0077, 0083) ; un véhicule déjà créé sur ces variantes reste valide"
     }
   ]
 }
