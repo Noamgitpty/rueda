@@ -484,6 +484,9 @@ export const EN_MESSAGES = {
   'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED': 'License not on the accepted list',
   'backoffice.kyc.reason.DUPLICATE_ACCOUNT': 'Duplicate or linked account',
   'backoffice.kyc.reason.MORE_INFO_REQUESTED': 'New document requested by ops',
+  'backoffice.kyc.reason.LEGAL_NAME_MISMATCH': 'Account name does not match the license',
+  'backoffice.kyc.reason.LEGAL_NAME_MISSING': 'Holder name missing or unreadable on the license',
+  'backoffice.kyc.reason.LEGAL_NAME_CHANGED': 'Legal name changed after approval',
   'backoffice.kyc.attempt': 'Attempt and file country',
   'backoffice.kyc.consentMissing':
     'Biometric consent missing or out of date: approval is not possible.',
@@ -494,6 +497,11 @@ export const EN_MESSAGES = {
   'backoffice.kyc.expiresOn': 'Expiry',
   'backoffice.kyc.licenseClass': 'Class',
   'backoffice.kyc.permanent': 'Permanent license',
+  'backoffice.kyc.holderName': 'Name on the license',
+  'backoffice.kyc.nameMatch': 'Account and license names',
+  'backoffice.kyc.nameMatch.MATCH': 'They match',
+  'backoffice.kyc.nameMatch.MISMATCH': 'They differ: compare them',
+  'backoffice.kyc.nameMatch.MISSING': 'The license name was not read',
   'backoffice.kyc.yes': 'Yes',
   'backoffice.kyc.no': 'No',
   'backoffice.kyc.biometrics': 'Biometric scores (logged read)',
@@ -1271,6 +1279,13 @@ export const EN_MESSAGES = {
   'common.kyc.licenseExpired':
     'Your license expires before the end of the trip. Update it to be able to pay.',
   'common.kyc.driverEligible': 'Your license is valid for the whole trip.',
+  'common.kyc.legalNameUpdated':
+    'We saved your name. If your identity was already verified, verify it again before your next trip.',
+  'common.kyc.legalNameUnchanged': 'Your name was already this one. We changed nothing.',
+  'common.kyc.legalNameRequired':
+    'Enter your first and last names as shown on your driver’s license.',
+  'common.kyc.legalNameLocked':
+    'We are reviewing your identity. You can change your name once we are done.',
   'web.s04.title': 'Verify your identity',
   'web.s04.intro': "We do it before payment so you're never charged if you can't drive.",
   'web.s04.progress': 'Step {step} of {total}',
@@ -1355,6 +1370,11 @@ export const EN_MESSAGES = {
   'web.a07.tax.saved': 'Number saved ({kind}).',
   'web.a07.tax.private': 'We store it encrypted and never show it to travelers.',
   'web.a07.tax.individualOnly': 'Individuals only: we do not accept companies.',
+  'web.a07.optional': 'Optional',
+  'web.a07.tax.optionalHint':
+    'You can add your tax number now or later. We will only ask for it if our payment provider needs it to pay you.',
+  'web.a07.tax.reminder':
+    'Your taxes are your responsibility. Under local tax rules, you may have to register with the tax authority, for example to get a taxpayer number, within a set time after your first rental income. Check with the tax authority or an accountant.',
   'web.a07.submit': 'Send my request',
   'web.a07.submitHint': 'You can send it even if a task is missing: we will tell you what is left.',
   'web.a07.status.DOCS_PENDING': 'Your request is incomplete.',

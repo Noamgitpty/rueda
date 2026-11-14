@@ -2250,7 +2250,8 @@
         "row_version": "C1",
         "created_at": "C1",
         "updated_at": "C1",
-        "review_unqueued_at": "C1"
+        "review_unqueued_at": "C1",
+        "first_approved_at": "C1"
       }
     },
     "core.kyc_identity_document": {
@@ -2284,7 +2285,16 @@
         },
         "status": "C1",
         "retention_until": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "holder_given_names": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "holder_surnames": {
+          "class": "C2",
+          "erasure": "purge"
+        },
+        "name_match": "C1"
       }
     },
     "core.kyc_liveness_check": {

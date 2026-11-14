@@ -12,6 +12,9 @@
 --   - sous-marchand du PSP posé directement (compte FAKE de test du pays, statut demandé) : le
 --     KYC du PSP est simulé ici, l'enregistrement par le travailleur `payment_command` est prouvé
 --     par l0-pay-marketplace (US-061).
+--   - allègement ADR-115 (0086, 0087) : version du paramètre host_tax_id_required_for_activation et
+--     capacité SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID du PSP FAKE, écrites dans une transaction
+--     ANNULÉE par le test.
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1) : la preuve du chemin ACTIVE
 -- les ouvre par la procédure à deux personnes d'US-125, dans une fenêtre virtuelle lointaine.
 --
@@ -176,15 +179,66 @@ AS $fn$
    WHERE c.blocking <> 'NO'
 $fn$;
 
+-- Allègement ADR-115 (migrations 0086, 0087) : nouvelle version de host_tax_id_required_for_activation
+-- valable à platform.now(), écrite dans la transaction de l'appelant, qui l'ANNULE ensuite (comme
+-- us124_param_version) ; p_value NULL : la valeur en vigueur du pays est FERMÉE (valid_to un
+-- instant plus tard, attendu), la clé devient absente et prouve le repli fail-closed. Clé fermée.
+CREATE FUNCTION test_fixture.us123_param_version(p_key text, p_country text, p_value jsonb)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  IF p_key IS DISTINCT FROM 'host_tax_id_required_for_activation' THEN
+    RAISE EXCEPTION 'clé hors liste : %', p_key USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF p_value IS NULL THEN
+    -- platform.now() vaut clock_timestamp() : la garde refuse un valid_to déjà passé quand elle le
+    -- relit ; on ferme donc 10 ms plus tard, puis on attend que la fermeture soit en vigueur
+    UPDATE core.config_param_value
+       SET valid_to = platform.now() + pg_catalog.make_interval(secs => 0.01)
+     WHERE key = p_key AND country_code = p_country AND scope_type = 'COUNTRY'
+       AND valid_to IS NULL;
+    PERFORM pg_catalog.pg_sleep(0.05);
+    RETURN;
+  END IF;
+  INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
+  VALUES (p_key, p_country, 'COUNTRY', p_value, 'test US-123 ADR-115 (annulé)');
+END
+$fn$;
+
+-- Capacité SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID du PSP FAKE du pays (statut, valeur), valable à
+-- platform.now() : écrite dans la transaction de l'appelant, qui l'ANNULE ensuite.
+CREATE FUNCTION test_fixture.us123_set_payout_tax_capability(p_country text, p_status text,
+                                                             p_value jsonb)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.payment_psp_capability
+         (provider, country_code, method, network, capability, value, status, source,
+          validated_at, valid_from)
+  VALUES ('FAKE', p_country, '*', '*', 'SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID', p_value, p_status,
+          'test US-123 ADR-115 (FAKE, annulé)',
+          CASE WHEN p_status IN ('VALIDATED_SANDBOX', 'VALIDATED_CONTRACT') THEN platform.now() END,
+          platform.now())
+$fn$;
+
 REVOKE ALL ON FUNCTION test_fixture.us123_set_submerchant(uuid, text),
   test_fixture.us123_dossier(uuid), test_fixture.us123_screenings(uuid),
   test_fixture.us123_tax_profile(uuid), test_fixture.us123_subject(uuid),
   test_fixture.us123_org_status(uuid), test_fixture.us123_events(uuid),
   test_fixture.us123_audit(uuid), test_fixture.us123_queue_items(uuid),
-  test_fixture.us123_set_capabilities(text, text, timestamptz) FROM PUBLIC;
+  test_fixture.us123_set_capabilities(text, text, timestamptz),
+  test_fixture.us123_param_version(text, text, jsonb),
+  test_fixture.us123_set_payout_tax_capability(text, text, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us123_set_submerchant(uuid, text),
   test_fixture.us123_dossier(uuid), test_fixture.us123_screenings(uuid),
   test_fixture.us123_tax_profile(uuid), test_fixture.us123_subject(uuid),
   test_fixture.us123_org_status(uuid), test_fixture.us123_events(uuid),
   test_fixture.us123_audit(uuid), test_fixture.us123_queue_items(uuid),
-  test_fixture.us123_set_capabilities(text, text, timestamptz) TO app_api;
+  test_fixture.us123_set_capabilities(text, text, timestamptz),
+  test_fixture.us123_param_version(text, text, jsonb),
+  test_fixture.us123_set_payout_tax_capability(text, text, jsonb) TO app_api;

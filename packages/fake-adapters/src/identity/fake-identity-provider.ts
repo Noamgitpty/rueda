@@ -7,7 +7,8 @@
  * constante pays ici. Pièce non configurée ⇒ `UNSUPPORTED_DOCUMENT` (capacité inconnue = « non »).
  *
  * Résultat d'une décision (US-105) : scores de liveness et de face match et champs MINIMAUX de la
- * pièce (type, pays, échéance, classe, caractère définitif, référence chez le fournisseur) ; pour
+ * pièce (type, pays, échéance, classe, caractère définitif, référence chez le fournisseur, nom du
+ * titulaire lu sur la pièce, US-103) ; pour
  * l'hôte (US-123), faits vérifiés : date de naissance et pays de résidence. Jamais
  * d'image ni de numéro : la lecture du rappel ne garde que ces champs, tout autre champ est ignoré
  * (zéro copie, 17 §1.5 point 3).
@@ -64,6 +65,10 @@ export interface IdentityDocumentResult {
   /** Permis définitif (VER-006 : provisoire refusé) ; `null` : inconnu. */
   readonly isPermanent: boolean | null;
   readonly providerDocumentRef: string | null;
+  /** Prénoms du titulaire lus sur la pièce (US-103) ; `null` ou omis : non rendus. */
+  readonly holderGivenNames?: string | null;
+  /** Noms de famille du titulaire lus sur la pièce (US-103) ; `null` ou omis : non rendus. */
+  readonly holderSurnames?: string | null;
 }
 
 /**
@@ -386,6 +391,8 @@ function parseChecks(raw: unknown): IdentityChecks | null {
   const expiresOn = shortText(doc['expiresOn'], 10);
   const licenseClass = shortText(doc['licenseClass'], 20);
   const providerDocumentRef = shortText(doc['providerDocumentRef'], 200);
+  const holderGivenNames = shortText(doc['holderGivenNames'], 200);
+  const holderSurnames = shortText(doc['holderSurnames'], 200);
   const isPermanent =
     doc['isPermanent'] === undefined || doc['isPermanent'] === null
       ? null
@@ -401,6 +408,8 @@ function parseChecks(raw: unknown): IdentityChecks | null {
     (expiresOn !== null && !/^\d{4}-\d{2}-\d{2}$/.test(expiresOn)) ||
     licenseClass === undefined ||
     providerDocumentRef === undefined ||
+    holderGivenNames === undefined ||
+    holderSurnames === undefined ||
     isPermanent === undefined
   ) {
     return null;
@@ -415,6 +424,9 @@ function parseChecks(raw: unknown): IdentityChecks | null {
       licenseClass,
       isPermanent,
       providerDocumentRef,
+      // nom du titulaire (US-103) : recopié seulement s'il est rendu
+      ...(holderGivenNames !== null ? { holderGivenNames } : {}),
+      ...(holderSurnames !== null ? { holderSurnames } : {}),
     },
     ...withSubject,
   };

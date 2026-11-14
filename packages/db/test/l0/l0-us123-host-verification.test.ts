@@ -9,12 +9,16 @@
  *
  * Attendus tirés de 19 US-123 (critères 1 à 6), de 16 HST-049 / FIN-008 / VER-028 / A.8, de 17
  * §0.1, §2.4, §4.5, de 08 BR-ACC-06, de 22 OQ-P2P-01 / OQ-P2P-07 et des données CFG
- * (`params.json` : `host_min_age_years`, `p2p_host_requires_tax_id` ; `countries.json` :
- * `hostTaxIdKinds`), jamais du code testé :
+ * (`params.json` : `host_min_age_years`, `host_tax_id_required_for_activation` ; `countries.json` :
+ * `hostTaxIdKinds`), de DEC-FONDATEUR-22 et d'ADR-115 (allègement, migrations 0086 et 0087), jamais du code
+ * testé :
  * - critère 1 : 20 ans, `host_min_age_years` = 21 ⇒ refus HOST_UNDER_AGE (rien n'est écrit) ;
  * - critère 2 : personne morale ⇒ HOST_ENTITY_NOT_ALLOWED ;
- * - critère 3 : sans numéro fiscal (RUC au Paraguay) ⇒ dossier incomplet, non approuvable, hôte
- *   non activable ; numéro chiffré (C2), jamais en clair ;
+ * - critère 3 : paramètre `host_tax_id_required_for_activation` ACTIVÉ (true, ou absent / mal formé :
+ *   fail-closed) : sans numéro fiscal (RUC au Paraguay) ⇒ dossier incomplet, non approuvable, hôte
+ *   non activable ; DÉSACTIVÉ (graine false, DEC-FONDATEUR-22) : numéro facultatif, dossier complet
+ *   sans lui ; exigé au versement seulement si le PSP du sous-marchand ACTIVE n'a pas validé
+ *   `SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID` (inconnue ⇒ exigé) ; numéro chiffré (C2), jamais en clair ;
  * - critère 4 : KYC approuvé, sous-marchand non ACTIVE ⇒ activation refusée
  *   (HOST_PAYOUT_RAIL_UNAVAILABLE) ;
  * - critère 5 : correspondance de sanctions ⇒ dossier bloqué, motif journalisé, aucune donnée de
@@ -70,8 +74,9 @@ const paramValues = (key: string): Record<string, unknown> =>
   ).params.find((p) => p.key === key)?.values ?? {};
 /** 17 §7.2 `host_min_age_years` (OQ-P2P-01 : 21 ans), par pays (données CFG). */
 const MIN_AGE = paramValues('host_min_age_years');
-/** 17 §7.2 `p2p_host_requires_tax_id` (OQ-P2P-07 : true), par pays (données CFG). */
-const TAX_REQUIRED = paramValues('p2p_host_requires_tax_id');
+/** `host_tax_id_required_for_activation` (DEC-FONDATEUR-22, ADR-115 : false), par pays (données CFG). */
+const TAX_FOR_ACTIVATION = paramValues('host_tax_id_required_for_activation');
+const TAX_KEY = 'host_tax_id_required_for_activation';
 
 function data(country: string): CountryData {
   const d = COUNTRY_DATA.get(country);
@@ -234,6 +239,9 @@ const applyFacts = (
         licenseClass: 'B',
         isPermanent: true,
         providerDocumentRef: `doc_${randomBytes(4).toString('hex')}`,
+        // nom lu sur le permis (US-103, ADR-117) : concorde avec le nom du compte
+        holderGivenNames: 'Ana María',
+        holderSurnames: 'Pérez Gómez',
       }),
       subject === null ? null : JSON.stringify(subject),
     ],
@@ -397,6 +405,53 @@ function act(
   );
 }
 
+/**
+ * Décision HOST_VERIFICATION_DECISION dans la transaction OUVERTE de l'appelant (aucun COMMIT) :
+ * pour les preuves d'une version de paramètre annulée ensuite.
+ */
+async function decideIn(
+  tx: pg.ClientBase,
+  staff: { readonly userId: string; readonly hash: Buffer },
+  org: string,
+  decision: 'APPROVED' | 'REJECTED',
+  scope: readonly string[],
+): Promise<ActOutcome> {
+  await setSessionContext(tx, {
+    kind: 'STAFF',
+    actorId: staff.userId,
+    countryScope: scope,
+    sessionTokenHash: staff.hash.toString('hex'),
+  });
+  const { rows } = await tx.query<ActOutcome>(
+    'SELECT * FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, $7::uuid[])',
+    [staff.hash, uuid(), 'HOST_VERIFICATION_DECISION', org, REASON, { decision }, []],
+  );
+  return rows[0] ?? { outcome: '', action_id: null, domain_ref: null, detail: null };
+}
+
+/**
+ * Version de `host_tax_id_required_for_activation` (JSON ; null : valeur fermée, clé absente) posée dans une transaction ANNULÉE à la
+ * fin (fixture 9986) : la preuve s'exécute dans cette transaction.
+ */
+async function withTaxParam<T>(
+  c: pg.ClientBase,
+  country: string,
+  value: string | null,
+  fn: () => Promise<T>,
+): Promise<T> {
+  await c.query('BEGIN');
+  try {
+    await c.query('SELECT test_fixture.us123_param_version($1, $2, $3::jsonb)', [
+      TAX_KEY,
+      country,
+      value,
+    ]);
+    return await fn();
+  } finally {
+    await c.query('ROLLBACK');
+  }
+}
+
 /** Décision HOST_VERIFICATION_DECISION par la console. */
 const decide = (
   client: pg.ClientBase,
@@ -450,11 +505,12 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
   const country = cc.country;
   const minAge = Number(MIN_AGE[country]);
 
-  it('données de test : âge minimal et numéro fiscal exigé tirés de la configuration (17 §7.2)', async () => {
+  it('données de test : âge minimal et numéro fiscal facultatif tirés de la configuration (17 §7.2, DEC-FONDATEUR-22)', async () => {
     await withRole('app_api', async () => undefined); // L0-05
-    // OQ-P2P-01 (21 ans) et OQ-P2P-07 (numéro fiscal exigé) : défauts PROPOSÉS des données CFG
+    // OQ-P2P-01 (21 ans) ; DEC-FONDATEUR-22 « jamais plus lourd que Turo » : numéro fiscal non
+    // exigé à l'activation (ADR-115), défaut PROPOSÉ des données CFG
     expect(minAge).toBe(21);
-    expect(TAX_REQUIRED[country]).toBe(true);
+    expect(TAX_FOR_ACTIVATION[country]).toBe(false);
     expect(data(country).hostTaxIdKinds.length).toBeGreaterThan(0);
   });
 
@@ -523,22 +579,133 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
     });
   });
 
-  it('critère 3 : sans numéro fiscal ⇒ dossier incomplet, non approuvable, compte non activable', async () => {
+  it('critère 3, paramètre activé (true, ou clé absente : fail-closed) : sans numéro fiscal ⇒ dossier incomplet, non approuvable, compte non activable', async () => {
+    await withRole('app_api', async (c) => {
+      const ops = await elevated(c, 'OPS_AGENT', [country]);
+      // null : valeur en vigueur fermée, clé absente ⇒ numéro exigé (fail-closed)
+      for (const value of ['true', null]) {
+        await withTaxParam(c, country, value, async () => {
+          const { p, org } = await readyHost(c, country, { tax: false });
+          const d = (
+            await fixture<{ status: string; missing: string[] }>(c, 'us123_dossier', org)
+          )[0];
+          expect(d, String(value)).toMatchObject({
+            status: 'DOCS_PENDING',
+            missing: ['HOST_TAX_ID_REQUIRED'],
+          });
+          const st = await state(c, p, org);
+          expect(st, String(value)).toMatchObject({
+            tax_required: true,
+            tax_saved: false,
+            tax_kind: null,
+          });
+          expect(st.tax_kinds).toEqual(data(country).hostTaxIdKinds);
+          expect(st.blockers).toContain('HOST_TAX_ID_REQUIRED');
+          const r = await decideIn(c, ops, org, 'APPROVED', [country]);
+          expect(r, String(value)).toMatchObject({
+            outcome: 'REFUSED',
+            detail: 'HOST_TAX_ID_REQUIRED',
+          });
+          expect(await fixture(c, 'us123_org_status', org)).toEqual([
+            { us123_org_status: 'ONBOARDING' },
+          ]);
+          expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
+            status: 'DOCS_PENDING',
+          });
+        });
+      }
+    });
+  });
+
+  it('critère 3, paramètre désactivé (graine false, DEC-FONDATEUR-22) : sans numéro fiscal ⇒ dossier complet et approuvé ; numéro facultatif, saisi une fois après l’approbation, chiffré', async () => {
     await withRole('app_api', async (c) => {
       const ops = await elevated(c, 'OPS_AGENT', [country]);
       const { p, org } = await readyHost(c, country, { tax: false });
-      const d = (await fixture<{ status: string; missing: string[] }>(c, 'us123_dossier', org))[0];
-      expect(d).toMatchObject({ status: 'DOCS_PENDING', missing: ['HOST_TAX_ID_REQUIRED'] });
-      const st = await state(c, p, org);
-      expect(st).toMatchObject({ tax_required: true, tax_saved: false, tax_kind: null });
-      expect(st.tax_kinds).toEqual(data(country).hostTaxIdKinds);
-      expect(st.blockers).toContain('HOST_TAX_ID_REQUIRED');
-      const r = await decide(c, ops, org, 'APPROVED', [country]);
-      expect(r).toMatchObject({ outcome: 'REFUSED', detail: 'HOST_TAX_ID_REQUIRED' });
+      expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
+        status: 'IN_REVIEW',
+        missing: [],
+      });
+      const before = await state(c, p, org);
+      expect(before).toMatchObject({
+        verification_status: 'IN_REVIEW',
+        missing: [],
+        tax_required: false,
+        tax_saved: false,
+        tax_kind: null,
+      });
+      expect(before.tax_kinds).toEqual(data(country).hostTaxIdKinds);
+      expect(before.blockers).not.toContain('HOST_TAX_ID_REQUIRED');
+      expect((await decide(c, ops, org, 'APPROVED', [country])).outcome).toBe('DONE');
+      expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({ status: 'APPROVED' });
+      // interrupteurs à false, aucun sous-marchand : PENDING_ACTIVATION, jamais pour le numéro
       expect(await fixture(c, 'us123_org_status', org)).toEqual([
-        { us123_org_status: 'ONBOARDING' },
+        { us123_org_status: 'PENDING_ACTIVATION' },
       ]);
-      expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({ status: 'DOCS_PENDING' });
+      const approved = await state(c, p, org);
+      expect(approved.blockers).toContain('SUBMERCHANT_NOT_ACTIVE');
+      expect(approved.blockers).not.toContain('HOST_TAX_ID_REQUIRED');
+      // saisie toujours possible : un premier numéro est admis après l'approbation, chiffré ; il
+      // ne se remplace plus ensuite
+      const kind = data(country).hostTaxIdKinds[0] ?? '';
+      const sealed = sealedTaxId(org);
+      expect(await saveTax(c, p, org, kind, sealed.enc)).toEqual({ outcome: 'SAVED' });
+      expect(await state(c, p, org)).toMatchObject({ tax_saved: true, tax_kind: kind });
+      const stored = await fixture<{ tax_id_enc: Buffer }>(c, 'us123_tax_profile', org);
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.tax_id_enc.includes(Buffer.from(sealed.plain, 'utf8'))).toBe(false);
+      expect(await saveTax(c, p, org, kind, sealedTaxId(org).enc)).toEqual({
+        outcome: 'HOST_VERIFICATION_LOCKED',
+      });
+      expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({ status: 'APPROVED' });
+    });
+  });
+
+  it('numéro exigé au versement seulement si le PSP l’impose : sous-marchand ACTIVE et capacité SUPPORTS_PAYOUT_WITHOUT_HOST_TAX_ID inconnue ou non validée ⇒ HOST_TAX_ID_REQUIRED ; validée ⇒ facultatif ; numéro enregistré ⇒ levé', async () => {
+    await withRole('app_api', async (c) => {
+      const { p, org } = await readyHost(c, country, { tax: false });
+      // PSP inconnu tant qu'aucun sous-marchand n'est ACTIVE : l'activation est fermée par
+      // SUBMERCHANT_NOT_ACTIVE, le numéro reste facultatif
+      const none = await state(c, p, org);
+      expect(none.tax_required).toBe(false);
+      expect(none.blockers).toContain('SUBMERCHANT_NOT_ACTIVE');
+      expect(none.blockers).not.toContain('HOST_TAX_ID_REQUIRED');
+      await c.query('SELECT test_fixture.us123_set_submerchant($1, $2)', [org, 'ACTIVE']);
+      // capacité absente = inconnue = « non » (17 §2.8) ⇒ numéro exigé, hôte non activable ; le
+      // dossier, lui, ne change pas
+      const unknown = await state(c, p, org);
+      expect(unknown).toMatchObject({ tax_required: true, verification_status: 'IN_REVIEW' });
+      expect(unknown.blockers).toContain('HOST_TAX_ID_REQUIRED');
+      expect(unknown.blockers).not.toContain('SUBMERCHANT_NOT_ACTIVE');
+      for (const [status, value, required] of [
+        ['UNKNOWN', 'true', true],
+        ['DOCUMENTED', 'true', true],
+        ['VALIDATED_SANDBOX', 'false', true],
+        ['VALIDATED_SANDBOX', '"true"', true],
+        ['VALIDATED_SANDBOX', 'true', false],
+        ['VALIDATED_CONTRACT', 'true', false],
+      ] as const) {
+        await c.query('BEGIN');
+        try {
+          await c.query('SELECT test_fixture.us123_set_payout_tax_capability($1, $2, $3::jsonb)', [
+            country,
+            status,
+            value,
+          ]);
+          const st = await state(c, p, org);
+          expect(st.tax_required, `${status} ${value}`).toBe(required);
+          expect(st.blockers?.includes('HOST_TAX_ID_REQUIRED'), `${status} ${value}`).toBe(
+            required,
+          );
+        } finally {
+          await c.query('ROLLBACK');
+        }
+      }
+      // numéro enregistré (premier numéro, dossier en revue) : le blocage tombe
+      const kind = data(country).hostTaxIdKinds[0] ?? '';
+      expect(await saveTax(c, p, org, kind, sealedTaxId(org).enc)).toEqual({ outcome: 'SAVED' });
+      const saved = await state(c, p, org);
+      expect(saved).toMatchObject({ tax_required: true, tax_saved: true, tax_kind: kind });
+      expect(saved.blockers).not.toContain('HOST_TAX_ID_REQUIRED');
     });
   });
 
@@ -785,7 +952,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
     });
   });
 
-  it('correspondance indiscernable par l’hôte : sans numéro, numéro enregistré, soumission, nouvel essai, mêmes réponses qu’un hôte propre', async () => {
+  it('correspondance indiscernable par l’hôte : sans numéro, numéro enregistré, soumission, nouvel essai, mêmes réponses qu’un hôte propre (paramètre activé, puis désactivé)', async () => {
     await withRole('app_api', async (c) => {
       const journey = async (result: 'CLEAR' | 'POTENTIAL_MATCH') => {
         const { p, org } = await readyHost(c, country, { tax: false, screening: 'NONE' });
@@ -810,16 +977,70 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         });
         return seen;
       };
+      // paramètre ACTIVÉ (true) : le numéro est une pièce du dossier (comportement d'US-123)
+      await withTaxParam(c, country, 'true', async () => {
+        const clean = await journey('CLEAR');
+        const flagged = await journey('POTENTIAL_MATCH');
+        expect(flagged).toEqual(clean);
+        expect(clean[0]).toMatchObject({
+          verification_status: 'DOCS_PENDING',
+          missing: ['HOST_TAX_ID_REQUIRED'],
+          tax_required: true,
+        });
+        expect(clean[1]).toEqual({ outcome: 'SAVED' });
+        expect(clean[2]).toMatchObject({ outcome: 'SUBMITTED', status: 'IN_REVIEW', missing: [] });
+        expect(clean[4]).toEqual({ outcome: 'HOST_VERIFICATION_LOCKED' });
+      });
+      // paramètre DÉSACTIVÉ (graine) : dossier complet sans numéro ; premier numéro admis en revue
       const clean = await journey('CLEAR');
       const flagged = await journey('POTENTIAL_MATCH');
       expect(flagged).toEqual(clean);
       expect(clean[0]).toMatchObject({
-        verification_status: 'DOCS_PENDING',
-        missing: ['HOST_TAX_ID_REQUIRED'],
+        verification_status: 'IN_REVIEW',
+        missing: [],
+        tax_required: false,
+        tax_saved: false,
       });
       expect(clean[1]).toEqual({ outcome: 'SAVED' });
       expect(clean[2]).toMatchObject({ outcome: 'SUBMITTED', status: 'IN_REVIEW', missing: [] });
+      expect(clean[3]).toMatchObject({ tax_saved: true });
       expect(clean[4]).toEqual({ outcome: 'HOST_VERIFICATION_LOCKED' });
+    });
+  });
+
+  it('correspondance indiscernable par l’hôte SANS RUC (paramètre désactivé) : soumission, nouvel essai, sous-marchand ACTIVE, numéro exigé par le PSP, mêmes réponses qu’un hôte propre', async () => {
+    await withRole('app_api', async (c) => {
+      const journey = async (result: 'CLEAR' | 'POTENTIAL_MATCH') => {
+        const { p, org } = await readyHost(c, country, { tax: false, screening: 'NONE' });
+        const shape = (x: Submitted) => ({
+          outcome: x.outcome,
+          status: x.status,
+          missing: x.missing,
+        });
+        const s = await submit(c, p, org);
+        const seen: unknown[] = [shape(s), await state(c, p, org)];
+        seen.push(await screen(c, p, org, s.screening_key, result));
+        seen.push(await state(c, p, org), shape(await submit(c, p, org)), await state(c, p, org));
+        await c.query('SELECT test_fixture.us123_set_submerchant($1, $2)', [org, 'ACTIVE']);
+        seen.push(await state(c, p, org));
+        expect((await fixture(c, 'us123_dossier', org))[0]).toMatchObject({
+          screening_hold: result !== 'CLEAR',
+        });
+        return seen;
+      };
+      const clean = await journey('CLEAR');
+      const flagged = await journey('POTENTIAL_MATCH');
+      expect(flagged).toEqual(clean);
+      expect(clean[0]).toMatchObject({
+        outcome: 'SUBMITTED',
+        status: 'DOCS_PENDING',
+        missing: ['HOST_SCREENING_MISSING'],
+      });
+      expect(clean[2]).toMatchObject({ outcome: 'RECORDED', status: 'IN_REVIEW', missing: [] });
+      expect(clean[3]).toMatchObject({ verification_status: 'IN_REVIEW', tax_required: false });
+      expect(clean[4]).toMatchObject({ outcome: 'SUBMITTED', status: 'IN_REVIEW', missing: [] });
+      expect(clean[6]).toMatchObject({ tax_required: true, tax_saved: false });
+      expect((clean[6] as HostState).blockers).toContain('HOST_TAX_ID_REQUIRED');
     });
   });
 
@@ -996,6 +1217,8 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
         `core.kyc_host_try_activate('${org}', NULL, 'SYSTEM')`,
         `core.kyc_host_activation_allowed('${org}', '${country}')`,
         `core.kyc_host_blockers('${org}')`,
+        `core.kyc_host_tax_saved('${org}')`,
+        `core.kyc_host_psp_requires_tax_id('${org}')`,
       ]) {
         await expect(
           withTestTransaction(c, {}, (tx) => tx.query(`SELECT ${fn}`)),

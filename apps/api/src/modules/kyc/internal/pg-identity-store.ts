@@ -12,6 +12,7 @@ import {
   ELIGIBILITY_OUTCOMES,
   IdentityStoreError,
   KYC_STATUSES,
+  LEGAL_NAME_OUTCOMES,
   OPEN_OUTCOMES,
   RECORD_OUTCOMES,
 } from './identity-store.js';
@@ -23,6 +24,7 @@ import type {
   IdentityState,
   IdentityStore,
   KycStatus,
+  LegalNameResult,
   OpenResult,
   PendingErasure,
   RecordOutcome,
@@ -171,6 +173,22 @@ export class PgIdentityStore implements IdentityStore {
     };
   }
 
+  async changeLegalName(tokenHash: Buffer, first: string, last: string): Promise<LegalNameResult> {
+    // le nom [C2] n'est jamais journalisé : une erreur ne garde que l'opération et le SQLSTATE
+    const [r] = await this.#run<{ outcome: string; status: string | null }>(
+      'change_legal_name',
+      'SELECT * FROM core.kyc_cmd_change_legal_name($1, $2, $3)',
+      [tokenHash, first, last],
+    );
+    return {
+      outcome: member(LEGAL_NAME_OUTCOMES, r?.outcome, 'change_legal_name'),
+      status:
+        r?.status === null || r?.status === undefined
+          ? null
+          : member(KYC_STATUSES, r.status, 'change_legal_name'),
+    };
+  }
+
   async recordSession(tokenHash: Buffer, s: SessionToRecord): Promise<RecordOutcome> {
     const [r] = await this.#run<{ outcome: string }>(
       'record_session',
@@ -195,7 +213,8 @@ export class PgIdentityStore implements IdentityStore {
         event.decision,
         event.checks.livenessScore,
         event.checks.faceMatchScore,
-        // champs minimaux seulement : aucune image ni numéro (le port n'en transporte pas)
+        // champs minimaux seulement : aucune image ni numéro (le port n'en transporte pas) ; nom
+        // du titulaire [C2] rapproché en base du nom légal du compte (US-103), jamais journalisé
         d === null
           ? null
           : JSON.stringify({
@@ -205,6 +224,8 @@ export class PgIdentityStore implements IdentityStore {
               licenseClass: d.licenseClass,
               isPermanent: d.isPermanent,
               providerDocumentRef: d.providerDocumentRef,
+              holderGivenNames: d.holderGivenNames ?? null,
+              holderSurnames: d.holderSurnames ?? null,
             }),
         // date de naissance et pays de résidence seulement (le port n'en transporte pas d'autres)
         f === null

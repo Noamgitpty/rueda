@@ -49,7 +49,7 @@ Je te présenterai une liste unique ; pour chaque réglage, ma valeur suggérée
 | Plafond de prix des annonces                                             | PA 5 000 $/jour, 10 $/km ; PY 35 000 000 ₲/jour, 75 000 ₲/km | Pas de vrai plafond pour l'hôte : seulement un seuil très haut contre les fautes de frappe                                                                                             |
 | Caution, véhicules de classe luxe                                        | caution, montant à décider                                   | **Aucune caution au lancement**, même pour le luxe ; la carte enregistrée et les plans de protection couvrent les frais ; on la réactive par pays seulement si les sinistres l'exigent |
 | Âge et kilométrage maximum du véhicule                                   | 10 ans, 200 000 km                                           | **Aligner sur Turo** (environ 12 ans, environ 210 000 km) ou sur ce que l'assureur accepte, en prenant le plus large ; « illimité » si l'assureur le permet                            |
-| Préavis de réservation par défaut                                        | 3 h                                                          | Valeur par défaut de Turo ; chaque hôte la change comme il veut                                                                                                                        |
+| Préavis de réservation par défaut                                        | 3 h                                                          | Turo ne publie pas de valeur par défaut (page d'aide relue le 2026-11-13) : on garde 3 h ; chaque hôte la change par lieu (ADR-115)                                                    |
 | Pièces du véhicule, revue de l'hôte et des annonces, RUC à l'inscription | désactivés (règle « jamais plus lourd que Turo »)            | **Les laisser désactivés** ; ne les activer que si l'assureur, le PSP ou la loi l'impose                                                                                               |
 
 ## 4. Avis juridiques et comptables à obtenir
@@ -73,6 +73,7 @@ Pour chaque point : la question, puis **ma suggestion** de réponse à faire val
 
 **4.6 Fiscalité de l'hôte au Paraguay** (comptable) : IRP et TVA sur la location d'une voiture par un particulier. Le RUC devient obligatoire dans les 30 jours ouvrables après les premiers revenus imposables (RG 69/2020) : c'est l'obligation de l'hôte, pas une condition d'inscription.
 → **Suggestion** : RUC **facultatif** à l'inscription ; un rappel clair de son obligation à l'hôte ; RUC exigé au premier versement seulement si le PSP l'impose.
+→ **Fait (PR en brouillon, 2026-11-13)** : RUC facultatif en PA et en PY (`host_tax_id_required_for_activation` = false), rappel dans les 4 langues, numéro exigé avant l'activation seulement si le PSP ne sait pas verser sans lui (ADR-115).
 
 **4.7 Facturation électronique et ITBMS au Panama** (comptable).
 → **Suggestion** : Kmino facture uniquement **sa commission** ; vérifier qu'un hôte particulier n'a pas à émettre de facture électronique pour une location occasionnelle, ou que la plateforme peut émettre un reçu pour lui.

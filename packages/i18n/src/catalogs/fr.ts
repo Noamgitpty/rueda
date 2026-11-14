@@ -512,6 +512,9 @@ export const FR_MESSAGES = {
   'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED': 'Permis hors de la liste acceptée',
   'backoffice.kyc.reason.DUPLICATE_ACCOUNT': 'Compte en double ou lié',
   'backoffice.kyc.reason.MORE_INFO_REQUESTED': 'Nouvelle pièce demandée par l’ops',
+  'backoffice.kyc.reason.LEGAL_NAME_MISMATCH': 'Nom du compte différent de celui du permis',
+  'backoffice.kyc.reason.LEGAL_NAME_MISSING': 'Nom du titulaire absent ou illisible sur le permis',
+  'backoffice.kyc.reason.LEGAL_NAME_CHANGED': 'Nom légal modifié après l’approbation',
   'backoffice.kyc.attempt': 'Tentative et pays du dossier',
   'backoffice.kyc.consentMissing':
     'Consentement biométrique absent ou périmé : aucune approbation possible.',
@@ -522,6 +525,11 @@ export const FR_MESSAGES = {
   'backoffice.kyc.expiresOn': 'Échéance',
   'backoffice.kyc.licenseClass': 'Catégorie',
   'backoffice.kyc.permanent': 'Permis définitif',
+  'backoffice.kyc.holderName': 'Nom sur le permis',
+  'backoffice.kyc.nameMatch': 'Nom du compte et nom du permis',
+  'backoffice.kyc.nameMatch.MATCH': 'Concordants',
+  'backoffice.kyc.nameMatch.MISMATCH': 'Différents : à comparer',
+  'backoffice.kyc.nameMatch.MISSING': 'Le nom du permis n’a pas été lu',
   'backoffice.kyc.yes': 'Oui',
   'backoffice.kyc.no': 'Non',
   'backoffice.kyc.biometrics': 'Scores biométriques (lecture journalisée)',
@@ -1345,6 +1353,13 @@ export const FR_MESSAGES = {
   'common.kyc.licenseExpired':
     'Ton permis expire avant la fin du voyage. Mets-le à jour pour pouvoir payer.',
   'common.kyc.driverEligible': 'Ton permis est valable pour tout le voyage.',
+  'common.kyc.legalNameUpdated':
+    'Nous avons enregistré ton nom. Si ton identité était déjà vérifiée, vérifie-la de nouveau avant ton prochain voyage.',
+  'common.kyc.legalNameUnchanged': 'Ton nom était déjà celui-ci. Nous n’avons rien changé.',
+  'common.kyc.legalNameRequired':
+    'Saisis ton prénom et ton nom tels qu’ils figurent sur ton permis de conduire.',
+  'common.kyc.legalNameLocked':
+    'Nous vérifions ton identité. Tu pourras changer ton nom une fois la vérification terminée.',
   'web.s04.title': 'Vérifie ton identité',
   'web.s04.intro':
     'Nous le faisons avant le paiement pour que tu ne paies jamais si tu ne peux pas conduire.',
@@ -1431,6 +1446,11 @@ export const FR_MESSAGES = {
   'web.a07.tax.saved': 'Numéro enregistré ({kind}).',
   'web.a07.tax.private': 'Nous le gardons chiffré et ne le montrons jamais aux voyageurs.',
   'web.a07.tax.individualOnly': 'Particuliers seulement : nous n’acceptons pas les sociétés.',
+  'web.a07.optional': 'Facultatif',
+  'web.a07.tax.optionalHint':
+    'Tu peux ajouter ton numéro fiscal maintenant ou plus tard. Nous ne te le demanderons que si notre prestataire de paiement en a besoin pour te payer.',
+  'web.a07.tax.reminder':
+    'Tes impôts relèvent de ta responsabilité. Selon les règles fiscales locales, tu dois peut-être t’inscrire auprès de l’administration fiscale, par exemple pour obtenir un numéro de contribuable, dans un délai fixé après tes premiers revenus de location. Renseigne-toi auprès de l’administration fiscale ou d’un comptable.',
   'web.a07.submit': 'Envoyer ma demande',
   'web.a07.submitHint':
     'Tu peux l’envoyer même s’il manque une tâche : nous te dirons ce qui reste.',

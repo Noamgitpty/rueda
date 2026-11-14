@@ -500,6 +500,10 @@ export const ES_MESSAGES = {
   'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED': 'Licencia fuera de la lista aceptada',
   'backoffice.kyc.reason.DUPLICATE_ACCOUNT': 'Cuenta duplicada o vinculada',
   'backoffice.kyc.reason.MORE_INFO_REQUESTED': 'Nuevo documento pedido por operaciones',
+  'backoffice.kyc.reason.LEGAL_NAME_MISMATCH': 'El nombre de la cuenta no coincide con la licencia',
+  'backoffice.kyc.reason.LEGAL_NAME_MISSING':
+    'Nombre del titular ausente o ilegible en la licencia',
+  'backoffice.kyc.reason.LEGAL_NAME_CHANGED': 'Nombre legal cambiado después de la aprobación',
   'backoffice.kyc.attempt': 'Intento y lugar del expediente',
   'backoffice.kyc.consentMissing':
     'Consentimiento biométrico ausente o desactualizado: no se puede aprobar.',
@@ -510,6 +514,11 @@ export const ES_MESSAGES = {
   'backoffice.kyc.expiresOn': 'Vencimiento',
   'backoffice.kyc.licenseClass': 'Categoría',
   'backoffice.kyc.permanent': 'Licencia definitiva',
+  'backoffice.kyc.holderName': 'Nombre en la licencia',
+  'backoffice.kyc.nameMatch': 'Nombre de la cuenta y de la licencia',
+  'backoffice.kyc.nameMatch.MATCH': 'Coinciden',
+  'backoffice.kyc.nameMatch.MISMATCH': 'No coinciden: compáralos',
+  'backoffice.kyc.nameMatch.MISSING': 'No se leyó el nombre de la licencia',
   'backoffice.kyc.yes': 'Sí',
   'backoffice.kyc.no': 'No',
   'backoffice.kyc.biometrics': 'Puntajes biométricos (lectura registrada)',
@@ -1311,6 +1320,13 @@ export const ES_MESSAGES = {
   'common.kyc.licenseExpired':
     'Tu licencia vence antes del final del viaje. Actualízala para poder pagar.',
   'common.kyc.driverEligible': 'Tu licencia es válida para todo el viaje.',
+  'common.kyc.legalNameUpdated':
+    'Guardamos tu nombre. Si tu identidad ya estaba verificada, verifícala de nuevo antes de tu próximo viaje.',
+  'common.kyc.legalNameUnchanged': 'Tu nombre ya era ese. No cambiamos nada.',
+  'common.kyc.legalNameRequired':
+    'Escribe tu nombre y tus apellidos tal como aparecen en tu licencia de conducir.',
+  'common.kyc.legalNameLocked':
+    'Estamos revisando tu identidad. Podrás cambiar tu nombre cuando terminemos.',
   'web.s04.title': 'Verifica tu identidad',
   'web.s04.intro': 'Lo hacemos antes del pago para que nadie te cobre si no puedes manejar.',
   'web.s04.progress': 'Paso {step} de {total}',
@@ -1395,6 +1411,11 @@ export const ES_MESSAGES = {
   'web.a07.tax.saved': 'Número guardado ({kind}).',
   'web.a07.tax.private': 'Lo guardamos cifrado y nunca lo mostramos a los viajeros.',
   'web.a07.tax.individualOnly': 'Solo personas físicas: no aceptamos empresas.',
+  'web.a07.optional': 'Opcional',
+  'web.a07.tax.optionalHint':
+    'Puedes agregar tu número fiscal ahora o más tarde. Solo te lo pediremos si nuestro proveedor de pagos lo necesita para pagarte.',
+  'web.a07.tax.reminder':
+    'Tus impuestos son tu responsabilidad. Según las reglas fiscales locales, es posible que debas inscribirte ante la administración tributaria, por ejemplo para obtener un número de contribuyente, dentro de un plazo después de tus primeros ingresos por alquiler. Consulta con la administración tributaria o con un contador.',
   'web.a07.submit': 'Enviar mi solicitud',
   'web.a07.submitHint': 'Puedes enviarla aunque falte una tarea: te diremos qué falta.',
   'web.a07.status.DOCS_PENDING': 'Tu solicitud está incompleta.',

@@ -271,7 +271,8 @@ const MARKET_NO_DECIMALS = { country: 'QZ', currency: 'XXX', currencyExponent: 0
 
 // ---- Vérification de l'hôte (US-123) : liste de tâches A07 -----------------------------------
 // Double : identité et âge déjà vérifiés ; un type de numéro fiscal NEUTRE (données fictives, aucun
-// type propre à un pays) ; envoi ⇒ filtrage fait, dossier en revue si le numéro est enregistré ;
+// type propre à un pays) ; envoi ⇒ filtrage fait, dossier en revue si les CGU sont acceptées (numéro
+// fiscal facultatif, ADR-115) ;
 // `GET /__e2e/host-verification/approve?token=` ⇒ dossier approuvé, compte en attente
 // d'activation, pays pas encore ouvert (interrupteurs fermés, comme la production).
 const TAX_KINDS = ['TAX_NUMBER'];
@@ -284,7 +285,7 @@ const verificationView = (h, code, messageKey) => {
   const terms = h.terms.acceptedVersion !== null;
   const missing = [
     ...(v.screening ? [] : ['HOST_SCREENING_MISSING']),
-    ...(v.taxKind === null ? ['HOST_TAX_ID_REQUIRED'] : []),
+    // numéro fiscal facultatif (graine false en PA et en PY, ADR-115) : jamais une pièce manquante
     ...(terms ? [] : ['TERMS_REACCEPT_REQUIRED']),
   ];
   return {
@@ -297,7 +298,7 @@ const verificationView = (h, code, messageKey) => {
     kycApproved: true,
     ageStatus: 'OK',
     residenceStatus: 'VERIFIED',
-    taxRequired: true,
+    taxRequired: false,
     taxSaved: v.taxKind !== null,
     taxKind: v.taxKind,
     taxKinds: TAX_KINDS,
@@ -307,7 +308,6 @@ const verificationView = (h, code, messageKey) => {
       v.status === 'APPROVED'
         ? ['SUBMERCHANT_NOT_ACTIVE', 'P2P_HOSTS_DISABLED', 'INSURER_CONTRACT_INACTIVE']
         : [
-            ...(v.taxKind === null ? ['HOST_TAX_ID_REQUIRED'] : []),
             ...(terms ? [] : ['TERMS_REACCEPT_REQUIRED']),
             'HOST_VERIFICATION_NOT_APPROVED',
             'SUBMERCHANT_NOT_ACTIVE',
@@ -339,6 +339,8 @@ async function verificationRoute(req, res, path) {
   }
   const body = (await readBody(req)) ?? {};
   const locked = v.status !== null && !['OPEN', 'DOCS_PENDING'].includes(v.status);
+  // en revue ou approuvé : un PREMIER numéro reste admis (ADR-115)
+  const taxLocked = locked && !(['IN_REVIEW', 'APPROVED'].includes(v.status) && v.taxKind === null);
   if (m[2] !== undefined) {
     if (!TAX_KINDS.includes(body.kind)) {
       return err(res, 422, 'HOST_TAX_ID_KIND_INVALID', 'common.hostVerification.taxKindInvalid');
@@ -349,7 +351,9 @@ async function verificationRoute(req, res, path) {
     if (!/^[0-9A-Z][0-9A-Z-]{3,19}$/.test(taxId)) {
       return err(res, 422, 'HOST_TAX_ID_INVALID', 'common.hostVerification.taxIdInvalid');
     }
-    if (locked) return err(res, 409, 'HOST_VERIFICATION_LOCKED', 'common.hostVerification.locked');
+    if (taxLocked) {
+      return err(res, 409, 'HOST_VERIFICATION_LOCKED', 'common.hostVerification.locked');
+    }
     // le numéro n'est jamais gardé par le double (le vrai magasin ne reçoit que son enveloppe)
     v.taxKind = body.kind;
     return json(
@@ -360,8 +364,7 @@ async function verificationRoute(req, res, path) {
   }
   if (!locked) {
     v.screening = true;
-    v.status =
-      v.taxKind !== null && h.terms.acceptedVersion !== null ? 'IN_REVIEW' : 'DOCS_PENDING';
+    v.status = h.terms.acceptedVersion !== null ? 'IN_REVIEW' : 'DOCS_PENDING';
   }
   return json(
     res,

@@ -139,6 +139,13 @@
       "justification": "US-106 (ADR-106) : saisie de KYC_DECISION ÉLARGIE (clés des contrôles cochés et valeur MORE_INFO_REQUIRED) sur une ligne de référence écrite par migration seulement ; une ligne, aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N n'envoyait que decision, valeur toujours admise"
     },
     {
+      "path": "packages/db/migrations/0088_kyc_legal_name_match.sql",
+      "line": 130,
+      "kind": "data-update",
+      "dataTables": ["core.kyc_identity_verification"],
+      "justification": "US-103 (ADR-117 ; revues code et sécurité n° 1) : colonne NOUVELLE first_approved_at (marque durable de la première approbation) remplie depuis approved_at pour les dossiers déjà approuvés ; aucune autre colonne écrite, aucun statut changé, même nombre de lignes ; base de production sans dossier (KYC fermé en production, OQ-MK-09) ; la version N n'écrit jamais cette colonne (le déclencheur de la même migration la pose ensuite)"
+    },
+    {
       "path": "packages/db/migrations/0090_audit_privacy_register.sql",
       "line": 732,
       "kind": "data-update",

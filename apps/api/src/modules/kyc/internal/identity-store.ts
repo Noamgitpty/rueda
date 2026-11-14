@@ -142,6 +142,23 @@ export interface PendingErasure {
 
 export type ErasureOutcome = 'RECORDED' | 'AUTH_REQUIRED' | 'NOT_FOUND';
 
+/** Issues du changement du nom légal (US-103, `core.kyc_cmd_change_legal_name`). */
+export const LEGAL_NAME_OUTCOMES = [
+  'CHANGED',
+  'UNCHANGED',
+  'AUTH_REQUIRED',
+  'NOT_ELIGIBLE',
+  'NAME_REQUIRED',
+  'LOCKED_PENDING_REVIEW',
+] as const;
+export type LegalNameOutcome = (typeof LEGAL_NAME_OUTCOMES)[number];
+
+export interface LegalNameResult {
+  readonly outcome: LegalNameOutcome;
+  /** Statut SM-3 après le changement (`RECHECK` si le dossier était approuvé). */
+  readonly status: KycStatus | null;
+}
+
 /**
  * Garde du KYC de production (US-111, LEG-010, ADR-118) : `KYC_PRODUCTION_BLOCKED_NO_REGISTER` en
  * production tant que le registre Ley 81 du pays n'est pas validé ou qu'aucun fournisseur KYC
@@ -174,6 +191,11 @@ export interface IdentityStore {
     bodySha256: Buffer,
     bodyLength: number,
   ): Promise<void>;
+  /**
+   * Changement du nom légal (US-103) : la base le refuse pendant une décision en cours et fait
+   * passer un dossier approuvé en `RECHECK`.
+   */
+  changeLegalName(tokenHash: Buffer, first: string, last: string): Promise<LegalNameResult>;
   /** Contrôle bloquant du paiement (US-209) : permis valable jusqu'à la fin du trip. */
   eligibility(tokenHash: Buffer, tripEnd: Date, tripCountry: string): Promise<EligibilityOutcome>;
   /** Demandes d'effacement en attente de la personne de la session (après un retrait). */
@@ -220,6 +242,9 @@ export class UnavailableIdentityStore implements IdentityStore {
   }
   recordRejection(): Promise<void> {
     return Promise.reject(new IdentityStoreError('record_rejection', undefined));
+  }
+  changeLegalName(): Promise<LegalNameResult> {
+    return Promise.reject(new IdentityStoreError('change_legal_name', undefined));
   }
   eligibility(): Promise<EligibilityOutcome> {
     return Promise.reject(new IdentityStoreError('eligibility', undefined));

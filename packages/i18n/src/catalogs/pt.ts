@@ -503,6 +503,11 @@ export const PT_MESSAGES = {
   'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED': 'Carteira fora da lista aceita',
   'backoffice.kyc.reason.DUPLICATE_ACCOUNT': 'Conta duplicada ou vinculada',
   'backoffice.kyc.reason.MORE_INFO_REQUESTED': 'Novo documento pedido pela operação',
+  'backoffice.kyc.reason.LEGAL_NAME_MISMATCH':
+    'O nome da conta não confere com a carteira de motorista',
+  'backoffice.kyc.reason.LEGAL_NAME_MISSING':
+    'Nome do titular ausente ou ilegível na carteira de motorista',
+  'backoffice.kyc.reason.LEGAL_NAME_CHANGED': 'Nome legal alterado depois da aprovação',
   'backoffice.kyc.attempt': 'Tentativa e lugar do dossiê',
   'backoffice.kyc.consentMissing':
     'Consentimento biométrico ausente ou desatualizado: não é possível aprovar.',
@@ -513,6 +518,11 @@ export const PT_MESSAGES = {
   'backoffice.kyc.expiresOn': 'Validade',
   'backoffice.kyc.licenseClass': 'Categoria',
   'backoffice.kyc.permanent': 'Carteira definitiva',
+  'backoffice.kyc.holderName': 'Nome na carteira de motorista',
+  'backoffice.kyc.nameMatch': 'Nome da conta e nome da carteira',
+  'backoffice.kyc.nameMatch.MATCH': 'Conferem',
+  'backoffice.kyc.nameMatch.MISMATCH': 'Diferentes: compare os dois',
+  'backoffice.kyc.nameMatch.MISSING': 'O nome da carteira não foi lido',
   'backoffice.kyc.yes': 'Sim',
   'backoffice.kyc.no': 'Não',
   'backoffice.kyc.biometrics': 'Pontuações biométricas (leitura registrada)',
@@ -1309,6 +1319,13 @@ export const PT_MESSAGES = {
   'common.kyc.licenseExpired':
     'Sua carteira de motorista vence antes do fim da viagem. Atualize para poder pagar.',
   'common.kyc.driverEligible': 'Sua carteira de motorista vale para a viagem inteira.',
+  'common.kyc.legalNameUpdated':
+    'Salvamos seu nome. Se sua identidade já estava confirmada, confirme de novo antes da sua próxima viagem.',
+  'common.kyc.legalNameUnchanged': 'Seu nome já era esse. Não mudamos nada.',
+  'common.kyc.legalNameRequired':
+    'Digite seu nome e seus sobrenomes como aparecem na sua carteira de motorista.',
+  'common.kyc.legalNameLocked':
+    'Estamos analisando sua identidade. Você poderá mudar seu nome quando terminarmos.',
   'web.s04.title': 'Confirme sua identidade',
   'web.s04.intro':
     'Fazemos isso antes do pagamento para você nunca ser cobrado se não puder dirigir.',
@@ -1396,6 +1413,11 @@ export const PT_MESSAGES = {
   'web.a07.tax.saved': 'Número salvo ({kind}).',
   'web.a07.tax.private': 'Guardamos com criptografia e nunca mostramos aos viajantes.',
   'web.a07.tax.individualOnly': 'Somente pessoas físicas: não aceitamos empresas.',
+  'web.a07.optional': 'Opcional',
+  'web.a07.tax.optionalHint':
+    'Você pode adicionar seu número fiscal agora ou mais tarde. Só vamos pedir se nosso provedor de pagamentos precisar dele para pagar você.',
+  'web.a07.tax.reminder':
+    'Seus impostos são responsabilidade sua. Pelas regras fiscais locais, talvez você precise se inscrever na autoridade tributária, por exemplo para obter um número de contribuinte, dentro de um prazo após sua primeira renda com aluguel. Consulte a autoridade tributária ou um contador.',
   'web.a07.submit': 'Enviar meu pedido',
   'web.a07.submitHint': 'Você pode enviar mesmo se faltar uma tarefa: diremos o que falta.',
   'web.a07.status.DOCS_PENDING': 'Seu pedido está incompleto.',
