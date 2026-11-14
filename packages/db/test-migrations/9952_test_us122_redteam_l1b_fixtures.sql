@@ -32,7 +32,7 @@ AS $fn$
   SELECT e.type, e.aggregate_type
     FROM core.outbox_outbox_event AS e
    WHERE EXISTS (SELECT 1 FROM pg_catalog.unnest(p_needles) AS n
-                  WHERE pg_catalog.position(n IN e.payload::text) > 0)
+                  WHERE pg_catalog.strpos(e.payload::text, n) > 0)
    ORDER BY e.type
 $fn$;
 
