@@ -6,12 +6,12 @@ Décisions : [ADR-080](../adr/ADR-080-sauvegardes-supervision-journal-acces.md) 
 
 ## Ce qui est sauvegardé
 
-| Quoi                                             | Comment                                                                                     | Où                                               | Conservé (PROPOSÉ)                |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------- |
-| Base (restauration à un instant donné)           | sauvegardes automatiques et journaux de transactions du service géré                        | compte de l'environnement                        | `db_backup_retention_days` (14)   |
-| Base et compartiments (actifs, preuves, journal) | plan AWS Backup quotidien, 05:00 UTC                                                        | coffre de l'environnement (clé dédiée `backup`)  | `backup_retention_days` (35)      |
-| Copie de chaque sauvegarde quotidienne           | `copy_action` du plan                                                                       | coffre du **compte de sauvegarde**, autre région | `backup_copy_retention_days` (35) |
-| Secrets et clés                                  | non sauvegardés : clés KMS à rotation, procédure de recréation (US-036) ; secrets re-saisis | —                                                | —                                 |
+| Quoi                                             | Comment                                                                                                                                                                                     | Où                                               | Conservé (PROPOSÉ)                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------- |
+| Base (restauration à un instant donné)           | sauvegardes automatiques et journaux de transactions du service géré                                                                                                                        | compte de l'environnement                        | `db_backup_retention_days` (14)   |
+| Base et compartiments (actifs, preuves, journal) | plan AWS Backup quotidien, 05:00 UTC                                                                                                                                                        | coffre de l'environnement (clé dédiée `backup`)  | `backup_retention_days` (35)      |
+| Copie de chaque sauvegarde quotidienne           | `copy_action` du plan                                                                                                                                                                       | coffre du **compte de sauvegarde**, autre région | `backup_copy_retention_days` (35) |
+| Secrets et clés                                  | non sauvegardés : clés KMS à rotation ; DEK par sujet exportées par le séquestre du fondateur pour un changement d'hébergeur ([PORTABILITY.md](PORTABILITY.md), US-036) ; secrets re-saisis | —                                                | —                                 |
 
 En production, `tofu plan` **refuse** un plan sans copie hors compte, une copie dans le même compte ou la même région, et moins de 7 jours de rétention.
 

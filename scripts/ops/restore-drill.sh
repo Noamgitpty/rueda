@@ -10,7 +10,9 @@
 #      docs/ops/BACKUP_RESTORE.md exécutées TELLES QU'ÉCRITES (sauvegarde, restauration à
 #      l'instant T puis au plus récent après la perte de l'instance, vérification, bascule de
 #      l'application), chronométrées ; RTO et RPO mesurés (packages/db/test/drill/) ;
-#   3. rapport JSON dans $RUEDA_DRILL_REPORT (artefact de la CI) ; tout est détruit à la fin.
+#   3. rapport JSON dans $RUEDA_DRILL_REPORT (artefact de la CI) ; tout est détruit à la fin ;
+#   4. exercice de portabilité (US-036, ADR-120) : scripts/ops/portability-drill.sh, ses propres
+#      instances source et cible, détruites à la fin (aucun artefact).
 #
 # Secrets : mot de passe d'administration TIRÉ AU HASARD pour l'exercice, dans un dossier 0700 et
 # un volume Docker ; mots de passe des rôles tirés par l'exercice ; rien n'est affiché.
@@ -93,3 +95,6 @@ mkdir -p "$(dirname "$REPORT")"
 cp "$WORK/report.json" "$REPORT"
 cat "$REPORT"
 say 'exercice de restauration vert'
+
+say '4. exercice de portabilité (US-036 : changement d’hébergeur, docs/ops/PORTABILITY.md)'
+bash scripts/ops/portability-drill.sh
