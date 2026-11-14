@@ -684,7 +684,7 @@ BEGIN
              s.date_of_birth
         FROM core.iam_user_account AS u
         JOIN core.kyc_identity_verification AS v
-          ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
+          ON v.user_id = u.id AND v.approved_at IS NOT NULL
         JOIN core.kyc_identity_subject AS s
           ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
        WHERE u.id = p_guest AND u.pseudonymized_at IS NULL
@@ -700,7 +700,7 @@ BEGIN
         FROM pg_catalog.unnest(v_auto) AS a(user_id)
         JOIN core.iam_user_account AS u ON u.id = a.user_id
         JOIN core.kyc_identity_verification AS v
-          ON v.user_id = u.id AND v.first_approved_at IS NOT NULL
+          ON v.user_id = u.id AND v.approved_at IS NOT NULL
         JOIN core.kyc_identity_subject AS s
           ON s.verification_id = v.id AND s.user_id = u.id AND s.date_of_birth IS NOT NULL
        WHERE u.pseudonymized_at IS NULL
