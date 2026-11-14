@@ -7,15 +7,17 @@
 //           (verdict par famille, bogues à créer avec leur scénario rejouable). Job
 //           `tableau-de-bord-qa` de nightly.yml.
 //   board : verse les bogues de `qa-dashboard.json` au tableau des stories (docs/team/BOARD.md,
-//           section « Bogues de la régression de nuit »), sans doublon (clé = run + job). Lancé
+//           section « Bogues de la régression de nuit »), sans doublon (clé = run + job), et met à
+//           jour la ligne de chaque alerte suivie (suite N-16 : dernière mesure de nuit). Lancé
 //           par l'orchestrateur sur une branche `docs/team-…` : la nuit n'a que `contents: read`
 //           et n'écrit jamais dans le dépôt (moindre privilège, ADR-087).
 //   verdict : code de sortie 1 si le tableau de bord n'est pas VERT (dernière étape du job :
 //           une famille obligatoire absente rend la nuit rouge même si chaque job a réussi).
 //
 // Familles de 19 §1.8 (« Chaque nuit : régression complète ») : parcours dorés, fuzz C11 à
-// 10 000, propriétés monétaires et oracles, mutation, rapprochement ; résilience et performance
-// arrivent avec US-045 (lot 1). Une famille obligatoire sans aucun job est ABSENTE : verdict rouge
+// 10 000, propriétés monétaires et oracles, mutation, rapprochement, résilience et performance de
+// fumée (US-045, ADR-119 : rapports `perf-fumee`, alerte par série au-dessus de sa cible de 17 §6.7).
+// Une famille obligatoire sans aucun job est ABSENTE : verdict rouge
 // et bogue (fail-closed). Gravité PROPOSÉE : S1 pour l'argent et la concurrence (19 §1.8, 16 :
 // « tout écart … ouvre un bogue S1 »), S2 sinon.
 //
@@ -37,6 +39,8 @@ export const DASHBOARD_JSON = 'qa-dashboard.json';
 export const DASHBOARD_MD = 'qa-dashboard.md';
 export const BOARD_SECTION = '## Bogues de la régression de nuit';
 export const SELF_JOB = /^tableau de bord QA/;
+
+const RESILIENCE_FAMILY = 'Résilience et performance de fumée';
 
 /** Un job attendu : au moins un job terminé avec succès dont le nom correspond. */
 const job = (label, re) => ({ label, re });
@@ -103,13 +107,22 @@ export const FAMILIES = [
     expected: [job('mutation de @rueda/money', /mutation de @rueda\/money/)],
   },
   {
+    // US-045 (ADR-119) : les preuves vivent dans les jobs de la suite rejouée — `qualité` pour les
+    // FAKE hostiles (`resilience-*.test.ts` de l'API, mode hostile de chaque port), `base de
+    // données` pour la performance de fumée (L0-02, conversion, calendrier, publication), la passe
+    // en horloge réelle (L0-06) et le travailleur arrêté (C17). `alsoMatch` les compte ici SANS les
+    // retirer du « reste de la CI ». Le rapport `perf-fumee` est exigé (fail-closed) et toute série
+    // au-dessus de sa cible ouvre une alerte (S2), même si le job est vert.
     id: 'resilience',
-    label: 'Résilience et performance',
-    required: false,
+    label: RESILIENCE_FAMILY,
+    required: true,
     severity: 'S2',
-    pending: 'à venir avec US-045 (lot 1)',
     match: [/résilience|performance/i],
-    expected: [],
+    alsoMatch: [/qualité \(lint/, /base de données \(PostgreSQL/],
+    expected: [
+      job('FAKE hostiles (qualité)', /qualité \(lint/),
+      job('performance de fumée (base de données)', /base de données \(PostgreSQL/),
+    ],
   },
   {
     id: 'ci',
@@ -223,7 +236,112 @@ export function parseJobs(text) {
 /** Familles d'un job (au moins une : « ci » à défaut). */
 export function familiesOf(name) {
   const ids = FAMILIES.filter((f) => f.match.some((re) => re.test(name))).map((f) => f.id);
-  return ids.length > 0 ? ids : ['ci'];
+  const also = FAMILIES.filter((f) => (f.alsoMatch ?? []).some((re) => re.test(name))).map(
+    (f) => f.id,
+  );
+  return [...(ids.length > 0 ? ids : ['ci']), ...also.filter((id) => !ids.includes(id))];
+}
+
+/** Séries de performance attendues dans chaque pays (packages/db/test/support/perf.ts, ADR-119). */
+export const PERF_SERIES = [
+  'pose.c1.autocommit',
+  'pose.c1.transactionnelle',
+  'conversion.sequentielle',
+  'calendrier.sequentielle',
+  'publication.sequentielle',
+];
+const PERF_SCHEMA = 'rueda.perf-fumee/1';
+const PERF_REPLAY = 'RUEDA_PG_TESTCONTAINERS=1 pnpm test:l0';
+
+/**
+ * Séries consignées sans seuil bloquant (ADR-056 point 4) : au-dessus de leur cible, elles sont une
+ * **alerte suivie** (une seule entrée ouverte au tableau des stories, la suite nommée, mise à jour à
+ * chaque nuit), pas un bogue de nuit : un rouge permanent cacherait les vrais rouges. Une
+ * **régression** reste un échec : p95 au-delà de `regressionPct` % de la référence de la MÊME
+ * machine (`docs/qa/perf-baseline.json`, médiane de l'historique, ADR-119). La cible de 17 §6.7
+ * n'est pas relâchée : elle reste affichée et l'alerte reste ouverte tant qu'elle est dépassée.
+ */
+export const PERF_TRACKED = {
+  'pose.c1.transactionnelle': { suite: 'N-16', regressionPct: 20 },
+};
+/** Références par machine (chemin relatif à la racine du dépôt, où tourne le job de nuit). */
+export const PERF_BASELINE = 'docs/qa/perf-baseline.json';
+const BASELINE_SCHEMA = 'rueda.perf-baseline/1';
+
+/**
+ * Références des séries suivies : `{ series: { <série>: { <processeur>: { <pays>: p95 } } } }`.
+ * Fichier illisible ou d'un autre schéma ⇒ erreur (fail-closed : la nuit ne juge pas une
+ * régression sans référence valide). Machine absente ⇒ aucune référence pour elle (signalé).
+ */
+export function perfBaseline(raw) {
+  if (raw === null || typeof raw !== 'object' || raw.schema !== BASELINE_SCHEMA) {
+    throw new Error(`références de performance illisibles (${PERF_BASELINE})`);
+  }
+  const out = {};
+  for (const [series, byCpu] of Object.entries(raw.series ?? {})) {
+    if (!(series in PERF_TRACKED)) throw new Error(`référence d'une série non suivie : ${series}`);
+    out[series] = {};
+    for (const [cpu, byCountry] of Object.entries(byCpu ?? {})) {
+      out[series][cpu] = {};
+      for (const [country, v] of Object.entries(byCountry ?? {})) {
+        if (!/^[A-Z]{2}$/.test(country) || typeof v !== 'number' || !(v > 0)) {
+          throw new Error(`référence invalide : ${series} / ${cpu} / ${country}`);
+        }
+        out[series][cpu][country] = v;
+      }
+    }
+  }
+  return out;
+}
+
+/** Verdict d'une série suivie (fonction pure). */
+export function trackedOf(r, baseline) {
+  const def = PERF_TRACKED[r.series];
+  const ref = baseline?.[r.series]?.[r.cpu ?? '']?.[r.country] ?? null;
+  const limit = ref === null ? null : Math.round(ref * (1 + def.regressionPct / 100) * 10) / 10;
+  return {
+    suite: def.suite,
+    series: r.series,
+    country: r.country,
+    p95: r.p95,
+    targetMs: r.targetMs,
+    alert: r.alert,
+    cpu: r.cpu,
+    reference: ref,
+    limit,
+    regression: limit !== null && r.p95 > limit,
+  };
+}
+
+/**
+ * Lit un rapport de performance ; `null` s'il est illisible ou d'un autre schéma (compté illisible,
+ * fail-closed). Ne garde que des nombres et des noms fermés : aucun texte libre n'atteint le
+ * Markdown, sauf le modèle de processeur, neutralisé par `cell`.
+ */
+export function perfRecord(raw) {
+  if (raw === null || typeof raw !== 'object' || raw.schema !== PERF_SCHEMA) return null;
+  if (!PERF_SERIES.includes(raw.series) || !/^[A-Z]{2}$/.test(String(raw.country))) return null;
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const p95 = num(raw.p95);
+  if (p95 === null || num(raw.n) === null) return null;
+  const targetMs = raw.target?.ms === null ? null : num(raw.target?.ms);
+  if (targetMs === null && raw.target?.ms !== null) return null;
+  const sha = raw.run?.sha;
+  return {
+    series: raw.series,
+    country: raw.country,
+    n: raw.n,
+    p50: num(raw.p50),
+    p95,
+    max: num(raw.max),
+    targetMs,
+    blocking: raw.target?.blocking === true,
+    marginMs: targetMs === null ? null : Math.round((targetMs - p95) * 10) / 10,
+    alert: targetMs !== null && p95 >= targetMs,
+    sha: typeof sha === 'string' && /^[0-9a-f]{7,40}$/.test(sha) ? sha : null,
+    cpu: typeof raw.run?.machine?.cpuModel === 'string' ? raw.run.machine.cpuModel : null,
+    cores: num(raw.run?.machine?.cores),
+  };
 }
 
 /** Verdict d'un job terminé ; un job en cours (hors ce job) ou inconnu compte comme un échec. */
@@ -296,7 +414,7 @@ export function replayOf(jobName, startedIso, artifacts) {
 
 /** Lit les artefacts téléchargés (`gh run download`) ; absents = rien (non fail-closed ici). */
 export function readArtifacts(dir) {
-  const out = { c11: {}, reconciliation: null, mutation: null, unreadable: [] };
+  const out = { c11: {}, reconciliation: null, mutation: null, perf: null, unreadable: [] };
   if (dir === undefined || !existsSync(dir)) return out;
   for (const name of readdirSync(dir)) {
     const m = /^c11-failures-([0-9])$/.exec(name);
@@ -323,6 +441,21 @@ export function readArtifacts(dir) {
       out.reconciliation = JSON.parse(readFileSync(rec, 'utf8'));
     } catch {
       out.unreadable.push('rapprochement-rapport');
+    }
+  }
+  const perfDir = join(dir, 'perf-fumee');
+  if (existsSync(perfDir)) {
+    out.perf = [];
+    for (const name of readdirSync(perfDir).sort()) {
+      if (!/^perf-.+\.json$/.test(name)) continue;
+      let r;
+      try {
+        r = perfRecord(JSON.parse(readFileSync(join(perfDir, name), 'utf8')));
+      } catch {
+        r = null;
+      }
+      if (r === null) out.unreadable.push(`perf-fumee/${name}`);
+      else out.perf.push(r);
     }
   }
   const mut = join(dir, 'mutation-money', 'mutation.json');
@@ -373,7 +506,17 @@ export function reconciliationViolations(report) {
 }
 
 /** Rapport complet (fonction pure, hors lecture des fichiers). */
-export function buildDashboard({ jobs, artifacts, runUrl, runId, sha, started, event }) {
+export function buildDashboard({
+  jobs,
+  artifacts,
+  runUrl,
+  runId,
+  sha,
+  started,
+  event,
+  baseline = null,
+}) {
+  const tracked = [];
   const own = jobs.filter((j) => !SELF_JOB.test(j.name));
   const families = FAMILIES.map((f) => {
     const mine = own
@@ -480,6 +623,67 @@ export function buildDashboard({ jobs, artifacts, runUrl, runId, sha, started, e
       url: runUrl,
     });
   }
+  // performance de fumée (US-045, ADR-119) : rapport exigé dès que le job qui le produit a réussi ;
+  // chaque série dans chaque pays mesuré ; une série au-dessus de sa cible = alerte (S2), même si
+  // le job est vert (aucun seuil relâché : seul C1 en autocommit fait échouer son test)
+  const perfJob = families
+    .find((f) => f.id === 'resilience')
+    .jobs.find((j) => /base de données \(PostgreSQL/.test(j.name) && j.verdict === 'OK');
+  const perf = artifacts.perf ?? null;
+  if (perfJob && (perf === null || perf.length === 0)) {
+    bugs.push({
+      key: `${runId}:perf:rapport`,
+      family: RESILIENCE_FAMILY,
+      job: 'rapport de performance de fumée absent (artefact perf-fumee)',
+      severity: 'S2',
+      replay: { commands: [PERF_REPLAY], note: 'avec RUEDA_QA_REPORT_DIR défini' },
+      url: perfJob.url ?? runUrl,
+    });
+  } else if (perf !== null && perf.length > 0) {
+    const countries = [...new Set(perf.map((r) => r.country))].sort();
+    for (const country of countries) {
+      for (const series of PERF_SERIES) {
+        if (perf.some((r) => r.country === country && r.series === series)) continue;
+        bugs.push({
+          key: `${runId}:perf:manque:${series}:${country}`,
+          family: RESILIENCE_FAMILY,
+          job: `série de performance absente : ${series} (${country})`,
+          severity: 'S2',
+          replay: { commands: [PERF_REPLAY], note: null },
+          url: runUrl,
+        });
+      }
+    }
+    for (const r of perf.filter((x) => x.series in PERF_TRACKED)) {
+      const t = trackedOf(r, baseline);
+      tracked.push(t);
+      if (!t.regression) continue;
+      bugs.push({
+        key: `${runId}:perf:regression:${r.series}:${r.country}`,
+        family: RESILIENCE_FAMILY,
+        job: `régression de performance : ${r.series} (${r.country}) p95 ${r.p95} ms > ${t.limit} ms (référence ${t.reference} ms de la machine + ${PERF_TRACKED[r.series].regressionPct} %)`,
+        severity: 'S2',
+        replay: {
+          commands: [PERF_REPLAY],
+          note: 'historique par commit : node scripts/qa/perf-history.mjs (ADR-119)',
+        },
+        url: runUrl,
+      });
+    }
+    for (const r of perf.filter((x) => x.alert && !(x.series in PERF_TRACKED))) {
+      bugs.push({
+        key: `${runId}:perf:alerte:${r.series}:${r.country}`,
+        family: RESILIENCE_FAMILY,
+        job: `alerte de performance : ${r.series} (${r.country}) p95 ${r.p95} ms ≥ cible ${r.targetMs} ms`,
+        severity: 'S2',
+        replay: {
+          commands: [PERF_REPLAY],
+          note: 'historique par commit : node scripts/qa/perf-history.mjs (ADR-119)',
+        },
+        url: runUrl,
+      });
+    }
+  }
   if (artifacts.unreadable.length > 0) {
     bugs.push({
       key: `${runId}:artefacts`,
@@ -507,6 +711,8 @@ export function buildDashboard({ jobs, artifacts, runUrl, runId, sha, started, e
     families,
     reconciliation: artifacts.reconciliation,
     mutation: artifacts.mutation,
+    performance: artifacts.perf ?? null,
+    tracked,
     bugs,
   };
 }
@@ -546,6 +752,42 @@ export function renderMarkdown(d) {
       }
     }
   }
+  if (d.performance && d.performance.length > 0) {
+    lines.push(
+      '',
+      '## Performance de fumée (US-045, ADR-119)',
+      '',
+      '| Série | Pays | n | p50 | p95 | max | Cible | Marge | État |',
+      '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    );
+    for (const r of d.performance) {
+      const target = r.targetMs === null ? '—' : `${r.targetMs}${r.blocking ? ' (bloquant)' : ''}`;
+      const margin = r.marginMs === null ? '—' : `${r.marginMs}`;
+      lines.push(
+        `| ${cell(r.series)} | ${cell(r.country)} | ${r.n} | ${r.p50} | ${r.p95} | ${r.max} | ${target} | ${margin} | ${r.alert ? 'ALERTE' : 'ok'} |`,
+      );
+    }
+    const m = d.performance[0];
+    lines.push(
+      '',
+      `Machine : ${cell(m.cpu ?? 'inconnue')}, ${m.cores ?? '?'} cœurs ; durées en ms, côté client.`,
+    );
+  }
+  if ((d.tracked ?? []).length > 0) {
+    lines.push(
+      '',
+      '## Alertes suivies (sans échec de la nuit, ADR-119)',
+      '',
+      '| Suite | Série | Pays | p95 | Cible | Référence machine | Limite de régression | État |',
+      '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    );
+    for (const t of d.tracked) {
+      const state = t.regression ? 'RÉGRESSION' : t.alert ? 'ALERTE SUIVIE' : 'ok';
+      lines.push(
+        `| ${cell(t.suite)} | ${cell(t.series)} | ${cell(t.country)} | ${t.p95} | ${t.targetMs ?? '—'} | ${t.reference ?? 'aucune (machine sans référence)'} | ${t.limit ?? '—'} | ${state} |`,
+      );
+    }
+  }
   lines.push('', `## Bogues (${d.bugs.length})`, '');
   if (d.bugs.length === 0) lines.push('Aucun.');
   for (const b of d.bugs) {
@@ -580,6 +822,43 @@ export function boardRows(report, boardText) {
     );
   }
   return rows;
+}
+
+/**
+ * Alertes suivies : la ligne de la suite (`| N-16 |` du tableau des suites) reçoit la dernière
+ * mesure de nuit entre deux marqueurs, remplacée à chaque nuit (une seule entrée, aucun doublon).
+ * Ligne absente ⇒ erreur (l'alerte ne doit pas se perdre en silence).
+ */
+export function applyTracked(report, boardText) {
+  const bySuite = new Map();
+  for (const t of report.tracked ?? []) {
+    if (!t.alert && !t.regression) continue;
+    bySuite.set(t.suite, [...(bySuite.get(t.suite) ?? []), t]);
+  }
+  let text = boardText;
+  for (const [suite, items] of bySuite) {
+    const open = `<!-- suivi-nuit:${suite} -->`;
+    const close = `<!-- /suivi-nuit:${suite} -->`;
+    const values = items
+      .map((t) => `${t.country} ${t.p95} ms${t.regression ? ' (RÉGRESSION)' : ''}`)
+      .join(', ');
+    const note = `${open} nuit du ${report.started.slice(0, 10)} : ${cell(items[0].series)} ${values}, cible ${items[0].targetMs} ms ([run](${report.runUrl}))${close}`;
+    const lines = text.split('\n');
+    const i = lines.findIndex((l) => l.startsWith(`| ${suite} `));
+    if (i < 0) throw new Error(`suite ${suite} introuvable au tableau des stories`);
+    const row = lines[i];
+    const a = row.indexOf(open);
+    if (a >= 0) {
+      const b = row.indexOf(close, a);
+      if (b < 0) throw new Error(`marqueur de suivi ${suite} incomplet`);
+      lines[i] = row.slice(0, a) + note + row.slice(b + close.length);
+    } else {
+      const end = row.lastIndexOf('|');
+      lines[i] = `${row.slice(0, end).replace(/\s+$/, '')} ${note} |`;
+    }
+    text = lines.join('\n');
+  }
+  return { text, updated: bySuite.size };
 }
 
 /** Texte de BOARD.md après ajout des bogues (section créée au besoin, en fin de fichier). */
@@ -636,9 +915,12 @@ export function main(argv) {
   if (command === 'build') {
     const jobs = parseJobs(readFileSync(need(o, 'jobs'), 'utf8'));
     const artifacts = readArtifacts(o.artifacts);
+    const baselinePath = o.baseline ?? PERF_BASELINE;
+    const baseline = perfBaseline(JSON.parse(readFileSync(baselinePath, 'utf8')));
     const d = buildDashboard({
       jobs,
       artifacts,
+      baseline,
       runUrl: need(o, 'run-url'),
       runId: need(o, 'run-id'),
       sha: need(o, 'sha'),
@@ -657,8 +939,11 @@ export function main(argv) {
     if (report?.version !== 1 || !Array.isArray(report.bugs)) throw new Error('rapport illisible');
     const boardPath = o.board ?? 'docs/team/BOARD.md';
     const { text, added } = applyToBoard(report, readFileSync(boardPath, 'utf8'));
-    writeFileSync(boardPath, text);
-    console.log(`${added} bogue(s) ajouté(s) à ${boardPath}`);
+    const { text: final, updated } = applyTracked(report, text);
+    writeFileSync(boardPath, final);
+    console.log(
+      `${added} bogue(s) ajouté(s), ${updated} alerte(s) suivie(s) mise(s) à jour dans ${boardPath}`,
+    );
     return 0;
   }
   if (command === 'verdict') {

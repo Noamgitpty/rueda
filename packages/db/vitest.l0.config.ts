@@ -17,8 +17,11 @@ import { databaseTestOptions } from './vitest.shared.ts';
 // (deux personnes), posent un contrat d'assureur (une version en vigueur par pays : exclusion) et
 // élèvent des membres du staff ; ces lignes partagées, tenues toute la transaction, provoquaient des
 // interblocages avec les fichiers parallèles (US-108, US-114) : le fichier tourne donc seul, après.
+// US-045 (N-17) : la passe C2 / C5 / C15 en horloge réelle ouvre une courte fenêtre de paramètre
+// (fixture 9962) et lance la tâche d'expiration sur toute la base : elle tourne seule, après.
 const ISOLATED = [
   'test/l0/l0-02-concurrency.test.ts',
+  'test/l0/l0-06-real-clock.test.ts',
   'test/l0/l0-us024-conversion.test.ts',
   'test/l0/l0-us118-listing-publication.test.ts',
 ];

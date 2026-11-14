@@ -20,7 +20,13 @@
     },
     "test:l0": {
       "cache": false,
-      "passThroughEnv": ["RUEDA_PG_*", "RUEDA_C11_*", "DOCKER_*", "TESTCONTAINERS_*"],
+      "passThroughEnv": [
+        "RUEDA_PG_*",
+        "RUEDA_C11_*",
+        "RUEDA_QA_REPORT_DIR",
+        "DOCKER_*",
+        "TESTCONTAINERS_*"
+      ],
       "outputs": []
     }
   }

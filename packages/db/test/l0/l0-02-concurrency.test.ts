@@ -65,6 +65,7 @@ import {
   withReplay,
 } from '../support/concurrency.ts';
 import type { PoseTiming, Replayed, ReplayBackoff } from '../support/concurrency.ts';
+import { benchPgVersion, recordPerf } from '../support/perf.ts';
 
 /** C1 : 100 poses concurrentes (17 §11). */
 const C1_POSES = 100;
@@ -747,6 +748,14 @@ describe.each(COUNTRIES)(
           races: C1_MEASURED_RACES,
         });
         log(`C1 avec verrou ${c.country}`, r);
+        // US-045 : consignée AVANT les assertions, pour qu'un dépassement reste dans l'historique
+        recordPerf({
+          series: 'pose.c1.autocommit',
+          country: c.country,
+          summary: { n: r.samples, p50: r.p50, p95: r.p95, max: r.max },
+          pgVersion: await benchPgVersion(),
+          details: { degree: r.degree, races: r.races.length, warmupRaces: r.warmups.length },
+        });
         expectDegree(r.degree);
         // mesure sous le réglage de production, jamais sous le délai court de l'injection
         expect(r.deadlockTimeout).toBe(SERVER_DEADLOCK_TIMEOUT);
@@ -769,6 +778,14 @@ describe.each(COUNTRIES)(
       async () => {
         const r = await runC1(c, true, { form: 'transactional' });
         log(`C1 transactionnel avec verrou ${c.country}`, r);
+        // US-045 (N-16) : alerte ADR-056 point 4 au tableau de bord QA si p95 ≥ 300 ms, sans seuil
+        recordPerf({
+          series: 'pose.c1.transactionnelle',
+          country: c.country,
+          summary: { n: r.samples, p50: r.p50, p95: r.p95, max: r.max },
+          pgVersion: await benchPgVersion(),
+          details: { degree: r.degree, lockHold: r.lockHold ?? null },
+        });
         expectDegree(r.degree);
         expect(r.deadlockTimeout).toBe(SERVER_DEADLOCK_TIMEOUT);
         expectExactWithLock(r.races[0] as RaceSummary, r.degree);

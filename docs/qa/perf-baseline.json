@@ -1,0 +1,16 @@
+{
+  "schema": "rueda.perf-baseline/1",
+  "$comment": "Références des séries de performance suivies sans seuil bloquant (ADR-119) : médiane du p95 par série, modèle de processeur et pays, sur l'historique de la même machine. Régénérées par `node scripts/qa/perf-history.mjs baseline --dir <dossier>` ; toute modification passe par une revue (relever une référence relâche le contrôle de régression). Amorce du 2026-11-14 : runs de la PR #141 après la fusion de main (US-103, index de la pose), un run par machine (ci 43569143551 sur AMD EPYC 9V74, nuit de la PR sur AMD EPYC 9V45) ; les runs antérieurs à US-103 sont écartés.",
+  "series": {
+    "pose.c1.transactionnelle": {
+      "AMD EPYC 9V45 96-Core Processor": {
+        "PA": 286,
+        "PY": 299
+      },
+      "AMD EPYC 9V74 80-Core Processor": {
+        "PA": 382,
+        "PY": 373
+      }
+    }
+  }
+}
