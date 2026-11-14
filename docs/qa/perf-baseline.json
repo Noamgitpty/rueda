@@ -1,0 +1,7 @@
+{
+  "schema": "rueda.perf-baseline/1",
+  "$comment": "Références des séries de performance suivies sans seuil bloquant (ADR-119) : médiane du p95 par série, modèle de processeur et pays, sur l'historique de la même machine. Régénérées par `node scripts/qa/perf-history.mjs baseline --dir <dossier>` ; toute modification passe par une revue (relever une référence relâche le contrôle de régression).",
+  "series": {
+    "pose.c1.transactionnelle": {}
+  }
+}

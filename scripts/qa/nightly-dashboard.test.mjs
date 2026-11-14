@@ -15,7 +15,10 @@ import {
   main,
   mutationScore,
   parseJobs,
+  applyTracked,
   PERF_SERIES,
+  PERF_TRACKED,
+  perfBaseline,
   perfRecord,
   readArtifacts,
   reconciliationViolations,
@@ -499,9 +502,9 @@ test('performance : rapport absent alors que le job a réussi ⇒ ROUGE (fail-cl
   );
 });
 
-test('performance : p95 ≥ cible ⇒ alerte S2 par série et pays, job vert ; sous la cible ⇒ rien', () => {
+test('performance : p95 ≥ cible d’une série non suivie ⇒ alerte S2 par série et pays, job vert', () => {
   const perf = PERF_OK.map((r) =>
-    r.series === 'pose.c1.transactionnelle' && r.country === 'YB'
+    r.series === 'conversion.sequentielle' && r.country === 'YB'
       ? perfRecord(perfRaw(r.series, r.country, 305))
       : r,
   );
@@ -511,7 +514,7 @@ test('performance : p95 ≥ cible ⇒ alerte S2 par série et pays, job vert ; s
   assert.equal(d.bugs[0].severity, 'S2');
   assert.equal(
     d.bugs[0].job,
-    'alerte de performance : pose.c1.transactionnelle (YB) p95 305 ms ≥ cible 300 ms',
+    'alerte de performance : conversion.sequentielle (YB) p95 305 ms ≥ cible 300 ms',
   );
   assert.match(renderMarkdown(d), /\| 305 \| 306 \| 300 \| -5 \| ALERTE \|/);
   // exactement à la cible : alerte (« < 300 ms » de 17 §6.7) ; juste sous la cible : aucune
@@ -553,4 +556,111 @@ test('performance : readArtifacts lit perf-fumee/, compte un fichier illisible',
   assert.equal(a.perf[0].p95, 155);
   assert.equal(a.perf[0].marginMs, 145);
   assert.deepEqual(a.unreadable, ['perf-fumee/perf-x-XA.json']);
+});
+
+// --- Alertes suivies (décision de l'orchestrateur, ADR-119) -------------------------------------
+
+const CPU = 'CPU de test';
+const TX = 'pose.c1.transactionnelle';
+const BASE = perfBaseline({
+  schema: 'rueda.perf-baseline/1',
+  series: { [TX]: { [CPU]: { XA: 500, YB: 400 } } },
+});
+const withTx = (xa, yb) =>
+  PERF_OK.map((r) =>
+    r.series !== TX ? r : perfRecord(perfRaw(TX, r.country, r.country === 'XA' ? xa : yb)),
+  );
+
+test('alerte suivie : forme transactionnelle au-dessus de 300 ms ⇒ aucune nuit rouge, une ligne suivie N-16', () => {
+  assert.equal(PERF_TRACKED[TX].suite, 'N-16');
+  assert.equal(PERF_TRACKED[TX].regressionPct, 20);
+  const d = buildDashboard({
+    ...RUN,
+    jobs: nightJobs(),
+    artifacts: { ...GREEN, perf: withTx(560, 420) },
+    baseline: BASE,
+  });
+  assert.equal(d.verdict, 'VERT');
+  assert.deepEqual(d.bugs, []);
+  assert.deepEqual(
+    d.tracked.map((t) => [t.suite, t.country, t.p95, t.alert, t.reference, t.limit, t.regression]),
+    [
+      ['N-16', 'XA', 560, true, 500, 600, false],
+      ['N-16', 'YB', 420, true, 400, 480, false],
+    ],
+  );
+  assert.match(
+    renderMarkdown(d),
+    /\| N-16 \| pose\.c1\.transactionnelle \| XA \| 560 \| 300 \| 500 \| 600 \| ALERTE SUIVIE \|/,
+  );
+});
+
+test('alerte suivie : au-delà de +20 % de la référence de la même machine ⇒ régression, nuit rouge', () => {
+  const d = buildDashboard({
+    ...RUN,
+    jobs: nightJobs(),
+    artifacts: { ...GREEN, perf: withTx(601, 420) },
+    baseline: BASE,
+  });
+  assert.equal(d.verdict, 'ROUGE');
+  assert.deepEqual(
+    d.bugs.map((b) => b.job),
+    [
+      'régression de performance : pose.c1.transactionnelle (XA) p95 601 ms > 600 ms (référence 500 ms de la machine + 20 %)',
+    ],
+  );
+  // machine sans référence : alerte suivie, jamais une régression inventée
+  const other = withTx(900, 900).map((r) => (r.series === TX ? { ...r, cpu: 'autre' } : r));
+  const e = buildDashboard({
+    ...RUN,
+    jobs: nightJobs(),
+    artifacts: { ...GREEN, perf: other },
+    baseline: BASE,
+  });
+  assert.equal(e.verdict, 'VERT');
+  assert.ok(e.tracked.every((t) => t.reference === null && !t.regression));
+  assert.match(renderMarkdown(e), /aucune \(machine sans référence\)/);
+});
+
+test('références : schéma exigé, série non suivie ou valeur invalide refusées (fail-closed)', () => {
+  assert.throws(() => perfBaseline({ schema: 'x', series: {} }), /illisibles/);
+  assert.throws(
+    () => perfBaseline({ schema: 'rueda.perf-baseline/1', series: { 'pose.c1.autocommit': {} } }),
+    /non suivie/,
+  );
+  assert.throws(
+    () =>
+      perfBaseline({ schema: 'rueda.perf-baseline/1', series: { [TX]: { [CPU]: { XA: -1 } } } }),
+    /invalide/,
+  );
+});
+
+test('board : une seule entrée suivie N-16, mise à jour nuit après nuit, sans doublon', () => {
+  const board =
+    '# BOARD\n\n| Suite | Story | Source | Constat | Statut |\n| --- | --- | --- | --- | --- |\n| N-16  | US-045 | x | p95 | TODO |\n';
+  const r1 = buildDashboard({
+    ...RUN,
+    jobs: nightJobs(),
+    artifacts: { ...GREEN, perf: withTx(560, 420) },
+    baseline: BASE,
+  });
+  const a = applyTracked(r1, board);
+  assert.equal(a.updated, 1);
+  assert.match(
+    a.text,
+    /\| N-16 {2}\| US-045 \| x \| p95 \| TODO <!-- suivi-nuit:N-16 --> nuit du 2026-11-05 : pose\.c1\.transactionnelle XA 560 ms, YB 420 ms, cible 300 ms/,
+  );
+  const r2 = buildDashboard({
+    ...RUN,
+    started: '2026-11-06T03:17:00Z',
+    jobs: nightJobs(),
+    artifacts: { ...GREEN, perf: withTx(570, 430) },
+    baseline: BASE,
+  });
+  const b = applyTracked(r2, a.text);
+  assert.equal((b.text.match(/<!-- suivi-nuit:N-16 -->/g) ?? []).length, 1);
+  assert.match(b.text, /nuit du 2026-11-06 : pose\.c1\.transactionnelle XA 570 ms, YB 430 ms/);
+  assert.ok(!b.text.includes('560 ms'));
+  assert.ok(b.text.trimEnd().endsWith('|'));
+  assert.throws(() => applyTracked(r1, '# BOARD\n'), /N-16 introuvable/);
 });

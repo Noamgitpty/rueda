@@ -12,6 +12,9 @@
 //           et `perf-history.md` : une ligne par commit, le p95 de chaque série et pays, la machine,
 //           et l'**attribution** de chaque franchissement de cible au premier commit fautif (le
 //           commit précédent mesuré sous la cible, le suivant au-dessus : « entre A et B »).
+//   baseline : références des séries suivies sans seuil bloquant (docs/qa/perf-baseline.json, lues
+//           par le tableau de bord de nuit) : médiane du p95 par série, processeur et pays, sur les
+//           runs du dossier qui portent l'empreinte de la machine (ADR-119).
 //
 // Une mesure n'est comparée qu'à une mesure de la MÊME série, du MÊME pays et du MÊME modèle de
 // processeur : le job `guide d'installation` (docker compose) et le job `base de données`
@@ -20,6 +23,8 @@
 // Usage :
 //   node scripts/qa/perf-history.mjs fetch --out <dossier> [--limit 30] [--repo owner/nom]
 //   node scripts/qa/perf-history.mjs build --dir <dossier> [--out <dossier>]
+//   node scripts/qa/perf-history.mjs baseline --dir <dossier> [--out docs/qa/perf-baseline.json]
+//   (fetch accepte aussi --branch <branche> --event <événement> pour relire une branche de story)
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -139,6 +144,38 @@ export function buildHistory(runs) {
   return { runs: sorted, crossings };
 }
 
+/** Séries suivies (mêmes que PERF_TRACKED du tableau de bord de nuit). */
+export const TRACKED = ['pose.c1.transactionnelle'];
+
+const median = (values) => {
+  const v = [...values].sort((a, b) => a - b);
+  const m = Math.floor(v.length / 2);
+  return v.length % 2 === 1 ? v[m] : Math.round(((v[m - 1] + v[m]) / 2) * 10) / 10;
+};
+
+/** Références (fonction pure) : médiane par série suivie, processeur connu et pays. */
+export function buildBaseline(runs) {
+  const acc = {};
+  for (const run of runs) {
+    for (const m of run.measures) {
+      if (!TRACKED.includes(m.series) || !m.cpu) continue;
+      ((acc[m.series] ??= {})[m.cpu] ??= {})[m.country] ??= [];
+      acc[m.series][m.cpu][m.country].push(m.p95);
+    }
+  }
+  const series = Object.fromEntries(TRACKED.map((s) => [s, {}]));
+  for (const [s, byCpu] of Object.entries(acc)) {
+    for (const [cpu, byCountry] of Object.entries(byCpu)) {
+      series[s][cpu] = Object.fromEntries(
+        Object.entries(byCountry)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([c, v]) => [c, median(v)]),
+      );
+    }
+  }
+  return { schema: 'rueda.perf-baseline/1', series };
+}
+
 const short = (sha) => String(sha ?? '').slice(0, 9);
 
 export function renderHistory(h) {
@@ -205,9 +242,9 @@ function fetchRuns(o) {
       '--workflow',
       'ci.yml',
       '--branch',
-      'main',
+      o.branch ?? 'main',
       '--event',
-      'push',
+      o.event ?? 'push',
       '--status',
       'completed',
       '--limit',
@@ -288,7 +325,19 @@ export function main(argv) {
     console.log(`${h.runs.length} runs mesurés, ${h.crossings.length} franchissements`);
     return undefined;
   }
-  throw new Error('commande attendue : fetch | build');
+  if (cmd === 'baseline') {
+    if (!o.dir) throw new Error('--dir requis');
+    const out = o.out ?? 'docs/qa/perf-baseline.json';
+    const previous = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : {};
+    const b = buildBaseline(loadRuns(o.dir));
+    writeFileSync(
+      out,
+      `${JSON.stringify({ schema: b.schema, $comment: previous.$comment, series: b.series }, null, 2)}\n`,
+    );
+    console.log(`références écrites dans ${out}`);
+    return undefined;
+  }
+  throw new Error('commande attendue : fetch | build | baseline');
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

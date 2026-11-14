@@ -4,7 +4,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { buildHistory, loadRuns, parseLog, renderHistory, TARGETS } from './perf-history.mjs';
+import {
+  buildBaseline,
+  buildHistory,
+  loadRuns,
+  parseLog,
+  renderHistory,
+  TARGETS,
+} from './perf-history.mjs';
 
 const m = (series, country, p95, cpu = 'CPU A') => ({ series, country, p95, cpu });
 
@@ -130,4 +137,24 @@ test('dossier de fetch : artefact prioritaire, sinon journal ; run sans mesure �
       ['2', 181],
     ],
   );
+});
+
+test('références : médiane par série suivie, processeur et pays ; mesures sans machine écartées', () => {
+  const run = (id, xa, cpu) => ({
+    runId: id,
+    sha: 'a'.repeat(40),
+    createdAt: `2026-11-1${id}`,
+    measures: [m('pose.c1.transactionnelle', 'XA', xa, cpu), m('pose.c1.autocommit', 'XA', 1, cpu)],
+  });
+  const b = buildBaseline([
+    run('1', 500, 'CPU A'),
+    run('2', 600, 'CPU A'),
+    run('3', 700, 'CPU A'),
+    run('4', 300, 'CPU B'),
+    run('5', 999, null),
+  ]);
+  assert.deepEqual(b, {
+    schema: 'rueda.perf-baseline/1',
+    series: { 'pose.c1.transactionnelle': { 'CPU A': { XA: 600 }, 'CPU B': { XA: 300 } } },
+  });
 });

@@ -1,6 +1,6 @@
 # Performance de fumée et résilience — état des lieux (US-045, ADR-119)
 
-Ce document décrit ce que la CI mesure à chaque passage, comment reproduire les chiffres, et l'état au 2026-11-14. Les cibles sont celles de 17 §6.7 (PROPOSÉES), **sans changement** ; seule la pose de C1 en autocommit est un seuil bloquant (ADR-056 point 4), les autres séries sont des **alertes** au tableau de bord QA de la nuit.
+Ce document décrit ce que la CI mesure à chaque passage, comment reproduire les chiffres, et l'état au 2026-11-14. Les cibles sont celles de 17 §6.7 (PROPOSÉES), **sans changement** ; seule la pose de C1 en autocommit est un seuil bloquant (ADR-056 point 4), les autres séries sont des **alertes** au tableau de bord QA de la nuit. La forme transactionnelle de C1 est une **alerte suivie** (suite N-16, une seule entrée mise à jour chaque nuit, sans rouge) ; elle ne devient un échec qu'en **régression** : p95 au-delà de la référence de la même machine + 20 % (`docs/qa/perf-baseline.json`, ADR-119 point 5 bis).
 
 ## Séries mesurées
 
