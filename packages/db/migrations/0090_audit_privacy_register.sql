@@ -16,7 +16,8 @@
 --     validé (`privacy_register_validated`, fail-closed FALSE) ou qu'aucun fournisseur KYC
 --     contractuel en vigueur n'est inscrit. Hors production : rien (données synthétiques, ADM-034) ;
 --   - critère 2 : le travailleur `privacy_request` pseudonymise les colonnes C2 des trips clos
---     sans litige quand `evidence_retention_months` (≥ 15 mois, REQ-PAY-DMG-11) est écoulé
+--     sans litige ni gel légal (rétrofacturation, incident, demande BLOCKED_LEGAL_HOLD) quand
+--     `evidence_retention_months` (plancher de 15 mois en base, REQ-PAY-DMG-11) est écoulé
 --     depuis la dernière date du trip (fin prévue, dernière mise à jour du trip, dernière
 --     opération monétaire) ; chaque trip traité est inscrit une fois au journal
 --     `audit_retention_log` (ajout seul). Lignes comptables, opérations, jambes, audit chaîné et
@@ -347,7 +348,12 @@ CREATE POLICY privacy_cmd_read ON core.support_support_case FOR SELECT TO privac
   USING (true);
 -- trips clos : seules les colonnes C2 de 17 §3.1.4 (motifs) sont remplacées par un marqueur
 GRANT SELECT (id, country_code, status, scheduled_end, updated_at, termination_reason,
-              cancellation_reason) ON core.booking_trip TO privacy_cmd_owner;
+              cancellation_reason, guest_user_id) ON core.booking_trip TO privacy_cmd_owner;
+-- gel légal : rétrofacturation et incident inscrits par la console sur un trip
+GRANT SELECT (subject_type, subject_id, action_code) ON core.support_manual_action
+  TO privacy_cmd_owner;
+CREATE POLICY privacy_cmd_read ON core.support_manual_action FOR SELECT TO privacy_cmd_owner
+  USING (subject_type = 'TRIP' AND action_code IN ('RECORD_CHARGEBACK', 'OPEN_INCIDENT'));
 GRANT UPDATE (termination_reason, cancellation_reason) ON core.booking_trip TO privacy_cmd_owner;
 CREATE POLICY privacy_cmd_read ON core.booking_trip FOR SELECT TO privacy_cmd_owner USING (true);
 CREATE POLICY privacy_cmd_pseudonymise ON core.booking_trip FOR UPDATE TO privacy_cmd_owner
@@ -560,7 +566,8 @@ BEGIN
   END IF;
   FOR v_t IN
     WITH months AS (
-      SELECT c.country_code, (c.v #>> '{}')::integer AS n
+      -- plancher de 15 mois (REQ-PAY-DMG-11, 08) : la graine n'est pas le seul garde-fou
+      SELECT c.country_code, GREATEST((c.v #>> '{}')::integer, 15) AS n
         FROM (SELECT DISTINCT t.country_code,
                      core.privacy_param('evidence_retention_months', t.country_code) AS v
                 FROM core.booking_trip AS t) AS c
@@ -579,6 +586,13 @@ BEGIN
                           'NO_SHOW_HOST')
          AND NOT EXISTS (SELECT 1 FROM core.audit_retention_log AS l
                           WHERE l.rule_code = 'TRIP_CLOSED' AND l.subject_id = t.id)
+         -- gel légal (fail-closed) : rétrofacturation ou incident inscrits sur le trip
+         AND NOT EXISTS (SELECT 1 FROM core.support_manual_action AS a
+                          WHERE a.subject_type = 'TRIP' AND a.subject_id = t.id
+                            AND a.action_code IN ('RECORD_CHARGEBACK', 'OPEN_INCIDENT'))
+         -- demande du voyageur suspendue par une obligation légale de conservation
+         AND NOT EXISTS (SELECT 1 FROM core.audit_data_subject_request AS r
+                          WHERE r.user_id = t.guest_user_id AND r.status = 'BLOCKED_LEGAL_HOLD')
     )
     SELECT d.* FROM due AS d WHERE d.due_at <= v_now ORDER BY d.due_at LIMIT p_batch
   LOOP

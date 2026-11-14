@@ -15,7 +15,7 @@
 --   test_fixture.us111_dsr(uuid), test_fixture.us111_support_case(text, uuid),
 --   test_fixture.us111_register(), test_fixture.us111_validate_register(text, boolean),
 --   test_fixture.us111_tamper_log(uuid, text), test_fixture.us111_set_erasure(uuid, text,
---   timestamptz).
+--   timestamptz), test_fixture.us111_legal_hold(uuid, text).
 
 -- Clôture d'un trip (aucun écrivain des fins de trip en Bêta) : statut final et motifs codés.
 CREATE FUNCTION test_fixture.us111_close_trip(p_trip uuid, p_status text, p_termination text,
@@ -167,3 +167,40 @@ GRANT EXECUTE ON FUNCTION test_fixture.us111_close_trip(uuid, text, text, text),
   test_fixture.us111_register(), test_fixture.us111_validate_register(text, boolean),
   test_fixture.us111_tamper_log(uuid, text),
   test_fixture.us111_set_erasure(uuid, text, timestamptz) TO app_api, app_worker;
+
+-- Gel légal posé sur un trip (DANS la transaction du test) : action de console d'enregistrement
+-- seul inscrite sur le trip (rétrofacturation, incident), ou demande du voyageur du trip en
+-- BLOCKED_LEGAL_HOLD (dossier de support créé pour l'occasion). Les vraies commandes exigent une
+-- session TOTP et un trip validé : leur parcours est prouvé par l0-us101 et le critère 3.
+CREATE FUNCTION test_fixture.us111_legal_hold(p_trip uuid, p_kind text)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  v_t    record;
+  v_case uuid := pg_catalog.gen_random_uuid();
+  v_id   uuid := pg_catalog.gen_random_uuid();
+BEGIN
+  SELECT t.guest_user_id, t.country_code INTO v_t FROM core.booking_trip AS t WHERE t.id = p_trip;
+  IF p_kind = 'BLOCKED_LEGAL_HOLD' THEN
+    INSERT INTO core.support_support_case (id, requester_user_id, country_code, channel, category)
+    VALUES (v_case, v_t.guest_user_id, v_t.country_code, 'EMAIL', 'ACCOUNT');
+    INSERT INTO core.audit_data_subject_request
+           (support_case_id, user_id, country_code, kind, status, received_at, due_at,
+            identity_verified_at, handled_by, updated_at)
+    VALUES (v_case, v_t.guest_user_id, v_t.country_code, 'DELETION', 'BLOCKED_LEGAL_HOLD',
+            platform.now(), platform.now() + interval '10 days', platform.now(),
+            v_t.guest_user_id, platform.now());
+  ELSE
+    INSERT INTO core.support_manual_action (id, action_code, mode, subject_type, subject_id,
+                                            country_code, actor_user_id, actor_role, reason,
+                                            request_id, outcome)
+    VALUES (v_id, p_kind, 'RECORD_ONLY', 'TRIP', p_trip, v_t.country_code, v_t.guest_user_id,
+            'ADMIN', 'Gel légal posé par le test US-111', v_id, 'RECORDED');
+  END IF;
+END
+$fn$;
+REVOKE ALL ON FUNCTION test_fixture.us111_legal_hold(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_fixture.us111_legal_hold(uuid, text) TO app_api, app_worker;

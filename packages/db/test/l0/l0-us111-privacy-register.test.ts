@@ -339,6 +339,50 @@ describe('US-111 critère 2 — trip clos sans litige : pseudonymisation et purg
     },
   );
 
+  // revues argent et sécurité d'US-111 : plancher de 15 mois en base (REQ-PAY-DMG-11), même si la
+  // valeur du pays est plus courte ; gel légal fail-closed
+  it.each(byCountry)(
+    '%s (%s) : durée du pays ramenée à 6 mois ⇒ plancher de 15 mois appliqué ; rétrofacturation, incident ou demande BLOCKED_LEGAL_HOLD ⇒ jamais purgé',
+    async (country, _currency, c) => {
+      await withRole('app_worker', async (w) => {
+        const closedAt = plus(TRIP_END, 0, 60);
+        await worker(w, closedAt, async (tx) => {
+          // nouvelle version du paramètre (droit d'écriture de TEST de 9100, garde de 0008 active)
+          await tx.query(
+            `INSERT INTO core.config_param_value (key, country_code, scope_type, value, change_reason)
+             VALUES ('evidence_retention_months', $1, 'COUNTRY', '6'::jsonb, 'test US-111 : plancher')`,
+            [country],
+          );
+          const short = await closedTrip(tx, c, 'CANCELLED_BY_GUEST', null, 'GUEST_CHANGED_PLANS');
+          const held: Record<string, string> = {};
+          for (const kind of ['RECORD_CHARGEBACK', 'OPEN_INCIDENT', 'BLOCKED_LEGAL_HOLD']) {
+            held[kind] = await closedTrip(tx, c, 'COMPLETED', null, 'GUEST_CHANGED_PLANS');
+            await tx.query('SELECT test_fixture.us111_legal_hold($1, $2)', [held[kind], kind]);
+          }
+          // 6 mois et une minute : la valeur du pays seule aurait purgé
+          await setNow(tx, plus(closedAt, 6, 1));
+          await sweep(tx);
+          expect(await logOf(tx, short)).toEqual([]);
+          expect(await tripOf(tx, short)).toMatchObject({
+            cancellation_reason: 'GUEST_CHANGED_PLANS',
+          });
+          // 15 mois et une minute : plancher atteint
+          await setNow(tx, plus(closedAt, 15, 1));
+          await sweep(tx);
+          expect(await logOf(tx, short)).toMatchObject([
+            { columns: ['cancellation_reason'], due_at: new Date(plus(closedAt, 15)) },
+          ]);
+          for (const [kind, id] of Object.entries(held)) {
+            expect(await logOf(tx, id), kind).toEqual([]);
+            expect(await tripOf(tx, id), kind).toMatchObject({
+              cancellation_reason: 'GUEST_CHANGED_PLANS',
+            });
+          }
+        });
+      });
+    },
+  );
+
   it('réservé au travailleur privacy_request ; app_api sans droit ; lot borné', async () => {
     await withRole('app_worker', async (w) => {
       await worker(

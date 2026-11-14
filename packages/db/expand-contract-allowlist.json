@@ -140,7 +140,7 @@
     },
     {
       "path": "packages/db/migrations/0090_audit_privacy_register.sql",
-      "line": 718,
+      "line": 732,
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-111 (ADR-118) : HANDLE_DSR passe de RECORD_ONLY à DOMAIN_COMMAND (saisie fermée kind et step, commande liée core.privacy_manual_action_dsr) sur une ligne de référence écrite par migration seulement ; une ligne ; les lignes manual_action existantes gardent leur mode ; la version N, qui envoyait HANDLE_DSR sans saisie, reçoit un refus métier DSR_INPUT_REQUIRED (aucune écriture), jamais une acceptation"
