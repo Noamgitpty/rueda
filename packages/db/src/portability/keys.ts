@@ -23,10 +23,10 @@ import type { KeyWrapper } from '../audit/key-wrapper.ts';
 import type { Queryable } from '../audit/subject-keys.ts';
 import type { EscrowOpener, EscrowSealer } from './escrow.ts';
 
-export const KEYS_FORMAT = 'rueda-subject-keys-escrow-v1';
+export const ESCROW_FORMAT = 'rueda-subject-keys-escrow-v1';
 
 export interface EscrowHeader {
-  readonly format: typeof KEYS_FORMAT;
+  readonly format: typeof ESCROW_FORMAT;
   readonly escrow: string;
   readonly count: number;
   readonly live: number;
@@ -114,7 +114,7 @@ export async function exportSubjectKeys(
     await admin.query('COMMIT');
     return {
       header: {
-        format: KEYS_FORMAT,
+        format: ESCROW_FORMAT,
         escrow: sealer.fingerprint,
         count: keys.length,
         live: keys.filter((k) => k.escrowDek !== null).length,
@@ -141,7 +141,7 @@ export function parseKeys(text: string): { header: EscrowHeader; keys: EscrowedK
   const [first, ...rest] = lines;
   if (first === undefined) throw new PortabilityError('export des clés vide');
   const header = JSON.parse(first) as EscrowHeader;
-  if (header.format !== KEYS_FORMAT) throw new PortabilityError('format d’export inconnu');
+  if (header.format !== ESCROW_FORMAT) throw new PortabilityError('format d’export inconnu');
   const keys = rest.map((l) => JSON.parse(l) as EscrowedKey);
   if (keys.length !== header.count) throw new PortabilityError('export des clés incomplet');
   for (const k of keys) {
