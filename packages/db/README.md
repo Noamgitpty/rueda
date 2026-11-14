@@ -525,6 +525,12 @@ Preuves : `test/l0/l0-us126-host-terms.test.ts` (PA, PY, rôles de production, p
 - **Vérification d'une base restaurée** (`src/restore/`, dans l'image) : `node packages/db/src/restore/cli.ts` ; contrôles `roles`, `rls`, `migrations`, `environment`, `l0-05`, `audit_chain`, `c12`, `money`, `occupancy` ; empreintes du catalogue de sécurité et des données. Variables : `docs/ops/ENV_VARS.md`.
 - **Exercice de restauration** (`test/drill/`, `vitest.drill.config.ts`, `pnpm --filter @rueda/db test:drill`) : lancé SEULEMENT par `scripts/ops/restore-drill.sh` (instance source aux journaux archivés) ; son `globalSetup` prépare une préproduction (job de base, puis fixtures) au lieu du banc ; il exécute les étapes de `docs/ops/BACKUP_RESTORE.md` telles qu'écrites et mesure RTO et RPO. Assertion L0-05 exigée comme ailleurs.
 
+## Objectifs de reprise et registre des incidents de sécurité (US-112 ; 16 ADM-035, LEG-010 ; 17 §3.2.13, §6.4 ; OQ-MK-09 ; ADR-121)
+
+- **Objectifs de reprise** (`src/restore/objectives.ts`) : lecture et contrôle fail-closed de `docs/ops/recovery-objectives.json` (scénarios `instant`, `latest`, `region`, `files` ; aucun objectif au-delà de l'exigence de 17 §6.4). L'exercice (`test/drill/`) compare chaque scénario rejoué (A, B) à son objectif et consigne les objectifs dans le rapport. Plan : `docs/ops/DISASTER_RECOVERY.md`.
+- **Migration 0093** (graine générée) : `security_incident_authority_notice_hours`, `security_incident_subjects_notice_hours` (72 h PA et PY, À DÉCIDER, OQ-MK-09).
+- **Migration 0094** : `core.audit_security_incident` (une ligne par pays touché ; échéances posées depuis la détection, immuables ; aucun texte libre ; garde `audit_security_incident_guard` pour tous les rôles : ni suppression, ni TRUNCATE, ni réécriture d'une échéance ou d'un fait daté, ni écriture d'une ligne close) ; commandes `core.security_incident_cmd_open` et `core.security_incident_cmd_step` (SECURITY DEFINER, `iam_staff_owner`, EXECUTE `app_api` ; session, TOTP, permissions `security.incident_declare` et `security.incident_manage`) ; travailleur `core.security_incident_worker_watch` (EXECUTE `app_worker`, nom `security_incident_watch`). Événement `security.incident.opened`. Aucun droit de table pour les rôles applicatifs. Fixture `9958` ; preuve `test/l0/l0-us112-security-incident.test.ts`. Procédure : `docs/ops/INCIDENT_RESPONSE.md`.
+
 ## Files de revue, fiche 360°, notes, dossiers et pièces du staff (US-109 ; 16 ADM-005, ADM-029, ADM-032 ; 17 §2.3, §3.2.13 ; ADR-097)
 
 Migration 0064, fixtures 9990.

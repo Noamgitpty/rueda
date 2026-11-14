@@ -10,6 +10,7 @@ import {
   registerWorkerTasks,
   REVIEW_SLA_WATCH_WORKER,
   RISK_PRUNER_WORKER,
+  SECURITY_INCIDENT_WATCH_WORKER,
   WORKER_TASK_DEFAULTS,
   withDeadlockRetry,
 } from './worker-tasks.js';
@@ -90,6 +91,7 @@ describe('tâches du travailleur (US-003)', () => {
       'reconciliation',
       'review_sla_watch',
       'risk_pruner',
+      'security_incident_watch',
     ]);
     expect(
       registry.periodicTasks().map((t) => [t.name, t.spec.periodSeconds, t.spec.maxAttempts]),
@@ -103,6 +105,7 @@ describe('tâches du travailleur (US-003)', () => {
       ['reconciliation', 86_400, 5],
       ['review_sla_watch', 60, 5],
       ['risk_pruner', 3_600, 5],
+      ['security_incident_watch', 300, 5],
     ]);
     // aucun travailleur qui lirait le PSP (lot C, US-061)
     expect(registry.queueNames()).not.toContain('booking_conversion');
@@ -330,6 +333,75 @@ describe('tâches du travailleur (US-003)', () => {
     });
     alerts.failing = true;
     await expect(h.handle({}, late.tx)).rejects.toThrow(/indisponible/);
+  });
+
+  it('security_incident_watch : une alerte P1 par (signal, pays) rendu par la base ; comptes seulement au journal ; signal inconnu ou canal en échec ⇒ la passe échoue (rejouée)', async () => {
+    const base = recordingTx({
+      security_incident_worker_watch: [
+        { signal: 'AUTHORITY_OVERDUE', country_code: C1, n: 1 },
+        { signal: 'OPENED', country_code: C1, n: 2 },
+        { signal: 'OPENED', country_code: C2, n: 1 },
+        { signal: 'SUBJECTS_OVERDUE', country_code: C2, n: 3 },
+      ],
+    });
+    const alerts = new RecordingAlerts();
+    const logs: string[] = [];
+    const registry = new BusRegistry();
+    registerWorkerTasks(registry, {
+      transactions: transactions(base.tx, []),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      alerts,
+      now: () => AT,
+    });
+    const h = registry.handlerOf(SECURITY_INCIDENT_WATCH_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, base.tx);
+    expect(base.sql).toEqual([
+      `SELECT signal, country_code, n FROM core.security_incident_worker_watch($1) [${WORKER_TASK_DEFAULTS.securityIncidentWatchBatch}]`,
+    ]);
+    expect(alerts.sent).toEqual([
+      {
+        code: 'SECURITY_INCIDENT_NOTICE_OVERDUE',
+        severity: 'P1',
+        counts: { overdue: 1 },
+        labels: { country: C1, notice: 'AUTHORITY' },
+      },
+      {
+        code: 'SECURITY_INCIDENT_OPENED',
+        severity: 'P1',
+        counts: { opened: 2 },
+        labels: { country: C1 },
+      },
+      {
+        code: 'SECURITY_INCIDENT_OPENED',
+        severity: 'P1',
+        counts: { opened: 1 },
+        labels: { country: C2 },
+      },
+      {
+        code: 'SECURITY_INCIDENT_NOTICE_OVERDUE',
+        severity: 'P1',
+        counts: { overdue: 3 },
+        labels: { country: C2, notice: 'SUBJECTS' },
+      },
+    ]);
+    expect(logs.map((l) => JSON.parse(l) as unknown)).toEqual([
+      {
+        level: 'info',
+        worker: 'security_incident_watch',
+        opened: 3,
+        authorityOverdue: 1,
+        subjectsOverdue: 3,
+      },
+    ]);
+    const odd = recordingTx({
+      security_incident_worker_watch: [{ signal: 'REOPENED', country_code: C1, n: 1 }],
+    });
+    await expect(h.handle({}, odd.tx)).rejects.toThrow(/inconnu/);
+    alerts.failing = true;
+    await expect(h.handle({}, base.tx)).rejects.toThrow(/indisponible/);
   });
 
   it('période du balayeur : la plus courte des pays configurés (données CFG)', () => {

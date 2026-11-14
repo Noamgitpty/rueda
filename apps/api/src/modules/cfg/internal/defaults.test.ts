@@ -142,6 +142,8 @@ const EXPECTED_TO_DECIDE: Readonly<Record<string, string>> = {
   release_delay_h: '17 statut OQ-PAY-02',
   review_hold_minutes: '17 statut UXQ-08',
   review_window_days: '16 ADM-031 ; 17 source OQ-P2P-06 (17 statut : décidé comme Turo)',
+  security_incident_authority_notice_hours: '22 OQ-MK-09 (défaut 72 h, US-112)',
+  security_incident_subjects_notice_hours: '22 OQ-MK-09 (défaut 72 h, US-112)',
   self_booking_forbidden: '16 ADM-031 ; 17 source OQ-P2P-08',
   trip_fee_schedule: '17 statut OQ-MK-01',
   trip_id_evidence_retention_days: '17 statut OQ-BR-25, OQ-MK-09',

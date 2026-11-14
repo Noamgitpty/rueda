@@ -179,6 +179,11 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });
           continue;
         }
+        // registre des incidents (0094, US-112) : insertion de security.incident.opened seulement
+        if (r.pol === 'outbox_outbox_event.iam_staff_incident_event') {
+          expect(r).toMatchObject({ roles: 'iam_staff_owner', cmd: 'a' });
+          continue;
+        }
         // interrupteurs à deux personnes (0073, US-125) : insertion de config.param.changed seulement
         if (r.pol === 'outbox_outbox_event.cmd_golive_event_ins') {
           expect(r).toMatchObject({ roles: 'cmd_golive_owner', cmd: 'a' });

@@ -194,6 +194,19 @@
         "evidence_verifier": "tout"
       }
     },
+    "core.audit_security_incident": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.audit_subject_key": {
       "type": "table",
       "droits": {

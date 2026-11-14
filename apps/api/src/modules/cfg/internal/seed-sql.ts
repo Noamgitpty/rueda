@@ -71,6 +71,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-123',
     refs: 'DEC-FONDATEUR-22, ADR-115',
   },
+  {
+    prefix: 'security_incident_',
+    file: '0093_config_security_incident_params.sql',
+    story: 'US-112',
+    refs: '19 US-112, 16 LEG-010 / ADM-035, OQ-MK-09',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

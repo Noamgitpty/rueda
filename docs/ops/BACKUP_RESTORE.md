@@ -1,6 +1,6 @@
 # Runbook — sauvegardes et restauration (US-004)
 
-Décisions : [ADR-080](../adr/ADR-080-sauvegardes-supervision-journal-acces.md) (sauvegardes), [ADR-082](../adr/ADR-082-restauration-testee-rotation-secrets.md) (restauration testée, US-051). Rotation des secrets : [SECRET_ROTATION.md](SECRET_ROTATION.md). Code : `infra/opentofu/modules/environment/backup.tf`, `infra/opentofu/modules/backup-vault/`, `infra/opentofu/environments/backup/`. Objectifs (17 §6.4, 16 ADM-035, À DÉCIDER) : RPO ≤ 24 h exigé, cible ≤ 1 h ; RTO ≤ 8 h.
+Décisions : [ADR-080](../adr/ADR-080-sauvegardes-supervision-journal-acces.md) (sauvegardes), [ADR-082](../adr/ADR-082-restauration-testee-rotation-secrets.md) (restauration testée, US-051). Rotation des secrets : [SECRET_ROTATION.md](SECRET_ROTATION.md). Code : `infra/opentofu/modules/environment/backup.tf`, `infra/opentofu/modules/backup-vault/`, `infra/opentofu/environments/backup/`. Objectifs par scénario (US-112, ADR-121, PROPOSÉS, À DÉCIDER) : [`recovery-objectives.json`](recovery-objectives.json), source unique rejouée par l'exercice ; exigence de 17 §6.4 : RPO ≤ 24 h, RTO ≤ 8 h. Plan de reprise (rôles, ordre, communication) : [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md).
 
 **Aucun agent n'applique ce runbook** : il n'a ni compte, ni accès, ni secret (OPERATING_RULES §1). Le fondateur l'exécute avec ses propres accès ; un agent peut le lire avec lui.
 
@@ -51,7 +51,7 @@ Toujours dans une **nouvelle** instance, jamais par-dessus la base en service ; 
 
 ## Tester la restauration (ADM-032 : avant l'ouverture, puis chaque mois ; US-051)
 
-Deux exercices, chronométrés, comparés aux cibles de 17 §6.4 (À DÉCIDER, ADM-035 : RPO ≤ 24 h exigé, cible ≤ 1 h ; RTO ≤ 8 h) :
+Deux exercices, chronométrés, comparés aux objectifs de leur scénario ([`recovery-objectives.json`](recovery-objectives.json), US-112 : erreur récente et perte de l'instance RPO 15 min, RTO 4 h ; perte du compte ou de la région RPO 24 h, RTO 8 h ; PROPOSÉS) :
 
 - **Exercice local, à chaque PR et chaque nuit** (job CI « reprise », `bash scripts/ops/restore-drill.sh`) : il exécute **tels quels** les blocs « exercice » ci-dessous sur une préproduction locale peuplée (PA, PY), et rejoue la même procédure à chaque porte de lot (19 §1.10, critère 4 d'US-051). Rapport JSON en artefact (`restauration-rapport`) ; mesure de référence : [`restore-drill-baseline.json`](restore-drill-baseline.json).
 - **Exercice cloud, chaque mois et avant l'ouverture** (par le fondateur) : restaurer le dernier point de la copie hors compte dans une instance jetable de préproduction (§ « Restaurer »), lancer la vérification (étape 3), mesurer le RPO (instant du point restauré → instant de l'exercice) et le RTO (début de la restauration → API saine), consigner le rapport dans `docs/team/incidents/`, puis détruire l'instance.
@@ -96,7 +96,7 @@ L'exercice (`packages/db/test/drill/restore-drill.test.ts`) enchaîne deux scén
 
 ### Mesures
 
-Base de l'exercice : 960 lignes à T (PA et PY), sauvegarde de base en 0,59 s. Ces durées mesurent la **procédure** sur une petite base, pas le volume de la production : la cible définitive et une mesure sur un volume représentatif reviennent à US-112.
+Base de l'exercice : 960 lignes à T (PA et PY), sauvegarde de base en 0,59 s. Ces durées mesurent la **procédure** sur une petite base, pas le volume de la production. Depuis US-112, chaque scénario est comparé à son objectif (RPO 15 min, RTO 4 h, PROPOSÉS) et le rapport les consigne (`objectives`) ; la mesure sur un volume représentatif se fera à l'exercice cloud du fondateur (Q-009), en préproduction, et sera reportée ici.
 
 | Date       | Commit                      | Scénario                                             | RPO mesuré                                       | RTO mesuré                                                    | Cible (17 §6.4)                               |
 | ---------- | --------------------------- | ---------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------- |

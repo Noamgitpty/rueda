@@ -109,6 +109,44 @@
         "deleted_at": "C1"
       }
     },
+    "core.audit_security_incident": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "reported_by",
+          "type": "USER"
+        },
+        {
+          "column": "updated_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "country_code": "C1",
+        "kind": "C1",
+        "severity": "C1",
+        "personal_data_involved": "C1",
+        "subjects_count_estimate": "C1",
+        "detected_at": "C1",
+        "reported_at": "C1",
+        "reported_by": "C1",
+        "authority_notification_due_at": "C1",
+        "subjects_notification_due_at": "C1",
+        "contained_at": "C1",
+        "authority_notified_at": "C1",
+        "subjects_notified_at": "C1",
+        "closed_at": "C1",
+        "status": "C1",
+        "postmortem_file_id": "C1",
+        "updated_at": "C1",
+        "updated_by": "C1",
+        "opened_alerted_at": "C1",
+        "authority_overdue_alerted_at": "C1",
+        "subjects_overdue_alerted_at": "C1"
+      }
+    },
     "core.audit_subject_key": {
       "lifecycle": "A",
       "subjects": [

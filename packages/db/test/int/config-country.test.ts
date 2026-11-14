@@ -160,7 +160,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108), et celle des délais de notification d’une violation par iam_staff_owner (US-112)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -224,6 +224,10 @@ describe('configuration pays : structure et droits', () => {
             // otp_sms_fallback_s seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'iam_auth_otp_read', cmd: 'r', roles: 'iam_auth_owner' }]
+              : []),
+            // registre des incidents (US-112, 0094) : délais de notification d'une violation seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'iam_staff_incident_read', cmd: 'r', roles: 'iam_staff_owner' }]
               : []),
             // files de revue (US-109, 0064) : délais des files déclarées seulement
             ...(t === 'config_param_value'

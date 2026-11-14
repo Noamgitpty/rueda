@@ -8,7 +8,7 @@ AUD garde les preuves : journal d'audit en ajout seul chaîné par SHA-256, jour
 
 AUD ne décide rien de métier. Il ne stocke pas les octets des fichiers (port `FileStore`) et ne détient aucune clé maîtresse (port `KeyWrapper`, KMS).
 
-État réel : `AudModule` reste vide (US-001) ; `internal/staff-data-access.ts` porte la lecture des données personnelles par le staff (US-004, ADR-080). Le socle livré par US-009 (ADR-051) vit dans la base et dans le paquet `@rueda/db/audit` (`packages/db/src/audit/`) : `appendAuditLog`, `recordDataAccess`, `verifyAuditChain`, `SubjectKeyStore`, `seal` / `open`, `receiveFile` / `verifyFileAsset`. Détail : `packages/db/README.md`, section « Audit, clés par sujet et magasin de preuves ». Demandes des personnes, incidents et sous-traitants arrivent avec US-111 (et US-112 pour les incidents).
+État réel : `AudModule` reste vide (US-001) ; `internal/staff-data-access.ts` porte la lecture des données personnelles par le staff (US-004, ADR-080). Le socle livré par US-009 (ADR-051) vit dans la base et dans le paquet `@rueda/db/audit` (`packages/db/src/audit/`) : `appendAuditLog`, `recordDataAccess`, `verifyAuditChain`, `SubjectKeyStore`, `seal` / `open`, `receiveFile` / `verifyFileAsset`. Détail : `packages/db/README.md`, section « Audit, clés par sujet et magasin de preuves ». Demandes des personnes et sous-traitants arrivent avec US-111. **Registre des incidents de sécurité** (US-112, ADR-121) : `core.audit_security_incident` (migration 0094), une ligne par pays touché, échéances de notification d'une violation posées depuis la détection (paramètres `security_incident_*_notice_hours`, 72 h À DÉCIDER, OQ-MK-09 ; absent ⇒ immédiat) ; commandes de la console `core.security_incident_cmd_open` et `core.security_incident_cmd_step` (famille `iam_staff_owner`, EXECUTE `app_api`, TOTP) ; travailleur `security_incident_watch` (`core.security_incident_worker_watch`). Aucune route ni écran : console au lot 5. Procédure : `docs/ops/INCIDENT_RESPONSE.md`.
 
 ## Entités
 
@@ -19,14 +19,14 @@ AUD ne décide rien de métier. Il ne stocke pas les octets des fichiers (port `
 | `file_asset`           | table `core.audit_file_asset` (migration 0019)                                     |
 | `subject_key`          | table `core.audit_subject_key` (migration 0016), destruction 0020                  |
 | `data_subject_request` | cible 17, pas encore créée                                                         |
-| `security_incident`    | cible 17, pas encore créée                                                         |
+| `security_incident`    | table `core.audit_security_incident` (migration 0094, US-112)                      |
 | `subprocessor`         | cible 17, pas encore créée                                                         |
 
 Droits et RLS : migrations 0021 et 0026. Les rôles applicatifs n'ont ni `UPDATE`, ni `DELETE`, ni `TRUNCATE`.
 
 ## Événements
 
-Émis (cible 17 §4.5) : `privacy.dsr.status_changed` et `security.incident.opened`, consommés par SUP et NTF. **Aucun n'est émis aujourd'hui** : les tables correspondantes n'existent pas.
+Émis (cible 17 §4.5) : `privacy.dsr.status_changed` et `security.incident.opened`, consommés par SUP et NTF. `security.incident.opened` (`incident_id`, `country`, `kind`, `severity`, `personal_data`, `due_at`, `subjects_due_at`) est émis par la base à la déclaration (US-112) ; aucun consommateur n'est branché (l'alerte au fondateur passe par le travailleur `security_incident_watch`).
 
 Consommés (cible 17 §4.5) : `contract.document.generated` / `.signed` (CTR) et `config.param.changed` (CFG). Aucun consommateur n'est branché aujourd'hui.
 
@@ -49,5 +49,6 @@ Les FAKE sont refusés hors `RUEDA_ENV` = `development` ou `test` (`packages/fak
 - Unitaires du socle d'audit (sans base) : `pnpm --filter @rueda/db exec vitest run --config vitest.unit.config.ts src/audit`.
 - Intégration (PostgreSQL réel) : `pnpm --filter @rueda/db exec vitest run --config vitest.int.config.ts test/int/audit-schema.test.ts`.
 - Preuves L0 (rôles de production) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-aud-01-audit-chain.test.ts test/l0/l0-aud-02-subject-key.test.ts test/l0/l0-aud-03-file-asset.test.ts`.
+- Registre des incidents (US-112) : `pnpm --filter @rueda/db exec vitest run --config vitest.l0.config.ts test/l0/l0-us112-security-incident.test.ts` ; objectifs de reprise (unitaire) : `pnpm --filter @rueda/db exec vitest run --config vitest.unit.config.ts src/restore/objectives.test.ts`.
 
 `test:int` et `test:l0` demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».
