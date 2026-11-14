@@ -1,10 +1,10 @@
 /**
- * test:int — US-122, red team du lot 1, axe marque (RT-L1-A05, US-120, ADR-116) : charges SVG
+ * US-122 — red team du lot 1, axe marque (RT-L1-A05, US-120, ADR-116) : charges SVG
  * contre le contrôle du logo (`logoProblem` / `logoProblems` de @rueda/design-tokens, appliqué à
  * l'enregistrement d'un brouillon de marque par l'API). Le contrôle n'ouvre aucune base : il est
- * joué ici parce que la suite d'intégration de l'API est le seul banc de l'API branché sur la CI
- * pour ce lot (assertion L0-05 posée par le fichier d'initialisation du banc, comme les autres
- * tests de ce dossier). Rapport : docs/team/redteam/L1-rls-abus.md.
+ * joué dans la suite red team de la base (groupe `l0-redteam`, joué après tous les autres fichiers),
+ * pour que ses échecs ne masquent pas les autres suites d'intégration. Rapport :
+ * docs/team/redteam/L1-rls-abus.md.
  *
  * Chaque test affirme que l'attaque est BLOQUÉE : un test rouge est une faille trouvée (jamais
  * `skip`). Règle de l'ADR-116 : « un logo doit être un SVG autonome, borné, sans script, sans
@@ -13,8 +13,12 @@
  * exécute pas ; le contrôle est une défense en profondeur (ouverture directe de l'actif, futur
  * affichage en ligne), d'où une gravité PROPOSÉE faible pour un contournement.
  */
-import { LOGO_MAX_LENGTH, logoProblem, logoProblems } from '@rueda/design-tokens';
 import { describe, expect, it } from 'vitest';
+import { LOGO_MAX_LENGTH, logoProblem, logoProblems } from '../../../../design-tokens/src/logo.ts';
+import { withRole } from '../../../src/testing/index.ts';
+
+/** Assertion L0-05 en tête de chaque test : le contrôle ne touche pas la base, le rôle est affirmé. */
+const l005 = (): Promise<void> => withRole('app_api', async () => undefined);
 
 const NS = 'xmlns="http://www.w3.org/2000/svg"';
 const svg = (inner: string, attrs = NS): string =>
@@ -77,7 +81,8 @@ const EVASIONS: readonly (readonly [string, string])[] = [
 ];
 
 describe('RT-L1-A05 — logo SVG : contrôle de l’ADR-116', () => {
-  it('témoin : un SVG simple, avec un dégradé interne, est accepté', () => {
+  it('témoin : un SVG simple, avec un dégradé interne, est accepté', async () => {
+    await l005();
     expect(
       logoProblem(
         svg('<defs><linearGradient id="g"/></defs><rect fill="url(#g)" width="1" height="1"/>'),
@@ -85,18 +90,21 @@ describe('RT-L1-A05 — logo SVG : contrôle de l’ADR-116', () => {
     ).toBeNull();
   });
 
-  it.each(IN_SCOPE)('dans la liste de refus — %s : refusé', (_name, payload) => {
+  it.each(IN_SCOPE)('dans la liste de refus — %s : refusé', async (_name, payload) => {
+    await l005();
     expect(logoProblem(payload)).not.toBeNull();
   });
 
-  it.each(EVASIONS)('contournement simple — %s : refusé', (_name, payload) => {
+  it.each(EVASIONS)('contournement simple — %s : refusé', async (_name, payload) => {
+    await l005();
     expect(
       logoProblem(payload),
       'le contrôle par motifs laisse passer cette charge',
     ).not.toBeNull();
   });
 
-  it('un logo est refusé aux trois jetons (brand.logo, brand.logoDark, brand.logoMono), le jeton est nommé', () => {
+  it('un logo est refusé aux trois jetons (brand.logo, brand.logoDark, brand.logoMono), le jeton est nommé', async () => {
+    await l005();
     const bad = '<svg/onload=alert(1)></svg>';
     for (const path of ['logo', 'logoDark', 'logoMono']) {
       const problems = logoProblems({ brand: { [path]: { $value: bad } } });
