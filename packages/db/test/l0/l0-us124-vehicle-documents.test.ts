@@ -449,7 +449,16 @@ describe('socle (0077) : RLS, droits, propriétaires', () => {
             rls: true,
             force: true,
             owner: 'migrator',
-            policies: ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
+            // US-122 (0093) : demandeur, compte et véhicule contesté lus par la garde de séparation
+            // des tâches (iam_staff_owner)
+            policies:
+              r.t === 'catalog_vehicle_claim'
+                ? [
+                    'catalog_cmd_all:catalog_cmd_owner',
+                    'iam_staff_party_read:iam_staff_owner',
+                    'migrator_all:migrator',
+                  ]
+                : ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
             grants: 0,
           });
         }

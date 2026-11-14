@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 95 migrations ; 107 tables ; 2 vues ; 567 politiques RLS ; 191 fonctions `SECURITY DEFINER` ; 191 autres fonctions.
+- 97 migrations ; 107 tables ; 2 vues ; 575 politiques RLS ; 191 fonctions `SECURITY DEFINER` ; 196 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -108,6 +108,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0090_audit_privacy_register` | AUD : registre Ley 81 (traitements, sous-traitants, règles de rétention), demandes des personnes, pseudonymisation des trips clos. |
 | `0091_config_security_incident_params` | graine complémentaire : paramètres « security_incident_* » (US-112 ; 17 §7.2). |
 | `0092_audit_security_incident` | AUD : registre des incidents de sécurité et des violations de données (délais de notification). |
+| `0093_support_redteam_l1_fixes` | SUP / RISK / CAT : correctifs de la red team du lot 1 (séparation des tâches, auto-réservation, contestations, filtre de contact). |
+| `0094_config_plate_claim_params` | graine complémentaire : paramètres « plate_claims_* » (US-122 ; 17 §7.2). |
 | `0095_catalog_customs_shared` | CAT : catalogue de la douane partagé entre les pays (N-101, suite de l'import de la douane ; |
 | `0096_catalog_customs_curation` | CAT : curation de l'import de la douane, lot 2 (N-101 ; ADR-123, ADR-109 §7 ; revue de |
 
@@ -1104,6 +1106,7 @@ Index :
 Politiques RLS :
 
 - `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
+- `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -1195,6 +1198,7 @@ Politiques RLS :
 
 - `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `probe_read` (SELECT, PERMISSIVE, catalog_probe_owner) USING `(status = 'LISTED'::text)`
 
@@ -1362,6 +1366,7 @@ Politiques RLS :
 
 - `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
 
@@ -1466,6 +1471,7 @@ Index :
 Politiques RLS :
 
 - `catalog_cmd_all` (ALL, PERMISSIVE, catalog_cmd_owner) USING `true` WITH CHECK `true`
+- `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -2101,6 +2107,7 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
+- `catalog_cmd_claim_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'plate_claims_open_per_host'::text)`
 - `catalog_cmd_insurer_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'insurer_contract_active'::text)`
 - `catalog_cmd_publish_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'listing_manual_review_required'::text)`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
@@ -2155,6 +2162,7 @@ Contraintes :
 Politiques RLS :
 
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
+- `catalog_cmd_claim_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'plate_claims_open_per_host'::text)`
 - `catalog_cmd_insurer_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'insurer_contract_active'::text)`
 - `catalog_cmd_publish_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'listing_manual_review_required'::text)`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
@@ -2469,6 +2477,7 @@ Politiques RLS :
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `iam_auth_insert` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((role = 'P2P_HOST'::text) AND (status = 'ACTIVE'::text) AND (cardinality(vehicle_scope) = 0) AND (cardinality(permission_overrides) = 0))`
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
+- `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `membership_host_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()) AND (app.is_org_holder() OR ((user_id = app.actor_id()) AND (status = 'ACTIVE'::text))))`
 - `membership_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (EXISTS ( SELECT 1 FROM core.iam_organization o WHERE ((o.id = iam_membership.org_id) AND (o.country_code = ANY (app.country_scope())) AND app.has_staff_role('ADMIN'::text, o.country_code)))))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
@@ -3141,6 +3150,7 @@ Index :
 
 Politiques RLS :
 
+- `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `(is_current AND (status = 'PHONE_VERIFIED'::text) AND (provider_session_ref IS NULL) AND (approved_at IS NULL) AND (reviewed_by IS NULL))`
 - `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
 - `kyc_cmd_update` (UPDATE, PERMISSIVE, kyc_cmd_owner) USING `is_current` WITH CHECK `is_current`
@@ -5553,6 +5563,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.kyc_host_review_due(p_country text, p_started timestamp with time zone)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_tax_saved(p_org uuid)` | `boolean` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
 | `core.kyc_host_try_activate(p_org uuid, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, blockers text[], event_ids uuid[])` | `kyc_cmd_owner` | kyc_cmd_owner: EXECUTE |
+| `core.kyc_legal_name_bag(p_given text, p_surnames text)` | `text[]` | `migrator` | migrator: EXECUTE ; risk_limit_owner: EXECUTE |
+| `core.kyc_legal_name_bags_match(p_a text[], p_b text[])` | `boolean` | `migrator` | migrator: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.kyc_legal_name_key(p_given text, p_surnames text)` | `text` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.kyc_legal_name_match(p_declared_first text, p_declared_last text, p_license_given text, p_license_surnames text)` | `text` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.kyc_name_tokens(p_name text)` | `text[]` | `migrator` | kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; risk_limit_owner: EXECUTE |
@@ -5602,6 +5614,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_verify_minor(p_value jsonb, p_currency text)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_verify_ratio(p_value jsonb)` | `numeric[]` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_verify_round(p_amount numeric, p_num numeric, p_den numeric)` | `numeric` | `migrator` | app_worker: EXECUTE ; cmd_money_owner: EXECUTE ; migrator: EXECUTE |
+| `core.support_actor_conflict(p_actor uuid, p_subject_type text, p_subject_id uuid)` | `boolean` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_country_of_insurer_bordereau(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_country_of_organization(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_country_of_platform_advance(p_id uuid)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
@@ -5612,6 +5625,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_manual_action_handler_check(p_action text, p_handler regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_manual_action_handler_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.support_manual_action_subject_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.support_org_people(p_org uuid)` | `uuid[]` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_queue_sla_minutes(p_queue text, p_country text)` | `integer` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `core.support_staff_catalog_item(p_user uuid, p_item_id uuid, p_attempted text, p_request_id uuid, OUT refusal text, OUT role text, OUT subject_id uuid, OUT country_code text)` | `record` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_covers_user(p_actor uuid, p_role text, p_user uuid, p_country text)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
@@ -5621,6 +5635,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.support_staff_org_holder_names(p_org uuid)` | `jsonb` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_gate(p_token_hash bytea, p_item_id uuid, p_subject_type text, p_attempted text, p_request_id uuid, OUT refusal text, OUT user_id uuid, OUT role text, OUT subject_id uuid, OUT country_code text)` | `record` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_staff_vehicle_item(p_user uuid, p_item_id uuid, p_subject_type text, p_attempted text, p_request_id uuid, OUT refusal text, OUT role text, OUT subject_id uuid, OUT country_code text)` | `record` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
+| `core.support_subject_parties(p_subject_type text, p_subject_id uuid)` | `uuid[]` | `iam_staff_owner` | iam_staff_owner: EXECUTE |
 | `core.support_subject_resolver_check(p_resolver regprocedure)` | `text` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |

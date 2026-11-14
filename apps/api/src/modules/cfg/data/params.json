@@ -1606,6 +1606,18 @@
       "values": { "PA": true, "PY": true }
     },
     {
+      "key": "plate_claims_open_per_host",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "BOARD N-61 (contestation de plaque ou de VIN) ; red team du lot 1, F-L1-V-01 : plafond de contestations ouvertes par compte d'hôte (absent : refus CLAIM_LIMIT_REACHED)",
+      "status": "PROPOSÉ",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-122 PROPOSÉ (US-122)",
+      "values": { "PA": 5, "PY": 5 }
+    },
+    {
       "key": "self_booking_forbidden",
       "type": "BOOL",
       "scopes": ["COUNTRY"],

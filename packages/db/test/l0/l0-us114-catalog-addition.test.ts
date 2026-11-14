@@ -352,7 +352,12 @@ describe('socle (0074) : RLS, droits, propriétaires', () => {
           rls: true,
           force: true,
           owner: 'migrator',
-          policies: ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
+          // US-122 (0093) : demandeur et compte lus par la garde de séparation des tâches
+          policies: [
+            'catalog_cmd_all:catalog_cmd_owner',
+            'iam_staff_party_read:iam_staff_owner',
+            'migrator_all:migrator',
+          ],
           grants: 0,
         });
       },

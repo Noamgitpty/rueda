@@ -387,6 +387,7 @@ describe('contrat HTTP — pièces et éligibilité du véhicule (US-124)', () =
     for (const [outcome, status] of [
       ['CLAIM_NOT_NEEDED', 409],
       ['CLAIM_DUPLICATE', 409],
+      ['CLAIM_LIMIT_REACHED', 409],
       ['HOST_ACCOUNT_SUSPENDED', 403],
       ['FORBIDDEN', 404],
       ['VEHICLE_FIELD_REQUIRED', 422],

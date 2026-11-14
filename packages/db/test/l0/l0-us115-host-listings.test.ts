@@ -349,9 +349,12 @@ describe('socle (0067) : RLS, droits, propriétaires', () => {
           catalog_deposit_policy: ['migrator_all:migrator'],
           // US-119 (0071) : sonde de disponibilité (catalog_probe_owner) et préavis du lieu lu à
           // la pose d'un hold (cmd_hold_owner)
+          // US-122 (0093) : compte de l'annonce et du véhicule lus par la garde de séparation des
+          // tâches (iam_staff_owner)
           catalog_listing: [
             'catalog_cmd_all:catalog_cmd_owner',
             'cmd_hold_read:cmd_hold_owner',
+            'iam_staff_party_read:iam_staff_owner',
             'migrator_all:migrator',
             'probe_read:catalog_probe_owner',
           ],
@@ -364,6 +367,7 @@ describe('socle (0067) : RLS, droits, propriétaires', () => {
           catalog_vehicle: [
             'catalog_cmd_all:catalog_cmd_owner',
             'cmd_hold_read:cmd_hold_owner',
+            'iam_staff_party_read:iam_staff_owner',
             'migrator_all:migrator',
             'policy_fn_read:policy_fn_owner',
           ],
