@@ -263,12 +263,25 @@ describe.each(byCountry)(
         const peer = await kycStaff(tx, 'OPS_AGENT', [country], country);
         const foreign = await kycStaff(tx, 'OPS_AGENT', [otherOf(cc).country], otherOf(cc).country);
         const support = await kycStaff(tx, 'SUPPORT_AGENT', ALL, country);
-        const read = (s: { hash: Buffer }, purpose = PURPOSE) =>
-          first<{ outcome: string; body: unknown }>(
-            tx,
-            'SELECT * FROM core.support_staff_kyc_dossier($1, $2, $3, $4)',
-            [s.hash, uuid(), item, purpose],
-          );
+        const read = async (
+          s: { hash: Buffer },
+          purpose = PURPOSE,
+        ): Promise<{ outcome: string; body: unknown }> => {
+          // une exception de la commande (entrée invalide) est aussi un refus : rien n'est rendu
+          await tx.query('SAVEPOINT rd');
+          try {
+            const r = await first<{ outcome: string; body: unknown }>(
+              tx,
+              'SELECT * FROM core.support_staff_kyc_dossier($1, $2, $3, $4)',
+              [s.hash, uuid(), item, purpose],
+            );
+            await tx.query('RELEASE SAVEPOINT rd');
+            return r;
+          } catch (error) {
+            await tx.query('ROLLBACK TO SAVEPOINT rd');
+            return { outcome: `ERR:${(error as { code?: string }).code ?? '?'}`, body: null };
+          }
+        };
         const rows = async (s: { userId: string }) => (await accessRows(tx, s.userId)).length;
 
         // élément non pris en charge : refus

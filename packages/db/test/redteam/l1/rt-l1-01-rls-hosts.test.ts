@@ -392,7 +392,8 @@ describe('RT-L1-R05 — pays croisé : acteur, hôte ou staff d’un pays sur un
   );
 
   it('aucune des fonctions SECURITY DEFINER du lot 1 n’est exécutable par app_anon (EXECUTE refusé)', async () => {
-    await withRole('app_anon', async (client) => {
+    // le privilège de app_anon est lu depuis app_api (app_anon n'a pas USAGE sur le schéma core)
+    await withRole('app_api', async (client) => {
       const names = [
         'catalog_host_vehicles(bytea, uuid)',
         'catalog_host_listings(bytea, uuid)',

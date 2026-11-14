@@ -157,6 +157,8 @@ describe.each(byCountry)('RT-L1-A01 — contestation N-61 abusive (%s)', (countr
     await rolledBack(async (tx) => {
       const victim = await hostOf(tx, country);
       const attacker = await hostOf(tx, country);
+      // clé de la personne, créée par le coffre de l'application avant le dépôt d'une pièce
+      await tx.query('SELECT test_fixture.us109_subject_key($1)', [attacker.userId]);
       const plateText = plate();
       const v = await vehicleOf(tx, victim, cc, { plate: plateText });
       await declareAndSubmit(tx, victim, v.id ?? '');
@@ -199,6 +201,7 @@ describe.each(byCountry)('RT-L1-A01 — contestation N-61 abusive (%s)', (countr
     await rolledBack(async (tx) => {
       const victim = await hostOf(tx, country);
       const attacker = await hostOf(tx, country);
+      await tx.query('SELECT test_fixture.us109_subject_key($1)', [attacker.userId]);
       const plates: string[] = [];
       for (let i = 0; i < 14; i += 1) {
         const p = plate();
@@ -217,6 +220,10 @@ describe.each(byCountry)('RT-L1-A01 — contestation N-61 abusive (%s)', (countr
           accepted += 1;
         }
       }
+      expect(
+        accepted,
+        'la première contestation est acceptée (le test n’est pas vide)',
+      ).toBeGreaterThan(0);
       expect(accepted).toBeLessThanOrEqual(10);
     });
   });

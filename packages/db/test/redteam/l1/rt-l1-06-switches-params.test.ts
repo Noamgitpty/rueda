@@ -12,7 +12,7 @@
  * deux »), 16 HST-016, 19 US-118, US-125 ; pré-mortem L1-PM-21, L1-PM-25, L1-PM-44.
  */
 import { describe, expect, it } from 'vitest';
-import { withRole, withTestTransaction } from '../../../src/testing/index.ts';
+import { withRole } from '../../../src/testing/index.ts';
 import {
   approveSwitch,
   asStaff,
@@ -97,15 +97,19 @@ describe.each(byCountry)(
         `UPDATE core.config_param_definition SET go_live_switch = false WHERE key = 'funds_holding_enabled'`,
       ];
       for (const role of ['app_api', 'app_worker', 'app_anon'] as const) {
-        await withRole(role, (client) =>
-          withTestTransaction(client, {}, async (tx) => {
+        // transaction manuelle annulée : app_anon n'a pas USAGE sur le schéma platform (horloge du banc)
+        await withRole(role, async (client) => {
+          await client.query('BEGIN');
+          try {
             for (const sql of statements) {
-              await tx.query('SAVEPOINT w');
-              await expect(tx.query(sql), `${role} ${sql}`).rejects.toBeTruthy();
-              await tx.query('ROLLBACK TO SAVEPOINT w');
+              await client.query('SAVEPOINT w');
+              await expect(client.query(sql), `${role} ${sql}`).rejects.toBeTruthy();
+              await client.query('ROLLBACK TO SAVEPOINT w');
             }
-          }),
-        );
+          } finally {
+            await client.query('ROLLBACK');
+          }
+        });
       }
       // contexte STAFF d'un SUPERADMIN élevé, sous app_api : toujours refusé
       await rolledBack(async (tx) => {
