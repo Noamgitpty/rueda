@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 81 migrations ; 98 tables ; 2 vues ; 522 politiques RLS ; 174 fonctions `SECURITY DEFINER` ; 168 autres fonctions.
+- 83 migrations ; 98 tables ; 2 vues ; 526 politiques RLS ; 177 fonctions `SECURITY DEFINER` ; 170 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -96,6 +96,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0078_config_vehicle_eligibility_params` | graine complémentaire : paramètres « elig_* » (US-124 ; 17 §7.2). |
 | `0079_catalog_customs_import` | CAT : import des marques et modèles déclarés à la douane (suite d'US-113 ; ADR-109, |
 | `0080_risk_self_booking_linked_accounts` | RISK / AVL : cumul hôte / voyageur, auto-réservation refusée y compris par un compte lié. |
+| `0084_catalog_listing_publication` | CAT : publication immédiate d'une annonce (comme Turo), retrait et revue de l'ops sur signal. |
+| `0085_config_listing_review_params` | graine complémentaire : paramètres « listing_manual_review* » (US-118 ; 17 §7.2). |
 
 ## Rôles
 
