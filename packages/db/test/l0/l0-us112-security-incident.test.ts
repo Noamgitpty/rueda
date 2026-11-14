@@ -576,13 +576,14 @@ describe('US-112 — registre en ajout seul, inaccessible aux rôles applicatifs
           `UPDATE core.audit_security_incident SET status = 'CLOSED'`,
           'DELETE FROM core.audit_security_incident',
         ]) {
-          await withTestTransaction(client, {}, async (tx) => {
-            const error = await tx.query(sql).then(
-              () => null,
-              (e: unknown) => e,
-            );
-            expect(code(error), `${role} ${sql}`).toBe('42501');
-          });
+          // transaction annulée à la main : app_anon n'exécute pas platform.now() (aide de test)
+          await client.query('BEGIN');
+          const error = await client.query(sql).then(
+            () => null,
+            (e: unknown) => e,
+          );
+          await client.query('ROLLBACK');
+          expect(code(error), `${role} ${sql}`).toBe('42501');
         }
         const execute = async (fn: string): Promise<boolean> => {
           const { rows } = await client.query<{ has: boolean }>(
