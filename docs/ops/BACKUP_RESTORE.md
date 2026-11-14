@@ -98,10 +98,12 @@ L'exercice (`packages/db/test/drill/restore-drill.test.ts`) enchaîne deux scén
 
 Base de l'exercice : 960 lignes à T (PA et PY), sauvegarde de base en 0,59 s. Ces durées mesurent la **procédure** sur une petite base, pas le volume de la production. Depuis US-112, chaque scénario est comparé à son objectif (RPO 15 min, RTO 4 h, PROPOSÉS) et le rapport les consigne (`objectives`) ; la mesure sur un volume représentatif se fera à l'exercice cloud du fondateur (Q-009), en préproduction, et sera reportée ici.
 
-| Date       | Commit                      | Scénario                                             | RPO mesuré                                       | RTO mesuré                                                    | Cible (17 §6.4)                               |
-| ---------- | --------------------------- | ---------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------- |
-| 2026-11-04 | `9d6f745` (run 41828640740) | A : restauration à l'instant T                       | 0,02 s (instant visé − dernière écriture rendue) | 2,86 s (restauration 1,48 + vérification 0,29 + bascule 1,09) | RPO ≤ 1 h (exigé 24 h), RTO ≤ 8 h : **tenus** |
-| 2026-11-04 | `9d6f745` (run 41828640740) | B : perte de l'instance, restauration au plus récent | 6,57 s (borné par `archive_timeout` = 30 s)      | 2,87 s (1,48 + 0,30 + 1,09)                                   | idem : **tenus**                              |
+| Date       | Commit                              | Scénario                                             | RPO mesuré                                       | RTO mesuré                                                    | Cible (17 §6.4)                                        |
+| ---------- | ----------------------------------- | ---------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------ |
+| 2026-11-04 | `9d6f745` (run 41828640740)         | A : restauration à l'instant T                       | 0,02 s (instant visé − dernière écriture rendue) | 2,86 s (restauration 1,48 + vérification 0,29 + bascule 1,09) | RPO ≤ 1 h (exigé 24 h), RTO ≤ 8 h : **tenus**          |
+| 2026-11-04 | `9d6f745` (run 41828640740)         | B : perte de l'instance, restauration au plus récent | 6,57 s (borné par `archive_timeout` = 30 s)      | 2,87 s (1,48 + 0,30 + 1,09)                                   | idem : **tenus**                                       |
+| 2026-11-14 | `b8ad919` (run 43570361558, US-112) | A : restauration à l'instant T (2 752 lignes à T)    | 0,18 s                                           | 4,21 s (2,89 + 0,21 + 1,10)                                   | objectif `instant` RPO ≤ 15 min, RTO ≤ 4 h : **tenus** |
+| 2026-11-14 | `b8ad919` (run 43570361558, US-112) | B : perte de l'instance, restauration au plus récent | 8,09 s                                           | 3,68 s (2,40 + 0,22 + 1,07)                                   | objectif `latest` RPO ≤ 15 min, RTO ≤ 4 h : **tenus**  |
 
 ## En cas d'alerte de sauvegarde
 

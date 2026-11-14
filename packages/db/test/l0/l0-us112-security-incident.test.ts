@@ -16,8 +16,9 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  assertProductionRole,
   connectAs,
   releaseClient,
   withRole,
@@ -188,6 +189,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await releaseClient(api);
+});
+
+// L0-05 : la connexion partagée est bien app_api, rôle de production, avant chaque preuve
+beforeEach(async () => {
+  await assertProductionRole(api, 'app_api');
 });
 
 describe.each(COUNTRIES)(
@@ -586,7 +592,8 @@ describe('US-112 — registre en ajout seul, inaccessible aux rôles applicatifs
           expect(code(error), `${role} ${sql}`).toBe('42501');
         }
         const execute = async (fn: string): Promise<boolean> => {
-          const { rows } = await client.query<{ has: boolean }>(
+          // lu sous app_api : app_anon n'a pas l'usage du schéma core (le nom ne s'y résout pas)
+          const { rows } = await api.query<{ has: boolean }>(
             `SELECT pg_catalog.has_function_privilege($1, $2::regprocedure, 'EXECUTE') AS has`,
             [role, fn],
           );
