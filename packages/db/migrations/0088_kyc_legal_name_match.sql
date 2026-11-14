@@ -96,7 +96,7 @@ AS $fn$
                pg_catalog.lower(pg_catalog.regexp_replace(
                  pg_catalog.normalize(
                    pg_catalog.regexp_replace(COALESCE(p_name, ''), '[''`\u00b4\u2018\u2019]', '', 'g'),
-                   NFD),
+                   'NFD'),
                  '[\u0300-\u036f]', '', 'g')
                  COLLATE "C"),
                '[^a-z]+', ' ', 'g')),
@@ -419,7 +419,10 @@ BEGIN
 END
 $fn$;
 
--- 5.3 Changement du nom légal par la personne de la session (SECURITY DEFINER, EXECUTE app_api).
+RESET ROLE;
+
+-- 5.3 Changement du nom légal par la personne de la session (SECURITY DEFINER, EXECUTE app_api ;
+-- créée sous migrator, droits posés, puis donnée à kyc_cmd_owner comme en 0072).
 -- Prénoms et noms : espaces de bord retirés, espaces internes réduits à un seul, 1 à 100
 -- caractères, aucun caractère de contrôle (sinon NAME_REQUIRED, rien n'est écrit). Même nom
 -- (caractère pour caractère) : UNCHANGED, rien n'est écrit. Sous le verrou de la personne (même
@@ -517,11 +520,10 @@ COMMENT ON FUNCTION core.kyc_cmd_change_legal_name(bytea, text, text) IS
   'Changement du nom légal par la personne (16 ACC-006, BR-ACC-07) : refusé pendant une décision '
   'en cours ; dossier APPROVED ⇒ RECHECK (LEGAL_NAME_CHANGED), nouvelle vérification exigée ; '
   'audit sans nom. SECURITY DEFINER, EXECUTE app_api. US-103 (ADR-117).';
-
-RESET ROLE;
-REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
 REVOKE ALL ON FUNCTION core.kyc_cmd_change_legal_name(bytea, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.kyc_cmd_change_legal_name(bytea, text, text) TO app_api;
+ALTER FUNCTION core.kyc_cmd_change_legal_name(bytea, text, text) OWNER TO kyc_cmd_owner;
+REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;
 
 -- 6. Sous risk_limit_owner : signal SAME_IDENTITY sur le nom lu sur le permis ------------------
 -- (définition de 0080 recopiée ; seule la clé de nom du CTE `ident` change, marquée US-103)
