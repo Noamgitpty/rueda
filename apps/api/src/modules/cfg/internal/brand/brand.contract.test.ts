@@ -13,6 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { countryCases } from '../../../../../test/support/countries.js';
 import { ContractClient, repositoryContract } from '../../../../testing/openapi-contract.js';
 import { BrandModule } from './brand.module.js';
+import { UnavailableBrandScanner } from './brand.service.js';
 import { loadBrandParams } from './params.js';
 import type { BrandStore, PublicAsset, PublishedBlock, PublishedVersion } from './store.js';
 
@@ -85,7 +86,13 @@ describe('contrat HTTP — /brand (lecture publique)', () => {
     const files = new InMemoryFileStore();
     await files.put('BRAND', `brand/${LOGO_ID}`, PNG);
     const nest = await NestFactory.create(
-      BrandModule.register({ store, files, params: loadBrandParams(), nowMs: () => 0 }),
+      BrandModule.register({
+        store,
+        files,
+        scanner: new UnavailableBrandScanner(),
+        params: loadBrandParams(),
+        nowMs: () => 0,
+      }),
       { logger: false },
     );
     await nest.listen(0, '127.0.0.1');

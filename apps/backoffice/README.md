@@ -16,4 +16,15 @@ Parcours : connexion (mot de passe), puis enrôlement TOTP avec le code d'activa
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RUEDA_API_URL` | URL de l'API ; `/api/*` y est réécrit (mandataire de même origine, le cookie `__Host-session` reste lié au domaine du back-office). Absente : aucune réécriture, la console ne peut rien faire. |
 
+## Apparence et marque (US-120, ADR-116, écran O02)
+
+`app/brand/` : route `/brand`, lien « Apparence et marque » dans la console pour un `ADMIN` à session élevée (l'API reste seule juge des droits `brand.edit` / `brand.publish`).
+
+- `brand-view.tsx` (présentation pure), `brand-client.tsx` (appels à `/api/console/brand/*`, `/api/console/content/*`, `/api/brand/content`), `brand-logic.ts` (brouillon, contrôles, refus expliqués), `preview.tsx` (aperçu).
+- Historique des versions, publication d'un brouillon (refus `BRAND_CONTRAST_INSUFFICIENT` : chaque paire affichée), retour arrière en un clic (journalisé par la base).
+- Nouveau brouillon : point de départ (version ou palette US-028, palettes sous le contraste signalées), nom, 8 couleurs par mode, polices de la liste approuvée, logo SVG clair et sombre (refusé s'il contient script, lien ou ressource externe : `logoProblem`).
+- Aperçu en direct de S01, S03, S05, A02 et d'un e-mail, en clair ou sombre, mobile ou bureau : variables du brouillon posées sur `[data-brand-preview]` (`previewStyleSheet`), jamais sur `:root` ; rien n'est publié.
+- Images de marque (PNG, JPEG, WebP, 64 Kio au plus, texte alternatif en quatre langues) : antivirus côté API, fail-closed.
+- Textes de l'accueil (registre d'US-121), quatre langues ensemble ; refus expliqués (mot d'un texte juridique cité, émojis composés ZWJ).
+
 Commandes : `pnpm --filter @rueda/backoffice test:unit`, `pnpm --filter @rueda/backoffice build`.

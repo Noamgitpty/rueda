@@ -69,7 +69,9 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  changé de `web.host.listing.submit` (« publier »), `web.host.place.area` (sans rue ni numéro),
  `common.listing.photoAdded`, `.deleted`, `.photoMinCount`, `.hostTermsRequired`,
  `.hostNotActivated` (plus de revue systématique, DEC-FONDATEUR-22).
- Versions 32 à 35 : réservées par l'orchestrateur aux PR du lot 1 en cours de fusion.
+ Version 34 (numéro réservé par l'orchestrateur ; 32 et 33 aux PR en file) : écran « Apparence et
+ marque » du back-office (US-120, O02) : `backoffice.o02.*`.
+ Version 35 : réservée par l'orchestrateur à une PR du lot 1 en cours de fusion.
  Version 36 : demandes des personnes saisies par l'action de console HANDLE_DSR (US-111,
  ADR-118) : `backoffice.dsr.*` (type, étape, refus) ; sens de `backoffice.action.HANDLE_DSR`
  inchangé (titre du formulaire).

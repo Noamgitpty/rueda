@@ -25,7 +25,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
 import { postgresCatAdapters } from '../modules/cat/index.js';
-import { loadBrandParams, PgBrandStore, UnavailableBrandFileStore } from '../modules/cfg/index.js';
+import {
+  loadBrandParams,
+  PgBrandStore,
+  UnavailableBrandFileStore,
+  UnavailableBrandScanner,
+} from '../modules/cfg/index.js';
 import { PgConsentStore } from '../modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from '../modules/iam/index.js';
 import { postgresKycAdapters } from '../modules/kyc/index.js';
@@ -949,6 +954,7 @@ beforeAll(async () => {
       {
         store: new PgBrandStore(client),
         files: new UnavailableBrandFileStore(),
+        scanner: new UnavailableBrandScanner(),
         params: loadBrandParams(),
       },
       {
