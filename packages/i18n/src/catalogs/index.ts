@@ -62,8 +62,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
  d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
  `web.vehicleDocs.declaration.vinHint`.
+ Versions 31 à 34 : réservées aux stories en cours (US-118, allègements, US-120).
+ Version 35 : nom légal identique au permis (US-103, ADR-117) : `common.kyc.legalName*`
+ (changement du nom), `backoffice.kyc.reason.LEGAL_NAME_*`, `backoffice.kyc.holderName` et
+ `backoffice.kyc.nameMatch.*` (dossier KYC de la console).
  */
-export const CATALOG_VERSION = 30;
+export const CATALOG_VERSION = 35;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

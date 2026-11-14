@@ -152,9 +152,13 @@ describe('schéma d’audit (US-009)', () => {
         if (r.roles === 'kyc_cmd_owner') {
           // US-105 (0072) : retrait du consentement biométrique et effacement chez le fournisseur
           // journalisés ; US-123 (0075) : dossier, filtrage, profil fiscal et activation de l'hôte ;
-          // INSERT seulement
+          // US-103 (0088) : changement du nom légal ; INSERT seulement
           expect(
-            ['audit_audit_log.kyc_cmd_audit_insert', 'audit_audit_log.kyc_cmd_host_audit_insert'],
+            [
+              'audit_audit_log.kyc_cmd_audit_insert',
+              'audit_audit_log.kyc_cmd_host_audit_insert',
+              'audit_audit_log.kyc_cmd_name_audit_insert',
+            ],
             where,
           ).toContain(where);
           expect(r.cmd, where).toBe('a');

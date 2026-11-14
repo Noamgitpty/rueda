@@ -234,6 +234,9 @@ const applyFacts = (
         licenseClass: 'B',
         isPermanent: true,
         providerDocumentRef: `doc_${randomBytes(4).toString('hex')}`,
+        // nom lu sur le permis (US-103, ADR-117) : concorde avec le nom du compte
+        holderGivenNames: 'Ana María',
+        holderSurnames: 'Pérez Gómez',
       }),
       subject === null ? null : JSON.stringify(subject),
     ],

@@ -93,6 +93,15 @@ export const KYC_CHECKS = [
 export type KycCheck = (typeof KYC_CHECKS)[number];
 export type KycCheckResult = 'PASSED' | 'FAILED';
 
+/** Verdict du rapprochement automatique du nom (US-103, ADR-117). */
+export type KycNameMatch = 'MATCH' | 'MISMATCH' | 'MISSING';
+
+export const KYC_NAME_MATCH_KEYS: Readonly<Record<KycNameMatch, MessageKey>> = {
+  MATCH: 'backoffice.kyc.nameMatch.MATCH',
+  MISMATCH: 'backoffice.kyc.nameMatch.MISMATCH',
+  MISSING: 'backoffice.kyc.nameMatch.MISSING',
+};
+
 export interface KycVerificationView {
   readonly id: string;
   readonly status: KycStatus;
@@ -107,6 +116,11 @@ export interface KycVerificationView {
     readonly licenseClass: string | null;
     readonly permanent: boolean | null;
     readonly status: 'ACCEPTED' | 'IN_REVIEW';
+    /** Nom du titulaire lu sur le permis (US-103) ; absent des dossiers antérieurs. */
+    readonly holderGivenNames?: string | null;
+    readonly holderSurnames?: string | null;
+    /** Rapprochement du nom légal du compte et du nom lu (US-103, ADR-117). */
+    readonly nameMatch?: KycNameMatch | null;
   } | null;
   readonly liveness: {
     readonly result: 'APPROVED' | 'DECLINED' | 'REVIEW';
@@ -408,6 +422,10 @@ export const KYC_REASON_KEYS: Readonly<Record<string, MessageKey>> = {
   LICENSE_NOT_ACCEPTED: 'backoffice.kyc.reason.LICENSE_NOT_ACCEPTED',
   DUPLICATE_ACCOUNT: 'backoffice.kyc.reason.DUPLICATE_ACCOUNT',
   MORE_INFO_REQUESTED: 'backoffice.kyc.reason.MORE_INFO_REQUESTED',
+  // US-103 : nom légal du compte rapproché du nom lu sur le permis
+  LEGAL_NAME_MISMATCH: 'backoffice.kyc.reason.LEGAL_NAME_MISMATCH',
+  LEGAL_NAME_MISSING: 'backoffice.kyc.reason.LEGAL_NAME_MISSING',
+  LEGAL_NAME_CHANGED: 'backoffice.kyc.reason.LEGAL_NAME_CHANGED',
 };
 
 /** Refus de la commande de décision (`values.reason` d'un 409 STAFF_ACTION_REFUSED). */
@@ -1539,6 +1557,21 @@ function KycPanel({
                 label={i18n.t('backoffice.kyc.permanent')}
                 value={yesNo(v.document.permanent)}
               />
+              {/* US-103 : nom lu sur le permis, à comparer au nom légal du compte (plus haut) */}
+              <Fact
+                label={i18n.t('backoffice.kyc.holderName')}
+                value={
+                  [v.document.holderGivenNames, v.document.holderSurnames]
+                    .filter((x): x is string => typeof x === 'string' && x !== '')
+                    .join(' ') || i18n.t('backoffice.kyc.unknown')
+                }
+              />
+              {v.document.nameMatch != null && v.document.nameMatch in KYC_NAME_MATCH_KEYS && (
+                <Fact
+                  label={i18n.t('backoffice.kyc.nameMatch')}
+                  value={i18n.t(KYC_NAME_MATCH_KEYS[v.document.nameMatch])}
+                />
+              )}
             </>
           )}
           <h3 className={styles['label']}>{i18n.t('backoffice.kyc.biometrics')}</h3>

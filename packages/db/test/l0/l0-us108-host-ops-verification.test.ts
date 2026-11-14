@@ -206,6 +206,9 @@ async function kycApproved(c: pg.ClientBase, p: Person, country: string): Promis
         licenseClass: 'B',
         isPermanent: true,
         providerDocumentRef: `doc_${randomBytes(4).toString('hex')}`,
+        // nom lu sur le permis (US-103, ADR-117) : concorde avec le nom du compte
+        holderGivenNames: 'Ana María',
+        holderSurnames: 'Pérez Gómez',
       }),
       JSON.stringify({ dateOfBirth: bornYearsAgo(30), residenceCountry: country }),
     ],

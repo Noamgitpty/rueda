@@ -2744,6 +2744,9 @@ Politiques RLS :
 | `status` | `text` | oui | — |
 | `retention_until` | `timestamp with time zone` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `holder_given_names` | `text` | non | — |
+| `holder_surnames` | `text` | non | — |
+| `name_match` | `text` | non | — |
 
 Contraintes :
 

@@ -73,12 +73,13 @@ Décision de l'ops et activation : action de console `HOST_VERIFICATION_DECISION
 
 ## Routes (US-105)
 
-| Route                           | Accès   | Réponse                                                                                            |
-| ------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| `GET /identity`                 | session | 200 `KYC_STATE` (statut, consentement en vigueur, téléphone, pays) ; 400 ; 401 ; 503               |
-| `POST /identity/consent`        | session | 200 `KYC_CONSENT_RECORDED` ; 400 ; 401 ; 403 ; 409 `KYC_CONSENT_VERSION_CHANGED` ; 415 ; 503       |
-| `POST /identity/verification`   | session | 201 / 200 (reprise) adresse hébergée ; 403 `KYC_BIOMETRIC_CONSENT_MISSING` ; 409 ; 422 ; 502 ; 503 |
-| `POST /kyc/webhooks/{provider}` | public  | 200 ; 401 (rejet journalisé) ; 404 (fournisseur inconnu) ; 503 — sans corps                        |
+| Route                           | Accès   | Réponse                                                                                                                                                    |
+| ------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /identity`                 | session | 200 `KYC_STATE` (statut, consentement en vigueur, téléphone, pays) ; 400 ; 401 ; 503                                                                       |
+| `POST /identity/legal-name`     | session | 200 `LEGAL_NAME_UPDATED`, `LEGAL_NAME_UNCHANGED` ; 400 `PROFILE_NAME_REQUIRED` ; 401 ; 403 ; 409 `PROFILE_NAME_LOCKED_PENDING_REVIEW` ; 415 ; 503 (US-103) |
+| `POST /identity/consent`        | session | 200 `KYC_CONSENT_RECORDED` ; 400 ; 401 ; 403 ; 409 `KYC_CONSENT_VERSION_CHANGED` ; 415 ; 503                                                               |
+| `POST /identity/verification`   | session | 201 / 200 (reprise) adresse hébergée ; 403 `KYC_BIOMETRIC_CONSENT_MISSING` ; 409 ; 422 ; 502 ; 503                                                         |
+| `POST /kyc/webhooks/{provider}` | public  | 200 ; 401 (rejet journalisé) ; 404 (fournisseur inconnu) ; 503 — sans corps                                                                                |
 
 Production : aucun fournisseur tant que le registre LEG-010 n'est pas validé (OQ-MK-09) : ouverture 503 `KYC_PROVIDER_UNAVAILABLE`, rappels 404. Contrôle bloquant du paiement : `IdentityVerificationService.assertDriverEligible(preuve, fin du trip, pays du trip)` (jeton `KYC_IDENTITY_SERVICE`, module global), à poser par US-209 (`KYC_LICENSE_EXPIRED`, `KYC_NOT_APPROVED`).
 
@@ -91,3 +92,10 @@ API publique (`index.ts`) : `KycModule`, les types des ports (`IdentityProvider`
 - e2e (écran S04, 360 et 390 px, 4 langues) : `apps/web/e2e/identity.spec.ts`.
 
 Les tests d'intégration et L0 demandent PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1`.
+
+## Nom légal identique au permis (US-103, ADR-117)
+
+- Le fournisseur rend le nom du titulaire lu sur le permis (`holderGivenNames`, `holderSurnames`, [C2], champs facultatifs du port `IdentityProvider`) ; l'adaptateur PostgreSQL le passe à la décision sans le journaliser.
+- La base rapproche ce nom du nom légal du compte (`core.kyc_legal_name_match`, règle tolérante d'ADR-117 : casse, accents, apostrophes, tirets, particules, deuxième prénom, un seul des deux apellidos) : concordant ⇒ `APPROVED` sans revue ; discordant ⇒ `MANUAL_REVIEW` `LEGAL_NAME_MISMATCH` ; absent ⇒ `MANUAL_REVIEW` `LEGAL_NAME_MISSING` (file KYC d'US-106, nom lu montré à l'ops).
+- `POST /identity/legal-name` (`IdentityVerificationService.changeLegalName`) : changement du nom par la personne ; refusé pendant une décision en cours (409) ; un dossier approuvé repasse `RECHECK` (paiement et remise refusés jusqu'à une nouvelle vérification).
+- Le contrat et le contrôle de remise reprendront le nom du compte caractère pour caractère ; l'autre partie ne voit que le prénom (ADR-107).

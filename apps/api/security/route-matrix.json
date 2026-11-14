@@ -54,6 +54,9 @@
     "POST /identity/consent": {
       "acces": "session"
     },
+    "POST /identity/legal-name": {
+      "acces": "session"
+    },
     "POST /identity/verification": {
       "acces": "session"
     },

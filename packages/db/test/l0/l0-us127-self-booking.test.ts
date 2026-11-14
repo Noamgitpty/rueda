@@ -175,6 +175,30 @@ const verify = (
     birth,
   ]);
 
+/**
+ * US-103 (fixture 9966) : identité vérifiée dont le permis lu par le fournisseur porte le nom
+ * `given surnames` (le nom déclaré du compte est `first last`).
+ */
+async function verifyWithLicense(
+  client: pg.ClientBase,
+  user: string,
+  c: CountryCase,
+  declared: readonly [string, string],
+  license: readonly [string, string],
+  birth: string,
+): Promise<void> {
+  const v = await one<{ id: string }>(
+    client,
+    'SELECT test_fixture.us127_verified_identity($1, $2, $3, $4, $5::date) AS id',
+    [user, c.country, declared[0], declared[1], birth],
+  );
+  await client.query('SELECT test_fixture.us103_license_name($1, $2, $3)', [
+    v.id,
+    license[0],
+    license[1],
+  ]);
+}
+
 /** Numéro E.164 de test, tiré au hasard (donnée de test, aucun plan national). */
 const phone = (): string => `+5${String(randomInt(100_000_000, 999_999_999))}`;
 
@@ -281,6 +305,50 @@ describe.each(COUNTRIES)('US-127 critère 2 — comptes liés ($country, $curren
       expect(await pose(client, unverified, a.vehicle, a.org, slot())).toBe('OK');
       await report(client, otherBirth, a.vehicle);
       expect(await assessments(client, otherBirth)).toEqual([]);
+    });
+  });
+
+  // US-103 (0088, ADR-117) : la clé de nom est celle du NOM LU SUR LE PERMIS quand le dossier
+  // approuvé en a un ; un nom déclaré différent n'échappe plus au signal (ADR-110, risques).
+  it('US-103 : même nom lu sur le permis, noms déclarés différents : refus SAME_IDENTITY ; témoin : même nom déclaré, permis d’une autre personne', async () => {
+    await withRole('app_api', async (client) => {
+      const a = await hostWithVehicle(client, c);
+      const birth = '1988-09-03';
+      await verifyWithLicense(
+        client,
+        a.holder,
+        c,
+        ['María José', 'Núñez Pérez'],
+        ['MARIA JOSE', 'NUNEZ PEREZ'],
+        birth,
+      );
+      // second compte : nom déclaré raccourci, même personne d'après le permis
+      const second = await party(client);
+      await verifyWithLicense(
+        client,
+        second,
+        otherOf(c),
+        ['Majo', 'Núñez'],
+        ['María José', 'Núñez de Pérez'],
+        birth,
+      );
+      // homonyme déclaré (même nom saisi, même date) dont le permis porte un autre nom
+      const namesake = await party(client);
+      await verifyWithLicense(
+        client,
+        namesake,
+        c,
+        ['María José', 'Núñez Pérez'],
+        ['María Josefa', 'Núñez Paredes'],
+        birth,
+      );
+
+      expect(await pose(client, second, a.vehicle, a.org, slot())).toBe('SELF_BOOKING_FORBIDDEN');
+      await report(client, second, a.vehicle);
+      expect((await assessments(client, second)).map((x) => x.rules_fired)).toEqual([
+        [{ code: RULE, version: 1, signal: 'SAME_IDENTITY' }],
+      ]);
+      expect(await pose(client, namesake, a.vehicle, a.org, slot())).toBe('OK');
     });
   });
 
