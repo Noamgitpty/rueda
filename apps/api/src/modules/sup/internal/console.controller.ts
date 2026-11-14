@@ -226,6 +226,9 @@ export class ConsoleController {
         return { code: 'STAFF_ACTION_DONE', messageKey: 'common.auth.actionDone', approvalId: id };
       case 'SELF_APPROVAL':
         throw new AuthHttpError('STAFF_SELF_APPROVAL');
+      case 'SELF_FORBIDDEN':
+        // US-122 (ADR-124) : sujet qui concerne l'approbateur ; même réponse qu'un refus d'accès
+        throw new AuthHttpError('FORBIDDEN');
       case 'NOT_PENDING':
       case 'SUBJECT_CHANGED':
         throw new AuthHttpError('STAFF_ACTION_REFUSED', { reason: outcome });
