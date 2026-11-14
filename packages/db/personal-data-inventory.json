@@ -1574,6 +1574,61 @@
         "signals": "C1"
       }
     },
+    "core.risk_account_link": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_low",
+          "type": "USER"
+        },
+        {
+          "column": "user_high",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "user_low": "C1",
+        "user_high": "C1",
+        "decision": "C1",
+        "signal": "C1",
+        "decided_by": "C1",
+        "decided_at": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.risk_assessment": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "subject_id",
+          "type": "USER"
+        },
+        {
+          "column": "org_id",
+          "type": "ORG"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "subject_type": "C1",
+        "subject_id": "C1",
+        "country_code": "C1",
+        "org_id": "C1",
+        "rules_fired": "C1",
+        "score": "C1",
+        "decision": "C1",
+        "dedupe_key": "C1",
+        "explanation": "C1",
+        "reviewed_by": "C1",
+        "decided_at": "C1",
+        "created_at": "C1"
+      }
+    },
     "core.risk_rate_counter": {
       "lifecycle": "T",
       "export": "none",
@@ -1586,6 +1641,18 @@
         "window_end": "C1",
         "country_code": "C1",
         "hits": "C1"
+      }
+    },
+    "core.risk_rule": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "code": "C1",
+        "version": "C1",
+        "description": "C1",
+        "severity": "C1",
+        "active": "C1",
+        "valid_from": "C1"
       }
     },
     "core.settlement_finance_approval": {

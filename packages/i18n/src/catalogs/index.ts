@@ -54,6 +54,8 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 27 : fiche technique à compléter d'une variante
  sans fiche du catalogue (import de la douane, suite d'US-113, ADR-109) :
  `backoffice.catalog.specsPending`.
+ Version 28 : refus d'une réservation par l'hôte lui-même ou par un compte lié (US-127) :
+ `common.booking.selfBookingForbidden.*`.
  Version 32 (numéro réservé, versions 27 à 31 aux stories en file) : publication immédiate d'une
  annonce, retrait et revue de l'ops sur signal (US-118) : `common.listing.published`,
  `.unlisted`, `.hasFutureTrips`, `.vehicleEligibilityRequired`, `.insurerInactive`,
