@@ -1,4 +1,4 @@
--- 9958 — fixtures des preuves du registre des incidents de sécurité (US-112, migration 0094). TESTS
+-- 9958 — fixtures des preuves du registre des incidents de sécurité (US-112, migration 0092). TESTS
 -- SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base

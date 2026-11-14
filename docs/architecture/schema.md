@@ -106,8 +106,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0088_kyc_legal_name_match` | KYC : nom légal du compte rapproché du nom lu sur le permis, changement du nom légal. |
 | `0089_config_privacy_params` | graine complémentaire : paramètres « privacy_* » (US-111 ; 17 §7.2). |
 | `0090_audit_privacy_register` | AUD : registre Ley 81 (traitements, sous-traitants, règles de rétention), demandes des personnes, pseudonymisation des trips clos. |
-| `0093_config_security_incident_params` | graine complémentaire : paramètres « security_incident_* » (US-112 ; 17 §7.2). |
-| `0094_audit_security_incident` | AUD : registre des incidents de sécurité et des violations de données (délais de notification). |
+| `0091_config_security_incident_params` | graine complémentaire : paramètres « security_incident_* » (US-112 ; 17 §7.2). |
+| `0092_audit_security_incident` | AUD : registre des incidents de sécurité et des violations de données (délais de notification). |
 
 ## Rôles
 

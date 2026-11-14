@@ -79,7 +79,7 @@ export const POST_SEED_PARAMS: readonly {
   },
   {
     prefix: 'security_incident_',
-    file: '0093_config_security_incident_params.sql',
+    file: '0091_config_security_incident_params.sql',
     story: 'US-112',
     refs: '19 US-112, 16 LEG-010 / ADM-035, OQ-MK-09',
   },

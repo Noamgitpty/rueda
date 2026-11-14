@@ -225,7 +225,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'iam_auth_otp_read', cmd: 'r', roles: 'iam_auth_owner' }]
               : []),
-            // registre des incidents (US-112, 0094) : délais de notification d'une violation seulement
+            // registre des incidents (US-112, 0092) : délais de notification d'une violation seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'iam_staff_incident_read', cmd: 'r', roles: 'iam_staff_owner' }]
               : []),

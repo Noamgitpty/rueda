@@ -1,6 +1,6 @@
 /**
  * Preuves du registre des incidents de sécurité et des violations de données (US-112, migrations
- * 0093 et 0094 ; fixture 9958) sous les rôles de PRODUCTION app_api et app_worker (assertion L0-05
+ * 0091 et 0092 ; fixture 9958) sous les rôles de PRODUCTION app_api et app_worker (assertion L0-05
  * en tête de chaque connexion : connectAs / withRole), au Panama (USD) et au Paraguay (PYG).
  *
  * Attendus tirés de 19 US-112 (critère 2 : « un incident déclaré est inscrit au registre avec les
@@ -301,7 +301,7 @@ describe.each(COUNTRIES)(
     });
 
     it('fail-closed : délai du pays absent (avant sa mise en vigueur) ⇒ échéances immédiates ; détection absente ⇒ instant de la base', async () => {
-      // les délais de 0093 entrent en vigueur à la migration : à un instant antérieur, aucun délai
+      // les délais de 0091 entrent en vigueur à la migration : à un instant antérieur, aucun délai
       await withTestTransaction(api, { virtualNow: '2026-11-10T12:00:00Z' }, async (tx) => {
         const r = await declare(tx, actor('admin'), { country: c.country });
         expect(r.outcome).toBe('OPENED');

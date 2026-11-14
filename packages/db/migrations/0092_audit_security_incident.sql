@@ -1,10 +1,10 @@
--- 0094 — AUD : registre des incidents de sécurité et des violations de données (délais de notification).
+-- 0092 — AUD : registre des incidents de sécurité et des violations de données (délais de notification).
 -- US-112 ; 19 US-112 (critère 2) ; 16 LEG-010, ADM-035 ; 17 §3.2.13 (`security_incident`), §4.5
 -- (`security.incident.opened`), §6.4 (procédure d'incident, astreinte), §2.3 (matrice : PROPOSÉ,
 -- aucune ligne de 17 ne nomme le registre) ; 22 OQ-MK-09 (délai de 72 h, PROPOSÉ) ; ADR-062
 -- (console), ADR-121 (cette migration, PROPOSÉ). Appliquée sous `migrator`.
 -- Paramètres lus : `security_incident_authority_notice_hours`, `security_incident_subjects_notice_hours`
--- (graine 0093).
+-- (graine 0091).
 --
 -- Principes (ADR-121) :
 --   - une ligne PAR PAYS touché (une autorité de contrôle par pays : ANTAI au Panama, autorité à
