@@ -8,7 +8,8 @@
  *   2. type RÉEL lu dans les octets, liste blanche JPEG, PNG, WebP (le type déclaré n'est jamais
  *      cru ; SVG, HTML, PDF, fichier inconnu : PHOTO_FORMAT ; L1-PM-41) ;
  *   3. dimensions lues dans l'en-tête, avant tout décodage : côté et surface bornés (bombe de
- *      décompression, L1-PM-42) ;
+ *      décompression, L1-PM-42) ; plusieurs SOF ou IHDR : la plus grande taille annoncée
+ *      (F2-U-01) ;
  *   4. métadonnées retirées (EXIF dont GPS, XMP, IPTC, MPF, commentaires, textes PNG ;
  *      L1-PM-19) par LISTE BLANCHE : JPEG coupé au premier EOI (rien après : ni image secondaire
  *      MPF / Ultra HDR, ni vidéo de « motion photo »), APP2 gardé seulement pour un profil ICC,
@@ -84,6 +85,19 @@ const JPEG_KEEP_APP = new Set([0xe0, 0xee]);
 const ICC_PROFILE = Buffer.from('ICC_PROFILE\0', 'latin1');
 const SOF = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
 
+/**
+ * Plusieurs tailles annoncées (deux SOF JPEG, deux IHDR PNG ; red team du lot 1, F2-U-01) : la
+ * PLUS GRANDE de chaque côté est retenue, quel que soit son rang. Un décodeur peut lire la
+ * première comme la dernière ; aucune ne se cache derrière une autre (fail-closed).
+ */
+function largest(prev: Dimensions | null, next: Dimensions): Dimensions {
+  if (prev === null) return next;
+  return {
+    width: Math.max(prev.width, next.width),
+    height: Math.max(prev.height, next.height),
+  };
+}
+
 function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
   const out: Buffer[] = [b.subarray(0, 2)];
   let i = 2;
@@ -112,7 +126,7 @@ function jpeg(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } 
     const segment = b.subarray(i, i + 2 + len);
     if (SOF.has(marker)) {
       if (len < 7) throw new PhotoRejectedError('MALFORMED');
-      dims = { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) };
+      dims = largest(dims, { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) });
     }
     if (marker === 0xda) {
       // en-tête du scan, puis données compressées jusqu'au prochain marqueur : dans le flux,
@@ -175,7 +189,7 @@ function png(b: Buffer): { readonly clean: Buffer; readonly dims: Dimensions } {
     if (end > b.length) throw new PhotoRejectedError('MALFORMED');
     if (type === 'IHDR') {
       if (len < 8) throw new PhotoRejectedError('MALFORMED');
-      dims = { width: b.readUInt32BE(i + 8), height: b.readUInt32BE(i + 12) };
+      dims = largest(dims, { width: b.readUInt32BE(i + 8), height: b.readUInt32BE(i + 12) });
     }
     if (PNG_KEEP.has(type)) out.push(b.subarray(i, end));
     i = end;
