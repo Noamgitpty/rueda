@@ -836,6 +836,8 @@ export const ES_MESSAGES = {
   'web.host.cars.needPlace': 'Primero agrega un lugar de entrega.',
   'web.host.car.plate': 'Placa',
   'web.host.car.vin': 'Número de chasis (VIN)',
+  'web.host.car.vinHint':
+    'VIN de 17 caracteres (ej.: 1HGCM82633A004352) o número de chasis de un auto importado (ej.: GRJ150-0012345).',
   'web.host.car.make': 'Marca',
   'web.host.car.model': 'Modelo',
   'web.host.car.year': 'Año',
@@ -1435,6 +1437,10 @@ export const ES_MESSAGES = {
   'web.vehicleDocs.declaration.lienOk':
     'El auto no está prendado, o tengo el acuerdo escrito del acreedor',
   'web.vehicleDocs.declaration.vin': 'Número de chasis (VIN)',
+  'web.vehicleDocs.declaration.vinHint':
+    'VIN de 17 caracteres (ej.: 1HGCM82633A004352) o número de chasis de un auto importado (ej.: GRJ150-0012345).',
+  'common.vehicleDocs.vinInvalid':
+    'El número de chasis no es válido. Escribe el VIN de 17 caracteres (sin I, O ni Q) o el número de chasis de tu auto importado, por ejemplo GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'Lo declaraste el {date}.',
   'backoffice.catalog.specsPending': 'Ficha técnica por completar',
 } as const satisfies Catalog;

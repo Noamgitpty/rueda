@@ -27,7 +27,9 @@
  * PROPOSÉS par US-124 : `VEHICLE_DECLARATION_SAVED`, `VEHICLE_DOCUMENT_ADDED`,
  * `VEHICLE_ELIGIBILITY_SUBMITTED`, `VEHICLE_UNDER_REVIEW`, `VEHICLE_INELIGIBLE`, `VEHICLE_RELEASED`,
  * `VEHICLE_ALREADY_ELIGIBLE`, `VEHICLE_DOCUMENT_INVALID`, `VEHICLE_DOCUMENT_UNAVAILABLE` ;
- * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE`.
+ * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE` ;
+ * PROPOSÉ par le correctif d'US-124 (ADR-113) : `VEHICLE_VIN_INVALID` (numéro de châssis ni VIN
+ * ISO 3779 ni numéro non ISO de 5 à 16 caractères ; création et déclaration du véhicule).
  *
  * Couverture de l'assureur à la soumission (US-108, ADR-111) : `VEHICLE_NOT_COVERED` (16 A.8,
  * HST-019) et `INSURER_CONTRACT_INACTIVE` (16 A.8 ; aucun contrat en vigueur ou interrupteur fermé).
@@ -88,6 +90,8 @@ export const HOST_LISTING_MESSAGES = {
   CLAIM_DUPLICATE: { status: 409, messageKey: 'common.vehicleDocs.claimDuplicate' },
   VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
+  // numéro de châssis mal formé : message dédié avec les deux formats admis (ADR-113)
+  VEHICLE_VIN_INVALID: { status: 422, messageKey: 'common.vehicleDocs.vinInvalid' },
   LOCATION_FIELD_INVALID: { status: 422, messageKey: 'common.listing.locationFieldInvalid' },
   PRICE_INVALID: { status: 422, messageKey: 'common.listing.priceInvalid' },
   MILEAGE_CONFIG_INVALID: { status: 422, messageKey: 'common.listing.mileageInvalid' },

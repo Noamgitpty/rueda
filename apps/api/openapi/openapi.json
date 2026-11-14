@@ -4434,7 +4434,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Champ obligatoire absent ou invalide selon la base",
+            "description": "Champ obligatoire absent ou invalide selon la base ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-113)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4446,7 +4446,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "const": "VEHICLE_FIELD_REQUIRED"
+                      "enum": ["VEHICLE_FIELD_REQUIRED", "VEHICLE_VIN_INVALID"]
                     }
                   }
                 }
@@ -7333,6 +7333,26 @@
           },
           "415": {
             "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Champ refusé par la base (VIN déjà enregistré différent, libellé des engagements) ; numéro de châssis ni VIN ISO 3779 ni numéro non ISO de 5 à 16 caractères (ADR-113)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["VEHICLE_FIELD_REQUIRED", "VEHICLE_VIN_INVALID"]
+                    }
+                  }
+                }
+              }
+            }
           },
           "503": {
             "description": "Base indisponible : rien n'est écrit",
@@ -13465,7 +13485,11 @@
           },
           "vin": {
             "type": ["string", "null"],
-            "description": "VIN saisi s'il manquait (normalisé ; pris par un autre véhicule : 409 VEHICLE_PLATE_DUPLICATE)"
+            "description": "Numéro de châssis saisi s'il manquait : VIN ISO 3779 (17 caractères sans I, O, Q) ou numéro non ISO de 5 à 16 lettres ou chiffres (tirets et espaces retirés) ; mal formé : 422 VEHICLE_VIN_INVALID ; pris par un autre véhicule : 409 VEHICLE_PLATE_DUPLICATE"
+          },
+          "locale": {
+            "type": ["string", "null"],
+            "description": "Langue de l'écran où l'hôte a coché ses engagements (es, en, fr, pt, ou étiquette comme pt-BR) ; absente : es. Le libellé affiché et la version du catalogue sont historisés (ADR-113)"
           }
         }
       },

@@ -59,8 +59,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 29 : dossier de l'hôte signalé dans la console (US-108, revue par exception) :
  `backoffice.host.*`, `backoffice.queues.openHost`, `common.listing.vehicleNotCovered` et
  `common.listing.insurerInactive`.
+ Version 30 : numéro de châssis en deux formats, VIN ISO 3779 ou numéro non ISO (correctif
+ d'US-124, ADR-113) : `common.vehicleDocs.vinInvalid`, `web.host.car.vinHint`,
+ `web.vehicleDocs.declaration.vinHint`.
  */
-export const CATALOG_VERSION = 29;
+export const CATALOG_VERSION = 30;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

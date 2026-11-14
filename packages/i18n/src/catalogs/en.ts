@@ -804,6 +804,8 @@ export const EN_MESSAGES = {
   'web.host.cars.needPlace': 'First add a handover spot.',
   'web.host.car.plate': 'License plate',
   'web.host.car.vin': 'Chassis number (VIN)',
+  'web.host.car.vinHint':
+    '17-character VIN (e.g. 1HGCM82633A004352) or chassis number of an imported car (e.g. GRJ150-0012345).',
   'web.host.car.make': 'Make',
   'web.host.car.model': 'Model',
   'web.host.car.year': 'Year',
@@ -1393,6 +1395,10 @@ export const EN_MESSAGES = {
   'web.vehicleDocs.declaration.lienOk':
     'The car has no lien, or I have the lender’s written consent',
   'web.vehicleDocs.declaration.vin': 'Chassis number (VIN)',
+  'web.vehicleDocs.declaration.vinHint':
+    '17-character VIN (e.g. 1HGCM82633A004352) or chassis number of an imported car (e.g. GRJ150-0012345).',
+  'common.vehicleDocs.vinInvalid':
+    'This chassis number is not valid. Enter the 17-character VIN (no I, O or Q) or the chassis number of your imported car, for example GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'You declared it on {date}.',
   'backoffice.catalog.specsPending': 'Specs to complete',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

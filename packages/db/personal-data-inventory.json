@@ -524,6 +524,33 @@
         "lien_attested_at": "C1"
       }
     },
+    "core.catalog_vehicle_attestation": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "vehicle_id": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "user_id": "C1",
+        "statement": "C1",
+        "statement_key": "C1",
+        "catalog_version": "C1",
+        "locale": "C1",
+        "statement_text": "C1",
+        "attested_at": "C1"
+      }
+    },
     "core.catalog_vehicle_claim": {
       "lifecycle": "D",
       "subjects": [
