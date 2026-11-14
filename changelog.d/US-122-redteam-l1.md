@@ -6,7 +6,7 @@ module: Équipe et CI
 lot: L1
 module: Console interne
 
-- Corrigé : séparation des tâches unique dans la base (`core.support_actor_conflict`, ADR-122) : un membre du staff ne traite plus aucun sujet qui le concerne (son compte d'hôte, son dossier KYC, son véhicule, son annonce, sa contestation, sa demande, ou ceux d'un compte lié), pour toutes les actions de console et les files LISTING et CATALOG_ADDITION ; refus `SELF_FORBIDDEN` journalisé, 403 `STAFF_SELF_FORBIDDEN` (constats F-L1-C-01 à C-03, US-122)
+- Corrigé : séparation des tâches unique dans la base (`core.support_actor_conflict`, ADR-122) : un membre du staff ne traite plus aucun sujet qui le concerne (son compte d'hôte, son dossier KYC, son véhicule, son annonce, sa contestation, sa demande, ou ceux d'un compte lié), pour toutes les actions de console et les files LISTING et CATALOG_ADDITION, puis (passe n° 2, ADR-124) pour toutes les autres entrées de la console : prise d'un élément de file, dossiers KYC et d'hôte, constat de comptes liés, actions FINANCE à deux personnes ; refus `SELF_FORBIDDEN` journalisé, 403 `STAFF_SELF_FORBIDDEN` (constats F-L1-C-01 à C-03, US-122)
 
 lot: L1
 module: Catalogue et annonces
