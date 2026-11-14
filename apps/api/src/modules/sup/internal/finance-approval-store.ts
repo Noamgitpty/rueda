@@ -20,6 +20,8 @@ export type ApprovalOutcome =
   | 'FORBIDDEN'
   | 'NOT_PENDING'
   | 'SELF_APPROVAL'
+  /** US-122 (ADR-124) : l'approbateur est une personne du sujet (titulaire, co-hôte, compte lié). */
+  | 'SELF_FORBIDDEN'
   | 'SUBJECT_CHANGED'
   | 'APPROVED';
 

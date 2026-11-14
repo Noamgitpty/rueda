@@ -100,6 +100,19 @@ function bornYearsAgo(years: number, extraDays = 0): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Date de naissance propre à chaque hôte approuvé de ce fichier (US-122, ADR-124, F2-A03-01) : deux
+ * identités vérifiées de même nom et de même date de naissance sont la même personne, et le second
+ * compte d'hôte n'est plus approuvé. Les hôtes de ce fichier sont des personnes distinctes ; leurs
+ * dossiers validés restent en base pendant la série : chaque fichier a sa plage (US-108 : 2 000 jours
+ * et plus, US-123 : 4 000 jours et plus), aucune ne vaut exactement 30 ans.
+ */
+let births = 0;
+function distinctBirth(): string {
+  births += 1;
+  return bornYearsAgo(30, 4_000 + births);
+}
+
 const isoDay = (days: number): string =>
   new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
@@ -482,7 +495,7 @@ async function readyHost(
   const p = await person(c, country);
   expect(
     await kycApproved(c, p, country, {
-      dateOfBirth: bornYearsAgo(30),
+      dateOfBirth: distinctBirth(),
       residenceCountry: country,
     }),
   ).toMatchObject({ outcome: 'APPLIED', status: 'APPROVED' });

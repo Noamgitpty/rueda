@@ -145,6 +145,11 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // hôte restreint (0097, US-122, ADR-124) : insertion de booking.trip.host_restricted seulement
+        if (r.pol === 'outbox_outbox_event.cmd_hold_trip_notice_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
         // commandes de l'OTP (0066, US-104) : insertion de leurs seuls événements
         // iam.otp.requested et iam.phone.verified
         if (r.pol === 'outbox_outbox_event.iam_auth_otp_event_ins') {

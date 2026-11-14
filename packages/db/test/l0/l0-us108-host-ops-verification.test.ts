@@ -95,10 +95,24 @@ function phoneOf(country: string): string {
   return `+${p.callingCode}${prefix}${rest}`;
 }
 
-function bornYearsAgo(years: number): string {
+function bornYearsAgo(years: number, extraDays = 0): string {
   const d = new Date();
   d.setUTCFullYear(d.getUTCFullYear() - years);
+  d.setUTCDate(d.getUTCDate() - extraDays);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Date de naissance propre à chaque hôte approuvé de ce fichier (US-122, ADR-124, F2-A03-01) : deux
+ * identités vérifiées de même nom et de même date de naissance sont la même personne, et le second
+ * compte d'hôte n'est plus approuvé. Les hôtes de ce fichier sont des personnes distinctes ; leurs
+ * dossiers validés restent en base pendant la série : chaque fichier a sa plage (US-108 : 2 000 jours
+ * et plus, US-123 : 4 000 jours et plus), aucune ne vaut exactement 30 ans.
+ */
+let births = 0;
+function distinctBirth(): string {
+  births += 1;
+  return bornYearsAgo(30, 2_000 + births);
 }
 
 const isoDay = (days: number): string =>
@@ -210,7 +224,7 @@ async function kycApproved(c: pg.ClientBase, p: Person, country: string): Promis
         holderGivenNames: 'Ana María',
         holderSurnames: 'Pérez Gómez',
       }),
-      JSON.stringify({ dateOfBirth: bornYearsAgo(30), residenceCountry: country }),
+      JSON.stringify({ dateOfBirth: distinctBirth(), residenceCountry: country }),
     ],
   );
   expect(d).toMatchObject({ outcome: 'APPLIED', status: 'APPROVED' });

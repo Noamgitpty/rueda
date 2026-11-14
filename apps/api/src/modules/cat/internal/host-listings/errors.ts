@@ -30,6 +30,9 @@
  * contestation (BOARD N-61) : `VEHICLE_CLAIM_OPENED`, `CLAIM_NOT_NEEDED`, `CLAIM_DUPLICATE` ;
  * PROPOSÉ par US-122 (red team F-L1-V-01, ADR-122) : `CLAIM_LIMIT_REACHED` (plafond de contestations
  * ouvertes du compte, paramètre `plate_claims_open_per_host` du pays) ;
+ * PROPOSÉS par US-122, passe n° 2 (red team F2-U-02, ADR-124) : `PHOTO_LIMIT_REACHED` (galerie
+ * pleine, paramètre `upload_gallery_photos_max` du pays), `DOCUMENT_RATE_LIMITED` (rafale de dépôts
+ * de pièces, paramètre `upload_documents_per_minute` du pays) ;
  * PROPOSÉ par le correctif d'US-124 (ADR-113) : `VEHICLE_VIN_INVALID` (numéro de châssis ni VIN
  * ISO 3779 ni numéro non ISO de 5 à 16 caractères ; création et déclaration du véhicule).
  *
@@ -108,6 +111,9 @@ export const HOST_LISTING_MESSAGES = {
   CLAIM_NOT_NEEDED: { status: 409, messageKey: 'common.vehicleDocs.claimNotNeeded' },
   CLAIM_DUPLICATE: { status: 409, messageKey: 'common.vehicleDocs.claimDuplicate' },
   CLAIM_LIMIT_REACHED: { status: 409, messageKey: 'common.vehicleDocs.claimLimitReached' },
+  // plafonds de téléversement du pays (US-122, ADR-124) : galerie pleine, rafale de dépôts
+  PHOTO_LIMIT_REACHED: { status: 409, messageKey: 'common.listing.photoLimitReached' },
+  DOCUMENT_RATE_LIMITED: { status: 409, messageKey: 'common.rateLimit.retryLater' },
   VEHICLE_NOT_LISTED: { status: 409, messageKey: 'common.calendar.notListed' },
   VEHICLE_FIELD_REQUIRED: { status: 422, messageKey: 'common.listing.vehicleFieldRequired' },
   // numéro de châssis mal formé : message dédié avec les deux formats admis (ADR-113)

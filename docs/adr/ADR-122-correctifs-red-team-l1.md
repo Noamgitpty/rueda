@@ -10,7 +10,7 @@ La red team du lot 1 a trouvé sept constats. Trois portent sur la même règle,
 ## Décision
 
 1. **Une garde unique de séparation des tâches** : `core.support_actor_conflict(acteur, type, sujet)` (iam_staff_owner, SECURITY INVOKER, exécutable par aucun rôle applicatif). Elle vaut vrai quand l'acteur est une **personne du sujet** (`core.support_subject_parties`) ou un compte que l'ops a constaté **LIÉ** (`risk_account_link`, LINKED, US-127) à l'une d'elles. Personnes du sujet : la personne (`USER_ACCOUNT`), la personne vérifiée (`IDENTITY_VERIFICATION`), le titulaire et les membres ACTIVE ou INVITED de **tous** les comptes d'hôte du titulaire (`ORGANIZATION`, `LISTING`, `VEHICLE`), le demandeur et les deux comptes d'une contestation (`VEHICLE_CLAIM` : celui qui conteste et celui du véhicule contesté), le demandeur d'un ajout au catalogue, les parties d'un trip, le demandeur d'un dossier de support et le compte d'une avance. Un type inconnu vaut **conflit** (fail-closed) : une story qui ajoute un type de sujet ajoute sa branche.
-2. La garde est appelée par les **trois** points d'entrée des décisions de la console, avant toute commande de domaine :
+2. La garde est appelée par les **trois** points d'entrée des décisions de la console, avant toute commande de domaine (ADR-124 ajoute toutes les autres entrées de la console) :
    - `core.iam_staff_cmd_manual_action` : toutes les actions du catalogue (décision d'hôte, filtrage et revue du filtrage des sanctions, décision KYC, restrictions, création de compte d'hôte, DSR, actions FINANCE, actions d'enregistrement seul). Issue `REFUSED`, détail `SELF_FORBIDDEN`, journalisée `MANUAL_ACTION_REFUSED` (même forme qu'un refus du domaine) ;
    - `core.support_staff_vehicle_item` (file LISTING : annonce, éligibilité du véhicule, contestation) et `core.support_staff_catalog_item` (file CATALOG_ADDITION) : issue `SELF_FORBIDDEN`, journalisée `STAFF_FORBIDDEN` (`reason` = `SELF`). La lecture du dossier est refusée comme la décision. L'API rend 403 `STAFF_SELF_FORBIDDEN` (`common.ops.selfForbidden`, es, en, fr, pt-BR).
    - Les gardes propres aux commandes (0064, 0076, 0081) restent en place, en défense en profondeur.
@@ -21,7 +21,7 @@ La red team du lot 1 a trouvé sept constats. Trois portent sur la même règle,
 
 ## Conséquences
 
-- Un membre du staff ne traite jamais un sujet qui le concerne, quelle que soit l'action ; le refus est journalisé. Un sujet est confié à un autre agent : c'est voulu (17 §2.3).
+- Un membre du staff ne traite jamais un sujet qui le concerne, quelle que soit l'action ; le refus est journalisé. Un sujet est confié à un autre agent : c'est voulu (17 §2.3). **Amendé par ADR-124** : la formule n'est devenue vraie qu'avec la passe n° 2, qui étend la garde à la prise d'un élément de file, aux dossiers KYC et d'hôte, au constat de comptes liés et aux deux actions FINANCE à deux personnes, et compte le co-hôte d'une personne pour `USER_ACCOUNT` et `IDENTITY_VERIFICATION`.
 - Lien d'identité plus large : un second compte de la même personne est refusé à la pose même si l'autre permis découpe le nom autrement.
 - Les droits d'`iam_staff_owner` s'élargissent aux colonnes d'identifiants (compte, membre, véhicule, annonce, contestation, demande, vérification) : aucune donnée C2 ni C3.
 - Renvois : 17 §2.3 (garde unique, à reporter), 16 HST (code `CLAIM_LIMIT_REACHED`, `STAFF_SELF_FORBIDDEN`, à reporter dans 16 A.8), 17 §7.2 (`plate_claims_open_per_host`).

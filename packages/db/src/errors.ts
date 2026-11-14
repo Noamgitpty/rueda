@@ -204,6 +204,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   hold_self_booking: [SQLSTATE.objectNotInPrerequisiteState, 'SELF_BOOKING_FORBIDDEN'],
   // restriction de compte active du voyageur (0064, US-109 ; 16 ADM-005, BKG-012)
   hold_account_restricted: [SQLSTATE.objectNotInPrerequisiteState, 'ACCOUNT_RESTRICTED'],
+  // consentement biométrique retiré (0097, US-122, ADR-124 ; 16 VER-004 « paiement refusé »)
+  hold_kyc_consent_withdrawn: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
   hold_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
   hold_guest_limit: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_LIMIT_REACHED'],
   hold_guest_overlap: [SQLSTATE.objectNotInPrerequisiteState, 'GUEST_OVERLAP'],

@@ -41,6 +41,7 @@ Déjà consommés par le code (travailleur `ntf_dispatcher`, `RULES` de `interna
 - `trip.overdue.detected` ;
 - `payout.batch.status_changed` (`status` = `INITIATED` ou `ON_HOLD`) ;
 - `catalog.addition_request.resolved` (`status` = `APPROVED` ou `MERGED` : ajout ; `REJECTED` : refus ; hôte demandeur `host_user_id`, US-114).
+- `booking.trip.host_restricted` (voyageur `guest_user_id` d'un trip à venir dont l'hôte est restreint, gabarit `EVT_TRIP_HOST_RESTRICTED` ; US-122, ADR-124).
 
 Cible (17 §4.5) : NTF consomme aussi, entre autres, `iam.user.registered`, `iam.restriction.applied` / `.lifted`, `kyc.host_verification.decided`, `catalog.listing.status_changed`, `booking.hold.*`, `booking.request.*`, `settlement.computed`, `refund.instance.status_changed`, `deposit.decision.executed`, `contract.document.generated` / `.signed`, `trip.checkin.validated`, `trip.checkout.completed`, `claim.status_changed`, `invoice.status_changed`, `message.posted` / `.flagged`, `finance.statement.issued`, `fiscal.document.status_changed`, `host_ledger.state_changed`.
 
