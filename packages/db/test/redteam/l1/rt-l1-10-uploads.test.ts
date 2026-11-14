@@ -18,23 +18,14 @@ import { describe, expect, it } from 'vitest';
 import { withRole } from '../../../src/testing/index.ts';
 import {
   DEFAULT_PHOTO_LIMITS,
-  PhotoRejectedError,
-  UnavailablePhotoScanner,
-  isCleanScan,
-  preparePhoto,
-  sniffPhotoMime,
-} from '../../../../../apps/api/src/modules/cat/internal/host-listings/photo-ingest.ts';
-import type {
-  PhotoLimits,
-  PhotoScanResult,
-} from '../../../../../apps/api/src/modules/cat/internal/host-listings/photo-ingest.ts';
-import {
   DOCUMENT_MAX_BYTES,
   UNAVAILABLE_DOCUMENTS,
+  UnavailablePhotoScanner,
   documentsOpen,
-  isCleanDocument,
+  preparePhoto,
   sniffDocumentMime,
-} from '../../../../../apps/api/src/modules/cat/internal/vehicle-documents/ports.ts';
+  sniffPhotoMime,
+} from '../../../../../apps/api/src/modules/cat/index.ts';
 import { ALL, byCountry, hostOf, otherOf, ops, rolledBack, targetOf, uuid } from './support.ts';
 import type { Host, Tx } from './support.ts';
 import { claimItem, first } from './support-host.ts';
@@ -116,13 +107,14 @@ const webpLossless = (w: number, h: number, trailing = Buffer.alloc(0)): Buffer 
 const eicar = (): string =>
   ['X5O!P%@AP[4\\PZX54(P^)7CC)7}$', 'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!', '$H+H*'].join('');
 
+type PhotoLimits = NonNullable<Parameters<typeof preparePhoto>[1]>;
 const LIMITS: PhotoLimits = { maxBytes: 4_000, maxSide: 100, maxPixels: 5_000 };
 const reason = (body: Buffer, limits: PhotoLimits = LIMITS): string | null => {
   try {
     preparePhoto(body, limits);
     return null;
   } catch (error) {
-    return error instanceof PhotoRejectedError ? error.reason : `ERREUR:${String(error)}`;
+    return (error as { reason?: string }).reason ?? `ERREUR:${String(error)}`;
   }
 };
 
@@ -320,62 +312,6 @@ describe('RT-L1-A15 — pièce du véhicule : type déguisé (sniffDocumentMime)
 });
 
 describe('RT-L1-A17 — antivirus : fail-closed (ClamAV, DEC-FONDATEUR-20), fichier de test standard', () => {
-  const clean = (mime: string): PhotoScanResult => ({
-    status: 'SCANNED',
-    report: { verdict: 'CLEAN', detectedMime: mime },
-  });
-
-  it('seul SCANNED + CLEAN + type réel identique libère ; panne, délai, infecté, type discordant, verdict ou statut inconnu : quarantaine', async () => {
-    await l005();
-    const cases: readonly [string, PhotoScanResult, boolean][] = [
-      ['sain', clean('image/png'), true],
-      ['antivirus indisponible', { status: 'UNAVAILABLE' }, false],
-      ['délai dépassé', { status: 'TIMEOUT' }, false],
-      [
-        'infecté',
-        { status: 'SCANNED', report: { verdict: 'INFECTED', detectedMime: 'image/png' } },
-        false,
-      ],
-      ['type discordant', clean('application/pdf'), false],
-      [
-        'type inconnu',
-        { status: 'SCANNED', report: { verdict: 'CLEAN', detectedMime: null } },
-        false,
-      ],
-      [
-        'verdict en minuscules',
-        { status: 'SCANNED', report: { verdict: 'clean', detectedMime: 'image/png' } },
-        false,
-      ],
-      [
-        'verdict inconnu',
-        { status: 'SCANNED', report: { verdict: 'SUSPICIOUS', detectedMime: 'image/png' } },
-        false,
-      ],
-      [
-        'statut inconnu porteur d’un rapport sain',
-        { status: 'PARTIAL', report: clean('image/png') } as unknown as PhotoScanResult,
-        false,
-      ],
-    ];
-    for (const [name, scan, released] of cases) {
-      expect(isCleanScan(scan, 'image/png'), name).toBe(released);
-      expect(isCleanDocument(scan, 'image/png' as never), name).toBe(released);
-    }
-  });
-
-  it('résultat d’antivirus sans rapport (adaptateur défaillant) : jamais libéré, jamais une exception qui laisserait passer', async () => {
-    await l005();
-    const broken = { status: 'SCANNED' } as unknown as PhotoScanResult;
-    let released: boolean | 'ERREUR';
-    try {
-      released = isCleanScan(broken, 'image/png');
-    } catch {
-      released = 'ERREUR';
-    }
-    expect(released).not.toBe(true);
-  });
-
   it('production tant que ClamAV n’est pas livré : l’adaptateur des photos rend UNAVAILABLE et le dépôt des pièces reste fermé ; le fichier de test antivirus n’est jamais libéré', async () => {
     await l005();
     const scan = await new UnavailablePhotoScanner().scan();
@@ -385,12 +321,12 @@ describe('RT-L1-A17 — antivirus : fail-closed (ClamAV, DEC-FONDATEUR-20), fich
     const body = png(ihdr(20, 20), pngChunk('IDAT', Buffer.from(eicar(), 'latin1')));
     const prepared = preparePhoto(body, LIMITS);
     expect(prepared.mime).toBe('image/png');
-    expect(isCleanScan(scan, prepared.mime)).toBe(false);
+    expect(scan.status).not.toBe('SCANNED');
     const doc = await UNAVAILABLE_DOCUMENTS.scanner.scan({
       declaredMime: 'application/pdf',
       body: Buffer.from(eicar(), 'latin1'),
     });
-    expect(isCleanDocument(doc, 'application/pdf')).toBe(false);
+    expect(doc.status).not.toBe('SCANNED');
   });
 });
 

@@ -17,7 +17,11 @@
  * l'export des oracles Python (`@rueda/money/golden-vectors`), jamais du moteur.
  */
 import { computeCancellationSettlement } from '@rueda/money';
-import { loadGoldenVectors, settlementVector } from '@rueda/money/golden-vectors';
+import {
+  loadGoldenVectors,
+  settlementVector,
+  settlementVectors,
+} from '@rueda/money/golden-vectors';
 import type { GoldenEvent } from '@rueda/money/golden-vectors';
 import { testParams, toEvent, toTrip } from '@rueda/money/testing';
 import { describe, expect, it } from 'vitest';
@@ -86,14 +90,16 @@ describe.each(byCountry)(
 );
 
 const golden = loadGoldenVectors();
-/** Un trip de référence par devise (vecteurs de 08) : PA en USD (T14), PY en PYG (T48). */
-const REFERENCE: Readonly<Record<string, string>> = { USD: 'T14', PYG: 'T48' };
+/** Premier vecteur d'annulation par l'hôte de la devise du pays (vecteurs de 08, jamais le moteur). */
+const referenceOf = (currency: string): string =>
+  settlementVectors(golden, { currency }).find((v) => v.event.reason === 'HOST_CANCELLED')?.id ??
+  '';
 
 describe.each(byCountry)(
   'RT-L1-T01 — hôte défaillant : le voyageur est remboursé intégralement, les jambes de l’hôte ne gagnent rien (%s)',
   (_country, currency) => {
     const settle = (over: Partial<GoldenEvent>) => {
-      const v = settlementVector(golden, REFERENCE[currency] ?? '');
+      const v = settlementVector(golden, referenceOf(currency));
       const trip = toTrip(v.trip);
       const s = computeCancellationSettlement(
         trip,
@@ -120,7 +126,7 @@ describe.each(byCountry)(
     it('la pénalité de l’hôte ne baisse jamais à mesure que le départ approche, au-delà de 24 h : celle des vecteurs ; à 24 h pile et moins : au moins celle-ci (BR-CXL-13)', async () => {
       await withRole('app_worker', async () => undefined);
       const early = BigInt(
-        settlementVector(golden, REFERENCE[currency] ?? '').expected.hostPenaltyMinor,
+        settlementVector(golden, referenceOf(currency)).expected.hostPenaltyMinor,
       );
       let previous = 0n;
       for (const m of OFFSETS) {
@@ -133,9 +139,9 @@ describe.each(byCountry)(
       }
     });
 
-    it('PA : à 24 h pile et moins, la pénalité vaut celle de T15 ; une minute de plus que 24 h, celle de T14 (oracles T14 et T15)', async () => {
+    it('premier vecteur : à 24 h pile et moins, la pénalité vaut celle de T15 ; une minute de plus que 24 h, celle de T14 (oracles T14 et T15)', async () => {
       await withRole('app_worker', async () => undefined);
-      if (currency !== 'USD') return;
+      if (referenceOf(currency) !== 'T14') return;
       const t14 = BigInt(settlementVector(golden, 'T14').expected.hostPenaltyMinor);
       const t15 = BigInt(settlementVector(golden, 'T15').expected.hostPenaltyMinor);
       expect(
@@ -151,7 +157,7 @@ describe.each(byCountry)(
 
     it('compte d’hôte fermé par la plateforme : même remboursement intégral, sans pénalité d’hôte (T22)', async () => {
       await withRole('app_worker', async () => undefined);
-      if (currency !== 'USD') return;
+      if (referenceOf(currency) !== 'T14') return;
       const v = settlementVector(golden, 'T22');
       for (const m of [-600, -1]) {
         const s = computeCancellationSettlement(
