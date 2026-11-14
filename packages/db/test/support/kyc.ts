@@ -75,12 +75,25 @@ export async function one<T extends pg.QueryResultRow>(
   return rows[0] as T;
 }
 
-/** Personne inscrite dans `country`, e-mail et téléphone vérifiés, session ouverte. */
-export async function person(client: pg.ClientBase, country: string): Promise<Person> {
+/** Nom légal déclaré à l'inscription (US-103 : « tal como aparece en su licencia »). */
+export interface LegalName {
+  readonly first: string;
+  readonly last: string;
+}
+
+/**
+ * Personne inscrite dans `country` (nom légal `names`, « Ana Pérez » par défaut), e-mail et
+ * téléphone vérifiés, session ouverte.
+ */
+export async function person(
+  client: pg.ClientBase,
+  country: string,
+  names: LegalName = { first: 'Ana', last: 'Pérez' },
+): Promise<Person> {
   const userId = uuid();
   const verification = newToken();
   const r = await client.query<{ ok: boolean }>(
-    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Ana', 'Pérez', 'es', $4, $5, 86400,
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, $8, $9, 'es', $4, $5, 86400,
                                                 NULL, $6, $7::jsonb, false) AS ok`,
     [
       userId,
@@ -90,6 +103,8 @@ export async function person(client: pg.ClientBase, country: string): Promise<Pe
       verification.hash,
       country,
       DOCS,
+      names.first,
+      names.last,
     ],
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
@@ -119,6 +134,9 @@ export const licence = (
   licenseClass: 'B',
   isPermanent: true,
   providerDocumentRef: `doc_${randomBytes(4).toString('hex')}`,
+  // nom lu sur le permis (US-103, ADR-117) : concorde avec « Ana Pérez » et « Ana María Pérez Gómez »
+  holderGivenNames: 'Ana María',
+  holderSurnames: 'Pérez Gómez',
   ...extra,
 });
 
@@ -161,9 +179,16 @@ export async function toReview(
     readonly decision?: string;
     readonly document?: Record<string, unknown> | null;
     readonly sessionExpiresAt?: string;
+    /** Nom légal déclaré (US-103) ; « Ana Pérez » par défaut. */
+    readonly names?: LegalName;
+    /**
+     * Faits vérifiés rendus avec le rappel (date de naissance, pays de résidence ; US-123) : la
+     * décision passe alors par `core.kyc_cmd_decide_with_facts` (0075), comme l'API.
+     */
+    readonly subject?: { readonly dateOfBirth: string; readonly residenceCountry: string };
   } = {},
 ): Promise<Reviewed> {
-  const p = await person(client, country);
+  const p = await person(client, country, options.names);
   const c = await one<{ outcome: string }>(
     client,
     'SELECT * FROM core.kyc_cmd_biometric_consent($1, $2, $3, $4)',
@@ -193,20 +218,28 @@ export async function toReview(
   if (s.outcome !== 'RECORDED') throw new Error(`session refusée : ${s.outcome}`);
   const document =
     options.document === undefined ? licence(country, isoDay(400)) : options.document;
-  const d = await one<{ outcome: string; status: string }>(
-    client,
-    'SELECT * FROM core.kyc_cmd_apply_decision($1, $2, $3, $4, $5, $6, $7, $8::jsonb)',
-    [
-      PROVIDER,
-      `evt_${randomBytes(6).toString('hex')}`,
-      sessionRef,
-      o.verification_id,
-      options.decision ?? 'REVIEW',
-      0.4211,
-      0.8875,
-      document === null ? null : JSON.stringify(document),
-    ],
-  );
+  const args = [
+    PROVIDER,
+    `evt_${randomBytes(6).toString('hex')}`,
+    sessionRef,
+    o.verification_id,
+    options.decision ?? 'REVIEW',
+    0.4211,
+    0.8875,
+    document === null ? null : JSON.stringify(document),
+  ];
+  const d =
+    options.subject === undefined
+      ? await one<{ outcome: string; status: string }>(
+          client,
+          'SELECT * FROM core.kyc_cmd_apply_decision($1, $2, $3, $4, $5, $6, $7, $8::jsonb)',
+          args,
+        )
+      : await one<{ outcome: string; status: string }>(
+          client,
+          'SELECT * FROM core.kyc_cmd_decide_with_facts($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)',
+          [...args, JSON.stringify(options.subject)],
+        );
   if (d.outcome !== 'APPLIED') throw new Error(`rappel refusé : ${d.outcome}`);
   return { ...p, verificationId: o.verification_id, sessionRef };
 }

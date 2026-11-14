@@ -74,8 +74,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 37 (numéro attribué par l'orchestrateur ; 35 et 36 à US-103 et US-111) : numéro fiscal de
  l'hôte facultatif, « jamais plus lourd que Turo » (US-123, ADR-115) : `web.a07.optional`,
  `web.a07.tax.optionalHint` et `web.a07.tax.reminder` (rappel de l'obligation fiscale de l'hôte).
+ Version 38 : nom légal identique au permis (US-103, ADR-117) : `common.kyc.legalName*`
+ (changement du nom), `backoffice.kyc.reason.LEGAL_NAME_*`, `backoffice.kyc.holderName` et
+ `backoffice.kyc.nameMatch.*` (dossier KYC de la console).
  */
-export const CATALOG_VERSION = 37;
+export const CATALOG_VERSION = 38;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

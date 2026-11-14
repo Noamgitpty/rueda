@@ -49,7 +49,10 @@ export interface VerificationStatus {
 
 /**
  * Champs MINIMAUX de la pièce lue par le fournisseur (US-105 ; 17 §3.2.2) : jamais d'image ni de
- * numéro (zéro copie, 17 §1.5 point 3). Échéance au format AAAA-MM-JJ.
+ * numéro (zéro copie, 17 §1.5 point 3). Échéance au format AAAA-MM-JJ. Nom du titulaire lu sur la
+ * pièce (US-103, ADR-117) : prénoms et noms de famille [C2], rapprochés en base du nom légal du
+ * compte ; jamais journalisés. Absents (`null` ou omis) : la base envoie le dossier en revue
+ * (`LEGAL_NAME_MISSING`, fail-closed).
  */
 export interface IdentityDocumentResult {
   readonly kind: string;
@@ -58,6 +61,8 @@ export interface IdentityDocumentResult {
   readonly licenseClass: string | null;
   readonly isPermanent: boolean | null;
   readonly providerDocumentRef: string | null;
+  readonly holderGivenNames?: string | null;
+  readonly holderSurnames?: string | null;
 }
 
 /**

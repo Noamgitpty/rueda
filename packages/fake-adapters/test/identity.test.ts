@@ -239,6 +239,57 @@ describe('FakeIdentityProvider (KYC hébergé)', () => {
   });
 });
 
+describe('FakeIdentityProvider — nom du titulaire lu sur la pièce (US-103)', () => {
+  it('prénoms et noms de famille recopiés tels quels ; absents : aucun champ ; mal formés ⇒ MALFORMED', async () => {
+    const { kyc } = setup();
+    const country = countries[0]?.code ?? '';
+    const out = await kyc.startVerification(request(country, 'k-holder'));
+    if (out.status !== 'OK') throw new Error('session refusée');
+    const document = {
+      kind: 'DRIVER_LICENSE',
+      country,
+      expiresOn: '2030-01-31',
+      licenseClass: 'B',
+      isPermanent: true,
+      providerDocumentRef: 'doc_2',
+    };
+    const named = {
+      ...document,
+      holderGivenNames: 'José Luis',
+      holderSurnames: 'Núñez de la Cruz',
+    };
+    kyc.decide(out.value.sessionId, 'APPROVED', [], {
+      livenessScore: 0.9,
+      faceMatchScore: 0.8,
+      document: named,
+    });
+    kyc.decide(out.value.sessionId, 'APPROVED', [], {
+      livenessScore: 0.9,
+      faceMatchScore: 0.8,
+      document,
+    });
+    kyc.decide(out.value.sessionId, 'APPROVED', [], {
+      livenessScore: 0.9,
+      faceMatchScore: 0.8,
+      document: { ...document, holderSurnames: 'x'.repeat(201) },
+    });
+    const [withName, without, bad] = kyc.takeDeliveries();
+    if (withName === undefined || without === undefined || bad === undefined) {
+      throw new Error('rappels absents');
+    }
+    const a = kyc.parseWebhook(withName.body, withName.signature, kyc.runtime.clock.now());
+    if (a.status !== 'ACCEPTED') throw new Error('rappel rejeté');
+    expect(a.event.checks.document).toEqual(named);
+    const b = kyc.parseWebhook(without.body, without.signature, kyc.runtime.clock.now());
+    if (b.status !== 'ACCEPTED') throw new Error('rappel rejeté');
+    expect(b.event.checks.document).toEqual(document);
+    expect(kyc.parseWebhook(bad.body, bad.signature, kyc.runtime.clock.now())).toEqual({
+      status: 'REJECTED',
+      reason: 'MALFORMED',
+    });
+  });
+});
+
 describe('FakeIdentityProvider — faits vérifiés de la personne (US-123)', () => {
   it('date de naissance et pays de résidence lus du rappel ; tout autre champ ignoré ; forme stricte', async () => {
     const { kyc } = setup();

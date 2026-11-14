@@ -13,13 +13,21 @@
  * |                                 | KYC_NOT_ELIGIBLE ; 409 KYC_IN_REVIEW, KYC_ALREADY_APPROVED ;     |
  * |                                 | 422 KYC_DOCUMENT_UNSUPPORTED ; 502 KYC_SESSION_FAILED ;          |
  * |                                 | 503 KYC_PROVIDER_UNAVAILABLE                                     |
+ * | POST /identity/legal-name       | 200 LEGAL_NAME_UPDATED, LEGAL_NAME_UNCHANGED (statut SM-3) ;     |
+ * |                                 | 400 REQUEST_INVALID, PROFILE_NAME_REQUIRED ; 401 ;               |
+ * |                                 | 403 KYC_NOT_ELIGIBLE ; 409 PROFILE_NAME_LOCKED_PENDING_REVIEW ;  |
+ * |                                 | 503 (US-103)                                                     |
  */
 import { Controller, Get, HttpCode, Inject, Post, Query, Req, Res } from '@nestjs/common';
 import { UseGuards } from '@nestjs/common';
 import { SessionGuard, sessionProofOf } from '../../iam/index.js';
 import { kycBody } from './errors.js';
 import type { KycBody } from './errors.js';
-import type { IdentityStateView, IdentityVerificationService } from './identity.service.js';
+import type {
+  IdentityStateView,
+  IdentityVerificationService,
+  LegalNameChanged,
+} from './identity.service.js';
 import { KYC_IDENTITY_SERVICE } from './tokens.js';
 
 interface KycRequest {
@@ -66,6 +74,13 @@ export class IdentityController {
   ): Promise<KycBody & { readonly version: number | null }> {
     const r = await this.identity.consent(sessionProofOf(request), request.body);
     return { ...kycBody('KYC_CONSENT_RECORDED'), version: r.version };
+  }
+
+  @Post('legal-name')
+  @HttpCode(200)
+  async legalName(@Req() request: KycRequest): Promise<KycBody & Pick<LegalNameChanged, 'status'>> {
+    const r = await this.identity.changeLegalName(sessionProofOf(request), request.body);
+    return { ...kycBody(r.code), status: r.status };
   }
 
   @Post('verification')

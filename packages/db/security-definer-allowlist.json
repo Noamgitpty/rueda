@@ -906,6 +906,13 @@
       "story": "US-105"
     },
     {
+      "signature": "core.kyc_cmd_change_legal_name(bytea,text,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-103"
+    },
+    {
       "signature": "core.kyc_cmd_record_webhook_rejection(text,text,bytea,integer)",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",

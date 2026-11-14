@@ -17,6 +17,9 @@
  *   transite par l'application : la personne est envoyée sur l'adresse hébergée.
  * - **Rappel** : signature et fraîcheur vérifiées par l'adaptateur sur le corps BRUT ; rejet ⇒
  *   journal (empreinte du corps) et 401 ; accepté ⇒ décision en base, idempotente par événement.
+ * - **Nom légal** (US-103, ADR-117) : changement par la personne ; refusé pendant une décision en
+ *   cours ; un dossier approuvé repasse `RECHECK`. Le rapprochement avec le nom lu sur le permis
+ *   est fait en base, à la décision du fournisseur.
  * - **Éligibilité au paiement** (US-209) : `assertDriverEligible` lève `KYC_LICENSE_EXPIRED` si
  *   le permis expire avant la fin du trip, `KYC_NOT_APPROVED` sans vérification approuvée.
  *
@@ -97,6 +100,12 @@ export interface IdentityStateView {
     readonly bodyMd: string;
   } | null;
   readonly countries: readonly KycCountry[];
+}
+
+export interface LegalNameChanged {
+  readonly code: 'LEGAL_NAME_UPDATED' | 'LEGAL_NAME_UNCHANGED';
+  /** Statut SM-3 après le changement (`RECHECK` : nouvelle vérification exigée). */
+  readonly status: KycStatus;
 }
 
 export interface StartedSession {
@@ -268,6 +277,44 @@ export class IdentityVerificationService {
       } catch {
         this.#deps.log.warn('kyc.erasure.unavailable', { stage: 'record' });
       }
+    }
+  }
+
+  /**
+   * Changement du nom légal (US-103 ; 16 ACC-006, BR-ACC-07) : prénoms et noms tels que sur le
+   * permis. La base juge (verrou de la personne) : décision en cours ⇒ 409
+   * `PROFILE_NAME_LOCKED_PENDING_REVIEW` ; dossier approuvé ⇒ `RECHECK`, nouvelle vérification
+   * exigée (paiement et remise refusés d'ici là). Le nom n'est jamais journalisé.
+   */
+  async changeLegalName(proof: Buffer | null, raw: unknown): Promise<LegalNameChanged> {
+    if (proof === null) throw new KycHttpError('AUTH_REQUIRED');
+    const b = body(raw);
+    const first = b['legalFirstName'];
+    const last = b['legalLastName'];
+    if (typeof first !== 'string' || typeof last !== 'string') {
+      throw new KycHttpError('REQUEST_INVALID');
+    }
+    // borne de la requête (la base borne le nom à 100 caractères)
+    if (first.length > 400 || last.length > 400) throw new KycHttpError('PROFILE_NAME_REQUIRED');
+    let r: Awaited<ReturnType<IdentityStore['changeLegalName']>>;
+    try {
+      r = await this.#deps.store.changeLegalName(proof, first, last);
+    } catch (error) {
+      storeFailure(error);
+    }
+    switch (r.outcome) {
+      case 'CHANGED':
+        return { code: 'LEGAL_NAME_UPDATED', status: r.status ?? 'NOT_STARTED' };
+      case 'UNCHANGED':
+        return { code: 'LEGAL_NAME_UNCHANGED', status: r.status ?? 'NOT_STARTED' };
+      case 'AUTH_REQUIRED':
+        throw new KycHttpError('AUTH_REQUIRED');
+      case 'NOT_ELIGIBLE':
+        throw new KycHttpError('KYC_NOT_ELIGIBLE');
+      case 'NAME_REQUIRED':
+        throw new KycHttpError('PROFILE_NAME_REQUIRED');
+      case 'LOCKED_PENDING_REVIEW':
+        throw new KycHttpError('PROFILE_NAME_LOCKED_PENDING_REVIEW');
     }
   }
 

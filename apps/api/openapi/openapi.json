@@ -6665,6 +6665,126 @@
         }
       }
     },
+    "/identity/legal-name": {
+      "post": {
+        "operationId": "changeLegalName",
+        "tags": ["kyc"],
+        "summary": "Nom légal identique au permis (ACC-006) : changement par la personne ; dossier approuvé ⇒ RECHECK (US-103)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KycLegalNameRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Nom enregistré (LEGAL_NAME_UPDATED) ou déjà identique (LEGAL_NAME_UNCHANGED) ; statut SM-3 après le changement",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycLegalNameChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps mal formé, ou prénom ou nom vide, trop long ou avec un caractère de contrôle",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "PROFILE_NAME_REQUIRED"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Compte non éligible (fermé, pseudonymisé, e-mail non vérifié) ou dossier clos par l'ops",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_NOT_ELIGIBLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Décision d'identité en cours : nom verrouillé jusqu'à la décision",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "PROFILE_NAME_LOCKED_PENDING_REVIEW"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "503": {
+            "description": "Base indisponible : fail-closed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_PROVIDER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/identity/verification": {
       "post": {
         "operationId": "startIdentityVerification",
@@ -11654,6 +11774,38 @@
                   },
                   "status": {
                     "enum": ["ACCEPTED", "IN_REVIEW"]
+                  },
+                  "holderGivenNames": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "holderSurnames": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "nameMatch": {
+                    "anyOf": [
+                      {
+                        "enum": ["MATCH", "MISMATCH", "MISSING"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 }
               },
@@ -13184,6 +13336,39 @@
           "version": {
             "type": ["integer", "null"],
             "minimum": 1
+          }
+        }
+      },
+      "KycLegalNameRequest": {
+        "type": "object",
+        "required": ["legalFirstName", "legalLastName"],
+        "additionalProperties": false,
+        "properties": {
+          "legalFirstName": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Prénoms tels que sur le permis (1 à 100 caractères après réduction des espaces)"
+          },
+          "legalLastName": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Noms de famille tels que sur le permis (un ou deux, 1 à 100 caractères)"
+          }
+        }
+      },
+      "KycLegalNameChanged": {
+        "type": "object",
+        "required": ["code", "messageKey", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": ["LEGAL_NAME_UPDATED", "LEGAL_NAME_UNCHANGED"]
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KycStatus"
           }
         }
       },

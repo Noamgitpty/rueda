@@ -62,8 +62,9 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
     'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
   iam_staff_role_assignment:
     'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;iam_auth_select:iam_auth_owner;iam_staff_select:iam_staff_owner;iam_staff_update:iam_staff_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner',
+  // US-103 (0088) : changement du nom légal par la seule commande KYC (kyc_cmd_owner)
   iam_user_account:
-    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
+    'cmd_golive_sel:cmd_golive_owner;cmd_money_sel:cmd_money_owner;host_view_read:host_view_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_name_update:kyc_cmd_owner;kyc_cmd_read:kyc_cmd_owner;migrator_all:migrator;policy_fn_read:policy_fn_owner;risk_link_read:risk_limit_owner;user_account_self_read:app_api',
 };
 
 // Commandes SECURITY DEFINER core.iam_* et leur propriétaire (US-010 : iam_auth ; US-012 : iam_staff).
