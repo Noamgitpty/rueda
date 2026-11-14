@@ -686,6 +686,13 @@ async function requestOf(
       return { method: 'GET', path: `/identity?country=${country}` };
     case 'POST /identity/consent':
       return { method: 'POST', path: '/identity/consent', body: { accepted: true, version: 999 } };
+    // US-103 : nom vide ⇒ 400 PROFILE_NAME_REQUIRED, rien n'est écrit
+    case 'POST /identity/legal-name':
+      return {
+        method: 'POST',
+        path: '/identity/legal-name',
+        body: { legalFirstName: ' ', legalLastName: ' ' },
+      };
     case 'POST /identity/verification':
       return { method: 'POST', path: '/identity/verification', body: { country } };
     case 'POST /kyc/webhooks/{provider}':
