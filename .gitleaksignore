@@ -6,3 +6,7 @@
 # détecteur de fuites de docs/ops/ACCOUNTS.md, assemblée à l'exécution dès le commit suivant ;
 # aucun secret réel.
 3357735fb3b4d310263ac6d51eb20acaf2f4e1b3:scripts/ci/accounts-inventory.test.mjs:aws-access-token:118
+# US-036 : identifiant de FORMAT d'un fichier d'export (« rueda-subject-keys-escrow-v1 », chaîne
+# publique et versionnée, aucun secret) pris pour une clé d'API à cause du nom KEYS_FORMAT,
+# renommé ESCROW_FORMAT au commit suivant.
+827cf4e737e60a4ddd19d67a84a2811525cd9ae2:packages/db/src/portability/keys.ts:generic-api-key:26
