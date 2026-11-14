@@ -48,6 +48,10 @@
     {
       "path": "packages/db/migrations/0089_config_privacy_params.sql",
       "justification": "Graine complémentaire des paramètres privacy_* (19 US-111, 16 LEG-009 / LEG-010, OQ-BR-25, OQ-MK-09) : définitions et valeurs PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-111, ADR-118."
+    },
+    {
+      "path": "packages/db/migrations/0091_config_security_incident_params.sql",
+      "justification": "Graine complémentaire des paramètres security_incident_* (19 US-112, 16 LEG-010 / ADM-035, OQ-MK-09 : délais de notification d'une violation de données, 72 h À DÉCIDER) : définitions et valeurs PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. Le registre est dans 0092, analysée. 0009 est immuable (ADR-044, ADR-075). US-112, ADR-121."
     }
   ]
 }

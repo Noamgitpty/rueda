@@ -1317,6 +1317,27 @@
       "owner": "privacy_cmd_owner",
       "execute": ["app_worker"],
       "story": "US-111"
+    },
+    {
+      "signature": "core.security_incident_cmd_open(bytea,uuid,text,text,text,boolean,integer,timestamp with time zone)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-112"
+    },
+    {
+      "signature": "core.security_incident_cmd_step(bytea,uuid,uuid,text,uuid)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-112"
+    },
+    {
+      "signature": "core.security_incident_worker_watch(integer)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_worker"],
+      "story": "US-112"
     }
   ]
 }

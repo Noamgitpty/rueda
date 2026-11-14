@@ -18,9 +18,11 @@
  *   B. « perte de l'instance » : l'instance source est tuée sans préavis ; restauration au plus
  *      récent des journaux archivés ⇒ RPO mesuré (instant de la perte − dernière écriture rendue),
  *      intégrité verte, application redémarrée. RTO mesuré.
- * Cibles de 17 §6.4 (À DÉCIDER, ADM-035) : RPO ≤ 24 h exigé, cible ≤ 1 h ; RTO ≤ 8 h. Le rapport
- * (RUEDA_DRILL_WORK/report.json, artefact CI) consigne les mesures et la comparaison à la mesure de
- * référence (docs/ops/restore-drill-baseline.json), rejouée à chaque porte de lot (critère 4).
+ * Objectifs : ceux de chaque scénario dans docs/ops/recovery-objectives.json (US-112, ADR-121,
+ * PROPOSÉS ; jamais plus lâches que l'exigence de 17 §6.4 : RPO 24 h, RTO 8 h). Le rapport
+ * (RUEDA_DRILL_WORK/report.json, artefact CI) consigne les mesures, les objectifs et la comparaison
+ * à la mesure de référence (docs/ops/restore-drill-baseline.json), rejouée à chaque porte de lot
+ * (critère 4 d'US-051).
  *
  * Données : les deux pays de premier rang (devise à décimales et devise sans décimale) — trips réservés (hold, preuve de paiement,
  * conversion), règlements par jambe (vecteurs dorés TJ), journal d'audit chaîné — écrites sous les
@@ -35,6 +37,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { appendAuditLog, SubjectKeyStore } from '../../src/audit/index.ts';
+import { loadRecoveryObjectives } from '../../src/restore/objectives.ts';
 import { catalogFingerprint, dataFingerprint } from '../../src/restore/verify.ts';
 import type { DataFingerprint } from '../../src/restore/verify.ts';
 import {
@@ -61,8 +64,11 @@ const ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
 const RUNBOOK = 'docs/ops/BACKUP_RESTORE.md';
 const BASELINE = join(ROOT, 'docs/ops/restore-drill-baseline.json');
 
-/** Cibles de 17 §6.4 (À DÉCIDER, ADM-035), en secondes. */
-export const TARGETS = { rpoRequiredS: 24 * 3600, rpoTargetS: 3600, rtoS: 8 * 3600 } as const;
+/**
+ * Objectifs de reprise PROPOSÉS par scénario (US-112, ADR-121), en secondes : A = `instant`,
+ * B = `latest`. Un fichier invalide ou plus lâche que 17 §6.4 fait échouer l'exercice.
+ */
+const OBJECTIVES = loadRecoveryObjectives();
 
 /**
  * Porte de RÉGRESSION par rapport à la mesure de référence (critère 4 ; revue code US-051 n° 2 ;
@@ -453,7 +459,7 @@ describe('US-051 — exercice de restauration chronométré', () => {
       : {};
     const rto = Math.max(instant.rtoS, latest.rtoS);
     const report = {
-      story: 'US-051',
+      story: 'US-051, US-112',
       measuredAt: new Date().toISOString(),
       commit: process.env['GITHUB_SHA'] ?? null,
       rowsAtT: state.rowsAtT,
@@ -462,7 +468,12 @@ describe('US-051 — exercice de restauration chronométré', () => {
       latest: roundAll(latest),
       rtoS: round(rto),
       rpoS: round(latest.rpoS),
-      targets: TARGETS,
+      objectives: {
+        status: OBJECTIVES.status,
+        required: OBJECTIVES.required,
+        instant: OBJECTIVES.scenarios.instant,
+        latest: OBJECTIVES.scenarios.latest,
+      },
       regression: REGRESSION,
       baseline,
       vsBaseline: {
@@ -473,9 +484,16 @@ describe('US-051 — exercice de restauration chronométré', () => {
     writeFileSync(join(work(), 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
     console.log(`[exercice] rapport : ${JSON.stringify(report)}`);
     await withProductionRoleAssertion();
-    expect(latest.rpoS).toBeGreaterThanOrEqual(0);
-    expect(latest.rpoS).toBeLessThanOrEqual(TARGETS.rpoTargetS);
-    expect(rto).toBeLessThanOrEqual(TARGETS.rtoS);
+    // chaque scénario contre SON objectif (A : instant donné ; B : perte de l'instance)
+    for (const [name, measured] of [
+      ['instant', instant],
+      ['latest', latest],
+    ] as const) {
+      const objective = OBJECTIVES.scenarios[name];
+      expect(measured.rpoS, `${name} RPO`).toBeGreaterThanOrEqual(0);
+      expect(measured.rpoS, `${name} RPO`).toBeLessThanOrEqual(objective.rpoS);
+      expect(measured.rtoS, `${name} RTO`).toBeLessThanOrEqual(objective.rtoS);
+    }
     // régression par rapport à la référence (si elle existe)
     if (typeof baseline.rtoS === 'number') expect(rto).toBeLessThanOrEqual(limitOf(baseline.rtoS));
     if (typeof baseline.rpoS === 'number') {

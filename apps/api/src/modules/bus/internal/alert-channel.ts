@@ -35,6 +35,10 @@ export const ALERT_CODES = [
   // (P1, par pays) ; demande d'effacement au fournisseur KYC en attente ou en échec (P1)
   'PRIVACY_DSR_OVERDUE',
   'PRIVACY_KYC_ERASURE_STALE',
+  // registre des incidents (US-112, ADR-121) : déclaration nouvelle (alerte au fondateur, 17 §6.4)
+  // et échéance de notification d'une violation dépassée (OQ-MK-09), une fois chacune
+  'SECURITY_INCIDENT_OPENED',
+  'SECURITY_INCIDENT_NOTICE_OVERDUE',
 ] as const;
 export type AlertCode = (typeof ALERT_CODES)[number];
 
@@ -49,6 +53,8 @@ export const ALERT_LABEL_KEYS = [
   'error_code',
   // file de revue (US-106) : code de file (KYC, LISTING…)
   'queue',
+  // notification d'une violation en retard (US-112) : AUTHORITY ou SUBJECTS
+  'notice',
 ] as const;
 export type AlertLabelKey = (typeof ALERT_LABEL_KEYS)[number];
 
