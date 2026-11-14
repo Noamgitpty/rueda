@@ -18,12 +18,11 @@
  */
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import type { BrowserContext, Page } from '@playwright/test';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import { expectAccessible } from './axe.ts';
 import { SPEC_TEXT } from './oracle.ts';
 
-const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const PUBLIC_ID = '11500000-0000-4000-8000-00000000f001';
 const DOWN_ID = '11500000-0000-4000-8000-00000000f503';
 
@@ -55,26 +54,6 @@ async function placeAndCar(page: Page): Promise<void> {
   await page.locator('#a10-car-year').fill('2021');
   await page.locator('#a10-car-form button[type="submit"]').click();
   await expect(page.locator('#a10-new')).toBeVisible();
-}
-
-async function expectAccessible(page: Page): Promise<void> {
-  // en haut de page : l'en-tête collant de la coquille ne recouvre aucune cible de l'écran
-  // (axe compterait une case cachée sous lui comme trop petite, WCAG 2.5.8)
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.addScriptTag({ path: AXE });
-  const violations = await page.evaluate(async () => {
-    const axe = (
-      window as unknown as { axe: { run: (c: unknown, o: unknown) => Promise<unknown> } }
-    ).axe;
-    const r = (await axe.run(
-      { include: ['main'] },
-      {
-        runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
-      },
-    )) as { violations: { id: string; nodes: { target: string[] }[] }[] };
-    return r.violations.map((v) => `${v.id} ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
-  });
-  expect(violations, 'violations axe-core').toEqual([]);
 }
 
 /** Session de test du double : `H0st…` = hôte neuf (un par parcours), `N0ho…` = sans compte. */

@@ -32,6 +32,8 @@ Une jauge (trois premières lignes) n'alerte qu'au dépassement, si la valeur mo
 
 ## Files de revue (travailleur `review_sla_watch`, toutes les 60 s)
 
+- US-108 (ADR-111) : chaque passe approuve d'abord les dossiers d'hôte complets et propres (revue par exception) ; la ligne de journal porte `hostsApproved`, `hostsKept` (laissés à l'ops : revue exigée par le pays ou contrôle non rempli) et `hostsSkipped` (verrou pris). Aucune alerte nouvelle.
+
 | Code                      | Sévérité | Déclenchement                                                                                                                                                                | Premier geste                                                                                                                                                        |
 | ------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `OPS_REVIEW_SLA_BREACH`   | P2       | au moins un élément de file passé au-delà de son échéance (une seule alerte par élément), par file et pays (étiquettes `queue`, `country`)                                   | prévenir le responsable ops (16 ADM-002) ; console O01, file signalée « en retard » ; prendre et traiter l'élément ; délai : paramètre de la file (ADR-097, ADR-106) |

@@ -1,7 +1,8 @@
 /**
  * Port et adaptateur PostgreSQL du catalogue de référence des véhicules (US-113, migration 0063).
  *
- * Lecture seule, sous la RLS d'`app_api` : la base ne montre que les lignes `ACTIVE` et `RETIRED`
+ * Lecture seule, sous la RLS d'`app_api` (lignes sans fiche de l'import de la douane comprises :
+ * caractéristiques techniques nulles, ADR-109) : la base ne montre que les lignes `ACTIVE` et `RETIRED`
  * (politique `api_read`), jamais la provenance (`source`, `license_note`) ni le vérificateur. Les
  * listes de choix de l'assistant de l'hôte ne rendent que les lignes `ACTIVE` dont le parent est
  * `ACTIVE`. Aucune écriture : la graine est chargée par migration, les ajouts passent par la file
@@ -30,7 +31,8 @@ export interface ModelOption {
   readonly slug: string;
   readonly name: string;
   readonly aliases: readonly string[];
-  readonly bodyType: BodyType;
+  /** `null` : modèle sans fiche (import de la douane, ADR-109), à compléter par l'ops. */
+  readonly bodyType: BodyType | null;
 }
 
 export interface VariantOption {
@@ -38,16 +40,20 @@ export interface VariantOption {
   readonly yearFrom: number;
   readonly yearTo: number | null;
   readonly trimName: string | null;
-  readonly transmission: Gearbox;
-  readonly fuelType: VariantFuel;
-  readonly drive: Drive;
+  /** `null` : variante sans fiche (ADR-109). */
+  readonly transmission: Gearbox | null;
+  readonly fuelType: VariantFuel | null;
+  readonly drive: Drive | null;
 }
 
 export interface VehicleCatalogStore {
-  /** Marques `ACTIVE`, par nom. */
-  listMakes(): Promise<MakeOption[]>;
-  /** Modèles `ACTIVE` d'une marque `ACTIVE`, par nom. */
-  listModels(makeId: string): Promise<ModelOption[]>;
+  /**
+   * Marques `ACTIVE`, par nom ; `country` (suite d'US-113, ADR-109) : seulement celles qui ont au
+   * moins une variante `ACTIVE` commune ou de ce marché (jamais une marque sans choix possible).
+   */
+  listMakes(country?: string | null): Promise<MakeOption[]>;
+  /** Modèles `ACTIVE` d'une marque `ACTIVE`, par nom ; `country` : comme `listMakes`. */
+  listModels(makeId: string, country?: string | null): Promise<ModelOption[]>;
   /**
    * Variantes `ACTIVE` d'un modèle `ACTIVE` (d'une marque `ACTIVE`), produites l'année donnée ;
    * `country` (US-115, réserve de la revue d'US-113) : seulement les variantes communes
@@ -77,16 +83,16 @@ interface VariantRow extends Record<string, unknown> {
   model_id: string;
   model_name: string;
   model_status: CatalogStatus;
-  body_type: BodyType;
+  body_type: BodyType | null;
   year_from: number;
   year_to: number | null;
   trim_name: string | null;
-  transmission: Gearbox;
-  fuel_type: VariantFuel;
-  drive: Drive;
+  transmission: Gearbox | null;
+  fuel_type: VariantFuel | null;
+  drive: Drive | null;
   engine_cc: number | null;
-  seats: number;
-  doors: number;
+  seats: number | null;
+  doors: number | null;
   value_class: VariantView['valueClass'];
   consumption: string | null;
   consumption_source: VariantView['consumptionSource'];
@@ -95,36 +101,47 @@ interface VariantRow extends Record<string, unknown> {
 export class PgVehicleCatalogStore implements VehicleCatalogStore {
   constructor(private readonly db: SqlExecutor) {}
 
-  async listMakes(): Promise<MakeOption[]> {
+  async listMakes(country: string | null = null): Promise<MakeOption[]> {
     const { rows } = await this.db.query<{
       id: string;
       slug: string;
       name: string;
       aliases: string[];
     }>(
-      `SELECT id::text AS id, slug, name, aliases
-         FROM core.catalog_vehicle_make
-        WHERE status = 'ACTIVE'
-        ORDER BY name, slug`,
+      `SELECT m.id::text AS id, m.slug, m.name, m.aliases
+         FROM core.catalog_vehicle_make AS m
+        WHERE m.status = 'ACTIVE'
+          AND ($1::text IS NULL OR EXISTS (
+                SELECT 1
+                  FROM core.catalog_vehicle_model AS o
+                  JOIN core.catalog_vehicle_variant AS v ON v.model_id = o.id
+                 WHERE o.make_id = m.id AND o.status = 'ACTIVE' AND v.status = 'ACTIVE'
+                   AND (v.market IS NULL OR v.market::text = $1::text)))
+        ORDER BY m.name, m.slug`,
+      [country],
     );
     return rows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, aliases: r.aliases }));
   }
 
-  async listModels(makeId: string): Promise<ModelOption[]> {
+  async listModels(makeId: string, country: string | null = null): Promise<ModelOption[]> {
     if (!isUuid(makeId)) return [];
     const { rows } = await this.db.query<{
       id: string;
       slug: string;
       name: string;
       aliases: string[];
-      body_type: BodyType;
+      body_type: BodyType | null;
     }>(
       `SELECT o.id::text AS id, o.slug, o.name, o.aliases, o.body_type
          FROM core.catalog_vehicle_model AS o
          JOIN core.catalog_vehicle_make AS m ON m.id = o.make_id
         WHERE o.make_id = $1::uuid AND o.status = 'ACTIVE' AND m.status = 'ACTIVE'
+          AND ($2::text IS NULL OR EXISTS (
+                SELECT 1 FROM core.catalog_vehicle_variant AS v
+                 WHERE v.model_id = o.id AND v.status = 'ACTIVE'
+                   AND (v.market IS NULL OR v.market::text = $2::text)))
         ORDER BY o.name, o.slug`,
-      [makeId],
+      [makeId, country],
     );
     return rows.map((r) => ({
       id: r.id,
@@ -146,9 +163,9 @@ export class PgVehicleCatalogStore implements VehicleCatalogStore {
       year_from: number;
       year_to: number | null;
       trim_name: string | null;
-      transmission: Gearbox;
-      fuel_type: VariantFuel;
-      drive: Drive;
+      transmission: Gearbox | null;
+      fuel_type: VariantFuel | null;
+      drive: Drive | null;
     }>(
       `SELECT v.id::text AS id, v.year_from, v.year_to, v.trim_name, v.transmission, v.fuel_type,
               v.drive

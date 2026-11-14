@@ -15,7 +15,7 @@
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
- * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
+ * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_auto_review_hosts` (0081, US-108 : dossiers d'hôte propres approuvés sans l'ops), `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
  *
  * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
  * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
@@ -193,6 +193,35 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
     REVIEW_SLA_WATCH_WORKER,
     d.reviewSlaWatchPeriodSeconds,
     async (_p, tx) => {
+      // US-108 (ADR-111) : revue de l'hôte PAR EXCEPTION — dossiers complets et propres approuvés
+      // sans l'ops ; retenue de sanctions et pays qui imposent la revue laissés à l'ops
+      // (délai uniforme avant toute approbation). Isolée par un point de sauvegarde : une erreur de
+      // cette partie ne fait tomber ni la remise en file KYC ni les alertes de retard (revues
+      // code et architecture d'US-108) ; la base isole déjà chaque dossier (`failed`).
+      let hostsApproved = 0;
+      let hostsKept = 0;
+      let hostsSkipped = 0;
+      let hostsFailed: number;
+      await tx.query('SAVEPOINT host_auto_review');
+      try {
+        const hosts = await tx.query<{
+          approved: unknown;
+          kept: unknown;
+          skipped: unknown;
+          failed: unknown;
+        }>(
+          'SELECT approved, kept, skipped, failed FROM core.kyc_worker_auto_review_hosts($1, NULL)',
+          [d.reviewSlaWatchBatch],
+        );
+        hostsApproved = count(hosts.rows[0]?.approved);
+        hostsKept = count(hosts.rows[0]?.kept);
+        hostsSkipped = count(hosts.rows[0]?.skipped);
+        hostsFailed = count(hosts.rows[0]?.failed);
+        await tx.query('RELEASE SAVEPOINT host_auto_review');
+      } catch {
+        await tx.query('ROLLBACK TO SAVEPOINT host_auto_review');
+        hostsFailed = -1;
+      }
       // `unqueued` : dossiers dont l'échec est NOUVEAU (une alerte par épisode de revue, marque en
       // base) ; `waiting` : échecs déjà signalés ; `skipped` : personne verrouillée ailleurs
       const k = await tx.query<{
@@ -230,7 +259,17 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
           labels: { queue: 'KYC' },
         });
       }
-      line(REVIEW_SLA_WATCH_WORKER, { enqueued, unqueued, waiting, skipped, breached });
+      line(REVIEW_SLA_WATCH_WORKER, {
+        hostsApproved,
+        hostsKept,
+        hostsSkipped,
+        hostsFailed,
+        enqueued,
+        unqueued,
+        waiting,
+        skipped,
+        breached,
+      });
     },
   );
 

@@ -29,6 +29,7 @@ Contrôle à 360 px (défilement horizontal, cibles ≥ 44 px, écran hors ligne
 - **Viewports** (projets de `playwright.config.ts`) : `mobile-360` et `mobile-390` (téléphone tactile), `tablette` (768 px) pour `shell.spec.ts` ; `pwa` (390 px, service workers autorisés) pour `pwa.spec.ts`.
 - **Coquille** (`shell.spec.ts`) : accueil et écran hors ligne en es, en, fr et pt, clair et sombre ; aucun défilement horizontal ; aucune cible tactile sous 44 px (règles de `scripts/shell-check.mjs`) ; luminance du fond selon le mode ; changement de langue mémorisé ; bandeau hors ligne puis retour en ligne annoncés.
 - **PWA** (`pwa.spec.ts`) : manifeste complet dans les quatre langues (icônes PNG aux tailles déclarées, une `maskable`) ; service worker réel : page jamais visitée, réseau coupé, écran hors ligne dans la langue, reprise au retour du réseau ; **application installée** : fenêtre d'application de Chrome (`--app`, `display-mode: standalone`, `e2e/app-window.ts`) sur un profil persistant, verdict d'installabilité de Chrome vide, parcours hors ligne dans cette fenêtre.
+- **Accessibilité et régression visuelle** (US-044, ADR-112) : `screens.spec.ts` balaie chaque écran du site (liste `SCREENS`, état d'arrivée) et `console.spec.ts` chaque état de la console interne (`apps/backoffice`, démarrée par Playwright sans API, `/api/**` intercepté ; projets `console-360` et `console-390`) : axe-core sur la page entière (`e2e/axe.ts`, partagé par tous les parcours), quatre langues, clair et sombre, mobile d'abord, captures `toHaveScreenshot` comparées aux références de `e2e/__screenshots__/linux/`. Un nouvel écran s'ajoute à `SCREENS`. Procédure d'approbation : `docs/qa/REGRESSION_VISUELLE.md`. La vitrine `/ui` est ouverte pour les e2e seulement (`WEB_UI_CATALOG_ENABLED=true` du serveur de test).
 - **Déterminisme** : aucune relance, mouvement réduit, fuseau UTC, `Date` figée (`FROZEN_AT`) ; toute requête vers un autre hôte que le serveur testé fait échouer le test. Valeurs attendues : 10b §4.3 (`e2e/oracle.ts`), jamais le code testé.
 
 ```bash
@@ -37,7 +38,7 @@ pnpm --filter @rueda/web test:e2e                      # tous les projets
 pnpm --filter @rueda/web exec playwright test --project=mobile-360
 ```
 
-En CI : job `e2e-web` de `ci.yml` (docs/ops/CI.md). Variables : `RUEDA_E2E_PORT` (défaut 3100), `RUEDA_E2E_CHROME`. `scripts/shell-check.mjs` reste l'outil local des captures de revue design.
+En CI : job `e2e-web` de `ci.yml` (docs/ops/CI.md). Variables : `RUEDA_E2E_PORT` (défaut 3100), `RUEDA_E2E_CONSOLE_PORT` (défaut 3102), `RUEDA_E2E_CHROME`. Build préalable : `pnpm turbo run build --filter=@rueda/web --filter=@rueda/backoffice`. `scripts/shell-check.mjs` reste l'outil local des captures de revue design.
 
 ## Inscription, connexion et consentements (US-102)
 

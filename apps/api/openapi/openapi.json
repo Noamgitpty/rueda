@@ -3254,6 +3254,78 @@
         }
       }
     },
+    "/console/queues/items/{id}/host-verification": {
+      "post": {
+        "operationId": "consoleQueueHostDossier",
+        "tags": ["sup"],
+        "summary": "Dossier de l'hôte par la file HOST_VERIFICATION seulement (élément assigné ; ADMIN : sa portée) : liste de contrôle fermée calculée en base, retenue de sanctions visible du staff, source et date du filtrage ; journalisé READ_C2_SUPPORT avant la lecture (US-108)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500,
+                    "description": "motif de la consultation, journalisé"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dossier de l'hôte, accès journalisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostDossier"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
     "/console/queues/items/{id}/catalog-addition": {
       "post": {
         "operationId": "consoleCatalogAddition",
@@ -4954,7 +5026,7 @@
             "$ref": "#/components/responses/NotJson"
           },
           "422": {
-            "description": "Photos en nombre insuffisant ; compte d'hôte non activé ou pays fermé : l'annonce reste DRAFT",
+            "description": "Photos en nombre insuffisant ; compte d'hôte non activé ou pays fermé ; véhicule hors des critères du contrat de l'assureur ou contrat d'assureur inactif (US-108) : l'annonce reste DRAFT",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -4966,7 +5038,12 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["PHOTO_MIN_COUNT", "HOST_NOT_ACTIVATED"]
+                      "enum": [
+                        "PHOTO_MIN_COUNT",
+                        "HOST_NOT_ACTIVATED",
+                        "VEHICLE_NOT_COVERED",
+                        "INSURER_CONTRACT_INACTIVE"
+                      ]
                     }
                   }
                 }
@@ -10895,6 +10972,226 @@
         "properties": {
           "itemId": {
             "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "HostDossier": {
+        "type": "object",
+        "required": [
+          "orgId",
+          "country",
+          "orgStatus",
+          "verificationId",
+          "status",
+          "screeningHold",
+          "reasonCode",
+          "missing",
+          "decidedAt",
+          "decidedBy",
+          "activatedAt",
+          "reviewReasons",
+          "blockers",
+          "screening",
+          "checklist",
+          "itemId",
+          "accessId",
+          "evidenceFileIds"
+        ],
+        "additionalProperties": false,
+        "description": "US-108 (ADR-111) : dossier de l'hôte pour l'ops (revue par exception). Jamais de référence chez le prestataire de filtrage ni de version de liste.",
+        "properties": {
+          "orgId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "orgStatus": {
+            "type": "string",
+            "enum": ["ONBOARDING", "PENDING_ACTIVATION", "ACTIVE", "SUSPENDED", "OFFBOARDED"]
+          },
+          "verificationId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NOT_SUBMITTED",
+              "OPEN",
+              "DOCS_PENDING",
+              "IN_REVIEW",
+              "APPROVED",
+              "REJECTED",
+              "REVOKED"
+            ]
+          },
+          "screeningHold": {
+            "type": "boolean",
+            "description": "retenue de sanctions (US-123) : visible du staff seulement, jamais de l’hôte"
+          },
+          "reasonCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+            }
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decidedBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "activatedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["SCREENING_HOLD", "ACCOUNT_RESTRICTED", "COUNTRY_REVIEW"]
+            },
+            "description": "motifs de la revue par exception"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+            }
+          },
+          "screening": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostDossierScreening"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checklist": {
+            "type": "array",
+            "minItems": 10,
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/HostDossierCheck"
+            }
+          },
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "accessId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "evidenceFileIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        }
+      },
+      "HostDossierScreening": {
+        "type": "object",
+        "required": ["source", "screenedAt", "result", "reviewerId", "manualActionId"],
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "screenedAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "result": {
+            "type": "string",
+            "enum": ["CLEAR", "POTENTIAL_MATCH", "CONFIRMED_MATCH"]
+          },
+          "reviewerId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualActionId": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "HostDossierCheck": {
+        "type": "object",
+        "required": ["item", "state"],
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "type": "string",
+            "enum": [
+              "IDENTITY",
+              "AGE",
+              "RESIDENCE",
+              "SANCTIONS",
+              "TAX_PROFILE",
+              "HOST_TERMS",
+              "PAYOUT_ACCOUNT",
+              "PSP_CAPABILITIES",
+              "COUNTRY_OPEN",
+              "INSURER_CONTRACT"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": ["OK", "MISSING", "BLOCKED", "HELD"]
           }
         }
       },

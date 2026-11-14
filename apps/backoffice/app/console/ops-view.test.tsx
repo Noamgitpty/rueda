@@ -5,7 +5,8 @@
  * consultation annoncée comme journalisée (ADM-032), fiche 360° avec statut KYC sans pièce,
  * restriction active annoncée et comptes d'hôte fermés à la réservation (ADM-005), restriction et
  * levée motivées, aucune saisie de montant ; demande d'ajout au catalogue (US-114, 16 ADM-036) :
- * variantes candidates à rattacher, création sous licence, refus motivé, aucune donnée personnelle.
+ * variantes candidates à rattacher (variante sans fiche de la douane : « fiche à compléter »,
+ * ADR-109), création sous licence, refus motivé, aucune donnée personnelle.
  * US-106 : dossier KYC complété (état SM-3, motif, permis, scores, aucune image) et formulaire de
  * décision (quatre contrôles cochés jamais pré-cochés, motif, trois décisions de SM-3) seulement
  * pour un dossier en revue ; refus de la commande expliqués. Textes attendus : catalogue
@@ -19,6 +20,8 @@ import { LOCALE_CONFIG } from '../../locale-config.ts';
 import {
   evidenceReasonKey,
   evidenceRefusal,
+  HOST_CHECK_ITEMS,
+  HOST_SCREENING_REFUSAL_KEYS,
   KYC_REASON_KEYS,
   KYC_REFUSAL_KEYS,
   KYC_STATUSES,
@@ -34,6 +37,8 @@ const noop: OpsHandlers = {
   onClaim: () => undefined,
   onOpenKyc: () => undefined,
   onKycDecision: () => undefined,
+  onOpenHost: () => undefined,
+  onHostScreening: () => undefined,
   onOpenCatalog: () => undefined,
   onResolveCatalog: () => undefined,
   onSearch: () => undefined,
@@ -207,6 +212,41 @@ const CATALOG: OpsState = {
   },
 };
 
+/** US-108 : dossier de l'hôte retenu (correspondance de sanctions), filtrage du prestataire. */
+const HELD_HOST: OpsState = {
+  host: {
+    itemId: A,
+    orgId: B,
+    country: 'AA',
+    status: 'IN_REVIEW',
+    screeningHold: true,
+    reviewReasons: ['SCREENING_HOLD'],
+    screening: { source: 'FAKE', screenedAt: AT, result: 'POTENTIAL_MATCH' },
+    checklist: HOST_CHECK_ITEMS.map((item) => ({
+      item,
+      state: item === 'SANCTIONS' ? 'HELD' : item.startsWith('PSP') ? 'BLOCKED' : 'OK',
+    })),
+    evidenceFileIds: [],
+  },
+};
+/** US-108 : dossier sans filtrage (aucun prestataire) : formulaire du filtrage manuel. */
+const UNSCREENED_HOST: OpsState = {
+  host: {
+    itemId: A,
+    orgId: B,
+    country: 'AA',
+    status: 'DOCS_PENDING',
+    screeningHold: false,
+    reviewReasons: ['COUNTRY_REVIEW'],
+    screening: null,
+    checklist: HOST_CHECK_ITEMS.map((item) => ({
+      item,
+      state: item === 'SANCTIONS' ? 'MISSING' : 'OK',
+    })),
+    evidenceFileIds: [],
+  },
+};
+
 const STATES: readonly OpsState[] = [
   {},
   FULL,
@@ -222,6 +262,8 @@ const STATES: readonly OpsState[] = [
   },
   { notice: { tone: 'warning', key: 'common.ops.caseRequired' } },
   CATALOG,
+  HELD_HOST,
+  UNSCREENED_HOST,
 ];
 
 const translatorOf = (tag: string) => {
@@ -292,6 +334,36 @@ describe('O01 : ce que chaque état montre', () => {
     for (const p of LOCALE_CONFIG.locales) {
       const t = translatorOf(p.tag);
       expect(t.t('common.evidence.tooLarge', { max: '64' })).toContain('64');
+    }
+  });
+
+  it('dossier de l’hôte (US-108) : lecture annoncée journalisée, retenue visible du staff, liste de contrôle fermée ; aucun formulaire quand un filtrage existe', () => {
+    const out = html(HELD_HOST, tag);
+    expect(out).toContain(es['backoffice.host.heading']);
+    expect(out).toContain(es['backoffice.kyc.logged']);
+    expect(out).toContain(es['backoffice.host.hold']);
+    expect(out).toContain(es['backoffice.host.reason.SCREENING_HOLD']);
+    for (const item of HOST_CHECK_ITEMS) expect(out).toContain(es[`backoffice.host.item.${item}`]);
+    expect(out).toContain(es['backoffice.host.state.HELD']);
+    expect(out).toContain(es['backoffice.host.result.POTENTIAL_MATCH']);
+    expect(out).not.toContain(es['backoffice.host.screeningHeading']);
+  });
+
+  it('dossier de l’hôte sans filtrage (US-108) : trois listes jamais pré-cochées, motif borné, refus expliqués dans chaque langue', () => {
+    const out = html(UNSCREENED_HOST, tag);
+    expect(out).toContain(es['backoffice.host.screeningHeading']);
+    expect(out).toContain(es['backoffice.host.noScreening']);
+    for (const list of ['unList', 'ofacList', 'nationalList']) {
+      expect(out).toContain(`name="${list}" value="CLEAR"`);
+      expect(out).toContain(`name="${list}" value="MATCH"`);
+    }
+    expect(out).not.toMatch(/checked/);
+    expect(out).toMatch(/name="reason"[^>]*minLength="10"|minLength="10"[^>]*name="reason"/i);
+    expect(out).toContain(es['backoffice.host.reason.COUNTRY_REVIEW']);
+    expect(out).not.toContain(es['backoffice.host.hold']);
+    for (const p of LOCALE_CONFIG.locales) {
+      const t = translatorOf(p.tag);
+      for (const key of Object.values(HOST_SCREENING_REFUSAL_KEYS)) expect(t.t(key)).not.toBe(key);
     }
   });
 
@@ -460,6 +532,26 @@ describe('O01 : ce que chaque état montre', () => {
     expect(html(FULL, tag)).not.toContain('value="catalog:');
   });
 
+  it('variante candidate sans fiche (import de la douane, ADR-109) : « fiche à compléter », jamais « null »', () => {
+    const catalog = CATALOG.catalog;
+    const first = catalog?.candidates[0];
+    if (!catalog || !first) throw new Error('fixture du catalogue absente');
+    const state: OpsState = {
+      ...CATALOG,
+      catalog: {
+        ...catalog,
+        candidates: [{ ...first, transmission: null, fuelType: null, drive: null, seats: null }],
+      },
+    };
+    for (const p of LOCALE_CONFIG.locales) {
+      const out = html(state, p.tag);
+      expect(out, p.tag).toContain(
+        CATALOGS[p.language].messages['backoffice.catalog.specsPending'],
+      );
+      expect(out, p.tag).not.toMatch(/\bnull\b|undefined/);
+    }
+  });
+
   it('rôle sans lecture de fiche (FINANCE) : aucun panneau de fiche 360°', () => {
     expect(html({}, tag, false)).not.toContain(es['backoffice.profile.heading']);
   });
@@ -484,5 +576,34 @@ describe('O01 : ce que chaque état montre', () => {
       );
     expect(render('OPS_AGENT')).toContain(es['backoffice.profile.heading']);
     expect(render('FINANCE')).not.toContain(es['backoffice.profile.heading']);
+  });
+
+  it('console élevée (US-108) : filtrage manuel des sanctions par un compte d’hôte pour OPS et ADMIN, jamais pour FINANCE ; trois listes jamais pré-cochées', () => {
+    const render = (role: string) =>
+      renderToStaticMarkup(
+        <ConsoleView
+          i18n={translatorOf(tag)}
+          state={{ kind: 'console', roles: [{ role, countries: ['AA'] }], entries: [] }}
+          handlers={{
+            onLogin: () => undefined,
+            onReveal: () => undefined,
+            onVerify: () => undefined,
+            onAction: () => undefined,
+            onHostScreening: () => undefined,
+            onApprove: () => undefined,
+            onSignOut: () => undefined,
+          }}
+          ops={{ state: {}, handlers: noop }}
+        />,
+      );
+    for (const role of ['OPS_AGENT', 'ADMIN']) {
+      const out = render(role);
+      expect(out).toContain(es['backoffice.host.subject']);
+      for (const list of ['unList', 'ofacList', 'nationalList']) {
+        expect(out).toContain(`name="${list}" value="CLEAR"`);
+      }
+      expect(out).not.toMatch(/checked/);
+    }
+    expect(render('FINANCE')).not.toContain(es['backoffice.host.subject']);
   });
 });

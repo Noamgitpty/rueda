@@ -399,6 +399,70 @@ export const PT_MESSAGES = {
   'backoffice.kyc.decide.REJECTED': 'Recusar',
   'backoffice.kyc.decide.MORE_INFO_REQUIRED': 'Pedir um novo documento',
   'backoffice.kyc.decided': 'Decisão registrada; o item da fila foi encerrado.',
+  'backoffice.queues.openHost': 'Abrir o dossiê do anfitrião',
+  'backoffice.host.heading': 'Dossiê do anfitrião',
+  'backoffice.host.intro':
+    'Revisão por exceção: um dossiê completo e sem alertas é aprovado automaticamente ao fim do prazo de revisão. Os motivos de alerta, se houver, aparecem abaixo.',
+  'backoffice.host.status': 'Situação do dossiê',
+  'backoffice.host.status.NOT_SUBMITTED': 'Não enviado',
+  'backoffice.host.status.OPEN': 'Aberto',
+  'backoffice.host.status.DOCS_PENDING': 'Incompleto',
+  'backoffice.host.status.IN_REVIEW': 'Em revisão',
+  'backoffice.host.status.APPROVED': 'Aprovado',
+  'backoffice.host.status.REJECTED': 'Recusado',
+  'backoffice.host.status.REVOKED': 'Revogado',
+  'backoffice.host.hold':
+    'Retenção por sanções: possível correspondência para um ADMIN revisar. O anfitrião nunca é avisado.',
+  'backoffice.host.reviewReasons': 'Motivo da revisão',
+  'backoffice.host.reason.SCREENING_HOLD': 'Correspondência em uma lista de sanções',
+  'backoffice.host.reason.ACCOUNT_RESTRICTED':
+    'Conta restrita, encerrada ou com uma retenção ativa',
+  'backoffice.host.reason.COUNTRY_REVIEW':
+    'A configuração exige uma revisão da equipe de operações',
+  'backoffice.host.noReason': 'Nenhum alerta',
+  'backoffice.host.checklist': 'Lista de verificação',
+  'backoffice.host.item.IDENTITY': 'Identidade verificada',
+  'backoffice.host.item.AGE': 'Idade mínima',
+  'backoffice.host.item.RESIDENCE': 'Residência',
+  'backoffice.host.item.SANCTIONS': 'Listas de sanções',
+  'backoffice.host.item.TAX_PROFILE': 'Perfil fiscal',
+  'backoffice.host.item.HOST_TERMS': 'Termos do anfitrião aceitos',
+  'backoffice.host.item.PAYOUT_ACCOUNT': 'Conta de repasses com o provedor',
+  'backoffice.host.item.PSP_CAPABILITIES': 'Recursos do provedor de pagamentos',
+  'backoffice.host.item.COUNTRY_OPEN': 'Mercado aberto a anfitriões particulares',
+  'backoffice.host.item.INSURER_CONTRACT': 'Contrato da seguradora ativo',
+  'backoffice.host.state.OK': 'Cumprido',
+  'backoffice.host.state.MISSING': 'Faltando',
+  'backoffice.host.state.BLOCKED': 'Bloqueado',
+  'backoffice.host.state.HELD': 'Retido',
+  'backoffice.host.screening': 'Triagem de sanções',
+  'backoffice.host.source': 'Fonte',
+  'backoffice.host.source.OPS_MANUAL': 'Consulta manual da equipe de operações',
+  'backoffice.host.source.MANUAL': 'Revisão de um ADMIN',
+  'backoffice.host.screenedAt': 'Data da triagem',
+  'backoffice.host.result': 'Resultado',
+  'backoffice.host.result.CLEAR': 'Sem correspondência',
+  'backoffice.host.result.POTENTIAL_MATCH': 'Possível correspondência',
+  'backoffice.host.result.CONFIRMED_MATCH': 'Correspondência confirmada',
+  'backoffice.host.noScreening': 'Ainda não há triagem registrada.',
+  'backoffice.host.evidence': {
+    one: '{count} documento anexado à triagem',
+    other: '{count} documentos anexados à triagem',
+  },
+  'backoffice.host.subject': 'Identificador da conta de anfitrião',
+  'backoffice.host.screeningHeading': 'Triagem manual de sanções',
+  'backoffice.host.screeningHint':
+    'Consulte cada lista e depois informe o resultado. Uma correspondência vai para um ADMIN; o anfitrião nunca é avisado.',
+  'backoffice.host.list.unList': 'Lista consolidada das Nações Unidas',
+  'backoffice.host.list.ofacList': 'Lista OFAC',
+  'backoffice.host.list.nationalList': 'Lista nacional correspondente à conta',
+  'backoffice.host.clear': 'Sem correspondência',
+  'backoffice.host.match': 'Possível correspondência',
+  'backoffice.host.record': 'Registrar a triagem',
+  'backoffice.host.recorded': 'Triagem registrada.',
+  'backoffice.host.refused.HOST_ALREADY_SCREENED': 'Este dossiê já tem uma triagem registrada.',
+  'backoffice.host.refused.HOST_VERIFICATION_NOT_READY': 'O anfitrião ainda não enviou o dossiê.',
+  'backoffice.host.refused.SELF_FORBIDDEN': 'Você não pode fazer a triagem da sua própria conta.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Decisão recusada: as quatro checagens precisam ser marcadas.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':
@@ -877,6 +941,10 @@ export const PT_MESSAGES = {
   'common.listing.photoFormat': 'Esta foto não pode ser usada. Envie uma foto JPEG, PNG ou WebP.',
   'common.listing.hostTermsRequired':
     'Antes de enviar seu anúncio, leia e aceite a versão vigente das Condições do anfitrião.',
+  'common.listing.vehicleNotCovered':
+    'Este veículo não atende às condições da proteção das viagens (idade, valor ou uso). Ele não pode ser publicado.',
+  'common.listing.insurerInactive':
+    'Tudo pronto do seu lado. A proteção das viagens ainda não está disponível aqui; você poderá enviar seu anúncio quando estiver.',
   'common.listing.hostNotActivated':
     'Tudo pronto do seu lado. Você poderá enviar seu anúncio quando sua conta de anfitrião estiver ativa e abrirmos para anfitriões aqui.',
   'common.listing.unavailable':
@@ -1165,6 +1233,11 @@ export const PT_MESSAGES = {
   'web.a07.task.identity': 'Sua identidade',
   'web.a07.task.tax': 'Dados fiscais',
   'web.a07.task.terms': 'Termos para anfitriões',
+  // US-127 : refus d'une réservation par l'hôte lui-même ou un compte lié (16 ACC-014,
+  // SELF_BOOKING_FORBIDDEN) ; le même texte dans tous les cas, sans dire pourquoi (ADR-110)
+  'common.booking.selfBookingForbidden.title': 'Você não pode reservar este carro',
+  'common.booking.selfBookingForbidden.body':
+    'Este carro não pode ser reservado com a sua conta. Escolha outro carro ou fale com a gente se achar que é um engano.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Aviso importante',
   'common.regulatory.version': 'Versão {version} deste aviso',
@@ -1375,4 +1448,5 @@ export const PT_MESSAGES = {
   'common.vehicleDocs.vinInvalid':
     'Este número do chassi não é válido. Digite o VIN de 17 caracteres (sem I, O nem Q) ou o número do chassi do seu carro importado, por exemplo GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'Você declarou em {date}.',
+  'backoffice.catalog.specsPending': 'Ficha técnica a completar',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

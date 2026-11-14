@@ -400,6 +400,13 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
     w.store.hostTermsAccepted.add(w.orgA);
     expect((await submit()).json).toMatchObject({ code: 'HOST_NOT_ACTIVATED' });
     expect(w.store.listingsById.get(d.listingId)?.status).toBe('DRAFT');
+    // US-108 : couverture de l'assureur à la soumission (16 A.8) : 422, l'annonce reste DRAFT
+    for (const code of ['VEHICLE_NOT_COVERED', 'INSURER_CONTRACT_INACTIVE'] as const) {
+      w.store.forced = code;
+      const refused = await submit();
+      expect(refused.status).toBe(422);
+      expect(refused.json).toMatchObject({ code });
+    }
     w.store.forced = 'DONE';
     const done = await submit();
     expect(done.status).toBe(200);
