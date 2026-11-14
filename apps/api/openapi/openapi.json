@@ -5306,7 +5306,7 @@
             }
           },
           "409": {
-            "description": "Annonce dans un état sans photo modifiable",
+            "description": "Annonce dans un état sans photo modifiable ; galerie pleine (PHOTO_LIMIT_REACHED, paramètre upload_gallery_photos_max du pays, US-122)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -5318,7 +5318,7 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "const": "LISTING_TRANSITION_FORBIDDEN"
+                      "enum": ["LISTING_TRANSITION_FORBIDDEN", "PHOTO_LIMIT_REACHED"]
                     }
                   }
                 }
@@ -7770,7 +7770,7 @@
             }
           },
           "409": {
-            "description": "Véhicule en revue, définitivement inéligible ou libéré après une contestation",
+            "description": "Véhicule en revue, définitivement inéligible ou libéré après une contestation ; rafale de dépôts (DOCUMENT_RATE_LIMITED, paramètre upload_documents_per_minute du pays, US-122)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -7782,7 +7782,12 @@
                   "$ref": "#/components/schemas/ListingError",
                   "properties": {
                     "code": {
-                      "enum": ["VEHICLE_UNDER_REVIEW", "VEHICLE_INELIGIBLE", "VEHICLE_RELEASED"]
+                      "enum": [
+                        "VEHICLE_UNDER_REVIEW",
+                        "VEHICLE_INELIGIBLE",
+                        "VEHICLE_RELEASED",
+                        "DOCUMENT_RATE_LIMITED"
+                      ]
                     }
                   }
                 }

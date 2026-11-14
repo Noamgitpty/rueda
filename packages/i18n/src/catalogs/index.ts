@@ -83,8 +83,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 40 : correctifs de la red team du lot 1 (US-122, ADR-122) : `common.ops.selfForbidden`
  (séparation des tâches de la console) et `common.vehicleDocs.claimLimitReached` (plafond de
  contestations ouvertes).
+ Version 41 : correctifs de la passe n° 2 de la red team du lot 1 (US-122, ADR-124) :
+ `common.listing.photoLimitReached` (galerie pleine) et `ntf.tripHostRestricted.*` (voyageur d'un
+ trip à venir prévenu quand l'hôte est restreint).
  */
-export const CATALOG_VERSION = 40;
+export const CATALOG_VERSION = 41;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

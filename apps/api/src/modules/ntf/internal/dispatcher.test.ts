@@ -18,6 +18,7 @@ describe('abonnement', () => {
   it('le dispatcher écoute les événements canoniques du catalogue (17 §4.5)', () => {
     expect(subscribedEventTypes()).toEqual([
       'booking.trip.booked',
+      'booking.trip.host_restricted',
       'catalog.addition_request.resolved',
       'kyc.verification.status_changed',
       'payout.batch.status_changed',
@@ -108,6 +109,23 @@ describe.each(COUNTRY_CASES)('planDispatches — $country ($currency)', (c) => {
     expect(plan('OPEN')).toEqual([]);
     expect(() =>
       planDispatches(event('catalog.addition_request.resolved', payload, c.country)),
+    ).toThrow(NotificationContractError);
+  });
+
+  it('hôte restreint (US-122, ADR-124) : le voyageur du trip à venir est prévenu, l’hôte jamais ; voyageur absent : erreur de contrat', () => {
+    const payload = { trip_id: tripId, guest_user_id: guest, org_id: tripId };
+    expect(
+      planDispatches(event('booking.trip.host_restricted', payload, c.country)).map((p) => [
+        p.recipientRole,
+        p.recipientUserId,
+        p.channel,
+        p.template,
+      ]),
+    ).toEqual([['GUEST', guest, 'EMAIL', 'EVT_TRIP_HOST_RESTRICTED']]);
+    expect(() =>
+      planDispatches(
+        event('booking.trip.host_restricted', { trip_id: tripId, org_id: tripId }, c.country),
+      ),
     ).toThrow(NotificationContractError);
   });
 

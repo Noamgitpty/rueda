@@ -89,6 +89,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-122',
     refs: 'BOARD N-61, red team F-L1-V-01, ADR-122',
   },
+  {
+    prefix: 'upload_',
+    file: '0098_config_upload_params.sql',
+    story: 'US-122',
+    refs: 'red team F2-U-02, ADR-124',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

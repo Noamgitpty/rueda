@@ -1096,6 +1096,8 @@ export const EN_MESSAGES = {
   'common.listing.requestModeNotAllowed': 'At an airport, bookings are always instant.',
   'common.listing.photoMinCount': 'Add more photos of your car before publishing the listing.',
   'common.listing.photoFormat': 'This photo cannot be used. Upload a JPEG, PNG or WebP photo.',
+  'common.listing.photoLimitReached':
+    'This listing already has the maximum number of photos. Remove a photo before adding another.',
   'common.listing.hostTermsRequired':
     'Before publishing your listing, read and accept the current version of the Host terms.',
   'common.listing.vehicleNotCovered':
@@ -1176,6 +1178,11 @@ export const EN_MESSAGES = {
     'Hi {first_name}. We couldn’t add your car to the {brand} catalog. Your host space shows why and lets you fix the make and model.',
   'ntf.catalogAdditionRejected.sms.body':
     '{brand}: we couldn’t add your car to the catalog. Reason in your host space.',
+  'ntf.tripHostRestricted.email.subject': 'Booking {booking_ref}: an update about your host',
+  'ntf.tripHostRestricted.email.body':
+    'Hi {first_name}. We are reviewing the account of the host of your booking {booking_ref}. Your booking is still on record and we will keep you posted. If it is cancelled, you get a full refund. Details in the app.',
+  'ntf.tripHostRestricted.sms.body':
+    '{brand}: we are reviewing the host account for your booking {booking_ref}. Full refund if it is cancelled. Details in the app.',
   'backoffice.catalog.open': 'Open the request',
   'backoffice.catalog.heading': 'Catalog addition request',
   'backoffice.catalog.requested': 'What the host entered',

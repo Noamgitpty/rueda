@@ -1913,6 +1913,42 @@
       "decision": "TO_DECIDE",
       "decisionRef": "OQ-MK-09 (défaut prudent : 72 h, aligné sur l’autorité) ; ADR-121",
       "values": { "PA": 72, "PY": 72 }
+    },
+    {
+      "key": "upload_photo_max_kb",
+      "type": "INT",
+      "unit": "kb",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §5 (taille maximale d'un fichier reçu) ; 16 HST-012 ; red team du lot 1, F2-U-02 : taille déclarée d'une photo d'annonce bornée par la base, comme celle d'une pièce (défense en profondeur ; absent : refus PHOTO_FORMAT)",
+      "status": "PROPOSÉ (comme Turo : le moins limitant raisonnable, 10 Mio, borne de l'API)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-124 PROPOSÉ (US-122) ; COMME_TURO",
+      "values": { "PA": 10240, "PY": 10240 }
+    },
+    {
+      "key": "upload_gallery_photos_max",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 HST-012 ; red team du lot 1, F2-U-02 : photos d'une même annonce (galerie), retirées et refusées exclues ; ce n'est pas un plafond de véhicules ni d'annonces (DEC-FONDATEUR-19) ; absent : refus PHOTO_LIMIT_REACHED",
+      "status": "PROPOSÉ (comme Turo : très au-dessus d'une galerie ordinaire, aucun hôte honnête bloqué)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-124 PROPOSÉ (US-122) ; COMME_TURO",
+      "values": { "PA": 100, "PY": 100 }
+    },
+    {
+      "key": "upload_documents_per_minute",
+      "type": "INT",
+      "unit": "count",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "17 §5 ; red team du lot 1, F2-U-02 : dépôts de pièces d'un même véhicule sur une minute glissante (rafale) ; absent : refus DOCUMENT_RATE_LIMITED",
+      "status": "PROPOSÉ (comme Turo : débit d'un dépôt humain, jamais atteint par un hôte honnête)",
+      "decision": "PROPOSED",
+      "decisionRef": "ADR-124 PROPOSÉ (US-122) ; COMME_TURO",
+      "values": { "PA": 20, "PY": 20 }
     }
   ]
 }

@@ -1,33 +1,55 @@
 -- 0097 — SUP / STL / RISK / KYC / AUD / BKG / CAT : correctifs de la passe n° 2 de la red team du lot 1.
 -- US-122 ; rapport docs/team/redteam/L1-passe2.md (constats F2-C-01 à C-05, F2-A03-01, F2-D-01 à
--- D-03, F2-U-02, F2-T-01, F2-T-02) ; 17 §2.3 (« un agent ne décide pas sur son propre dossier »,
--- RLS-24), §5, §10 ; 16 ADM-001, ADM-005, VER-004, LEG-009 ; 08 BR-ACC-06, BR-TRUST-09 ;
--- ADR-122 (garde unique), ADR-124 (cette migration, PROPOSÉ). Appliquée sous `migrator`, en une
--- transaction.
+-- D-03, F2-U-02, F2-T-01, F2-T-02 ; F2-U-01 est corrigé dans l'API) ; 17 §2.3 (« un agent ne
+-- décide pas sur son propre dossier », RLS-24), §5, §10 ; 16 ADM-001, ADM-005, VER-004, LEG-009,
+-- HST-012 ; 08 BR-ACC-06, BR-TRUST-09 ; ADR-122 (garde unique), ADR-124 (cette migration,
+-- PROPOSÉ). Appliquée sous `migrator`, en une transaction.
 --
 -- Principes (ADR-124, PROPOSÉS) :
---   - la garde UNIQUE `core.support_actor_conflict` (ADR-122) est appelée par TOUTES les entrées
---     de la console qui prennent, lisent ou décident un sujet : prise d'un élément de file (toutes
---     files), dossier KYC, dossier d'hôte, constat de comptes liés, actions FINANCE à deux
---     personnes (demande ET approbation) ; issue SELF_FORBIDDEN, journalisée ;
---   - personnes d'un sujet : pour USER_ACCOUNT et IDENTITY_VERIFICATION, aussi le titulaire et les
---     membres de tous les comptes d'hôte de la personne (F2-C-05) ; RISK_ASSESSMENT jugé ;
---   - (sections suivantes) doublon d'identité d'hôte, droits des personnes, téléversements,
---     hôte défaillant : voir chaque section.
+--   1. la garde UNIQUE `core.support_actor_conflict` (ADR-122) est appelée par TOUTES les entrées
+--      de la console qui prennent, lisent ou décident un sujet : prise d'un élément de file (toutes
+--      files), dossier KYC, dossier d'hôte, constat de comptes liés, actions FINANCE à deux
+--      personnes (demande ET approbation, aucun montant touché) ; issue SELF_FORBIDDEN, journalisée.
+--      Personnes d'un sujet : pour USER_ACCOUNT et IDENTITY_VERIFICATION, aussi le titulaire et les
+--      membres de tous les comptes d'hôte de la personne (F2-C-05) ; RISK_ASSESSMENT jugé ;
+--   2. droits des personnes : une demande gelée passée son échéance est signalée en retard ; un
+--      effacement KYC refusé (FAILED) est repris (nouveau retrait, ou commande de la personne) ;
+--      aucun hold après le retrait du consentement biométrique ;
+--   3. téléversements : taille d'une photo, photos d'une galerie et dépôts de pièces par minute
+--      bornés par pays (graine 0098 ; absent ou mal formé : refus) ;
+--   4. hôte défaillant : la fiche 360° liste les trips à venir de ses comptes d'hôte (sans le
+--      voyageur) ; la pose d'une restriction prévient chaque voyageur d'un trip à venir ;
+--   5. doublon d'identité d'hôte (comme Turo, sans étape de plus) : la même personne qu'un hôte
+--      déjà approuvé n'est jamais approuvée, ni par l'ops ni automatiquement ; revue de l'ops par
+--      le constat de comptes liés.
 --
 -- Expand / contract : fonctions, droits et politiques ajoutés ; corps remplacés à signature,
 -- propriétaire et droits identiques (chaque définition reprise est recopiée à l'identique, seuls
 -- les blocs marqués US-122 changent). Le COMPORTEMENT se resserre volontairement. La version N de
--- l'API traduit une issue inconnue en refus (FORBIDDEN), sans rien écrire de plus.
+-- l'API traduit une issue inconnue en refus (FORBIDDEN, LISTING_UNAVAILABLE), sans rien écrire.
 --
 -- Retour arrière :
---   réappliquer core.support_staff_claim_item de 0064, core.support_staff_kyc_dossier de 0076,
---     core.support_staff_host_dossier de 0081, core.risk_staff_decide_account_link de 0080,
---     core.support_subject_parties de 0093 (sous iam_staff_owner) ;
---     core.settlement_cmd_request_finance_action et core.settlement_cmd_approve_finance_action de
---     0036 (sous cmd_money_owner) ; puis les définitions citées dans les sections suivantes ;
---   DROP FUNCTION core.support_staff_conflict(uuid, text, uuid), core.support_person_people(uuid) ;
---   DROP POLICY iam_staff_party_read ON core.risk_assessment ; révoquer les droits accordés.
+--   réappliquer core.support_staff_claim_item de 0064, core.support_staff_kyc_dossier et
+--     core.support_staff_profile de 0076, core.support_staff_host_dossier de 0081,
+--     core.risk_staff_decide_account_link de 0080, core.support_subject_parties de 0093 (sous
+--     iam_staff_owner) ; core.settlement_cmd_request_finance_action et
+--     core.settlement_cmd_approve_finance_action de 0036 (sous cmd_money_owner) ;
+--     core.privacy_worker_dsr_overdue de 0090 (sous privacy_cmd_owner) ;
+--     core.kyc_cmd_biometric_consent de 0072, core.kyc_manual_action_host_verification_decision de
+--     0075, core.kyc_host_auto_approve de 0081 (sous kyc_cmd_owner) ; core.booking_cmd_place_hold
+--     de 0080 (sous cmd_hold_owner) ; core.catalog_cmd_add_listing_photo de 0067 et
+--     core.catalog_cmd_add_vehicle_document de 0077 (sous catalog_cmd_owner) ;
+--     core.iam_manual_action_restriction de 0064 (sous iam_auth_owner) ;
+--   DROP FUNCTION core.support_staff_conflict(uuid, text, uuid), core.support_person_people(uuid),
+--     core.kyc_cmd_retry_erasure(bytea, uuid), core.kyc_consent_withdrawn(uuid),
+--     core.booking_notify_host_restricted(uuid, uuid, text, uuid),
+--     core.kyc_host_identity_duplicate(uuid) ;
+--   DROP POLICY iam_staff_party_read ON core.risk_assessment ; DROP POLICY kyc_cmd_erasure_reopen
+--     ON core.kyc_erasure_request ; DROP POLICY catalog_cmd_upload_read ON
+--     core.config_param_definition, core.config_param_value ; DROP POLICY cmd_hold_trip_notice_ins
+--     ON core.outbox_outbox_event ; DROP POLICY risk_host_duplicate_read ON
+--     core.kyc_host_verification ; révoquer les droits accordés ci-dessous ;
+--   graine 0098 : voir son en-tête.
 
 -- 1. Séparation des tâches : la garde unique d'ADR-122 sur toutes les entrées de la console ------
 -- 1.1 Lectures d'iam_staff_owner : sujet d'une évaluation de risque (colonnes d'identifiants)
@@ -1276,3 +1298,763 @@ END
 $fn$;
 RESET ROLE;
 REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
+
+-- 3. Téléversements : plafonds par pays de la base (F2-U-02 ; graine 0098, PROPOSÉS) --------
+-- Défense en profondeur derrière les contrôles de l'API (photo-ingest.ts, ports.ts) : taille
+-- déclarée d'une photo (upload_photo_max_kb), photos d'une galerie (upload_gallery_photos_max,
+-- refusées exclues : ce n'est pas un plafond d'annonces ni de véhicules, DEC-FONDATEUR-19),
+-- dépôts de pièces d'un véhicule sur une minute glissante (upload_documents_per_minute).
+-- Valeur absente ou mal formée : refus (fail-closed).
+CREATE POLICY catalog_cmd_upload_read ON core.config_param_definition FOR SELECT
+  TO catalog_cmd_owner
+  USING (key IN ('upload_photo_max_kb', 'upload_gallery_photos_max', 'upload_documents_per_minute'));
+CREATE POLICY catalog_cmd_upload_read ON core.config_param_value FOR SELECT
+  TO catalog_cmd_owner
+  USING (key IN ('upload_photo_max_kb', 'upload_gallery_photos_max', 'upload_documents_per_minute'));
+GRANT CREATE ON SCHEMA core TO catalog_cmd_owner;
+SET LOCAL ROLE catalog_cmd_owner;
+-- (définitions de 0067 et 0077 recopiées à l'identique ; seuls les blocs US-122 changent)
+CREATE OR REPLACE FUNCTION core.catalog_cmd_add_listing_photo(p_token_hash bytea, p_org uuid,
+                                                   p_listing_id uuid, p_photo_id uuid,
+                                                   p_file_id uuid, p_mime text, p_bytes bigint,
+                                                   p_sha256 bytea)
+  RETURNS TABLE (outcome text, photo_id uuid, storage_key text)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  h        record;
+  v_status text;
+  v_pos    smallint;
+  v_key    text;
+  v_max_kb bigint;
+  v_max_n  bigint;
+BEGIN
+  SELECT * INTO h FROM core.catalog_host_context(p_token_hash, p_org);
+  IF h.outcome <> 'OK' THEN
+    RETURN QUERY SELECT h.outcome, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  IF h.org_status NOT IN ('ONBOARDING', 'PENDING_ACTIVATION', 'ACTIVE') THEN
+    RETURN QUERY SELECT 'HOST_ACCOUNT_SUSPENDED'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  IF p_photo_id IS NULL OR p_file_id IS NULL THEN
+    RAISE EXCEPTION 'photo : identifiants manquants' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT l.status INTO v_status
+    FROM core.catalog_listing AS l
+   WHERE l.id = p_listing_id AND l.org_id = p_org AND l.country_code = h.country_code
+     FOR UPDATE;
+  IF v_status IS NULL THEN
+    RETURN QUERY SELECT 'LISTING_NOT_FOUND'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  IF v_status NOT IN ('DRAFT', 'REJECTED', 'BLOCKED_ELIGIBILITY') THEN
+    RETURN QUERY SELECT 'LISTING_TRANSITION_FORBIDDEN'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  IF p_mime IS NULL OR p_mime NOT IN ('image/jpeg', 'image/png', 'image/webp')
+     OR p_bytes IS NULL OR p_bytes <= 0
+     OR p_sha256 IS NULL OR pg_catalog.octet_length(p_sha256) <> 32 THEN
+    RETURN QUERY SELECT 'PHOTO_FORMAT'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  -- US-122 (ADR-124, F2-U-02) : taille déclarée bornée par le pays, comme celle d'une pièce ;
+  -- paramètre absent ou mal formé : refus
+  v_max_kb := core.catalog_param_int('upload_photo_max_kb', h.country_code);
+  IF v_max_kb IS NULL OR v_max_kb < 1 OR p_bytes > v_max_kb * 1024 THEN
+    RETURN QUERY SELECT 'PHOTO_FORMAT'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  -- US-122 (ADR-124, F2-U-02) : photos de la galerie (refusées exclues), annonce verrouillée
+  -- ci-dessus ; paramètre absent ou mal formé : refus
+  v_max_n := core.catalog_param_int('upload_gallery_photos_max', h.country_code);
+  IF v_max_n IS NULL OR v_max_n < 1
+     OR (SELECT pg_catalog.count(*) FROM core.catalog_listing_photo AS p
+          WHERE p.listing_id = p_listing_id AND p.status <> 'REJECTED') >= v_max_n THEN
+    RETURN QUERY SELECT 'PHOTO_LIMIT_REACHED'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  SELECT COALESCE(pg_catalog.max(p.position) + 1, 0)::smallint INTO v_pos
+    FROM core.catalog_listing_photo AS p WHERE p.listing_id = p_listing_id;
+  v_key := 'listing/' || p_listing_id::text || '/' || p_photo_id::text;
+  INSERT INTO core.audit_file_asset (id, bucket, storage_key, mime, bytes, sha256,
+                                     uploader_user_id, source, classification, retention_class)
+  VALUES (p_file_id, 'PUBLIC_LISTING', v_key, p_mime, p_bytes, p_sha256, h.user_id, 'HOST_UPLOAD',
+          'C0', 'LISTING_PHOTO');
+  INSERT INTO core.catalog_listing_photo (id, listing_id, org_id, country_code, file_id, position,
+                                          status, created_by)
+  VALUES (p_photo_id, p_listing_id, p_org, h.country_code, p_file_id, v_pos, 'PENDING', h.user_id);
+  RETURN QUERY SELECT 'DONE'::text, p_photo_id, v_key;
+END
+$fn$;
+CREATE OR REPLACE FUNCTION core.catalog_cmd_add_vehicle_document(p_token_hash bytea, p_org uuid,
+                                                      p_vehicle uuid, p_file_id uuid,
+                                                      p_doc_type text, p_mime text,
+                                                      p_bytes bigint, p_sha256 bytea,
+                                                      p_valid_until date)
+  RETURNS TABLE (outcome text, document_id uuid, storage_key text)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  w     record;
+  v_key text;
+  v_max bigint;
+BEGIN
+  SELECT * INTO w FROM core.catalog_vehicle_writable(p_token_hash, p_org, p_vehicle);
+  IF w.outcome <> 'OK' THEN
+    RETURN QUERY SELECT w.outcome, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  IF p_file_id IS NOT NULL AND EXISTS (SELECT 1 FROM core.catalog_vehicle_document AS d
+                                        WHERE d.file_id = p_file_id AND d.vehicle_id = p_vehicle) THEN
+    -- rejeu du même dépôt (même requête) : rien n'est réécrit
+    RETURN QUERY SELECT 'DUPLICATE'::text, p_file_id,
+                        core.catalog_document_key(p_org, p_vehicle, p_file_id);
+    RETURN;
+  END IF;
+  IF p_file_id IS NULL
+     OR p_doc_type IS NULL OR p_doc_type NOT IN ('TITLE', 'OWNER_AUTHORIZATION', 'PLATE_VIN_PHOTO',
+                                                 'INSPECTION', 'LENDER_CONSENT',
+                                                 'COMPULSORY_INSURANCE')
+     OR p_mime IS NULL OR p_mime NOT IN ('image/jpeg', 'image/png', 'image/heic', 'application/pdf')
+     OR p_bytes IS NULL OR p_bytes NOT BETWEEN 1 AND 10485760
+     OR p_sha256 IS NULL OR pg_catalog.octet_length(p_sha256) <> 32
+     OR (p_valid_until IS NOT NULL
+         AND p_valid_until NOT BETWEEN DATE '1950-01-01' AND DATE '2100-12-31') THEN
+    RETURN QUERY SELECT 'VEHICLE_DOCUMENT_INVALID'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  -- US-122 (ADR-124, F2-U-02) : dépôts de pièces du véhicule sur une minute glissante, sous un
+  -- verrou du véhicule (deux dépôts concurrents ne passent pas tous deux la borne) ;
+  -- paramètre absent ou mal formé : refus
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('catalog.vehicle_documents:' || p_vehicle::text, 0));
+  v_max := core.catalog_param_int('upload_documents_per_minute', w.country_code);
+  IF v_max IS NULL OR v_max < 1
+     OR (SELECT pg_catalog.count(*) FROM core.catalog_vehicle_document AS d
+          WHERE d.vehicle_id = p_vehicle
+            AND d.created_at > platform.now() - pg_catalog.make_interval(mins => 1)) >= v_max THEN
+    RETURN QUERY SELECT 'DOCUMENT_RATE_LIMITED'::text, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+  v_key := core.catalog_document_key(p_org, p_vehicle, p_file_id);
+  INSERT INTO core.audit_file_asset (id, bucket, storage_key, mime, bytes, sha256, uploader_user_id,
+                                     source, classification, retention_class, enc_subject_type,
+                                     enc_subject_id)
+  VALUES (p_file_id, 'DOCUMENTS', v_key, p_mime, p_bytes, p_sha256, w.user_id, 'HOST_UPLOAD', 'C2',
+          'VEHICLE_DOCUMENT', 'USER', w.user_id);
+  UPDATE core.catalog_vehicle_document AS d
+     SET status = 'SUPERSEDED'
+   WHERE d.vehicle_id = p_vehicle AND d.doc_type = p_doc_type AND d.status IN ('SUBMITTED', 'VALID');
+  INSERT INTO core.catalog_vehicle_document (id, vehicle_id, org_id, country_code, doc_type, file_id,
+                                             mime, bytes, valid_until, uploaded_by)
+  VALUES (p_file_id, p_vehicle, p_org, w.country_code, p_doc_type, p_file_id, p_mime, p_bytes,
+          p_valid_until, w.user_id);
+  UPDATE core.catalog_vehicle AS x SET eligibility_status = 'PENDING' WHERE x.id = p_vehicle;
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after)
+  VALUES (w.user_id, 'P2P_HOST', 'VEHICLE_DOCUMENT_RECEIVED', 'VEHICLE', p_vehicle, NULL,
+          pg_catalog.jsonb_build_object('orgId', p_org, 'country', w.country_code,
+                                        'documentType', p_doc_type, 'fileId', p_file_id,
+                                        'mime', p_mime, 'bytes', p_bytes,
+                                        'countries', pg_catalog.jsonb_build_array(w.country_code)));
+  RETURN QUERY SELECT 'DONE'::text, p_file_id, v_key;
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM catalog_cmd_owner;
+
+-- 4. Hôte défaillant (F2-T-01, F2-T-02 ; 08 BR-TRUST-09 « suspendre les nouvelles réservations
+-- d'un hôte défaillant ; prévenir les voyageurs concernés ») -----------------------------------
+-- 4.1 Voyageurs prévenus : un événement booking.trip.host_restricted par trip à venir des comptes
+-- d'hôte de la personne restreinte (sous cmd_hold_owner, module BKG ; notification NTF
+-- EVT_TRIP_HOST_RESTRICTED, adaptateurs FAKE seulement). Charge : trip_id, guest_user_id, org_id ;
+-- jamais le motif ni une donnée de l'hôte.
+GRANT SELECT (guest_user_id, scheduled_end) ON core.booking_trip TO cmd_hold_owner;
+GRANT INSERT (id) ON core.outbox_outbox_event TO cmd_hold_owner;
+CREATE POLICY cmd_hold_trip_notice_ins ON core.outbox_outbox_event FOR INSERT TO cmd_hold_owner
+  WITH CHECK (type = 'booking.trip.host_restricted' AND aggregate_type = 'trip'
+              AND actor_user_id IS NOT NULL);
+GRANT CREATE ON SCHEMA core TO cmd_hold_owner;
+SET LOCAL ROLE cmd_hold_owner;
+CREATE FUNCTION core.booking_notify_host_restricted(p_holder uuid, p_actor uuid,
+                                                    p_actor_role text, p_causation uuid)
+  RETURNS uuid[]
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  r     record;
+  v_id  uuid;
+  v_ids uuid[] := '{}'::uuid[];
+BEGIN
+  IF p_holder IS NULL OR p_actor IS NULL OR p_actor_role IS NULL THEN
+    RAISE EXCEPTION 'hôte restreint : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  FOR r IN
+    SELECT t.id, t.guest_user_id, t.org_id, t.country_code
+      FROM core.booking_trip AS t
+      JOIN core.iam_organization AS o ON o.id = t.org_id
+     WHERE o.holder_user_id = p_holder AND t.status IN ('BOOKED', 'CHECKIN_OPEN')
+       AND t.scheduled_end > platform.now()
+     ORDER BY t.scheduled_start, t.id
+  LOOP
+    v_id := platform.uuid_v7();
+    INSERT INTO core.outbox_outbox_event
+           (id, type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+            actor_user_id, actor_role, correlation_id, causation_id, payload, partition_key)
+    VALUES (v_id, 'booking.trip.host_restricted', 1, 'trip', r.id, 0, r.country_code, p_actor,
+            p_actor_role, pg_catalog.gen_random_uuid(), p_causation,
+            pg_catalog.jsonb_build_object('trip_id', r.id, 'guest_user_id', r.guest_user_id,
+                                          'org_id', r.org_id),
+            r.id::text);
+    v_ids := v_ids || v_id;
+  END LOOP;
+  RETURN v_ids;
+END
+$fn$;
+COMMENT ON FUNCTION core.booking_notify_host_restricted(uuid, uuid, text, uuid) IS
+  'Un événement booking.trip.host_restricted par trip à venir (BOOKED, CHECKIN_OPEN) des comptes '
+  'd''hôte de la personne restreinte (08 BR-TRUST-09). SECURITY DEFINER, EXECUTE iam_auth_owner. '
+  'US-122 (ADR-124, F2-T-02).';
+REVOKE ALL ON FUNCTION core.booking_notify_host_restricted(uuid, uuid, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.booking_notify_host_restricted(uuid, uuid, text, uuid)
+  TO iam_auth_owner;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
+
+-- 4.2 Pose d'une restriction (définition de 0064 recopiée ; bloc US-122) ; sous iam_auth_owner
+GRANT CREATE ON SCHEMA core TO iam_auth_owner;
+SET LOCAL ROLE iam_auth_owner;
+CREATE OR REPLACE FUNCTION core.iam_manual_action_restriction(p_token_hash bytea, p_action_id uuid,
+                                                   p_action_code text, p_subject_id uuid,
+                                                   p_input jsonb, p_reason text,
+                                                   p_actor uuid, p_actor_role text)
+  RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_kind text := p_input ->> 'kind';
+  v_id   uuid;
+  v_ev   uuid[];
+BEGIN
+  IF p_action_code IS NULL OR p_action_code NOT IN ('RESTRICT_ACCOUNT', 'LIFT_RESTRICTION')
+     OR p_action_id IS NULL OR p_subject_id IS NULL OR p_actor IS NULL OR p_actor_role IS NULL
+     OR p_reason IS NULL THEN
+    RAISE EXCEPTION 'restriction : action invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF v_kind IS NULL OR v_kind NOT IN ('TS_HOLD', 'POLICY_VIOLATION') THEN
+    RETURN QUERY SELECT 'KIND_REQUIRED'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM core.iam_user_account AS u WHERE u.id = p_subject_id) THEN
+    RETURN QUERY SELECT 'SUBJECT_NOT_FOUND'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  IF p_subject_id = p_actor THEN
+    RETURN QUERY SELECT 'SELF_FORBIDDEN'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  -- membre du staff (rôle en cours) : un ADMIN seulement (PROPOSÉ, ADR-097)
+  IF p_actor_role IS DISTINCT FROM 'ADMIN'
+     AND EXISTS (SELECT 1 FROM core.iam_staff_role_assignment AS a
+                  WHERE a.user_id = p_subject_id
+                    AND (a.expires_at IS NULL OR a.expires_at > platform.now())) THEN
+    RETURN QUERY SELECT 'STAFF_SUBJECT_ADMIN_ONLY'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('iam.restriction:' || p_subject_id::text || ':' || v_kind, 0));
+  SELECT r.id INTO v_id FROM core.iam_restriction AS r
+   WHERE r.user_id = p_subject_id AND r.kind = v_kind AND r.active;
+  IF p_action_code = 'RESTRICT_ACCOUNT' THEN
+    IF v_id IS NOT NULL THEN
+      RETURN QUERY SELECT 'RESTRICTION_EXISTS'::text, v_id, '{}'::uuid[];
+      RETURN;
+    END IF;
+    INSERT INTO core.iam_restriction (id, user_id, kind, active, reason, source_ref, created_by,
+                                      updated_by)
+    VALUES (p_action_id, p_subject_id, v_kind, true, pg_catalog.btrim(p_reason),
+            'manual_action:' || p_action_id::text, p_actor, p_actor);
+    -- US-122 (ADR-124, F2-T-02 ; 08 BR-TRUST-09) : chaque voyageur d'un trip à venir des comptes
+    -- d'hôte de la personne restreinte est prévenu (un événement par trip, même transaction)
+    v_ev := core.booking_notify_host_restricted(p_subject_id, p_actor, p_actor_role, p_action_id);
+    RETURN QUERY SELECT 'DONE'::text, p_action_id, v_ev;
+    RETURN;
+  END IF;
+  IF v_id IS NULL THEN
+    RETURN QUERY SELECT 'RESTRICTION_NOT_FOUND'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+  UPDATE core.iam_restriction AS r
+     SET active = false, lifted_at = platform.now(), updated_by = p_actor
+   WHERE r.id = v_id;
+  RETURN QUERY SELECT 'DONE'::text, v_id, '{}'::uuid[];
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM iam_auth_owner;
+
+-- 4.3 Fiche 360° : trips à venir de l'hôte (définition de 0076 recopiée ; bloc US-122) ; sous
+-- iam_staff_owner
+GRANT CREATE ON SCHEMA core TO iam_staff_owner;
+SET LOCAL ROLE iam_staff_owner;
+CREATE OR REPLACE FUNCTION core.support_staff_profile(p_token_hash bytea, p_request_id uuid,
+                                                      p_user_id uuid, p_purpose text)
+  RETURNS TABLE (outcome text, body jsonb)
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_s          record;
+  v_country    text;
+  v_role       text;
+  v_cover      text;
+  v_access     uuid;
+  v_u          record;
+  v_restricted boolean;
+  v_purpose    text := pg_catalog.btrim(p_purpose);
+BEGIN
+  IF p_request_id IS NULL OR p_user_id IS NULL OR v_purpose IS NULL
+     OR pg_catalog.char_length(v_purpose) NOT BETWEEN 10 AND 500 THEN
+    RAISE EXCEPTION 'fiche : entrée invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT * INTO v_s FROM core.iam_staff_session(p_token_hash);
+  IF v_s.user_id IS NULL THEN
+    RETURN QUERY SELECT 'AUTH_REQUIRED'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  IF v_s.mfa_level <> 'TOTP' THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, 'STAFF', 'STAFF_ACCESS_DENIED', 'USER_ACCOUNT',
+                                 p_user_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason', '2FA_REQUIRED',
+                                   'attempted', 'DATA_ACCESS', 'permission', 'support.read_profile'),
+                                 v_purpose, p_request_id);
+    RETURN QUERY SELECT 'MFA_REQUIRED'::text, NULL::jsonb;
+    RETURN;
+  END IF;
+  v_country := core.ctr_account_country(p_user_id);
+  IF v_country IS NOT NULL THEN
+    v_role := core.iam_staff_permitted(v_s.user_id, 'support.read_profile', ARRAY[v_country], NULL);
+  END IF;
+  IF v_role IS NOT NULL THEN
+    v_cover := core.support_staff_covers_user(v_s.user_id, v_role, p_user_id, v_country);
+  END IF;
+  IF v_cover IS NULL THEN
+    PERFORM core.iam_staff_audit(v_s.user_id, COALESCE(v_role, 'STAFF'), 'STAFF_FORBIDDEN',
+                                 'USER_ACCOUNT', p_user_id, NULL,
+                                 pg_catalog.jsonb_build_object('reason',
+                                   CASE WHEN v_country IS NULL THEN 'SUBJECT_NOT_FOUND'
+                                        WHEN v_role IS NULL THEN 'PERMISSION' ELSE 'CASE' END,
+                                   'attempted', 'DATA_ACCESS', 'permission', 'support.read_profile',
+                                   'access_kind', 'READ_C2_SUPPORT')
+                                 || CASE WHEN v_country IS NULL THEN '{}'::jsonb
+                                         ELSE pg_catalog.jsonb_build_object('country', v_country) END,
+                                 v_purpose, p_request_id);
+    RETURN QUERY SELECT CASE WHEN v_role IS NOT NULL THEN 'CASE_REQUIRED' ELSE 'FORBIDDEN' END::text,
+                        NULL::jsonb;
+    RETURN;
+  END IF;
+  v_access := core.support_staff_log_access(v_s.user_id, v_role, 'USER_ACCOUNT', p_user_id,
+                                            'user_account.profile_360', 'READ_C2_SUPPORT',
+                                            v_purpose,
+                                            CASE WHEN v_cover LIKE 'scope:%' THEN NULL ELSE v_cover END,
+                                            p_request_id, v_country);
+  SELECT u.id, u.email, u.email_verified_at, u.phone_e164, u.phone_verified_at, u.legal_first_name,
+         u.legal_last_name, u.display_name, u.preferred_locale, u.residence_country, u.status,
+         u.pseudonymized_at, u.created_at
+    INTO v_u
+    FROM core.iam_user_account AS u WHERE u.id = p_user_id;
+  v_restricted := EXISTS (SELECT 1 FROM core.iam_restriction AS r
+                           WHERE r.user_id = p_user_id AND r.active);
+  RETURN QUERY SELECT 'GRANTED'::text, pg_catalog.jsonb_build_object(
+    'accessId', v_access, 'country', v_country, 'coverage', pg_catalog.split_part(v_cover, ':', 1),
+    'profile', pg_catalog.jsonb_build_object(
+      'id', v_u.id, 'email', v_u.email, 'emailVerified', v_u.email_verified_at IS NOT NULL,
+      'phone', v_u.phone_e164, 'phoneVerified', v_u.phone_verified_at IS NOT NULL,
+      'legalFirstName', v_u.legal_first_name, 'legalLastName', v_u.legal_last_name,
+      'displayName', v_u.display_name, 'preferredLocale', v_u.preferred_locale,
+      'residenceCountry', v_u.residence_country, 'status', v_u.status,
+      'pseudonymized', v_u.pseudonymized_at IS NOT NULL, 'createdAt', v_u.created_at),
+    -- statut SM-3 seulement, jamais une pièce ni un score (16 ADM-005) ; US-106
+    'kyc', pg_catalog.jsonb_build_object('status', core.kyc_staff_status(p_user_id)),
+    'restricted', v_restricted,
+    'restrictions', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'id', r.id, 'kind', r.kind, 'active', r.active, 'reason', r.reason,
+        'createdAt', r.created_at, 'liftedAt', r.lifted_at) ORDER BY r.created_at DESC)
+      FROM core.iam_restriction AS r WHERE r.user_id = p_user_id), '[]'::jsonb),
+    'notes', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'id', n.id, 'authorRole', n.author_role, 'body', n.body, 'createdAt', n.created_at)
+        ORDER BY n.created_at DESC)
+      FROM (SELECT * FROM core.support_internal_note AS x
+             WHERE x.subject_type = 'USER_ACCOUNT' AND x.subject_id = p_user_id
+             ORDER BY x.created_at DESC LIMIT 50) AS n), '[]'::jsonb),
+    -- une même personne apparaît sous ses deux rôles : hôte et voyageur (OQ-P2P-09)
+    'hostAccounts', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'orgId', o.id, 'country', o.country_code, 'status', o.status,
+        'displayName', o.display_name,
+        'bookable', o.status = 'ACTIVE' AND NOT v_restricted) ORDER BY o.country_code)
+      FROM core.iam_organization AS o
+     WHERE o.holder_user_id = p_user_id AND o.country_code = v_country), '[]'::jsonb),
+    'trips', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'id', t.id, 'publicRef', t.public_ref, 'status', t.status, 'country', t.country_code,
+        'scheduledStart', t.scheduled_start, 'scheduledEnd', t.scheduled_end)
+        ORDER BY t.scheduled_start DESC)
+      FROM (SELECT x.id, x.public_ref, x.status, x.country_code, x.scheduled_start, x.scheduled_end
+              FROM core.booking_trip AS x
+             WHERE x.guest_user_id = p_user_id AND x.country_code = v_country
+             ORDER BY x.scheduled_start DESC LIMIT 50) AS t), '[]'::jsonb),
+    -- US-122 (ADR-124, F2-T-01 ; 08 BR-TRUST-09) : trips à venir des comptes d'hôte de la
+    -- personne (hôte défaillant : l'ops les liste) ; jamais le voyageur (RT-L1-D03)
+    'hostTrips', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'id', t.id, 'publicRef', t.public_ref, 'orgId', t.org_id, 'status', t.status,
+        'country', t.country_code, 'scheduledStart', t.scheduled_start,
+        'scheduledEnd', t.scheduled_end) ORDER BY t.scheduled_start, t.id)
+      FROM (SELECT x.id, x.public_ref, x.org_id, x.status, x.country_code, x.scheduled_start,
+                   x.scheduled_end
+              FROM core.booking_trip AS x
+              JOIN core.iam_organization AS o ON o.id = x.org_id
+             WHERE o.holder_user_id = p_user_id AND x.country_code = v_country
+               AND x.status IN ('BOOKED', 'CHECKIN_OPEN')
+               AND x.scheduled_end > platform.now()
+             ORDER BY x.scheduled_start, x.id LIMIT 200) AS t), '[]'::jsonb),
+    'cases', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'id', c.id, 'category', c.category, 'status', c.status, 'priority', c.priority,
+        'channel', c.channel, 'assignedToMe', c.assignee_id IS NOT DISTINCT FROM v_s.user_id,
+        'createdAt', c.created_at) ORDER BY c.created_at DESC)
+      FROM core.support_support_case AS c
+     WHERE c.requester_user_id = p_user_id AND c.country_code = v_country), '[]'::jsonb),
+    'queueItems', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'id', i.id, 'queue', i.queue, 'status', i.status, 'slaDueAt', i.sla_due_at,
+        'overdue', i.status IN ('OPEN', 'IN_REVIEW') AND i.sla_due_at <= platform.now())
+        ORDER BY i.created_at DESC)
+      FROM core.support_review_queue_item AS i
+     WHERE i.subject_type = 'USER_ACCOUNT' AND i.subject_id = p_user_id
+       AND i.country_code = v_country), '[]'::jsonb));
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
+
+-- 5. Doublon d'identité d'hôte (F2-A03-01 ; 08 BR-ACC-06 « une personne, un compte d'hôte » ;
+-- DEC-FONDATEUR-22 « jamais plus lourd que Turo ») ------------------------------------------
+-- Comme Turo (PROPOSÉ, COMME_TURO) : aucun document ni étape de plus pour l'hôte. Contrôle
+-- automatique : le titulaire du compte a une identité vérifiée qui est la même personne (signal
+-- SAME_IDENTITY d'US-103 / ADR-122 : même date de naissance et sacs de mots du nom inclus)
+-- qu'un AUTRE titulaire dont un compte d'hôte est déjà approuvé, sans constat NOT_LINKED de
+-- l'ops entre eux. Alors le second dossier n'est jamais approuvé, ni par l'ops
+-- (HOST_IDENTITY_DUPLICATE, dossier laissé dans la file) ni par le travailleur
+-- (DUPLICATE_IDENTITY, laissé à l'ops) : il n'est pas refusé, il part en revue de l'ops, qui
+-- tranche par le constat de comptes liés (US-127) : NOT_LINKED (deux personnes) libère
+-- l'approbation, LINKED (même personne) la ferme. Les approbations d'hôte sont sérialisées par
+-- un verrou consultatif (deux dossiers jumeaux approuvés en même temps : le second voit le
+-- premier).
+GRANT SELECT (org_id, status) ON core.kyc_host_verification TO risk_limit_owner;
+CREATE POLICY risk_host_duplicate_read ON core.kyc_host_verification FOR SELECT
+  TO risk_limit_owner USING (status = 'APPROVED');
+GRANT CREATE ON SCHEMA core TO risk_limit_owner;
+SET LOCAL ROLE risk_limit_owner;
+CREATE FUNCTION core.kyc_host_identity_duplicate(p_org uuid)
+  RETURNS boolean
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  WITH holder AS (
+    SELECT o.holder_user_id AS user_id FROM core.iam_organization AS o WHERE o.id = p_org
+  ),
+  -- identités vérifiées (approuvées une fois) d'une personne : sac de mots du nom lu sur le
+  -- permis, sinon du nom déclaré (même lecture que core.risk_self_booking_signal, ADR-122)
+  idn AS (
+    SELECT s.user_id, s.date_of_birth,
+           COALESCE(
+             NULLIF((SELECT core.kyc_legal_name_bag(d.holder_given_names, d.holder_surnames)
+                       FROM core.kyc_identity_document AS d
+                      WHERE d.verification_id = v.id
+                      ORDER BY d.created_at DESC, d.id DESC LIMIT 1), '{}'::text[]),
+             core.kyc_legal_name_bag(u.legal_first_name, u.legal_last_name)) AS name_bag
+      FROM core.kyc_identity_subject AS s
+      JOIN core.kyc_identity_verification AS v
+        ON v.id = s.verification_id AND v.user_id = s.user_id AND v.first_approved_at IS NOT NULL
+      JOIN core.iam_user_account AS u ON u.id = s.user_id AND u.pseudonymized_at IS NULL
+     WHERE s.date_of_birth IS NOT NULL
+  ),
+  me AS (SELECT i.* FROM idn AS i JOIN holder AS h ON h.user_id = i.user_id)
+  SELECT (SELECT h.user_id FROM holder AS h) IS NULL
+      OR EXISTS (
+           SELECT 1
+             FROM me
+             JOIN idn AS t ON t.date_of_birth = me.date_of_birth AND t.user_id <> me.user_id
+            WHERE core.kyc_legal_name_bags_match(me.name_bag, t.name_bag)
+              AND EXISTS (SELECT 1
+                            FROM core.iam_organization AS o2
+                            JOIN core.kyc_host_verification AS hv ON hv.org_id = o2.id
+                           WHERE o2.holder_user_id = t.user_id AND hv.status = 'APPROVED')
+              AND NOT EXISTS (SELECT 1 FROM core.risk_account_link AS l
+                               WHERE l.user_low = LEAST(t.user_id, me.user_id)
+                                 AND l.user_high = GREATEST(t.user_id, me.user_id)
+                                 AND l.decision = 'NOT_LINKED'))
+$fn$;
+COMMENT ON FUNCTION core.kyc_host_identity_duplicate(uuid) IS
+  'Doublon d''identité d''hôte : le titulaire du compte est la même personne (SAME_IDENTITY) qu''un '
+  'autre titulaire déjà approuvé comme hôte, sans constat NOT_LINKED ; compte inconnu : vrai. '
+  'SECURITY DEFINER, EXECUTE kyc_cmd_owner. US-122 (ADR-124, F2-A03-01).';
+REVOKE ALL ON FUNCTION core.kyc_host_identity_duplicate(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.kyc_host_identity_duplicate(uuid) TO kyc_cmd_owner;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM risk_limit_owner;
+
+-- 5.2 Décision de l'ops et approbation automatique (définitions de 0075 et 0081 recopiées ;
+-- blocs US-122) ; sous kyc_cmd_owner
+GRANT CREATE ON SCHEMA core TO kyc_cmd_owner;
+SET LOCAL ROLE kyc_cmd_owner;
+CREATE OR REPLACE FUNCTION core.kyc_manual_action_host_verification_decision(p_token_hash bytea,
+                                                                  p_action_id uuid,
+                                                                  p_action_code text,
+                                                                  p_subject_id uuid,
+                                                                  p_input jsonb, p_reason text,
+                                                                  p_actor uuid, p_actor_role text)
+  RETURNS TABLE (outcome text, ref_id uuid, emitted_event_ids uuid[])
+  LANGUAGE plpgsql
+  VOLATILE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+#variable_conflict use_column
+DECLARE
+  v_decision text := p_input ->> 'decision';
+  h          record;
+  g          record;
+  v_refusal  text;
+  v_events   uuid[] := '{}';
+  v_ev       uuid;
+  v_act      record;
+  v_q        record;
+  v_ver      integer;
+BEGIN
+  IF p_action_code IS DISTINCT FROM 'HOST_VERIFICATION_DECISION' OR p_subject_id IS NULL
+     OR p_actor IS NULL OR p_actor_role IS NULL
+     OR v_decision IS NULL OR v_decision NOT IN ('APPROVED', 'REJECTED') THEN
+    RAISE EXCEPTION 'vérification d''hôte : action invalide' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('kyc.host:' || p_subject_id::text, 0));
+  SELECT d.* INTO h FROM core.kyc_host_verification AS d WHERE d.org_id = p_subject_id;
+  IF h.id IS NULL THEN
+    RETURN QUERY SELECT 'HOST_VERIFICATION_NOT_READY'::text, NULL::uuid, '{}'::uuid[];
+    RETURN;
+  END IF;
+
+  IF v_decision = 'REJECTED' THEN
+    IF h.status NOT IN ('OPEN', 'DOCS_PENDING', 'IN_REVIEW') THEN
+      RETURN QUERY SELECT 'HOST_VERIFICATION_DECIDED'::text, h.id, '{}'::uuid[];
+      RETURN;
+    END IF;
+    UPDATE core.kyc_host_verification AS d
+       SET status = 'REJECTED', decided_by = p_actor, decided_at = platform.now(),
+           reason_code = COALESCE(d.reason_code, 'OPS_REJECTED'),
+           row_version = d.row_version + 1, updated_at = platform.now()
+     WHERE d.id = h.id
+    RETURNING d.row_version INTO v_ver;
+  ELSE
+    -- APPROVED : dossier prêt, puis tous les contrôles revérifiés à l'horloge de la base
+    IF h.screening_hold THEN
+      RETURN QUERY SELECT 'HOST_SANCTIONS_HIT'::text, h.id, '{}'::uuid[];
+      RETURN;
+    ELSIF h.status IN ('REJECTED', 'REVOKED') THEN
+      RETURN QUERY SELECT 'HOST_VERIFICATION_DECIDED'::text, h.id, '{}'::uuid[];
+      RETURN;
+    END IF;
+    -- US-122 (ADR-124, F2-A03-01) : approbations d'hôte sérialisées, puis doublon d'identité
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('kyc.host_identity_approval', 0));
+    SELECT * INTO g FROM core.kyc_host_gates(p_subject_id);
+    v_refusal := CASE
+      WHEN g.kyc_id IS NULL THEN 'HOST_KYC_REQUIRED'
+      WHEN g.age = 'UNDER_AGE' THEN 'HOST_UNDER_AGE'
+      WHEN g.age = 'UNVERIFIED' THEN 'HOST_AGE_UNVERIFIED'
+      WHEN g.age <> 'OK' THEN 'PARAM_MISSING'
+      WHEN g.residence = 'MISMATCH' THEN 'HOST_RESIDENCE_MISMATCH'
+      WHEN g.screening_id IS NULL THEN 'HOST_SCREENING_MISSING'
+      WHEN g.screening_result <> 'CLEAR' THEN 'HOST_SANCTIONS_HIT'
+      WHEN g.tax <> 'OK' THEN 'HOST_TAX_ID_REQUIRED'
+      WHEN NOT g.terms_ok THEN 'TERMS_REACCEPT_REQUIRED'
+      WHEN h.status NOT IN ('IN_REVIEW', 'APPROVED') THEN 'HOST_VERIFICATION_NOT_READY'
+      -- même personne qu'un hôte déjà approuvé : revue de l'ops par le constat de comptes liés
+      WHEN h.status = 'IN_REVIEW' AND core.kyc_host_identity_duplicate(p_subject_id)
+        THEN 'HOST_IDENTITY_DUPLICATE'
+      END;
+    IF v_refusal IS NOT NULL THEN
+      RETURN QUERY SELECT v_refusal, h.id, '{}'::uuid[];
+      RETURN;
+    END IF;
+    IF h.status = 'APPROVED' THEN
+      -- nouvelle tentative d'activation : un blocage restant est un refus motivé (16 A.8)
+      SELECT * INTO v_act FROM core.kyc_host_try_activate(p_subject_id, p_actor, p_actor_role);
+      IF v_act.outcome = 'ACTIVATED' THEN
+        RETURN QUERY SELECT 'DONE'::text, h.id, v_act.event_ids;
+        RETURN;
+      ELSIF v_act.outcome = 'ALREADY_ACTIVE' THEN
+        RETURN QUERY SELECT 'HOST_ALREADY_ACTIVE'::text, h.id, '{}'::uuid[];
+        RETURN;
+      END IF;
+      RETURN QUERY SELECT CASE
+          WHEN 'SUBMERCHANT_NOT_ACTIVE' = ANY (v_act.blockers) THEN 'HOST_PAYOUT_RAIL_UNAVAILABLE'
+          WHEN 'PSP_CAPABILITY_MISSING' = ANY (v_act.blockers) THEN 'HOST_PAYOUT_RAIL_UNAVAILABLE'
+          WHEN 'P2P_HOSTS_DISABLED' = ANY (v_act.blockers) THEN 'HOST_PAYOUT_RAIL_UNAVAILABLE'
+          WHEN 'INSURER_CONTRACT_INACTIVE' = ANY (v_act.blockers) THEN 'INSURER_CONTRACT_INACTIVE'
+          ELSE COALESCE(v_act.blockers[1], 'HOST_NOT_ACTIVATED') END::text,
+        h.id, v_act.event_ids;
+      RETURN;
+    END IF;
+    UPDATE core.kyc_host_verification AS d
+       SET status = 'APPROVED', decided_by = p_actor, decided_at = platform.now(),
+           identity_verification_id = g.kyc_id, age_ok = true,
+           residence_verified = (g.residence = 'VERIFIED'), missing = '{}',
+           row_version = d.row_version + 1, updated_at = platform.now()
+     WHERE d.id = h.id
+    RETURNING d.row_version INTO v_ver;
+  END IF;
+
+  v_ev := platform.uuid_v7();
+  INSERT INTO core.outbox_outbox_event
+         (id, type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+          actor_user_id, actor_role, correlation_id, causation_id, payload, partition_key)
+  VALUES (v_ev, 'kyc.host_verification.decided', 1, 'host_verification', h.id, v_ver,
+          h.country_code, p_actor, p_actor_role, pg_catalog.gen_random_uuid(), p_action_id,
+          pg_catalog.jsonb_build_object('org_id', p_subject_id, 'verification_id', h.id,
+                                        'decision', v_decision),
+          p_subject_id::text);
+  v_events := v_events || v_ev;
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after, reason, request_id)
+  VALUES (p_actor, p_actor_role, 'HOST_VERIFICATION_DECIDED', 'ORGANIZATION', p_subject_id,
+          pg_catalog.jsonb_build_object('status', h.status),
+          pg_catalog.jsonb_build_object('country', h.country_code,
+                                        'countries', pg_catalog.jsonb_build_array(h.country_code),
+                                        'verificationId', h.id, 'decision', v_decision),
+          NULLIF(pg_catalog.left(pg_catalog.btrim(p_reason), 1000), ''), p_action_id);
+  -- élément vivant de la file de revue clôturé par la décision
+  SELECT q.outcome, q.item_id INTO v_q
+    FROM core.support_enqueue_review('HOST_VERIFICATION', 'ORGANIZATION', p_subject_id,
+                                     h.country_code, p_actor) AS q;
+  IF v_q.outcome IN ('CREATED', 'EXISTS') THEN
+    PERFORM 1 FROM core.support_close_review_item(v_q.item_id, 'DONE', v_decision, p_actor);
+  END IF;
+  IF v_decision = 'APPROVED' THEN
+    -- activation tentée aussitôt : sinon le compte reste PENDING_ACTIVATION (fail-closed)
+    SELECT * INTO v_act FROM core.kyc_host_try_activate(p_subject_id, p_actor, p_actor_role);
+    v_events := v_events || COALESCE(v_act.event_ids, '{}'::uuid[]);
+  END IF;
+  RETURN QUERY SELECT 'DONE'::text, h.id, v_events;
+END
+$fn$;
+CREATE OR REPLACE FUNCTION core.kyc_host_auto_approve(p_org uuid)
+  RETURNS text
+  LANGUAGE plpgsql
+  VOLATILE
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+DECLARE
+  h      record;
+  g      record;
+  v_ver  integer;
+  v_item record;
+BEGIN
+  SELECT d.* INTO h FROM core.kyc_host_verification AS d WHERE d.org_id = p_org;
+  IF h.id IS NULL OR h.status <> 'IN_REVIEW' THEN
+    RETURN 'NOT_READY';
+  END IF;
+  -- délai uniforme d'abord : avant l'échéance, un dossier propre et un dossier retenu ou signalé
+  -- restent identiques (aucune écriture)
+  IF NOT core.kyc_host_review_due(h.country_code, COALESCE(h.review_started_at, h.updated_at)) THEN
+    RETURN 'NOT_DUE';
+  END IF;
+  IF h.screening_hold THEN
+    RETURN 'HELD';
+  END IF;
+  IF core.kyc_host_account_signaled(h.user_id) THEN
+    RETURN 'SIGNALED';
+  END IF;
+  -- US-122 (ADR-124, F2-A03-01) : approbations sérialisées ; même personne qu'un hôte déjà
+  -- approuvé : jamais d'approbation automatique, dossier laissé à l'ops (file)
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('kyc.host_identity_approval', 0));
+  IF core.kyc_host_identity_duplicate(p_org) THEN
+    RETURN 'DUPLICATE_IDENTITY';
+  END IF;
+  -- revue de l'ops exigée par le pays ; paramètre absent ou mal formé : revue (fail-closed)
+  IF core.kyc_host_param('host_review_manual_required', h.country_code) IS DISTINCT FROM 'false'::jsonb THEN
+    RETURN 'REVIEW_REQUIRED';
+  END IF;
+  SELECT i.id, i.assignee_id INTO v_item
+    FROM core.support_review_queue_item AS i
+   WHERE i.queue = 'HOST_VERIFICATION' AND i.subject_type = 'ORGANIZATION' AND i.subject_id = p_org
+     AND i.status IN ('OPEN', 'IN_REVIEW')
+   LIMIT 1;
+  IF v_item.assignee_id IS NOT NULL THEN
+    RETURN 'CLAIMED';
+  END IF;
+  -- mêmes contrôles que la décision APPROVED de l'ops (0075), à l'horloge de la base
+  SELECT * INTO g FROM core.kyc_host_gates(p_org);
+  IF g.org_id IS NULL OR g.kyc_id IS NULL OR g.age <> 'OK' OR g.residence = 'MISMATCH'
+     OR g.screening_id IS NULL OR g.screening_result IS DISTINCT FROM 'CLEAR'
+     OR g.tax <> 'OK' OR NOT g.terms_ok THEN
+    RETURN 'NOT_READY';
+  END IF;
+  UPDATE core.kyc_host_verification AS d
+     SET status = 'APPROVED', decided_by = NULL, decided_at = platform.now(),
+         identity_verification_id = g.kyc_id, age_ok = true,
+         residence_verified = (g.residence = 'VERIFIED'), missing = '{}',
+         row_version = d.row_version + 1, updated_at = platform.now()
+   WHERE d.id = h.id AND d.status = 'IN_REVIEW' AND NOT d.screening_hold
+  RETURNING d.row_version INTO v_ver;
+  IF v_ver IS NULL THEN
+    RETURN 'NOT_READY';
+  END IF;
+  INSERT INTO core.outbox_outbox_event
+         (id, type, schema_version, aggregate_type, aggregate_id, aggregate_version, country_code,
+          actor_user_id, actor_role, correlation_id, payload, partition_key)
+  VALUES (platform.uuid_v7(), 'kyc.host_verification.decided', 1, 'host_verification', h.id, v_ver,
+          h.country_code, NULL, 'SYSTEM', pg_catalog.gen_random_uuid(),
+          pg_catalog.jsonb_build_object('org_id', p_org, 'verification_id', h.id,
+                                        'decision', 'APPROVED'),
+          p_org::text);
+  -- élément vivant de la file (posé par la mise en revue) clôturé : aucune action de l'ops
+  IF v_item.id IS NOT NULL THEN
+    PERFORM 1 FROM core.support_close_review_item(v_item.id, 'DONE', 'AUTO_APPROVED', NULL);
+  END IF;
+  INSERT INTO core.audit_audit_log (actor_user_id, actor_role, action_code, subject_type,
+                                    subject_id, before, after)
+  VALUES (NULL, 'SYSTEM', 'HOST_VERIFICATION_DECIDED', 'ORGANIZATION', p_org,
+          pg_catalog.jsonb_build_object('status', h.status),
+          pg_catalog.jsonb_build_object('country', h.country_code,
+                                        'countries', pg_catalog.jsonb_build_array(h.country_code),
+                                        'verificationId', h.id, 'decision', 'APPROVED',
+                                        'mode', 'AUTOMATIC'));
+  -- activation tentée aussitôt (17 §2.4) : sinon le compte reste PENDING_ACTIVATION (fail-closed)
+  PERFORM 1 FROM core.kyc_host_try_activate(p_org, NULL, 'SYSTEM');
+  RETURN 'APPROVED';
+END
+$fn$;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM kyc_cmd_owner;

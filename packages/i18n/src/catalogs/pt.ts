@@ -1134,6 +1134,8 @@ export const PT_MESSAGES = {
   'common.listing.requestModeNotAllowed': 'No aeroporto, a reserva é sempre imediata.',
   'common.listing.photoMinCount': 'Adicione mais fotos do seu carro antes de publicar o anúncio.',
   'common.listing.photoFormat': 'Esta foto não pode ser usada. Envie uma foto JPEG, PNG ou WebP.',
+  'common.listing.photoLimitReached':
+    'Este anúncio já tem o número máximo de fotos. Remova uma foto antes de adicionar outra.',
   'common.listing.hostTermsRequired':
     'Antes de publicar seu anúncio, leia e aceite a versão vigente das Condições do anfitrião.',
   'common.listing.vehicleNotCovered':
@@ -1214,6 +1216,11 @@ export const PT_MESSAGES = {
     'Olá, {first_name}. Não conseguimos incluir seu carro no catálogo da {brand}. No seu espaço de anfitrião, você vê o motivo e pode corrigir a marca e o modelo.',
   'ntf.catalogAdditionRejected.sms.body':
     '{brand}: não conseguimos incluir seu carro no catálogo. Veja o motivo no seu espaço.',
+  'ntf.tripHostRestricted.email.subject': 'Reserva {booking_ref}: aviso sobre seu anfitrião',
+  'ntf.tripHostRestricted.email.body':
+    'Olá, {first_name}. Estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Sua reserva continua registrada e vamos manter você informado. Se ela for cancelada, você recebe o reembolso integral. Detalhes no app.',
+  'ntf.tripHostRestricted.sms.body':
+    '{brand}: estamos analisando a conta do anfitrião da sua reserva {booking_ref}. Reembolso integral se ela for cancelada. Detalhes no app.',
   'backoffice.catalog.open': 'Abrir o pedido',
   'backoffice.catalog.heading': 'Pedido de inclusão no catálogo',
   'backoffice.catalog.requested': 'O que o anfitrião digitou',

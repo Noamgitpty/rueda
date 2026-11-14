@@ -1160,6 +1160,8 @@ export const FR_MESSAGES = {
   'common.listing.photoMinCount':
     'Ajoute d’autres photos de ta voiture avant de publier l’annonce.',
   'common.listing.photoFormat': 'Cette photo est inutilisable. Envoie une photo JPEG, PNG ou WebP.',
+  'common.listing.photoLimitReached':
+    'Cette annonce a déjà le nombre maximal de photos. Retire une photo avant d’en ajouter une autre.',
   'common.listing.hostTermsRequired':
     'Avant de publier ton annonce, lis et accepte la version en vigueur des Conditions de l’hôte.',
   'common.listing.vehicleNotCovered':
@@ -1244,6 +1246,11 @@ export const FR_MESSAGES = {
     'Bonjour {first_name}. Nous n’avons pas pu ajouter ta voiture au catalogue de {brand}. Ton espace hôte indique la raison et te permet de corriger la marque et le modèle.',
   'ntf.catalogAdditionRejected.sms.body':
     '{brand} : ta voiture n’a pas été ajoutée au catalogue. Raison dans ton espace hôte.',
+  'ntf.tripHostRestricted.email.subject': 'Réservation {booking_ref} : information sur ton hôte',
+  'ntf.tripHostRestricted.email.body':
+    'Bonjour {first_name}. Nous examinons le compte de l’hôte de ta réservation {booking_ref}. Ta réservation reste enregistrée et nous te tenons informé. Si elle est annulée, tu es remboursé intégralement. Détails dans l’appli.',
+  'ntf.tripHostRestricted.sms.body':
+    '{brand} : nous examinons le compte de l’hôte de ta réservation {booking_ref}. Remboursement intégral si elle est annulée. Détails dans l’appli.',
   'backoffice.catalog.open': 'Ouvrir la demande',
   'backoffice.catalog.heading': 'Demande d’ajout au catalogue',
   'backoffice.catalog.requested': 'Saisie de l’hôte',

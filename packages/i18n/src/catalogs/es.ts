@@ -1132,6 +1132,8 @@ export const ES_MESSAGES = {
   'common.listing.requestModeNotAllowed': 'En un aeropuerto, la reserva es siempre inmediata.',
   'common.listing.photoMinCount': 'Agrega más fotos de tu auto antes de publicar el anuncio.',
   'common.listing.photoFormat': 'Esta foto no se puede usar. Sube una foto JPEG, PNG o WebP.',
+  'common.listing.photoLimitReached':
+    'Este anuncio ya tiene el número máximo de fotos. Quita una foto antes de agregar otra.',
   'common.listing.hostTermsRequired':
     'Antes de publicar tu anuncio, lee y acepta la versión vigente de las Condiciones del anfitrión.',
   'common.listing.vehicleNotCovered':
@@ -1212,6 +1214,11 @@ export const ES_MESSAGES = {
     'Hola, {first_name}. No pudimos agregar tu auto al catálogo de {brand}. En tu espacio de anfitrión ves el motivo y puedes corregir la marca y el modelo.',
   'ntf.catalogAdditionRejected.sms.body':
     '{brand}: no pudimos agregar tu auto al catálogo. Motivo en tu espacio de anfitrión.',
+  'ntf.tripHostRestricted.email.subject': 'Reserva {booking_ref}: aviso sobre tu anfitrión',
+  'ntf.tripHostRestricted.email.body':
+    'Hola, {first_name}. Estamos revisando la cuenta del anfitrión de tu reserva {booking_ref}. Tu reserva sigue registrada y te mantendremos informado. Si se cancela, recibes el reembolso total. Detalles en la app.',
+  'ntf.tripHostRestricted.sms.body':
+    '{brand}: estamos revisando la cuenta del anfitrión de tu reserva {booking_ref}. Reembolso total si se cancela. Detalles en la app.',
   'backoffice.catalog.open': 'Abrir la solicitud',
   'backoffice.catalog.heading': 'Solicitud de alta al catálogo',
   'backoffice.catalog.requested': 'Lo que escribió el anfitrión',

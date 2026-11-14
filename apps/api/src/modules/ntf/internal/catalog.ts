@@ -90,6 +90,7 @@ export const TEMPLATE_KEYS = [
   'EVT_PAYOUT_ON_HOLD',
   'EVT_CATALOG_ADDITION_APPROVED',
   'EVT_CATALOG_ADDITION_REJECTED',
+  'EVT_TRIP_HOST_RESTRICTED',
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -179,6 +180,15 @@ export const TEMPLATES: Readonly<Record<TemplateKey, TemplateSpec>> = {
     channels: EMAIL_THEN_SMS,
     critical: false,
   },
+  // hôte défaillant (08 BR-TRUST-09 « prévenir les voyageurs concernés » ; US-122, ADR-124) :
+  // voyageur d'un trip à venir dont l'hôte vient d'être restreint. PROPOSÉ ; message de trip
+  EVT_TRIP_HOST_RESTRICTED: {
+    key: 'EVT_TRIP_HOST_RESTRICTED',
+    slug: 'tripHostRestricted',
+    variables: { first_name: FIRST_NAME, brand: BRAND, booking_ref: BOOKING_REF },
+    channels: EMAIL_THEN_SMS,
+    critical: true,
+  },
 };
 
 const GUEST: RecipientSpec = { role: 'GUEST', field: 'guest_user_id' };
@@ -233,6 +243,14 @@ export const RULES: readonly RuleSpec[] = [
     template: 'EVT_CATALOG_ADDITION_REJECTED',
     condition: fieldIs('status', 'REJECTED'),
     recipients: [HOST],
+  },
+  // `booking.trip.host_restricted` (PROPOSÉ, à reporter dans 17 §4.5 ; US-122, ADR-124) : un
+  // événement par trip à venir de l'hôte restreint (trip_id, guest_user_id, org_id), posé par la
+  // commande de restriction de 0097 ; jamais de motif ni de donnée de l'hôte
+  {
+    eventType: 'booking.trip.host_restricted',
+    template: 'EVT_TRIP_HOST_RESTRICTED',
+    recipients: [GUEST],
   },
 ];
 
