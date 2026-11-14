@@ -364,6 +364,7 @@ GRANT SELECT (status, requested_at, completed_at) ON core.kyc_erasure_request TO
 CREATE POLICY privacy_cmd_read ON core.kyc_erasure_request FOR SELECT TO privacy_cmd_owner
   USING (true);
 
+GRANT USAGE ON SCHEMA core, platform TO privacy_cmd_owner;
 GRANT EXECUTE ON FUNCTION platform.now(), platform.uuid_v7(), platform.deployment_env()
   TO privacy_cmd_owner;
 
