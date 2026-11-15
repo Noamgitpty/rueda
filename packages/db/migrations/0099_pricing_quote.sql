@@ -212,9 +212,14 @@ CREATE POLICY cmd_money_quote_read ON core.config_param_value FOR SELECT TO cmd_
 -- trip : portée du rattachement (le verrou FOR UPDATE passe par money_lock de 0027)
 GRANT SELECT (guest_user_id, listing_id, scheduled_start, scheduled_end) ON core.booking_trip
   TO cmd_money_owner;
--- session du voyageur et annonce publiée (fonctions SECURITY DEFINER de leurs propriétaires)
-GRANT EXECUTE ON FUNCTION core.iam_session_resolve(bytea), core.catalog_public_listing(uuid)
-  TO cmd_money_owner;
+-- session du voyageur et annonce publiée (fonctions SECURITY DEFINER de leurs propriétaires :
+-- seul le propriétaire accorde EXECUTE)
+SET LOCAL ROLE iam_auth_owner;
+GRANT EXECUTE ON FUNCTION core.iam_session_resolve(bytea) TO cmd_money_owner;
+RESET ROLE;
+SET LOCAL ROLE catalog_cmd_owner;
+GRANT EXECUTE ON FUNCTION core.catalog_public_listing(uuid) TO cmd_money_owner;
+RESET ROLE;
 
 -- 4. Aides du rejeu (SECURITY INVOKER, sans lecture de table sauf pricing_param) ----------------
 

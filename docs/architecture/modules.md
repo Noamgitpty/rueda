@@ -132,10 +132,10 @@ Trait plein : dépendance de production ; pointillé : dépendance de développe
 flowchart LR
   api --> design_tokens
   api --> i18n
+  api --> money
   api -.-> config
   api -.-> db
   api -.-> fake_adapters
-  api -.-> money
   backoffice --> design_tokens
   backoffice --> i18n
   backoffice --> ui
@@ -158,7 +158,7 @@ flowchart LR
 
 | Paquet | Répertoire | Description | Dépendances internes | Dépendances internes de développement |
 | ------ | ---------- | ----------- | -------------------- | ------------------------------------- |
-| `@rueda/api` | `apps/api` | Back-end NestJS (monolithe modulaire) : API (main.ts) et travailleur (worker.ts : outbox, files et tâches périodiques en SQL, ADR-050), une image. | @rueda/design-tokens, @rueda/i18n | @rueda/config, @rueda/db, @rueda/fake-adapters, @rueda/money |
+| `@rueda/api` | `apps/api` | Back-end NestJS (monolithe modulaire) : API (main.ts) et travailleur (worker.ts : outbox, files et tâches périodiques en SQL, ADR-050), une image. | @rueda/design-tokens, @rueda/i18n, @rueda/money | @rueda/config, @rueda/db, @rueda/fake-adapters |
 | `@rueda/backoffice` | `apps/backoffice` | Back-office interne Next.js (App Router), application séparée sur domaine distinct (17 §6.1). | @rueda/design-tokens, @rueda/i18n, @rueda/ui | @rueda/config |
 | `@rueda/web` | `apps/web` | Application Next.js (App Router), mobile-first et installable (PWA) : voyageur et espace hôte. | @rueda/design-tokens, @rueda/i18n, @rueda/ui | @rueda/config |
 | `@rueda/config` | `packages/config` | Configuration partagée : ESLint (frontières de modules, horloge SQL), garde d'environnement SQL, tsconfig. | — | — |

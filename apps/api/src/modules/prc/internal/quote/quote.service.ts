@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CountryConfigService } from '../../../cfg/index.js';
-import { computeQuote, type Quote, type QuoteRequest } from './engine.js';
+import { computeQuote, type Quote, type QuoteParams, type QuoteRequest } from './engine.js';
 import { freezeQuote, type FrozenQuote } from './frozen.js';
 import { resolveQuoteParams, type QuoteParamsContext } from './params.js';
 
@@ -11,7 +11,17 @@ import { resolveQuoteParams, type QuoteParamsContext } from './params.js';
  */
 @Injectable()
 export class QuoteService {
-  constructor(private readonly countryConfig: CountryConfigService) {}
+  constructor(@Inject(CountryConfigService) private readonly countryConfig: CountryConfigService) {}
+
+  /** Instantané des paramètres du pays (CFG) à l'instant donné. */
+  params(ctx: QuoteParamsContext): QuoteParams {
+    return resolveQuoteParams(this.countryConfig.config, ctx);
+  }
+
+  /** Devis avec un instantané déjà résolu. */
+  quoteWith(request: QuoteRequest, params: QuoteParams): Quote {
+    return computeQuote(request, params);
+  }
 
   /** Devis provisoire (affichage : recherche, fiche, checkout). */
   quote(request: QuoteRequest, ctx: QuoteParamsContext): Quote {
