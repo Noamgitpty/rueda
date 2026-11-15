@@ -22,6 +22,7 @@ import {
   golden,
   goldenRegistry,
   rulesOf,
+  testTripFeeSchedule,
   toRatio,
 } from '../../../../../test/support/quote.js';
 
@@ -59,10 +60,12 @@ describe('critère 1 : TA01 (prix du trip × jours facturables)', () => {
   const ta01 = settlementVector(golden, 'T01'); // trip A : seule source normative du loyer de 120,00
   const cur = goldenRegistry.get(ta01.currency);
   // TA01 : « 3 j, loyer 120,00, ITBMS 7 % = 8,40, total 128,40 » (16 A.8.1 ; verif15_ta.py).
+  // Configuration « PA1 » de TA01 : « ni trip fee ni protection » ⇒ barème nul (taux 0, minimum 0).
   const params: QuoteParams = {
     currency: cur,
     graceMinutes: 29,
     maxTripDays: 30,
+    tripFeeSchedule: testTripFeeSchedule(cur, [[null, 0]], 0n),
     taxRules: rulesOf([{ id: 'g', rate: ratio(7n, 100n), lines: ['tripPrice'] }]),
     hostSharePct: ratio(3n, 4n),
     deliverySharePct: ratio(3n, 4n),
@@ -90,9 +93,11 @@ describe('critère 1 : TA01 (prix du trip × jours facturables)', () => {
 
   it('variante sans décimale : D2 (T40), 333 334 × 3 jours, taxe 10 % sur P et F ⇒ taxe et total de l’oracle', () => {
     const v = settlementVector(golden, 'T40');
-    const { params: p } = caseOfGoldenTrip(v.trip);
-    const c = p.currency;
+    const { params: base } = caseOfGoldenTrip(v.trip);
+    const c = base.currency;
     expect(c.exponent).toBe(0);
+    // F de D2 (125 500) donné par 08 : barème de TEST à 12,55 %, roundHalfUp(125 500,251) = 125 500
+    const p: QuoteParams = { ...base, tripFeeSchedule: testTripFeeSchedule(c, [[null, 1255]], 0n) };
     const q = computeQuote(
       {
         startAtMs: T0_MS,
@@ -101,7 +106,6 @@ describe('critère 1 : TA01 (prix du trip × jours facturables)', () => {
         rateType: v.trip.rate,
         dailyRate: money(333_334n, c), // P = 1 000 002 de D2 (08), divisible par 3
         lines: {
-          TRIP_FEE: money(v.trip.linesMinor.tripFee, c),
           PROTECTION: money(v.trip.linesMinor.protection, c),
           DELIVERY_FEE: money(v.trip.linesMinor.delivery, c),
         },
@@ -110,6 +114,9 @@ describe('critère 1 : TA01 (prix du trip × jours facturables)', () => {
     );
     expect(q.lines.find((l) => l.type === 'TRIP_PRICE')?.amount.amountMinor).toBe(
       v.trip.linesMinor.tripPrice,
+    );
+    expect(q.lines.find((l) => l.type === 'TRIP_FEE')?.amount.amountMinor).toBe(
+      v.trip.linesMinor.tripFee,
     );
     expect(q.taxTotal.amountMinor).toBe(v.trip.taxGroups[0]!.taxPaidMinor);
     expect(q.total.amountMinor).toBe(v.trip.totalPaidMinor);
@@ -291,7 +298,12 @@ describe('refus fail-closed', () => {
       'QUOTE_INPUT_INVALID',
     );
     expect(
-      codeOf(() => computeQuote({ ...request, lines: { TRIP_FEE: money(-1n, c) } }, params)),
+      codeOf(() => computeQuote({ ...request, lines: { EXTRAS: money(-1n, c) } }, params)),
+    ).toBe('QUOTE_INPUT_INVALID');
+    expect(
+      codeOf(() =>
+        computeQuote({ ...request, lines: { TRIP_FEE: money(1n, c) } as never }, params),
+      ),
     ).toBe('QUOTE_INPUT_INVALID');
     expect(codeOf(() => computeQuote({ ...request, dailyRate: money(0n, c) }, params))).toBe(
       'QUOTE_INPUT_INVALID',
