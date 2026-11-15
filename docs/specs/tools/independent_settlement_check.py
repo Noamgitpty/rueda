@@ -470,5 +470,5 @@ if __name__ == '__main__':
     bad += run_execution_vectors()
     probes()
     fuzz()
-    print('\nECARTS sur T01-T48 :', bad)
+    print('\nECARTS sur T01-T48 et T74-T80 :', bad)
     sys.exit(1 if bad else 0)

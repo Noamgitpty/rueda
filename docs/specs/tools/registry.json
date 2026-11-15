@@ -73,7 +73,7 @@
     },
     "independent_settlement_check.py": {
       "require": [
-        "^ECARTS sur T01-T48 : 0$"
+        "^ECARTS sur T01-T48 et T74-T80 : 0$"
       ]
     },
     "verif12_t49plus.py": {
