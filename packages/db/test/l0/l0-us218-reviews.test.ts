@@ -146,14 +146,14 @@ interface World {
   readonly listing: string;
   /** 5 trips COMPLETED du véhicule, terminés il y a 7 à 1 jours (dans la fenêtre de 10 jours) */
   readonly done: readonly Trip[];
-  /** trip COMPLETED terminé il y a 12 jours (hors fenêtre) */
-  readonly old: Trip;
+  /** trip COMPLETED terminé il y a 12 jours (hors fenêtre) ; absent si `withOld` est faux */
+  readonly old: Trip | null;
   /** trip BOOKED (pas encore réalisé) */
   readonly upcoming: Trip;
   readonly ops: Staff;
 }
 
-async function world(cl: Clients, c: CountryCase): Promise<World> {
+async function world(cl: Clients, c: CountryCase, withOld = true): Promise<World> {
   const { h, car } = await inTx(
     cl.api,
     { virtualNow: fromNow(-20 * DAY_MIN), commit: true },
@@ -162,13 +162,13 @@ async function world(cl: Clients, c: CountryCase): Promise<World> {
       return { h: ha, car: await vehicle(tx, ha) };
     },
   );
-  const old = await book(cl, c, h, car, fromNow(-13 * DAY_MIN));
+  const old = withOld ? await book(cl, c, h, car, fromNow(-13 * DAY_MIN)) : null;
   const done: Trip[] = [];
   for (let i = 0; i < 5; i += 1) {
     done.push(await book(cl, c, h, car, fromNow(-8 * DAY_MIN + i * 1.5 * DAY_MIN)));
   }
   const upcoming = await book(cl, c, h, car, fromNow(3 * DAY_MIN));
-  for (const t of [old, ...done]) await complete(cl, t);
+  for (const t of [...(old ? [old] : []), ...done]) await complete(cl, t);
   const listing = (
     await one<{ id: string }>(cl.api, 'SELECT test_fixture.us218_list_vehicle($1) AS id', [car])
   ).id;
@@ -328,15 +328,16 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
 
   it('critère 2 : 3 avis (5, 4, 3) et 2 trips non notés ⇒ moyenne 4,0 et 5 trips, pour l’hôte et pour le véhicule, dans la lecture publique de l’annonce', async () => {
     await withClients(async (cl) => {
-      const w = await world(cl, c);
-      // avant tout avis : 6 trips réalisés (hors fenêtre compris), aucun avis, aucune moyenne
+      // 5 trips réalisés du véhicule de l'hôte, plus un trip BOOKED qui ne compte pas
+      const w = await world(cl, c, false);
+      // avant tout avis : 5 trips réalisés, aucun avis, aucune moyenne (badge « Nuevo »)
       expect(await ratings(cl.api, [w.listing])).toEqual([
         {
           listing_id: w.listing,
-          vehicle_trip_count: 6,
+          vehicle_trip_count: 5,
           vehicle_review_count: 0,
           vehicle_avg_x100: null,
-          host_trip_count: 6,
+          host_trip_count: 5,
           host_review_count: 0,
           host_avg_x100: null,
         },
@@ -347,15 +348,14 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
         if (!t) throw new Error('trip absent');
         expect((await record(cl.api, w.ops, t.tripId, byGuest(s))).outcome, s).toBe('DONE');
       }
-      // le trip hors fenêtre compte parmi les trips réalisés : 6 trips dont 3 notés ; sans lui,
-      // les 5 trips de l'exemple (3 notés, 2 non notés)
+      // exemple de 19 US-218 : 3 avis (5, 4, 3) et 2 trips non notés ⇒ moyenne 4,0 et 5 trips
       const [row] = await ratings(cl.api, [w.listing]);
       expect(row).toEqual({
         listing_id: w.listing,
-        vehicle_trip_count: 6,
+        vehicle_trip_count: 5,
         vehicle_review_count: 3,
         vehicle_avg_x100: 400,
-        host_trip_count: 6,
+        host_trip_count: 5,
         host_review_count: 3,
         host_avg_x100: 400,
       });
@@ -370,7 +370,7 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
         avg_overall_x100: 400,
       });
       // un trip BOOKED n'est pas un trip réalisé : il ne compte pas
-      expect((await ratings(cl.api, [w.listing]))[0]?.['host_trip_count']).toBe(6);
+      expect((await ratings(cl.api, [w.listing]))[0]?.['host_trip_count']).toBe(5);
       // arrondi au demi supérieur : (5 + 4 + 3 + 4) / 4 = 4,00 ; + 5 ⇒ 21 / 5 = 4,20
       const t4 = w.done[3];
       const t5 = w.done[4];
@@ -401,6 +401,7 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
         detail: 'REVIEW_TRIP_NOT_COMPLETED',
       });
       // fin il y a 12 jours > review_window_days (10) : fenêtre close
+      if (!w.old) throw new Error('trip hors fenêtre absent');
       expect(Date.now() - Date.parse(w.old.end)).toBeGreaterThan(WINDOW_DAYS * DAY_MIN * 60_000);
       expect(await record(cl.api, w.ops, w.old.tripId, byGuest('FIVE'))).toMatchObject({
         outcome: 'REFUSED',

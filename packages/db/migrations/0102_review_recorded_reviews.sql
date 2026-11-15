@@ -329,7 +329,7 @@ BEGIN
     RETURN QUERY SELECT 'REVIEW_ALREADY_RECORDED'::text, NULL::uuid, '{}'::uuid[];
     RETURN;
   END IF;
-  IF pg_catalog.cardinality(v_ids) <> CASE WHEN v_role = 'GUEST' THEN 2 ELSE 1 END THEN
+  IF pg_catalog.cardinality(v_ids) <> (CASE WHEN v_role = 'GUEST' THEN 2 ELSE 1 END) THEN
     -- un seul des deux sujets du voyageur déjà noté : état incohérent, tout est annulé
     RAISE EXCEPTION 'review : enregistrement partiel refusé'
       USING ERRCODE = 'integrity_constraint_violation';
