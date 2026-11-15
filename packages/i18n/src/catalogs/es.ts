@@ -1449,6 +1449,13 @@ export const ES_MESSAGES = {
   'common.booking.selfBookingForbidden.title': 'No puedes reservar este auto',
   'common.booking.selfBookingForbidden.body':
     'Este auto no se puede reservar con tu cuenta. Elige otro auto o escríbenos si crees que es un error.',
+  // US-207 : refus des commandes de la machine à états du trip (16 TRP-045 ; 08 BR-CXL règle 3)
+  'common.trip.transitionForbidden':
+    'Esta acción ya no es posible para esta reserva. Recarga la página para ver en qué estado está.',
+  'common.trip.concurrentUpdate':
+    'Esta reserva acaba de cambiar. Recarga la página y vuelve a intentarlo.',
+  'common.trip.noShowTooEarly':
+    'Todavía es pronto para avisar que el viajero no llegó. Vuelve a intentarlo cuando termine el tiempo de espera indicado en la reserva.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Aviso importante',
   'common.regulatory.version': 'Versión {version} de este aviso',

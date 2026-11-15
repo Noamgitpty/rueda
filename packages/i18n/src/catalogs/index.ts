@@ -86,8 +86,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 41 : correctifs de la passe n° 2 de la red team du lot 1 (US-122, ADR-124) :
  `common.listing.photoLimitReached` (galerie pleine) et `ntf.tripHostRestricted.*` (voyageur d'un
  trip à venir prévenu quand l'hôte est restreint).
+ Version 42 : machine à états du trip (US-207, ADR-125) : `common.trip.transitionForbidden`,
+ `common.trip.concurrentUpdate` et `common.trip.noShowTooEarly` (refus des commandes du trip).
  */
-export const CATALOG_VERSION = 41;
+export const CATALOG_VERSION = 42;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
