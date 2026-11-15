@@ -347,12 +347,20 @@ type CallForm = 'autocommit' | 'transactional';
 
 /**
  * Échantillon du p95 de C1 avec verrou (ADR-056, « Stabilité de la mesure du p95 », US-007) :
- * une course complète non mesurée, puis 5 courses mesurées de 100 poses chacune, sur les mêmes
- * connexions chaudes. Le p95 porte sur les 500 poses mesurées. Chaque course, chauffe comprise,
- * doit être exacte (1 hold, 99 `VEHICLE_UNAVAILABLE`, 0 `40P01`).
+ * une course complète non mesurée, puis 40 courses mesurées de 100 poses chacune, sur les mêmes
+ * connexions chaudes. Le p95 porte sur les 4 000 poses mesurées, sans en écarter aucune. Chaque
+ * course, chauffe comprise, doit être exacte (1 hold, 99 `VEHICLE_UNAVAILABLE`, 0 `40P01`).
+ *
+ * 40 courses et non plus 5 (ADR-056, « Fenêtre de mesure du p95 », 2026-11-15) : les poses d'une
+ * course forment une seule file et ne sont pas indépendantes. Avec 5 courses, une seule course
+ * retardée par l'exécuteur (environ 75 poses lentes sur 500, 15 %) suffisait à faire échouer le
+ * test : il exigeait « aucune course retardée sur 5 », plus que le p95 de 17 §2.5. Au run
+ * 43661256355 (job « guide d'installation »), la gagnante de 2 courses PY consécutives a pris 306
+ * et 327 ms, contre 142 ms au plus sur les 488 autres courses relevées dans 25 passages ; p95 de
+ * 345 ms. Le seuil (300 ms), le degré (100) et l'exactitude par course ne changent pas.
  */
 const C1_WARMUP_RACES = 1;
-const C1_MEASURED_RACES = 5;
+const C1_MEASURED_RACES = 40;
 /**
  * Poses annulées par connexion avant toute course : au-delà des 5 exécutions planifiées une à une
  * (plans « custom » du cache de plans de PostgreSQL), la connexion est dans l'état d'une
