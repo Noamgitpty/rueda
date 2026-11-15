@@ -11,7 +11,7 @@ import { PgQuoteStore, QuoteStoreUnavailableError, UnavailableQuoteStore } from 
 
 const FROZEN: FrozenQuote = {
   format: 'prc.quote.frozen/1',
-  engineVersion: 'prc.quote/1',
+  engineVersion: 'prc.quote/2',
   inputs: '{"request":{}}',
   inputsHash: 'a'.repeat(64),
   outputs: '{"total":"1"}',
