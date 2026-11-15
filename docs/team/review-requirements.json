@@ -394,6 +394,114 @@
     "US-127": {
       "require": ["code", "architecture", "securite", "argent", "qa"],
       "why": "auto-réservation (garde dans cmd_place_hold), comptes liés, aucune compensation dette / gains sans accord : sécurité, argent, concurrence ; PROPOSÉ (L1-PM-30)"
+    },
+    "US-201": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "recherche par zone et dates : lecture via vehicle_is_free (RLS-17), positions approximatives, aucune sonde du calendrier : sécurité, concurrence ; Revue design : OUI ; PROPOSÉ (L2-PM-29, L2-PM-32)"
+    },
+    "US-202": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "devis versionné, jours facturables, taxes (tax_line_config, third_party), quote_line TRIP_FEE et PROTECTION : argent, schéma ; devis non modifiable par le client : sécurité ; PROPOSÉ (L2-PM-03, L2-PM-12, L2-PM-13, L2-PM-15)"
+    },
+    "US-203": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "résultats en liste et carte, total TTC (TA01), port MapTiles FAKE et sous-traitant, positions approximatives : argent, sécurité, architecture ; Revue design : OUI ; PROPOSÉ (L2-PM-09, L2-PM-29, L2-PM-32)"
+    },
+    "US-204": {
+      "require": ["code", "securite", "ux", "qa"],
+      "why": "fiche véhicule : adresse exacte masquée avant BOOKED, bloc de l hôte : sécurité ; Revue design : OUI ; PROPOSÉ (L2-PM-29)"
+    },
+    "US-205": {
+      "require": ["code", "architecture", "securite", "argent", "ux"],
+      "why": "conditions affichées : textes de l assureur versionnés (insurer_contract), interrupteur insurer_contract_active : argent, sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L2-PM-08)"
+    },
+    "US-207": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "machine à états du trip (SM-1, SM-1b), trip_state_log, conversion par US-024 : concurrence, schéma, RLS ; T05, T06, T25 : argent ; PROPOSÉ (L2-PM-09, L2-PM-13, L2-PM-23, L2-PM-24)"
+    },
+    "US-208": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "checkout une page : consentements par document, TermsGuard (N-43), montant borné par le devis : sécurité, argent, schéma, concurrence ; Revue design : OUI ; PROPOSÉ (L2-PM-03, L2-PM-31)"
+    },
+    "US-209": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "contrôles bloquants (risk_rule, risk_assessment), action REVIEW_FLAGGED_BOOKING, hold CHECKOUT, auto-réservation : sécurité, argent, concurrence, schéma ; Revue design : OUI ; PROPOSÉ (L2-PM-05, L2-PM-08, L2-PM-13, L2-PM-21, L2-PM-22, L2-PM-36)"
+    },
+    "US-223": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "paiement par jambes, Kmino marchand de référence, preuve par webhook, cmd_money_owner (RLS-21), PSP FAKE : argent, sécurité, concurrence, schéma ; Revue design : OUI ; PROPOSÉ (L2-PM-01 à L2-PM-04, L2-PM-06 à L2-PM-09, L2-PM-12, L2-PM-22, L2-PM-23, L2-PM-28)"
+    },
+    "US-211": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "contrat hôte-voyageur, signature clic + OTP + empreintes, documents générés (données personnelles), écart au devis : sécurité, argent, schéma ; contrat unique sur événement rejoué : QA ; Revue design : OUI ; PROPOSÉ (L2-PM-26, L2-PM-30, L2-PM-33, L2-PM-35)"
+    },
+    "US-212": {
+      "require": ["code", "architecture", "securite", "argent", "ux"],
+      "why": "constancia bilingue et centre légal (generated_document, gabarits versionnés), positionnement d intermédiaire, données du voyageur : sécurité, schéma ; montants repris du règlement : argent ; Revue design : OUI ; PROPOSÉ (L2-PM-26, L2-PM-35, L2-PM-36)"
+    },
+    "US-213": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "confirmation (EVT_BOOKING_CONFIRMED) : adresse exacte révélée à BOOKED seulement, aucune confirmation en double sur un événement rejoué : sécurité, QA ; Revue design : OUI ; PROPOSÉ (L2-PM-29, L2-PM-30, L2-PM-33)"
+    },
+    "US-214": {
+      "require": ["code", "securite", "ux", "qa"],
+      "why": "mes réservations et détail du trip : RLS-1, aucun trip lu par un tiers : sécurité ; Revue design : OUI ; PROPOSÉ (L2-PM-10)"
+    },
+    "US-215": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "annulations voyageur / hôte / plateforme : moteur US-017, settlement_leg, refund_instance, libération de l occupation dans la même transaction, action de console : argent, sécurité, concurrence ; Revue design : OUI ; PROPOSÉ (L2-PM-05, L2-PM-06, L2-PM-13, L2-PM-15, L2-PM-16, L2-PM-25)"
+    },
+    "US-224": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "remboursements par jambe exécutés par Kmino, trip_leg_balance, platform_advance, crédit fermé sans funds_holding_enabled : argent, sécurité, concurrence, schéma ; Revue design : OUI ; PROPOSÉ (L2-PM-04, L2-PM-05, L2-PM-07, L2-PM-15, L2-PM-17, L2-PM-28)"
+    },
+    "US-217": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "reçu des gains, facture du trip fee, invariant par jambe, legal_entity : argent, schéma ; RLS des reçus : sécurité ; Revue design : OUI ; PROPOSÉ (L2-PM-10, L2-PM-12, L2-PM-27)"
+    },
+    "US-218": {
+      "require": ["code", "architecture", "securite", "qa"],
+      "why": "avis et nombre de trips (review, rating_aggregate), écrits par action de console : schéma, sécurité ; PROPOSÉ"
+    },
+    "US-219": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "espace hôte, mode REQUEST (hold REQUEST, request_respond_by, RLS-15, VOID total ou partiel, capture par jambes à l acceptation) : sécurité, argent, concurrence ; Revue design : OUI ; PROPOSÉ (L2-PM-09, L2-PM-10, L2-PM-30, L2-PM-31, L2-PM-34, L2-PM-35 ; N-117, N-120)"
+    },
+    "US-226": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "protections du voyageur et plans de gains de l hôte (insurer, insurer_contract, quote_line PROTECTION), interrupteur de l assureur : argent, sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L2-PM-08, L2-PM-18, L2-PM-19)"
+    },
+    "US-227": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "jambe de l assureur, insurer_ledger, bordereau à double validation FINANCE (RLS-21 à RLS-24), cmd_money_owner : argent, sécurité, schéma ; PROPOSÉ (L2-PM-07, L2-PM-10, L2-PM-11, L2-PM-18)"
+    },
+    "US-701": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "caution de la plateforme (deposit_hold), fenêtre de rétention, déclencheurs CLASS et RISK : argent, sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L2-PM-07, L2-PM-20)"
+    },
+    "US-225": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "caution : rails de pré-autorisation, ré-autorisation, débit puis remboursement, choix par psp_capability et funds_holding_enabled : argent, sécurité, concurrence ; Revue design : OUI ; PROPOSÉ (L2-PM-07, L2-PM-20, L2-PM-36)"
+    },
+    "US-702": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "libération automatique de la caution (tâche planifiée, fin + 72 h) : argent, idempotence, horloge en base ; PROPOSÉ (L2-PM-13, L2-PM-20)"
+    },
+    "US-704": {
+      "require": ["code", "architecture", "securite", "argent", "ux", "qa"],
+      "why": "trip fee du voyageur (quote_line TRIP_FEE, pourcentage par pays paramétré) : argent, schéma ; garde du paramètre : sécurité ; Revue design : OUI ; PROPOSÉ (L2-PM-06, L2-PM-14, L2-PM-27)"
+    },
+    "US-514": {
+      "require": ["code", "architecture", "securite", "ux", "qa"],
+      "why": "lieux de prise et de retour : adresse exacte (données personnelles de l hôte) : sécurité, schéma ; Revue design : OUI ; PROPOSÉ (L2-PM-29)"
+    },
+    "US-221": {
+      "require": ["code", "securite", "argent", "qa"],
+      "why": "parcours dorés réservation PA et PY (C6, C13, C14, C20, TJ, variantes PYG de l oracle), sous les rôles de production : argent, QA, sécurité ; PROPOSÉ (L2-PM-01, L2-PM-15, L2-PM-37)"
+    },
+    "US-222": {
+      "require": ["code", "architecture", "securite", "argent", "qa"],
+      "why": "porte du lot 2 : red team réservation / paiement par jambes / protections, RLS-21 à RLS-28 ; même périmètre de revue que US-122 ; PROPOSÉ (L2-PM-38, L2-PM-39, L2-PM-40)"
     }
   },
   "pathOwners": {
@@ -409,7 +517,16 @@
       "US-043",
       "US-049",
       "US-110",
-      "US-122"
+      "US-122",
+      "US-202",
+      "US-215",
+      "US-224",
+      "US-226",
+      "US-701",
+      "US-225",
+      "US-704",
+      "US-221",
+      "US-222"
     ],
     "packages/db/": [
       "US-001",
@@ -467,9 +584,54 @@
       "US-124",
       "US-125",
       "US-126",
-      "US-127"
+      "US-127",
+      "US-201",
+      "US-202",
+      "US-203",
+      "US-204",
+      "US-205",
+      "US-207",
+      "US-208",
+      "US-209",
+      "US-223",
+      "US-211",
+      "US-212",
+      "US-213",
+      "US-214",
+      "US-215",
+      "US-224",
+      "US-217",
+      "US-218",
+      "US-219",
+      "US-226",
+      "US-227",
+      "US-701",
+      "US-225",
+      "US-702",
+      "US-704",
+      "US-514",
+      "US-221",
+      "US-222"
     ],
-    "packages/money/": ["US-015", "US-016", "US-017", "US-018", "US-035", "US-042", "US-049"],
+    "packages/money/": [
+      "US-015",
+      "US-016",
+      "US-017",
+      "US-018",
+      "US-035",
+      "US-042",
+      "US-049",
+      "US-223",
+      "US-215",
+      "US-224",
+      "US-217",
+      "US-226",
+      "US-227",
+      "US-701",
+      "US-225",
+      "US-704",
+      "US-222"
+    ],
     "packages/i18n/": [
       "US-014",
       "US-012",
@@ -505,7 +667,33 @@
       "US-127",
       "US-112",
       "US-036",
-      "US-122"
+      "US-122",
+      "US-201",
+      "US-202",
+      "US-203",
+      "US-204",
+      "US-205",
+      "US-207",
+      "US-208",
+      "US-209",
+      "US-223",
+      "US-211",
+      "US-212",
+      "US-213",
+      "US-214",
+      "US-215",
+      "US-224",
+      "US-217",
+      "US-218",
+      "US-219",
+      "US-226",
+      "US-227",
+      "US-701",
+      "US-225",
+      "US-702",
+      "US-704",
+      "US-514",
+      "US-222"
     ],
     "packages/design-tokens/": [
       "US-030",
@@ -515,7 +703,8 @@
       "US-035",
       "US-120",
       "US-044",
-      "US-122"
+      "US-122",
+      "US-222"
     ],
     "packages/ui/": [
       "US-032",
@@ -535,7 +724,27 @@
       "US-124",
       "US-125",
       "US-126",
-      "US-044"
+      "US-044",
+      "US-201",
+      "US-203",
+      "US-204",
+      "US-205",
+      "US-208",
+      "US-209",
+      "US-223",
+      "US-211",
+      "US-212",
+      "US-213",
+      "US-214",
+      "US-215",
+      "US-224",
+      "US-217",
+      "US-219",
+      "US-226",
+      "US-701",
+      "US-225",
+      "US-704",
+      "US-514"
     ],
     "packages/fake-adapters/": [
       "US-019",
@@ -550,7 +759,19 @@
       "US-103",
       "US-111",
       "US-036",
-      "US-112"
+      "US-112",
+      "US-203",
+      "US-211",
+      "US-213",
+      "US-215",
+      "US-219",
+      "US-223",
+      "US-224",
+      "US-227",
+      "US-701",
+      "US-225",
+      "US-702",
+      "US-222"
     ]
   },
   "sharedPaths": [
