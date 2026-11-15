@@ -493,13 +493,7 @@
         "app_worker": {
           "SELECT": "*",
           "INSERT": "*",
-          "UPDATE": [
-            "cancellation_reason",
-            "scheduled_end",
-            "scheduled_start",
-            "status",
-            "termination_reason"
-          ]
+          "UPDATE": ["scheduled_end", "scheduled_start"]
         },
         "app_anon": {}
       },
@@ -3002,6 +2996,58 @@
       }
     },
     "core.kyc_host_tax_profile": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.booking_trip_driver": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.booking_trip_segment": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.booking_trip_state_log": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
+    "core.booking_trip_transition": {
       "type": "table",
       "droits": {
         "app_api": {},

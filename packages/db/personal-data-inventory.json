@@ -410,7 +410,11 @@
         "created_by": "C1",
         "updated_at": "C1",
         "updated_by": "C1",
-        "row_version": "C1"
+        "row_version": "C1",
+        "no_show_at": "C1",
+        "checkin_validated_at": "C1",
+        "cancel_initiator": "C1",
+        "cancel_requested_at": "C1"
       }
     },
     "core.booking_vehicle_occupancy": {
@@ -2539,6 +2543,74 @@
         "row_version": "C1",
         "created_at": "C1",
         "updated_at": "C1"
+      }
+    },
+    "core.booking_trip_transition": {
+      "lifecycle": "C",
+      "export": "none",
+      "columns": {
+        "from_status": "C1",
+        "to_status": "C1",
+        "via": "C1"
+      }
+    },
+    "core.booking_trip_segment": {
+      "lifecycle": "B",
+      "export": "none",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "seq": "C1",
+        "period": "C1",
+        "billable_days": "C1",
+        "price_version": "C1",
+        "due_at": "C1",
+        "payment_status": "C1",
+        "created_at": "C1",
+        "updated_at": "C1",
+        "row_version": "C1"
+      }
+    },
+    "core.booking_trip_driver": {
+      "lifecycle": "B",
+      "subjects": [
+        {
+          "column": "user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "trip_id": "C1",
+        "user_id": "C1",
+        "role": "C1",
+        "approved_at": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.booking_trip_state_log": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "actor_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "trip_id": "C1",
+        "from_status": "C1",
+        "to_status": "C1",
+        "kind": "C1",
+        "reason_code": "C1",
+        "origin": "C1",
+        "actor_user_id": "C1",
+        "actor_role": "C1",
+        "at": "C1",
+        "settlement_id": "C1",
+        "xact_id": "C1",
+        "created_at": "C1"
       }
     }
   }
