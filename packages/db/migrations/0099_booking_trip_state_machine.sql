@@ -879,6 +879,8 @@ REVOKE ALL ON FUNCTION core.booking_trip_transition_guard(), core.booking_trip_b
   core.booking_cmd_trip_transition(uuid, text, text, integer),
   core.booking_cmd_trip_cancel(uuid, text, text, text, boolean, integer)
   FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION core.booking_cmd_trip_transition(uuid, text, text, integer),
+  core.booking_cmd_trip_cancel(uuid, text, text, text, boolean, integer) TO app_worker;
 
 -- Transfert au propriétaire dédié (ADR-053, amendement d'ADR-044) : CREATE le temps du transfert.
 -- Les fonctions internes (lock, apply) appartiennent aussi à cmd_hold_owner : seules ses commandes
@@ -894,9 +896,7 @@ ALTER FUNCTION core.booking_cmd_trip_transition(uuid, text, text, integer) OWNER
 ALTER FUNCTION core.booking_cmd_trip_cancel(uuid, text, text, text, boolean, integer)
   OWNER TO cmd_hold_owner;
 REVOKE CREATE ON SCHEMA core FROM cmd_hold_owner;
-
-GRANT EXECUTE ON FUNCTION core.booking_cmd_trip_transition(uuid, text, text, integer),
-  core.booking_cmd_trip_cancel(uuid, text, text, text, boolean, integer) TO app_worker;
+-- (EXECUTE d'app_worker accordé avant le transfert : migrator n'est plus propriétaire ensuite.)
 
 -- 12. L'état d'un trip ne s'écrit plus que par commande (CLAUDE.md point 5) ----------------------
 -- Dérogation expand / contract (retrait d'un droit d'un rôle applicatif) : aucune version servie
