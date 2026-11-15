@@ -1724,7 +1724,7 @@ export const ES_MESSAGES = {
   // US-201 : recherche publique par zone, lieu, dates et heures (S01, S02 simplifié, S03)
   'common.search.locationRequired': 'Elige dónde quieres recoger el auto.',
   'common.search.datesInvalid':
-    'Revisa las fechas: la devolución debe ser después de la recogida, a una hora en punto o y media, y la recogida no puede estar en el pasado.',
+    'Revisa las fechas: la devolución debe ser después de la recogida, a la hora en punto o a la media hora, y la recogida no puede estar en el pasado.',
   'common.search.durationExceeded': 'Este viaje es demasiado largo. Elige una duración más corta.',
   'common.search.unavailable':
     'La búsqueda no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
@@ -1738,14 +1738,14 @@ export const ES_MESSAGES = {
   'web.search.time': 'Hora',
   'web.search.localTime': 'Las horas son las del lugar donde recoges el auto.',
   'web.search.go': 'Buscar autos',
-  'web.search.noAreas.title': 'Aún no hay autos publicados',
-  'web.search.noAreas.body': 'Vuelve pronto: tus vecinos están publicando sus autos.',
+  'web.search.noAreas.title': 'Por ahora no hay autos para alquilar',
+  'web.search.noAreas.body': 'Todavía no hay autos disponibles. Vuelve más tarde.',
   'web.search.areasError': 'No pudimos cargar los lugares.',
   'web.search.results.title': 'Autos disponibles',
   'web.search.results.none': 'No hay autos disponibles en esas fechas',
   'web.search.results.none.body': 'Prueba con otras fechas u otra zona.',
   'web.search.result.period': 'Del {from} al {to}',
-  'web.search.result.timezone': 'Hora local: {timezone}',
+  'web.search.result.timezone': 'Hora local de {city}',
   'web.search.loading': 'Buscando autos…',
   'web.search.result.open': 'Ver el auto',
   'web.listing.dates.title': 'Tus fechas',

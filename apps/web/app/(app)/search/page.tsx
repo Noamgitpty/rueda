@@ -97,7 +97,7 @@ export default async function SearchPage({
                   })}
                 </p>
                 <p className={styles['muted']}>
-                  {t('web.search.result.timezone', { timezone: r.timezone })}
+                  {t('web.search.result.timezone', { city: r.city })}
                 </p>
                 <p className={styles['meta']}>
                   {t('web.listing.perDay', {

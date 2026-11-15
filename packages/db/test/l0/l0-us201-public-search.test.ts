@@ -353,6 +353,46 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0103)',
   );
 
   it.each(byCountry)(
+    '%s (%s) : paramètres du pays pas encore en vigueur (`max_trip_days`, `buffer_minutes`) ⇒ SEARCH_UNAVAILABLE, sans donnée (fail-closed, ADR-127)',
+    async (country) => {
+      await withRole('app_api', async (client) => {
+        // une seconde avant la plus ancienne entrée en vigueur des deux paramètres dans le pays
+        // (graine US-013) : aucune valeur n'est encore en vigueur à cet instant
+        const { rows } = await client.query<{ m: Date | null }>(
+          `SELECT min(valid_from) AS m FROM core.config_param_value
+            WHERE scope_type = 'COUNTRY' AND country_code = $1
+              AND key = ANY ('{max_trip_days,buffer_minutes}'::text[])`,
+          [country],
+        );
+        const first = rows[0]?.m;
+        if (!(first instanceof Date)) throw new Error('paramètres de recherche absents');
+        const before = new Date(first.getTime() - 1000).toISOString();
+        const city = placeName('Villa');
+        await withTestTransaction(client, { virtualNow: before }, async (tx) => {
+          const refused = await search(
+            tx,
+            country,
+            city,
+            null,
+            '2036-12-10T10:00',
+            '2036-12-12T10:00',
+          );
+          expect(outcomeOf(refused)).toBe('SEARCH_UNAVAILABLE');
+          expect(
+            Object.entries(refused[0] ?? {}).filter(([k, v]) => k !== 'outcome' && v !== null),
+          ).toEqual([]);
+        });
+        // horloge courante : les paramètres sont en vigueur, la même recherche est valide (vide)
+        await withTestTransaction(client, {}, async (tx) => {
+          expect(
+            await search(tx, country, city, null, '2036-12-10T10:00', '2036-12-12T10:00'),
+          ).toEqual([]);
+        });
+      });
+    },
+  );
+
+  it.each(byCountry)(
     '%s (%s) : un créneau occupé (blocage de l’hôte, hold vivant, tampon de 2 h, préavis) écarte le véhicule ; le témoin libre reste',
     async (country, _currency, cc) => {
       await rolledBack(async (tx) => {

@@ -129,7 +129,7 @@ Consommés (cible 17 §4.5) : `kyc.host_verification.decided` (KYC), `review.pub
 
 Lecture seule de l'espace hôte (16 HDB-001 / HDB-002, écrans A02 et A05) : `GET /host/accounts/{orgId}/trips` (onglet `tab` = `UPCOMING`, `IN_PROGRESS`, `DONE`, `CANCELLED` ; filtres `vehicleId`, `from`, `to` en dates locales du trip) et `GET /host/accounts/{orgId}/trips/{tripId}`, gardées par `SessionGuard` puis `TermsGuard` (segment `trips` : route de réservation, US-102).
 
-- La base juge tout : `core.booking_host_trips` (migration 0103, propriétaire `host_view_owner`, EXECUTE `app_api`) ne rend que les trips d'un compte **titulaire** de la session ; un autre compte rend `FORBIDDEN` (404 `HOST_ACCOUNT_NOT_FOUND`), un trip d'un autre hôte aucune ligne (404 `TRIP_NOT_FOUND`).
+- La base juge tout : `core.booking_host_trips` (migration 0101, propriétaire `host_view_owner`, EXECUTE `app_api`) ne rend que les trips d'un compte **titulaire** de la session ; un autre compte rend `FORBIDDEN` (404 `HOST_ACCOUNT_NOT_FOUND`), un trip d'un autre hôte aucune ligne (404 `TRIP_NOT_FOUND`).
 - Du voyageur, seuls le prénom, l'âge, la note (nulle tant que les avis n'existent pas) et le statut de vérification (`host_guest_v`, 17 §2.3) ; jamais son identifiant, son permis ni une pièce.
 - Gains estimés : jambe `HOST` de l'opération de conversion, relue telle quelle (`hostEarningsMinor`, chaîne en unités mineures) avec l'exposant de la devise du pays ; nulle pour un trip annulé.
 - Véhicule et lieu de remise joints par les lectures d'US-115 (`vehicles`, `locations`).

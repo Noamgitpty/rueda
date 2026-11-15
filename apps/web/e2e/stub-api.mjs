@@ -222,6 +222,8 @@ const HOST_TOKEN = /^H0st[A-Za-z0-9_-]{39}$/;
 const NOHOST_TOKEN = /^N0ho[A-Za-z0-9_-]{39}$/;
 const PUBLIC_ID = '11500000-0000-4000-8000-00000000f001';
 const DOWN_ID = '11500000-0000-4000-8000-00000000f503';
+/** Ville fictive dont la recherche rend 503 `SEARCH_UNAVAILABLE` (US-201, état d'erreur). */
+const SEARCH_DOWN_CITY = 'Ciudad Caida';
 const hosts = new Map();
 const uuid = () => {
   const h = randomBytes(16).toString('hex');
@@ -428,6 +430,10 @@ async function hostRoute(req, res, url) {
     }
     if (!slot.test(start) || !slot.test(end) || end <= start) {
       return err(res, 422, 'SEARCH_DATES_INVALID', 'common.search.datesInvalid');
+    }
+    // base injoignable (état d'erreur de la page de résultats) : ville réservée du double
+    if (q.get('city') === SEARCH_DOWN_CITY) {
+      return err(res, 503, 'SEARCH_UNAVAILABLE', 'common.search.unavailable');
     }
     const found =
       q.get('city') === 'Ciudad Ficticia' && (q.get('area') ?? 'Barrio Norte') === 'Barrio Norte';

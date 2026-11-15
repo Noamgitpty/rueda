@@ -118,7 +118,7 @@ export default async function ListingPage({
           </p>
           {listing.timezone !== null && (
             <p className={accountStyles['muted']}>
-              {t('web.search.result.timezone', { timezone: listing.timezone })}
+              {t('web.search.result.timezone', { city: listing.city })}
             </p>
           )}
           <a

@@ -34,6 +34,8 @@ const PHONE = /phone\.spec\.ts$/;
 const IDENTITY = /identity\.spec\.ts$/;
 /** Liste de tâches de l'hôte A07 (US-123) : mêmes largeurs que l'inscription. */
 const HOST_VERIFICATION = /host-verification\.spec\.ts$/;
+/** Recherche publique S01 → résultats → fiche S03 (US-201) : téléphones 360 et 390 px. */
+const SEARCH = /search\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -68,12 +70,12 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-360',
-      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY, HOST_VERIFICATION, SCREENS],
+      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY, HOST_VERIFICATION, SEARCH, SCREENS],
       use: { ...phone, viewport: { width: 360, height: 780 } },
     },
     {
       name: 'mobile-390',
-      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY, HOST_VERIFICATION, SCREENS],
+      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY, HOST_VERIFICATION, SEARCH, SCREENS],
       use: { ...phone, viewport: { width: 390, height: 844 } },
     },
     {

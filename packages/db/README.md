@@ -677,7 +677,7 @@ Migration `0099_booking_trip_state_machine`, fixtures `test-migrations/9997_test
 
 ## Recherche publique (US-201 ; 16 SRC-001 ; 17 §0.1, §2.3, §7.2 ; ADR-127)
 
-Migration `0102_catalog_public_search`, aucune fixture nouvelle (celles d'US-109, US-115 et de l'occupation suffisent). Lecture seule, aucune table ni colonne modifiée.
+Migration `0103_catalog_public_search`, aucune fixture nouvelle (celles d'US-109, US-115 et de l'occupation suffisent). Lecture seule, aucune table ni colonne modifiée.
 
 - **Fonctions** (`SECURITY DEFINER`, `catalog_cmd_owner`, EXECUTE `app_api` seul) : `core.catalog_public_areas(pays)` (villes, zones et fuseau du pays des annonces cherchables ; pays nul : tous ; 500 au plus) et `core.catalog_public_search(pays, ville, zone, début local, fin local, limite)` (annonces disponibles, colonnes C0, instants dans le fuseau du véhicule ; 50 au plus ; une ligne d'issue en cas de refus : `SEARCH_LOCATION_REQUIRED`, `SEARCH_DATES_INVALID`, `SEARCH_DURATION_EXCEEDED`, `SEARCH_UNAVAILABLE`).
 - **Cherchable** : annonce `LISTED` à réservation immédiate (`instant_book` ; sur demande écartée jusqu'à US-223, PROPOSÉ), véhicule non libéré, hôte activable (`core.catalog_search_host_open` : compte `ACTIVE`, titulaire sans restriction active, `p2p_private_hosts_enabled` et `insurer_contract_active` ouverts) ; libre sur `[début, fin + buffer_minutes)` selon la sonde `core.catalog_vehicle_is_free` (période arrondie à l'heure) ; départ au plus tôt à `platform.now()` + préavis du lieu.
