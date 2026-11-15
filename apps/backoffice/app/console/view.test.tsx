@@ -407,7 +407,7 @@ describe('US-218 : avis reçu par e-mail (RECORD_REVIEW), dans chaque locale', (
     },
   );
 
-  it('saisie fermée de 0102 : deux auteurs, cinq notes en mots (jamais un nombre)', () => {
+  it('saisie fermée de 0104 : deux auteurs, cinq notes en mots (jamais un nombre)', () => {
     expect([...REVIEW_AUTHORS].sort()).toEqual(['GUEST', 'HOST']);
     expect([...REVIEW_STARS].sort()).toEqual(['FIVE', 'FOUR', 'ONE', 'THREE', 'TWO']);
   });

@@ -141,7 +141,6 @@ export const EN_MESSAGES = {
     one: 'Rental · {count} day',
     other: 'Rental · {count} days',
   },
-  'web.catalog.sample.line.tripFee': 'Trip fee',
   'web.catalog.sample.line.protection': 'Basic protection',
   'web.catalog.sample.line.tax': 'Taxes',
   'web.catalog.sample.table.caption': 'Upcoming handovers',
@@ -1136,6 +1135,9 @@ export const EN_MESSAGES = {
     "We can't calculate a price for this car on these dates. Try other dates or choose another car.",
   'common.quote.datesInvalid': 'Check the dates: the return must be after the pickup.',
   'common.quote.changed': 'The price has changed. Check the new total before you continue.',
+  'common.quote.line.tripFee': 'Trip fee',
+  'common.quote.line.tripFeeHint':
+    'Covers the platform service: booking, secure payment and help during your trip. Refunded if you cancel for free.',
   'common.listing.unavailable': 'We cannot save your listing right now. Try again later.',
   'common.listing.photoUnavailable': 'We cannot receive photos yet. Try again later.',
   'common.listing.field.required': 'This field is required.',

@@ -179,7 +179,7 @@ export const DSR_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
 
 /** US-218 : rôles qui détiennent `ops.review_listing_host` (17 §2.3 ; la base reste juge). */
 const REVIEW_ROLES = new Set(['OPS_AGENT', 'ADMIN']);
-/** Énumérations fermées de RECORD_REVIEW (catalogue de 0102, ADR-130) : jamais un nombre. */
+/** Énumérations fermées de RECORD_REVIEW (catalogue de 0104, ADR-130) : jamais un nombre. */
 export const REVIEW_AUTHORS = ['GUEST', 'HOST'] as const;
 export type ReviewAuthor = (typeof REVIEW_AUTHORS)[number];
 export const REVIEW_STARS = ['FIVE', 'FOUR', 'THREE', 'TWO', 'ONE'] as const;
@@ -195,7 +195,7 @@ const REVIEW_STAR_KEYS: Readonly<Record<ReviewStars, MessageKey>> = {
   TWO: 'backoffice.review.overall.TWO',
   ONE: 'backoffice.review.overall.ONE',
 };
-/** Refus de RECORD_REVIEW expliqués (issue de la commande de domaine, 0102). */
+/** Refus de RECORD_REVIEW expliqués (issue de la commande de domaine, 0104). */
 export const REVIEW_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
   REVIEW_INPUT_REQUIRED: 'backoffice.review.refused.REVIEW_INPUT_REQUIRED',
   REVIEW_TRIP_NOT_COMPLETED: 'backoffice.review.refused.REVIEW_TRIP_NOT_COMPLETED',

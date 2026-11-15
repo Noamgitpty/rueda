@@ -1,4 +1,4 @@
--- 0102 — REV : avis recueillis par l'ops, agrégats (note moyenne, nombre de trips) et note du voyageur.
+-- 0104 — REV : avis recueillis par l'ops, agrégats (note moyenne, nombre de trips) et note du voyageur.
 -- US-218 ; 19 US-218 (« Given un avis recueilli par e-mail, When l'ops l'enregistre (`RECORD_REVIEW`),
 -- Then il est rattaché au trip et journalisé » ; « Given 3 avis (5, 4, 3) et 2 trips non notés, When
 -- l'agrégat est calculé, Then moyenne 4,0 et 5 trips ») ; 16 REV-001 / REV-010 (« trip non noté

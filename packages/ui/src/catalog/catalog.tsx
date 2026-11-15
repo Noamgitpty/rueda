@@ -274,7 +274,8 @@ export function ComponentCatalog({ i18n, mobile = false, controls }: ComponentCa
                 },
                 {
                   id: 'fee',
-                  label: t('web.catalog.sample.line.tripFee'),
+                  label: t('common.quote.line.tripFee'),
+                  hint: t('common.quote.line.tripFeeHint'),
                   amount: priceAmount(p.tripFeeMinor),
                 },
                 {

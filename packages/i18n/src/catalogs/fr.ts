@@ -155,7 +155,6 @@ export const FR_MESSAGES = {
     one: 'Location · {count} jour',
     other: 'Location · {count} jours',
   },
-  'web.catalog.sample.line.tripFee': 'Frais de voyage',
   'web.catalog.sample.line.protection': 'Protection de base',
   'web.catalog.sample.line.tax': 'Taxes',
   'web.catalog.sample.table.caption': 'Prochaines remises',
@@ -1197,9 +1196,12 @@ export const FR_MESSAGES = {
     'Tout est prêt de ton côté. Tu pourras publier ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
   // US-202 : devis (16 PRC-025, PRC-020) : prix impossible, dates invalides, prix changé
   'common.quote.unavailable':
-    "Nous ne pouvons pas calculer le prix de cette voiture pour ces dates. Essayez d'autres dates ou choisissez une autre voiture.",
-  'common.quote.datesInvalid': 'Vérifiez les dates : le retour doit être après la prise en charge.',
-  'common.quote.changed': 'Le prix a changé. Vérifiez le nouveau total avant de continuer.',
+    'Nous ne pouvons pas calculer le prix de cette voiture pour ces dates. Essaie d’autres dates ou choisis une autre voiture.',
+  'common.quote.datesInvalid': 'Vérifie les dates : le retour doit être après la prise en charge.',
+  'common.quote.changed': 'Le prix a changé. Vérifie le nouveau total avant de continuer.',
+  'common.quote.line.tripFee': 'Frais de voyage',
+  'common.quote.line.tripFeeHint':
+    'Couvrent le service de la plateforme : la réservation, le paiement sécurisé et l’aide pendant le voyage. Remboursés si tu annules sans frais.',
   'common.listing.unavailable':
     'Impossible d’enregistrer ton annonce pour le moment. Réessaie plus tard.',
   'common.listing.photoUnavailable':

@@ -65,6 +65,15 @@
   color: var(--color-text-muted);
 }
 
+/* Explication d'un poste (trip fee, US-704) : sous le libellé, en secondaire. */
+.hint {
+  display: block;
+  margin-block-start: var(--space-1);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-height-body);
+  color: var(--color-text-muted);
+}
+
 .line dd {
   margin: 0;
   color: var(--color-text);

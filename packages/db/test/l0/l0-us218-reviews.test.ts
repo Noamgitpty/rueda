@@ -1,5 +1,5 @@
 /**
- * US-218 — avis recueillis par l'ops et agrégats (migration 0102, ADR-130 ; fixture 9987). Rôles de
+ * US-218 — avis recueillis par l'ops et agrégats (migration 0104, ADR-130 ; fixture 9987). Rôles de
  * production seulement (assertion L0-05 par `connectAs`), au Panama (USD) et au Paraguay (PYG).
  * Chaque test crée ses personnes, son agent, son compte d'hôte, son véhicule par les VRAIES
  * commandes (US-102, US-107, US-115, console d'US-101) et ses trips par le parcours hold → preuve →

@@ -19,10 +19,12 @@ import { CountryConfigService, type CountryConfig } from '../../src/modules/cfg/
 import {
   QUOTE_LINE_TYPES,
   SETTLEMENT_LINE_OF,
+  resolveQuoteParams,
   type PricedPeriod,
   type QuoteLineType,
   type QuoteParams,
   type QuoteTaxRule,
+  type TripFeeSchedule,
 } from '../../src/modules/prc/index.js';
 
 export const golden = loadGoldenVectors();
@@ -48,6 +50,31 @@ const QUOTE_LINE_OF = Object.fromEntries(
 ) as Record<SettlementLine, QuoteLineType>;
 
 export const toRatio = (r: GoldenRatio): Ratio => ratio(r.numerator, r.denominator);
+
+/** Instant de lecture de la configuration du dépôt dans les tests. */
+export const CONFIG_AT = new Date('2026-12-01T12:00:00.000Z');
+
+/** Barème du trip fee du dépôt (`trip_fee_schedule`) pour le pays de la devise `currency`. */
+export function repoTripFeeSchedule(currency: Currency): TripFeeSchedule {
+  const country = countryOfCurrency(currency.code);
+  const s = resolveQuoteParams(repoConfig, { country, at: CONFIG_AT }).tripFeeSchedule;
+  return { tiers: s.tiers, min: money(s.min.amountMinor, currency) };
+}
+
+/**
+ * Barème de test (US-704) : tranches `[maxDays, rateBps]` et minimum en unités mineures. Une
+ * entrée du test, jamais un attendu.
+ */
+export function testTripFeeSchedule(
+  currency: Currency,
+  tiers: readonly (readonly [number | null, number])[],
+  minMinor: bigint,
+): TripFeeSchedule {
+  return {
+    tiers: tiers.map(([maxDays, bps]) => ({ maxDays, rate: ratio(BigInt(bps), 10_000n) })),
+    min: money(minMinor, currency),
+  };
+}
 
 /** Parts assureur de la configuration de test de 08 E7 (« valeurs de test » : 7/10 et 1/2). */
 export const TEST_INSURER = {
@@ -105,6 +132,8 @@ export function caseOfGoldenTrip(t: GoldenTrip): QuoteCase {
       currency,
       graceMinutes: 29,
       maxTripDays: 30,
+      // F des vecteurs est une ligne donnée (assembleQuote) ; barème du dépôt pour computeQuote
+      tripFeeSchedule: repoTripFeeSchedule(currency),
       taxRules: rulesOf(
         t.taxGroups.map((g) => ({ id: g.id, rate: toRatio(g.rate), lines: g.lines })),
       ),
@@ -137,6 +166,7 @@ export function caseOfSettlementTrip(
       currency: trip.currency,
       graceMinutes: 29,
       maxTripDays: 30,
+      tripFeeSchedule: repoTripFeeSchedule(trip.currency),
       taxRules: rulesOf(
         trip.taxGroups.map((g) => {
           const rate = rates[g.id];

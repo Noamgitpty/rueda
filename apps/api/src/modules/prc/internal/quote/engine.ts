@@ -8,6 +8,9 @@
  * (`multiplyRoundHalfUp`, `allocHost`, `sum`) : aucun arrondi local.
  *
  * - Prix du trip : `TRIP_PRICE` = prix journalier × jours facturables (`billableDays`).
+ * - Trip fee (US-704 ; 08 BR-PRICE-06 ; 16 PRC-012) : `TRIP_FEE` = max(roundHalfUp(P × taux de la
+ *   tranche de durée), minimum du pays), barème `trip_fee_schedule[pays]` ; jamais fourni par
+ *   l'appelant. Il va entièrement à la jambe `PLATFORM` (complément de 08 E7).
  * - Taxe **par ligne** : `roundHalfUp(ligne × taux du groupe)`, puis somme par groupe fiscal ;
  *   jamais l'arrondi du taux appliqué à la base agrégée (T43 : 0,70 + 0,70 = 1,40).
  * - Total TTC = Σ lignes + Σ taxes (BR-PRICE-13).
@@ -19,6 +22,7 @@ import {
   computeCaptureLegs,
   isMoneyError,
   isSettlementError,
+  max,
   multiplyByInteger,
   multiplyRoundHalfUp,
   sum,
@@ -36,7 +40,7 @@ import { billableDays } from './billable-days.js';
 import { QuoteError } from './errors.js';
 
 /** Version du moteur, figée dans chaque devis (une évolution du calcul = nouvelle version). */
-export const QUOTE_ENGINE_VERSION = 'prc.quote/1';
+export const QUOTE_ENGINE_VERSION = 'prc.quote/2';
 
 /** Lignes typées du devis : énumération `LINES` de 08, mêmes noms que `tax_line_config`. */
 export const QUOTE_LINE_TYPES = TAX_LINE_TYPES;
@@ -71,6 +75,24 @@ export interface QuoteTaxRule {
   readonly thirdParty: boolean;
 }
 
+/**
+ * Tranche du barème du trip fee : s'applique aux trips de `maxDays` jours facturables au plus
+ * (`null` : sans borne, dernière tranche seulement).
+ */
+export interface TripFeeTier {
+  readonly maxDays: number | null;
+  /** Taux exact de la tranche (`rateBps / 10 000`), dans [0 ; 1]. */
+  readonly rate: Ratio;
+}
+
+/** Barème du trip fee du pays (`trip_fee_schedule`, 08 BR-PRICE-06 ; valeurs PROPOSÉES, OQ-MK-01). */
+export interface TripFeeSchedule {
+  /** Tranches par durée croissante ; la première dont `maxDays` couvre la durée s'applique. */
+  readonly tiers: readonly TripFeeTier[];
+  /** Minimum du trip fee, dans la devise du pays. */
+  readonly min: Money;
+}
+
 /** Paramètres du pays figés dans le devis (instantané, 17 §2.6). */
 export interface QuoteParams {
   readonly currency: Currency;
@@ -78,6 +100,8 @@ export interface QuoteParams {
   readonly graceMinutes: number;
   /** `max_trip_days` : au-delà, aucun devis (bêta : un seul segment de 30 j au plus, 17 §2.6). */
   readonly maxTripDays: number;
+  /** Barème du trip fee (US-704). Lu par `computeQuote` seulement : `assembleQuote` reçoit F chiffré. */
+  readonly tripFeeSchedule: TripFeeSchedule;
   readonly taxRules: readonly QuoteTaxRule[];
   /** Part de l'hôte figée (plan de l'hôte, 08 BR-PROT-06 ; `host_share_pct_frozen`). */
   readonly hostSharePct: Ratio;
@@ -88,9 +112,13 @@ export interface QuoteParams {
   readonly insurerRoadsideShare?: Ratio;
 }
 
-/** Lignes autres que le prix du trip, calculées par d'autres stories (US-704, US-226…). */
+/** Lignes calculées par le moteur, jamais fournies par l'appelant (L2-PM-03). */
+export const COMPUTED_LINE_TYPES = Object.freeze(['TRIP_PRICE', 'TRIP_FEE'] as const);
+type ComputedLineType = (typeof COMPUTED_LINE_TYPES)[number];
+
+/** Lignes autres que le prix du trip et le trip fee, chiffrées par d'autres stories (US-226…). */
 export type QuoteExtraLines = Readonly<
-  Partial<Record<Exclude<QuoteLineType, 'TRIP_PRICE'>, Money>>
+  Partial<Record<Exclude<QuoteLineType, ComputedLineType>, Money>>
 >;
 
 /** Demande de devis. Tous les montants viennent du serveur (annonce, barèmes), jamais du client. */
@@ -400,9 +428,12 @@ export function computeQuote(request: QuoteRequest, params: QuoteParams): Quote 
     throw new QuoteError('QUOTE_INPUT_INVALID', 'dailyRate : montant strictement positif requis');
   }
   const extra = request.lines ?? {};
-  if (Object.prototype.hasOwnProperty.call(extra, 'TRIP_PRICE')) {
-    throw new QuoteError('QUOTE_INPUT_INVALID', 'TRIP_PRICE est calculé, jamais fourni');
+  for (const type of COMPUTED_LINE_TYPES) {
+    if (Object.prototype.hasOwnProperty.call(extra, type)) {
+      throw new QuoteError('QUOTE_INPUT_INVALID', `${type} est calculé, jamais fourni`);
+    }
   }
+  const tripPrice = multiplyByInteger(dailyRate, BigInt(days));
   return assembleQuote(
     {
       startAtMs: request.startAtMs,
@@ -410,8 +441,68 @@ export function computeQuote(request: QuoteRequest, params: QuoteParams): Quote 
       quotedAtMs: request.quotedAtMs,
       rateType: request.rateType,
       billableDays: days,
-      lines: { ...extra, TRIP_PRICE: multiplyByInteger(dailyRate, BigInt(days)) },
+      lines: {
+        ...extra,
+        TRIP_PRICE: tripPrice,
+        TRIP_FEE: tripFeeOf(tripPrice, days, params.tripFeeSchedule, params.currency),
+      },
     },
     params,
   );
+}
+
+/**
+ * Trip fee du voyageur (US-704 ; 08 BR-PRICE-06, recommandation [NOUS] appliquée telle quelle,
+ * Q-004 ; 16 PRC-012) : `max(roundHalfUp(P × taux), minimum)`, le taux étant celui de la première
+ * tranche dont `maxDays` couvre les jours facturables. P est le prix du trip après remises (08 :
+ * « le trip fee est calculé après les remises, sur le prix net P ») ; les lignes promotionnelles
+ * n'en changent pas l'assiette. Barème incohérent (aucune tranche, bornes non croissantes, taux
+ * hors de [0 ; 1], minimum négatif ou d'une autre devise, durée non couverte) ⇒ `QUOTE_UNAVAILABLE`
+ * (fail-closed : `failMode` BLOCK du paramètre).
+ */
+export function tripFeeOf(
+  tripPrice: Money,
+  days: number,
+  schedule: TripFeeSchedule | undefined,
+  currency: Currency,
+): Money {
+  if (schedule === undefined || !Array.isArray(schedule.tiers) || schedule.tiers.length === 0) {
+    throw new QuoteError('QUOTE_UNAVAILABLE', 'trip_fee_schedule : barème absent');
+  }
+  let min: Money;
+  try {
+    min = sum(currency, [schedule.min]);
+  } catch (cause) {
+    throw new QuoteError(
+      'QUOTE_UNAVAILABLE',
+      'trip_fee_schedule : minimum de la devise du pays attendu',
+      {
+        cause,
+      },
+    );
+  }
+  if (min.amountMinor < 0n) {
+    throw new QuoteError('QUOTE_UNAVAILABLE', 'trip_fee_schedule : minimum négatif');
+  }
+  let previous = 0;
+  let chosen: TripFeeTier | undefined;
+  schedule.tiers.forEach((tier, i) => {
+    const last = i === schedule.tiers.length - 1;
+    const bounded = tier.maxDays !== null;
+    if (
+      (bounded && (!Number.isSafeInteger(tier.maxDays) || tier.maxDays! <= previous)) ||
+      (!bounded && !last) ||
+      tier.rate.num < 0n ||
+      tier.rate.den <= 0n ||
+      tier.rate.num > tier.rate.den
+    ) {
+      throw new QuoteError('QUOTE_UNAVAILABLE', `trip_fee_schedule : tranche ${i + 1} invalide`);
+    }
+    if (bounded) previous = tier.maxDays!;
+    if (chosen === undefined && (!bounded || days <= tier.maxDays!)) chosen = tier;
+  });
+  if (chosen === undefined) {
+    throw new QuoteError('QUOTE_UNAVAILABLE', `trip_fee_schedule : aucune tranche pour ${days} j`);
+  }
+  return max(multiplyRoundHalfUp(tripPrice, chosen.rate), min);
 }
