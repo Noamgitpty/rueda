@@ -26,19 +26,27 @@ export function TripCard({
   market,
   href,
   headingLevel = 3,
+  element = 'article',
 }: {
   readonly i18n: Translator;
   readonly trip: HostTripView;
   readonly market: TripMarket;
   readonly href: string | null;
   readonly headingLevel?: 2 | 3;
+  /** A02 : `div` en groupe nommé (les articles de `/host` sont les annonces d'A10). */
+  readonly element?: 'article' | 'div';
 }) {
   const t = i18n.t.bind(i18n);
   const H = headingLevel === 2 ? 'h2' : 'h3';
+  const Root = element;
   const headingId = `trip-${trip.tripId}`;
   const g = trip.guest;
   return (
-    <article className={styles['card']} aria-labelledby={headingId}>
+    <Root
+      className={styles['card']}
+      aria-labelledby={headingId}
+      {...(element === 'div' ? { role: 'group' } : {})}
+    >
       <div className={styles['between']}>
         <H id={headingId} className={styles['strong']}>
           {t('web.a05.reference', { ref: tripReference(trip) })}
@@ -93,6 +101,6 @@ export function TripCard({
           {t('web.a05.open')}
         </a>
       )}
-    </article>
+    </Root>
   );
 }

@@ -512,6 +512,7 @@ function HostAgenda({
                 trip={trip}
                 market={read.market}
                 href={`/host/trips/${trip.tripId}?org=${orgId}`}
+                element="div"
               />
             </li>
           ))}

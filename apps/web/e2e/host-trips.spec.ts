@@ -82,12 +82,12 @@ for (const language of LANGUAGES) {
       // sans auto : bloc des prochaines remises vide, lien vers A05
       const agenda = page.locator('section[aria-labelledby="a02-upcoming"]');
       await expect(agenda).toBeVisible();
-      await expect(agenda.locator('article')).toHaveCount(0);
+      await expect(agenda.locator('li')).toHaveCount(0);
       await placeAndCar(page);
       await page.goto('/host');
-      await expect(agenda.locator('article')).toHaveCount(1);
-      await expect(agenda.locator('article').first()).toContainText('KM-101');
-      await expect(agenda.locator('article').first()).toContainText('Lucía');
+      await expect(agenda.locator('li')).toHaveCount(1);
+      await expect(agenda.locator('li').first()).toContainText('KM-101');
+      await expect(agenda.locator('li').first()).toContainText('Lucía');
       const verified = VERIFIED[language];
       if (verified !== undefined) await expect(agenda).toContainText(verified);
       await expectAccessible(page);
@@ -124,7 +124,7 @@ for (const language of LANGUAGES) {
 
       // détail : même carte, jamais de permis ni de pièce
       await page.goto('/host');
-      await agenda.locator('article a[href^="/host/trips/"]').click();
+      await agenda.locator('li a[href^="/host/trips/"]').click();
       await expect(page).toHaveURL(/\/host\/trips\/[0-9a-f-]{36}\?org=/);
       await expect(page.locator('main article')).toHaveCount(1);
       await expect(page.locator('main article')).toContainText('KM-101');
