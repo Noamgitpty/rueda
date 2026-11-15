@@ -67,6 +67,12 @@ const VECTORS: Readonly<Record<string, Readonly<Record<Kind, Vector>>>> = {
   },
 };
 
+/** Vecteur « 7 j » sous le barème de test à 10 % sans minimum (voir le test « barème EN VIGUEUR »). */
+const NEW_SCHEDULE: Readonly<Record<string, { fee: number; taxF: number }>> = {
+  PA: { fee: 2_800, taxF: 196 },
+  PY: { fee: 70_000, taxF: 7_000 },
+};
+
 const sha = (prefix: string, text: string): string =>
   createHash('sha256')
     .update(prefix + text, 'utf8')
@@ -334,7 +340,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
 
     it('barème EN VIGUEUR en base : une nouvelle version change F ; l’ancien F est refusé', async () => {
       await run(async ({ tx, guest, groups, listingOf }) => {
-        const v = V.ref;
+        const v = V.week;
         const id = await listingOf(v);
         // barème de test : 10 % sans minimum (une entrée du test, jamais un attendu du code)
         await tx.query('SELECT test_fixture.us704_set_trip_fee_schedule($1, $2::jsonb)', [
@@ -342,10 +348,10 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           JSON.stringify({ tiers: [{ maxDays: null, rateBps: 1000 }], minMinor: '0' }),
         ]);
         expect((await freeze(tx, guest, id, docs(c, v, groups))).outcome).toBe('QUOTE_MISMATCH');
-        const fee = (v.daily * v.days) / 10; // P multiple de 10 dans les deux vecteurs
-        expect(Number.isInteger(fee)).toBe(true);
-        const taxF = (v.taxF * fee) / v.fee; // même taux que la ligne F du vecteur, valeur entière
-        expect(Number.isInteger(taxF)).toBe(true);
+        // 10 % de P sur 7 j ; taxe de F au taux du pays (PA : ITBMS 7 % de 2 800 = 196 ; PY : IVA
+        // 10 % de 70 000 = 7 000), valeurs exactes sans arrondi
+        const { fee, taxF } = NEW_SCHEDULE[c.country]!;
+        expect(fee * 10).toBe(v.daily * v.days);
         expect((await freeze(tx, guest, id, docs(c, v, groups, { fee, taxF }))).outcome).toBe(
           'DONE',
         );
