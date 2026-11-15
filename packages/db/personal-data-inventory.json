@@ -2540,6 +2540,65 @@
         "created_at": "C1",
         "updated_at": "C1"
       }
+    },
+    "core.pricing_quote": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "guest_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "id": "C1",
+        "guest_user_id": "C1",
+        "listing_id": "C1",
+        "country_code": "C1",
+        "currency": "C1",
+        "status": "C1",
+        "engine_version": "C1",
+        "period": "C1",
+        "billable_days": "C1",
+        "subtotal_minor": "C1",
+        "tax_total_minor": "C1",
+        "tax_third_party_minor": "C1",
+        "total_minor": "C1",
+        "leg_host_minor": "C1",
+        "leg_insurer_minor": "C1",
+        "leg_tax_third_party_minor": "C1",
+        "leg_platform_minor": "C1",
+        "inputs": "C1",
+        "inputs_hash": "C1",
+        "outputs": "C1",
+        "outputs_hash": "C1",
+        "frozen_at": "C1",
+        "superseded_at": "C1"
+      }
+    },
+    "core.pricing_quote_line": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "quote_id": "C1",
+        "seq": "C1",
+        "line_type": "C1",
+        "amount_minor": "C1",
+        "tax_group": "C1",
+        "rate_bps": "C1",
+        "tax_minor": "C1",
+        "third_party": "C1"
+      }
+    },
+    "core.pricing_trip_price_version": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "trip_id": "C1",
+        "version": "C1",
+        "quote_id": "C1",
+        "created_at": "C1"
+      }
     }
   }
 }

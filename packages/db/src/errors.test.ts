@@ -57,6 +57,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'hold_release_terminal', 'INVALID_TRANSITION'],
     ['23000', 'hold_guarded_columns', 'IMMUTABLE_RECORD'],
     ['23000', 'booking_record_no_delete', 'IMMUTABLE_RECORD'],
+    ['23000', 'pricing_record_immutable', 'IMMUTABLE_RECORD'],
     ['23514', 'hold_review_before_payment', 'BOOKING_UNDER_REVIEW'],
     // intention de paiement, conversion gardée (0040, 0041, US-024)
     ['55000', 'hold_not_payable', 'HOLD_EXPIRED'],
