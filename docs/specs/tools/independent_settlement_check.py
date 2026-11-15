@@ -3,7 +3,7 @@ Ecrit a partir du TEXTE des regles (tables BR-CXL-01/02/06/08/13/14, table de de
 monetaire E1-E6), sans reprendre tools/verify_cxl_tests.py ni les noms de fonctions du pseudo-code de 08.
 Arithmetique exacte (Fraction), montants entiers en unites mineures (USD x100, PYG x1).
 Lancer : python -I independent_settlement_check.py
-Les valeurs attendues sont recopiees des tableaux T01-T48 de 08 (calculees a la main), elles ne sont PAS
+Les valeurs attendues sont recopiees des tableaux T01-T48 et T74-T80 (borne T-24 h) de 08 (calculees a la main), elles ne sont PAS
 calculees ici. Temps en minutes relatives au depart T=0 (t['booked'] <= 0 = reservation avant le depart).
 
 Changements de la passe de correction (2026-10-30) :
@@ -327,6 +327,14 @@ VECT = [
     ('T46', C, dict(reason='PLATFORM_INCOMPLETE_STEPS', req=-2 * HR, ad_approved=False), (1500, 0, 11625, 9275, 0)),
     ('T47', A, dict(reason='PAYMENT_CAPTURE_FAILED', req=-24 * HR), (25666, 966, 0, 0, 0)),
     ('T48', D, dict(reason='HOST_CANCELLED', req=-30 * HR), (1438050, 112550, 0, 0, 200000)),
+    # ---- borne T-24 h (recalage du lot 2, 2026-11-15 ; L2-PM-15) : valeurs recopiees de 08, T74-T80 ----
+    ('T74', A, dict(reason='GUEST_CANCELLED', req=-24 * HR - 1), (25666, 966, 0, 0, 0)),
+    ('T75', A, dict(reason='GUEST_CANCELLED', req=-24 * HR + 1), (18744, 644, 4500, 2100, 0)),
+    ('T76', A, dict(reason='HOST_CANCELLED', req=-24 * HR - 1), (25666, 966, 0, 0, 25)),
+    ('T77', A, dict(reason='HOST_CANCELLED', req=-24 * HR + 1), (25666, 966, 0, 0, 50)),
+    ('T78', D, dict(reason='GUEST_CANCELLED', req=-24 * HR), (1438050, 112550, 0, 0, 0)),
+    ('T79', D, dict(reason='GUEST_CANCELLED', req=-24 * HR - 1), (1438050, 112550, 0, 0, 0)),
+    ('T80', D, dict(reason='GUEST_CANCELLED', req=-24 * HR + 1), (1000367, 75033, 268750, 131416, 0)),
 ]
 
 

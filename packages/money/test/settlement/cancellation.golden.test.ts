@@ -111,8 +111,11 @@ describe('vecteurs de la story, rejoués (USD et PYG)', () => {
       ...['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08', 'T09', 'T10', 'T11', 'T12'],
       ...['T13', 'T14', 'T15', 'T16', 'T19', 'T22', 'T23', 'T24', 'T25', 'T26', 'T30', 'T31'],
       ...['T35', 'T38', 'T39', 'T42', 'T43', 'T44', 'T45', 'T46'],
+      // borne T−24 h (08 T74–T77, recalage des spécifications du lot 2, L2-PM-15)
+      ...['T74', 'T75', 'T76', 'T77'],
     ],
-    PYG: ['T27', 'T40', 'T41'],
+    // T78–T80 : borne T−24 h en PYG (recalage des spécifications du lot 2, L2-PM-15)
+    PYG: ['T27', 'T40', 'T41', 'T78', 'T79', 'T80'],
   };
 
   it.each(['USD', 'PYG'])('tous les vecteurs normatifs bêta en %s, liste exacte', (currency) => {
