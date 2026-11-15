@@ -32,8 +32,7 @@ const DAY_MIN = 24 * 60;
 /** 08 BR-REVIEW-01 : 10 jours (graine 0009, PA et PY). */
 const WINDOW_DAYS = 10;
 /** Saisie fermée de l'action (BR-REVIEW-03 : note 1 à 5), jamais un nombre. */
-const STARS = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'] as const;
-type Stars = (typeof STARS)[number];
+type Stars = 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'FIVE';
 
 interface Clients {
   readonly api: pg.Client;
