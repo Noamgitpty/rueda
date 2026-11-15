@@ -236,7 +236,8 @@ function readInputs(inputs: string): { request: QuoteRequest; params: QuoteParam
   const tiers: TripFeeTier[] = feeTiers.map((t: unknown, i) => {
     const o = obj(t, `tripFeeSchedule.tiers[${i}]`);
     return {
-      maxDays: o['maxDays'] === null ? null : int(o['maxDays'], `tripFeeSchedule.tiers[${i}].maxDays`),
+      maxDays:
+        o['maxDays'] === null ? null : int(o['maxDays'], `tripFeeSchedule.tiers[${i}].maxDays`),
       rate: parseRatio(text(o['rate'], `tripFeeSchedule.tiers[${i}].rate`)),
     };
   });

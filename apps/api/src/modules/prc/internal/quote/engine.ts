@@ -117,7 +117,9 @@ export const COMPUTED_LINE_TYPES = Object.freeze(['TRIP_PRICE', 'TRIP_FEE'] as c
 type ComputedLineType = (typeof COMPUTED_LINE_TYPES)[number];
 
 /** Lignes autres que le prix du trip et le trip fee, chiffrées par d'autres stories (US-226…). */
-export type QuoteExtraLines = Readonly<Partial<Record<Exclude<QuoteLineType, ComputedLineType>, Money>>>;
+export type QuoteExtraLines = Readonly<
+  Partial<Record<Exclude<QuoteLineType, ComputedLineType>, Money>>
+>;
 
 /** Demande de devis. Tous les montants viennent du serveur (annonce, barèmes), jamais du client. */
 export interface QuoteRequest {
@@ -471,9 +473,13 @@ export function tripFeeOf(
   try {
     min = sum(currency, [schedule.min]);
   } catch (cause) {
-    throw new QuoteError('QUOTE_UNAVAILABLE', 'trip_fee_schedule : minimum de la devise du pays attendu', {
-      cause,
-    });
+    throw new QuoteError(
+      'QUOTE_UNAVAILABLE',
+      'trip_fee_schedule : minimum de la devise du pays attendu',
+      {
+        cause,
+      },
+    );
   }
   if (min.amountMinor < 0n) {
     throw new QuoteError('QUOTE_UNAVAILABLE', 'trip_fee_schedule : minimum négatif');

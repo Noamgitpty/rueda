@@ -177,7 +177,10 @@ describe('US-704 critère 2 : T03 rejoué depuis le devis dont le trip fee est c
   it('trip A : F 18,00 calculé ; annulation T03 (j = 1) ⇒ 6,00 de F retenus, jambes TJ01 et TJ02a', () => {
     const { request, params } = frozenCase('T01', 4_000n);
     const v = settlementVector(golden, 'T03');
-    const quote = computeQuote({ ...request, quotedAtMs: T0_MS + v.trip.bookedAtMinutes * MINUTE_MS }, params);
+    const quote = computeQuote(
+      { ...request, quotedAtMs: T0_MS + v.trip.bookedAtMinutes * MINUTE_MS },
+      params,
+    );
     expect(quote.lines.find((l) => l.type === 'TRIP_FEE')?.amount.amountMinor).toBe(
       v.trip.linesMinor.tripFee,
     );
