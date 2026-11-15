@@ -34,7 +34,7 @@ Pour chaque point : ce qu'on sait, puis **ma suggestion** (comme Turo, avec le m
 → **Suggestion** : démarrer petit (une base gérée et quelques conteneurs), puis grossir avec l'usage. Je te présenterai un chiffrage mensuel avant de créer quoi que ce soit.
 
 **2.7 Second approbateur humain des interrupteurs de mise en service.** La commande exige deux personnes distinctes.
-→ **Suggestion** : un associé ou une personne de confiance (comptable, avocat). Son rôle : approuver l'ouverture d'un pays, rien d'autre. La même règle vaut pour le **bordereau mensuel de l'assureur** (US-227, risque L2-PM-11) : une personne le prépare, une autre l'approuve ; sans seconde personne FINANCE, il n'est pas émis (cela bloque la mise en service, pas le développement). La même personne peut tenir les deux rôles.
+→ **Suggestion** : un associé ou une personne de confiance (comptable, avocat). Son rôle : approuver l'ouverture d'un pays, rien d'autre. La même règle vaut pour le **bordereau mensuel de l'assureur** (US-227, risque L2-PM-11) : une personne le prépare, une autre l'approuve ; sans seconde personne FINANCE, il n'est pas émis (cela bloque la mise en service, pas le développement). Le second approbateur des interrupteurs peut aussi être ce second approbateur FINANCE ; en revanche, la personne qui prépare un bordereau ne peut jamais l'approuver elle-même.
 
 **2.8 Jeton GitHub du compte bot.** Les agents utilisent encore le jeton du compte propriétaire.
 → **Suggestion** : basculer sur le jeton du bot (sans droit d'admin) avant le premier déploiement. C'est une manipulation de quelques minutes, je te guiderai.
