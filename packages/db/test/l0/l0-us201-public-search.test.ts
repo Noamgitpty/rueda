@@ -1,0 +1,503 @@
+/**
+ * Preuves de la recherche publique par zone, lieu, dates et heures (US-201, migration 0100) sous
+ * le rôle de production app_api (assertion L0-05 en tête de chaque connexion, withRole), en USD
+ * (PA) et en PYG (PY). Chaque test crée ses propres personnes, sessions, comptes d'hôte, lieux,
+ * véhicules et annonces par les VRAIES commandes (US-107, US-115), dans une transaction ANNULÉE :
+ * les interrupteurs `p2p_private_hosts_enabled` et `insurer_contract_active` n'y sont ouverts que
+ * par la vraie procédure à deux personnes d'US-125, et rien ne survit au test.
+ *
+ * Attendus tirés de 19 US-201 (critères 1 à 4 : « début 10:00 et fin 09:30 le même jour ⇒
+ * SEARCH_DATES_INVALID », fuseau `America/Asuncion`, « seule la zone approximative, jamais
+ * l'adresse exacte »), de 16 SRC-001 (début passé refusé, `SEARCH_LOCATION_REQUIRED`,
+ * `SEARCH_DURATION_EXCEEDED` au-delà de 30 jours), CAL-002 (« blocage du 10 au 12, un voyageur
+ * cherche le 11 : absent »), CAL-003 (préavis), de 17 §0.1 (interrupteur absent = false), §2.3
+ * (sonde, période arrondie à l'heure), §7.2 (`max_trip_days` = 30, `buffer_minutes` = 120,
+ * `advance_notice_minutes` = 180), de 08 BR-BOOK-03 (pas de 30 min), BR-BOOK-05 (tampon après la
+ * fin), de 22 OQ-P2P-05 et du pré-mortem (L1-PM-19, L2-PM-13, L2-PM-29), jamais du code testé.
+ *
+ * Fuseaux (donnée IANA, pas une constante du code) : America/Panama = UTC−5 toute l'année ;
+ * America/Asuncion = UTC−3 en décembre (avant comme après la suppression de l'heure d'hiver en
+ * 2024) : les dates de test sont en décembre, loin dans le futur (aucune borne d'horizon).
+ */
+import { randomBytes, randomInt } from 'node:crypto';
+import { describe, expect, it } from 'vitest';
+import type pg from 'pg';
+import { withRole, withTestTransaction } from '../../src/testing/index.ts';
+import { COUNTRIES, uuid } from '../support/avl.ts';
+import type { CountryCase } from '../support/avl.ts';
+import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts';
+import type { StaffActor } from '../support/golive.ts';
+import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
+
+type Tx = pg.ClientBase;
+
+const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
+const byCountry = COUNTRIES.map((c) => [c.country, c.currency, c] as const);
+/** Décalage UTC de décembre du fuseau du pays, en heures (donnée IANA, voir l'en-tête). */
+const DECEMBER_OFFSET_H: Readonly<Record<string, number>> = { PA: -5, PY: -3 };
+/** 17 §7.2 `buffer_minutes` (graine US-013) : tampon de 2 h après la fin d'un trip. */
+const BUFFER_H = 2;
+/** 17 §7.2 `max_trip_days` (graine US-013, ADM-031 « décidé (bêta) ») : 30 jours. */
+const MAX_TRIP_DAYS = 30;
+/** Colonnes rendues par la recherche (C0 seulement, comme la fiche publique d'US-115). */
+const SEARCH_COLUMNS = [
+  'area_label',
+  'city',
+  'currency',
+  'daily_price_minor',
+  'end_at',
+  'fuel_type',
+  'geo_public_lat',
+  'geo_public_lng',
+  'instant_book',
+  'listing_id',
+  'location_kind',
+  'make_name',
+  'model_name',
+  'outcome',
+  'seats',
+  'start_at',
+  'timezone',
+  'transmission',
+  'year',
+];
+
+/** Instant UTC d'une heure locale de décembre du pays (donnée IANA de l'en-tête). */
+function utcOf(c: CountryCase, local: string): string {
+  const offset = DECEMBER_OFFSET_H[c.country];
+  if (offset === undefined) throw new Error(`pays de test sans décalage : ${c.country}`);
+  return new Date(Date.parse(`${local}:00.000Z`) - offset * 3_600_000).toISOString();
+}
+
+/** Nom de ville unique, en lettres seules (le filtre des textes publics refuse les chiffres). */
+const placeName = (prefix: string): string =>
+  `${prefix} ${Array.from({ length: 10 }, () => String.fromCharCode(97 + randomInt(26))).join('')}`;
+
+interface Host {
+  readonly userId: string;
+  readonly hash: Buffer;
+  readonly org: string;
+}
+interface Car extends Host {
+  readonly location: string;
+  readonly vehicle: string;
+  readonly listing: string;
+  readonly city: string;
+  readonly area: string;
+}
+
+async function session(c: Tx, userId: string): Promise<Buffer> {
+  const t = newToken();
+  const { rows } = await c.query<{ expires_at: Date | null }>(
+    `SELECT core.iam_cmd_open_session($1, $2, $3, $4, 'NONE', NULL, 'vitest') AS expires_at`,
+    [uuid(), userId, t.hash, SESSION_TTL_S],
+  );
+  if (!rows[0]?.expires_at) throw new Error('session refusée');
+  return t.hash;
+}
+
+/** Personne inscrite (compte ACTIVE) et session ouverte par les vraies commandes. */
+async function person(c: Tx, country: string): Promise<{ userId: string; hash: Buffer }> {
+  const userId = uuid();
+  const r = await c.query<{ ok: boolean }>(
+    `SELECT core.iam_cmd_register_with_consents($1, $2, $3, 'Ana', 'Pérez', 'es', $4, $5, 86400, NULL,
+                                                $6, $7::jsonb, false) AS ok`,
+    [userId, `s201-${userId}@example.test`, phcArgon2id(), uuid(), randomBytes(32), country, DOCS],
+  );
+  if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
+  await c.query('SELECT test_fixture.iam_set_account_status($1, $2)', [userId, 'ACTIVE']);
+  return { userId, hash: await session(c, userId) };
+}
+
+async function host(c: Tx, country: string): Promise<Host> {
+  const p = await person(c, country);
+  const { rows } = await c.query<{ outcome: string; org_id: string | null }>(
+    'SELECT * FROM core.iam_cmd_open_host_account($1, $2, $3)',
+    [p.hash, country, 'INDIVIDUAL'],
+  );
+  if (rows[0]?.outcome !== 'DONE' || !rows[0].org_id) throw new Error('compte d’hôte refusé');
+  // activation (US-123) forcée : l'hôte activable est l'objet du test
+  await c.query('SELECT test_fixture.us115_set_org_status($1, $2)', [rows[0].org_id, 'ACTIVE']);
+  return { ...p, org: rows[0].org_id };
+}
+
+const plate = (): string => `S${randomBytes(4).toString('hex').toUpperCase()}`;
+
+/**
+ * Hôte, lieu épinglé (nom, adresse et point exacts connus du seul hôte), véhicule et annonce
+ * publiée (US-118 forcée par la fixture d'US-115, sauf `listed: false`).
+ */
+async function car(
+  c: Tx,
+  cc: CountryCase,
+  options: { readonly city?: string; readonly area?: string; readonly listed?: boolean } = {},
+): Promise<Car> {
+  const h = await host(c, cc.country);
+  const city = options.city ?? placeName('Villa');
+  const area = options.area ?? placeName('Barrio');
+  const loc = await c.query<{ outcome: string; location_id: string | null }>(
+    'SELECT * FROM core.catalog_cmd_create_location($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+    [h.hash, h.org, 'HOME', 'Casa de Ana', 'Calle Larga', city, area, '8.987654', '-79.512345'],
+  );
+  const veh = await c.query<{ outcome: string; vehicle_id: string | null }>(
+    `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
+                                                   2021, NULL, 'AUTOMATIC', 5::smallint,
+                                                   'GASOLINE', 42000, false, false)`,
+    [h.hash, h.org, loc.rows[0]?.location_id, plate()],
+  );
+  const lst = await c.query<{ outcome: string; listing_id: string | null }>(
+    'SELECT * FROM core.catalog_cmd_create_listing($1, $2, $3, $4, $5, NULL, NULL, NULL)',
+    [h.hash, h.org, veh.rows[0]?.vehicle_id, 40 * cc.priceStepMinor * 100, 'UNLIMITED'],
+  );
+  const location = loc.rows[0]?.location_id;
+  const vehicle = veh.rows[0]?.vehicle_id;
+  const listing = lst.rows[0]?.listing_id;
+  if (!location || !vehicle || !listing) {
+    throw new Error(
+      `préparation refusée : ${loc.rows[0]?.outcome} ${veh.rows[0]?.outcome} ${lst.rows[0]?.outcome}`,
+    );
+  }
+  if (options.listed !== false) {
+    await c.query('SELECT test_fixture.us115_set_listing_status($1, $2)', [listing, 'LISTED']);
+  }
+  return { ...h, location, vehicle, listing, city, area };
+}
+
+/**
+ * Ouvre un interrupteur dans la transaction ANNULÉE de l'appelant par la procédure à deux
+ * personnes d'US-125 (demande d'un ADMIN, approbation d'un SUPERADMIN).
+ */
+async function openSwitch(
+  c: Tx,
+  key: 'p2p_private_hosts_enabled' | 'insurer_contract_active',
+  country: string,
+): Promise<void> {
+  const actor = async (role: string): Promise<StaffActor> => {
+    const id = await rlsStaff(c, role, [country]);
+    return { userId: id, hash: Buffer.from(staffSessionHash(id) ?? '', 'hex'), scope: [country] };
+  };
+  const requester = await actor('ADMIN');
+  const approver = await freshSession(c, await actor('SUPERADMIN'));
+  const r = await requestSwitch(c, requester, key, country, true);
+  if (r.outcome !== 'REQUESTED' || r.request_id === null) throw new Error(`demande : ${r.outcome}`);
+  const a = await approveSwitch(c, approver, r.request_id);
+  if (a.outcome !== 'APPLIED') throw new Error(`approbation : ${a.outcome}`);
+}
+
+async function openCountry(c: Tx, country: string): Promise<void> {
+  await openSwitch(c, 'p2p_private_hosts_enabled', country);
+  await openSwitch(c, 'insurer_contract_active', country);
+}
+
+type Row = Record<string, unknown>;
+
+async function search(
+  c: Tx,
+  country: string | null,
+  city: string | null,
+  area: string | null,
+  startLocal: string | null,
+  endLocal: string | null,
+  limit: number | null = null,
+): Promise<Row[]> {
+  const { rows } = await c.query<Row>(
+    `SELECT * FROM core.catalog_public_search($1, $2, $3, $4::timestamp, $5::timestamp, $6)`,
+    [country, city, area, startLocal, endLocal, limit],
+  );
+  return rows;
+}
+
+const ids = (rows: readonly Row[]): string[] => rows.map((r) => String(r['listing_id']));
+const outcomeOf = (rows: readonly Row[]): string | undefined =>
+  rows.length === 1 ? String(rows[0]?.['outcome']) : undefined;
+
+/** Corps du test dans une transaction annulée, sous app_api (L0-05 par withRole). */
+const rolledBack = (body: (tx: Tx) => Promise<void>) =>
+  withRole('app_api', (client) => withTestTransaction(client, {}, body));
+
+describe('US-201 — recherche publique par zone, lieu, dates et heures (0100)', () => {
+  it.each(byCountry)(
+    '%s (%s) : annonce LISTED d’un hôte activable trouvée ; heures dans le fuseau du pays ; zone approximative seule, jamais l’adresse exacte (critères 3 et 4)',
+    async (country, currency, cc) => {
+      await rolledBack(async (tx) => {
+        await openCountry(tx, country);
+        const a = await car(tx, cc);
+        const rows = await search(
+          tx,
+          country,
+          a.city,
+          a.area,
+          '2036-12-10T10:00',
+          '2036-12-12T10:00',
+        );
+        expect(ids(rows)).toEqual([a.listing]);
+        const r = rows[0] ?? {};
+        // critère 4 : colonnes C0 seulement ; ni nom, ni adresse, ni point exact du lieu
+        expect(Object.keys(r).sort()).toEqual(SEARCH_COLUMNS);
+        expect(r['outcome']).toBe('OK');
+        expect(r['currency']).toBe(currency);
+        expect(r['city']).toBe(a.city);
+        expect(r['area_label']).toBe(a.area);
+        expect(Number(r['geo_public_lat'])).toBe(8.99);
+        expect(Number(r['geo_public_lng'])).toBe(-79.51);
+        const flat = JSON.stringify(rows);
+        expect(flat).not.toContain('Casa de Ana');
+        expect(flat).not.toContain('Calle Larga');
+        expect(flat).not.toContain('8.987654');
+        expect(flat).not.toContain('79.512345');
+        expect(flat).not.toContain(a.org);
+        expect(flat).not.toContain(a.vehicle);
+        // critère 3 : l'heure locale saisie est celle du fuseau du pays (America/Asuncion au PY)
+        expect(r['timezone']).toBe(cc.timezone);
+        expect((r['start_at'] as Date).toISOString()).toBe(utcOf(cc, '2036-12-10T10:00'));
+        expect((r['end_at'] as Date).toISOString()).toBe(utcOf(cc, '2036-12-12T10:00'));
+        // la zone de la ville entière (aucune zone choisie) trouve aussi l'annonce
+        expect(
+          ids(await search(tx, country, a.city, null, '2036-12-10T10:00', '2036-12-12T10:00')),
+        ).toEqual([a.listing]);
+        // une autre zone de la même ville, une autre ville, l'autre pays : rien
+        expect(
+          await search(
+            tx,
+            country,
+            a.city,
+            placeName('Barrio'),
+            '2036-12-10T10:00',
+            '2036-12-12T10:00',
+          ),
+        ).toEqual([]);
+        expect(
+          await search(
+            tx,
+            country,
+            placeName('Villa'),
+            null,
+            '2036-12-10T10:00',
+            '2036-12-12T10:00',
+          ),
+        ).toEqual([]);
+        const other = COUNTRIES.find((o) => o.country !== country)?.country ?? '';
+        expect(
+          await search(tx, other, a.city, null, '2036-12-10T10:00', '2036-12-12T10:00'),
+        ).toEqual([]);
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : refus SEARCH_DATES_INVALID (fin ≤ début le même jour, hors pas de 30 min, début passé), SEARCH_DURATION_EXCEEDED, SEARCH_LOCATION_REQUIRED (critère 1)',
+    async (country, _currency, cc) => {
+      await rolledBack(async (tx) => {
+        await openCountry(tx, country);
+        const a = await car(tx, cc);
+        const at = (s: string | null, e: string | null) =>
+          search(tx, country, a.city, a.area, s, e);
+        // critère 1 : début 10:00, fin 09:30 le même jour
+        expect(outcomeOf(await at('2036-12-10T10:00', '2036-12-10T09:30'))).toBe(
+          'SEARCH_DATES_INVALID',
+        );
+        expect(outcomeOf(await at('2036-12-10T10:00', '2036-12-10T10:00'))).toBe(
+          'SEARCH_DATES_INVALID',
+        );
+        // pas de 30 min (08 BR-BOOK-03)
+        expect(outcomeOf(await at('2036-12-10T10:15', '2036-12-12T10:00'))).toBe(
+          'SEARCH_DATES_INVALID',
+        );
+        expect(outcomeOf(await at('2036-12-10T10:00', '2036-12-12T10:00:30'))).toBe(
+          'SEARCH_DATES_INVALID',
+        );
+        // début passé (16 SRC-001 « début dans le passé → refus »)
+        expect(outcomeOf(await at('2020-12-10T10:00', '2020-12-12T10:00'))).toBe(
+          'SEARCH_DATES_INVALID',
+        );
+        expect(outcomeOf(await at(null, '2036-12-12T10:00'))).toBe('SEARCH_DATES_INVALID');
+        expect(outcomeOf(await at('infinity', 'infinity'))).toBe('SEARCH_DATES_INVALID');
+        // 30 jours tout juste : admis ; 30 jours et 30 min : refusés (16 SRC-001, ADM-031)
+        expect(
+          ids(await at('2036-12-01T10:00', `2036-12-${String(1 + MAX_TRIP_DAYS)}T10:00`)),
+        ).toEqual([a.listing]);
+        expect(
+          outcomeOf(await at('2036-12-01T10:00', `2036-12-${String(1 + MAX_TRIP_DAYS)}T10:30`)),
+        ).toBe('SEARCH_DURATION_EXCEEDED');
+        // lieu : pays inconnu, ville absente ou vide
+        for (const [p, city] of [
+          ['XX', a.city],
+          [null, a.city],
+          [country, null],
+          [country, '  '],
+        ] as const) {
+          expect(
+            outcomeOf(await search(tx, p, city, null, '2036-12-10T10:00', '2036-12-12T10:00')),
+          ).toBe('SEARCH_LOCATION_REQUIRED');
+        }
+        // une issue de refus ne porte aucune donnée d'annonce
+        const refused = (await at('2036-12-10T10:00', '2036-12-10T09:30'))[0] ?? {};
+        expect(Object.entries(refused).filter(([k, v]) => k !== 'outcome' && v !== null)).toEqual(
+          [],
+        );
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : un créneau occupé (blocage de l’hôte, hold vivant, tampon de 2 h, préavis) écarte le véhicule ; le témoin libre reste',
+    async (country, _currency, cc) => {
+      await rolledBack(async (tx) => {
+        await openCountry(tx, country);
+        const city = placeName('Villa');
+        const area = placeName('Barrio');
+        const blocked = await car(tx, cc, { city, area });
+        const held = await car(tx, cc, { city, area });
+        const free = await car(tx, cc, { city, area });
+        // 16 CAL-002 : blocage du 10 au 12 (jours locaux), un voyageur cherche le 11
+        const b = await tx.query<{ outcome: string }>(
+          'SELECT * FROM core.catalog_cmd_place_host_block($1, $2, $3, $4::timestamp, $5::timestamp)',
+          [blocked.hash, blocked.org, blocked.vehicle, '2036-12-10T00:00', '2036-12-13T00:00'],
+        );
+        expect(b.rows[0]?.outcome).toBe('BLOCK_CREATED');
+        // hold vivant [11 08:00, 11 18:00 + tampon) posé comme le ferait la commande de pose
+        await tx.query(
+          `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, 'HOLD',
+                    pg_catalog.tstzrange($5::timestamptz, $6::timestamptz, '[)'))`,
+          [
+            uuid(),
+            held.vehicle,
+            held.org,
+            country,
+            utcOf(cc, '2036-12-11T08:00'),
+            new Date(
+              Date.parse(utcOf(cc, '2036-12-11T18:00')) + BUFFER_H * 3_600_000,
+            ).toISOString(),
+          ],
+        );
+        const day11 = await search(tx, country, city, area, '2036-12-11T10:00', '2036-12-11T16:00');
+        expect(ids(day11)).toEqual([free.listing]);
+        // le 14 : le blocage est levé, le hold fini ; tous trois disponibles
+        const day14 = await search(tx, country, city, area, '2036-12-14T10:00', '2036-12-14T16:00');
+        expect(ids(day14).sort()).toEqual([blocked.listing, held.listing, free.listing].sort());
+        // BR-BOOK-05 : la période cherchée porte le tampon après sa fin ; 05:00–07:00 occupe le
+        // véhicule jusqu'à 09:00 et chevauche le hold qui commence à 08:00
+        expect(
+          ids(await search(tx, country, city, area, '2036-12-11T05:00', '2036-12-11T07:00')),
+        ).toEqual([free.listing]);
+        // 21:00–23:00 : après la fin du hold et de son tampon (20:00)
+        expect(
+          ids(await search(tx, country, city, area, '2036-12-11T21:00', '2036-12-11T23:00')).sort(),
+        ).toEqual([held.listing, free.listing].sort());
+        // préavis du pays (180 min) : un départ dans l'heure n'est jamais proposé
+        const soon = await tx.query<{ s: string; e: string }>(
+          `SELECT to_char(pg_catalog.date_trunc('hour', platform.now() AT TIME ZONE $1)
+                          + interval '1 hour', 'YYYY-MM-DD"T"HH24:MI') AS s,
+                  to_char(pg_catalog.date_trunc('hour', platform.now() AT TIME ZONE $1)
+                          + interval '5 hours', 'YYYY-MM-DD"T"HH24:MI') AS e`,
+          [cc.timezone],
+        );
+        const later = await tx.query<{ s: string; e: string }>(
+          `SELECT to_char(pg_catalog.date_trunc('hour', platform.now() AT TIME ZONE $1)
+                          + interval '5 hours', 'YYYY-MM-DD"T"HH24:MI') AS s,
+                  to_char(pg_catalog.date_trunc('hour', platform.now() AT TIME ZONE $1)
+                          + interval '9 hours', 'YYYY-MM-DD"T"HH24:MI') AS e`,
+          [cc.timezone],
+        );
+        const s0 = soon.rows[0];
+        const l0 = later.rows[0];
+        if (!s0 || !l0) throw new Error('horloge illisible');
+        expect(await search(tx, country, city, area, s0.s, s0.e)).toEqual([]);
+        expect(ids(await search(tx, country, city, area, l0.s, l0.e)).sort()).toEqual(
+          [blocked.listing, held.listing, free.listing].sort(),
+        );
+        // limite : au plus p_limit résultats
+        expect(
+          await search(tx, country, city, area, '2036-12-14T10:00', '2036-12-14T16:00', 2),
+        ).toHaveLength(2);
+      });
+    },
+  );
+
+  it.each(byCountry)(
+    '%s (%s) : seuls les hôtes activables apparaissent : interrupteurs fermés, compte suspendu, titulaire restreint, annonce non publiée ⇒ absents',
+    async (country, _currency, cc) => {
+      await rolledBack(async (tx) => {
+        const city = placeName('Villa');
+        const ok = await car(tx, cc, { city });
+        const at = () => search(tx, country, city, null, '2036-12-10T10:00', '2036-12-12T10:00');
+        // 17 §0.1 : interrupteurs absents ou false ⇒ recherche vide (production d'aujourd'hui)
+        expect(await at()).toEqual([]);
+        await openSwitch(tx, 'p2p_private_hosts_enabled', country);
+        expect(await at()).toEqual([]);
+        await openSwitch(tx, 'insurer_contract_active', country);
+        // témoin : pays ouvert, hôte activable
+        expect(ids(await at())).toEqual([ok.listing]);
+        const suspended = await car(tx, cc, { city });
+        await tx.query('SELECT test_fixture.us115_set_org_status($1, $2)', [
+          suspended.org,
+          'SUSPENDED',
+        ]);
+        const restricted = await car(tx, cc, { city });
+        await tx.query('SELECT test_fixture.us109_restrict_directly($1, $2)', [
+          restricted.userId,
+          'POLICY_VIOLATION',
+        ]);
+        await car(tx, cc, { city, listed: false });
+        const unlisted = await car(tx, cc, { city });
+        await tx.query('SELECT test_fixture.us115_set_listing_status($1, $2)', [
+          unlisted.listing,
+          'UNLISTED',
+        ]);
+        expect(ids(await at())).toEqual([ok.listing]);
+        // zones proposées : la ville et la zone de l'hôte activable seulement
+        const areas = await tx.query<Row>('SELECT * FROM core.catalog_public_search_areas($1)', [
+          country,
+        ]);
+        const mine = areas.rows.filter((r) => r['city'] === city);
+        expect(mine).toEqual([
+          { country_code: country, city, area_label: ok.area, timezone: cc.timezone },
+        ]);
+        const all = await tx.query<Row>('SELECT * FROM core.catalog_public_search_areas(NULL)');
+        expect(all.rows.filter((r) => r['city'] === city)).toEqual(mine);
+        expect(JSON.stringify(areas.rows)).not.toContain('Calle Larga');
+      });
+    },
+  );
+
+  it('app_worker et app_anon n’exécutent ni la recherche ni la liste des zones (42501)', async () => {
+    for (const role of ['app_worker', 'app_anon'] as const) {
+      await withRole(role, async (client) => {
+        for (const [sql, values] of [
+          [
+            'SELECT * FROM core.catalog_public_search($1, $2, NULL, $3::timestamp, $3::timestamp, NULL)',
+            ['PA', 'Ciudad', '2036-12-10T10:00'],
+          ],
+          ['SELECT * FROM core.catalog_public_search_areas($1)', ['PA']],
+          ['SELECT core.catalog_search_host_open($1, $2)', [uuid(), 'PA']],
+        ] as const) {
+          await client.query('BEGIN');
+          try {
+            await expect(client.query(sql, [...values]), `${role} ${sql}`).rejects.toMatchObject({
+              code: '42501',
+            });
+          } finally {
+            await client.query('ROLLBACK');
+          }
+        }
+      });
+    }
+  });
+
+  it('app_api n’exécute pas les aides internes de la recherche (42501)', async () => {
+    await withRole('app_api', async (client) => {
+      for (const sql of [
+        'SELECT core.catalog_search_host_open(gen_random_uuid(), $1)',
+        `SELECT core.catalog_search_param_int('max_trip_days', $1)`,
+      ]) {
+        await client.query('BEGIN');
+        try {
+          await expect(client.query(sql, ['PA']), sql).rejects.toMatchObject({ code: '42501' });
+        } finally {
+          await client.query('ROLLBACK');
+        }
+      }
+    });
+  });
+});
