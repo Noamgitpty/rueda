@@ -12,7 +12,7 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { installTestProofKey } from '../../support/staff.ts';
-import { isoDay, licence, person, PROVIDER } from '../../support/kyc.ts';
+import { isoDay, licence, localDay, person, PROVIDER } from '../../support/kyc.ts';
 import { byCountry, hostOf, ops, rolledBack, uuid } from './support.ts';
 import type { Tx } from './support.ts';
 import { act, first, hostState, outcomeOf, readyHost } from './support-host.ts';
@@ -120,7 +120,8 @@ describe.each(byCountry)(
           ['sans document', null],
           ['permis provisoire', licence(country, isoDay(400), { isPermanent: false })],
           ['passeport', licence(country, isoDay(400), { kind: 'PASSPORT' })],
-          ['permis expiré', licence(country, isoDay(-1))],
+          // échu hier au jour LOCAL du pays (fuseau du pays, comme le SQL), à toute heure UTC
+          ['permis expiré', licence(country, await localDay(tx, country, -1))],
         ];
         for (const [name, doc] of docs) {
           const a = await withSession(tx, country);

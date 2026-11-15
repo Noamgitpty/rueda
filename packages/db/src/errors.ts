@@ -39,7 +39,10 @@
  *   US-024 (migrations 0040, 0041, ADR-065) ; `PAYMENT_ATTEMPTS_EXCEEDED` : 16 fiche PAY-017
  *   (`payment_attempts_per_hold`) ;
  * - `DATES_NOTICE_TOO_SHORT` : 16 fiches CAL-003 et LST-006 (départ dans le préavis du lieu de
- *   remise ; migration 0071, US-119, ADR-101).
+ *   remise ; migration 0071, US-119, ADR-101) ;
+ * - `TRIP_TRANSITION_FORBIDDEN`, `TRIP_CONCURRENT_UPDATE` : 16 fiche TRP-045 ; `REJECTED_TOO_EARLY` :
+ *   08 BR-CXL, règle de qualification 3 (no-show déclaré avant `noShowAt`) — machine à états du
+ *   trip d'US-207 (migration 0099, ADR-126).
  */
 
 /** Codes métier produits par la traduction. */
@@ -83,6 +86,9 @@ export const DB_BUSINESS_CODES = [
   'PAYMENT_ATTEMPTS_EXCEEDED',
   'PAYMENT_METHOD_UNAVAILABLE',
   'DATES_NOTICE_TOO_SHORT',
+  'TRIP_TRANSITION_FORBIDDEN',
+  'TRIP_CONCURRENT_UPDATE',
+  'REJECTED_TOO_EARLY',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -109,7 +115,7 @@ export const SQLSTATE = {
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
  * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`,
- * `0037`, `0039`, `0040`, `0041` et `0054`.
+ * `0037`, `0039`, `0040`, `0041`, `0054` et `0099`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -268,6 +274,16 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
     SQLSTATE.uniqueViolation,
     'PAYMENT_SUBJECT_MISMATCH',
   ],
+  // machine à états du trip (0099, US-207 ; 08 SM-1, BR-CXL ; 16 TRP-045)
+  trip_transition_forbidden: [SQLSTATE.objectNotInPrerequisiteState, 'TRIP_TRANSITION_FORBIDDEN'],
+  trip_concurrent_update: [SQLSTATE.objectNotInPrerequisiteState, 'TRIP_CONCURRENT_UPDATE'],
+  trip_no_show_too_early: [SQLSTATE.objectNotInPrerequisiteState, 'REJECTED_TOO_EARLY'],
+  trip_transition_too_early: [SQLSTATE.objectNotInPrerequisiteState, 'REJECTED_TOO_EARLY'],
+  trip_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
+  trip_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
+  trip_transition_unlogged: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  trip_segment_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  trip_state_log_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
 };
 
 const own = (value: object, key: string): unknown =>

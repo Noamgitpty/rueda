@@ -1487,6 +1487,13 @@ export const FR_MESSAGES = {
   'common.booking.selfBookingForbidden.title': 'Tu ne peux pas réserver cette voiture',
   'common.booking.selfBookingForbidden.body':
     'Cette voiture ne peut pas être réservée avec ton compte. Choisis-en une autre, ou écris-nous si tu penses qu’il s’agit d’une erreur.',
+  // US-207 : refus des commandes de la machine à états du trip (16 TRP-045 ; 08 BR-CXL règle 3)
+  'common.trip.transitionForbidden':
+    'Cette action n’est plus possible pour cette réservation. Recharge la page pour voir où elle en est.',
+  'common.trip.concurrentUpdate':
+    'Cette réservation vient de changer. Recharge la page puis réessaie.',
+  'common.trip.noShowTooEarly':
+    'Il est trop tôt pour signaler l’absence du voyageur. Réessaie après la fin du temps d’attente indiqué dans la réservation.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Avertissement important',
   'common.regulatory.version': 'Version {version} de cet avertissement',

@@ -29,6 +29,7 @@ const cfg = (file: string): unknown =>
 
 interface CountryData {
   readonly code: string;
+  readonly timeZone: string;
   readonly phone: { callingCode: string; nationalLength: number; mobilePrefixes: string[] };
   readonly timeZoneChecks: { offsetMinutes: number }[];
 }
@@ -57,9 +58,43 @@ function phoneOf(country: string): string {
 
 export const uuid = (): string => randomUUID();
 
-/** Date ISO (AAAA-MM-JJ) à `days` jours d'aujourd'hui (UTC). */
+/**
+ * Date ISO (AAAA-MM-JJ) à `days` jours d'aujourd'hui **en UTC**. Réservée aux échéances lointaines
+ * (au moins deux jours de marge, ex. `isoDay(400)`) : une date que la base compare au jour LOCAL
+ * du pays (fin du jour d'échéance du permis dans le fuseau du pays, migrations 0072 / 0088) se
+ * calcule avec `localDay`, sinon le test échoue entre 00:00 UTC et minuit local (CI rouge du
+ * 2026-11-15 : « hier en UTC » est encore « aujourd'hui » au Panama et au Paraguay).
+ */
 export const isoDay = (days: number): string =>
   new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
+
+/** Fuseau IANA du pays, tel que les données CFG le déclarent (graine de `core.config_country`). */
+export function timeZoneOf(country: string): string {
+  const c = COUNTRY_DATA.get(country);
+  if (c === undefined) throw new Error(`pays inconnu des données CFG : ${country}`);
+  return c.timeZone;
+}
+
+/**
+ * Date ISO (AAAA-MM-JJ) à `days` jours du jour LOCAL du pays, à l'horloge qui fait foi
+ * (`platform.now()`, donc l'horloge virtuelle si le test la pose ; 17 §1.3) et dans le fuseau du
+ * pays (données CFG, jamais une constante du code). C'est le jour que le SQL compare à l'échéance
+ * du permis : `localDay(c, pays, -1)` est expiré et `localDay(c, pays, 0)` encore valable, à
+ * toute heure UTC.
+ */
+export async function localDay(
+  client: pg.ClientBase,
+  country: string,
+  days: number,
+): Promise<string> {
+  const r = await one<{ day: string | null }>(
+    client,
+    'SELECT ((platform.now() AT TIME ZONE $1)::date + $2::integer)::text AS day',
+    [timeZoneOf(country), days],
+  );
+  if (r.day === null) throw new Error(`jour local introuvable : ${country}`);
+  return r.day;
+}
 
 export interface Person {
   readonly userId: string;
