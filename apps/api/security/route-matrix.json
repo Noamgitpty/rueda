@@ -443,6 +443,14 @@
       "acces": "public",
       "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative (19 US-115 critère 4)"
     },
+    "GET /search/areas": {
+      "acces": "public",
+      "idor": "aucun identifiant reçu : villes et zones des seules annonces LISTED d'hôtes activables (compte ACTIVE, titulaire sans restriction, interrupteurs ouverts), jamais nom, adresse ni point exact du lieu (19 US-201 critère 4 ; preuves base : l0-us201)"
+    },
+    "GET /search": {
+      "acces": "public",
+      "idor": "aucun identifiant reçu : annonces LISTED d'hôtes activables seulement, colonnes C0 et zone approximative, jamais l'adresse exacte ni l'occupation ; disponibilité par la sonde arrondie à l'heure, limitée par IP (availability_probe_per_minute, N-78) (19 US-201 ; preuves base : l0-us201)"
+    },
     "GET /host/accounts/{orgId}/terms": {
       "acces": "session",
       "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us126)"

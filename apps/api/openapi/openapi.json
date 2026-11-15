@@ -6231,6 +6231,254 @@
         }
       }
     },
+    "/search/areas": {
+      "get": {
+        "operationId": "searchAreas",
+        "tags": ["cat"],
+        "summary": "Villes et zones de remise des annonces cherchables (LISTED, hôte activable), avec le fuseau du pays (US-201 ; 16 SRC-001, bêta : liste au lieu de l'autocomplétion)",
+        "description": "Route publique. Rien d'autre que la ville, la zone saisie par l'hôte et le fuseau du pays : jamais le nom, l'adresse ni le point exact du lieu, ni le nombre d'annonces. Interrupteurs fermés : liste vide.",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zones (liste vide : aucune annonce cherchable)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchAreasResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Pays mal formé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "SEARCH_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "operationId": "search",
+        "tags": ["cat"],
+        "summary": "Recherche publique par zone, lieu de remise, dates et heures (US-201 ; 16 SRC-001) : annonces LISTED d'hôtes activables disponibles, colonnes C0, zone approximative",
+        "description": "Heures saisies dans le fuseau du lieu (AAAA-MM-JJTHH:MM, pas de 30 min) ; instants rendus en UTC avec le fuseau du véhicule. Disponibilité lue par la sonde catalog_vehicle_is_free (tampon, préavis), limitée par IP (availability_probe_per_minute). Jamais l'adresse exacte, le point exact, la plaque, le VIN, le compte d'hôte ni l'occupation.",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CountryCode"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": true,
+            "description": "Ville (et zone) choisies dans la liste de /search/areas",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "description": "Ville (et zone) choisies dans la liste de /search/areas",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:[03]0$"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:[03]0$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Annonces disponibles (liste vide : aucun résultat, SEARCH_NO_RESULTS est un état)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Nombre de résultats hors de 1 à 50",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lieu absent, dates invalides (fin ≤ début, hors pas de 30 min, début passé) ou durée au-delà de max_trip_days",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "SEARCH_LOCATION_REQUIRED",
+                        "SEARCH_DATES_INVALID",
+                        "SEARCH_DURATION_EXCEEDED"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sonde de disponibilité au-delà d'availability_probe_per_minute pour l'IP (N-78)",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "RATE_LIMITED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base, paramètre du pays ou limiteur indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "SEARCH_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/host/accounts/{orgId}/terms": {
       "get": {
         "operationId": "getHostTerms",
@@ -12937,6 +13185,174 @@
         "properties": {
           "listing": {
             "$ref": "#/components/schemas/PublicListing"
+          }
+        }
+      },
+      "SearchAreasResponse": {
+        "type": "object",
+        "required": ["areas"],
+        "additionalProperties": false,
+        "properties": {
+          "areas": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["country", "city", "area", "timezone"],
+              "properties": {
+                "country": {
+                  "$ref": "#/components/schemas/CountryCode"
+                },
+                "city": {
+                  "type": "string"
+                },
+                "area": {
+                  "type": ["string", "null"]
+                },
+                "timezone": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "required": ["results"],
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            }
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "dailyPriceMinor",
+          "currency",
+          "currencyExponent",
+          "instantBook",
+          "makeName",
+          "modelName",
+          "year",
+          "transmission",
+          "seats",
+          "fuelType",
+          "locationKind",
+          "city",
+          "areaLabel",
+          "approximatePoint",
+          "timezone",
+          "startAt",
+          "endAt"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "dailyPriceMinor": {
+            "$ref": "#/components/schemas/MinorUnits"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "currencyExponent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "instantBook": {
+            "type": "boolean"
+          },
+          "makeName": {
+            "type": "string"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "transmission": {
+            "enum": ["MANUAL", "AUTOMATIC"]
+          },
+          "seats": {
+            "type": "integer"
+          },
+          "fuelType": {
+            "enum": ["GASOLINE", "DIESEL", "HYBRID", "EV"]
+          },
+          "locationKind": {
+            "enum": ["HOME", "POI", "AIRPORT"]
+          },
+          "city": {
+            "type": "string"
+          },
+          "areaLabel": {
+            "type": ["string", "null"]
+          },
+          "approximatePoint": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": ["lat", "lng"],
+                "additionalProperties": false,
+                "properties": {
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  }
+                }
+              }
+            ]
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "startAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+            "description": "Début, instant UTC (ISO 8601) ; affiché dans le fuseau `timezone` (critère 3)"
+          },
+          "endAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          }
+        },
+        "description": "Annonce disponible : colonnes C0 seulement, zone approximative (19 US-201 critère 4)"
+      },
+      "SearchError": {
+        "type": "object",
+        "required": ["code", "messageKey"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]+$"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
           }
         }
       },

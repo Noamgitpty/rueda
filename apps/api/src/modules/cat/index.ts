@@ -84,3 +84,16 @@ export {
   UnavailableVehicleDocumentStore,
 } from './internal/vehicle-documents/store.js';
 export type { VehicleDocumentStore } from './internal/vehicle-documents/store.js';
+
+// Recherche publique par zone, lieu, dates et heures (US-201, ADR-127) : routes /search et
+// /search/areas ; limiteur de la sonde de disponibilité fourni par l'appelant (RISK, main.ts).
+export {
+  CatSearchModule,
+  postgresSearchAdapters,
+  UNAVAILABLE_CAT_SEARCH,
+} from './internal/search/cat-search.module.js';
+export type { CatSearchOptions } from './internal/search/cat-search.module.js';
+export { SEARCH_MESSAGES } from './internal/search/errors.js';
+export type { AvailabilityProbeLimiter } from './internal/search/search.service.js';
+export { PgSearchStore, UnavailableSearchStore } from './internal/search/store.js';
+export type { SearchArea, SearchResult, SearchStore } from './internal/search/store.js';
