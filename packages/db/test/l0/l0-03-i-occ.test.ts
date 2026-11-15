@@ -242,18 +242,10 @@ describe.each(COUNTRIES)('L0-03 — I-OCC au COMMIT ($country, $currency)', (c) 
         worker,
         { worker: 'trip_lifecycle', virtualNow: at(T0, 60), commit: true },
         async (tx) => {
+          // US-207 (0099) : l'état ne s'écrit que par la commande, qui désactive aussi les deux
+          // occupations dans la même transaction
           await tx.query(
-            `UPDATE core.booking_trip SET status = 'CANCELLED_BY_GUEST', cancellation_reason = 'GUEST_CANCELLED'
-            WHERE id = $1`,
-            [tripId],
-          );
-          await tx.query(
-            `UPDATE core.booking_vehicle_occupancy SET active = false, deactivated_reason = 'TRIP_TERMINAL'
-            WHERE id = $1`,
-            [hold.occupancyId],
-          );
-          await tx.query(
-            `UPDATE core.booking_guest_occupancy SET active = false WHERE trip_id = $1`,
+            `SELECT core.booking_cmd_trip_cancel($1, 'GUEST_CANCELLED', 'GUEST', NULL, NULL, NULL)`,
             [tripId],
           );
         },

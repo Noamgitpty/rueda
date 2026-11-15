@@ -289,8 +289,11 @@ export async function lockGuestThenVehicle(
 /**
  * Annulation d'un trip par le voyageur (17 §2.5, VERIF_17-B4), sous le travailleur
  * `trip_lifecycle` : verrou du guest du trip, puis du véhicule, puis ligne `trip`
- * (`FOR UPDATE`) ; aucune ligne de hold. Le trip passe `CANCELLED_BY_GUEST` (état terminal de
- * SM-1), son occupation est désactivée (`TRIP_TERMINAL`), l'occupation du voyageur aussi.
+ * (`FOR UPDATE`) ; aucune ligne de hold. Depuis US-207 (0099), par la commande
+ * `core.booking_cmd_trip_cancel` (motif `GUEST_CANCELLED`, initiateur `GUEST`), qui reprend les
+ * mêmes verrous dans le même ordre : le trip passe `CANCELLED_BY_GUEST` (état terminal de SM-1),
+ * son occupation est désactivée (`TRIP_TERMINAL`), l'occupation du voyageur aussi, journal et
+ * événements dans la même transaction. Un trip qui n'est plus `BOOKED` : `NOOP`, sans écriture.
  */
 export async function cancelTripByGuest(
   tx: pg.ClientBase,
@@ -303,18 +306,9 @@ export async function cancelTripByGuest(
   );
   if (t.rows[0]?.status !== 'BOOKED') return 'NOOP';
   await tx.query(
-    `UPDATE core.booking_trip SET status = 'CANCELLED_BY_GUEST', cancellation_reason = 'GUEST_REQUEST'
-      WHERE id = $1`,
+    `SELECT core.booking_cmd_trip_cancel($1, 'GUEST_CANCELLED', 'GUEST', NULL, NULL, NULL)`,
     [trip.tripId],
   );
-  await tx.query(
-    `UPDATE core.booking_vehicle_occupancy SET active = false, deactivated_reason = 'TRIP_TERMINAL'
-      WHERE ref_id = $1 AND kind = 'TRIP' AND active`,
-    [trip.tripId],
-  );
-  await tx.query(`UPDATE core.booking_guest_occupancy SET active = false WHERE trip_id = $1`, [
-    trip.tripId,
-  ]);
   return 'CANCELLED';
 }
 

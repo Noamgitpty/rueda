@@ -687,7 +687,8 @@ describe.each(COUNTRIES)('US-024 — conversion gardée ($country, $currency)', 
         expect.arrayContaining(['booking.hold.created', 'booking.hold.converted']),
       );
       expect(await events(holdId)).not.toContain('booking.hold.reacquired');
-      expect(await events(tripId)).toEqual(['booking.trip.booked']);
+      // US-207 (0099) : la naissance du trip (SM-1 HOLD → BOOKED) publie aussi trip.status_changed
+      expect(await events(tripId)).toEqual(['booking.trip.booked', 'trip.status_changed']);
 
       // T2 tardive, paiement de nouveau, rejeu de la conversion : rien ne change
       expect(
