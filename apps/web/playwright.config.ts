@@ -34,6 +34,10 @@ const PHONE = /phone\.spec\.ts$/;
 const IDENTITY = /identity\.spec\.ts$/;
 /** Liste de tâches de l'hôte A07 (US-123) : mêmes largeurs que l'inscription. */
 const HOST_VERIFICATION = /host-verification\.spec\.ts$/;
+/** Calendrier d'un véhicule de l'hôte A06 (US-119) : mêmes largeurs que l'inscription. */
+const HOST_CALENDAR = /host-calendar\.spec\.ts$/;
+/** Accueil A02 et réservations A05 de l'hôte (US-219) : mêmes largeurs que l'inscription. */
+const HOST_TRIPS = /host-trips\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -68,12 +72,32 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-360',
-      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY, HOST_VERIFICATION, SCREENS],
+      testMatch: [
+        SHELL,
+        SIGNUP,
+        PHONE,
+        HOST,
+        IDENTITY,
+        HOST_VERIFICATION,
+        HOST_CALENDAR,
+        HOST_TRIPS,
+        SCREENS,
+      ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
     },
     {
       name: 'mobile-390',
-      testMatch: [SHELL, SIGNUP, PHONE, HOST, IDENTITY, HOST_VERIFICATION, SCREENS],
+      testMatch: [
+        SHELL,
+        SIGNUP,
+        PHONE,
+        HOST,
+        IDENTITY,
+        HOST_VERIFICATION,
+        HOST_CALENDAR,
+        HOST_TRIPS,
+        SCREENS,
+      ],
       use: { ...phone, viewport: { width: 390, height: 844 } },
     },
     {
