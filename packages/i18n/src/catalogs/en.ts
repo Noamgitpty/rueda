@@ -1700,6 +1700,17 @@ export const EN_MESSAGES = {
   'web.search.result.timezone': 'Local time in {city}',
   'web.search.loading': 'Searching for cars…',
   'web.search.result.open': 'See the car',
+  'web.search.results.count': {
+    one: '{count} car available',
+    other: '{count} cars available',
+  },
+  'web.search.deposit.amount': 'Security deposit: {amount}, held on your card',
+  'web.search.deposit.maybe': "A deposit may be requested depending on the driver's profile.",
+  'web.search.map.title': 'Map of the cars',
+  'web.search.map.sameAsList':
+    'Locations are approximate. The same cars and prices are in the list.',
+  'web.search.map.marker': '{car}, {total} in total',
+  'web.search.map.noPoint': 'Not on the map',
   'web.listing.dates.title': 'Your dates',
   'web.listing.dates.change': 'Change the search',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -1,12 +1,19 @@
 /**
- * Contrat HTTP de la recherche publique `/search` et `/search/areas` (US-201), sur l'application
+ * Contrat HTTP de la recherche publique `/search` et `/search/areas` (US-201, US-203), sur l'application
  * RÉELLE (ApiModule, harnais d'US-043) : chaque réponse est confrontée à `openapi.json`.
  *
  * Attendus tirés de 19 US-201 (critère 1 : « début 10:00 et fin 09:30 le même jour ⇒
  * SEARCH_DATES_INVALID » ; critère 4 : zone approximative seule), de 16 SRC-001 (codes
  * `SEARCH_*`, pas de 30 min) et de 17 §2.3 (sonde limitée à `availability_probe_per_minute` par
  * IP, BOARD N-78) ; les règles de la base (hôte activable, disponibilité, préavis, fuseau, durée,
- * début passé) sont prouvées en L0 (l0-us201-public-search), jamais par ce FAKE.
+ * début passé, caution) sont prouvées en L0 (l0-us201-public-search, l0-us203-search-cards),
+ * jamais par ce FAKE ; le total TTC du devis provisoire est prouvé dans PRC
+ * (`search-pricer.test.ts`, TA01 et variante PYG des oracles).
+ *
+ * US-203 (19 US-203, 16 SRC-008, SRC-011) : chaque carte porte le total TTC et les jours facturés
+ * du pricer, la caution rendue par la base (ou rien : mention générique), la note de REV (ou rien :
+ * badge « Nuevo ») ; devis impossible ⇒ annonce exclue et alerte ops ; pricer ou notes en panne ⇒
+ * 503 (jamais un total ou un badge inventés).
  */
 import { afterAll, describe, expect, it } from 'vitest';
 import {
@@ -18,15 +25,53 @@ import {
 } from '../../../testing/contract/support.js';
 import type { ContractApp } from '../../../testing/contract/support.js';
 import { missingCoverage } from '../../../testing/openapi-contract.js';
+import type { SearchPricer, SearchRatings } from '../internal/search/cards.js';
 import type { AvailabilityProbeLimiter } from '../internal/search/search.service.js';
-import { fakeResult, FakeSearchStore } from './fake-search-store.js';
+import type { SearchResult } from '../internal/search/store.js';
+import {
+  fakeResult,
+  FakeSearchPricer,
+  FakeSearchRatings,
+  FakeSearchStore,
+} from './fake-search-store.js';
 
 const apps: ContractApp[] = [];
 
-async function app(store: FakeSearchStore, probe?: AvailabilityProbeLimiter) {
-  const a = await startContractApp({ search: { store, ...(probe ? { probe } : {}) } });
+/** Pricer de forme : 3 jours, total imposé par annonce (le moteur est prouvé dans PRC). */
+function pricerFor(...results: SearchResult[]): FakeSearchPricer {
+  const p = new FakeSearchPricer();
+  for (const r of results) p.prices.set(r.id, { totalMinor: '12840', billableDays: 3 });
+  return p;
+}
+
+async function app(
+  store: FakeSearchStore,
+  probe?: AvailabilityProbeLimiter,
+  more: {
+    readonly pricer?: SearchPricer;
+    readonly ratings?: SearchRatings;
+    readonly alertQuoteUnavailable?: (listingId: string, country: string) => void;
+  } = {},
+) {
+  const results = store.outcome.outcome === 'OK' ? store.outcome.results : [];
+  const a = await startContractApp({
+    search: {
+      store,
+      ...(probe ? { probe } : {}),
+      pricer: more.pricer ?? pricerFor(...results),
+      ...(more.ratings ? { ratings: more.ratings } : {}),
+      ...(more.alertQuoteUnavailable ? { alertQuoteUnavailable: more.alertQuoteUnavailable } : {}),
+    },
+  });
   apps.push(a);
   return a.api;
+}
+
+/** Carte attendue : colonnes C0 du résultat, sans l'instant du devis, plus prix et note. */
+function cardOf(r: SearchResult, extra: Record<string, unknown> = {}) {
+  const c0: { -readonly [K in keyof SearchResult]?: SearchResult[K] } = { ...r };
+  delete c0.quotedAt;
+  return { ...c0, totalMinor: '12840', billableDays: 3, rating: null, ...extra };
 }
 
 const q = (p: Record<string, string>): string => `/search?${new URLSearchParams(p).toString()}`;
@@ -71,7 +116,7 @@ describe('US-201 — contrat de la recherche publique', () => {
     const r = await api.request('GET', q(VALID));
     expect(r.status).toBe(200);
     expect(r.headers.get('cache-control')).toBe('no-store');
-    expect(r.json).toEqual({ results: [fakeResult()] });
+    expect(r.json).toEqual({ results: [cardOf(fakeResult())] });
     expect(store.lastQuery).toEqual({
       country: FIRST_COUNTRY,
       city: 'Ciudad',
@@ -190,6 +235,77 @@ describe('US-201 — contrat de la recherche publique', () => {
       hit: () => Promise.reject(new Error('compteur en panne')),
     });
     expect((await broken.request('GET', q(VALID))).status).toBe(503);
+  });
+
+  it('US-203 : total TTC et jours du devis provisoire, caution de la base, note de REV ou badge « Nuevo » ; mêmes annonces dans le même ordre ; le pricer reçoit l’annonce, la période et l’instant de la base', async () => {
+    const luxe = fakeResult({
+      id: '00000000-0000-4000-8000-0000000000d1',
+      depositAmountMinor: '30000',
+    });
+    const plain = fakeResult({
+      id: '00000000-0000-4000-8000-0000000000d2',
+      approximatePoint: null,
+    });
+    const store = new FakeSearchStore();
+    store.outcome = { outcome: 'OK', results: [luxe, plain] };
+    const pricer = pricerFor(luxe, plain);
+    const ratings = new FakeSearchRatings();
+    ratings.rows.set(plain.id, { averageX100: 480, reviewCount: 3, tripCount: 5 });
+    const api = await app(store, undefined, { pricer, ratings });
+    const r = await api.request('GET', q(VALID));
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({
+      results: [
+        cardOf(luxe, { depositAmountMinor: '30000' }),
+        cardOf(plain, { rating: { averageX100: 480, reviewCount: 3, tripCount: 5 } }),
+      ],
+    });
+    expect(JSON.stringify(r.json)).not.toContain('quotedAt');
+    expect(pricer.inputs).toEqual(
+      [luxe, plain].map((x) => ({
+        listingId: x.id,
+        country: FIRST_COUNTRY,
+        currency: x.currency,
+        dailyPriceMinor: x.dailyPriceMinor,
+        startAt: x.startAt,
+        endAt: x.endAt,
+        quotedAt: x.quotedAt,
+      })),
+    );
+    expect(ratings.asked).toEqual([[luxe.id, plain.id]]);
+  });
+
+  it('US-203 : devis impossible ⇒ annonce exclue et alerte ops (identifiant seul) ; pricer ou notes en panne ⇒ 503', async () => {
+    const ok = fakeResult({ id: '00000000-0000-4000-8000-0000000000e1' });
+    const noQuote = fakeResult({ id: '00000000-0000-4000-8000-0000000000e2' });
+    const store = new FakeSearchStore();
+    store.outcome = { outcome: 'OK', results: [noQuote, ok] };
+    const alerts: [string, string][] = [];
+    const api = await app(store, undefined, {
+      pricer: pricerFor(ok),
+      alertQuoteUnavailable: (id, country) => alerts.push([id, country]),
+    });
+    const r = await api.request('GET', q(VALID));
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ results: [cardOf(ok)] });
+    expect(alerts).toEqual([[noQuote.id, FIRST_COUNTRY]]);
+    const brokenPricer = new FakeSearchPricer();
+    brokenPricer.down = true;
+    const down = await app(store, undefined, { pricer: brokenPricer });
+    const d = await down.request('GET', q(VALID));
+    expect(d.status).toBe(503);
+    expect(d.json).toEqual({ code: 'SEARCH_UNAVAILABLE', messageKey: 'common.search.unavailable' });
+    const brokenRatings = new FakeSearchRatings();
+    brokenRatings.down = true;
+    const noRatings = await app(store, undefined, {
+      pricer: pricerFor(ok, noQuote),
+      ratings: brokenRatings,
+    });
+    expect((await noRatings.request('GET', q(VALID))).status).toBe(503);
+    // sans pricer câblé (production sans adaptateur) : 503 dès qu'il y a un résultat
+    const bare = await startContractApp({ search: { store } });
+    apps.push(bare);
+    expect((await bare.api.request('GET', q(VALID))).status).toBe(503);
   });
 
   it('couverture : chaque statut déclaré pour /search est exercé', () => {

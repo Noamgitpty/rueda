@@ -106,3 +106,19 @@ export { SEARCH_MESSAGES } from './internal/search/errors.js';
 export type { AvailabilityProbeLimiter } from './internal/search/search.service.js';
 export { PgSearchStore, UnavailableSearchStore } from './internal/search/store.js';
 export type { SearchArea, SearchResult, SearchStore } from './internal/search/store.js';
+// Cartes des résultats (US-203, ADR-131) : total TTC par le port SearchPricer (adaptateur de PRC,
+// `searchQuotePricer`), notes par le port SearchRatings (REV, US-218), caution rendue par la base.
+export {
+  LOG_QUOTE_UNAVAILABLE,
+  NO_SEARCH_RATINGS,
+  UNAVAILABLE_SEARCH_PRICER,
+} from './internal/search/cards.js';
+export type {
+  QuoteUnavailableAlert,
+  SearchCard,
+  SearchPrice,
+  SearchPriceInput,
+  SearchPricer,
+  SearchRating,
+  SearchRatings,
+} from './internal/search/cards.js';

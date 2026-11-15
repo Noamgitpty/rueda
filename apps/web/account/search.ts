@@ -1,6 +1,7 @@
 /**
- * Recherche publique (US-201) côté SERVEUR du site : lecture défensive des réponses de
- * `GET /search/areas` et `GET /search`, et saisie du formulaire de S01 (lieu choisi dans la liste
+ * Recherche publique (US-201, US-203) côté SERVEUR du site : lecture défensive des réponses de
+ * `GET /search/areas` et `GET /search` (cartes : total TTC du devis, jours facturés, caution de la
+ * plateforme, note, point approximatif), et saisie du formulaire de S01 (lieu choisi dans la liste
  * des zones déclarées par les hôtes, date et heure de départ et de retour au pas de 30 min, dans
  * le fuseau du lieu). Toute réponse mal formée est refusée (`null`) : l'écran affiche alors son
  * état d'erreur, jamais une donnée partielle. Aucune constante de pays, de devise ni de fuseau :
@@ -38,9 +39,25 @@ export interface SearchAreaView {
   readonly timezone: string;
 }
 
+/** Note publique d'une annonce (16 REV-010) ; absente : badge « Nuevo ». */
+export interface SearchRatingView {
+  /** Moyenne ×100 (100 à 500), `null` sans avis publié. */
+  readonly averageX100: number | null;
+  readonly reviewCount: number;
+  readonly tripCount: number;
+}
+
 export interface SearchResultView {
   readonly id: string;
   readonly dailyPriceMinor: bigint;
+  /** Total TTC du séjour (devis provisoire de l'API, jamais recalculé ici ; 16 SRC-042). */
+  readonly totalMinor: bigint;
+  readonly billableDays: number;
+  /** Caution par carte de la plateforme ; `null` : mention générique (16 SRC-011, T70 c). */
+  readonly depositAmountMinor: bigint | null;
+  readonly rating: SearchRatingView | null;
+  /** Point arrondi au centième de degré (zone approximative), ou `null` sans épingle. */
+  readonly point: { readonly lat: number; readonly lng: number } | null;
   readonly currency: string;
   readonly currencyExponent: number;
   readonly instantBook: boolean;
@@ -82,6 +99,32 @@ export function searchAreasOf(reply: ApiResult): SearchAreaView[] | null {
   return out;
 }
 
+const finite = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null;
+
+/** Point approximatif : `null` (sans épingle) ou coordonnées dans les bornes ; `undefined` : illisible. */
+function pointOf(v: unknown): { lat: number; lng: number } | null | undefined {
+  if (v === null) return null;
+  if (!isObj(v)) return undefined;
+  const lat = finite(v['lat']);
+  const lng = finite(v['lng']);
+  if (lat === null || lng === null || Math.abs(lat) > 90 || Math.abs(lng) > 180) return undefined;
+  return { lat, lng };
+}
+
+/** Note : `null` (aucun avis) ou entiers dans les bornes ; `undefined` : illisible. */
+function ratingOf(v: unknown): SearchRatingView | null | undefined {
+  if (v === null) return null;
+  if (!isObj(v)) return undefined;
+  const reviews = int(v['reviewCount']);
+  const trips = int(v['tripCount']);
+  const avg = v['averageX100'] === null ? null : int(v['averageX100']);
+  if (reviews === null || reviews < 0 || trips === null || trips < 0) return undefined;
+  if (v['averageX100'] !== null && (avg === null || avg < 100 || avg > 500)) return undefined;
+  if ((avg === null) !== (reviews === 0)) return undefined;
+  return { averageX100: avg, reviewCount: reviews, tripCount: trips };
+}
+
 /** Résultats de `GET /search` ; `null` si la réponse est illisible. */
 export function searchResultsOf(reply: ApiResult): SearchResultView[] | null {
   if (reply.status !== 200 || !isObj(reply.json) || !Array.isArray(reply.json['results'])) {
@@ -97,7 +140,19 @@ export function searchResultsOf(reply: ApiResult): SearchResultView[] | null {
     const startAt = str(r['startAt']);
     const endAt = str(r['endAt']);
     const timezone = str(r['timezone']);
+    const total = str(r['totalMinor']);
+    const days = int(r['billableDays']);
+    const deposit = r['depositAmountMinor'] === null ? null : str(r['depositAmountMinor']);
+    const point = pointOf(r['approximatePoint']);
+    const rating = ratingOf(r['rating']);
     if (
+      total === null ||
+      !MINOR.test(total) ||
+      days === null ||
+      days < 1 ||
+      (r['depositAmountMinor'] !== null && (deposit === null || !MINOR.test(deposit))) ||
+      point === undefined ||
+      rating === undefined ||
       !UUID.test(String(r['id'])) ||
       price === null ||
       !MINOR.test(price) ||
@@ -120,6 +175,11 @@ export function searchResultsOf(reply: ApiResult): SearchResultView[] | null {
     out.push({
       id: String(r['id']),
       dailyPriceMinor: BigInt(price),
+      totalMinor: BigInt(total),
+      billableDays: days,
+      depositAmountMinor: deposit === null ? null : BigInt(deposit),
+      rating,
+      point,
       currency,
       currencyExponent: exponent,
       instantBook: r['instantBook'] === true,

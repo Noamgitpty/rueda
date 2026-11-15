@@ -127,3 +127,108 @@
   outline: var(--size-focus-ring) solid var(--color-focus);
   outline-offset: var(--size-focus-offset);
 }
+
+/* Résultats en cartes et carte des marqueurs de prix (US-203 ; 10b S02, UX-65) */
+.count {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.cards {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 48rem) {
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mapFigure {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.mapTitle {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-heading);
+}
+
+.map {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+}
+
+.mapGround {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.mapStreet {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: var(--space-3);
+  stroke-linecap: round;
+}
+
+.markers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.markerLink,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--size-touch-target);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-surface);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+  text-decoration: none;
+  box-shadow: var(--shadow-card);
+}
+
+.markerLink:focus-visible,
+.chip:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.unplaced {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

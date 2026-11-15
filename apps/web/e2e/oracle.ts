@@ -20,7 +20,8 @@ export const SPEC_TEXT: Readonly<
     | 'hostSaved'
     | 'identityVerified'
     | 'identityRetake'
-    | 'hostWaitingCountry',
+    | 'hostWaitingCountry'
+    | 'newBadge',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -48,6 +49,9 @@ export const SPEC_TEXT: Readonly<
     pt: 'Você ainda não anunciou nenhum carro',
   },
   hostSaved: { es: 'Guardado', en: 'Saved', fr: 'Enregistré', pt: 'Salvo' },
+  // 10b §4.3, ligne `web.s02.new` (S02, US-203) ; pt : texte pt-BR de référence de la story
+  // US-203 (DEC-FONDATEUR-18), 10b n'ayant pas de colonne pt
+  newBadge: { es: 'Nuevo', en: 'New', fr: 'Nouveau', pt: 'Novo' },
   // 10b §4.3, lignes `web.s04.result.verified` et `web.s04.result.retake` (S04, US-105)
   // pt : 10b n'a pas de colonne pt ; texte pt-BR de référence de la story US-105 (DEC-FONDATEUR-18),
   // à reporter dans 10b

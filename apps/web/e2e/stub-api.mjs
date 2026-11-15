@@ -224,6 +224,9 @@ const PUBLIC_ID = '11500000-0000-4000-8000-00000000f001';
 const DOWN_ID = '11500000-0000-4000-8000-00000000f503';
 /** Ville fictive dont la recherche rend 503 `SEARCH_UNAVAILABLE` (US-201, état d'erreur). */
 const SEARCH_DOWN_CITY = 'Ciudad Caida';
+/** Annonces de la recherche du double sans fiche (US-203) : LUXE notée, sans point sur la carte. */
+const SEARCH_LUXE_ID = '20300000-0000-4000-8000-00000000f002';
+const SEARCH_NO_POINT_ID = '20300000-0000-4000-8000-00000000f003';
 const hosts = new Map();
 const uuid = () => {
   const h = randomBytes(16).toString('hex');
@@ -437,29 +440,60 @@ async function hostRoute(req, res, url) {
     }
     const found =
       q.get('city') === 'Ciudad Ficticia' && (q.get('area') ?? 'Barrio Norte') === 'Barrio Norte';
+    // US-203 : cartes (total TTC et jours du devis provisoire de l'API, caution de la plateforme,
+    // note) ; trois annonces : la fiche publiée du double (sans caution annoncée, sans avis), une
+    // annonce LUXE (caution de 300,00, valeur de test de 08 T70) notée, une annonce sans point sur
+    // la carte. Totaux de forme du double (taxe de 7 % sur le loyer, jours de 24 h) : l'API réelle
+    // les tient du moteur de devis (PRC), prouvé par ses tests.
+    const days = Math.max(
+      1,
+      Math.ceil((Date.parse(`${end}:00Z`) - Date.parse(`${start}:00Z`)) / 86_400_000),
+    );
+    const card = (id, daily, extra) => ({
+      id,
+      dailyPriceMinor: String(daily),
+      currency: 'XTS',
+      currencyExponent: 2,
+      instantBook: true,
+      transmission: 'AUTOMATIC',
+      seats: 5,
+      fuelType: 'GASOLINE',
+      locationKind: 'POI',
+      city: 'Ciudad Ficticia',
+      areaLabel: 'Barrio Norte',
+      timezone: 'UTC',
+      startAt: `${start}:00.000Z`,
+      endAt: `${end}:00.000Z`,
+      totalMinor: String(Math.round((daily * days * 107) / 100)),
+      billableDays: days,
+      depositAmountMinor: null,
+      rating: null,
+      ...extra,
+    });
     return json(res, 200, {
       results: found
         ? [
-            {
-              id: PUBLIC_ID,
-              dailyPriceMinor: '4000',
-              currency: 'XTS',
-              currencyExponent: 2,
-              instantBook: true,
+            card(PUBLIC_ID, 4000, {
               makeName: 'Toyota',
               modelName: 'Yaris',
               year: 2021,
-              transmission: 'AUTOMATIC',
-              seats: 5,
-              fuelType: 'GASOLINE',
-              locationKind: 'POI',
-              city: 'Ciudad Ficticia',
-              areaLabel: 'Barrio Norte',
               approximatePoint: { lat: 8.98, lng: -79.52 },
-              timezone: 'UTC',
-              startAt: `${start}:00.000Z`,
-              endAt: `${end}:00.000Z`,
-            },
+            }),
+            card(SEARCH_LUXE_ID, 9000, {
+              makeName: 'Audi',
+              modelName: 'A4',
+              year: 2022,
+              approximatePoint: { lat: 9.01, lng: -79.5 },
+              depositAmountMinor: '30000',
+              rating: { averageX100: 480, reviewCount: 3, tripCount: 5 },
+            }),
+            card(SEARCH_NO_POINT_ID, 3000, {
+              makeName: 'Suzuki',
+              modelName: 'Swift',
+              year: 2020,
+              areaLabel: null,
+              approximatePoint: null,
+            }),
           ]
         : [],
     });

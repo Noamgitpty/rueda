@@ -45,6 +45,9 @@ Pour chaque point : ce qu'on sait, puis **ma suggestion** (comme Turo, avec le m
 **2.10 Avance de Kmino au voyageur quand la part de l'hôte est déjà versée** (US-224, risque L2-PM-17). Si un trip est remboursé après que la part de l'hôte lui a été versée, il manque de l'argent pour rembourser le voyageur. Tant que tu n'as pas fixé de plafond (`host_advance_cap_minor`, `platform_reserve_minor`), le défaut prudent bloque : le remboursement attend une décision FINANCE à deux personnes, et le voyageur attend.
 → **Suggestion** (comme Turo, le moins de limites possible) : **le voyageur est toujours remboursé tout de suite** ; Kmino avance la somme et la reprend sur les versements suivants de l'hôte (déjà retenu : `COMME_TURO.md`, solde d'hôte négatif). Il te reste à fixer deux montants : le plafond d'avance par hôte, et la réserve totale que Kmino accepte d'avancer par pays. Au lancement, un plafond par hôte égal à un trip moyen et une petite réserve suffisent ; on les relève avec l'usage.
 
+**2.11 Fond de carte des résultats de recherche** (Q-020, US-203). Les résultats s'affichent en liste et sur une carte ; sans fournisseur de cartes, la carte est un plan simplifié aux couleurs du thème, avec les prix placés sur les zones approximatives des voitures (jamais l'adresse). Un fournisseur verrait l'adresse IP de chaque visiteur.
+→ **Suggestion** : garder le plan simplifié pour la bêta (aucun coût, aucun tiers) ; choisir un fournisseur de tuiles au moment du lancement d'un pays, avec un budget mensuel plafonné, et l'inscrire au registre des sous-traitants.
+
 ## 3. Réglages à trancher en une seule fois (liste groupée, avant la mise en ligne)
 
 Je te présenterai une liste unique ; pour chaque réglage, ma valeur suggérée (comme Turo, le moins de limites) ; tu valides ou tu corriges.

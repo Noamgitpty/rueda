@@ -48,7 +48,7 @@ Cible (17 §2.2) : émis `pricing.quote.accepted`, `pricing.trip_price.versioned
 
 ## Ports
 
-Aucun port. API publique (`index.ts`) : `PrcModule`, `QuoteService`, `billableDays`, `computeQuote`, `assembleQuote`, `quoteSettlementTrip`, `tripFeeOf`, `COMPUTED_LINE_TYPES`, `freezeQuote`, `replayFrozenQuote`, `resolveQuoteParams`, `QuoteError` et leurs types.
+Aucun port propre. Adaptateur du port `SearchPricer` de CAT (US-203, ADR-131) : `searchQuotePricer(paramsOf)` (`internal/quote/search-pricer.ts`), devis provisoire `prc.quote/2` non persisté du résultat d'une recherche (prix journalier, période et instant lus en base) ; devis impossible ⇒ `null` (annonce exclue par CAT) ; câblé par `main.ts` sur `QuoteService.params`. API publique (`index.ts`) : `PrcModule`, `QuoteService`, `billableDays`, `computeQuote`, `assembleQuote`, `quoteSettlementTrip`, `tripFeeOf`, `COMPUTED_LINE_TYPES`, `freezeQuote`, `replayFrozenQuote`, `resolveQuoteParams`, `searchQuotePricer`, `QuoteError` et leurs types.
 
 Paramètres lus (17 §7.2, aucun créé) : `grace_minutes`, `max_trip_days`, `trip_fee_schedule` (US-704), `host_default_plan`, `host_share_pct`, `delivery_share_pct`, `extras_share_pct`, `insurer_premium_share`, `insurer_roadside_share` ; `tax_line_config` du pays (`countries.json`, `taxLines`).
 

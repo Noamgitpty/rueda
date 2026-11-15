@@ -2,13 +2,17 @@
  * Module Nest de la recherche publique (US-201, ADR-127). Module DYNAMIQUE, importé par le seul
  * processus API (`api.module.ts`), après `RiskHttpModule` (garde global de débit).
  *
- * Adaptateurs choisis par l'appelant : production `postgresSearchAdapters(db, probe)` (fonctions
- * `core.catalog_public_search` et `core.catalog_public_areas` de 0103 sous app_api ; limiteur de la sonde : garde anti-abus de
- * RISK, câblée par `main.ts`) ; tests : FAKE de `../../testing/`. Sans options : 503 partout.
+ * Adaptateurs choisis par l'appelant : production `postgresSearchAdapters(db, probe, pricer)`
+ * (fonctions `core.catalog_public_search_cards` de 0105 et `core.catalog_public_areas` de 0103 sous
+ * app_api ; limiteur de la sonde : garde anti-abus de RISK ; prix : devis provisoire de PRC
+ * (`searchQuotePricer`) ; notes : aucune tant que REV ne les fournit pas (US-218) ; câblés par
+ * `main.ts`) ; tests : FAKE de `../../testing/`. Sans options : 503 partout.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import type { SqlExecutor } from '../host-listings/store.js';
+import { NO_SEARCH_RATINGS, UNAVAILABLE_SEARCH_PRICER } from './cards.js';
+import type { QuoteUnavailableAlert, SearchPricer, SearchRatings } from './cards.js';
 import { SearchController } from './search.controller.js';
 import { SearchService, UNAVAILABLE_PROBE_LIMITER } from './search.service.js';
 import type { AvailabilityProbeLimiter } from './search.service.js';
@@ -18,20 +22,33 @@ import type { SearchStore } from './store.js';
 export interface CatSearchOptions {
   readonly store: SearchStore;
   readonly probe: AvailabilityProbeLimiter;
+  /** Total TTC des résultats (US-203) ; absent : 503 dès qu'il y a un résultat. */
+  readonly pricer?: SearchPricer;
+  /** Notes publiques (US-218) ; absentes : aucune note, badge « Nuevo ». */
+  readonly ratings?: SearchRatings;
+  /** Alerte ops d'un devis impossible ; absente : journal JSON (`search.quote_unavailable`). */
+  readonly alertQuoteUnavailable?: QuoteUnavailableAlert;
 }
 
 /** Aucun adaptateur : 503 partout (fail-closed). */
 export const UNAVAILABLE_CAT_SEARCH: CatSearchOptions = {
   store: new UnavailableSearchStore(),
   probe: UNAVAILABLE_PROBE_LIMITER,
+  pricer: UNAVAILABLE_SEARCH_PRICER,
+  ratings: NO_SEARCH_RATINGS,
 };
 
-/** Production : fonctions de 0103 sous app_api ; limiteur fourni par l'appelant (RISK). */
+/**
+ * Production : fonctions de 0105 / 0103 sous app_api ; limiteur (RISK), prix (PRC) et notes (REV)
+ * fournis par l'appelant.
+ */
 export function postgresSearchAdapters(
   db: SqlExecutor,
   probe: AvailabilityProbeLimiter,
+  pricer: SearchPricer,
+  ratings: SearchRatings = NO_SEARCH_RATINGS,
 ): CatSearchOptions {
-  return { store: new PgSearchStore(db), probe };
+  return { store: new PgSearchStore(db), probe, pricer, ratings };
 }
 
 @Module({})
@@ -41,7 +58,16 @@ export class CatSearchModule {
       module: CatSearchModule,
       controllers: [SearchController],
       providers: [
-        { provide: SearchService, useValue: new SearchService(options.store, options.probe) },
+        {
+          provide: SearchService,
+          useValue: new SearchService(
+            options.store,
+            options.probe,
+            options.pricer,
+            options.ratings,
+            options.alertQuoteUnavailable,
+          ),
+        },
       ],
     };
   }

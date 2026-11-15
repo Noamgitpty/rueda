@@ -39,6 +39,7 @@ export const TARGETS = {
   'conversion.sequentielle': 10_000,
   'calendrier.sequentielle': 500,
   'publication.sequentielle': null,
+  'recherche.sequentielle': 800,
 };
 const DB_JOB = /base de données \(PostgreSQL/;
 /** Lignes `[L0-02]` antérieures à US-045 : libellé du journal → série. */

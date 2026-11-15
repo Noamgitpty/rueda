@@ -1755,6 +1755,17 @@ export const PT_MESSAGES = {
   'web.search.result.timezone': 'Horário local de {city}',
   'web.search.loading': 'Buscando carros…',
   'web.search.result.open': 'Ver o carro',
+  'web.search.results.count': {
+    one: '{count} carro disponível',
+    other: '{count} carros disponíveis',
+  },
+  'web.search.deposit.amount': 'Caução: {amount}, bloqueada no seu cartão',
+  'web.search.deposit.maybe': 'Pode ser pedida uma caução conforme o perfil do motorista.',
+  'web.search.map.title': 'Mapa dos carros',
+  'web.search.map.sameAsList':
+    'As localizações são aproximadas. Os mesmos carros e preços estão na lista.',
+  'web.search.map.marker': '{car}, total de {total}',
+  'web.search.map.noPoint': 'Sem ponto no mapa',
   'web.listing.dates.title': 'Suas datas',
   'web.listing.dates.change': 'Alterar a busca',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -13469,7 +13469,11 @@
           "approximatePoint",
           "timezone",
           "startAt",
-          "endAt"
+          "endAt",
+          "depositAmountMinor",
+          "totalMinor",
+          "billableDays",
+          "rating"
         ],
         "properties": {
           "id": {
@@ -13548,9 +13552,38 @@
           "endAt": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          },
+          "depositAmountMinor": {
+            "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/MinorUnits" }],
+            "description": "Caution par carte de la plateforme (deposit_policy du pays et de la classe, 16 SRC-011, 08 T70 c), unités mineures de `currency` ; null : aucune caution annoncée avant le checkout, mention générique (US-203)"
+          },
+          "totalMinor": {
+            "$ref": "#/components/schemas/MinorUnits",
+            "description": "Total TTC du séjour : devis provisoire de PRC (prc.quote/2 : loyer des jours facturables, trip fee, taxes par ligne ; 16 SRC-042), unités mineures de `currency` (US-203)"
+          },
+          "billableDays": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Jours facturés du devis (US-203)"
+          },
+          "rating": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["averageX100", "reviewCount", "tripCount"],
+                "properties": {
+                  "averageX100": { "type": ["integer", "null"], "minimum": 100, "maximum": 500 },
+                  "reviewCount": { "type": "integer", "minimum": 0 },
+                  "tripCount": { "type": "integer", "minimum": 0 }
+                }
+              }
+            ],
+            "description": "Note publique (16 REV-010) ; null : aucun avis, badge « Nuevo » (US-203)"
           }
         },
-        "description": "Annonce disponible : colonnes C0 seulement, zone approximative (19 US-201 critère 4)"
+        "description": "Carte d'une annonce disponible : colonnes C0 seulement, zone approximative (19 US-201 critère 4), total TTC, caution et note (19 US-203)"
       },
       "SearchError": {
         "type": "object",

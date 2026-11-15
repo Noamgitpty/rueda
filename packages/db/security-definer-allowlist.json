@@ -892,6 +892,13 @@
       "story": "US-201"
     },
     {
+      "signature": "core.catalog_public_search_cards(text,text,text,timestamp without time zone,timestamp without time zone,integer)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-203"
+    },
+    {
       "signature": "core.kyc_identity_state(bytea,text)",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",

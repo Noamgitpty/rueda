@@ -1,9 +1,21 @@
 /**
- * Service de la recherche publique (US-201) : forme de la requête (`model.ts`), sonde de
+ * Service de la recherche publique (US-201, US-203) : forme de la requête (`model.ts`), sonde de
  * disponibilité limitée par IP (`availability_probe_per_minute`, 17 §2.3, BOARD N-78), puis la
- * base, qui juge le pays, l'instant présent, la durée, le préavis et la disponibilité. Issues de
- * la base vers codes stables (`errors.ts`) ; base ou limiteur indisponibles : 503 (fail-closed).
+ * base, qui juge le pays, l'instant présent, la durée, le préavis et la disponibilité, et rend la
+ * caution de chaque annonce. Chaque résultat reçoit ensuite son total TTC du devis provisoire
+ * (port `SearchPricer`, moteur de PRC : le même chiffre en liste, sur la carte, sur la fiche et au
+ * checkout) et sa note (port `SearchRatings`). Issues de la base vers codes stables
+ * (`errors.ts`) ; base, limiteur, prix ou notes indisponibles : 503 (fail-closed).
  */
+import { LOG_QUOTE_UNAVAILABLE, NO_SEARCH_RATINGS, UNAVAILABLE_SEARCH_PRICER } from './cards.js';
+import type {
+  QuoteUnavailableAlert,
+  SearchCard,
+  SearchPrice,
+  SearchPricer,
+  SearchRating,
+  SearchRatings,
+} from './cards.js';
 import { SearchHttpError } from './errors.js';
 import { countryOf, parseSearchQuery } from './model.js';
 import type { SearchArea, SearchResult, SearchStore } from './store.js';
@@ -22,10 +34,20 @@ export const UNAVAILABLE_PROBE_LIMITER: AvailabilityProbeLimiter = {
   hit: () => Promise.reject(new Error('limiteur de la sonde indisponible')),
 };
 
+/** Colonnes C0 du résultat, sans l'instant du devis (interne à l'API). */
+function withoutQuotedAt(res: SearchResult): Omit<SearchResult, 'quotedAt'> {
+  const c0: { -readonly [K in keyof SearchResult]?: SearchResult[K] } = { ...res };
+  delete c0.quotedAt;
+  return c0 as Omit<SearchResult, 'quotedAt'>;
+}
+
 export class SearchService {
   constructor(
     private readonly store: SearchStore,
     private readonly probe: AvailabilityProbeLimiter,
+    private readonly pricer: SearchPricer = UNAVAILABLE_SEARCH_PRICER,
+    private readonly reviews: SearchRatings = NO_SEARCH_RATINGS,
+    private readonly alertQuoteUnavailable: QuoteUnavailableAlert = LOG_QUOTE_UNAVAILABLE,
   ) {}
 
   async areas(rawCountry: unknown): Promise<SearchArea[]> {
@@ -38,7 +60,7 @@ export class SearchService {
     }
   }
 
-  async search(raw: Readonly<Record<string, unknown>>, ip: string): Promise<SearchResult[]> {
+  async search(raw: Readonly<Record<string, unknown>>, ip: string): Promise<SearchCard[]> {
     const parsed = parseSearchQuery(raw);
     if (!parsed.ok) throw new SearchHttpError(parsed.code);
     let retryAfterS: number | null;
@@ -55,6 +77,49 @@ export class SearchService {
       throw new SearchHttpError('SEARCH_UNAVAILABLE');
     }
     if (r.outcome !== 'OK') throw new SearchHttpError(r.outcome);
-    return [...r.results];
+    return this.#cards(parsed.query.country, r.results);
+  }
+
+  /**
+   * Total TTC et note de chaque annonce, dans l'ordre de la base. Devis impossible ⇒ annonce
+   * exclue et alerte ops (16 SRC-008) ; pricer ou notes en panne ⇒ 503 (jamais un total ou un
+   * badge « Nuevo » inventés).
+   */
+  async #cards(country: string, results: readonly SearchResult[]): Promise<SearchCard[]> {
+    if (results.length === 0) return [];
+    let ratings: ReadonlyMap<string, SearchRating>;
+    try {
+      ratings = await this.reviews.ratings(results.map((x) => x.id));
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    const cards: SearchCard[] = [];
+    for (const res of results) {
+      let price: SearchPrice | null;
+      try {
+        price = this.pricer.price({
+          listingId: res.id,
+          country,
+          currency: res.currency,
+          dailyPriceMinor: res.dailyPriceMinor,
+          startAt: res.startAt,
+          endAt: res.endAt,
+          quotedAt: res.quotedAt,
+        });
+      } catch {
+        throw new SearchHttpError('SEARCH_UNAVAILABLE');
+      }
+      if (price === null) {
+        this.alertQuoteUnavailable(res.id, country);
+        continue;
+      }
+      cards.push({
+        ...withoutQuotedAt(res),
+        totalMinor: price.totalMinor,
+        billableDays: price.billableDays,
+        rating: ratings.get(res.id) ?? null,
+      });
+    }
+    return cards;
   }
 }
