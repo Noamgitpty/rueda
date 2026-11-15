@@ -17,6 +17,9 @@
 --     sans restriction active, pays ouvert (`p2p_private_hosts_enabled`) et contrat d'assureur
 --     actif (`insurer_contract_active`) ; interrupteur absent = false (17 §0.1) : en production,
 --     tant que le fondateur n'a rien ouvert, la recherche est VIDE ; véhicule non libéré ;
+--   - réservation immédiate seulement (`instant_book`) : tant que le cycle sur demande (`REQUEST`,
+--     US-223) n'existe pas, une annonce sur demande serait réservée comme immédiate ; elle est
+--     donc écartée de la recherche et des zones (fail-closed, PROPOSÉ, à lever par US-223) ;
 --   - colonnes C0 seulement (celles de la fiche publique) : ville, zone saisie par l'hôte et point
 --     arrondi au centième de degré ; jamais le nom ni l'adresse du lieu, son point exact, la
 --     plaque, le VIN, le compte d'hôte ni l'occupation (L1-PM-19, L2-PM-29) ;
@@ -124,6 +127,7 @@ AS $fn$
     JOIN core.catalog_location AS loc ON loc.id = v.home_location_id
     JOIN core.config_country AS c ON c.code::text = l.country_code
    WHERE l.status = 'LISTED'
+     AND l.instant_book
      AND (p_country IS NULL OR l.country_code = p_country)
      AND v.released_at IS NULL
      AND core.catalog_search_host_open(l.org_id, l.country_code)
@@ -214,6 +218,7 @@ BEGIN
                                p_end_local AT TIME ZONE v.timezone AS e,
                                core.catalog_effective_notice_minutes(v.id) AS notice) AS p
    WHERE l.status = 'LISTED'
+     AND l.instant_book
      AND l.country_code = p_country
      AND loc.city = p_city
      AND (p_area IS NULL OR loc.area_label = p_area)
@@ -230,7 +235,7 @@ BEGIN
 END
 $fn$;
 COMMENT ON FUNCTION core.catalog_public_search(text, text, text, timestamp, timestamp, integer) IS
-  'Recherche publique : annonces LISTED d''hôtes activables de la ville (et zone) libres sur la '
+  'Recherche publique : annonces LISTED à réservation immédiate d''hôtes activables de la ville (et zone) libres sur la '
   'période locale (pas de 30 min, préavis, tampon, sonde vehicle_is_free) ; colonnes C0 et '
   'instants dans le fuseau du véhicule ; issue de refus sinon. SECURITY DEFINER, EXECUTE app_api. '
   'US-201 (ADR-128).';

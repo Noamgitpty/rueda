@@ -131,7 +131,12 @@ const plate = (): string => `S${randomBytes(4).toString('hex').toUpperCase()}`;
 async function car(
   c: Tx,
   cc: CountryCase,
-  options: { readonly city?: string; readonly area?: string; readonly listed?: boolean } = {},
+  options: {
+    readonly city?: string;
+    readonly area?: string;
+    readonly listed?: boolean;
+    readonly instantBook?: boolean;
+  } = {},
 ): Promise<Car> {
   const h = await host(c, cc.country);
   const city = options.city ?? placeName('Villa');
@@ -147,8 +152,15 @@ async function car(
     [h.hash, h.org, loc.rows[0]?.location_id, plate()],
   );
   const lst = await c.query<{ outcome: string; listing_id: string | null }>(
-    'SELECT * FROM core.catalog_cmd_create_listing($1, $2, $3, $4, $5, NULL, NULL, NULL)',
-    [h.hash, h.org, veh.rows[0]?.vehicle_id, 40 * cc.priceStepMinor * 100, 'UNLIMITED'],
+    'SELECT * FROM core.catalog_cmd_create_listing($1, $2, $3, $4, $5, NULL, NULL, $6)',
+    [
+      h.hash,
+      h.org,
+      veh.rows[0]?.vehicle_id,
+      40 * cc.priceStepMinor * 100,
+      'UNLIMITED',
+      options.instantBook ?? null,
+    ],
   );
   const location = loc.rows[0]?.location_id;
   const vehicle = veh.rows[0]?.vehicle_id;
@@ -416,7 +428,7 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0101)',
   );
 
   it.each(byCountry)(
-    '%s (%s) : seuls les hôtes activables apparaissent : interrupteurs fermés, compte suspendu, titulaire restreint, annonce non publiée ⇒ absents',
+    '%s (%s) : seuls les hôtes activables apparaissent : interrupteurs fermés, compte suspendu, titulaire restreint, annonce non publiée, annonce sur demande (REQUEST) ⇒ absents',
     async (country, _currency, cc) => {
       await rolledBack(async (tx) => {
         const city = placeName('Villa');
@@ -440,6 +452,14 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0101)',
           'POLICY_VIOLATION',
         ]);
         await car(tx, cc, { city, listed: false });
+        // réservation sur demande (REQUEST) : écartée tant qu'US-223 n'a pas livré son cycle
+        // (consigne de l'orchestrateur, revue d'US-219 ; fail-closed, PROPOSÉ)
+        const onRequest = await car(tx, cc, { city, instantBook: false });
+        const listed = await tx.query<{ instant_book: boolean }>(
+          'SELECT instant_book FROM core.catalog_public_listing($1)',
+          [onRequest.listing],
+        );
+        expect(listed.rows).toEqual([{ instant_book: false }]);
         const unlisted = await car(tx, cc, { city });
         await tx.query('SELECT test_fixture.us115_set_listing_status($1, $2)', [
           unlisted.listing,
