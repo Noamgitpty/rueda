@@ -1668,6 +1668,35 @@ export const ES_MESSAGES = {
     'El número de chasis no es válido. Escribe el VIN de 17 caracteres (sin I, O ni Q) o el número de chasis de tu auto importado, por ejemplo GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'Lo declaraste el {date}.',
   'backoffice.catalog.specsPending': 'Ficha técnica por completar',
+  // US-201 : recherche publique par zone, lieu, dates et heures (S01, S02 simplifié, S03)
+  'common.search.locationRequired': 'Elige dónde quieres recoger el auto.',
+  'common.search.datesInvalid':
+    'Revisa las fechas: la devolución debe ser después de la recogida, a una hora en punto o y media, y la recogida no puede estar en el pasado.',
+  'common.search.durationExceeded': 'Este viaje es demasiado largo. Elige una duración más corta.',
+  'common.search.unavailable':
+    'La búsqueda no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
+  'web.search.title': 'Buscar un auto',
+  'web.search.where': 'Dónde lo recoges',
+  'web.search.choosePlace': 'Elige un lugar',
+  'web.search.wholeCity': '{city} (toda la ciudad)',
+  'web.search.from': 'Desde',
+  'web.search.until': 'Hasta',
+  'web.search.date': 'Fecha',
+  'web.search.time': 'Hora',
+  'web.search.localTime': 'Las horas son las del lugar donde recoges el auto.',
+  'web.search.go': 'Buscar autos',
+  'web.search.noAreas.title': 'Aún no hay autos publicados',
+  'web.search.noAreas.body': 'Vuelve pronto: tus vecinos están publicando sus autos.',
+  'web.search.areasError': 'No pudimos cargar los lugares.',
+  'web.search.results.title': 'Autos disponibles',
+  'web.search.results.none': 'No hay autos disponibles en esas fechas',
+  'web.search.results.none.body': 'Prueba con otras fechas u otra zona.',
+  'web.search.result.period': 'Del {from} al {to}',
+  'web.search.result.timezone': 'Hora local: {timezone}',
+  'web.search.loading': 'Buscando autos…',
+  'web.search.result.open': 'Ver el auto',
+  'web.listing.dates.title': 'Tus fechas',
+  'web.listing.dates.change': 'Cambiar la búsqueda',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

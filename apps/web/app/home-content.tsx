@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { MessageKey, Translator } from '@rueda/i18n';
 import { CarIllustration, Icon } from '@rueda/ui';
 import type { IconName } from '@rueda/ui';
@@ -22,9 +23,10 @@ const STEPS: readonly Step[] = [
 /**
  * Accueil dans la coquille (US-048) : bloc « nuit » avec le grand titre, l'auto dessinée maison et
  * le _camino_ qui se dessine une fois (motif signature, PROPOSITIONS US-028), puis « Cómo funciona »
- * relié par le _camino_ et l'invitation aux hôtes. Textes de 10b §4.3 (S01) ; la recherche, le rail
- * et l'estimateur de revenus de S01 arrivent avec le lot 2. Sans accès à la requête : testable dans
- * chaque locale. Styles : jetons seulement (US-030).
+ * relié par le _camino_ et l'invitation aux hôtes. Textes de 10b §4.3 (S01) ; la recherche (US-201)
+ * est passée par la page (`search`, formulaire et zones lus à l'API) et posée sous le sous-titre ;
+ * le rail et l'estimateur de revenus de S01 arrivent avec la suite du lot 2. Sans accès à la
+ * requête : testable dans chaque locale. Styles : jetons seulement (US-030).
  *
  * Blocs éditables (US-121) : `content` remplace un texte du catalogue par le bloc publié dans la
  * langue de la page ; sans bloc, le texte du catalogue livré (jamais un bloc vide).
@@ -32,9 +34,12 @@ const STEPS: readonly Step[] = [
 export function HomeContent({
   i18n,
   content = NO_CONTENT,
+  search = null,
 }: {
   readonly i18n: Translator;
   readonly content?: PageContent;
+  /** Recherche de S01 (US-201) : formulaire ou état des zones, rendu par la page. */
+  readonly search?: ReactNode;
 }) {
   const t = (key: MessageKey): string => {
     const doc = content.get(key);
@@ -48,6 +53,7 @@ export function HomeContent({
           {t('web.s01.title')}
         </h1>
         <p className={styles['subtitle']}>{t('web.s01.subtitle')}</p>
+        {search !== null && <div className={styles['search']}>{search}</div>}
         <div className={styles['stage']} aria-hidden="true">
           <svg
             className={styles['camino']}

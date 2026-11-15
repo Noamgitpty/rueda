@@ -408,6 +408,56 @@ async function hostRoute(req, res, url) {
             })),
     });
   }
+  // Recherche publique (US-201) : une ville fictive, deux zones ; la fiche publiée du double est
+  // disponible à toute date future (fuseau UTC : l'heure locale saisie est l'heure rendue)
+  if (req.method === 'GET' && path === '/search/areas') {
+    return json(res, 200, {
+      areas: [
+        { country: 'ZZ', city: 'Ciudad Ficticia', area: null, timezone: 'UTC' },
+        { country: 'ZZ', city: 'Ciudad Ficticia', area: 'Barrio Norte', timezone: 'UTC' },
+      ],
+    });
+  }
+  if (req.method === 'GET' && path === '/search') {
+    const q = new URL(req.url ?? '/', 'http://stub').searchParams;
+    const slot = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[03]0$/;
+    const start = q.get('start') ?? '';
+    const end = q.get('end') ?? '';
+    if (q.get('country') === null || (q.get('city') ?? '') === '') {
+      return err(res, 422, 'SEARCH_LOCATION_REQUIRED', 'common.search.locationRequired');
+    }
+    if (!slot.test(start) || !slot.test(end) || end <= start) {
+      return err(res, 422, 'SEARCH_DATES_INVALID', 'common.search.datesInvalid');
+    }
+    const found =
+      q.get('city') === 'Ciudad Ficticia' && (q.get('area') ?? 'Barrio Norte') === 'Barrio Norte';
+    return json(res, 200, {
+      results: found
+        ? [
+            {
+              id: PUBLIC_ID,
+              dailyPriceMinor: '4000',
+              currency: 'XTS',
+              currencyExponent: 2,
+              instantBook: true,
+              makeName: 'Toyota',
+              modelName: 'Yaris',
+              year: 2021,
+              transmission: 'AUTOMATIC',
+              seats: 5,
+              fuelType: 'GASOLINE',
+              locationKind: 'POI',
+              city: 'Ciudad Ficticia',
+              areaLabel: 'Barrio Norte',
+              approximatePoint: { lat: 8.98, lng: -79.52 },
+              timezone: 'UTC',
+              startAt: `${start}:00.000Z`,
+              endAt: `${end}:00.000Z`,
+            },
+          ]
+        : [],
+    });
+  }
   const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
   if (req.method === 'GET' && pub !== undefined) {
     if (pub === DOWN_ID) return err(res, 503, 'LISTING_UNAVAILABLE', 'common.listing.unavailable');
