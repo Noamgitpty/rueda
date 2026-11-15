@@ -427,19 +427,19 @@ describe.each(COUNTRIES)('US-022 — table d’occupation unique ($country, $cur
           await tx.query(`SELECT pg_advisory_xact_lock(hashtextextended('veh:' || $1::text, 0))`, [
             slot.vehicleId,
           ]);
-          await tx.query(`UPDATE core.booking_trip SET status = 'RETURNED' WHERE id = $1`, [
-            tripId,
-          ]);
-          await tx.query(
-            `UPDATE core.booking_vehicle_occupancy
-              SET active = false, deactivated_reason = 'TRIP_TERMINAL'
-            WHERE ref_id = $1 AND kind = 'TRIP' AND active`,
-            [tripId],
-          );
-          await tx.query(
-            `UPDATE core.booking_guest_occupancy SET active = false WHERE trip_id = $1`,
-            [tripId],
-          );
+          // US-207 (0099) : l'état ne s'écrit que par la commande de SM-1 (BOOKED → CHECKIN_OPEN →
+          // IN_PROGRESS → RETURNED), qui libère les deux occupations à l'entrée dans RETURNED
+          for (const [to, reason] of [
+            ['CHECKIN_OPEN', 'CHECKIN_WINDOW_OPENED'],
+            ['IN_PROGRESS', 'CHECKIN_VALIDATED'],
+            ['RETURNED', 'CHECKOUT_COMPLETED'],
+          ]) {
+            await tx.query(`SELECT core.booking_cmd_trip_transition($1, $2, $3, NULL)`, [
+              tripId,
+              to,
+              reason,
+            ]);
+          }
           expect(await attempt(tx, BUFFER, [tripId, d(9, 1)])).toBe('INVALID_PERIOD');
           const r = await tx.query<{ id: string }>(BUFFER, [tripId, returnedAt]);
           return r.rows[0]?.id as string;
