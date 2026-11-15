@@ -92,7 +92,7 @@ python -I -X utf8 tools/verif15_struct.py           # 04 / 16 : comptes et équi
 python -I -X utf8 tools/verif15_conf.py             # 16 : statuts de preuve par fiche (auditeur VERIF_15)
 # Oracles monétaires (valeurs attendues des vecteurs de 08 et 16)
 python -I -X utf8 tools/verif11_settlement.py              # T01–T48, oracle indépendant de l'auditeur VERIF_11 -> 48 vecteurs, 0 écart (+ fuzz informatif)
-python -I -X utf8 tools/independent_settlement_check.py    # T01–T48, second oracle -> ECARTS sur T01-T48 : 0
+python -I -X utf8 tools/independent_settlement_check.py    # T01–T48 et T74–T80 (borne T−24 h), second oracle -> ECARTS sur T01-T48 et T74-T80 : 0
 python -I -X utf8 tools/verif12_t49plus.py                 # T49–T65, oracle de l'auditeur VERIF_12 -> 38/38
 python -I -X utf8 tools/check_t49plus.py                   # T49–T65 (rédacteur) -> écarts = 0
 python -I -X utf8 tools/check_verif12_fixes.py             # corrections VERIF_12 (E2 incrémental, T66–T68 partiels) -> 0 écart
