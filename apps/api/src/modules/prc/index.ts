@@ -4,12 +4,14 @@ export { PrcModule } from './prc.module.js';
 export { QuoteService } from './internal/quote/quote.service.js';
 export { billableDays } from './internal/quote/billable-days.js';
 export {
+  COMPUTED_LINE_TYPES,
   QUOTE_ENGINE_VERSION,
   QUOTE_LINE_TYPES,
   SETTLEMENT_LINE_OF,
   assembleQuote,
   computeQuote,
   quoteSettlementTrip,
+  tripFeeOf,
 } from './internal/quote/engine.js';
 export type {
   PricedPeriod,
@@ -21,6 +23,8 @@ export type {
   QuoteRequest,
   QuoteTaxGroup,
   QuoteTaxRule,
+  TripFeeSchedule,
+  TripFeeTier,
 } from './internal/quote/engine.js';
 export { QUOTE_ERROR_CODES, QuoteError, isQuoteError } from './internal/quote/errors.js';
 export type { QuoteErrorCode } from './internal/quote/errors.js';

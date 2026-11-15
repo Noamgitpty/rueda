@@ -71,4 +71,40 @@ describe('PriceBreakdown', () => {
     expect(textOf(html)).toContain(i18n.money({ ...amount, amountMinor: -amount.amountMinor }));
     expect(textOf(html)).toContain(i18n.t('common.price.total'));
   });
+
+  it.each(LOCALES)(
+    '%s : trip fee (US-704) : libellé et explication traduits sous le libellé, montant tel quel',
+    (_tag, _p, i18n) => {
+      const amount = cases[1]!.amount;
+      const html = render(
+        <PriceBreakdown
+          i18n={i18n}
+          open
+          lines={[
+            {
+              id: 'fee',
+              label: i18n.t('common.quote.line.tripFee'),
+              hint: i18n.t('common.quote.line.tripFeeHint'),
+              amount,
+            },
+          ]}
+          total={amount}
+        />,
+      );
+      const text = textOf(html);
+      expect(text).toContain(i18n.t('common.quote.line.tripFee'));
+      expect(text).toContain(i18n.t('common.quote.line.tripFeeHint'));
+      expect(html).toMatch(/<dt>[^<]*<span class="[^"]*hint[^"]*">/);
+      expect((html.match(/<dt>/g) ?? []).length).toBe(2);
+    },
+  );
+
+  it('sans explication : aucun élément ajouté sous le libellé', () => {
+    const [, , i18n] = LOCALES[0]!;
+    const amount = cases[1]!.amount;
+    const html = render(
+      <PriceBreakdown i18n={i18n} lines={[{ id: 'a', label: 'A', amount }]} total={amount} />,
+    );
+    expect(html).not.toMatch(/hint/);
+  });
 });

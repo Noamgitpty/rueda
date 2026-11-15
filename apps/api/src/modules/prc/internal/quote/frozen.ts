@@ -28,6 +28,7 @@ import {
   type QuoteParams,
   type QuoteRequest,
   type QuoteTaxRule,
+  type TripFeeTier,
 } from './engine.js';
 import { QuoteError } from './errors.js';
 
@@ -82,6 +83,13 @@ function paramsJson(p: QuoteParams): Json {
     currency: { code: p.currency.code, exponent: p.currency.exponent },
     graceMinutes: p.graceMinutes,
     maxTripDays: p.maxTripDays,
+    tripFeeSchedule: {
+      tiers: p.tripFeeSchedule.tiers.map((t) => ({
+        maxDays: t.maxDays,
+        rate: ratioToString(t.rate),
+      })),
+      min: minor(p.tripFeeSchedule.min),
+    },
     taxRules: p.taxRules.map((t) => ({
       lineType: t.lineType,
       taxable: t.taxable,
@@ -222,12 +230,24 @@ function readInputs(inputs: string): { request: QuoteRequest; params: QuoteParam
       thirdParty: o['thirdParty'] === true,
     };
   });
+  const fee = obj(p['tripFeeSchedule'], 'params.tripFeeSchedule');
+  const feeTiers = fee['tiers'];
+  if (!Array.isArray(feeTiers)) throw mismatch('tripFeeSchedule.tiers : liste attendue');
+  const tiers: TripFeeTier[] = feeTiers.map((t: unknown, i) => {
+    const o = obj(t, `tripFeeSchedule.tiers[${i}]`);
+    return {
+      maxDays:
+        o['maxDays'] === null ? null : int(o['maxDays'], `tripFeeSchedule.tiers[${i}].maxDays`),
+      rate: parseRatio(text(o['rate'], `tripFeeSchedule.tiers[${i}].rate`)),
+    };
+  });
   const premium = optionalRatio(p['insurerPremiumShare'], 'insurerPremiumShare');
   const roadside = optionalRatio(p['insurerRoadsideShare'], 'insurerRoadsideShare');
   const params: QuoteParams = {
     currency,
     graceMinutes: int(p['graceMinutes'], 'graceMinutes'),
     maxTripDays: int(p['maxTripDays'], 'maxTripDays'),
+    tripFeeSchedule: { tiers, min: amount(fee['min'], 'tripFeeSchedule.min', currency) },
     taxRules,
     hostSharePct: parseRatio(text(p['hostSharePct'], 'hostSharePct')),
     deliverySharePct: parseRatio(text(p['deliverySharePct'], 'deliverySharePct')),

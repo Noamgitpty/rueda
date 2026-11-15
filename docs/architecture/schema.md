@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 102 migrations ; 114 tables ; 2 vues ; 614 politiques RLS ; 204 fonctions `SECURITY DEFINER` ; 209 autres fonctions.
+- 103 migrations ; 114 tables ; 2 vues ; 614 politiques RLS ; 204 fonctions `SECURITY DEFINER` ; 210 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -117,6 +117,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0099_booking_trip_state_machine` | AVL : machine à états du trip (SM-1, SM-1b), segment, conducteur principal, journal d'état. |
 | `0100_pricing_quote` | PRC : devis figés, lignes et versions de prix du trip. |
 | `0101_booking_host_trips_read` | AVL : lecture des trips de l'hôte (espace hôte, accueil A02 et réservations A05). |
+| `0102_pricing_trip_fee` | PRC : trip fee du voyageur recalculé par la base dans le devis figé. |
 
 ## Rôles
 
@@ -2340,7 +2341,7 @@ Politiques RLS :
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text]))`
-- `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text]))`
+- `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text, 'trip_fee_schedule'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
 - `iam_auth_otp_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = ANY (ARRAY['otp_ttl_min'::text, 'otp_max_attempts'::text, 'otp_lock_min'::text, 'otp_sms_fallback_s'::text]))`
@@ -4221,7 +4222,7 @@ Contraintes :
 - `pricing_quote_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
 - `pricing_quote_currency_format` : `CHECK (currency ~ '^[A-Z]{3}$'::text)`
 - `pricing_quote_days_valid` : `CHECK (billable_days >= 1)`
-- `pricing_quote_engine_known` : `CHECK (engine_version = 'prc.quote/1'::text)`
+- `pricing_quote_engine_known` : `CHECK (engine_version = ANY (ARRAY['prc.quote/1'::text, 'prc.quote/2'::text]))`
 - `pricing_quote_inputs_hash_format` : `CHECK (inputs_hash ~ '^[0-9a-f]{64}$'::text)`
 - `pricing_quote_legs_nonnegative` : `CHECK (leg_host_minor >= 0 AND leg_insurer_minor >= 0 AND leg_tax_third_party_minor >= 0 AND leg_platform_minor >= 0)`
 - `pricing_quote_legs_sum` : `CHECK ((leg_host_minor + leg_insurer_minor + leg_tax_third_party_minor + leg_platform_minor) = total_minor)`
@@ -5929,6 +5930,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.pricing_param(p_key text, p_country text)` | `jsonb` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.pricing_ratio(p_value jsonb)` | `numeric[]` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.pricing_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.pricing_trip_fee(p_trip_price numeric, p_days numeric, p_schedule jsonb)` | `numeric` | `migrator` | cmd_money_owner: EXECUTE ; migrator: EXECUTE |
 | `core.privacy_append_only()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.privacy_param(p_key text, p_country text)` | `jsonb` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_guard()` | `void` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
