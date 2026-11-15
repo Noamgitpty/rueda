@@ -5,6 +5,8 @@
  *
  * - devise et exposant : `currencies` / pays ;
  * - `grace_minutes`, `max_trip_days` ;
+ * - barème du trip fee : `trip_fee_schedule` (US-704 ; tranches `maxDays` / `rateBps`, minimum en
+ *   unités mineures de la devise du pays) ; absent ou mal formé ⇒ `QUOTE_UNAVAILABLE` (BLOCK) ;
  * - règles fiscales : `taxLines` du pays (`tax_line_config`, taux en points de base, `thirdParty`) ;
  * - part de l'hôte : `host_share_pct[plan]`, plan = celui de l'hôte, sinon `host_default_plan` ;
  *   `delivery_share_pct` / `extras_share_pct` facultatives, absentes ⇒ part de l'hôte (17 §7.2) ;
@@ -12,7 +14,14 @@
  *   contrat d'assureur. **Absentes ⇒ non figées** : le moteur refuse alors toute ligne de protection
  *   ou d'assistance non nulle (fail-closed, 08 E7).
  */
-import { createCurrencyRegistry, parseRatio, ratio, type Ratio } from '@rueda/money';
+import {
+  createCurrencyRegistry,
+  money,
+  parseRatio,
+  ratio,
+  type Currency,
+  type Ratio,
+} from '@rueda/money';
 import {
   ConfigError,
   resolveParam,
@@ -20,7 +29,7 @@ import {
   type ParamContext,
   type ParamJson,
 } from '../../../cfg/index.js';
-import type { QuoteParams, QuoteTaxRule } from './engine.js';
+import type { QuoteParams, QuoteTaxRule, TripFeeSchedule, TripFeeTier } from './engine.js';
 import { QuoteError } from './errors.js';
 
 export interface QuoteParamsContext {
@@ -89,6 +98,47 @@ function entry(key: string, value: ParamJson | undefined, name: string): ParamJs
   return (value as Readonly<Record<string, ParamJson>>)[name];
 }
 
+/**
+ * Barème du trip fee (`trip_fee_schedule`, 17 §7.2 ; unité `tiers_bps_and_min_minor`) :
+ * `{ tiers: [{ maxDays: entier ≥ 1 | null, rateBps: entier 0..10 000 }…], minMinor: "entier" }`.
+ * Forme contrôlée ici ; cohérence des tranches (bornes croissantes, `null` en dernier) contrôlée
+ * par le moteur (`tripFeeOf`). Aucune valeur par défaut : absent ⇒ `QUOTE_UNAVAILABLE`.
+ */
+function tripFeeSchedule(value: ParamJson, currency: Currency): TripFeeSchedule {
+  const key = 'trip_fee_schedule';
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw unavailable(`paramètre « ${key} » : objet attendu`);
+  }
+  const o = value as Readonly<Record<string, ParamJson>>;
+  const rawTiers = o['tiers'];
+  const minMinor = o['minMinor'];
+  if (!Array.isArray(rawTiers) || rawTiers.length === 0) {
+    throw unavailable(`paramètre « ${key} » : tranches attendues`);
+  }
+  if (typeof minMinor !== 'string' || !/^(0|[1-9][0-9]{0,17})$/.test(minMinor)) {
+    throw unavailable(`paramètre « ${key} » : minMinor entier en texte attendu`);
+  }
+  const tiers: TripFeeTier[] = rawTiers.map((raw: ParamJson, i: number) => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      throw unavailable(`paramètre « ${key} » : tranche ${i + 1} invalide`);
+    }
+    const t = raw as Readonly<Record<string, ParamJson>>;
+    const maxDays = t['maxDays'];
+    const rateBps = t['rateBps'];
+    if (
+      (maxDays !== null && (typeof maxDays !== 'number' || !Number.isSafeInteger(maxDays))) ||
+      typeof rateBps !== 'number' ||
+      !Number.isSafeInteger(rateBps) ||
+      rateBps < 0 ||
+      rateBps > 10_000
+    ) {
+      throw unavailable(`paramètre « ${key} » : tranche ${i + 1} invalide`);
+    }
+    return { maxDays: maxDays as number | null, rate: ratio(BigInt(rateBps), BPS) };
+  });
+  return { tiers, min: money(BigInt(minMinor), currency) };
+}
+
 /** Instantané des paramètres d'un devis dans un pays, à un instant donné. */
 export function resolveQuoteParams(config: CountryConfig, input: QuoteParamsContext): QuoteParams {
   const country = config.countries.get(input.country);
@@ -130,6 +180,7 @@ export function resolveQuoteParams(config: CountryConfig, input: QuoteParamsCont
     currency,
     graceMinutes: integer('grace_minutes', resolve(config, 'grace_minutes', ctx), 0),
     maxTripDays: integer('max_trip_days', resolve(config, 'max_trip_days', ctx), 1),
+    tripFeeSchedule: tripFeeSchedule(resolve(config, 'trip_fee_schedule', ctx), currency),
     taxRules,
     hostSharePct,
     deliverySharePct: delivery === undefined ? hostSharePct : share('delivery_share_pct', delivery),

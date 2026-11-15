@@ -1,5 +1,5 @@
 /**
- * Preuves de la recherche publique par zone, lieu, dates et heures (US-201, migration 0102) sous
+ * Preuves de la recherche publique par zone, lieu, dates et heures (US-201, migration 0103) sous
  * le rôle de production app_api (assertion L0-05 en tête de chaque connexion, withRole), en USD
  * (PA) et en PYG (PY). Chaque test crée ses propres personnes, sessions, comptes d'hôte, lieux,
  * véhicules et annonces par les VRAIES commandes (US-107, US-115), dans une transaction ANNULÉE :
@@ -228,7 +228,7 @@ const outcomeOf = (rows: readonly Row[]): string | undefined =>
 const rolledBack = (body: (tx: Tx) => Promise<void>) =>
   withRole('app_api', (client) => withTestTransaction(client, {}, body));
 
-describe('US-201 — recherche publique par zone, lieu, dates et heures (0102)', () => {
+describe('US-201 — recherche publique par zone, lieu, dates et heures (0103)', () => {
   it.each(byCountry)(
     '%s (%s) : annonce LISTED d’un hôte activable trouvée ; heures dans le fuseau du pays ; zone approximative seule, jamais l’adresse exacte (critères 3 et 4)',
     async (country, currency, cc) => {

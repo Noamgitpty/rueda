@@ -150,7 +150,6 @@ export const ES_MESSAGES = {
     one: 'Alquiler · {count} día',
     other: 'Alquiler · {count} días',
   },
-  'web.catalog.sample.line.tripFee': 'Tarifa del viaje',
   'web.catalog.sample.line.protection': 'Protección básica',
   'web.catalog.sample.line.tax': 'Impuestos',
   'web.catalog.sample.table.caption': 'Próximas entregas',
@@ -1147,6 +1146,9 @@ export const ES_MESSAGES = {
     'No podemos calcular el precio de este auto para estas fechas. Prueba otras fechas o elige otro auto.',
   'common.quote.datesInvalid': 'Revisa las fechas: la devolución debe ser después de la entrega.',
   'common.quote.changed': 'El precio cambió. Revisa el nuevo total antes de continuar.',
+  'common.quote.line.tripFee': 'Tarifa del viaje',
+  'common.quote.line.tripFeeHint':
+    'Cubre el servicio de la plataforma: la reserva, el pago seguro y la ayuda durante el viaje. Se reembolsa si cancelas sin costo.',
   'common.listing.unavailable':
     'No podemos guardar tu anuncio en este momento. Inténtalo más tarde.',
   'common.listing.photoUnavailable': 'Todavía no podemos recibir fotos. Inténtalo más tarde.',

@@ -9,7 +9,7 @@ Le voyageur doit trouver une voiture disponible près du bon endroit et au bon c
 
 ## Décision
 
-1. **Deux fonctions en base, lecture seule** (`SECURITY DEFINER`, propriétaire `catalog_cmd_owner`, déjà propriétaire de la fiche publique ; `EXECUTE` au seul `app_api`, route publique de l'API comme la fiche ; ni `app_worker` ni `app_anon`) : `core.catalog_public_areas(pays)` (villes et zones des annonces cherchables, fuseau du pays ; pays nul : tous) et `core.catalog_public_search(pays, ville, zone, début local, fin local, limite)`. Migration `0102_catalog_public_search`.
+1. **Deux fonctions en base, lecture seule** (`SECURITY DEFINER`, propriétaire `catalog_cmd_owner`, déjà propriétaire de la fiche publique ; `EXECUTE` au seul `app_api`, route publique de l'API comme la fiche ; ni `app_worker` ni `app_anon`) : `core.catalog_public_areas(pays)` (villes et zones des annonces cherchables, fuseau du pays ; pays nul : tous) et `core.catalog_public_search(pays, ville, zone, début local, fin local, limite)`. Migration `0103_catalog_public_search`.
 2. **Annonce cherchable** : `LISTED`, véhicule non libéré, **hôte activable** (`core.catalog_search_host_open`) : compte `ACTIVE`, titulaire sans restriction active (la pose d'un hold la refuse aussi), `p2p_private_hosts_enabled` et `insurer_contract_active` ouverts dans le pays (absent = false, 17 §0.1). En production, tant que le fondateur n'a rien ouvert, la recherche est vide. **Réservation immédiate seulement** (`instant_book`) : tant que le cycle sur demande (`REQUEST`, US-223) n'existe pas, une annonce sur demande serait réservée comme immédiate ; elle est écartée de la recherche et des zones (consigne de l'orchestrateur, revue d'US-219 ; fail-closed, PROPOSÉ, **à lever par US-223**).
 3. **Colonnes C0 seulement**, celles de la fiche : prix, véhicule, ville, zone saisie par l'hôte, point arrondi au centième de degré ; jamais le nom ni l'adresse du lieu, son point exact, la plaque, le VIN, le compte d'hôte ni l'occupation (19 US-201 critère 4).
 4. **Heures** : saisies en heure LOCALE du lieu (`AAAA-MM-JJTHH:MM`, pas de 30 min, BR-BOOK-03), converties par la base dans le fuseau du pays (contrôles) et du véhicule (disponibilité) ; l'instant UTC rendu porte le fuseau du véhicule, que le site utilise pour l'affichage (critère 3). Horloge : `platform.now()`.
@@ -37,4 +37,4 @@ Le voyageur doit trouver une voiture disponible près du bon endroit et au bon c
 
 ## Retour arrière
 
-Voir l'en-tête de `0102_catalog_public_search.sql` ; côté API, ne plus monter `CatSearchModule` (les routes disparaissent) ; côté site, retirer le formulaire de S01 et la page `/search`.
+Voir l'en-tête de `0103_catalog_public_search.sql` ; côté API, ne plus monter `CatSearchModule` (les routes disparaissent) ; côté site, retirer le formulaire de S01 et la page `/search`.

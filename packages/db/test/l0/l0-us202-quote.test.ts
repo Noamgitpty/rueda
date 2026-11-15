@@ -8,9 +8,13 @@
  * `golden_vectors.json`) et de 08 / 16 :
  * - PA : trip A de 08 sans protection ni assistance (lignes de T01) : taxe par ligne 840 + 126 = 966
  *   (T01), jambe HOST 13 125 (TJ01 : 9 000 + 3 000 + 1 125, sans part de la protection) ;
- * - PY : trip D2 de 08 sans protection (lignes de T40) : 333 334 × 3 = 1 000 002, taxe 100 000 +
- *   12 550 = 112 550 (T40), jambe HOST 787 501 (TJ09a : allocHost(1 000 002 ; 3/4) = 750 001,
- *   égalité exacte, + 37 500) ;
+ * - PY : trip D2 de 08 sans protection (lignes de T40) : 333 334 × 3 = 1 000 002 ; depuis US-704
+ *   (migration 0102, moteur prc.quote/2) le trip fee est CALCULÉ par le barème du pays (08
+ *   BR-PRICE-06, 15 % sur 3 j : roundHalfUp(150 000,3) = 150 000, le F de J et NP de 08 E7) et non
+ *   plus le F 125 500 donné de D2 ; taxe par ligne 100 000 (T40) + 15 000 (taxe de F de J, 08 E7) ;
+ *   jambe HOST 787 501 inchangée (TJ09a : allocHost(1 000 002 ; 3/4) = 750 001 + 37 500 : F
+ *   n'entre jamais dans HOST) ;
+ * - PA : F = 1 800 du trip A est aussi celui du barème du pays (15 % de 12 000) ;
  * - totaux = Σ lignes + Σ taxes (08 BR-PRICE-13), PLATFORM = complément (08 E7) ;
  * - jours facturables TA07 (16 A.8.1, `grace_minutes` = 29) : 3 j 29 min ⇒ 3, 3 j 30 min ⇒ 4 ;
  * - critère 5 (19 US-202) : groupe third_party ⇒ jambe TAX_THIRD_PARTY = taxe du groupe ;
@@ -33,7 +37,9 @@ const MIN = 60_000;
 
 interface Vector {
   readonly daily: number;
-  /** Lignes autres que le prix du trip (unités mineures). */
+  /** Trip fee attendu sur 3 jours (calculé par la base, jamais fourni : US-704). */
+  readonly fee: number;
+  /** Lignes autres que le prix du trip et le trip fee (unités mineures). */
   readonly lines: Readonly<Record<string, number>>;
   readonly taxes: Readonly<Record<string, number>>;
   readonly host: number;
@@ -43,14 +49,16 @@ interface Vector {
 const VECTORS: Readonly<Record<string, Vector>> = {
   PA: {
     daily: 4_000,
-    lines: { TRIP_FEE: 1_800, EXTRAS: 1_500, ADDITIONAL_DRIVER_FEE: 1_500, DELIVERY_FEE: 4_000 },
+    fee: 1_800,
+    lines: { EXTRAS: 1_500, ADDITIONAL_DRIVER_FEE: 1_500, DELIVERY_FEE: 4_000 },
     taxes: { TRIP_PRICE: 840, TRIP_FEE: 126 },
     host: 13_125,
   },
   PY: {
     daily: 333_334,
-    lines: { TRIP_FEE: 125_500, DELIVERY_FEE: 50_000 },
-    taxes: { TRIP_PRICE: 100_000, TRIP_FEE: 12_550 },
+    fee: 150_000,
+    lines: { DELIVERY_FEE: 50_000 },
+    taxes: { TRIP_PRICE: 100_000, TRIP_FEE: 15_000 },
     host: 787_501,
   },
 };
@@ -95,7 +103,7 @@ function docs(c: CountryCase, groups: ReadonlyMap<string, string>, b: Build = {}
   const days = b.days ?? 3;
   const daily = b.daily ?? v.daily;
   const extra = b.lines ?? v.lines;
-  const amounts: Record<string, number> = { ...extra, TRIP_PRICE: v.daily * days };
+  const amounts: Record<string, number> = { ...extra, TRIP_PRICE: v.daily * days, TRIP_FEE: v.fee };
   const lines = ORDER.filter((t) => (amounts[t] ?? 0) !== 0).map((t) => ({
     type: t,
     amount: String(amounts[t]),
@@ -107,7 +115,7 @@ function docs(c: CountryCase, groups: ReadonlyMap<string, string>, b: Build = {}
   const total = subtotal + tax;
   const third = b.thirdParty ? tax : 0;
   const outputs: Record<string, unknown> = {
-    engineVersion: 'prc.quote/1',
+    engineVersion: 'prc.quote/2',
     currency: c.currency,
     billableDays: days,
     lines,
@@ -235,7 +243,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         expect(r.outcome).toBe('DONE');
         const v = VECTORS[c.country]!;
         const tax = Object.values(v.taxes).reduce((a, x) => a + x, 0);
-        const subtotal = v.daily * 3 + Object.values(v.lines).reduce((a, x) => a + x, 0);
+        const subtotal = v.daily * 3 + v.fee + Object.values(v.lines).reduce((a, x) => a + x, 0);
         const q = (await tx.query('SELECT * FROM test_fixture.us202_quote_row($1)', [r.quote_id]))
           .rows[0] as Record<string, unknown>;
         expect(q['status']).toBe('FROZEN');
@@ -252,10 +260,9 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           await tx.query('SELECT * FROM test_fixture.us202_quote_lines($1)', [r.quote_id])
         ).rows as Record<string, unknown>[];
         expect(lines.map((x) => [x['line_type'], String(x['tax_minor'])])).toEqual(
-          ORDER.filter((t) => t === 'TRIP_PRICE' || (v.lines[t] ?? 0) !== 0).map((t) => [
-            t,
-            String(v.taxes[t] ?? 0),
-          ]),
+          ORDER.filter(
+            (t) => t === 'TRIP_PRICE' || t === 'TRIP_FEE' || (v.lines[t] ?? 0) !== 0,
+          ).map((t) => [t, String(v.taxes[t] ?? 0)]),
         );
         expect(lines.every((x) => x['third_party'] === false)).toBe(true);
       });

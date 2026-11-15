@@ -56,6 +56,11 @@ export interface PriceLine {
   readonly id: string;
   readonly label: string;
   readonly amount: MinorUnitAmount;
+  /**
+   * Explication courte de la ligne, sous son libellé (10b UX-17 : chaque poste compris avant le
+   * paiement ; ex. ce que couvre le trip fee, US-704). Texte déjà traduit.
+   */
+  readonly hint?: string | undefined;
 }
 
 export interface PriceBreakdownProps {
@@ -75,7 +80,10 @@ export function PriceBreakdown({ i18n, lines, total, open }: PriceBreakdownProps
       <dl className={styles['lines']}>
         {lines.map((line) => (
           <div key={line.id} className={styles['line']}>
-            <dt>{line.label}</dt>
+            <dt>
+              {line.label}
+              {line.hint && <span className={styles['hint']}>{line.hint}</span>}
+            </dt>
             <dd>{i18n.money(line.amount)}</dd>
           </div>
         ))}

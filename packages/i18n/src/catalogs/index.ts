@@ -93,11 +93,15 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 45 : espace hôte, accueil et réservations de l'hôte (US-219, ADR-128) : `web.a02.*`
  (prochaines remises et retours), `web.a05.*` (onglets, filtres, voyageur minimisé, gains estimés),
  `common.hostTrips.*` (refus des routes des trips de l'hôte). La version 44 n'est pas utilisée.
- Version 46 : recherche publique par zone, lieu, dates et heures (US-201, ADR-127) :
+ Version 47 : trip fee du voyageur (US-704, ADR-129) : `common.quote.line.tripFee` (libellé de la
+ ligne du détail du prix) et `common.quote.line.tripFeeHint` (ce qu'il couvre, remboursé en cas
+ d'annulation gratuite) ; `common.quote.*` de la version 43 passés au tutoiement en français
+ (10b UX-12).
+ Version 48 : recherche publique par zone, lieu, dates et heures (US-201, ADR-127) :
  `common.search.*` (refus de la recherche) et `web.search.*`, `web.listing.dates.*` (S01, liste des
- résultats, dates reprises sur la fiche).
+ résultats, dates reprises sur la fiche). La version 46 n'est pas utilisée.
  */
-export const CATALOG_VERSION = 46;
+export const CATALOG_VERSION = 48;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {
