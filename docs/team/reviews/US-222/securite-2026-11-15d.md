@@ -1,6 +1,6 @@
 # Revue securite — US-222 « recalage des spécifications du lot 2 » (PR n° 166) — 2026-11-15
 
-Relecteur : revue-securite / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5; revue dégradée : famille B indisponible, TECH-007)
+Relecteur : revue-securite / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5 ; revue dégradée : famille B indisponible, TECH-007)
 Entrées : 734248df99cc895b56191053fd316be73a2afeb2..19ab6fcaca880446aac9b5e57071682b80e6decf
 
 Contexte : delta `c1f3e12c..19ab6fca`. `registry.json` : une seule ligne modifiée ; aucun fichier de `.github/`, `scripts/ci/`, `scripts/team/` ni `review-requirements.json` touché ; `check-spec-tools.py` : OK (12 outils).
