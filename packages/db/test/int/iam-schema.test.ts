@@ -54,7 +54,7 @@ const IAM_POLICIES: Record<(typeof IAM_TABLES)[number], string> = {
   // US-109 (0064) : restrictions manuelles par le gestionnaire de console d'iam_auth_owner, lues
   // par la pose d'un hold (cmd_hold_owner) et par la fiche 360° (iam_staff_owner)
   // US-108 (0081) : signaux du compte lus par l'approbation automatique (kyc_cmd_owner)
-  // US-201 (0101) : restriction active du titulaire lue par la recherche publique (catalog_cmd_owner)
+  // US-201 (0102) : restriction active du titulaire lue par la recherche publique (catalog_cmd_owner)
   iam_restriction:
     'catalog_cmd_search_read:catalog_cmd_owner;cmd_hold_read:cmd_hold_owner;iam_auth_insert:iam_auth_owner;iam_auth_select:iam_auth_owner;iam_auth_update:iam_auth_owner;iam_staff_select:iam_staff_owner;kyc_cmd_host_signal_read:kyc_cmd_owner;migrator_all:migrator',
   // US-125 (0073) : session, rôles et matrice lus par les commandes des interrupteurs

@@ -1,6 +1,6 @@
 # CAT — Catalog / Listings (`apps/api/src/modules/cat`)
 
-**CAT — Catalog / Listings** : lieux, véhicules, annonces, photos, politique de caution, import CSV, flux iCal. Dépendances autorisées : IAM, KYC, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 CAT --> KYC).
+**CAT — Catalog / Listings** : lieux, véhicules, annonces, photos, politique de caution, import CSV, flux iCal. Dépendances autorisées : IAM, KYC, CTR, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 CAT --> KYC ; CTR : `TermsGuard` des trips de l'hôte, écart assumé d'ADR-128, US-219).
 
 ## Responsabilité
 
@@ -8,7 +8,7 @@ CAT décrit l'offre de l'hôte : lieux de remise, véhicules, documents du véhi
 
 CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe pas le prix d'un trip (PRC). L'import CSV d'une flotte est historique depuis le pivot P2P (`fleet_import_job`, 17 §3.2.3).
 
-État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout au catalogue est livrée par US-114 (ADR-104 : un véhicule hors catalogue ouvre sa demande, son annonce n'était pas publiable tant que l'ops ne l'avait pas rattaché à une variante, levé par US-118 et DEC-FONDATEUR-22 ; route `POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request` ; `GET …/vehicles` rend `catalogRequest`), la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115). La **recherche publique** par zone, lieu, dates et heures est livrée par US-201 (ADR-128, ci-dessous) : `CatSearchModule`, routes `/search` et `/search/areas`, écran S01 et liste des résultats `/search`.
+État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout au catalogue est livrée par US-114 (ADR-104 : un véhicule hors catalogue ouvre sa demande, son annonce n'était pas publiable tant que l'ops ne l'avait pas rattaché à une variante, levé par US-118 et DEC-FONDATEUR-22 ; route `POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request` ; `GET …/vehicles` rend `catalogRequest`), la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), les **trips de l'hôte** (espace hôte A02 / A05, lecture seule) avec US-219 (ADR-128, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115). La **recherche publique** par zone, lieu, dates et heures est livrée par US-201 (ADR-127, ci-dessous) : `CatSearchModule`, routes `/search` et `/search/areas`, écran S01 et liste des résultats `/search`.
 
 ## Entités
 
@@ -83,19 +83,19 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - Console (SUP) : `POST /console/queues/items/{id}/listing/decide` (`APPROVE` revérifié en base, `REJECT` motivé : `PHOTO_QUALITY`, `ADDRESS_VISIBLE`, `VEHICLE_MISMATCH`, `PROHIBITED_CONTENT`).
 - Migrations `0084_catalog_listing_publication` et `0085_config_listing_review_params` (générée).
 
-### Recherche publique par zone, lieu, dates et heures (US-201, ADR-128)
+### Recherche publique par zone, lieu, dates et heures (US-201, ADR-127)
 
 | Fichier                                | Rôle                                                                                                                                                                                          |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `internal/search/model.ts`             | forme de la requête : pays, ville (et zone) de la liste, heures LOCALES `AAAA-MM-JJTHH:MM` au pas de 30 min ; fin ≤ début ⇒ `SEARCH_DATES_INVALID` ; lieu absent ⇒ `SEARCH_LOCATION_REQUIRED` |
-| `internal/search/store.ts`             | port `SearchStore`, `PgSearchStore` (fonctions `core.catalog_public_search` et `core.catalog_public_areas` de 0101, paramètres liés), `UnavailableSearchStore` (503)                          |
+| `internal/search/store.ts`             | port `SearchStore`, `PgSearchStore` (fonctions `core.catalog_public_search` et `core.catalog_public_areas` de 0102, paramètres liés), `UnavailableSearchStore` (503)                          |
 | `internal/search/search.service.ts`    | `SearchService` : forme, sonde de disponibilité (port `AvailabilityProbeLimiter`), base ; issues vers codes stables                                                                           |
 | `internal/search/search.controller.ts` | `GET /search/areas?country=` et `GET /search?country=&city=&area=&start=&end=[&limit=]`, publiques, sans cache ; `Retry-After` sur 429                                                        |
 | `internal/search/cat-search.module.ts` | `CatSearchModule.register(options)`, `postgresSearchAdapters(db, probe)` ; sans options : 503 partout                                                                                         |
 | `testing/fake-search-store.ts`         | FAKE du magasin (contrat HTTP seulement)                                                                                                                                                      |
 
 - **Cherchable** : annonce `LISTED` à réservation immédiate (`instant_book` ; sur demande écartée jusqu'à US-223, PROPOSÉ) d'un hôte activable (compte `ACTIVE`, titulaire sans restriction, `p2p_private_hosts_enabled` et `insurer_contract_active` ouverts : absents = false, donc vide en production aujourd'hui), libre sur la période plus le tampon (`buffer_minutes`) selon la sonde `core.catalog_vehicle_is_free` (RLS-17, arrondie à l'heure), au-delà du préavis du lieu. Colonnes C0 seulement : jamais nom, adresse ou point exact du lieu, plaque, VIN, compte d'hôte, occupation (L1-PM-19).
-- **Codes** : de 16 SRC-001 `SEARCH_DATES_INVALID`, `SEARCH_LOCATION_REQUIRED`, `SEARCH_DURATION_EXCEEDED` (422) ; PROPOSÉ `SEARCH_UNAVAILABLE` (503) ; `REQUEST_INVALID` (400) ; `RATE_LIMITED` (429, corps de l'anti-abus) ; messages `common.search.*` en es, en, fr et pt (catalogue v45).
+- **Codes** : de 16 SRC-001 `SEARCH_DATES_INVALID`, `SEARCH_LOCATION_REQUIRED`, `SEARCH_DURATION_EXCEEDED` (422) ; PROPOSÉ `SEARCH_UNAVAILABLE` (503) ; `REQUEST_INVALID` (400) ; `RATE_LIMITED` (429, corps de l'anti-abus) ; messages `common.search.*` en es, en, fr et pt (catalogue v46).
 - **Paramètres lus** : `max_trip_days`, `buffer_minutes`, `advance_notice_minutes` (base), `availability_probe_per_minute` (API, par IP et par minute, garde anti-abus de RISK câblée par `main.ts` : `availabilityProbeLimiter`) ; aucun créé.
 - **Écrans** (`apps/web`) : S01 `/` (formulaire « Dónde lo recoges / Desde / Hasta », zones de l'API), résultats `/search` (période dans le fuseau du véhicule, lien vers la fiche avec `?start=&end=`), fiche S03 qui reprend les dates.
 
@@ -124,3 +124,14 @@ Consommés (cible 17 §4.5) : `kyc.host_verification.decided` (KYC), `review.pub
 - Preuves L0 : `packages/db/test/l0/l0-us114-catalog-addition.test.ts` (fixture `9988_test_us114_catalog_addition_fixtures.sql`) ; `packages/db/test/l0/l0-us113-vehicle-catalog.test.ts` ; fixture `packages/db/test-migrations/9970_test_us113_catalog_fixtures.sql` ; `packages/db/test/l0/l0-us115-host-listings.test.ts` ; `packages/db/test/l0/l0-us201-public-search.test.ts` (recherche) ; fixture `packages/db/test-migrations/9985_test_us115_catalog_host_fixtures.sql`.
 
 `test:int` et `test:l0` demanderont PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».
+
+## Trips de l'hôte (US-219, ADR-128)
+
+Lecture seule de l'espace hôte (16 HDB-001 / HDB-002, écrans A02 et A05) : `GET /host/accounts/{orgId}/trips` (onglet `tab` = `UPCOMING`, `IN_PROGRESS`, `DONE`, `CANCELLED` ; filtres `vehicleId`, `from`, `to` en dates locales du trip) et `GET /host/accounts/{orgId}/trips/{tripId}`, gardées par `SessionGuard` puis `TermsGuard` (segment `trips` : route de réservation, US-102).
+
+- La base juge tout : `core.booking_host_trips` (migration 0102, propriétaire `host_view_owner`, EXECUTE `app_api`) ne rend que les trips d'un compte **titulaire** de la session ; un autre compte rend `FORBIDDEN` (404 `HOST_ACCOUNT_NOT_FOUND`), un trip d'un autre hôte aucune ligne (404 `TRIP_NOT_FOUND`).
+- Du voyageur, seuls le prénom, l'âge, la note (nulle tant que les avis n'existent pas) et le statut de vérification (`host_guest_v`, 17 §2.3) ; jamais son identifiant, son permis ni une pièce.
+- Gains estimés : jambe `HOST` de l'opération de conversion, relue telle quelle (`hostEarningsMinor`, chaîne en unités mineures) avec l'exposant de la devise du pays ; nulle pour un trip annulé.
+- Véhicule et lieu de remise joints par les lectures d'US-115 (`vehicles`, `locations`).
+- Fichiers : `internal/host-trips/` (`store.ts` port et adaptateur, `host-trips.service.ts`, `host-trips.controller.ts`) ; FAKE `testing/fake-host-trip-store.ts` ; contrat `testing/host-trips.contract.test.ts` ; preuves base `packages/db/test/l0/l0-us219-host-trips.test.ts`.
+- Mode `REQUEST` (critères 4 à 6 de 19 US-219) : non livré ici (voir ADR-128 et la passation d'US-219).

@@ -662,6 +662,11 @@ async function requestOf(
       };
     case 'DELETE /host/accounts/{orgId}/listings/{listingId}':
       return { method: 'DELETE', path: `/host/accounts/${id}/listings/${randomUUID()}`, body: {} };
+    // trips de l'hôte (US-219) : lecture seule ; trip inconnu du compte ⇒ 404
+    case 'GET /host/accounts/{orgId}/trips':
+      return { method: 'GET', path: `/host/accounts/${id}/trips` };
+    case 'GET /host/accounts/{orgId}/trips/{tripId}':
+      return { method: 'GET', path: `/host/accounts/${id}/trips/${randomUUID()}` };
     // calendrier de l'hôte (US-119) : véhicule, lieu et blocage inconnus du compte ⇒ 404
     case 'GET /host/accounts/{orgId}/vehicles/{vehicleId}/calendar':
       return { method: 'GET', path: `/host/accounts/${id}/vehicles/${randomUUID()}/calendar` };

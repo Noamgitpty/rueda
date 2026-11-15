@@ -198,7 +198,7 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
-            // recherche publique (US-201, 0101) : durée maximale d'un trip et tampon seulement
+            // recherche publique (US-201, 0102) : durée maximale d'un trip et tampon seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_search_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),

@@ -90,11 +90,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.trip.concurrentUpdate` et `common.trip.noShowTooEarly` (refus des commandes du trip).
  Version 43 : devis versionné (US-202, ADR-125) : `common.quote.unavailable`,
  `common.quote.datesInvalid` et `common.quote.changed` (route du devis).
- Version 45 : recherche publique par zone, lieu, dates et heures (US-201, ADR-128) :
+ Version 45 : espace hôte, accueil et réservations de l'hôte (US-219, ADR-128) : `web.a02.*`
+ (prochaines remises et retours), `web.a05.*` (onglets, filtres, voyageur minimisé, gains estimés),
+ `common.hostTrips.*` (refus des routes des trips de l'hôte). La version 44 n'est pas utilisée.
+ Version 46 : recherche publique par zone, lieu, dates et heures (US-201, ADR-127) :
  `common.search.*` (refus de la recherche) et `web.search.*`, `web.listing.dates.*` (S01, liste des
- résultats, dates reprises sur la fiche). La version 44 est prise par US-219 (PR #162).
+ résultats, dates reprises sur la fiche).
  */
-export const CATALOG_VERSION = 45;
+export const CATALOG_VERSION = 46;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

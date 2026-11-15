@@ -84,7 +84,7 @@ async function bootstrap(): Promise<void> {
   // Vérification d'identité (US-105) : commandes core.kyc_* sous app_api ; AUCUN fournisseur
   // d'identité tant que le registre LEG-010 n'est pas validé (OQ-MK-09) : ouverture 503, rappels 404.
   const kyc = postgresKycAdapters(pool);
-  // Recherche publique (US-201) : fonctions core.catalog_public_search et core.catalog_public_areas de 0101 sous app_api ;
+  // Recherche publique (US-201) : fonctions core.catalog_public_search et core.catalog_public_areas de 0102 sous app_api ;
   // sonde de disponibilité limitée par IP par la garde anti-abus (availability_probe_per_minute).
   const search = postgresSearchAdapters(pool, availabilityProbeLimiter(risk.guard));
   const app = await NestFactory.create<NestExpressApplication>(

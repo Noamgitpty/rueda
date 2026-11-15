@@ -129,6 +129,13 @@
       "story": "US-062"
     },
     {
+      "signature": "core.booking_host_trips(bytea,uuid,text,uuid,date,date,uuid,integer)",
+      "family": "host_view",
+      "owner": "host_view_owner",
+      "execute": ["app_api"],
+      "story": "US-219"
+    },
+    {
       "signature": "core.catalog_cmd_add_listing_photo(bytea,uuid,uuid,uuid,uuid,text,bigint,bytea)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
@@ -650,8 +657,8 @@
       "signature": "core.iam_host_accounts(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api", "catalog_cmd_owner", "kyc_cmd_owner"],
-      "story": "US-107, US-115, US-123"
+      "execute": ["app_api", "catalog_cmd_owner", "host_view_owner", "kyc_cmd_owner"],
+      "story": "US-107, US-115, US-123, US-219"
     },
     {
       "signature": "core.iam_phone_otp_state(bytea)",

@@ -9184,6 +9184,222 @@
           }
         }
       }
+    },
+    "/host/accounts/{orgId}/trips": {
+      "get": {
+        "operationId": "hostTrips",
+        "tags": ["cat"],
+        "summary": "Trips du compte d'hôte de la session (A02, A05) : onglet, véhicule, période locale ; du voyageur, prénom, âge, note et vérification seulement ; gains estimés = jambe HOST de la conversion (US-219)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tab",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": ["UPCOMING", "IN_PROGRESS", "DONE", "CANCELLED"]
+            }
+          },
+          {
+            "name": "vehicleId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trips du compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostTrips"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide (onglet, véhicule, date, clé inconnue, période inversée)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte inconnu (ou d'un autre hôte : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_TRIPS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/host/accounts/{orgId}/trips/{tripId}": {
+      "get": {
+        "operationId": "hostTrip",
+        "tags": ["cat"],
+        "summary": "Un trip du compte d'hôte de la session (A05, détail) : mêmes champs que la liste (US-219)",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trip du compte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostTripReply"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Compte ou trip inconnus (ou d'un autre hôte : même réponse, 17 §2.3 point 5)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "enum": ["HOST_ACCOUNT_NOT_FOUND", "TRIP_NOT_FOUND"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : rien n'est lu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_TRIPS_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -14553,6 +14769,152 @@
           },
           "dataBase64": {
             "type": "string"
+          }
+        }
+      },
+      "HostTripMarket": {
+        "type": "object",
+        "required": ["currency", "currencyExponent"],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "currencyExponent": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "HostTrip": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tripId",
+          "reference",
+          "tab",
+          "status",
+          "vehicle",
+          "handoverPlace",
+          "startsAt",
+          "endsAt",
+          "timezone",
+          "bookedAt",
+          "paymentStatus",
+          "currency",
+          "hostEarningsMinor",
+          "guest"
+        ],
+        "properties": {
+          "tripId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "reference": {
+            "type": ["string", "null"]
+          },
+          "tab": {
+            "enum": ["UPCOMING", "IN_PROGRESS", "DONE", "CANCELLED"]
+          },
+          "status": {
+            "type": "string",
+            "pattern": "^[A-Z_]+$"
+          },
+          "vehicle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "makeText", "modelText", "year", "plate"],
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              "makeText": {
+                "type": ["string", "null"]
+              },
+              "modelText": {
+                "type": ["string", "null"]
+              },
+              "year": {
+                "type": ["integer", "null"]
+              },
+              "plate": {
+                "type": ["string", "null"]
+              }
+            }
+          },
+          "handoverPlace": {
+            "type": ["string", "null"]
+          },
+          "startsAt": {
+            "type": "string"
+          },
+          "endsAt": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "bookedAt": {
+            "type": "string"
+          },
+          "paymentStatus": {
+            "enum": ["CONFIRMED", "REFUNDED_PARTIAL", "REFUNDED"]
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "hostEarningsMinor": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]+$"
+          },
+          "guest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["firstName", "ageYears", "rating", "verified"],
+            "properties": {
+              "firstName": {
+                "type": ["string", "null"]
+              },
+              "ageYears": {
+                "type": ["integer", "null"]
+              },
+              "rating": {
+                "type": ["string", "null"]
+              },
+              "verified": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "HostTrips": {
+        "type": "object",
+        "required": ["market", "trips"],
+        "additionalProperties": false,
+        "properties": {
+          "market": {
+            "$ref": "#/components/schemas/HostTripMarket"
+          },
+          "trips": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HostTrip"
+            }
+          }
+        }
+      },
+      "HostTripReply": {
+        "type": "object",
+        "required": ["market", "trip"],
+        "additionalProperties": false,
+        "properties": {
+          "market": {
+            "$ref": "#/components/schemas/HostTripMarket"
+          },
+          "trip": {
+            "$ref": "#/components/schemas/HostTrip"
           }
         }
       }

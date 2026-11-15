@@ -411,6 +411,14 @@
       "acces": "session",
       "idor": "véhicule, lieu ou blocage d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND ; créneau pris : 409 sans détail de l'occupation (17 §2.3 point 5, L1-PM-11, L1-PM-22 ; preuves base : l0-us119)"
     },
+    "GET /host/accounts/{orgId}/trips": {
+      "acces": "session",
+      "idor": "compte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND ; trip d'un autre hôte ou inconnu : 404 TRIP_NOT_FOUND ; lecture seule, du voyageur seulement prénom, âge, note et vérification (17 §2.3 point 5, host_guest_v, L2-PM-10 ; preuves base : l0-us219)"
+    },
+    "GET /host/accounts/{orgId}/trips/{tripId}": {
+      "acces": "session",
+      "idor": "compte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND ; trip d'un autre hôte ou inconnu : 404 TRIP_NOT_FOUND ; lecture seule, du voyageur seulement prénom, âge, note et vérification (17 §2.3 point 5, host_guest_v, L2-PM-10 ; preuves base : l0-us219)"
+    },
     "GET /host/accounts/{orgId}/vehicles/{vehicleId}/calendar": {
       "acces": "session",
       "idor": "véhicule, lieu ou blocage d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND ; créneau pris : 409 sans détail de l'occupation (17 §2.3 point 5, L1-PM-11, L1-PM-22 ; preuves base : l0-us119)"
