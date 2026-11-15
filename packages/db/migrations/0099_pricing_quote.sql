@@ -161,10 +161,16 @@ CREATE FUNCTION core.pricing_record_guard()
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 BEGIN
-  IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'pricing_quote'
-     AND OLD.status = 'FROZEN' AND NEW.status = 'SUPERSEDED' AND NEW.superseded_at IS NOT NULL
-     AND (to_jsonb(NEW) - 'status' - 'superseded_at') = (to_jsonb(OLD) - 'status' - 'superseded_at') THEN
-    RETURN NEW;
+  -- IF imbriqués : PL/pgSQL n'évalue pas AND en court-circuit garanti, et OLD.status n'existe que
+  -- sur pricing_quote (42703 sur les lignes) ; NEW n'est défini qu'en UPDATE.
+  IF TG_OP = 'UPDATE' THEN
+    IF TG_TABLE_NAME = 'pricing_quote' THEN
+      IF OLD.status = 'FROZEN' AND NEW.status = 'SUPERSEDED' AND NEW.superseded_at IS NOT NULL
+         AND (to_jsonb(NEW) - 'status' - 'superseded_at')
+             = (to_jsonb(OLD) - 'status' - 'superseded_at') THEN
+        RETURN NEW;
+      END IF;
+    END IF;
   END IF;
   RAISE EXCEPTION 'pricing record is immutable'
     USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'pricing_record_immutable';
