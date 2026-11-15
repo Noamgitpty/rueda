@@ -17,9 +17,10 @@ AVL ne calcule ni prix (PRC) ni règlement (STL), et n'appelle jamais le PSP lui
 - US-023 : commandes de pose et de libération des holds, tâche d'expiration (ADR-063) ;
 - US-024 : intention de paiement, conversion gardée, ré-acquisition, compensation, balayages (ADR-065) ;
 - US-127 : auto-réservation refusée à la pose et à la conversion pour l'hôte, les co-hôtes de tous ses comptes et les comptes liés (migration 0080, ADR-110). **Contrat de la future route de pose du hold** : sur `SELF_BOOKING_FORBIDDEN`, appeler `core.booking_cmd_report_self_booking(véhicule)` dans une **nouvelle** transaction (signalement à l'ops), puis afficher `common.booking.selfBookingForbidden.*`, sans autre détail ;
+- US-207 : machine à états du trip (SM-1) en base : table des transitions, commandes `core.booking_cmd_trip_transition` et `core.booking_cmd_trip_cancel` (travailleur `trip_lifecycle`), journal d'état, segment et conducteur principal, `trip.status_changed` et `trip.cancellation.qualified` (migration 0099, ADR-125). Les routes du voyageur, de l'hôte et de l'ops et le règlement dans la même transaction arrivent avec US-215 / US-224 ;
 - US-025 : oracle de production C12 (migration 0045) et sa tâche périodique `internal/production-oracle.ts` (ADR-068) ; fuzz C11 (`packages/db/test/l0/l0-c11-fuzz.test.ts`).
 
-Détail des commandes : `packages/db/README.md`, sections « Table d'occupation unique », « Holds de checkout et commandes » et « Conversion gardée, ré-acquisition et compensation ». Machine à états du trip : US-207. iCal : US-510 (hors produit pour l'instant).
+Détail des commandes : `packages/db/README.md`, sections « Table d'occupation unique », « Holds de checkout et commandes » et « Conversion gardée, ré-acquisition et compensation ». Machine à états du trip : section « Machine à états du trip » (US-207). iCal : US-510 (hors produit pour l'instant).
 
 ## Entités
 
@@ -30,10 +31,10 @@ Détail des commandes : `packages/db/README.md`, sections « Table d'occupation 
 | `checkout_hold`       | table `core.booking_checkout_hold` (migration 0004, commandes 0037, 0040, 0041) |
 | `hold_compensation`   | table `core.booking_hold_compensation` (migration 0004)                         |
 | `payment_disposition` | table `core.booking_payment_disposition` (migration 0006)                       |
-| `trip`                | table `core.booking_trip` (migration 0004)                                      |
-| `trip_segment`        | cible 17, pas encore créée                                                      |
-| `trip_driver`         | cible 17, pas encore créée                                                      |
-| `trip_state_log`      | cible 17, pas encore créée                                                      |
+| `trip`                | table `core.booking_trip` (migration 0004, transitions 0099)                    |
+| `trip_segment`        | table `core.booking_trip_segment` (migration 0099, un segment en bêta)          |
+| `trip_driver`         | table `core.booking_trip_driver` (migration 0099, `PRIMARY` seul en bêta)       |
+| `trip_state_log`      | table `core.booking_trip_state_log` (migration 0099, ajout seul)                |
 | `ical_conflict`       | cible 17, pas encore créée                                                      |
 
 Hors 17 §3.2.4 : `core.booking_disposition_repair_log` (migration 0041, essais du balayage des dispositions). Droits des travailleurs : 0007.
@@ -45,10 +46,11 @@ Déjà émis par le code (écrits dans `core.outbox_outbox_event` par les foncti
 - `booking.hold.created`, `booking.hold.released`, `booking.hold.release_deferred`, `booking.hold.expired` (0037, 0040, 0041) ;
 - `booking.hold.payment_in_flight` (0040) ;
 - `booking.hold.converted`, `booking.hold.reacquired`, `booking.trip.booked` (0041, conversion) ;
+- `trip.status_changed` (0099 : naissance du trip et chaque transition, charge utile `trip_id`, `from`, `to`, `reason`, `settlement_id`) et `trip.cancellation.qualified` (0099 : motif demandé, motif qualifié, origine, initiateur) ;
 - `booking.hold.compensated`, `booking.hold.compensation_required`, `booking.payment.late_ignored` (0041) ;
 - `booking.alert.invariant_violation` et `booking.payment.disposition_overdue` (0041), `booking.alert.production_oracle` (0045, comptes seulement) : alertes absentes du catalogue 17 §4.5.
 
-Cible seulement (17 §4.5) : `trip.status_changed`, `trip.cancellation.qualified`, `booking.request.*`, `booking.hold.release_requested`, `booking.hold.superseded`, `booking.ical.conflict_detected`, `booking.ical.feed_failing`, `payment.disposition.repair_alert`.
+Cible seulement (17 §4.5) : `booking.request.*`, `booking.hold.release_requested`, `booking.hold.superseded`, `booking.ical.conflict_detected`, `booking.ical.feed_failing`, `payment.disposition.repair_alert`.
 
 Consommés (cible 17 §4.5) : `iam.restriction.applied` / `.lifted`, `iam.organization.*`, `kyc.verification.status_changed`, `kyc.trip_identity.failed`, `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `payment.received`, `trip.checkin.validated`, `trip.checkout.completed`, `dispute.opened` / `.decided`. Aucun consommateur TypeScript n'est branché ; la conversion est la fonction `core.booking_convert_payment`, exécutée par le travailleur `booking_conversion`.
 
