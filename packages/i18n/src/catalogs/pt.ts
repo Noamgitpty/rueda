@@ -400,7 +400,7 @@ export const PT_MESSAGES = {
   'backoffice.action.ISSUE_DECISION': 'Registrar uma decisão',
   'backoffice.action.RECORD_CHARGEBACK': 'Registrar um estorno contestado',
   'backoffice.action.OPEN_INCIDENT': 'Abrir um incidente',
-  'backoffice.action.RECORD_REVIEW': 'Registrar uma moderação de avaliação',
+  'backoffice.action.RECORD_REVIEW': 'Registrar uma avaliação recebida por e-mail',
   'backoffice.action.HANDLE_DSR': 'Tratar uma solicitação de dados pessoais',
   'backoffice.action.ISSUE_BORDEREAU': 'Solicitar a emissão do borderô',
   'backoffice.action.DECIDE_ADVANCE': 'Solicitar a decisão de um adiantamento',
@@ -644,6 +644,31 @@ export const PT_MESSAGES = {
     'Esta etapa não pode seguir a etapa atual da solicitação.',
   'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
     'O prazo legal de resposta ainda não está configurado: nada foi registrado.',
+  'backoffice.review.hint':
+    'Registre uma avaliação recebida por e-mail sobre uma viagem concluída, dentro do prazo de avaliação após o seu fim. Anexe o e-mail como comprovante.',
+  'backoffice.review.subject': 'Identificador da viagem',
+  'backoffice.review.author': 'Autor da avaliação',
+  'backoffice.review.author.GUEST': 'O viajante (avaliação do anfitrião e do carro)',
+  'backoffice.review.author.HOST': 'O anfitrião (avaliação do viajante)',
+  'backoffice.review.overall': 'Nota geral',
+  'backoffice.review.overall.ONE': '1 estrela',
+  'backoffice.review.overall.TWO': '2 estrelas',
+  'backoffice.review.overall.THREE': '3 estrelas',
+  'backoffice.review.overall.FOUR': '4 estrelas',
+  'backoffice.review.overall.FIVE': '5 estrelas',
+  'backoffice.review.record': 'Registrar a avaliação',
+  'backoffice.review.recorded': 'Avaliação registrada e vinculada à viagem.',
+  'backoffice.review.refused.REVIEW_INPUT_REQUIRED': 'Indique o autor da avaliação e a nota.',
+  'backoffice.review.refused.REVIEW_TRIP_NOT_COMPLETED':
+    'Esta viagem ainda não terminou: nada foi registrado.',
+  'backoffice.review.refused.REVIEW_WINDOW_CLOSED':
+    'O prazo de avaliação desta viagem já encerrou: nada foi registrado.',
+  'backoffice.review.refused.REVIEW_WINDOW_UNKNOWN':
+    'O prazo de avaliação deste país não está configurado: nada foi registrado.',
+  'backoffice.review.refused.REVIEW_AUTHOR_UNKNOWN':
+    'O autor desta avaliação não foi encontrado: nada foi registrado.',
+  'backoffice.review.refused.REVIEW_ALREADY_RECORDED':
+    'Esta pessoa já avaliou esta viagem: nada foi registrado.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Decisão recusada: as quatro checagens precisam ser marcadas.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':

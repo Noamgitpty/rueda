@@ -408,7 +408,7 @@ export const FR_MESSAGES = {
   'backoffice.action.ISSUE_DECISION': 'Enregistrer une décision',
   'backoffice.action.RECORD_CHARGEBACK': 'Enregistrer une rétrofacturation',
   'backoffice.action.OPEN_INCIDENT': 'Ouvrir un incident',
-  'backoffice.action.RECORD_REVIEW': 'Enregistrer une modération d’avis',
+  'backoffice.action.RECORD_REVIEW': 'Enregistrer un avis reçu par e-mail',
   'backoffice.action.HANDLE_DSR': 'Traiter une demande sur les données personnelles',
   'backoffice.action.ISSUE_BORDEREAU': 'Demander l’émission du bordereau',
   'backoffice.action.DECIDE_ADVANCE': 'Demander la décision d’une avance',
@@ -652,6 +652,31 @@ export const FR_MESSAGES = {
     'Cette étape ne peut pas suivre l’étape actuelle de la demande.',
   'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
     'Le délai de réponse de ce pays n’est pas configuré\u00a0: rien n’a été enregistré.',
+  'backoffice.review.hint':
+    'Enregistre un avis reçu par e-mail sur un voyage terminé, dans la fenêtre de notation qui suit sa fin. Joins l’e-mail en pièce.',
+  'backoffice.review.subject': 'Identifiant du voyage',
+  'backoffice.review.author': 'Auteur de l’avis',
+  'backoffice.review.author.GUEST': 'Le voyageur (avis sur l’hôte et la voiture)',
+  'backoffice.review.author.HOST': 'L’hôte (avis sur le voyageur)',
+  'backoffice.review.overall': 'Note globale',
+  'backoffice.review.overall.ONE': '1 étoile',
+  'backoffice.review.overall.TWO': '2 étoiles',
+  'backoffice.review.overall.THREE': '3 étoiles',
+  'backoffice.review.overall.FOUR': '4 étoiles',
+  'backoffice.review.overall.FIVE': '5 étoiles',
+  'backoffice.review.record': 'Enregistrer l’avis',
+  'backoffice.review.recorded': 'Avis enregistré et rattaché au voyage.',
+  'backoffice.review.refused.REVIEW_INPUT_REQUIRED': 'Indique l’auteur de l’avis et la note.',
+  'backoffice.review.refused.REVIEW_TRIP_NOT_COMPLETED':
+    'Ce voyage n’est pas encore terminé\u00a0: rien n’a été enregistré.',
+  'backoffice.review.refused.REVIEW_WINDOW_CLOSED':
+    'La fenêtre de notation de ce voyage est close\u00a0: rien n’a été enregistré.',
+  'backoffice.review.refused.REVIEW_WINDOW_UNKNOWN':
+    'La fenêtre de notation de ce pays n’est pas configurée\u00a0: rien n’a été enregistré.',
+  'backoffice.review.refused.REVIEW_AUTHOR_UNKNOWN':
+    'L’auteur de cet avis est introuvable\u00a0: rien n’a été enregistré.',
+  'backoffice.review.refused.REVIEW_ALREADY_RECORDED':
+    'Cette personne a déjà noté ce voyage\u00a0: rien n’a été enregistré.',
   'backoffice.kyc.refused.CHECKS_REQUIRED':
     'Décision refusée : les quatre contrôles doivent être cochés.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':

@@ -94,8 +94,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (prochaines remises et retours), `web.a05.*` (onglets, filtres, voyageur minimisé, gains estimés),
  `common.hostTrips.*` (refus des routes des trips de l'hôte). La version 44 est prise par US-201 (PR #163) ; la PR
  fusionnée en second renumérote.
+ Version 48 : avis reçus par e-mail et enregistrés par l'ops (US-218, ADR-130) : `backoffice.review.*`
+ (formulaire RECORD_REVIEW de la console et refus de la commande liée) ; libellé de
+ `backoffice.action.RECORD_REVIEW` corrigé (un avis reçu, pas une modération). Les versions 46 et 47
+ sont prises par US-201 et US-704 (PR ouvertes) ; la PR fusionnée après renumérote.
  */
-export const CATALOG_VERSION = 45;
+export const CATALOG_VERSION = 48;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

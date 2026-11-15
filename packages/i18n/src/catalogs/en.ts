@@ -385,7 +385,7 @@ export const EN_MESSAGES = {
   'backoffice.action.ISSUE_DECISION': 'Record a decision',
   'backoffice.action.RECORD_CHARGEBACK': 'Record a chargeback',
   'backoffice.action.OPEN_INCIDENT': 'Open an incident',
-  'backoffice.action.RECORD_REVIEW': 'Record a review moderation',
+  'backoffice.action.RECORD_REVIEW': 'Record a review received by email',
   'backoffice.action.HANDLE_DSR': 'Handle a personal data request',
   'backoffice.action.ISSUE_BORDEREAU': 'Request the insurer statement',
   'backoffice.action.DECIDE_ADVANCE': 'Request an advance decision',
@@ -621,6 +621,31 @@ export const EN_MESSAGES = {
     'This step cannot follow the current step of the request.',
   'backoffice.dsr.refused.DSR_DELAY_UNKNOWN':
     'The response deadline of this country is not configured: nothing was recorded.',
+  'backoffice.review.hint':
+    'Record a review received by email about a finished trip, within the rating window that follows its end. Attach the email as evidence.',
+  'backoffice.review.subject': 'Trip identifier',
+  'backoffice.review.author': 'Review author',
+  'backoffice.review.author.GUEST': 'The guest (review of the host and the car)',
+  'backoffice.review.author.HOST': 'The host (review of the guest)',
+  'backoffice.review.overall': 'Overall rating',
+  'backoffice.review.overall.ONE': '1 star',
+  'backoffice.review.overall.TWO': '2 stars',
+  'backoffice.review.overall.THREE': '3 stars',
+  'backoffice.review.overall.FOUR': '4 stars',
+  'backoffice.review.overall.FIVE': '5 stars',
+  'backoffice.review.record': 'Record the review',
+  'backoffice.review.recorded': 'Review recorded and attached to the trip.',
+  'backoffice.review.refused.REVIEW_INPUT_REQUIRED': 'Select the review author and the rating.',
+  'backoffice.review.refused.REVIEW_TRIP_NOT_COMPLETED':
+    'This trip is not finished yet: nothing was recorded.',
+  'backoffice.review.refused.REVIEW_WINDOW_CLOSED':
+    'The rating window of this trip has closed: nothing was recorded.',
+  'backoffice.review.refused.REVIEW_WINDOW_UNKNOWN':
+    'The rating window of this country is not configured: nothing was recorded.',
+  'backoffice.review.refused.REVIEW_AUTHOR_UNKNOWN':
+    'The author of this review was not found: nothing was recorded.',
+  'backoffice.review.refused.REVIEW_ALREADY_RECORDED':
+    'This person has already rated this trip: nothing was recorded.',
   'backoffice.kyc.refused.CHECKS_REQUIRED': 'Decision refused: all four checks must be ticked.',
   'backoffice.kyc.refused.CHECKS_INCONSISTENT':
     'Decision refused: approval needs four passed checks, rejection at least one failed check.',

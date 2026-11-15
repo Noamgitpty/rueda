@@ -3,7 +3,8 @@
  * TOTP, code TOTP, refus, console (rôles et pays, action motivée, journal). US-101 : catalogue des
  * actions de console groupé (changer un état, enregistrer seulement avec pièces, décisions FINANCE à
  * deux personnes), pièces, et demandes FINANCE en attente à approuver par une seconde personne. US-111 :
- * demande de personne (HANDLE_DSR) saisie par type et étape, dans son propre formulaire. US-109 :
+ * demande de personne (HANDLE_DSR) saisie par type et étape, dans son propre formulaire. US-218 :
+ * avis reçu par e-mail (RECORD_REVIEW) saisi par auteur et note, dans son propre formulaire. US-109 :
  * files de revue, dossier KYC et fiche 360° (ops-view.tsx). Composant de
  * PRÉSENTATION pur : aucun appel réseau, aucun état (rendu testable dans chaque locale) ; la
  * logique est dans `console-client.tsx`. Composants de `@rueda/ui` seulement, mise en page par les
@@ -106,7 +107,8 @@ export const ACTION_GROUPS = {
     // US-107 : compte d'hôte d'une personne inscrite (sujet : son compte de personne)
     'CREATE_HOST_ACCOUNT',
   ],
-  record: ['RECORD_CLAIM', 'ISSUE_DECISION', 'RECORD_CHARGEBACK', 'OPEN_INCIDENT', 'RECORD_REVIEW'],
+  // US-218 : RECORD_REVIEW a son propre formulaire (saisie fermée : auteur et note)
+  record: ['RECORD_CLAIM', 'ISSUE_DECISION', 'RECORD_CHARGEBACK', 'OPEN_INCIDENT'],
   finance: ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'],
 } as const;
 export type ConsoleAction = (typeof ACTION_GROUPS)[keyof typeof ACTION_GROUPS][number];
@@ -175,6 +177,34 @@ export const DSR_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
   DSR_DELAY_UNKNOWN: 'backoffice.dsr.refused.DSR_DELAY_UNKNOWN',
 };
 
+/** US-218 : rôles qui détiennent `ops.review_listing_host` (17 §2.3 ; la base reste juge). */
+const REVIEW_ROLES = new Set(['OPS_AGENT', 'ADMIN']);
+/** Énumérations fermées de RECORD_REVIEW (catalogue de 0104, ADR-130) : jamais un nombre. */
+export const REVIEW_AUTHORS = ['GUEST', 'HOST'] as const;
+export type ReviewAuthor = (typeof REVIEW_AUTHORS)[number];
+export const REVIEW_STARS = ['FIVE', 'FOUR', 'THREE', 'TWO', 'ONE'] as const;
+export type ReviewStars = (typeof REVIEW_STARS)[number];
+const REVIEW_AUTHOR_KEYS: Readonly<Record<ReviewAuthor, MessageKey>> = {
+  GUEST: 'backoffice.review.author.GUEST',
+  HOST: 'backoffice.review.author.HOST',
+};
+const REVIEW_STAR_KEYS: Readonly<Record<ReviewStars, MessageKey>> = {
+  FIVE: 'backoffice.review.overall.FIVE',
+  FOUR: 'backoffice.review.overall.FOUR',
+  THREE: 'backoffice.review.overall.THREE',
+  TWO: 'backoffice.review.overall.TWO',
+  ONE: 'backoffice.review.overall.ONE',
+};
+/** Refus de RECORD_REVIEW expliqués (issue de la commande de domaine, 0104). */
+export const REVIEW_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
+  REVIEW_INPUT_REQUIRED: 'backoffice.review.refused.REVIEW_INPUT_REQUIRED',
+  REVIEW_TRIP_NOT_COMPLETED: 'backoffice.review.refused.REVIEW_TRIP_NOT_COMPLETED',
+  REVIEW_WINDOW_CLOSED: 'backoffice.review.refused.REVIEW_WINDOW_CLOSED',
+  REVIEW_WINDOW_UNKNOWN: 'backoffice.review.refused.REVIEW_WINDOW_UNKNOWN',
+  REVIEW_AUTHOR_UNKNOWN: 'backoffice.review.refused.REVIEW_AUTHOR_UNKNOWN',
+  REVIEW_ALREADY_RECORDED: 'backoffice.review.refused.REVIEW_ALREADY_RECORDED',
+};
+
 /** Rôles qui voient les demandes FINANCE en attente (17 §2.3 fin_read). */
 const APPROVER_ROLES = new Set(['FINANCE', 'ADMIN']);
 /** Rôles qui lisent les fiches 360° (16 ADM-005 : SUPPORT, OPS ; 17 §2.3 : ADMIN). */
@@ -223,6 +253,17 @@ export interface ConsoleHandlers {
     reason: string,
     evidence: readonly string[],
   ) => void;
+  /**
+   * US-218 : avis reçu par e-mail (`RECORD_REVIEW`) sur un trip terminé, saisie fermée par auteur
+   * et note ; la base juge l'état du trip, la fenêtre et l'unicité.
+   */
+  readonly onReviewRecord?: (
+    tripId: string,
+    authorRole: ReviewAuthor,
+    overall: ReviewStars,
+    reason: string,
+    evidence: readonly string[],
+  ) => void;
   readonly onApprove: (approvalId: string) => void;
   readonly onSignOut: () => void;
 }
@@ -251,7 +292,6 @@ const ACTION_KEYS: Readonly<Record<ConsoleAction, MessageKey>> = {
   ISSUE_DECISION: 'backoffice.action.ISSUE_DECISION',
   RECORD_CHARGEBACK: 'backoffice.action.RECORD_CHARGEBACK',
   OPEN_INCIDENT: 'backoffice.action.OPEN_INCIDENT',
-  RECORD_REVIEW: 'backoffice.action.RECORD_REVIEW',
   ISSUE_BORDEREAU: 'backoffice.action.ISSUE_BORDEREAU',
   DECIDE_ADVANCE: 'backoffice.action.DECIDE_ADVANCE',
   WRITE_OFF_RECEIVABLE: 'backoffice.action.WRITE_OFF_RECEIVABLE',
@@ -748,6 +788,103 @@ export function ConsoleView({
                   <div className={styles['actions']}>
                     <Button type="submit" variant="primary" loading={busy}>
                       {i18n.t('backoffice.dsr.record')}
+                    </Button>
+                  </div>
+                </form>
+              </section>
+            )}
+
+          {handlers.onReviewRecord !== undefined &&
+            state.roles.some((r) => REVIEW_ROLES.has(r.role)) && (
+              <section className={styles['panel']} aria-labelledby="review-heading">
+                <h2 id="review-heading" className={styles['heading']}>
+                  {i18n.t('backoffice.action.RECORD_REVIEW')}
+                </h2>
+                <p className={styles['muted']}>{i18n.t('backoffice.review.hint')}</p>
+                <form
+                  className={styles['form']}
+                  onSubmit={prevent((e) => {
+                    const data = new FormData(e.currentTarget);
+                    const author = data.get('reviewAuthor');
+                    const overall = data.get('reviewOverall');
+                    if (
+                      (REVIEW_AUTHORS as readonly unknown[]).includes(author) &&
+                      (REVIEW_STARS as readonly unknown[]).includes(overall)
+                    ) {
+                      handlers.onReviewRecord?.(
+                        fieldOf(e, 'tripId'),
+                        author as ReviewAuthor,
+                        overall as ReviewStars,
+                        fieldOf(e, 'reason'),
+                        evidenceOf(fieldOf(e, 'evidence')),
+                      );
+                    }
+                  })}
+                >
+                  <TextField
+                    i18n={i18n}
+                    id="review-trip"
+                    name="tripId"
+                    autoComplete="off"
+                    spellCheck={false}
+                    label={i18n.t('backoffice.review.subject')}
+                  />
+                  <fieldset className={styles['checks']}>
+                    <legend className={styles['label']}>
+                      {i18n.t('backoffice.review.author')}
+                    </legend>
+                    {REVIEW_AUTHORS.map((a) => (
+                      <label key={a} className={styles['choice']}>
+                        <input
+                          type="radio"
+                          name="reviewAuthor"
+                          value={a}
+                          required
+                          className={styles['choiceInput']}
+                        />
+                        <span>{i18n.t(REVIEW_AUTHOR_KEYS[a])}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <fieldset className={styles['checks']}>
+                    <legend className={styles['label']}>
+                      {i18n.t('backoffice.review.overall')}
+                    </legend>
+                    {REVIEW_STARS.map((st) => (
+                      <label key={st} className={styles['choice']}>
+                        <input
+                          type="radio"
+                          name="reviewOverall"
+                          value={st}
+                          required
+                          className={styles['choiceInput']}
+                        />
+                        <span>{i18n.t(REVIEW_STAR_KEYS[st])}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <TextField
+                    i18n={i18n}
+                    id="review-reason"
+                    name="reason"
+                    minLength={10}
+                    maxLength={1000}
+                    label={i18n.t('backoffice.action.reason')}
+                    hint={i18n.t('backoffice.action.reasonHint')}
+                  />
+                  <TextField
+                    i18n={i18n}
+                    id="review-evidence"
+                    name="evidence"
+                    autoComplete="off"
+                    spellCheck={false}
+                    optional
+                    label={i18n.t('backoffice.action.evidence')}
+                    hint={i18n.t('backoffice.action.evidenceHint')}
+                  />
+                  <div className={styles['actions']}>
+                    <Button type="submit" variant="primary" loading={busy}>
+                      {i18n.t('backoffice.review.record')}
                     </Button>
                   </div>
                 </form>
