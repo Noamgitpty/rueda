@@ -47,7 +47,11 @@ const CONFIG_TABLES = [
 
 // Devis figés (US-202, 0099) : socle RLS commun ; aucun droit applicatif, commandes de
 // cmd_money_owner, preuves par test/l0/l0-us202-quote.test.ts.
-const PRICING_TABLES = ['pricing_quote', 'pricing_quote_line', 'pricing_trip_price_version'] as const;
+const PRICING_TABLES = [
+  'pricing_quote',
+  'pricing_quote_line',
+  'pricing_trip_price_version',
+] as const;
 
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
