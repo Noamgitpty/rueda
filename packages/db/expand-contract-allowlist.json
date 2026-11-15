@@ -176,6 +176,13 @@
       "line": 939,
       "kind": "revoke-app-role",
       "justification": "US-207 (ADR-126) : l'état d'un trip (status, cancellation_reason, termination_reason) ne s'écrit plus que par les commandes core.booking_cmd_trip_transition et core.booking_cmd_trip_cancel (cmd_hold_owner, EXECUTE app_worker), qui écrivent journal et événement dans la même transaction ; aucune version servie n'écrit l'état d'un trip (aucun code de l'API ni du travailleur, seuls des tests le faisaient et passent désormais par les commandes) ; app_worker garde UPDATE (scheduled_start, scheduled_end)"
+    },
+    {
+      "path": "packages/db/migrations/0104_review_recorded_reviews.sql",
+      "line": 412,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-218 (ADR-130) : RECORD_REVIEW passe de RECORD_ONLY à DOMAIN_COMMAND (saisie fermée authorRole et overall, commande liée core.review_manual_action_record_review), comme HANDLE_DSR en 0090 ; une ligne de référence écrite par migration seulement ; permission et sujet inchangés ; les lignes manual_action existantes gardent leur mode ; la version N, qui envoyait RECORD_REVIEW sans saisie, reçoit un refus métier REVIEW_INPUT_REQUIRED (aucune écriture), jamais une acceptation"
     }
   ]
 }

@@ -149,6 +149,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   consent_append_only: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   // devis figés, lignes et versions de prix du trip (US-202, migration 0100)
   pricing_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // avis enregistrés (US-218, migration 0104)
+  review_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   audit_log_key_destroyed: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_not_live: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_legal_hold: [SQLSTATE.integrityConstraintViolation, 'LEGAL_HOLD_ACTIVE'],

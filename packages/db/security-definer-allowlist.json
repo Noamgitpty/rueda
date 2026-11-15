@@ -1326,6 +1326,20 @@
       "story": "US-111"
     },
     {
+      "signature": "core.review_listing_ratings(uuid[])",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-218"
+    },
+    {
+      "signature": "core.review_manual_action_record_review(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "review_cmd",
+      "owner": "review_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-218"
+    },
+    {
       "signature": "core.security_incident_cmd_open(bytea,uuid,text,text,text,boolean,integer,timestamp with time zone)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",

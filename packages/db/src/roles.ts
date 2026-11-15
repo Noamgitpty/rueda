@@ -31,6 +31,7 @@ export const OWNER_ROLES = [
   'catalog_cmd_owner',
   'kyc_cmd_owner',
   'privacy_cmd_owner',
+  'review_cmd_owner',
 ] as const;
 export type OwnerRole = (typeof OWNER_ROLES)[number];
 
