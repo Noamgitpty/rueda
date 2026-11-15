@@ -1,4 +1,4 @@
-# Revue securité — US-201 « recherche par zone, lieu, dates et heures » (PR n° 163) — 2026-11-15
+# Revue sécurité — US-201 « recherche par zone, lieu, dates et heures » (PR n° 163) — 2026-11-15
 
 Relecteur : revue-securite / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5 ; revue dégradée : famille B indisponible, TECH-007)
 Entrées : da4c5c78..3f1bea4a
