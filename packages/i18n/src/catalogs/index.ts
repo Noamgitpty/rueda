@@ -88,8 +88,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  trip à venir prévenu quand l'hôte est restreint).
  Version 42 : machine à états du trip (US-207, ADR-126) : `common.trip.transitionForbidden`,
  `common.trip.concurrentUpdate` et `common.trip.noShowTooEarly` (refus des commandes du trip).
+ Version 43 : devis versionné (US-202, ADR-125) : `common.quote.unavailable`,
+ `common.quote.datesInvalid` et `common.quote.changed` (route du devis).
  */
-export const CATALOG_VERSION = 42;
+export const CATALOG_VERSION = 43;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

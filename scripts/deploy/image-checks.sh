@@ -35,15 +35,15 @@ found="$(in_image 'find / -xdev \( -path /proc -o -path /sys \) -prune -o -iname
 [ -z "$found" ] || fail "adaptateur FAKE présent : $found"
 say 'aucun adaptateur FAKE (paquet absent, aucun import dans l’API compilée)'
 
-found="$(in_image 'find /app/apps /app/packages \( -name node_modules -prune \) -o \( -name testing -o -name test -o -name test-migrations -o -name dev-overlay -o -name "*.test.*" -o -name "*.test-support.*" \) -print; ls -d /app/packages/db/src/dev /app/packages/fake-adapters 2>/dev/null || true')"
+found="$(in_image 'find /app/apps /app/packages \( -name node_modules -prune \) -o \( -name testing -o -name test -o -name test-migrations -o -name dev-overlay -o -name "*.test.*" -o -name "*.test-support.*" \) -print; ls -d /app/packages/db/src/dev /app/packages/fake-adapters /app/packages/money/src/golden-vectors 2>/dev/null || true')"
 [ -z "$found" ] || fail "fichiers de test ou de développement présents : $found"
 found="$(in_image 'ls /app/node_modules/.pnpm' | grep -E '^((vitest|typescript|eslint|prettier|testcontainers|turbo|@stryker-mutator\+core)@|@(vitest|testcontainers|rueda)\+)' || true)"
 [ -z "$found" ] || fail "dépendances de développement présentes : $found"
 say 'aucun test, harnais, surcouche de développement ni outil de développement'
 
-in_image 'for p in i18n design-tokens; do r="$(readlink -f /app/apps/api/node_modules/@rueda/$p)"; case "$r" in */node_modules/*) echo "$p sous node_modules : $r"; exit 1;; esac; done' ||
+in_image 'for p in i18n design-tokens money; do r="$(readlink -f /app/apps/api/node_modules/@rueda/$p)"; case "$r" in */node_modules/*) echo "$p sous node_modules : $r"; exit 1;; esac; done' ||
   fail 'paquet TypeScript de l’espace de travail sous node_modules'
-in_image 'cd /app/apps/api && node --input-type=module -e "await import(\"@rueda/i18n\"); await import(\"@rueda/design-tokens\"); await import(\"./dist/app.module.js\"); console.log(\"chargé\")"' |
+in_image 'cd /app/apps/api && node --input-type=module -e "await import(\"@rueda/i18n\"); await import(\"@rueda/design-tokens\"); await import(\"@rueda/money\"); await import(\"./dist/app.module.js\"); console.log(\"chargé\")"' |
   grep -q '^chargé$' || fail 'l’API compilée ne se charge pas'
 say 'paquets TypeScript hors de node_modules ; API compilée chargée'
 
