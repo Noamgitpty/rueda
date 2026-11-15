@@ -73,6 +73,9 @@ describe('chargement et couverture', () => {
       'T40',
       'T41',
       'T48',
+      'T78',
+      'T79',
+      'T80',
     ]);
   });
 });

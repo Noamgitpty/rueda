@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import { AppModule } from './app.module.js';
-import { CatHostModule } from './modules/cat/index.js';
-import type { CatHostOptions } from './modules/cat/index.js';
+import { CatHostModule, CatSearchModule } from './modules/cat/index.js';
+import type { CatHostOptions, CatSearchOptions } from './modules/cat/index.js';
 import { BrandModule, RegulatoryNoticesModule } from './modules/cfg/index.js';
 import { CtrLegalModule } from './modules/ctr/index.js';
 import type { CtrLegalOptions } from './modules/ctr/index.js';
@@ -30,7 +30,7 @@ import type { SupConsoleOptions } from './modules/sup/index.js';
  * juridiques et consentements versionnés, US-102 ; lieux, véhicules et annonces de l'hôte, US-115 :
  * sans adaptateurs CAT, ses routes répondent 503, fail-closed ; vérification d'identité et
  * consentement biométrique, US-105 : sans adaptateurs KYC, magasin indisponible et aucun
- * fournisseur, fail-closed).
+ * fournisseur, fail-closed ; recherche publique, US-201 : sans adaptateurs, 503).
  */
 @Module({})
 export class ApiModule {
@@ -44,6 +44,7 @@ export class ApiModule {
     ctr: CtrLegalOptions,
     cat?: CatHostOptions,
     kyc?: KycIdentityOptions,
+    search?: CatSearchOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -56,6 +57,8 @@ export class ApiModule {
         CtrLegalModule.register(ctr),
         // après IAM : routes /host/accounts/{orgId}/… gardées par SessionGuard (US-115)
         CatHostModule.register(cat),
+        // US-201 : recherche publique /search (après le garde global de débit) ; sans adaptateurs, 503
+        CatSearchModule.register(search),
         // après IAM : routes /identity gardées par SessionGuard ; rappels /kyc/webhooks (US-105)
         KycIdentityModule.register(kyc),
         PayWebhookModule.register(pay),

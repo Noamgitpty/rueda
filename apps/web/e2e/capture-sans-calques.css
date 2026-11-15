@@ -1,0 +1,23 @@
+/*
+ * Feuille appliquée par Playwright PENDANT LA CAPTURE seulement (`stylePath` de
+ * `toHaveScreenshot`, e2e/visual.ts), sur les écrans de `SCREENS` qui la demandent : jamais
+ * servie par le site, jamais active pendant le balayage axe (qui voit la page réelle).
+ *
+ * Pourquoi : la pastille en verre de l'accueil (`backdrop-filter`) crée un calque composé dans le
+ * bloc « nuit » (`isolation`, `overflow: hidden`, coins arrondis) ; selon le minutage du
+ * compositeur de Chrome, le texte de la page est tramé de deux façons différentes d'une exécution
+ * à l'autre (anticrénelage du texte normal, à texte, mise en page et couleurs identiques), ce qui
+ * faisait échouer la capture `accueil · es` au hasard (run 43684357457). Neutraliser ce qui crée
+ * des calques composés rend le tramage déterministe, sans relâcher le seuil de comparaison.
+ * Effet visible nul ou négligeable : le flou s’applique sur un aplat (rien à flouter) ; les
+ * animations et transitions sont déjà coupées (mouvement réduit des e2e, `animations: "disabled"` par
+ * défaut de Playwright). docs/qa/REGRESSION_VISUELLE.md.
+ */
+*,
+*::before,
+*::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  isolation: auto !important;
+  will-change: auto !important;
+}

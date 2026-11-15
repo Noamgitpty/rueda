@@ -55,6 +55,8 @@ e2e : `e2e/signup.spec.ts` (projets `mobile-360` et `mobile-390`, quatre langues
 
 e2e : `e2e/host-listings.spec.ts` (projets `mobile-360` et `mobile-390`, quatre langues, axe-core WCAG 2.2 A / AA sur `main` à chaque état, aucun défilement horizontal, cibles ≥ 44 px) contre `e2e/stub-api.mjs` (sessions `H0st…` : un compte d'hôte neuf par parcours ; `N0ho…` : sans compte ; photos 503 comme la production ; fiche publique fictive).
 
+e2e de la recherche (US-201) : `e2e/search.spec.ts` (projets `mobile-360` et `mobile-390`, quatre langues) : S01 → résultats → fiche avec les dates reprises → « modifier la recherche », et refus de la fin avant le début ; écrans `recherche-*` et `fiche-publique-dates` dans `SCREENS`. Données du double : `e2e/search-data.ts` (ville fictive, deux zones, une annonce ; ville `Ciudad Caida` ⇒ 503 `SEARCH_UNAVAILABLE`).
+
 ## Interfaces d'appareil (`device/`)
 
 Le comptoir n'accède à l'appareil que par trois interfaces (17 §6.2, ADR-005). Point d'entrée unique : `device/index.ts`.

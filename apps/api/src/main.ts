@@ -29,12 +29,12 @@ import {
   UnavailableBrandFileStore,
   UnavailableBrandScanner,
 } from './modules/cfg/index.js';
-import { postgresCatAdapters } from './modules/cat/index.js';
+import { postgresCatAdapters, postgresSearchAdapters } from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
-import { postgresRiskAdapters } from './modules/risk/index.js';
+import { availabilityProbeLimiter, postgresRiskAdapters } from './modules/risk/index.js';
 import {
   PgFinanceApprovalStore,
   PgManualActionStore,
@@ -84,6 +84,9 @@ async function bootstrap(): Promise<void> {
   // Vérification d'identité (US-105) : commandes core.kyc_* sous app_api ; AUCUN fournisseur
   // d'identité tant que le registre LEG-010 n'est pas validé (OQ-MK-09) : ouverture 503, rappels 404.
   const kyc = postgresKycAdapters(pool);
+  // Recherche publique (US-201) : fonctions core.catalog_public_search et core.catalog_public_areas de 0103 sous app_api ;
+  // sonde de disponibilité limitée par IP par la garde anti-abus (availability_probe_per_minute).
+  const search = postgresSearchAdapters(pool, availabilityProbeLimiter(risk.guard));
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,
@@ -102,6 +105,7 @@ async function bootstrap(): Promise<void> {
       ctr,
       cat,
       kyc,
+      search,
     ),
     { rawBody: true },
   );

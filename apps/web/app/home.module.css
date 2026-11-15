@@ -63,6 +63,12 @@
     var(--motion-duration-stagger) both;
 }
 
+/* Recherche de S01 (US-201) : carte claire posée dans le bloc « nuit », au-dessus de la scène */
+.search {
+  position: relative;
+  z-index: 1;
+}
+
 /* Scène : l'auto posée sur le camino */
 .stage {
   position: relative;

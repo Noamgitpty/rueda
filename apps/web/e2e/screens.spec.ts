@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
 import { expectAccessible } from './axe.ts';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import { AREA, CITY, DOWN_CITY, listingWithDates, searchUrl, START } from './search-data.ts';
 import { captured, expectScreen } from './visual.ts';
 
 /** Fiche publiée du double de l'API (e2e/stub-api.mjs, données fictives). */
@@ -42,6 +43,12 @@ interface Screen {
   /** Écran de 10b ou story qui le livre (lecture humaine seulement). */
   readonly source: string;
   readonly open: (page: Page, context: BrowserContext) => Promise<void>;
+  /**
+   * Capture sous la feuille `e2e/capture-sans-calques.css` (calques composés neutralisés pendant la
+   * capture seulement ; axe voit la page réelle) : écran dont le tramage du texte variait d'une
+   * exécution à l'autre (docs/qa/REGRESSION_VISUELLE.md).
+   */
+  readonly stableCompositing?: boolean;
 }
 
 const at =
@@ -51,7 +58,7 @@ const at =
   };
 
 export const SCREENS: readonly Screen[] = [
-  { name: 'accueil', source: 'S01, US-048', open: at('/') },
+  { name: 'accueil', source: 'S01, US-048', open: at('/'), stableCompositing: true },
   { name: 'hors-ligne', source: 'US-048', open: at('/offline') },
   { name: 'inscription', source: 'S15, US-102', open: at('/signup') },
   { name: 'inscription-envoyee', source: 'S15, US-102', open: at('/signup/sent') },
@@ -64,6 +71,22 @@ export const SCREENS: readonly Screen[] = [
   { name: 'telephone', source: 'S15, US-104', open: at('/verify-phone') },
   { name: 'identite', source: 'S04, US-105', open: at('/verify-identity') },
   { name: 'fiche-publique', source: 'S03, US-115', open: at(`/listings/${PUBLIC_ID}`) },
+  // Recherche (US-201) : liste, aucun résultat, refus du formulaire (fin avant début le même
+  // jour), API indisponible ; fiche S03 avec les dates reprises. Le chargement (`loading.tsx`)
+  // n'a pas d'état d'arrivée stable ici : le rendu en flux se termine avant la capture.
+  { name: 'recherche-resultats', source: 'S02, US-201', open: at(searchUrl(CITY, AREA)) },
+  {
+    name: 'recherche-aucun-resultat',
+    source: 'S02, US-201',
+    open: at(searchUrl(CITY, 'Barrio Sur')),
+  },
+  {
+    name: 'recherche-refus',
+    source: 'S02, US-201',
+    open: at(searchUrl(CITY, AREA, START, { date: START.date, time: '09:30' })),
+  },
+  { name: 'recherche-erreur', source: 'S02, US-201', open: at(searchUrl(DOWN_CITY, null)) },
+  { name: 'fiche-publique-dates', source: 'S03, US-201', open: at(listingWithDates()) },
   { name: 'hote-sans-session', source: 'A10, US-115', open: at('/host') },
   {
     name: 'hote-espace',
@@ -102,7 +125,9 @@ for (const screen of SCREENS) {
           await page.emulateMedia({ colorScheme: scheme });
           await expectAccessible(page, { include: null });
           if (captured(info, language, scheme))
-            await expectScreen(page, screen.name, language, scheme);
+            await expectScreen(page, screen.name, language, scheme, {
+              stableCompositing: screen.stableCompositing === true,
+            });
         }
       });
     });

@@ -224,6 +224,27 @@ describe.each(COUNTRIES)('envois coûteux en $country', ({ country, phone, email
       },
     );
   });
+
+  it('sonde de disponibilité (US-201, N-78) : availability_probe_per_minute du pays par IP, puis 429 ; compteur distinct de la portée search', async () => {
+    const { guard, logs } = setup();
+    const limit = paramValue('availability_probe_per_minute', country);
+    for (let i = 0; i < limit; i += 1) await guard.checkAvailabilityProbe(ip, country);
+    const error = await refusal(guard.checkAvailabilityProbe(ip, country));
+    expect(error.code).toBe('RATE_LIMITED');
+    expect(error.retryAfterS).toBeLessThanOrEqual(60);
+    expect(logs).toContainEqual({
+      event: 'risk.rate_limited',
+      scope: 'availability_probe_ip',
+      country,
+    });
+    // la portée search du garde global garde son propre compteur ; une autre IP n'est pas limitée
+    await expect(guard.checkHttp('search', { ip }, country)).resolves.toMatchObject({
+      allowed: true,
+    });
+    await expect(guard.checkAvailabilityProbe('203.0.113.98', country)).resolves.toMatchObject({
+      allowed: true,
+    });
+  });
 });
 
 describe('anti-abus : comportements transverses', () => {
