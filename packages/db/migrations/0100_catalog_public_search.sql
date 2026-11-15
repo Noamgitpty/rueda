@@ -46,8 +46,11 @@
 --   REVOKE EXECUTE ON FUNCTION core.catalog_vehicle_is_free(uuid, tstzrange) FROM catalog_cmd_owner.
 
 -- 1. Droits de catalog_cmd_owner, au plus juste -------------------------------------------------
--- sonde de disponibilité (seule lecture de l'occupation par la recherche, RLS-17)
+-- sonde de disponibilité (seule lecture de l'occupation par la recherche, RLS-17) ; le droit est
+-- donné par son propriétaire (migrator n'en est que membre, mécanique de 0067 pour policy_fn_owner)
+SET LOCAL ROLE catalog_probe_owner;
 GRANT EXECUTE ON FUNCTION core.catalog_vehicle_is_free(uuid, tstzrange) TO catalog_cmd_owner;
+RESET ROLE;
 -- durée maximale d'un trip et tampon entre trips du pays (17 §7.2) : ces deux clés seulement
 CREATE POLICY catalog_cmd_search_read ON core.config_param_value FOR SELECT TO catalog_cmd_owner
   USING (key IN ('max_trip_days', 'buffer_minutes'));
