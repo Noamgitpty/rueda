@@ -21,7 +21,14 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { BrowserContext, Page } from '@playwright/test';
-import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import {
+  expect,
+  expectMobileFriendly,
+  LANGUAGES,
+  submitAndSettle,
+  tagOf,
+  test,
+} from './fixtures.ts';
 import { expectAccessible } from './axe.ts';
 import { SPEC_TEXT } from './oracle.ts';
 
@@ -209,19 +216,20 @@ for (const language of LANGUAGES) {
       const extra = article.locator('input[name="extraKm"]');
       await expect(extra).toHaveValue(`0${n.decimal}25`);
       // nouveau prix : le prix du km prérempli est renvoyé tel quel, jamais remis à 0
+      // l'URL porte déjà `saved=1` : on attend la fin de l'envoi, puis le prix relu sur la carte
+      const savePrice = article.locator('form[aria-label] button[type="submit"]').first();
       await article.locator('input[name="price"]').fill(`50${n.decimal}00`);
-      await article.locator('form[aria-label] button[type="submit"]').first().click();
+      await submitAndSettle(page, savePrice);
       await expect(page).toHaveURL(/saved=1/);
+      await expect(article.locator('p').first()).toContainText(`50${n.decimal}00`);
       await expect(article.locator('input[name="price"]')).toHaveValue(`50${n.decimal}00`);
       await expect(article.locator('input[name="extraKm"]')).toHaveValue(`0${n.decimal}25`);
       await expect(article.locator('input[name="km"]')).toHaveValue('200');
       // « 40.50 » là où le point groupe les milliers : refusé avec un exemple, jamais 4 050
       if (n.group === '.') {
-        // page hydratée avant la saisie (sinon React rétablit la valeur préremplie)
-        await page.waitForLoadState('networkidle');
         await article.locator('input[name="price"]').fill('40.50');
         await expect(article.locator('input[name="price"]')).toHaveValue('40.50');
-        await article.locator('form[aria-label] button[type="submit"]').first().click();
+        await savePrice.click();
         await expect(article.locator('input[name="price"]')).toHaveAttribute(
           'aria-invalid',
           'true',
@@ -291,6 +299,8 @@ for (const language of LANGUAGES) {
       });
       await photo.locator('button[type="submit"]').click();
       await expect(page).toHaveURL(/saved=1/);
+      // compteur de photos de la carte : le dépôt est pris en compte (l'URL portait déjà `saved=1`)
+      await expect(article.locator('p').first()).toContainText(/(^|\D)1\s+(foto|photo)/i);
       await expectAccessible(page);
       await expectMobileFriendly(page);
     });

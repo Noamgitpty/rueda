@@ -14,7 +14,14 @@
  */
 import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
-import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import {
+  expect,
+  expectMobileFriendly,
+  LANGUAGES,
+  submitAndSettle,
+  tagOf,
+  test,
+} from './fixtures.ts';
 import { expectAccessible } from './axe.ts';
 import { SPEC_TEXT } from './oracle.ts';
 
@@ -128,9 +135,11 @@ for (const language of LANGUAGES) {
       await expect(rows).toHaveCount(1);
 
       // préavis de 3 h pour le lieu de remise, relu
+      // l'URL porte déjà `saved=1` et la valeur vient d'être choisie : fin de l'envoi, puis relecture
       await page.locator('#a06-notice-minutes').selectOption('180');
-      await page.locator('#a06-notice button[type="submit"]').click();
+      await submitAndSettle(page, page.locator('#a06-notice button[type="submit"]'));
       await expect(page).toHaveURL(/saved=1/);
+      await page.reload();
       await expect(page.locator('#a06-notice-minutes')).toHaveValue('180');
       await expectAccessible(page);
       await expectMobileFriendly(page);
