@@ -1,6 +1,6 @@
 # Pour le fondateur — ce qui t'attend, en un seul endroit
 
-> Tenu par l'orchestrateur et mis à jour à chaque nouvelle question. Dernière mise à jour : **2026-11-14** (porte du lot 1 : branches mortes, §5 ; avant : suites d'US-036, US-111 et US-112).
+> Tenu par l'orchestrateur et mis à jour à chaque nouvelle question. Dernière mise à jour : **2026-11-14** (pré-mortem du lot 2 : avance de Kmino au voyageur, §2.10, et second approbateur FINANCE, §2.7 ; avant : porte du lot 1, branches mortes, §5 ; avant : suites d'US-036, US-111 et US-112).
 > **Rien ici ne bloque le développement.** Chaque point est nécessaire avant la mise en ligne d'un pays, ou utile plus tôt pour gagner du temps. Tant qu'un point est ouvert, l'équipe applique un défaut prudent marqué PROPOSÉ, et les interrupteurs de mise en service restent à `false`.
 > Règle permanente : **jamais plus lourd que Turo** (2026-11-12). Tout contrôle plus lourd est désactivé par défaut et ne sera activé que si la loi ou un contrat l'impose, après t'en avoir parlé.
 
@@ -34,13 +34,16 @@ Pour chaque point : ce qu'on sait, puis **ma suggestion** (comme Turo, avec le m
 → **Suggestion** : démarrer petit (une base gérée et quelques conteneurs), puis grossir avec l'usage. Je te présenterai un chiffrage mensuel avant de créer quoi que ce soit.
 
 **2.7 Second approbateur humain des interrupteurs de mise en service.** La commande exige deux personnes distinctes.
-→ **Suggestion** : un associé ou une personne de confiance (comptable, avocat). Son rôle : approuver l'ouverture d'un pays, rien d'autre.
+→ **Suggestion** : un associé ou une personne de confiance (comptable, avocat). Son rôle : approuver l'ouverture d'un pays, rien d'autre. La même règle vaut pour le **bordereau mensuel de l'assureur** (US-227, risque L2-PM-11) : une personne le prépare, une autre l'approuve ; sans seconde personne FINANCE, il n'est pas émis (cela bloque la mise en service, pas le développement). Le second approbateur des interrupteurs peut aussi être ce second approbateur FINANCE ; en revanche, la personne qui prépare un bordereau ne peut jamais l'approuver elle-même.
 
 **2.8 Jeton GitHub du compte bot.** Les agents utilisent encore le jeton du compte propriétaire.
 → **Suggestion** : basculer sur le jeton du bot (sans droit d'admin) avant le premier déploiement. C'est une manipulation de quelques minutes, je te guiderai.
 
 **2.9 Paire de clés de séquestre pour l'export de portabilité (US-036, ADR-120).** Pour pouvoir changer d'hébergeur sans perdre l'accès aux données chiffrées, l'export ré-enveloppe chaque clé de données avec une **clé publique** qui t'appartient. Il faut donc une paire de clés (RSA, au moins 3072 bits) : la **clé privée reste hors ligne chez toi** (support chiffré, copie en lieu sûr), la **clé publique** est placée dans la configuration. Je ne crée jamais cette clé et je ne l'affiche jamais ; les commandes exactes sont dans `docs/ops/PORTABILITY.md` § 4 et je te guiderai pas à pas. À faire **avant le premier déploiement cloud**.
 → **Suggestion** : la générer sur un poste hors ligne, sans l'envoyer à personne, garder deux copies chiffrées de la clé privée à deux endroits différents, et ne donner que l'empreinte publique à l'équipe. Aucune limite pour les hôtes : cela ne touche que la sortie des données de la plateforme.
+
+**2.10 Avance de Kmino au voyageur quand la part de l'hôte est déjà versée** (US-224, risque L2-PM-17). Si un trip est remboursé après que la part de l'hôte lui a été versée, il manque de l'argent pour rembourser le voyageur. Tant que tu n'as pas fixé de plafond (`host_advance_cap_minor`, `platform_reserve_minor`), le défaut prudent bloque : le remboursement attend une décision FINANCE à deux personnes, et le voyageur attend.
+→ **Suggestion** (comme Turo, le moins de limites possible) : **le voyageur est toujours remboursé tout de suite** ; Kmino avance la somme et la reprend sur les versements suivants de l'hôte (déjà retenu : `COMME_TURO.md`, solde d'hôte négatif). Il te reste à fixer deux montants : le plafond d'avance par hôte, et la réserve totale que Kmino accepte d'avancer par pays. Au lancement, un plafond par hôte égal à un trip moyen et une petite réserve suffisent ; on les relève avec l'usage.
 
 ## 3. Réglages à trancher en une seule fois (liste groupée, avant la mise en ligne)
 
