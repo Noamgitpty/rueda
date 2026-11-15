@@ -20,7 +20,12 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
 import { UnavailablePhotoScanner, UnavailablePhotoStorage } from '../modules/cat/index.js';
-import type { CatHostOptions, HostListingStore } from '../modules/cat/index.js';
+import type {
+  CatHostOptions,
+  CatSearchOptions,
+  HostListingStore,
+  SearchStore,
+} from '../modules/cat/index.js';
 import {
   loadBrandParams,
   UnavailableBrandFileStore,
@@ -34,6 +39,7 @@ import type { IdentityStore, KycIdentityOptions } from '../modules/kyc/index.js'
 import type { PayWebhookOptions } from '../modules/pay/index.js';
 import {
   AbuseGuard,
+  availabilityProbeLimiter,
   MemoryRateCounterStore,
   RateKeyHasher,
   UnavailableBotChallenge,
@@ -117,6 +123,7 @@ export interface ApiHarnessOverrides {
   readonly risk?: Partial<RiskHttpOptions>;
   readonly cat?: Partial<CatHostOptions>;
   readonly kyc?: Partial<KycIdentityOptions>;
+  readonly search?: Partial<CatSearchOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -327,6 +334,18 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
     board: strict<RiskHttpOptions['board']>({}, 'AbuseBoardStore'),
     rhythm: { record: () => false },
   };
+  // Recherche publique (US-201) : aucune annonce cherchable dans le harnais ; sonde comptée par la
+  // garde anti-abus du harnais (limites larges)
+  const search: CatSearchOptions = {
+    store: strict<SearchStore>(
+      {
+        areas: () => Promise.resolve([]),
+        search: () => Promise.resolve({ outcome: 'OK' as const, results: [] }),
+      },
+      'SearchStore',
+    ),
+    probe: availabilityProbeLimiter(risk.guard),
+  };
 
   const logs: string[] = [];
   const push =
@@ -349,6 +368,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...ctr, ...overrides.ctr },
       { ...cat, ...overrides.cat },
       { ...kyc, ...overrides.kyc },
+      { ...search, ...overrides.search },
     ),
     {
       rawBody: true,

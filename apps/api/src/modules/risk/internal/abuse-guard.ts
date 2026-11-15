@@ -258,6 +258,37 @@ export class AbuseGuard {
     return r;
   }
 
+  /**
+   * Sonde de disponibilité de la recherche publique (US-201, BOARD N-78 ; 17 §2.3 B7) : une
+   * recherche avec dates compte une sonde pour l'IP, au plus `availability_probe_per_minute` du
+   * pays par minute, EN PLUS de la limite de la portée `search` du garde global. Lève
+   * `RATE_LIMITED` (avec `retryAfterS`) au-delà. Compteur indisponible : repli dégradé en mémoire
+   * (même seuil), comme les routes peu coûteuses.
+   */
+  async checkAvailabilityProbe(ip: string, country: string | null): Promise<HitResult> {
+    const param: RateLimitParam = 'availabilityProbePerIp';
+    const input = {
+      scope: 'availability_probe_ip',
+      country,
+      limit: this.#policy.limit(param, country),
+      windowS: WINDOWS[param],
+      weight: 1,
+    };
+    const keys = this.#hasher.hashes('ip', ip);
+    let r: HitResult;
+    try {
+      r = await hitEach(this.#store, keys, input);
+    } catch {
+      this.#log({ event: 'risk.limiter.degraded', scope: input.scope, country });
+      r = await hitEach(this.#fallback, keys, input);
+    }
+    if (!r.allowed) {
+      this.#log({ event: 'risk.rate_limited', scope: input.scope, country });
+      throw new RiskHttpError('RATE_LIMITED', r.retryAfterS);
+    }
+    return r;
+  }
+
   /** Compte une inscription de l'IP ; rend `true` si la rafale dépasse le seuil du pays. */
   async signupBurst(ip: string, country: string | null): Promise<boolean> {
     const keys = this.#hasher.hashes('ip', ip);

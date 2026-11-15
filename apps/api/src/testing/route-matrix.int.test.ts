@@ -690,6 +690,14 @@ async function requestOf(
       };
     case 'GET /listings/{listingId}':
       return { method: 'GET', path: `/listings/${randomUUID()}` };
+    // recherche publique (US-201) : zones du pays ; recherche datée loin dans le futur
+    case 'GET /search/areas':
+      return { method: 'GET', path: `/search/areas?country=${country}` };
+    case 'GET /search':
+      return {
+        method: 'GET',
+        path: `/search?country=${country}&city=Ciudad&start=2036-12-10T10:00&end=2036-12-12T10:00`,
+      };
     // CGU de l'hôte (US-126) : compte d'hôte d'aucun acteur de la cellule ⇒ 404 (IDOR)
     case 'GET /host/accounts/{orgId}/terms':
       return { method: 'GET', path: `/host/accounts/${id}/terms?locale=es` };

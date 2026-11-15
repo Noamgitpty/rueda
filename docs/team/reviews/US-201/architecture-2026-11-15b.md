@@ -1,0 +1,15 @@
+# Revue architecture — US-201 « recherche par zone, lieu, dates et heures » (PR n° 163) — 2026-11-15
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Entrées : 734248df99cc895b56191053fd316be73a2afeb2..6c714ce1adbd80e5577b574971b48056a62c24e9
+
+Contexte : seconde revue (première : APPROUVÉ au SHA 35ae981). Delta lu depuis ab68c613 : README de CAT et de la base, `COMME_TURO.md`, passation, changelog, textes, tests, e2e. CI verte (17/17).
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | MINEUR  | Constats 1 à 4 de la première revue inchangés : frontière CAT / RISK par port satisfait par structure, découpage en deux fonctions en lecture seule, choix PROPOSÉS cohérents, rien de préparé pour le port REV d'US-218. Aucun fichier de code de production n'a changé hors deux gabarits de page (texte du fuseau).                                                                                              |
+| 2   | MINEUR  | Constat 5 levé : `apps/api/src/modules/cat/README.md` redit « migration 0101 » pour `core.booking_host_trips` (US-219) et `packages/db/README.md` intitule la section « Migration `0103_catalog_public_search` ». Vérifié dans le diff ; aucune autre référence de numéro fausse.                                                                                                                                   |
+| 3   | MINEUR  | Constat 6 levé : l'entrée « horaires de prise et de retour » de `COMME_TURO.md` dit désormais que l'hôte bloque les heures où il n'est pas disponible et que le voyageur ne voit que les voitures libres au créneau, ce qui correspond à l'ADR-127 et à la migration. Le catalogue d'interface reste en v48 sans clé nouvelle (textes seulement), ce qui ne change pas le plan de renumérotation prévu avec US-218. |
+| 4   | MINEUR  | Suivis toujours valables, non bloquants : cache court ou vue pour `/search/areas` au prochain lot (mesure d'US-203), levée du filtre `instant_book` dans les deux fonctions par US-223, report de `SEARCH_UNAVAILABLE` dans 16 A.8. La passation reprend les corrections de cette série.                                                                                                                            |
+
+Verdict : APPROUVÉ

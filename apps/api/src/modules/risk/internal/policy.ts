@@ -33,6 +33,9 @@ export const RATE_LIMIT_PARAMS = {
   // US-104 (ADR-098) : groupe `otp_rate_*` (graine 0065 ; 0046 est immuable, ADR-044)
   otpPerAccount: 'otp_rate_per_account_hour',
   otpPerPrefix: 'otp_rate_per_prefix_hour',
+  // US-201 (BOARD N-78) : sonde de disponibilité de la recherche publique, par IP et par minute
+  // (17 §2.3 B7, §7.2 ; graine US-013 : 60 au PA et au PY, PROPOSÉ)
+  availabilityProbePerIp: 'availability_probe_per_minute',
 } as const;
 
 export type RateLimitParam = keyof typeof RATE_LIMIT_PARAMS;
@@ -55,6 +58,7 @@ export const WINDOWS: Readonly<Record<RateLimitParam, number>> = {
   botWeight: 1,
   otpPerAccount: 3600,
   otpPerPrefix: 3600,
+  availabilityProbePerIp: 60,
 };
 
 export interface RateLimitPolicy {

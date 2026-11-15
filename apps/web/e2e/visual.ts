@@ -8,7 +8,8 @@
  *   captures est bornée pour garder le dépôt léger (une capture pleine page pèse 20 à 200 Ko et
  *   chaque changement de jeton les réécrit toutes).
  * - Stabilité : horloge du navigateur figée (fixtures.ts), mouvement réduit, animations et curseur
- *   coupés par Playwright, polices du système du runner de la CI (aucune police téléchargée),
+ *   coupés par Playwright, texte en niveaux de gris (`--disable-lcd-text`, playwright.config.ts),
+ *   polices du système du runner de la CI (aucune police téléchargée),
  *   données du double de l'API ou des routes interceptées, toujours les mêmes.
  * - Références faisant foi : celles du runner Linux de la CI (`linux/`). Celles d'un poste local
  *   (`win32/`, `darwin/`) sont ignorées par git.

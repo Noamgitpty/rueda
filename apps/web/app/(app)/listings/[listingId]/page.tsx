@@ -9,6 +9,7 @@ import {
   regulatoryNoticesUnavailable,
 } from '../../../../account/regulatory-notices.ts';
 import { clientContext } from '../../../../account/request.ts';
+import { listingDatesOf, searchHref, wallClock } from '../../../../account/search.ts';
 import { getRequestI18n } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
 import { RegulatoryNotices } from '../../_account/regulatory-notices.tsx';
@@ -30,13 +31,20 @@ const FUELS = new Set(['GASOLINE', 'DIESEL', 'HYBRID', 'EV']);
  * confirmation (US-514). L'API ne sert d'ailleurs que des colonnes C0. États : annonce introuvable
  * ou non publiée (404), erreur (API injoignable), chargement (`loading.tsx`) ; hors connexion :
  * coquille et écran `/offline`.
+ *
+ * US-201 (critère 2 ; 16 LST-006) : ouverte depuis la recherche, la fiche reprend les dates et
+ * heures cherchées (`?start=&end=`, heures LOCALES du lieu, pas de 30 min), affichées telles
+ * quelles avec le fuseau de l'annonce, et un lien pour revenir à la même recherche.
  */
 export default async function ListingPage({
   params,
+  searchParams,
 }: {
   readonly params: Promise<{ readonly listingId: string }>;
+  readonly searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>>;
 }) {
-  const [i18n, { listingId }] = await Promise.all([getRequestI18n(), params]);
+  const [i18n, { listingId }, query] = await Promise.all([getRequestI18n(), params, searchParams]);
+  const dates = listingDatesOf(query);
   const t = i18n.t.bind(i18n);
   const reply = /^[0-9a-f-]{36}$/.test(listingId)
     ? await callApi('GET', `/listings/${listingId}`, {
@@ -95,6 +103,37 @@ export default async function ListingPage({
           </Badge>
         </div>
       </header>
+
+      {dates !== null && (
+        <section className={styles['section']} aria-labelledby="s03-dates">
+          <h2 id="s03-dates" className={accountStyles['h2']}>
+            {t('web.listing.dates.title')}
+          </h2>
+          <p className={accountStyles['text']}>
+            {/* heures locales du lieu, rendues sans conversion (fuseau UTC de l'instant fictif) */}
+            {t('web.search.result.period', {
+              from: i18n.dateTime(wallClock(dates.start), 'UTC'),
+              to: i18n.dateTime(wallClock(dates.end), 'UTC'),
+            })}
+          </p>
+          {listing.timezone !== null && (
+            <p className={accountStyles['muted']}>
+              {t('web.search.result.timezone', { city: listing.city })}
+            </p>
+          )}
+          <a
+            className={styles['link']}
+            href={searchHref({
+              country: listing.country,
+              city: listing.city,
+              area: listing.areaLabel,
+              ...dates,
+            })}
+          >
+            {t('web.listing.dates.change')}
+          </a>
+        </section>
+      )}
 
       <RegulatoryNotices
         i18n={i18n}
