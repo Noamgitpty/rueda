@@ -24,6 +24,14 @@
 3. Si l'écart est voulu : copier les références proposées dans `apps/web/e2e/__screenshots__/linux/` et les commiter avec la story. La demande de fusion montre le diff de chaque image ; la revue UX les approuve. Si l'écart n'est pas voulu : corriger le code.
 4. Jamais : écrire les références depuis un poste Windows ou macOS (polices différentes), relâcher le seuil, ou retirer un écran de la liste pour faire passer la CI.
 
+## Capture sans calques composés (`stableCompositing`)
+
+Un écran de `SCREENS` marqué `stableCompositing: true` est capturé sous la feuille `apps/web/e2e/capture-sans-calques.css`, que Playwright n'applique **que pendant la capture** (option `stylePath` de `toHaveScreenshot`, `e2e/visual.ts`) : le site ne la sert jamais et le balayage axe voit la page réelle. Elle neutralise ce qui crée des calques composés (`backdrop-filter`, `isolation`, `will-change`).
+
+- Pourquoi : sur l'accueil (S01), la pastille en verre (`backdrop-filter`) dans le bloc « nuit » (`isolation`, `overflow: hidden`, coins arrondis) fait tramer le texte de deux façons selon le minutage du compositeur de Chrome : même texte, même mise en page, mêmes couleurs, mais un anticrénelage du texte normal différent d'une exécution à l'autre (échec au hasard de `accueil · es`, run 43684357457, PR #163). Le seuil reste inchangé.
+- Effet visible : nul ou négligeable (le flou s'applique sur un aplat). Toute référence d'un écran marqué est prise sous la feuille, depuis l'artefact de la CI comme les autres.
+- Ne pas s'en servir pour masquer un écart réel : un écran n'est marqué qu'après un diagnostic d'instabilité de tramage (attendu, obtenu et différence relus), consigné dans sa passation.
+
 ## Rejouer en local
 
 ```bash

@@ -16,6 +16,7 @@
  *   différence et références proposées) ; approuver = commiter les références proposées, dont le
  *   diff d'image est relu dans la demande de fusion (docs/qa/REGRESSION_VISUELLE.md).
  */
+import { fileURLToPath } from 'node:url';
 import type { Page, TestInfo } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { Language } from './fixtures.ts';
@@ -30,14 +31,25 @@ export function captured(info: TestInfo, language: Language, scheme: Scheme): bo
   return false;
 }
 
+/**
+ * Feuille de capture qui neutralise les calques composés (`backdrop-filter`, `isolation`,
+ * `will-change`) : appliquée par Playwright pendant la capture seulement, pour les
+ * écrans dont le tramage du texte variait d'une exécution à l'autre (voir la feuille).
+ */
+export const STABLE_CAPTURE_STYLE = fileURLToPath(
+  new URL('./capture-sans-calques.css', import.meta.url),
+);
+
 /** Capture pleine page comparée à la référence ; un écart n'arrête pas les autres contrôles. */
 export async function expectScreen(
   page: Page,
   screen: string,
   language: Language,
   scheme: Scheme,
+  options: { readonly stableCompositing?: boolean } = {},
 ): Promise<void> {
-  await expect
-    .soft(page)
-    .toHaveScreenshot([screen, `${language}-${scheme}.png`], { fullPage: true });
+  await expect.soft(page).toHaveScreenshot([screen, `${language}-${scheme}.png`], {
+    fullPage: true,
+    ...(options.stableCompositing === true ? { stylePath: STABLE_CAPTURE_STYLE } : {}),
+  });
 }
