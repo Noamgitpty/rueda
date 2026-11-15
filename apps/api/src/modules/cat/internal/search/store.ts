@@ -1,6 +1,6 @@
 /**
  * Port de lecture de la recherche publique (US-201) et son adaptateur PostgreSQL : fonctions
- * `core.catalog_public_search` et `core.catalog_public_search_areas` de 0101 (SECURITY DEFINER,
+ * `core.catalog_public_search` et `core.catalog_public_areas` de 0101 (SECURITY DEFINER,
  * EXECUTE app_api), paramètres liés. Lecture seule : aucune écriture, aucune session.
  *
  * Ce que rend le port (C0 seulement, comme la fiche publique d'US-115) : prix par jour, véhicule,
@@ -108,11 +108,9 @@ export class PgSearchStore implements SearchStore {
   }
 
   async areas(country: string | null): Promise<SearchArea[]> {
-    const rows = await this.#rows(
-      'zones',
-      'SELECT * FROM core.catalog_public_search_areas($1::text)',
-      [country],
-    );
+    const rows = await this.#rows('zones', 'SELECT * FROM core.catalog_public_areas($1::text)', [
+      country,
+    ]);
     return rows.map((r) => ({
       country: String(r['country_code']),
       city: String(r['city']),

@@ -3,7 +3,7 @@
  * processus API (`api.module.ts`), après `RiskHttpModule` (garde global de débit).
  *
  * Adaptateurs choisis par l'appelant : production `postgresSearchAdapters(db, probe)` (fonctions
- * `core.catalog_public_search*` de 0101 sous app_api ; limiteur de la sonde : garde anti-abus de
+ * `core.catalog_public_search` et `core.catalog_public_areas` de 0101 sous app_api ; limiteur de la sonde : garde anti-abus de
  * RISK, câblée par `main.ts`) ; tests : FAKE de `../../testing/`. Sans options : 503 partout.
  */
 import { Module } from '@nestjs/common';

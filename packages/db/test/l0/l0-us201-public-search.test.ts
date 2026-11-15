@@ -367,7 +367,7 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0101)',
           'SELECT * FROM core.catalog_cmd_place_host_block($1, $2, $3, $4::timestamp, $5::timestamp)',
           [blocked.hash, blocked.org, blocked.vehicle, '2036-12-10T00:00', '2036-12-13T00:00'],
         );
-        expect(b.rows[0]?.outcome).toBe('BLOCK_CREATED');
+        expect(b.rows[0]?.outcome).toBe('DONE');
         // hold vivant [11 08:00, 11 18:00 + tampon) posé comme le ferait la commande de pose
         await tx.query(
           `SELECT test_fixture.occ_insert_raw($1, $2, $3, $4, 'HOLD',
@@ -467,14 +467,12 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0101)',
         ]);
         expect(ids(await at())).toEqual([ok.listing]);
         // zones proposées : la ville et la zone de l'hôte activable seulement
-        const areas = await tx.query<Row>('SELECT * FROM core.catalog_public_search_areas($1)', [
-          country,
-        ]);
+        const areas = await tx.query<Row>('SELECT * FROM core.catalog_public_areas($1)', [country]);
         const mine = areas.rows.filter((r) => r['city'] === city);
         expect(mine).toEqual([
           { country_code: country, city, area_label: ok.area, timezone: cc.timezone },
         ]);
-        const all = await tx.query<Row>('SELECT * FROM core.catalog_public_search_areas(NULL)');
+        const all = await tx.query<Row>('SELECT * FROM core.catalog_public_areas(NULL)');
         expect(all.rows.filter((r) => r['city'] === city)).toEqual(mine);
         expect(JSON.stringify(areas.rows)).not.toContain('Calle Larga');
       });
@@ -489,7 +487,7 @@ describe('US-201 — recherche publique par zone, lieu, dates et heures (0101)',
             'SELECT * FROM core.catalog_public_search($1, $2, NULL, $3::timestamp, $3::timestamp, NULL)',
             ['PA', 'Ciudad', '2036-12-10T10:00'],
           ],
-          ['SELECT * FROM core.catalog_public_search_areas($1)', ['PA']],
+          ['SELECT * FROM core.catalog_public_areas($1)', ['PA']],
           ['SELECT core.catalog_search_host_open($1, $2)', [uuid(), 'PA']],
         ] as const) {
           await client.query('BEGIN');

@@ -42,7 +42,7 @@
 --
 -- Retour arrière :
 --   DROP FUNCTION core.catalog_public_search(text, text, text, timestamp, timestamp, integer),
---     core.catalog_public_search_areas(text), core.catalog_search_host_open(uuid, text),
+--     core.catalog_public_areas(text), core.catalog_search_host_open(uuid, text),
 --     core.catalog_search_param_int(text, text) ;
 --   DROP POLICY catalog_cmd_search_read ON core.config_param_value, core.iam_restriction ;
 --   REVOKE SELECT (user_id, active) ON core.iam_restriction FROM catalog_cmd_owner ;
@@ -114,7 +114,7 @@ GRANT EXECUTE ON FUNCTION core.catalog_search_param_int(text, text),
 -- 3. Zones de remise proposées au visiteur (16 SRC-001, bêta : liste au lieu de l'autocomplétion)
 -- Villes et zones saisies par les hôtes des annonces cherchables, sans doublon, avec le fuseau du
 -- pays ; `p_country` NULL : tous les pays. Rien d'autre (ni nombre d'annonces, ni point).
-CREATE FUNCTION core.catalog_public_search_areas(p_country text)
+CREATE FUNCTION core.catalog_public_areas(p_country text)
   RETURNS TABLE (country_code text, city text, area_label text, timezone text)
   LANGUAGE sql
   STABLE
@@ -134,7 +134,7 @@ AS $fn$
    ORDER BY 1, 2, 3 NULLS FIRST
    LIMIT 500
 $fn$;
-COMMENT ON FUNCTION core.catalog_public_search_areas(text) IS
+COMMENT ON FUNCTION core.catalog_public_areas(text) IS
   'Villes et zones de remise des annonces cherchables (LISTED, hôte activable), fuseau du pays ; '
   'colonnes C0 seulement. SECURITY DEFINER, EXECUTE app_api. US-201 (ADR-128).';
 
@@ -240,14 +240,14 @@ COMMENT ON FUNCTION core.catalog_public_search(text, text, text, timestamp, time
   'instants dans le fuseau du véhicule ; issue de refus sinon. SECURITY DEFINER, EXECUTE app_api. '
   'US-201 (ADR-128).';
 
-REVOKE ALL ON FUNCTION core.catalog_public_search_areas(text),
+REVOKE ALL ON FUNCTION core.catalog_public_areas(text),
   core.catalog_public_search(text, text, text, timestamp, timestamp, integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.catalog_public_search_areas(text),
+GRANT EXECUTE ON FUNCTION core.catalog_public_areas(text),
   core.catalog_public_search(text, text, text, timestamp, timestamp, integer) TO app_api;
 
 -- Propriétaire NOLOGIN (CREATE le temps du transfert seulement, mécanique de 0047 / 0061)
 GRANT CREATE ON SCHEMA core TO catalog_cmd_owner;
-ALTER FUNCTION core.catalog_public_search_areas(text) OWNER TO catalog_cmd_owner;
+ALTER FUNCTION core.catalog_public_areas(text) OWNER TO catalog_cmd_owner;
 ALTER FUNCTION core.catalog_public_search(text, text, text, timestamp, timestamp, integer)
   OWNER TO catalog_cmd_owner;
 REVOKE CREATE ON SCHEMA core FROM catalog_cmd_owner;

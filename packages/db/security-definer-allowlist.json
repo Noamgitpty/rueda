@@ -871,7 +871,7 @@
       "story": "US-119, US-201"
     },
     {
-      "signature": "core.catalog_public_search_areas(text)",
+      "signature": "core.catalog_public_areas(text)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
