@@ -1,6 +1,6 @@
 # CAT — Catalog / Listings (`apps/api/src/modules/cat`)
 
-**CAT — Catalog / Listings** : lieux, véhicules, annonces, photos, politique de caution, import CSV, flux iCal. Dépendances autorisées : IAM, KYC, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 CAT --> KYC).
+**CAT — Catalog / Listings** : lieux, véhicules, annonces, photos, politique de caution, import CSV, flux iCal. Dépendances autorisées : IAM, KYC, CTR, CFG (socle implicite : CFG, AUD, BUS ; source : 17 §2.2 ; §2.1 CAT --> KYC ; CTR : `TermsGuard` des trips de l'hôte, écart assumé d'ADR-127, US-219).
 
 ## Responsabilité
 
@@ -8,7 +8,7 @@ CAT décrit l'offre de l'hôte : lieux de remise, véhicules, documents du véhi
 
 CAT ne tient pas la disponibilité (AVL, table d'occupation unique) et ne fixe pas le prix d'un trip (PRC). L'import CSV d'une flotte est historique depuis le pivot P2P (`fleet_import_job`, 17 §3.2.3).
 
-État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout au catalogue est livrée par US-114 (ADR-104 : un véhicule hors catalogue ouvre sa demande, son annonce n'était pas publiable tant que l'ops ne l'avait pas rattaché à une variante, levé par US-118 et DEC-FONDATEUR-22 ; route `POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request` ; `GET …/vehicles` rend `catalogRequest`), la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
+État réel : `CatModule` est vide (US-001). Existent le port `MapTiles` (US-020, ADR-058), le **catalogue de référence des véhicules** (US-113, ADR-094) et les **lieux de remise, véhicules et annonces de l'hôte** (US-115, ADR-099 : `CatHostModule`, routes `/host/accounts/{orgId}/…` et fiche publique `/listings/{id}`). La file d'ajout au catalogue est livrée par US-114 (ADR-104 : un véhicule hors catalogue ouvre sa demande, son annonce n'était pas publiable tant que l'ops ne l'avait pas rattaché à une variante, levé par US-118 et DEC-FONDATEUR-22 ; route `POST /host/accounts/{orgId}/vehicles/{vehicleId}/catalog-request` ; `GET …/vehicles` rend `catalogRequest`), la publication avec US-118 et US-509, les documents du véhicule avec US-124, le **calendrier, les blocages et le préavis** avec US-119 (ADR-101, ci-dessous), les **trips de l'hôte** (espace hôte A02 / A05, lecture seule) avec US-219 (ADR-127, ci-dessous), l'assistant complet par étapes avec US-508 ; écrans A10 `/host` et S03 `/listings/{id}` : `apps/web` (US-115).
 
 ## Entités
 
@@ -106,3 +106,14 @@ Consommés (cible 17 §4.5) : `kyc.host_verification.decided` (KYC), `review.pub
 - Preuves L0 : `packages/db/test/l0/l0-us114-catalog-addition.test.ts` (fixture `9988_test_us114_catalog_addition_fixtures.sql`) ; `packages/db/test/l0/l0-us113-vehicle-catalog.test.ts` ; fixture `packages/db/test-migrations/9970_test_us113_catalog_fixtures.sql` ; `packages/db/test/l0/l0-us115-host-listings.test.ts` ; fixture `packages/db/test-migrations/9985_test_us115_catalog_host_fixtures.sql`.
 
 `test:int` et `test:l0` demanderont PostgreSQL : guide `docs/ops/INSTALL.md` (compose de dev) ou `RUEDA_PG_TESTCONTAINERS=1` (Docker) ; variables dans `packages/db/README.md`, section « Commandes ».
+
+## Trips de l'hôte (US-219, ADR-127)
+
+Lecture seule de l'espace hôte (16 HDB-001 / HDB-002, écrans A02 et A05) : `GET /host/accounts/{orgId}/trips` (onglet `tab` = `UPCOMING`, `IN_PROGRESS`, `DONE`, `CANCELLED` ; filtres `vehicleId`, `from`, `to` en dates locales du trip) et `GET /host/accounts/{orgId}/trips/{tripId}`, gardées par `SessionGuard` puis `TermsGuard` (segment `trips` : route de réservation, US-102).
+
+- La base juge tout : `core.booking_host_trips` (migration 0100, propriétaire `host_view_owner`, EXECUTE `app_api`) ne rend que les trips d'un compte **titulaire** de la session ; un autre compte rend `FORBIDDEN` (404 `HOST_ACCOUNT_NOT_FOUND`), un trip d'un autre hôte aucune ligne (404 `TRIP_NOT_FOUND`).
+- Du voyageur, seuls le prénom, l'âge, la note (nulle tant que les avis n'existent pas) et le statut de vérification (`host_guest_v`, 17 §2.3) ; jamais son identifiant, son permis ni une pièce.
+- Gains estimés : jambe `HOST` de l'opération de conversion, relue telle quelle (`hostEarningsMinor`, chaîne en unités mineures) avec l'exposant de la devise du pays ; nulle pour un trip annulé.
+- Véhicule et lieu de remise joints par les lectures d'US-115 (`vehicles`, `locations`).
+- Fichiers : `internal/host-trips/` (`store.ts` port et adaptateur, `host-trips.service.ts`, `host-trips.controller.ts`) ; FAKE `testing/fake-host-trip-store.ts` ; contrat `testing/host-trips.contract.test.ts` ; preuves base `packages/db/test/l0/l0-us219-host-trips.test.ts`.
+- Mode `REQUEST` (critères 4 à 6 de 19 US-219) : non livré ici (voir ADR-127 et la passation d'US-219).

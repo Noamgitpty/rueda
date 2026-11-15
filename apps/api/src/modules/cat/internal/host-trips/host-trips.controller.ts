@@ -1,6 +1,6 @@
 /**
  * Routes des trips de l'hôte (US-219 ; 16 HDB-001 / HDB-002 ; écrans A02 et A05 ; ADR-127). Lecture
- * seule, gardée par `SessionGuard` ; l'hôte est celui de la session, le compte `{orgId}` l'un de
+ * seule, gardée par `SessionGuard` puis `TermsGuard` (CGU à jour, US-102) ; l'hôte est celui de la session, le compte `{orgId}` l'un de
  * ses comptes titulaires, revérifié en base. Aucune écriture : l'état du trip ne change que par les
  * commandes d'US-207.
  *
@@ -10,6 +10,7 @@
  * | GET /host/accounts/{orgId}/trips/{tripId}     | 200 trip ; 404 TRIP_NOT_FOUND               |
  */
 import { Controller, Get, Inject, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { TermsGuard } from '../../../ctr/index.js';
 import { SessionGuard, sessionProofOf } from '../../../iam/index.js';
 import { HostListingHttpError } from '../host-listings/errors.js';
 import { isUuid } from '../host-listings/model.js';
@@ -32,7 +33,9 @@ function idOf(id: string, code: 'HOST_ACCOUNT_NOT_FOUND' | 'TRIP_NOT_FOUND'): st
 }
 
 @Controller('host')
-@UseGuards(SessionGuard)
+// route de réservation (segment `trips`) : CGU à jour exigées, comme toute route du trip (US-102,
+// N-43, L2-PM-31)
+@UseGuards(SessionGuard, TermsGuard)
 export class HostTripsController {
   constructor(@Inject(HostTripsService) private readonly trips: HostTripsService) {}
 
