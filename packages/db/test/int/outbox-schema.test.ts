@@ -150,6 +150,12 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
+        // machine à états du trip (0099, US-207, ADR-126) : trip.status_changed et
+        // trip.cancellation.qualified seulement, acteur SYSTEM
+        if (r.pol === 'outbox_outbox_event.cmd_trip_event_ins') {
+          expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
+          continue;
+        }
         // commandes de l'OTP (0066, US-104) : insertion de leurs seuls événements
         // iam.otp.requested et iam.phone.verified
         if (r.pol === 'outbox_outbox_event.iam_auth_otp_event_ins') {

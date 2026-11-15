@@ -1,5 +1,5 @@
 /**
- * Magasin des devis figés (commandes de la migration 0099) et textes du devis (US-202). Le
+ * Magasin des devis figés (commandes de la migration 0100) et textes du devis (US-202). Le
  * comportement des commandes est prouvé sous les rôles de production par
  * `packages/db/test/l0/l0-us202-quote.test.ts` ; ici, l'adaptateur seul (paramètres, issues).
  */

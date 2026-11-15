@@ -1,6 +1,6 @@
 /**
  * Ports du devis (US-202) : annonce publiée lue chez CAT, devis figé écrit par la commande de la
- * base `core.pricing_cmd_freeze_quote` (migration 0099), rattachement au trip par
+ * base `core.pricing_cmd_freeze_quote` (migration 0100), rattachement au trip par
  * `core.pricing_cmd_version_trip_price`. Adaptateurs de production sous `app_api` ; sans
  * adaptateur, tout appel échoue (503, fail-closed).
  */
@@ -92,7 +92,7 @@ const VERSION_OUTCOMES: readonly string[] = [
   'QUOTE_MISMATCH',
 ];
 
-/** Commandes de la migration 0099, sous app_api. */
+/** Commandes de la migration 0100, sous app_api. */
 export class PgQuoteStore implements QuoteStore {
   constructor(private readonly db: SqlExecutor) {}
 

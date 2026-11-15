@@ -1,5 +1,5 @@
 /**
- * Preuves du devis figé et des versions de prix du trip (US-202, migration 0099 ; fixtures 9993)
+ * Preuves du devis figé et des versions de prix du trip (US-202, migration 0100 ; fixtures 9993)
  * sous les rôles de production (assertion L0-05 en tête de chaque connexion, withRole), en USD
  * (PA) et en PYG sans décimale (PY). Personnes, sessions et rattachements par les VRAIES commandes ;
  * l'annonce LISTED vient de la fixture 9993.

@@ -1412,6 +1412,12 @@ export const EN_MESSAGES = {
   'common.booking.selfBookingForbidden.title': "You can't book this car",
   'common.booking.selfBookingForbidden.body':
     "This car can't be booked with your account. Choose another car, or contact us if you think this is a mistake.",
+  // US-207 : refus des commandes de la machine à états du trip (16 TRP-045 ; 08 BR-CXL règle 3)
+  'common.trip.transitionForbidden':
+    'This action is no longer possible for this booking. Reload the page to see its current status.',
+  'common.trip.concurrentUpdate': 'This booking has just changed. Reload the page and try again.',
+  'common.trip.noShowTooEarly':
+    "It's too early to report that the guest didn't show up. Try again once the waiting time shown in the booking is over.",
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Important notice',
   'common.regulatory.version': 'Version {version} of this notice',

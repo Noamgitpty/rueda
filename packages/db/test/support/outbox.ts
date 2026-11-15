@@ -27,6 +27,17 @@ export const SPEC_MAX_ATTEMPTS = 5;
 
 export const uuid = (): string => randomUUID();
 
+/**
+ * Identifiant d'événement de test qui se range EN TÊTE de `ORDER BY id` du relais (17 §4.2) :
+ * préfixe nul, version 4, 15 chiffres hexadécimaux aléatoires. Les preuves du relais réclament au
+ * plus 1 000 événements ; la base partagée du banc en porte davantage depuis que chaque trip publie
+ * `trip.status_changed` (US-207, 0099) : un UUID v4 quelconque pouvait tomber au-delà du lot.
+ */
+export const leadingEventId = (): string => {
+  const hex = randomBytes(8).toString('hex');
+  return `00000000-0000-4${hex.slice(0, 3)}-8${hex.slice(3, 6)}-${hex.slice(4, 16)}`;
+};
+
 /** Nom de travailleur unique (format `app.worker_name`) : une file isolée par test. */
 export const workerName = (prefix: string): string => `${prefix}_${randomBytes(6).toString('hex')}`;
 
@@ -81,7 +92,7 @@ export async function insertEvent(
   overrides: { readonly type?: string; readonly partitionKey?: string } = {},
 ): Promise<TestEvent> {
   const event: TestEvent = {
-    id: uuid(),
+    id: leadingEventId(),
     type: overrides.type ?? 'booking.trip.booked',
     aggregateId: uuid(),
     country,

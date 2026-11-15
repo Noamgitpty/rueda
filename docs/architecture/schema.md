@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 100 migrations ; 110 tables ; 2 vues ; 594 politiques RLS ; 198 fonctions `SECURITY DEFINER` ; 203 autres fonctions.
+- 101 migrations ; 114 tables ; 2 vues ; 611 politiques RLS ; 203 fonctions `SECURITY DEFINER` ; 209 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -114,7 +114,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0096_catalog_customs_curation` | CAT : curation de l'import de la douane, lot 2 (N-101 ; ADR-123, ADR-109 §7 ; revue de |
 | `0097_support_redteam_l1_pass2_fixes` | SUP / STL / RISK / KYC / AUD / BKG / CAT : correctifs de la passe n° 2 de la red team du lot 1. |
 | `0098_config_upload_params` | graine complémentaire : paramètres « upload_* » (US-122 ; 17 §7.2). |
-| `0099_pricing_quote` | PRC : devis figés, lignes et versions de prix du trip. |
+| `0099_booking_trip_state_machine` | AVL : machine à états du trip (SM-1, SM-1b), segment, conducteur principal, journal d'état. |
+| `0100_pricing_quote` | PRC : devis figés, lignes et versions de prix du trip. |
 
 ## Rôles
 
@@ -799,6 +800,8 @@ Contraintes :
 
 Politiques RLS :
 
+- `cmd_trip_guest_occ_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_trip_guest_occ_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `(active AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))` WITH CHECK `((NOT active) AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))`
 - `guard_read` (SELECT, PERMISSIVE, guard_owner) USING `true`
 - `guest_occupancy_guest_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id()))`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
@@ -925,11 +928,16 @@ Déclencheurs :
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `updated_by` | `uuid` | non | — |
 | `row_version` | `integer` | oui | `0` |
+| `no_show_at` | `timestamp with time zone` | non | — |
+| `checkin_validated_at` | `timestamp with time zone` | non | — |
+| `cancel_initiator` | `text` | non | — |
+| `cancel_requested_at` | `timestamp with time zone` | non | — |
 
 Contraintes :
 
 - `booking_trip_pkey` : `PRIMARY KEY (id)`
 - `booking_trip_source_hold_id_fkey` : `FOREIGN KEY (source_hold_id) REFERENCES core.booking_checkout_hold(id)`
+- `trip_cancel_initiator_valid` : `CHECK (cancel_initiator IS NULL OR (cancel_initiator = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'CO_HOST'::text, 'PLATFORM'::text, 'SYSTEM'::text])))`
 - `trip_cancellation_reason_code` : `CHECK (cancellation_reason IS NULL OR cancellation_reason ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
 - `trip_catalog_listing_fk` : `FOREIGN KEY (listing_id) REFERENCES core.catalog_listing(id)`
 - `trip_catalog_vehicle_fk` : `FOREIGN KEY (vehicle_id, org_id, country_code) REFERENCES core.catalog_vehicle(id, org_id, country_code)`
@@ -957,6 +965,7 @@ Politiques RLS :
 
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
+- `cmd_trip_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))` WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))`
 - `host_view_read` (SELECT, PERMISSIVE, host_view_owner) USING `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `integrity_read` (SELECT, PERMISSIVE, integrity_owner) USING `true`
@@ -975,7 +984,160 @@ Politiques RLS :
 Déclencheurs :
 
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.booking_trip FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+- `trip_birth_defaults` : `CREATE TRIGGER trip_birth_defaults BEFORE INSERT ON core.booking_trip FOR EACH ROW EXECUTE FUNCTION core.booking_trip_birth_defaults()`
+- `trip_birth_records` : `CREATE TRIGGER trip_birth_records AFTER INSERT ON core.booking_trip FOR EACH ROW EXECUTE FUNCTION core.booking_trip_birth_records()`
 - `trip_has_active_occupancy` : `CREATE CONSTRAINT TRIGGER trip_has_active_occupancy AFTER INSERT OR UPDATE OF status, vehicle_id, scheduled_start, scheduled_end ON core.booking_trip DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION core.booking_assert_trip_occupancy('trip_has_active_occupancy')`
+- `trip_period_sync` : `CREATE TRIGGER trip_period_sync AFTER UPDATE OF scheduled_start, scheduled_end ON core.booking_trip FOR EACH ROW WHEN (old.scheduled_start IS DISTINCT FROM new.scheduled_start OR old.scheduled_end IS DISTINCT FROM new.scheduled_end) EXECUTE FUNCTION core.booking_trip_period_sync()`
+- `trip_transition_guard` : `CREATE TRIGGER trip_transition_guard BEFORE UPDATE OF status ON core.booking_trip FOR EACH ROW WHEN (old.status IS DISTINCT FROM new.status) EXECUTE FUNCTION core.booking_trip_transition_guard()`
+
+### `core.booking_trip_driver`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `trip_id` | `uuid` | oui | — |
+| `user_id` | `uuid` | oui | — |
+| `role` | `text` | oui | — |
+| `approved_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `booking_trip_driver_pkey` : `PRIMARY KEY (trip_id, user_id)`
+- `booking_trip_driver_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `booking_trip_driver_user_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
+- `trip_driver_beta_primary` : `CHECK (role = 'PRIMARY'::text)`
+
+Index :
+
+- `one_primary_driver_per_trip` : `CREATE UNIQUE INDEX one_primary_driver_per_trip ON core.booking_trip_driver USING btree (trip_id) WHERE (role = 'PRIMARY'::text)`
+- `trip_driver_user_idx` : `CREATE INDEX trip_driver_user_idx ON core.booking_trip_driver USING btree (user_id)`
+
+Politiques RLS :
+
+- `cmd_trip_driver_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `(role = 'PRIMARY'::text)`
+- `cmd_trip_driver_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `no_delete` : `CREATE TRIGGER no_delete BEFORE DELETE ON core.booking_trip_driver FOR EACH ROW EXECUTE FUNCTION core.booking_no_delete()`
+
+### `core.booking_trip_segment`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `seq` | `integer` | oui | — |
+| `period` | `tstzrange` | oui | — |
+| `billable_days` | `integer` | non | — |
+| `price_version` | `integer` | non | — |
+| `due_at` | `timestamp with time zone` | non | — |
+| `payment_status` | `text` | oui | `'CONFIRMED'::text` |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `row_version` | `integer` | oui | `0` |
+
+Contraintes :
+
+- `booking_trip_segment_pkey` : `PRIMARY KEY (id)`
+- `booking_trip_segment_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `trip_segment_beta_single` : `CHECK (seq = 1)`
+- `trip_segment_billable_days_positive` : `CHECK (billable_days IS NULL OR billable_days >= 1)`
+- `trip_segment_payment_status_valid` : `CHECK (payment_status = ANY (ARRAY['CONFIRMED'::text, 'REFUNDED_PARTIAL'::text, 'REFUNDED'::text]))`
+- `trip_segment_period_valid` : `CHECK (NOT isempty(period) AND lower_inc(period) AND NOT upper_inc(period) AND lower(period) IS NOT NULL AND upper(period) IS NOT NULL)`
+- `trip_segment_price_version_positive` : `CHECK (price_version IS NULL OR price_version >= 1)`
+- `trip_segment_seq_unique` : `UNIQUE (trip_id, seq)`
+
+Politiques RLS :
+
+- `cmd_trip_seg_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `(seq = 1)`
+- `cmd_trip_seg_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_trip_seg_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `(seq = 1)` WITH CHECK `(seq = 1)`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `no_delete` : `CREATE TRIGGER no_delete BEFORE DELETE ON core.booking_trip_segment FOR EACH ROW EXECUTE FUNCTION core.booking_no_delete()`
+- `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.booking_trip_segment FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
+### `core.booking_trip_state_log`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `from_status` | `text` | non | — |
+| `to_status` | `text` | oui | — |
+| `kind` | `text` | oui | — |
+| `reason_code` | `text` | oui | — |
+| `origin` | `text` | non | — |
+| `actor_user_id` | `uuid` | non | — |
+| `actor_role` | `text` | oui | — |
+| `at` | `timestamp with time zone` | oui | `platform.now()` |
+| `settlement_id` | `uuid` | non | — |
+| `xact_id` | `xid8` | oui | `pg_current_xact_id()` |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `booking_trip_state_log_pkey` : `PRIMARY KEY (id)`
+- `booking_trip_state_log_settlement_fkey` : `FOREIGN KEY (settlement_id) REFERENCES core.settlement_settlement(id)`
+- `booking_trip_state_log_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `trip_state_log_actor_role_format` : `CHECK (actor_role ~ '^[A-Z][A-Z0-9_]{0,31}$'::text)`
+- `trip_state_log_actor_shape` : `CHECK (actor_role <> 'SYSTEM'::text OR actor_user_id IS NULL)`
+- `trip_state_log_birth_shape` : `CHECK ((from_status IS NULL) = (to_status = 'BOOKED'::text AND kind = 'TRANSITION'::text AND reason_code = 'HOLD_CONVERTED'::text))`
+- `trip_state_log_kind_valid` : `CHECK (kind = ANY (ARRAY['TRANSITION'::text, 'AUDIT_CORRECTION'::text]))`
+- `trip_state_log_origin_valid` : `CHECK (origin IS NULL OR (origin = ANY (ARRAY['EVENT'::text, 'LATE_GUEST_CANCELLATION'::text, 'REQUALIFIED_NO_EVIDENCE'::text, 'PICKUP_CHECK'::text])))`
+- `trip_state_log_reason_format` : `CHECK (reason_code ~ '^[A-Z][A-Z0-9_]{1,63}$'::text)`
+- `trip_state_log_states_valid` : `CHECK ((from_status IS NULL OR (from_status = ANY (ARRAY['BOOKED'::text, 'CHECKIN_OPEN'::text, 'START_WINDOW_EXPIRED'::text, 'IN_PROGRESS'::text, 'OVERDUE'::text, 'RETURNED'::text, 'UNRETURNED'::text, 'TERMINATED_EARLY'::text, 'VEHICLE_LOST'::text, 'POST_TRIP'::text, 'COMPLETED'::text, 'IN_DISPUTE'::text, 'CANCELLED_BY_GUEST'::text, 'CANCELLED_BY_HOST'::text, 'CANCELLED_BY_PLATFORM'::text, 'REFUSED_AT_PICKUP'::text, 'NO_SHOW_GUEST'::text, 'NO_SHOW_HOST'::text]))) AND (to_status = ANY (ARRAY['BOOKED'::text, 'CHECKIN_OPEN'::text, 'START_WINDOW_EXPIRED'::text, 'IN_PROGRESS'::text, 'OVERDUE'::text, 'RETURNED'::text, 'UNRETURNED'::text, 'TERMINATED_EARLY'::text, 'VEHICLE_LOST'::text, 'POST_TRIP'::text, 'COMPLETED'::text, 'IN_DISPUTE'::text, 'CANCELLED_BY_GUEST'::text, 'CANCELLED_BY_HOST'::text, 'CANCELLED_BY_PLATFORM'::text, 'REFUSED_AT_PICKUP'::text, 'NO_SHOW_GUEST'::text, 'NO_SHOW_HOST'::text])))`
+
+Index :
+
+- `trip_state_log_trip_idx` : `CREATE INDEX trip_state_log_trip_idx ON core.booking_trip_state_log USING btree (trip_id, at)`
+
+Politiques RLS :
+
+- `cmd_trip_log_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `(kind = 'TRANSITION'::text)`
+- `cmd_trip_log_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `no_delete` : `CREATE TRIGGER no_delete BEFORE DELETE ON core.booking_trip_state_log FOR EACH ROW EXECUTE FUNCTION core.booking_no_delete()`
+- `trip_state_log_immutable` : `CREATE TRIGGER trip_state_log_immutable BEFORE UPDATE ON core.booking_trip_state_log FOR EACH ROW EXECUTE FUNCTION core.booking_trip_state_log_immutable()`
+
+### `core.booking_trip_transition`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `from_status` | `text` | oui | — |
+| `to_status` | `text` | oui | — |
+| `via` | `text` | oui | — |
+
+Contraintes :
+
+- `trip_transition_pkey` : `PRIMARY KEY (from_status, to_status)`
+- `trip_transition_states_valid` : `CHECK ((from_status = ANY (ARRAY['BOOKED'::text, 'CHECKIN_OPEN'::text, 'START_WINDOW_EXPIRED'::text, 'IN_PROGRESS'::text, 'OVERDUE'::text, 'RETURNED'::text, 'UNRETURNED'::text, 'TERMINATED_EARLY'::text, 'VEHICLE_LOST'::text, 'POST_TRIP'::text, 'COMPLETED'::text, 'IN_DISPUTE'::text])) AND (to_status = ANY (ARRAY['BOOKED'::text, 'CHECKIN_OPEN'::text, 'START_WINDOW_EXPIRED'::text, 'IN_PROGRESS'::text, 'OVERDUE'::text, 'RETURNED'::text, 'UNRETURNED'::text, 'TERMINATED_EARLY'::text, 'VEHICLE_LOST'::text, 'POST_TRIP'::text, 'COMPLETED'::text, 'IN_DISPUTE'::text, 'CANCELLED_BY_GUEST'::text, 'CANCELLED_BY_HOST'::text, 'CANCELLED_BY_PLATFORM'::text, 'REFUSED_AT_PICKUP'::text, 'NO_SHOW_GUEST'::text, 'NO_SHOW_HOST'::text])) AND from_status <> to_status)`
+- `trip_transition_via_matches` : `CHECK ((via = 'CANCEL'::text) = (to_status = ANY (ARRAY['CANCELLED_BY_GUEST'::text, 'CANCELLED_BY_HOST'::text, 'CANCELLED_BY_PLATFORM'::text, 'REFUSED_AT_PICKUP'::text, 'NO_SHOW_GUEST'::text, 'NO_SHOW_HOST'::text])))`
+- `trip_transition_via_valid` : `CHECK (via = ANY (ARRAY['TRANSITION'::text, 'CANCEL'::text]))`
+
+Politiques RLS :
+
+- `cmd_trip_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.booking_vehicle_occupancy`
 
@@ -1038,6 +1200,7 @@ Politiques RLS :
 - `cmd_occ_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((kind = 'HOLD'::text) AND (source = 'CHECKOUT'::text) AND active AND (expires_at IS NOT NULL) AND (ref_type = 'HOLD'::text) AND (ref_id IS NOT NULL) AND (app.actor_kind() = 'GUEST'::text))`
 - `cmd_occ_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `cmd_occ_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((kind = 'HOLD'::text) AND active AND (app.actor_kind() = 'GUEST'::text))` WITH CHECK `((kind = 'HOLD'::text) AND (NOT active) AND (app.actor_kind() = 'GUEST'::text) AND (deactivated_reason = ANY (ARRAY['HOLD_EXPIRED'::text, 'HOLD_RELEASED'::text])))`
+- `cmd_trip_occ_upd` (UPDATE, PERMISSIVE, cmd_hold_owner) USING `((kind = 'TRIP'::text) AND active AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))` WITH CHECK `((kind = 'TRIP'::text) AND (NOT active) AND (deactivated_reason = 'TRIP_TERMINAL'::text) AND (app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'trip_lifecycle'::text))`
 - `integrity_read` (SELECT, PERMISSIVE, integrity_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `occupancy_host_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()) AND app.host_covers_vehicle(vehicle_id))`
@@ -2174,7 +2337,7 @@ Politiques RLS :
 - `catalog_cmd_upload_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['upload_photo_max_kb'::text, 'upload_gallery_photos_max'::text, 'upload_documents_per_minute'::text]))`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
-- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text]))`
+- `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text]))`
 - `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
@@ -3503,6 +3666,7 @@ Politiques RLS :
 - `cmd_golive_event_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((type = 'config.param.changed'::text) AND (aggregate_type = 'param_value'::text) AND (actor_role = 'SUPERADMIN'::text) AND (actor_user_id IS NOT NULL))`
 - `cmd_hold_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = ANY (ARRAY['booking.hold.created'::text, 'booking.hold.released'::text, 'booking.hold.release_deferred'::text, 'booking.hold.payment_in_flight'::text])) AND (app.actor_kind() = 'GUEST'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id = app.actor_id()))`
 - `cmd_hold_trip_notice_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((type = 'booking.trip.host_restricted'::text) AND (aggregate_type = 'trip'::text) AND (actor_user_id IS NOT NULL))`
+- `cmd_trip_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'trip'::text) AND (type = ANY (ARRAY['trip.status_changed'::text, 'trip.cancellation.qualified'::text])) AND (actor_role = 'SYSTEM'::text) AND (actor_user_id IS NULL))`
 - `iam_auth_otp_event_ins` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `((((type = 'iam.otp.requested'::text) AND (aggregate_type = 'otp_challenge'::text)) OR ((type = 'iam.phone.verified'::text) AND (aggregate_type = 'user_account'::text))) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))`
 - `iam_staff_incident_event` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((type = 'security.incident.opened'::text) AND (aggregate_type = 'security_incident'::text) AND (actor_user_id IS NOT NULL) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text, 'SUPERADMIN'::text])))`
 - `iam_staff_sla_event` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `((type = 'support.review_queue.sla_breached'::text) AND (aggregate_type = 'review_queue_item'::text) AND (actor_role = 'SYSTEM'::text))`
@@ -5414,9 +5578,14 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_cmd_remove_host_block(p_block_id uuid)` | `boolean` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_report_self_booking(p_vehicle_id uuid)` | `void` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_start_payment(p_hold_id uuid, p_psp_account_id uuid, p_method text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_trip_cancel(p_trip_id uuid, p_reason text, p_initiator text, p_sub_reason text, p_evidence_validated boolean, p_expected_row_version integer)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_trip_transition(p_trip_id uuid, p_to_status text, p_reason_code text, p_expected_row_version integer)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
 | `core.booking_notify_host_restricted(p_holder uuid, p_actor uuid, p_actor_role text, p_causation uuid)` | `uuid[]` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.booking_trip_birth_defaults()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_birth_records()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_period_sync()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.catalog_addition_detail(p_addition_id uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_cmd_add_listing_photo(p_token_hash bytea, p_org uuid, p_listing_id uuid, p_photo_id uuid, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, photo_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_cmd_add_vehicle_document(p_token_hash bytea, p_org uuid, p_vehicle uuid, p_file_id uuid, p_doc_type text, p_mime text, p_bytes bigint, p_sha256 bytea, p_valid_until date)` | `TABLE(outcome text, document_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
@@ -5615,6 +5784,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.audit_log_canonical(r core.audit_audit_log)` | `text` | `migrator` | audit_chain_owner: EXECUTE ; migrator: EXECUTE |
 | `core.audit_subject_key_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_buffer_minutes(p_country text)` | `integer` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
+| `core.booking_cancellation_target(p_reason text)` | `text` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_convert_payment(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_disposition_candidates(p_limit integer)` | `TABLE(operation_id uuid, success_known_at timestamp with time zone)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_disposition_repair(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
@@ -5633,6 +5803,11 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_record_payment_failure(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_record_poll(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_release_cancelled_holds(p_limit integer)` | `integer` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
+| `core.booking_trip_apply_transition(p_trip_id uuid, p_from text, p_to text, p_reason text, p_origin text, p_actor_role text, p_via text, p_extra jsonb)` | `integer` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_holds_slot(p_status text)` | `boolean` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
+| `core.booking_trip_lock(p_trip_id uuid, p_expected_row_version integer)` | `TABLE(id uuid, status text, country_code text, scheduled_end timestamp with time zone, row_version integer, no_show_at timestamp with time zone, checkin_validated_at timestamp with time zone)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_state_log_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.booking_trip_transition_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_vehicle_party(p_vehicle_id uuid)` | `TABLE(org_id uuid, country_code text)` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_addition_open(p_org uuid, p_country text, p_vehicle uuid, p_user uuid, p_make text, p_model text, p_year integer, p_trim text, p_vin text)` | `uuid` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.catalog_area_label_is_address(p_area text)` | `boolean` | `catalog_cmd_owner` | catalog_cmd_owner: EXECUTE |

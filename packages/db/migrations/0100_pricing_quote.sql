@@ -1,4 +1,4 @@
--- 0099 — PRC : devis figés, lignes et versions de prix du trip.
+-- 0100 — PRC : devis figés, lignes et versions de prix du trip.
 -- US-202 ; 19 US-202 (« Given un devis figé, When il est rejoué, Then le total est identique au
 -- cent » ; taxe par ligne T43 ; groupe third_party ⇒ jambe TAX_THIRD_PARTY) ; 16 PRC-025 (états
 -- PROVISIONAL → FROZEN → SUPERSEDED, QUOTE_UNAVAILABLE, LEG_AMOUNT_NEGATIVE ; « une version figée

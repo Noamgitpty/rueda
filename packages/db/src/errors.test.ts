@@ -59,6 +59,16 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23000', 'booking_record_no_delete', 'IMMUTABLE_RECORD'],
     ['23000', 'pricing_record_immutable', 'IMMUTABLE_RECORD'],
     ['23514', 'hold_review_before_payment', 'BOOKING_UNDER_REVIEW'],
+    // machine à états du trip (0099, US-207 ; 16 TRP-045, 08 BR-CXL règle 3)
+    ['55000', 'trip_transition_forbidden', 'TRIP_TRANSITION_FORBIDDEN'],
+    ['55000', 'trip_concurrent_update', 'TRIP_CONCURRENT_UPDATE'],
+    ['55000', 'trip_no_show_too_early', 'REJECTED_TOO_EARLY'],
+    ['55000', 'trip_transition_too_early', 'REJECTED_TOO_EARLY'],
+    ['55000', 'trip_param_missing', 'PARAM_MISSING'],
+    ['42501', 'trip_command_forbidden', 'FORBIDDEN'],
+    ['23000', 'trip_transition_unlogged', 'INVARIANT_VIOLATION'],
+    ['23000', 'trip_segment_missing', 'INVARIANT_VIOLATION'],
+    ['23000', 'trip_state_log_immutable', 'IMMUTABLE_RECORD'],
     // intention de paiement, conversion gardée (0040, 0041, US-024)
     ['55000', 'hold_not_payable', 'HOLD_EXPIRED'],
     ['55000', 'hold_payment_terminal', 'INVALID_TRANSITION'],

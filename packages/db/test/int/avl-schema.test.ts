@@ -30,6 +30,15 @@ const CORE_TABLES = [
   'booking_disposition_repair_log',
 ] as const;
 
+// Machine à états du trip (US-207, 0099) : même socle RLS, mais AUCUN droit applicatif (écrites et
+// lues par les commandes de cmd_hold_owner seulement) ; preuves : test/l0/l0-us207-trip-state-machine.
+const TRIP_SM_TABLES = [
+  'booking_trip_transition',
+  'booking_trip_segment',
+  'booking_trip_driver',
+  'booking_trip_state_log',
+] as const;
+
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),
 // mais lecture de référence pour app_api et app_worker ; leurs politiques et droits sont vérifiés
 // par config-country.test.ts. Les contrôles de politiques AVL / PAY ci-dessous portent donc sur CORE_TABLES.
@@ -45,7 +54,7 @@ const CONFIG_TABLES = [
   'config_go_live_switch_request',
 ] as const;
 
-// Devis figés (US-202, 0099) : socle RLS commun ; aucun droit applicatif, commandes de
+// Devis figés (US-202, 0100) : socle RLS commun ; aucun droit applicatif, commandes de
 // cmd_money_owner, preuves par test/l0/l0-us202-quote.test.ts.
 const PRICING_TABLES = [
   'pricing_quote',
@@ -129,6 +138,7 @@ describe('schéma core (US-006)', () => {
       expect(rows.map((r) => r.relname)).toEqual(
         [
           ...CORE_TABLES,
+          ...TRIP_SM_TABLES,
           ...CONFIG_TABLES,
           ...PRICING_TABLES,
           ...SUPPORT_TABLES,

@@ -6,7 +6,7 @@
 
 D'après 17 §2.2 et §2.6 : devis versionné (PRC-025), même calcul pour l'affichage, le contrat, le remboursement et les jambes ; jours facturables (une seule fonction paramétrée) ; lignes typées (trip fee, protection, extras) ; taxe par ligne et groupe « pour compte de tiers » ; instantané des paramètres (plan de l'hôte, parts de l'assureur) ; versions de prix du trip (BR-MOD-06). PRC ne calcule pas le règlement (STL) et n'encaisse rien (PAY).
 
-État du code (US-202, ADR-125) : **moteur de devis pur et versionné** (`prc.quote/1`, `internal/quote/`) et **devis figés en base** (migration `0099_pricing_quote` : `core.pricing_quote`, `core.pricing_quote_line`, `core.pricing_trip_price_version`, commandes `core.pricing_cmd_freeze_quote` et `core.pricing_cmd_version_trip_price`, rejeu complet par la base ; voir `packages/db/README.md`, « Devis figés »). **Aucune route HTTP dans PRC** : une route de devis est une route de réservation (`SessionGuard` + `TermsGuard`, US-102, `terms-guard-coverage.test.ts`) et PRC ne dépend que de CAT et CFG (17 §2.2) ; elle est portée par le checkout (US-208, AVL), qui utilise `QuoteService`, `PgQuoteStore`, `QUOTE_MESSAGES` et les textes `common.quote.*`.
+État du code (US-202, ADR-125) : **moteur de devis pur et versionné** (`prc.quote/1`, `internal/quote/`) et **devis figés en base** (migration `0100_pricing_quote` : `core.pricing_quote`, `core.pricing_quote_line`, `core.pricing_trip_price_version`, commandes `core.pricing_cmd_freeze_quote` et `core.pricing_cmd_version_trip_price`, rejeu complet par la base ; voir `packages/db/README.md`, « Devis figés »). **Aucune route HTTP dans PRC** : une route de devis est une route de réservation (`SessionGuard` + `TermsGuard`, US-102, `terms-guard-coverage.test.ts`) et PRC ne dépend que de CAT et CFG (17 §2.2) ; elle est portée par le checkout (US-208, AVL), qui utilise `QuoteService`, `PgQuoteStore`, `QUOTE_MESSAGES` et les textes `common.quote.*`.
 
 | Fichier (`internal/quote/`) | Rôle                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -32,9 +32,9 @@ Entités de 17 §3.2.5 :
 | Entité               | État en base                                                                      |
 | -------------------- | --------------------------------------------------------------------------------- |
 | `tax_line_config`    | table `core.pricing_tax_line_config` (migration 0008, graines 0009, story US-013) |
-| `quote`              | table `core.pricing_quote` (migration 0099, US-202)                               |
-| `quote_line`         | table `core.pricing_quote_line` (migration 0099, US-202)                          |
-| `trip_price_version` | table `core.pricing_trip_price_version` (migration 0099, US-202)                  |
+| `quote`              | table `core.pricing_quote` (migration 0100, US-202)                               |
+| `quote_line`         | table `core.pricing_quote_line` (migration 0100, US-202)                          |
+| `trip_price_version` | table `core.pricing_trip_price_version` (migration 0100, US-202)                  |
 | `promo_code` (P1)    | cible 17, pas encore créée                                                        |
 
 Les graines de `core.pricing_tax_line_config` sont générées depuis `apps/api/src/modules/cfg/data/` (ADR-049) : ne pas éditer la migration 0009.

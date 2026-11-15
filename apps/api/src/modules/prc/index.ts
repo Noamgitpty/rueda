@@ -34,7 +34,7 @@ export type { FrozenQuote } from './internal/quote/frozen.js';
 export { resolveQuoteParams } from './internal/quote/params.js';
 export type { QuoteParamsContext } from './internal/quote/params.js';
 
-// Devis figés en base (US-202, migration 0099) : port de l'annonce publiée, magasin des commandes
+// Devis figés en base (US-202, migration 0100) : port de l'annonce publiée, magasin des commandes
 // core.pricing_cmd_* sous app_api, réponses HTTP et textes du devis pour la route de réservation
 // (US-208 : SessionGuard + TermsGuard, hors de PRC, 17 §2.2).
 export { QUOTE_MESSAGES, QuoteHttpError } from './internal/quote/http-errors.js';

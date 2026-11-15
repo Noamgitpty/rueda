@@ -24,7 +24,8 @@ import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
-import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { newToken, phcArgon2id, SESSION_TTL_S, setVirtualNow } from '../support/iam.ts';
+import { localDay } from '../support/kyc.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const PROVIDER = 'FAKE';
@@ -412,7 +413,8 @@ describe('US-105 — décision par rappel signé (critère 1)', () => {
             { document: licence(country, isoDay(400), { isPermanent: false }) },
             'LICENSE_PROVISIONAL',
           ],
-          [{ document: licence(country, isoDay(-2)) }, 'LICENSE_EXPIRED'],
+          // échu hier au jour LOCAL du pays (fuseau du pays, comme le SQL), à toute heure UTC
+          [{ document: licence(country, await localDay(c, country, -1)) }, 'LICENSE_EXPIRED'],
           [{ document: null }, 'DOCUMENT_MISSING'],
           [
             { document: licence(country, isoDay(400), { kind: 'PASSPORT' }) },
@@ -872,4 +874,53 @@ describe('US-105 — garde de production, reprise, rappel inconnu, purge', () =>
       });
     });
   });
+});
+
+describe('US-105 — échéance du permis jugée au jour local du pays, à toute heure UTC', () => {
+  // Heures à risque : entre 00:00 UTC et minuit local (Panama UTC−5, Paraguay UTC−3), « hier en
+  // UTC » est encore « aujourd'hui » au pays (CI rouge du 2026-11-15) ; 12:00 UTC sert de témoin.
+  // Instant de demain (UTC) : postérieur à tout ce que la transaction a écrit à l'horloge réelle.
+  const HOURS = ['00:30', '02:30', '04:30', '12:00'] as const;
+  const tomorrow = new Date(Date.now() + DAY_MS).toISOString().slice(0, 10);
+
+  it.each(byCountry)(
+    '%s (%s) : à 00:30, 02:30, 04:30 et 12:00 UTC, échu hier (local) ⇒ LICENSE_EXPIRED, échéance ce jour (local) ⇒ APPROVED',
+    async (country) => {
+      await withRole('app_api', (c) =>
+        withTestTransaction(c, {}, async (tx) => {
+          const offset = UTC_OFFSET_MIN.get(country) ?? 0;
+          for (const hour of HOURS) {
+            const expired = await submitted(tx, country);
+            const valid = await submitted(tx, country);
+            const at = `${tomorrow}T${hour}:00Z`;
+            await setVirtualNow(tx, at);
+            // oracle indépendant du SQL : date locale = instant UTC + décalage tzdata des données CFG
+            const oracleToday = new Date(Date.parse(at) + offset * 60_000)
+              .toISOString()
+              .slice(0, 10);
+            expect(await localDay(tx, country, 0), `${hour} UTC`).toBe(oracleToday);
+            const yesterday = await localDay(tx, country, -1);
+            expect(
+              await apply(tx, uuid(), expired.sessionRef, expired.o.verification_id as string, {
+                document: licence(country, yesterday),
+              }),
+              `${hour} UTC, échu le ${yesterday}`,
+            ).toEqual({ outcome: 'APPLIED', status: 'MANUAL_REVIEW' });
+            expect((await fixture(tx, 'us105_verification', expired.p.userId))[0]).toMatchObject({
+              status: 'MANUAL_REVIEW',
+              decision_reason_code: 'LICENSE_EXPIRED',
+            });
+            expect(
+              await apply(tx, uuid(), valid.sessionRef, valid.o.verification_id as string, {
+                document: licence(country, oracleToday),
+              }),
+              `${hour} UTC, échéance le ${oracleToday}`,
+            ).toEqual({ outcome: 'APPLIED', status: 'APPROVED' });
+            // retour à l'horloge réelle avant la personne suivante (inscription, session)
+            await setVirtualNow(tx, '');
+          }
+        }),
+      );
+    },
+  );
 });
