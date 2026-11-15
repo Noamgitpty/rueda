@@ -23,7 +23,7 @@ import {
   goldenRegistry,
   rulesOf,
   toRatio,
-} from './quote.test-support.js';
+} from '../../../../../test/support/quote.js';
 
 // Un trip par nom et par jeu de lignes (plusieurs vecteurs T partagent le même trip).
 const trips = [
@@ -88,7 +88,7 @@ describe('critère 1 : TA01 (prix du trip × jours facturables)', () => {
     expect(q.legs.TAX_THIRD_PARTY.amountMinor).toBe(0n);
   });
 
-  it('variante PY : D2 (T40), 333 334 × 3 jours, IVA 10 % sur P et F ⇒ taxe et total de l’oracle', () => {
+  it('variante sans décimale : D2 (T40), 333 334 × 3 jours, taxe 10 % sur P et F ⇒ taxe et total de l’oracle', () => {
     const v = settlementVector(golden, 'T40');
     const { params: p } = caseOfGoldenTrip(v.trip);
     const c = p.currency;
@@ -273,7 +273,8 @@ describe('refus fail-closed', () => {
   });
 
   it('protection sans part de l’assureur figée ⇒ QUOTE_UNAVAILABLE (jamais 0)', () => {
-    const { insurerPremiumShare: _p, ...rest } = params;
+    const rest: QuoteParams = { ...params };
+    delete (rest as { insurerPremiumShare?: unknown }).insurerPremiumShare;
     expect(codeOf(() => assembleQuote(period, rest))).toBe('QUOTE_UNAVAILABLE');
   });
 
@@ -297,15 +298,15 @@ describe('refus fail-closed', () => {
     );
     expect(
       codeOf(() =>
-        computeQuote(
-          { ...request, lines: { TRIP_PRICE: money(1n, c) } as never },
-          params,
-        ),
+        computeQuote({ ...request, lines: { TRIP_PRICE: money(1n, c) } as never }, params),
       ),
     ).toBe('QUOTE_INPUT_INVALID');
     expect(
       codeOf(() =>
-        assembleQuote({ ...period, lines: { ...period.lines, BOGUS: money(1n, c) } as never }, params),
+        assembleQuote(
+          { ...period, lines: { ...period.lines, BOGUS: money(1n, c) } as never },
+          params,
+        ),
       ),
     ).toBe('QUOTE_INPUT_INVALID');
   });

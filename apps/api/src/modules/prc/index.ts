@@ -6,6 +6,7 @@ export { billableDays } from './internal/quote/billable-days.js';
 export {
   QUOTE_ENGINE_VERSION,
   QUOTE_LINE_TYPES,
+  SETTLEMENT_LINE_OF,
   assembleQuote,
   computeQuote,
   quoteSettlementTrip,

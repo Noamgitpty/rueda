@@ -1,5 +1,5 @@
 /**
- * Soutien des tests du devis (exclu du build). Il ne calcule **aucun attendu** : il traduit des
+ * Soutien des tests du devis PRC (US-202), hors des sources (exclu du build). Il ne calcule **aucun attendu** : il traduit des
  * **entrées** (trips des vecteurs dorés de `docs/specs/tools/golden_vectors.json`, trips de test de
  * 08 E7 recopiés par `@rueda/money/testing`, configuration pays du dépôt) en entrées du moteur.
  * Aucun code de pays ni de devise n'est écrit ici : ils sont lus des données (ADR-024).
@@ -15,7 +15,7 @@ import {
   type SettlementTrip,
 } from '@rueda/money';
 import { loadGoldenVectors, type GoldenRatio, type GoldenTrip } from '@rueda/money/golden-vectors';
-import { CountryConfigService, type CountryConfig } from '../../../cfg/index.js';
+import { CountryConfigService, type CountryConfig } from '../../src/modules/cfg/index.js';
 import {
   QUOTE_LINE_TYPES,
   SETTLEMENT_LINE_OF,
@@ -23,7 +23,7 @@ import {
   type QuoteLineType,
   type QuoteParams,
   type QuoteTaxRule,
-} from './engine.js';
+} from '../../src/modules/prc/index.js';
 
 export const golden = loadGoldenVectors();
 export const goldenRegistry = createCurrencyRegistry([...golden.currencies.values()]);
@@ -105,7 +105,9 @@ export function caseOfGoldenTrip(t: GoldenTrip): QuoteCase {
       currency,
       graceMinutes: 29,
       maxTripDays: 30,
-      taxRules: rulesOf(t.taxGroups.map((g) => ({ id: g.id, rate: toRatio(g.rate), lines: g.lines }))),
+      taxRules: rulesOf(
+        t.taxGroups.map((g) => ({ id: g.id, rate: toRatio(g.rate), lines: g.lines })),
+      ),
       hostSharePct: toRatio(t.hostSharePct),
       deliverySharePct: toRatio(t.deliverySharePct),
       extrasSharePct: toRatio(t.extrasSharePct),

@@ -54,7 +54,9 @@ export interface FrozenQuote {
 }
 
 const sha256 = (prefix: string, text: string): string =>
-  createHash('sha256').update(prefix + text, 'utf8').digest('hex');
+  createHash('sha256')
+    .update(prefix + text, 'utf8')
+    .digest('hex');
 
 const minor = (m: Money): string => m.amountMinor.toString();
 const ratioJson = (r: Ratio | undefined): string | null =>
@@ -154,7 +156,11 @@ export function freezeQuote(
 // ------------------------------------------------------------------ relecture des entrées figées
 
 function mismatch(message: string, cause?: unknown): QuoteError {
-  return new QuoteError('QUOTE_REPLAY_MISMATCH', message, cause === undefined ? undefined : { cause });
+  return new QuoteError(
+    'QUOTE_REPLAY_MISMATCH',
+    message,
+    cause === undefined ? undefined : { cause },
+  );
 }
 
 function obj(value: unknown, path: string): Readonly<Record<string, unknown>> {
@@ -197,7 +203,10 @@ function readInputs(inputs: string): { request: QuoteRequest; params: QuoteParam
   const p = obj(root['params'], 'params');
   const cur = obj(p['currency'], 'params.currency');
   const currency = createCurrencyRegistry([
-    { code: text(cur['code'], 'currency.code'), exponent: int(cur['exponent'], 'currency.exponent') },
+    {
+      code: text(cur['code'], 'currency.code'),
+      exponent: int(cur['exponent'], 'currency.exponent'),
+    },
   ]).get(text(cur['code'], 'currency.code'));
   const rules = p['taxRules'];
   if (!Array.isArray(rules)) throw mismatch('params.taxRules : liste attendue');
@@ -265,7 +274,13 @@ export function replayFrozenQuote(frozen: FrozenQuote): Quote {
     if (cause instanceof QuoteError) throw cause;
     throw mismatch('entrées figées invalides', cause);
   }
-  const quote = computeQuote(parsed.request, parsed.params);
+  let quote: Quote;
+  try {
+    quote = computeQuote(parsed.request, parsed.params);
+  } catch (cause) {
+    // un devis figé qui ne se recalcule plus est un échec du rejeu, quelle qu'en soit la cause
+    throw mismatch('recalcul impossible depuis les entrées figées', cause);
+  }
   if (quote.engineVersion !== frozen.engineVersion) {
     throw mismatch(`moteur ${quote.engineVersion} ≠ moteur figé ${frozen.engineVersion}`);
   }

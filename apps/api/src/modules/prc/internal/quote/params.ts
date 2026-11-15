@@ -43,18 +43,24 @@ function resolve(config: CountryConfig, key: string, ctx: ParamContext): ParamJs
   try {
     return resolveParam(config, key, ctx).value;
   } catch (cause) {
-    if (cause instanceof ConfigError) throw unavailable(`paramètre « ${key} » : ${cause.code}`, cause);
+    if (cause instanceof ConfigError)
+      throw unavailable(`paramètre « ${key} » : ${cause.code}`, cause);
     throw cause;
   }
 }
 
 /** Valeur d'un paramètre facultatif ou fixé par contrat : `undefined` s'il est absent. */
-function resolveIfPresent(config: CountryConfig, key: string, ctx: ParamContext): ParamJson | undefined {
+function resolveIfPresent(
+  config: CountryConfig,
+  key: string,
+  ctx: ParamContext,
+): ParamJson | undefined {
   try {
     return resolveParam(config, key, ctx).value;
   } catch (cause) {
     if (cause instanceof ConfigError && cause.code === 'PARAM_MISSING') return undefined;
-    if (cause instanceof ConfigError) throw unavailable(`paramètre « ${key} » : ${cause.code}`, cause);
+    if (cause instanceof ConfigError)
+      throw unavailable(`paramètre « ${key} » : ${cause.code}`, cause);
     throw cause;
   }
 }
@@ -131,6 +137,8 @@ export function resolveQuoteParams(config: CountryConfig, input: QuoteParamsCont
     ...(premium === undefined
       ? {}
       : { insurerPremiumShare: share('insurer_premium_share', premium) }),
-    ...(roadside === undefined ? {} : { insurerRoadsideShare: share('insurer_roadside_share', roadside) }),
+    ...(roadside === undefined
+      ? {}
+      : { insurerRoadsideShare: share('insurer_roadside_share', roadside) }),
   };
 }

@@ -89,7 +89,9 @@ export interface QuoteParams {
 }
 
 /** Lignes autres que le prix du trip, calculées par d'autres stories (US-704, US-226…). */
-export type QuoteExtraLines = Readonly<Partial<Record<Exclude<QuoteLineType, 'TRIP_PRICE'>, Money>>>;
+export type QuoteExtraLines = Readonly<
+  Partial<Record<Exclude<QuoteLineType, 'TRIP_PRICE'>, Money>>
+>;
 
 /** Demande de devis. Tous les montants viennent du serveur (annonce, barèmes), jamais du client. */
 export interface QuoteRequest {
@@ -250,7 +252,8 @@ export function assembleQuote(period: PricedPeriod, params: QuoteParams): Quote 
     if (rule === undefined) {
       throw new QuoteError('TAX_CONFIG_MISSING', `aucune règle fiscale pour ${type}`);
     }
-    const tax = rule.taxable && rule.rate !== null ? multiplyRoundHalfUp(amount, rule.rate) : zero(c);
+    const tax =
+      rule.taxable && rule.rate !== null ? multiplyRoundHalfUp(amount, rule.rate) : zero(c);
     lines.push(Object.freeze({ type, amount, taxGroup: rule.taxable ? rule.group : null, tax }));
   }
   const tripPrice = lines.find((l) => l.type === 'TRIP_PRICE');
@@ -412,4 +415,3 @@ export function computeQuote(request: QuoteRequest, params: QuoteParams): Quote 
     params,
   );
 }
-
