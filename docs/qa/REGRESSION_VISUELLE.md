@@ -32,6 +32,14 @@ Un écran de `SCREENS` marqué `stableCompositing: true` est capturé sous la fe
 - Effet visible : nul ou négligeable (le flou s'applique sur un aplat). Toute référence d'un écran marqué est prise sous la feuille, depuis l'artefact de la CI comme les autres.
 - Ne pas s'en servir pour masquer un écart réel : un écran n'est marqué qu'après un diagnostic d'instabilité de tramage (attendu, obtenu et différence relus), consigné dans sa passation.
 
+## Texte sans anticrénelage sous-pixel (`--disable-lcd-text`)
+
+Le Chrome des e2e est lancé avec `--disable-lcd-text` (`playwright.config.ts`, `use.launchOptions`) : tout le texte est tramé en niveaux de gris. Le site servi ne change pas.
+
+- Piège : Chrome choisit l'anticrénelage sous-pixel (LCD, franges colorées autour des lettres) ou en niveaux de gris **selon les calques composés** de la page, et le tramage LCD **varie d'une machine de la CI à l'autre** (même texte, mêmes positions, environ 5 % d'encre en plus ou en moins sur le texte normal, le gras intact). La capture est alors stable dans un run, rejouée à l'identique, mais différente au run suivant.
+- Cas d'US-201 (PR #163, après #168) : la feuille `capture-sans-calques.css` retire aussi le `backdrop-filter` de l'en-tête collant de la coquille, qui maintenait toutes les pages en niveaux de gris ; l'accueil capturé sous la feuille passait en LCD et `accueil · en` échouait d'un run à l'autre (run 43766552112, 4 452 pixels). Reproduit en local : la feuille fait passer en LCD l'accueil et l'inscription ; avec `--disable-lcd-text`, les captures sans feuille restent identiques au pixel près et celles sous la feuille repassent en niveaux de gris.
+- Diagnostic : agrandir attendu et obtenu dans la zone du diff ; des franges colorées sur le texte normal d'un seul des deux, ou de densité différente, signalent ce piège, pas un écart réel.
+
 ## Rejouer en local
 
 ```bash

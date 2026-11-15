@@ -61,6 +61,12 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     channel: 'chrome',
+    // Texte toujours tramé en niveaux de gris : Chrome active ou non l'anticrénelage sous-pixel
+    // (LCD) selon les calques composés de la page, et ce tramage varie d'une machine de la CI à
+    // l'autre ; sans lui, une capture ne dépend plus ni de la machine ni des calques
+    // (docs/qa/REGRESSION_VISUELLE.md, « Texte sans anticrénelage sous-pixel »). Le site servi ne
+    // change pas : seul le navigateur des e2e est réglé.
+    launchOptions: { args: ['--disable-lcd-text'] },
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     serviceWorkers: 'block',
