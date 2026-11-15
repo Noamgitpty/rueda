@@ -12,19 +12,21 @@
  * (note 1 à 5), de 17 §3.2.12 (UQ `(trip_id, author_user_id, subject_type)`, trip COMPLETED requis)
  * et de 17 §2.3 (`host_guest_v` : note du voyageur), jamais du code testé.
  *
- * Horloge : les trips sont posés dans le PASSÉ réel (instants virtuels des transactions d'US-024 et
- * d'US-207) et les avis sont enregistrés à l'heure réelle, celle de la session élevée par TOTP.
+ * Horloge (instants virtuels de `platform.now()`, toujours APRÈS la migration du banc : les
+ * paramètres des pays n'existent qu'à partir de là) : les trips ont lieu dans les jours qui suivent,
+ * et les avis sont enregistrés à un instant `rec` postérieur à tous les retours, par un agent élevé
+ * par TOTP à cet instant (pas TOTP calculé sur `rec`, comme le fait la base).
  */
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { connectAs, releaseClient } from '../../src/testing/index.ts';
 import { at, bookTrip, COUNTRIES, inTx, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
-import { one, staff } from '../support/kyc.ts';
+import { one, person } from '../support/kyc.ts';
 import type { Staff } from '../support/kyc.ts';
-import { auditOf } from '../support/staff.ts';
+import { auditOf, elevate, login } from '../support/staff.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const REASON = 'Avis reçu par e-mail le jour du retour, joint en pièce';
@@ -108,8 +110,47 @@ interface Trip {
   readonly end: string;
 }
 
-/** Instant réel décalé de `minutes`. */
-const fromNow = (minutes: number): string => new Date(Date.now() + minutes * 60_000).toISOString();
+/** Origine des instants du test : demain, à la minute (après la migration du banc). */
+const origin = (): string => {
+  const d = new Date(Date.now() + DAY_MIN * 60_000);
+  d.setUTCSeconds(0, 0);
+  return d.toISOString();
+};
+
+/**
+ * Agent du staff élevé par TOTP à l'instant virtuel `when` (vraies commandes, comme `elevateAs` de
+ * support/kyc.ts, mais au pas TOTP de `when` : la base le calcule sur `platform.now()`).
+ */
+async function staffAt(cl: Clients, role: string, country: string, when: string): Promise<Staff> {
+  return inTx(cl.api, { virtualNow: when, commit: true }, async (tx) => {
+    const { userId } = await person(tx, country);
+    await tx.query(`SELECT test_fixture.iam_grant_staff_role($1, $2, $3, $4::text[], NULL, NULL)`, [
+      uuid(),
+      userId,
+      role,
+      [country],
+    ]);
+    const factorId = uuid();
+    const code = randomBytes(9).toString('base64url');
+    const codeHash = createHash('sha256').update(code, 'utf8').digest();
+    await tx.query(
+      `SELECT test_fixture.iam_insert_pending_totp($1, $2, 'fake-vault:test-secret', $3, 86400)`,
+      [factorId, userId, codeHash],
+    );
+    const hash = await login(tx, userId);
+    const reveal = await one<{ outcome: string }>(
+      tx,
+      'SELECT outcome FROM core.iam_staff_cmd_enroll_reveal($1, $2)',
+      [hash, codeHash],
+    );
+    if (reveal.outcome !== 'OK') throw new Error('enrôlement refusé');
+    const totpStep = Math.floor(Date.parse(when) / 1000 / 30);
+    if ((await elevate(tx, hash, factorId, totpStep)) !== 'ENROLLED') {
+      throw new Error('élévation refusée');
+    }
+    return { userId, hash };
+  });
+}
 
 /** Trip réservé (US-024) du véhicule, de `start` à `start + 1 jour`, confirmé la veille. */
 async function book(cl: Clients, c: CountryCase, h: Host, car: string, start: string) {
@@ -144,36 +185,38 @@ interface World {
   readonly h: Host;
   readonly car: string;
   readonly listing: string;
-  /** 5 trips COMPLETED du véhicule, terminés il y a 7 à 1 jours (dans la fenêtre de 10 jours) */
+  /** 5 trips COMPLETED du véhicule, terminés 1 à 7 jours avant `rec` (fenêtre de 10 jours) */
   readonly done: readonly Trip[];
-  /** trip COMPLETED terminé il y a 12 jours (hors fenêtre) ; absent si `withOld` est faux */
+  /** trip COMPLETED terminé 12 jours avant `rec` (hors fenêtre) ; absent si `withOld` est faux */
   readonly old: Trip | null;
-  /** trip BOOKED (pas encore réalisé) */
+  /** trip BOOKED (pas encore réalisé à `rec`) */
   readonly upcoming: Trip;
+  /** instant de l'enregistrement des avis */
+  readonly rec: string;
   readonly ops: Staff;
 }
 
 async function world(cl: Clients, c: CountryCase, withOld = true): Promise<World> {
-  const { h, car } = await inTx(
-    cl.api,
-    { virtualNow: fromNow(-20 * DAY_MIN), commit: true },
-    async (tx) => {
-      const ha = await host(tx, c.country);
-      return { h: ha, car: await vehicle(tx, ha) };
-    },
-  );
-  const old = withOld ? await book(cl, c, h, car, fromNow(-13 * DAY_MIN)) : null;
+  const base = origin();
+  const { h, car } = await inTx(cl.api, { virtualNow: base, commit: true }, async (tx) => {
+    const ha = await host(tx, c.country);
+    return { h: ha, car: await vehicle(tx, ha) };
+  });
+  // rec = base + 14 j : old se termine à base + 2 j (12 jours avant), les 5 autres entre base + 7 j
+  // et base + 13 j ; upcoming commence à rec + 3 j
+  const rec = at(base, 14 * DAY_MIN);
+  const old = withOld ? await book(cl, c, h, car, at(base, DAY_MIN)) : null;
   const done: Trip[] = [];
   for (let i = 0; i < 5; i += 1) {
-    done.push(await book(cl, c, h, car, fromNow(-8 * DAY_MIN + i * 1.5 * DAY_MIN)));
+    done.push(await book(cl, c, h, car, at(base, 6 * DAY_MIN + i * 1.5 * DAY_MIN)));
   }
-  const upcoming = await book(cl, c, h, car, fromNow(3 * DAY_MIN));
+  const upcoming = await book(cl, c, h, car, at(rec, 3 * DAY_MIN));
   for (const t of [...(old ? [old] : []), ...done]) await complete(cl, t);
   const listing = (
     await one<{ id: string }>(cl.api, 'SELECT test_fixture.us218_list_vehicle($1) AS id', [car])
   ).id;
-  const ops = await staff(cl.api, 'OPS_AGENT', [c.country], c.country);
-  return { h, car, listing, done, old, upcoming, ops };
+  const ops = await staffAt(cl, 'OPS_AGENT', c.country, rec);
+  return { h, car, listing, done, old, upcoming, rec, ops };
 }
 
 interface ActionRow {
@@ -183,19 +226,33 @@ interface ActionRow {
   readonly detail: string | null;
 }
 
-/** Action de console RECORD_REVIEW (cadre d'US-101), à l'heure réelle. */
-const record = (
+/** Action de console RECORD_REVIEW (cadre d'US-101), dans sa transaction validée, à `when`. */
+const recordAt = (
   client: pg.ClientBase,
+  when: string,
   s: Staff,
   tripId: string,
   input: Record<string, string>,
   requestId = uuid(),
 ) =>
-  one<ActionRow>(
-    client,
-    'SELECT * FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, $7::uuid[])',
-    [s.hash, requestId, 'RECORD_REVIEW', tripId, REASON, JSON.stringify(input), []],
+  inTx(client, { virtualNow: when, commit: true }, (tx) =>
+    one<ActionRow>(
+      tx,
+      'SELECT * FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, $7::uuid[])',
+      [s.hash, requestId, 'RECORD_REVIEW', tripId, REASON, JSON.stringify(input), []],
+    ),
   );
+
+/** Trip vu par l'hôte (core.booking_host_trips) à `when`, par une session ouverte à cet instant. */
+const hostTripAt = (client: pg.ClientBase, when: string, h: Host, tripId: string | undefined) =>
+  inTx(client, { virtualNow: when }, async (tx) => {
+    const session = await login(tx, h.userId);
+    const { rows } = await tx.query<Record<string, unknown>>(
+      `SELECT * FROM core.booking_host_trips($1, $2::uuid, NULL, NULL, NULL, NULL, $3::uuid, 200)`,
+      [session, h.org, tripId],
+    );
+    return rows[0];
+  });
 const byGuest = (overall: Stars) => ({ authorRole: 'GUEST', overall });
 const byHost = (overall: Stars) => ({ authorRole: 'HOST', overall });
 
@@ -237,7 +294,7 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       const [t] = w.done;
       if (!t) throw new Error('trip absent');
       const requestId = uuid();
-      const r = await record(cl.api, w.ops, t.tripId, byGuest('FOUR'), requestId);
+      const r = await recordAt(cl.api, w.rec, w.ops, t.tripId, byGuest('FOUR'), requestId);
       expect(r).toMatchObject({ outcome: 'DONE', action_id: requestId, detail: null });
       const rows = await reviewsOf(cl.api, t.tripId);
       // voyageur : avis sur l'hôte et sur le véhicule (même note), auteur = voyageur DU TRIP
@@ -274,12 +331,14 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
         },
       });
       // même requestId : rejeu idempotent, rien de plus
-      expect(await record(cl.api, w.ops, t.tripId, byGuest('FOUR'), requestId)).toMatchObject({
+      expect(
+        await recordAt(cl.api, w.rec, w.ops, t.tripId, byGuest('FOUR'), requestId),
+      ).toMatchObject({
         outcome: 'DUPLICATE',
         action_id: requestId,
       });
       // une fois par partie et par trip : un second avis du voyageur est refusé, rien ne bouge
-      expect(await record(cl.api, w.ops, t.tripId, byGuest('ONE'))).toMatchObject({
+      expect(await recordAt(cl.api, w.rec, w.ops, t.tripId, byGuest('ONE'))).toMatchObject({
         outcome: 'REFUSED',
         detail: 'REVIEW_ALREADY_RECORDED',
       });
@@ -296,7 +355,9 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
 
       // l'hôte du trip note le voyageur : auteur = titulaire du compte, sujet = voyageur ; la note
       // apparaît dans ce que l'hôte voit du voyageur (host_guest_v, ADR-128), deux décimales
-      expect((await record(cl.api, w.ops, t.tripId, byHost('THREE'))).outcome).toBe('DONE');
+      expect((await recordAt(cl.api, w.rec, w.ops, t.tripId, byHost('THREE'))).outcome).toBe(
+        'DONE',
+      );
       const guestRow = (await reviewsOf(cl.api, t.tripId)).find((x) => x.subject_type === 'GUEST');
       expect(guestRow).toMatchObject({
         author_user_id: w.h.userId,
@@ -304,24 +365,14 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
         subject_id: t.guestId,
         overall: 3,
       });
-      expect(await record(cl.api, w.ops, t.tripId, byHost('FIVE'))).toMatchObject({
+      expect(await recordAt(cl.api, w.rec, w.ops, t.tripId, byHost('FIVE'))).toMatchObject({
         outcome: 'REFUSED',
         detail: 'REVIEW_ALREADY_RECORDED',
       });
-      const [seen] = (
-        await cl.api.query<Record<string, unknown>>(
-          `SELECT * FROM core.booking_host_trips($1, $2::uuid, NULL, NULL, NULL, NULL, $3::uuid, 200)`,
-          [w.h.hash, w.h.org, t.tripId],
-        )
-      ).rows;
+      const seen = await hostTripAt(cl.api, w.rec, w.h, t.tripId);
       expect(seen).toMatchObject({ outcome: 'DONE', trip_id: t.tripId, guest_rating: '3.00' });
       // un voyageur sans avis : aucune note
-      const [unrated] = (
-        await cl.api.query<Record<string, unknown>>(
-          `SELECT * FROM core.booking_host_trips($1, $2::uuid, NULL, NULL, NULL, NULL, $3::uuid, 200)`,
-          [w.h.hash, w.h.org, w.done[1]?.tripId],
-        )
-      ).rows;
+      const unrated = await hostTripAt(cl.api, w.rec, w.h, w.done[1]?.tripId);
       expect(unrated?.['guest_rating']).toBeNull();
     });
   });
@@ -346,7 +397,9 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       for (const [i, s] of stars.entries()) {
         const t = w.done[i];
         if (!t) throw new Error('trip absent');
-        expect((await record(cl.api, w.ops, t.tripId, byGuest(s))).outcome, s).toBe('DONE');
+        expect((await recordAt(cl.api, w.rec, w.ops, t.tripId, byGuest(s))).outcome, s).toBe(
+          'DONE',
+        );
       }
       // exemple de 19 US-218 : 3 avis (5, 4, 3) et 2 trips non notés ⇒ moyenne 4,0 et 5 trips
       const [row] = await ratings(cl.api, [w.listing]);
@@ -375,8 +428,12 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       const t4 = w.done[3];
       const t5 = w.done[4];
       if (!t4 || !t5) throw new Error('trip absent');
-      expect((await record(cl.api, w.ops, t4.tripId, byGuest('FOUR'))).outcome).toBe('DONE');
-      expect((await record(cl.api, w.ops, t5.tripId, byGuest('FIVE'))).outcome).toBe('DONE');
+      expect((await recordAt(cl.api, w.rec, w.ops, t4.tripId, byGuest('FOUR'))).outcome).toBe(
+        'DONE',
+      );
+      expect((await recordAt(cl.api, w.rec, w.ops, t5.tripId, byGuest('FIVE'))).outcome).toBe(
+        'DONE',
+      );
       expect((await ratings(cl.api, [w.listing]))[0]).toMatchObject({
         host_review_count: 5,
         host_avg_x100: 420,
@@ -396,14 +453,18 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
   it('domaine : trip non COMPLETED, fenêtre close (10 jours après la fin, review_window_days du pays), saisie absente ou hors énumération, permission ⇒ refus sans écriture', async () => {
     await withClients(async (cl) => {
       const w = await world(cl, c);
-      expect(await record(cl.api, w.ops, w.upcoming.tripId, byGuest('FIVE'))).toMatchObject({
+      expect(
+        await recordAt(cl.api, w.rec, w.ops, w.upcoming.tripId, byGuest('FIVE')),
+      ).toMatchObject({
         outcome: 'REFUSED',
         detail: 'REVIEW_TRIP_NOT_COMPLETED',
       });
-      // fin il y a 12 jours > review_window_days (10) : fenêtre close
+      // fin 12 jours avant l'enregistrement > review_window_days (10) : fenêtre close
       if (!w.old) throw new Error('trip hors fenêtre absent');
-      expect(Date.now() - Date.parse(w.old.end)).toBeGreaterThan(WINDOW_DAYS * DAY_MIN * 60_000);
-      expect(await record(cl.api, w.ops, w.old.tripId, byGuest('FIVE'))).toMatchObject({
+      expect(Date.parse(w.rec) - Date.parse(w.old.end)).toBeGreaterThan(
+        WINDOW_DAYS * DAY_MIN * 60_000,
+      );
+      expect(await recordAt(cl.api, w.rec, w.ops, w.old.tripId, byGuest('FIVE'))).toMatchObject({
         outcome: 'REFUSED',
         detail: 'REVIEW_WINDOW_CLOSED',
       });
@@ -411,7 +472,10 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       const [t] = w.done;
       if (!t) throw new Error('trip absent');
       for (const input of [{}, { authorRole: 'GUEST' }, { overall: 'FIVE' }]) {
-        expect(await record(cl.api, w.ops, t.tripId, input), JSON.stringify(input)).toMatchObject({
+        expect(
+          await recordAt(cl.api, w.rec, w.ops, t.tripId, input),
+          JSON.stringify(input),
+        ).toMatchObject({
           outcome: 'REFUSED',
           detail: 'REVIEW_INPUT_REQUIRED',
         });
@@ -422,17 +486,21 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
         { authorRole: 'GUEST', overall: 'SIX' },
         { authorRole: 'PLATFORM', overall: 'FIVE' },
       ]) {
-        await expect(record(cl.api, w.ops, t.tripId, input)).rejects.toMatchObject({
+        await expect(recordAt(cl.api, w.rec, w.ops, t.tripId, input)).rejects.toMatchObject({
           code: '22023',
         });
       }
       // un agent du support n'a pas ops.review_listing_host (17 §2.3) : refusé et journalisé
-      const support = await staff(cl.api, 'SUPPORT_AGENT', [c.country], c.country);
-      expect((await record(cl.api, support, t.tripId, byGuest('FIVE'))).outcome).toBe('FORBIDDEN');
+      const support = await staffAt(cl, 'SUPPORT_AGENT', c.country, w.rec);
+      expect((await recordAt(cl.api, w.rec, support, t.tripId, byGuest('FIVE'))).outcome).toBe(
+        'FORBIDDEN',
+      );
       // un agent d'un autre pays : hors portée
       const other = COUNTRIES.find((x) => x.country !== c.country)?.country ?? c.country;
-      const abroad = await staff(cl.api, 'OPS_AGENT', [other], other);
-      expect((await record(cl.api, abroad, t.tripId, byGuest('FIVE'))).outcome).toBe('FORBIDDEN');
+      const abroad = await staffAt(cl, 'OPS_AGENT', other, w.rec);
+      expect((await recordAt(cl.api, w.rec, abroad, t.tripId, byGuest('FIVE'))).outcome).toBe(
+        'FORBIDDEN',
+      );
       expect(await reviewsOf(cl.api, t.tripId)).toEqual([]);
       expect(await aggregateOf(cl.api, 'HOST', w.h.org)).toBeNull();
     });
@@ -446,8 +514,8 @@ describe.each(COUNTRIES)('US-218 — avis enregistrés et agrégats ($country, $
       const second = await connectAs('app_api');
       try {
         const results = await Promise.all([
-          record(cl.api, w.ops, t.tripId, byGuest('FIVE')),
-          record(second, w.ops, t.tripId, byGuest('TWO')),
+          recordAt(cl.api, w.rec, w.ops, t.tripId, byGuest('FIVE')),
+          recordAt(second, w.rec, w.ops, t.tripId, byGuest('TWO')),
         ]);
         expect(results.map((x) => x.outcome).sort()).toEqual(['DONE', 'REFUSED']);
         expect(results.find((x) => x.outcome === 'REFUSED')?.detail).toBe(
