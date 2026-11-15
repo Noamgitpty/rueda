@@ -302,8 +302,9 @@ describe.each(COUNTRIES)('US-207 — machine à états du trip ($country, $curre
       expect(await fixture(cl, 'us207_driver($1)', [b.tripId])).toEqual([
         { user_id: b.guestId, role: 'PRIMARY', approved: true },
       ]);
-      expect(await stateLog(cl, b.tripId)).toEqual([
+      expect(await stateLog(cl, b.tripId)).toMatchObject([
         {
+          actor_user_id: null,
           from_status: null,
           to_status: 'BOOKED',
           kind: 'TRANSITION',
