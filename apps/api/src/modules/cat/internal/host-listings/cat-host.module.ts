@@ -9,7 +9,8 @@
  * Sans options, toute route répond 503 (aucun magasin). Calendrier de l'hôte (US-119, ADR-101) :
  * magasin `calendar` (production : commandes `core.catalog_*` de 0071). Pièces et éligibilité du
  * véhicule (US-124, ADR-107) : magasin `documents` (commandes de 0077) ; antivirus, coffre et
- * stockage `documentFiles` indisponibles en production (503) jusqu'à US-003.
+ * stockage `documentFiles` indisponibles en production (503) jusqu'à US-003. Trips de l'hôte
+ * (US-219, ADR-128) : magasin `trips` (lecture `core.booking_host_trips` de 0101), lecture seule.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -17,6 +18,10 @@ import { HostCalendarController } from '../host-calendar/host-calendar.controlle
 import { HostCalendarService } from '../host-calendar/host-calendar.service.js';
 import { PgHostCalendarStore, UnavailableHostCalendarStore } from '../host-calendar/store.js';
 import type { HostCalendarStore } from '../host-calendar/store.js';
+import { HostTripsController } from '../host-trips/host-trips.controller.js';
+import { HostTripsService } from '../host-trips/host-trips.service.js';
+import { PgHostTripStore, UnavailableHostTripStore } from '../host-trips/store.js';
+import type { HostTripStore } from '../host-trips/store.js';
 import { VehicleCatalogService } from '../vehicle-catalog/vehicle-catalog.service.js';
 import { PgVehicleCatalogStore } from '../vehicle-catalog/store.js';
 import { HostListingsController } from './host-listings.controller.js';
@@ -43,6 +48,8 @@ export interface CatHostOptions {
   readonly photos: PhotoPipeline;
   /** Calendrier, blocages et préavis (US-119) ; absent : 503 (fail-closed). */
   readonly calendar?: HostCalendarStore;
+  /** Trips de l'hôte, lecture seule (US-219) ; absent : 503 (fail-closed). */
+  readonly trips?: HostTripStore;
   /** Pièces et éligibilité du véhicule, contestations (US-124) ; absent : 503 (fail-closed). */
   readonly documents?: VehicleDocumentStore;
   /** Antivirus, coffre et stockage des pièces (US-124) ; absent : indisponibles (503). */
@@ -66,6 +73,8 @@ export function postgresCatAdapters(db: SqlExecutor, pool: SqlPool | null = null
     catalog: new VehicleCatalogService(new PgVehicleCatalogStore(db)),
     photos: { scanner: new UnavailablePhotoScanner(), storage: new UnavailablePhotoStorage() },
     calendar: new PgHostCalendarStore(db),
+    // trips de l'hôte (US-219) : lecture core.booking_host_trips de 0101
+    trips: new PgHostTripStore(db),
     // pièces : antivirus (ClamAV), coffre et stockage livrés par US-003 ⇒ 503 d'ici là
     documents: new PgVehicleDocumentStore(db, pool),
     documentFiles: UNAVAILABLE_DOCUMENTS,
@@ -82,6 +91,7 @@ export class CatHostModule {
         PublicListingController,
         HostCalendarController,
         VehicleDocumentsController,
+        HostTripsController,
       ],
       providers: [
         {
@@ -94,6 +104,13 @@ export class CatHostModule {
             options.documents ?? new UnavailableVehicleDocumentStore(),
             options.store,
             options.documentFiles ?? UNAVAILABLE_DOCUMENTS,
+          ),
+        },
+        {
+          provide: HostTripsService,
+          useValue: new HostTripsService(
+            options.trips ?? new UnavailableHostTripStore(),
+            options.store,
           ),
         },
         {

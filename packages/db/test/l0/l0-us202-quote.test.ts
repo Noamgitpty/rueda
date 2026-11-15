@@ -9,7 +9,7 @@
  * - PA : trip A de 08 sans protection ni assistance (lignes de T01) : taxe par ligne 840 + 126 = 966
  *   (T01), jambe HOST 13 125 (TJ01 : 9 000 + 3 000 + 1 125, sans part de la protection) ;
  * - PY : trip D2 de 08 sans protection (lignes de T40) : 333 334 × 3 = 1 000 002 ; depuis US-704
- *   (migration 0101, moteur prc.quote/2) le trip fee est CALCULÉ par le barème du pays (08
+ *   (migration 0102, moteur prc.quote/2) le trip fee est CALCULÉ par le barème du pays (08
  *   BR-PRICE-06, 15 % sur 3 j : roundHalfUp(150 000,3) = 150 000, le F de J et NP de 08 E7) et non
  *   plus le F 125 500 donné de D2 ; taxe par ligne 100 000 (T40) + 15 000 (taxe de F de J, 08 E7) ;
  *   jambe HOST 787 501 inchangée (TJ09a : allocHost(1 000 002 ; 3/4) = 750 001 + 37 500 : F

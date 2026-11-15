@@ -1,4 +1,4 @@
--- 9989 — fixtures des preuves du trip fee rejoué par la base (US-704, migration 0101). TESTS
+-- 9989 — fixtures des preuves du trip fee rejoué par la base (US-704, migration 0102). TESTS
 -- SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base

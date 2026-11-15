@@ -1,4 +1,4 @@
--- 0101 — PRC : trip fee du voyageur recalculé par la base dans le devis figé.
+-- 0102 — PRC : trip fee du voyageur recalculé par la base dans le devis figé.
 -- US-704 ; 19 US-704 (« Given le trip A, When le devis est calculé, Then la ligne TRIP_FEE (F 18,00)
 -- est présente et va à la jambe PLATFORM (TJ01) ») ; 16 PRC-012 ; 08 BR-PRICE-06 (barème [NOUS]
 -- appliqué tel quel, Q-004 : 15 % (≤ 6 j), 12 % (7–29 j), 8 % (≥ 30 j), minimum du pays), E7

@@ -1,5 +1,5 @@
 /**
- * Preuves du trip fee recalculé par la base dans le devis figé (US-704, migration 0101 ; fixtures
+ * Preuves du trip fee recalculé par la base dans le devis figé (US-704, migration 0102 ; fixtures
  * 9989 et 9993) sous les rôles de production (assertion L0-05 en tête de chaque connexion,
  * withRole), en USD (PA) et en PYG sans décimale (PY). Personnes et sessions par les VRAIES
  * commandes ; l'annonce LISTED vient de la fixture 9993.
