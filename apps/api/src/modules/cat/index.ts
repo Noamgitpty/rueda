@@ -85,7 +85,7 @@ export {
 } from './internal/vehicle-documents/store.js';
 export type { VehicleDocumentStore } from './internal/vehicle-documents/store.js';
 
-// Recherche publique par zone, lieu, dates et heures (US-201, ADR-127) : routes /search et
+// Recherche publique par zone, lieu, dates et heures (US-201, ADR-128) : routes /search et
 // /search/areas ; limiteur de la sonde de disponibilité fourni par l'appelant (RISK, main.ts).
 export {
   CatSearchModule,

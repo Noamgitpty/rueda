@@ -1,6 +1,6 @@
 /**
  * Port de lecture de la recherche publique (US-201) et son adaptateur PostgreSQL : fonctions
- * `core.catalog_public_search` et `core.catalog_public_search_areas` de 0100 (SECURITY DEFINER,
+ * `core.catalog_public_search` et `core.catalog_public_search_areas` de 0101 (SECURITY DEFINER,
  * EXECUTE app_api), paramètres liés. Lecture seule : aucune écriture, aucune session.
  *
  * Ce que rend le port (C0 seulement, comme la fiche publique d'US-115) : prix par jour, véhicule,

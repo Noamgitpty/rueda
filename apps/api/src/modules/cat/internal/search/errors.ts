@@ -5,7 +5,7 @@
  * Codes de 16 SRC-001 : `SEARCH_DATES_INVALID` (fin ≤ début, hors pas de 30 min, début passé,
  * 19 US-201 critère 1), `SEARCH_LOCATION_REQUIRED` (pays inconnu ou ville absente),
  * `SEARCH_DURATION_EXCEEDED` (au-delà de `max_trip_days` du pays, ADM-031) ; PROPOSÉS par US-201
- * (ADR-127, à reporter dans 16 A.8) : `SEARCH_UNAVAILABLE` (base ou paramètre du pays
+ * (ADR-128, à reporter dans 16 A.8) : `SEARCH_UNAVAILABLE` (base ou paramètre du pays
  * indisponible, fail-closed) ; `RATE_LIMITED` reprend le code et le corps de la garde anti-abus
  * (US-052) pour la sonde de disponibilité (`availability_probe_per_minute`, BOARD N-78).
  */

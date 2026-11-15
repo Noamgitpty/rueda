@@ -1144,6 +1144,11 @@ export const PT_MESSAGES = {
     'Tudo pronto do seu lado. A proteção das viagens ainda não está disponível aqui; você poderá publicar seu anúncio quando estiver.',
   'common.listing.hostNotActivated':
     'Tudo pronto do seu lado. Você poderá publicar seu anúncio quando sua conta de anfitrião estiver ativa e abrirmos para anfitriões aqui.',
+  // US-202 : devis (16 PRC-025, PRC-020) : prix impossible, dates invalides, prix changé
+  'common.quote.unavailable':
+    'Não conseguimos calcular o preço deste carro para essas datas. Tente outras datas ou escolha outro carro.',
+  'common.quote.datesInvalid': 'Confira as datas: a devolução precisa ser depois da retirada.',
+  'common.quote.changed': 'O preço mudou. Confira o novo total antes de continuar.',
   'common.listing.unavailable':
     'Não é possível salvar seu anúncio agora. Tente novamente mais tarde.',
   'common.listing.photoUnavailable': 'Ainda não podemos receber fotos. Tente novamente mais tarde.',

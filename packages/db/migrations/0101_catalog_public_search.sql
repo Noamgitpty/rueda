@@ -1,14 +1,14 @@
--- 0100 — CAT : recherche publique par zone, lieu de remise, dates et heures.
+-- 0101 — CAT : recherche publique par zone, lieu de remise, dates et heures.
 -- US-201 ; 19 US-201 (critères 1 à 4) ; 16 SRC-001 / SRC-002 (bêta : liste des villes et zones
 -- déclarées par les hôtes, `SEARCH_DATES_INVALID`, `SEARCH_LOCATION_REQUIRED`,
 -- `SEARCH_DURATION_EXCEEDED`), LST-007 ; 08 BR-BOOK-03 (pas de 30 min), BR-BOOK-04 (préavis),
 -- BR-BOOK-05 (tampon), BR-BOOK-06 ; 17 §0.1 (interrupteurs), §2.3 (sonde `catalog.vehicle_is_free`,
 -- RLS-15, RLS-17, `availability_probe_per_minute`), §3.2.3, §7.2 (`max_trip_days`,
 -- `buffer_minutes`) ; 22 OQ-P2P-05 ; BOARD N-78 ; pré-mortem du lot 2 L2-PM-13, L2-PM-29,
--- L2-PM-32 ; L1-PM-19 ; ADR-099, ADR-101, ADR-114 ; ADR-127 (cette migration). Appliquée sous
+-- L2-PM-32 ; L1-PM-19 ; ADR-099, ADR-101, ADR-114 ; ADR-128 (cette migration). Appliquée sous
 -- `migrator`, en une transaction.
 --
--- Principes (ADR-127, PROPOSÉS, « comme Turo » : docs/team/COMME_TURO.md) :
+-- Principes (ADR-128, PROPOSÉS, « comme Turo » : docs/team/COMME_TURO.md) :
 --   - lecture seule, aucune écriture : deux fonctions `SECURITY DEFINER` (propriétaire
 --     catalog_cmd_owner, déjà propriétaire de la fiche publique `core.catalog_public_listing`),
 --     EXECUTE au seul app_api (route publique de l'API, comme la fiche ; ni app_worker ni
@@ -78,7 +78,7 @@ AS $fn$
 $fn$;
 COMMENT ON FUNCTION core.catalog_search_param_int(text, text) IS
   'Entier d''un paramètre du pays (portée COUNTRY) en vigueur à platform.now() ; NULL si absent. '
-  'Aide de la recherche sous catalog_cmd_owner. US-201 (ADR-127).';
+  'Aide de la recherche sous catalog_cmd_owner. US-201 (ADR-128).';
 
 -- 2.2 Hôte activable dans le pays : compte ACTIVE, titulaire sans restriction active, pays ouvert
 -- aux hôtes particuliers et contrat d'assureur actif (interrupteurs, absent = false).
@@ -101,7 +101,7 @@ $fn$;
 COMMENT ON FUNCTION core.catalog_search_host_open(uuid, text) IS
   'Hôte activable : compte ACTIVE, titulaire sans restriction active, p2p_private_hosts_enabled '
   'et insurer_contract_active ouverts dans le pays (absent = false). Aide de la recherche sous '
-  'catalog_cmd_owner. US-201 (ADR-127).';
+  'catalog_cmd_owner. US-201 (ADR-128).';
 
 REVOKE ALL ON FUNCTION core.catalog_search_param_int(text, text),
   core.catalog_search_host_open(uuid, text) FROM PUBLIC;
@@ -132,7 +132,7 @@ AS $fn$
 $fn$;
 COMMENT ON FUNCTION core.catalog_public_search_areas(text) IS
   'Villes et zones de remise des annonces cherchables (LISTED, hôte activable), fuseau du pays ; '
-  'colonnes C0 seulement. SECURITY DEFINER, EXECUTE app_api. US-201 (ADR-127).';
+  'colonnes C0 seulement. SECURITY DEFINER, EXECUTE app_api. US-201 (ADR-128).';
 
 -- 4. Recherche (16 SRC-001 ; 19 US-201) -----------------------------------------------------------
 -- Une ligne par annonce disponible (issue OK), ou UNE ligne d'issue de refus (colonnes nulles).
@@ -233,7 +233,7 @@ COMMENT ON FUNCTION core.catalog_public_search(text, text, text, timestamp, time
   'Recherche publique : annonces LISTED d''hôtes activables de la ville (et zone) libres sur la '
   'période locale (pas de 30 min, préavis, tampon, sonde vehicle_is_free) ; colonnes C0 et '
   'instants dans le fuseau du véhicule ; issue de refus sinon. SECURITY DEFINER, EXECUTE app_api. '
-  'US-201 (ADR-127).';
+  'US-201 (ADR-128).';
 
 REVOKE ALL ON FUNCTION core.catalog_public_search_areas(text),
   core.catalog_public_search(text, text, text, timestamp, timestamp, integer) FROM PUBLIC;

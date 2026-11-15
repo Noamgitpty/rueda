@@ -694,6 +694,10 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'kyc_host_verification',
           'payment_payment_operation_leg', // US-019 : jambe HOST du titulaire, ADMIN / FINANCE
           'payment_psp_submerchant', // US-061 : statut du titulaire, ADMIN / FINANCE
+          // US-202 (0099, ADR-125) : AUCUN droit ni politique d'app_api ; devis figé écrit et lu
+          // par les seules commandes SECURITY DEFINER de cmd_money_owner (voyageur désigné par
+          // son jeton de session, contrôle d'appartenance dans la commande)
+          'pricing_quote',
           // US-127 (0080, ADR-110) : AUCUN droit ni politique d'app_api ; écrite par la seule
           // commande de signalement de cmd_hold_owner (compte d'hôte visé par la tentative)
           'risk_assessment',
@@ -705,7 +709,12 @@ describe('RLS-5, RLS-12, RLS-18', () => {
       );
       for (const r of tables.rows) {
         expect(r, r.t).toMatchObject({ rls: true, force: true });
-        if (r.t.startsWith('catalog_') || r.t.startsWith('kyc_') || r.t.startsWith('risk_')) {
+        if (
+          r.t.startsWith('catalog_') ||
+          r.t.startsWith('kyc_') ||
+          r.t.startsWith('risk_') ||
+          r.t.startsWith('pricing_')
+        ) {
           expect(r.api_policies, r.t).toBe(0);
         } else expect(r.api_policies, r.t).toBeGreaterThan(0);
       }

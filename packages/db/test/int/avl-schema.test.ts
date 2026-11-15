@@ -54,6 +54,14 @@ const CONFIG_TABLES = [
   'config_go_live_switch_request',
 ] as const;
 
+// Devis figés (US-202, 0100) : socle RLS commun ; aucun droit applicatif, commandes de
+// cmd_money_owner, preuves par test/l0/l0-us202-quote.test.ts.
+const PRICING_TABLES = [
+  'pricing_quote',
+  'pricing_quote_line',
+  'pricing_trip_price_version',
+] as const;
+
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
 // Actions de console (US-012, 0034) : catalogue et manual_action, écrits par iam_staff_owner seulement
@@ -132,6 +140,7 @@ describe('schéma core (US-006)', () => {
           ...CORE_TABLES,
           ...TRIP_SM_TABLES,
           ...CONFIG_TABLES,
+          ...PRICING_TABLES,
           ...SUPPORT_TABLES,
           ...PAY_PORT_TABLES,
           ...BRAND_TABLES,

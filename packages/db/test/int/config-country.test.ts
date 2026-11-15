@@ -160,7 +160,7 @@ describe('configuration pays : structure et droits', () => {
     );
   });
 
-  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108), et celle du registre et des durées de la vie privée par privacy_cmd_owner (US-111), et celle des délais de notification d’une violation par iam_staff_owner (US-112), et celle du plafond des contestations par catalog_cmd_owner (US-122), et celle des plafonds de téléversement par catalog_cmd_owner (US-122, passe n° 2), et celle de la durée maximale et du tampon par catalog_cmd_owner (US-201)', async () => {
+  it('base de production : seules les politiques migrator_all et app_read (SELECT) existent, plus la lecture du tampon par cmd_hold_owner, celle des codes pays par iam_staff_owner (US-012) et celle des fuseaux par risk_limit_owner (US-052) et celle des interrupteurs par cmd_money_owner (US-049), et celle des codes pays par iam_auth_owner (US-102), et celle de l’âge minimal de l’hôte par iam_auth_owner (US-107), et celle des délais des files par iam_staff_owner (US-109), et celle des paramètres de l’OTP par iam_auth_owner (US-104), et celle du pas de prix, du minimum de photos et de l’ouverture aux hôtes par catalog_cmd_owner (US-115), et celle des pays et de la rétention biométrique par kyc_cmd_owner (US-105), et la lecture et l’écriture des interrupteurs par cmd_golive_owner (US-125), et celle de l’âge minimal, du numéro fiscal et des interrupteurs de l’hôte par kyc_cmd_owner (US-123), et celles de la revue par exception par kyc_cmd_owner et du contrat d’assureur par catalog_cmd_owner (US-108), et celle du registre et des durées de la vie privée par privacy_cmd_owner (US-111), et celle des délais de notification d’une violation par iam_staff_owner (US-112), et celle du plafond des contestations par catalog_cmd_owner (US-122), et celle des plafonds de téléversement par catalog_cmd_owner (US-122, passe n° 2), et celles des paramètres et des taxes du rejeu du devis par cmd_money_owner (US-202), et celle de la durée maximale et du tampon par catalog_cmd_owner (US-201)', async () => {
     await withRole(
       'app_api',
       async (client) => {
@@ -198,7 +198,7 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
-            // recherche publique (US-201, 0100) : durée maximale d'un trip et tampon seulement
+            // recherche publique (US-201, 0101) : durée maximale d'un trip et tampon seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'catalog_cmd_search_read', cmd: 'r', roles: 'catalog_cmd_owner' }]
               : []),
@@ -224,6 +224,13 @@ describe('configuration pays : structure et droits', () => {
             // commandes d'occupation (0032, US-022) : clé buffer_minutes seulement, en lecture
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
+            // devis figés (US-202, 0100) : paramètres du rejeu (tolérance, durée, parts) et taxes
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_money_quote_read', cmd: 'r', roles: 'cmd_money_owner' }]
+              : []),
+            ...(t === 'pricing_tax_line_config'
+              ? [{ t, pol: 'cmd_money_read', cmd: 'r', roles: 'cmd_money_owner' }]
               : []),
             // gardes de versement et de détention de fonds (US-049, 0054) : interrupteurs seulement
             ...(t === 'config_param_value' || t === 'config_param_definition'
