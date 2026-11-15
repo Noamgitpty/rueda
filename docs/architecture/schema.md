@@ -1323,9 +1323,6 @@ Politiques RLS :
 | ------- | ---- | -------- | ------ |
 | `id` | `uuid` | oui | — |
 | `vehicle_id` | `uuid` | oui | — |
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 | `org_id` | `uuid` | oui | — |
 | `country_code` | `text` | oui | — |
 | `status` | `text` | oui | `'DRAFT'::text` |
