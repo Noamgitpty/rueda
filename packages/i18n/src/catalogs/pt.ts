@@ -664,7 +664,7 @@ export const PT_MESSAGES = {
   'backoffice.review.refused.REVIEW_WINDOW_CLOSED':
     'O prazo de avaliação desta viagem já encerrou: nada foi registrado.',
   'backoffice.review.refused.REVIEW_WINDOW_UNKNOWN':
-    'O prazo de avaliação deste país não está configurado: nada foi registrado.',
+    'O prazo de avaliação não está configurado: nada foi registrado.',
   'backoffice.review.refused.REVIEW_AUTHOR_UNKNOWN':
     'O autor desta avaliação não foi encontrado: nada foi registrado.',
   'backoffice.review.refused.REVIEW_ALREADY_RECORDED':

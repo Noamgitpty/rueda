@@ -13,7 +13,7 @@ REV gère les avis, comme chez Turo (17 §2.2, §2.13) :
 
 Un avis exige un trip `COMPLETED`. REV ne modère pas les messages (MSG) et n'envoie pas l'invitation à noter (NTF).
 
-État réel du code (US-218, migration `0104_review_recorded_reviews`, ADR-130, PROPOSÉ) :
+État réel du code (US-218, migration `0102_review_recorded_reviews`, ADR-130, PROPOSÉ) :
 
 - **avis recueillis hors de l'application** : l'ops enregistre depuis la console un avis reçu par e-mail par l'action `RECORD_REVIEW` (cadre d'US-101). Saisie fermée : `authorRole` (`GUEST` ou `HOST`) et `overall` (`ONE` à `FIVE`), jamais un nombre ni le texte de l'avis (l'e-mail reste une pièce de l'action). La commande liée `core.review_manual_action_record_review` (propriétaire `review_cmd_owner`) relit en base l'état du trip (`COMPLETED`), la fenêtre (`review_window_days` du pays, depuis la fin prévue ou le retour enregistré) et l'auteur (voyageur du trip, ou titulaire du compte d'hôte), puis écrit l'avis, une fois par partie et par trip, et les agrégats dans la même transaction. L'avis est publié à l'enregistrement ; la publication en double aveugle (REV-004) arrive avec US-317 ;
 - **notes publiques** : `PgListingRatingStore` (exporté par `index.ts`) lit `core.review_listing_ratings` : par annonce `LISTED`, nombre de trips réalisés, nombre d'avis et moyenne du véhicule et de l'hôte, badge « Nuevo » sans avis. Aucune route encore : la recherche (US-201) et la fiche (US-204) le consomment ;
@@ -25,8 +25,8 @@ Aucun code de l'API n'écrit un avis : l'écriture passe par la console (SUP), q
 
 | Entité (17 §3.2.12) | Table                          | État                                                                                                    |
 | ------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `review`            | `core.review_review`           | créée (0104) : note globale, sujet (`VEHICLE`, `HOST`, `GUEST`), statut, source ; immuable ; sans texte |
-| `rating_aggregate`  | `core.review_rating_aggregate` | créée (0104) : nombre, somme, moyenne ×100 arrondie au demi supérieur (contrainte), avis publiés seuls  |
+| `review`            | `core.review_review`           | créée (0102) : note globale, sujet (`VEHICLE`, `HOST`, `GUEST`), statut, source ; immuable ; sans texte |
+| `rating_aggregate`  | `core.review_rating_aggregate` | créée (0102) : nombre, somme, moyenne ×100 arrondie au demi supérieur (contrainte), avis publiés seuls  |
 
 Aucun rôle applicatif n'a de droit sur ces tables (RLS `ENABLE` + `FORCE`).
 

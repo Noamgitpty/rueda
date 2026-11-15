@@ -62,7 +62,7 @@ const PRICING_TABLES = [
   'pricing_trip_price_version',
 ] as const;
 
-// Avis et agrégats (US-218, 0104) : socle RLS commun ; aucun droit applicatif, commande liée et
+// Avis et agrégats (US-218, 0102) : socle RLS commun ; aucun droit applicatif, commande liée et
 // lecture publique de review_cmd_owner, preuves par test/l0/l0-us218-reviews.test.ts.
 const REVIEW_TABLES = ['review_rating_aggregate', 'review_review'] as const;
 
@@ -197,7 +197,7 @@ describe('schéma core (US-006)', () => {
                             ? 'catalog_probe_owner'
                             : r.polname.startsWith('privacy_cmd_') // rétention des trips clos (0090, US-111)
                               ? 'privacy_cmd_owner'
-                              : r.polname.startsWith('review_cmd_') // avis sur un trip (0104, US-218)
+                              : r.polname.startsWith('review_cmd_') // avis sur un trip (0102, US-218)
                                 ? 'review_cmd_owner'
                                 : r.polname.startsWith('worker_')
                                   ? 'app_worker'

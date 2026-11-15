@@ -1,7 +1,7 @@
 /**
  * US-218 — adaptateur des notes publiques d'annonces (16 REV-010 : nombre de trips, moyenne, badge
  * « Nuevo » sans avis). Sans base : un exécuteur simulé rend les lignes de
- * `core.review_listing_ratings` (0104) ; les attendus viennent de 19 US-218 critère 2 (3 avis 5, 4,
+ * `core.review_listing_ratings` (0102) ; les attendus viennent de 19 US-218 critère 2 (3 avis 5, 4,
  * 3 et 2 trips non notés ⇒ moyenne 4,0 et 5 trips) et de 16 REV-010, jamais du code testé. La
  * preuve sur base réelle est `packages/db/test/l0/l0-us218-reviews.test.ts`.
  */

@@ -1,5 +1,5 @@
 /**
- * Port et adaptateur PostgreSQL des notes publiques d'annonces (US-218, migration 0104, ADR-130 ;
+ * Port et adaptateur PostgreSQL des notes publiques d'annonces (US-218, migration 0102, ADR-130 ;
  * 16 REV-010 : nombre de trips, moyenne, badge « Nuevo » sans avis). L'adaptateur n'appelle QUE
  * `core.review_listing_ratings` (SECURITY DEFINER, propriétaire review_cmd_owner, EXECUTE au seul
  * app_api) : la base ne rend que des annonces LISTED, jamais un compte, un auteur ni un texte.
@@ -32,7 +32,7 @@ export interface ListingRating {
   readonly host: SubjectRating;
 }
 
-/** Au plus 100 annonces par appel (borne de la fonction de 0104). */
+/** Au plus 100 annonces par appel (borne de la fonction de 0102). */
 export const LISTING_RATINGS_MAX = 100;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

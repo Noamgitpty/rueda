@@ -277,7 +277,7 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_value'
               ? [{ t, pol: 'privacy_cmd_read', cmd: 'r', roles: 'privacy_cmd_owner' }]
               : []),
-            // avis enregistrés par l'ops (US-218, 0104) : fenêtre de notation review_window_days seulement
+            // avis enregistrés par l'ops (US-218, 0102) : fenêtre de notation review_window_days seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'review_cmd_read', cmd: 'r', roles: 'review_cmd_owner' }]
               : []),
