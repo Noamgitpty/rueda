@@ -48,6 +48,15 @@ export type { PhotoScanner, PhotoStorage } from './internal/host-listings/photo-
 export { PgHostListingStore, UnavailableHostListingStore } from './internal/host-listings/store.js';
 export type { HostListingStore } from './internal/host-listings/store.js';
 
+// Trips de l'hôte, lecture seule (US-219, ADR-127) : routes /host/accounts/{orgId}/trips[/{tripId}].
+export { PgHostTripStore, UnavailableHostTripStore } from './internal/host-trips/store.js';
+export type {
+  HostTripRow,
+  HostTripStore,
+  HostTripsResult,
+  TripQuery,
+} from './internal/host-trips/store.js';
+
 // Calendrier par véhicule, blocages et préavis de l'hôte (US-119, ADR-101) : routes
 // /host/accounts/{orgId}/vehicles/{vehicleId}/calendar|blocks, …/locations/{locationId}/notice.
 export {
