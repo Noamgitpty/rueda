@@ -1684,7 +1684,7 @@ export const PT_MESSAGES = {
   'web.a02.upcoming.title': 'Próximas entregas',
   'web.a02.returns.title': 'Próximas devoluções',
   'web.a02.trips.all': 'Ver todas as minhas reservas',
-  'web.a05.title': 'Minhas reservas',
+  'web.a05.heading': 'Minhas reservas',
   'web.a05.intro': 'Prepare cada entrega: data, local e o que você pode ver do viajante.',
   'web.a05.empty': 'Nenhuma reserva por enquanto',
   'web.a05.tab.UPCOMING': 'Próximas',
@@ -1719,6 +1719,6 @@ export const PT_MESSAGES = {
     'Estimativa conforme o seu plano; o valor final aparece nos seus ganhos depois da viagem.',
   'web.a05.open': 'Ver a reserva',
   'web.a05.back': 'Voltar às minhas reservas',
-  'web.a05.error': 'Não conseguimos carregar suas reservas.',
+  'web.a05.loadError': 'Não conseguimos carregar suas reservas.',
   'web.a05.retry': 'Tentar novamente',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

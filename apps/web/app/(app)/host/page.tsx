@@ -14,6 +14,8 @@ import {
 } from '../../../account/host-listings.ts';
 import type { ListingView, VehicleView } from '../../../account/host-listings.ts';
 import { hostTermsOf } from '../../../account/host-terms.ts';
+import { hostTripsOf } from '../../../account/host-trips.ts';
+import type { HostTripView, TripMarket } from '../../../account/host-trips.ts';
 import {
   regulatoryNoticesOf,
   regulatoryNoticesPath,
@@ -33,6 +35,7 @@ import {
   VehicleForm,
 } from './host-forms.tsx';
 import styles from './host.module.css';
+import { TripCard } from './trips/trip-card.tsx';
 
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getRequestI18n();
@@ -151,14 +154,23 @@ export default async function HostPage({
   const account = accounts.find((a) => a.orgId === wanted) ?? accounts[0];
   if (account === undefined) return error;
   const base = `/host/accounts/${account.orgId}`;
-  const [locReply, vehReply, lstReply, termsReply, noticeReply] = await Promise.all([
-    callApi('GET', `${base}/locations`, ctx),
-    callApi('GET', `${base}/vehicles`, ctx),
-    callApi('GET', `${base}/listings`, ctx),
-    callApi('GET', `${base}/terms?${new URLSearchParams({ locale: tag }).toString()}`, ctx),
-    // US-125 : limite légale connue du pays du compte (route publique, sans session)
-    callApi('GET', regulatoryNoticesPath(account.country, 'HOST'), { ...ctx, sessionToken: null }),
-  ]);
+  const [locReply, vehReply, lstReply, termsReply, noticeReply, upReply, nowReply] =
+    await Promise.all([
+      callApi('GET', `${base}/locations`, ctx),
+      callApi('GET', `${base}/vehicles`, ctx),
+      callApi('GET', `${base}/listings`, ctx),
+      callApi('GET', `${base}/terms?${new URLSearchParams({ locale: tag }).toString()}`, ctx),
+      // US-125 : limite légale connue du pays du compte (route publique, sans session)
+      callApi('GET', regulatoryNoticesPath(account.country, 'HOST'), {
+        ...ctx,
+        sessionToken: null,
+      }),
+      // A02 (US-219) : prochaines remises (à venir) et prochains retours (en cours)
+      callApi('GET', `${base}/trips?tab=UPCOMING`, ctx),
+      callApi('GET', `${base}/trips?tab=IN_PROGRESS`, ctx),
+    ]);
+  const upcoming = hostTripsOf(upReply);
+  const ongoing = hostTripsOf(nowReply);
   // CGU de l'hôte (US-126) : illisibles ⇒ « indisponibles », jamais une acceptation présumée
   const terms = hostTermsOf(termsReply);
   const notices = regulatoryNoticesOf(noticeReply, account.country, 'HOST');
@@ -183,6 +195,8 @@ export default async function HostPage({
           currency: market.currency,
         })}
       </p>
+      {/* A02 (US-219, UX-39) : prochaines remises et retours en tête ; lecture seule */}
+      <HostAgenda t={t} i18n={i18n} orgId={account.orgId} upcoming={upcoming} ongoing={ongoing} />
       {/* liste de tâches de la vérification de l'hôte (A07, US-123) */}
       <p className={accountStyles['text']}>
         <a
@@ -454,5 +468,68 @@ export default async function HostPage({
         )}
       </section>
     </>,
+  );
+}
+
+/** Nombre de trips montrés par bloc d'A02 ; la liste complète est sur A05. */
+const AGENDA_SIZE = 3;
+
+type TripsRead = { readonly market: TripMarket; readonly trips: readonly HostTripView[] } | null;
+
+/**
+ * A02 — prochaines remises (trips à venir, début le plus proche d'abord) et prochains retours
+ * (trips en cours, fin la plus proche d'abord), ordre servi par la base (US-219) ; lien vers A05.
+ * Lecture illisible : message d'erreur du bloc, le reste de l'espace hôte reste utilisable.
+ */
+function HostAgenda({
+  t,
+  i18n,
+  orgId,
+  upcoming,
+  ongoing,
+}: {
+  readonly t: (key: MessageKey) => string;
+  readonly i18n: Parameters<typeof TripCard>[0]['i18n'];
+  readonly orgId: string;
+  readonly upcoming: TripsRead;
+  readonly ongoing: TripsRead;
+}) {
+  const block = (id: string, title: MessageKey, read: TripsRead, empty: MessageKey | null) => (
+    <section className={styles['section']} aria-labelledby={id}>
+      <h2 id={id} className={accountStyles['h2']}>
+        {t(title)}
+      </h2>
+      {read === null ? (
+        <Banner tone="danger">{t('web.a05.loadError')}</Banner>
+      ) : read.trips.length === 0 ? (
+        empty !== null && <p className={accountStyles['muted']}>{t(empty)}</p>
+      ) : (
+        <ul className={styles['rows']}>
+          {read.trips.slice(0, AGENDA_SIZE).map((trip) => (
+            <li key={trip.tripId}>
+              <TripCard
+                i18n={i18n}
+                trip={trip}
+                market={read.market}
+                href={`/host/trips/${trip.tripId}?org=${orgId}`}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+  return (
+    <>
+      {block('a02-upcoming', 'web.a02.upcoming.title', upcoming, 'web.a02.empty')}
+      {ongoing !== null &&
+        ongoing.trips.length > 0 &&
+        block('a02-returns', 'web.a02.returns.title', ongoing, null)}
+      <p className={accountStyles['text']}>
+        <a className={styles['link']} href={`/host/trips?org=${orgId}`}>
+          {t('web.a02.trips.all')}
+        </a>
+      </p>
+    </>
   );
 }

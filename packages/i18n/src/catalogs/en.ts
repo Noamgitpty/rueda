@@ -1630,7 +1630,7 @@ export const EN_MESSAGES = {
   'web.a02.upcoming.title': 'Upcoming handovers',
   'web.a02.returns.title': 'Upcoming returns',
   'web.a02.trips.all': 'See all my bookings',
-  'web.a05.title': 'My bookings',
+  'web.a05.heading': 'My bookings',
   'web.a05.intro': 'Get ready for each handover: date, place and what you can see about the guest.',
   'web.a05.empty': 'No bookings yet',
   'web.a05.tab.UPCOMING': 'Upcoming',
@@ -1665,6 +1665,6 @@ export const EN_MESSAGES = {
     'Estimate based on your plan; the final amount shows in your earnings after the trip.',
   'web.a05.open': 'View booking',
   'web.a05.back': 'Back to my bookings',
-  'web.a05.error': "We couldn't load your bookings.",
+  'web.a05.loadError': "We couldn't load your bookings.",
   'web.a05.retry': 'Try again',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -1676,7 +1676,7 @@ export const ES_MESSAGES = {
   'web.a02.upcoming.title': 'Próximas entregas',
   'web.a02.returns.title': 'Próximas devoluciones',
   'web.a02.trips.all': 'Ver todas mis reservas',
-  'web.a05.title': 'Mis reservas',
+  'web.a05.heading': 'Mis reservas',
   'web.a05.intro': 'Prepara cada entrega: fecha, lugar y lo que puedes ver del viajero.',
   'web.a05.empty': 'Sin reservas por ahora',
   'web.a05.tab.UPCOMING': 'Próximas',
@@ -1712,7 +1712,7 @@ export const ES_MESSAGES = {
     'Estimación según tu plan; el monto final aparece en tus ganancias después del viaje.',
   'web.a05.open': 'Ver la reserva',
   'web.a05.back': 'Volver a mis reservas',
-  'web.a05.error': 'No pudimos cargar tus reservas.',
+  'web.a05.loadError': 'No pudimos cargar tus reservas.',
   'web.a05.retry': 'Reintentar',
 } as const satisfies Catalog;
 

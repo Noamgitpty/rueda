@@ -341,7 +341,6 @@ export const FR_PROTO = {
   'web.a02.cars.listed': 'Publiée',
   'web.a02.cars.inReview': 'En cours d’examen',
   'web.a02.cars.add': 'Publier une autre voiture',
-  'web.a02.empty': 'Pas encore de réservations. Ta voiture est déjà visible par les voyageurs.',
   'web.a02.noShow': 'Le voyageur ne s’est pas présenté',
   'web.a03.arrived': 'Je suis sur place',
   'web.a03.refuse': 'Ne pas remettre la voiture',
@@ -359,7 +358,6 @@ export const FR_PROTO = {
   'web.a05.cancel': 'Annuler la réservation',
   'web.a05.cancelWarning':
     'Le voyageur est remboursé intégralement. {amount} sera déduit de tes prochains gains et ton calendrier sera bloqué à ces dates.',
-  'web.a05.empty': 'Aucune réservation pour l’instant',
   'web.a06.empty': 'Ton calendrier est ouvert',
   'web.a08.payoutOn': 'Nous te payons le {date}',
   'web.a08.status.scheduled': 'Programmé',
