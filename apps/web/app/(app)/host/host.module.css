@@ -186,3 +186,21 @@
   outline: var(--size-focus-ring) solid var(--color-focus);
   outline-offset: var(--size-focus-offset);
 }
+
+/* US-219 : voyageur minimisé d'un trip (A02, A05) et filtres d'A05 ; jetons seulement */
+.guest {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.filters {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}

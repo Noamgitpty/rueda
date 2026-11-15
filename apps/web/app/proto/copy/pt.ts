@@ -335,7 +335,6 @@ export const PT_PROTO = {
   'web.a02.cars.listed': 'Anunciado',
   'web.a02.cars.inReview': 'Em análise',
   'web.a02.cars.add': 'Anunciar outro carro',
-  'web.a02.empty': 'Você ainda não tem reservas. Seu carro já está visível para os viajantes.',
   'web.a02.noShow': 'O viajante não apareceu',
   'web.a03.arrived': 'Já cheguei',
   'web.a03.refuse': 'Não entregar o carro',
@@ -353,7 +352,6 @@ export const PT_PROTO = {
   'web.a05.cancel': 'Cancelar a reserva',
   'web.a05.cancelWarning':
     'O viajante recebe o reembolso total. Vamos descontar {amount} dos seus próximos ganhos e seu calendário ficará bloqueado nessas datas.',
-  'web.a05.empty': 'Nenhuma reserva por enquanto',
   'web.a06.empty': 'Seu calendário está aberto',
   'web.a08.payoutOn': 'Pagamos você em {date}',
   'web.a08.status.scheduled': 'Agendado',

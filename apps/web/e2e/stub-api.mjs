@@ -438,6 +438,90 @@ async function hostRoute(req, res, url) {
       },
     });
   }
+  // ---- Trips de l'hôte (US-219) : lecture seule ------------------------------------------------
+  // Double : chaque auto du compte porte un trip à venir (référence fixe, voyageur minimisé) ; la
+  // première porte aussi un trip annulé (jambe HOST nulle). Montants en unités mineures (chaînes),
+  // exposant du marché du compte. Période inversée ⇒ 400 ; compte d'un autre ⇒ 404.
+  const tr = /^\/host\/accounts\/([0-9a-f-]{36})\/trips(?:\/([^/]+))?$/.exec(path);
+  if (tr !== null && req.method === 'GET') {
+    const owner = hostOf(req);
+    if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const a = owner === null ? undefined : owner.accounts.find((x) => x.orgId === tr[1]);
+    if (a === undefined) {
+      return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+    }
+    a.tripIds ??= new Map();
+    const loc = (v) => a.locations.find((l) => l.id === v.locationId)?.label ?? null;
+    const trips = a.vehicles.flatMap((v, i) => {
+      const ids = a.tripIds.get(v.id) ?? [uuid(), uuid()];
+      a.tripIds.set(v.id, ids);
+      const base = {
+        status: 'BOOKED',
+        vehicle: {
+          id: v.id,
+          makeText: v.makeText,
+          modelText: v.modelText,
+          year: v.year,
+          plate: v.plate,
+        },
+        handoverPlace: loc(v),
+        startsAt: '2036-12-12T14:00:00.000Z',
+        endsAt: '2036-12-14T14:00:00.000Z',
+        timezone: 'UTC',
+        bookedAt: '2036-12-01T15:00:00.000Z',
+        paymentStatus: 'CONFIRMED',
+        currency: a.market.currency,
+        guest: { firstName: 'Lucía', ageYears: 29, rating: null, verified: true },
+      };
+      const out = [
+        {
+          ...base,
+          tripId: ids[0],
+          reference: `KM-${i + 1}01`,
+          tab: 'UPCOMING',
+          hostEarningsMinor: a.market.currencyExponent === 0 ? '850000' : '12000',
+        },
+      ];
+      if (i === 0) {
+        out.push({
+          ...base,
+          tripId: ids[1],
+          reference: `KM-${i + 1}02`,
+          tab: 'CANCELLED',
+          status: 'CANCELLED_BY_GUEST',
+          paymentStatus: 'REFUNDED',
+          hostEarningsMinor: null,
+          guest: { firstName: 'Mateo', ageYears: 34, rating: null, verified: false },
+        });
+      }
+      return out;
+    });
+    const market = { currency: a.market.currency, currencyExponent: a.market.currencyExponent };
+    if (tr[2] !== undefined) {
+      const one = trips.find((t) => t.tripId === tr[2]);
+      if (!one) return err(res, 404, 'TRIP_NOT_FOUND', 'common.hostTrips.notFound');
+      return json(res, 200, { market, trip: one });
+    }
+    const q = url.searchParams;
+    const from = q.get('from');
+    const to = q.get('to');
+    if (from !== null && to !== null && to < from) {
+      return json(res, 400, {
+        code: 'REQUEST_INVALID',
+        messageKey: 'common.auth.requestInvalid',
+        fields: [{ field: 'to', reason: 'INVALID' }],
+      });
+    }
+    const tab = q.get('tab');
+    const vehicleId = q.get('vehicleId');
+    return json(res, 200, {
+      market,
+      trips: trips.filter(
+        (t) =>
+          (tab === null || t.tab === tab) && (vehicleId === null || t.vehicle.id === vehicleId),
+      ),
+    });
+  }
   // ---- Calendrier d'un véhicule (US-119) : occupations, blocages, préavis du lieu -------------
   // Double : un véhicule qui a une annonce vaut « publié » (le double ne publie jamais, US-118) ;
   // heures locales comparées comme des chaînes (fuseau UTC du double) ; préavis du pays : 180 min.

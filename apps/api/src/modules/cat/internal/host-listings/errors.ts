@@ -46,6 +46,9 @@
  * BOARD N-62), `LOCATION_CITY_INVALID`, `VEHICLE_DESCRIPTION_INVALID` (textes publics :
  * adresse ou contact), `VEHICLE_ELIGIBILITY_REQUIRED` (véhicule pas encore confirmé par l'hôte, US-124).
  *
+ * Trips de l'hôte (US-219, ADR-128), PROPOSÉS : `TRIP_NOT_FOUND` (trip inconnu ou d'un autre hôte,
+ * 16 HDB-002 : « 404 sans état révélé »), `HOST_TRIPS_UNAVAILABLE` (lecture indisponible).
+ *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
  */
@@ -80,6 +83,7 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_NOT_FOUND: { status: 404, messageKey: 'common.listing.vehicleNotFound' },
   LISTING_NOT_FOUND: { status: 404, messageKey: 'common.listing.notFound' },
   BLOCK_NOT_FOUND: { status: 404, messageKey: 'common.calendar.blockNotFound' },
+  TRIP_NOT_FOUND: { status: 404, messageKey: 'common.hostTrips.notFound' },
   CATALOG_VARIANT_NOT_FOUND: { status: 404, messageKey: 'common.listing.variantNotFound' },
   VEHICLE_PLATE_DUPLICATE: { status: 409, messageKey: 'common.listing.plateDuplicate' },
   LISTING_EXISTS: { status: 409, messageKey: 'common.listing.exists' },
@@ -151,6 +155,7 @@ export const HOST_LISTING_MESSAGES = {
   VEHICLE_DOCUMENT_INVALID: { status: 422, messageKey: 'common.vehicleDocs.documentInvalid' },
   NOTICE_INVALID: { status: 422, messageKey: 'common.calendar.noticeInvalid' },
   LISTING_UNAVAILABLE: { status: 503, messageKey: 'common.listing.unavailable' },
+  HOST_TRIPS_UNAVAILABLE: { status: 503, messageKey: 'common.hostTrips.unavailable' },
   PHOTO_UPLOAD_UNAVAILABLE: { status: 503, messageKey: 'common.listing.photoUnavailable' },
   VEHICLE_DOCUMENT_UNAVAILABLE: { status: 503, messageKey: 'common.vehicleDocs.uploadUnavailable' },
 } as const;

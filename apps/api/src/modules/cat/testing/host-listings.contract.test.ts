@@ -1114,6 +1114,8 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
       missingCoverage(contract, '/host/accounts/{orgId}', covered).filter(
         (d) =>
           !d.includes(' /host/accounts/{orgId}/terms') &&
+          // trips de l'hôte (US-219) : host-trips.contract
+          !d.includes(' /host/accounts/{orgId}/trips') &&
           !d.includes(' /host/accounts/{orgId}/verification') &&
           !d.includes(' /host/accounts/{orgId}/vehicle-') &&
           !/ \/host\/accounts\/\{orgId\}\/vehicles\/\{vehicleId\}\/(declaration|documents|eligibility) /.test(

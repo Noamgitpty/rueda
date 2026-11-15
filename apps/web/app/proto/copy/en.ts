@@ -327,7 +327,6 @@ export const EN_PROTO = {
   'web.a02.cars.listed': 'Listed',
   'web.a02.cars.inReview': 'In review',
   'web.a02.cars.add': 'List another car',
-  'web.a02.empty': 'No bookings yet. Your car is already visible to guests.',
   'web.a02.noShow': "The guest didn't show up",
   'web.a03.arrived': "I'm here",
   'web.a03.refuse': "Don't hand over the car",
@@ -345,7 +344,6 @@ export const EN_PROTO = {
   'web.a05.cancel': 'Cancel booking',
   'web.a05.cancelWarning':
     'The guest gets a full refund. {amount} will be deducted from your next earnings and your calendar will be blocked for those dates.',
-  'web.a05.empty': 'No bookings yet',
   'web.a06.empty': 'Your calendar is open',
   'web.a08.payoutOn': "We'll pay you on {date}",
   'web.a08.status.scheduled': 'Scheduled',
