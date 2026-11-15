@@ -209,8 +209,8 @@ describe('barème incohérent ⇒ QUOTE_UNAVAILABLE (fail-closed, jamais un trip
   });
 
   it('sans barème, computeQuote refuse le devis', () => {
-    const { params } = caseOfGoldenTrip(settlementVector(golden, 'T01').trip);
-    const rest = { ...params } as Partial<QuoteParams>;
+    const rest = { ...params } as { tripFeeSchedule?: unknown };
+    delete rest.tripFeeSchedule;
     delete rest.tripFeeSchedule;
     expect(
       codeOf(() =>
@@ -222,7 +222,7 @@ describe('barème incohérent ⇒ QUOTE_UNAVAILABLE (fail-closed, jamais un trip
             rateType: 'REFUNDABLE',
             dailyRate: money(4_000n, c),
           },
-          rest as QuoteParams,
+          rest as unknown as QuoteParams,
         ),
       ),
     ).toBe('QUOTE_UNAVAILABLE');
