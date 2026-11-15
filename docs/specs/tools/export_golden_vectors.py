@@ -1,10 +1,11 @@
-"""Export des vecteurs dorés T01-T73, TJ01-TJ21 et TA01-TA11 (US-016), lu par le harnais TypeScript.
+"""Export des vecteurs dorés T01-T80, TJ01-TJ21 et TA01-TA11 (US-016), lu par le harnais TypeScript.
+(T74-T80 : borne T-24 h, recalage du lot 2, 2026-11-15, L2-PM-15 ; règlement de `independent_settlement_check.py`.)
 (T69-T73 : révisé 2026-11-12, caution comme Turo, US-063 ; contrôles de `check_t49plus.py`, couverture
 vérifiée à part pour garder la ligne « Couverture T01-T68 » attendue par registry.json.)
 
 Les valeurs attendues viennent UNIQUEMENT des oracles déjà audités de ce dossier, chargés tels quels
 (aucune ligne recopiée, aucun fichier modifié) :
-- T01-T48 : `independent_settlement_check.py` (règlement `compute` et couche d'exécution
+- T01-T48 et T74-T80 : `independent_settlement_check.py` (règlement `compute` et couche d'exécution
   `run_execution_vectors`) ; chaque résultat calculé est comparé à la valeur recopiée dans `VECT`
   par l'oracle, puis aux cellules de la ligne « | Txx | » de 08 ;
 - TJ01-TJ21 : `check_legs.py` (dictionnaire `EXPECTED`), comparé aux cellules des lignes « | TJxx | » de 08 ;
@@ -366,8 +367,12 @@ if missing:
 missing_ct = [f"T{n}" for n in range(69, 74) if f"T{n}" not in covered_t]
 if missing_ct:
     err(f"vecteurs T69-T73 sans attente d'oracle : {missing_ct}")
-if set(ROWS_T) != {f"T{n:02d}" for n in range(1, 74)}:
-    err(f"lignes T de 08 : {len(ROWS_T)} (T01-T73 attendues)")
+# T74-T80 (borne T-24 h, recalage du lot 2, L2-PM-15) : vecteurs de règlement de independent_settlement_check.py
+missing_b = [f"T{n}" for n in range(74, 81) if f"T{n}" not in {x["id"] for x in settlement}]
+if missing_b:
+    err(f"vecteurs T74-T80 sans attente d'oracle : {missing_b}")
+if set(ROWS_T) != {f"T{n:02d}" for n in range(1, 81)}:
+    err(f"lignes T de 08 : {len(ROWS_T)} (T01-T80 attendues)")
 curs = {x["currency"] for x in settlement} | {x["currency"] for x in legs}
 if curs != set(CURRENCIES):
     err(f"devises couvertes {sorted(curs)} != {sorted(CURRENCIES)}")

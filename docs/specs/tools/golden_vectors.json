@@ -2553,6 +2553,426 @@
         "hostFromGuestMinor": "0",
         "hostCompensationMinor": "0"
       }
+    },
+    {
+      "id": "T74",
+      "currency": "USD",
+      "normative": true,
+      "oracle": "independent_settlement_check.py",
+      "entries08": "A, `GUEST_CANCELLED`, guest, à T−24 h **− 1 min** (T−24 h 01)",
+      "qualification08": "VOLUNTARY, ≤ freeUntil",
+      "trip": {
+        "name": "A",
+        "currency": "USD",
+        "days": 3,
+        "rate": "REFUNDABLE",
+        "bookedAtMinutes": -7200,
+        "hostSharePct": "3/4",
+        "deliverySharePct": "3/4",
+        "extrasSharePct": "3/4",
+        "linesMinor": {
+          "tripPrice": "12000",
+          "promoPlatform": "0",
+          "promoHost": "0",
+          "tripFee": "1800",
+          "protection": "3000",
+          "extras": "1500",
+          "enhancedRoadside": "900",
+          "additionalDriver": "1500",
+          "delivery": "4000"
+        },
+        "taxGroups": [
+          {
+            "id": "g",
+            "rate": "7/100",
+            "lines": [
+              "tripPrice",
+              "promoPlatform",
+              "promoHost",
+              "tripFee"
+            ],
+            "taxPaidMinor": "966"
+          }
+        ],
+        "totalPaidMinor": "25666"
+      },
+      "event": {
+        "reason": "GUEST_CANCELLED",
+        "requestedAtMinutes": -1441
+      },
+      "expected": {
+        "guestRefundMinor": "25666",
+        "taxRefundedMinor": "966",
+        "hostEarningsMinor": "0",
+        "platformNetMinor": "0",
+        "hostPenaltyMajor": "0",
+        "hostPenaltyMinor": "0",
+        "qualifiedReason": "GUEST_CANCELLED",
+        "retainedMinor": "0",
+        "retainedTaxMinor": "0",
+        "hostFromGuestMinor": "0",
+        "hostCompensationMinor": "0"
+      }
+    },
+    {
+      "id": "T75",
+      "currency": "USD",
+      "normative": true,
+      "oracle": "independent_settlement_check.py",
+      "entries08": "A, `GUEST_CANCELLED`, guest, à T−24 h **+ 1 min** (T−23 h 59)",
+      "qualification08": "VOLUNTARY, partiel, j = 1",
+      "trip": {
+        "name": "A",
+        "currency": "USD",
+        "days": 3,
+        "rate": "REFUNDABLE",
+        "bookedAtMinutes": -7200,
+        "hostSharePct": "3/4",
+        "deliverySharePct": "3/4",
+        "extrasSharePct": "3/4",
+        "linesMinor": {
+          "tripPrice": "12000",
+          "promoPlatform": "0",
+          "promoHost": "0",
+          "tripFee": "1800",
+          "protection": "3000",
+          "extras": "1500",
+          "enhancedRoadside": "900",
+          "additionalDriver": "1500",
+          "delivery": "4000"
+        },
+        "taxGroups": [
+          {
+            "id": "g",
+            "rate": "7/100",
+            "lines": [
+              "tripPrice",
+              "promoPlatform",
+              "promoHost",
+              "tripFee"
+            ],
+            "taxPaidMinor": "966"
+          }
+        ],
+        "totalPaidMinor": "25666"
+      },
+      "event": {
+        "reason": "GUEST_CANCELLED",
+        "requestedAtMinutes": -1439
+      },
+      "expected": {
+        "guestRefundMinor": "18744",
+        "taxRefundedMinor": "644",
+        "hostEarningsMinor": "4500",
+        "platformNetMinor": "2100",
+        "hostPenaltyMajor": "0",
+        "hostPenaltyMinor": "0",
+        "qualifiedReason": "GUEST_CANCELLED",
+        "retainedMinor": "6600",
+        "retainedTaxMinor": "322",
+        "hostFromGuestMinor": "4500",
+        "hostCompensationMinor": "0"
+      }
+    },
+    {
+      "id": "T76",
+      "currency": "USD",
+      "normative": true,
+      "oracle": "independent_settlement_check.py",
+      "entries08": "A, `HOST_CANCELLED`, hôte, à T−24 h **− 1 min**",
+      "qualification08": "FULL",
+      "trip": {
+        "name": "A",
+        "currency": "USD",
+        "days": 3,
+        "rate": "REFUNDABLE",
+        "bookedAtMinutes": -7200,
+        "hostSharePct": "3/4",
+        "deliverySharePct": "3/4",
+        "extrasSharePct": "3/4",
+        "linesMinor": {
+          "tripPrice": "12000",
+          "promoPlatform": "0",
+          "promoHost": "0",
+          "tripFee": "1800",
+          "protection": "3000",
+          "extras": "1500",
+          "enhancedRoadside": "900",
+          "additionalDriver": "1500",
+          "delivery": "4000"
+        },
+        "taxGroups": [
+          {
+            "id": "g",
+            "rate": "7/100",
+            "lines": [
+              "tripPrice",
+              "promoPlatform",
+              "promoHost",
+              "tripFee"
+            ],
+            "taxPaidMinor": "966"
+          }
+        ],
+        "totalPaidMinor": "25666"
+      },
+      "event": {
+        "reason": "HOST_CANCELLED",
+        "requestedAtMinutes": -1441
+      },
+      "expected": {
+        "guestRefundMinor": "25666",
+        "taxRefundedMinor": "966",
+        "hostEarningsMinor": "0",
+        "platformNetMinor": "0",
+        "hostPenaltyMajor": "25",
+        "hostPenaltyMinor": "2500",
+        "qualifiedReason": "HOST_CANCELLED",
+        "retainedMinor": "0",
+        "retainedTaxMinor": "0",
+        "hostFromGuestMinor": "0",
+        "hostCompensationMinor": "0"
+      }
+    },
+    {
+      "id": "T77",
+      "currency": "USD",
+      "normative": true,
+      "oracle": "independent_settlement_check.py",
+      "entries08": "A, `HOST_CANCELLED`, hôte, à T−24 h **+ 1 min**",
+      "qualification08": "FULL",
+      "trip": {
+        "name": "A",
+        "currency": "USD",
+        "days": 3,
+        "rate": "REFUNDABLE",
+        "bookedAtMinutes": -7200,
+        "hostSharePct": "3/4",
+        "deliverySharePct": "3/4",
+        "extrasSharePct": "3/4",
+        "linesMinor": {
+          "tripPrice": "12000",
+          "promoPlatform": "0",
+          "promoHost": "0",
+          "tripFee": "1800",
+          "protection": "3000",
+          "extras": "1500",
+          "enhancedRoadside": "900",
+          "additionalDriver": "1500",
+          "delivery": "4000"
+        },
+        "taxGroups": [
+          {
+            "id": "g",
+            "rate": "7/100",
+            "lines": [
+              "tripPrice",
+              "promoPlatform",
+              "promoHost",
+              "tripFee"
+            ],
+            "taxPaidMinor": "966"
+          }
+        ],
+        "totalPaidMinor": "25666"
+      },
+      "event": {
+        "reason": "HOST_CANCELLED",
+        "requestedAtMinutes": -1439
+      },
+      "expected": {
+        "guestRefundMinor": "25666",
+        "taxRefundedMinor": "966",
+        "hostEarningsMinor": "0",
+        "platformNetMinor": "0",
+        "hostPenaltyMajor": "50",
+        "hostPenaltyMinor": "5000",
+        "qualifiedReason": "HOST_CANCELLED",
+        "retainedMinor": "0",
+        "retainedTaxMinor": "0",
+        "hostFromGuestMinor": "0",
+        "hostCompensationMinor": "0"
+      }
+    },
+    {
+      "id": "T78",
+      "currency": "PYG",
+      "normative": true,
+      "oracle": "independent_settlement_check.py",
+      "entries08": "**D (PYG)**, `GUEST_CANCELLED`, guest, à **exactement** T−24 h",
+      "qualification08": "VOLUNTARY, borne incluse",
+      "trip": {
+        "name": "D",
+        "currency": "PYG",
+        "days": 3,
+        "rate": "REFUNDABLE",
+        "bookedAtMinutes": -7200,
+        "hostSharePct": "3/4",
+        "deliverySharePct": "3/4",
+        "extrasSharePct": "3/4",
+        "linesMinor": {
+          "tripPrice": "1000000",
+          "promoPlatform": "0",
+          "promoHost": "0",
+          "tripFee": "125500",
+          "protection": "150000",
+          "extras": "0",
+          "enhancedRoadside": "0",
+          "additionalDriver": "0",
+          "delivery": "50000"
+        },
+        "taxGroups": [
+          {
+            "id": "g",
+            "rate": "1/10",
+            "lines": [
+              "tripPrice",
+              "promoPlatform",
+              "promoHost",
+              "tripFee"
+            ],
+            "taxPaidMinor": "112550"
+          }
+        ],
+        "totalPaidMinor": "1438050"
+      },
+      "event": {
+        "reason": "GUEST_CANCELLED",
+        "requestedAtMinutes": -1440
+      },
+      "expected": {
+        "guestRefundMinor": "1438050",
+        "taxRefundedMinor": "112550",
+        "hostEarningsMinor": "0",
+        "platformNetMinor": "0",
+        "hostPenaltyMajor": "0",
+        "hostPenaltyMinor": "0",
+        "qualifiedReason": "GUEST_CANCELLED",
+        "retainedMinor": "0",
+        "retainedTaxMinor": "0",
+        "hostFromGuestMinor": "0",
+        "hostCompensationMinor": "0"
+      }
+    },
+    {
+      "id": "T79",
+      "currency": "PYG",
+      "normative": true,
+      "oracle": "independent_settlement_check.py",
+      "entries08": "D (PYG), `GUEST_CANCELLED`, guest, à T−24 h **− 1 min**",
+      "qualification08": "VOLUNTARY, ≤ freeUntil",
+      "trip": {
+        "name": "D",
+        "currency": "PYG",
+        "days": 3,
+        "rate": "REFUNDABLE",
+        "bookedAtMinutes": -7200,
+        "hostSharePct": "3/4",
+        "deliverySharePct": "3/4",
+        "extrasSharePct": "3/4",
+        "linesMinor": {
+          "tripPrice": "1000000",
+          "promoPlatform": "0",
+          "promoHost": "0",
+          "tripFee": "125500",
+          "protection": "150000",
+          "extras": "0",
+          "enhancedRoadside": "0",
+          "additionalDriver": "0",
+          "delivery": "50000"
+        },
+        "taxGroups": [
+          {
+            "id": "g",
+            "rate": "1/10",
+            "lines": [
+              "tripPrice",
+              "promoPlatform",
+              "promoHost",
+              "tripFee"
+            ],
+            "taxPaidMinor": "112550"
+          }
+        ],
+        "totalPaidMinor": "1438050"
+      },
+      "event": {
+        "reason": "GUEST_CANCELLED",
+        "requestedAtMinutes": -1441
+      },
+      "expected": {
+        "guestRefundMinor": "1438050",
+        "taxRefundedMinor": "112550",
+        "hostEarningsMinor": "0",
+        "platformNetMinor": "0",
+        "hostPenaltyMajor": "0",
+        "hostPenaltyMinor": "0",
+        "qualifiedReason": "GUEST_CANCELLED",
+        "retainedMinor": "0",
+        "retainedTaxMinor": "0",
+        "hostFromGuestMinor": "0",
+        "hostCompensationMinor": "0"
+      }
+    },
+    {
+      "id": "T80",
+      "currency": "PYG",
+      "normative": true,
+      "oracle": "independent_settlement_check.py",
+      "entries08": "D (PYG), `GUEST_CANCELLED`, guest, à T−24 h **+ 1 min**",
+      "qualification08": "VOLUNTARY, partiel, j = 1",
+      "trip": {
+        "name": "D",
+        "currency": "PYG",
+        "days": 3,
+        "rate": "REFUNDABLE",
+        "bookedAtMinutes": -7200,
+        "hostSharePct": "3/4",
+        "deliverySharePct": "3/4",
+        "extrasSharePct": "3/4",
+        "linesMinor": {
+          "tripPrice": "1000000",
+          "promoPlatform": "0",
+          "promoHost": "0",
+          "tripFee": "125500",
+          "protection": "150000",
+          "extras": "0",
+          "enhancedRoadside": "0",
+          "additionalDriver": "0",
+          "delivery": "50000"
+        },
+        "taxGroups": [
+          {
+            "id": "g",
+            "rate": "1/10",
+            "lines": [
+              "tripPrice",
+              "promoPlatform",
+              "promoHost",
+              "tripFee"
+            ],
+            "taxPaidMinor": "112550"
+          }
+        ],
+        "totalPaidMinor": "1438050"
+      },
+      "event": {
+        "reason": "GUEST_CANCELLED",
+        "requestedAtMinutes": -1439
+      },
+      "expected": {
+        "guestRefundMinor": "1000367",
+        "taxRefundedMinor": "75033",
+        "hostEarningsMinor": "268750",
+        "platformNetMinor": "131416",
+        "hostPenaltyMajor": "0",
+        "hostPenaltyMinor": "0",
+        "qualifiedReason": "GUEST_CANCELLED",
+        "retainedMinor": "400166",
+        "retainedTaxMinor": "37517",
+        "hostFromGuestMinor": "268750",
+        "hostCompensationMinor": "0"
+      }
     }
   ],
   "legs": [

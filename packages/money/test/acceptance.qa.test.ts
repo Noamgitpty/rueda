@@ -4,7 +4,7 @@
  * 16 A.8.1) et du README / point d'entrée public. Aucune lecture de l'implémentation.
  * Valeurs attendues : vecteurs de 08 (T..) et de 16 (TA..), confirmées par les oracles Python
  * `independent_settlement_check.py`, `verif11_settlement.py`, `verif15_ta.py`
- * (`python -I -X utf8`, depuis docs/specs/) : « ECARTS sur T01-T48 : 0 », TA01–TA08 OK.
+ * (`python -I -X utf8`, depuis docs/specs/) : « ECARTS sur T01-T48 et T74-T80 : 0 », TA01–TA08 OK.
  * Les montants sont écrits en unités mineures (USD : cents ; PYG : guaraní).
  */
 import { describe, expect, it } from 'vitest';
