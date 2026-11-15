@@ -1,0 +1,14 @@
+# Revue architecture — US-207 « machine à états du trip » (PR n° 159) — 2026-11-15 (re-revue)
+
+Relecteur : revue-architecture / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Entrées : d3b682d38a89ad598d43cc6cd51aa54340590d96..0190dba9b7e6d3ca8d64f0088e37fbb7cd41d660
+
+Contexte : re-revue de `architecture-2026-11-15.md`. Lecture statique du delta `cb4f4e2a..0190dba9` (hors revues) ; CI annoncée verte (18/18), non relancée.
+
+| #   | Gravité | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | MINEUR  | MAJEUR n° 1 levé : `trip.cancellation.qualified` porte désormais `segment_id` (segment n° 1, lu sous le verrou du trip avant toute écriture), avec `trip_id`, `reason`, `origin`, `requested_at` de 17 §4.5 ; refus fail-closed `trip_segment_missing` (23000 → `INVARIANT_VIOLATION`). Le test compare la charge par égalité stricte et vérifie que chaque champ exigé est non nul ; l'`id` du segment vient d'une relecture de fixture, pas du code testé.   |
+| 2   | MINEUR  | Le droit ajouté, `SELECT (id)` sur `booking_trip_segment` à `cmd_hold_owner`, est le minimum (lecture seule d'une colonne, politique `cmd_trip_seg_sel` inchangée). La sonde de garde est confinée à `test-migrations/` (exclue de l'image de déploiement), appartient à `cmd_hold_owner` et reste soumise aux droits, politiques et à la garde : elle lève l'objection de ma revue n° 4 sur l'absence de preuve de la garde sans ouvrir de chemin d'écriture. |
+| 3   | MINEUR  | Reste ouvert, non bloquant, à inscrire aux suivis : `contract_document_id` et peuplement de `billable_days`, `price_version`, `due_at` (US-202 / US-211) ; exemption de la garde par identité `migrator` ; fail-closed de la naissance si `no_show_grace_minutes` manque (compensation de BR-BOOK-10 à confirmer) ; `BOOKED` sans sortie vers `NO_SHOW_GUEST` (minuteries TRP) ; vocabulaire d'`origin`.                                                       |
+
+Verdict : APPROUVÉ
