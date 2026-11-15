@@ -1,5 +1,5 @@
 /**
- * Routes des trips de l'hôte (US-219 ; 16 HDB-001 / HDB-002 ; écrans A02 et A05 ; ADR-127). Lecture
+ * Routes des trips de l'hôte (US-219 ; 16 HDB-001 / HDB-002 ; écrans A02 et A05 ; ADR-128). Lecture
  * seule, gardée par `SessionGuard` puis `TermsGuard` (CGU à jour, US-102) ; l'hôte est celui de la session, le compte `{orgId}` l'un de
  * ses comptes titulaires, revérifié en base. Aucune écriture : l'état du trip ne change que par les
  * commandes d'US-207.

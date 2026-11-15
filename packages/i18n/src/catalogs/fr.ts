@@ -1170,6 +1170,11 @@ export const FR_MESSAGES = {
     'Tout est prêt de votre côté. La protection des voyages n’est pas encore disponible ici ; vous pourrez publier votre annonce dès qu’elle le sera.',
   'common.listing.hostNotActivated':
     'Tout est prêt de ton côté. Tu pourras publier ton annonce quand ton compte d’hôte sera actif et que nous ouvrirons aux hôtes ici.',
+  // US-202 : devis (16 PRC-025, PRC-020) : prix impossible, dates invalides, prix changé
+  'common.quote.unavailable':
+    "Nous ne pouvons pas calculer le prix de cette voiture pour ces dates. Essayez d'autres dates ou choisissez une autre voiture.",
+  'common.quote.datesInvalid': 'Vérifiez les dates : le retour doit être après la prise en charge.',
+  'common.quote.changed': 'Le prix a changé. Vérifiez le nouveau total avant de continuer.',
   'common.listing.unavailable':
     'Impossible d’enregistrer ton annonce pour le moment. Réessaie plus tard.',
   'common.listing.photoUnavailable':
@@ -1713,7 +1718,7 @@ export const FR_MESSAGES = {
     'Ce numéro de châssis n’est pas valide. Saisis le VIN de 17 caractères (sans I, O ni Q) ou le numéro de châssis de ta voiture importée, par exemple GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'Tu l’as déclaré le {date}.',
   'backoffice.catalog.specsPending': 'Fiche technique à compléter',
-  // US-219 (ADR-127) : espace hôte, accueil A02 et réservations A05
+  // US-219 (ADR-128) : espace hôte, accueil A02 et réservations A05
   'common.hostTrips.notFound': 'Réservation introuvable.',
   'common.hostTrips.unavailable':
     'Tes réservations ne sont pas disponibles pour le moment. Réessaie dans quelques minutes.',

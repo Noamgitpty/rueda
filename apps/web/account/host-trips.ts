@@ -1,5 +1,5 @@
 /**
- * Lecture défensive des trips de l'hôte (US-219, ADR-127 ; 16 HDB-001 / HDB-002), côté SERVEUR du
+ * Lecture défensive des trips de l'hôte (US-219, ADR-128 ; 16 HDB-001 / HDB-002), côté SERVEUR du
  * site seulement. Une réponse mal formée est refusée en bloc (`null`) : l'écran affiche son état
  * d'erreur, jamais une donnée partielle. Aucun montant n'est calculé ici : les gains estimés (jambe
  * HOST) sont relus tels quels, en unités mineures, avec l'exposant de la devise servi par l'API

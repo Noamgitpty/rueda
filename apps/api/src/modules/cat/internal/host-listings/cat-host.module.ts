@@ -10,7 +10,7 @@
  * magasin `calendar` (production : commandes `core.catalog_*` de 0071). Pièces et éligibilité du
  * véhicule (US-124, ADR-107) : magasin `documents` (commandes de 0077) ; antivirus, coffre et
  * stockage `documentFiles` indisponibles en production (503) jusqu'à US-003. Trips de l'hôte
- * (US-219, ADR-127) : magasin `trips` (lecture `core.booking_host_trips` de 0100), lecture seule.
+ * (US-219, ADR-128) : magasin `trips` (lecture `core.booking_host_trips` de 0101), lecture seule.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -73,7 +73,7 @@ export function postgresCatAdapters(db: SqlExecutor, pool: SqlPool | null = null
     catalog: new VehicleCatalogService(new PgVehicleCatalogStore(db)),
     photos: { scanner: new UnavailablePhotoScanner(), storage: new UnavailablePhotoStorage() },
     calendar: new PgHostCalendarStore(db),
-    // trips de l'hôte (US-219) : lecture core.booking_host_trips de 0100
+    // trips de l'hôte (US-219) : lecture core.booking_host_trips de 0101
     trips: new PgHostTripStore(db),
     // pièces : antivirus (ClamAV), coffre et stockage livrés par US-003 ⇒ 503 d'ici là
     documents: new PgVehicleDocumentStore(db, pool),

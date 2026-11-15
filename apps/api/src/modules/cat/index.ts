@@ -48,7 +48,7 @@ export type { PhotoScanner, PhotoStorage } from './internal/host-listings/photo-
 export { PgHostListingStore, UnavailableHostListingStore } from './internal/host-listings/store.js';
 export type { HostListingStore } from './internal/host-listings/store.js';
 
-// Trips de l'hôte, lecture seule (US-219, ADR-127) : routes /host/accounts/{orgId}/trips[/{tripId}].
+// Trips de l'hôte, lecture seule (US-219, ADR-128) : routes /host/accounts/{orgId}/trips[/{tripId}].
 export { PgHostTripStore, UnavailableHostTripStore } from './internal/host-trips/store.js';
 export type {
   HostTripRow,

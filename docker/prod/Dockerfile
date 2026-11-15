@@ -40,6 +40,8 @@ RUN pnpm install --frozen-lockfile \
 # @rueda/fake-adapters) disparaissent de node_modules. Pas de filtre « pkg... » : il sélectionne
 # aussi les paquets de développement de l'espace de travail (@rueda/config, @rueda/money,
 # @rueda/fake-adapters) et installe leurs propres dépendances (eslint…).
+# @rueda/money (dépendance de l'API depuis US-202, sans dépendance d'exécution) : lien
+# apps/api/node_modules/@rueda/money vers packages/money, copié plus bas.
 # Le magasin de pnpm « remonte » un lien vers chaque paquet sélectionné : liste blanche ensuite.
 RUN find . -name node_modules -type d -prune -exec rm -rf {} + \
   && pnpm install --frozen-lockfile --prod --ignore-scripts \
@@ -69,6 +71,10 @@ COPY --from=build --chown=root:root /repo/packages/design-tokens/src ./packages/
 COPY --from=build --chown=root:root /repo/packages/design-tokens/config ./packages/design-tokens/config
 COPY --from=build --chown=root:root /repo/packages/design-tokens/rules ./packages/design-tokens/rules
 COPY --from=build --chown=root:root /repo/packages/design-tokens/foundation.tokens.json ./packages/design-tokens/foundation.tokens.json
+# primitives monétaires et moteur de règlement (US-202 : moteur de devis PRC), sans le harnais
+# des vecteurs dorés (src/golden-vectors) ni l'adaptateur de test (test/), réservés aux tests
+COPY --from=build --chown=root:root /repo/packages/money/package.json ./packages/money/package.json
+COPY --from=build --chown=root:root /repo/packages/money/src ./packages/money/src
 # palettes du registre US-028, importées par @rueda/design-tokens (report d'US-034)
 COPY --from=build --chown=root:root /repo/docs/design/US-028/*.json ./docs/design/US-028/
 COPY --from=build --chown=root:root /repo/packages/db/package.json ./packages/db/package.json
@@ -86,7 +92,7 @@ COPY --from=build --chown=root:root /repo/docker/prod/certs/rds-global-bundle.pe
 RUN echo "${RDS_CA_SHA256}  /app/certs/rds-global-bundle.pem" | sha256sum -c --strict -
 ENV NODE_EXTRA_CA_CERTS=/app/certs/rds-global-bundle.pem
 # Hors production : harnais de tests, préparation du poste local, tests et sources de test.
-RUN rm -rf packages/db/src/testing packages/db/src/dev \
+RUN rm -rf packages/db/src/testing packages/db/src/dev packages/money/src/golden-vectors \
   && find apps packages -type d \( -name testing -o -name test -o -name __tests__ \) -prune -exec rm -rf {} + \
   && find apps packages -type f \( -name '*.test.ts' -o -name '*.test.js' -o -name '*.test-support.*' -o -name '*.map' \) -delete
 USER node

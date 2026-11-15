@@ -1,5 +1,5 @@
 /**
- * Service des trips de l'hôte (US-219 ; 16 HDB-001 / HDB-002 ; écrans A02 et A05 ; ADR-127).
+ * Service des trips de l'hôte (US-219 ; 16 HDB-001 / HDB-002 ; écrans A02 et A05 ; ADR-128).
  * Valide la requête (onglet, véhicule, dates locales), lit la base (qui juge la session, le compte
  * titulaire, filtre et minimise) et joint à chaque trip le libellé du véhicule et du lieu de remise
  * lus par les lectures existantes de l'hôte (US-115). Aucun montant n'est calculé ici : la jambe

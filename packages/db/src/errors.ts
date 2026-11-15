@@ -115,7 +115,7 @@ export const SQLSTATE = {
 /**
  * Contraintes connues : `nom de contrainte → [SQLSTATE attendu, code métier]`. Les noms sont ceux
  * des migrations `packages/db/migrations/0004` à `0006`, `0016` à `0020`, `0027`, `0028`, `0032`,
- * `0037`, `0039`, `0040`, `0041`, `0054` et `0099`.
+ * `0037`, `0039`, `0040`, `0041`, `0054`, `0099` et `0100`.
  */
 export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusinessCode]>> = {
   // 23P01 : exclusions GiST
@@ -147,6 +147,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   // gabarits juridiques et consentements (US-102, migration 0059)
   document_template_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   consent_append_only: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // devis figés, lignes et versions de prix du trip (US-202, migration 0100)
+  pricing_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   audit_log_key_destroyed: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_not_live: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
   subject_key_legal_hold: [SQLSTATE.integrityConstraintViolation, 'LEGAL_HOLD_ACTIVE'],

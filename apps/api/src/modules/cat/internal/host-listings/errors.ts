@@ -46,7 +46,7 @@
  * BOARD N-62), `LOCATION_CITY_INVALID`, `VEHICLE_DESCRIPTION_INVALID` (textes publics :
  * adresse ou contact), `VEHICLE_ELIGIBILITY_REQUIRED` (véhicule pas encore confirmé par l'hôte, US-124).
  *
- * Trips de l'hôte (US-219, ADR-127), PROPOSÉS : `TRIP_NOT_FOUND` (trip inconnu ou d'un autre hôte,
+ * Trips de l'hôte (US-219, ADR-128), PROPOSÉS : `TRIP_NOT_FOUND` (trip inconnu ou d'un autre hôte,
  * 16 HDB-002 : « 404 sans état révélé »), `HOST_TRIPS_UNAVAILABLE` (lecture indisponible).
  *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un

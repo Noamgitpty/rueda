@@ -1,4 +1,4 @@
--- 0100 — AVL : lecture des trips de l'hôte (espace hôte, accueil A02 et réservations A05).
+-- 0101 — AVL : lecture des trips de l'hôte (espace hôte, accueil A02 et réservations A05).
 -- US-219 ; 19 US-219 (« Given une confirmation à 10:00, When l'hôte rafraîchit à 10:01, Then le
 -- trip apparaît en tête des prochaines remises » ; « Given un trip, When l'hôte l'ouvre, Then il voit
 -- le prénom, l'âge, la note et le statut de vérification du voyageur, jamais le numéro de permis ni
@@ -7,10 +7,10 @@
 -- Annulés ; colonnes n° de réservation, véhicule, voyageur, début et fin, statut du paiement, gains
 -- estimés de la jambe `HOST` ; filtres par véhicule et date ; « montant de la jambe `HOST` seul
 -- (RLS-28 : titulaire seulement) ») ; 17 §2.3 (`host_guest_v`, RLS-2, RLS-9, RLS-28, point 5 :
--- IDOR) ; 10b §3.8 UX-39, UX-43 ; pré-mortem du lot 2 : L2-PM-10, L2-PM-35 ; ADR-064 ; ADR-127
+-- IDOR) ; 10b §3.8 UX-39, UX-43 ; pré-mortem du lot 2 : L2-PM-10, L2-PM-35 ; ADR-064 ; ADR-128
 -- (cette migration). Appliquée sous `migrator`, en une transaction.
 --
--- Principes (ADR-127, PROPOSÉS) :
+-- Principes (ADR-128, PROPOSÉS) :
 --   - LECTURE SEULE : aucune table, aucune écriture ; l'état du trip ne change que par les commandes
 --     d'US-207 (0099) ;
 --   - une fonction `core.booking_host_trips(jeton, compte, onglet, véhicule, du, au, trip, limite)`,
@@ -166,7 +166,7 @@ COMMENT ON FUNCTION core.booking_host_trips(bytea, uuid, text, uuid, date, date,
   'Trips du compte d''hôte titulaire de la session (A02, A05) : onglet, véhicule, période locale, '
   'statut du paiement, jambe HOST de la conversion ; du voyageur : prénom, âge, note, vérification '
   '(host_guest_v), rien d''autre. FORBIDDEN pour un autre compte. SECURITY DEFINER, EXECUTE '
-  'app_api. US-219 (ADR-127).';
+  'app_api. US-219 (ADR-128).';
 
 REVOKE ALL ON FUNCTION core.booking_host_trips(bytea, uuid, text, uuid, date, date, uuid, integer)
   FROM PUBLIC;

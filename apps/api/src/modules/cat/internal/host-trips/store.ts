@@ -1,5 +1,5 @@
 /**
- * Port et adaptateur PostgreSQL des trips de l'hôte (US-219, migration 0100, ADR-127). L'adaptateur
+ * Port et adaptateur PostgreSQL des trips de l'hôte (US-219, migration 0101, ADR-128). L'adaptateur
  * n'appelle QUE `core.booking_host_trips` (SECURITY DEFINER, propriétaire host_view_owner, EXECUTE
  * au seul app_api) : l'hôte est désigné par l'empreinte de son jeton (`proof`), jamais par un
  * identifiant reçu ; la base juge le compte (titulaire de la session), filtre et minimise. Requête

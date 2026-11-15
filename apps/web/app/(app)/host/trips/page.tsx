@@ -25,7 +25,7 @@ const orgOf = (q: Readonly<Record<string, string | string[] | undefined>>): stri
  * cartes des trips (voyageur minimisé, statut du paiement, gains estimés relus de l'API). Le
  * serveur lit l'API avec la session de l'hôte ; un compte d'un autre hôte n'est jamais lisible
  * (404). États : sans session, sans compte d'hôte, vide, filtres invalides, erreur, chargement
- * (`loading.tsx`). Lecture seule : le mode `REQUEST` (accepter, refuser) n'est pas livré (ADR-127).
+ * (`loading.tsx`). Lecture seule : le mode `REQUEST` (accepter, refuser) n'est pas livré (ADR-128).
  */
 export default async function HostTripsPage({
   searchParams,

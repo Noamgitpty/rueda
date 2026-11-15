@@ -1106,6 +1106,11 @@ export const EN_MESSAGES = {
     'You are all set. Trip protection is not available here yet; you can publish your listing once it is.',
   'common.listing.hostNotActivated':
     'All set on your side. You can publish your listing once your host account is active and we open to hosts here.',
+  // US-202 : devis (16 PRC-025, PRC-020) : prix impossible, dates invalides, prix changé
+  'common.quote.unavailable':
+    "We can't calculate a price for this car on these dates. Try other dates or choose another car.",
+  'common.quote.datesInvalid': 'Check the dates: the return must be after the pickup.',
+  'common.quote.changed': 'The price has changed. Check the new total before you continue.',
   'common.listing.unavailable': 'We cannot save your listing right now. Try again later.',
   'common.listing.photoUnavailable': 'We cannot receive photos yet. Try again later.',
   'common.listing.field.required': 'This field is required.',
@@ -1622,7 +1627,7 @@ export const EN_MESSAGES = {
     'This chassis number is not valid. Enter the 17-character VIN (no I, O or Q) or the chassis number of your imported car, for example GRJ150-0012345.',
   'web.vehicleDocs.declaration.attested': 'You declared it on {date}.',
   'backoffice.catalog.specsPending': 'Specs to complete',
-  // US-219 (ADR-127) : espace hôte, accueil A02 et réservations A05
+  // US-219 (ADR-128) : espace hôte, accueil A02 et réservations A05
   'common.hostTrips.notFound': "We couldn't find this booking.",
   'common.hostTrips.unavailable':
     "Your bookings aren't available right now. Try again in a few minutes.",

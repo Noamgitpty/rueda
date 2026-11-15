@@ -1,5 +1,5 @@
 /**
- * US-219 — lecture des trips de l'hôte (migration 0100, ADR-127 ; fixture 9991). Rôles de
+ * US-219 — lecture des trips de l'hôte (migration 0101, ADR-128 ; fixture 9991). Rôles de
  * production seulement (assertion L0-05 par `connectAs`), au Panama (USD) et au Paraguay (PYG).
  * Chaque test crée ses propres personnes, sessions, comptes d'hôte, lieux et véhicules par les
  * VRAIES commandes (US-107, US-115) et ses trips par le parcours hold → preuve → conversion

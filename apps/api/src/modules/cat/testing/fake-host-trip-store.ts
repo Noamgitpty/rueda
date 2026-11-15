@@ -1,6 +1,6 @@
 /**
  * FAKE des trips de l'hôte (US-219) — TESTS SEULEMENT (absent de la compilation de production).
- * Reproduit les issues de `core.booking_host_trips` (0100) que les tests de contrat HTTP observent,
+ * Reproduit les issues de `core.booking_host_trips` (0101) que les tests de contrat HTTP observent,
  * sur les comptes du FAKE d'US-115 : FORBIDDEN pour un compte qui n'est pas celui de la session,
  * filtres par onglet, véhicule et trip. Les règles elles-mêmes (session, compte titulaire,
  * minimisation, période locale, ordre, jambe HOST) sont prouvées sur PostgreSQL

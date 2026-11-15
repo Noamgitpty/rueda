@@ -50,6 +50,9 @@ importers:
       '@rueda/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@rueda/money':
+        specifier: workspace:*
+        version: link:../../packages/money
       pg:
         specifier: 8.23.1
         version: 8.23.1
@@ -69,9 +72,6 @@ importers:
       '@rueda/fake-adapters':
         specifier: workspace:*
         version: link:../../packages/fake-adapters
-      '@rueda/money':
-        specifier: workspace:*
-        version: link:../../packages/money
       '@types/node':
         specifier: 26.6.5
         version: 26.6.5

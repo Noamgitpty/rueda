@@ -89,10 +89,10 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: 'Catalog / Listings',
     responsibility:
       "lieux de remise de l'hôte, véhicules, annonces, photos, documents du véhicule, éligibilité au contrat d'assureur, flux iCal",
-    // CTR : garde TermsGuard des routes des trips de l'hôte (US-219, ADR-127 ; écart assumé de
+    // CTR : garde TermsGuard des routes des trips de l'hôte (US-219, ADR-128 ; écart assumé de
     // 17 §2.2, à reporter)
     dependsOn: ['IAM', 'KYC', 'CTR', 'CFG'],
-    source: '17 §2.2 ; §2.1 CAT --> KYC ; ADR-127 (CAT --> CTR)',
+    source: '17 §2.2 ; §2.1 CAT --> KYC ; ADR-128 (CAT --> CTR)',
   },
   AVL: {
     code: 'AVL',

@@ -216,8 +216,8 @@
       "signature": "core.catalog_public_listing(uuid)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
-      "execute": ["app_api"],
-      "story": "US-115"
+      "execute": ["app_api", "cmd_money_owner"],
+      "story": "US-115, US-202"
     },
     {
       "signature": "core.cfg_brand_cmd_publish(bytea,uuid,uuid,jsonb)",
@@ -328,8 +328,8 @@
       "signature": "core.iam_session_resolve(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api", "catalog_cmd_owner", "kyc_cmd_owner"],
-      "story": "US-010, US-115, US-105"
+      "execute": ["app_api", "catalog_cmd_owner", "cmd_money_owner", "kyc_cmd_owner"],
+      "story": "US-010, US-115, US-105, US-202"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -1380,6 +1380,20 @@
       "owner": "risk_limit_owner",
       "execute": ["kyc_cmd_owner"],
       "story": "US-122"
+    },
+    {
+      "signature": "core.pricing_cmd_freeze_quote(bytea,uuid,text,text,text,text)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-202"
+    },
+    {
+      "signature": "core.pricing_cmd_version_trip_price(bytea,uuid,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-202"
     },
     {
       "signature": "core.booking_cmd_trip_cancel(uuid,text,text,text,boolean,integer)",
