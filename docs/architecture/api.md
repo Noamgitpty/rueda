@@ -147,6 +147,13 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | ------- | ------ | ----------- | ------ | ---------------- |
 | `GET` | `/regulatory-notices` | `getRegulatoryNotices` | Avertissements réglementaires versionnés d’un pays pour un public (US-125, LEG-021) | **200** application/json<br>**400** REQUEST_INVALID |
 
+## `/search`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/search` | `search` | Recherche publique par zone, lieu de remise, dates et heures (US-201 ; 16 SRC-001) : annonces LISTED d'hôtes activables disponibles, colonnes C0, zone approximative | **200** application/json<br>**400** REQUEST_INVALID<br>**422** SEARCH_LOCATION_REQUIRED / SEARCH_DATES_INVALID / SEARCH_DURATION_EXCEEDED<br>**429** RATE_LIMITED<br>**503** SEARCH_UNAVAILABLE |
+| `GET` | `/search/areas` | `searchAreas` | Villes et zones de remise des annonces cherchables (LISTED, hôte activable), avec le fuseau du pays (US-201 ; 16 SRC-001, bêta : liste au lieu de l'autocomplétion) | **200** application/json<br>**400** REQUEST_INVALID<br>**503** SEARCH_UNAVAILABLE |
+
 ## `/staff`
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |

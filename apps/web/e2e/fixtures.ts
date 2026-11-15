@@ -9,7 +9,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { test as base, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 export { expect };
 
@@ -33,6 +33,27 @@ export function tagOf(language: Language): string {
   const found = LOCALES.locales.find((l) => l.language === language);
   if (found === undefined) throw new Error(`langue absente de locales.json : ${language}`);
   return found.tag;
+}
+
+/**
+ * Envoie un formulaire à action serveur et attend la FIN de l'envoi : réponse du serveur reçue
+ * (action de React ou envoi natif avant l'hydratation), puis bouton sorti de l'état « en cours »
+ * (`aria-busy` du bouton `@rueda/ui`, levé dans le rendu qui clôt l'action). À la fin d'une action,
+ * React réinitialise le formulaire à ses valeurs relues : une saisie faite avant serait écrasée
+ * (US-118, A10 instable). À utiliser quand rien d'autre ne distingue l'avant de l'après, par exemple
+ * quand l'URL porte déjà `saved=1`.
+ */
+export async function submitAndSettle(page: Page, button: Locator): Promise<void> {
+  const reply = page.waitForResponse((r) => {
+    const request = r.request();
+    return (
+      request.method() === 'POST' &&
+      (request.headers()['next-action'] !== undefined || request.isNavigationRequest())
+    );
+  });
+  await button.click();
+  await reply;
+  await expect(button).not.toHaveAttribute('aria-busy', 'true');
 }
 
 export interface Measure {

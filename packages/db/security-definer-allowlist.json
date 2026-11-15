@@ -874,8 +874,22 @@
       "signature": "core.catalog_vehicle_is_free(uuid,tstzrange)",
       "family": "catalog_probe",
       "owner": "catalog_probe_owner",
+      "execute": ["app_api", "catalog_cmd_owner"],
+      "story": "US-119, US-201"
+    },
+    {
+      "signature": "core.catalog_public_areas(text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
       "execute": ["app_api"],
-      "story": "US-119"
+      "story": "US-201"
+    },
+    {
+      "signature": "core.catalog_public_search(text,text,text,timestamp without time zone,timestamp without time zone,integer)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-201"
     },
     {
       "signature": "core.kyc_identity_state(bytea,text)",

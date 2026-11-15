@@ -35,4 +35,6 @@ export { postgresRiskAdapters } from './internal/production.js';
 export { RiskHttpModule } from './internal/risk-http.module.js';
 export type { RiskHttpOptions } from './internal/risk-http.module.js';
 export { ntfSmsBudget } from './internal/sms-budget.js';
+// Sonde de disponibilité de la recherche publique (US-201, BOARD N-78) : port de CAT.
+export { availabilityProbeLimiter } from './internal/probe-limiter.js';
 export { ABUSE_BOARD_STORE } from './internal/tokens.js';

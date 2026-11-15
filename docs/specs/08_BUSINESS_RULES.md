@@ -530,6 +530,8 @@ Notes d'implémentation :
 | **C** (USD) | non remboursable, réservé à T−10 j | 3 | 100,00 | 15,00 | 30,00 | 15,00 | 9,00 | 15,00 | 40,00 | 7 % × 115 = 8,05 | **232,05** |
 | **D** (PYG) | remboursable | 3 | 1 000 000 | 125 500 | 150 000 | 0 | 0 | 0 | 50 000 | IVA 10 % × 1 125 500 = 112 550 | **1 438 050** |
 
+**F de D est une entrée hors barème** (recalage du lot 2, 2026-11-15 ; revue argent d'US-704, PR #164, `docs/team/reviews/US-704/argent-2026-11-15.md`, constat 1) : les trips de référence des vecteurs de règlement (T01–T48, TJ) donnent chaque ligne **en entrée**, et F n'y est pas recalculé. F = 125 500 (12,55 % de P) date d'avant le barème [NOUS] de BR-PRICE-06, qui donnerait 150 000 (15 % pour 3 jours, comme le trip J). D et D2 restent valables pour le règlement, la taxe par ligne et les jambes, et **ne prouvent pas le barème** : le calcul du trip fee est prouvé par J, K2, NP et 16 PRC-012. Un test qui rejoue D ou D2 donne F en entrée (ou par un barème de test étiqueté), jamais comme valeur attendue du barème.
+
 **Contrôle d'équilibre de chaque ligne** : `remboursement guest + Σ retenu HT + taxe retenue = total payé`.
 - Le net plateforme est hors taxes : `Σ retenu HT − gains hôte`.
 - La pénalité hôte est une écriture séparée du `host_ledger`.
@@ -578,6 +580,8 @@ Recalculés à la main (colonne « Détail ») puis par `tools/independent_settl
 | **D2** (PYG) | remboursable | 3 | 1 000 002 | — | 125 500 | 150 000 | 0 | 0 | 0 | 50 000 | 100 000 + 12 550 = 112 550 | **1 438 052** |
 | **G** (USD) | remboursable | 2 | 10,05 | — | 10,05 | — | — | — | — | — | 0,70 + 0,70 = **1,40** (agrégé : 1,41) | **21,50** |
 | **H** (USD) | remboursable | **1** | 45,01 | — | 6,75 | 12,00 | — | — | — | 15,01 | 3,15 + 0,47 = 3,62 | **82,39** |
+
+D2 : F = 125 500 est, comme pour D, une **entrée hors barème** (voir la note sous les trips de référence ; recalage du lot 2, revue argent d'US-704, PR #164).
 
 Moyens de paiement de T33/T34 (sur A, total 256,66) : crédit promo 20,00 (sur P), crédit cash 30,00, Yappy 56,66 (rail sans remboursement partiel natif), carte 150,00 (native).
 
@@ -658,6 +662,22 @@ Recalculés à la main puis par **`tools/check_t49plus.py`** (`python -I -X utf8
 | T73 | PY (PYG) : (a) `LUXE`, conducteur de 27 ans, trip signalé, `risk_control_deployed[PY]` = `true` ; `deposit_amount[PY]` de test : `LUXE` **1 500 000**, `STANDARD` **500 000** ; (b) `deposit_always_required[PY]` = `true` (variante), `STANDARD`, 45 ans, aucun signal | montant unique ; caution imposée par le pays | (a) **une** caution de **1 500 000 PYG**, déclencheurs (ops) `{CLASS, RISK}`, l'âge n'en étant pas un (décision du fondateur du 2026-11-12) (jamais 3 000 000) ; le voyageur ne voit que 1 500 000 PYG ; (b) caution de **500 000 PYG**, `{COUNTRY}` | deux déclencheurs vrais, montant = `deposit_amount[PY][LUXE]`, non cumulé ; (b) seul le déclencheur pays est vrai |
 
 Invariants vérifiés sur T69–T73 : sans déclencheur vrai, aucune opération `DEPOSIT_*` ; un déclencheur inconnu ne rend jamais la caution facultative ; le montant ne dépend que du pays et de la classe ; PA en USD (centimes), PY en PYG sans décimale.
+
+### Jeux de tests T74–T80 : borne T−24 h (recalage du lot 2, 2026-11-15)
+
+Source : pré-mortem du lot 2 (L2-PM-15) et revues argent et QA d'US-222 (`docs/team/reviews/US-222/argent-2026-11-15b.md` et `qa-2026-11-15b.md`, constat 3 : la borne exacte de RT-L2-M14 n'avait pas de vecteur). Règles appliquées, sans règle nouvelle : `freeUntil` = T − 24 h pour un trip remboursable réservé plus de 25 h avant le départ, borne incluse (`cancelRequestedAt ≤ freeUntil`, T02) ; pénalité de l'hôte « > 24 h » si `start − requestedAt` > 24 h, sinon « ≤ 24 h » (BR-CXL-13, T14, T15). Mêmes conventions que T01–T27 (parts 75 %, réservation à T−5 j). T02 (A, voyageur) et T15 (A, hôte) couvrent déjà T−24 h exact en USD. Recalculés à la main puis par `tools/independent_settlement_check.py` (`python -I -X utf8`), exportés dans `tools/golden_vectors.json`. Les vecteurs de l'hôte en PYG ne sont pas ajoutés : la pénalité PYG est PROPOSÉE (OQ-BR-24, T48 non normatif) ; la borne de l'hôte est la même fonction du temps, prouvée en USD.
+
+| # | Entrées (trip, motif, initiateur, horodatage) | Qualification | Remb. guest TTC | dont taxes remboursées | Gains hôte | Net plateforme HT | Pénalité hôte | Détail du calcul |
+|---|---|---|---|---|---|---|---|---|
+| T74 | A, `GUEST_CANCELLED`, guest, à T−24 h **− 1 min** (T−24 h 01) | VOLUNTARY, ≤ freeUntil | 256,66 | 9,66 | 0,00 | 0,00 | 0 | requestedAt < freeUntil → remboursement intégral (= T01) |
+| T75 | A, `GUEST_CANCELLED`, guest, à T−24 h **+ 1 min** (T−23 h 59) | VOLUNTARY, partiel, j = 1 | **187,44** | 6,44 | **45,00** | 21,00 | 0 | requestedAt > freeUntil d'une minute → même calcul que T03 : retenu 66,00 ; équilibre 187,44 + 66 + 3,22 = 256,66 |
+| T76 | A, `HOST_CANCELLED`, hôte, à T−24 h **− 1 min** | FULL | 256,66 | 9,66 | 0,00 | 0,00 | **25** | `start − requestedAt` = 24 h 01 > 24 h → 25 (= T14) |
+| T77 | A, `HOST_CANCELLED`, hôte, à T−24 h **+ 1 min** | FULL | 256,66 | 9,66 | 0,00 | 0,00 | **50** | 23 h 59, non > 24 h → 50 (= T15) |
+| T78 | **D (PYG)**, `GUEST_CANCELLED`, guest, à **exactement** T−24 h | VOLUNTARY, borne incluse | 1 438 050 | 112 550 | 0 | 0 | 0 | `cancelRequestedAt = freeUntil` → remboursement intégral (pendant PYG de T02) |
+| T79 | D (PYG), `GUEST_CANCELLED`, guest, à T−24 h **− 1 min** | VOLUNTARY, ≤ freeUntil | 1 438 050 | 112 550 | 0 | 0 | 0 | remboursement intégral |
+| T80 | D (PYG), `GUEST_CANCELLED`, guest, à T−24 h **+ 1 min** | VOLUNTARY, partiel, j = 1 | **1 000 367** | **75 033** | **268 750** | **131 416** | 0 | même calcul que T27 : retenu HT 400 166, taxe remboursée 75 033 ; équilibre 1 000 367 + 400 166 + 37 517 = 1 438 050 ; aucun montant décimal |
+
+Invariants vérifiés sur T74–T80 : la qualification ne change qu'au franchissement de la borne (T−24 h inclus côté gratuit pour le voyageur, côté « ≤ 24 h » pour l'hôte) ; une minute de part et d'autre donne les mêmes montants que les vecteurs déjà audités (T01, T03, T14, T15, T27) ; PA en USD (centimes), PY en PYG sans décimale.
 
 ### Exécution monétaire du règlement [NOUS] (corrigé VERIF_09-M01, M02, M03, M04, M05, M06)
 
@@ -1587,6 +1607,7 @@ Seul le fondateur, après l'avis ou le contrat, passe un interrupteur à `true`,
   - `discount_pct = min(duration_pct + nr_pct + promo_pct, 60 %)` `{param}`, appliqué au **sous-total des prix journaliers** ;
   - une ligne par remise sur le reçu, chaque montant valant `roundHalfUp(subtotal × pct_de_la_remise)`. Si le plafond est atteint, la dernière remise appliquée est réduite pour que le total respecte le plafond ;
   - le trip fee est calculé **après** les remises, sur le prix net P.
+  - **Écart constaté, non tranché** (recalage du lot 2, 2026-11-15 ; revues argent et architecture d'US-704, PR #164, constats 5 et 3 ; ADR-129 point 2) : les vecteurs calculent F sur P **avant** les lignes de code promo : AP (T35 : promo plateforme −20,00, F 18,00 = 15 % de 120,00), K (T63 : promo hôte −18,00, F 3,00 = 15 % de 20,00), N et NP (TJ13a à d : F 15,00 et 150 000). Ces F sont des entrées de vecteurs, ils ne prouvent pas la règle. Deux lectures restent possibles. **Lecture PROPOSÉE (défaut du code, ADR-129), non tranchée par le fondateur** : F est calculé sur P avant toute ligne `PROMO_*` ; les codes promo (plateforme, hôte, BR-PRICE-16) sont des lignes négatives à part (E2) qui ne changent pas l'assiette de F ; ce défaut ne réduit jamais le revenu de Kmino et ne rend aucune jambe négative. **Autre lecture**, conforme à la lettre de la puce précédente (`promo_pct` dans `discount_pct`) : F est calculé **après** les codes promo, donc plus bas (AP : 15 % de 100,00 = 15,00 au lieu de 18,00). La formule ci-dessus n'est pas modifiée. Choix définitif : story des remises (US-701, US-702), question « Assiette du trip fee » de `docs/team/POUR_LE_FONDATEUR.md` (section 3).
 
 ### BR-PRICE-06 Trip fee (frais de service guest)
 - **Fonctionnement** : **pourcentage variable** du prix du trip, plus élevé pour un véhicule cher, une réservation tardive et un trip court, plus faible pour un trip long, plus élevé à New York ; **non remboursable** en fin de trip ; non négociable ; aucune formule publiée ; présenté comme couvrant « les services de la plateforme, notamment le Service Clients 24/7 » (OBSERVÉ). Fixé en temps réel par le **Turo Risk Score** (S-1). Nul pour les trips ≥ 30 jours depuis le 28/03/2025 (sauf zones de LA/NY) — connu par extrait. Observé : 27,40 $ sur 116,28 $ = **23,6 % sur cet exemple seulement** (VERIF_01 V16). Le trip fee **n'est pas partagé** avec l'hôte (DOCUMENTÉ : la part hôte porte sur le « trip price », VERIF_01 V15).
@@ -3245,3 +3266,13 @@ Source : constat du fondateur (Turo ne prend pas de caution par défaut) ; pages
 | CT-05 | Revues architecture et sécurité (seconde passe) : évaluation avant le checkout limitée à `COUNTRY` et `CLASS` (mention générique), décision complète au checkout ; contrôle de risque non déployé (`risk_control_deployed`) distinct d'une panne ; déclencheurs jamais montrés au voyageur ni à l'hôte ; âge à la date de réservation (BR-ACC-04) ; modification du trip ; recours MIT par E1 (c) et BR-PAY-10 ; source unique du montant ; T70 et T72 étendus | BR-PAY-06 ; T70, T72, T73 | Appliqué (PROPOSÉ) |
 
 **Restent ouverts** : OQ-BR-47 (montants), OQ-P2P-04 (déclencheurs et seuils, PROPOSÉS), avis consommation PA / PY sur une caution réservée à certains profils (âge).
+
+## Journal du recalage du lot 2 (2026-11-15)
+
+Source : écarts constatés et validés en revue pendant le lot 2, reportés par une demande de fusion revue (story US-222, branche `story/US-222-specs-lot2`). Aucune décision du fondateur n'est prise ici.
+
+| Item | Changement | Emplacement | Source | Statut |
+|---|---|---|---|---|
+| L2R-01 | F de D et D2 (125 500) déclaré **entrée hors barème** ; aucun montant de D, D2, T27, T40, T41, T48, TJ ni des oracles ne change | trips de référence (T01–T27, T28–T48) | revue argent d'US-704 (PR #164), constat 1 | Appliqué |
+| L2R-02 | BR-PRICE-05 : écart « F après remises » / vecteurs AP, K, N, NP décrit, non tranché ; question au fondateur | BR-PRICE-05 | revues argent (constat 5) et architecture (constat 3) d'US-704 ; ADR-129 | Appliqué (question ouverte) |
+| L2R-03 | Vecteurs T74–T80 de la borne T−24 h (PA et PY), oracle `independent_settlement_check.py` et `golden_vectors.json` | après T69–T73 | L2-PM-15 ; revues argent et QA d'US-222, constat 3 | Appliqué |

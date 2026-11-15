@@ -1,0 +1,129 @@
+/*
+ * Recherche de S01 et liste de résultats (US-201) : formulaire « ¿Dónde? / Desde / Hasta » posé
+ * sur une carte claire (10b S01, « recherche flottante »), jetons seulement (US-030). Conçu à
+ * 360 px (10b UX-01) : une colonne ; date et heure côte à côte dès que la place le permet.
+ */
+.form {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.label {
+  font-weight: var(--font-weight-strong);
+}
+
+.group {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin-block-end: var(--space-2);
+  padding: 0;
+  font-weight: var(--font-weight-strong);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-2);
+}
+
+.control {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--size-touch-target);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.control:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}
+
+.sub {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+
+.results {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+}
+
+.resultTitle {
+  margin: 0;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-heading);
+}
+
+.meta {
+  margin: 0;
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--size-touch-target);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.link:focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus);
+  outline-offset: var(--size-focus-offset);
+}

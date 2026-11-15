@@ -38,6 +38,8 @@ const HOST_VERIFICATION = /host-verification\.spec\.ts$/;
 const HOST_CALENDAR = /host-calendar\.spec\.ts$/;
 /** Accueil A02 et réservations A05 de l'hôte (US-219) : mêmes largeurs que l'inscription. */
 const HOST_TRIPS = /host-trips\.spec\.ts$/;
+/** Recherche publique S01 → résultats → fiche S03 (US-201) : téléphones 360 et 390 px. */
+const SEARCH = /search\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -63,6 +65,12 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     channel: 'chrome',
+    // Texte toujours tramé en niveaux de gris : Chrome active ou non l'anticrénelage sous-pixel
+    // (LCD) selon les calques composés de la page, et ce tramage varie d'une machine de la CI à
+    // l'autre ; sans lui, une capture ne dépend plus ni de la machine ni des calques
+    // (docs/qa/REGRESSION_VISUELLE.md, « Texte sans anticrénelage sous-pixel »). Le site servi ne
+    // change pas : seul le navigateur des e2e est réglé.
+    launchOptions: { args: ['--disable-lcd-text'] },
     reducedMotion: 'reduce',
     timezoneId: 'UTC',
     serviceWorkers: 'block',
@@ -81,6 +89,7 @@ export default defineConfig({
         HOST_VERIFICATION,
         HOST_CALENDAR,
         HOST_TRIPS,
+        SEARCH,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
@@ -96,6 +105,7 @@ export default defineConfig({
         HOST_VERIFICATION,
         HOST_CALENDAR,
         HOST_TRIPS,
+        SEARCH,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },
