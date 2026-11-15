@@ -10,9 +10,9 @@
 -- `trip_segment`, `trip_driver`, `trip_state_log`), §4.5 (`trip.status_changed`,
 -- `trip.cancellation.qualified`), §7.2 (`no_show_grace_minutes`, `overdue_detection_minutes`) ;
 -- pré-mortem du lot 2 : L2-PM-24, L2-PM-09, L2-PM-13, L2-PM-23 ; ADR-048, ADR-053, ADR-060,
--- ADR-065 ; ADR-125 (cette migration). Appliquée sous `migrator`, en une transaction.
+-- ADR-065 ; ADR-126 (cette migration). Appliquée sous `migrator`, en une transaction.
 --
--- Principes (ADR-125, PROPOSÉS) :
+-- Principes (ADR-126, PROPOSÉS) :
 --   - la table des transitions est EN BASE (`core.booking_trip_transition`, 36 paires de SM-1 ;
 --     QUOTE et HOLD vivent sur le hold, la boucle IN_PROGRESS → IN_PROGRESS des modifications n'est
 --     pas un changement d'état). Toute paire absente ⇒ TRIP_TRANSITION_FORBIDDEN ;
@@ -128,7 +128,7 @@ CREATE TABLE core.booking_trip_transition (
 );
 COMMENT ON TABLE core.booking_trip_transition IS
   'Transitions autorisées de SM-1 (08), une ligne par paire. Écrite par migration seulement ; lue '
-  'par les commandes de trip et par le trigger trip_transition_guard. US-207, ADR-125.';
+  'par les commandes de trip et par le trigger trip_transition_guard. US-207, ADR-126.';
 ALTER TABLE core.booking_trip_transition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE core.booking_trip_transition FORCE ROW LEVEL SECURITY;
 CREATE POLICY migrator_all ON core.booking_trip_transition TO migrator USING (true) WITH CHECK (true);
@@ -226,7 +226,7 @@ CREATE TABLE core.booking_trip_driver (
     -- Bêta : le titulaire est le conducteur principal (BR-BOOK-08) ; ADDITIONAL arrive en P1
     CONSTRAINT trip_driver_beta_primary CHECK (role = 'PRIMARY'),
   -- approbation du conducteur (SM-1 invariant 1) : à la conversion, qui rejoue l'éligibilité du
-  -- voyageur (17 §2.5, 2 bis (iii)) ; PROPOSÉ (ADR-125)
+  -- voyageur (17 §2.5, 2 bis (iii)) ; PROPOSÉ (ADR-126)
   approved_at timestamptz,
   created_at  timestamptz NOT NULL DEFAULT platform.now(),
   CONSTRAINT booking_trip_driver_pkey PRIMARY KEY (trip_id, user_id)
@@ -296,7 +296,7 @@ CREATE INDEX trip_state_log_trip_idx ON core.booking_trip_state_log (trip_id, at
 COMMENT ON TABLE core.booking_trip_state_log IS
   'Journal d''état du trip (17 §3.1.2, §3.2.4), une ligne par transition SM-1, écrite dans la même '
   'transaction que le changement d''état. Classe A : aucun UPDATE ni DELETE (triggers). Aucun droit '
-  'applicatif. US-207, ADR-125.';
+  'applicatif. US-207, ADR-126.';
 ALTER TABLE core.booking_trip_state_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE core.booking_trip_state_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY migrator_all ON core.booking_trip_state_log TO migrator USING (true) WITH CHECK (true);
@@ -376,7 +376,7 @@ GRANT EXECUTE ON FUNCTION core.booking_trip_holds_slot(text), core.booking_cance
 -- SECURITY INVOKER : la seule voie d'un rôle de production vers UPDATE (status) est la commande
 -- (cmd_hold_owner, qui lit la table des transitions et le journal) ; app_worker n'a plus ce droit.
 -- migrator (propriétaire, fixtures de test) est exempté : il peut de toute façon désactiver le
--- trigger (ADR-125 n° 3).
+-- trigger (ADR-126 n° 3).
 CREATE FUNCTION core.booking_trip_transition_guard()
   RETURNS trigger
   LANGUAGE plpgsql

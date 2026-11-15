@@ -42,7 +42,7 @@
  *   remise ; migration 0071, US-119, ADR-101) ;
  * - `TRIP_TRANSITION_FORBIDDEN`, `TRIP_CONCURRENT_UPDATE` : 16 fiche TRP-045 ; `REJECTED_TOO_EARLY` :
  *   08 BR-CXL, règle de qualification 3 (no-show déclaré avant `noShowAt`) — machine à états du
- *   trip d'US-207 (migration 0099, ADR-125).
+ *   trip d'US-207 (migration 0099, ADR-126).
  */
 
 /** Codes métier produits par la traduction. */

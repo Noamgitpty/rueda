@@ -1,5 +1,5 @@
 /**
- * US-207 — machine à états du trip (migration 0099, ADR-125 ; fixture 9997). Rôles de production
+ * US-207 — machine à états du trip (migration 0099, ADR-126 ; fixture 9997). Rôles de production
  * seulement (assertion L0-05 par `connectAs`), au Panama (USD) et au Paraguay (PYG). Chaque test
  * pose ses propres trips (parcours nominal hold → preuve → conversion d'US-024).
  *
