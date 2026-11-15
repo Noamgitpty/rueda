@@ -50,6 +50,7 @@
 --   trip_param_missing (55000)          → PARAM_MISSING ;
 --   trip_command_forbidden (42501)      → FORBIDDEN ;
 --   trip_transition_unlogged (23000)    → INVARIANT_VIOLATION ;
+--   trip_segment_missing (23000)        → INVARIANT_VIOLATION (segment n° 1 absent, fail-closed) ;
 --   trip_state_log_immutable (23000)    → IMMUTABLE_RECORD.
 --
 -- Expand / contract : colonnes, tables, fonctions, triggers et politiques ajoutés ; politique
@@ -506,7 +507,7 @@ GRANT UPDATE (status, cancellation_reason, termination_reason, cancel_initiator,
               cancel_requested_at, checkin_validated_at, updated_by)
   ON core.booking_trip TO cmd_hold_owner;
 GRANT SELECT ON core.booking_trip_transition TO cmd_hold_owner;
-GRANT SELECT (trip_id, seq), INSERT (id, trip_id, seq, period), UPDATE (period)
+GRANT SELECT (id, trip_id, seq), INSERT (id, trip_id, seq, period), UPDATE (period)
   ON core.booking_trip_segment TO cmd_hold_owner;
 GRANT SELECT (trip_id, role, approved_at), INSERT (trip_id, user_id, role, approved_at)
   ON core.booking_trip_driver TO cmd_hold_owner;
@@ -631,7 +632,20 @@ AS $fn$
 DECLARE
   v_version integer;
   v_country text;
+  v_segment uuid;
 BEGIN
+  -- 17 §4.5 : trip.cancellation.qualified porte le segment (le règlement est clé sur
+  -- (trip, segment, version), 08 invariant 4). Bêta : le segment n° 1, écrit à la naissance (ou par
+  -- le rattrapage de 0099) et jamais supprimé (no_delete) ; absent ⇒ refus (fail-closed).
+  IF p_via = 'CANCEL' THEN
+    SELECT s.id INTO v_segment FROM core.booking_trip_segment s
+     WHERE s.trip_id = p_trip_id AND s.seq = 1;
+    IF v_segment IS NULL THEN
+      RAISE EXCEPTION 'trip: segment 1 missing'
+        USING ERRCODE = 'integrity_constraint_violation', CONSTRAINT = 'trip_segment_missing';
+    END IF;
+  END IF;
+
   INSERT INTO core.booking_trip_state_log
          (id, trip_id, from_status, to_status, kind, reason_code, origin, actor_role)
   VALUES (pg_catalog.gen_random_uuid(), p_trip_id, p_from, p_to, 'TRANSITION', p_reason, p_origin,
@@ -674,7 +688,7 @@ BEGIN
          pg_catalog.gen_random_uuid(), e.payload, p_trip_id::text
     FROM (VALUES
             ('trip.cancellation.qualified',
-             pg_catalog.jsonb_build_object('trip_id', p_trip_id,
+             pg_catalog.jsonb_build_object('trip_id', p_trip_id, 'segment_id', v_segment,
                                            'requested_reason', p_extra ->> 'requestedReason',
                                            'reason', p_reason, 'origin', p_origin,
                                            'initiator', p_extra ->> 'initiator',
@@ -809,6 +823,26 @@ BEGIN
      OR p_initiator NOT IN ('GUEST', 'HOST', 'CO_HOST', 'PLATFORM', 'SYSTEM') THEN
     RAISE EXCEPTION 'trip: cancellation reason or initiator outside the decision table'
       USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'trip_transition_forbidden';
+  END IF;
+  -- Paire d'abord (critère 1, inconditionnel) : l'état courant doit avoir une sortie CANCEL vers
+  -- l'un des états cibles que le motif demandé peut atteindre après qualification (règle 1 :
+  -- GUEST_CANCELLED ou GUEST_NO_SHOW ; règle 2 : HOST_CANCELLED_DUE_TO_GUEST ou HOST_CANCELLED ;
+  -- sinon le motif lui-même). Un trip IN_PROGRESS reçoit donc TRIP_TRANSITION_FORBIDDEN avant toute
+  -- qualification (jamais REJECTED_TOO_EARLY ni PARAM_MISSING) ; la paire exacte est revérifiée
+  -- après qualification.
+  IF NOT EXISTS (
+       SELECT 1 FROM core.booking_trip_transition tt
+        WHERE tt.from_status = t.status AND tt.via = 'CANCEL'
+          AND tt.to_status IN (
+                core.booking_cancellation_target(p_reason),
+                CASE p_reason
+                  WHEN 'GUEST_CANCELLED' THEN core.booking_cancellation_target('GUEST_NO_SHOW')
+                  WHEN 'HOST_CANCELLED_DUE_TO_GUEST'
+                    THEN core.booking_cancellation_target('HOST_CANCELLED')
+                END)) THEN
+    RAISE EXCEPTION 'trip: transition not allowed by SM-1'
+      USING ERRCODE = 'object_not_in_prerequisite_state', CONSTRAINT = 'trip_transition_forbidden',
+            DETAIL = pg_catalog.format('trip %s: %s -> ? (%s)', t.id, t.status, p_reason);
   END IF;
 
   IF p_reason = 'GUEST_CANCELLED' THEN                                         -- règle 1

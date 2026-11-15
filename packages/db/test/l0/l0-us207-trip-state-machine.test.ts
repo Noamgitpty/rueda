@@ -21,12 +21,40 @@ import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { translateDbError } from '../../src/index.ts';
 import { connectAs, releaseClient } from '../../src/testing/index.ts';
-import { at, bookTrip, COUNTRIES, inTx, newSlot, uuid } from '../support/avl.ts';
+import {
+  at,
+  bookTrip,
+  convert,
+  COUNTRIES,
+  inTx,
+  insertRentOperation,
+  newSlot,
+  placeHold,
+  receiveProof,
+  uuid,
+} from '../support/avl.ts';
 import type { CountryCase, Worker } from '../support/avl.ts';
 
 /** 17 §7.2 : défauts PROPOSÉS au PA et au PY (graine 0009). */
 const NO_SHOW_GRACE_MIN = 60;
 const OVERDUE_DETECTION_MIN = 30;
+/**
+ * Valeur de TEST posée dans une transaction annulée (droit d'écriture de test de 9100, garde de
+ * 0008 active) : distincte des défauts de 17 §7.2, elle prouve que les durées sont lues par pays
+ * (aucune constante figée dans le SQL).
+ */
+const VARIED_MIN = 45;
+const NEW_PARAM_VERSION = `INSERT INTO core.config_param_value
+  (key, country_code, scope_type, value, change_reason)
+  VALUES ($1, $2, 'COUNTRY', $3::jsonb, 'test US-207 (annulé) : lecture par pays')`;
+/** 17 §4.5 : champs exigés de `trip.cancellation.qualified`. */
+const CANCELLATION_QUALIFIED_FIELDS = [
+  'trip_id',
+  'segment_id',
+  'reason',
+  'origin',
+  'requested_at',
+] as const;
 
 /** 08 SM-1 : transitions du trip (hors QUOTE / HOLD et hors la boucle des modifications). */
 const SM1: readonly (readonly [string, string])[] = [
@@ -158,6 +186,7 @@ type Outcome =
       readonly ok: false;
       readonly code: string;
       readonly sqlstate: string | undefined;
+      readonly constraint: string | undefined;
     };
 
 /** Appel dans un SAVEPOINT : résultat de la commande ou code métier traduit. */
@@ -173,6 +202,7 @@ async function attempt(tx: pg.ClientBase, sql: string, args: unknown[]): Promise
       ok: false,
       code: translateDbError(error).code,
       sqlstate: (error as { code?: string }).code,
+      constraint: (error as { constraint?: string }).constraint,
     };
   }
 }
@@ -373,6 +403,36 @@ describe.each(COUNTRIES)('US-207 — machine à états du trip ($country, $curre
     });
   });
 
+  it('critère 1 inconditionnel : check-in validé à T+5, no-show ou annulation demandés à T+10 (avant noShowAt) ⇒ TRIP_TRANSITION_FORBIDDEN, jamais REJECTED_TOO_EARLY', async () => {
+    await withClients(async (cl) => {
+      const b = await booked(cl, c);
+      await toInProgress(cl, b);
+      const before = await tripRow(cl, b.tripId);
+      const logBefore = await stateLog(cl, b.tripId);
+      // T+10 < noShowAt (T+60) : la règle 3 rendrait REJECTED_TOO_EARLY si elle passait avant la paire
+      for (const [reason, initiator, sub] of [
+        ['GUEST_NO_SHOW', 'HOST', null],
+        ['GUEST_NO_SHOW', 'HOST', 'INVALID_LICENSE'],
+        ['GUEST_CANCELLED', 'GUEST', null],
+        ['HOST_CANCELLED_DUE_TO_GUEST', 'HOST', 'INVALID_LICENSE'],
+      ] as const) {
+        const out = await inTx(
+          cl.worker,
+          { worker: 'trip_lifecycle', virtualNow: at(b.start, 10), commit: true },
+          (tx) => cancel(tx, b.tripId, reason, initiator, sub, sub === null ? null : true),
+        );
+        expect(out, `${reason} / ${String(sub)}`).toMatchObject({
+          ok: false,
+          code: 'TRIP_TRANSITION_FORBIDDEN',
+          constraint: 'trip_transition_forbidden',
+        });
+      }
+      expect(await tripRow(cl, b.tripId)).toEqual(before);
+      expect(await stateLog(cl, b.tripId)).toEqual(logBefore);
+      expect((await occupancies(cl, b)).vehicle?.active).toBe(true);
+    });
+  });
+
   it('critère 2 (T25) : annulation du voyageur à T+75 min sans check-in ⇒ GUEST_NO_SHOW (NO_SHOW_GUEST), origine LATE_GUEST_CANCELLATION', async () => {
     await withClients(async (cl) => {
       const b = await booked(cl, c);
@@ -416,19 +476,40 @@ describe.each(COUNTRIES)('US-207 — machine à états du trip ($country, $curre
         origin: 'LATE_GUEST_CANCELLATION',
         actor_role: 'GUEST',
       });
+      // 17 §4.5 : trip_id, segment_id, reason, origin, requested_at (le règlement est clé sur
+      // (trip, segment, version), 08 invariant 4) ; segment = le segment n° 1 du trip (17 §10)
+      const segmentId = (
+        await fixture<{ id: string | null }>(cl, 'us207_segment_id($1) AS id', [b.tripId])
+      )[0]?.id;
+      expect(segmentId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
       const ev = await events(cl, b.tripId);
-      expect(ev.filter((e) => e.type === 'trip.cancellation.qualified')).toEqual([
-        expect.objectContaining({
-          payload: expect.objectContaining({
+      const qualified = ev.filter((e) => e.type === 'trip.cancellation.qualified');
+      expect(qualified).toEqual([
+        {
+          type: 'trip.cancellation.qualified',
+          aggregate_version: ev.find(
+            (e) => e.type === 'trip.status_changed' && e.payload.to === 'NO_SHOW_GUEST',
+          )?.aggregate_version,
+          actor_role: 'SYSTEM',
+          country_code: c.country,
+          payload: {
             trip_id: b.tripId,
+            segment_id: segmentId,
             requested_reason: 'GUEST_CANCELLED',
             reason: 'GUEST_NO_SHOW',
             origin: 'LATE_GUEST_CANCELLATION',
             initiator: 'GUEST',
+            requested_at: expect.any(String),
             to: 'NO_SHOW_GUEST',
-          }),
-        }),
+          },
+        },
       ]);
+      const payload = qualified[0]?.payload ?? {};
+      for (const field of CANCELLATION_QUALIFIED_FIELDS) {
+        expect(payload[field], field).not.toBeNull();
+      }
+      // heure SERVEUR de la demande (T+75 min), pas celle du client
+      expect(new Date(String(payload.requested_at)).toISOString()).toBe(at(b.start, 75));
       // état terminal : un second événement (passage automatique à T+72 h) est refusé (EC-54)
       const late = await inTx(
         cl.worker,
@@ -719,7 +800,16 @@ describe.each(COUNTRIES)('US-207 — machine à états du trip ($country, $curre
         const log = await stateLog(cl, first.tripId);
         expect(log).toHaveLength(2);
         const ev = await events(cl, first.tripId);
-        expect(ev.filter((e) => e.type === 'trip.cancellation.qualified')).toHaveLength(1);
+        const qualified = ev.filter((e) => e.type === 'trip.cancellation.qualified');
+        expect(qualified).toHaveLength(1);
+        const segmentId = (
+          await fixture<{ id: string | null }>(cl, 'us207_segment_id($1) AS id', [first.tripId])
+        )[0]?.id;
+        expect(segmentId).toBeTruthy();
+        expect(qualified[0]?.payload).toMatchObject({
+          trip_id: first.tripId,
+          segment_id: segmentId,
+        });
         expect(ev.filter((e) => e.type === 'trip.status_changed')).toHaveLength(2);
       });
     } finally {
@@ -742,6 +832,143 @@ describe.each(COUNTRIES)('US-207 — machine à états du trip ($country, $curre
         { seq: 1, lo: new Date(b.start), hi: new Date(shorter) },
       ]);
       expect(await stateLog(cl, b.tripId)).toHaveLength(1);
+    });
+  });
+
+  it('garde trip_transition_guard en refus : écriture directe de l’état sous cmd_hold_owner (droit UPDATE, non exempté), sans journal, avec le journal d’une autre paire, ou sur une paire hors SM-1 ⇒ refusée par la garde elle-même', async () => {
+    await withClients(async (cl) => {
+      // le déclencheur est en place et actif (un trigger supprimé ou désactivé ferait rougir ici)
+      const trigger = await cl.worker.query<{ enabled: string; fn: boolean }>(
+        `SELECT t.tgenabled AS enabled, t.tgfoid = 'core.booking_trip_transition_guard()'::regprocedure AS fn
+           FROM pg_catalog.pg_trigger t
+          WHERE t.tgrelid = 'core.booking_trip'::regclass AND t.tgname = 'trip_transition_guard'`,
+      );
+      expect(trigger.rows).toEqual([{ enabled: 'O', fn: true }]);
+      const b = await booked(cl, c);
+      const probe = (status: string, logFrom: string | null, logTo: string | null) =>
+        inTx(cl.worker, { worker: 'trip_lifecycle', virtualNow: at(b.start, -120) }, (tx) =>
+          attempt(
+            tx,
+            `WITH p AS (SELECT test_fixture.us207_guard_probe($1, $2, $3, $4))
+             SELECT '{}'::jsonb AS r FROM p`,
+            [b.tripId, status, logFrom, logTo],
+          ),
+        );
+      const unlogged = {
+        ok: false,
+        code: 'INVARIANT_VIOLATION',
+        sqlstate: '23000',
+        constraint: 'trip_transition_unlogged',
+      };
+      // paire de SM-1 (BOOKED → CHECKIN_OPEN), aucune ligne de journal
+      expect(await probe('CHECKIN_OPEN', null, null)).toEqual(unlogged);
+      // paire de SM-1, mais le journal de la transaction porte une autre paire
+      expect(await probe('CHECKIN_OPEN', 'BOOKED', 'CANCELLED_BY_GUEST')).toEqual(unlogged);
+      // paire hors SM-1 (BOOKED → IN_PROGRESS), même journalisée
+      expect(await probe('IN_PROGRESS', 'BOOKED', 'IN_PROGRESS')).toEqual({
+        ok: false,
+        code: 'TRIP_TRANSITION_FORBIDDEN',
+        sqlstate: '55000',
+        constraint: 'trip_transition_forbidden',
+      });
+      // témoin : la même écriture, journalisée sur sa paire de SM-1, passe (les refus ci-dessus
+      // viennent donc de la garde, pas d'un droit ni d'une politique)
+      expect(await probe('CHECKIN_OPEN', 'BOOKED', 'CHECKIN_OPEN')).toEqual({
+        ok: true,
+        value: {},
+      });
+      // tout a été annulé
+      expect(await tripRow(cl, b.tripId)).toMatchObject({ status: 'BOOKED' });
+      expect(await stateLog(cl, b.tripId)).toHaveLength(1);
+    });
+  });
+
+  it('aucune constante figée : no_show_grace_minutes du pays porté à 45 min (transaction annulée) ⇒ no_show_at = début + 45, sans la variation ⇒ début + 60 ; overdue_detection_minutes porté à 45 ⇒ OVERDUE refusé à fin + 30 et fin + 44, accepté à fin + 45', async () => {
+    await withClients(async (cl) => {
+      const slot = freshSlot();
+      const { hold, operationId } = await inTx(
+        cl.api,
+        { virtualNow: T0, commit: true },
+        async (tx) => {
+          const placed = await placeHold(tx, slot, c);
+          return { hold: placed, operationId: await insertRentOperation(tx, placed) };
+        },
+      );
+      await inTx(
+        cl.worker,
+        { worker: 'webhook_ingest', virtualNow: at(T0, 2), commit: true },
+        (tx) => receiveProof(tx, operationId),
+      );
+      // conversion avec une nouvelle version du paramètre du pays, puis ANNULÉE
+      const varied = await inTx(
+        cl.worker,
+        { worker: 'booking_conversion', virtualNow: at(T0, 2) },
+        async (tx) => {
+          await tx.query(NEW_PARAM_VERSION, [
+            'no_show_grace_minutes',
+            c.country,
+            String(VARIED_MIN),
+          ]);
+          const r = await convert(tx, hold, operationId);
+          if (r.kind !== 'TRIP') throw new Error(`conversion inattendue : ${r.kind}`);
+          await tx.query(`SELECT pg_catalog.set_config('app.worker_name', 'trip_lifecycle', true)`);
+          const row = await tx.query<{ no_show_at: Date | null }>(
+            `SELECT no_show_at FROM core.booking_trip WHERE id = $1`,
+            [r.tripId],
+          );
+          return row.rows[0]?.no_show_at;
+        },
+      );
+      expect(varied).toEqual(new Date(at(slot.start, VARIED_MIN)));
+      // la même conversion, validée, sans la variation : défaut du pays (17 §7.2)
+      const tripId = await inTx(
+        cl.worker,
+        { worker: 'booking_conversion', virtualNow: at(T0, 2), commit: true },
+        async (tx) => {
+          const r = await convert(tx, hold, operationId);
+          if (r.kind !== 'TRIP') throw new Error(`conversion inattendue : ${r.kind}`);
+          return r.tripId;
+        },
+      );
+      expect((await tripRow(cl, tripId))?.no_show_at).toEqual(
+        new Date(at(slot.start, NO_SHOW_GRACE_MIN)),
+      );
+
+      const b: Booked = {
+        tripId,
+        guestId: hold.guestId,
+        occupancyId: hold.occupancyId,
+        start: slot.start,
+        end: slot.end,
+      };
+      await toInProgress(cl, b);
+      const setClock = (tx: pg.ClientBase, iso: string) =>
+        tx.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [iso]);
+      const overdue = await inTx(
+        cl.worker,
+        { worker: 'trip_lifecycle', virtualNow: at(b.end, OVERDUE_DETECTION_MIN) },
+        async (tx) => {
+          await tx.query(NEW_PARAM_VERSION, [
+            'overdue_detection_minutes',
+            c.country,
+            String(VARIED_MIN),
+          ]);
+          const atDefault = await transition(tx, b.tripId, 'OVERDUE', 'OVERDUE_DETECTED');
+          await setClock(tx, at(b.end, VARIED_MIN - 1));
+          const justBefore = await transition(tx, b.tripId, 'OVERDUE', 'OVERDUE_DETECTED');
+          await setClock(tx, at(b.end, VARIED_MIN));
+          const onTime = await transition(tx, b.tripId, 'OVERDUE', 'OVERDUE_DETECTED');
+          return { atDefault, justBefore, onTime };
+        },
+      );
+      expect(overdue.atDefault).toMatchObject({ ok: false, code: 'REJECTED_TOO_EARLY' });
+      expect(overdue.justBefore).toMatchObject({ ok: false, code: 'REJECTED_TOO_EARLY' });
+      expect(overdue.onTime).toMatchObject({ ok: true, value: { status: 'OVERDUE' } });
+      // tout a été annulé : le trip est encore IN_PROGRESS et le défaut (30 min) vaut de nouveau
+      expect(await tripRow(cl, b.tripId)).toMatchObject({ status: 'IN_PROGRESS' });
+      await step(cl, at(b.end, OVERDUE_DETECTION_MIN), (tx) =>
+        transition(tx, b.tripId, 'OVERDUE', 'OVERDUE_DETECTED'),
+      );
     });
   });
 });

@@ -173,7 +173,7 @@
     },
     {
       "path": "packages/db/migrations/0099_booking_trip_state_machine.sql",
-      "line": 905,
+      "line": 939,
       "kind": "revoke-app-role",
       "justification": "US-207 (ADR-126) : l'état d'un trip (status, cancellation_reason, termination_reason) ne s'écrit plus que par les commandes core.booking_cmd_trip_transition et core.booking_cmd_trip_cancel (cmd_hold_owner, EXECUTE app_worker), qui écrivent journal et événement dans la même transaction ; aucune version servie n'écrit l'état d'un trip (aucun code de l'API ni du travailleur, seuls des tests le faisaient et passent désormais par les commandes) ; app_worker garde UPDATE (scheduled_start, scheduled_end)"
     }

@@ -66,6 +66,7 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['55000', 'trip_param_missing', 'PARAM_MISSING'],
     ['42501', 'trip_command_forbidden', 'FORBIDDEN'],
     ['23000', 'trip_transition_unlogged', 'INVARIANT_VIOLATION'],
+    ['23000', 'trip_segment_missing', 'INVARIANT_VIOLATION'],
     ['23000', 'trip_state_log_immutable', 'IMMUTABLE_RECORD'],
     // intention de paiement, conversion gardée (0040, 0041, US-024)
     ['55000', 'hold_not_payable', 'HOLD_EXPIRED'],

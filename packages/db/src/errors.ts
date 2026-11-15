@@ -282,6 +282,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   trip_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
   trip_command_forbidden: [SQLSTATE.insufficientPrivilege, 'FORBIDDEN'],
   trip_transition_unlogged: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  trip_segment_missing: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   trip_state_log_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
 };
 

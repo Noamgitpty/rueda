@@ -10,11 +10,17 @@
 --     BR-CXL, de 16 TRP-045 et de 17 §3.2.4, §4.5, §7.2, jamais de ces relectures ;
 --   - état forcé d'un trip (sous migrator, exempté de la garde trip_transition_guard) : point de
 --     départ de l'épreuve « chaque paire interdite », DANS une transaction annulée ; aucune ligne de
---     journal n'est écrite.
+--     journal n'est écrite ;
+--   - sonde de la garde trip_transition_guard (revue QA n° 2, revue architecture n° 4) :
+--     `us207_guard_probe` appartient à cmd_hold_owner (le propriétaire des commandes, qui a le
+--     droit UPDATE (status) et n'est PAS exempté de la garde) et écrit l'état EN DIRECT, sans
+--     passer par une commande, avec ou sans ligne de journal : la garde elle-même doit refuser
+--     (trip_transition_unlogged, trip_transition_forbidden). Toujours DANS une transaction annulée.
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us207_state_log(uuid), test_fixture.us207_segment(uuid),
 --   test_fixture.us207_driver(uuid), test_fixture.us207_transitions(), test_fixture.us207_events(uuid),
---   test_fixture.us207_force_status(uuid, text).
+--   test_fixture.us207_force_status(uuid, text), test_fixture.us207_segment_id(uuid),
+--   test_fixture.us207_guard_probe(uuid, text, text, text).
 
 CREATE FUNCTION test_fixture.us207_state_log(p_trip uuid)
   RETURNS TABLE (from_status text, to_status text, kind text, reason_code text, origin text,
@@ -93,9 +99,50 @@ AS $fn$
    WHERE id = p_trip
 $fn$;
 
+CREATE FUNCTION test_fixture.us207_segment_id(p_trip uuid)
+  RETURNS uuid
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  SELECT s.id FROM core.booking_trip_segment AS s WHERE s.trip_id = p_trip AND s.seq = 1
+$fn$;
+
+-- Écriture directe de l'état sous cmd_hold_owner (garde active) : ligne de journal facultative
+-- (p_log_from → p_log_to, de la transaction courante), puis UPDATE de status. Aucune condition
+-- ajoutée : seuls les droits, les politiques (travailleur trip_lifecycle) et la garde jouent.
+CREATE FUNCTION test_fixture.us207_guard_probe(p_trip uuid, p_status text, p_log_from text,
+                                               p_log_to text)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  IF p_log_to IS NOT NULL THEN
+    INSERT INTO core.booking_trip_state_log
+           (id, trip_id, from_status, to_status, kind, reason_code, actor_role)
+    VALUES (pg_catalog.gen_random_uuid(), p_trip, p_log_from, p_log_to, 'TRANSITION',
+            'TEST_GUARD_PROBE', 'SYSTEM');
+  END IF;
+  UPDATE core.booking_trip SET status = p_status WHERE id = p_trip;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'us207_guard_probe: trip % not updated', p_trip;
+  END IF;
+END
+$fn$;
+
 REVOKE ALL ON FUNCTION test_fixture.us207_state_log(uuid), test_fixture.us207_segment(uuid),
   test_fixture.us207_driver(uuid), test_fixture.us207_transitions(), test_fixture.us207_events(uuid),
-  test_fixture.us207_force_status(uuid, text) FROM PUBLIC;
+  test_fixture.us207_force_status(uuid, text), test_fixture.us207_segment_id(uuid),
+  test_fixture.us207_guard_probe(uuid, text, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us207_state_log(uuid), test_fixture.us207_segment(uuid),
   test_fixture.us207_driver(uuid), test_fixture.us207_transitions(), test_fixture.us207_events(uuid),
-  test_fixture.us207_force_status(uuid, text) TO app_worker, app_api;
+  test_fixture.us207_force_status(uuid, text), test_fixture.us207_segment_id(uuid),
+  test_fixture.us207_guard_probe(uuid, text, text, text) TO app_worker, app_api;
+
+-- Transfert de la sonde au propriétaire des commandes (précédent : 9400, 9700, 9940) ; CREATE le
+-- temps du transfert. EXECUTE accordé avant : migrator n'est plus propriétaire ensuite.
+GRANT CREATE ON SCHEMA test_fixture TO cmd_hold_owner;
+ALTER FUNCTION test_fixture.us207_guard_probe(uuid, text, text, text) OWNER TO cmd_hold_owner;
+REVOKE CREATE ON SCHEMA test_fixture FROM cmd_hold_owner;

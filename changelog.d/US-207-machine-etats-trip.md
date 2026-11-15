@@ -6,3 +6,4 @@ module: Réservation
 - Ajouté : segment, conducteur principal et journal d'état créés à la naissance de chaque trip (US-207)
 - Sécurité : l'état d'un trip ne s'écrit plus que par commande ; aucune annulation d'un trip en cours (US-207)
 - Ajouté : messages de refus en es, en, fr et pt-BR (US-207)
+- Corrigé : l'événement `trip.cancellation.qualified` porte le segment du trip, comme l'exige le contrat d'événements ; un trip en cours refuse toute annulation avant même la qualification du motif (US-207)

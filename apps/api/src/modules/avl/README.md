@@ -46,7 +46,7 @@ Déjà émis par le code (écrits dans `core.outbox_outbox_event` par les foncti
 - `booking.hold.created`, `booking.hold.released`, `booking.hold.release_deferred`, `booking.hold.expired` (0037, 0040, 0041) ;
 - `booking.hold.payment_in_flight` (0040) ;
 - `booking.hold.converted`, `booking.hold.reacquired`, `booking.trip.booked` (0041, conversion) ;
-- `trip.status_changed` (0099 : naissance du trip et chaque transition, charge utile `trip_id`, `from`, `to`, `reason`, `settlement_id`) et `trip.cancellation.qualified` (0099 : motif demandé, motif qualifié, origine, initiateur) ;
+- `trip.status_changed` (0099 : naissance du trip et chaque transition, charge utile `trip_id`, `from`, `to`, `reason`, `settlement_id`) et `trip.cancellation.qualified` (0099, 17 §4.5 : `trip_id`, `segment_id` (segment n° 1), `reason` (motif qualifié), `origin`, `requested_at` (heure serveur), plus `requested_reason`, `initiator`, `to`) ;
 - `booking.hold.compensated`, `booking.hold.compensation_required`, `booking.payment.late_ignored` (0041) ;
 - `booking.alert.invariant_violation` et `booking.payment.disposition_overdue` (0041), `booking.alert.production_oracle` (0045, comptes seulement) : alertes absentes du catalogue 17 §4.5.
 
