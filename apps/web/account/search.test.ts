@@ -96,6 +96,17 @@ describe('US-201 — recherche côté site', () => {
       areaLabel: 'Barrio',
     });
     expect(searchResultsOf(reply({ results: [] }))).toEqual([]);
+    // US-205b : « protection incluse » seulement si la base la promet (seul `true` exact)
+    expect(r?.protectionOffered).toBe(false);
+    for (const [v, want] of [
+      [true, true],
+      [false, false],
+      ['true', false],
+      [null, false],
+    ] as const) {
+      const [c] = searchResultsOf(reply({ results: [{ ...RESULT, protectionOffered: v }] })) ?? [];
+      expect(c?.protectionOffered, String(v)).toBe(want);
+    }
     for (const bad of [
       { ...RESULT, id: 'x' },
       { ...RESULT, dailyPriceMinor: 40 },

@@ -48,7 +48,11 @@ export class FakeSearchStore implements SearchStore {
   // ---- dates de la fiche (US-204) ----------------------------------------------------------
   /** Pays par annonce publiée ; une annonce absente est inconnue ou non publiée. */
   listingCountries = new Map<string, string>();
-  slotOutcome: SlotOutcome = {
+  /**
+   * Issue du contrôle des dates ; pour `OK`, les conditions du créneau sont celles de `terms`
+   * (même requête en base, US-205b), sauf si l'issue imposée les fixe déjà.
+   */
+  slotOutcome: SlotOutcome | Omit<Extract<SlotOutcome, { outcome: 'OK' }>, 'terms'> = {
     outcome: 'OK',
     startAt: '2036-12-10T15:00:00.000Z',
     endAt: '2036-12-12T15:00:00.000Z',
@@ -69,10 +73,20 @@ export class FakeSearchStore implements SearchStore {
     return Promise.resolve(this.listingPrices.get(listingId) ?? null);
   }
 
-  slotCheck(query: SlotQuery): Promise<SlotOutcome> {
-    if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
+  async slotCheck(query: SlotQuery): Promise<SlotOutcome> {
+    if (this.down) throw new Error('base indisponible (FAKE)');
     this.lastSlot = query;
-    return Promise.resolve(this.slotOutcome);
+    const o = this.slotOutcome;
+    if (o.outcome !== 'OK' || 'terms' in o) return o as SlotOutcome;
+    return { ...o, terms: await this.terms(query.listingId, o.startAt) };
+  }
+
+  /** Annonces dont la protection est promise (cartes de la recherche, US-205b). */
+  coveredListings = new Set<string>();
+
+  protectionOffered(listingIds: readonly string[]): Promise<ReadonlySet<string>> {
+    if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
+    return Promise.resolve(new Set(listingIds.filter((id) => this.coveredListings.has(id))));
   }
 
   // ---- conditions de la fiche (US-205) -------------------------------------------------------

@@ -92,6 +92,11 @@ export type SlotOutcome =
       readonly startAt: string;
       readonly endAt: string;
       readonly timezone: string;
+      /**
+       * Conditions de l'annonce pour ce départ, lues DANS LA MÊME REQUÊTE que le contrôle des
+       * dates (US-205b, revues de 205a : lecture atomique) ; `null` : annonce retirée entre-temps.
+       */
+      readonly terms: ListingTerms | null;
     }
   | {
       readonly outcome: 'DATES_NOTICE_TOO_SHORT';
@@ -114,13 +119,22 @@ export interface SearchStore {
    * total TTC de la fiche (US-208, même devis provisoire que la recherche) ; `null` si inconnue.
    */
   listingPrice(listingId: string): Promise<ListingPrice | null>;
-  /** Contrôle des dates de la fiche (US-204) ; une issue, jamais une exception métier. */
+  /**
+   * Contrôle des dates de la fiche (US-204) et, pour un créneau accepté, conditions de l'annonce
+   * pour ce départ, en une seule requête (US-205b) ; une issue, jamais une exception métier.
+   */
   slotCheck(query: SlotQuery): Promise<SlotOutcome>;
   /**
    * Conditions publiques d'une annonce LISTED (US-205, `core.catalog_public_terms` de 0115) pour
    * un départ (instant UTC) ou sans dates (`null`) ; `null` si inconnue ou non publiée.
    */
   terms(listingId: string, startAt: string | null): Promise<ListingTerms | null>;
+  /**
+   * Annonces dont la base promet la protection de l'assureur partenaire (US-205b : ligne
+   * « protection incluse » des cartes seulement si la couverture est réelle, même règle que la
+   * fiche) ; une seule requête pour les résultats d'une page.
+   */
+  protectionOffered(listingIds: readonly string[]): Promise<ReadonlySet<string>>;
 }
 
 /** Niveaux de protection de la grille du pays (US-226, ADR-136), dans leur ordre de rang. */
@@ -159,8 +173,13 @@ export interface ListingTerms {
     readonly lastMinuteThresholdHours: number;
     /** Départ donné : réservation de dernière minute si elle avait lieu maintenant. */
     readonly lastMinute: boolean | null;
-    /** Départ donné, hors dernière minute : fin de l'annulation gratuite (ISO 8601 UTC). */
+    /**
+     * Départ donné : fin de l'annulation gratuite (ISO 8601 UTC) ; hors dernière minute, départ −
+     * `free_cancel_lead` ; en dernière minute, min(maintenant + fenêtre, départ) (08 BR-CXL-01).
+     */
     readonly freeUntil: string | null;
+    /** Fenêtre de dernière minute du pays (`last_minute_free_window_minutes`), en minutes. */
+    readonly lastMinuteWindowMinutes: number;
   } | null;
   readonly mileageMode: 'UNLIMITED' | 'INCLUDED';
   readonly includedKmPerDay: number | null;
@@ -199,6 +218,7 @@ export class UnavailableSearchStore implements SearchStore {
   listingPrice = (): Promise<ListingPrice | null> => this.#fail();
   slotCheck = (): Promise<SlotOutcome> => this.#fail();
   terms = (): Promise<ListingTerms | null> => this.#fail();
+  protectionOffered = (): Promise<ReadonlySet<string>> => this.#fail();
 }
 
 const SLOT_REFUSALS: ReadonlySet<string> = new Set<SlotRefusal>([
@@ -326,9 +346,22 @@ export class PgSearchStore implements SearchStore {
   }
 
   async slotCheck(q: SlotQuery): Promise<SlotOutcome> {
+    // US-205b : contrôle des dates et conditions du départ accepté en UNE requête (revues de 205a,
+    // architecture n° 5, code n° 6) : jamais des conditions d'un autre état de l'annonce
     const rows = await this.#rows(
       'dates de la fiche',
-      'SELECT * FROM core.catalog_public_slot_check($1::uuid, $2::timestamp, $3::timestamp)',
+      // montants bigint rendus en TEXTE dans l'objet JSON (revue de code de 205b n° 2) : jamais un
+      // nombre JSON arrondi au-delà de 2^53
+      `SELECT s.*,
+              CASE WHEN t.listing_id IS NULL THEN NULL
+                   ELSE pg_catalog.to_jsonb(t.*) || pg_catalog.jsonb_build_object(
+                          'extra_km_price_minor', t.extra_km_price_minor::text,
+                          'deposit_amount_minor', t.deposit_amount_minor::text,
+                          'rc_amount_minor', t.rc_amount_minor::text)
+              END AS terms
+         FROM core.catalog_public_slot_check($1::uuid, $2::timestamp, $3::timestamp) AS s
+         LEFT JOIN LATERAL core.catalog_public_terms($1::uuid, s.start_at) AS t
+                ON s.outcome = 'OK'`,
       [q.listingId, q.startLocal, q.endLocal],
     );
     const r = rows[0];
@@ -339,11 +372,16 @@ export class PgSearchStore implements SearchStore {
       if (r['start_at'] === null || r['end_at'] === null || r['timezone'] === null) {
         throw new SearchStoreError('ligne inattendue', undefined);
       }
+      const terms = r['terms'];
+      if (terms !== null && (typeof terms !== 'object' || Array.isArray(terms))) {
+        throw new SearchStoreError('ligne inattendue', undefined);
+      }
       return {
         outcome: 'OK',
         startAt: iso(r['start_at']),
         endAt: iso(r['end_at']),
         timezone: String(r['timezone']),
+        terms: terms === null ? null : termsOf(terms as Record<string, unknown>),
       };
     }
     if (code === 'DATES_NOTICE_TOO_SHORT') {
@@ -368,6 +406,25 @@ export class PgSearchStore implements SearchStore {
     if (rows.length !== 1) throw new SearchStoreError('ligne inattendue', undefined);
     return termsOf(r);
   }
+
+  async protectionOffered(listingIds: readonly string[]): Promise<ReadonlySet<string>> {
+    if (listingIds.length === 0) return new Set();
+    const rows = await this.#rows(
+      'protection des cartes',
+      `SELECT t.listing_id, t.protection_offered
+         FROM pg_catalog.unnest($1::uuid[]) AS u(id)
+         CROSS JOIN LATERAL core.catalog_public_terms(u.id, NULL) AS t`,
+      [listingIds],
+    );
+    const offered = new Set<string>();
+    for (const r of rows) {
+      if (r['protection_offered'] === true) offered.add(String(r['listing_id']));
+      else if (r['protection_offered'] !== false) {
+        throw new SearchStoreError('ligne inattendue', undefined);
+      }
+    }
+    return offered;
+  }
 }
 
 const MINOR_TEXT = /^(0|[1-9][0-9]{0,17})$/;
@@ -391,6 +448,20 @@ function exactRecord<K extends string>(
 }
 
 const isMinor = (x: unknown): x is string => typeof x === 'string' && MINOR_TEXT.test(x);
+
+/**
+ * Montant en unités mineures lu de la base : texte d'un entier, ou nombre entier SÛR (colonne
+ * bigint rendue par le pilote) ; un nombre au-delà de 2^53 (arrondi) ou mal formé ⇒ erreur.
+ */
+function minorOrNull(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && !Number.isSafeInteger(v)) {
+    throw new SearchStoreError('montant hors des entiers sûrs', undefined);
+  }
+  const t = String(v);
+  if (!MINOR_TEXT.test(t)) throw new SearchStoreError('montant illisible', undefined);
+  return t;
+}
 const isText = (x: unknown): x is string => typeof x === 'string' && x.trim() !== '';
 
 /**
@@ -403,15 +474,18 @@ function termsOf(r: Record<string, unknown>): ListingTerms {
   };
   const lead = num(r['free_cancel_lead_hours']);
   const thr = num(r['last_minute_threshold_hours']);
+  const win = num(r['last_minute_window_minutes']);
   const lastMinute = r['last_minute'];
+  const freeUntil = r['free_until'];
   const cancellation =
-    lead === null || thr === null
+    lead === null || thr === null || win === null
       ? null
       : {
           freeCancelLeadHours: lead,
           lastMinuteThresholdHours: thr,
           lastMinute: lastMinute === null || lastMinute === undefined ? null : lastMinute === true,
-          freeUntil: r['free_until'] === null ? null : iso(r['free_until']),
+          freeUntil: freeUntil === null || freeUntil === undefined ? null : iso(freeUntil),
+          lastMinuteWindowMinutes: win,
         };
   const mode = String(r['mileage_mode']);
   if (mode !== 'UNLIMITED' && mode !== 'INCLUDED') return bad();
@@ -419,7 +493,7 @@ function termsOf(r: Record<string, unknown>): ListingTerms {
   if (r['protection_offered'] === true) {
     const deductibles = exactRecord(r['deductibles'], PROTECTION_LEVELS, isMinor);
     const exclusions = exactRecord(r['exclusions'], TERMS_LANGUAGES, isText);
-    const rc = str(r['rc_amount_minor']);
+    const rc = minorOrNull(r['rc_amount_minor']);
     const version = num(r['contract_version']);
     if (
       deductibles === null ||
@@ -450,8 +524,8 @@ function termsOf(r: Record<string, unknown>): ListingTerms {
     cancellation,
     mileageMode: mode,
     includedKmPerDay: num(r['included_km_per_day']),
-    extraKmPriceMinor: str(r['extra_km_price_minor']),
-    depositAmountMinor: str(r['deposit_amount_minor']),
+    extraKmPriceMinor: minorOrNull(r['extra_km_price_minor']),
+    depositAmountMinor: minorOrNull(r['deposit_amount_minor']),
     protection,
   };
 }

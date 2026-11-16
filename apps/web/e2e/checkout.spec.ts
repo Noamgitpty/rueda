@@ -41,6 +41,8 @@ const TA01_TOTAL = /128[.,]40/;
 const TA01_RENT = /120[.,]00/;
 const TA01_TAX = /8[.,]40/;
 const RENEWED_TOTAL = /134[.,]82/;
+/** US-205b : retenue hors fenêtre de TA01 (08 BR-CXL-06, j = 1) : 40,00 + 2,80 = 42,80. */
+const RETAINED_ONE_DAY = /42[.,]80/;
 /**
  * US-226 : protection BASICA (16 PRC-018 : part du prix journalier net ; grille de test 1/4) :
  * 10,00 × 3 jours = 30,00, non taxée ; total 128,40 + 30,00 = 158,40. Nom du niveau de base dans
@@ -219,6 +221,31 @@ for (const language of LANGUAGES) {
       await submitAndSettle(page, submit(page));
       await expect(page).toHaveURL(quoteUrl);
       await expect(page.locator('main [role="alert"]').first()).toBeVisible();
+    });
+
+    test('US-205b critères 1 et 2 : S05 dit jusqu’à quand l’annulation est gratuite, combien on perd après (1 jour de location retenu : 42,80) et la distance figée (200 km × 3 jours = 600 km, prix du km)', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(10));
+      const terms = page.locator('[data-testid="s05-terms"]');
+      await expect(terms).toBeVisible();
+      // départ le 10/12 à 10:00 réservé plus de 25 h avant ⇒ gratuite jusqu'au 09/12 à 10:00
+      const cancel = page.locator('[data-testid="s05-cancel"]');
+      // date limite complète dans le format jour / mois / année des quatre profils (locales.json)
+      await expect(cancel).toContainText('09/12/2036');
+      await expect(cancel).toContainText('10:00');
+      // 08 BR-CXL-06, TA01 (3 jours ⇒ j = 1) : 120,00 / 3 = 40,00 retenus et leur taxe au prorata
+      // (8,40 − roundHalfUp(8,40 × 80 / 120) = 2,80) ⇒ 42,80 (10b UX-54)
+      await expect(cancel).toContainText(RETAINED_ONE_DAY);
+      await expect(cancel.locator('a[href="/legal/CANCELLATION_POLICY"]')).toBeVisible();
+      // 19 US-205 critère 2 : 200 km par jour × 3 jours facturables ; prix du km du double 0,20
+      const distance = page.locator('[data-testid="s05-distance"]');
+      await expect(distance).toContainText('600');
+      await expect(distance).toContainText(/0[.,]20/);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
     });
 
     test('US-226 : devis avec la protection BASICA ⇒ ligne nommée dans le détail du prix, somme des lignes = total, hold posé', async ({

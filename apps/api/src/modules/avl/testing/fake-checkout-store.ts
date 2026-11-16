@@ -44,6 +44,11 @@ export class FakeCheckoutStore implements CheckoutStore {
    */
   quotes = new Map<string, CheckoutQuote>();
   frozenAtMs = 0;
+  /**
+   * Documents canoniques rendus avec chaque devis (US-205b), par identifiant ; absents : devis
+   * antérieur (aucune retenue calculable). La retenue est calculée par le service (rejeu).
+   */
+  frozenDocuments = new Map<string, FrozenQuote>();
   holds = new Map<string, CheckoutHold>();
   result: CheckoutResult = { outcome: 'DONE', holdId: null, expiresAt: null };
   down = false;
@@ -64,9 +69,13 @@ export class FakeCheckoutStore implements CheckoutStore {
     if (view === undefined) return Promise.resolve(null);
     // options de protection : calculées par le service, jamais lues en base
     const row = Object.fromEntries(
-      Object.entries(view).filter(([k]) => k !== 'protectionOptions'),
-    ) as Omit<CheckoutQuote, 'protectionOptions'>;
-    return Promise.resolve({ ...row, frozenAtMs: this.frozenAtMs });
+      Object.entries(view).filter(([k]) => k !== 'protectionOptions' && k !== 'lateCancellation'),
+    ) as Omit<CheckoutQuote, 'protectionOptions' | 'lateCancellation'>;
+    return Promise.resolve({
+      ...row,
+      frozenAtMs: this.frozenAtMs,
+      frozen: this.frozenDocuments.get(quoteId) ?? null,
+    });
   }
 
   checkout(proof: Buffer, quoteId: string, demand: CheckoutDemand): Promise<CheckoutResult> {

@@ -71,7 +71,14 @@ async function app(
 function cardOf(r: SearchResult, extra: Record<string, unknown> = {}) {
   const c0: { -readonly [K in keyof SearchResult]?: SearchResult[K] } = { ...r };
   delete c0.quotedAt;
-  return { ...c0, totalMinor: '12840', billableDays: 3, rating: null, ...extra };
+  return {
+    ...c0,
+    totalMinor: '12840',
+    billableDays: 3,
+    rating: null,
+    protectionOffered: false,
+    ...extra,
+  };
 }
 
 const q = (p: Record<string, string>): string => `/search?${new URLSearchParams(p).toString()}`;
@@ -248,6 +255,8 @@ describe('US-201 — contrat de la recherche publique', () => {
     });
     const store = new FakeSearchStore();
     store.outcome = { outcome: 'OK', results: [luxe, plain] };
+    // US-205b : protection promise par la base pour la seule annonce couverte
+    store.coveredListings.add(luxe.id);
     const pricer = pricerFor(luxe, plain);
     const ratings = new FakeSearchRatings();
     ratings.rows.set(plain.id, { averageX100: 480, reviewCount: 3, tripCount: 5 });
@@ -256,7 +265,7 @@ describe('US-201 — contrat de la recherche publique', () => {
     expect(r.status).toBe(200);
     expect(r.json).toEqual({
       results: [
-        cardOf(luxe, { depositAmountMinor: '30000' }),
+        cardOf(luxe, { depositAmountMinor: '30000', protectionOffered: true }),
         cardOf(plain, { rating: { averageX100: 480, reviewCount: 3, tripCount: 5 } }),
       ],
     });

@@ -183,6 +183,12 @@
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-218 (ADR-130) : RECORD_REVIEW passe de RECORD_ONLY à DOMAIN_COMMAND (saisie fermée authorRole et overall, commande liée core.review_manual_action_record_review), comme HANDLE_DSR en 0090 ; une ligne de référence écrite par migration seulement ; permission et sujet inchangés ; les lignes manual_action existantes gardent leur mode ; la version N, qui envoyait RECORD_REVIEW sans saisie, reçoit un refus métier REVIEW_INPUT_REQUIRED (aucune écriture), jamais une acceptation"
+    },
+    {
+      "path": "packages/db/migrations/0118_prc_quote_mileage_checkout_terms.sql",
+      "line": 534,
+      "kind": "drop-function",
+      "justification": "US-205b (ADR-140) : core.catalog_public_terms est supprimée puis recréée DANS LA MÊME TRANSACTION avec la même signature, le même propriétaire et les mêmes droits ; seule une colonne de retour est ajoutée (last_minute_window_minutes, impossible par CREATE OR REPLACE). La version N appelle la fonction par SELECT * et lit ses colonnes par nom (store.ts, termsOf) : la colonne ajoutée est ignorée, aucune colonne lue n'est retirée ni renommée ; free_until rendue aussi en dernière minute est écartée par la version N (slotCancellation)"
     }
   ]
 }

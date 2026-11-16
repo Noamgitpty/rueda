@@ -76,6 +76,10 @@
     {
       "path": "packages/db/migrations/0114_config_insurer_rc_params.sql",
       "justification": "Graine complémentaire du paramètre insurer_rc_minimum (08 BR-PROT-04, 16 PRT-003 / PRT-013 : RC tiers minimum par événement du contrat de l'assureur partenaire, contrat en dessous refusé POLICY_RC_BELOW_MINIMUM), valeurs PROPOSÉES À DÉCIDER PA / PY (OQ-BR-16), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-205, ADR-138."
+    },
+    {
+      "path": "packages/db/migrations/0117_config_last_minute_window_params.sql",
+      "justification": "Graine complémentaire du paramètre last_minute_free_window_minutes (08 BR-CXL-01 : fenêtre d'annulation gratuite d'une réservation de dernière minute, freeUntil = min(bookedAt + fenêtre, départ) ; 16 LST-010), valeurs PROPOSÉES PA / PY (60 min, comme Turo), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-205, ADR-140."
     }
   ]
 }

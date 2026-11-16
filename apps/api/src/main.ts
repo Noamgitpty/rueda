@@ -131,7 +131,12 @@ async function bootstrap(): Promise<void> {
   // Checkout (US-208) : devis figé (commande de gel de PRC) et pose du hold CHECKOUT (commandes
   // de 0108) sous app_api ; MÊME instance QuoteService que la recherche et la fiche (même
   // instantané de configuration, revue d'architecture d'US-203)
-  const checkout = postgresCheckoutAdapters(pool, (ctx) => quotes.params(ctx));
+  // US-205b : paramètres d'annulation du pays (retenue hors fenêtre gratuite affichée sur S05)
+  const checkout = postgresCheckoutAdapters(
+    pool,
+    (ctx) => quotes.params(ctx),
+    (ctx) => quotes.cancellationParams(ctx),
+  );
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,

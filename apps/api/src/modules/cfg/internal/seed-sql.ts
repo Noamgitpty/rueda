@@ -126,6 +126,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-205',
     refs: '08 BR-PROT-04 ; 16 PRT-003 / PRT-013 ; OQ-BR-16 ; ADR-138',
   },
+  {
+    prefix: 'last_minute_free_window',
+    file: '0117_config_last_minute_window_params.sql',
+    story: 'US-205',
+    refs: '08 BR-CXL-01 ; 16 LST-010 ; ADR-140',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */
