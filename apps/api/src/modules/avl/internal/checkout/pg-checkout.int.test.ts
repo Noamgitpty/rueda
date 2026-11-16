@@ -51,6 +51,11 @@ interface Expected {
   readonly daily: string;
   readonly lines: Readonly<Record<string, string>>;
   readonly total: string;
+  /**
+   * US-205b : retenue d'une annulation hors fenêtre (08 BR-CXL-06, 3 jours ⇒ j = 1) : P / 3 + F / 3
+   * et la taxe retenue au prorata de la base taxable remboursée, protection remboursée en entier.
+   */
+  readonly retained: string;
 }
 
 /** Attendus par exposant de la devise du pays (voir l'en-tête). */
@@ -59,11 +64,15 @@ const EXPECTED: Readonly<Record<number, Expected>> = {
     daily: '4000',
     lines: { TRIP_PRICE: '12000', TRIP_FEE: '1800', PROTECTION: '3000' },
     total: '17766',
+    // 40,00 + 6,00 + (9,66 − roundHalfUp(9,66 × 92,00 / 138,00) = 3,22) = 49,22
+    retained: '4922',
   },
   0: {
     daily: '333334',
     lines: { TRIP_PRICE: '1000002', TRIP_FEE: '150000', PROTECTION: '250002' },
     total: '1515004',
+    // 333 334 + 50 000 + (115 000 − roundHalfUp(115 000 × 766 668 / 1 150 002) = 38 333) = 421 667
+    retained: '421667',
   },
 };
 
@@ -226,9 +235,7 @@ describe.each(countryCases())(
       expect(Date.parse(created.cancellation?.freeUntil ?? '')).toBe(
         Date.parse(START) - 24 * 3_600_000,
       );
-      expect(created.lateCancellation?.penaltyDays).toBe('1');
-      const retained = BigInt(created.lateCancellation?.retainedMinor ?? '0');
-      expect(retained > 0n && retained < BigInt(want.total)).toBe(true);
+      expect(created.lateCancellation).toEqual({ penaltyDays: '1', retainedMinor: want.retained });
 
       const read = await checkout.quote(guest, created.quoteId);
       expect(read).toEqual(created);
@@ -287,6 +294,43 @@ describe.each(countryCases())(
           protectionLevel: null,
         }),
       ).rejects.toBeInstanceOf(QuoteHttpError);
+    });
+
+    it('US-205b (revue de code n° 3) : annonce à 200 km par jour ⇒ distance INCLUDED de freezeQuote rejouée par la base, 600 km et prix du km figés, relus identiques', async () => {
+      const service = new QuoteService(new CountryConfigService());
+      const exponent = service.params({ country: cc.country, at: new Date(NOW) }).currency.exponent;
+      const want = EXPECTED[exponent];
+      if (want === undefined) throw new Error(`aucun attendu pour l'exposant ${exponent}`);
+      await openSwitch('p2p_private_hosts_enabled', cc.country);
+      await openSwitch('insurer_contract_active', cc.country);
+      const { rows } = await client.query<{ listing_id: string }>(
+        'SELECT * FROM test_fixture.us208_listed_listing($1, $2, $3, $4)',
+        [cc.country, want.daily, 'AUTOMATIC', true],
+      );
+      const listingId = rows[0]!.listing_id;
+      await client.query('SELECT test_fixture.us205b_set_listing_mileage($1, $2, $3, $4)', [
+        listingId,
+        'INCLUDED',
+        200,
+        '35',
+      ]);
+      const guest = await guestSession(cc.country);
+      const checkout = new CheckoutService(
+        (ctx) => service.params(ctx),
+        new PgQuoteStore(client),
+        new PgCheckoutStore(client),
+        LOG_CHECKOUT_FAILURE,
+        (ctx) => service.cancellationParams(ctx),
+      );
+      const created = await checkout.createQuote(guest, { listingId, startAt: START, endAt: END });
+      // 19 US-205 critère 2 : 200 km par jour × 3 jours facturables
+      expect(created.mileage).toEqual({
+        mode: 'INCLUDED',
+        includedKm: 600,
+        extraKmPriceMinor: '35',
+      });
+      expect(created.totalMinor).toBe(want.total);
+      expect(await checkout.quote(guest, created.quoteId)).toEqual(created);
     });
 
     // le plan lu par le devis du checkout (jambe HOST) est prouvé par les L0 d'US-226 : un seul

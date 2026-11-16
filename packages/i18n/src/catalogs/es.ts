@@ -1860,8 +1860,14 @@ export const ES_MESSAGES = {
   'web.listing.protection.unavailableShort': 'Este auto todavía no tiene protección disponible.',
   'web.s05.conditions.title': 'Condiciones del viaje',
   'web.s05.conditions.ifNow': 'Fechas calculadas si reservas ahora, a la hora del lugar.',
-  'web.s05.cancel.retainedDay': 'Después, se retiene 1 día de alquiler: {amount}.',
-  'web.s05.cancel.retainedHalfDay': 'Después, se retiene medio día de alquiler: {amount}.',
+  'web.s05.cancel.retainedDay':
+    'Después, se retiene 1 día de alquiler, impuestos incluidos: {amount}.',
+  'web.s05.cancel.retainedHalfDay':
+    'Después, se retiene medio día de alquiler, impuestos incluidos: {amount}.',
+  'web.s05.cancel.ifCancelDay':
+    'Si cancelas, se retiene 1 día de alquiler, impuestos incluidos: {amount}.',
+  'web.s05.cancel.ifCancelHalfDay':
+    'Si cancelas, se retiene medio día de alquiler, impuestos incluidos: {amount}.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'No encontramos este presupuesto. Vuelve a la ficha del auto.',
   'common.quote.rateLimited':
@@ -1946,7 +1952,7 @@ export const ES_MESSAGES = {
   'web.s05.driver.lastRequired': 'Escribe tu apellido.',
   'web.s05.manual': 'Sé manejar caja manual',
   'web.s05.manual.hint': 'Este auto tiene caja manual.',
-  'web.s05.terms.title': 'Condiciones',
+  'web.s05.terms.title': 'Documentos que aceptas',
   'web.s05.terms.accept': 'Acepto: {title}',
   'web.s05.terms.read': 'Leer «{title}», versión {version} (se abre en otra pestaña)',
   'web.s05.hold.notice': 'Todavía no se te cobra nada.',

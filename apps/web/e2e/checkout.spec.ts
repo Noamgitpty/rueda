@@ -233,8 +233,9 @@ for (const language of LANGUAGES) {
       await expect(terms).toBeVisible();
       // départ le 10/12 à 10:00 réservé plus de 25 h avant ⇒ gratuite jusqu'au 09/12 à 10:00
       const cancel = page.locator('[data-testid="s05-cancel"]');
+      // date limite complète dans le format jour / mois / année des quatre profils (locales.json)
+      await expect(cancel).toContainText('09/12/2036');
       await expect(cancel).toContainText('10:00');
-      await expect(cancel).toContainText(/0?9/);
       // 08 BR-CXL-06, TA01 (3 jours ⇒ j = 1) : 120,00 / 3 = 40,00 retenus et leur taxe au prorata
       // (8,40 − roundHalfUp(8,40 × 80 / 120) = 2,80) ⇒ 42,80 (10b UX-54)
       await expect(cancel).toContainText(RETAINED_ONE_DAY);

@@ -151,7 +151,9 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  entier d'heures), `web.listing.protection.unavailableShort` (section protection sans répéter le
  bandeau « pas encore réservable », revue ux de 205a n° 7), `web.s05.conditions.*` et
  `web.s05.cancel.retained*` (conditions de S05 : annulation gratuite en dates, retenue hors
- fenêtre en jours et en montant du moteur de règlement, 10b UX-54).
+ fenêtre en jours et en montant du moteur de règlement, taxes comprises, 10b UX-54) ;
+ `web.s05.cancel.ifCancel*` (retenue sans date d'annulation gratuite) ; `web.s05.terms.title`
+ renommé « documents que tu acceptes » (un seul titre « Condiciones » à l'écran, revue ux de 205b).
  */
 export const CATALOG_VERSION = 60;
 

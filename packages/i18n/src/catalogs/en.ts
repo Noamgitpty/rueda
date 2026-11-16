@@ -1808,8 +1808,14 @@ export const EN_MESSAGES = {
   'web.listing.protection.unavailableShort': 'Protection isn’t available for this car yet.',
   'web.s05.conditions.title': 'Trip conditions',
   'web.s05.conditions.ifNow': 'Dates assume you book now, in local time.',
-  'web.s05.cancel.retainedDay': 'After that, 1 day of the rental is kept: {amount}.',
-  'web.s05.cancel.retainedHalfDay': 'After that, half a day of the rental is kept: {amount}.',
+  'web.s05.cancel.retainedDay':
+    'After that, 1 day of the rental is kept, taxes included: {amount}.',
+  'web.s05.cancel.retainedHalfDay':
+    'After that, half a day of the rental is kept, taxes included: {amount}.',
+  'web.s05.cancel.ifCancelDay':
+    'If you cancel, 1 day of the rental is kept, taxes included: {amount}.',
+  'web.s05.cancel.ifCancelHalfDay':
+    'If you cancel, half a day of the rental is kept, taxes included: {amount}.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'We can’t find this quote. Go back to the car’s page.',
   'common.quote.rateLimited':
@@ -1889,7 +1895,7 @@ export const EN_MESSAGES = {
   'web.s05.driver.lastRequired': 'Enter your last name.',
   'web.s05.manual': 'I can drive a manual car',
   'web.s05.manual.hint': 'This car has a manual gearbox.',
-  'web.s05.terms.title': 'Terms',
+  'web.s05.terms.title': 'Documents you accept',
   'web.s05.terms.accept': 'I accept: {title}',
   'web.s05.terms.read': 'Read “{title}”, version {version} (opens in a new tab)',
   'web.s05.hold.notice': 'You won’t be charged yet.',

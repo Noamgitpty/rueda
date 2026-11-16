@@ -247,6 +247,38 @@ describe.each(COUNTRIES)('US-205b — distance figée dans le devis ($country, $
   });
 });
 
+describe.each(COUNTRIES)(
+  'US-205b — fenêtre de dernière minute absente ou nulle ($country)',
+  (cc) => {
+    it('revue sécurité n° 8 : paramètre absent (valeur close) ou fenêtre de 0 min ⇒ aucune politique d’annulation rendue, aucune date (fail-closed) ; 08 BR-CXL-01 : la fenêtre vaut 60 min, une fenêtre nulle promettrait une gratuité déjà finie', async () => {
+      await scenario(cc)(async (tx) => {
+        const listing = await includedListing(tx, cc);
+        await setClock(tx, new Date(Date.parse(START) - 20 * 60 * MIN).toISOString());
+        const read = async () =>
+          (
+            await tx.query<Row>(
+              'SELECT * FROM core.catalog_public_terms($1::uuid, $2::timestamptz)',
+              [listing, START],
+            )
+          ).rows[0];
+        const none = {
+          free_cancel_lead_hours: null,
+          last_minute_threshold_hours: null,
+          last_minute_window_minutes: null,
+          last_minute: null,
+          free_until: null,
+        };
+        await tx.query('SELECT test_fixture.us205b_set_window($1, $2)', [cc.country, 0]);
+        expect(await read()).toMatchObject(none);
+        await tx.query('SELECT test_fixture.us205b_close_window($1)', [cc.country]);
+        expect(await read()).toMatchObject(none);
+        // la distance et le reste des conditions restent rendus
+        expect(await read()).toMatchObject({ listing_id: listing, mileage_mode: 'INCLUDED' });
+      });
+    });
+  },
+);
+
 describe('US-205b — droits', () => {
   it('app_anon et app_worker ne peuvent pas exécuter core.pricing_checkout_terms ; app_api ne lit pas les documents du devis directement', async () => {
     for (const role of ['app_anon', 'app_worker'] as const) {

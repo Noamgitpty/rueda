@@ -350,8 +350,15 @@ export class PgSearchStore implements SearchStore {
     // architecture n° 5, code n° 6) : jamais des conditions d'un autre état de l'annonce
     const rows = await this.#rows(
       'dates de la fiche',
+      // montants bigint rendus en TEXTE dans l'objet JSON (revue de code de 205b n° 2) : jamais un
+      // nombre JSON arrondi au-delà de 2^53
       `SELECT s.*,
-              CASE WHEN t.listing_id IS NULL THEN NULL ELSE pg_catalog.to_jsonb(t.*) END AS terms
+              CASE WHEN t.listing_id IS NULL THEN NULL
+                   ELSE pg_catalog.to_jsonb(t.*) || pg_catalog.jsonb_build_object(
+                          'extra_km_price_minor', t.extra_km_price_minor::text,
+                          'deposit_amount_minor', t.deposit_amount_minor::text,
+                          'rc_amount_minor', t.rc_amount_minor::text)
+              END AS terms
          FROM core.catalog_public_slot_check($1::uuid, $2::timestamp, $3::timestamp) AS s
          LEFT JOIN LATERAL core.catalog_public_terms($1::uuid, s.start_at) AS t
                 ON s.outcome = 'OK'`,
@@ -441,6 +448,20 @@ function exactRecord<K extends string>(
 }
 
 const isMinor = (x: unknown): x is string => typeof x === 'string' && MINOR_TEXT.test(x);
+
+/**
+ * Montant en unités mineures lu de la base : texte d'un entier, ou nombre entier SÛR (colonne
+ * bigint rendue par le pilote) ; un nombre au-delà de 2^53 (arrondi) ou mal formé ⇒ erreur.
+ */
+function minorOrNull(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && !Number.isSafeInteger(v)) {
+    throw new SearchStoreError('montant hors des entiers sûrs', undefined);
+  }
+  const t = String(v);
+  if (!MINOR_TEXT.test(t)) throw new SearchStoreError('montant illisible', undefined);
+  return t;
+}
 const isText = (x: unknown): x is string => typeof x === 'string' && x.trim() !== '';
 
 /**
@@ -472,7 +493,7 @@ function termsOf(r: Record<string, unknown>): ListingTerms {
   if (r['protection_offered'] === true) {
     const deductibles = exactRecord(r['deductibles'], PROTECTION_LEVELS, isMinor);
     const exclusions = exactRecord(r['exclusions'], TERMS_LANGUAGES, isText);
-    const rc = str(r['rc_amount_minor']);
+    const rc = minorOrNull(r['rc_amount_minor']);
     const version = num(r['contract_version']);
     if (
       deductibles === null ||
@@ -503,8 +524,8 @@ function termsOf(r: Record<string, unknown>): ListingTerms {
     cancellation,
     mileageMode: mode,
     includedKmPerDay: num(r['included_km_per_day']),
-    extraKmPriceMinor: str(r['extra_km_price_minor']),
-    depositAmountMinor: str(r['deposit_amount_minor']),
+    extraKmPriceMinor: minorOrNull(r['extra_km_price_minor']),
+    depositAmountMinor: minorOrNull(r['deposit_amount_minor']),
     protection,
   };
 }

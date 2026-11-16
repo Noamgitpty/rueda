@@ -12,14 +12,18 @@ import { ratio, type SettlementParams } from '@rueda/money';
 import { settlementVectors } from '@rueda/money/golden-vectors';
 import { testParams } from '@rueda/money/testing';
 import { describe, expect, it } from 'vitest';
+import { resolveParam } from '../../../cfg/index.js';
 import { lateCancellationOf } from './cancellation.js';
+import { resolveCancellationParams } from './params.js';
 import { assembleQuote } from './engine.js';
 import { isQuoteError } from './errors.js';
 import {
   caseOfGoldenTrip,
+  CONFIG_AT,
   golden,
   goldenRegistry,
   MINUTE_MS,
+  repoConfig,
   T0_MS,
 } from '../../../../../test/support/quote.js';
 
@@ -92,4 +96,36 @@ describe('US-205b : retenue hors fenêtre gratuite = moteur de règlement sur le
     }
     expect(code).toBe('QUOTE_UNAVAILABLE');
   });
+});
+
+describe('US-205b (revues argent n° 6, architecture n° 5) : fenêtre de dernière minute du pays = fenêtre du moteur cxl-beta/1', () => {
+  // La fiche et S05 affichent `last_minute_free_window_minutes` (graine 0117) ; le moteur de
+  // règlement garde sa fenêtre de politique. Ce test échoue dès que la graine d'un pays diffère
+  // de la fenêtre que le moteur applique : changer le paramètre exige d'abord une version du
+  // moteur qui le lise (suite cxl-beta/2).
+  const v = vectors[0];
+  const countries = [...repoConfig.countries.keys()];
+
+  it('chaque pays déclaré a une fenêtre', () => {
+    expect(countries.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it.each(countries)(
+    '%s : réservation de dernière minute ⇒ freeUntil du moteur = réservation + fenêtre du pays',
+    (country) => {
+      if (v === undefined) throw new Error('aucun vecteur');
+      const window = resolveParam(repoConfig, 'last_minute_free_window_minutes', {
+        country,
+        at: CONFIG_AT,
+      }).value;
+      expect(typeof window).toBe('number');
+      const { period, params } = caseOfGoldenTrip(v.trip);
+      const quote = assembleQuote(period, params);
+      // paramètres d'annulation du pays (seuil de dernière minute, tolérance de no-show) du dépôt
+      const p = resolveCancellationParams(repoConfig, { country, at: CONFIG_AT });
+      const bookedAt = T0_MS - 20 * 60 * MINUTE_MS; // départ dans 20 h : dernière minute (< 25 h)
+      const late = lateCancellationOf(quote, p, bookedAt);
+      expect(late?.freeUntilMs).toBe(bookedAt + (window as number) * MINUTE_MS);
+    },
+  );
 });

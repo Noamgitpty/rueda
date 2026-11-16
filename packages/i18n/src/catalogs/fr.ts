@@ -1908,8 +1908,14 @@ export const FR_MESSAGES = {
     'Cette voiture n’a pas encore de protection disponible.',
   'web.s05.conditions.title': 'Conditions du voyage',
   'web.s05.conditions.ifNow': 'Dates calculées si tu réserves maintenant, à l’heure du lieu.',
-  'web.s05.cancel.retainedDay': 'Ensuite, 1 jour de location est retenu : {amount}.',
-  'web.s05.cancel.retainedHalfDay': 'Ensuite, une demi-journée de location est retenue : {amount}.',
+  'web.s05.cancel.retainedDay':
+    'Ensuite, 1 jour de location est retenu, taxes comprises : {amount}.',
+  'web.s05.cancel.retainedHalfDay':
+    'Ensuite, une demi-journée de location est retenue, taxes comprises : {amount}.',
+  'web.s05.cancel.ifCancelDay':
+    'Si tu annules, 1 jour de location est retenu, taxes comprises : {amount}.',
+  'web.s05.cancel.ifCancelHalfDay':
+    'Si tu annules, une demi-journée de location est retenue, taxes comprises : {amount}.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'Nous ne trouvons pas ce devis. Reviens à la fiche de la voiture.',
   'common.quote.rateLimited':
@@ -1993,7 +1999,7 @@ export const FR_MESSAGES = {
   'web.s05.driver.lastRequired': 'Saisis ton nom.',
   'web.s05.manual': 'Je sais conduire une boîte manuelle',
   'web.s05.manual.hint': 'Cette voiture a une boîte manuelle.',
-  'web.s05.terms.title': 'Conditions',
+  'web.s05.terms.title': 'Documents que tu acceptes',
   'web.s05.terms.accept': 'J’accepte : {title}',
   'web.s05.terms.read': 'Lire « {title} », version {version} (s’ouvre dans un nouvel onglet)',
   'web.s05.hold.notice': 'Rien ne t’est débité pour l’instant.',

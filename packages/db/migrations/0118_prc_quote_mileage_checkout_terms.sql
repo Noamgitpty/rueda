@@ -19,7 +19,7 @@
 --   - annulation de la fiche et du checkout : fenêtre de dernière minute lue du paramètre
 --     `last_minute_free_window_minutes` (0117 ; 60 min, PROPOSÉ) et `freeUntil` de dernière minute
 --     = min(maintenant + fenêtre, départ) : jamais une annulation gratuite promise après le début ;
---     paramètre absent ⇒ aucune promesse (NULL).
+--     paramètre absent, nul ou hors forme ⇒ aucune promesse (NULL).
 --
 -- Expand / contract : colonnes, contrainte et fonction AJOUTÉES ; commande de gel remplacée (même
 -- signature, propriétaire et droits) ; `core.catalog_public_terms` supprimée puis recréée (une
@@ -583,7 +583,8 @@ BEGIN
   v_win := core.catalog_plan_param('last_minute_free_window_minutes', v_l.country_code);
   IF pg_catalog.jsonb_typeof(v_lead) = 'number' AND (v_lead #>> '{}') ~ '^[0-9]{1,4}$'
      AND pg_catalog.jsonb_typeof(v_thr) = 'number' AND (v_thr #>> '{}') ~ '^[0-9]{1,4}$'
-     AND pg_catalog.jsonb_typeof(v_win) = 'number' AND (v_win #>> '{}') ~ '^[0-9]{1,4}$' THEN
+     -- fenêtre d'au moins 1 min (08 : 60 min ; 0 promettrait une gratuité déjà finie)
+     AND pg_catalog.jsonb_typeof(v_win) = 'number' AND (v_win #>> '{}') ~ '^[1-9][0-9]{0,3}$' THEN
     free_cancel_lead_hours := (v_lead #>> '{}')::integer;
     last_minute_threshold_hours := (v_thr #>> '{}')::integer;
     last_minute_window_minutes := (v_win #>> '{}')::integer;

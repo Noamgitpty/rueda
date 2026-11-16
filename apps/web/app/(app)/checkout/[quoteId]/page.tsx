@@ -134,6 +134,24 @@ function Summary({
 }
 
 /**
+ * Phrase de la retenue hors fenêtre (10b UX-54 ; revue ux de 205b n° 3 et 4) : « Después… » à la
+ * suite de la date d'annulation gratuite, « Si cancelas… » sans date ; taxes comprises.
+ */
+function retainedKey(
+  days: 'ONE' | 'HALF',
+  afterDate: boolean,
+):
+  | 'web.s05.cancel.retainedDay'
+  | 'web.s05.cancel.retainedHalfDay'
+  | 'web.s05.cancel.ifCancelDay'
+  | 'web.s05.cancel.ifCancelHalfDay' {
+  if (afterDate) {
+    return days === 'ONE' ? 'web.s05.cancel.retainedDay' : 'web.s05.cancel.retainedHalfDay';
+  }
+  return days === 'ONE' ? 'web.s05.cancel.ifCancelDay' : 'web.s05.cancel.ifCancelHalfDay';
+}
+
+/**
  * Conditions du voyage (US-205b ; 19 US-205 critères 1 et 2 ; 08 BR-CXL-01, BR-CXL-06 ; 10b UX-54) :
  * annulation gratuite en dates si la réservation a lieu maintenant (base, heure du lieu), retenue
  * hors fenêtre en jours de location et en montant (moteur de règlement sur le devis figé, jamais
@@ -165,28 +183,26 @@ function TermsSection({
         {quote.cancellation === null ? (
           <p className={accountStyles['muted']}>{t('web.listing.cancel.unavailable')}</p>
         ) : (
-          <p className={accountStyles['text']}>
-            <span className={styles['strong']}>
-              {cancellationText(i18n, quote.cancellation, timeZone)}
-            </span>
-          </p>
+          <>
+            <p className={accountStyles['text']}>
+              <span className={styles['strong']}>
+                {cancellationText(i18n, quote.cancellation, timeZone)}
+              </span>
+            </p>
+            {/* revue ux de 205b n° 4 : la note suit la date qu'elle explique */}
+            <p className={accountStyles['muted']}>{t('web.s05.conditions.ifNow')}</p>
+          </>
         )}
-        <p className={accountStyles['text']}>
+        <p className={accountStyles['text']} data-testid="s05-retained">
           {late === null
             ? t('web.listing.cancel.after')
-            : t(
-                late.penaltyDays === 'ONE'
-                  ? 'web.s05.cancel.retainedDay'
-                  : 'web.s05.cancel.retainedHalfDay',
-                { amount: money(late.retainedMinor) },
-              )}{' '}
+            : t(retainedKey(late.penaltyDays, quote.cancellation !== null), {
+                amount: money(late.retainedMinor),
+              })}{' '}
           <a className={styles['link']} href="/legal/CANCELLATION_POLICY">
             {t('web.listing.cancel.policyLink')}
           </a>
         </p>
-        {quote.cancellation !== null && (
-          <p className={accountStyles['muted']}>{t('web.s05.conditions.ifNow')}</p>
-        )}
       </div>
       {m !== null && (
         <div data-testid="s05-distance">

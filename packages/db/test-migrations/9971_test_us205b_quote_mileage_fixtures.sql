@@ -9,6 +9,7 @@
 --   - `us205b_set_listing_mileage` : distance d'une annonce de fixture (mode, km par jour, prix du
 --     km), dans les bornes de `catalog_listing_mileage_valid` (0067) ;
 --   - `us205b_set_window` : nouvelle valeur de `last_minute_free_window_minutes` du pays (0117) ;
+--   - `us205b_close_window` : clôture de cette valeur (paramètre absent) ;
 --   - `us205b_quote_mileage` : distance figée d'un devis (colonnes de 0118), pour la preuve.
 -- Les attendus des tests viennent de 19 US-205 (critère 2 : 200 km / j × 3 jours = 600 km) et de 08
 -- BR-CXL-01, jamais de ces fixtures. AUCUNE fixture n'écrit un interrupteur (17 §0.1).
@@ -38,6 +39,19 @@ AS $fn$
           'test US-205b (transaction annulée)')
 $fn$;
 
+-- clôture de la fenêtre du pays (valid_to = maintenant) : paramètre absent
+CREATE FUNCTION test_fixture.us205b_close_window(p_country text)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.config_param_value
+     SET valid_to = platform.now()
+   WHERE key = 'last_minute_free_window_minutes' AND country_code = p_country
+     AND scope_type = 'COUNTRY' AND valid_to IS NULL
+$fn$;
+
 CREATE FUNCTION test_fixture.us205b_quote_mileage(p_quote_id uuid)
   RETURNS TABLE (mileage_mode text, included_km integer, extra_km_price_minor bigint)
   LANGUAGE sql
@@ -52,8 +66,10 @@ $fn$;
 REVOKE ALL ON FUNCTION
   test_fixture.us205b_set_listing_mileage(uuid, text, integer, bigint),
   test_fixture.us205b_set_window(text, integer),
+  test_fixture.us205b_close_window(text),
   test_fixture.us205b_quote_mileage(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   test_fixture.us205b_set_listing_mileage(uuid, text, integer, bigint),
   test_fixture.us205b_set_window(text, integer),
+  test_fixture.us205b_close_window(text),
   test_fixture.us205b_quote_mileage(uuid) TO app_api;
