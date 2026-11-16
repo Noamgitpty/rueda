@@ -2037,7 +2037,7 @@ export const PT_MESSAGES = {
   'common.payment.payoutRailUnavailable':
     'Ainda não podemos receber pagamentos por este carro. Nada foi cobrado.',
   'common.payment.underReview':
-    'Estamos revisando sua reserva antes de qualquer cobrança. Avisaremos quando você puder pagar.',
+    'Estamos revisando sua reserva antes de qualquer cobrança. Volte à sua reserva para ver quando você pode pagar.',
   'common.payment.holdExpired':
     'Não estamos mais guardando este carro para você. Nada foi cobrado: busque de novo.',
   'common.payment.holdNotPayable': 'Esta reserva não pode mais ser paga. Confira o status dela.',
@@ -2123,4 +2123,33 @@ export const PT_MESSAGES = {
     'Quando a proteção da seguradora parceira estiver ativa onde você anuncia, seu carro estará coberto durante o período de cada reserva.',
   'web.a11.coverage.contract':
     'As exclusões e sua franquia vêm do contrato da seguradora parceira: vamos mostrá-las aqui, palavra por palavra, antes que você possa receber viagens.',
+  'web.s05.review.title': 'Reserva em análise: nada foi cobrado',
+  'web.s05.review.until':
+    'Vamos analisá-la até {time}. Se não a aprovarmos até lá, liberamos o carro sem cobrar nada.',
+  'web.s05.review.comeBack':
+    'Esta página se atualiza sozinha; você também pode voltar mais tarde para ver nossa resposta. Se aprovarmos, você paga aqui mesmo.',
+  'web.s05.review.entryHint':
+    'Vai dirigir com uma carteira estrangeira? Diga sua data de entrada: isso nos ajuda a analisar sua reserva.',
+  'web.s05.review.approvedTitle': 'Reserva aprovada',
+  'web.s05.review.approvedBody': 'Você já pode pagar. Seguramos o carro para você até {time}.',
+  'web.s05.kyc.link': 'Ir para a verificação de identidade',
+  'web.s06.reviewRejected.title': 'Reserva não aprovada',
+  'web.s06.reviewRejected.body':
+    'Não conseguimos aprovar sua reserva e liberamos o carro. Nada foi cobrado: você pode procurar outro carro.',
+  'web.s04.entry.open': 'Declarar minha data de entrada',
+  'web.s04.entry.title': 'Sua data de entrada',
+  'web.s04.entry.intro':
+    'Se você dirige com uma carteira estrangeira, diga se é turista ou residente e, se for turista, sua data de entrada. Nossa equipe só confere isso se a sua reserva precisar.',
+  'web.s04.entry.country': 'Onde você vai dirigir',
+  'web.s04.entry.status': 'Sua situação migratória',
+  'web.s04.entry.TOURIST': 'Turista',
+  'web.s04.entry.RESIDENT': 'Residente',
+  'web.s04.entry.date': 'Data de entrada',
+  'web.s04.entry.dateHint': 'Obrigatória se você for turista: a do carimbo do seu passaporte.',
+  'web.s04.entry.dateRequired': 'Informe sua data de entrada: ela é obrigatória para turistas.',
+  'web.s04.entry.statusRequired': 'Escolha se você é turista ou residente.',
+  'web.s04.entry.submit': 'Salvar minha declaração',
+  'web.s04.entry.savedTourist': 'Data de entrada declarada: {date}.',
+  'web.s04.entry.savedResident': 'Você declarou que é residente.',
+  'web.s04.entry.back': 'Voltar à verificação de identidade',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

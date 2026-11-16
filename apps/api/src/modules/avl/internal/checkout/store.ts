@@ -128,6 +128,11 @@ export type CheckoutQuoteRow = Omit<CheckoutQuote, 'protectionOptions' | 'lateCa
   readonly frozen: FrozenQuote | null;
 };
 
+/** États de revue d'un hold de checkout rendus par la base (0120). */
+export const CHECKOUT_REVIEW_STATES = ['NONE', 'PENDING', 'APPROVED', 'REJECTED'] as const;
+export type CheckoutReviewState = (typeof CHECKOUT_REVIEW_STATES)[number];
+const REVIEW_STATES: ReadonlySet<string> = new Set(CHECKOUT_REVIEW_STATES);
+
 export interface CheckoutHold {
   readonly holdId: string;
   readonly status: string;
@@ -139,6 +144,12 @@ export interface CheckoutHold {
   readonly endAt: string;
   readonly totalMinor: string;
   readonly manualConfirmed: boolean;
+  /**
+   * État de revue du hold (US-209 partie 209c, ADR-144 ; `core.booking_checkout_review_state`) :
+   * `PENDING` = revue avant le débit en cours (aucun paiement possible, `BOOKING_UNDER_REVIEW`) ;
+   * `APPROVED` = revu, payable jusqu'à `expiresAt` ; `REJECTED` = libéré par la revue ; `NONE`.
+   */
+  readonly reviewState: CheckoutReviewState;
   /** Version exacte de chaque document accepté (16 BKG-008). */
   readonly documents: readonly {
     readonly kind: string;
@@ -409,11 +420,20 @@ export class PgCheckoutStore implements CheckoutStore {
 
   async hold(proof: Buffer, holdId: string): Promise<CheckoutHold | null> {
     const { rows } = await this.db.query(
-      'SELECT * FROM core.booking_checkout_summary($1, $2::uuid)',
+      // état de revue (0120, US-209c) lu dans la même instruction : même voyageur, même hold
+      `SELECT s.*, r.review_state
+         FROM core.booking_checkout_summary($1, $2::uuid) AS s
+         LEFT JOIN core.booking_checkout_review_state($1, $2::uuid) AS r ON r.hold_id = s.hold_id`,
       [proof, holdId],
     );
     const r = rows[0];
     if (r === undefined) return null;
+    const review = typeof r['review_state'] === 'string' ? r['review_state'] : '';
+    // état de revue absent ou inconnu (version N de la base pendant un déploiement) : indisponible,
+    // jamais un hold présenté comme payable (fail-closed, N-203)
+    if (!REVIEW_STATES.has(review)) {
+      throw new CheckoutStoreError(`état de revue inattendu du hold : ${review}`);
+    }
     return {
       holdId: text(r['hold_id']),
       status: text(r['status']),
@@ -425,6 +445,7 @@ export class PgCheckoutStore implements CheckoutStore {
       endAt: iso(r['end_at']),
       totalMinor: minor(r['total_minor']),
       manualConfirmed: r['manual_confirmed_at'] !== null,
+      reviewState: review as CheckoutReviewState,
       documents: list(r['documents']).map((x) => ({
         kind: text(x['kind']),
         version: int(x['version']),

@@ -14,8 +14,13 @@
 import { startTransition, useActionState, useEffect, useState } from 'react';
 import type { FormEvent, MouseEvent } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
-import { Banner, Button, Checkbox, ErrorSummary, TextField } from '@rueda/ui';
-import { DRIVER_NAME_MAX, S05_FIELD } from '../../../../account/checkout.ts';
+import { Banner, Button, ButtonLink, Checkbox, ErrorSummary, TextField } from '@rueda/ui';
+import {
+  DRIVER_NAME_MAX,
+  IDENTITY_HREF,
+  IDENTITY_REFUSAL_KEYS,
+  S05_FIELD,
+} from '../../../../account/checkout.ts';
 import type { CheckoutDocumentKind, CheckoutFieldError } from '../../../../account/checkout.ts';
 import { LOCALE_CONFIG } from '../../../../locale-config.ts';
 import accountStyles from '../../_account/account.module.css';
@@ -91,6 +96,9 @@ export function CheckoutForm({
   const messages = shown.map((e) => ({ fieldId: e.fieldId, message: t(e.key) }));
   const fieldError = (id: string) => messages.find((m) => m.fieldId === id)?.message;
   const formError = fieldError(S05_FIELD.form);
+  // refus du conducteur levé depuis S04 (UXQ-12, US-209c) : lien vers la vérification d'identité
+  const formKey = shown.find((e) => e.fieldId === S05_FIELD.form)?.key;
+  const identityRefusal = formKey !== undefined && IDENTITY_REFUSAL_KEYS.has(formKey);
 
   const onClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (pending) {
@@ -144,6 +152,11 @@ export function CheckoutForm({
         <Banner tone="danger" live="assertive">
           {formError}
         </Banner>
+      )}
+      {identityRefusal && (
+        <ButtonLink variant="secondary" href={IDENTITY_HREF} data-testid="s05-identity-link">
+          {t('web.s05.kyc.link')}
+        </ButtonLink>
       )}
 
       <fieldset className={styles['section']}>

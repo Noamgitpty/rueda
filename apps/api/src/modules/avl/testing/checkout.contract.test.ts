@@ -159,6 +159,7 @@ const HOLD_VIEW: CheckoutHold = {
   endAt: iso(T0_MS + 3 * DAY_MS),
   totalMinor: '12840',
   manualConfirmed: true,
+  reviewState: 'NONE',
   documents: [
     { kind: 'CANCELLATION_POLICY', version: 1, locale: 'es' },
     { kind: 'GEO_TERMS', version: 2, locale: 'es' },
@@ -473,6 +474,15 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
     });
     expect(mine.status).toBe(200);
     expect(mine.json).toEqual({ hold: HOLD_VIEW });
+    // US-209c (ADR-144, N-203) : chaque état de revue rendu tel que la base le dit
+    for (const reviewState of ['PENDING', 'APPROVED', 'REJECTED'] as const) {
+      store.holds.set(`${a.hash('voyageur')}:${HOLD}`, { ...HOLD_VIEW, reviewState });
+      const r = await a.api.request('GET', `/checkout/holds/${HOLD}`, {
+        headers: a.cookie('voyageur'),
+      });
+      expect(r.status).toBe(200);
+      expect(r.json).toEqual({ hold: { ...HOLD_VIEW, reviewState } });
+    }
     const other = await a.api.request('GET', `/checkout/holds/${HOLD}`, {
       headers: a.cookie('staff_sans_mfa'),
     });

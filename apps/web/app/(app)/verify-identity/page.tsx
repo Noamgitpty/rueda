@@ -282,6 +282,12 @@ export default async function VerifyIdentityPage({
         <p className={styles['muted']}>{t('web.s04.intro')}</p>
       </header>
       {body}
+      {/* déclaration d'entrée du voyageur à permis étranger (US-209c, 16 VER-007) */}
+      {state !== null && (
+        <ButtonLink variant="quiet" href="/verify-identity/entry">
+          {t('web.s04.entry.open')}
+        </ButtonLink>
+      )}
       {withdraw}
     </main>
   );

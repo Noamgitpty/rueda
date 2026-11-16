@@ -2081,7 +2081,7 @@ export const FR_MESSAGES = {
   'common.payment.payoutRailUnavailable':
     'Nous ne pouvons pas encore encaisser de réservation pour cette voiture. Aucun débit n’a été effectué.',
   'common.payment.underReview':
-    'Nous vérifions ta réservation avant tout débit. Nous te préviendrons quand tu pourras payer.',
+    'Nous vérifions ta réservation avant tout débit. Reviens sur ta réservation pour savoir quand tu pourras payer.',
   'common.payment.holdExpired':
     'Nous ne gardons plus cette voiture pour toi. Aucun débit n’a été effectué : relance une recherche.',
   'common.payment.holdNotPayable': 'Cette réservation ne peut plus être payée. Vérifie son état.',
@@ -2170,4 +2170,34 @@ export const FR_MESSAGES = {
     'Quand la protection de l’assureur partenaire sera active là où tu publies, ta voiture sera couverte pendant la période de chaque réservation.',
   'web.a11.coverage.contract':
     'Les exclusions et ta franchise viennent du contrat de l’assureur partenaire : nous les afficherons ici, mot pour mot, avant que tu puisses recevoir des voyages.',
+  'web.s05.review.title': 'Réservation en cours d’examen : tu n’as rien payé',
+  'web.s05.review.until':
+    'Nous l’examinons avant {time}. Si nous ne l’avons pas acceptée d’ici là, nous libérons la voiture sans aucun débit.',
+  'web.s05.review.comeBack':
+    'Cette page se met à jour toute seule ; tu peux aussi revenir plus tard pour voir notre réponse. Si nous l’acceptons, tu paies ici même.',
+  'web.s05.review.entryHint':
+    'Tu conduis avec un permis étranger ? Indique-nous ta date d’entrée dans le pays : cela nous aide à examiner ta réservation.',
+  'web.s05.review.approvedTitle': 'Réservation acceptée',
+  'web.s05.review.approvedBody':
+    'Tu peux payer maintenant. Nous te gardons la voiture jusqu’à {time}.',
+  'web.s05.kyc.link': 'Aller à la vérification d’identité',
+  'web.s06.reviewRejected.title': 'Réservation non acceptée',
+  'web.s06.reviewRejected.body':
+    'Nous n’avons pas pu accepter ta réservation et avons libéré la voiture. Aucun débit n’a été effectué : tu peux chercher une autre voiture.',
+  'web.s04.entry.open': 'Déclarer ma date d’entrée',
+  'web.s04.entry.title': 'Ta date d’entrée dans le pays',
+  'web.s04.entry.intro':
+    'Si tu conduis avec un permis étranger, dis-nous si tu es touriste ou résident et, si tu es touriste, quand tu es entré dans le pays. L’équipe ne la vérifie que si ta réservation le demande.',
+  'web.s04.entry.country': 'Pays où tu vas conduire',
+  'web.s04.entry.status': 'Ta situation dans le pays',
+  'web.s04.entry.TOURIST': 'Touriste',
+  'web.s04.entry.RESIDENT': 'Résident',
+  'web.s04.entry.date': 'Date d’entrée',
+  'web.s04.entry.dateHint': 'Obligatoire si tu es touriste : celle du tampon de ton passeport.',
+  'web.s04.entry.dateRequired': 'Indique ta date d’entrée : elle est obligatoire pour un touriste.',
+  'web.s04.entry.statusRequired': 'Choisis si tu es touriste ou résident.',
+  'web.s04.entry.submit': 'Enregistrer ma déclaration',
+  'web.s04.entry.savedTourist': 'Date d’entrée déclarée : {date}.',
+  'web.s04.entry.savedResident': 'Tu as déclaré être résident.',
+  'web.s04.entry.back': 'Retour à la vérification d’identité',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

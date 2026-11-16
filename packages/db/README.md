@@ -842,6 +842,10 @@ Migration `0119_booking_flagged_review_decision` (0117 à l’origine, renuméro
 - **KYC** : `core.kyc_cmd_declare_entry` (corps de 0112, bloc US-209b) : `RATE_LIMITED` au-delà de 5 déclarations en une heure glissante.
 - **Preuves** : `test/l0/l0-us209-risk-checkout.test.ts` (partie « US-209b », PA USD et PY PYG : approbation motivée et prolongation unique, paiement par T1 après l'approbation, refus et créneau libéré, hold de revue échu ⇒ `RELEASED` / `REVIEW_REJECTED` par l'expiration ciblée, `START_PASSED`, `GUEST_INELIGIBLE`, garde ADR-122, dossier journalisé, branche `PAY_THEN_REVIEW`, borne de la déclaration ; rôles) ; `test/l0/l0-us101-console-actions.test.ts` (catalogue, type de sujet déclaré).
 
+## État de revue d'un hold lu par le voyageur (US-209 partie 209c ; 16 BKG-014, VER-007 ; 17 §2.5 ; ADR-144)
+
+Migration `0120_booking_checkout_review_state` : `core.booking_checkout_review_state(token, hold)` (`cmd_hold_owner`, SECURITY DEFINER, EXECUTE `app_api` seul), état de revue d'un hold de checkout du voyageur de la session, dérivé des colonnes du hold (`review_required`, `reviewed_at`, `status`, `release_reason`) : `REJECTED` (RELEASED / `REVIEW_REJECTED`), `PENDING` (revue avant le débit en cours), `APPROVED` (revu), `NONE` ; hold d'un autre voyageur ou inconnu : aucune ligne. Aucun droit nouveau (colonnes déjà accordées par 0037 et 0119). Lue par l'API dans la même instruction que `core.booking_checkout_summary` (inchangée). Preuves : `test/l0/l0-us209-risk-checkout.test.ts` (bloc « US-209c », PA USD et PY PYG : PENDING, APPROVED, REJECTED après refus et après une revue non faite dans le délai, NONE, autre voyageur ; rôles).
+
 ## Paiement par jambes au checkout et preuve par webhook (US-223 partie 223a ; 16 PAY-034 ; 08 E7 ; 17 §2.5, §4.4 ; ADR-139)
 
 Migration `0116_payment_checkout_legs_proof` (0114 à l'origine, renumérotée à l'intégration d'US-205a), fixture `9969_test_us223_payment_fixtures.sql` (devis engagé d'un hold de fixture sans interrupteur, relecture des versions de prix, jambe en double) ; fixtures 9800 (conditions de test, sinon la vraie lecture) et 9940 (webhook signé avec montant et devise) mises à jour.

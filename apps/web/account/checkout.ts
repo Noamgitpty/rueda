@@ -351,8 +351,22 @@ export interface CheckoutHoldView {
   readonly endAt: string;
   readonly totalMinor: bigint;
   readonly manualConfirmed: boolean;
+  /**
+   * État de revue (US-209 partie 209c, ADR-144 ; N-203) : `PENDING` = revue avant le débit en
+   * cours, aucun bouton « Pagar » ; `APPROVED` = revu, payable jusqu'à `expiresAt` ; `REJECTED` =
+   * libéré par la revue ; `NONE` = aucune revue avant le débit.
+   */
+  readonly reviewState: CheckoutReviewState;
   readonly documents: readonly { readonly kind: string; readonly version: number }[];
 }
+
+/** États de revue rendus par l'API (`GET /checkout/holds/{id}`, ADR-144). */
+export const CHECKOUT_REVIEW_STATES = ['NONE', 'PENDING', 'APPROVED', 'REJECTED'] as const;
+export type CheckoutReviewState = (typeof CHECKOUT_REVIEW_STATES)[number];
+
+/** Le hold peut-il être payé depuis S05 ? Jamais pendant une revue ni après un refus (N-203). */
+export const holdPayable = (h: Pick<CheckoutHoldView, 'status' | 'reviewState'>): boolean =>
+  h.status === 'ACTIVE' && (h.reviewState === 'NONE' || h.reviewState === 'APPROVED');
 
 export function checkoutHoldOf(reply: ApiResult): CheckoutHoldView | null {
   if (reply.status !== 200 && reply.status !== 201) return null;
@@ -373,6 +387,11 @@ export function checkoutHoldOf(reply: ApiResult): CheckoutHoldView | null {
     return null;
   }
   if (total === null || total < 0n || typeof h['manualConfirmed'] !== 'boolean') return null;
+  // état de revue absent ou inconnu : réponse refusée (jamais un hold présenté comme payable)
+  const review = str(h['reviewState']);
+  if (review === null || !(CHECKOUT_REVIEW_STATES as readonly string[]).includes(review)) {
+    return null;
+  }
   if (!Array.isArray(h['documents'])) return null;
   const documents: { kind: string; version: number }[] = [];
   for (const d of h['documents'] as unknown[]) {
@@ -396,6 +415,7 @@ export function checkoutHoldOf(reply: ApiResult): CheckoutHoldView | null {
     endAt,
     totalMinor: total,
     manualConfirmed: h['manualConfirmed'] === true,
+    reviewState: review as CheckoutReviewState,
     documents,
   };
 }
@@ -620,6 +640,20 @@ export function checkoutErrorKey(reply: ApiResult): MessageKey {
 
 /** Codes connus (tests) ; chacun a sa clé dans les quatre catalogues (typecheck). */
 export const CHECKOUT_ERROR_CODES: readonly string[] = Object.keys(CHECKOUT_KEYS);
+
+/**
+ * Refus du conducteur qui se lèvent depuis la vérification d'identité (S04) : identité non
+ * approuvée, consentement biométrique absent ou retiré, permis échu avant la fin du trip (16
+ * BKG-012 ; 10b UXQ-12, US-209 partie 209c). Leur message s'accompagne d'un lien vers S04.
+ */
+export const IDENTITY_REFUSAL_KEYS: ReadonlySet<MessageKey> = new Set<MessageKey>([
+  'common.kyc.notApproved',
+  'common.kyc.consentMissing',
+  'common.kyc.licenseExpired',
+]);
+
+/** S04, vérification d'identité (lien des refus du conducteur). */
+export const IDENTITY_HREF = '/verify-identity';
 
 /** Page du document affiché par la case de S05 (`target=_blank`, version exacte, retour au devis). */
 export function checkoutDocumentHref(
