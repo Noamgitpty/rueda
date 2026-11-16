@@ -154,3 +154,12 @@ Lecture seule de l'espace hôte (16 HDB-001 / HDB-002, écrans A02 et A05) : `GE
 - Véhicule et lieu de remise joints par les lectures d'US-115 (`vehicles`, `locations`).
 - Fichiers : `internal/host-trips/` (`store.ts` port et adaptateur, `host-trips.service.ts`, `host-trips.controller.ts`) ; FAKE `testing/fake-host-trip-store.ts` ; contrat `testing/host-trips.contract.test.ts` ; preuves base `packages/db/test/l0/l0-us219-host-trips.test.ts`.
 - Mode `REQUEST` (critères 4 à 6 de 19 US-219) : non livré ici (voir ADR-128 et la passation d'US-219).
+
+## Plans de gains de l'hôte (US-226 partie 226a, ADR-136)
+
+Plan de gains par véhicule (16 PRT-007, PRT-008, HST-048 ; 08 BR-PROT-06) : `GET /host/accounts/{orgId}/earnings-plans` (plan en vigueur de chaque véhicule, plan par défaut du pays tant que l'hôte n'a rien choisi, plans vendus dans le pays avec la part de l'hôte « n/d », jamais `PRO`) et `PUT /host/accounts/{orgId}/vehicles/{vehicleId}/earnings-plan` (`{ planCode }` ⇒ `200 EARNINGS_PLAN_SAVED` ; plan non vendu ou `PRO` ⇒ `422 EARNINGS_PLAN_NOT_AVAILABLE` ; compte ou véhicule d'un autre ⇒ 404), gardées par `SessionGuard`.
+
+- La base juge tout (migration 0110) : registre immuable et versionné `core.catalog_vehicle_earnings_plan`, écrit par `core.catalog_cmd_set_earnings_plan` (hôte titulaire de la session ; même plan ⇒ aucune nouvelle version), lu par `core.catalog_host_earnings_plans` ; plan d'une annonce publiée lu par `core.catalog_listing_earnings_plan` (devis du checkout et commande de gel).
+- **Effet sur les nouveaux devis seulement** : un devis déjà figé, et le hold posé avec lui, gardent leur plan et leur part (`pricing_quote.host_plan_code`).
+- Fichiers : `internal/host-listings/` (port `HostListingStore.earningsPlans` / `setEarningsPlan`, service, contrôleur) ; FAKE `testing/fake-host-listing-store.ts` ; contrat `testing/host-listings.contract.test.ts` ; preuves base `packages/db/test/l0/l0-us226-protection.test.ts` (fixture `9977_test_us226_protection_fixtures.sql`).
+- Le total des cartes de résultats et de la fiche (adaptateur `SearchPricer` de PRC) comprend la protection minimale du pays (BOARD N-141).
