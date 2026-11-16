@@ -44,6 +44,8 @@ const SEARCH = /search\.spec\.ts$/;
 const LISTING = /listing\.spec\.ts$/;
 /** Checkout en une page S03 → S05 → hold posé (US-208, partie 208b) : téléphones 360 et 390 px. */
 const CHECKOUT = /checkout\.spec\.ts$/;
+/** Plan de gains d'un véhicule, A10 → A11 (US-226 partie 226b) : téléphones 360 et 390 px. */
+const HOST_EARNINGS = /host-earnings-plan\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -96,6 +98,7 @@ export default defineConfig({
         SEARCH,
         LISTING,
         CHECKOUT,
+        HOST_EARNINGS,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
@@ -114,6 +117,7 @@ export default defineConfig({
         SEARCH,
         LISTING,
         CHECKOUT,
+        HOST_EARNINGS,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },

@@ -191,7 +191,7 @@ describe('niveaux proposés (16 BKG-003, PRT-001)', () => {
   const c = CENTS.currency;
   const p = withGrid(CENTS, [
     terms(c, 'TOTAL', 3, ratio(13n, 20n), { minDriverAge: 21 }),
-    terms(c, 'INFERIEURE', 0 + 1, ratio(1n, 10n)),
+    terms(c, 'INFERIEURE', 1, ratio(1n, 10n)),
     terms(c, 'BASICA', 2, ratio(1n, 4n)),
   ]);
 

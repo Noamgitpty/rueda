@@ -106,7 +106,6 @@ export const FR_PROTO = {
   },
   'web.s04.result.glare':
     'La photo de ton permis a un reflet. Incline-le un peu et évite la lumière directe.',
-  'web.s05.protection.title': 'Choisis ta protection',
   'web.s05.contract': 'J’accepte le contrat de location avec {host_name}',
   'web.s05.mitConsent':
     'J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
