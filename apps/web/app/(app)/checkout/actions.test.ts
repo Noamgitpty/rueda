@@ -6,7 +6,7 @@
  * montant n'est jamais envoyé (L2-PM-03).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { protectionChoiceOf } from '../../../account/checkout.ts';
+import { AGE_INVALID_MESSAGE, protectionChoiceOf } from '../../../account/checkout.ts';
 
 const calls: { method: string; path: string; body: unknown }[] = [];
 let replies: Record<string, { status: number; json: unknown }> = {};
@@ -192,7 +192,7 @@ describe('changement de protection (changeProtectionAction → freezeAndOpen)', 
       INITIAL,
       form({ quoteId: OLD, protectionLevel: 'BASICA', driverAge: '150' }),
     );
-    expect(r.errors).toEqual([{ fieldId: 's05-driver-age', key: 'web.s05.age.invalid' }]);
+    expect(r.errors).toEqual([{ fieldId: 's05-driver-age', key: AGE_INVALID_MESSAGE }]);
     expect(calls).toEqual([]);
   });
 });
