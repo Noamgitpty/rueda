@@ -30,6 +30,7 @@ import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { placeName } from '../support/names.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 type Tx = pg.ClientBase;
 
@@ -119,7 +120,7 @@ async function host(c: Tx, country: string): Promise<Host> {
   return { ...p, org: rows[0].org_id };
 }
 
-const plate = (): string => `S${randomBytes(4).toString('hex').toUpperCase()}`;
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'S');
 
 /**
  * Hôte, lieu épinglé (nom, adresse et point exacts connus du seul hôte), véhicule et annonce
@@ -147,7 +148,7 @@ async function car(
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
-    [h.hash, h.org, loc.rows[0]?.location_id, plate()],
+    [h.hash, h.org, loc.rows[0]?.location_id, await plate(c)],
   );
   const lst = await c.query<{ outcome: string; listing_id: string | null }>(
     'SELECT * FROM core.catalog_cmd_create_listing($1, $2, $3, $4, $5, NULL, NULL, $6)',

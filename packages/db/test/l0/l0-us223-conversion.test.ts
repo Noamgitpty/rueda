@@ -1,6 +1,6 @@
 /**
  * US-223 (partie 223a) — du paiement par jambes au trip BOOKED, preuve par webhook seulement
- * (migration 0114, ADR-139 ; 17 §2.5 étapes 3 à 7, C20 ; 19 US-223 critères 1, 3, 4, 5).
+ * (migration 0116, ADR-139 ; 17 §2.5 étapes 3 à 7, C20 ; 19 US-223 critères 1, 3, 4, 5).
  *
  * Données COMMITÉES (deux sessions, balayages sur toute la base) : ce fichier tourne seul, après
  * les autres (projet l0-concurrence de vitest.l0.config.ts), dans sa propre période d'horloge

@@ -19,6 +19,7 @@ import { withRole } from '../../../src/testing/index.ts';
 import { person } from '../../support/kyc.ts';
 import { byCountry, hostOf, otherOf, rolledBack, targetOf, uuid, vin } from './support.ts';
 import type { CountryCase, Host, Target, Tx } from './support.ts';
+import { uniquePlate } from '../../support/unique.ts';
 
 interface Ids {
   readonly org: string;
@@ -43,8 +44,22 @@ async function run(tx: Tx, sql: string, params: readonly unknown[]): Promise<str
   }
 }
 
-/** Commandes d'écriture du lot 1, appelées avec le jeton `t`, le compte `o` et les objets `i`. */
-function commands(cc: CountryCase, t: Buffer, o: string, i: Ids): Call[] {
+/** Plaque et VIN neufs d'une série de commandes (uniques par construction, N-186). */
+interface VehicleKeys {
+  readonly plate: string;
+  readonly vin: string;
+}
+
+const vehicleKeys = async (tx: Tx): Promise<VehicleKeys> => ({
+  plate: await uniquePlate(tx, 'Z'),
+  vin: await vin(tx),
+});
+
+/**
+ * Commandes d'écriture du lot 1, appelées avec le jeton `t`, le compte `o` et les objets `i` ; `k` :
+ * plaque et VIN du véhicule créé.
+ */
+function commands(cc: CountryCase, t: Buffer, o: string, i: Ids, k: VehicleKeys): Call[] {
   const price = 41 * cc.priceStepMinor;
   return [
     [
@@ -106,7 +121,7 @@ function commands(cc: CountryCase, t: Buffer, o: string, i: Ids): Call[] {
       'create_vehicle_at_location',
       `SELECT * FROM core.catalog_cmd_create_vehicle($1,$2,$3,$4,$5,NULL,'Marca','Modelo',$6,NULL,
                                                       'MANUAL',5::smallint,'GASOLINE',NULL,false,false)`,
-      [t, o, i.location, `Z${randomBytes(4).toString('hex').toUpperCase()}`, vin(), 2021],
+      [t, o, i.location, k.plate, k.vin, 2021],
     ],
   ];
 }
@@ -192,11 +207,11 @@ async function assertBlocked(
     // dans le compte propre, seules les opérations sur un objet d'autrui sont des attaques
     const reading = what.includes('compte propre') ? objectReads : reads;
     const attack = [
-      ...commands(cc, actorToken, attackOrg, attackIds),
+      ...commands(cc, actorToken, attackOrg, attackIds, await vehicleKeys(tx)),
       ...reading(actorToken, attackOrg, attackIds),
     ];
     const witness = [
-      ...commands(cc, actorToken, witnessOrg, witnessIds),
+      ...commands(cc, actorToken, witnessOrg, witnessIds, await vehicleKeys(tx)),
       ...reading(actorToken, witnessOrg, witnessIds),
     ];
     for (const [i, [name, sql, params]] of attack.entries()) {
@@ -271,7 +286,7 @@ describe.each(byCountry)(
         const victim = await targetOf(tx, cc);
         for (const token of [randomBytes(32), Buffer.alloc(32, 0)]) {
           for (const [name, sql, params] of [
-            ...commands(cc, token, victim.host.org, idsOf(victim)),
+            ...commands(cc, token, victim.host.org, idsOf(victim), await vehicleKeys(tx)),
             ...reads(token, victim.host.org, idsOf(victim)),
           ]) {
             const got = await run(tx, sql, params);

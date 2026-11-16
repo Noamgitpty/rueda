@@ -121,7 +121,7 @@ BEGIN
              'providerReference', COALESCE(v_ref, pg_catalog.format('ref-%s', p_operation_id)),
              'merchantReference', v_idem,
              'status', p_status,
-             -- US-223 (0114) : montant et devise reçus, ceux de l'ordre (un loyer les exige)
+             -- US-223 (0116) : montant et devise reçus, ceux de l'ordre (un loyer les exige)
              'amountMinor', v_amount::text,
              'currency', v_cur,
              'occurredAt', pg_catalog.to_char(platform.now() AT TIME ZONE 'UTC',

@@ -176,7 +176,7 @@ describe.each(['TJ01', 'TJ08a'])('ordre et doublons des webhooks (%s)', (vectorI
     expect(
       s.store.inbox.filter((r) => r.status === 'FAILED').map((r) => [r.status, r.error]),
     ).toEqual([['FAILED', 'PROOF_REJECTED']]);
-    // aucun statut terminal n'est appliqué ; US-223 (0114) : le refus est journalisé (UNPROVEN)
+    // aucun statut terminal n'est appliqué ; US-223 (0116) : le refus est journalisé (UNPROVEN)
     expect(
       s.store.statusEvents.filter((e) => e.status === 'SUCCEEDED').map((e) => e.outcome),
     ).toEqual(['UNPROVEN']);

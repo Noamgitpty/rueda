@@ -10,7 +10,7 @@
  * - acceptation (`APPLIED`) : webhook signé reçu par la commande, rattaché par notre clé ou par la
  *   référence PSP (`providerReference`) ;
  * - `MANUAL_OPS` terminal : `UNPROVEN` (aucune action du staff journalisée au lot 0) ;
- * - `POLL` terminal sur un compte de BAC À SABLE : accepté (preuve POLL) ; US-223 (0114, ADR-139)
+ * - `POLL` terminal sur un compte de BAC À SABLE : accepté (preuve POLL) ; US-223 (0116, ADR-139)
  *   ferme la limite d'ADR-088 pour un compte LIVE (POLL et API_RESPONSE terminaux ⇒ UNPROVEN,
  *   prouvé par l0-us223-payment-proof.test.ts) ;
  * - voie directe (UPDATE du statut par un travailleur) : refusée (42501).
@@ -57,7 +57,7 @@ interface Event {
   readonly providerReference: string;
   readonly merchantReference: string | null;
   readonly status: string;
-  /** US-223 (0114) : montant et devise reçus ; un SUCCEEDED de loyer sans eux ne prouve rien. */
+  /** US-223 (0116) : montant et devise reçus ; un SUCCEEDED de loyer sans eux ne prouve rien. */
   readonly amountMinor?: string;
   readonly currency?: string;
 }
@@ -78,7 +78,7 @@ async function receive(
   opts: { signatureValid?: boolean; signedAt?: string | null } = {},
 ): Promise<{ outcome: string; inboxId: string | null }> {
   const { rows } = await tx.query<{ outcome: string; inbox_id: string | null }>(
-    // US-223 (0114) : horodatage signé absent ⇒ hors fenêtre ; sans `signedAt`, l'heure de la BASE
+    // US-223 (0116) : horodatage signé absent ⇒ hors fenêtre ; sans `signedAt`, l'heure de la BASE
     `SELECT outcome, inbox_id
        FROM test_fixture.us049_receive_custom($1, $2::jsonb, $3,
               CASE WHEN $5::boolean THEN platform.now() ELSE $4::timestamptz END)`,
@@ -133,7 +133,7 @@ describe.each(COUNTRIES)('US-049 RC-5 — preuve d’un statut terminal ($countr
   const v = CAPTURES[c.currency];
   if (v === undefined) throw new Error(`aucun vecteur en ${c.currency}`);
   const capture = { amountMinor: v.totalMinor, legs: { ...v.legsMinor } as Legs };
-  /** US-223 (0114) : montant et devise reçus d'un loyer, ceux de l'ordre. */
+  /** US-223 (0116) : montant et devise reçus d'un loyer, ceux de l'ordre. */
   const paid = { amountMinor: v.totalMinor.toString(), currency: c.currency };
 
   /** Monde de la transaction (annulée) : compte A actif, compte B suspendu, deux opérations de A. */

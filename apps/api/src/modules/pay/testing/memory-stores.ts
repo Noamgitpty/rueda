@@ -129,7 +129,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
     const now = this.now();
     const status: MemoryInboxRow['status'] = !input.signatureValid
       ? 'REJECTED_SIGNATURE'
-      : // US-223 (0114) : horodatage signé absent ⇒ hors fenêtre, comme la base
+      : // US-223 (0116) : horodatage signé absent ⇒ hors fenêtre, comme la base
         input.signedAt === null || Math.abs(input.signedAt.getTime() - now) > TOLERANCE_MS
         ? 'QUARANTINED'
         : 'RECEIVED';
@@ -213,7 +213,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
     ) {
       outcome = 'CONFLICT';
     } else if (terminal && input.source === 'WEBHOOK' && this.mismatched.has(op.id)) {
-      // même règle que 0114 (US-223) : montant ou devise reçus ≠ ordre, rien n'est appliqué
+      // même règle que 0116 (US-223) : montant ou devise reçus ≠ ordre, rien n'est appliqué
       outcome = 'MISMATCH';
     } else if (
       terminal &&
@@ -222,7 +222,7 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
         (input.source === 'WEBHOOK' &&
           (proof === undefined || !proof.signatureValid || proof.signedAtOutOfTolerance)))
     ) {
-      // même règle que 0055 / 0058 / 0114 : rien n'est appliqué ; l'issue est journalisée (US-223)
+      // même règle que 0055 / 0058 / 0116 : rien n'est appliqué ; l'issue est journalisée (US-223)
       outcome = 'UNPROVEN';
     } else {
       outcome = 'APPLIED';

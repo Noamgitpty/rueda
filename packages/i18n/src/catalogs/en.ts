@@ -1756,6 +1756,45 @@ export const EN_MESSAGES = {
   'web.listing.meet.exact.title': 'Meeting address',
   'web.listing.meet.exact.only': 'Only you can see it: you have a confirmed booking for this car.',
   'web.listing.meet.sameReturn': 'You return the car to the same place.',
+  // US-205 (ADR-138) : conditions de la fiche S03 (annulation, distance, protection, caution)
+  'web.listing.cancel.title': 'Cancellation',
+  'web.listing.cancel.until': 'Free cancellation until {date}.',
+  'web.listing.cancel.lastMinute': {
+    one: 'Free cancellation for {count} hour after booking.',
+    other: 'Free cancellation for {count} hours after booking.',
+  },
+  'web.listing.cancel.lead': {
+    one: 'Free cancellation up to {count} hour before the trip starts.',
+    other: 'Free cancellation up to {count} hours before the trip starts.',
+  },
+  'web.listing.cancel.late': {
+    one: 'If you book less than {count} hour ahead, it’s free for {window} h after booking.',
+    other: 'If you book less than {count} hours ahead, it’s free for {window} h after booking.',
+  },
+  'web.listing.cancel.after':
+    'After that, part of the rental is kept, depending on the trip length.',
+  'web.listing.cancel.policyLink': 'See the cancellation policy',
+  'web.listing.cancel.unavailable':
+    'We couldn’t show the cancellation policy. Check it before you pay.',
+  'web.listing.distance.title': 'Included distance',
+  'web.listing.distance.total': { one: '{count} km included', other: '{count} km included' },
+  'web.listing.distance.extra': 'Each extra km: {amount}',
+  'web.listing.protection.title': 'Protection',
+  'web.listing.protection.insurer':
+    'Protection is sold on behalf of {insurer}, our partner insurer, which provides the cover.',
+  'web.listing.protection.license': '{name} registration: {ref}',
+  'web.listing.protection.broker': 'Insurance broker: {broker}',
+  'web.listing.protection.rc':
+    'Third-party liability included at every level: up to {amount} per event.',
+  'web.listing.protection.basic':
+    'Basic protection is required and already in the final price. You can upgrade it when you book.',
+  'web.listing.protection.deductibles': 'What you pay for covered damage (deductible)',
+  'web.listing.protection.noDeductible': 'No deductible',
+  'web.listing.protection.exclusions': 'What’s not covered',
+  'web.listing.protection.unavailable':
+    'Protection isn’t available for this car yet, so it can’t be booked for now.',
+  'web.listing.protection.error':
+    'We couldn’t load the protection or the deposit for this car. Please try again.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'We can’t find this quote. Go back to the car’s page.',
   'common.quote.rateLimited':

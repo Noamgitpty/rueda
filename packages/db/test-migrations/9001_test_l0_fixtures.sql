@@ -134,7 +134,7 @@ BEGIN
           p_country_code, 'FAKE', p_kind, p_purpose, p_amount_minor, p_currency, 1, p_status,
           pg_catalog.format('hold:%s:%s:op:%s', p_hold_id, p_kind, p_operation_id),
           pg_catalog.format('test:%s', p_operation_id),
-          -- US-223 (0114) : un statut terminal de fixture tient lieu d'une preuve signée reçue
+          -- US-223 (0116) : un statut terminal de fixture tient lieu d'une preuve signée reçue
           CASE WHEN p_status IN ('SUCCEEDED', 'FAILED') THEN 'WEBHOOK_SIGNED' END);
   PERFORM test_fixture.fixture_operation_legs(
     p_operation_id, p_kind, (SELECT h.org_id FROM core.booking_checkout_hold h WHERE h.id = p_hold_id),

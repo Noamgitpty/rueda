@@ -27,6 +27,7 @@ import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { uniqueHex, uniquePlate, uniqueVin } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const NAME = 'Casa de Ana';
@@ -260,12 +261,9 @@ async function listingRow(client: pg.ClientBase, id: string) {
 }
 
 /** Plaque unique de test (2 à 12 caractères A-Z0-9 une fois normalisée). */
-const plate = (): string => `Q${randomBytes(4).toString('hex').toUpperCase()}`;
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'Q');
 /** VIN ISO 3779 de test (17 caractères, ni I, O ni Q). */
-const vin = (): string => {
-  const alphabet = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(17), (b) => alphabet[b % alphabet.length]).join('');
-};
+const vin = (c: pg.ClientBase): Promise<string> => uniqueVin(c);
 
 /** Variante ACTIVE de la graine, commune aux pays (market nul), et une année de production. */
 async function commonVariant(client: pg.ClientBase): Promise<{ id: string; year: number }> {
@@ -297,7 +295,7 @@ async function draft(
   const loc = await location(client, h);
   const common = await commonVariant(client);
   const veh = await vehicle(client, h, loc.id, {
-    plate: plate(),
+    plate: await plate(client),
     variantId: common.id,
     year: common.year,
   });
@@ -496,8 +494,8 @@ describe('critère 1 — plaque ou VIN déjà enregistrés : VEHICLE_PLATE_DUPLI
         const la = (await location(client, a)).id;
         const lb = (await location(client, b)).id;
         const lz = (await location(client, z)).id;
-        const p = `ab${randomBytes(3).toString('hex')}`;
-        const v = vin();
+        const p = `ab${(await uniqueHex(client, 8)).toLowerCase()}`;
+        const v = await vin(client);
         const first = await vehicle(client, a, la, { plate: p, vin: v.toLowerCase() });
         expect(first.outcome).toBe('DONE');
         // stockés normalisés (17 §3.2.3 UQ (country_code, plate))
@@ -521,8 +519,12 @@ describe('critère 1 — plaque ou VIN déjà enregistrés : VEHICLE_PLATE_DUPLI
         );
         // VIN : unique dans tous les pays (un même véhicule physique), espaces et casse compris
         expect(
-          (await vehicle(client, z, lz, { plate: plate(), vin: `${v.slice(0, 8)} ${v.slice(8)}` }))
-            .outcome,
+          (
+            await vehicle(client, z, lz, {
+              plate: await plate(client),
+              vin: `${v.slice(0, 8)} ${v.slice(8)}`,
+            })
+          ).outcome,
         ).toBe('VEHICLE_PLATE_DUPLICATE');
         // la même plaque dans l'autre pays est une autre voiture (UQ par pays)
         expect((await vehicle(client, z, lz, { plate: p })).outcome).toBe('DONE');
@@ -533,7 +535,8 @@ describe('critère 1 — plaque ou VIN déjà enregistrés : VEHICLE_PLATE_DUPLI
         // VIN mal formé (17 caractères : lu comme ISO 3779, qui interdit I, O et Q) : refus dédié
         // (US-124, correctif, ADR-113)
         expect(
-          (await vehicle(client, b, lb, { plate: plate(), vin: 'IOQ45678901234567' })).outcome,
+          (await vehicle(client, b, lb, { plate: await plate(client), vin: 'IOQ45678901234567' }))
+            .outcome,
         ).toBe('VEHICLE_VIN_INVALID');
       });
       // deux créations concurrentes de la même plaque : une seule réussit
@@ -543,7 +546,7 @@ describe('critère 1 — plaque ou VIN déjà enregistrés : VEHICLE_PLATE_DUPLI
           const b = await host(y, c.country);
           const la = (await location(x, a)).id;
           const lb = (await location(y, b)).id;
-          const p = plate();
+          const p = await plate(x);
           const [r1, r2] = await Promise.all([
             vehicle(x, a, la, { plate: p }),
             vehicle(y, b, lb, { plate: p }),
@@ -567,7 +570,7 @@ describe('variante du catalogue : statut et marché du compte d’hôte (ADR-094
         const loc = (await location(client, h)).id;
         const common = await commonVariant(client);
         const ok = await vehicle(client, h, loc, {
-          plate: plate(),
+          plate: await plate(client),
           variantId: common.id,
           year: common.year,
         });
@@ -589,15 +592,16 @@ describe('variante du catalogue : statut et marché du compte d’hôte (ADR-094
         expect(
           (
             await vehicle(client, h, loc, {
-              plate: plate(),
+              plate: await plate(client),
               variantId: common.id,
               year: common.year - 1,
             })
           ).outcome,
         ).toBe('CATALOG_VARIANT_NOT_FOUND');
-        expect((await vehicle(client, h, loc, { plate: plate(), variantId: uuid() })).outcome).toBe(
-          'CATALOG_VARIANT_NOT_FOUND',
-        );
+        expect(
+          (await vehicle(client, h, loc, { plate: await plate(client), variantId: uuid() }))
+            .outcome,
+        ).toBe('CATALOG_VARIANT_NOT_FOUND');
         // variantes propres à un marché, créées dans une transaction annulée (aucune trace)
         await withTestTransaction(client, {}, async (tx) => {
           const mine = await tx.query<{ variant_id: string; year_from: number }>(
@@ -614,7 +618,7 @@ describe('variante du catalogue : statut et marché du compte d’hôte (ADR-094
           expect(
             (
               await vehicle(tx, h, loc, {
-                plate: plate(),
+                plate: await plate(tx),
                 variantId: m.variant_id,
                 year: m.year_from,
               })
@@ -623,7 +627,7 @@ describe('variante du catalogue : statut et marché du compte d’hôte (ADR-094
           expect(
             (
               await vehicle(tx, h, loc, {
-                plate: plate(),
+                plate: await plate(tx),
                 variantId: t.variant_id,
                 year: t.year_from,
               })
@@ -634,7 +638,7 @@ describe('variante du catalogue : statut et marché du compte d’hôte (ADR-094
         const both = await client.query<{ outcome: string }>(
           `SELECT outcome FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, $5, 'Marca', 'Modelo',
                   $6, NULL, 'MANUAL', 5::smallint, 'DIESEL', NULL, NULL, NULL)`,
-          [h.hash, h.org, loc, plate(), common.id, common.year],
+          [h.hash, h.org, loc, await plate(client), common.id, common.year],
         );
         expect(both.rows[0]?.outcome).toBe('VEHICLE_FIELD_REQUIRED');
       });
@@ -933,7 +937,7 @@ describe('critère 3 — prix : trip confirmé inchangé ; pas du prix du pays (
         });
         // lieu aéroport : mode REQUEST refusé (17 §3.2.3, OQ-P2P-10), INSTANT accepté
         const airport = (await location(client, h, { kind: 'AIRPORT' })).id;
-        const v = (await vehicle(client, h, airport, { plate: plate() })).id;
+        const v = (await vehicle(client, h, airport, { plate: await plate(client) })).id;
         expect(
           (await listing(client, h, v, priceOf(c, 300), { mode: 'UNLIMITED' }, false)).outcome,
         ).toBe('REQUEST_MODE_NOT_ALLOWED');
@@ -1030,7 +1034,7 @@ describe('critère 4 — lieu de remise : zone approximative seulement avant con
         expect(Number(own.rows[0]?.geo_lng)).toBeCloseTo(LNG, 6);
         // lieu sans épingle : aucun point public (fail-closed, PROPOSÉ)
         const loc = await location(client, h, { lat: null, lng: null });
-        const veh = await vehicle(client, h, loc.id, { plate: plate() });
+        const veh = await vehicle(client, h, loc.id, { plate: await plate(client) });
         const lst = await listing(client, h, veh.id, priceOf(c, 40));
         await client.query('SELECT test_fixture.us115_set_listing_status($1, $2)', [
           lst.id,
@@ -1058,9 +1062,9 @@ describe('L1-PM-11 — IDOR : l’hôte A contre l’hôte B (lieux, véhicules,
         // B demande le compte de A : FORBIDDEN (commandes), 0 ligne (lectures)
         const bOnA = { hash: b.hash, org: a.org };
         expect((await location(client, bOnA)).outcome).toBe('FORBIDDEN');
-        expect((await vehicle(client, bOnA, a.location, { plate: plate() })).outcome).toBe(
-          'FORBIDDEN',
-        );
+        expect(
+          (await vehicle(client, bOnA, a.location, { plate: await plate(client) })).outcome,
+        ).toBe('FORBIDDEN');
         expect((await listing(client, bOnA, a.vehicle, priceOf(c, 40))).outcome).toBe('FORBIDDEN');
         expect(await pricing(client, bOnA, a.listing, priceOf(c, 1))).toBe('FORBIDDEN');
         expect((await photo(client, bOnA, a.listing)).outcome).toBe('FORBIDDEN');
@@ -1075,10 +1079,10 @@ describe('L1-PM-11 — IDOR : l’hôte A contre l’hôte B (lieux, véhicules,
           expect(rows, fn).toEqual([]);
         }
         // B, sous SON compte, vise les objets de A : même réponse qu'un identifiant inconnu
-        expect((await vehicle(client, b, a.location, { plate: plate() })).outcome).toBe(
+        expect((await vehicle(client, b, a.location, { plate: await plate(client) })).outcome).toBe(
           'LOCATION_NOT_FOUND',
         );
-        expect((await vehicle(client, b, uuid(), { plate: plate() })).outcome).toBe(
+        expect((await vehicle(client, b, uuid(), { plate: await plate(client) })).outcome).toBe(
           'LOCATION_NOT_FOUND',
         );
         expect((await listing(client, b, a.vehicle, priceOf(c, 40))).outcome).toBe(
@@ -1135,8 +1139,11 @@ describe('L1-PM-11 — IDOR : l’hôte A contre l’hôte B (lieux, véhicules,
       const l1 = (await location(client, { hash: p.hash, org: orgs[0] as string })).id;
       // le lieu du premier pays n'est pas un lieu du compte du second
       expect(
-        (await vehicle(client, { hash: p.hash, org: orgs[1] as string }, l1, { plate: plate() }))
-          .outcome,
+        (
+          await vehicle(client, { hash: p.hash, org: orgs[1] as string }, l1, {
+            plate: await plate(client),
+          })
+        ).outcome,
       ).toBe('LOCATION_NOT_FOUND');
       const seen = await client.query<{ location_id: string }>(
         'SELECT location_id FROM core.catalog_host_locations($1, $2)',
@@ -1162,7 +1169,7 @@ describe('L1-PM-11 — IDOR : l’hôte A contre l’hôte B (lieux, véhicules,
           'SUSPENDED',
         ]);
         expect((await location(client, h)).outcome).toBe('HOST_ACCOUNT_SUSPENDED');
-        expect((await vehicle(client, h, h.location, { plate: plate() })).outcome).toBe(
+        expect((await vehicle(client, h, h.location, { plate: await plate(client) })).outcome).toBe(
           'HOST_ACCOUNT_SUSPENDED',
         );
         expect(await pricing(client, h, h.listing, priceOf(c, 50))).toBe('HOST_ACCOUNT_SUSPENDED');

@@ -18,7 +18,7 @@
  * - 17 §7.2 : rétention des scores = décision + `biometric_appeal_retention_days` du pays
  *   (valeur des données CFG ; pays sans valeur : la plus courte, 0 jour, OQ-BR-25).
  */
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
@@ -26,6 +26,7 @@ import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S, setVirtualNow } from '../support/iam.ts';
 import { localDay } from '../support/kyc.ts';
+import { uniquePhone } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const PROVIDER = 'FAKE';
@@ -38,18 +39,6 @@ const cfg = (file: string): unknown =>
       'utf8',
     ),
   );
-
-/** Plan de numérotation des pays : données de configuration (jamais une constante du code). */
-const NUMBERING = new Map(
-  (
-    cfg('countries.json') as {
-      countries: {
-        code: string;
-        phone: { callingCode: string; nationalLength: number; mobilePrefixes: string[] };
-      }[];
-    }
-  ).countries.map((c) => [c.code, c.phone] as const),
-);
 
 /**
  * Décalage UTC courant de chaque pays, en minutes : dernier contrôle tzdata des données CFG
@@ -72,15 +61,6 @@ const RETENTION_DAYS = new Map(
     ).params.find((p) => p.key === 'biometric_appeal_retention_days')?.values ?? {},
   ),
 );
-
-function phoneOf(country: string): string {
-  const p = NUMBERING.get(country);
-  if (p === undefined) throw new Error(`pays sans plan de numérotation : ${country}`);
-  const prefix = p.mobilePrefixes[0] ?? '';
-  let rest = '';
-  while (rest.length < p.nationalLength - prefix.length) rest += String(randomInt(10));
-  return `+${p.callingCode}${prefix}${rest}`;
-}
 
 interface Person {
   readonly userId: string;
@@ -127,7 +107,7 @@ async function person(
 async function verifyPhone(client: pg.ClientBase, p: Person, country: string): Promise<void> {
   await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [
     p.userId,
-    phoneOf(country),
+    await uniquePhone(client, country),
   ]);
 }
 

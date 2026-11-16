@@ -236,7 +236,7 @@ describe('réception des webhooks', () => {
       provider: FAKE_PROVIDER,
       verifyAndParseWebhook: () => ({
         signatureValid: true,
-        // US-223 (0114) : un horodatage signé absent serait hors fenêtre (QUARANTINED)
+        // US-223 (0116) : un horodatage signé absent serait hors fenêtre (QUARANTINED)
         signedAt: new Date(r.stack.clock.now),
         providerEventId: ids[next++] ?? null,
         events: [],

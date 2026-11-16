@@ -28,7 +28,8 @@ export const SPEC_TEXT: Readonly<
     | 'bookCta'
     | 'manualBox'
     | 'holdUntil'
-    | 'priceChanged',
+    | 'priceChanged'
+    | 'kmIncluded',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -101,6 +102,9 @@ export const SPEC_TEXT: Readonly<
     fr: 'Le prix a changé',
     pt: 'O preço mudou',
   },
+  // 19 US-205 critère 2 (« 200 km / j et 3 jours facturables ⇒ « 600 km incluidos » ») ; espagnol
+  // seulement : les autres langues ne sont pas écrites par la spécification
+  kmIncluded: { es: '600 km incluidos' },
   // 10b §4.3, lignes `web.s04.result.verified` et `web.s04.result.retake` (S04, US-105)
   // pt : 10b n'a pas de colonne pt ; texte pt-BR de référence de la story US-105 (DEC-FONDATEUR-18),
   // à reporter dans 10b

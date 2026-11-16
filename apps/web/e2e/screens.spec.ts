@@ -52,6 +52,8 @@ async function signIn(context: BrowserContext, prefix: 'H0st' | 'B00k'): Promise
 
 /** Fiche à boîte manuelle du double (US-208). */
 const MANUAL_ID = '11500000-0000-4000-8000-00000000f004';
+/** Fiche publiée du double sans protection promise (US-205 critère 4, e2e/stub-api.mjs). */
+const NO_COVER_ID = '20500000-0000-4000-8000-00000000f005';
 
 /** Session du double : `G0st<ll>…` voyageur vérifié dont le compte est en langue `<ll>` (US-208). */
 async function signInGuest(context: BrowserContext, language: Language): Promise<void> {
@@ -205,6 +207,25 @@ export const SCREENS: readonly Screen[] = [
       await page.goto(`/listings/${PUBLIC_ID}`);
       await expect(page.locator('[data-testid="meeting-point"]')).toBeVisible();
       await expect(page.locator('[data-testid="gallery-photo"] [role="img"]')).toHaveCount(1);
+    },
+  },
+  // US-205 : conditions de la fiche avec dates (annulation de dernière minute : départ à 09:30 dans
+  // le double) ; fiche publiée sans protection promise ⇒ aucune couverture, pas de « Reservar »
+  {
+    name: 'fiche-derniere-minute',
+    source: 'S03, US-205',
+    open: async (page) => {
+      await page.goto(`/listings/${PUBLIC_ID}?start=2036-12-14T09%3A30&end=2036-12-17T10%3A00`);
+      await expect(page.locator('[data-testid="s03-protection"]')).toBeVisible();
+      await expect(page.locator('[data-testid="gallery-photo"] [role="img"]')).toHaveCount(1);
+    },
+  },
+  {
+    name: 'fiche-sans-protection',
+    source: 'S03, US-205',
+    open: async (page) => {
+      await page.goto(`/listings/${NO_COVER_ID}?start=2036-12-14T10%3A00&end=2036-12-17T10%3A00`);
+      await expect(page.locator('[data-testid="s03-protection"]')).toBeVisible();
     },
   },
   // Checkout en une page (US-208, partie 208b) : S05 du devis figé (boîte automatique, puis

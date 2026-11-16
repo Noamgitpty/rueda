@@ -37,6 +37,7 @@ import {
   timed,
 } from '../support/perf.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 type Tx = pg.ClientBase;
 type Row = Record<string, unknown>;
@@ -157,7 +158,7 @@ async function car(
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
-    [hash, org, loc.rows[0]?.location_id, `C${randomBytes(4).toString('hex').toUpperCase()}`],
+    [hash, org, loc.rows[0]?.location_id, await uniquePlate(c, 'C')],
   );
   const vehicle = veh.rows[0]?.vehicle_id;
   if (!vehicle) throw new Error(`véhicule refusé : ${veh.rows[0]?.outcome}`);

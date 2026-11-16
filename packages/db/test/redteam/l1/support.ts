@@ -22,6 +22,7 @@ import type { StaffActor } from '../../support/golive.ts';
 import { person } from '../../support/kyc.ts';
 import { staff as rlsStaff, staffSessionHash } from '../../support/rls.ts';
 import { elevatedStaff as elevatedRaw, installTestProofKey } from '../../support/staff.ts';
+import { uniquePlate, uniqueVin } from '../../support/unique.ts';
 
 export { COUNTRIES, uuid };
 export type { CountryCase };
@@ -108,11 +109,8 @@ export async function createLocation(
   return { outcome: rows[0]?.outcome ?? '', id: rows[0]?.location_id ?? null };
 }
 
-export const plate = (): string => `R${randomBytes(4).toString('hex').toUpperCase()}`;
-export const vin = (): string => {
-  const alphabet = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(17), (b) => alphabet[b % alphabet.length]).join('');
-};
+export const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'R');
+export const vin = (c: pg.ClientBase): Promise<string> => uniqueVin(c);
 
 /** Année civile en cours dans le fuseau du pays (oracle indépendant de la base). */
 export const localYear = (cc: CountryCase): number =>
@@ -147,8 +145,8 @@ export async function vehicleOf(
       h.hash,
       h.org,
       v.location ?? h.location,
-      v.plate ?? plate(),
-      v.vin === undefined ? vin() : v.vin,
+      v.plate ?? (await plate(c)),
+      v.vin === undefined ? await vin(c) : v.vin,
       variant ?? null,
       v.offCatalog ? (v.make ?? 'Chery') : null,
       v.offCatalog ? (v.model ?? 'Tiggo 2') : null,

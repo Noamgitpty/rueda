@@ -225,6 +225,8 @@ export interface PublicListingView {
   readonly currencyExponent: number;
   readonly mileageMode: string;
   readonly includedKmPerDay: number | null;
+  /** Prix du km supplémentaire de l'hôte (US-205, 16 LST-012) ; `null` : illimité ou illisible. */
+  readonly extraKmPriceMinor: bigint | null;
   readonly instantBook: boolean;
   readonly makeName: string;
   readonly modelName: string;
@@ -275,6 +277,10 @@ export function publicListingOf(reply: ApiResult): PublicListingView | null {
     currencyExponent: exponent,
     mileageMode: String(l['mileageMode']),
     includedKmPerDay: int(l['includedKmPerDay']),
+    extraKmPriceMinor: (() => {
+      const extra = str(l['extraKmPriceMinor']);
+      return extra !== null && MINOR.test(extra) ? BigInt(extra) : null;
+    })(),
     instantBook: l['instantBook'] === true,
     makeName: String(l['makeName']),
     modelName: String(l['modelName']),

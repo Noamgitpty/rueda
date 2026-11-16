@@ -120,6 +120,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-209',
     refs: '16 VER-007 ; OQ-BR-21 ; DEC-FONDATEUR-22 ; ADR-135',
   },
+  {
+    prefix: 'insurer_rc_',
+    file: '0114_config_insurer_rc_params.sql',
+    story: 'US-205',
+    refs: '08 BR-PROT-04 ; 16 PRT-003 / PRT-013 ; OQ-BR-16 ; ADR-138',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

@@ -1853,6 +1853,46 @@ export const FR_MESSAGES = {
   'web.listing.meet.exact.only':
     'Elle n’est visible que par toi : tu as une réservation confirmée de cette voiture.',
   'web.listing.meet.sameReturn': 'Tu rends la voiture au même endroit.',
+  // US-205 (ADR-138) : conditions de la fiche S03 (annulation, distance, protection, caution)
+  'web.listing.cancel.title': 'Annulation',
+  'web.listing.cancel.until': 'Annulation gratuite jusqu’au {date}.',
+  'web.listing.cancel.lastMinute': {
+    one: 'Annulation gratuite pendant {count} heure après la réservation.',
+    other: 'Annulation gratuite pendant {count} heures après la réservation.',
+  },
+  'web.listing.cancel.lead': {
+    one: 'Annulation gratuite jusqu’à {count} heure avant le début du voyage.',
+    other: 'Annulation gratuite jusqu’à {count} heures avant le début du voyage.',
+  },
+  'web.listing.cancel.late': {
+    one: 'Si tu réserves moins de {count} heure à l’avance, elle est gratuite pendant {window} h après la réservation.',
+    other:
+      'Si tu réserves moins de {count} heures à l’avance, elle est gratuite pendant {window} h après la réservation.',
+  },
+  'web.listing.cancel.after':
+    'Ensuite, une partie de la location est retenue selon la durée du voyage.',
+  'web.listing.cancel.policyLink': 'Voir la politique d’annulation',
+  'web.listing.cancel.unavailable':
+    'Nous n’avons pas pu afficher la politique d’annulation. Vérifie-la avant de payer.',
+  'web.listing.distance.title': 'Distance incluse',
+  'web.listing.distance.total': { one: '{count} km inclus', other: '{count} km inclus' },
+  'web.listing.distance.extra': 'Chaque km supplémentaire : {amount}',
+  'web.listing.protection.title': 'Protection',
+  'web.listing.protection.insurer':
+    'La protection est vendue pour le compte de {insurer}, l’assureur partenaire, qui la couvre.',
+  'web.listing.protection.license': 'Agrément de {name} : {ref}',
+  'web.listing.protection.broker': 'Courtier en assurance : {broker}',
+  'web.listing.protection.rc':
+    'Responsabilité civile envers les tiers incluse à tous les niveaux : jusqu’à {amount} par événement.',
+  'web.listing.protection.basic':
+    'La protection de base est obligatoire et déjà comprise dans le prix final. Tu peux la renforcer en réservant.',
+  'web.listing.protection.deductibles': 'Ce que tu paies pour un dommage couvert (franchise)',
+  'web.listing.protection.noDeductible': 'Aucune franchise',
+  'web.listing.protection.exclusions': 'Ce qui n’est pas couvert',
+  'web.listing.protection.unavailable':
+    'Cette voiture n’a pas encore de protection disponible : elle ne peut pas être réservée pour l’instant.',
+  'web.listing.protection.error':
+    'Nous n’avons pas pu charger la protection ni le dépôt de cette voiture. Réessaie.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'Nous ne trouvons pas ce devis. Reviens à la fiche de la voiture.',
   'common.quote.rateLimited':

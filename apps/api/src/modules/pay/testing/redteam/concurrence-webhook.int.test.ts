@@ -109,7 +109,7 @@ interface Scene {
   readonly reference: string;
   readonly idem: string;
   readonly psp: string;
-  /** US-223 (0114) : montant de l'ordre, signé dans les webhooks forgés (sinon MISMATCH). */
+  /** US-223 (0116) : montant de l'ordre, signé dans les webhooks forgés (sinon MISMATCH). */
   readonly amountMinor: string;
   /** Service de réception sur la connexion `app_api` donnée. */
   ingestOn(api: pg.Client): WebhookIngestService;

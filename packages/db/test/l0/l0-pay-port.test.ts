@@ -580,7 +580,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
             [op],
           );
           expect(events.rows.map((e) => e.outcome).sort()).toEqual(
-            // US-223 (0114) : le refus de preuve (UNPROVEN) est journalisé lui aussi
+            // US-223 (0116) : le refus de preuve (UNPROVEN) est journalisé lui aussi
             ['APPLIED', 'APPLIED', 'CONFLICT', 'DUPLICATE', 'STALE', 'UNPROVEN'].sort(),
           );
           // référence PSP contradictoire ⇒ CONFLICT
@@ -626,7 +626,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
       },
     ) =>
       tx.query<{ outcome: string; inbox_id: string | null }>(
-        // US-223 (0114) : horodatage signé absent ⇒ hors fenêtre ; sans `signedAt`, l'heure de la BASE
+        // US-223 (0116) : horodatage signé absent ⇒ hors fenêtre ; sans `signedAt`, l'heure de la BASE
         `SELECT outcome, inbox_id FROM core.payment_cmd_receive_webhook($1, $2, $3, $4,
            CASE WHEN $8::boolean THEN platform.now() ELSE $5::timestamptz END, $6::jsonb, $7::jsonb)`,
         [

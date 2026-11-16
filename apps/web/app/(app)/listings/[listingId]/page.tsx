@@ -17,6 +17,7 @@ import { callApi } from '../../../../account/api-client.ts';
 import { slotPriceOf } from '../../../../account/checkout.ts';
 import type { SlotPriceView } from '../../../../account/checkout.ts';
 import { publicListingOf } from '../../../../account/host-listings.ts';
+import { listingConditionsOf, slotTermsOf } from '../../../../account/listing-terms.ts';
 import type { PublicListingView } from '../../../../account/host-listings.ts';
 import {
   listingExtrasOf,
@@ -42,6 +43,8 @@ import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
 import { BookForm } from './book-form.tsx';
 import { ListingGallery } from './listing-gallery.tsx';
+import { coverageOf, ListingTerms } from './listing-terms.tsx';
+import type { Coverage } from './listing-terms.tsx';
 import pageStyles from './listing.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -216,12 +219,15 @@ function BookingSection({
   listing,
   view,
   price,
+  coverage,
 }: {
   readonly i18n: Translator;
   readonly localeTag: string;
   readonly listing: PublicListingView;
   readonly view: Extract<SlotView, { kind: 'OK' }>;
   readonly price: SlotPriceView | null;
+  /** Couverture promise par la base (US-205 critère 4) ; sinon ni « Reservar » ni « incluida ». */
+  readonly coverage: Coverage;
 }) {
   const t = i18n.t.bind(i18n);
   // devise du devis différente de celle de l'annonce : jamais un total affiché (aucune conversion)
@@ -245,12 +251,19 @@ function BookingSection({
             }}
             days={usable.billableDays}
           />
-          {/* US-226b : protection minimale du pays comprise dans le total (N-141, 16 SRC-042) */}
-          <p className={accountStyles['text']} data-testid="s03-protection-included">
-            {t('common.price.protectionIncluded')}
-          </p>
-          <p className={accountStyles['muted']}>{t('web.listing.total.hint')}</p>
-          {listing.instantBook ? (
+          {/* US-226b : protection minimale du pays comprise dans le total (N-141, 16 SRC-042) ;
+              US-205 : seulement si la base promet la couverture */}
+          {coverage === 'OFFERED' && (
+            <>
+              <p className={accountStyles['text']} data-testid="s03-protection-included">
+                {t('common.price.protectionIncluded')}
+              </p>
+              <p className={accountStyles['muted']}>{t('web.listing.total.hint')}</p>
+            </>
+          )}
+          {coverage === 'UNKNOWN' ? null : coverage === 'NONE' ? (
+            <Banner tone="info">{t('common.quote.insurerContractInactive')}</Banner>
+          ) : listing.instantBook ? (
             <BookForm
               localeTag={localeTag}
               listingId={listing.id}
@@ -280,7 +293,11 @@ function BookingSection({
  *   l'API (préavis du lieu ⇒ `DATES_NOTICE_TOO_SHORT`, créneau pris ⇒ `DATES_UNAVAILABLE` ;
  *   US-204 critère 2) ;
  * - prix final TTC des dates acceptées (devis provisoire de l'API, jamais recalculé par le site) et
- *   « Reservar » vers le checkout S05 (US-208) ;
+ *   « Reservar » vers le checkout S05 (US-208), seulement si la base promet la protection de
+ *   l'assureur partenaire (US-205 critère 4) ;
+ * - conditions (US-205, `listing-terms.tsx`) : annulation gratuite en dates (heure du lieu) ou
+ *   règle du pays, distance incluse sur la période, protection de l'assureur (RC, franchises,
+ *   exclusions du contrat) ou aucune promesse, caution de la plateforme ;
  * - lieu de remise : zone approximative pour tous ; libellé et adresse exacte au SEUL voyageur
  *   d'un trip confirmé et non terminé (US-204 critère 3, L2-PM-29), jugé par la base.
  *
@@ -331,7 +348,7 @@ export default async function ListingPage({
     );
   }
   const title = `${listing.makeName} ${listing.modelName} ${listing.year}`;
-  const [noticeReply, slotReply, meetingReply] = await Promise.all([
+  const [noticeReply, slotReply, meetingReply, conditionsReply] = await Promise.all([
     // US-125 : limite légale connue du pays de l'annonce, pour le voyageur
     callApi('GET', regulatoryNoticesPath(listing.country, 'GUEST'), { ...ctx, sessionToken: null }),
     slot !== null && slot.ok
@@ -341,6 +358,8 @@ export default async function ListingPage({
     ctx.sessionToken !== null
       ? callApi('GET', `/listings/${listing.id}/meeting-point`, ctx)
       : Promise.resolve(null),
+    // US-205 : annulation du pays, caution, protection de l'assureur partenaire (jugée en base)
+    callApi('GET', `/listings/${listing.id}/conditions`, { ...ctx, sessionToken: null }),
   ]);
   const notices = regulatoryNoticesOf(noticeReply, listing.country, 'GUEST');
   const slotView: SlotView | null =
@@ -351,6 +370,8 @@ export default async function ListingPage({
         : { kind: 'REFUSED', key: 'common.search.datesInvalid' };
   const meeting = meetingReply === null ? null : meetingPointOf(meetingReply);
   const price = slotView?.kind === 'OK' && slotReply !== null ? slotPriceOf(slotReply) : null;
+  const slotTerms = slotView?.kind === 'OK' && slotReply !== null ? slotTermsOf(slotReply) : null;
+  const conditions = listingConditionsOf(conditionsReply);
   const total = String(extras.photos.length);
   return (
     <main id={MAIN_ID} tabIndex={-1} className={accountStyles['content']}>
@@ -410,6 +431,14 @@ export default async function ListingPage({
         view={slotView}
       />
 
+      <ListingTerms
+        i18n={i18n}
+        localeTag={localeTag}
+        listing={listing}
+        conditions={conditions}
+        slot={slotTerms}
+      />
+
       {slotView?.kind === 'OK' && (
         <BookingSection
           i18n={i18n}
@@ -417,6 +446,7 @@ export default async function ListingPage({
           listing={listing}
           view={slotView}
           price={price}
+          coverage={coverageOf(conditions, listing)}
         />
       )}
 

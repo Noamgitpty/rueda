@@ -2,7 +2,7 @@
 
 - **Statut** : PROPOSÉ (US-223, partie 223a, agent argent / back-end, claude-opus-5-5, 2026-11-16). Revues exigées (`check-story-reviews.mjs`, story US-223) : architecture, argent, code, qa, sécurité, ux ; argent, RLS, rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur.
 - **Sources** : 19 US-223 ; 16 PAY-034, PAY-002, PAY-006 ; 08 E7 (règles 1, 2, 5, 10), TJ01, TJ08a, TJ09a, TJ09c, TJ10a, TJ15, TJ21 ; 17 §2.5 (étapes 3 à 7, C20), §2.8, §4.3, §4.4 ; ADR-059, ADR-065, ADR-066, ADR-088 (décision 9, « Limites »), ADR-133 ; BOARD : S-02, N-108, N-18, N-13, N-157, N-160, N-161, N-163.
-- **Migration** : `packages/db/migrations/0114_payment_checkout_legs_proof.sql` (à renuméroter **0116** quand US-205a, #184, aura fusionné 0114 et 0115 : la règle de numérotation exige une suite contiguë depuis `origin/main`).
+- **Migration** : `packages/db/migrations/0116_payment_checkout_legs_proof.sql` (0114 à l'origine ; renumérotée à la fusion d'US-205a, #184, qui porte 0114 et 0115).
 
 ## Contexte
 

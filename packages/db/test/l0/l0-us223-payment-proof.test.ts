@@ -1,5 +1,5 @@
 /**
- * US-223 (partie 223a) — preuve d'un paiement par webhook (S-02 ; migration 0114 ; ADR-139 ;
+ * US-223 (partie 223a) — preuve d'un paiement par webhook (S-02 ; migration 0116 ; ADR-139 ;
  * 17 §4.4 points 2 à 8 ; ADR-088 « Limites »), en PA (USD) et en PY (PYG), sous les rôles de
  * production (assertion L0-05 par withRole). Webhooks reçus par la VRAIE commande
  * `core.payment_cmd_receive_webhook` (fixture 9950), dans une transaction ANNULÉE.

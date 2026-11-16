@@ -42,6 +42,8 @@ import {
 import type { StaffActor } from '../support/golive.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 import { auditOf, elevatedStaff, installTestProofKey } from '../support/staff.ts';
+import { uniquePhone } from '../support/unique.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const PROVIDER = 'FAKE';
@@ -86,14 +88,6 @@ function data(country: string): CountryData {
 /** Jour civil (AAAA-MM-JJ) d'aujourd'hui au fuseau du pays. */
 const today = (country: string): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: data(country).timeZone }).format(new Date());
-
-function phoneOf(country: string): string {
-  const p = data(country).phone;
-  const prefix = p.mobilePrefixes[0] ?? '';
-  let rest = '';
-  while (rest.length < p.nationalLength - prefix.length) rest += String(randomInt(10));
-  return `+${p.callingCode}${prefix}${rest}`;
-}
 
 function bornYearsAgo(years: number, extraDays = 0): string {
   const d = new Date();
@@ -169,7 +163,10 @@ async function person(client: pg.ClientBase, country: string): Promise<Person> {
     [uuid(), userId, t.hash, SESSION_TTL_S],
   );
   if (!s.expires_at) throw new Error('session refusée');
-  await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [userId, phoneOf(country)]);
+  await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [
+    userId,
+    await uniquePhone(client, country),
+  ]);
   return { userId, token: t.hash };
 }
 
@@ -787,7 +784,7 @@ describe.each(COUNTRIES)(
         await c.query('SELECT test_fixture.us123_set_submerchant($1, $2)', [org, 'ACTIVE']);
         expect((await autoReview(org, { at: at(delay + 5) })).approved).toBe(1);
         expect(await orgStatus(c, org)).toBe('PENDING_ACTIVATION');
-        const from = farInstant();
+        const from = await farInstant(c);
         const caps = plusMinutes(from, 60);
         const to = plusMinutes(from, 120);
         for (const [status, when] of [
@@ -930,7 +927,7 @@ describe.each(COUNTRIES)(
 
 const NAME = 'Casa de Ana';
 const ADDRESS = 'Calle 50, edificio Sol, apto 12';
-const plate = (): string => `Q${randomBytes(4).toString('hex').toUpperCase()}`;
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'Q');
 
 interface Draft {
   readonly hash: Buffer;
@@ -991,7 +988,17 @@ async function draft(tx: pg.ClientBase, c: CountryCase): Promise<Draft> {
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL,
                                                    'AUTOMATIC', 5::smallint, 'GASOLINE', 42000,
                                                    false, false)`,
-    [t.hash, acc.org_id, loc.location_id, plate(), null, variant.id, null, null, variant.year_from],
+    [
+      t.hash,
+      acc.org_id,
+      loc.location_id,
+      await plate(tx),
+      null,
+      variant.id,
+      null,
+      null,
+      variant.year_from,
+    ],
   );
   expect(veh.outcome).toBe('DONE');
   // classe de valeur fixée (la graine ne classe pas toutes les variantes ; transaction annulée)

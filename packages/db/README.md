@@ -140,6 +140,8 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
 
 **Fixtures de test** (`test-migrations/9001`, base principale seulement) : `test_fixture.place_hold` remplace `cmd_place_hold` (US-023) et `test_fixture.insert_payment_operation` remplace `cmd_start_payment`. `test_fixture.delete_occupancy` force une suppression qu'aucun rôle ne peut faire : elle est refusée par la clé étrangère du hold (`23503`), et `occupancy_trip_guard` couvre aussi `DELETE`. Ces fonctions sont `SECURITY DEFINER` sous `migrator` ; la transaction appelante reste sous `app_api` ou `app_worker`.
 
+**Valeurs uniques de test** (`test-migrations/9999`, BOARD N-186) : `test_fixture.next_unique_serial()` rend un entier jamais rendu dans la base (séquence ; `SECURITY DEFINER` sous `migrator`, EXECUTE à `app_api` et `app_worker`). `test/support/unique.ts` en forme les valeurs soumises à une contrainte d'unicité ou d'exclusion : téléphone (`uniquePhone`, plan de numérotation des données CFG), plaque (`uniquePlate`), VIN ISO 3779 (`uniqueVin`), chiffres (`uniqueDigits`, `uniqueHex`). Les fichiers d'une exécution partagent une base qui garde des milliers de lignes validées : un tirage au hasard (10^7 numéros PA) y collisionnait. Tout nouveau générateur de valeur unique passe par ce module.
+
 ## Audit, clés par sujet et magasin de preuves (US-009 ; 17 §1.7, §3.1.3, §3.2.13 ; ADR-051)
 
 Migrations `0016` à `0021`, schéma Bêta `core` :
@@ -734,6 +736,14 @@ Migrations `0112_booking_risk_checkout_controls` et `0113_config_foreign_license
 - **Droits ajoutés** : `kyc_cmd_owner` lit `created_at` du compte ; `cmd_hold_owner` lit `severity` des règles, la clé `min_driver_age` (politique `cmd_hold_risk_read`) et écrit une évaluation `HOLD` jamais décidée (politique `cmd_hold_risk_hold_ins`).
 - **Preuves** : `test/l0/l0-us209-risk-checkout.test.ts` (PA USD, PY PYG : 24 ans refusé et 25 ans le jour du début accepté en Premium ; vérification absente, permis échu, consentement refusé ; entrée 01/11 et fin 31/01 ⇒ revue, fin 30/01 ⇒ aucun signal ; permis étranger sans déclaration ⇒ revue ; REVIEW_BEFORE_CHARGE ⇒ hold de 120 min et `BOOKING_UNDER_REVIEW` au paiement, PAY_THEN_REVIEW ⇒ hold de 10 min en file ; une règle faible ⇒ `AUTO_OK` hors file ; paiement refusé après hausse de l'âge minimum, refus du consentement et restriction ; conversion refusée après restriction ; droits). `l0-us208-checkout.test.ts` approuve désormais le conducteur de ses scénarios (fixture 9967).
 
+## Conditions de la fiche et conditions du contrat de l'assureur (US-205 ; 16 LST-010, LST-012, LST-013, PRT-003 / PRT-013 ; 08 BR-CXL-01, BR-PROT-04 ; ADR-138)
+
+Migrations `0114_config_insurer_rc_params` (générée : `insurer_rc_minimum`, valeurs de test À DÉCIDER PA / PY) et `0115_catalog_public_terms`, fixture `9973_test_us205_terms_fixtures.sql` (contrat d'assureur avec ses conditions, changement de RC, minimum du pays, statut de l'assureur ou du courtier ; transactions annulées).
+
+- **Contrat de l'assureur** : colonnes `broker_id`, `currency`, `rc_amount_minor`, `deductibles` (`BASICA`, `ESTANDAR`, `TOTAL`), `exclusions` (es, en, fr, pt-BR), toutes ou aucune (`settlement_insurer_contract_terms_complete`) ; garde `settlement_insurer_contract_terms_guard` : RC sous le minimum du pays ou minimum absent ⇒ `POLICY_RC_BELOW_MINIMUM` ; devise autre que celle du pays ⇒ `INSURER_CONTRACT_CURRENCY_MISMATCH` ; conditions posées immuables ⇒ `INSURER_CONTRACT_TERMS_IMMUTABLE`. Aucune commande ne les écrit.
+- **Lecture** `core.catalog_public_terms(annonce, départ)` (`SECURITY DEFINER`, `catalog_cmd_owner`, EXECUTE `app_api` seul) ; droits ajoutés à `catalog_cmd_owner` : `name`, `kind`, `license_ref` de l'assureur, colonnes des conditions du contrat, politique `catalog_cmd_terms_read` (`free_cancel_lead`, `last_minute_threshold`, `insurer_rc_minimum`).
+- **Preuves** : `test/l0/l0-us205-listing-terms.test.ts` (PA USD, PY PYG : départ le 14/01 10:00 réservé 5 j avant ⇒ 13/01 10:00 ; 20 h ⇒ dernière minute ; 25 h pile ⇒ hors dernière minute ; distance ; interrupteur fermé ⇒ rien de promis ; contrat recopié ; véhicule hors contrat, assureur ou courtier inactif ⇒ rien ; RC sous le minimum refusée, au minimum acceptée, minimum relevé ⇒ plus rien ; immuabilité ; devise ; caution ; colonnes ; 42501 pour `app_anon`, `app_worker` et la lecture directe du contrat).
+
 ## Rôles (17 §2.3, ADR-035)
 
 | Rôle                                                                                                                                                                                                                                                                                                                | Attributs                                                                                                | Usage                                                                             |
@@ -814,7 +824,7 @@ Migration `0100_pricing_quote`, fixtures `test-migrations/9993_test_us202_quote_
 
 ## Paiement par jambes au checkout et preuve par webhook (US-223 partie 223a ; 16 PAY-034 ; 08 E7 ; 17 §2.5, §4.4 ; ADR-139)
 
-Migration `0114_payment_checkout_legs_proof` (à renuméroter 0116 après US-205a), fixture `9969_test_us223_payment_fixtures.sql` (devis engagé d'un hold de fixture sans interrupteur, relecture des versions de prix, jambe en double) ; fixtures 9800 (conditions de test, sinon la vraie lecture) et 9940 (webhook signé avec montant et devise) mises à jour.
+Migration `0116_payment_checkout_legs_proof` (0114 à l'origine, renumérotée à l'intégration d'US-205a), fixture `9969_test_us223_payment_fixtures.sql` (devis engagé d'un hold de fixture sans interrupteur, relecture des versions de prix, jambe en double) ; fixtures 9800 (conditions de test, sinon la vraie lecture) et 9940 (webhook signé avec montant et devise) mises à jour.
 
 - **Conditions de paiement** : `core.booking_checkout_capture_terms` (SECURITY DEFINER, `cmd_hold_owner`, EXECUTE `app_worker`) lit le devis engagé (`booking_checkout_acceptance`), colonnes rejouées seulement ; `core.booking_hold_payment_terms` (0040) la lit désormais.
 - **Commandes du voyageur** (`cmd_hold_owner`, EXECUTE `app_api`) : `core.booking_cmd_checkout_pay` (T1), `core.booking_cmd_checkout_record_order` (T2), lecture `core.booking_checkout_payment` ; issues `AUTH_REQUIRED`, `HOLD_NOT_FOUND`, `PAYMENT_UNAVAILABLE`, puis celles de T1 / T2.

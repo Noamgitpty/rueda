@@ -7,7 +7,7 @@
  * | --------------------- | ------------------------------------------ | --------------------------------------------------------- |
  * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040) |
  * | `webhook_ingest`      | 10 s (US-223, ADR-139)                     | `WebhookProcessor` de PAY sur `PgWebhookWorkStore` : webhooks reçus rattachés et statuts appliqués par `core.payment_cmd_apply_operation_status` (preuve signée seulement ; aucune lecture du PSP : aucun adaptateur dans le travailleur avant le lot C) |
- * | `booking_conversion`  | 10 s (US-223, ADR-139)                     | `core.booking_conversion_due` (0114) puis, une opération par transaction, `core.booking_convert_payment` (preuve exigée) ou `core.booking_record_payment_failure` (0041) |
+ * | `booking_conversion`  | 10 s (US-223, ADR-139)                     | `core.booking_conversion_due` (0116) puis, une opération par transaction, `core.booking_convert_payment` (preuve exigée) ou `core.booking_record_payment_failure` (0041) |
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
  * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
  * | `reconciliation`      | 24 h (ADR-087)                             | contrôles de rapprochement de l'argent, lecture seule (FIN, US-047) ; alerte `FIN_MONEY_RECONCILIATION` |
@@ -237,7 +237,7 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
 
   // US-223 : paiements prouvés convertis en trips (ou refus reçus), une opération par transaction
   // (verrous voyageur → véhicule d'un seul hold, handoff US-024) ; la base refuse un paiement sans
-  // preuve rattachée (NOT_PROVEN, migration 0114).
+  // preuve rattachée (NOT_PROVEN, migration 0116).
   registry.registerPeriodic(
     BOOKING_CONVERSION_WORKER,
     d.bookingConversionPeriodSeconds,

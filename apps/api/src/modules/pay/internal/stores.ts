@@ -44,7 +44,7 @@ export type StatusSource = 'API_RESPONSE' | 'WEBHOOK' | 'POLL' | 'MANUAL_OPS';
  * `UNPROVEN` (US-049, 0055, 0058) : statut terminal sans preuve admise par la base (source WEBHOOK
  * sans webhook signé reçu par la commande, dans la fenêtre et rattaché à l'opération ; source
  * MANUAL_OPS, qu'aucune action du staff journalisée ne prouve encore ; POLL ou API_RESPONSE d'un
- * compte LIVE, US-223) ; rien n'est appliqué. `MISMATCH` (US-223, 0114) : webhook signé SUCCEEDED
+ * compte LIVE, US-223) ; rien n'est appliqué. `MISMATCH` (US-223, 0116) : webhook signé SUCCEEDED
  * dont le montant ou la devise diffèrent de l'ordre ; rien n'est appliqué. Les deux sont journalisés.
  */
 export type ApplyOutcome =

@@ -349,7 +349,7 @@ describe.each(byCountry)(
         const owner = await hostOf(tx, country);
         const claimant = await hostOf(tx, country);
         await tx.query('SELECT test_fixture.us109_subject_key($1)', [claimant.userId]);
-        const p = plate();
+        const p = await plate(tx);
         expect((await vehicleOf(tx, owner, cc, { plate: p })).outcome).toBe('DONE');
         const opened = await first<{ outcome: string; claim_id: string }>(
           tx,
@@ -446,7 +446,7 @@ describe.each(byCountry)(
         await tx.query('SELECT test_fixture.us109_subject_key($1)', [attacker.userId]);
         const plates: string[] = [];
         for (let i = 0; i <= max; i += 1) {
-          const p = plate();
+          const p = await plate(tx);
           plates.push(p);
           expect((await vehicleOf(tx, victim, cc, { plate: p })).outcome).toBe('DONE');
         }

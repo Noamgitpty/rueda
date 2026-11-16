@@ -36,6 +36,7 @@ import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { elevatedStaff as elevatedRaw, installTestProofKey } from '../support/staff.ts';
+import { uniquePlate, uniqueVin } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const byCountry = COUNTRIES.map((c) => [c.country, c.currency, c] as const);
@@ -170,11 +171,8 @@ async function host(
   return { userId, hash: t.hash, org, location };
 }
 
-const plate = (): string => `D${randomBytes(4).toString('hex').toUpperCase()}`;
-const vin = (): string => {
-  const alphabet = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(17), (b) => alphabet[b % alphabet.length]).join('');
-};
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'D');
+const vin = (c: pg.ClientBase): Promise<string> => uniqueVin(c);
 
 interface VehicleSpec {
   readonly year: number;
@@ -201,8 +199,8 @@ async function vehicle(
       h.hash,
       h.org,
       h.location,
-      v.plate ?? plate(),
-      v.vin === undefined ? vin() : v.vin,
+      v.plate ?? (await plate(client)),
+      v.vin === undefined ? await vin(client) : v.vin,
       variant ?? null,
       v.offCatalog ? 'Chery' : null,
       v.offCatalog ? 'Tiggo 2' : null,
@@ -711,14 +709,16 @@ describe('critère 1 — titre : l’hôte déclare être propriétaire ou autor
         const v = await vehicle(client, h, country, { year: 2022, vin: null });
         expect(await declare(client, h, v.id)).toBe('DONE');
         expect((await submitVehicle(client, h, v.id)).reasons).toEqual(['VEHICLE_FIELD_REQUIRED']);
-        const taken = vin();
+        const taken = await vin(client);
         const other = await vehicle(client, h, country, { year: 2022, vin: taken });
         expect(other.outcome).toBe('DONE');
         expect(await declare(client, h, v.id, { vin: taken })).toBe('VEHICLE_PLATE_DUPLICATE');
-        const mine = vin();
+        const mine = await vin(client);
         expect(await declare(client, h, v.id, { vin: mine.toLowerCase() })).toBe('DONE');
         expect((await vehicleRow(client, v.id))?.vin).toBe(mine);
-        expect(await declare(client, h, v.id, { vin: vin() })).toBe('VEHICLE_FIELD_REQUIRED');
+        expect(await declare(client, h, v.id, { vin: await vin(client) })).toBe(
+          'VEHICLE_FIELD_REQUIRED',
+        );
         expect((await submitVehicle(client, h, v.id)).outcome).toBe('ELIGIBLE');
       });
     },
@@ -1168,8 +1168,8 @@ describe('N-61 — plaque ou VIN pris par un autre hôte : contestation, libéra
       await withRole('app_api', async (client) => {
         const a = await host(client, country);
         const b = await host(client, country, ['Luis', 'Gómez']);
-        const p = plate();
-        const v = vin();
+        const p = await plate(client);
+        const v = await vin(client);
         const av = await vehicle(client, a, country, { year: 2022, plate: p, vin: v });
         expect(av.outcome).toBe('DONE');
         const lst = await client.query<{ listing_id: string }>(
@@ -1188,7 +1188,7 @@ describe('N-61 — plaque ou VIN pris par un autre hôte : contestation, libéra
               [bb.hash, bb.org, pl, vn],
             )
             .then((r) => r.rows[0]?.outcome);
-        expect(await permitted(b, plate(), null)).toBe('CLAIM_NOT_NEEDED');
+        expect(await permitted(b, await plate(client), null)).toBe('CLAIM_NOT_NEEDED');
         expect(await permitted(a, p, null)).toBe('CLAIM_NOT_NEEDED');
         expect(await permitted(b, p.toLowerCase(), null)).toBe('OK');
         const open = (bb: Host, pl: string) =>
@@ -1309,7 +1309,7 @@ describe('N-61 — plaque ou VIN pris par un autre hôte : contestation, libéra
       await withRole('app_api', async (client) => {
         const a = await host(client, country);
         const b = await host(client, country);
-        const p = plate();
+        const p = await plate(client);
         const av = await vehicle(client, a, country, { year: 2022, plate: p });
         const c1 = await client.query<{ outcome: string; claim_id: string }>(
           'SELECT * FROM core.catalog_cmd_open_vehicle_claim($1, $2, $3, NULL, $4, $5, $6, $7)',
@@ -1345,7 +1345,7 @@ describe('N-61 — garde-fous de la libération (revue sécurité US-124, consta
         const a = await host(client, country);
         const b = await host(client, country);
         const d = await host(client, country);
-        const p = plate();
+        const p = await plate(client);
         const av = await vehicle(client, a, country, { year: 2022, plate: p });
         const guest = await host(client, country);
         const day = 86_400_000;
@@ -1381,7 +1381,7 @@ describe('N-61 — garde-fous de la libération (revue sécurité US-124, consta
         ).toEqual([]);
 
         // TÉMOIN : le même véhicule sans réservation à venir (autre véhicule, trip déjà fini)
-        const q = plate();
+        const q = await plate(client);
         const free = await vehicle(client, a, country, { year: 2022, plate: q });
         await client.query(
           'SELECT test_fixture.rls_insert_trip($1, $2, $3, $4, $5, $6, $7, $8, $9)',

@@ -1,5 +1,5 @@
 /**
- * US-223 (partie 223a) — paiement du hold du checkout par jambes (migration 0114, ADR-139), sous
+ * US-223 (partie 223a) — paiement du hold du checkout par jambes (migration 0116, ADR-139), sous
  * les rôles de production (assertion L0-05 : `withRole`), en USD (PA) et en PYG sans décimale (PY).
  * Personnes, sessions, devis figés et checkout par les VRAIES commandes (US-208, US-209, US-226) ;
  * interrupteurs `p2p_private_hosts_enabled` et `insurer_contract_active` ouverts par la procédure à

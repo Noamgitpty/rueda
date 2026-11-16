@@ -1,4 +1,4 @@
--- 0114 — PAY / AVL / PRC / STL : paiement par jambes au checkout, Kmino marchand de référence,
+-- 0116 — PAY / AVL / PRC / STL : paiement par jambes au checkout, Kmino marchand de référence,
 -- preuve par webhook (partie serveur 223a).
 -- US-223 ; 19 US-223 ; 16 PAY-034, PAY-002, PAY-006 ; 08 E7 (règles 1, 2, 5, 10), BR-PAY-01,
 -- BR-BOOK-10, BR-TRUST-02, TJ01, TJ08a, TJ09a, TJ09c, TJ10a ; 17 §2.5 (étapes 3 à 7, C6, C8, C14,

@@ -35,6 +35,7 @@ import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { placeName } from '../support/names.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 type Tx = pg.ClientBase;
 type Row = Record<string, unknown>;
@@ -132,7 +133,7 @@ async function car(c: Tx, cc: CountryCase, photos = 0): Promise<Car & { photoIds
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
-    [host.hash, org, location, `C${randomBytes(4).toString('hex').toUpperCase()}`],
+    [host.hash, org, location, await uniquePlate(c, 'C')],
   );
   const vehicle = veh.rows[0]?.vehicle_id;
   if (!vehicle) throw new Error('véhicule refusé');

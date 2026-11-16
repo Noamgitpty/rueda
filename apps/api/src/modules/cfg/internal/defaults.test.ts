@@ -122,6 +122,7 @@ const EXPECTED_TO_DECIDE: Readonly<Record<string, string>> = {
   host_penalty: '16 ADM-031 ; 17 statut OQ-BR-24',
   host_share_pct: '16 ADM-031 (ESTÁNDAR 75 %) ; 17 statut OQ-P2P-11',
   incidental_charge_deadline_days: '17 statut J-ADM-031',
+  insurer_rc_minimum: '22 OQ-BR-16 (08 BR-PROT-04 : ≥ 100 000 USD, US-205)',
   insurer_premium_share: '17 statut contrat d’assureur',
   insurer_roadside_share: '17 statut contrat d’assureur',
   insurer_settlement_at: '17 statut contrat d’assureur',

@@ -33,6 +33,7 @@ import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts
 import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 type Tx = pg.ClientBase;
 type Row = Record<string, unknown>;
@@ -653,12 +654,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
                                                            'Modelo', 2021, NULL, 'AUTOMATIC',
                                                            5::smallint, 'GASOLINE', 42000, false,
                                                            false)`,
-            [
-              h.hash,
-              org,
-              loc.rows[0]?.location_id,
-              `C${randomBytes(4).toString('hex').toUpperCase()}`,
-            ],
+            [h.hash, org, loc.rows[0]?.location_id, await uniquePlate(tx, 'C')],
           );
           const vehicle = veh.rows[0]?.vehicle_id;
           if (!vehicle) throw new Error('véhicule refusé');

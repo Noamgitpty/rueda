@@ -26,7 +26,7 @@
 --   test_fixture.us024_force_operation_status(uuid, text),
 --   test_fixture.us024_approve_review(uuid, integer), test_fixture.us024_psp_account_of(text, text,
 --   text), test_fixture.us024_force_payment_attempts(uuid, integer) ; DROP TABLE test_fixture.us024_hold_terms ;
---   réappliquer la définition de 0114 de core.booking_hold_payment_terms (US-223) ;
+--   réappliquer la définition de 0116 de core.booking_hold_payment_terms (US-223) ;
 --   REVOKE EXECUTE ON FUNCTION core.booking_checkout_capture_terms(uuid) FROM migrator.
 
 CREATE TABLE test_fixture.us024_hold_terms (
@@ -82,7 +82,7 @@ AS $fn$
     FROM test_fixture.us024_hold_terms t
    WHERE t.hold_id = p_hold_id
   UNION ALL
-  -- US-223 (0114) : hold sans conditions de test ⇒ la VRAIE lecture du devis engagé au checkout
+  -- US-223 (0116) : hold sans conditions de test ⇒ la VRAIE lecture du devis engagé au checkout
   SELECT c.amount_minor, c.currency, c.legs, c.scheduled_start, c.scheduled_end, c.timezone
     FROM core.booking_checkout_capture_terms(p_hold_id) AS c
    WHERE NOT EXISTS (SELECT 1 FROM test_fixture.us024_hold_terms t2 WHERE t2.hold_id = p_hold_id)
@@ -90,7 +90,7 @@ $fn$;
 
 COMMENT ON FUNCTION core.booking_hold_payment_terms(uuid) IS
   'VERSION DE TEST (test-migrations/9800) : registre des conditions de paiement de test, sinon le '
-  'devis engagé au checkout (core.booking_checkout_capture_terms, 0114).';
+  'devis engagé au checkout (core.booking_checkout_capture_terms, 0116).';
 
 -- US-223 : la version de test (SECURITY DEFINER sous migrator) lit la vraie fonction ; seul son
 -- propriétaire accorde EXECUTE
@@ -177,7 +177,7 @@ BEGIN
           pg_catalog.format('hold:%s:%s:x%s', p_hold_id, p_kind, p_operation_id),
           pg_catalog.format('hold:%s:%s:x%s', p_hold_id, p_kind, p_operation_id),
           'fake-x-' || p_operation_id::text,
-          -- US-223 (0114) : paiement de fixture SUCCEEDED = preuve signée déjà reçue
+          -- US-223 (0116) : paiement de fixture SUCCEEDED = preuve signée déjà reçue
           CASE WHEN p_status = 'SUCCEEDED' THEN 'WEBHOOK_SIGNED' END);
   INSERT INTO core.payment_payment_operation_leg (operation_id, leg, org_id, trip_id, country_code,
                                                   amount_minor)
@@ -193,7 +193,7 @@ CREATE FUNCTION test_fixture.us024_force_operation_status(p_operation_id uuid, p
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 BEGIN
-  -- US-223 (0114) : statut corrigé après lecture faisant foi : tient lieu d'une preuve
+  -- US-223 (0116) : statut corrigé après lecture faisant foi : tient lieu d'une preuve
   UPDATE core.payment_payment_operation
      SET status = p_status,
          proof_type = CASE WHEN p_status IN ('SUCCEEDED', 'FAILED')
