@@ -817,8 +817,8 @@
       "signature": "core.support_close_review_item(uuid,text,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": ["kyc_cmd_owner"],
-      "story": "US-109, US-123, US-106"
+      "execute": ["cmd_hold_owner", "kyc_cmd_owner"],
+      "story": "US-109, US-123, US-106, US-209"
     },
     {
       "signature": "core.catalog_cmd_request_addition(bytea,uuid,uuid,text,text,text)",

@@ -9,7 +9,8 @@
 --   1. `us209b_review` : relecture brute de l'évaluation d'un hold, de son élément RISK_BOOKING, de
 --      l'occupation et des événements du hold (aucun rôle applicatif ne les lit) : les attendus
 --      viennent de 16, 17 et 19, jamais de cette relecture ;
---   2. `us209b_manual_action` : ligne manual_action d'une demande (motif, saisie, issue).
+--   2. `us209b_manual_action` : ligne manual_action d'une demande (motif, saisie, issue) ;
+--   3. `us209b_insert_assessment` : évaluation d'un hold d'un pays (résolveur RISK_ASSESSMENT).
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1).
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us209b_* (voir la liste des droits en fin de fichier).
@@ -63,9 +64,26 @@ AS $fn$
    WHERE m.id = p_id
 $fn$;
 
+-- évaluation d'un hold (sujet sans hold derrière) d'un pays, pour le résolveur RISK_ASSESSMENT
+-- du cadre d'US-101 (l0-us101-console-actions)
+CREATE FUNCTION test_fixture.us209b_insert_assessment(p_country text)
+  RETURNS uuid
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.risk_assessment (id, subject_type, subject_id, country_code, rules_fired, score,
+                                    decision, dedupe_key, explanation)
+  SELECT x.id, 'HOLD', x.subject, p_country,
+         '[{"code": "ACCOUNT_UNDER_24H", "version": 1, "signal": "ACCOUNT_AGE"}]'::jsonb, 25,
+         'AUTO_OK', 'CHECKOUT_RISK:' || x.subject::text, 'CHECKOUT_RISK_AUTO_OK'
+    FROM (SELECT pg_catalog.gen_random_uuid() AS id, pg_catalog.gen_random_uuid() AS subject) AS x
+  RETURNING id
+$fn$;
+
 REVOKE ALL ON FUNCTION test_fixture.us209b_review(uuid), test_fixture.us209b_events(uuid),
-  test_fixture.us209b_manual_action(uuid)
-  FROM PUBLIC;
+  test_fixture.us209b_manual_action(uuid),
+  test_fixture.us209b_insert_assessment(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us209b_review(uuid), test_fixture.us209b_events(uuid),
-  test_fixture.us209b_manual_action(uuid)
-  TO app_api;
+  test_fixture.us209b_manual_action(uuid),
+  test_fixture.us209b_insert_assessment(text) TO app_api;

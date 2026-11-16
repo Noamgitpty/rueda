@@ -729,8 +729,16 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
         );
         // US-106 (0076) : vérification d'identité courante d'une personne inscrite dans le pays
         const verification = await opened(client, country);
+        // US-209 (0117) : évaluation d'un hold du pays (fixture 9968)
+        const assessment = (
+          await client.query<{ id: string }>(
+            'SELECT test_fixture.us209b_insert_assessment($1) AS id',
+            [country],
+          )
+        ).rows[0]?.id;
         const subjects: Record<string, string> = {
           IDENTITY_VERIFICATION: verification.verificationId,
+          RISK_ASSESSMENT: assessment ?? '',
           USER_ACCOUNT: person,
           TRIP: trip(i),
           ORGANIZATION: cw?.orgA ?? '',

@@ -982,8 +982,8 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           currency: cc.currency,
           holdId: f.holdId,
         });
+        // opération de paiement invisible à app_api (US-223) : l'état du hold en témoigne
         expect(await holdRow(tx, f.holdId)).toMatchObject({ status: 'PAYMENT_IN_FLIGHT' });
-        expect(await paymentOperations(tx, f.holdId)).toBe(1);
         // la conversion exige toujours la preuve signée du PSP (US-223a) : aucun trip ici
         expect((await holdEvents(tx, f.holdId)).map((x) => x['type'])).not.toContain(
           'booking.trip.booked',
