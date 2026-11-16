@@ -99,7 +99,6 @@ export const EN_PROTO = {
   },
   'web.s04.result.glare':
     "There's glare on your license photo. Tilt it slightly and avoid direct light.",
-  'web.s05.protection.title': 'Choose your protection',
   'web.s05.contract': 'I accept the rental agreement with {host_name}',
   'web.s05.mitConsent':
     'I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof.',

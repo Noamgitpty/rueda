@@ -1995,4 +1995,43 @@ export const FR_MESSAGES = {
   'web.s05.doc.GEO_TERMS': 'Zones de circulation',
   'web.s05.back': 'Retour à la voiture',
   'web.legal.backCheckout': 'Retour à ta réservation',
+  // US-226 partie 226b (ADR-137) : choix de la protection sur S05, mention « protection de base
+  // incluse » des cartes et de la fiche, plan de gains de l'hôte (A11)
+  'web.s05.protection.title': 'Choisis ta protection',
+  'web.s05.protection.intro':
+    'Chaque voyage comprend au moins la protection de base. Tu peux en choisir une plus complète : le prix se met à jour avant la réservation.',
+  'web.s05.protection.legend': 'Niveau de protection',
+  'web.s05.protection.price': '{daily} par jour · {total} au total',
+  'web.s05.protection.minAge': 'Disponible dès {age} ans.',
+  'web.s05.protection.ageNeeded': 'Indique ton âge pour la choisir.',
+  'web.s05.protection.apply': 'Mettre à jour le prix',
+  'web.s05.protection.unchanged':
+    'Choisis une autre protection ou change ton âge pour mettre à jour le prix.',
+  'web.s05.protection.updated':
+    'Protection mise à jour. Vérifie le nouveau total avant de réserver.',
+  'web.s05.age.label': 'Âge du conducteur',
+  'web.s05.age.hint':
+    'Il sert seulement à afficher les protections possibles. Indique l’âge réel de la personne qui conduit.',
+  'web.s05.age.invalid': 'Écris ton âge en années, entre {min} et {max}.',
+  'common.price.protectionIncluded': 'Protection de base incluse',
+  'web.a11.plan.open': 'Plan de gains',
+  'web.a11.plan.title': 'Plan de gains',
+  'web.a11.plan.intro':
+    'Ton plan fixe la part du prix de chaque voyage que tu reçois. Le voyageur paie à part les frais du voyage et sa protection.',
+  'web.a11.plan.current': 'Plan actuel : {plan}',
+  'web.a11.plan.option': '{plan} · tu reçois {share} % du prix',
+  'web.a11.plan.default': 'Attribué par défaut. Tu peux le changer quand tu veux.',
+  'web.a11.plan.chosen': 'Choisi par toi. Tu peux le changer quand tu veux.',
+  'web.a11.plan.newTripsOnly':
+    'Un changement s’applique aux voyages réservés à partir de maintenant ; les voyages déjà réservés gardent leur plan.',
+  'web.a11.plan.only': 'Pour l’instant, c’est le seul plan proposé là où tu publies ta voiture.',
+  'web.a11.plan.choose': 'Choisis ton plan',
+  'web.a11.plan.save': 'Enregistrer le plan',
+  'web.a11.plan.name.ESTANDAR': 'Standard',
+  'web.a11.plan.name.other': 'Plan à {share} %',
+  'web.a11.coverage.title': 'Ce que couvre ton plan',
+  'web.a11.coverage.period':
+    'Quand la protection de l’assureur partenaire sera active là où tu publies, ta voiture sera couverte pendant la période de chaque réservation.',
+  'web.a11.coverage.contract':
+    'Les exclusions et ta franchise viennent du contrat de l’assureur partenaire : nous les afficherons ici, mot pour mot, avant que tu puisses recevoir des voyages.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

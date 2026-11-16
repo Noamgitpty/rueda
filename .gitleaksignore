@@ -10,3 +10,14 @@
 # publique et versionnée, aucun secret) pris pour une clé d'API à cause du nom KEYS_FORMAT,
 # renommé ESCROW_FORMAT au commit suivant.
 827cf4e737e60a4ddd19d67a84a2811525cd9ae2:packages/db/src/portability/keys.ts:generic-api-key:26
+# US-226b : clé de catalogue `web.s05.age.invalid` (identifiant de texte public, aucun secret)
+# écrite après `key:` / `e.key ===` ; remplacée par la constante AGE_INVALID_MESSAGE au commit
+# suivant, puis sans annotation de type `MessageKey` (faux positifs generic-api-key).
+acc233c171f9b15ea44551008595f96763ef2a7c:apps/web/app/(app)/checkout/[quoteId]/protection-form.tsx:generic-api-key:89
+acc233c171f9b15ea44551008595f96763ef2a7c:apps/web/account/checkout.test.ts:generic-api-key:390
+acc233c171f9b15ea44551008595f96763ef2a7c:apps/web/account/checkout.ts:generic-api-key:462
+1873a3a475a61de60872c25c76bba82bd90ce4d4:apps/web/account/checkout.ts:generic-api-key:101
+# US-226b, cycle 2 : même clé de catalogue publique dans un test d'action (remplacée par la
+# constante au commit suivant) et citée par la revue sécurité qui justifie les lignes ci-dessus.
+f28e58c7f73ac5b0b225d988181116ebb3153d35:apps/web/app/(app)/checkout/actions.test.ts:generic-api-key:195
+020b07c09cf3eb9afa82158e01cffeb8a8acca4e:docs/team/reviews/US-226/securite-2026-11-16c.md:generic-api-key:10

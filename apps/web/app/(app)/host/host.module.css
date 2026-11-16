@@ -75,6 +75,13 @@
   accent-color: var(--color-primary);
 }
 
+/* US-226b : niveau de protection refusé (S05) grisé ; sa raison reste lisible dans le libellé */
+.choice:has(input:disabled) {
+  border-style: dashed;
+  background: var(--color-surface-sunken);
+  cursor: not-allowed;
+}
+
 .field {
   display: grid;
   gap: var(--space-2);

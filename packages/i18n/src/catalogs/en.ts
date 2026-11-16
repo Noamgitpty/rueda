@@ -1800,7 +1800,7 @@ export const EN_MESSAGES = {
   'common.quote.expired': 'This price is no longer valid. Here is the updated price.',
   'common.quote.lineNotSupported': 'This option can’t be booked yet. Remove it to continue.',
   'common.quote.protectionRequired':
-    'Choose a protection to continue: every trip includes at least Basic protection.',
+    'Choose a protection to continue: every trip includes at least basic protection.',
   'common.quote.protectionNotEligible':
     'This protection isn’t available for this driver or this car. Choose another one.',
   'common.quote.insurerContractInactive':
@@ -1892,4 +1892,42 @@ export const EN_MESSAGES = {
   'web.s05.doc.GEO_TERMS': 'Where you can drive',
   'web.s05.back': 'Back to the car',
   'web.legal.backCheckout': 'Back to your booking',
+  // US-226 partie 226b (ADR-137) : choix de la protection sur S05, mention « protection de base
+  // incluse » des cartes et de la fiche, plan de gains de l'hôte (A11)
+  'web.s05.protection.title': 'Choose your protection',
+  'web.s05.protection.intro':
+    'Every trip includes at least basic protection. You can choose a more complete one: the price updates before you book.',
+  'web.s05.protection.legend': 'Protection level',
+  'web.s05.protection.price': '{daily} per day · {total} in total',
+  'web.s05.protection.minAge': 'Available from age {age}.',
+  'web.s05.protection.ageNeeded': 'Enter your age to choose it.',
+  'web.s05.protection.apply': 'Update the price',
+  'web.s05.protection.unchanged':
+    'Choose another protection or change your age to update the price.',
+  'web.s05.protection.updated': 'Protection updated. Check the new total before you book.',
+  'web.s05.age.label': "Driver's age",
+  'web.s05.age.hint':
+    "Only used to show the protections you can choose. Enter the driver's real age.",
+  'web.s05.age.invalid': 'Enter your age in years, between {min} and {max}.',
+  'common.price.protectionIncluded': 'Basic protection included',
+  'web.a11.plan.open': 'Earnings plan',
+  'web.a11.plan.title': 'Earnings plan',
+  'web.a11.plan.intro':
+    'Your plan sets the share of each trip price you receive. The guest pays the trip fee and their protection separately.',
+  'web.a11.plan.current': 'Current plan: {plan}',
+  'web.a11.plan.option': '{plan} · you receive {share}% of the price',
+  'web.a11.plan.default': 'Assigned by default. You can change it anytime.',
+  'web.a11.plan.chosen': 'Chosen by you. You can change it anytime.',
+  'web.a11.plan.newTripsOnly':
+    'A change applies to trips booked from now on; trips already booked keep their plan.',
+  'web.a11.plan.only': 'For now this is the only plan available where you list your car.',
+  'web.a11.plan.choose': 'Choose your plan',
+  'web.a11.plan.save': 'Save plan',
+  'web.a11.plan.name.ESTANDAR': 'Standard',
+  'web.a11.plan.name.other': '{share}% plan',
+  'web.a11.coverage.title': 'What your plan covers',
+  'web.a11.coverage.period':
+    "Once the partner insurer's protection is active where you list, your car will be covered during each booking period.",
+  'web.a11.coverage.contract':
+    "Exclusions and your deductible come from the partner insurer's contract: we'll show them here, word for word, before you can receive trips.",
 } as const satisfies Readonly<Record<MessageKey, Message>>;

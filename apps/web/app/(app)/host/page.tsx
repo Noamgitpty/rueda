@@ -13,6 +13,7 @@ import {
   vehiclesOf,
 } from '../../../account/host-listings.ts';
 import type { ListingView, VehicleView } from '../../../account/host-listings.ts';
+import { earningsPlansOf, planSummary } from '../../../account/earnings-plans.ts';
 import { hostTermsOf } from '../../../account/host-terms.ts';
 import { hostTripsOf } from '../../../account/host-trips.ts';
 import type { HostTripView, TripMarket } from '../../../account/host-trips.ts';
@@ -154,7 +155,7 @@ export default async function HostPage({
   const account = accounts.find((a) => a.orgId === wanted) ?? accounts[0];
   if (account === undefined) return error;
   const base = `/host/accounts/${account.orgId}`;
-  const [locReply, vehReply, lstReply, termsReply, noticeReply, upReply, nowReply] =
+  const [locReply, vehReply, lstReply, termsReply, noticeReply, upReply, nowReply, plansReply] =
     await Promise.all([
       callApi('GET', `${base}/locations`, ctx),
       callApi('GET', `${base}/vehicles`, ctx),
@@ -168,7 +169,10 @@ export default async function HostPage({
       // A02 (US-219) : prochaines remises (à venir) et prochains retours (en cours)
       callApi('GET', `${base}/trips?tab=UPCOMING`, ctx),
       callApi('GET', `${base}/trips?tab=IN_PROGRESS`, ctx),
+      // US-226b : plan de gains de chaque véhicule (illisible : aucun plan affiché, lien conservé)
+      callApi('GET', `${base}/earnings-plans`, ctx),
     ]);
+  const plans = earningsPlansOf(plansReply);
   const upcoming = hostTripsOf(upReply);
   const ongoing = hostTripsOf(nowReply);
   // CGU de l'hôte (US-126) : illisibles ⇒ « indisponibles », jamais une acceptation présumée
@@ -318,6 +322,14 @@ export default async function HostPage({
           <ul className={styles['rows']}>
             {vehicles.map((v) => {
               const r = v.inCatalog ? null : v.catalogRequest;
+              const plan =
+                plans === null
+                  ? null
+                  : planSummary(
+                      i18n,
+                      plans,
+                      plans.vehicles.find((p) => p.vehicleId === v.id)?.planCode ?? null,
+                    );
               return (
                 <li key={v.id} className={styles['card']}>
                   <div className={styles['between']}>
@@ -335,6 +347,17 @@ export default async function HostPage({
                     aria-label={`${t('web.calendar.open')} · ${carLabel(v)}`}
                   >
                     {t('web.calendar.open')}
+                  </a>
+                  {/* plan de gains du véhicule (A11, US-226b) : plan en vigueur, lien de changement */}
+                  {plan !== null && (
+                    <p className={accountStyles['muted']}>{t('web.a11.plan.current', { plan })}</p>
+                  )}
+                  <a
+                    className={styles['link']}
+                    href={`/host/vehicles/${v.id}/earnings-plan?org=${account.orgId}`}
+                    aria-label={`${t('web.a11.plan.open')} · ${carLabel(v)}`}
+                  >
+                    {t('web.a11.plan.open')}
                   </a>
                   {/* documents et éligibilité du véhicule (US-124) */}
                   <a

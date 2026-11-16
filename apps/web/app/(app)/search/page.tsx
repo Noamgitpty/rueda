@@ -138,12 +138,17 @@ export default async function SearchPage({
                   total={amountOf(r, r.totalMinor)}
                   perDay={amountOf(r, r.dailyPriceMinor)}
                   days={r.billableDays}
+                  // US-226b : le total comprend la protection minimale du pays (N-141, 16 SRC-042)
                   note={
-                    r.depositAmountMinor === null
-                      ? t('web.search.deposit.maybe')
-                      : t('web.search.deposit.amount', {
-                          amount: i18n.money(amountOf(r, r.depositAmountMinor)),
-                        })
+                    <>
+                      {t('common.price.protectionIncluded')}
+                      <br />
+                      {r.depositAmountMinor === null
+                        ? t('web.search.deposit.maybe')
+                        : t('web.search.deposit.amount', {
+                            amount: i18n.money(amountOf(r, r.depositAmountMinor)),
+                          })}
+                    </>
                   }
                 />
               </li>
