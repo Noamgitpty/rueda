@@ -114,6 +114,12 @@ export const POST_SEED_PARAMS: readonly {
     refs: '16 PRC-018, PRT-001, PRT-002 ; 08 BR-PRICE-11, E7 ; ADR-136',
     valueKeys: ['insurer_premium_share', 'insurer_roadside_share'],
   },
+  {
+    prefix: 'insurer_rc_',
+    file: '0112_config_insurer_rc_params.sql',
+    story: 'US-205',
+    refs: '08 BR-PROT-04 ; 16 PRT-003 / PRT-013 ; OQ-BR-16 ; ADR-138',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

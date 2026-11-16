@@ -18,7 +18,13 @@ import type {
 } from './cards.js';
 import { SearchHttpError } from './errors.js';
 import { countryOf, localSlot, parseSearchQuery } from './model.js';
-import type { SearchArea, SearchResult, SearchStore } from './store.js';
+import type {
+  ListingProtection,
+  ListingTerms,
+  SearchArea,
+  SearchResult,
+  SearchStore,
+} from './store.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,6 +44,52 @@ export interface ListingSlot {
   readonly endAt: string;
   readonly timezone: string;
   readonly price: ListingSlotPrice | null;
+  /**
+   * Annulation gratuite pour ce départ si la réservation avait lieu maintenant (US-205 critère 1 ;
+   * BR-CXL-01 calculé par la base à `platform.now()`) ; `null` : paramètres du pays absents.
+   */
+  readonly cancellation: SlotCancellation | null;
+  /** Distance incluse sur la période (US-205 critère 2 ; 16 LST-012). */
+  readonly mileage: SlotMileage;
+}
+
+/** `freeUntil` de BR-CXL-01 : date limite, ou « 1 h après la réservation » (dernière minute). */
+export interface SlotCancellation {
+  readonly lastMinute: boolean;
+  /** Fin de l'annulation gratuite (ISO 8601 UTC) ; `null` en dernière minute. */
+  readonly freeUntil: string | null;
+  /** Durée de la fenêtre de dernière minute (08 BR-CXL-01 : 60 min), en minutes. */
+  readonly lastMinuteWindowMinutes: number;
+}
+
+/**
+ * Distance incluse : km par jour × jours facturables du devis provisoire (le même que le total) ;
+ * `includedKm` nul si illimité ou sans devis ; prix du km supplémentaire de l'annonce.
+ */
+export interface SlotMileage {
+  readonly mode: 'UNLIMITED' | 'INCLUDED';
+  readonly includedKmPerDay: number | null;
+  readonly includedKm: number | null;
+  readonly extraKmPriceMinor: string | null;
+}
+
+/** Fenêtre de dernière minute de 08 BR-CXL-01 (« 1 h après `booked_at` »), en minutes. */
+export const LAST_MINUTE_WINDOW_MINUTES = 60;
+
+/**
+ * Conditions de la fiche sans dates (US-205 ; `GET /listings/{id}/conditions`) : politique
+ * d'annulation du pays, caution de la plateforme, protection de l'assureur partenaire.
+ */
+export interface ListingConditions {
+  readonly currency: string;
+  readonly timezone: string;
+  readonly cancellation: {
+    readonly freeCancelLeadHours: number;
+    readonly lastMinuteThresholdHours: number;
+    readonly lastMinuteWindowMinutes: number;
+  } | null;
+  readonly deposit: { readonly amountMinor: string } | null;
+  readonly protection: ListingProtection | null;
 }
 
 /**
@@ -140,11 +192,17 @@ export class SearchService {
       throw new SearchHttpError('SEARCH_UNAVAILABLE');
     }
     if (r.outcome === 'OK') {
+      const price = await this.#slotPrice(id, country, r.startAt, r.endAt);
+      const terms = await this.#terms(id, r.startAt);
+      // annonce retirée entre les deux lectures : inconnue (404), jamais des conditions devinées
+      if (terms === null) throw new SearchHttpError('LISTING_NOT_FOUND');
       return {
         startAt: r.startAt,
         endAt: r.endAt,
         timezone: r.timezone,
-        price: await this.#slotPrice(id, country, r.startAt, r.endAt),
+        price,
+        cancellation: slotCancellation(terms),
+        mileage: slotMileage(terms, price),
       };
     }
     if (r.outcome === 'DATES_NOTICE_TOO_SHORT') {
@@ -154,6 +212,38 @@ export class SearchService {
       });
     }
     throw new SearchHttpError(r.outcome);
+  }
+
+  /**
+   * Conditions de la fiche sans dates (US-205 ; 16 LST-010, LST-013, PRT-003 / PRT-013) :
+   * identifiant mal formé, annonce inconnue ou non publiée ⇒ 404 ; base en panne ⇒ 503.
+   */
+  async conditions(listingId: string): Promise<ListingConditions> {
+    if (!UUID.test(listingId)) throw new SearchHttpError('LISTING_NOT_FOUND');
+    const t = await this.#terms(listingId.toLowerCase(), null);
+    if (t === null) throw new SearchHttpError('LISTING_NOT_FOUND');
+    return {
+      currency: t.currency,
+      timezone: t.timezone,
+      cancellation:
+        t.cancellation === null
+          ? null
+          : {
+              freeCancelLeadHours: t.cancellation.freeCancelLeadHours,
+              lastMinuteThresholdHours: t.cancellation.lastMinuteThresholdHours,
+              lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MINUTES,
+            },
+      deposit: t.depositAmountMinor === null ? null : { amountMinor: t.depositAmountMinor },
+      protection: t.protection,
+    };
+  }
+
+  async #terms(listingId: string, startAt: string | null): Promise<ListingTerms | null> {
+    try {
+      return await this.store.terms(listingId, startAt);
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
   }
 
   /**
@@ -233,4 +323,27 @@ export class SearchService {
     }
     return cards;
   }
+}
+
+/** Annulation du créneau : départ futur et paramètres présents, sinon `null` (aucune promesse). */
+function slotCancellation(t: ListingTerms): SlotCancellation | null {
+  const c = t.cancellation;
+  if (c === null || c.lastMinute === null) return null;
+  if (!c.lastMinute && c.freeUntil === null) return null;
+  return {
+    lastMinute: c.lastMinute,
+    freeUntil: c.lastMinute ? null : c.freeUntil,
+    lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MINUTES,
+  };
+}
+
+/** Distance du créneau (16 LST-012) : km par jour × jours facturables du devis provisoire. */
+function slotMileage(t: ListingTerms, price: ListingSlotPrice | null): SlotMileage {
+  const perDay = t.mileageMode === 'INCLUDED' ? t.includedKmPerDay : null;
+  return {
+    mode: t.mileageMode,
+    includedKmPerDay: perDay,
+    includedKm: perDay === null || price === null ? null : perDay * price.billableDays,
+    extraKmPriceMinor: t.mileageMode === 'INCLUDED' ? t.extraKmPriceMinor : null,
+  };
 }

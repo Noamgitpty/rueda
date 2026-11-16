@@ -116,6 +116,58 @@ export interface SearchStore {
   listingPrice(listingId: string): Promise<ListingPrice | null>;
   /** Contrôle des dates de la fiche (US-204) ; une issue, jamais une exception métier. */
   slotCheck(query: SlotQuery): Promise<SlotOutcome>;
+  /**
+   * Conditions publiques d'une annonce LISTED (US-205, `core.catalog_public_terms` de 0113) pour
+   * un départ (instant UTC) ou sans dates (`null`) ; `null` si inconnue ou non publiée.
+   */
+  terms(listingId: string, startAt: string | null): Promise<ListingTerms | null>;
+}
+
+/** Niveaux de protection de la grille du pays (US-226, ADR-136), dans leur ordre de rang. */
+export const PROTECTION_LEVELS = ['BASICA', 'ESTANDAR', 'TOTAL'] as const;
+export type ProtectionLevel = (typeof PROTECTION_LEVELS)[number];
+/** Langues des textes de l'assureur (les quatre langues du site, DEC-FONDATEUR-17, 18). */
+export const TERMS_LANGUAGES = ['es', 'en', 'fr', 'pt-BR'] as const;
+export type TermsLanguage = (typeof TERMS_LANGUAGES)[number];
+
+/**
+ * Protection de l'assureur partenaire promise sur la fiche (16 LST-013, PRT-003, PRT-013) :
+ * conditions du contrat en vigueur du pays, recopiées telles quelles (mêmes sources que le contrat
+ * de location, US-211). Absente dès que la base ne peut pas la promettre (19 US-205 critère 4).
+ */
+export interface ListingProtection {
+  readonly insurerName: string;
+  readonly insurerLicenseRef: string | null;
+  readonly brokerName: string | null;
+  readonly brokerLicenseRef: string | null;
+  readonly contractVersion: number;
+  /** RC tiers incluse par événement, unités mineures (texte d'un entier). */
+  readonly rcAmountMinor: string;
+  /** Franchise du voyageur par niveau, unités mineures (texte d'un entier). */
+  readonly deductibles: Readonly<Record<ProtectionLevel, string>>;
+  /** Exclusions principales, par langue. */
+  readonly exclusions: Readonly<Record<TermsLanguage, string>>;
+}
+
+/** Conditions publiques d'une annonce (US-205), telles que la base les rend. */
+export interface ListingTerms {
+  readonly currency: string;
+  readonly timezone: string;
+  /** Paramètres d'annulation du pays (BR-CXL-01) ; `null` si absents (aucune promesse). */
+  readonly cancellation: {
+    readonly freeCancelLeadHours: number;
+    readonly lastMinuteThresholdHours: number;
+    /** Départ donné : réservation de dernière minute si elle avait lieu maintenant. */
+    readonly lastMinute: boolean | null;
+    /** Départ donné, hors dernière minute : fin de l'annulation gratuite (ISO 8601 UTC). */
+    readonly freeUntil: string | null;
+  } | null;
+  readonly mileageMode: 'UNLIMITED' | 'INCLUDED';
+  readonly includedKmPerDay: number | null;
+  readonly extraKmPriceMinor: string | null;
+  /** Caution de la plateforme (même règle que les cartes) ; `null` : mention générique. */
+  readonly depositAmountMinor: string | null;
+  readonly protection: ListingProtection | null;
 }
 
 /** Prix de l'annonce pour le devis provisoire de la fiche (US-208). */
@@ -146,6 +198,7 @@ export class UnavailableSearchStore implements SearchStore {
   listingCountry = (): Promise<string | null> => this.#fail();
   listingPrice = (): Promise<ListingPrice | null> => this.#fail();
   slotCheck = (): Promise<SlotOutcome> => this.#fail();
+  terms = (): Promise<ListingTerms | null> => this.#fail();
 }
 
 const SLOT_REFUSALS: ReadonlySet<string> = new Set<SlotRefusal>([
@@ -304,4 +357,101 @@ export class PgSearchStore implements SearchStore {
     if (!SLOT_REFUSALS.has(code)) throw new SearchStoreError(`issue ${code}`, undefined);
     return { outcome: code as SlotRefusal };
   }
+  async terms(listingId: string, startAt: string | null): Promise<ListingTerms | null> {
+    const rows = await this.#rows(
+      'conditions de l’annonce',
+      'SELECT * FROM core.catalog_public_terms($1::uuid, $2::timestamptz)',
+      [listingId, startAt],
+    );
+    const r = rows[0];
+    if (r === undefined) return null;
+    if (rows.length !== 1) throw new SearchStoreError('ligne inattendue', undefined);
+    return termsOf(r);
+  }
+}
+
+const MINOR_TEXT = /^(0|[1-9][0-9]{0,17})$/;
+
+/** Objet JSON dont les clés sont exactement `keys`, chaque valeur passant `ok` ; sinon `null`. */
+function exactRecord<K extends string>(
+  v: unknown,
+  keys: readonly K[],
+  ok: (x: unknown) => x is string,
+): Record<K, string> | null {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if (Object.keys(o).length !== keys.length) return null;
+  const out = {} as Record<K, string>;
+  for (const k of keys) {
+    const x = o[k];
+    if (!ok(x)) return null;
+    out[k] = x;
+  }
+  return out;
+}
+
+const isMinor = (x: unknown): x is string => typeof x === 'string' && MINOR_TEXT.test(x);
+const isText = (x: unknown): x is string => typeof x === 'string' && x.trim() !== '';
+
+/**
+ * Ligne de `core.catalog_public_terms` vers le port : toute forme inattendue (version N de la base
+ * pendant un déploiement) ⇒ erreur (503), jamais une promesse de couverture devinée.
+ */
+function termsOf(r: Record<string, unknown>): ListingTerms {
+  const bad = (): never => {
+    throw new SearchStoreError('ligne inattendue', undefined);
+  };
+  const lead = num(r['free_cancel_lead_hours']);
+  const thr = num(r['last_minute_threshold_hours']);
+  const lastMinute = r['last_minute'];
+  const cancellation =
+    lead === null || thr === null
+      ? null
+      : {
+          freeCancelLeadHours: lead,
+          lastMinuteThresholdHours: thr,
+          lastMinute: lastMinute === null || lastMinute === undefined ? null : lastMinute === true,
+          freeUntil: r['free_until'] === null ? null : iso(r['free_until']),
+        };
+  const mode = String(r['mileage_mode']);
+  if (mode !== 'UNLIMITED' && mode !== 'INCLUDED') return bad();
+  let protection: ListingProtection | null = null;
+  if (r['protection_offered'] === true) {
+    const deductibles = exactRecord(r['deductibles'], PROTECTION_LEVELS, isMinor);
+    const exclusions = exactRecord(r['exclusions'], TERMS_LANGUAGES, isText);
+    const rc = str(r['rc_amount_minor']);
+    const version = num(r['contract_version']);
+    if (
+      deductibles === null ||
+      exclusions === null ||
+      rc === null ||
+      !MINOR_TEXT.test(rc) ||
+      version === null ||
+      typeof r['insurer_name'] !== 'string'
+    ) {
+      return bad();
+    }
+    protection = {
+      insurerName: r['insurer_name'],
+      insurerLicenseRef: str(r['insurer_license_ref']),
+      brokerName: str(r['broker_name']),
+      brokerLicenseRef: str(r['broker_license_ref']),
+      contractVersion: version,
+      rcAmountMinor: rc,
+      deductibles,
+      exclusions,
+    };
+  } else if (r['protection_offered'] !== false) {
+    return bad();
+  }
+  return {
+    currency: String(r['currency']),
+    timezone: String(r['timezone']),
+    cancellation,
+    mileageMode: mode,
+    includedKmPerDay: num(r['included_km_per_day']),
+    extraKmPriceMinor: str(r['extra_km_price_minor']),
+    depositAmountMinor: str(r['deposit_amount_minor']),
+    protection,
+  };
 }

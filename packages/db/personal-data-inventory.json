@@ -1857,7 +1857,12 @@
         "valid_from": "C1",
         "valid_to": "C1",
         "document_file_id": "C1",
-        "created_at": "C1"
+        "created_at": "C1",
+        "broker_id": "C1",
+        "currency": "C0",
+        "rc_amount_minor": "C0",
+        "deductibles": "C0",
+        "exclusions": "C0"
       }
     },
     "core.settlement_insurer_bordereau": {

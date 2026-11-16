@@ -68,6 +68,10 @@
     {
       "path": "packages/db/migrations/0111_config_protection_params.sql",
       "justification": "Graine complémentaire du paramètre protection_grid (16 PRC-018, PRT-001, PRT-002 : grille des protections du voyageur par niveau) et premières valeurs d'insurer_premium_share et d'insurer_roadside_share (08 BR-PRICE-11, E7 : parts de l'assureur), valeurs de TEST À DÉCIDER PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, valueKeys) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-226, ADR-136."
+    },
+    {
+      "path": "packages/db/migrations/0112_config_insurer_rc_params.sql",
+      "justification": "Graine complémentaire du paramètre insurer_rc_minimum (08 BR-PROT-04, 16 PRT-003 / PRT-013 : RC tiers minimum par événement du contrat de l'assureur partenaire, contrat en dessous refusé POLICY_RC_BELOW_MINIMUM), valeurs PROPOSÉES À DÉCIDER PA / PY (OQ-BR-16), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-205, ADR-138."
     }
   ]
 }

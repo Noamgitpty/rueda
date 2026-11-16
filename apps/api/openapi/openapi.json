@@ -7181,6 +7181,81 @@
         }
       }
     },
+    "/listings/{listingId}/conditions": {
+      "get": {
+        "operationId": "listingConditions",
+        "tags": ["cat"],
+        "summary": "Conditions de la fiche d'une annonce LISTED (US-205 ; 16 LST-010, LST-013, PRT-003 / PRT-013) : politique d'annulation du pays, caution de la plateforme, protection de l'assureur partenaire",
+        "description": "Route publique, sans limite de débit (aucune donnée de l'occupation ni de l'hôte). Protection rendue SEULEMENT si insurer_contract_active du pays est vrai, qu'un contrat en vigueur d'un assureur actif couvre le véhicule, que ses conditions sont posées dans la devise de l'annonce et que la RC atteint insurer_rc_minimum du pays ; sinon null (aucune promesse de couverture). Textes de l'assureur dans les quatre langues, recopiés du contrat.",
+        "parameters": [
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conditions de l'annonce",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingConditionsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Annonce non publiée ou inconnue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible ou ligne inattendue (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "SEARCH_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/listings/{listingId}/meeting-point": {
       "get": {
         "operationId": "listingMeetingPoint",
@@ -14952,8 +15027,41 @@
           "availability": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["startAt", "endAt", "timezone", "price"],
+            "required": ["startAt", "endAt", "timezone", "price", "cancellation", "mileage"],
             "properties": {
+              "cancellation": {
+                "description": "Annulation gratuite pour ce départ si la réservation avait lieu maintenant (BR-CXL-01, platform.now()) : date limite, ou dernière minute (fenêtre après la réservation) ; null : paramètres du pays absents (US-205)",
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "required": ["lastMinute", "freeUntil", "lastMinuteWindowMinutes"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "lastMinute": { "type": "boolean" },
+                      "freeUntil": {
+                        "type": ["string", "null"],
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                      },
+                      "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 }
+                    }
+                  }
+                ]
+              },
+              "mileage": {
+                "description": "Distance incluse sur la période : km par jour × jours facturables du devis provisoire ; includedKm null si illimité ou sans devis (16 LST-012, US-205)",
+                "type": "object",
+                "required": ["mode", "includedKmPerDay", "includedKm", "extraKmPriceMinor"],
+                "additionalProperties": false,
+                "properties": {
+                  "mode": { "enum": ["UNLIMITED", "INCLUDED"] },
+                  "includedKmPerDay": { "type": ["integer", "null"], "minimum": 1 },
+                  "includedKm": { "type": ["integer", "null"], "minimum": 1 },
+                  "extraKmPriceMinor": {
+                    "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/MinorUnits" }]
+                  }
+                }
+              },
               "startAt": {
                 "type": "string",
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
@@ -14976,6 +15084,102 @@
                       "totalMinor": { "$ref": "#/components/schemas/MinorUnits" },
                       "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
                       "billableDays": { "type": "integer", "minimum": 1 }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "ListingConditionsResponse": {
+        "type": "object",
+        "required": ["conditions"],
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["currency", "timezone", "cancellation", "deposit", "protection"],
+            "properties": {
+              "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+              "timezone": { "type": "string" },
+              "cancellation": {
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "required": [
+                      "freeCancelLeadHours",
+                      "lastMinuteThresholdHours",
+                      "lastMinuteWindowMinutes"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "freeCancelLeadHours": { "type": "integer", "minimum": 0 },
+                      "lastMinuteThresholdHours": { "type": "integer", "minimum": 0 },
+                      "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 }
+                    }
+                  }
+                ]
+              },
+              "deposit": {
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "required": ["amountMinor"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "amountMinor": { "$ref": "#/components/schemas/MinorUnits" }
+                    }
+                  }
+                ]
+              },
+              "protection": {
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "required": [
+                      "insurerName",
+                      "insurerLicenseRef",
+                      "brokerName",
+                      "brokerLicenseRef",
+                      "contractVersion",
+                      "rcAmountMinor",
+                      "deductibles",
+                      "exclusions"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "insurerName": { "type": "string" },
+                      "insurerLicenseRef": { "type": ["string", "null"] },
+                      "brokerName": { "type": ["string", "null"] },
+                      "brokerLicenseRef": { "type": ["string", "null"] },
+                      "contractVersion": { "type": "integer", "minimum": 1 },
+                      "rcAmountMinor": { "$ref": "#/components/schemas/MinorUnits" },
+                      "deductibles": {
+                        "type": "object",
+                        "required": ["BASICA", "ESTANDAR", "TOTAL"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "BASICA": { "$ref": "#/components/schemas/MinorUnits" },
+                          "ESTANDAR": { "$ref": "#/components/schemas/MinorUnits" },
+                          "TOTAL": { "$ref": "#/components/schemas/MinorUnits" }
+                        }
+                      },
+                      "exclusions": {
+                        "type": "object",
+                        "required": ["es", "en", "fr", "pt-BR"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "es": { "type": "string" },
+                          "en": { "type": "string" },
+                          "fr": { "type": "string" },
+                          "pt-BR": { "type": "string" }
+                        }
+                      }
                     }
                   }
                 ]

@@ -127,6 +127,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0109_ctr_checkout_documents` | CTR : documents du checkout servis et publiables ; nom du conducteur comparé en NFC. |
 | `0110_prc_protection_earnings_plans` | PRC / CAT / AVL : protections du voyageur et plans de gains de l'hôte, partie serveur. |
 | `0111_config_protection_params` | graine complémentaire : paramètres « protection_* » (US-226 ; 17 §7.2). |
+| `0112_config_insurer_rc_params` | graine complémentaire : paramètres « insurer_rc_* » (US-205 ; 17 §7.2). |
+| `0113_catalog_public_terms` | CAT / STL : conditions affichées sur la fiche et conditions du contrat de l'assureur. |
 
 ## Rôles
 
@@ -4974,6 +4976,11 @@ Déclencheurs :
 | `valid_to` | `timestamp with time zone` | non | — |
 | `document_file_id` | `uuid` | non | — |
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `broker_id` | `uuid` | non | — |
+| `currency` | `text` | non | — |
+| `rc_amount_minor` | `bigint` | non | — |
+| `deductibles` | `jsonb` | non | — |
+| `exclusions` | `jsonb` | non | — |
 
 Contraintes :
 

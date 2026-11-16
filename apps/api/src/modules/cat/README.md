@@ -118,6 +118,15 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 - **Écran S03** (`apps/web/app/(app)/listings/[listingId]`) : galerie (`listing-gallery.tsx`, photo introuvable remplacée par une vignette), note du véhicule, bloc de l'hôte `HostCard`, sélecteur de dates (formulaire GET), zone approximative ou lieu exact du voyageur ; photos relayées par le site (`/media/listing/{annonce}/{photo}`, `WEB_MEDIA_URL`). Aucun total : devis d'US-208.
 - **Tests** : L0 `packages/db/test/l0/l0-us204-listing-page.test.ts` (fixture `9979`) ; contrat `testing/listing-page.contract.test.ts` ; site `account/listing-page.test.ts`, `account/listing-media.test.ts`, e2e `e2e/listing.spec.ts`.
 
+### Conditions de la fiche : annulation, distance, protection, caution (US-205, ADR-138)
+
+- **Base** (0113, `catalog_cmd_owner`, EXECUTE `app_api`) : `core.catalog_public_terms(annonce, départ)` : paramètres d'annulation du pays (`free_cancel_lead`, `last_minute_threshold`) et, pour un départ (instant UTC), `last_minute` / `free_until` de 08 BR-CXL-01 à `platform.now()` ; distance de l'annonce ; caution (même règle que les cartes) ; protection de l'assureur partenaire rendue seulement si `insurer_contract_active` est vrai, qu'un contrat en vigueur couvre le véhicule, que ses conditions sont posées dans la devise de l'annonce et que la RC atteint `insurer_rc_minimum` (sinon `protection_offered` = false, aucune donnée de l'assureur).
+- **Routes** (`internal/search/listing-slot.controller.ts`) : `GET /listings/{id}/conditions` (public, `no-store`, 404, 503) ; `GET /listings/{id}/availability` rend en plus `cancellation` (date limite ou dernière minute, fenêtre de 60 min) et `mileage` (km par jour × jours facturables du devis provisoire, prix du km).
+- **Port** : `SearchStore.terms(annonce, départ)` ; forme inattendue ⇒ 503, jamais une promesse devinée.
+- **Écran S03** : `listing-terms.tsx` (sections annulation, distance, protection, caution) ; sans protection promise, aucun « Reservar ». Textes `web.listing.cancel.*`, `web.listing.distance.*`, `web.listing.protection.*` (catalogue v58).
+- **Paramètres** : créé `insurer_rc_minimum` (0112, À DÉCIDER, OQ-BR-16) ; lus `free_cancel_lead`, `last_minute_threshold`, `insurer_contract_active`.
+- **Tests** : L0 `packages/db/test/l0/l0-us205-listing-terms.test.ts` (fixture `9973`) ; contrat `testing/listing-page.contract.test.ts` ; site `account/listing-terms.test.ts`, e2e `e2e/listing.spec.ts`, `SCREENS` (`fiche-derniere-minute`, `fiche-sans-protection`).
+
 ## Événements
 
 Émis : `catalog.addition_request.resolved` (US-114, outbox, par `core.catalog_resolve_addition` : `request_id`, `status`, `resolved_variant_id`, extensions `vehicle_id`, `org_id`, `host_user_id`, `reject_reason` ; consommé par NTF). Cible 17 §4.5, pas encore émis : `catalog.listing.status_changed`, `catalog.vehicle.restricted`, `catalog.deposit_policy.changed` (17 §2.2), `catalog.vehicle_document.expiring`.
