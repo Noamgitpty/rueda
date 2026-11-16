@@ -62,6 +62,10 @@ const PRICING_TABLES = [
   'pricing_trip_price_version',
 ] as const;
 
+// Avis et agrégats (US-218, 0104) : socle RLS commun ; aucun droit applicatif, commande liée et
+// lecture publique de review_cmd_owner, preuves par test/l0/l0-us218-reviews.test.ts.
+const REVIEW_TABLES = ['review_rating_aggregate', 'review_review'] as const;
+
 // Dossier de support (US-011, 0024) : socle RLS commun ; lectures app_api vérifiées par les preuves
 // RLS (test/l0/l0-rls-*.test.ts).
 // Actions de console (US-012, 0034) : catalogue et manual_action, écrits par iam_staff_owner seulement
@@ -141,6 +145,7 @@ describe('schéma core (US-006)', () => {
           ...TRIP_SM_TABLES,
           ...CONFIG_TABLES,
           ...PRICING_TABLES,
+          ...REVIEW_TABLES,
           ...SUPPORT_TABLES,
           ...PAY_PORT_TABLES,
           ...BRAND_TABLES,
@@ -192,11 +197,13 @@ describe('schéma core (US-006)', () => {
                             ? 'catalog_probe_owner'
                             : r.polname.startsWith('privacy_cmd_') // rétention des trips clos (0090, US-111)
                               ? 'privacy_cmd_owner'
-                              : r.polname.startsWith('worker_')
-                                ? 'app_worker'
-                                : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
-                                  ? 'host_view_owner'
-                                  : 'app_api';
+                              : r.polname.startsWith('review_cmd_') // avis sur un trip (0104, US-218)
+                                ? 'review_cmd_owner'
+                                : r.polname.startsWith('worker_')
+                                  ? 'app_worker'
+                                  : r.polname.startsWith('host_view_') // host_guest_v (0035, US-062)
+                                    ? 'host_view_owner'
+                                    : 'app_api';
         expect(r.roles, `${r.relname}.${r.polname}`).toBe(expected);
       }
       // les politiques d'app_api sont toutes des lectures (US-011, ADR-035)

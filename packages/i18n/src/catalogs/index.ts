@@ -100,8 +100,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 48 : recherche publique par zone, lieu, dates et heures (US-201, ADR-127) :
  `common.search.*` (refus de la recherche) et `web.search.*`, `web.listing.dates.*` (S01, liste des
  résultats, dates reprises sur la fiche). La version 46 n'est pas utilisée.
+ Version 49 : avis reçus par e-mail et enregistrés par l'ops (US-218, ADR-130) : `backoffice.review.*`
+ (formulaire RECORD_REVIEW de la console et refus de la commande liée) ; libellé de
+ `backoffice.action.RECORD_REVIEW` corrigé (un avis reçu, pas une modération).
  */
-export const CATALOG_VERSION = 48;
+export const CATALOG_VERSION = 49;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

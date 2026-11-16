@@ -150,16 +150,19 @@ const STATE_ACTIONS = [
   'ESCALATE_OVERDUE',
   'REVIEW_FLAGGED_BOOKING',
 ] as const;
+// US-218 (0104, ADR-130) : RECORD_REVIEW devient une action d'état liée (table review)
 const RECORD_ONLY = [
   'RECORD_CLAIM',
   'ISSUE_DECISION',
   'RECORD_CHARGEBACK',
   'OPEN_INCIDENT',
-  'RECORD_REVIEW',
 ] as const;
 const FINANCE = ['ISSUE_BORDEREAU', 'DECIDE_ADVANCE', 'WRITE_OFF_RECEIVABLE'] as const;
 // US-111 (0090, ADR-118) : demande de personne liée à sa commande (table data_subject_request)
 const DSR_HANDLER = 'core.privacy_manual_action_dsr(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+// US-218 (0104, ADR-130) : avis reçu par e-mail lié à sa commande (table review)
+const REVIEW_HANDLER =
+  'core.review_manual_action_record_review(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 
 const FINANCE_REQUEST =
   'core.support_manual_action_finance_request(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
@@ -398,11 +401,16 @@ const MATRIX: Readonly<Record<string, Expected>> = {
   RECORD_REVIEW: {
     permission: 'ops.review_listing_host',
     subject: 'TRIP',
-    mode: 'RECORD_ONLY',
-    keys: [],
-    values: {},
+    mode: 'DOMAIN_COMMAND',
+    keys: ['authorRole', 'overall'],
+    values: {
+      authorRole: ['GUEST', 'HOST'],
+      overall: ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'],
+    },
     approval: false,
-    source: 'ADR-092 §1 (PROPOSÉ)',
+    handler: REVIEW_HANDLER,
+    source:
+      'ADR-092 §1 (PROPOSÉ) ; 19 US-218 « l’ops l’enregistre (RECORD_REVIEW), il est rattaché au trip » ; 08 BR-REVIEW-03 (note 1 à 5) ; ADR-130 (action d’état liée, PROPOSÉ)',
   },
   HANDLE_DSR: {
     permission: 'data.export',
@@ -478,6 +486,8 @@ describe('catalogue (17 §10 NN9, 17 §2.3, 19 US-101)', () => {
           'CREATE_HOST_ACCOUNT',
           // US-111 (0090) : demande de personne, action d'état liée (ADR-118)
           'HANDLE_DSR',
+          // US-218 (0104) : avis reçu par e-mail, action d'état liée (ADR-130)
+          'RECORD_REVIEW',
           'RESTRICT_ACCOUNT',
           'LIFT_RESTRICTION',
           // US-123 (0075) : revue d'une correspondance de sanctions

@@ -18,8 +18,15 @@ import type {
   ContentGapsBody,
   MeBody,
 } from './api.ts';
-import { ConsoleView, DSR_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
-import type { ConsoleAction, ConsoleState, DsrKind, DsrStep } from './view.tsx';
+import { ConsoleView, DSR_REFUSAL_KEYS, REVIEW_REFUSAL_KEYS, SCREEN_HEADINGS } from './view.tsx';
+import type {
+  ConsoleAction,
+  ConsoleState,
+  DsrKind,
+  DsrStep,
+  ReviewAuthor,
+  ReviewStars,
+} from './view.tsx';
 import {
   EVIDENCE_MAX_BYTES,
   evidenceReasonKey,
@@ -281,6 +288,45 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
         await refresh(
           r.ok
             ? { tone: 'success', key: 'backoffice.dsr.recorded' }
+            : refusal !== undefined
+              ? { tone: 'warning', key: refusal }
+              : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },
+        );
+      });
+    },
+    // US-218 : avis reçu par e-mail (RECORD_REVIEW) sur un trip, saisie fermée (auteur, note) ; un
+    // requestId par intention ; la base juge l'état du trip, la fenêtre et l'unicité
+    onReviewRecord: (
+      tripId: string,
+      authorRole: ReviewAuthor,
+      overall: ReviewStars,
+      reason: string,
+      evidence: readonly string[],
+    ) => {
+      const subject = tripId.trim().toLowerCase();
+      intent.current = intentFor(
+        intent.current,
+        ['RECORD_REVIEW', subject, authorRole, overall, reason.trim(), evidence],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action: 'RECORD_REVIEW',
+          subjectId: subject,
+          reason,
+          input: { authorRole, overall },
+          ...(evidence.length > 0 ? { evidence } : {}),
+        });
+        const why = r.ok ? undefined : r.values?.['reason'];
+        const refusal =
+          !r.ok && r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? REVIEW_REFUSAL_KEYS[why]
+            : undefined;
+        await refresh(
+          r.ok
+            ? { tone: 'success', key: 'backoffice.review.recorded' }
             : refusal !== undefined
               ? { tone: 'warning', key: refusal }
               : { tone: r.status === 409 ? 'warning' : 'danger', key: r.messageKey },

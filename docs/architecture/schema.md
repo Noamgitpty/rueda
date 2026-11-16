@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 104 migrations ; 114 tables ; 2 vues ; 616 politiques RLS ; 206 fonctions `SECURITY DEFINER` ; 212 autres fonctions.
+- 105 migrations ; 116 tables ; 2 vues ; 629 politiques RLS ; 208 fonctions `SECURITY DEFINER` ; 213 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -119,6 +119,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0101_booking_host_trips_read` | AVL : lecture des trips de l'hôte (espace hôte, accueil A02 et réservations A05). |
 | `0102_pricing_trip_fee` | PRC : trip fee du voyageur recalculé par la base dans le devis figé. |
 | `0103_catalog_public_search` | CAT : recherche publique par zone, lieu de remise, dates et heures. |
+| `0104_review_recorded_reviews` | REV : avis recueillis par l'ops, agrégats (note moyenne, nombre de trips) et note du voyageur. |
 
 ## Rôles
 
@@ -139,9 +140,10 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `iam_staff_owner` | non | non | non | oui | — |
 | `integrity_owner` | non | non | non | oui | — |
 | `kyc_cmd_owner` | non | non | non | oui | — |
-| `migrator` | oui | non | non | oui | audit_chain_owner (NOINHERIT), catalog_cmd_owner (NOINHERIT), catalog_probe_owner (NOINHERIT), cmd_golive_owner (NOINHERIT), cmd_hold_owner (NOINHERIT), cmd_money_owner (NOINHERIT), guard_owner (NOINHERIT), host_view_owner (NOINHERIT), iam_auth_owner (NOINHERIT), iam_staff_owner (NOINHERIT), integrity_owner (NOINHERIT), kyc_cmd_owner (NOINHERIT), policy_fn_owner (NOINHERIT), privacy_cmd_owner (NOINHERIT), risk_limit_owner (NOINHERIT) |
+| `migrator` | oui | non | non | oui | audit_chain_owner (NOINHERIT), catalog_cmd_owner (NOINHERIT), catalog_probe_owner (NOINHERIT), cmd_golive_owner (NOINHERIT), cmd_hold_owner (NOINHERIT), cmd_money_owner (NOINHERIT), guard_owner (NOINHERIT), host_view_owner (NOINHERIT), iam_auth_owner (NOINHERIT), iam_staff_owner (NOINHERIT), integrity_owner (NOINHERIT), kyc_cmd_owner (NOINHERIT), policy_fn_owner (NOINHERIT), privacy_cmd_owner (NOINHERIT), review_cmd_owner (NOINHERIT), risk_limit_owner (NOINHERIT) |
 | `policy_fn_owner` | non | non | non | oui | — |
 | `privacy_cmd_owner` | non | non | non | oui | — |
+| `review_cmd_owner` | non | non | non | oui | — |
 | `risk_limit_owner` | non | non | non | oui | — |
 
 ## Schémas
@@ -149,8 +151,8 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | Schéma | Propriétaire | Droits |
 | ------ | ------------ | ------ |
 | `app` | `migrator` | app_api: USAGE ; app_worker: USAGE ; catalog_probe_owner: USAGE ; cmd_golive_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE |
-| `core` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; catalog_probe_owner: USAGE ; cmd_golive_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; kyc_cmd_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; privacy_cmd_owner: USAGE ; risk_limit_owner: USAGE |
-| `platform` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; catalog_probe_owner: USAGE ; cmd_golive_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; kyc_cmd_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; privacy_cmd_owner: USAGE ; risk_limit_owner: USAGE |
+| `core` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; catalog_probe_owner: USAGE ; cmd_golive_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; kyc_cmd_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; privacy_cmd_owner: USAGE ; review_cmd_owner: USAGE ; risk_limit_owner: USAGE |
+| `platform` | `migrator` | app_api: USAGE ; app_worker: USAGE ; audit_chain_owner: USAGE ; catalog_cmd_owner: USAGE ; catalog_probe_owner: USAGE ; cmd_golive_owner: USAGE ; cmd_hold_owner: USAGE ; cmd_money_owner: USAGE ; guard_owner: USAGE ; host_view_owner: USAGE ; iam_auth_owner: USAGE ; iam_staff_owner: USAGE ; integrity_owner: USAGE ; kyc_cmd_owner: USAGE ; migrator: CREATE, USAGE ; policy_fn_owner: USAGE ; privacy_cmd_owner: USAGE ; review_cmd_owner: USAGE ; risk_limit_owner: USAGE |
 
 ## Tables
 
@@ -978,6 +980,7 @@ Politiques RLS :
 - `money_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `privacy_cmd_pseudonymise` (UPDATE, PERMISSIVE, privacy_cmd_owner) USING `(status = ANY (ARRAY['COMPLETED'::text, 'CANCELLED_BY_GUEST'::text, 'CANCELLED_BY_HOST'::text, 'CANCELLED_BY_PLATFORM'::text, 'REFUSED_AT_PICKUP'::text, 'NO_SHOW_GUEST'::text, 'NO_SHOW_HOST'::text]))` WITH CHECK `(((termination_reason IS NULL) OR (termination_reason = 'PSEUDONYMISED'::text)) AND ((cancellation_reason IS NULL) OR (cancellation_reason = 'PSEUDONYMISED'::text)))`
 - `privacy_cmd_read` (SELECT, PERMISSIVE, privacy_cmd_owner) USING `true`
+- `review_cmd_read` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
 - `trip_guest_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'GUEST'::text) AND (guest_user_id = app.actor_id()))`
 - `trip_host_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (org_id = app.org_id()) AND app.host_covers_vehicle(vehicle_id))`
 - `trip_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('ADMIN'::text, country_code) OR app.has_staff_role('FINANCE'::text, country_code) OR app.staff_case_covers('TRIP'::text, id)))`
@@ -1114,6 +1117,7 @@ Politiques RLS :
 - `cmd_trip_log_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `(kind = 'TRANSITION'::text)`
 - `cmd_trip_log_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `review_cmd_read` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
 
 Déclencheurs :
 
@@ -1372,6 +1376,7 @@ Politiques RLS :
 - `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `probe_read` (SELECT, PERMISSIVE, catalog_probe_owner) USING `(status = 'LISTED'::text)`
+- `review_cmd_read` (SELECT, PERMISSIVE, review_cmd_owner) USING `(status = 'LISTED'::text)`
 
 Déclencheurs :
 
@@ -2354,6 +2359,7 @@ Politiques RLS :
 - `kyc_cmd_read` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `(key = 'biometric_appeal_retention_days'::text)`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `privacy_cmd_read` (SELECT, PERMISSIVE, privacy_cmd_owner) USING `(key = ANY (ARRAY['privacy_register_validated'::text, 'privacy_dsr_response_days'::text, 'evidence_retention_months'::text]))`
+- `review_cmd_read` (SELECT, PERMISSIVE, review_cmd_owner) USING `(key = 'review_window_days'::text)`
 
 Déclencheurs :
 
@@ -2736,6 +2742,7 @@ Politiques RLS :
 - `organization_holder_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'HOST'::text) AND (id = app.org_id()) AND app.is_org_holder())`
 - `organization_staff_read` (SELECT, PERMISSIVE, app_api) USING `((app.actor_kind() = 'STAFF'::text) AND (country_code = ANY (app.country_scope())) AND (app.has_staff_role('ADMIN'::text, country_code) OR app.has_staff_role('FINANCE'::text, country_code)))`
 - `policy_fn_read` (SELECT, PERMISSIVE, policy_fn_owner) USING `true`
+- `review_cmd_read` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
 - `risk_link_read` (SELECT, PERMISSIVE, risk_limit_owner) USING `true`
 
 Déclencheurs :
@@ -4362,6 +4369,103 @@ Déclencheurs :
 - `pricing_trip_price_version_guard` : `CREATE TRIGGER pricing_trip_price_version_guard BEFORE DELETE OR UPDATE ON core.pricing_trip_price_version FOR EACH ROW EXECUTE FUNCTION core.pricing_record_guard()`
 - `pricing_trip_price_version_no_truncate` : `CREATE TRIGGER pricing_trip_price_version_no_truncate BEFORE TRUNCATE ON core.pricing_trip_price_version FOR EACH STATEMENT EXECUTE FUNCTION core.pricing_record_guard()`
 
+### `core.review_rating_aggregate`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ; review_cmd_owner: INSERT, SELECT
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `subject_type` | `text` | oui | — |
+| `subject_id` | `uuid` | oui | — |
+| `review_count` | `integer` | oui | — |
+| `overall_sum` | `integer` | oui | — |
+| `avg_overall_x100` | `integer` | oui | — |
+| `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `rating_aggregate_avg_exact` : `CHECK (avg_overall_x100 = ((overall_sum * 200 + review_count) / (2 * review_count)))`
+- `rating_aggregate_count_positive` : `CHECK (review_count >= 1)`
+- `rating_aggregate_subject_type_valid` : `CHECK (subject_type = ANY (ARRAY['VEHICLE'::text, 'HOST'::text, 'GUEST'::text]))`
+- `rating_aggregate_sum_range` : `CHECK (overall_sum >= review_count AND overall_sum <= (5 * review_count))`
+- `review_rating_aggregate_pkey` : `PRIMARY KEY (subject_type, subject_id)`
+
+Politiques RLS :
+
+- `host_view_read` (SELECT, PERMISSIVE, host_view_owner) USING `(subject_type = 'GUEST'::text)`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `review_cmd_ins` (INSERT, PERMISSIVE, review_cmd_owner) WITH CHECK `true`
+- `review_cmd_sel` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
+- `review_cmd_upd` (UPDATE, PERMISSIVE, review_cmd_owner) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `review_rating_aggregate_no_truncate` : `CREATE TRIGGER review_rating_aggregate_no_truncate BEFORE TRUNCATE ON core.review_rating_aggregate FOR EACH STATEMENT EXECUTE FUNCTION core.review_record_guard()`
+
+### `core.review_review`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ; review_cmd_owner: INSERT, SELECT
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `author_user_id` | `uuid` | oui | — |
+| `author_role` | `text` | oui | — |
+| `subject_type` | `text` | oui | — |
+| `subject_id` | `uuid` | oui | — |
+| `overall` | `smallint` | oui | — |
+| `cleanliness` | `smallint` | non | — |
+| `communication` | `smallint` | non | — |
+| `convenience` | `smallint` | non | — |
+| `accuracy` | `smallint` | non | — |
+| `maintenance` | `smallint` | non | — |
+| `status` | `text` | oui | — |
+| `source` | `text` | oui | — |
+| `manual_action_id` | `uuid` | non | — |
+| `recorded_by` | `uuid` | non | — |
+| `published_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `review_accuracy_range` : `CHECK (accuracy >= 1 AND accuracy <= 5)`
+- `review_author_role_valid` : `CHECK (author_role = ANY (ARRAY['GUEST'::text, 'HOST'::text]))`
+- `review_cleanliness_range` : `CHECK (cleanliness >= 1 AND cleanliness <= 5)`
+- `review_communication_range` : `CHECK (communication >= 1 AND communication <= 5)`
+- `review_convenience_range` : `CHECK (convenience >= 1 AND convenience <= 5)`
+- `review_country_code_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `review_maintenance_range` : `CHECK (maintenance >= 1 AND maintenance <= 5)`
+- `review_ops_recorded_traced` : `CHECK (source <> 'OPS_RECORDED'::text OR manual_action_id IS NOT NULL AND recorded_by IS NOT NULL)`
+- `review_overall_range` : `CHECK (overall >= 1 AND overall <= 5)`
+- `review_published_dated` : `CHECK ((status = 'PUBLISHED'::text) = (published_at IS NOT NULL) OR (status = ANY (ARRAY['HIDDEN'::text, 'REMOVED'::text])))`
+- `review_review_author_fkey` : `FOREIGN KEY (author_user_id) REFERENCES core.iam_user_account(id)`
+- `review_review_pkey` : `PRIMARY KEY (id)`
+- `review_review_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `review_source_valid` : `CHECK (source = 'OPS_RECORDED'::text)`
+- `review_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'PUBLISHED'::text, 'HIDDEN'::text, 'REMOVED'::text]))`
+- `review_subject_matches_author` : `CHECK (author_role = 'GUEST'::text AND (subject_type = ANY (ARRAY['VEHICLE'::text, 'HOST'::text])) OR author_role = 'HOST'::text AND subject_type = 'GUEST'::text)`
+- `review_subject_type_valid` : `CHECK (subject_type = ANY (ARRAY['VEHICLE'::text, 'HOST'::text, 'GUEST'::text]))`
+- `review_unique_per_party` : `UNIQUE (trip_id, author_user_id, subject_type)`
+
+Index :
+
+- `review_review_subject_idx` : `CREATE INDEX review_review_subject_idx ON core.review_review USING btree (subject_type, subject_id)`
+
+Politiques RLS :
+
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+- `review_cmd_ins` (INSERT, PERMISSIVE, review_cmd_owner) WITH CHECK `((status = 'PUBLISHED'::text) AND (source = 'OPS_RECORDED'::text))`
+- `review_cmd_sel` (SELECT, PERMISSIVE, review_cmd_owner) USING `true`
+
+Déclencheurs :
+
+- `review_review_guard` : `CREATE TRIGGER review_review_guard BEFORE DELETE OR UPDATE ON core.review_review FOR EACH ROW EXECUTE FUNCTION core.review_record_guard()`
+- `review_review_no_truncate` : `CREATE TRIGGER review_review_no_truncate BEFORE TRUNCATE ON core.review_review FOR EACH STATEMENT EXECUTE FUNCTION core.review_record_guard()`
+
 ### `core.risk_abuse_event`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -5733,6 +5837,8 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.privacy_worker_dsr_overdue(p_batch integer)` | `TABLE(country_code text, overdue integer)` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_retention_sweep(p_batch integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_stale_kyc_erasures(p_after_minutes integer)` | `integer` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; privacy_cmd_owner: EXECUTE |
+| `core.review_listing_ratings(p_listing_ids uuid[])` | `TABLE(listing_id uuid, vehicle_trip_count integer, vehicle_review_count integer, vehicle_avg_x100 integer, host_trip_count integer, host_review_count integer, host_avg_x100 integer)` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; review_cmd_owner: EXECUTE |
+| `core.review_manual_action_record_review(p_token_hash bytea, p_action_id uuid, p_action_code text, p_subject_id uuid, p_input jsonb, p_reason text, p_actor uuid, p_actor_role text)` | `TABLE(outcome text, ref_id uuid, emitted_event_ids uuid[])` | `review_cmd_owner` | search_path=pg_catalog, pg_temp | iam_staff_owner: EXECUTE ; review_cmd_owner: EXECUTE |
 | `core.risk_cmd_hit(p_scope text, p_key_hash bytea, p_country text, p_limit integer, p_window_s integer, p_weight integer)` | `TABLE(allowed boolean, hits integer, retry_after_s integer)` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_prune(p_batch integer, p_event_retention_days integer)` | `integer` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.risk_cmd_record_abuse(p_kind text, p_scope text, p_key_hash bytea, p_country text, p_signals text[])` | `void` | `risk_limit_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; risk_limit_owner: EXECUTE |
@@ -5941,6 +6047,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.privacy_append_only()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.privacy_param(p_key text, p_country text)` | `jsonb` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `core.privacy_worker_guard()` | `void` | `migrator` | migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
+| `core.review_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.risk_log_abuse(p_kind text, p_scope text, p_key_hash bytea, p_country text, p_signals text[])` | `void` | `migrator` | migrator: EXECUTE ; risk_limit_owner: EXECUTE |
 | `core.security_incident_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.security_incident_notice_hours(p_key text, p_country text)` | `integer` | `migrator` | iam_staff_owner: EXECUTE ; migrator: EXECUTE |
@@ -5989,6 +6096,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `platform.declare_environment(p_environment text)` | `text` | `migrator` | migrator: EXECUTE |
 | `platform.deployment_env()` | `text` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
 | `platform.environment_declaration_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; privacy_cmd_owner: EXECUTE ; risk_limit_owner: EXECUTE |
+| `platform.now()` | `timestamp with time zone` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; audit_chain_owner: EXECUTE ; catalog_cmd_owner: EXECUTE ; catalog_probe_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; cmd_money_owner: EXECUTE ; guard_owner: EXECUTE ; host_view_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; integrity_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; policy_fn_owner: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE ; risk_limit_owner: EXECUTE |
 | `platform.touch_row()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE |
+| `platform.uuid_v7()` | `uuid` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_golive_owner: EXECUTE ; cmd_hold_owner: EXECUTE ; iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE ; privacy_cmd_owner: EXECUTE ; review_cmd_owner: EXECUTE |

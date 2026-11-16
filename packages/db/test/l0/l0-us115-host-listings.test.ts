@@ -351,12 +351,14 @@ describe('socle (0067) : RLS, droits, propriétaires', () => {
           // la pose d'un hold (cmd_hold_owner)
           // US-122 (0093) : compte de l'annonce et du véhicule lus par la garde de séparation des
           // tâches (iam_staff_owner)
+          // US-218 (0104) : annonces LISTED lues par les notes publiques (review_cmd_owner)
           catalog_listing: [
             'catalog_cmd_all:catalog_cmd_owner',
             'cmd_hold_read:cmd_hold_owner',
             'iam_staff_party_read:iam_staff_owner',
             'migrator_all:migrator',
             'probe_read:catalog_probe_owner',
+            'review_cmd_read:review_cmd_owner',
           ],
           catalog_listing_photo: ['catalog_cmd_all:catalog_cmd_owner', 'migrator_all:migrator'],
           catalog_location: [
