@@ -2047,6 +2047,18 @@
       "decision": "PROPOSED",
       "decisionRef": "ADR-133 PROPOSÉ (US-208) ; COMME_TURO",
       "values": { "PA": 30, "PY": 30 }
+    },
+    {
+      "key": "insurer_rc_minimum",
+      "type": "MONEY",
+      "scopes": ["COUNTRY"],
+      "currencyBound": true,
+      "failMode": "BLOCK",
+      "source": "08 BR-PROT-04 (« RC primaire ... montant {param} >= 100 000 USD par événement ») ; 16 PRT-003 / PRT-013 (« contrat sous le minimum légal paramétré => contrat non activable ») ; 19 US-205 critère 3 (POLICY_RC_BELOW_MINIMUM) ; absent : aucune RC promise, conditions du contrat refusées",
+      "status": "PROPOSÉ (OQ-BR-16 : montant minimum par événement à confirmer par l'avocat et l'assureur ; PY : équivalent en PYG de la recommandation de 08, valeur de test)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-16 (à fixer avec l'avocat et l'assureur) ; ADR-138 PROPOSÉ (US-205)",
+      "values": { "PA": "10000000", "PY": "750000000" }
     }
   ]
 }

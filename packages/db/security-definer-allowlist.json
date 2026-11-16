@@ -940,6 +940,13 @@
       "story": "US-204"
     },
     {
+      "signature": "core.catalog_public_terms(uuid,timestamp with time zone)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-205"
+    },
+    {
       "signature": "core.catalog_guest_meeting_point(bytea,uuid)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",

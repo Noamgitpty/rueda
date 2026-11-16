@@ -139,8 +139,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.a11.coverage.*` (plan de gains du véhicule, effet sur les nouveaux trips, période couverte) ;
  noms des niveaux en minuscules dans les quatre langues (`common.quote.line.protection*`, revue ux
  de 226a).
+ Version 58 : conditions de la fiche S03 (US-205,
+ ADR-138) : `web.listing.cancel.*` (annulation gratuite en dates, dernière minute, règle du pays,
+ retenue hors fenêtre sans durée écrite, lien vers la politique publiée), `web.listing.distance.*` (distance incluse sur la période, prix du km
+ supplémentaire) et `web.listing.protection.*` (assureur partenaire, courtier, RC tiers incluse,
+ franchises par niveau, exclusions du contrat, protection indisponible).
  */
-export const CATALOG_VERSION = 57;
+export const CATALOG_VERSION = 58;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

@@ -16,6 +16,7 @@ import type {
 import type { SearchQuery } from '../internal/search/model.js';
 import type {
   ListingPrice,
+  ListingTerms,
   SearchArea,
   SearchOutcome,
   SearchResult,
@@ -72,6 +73,31 @@ export class FakeSearchStore implements SearchStore {
     if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
     this.lastSlot = query;
     return Promise.resolve(this.slotOutcome);
+  }
+
+  // ---- conditions de la fiche (US-205) -------------------------------------------------------
+  /** Conditions par annonce publiée ; absente : conditions par défaut (aucune promesse). */
+  listingTerms = new Map<string, ListingTerms>();
+  /** Départs reçus par `terms` (instant UTC ou `null` sans dates). */
+  termsAsked: (string | null)[] = [];
+
+  terms(listingId: string, startAt: string | null): Promise<ListingTerms | null> {
+    if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
+    this.termsAsked.push(startAt);
+    const known = this.listingTerms.get(listingId);
+    if (known !== undefined) return Promise.resolve(known);
+    // annonce publiée sans conditions imposées : paramètres absents, illimité, rien de promis
+    if (!this.listingCountries.has(listingId)) return Promise.resolve(null);
+    return Promise.resolve({
+      currency: 'XTS',
+      timezone: 'UTC',
+      cancellation: null,
+      mileageMode: 'UNLIMITED',
+      includedKmPerDay: null,
+      extraKmPriceMinor: null,
+      depositAmountMinor: null,
+      protection: null,
+    });
   }
 }
 

@@ -710,6 +710,9 @@ async function requestOf(
       };
     case 'GET /listings/{listingId}/meeting-point':
       return { method: 'GET', path: `/listings/${randomUUID()}/meeting-point` };
+    // conditions de la fiche (US-205) : annonce inconnue ⇒ 404 sans rien révéler
+    case 'GET /listings/{listingId}/conditions':
+      return { method: 'GET', path: `/listings/${randomUUID()}/conditions` };
     // checkout (US-208) : annonce, devis et hold inconnus ⇒ 404 (IDOR : même réponse)
     case 'POST /checkout/quotes':
       return {

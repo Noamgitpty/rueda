@@ -479,6 +479,10 @@
       "acces": "public",
       "idor": "annonce non publiée ou inconnue : 404 LISTING_NOT_FOUND ; « libre » ou refus seulement (préavis, créneau pris sans détail), sonde arrondie à l'heure, limitée par IP (availability_probe_per_minute, N-78) (19 US-204 critère 2 ; preuves base : l0-us204)"
     },
+    "GET /listings/{listingId}/conditions": {
+      "acces": "public",
+      "idor": "annonce non publiée ou inconnue : 404 LISTING_NOT_FOUND ; conditions publiques (C0) seulement : paramètres d'annulation du pays, caution de la plateforme, conditions du contrat de l'assureur rendues seulement si insurer_contract_active, contrat en vigueur couvrant le véhicule et RC au minimum du pays ; jamais l'hôte, l'adresse ni l'occupation (19 US-205 critères 3 et 4 ; preuves base : l0-us205)"
+    },
     "GET /listings/{listingId}/meeting-point": {
       "acces": "session",
       "idor": "lieu exact rendu au seul voyageur de la session (empreinte du jeton) ayant un trip confirmé et non terminé de ce véhicule ; visiteur, autre voyageur, hôte, trip annulé ou terminé : 404 MEETING_POINT_NOT_FOUND sans rien révéler (19 US-204 critère 3, L2-PM-29 ; preuves base : l0-us204)"

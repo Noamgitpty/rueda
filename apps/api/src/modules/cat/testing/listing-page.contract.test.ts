@@ -1,5 +1,5 @@
 /**
- * Contrat HTTP de la fiche du véhicule (US-204 ; écran S03) sur l'application RÉELLE (ApiModule,
+ * Contrat HTTP de la fiche du véhicule (US-204, US-205 ; écran S03) sur l'application RÉELLE (ApiModule,
  * harnais d'US-043) : `GET /listings/{id}` (galerie, notes, hôte vérifié), `GET
  * /listings/{id}/availability` (dates choisies sur la fiche) et `GET /listings/{id}/meeting-point`
  * (lieu exact du voyageur). Chaque réponse est confrontée à `openapi.json`.
@@ -31,6 +31,7 @@ import {
 } from '../internal/host-listings/store.js';
 import type { GuestMeetingPoint, PublicListing } from '../internal/host-listings/store.js';
 import type { SearchPriceInput, SearchPricer } from '../internal/search/cards.js';
+import type { ListingTerms } from '../internal/search/store.js';
 import type { AvailabilityProbeLimiter } from '../internal/search/search.service.js';
 import { FakeSearchStore } from './fake-search-store.js';
 
@@ -192,6 +193,14 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
         endAt: '2036-12-12T15:00:00.000Z',
         timezone: 'UTC',
         price: null,
+        // double sans conditions imposées : paramètres absents ⇒ aucune promesse (US-205)
+        cancellation: null,
+        mileage: {
+          mode: 'UNLIMITED',
+          includedKmPerDay: null,
+          includedKm: null,
+          extraKmPriceMinor: null,
+        },
       },
     });
     expect(search.lastSlot).toEqual({
@@ -376,7 +385,149 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
     expect(down.json).toMatchObject({ code: 'LISTING_UNAVAILABLE' });
   });
 
-  it('couverture : chaque statut déclaré pour /listings (fiche, dates, lieu exact) est exercé', () => {
+  // ---- US-205 : conditions affichées (annulation, distance, protection, caution) -------------
+  it('US-205 critères 1 et 2 : créneau accepté ⇒ freeUntil de la base pour ce départ (instant UTC transmis), fenêtre de dernière minute de 60 min ; km par jour × jours facturables du devis (200 × 3 = 600) et prix du km de l’annonce', async () => {
+    const search = new FakeSearchStore();
+    search.listingCountries.set(LISTING, FIRST_COUNTRY);
+    search.listingPrices.set(LISTING, {
+      currency: 'XTS',
+      dailyPriceMinor: '4000',
+      quotedAt: '2036-12-01T12:00:00.000Z',
+    });
+    const terms: ListingTerms = {
+      currency: 'XTS',
+      timezone: 'UTC',
+      cancellation: {
+        freeCancelLeadHours: 24,
+        lastMinuteThresholdHours: 25,
+        lastMinute: false,
+        freeUntil: '2036-12-09T15:00:00.000Z',
+      },
+      mileageMode: 'INCLUDED',
+      includedKmPerDay: 200,
+      extraKmPriceMinor: '35',
+      depositAmountMinor: null,
+      protection: null,
+    };
+    search.listingTerms.set(LISTING, terms);
+    const a = await app({
+      search,
+      pricer: { price: () => ({ totalMinor: '12840', billableDays: 3 }) },
+    });
+    const ok = await a.api.request('GET', at(DATES));
+    expect(ok.status).toBe(200);
+    expect(ok.json).toMatchObject({
+      availability: {
+        cancellation: {
+          lastMinute: false,
+          freeUntil: '2036-12-09T15:00:00.000Z',
+          lastMinuteWindowMinutes: 60,
+        },
+        mileage: {
+          mode: 'INCLUDED',
+          includedKmPerDay: 200,
+          includedKm: 600,
+          extraKmPriceMinor: '35',
+        },
+      },
+    });
+    // la base reçoit l'instant UTC du départ accepté (jamais l'heure locale brute)
+    expect(search.termsAsked).toEqual(['2036-12-10T15:00:00.000Z']);
+    // dernière minute : aucune date (« 1 h après la réservation »), même si la base en rendait une
+    search.listingTerms.set(LISTING, {
+      ...terms,
+      cancellation: {
+        ...terms.cancellation!,
+        lastMinute: true,
+        freeUntil: '2036-12-10T15:00:00.000Z',
+      },
+    });
+    const late = await a.api.request('GET', at(DATES));
+    expect(late.json).toMatchObject({
+      availability: {
+        cancellation: { lastMinute: true, freeUntil: null, lastMinuteWindowMinutes: 60 },
+      },
+    });
+    // départ non jugé par la base (lastMinute nul) : aucune promesse d'annulation gratuite
+    search.listingTerms.set(LISTING, {
+      ...terms,
+      cancellation: { ...terms.cancellation!, lastMinute: null, freeUntil: null },
+    });
+    expect((await a.api.request('GET', at(DATES))).json).toMatchObject({
+      availability: { cancellation: null },
+    });
+  });
+
+  it('US-205 : conditions sans dates ⇒ politique du pays, caution, protection telle que la base la rend ; protection non promise ⇒ null ; inconnue ⇒ 404 ; base en panne ⇒ 503', async () => {
+    const search = new FakeSearchStore();
+    search.listingCountries.set(LISTING, FIRST_COUNTRY);
+    const protection = {
+      insurerName: 'Aseguradora Ficticia',
+      insurerLicenseRef: 'LIC-1',
+      brokerName: 'Corredor Ficticio',
+      brokerLicenseRef: null,
+      contractVersion: 2,
+      rcAmountMinor: '10000000',
+      deductibles: { BASICA: '150000', ESTANDAR: '50000', TOTAL: '0' },
+      exclusions: { es: 'Excl.', en: 'Excl.', fr: 'Excl.', 'pt-BR': 'Excl.' },
+    } as const;
+    search.listingTerms.set(LISTING, {
+      currency: 'XTS',
+      timezone: 'UTC',
+      cancellation: {
+        freeCancelLeadHours: 24,
+        lastMinuteThresholdHours: 25,
+        lastMinute: null,
+        freeUntil: null,
+      },
+      mileageMode: 'UNLIMITED',
+      includedKmPerDay: null,
+      extraKmPriceMinor: null,
+      depositAmountMinor: '25000',
+      protection,
+    });
+    const a = await app({ search });
+    const r = await a.api.request('GET', `/listings/${LISTING}/conditions`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get('cache-control')).toBe('no-store');
+    expect(r.json).toEqual({
+      conditions: {
+        currency: 'XTS',
+        timezone: 'UTC',
+        cancellation: {
+          freeCancelLeadHours: 24,
+          lastMinuteThresholdHours: 25,
+          lastMinuteWindowMinutes: 60,
+        },
+        deposit: { amountMinor: '25000' },
+        protection,
+      },
+    });
+    expect(search.termsAsked).toEqual([null]);
+    // contrat inactif (ou RC sous le minimum, véhicule hors contrat) : la base ne promet rien
+    search.listingTerms.delete(LISTING);
+    const none = await a.api.request('GET', `/listings/${LISTING}/conditions`);
+    expect(none.json).toEqual({
+      conditions: {
+        currency: 'XTS',
+        timezone: 'UTC',
+        cancellation: null,
+        deposit: null,
+        protection: null,
+      },
+    });
+    expect(none.text).not.toContain('Aseguradora');
+    const unknown = await a.api.request('GET', `/listings/${OTHER}/conditions`);
+    expect(unknown.status).toBe(404);
+    expect(unknown.json).toMatchObject({ code: 'LISTING_NOT_FOUND' });
+    expect((await a.api.request('GET', '/listings/pas-un-uuid/conditions')).status).toBe(404);
+    search.down = true;
+    const down = await a.api.request('GET', `/listings/${LISTING}/conditions`);
+    expect(down.status).toBe(503);
+    expect(down.json).toMatchObject({ code: 'SEARCH_UNAVAILABLE' });
+  });
+
+  it('couverture : chaque statut déclaré pour /listings (fiche, dates, lieu exact, conditions) est exercé', () => {
     expect(missingCoverage(contract, '/listings', coverageOf(...apps))).toEqual([]);
   });
 });
