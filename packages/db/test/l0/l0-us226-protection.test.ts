@@ -244,6 +244,12 @@ async function setSwitch(
   if (a.outcome !== 'APPLIED') throw new Error(`approbation : ${a.outcome}`);
 }
 
+/** Avance l'horloge virtuelle de la transaction (une valeur de paramètre par instant). */
+async function later(c: Tx, minutes: number): Promise<void> {
+  const at = new Date(Date.parse(NOW) + minutes * 60_000).toISOString();
+  await c.query(`SELECT pg_catalog.set_config('app.virtual_now', $1, true)`, [at]);
+}
+
 async function setParam(c: Tx, key: string, country: string, value: unknown): Promise<void> {
   await c.query('SELECT test_fixture.us226_set_param($1, $2, $3::jsonb)', [
     key,
@@ -453,6 +459,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
             dailyCeilingMinor: null,
           },
         };
+        await later(tx, 1); // une valeur de paramètre par instant (unicité de valid_from)
         await setParam(tx, 'protection_grid', cc.country, shifted);
         await setParam(tx, 'insurer_premium_share', cc.country, { ...SHARES, INFERIOR: '7/10' });
         const low = await freeze(
@@ -464,6 +471,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         expect(low.outcome).toBe('PROTECTION_LEVEL_NOT_ELIGIBLE');
         // guest_protection_min_level absent : le plus petit rang (INFERIOR) devient le minimum ;
         // avec la grille du vecteur, c'est BASICA (16 PRT-011)
+        await later(tx, 2);
         await setParam(tx, 'protection_grid', cc.country, grid(v));
         await tx.query('SELECT test_fixture.us226_close_param($1, $2)', [
           'guest_protection_min_level',
@@ -520,6 +528,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
             driver_age: null,
             insurer_contract_active: true,
           });
+          await later(tx, 1); // une version de l'interrupteur par instant (unicité de valid_from)
           await setSwitch(tx, 'insurer_contract_active', cc.country, false);
           expect(await checkout(tx, ctx.guest.hash, quoteId)).toBe('INSURER_CONTRACT_INACTIVE');
           const holds = await tx.query<{ n: number }>(
