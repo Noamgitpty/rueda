@@ -1123,6 +1123,11 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
           ),
       ),
     ).toEqual([]);
-    expect(missingCoverage(contract, '/listings', covered)).toEqual([]);
+    // dates, lieu exact et notes en panne de la fiche (US-204) : listing-page.contract
+    expect(
+      missingCoverage(contract, '/listings', covered).filter(
+        (d) => !d.includes(' /listings/{listingId}/') && d !== 'GET /listings/{listingId} 503',
+      ),
+    ).toEqual([]);
   });
 });

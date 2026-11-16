@@ -690,6 +690,14 @@ async function requestOf(
       };
     case 'GET /listings/{listingId}':
       return { method: 'GET', path: `/listings/${randomUUID()}` };
+    // fiche (US-204) : annonce inconnue ⇒ 404 ; lieu exact sans trip confirmé ⇒ 404
+    case 'GET /listings/{listingId}/availability':
+      return {
+        method: 'GET',
+        path: `/listings/${randomUUID()}/availability?start=2036-12-10T10:00&end=2036-12-12T10:00`,
+      };
+    case 'GET /listings/{listingId}/meeting-point':
+      return { method: 'GET', path: `/listings/${randomUUID()}/meeting-point` };
     // recherche publique (US-201) : zones du pays ; recherche datée loin dans le futur
     case 'GET /search/areas':
       return { method: 'GET', path: `/search/areas?country=${country}` };

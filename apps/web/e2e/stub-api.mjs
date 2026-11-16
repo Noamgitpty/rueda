@@ -222,6 +222,28 @@ const HOST_TOKEN = /^H0st[A-Za-z0-9_-]{39}$/;
 const NOHOST_TOKEN = /^N0ho[A-Za-z0-9_-]{39}$/;
 const PUBLIC_ID = '11500000-0000-4000-8000-00000000f001';
 const DOWN_ID = '11500000-0000-4000-8000-00000000f503';
+// Fiche du véhicule (US-204) : galerie de la fiche `PUBLIC_ID` dans l'ordre de l'hôte (trois
+// photos, identifiants volontairement non triés) ; la deuxième est INTROUVABLE au bucket (404) :
+// la galerie montre sa vignette de remplacement, les autres restent affichées. Le bucket est servi
+// par ce double sous `/media/` (WEB_MEDIA_URL du site, playwright.config.ts) : petites images PNG
+// unies, toujours les mêmes octets.
+const GALLERY = [
+  '20400000-0000-4000-8000-0000000000c3',
+  '20400000-0000-4000-8000-0000000000a1',
+  '20400000-0000-4000-8000-0000000000b2',
+];
+const BROKEN_PHOTO = GALLERY[1];
+const PHOTO_BYTES = [
+  'iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAEElEQVR42mNIKGiAIwacHAAx1g/Bj08FAwAAAABJRU5ErkJggg==',
+  'iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAEElEQVR42mNYUBEARww4OQBNBhDhVPqafgAAAABJRU5ErkJggg==',
+].map((b) => Buffer.from(b, 'base64'));
+// Dates de la fiche (US-204) : départ à 07:00 ⇒ 422 DATES_NOTICE_TOO_SHORT (préavis de 3 h de
+// l'hôte) ; départ le 24 décembre ⇒ 409 DATES_UNAVAILABLE (créneau pris, sans détail) ; sinon
+// libre. Lieu exact : session `B00k…` (voyageur d'un trip confirmé de `PUBLIC_ID`) ⇒ 200 ; toute
+// autre session ⇒ 404 ; sans session ⇒ 401.
+const NOTICE_TIME = 'T07:00';
+const BUSY_DAY = '-12-24T';
+const BOOKED_TOKEN = /^B00k[A-Za-z0-9_-]{39}$/;
 /** Ville fictive dont la recherche rend 503 `SEARCH_UNAVAILABLE` (US-201, état d'erreur). */
 const SEARCH_DOWN_CITY = 'Ciudad Caida';
 /** Annonces de la recherche du double sans fiche (US-203) : LUXE notée, sans point sur la carte. */
@@ -498,6 +520,58 @@ async function hostRoute(req, res, url) {
         : [],
     });
   }
+  // ---- Fiche du véhicule (US-204) : bucket des photos, dates, lieu exact ---------------------
+  const media = /^\/media\/listing\/([0-9a-f-]{36})\/([0-9a-f-]{36})$/.exec(path);
+  if (req.method === 'GET' && media !== null) {
+    const i = GALLERY.indexOf(media[2]);
+    if (media[1] !== PUBLIC_ID || i < 0 || media[2] === BROKEN_PHOTO) {
+      res.writeHead(404, { 'content-type': 'text/plain' });
+      return res.end('introuvable');
+    }
+    const body = PHOTO_BYTES[i % PHOTO_BYTES.length];
+    res.writeHead(200, { 'content-type': 'image/png', 'content-length': String(body.length) });
+    return res.end(body);
+  }
+  const avail = /^\/listings\/([0-9a-f-]{36})\/availability$/.exec(path)?.[1];
+  if (req.method === 'GET' && avail !== undefined) {
+    if (avail !== PUBLIC_ID) return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    const start = url.searchParams.get('start') ?? '';
+    const end = url.searchParams.get('end') ?? '';
+    const slot = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[03]0$/;
+    if (!slot.test(start) || !slot.test(end) || end <= start) {
+      return err(res, 422, 'SEARCH_DATES_INVALID', 'common.search.datesInvalid');
+    }
+    if (start.endsWith(NOTICE_TIME)) {
+      return json(res, 422, {
+        code: 'DATES_NOTICE_TOO_SHORT',
+        messageKey: 'common.listing.datesNoticeTooShort',
+        values: { noticeHours: 3 },
+      });
+    }
+    if (start.includes(BUSY_DAY)) {
+      return err(res, 409, 'DATES_UNAVAILABLE', 'common.listing.datesUnavailable');
+    }
+    return json(res, 200, {
+      availability: { startAt: `${start}:00.000Z`, endAt: `${end}:00.000Z`, timezone: 'UTC' },
+    });
+  }
+  const meet = /^\/listings\/([0-9a-f-]{36})\/meeting-point$/.exec(path)?.[1];
+  if (req.method === 'GET' && meet !== undefined) {
+    const token = tokenOf(req);
+    if (token === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    if (meet !== PUBLIC_ID || !BOOKED_TOKEN.test(token)) {
+      return err(res, 404, 'MEETING_POINT_NOT_FOUND', 'common.listing.meetingPointNotFound');
+    }
+    return json(res, 200, {
+      meetingPoint: {
+        placeLabel: 'Entrada del centro comercial',
+        addressLine: 'Avenida Ficticia 123',
+        city: 'Ciudad Ficticia',
+        areaLabel: 'Barrio Norte',
+        locationKind: 'POI',
+      },
+    });
+  }
   const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
   if (req.method === 'GET' && pub !== undefined) {
     if (pub === DOWN_ID) return err(res, 503, 'LISTING_UNAVAILABLE', 'common.listing.unavailable');
@@ -525,6 +599,13 @@ async function hostRoute(req, res, url) {
         areaLabel: 'Barrio Norte',
         approximatePoint: { lat: 8.98, lng: -79.52 },
         timezone: 'UTC',
+        hostFirstName: 'Ana',
+        photos: GALLERY.map((id, order) => ({ id, order, key: `listing/${PUBLIC_ID}/${id}` })),
+        hostVerified: true,
+        ratings: {
+          vehicle: { averageX100: 480, reviewCount: 3, tripCount: 5 },
+          host: { averageX100: 490, reviewCount: 10, tripCount: 12 },
+        },
       },
     });
   }

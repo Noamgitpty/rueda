@@ -899,6 +899,27 @@
       "story": "US-203"
     },
     {
+      "signature": "core.catalog_public_gallery(uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-204"
+    },
+    {
+      "signature": "core.catalog_public_slot_check(uuid,timestamp without time zone,timestamp without time zone)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-204"
+    },
+    {
+      "signature": "core.catalog_guest_meeting_point(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-204"
+    },
+    {
       "signature": "core.kyc_identity_state(bytea,text)",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",

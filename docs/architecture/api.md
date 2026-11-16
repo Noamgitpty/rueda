@@ -131,7 +131,9 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |
 | ------- | ------ | ----------- | ------ | ---------------- |
-| `GET` | `/listings/{listingId}` | `publicListing` | Fiche publique d'une annonce LISTED : colonnes C0, zone approximative du lieu de remise, jamais l'adresse exacte (US-115 critère 4) | **200** application/json<br>**404** LISTING_NOT_FOUND |
+| `GET` | `/listings/{listingId}` | `publicListing` | Fiche publique d'une annonce LISTED : colonnes C0, zone approximative du lieu de remise, jamais l'adresse exacte (US-115 critère 4) | **200** application/json<br>**404** LISTING_NOT_FOUND<br>**503** LISTING_UNAVAILABLE |
+| `GET` | `/listings/{listingId}/availability` | `listingAvailability` | Dates choisies sur la fiche d'une annonce LISTED (US-204 ; 16 LST-006) : préavis du lieu, hôte activable et disponibilité avec le tampon ; aucun prix | **200** application/json<br>**404** LISTING_NOT_FOUND<br>**409** DATES_UNAVAILABLE<br>**422** SEARCH_DATES_INVALID / SEARCH_DURATION_EXCEEDED / DATES_NOTICE_TOO_SHORT<br>**429** RATE_LIMITED<br>**503** SEARCH_UNAVAILABLE |
+| `GET` | `/listings/{listingId}/meeting-point` | `listingMeetingPoint` | Lieu de remise exact (libellé et adresse) pour le voyageur d'un trip confirmé et non terminé de ce véhicule (US-204 critère 3 ; 16 LST-007) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** MEETING_POINT_NOT_FOUND<br>**503** LISTING_UNAVAILABLE |
 
 ## `/phone`
 

@@ -6,13 +6,15 @@
  * (fonctions `core.catalog_public_cards` de 0105 et `core.catalog_public_areas` de 0103 sous
  * app_api ; limiteur de la sonde : garde anti-abus de RISK ; prix : devis provisoire de PRC
  * (`searchQuotePricer`) ; notes : aucune tant que REV ne les fournit pas (US-218) ; câblés par
- * `main.ts`) ; tests : FAKE de `../../testing/`. Sans options : 503 partout.
+ * `main.ts`) ; tests : FAKE de `../../testing/`. Sans options : 503 partout. Dates choisies sur la
+ * fiche (US-204, ADR-132) : `GET /listings/{id}/availability`, même magasin et même limiteur.
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import type { SqlExecutor } from '../host-listings/store.js';
 import { NO_SEARCH_RATINGS, UNAVAILABLE_SEARCH_PRICER } from './cards.js';
 import type { QuoteUnavailableAlert, SearchPricer, SearchRatings } from './cards.js';
+import { ListingSlotController } from './listing-slot.controller.js';
 import { SearchController } from './search.controller.js';
 import { SearchService, UNAVAILABLE_PROBE_LIMITER } from './search.service.js';
 import type { AvailabilityProbeLimiter } from './search.service.js';
@@ -56,7 +58,8 @@ export class CatSearchModule {
   static register(options: CatSearchOptions = UNAVAILABLE_CAT_SEARCH): DynamicModule {
     return {
       module: CatSearchModule,
-      controllers: [SearchController],
+      // dates de la fiche (US-204) : même service, même sonde limitée par IP
+      controllers: [SearchController, ListingSlotController],
       providers: [
         {
           provide: SearchService,

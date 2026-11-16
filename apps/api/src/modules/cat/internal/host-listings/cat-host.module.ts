@@ -11,6 +11,8 @@
  * véhicule (US-124, ADR-107) : magasin `documents` (commandes de 0077) ; antivirus, coffre et
  * stockage `documentFiles` indisponibles en production (503) jusqu'à US-003. Trips de l'hôte
  * (US-219, ADR-128) : magasin `trips` (lecture `core.booking_host_trips` de 0101), lecture seule.
+ * Fiche du véhicule (US-204, ADR-132) : galerie et lieu exact du voyageur par le même magasin
+ * (fonctions de 0106) ; notes par le port `ratings` (REV, câblé par `main.ts`).
  */
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
@@ -27,6 +29,7 @@ import { PgVehicleCatalogStore } from '../vehicle-catalog/store.js';
 import { HostListingsController } from './host-listings.controller.js';
 import { HostListingsService } from './host-listings.service.js';
 import type { PhotoPipeline } from './host-listings.service.js';
+import type { PublicListingRatings } from './public-ratings.js';
 import { UnavailablePhotoScanner, UnavailablePhotoStorage } from './photo-ingest.js';
 import { PublicListingController } from './public-listing.controller.js';
 import { PgHostListingStore, UnavailableHostListingStore } from './store.js';
@@ -54,6 +57,8 @@ export interface CatHostOptions {
   readonly documents?: VehicleDocumentStore;
   /** Antivirus, coffre et stockage des pièces (US-124) ; absent : indisponibles (503). */
   readonly documentFiles?: DocumentPipeline;
+  /** Notes de la fiche (US-204, port satisfait par REV dans `main.ts`) ; absent : « Nuevo ». */
+  readonly ratings?: PublicListingRatings;
 }
 
 /** Aucun adaptateur : 503 partout (fail-closed). */
@@ -96,7 +101,13 @@ export class CatHostModule {
       providers: [
         {
           provide: HostListingsService,
-          useValue: new HostListingsService(options.store, options.catalog, options.photos),
+          useValue: new HostListingsService(
+            options.store,
+            options.catalog,
+            options.photos,
+            undefined,
+            options.ratings,
+          ),
         },
         {
           provide: VehicleDocumentsService,

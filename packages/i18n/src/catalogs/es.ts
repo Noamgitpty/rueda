@@ -1787,6 +1787,25 @@ export const ES_MESSAGES = {
   'web.search.map.noPoint': 'Sin punto en el mapa',
   'web.listing.dates.title': 'Tus fechas',
   'web.listing.dates.change': 'Cambiar la búsqueda',
+  'common.listing.datesNoticeTooShort': {
+    one: 'El anfitrión pide al menos {count} hora de anticipación. Elige una hora de inicio más tarde.',
+    other:
+      'El anfitrión pide al menos {count} horas de anticipación. Elige una hora de inicio más tarde.',
+  },
+  'common.listing.datesUnavailable':
+    'Este auto no está disponible en esas fechas. Prueba con otras.',
+  'common.listing.meetingPointNotFound': 'No hay una reserva confirmada de este auto en tu cuenta.',
+  'web.s03.photos': '{n} / {total} fotos de {host_name}',
+  'web.listing.gallery.title': 'Fotos del auto',
+  'web.listing.gallery.photoAlt': '{car}, foto {n} de {total}',
+  'web.listing.gallery.broken': 'Foto no disponible',
+  'web.listing.slot.title': 'Elige tus fechas',
+  'web.listing.slot.check': 'Ver disponibilidad',
+  'web.listing.slot.ok': 'Disponible en estas fechas.',
+  'web.listing.slot.error': 'No pudimos comprobar estas fechas. Inténtalo de nuevo.',
+  'web.listing.meet.exact.title': 'Dirección del encuentro',
+  'web.listing.meet.exact.only': 'Solo tú la ves: tienes una reserva confirmada de este auto.',
+  'web.listing.meet.sameReturn': 'Devuelves el auto en el mismo lugar.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

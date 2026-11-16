@@ -47,6 +47,13 @@ export {
 export type { PhotoScanner, PhotoStorage } from './internal/host-listings/photo-ingest.js';
 export { PgHostListingStore, UnavailableHostListingStore } from './internal/host-listings/store.js';
 export type { HostListingStore } from './internal/host-listings/store.js';
+// US-204 (ADR-132) : notes de la fiche, port satisfait par REV dans `main.ts`
+export { NO_PUBLIC_LISTING_RATINGS } from './internal/host-listings/public-ratings.js';
+export type {
+  PublicListingRating,
+  PublicListingRatings,
+  PublicRating,
+} from './internal/host-listings/public-ratings.js';
 
 // Trips de l'hôte, lecture seule (US-219, ADR-128) : routes /host/accounts/{orgId}/trips[/{tripId}].
 export { PgHostTripStore, UnavailableHostTripStore } from './internal/host-trips/store.js';

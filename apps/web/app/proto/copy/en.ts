@@ -70,7 +70,6 @@ export const EN_PROTO = {
   'web.s02f.clear': 'Clear',
   'web.s02f.show': { one: 'Show {count} car', other: 'Show {count} cars' },
   'web.s02f.none': 'No cars match these filters. Remove one to see more.',
-  'web.s03.photos': '{n} / {total} photos by {host_name}',
   'web.s03.rules.title': "{host_name}'s rules",
   'web.s03.meet.title': 'Where you pick up the car',
   'web.s03.instant': 'Instant confirmation',

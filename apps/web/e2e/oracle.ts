@@ -21,7 +21,10 @@ export const SPEC_TEXT: Readonly<
     | 'identityVerified'
     | 'identityRetake'
     | 'hostWaitingCountry'
-    | 'newBadge',
+    | 'newBadge'
+    | 'hostVerified'
+    | 'meetTitle'
+    | 'photosBy',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -52,6 +55,26 @@ export const SPEC_TEXT: Readonly<
   // 10b §4.3, ligne `web.s02.new` (S02, US-203) ; pt : texte pt-BR de référence de la story
   // US-203 (DEC-FONDATEUR-18), 10b n'ayant pas de colonne pt
   newBadge: { es: 'Nuevo', en: 'New', fr: 'Nouveau', pt: 'Novo' },
+  // 10b §4.3, lignes `web.host.guest.verified`, `web.s03.meet.title` et `web.s03.photos` (S03,
+  // US-204 ; légende avec n = 1, total = 3, host_name = Ana, prénom du double) ; pt : textes pt-BR
+  // de référence de la story US-204 (DEC-FONDATEUR-18), 10b n'ayant pas de colonne pt
+  hostVerified: {
+    es: 'Identidad verificada',
+    en: 'Verified identity',
+    fr: 'Identité vérifiée',
+    pt: 'Identidade verificada',
+  },
+  meetTitle: {
+    es: 'Dónde recoges el auto',
+    en: 'Where you pick up the car',
+    fr: 'Où tu récupères la voiture',
+  },
+  photosBy: {
+    es: '1 / 3 fotos de Ana',
+    en: '1 / 3 photos by Ana',
+    fr: '1 / 3 · photos prises par Ana',
+    pt: '1 / 3 fotos tiradas por Ana',
+  },
   // 10b §4.3, lignes `web.s04.result.verified` et `web.s04.result.retake` (S04, US-105)
   // pt : 10b n'a pas de colonne pt ; texte pt-BR de référence de la story US-105 (DEC-FONDATEUR-18),
   // à reporter dans 10b

@@ -220,6 +220,15 @@ describe('HostCard', () => {
   });
 });
 
+describe('HostCard sans ancienneté (bêta, US-204)', () => {
+  it('ni « miembro desde » ni année quand memberSince est absent ; « Nuevo » sans note', () => {
+    const text = textOf(render(<HostCard i18n={es} id="h" name="Ana" trips={0} verified />));
+    expect(text).not.toContain(es.t('common.ui.host.since', { year: '2024' }).replace('2024', ''));
+    expect(text).toContain(es.t('web.s02.new'));
+    expect(text).toContain(es.t('web.host.guest.verified'));
+  });
+});
+
 describe('DepositBlock', () => {
   const instant = '2027-01-18T15:00:00Z';
   it.each(LOCALES)('%s : les six réponses de 10b UX-21', (_t, _p, i18n) => {

@@ -1793,4 +1793,23 @@ export const PT_MESSAGES = {
   'web.search.map.noPoint': 'Sem ponto no mapa',
   'web.listing.dates.title': 'Suas datas',
   'web.listing.dates.change': 'Alterar a busca',
+  'common.listing.datesNoticeTooShort': {
+    one: 'O anfitrião pede pelo menos {count} hora de antecedência. Escolha um horário de início mais tarde.',
+    other:
+      'O anfitrião pede pelo menos {count} horas de antecedência. Escolha um horário de início mais tarde.',
+  },
+  'common.listing.datesUnavailable':
+    'Este carro não está disponível nessas datas. Tente outras datas.',
+  'common.listing.meetingPointNotFound': 'Não há uma reserva confirmada deste carro na sua conta.',
+  'web.s03.photos': '{n} / {total} fotos tiradas por {host_name}',
+  'web.listing.gallery.title': 'Fotos do carro',
+  'web.listing.gallery.photoAlt': '{car}, foto {n} de {total}',
+  'web.listing.gallery.broken': 'Foto indisponível',
+  'web.listing.slot.title': 'Escolha suas datas',
+  'web.listing.slot.check': 'Ver disponibilidade',
+  'web.listing.slot.ok': 'Disponível nessas datas.',
+  'web.listing.slot.error': 'Não conseguimos verificar essas datas. Tente de novo.',
+  'web.listing.meet.exact.title': 'Endereço do encontro',
+  'web.listing.meet.exact.only': 'Só você vê: você tem uma reserva confirmada deste carro.',
+  'web.listing.meet.sameReturn': 'Você devolve o carro no mesmo lugar.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

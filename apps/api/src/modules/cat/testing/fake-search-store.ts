@@ -19,6 +19,8 @@ import type {
   SearchOutcome,
   SearchResult,
   SearchStore,
+  SlotOutcome,
+  SlotQuery,
 } from '../internal/search/store.js';
 
 export class FakeSearchStore implements SearchStore {
@@ -39,6 +41,28 @@ export class FakeSearchStore implements SearchStore {
     if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
     this.lastQuery = query;
     return Promise.resolve(this.outcome);
+  }
+
+  // ---- dates de la fiche (US-204) ----------------------------------------------------------
+  /** Pays par annonce publiée ; une annonce absente est inconnue ou non publiée. */
+  listingCountries = new Map<string, string>();
+  slotOutcome: SlotOutcome = {
+    outcome: 'OK',
+    startAt: '2036-12-10T15:00:00.000Z',
+    endAt: '2036-12-12T15:00:00.000Z',
+    timezone: 'UTC',
+  };
+  lastSlot: SlotQuery | null = null;
+
+  listingCountry(listingId: string): Promise<string | null> {
+    if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
+    return Promise.resolve(this.listingCountries.get(listingId) ?? null);
+  }
+
+  slotCheck(query: SlotQuery): Promise<SlotOutcome> {
+    if (this.down) return Promise.reject(new Error('base indisponible (FAKE)'));
+    this.lastSlot = query;
+    return Promise.resolve(this.slotOutcome);
   }
 }
 

@@ -2,7 +2,8 @@
  * Port de lecture de la recherche publique (US-201, US-203) et son adaptateur PostgreSQL :
  * fonctions `core.catalog_public_cards` de 0105 (la recherche de 0103 inchangée, plus la
  * caution et l'instant du devis) et `core.catalog_public_areas` de 0103 (SECURITY DEFINER,
- * EXECUTE app_api), paramètres liés. Lecture seule : aucune écriture, aucune session.
+ * EXECUTE app_api), paramètres liés. Dates de la fiche (US-204) : `core.catalog_public_slot_check`
+ * de 0106 et le pays de l'annonce lu par `core.catalog_public_listing` (0067). Lecture seule : aucune écriture, aucune session.
  *
  * Ce que rend le port (C0 seulement, comme la fiche publique d'US-115) : prix par jour, véhicule,
  * ville, zone saisie par l'hôte, point arrondi au centième de degré, fuseau et instants UTC de la
@@ -66,10 +67,50 @@ export type SearchOutcome =
   | { readonly outcome: 'OK'; readonly results: readonly SearchResult[] }
   | { readonly outcome: SearchRefusal };
 
+/**
+ * Dates choisies sur la fiche d'une annonce (US-204 ; 16 LST-006) : heures LOCALES du lieu, au pas
+ * de 30 min, jugées par `core.catalog_public_slot_check` (0106) : refus de la recherche, préavis
+ * du lieu, hôte activable et sonde de disponibilité avec le tampon.
+ */
+export interface SlotQuery {
+  readonly listingId: string;
+  readonly startLocal: string;
+  readonly endLocal: string;
+}
+
+export type SlotRefusal =
+  | 'LISTING_NOT_FOUND'
+  | 'SEARCH_DATES_INVALID'
+  | 'SEARCH_DURATION_EXCEEDED'
+  | 'SEARCH_UNAVAILABLE'
+  | 'DATES_UNAVAILABLE';
+
+export type SlotOutcome =
+  | {
+      readonly outcome: 'OK';
+      /** Instants UTC (ISO 8601) dans le fuseau du véhicule, et ce fuseau. */
+      readonly startAt: string;
+      readonly endAt: string;
+      readonly timezone: string;
+    }
+  | {
+      readonly outcome: 'DATES_NOTICE_TOO_SHORT';
+      /** Préavis en vigueur du lieu, en minutes (le voyageur sait quoi changer). */
+      readonly noticeMinutes: number;
+    }
+  | { readonly outcome: SlotRefusal };
+
 export interface SearchStore {
   /** Zones proposées ; `country` nul : tous les pays. */
   areas(country: string | null): Promise<SearchArea[]>;
   search(query: SearchQuery): Promise<SearchOutcome>;
+  /**
+   * Pays d'une annonce LISTED (fiche publique d'US-115), pour la limite de la sonde de ce pays ;
+   * `null` si inconnue ou non publiée (US-204).
+   */
+  listingCountry(listingId: string): Promise<string | null>;
+  /** Contrôle des dates de la fiche (US-204) ; une issue, jamais une exception métier. */
+  slotCheck(query: SlotQuery): Promise<SlotOutcome>;
 }
 
 export class SearchStoreError extends Error {
@@ -88,7 +129,17 @@ export class UnavailableSearchStore implements SearchStore {
   }
   areas = (): Promise<SearchArea[]> => this.#fail();
   search = (): Promise<SearchOutcome> => this.#fail();
+  listingCountry = (): Promise<string | null> => this.#fail();
+  slotCheck = (): Promise<SlotOutcome> => this.#fail();
 }
+
+const SLOT_REFUSALS: ReadonlySet<string> = new Set<SlotRefusal>([
+  'LISTING_NOT_FOUND',
+  'SEARCH_DATES_INVALID',
+  'SEARCH_DURATION_EXCEEDED',
+  'SEARCH_UNAVAILABLE',
+  'DATES_UNAVAILABLE',
+]);
 
 const REFUSALS: ReadonlySet<string> = new Set<SearchRefusal>([
   'SEARCH_LOCATION_REQUIRED',
@@ -179,5 +230,46 @@ export class PgSearchStore implements SearchStore {
         };
       }),
     };
+  }
+  async listingCountry(listingId: string): Promise<string | null> {
+    const rows = await this.#rows(
+      'pays de l’annonce',
+      'SELECT p.country_code FROM core.catalog_public_listing($1::uuid) AS p',
+      [listingId],
+    );
+    return str(rows[0]?.['country_code']);
+  }
+
+  async slotCheck(q: SlotQuery): Promise<SlotOutcome> {
+    const rows = await this.#rows(
+      'dates de la fiche',
+      'SELECT * FROM core.catalog_public_slot_check($1::uuid, $2::timestamp, $3::timestamp)',
+      [q.listingId, q.startLocal, q.endLocal],
+    );
+    const r = rows[0];
+    if (rows.length !== 1 || r === undefined)
+      throw new SearchStoreError('ligne inattendue', undefined);
+    const code = String(r['outcome']);
+    if (code === 'OK') {
+      if (r['start_at'] === null || r['end_at'] === null || r['timezone'] === null) {
+        throw new SearchStoreError('ligne inattendue', undefined);
+      }
+      return {
+        outcome: 'OK',
+        startAt: iso(r['start_at']),
+        endAt: iso(r['end_at']),
+        timezone: String(r['timezone']),
+      };
+    }
+    if (code === 'DATES_NOTICE_TOO_SHORT') {
+      const notice = num(r['notice_minutes']);
+      if (notice === null || !Number.isInteger(notice) || notice < 0) {
+        throw new SearchStoreError('ligne inattendue', undefined);
+      }
+      return { outcome: 'DATES_NOTICE_TOO_SHORT', noticeMinutes: notice };
+    }
+    // issue inconnue (version N de la base pendant un déploiement) : indisponible, fail-closed
+    if (!SLOT_REFUSALS.has(code)) throw new SearchStoreError(`issue ${code}`, undefined);
+    return { outcome: code as SlotRefusal };
   }
 }

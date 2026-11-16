@@ -136,6 +136,34 @@ export interface PublicListing {
    * compte ACTIVE, jamais le nom de famille ni le nom légal complet ; `null` sinon.
    */
   readonly hostFirstName: string | null;
+  /**
+   * Galerie (US-204 ; 16 LST-002) : photos non retirées et non refusées, dans l'ordre de l'hôte ;
+   * clé du bucket public PUBLIC_LISTING (C0, métadonnées retirées au dépôt), rien d'autre.
+   */
+  readonly photos: readonly PublicPhoto[];
+}
+
+/** Photo de la galerie publique (`core.catalog_public_gallery`, 0106). */
+export interface PublicPhoto {
+  readonly id: string;
+  /** Rang choisi par l'hôte (0 : photo principale). */
+  readonly order: number;
+  /** Clé de l'objet dans le bucket public (`listing/<annonce>/<photo>`). */
+  readonly key: string;
+}
+
+/**
+ * Lieu de remise exact (US-204 critère 3 ; 16 LST-007) : rendu au SEUL voyageur de la session qui
+ * a un trip confirmé et non terminé de ce véhicule (`core.catalog_guest_meeting_point`, 0106).
+ * Jamais le point exact, le compte d'hôte ni le trip.
+ */
+export interface GuestMeetingPoint {
+  /** Libellé du lieu choisi par l'hôte (C2), consigne de rendez-vous de la bêta. */
+  readonly placeLabel: string;
+  readonly addressLine: string;
+  readonly city: string;
+  readonly areaLabel: string | null;
+  readonly locationKind: LocationKind;
 }
 
 /** Marché du compte d'hôte : pays, devise et exposant de la devise (config_currency, 17 §1.2). */
@@ -196,6 +224,8 @@ export interface HostListingStore {
   vehicles(proof: Buffer, orgId: string): Promise<HostVehicle[]>;
   listings(proof: Buffer, orgId: string): Promise<HostListing[]>;
   publicListing(listingId: string): Promise<PublicListing | null>;
+  /** Lieu exact pour le voyageur de la session (US-204) ; `null` : rien à montrer. */
+  guestMeetingPoint(proof: Buffer, listingId: string): Promise<GuestMeetingPoint | null>;
 }
 
 export class HostListingStoreError extends Error {
@@ -226,6 +256,7 @@ export class UnavailableHostListingStore implements HostListingStore {
   vehicles = (): Promise<HostVehicle[]> => this.#fail();
   listings = (): Promise<HostListing[]> => this.#fail();
   publicListing = (): Promise<PublicListing | null> => this.#fail();
+  guestMeetingPoint = (): Promise<GuestMeetingPoint | null> => this.#fail();
 }
 
 const sqlstateOf = (error: unknown): string | undefined =>
@@ -569,6 +600,15 @@ export class PgHostListingStore implements HostListingStore {
       'SELECT r.host_first_name FROM core.catalog_public_host_name($1::uuid) AS r',
       [listingId],
     );
+    const gallery = await this.#rows<{
+      photo_id: string;
+      photo_order: number;
+      storage_key: string;
+    }>(
+      'galerie',
+      'SELECT g.photo_id, g.photo_order, g.storage_key FROM core.catalog_public_gallery($1::uuid) AS g',
+      [listingId],
+    );
     const lat = num(r['geo_public_lat']);
     const lng = num(r['geo_public_lng']);
     return {
@@ -594,6 +634,28 @@ export class PgHostListingStore implements HostListingStore {
       approximatePoint: lat === null || lng === null ? null : { lat, lng },
       timezone: String(r['timezone']),
       hostFirstName: str(host[0]?.host_first_name),
+      photos: gallery.map((g) => ({
+        id: String(g.photo_id),
+        order: Number(g.photo_order),
+        key: String(g.storage_key),
+      })),
+    };
+  }
+
+  async guestMeetingPoint(proof: Buffer, listingId: string): Promise<GuestMeetingPoint | null> {
+    const rows = await this.#rows<Record<string, unknown>>(
+      'lieu de remise du voyageur',
+      'SELECT * FROM core.catalog_guest_meeting_point($1, $2::uuid)',
+      [proof, listingId],
+    );
+    const r = rows[0];
+    if (r === undefined) return null;
+    return {
+      placeLabel: String(r['place_label']),
+      addressLine: String(r['address_line']),
+      city: String(r['city']),
+      areaLabel: str(r['area_label']),
+      locationKind: r['location_kind'] as LocationKind,
     };
   }
 }

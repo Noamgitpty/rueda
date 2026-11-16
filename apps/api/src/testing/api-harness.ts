@@ -286,6 +286,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
         vehicles: () => Promise.resolve([]),
         listings: () => Promise.resolve([]),
         publicListing: () => Promise.resolve(null),
+        guestMeetingPoint: () => Promise.resolve(null),
       },
       'HostListingStore',
     ),
@@ -341,6 +342,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       {
         areas: () => Promise.resolve([]),
         search: () => Promise.resolve({ outcome: 'OK' as const, results: [] }),
+        listingCountry: () => Promise.resolve(null),
       },
       'SearchStore',
     ),
