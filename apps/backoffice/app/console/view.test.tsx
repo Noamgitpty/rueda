@@ -21,6 +21,9 @@ import {
   DSR_REFUSAL_KEYS,
   DSR_STEPS,
   evidenceOf,
+  REVIEW_AUTHORS,
+  REVIEW_REFUSAL_KEYS,
+  REVIEW_STARS,
 } from './view.tsx';
 import type { ConsoleHandlers, ConsoleState } from './view.tsx';
 
@@ -353,6 +356,79 @@ describe('US-111 : demande de personne (HANDLE_DSR), dans chaque locale', () => 
         'DSR_KIND_MISMATCH',
         'DSR_NOT_OPEN',
         'DSR_TRANSITION_INVALID',
+      ].sort(),
+    );
+  });
+});
+
+// US-218 (19 US-218 « avis recueilli par e-mail, l'ops l'enregistre (RECORD_REVIEW) ») : formulaire
+// propre, saisie fermée (auteur, note de 1 à 5), réservé aux rôles qui ont ops.review_listing_host
+describe('US-218 : avis reçu par e-mail (RECORD_REVIEW), dans chaque locale', () => {
+  const withReview: ConsoleHandlers = { ...noop, onReviewRecord: () => undefined };
+  const render = (role: string, tag: string): string => {
+    const profile = LOCALE_CONFIG.locales.find((p) => p.tag === tag);
+    if (profile === undefined) throw new Error(tag);
+    return renderToStaticMarkup(
+      <ConsoleView
+        i18n={createTranslator(profile)}
+        state={{ kind: 'console', roles: [{ role, countries: ['AA'] }], entries: [] }}
+        handlers={withReview}
+      />,
+    );
+  };
+
+  it.each(LOCALE_CONFIG.locales.map((p) => [p.tag, p] as const))(
+    '%s : titre, deux auteurs, cinq notes, trip, motif et pièces ; une seule langue',
+    (tag, profile) => {
+      const messages = CATALOGS[profile.language].messages;
+      const out = render('OPS_AGENT', tag);
+      expect(findForeignStrings(out.replace(/<[^>]+>/g, ' '), profile.language)).toEqual([]);
+      for (const key of [
+        'backoffice.action.RECORD_REVIEW',
+        'backoffice.review.hint',
+        'backoffice.review.subject',
+        'backoffice.review.author',
+        'backoffice.review.author.GUEST',
+        'backoffice.review.author.HOST',
+        'backoffice.review.overall',
+        'backoffice.review.overall.ONE',
+        'backoffice.review.overall.FIVE',
+        'backoffice.review.record',
+      ] as const) {
+        expect(out, key).toContain(escape(messages[key] as string));
+      }
+      for (const a of REVIEW_AUTHORS) expect(out, a).toContain(`name="reviewAuthor" value="${a}"`);
+      for (const st of REVIEW_STARS) {
+        expect(out, st).toContain(`name="reviewOverall" value="${st}"`);
+      }
+      expect(out).toContain('name="tripId"');
+      // RECORD_REVIEW n'est plus une action sans saisie du formulaire générique
+      expect(out).not.toContain('value="RECORD_REVIEW"');
+    },
+  );
+
+  it('saisie fermée de 0104 : deux auteurs, cinq notes en mots (jamais un nombre)', () => {
+    expect([...REVIEW_AUTHORS].sort()).toEqual(['GUEST', 'HOST']);
+    expect([...REVIEW_STARS].sort()).toEqual(['FIVE', 'FOUR', 'ONE', 'THREE', 'TWO']);
+  });
+
+  it('sans ops.review_listing_host (SUPPORT, FINANCE) : aucun formulaire d’avis ; ADMIN : formulaire', () => {
+    const tag = LOCALE_CONFIG.locales[0]?.tag ?? '';
+    for (const role of ['SUPPORT_AGENT', 'FINANCE']) {
+      expect(render(role, tag), role).not.toContain('name="reviewAuthor"');
+    }
+    expect(render('ADMIN', tag)).toContain('name="reviewAuthor"');
+  });
+
+  it('chaque refus de la commande liée a son texte', () => {
+    expect(Object.keys(REVIEW_REFUSAL_KEYS).sort()).toEqual(
+      [
+        'REVIEW_ALREADY_RECORDED',
+        'REVIEW_AUTHOR_UNKNOWN',
+        'REVIEW_INPUT_REQUIRED',
+        'REVIEW_TRIP_NOT_COMPLETED',
+        'REVIEW_WINDOW_CLOSED',
+        'REVIEW_WINDOW_UNKNOWN',
       ].sort(),
     );
   });

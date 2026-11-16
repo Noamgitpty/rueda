@@ -67,8 +67,10 @@ for (const language of LANGUAGES) {
       await expectAccessible(page);
       await signIn(context);
       await page.goto('/host/trips/21900000-0000-4000-8000-000000000001');
-      await expect(page.locator('main h1')).toBeVisible();
-      await expect(page.locator('main article')).toHaveCount(0);
+      // l'écran de chargement (sans contenu) peut coexister un instant : l'écran est le main prêt
+      const screen = page.locator('main:not([aria-busy="true"])');
+      await expect(screen.locator('h1')).toBeVisible();
+      await expect(screen.locator('article')).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);
     });

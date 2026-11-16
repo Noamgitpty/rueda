@@ -100,11 +100,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 48 : recherche publique par zone, lieu, dates et heures (US-201, ADR-127) :
  `common.search.*` (refus de la recherche) et `web.search.*`, `web.listing.dates.*` (S01, liste des
  résultats, dates reprises sur la fiche). La version 46 n'est pas utilisée.
+ Version 49 : avis reçus par e-mail et enregistrés par l'ops (US-218, ADR-130) : `backoffice.review.*`
+ (formulaire RECORD_REVIEW de la console et refus de la commande liée) ; libellé de
+ `backoffice.action.RECORD_REVIEW` corrigé (un avis reçu, pas une modération).
  Version 50 : cartes des résultats de la recherche (US-203, ADR-131) : `web.search.results.count`
  (compteur), `web.search.deposit.*` (montant de la caution de la plateforme, ou mention générique
  « une caution peut être demandée », 16 SRC-011, 08 T70 c) et `web.search.map.*` (carte des
- marqueurs de prix, positions approximatives, liste équivalente). La version 49 est réservée à
- US-218.
+ marqueurs de prix, positions approximatives, liste équivalente).
  */
 export const CATALOG_VERSION = 50;
 
