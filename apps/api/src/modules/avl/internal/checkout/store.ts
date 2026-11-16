@@ -6,6 +6,7 @@
  * US-226 (migration 0110) : plan de gains du véhicule (`core.catalog_listing_earnings_plan`),
  * niveau de protection, âge déclaré, instant du gel et interrupteur de l'assureur du devis.
  */
+import { FROZEN_QUOTE_FORMAT, type FrozenQuote } from '../../../prc/index.js';
 import type { CheckoutDemand } from './model.js';
 
 export interface SqlExecutor {
@@ -25,6 +26,40 @@ export interface CheckoutListing {
   readonly quotedAtMs: number;
   /** Plan de gains choisi pour le véhicule (US-226) ; `null` : plan par défaut du pays. */
   readonly hostPlan: string | null;
+  /** Distance de l'annonce (US-205b), figée avec le devis et rejouée par la base. */
+  readonly mileageMode: 'UNLIMITED' | 'INCLUDED';
+  readonly includedKmPerDay: number | null;
+  /** Prix du km supplémentaire (texte d'un entier, unités mineures) ; `null` si illimité. */
+  readonly extraKmPriceMinor: string | null;
+}
+
+/**
+ * Annulation gratuite si la réservation est faite maintenant (US-205b ; 08 BR-CXL-01, calculée par
+ * la base à `platform.now()` pour le départ du devis) : date limite, fenêtre de dernière minute.
+ */
+export interface CheckoutCancellation {
+  readonly lastMinute: boolean;
+  readonly freeUntil: string;
+  readonly lastMinuteWindowMinutes: number;
+  /** Dernière minute et départ dans moins que la fenêtre : gratuite jusqu'au départ seulement. */
+  readonly endsAtStart: boolean;
+}
+
+/**
+ * Retenue d'une annulation volontaire hors fenêtre gratuite (US-205b ; 08 BR-CXL-06 ; 10b UX-54),
+ * calculée par le moteur de règlement sur le devis figé rejoué : jours de location retenus (« 1 »
+ * ou « 1/2 ») et montant TTC.
+ */
+export interface CheckoutLateCancellation {
+  readonly penaltyDays: '1' | '1/2';
+  readonly retainedMinor: string;
+}
+
+/** Distance figée dans le devis (US-205b ; 16 LST-012), lue en base. */
+export interface CheckoutMileage {
+  readonly mode: 'UNLIMITED' | 'INCLUDED';
+  readonly includedKm: number | null;
+  readonly extraKmPriceMinor: string | null;
 }
 
 /** Niveau de protection proposé au checkout (S05, 16 BKG-003), prix de la période (US-226). */
@@ -77,12 +112,20 @@ export interface CheckoutQuote {
   readonly insurerContractActive: boolean;
   /** Niveaux vendus et leur prix pour la période (calculés par l'API, devis provisoires). */
   readonly protectionOptions: readonly CheckoutProtectionOption[];
+  /** Distance figée (US-205b) ; `null` : devis figé avant US-205b, aucune distance promise. */
+  readonly mileage: CheckoutMileage | null;
+  /** Annulation gratuite si la réservation a lieu maintenant ; `null` : aucune promesse. */
+  readonly cancellation: CheckoutCancellation | null;
+  /** Retenue hors fenêtre gratuite (moteur de règlement) ; `null` : non calculable. */
+  readonly lateCancellation: CheckoutLateCancellation | null;
 }
 
-/** Lecture de la base, avant les options de protection (ajoutées par le service). */
-export type CheckoutQuoteRow = Omit<CheckoutQuote, 'protectionOptions'> & {
+/** Lecture de la base, avant les options de protection et la retenue (ajoutées par le service). */
+export type CheckoutQuoteRow = Omit<CheckoutQuote, 'protectionOptions' | 'lateCancellation'> & {
   /** Instant du gel (ms) : instant des paramètres des options, celui du devis. */
   readonly frozenAtMs: number;
+  /** Documents canoniques du devis figé (US-205b) : rejoués par l'API pour la retenue. */
+  readonly frozen: FrozenQuote | null;
 };
 
 export interface CheckoutHold {
@@ -204,6 +247,43 @@ const list = (value: unknown): readonly Record<string, unknown>[] => {
 
 const OUTCOMES: ReadonlySet<string> = new Set(CHECKOUT_OUTCOMES);
 
+const mileageMode = (value: unknown): 'UNLIMITED' | 'INCLUDED' => {
+  if (value !== 'UNLIMITED' && value !== 'INCLUDED') {
+    throw new CheckoutStoreError('distance illisible');
+  }
+  return value;
+};
+
+/** Distance figée du devis (0118) ; `null` : devis antérieur, aucune distance promise. */
+function mileageOf(r: Record<string, unknown>): CheckoutMileage | null {
+  const mode = r['quote_mileage_mode'];
+  if (mode === null || mode === undefined) return null;
+  const m = mileageMode(mode);
+  if (m === 'UNLIMITED') return { mode: m, includedKm: null, extraKmPriceMinor: null };
+  const km = intOrNull(r['quote_included_km']);
+  const extra = r['quote_extra_km_price_minor'];
+  if (km === null || km < 1 || extra === null || extra === undefined) {
+    throw new CheckoutStoreError('distance illisible');
+  }
+  return { mode: m, includedKm: km, extraKmPriceMinor: minor(extra) };
+}
+
+/** Annulation gratuite pour le départ du devis (BR-CXL-01, base) ; `null` : aucune promesse. */
+function cancellationOf(r: Record<string, unknown>, startAt: string): CheckoutCancellation | null {
+  const last = r['cancel_last_minute'];
+  const until = r['cancel_free_until'];
+  const win = r['cancel_window_minutes'];
+  if (typeof last !== 'boolean' || until === null || until === undefined) return null;
+  if (win === null || win === undefined) return null;
+  const freeUntil = iso(until);
+  return {
+    lastMinute: last,
+    freeUntil,
+    lastMinuteWindowMinutes: int(win),
+    endsAtStart: last && Date.parse(freeUntil) >= Date.parse(startAt),
+  };
+}
+
 /** Fonctions de 0108 (et fiche publique de 0067), sous app_api. */
 export class PgCheckoutStore implements CheckoutStore {
   constructor(private readonly db: SqlExecutor) {}
@@ -212,7 +292,9 @@ export class PgCheckoutStore implements CheckoutStore {
     const { rows } = await this.db.query(
       `SELECT p.country_code, p.currency, p.daily_price_minor::text AS daily_price_minor,
               platform.now() AS quoted_at,
-              core.catalog_listing_earnings_plan(p.listing_id) AS host_plan
+              core.catalog_listing_earnings_plan(p.listing_id) AS host_plan,
+              p.mileage_mode, p.included_km_per_day,
+              p.extra_km_price_minor::text AS extra_km_price_minor
          FROM core.catalog_public_listing($1::uuid) AS p`,
       [listingId],
     );
@@ -224,6 +306,10 @@ export class PgCheckoutStore implements CheckoutStore {
       dailyPriceMinor: minor(r['daily_price_minor']),
       quotedAtMs: Date.parse(iso(r['quoted_at'])),
       hostPlan: textOrNull(r['host_plan']),
+      mileageMode: mileageMode(r['mileage_mode']),
+      includedKmPerDay: intOrNull(r['included_km_per_day']),
+      extraKmPriceMinor:
+        r['extra_km_price_minor'] === null ? null : minor(r['extra_km_price_minor']),
     };
   }
 
@@ -231,10 +317,22 @@ export class PgCheckoutStore implements CheckoutStore {
     // US-226 : protection du devis (niveau, âge déclaré, instant du gel, interrupteur de
     // l'assureur) lue par sa propre fonction de 0110 ; un devis inconnu ou d'un autre voyageur
     // ne rend aucune ligne dans l'une comme dans l'autre (même réponse)
+    // US-205b : documents canoniques et distance figée (core.pricing_checkout_terms, 0118) ;
+    // annulation gratuite pour le départ du devis si la réservation a lieu maintenant
+    // (core.catalog_public_terms) ; même requête
     const { rows } = await this.db.query(
-      `SELECT q.*, p.protection_level, p.driver_age, p.frozen_at, p.insurer_contract_active
+      `SELECT q.*, p.protection_level, p.driver_age, p.frozen_at, p.insurer_contract_active,
+              m.engine_version AS frozen_engine_version, m.inputs AS frozen_inputs,
+              m.inputs_hash AS frozen_inputs_hash, m.outputs AS frozen_outputs,
+              m.outputs_hash AS frozen_outputs_hash, m.mileage_mode AS quote_mileage_mode,
+              m.included_km AS quote_included_km,
+              m.extra_km_price_minor::text AS quote_extra_km_price_minor,
+              t.last_minute AS cancel_last_minute, t.free_until AS cancel_free_until,
+              t.last_minute_window_minutes AS cancel_window_minutes
          FROM core.booking_checkout_quote($1, $2::uuid) AS q
-         JOIN core.booking_checkout_protection($1, $2::uuid) AS p ON p.quote_id = q.quote_id`,
+         JOIN core.booking_checkout_protection($1, $2::uuid) AS p ON p.quote_id = q.quote_id
+         LEFT JOIN core.pricing_checkout_terms($1, $2::uuid) AS m ON m.quote_id = q.quote_id
+         LEFT JOIN LATERAL core.catalog_public_terms(q.listing_id, q.start_at) AS t ON true`,
       [proof, quoteId],
     );
     const r = rows[0];
@@ -267,6 +365,21 @@ export class PgCheckoutStore implements CheckoutStore {
       driverAge: intOrNull(r['driver_age']),
       insurerContractActive: bool(r['insurer_contract_active']),
       frozenAtMs: Date.parse(iso(r['frozen_at'])),
+      frozen:
+        r['frozen_inputs'] === null || r['frozen_inputs'] === undefined
+          ? null
+          : {
+              format: FROZEN_QUOTE_FORMAT,
+              engineVersion: text(r['frozen_engine_version']),
+              inputs: text(r['frozen_inputs']),
+              inputsHash: text(r['frozen_inputs_hash']),
+              outputs: text(r['frozen_outputs']),
+              outputsHash: text(r['frozen_outputs_hash']),
+              totalMinor: minor(r['total_minor']),
+              currency: text(r['currency']),
+            },
+      mileage: mileageOf(r),
+      cancellation: cancellationOf(r, iso(r['start_at'])),
     };
   }
 

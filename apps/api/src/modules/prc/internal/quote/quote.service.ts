@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CountryConfigService } from '../../../cfg/index.js';
-import type { Money } from '@rueda/money';
+import type { Money, SettlementParams } from '@rueda/money';
 import {
   computeQuote,
   protectionOptions,
@@ -10,7 +10,11 @@ import {
   type QuoteRequest,
 } from './engine.js';
 import { freezeQuote, type FrozenQuote } from './frozen.js';
-import { resolveQuoteParams, type QuoteParamsContext } from './params.js';
+import {
+  resolveCancellationParams,
+  resolveQuoteParams,
+  type QuoteParamsContext,
+} from './params.js';
 
 /**
  * Point d'entrée du devis pour les autres modules (US-203 recherche, US-208 checkout, US-226
@@ -24,6 +28,11 @@ export class QuoteService {
   /** Instantané des paramètres du pays (CFG) à l'instant donné. */
   params(ctx: QuoteParamsContext): QuoteParams {
     return resolveQuoteParams(this.countryConfig.config, ctx);
+  }
+
+  /** Paramètres d'annulation du pays (US-205b) : retenue hors fenêtre gratuite au checkout. */
+  cancellationParams(ctx: { readonly country: string; readonly at: Date }): SettlementParams {
+    return resolveCancellationParams(this.countryConfig.config, ctx);
   }
 
   /** Devis avec un instantané déjà résolu. */

@@ -12,13 +12,14 @@
  * |                                                        | DATES_UNAVAILABLE ; 422 DATES_NOTICE_TOO_  |
  * |                                                        | SHORT, SEARCH_* ; 429 RATE_LIMITED ; 503   |
  * | GET /listings/{listingId}/conditions                   | 200 conditions ; 404 LISTING_NOT_FOUND ;   |
- * |                                                        | 503 SEARCH_UNAVAILABLE                     |
+ * |                                                        | 429 RATE_LIMITED ; 503 SEARCH_UNAVAILABLE  |
  *
  * Conditions (US-205 ; ADR-138) : politique d'annulation du pays (et, pour un créneau accepté,
  * `freeUntil` de BR-CXL-01 dans la réponse de `availability`), distance, caution de la plateforme
  * et protection de l'assureur partenaire, rendue seulement si la base peut la promettre
  * (`insurer_contract_active`, contrat en vigueur couvrant le véhicule, RC au minimum du pays).
- * Aucune donnée de l'occupation ni de l'hôte : pas de limite de débit (lecture comme la fiche).
+ * Aucune donnée de l'occupation ni de l'hôte ; US-205b : même limite par IP que les dates (sonde
+ * du pays de l'annonce), une lecture du contrat de l'assureur à chaque appel.
  */
 import { Controller, Get, Inject, Param, Query, Req, Res } from '@nestjs/common';
 import { SearchHttpError } from './errors.js';
@@ -58,10 +59,18 @@ export class ListingSlotController {
   @Get(':listingId/conditions')
   async conditions(
     @Param('listingId') listingId: string,
+    @Req() request: IpRequest,
     @Res({ passthrough: true }) response: HeaderResponse,
   ) {
     // interrupteur et contrat de l'assureur changent sans délai : pas de cache partagé
     response.setHeader('Cache-Control', 'no-store');
-    return { conditions: await this.service.conditions(listingId) };
+    try {
+      return { conditions: await this.service.conditions(listingId, request.ip ?? 'unknown') };
+    } catch (error) {
+      if (error instanceof SearchHttpError && error.retryAfterS !== null) {
+        response.setHeader('Retry-After', String(error.retryAfterS));
+      }
+      throw error;
+    }
   }
 }

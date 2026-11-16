@@ -7281,7 +7281,7 @@
         "operationId": "listingConditions",
         "tags": ["cat"],
         "summary": "Conditions de la fiche d'une annonce LISTED (US-205 ; 16 LST-010, LST-013, PRT-003 / PRT-013) : politique d'annulation du pays, caution de la plateforme, protection de l'assureur partenaire",
-        "description": "Route publique, sans limite de débit (aucune donnée de l'occupation ni de l'hôte). Protection rendue SEULEMENT si insurer_contract_active du pays est vrai, qu'un contrat en vigueur d'un assureur actif couvre le véhicule, que ses conditions sont posées dans la devise de l'annonce et que la RC atteint insurer_rc_minimum du pays ; sinon null (aucune promesse de couverture). Textes de l'assureur dans les quatre langues, recopiés du contrat.",
+        "description": "Route publique, limitée par IP comme les dates de la fiche (availability_probe_per_minute du pays de l'annonce, US-205b). Protection rendue SEULEMENT si insurer_contract_active du pays est vrai, qu'un contrat en vigueur d'un assureur actif couvre le véhicule, que ses conditions sont posées dans la devise de l'annonce et que la RC atteint insurer_rc_minimum du pays ; sinon null (aucune promesse de couverture). Textes de l'assureur dans les quatre langues, recopiés du contrat.",
         "parameters": [
           {
             "name": "listingId",
@@ -7322,6 +7322,33 @@
                   "properties": {
                     "code": {
                       "const": "LISTING_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Au-delà d'availability_probe_per_minute pour l'IP, même limite que les dates de la fiche (US-205b)",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "RATE_LIMITED"
                     }
                   }
                 }
@@ -15104,10 +15131,66 @@
           "protectionLevel",
           "driverAge",
           "insurerContractActive",
-          "protectionOptions"
+          "protectionOptions",
+          "mileage",
+          "cancellation",
+          "lateCancellation"
         ],
         "additionalProperties": false,
         "properties": {
+          "mileage": {
+            "description": "Distance figée dans le devis (US-205b ; 16 LST-012 ; 19 US-205 critère 2) : km par jour × jours facturables, prix du km supplémentaire ; null : devis figé avant US-205b",
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["mode", "includedKm", "extraKmPriceMinor"],
+                "properties": {
+                  "mode": { "enum": ["UNLIMITED", "INCLUDED"] },
+                  "includedKm": { "type": ["integer", "null"], "minimum": 1 },
+                  "extraKmPriceMinor": {
+                    "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/MinorUnits" }]
+                  }
+                }
+              }
+            ]
+          },
+          "cancellation": {
+            "description": "Annulation gratuite si la réservation a lieu maintenant (08 BR-CXL-01, calculée par la base pour le départ du devis) ; null : aucune promesse (US-205b)",
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["lastMinute", "freeUntil", "lastMinuteWindowMinutes", "endsAtStart"],
+                "properties": {
+                  "lastMinute": { "type": "boolean" },
+                  "freeUntil": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+                  },
+                  "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 },
+                  "endsAtStart": { "type": "boolean" }
+                }
+              }
+            ]
+          },
+          "lateCancellation": {
+            "description": "Retenue d'une annulation volontaire hors fenêtre gratuite (08 BR-CXL-06 ; 10b UX-54), calculée par le moteur de règlement sur le devis figé rejoué : jours de location retenus et montant TTC ; null : non calculable (US-205b)",
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["penaltyDays", "retainedMinor"],
+                "properties": {
+                  "penaltyDays": { "enum": ["1", "1/2"] },
+                  "retainedMinor": { "$ref": "#/components/schemas/MinorUnits" }
+                }
+              }
+            ]
+          },
           "quoteId": {
             "$ref": "#/components/schemas/Uuid"
           },
@@ -15410,20 +15493,29 @@
             "required": ["startAt", "endAt", "timezone", "price", "cancellation", "mileage"],
             "properties": {
               "cancellation": {
-                "description": "Annulation gratuite pour ce départ si la réservation avait lieu maintenant (BR-CXL-01, platform.now()) : date limite, ou dernière minute (fenêtre après la réservation) ; null : paramètres du pays absents (US-205)",
+                "description": "Annulation gratuite pour ce départ si la réservation avait lieu maintenant (08 BR-CXL-01, platform.now()) : départ − free_cancel_lead, ou en dernière minute min(maintenant + last_minute_free_window_minutes, départ) ; null : paramètres du pays absents (US-205, US-205b)",
                 "oneOf": [
                   { "type": "null" },
                   {
                     "type": "object",
-                    "required": ["lastMinute", "freeUntil", "lastMinuteWindowMinutes"],
+                    "required": [
+                      "lastMinute",
+                      "freeUntil",
+                      "lastMinuteWindowMinutes",
+                      "endsAtStart"
+                    ],
                     "additionalProperties": false,
                     "properties": {
                       "lastMinute": { "type": "boolean" },
                       "freeUntil": {
-                        "type": ["string", "null"],
+                        "type": "string",
                         "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
                       },
-                      "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 }
+                      "lastMinuteWindowMinutes": { "type": "integer", "minimum": 1 },
+                      "endsAtStart": {
+                        "type": "boolean",
+                        "description": "Dernière minute et départ dans moins que la fenêtre : annulation gratuite jusqu'au départ seulement"
+                      }
                     }
                   }
                 ]
@@ -15676,7 +15768,8 @@
           "depositAmountMinor",
           "totalMinor",
           "billableDays",
-          "rating"
+          "rating",
+          "protectionOffered"
         ],
         "properties": {
           "id": {
@@ -15784,6 +15877,10 @@
               }
             ],
             "description": "Note publique (16 REV-010) ; null : aucun avis, badge « Nuevo » (US-203)"
+          },
+          "protectionOffered": {
+            "type": "boolean",
+            "description": "La base promet la protection de l'assureur partenaire pour cette annonce (même règle que la fiche, 19 US-205 critère 4) : seule condition de la mention « protection incluse » de la carte (US-205b)"
           }
         },
         "description": "Carte d'une annonce disponible : colonnes C0 seulement, zone approximative (19 US-201 critère 4), total TTC, caution et note (19 US-203)"

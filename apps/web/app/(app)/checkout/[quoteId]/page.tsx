@@ -19,6 +19,7 @@ import { getRequestI18n, getRequestLocaleTag } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
+import { cancellationText } from '../../listings/[listingId]/listing-terms.tsx';
 import { CheckoutForm, RenewForm } from './checkout-form.tsx';
 import { ProtectionForm } from './protection-form.tsx';
 
@@ -133,6 +134,100 @@ function Summary({
 }
 
 /**
+ * Phrase de la retenue hors fenêtre (10b UX-54 ; revue ux de 205b n° 3 et 4) : « Después… » à la
+ * suite de la date d'annulation gratuite, « Si cancelas… » sans date ; taxes comprises.
+ */
+function retainedKey(
+  days: 'ONE' | 'HALF',
+  afterDate: boolean,
+):
+  | 'web.s05.cancel.retainedDay'
+  | 'web.s05.cancel.retainedHalfDay'
+  | 'web.s05.cancel.ifCancelDay'
+  | 'web.s05.cancel.ifCancelHalfDay' {
+  if (afterDate) {
+    return days === 'ONE' ? 'web.s05.cancel.retainedDay' : 'web.s05.cancel.retainedHalfDay';
+  }
+  return days === 'ONE' ? 'web.s05.cancel.ifCancelDay' : 'web.s05.cancel.ifCancelHalfDay';
+}
+
+/**
+ * Conditions du voyage (US-205b ; 19 US-205 critères 1 et 2 ; 08 BR-CXL-01, BR-CXL-06 ; 10b UX-54) :
+ * annulation gratuite en dates si la réservation a lieu maintenant (base, heure du lieu), retenue
+ * hors fenêtre en jours de location et en montant (moteur de règlement sur le devis figé, jamais
+ * calculée ici), distance FIGÉE dans le devis (km inclus sur la période, prix du km). Une donnée
+ * absente n'est jamais devinée : renvoi à la politique publiée.
+ */
+function TermsSection({
+  i18n,
+  quote,
+  timeZone,
+  exponent,
+}: {
+  readonly i18n: Translator;
+  readonly quote: CheckoutQuoteView;
+  readonly timeZone: string;
+  readonly exponent: number;
+}) {
+  const t = i18n.t.bind(i18n);
+  const money = (amountMinor: bigint) =>
+    unbroken(i18n.money({ amountMinor, currency: quote.currency, exponent }));
+  const late = quote.lateCancellation;
+  const m = quote.mileage;
+  return (
+    <section className={styles['section']} aria-labelledby="s05-terms" data-testid="s05-terms">
+      <h2 id="s05-terms" className={accountStyles['h2']}>
+        {t('web.s05.conditions.title')}
+      </h2>
+      <div data-testid="s05-cancel">
+        {quote.cancellation === null ? (
+          <p className={accountStyles['muted']}>{t('web.listing.cancel.unavailable')}</p>
+        ) : (
+          <>
+            <p className={accountStyles['text']}>
+              <span className={styles['strong']}>
+                {cancellationText(i18n, quote.cancellation, timeZone)}
+              </span>
+            </p>
+            {/* revue ux de 205b n° 4 : la note suit la date qu'elle explique */}
+            <p className={accountStyles['muted']}>{t('web.s05.conditions.ifNow')}</p>
+          </>
+        )}
+        <p className={accountStyles['text']} data-testid="s05-retained">
+          {late === null
+            ? t('web.listing.cancel.after')
+            : t(retainedKey(late.penaltyDays, quote.cancellation !== null), {
+                amount: money(late.retainedMinor),
+              })}{' '}
+          <a className={styles['link']} href="/legal/CANCELLATION_POLICY">
+            {t('web.listing.cancel.policyLink')}
+          </a>
+        </p>
+      </div>
+      {m !== null && (
+        <div data-testid="s05-distance">
+          <h3 className={accountStyles['text']}>
+            <span className={styles['strong']}>{t('web.listing.distance.title')}</span>
+          </h3>
+          {m.mode === 'UNLIMITED' ? (
+            <p className={accountStyles['text']}>{t('web.host.listing.unlimited')}</p>
+          ) : (
+            <>
+              <p className={accountStyles['text']}>
+                {t('web.listing.distance.total', { count: m.includedKm })}
+              </p>
+              <p className={accountStyles['text']}>
+                {t('web.listing.distance.extra', { amount: money(m.extraKmPriceMinor) })}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
  * S05 — checkout en une page (US-208, partie 208b ; 10b §4.1 S05 ; 16 BKG-001 / BKG-006,
  * BKG-002 / BKG-025, BKG-008 / BKG-023 ; ADR-133, ADR-134) :
  *
@@ -153,6 +248,9 @@ function Summary({
  *   prix par jour et pour la période (API), niveau du devis présélectionné, niveau refusé grisé
  *   avec sa raison ; le choix validé fige un NOUVEAU devis (`?protection=1`, nouveau total) ;
  *   `insurerContractActive` faux ⇒ aucune réservation, retour à la recherche (16 PRT-001).
+ *
+ * - conditions du voyage (US-205b, `TermsSection`) entre le prix et la confirmation : annulation
+ *   gratuite en dates, retenue hors fenêtre (jours et montant), distance figée dans le devis.
  *
  * Caution, contrat hôte-voyageur et consentement MIT : US-701, US-211, US-223 (hors de cette
  * story). États : devis introuvable, erreur, chargement (`loading.tsx`) ; sans session : connexion.
@@ -283,6 +381,12 @@ export default async function CheckoutPage({
           </p>
         )}
       </section>
+
+      {/* US-205b : conditions lues avant de confirmer (10b S05, UX-54) ; prix sans suite
+          possible (devis expiré, contrat de l'assureur fermé) : aucune condition promise */}
+      {!quote.expired && quote.insurerContractActive && (
+        <TermsSection i18n={i18n} quote={quote} timeZone={timeZone} exponent={exponent} />
+      )}
 
       {quote.expired ? (
         <section className={styles['section']} aria-labelledby="s05-expired">

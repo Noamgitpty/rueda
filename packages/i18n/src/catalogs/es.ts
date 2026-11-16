@@ -1898,6 +1898,28 @@ export const ES_MESSAGES = {
     'Este auto todavía no tiene protección disponible, así que no se puede reservar por ahora.',
   'web.listing.protection.error':
     'No pudimos cargar la protección ni el depósito de este auto. Inténtalo de nuevo.',
+  // US-205b (ADR-140) : dernière minute en minutes, jusqu'au départ ; conditions du checkout S05
+  'web.listing.cancel.untilStart': 'Cancelación gratuita hasta el inicio del viaje ({date}).',
+  'web.listing.cancel.lastMinuteMinutes': {
+    one: 'Cancelación gratuita durante {count} minuto después de reservar.',
+    other: 'Cancelación gratuita durante {count} minutos después de reservar.',
+  },
+  'web.listing.cancel.lateMinutes': {
+    one: 'Si reservas con menos de {count} hora de anticipación, es gratuita durante {window} min después de reservar.',
+    other:
+      'Si reservas con menos de {count} horas de anticipación, es gratuita durante {window} min después de reservar.',
+  },
+  'web.listing.protection.unavailableShort': 'Este auto todavía no tiene protección disponible.',
+  'web.s05.conditions.title': 'Condiciones del viaje',
+  'web.s05.conditions.ifNow': 'Fechas calculadas si reservas ahora, a la hora del lugar.',
+  'web.s05.cancel.retainedDay':
+    'Después, se retiene 1 día de alquiler, impuestos incluidos: {amount}.',
+  'web.s05.cancel.retainedHalfDay':
+    'Después, se retiene medio día de alquiler, impuestos incluidos: {amount}.',
+  'web.s05.cancel.ifCancelDay':
+    'Si cancelas, se retiene 1 día de alquiler, impuestos incluidos: {amount}.',
+  'web.s05.cancel.ifCancelHalfDay':
+    'Si cancelas, se retiene medio día de alquiler, impuestos incluidos: {amount}.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'No encontramos este presupuesto. Vuelve a la ficha del auto.',
   'common.quote.rateLimited':
@@ -1982,7 +2004,7 @@ export const ES_MESSAGES = {
   'web.s05.driver.lastRequired': 'Escribe tu apellido.',
   'web.s05.manual': 'Sé manejar caja manual',
   'web.s05.manual.hint': 'Este auto tiene caja manual.',
-  'web.s05.terms.title': 'Condiciones',
+  'web.s05.terms.title': 'Documentos que aceptas',
   'web.s05.terms.accept': 'Acepto: {title}',
   'web.s05.terms.read': 'Leer «{title}», versión {version} (se abre en otra pestaña)',
   'web.s05.hold.notice': 'Todavía no se te cobra nada.',

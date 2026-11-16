@@ -1535,6 +1535,13 @@
       "story": "US-202"
     },
     {
+      "signature": "core.pricing_checkout_terms(bytea,uuid)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_api"],
+      "story": "US-205"
+    },
+    {
       "signature": "core.pricing_cmd_version_trip_price(bytea,uuid,uuid)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

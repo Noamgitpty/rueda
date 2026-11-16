@@ -180,7 +180,7 @@ const SANCTIONS_SCREENING_HANDLER =
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
-// US-209 (0117, ADR-141) : décision de l'ops sur une réservation signalée liée à sa commande
+// US-209 (0119, ADR-141) : décision de l'ops sur une réservation signalée liée à sa commande
 const REVIEW_FLAGGED_HANDLER =
   'core.booking_manual_action_review_flagged(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const KYC_DECISION_HANDLER =
@@ -358,7 +358,7 @@ const MATRIX: Readonly<Record<string, Expected>> = {
   },
   REVIEW_FLAGGED_BOOKING: {
     permission: 'kyc.decide',
-    // US-209 (0117, ADR-141) : la décision porte sur l'évaluation (aucun trip avant le débit)
+    // US-209 (0119, ADR-141) : la décision porte sur l'évaluation (aucun trip avant le débit)
     subject: 'RISK_ASSESSMENT',
     mode: 'DOMAIN_COMMAND',
     keys: ['decision'],
@@ -683,7 +683,7 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
     'INSURER_BORDEREAU',
     'ORGANIZATION',
     'PLATFORM_ADVANCE',
-    // US-209 (0117) : l'évaluation d'un hold signalé (élément RISK_BOOKING), pays de l'évaluation
+    // US-209 (0119) : l'évaluation d'un hold signalé (élément RISK_BOOKING), pays de l'évaluation
     'RISK_ASSESSMENT',
     'SUPPORT_CASE',
     'TRIP',
@@ -729,7 +729,7 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
         );
         // US-106 (0076) : vérification d'identité courante d'une personne inscrite dans le pays
         const verification = await opened(client, country);
-        // US-209 (0117) : évaluation d'un hold du pays (fixture 9968)
+        // US-209 (0119) : évaluation d'un hold du pays (fixture 9968)
         const assessment = (
           await client.query<{ id: string }>(
             'SELECT test_fixture.us209b_insert_assessment($1) AS id',

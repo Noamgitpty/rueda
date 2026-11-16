@@ -2668,7 +2668,10 @@
         "expires_at": "C1",
         "protection_level": "C1",
         "host_plan_code": "C1",
-        "driver_age": "C1"
+        "driver_age": "C1",
+        "mileage_mode": "C1",
+        "included_km": "C1",
+        "extra_km_price_minor": "C1"
       }
     },
     "core.catalog_vehicle_earnings_plan": {

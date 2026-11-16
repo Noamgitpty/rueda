@@ -26,6 +26,8 @@ import {
   type ProtectionGrid,
   type Quote,
   type QuoteLineType,
+  type QuoteMileage,
+  type QuoteMileageInput,
   type QuoteParams,
   type QuoteRequest,
   type QuoteTaxRule,
@@ -79,7 +81,26 @@ function requestJson(r: QuoteRequest): Json {
     // US-226 : choix du voyageur, lus et rejoués par la base (protection, âge déclaré)
     protectionLevel: r.protectionLevel ?? null,
     driverAge: r.driverAge ?? null,
+    // US-205b : distance de l'annonce, seulement si la demande la porte (devis antérieurs inchangés)
+    ...(r.mileage === undefined ? {} : { mileage: mileageInputJson(r.mileage) }),
   };
+}
+
+function mileageInputJson(m: QuoteMileageInput): Json {
+  return m.mode === 'INCLUDED'
+    ? { mode: m.mode, kmPerDay: m.kmPerDay, extraKmPrice: minor(m.extraKmPrice) }
+    : { mode: m.mode };
+}
+
+function mileageJson(m: QuoteMileage): Json {
+  return m.mode === 'INCLUDED'
+    ? {
+        mode: m.mode,
+        kmPerDay: m.kmPerDay,
+        includedKm: m.includedKm,
+        extraKmPrice: minor(m.extraKmPrice),
+      }
+    : { mode: m.mode };
 }
 
 function gridJson(g: ProtectionGrid | undefined): Json {
@@ -168,6 +189,8 @@ export function quoteOutputsJson(q: Quote): Json {
     protectionLevel: q.protectionLevel ?? null,
     insurerPremiumShare: ratioJson(q.insurerPremiumShare),
     hostPlan: q.hostPlan ?? null,
+    // US-205b : distance figée, rejouée par la base (absente des devis antérieurs)
+    ...(q.mileage === undefined ? {} : { mileage: mileageJson(q.mileage) }),
   };
 }
 
@@ -318,8 +341,21 @@ function readInputs(inputs: string): { request: QuoteRequest; params: QuoteParam
       ? {}
       : { protectionLevel: text(level, 'protectionLevel') }),
     ...(age === null || age === undefined ? {} : { driverAge: int(age, 'driverAge') }),
+    ...(r['mileage'] === undefined ? {} : { mileage: readMileage(r['mileage'], currency) }),
   };
   return { request, params };
+}
+
+function readMileage(value: unknown, currency: Currency): QuoteMileageInput {
+  const m = obj(value, 'request.mileage');
+  const mode = text(m['mode'], 'mileage.mode');
+  if (mode === 'UNLIMITED') return { mode };
+  if (mode !== 'INCLUDED') throw mismatch(`mileage.mode inconnu « ${mode} »`);
+  return {
+    mode,
+    kmPerDay: int(m['kmPerDay'], 'mileage.kmPerDay'),
+    extraKmPrice: amount(m['extraKmPrice'], 'mileage.extraKmPrice', currency),
+  };
 }
 
 function readGrid(value: unknown, currency: Currency): ProtectionGrid | undefined {

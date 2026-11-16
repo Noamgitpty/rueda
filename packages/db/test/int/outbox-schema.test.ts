@@ -156,7 +156,7 @@ describe('schéma outbox (US-008)', () => {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });
           continue;
         }
-        // décision de l'ops sur une réservation signalée (0117, US-209b, ADR-141) :
+        // décision de l'ops sur une réservation signalée (0119, US-209b, ADR-141) :
         // booking.hold.review_decided seulement, acteur OPS_AGENT ou ADMIN
         if (r.pol === 'outbox_outbox_event.cmd_hold_review_event') {
           expect(r).toMatchObject({ roles: 'cmd_hold_owner', cmd: 'a' });

@@ -34,5 +34,5 @@
 
 - **Hors de 209b** (passation `docs/team/handoffs/US-209.md`, découpage en 209c) : écrans du voyageur (état « en revue » de S05, lien vers la vérification d'identité depuis les refus KYC, écran de la déclaration d'entrée, e2e et références visuelles) ; annulation `PLATFORM_REVIEW_DELAY` à T−2 h (critère 3, US-224 et US-215) ; refus d'un trip payé en `PAY_THEN_REVIEW` (US-224) ; mode BLOCK du permis étranger (OQ-BR-21).
 - `flagged_booking_payment_order` ne passe pas à `PAY_THEN_REVIEW` en production avant US-224 (GL-21) : un refus après paiement exige l'annulation remboursée.
-- `core.support_subject_parties` porte les changements d'US-122 et d'US-209 : une story qui le remplace part de 0117 ; `core.kyc_cmd_declare_entry` aussi.
+- `core.support_subject_parties` porte les changements d'US-122 et d'US-209 : une story qui le remplace part de 0119 ; `core.kyc_cmd_declare_entry` aussi.
 - Report dans `docs/specs/` par une PR revue : ADR-141 en 17 §8.1 ; sujet `RISK_ASSESSMENT` de `REVIEW_FLAGGED_BOOKING` en 17 §10 ; prolongation écrite par la commande liée en 17 §2.5 ; codes en 16 A.8.

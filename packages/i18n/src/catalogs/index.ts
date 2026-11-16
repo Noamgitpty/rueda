@@ -144,6 +144,16 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  retenue hors fenêtre sans durée écrite, lien vers la politique publiée), `web.listing.distance.*` (distance incluse sur la période, prix du km
  supplémentaire) et `web.listing.protection.*` (assureur partenaire, courtier, RC tiers incluse,
  franchises par niveau, exclusions du contrat, protection indisponible).
+ Version 60 (la 59 est réservée à US-223) : conditions du checkout S05 et fiche, partie 205b
+ (US-205, ADR-140) : `web.listing.cancel.untilStart` (dernière minute, départ dans moins que la
+ fenêtre : gratuite jusqu'au départ, 08 BR-CXL-01), `web.listing.cancel.lastMinuteMinutes` et
+ `web.listing.cancel.lateMinutes` (fenêtre de dernière minute du pays qui n'est pas un nombre
+ entier d'heures), `web.listing.protection.unavailableShort` (section protection sans répéter le
+ bandeau « pas encore réservable », revue ux de 205a n° 7), `web.s05.conditions.*` et
+ `web.s05.cancel.retained*` (conditions de S05 : annulation gratuite en dates, retenue hors
+ fenêtre en jours et en montant du moteur de règlement, taxes comprises, 10b UX-54) ;
+ `web.s05.cancel.ifCancel*` (retenue sans date d'annulation gratuite) ; `web.s05.terms.title`
+ renommé « documents que tu acceptes » (un seul titre « Condiciones » à l'écran, revue ux de 205b).
  Version 61 (la 59 est réservée à US-223, la 60 à US-205b) : décision de l'ops sur une réservation
  signalée et déclaration d'entrée, partie 209b (US-209, ADR-141) : `common.kyc.entryDeclared`,
  `common.kyc.entryDateInvalid` (déclaration d'entrée du voyageur à permis étranger, 16 VER-007),

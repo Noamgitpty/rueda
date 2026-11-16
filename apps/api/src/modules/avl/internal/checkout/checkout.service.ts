@@ -18,15 +18,23 @@
  *    calculées avec l'instantané du gel, jamais engagées : un autre niveau = un nouveau devis).
  *    Le plan de gains du véhicule (lu en base) fixe la part de l'hôte figée au devis.
  *
+ * 4. Conditions (US-205b, ADR-140 ; 19 US-205 critères 1 et 2 ; 08 BR-CXL-01, BR-CXL-06) : la
+ *    distance de l'annonce entre dans le devis figé (rejouée par la base) ; le devis lu rend la
+ *    distance figée, l'annulation gratuite si la réservation a lieu maintenant (base) et la retenue
+ *    d'une annulation hors fenêtre, calculée par le moteur de règlement unique sur le devis figé
+ *    REJOUÉ (`replayFrozenQuote`, `lateCancellationOf`) : jamais une durée ni un montant écrits.
+ *
  * Points d'extension : mode `REQUEST` (US-223, aujourd'hui `REQUEST_MODE_UNAVAILABLE`) ; contrôles
  * bloquants et revue (US-209, aujourd'hui aucune règle : hold non signalé).
  */
-import { money } from '@rueda/money';
+import { money, type SettlementParams } from '@rueda/money';
 import {
   freezeQuote,
   isQuoteError,
+  lateCancellationOf,
   protectionOptions,
   QuoteHttpError,
+  replayFrozenQuote,
   type QuoteErrorCode,
   type QuoteHttpCode,
   type QuoteParamsOf,
@@ -36,6 +44,7 @@ import { CheckoutHttpError, isCheckoutCode } from './errors.js';
 import { isUuid, parseCheckoutDemand, parseQuoteDemand } from './model.js';
 import type {
   CheckoutHold,
+  CheckoutLateCancellation,
   CheckoutProtectionOption,
   CheckoutQuote,
   CheckoutQuoteRow,
@@ -48,7 +57,22 @@ import type {
  * ni jeton, ni identifiant de personne, ni montant.
  */
 export type CheckoutFailureLog = (operation: CheckoutOperation, error: unknown) => void;
-export type CheckoutOperation = 'listing' | 'freeze' | 'quote' | 'options' | 'checkout' | 'hold';
+export type CheckoutOperation =
+  'listing' | 'freeze' | 'quote' | 'options' | 'cancellation' | 'checkout' | 'hold';
+
+/**
+ * Paramètres d'annulation du pays à un instant (PRC, CFG : `free_cancel_lead`,
+ * `last_minute_threshold`, `no_show_grace_minutes`) ; lève si absents.
+ */
+export type CancellationParamsOf = (ctx: {
+  readonly country: string;
+  readonly at: Date;
+}) => SettlementParams;
+
+/** Aucun paramètre d'annulation fourni : aucune retenue affichée (jamais un montant deviné). */
+export const UNAVAILABLE_CANCELLATION_PARAMS: CancellationParamsOf = () => {
+  throw new Error('paramètres d’annulation indisponibles');
+};
 
 const SQLSTATE = /^[0-9A-Z]{5}$/;
 
@@ -95,6 +119,7 @@ export class CheckoutService {
     private readonly quotes: QuoteStore,
     private readonly store: CheckoutStore,
     private readonly logFailure: CheckoutFailureLog = LOG_CHECKOUT_FAILURE,
+    private readonly cancellationParamsOf: CancellationParamsOf = UNAVAILABLE_CANCELLATION_PARAMS,
   ) {}
 
   /** Devis figé du voyageur de la session pour une annonce et une période. */
@@ -126,6 +151,17 @@ export class CheckoutService {
           dailyRate: money(BigInt(listing.dailyPriceMinor), params.currency),
           ...(level === undefined ? {} : { protectionLevel: level }),
           ...(demand.driverAge === undefined ? {} : { driverAge: demand.driverAge }),
+          // US-205b : distance de l'annonce lue en base, figée et rejouée avec le devis
+          mileage:
+            listing.mileageMode === 'INCLUDED' &&
+            listing.includedKmPerDay !== null &&
+            listing.extraKmPriceMinor !== null
+              ? {
+                  mode: 'INCLUDED',
+                  kmPerDay: listing.includedKmPerDay,
+                  extraKmPrice: money(BigInt(listing.extraKmPriceMinor), params.currency),
+                }
+              : { mode: 'UNLIMITED' },
         },
         params,
       ).frozen;
@@ -160,7 +196,8 @@ export class CheckoutService {
    * Aucune option si le devis n'a pas de protection ou si la configuration ne le permet plus.
    */
   #withOptions(row: CheckoutQuoteRow): CheckoutQuote {
-    const { frozenAtMs, ...view } = row;
+    const { frozenAtMs, frozen, ...view } = row;
+    const lateCancellation = this.#lateCancellation(frozen, view.country, frozenAtMs);
     let options: readonly CheckoutProtectionOption[] = [];
     const trip = view.lines.find((l) => l.type === 'TRIP_PRICE');
     if (view.protectionLevel !== null && trip !== undefined && view.billableDays >= 1) {
@@ -191,7 +228,35 @@ export class CheckoutService {
         if (!isQuoteError(error)) throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
       }
     }
-    return { ...view, protectionOptions: options };
+    return { ...view, protectionOptions: options, lateCancellation };
+  }
+
+  /**
+   * Retenue d'une annulation volontaire hors fenêtre gratuite (08 BR-CXL-06 ; 10b UX-54) : devis
+   * figé REJOUÉ depuis ses documents canoniques, puis moteur de règlement unique avec les
+   * paramètres d'annulation du pays à l'instant du gel. Devis antérieur, rejeu ou paramètres
+   * impossibles ⇒ `null` (journalisé) : S05 renvoie alors à la politique publiée, jamais un
+   * montant deviné. La retenue ne dépend pas de l'instant de réservation (j = 1 ou 1/2).
+   */
+  #lateCancellation(
+    frozen: CheckoutQuoteRow['frozen'],
+    country: string,
+    frozenAtMs: number,
+  ): CheckoutLateCancellation | null {
+    if (frozen === null) return null;
+    try {
+      const quote = replayFrozenQuote(frozen);
+      const params = this.cancellationParamsOf({ country, at: new Date(frozenAtMs) });
+      const late = lateCancellationOf(quote, params, Math.min(frozenAtMs, quote.startAtMs));
+      if (late === null) return null;
+      const days = late.penaltyDays;
+      const penaltyDays = days.num === days.den ? '1' : days.num * 2n === days.den ? '1/2' : null;
+      if (penaltyDays === null) return null;
+      return { penaltyDays, retainedMinor: late.retained.amountMinor.toString() };
+    } catch (error) {
+      this.logFailure('cancellation', error);
+      return null;
+    }
   }
 
   /** Checkout du devis : hold CHECKOUT posé, ou refus avec son code. */

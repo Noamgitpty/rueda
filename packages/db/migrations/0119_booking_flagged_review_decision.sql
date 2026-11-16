@@ -1,4 +1,4 @@
--- 0117 — AVL / RISK / SUP / KYC : décision de l'ops sur une réservation signalée, hold de revue
+-- 0119 — AVL / RISK / SUP / KYC : décision de l'ops sur une réservation signalée, hold de revue
 -- échu libéré, dossier de revue de la console, borne de la déclaration d'entrée.
 -- US-209 (partie 209b, back-end) ; 19 US-209 (critère 2 : « la réservation passe en revue, n'est
 -- pas refusée et la décision ops est motivée ») ; 16 BKG-012, ADM-029, VER-007 ; 17 §2.5 (« Revue

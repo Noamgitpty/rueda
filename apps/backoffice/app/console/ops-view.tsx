@@ -1971,7 +1971,7 @@ const HOLD_STATUS_KEYS: Readonly<Record<HoldStatus, MessageKey>> = {
   COMPENSATED: 'backoffice.booking.hold.COMPENSATED',
 };
 
-/** Refus motivés de la commande liée (0117) expliqués dans la langue de la vue. */
+/** Refus motivés de la commande liée (0119) expliqués dans la langue de la vue. */
 export const BOOKING_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
   ALREADY_DECIDED: 'backoffice.booking.refusal.alreadyDecided',
   ITEM_NOT_CLAIMED: 'backoffice.booking.refusal.notClaimed',

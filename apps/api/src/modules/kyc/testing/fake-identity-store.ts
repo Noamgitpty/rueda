@@ -355,7 +355,7 @@ export class FakeIdentityStore implements IdentityStore {
     }
   }
 
-  /** Issues de `core.kyc_cmd_declare_entry` (0112, 0117) utiles aux contrats d'API. */
+  /** Issues de `core.kyc_cmd_declare_entry` (0112, 0119) utiles aux contrats d'API. */
   declareEntry(
     tokenHash: Buffer,
     country: string,

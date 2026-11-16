@@ -168,7 +168,7 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       },
     ],
   },
-  // US-209b : dossier d'une réservation signalée (forme de 0117)
+  // US-209b : dossier d'une réservation signalée (forme de 0119)
   bookingReview: {
     itemId: ID,
     assessmentId: ID,

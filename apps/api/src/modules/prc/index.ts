@@ -10,6 +10,7 @@ export {
   SETTLEMENT_LINE_OF,
   assembleQuote,
   computeQuote,
+  mileageOf,
   protectionDailyPrice,
   protectionOptions,
   protectionTermsOf,
@@ -18,6 +19,8 @@ export {
 } from './internal/quote/engine.js';
 export type {
   PricedPeriod,
+  QuoteMileage,
+  QuoteMileageInput,
   ProtectionGrid,
   ProtectionOption,
   ProtectionTerms,
@@ -41,7 +44,10 @@ export {
   replayFrozenQuote,
 } from './internal/quote/frozen.js';
 export type { FrozenQuote } from './internal/quote/frozen.js';
-export { resolveQuoteParams } from './internal/quote/params.js';
+export { resolveCancellationParams, resolveQuoteParams } from './internal/quote/params.js';
+// Retenue d'une annulation hors fenêtre gratuite, par le moteur de règlement (US-205b, ADR-140).
+export { lateCancellationOf } from './internal/quote/cancellation.js';
+export type { LateCancellation } from './internal/quote/cancellation.js';
 // Total TTC des résultats de la recherche (US-203, ADR-131) : adaptateur du port SearchPricer de CAT.
 export { searchQuotePricer } from './internal/quote/search-pricer.js';
 export type { QuoteParamsOf } from './internal/quote/search-pricer.js';

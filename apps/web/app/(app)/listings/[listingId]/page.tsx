@@ -437,6 +437,10 @@ export default async function ListingPage({
         listing={listing}
         conditions={conditions}
         slot={slotTerms}
+        // même condition que le total de BookingSection (devis de la devise de l'annonce)
+        priceShown={
+          slotView?.kind === 'OK' && price !== null && price.currency === listing.currency
+        }
       />
 
       {slotView?.kind === 'OK' && (

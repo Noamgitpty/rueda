@@ -43,13 +43,14 @@ const conditions = (extra: Record<string, unknown>) =>
   });
 
 describe('slotTermsOf', () => {
-  it('date limite rendue par l’API (instant UTC) ; dernière minute sans date ; distance sur la période', () => {
+  it('date limite rendue par l’API (instant UTC) ; dernière minute : date de la base et fenêtre du pays (US-205b) ; distance sur la période', () => {
     const x = slotTermsOf(
       slot({
         cancellation: {
           lastMinute: false,
           freeUntil: '2037-01-13T15:00:00.000Z',
           lastMinuteWindowMinutes: 60,
+          endsAtStart: false,
         },
         mileage: {
           mode: 'INCLUDED',
@@ -64,14 +65,27 @@ describe('slotTermsOf', () => {
         lastMinute: false,
         freeUntil: new Date('2037-01-13T15:00:00.000Z'),
         windowMinutes: 60,
+        endsAtStart: false,
       },
       mileage: { mode: 'INCLUDED', includedKmPerDay: 200, includedKm: 600, extraKmPriceMinor: 35n },
     });
     expect(
       slotTermsOf(
-        slot({ cancellation: { lastMinute: true, freeUntil: null, lastMinuteWindowMinutes: 60 } }),
+        slot({
+          cancellation: {
+            lastMinute: true,
+            freeUntil: '2037-01-14T15:00:00.000Z',
+            lastMinuteWindowMinutes: 90,
+            endsAtStart: true,
+          },
+        }),
       )?.cancellation,
-    ).toEqual({ lastMinute: true, freeUntil: null, windowMinutes: 60 });
+    ).toEqual({
+      lastMinute: true,
+      freeUntil: new Date('2037-01-14T15:00:00.000Z'),
+      windowMinutes: 90,
+      endsAtStart: true,
+    });
     expect(slotTermsOf(slot({}))).toEqual({
       cancellation: null,
       mileage: {
@@ -86,8 +100,19 @@ describe('slotTermsOf', () => {
   it('forme inattendue ⇒ null (jamais une date ni une distance devinées)', () => {
     for (const extra of [
       {
+        cancellation: { lastMinute: true, freeUntil: null, lastMinuteWindowMinutes: 60 },
+      },
+      {
         cancellation: {
-          lastMinute: true,
+          lastMinute: false,
+          freeUntil: '2037-01-13T15:00:00.000Z',
+          lastMinuteWindowMinutes: 60,
+          endsAtStart: true,
+        },
+      },
+      {
+        cancellation: {
+          lastMinute: false,
           freeUntil: '2037-01-13T15:00:00.000Z',
           lastMinuteWindowMinutes: 60,
         },

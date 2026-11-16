@@ -180,7 +180,30 @@ export interface QuoteRequest {
   readonly protectionLevel?: string;
   /** Âge déclaré du conducteur (16 BKG-003 : saisi avant le choix du niveau), années entières. */
   readonly driverAge?: number;
+  /**
+   * Distance de l'annonce (US-205b ; 16 LST-012 ; 08 BR-MILEAGE-01), figée avec le devis :
+   * absente ⇒ le devis ne porte aucune distance (devis antérieurs, compatibles).
+   */
+  readonly mileage?: QuoteMileageInput;
 }
+
+/** Distance de l'annonce au devis : illimitée, ou km par jour et prix du km supplémentaire. */
+export type QuoteMileageInput =
+  | { readonly mode: 'UNLIMITED' }
+  | { readonly mode: 'INCLUDED'; readonly kmPerDay: number; readonly extraKmPrice: Money };
+
+/**
+ * Distance figée du devis (US-205b ; 19 US-205 critère 2 : « 600 km incluidos » et le même prix
+ * du km sur la fiche, le checkout, le contrat et le reçu) : km par jour × jours facturables.
+ */
+export type QuoteMileage =
+  | { readonly mode: 'UNLIMITED' }
+  | {
+      readonly mode: 'INCLUDED';
+      readonly kmPerDay: number;
+      readonly includedKm: number;
+      readonly extraKmPrice: Money;
+    };
 
 export interface QuoteLine {
   readonly type: QuoteLineType;
@@ -229,6 +252,8 @@ export interface Quote {
   readonly protectionLevel?: string;
   /** Plan de gains de l'hôte figé (US-226), absent si l'instantané ne le nomme pas. */
   readonly hostPlan?: string;
+  /** Distance figée (US-205b), absente si la demande n'en porte pas. */
+  readonly mileage?: QuoteMileage;
 }
 
 /** Lignes déjà chiffrées (prix du trip compris) : entrée de `assembleQuote`. */
@@ -497,7 +522,9 @@ export function computeQuote(request: QuoteRequest, params: QuoteParams): Quote 
   }
   const tripPrice = multiplyByInteger(dailyRate, BigInt(days));
   const protection = protectionOf(request, params, dailyRate, days);
-  return assembleQuote(
+  const mileage =
+    request.mileage === undefined ? undefined : mileageOf(request.mileage, days, params.currency);
+  const quote = assembleQuote(
     {
       startAtMs: request.startAtMs,
       endAtMs: request.endAtMs,
@@ -514,6 +541,43 @@ export function computeQuote(request: QuoteRequest, params: QuoteParams): Quote 
     },
     protection === null ? params : withLevelShare(params, protection.terms.level),
   );
+  return mileage === undefined ? quote : { ...quote, mileage };
+}
+
+/** Plus grand nombre de km par jour d'une annonce (contrainte de `catalog_listing`, 0067). */
+const MAX_KM_PER_DAY = 10_000;
+
+/**
+ * Distance figée (US-205b ; 16 LST-012) : km inclus = km par jour × jours facturables (les mêmes
+ * que le prix du trip) ; prix du km supplémentaire de l'hôte, dans la devise du pays. Forme
+ * inattendue ⇒ `QUOTE_INPUT_INVALID` (jamais une distance devinée).
+ */
+export function mileageOf(
+  input: QuoteMileageInput,
+  days: number,
+  currency: Currency,
+): QuoteMileage {
+  if (input.mode === 'UNLIMITED') return { mode: 'UNLIMITED' };
+  if (input.mode !== 'INCLUDED') {
+    throw new QuoteError('QUOTE_INPUT_INVALID', 'mileage.mode : UNLIMITED ou INCLUDED attendu');
+  }
+  if (
+    !Number.isSafeInteger(input.kmPerDay) ||
+    input.kmPerDay < 1 ||
+    input.kmPerDay > MAX_KM_PER_DAY
+  ) {
+    throw new QuoteError('QUOTE_INPUT_INVALID', 'mileage.kmPerDay : entier de 1 à 10 000 attendu');
+  }
+  const extra = checkAmount('mileage.extraKmPrice', input.extraKmPrice, currency);
+  if (extra.amountMinor < 0n) {
+    throw new QuoteError('QUOTE_INPUT_INVALID', 'mileage.extraKmPrice : montant ≥ 0 attendu');
+  }
+  return {
+    mode: 'INCLUDED',
+    kmPerDay: input.kmPerDay,
+    includedKm: input.kmPerDay * days,
+    extraKmPrice: extra,
+  };
 }
 
 /**

@@ -386,7 +386,7 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
   });
 
   // ---- US-205 : conditions affichées (annulation, distance, protection, caution) -------------
-  it('US-205 critères 1 et 2 : créneau accepté ⇒ freeUntil de la base pour ce départ (instant UTC transmis), fenêtre de dernière minute de 60 min ; km par jour × jours facturables du devis (200 × 3 = 600) et prix du km de l’annonce', async () => {
+  it('US-205 critères 1 et 2 : créneau accepté ⇒ freeUntil de la base pour ce départ (instant UTC transmis), fenêtre de dernière minute du pays ; km par jour × jours facturables du devis (200 × 3 = 600) et prix du km de l’annonce', async () => {
     const search = new FakeSearchStore();
     search.listingCountries.set(LISTING, FIRST_COUNTRY);
     search.listingPrices.set(LISTING, {
@@ -402,6 +402,7 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
         lastMinuteThresholdHours: 25,
         lastMinute: false,
         freeUntil: '2036-12-09T15:00:00.000Z',
+        lastMinuteWindowMinutes: 60,
       },
       mileageMode: 'INCLUDED',
       includedKmPerDay: 200,
@@ -422,6 +423,7 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
           lastMinute: false,
           freeUntil: '2036-12-09T15:00:00.000Z',
           lastMinuteWindowMinutes: 60,
+          endsAtStart: false,
         },
         mileage: {
           mode: 'INCLUDED',
@@ -433,7 +435,29 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
     });
     // la base reçoit l'instant UTC du départ accepté (jamais l'heure locale brute)
     expect(search.termsAsked).toEqual(['2036-12-10T15:00:00.000Z']);
-    // dernière minute : aucune date (« 1 h après la réservation »), même si la base en rendait une
+    // dernière minute (US-205b) : freeUntil = min(maintenant + fenêtre, départ) calculé par la base,
+    // transmis tel quel ; fenêtre du pays (90 min ici, jamais une constante de l'API)
+    search.listingTerms.set(LISTING, {
+      ...terms,
+      cancellation: {
+        ...terms.cancellation!,
+        lastMinute: true,
+        freeUntil: '2036-12-10T13:30:00.000Z',
+        lastMinuteWindowMinutes: 90,
+      },
+    });
+    const late = await a.api.request('GET', at(DATES));
+    expect(late.json).toMatchObject({
+      availability: {
+        cancellation: {
+          lastMinute: true,
+          freeUntil: '2036-12-10T13:30:00.000Z',
+          lastMinuteWindowMinutes: 90,
+          endsAtStart: false,
+        },
+      },
+    });
+    // départ à moins d'une fenêtre (08 : min(bookedAt + 60 min, start)) : gratuite jusqu'au départ
     search.listingTerms.set(LISTING, {
       ...terms,
       cancellation: {
@@ -442,10 +466,13 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
         freeUntil: '2036-12-10T15:00:00.000Z',
       },
     });
-    const late = await a.api.request('GET', at(DATES));
-    expect(late.json).toMatchObject({
+    expect((await a.api.request('GET', at(DATES))).json).toMatchObject({
       availability: {
-        cancellation: { lastMinute: true, freeUntil: null, lastMinuteWindowMinutes: 60 },
+        cancellation: {
+          lastMinute: true,
+          freeUntil: '2036-12-10T15:00:00.000Z',
+          endsAtStart: true,
+        },
       },
     });
     // départ non jugé par la base (lastMinute nul) : aucune promesse d'annulation gratuite
@@ -479,6 +506,7 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
         lastMinuteThresholdHours: 25,
         lastMinute: null,
         freeUntil: null,
+        lastMinuteWindowMinutes: 60,
       },
       mileageMode: 'UNLIMITED',
       includedKmPerDay: null,
@@ -523,6 +551,35 @@ describe('US-204 — contrat de la fiche du véhicule', () => {
     expect((await a.api.request('GET', '/listings/pas-un-uuid/conditions')).status).toBe(404);
     search.down = true;
     const down = await a.api.request('GET', `/listings/${LISTING}/conditions`);
+    expect(down.status).toBe(503);
+    expect(down.json).toMatchObject({ code: 'SEARCH_UNAVAILABLE' });
+  });
+
+  it('US-205b (revue sécurité de 205a, n° 8) : conditions limitées par IP comme les dates (sonde du pays de l’annonce) ⇒ 429 RATE_LIMITED et Retry-After ; limiteur en panne ⇒ 503', async () => {
+    const search = new FakeSearchStore();
+    search.listingCountries.set(LISTING, FIRST_COUNTRY);
+    const hits: string[] = [];
+    const limited = await app({
+      search,
+      probe: {
+        hit: (_ip, country) => {
+          hits.push(country);
+          return Promise.resolve(17);
+        },
+      },
+    });
+    const r = await limited.api.request('GET', `/listings/${LISTING}/conditions`);
+    expect(r.status).toBe(429);
+    expect(r.headers.get('retry-after')).toBe('17');
+    expect(r.json).toMatchObject({ code: 'RATE_LIMITED', values: { retryAfterS: 17 } });
+    // limite du pays de l'annonce, lu en base ; rien d'autre n'est lu au-delà de la limite
+    expect(hits).toEqual([FIRST_COUNTRY]);
+    expect(search.termsAsked).toEqual([]);
+    const broken = await app({
+      search,
+      probe: { hit: () => Promise.reject(new Error('limiteur en panne')) },
+    });
+    const down = await broken.api.request('GET', `/listings/${LISTING}/conditions`);
     expect(down.status).toBe(503);
     expect(down.json).toMatchObject({ code: 'SEARCH_UNAVAILABLE' });
   });

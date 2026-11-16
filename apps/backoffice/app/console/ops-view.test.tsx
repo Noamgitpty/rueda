@@ -273,7 +273,7 @@ const UNSCREENED_HOST: OpsState = {
   },
 };
 
-/** US-209b : réservation signalée en revue avant le débit, prise par l'agent (forme de 0117). */
+/** US-209b : réservation signalée en revue avant le débit, prise par l'agent (forme de 0119). */
 const FLAGGED: OpsState = {
   queues: {
     summary: [{ queue: 'RISK_BOOKING', open: 1, overdue: 0 }],

@@ -30,11 +30,16 @@ export type TermsLanguage = (typeof TERMS_LANGUAGES)[number];
 const minor = (v: unknown): bigint | null =>
   typeof v === 'string' && MINOR.test(v) ? BigInt(v) : null;
 
-/** Annulation du créneau : date limite (UTC), ou dernière minute (fenêtre en minutes). */
+/**
+ * Annulation gratuite d'un départ si la réservation a lieu maintenant (08 BR-CXL-01, calculée par
+ * la base, US-205b) : date limite (UTC) ; en dernière minute, min(maintenant + fenêtre, départ),
+ * fenêtre du pays en minutes ; `endsAtStart` : gratuite jusqu'au départ seulement.
+ */
 export interface SlotCancellationView {
   readonly lastMinute: boolean;
-  readonly freeUntil: Date | null;
+  readonly freeUntil: Date;
   readonly windowMinutes: number;
+  readonly endsAtStart: boolean;
 }
 
 /** Distance du créneau : km sur la période (`null` : illimité ou sans devis). */
@@ -50,19 +55,26 @@ export interface SlotTermsView {
   readonly mileage: SlotMileageView;
 }
 
-function cancellationOf(v: unknown): SlotCancellationView | null | undefined {
+/**
+ * Annulation gratuite rendue par l'API (créneau de la fiche ou devis du checkout) : `null` (aucune
+ * promesse), la vue, ou `undefined` si mal formée.
+ */
+export function cancellationViewOf(v: unknown): SlotCancellationView | null | undefined {
   if (v === null) return null;
   if (!isObj(v) || typeof v['lastMinute'] !== 'boolean') return undefined;
+  if (typeof v['endsAtStart'] !== 'boolean') return undefined;
   const window = int(v['lastMinuteWindowMinutes']);
   if (window === null || window < 1) return undefined;
-  const raw = v['freeUntil'];
-  if (v['lastMinute']) {
-    if (raw !== null) return undefined;
-    return { lastMinute: true, freeUntil: null, windowMinutes: window };
-  }
-  const iso = str(raw);
+  const iso = str(v['freeUntil']);
   if (iso === null || !INSTANT.test(iso)) return undefined;
-  return { lastMinute: false, freeUntil: new Date(iso), windowMinutes: window };
+  // jusqu'au départ : seulement en dernière minute (08 : min(bookedAt + fenêtre, départ))
+  if (v['endsAtStart'] && !v['lastMinute']) return undefined;
+  return {
+    lastMinute: v['lastMinute'],
+    freeUntil: new Date(iso),
+    windowMinutes: window,
+    endsAtStart: v['endsAtStart'],
+  };
 }
 
 function mileageOf(v: unknown): SlotMileageView | undefined {
@@ -84,7 +96,7 @@ function mileageOf(v: unknown): SlotMileageView | undefined {
 export function slotTermsOf(reply: ApiResult): SlotTermsView | null {
   if (reply.status !== 200 || !isObj(reply.json) || !isObj(reply.json['availability'])) return null;
   const a = reply.json['availability'];
-  const cancellation = cancellationOf(a['cancellation']);
+  const cancellation = cancellationViewOf(a['cancellation']);
   const mileage = mileageOf(a['mileage']);
   if (cancellation === undefined || mileage === undefined) return null;
   return { cancellation, mileage };

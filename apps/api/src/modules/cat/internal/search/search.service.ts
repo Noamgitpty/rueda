@@ -53,13 +53,18 @@ export interface ListingSlot {
   readonly mileage: SlotMileage;
 }
 
-/** `freeUntil` de BR-CXL-01 : date limite, ou « 1 h après la réservation » (dernière minute). */
+/**
+ * `freeUntil` de BR-CXL-01 pour une réservation faite maintenant : départ − `free_cancel_lead`, ou,
+ * en dernière minute, min(maintenant + fenêtre, départ) (US-205b).
+ */
 export interface SlotCancellation {
   readonly lastMinute: boolean;
-  /** Fin de l'annulation gratuite (ISO 8601 UTC) ; `null` en dernière minute. */
-  readonly freeUntil: string | null;
-  /** Durée de la fenêtre de dernière minute (08 BR-CXL-01 : 60 min), en minutes. */
+  /** Fin de l'annulation gratuite (ISO 8601 UTC). */
+  readonly freeUntil: string;
+  /** Fenêtre de dernière minute du pays (`last_minute_free_window_minutes`), en minutes. */
   readonly lastMinuteWindowMinutes: number;
+  /** Dernière minute et départ dans moins que la fenêtre : gratuite jusqu'au départ seulement. */
+  readonly endsAtStart: boolean;
 }
 
 /**
@@ -72,9 +77,6 @@ export interface SlotMileage {
   readonly includedKm: number | null;
   readonly extraKmPriceMinor: string | null;
 }
-
-/** Fenêtre de dernière minute de 08 BR-CXL-01 (« 1 h après `booked_at` »), en minutes. */
-export const LAST_MINUTE_WINDOW_MINUTES = 60;
 
 /**
  * Conditions de la fiche sans dates (US-205 ; `GET /listings/{id}/conditions`) : politique
@@ -192,16 +194,17 @@ export class SearchService {
       throw new SearchHttpError('SEARCH_UNAVAILABLE');
     }
     if (r.outcome === 'OK') {
-      const price = await this.#slotPrice(id, country, r.startAt, r.endAt);
-      const terms = await this.#terms(id, r.startAt);
-      // annonce retirée entre les deux lectures : inconnue (404), jamais des conditions devinées
+      // conditions lues avec le contrôle des dates, en une requête (US-205b) ; annonce retirée
+      // entre-temps : inconnue (404), jamais des conditions devinées
+      const terms = r.terms;
       if (terms === null) throw new SearchHttpError('LISTING_NOT_FOUND');
+      const price = await this.#slotPrice(id, country, r.startAt, r.endAt);
       return {
         startAt: r.startAt,
         endAt: r.endAt,
         timezone: r.timezone,
         price,
-        cancellation: slotCancellation(terms),
+        cancellation: slotCancellation(terms, r.startAt),
         mileage: slotMileage(terms, price),
       };
     }
@@ -216,11 +219,28 @@ export class SearchService {
 
   /**
    * Conditions de la fiche sans dates (US-205 ; 16 LST-010, LST-013, PRT-003 / PRT-013) :
-   * identifiant mal formé, annonce inconnue ou non publiée ⇒ 404 ; base en panne ⇒ 503.
+   * identifiant mal formé, annonce inconnue ou non publiée ⇒ 404 ; base ou limiteur en panne ⇒
+   * 503. US-205b (revue sécurité de 205a, n° 8) : même limite par IP que les dates de la fiche
+   * (sonde `availability_probe_per_minute` du pays de l'annonce) ⇒ 429 au-delà.
    */
-  async conditions(listingId: string): Promise<ListingConditions> {
+  async conditions(listingId: string, ip: string): Promise<ListingConditions> {
     if (!UUID.test(listingId)) throw new SearchHttpError('LISTING_NOT_FOUND');
-    const t = await this.#terms(listingId.toLowerCase(), null);
+    const id = listingId.toLowerCase();
+    let country: string | null;
+    try {
+      country = await this.store.listingCountry(id);
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    if (country === null) throw new SearchHttpError('LISTING_NOT_FOUND');
+    let retryAfterS: number | null;
+    try {
+      retryAfterS = await this.probe.hit(ip, country);
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    if (retryAfterS !== null) throw new SearchHttpError('RATE_LIMITED', Math.max(1, retryAfterS));
+    const t = await this.#terms(id, null);
     if (t === null) throw new SearchHttpError('LISTING_NOT_FOUND');
     return {
       currency: t.currency,
@@ -231,7 +251,7 @@ export class SearchService {
           : {
               freeCancelLeadHours: t.cancellation.freeCancelLeadHours,
               lastMinuteThresholdHours: t.cancellation.lastMinuteThresholdHours,
-              lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MINUTES,
+              lastMinuteWindowMinutes: t.cancellation.lastMinuteWindowMinutes,
             },
       deposit: t.depositAmountMinor === null ? null : { amountMinor: t.depositAmountMinor },
       protection: t.protection,
@@ -289,8 +309,12 @@ export class SearchService {
   async #cards(country: string, results: readonly SearchResult[]): Promise<SearchCard[]> {
     if (results.length === 0) return [];
     let ratings: ReadonlyMap<string, SearchRating>;
+    let covered: ReadonlySet<string>;
     try {
       ratings = await this.reviews.ratings(results.map((x) => x.id));
+      // US-205b : « protection incluse » seulement si la base promet la couverture (même règle
+      // que la fiche, 19 US-205 critère 4) ; panne ⇒ 503, jamais une promesse devinée
+      covered = await this.store.protectionOffered(results.map((x) => x.id));
     } catch {
       throw new SearchHttpError('SEARCH_UNAVAILABLE');
     }
@@ -319,6 +343,7 @@ export class SearchService {
         totalMinor: price.totalMinor,
         billableDays: price.billableDays,
         rating: ratings.get(res.id) ?? null,
+        protectionOffered: covered.has(res.id),
       });
     }
     return cards;
@@ -326,14 +351,14 @@ export class SearchService {
 }
 
 /** Annulation du créneau : départ futur et paramètres présents, sinon `null` (aucune promesse). */
-function slotCancellation(t: ListingTerms): SlotCancellation | null {
+function slotCancellation(t: ListingTerms, startAt: string): SlotCancellation | null {
   const c = t.cancellation;
-  if (c === null || c.lastMinute === null) return null;
-  if (!c.lastMinute && c.freeUntil === null) return null;
+  if (c === null || c.lastMinute === null || c.freeUntil === null) return null;
   return {
     lastMinute: c.lastMinute,
-    freeUntil: c.lastMinute ? null : c.freeUntil,
-    lastMinuteWindowMinutes: LAST_MINUTE_WINDOW_MINUTES,
+    freeUntil: c.freeUntil,
+    lastMinuteWindowMinutes: c.lastMinuteWindowMinutes,
+    endsAtStart: c.lastMinute && Date.parse(c.freeUntil) >= Date.parse(startAt),
   };
 }
 

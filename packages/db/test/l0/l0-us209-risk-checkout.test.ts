@@ -738,7 +738,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
 );
 
 // ---------------------------------------------------------------------------------------------
-// US-209, partie 209b (migration 0117, ADR-141) : décision motivée de l'ops sur une réservation
+// US-209, partie 209b (migration 0119, ADR-141) : décision motivée de l'ops sur une réservation
 // signalée, hold de revue échu, dossier de la console, borne de la déclaration d'entrée.
 // Attendus : 19 US-209 (critère 2 « la décision ops est motivée ») ; 17 §2.5 (« à l'approbation,
 // une seule prolongation : expires_at = reviewed_at + hold_ttl_minutes, borne reviewed_at +
