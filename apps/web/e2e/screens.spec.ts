@@ -220,6 +220,7 @@ export const SCREENS: readonly Screen[] = [
         page.locator('[data-testid="s05-submit"]'),
         /\/checkout\/hold\/[0-9a-f-]{36}$/,
       );
+      await expect(page.locator('[data-testid="s05-hold-documents"]')).toBeVisible();
     },
   },
   {
@@ -260,6 +261,12 @@ for (const screen of SCREENS) {
         await screen.open(page, context, language);
         await expect(page.locator('html')).toHaveAttribute('lang', tagOf(language));
         await expect(page.locator('h1').first()).toBeVisible();
+        // Écran ouvert par une navigation côté client (redirection d'une action serveur, lien) :
+        // `networkidle` ne vaut que pour le dernier chargement complet du document et ne signale
+        // rien ici ; le `<title>` du nouvel écran peut être posé par React dans un commit qui
+        // suit de peu celui du contenu (US-208, titre de S05). Signal déterministe : le titre du
+        // document est posé (jamais un délai) ; axe vérifie ensuite la règle `document-title`.
+        await expect(page).toHaveTitle(/\S/);
         await page.waitForLoadState('networkidle');
         await expectMobileFriendly(page);
         for (const scheme of ['light', 'dark'] as const) {
