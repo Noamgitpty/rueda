@@ -23,7 +23,6 @@
  * - concurrence : comptes liés et voyageurs légitimes en course sur le même créneau ; constat de
  *   l'ops en course avec une pose.
  */
-import { randomInt } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { commandCallSql, translateDbError } from '../../src/index.ts';
@@ -34,6 +33,7 @@ import { Barrier, placeHoldCommand, registerVehicles } from '../support/concurre
 import { isoDay, licence, one, person, staff, toReview } from '../support/kyc.ts';
 import type { Staff } from '../support/kyc.ts';
 import { auditOf } from '../support/staff.ts';
+import { uniqueDigits } from '../support/unique.ts';
 
 const otherOf = (c: CountryCase): CountryCase =>
   COUNTRIES.find((x) => x.country !== c.country) as CountryCase;
@@ -199,8 +199,12 @@ async function verifyWithLicense(
   ]);
 }
 
-/** Numéro E.164 de test, tiré au hasard (donnée de test, aucun plan national). */
-const phone = (): string => `+5${String(randomInt(100_000_000, 999_999_999))}`;
+/**
+ * Numéro E.164 de test (donnée de test, aucun plan national), unique par construction (N-186) :
+ * `+5` puis 9 chiffres du compteur de la base, jamais de la longueur d'un numéro PA ou PY.
+ */
+const phone = async (client: pg.ClientBase): Promise<string> =>
+  `+5${await uniqueDigits(client, 9)}`;
 
 const decideLink = (
   client: pg.ClientBase,
@@ -421,12 +425,15 @@ describe.each(COUNTRIES)('US-127 critère 2 — comptes liés ($country, $curren
   it('même téléphone (vérifié chez l’hôte, non vérifié chez le voyageur) : refus et signalement SAME_PHONE ; témoin : autre numéro', async () => {
     await withRole('app_api', async (client) => {
       const a = await hostWithVehicle(client, c);
-      const n = phone();
+      const n = await phone(client);
       await client.query('SELECT test_fixture.us127_set_phone($1, $2, true)', [a.holder, n]);
       const linked = await party(client);
       await client.query('SELECT test_fixture.us127_set_phone($1, $2, false)', [linked, n]);
       const witness = await party(client);
-      await client.query('SELECT test_fixture.us127_set_phone($1, $2, false)', [witness, phone()]);
+      await client.query('SELECT test_fixture.us127_set_phone($1, $2, false)', [
+        witness,
+        await phone(client),
+      ]);
 
       expect(await pose(client, linked, a.vehicle, a.org, slot())).toBe('SELF_BOOKING_FORBIDDEN');
       await report(client, linked, a.vehicle);
@@ -647,7 +654,7 @@ describe.each(COUNTRIES)('US-127 — concurrence ($country, $currency)', (c) => 
       await verify(client, a.holder, c, 'Rosa', 'Benítez', birth);
       const sameIdentity = await party(client);
       await verify(client, sameIdentity, c, 'rosa', 'BENITEZ', birth);
-      const n = phone();
+      const n = await phone(client);
       await client.query('SELECT test_fixture.us127_set_phone($1, $2, true)', [a.holder, n]);
       const samePhone = await party(client);
       await client.query('SELECT test_fixture.us127_set_phone($1, $2, false)', [samePhone, n]);

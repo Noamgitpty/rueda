@@ -12,6 +12,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { setSessionContext } from '../../src/index.ts';
 import { withTestTransaction } from '../../src/testing/index.ts';
+import { uniqueSerial } from './unique.ts';
 
 /** Les quatre interrupteurs de mise en service (CLAUDE.md point 7 ; 17 §0.1). */
 export const SWITCHES = [
@@ -199,9 +200,19 @@ export async function ensureClosed(
   if (open) throw new Error(`interrupteur ${key} resté ouvert à ${at}`);
 }
 
-/** Instant virtuel lointain (années 2500 à 2900), distinct à chaque série : aucune collision. */
-export function farInstant(offsetMinutes = 0): string {
-  const base = Date.UTC(2500, 0, 1) + Math.floor(Math.random() * 400 * 365) * 86_400_000;
+/** Jours de la plage des instants lointains (années 2500 à 2900). */
+const FAR_DAYS = 400 * 365;
+
+/**
+ * Instant virtuel lointain (années 2500 à 2900) : minuit UTC d'un jour JAMAIS rendu à une autre
+ * série de cette base (compteur unique de test, N-186). Les fenêtres posées depuis cet instant
+ * (deux heures au plus) ne chevauchent donc jamais celle d'une autre série, par construction (le
+ * tirage au hasard d'un jour sur 146 000 ne l'excluait pas).
+ */
+export async function farInstant(client: pg.ClientBase, offsetMinutes = 0): Promise<string> {
+  const day = await uniqueSerial(client);
+  if (day >= BigInt(FAR_DAYS)) throw new Error(`compteur unique ${String(day)} hors des 400 ans`);
+  const base = Date.UTC(2500, 0, 1) + Number(day) * 86_400_000;
   return new Date(base + offsetMinutes * 60_000).toISOString();
 }
 

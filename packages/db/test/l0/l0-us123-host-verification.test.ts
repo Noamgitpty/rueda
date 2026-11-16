@@ -46,6 +46,7 @@ import {
 import type { StaffActor } from '../support/golive.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 import { auditOf, elevatedStaff, installTestProofKey } from '../support/staff.ts';
+import { uniquePhone } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const PROVIDER = 'FAKE';
@@ -82,14 +83,6 @@ function data(country: string): CountryData {
   const d = COUNTRY_DATA.get(country);
   if (d === undefined) throw new Error(`pays absent des données CFG : ${country}`);
   return d;
-}
-
-function phoneOf(country: string): string {
-  const p = data(country).phone;
-  const prefix = p.mobilePrefixes[0] ?? '';
-  let rest = '';
-  while (rest.length < p.nationalLength - prefix.length) rest += String(randomInt(10));
-  return `+${p.callingCode}${prefix}${rest}`;
 }
 
 /** Date ISO (AAAA-MM-JJ) de naissance d'une personne de `years` ans (et `extraDays` de plus). */
@@ -172,7 +165,10 @@ async function person(client: pg.ClientBase, country: string): Promise<Person> {
     [uuid(), userId, t.hash, SESSION_TTL_S],
   );
   if (!s.expires_at) throw new Error('session refusée');
-  await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [userId, phoneOf(country)]);
+  await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [
+    userId,
+    await uniquePhone(client, country),
+  ]);
   return { userId, token: t.hash };
 }
 
@@ -1142,7 +1138,7 @@ describe.each(COUNTRIES)('US-123 — inscription et KYC de l’hôte, $country (
       // fenêtre [from, to) : capacités bloquantes du FAKE INCONNUES de from à caps, VALIDÉES de
       // caps à to, inconnues après ; interrupteurs ouverts de from à to par la procédure à deux
       // personnes d'US-125, refermés quoi qu'il arrive
-      const from = farInstant();
+      const from = await farInstant(c);
       const caps = plusMinutes(from, 60);
       const to = plusMinutes(from, 120);
       for (const [status, at] of [

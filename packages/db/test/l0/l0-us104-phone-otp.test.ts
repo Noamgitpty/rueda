@@ -16,13 +16,13 @@
  * Les empreintes de code sont des octets aléatoires : la base ne voit jamais un code, seulement
  * l'empreinte HMAC calculée par l'application (ADR-098) ; elle compare des empreintes.
  */
-import { randomBytes, randomInt } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { uniquePhone } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 /** 16 VER-013. */
@@ -30,33 +30,6 @@ const TTL_MIN = 10;
 const MAX_ATTEMPTS = 5;
 const LOCK_MIN = 60;
 const RESEND_S = 60;
-
-/** Plan de numérotation des pays : données de configuration (jamais une constante du code). */
-const NUMBERING = new Map(
-  (
-    JSON.parse(
-      readFileSync(
-        new URL('../../../../apps/api/src/modules/cfg/data/countries.json', import.meta.url),
-        'utf8',
-      ),
-    ) as {
-      countries: {
-        code: string;
-        phone: { callingCode: string; nationalLength: number; mobilePrefixes: string[] };
-      }[];
-    }
-  ).countries.map((c) => [c.code, c.phone] as const),
-);
-
-/** Numéro de mobile fictif du pays, unique par appel. */
-function phoneOf(country: string): string {
-  const p = NUMBERING.get(country);
-  if (p === undefined) throw new Error(`pays sans plan de numérotation : ${country}`);
-  const prefix = p.mobilePrefixes[0] ?? '';
-  let rest = '';
-  while (rest.length < p.nationalLength - prefix.length) rest += String(randomInt(10));
-  return `+${p.callingCode}${prefix}${rest}`;
-}
 
 const hash = (): Buffer => randomBytes(32);
 const at = (base: Date, seconds: number): string =>
@@ -234,7 +207,7 @@ describe('US-104 — demande et émission du code (asynchrone, sans code en clai
     async (country) => {
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const t0 = tenOClock();
         const r = await request(client, p, phone, country, at(t0, 0));
         expect(r).toMatchObject({
@@ -295,7 +268,13 @@ describe('US-104 — demande et émission du code (asynchrone, sans code en clai
     let challengeId = '';
     await withRole('app_api', async (client) => {
       const p = await person(client, country);
-      const r = await request(client, p, phoneOf(country), country, tenOClock().toISOString());
+      const r = await request(
+        client,
+        p,
+        await uniquePhone(client, country),
+        country,
+        tenOClock().toISOString(),
+      );
       challengeId = r.challenge_id as string;
       await expect(
         client.query('SELECT code_hash FROM core.iam_otp_challenge'),
@@ -314,7 +293,7 @@ describe('US-104 — demande et émission du code (asynchrone, sans code en clai
       await expect(
         w.query('SELECT * FROM core.iam_cmd_phone_otp_request($1, $2, $3)', [
           randomBytes(32),
-          phoneOf(country),
+          await uniquePhone(w, country),
           country,
         ]),
       ).rejects.toMatchObject({ code: '42501' });
@@ -335,7 +314,7 @@ describe('US-104 — demande et émission du code (asynchrone, sans code en clai
     async (country) => {
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const t0 = tenOClock();
         const first = await request(client, p, phone, country, at(t0, 0));
         const early = await request(client, p, phone, country, at(t0, RESEND_S - 1));
@@ -365,7 +344,13 @@ describe('US-104 critère 1 — durée de vie de 10 minutes', () => {
         // 10:11 : expiré
         const late = await person(client, country);
         const code = hash();
-        const r = await request(client, late, phoneOf(country), country, at(t0, 0));
+        const r = await request(
+          client,
+          late,
+          await uniquePhone(client, country),
+          country,
+          at(t0, 0),
+        );
         await issue(r.challenge_id as string, code, at(t0, 1));
         expect(await verify(client, late, code, at(t0, 11 * 60))).toEqual({
           outcome: 'OTP_EXPIRED',
@@ -377,7 +362,7 @@ describe('US-104 critère 1 — durée de vie de 10 minutes', () => {
 
         // 10:09:59 : encore valable
         const inTime = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const code2 = hash();
         const r2 = await request(client, inTime, phone, country, at(t0, 0));
         await issue(r2.challenge_id as string, code2, at(t0, 1));
@@ -399,7 +384,7 @@ describe('US-104 critère 1 — 5 codes faux, puis blocage d’une heure', () =>
     async (country) => {
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const code = hash();
         const t0 = tenOClock();
         const r = await request(client, p, phone, country, at(t0, 0));
@@ -427,7 +412,9 @@ describe('US-104 critère 1 — 5 codes faux, puis blocage d’une heure', () =>
           challenge_id: null,
           locked_for_s: LOCK_MIN * 60 - 20,
         });
-        expect(await request(client, p, phoneOf(country), country, at(t0, 50))).toMatchObject({
+        expect(
+          await request(client, p, await uniquePhone(client, country), country, at(t0, 50)),
+        ).toMatchObject({
           outcome: 'LOCKED',
         });
         // après 1 h : un nouveau défi, compteur remis à zéro
@@ -442,7 +429,7 @@ describe('US-104 critère 1 — 5 codes faux, puis blocage d’une heure', () =>
     const country = COUNTRIES[1].country;
     await withRole('app_api', async (client) => {
       const p = await person(client, country);
-      const phone = phoneOf(country);
+      const phone = await uniquePhone(client, country);
       const t0 = tenOClock();
       const r = await request(client, p, phone, country, at(t0, 0));
       await issue(r.challenge_id as string, hash(), at(t0, 1));
@@ -466,7 +453,7 @@ describe('US-104 — numéro vérifié, unicité et énumération', () => {
     async (country) => {
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const code = hash();
         const t0 = tenOClock();
         const r = await request(client, p, phone, country, at(t0, 0));
@@ -504,7 +491,7 @@ describe('US-104 — numéro vérifié, unicité et énumération', () => {
       await withRole('app_api', async (client) => {
         const t0 = tenOClock();
         const owner = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const code = hash();
         const r = await request(client, owner, phone, country, at(t0, 0));
         await issue(r.challenge_id as string, code, at(t0, 1));
@@ -513,7 +500,13 @@ describe('US-104 — numéro vérifié, unicité et énumération', () => {
         const other = await person(client, country);
         const free = await person(client, country);
         const taken = await request(client, other, phone, country, at(t0, 10));
-        const unknown = await request(client, free, phoneOf(country), country, at(t0, 10));
+        const unknown = await request(
+          client,
+          free,
+          await uniquePhone(client, country),
+          country,
+          at(t0, 10),
+        );
         const shape = (x: Requested) => ({ ...x, challenge_id: typeof x.challenge_id });
         expect(shape(taken)).toEqual(shape(unknown));
         expect(taken.outcome).toBe('SENT');
@@ -538,13 +531,28 @@ describe('US-104 — numéro vérifié, unicité et énumération', () => {
     await withRole('app_api', async (client) => {
       const p = await person(client, country, { verifyEmail: false });
       expect(
-        (await request(client, p, phoneOf(country), country, tenOClock().toISOString())).outcome,
+        (
+          await request(
+            client,
+            p,
+            await uniquePhone(client, country),
+            country,
+            tenOClock().toISOString(),
+          )
+        ).outcome,
       ).toBe('NOT_ELIGIBLE');
       expect(await challenges(client, p.userId)).toEqual([]);
       const stranger = { userId: uuid(), token: randomBytes(32) };
       expect(
-        (await request(client, stranger, phoneOf(country), country, tenOClock().toISOString()))
-          .outcome,
+        (
+          await request(
+            client,
+            stranger,
+            await uniquePhone(client, country),
+            country,
+            tenOClock().toISOString(),
+          )
+        ).outcome,
       ).toBe('AUTH_REQUIRED');
       expect((await verify(client, stranger, hash(), tenOClock().toISOString())).outcome).toBe(
         'AUTH_REQUIRED',
@@ -560,7 +568,15 @@ describe('US-104 — numéro vérifié, unicité et énumération', () => {
         (await request(client, ok, '0612345678', country, tenOClock().toISOString())).outcome,
       ).toBe('REQUEST_INVALID');
       expect(
-        (await request(client, ok, phoneOf(country), 'ZZ', tenOClock().toISOString())).outcome,
+        (
+          await request(
+            client,
+            ok,
+            await uniquePhone(client, country),
+            'ZZ',
+            tenOClock().toISOString(),
+          )
+        ).outcome,
       ).toBe('COUNTRY_UNKNOWN');
       expect(await challenges(client, ok.userId)).toEqual([]);
     });
@@ -570,7 +586,7 @@ describe('US-104 — numéro vérifié, unicité et énumération', () => {
     const country = COUNTRIES[1].country;
     await withRole('app_api', async (client) => {
       const p = await person(client, country);
-      const phone = phoneOf(country);
+      const phone = await uniquePhone(client, country);
       const t0 = tenOClock();
       const r = await request(client, p, phone, country, at(t0, 0));
       await issue(r.challenge_id as string, hash(), at(t0, 1));
@@ -602,7 +618,7 @@ describe('US-104 — purge à 30 jours (17 §3.2.1)', () => {
     await withRole('app_api', async (client) => {
       const p = await person(client, country);
       userId = p.userId;
-      await request(client, p, phoneOf(country), country, at(t0, 0));
+      await request(client, p, await uniquePhone(client, country), country, at(t0, 0));
     });
     const prune = (virtualNow: string) =>
       withRole('app_worker', (w) =>

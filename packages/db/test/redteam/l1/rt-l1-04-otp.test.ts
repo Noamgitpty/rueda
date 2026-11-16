@@ -11,42 +11,17 @@
  * passer. Attendus : 16 VER-013 (10 min, 5 essais, blocage 1 h, renvoi à 60 s, « numéro vérifié
  * ailleurs » sans énumération), 17 §6.6 (plafonds), 19 US-104 ; pré-mortem L1-PM-06.
  */
-import { randomBytes, randomInt } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole, withTestTransaction } from '../../../src/testing/index.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../../support/iam.ts';
 import { byCountry, otherOf, uuid } from './support.ts';
+import { uniquePhone } from '../../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 /** 16 VER-013 : 5 essais ; renvoi du même numéro après 60 s ; durée de vie 10 min. */
 const MAX_ATTEMPTS = 5;
-
-const NUMBERING = new Map(
-  (
-    JSON.parse(
-      readFileSync(
-        new URL('../../../../../apps/api/src/modules/cfg/data/countries.json', import.meta.url),
-        'utf8',
-      ),
-    ) as {
-      countries: {
-        code: string;
-        phone: { callingCode: string; nationalLength: number; mobilePrefixes: string[] };
-      }[];
-    }
-  ).countries.map((c) => [c.code, c.phone] as const),
-);
-
-function phoneOf(country: string): string {
-  const p = NUMBERING.get(country);
-  if (p === undefined) throw new Error(`pays sans plan de numérotation : ${country}`);
-  const prefix = p.mobilePrefixes[0] ?? '';
-  let rest = '';
-  while (rest.length < p.nationalLength - prefix.length) rest += String(randomInt(10));
-  return `+${p.callingCode}${prefix}${rest}`;
-}
 
 const hash = (): Buffer => randomBytes(32);
 const at = (base: Date, seconds: number): string =>
@@ -162,7 +137,7 @@ describe.each(byCountry)(
     it('5 codes faux puis le bon : OTP_LOCKED ; le blocage tient après une nouvelle session, un autre numéro et un autre pays', async () => {
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const t0 = now();
         const r = await request(client, p.token, phone, country, at(t0, 0));
         expect(r.outcome).toBe('SENT');
@@ -180,8 +155,8 @@ describe.each(byCountry)(
         const fresh = await session(client, p.userId);
         expect((await verify(client, fresh, [code], at(t0, 11))).outcome).toBe('OTP_LOCKED');
         for (const [number, where] of [
-          [phoneOf(country), country],
-          [phoneOf(otherOf(cc).country), otherOf(cc).country],
+          [await uniquePhone(client, country), country],
+          [await uniquePhone(client, otherOf(cc).country), otherOf(cc).country],
         ] as const) {
           const again = await request(client, fresh, number, where, at(t0, 12));
           expect(again.outcome, `redemande vers ${where}`).toBe('LOCKED');
@@ -194,7 +169,13 @@ describe.each(byCountry)(
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
         const t0 = now();
-        const r1 = await request(client, p.token, phoneOf(country), country, at(t0, 0));
+        const r1 = await request(
+          client,
+          p.token,
+          await uniquePhone(client, country),
+          country,
+          at(t0, 0),
+        );
         await issue(r1.challenge_id as string, hash(), at(t0, 1));
         for (let i = 1; i < MAX_ATTEMPTS; i += 1) {
           expect((await verify(client, p.token, [hash()], at(t0, 1 + i))).outcome).toBe(
@@ -202,7 +183,13 @@ describe.each(byCountry)(
           );
         }
         // redemande (autre numéro : aucun délai de renvoi) ; le défi neuf ne remet pas les essais à zéro
-        const r2 = await request(client, p.token, phoneOf(country), country, at(t0, 20));
+        const r2 = await request(
+          client,
+          p.token,
+          await uniquePhone(client, country),
+          country,
+          at(t0, 20),
+        );
         expect(r2.outcome).toBe('SENT');
         await issue(r2.challenge_id as string, hash(), at(t0, 21));
         expect((await verify(client, p.token, [hash()], at(t0, 22))).outcome).toBe('OTP_LOCKED');
@@ -213,7 +200,13 @@ describe.each(byCountry)(
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
         const t0 = now();
-        const r = await request(client, p.token, phoneOf(country), country, at(t0, 0));
+        const r = await request(
+          client,
+          p.token,
+          await uniquePhone(client, country),
+          country,
+          at(t0, 0),
+        );
         await issue(r.challenge_id as string, hash(), at(t0, 1));
         for (const hashes of [[hash(), hash(), hash()], [Buffer.alloc(31)], []]) {
           await expect(
@@ -232,8 +225,8 @@ describe.each(byCountry)(
     it('le code du défi A ne valide pas le défi B (numéro d’autrui) : aucun numéro n’est posé', async () => {
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
-        const own = phoneOf(country);
-        const victim = phoneOf(country);
+        const own = await uniquePhone(client, country);
+        const victim = await uniquePhone(client, country);
         const t0 = now();
         const a = await request(client, p.token, own, country, at(t0, 0));
         const codeA = hash();
@@ -254,7 +247,7 @@ describe.each(byCountry)(
     it('numéro déjà vérifié par un autre compte : même réponse qu’un numéro libre à la demande ; le code juste ne le lui donne jamais', async () => {
       await withRole('app_api', async (client) => {
         const owner = await person(client, country);
-        const phone = phoneOf(country);
+        const phone = await uniquePhone(client, country);
         const t0 = now();
         const ro = await request(client, owner.token, phone, country, at(t0, 0));
         const code = hash();
@@ -265,7 +258,13 @@ describe.each(byCountry)(
         // second compte : demande du numéro vérifié ailleurs, puis d'un numéro libre
         const other = await person(client, country);
         const taken = await request(client, other.token, phone, country, at(t0, 3));
-        const free = await request(client, other.token, phoneOf(country), country, at(t0, 4));
+        const free = await request(
+          client,
+          other.token,
+          await uniquePhone(client, country),
+          country,
+          at(t0, 4),
+        );
         expect(taken.outcome).toBe('SENT');
         expect(free.outcome).toBe(taken.outcome);
         // le propriétaire du numéro (code juste) ne prend pas la place du premier compte
@@ -287,7 +286,13 @@ describe.each(byCountry)(
       await withRole('app_api', async (client) => {
         const p = await person(client, country);
         const t0 = now();
-        const r = await request(client, p.token, phoneOf(country), country, at(t0, 0));
+        const r = await request(
+          client,
+          p.token,
+          await uniquePhone(client, country),
+          country,
+          at(t0, 0),
+        );
         const code = hash();
         await issue(r.challenge_id as string, code, at(t0, 1));
         expect((await verify(client, p.token, [code], at(t0, 2))).outcome).toBe('PHONE_VERIFIED');
@@ -306,7 +311,13 @@ describe.each(byCountry)('RT-L1-A06 — OTP : pompage de SMS (%s) — LIMITE DOC
       const t0 = now();
       const sent: string[] = [];
       for (let i = 0; i < 12; i += 1) {
-        const r = await request(client, p.token, phoneOf(country), country, at(t0, i));
+        const r = await request(
+          client,
+          p.token,
+          await uniquePhone(client, country),
+          country,
+          at(t0, i),
+        );
         sent.push(r.outcome);
       }
       // la base accepte les douze demandes (aucun plafond par compte et par heure en base) ; le
@@ -314,7 +325,7 @@ describe.each(byCountry)('RT-L1-A06 — OTP : pompage de SMS (%s) — LIMITE DOC
       // profondeur absente : constat F-L1-OTP-01 (voir le rapport), pas un échec d'API.
       expect(sent.filter((o) => o === 'SENT').length).toBe(12);
       // le renvoi du MÊME numéro reste, lui, borné par la base (60 s, VER-013)
-      const phone = phoneOf(country);
+      const phone = await uniquePhone(client, country);
       expect((await request(client, p.token, phone, country, at(t0, 100))).outcome).toBe('SENT');
       expect((await request(client, p.token, phone, country, at(t0, 101))).outcome).toBe(
         'RESEND_WAIT',

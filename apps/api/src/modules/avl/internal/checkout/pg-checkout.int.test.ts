@@ -159,6 +159,22 @@ async function guestSession(country: string): Promise<Buffer> {
   return hash;
 }
 
+/**
+ * Plaque unique par construction (BOARD N-186) : `letter` puis 8 chiffres hexadécimaux du compteur
+ * de test de la base (fixture 9999), au lieu d'un tirage au hasard exposé à
+ * `catalog_vehicle_plate_unique` sur une base partagée par tous les fichiers.
+ */
+async function uniquePlate(db: pg.ClientBase, letter: string): Promise<string> {
+  const { rows } = await db.query<{ n: string }>(
+    'SELECT test_fixture.next_unique_serial()::text AS n',
+  );
+  const n = rows[0]?.n;
+  if (n === undefined) throw new Error('compteur unique de test indisponible (fixture 9999)');
+  const hex = BigInt(n).toString(16).toUpperCase();
+  if (hex.length > 8) throw new Error(`compteur unique de test hors de 8 chiffres : ${hex}`);
+  return `${letter}${hex.padStart(8, '0')}`;
+}
+
 describe.each(countryCases())(
   'checkout réel, devis avec protection ($country, $currency)',
   (cc) => {
@@ -280,12 +296,7 @@ describe.each(countryCases())(
                                                        'Modelo', 2021, NULL, 'AUTOMATIC',
                                                        5::smallint, 'GASOLINE', 42000, false,
                                                        false)`,
-        [
-          hostHash,
-          org,
-          loc.rows[0]?.location_id,
-          `C${randomBytes(4).toString('hex').toUpperCase()}`,
-        ],
+        [hostHash, org, loc.rows[0]?.location_id, await uniquePlate(client, 'C')],
       );
       const vehicleId = veh.rows[0]?.vehicle_id;
       if (!vehicleId) throw new Error('véhicule refusé');

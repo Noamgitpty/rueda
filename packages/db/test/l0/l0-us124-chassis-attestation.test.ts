@@ -14,13 +14,14 @@
  * Absence d'effet : chaque refus est comparé à un TÉMOIN qui ne diffère que par la condition
  * éprouvée (même hôte, même véhicule, un seul caractère ou un seul champ de différence).
  */
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { uniqueDigits, uniqueHex, uniquePlate, uniqueVin } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const byCountry = COUNTRIES.map((c) => [c.country, c.currency, c] as const);
@@ -83,17 +84,14 @@ async function host(client: pg.ClientBase, country: string): Promise<Host> {
   return { userId, hash: t.hash, org, location };
 }
 
-const plate = (): string => `V${randomBytes(4).toString('hex').toUpperCase()}`;
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'V');
 /** VIN ISO 3779 de test : 17 caractères tirés de l'alphabet sans I, O ni Q. */
-const isoVin = (): string => {
-  const alphabet = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(17), (b) => alphabet[b % alphabet.length]).join('');
-};
+const isoVin = (c: pg.ClientBase): Promise<string> => uniqueVin(c);
 /**
  * Numéro de châssis japonais « modèle-numéro de série » (GRJ150-0012345 : code modèle, tiret, sept
  * chiffres) ; série tirée au hasard pour qu'aucun test n'en partage un.
  */
-const jpChassis = (): string => `GRJ150-${String(randomInt(0, 10_000_000)).padStart(7, '0')}`;
+const jpChassis = async (c: pg.ClientBase): Promise<string> => `GRJ150-${await uniqueDigits(c, 7)}`;
 /** Forme normalisée attendue (ADR-113) : majuscules, sans espace ni tiret. */
 const normalized = (raw: string): string => raw.toUpperCase().replace(/[ -]/g, '');
 
@@ -111,7 +109,15 @@ async function vehicle(
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, $5, $6, NULL, NULL, $7, NULL,
                                                    'MANUAL', 5::smallint, 'GASOLINE', NULL,
                                                    false, false)`,
-    [h.hash, h.org, h.location, v.plate ?? plate(), v.vin ?? null, variant ?? null, year],
+    [
+      h.hash,
+      h.org,
+      h.location,
+      v.plate ?? (await plate(client)),
+      v.vin ?? null,
+      variant ?? null,
+      year,
+    ],
   );
   return { outcome: rows[0]?.outcome ?? '', id: rows[0]?.vehicle_id ?? '' };
 }
@@ -212,13 +218,13 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FO
       await withRole('app_api', async (client) => {
         const h = await host(client, country);
         const year = localYear(cc) - 2;
-        const good = isoVin();
+        const good = await isoVin(client);
         const created = await vehicle(client, h, country, year, { vin: good.toLowerCase() });
         expect(created.outcome).toBe('DONE');
         expect(await vinOf(client, created.id)).toBe(good);
         // 17 caractères : lu comme ISO 3779, qui exclut I, O et Q (témoin : même numéro sans eux)
         for (const bad of ['O', 'I', 'Q']) {
-          const witness = isoVin();
+          const witness = await isoVin(client);
           const invalid = `${witness.slice(0, 9)}${bad}${witness.slice(10)}`;
           expect((await vehicle(client, h, country, year, { vin: invalid })).outcome).toBe(
             'VEHICLE_VIN_INVALID',
@@ -229,17 +235,17 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FO
         expect((await vehicle(client, h, country, year, { vin: 'AB12' })).outcome).toBe(
           'VEHICLE_VIN_INVALID',
         );
-        expect((await vehicle(client, h, country, year, { vin: `${isoVin()}A` })).outcome).toBe(
-          'VEHICLE_VIN_INVALID',
-        );
-        const shortest = randomBytes(3).toString('hex').toUpperCase().slice(0, 5);
+        expect(
+          (await vehicle(client, h, country, year, { vin: `${await isoVin(client)}A` })).outcome,
+        ).toBe('VEHICLE_VIN_INVALID');
+        const shortest = await uniqueHex(client, 5);
         const five = await vehicle(client, h, country, year, { vin: shortest });
         expect(five.outcome).toBe('DONE');
         expect(await vinOf(client, five.id)).toBe(shortest);
         // déclaration d'un véhicule sans numéro : même règle, rien n'est enregistré au refus
         const v = await vehicle(client, h, country, year, { vin: null });
         expect(v.outcome).toBe('DONE');
-        const witness = isoVin();
+        const witness = await isoVin(client);
         expect(await declare(client, h, v.id, { vin: `${witness.slice(0, 16)}O` })).toBe(
           'VEHICLE_VIN_INVALID',
         );
@@ -257,7 +263,7 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FO
         await noDocs(client, country);
         const h = await host(client, country);
         const year = localYear(cc) - 2;
-        const raw = jpChassis();
+        const raw = await jpChassis(client);
         const created = await vehicle(client, h, country, year, { vin: raw });
         expect(created.outcome).toBe('DONE');
         expect(await vinOf(client, created.id)).toBe(normalized(raw));
@@ -266,7 +272,7 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FO
         // saisi à la déclaration (minuscules, espace au lieu du tiret)
         const later = await vehicle(client, h, country, year, { vin: null });
         expect(later.outcome).toBe('DONE');
-        const other = jpChassis().toLowerCase().replace('-', ' ');
+        const other = (await jpChassis(client)).toLowerCase().replace('-', ' ');
         expect(await declare(client, h, later.id, { vin: other })).toBe('DONE');
         expect(await vinOf(client, later.id)).toBe(normalized(other));
         expect((await submit(client, h, later.id))?.outcome).toBe('ELIGIBLE');
@@ -275,7 +281,7 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FO
         expect(await declare(client, h, none.id)).toBe('DONE');
         expect((await submit(client, h, none.id))?.reasons).toEqual(['VEHICLE_FIELD_REQUIRED']);
         // caractère hors format (point) : refus dédié ; témoin sans le point accepté
-        const dotted = jpChassis();
+        const dotted = await jpChassis(client);
         expect((await vehicle(client, h, country, year, { vin: `${dotted}.` })).outcome).toBe(
           'VEHICLE_VIN_INVALID',
         );
@@ -291,8 +297,8 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FO
         const a = await host(client, country);
         const b = await host(client, country);
         const year = localYear(cc) - 2;
-        const chassis = jpChassis();
-        const iso = isoVin();
+        const chassis = await jpChassis(client);
+        const iso = await isoVin(client);
         expect((await vehicle(client, a, country, year, { vin: chassis })).outcome).toBe('DONE');
         expect((await vehicle(client, a, country, year, { vin: iso })).outcome).toBe('DONE');
         const variants = [
@@ -319,13 +325,13 @@ describe('numéro de châssis : VIN ISO 3779 ou numéro non ISO (ADR-113, DEC-FO
           (
             await client.query<{ outcome: string }>(
               'SELECT * FROM core.catalog_vehicle_claim_permitted($1, $2, $3, $4)',
-              [b.hash, b.org, plate(), vn],
+              [b.hash, b.org, await plate(client), vn],
             )
           ).rows[0]?.outcome;
         expect(await permitted(chassis.toLowerCase().replace('-', ' '))).toBe('OK');
         expect(await permitted(iso.toLowerCase())).toBe('OK');
-        expect(await permitted(jpChassis())).toBe('CLAIM_NOT_NEEDED');
-        expect(await declare(client, b, bv.id, { vin: jpChassis() })).toBe('DONE');
+        expect(await permitted(await jpChassis(client))).toBe('CLAIM_NOT_NEEDED');
+        expect(await declare(client, b, bv.id, { vin: await jpChassis(client) })).toBe('DONE');
       });
     },
   );
@@ -338,7 +344,9 @@ describe('engagements de l’hôte : historique ajout seul, version et libellé 
     async (country, _currency, cc: CountryCase) => {
       await withRole('app_api', async (client) => {
         const h = await host(client, country);
-        const v = await vehicle(client, h, country, localYear(cc) - 2, { vin: isoVin() });
+        const v = await vehicle(client, h, country, localYear(cc) - 2, {
+          vin: await isoVin(client),
+        });
         expect(v.outcome).toBe('DONE');
         // 1. propriétaire + véhicule financé avec accord du créancier, libellé pt v31
         expect(await declare(client, h, v.id, { lien: true })).toBe('DONE');
@@ -394,7 +402,9 @@ describe('engagements de l’hôte : historique ajout seul, version et libellé 
     async (country, _currency, cc: CountryCase) => {
       await withRole('app_api', async (client) => {
         const h = await host(client, country);
-        const v = await vehicle(client, h, country, localYear(cc) - 2, { vin: isoVin() });
+        const v = await vehicle(client, h, country, localYear(cc) - 2, {
+          vin: await isoVin(client),
+        });
         const bad: Wording[] = [
           { ...SHOWN, locale: 'de' },
           { ...SHOWN, locale: null },

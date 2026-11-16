@@ -580,7 +580,7 @@ describe.each(COUNTRIES)(
           }));
         });
         const [requester, approver] = made as unknown as [StaffActor, StaffActor];
-        const from = farInstant();
+        const from = await farInstant(api);
         const to = plusMinutes(from, 60);
         await openSwitchWindow(api, requester, approver, 'payouts_enabled', c.country, from, to);
         return { from, to };

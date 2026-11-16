@@ -33,6 +33,7 @@ import {
   summarize,
   timed,
 } from '../support/perf.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 /** Décalage UTC de décembre du fuseau du pays, en heures (donnée IANA, voir l'en-tête). */
@@ -92,7 +93,7 @@ async function host(client: pg.ClientBase, country: string): Promise<Host> {
   return { ...p, org: rows[0].org_id };
 }
 
-const plate = (): string => `C${randomBytes(4).toString('hex').toUpperCase()}`;
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'C');
 
 /** Hôte, lieu, véhicule et annonce ; annonce publiée (US-118) forcée sauf `listed: false`. */
 async function car(
@@ -109,7 +110,7 @@ async function car(
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
-    [h.hash, h.org, loc.rows[0]?.location_id, plate()],
+    [h.hash, h.org, loc.rows[0]?.location_id, await plate(client)],
   );
   const lst = await client.query<{ outcome: string; listing_id: string | null }>(
     'SELECT * FROM core.catalog_cmd_create_listing($1, $2, $3, $4, $5, NULL, NULL, NULL)',

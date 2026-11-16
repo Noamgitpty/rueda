@@ -40,6 +40,7 @@ import {
 } from '../support/perf.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 import { elevatedStaff as elevatedRaw, installTestProofKey } from '../support/staff.ts';
+import { uniquePlate, uniqueVin } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const byCountry = COUNTRIES.map((c) => [c.country, c.currency, c] as const);
@@ -122,11 +123,8 @@ async function host(c: Tx, country: string, o: { terms?: boolean } = {}): Promis
   return { ...p, org, location: loc.id };
 }
 
-const plate = (): string => `P${randomBytes(4).toString('hex').toUpperCase()}`;
-const vin = (): string => {
-  const alphabet = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(17), (b) => alphabet[b % alphabet.length]).join('');
-};
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'P');
+const vin = (c: pg.ClientBase): Promise<string> => uniqueVin(c);
 /** Année civile en cours dans le fuseau du pays (oracle indépendant de la base). */
 const localYear = (cc: CountryCase): number =>
   Number(new Intl.DateTimeFormat('en-CA', { timeZone: cc.timezone, year: 'numeric' }).format());
@@ -150,8 +148,8 @@ async function vehicle(
       h.hash,
       h.org,
       o.location ?? h.location,
-      plate(),
-      vin(),
+      await plate(c),
+      await vin(c),
       variant ?? null,
       o.offCatalog ? (o.make ?? 'Chery') : null,
       o.offCatalog ? (o.model ?? 'Tiggo 2') : null,

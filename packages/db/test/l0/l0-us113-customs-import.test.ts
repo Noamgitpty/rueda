@@ -23,6 +23,7 @@ import { withRole } from '../../src/testing/index.ts';
 import { COUNTRIES, uuid } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import type pg from 'pg';
+import { uniquePlate } from '../support/unique.ts';
 
 interface CustomsModel {
   slug: string;
@@ -329,14 +330,7 @@ async function createVehicle(
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, $5, NULL, NULL, $6, NULL,
                                                    'MANUAL', 5::smallint, 'DIESEL', 120000,
                                                    false, false)`,
-    [
-      h.hash,
-      h.org,
-      h.location,
-      `D${randomBytes(4).toString('hex').toUpperCase()}`,
-      variantId,
-      year,
-    ],
+    [h.hash, h.org, h.location, await uniquePlate(client, 'D'), variantId, year],
   );
   return rows[0]?.outcome ?? '';
 }

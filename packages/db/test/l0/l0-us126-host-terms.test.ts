@@ -27,6 +27,7 @@ import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { elevatedStaff, installTestProofKey } from '../support/staff.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const T0 = '2031-06-02T09:30:00.000Z';
@@ -159,7 +160,7 @@ async function completeDraft(client: pg.ClientBase, h: Host, c: CountryCase): Pr
       h.hash,
       h.org,
       loc.rows[0]?.location_id,
-      `T${randomBytes(4).toString('hex').toUpperCase()}`,
+      await uniquePlate(client, 'T'),
       variant.rows[0]?.id,
       variant.rows[0]?.year_from,
     ],
