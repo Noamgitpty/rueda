@@ -122,8 +122,10 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  validité et prix expiré, conducteur, case de la boîte manuelle de 10b, cases des documents avec
  leur lien, bouton inactif et son aide, hold posé avec `web.s05.hold.until` de 10b, versions
  acceptées) et `web.legal.backCheckout` (retour d'un document au checkout).
+ Version 54 : contrôles bloquants du checkout (US-209 partie 209a, ADR-135) :
+ `common.checkout.ageClassMismatch` (âge minimum de la classe du véhicule, 16 BKG-012).
  */
-export const CATALOG_VERSION = 53;
+export const CATALOG_VERSION = 54;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

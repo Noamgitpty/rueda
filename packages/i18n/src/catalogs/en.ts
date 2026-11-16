@@ -1785,6 +1785,9 @@ export const EN_MESSAGES = {
   'common.checkout.identityConsentWithdrawn':
     'You withdrew your consent to identity verification. Give it again to book.',
   'common.checkout.listingUnavailable': 'This car can’t be booked right now. Choose another one.',
+  // US-209 (209a, ADR-135) : âge minimum de la classe (16 BKG-012)
+  'common.checkout.ageClassMismatch':
+    'For this car you need the minimum age for its category on the day the trip starts. Choose another car.',
   'common.checkout.unavailable': 'We can’t take your booking right now. Try again later.',
   // US-208 (208b, ADR-134) : total de la fiche S03, checkout S05, hold posé
   'web.listing.total.title': 'Final price',

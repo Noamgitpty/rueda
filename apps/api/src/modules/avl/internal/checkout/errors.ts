@@ -11,7 +11,10 @@
  * `QUOTE_ALREADY_USED`, `QUOTE_LINE_NOT_SUPPORTED` (N-129), `REQUEST_MODE_UNAVAILABLE` (N-128),
  * `LISTING_UNAVAILABLE`, `HOLD_NOT_FOUND`, `HOLD_ALREADY_LIVE`, `HOLD_LIMIT_REACHED`,
  * `HOLD_RATE_LIMITED`, `KYC_CONSENT_WITHDRAWN`, `TERMS_UNAVAILABLE`, `BOOKING_UNAVAILABLE`,
- * `REQUEST_INVALID`.
+ * `REQUEST_INVALID`. US-209 (ADR-135, 16 BKG-012) : `AGE_CLASS_MISMATCH` (08 BR-BOOK-11) ;
+ * repris de KYC (ADR-102) : `KYC_NOT_APPROVED`, `KYC_BIOMETRIC_CONSENT_MISSING`,
+ * `KYC_LICENSE_EXPIRED`. Une réservation signalée (16 ADM-029) n'est pas un refus : le hold est
+ * posé (en revue selon `flagged_booking_payment_order`).
  */
 import { HttpException } from '@nestjs/common';
 
@@ -43,6 +46,10 @@ export const CHECKOUT_MESSAGES = {
   SELF_BOOKING_FORBIDDEN: { status: 403, messageKey: 'common.booking.selfBookingForbidden.body' },
   ACCOUNT_RESTRICTED: { status: 403, messageKey: 'common.checkout.accountRestricted' },
   KYC_CONSENT_WITHDRAWN: { status: 403, messageKey: 'common.checkout.identityConsentWithdrawn' },
+  KYC_NOT_APPROVED: { status: 403, messageKey: 'common.kyc.notApproved' },
+  KYC_BIOMETRIC_CONSENT_MISSING: { status: 403, messageKey: 'common.kyc.consentMissing' },
+  KYC_LICENSE_EXPIRED: { status: 403, messageKey: 'common.kyc.licenseExpired' },
+  AGE_CLASS_MISMATCH: { status: 403, messageKey: 'common.checkout.ageClassMismatch' },
   BOOKING_UNAVAILABLE: { status: 503, messageKey: 'common.checkout.unavailable' },
 } as const;
 

@@ -89,6 +89,11 @@ export const DB_BUSINESS_CODES = [
   'TRIP_TRANSITION_FORBIDDEN',
   'TRIP_CONCURRENT_UPDATE',
   'REJECTED_TOO_EARLY',
+  // US-209 (0110, ADR-135) : contrôles bloquants du conducteur relus au paiement (16 BKG-012)
+  'KYC_BIOMETRIC_CONSENT_MISSING',
+  'KYC_NOT_APPROVED',
+  'KYC_LICENSE_EXPIRED',
+  'AGE_CLASS_MISMATCH',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -217,7 +222,19 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   // restriction de compte active du voyageur (0064, US-109 ; 16 ADM-005, BKG-012)
   hold_account_restricted: [SQLSTATE.objectNotInPrerequisiteState, 'ACCOUNT_RESTRICTED'],
   // consentement biométrique retiré (0097, US-122, ADR-124 ; 16 VER-004 « paiement refusé »)
-  hold_kyc_consent_withdrawn: [SQLSTATE.objectNotInPrerequisiteState, 'FORBIDDEN'],
+  // N-122 (US-209) : le code exact du consentement biométrique, jamais FORBIDDEN
+  hold_kyc_consent_withdrawn: [
+    SQLSTATE.objectNotInPrerequisiteState,
+    'KYC_BIOMETRIC_CONSENT_MISSING',
+  ],
+  // US-209 (0110, ADR-135) : démarrage du paiement refusé, voyageur devenu inéligible
+  hold_kyc_consent_missing: [
+    SQLSTATE.objectNotInPrerequisiteState,
+    'KYC_BIOMETRIC_CONSENT_MISSING',
+  ],
+  hold_kyc_not_approved: [SQLSTATE.objectNotInPrerequisiteState, 'KYC_NOT_APPROVED'],
+  hold_kyc_license_expired: [SQLSTATE.objectNotInPrerequisiteState, 'KYC_LICENSE_EXPIRED'],
+  hold_age_class_mismatch: [SQLSTATE.objectNotInPrerequisiteState, 'AGE_CLASS_MISMATCH'],
   hold_param_missing: [SQLSTATE.objectNotInPrerequisiteState, 'PARAM_MISSING'],
   hold_guest_limit: [SQLSTATE.objectNotInPrerequisiteState, 'HOLD_LIMIT_REACHED'],
   hold_guest_overlap: [SQLSTATE.objectNotInPrerequisiteState, 'GUEST_OVERLAP'],

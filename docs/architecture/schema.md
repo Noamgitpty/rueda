@@ -125,6 +125,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0107_config_quote_params` | graine complémentaire : paramètres « quote_* » (US-208 ; 17 §7.2). |
 | `0108_booking_checkout` | AVL : checkout en une page, partie back-end (devis figé et pose du hold de checkout). |
 | `0109_ctr_checkout_documents` | CTR : documents du checkout servis et publiables ; nom du conducteur comparé en NFC. |
+| `0110_booking_risk_checkout_controls` | AVL / RISK / KYC : contrôles bloquants du conducteur et revue des réservations signalées. |
 
 ## Rôles
 
@@ -3126,6 +3127,38 @@ Déclencheurs :
 
 - `ctr_signup_consents_required` : `CREATE CONSTRAINT TRIGGER ctr_signup_consents_required AFTER INSERT ON core.iam_user_account DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NOT core.ctr_writer_exempt()) EXECUTE FUNCTION core.ctr_signup_consents_guard()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_user_account FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
+### `core.kyc_entry_declaration`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : kyc_cmd_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `user_id` | `uuid` | oui | — |
+| `country_code` | `character(2)` | oui | — |
+| `residency_status` | `text` | oui | — |
+| `entry_date` | `date` | non | — |
+| `declared_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `kyc_entry_declaration_country_fkey` : `FOREIGN KEY (country_code) REFERENCES core.config_country(code)`
+- `kyc_entry_declaration_pkey` : `PRIMARY KEY (id)`
+- `kyc_entry_declaration_residency_valid` : `CHECK (residency_status = ANY (ARRAY['TOURIST'::text, 'RESIDENT'::text]))`
+- `kyc_entry_declaration_tourist_entry` : `CHECK (residency_status = 'RESIDENT'::text OR entry_date IS NOT NULL)`
+- `kyc_entry_declaration_user_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
+
+Index :
+
+- `kyc_entry_declaration_user_idx` : `CREATE INDEX kyc_entry_declaration_user_idx ON core.kyc_entry_declaration USING btree (user_id, country_code, declared_at DESC)`
+
+Politiques RLS :
+
+- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
+- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.kyc_erasure_request`
 

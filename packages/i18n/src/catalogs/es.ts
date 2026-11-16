@@ -1838,6 +1838,9 @@ export const ES_MESSAGES = {
     'Retiraste tu consentimiento para la verificación de identidad. Vuelve a darlo para reservar.',
   'common.checkout.listingUnavailable':
     'Este auto no se puede reservar en este momento. Elige otro.',
+  // US-209 (209a, ADR-135) : âge minimum de la classe (16 BKG-012)
+  'common.checkout.ageClassMismatch':
+    'Para este auto necesitas la edad mínima de su categoría el día en que empieza el viaje. Elige otro auto.',
   'common.checkout.unavailable':
     'No podemos tomar tu reserva en este momento. Inténtalo más tarde.',
   // US-208 (208b, ADR-134) : total de la fiche S03, checkout S05, hold posé

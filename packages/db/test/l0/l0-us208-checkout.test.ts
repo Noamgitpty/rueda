@@ -185,6 +185,14 @@ async function person(c: Tx, country: string, first = 'Ana', last = 'Pérez'): P
     [uuid(), id, t.hash, SESSION_TTL_S],
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
+  // US-209 (16 BKG-012) : conducteur vérifié, majeur, permis du pays valable (fixture 9967)
+  await c.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
+    id,
+    country,
+    '1990-01-01',
+    '2030-12-31',
+    country,
+  ]);
   return { id, hash: t.hash };
 }
 

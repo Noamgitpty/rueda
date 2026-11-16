@@ -1885,6 +1885,9 @@ export const FR_MESSAGES = {
     'Tu as retiré ton consentement à la vérification d’identité. Donne-le à nouveau pour réserver.',
   'common.checkout.listingUnavailable':
     'Cette voiture ne peut pas être réservée pour le moment. Choisis-en une autre.',
+  // US-209 (209a, ADR-135) : âge minimum de la classe (16 BKG-012)
+  'common.checkout.ageClassMismatch':
+    'Pour cette voiture, il faut avoir l’âge minimum de sa catégorie le jour où le voyage commence. Choisis une autre voiture.',
   'common.checkout.unavailable':
     'Nous ne pouvons pas prendre ta réservation pour le moment. Réessaie plus tard.',
   // US-208 (208b, ADR-134) : total de la fiche S03, checkout S05, hold posé

@@ -79,6 +79,12 @@ Pour chaque point : la question, puis **ma suggestion** de réponse à faire val
 → **Suggestion** : les faire relire avec les CGU (4.1), puis publier la version validée de chaque pays. Garder ces deux textes très courts, comme Turo.
 → **Depuis US-208b** : chaque case du checkout ouvre le texte exact qu'elle fait accepter, et la console peut publier ces deux textes comme les CGU. Tant qu'ils restent en brouillon, la liste de mise en service (GL-15) bloque l'ouverture ; rien n'est à décider ici, seulement la relecture.
 
+**4.1 ter Permis étranger : la règle des 90 jours** (US-209, avocat, à la recette ; OQ-BR-21). Au Panama, un touriste ne conduirait avec son permis étranger que 90 jours après son entrée (sources secondaires). Aujourd'hui, une réservation d'un voyageur à permis étranger dont le trajet finit après le 90e jour, ou qui n'a pas dit quand il est entré, **passe en revue par l'équipe avant tout débit** ; elle n'est jamais refusée automatiquement. Le voyageur d'un trajet qui finit avant le 90e jour n'est pas gêné.
+→ **Suggestion** (comme Turo, le moins de limitations) : garder la revue sans refus automatique tant que l'avocat ne confirme pas la règle, puis, si elle est confirmée, refuser seulement au-delà du 90e jour, en le disant au voyageur avant le paiement. Pour le Paraguay, faire dire à l'avocat si une règle semblable existe ; sans règle, la revue peut être coupée pour ce pays.
+
+**4.1 quater Âge minimum du conducteur** (US-209, réglage de la liste du §3). Proposé : 21 ans, 25 ans pour une voiture de classe Premium, l'âge étant compté au **premier jour du trajet** ; un conducteur trop jeune est refusé avant le paiement, avec un message clair dans les quatre langues. Turo applique des seuils du même ordre selon la valeur de la voiture.
+→ **Suggestion** : garder 21 / 25 ans ; ne pas ajouter de seuil pour la classe Luxe tant que l'assureur ne l'exige pas.
+
 **4.2 Légalité de la location entre particuliers au Panama** (avocat). Une source non officielle évoque des inspections de l'ATTT depuis 2025 pour les véhicules en location ; l'avis d'opération ne semble pas exigé des personnes physiques.
 → **Suggestion** : faire confirmer que c'est permis. Si une inspection est obligatoire, Kmino **informe** l'hôte et lui fait cocher une déclaration, sans collecter de preuve.
 
