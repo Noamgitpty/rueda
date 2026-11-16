@@ -485,6 +485,14 @@
       "acces": "session",
       "idor": "hold d'un autre voyageur ou inconnu : 404 HOLD_NOT_FOUND, même réponse ; versions acceptées du seul voyageur ; TermsGuard (19 US-208 critère 3 ; preuves base : l0-us208)"
     },
+    "POST /checkout/holds/{holdId}/payment": {
+      "acces": "session",
+      "idor": "hold d'un autre voyageur, inconnu ou sans checkout : 404 HOLD_NOT_FOUND, même réponse, rien n'est démarré (lecture avant T1) ; aucun montant ni jambe reçu du client (400 REQUEST_INVALID) ; montant et jambes du devis engagé rejoués par la base ; un seul ordre vivant par hold ; aucun connecteur servi en production : 503 PAYMENT_UNAVAILABLE avant T1 ; TermsGuard (19 US-223 critères 1 et 6 ; preuves base : l0-us223-checkout-payment)"
+    },
+    "GET /checkout/holds/{holdId}/payment": {
+      "acces": "session",
+      "idor": "hold d'un autre voyageur ou inconnu : 404 HOLD_NOT_FOUND, même réponse ; état dérivé du hold et du trip né, jamais le statut de l'opération ni une jambe ou une référence du PSP ; TermsGuard (19 US-223 ; 10b UX-27 ; preuves base : l0-us223-conversion)"
+    },
     "GET /listings/{listingId}/availability": {
       "acces": "public",
       "idor": "annonce non publiée ou inconnue : 404 LISTING_NOT_FOUND ; « libre » ou refus seulement (préavis, créneau pris sans détail), sonde arrondie à l'heure, limitée par IP (availability_probe_per_minute, N-78) (19 US-204 critère 2 ; preuves base : l0-us204)"

@@ -409,6 +409,8 @@ export const CONTRACT_SUITES: Readonly<Record<string, string>> = {
   '/search': 'modules/cat/testing/search.contract.test.ts',
   // checkout, devis figé et pose du hold (US-208, module AVL)
   '/checkout': 'modules/avl/testing/checkout.contract.test.ts',
+  // paiement du hold du checkout (US-223 partie 223b, module AVL)
+  '/checkout/holds/{holdId}/payment': 'modules/avl/testing/checkout-payment.contract.test.ts',
   '/phone': 'modules/iam/testing/phone.contract.test.ts',
   // vérification d'identité et rappels du fournisseur d'identité (US-105)
   '/identity': 'modules/kyc/testing/identity.contract.test.ts',

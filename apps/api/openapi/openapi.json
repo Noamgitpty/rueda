@@ -7112,6 +7112,278 @@
         }
       }
     },
+    "/checkout/holds/{holdId}/payment": {
+      "get": {
+        "operationId": "checkoutHoldPayment",
+        "tags": ["avl"],
+        "summary": "État du paiement du hold du checkout (US-223b ; 16 PAY-034 ; écran S06, 10b UX-27)",
+        "description": "Route de réservation : SessionGuard puis TermsGuard. État dérivé de l'état du hold et du trip né de la conversion : CONFIRMED seulement si le hold est CONVERTED et qu'un trip existe (preuve par webhook signé, ADR-139). Le statut de l'opération chez le PSP n'est jamais rendu. Aucun montant ni référence du PSP.",
+        "parameters": [
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du paiement",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutPaymentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Hold inconnu, d'un autre voyageur ou sans checkout (même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "HOLD_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "BOOKING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "checkoutPayHold",
+        "tags": ["avl"],
+        "summary": "Paiement du hold du checkout (US-223b ; 17 §2.5 étapes 3a à 3c ; 16 PAY-006, PAY-019 ; 08 E7 règle 1) : intention de paiement (T1), ordre chez le PSP avec le montant explicite de chaque jambe, enregistrement de l'ordre (T2)",
+        "description": "Route de réservation : SessionGuard puis TermsGuard. Le corps ne porte que le moyen de paiement (défaut CARD) : aucun montant ni jambe n'est reçu, tout champ inconnu est refusé. Montant et jambes viennent du devis engagé au checkout, rejoués par la base. Idempotent par la base : un seul ordre vivant par hold ; pendant un ordre actif, aucun nouvel ordre (200 avec l'état). 201 : ordre créé, redirectUrl = page hébergée du PSP. Aucun connecteur servi (production jusqu'au lot C) : 503 PAYMENT_UNAVAILABLE sans toucher au hold.",
+        "parameters": [
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutPaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Aucun ordre créé : ordre déjà en cours, hold payé, converti ou terminé (voir state)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutPaymentStartResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Ordre créé chez le PSP : rediriger le voyageur vers redirectUrl",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutPaymentStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps mal formé (montant, jambe, champ inconnu ou moyen inconnu)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "REQUEST_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "403": {
+            "description": "Voyageur devenu inéligible avant le paiement (restriction, vérification d'identité, consentement, permis, âge ; US-209)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "ACCOUNT_RESTRICTED",
+                        "KYC_NOT_APPROVED",
+                        "KYC_BIOMETRIC_CONSENT_MISSING",
+                        "KYC_LICENSE_EXPIRED",
+                        "AGE_CLASS_MISMATCH"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hold inconnu, d'un autre voyageur ou sans checkout (même réponse)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "const": "HOLD_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Hold échu ou déjà payé, réservation en revue avant tout débit (BOOKING_UNDER_REVIEW), début du trip dépassé, tentatives épuisées (PAY-017), capacité bloquante du PSP non validée (HOST_PAYOUT_RAIL_UNAVAILABLE, inconnue = non)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "HOLD_EXPIRED",
+                        "HOLD_NOT_PAYABLE",
+                        "BOOKING_UNDER_REVIEW",
+                        "START_PASSED",
+                        "PAYMENT_ATTEMPTS_EXCEEDED",
+                        "HOST_PAYOUT_RAIL_UNAVAILABLE"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Moyen de paiement non proposé dans le pays, ou devis engagé illisible",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "enum": ["PAYMENT_METHOD_UNAVAILABLE", "QUOTE_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Aucun compte marchand ou connecteur de PSP disponible (PAYMENT_UNAVAILABLE), base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutError",
+                  "properties": {
+                    "code": {
+                      "enum": ["PAYMENT_UNAVAILABLE", "BOOKING_UNAVAILABLE"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/listings/{listingId}/availability": {
       "get": {
         "operationId": "listingAvailability",
@@ -15480,6 +15752,124 @@
                 }
               }
             }
+          }
+        }
+      },
+      "CheckoutPaymentState": {
+        "type": "string",
+        "enum": [
+          "PAYABLE",
+          "DECLINED",
+          "VERIFYING",
+          "INTERRUPTED",
+          "CONFIRMED",
+          "REFUND_DUE",
+          "UNPROVEN",
+          "ENDED"
+        ],
+        "description": "État du paiement (ADR-142, PROPOSÉ) : PAYABLE hold vivant sans ordre ; DECLINED dernier ordre refusé ; VERIFYING ordre en cours ou preuve attendue (ne pas payer de nouveau) ; INTERRUPTED hold en vol sans ordre enregistré (PSP sans réponse avant T2) : reprise par POST, qui cherche d'abord l'ordre par la clé, jamais un second ordre ; CONFIRMED hold converti en trip ; REFUND_DUE payé après la libération du créneau (remboursement intégral par la plateforme) ; UNPROVEN hold terminé avec un ordre ni refusé ni prouvé (support) ; ENDED hold terminé sans paiement."
+      },
+      "CheckoutPayment": {
+        "type": "object",
+        "required": [
+          "holdId",
+          "state",
+          "holdStatus",
+          "tripId",
+          "expiresAt",
+          "paymentInFlightUntil"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "holdId": { "$ref": "#/components/schemas/Uuid" },
+          "state": {
+            "$ref": "#/components/schemas/CheckoutPaymentState"
+          },
+          "holdStatus": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAYMENT_IN_FLIGHT",
+              "CONVERTED",
+              "COMPENSATED",
+              "EXPIRED",
+              "RELEASED"
+            ]
+          },
+          "tripId": { "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/Uuid" }] },
+          "expiresAt": { "$ref": "#/components/schemas/DateTime" },
+          "paymentInFlightUntil": {
+            "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/DateTime" }]
+          }
+        }
+      },
+      "CheckoutPaymentStart": {
+        "type": "object",
+        "required": [
+          "holdId",
+          "state",
+          "holdStatus",
+          "tripId",
+          "expiresAt",
+          "paymentInFlightUntil",
+          "redirectUrl"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "holdId": { "$ref": "#/components/schemas/Uuid" },
+          "state": {
+            "$ref": "#/components/schemas/CheckoutPaymentState"
+          },
+          "holdStatus": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAYMENT_IN_FLIGHT",
+              "CONVERTED",
+              "COMPENSATED",
+              "EXPIRED",
+              "RELEASED"
+            ]
+          },
+          "tripId": { "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/Uuid" }] },
+          "expiresAt": { "$ref": "#/components/schemas/DateTime" },
+          "paymentInFlightUntil": {
+            "oneOf": [{ "type": "null" }, { "$ref": "#/components/schemas/DateTime" }]
+          },
+          "redirectUrl": {
+            "type": ["string", "null"],
+            "description": "Page hébergée du PSP (https), seulement si un ordre vient d'être créé"
+          }
+        }
+      },
+      "CheckoutPaymentResponse": {
+        "type": "object",
+        "required": ["payment"],
+        "additionalProperties": false,
+        "properties": {
+          "payment": {
+            "$ref": "#/components/schemas/CheckoutPayment"
+          }
+        }
+      },
+      "CheckoutPaymentStartResponse": {
+        "type": "object",
+        "required": ["payment"],
+        "additionalProperties": false,
+        "properties": {
+          "payment": {
+            "$ref": "#/components/schemas/CheckoutPaymentStart"
+          }
+        }
+      },
+      "CheckoutPaymentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["CARD", "YAPPY", "CLAVE", "QR", "PIX", "BANK_TRANSFER"],
+            "description": "Moyen de paiement ; défaut CARD. Un moyen non validé chez le PSP du pays est refusé par la base."
           }
         }
       },

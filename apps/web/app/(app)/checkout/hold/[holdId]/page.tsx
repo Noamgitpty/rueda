@@ -5,12 +5,14 @@ import { Banner, ButtonLink, EmptyState, ErrorState } from '@rueda/ui';
 import type { MessageKey } from '@rueda/i18n';
 import { callApi, codeOf } from '../../../../../account/api-client.ts';
 import { checkoutHoldOf, isUuid } from '../../../../../account/checkout.ts';
+import { paymentHref } from '../../../../../account/checkout-payment.ts';
 import { publicListingOf } from '../../../../../account/host-listings.ts';
 import { clientContext } from '../../../../../account/request.ts';
-import { getRequestI18n } from '../../../../../i18n.ts';
+import { getRequestI18n, getRequestLocaleTag } from '../../../../../i18n.ts';
 import accountStyles from '../../../_account/account.module.css';
 import { MAIN_ID } from '../../../_shell/main-id.ts';
 import styles from '../../../host/host.module.css';
+import { PayForm } from './pay-form.tsx';
 
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getRequestI18n();
@@ -35,14 +37,22 @@ const DOC_LABEL: Readonly<Record<string, MessageKey>> = {
  * S05 — hold posé (US-208, partie 208b ; 10b UX `web.s05.hold.until`) : l'auto est gardé pour le
  * voyageur jusqu'à l'heure d'expiration du hold (heure du lieu), avec le total du devis engagé et
  * la version exacte de chaque document accepté (19 US-208 critère 3, relu par
- * `GET /checkout/holds/{id}`). Aucun paiement ici : l'intention de paiement arrive avec US-223.
+ * `GET /checkout/holds/{id}`).
+ *
+ * US-223 partie 223b (ADR-142 ; 10b S05, UX-26) : bouton « Pagar {amount} » (total rendu par l'API)
+ * et pré-écran court (« Vas a pagar {amount} en una página segura… ») ; un hold qui n'est plus
+ * ACTIVE (paiement en cours, payé, échu, libéré) ouvre S06, dont l'état fait foi (N-169).
  */
 export default async function HoldPage({
   params,
 }: {
   readonly params: Promise<{ readonly holdId: string }>;
 }) {
-  const [i18n, { holdId }] = await Promise.all([getRequestI18n(), params]);
+  const [i18n, localeTag, { holdId }] = await Promise.all([
+    getRequestI18n(),
+    getRequestLocaleTag(),
+    params,
+  ]);
   const t = i18n.t.bind(i18n);
   const ctx = await clientContext();
   if (ctx.sessionToken === null) redirect('/login');
@@ -64,6 +74,8 @@ export default async function HoldPage({
   if (codeOf(reply) === 'TERMS_REACCEPT_REQUIRED') redirect('/terms/update');
   if (reply.status === 404) return notFound;
   const hold = checkoutHoldOf(reply);
+  // paiement en cours, payé, échu ou libéré : l'état du paiement (S06) fait foi
+  if (hold !== null && hold.status !== 'ACTIVE') redirect(paymentHref(hold.holdId));
   const listing =
     hold === null
       ? null
@@ -88,21 +100,20 @@ export default async function HoldPage({
     );
   }
   const tz = listing.timezone;
-  const active = hold.status === 'ACTIVE';
+  // total du devis engagé, tel que la base l'a rejoué (jamais recalculé ici)
+  const amount = i18n.money({
+    amountMinor: hold.totalMinor,
+    currency: hold.currency,
+    exponent: listing.currencyExponent,
+  });
   return (
     <Shell>
       <header className={accountStyles['stackTight']}>
         <h1 className={accountStyles['h1']}>{t('web.s05.hold.title')}</h1>
       </header>
-      {active ? (
-        <Banner tone="success" live="polite">
-          {t('web.s05.hold.until', { time: i18n.time(hold.expiresAt, tz) })}
-        </Banner>
-      ) : (
-        <Banner tone="warning" live="polite">
-          {t('web.s05.hold.ended')}
-        </Banner>
-      )}
+      <Banner tone="success" live="polite">
+        {t('web.s05.hold.until', { time: i18n.time(hold.expiresAt, tz) })}
+      </Banner>
       <section className={styles['section']} aria-labelledby="s05-hold-trip">
         <h2 id="s05-hold-trip" className={accountStyles['h2']}>
           {t('web.s05.summary.title')}
@@ -120,15 +131,8 @@ export default async function HoldPage({
             <dd className={accountStyles['text']}>{i18n.dateTime(hold.endAt, tz)}</dd>
           </div>
         </dl>
-        {/* total du devis engagé, tel que la base l'a rejoué (jamais recalculé ici) */}
         <p className={styles['price']} data-testid="s05-hold-total">
-          {t('web.s05.hold.total', {
-            amount: i18n.money({
-              amountMinor: hold.totalMinor,
-              currency: hold.currency,
-              exponent: listing.currencyExponent,
-            }),
-          })}
+          {t('web.s05.hold.total', { amount })}
         </p>
       </section>
       <section className={styles['section']} aria-labelledby="s05-hold-docs">
@@ -146,7 +150,19 @@ export default async function HoldPage({
           ))}
         </ul>
       </section>
-      <p className={accountStyles['muted']}>{t('web.s05.hold.payment')}</p>
+      {/* US-223b : paiement sur la page hébergée du PSP (10b UX-26), montant rendu par l'API */}
+      <section className={styles['section']} aria-labelledby="s05-pay-title">
+        <h2 id="s05-pay-title" className={accountStyles['h2']}>
+          {t('web.s05.pay.title')}
+        </h2>
+        <p className={accountStyles['text']}>{t('web.s06.pre.leaving', { amount })}</p>
+        <PayForm
+          localeTag={localeTag}
+          holdId={hold.holdId}
+          label={t('web.s05.cta', { amount })}
+          testId="s05-pay"
+        />
+      </section>
       <ButtonLink variant="quiet" href={`/listings/${hold.listingId}`}>
         {t('web.s05.back')}
       </ButtonLink>

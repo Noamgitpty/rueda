@@ -159,7 +159,17 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.kyc.entryDateInvalid` (déclaration d'entrée du voyageur à permis étranger, 16 VER-007),
  `common.bookingReview.notBooking` et `backoffice.booking.*` (dossier et décision d'une réservation
  signalée dans la console O01).
- Version 63 (la 62 est réservée à US-223b) : contrat de location hôte–voyageur, partie 211a
+ Version 62 (la 61 est celle d'US-209b) : paiement du hold et attente de la preuve (US-223
+ partie 223b, ADR-142) : `common.payment.*` (refus de la route du paiement : paiement indisponible,
+ capacité bloquante du PSP, réservation en revue, hold échu ou déjà payé, début dépassé, tentatives
+ épuisées, moyen indisponible), `web.s05.cta` (« Pagar {amount} », 10b S05 ; N-170) et `web.s05.pay.title`,
+ `web.s06.*` (S06 de 10b : `pre.leaving`, `verifying.*` dont `verifying.notify` (promesse de notification d'UX-27), `support`, `payAgain`, états confirmé,
+ refusé, échu, non prouvé, remboursé, numéro de réservation), `web.error.paymentDeclined` (heure
+ limite lue dans l'API, aucune durée écrite) et `web.error.paidAfterRelease` (10b §4.3) ;
+ `web.s05.hold.payment` et `web.s05.hold.ended` retirées (le paiement en ligne existe ; un hold
+ non `ACTIVE` ouvre S06) ; `web.s06.interrupted.*` (page de paiement non ouverte, reprise sans
+ second débit) ; `web.error.paidAfterRelease` sans liste de voitures proches (la page n'en montre pas).
+ Version 63 (la 62 est celle d’US-223b) : contrat de location hôte–voyageur, partie 211a
  (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
  génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
  distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).

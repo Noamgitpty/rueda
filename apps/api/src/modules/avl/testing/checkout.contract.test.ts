@@ -647,6 +647,11 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
   });
 
   it('couverture : chaque statut déclaré pour /checkout est exercé', () => {
-    expect(missingCoverage(contract, '/checkout', coverageOf(...apps))).toEqual([]);
+    // paiement du hold (US-223b) : sa propre suite (checkout-payment.contract)
+    expect(
+      missingCoverage(contract, '/checkout', coverageOf(...apps)).filter(
+        (d) => !d.includes(' /checkout/holds/{holdId}/payment '),
+      ),
+    ).toEqual([]);
   });
 });

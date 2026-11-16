@@ -1,0 +1,42 @@
+# ADR-142 — Paiement du hold : routes HTTP, état du paiement et écrans S05 / S06 (US-223 partie 223b)
+
+- **Statut** : PROPOSÉ (US-223, partie 223b, agent front-end / back-end, claude-opus-5-5, 2026-11-16). Revues exigées (`check-story-reviews.mjs`, story US-223) : architecture, argent, code, qa, sécurité, ux ; argent et sécurité sur un autre modèle que l'auteur.
+- **Sources** : 19 US-223 (critères 1, 2, 4, 5, 6) ; 16 PAY-034, PAY-006, PAY-017, PAY-019, BKG-014 ; 17 §2.5 (étapes 3a à 3c), §2.8, §6.5 (C19) ; 10b S05, S06, UX-26, UX-27, UX-29, règles 3 et 4, §4.3 ; ADR-065 (T1, T2), ADR-133 et ADR-134 (checkout), ADR-139 (partie serveur 223a) ; BOARD : N-108, N-169, N-170, N-195.
+- **S'appuie sur** : ADR-139 (commandes `core.booking_cmd_checkout_pay`, `core.booking_cmd_checkout_record_order`, lecture `core.booking_checkout_payment`, migration 0116). **Aucune migration** dans 223b.
+
+## Contexte
+
+223a a livré la partie serveur : T1 et T2 du voyageur par jeton de session, montant et jambes rejoués depuis le devis engagé, preuve par webhook signé seulement, conversion par le travailleur. Il manquait le parcours du voyageur : une route qui enchaîne T1, l'ordre chez le PSP et T2 sans jamais recevoir de montant du client, une lecture de l'état pour S06, et les écrans. Le FAKE n'existe que dans les tests (`pay/testing/`, jamais compilé en production, C19) et le registre des connecteurs de production est vide jusqu'au lot C.
+
+## Décision
+
+1. **Routes** (`AVL`, `internal/checkout/payment.*`, `SessionGuard` puis `TermsGuard`, `Cache-Control: no-store`) :
+   - `POST /checkout/holds/{holdId}/payment`, corps `{ method? }` seulement (défaut `CARD` ; tout autre champ, montant ou jambe ⇒ `400 REQUEST_INVALID`, L2-PM-03) ;
+   - `GET /checkout/holds/{holdId}/payment` : état du paiement.
+     Hold d'un autre voyageur, inconnu ou sans checkout ⇒ `404 HOLD_NOT_FOUND`, même réponse, **lu avant T1** (rien n'est démarré).
+2. **Ordre des appels de `POST`** : lecture de l'état ; si le hold n'est ni payable (`PAYABLE`, `DECLINED`) ni interrompu (`INTERRUPTED`), `200` avec l'état et aucun appel ; **aucun connecteur servi par l'image ⇒ `503 PAYMENT_UNAVAILABLE` AVANT T1** (production jusqu'au lot C : aucun hold n'est mis « en vol ») ; T1 ; `createHostedPayment` du connecteur du fournisseur de l'opération avec la clé stockée par T1 (`hold:<id>:CAPTURE:a<n>`), le montant et le **montant explicite de chaque jambe** rendus par la base, capture `AUTO`, somme des jambes vérifiée avant l'appel ; T2 avec la référence et l'expiration réelle de l'ordre. Seul `RECORDED` rend `201` et l'adresse de la page hébergée ; `CONVERTED` / `COMPENSATED` (preuve arrivée avant T2) ⇒ `200` sans redirection ; `EXPIRED` ⇒ `409 HOLD_EXPIRED`.
+3. **Idempotence et reprise** (revues code et architecture de #193, n° 1) : un seul ordre vivant par hold, jugé par la base. Un PSP sans réponse ou en échec APRÈS T1 laisse le hold en vol avec une opération `PENDING` sans référence (T2 jamais passée) : état `INTERRUPTED`, que la route traite comme reprenable. La reprise repasse par T1, qui rend `RETRY_SAME_KEY` (capacité `SUPPORTS_LOOKUP_BY_MERCHANT_REF` validée, borne du hold non atteinte) : recherche par NOTRE clé (`getOperation`) d'abord ; un ordre trouvé n'est jamais recréé (T2 avec sa référence, `200`, le voyageur attend la preuve) ; lecture impossible ⇒ `503`, aucun envoi (N-108) ; inconnu ⇒ recréé sous la même clé (`201`). Sans cette capacité, T1 rend `VERIFYING` : aucun envoi, le hold reste `INTERRUPTED` jusqu'à sa borne puis `UNPROVEN` (fail-closed). `EXISTING_ORDER` / `VERIFYING` ⇒ aucun nouvel ordre. Deux `POST` simultanés : T1 les sérialise ; le second ne crée aucun ordre (prouvé par le contrat), sauf la course `RETRY_SAME_KEY` avant T2 du premier, où l'unicité repose sur l'idempotence du PSP par la clé (GL-20). Un hold `ACTIVE` dont la dernière opération n'est ni absente ni `FAILED` reste `VERIFYING` (aucune nouvelle tentative : fail-closed).
+4. **Refus** (`payment-errors.ts`, traduction (SQLSTATE, contrainte) identique à `packages/db/src/errors.ts`, contrainte inconnue ⇒ `503`) : `HOST_PAYOUT_RAIL_UNAVAILABLE` (409, capacité bloquante non validée, inconnue = « non », critère 6), `BOOKING_UNDER_REVIEW` (409, revue avant débit), `HOLD_EXPIRED` / `HOLD_NOT_PAYABLE` (409), `START_PASSED` (409), `PAYMENT_ATTEMPTS_EXCEEDED` (409), `PAYMENT_METHOD_UNAVAILABLE` / `QUOTE_UNAVAILABLE` (422), refus du conducteur de US-209 (403), `PAYMENT_UNAVAILABLE` / `BOOKING_UNAVAILABLE` (503). Erreur du PSP ⇒ `503 PAYMENT_UNAVAILABLE` (ou `409 HOST_PAYOUT_RAIL_UNAVAILABLE`), journal `checkout.payment_failed` (opération, nom, SQLSTATE, code PSP ; jamais de valeur).
+5. **État du paiement** (`paymentStateOf`, PROPOSÉ) dérivé de `hold_status` et du trip né ; le statut brut de l'opération n'est **jamais rendu** et ne sert qu'à distinguer un refus d'un paiement non prouvé :
+   `CONVERTED` + trip ⇒ `CONFIRMED` (seul « confirmé ») ; `PAYMENT_IN_FLIGHT` + opération `PENDING` ⇒ `INTERRUPTED` ; `CONVERTED` sans trip, autre `PAYMENT_IN_FLIGHT`, ou `ACTIVE` avec un ordre non refusé ⇒ `VERIFYING` ; `ACTIVE` sans ordre ⇒ `PAYABLE` ; `ACTIVE` + dernier ordre `FAILED` ⇒ `DECLINED` ; `COMPENSATED` ⇒ `REFUND_DUE` ; `EXPIRED` / `RELEASED` sans ordre ou refusé ⇒ `ENDED`, sinon `UNPROVEN` ; autre état ⇒ `503`.
+6. **Écrans** :
+   - S05 du hold (`/checkout/hold/{id}`) : section « Pago de tu reserva », `web.s06.pre.leaving` (montant de l'API) et bouton `web.s05.cta` « Pagar {amount} » (N-170) ; un hold non `ACTIVE` ouvre S06 ;
+   - S06 (`/checkout/hold/{id}/payment`), un état par valeur de `state` : `VERIFYING` (« Pago en verificación », « No pagues de nuevo », relecture toutes les 5 s en temps réel et page visible, une seule lecture de l'API, attente lente après 2 min, sortie support et arrêt de la relecture après 10 min, « Pagar de nuevo » désactivé), `INTERRUPTED` (« Reintentar el pago »), `CONFIRMED`, `DECLINED` (`web.error.paymentDeclined` avec l'heure limite lue dans l'API, **aucune durée écrite**, et « Pagar de nuevo »), `ENDED` (N-169 : recherche), `UNPROVEN` (support), `REFUND_DUE` (`web.error.paidAfterRelease`, montant de l'API) ; `PAYABLE` ⇒ S05 ;
+   - changement d'état annoncé par une région vive persistante (`role="status"`) et focus sur le titre (revue ux de #193, n° 1) ;
+   - numéro de réservation pour le support : huit premiers caractères du hold, en majuscules (aucune donnée personnelle).
+     La page hébergée n'est suivie que si l'API rend une adresse `https` ; le site n'envoie que l'identifiant du hold et le moyen.
+7. **Production** : `postgresCheckoutAdapters` câble le magasin réel et un registre de connecteurs **vide** ; aucun interrupteur, aucune variable ne peut y substituer le FAKE (C19). Le contrat HTTP est prouvé avec un connecteur enregistreur (`avl/testing/`) ; le FAKE complet et la preuve par webhook restent prouvés dans PAY et en L0 (`pay/testing/`, `l0-us223-*`).
+
+## Conséquences
+
+- Aucun voyageur n'est confirmé sans trip né d'une preuve signée ; aucun second ordre n'est créé pendant un ordre actif ; aucun hold n'est mis en vol en production tant qu'aucun connecteur n'existe.
+- Le lot C devra fournir, par connecteur : la page hébergée avec une adresse de retour vers S06, l'expiration de l'ordre et la recherche par clé (GL-20).
+- Le canal du support n'existe pas encore : S06 donne le numéro de réservation et la promesse de remboursement, sans lien (suite).
+
+## Suites
+
+- Canal du support de S06 (`web.s06.support` sans destination tant que SUP-013 / S17 n'existe pas) ; notification de confirmation promise par `web.s06.verifying.notify` (US-213, NTF-007).
+- Sans JavaScript, la redirection 303 d'une action serveur vers la page hébergée est bloquée par la CSP `form-action 'self'` (même limite que S04) : origine du PSP retenu à ajouter à `form-action` au lot C.
+- Adresse de retour du PSP vers S06 (lot C, par connecteur) ; marchand du relevé (`web.s06.pre.title`, UX-26) : donnée du PSP retenu, absente avant le lot C.
+- Report dans `docs/specs/` (PR revue) : 10b §3 ligne « Paiement refusé » et UX-29 citent « 10 minutes » alors que `hold_max_total_minutes` vaut 20 (graine) : texte sans durée, heure lue dans l'API ; ADR-142 en 17 §8.1 ; codes `HOLD_NOT_PAYABLE` et `PAYMENT_UNAVAILABLE` en 16 A.8.
+- Chaîne de bout en bout checkout réel → T1 → webhook → conversion par la VRAIE route, rejouée à l'oracle de TJ08a / TJ10a : exige des interrupteurs commités (interdit) ; reste couverte par morceaux (L0 223a, contrat 223b).
