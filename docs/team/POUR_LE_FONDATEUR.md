@@ -24,6 +24,9 @@ Pour chaque point : ce qu'on sait, puis **ma suggestion** (comme Turo, avec le m
 **2.3 Assureur partenaire.** Sans contrat, aucun hôte n'est activable.
 → **Suggestion** : un contrat comme celui de Turo, où l'assureur couvre le véhicule pendant la location et où les plans de protection sont vendus au voyageur. À négocier : **aucune pièce exigée de l'hôte** au-delà de sa déclaration, de la plaque et du VIN ; âge du véhicule le plus large possible (Turo : environ 12 ans) ; couverture de l'usage en location incluse ; franchise raisonnable.
 
+**2.3 bis Grille des protections et parts de l'assureur (US-226, 2026-11-16).** Le code vend déjà trois niveaux de protection au voyageur (`BASICA` obligatoire, `ESTANDAR`, `TOTAL`) et calcule la prime due à l'assureur, avec des **valeurs de test** : prix 25 %, 40 % et 65 % du prix journalier, `TOTAL` dès 21 ans, part de l'assureur 70 % (assistance 50 %). Elles sont marquées « à décider » : la production refuse de démarrer tant qu'elles le restent.
+→ **Suggestion** : faire fixer par l'assureur, dans le contrat, la grille par niveau (prix, plancher et plafond par jour, âge minimal, franchise du voyageur), la part qui lui revient et les plans de gains de l'hôte qu'il accepte de couvrir (aujourd'hui un seul : 75 % pour l'hôte) ; comme Turo, avec le moins de limites possible : pas de pièce de plus, âge déclaré par le voyageur.
+
 **2.4 Fournisseur de vérification d'identité.** Veriff, Sumsub, Shufti, Didit, MetaMap annoncent le Panama et le Paraguay.
 → **Suggestion** : le moins cher de ceux qui confirment **par écrit** le permis de conduire panaméen et paraguayen **et** les permis et passeports étrangers (touristes). Parcours minimal comme Turo : permis plus selfie, pas de justificatif de domicile.
 

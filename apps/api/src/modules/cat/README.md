@@ -103,7 +103,7 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 ### Cartes des résultats : total TTC, caution, note, carte des marqueurs (US-203, ADR-131)
 
 - **Base** : `core.catalog_public_cards` (0105, `catalog_cmd_owner`, EXECUTE `app_api`) enveloppe `core.catalog_public_search` sans la modifier (mêmes annonces, même ordre, mêmes refus) et ajoute `deposit_amount_minor` (version en vigueur de `catalog_deposit_policy` pour le pays et la classe de valeur du véhicule, même devise, > 0 ; `NULL` : mention générique, 08 T70 c ; la classe n'est jamais rendue) et `quoted_at` (`platform.now()`, instant du devis).
-- **Total TTC** : port `SearchPricer` ; adaptateur `searchQuotePricer` de PRC (PRC dépend de CAT), câblé par `main.ts` : devis provisoire `prc.quote/2` non persisté (loyer des jours facturables, trip fee, taxe par ligne ; protection `BASICA` à venir avec US-226). Devis impossible ⇒ annonce exclue, alerte `search.quote_unavailable` (identifiant et pays seulement) ; pricer en panne ⇒ 503.
+- **Total TTC** : port `SearchPricer` ; adaptateur `searchQuotePricer` de PRC (PRC dépend de CAT), câblé par `main.ts` : devis provisoire `prc.quote/3` non persisté (loyer des jours facturables, trip fee, protection minimale du pays `BASICA` depuis US-226 (N-141), taxe par ligne). Devis impossible ⇒ annonce exclue, alerte `search.quote_unavailable` (identifiant et pays seulement) ; pricer en panne ⇒ 503.
 - **Notes** : port `SearchRatings`, par défaut `NO_SEARCH_RATINGS` (badge « Nuevo ») ; en production, `main.ts` le câble sur `PgListingRatingStore` de REV (US-218, note du véhicule). Notes en panne ⇒ 503.
 - **Réponse** : colonnes C0 d'US-201, plus `totalMinor`, `billableDays`, `depositAmountMinor`, `rating` (OpenAPI `SearchResult`).
 - **Écran S02** (`apps/web/app/(app)/search`) : cartes `CarCard` et carte des marqueurs de prix (`_search/results-map.tsx`, positions de `account/search-map.ts`), rendues du même tableau : mêmes annonces, mêmes totaux ; fond schématique sans tuile tant qu'aucun fournisseur n'est retenu (Q-020) ; textes `web.search.results.count`, `web.search.deposit.*`, `web.search.map.*` (catalogue v50).
@@ -154,3 +154,12 @@ Lecture seule de l'espace hôte (16 HDB-001 / HDB-002, écrans A02 et A05) : `GE
 - Véhicule et lieu de remise joints par les lectures d'US-115 (`vehicles`, `locations`).
 - Fichiers : `internal/host-trips/` (`store.ts` port et adaptateur, `host-trips.service.ts`, `host-trips.controller.ts`) ; FAKE `testing/fake-host-trip-store.ts` ; contrat `testing/host-trips.contract.test.ts` ; preuves base `packages/db/test/l0/l0-us219-host-trips.test.ts`.
 - Mode `REQUEST` (critères 4 à 6 de 19 US-219) : non livré ici (voir ADR-128 et la passation d'US-219).
+
+## Plans de gains de l'hôte (US-226 partie 226a, ADR-136)
+
+Plan de gains par véhicule (16 PRT-007, PRT-008, HST-048 ; 08 BR-PROT-06) : `GET /host/accounts/{orgId}/earnings-plans` (plan en vigueur de chaque véhicule, plan par défaut du pays tant que l'hôte n'a rien choisi, plans vendus dans le pays avec la part de l'hôte « n/d », jamais `PRO`) et `PUT /host/accounts/{orgId}/vehicles/{vehicleId}/earnings-plan` (`{ planCode }` ⇒ `200 EARNINGS_PLAN_SAVED` ; plan non vendu ou `PRO` ⇒ `422 EARNINGS_PLAN_NOT_AVAILABLE` ; compte ou véhicule d'un autre ⇒ 404), gardées par `SessionGuard`.
+
+- La base juge tout (migration 0110) : registre immuable et versionné `core.catalog_vehicle_earnings_plan`, écrit par `core.catalog_cmd_set_earnings_plan` (hôte titulaire de la session ; même plan ⇒ aucune nouvelle version), lu par `core.catalog_host_earnings_plans` ; plan d'une annonce publiée lu par `core.catalog_listing_earnings_plan` (devis du checkout et commande de gel).
+- **Effet sur les nouveaux devis seulement** : un devis déjà figé, et le hold posé avec lui, gardent leur plan et leur part (`pricing_quote.host_plan_code`).
+- Fichiers : `internal/host-listings/` (port `HostListingStore.earningsPlans` / `setEarningsPlan`, service, contrôleur) ; FAKE `testing/fake-host-listing-store.ts` ; contrat `testing/host-listings.contract.test.ts` ; preuves base `packages/db/test/l0/l0-us226-protection.test.ts` (fixture `9977_test_us226_protection_fixtures.sql`).
+- Le total des cartes de résultats et de la fiche (adaptateur `SearchPricer` de PRC) comprend la protection minimale du pays (BOARD N-141).

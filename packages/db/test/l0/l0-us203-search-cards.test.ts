@@ -18,7 +18,7 @@
  * Fuseaux (donnée IANA, pas une constante du code) : America/Panama = UTC−5 toute l'année ;
  * America/Asuncion = UTC−3 en décembre : les dates de test sont en décembre, loin dans le futur.
  */
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
@@ -27,6 +27,7 @@ import type { CountryCase } from '../support/avl.ts';
 import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts';
 import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { placeName } from '../support/names.ts';
 import {
   benchPgVersion,
   recordPerf,
@@ -87,10 +88,6 @@ function utcOf(c: CountryCase, local: string): string {
   return new Date(Date.parse(`${local}:00.000Z`) - offset * 3_600_000).toISOString();
 }
 
-/** Nom de ville unique, en lettres seules (le filtre des textes publics refuse les chiffres). */
-const placeName = (prefix: string): string =>
-  `${prefix} ${Array.from({ length: 10 }, () => String.fromCharCode(97 + randomInt(26))).join('')}`;
-
 interface Car {
   readonly userId: string;
   readonly hash: Buffer;
@@ -141,7 +138,7 @@ async function car(
   const org = acc.rows[0]?.org_id;
   if (acc.rows[0]?.outcome !== 'DONE' || !org) throw new Error('compte d’hôte refusé');
   await c.query('SELECT test_fixture.us115_set_org_status($1, $2)', [org, 'ACTIVE']);
-  const loc = await c.query<{ location_id: string | null }>(
+  const loc = await c.query<{ outcome: string; location_id: string | null }>(
     'SELECT * FROM core.catalog_cmd_create_location($1, $2, $3, $4, $5, $6, $7, $8, $9)',
     [
       hash,
@@ -155,14 +152,15 @@ async function car(
       '-79.512345',
     ],
   );
-  const veh = await c.query<{ vehicle_id: string | null }>(
+  if (loc.rows[0]?.outcome !== 'DONE') throw new Error(`lieu refusé : ${loc.rows[0]?.outcome}`);
+  const veh = await c.query<{ outcome: string; vehicle_id: string | null }>(
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
     [hash, org, loc.rows[0]?.location_id, `C${randomBytes(4).toString('hex').toUpperCase()}`],
   );
   const vehicle = veh.rows[0]?.vehicle_id;
-  if (!vehicle) throw new Error('véhicule refusé');
+  if (!vehicle) throw new Error(`véhicule refusé : ${veh.rows[0]?.outcome}`);
   if (options.valueClass !== undefined) {
     await c.query('SELECT test_fixture.us108_set_value_class($1, $2)', [
       vehicle,

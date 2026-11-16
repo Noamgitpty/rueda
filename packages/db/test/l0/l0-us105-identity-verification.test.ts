@@ -552,7 +552,7 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
       );
       expect(rows).toEqual(
         [
-          // US-209 (0110) : déclaration d'entrée du voyageur (16 VER-007)
+          // US-209 (0112) : déclaration d'entrée du voyageur (16 VER-007)
           'kyc_entry_declaration',
           'kyc_erasure_request',
           'kyc_host_tax_profile',
@@ -583,7 +583,7 @@ describe('US-105 — aucune image copiée chez nous (critère 4)', () => {
         'kyc_host_verification',
         'kyc_sanctions_screening',
         'kyc_host_tax_profile',
-        // US-209 (0110)
+        // US-209 (0112)
         'kyc_entry_declaration',
       ]) {
         await expect(c.query(`SELECT 1 FROM core.${t} LIMIT 1`)).rejects.toMatchObject({

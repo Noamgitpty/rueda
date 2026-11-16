@@ -28,7 +28,12 @@ export interface CheckoutVector {
   readonly fee: number;
   readonly taxes: Readonly<Record<string, number>>;
   readonly host: number;
+  /** Total avec la protection BASICA (US-226). */
   readonly total: number;
+  /** Protection BASICA (US-226) : part de la grille de TEST, ligne et prime due à l'assureur. */
+  readonly basicaPrice: string;
+  readonly protection: number;
+  readonly insurer: number;
 }
 
 const sha = (prefix: string, text: string): string =>
@@ -50,9 +55,16 @@ export function quoteDocs(
   groups: ReadonlyMap<string, string>,
   startMs: number,
   quotedAtMs: number,
+  /** `false` : devis `prc.quote/2` sans protection (figé, jamais réservé depuis US-226). */
+  withProtection = true,
 ): QuoteDocs {
-  const amounts: Record<string, number> = { TRIP_PRICE: v.daily * 3, TRIP_FEE: v.fee };
-  const lines = ['TRIP_PRICE', 'TRIP_FEE']
+  const amounts: Record<string, number> = {
+    TRIP_PRICE: v.daily * 3,
+    TRIP_FEE: v.fee,
+    PROTECTION: withProtection ? v.protection : 0,
+  };
+  const insurer = withProtection ? v.insurer : 0;
+  const lines = ['TRIP_PRICE', 'TRIP_FEE', 'PROTECTION']
     .filter((t) => (amounts[t] ?? 0) !== 0)
     .map((t) => ({
       type: t,
@@ -64,7 +76,7 @@ export function quoteDocs(
   const tax = Object.values(v.taxes).reduce((a, x) => a + x, 0);
   const total = subtotal + tax;
   const outputs = JSON.stringify({
-    engineVersion: 'prc.quote/2',
+    engineVersion: withProtection ? 'prc.quote/3' : 'prc.quote/2',
     currency: c.currency,
     billableDays: 3,
     lines,
@@ -75,11 +87,14 @@ export function quoteDocs(
     total: String(total),
     legs: {
       HOST: String(v.host),
-      INSURER: '0',
+      INSURER: String(insurer),
       TAX_THIRD_PARTY: '0',
-      PLATFORM: String(total - v.host),
+      PLATFORM: String(total - v.host - insurer),
     },
     hostSharePct: '3/4',
+    ...(withProtection
+      ? { protectionLevel: 'BASICA', insurerPremiumShare: '7/10', hostPlan: 'ESTÁNDAR' }
+      : {}),
   });
   const inputs = JSON.stringify({
     request: {
@@ -89,6 +104,7 @@ export function quoteDocs(
       rateType: 'REFUNDABLE',
       dailyRate: String(v.daily),
       lines: {},
+      ...(withProtection ? { protectionLevel: 'BASICA', driverAge: null } : {}),
     },
     params: { currency: { code: c.currency } },
   });
@@ -163,13 +179,23 @@ export async function openSwitch(
   key: 'p2p_private_hosts_enabled' | 'insurer_contract_active',
   country: string,
 ): Promise<void> {
+  await setSwitch(c, key, country, true);
+}
+
+/** Interrupteur posé par la procédure à deux personnes d'US-125, dans la transaction annulée. */
+export async function setSwitch(
+  c: Tx,
+  key: 'p2p_private_hosts_enabled' | 'insurer_contract_active',
+  country: string,
+  value: boolean,
+): Promise<void> {
   const actor = async (role: string): Promise<StaffActor> => {
     const id = await rlsStaff(c, role, [country]);
     return { userId: id, hash: Buffer.from(staffSessionHash(id) ?? '', 'hex'), scope: [country] };
   };
   const requester = await actor('ADMIN');
   const approver = await freshSession(c, await actor('SUPERADMIN'));
-  const r = await requestSwitch(c, requester, key, country, true);
+  const r = await requestSwitch(c, requester, key, country, value);
   if (r.outcome !== 'REQUESTED' || r.request_id === null) throw new Error(`demande : ${r.outcome}`);
   const a = await approveSwitch(c, approver, r.request_id);
   if (a.outcome !== 'APPLIED') throw new Error(`approbation : ${a.outcome}`);
@@ -244,6 +270,31 @@ export async function checkoutQuote(
     [p.hash, quoteId, driver[0], driver[1], false, JSON.stringify(documents)],
   );
   return rows[0]!;
+}
+
+/** Grille de protection et parts de l'assureur de TEST (fixture 9977, US-226), dans la transaction. */
+export async function protectionParams(c: Tx, country: string, v: CheckoutVector): Promise<void> {
+  const level = (rank: number, price: string, minDriverAge: number | null) => ({
+    rank,
+    price,
+    minDriverAge,
+    dailyFloorMinor: null,
+    dailyCeilingMinor: null,
+  });
+  await c.query('SELECT test_fixture.us226_set_param($1, $2, $3::jsonb)', [
+    'protection_grid',
+    country,
+    JSON.stringify({
+      BASICA: level(1, v.basicaPrice, null),
+      ESTANDAR: level(2, '2/5', null),
+      TOTAL: level(3, '13/20', 21),
+    }),
+  ]);
+  await c.query('SELECT test_fixture.us226_set_param($1, $2, $3::jsonb)', [
+    'insurer_premium_share',
+    country,
+    JSON.stringify({ BASICA: '7/10', ESTANDAR: '7/10', TOTAL: '7/10' }),
+  ]);
 }
 
 export async function setClock(c: Tx, iso: string): Promise<void> {

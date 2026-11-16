@@ -1,4 +1,4 @@
--- 0110 — AVL / RISK / KYC : contrôles bloquants du conducteur et revue des réservations signalées.
+-- 0112 — AVL / RISK / KYC : contrôles bloquants du conducteur et revue des réservations signalées.
 -- US-209 (partie 209a, back-end) ; 19 US-209 (« âge minimum 25 ans pour une classe et un voyageur
 -- de 24 ans ⇒ AGE_CLASS_MISMATCH » ; « entrée le 01/11 et fin le 31/01 en mode FLAG ⇒ revue, jamais
 -- un refus ; fin à entrée + 90 j exactement ⇒ aucun signalement » ; « réservation signalée et
@@ -35,7 +35,8 @@
 --     score atteint 50 : une règle HIGH, ou deux règles LOW (ADM-029 : « compte de 2 h qui part dans
 --     2 h »). Une règle dont la dernière version est inactive n'est pas évaluée. Jamais plus lourd
 --     que Turo : une seule règle LOW ne déclenche aucune revue ;
---   - checkout (`core.booking_cmd_checkout`, corps de 0108 recopié, changements marqués US-209) :
+--   - checkout (`core.booking_cmd_checkout`, corps de 0110 d'US-226 recopié : protection exigée,
+--     contrat d'assureur actif ; changements marqués US-209) :
 --     éligibilité et règles évaluées avant la pose ; la pose reçoit le signalement (`p_flagged`) ;
 --     un conducteur inéligible est refusé APRÈS la pose, dans la même sous-transaction (annulée) :
 --     l'auto-réservation reste jugée, refusée et signalée en premier (US-127) ; une règle déclenchée
@@ -65,12 +66,12 @@
 --   PLATFORM_REVIEW_DELAY à T−2 h (US-224, US-215), routes et écrans (S05, O01), mode BLOCK.
 --
 -- Expand / contract : une table, des fonctions, des règles déclarées, des droits et des politiques
--- AJOUTÉS ; corps de `core.booking_cmd_checkout` (0108), `core.booking_cmd_start_payment` (0045) et
+-- AJOUTÉS ; corps de `core.booking_cmd_checkout` (0110), `core.booking_cmd_start_payment` (0045) et
 -- `core.booking_conversion_eligibility` (0080) remplacés à signature, propriétaire et droits
 -- identiques. Le COMPORTEMENT se resserre, volontairement (16 BKG-012).
 --
 -- Retour arrière :
---   réappliquer core.booking_cmd_checkout de 0108, core.booking_cmd_start_payment de 0045 et
+--   réappliquer core.booking_cmd_checkout de 0110, core.booking_cmd_start_payment de 0045 et
 --     core.booking_conversion_eligibility de 0080 (sous cmd_hold_owner) ;
 --   DROP FUNCTION core.booking_guest_eligibility(uuid),
 --     core.booking_checkout_record_risk(uuid, uuid, uuid, text, jsonb, integer, boolean),
@@ -485,10 +486,11 @@ REVOKE ALL ON FUNCTION core.booking_min_driver_age(text, text),
   core.booking_checkout_record_risk(uuid, uuid, uuid, text, jsonb, integer, boolean),
   core.booking_guest_eligibility(uuid) FROM PUBLIC;
 
--- 6.5 Checkout : corps de 0108 recopié, changements marqués US-209 (étapes 3 bis, 4 et 6)
-CREATE OR REPLACE FUNCTION core.booking_cmd_checkout(p_token_hash bytea, p_quote_id uuid, p_driver_first text,
-                                          p_driver_last text, p_manual_confirmed boolean,
-                                          p_documents jsonb)
+-- 6.5 Checkout : corps de 0110 (US-226) recopié, changements marqués US-209 (étapes 3 bis, 4 et 6)
+CREATE OR REPLACE FUNCTION core.booking_cmd_checkout(p_token_hash bytea, p_quote_id uuid,
+                                                     p_driver_first text, p_driver_last text,
+                                                     p_manual_confirmed boolean,
+                                                     p_documents jsonb)
   RETURNS TABLE (outcome text, hold_id uuid, expires_at timestamptz)
   LANGUAGE plpgsql
   VOLATILE
@@ -541,10 +543,22 @@ BEGIN
     RETURN QUERY SELECT 'QUOTE_EXPIRED'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
-  -- N-129 : seules les lignes rejouées par la base (0102) engagent un prix
+  -- N-129 : seules les lignes rejouées par la base (0102, 0110) engagent un prix
   IF EXISTS (SELECT 1 FROM core.pricing_quote_line AS ln
-              WHERE ln.quote_id = q.id AND ln.line_type NOT IN ('TRIP_PRICE', 'TRIP_FEE')) THEN
+              WHERE ln.quote_id = q.id
+                AND ln.line_type NOT IN ('TRIP_PRICE', 'TRIP_FEE', 'PROTECTION')) THEN
     RETURN QUERY SELECT 'QUOTE_LINE_NOT_SUPPORTED'::text, NULL::uuid, NULL::timestamptz;
+    RETURN;
+  END IF;
+  -- US-226 (16 PRT-011) : aucun trip sans protection
+  IF NOT EXISTS (SELECT 1 FROM core.pricing_quote_line AS ln
+                  WHERE ln.quote_id = q.id AND ln.line_type = 'PROTECTION') THEN
+    RETURN QUERY SELECT 'PROTECTION_LEVEL_REQUIRED'::text, NULL::uuid, NULL::timestamptz;
+    RETURN;
+  END IF;
+  -- US-226 (16 PRT-001) : aucune réservation sans contrat d'assureur actif dans le pays
+  IF NOT core.config_go_live('insurer_contract_active', q.country_code::text) THEN
+    RETURN QUERY SELECT 'INSURER_CONTRACT_INACTIVE'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
 
@@ -678,10 +692,12 @@ BEGIN
 END
 $fn$;
 COMMENT ON FUNCTION core.booking_cmd_checkout(bytea, uuid, text, text, boolean, jsonb) IS
-  'Checkout en une page (16 BKG-001) : devis figé valide et rejoué, annonce immédiate, conducteur '
-  'titulaire et éligible (BKG-012), boîte manuelle confirmée, documents acceptés, puis pose du '
-  'hold CHECKOUT (signalé : revue, ADM-029) et rattachement, dans une transaction ; aucun '
-  'paiement. SECURITY DEFINER, EXECUTE app_api. US-208 (ADR-133), US-209 (ADR-135).';
+  'Checkout en une page (16 BKG-001) : devis figé valide et rejoué, protection présente '
+  '(PROTECTION_LEVEL_REQUIRED), contrat d''assureur actif (INSURER_CONTRACT_INACTIVE), annonce '
+  'immédiate, conducteur titulaire et éligible (BKG-012), boîte manuelle confirmée, documents '
+  'acceptés, puis pose du hold CHECKOUT (signalé : revue, ADM-029) et rattachement, dans une '
+  'transaction ; aucun paiement. SECURITY DEFINER, EXECUTE app_api. US-208, US-226, US-209 '
+  '(ADR-133, ADR-136, ADR-135).';
 
 -- 6.6 Éligibilité à la conversion : corps de 0080 recopié, contrôles du voyageur ajoutés en tête
 CREATE OR REPLACE FUNCTION core.booking_conversion_eligibility(p_hold_id uuid)

@@ -199,6 +199,27 @@
       "story": "US-115"
     },
     {
+      "signature": "core.catalog_listing_earnings_plan(uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api", "cmd_money_owner"],
+      "story": "US-226"
+    },
+    {
+      "signature": "core.catalog_cmd_set_earnings_plan(bytea,uuid,uuid,text)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-226"
+    },
+    {
+      "signature": "core.catalog_host_earnings_plans(bytea,uuid)",
+      "family": "catalog_cmd",
+      "owner": "catalog_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-226"
+    },
+    {
       "signature": "core.catalog_host_locations(bytea,uuid)",
       "family": "catalog_cmd",
       "owner": "catalog_cmd_owner",
@@ -1330,6 +1351,13 @@
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
       "story": "US-208"
+    },
+    {
+      "signature": "core.booking_checkout_protection(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-226"
     },
     {
       "signature": "core.iam_holder_name_matches(uuid,text,text)",

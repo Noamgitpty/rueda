@@ -23,6 +23,7 @@ import {
 import {
   QUOTE_LINE_TYPES,
   computeQuote,
+  type ProtectionGrid,
   type Quote,
   type QuoteLineType,
   type QuoteParams,
@@ -75,7 +76,32 @@ function requestJson(r: QuoteRequest): Json {
     rateType: r.rateType,
     dailyRate: minor(r.dailyRate),
     lines,
+    // US-226 : choix du voyageur, lus et rejoués par la base (protection, âge déclaré)
+    protectionLevel: r.protectionLevel ?? null,
+    driverAge: r.driverAge ?? null,
   };
+}
+
+function gridJson(g: ProtectionGrid | undefined): Json {
+  if (g === undefined) return null;
+  return {
+    minLevel: g.minLevel,
+    levels: [...g.levels]
+      .sort((a, b) => a.rank - b.rank)
+      .map((t) => ({
+        level: t.level,
+        rank: t.rank,
+        price: ratioToString(t.price),
+        minDriverAge: t.minDriverAge,
+        dailyFloor: t.dailyFloor === null ? null : minor(t.dailyFloor),
+        dailyCeiling: t.dailyCeiling === null ? null : minor(t.dailyCeiling),
+      })),
+  };
+}
+
+function sharesJson(s: Readonly<Record<string, Ratio>> | undefined): Json {
+  if (s === undefined) return null;
+  return Object.fromEntries(Object.entries(s).map(([k, r]) => [k, ratioToString(r)]));
 }
 
 function paramsJson(p: QuoteParams): Json {
@@ -102,6 +128,9 @@ function paramsJson(p: QuoteParams): Json {
     extrasSharePct: ratioToString(p.extrasSharePct),
     insurerPremiumShare: ratioJson(p.insurerPremiumShare),
     insurerRoadsideShare: ratioJson(p.insurerRoadsideShare),
+    protectionGrid: gridJson(p.protectionGrid),
+    insurerPremiumShareByLevel: sharesJson(p.insurerPremiumShareByLevel),
+    hostPlan: p.hostPlan ?? null,
   };
 }
 
@@ -135,6 +164,10 @@ export function quoteOutputsJson(q: Quote): Json {
       PLATFORM: minor(q.legs.PLATFORM),
     },
     hostSharePct: ratioToString(q.hostSharePct),
+    // US-226 : niveau de protection et part de l'assureur figés, plan de gains de l'hôte
+    protectionLevel: q.protectionLevel ?? null,
+    insurerPremiumShare: ratioJson(q.insurerPremiumShare),
+    hostPlan: q.hostPlan ?? null,
   };
 }
 
@@ -243,6 +276,12 @@ function readInputs(inputs: string): { request: QuoteRequest; params: QuoteParam
   });
   const premium = optionalRatio(p['insurerPremiumShare'], 'insurerPremiumShare');
   const roadside = optionalRatio(p['insurerRoadsideShare'], 'insurerRoadsideShare');
+  const grid = readGrid(p['protectionGrid'], currency);
+  const byLevel = readShares(p['insurerPremiumShareByLevel']);
+  const hostPlan =
+    p['hostPlan'] === null || p['hostPlan'] === undefined
+      ? undefined
+      : text(p['hostPlan'], 'hostPlan');
   const params: QuoteParams = {
     currency,
     graceMinutes: int(p['graceMinutes'], 'graceMinutes'),
@@ -254,9 +293,14 @@ function readInputs(inputs: string): { request: QuoteRequest; params: QuoteParam
     extrasSharePct: parseRatio(text(p['extrasSharePct'], 'extrasSharePct')),
     ...(premium === undefined ? {} : { insurerPremiumShare: premium }),
     ...(roadside === undefined ? {} : { insurerRoadsideShare: roadside }),
+    ...(grid === undefined ? {} : { protectionGrid: grid }),
+    ...(byLevel === undefined ? {} : { insurerPremiumShareByLevel: byLevel }),
+    ...(hostPlan === undefined ? {} : { hostPlan }),
   };
 
   const r = obj(root['request'], 'request');
+  const level = r['protectionLevel'];
+  const age = r['driverAge'];
   const rawLines = obj(r['lines'], 'request.lines');
   const lines: Partial<Record<QuoteLineType, Money>> = {};
   for (const [type, value] of Object.entries(rawLines)) {
@@ -270,8 +314,46 @@ function readInputs(inputs: string): { request: QuoteRequest; params: QuoteParam
     rateType: text(r['rateType'], 'rateType') as RateType,
     dailyRate: amount(r['dailyRate'], 'dailyRate', currency),
     lines,
+    ...(level === null || level === undefined
+      ? {}
+      : { protectionLevel: text(level, 'protectionLevel') }),
+    ...(age === null || age === undefined ? {} : { driverAge: int(age, 'driverAge') }),
   };
   return { request, params };
+}
+
+function readGrid(value: unknown, currency: Currency): ProtectionGrid | undefined {
+  if (value === null || value === undefined) return undefined;
+  const g = obj(value, 'protectionGrid');
+  const levels = g['levels'];
+  if (!Array.isArray(levels)) throw mismatch('protectionGrid.levels : liste attendue');
+  return {
+    minLevel: text(g['minLevel'], 'protectionGrid.minLevel'),
+    levels: levels.map((raw: unknown, i) => {
+      const t = obj(raw, `protectionGrid.levels[${i}]`);
+      const bound = (k: string): Money | null =>
+        t[k] === null ? null : amount(t[k], `protectionGrid.levels[${i}].${k}`, currency);
+      return {
+        level: text(t['level'], `protectionGrid.levels[${i}].level`),
+        rank: int(t['rank'], `protectionGrid.levels[${i}].rank`),
+        price: parseRatio(text(t['price'], `protectionGrid.levels[${i}].price`)),
+        minDriverAge:
+          t['minDriverAge'] === null
+            ? null
+            : int(t['minDriverAge'], `protectionGrid.levels[${i}].minDriverAge`),
+        dailyFloor: bound('dailyFloor'),
+        dailyCeiling: bound('dailyCeiling'),
+      };
+    }),
+  };
+}
+
+function readShares(value: unknown): Readonly<Record<string, Ratio>> | undefined {
+  if (value === null || value === undefined) return undefined;
+  const o = obj(value, 'insurerPremiumShareByLevel');
+  return Object.fromEntries(
+    Object.entries(o).map(([k, v]) => [k, parseRatio(text(v, `insurerPremiumShareByLevel.${k}`))]),
+  );
 }
 
 /**

@@ -38,6 +38,7 @@ import type { PublicListingRating, PublicListingRatings } from './public-ratings
 import { HostListingStoreError } from './store.js';
 import type {
   GuestMeetingPoint,
+  HostEarningsPlans,
   HostListing,
   HostListingStore,
   HostLocation,
@@ -45,6 +46,9 @@ import type {
   HostVehicle,
   PublicListing,
 } from './store.js';
+
+/** Code d'un plan de gains (forme de 0110 : majuscules, chiffres, `_`, voyelles accentuées). */
+const PLAN_CODE = /^[A-Z][A-Z0-9_ÁÉÍÓÚÑ]{0,31}$/u;
 
 /**
  * Fiche publique servie au visiteur (US-115, US-204) : colonnes C0 de l'annonce, galerie, notes
@@ -154,6 +158,36 @@ export class HostListingsService {
     });
     const r = await this.#call(() => this.store.updatePricing(proof, orgId, listingId, input));
     return this.#done(r.outcome, 'LISTING_SAVED');
+  }
+
+  /**
+   * Plans de gains du compte (US-226 ; 16 PRT-007, HST-048) : plan de chaque véhicule (le plan par
+   * défaut du pays tant que l'hôte n'a rien choisi), plans vendus dans le pays et part de l'hôte.
+   * Compte d'un autre ou inconnu : 404.
+   */
+  async earningsPlans(proof: Buffer, orgId: string): Promise<HostEarningsPlans> {
+    const plans = await this.#owned(proof, orgId, () => this.store.earningsPlans(proof, orgId));
+    if (plans === null) throw new HostListingHttpError('HOST_ACCOUNT_NOT_FOUND');
+    return plans;
+  }
+
+  /**
+   * Choix du plan de gains d'un véhicule (US-226 ; 16 PRT-008) : effet sur les nouveaux devis
+   * seulement (un devis figé garde sa part, jugé par la base). Plan non vendu dans le pays, ou PRO
+   * (sans objet) : 422 EARNINGS_PLAN_NOT_AVAILABLE.
+   */
+  async setEarningsPlan(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    body: Record<string, unknown>,
+  ): Promise<{ code: HostListingCode; planCode: string }> {
+    const planCode = body['planCode'];
+    if (typeof planCode !== 'string' || !PLAN_CODE.test(planCode)) {
+      throw new HostListingHttpError('REQUEST_INVALID', [{ field: 'planCode', reason: 'INVALID' }]);
+    }
+    const r = await this.#call(() => this.store.setEarningsPlan(proof, orgId, vehicleId, planCode));
+    return { ...this.#done(r.outcome, 'EARNINGS_PLAN_SAVED'), planCode };
   }
 
   /**

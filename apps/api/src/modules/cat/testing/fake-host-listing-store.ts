@@ -12,6 +12,7 @@ import { HostListingStoreError } from '../internal/host-listings/store.js';
 import type {
   CatalogRequestView,
   GuestMeetingPoint,
+  HostEarningsPlans,
   HostListing,
   HostListingStore,
   HostLocation,
@@ -76,6 +77,14 @@ export class FakeHostListingStore implements HostListingStore {
   readonly futureTrips = new Set<string>();
   /** Nom affiché au voyageur par compte d'hôte (N-37, US-124 : premier mot du prénom légal). */
   readonly hostFirstNames = new Map<string, string>();
+  /**
+   * Plans de gains vendus par pays (`host_share_pct`, donnée de test ; US-226) et plan choisi par
+   * véhicule. Les règles (version, PRO, devis déjà figé) sont prouvées en base
+   * (l0-us226-protection.test.ts).
+   */
+  readonly plansOffered = new Map<string, Readonly<Record<string, string>>>();
+  readonly defaultPlan = new Map<string, string>();
+  readonly vehiclePlans = new Map<string, { planCode: string; chosenAt: string }>();
 
   /** Inscrit un compte d'hôte titulaire de la session `proof`. */
   addHost(proof: Buffer, host: FakeHost): void {
@@ -439,5 +448,51 @@ export class FakeHostListingStore implements HostListingStore {
     if (this.failing) return Promise.reject(new HostListingStoreError('panne', '08006'));
     this.lastMeetingPoint = { proof: proof.toString('hex'), listingId };
     return Promise.resolve(this.meetingPoints.get(`${proof.toString('hex')}:${listingId}`) ?? null);
+  }
+
+  earningsPlans(proof: Buffer, orgId: string): Promise<HostEarningsPlans | null> {
+    if (this.failing) return Promise.reject(new HostListingStoreError('panne', '08006'));
+    const h = this.#host(proof, orgId);
+    if (h === 'FORBIDDEN') return Promise.resolve(null);
+    const offered = this.plansOffered.get(h.country) ?? {};
+    const fallback = this.defaultPlan.get(h.country) ?? null;
+    return Promise.resolve({
+      defaultPlan: fallback,
+      offered: Object.entries(offered)
+        .filter(([planCode]) => planCode !== 'PRO')
+        .map(([planCode, hostShare]) => ({ planCode, hostShare }))
+        .sort((a, b) => a.planCode.localeCompare(b.planCode)),
+      vehicles: [...this.vehiclesById.entries()]
+        .filter(([, v]) => v.orgId === orgId)
+        .map(([vehicleId]) => {
+          const p = this.vehiclePlans.get(vehicleId);
+          return {
+            vehicleId,
+            planCode: p?.planCode ?? fallback,
+            chosen: p !== undefined,
+            chosenAt: p?.chosenAt ?? null,
+          };
+        }),
+    });
+  }
+
+  setEarningsPlan(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    planCode: string,
+  ): Promise<Outcome> {
+    const h = this.#write(proof, orgId);
+    if ('outcome' in h) return Promise.resolve(h);
+    const v = this.vehiclesById.get(vehicleId);
+    if (v === undefined || v.orgId !== orgId) {
+      return Promise.resolve({ outcome: 'VEHICLE_NOT_FOUND', id: null });
+    }
+    const offered = this.plansOffered.get(h.country) ?? {};
+    if (planCode === 'PRO' || !Object.hasOwn(offered, planCode)) {
+      return Promise.resolve({ outcome: 'EARNINGS_PLAN_NOT_AVAILABLE', id: null });
+    }
+    this.vehiclePlans.set(vehicleId, { planCode, chosenAt: '2026-12-01T12:00:00.000Z' });
+    return Promise.resolve({ outcome: 'DONE', id: planCode });
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Preuves des contrôles bloquants et de la revue des réservations signalées (US-209, partie 209a ;
- * migration 0110, ADR-135 ; fixture 9967) sous les rôles de production (assertion L0-05 en tête de
+ * migration 0112, ADR-135 ; fixture 9967) sous les rôles de production (assertion L0-05 en tête de
  * chaque connexion : `withRole` / `connectAs`), en USD (PA) et en PYG sans décimale (PY).
  * Personnes, sessions, devis et checkout par les VRAIES commandes ; interrupteurs ouverts par la
  * procédure à deux personnes d'US-125 dans une transaction ANNULÉE ; dossier d'identité écrit par la
@@ -42,8 +42,10 @@ import {
   frozenQuote,
   listedListing,
   openSwitch,
+  protectionParams,
   quoteDocs,
   setClock,
+  setSwitch,
   taxGroups,
 } from '../support/checkout.ts';
 import type { CheckoutVector, Driver, Person } from '../support/checkout.ts';
@@ -63,7 +65,10 @@ const REVIEW_HOLD_MIN = 120;
 /**
  * Vecteurs du devis (en-tête de l0-us208-checkout.test.ts) : TA01 en PA (40,00 × 3 j, ITBMS 7 % sur
  * le loyer, barème de test du trip fee à 0 %, total 128,40, HOST 9 000) ; D2 de 08 sans ses lignes
- * non taxées en PY (333 334 × 3 + trip fee 150 000 + taxes 115 000 = 1 265 002, HOST 750 001).
+ * non taxées en PY (333 334 × 3 + trip fee 150 000 + taxes 115 000 = 1 265 002, HOST 750 001) ;
+ * plus la protection minimale BASICA exigée depuis US-226 (grille de TEST de la fixture 9977, 16
+ * PRC-018 ; vecteurs de l0-us208-checkout.test.ts) : PA 30,00, prime 21,00 (TJ01), total 158,40 ;
+ * PY 150 000, prime 105 000 (TJ09a), total 1 415 002.
  */
 const VECTORS: Readonly<Record<string, CheckoutVector>> = {
   PA: {
@@ -72,7 +77,10 @@ const VECTORS: Readonly<Record<string, CheckoutVector>> = {
     fee: 0,
     taxes: { TRIP_PRICE: 840 },
     host: 9_000,
-    total: 12_840,
+    total: 15_840,
+    basicaPrice: '1/4',
+    protection: 3_000,
+    insurer: 2_100,
   },
   PY: {
     daily: 333_334,
@@ -80,7 +88,10 @@ const VECTORS: Readonly<Record<string, CheckoutVector>> = {
     fee: 150_000,
     taxes: { TRIP_PRICE: 100_000, TRIP_FEE: 15_000 },
     host: 750_001,
-    total: 1_265_002,
+    total: 1_415_002,
+    basicaPrice: '3/20',
+    protection: 150_000,
+    insurer: 105_000,
   },
 };
 
@@ -104,6 +115,7 @@ function scenario(cc: CountryCase, now = NOW) {
             JSON.stringify(v.schedule),
           ]);
         }
+        await protectionParams(tx, cc.country, v);
         await fn(tx, { groups: await taxGroups(tx, cc) });
       }),
     );
@@ -240,6 +252,54 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
 
         const lastDay = await guest(tx, cc, { ...ADULT, licenseExpiry: '2026-12-13' });
         expect((await book(tx, cc, w, lastDay, id)).outcome).toBe('DONE');
+      });
+    });
+
+    it('US-226 et US-209 ensemble : devis avec protection et conducteur refusé ⇒ AGE_CLASS_MISMATCH ; devis sans protection ⇒ PROTECTION_LEVEL_REQUIRED, que le conducteur soit éligible ou non ; contrat d’assureur refermé ⇒ INSURER_CONTRACT_INACTIVE avant tout contrôle du conducteur', async () => {
+      await run(async (tx, w) => {
+        const premium = await listing(tx, cc, 'PREMIUM');
+        const v = VECTORS[cc.country]!;
+        const docsOf = (withProtection: boolean) =>
+          quoteDocs(cc, v, w.groups, Date.parse(START), Date.parse(NOW), withProtection);
+        // protection présente (US-226 satisfaite), conducteur de 24 ans en Premium (US-209 refuse)
+        const young = await guest(tx, cc, { ...ADULT, birth: '2001-12-11' });
+        const r1 = await checkoutQuote(
+          tx,
+          young,
+          await frozenQuote(tx, young, premium, docsOf(true)),
+        );
+        expect(r1).toMatchObject({ outcome: 'AGE_CLASS_MISMATCH', hold_id: null });
+        // devis sans protection : refus d'US-226, conducteur éligible ou non
+        const adult = await guest(tx, cc);
+        const r2 = await checkoutQuote(
+          tx,
+          adult,
+          await frozenQuote(tx, adult, premium, docsOf(false)),
+        );
+        expect(r2).toMatchObject({ outcome: 'PROTECTION_LEVEL_REQUIRED', hold_id: null });
+        const r3 = await checkoutQuote(
+          tx,
+          young,
+          await frozenQuote(tx, young, premium, docsOf(false)),
+        );
+        expect(r3).toMatchObject({ outcome: 'PROTECTION_LEVEL_REQUIRED', hold_id: null });
+        for (const p of [young, adult]) expect(await holdsOf(tx, p)).toBe(0);
+        // les deux satisfaits : réservé (signalé en revue : compte récent et Premium)
+        const ok = await checkoutQuote(
+          tx,
+          adult,
+          await frozenQuote(tx, adult, premium, docsOf(true)),
+        );
+        expect(ok.outcome).toBe('DONE');
+        expect(await holdRow(tx, ok.hold_id)).toMatchObject({ review_required: true });
+        // contrat d'assureur refermé après le gel : refus d'US-226, jamais un code du conducteur
+        const unverified = await guest(tx, cc, null);
+        const late = await frozenQuote(tx, unverified, premium, docsOf(true));
+        await setSwitch(tx, 'insurer_contract_active', cc.country, false);
+        expect(await checkoutQuote(tx, unverified, late)).toMatchObject({
+          outcome: 'INSURER_CONTRACT_INACTIVE',
+          hold_id: null,
+        });
       });
     });
 

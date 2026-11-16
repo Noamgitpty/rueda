@@ -387,6 +387,14 @@
       "acces": "session",
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"
     },
+    "GET /host/accounts/{orgId}/earnings-plans": {
+      "acces": "session",
+      "idor": "compte d'hôte {orgId} d'un autre hôte : 404 HOST_ACCOUNT_NOT_FOUND comme un compte inconnu, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us226)"
+    },
+    "PUT /host/accounts/{orgId}/vehicles/{vehicleId}/earnings-plan": {
+      "acces": "session",
+      "idor": "véhicule d'un autre hôte sous son propre compte : 404 VEHICLE_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND, sans écriture (17 §2.3 point 5, L1-PM-11 ; preuves base : l0-us226)"
+    },
     "PUT /host/accounts/{orgId}/listings/{listingId}/pricing": {
       "acces": "session",
       "idor": "lieu, véhicule ou annonce d'un autre hôte sous son propre compte : 404 *_NOT_FOUND comme un identifiant inconnu ; compte {orgId} d'un autre : 404 HOST_ACCOUNT_NOT_FOUND (17 §2.3 point 5, L1-PM-11)"

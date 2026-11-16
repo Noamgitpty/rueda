@@ -26,24 +26,47 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: i18n.t('web.s05.title'), robots: { index: false, follow: false } };
 }
 
+/** Libellé de la ligne de protection selon le niveau figé (US-226 ; 10b S05). */
+function protectionLabel(
+  level: string | null,
+):
+  | 'common.quote.line.protectionBasica'
+  | 'common.quote.line.protectionEstandar'
+  | 'common.quote.line.protectionTotal'
+  | 'common.quote.line.protection' {
+  if (level === 'BASICA') return 'common.quote.line.protectionBasica';
+  if (level === 'ESTANDAR') return 'common.quote.line.protectionEstandar';
+  if (level === 'TOTAL') return 'common.quote.line.protectionTotal';
+  return 'common.quote.line.protection';
+}
+
 /** Lignes du détail du prix (10b UX-17) : montants du devis rejoué, taxes réunies, aucun calcul du total. */
 function priceLines(i18n: Translator, quote: CheckoutQuoteView, exponent: number): PriceLine[] {
   const t = i18n.t.bind(i18n);
   const amount = (amountMinor: bigint) => ({ amountMinor, currency: quote.currency, exponent });
-  const lines: PriceLine[] = quote.lines.map((l) =>
-    l.type === 'TRIP_PRICE'
-      ? {
-          id: l.type,
-          label: t('web.s05.line.tripPrice', { count: quote.billableDays }),
-          amount: amount(l.amountMinor),
-        }
-      : {
-          id: l.type,
-          label: t('common.quote.line.tripFee'),
-          hint: t('common.quote.line.tripFeeHint'),
-          amount: amount(l.amountMinor),
-        },
-  );
+  const lines: PriceLine[] = quote.lines.map((l) => {
+    if (l.type === 'TRIP_PRICE') {
+      return {
+        id: l.type,
+        label: t('web.s05.line.tripPrice', { count: quote.billableDays }),
+        amount: amount(l.amountMinor),
+      };
+    }
+    // US-226 : protection du voyageur, nommée par son niveau (nom générique si inconnu)
+    if (l.type === 'PROTECTION') {
+      return {
+        id: l.type,
+        label: t(protectionLabel(quote.protectionLevel)),
+        amount: amount(l.amountMinor),
+      };
+    }
+    return {
+      id: l.type,
+      label: t('common.quote.line.tripFee'),
+      hint: t('common.quote.line.tripFeeHint'),
+      amount: amount(l.amountMinor),
+    };
+  });
   const taxes = quote.lines.reduce((a, l) => a + l.taxMinor, 0n);
   if (taxes > 0n)
     lines.push({ id: 'TAXES', label: t('web.s05.line.taxes'), amount: amount(taxes) });

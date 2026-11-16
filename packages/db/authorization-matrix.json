@@ -711,6 +711,19 @@
         "app_anon": []
       }
     },
+    "core.catalog_vehicle_earnings_plan": {
+      "type": "table",
+      "droits": {
+        "app_api": {},
+        "app_worker": {},
+        "app_anon": {}
+      },
+      "politiques": {
+        "app_api": [],
+        "app_worker": [],
+        "app_anon": []
+      }
+    },
     "core.catalog_vehicle_eligibility_check": {
       "type": "table",
       "droits": {

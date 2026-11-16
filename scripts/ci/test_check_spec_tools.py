@@ -257,9 +257,9 @@ class RegistreTest(unittest.TestCase):
     def test_compte_absent_des_motifs(self):
         legs = self.data["oracles"]["check_legs.py"]
         legs["require"] = [r"^RÉSULTAT : OK\s*$"]
-        self.assertIn("= 58 absent des motifs", self.errors())
-        legs["require"] = [r"^RÉSULTAT : OK\s*$", r"^vecteurs : 580$"]
-        self.assertIn("= 58 absent des motifs", self.errors())
+        self.assertIn("= 59 absent des motifs", self.errors())
+        legs["require"] = [r"^RÉSULTAT : OK\s*$", r"^vecteurs : 590$"]
+        self.assertIn("= 59 absent des motifs", self.errors())
 
     def test_oracle_non_classe(self):
         (self.specs / "tools" / "check_nouveau.py").write_text("print('x')\n", encoding="utf-8")

@@ -11,7 +11,10 @@
  * `QUOTE_ALREADY_USED`, `QUOTE_LINE_NOT_SUPPORTED` (N-129), `REQUEST_MODE_UNAVAILABLE` (N-128),
  * `LISTING_UNAVAILABLE`, `HOLD_NOT_FOUND`, `HOLD_ALREADY_LIVE`, `HOLD_LIMIT_REACHED`,
  * `HOLD_RATE_LIMITED`, `KYC_CONSENT_WITHDRAWN`, `TERMS_UNAVAILABLE`, `BOOKING_UNAVAILABLE`,
- * `REQUEST_INVALID`. US-209 (ADR-135, 16 BKG-012) : `AGE_CLASS_MISMATCH` (08 BR-BOOK-11) ;
+ * `REQUEST_INVALID`. US-226 (ADR-136) : `INSURER_CONTRACT_INACTIVE` (16 PRT-001, A.8 : pays sans
+ * contrat d'assureur actif, aucune réservation) et `PROTECTION_LEVEL_REQUIRED` (16 PRT-011, nom
+ * PROPOSÉ : devis sans protection, jamais réservé).
+ * US-209 (ADR-135, 16 BKG-012) : `AGE_CLASS_MISMATCH` (08 BR-BOOK-11) ;
  * repris de KYC (ADR-102) : `KYC_NOT_APPROVED`, `KYC_BIOMETRIC_CONSENT_MISSING`,
  * `KYC_LICENSE_EXPIRED`. Une réservation signalée (16 ADM-029) n'est pas un refus : le hold est
  * posé (en revue selon `flagged_booking_payment_order`).
@@ -24,6 +27,8 @@ export const CHECKOUT_MESSAGES = {
   QUOTE_EXPIRED: { status: 409, messageKey: 'common.quote.expired' },
   QUOTE_ALREADY_USED: { status: 409, messageKey: 'common.checkout.quoteAlreadyUsed' },
   QUOTE_LINE_NOT_SUPPORTED: { status: 422, messageKey: 'common.quote.lineNotSupported' },
+  PROTECTION_LEVEL_REQUIRED: { status: 422, messageKey: 'common.quote.protectionRequired' },
+  INSURER_CONTRACT_INACTIVE: { status: 409, messageKey: 'common.quote.insurerContractInactive' },
   LISTING_UNAVAILABLE: { status: 409, messageKey: 'common.checkout.listingUnavailable' },
   REQUEST_MODE_UNAVAILABLE: { status: 409, messageKey: 'common.checkout.requestModeUnavailable' },
   MANUAL_TRANSMISSION_NOT_CONFIRMED: {

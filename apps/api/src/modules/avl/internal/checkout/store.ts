@@ -3,6 +3,8 @@
  * (fonctions SECURITY DEFINER de cmd_hold_owner ; voyageur désigné par l'empreinte de son jeton de
  * session), paramètres liés, aucun SQL construit. Annonce publiée et instant du devis lus en base
  * (`core.catalog_public_listing`, `platform.now()`). Sans adaptateur : 503 partout (fail-closed).
+ * US-226 (migration 0110) : plan de gains du véhicule (`core.catalog_listing_earnings_plan`),
+ * niveau de protection, âge déclaré, instant du gel et interrupteur de l'assureur du devis.
  */
 import type { CheckoutDemand } from './model.js';
 
@@ -21,6 +23,20 @@ export interface CheckoutListing {
   readonly dailyPriceMinor: string;
   /** `platform.now()` (ms) : instant du devis et des paramètres. */
   readonly quotedAtMs: number;
+  /** Plan de gains choisi pour le véhicule (US-226) ; `null` : plan par défaut du pays. */
+  readonly hostPlan: string | null;
+}
+
+/** Niveau de protection proposé au checkout (S05, 16 BKG-003), prix de la période (US-226). */
+export interface CheckoutProtectionOption {
+  readonly level: string;
+  readonly eligible: boolean;
+  /** Raison d'un niveau grisé (16 PRT-001 : « grisé avec la raison »). */
+  readonly reason: 'DRIVER_AGE' | null;
+  readonly minDriverAge: number | null;
+  readonly dailyMinor: string;
+  readonly lineMinor: string;
+  readonly selected: boolean;
 }
 
 export interface CheckoutLine {
@@ -53,7 +69,21 @@ export interface CheckoutQuote {
   readonly instantBook: boolean;
   /** Documents à accepter (CGU, politique d'annulation, texte géographique), versions en vigueur. */
   readonly documents: readonly CheckoutDocument[];
+  /** Niveau de protection figé (US-226) ; `null` : devis sans protection, jamais réservable. */
+  readonly protectionLevel: string | null;
+  /** Âge déclaré du conducteur figé dans le devis, `null` s'il n'a pas été saisi. */
+  readonly driverAge: number | null;
+  /** `insurer_contract_active` du pays : `false` ⇒ `INSURER_CONTRACT_INACTIVE` (16 PRT-001). */
+  readonly insurerContractActive: boolean;
+  /** Niveaux vendus et leur prix pour la période (calculés par l'API, devis provisoires). */
+  readonly protectionOptions: readonly CheckoutProtectionOption[];
 }
+
+/** Lecture de la base, avant les options de protection (ajoutées par le service). */
+export type CheckoutQuoteRow = Omit<CheckoutQuote, 'protectionOptions'> & {
+  /** Instant du gel (ms) : instant des paramètres des options, celui du devis. */
+  readonly frozenAtMs: number;
+};
 
 export interface CheckoutHold {
   readonly holdId: string;
@@ -74,7 +104,7 @@ export interface CheckoutHold {
   }[];
 }
 
-/** Issues de `core.booking_cmd_checkout` (0108, contrôles du conducteur : 0110). */
+/** Issues de `core.booking_cmd_checkout` (0108, contrôles du conducteur : 0112). */
 export const CHECKOUT_OUTCOMES = [
   'DONE',
   'AUTH_REQUIRED',
@@ -82,6 +112,9 @@ export const CHECKOUT_OUTCOMES = [
   'QUOTE_ALREADY_USED',
   'QUOTE_EXPIRED',
   'QUOTE_LINE_NOT_SUPPORTED',
+  // US-226 (0110) : devis sans protection, pays sans contrat d'assureur actif
+  'PROTECTION_LEVEL_REQUIRED',
+  'INSURER_CONTRACT_INACTIVE',
   'LISTING_UNAVAILABLE',
   'REQUEST_MODE_UNAVAILABLE',
   'MANUAL_TRANSMISSION_NOT_CONFIRMED',
@@ -98,7 +131,7 @@ export const CHECKOUT_OUTCOMES = [
   'SELF_BOOKING_FORBIDDEN',
   'ACCOUNT_RESTRICTED',
   'KYC_CONSENT_WITHDRAWN',
-  // US-209 (0110, ADR-135) : contrôles bloquants du conducteur (16 BKG-012)
+  // US-209 (0112, ADR-135) : contrôles bloquants du conducteur (16 BKG-012)
   'KYC_NOT_APPROVED',
   'KYC_BIOMETRIC_CONSENT_MISSING',
   'KYC_LICENSE_EXPIRED',
@@ -117,7 +150,7 @@ export interface CheckoutStore {
   /** Annonce LISTED et instant serveur ; `null` : inconnue ou non publiée. */
   listing(listingId: string): Promise<CheckoutListing | null>;
   /** Devis figé du voyageur ; `null` : inconnu ou d'un autre voyageur. */
-  quote(proof: Buffer, quoteId: string): Promise<CheckoutQuote | null>;
+  quote(proof: Buffer, quoteId: string): Promise<CheckoutQuoteRow | null>;
   /** Contrôles, consentements et pose du hold, en une transaction (base). */
   checkout(proof: Buffer, quoteId: string, demand: CheckoutDemand): Promise<CheckoutResult>;
   /** Hold de checkout du voyageur ; `null` : inconnu ou d'un autre voyageur. */
@@ -133,7 +166,7 @@ export class UnavailableCheckoutStore implements CheckoutStore {
   #fail = (): Promise<never> =>
     Promise.reject(new CheckoutStoreError('magasin du checkout indisponible'));
   listing = (): Promise<CheckoutListing | null> => this.#fail();
-  quote = (): Promise<CheckoutQuote | null> => this.#fail();
+  quote = (): Promise<CheckoutQuoteRow | null> => this.#fail();
   checkout = (): Promise<CheckoutResult> => this.#fail();
   hold = (): Promise<CheckoutHold | null> => this.#fail();
 }
@@ -162,6 +195,8 @@ const int = (value: unknown): number => {
   if (!Number.isSafeInteger(n)) throw new CheckoutStoreError('entier illisible');
   return n;
 };
+const textOrNull = (value: unknown): string | null => (value === null ? null : text(value));
+const intOrNull = (value: unknown): number | null => (value === null ? null : int(value));
 const list = (value: unknown): readonly Record<string, unknown>[] => {
   if (value === null) return [];
   if (!Array.isArray(value)) throw new CheckoutStoreError('liste inattendue');
@@ -177,7 +212,8 @@ export class PgCheckoutStore implements CheckoutStore {
   async listing(listingId: string): Promise<CheckoutListing | null> {
     const { rows } = await this.db.query(
       `SELECT p.country_code, p.currency, p.daily_price_minor::text AS daily_price_minor,
-              platform.now() AS quoted_at
+              platform.now() AS quoted_at,
+              core.catalog_listing_earnings_plan(p.listing_id) AS host_plan
          FROM core.catalog_public_listing($1::uuid) AS p`,
       [listingId],
     );
@@ -188,12 +224,18 @@ export class PgCheckoutStore implements CheckoutStore {
       currency: text(r['currency']),
       dailyPriceMinor: minor(r['daily_price_minor']),
       quotedAtMs: Date.parse(iso(r['quoted_at'])),
+      hostPlan: textOrNull(r['host_plan']),
     };
   }
 
-  async quote(proof: Buffer, quoteId: string): Promise<CheckoutQuote | null> {
+  async quote(proof: Buffer, quoteId: string): Promise<CheckoutQuoteRow | null> {
+    // US-226 : protection du devis (niveau, âge déclaré, instant du gel, interrupteur de
+    // l'assureur) lue par sa propre fonction de 0110 ; un devis inconnu ou d'un autre voyageur
+    // ne rend aucune ligne dans l'une comme dans l'autre (même réponse)
     const { rows } = await this.db.query(
-      'SELECT * FROM core.booking_checkout_quote($1, $2::uuid)',
+      `SELECT q.*, p.protection_level, p.driver_age, p.frozen_at, p.insurer_contract_active
+         FROM core.booking_checkout_quote($1, $2::uuid) AS q
+         JOIN core.booking_checkout_protection($1, $2::uuid) AS p ON p.quote_id = q.quote_id`,
       [proof, quoteId],
     );
     const r = rows[0];
@@ -222,6 +264,10 @@ export class PgCheckoutStore implements CheckoutStore {
         locale: text(d['locale']),
         title: text(d['title']),
       })),
+      protectionLevel: textOrNull(r['protection_level']),
+      driverAge: intOrNull(r['driver_age']),
+      insurerContractActive: bool(r['insurer_contract_active']),
+      frozenAtMs: Date.parse(iso(r['frozen_at'])),
     };
   }
 

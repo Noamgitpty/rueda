@@ -16,7 +16,12 @@
  *   15 000 (taxe de F de J) ; total 1 265 002 ; jambe HOST 750 001 (TJ09a : allocHost(1 000 002 ;
  *   3/4), sans la part de livraison) ;
  * - durée de validité du devis : 30 min (16 PRC-025, PROPOSÉ ; `quote_validity_minutes`) ;
- * - totaux = Σ lignes + Σ taxes (08 BR-PRICE-13), PLATFORM = complément (08 E7).
+ * - totaux = Σ lignes + Σ taxes (08 BR-PRICE-13), PLATFORM = complément (08 E7) ;
+ * - US-226 (migration 0110, ADR-136) : aucun trip sans protection. Chaque devis porte la protection
+ *   minimale BASICA (grille de TEST de la fixture 9977, 16 PRC-018) : PA, la protection du trip A
+ *   de 08 (30,00 = 1/4 × 40,00 × 3 j), prime due 21,00 (TJ01) ; PY, la protection de D2 (150 000 =
+ *   3/20 × 333 334 × 3 j, arrondi par jour), prime due 105 000 (TJ09a). La partie TA01 du total
+ *   reste 128,40 (critère 1 d'US-208), D2 sans protection reste 1 265 002 (critère 4).
  */
 import { createHash, randomBytes } from 'node:crypto';
 import type pg from 'pg';
@@ -49,7 +54,13 @@ interface Vector {
   readonly fee: number;
   readonly taxes: Readonly<Record<string, number>>;
   readonly host: number;
+  /** Total sans la protection (TA01 ; D2 sans lignes non taxées) et avec la protection BASICA. */
+  readonly totalWithoutProtection: number;
   readonly total: number;
+  /** Protection BASICA (US-226) : part de la grille de TEST, ligne et prime due à l'assureur. */
+  readonly basicaPrice: string;
+  readonly protection: number;
+  readonly insurer: number;
   /** Livraison (ligne non taxée que la base ne rejoue pas) et jambe HOST qui l'inclut. */
   readonly delivery: number;
   readonly hostWithDelivery: number;
@@ -63,7 +74,11 @@ const VECTORS: Readonly<Record<string, Vector>> = {
     fee: 0,
     taxes: { TRIP_PRICE: 840 },
     host: 9_000,
-    total: 12_840,
+    totalWithoutProtection: 12_840,
+    total: 15_840,
+    basicaPrice: '1/4',
+    protection: 3_000,
+    insurer: 2_100,
     // T01 : livraison 40,00, non taxée ; TJ01 : HOST 9 000 + 3 000 (part de la livraison)
     delivery: 4_000,
     hostWithDelivery: 12_000,
@@ -74,13 +89,17 @@ const VECTORS: Readonly<Record<string, Vector>> = {
     fee: 150_000,
     taxes: { TRIP_PRICE: 100_000, TRIP_FEE: 15_000 },
     host: 750_001,
-    total: 1_265_002,
+    totalWithoutProtection: 1_265_002,
+    total: 1_415_002,
+    basicaPrice: '3/20',
+    protection: 150_000,
+    insurer: 105_000,
     // T40 : livraison 50 000, non taxée ; TJ09a : HOST 750 001 + 37 500 (part de la livraison)
     delivery: 50_000,
     hostWithDelivery: 787_501,
   },
 };
-const ORDER = ['TRIP_PRICE', 'TRIP_FEE', 'DELIVERY_FEE'];
+const ORDER = ['TRIP_PRICE', 'TRIP_FEE', 'PROTECTION', 'DELIVERY_FEE'];
 
 const sha = (prefix: string, text: string): string =>
   createHash('sha256')
@@ -106,7 +125,12 @@ function docs(
   const v = VECTORS[c.country]!;
   const startMs = opts.startMs ?? START;
   const extra: Record<string, number> = opts.delivery ? { DELIVERY_FEE: v.delivery } : {};
-  const amounts: Record<string, number> = { TRIP_PRICE: v.daily * 3, TRIP_FEE: v.fee, ...extra };
+  const amounts: Record<string, number> = {
+    TRIP_PRICE: v.daily * 3,
+    TRIP_FEE: v.fee,
+    PROTECTION: v.protection,
+    ...extra,
+  };
   const lines = ORDER.filter((t) => (amounts[t] ?? 0) !== 0).map((t) => ({
     type: t,
     amount: String(amounts[t]),
@@ -118,7 +142,7 @@ function docs(
   const total = subtotal + tax;
   const host = opts.delivery ? v.hostWithDelivery : v.host;
   const outputs = {
-    engineVersion: 'prc.quote/2',
+    engineVersion: 'prc.quote/3',
     currency: c.currency,
     billableDays: 3,
     lines,
@@ -129,11 +153,14 @@ function docs(
     total: String(total),
     legs: {
       HOST: String(host),
-      INSURER: '0',
+      INSURER: String(v.insurer),
       TAX_THIRD_PARTY: '0',
-      PLATFORM: String(total - host),
+      PLATFORM: String(total - host - v.insurer),
     },
     hostSharePct: '3/4',
+    protectionLevel: 'BASICA',
+    insurerPremiumShare: '7/10',
+    hostPlan: 'ESTÁNDAR',
   };
   const inputs = JSON.stringify({
     request: {
@@ -143,6 +170,8 @@ function docs(
       rateType: 'REFUNDABLE',
       dailyRate: String(v.daily),
       lines: Object.fromEntries(Object.entries(extra).map(([k, x]) => [k, String(x)])),
+      protectionLevel: 'BASICA',
+      driverAge: null,
     },
     params: { currency: { code: c.currency } },
   });
@@ -328,6 +357,7 @@ function scenario(cc: CountryCase) {
   return (
     fn: (tx: Tx, ctx: Ctx) => Promise<void>,
     opts: {
+      /** `false` : pays fermé aux hôtes particuliers (le contrat d'assureur reste actif). */
       open?: boolean;
       transmission?: 'MANUAL' | 'AUTOMATIC';
       instant?: boolean;
@@ -337,8 +367,9 @@ function scenario(cc: CountryCase) {
       withTestTransaction(client, { virtualNow: NOW }, async (tx) => {
         if (opts.open !== false) {
           await openSwitch(tx, 'p2p_private_hosts_enabled', cc.country);
-          await openSwitch(tx, 'insurer_contract_active', cc.country);
         }
+        // US-226 : sans contrat d'assureur actif, aucun devis prc.quote/3 ne se fige
+        await openSwitch(tx, 'insurer_contract_active', cc.country);
         const v = VECTORS[cc.country]!;
         if (v.schedule !== null) {
           await tx.query('SELECT test_fixture.us704_set_trip_fee_schedule($1, $2::jsonb)', [
@@ -346,6 +377,28 @@ function scenario(cc: CountryCase) {
             JSON.stringify(v.schedule),
           ]);
         }
+        // US-226 : grille de protection et parts de l'assureur de TEST (fixture 9977)
+        const level = (rank: number, price: string, minDriverAge: number | null) => ({
+          rank,
+          price,
+          minDriverAge,
+          dailyFloorMinor: null,
+          dailyCeilingMinor: null,
+        });
+        await tx.query('SELECT test_fixture.us226_set_param($1, $2, $3::jsonb)', [
+          'protection_grid',
+          cc.country,
+          JSON.stringify({
+            BASICA: level(1, v.basicaPrice, null),
+            ESTANDAR: level(2, '2/5', null),
+            TOTAL: level(3, '13/20', 21),
+          }),
+        ]);
+        await tx.query('SELECT test_fixture.us226_set_param($1, $2, $3::jsonb)', [
+          'insurer_premium_share',
+          cc.country,
+          JSON.stringify({ BASICA: '7/10', ESTANDAR: '7/10', TOTAL: '7/10' }),
+        ]);
         const guest = await person(tx, cc.country);
         const listingId = await listing(tx, cc, opts.transmission, opts.instant);
         const groups = await taxGroups(tx, cc);
@@ -380,9 +433,12 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           0,
         );
         expect(sum).toBe(v.total);
+        // US-226 : la partie du total hors protection reste celle de TA01 (PA) et de D2 (PY)
+        expect(v.total - v.protection).toBe(v.totalWithoutProtection);
         expect(String(q['total_minor'])).toBe(String(v.total));
         expect(String(q['leg_host_minor'])).toBe(String(v.host));
-        expect(String(q['leg_platform_minor'])).toBe(String(v.total - v.host));
+        expect(String(q['leg_insurer_minor'])).toBe(String(v.insurer));
+        expect(String(q['leg_platform_minor'])).toBe(String(v.total - v.host - v.insurer));
         expect(new Date(q['expires_at'] as Date).toISOString()).toBe(at(VALIDITY_MIN));
 
         const shown = (await checkoutQuote(tx, ctx.guest.hash, quoteId))[0]!;
@@ -617,7 +673,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       });
     });
 
-    it('pays fermé aux hôtes particuliers ou sans contrat d’assureur ⇒ LISTING_UNAVAILABLE', async () => {
+    it('pays fermé aux hôtes particuliers ⇒ LISTING_UNAVAILABLE (sans contrat d’assureur : INSURER_CONTRACT_INACTIVE, prouvé par l0-us226-protection)', async () => {
       await run(
         async (tx, ctx) => {
           const quoteId = await frozenQuote(tx, cc, ctx);

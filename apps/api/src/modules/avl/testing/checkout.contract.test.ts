@@ -11,7 +11,10 @@
  *   ni protection) : le devis figé envoyé à la base porte 40,00 × 3 j ⇒ total 128,40 (« TA01
  *   refund » = total) ;
  * - critère 4, variante sans décimale : trip D2 de 08 (T40) sans ses lignes non taxées ⇒ total de
- *   l'oracle moins ces lignes, à l'unité près.
+ *   l'oracle moins ces lignes, à l'unité près ;
+ * - US-226 (protection du voyageur, ADR-136) : grille de TEST de 16 PRC-018 (BASICA 1/4, trip A de
+ *   08 : protection 30,00 ; ESTANDAR 2/5, « taux de test de 40 % » ; TOTAL dès 21 ans, PRT-002) et
+ *   part de TEST de l'assureur de 08 E7 (7/10 : prime 21,00 de TJ01).
  * Les règles de la base (rejeu, validité, annonce immédiate, boîte manuelle, conducteur, documents,
  * pose du hold, IDOR) sont prouvées en L0 (`l0-us208-checkout.test.ts`), jamais par ces doubles.
  * Aucun code de pays ni de devise n'est écrit ici : ils sont lus des données (ADR-024).
@@ -28,7 +31,7 @@ import {
 } from '../../../testing/contract/support.js';
 import type { ContractApp } from '../../../testing/contract/support.js';
 import { missingCoverage } from '../../../testing/openapi-contract.js';
-import type { QuoteParams, QuoteParamsOf } from '../../prc/index.js';
+import type { QuoteParams, QuoteParamsContext, QuoteParamsOf } from '../../prc/index.js';
 import { QuoteError } from '../../prc/index.js';
 import type { CheckoutHold, CheckoutQuote, CheckoutResult } from '../internal/checkout/store.js';
 import { CHECKOUT_OUTCOMES } from '../internal/checkout/store.js';
@@ -63,6 +66,45 @@ const PA1: QuoteParams = {
   extrasSharePct: ratio(3n, 4n),
 };
 
+// US-226 : grille de TEST (16 PRC-018, PRT-002) et parts de TEST de l'assureur (08 E7)
+const GRID: QuoteParams = {
+  ...PA1,
+  protectionGrid: {
+    minLevel: 'BASICA',
+    levels: [
+      {
+        level: 'BASICA',
+        rank: 1,
+        price: ratio(1n, 4n),
+        minDriverAge: null,
+        dailyFloor: null,
+        dailyCeiling: null,
+      },
+      {
+        level: 'ESTANDAR',
+        rank: 2,
+        price: ratio(2n, 5n),
+        minDriverAge: null,
+        dailyFloor: null,
+        dailyCeiling: null,
+      },
+      {
+        level: 'TOTAL',
+        rank: 3,
+        price: ratio(13n, 20n),
+        minDriverAge: 21,
+        dailyFloor: null,
+        dailyCeiling: null,
+      },
+    ],
+  },
+  insurerPremiumShareByLevel: {
+    BASICA: ratio(7n, 10n),
+    ESTANDAR: ratio(7n, 10n),
+    TOTAL: ratio(7n, 10n),
+  },
+};
+
 const QUOTED_AT = T0_MS - 5 * DAY_MS;
 const BODY = { listingId: LISTING, startAt: iso(T0_MS), endAt: iso(T0_MS + 3 * DAY_MS) };
 
@@ -86,6 +128,10 @@ const VIEW: CheckoutQuote = {
     { kind: 'CANCELLATION_POLICY', version: 1, locale: 'es', title: 'Cancelación' },
     { kind: 'GEO_TERMS', version: 2, locale: 'es', title: 'Zonas' },
   ],
+  protectionLevel: null,
+  driverAge: null,
+  insurerContractActive: true,
+  protectionOptions: [],
 };
 
 const HOLD_VIEW: CheckoutHold = {
@@ -128,6 +174,7 @@ async function app(
       currency: cur.code,
       dailyPriceMinor: '4000',
       quotedAtMs: QUOTED_AT,
+      hostPlan: null,
     });
   }
   const quotes = options.quotes ?? new FakeQuoteStore();
@@ -194,6 +241,7 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
       currency: c.code,
       dailyPriceMinor: '333334', // P = 1 000 002 de D2 (08), divisible par 3
       quotedAtMs: QUOTED_AT,
+      hostPlan: null,
     });
     const { a, quotes } = await app({ store, params: () => params });
     store.quotes.set(`${a.hash('voyageur')}:${QUOTE}`, { ...VIEW, currency: c.code });
@@ -355,6 +403,162 @@ describe('US-208 — contrat du checkout (partie back-end)', () => {
       headers: a.cookie('voyageur'),
     });
     expect(down.status).toBe(503);
+  });
+
+  it('US-226 critère 1 : sans niveau ⇒ minimum BASICA présélectionné, ligne PROTECTION calculée (30,00 du trip A) et prime de l’assureur 21,00 (TJ01) dans le devis envoyé à la base ; plan du véhicule transmis au moteur', async () => {
+    const asked: QuoteParamsContext[] = [];
+    const store = new FakeCheckoutStore();
+    store.listings.set(LISTING, {
+      country: FIRST_COUNTRY,
+      currency: cur.code,
+      dailyPriceMinor: '4000',
+      quotedAtMs: QUOTED_AT,
+      hostPlan: 'ESTÁNDAR',
+    });
+    const { a, quotes } = await app({
+      store,
+      params: (ctx) => {
+        asked.push(ctx);
+        return GRID;
+      },
+    });
+    store.quotes.set(`${a.hash('voyageur')}:${QUOTE}`, VIEW);
+    const r = await a.api.request('POST', '/checkout/quotes', {
+      headers: a.cookie('voyageur'),
+      body: BODY,
+    });
+    expect(r.status).toBe(201);
+    expect(asked[0]).toMatchObject({ country: FIRST_COUNTRY, hostPlan: 'ESTÁNDAR' });
+    const frozen = quotes.frozen[0]!.frozen;
+    const inputs = JSON.parse(frozen.inputs) as { request: Record<string, unknown> };
+    expect(inputs.request).toMatchObject({ protectionLevel: 'BASICA', driverAge: null });
+    expect(inputs.request['lines']).toEqual({});
+    const outputs = JSON.parse(frozen.outputs) as {
+      lines: { type: string; amount: string }[];
+      legs: Record<string, string>;
+      protectionLevel: string;
+    };
+    const refund = checksFor(golden, 'TA01').find((c) => c.label === 'TA01 refund')?.expected;
+    expect(outputs.protectionLevel).toBe('BASICA');
+    expect(outputs.lines.find((l) => l.type === 'PROTECTION')?.amount).toBe(
+      String(t01.trip.linesMinor.protection),
+    );
+    expect(frozen.totalMinor).toBe(String(BigInt(String(refund)) + t01.trip.linesMinor.protection));
+    expect(outputs.legs['INSURER']).toBe('2100');
+  });
+
+  it('US-226 critère 1 : TOTAL refusé sans âge et à 20 ans (PROTECTION_LEVEL_NOT_ELIGIBLE), accepté à 21 ans ; aucune protection ⇒ PROTECTION_LEVEL_REQUIRED sans appel à la base ; forme invalide ⇒ 400 ; refus de la base ⇒ son code', async () => {
+    const { a, quotes, store } = await app({ params: () => GRID });
+    store.quotes.set(`${a.hash('voyageur')}:${QUOTE}`, VIEW);
+    const post = (extra: Record<string, unknown>) =>
+      a.api.request('POST', '/checkout/quotes', {
+        headers: a.cookie('voyageur'),
+        body: { ...BODY, ...extra },
+      });
+    for (const extra of [
+      { protectionLevel: 'TOTAL' },
+      { protectionLevel: 'TOTAL', driverAge: 20 },
+    ]) {
+      const r = await post(extra);
+      expect(r.status).toBe(422);
+      expect(r.json).toEqual({
+        code: 'PROTECTION_LEVEL_NOT_ELIGIBLE',
+        messageKey: 'common.quote.protectionNotEligible',
+      });
+    }
+    // niveau inconnu du pays (refus total déguisé) : non vendu
+    expect((await post({ protectionLevel: 'NONE' })).json).toMatchObject({
+      code: 'PROTECTION_LEVEL_NOT_ELIGIBLE',
+    });
+    for (const protectionLevel of [null, '']) {
+      const r = await post({ protectionLevel });
+      expect(r.status).toBe(422);
+      expect(r.json).toEqual({
+        code: 'PROTECTION_LEVEL_REQUIRED',
+        messageKey: 'common.quote.protectionRequired',
+      });
+    }
+    for (const extra of [
+      { protectionLevel: 'basica' },
+      { protectionLevel: 3 },
+      { driverAge: 0 },
+      { driverAge: 151 },
+      { driverAge: '20' },
+      { driverAge: 20.5 },
+    ]) {
+      expect((await post(extra)).status, JSON.stringify(extra)).toBe(400);
+    }
+    expect(quotes.frozen).toEqual([]);
+    const ok = await post({ protectionLevel: 'TOTAL', driverAge: 21 });
+    expect(ok.status).toBe(201);
+    const outputs = JSON.parse(quotes.frozen[0]!.frozen.outputs) as {
+      lines: { type: string; amount: string }[];
+    };
+    // 13/20 × 40,00 = 26,00 par jour × 3 j
+    expect(outputs.lines.find((l) => l.type === 'PROTECTION')?.amount).toBe('7800');
+    for (const [outcome, status] of [
+      ['INSURER_CONTRACT_INACTIVE', 409],
+      ['PROTECTION_LEVEL_NOT_ELIGIBLE', 422],
+      ['PROTECTION_LEVEL_REQUIRED', 422],
+    ] as const) {
+      quotes.outcome = outcome;
+      const r = await post({});
+      expect(r.status, outcome).toBe(status);
+      expect(r.json).toMatchObject({ code: outcome });
+    }
+  });
+
+  it('US-226 : devis lu ⇒ niveaux vendus par rang avec leur prix pour la période ; niveau refusé à l’âge déclaré grisé (DRIVER_AGE) ; interrupteur de l’assureur rendu tel quel', async () => {
+    const { a, store } = await app({ params: () => GRID });
+    store.frozenAtMs = QUOTED_AT;
+    const view: CheckoutQuote = {
+      ...VIEW,
+      lines: [
+        { type: 'TRIP_PRICE', amountMinor: '12000', taxMinor: '840' },
+        { type: 'PROTECTION', amountMinor: '3000', taxMinor: '0' },
+      ],
+      totalMinor: '15840',
+      protectionLevel: 'BASICA',
+      driverAge: 20,
+      insurerContractActive: false,
+    };
+    store.quotes.set(`${a.hash('voyageur')}:${QUOTE}`, view);
+    const r = await a.api.request('GET', `/checkout/quotes/${QUOTE}`, {
+      headers: a.cookie('voyageur'),
+    });
+    expect(r.status).toBe(200);
+    const q = (r.json as { quote: CheckoutQuote }).quote;
+    expect(q.insurerContractActive).toBe(false);
+    // 1/4, 2/5 et 13/20 de 40,00 par jour (16 PRC-018), × 3 jours facturables
+    expect(q.protectionOptions).toEqual([
+      {
+        level: 'BASICA',
+        eligible: true,
+        reason: null,
+        minDriverAge: null,
+        dailyMinor: '1000',
+        lineMinor: '3000',
+        selected: true,
+      },
+      {
+        level: 'ESTANDAR',
+        eligible: true,
+        reason: null,
+        minDriverAge: null,
+        dailyMinor: '1600',
+        lineMinor: '4800',
+        selected: false,
+      },
+      {
+        level: 'TOTAL',
+        eligible: false,
+        reason: 'DRIVER_AGE',
+        minDriverAge: 21,
+        dailyMinor: '2600',
+        lineMinor: '7800',
+        selected: false,
+      },
+    ]);
   });
 
   it('couverture : chaque statut déclaré pour /checkout est exercé', () => {

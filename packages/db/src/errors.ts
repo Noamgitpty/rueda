@@ -89,7 +89,7 @@ export const DB_BUSINESS_CODES = [
   'TRIP_TRANSITION_FORBIDDEN',
   'TRIP_CONCURRENT_UPDATE',
   'REJECTED_TOO_EARLY',
-  // US-209 (0110, ADR-135) : contrôles bloquants du conducteur relus au paiement (16 BKG-012)
+  // US-209 (0112, ADR-135) : contrôles bloquants du conducteur relus au paiement (16 BKG-012)
   'KYC_BIOMETRIC_CONSENT_MISSING',
   'KYC_NOT_APPROVED',
   'KYC_LICENSE_EXPIRED',
@@ -156,6 +156,8 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   pricing_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   // US-208 (0108, ADR-133) : rattachement du checkout au hold, registres immuables
   booking_checkout_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
+  // US-226 (0110, ADR-136) : plan de gains par véhicule, registre immuable
+  catalog_earnings_plan_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   // avis enregistrés (US-218, migration 0104)
   review_record_immutable: [SQLSTATE.integrityConstraintViolation, 'IMMUTABLE_RECORD'],
   audit_log_key_destroyed: [SQLSTATE.integrityConstraintViolation, 'SUBJECT_ERASED'],
@@ -227,7 +229,7 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
     SQLSTATE.objectNotInPrerequisiteState,
     'KYC_BIOMETRIC_CONSENT_MISSING',
   ],
-  // US-209 (0110, ADR-135) : démarrage du paiement refusé, voyageur devenu inéligible
+  // US-209 (0112, ADR-135) : démarrage du paiement refusé, voyageur devenu inéligible
   hold_kyc_consent_missing: [
     SQLSTATE.objectNotInPrerequisiteState,
     'KYC_BIOMETRIC_CONSENT_MISSING',

@@ -2655,7 +2655,33 @@
         "outputs_hash": "C1",
         "frozen_at": "C1",
         "superseded_at": "C1",
-        "expires_at": "C1"
+        "expires_at": "C1",
+        "protection_level": "C1",
+        "host_plan_code": "C1",
+        "driver_age": "C1"
+      }
+    },
+    "core.catalog_vehicle_earnings_plan": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "org_id",
+          "type": "ORG"
+        },
+        {
+          "column": "chosen_by",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "vehicle_id": "C1",
+        "version": "C1",
+        "org_id": "C1",
+        "country_code": "C1",
+        "plan_code": "C1",
+        "chosen_by": "C1",
+        "chosen_at": "C1"
       }
     },
     "core.pricing_quote_line": {

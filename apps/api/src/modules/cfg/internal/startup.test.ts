@@ -37,8 +37,8 @@ const TO_FIX_BOTH = [
   'fuel_refill_max',
   'host_advance_cap_minor',
   'incidental_charge_deadline_days',
-  'insurer_premium_share',
-  'insurer_roadside_share',
+  // insurer_premium_share et insurer_roadside_share : valeurs de test À DÉCIDER depuis US-226
+  // (graine 0111, ADR-136), refusées en production comme PARAM_UNDECIDED, plus comme manquantes
   'late_fee_cap',
   'max_reattempts',
   'platform_reserve_minor',
