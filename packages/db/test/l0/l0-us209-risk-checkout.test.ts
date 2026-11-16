@@ -1099,7 +1099,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       });
     });
 
-    it('refus de la commande liée sans rien écrire : évaluation AUTO_OK (non signalée) ⇒ NOT_FOUND ; hold_ttl_minutes mal formé ⇒ PARAM_MISSING (fail-closed), le refus reste possible', async () => {
+    it('refus de la commande liée sans rien écrire : évaluation AUTO_OK (non signalée) ⇒ NOT_FOUND ; hold_ttl_minutes à 0 ⇒ PARAM_MISSING (fail-closed), le refus reste possible', async () => {
       await run(async (tx, w) => {
         // une seule règle faible (compte récent, véhicule sans classe) : AUTO_OK, aucune file
         const p = await guest(tx, cc);
@@ -1114,7 +1114,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         const f = await flagged(tx, w);
         await tx.query('SELECT test_fixture.us209b_set_hold_ttl($1, $2::jsonb)', [
           cc.country,
-          '"dix"',
+          '0',
         ]);
         expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
         expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).detail).toBe(
