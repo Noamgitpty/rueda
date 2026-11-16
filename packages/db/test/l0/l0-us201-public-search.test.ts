@@ -19,7 +19,7 @@
  * America/Asuncion = UTC−3 en décembre (avant comme après la suppression de l'heure d'hiver en
  * 2024) : les dates de test sont en décembre, loin dans le futur (aucune borne d'horizon).
  */
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
@@ -28,6 +28,7 @@ import type { CountryCase } from '../support/avl.ts';
 import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts';
 import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { placeName } from '../support/names.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 
 type Tx = pg.ClientBase;
@@ -69,10 +70,6 @@ function utcOf(c: CountryCase, local: string): string {
   if (offset === undefined) throw new Error(`pays de test sans décalage : ${c.country}`);
   return new Date(Date.parse(`${local}:00.000Z`) - offset * 3_600_000).toISOString();
 }
-
-/** Nom de ville unique, en lettres seules (le filtre des textes publics refuse les chiffres). */
-const placeName = (prefix: string): string =>
-  `${prefix} ${Array.from({ length: 10 }, () => String.fromCharCode(97 + randomInt(26))).join('')}`;
 
 interface Host {
   readonly userId: string;
@@ -145,6 +142,7 @@ async function car(
     'SELECT * FROM core.catalog_cmd_create_location($1, $2, $3, $4, $5, $6, $7, $8, $9)',
     [h.hash, h.org, 'HOME', 'Casa de Ana', 'Calle Larga', city, area, '8.987654', '-79.512345'],
   );
+  if (loc.rows[0]?.outcome !== 'DONE') throw new Error(`lieu refusé : ${loc.rows[0]?.outcome}`);
   const veh = await c.query<{ outcome: string; vehicle_id: string | null }>(
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,

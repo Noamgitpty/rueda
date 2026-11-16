@@ -33,6 +33,7 @@ import type { CountryCase } from '../support/avl.ts';
 import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts';
 import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
+import { placeName } from '../support/names.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 
 type Tx = pg.ClientBase;
@@ -58,10 +59,6 @@ const utc = (c: CountryCase, local: string): string =>
   new Date(
     Date.parse(`${local}:00Z`) - (DECEMBER_OFFSET_H[c.country] ?? 0) * 3_600_000,
   ).toISOString();
-
-/** Nom de ville unique, en lettres seules (le filtre des textes publics refuse les chiffres). */
-const placeName = (prefix: string): string =>
-  `${prefix} ${Array.from(randomBytes(10), (b) => String.fromCharCode(97 + (b % 26))).join('')}`;
 
 interface Person {
   readonly userId: string;
@@ -120,12 +117,12 @@ async function car(c: Tx, cc: CountryCase, photos = 0): Promise<Car & { photoIds
   await c.query('SELECT test_fixture.us115_set_org_status($1, $2)', [org, 'ACTIVE']);
   const city = placeName('Villa');
   const area = placeName('Barrio');
-  const loc = await c.query<{ location_id: string | null }>(
+  const loc = await c.query<{ outcome: string; location_id: string | null }>(
     'SELECT * FROM core.catalog_cmd_create_location($1, $2, $3, $4, $5, $6, $7, $8, $9)',
     [host.hash, org, 'HOME', PLACE, ADDRESS, city, area, '8.987654', '-79.512345'],
   );
   const location = loc.rows[0]?.location_id;
-  if (!location) throw new Error('lieu refusé');
+  if (!location) throw new Error(`lieu refusé : ${loc.rows[0]?.outcome}`);
   const notice = await c.query<{ outcome: string }>(
     'SELECT * FROM core.catalog_cmd_set_location_notice($1, $2, $3, $4)',
     [host.hash, org, location, NOTICE_MIN],
