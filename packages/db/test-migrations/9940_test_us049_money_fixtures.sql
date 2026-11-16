@@ -104,8 +104,11 @@ DECLARE
   v_idem    text;
   v_outcome text;
   v_inbox   uuid;
+  v_amount  bigint;
+  v_cur     text;
 BEGIN
-  SELECT o.psp_account_id, o.provider_reference, o.idem_sent INTO v_account, v_ref, v_idem
+  SELECT o.psp_account_id, o.provider_reference, o.idem_sent, o.amount_minor, o.currency
+    INTO v_account, v_ref, v_idem, v_amount, v_cur
     FROM core.payment_payment_operation AS o WHERE o.id = p_operation_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'us049_signed_webhook: operation % unknown', p_operation_id;
@@ -118,6 +121,9 @@ BEGIN
              'providerReference', COALESCE(v_ref, pg_catalog.format('ref-%s', p_operation_id)),
              'merchantReference', v_idem,
              'status', p_status,
+             -- US-223 (0116) : montant et devise reçus, ceux de l'ordre (un loyer les exige)
+             'amountMinor', v_amount::text,
+             'currency', v_cur,
              'occurredAt', pg_catalog.to_char(platform.now() AT TIME ZONE 'UTC',
                                               'YYYY-MM-DD"T"HH24:MI:SS"Z"')))) AS r;
   IF v_outcome IS DISTINCT FROM 'RECEIVED' THEN

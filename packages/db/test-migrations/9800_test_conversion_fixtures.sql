@@ -26,7 +26,8 @@
 --   test_fixture.us024_force_operation_status(uuid, text),
 --   test_fixture.us024_approve_review(uuid, integer), test_fixture.us024_psp_account_of(text, text,
 --   text), test_fixture.us024_force_payment_attempts(uuid, integer) ; DROP TABLE test_fixture.us024_hold_terms ;
---   réappliquer la définition de 0040 de core.booking_hold_payment_terms.
+--   réappliquer la définition de 0116 de core.booking_hold_payment_terms (US-223) ;
+--   REVOKE EXECUTE ON FUNCTION core.booking_checkout_capture_terms(uuid) FROM migrator.
 
 CREATE TABLE test_fixture.us024_hold_terms (
   hold_id         uuid PRIMARY KEY,
@@ -80,10 +81,22 @@ AS $fn$
   SELECT t.amount_minor, t.currency, t.legs, t.scheduled_start, t.scheduled_end, t.timezone
     FROM test_fixture.us024_hold_terms t
    WHERE t.hold_id = p_hold_id
+  UNION ALL
+  -- US-223 (0116) : hold sans conditions de test ⇒ la VRAIE lecture du devis engagé au checkout
+  SELECT c.amount_minor, c.currency, c.legs, c.scheduled_start, c.scheduled_end, c.timezone
+    FROM core.booking_checkout_capture_terms(p_hold_id) AS c
+   WHERE NOT EXISTS (SELECT 1 FROM test_fixture.us024_hold_terms t2 WHERE t2.hold_id = p_hold_id)
 $fn$;
 
 COMMENT ON FUNCTION core.booking_hold_payment_terms(uuid) IS
-  'VERSION DE TEST (test-migrations/9800) : registre des conditions de paiement de test.';
+  'VERSION DE TEST (test-migrations/9800) : registre des conditions de paiement de test, sinon le '
+  'devis engagé au checkout (core.booking_checkout_capture_terms, 0116).';
+
+-- US-223 : la version de test (SECURITY DEFINER sous migrator) lit la vraie fonction ; seul son
+-- propriétaire accorde EXECUTE
+SET LOCAL ROLE cmd_hold_owner;
+GRANT EXECUTE ON FUNCTION core.booking_checkout_capture_terms(uuid) TO migrator;
+RESET ROLE;
 
 CREATE FUNCTION test_fixture.us024_psp_account(p_country_code text)
   RETURNS uuid
@@ -158,12 +171,14 @@ BEGIN
     FROM test_fixture.us024_hold_terms x WHERE x.hold_id = p_hold_id;
   INSERT INTO core.payment_payment_operation
          (id, hold_id, psp_account_id, country_code, provider, method, kind, purpose, amount_minor,
-          currency, attempt_no, status, idem_plain, idem_sent, provider_reference)
+          currency, attempt_no, status, idem_plain, idem_sent, provider_reference, proof_type)
   VALUES (p_operation_id, p_hold_id, test_fixture.us024_psp_account(h.country_code), h.country_code,
           'FAKE', 'CARD', p_kind, 'RENT', t.amount_minor, t.currency, p_attempt_no, p_status,
           pg_catalog.format('hold:%s:%s:x%s', p_hold_id, p_kind, p_operation_id),
           pg_catalog.format('hold:%s:%s:x%s', p_hold_id, p_kind, p_operation_id),
-          'fake-x-' || p_operation_id::text);
+          'fake-x-' || p_operation_id::text,
+          -- US-223 (0116) : paiement de fixture SUCCEEDED = preuve signée déjà reçue
+          CASE WHEN p_status = 'SUCCEEDED' THEN 'WEBHOOK_SIGNED' END);
   INSERT INTO core.payment_payment_operation_leg (operation_id, leg, org_id, trip_id, country_code,
                                                   amount_minor)
   SELECT p_operation_id, k, h.org_id, NULL, h.country_code, (t.legs ->> k)::bigint
@@ -178,7 +193,12 @@ CREATE FUNCTION test_fixture.us024_force_operation_status(p_operation_id uuid, p
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 BEGIN
-  UPDATE core.payment_payment_operation SET status = p_status WHERE id = p_operation_id;
+  -- US-223 (0116) : statut corrigé après lecture faisant foi : tient lieu d'une preuve
+  UPDATE core.payment_payment_operation
+     SET status = p_status,
+         proof_type = CASE WHEN p_status IN ('SUCCEEDED', 'FAILED')
+                           THEN COALESCE(proof_type, 'WEBHOOK_SIGNED') ELSE proof_type END
+   WHERE id = p_operation_id;
 END
 $fn$;
 

@@ -288,3 +288,100 @@ describe('T68 — relances d’un débit MIT : a1 refusé, a2 sans statut puis r
     expect(r.stack.psp.totalCalls()).toBe(0);
   });
 });
+
+describe.each(['TJ01', 'TJ08a'])(
+  'N-108 (US-223) — PSP sans en-tête d’idempotence validé : lecture avant tout envoi (%s)',
+  (vectorId) => {
+    const v = legVector(set, vectorId);
+    const base = (idem: string) => ({
+      kind: 'MIT_CHARGE' as const,
+      idemSent: idem,
+      amountMinor: v.totalMinor,
+      currency: v.currency,
+      legs: legs(vectorId),
+      targetReference: null,
+      mit: {
+        reason: 'DELAYED_CHARGES' as ChargeMitRequest['reason'],
+        instrumentToken: 'tok_guarantee',
+      },
+    });
+    // PSP qui débite à chaque appel (clé ignorée) et ne déclare pas l'en-tête (inconnue = non)
+    const hostile = () =>
+      rig({ scenario: { ignoreIdempotency: true }, without: ['SUPPORTS_IDEMPOTENCY_HEADER'] });
+
+    it('succès chez le PSP non enregistré chez nous (base en panne), opération restée PENDING : lecture par notre clé, aucun second débit', async () => {
+      const r = hostile();
+      const k = key('MIT_CHARGE', 'card', 1);
+      r.store.addOperation({ id: 'm1', accountId: 'acc', idemSent: k, providerReference: null });
+      // premier envoi : lecture (inconnue du PSP), puis débit ; l'écriture de notre statut échoue
+      const apply = r.store.apply.bind(r.store);
+      let fail = true;
+      r.store.apply = (input) => {
+        if (fail) {
+          fail = false;
+          return Promise.reject(new Error('base indisponible'));
+        }
+        return apply(input);
+      };
+      await expect(r.sender.send(command(r, 'm1', base(k)))).rejects.toThrow('base indisponible');
+      expect(r.store.operations.get('m1')?.status).toBe('PENDING');
+      // rejeu de la même opération PENDING : lecture d'abord, l'état faisant foi est appliqué
+      expect(await r.sender.send(command(r, 'm1', base(k)))).toMatchObject({
+        outcome: 'SUCCEEDED',
+      });
+      expect(r.keysSent).toEqual([k]);
+      expect(r.stack.psp.calls('MIT_CHARGE')).toBe(1);
+      const debits = r.stack.psp.movements().filter((m) => m.operation === 'MIT_CHARGE');
+      expect(debits.map((m) => m.amountMinor)).toEqual([v.totalMinor]);
+    });
+
+    it('lecture impossible avant le premier envoi : rien n’est envoyé (NOT_SENT), aucun débit', async () => {
+      const r = rig({
+        scenario: { ignoreIdempotency: true, responses: { LOOKUP: [{ kind: 'UNAVAILABLE' }] } },
+        without: ['SUPPORTS_IDEMPOTENCY_HEADER'],
+      });
+      const k = key('MIT_CHARGE', 'card', 1);
+      r.store.addOperation({ id: 'm1', accountId: 'acc', idemSent: k, providerReference: null });
+      expect(await r.sender.send(command(r, 'm1', base(k)))).toEqual({ outcome: 'NOT_SENT' });
+      expect(r.stack.psp.calls('MIT_CHARGE')).toBe(0);
+      expect(r.store.operations.get('m1')?.status).toBe('PENDING');
+    });
+
+    it('ni en-tête ni recherche par clé ni référence PSP : escalade, aucun envoi', async () => {
+      const r = rig({
+        scenario: { ignoreIdempotency: true },
+        without: ['SUPPORTS_IDEMPOTENCY_HEADER', 'SUPPORTS_LOOKUP_BY_MERCHANT_REF'],
+      });
+      const k = key('MIT_CHARGE', 'card', 1);
+      r.store.addOperation({ id: 'm1', accountId: 'acc', idemSent: k, providerReference: null });
+      expect(await r.sender.send(command(r, 'm1', base(k)))).toEqual({
+        outcome: 'ESCALATE',
+        reason: 'NO_LOOKUP_POSSIBLE',
+      });
+      expect(r.stack.psp.totalCalls()).toBe(0);
+    });
+
+    it('jambes falsifiées : LEG_SUM_MISMATCH avant toute lecture, aucun appel', async () => {
+      const r = hostile();
+      const k = key('MIT_CHARGE', 'card', 1);
+      r.store.addOperation({ id: 'm1', accountId: 'acc', idemSent: k, providerReference: null });
+      const bad = { ...base(k), legs: { ...legs(vectorId), HOST: legs(vectorId).HOST + 1n } };
+      await expect(r.sender.send(command(r, 'm1', bad))).rejects.toMatchObject({
+        code: 'LEG_SUM_MISMATCH',
+      });
+      expect(r.stack.psp.totalCalls()).toBe(0);
+    });
+
+    it('statut que la base refuse de prouver (compte LIVE : UNPROVEN) : jamais rendu comme un succès', async () => {
+      const r = rig({});
+      const k = key('MIT_CHARGE', 'card', 1);
+      r.store.addOperation({ id: 'm1', accountId: 'acc', idemSent: k, providerReference: null });
+      r.store.unproven.add('m1');
+      expect(await r.sender.send(command(r, 'm1', base(k)))).toEqual({
+        outcome: 'AWAITING_PROOF',
+        refused: 'UNPROVEN',
+      });
+      expect(r.store.operations.get('m1')?.status).toBe('PENDING');
+    });
+  },
+);

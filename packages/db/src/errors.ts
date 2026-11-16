@@ -42,7 +42,9 @@
  *   remise ; migration 0071, US-119, ADR-101) ;
  * - `TRIP_TRANSITION_FORBIDDEN`, `TRIP_CONCURRENT_UPDATE` : 16 fiche TRP-045 ; `REJECTED_TOO_EARLY` :
  *   08 BR-CXL, règle de qualification 3 (no-show déclaré avant `noShowAt`) — machine à états du
- *   trip d'US-207 (migration 0099, ADR-126).
+ *   trip d'US-207 (migration 0099, ADR-126) ;
+ * - `PAYMENT_UNPROVEN` : PROPOSÉ par US-223 (migration 0116, ADR-139) : mouvement de jambe d'une
+ *   opération sans preuve rattachée (S-02, RC-5).
  */
 
 /** Codes métier produits par la traduction. */
@@ -94,6 +96,8 @@ export const DB_BUSINESS_CODES = [
   'KYC_NOT_APPROVED',
   'KYC_LICENSE_EXPIRED',
   'AGE_CLASS_MISMATCH',
+  // US-223 (0116, ADR-139) : mouvement de jambe sans preuve rattachée (S-02, RC-5)
+  'PAYMENT_UNPROVEN',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -264,6 +268,11 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   leg_movement_exceeds_balance: [SQLSTATE.objectNotInPrerequisiteState, 'LEG_AMOUNT_NEGATIVE'],
   leg_movement_not_succeeded: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_movement_unsupported: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  // US-223 (0116, ADR-139) : aucun mouvement de jambe sans preuve (S-02) ; version de prix n° 1
+  // du trip incohérente avec le devis du checkout (N-160) ; deux lignes de la même jambe (N-18)
+  leg_movement_unproven: [SQLSTATE.objectNotInPrerequisiteState, 'PAYMENT_UNPROVEN'],
+  pricing_checkout_trip_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
+  payment_operation_leg_pkey: [SQLSTATE.uniqueViolation, 'INVARIANT_VIOLATION'],
   // correctifs de la red team argent (0054, US-049, ADR-088) : rejeu des entrées d'un règlement,
   // remboursement borné par le règlement, versement gardé (trip terminé, interrupteurs)
   settlement_replay_mismatch: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],

@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 118 migrations ; 120 tables ; 2 vues ; 650 politiques RLS ; 225 fonctions `SECURITY DEFINER` ; 221 autres fonctions.
+- 117 migrations ; 120 tables ; 2 vues ; 652 politiques RLS ; 229 fonctions `SECURITY DEFINER` ; 222 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -131,8 +131,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0113_config_foreign_license_params` | graine complémentaire : paramètres « foreign_license_* » (US-209 ; 17 §7.2). |
 | `0114_config_insurer_rc_params` | graine complémentaire : paramètres « insurer_rc_* » (US-205 ; 17 §7.2). |
 | `0115_catalog_public_terms` | CAT / STL : conditions affichées sur la fiche et conditions du contrat de l'assureur. |
-| `0116_config_last_minute_window_params` | graine complémentaire : paramètres « last_minute_free_window* » (US-205 ; 17 §7.2). |
-| `0117_prc_quote_mileage_checkout_terms` | PRC / CAT : distance figée dans le devis, conditions d'annulation du checkout, fenêtre |
+| `0116_payment_checkout_legs_proof` | PAY / AVL / PRC / STL : paiement par jambes au checkout, Kmino marchand de référence, |
 
 ## Rôles
 
@@ -696,6 +695,7 @@ Politiques RLS :
 
 - `cmd_hold_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `true`
 - `cmd_hold_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `cmd_money_checkout_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -2252,6 +2252,7 @@ Politiques RLS :
 - `app_read` (SELECT, PERMISSIVE, app_api, app_worker) USING `true`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `true`
+- `cmd_hold_country_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
@@ -2465,7 +2466,7 @@ Politiques RLS :
 - `catalog_cmd_publish_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'listing_manual_review_required'::text)`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
 - `catalog_cmd_search_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['max_trip_days'::text, 'buffer_minutes'::text]))`
-- `catalog_cmd_terms_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'insurer_rc_minimum'::text, 'last_minute_free_window_minutes'::text]))`
+- `catalog_cmd_terms_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'insurer_rc_minimum'::text]))`
 - `catalog_cmd_upload_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['upload_photo_max_kb'::text, 'upload_gallery_photos_max'::text, 'upload_documents_per_minute'::text]))`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
@@ -4051,7 +4052,7 @@ Déclencheurs :
 Contraintes :
 
 - `payment_operation_event_operation_fk` : `FOREIGN KEY (operation_id) REFERENCES core.payment_payment_operation(id)`
-- `payment_operation_event_outcome_valid` : `CHECK (outcome = ANY (ARRAY['APPLIED'::text, 'DUPLICATE'::text, 'STALE'::text, 'CONFLICT'::text]))`
+- `payment_operation_event_outcome_valid` : `CHECK (outcome = ANY (ARRAY['APPLIED'::text, 'DUPLICATE'::text, 'STALE'::text, 'CONFLICT'::text, 'UNPROVEN'::text, 'MISMATCH'::text]))`
 - `payment_operation_event_raw_ref_fk` : `FOREIGN KEY (raw_ref) REFERENCES core.payment_webhook_inbox(id)`
 - `payment_operation_event_source_valid` : `CHECK (source = ANY (ARRAY['API_RESPONSE'::text, 'WEBHOOK'::text, 'POLL'::text, 'MANUAL_OPS'::text]))`
 - `payment_operation_event_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'SUBMITTED'::text, 'SUCCEEDED'::text, 'FAILED'::text, 'UNKNOWN'::text]))`
@@ -4385,9 +4386,6 @@ Déclencheurs :
 | `protection_level` | `text` | non | — |
 | `host_plan_code` | `text` | non | — |
 | `driver_age` | `smallint` | non | — |
-| `mileage_mode` | `text` | non | — |
-| `included_km` | `integer` | non | — |
-| `extra_km_price_minor` | `bigint` | non | — |
 
 Contraintes :
 
@@ -4397,14 +4395,10 @@ Contraintes :
 - `pricing_quote_driver_age_valid` : `CHECK (driver_age >= 0 AND driver_age <= 150)`
 - `pricing_quote_engine_known` : `CHECK (engine_version = ANY (ARRAY['prc.quote/1'::text, 'prc.quote/2'::text, 'prc.quote/3'::text]))`
 - `pricing_quote_expires_after_frozen` : `CHECK (expires_at IS NULL OR expires_at > frozen_at)`
-- `pricing_quote_extra_km_price_valid` : `CHECK (extra_km_price_minor >= 0)`
 - `pricing_quote_host_plan_format` : `CHECK (host_plan_code ~ '^[A-Z][A-Z0-9_ÁÉÍÓÚÑ]{0,31}$'::text)`
-- `pricing_quote_included_km_valid` : `CHECK (included_km >= 1)`
 - `pricing_quote_inputs_hash_format` : `CHECK (inputs_hash ~ '^[0-9a-f]{64}$'::text)`
 - `pricing_quote_legs_nonnegative` : `CHECK (leg_host_minor >= 0 AND leg_insurer_minor >= 0 AND leg_tax_third_party_minor >= 0 AND leg_platform_minor >= 0)`
 - `pricing_quote_legs_sum` : `CHECK ((leg_host_minor + leg_insurer_minor + leg_tax_third_party_minor + leg_platform_minor) = total_minor)`
-- `pricing_quote_mileage_complete` : `CHECK (mileage_mode IS NULL AND included_km IS NULL AND extra_km_price_minor IS NULL OR mileage_mode = 'UNLIMITED'::text AND included_km IS NULL AND extra_km_price_minor IS NULL OR mileage_mode = 'INCLUDED'::text AND included_km IS NOT NULL AND extra_km_price_minor IS NOT NULL)`
-- `pricing_quote_mileage_mode_valid` : `CHECK (mileage_mode = ANY (ARRAY['UNLIMITED'::text, 'INCLUDED'::text]))`
 - `pricing_quote_outputs_hash_format` : `CHECK (outputs_hash ~ '^[0-9a-f]{64}$'::text)`
 - `pricing_quote_period_valid` : `CHECK (NOT isempty(period) AND lower_inc(period) AND NOT upper_inc(period))`
 - `pricing_quote_pkey` : `PRIMARY KEY (id)`
@@ -5871,10 +5865,14 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_assert_conversion_disposition()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.booking_assert_rent_payment_operation()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
 | `core.booking_assert_trip_occupancy()` | `trigger` | `integrity_owner` | search_path=pg_catalog, pg_temp | integrity_owner: EXECUTE |
+| `core.booking_checkout_capture_terms(p_hold_id uuid)` | `TABLE(amount_minor bigint, currency text, legs jsonb, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_checkout_payment(p_token_hash bytea, p_hold_id uuid)` | `TABLE(outcome text, hold_status text, trip_id uuid, expires_at timestamp with time zone, payment_in_flight_until timestamp with time zone, operation_status text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_protection(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, protection_level text, driver_age integer, frozen_at timestamp with time zone, insurer_contract_active boolean)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_quote(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, listing_id uuid, country_code text, currency text, start_at timestamp with time zone, end_at timestamp with time zone, billable_days integer, lines jsonb, total_minor bigint, expires_at timestamp with time zone, expired boolean, manual_transmission boolean, instant_book boolean, documents jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_summary(p_token_hash bytea, p_hold_id uuid)` | `TABLE(hold_id uuid, status text, expires_at timestamp with time zone, quote_id uuid, listing_id uuid, currency text, start_at timestamp with time zone, end_at timestamp with time zone, total_minor bigint, manual_confirmed_at timestamp with time zone, documents jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_checkout(p_token_hash bytea, p_quote_id uuid, p_driver_first text, p_driver_last text, p_manual_confirmed boolean, p_documents jsonb)` | `TABLE(outcome text, hold_id uuid, expires_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_checkout_pay(p_token_hash bytea, p_hold_id uuid, p_method text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_checkout_record_order(p_token_hash bytea, p_hold_id uuid, p_operation_id uuid, p_provider_reference text, p_order_expires_at timestamp with time zone)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_place_buffer(p_trip_id uuid, p_start timestamp with time zone)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_place_hold(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_flagged boolean)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_place_host_block(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
@@ -5930,7 +5928,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_public_listing(p_listing_id uuid)` | `TABLE(listing_id uuid, country_code text, daily_price_minor bigint, currency text, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, instant_book boolean, variant_id uuid, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.catalog_public_search(p_country text, p_city text, p_area text, p_start_local timestamp without time zone, p_end_local timestamp without time zone, p_limit integer)` | `TABLE(outcome text, listing_id uuid, daily_price_minor bigint, currency text, instant_book boolean, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text, start_at timestamp with time zone, end_at timestamp with time zone)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_slot_check(p_listing_id uuid, p_start_local timestamp without time zone, p_end_local timestamp without time zone)` | `TABLE(outcome text, start_at timestamp with time zone, end_at timestamp with time zone, timezone text, notice_minutes integer)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
-| `core.catalog_public_terms(p_listing_id uuid, p_start timestamp with time zone)` | `TABLE(listing_id uuid, currency text, timezone text, read_at timestamp with time zone, free_cancel_lead_hours integer, last_minute_threshold_hours integer, last_minute boolean, free_until timestamp with time zone, last_minute_window_minutes integer, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, deposit_amount_minor bigint, protection_offered boolean, insurer_name text, insurer_license_ref text, broker_name text, broker_license_ref text, contract_version integer, rc_amount_minor bigint, deductibles jsonb, exclusions jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
+| `core.catalog_public_terms(p_listing_id uuid, p_start timestamp with time zone)` | `TABLE(listing_id uuid, currency text, timezone text, read_at timestamp with time zone, free_cancel_lead_hours integer, last_minute_threshold_hours integer, last_minute boolean, free_until timestamp with time zone, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, deposit_amount_minor bigint, protection_offered boolean, insurer_name text, insurer_license_ref text, broker_name text, broker_license_ref text, contract_version integer, rc_amount_minor bigint, deductibles jsonb, exclusions jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_resolve_addition(p_addition_id uuid, p_country text, p_actor uuid, p_actor_role text, p_decision text, p_variant_id uuid, p_entry jsonb, p_reject_reason text, p_correlation uuid)` | `TABLE(outcome text, status text, variant_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_vehicle_claim_decide(p_claim uuid, p_country text, p_actor uuid, p_actor_role text, p_decision text, p_reason text, p_checklist jsonb, p_correlation uuid)` | `TABLE(outcome text, status text, target_vehicle_id uuid, bookings jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_vehicle_claim_dossier(p_claim uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -6035,7 +6033,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.payment_cmd_register_submerchant(p_id uuid, p_org_id uuid, p_psp_account_id uuid, p_attempt_no integer)` | `TABLE(submerchant_id uuid, idem_plain text, replayed boolean)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_resolve_webhook_account(p_provider text, p_public_webhook_id text)` | `TABLE(account_id uuid, webhook_secret_ref text)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.payment_startup_guard()` | `TABLE(deployment_env text, fake_accounts integer)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
-| `core.pricing_checkout_terms(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, engine_version text, inputs text, inputs_hash text, outputs text, outputs_hash text, total_minor bigint, currency text, frozen_at timestamp with time zone, mileage_mode text, included_km integer, extra_km_price_minor bigint)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
+| `core.pricing_bind_checkout_trip(p_trip_id uuid)` | `integer` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_cmd_freeze_quote(p_token_hash bytea, p_listing_id uuid, p_inputs text, p_inputs_hash text, p_outputs text, p_outputs_hash text)` | `TABLE(outcome text, quote_id uuid)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.pricing_cmd_version_trip_price(p_token_hash bytea, p_trip_id uuid, p_quote_id uuid)` | `TABLE(outcome text, version integer)` | `cmd_money_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.privacy_kyc_register_gate(p_country text)` | `text` | `privacy_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; privacy_cmd_owner: EXECUTE |
@@ -6111,6 +6109,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_checkout_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_checkout_record_risk(p_hold uuid, p_guest uuid, p_org uuid, p_country text, p_rules jsonb, p_score integer, p_flagged boolean)` | `void` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_risk(p_guest uuid, p_vehicle uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_country text)` | `TABLE(outcome text, flagged boolean, rules jsonb, score integer)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_conversion_due(p_limit integer)` | `TABLE(operation_id uuid, action text)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_convert_payment(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_disposition_candidates(p_limit integer)` | `TABLE(operation_id uuid, success_known_at timestamp with time zone)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_disposition_repair(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |

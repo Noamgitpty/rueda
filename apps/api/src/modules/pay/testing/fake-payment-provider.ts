@@ -479,6 +479,15 @@ export class FakePaymentProvider implements PaymentProvider {
                   : null,
               status,
               occurredAt: typeof body['occurred_at'] === 'string' ? body['occurred_at'] : '',
+              // US-223 (ADR-139) : montant et devise du mouvement, tels que le PSP les signe
+              amountMinor:
+                typeof body['amount_minor'] === 'string' && /^\d{1,18}$/.test(body['amount_minor'])
+                  ? BigInt(body['amount_minor'])
+                  : null,
+              currency:
+                typeof body['currency'] === 'string' && /^[A-Z]{3}$/.test(body['currency'])
+                  ? body['currency']
+                  : null,
             },
           ]
         : [];

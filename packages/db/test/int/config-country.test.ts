@@ -225,6 +225,10 @@ describe('configuration pays : structure et droits', () => {
             t === 'config_param_value'
               ? [{ t, pol: 'cmd_golive_sel', cmd: 'r', roles: 'cmd_golive_owner' }]
               : []),
+            // paiement du checkout (US-223, 0116) : fuseau du pays, à défaut de celui du véhicule
+            ...(t === 'config_country'
+              ? [{ t, pol: 'cmd_hold_country_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
             // sous-marchands (US-061, 0039) : devise de versement du pays
             ...(t === 'config_country'
               ? [{ t, pol: 'cmd_money_sel', cmd: 'r', roles: 'cmd_money_owner' }]
