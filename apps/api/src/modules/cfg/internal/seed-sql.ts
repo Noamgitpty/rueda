@@ -115,8 +115,14 @@ export const POST_SEED_PARAMS: readonly {
     valueKeys: ['insurer_premium_share', 'insurer_roadside_share'],
   },
   {
+    prefix: 'foreign_license_',
+    file: '0113_config_foreign_license_params.sql',
+    story: 'US-209',
+    refs: '16 VER-007 ; OQ-BR-21 ; DEC-FONDATEUR-22 ; ADR-135',
+  },
+  {
     prefix: 'insurer_rc_',
-    file: '0112_config_insurer_rc_params.sql',
+    file: '0114_config_insurer_rc_params.sql',
     story: 'US-205',
     refs: '08 BR-PROT-04 ; 16 PRT-003 / PRT-013 ; OQ-BR-16 ; ADR-138',
   },

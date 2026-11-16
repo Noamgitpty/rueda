@@ -1,4 +1,4 @@
--- 0113 — CAT / STL : conditions affichées sur la fiche et conditions du contrat de l'assureur.
+-- 0115 — CAT / STL : conditions affichées sur la fiche et conditions du contrat de l'assureur.
 -- Annulation, distance, protection de l'assureur partenaire et caution (S03).
 -- US-205 ; 19 US-205 (critères 1 à 4) ; 16 LST-010 (`freeUntil` de BR-CXL-01), LST-012 (distance
 -- incluse et prix du km), LST-013 (bloc protection : assureur, RC, franchises, exclusions, caution ;
@@ -17,7 +17,7 @@
 --     es, en, fr et pt-BR. Toutes présentes ou toutes absentes ; AUCUNE commande ne les écrit
 --     (entrée par décision écrite du fondateur, comme le contrat, US-227) ; une fois posées, elles
 --     ne changent plus (nouvelle version du contrat à la place) ;
---   - garde à l'entrée : RC sous `insurer_rc_minimum[pays]` (0112), minimum absent, ou devise autre
+--   - garde à l'entrée : RC sous `insurer_rc_minimum[pays]` (0114), minimum absent, ou devise autre
 --     que celle du pays ⇒ POLICY_RC_BELOW_MINIMUM / INSURER_CONTRACT_CURRENCY_MISMATCH, rien n'est
 --     écrit (16 PRT-003 : « contrat sous le minimum légal paramétré ⇒ contrat non activable ») ;
 --   - lecture publique (`core.catalog_public_terms`, SECURITY DEFINER, propriétaire

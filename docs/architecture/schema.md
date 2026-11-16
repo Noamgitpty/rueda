@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 114 migrations ; 119 tables ; 2 vues ; 645 politiques RLS ; 222 fonctions `SECURITY DEFINER` ; 217 autres fonctions.
+- 114 migrations ; 120 tables ; 2 vues ; 649 politiques RLS ; 223 fonctions `SECURITY DEFINER` ; 220 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -127,8 +127,10 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0109_ctr_checkout_documents` | CTR : documents du checkout servis et publiables ; nom du conducteur comparé en NFC. |
 | `0110_prc_protection_earnings_plans` | PRC / CAT / AVL : protections du voyageur et plans de gains de l'hôte, partie serveur. |
 | `0111_config_protection_params` | graine complémentaire : paramètres « protection_* » (US-226 ; 17 §7.2). |
-| `0112_config_insurer_rc_params` | graine complémentaire : paramètres « insurer_rc_* » (US-205 ; 17 §7.2). |
-| `0113_catalog_public_terms` | CAT / STL : conditions affichées sur la fiche et conditions du contrat de l'assureur. |
+| `0112_booking_risk_checkout_controls` | AVL / RISK / KYC : contrôles bloquants du conducteur et revue des réservations signalées. |
+| `0113_config_foreign_license_params` | graine complémentaire : paramètres « foreign_license_* » (US-209 ; 17 §7.2). |
+| `0114_config_insurer_rc_params` | graine complémentaire : paramètres « insurer_rc_* » (US-205 ; 17 §7.2). |
+| `0115_catalog_public_terms` | CAT / STL : conditions affichées sur la fiche et conditions du contrat de l'assureur. |
 
 ## Rôles
 
@@ -2461,11 +2463,11 @@ Politiques RLS :
 - `catalog_cmd_publish_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = 'listing_manual_review_required'::text)`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['price_display_step_minor'::text, 'listing_min_photos'::text, 'price_ceiling_daily_minor'::text, 'price_ceiling_extra_km_minor'::text, 'p2p_private_hosts_enabled'::text, 'advance_notice_minutes'::text, 'vehicle_financed_requires_lender_consent'::text, 'elig_age_years_ceiling'::text, 'elig_odometer_km_ceiling'::text, 'elig_doc_title'::text, 'elig_doc_plate_vin_photo'::text, 'elig_doc_inspection'::text, 'elig_doc_compulsory_insurance'::text, 'elig_doc_owner_authorization'::text, 'elig_doc_lender_consent'::text]))`
 - `catalog_cmd_search_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['max_trip_days'::text, 'buffer_minutes'::text]))`
-- `catalog_cmd_terms_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['free_cancel_lead'::text, 'last_minute_threshold'::text, 'insurer_rc_minimum'::text]))`
 - `catalog_cmd_upload_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['upload_photo_max_kb'::text, 'upload_gallery_photos_max'::text, 'upload_documents_per_minute'::text]))`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
+- `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['min_driver_age'::text, 'foreign_license_review_enabled'::text]))`
 - `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text, 'trip_fee_schedule'::text, 'quote_validity_minutes'::text, 'quote_freezes_per_guest_hour'::text, 'protection_grid'::text, 'guest_protection_min_level'::text, 'insurer_premium_share'::text]))`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['payouts_enabled'::text, 'insurer_contract_active'::text, 'funds_holding_enabled'::text]))`
 - `iam_auth_host_read` (SELECT, PERMISSIVE, iam_auth_owner) USING `(key = 'host_min_age_years'::text)`
@@ -3167,6 +3169,38 @@ Déclencheurs :
 
 - `ctr_signup_consents_required` : `CREATE CONSTRAINT TRIGGER ctr_signup_consents_required AFTER INSERT ON core.iam_user_account DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NOT core.ctr_writer_exempt()) EXECUTE FUNCTION core.ctr_signup_consents_guard()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.iam_user_account FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
+### `core.kyc_entry_declaration`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : kyc_cmd_owner: SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `user_id` | `uuid` | oui | — |
+| `country_code` | `character(2)` | oui | — |
+| `residency_status` | `text` | oui | — |
+| `entry_date` | `date` | non | — |
+| `declared_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `kyc_entry_declaration_country_fkey` : `FOREIGN KEY (country_code) REFERENCES core.config_country(code)`
+- `kyc_entry_declaration_pkey` : `PRIMARY KEY (id)`
+- `kyc_entry_declaration_residency_valid` : `CHECK (residency_status = ANY (ARRAY['TOURIST'::text, 'RESIDENT'::text]))`
+- `kyc_entry_declaration_tourist_entry` : `CHECK (residency_status = 'RESIDENT'::text OR entry_date IS NOT NULL)`
+- `kyc_entry_declaration_user_fkey` : `FOREIGN KEY (user_id) REFERENCES core.iam_user_account(id)`
+
+Index :
+
+- `kyc_entry_declaration_user_idx` : `CREATE INDEX kyc_entry_declaration_user_idx ON core.kyc_entry_declaration USING btree (user_id, country_code, declared_at DESC)`
+
+Politiques RLS :
+
+- `kyc_cmd_insert` (INSERT, PERMISSIVE, kyc_cmd_owner) WITH CHECK `true`
+- `kyc_cmd_select` (SELECT, PERMISSIVE, kyc_cmd_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.kyc_erasure_request`
 
@@ -4724,6 +4758,7 @@ Index :
 Politiques RLS :
 
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `((subject_type = 'USER'::text) AND (decided_at IS NULL))`
+- `cmd_hold_risk_hold_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((subject_type = 'HOLD'::text) AND (decision = ANY (ARRAY['REVIEW'::text, 'AUTO_OK'::text])) AND (reviewed_by IS NULL) AND (decided_at IS NULL) AND (explanation = ANY (ARRAY['CHECKOUT_RISK_REVIEW'::text, 'CHECKOUT_RISK_AUTO_OK'::text])))`
 - `cmd_hold_risk_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((subject_type = 'USER'::text) AND (decision = 'REVIEW'::text) AND (reviewed_by IS NULL) AND (decided_at IS NULL) AND (explanation = 'SELF_BOOKING_LINKED_ACCOUNT'::text) AND (app.actor_kind() = 'GUEST'::text) AND (subject_id = app.actor_id()))`
 - `iam_staff_party_read` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
@@ -4985,20 +5020,14 @@ Déclencheurs :
 
 Contraintes :
 
-- `settlement_insurer_contract_broker_fk` : `FOREIGN KEY (broker_id, country_code) REFERENCES core.settlement_insurer(id, country_code)`
 - `settlement_insurer_contract_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
-- `settlement_insurer_contract_currency_format` : `CHECK (currency IS NULL OR currency ~ '^[A-Z]{3}$'::text)`
-- `settlement_insurer_contract_deductibles_shape` : `CHECK (deductibles IS NULL OR jsonb_typeof(deductibles) = 'object'::text AND deductibles ?& ARRAY['BASICA'::text, 'ESTANDAR'::text, 'TOTAL'::text] AND (deductibles - ARRAY['BASICA'::text, 'ESTANDAR'::text, 'TOTAL'::text]) = '{}'::jsonb AND jsonb_typeof(deductibles -> 'BASICA'::text) = 'string'::text AND jsonb_typeof(deductibles -> 'ESTANDAR'::text) = 'string'::text AND jsonb_typeof(deductibles -> 'TOTAL'::text) = 'string'::text AND (deductibles ->> 'BASICA'::text) ~ '^(0\|[1-9][0-9]{0,13})$'::text AND (deductibles ->> 'ESTANDAR'::text) ~ '^(0\|[1-9][0-9]{0,13})$'::text AND (deductibles ->> 'TOTAL'::text) ~ '^(0\|[1-9][0-9]{0,13})$'::text)`
 - `settlement_insurer_contract_document_file_id_fkey` : `FOREIGN KEY (document_file_id) REFERENCES core.audit_file_asset(id)`
 - `settlement_insurer_contract_eligibility_shape` : `CHECK (jsonb_typeof(vehicle_eligibility) = 'object'::text AND vehicle_eligibility ?& ARRAY['maxVehicleAgeYears'::text, 'usages'::text, 'valueClasses'::text] AND (vehicle_eligibility - ARRAY['maxVehicleAgeYears'::text, 'usages'::text, 'valueClasses'::text]) = '{}'::jsonb AND jsonb_typeof(vehicle_eligibility -> 'maxVehicleAgeYears'::text) = 'number'::text AND (vehicle_eligibility ->> 'maxVehicleAgeYears'::text) ~ '^[0-9]{1,2}$'::text AND jsonb_typeof(vehicle_eligibility -> 'valueClasses'::text) = 'array'::text AND jsonb_array_length(vehicle_eligibility -> 'valueClasses'::text) >= 1 AND (vehicle_eligibility -> 'valueClasses'::text) <@ '["STANDARD", "PREMIUM", "LUXE"]'::jsonb AND jsonb_typeof(vehicle_eligibility -> 'usages'::text) = 'array'::text AND jsonb_array_length(vehicle_eligibility -> 'usages'::text) >= 1 AND (vehicle_eligibility -> 'usages'::text) <@ '["PARTICULAR"]'::jsonb)`
-- `settlement_insurer_contract_exclusions_shape` : `CHECK (exclusions IS NULL OR jsonb_typeof(exclusions) = 'object'::text AND exclusions ?& ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt-BR'::text] AND (exclusions - ARRAY['es'::text, 'en'::text, 'fr'::text, 'pt-BR'::text]) = '{}'::jsonb AND jsonb_typeof(exclusions -> 'es'::text) = 'string'::text AND jsonb_typeof(exclusions -> 'en'::text) = 'string'::text AND jsonb_typeof(exclusions -> 'fr'::text) = 'string'::text AND jsonb_typeof(exclusions -> 'pt-BR'::text) = 'string'::text AND btrim(exclusions ->> 'es'::text) <> ''::text AND btrim(exclusions ->> 'en'::text) <> ''::text AND btrim(exclusions ->> 'fr'::text) <> ''::text AND btrim(exclusions ->> 'pt-BR'::text) <> ''::text AND char_length(exclusions ->> 'es'::text) <= 2000 AND char_length(exclusions ->> 'en'::text) <= 2000 AND char_length(exclusions ->> 'fr'::text) <= 2000 AND char_length(exclusions ->> 'pt-BR'::text) <= 2000)`
 - `settlement_insurer_contract_insurer_fk` : `FOREIGN KEY (insurer_id, country_code) REFERENCES core.settlement_insurer(id, country_code)`
 - `settlement_insurer_contract_no_overlap` : `EXCLUDE USING gist (country_code WITH =, tstzrange(valid_from, valid_to, '[)'::text) WITH &&)`
 - `settlement_insurer_contract_period` : `CHECK (valid_to IS NULL OR valid_to > valid_from)`
 - `settlement_insurer_contract_pkey` : `PRIMARY KEY (id)`
-- `settlement_insurer_contract_rc_positive` : `CHECK (rc_amount_minor IS NULL OR rc_amount_minor > 0 AND rc_amount_minor <= '100000000000000'::bigint)`
 - `settlement_insurer_contract_signed` : `CHECK (signed_at <= valid_from)`
-- `settlement_insurer_contract_terms_complete` : `CHECK ((currency IS NULL) = (rc_amount_minor IS NULL) AND (currency IS NULL) = (deductibles IS NULL) AND (currency IS NULL) = (exclusions IS NULL))`
 - `settlement_insurer_contract_version_positive` : `CHECK (version >= 1)`
 - `settlement_insurer_contract_version_unique` : `UNIQUE (country_code, version)`
 
@@ -5006,10 +5035,6 @@ Politiques RLS :
 
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
-
-Déclencheurs :
-
-- `settlement_insurer_contract_terms_guard` : `CREATE TRIGGER settlement_insurer_contract_terms_guard BEFORE INSERT OR UPDATE ON core.settlement_insurer_contract FOR EACH ROW EXECUTE FUNCTION core.settlement_insurer_contract_terms_guard()`
 
 ### `core.settlement_insurer_ledger_state`
 
@@ -5885,7 +5910,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.catalog_public_listing(p_listing_id uuid)` | `TABLE(listing_id uuid, country_code text, daily_price_minor bigint, currency text, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, instant_book boolean, variant_id uuid, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_money_owner: EXECUTE |
 | `core.catalog_public_search(p_country text, p_city text, p_area text, p_start_local timestamp without time zone, p_end_local timestamp without time zone, p_limit integer)` | `TABLE(outcome text, listing_id uuid, daily_price_minor bigint, currency text, instant_book boolean, make_name text, model_name text, year integer, transmission text, seats smallint, fuel_type text, location_kind text, city text, area_label text, geo_public_lat numeric, geo_public_lng numeric, timezone text, start_at timestamp with time zone, end_at timestamp with time zone)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_public_slot_check(p_listing_id uuid, p_start_local timestamp without time zone, p_end_local timestamp without time zone)` | `TABLE(outcome text, start_at timestamp with time zone, end_at timestamp with time zone, timezone text, notice_minutes integer)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
-| `core.catalog_public_terms(p_listing_id uuid, p_start timestamp with time zone)` | `TABLE(listing_id uuid, currency text, timezone text, read_at timestamp with time zone, free_cancel_lead_hours integer, last_minute_threshold_hours integer, last_minute boolean, free_until timestamp with time zone, mileage_mode text, included_km_per_day integer, extra_km_price_minor bigint, deposit_amount_minor bigint, protection_offered boolean, insurer_name text, insurer_license_ref text, broker_name text, broker_license_ref text, contract_version integer, rc_amount_minor bigint, deductibles jsonb, exclusions jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
 | `core.catalog_resolve_addition(p_addition_id uuid, p_country text, p_actor uuid, p_actor_role text, p_decision text, p_variant_id uuid, p_entry jsonb, p_reject_reason text, p_correlation uuid)` | `TABLE(outcome text, status text, variant_id uuid)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_vehicle_claim_decide(p_claim uuid, p_country text, p_actor uuid, p_actor_role text, p_decision text, p_reason text, p_checklist jsonb, p_correlation uuid)` | `TABLE(outcome text, status text, target_vehicle_id uuid, bookings jsonb)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_vehicle_claim_dossier(p_claim uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
@@ -5950,10 +5974,12 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.iam_staff_read_access(p_token_hash bytea, p_permission text, p_scope text)` | `text` | `iam_staff_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.iam_worker_otp_issue(p_challenge_id uuid, p_code_hash bytea)` | `TABLE(outcome text, phone_e164 text, country_code text, locale text, expires_in_min integer)` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
 | `core.iam_worker_otp_prune(p_batch integer)` | `integer` | `iam_auth_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; iam_auth_owner: EXECUTE |
+| `core.kyc_checkout_driver(p_user uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_country text, p_min_age integer)` | `TABLE(outcome text, foreign_signal text, account_created_at timestamp with time zone)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_apply_decision(p_provider text, p_event_id text, p_session_ref text, p_subject_ref text, p_decision text, p_liveness numeric, p_face_match numeric, p_document jsonb)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_biometric_consent(p_token_hash bytea, p_country text, p_version integer, p_accepted boolean)` | `TABLE(outcome text, version integer)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_change_legal_name(p_token_hash bytea, p_first text, p_last text)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_decide_with_facts(p_provider text, p_event_id text, p_session_ref text, p_subject_ref text, p_decision text, p_liveness numeric, p_face_match numeric, p_document jsonb, p_subject jsonb)` | `TABLE(outcome text, status text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
+| `core.kyc_cmd_declare_entry(p_token_hash bytea, p_country text, p_residency text, p_entry_date date)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_host_record_screening(p_token_hash bytea, p_org uuid, p_provider text, p_request_key text, p_result text, p_lists_version jsonb, p_match_ref text)` | `TABLE(outcome text, status text, missing text[])` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_host_save_tax_profile(p_token_hash bytea, p_org uuid, p_kind text, p_tax_id_enc bytea, p_regime text, p_taxpayer_kind text)` | `TABLE(outcome text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
 | `core.kyc_cmd_host_submit(p_token_hash bytea, p_org uuid)` | `TABLE(outcome text, verification_id uuid, status text, missing text[], screening_key text, identity_provider text, identity_session_ref text)` | `kyc_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; kyc_cmd_owner: EXECUTE |
@@ -6061,14 +6087,18 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_buffer_minutes(p_country text)` | `integer` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_cancellation_target(p_reason text)` | `text` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_checkout_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.booking_checkout_record_risk(p_hold uuid, p_guest uuid, p_org uuid, p_country text, p_rules jsonb, p_score integer, p_flagged boolean)` | `void` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_checkout_risk(p_guest uuid, p_vehicle uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_country text)` | `TABLE(outcome text, flagged boolean, rules jsonb, score integer)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_convert_payment(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_disposition_candidates(p_limit integer)` | `TABLE(operation_id uuid, success_known_at timestamp with time zone)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_disposition_repair(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_expire_due_holds(p_limit integer)` | `integer` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
+| `core.booking_guest_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_hold_guarded_columns()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_hold_payment_terms(p_hold_id uuid)` | `TABLE(amount_minor bigint, currency text, legs jsonb, scheduled_start timestamp with time zone, scheduled_end timestamp with time zone, timezone text)` | `migrator` | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_hold_terminal_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_intents_due(p_limit integer)` | `TABLE(operation_id uuid, hold_id uuid, provider text, method text, country_code text, psp_account_id uuid, idem_sent text, provider_reference text, status text)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
+| `core.booking_min_driver_age(p_country text, p_class text)` | `integer` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_occupied_period(p_start timestamp with time zone, p_end timestamp with time zone, p_buffer_minutes integer)` | `tstzrange` | `migrator` | app_api: EXECUTE ; app_worker: EXECUTE ; cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_open_compensation(p_hold_id uuid, p_operation_id uuid, p_reason text)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
@@ -6215,7 +6245,6 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.settlement_finance_approval_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_guard_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_insurer_bordereau_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
-| `core.settlement_insurer_contract_terms_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_insurer_vehicle_coverage(p_country text, p_timezone text, p_year integer, p_value_class text, p_plate_category text)` | `TABLE(outcome text, reasons text[], contract_id uuid)` | `migrator` | catalog_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.settlement_no_delete()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.settlement_platform_advance_guard()` | `trigger` | `migrator` | migrator: EXECUTE |

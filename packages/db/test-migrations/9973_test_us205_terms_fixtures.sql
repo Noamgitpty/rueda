@@ -1,4 +1,4 @@
--- 9973 — fixtures des preuves des conditions affichées sur la fiche (US-205, migration 0113).
+-- 9973 — fixtures des preuves des conditions affichées sur la fiche (US-205, migration 0115).
 -- TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
@@ -8,7 +8,7 @@
 -- AUCUNE commande (décision écrite du fondateur, US-227) ; ces fixtures l'écrivent à sa place,
 -- appelées SEULEMENT dans des transactions de test ANNULÉES, jamais validées :
 --   - `us205_insurer_contract` : assureur (et courtier) ACTIVE et contrat en vigueur depuis la
---     veille, avec ses conditions (devise, RC, franchises, exclusions) passées à la garde de 0113 ;
+--     veille, avec ses conditions (devise, RC, franchises, exclusions) passées à la garde de 0115 ;
 --   - `us205_set_terms` : pose ou change les conditions d'un contrat existant (garde d'immuabilité) ;
 --   - `us205_set_rc_minimum` : nouvelle valeur d'`insurer_rc_minimum` du pays ;
 --   - `us205_set_insurer_status` : assureur ou courtier ACTIVE / INACTIVE.

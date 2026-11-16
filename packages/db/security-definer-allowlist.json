@@ -98,7 +98,7 @@
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
-      "story": "US-024"
+      "story": "US-024, US-209"
     },
     {
       "signature": "core.booking_cmd_record_order(uuid,uuid,text,timestamp with time zone)",
@@ -112,7 +112,7 @@
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_worker"],
-      "story": "US-024, US-127"
+      "story": "US-024, US-127, US-209"
     },
     {
       "signature": "core.booking_cmd_remove_host_block(uuid)",
@@ -1010,6 +1010,20 @@
       "story": "US-105"
     },
     {
+      "signature": "core.kyc_cmd_declare_entry(bytea,text,text,date)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["app_api"],
+      "story": "US-209"
+    },
+    {
+      "signature": "core.kyc_checkout_driver(uuid,timestamp with time zone,timestamp with time zone,text,integer)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-209"
+    },
+    {
       "signature": "core.kyc_pending_erasures(bytea)",
       "family": "kyc_cmd",
       "owner": "kyc_cmd_owner",
@@ -1336,7 +1350,7 @@
       "family": "cmd_hold",
       "owner": "cmd_hold_owner",
       "execute": ["app_api"],
-      "story": "US-208"
+      "story": "US-208, US-209"
     },
     {
       "signature": "core.booking_checkout_summary(bytea,uuid)",

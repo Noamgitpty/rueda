@@ -11,6 +11,7 @@
  * bornes PROPOSÉES d'ADR-062 (5 échecs, 15 min). Les preuves HMAC sont recalculées par node:crypto.
  */
 import { createHash, createHmac } from 'node:crypto';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { setSessionContext } from '../../src/index.ts';
 import {
@@ -219,6 +220,12 @@ describe('enrôlement et élévation', () => {
 
   it('session suivante : MFA_REQUIRED puis ELEVATED ; preuve fausse, pas rejoué ou hors fenêtre : REFUSED et journalisé', async () => {
     await withRole('app_api', async (client) => {
+      // horloge réelle (pas TOTP de 30 s) : le scénario suppose que l'enrôlement et la lecture de
+      // `enrolledStep` tombent dans le même pas ; près de la fin d'un pas, on attend le suivant
+      // (échec intermittent constaté en CI sur la PR #177 : STEP_OUT_OF_WINDOW au lieu de
+      // STEP_REPLAYED, le pas ayant changé entre les deux)
+      const left = 30_000 - (Date.now() % 30_000);
+      if (left < 10_000) await sleep(left + 250);
       const s = await elevatedStaff(client, 'OPS_AGENT', [ALL[0] ?? '']);
       const enrolledStep = stepNow();
       const second = await login(client, s.userId);

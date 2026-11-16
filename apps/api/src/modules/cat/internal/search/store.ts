@@ -117,7 +117,7 @@ export interface SearchStore {
   /** Contrôle des dates de la fiche (US-204) ; une issue, jamais une exception métier. */
   slotCheck(query: SlotQuery): Promise<SlotOutcome>;
   /**
-   * Conditions publiques d'une annonce LISTED (US-205, `core.catalog_public_terms` de 0113) pour
+   * Conditions publiques d'une annonce LISTED (US-205, `core.catalog_public_terms` de 0115) pour
    * un départ (instant UTC) ou sans dates (`null`) ; `null` si inconnue ou non publiée.
    */
   terms(listingId: string, startAt: string | null): Promise<ListingTerms | null>;

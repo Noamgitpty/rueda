@@ -6795,7 +6795,7 @@
             "$ref": "#/components/responses/AuthRequired"
           },
           "403": {
-            "description": "Réservation interdite à ce compte (auto-réservation, restriction, consentement biométrique retiré)",
+            "description": "Réservation interdite à ce compte (auto-réservation, restriction, consentement biométrique retiré ou absent, vérification d'identité non approuvée, permis échu avant la fin du trip, âge minimum de la classe non atteint ; US-209)",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -6810,7 +6810,10 @@
                       "enum": [
                         "SELF_BOOKING_FORBIDDEN",
                         "ACCOUNT_RESTRICTED",
-                        "KYC_CONSENT_WITHDRAWN"
+                        "KYC_NOT_APPROVED",
+                        "KYC_BIOMETRIC_CONSENT_MISSING",
+                        "KYC_LICENSE_EXPIRED",
+                        "AGE_CLASS_MISMATCH"
                       ]
                     }
                   }

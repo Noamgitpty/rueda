@@ -141,6 +141,14 @@ async function guestSession(country: string): Promise<Buffer> {
     [randomUUID(), id, hash],
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
+  // US-209 (16 BKG-012) : conducteur vérifié, majeur, permis du pays valable (fixture 9967)
+  await client.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
+    id,
+    country,
+    '1990-01-01',
+    '2030-12-31',
+    country,
+  ]);
   return hash;
 }
 

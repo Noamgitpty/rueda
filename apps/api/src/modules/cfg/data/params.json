@@ -1318,6 +1318,17 @@
       "values": { "PA": 2, "PY": 2 }
     },
     {
+      "key": "foreign_license_review_enabled",
+      "type": "BOOL",
+      "scopes": ["COUNTRY"],
+      "failMode": "BLOCK",
+      "source": "16 VER-007, ADM-029 ; 22 OQ-BR-21 ; DEC-FONDATEUR-22 « jamais plus lourd que Turo » : revue avant le débit d'un voyageur à permis étranger (entrée non déclarée, résident, fin après entrée + 90 jours), seulement si le pays l'exige (absent : revue)",
+      "status": "PROPOSÉ (comme Turo : aucune revue sur le seul permis étranger ; à activer par pays si l'avis juridique d'OQ-BR-21 confirme la règle des 90 jours)",
+      "decision": "TO_DECIDE",
+      "decisionRef": "OQ-BR-21 (avis juridique, préalable à la mise en service) ; défaut DEC-FONDATEUR-22, ADR-135 PROPOSÉ (US-209)",
+      "values": { "PA": false, "PY": false }
+    },
+    {
       "key": "flagged_booking_payment_order",
       "type": "ENUM",
       "allowedValues": ["REVIEW_BEFORE_CHARGE", "PAY_THEN_REVIEW"],

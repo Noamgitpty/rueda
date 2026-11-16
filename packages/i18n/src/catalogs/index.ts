@@ -128,7 +128,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  checkout), `common.quote.line.protection*` (ligne de protection du détail du prix de S05, nom du
  niveau) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
  de gains du véhicule).
- Version 58 (56 et 57 sont réservées à US-209 et US-226b) : conditions de la fiche S03 (US-205,
+ Version 56 : contrôles bloquants du checkout (US-209 partie 209a, ADR-135 ; la 54, réservée,
+ n'a jamais été publiée) : `common.checkout.ageClassMismatch` (âge minimum du conducteur au
+ début du trip, ou date de naissance non vérifiée, 16 BKG-012) ; `common.checkout.identityConsentWithdrawn`
+ retirée (le consentement retiré rend `KYC_BIOMETRIC_CONSENT_MISSING`, N-122).
+ Version 58 (57 est réservée à US-226b) : conditions de la fiche S03 (US-205,
  ADR-138) : `web.listing.cancel.*` (annulation gratuite en dates, dernière minute, règle du pays,
  retenue hors fenêtre), `web.listing.distance.*` (distance incluse sur la période, prix du km
  supplémentaire) et `web.listing.protection.*` (assureur partenaire, courtier, RC tiers incluse,

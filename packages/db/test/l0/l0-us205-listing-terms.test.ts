@@ -1,5 +1,5 @@
 /**
- * Preuves des conditions affichées sur la fiche (US-205, migrations 0112 et 0113, ADR-138 ;
+ * Preuves des conditions affichées sur la fiche (US-205, migrations 0114 et 0115, ADR-138 ;
  * fixture 9973) sous les rôles de production (assertion L0-05 en tête de chaque connexion :
  * `withRole`), en USD (PA) et en PYG sans décimale (PY). Personnes, sessions, comptes d'hôte,
  * lieux, véhicules et annonces sont créés par les VRAIES commandes (US-107, US-115) ; les
@@ -38,7 +38,7 @@ const HOUR = 3_600_000;
 
 /**
  * Données de TEST par pays (unités mineures de la devise du pays) : prix du km de l'annonce, RC
- * (au minimum de 0112 : 100 000,00 USD ; 750 000 000 PYG), franchises par niveau.
+ * (au minimum de 0114 : 100 000,00 USD ; 750 000 000 PYG), franchises par niveau.
  */
 const MONEY: Readonly<
   Record<string, { extraKm: number; rc: string; deductibles: Record<string, string> }>

@@ -349,6 +349,15 @@ const EXPIRED_ON_READ_DAY = '-12-20T';
 // taxée, comme la grille de test du dépôt : 10,00 par jour) ; les autres jours gardent le devis de
 // 208b (références visuelles inchangées)
 const PROTECTION_DAY = '-12-25T';
+// US-209 : refus du conducteur à la pose (403, 16 BKG-012), un code par jour de départ ; le 8 :
+// code inconnu du site (message générique, témoin)
+const DRIVER_REFUSALS = {
+  '-12-04T': ['KYC_NOT_APPROVED', 'common.kyc.notApproved'],
+  '-12-05T': ['KYC_BIOMETRIC_CONSENT_MISSING', 'common.kyc.consentMissing'],
+  '-12-06T': ['KYC_LICENSE_EXPIRED', 'common.kyc.licenseExpired'],
+  '-12-07T': ['AGE_CLASS_MISMATCH', 'common.checkout.ageClassMismatch'],
+  '-12-08T': ['DRIVER_CHECK_UNKNOWN', 'common.checkout.unavailable'],
+};
 const PROTECTION_SHARE_PCT = 25;
 const DAILY_MINOR = 4000;
 const RENEWED_DAILY_MINOR = 4200;
@@ -550,6 +559,9 @@ async function checkoutRoute(req, res, path) {
     }
     const docs = Array.isArray(b.acceptedDocuments) ? b.acceptedDocuments : [];
     const kinds = Object.keys(CHECKOUT_DOCS);
+    // US-209 : contrôle du conducteur après la pose (refus, aucun hold)
+    const refusal = Object.entries(DRIVER_REFUSALS).find(([day]) => q.startAt.includes(day));
+    if (refusal !== undefined) return err(res, 403, refusal[1][0], refusal[1][1]);
     if (docs.length !== kinds.length || !kinds.every((k) => docs.some((d) => d?.kind === k))) {
       return err(res, 422, 'TERMS_NOT_ACCEPTED', 'common.checkout.termsNotAccepted');
     }
