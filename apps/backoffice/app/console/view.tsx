@@ -103,7 +103,7 @@ export const ACTION_GROUPS = {
     'HOST_VERIFICATION_DECISION',
     'PUBLISH_LISTING',
     'ESCALATE_OVERDUE',
-    'REVIEW_FLAGGED_BOOKING',
+    // US-209b : REVIEW_FLAGGED_BOOKING se décide depuis le dossier de la file RISK_BOOKING
     // US-107 : compte d'hôte d'une personne inscrite (sujet : son compte de personne)
     'CREATE_HOST_ACCOUNT',
   ],
@@ -286,7 +286,6 @@ const ACTION_KEYS: Readonly<Record<ConsoleAction, MessageKey>> = {
   HOST_VERIFICATION_DECISION: 'backoffice.action.HOST_VERIFICATION_DECISION',
   PUBLISH_LISTING: 'backoffice.action.PUBLISH_LISTING',
   ESCALATE_OVERDUE: 'backoffice.action.ESCALATE_OVERDUE',
-  REVIEW_FLAGGED_BOOKING: 'backoffice.action.REVIEW_FLAGGED_BOOKING',
   CREATE_HOST_ACCOUNT: 'backoffice.action.CREATE_HOST_ACCOUNT',
   RECORD_CLAIM: 'backoffice.action.RECORD_CLAIM',
   ISSUE_DECISION: 'backoffice.action.ISSUE_DECISION',

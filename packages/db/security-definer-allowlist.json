@@ -817,8 +817,8 @@
       "signature": "core.support_close_review_item(uuid,text,text,uuid)",
       "family": "iam_staff",
       "owner": "iam_staff_owner",
-      "execute": ["kyc_cmd_owner"],
-      "story": "US-109, US-123, US-106"
+      "execute": ["cmd_hold_owner", "kyc_cmd_owner"],
+      "story": "US-109, US-123, US-106, US-209"
     },
     {
       "signature": "core.catalog_cmd_request_addition(bytea,uuid,uuid,text,text,text)",
@@ -1617,6 +1617,41 @@
       "owner": "cmd_money_owner",
       "execute": ["app_worker"],
       "story": "US-223"
+    },
+    {
+      "signature": "core.booking_manual_action_review_flagged(bytea,uuid,text,uuid,jsonb,text,uuid,text)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-209"
+    },
+    {
+      "signature": "core.booking_hold_review_item_close()",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": [],
+      "story": "US-209"
+    },
+    {
+      "signature": "core.booking_staff_review_dossier(uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-209"
+    },
+    {
+      "signature": "core.kyc_staff_entry_declaration(uuid,text)",
+      "family": "kyc_cmd",
+      "owner": "kyc_cmd_owner",
+      "execute": ["iam_staff_owner"],
+      "story": "US-209"
+    },
+    {
+      "signature": "core.support_staff_booking_review(bytea,uuid,uuid,text)",
+      "family": "iam_staff",
+      "owner": "iam_staff_owner",
+      "execute": ["app_api"],
+      "story": "US-209"
     }
   ]
 }

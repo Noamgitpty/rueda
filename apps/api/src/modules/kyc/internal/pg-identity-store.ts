@@ -10,6 +10,7 @@ import {
   CONSENT_OUTCOMES,
   DECISION_OUTCOMES,
   ELIGIBILITY_OUTCOMES,
+  ENTRY_DECLARATION_OUTCOMES,
   IdentityStoreError,
   KYC_STATUSES,
   LEGAL_NAME_OUTCOMES,
@@ -20,6 +21,7 @@ import type {
   ConsentOutcome,
   DecisionResult,
   EligibilityOutcome,
+  EntryDeclarationOutcome,
   ErasureOutcome,
   IdentityState,
   IdentityStore,
@@ -29,6 +31,7 @@ import type {
   PendingErasure,
   RecordOutcome,
   RegisterGate,
+  ResidencyStatus,
   SessionToRecord,
   WebhookRejectionReason,
 } from './identity-store.js';
@@ -187,6 +190,21 @@ export class PgIdentityStore implements IdentityStore {
           ? null
           : member(KYC_STATUSES, r.status, 'change_legal_name'),
     };
+  }
+
+  async declareEntry(
+    tokenHash: Buffer,
+    country: string,
+    residency: ResidencyStatus,
+    entryDate: string | null,
+  ): Promise<EntryDeclarationOutcome> {
+    // la date d'entrée [C2] n'est jamais journalisée : une erreur ne garde que le SQLSTATE
+    const [r] = await this.#run<{ outcome: string }>(
+      'declare_entry',
+      'SELECT * FROM core.kyc_cmd_declare_entry($1, $2, $3, $4::date)',
+      [tokenHash, country, residency, entryDate],
+    );
+    return member(ENTRY_DECLARATION_OUTCOMES, r?.outcome, 'declare_entry');
   }
 
   async recordSession(tokenHash: Buffer, s: SessionToRecord): Promise<RecordOutcome> {

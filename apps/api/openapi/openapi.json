@@ -3327,6 +3327,98 @@
         }
       }
     },
+    "/console/queues/items/{id}/risk-review": {
+      "post": {
+        "operationId": "consoleQueueRiskReview",
+        "tags": ["sup"],
+        "summary": "Dossier d'une réservation signalée par la file RISK_BOOKING seulement (élément assigné ; ADMIN : sa portée) : signaux des règles, score, état et échéance du hold, période, déclaration d'entrée ; journalisé READ_C2_SUPPORT avant la lecture ; la décision passe par POST /console/actions (REVIEW_FLAGGED_BOOKING) (US-209b)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["requestId", "purpose"],
+                "additionalProperties": false,
+                "properties": {
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 500,
+                    "description": "motif de la consultation, journalisé"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dossier de la réservation signalée, accès journalisé",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/StaffRequestInvalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/StaffAuthRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/StaffForbiddenOrCase"
+          },
+          "409": {
+            "description": "Élément RISK_BOOKING qui n'est pas une réservation signalée (compte lié, US-127)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "BOOKING_REVIEW_NOT_BOOKING"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJsonNoStore"
+          },
+          "429": {
+            "$ref": "#/components/responses/StaffRateLimited"
+          }
+        }
+      }
+    },
     "/console/queues/items/{id}/catalog-addition": {
       "post": {
         "operationId": "consoleCatalogAddition",
@@ -8438,6 +8530,126 @@
         }
       }
     },
+    "/identity/entry-declaration": {
+      "post": {
+        "operationId": "declareEntry",
+        "tags": ["kyc"],
+        "summary": "Déclaration d'entrée du voyageur à permis étranger (VER-007, UXQ-03) : statut (touriste avec date d'entrée, résident) dans un pays ; date future refusée, 5 déclarations par heure au plus ; jamais un refus de réservation (mode FLAG) (US-209b)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KycEntryDeclarationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Déclaration enregistrée (ENTRY_DECLARED) ; la dernière fait foi",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KycEntryDeclared"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps mal formé (statut inconnu, touriste sans date, date mal formée) ou pays inconnu",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "enum": ["REQUEST_INVALID", "COUNTRY_UNKNOWN"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "415": {
+            "$ref": "#/components/responses/NotJson"
+          },
+          "422": {
+            "description": "Date d'entrée future dans le fuseau du pays, ou antérieure à 1900",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_ENTRY_DATE_INVALID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Plus de 5 déclarations en une heure glissante",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "RATE_LIMITED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible : fail-closed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthBody",
+                  "properties": {
+                    "code": {
+                      "const": "KYC_PROVIDER_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/identity/verification": {
       "post": {
         "operationId": "startIdentityVerification",
@@ -13416,6 +13628,182 @@
           }
         }
       },
+      "BookingReview": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "assessmentId",
+          "holdId",
+          "guestUserId",
+          "vehicleId",
+          "orgId",
+          "country",
+          "rulesFired",
+          "score",
+          "flaggedAt",
+          "holdStatus",
+          "reviewBeforeCharge",
+          "reviewedAt",
+          "expiresAt",
+          "startsAt",
+          "endsAt",
+          "itemStatus",
+          "accessId",
+          "entryDeclaration",
+          "timezone",
+          "paymentWindowMinutes"
+        ],
+        "additionalProperties": false,
+        "description": "US-209b (ADR-141) : dossier d'une réservation signalée pour l'ops ; aucune donnée personnelle hors la déclaration d'entrée (date [C2]).",
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "assessmentId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "holdId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "guestUserId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "vehicleId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "orgId": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "rulesFired": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "version", "signal"],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "signal": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+                }
+              }
+            }
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "flaggedAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "holdStatus": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "PAYMENT_IN_FLIGHT",
+              "CONVERTED",
+              "EXPIRED",
+              "RELEASED",
+              "COMPENSATED"
+            ]
+          },
+          "reviewBeforeCharge": {
+            "type": "boolean"
+          },
+          "reviewedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/DateTime"
+          },
+          "startsAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endsAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "itemStatus": {
+            "type": "string",
+            "enum": ["OPEN", "IN_REVIEW"]
+          },
+          "timezone": {
+            "type": ["string", "null"],
+            "description": "Fuseau IANA du pays (affichage des échéances)"
+          },
+          "paymentWindowMinutes": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Délai de paiement donné par une approbation : min(hold_ttl_minutes, hold_max_total_minutes) du pays"
+          },
+          "accessId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "entryDeclaration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": ["residencyStatus", "entryDate", "declaredAt"],
+                "additionalProperties": false,
+                "properties": {
+                  "residencyStatus": {
+                    "type": "string",
+                    "enum": ["TOURIST", "RESIDENT"]
+                  },
+                  "entryDate": {
+                    "type": ["string", "null"],
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "declaredAt": {
+                    "$ref": "#/components/schemas/DateTime"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
       "HostDossierScreening": {
         "type": "object",
         "required": ["source", "screenedAt", "result", "reviewerId", "manualActionId"],
@@ -16341,6 +16729,38 @@
             "type": "string",
             "maxLength": 400,
             "description": "Noms de famille tels que sur le permis (un ou deux, 1 à 100 caractères)"
+          }
+        }
+      },
+      "KycEntryDeclarationRequest": {
+        "type": "object",
+        "required": ["country", "residencyStatus"],
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "residencyStatus": {
+            "type": "string",
+            "enum": ["TOURIST", "RESIDENT"]
+          },
+          "entryDate": {
+            "type": ["string", "null"],
+            "pattern": "^(19|20)\\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+            "description": "Date d'entrée dans le pays [C2] (AAAA-MM-JJ) ; exigée pour un touriste"
+          }
+        }
+      },
+      "KycEntryDeclared": {
+        "type": "object",
+        "required": ["code", "messageKey"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "const": "ENTRY_DECLARED"
+          },
+          "messageKey": {
+            "$ref": "#/components/schemas/MessageKey"
           }
         }
       },

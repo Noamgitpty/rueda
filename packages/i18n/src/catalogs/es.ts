@@ -434,6 +434,8 @@ export const ES_MESSAGES = {
   'common.ops.selfForbidden':
     'No puedes tratar un expediente que te concierne (tu cuenta, tu auto o una cuenta vinculada). Otra persona del equipo debe hacerlo.',
   'common.ops.itemTaken': 'Otra persona del equipo ya tomó este elemento.',
+  'common.bookingReview.notBooking':
+    'Este elemento no es una reserva señalada. Ábrelo desde la ficha 360°.',
   'common.ops.userNotFound': 'No encontramos a nadie con ese correo en tu alcance.',
   'common.evidence.rejected':
     'Archivo rechazado: solo JPEG, PNG, HEIC o PDF sanos, de tamaño limitado.',
@@ -607,6 +609,62 @@ export const ES_MESSAGES = {
   'backoffice.host.clear': 'Sin coincidencia',
   'backoffice.host.match': 'Coincidencia posible',
   'backoffice.host.record': 'Registrar el filtrado',
+  'backoffice.booking.open': 'Abrir la reserva',
+  'backoffice.booking.heading': 'Reserva señalada',
+  'backoffice.booking.introBefore':
+    'Revisión antes del cobro: no se cobra nada al viajero antes de tu decisión.',
+  'backoffice.booking.introAfter': 'Revisión después del pago: el viaje ya puede estar pagado.',
+  'backoffice.booking.status': 'Estado de la reserva',
+  'backoffice.booking.expires': 'Vence',
+  'backoffice.booking.period': 'Periodo del viaje',
+  'backoffice.booking.score': 'Puntuación de riesgo',
+  'backoffice.booking.signals': 'Señales',
+  'backoffice.booking.signal.ACCOUNT_AGE': 'Cuenta creada hace menos de 24 h',
+  'backoffice.booking.signal.START_SOON': 'Salida en menos de 3 h',
+  'backoffice.booking.signal.PREMIUM': 'Vehículo Premium',
+  'backoffice.booking.signal.LUXE': 'Vehículo de lujo',
+  'backoffice.booking.signal.ENTRY_NOT_DECLARED': 'Licencia extranjera, entrada no declarada',
+  'backoffice.booking.signal.RESIDENT_FOREIGN_LICENSE': 'Residente con licencia extranjera',
+  'backoffice.booking.signal.BEYOND_90_DAYS': 'Fin del viaje más de 90 días después de la entrada',
+  'backoffice.booking.entry': 'Entrada declarada',
+  'backoffice.booking.entryNone': 'Sin declaración',
+  'backoffice.booking.entryTourist': 'Turista, entró el {date}',
+  'backoffice.booking.entryResident': 'Residente',
+  'backoffice.booking.decisionHeading': 'Decisión',
+  'backoffice.booking.decisionHint':
+    'Aprobar le da al viajero {minutes} min para pagar; todavía no recibe aviso automático. Rechazar libera las fechas sin ningún cobro.',
+  'backoffice.booking.decision': 'Tu decisión',
+  'backoffice.booking.approve': 'Aprobar la reserva',
+  'backoffice.booking.reject': 'Rechazar la reserva',
+  'backoffice.booking.record': 'Guardar la decisión',
+  'backoffice.booking.approved':
+    'Reserva aprobada. El viajero tiene {minutes} min para pagar y todavía no recibe aviso automático: avísale tú.',
+  'backoffice.booking.rejected':
+    'Reserva rechazada. Las fechas quedan libres, sin cobro. El viajero todavía no recibe aviso automático.',
+  'backoffice.booking.hold.ACTIVE': 'En revisión',
+  'backoffice.booking.hold.ACTIVE_OPEN': 'Activa',
+  'backoffice.booking.hold.PAYMENT_IN_FLIGHT': 'Pago en curso',
+  'backoffice.booking.hold.CONVERTED': 'Pagada',
+  'backoffice.booking.hold.EXPIRED': 'Vencida',
+  'backoffice.booking.hold.RELEASED': 'Liberada',
+  'backoffice.booking.hold.COMPENSATED': 'Compensada',
+  'backoffice.booking.refusal.alreadyDecided': 'Esta reserva ya tiene una decisión.',
+  'backoffice.booking.refusal.bookingUnavailable':
+    'No encontramos el periodo de esta reserva. Avisa a un administrador.',
+  'backoffice.booking.refusal.paramMissing':
+    'Falta un parámetro del plazo de pago. Avisa a un administrador.',
+  'backoffice.booking.refusal.notFound': 'Esta evaluación no es una reserva en revisión.',
+  'backoffice.booking.refusal.notClaimed': 'Toma el elemento en la fila antes de decidir.',
+  'backoffice.booking.refusal.notLive': 'Esta reserva ya no está activa.',
+  'backoffice.booking.refusal.expired':
+    'El plazo de revisión venció: recházala ahora. Si no, se liberará sola en un minuto, sin cobro.',
+  'backoffice.booking.refusal.startPassed': 'El viaje ya empezó. Solo puedes rechazar la reserva.',
+  'backoffice.booking.refusal.ineligible':
+    'El viajero ya no cumple los controles. Solo puedes rechazar la reserva.',
+  'backoffice.booking.refusal.paymentInFlight':
+    'Hay un pago en curso. Inténtalo de nuevo en unos minutos.',
+  'backoffice.booking.refusal.cancellationUnavailable':
+    'El viaje ya está pagado. Su anulación con reembolso aún no está disponible aquí.',
   'backoffice.host.recorded': 'Filtrado registrado.',
   'backoffice.host.refused.HOST_ALREADY_SCREENED':
     'Este expediente ya tiene un filtrado registrado.',
@@ -1369,6 +1427,9 @@ export const ES_MESSAGES = {
     'Escribe tu nombre y tus apellidos tal como aparecen en tu licencia de conducir.',
   'common.kyc.legalNameLocked':
     'Estamos revisando tu identidad. Podrás cambiar tu nombre cuando terminemos.',
+  'common.kyc.entryDeclared':
+    'Guardamos tu fecha de entrada. El equipo la revisará si tu reserva lo necesita.',
+  'common.kyc.entryDateInvalid': 'Revisa la fecha de entrada: no puede ser posterior a hoy.',
   'web.s04.title': 'Verifica tu identidad',
   'web.s04.intro': 'Lo hacemos antes del pago para que nadie te cobre si no puedes manejar.',
   'web.s04.progress': 'Paso {step} de {total}',
@@ -1983,7 +2044,7 @@ export const ES_MESSAGES = {
     'Llegaste al máximo de intentos de pago para esta reserva. No se te cobró nada.',
   'common.payment.methodUnavailable': 'Este medio de pago no está disponible para esta reserva.',
   'web.s05.cta': 'Pagar {amount}',
-  'web.s05.pay.title': 'Paga tu reserva',
+  'web.s05.pay.title': 'Pago de tu reserva',
   'web.s06.pre.leaving':
     'Vas a pagar {amount} en una página segura de nuestro procesador de pagos.',
   'web.s06.status.title': 'Estado de tu pago',

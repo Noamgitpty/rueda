@@ -15,6 +15,8 @@ export const OPS_MESSAGES = {
   // sa contestation, sa demande, ou un compte lié) : jamais traité par lui
   STAFF_SELF_FORBIDDEN: { status: 403, messageKey: 'common.ops.selfForbidden' },
   STAFF_ITEM_TAKEN: { status: 409, messageKey: 'common.ops.itemTaken' },
+  // US-209b : élément RISK_BOOKING qui n'est pas une réservation signalée (compte lié, US-127)
+  BOOKING_REVIEW_NOT_BOOKING: { status: 409, messageKey: 'common.bookingReview.notBooking' },
   STAFF_USER_NOT_FOUND: { status: 404, messageKey: 'common.ops.userNotFound' },
   EVIDENCE_REJECTED: { status: 422, messageKey: 'common.evidence.rejected' },
   EVIDENCE_UNAVAILABLE: { status: 503, messageKey: 'common.evidence.unavailable' },

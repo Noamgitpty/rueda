@@ -168,6 +168,37 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
       },
     ],
   },
+  // US-209b : dossier d'une réservation signalée (forme de 0119)
+  bookingReview: {
+    itemId: ID,
+    assessmentId: ID,
+    holdId: ID,
+    guestUserId: ID,
+    vehicleId: ID,
+    orgId: ID,
+    country: FIRST_COUNTRY,
+    rulesFired: [
+      { code: 'ACCOUNT_UNDER_24H', version: 1, signal: 'ACCOUNT_AGE' },
+      { code: 'HIGH_VALUE_CLASS', version: 1, signal: 'PREMIUM' },
+    ],
+    score: 50,
+    flaggedAt: '2031-07-01T08:00:00.123456+00:00',
+    holdStatus: 'ACTIVE',
+    reviewBeforeCharge: true,
+    reviewedAt: null,
+    expiresAt: '2031-07-01T10:00:00.123456+00:00',
+    startsAt: '2031-07-10T15:00:00+00:00',
+    endsAt: '2031-07-13T15:00:00+00:00',
+    timezone: 'Etc/GMT+5',
+    paymentWindowMinutes: 10,
+    itemStatus: 'IN_REVIEW',
+    accessId: ID,
+    entryDeclaration: {
+      residencyStatus: 'TOURIST',
+      entryDate: '2031-06-20',
+      declaredAt: '2031-06-30T08:00:00.123456+00:00',
+    },
+  },
   // US-108 : dossier de l'hôte signalé (liste de contrôle fermée, retenue visible du staff)
   hostDossier: {
     orgId: ID,
@@ -385,6 +416,9 @@ class TunableOpsStore implements OpsConsoleStore {
   }
   hostDossier() {
     return this.#r('hostDossier', 'GRANTED');
+  }
+  bookingReview() {
+    return this.#r('bookingReview', 'GRANTED');
   }
   findUser() {
     return this.#r('findUser', 'FOUND');
@@ -958,6 +992,32 @@ describe('contrat HTTP — /console', () => {
     });
     delete ops.outcome['hostDossier'];
     await refusals(a, 'POST', host);
+
+    // réservation signalée (US-209b) : 200 (instants en ISO, date d'entrée inchangée), 400, 403
+    // (dont STAFF_CASE_REQUIRED, STAFF_SELF_FORBIDDEN), 409 BOOKING_REVIEW_NOT_BOOKING
+    const booking = `/console/queues/items/${ID}/risk-review`;
+    const bookingRead = await post(booking, { requestId: randomUUID(), purpose });
+    expect(bookingRead.status).toBe(200);
+    expect(bookingRead.json).toMatchObject({
+      score: 50,
+      holdStatus: 'ACTIVE',
+      expiresAt: '2031-07-01T10:00:00.123Z',
+      startsAt: '2031-07-10T15:00:00.000Z',
+      entryDeclaration: { entryDate: '2031-06-20', declaredAt: '2031-06-30T08:00:00.123Z' },
+    });
+    expect((await post(booking, { requestId: randomUUID(), purpose: 'court' })).status).toBe(400);
+    for (const [outcome, code] of [
+      ['CASE_REQUIRED', 'STAFF_CASE_REQUIRED'],
+      ['SELF_FORBIDDEN', 'STAFF_SELF_FORBIDDEN'],
+      ['NOT_A_BOOKING', 'BOOKING_REVIEW_NOT_BOOKING'],
+    ] as const) {
+      ops.outcome['bookingReview'] = outcome;
+      expect((await post(booking, { requestId: randomUUID(), purpose })).json).toMatchObject({
+        code,
+      });
+    }
+    delete ops.outcome['bookingReview'];
+    await refusals(a, 'POST', booking);
 
     // file d'ajout au catalogue (US-114) : lecture 200, 400, 403, 409 ; décision 200, 400, 403,
     // 409, 422

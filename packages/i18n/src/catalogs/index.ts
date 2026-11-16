@@ -154,7 +154,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  fenêtre en jours et en montant du moteur de règlement, taxes comprises, 10b UX-54) ;
  `web.s05.cancel.ifCancel*` (retenue sans date d'annulation gratuite) ; `web.s05.terms.title`
  renommé « documents que tu acceptes » (un seul titre « Condiciones » à l'écran, revue ux de 205b).
- Version 62 (la 61 est réservée à US-209b) : paiement du hold et attente de la preuve (US-223
+ Version 61 (la 59 est réservée à US-223, la 60 à US-205b) : décision de l'ops sur une réservation
+ signalée et déclaration d'entrée, partie 209b (US-209, ADR-141) : `common.kyc.entryDeclared`,
+ `common.kyc.entryDateInvalid` (déclaration d'entrée du voyageur à permis étranger, 16 VER-007),
+ `common.bookingReview.notBooking` et `backoffice.booking.*` (dossier et décision d'une réservation
+ signalée dans la console O01).
+ Version 62 (la 61 est celle d'US-209b) : paiement du hold et attente de la preuve (US-223
  partie 223b, ADR-142) : `common.payment.*` (refus de la route du paiement : paiement indisponible,
  capacité bloquante du PSP, réservation en revue, hold échu ou déjà payé, début dépassé, tentatives
  épuisées, moyen indisponible), `web.s05.cta` (« Pagar {amount} », 10b S05 ; N-170) et `web.s05.pay.title`,

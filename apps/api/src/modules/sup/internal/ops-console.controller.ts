@@ -10,6 +10,8 @@
  * | POST /console/queues/items/:id/kyc      | 200 dossier KYC (journalisé)     | 403 STAFF_CASE_REQUIRED          |
  * | POST /console/queues/items/:id/         | 200 dossier de l'hôte, liste de  | 403 STAFF_CASE_REQUIRED          |
  * |      host-verification (US-108)         | contrôle (journalisé)            |                                  |
+ * | POST /console/queues/items/:id/         | 200 dossier de la réservation    | 403 STAFF_CASE_REQUIRED ; 409    |
+ * |      risk-review (US-209b)             | signalée (journalisé)            | BOOKING_REVIEW_NOT_BOOKING       |
  * | POST /console/users/search              | 200 identifiant (journalisé)     | 404 STAFF_USER_NOT_FOUND         |
  * | POST /console/users/:id/profile         | 200 fiche 360° (journalisée)     | 403 STAFF_CASE_REQUIRED          |
  * | POST /console/users/:id/notes           | 201 note ; 200 rejeu             | 403 STAFF_CASE_REQUIRED          |
@@ -206,8 +208,10 @@ function actorOf(request: object): StaffActor {
 
 /** Champs d'horodatage rendus par la base (noms de 0064, 0076) ; aucun texte libre n'en fait partie. */
 // US-108 : instants du dossier de l'hôte (screenedAt, decidedAt, activatedAt)
+// US-209b : instants du dossier d'une réservation signalée (flaggedAt, reviewedAt, expiresAt,
+// declaredAt ; la date d'entrée déclarée reste une date)
 const DATE_FIELD =
-  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt)$/;
+  /^(createdAt|slaDueAt|liftedAt|scheduledStart|scheduledEnd|updatedAt|startsAt|endsAt|screenedAt|decidedAt|activatedAt|flaggedAt|reviewedAt|expiresAt|declaredAt)$/;
 
 /** Décision de la file d'ajout (US-114) : la forme est jugée ici, les valeurs par la base. */
 function resolutionOf(b: Record<string, unknown>): CatalogResolution {
@@ -349,6 +353,25 @@ export class OpsConsoleController {
       () => this.store.hostDossier(actor, requestId, itemId, purpose),
       ['GRANTED'],
     );
+    return body;
+  }
+
+  // US-209b (ADR-141) : dossier d'une réservation signalée (file RISK_BOOKING) ; la décision passe
+  // par POST /console/actions (REVIEW_FLAGGED_BOOKING) ; lecture journalisée d'abord
+  @Post('queues/items/:id/risk-review')
+  @HttpCode(200)
+  @UseGuards(StaffGuard)
+  async bookingReview(@Req() request: object, @Param('id') id: string, @Body() raw: unknown) {
+    const actor = actorOf(request);
+    const itemId = uuidOf(id);
+    const b = fields(raw);
+    const requestId = uuidOf(b['requestId']);
+    const purpose = textOf(b['purpose'], 10, 500);
+    const { outcome, body } = await run(
+      () => this.store.bookingReview(actor, requestId, itemId, purpose),
+      ['GRANTED', 'NOT_A_BOOKING'],
+    );
+    if (outcome === 'NOT_A_BOOKING') throw new OpsHttpError('BOOKING_REVIEW_NOT_BOOKING');
     return body;
   }
 
