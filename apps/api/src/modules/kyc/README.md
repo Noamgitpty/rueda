@@ -8,6 +8,8 @@ D'après 17 §2.2 et §2.4 (révision P2P) : vérification du conducteur (SM-3) 
 
 État du code : **vérification d'identité du voyageur** (US-105, ADR-102) : consentement biométrique séparé, parcours hébergé du fournisseur (port `IdentityProvider`, FAKE seulement), décision par rappel signé, contrôle bloquant du permis pour le paiement. **Inscription et vérification individuelle de l'hôte, profil fiscal** (US-123, ADR-105) : dossier de l'hôte, faits vérifiés du KYC (date de naissance, résidence), filtrage des sanctions (port `SanctionsScreener`, FAKE seulement), profil fiscal chiffré par la clé du compte d'hôte (port `TaxIdSealer`), décision de l'ops `HOST_VERIFICATION_DECISION` et activation gardée en base. **Vérification de l'hôte par exception** (US-108, ADR-111, consigne du fondateur du 2026-11-12) : un dossier complet et propre est approuvé par le travailleur `review_sla_watch` sans l'ops ; l'ops ne traite que les dossiers retenus (sanctions) ou d'un pays où `host_review_manual_required` vaut true ; filtrage manuel des sanctions `HOST_SANCTIONS_SCREENING` ; dossier de l'hôte pour la console. À venir : consommateur `payment_command` de l'enregistrement du sous-marchand (story à créer), US-605 (fournisseur réel, lot C). `KycModule` (US-001) reste vide ; le métier est monté par `KycIdentityModule` (processus API).
 
+**US-209 (209a, migration 0112, ADR-135)** : éligibilité du conducteur à un trip, `core.kyc_checkout_driver(personne, début, fin, pays, âge minimum)` (`SECURITY DEFINER`, `EXECUTE` au seul `cmd_hold_owner`, appelée par le checkout, le démarrage du paiement et la conversion) : consentement biométrique retiré ou absent ⇒ `KYC_BIOMETRIC_CONSENT_MISSING` (N-122), vérification non approuvée ⇒ `KYC_NOT_APPROVED`, permis échu avant la fin ⇒ `KYC_LICENSE_EXPIRED`, âge minimum non atteint à la date locale du début ⇒ `AGE_CLASS_MISMATCH` ; signal du permis étranger (16 VER-007, mode FLAG : jamais un refus). Déclaration d'entrée `core.kyc_cmd_declare_entry(jeton, pays, statut, date)` (`EXECUTE` `app_api` ; route et écran : partie 209b).
+
 ## Entités
 
 Entités de 17 §3.2.2 (migrations `0072` et `0075`, écritures par commandes `core.kyc_*` seulement) :
@@ -17,7 +19,7 @@ Entités de 17 §3.2.2 (migrations `0072` et `0075`, écritures par commandes `c
 | `identity_verification`     | `core.kyc_identity_verification` (US-105)                                       |
 | `identity_document`         | `core.kyc_identity_document` (US-105 ; champs minimaux, aucune image ni numéro) |
 | `liveness_check`            | `core.kyc_liveness_check` (US-105 ; scores C3, aucune image)                    |
-| `foreign_entry_declaration` | cible 17, pas encore créée                                                      |
+| `foreign_entry_declaration` | `core.kyc_entry_declaration` (US-209 ; statut et date d'entrée, ajout seul)     |
 | `trip_identity_check`       | cible 17, pas encore créée                                                      |
 | `host_verification`         | `core.kyc_host_verification` (US-123 ; un dossier par compte d'hôte)            |
 | `sanctions_screening`       | `core.kyc_sanctions_screening` (US-123 ; aucune entrée de liste copiée)         |

@@ -68,6 +68,10 @@
     {
       "path": "packages/db/migrations/0111_config_protection_params.sql",
       "justification": "Graine complémentaire du paramètre protection_grid (16 PRC-018, PRT-001, PRT-002 : grille des protections du voyageur par niveau) et premières valeurs d'insurer_premium_share et d'insurer_roadside_share (08 BR-PRICE-11, E7 : parts de l'assureur), valeurs de TEST À DÉCIDER PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, valueKeys) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-226, ADR-136."
+    },
+    {
+      "path": "packages/db/migrations/0113_config_foreign_license_params.sql",
+      "justification": "Graine complémentaire du paramètre foreign_license_review_enabled (16 VER-007 ; OQ-BR-21 ; DEC-FONDATEUR-22 « jamais plus lourd que Turo » : revue du permis étranger seulement si le pays l'exige) : définition et valeurs PROPOSÉES PA / PY (false), générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-209, ADR-135."
     }
   ]
 }

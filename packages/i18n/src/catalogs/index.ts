@@ -128,7 +128,11 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  checkout), `common.quote.line.protection*` (ligne de protection du détail du prix de S05, nom du
  niveau) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
  de gains du véhicule).
- Version 57 (la 56 est réservée à US-209a) : protections et plans de gains, écrans (US-226 partie
+ Version 56 : contrôles bloquants du checkout (US-209 partie 209a, ADR-135 ; la 54, réservée,
+ n'a jamais été publiée) : `common.checkout.ageClassMismatch` (âge minimum du conducteur au
+ début du trip, ou date de naissance non vérifiée, 16 BKG-012) ; `common.checkout.identityConsentWithdrawn`
+ retirée (le consentement retiré rend `KYC_BIOMETRIC_CONSENT_MISSING`, N-122).
+ Version 57 : protections et plans de gains, écrans (US-226 partie
  226b, ADR-137) : `web.s05.protection.*` et `web.s05.age.*` (choix du niveau sur S05, âge déclaré,
  niveau grisé « dès {age} ans », prix par jour et pour la période), `common.price.protectionIncluded`
  (« protection de base incluse » près du total des cartes et de la fiche), `web.a11.plan.*` et

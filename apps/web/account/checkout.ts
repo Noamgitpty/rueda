@@ -553,7 +553,11 @@ const CHECKOUT_KEYS: Readonly<Record<string, MessageKey>> = {
   HOLD_NOT_FOUND: 'common.checkout.holdNotFound',
   SELF_BOOKING_FORBIDDEN: 'common.booking.selfBookingForbidden.body',
   ACCOUNT_RESTRICTED: 'common.checkout.accountRestricted',
-  KYC_CONSENT_WITHDRAWN: 'common.checkout.identityConsentWithdrawn',
+  // US-209 (ADR-135, 16 BKG-012) : refus définitifs du conducteur, jamais « réessaie plus tard »
+  KYC_NOT_APPROVED: 'common.kyc.notApproved',
+  KYC_BIOMETRIC_CONSENT_MISSING: 'common.kyc.consentMissing',
+  KYC_LICENSE_EXPIRED: 'common.kyc.licenseExpired',
+  AGE_CLASS_MISMATCH: 'common.checkout.ageClassMismatch',
   BOOKING_UNAVAILABLE: 'common.checkout.unavailable',
   RATE_LIMITED: 'common.rateLimit.retryLater',
 };

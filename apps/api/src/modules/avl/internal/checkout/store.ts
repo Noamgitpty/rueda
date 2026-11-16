@@ -104,7 +104,7 @@ export interface CheckoutHold {
   }[];
 }
 
-/** Issues de `core.booking_cmd_checkout` (0108). */
+/** Issues de `core.booking_cmd_checkout` (0108, contrôles du conducteur : 0112). */
 export const CHECKOUT_OUTCOMES = [
   'DONE',
   'AUTH_REQUIRED',
@@ -130,7 +130,11 @@ export const CHECKOUT_OUTCOMES = [
   'HOLD_RATE_LIMITED',
   'SELF_BOOKING_FORBIDDEN',
   'ACCOUNT_RESTRICTED',
-  'KYC_CONSENT_WITHDRAWN',
+  // US-209 (0112, ADR-135) : contrôles bloquants du conducteur (16 BKG-012)
+  'KYC_NOT_APPROVED',
+  'KYC_BIOMETRIC_CONSENT_MISSING',
+  'KYC_LICENSE_EXPIRED',
+  'AGE_CLASS_MISMATCH',
   'BOOKING_UNAVAILABLE',
 ] as const;
 export type CheckoutOutcome = (typeof CHECKOUT_OUTCOMES)[number];

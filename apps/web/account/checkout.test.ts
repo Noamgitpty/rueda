@@ -436,6 +436,23 @@ describe('messages des refus', () => {
     expect(checkoutErrorKey(reply(409, { code: 'QUOTE_EXPIRED' }))).toBe('common.quote.expired');
   });
 
+  it('US-209 : refus du conducteur (403 de la pose, 16 BKG-012) ⇒ leur propre message, jamais « réessaie plus tard »', () => {
+    const expected: Readonly<Record<string, string>> = {
+      KYC_NOT_APPROVED: 'common.kyc.notApproved',
+      KYC_BIOMETRIC_CONSENT_MISSING: 'common.kyc.consentMissing',
+      KYC_LICENSE_EXPIRED: 'common.kyc.licenseExpired',
+      AGE_CLASS_MISMATCH: 'common.checkout.ageClassMismatch',
+    };
+    for (const [code, key] of Object.entries(expected)) {
+      expect(checkoutErrorKey(reply(403, { code })), code).toBe(key);
+      for (const catalog of Object.values(CATALOGS)) {
+        expect(catalog.messages, `${code} → ${key}`).toHaveProperty([key]);
+      }
+    }
+    // l'ancien code d'US-208 n'est plus rendu par l'API (N-122 : un seul code)
+    expect(CHECKOUT_ERROR_CODES).not.toContain('KYC_CONSENT_WITHDRAWN');
+  });
+
   it('code inconnu ou API injoignable ⇒ message générique, jamais un texte technique', () => {
     expect(checkoutErrorKey(reply(500, { code: 'WHATEVER' }))).toBe('common.checkout.unavailable');
     expect(checkoutErrorKey({ status: 'unavailable' })).toBe('common.checkout.unavailable');

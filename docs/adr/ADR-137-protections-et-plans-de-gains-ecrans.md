@@ -16,7 +16,7 @@ La partie 226a (ADR-136) livre le serveur : `POST /checkout/quotes` accepte `pro
 5. **Lecture défensive** (`account/checkout.ts`) : un niveau mal formé ou en double, deux niveaux sélectionnés, un niveau refusé sans raison (ou l'inverse), ou un niveau sélectionné dont le niveau ou la ligne diffère de la ligne `PROTECTION` du devis ⇒ devis jamais affiché (fail-closed). Une réponse antérieure à US-226 (sans ces champs) reste lisible, sans section.
 6. **« Protección básica incluida »** (`common.price.protectionIncluded`) près du total de chaque carte de résultats et de la fiche S03 : le total de l'API comprend toujours la protection minimale du pays (N-141, 16 SRC-042 ; revue ux de 226a, n° 7).
 7. **A11, plan de gains par véhicule** (`/host/vehicles/{id}/earnings-plan`, lien sur chaque auto d'A10 avec le plan en vigueur) : plan expliqué en une phrase (part du prix de chaque trip reçue par l'hôte), « Asignado por defecto » ou « Elegido por ti » ; un seul plan vendu ⇒ aucun sélecteur (« Por ahora es el único plan disponible ») ; plusieurs ⇒ boutons radio, effet rappelé avant « Guardar el plan », confirmation `common.listing.earningsPlanSaved` après l'enregistrement (16 PRT-007, « confirmation in-app ») ; `PRO` filtré même si une réponse le portait. Nom d'un plan : `ESTÁNDAR` ⇒ « Estándar / Standard / Standard / Padrão » ; un plan inconnu est nommé par sa part, jamais par son code. La part affichée est la fraction `host_share_pct` rendue par l'API, en pourcentage exact au dixième (sinon le plan est refusé).
-8. **Couverture de l'hôte** (16 PRT-015, BR-PROT-09) : A11 dit que la voiture est couverte pendant la période de la réservation ; la franchise et les exclusions viennent du contrat de l'assureur et seront affichées mot pour mot avant toute activation d'hôte (aucun hôte n'est activable sans `insurer_contract_active`) : ligne **GL-17** de `docs/ops/GO_LIVE_CHECKLIST.md`, avec `protection_grid` et `insurer_premium_share` (revue architecture de 226a, n° 8).
+8. **Couverture de l'hôte** (16 PRT-015, BR-PROT-09) : A11 dit que la voiture est couverte pendant la période de la réservation ; la franchise et les exclusions viennent du contrat de l'assureur et seront affichées mot pour mot avant toute activation d'hôte (aucun hôte n'est activable sans `insurer_contract_active`) : ligne **GL-18** de `docs/ops/GO_LIVE_CHECKLIST.md`, avec `protection_grid` et `insurer_premium_share` (revue architecture de 226a, n° 8).
 9. **Noms des niveaux** en minuscules dans les quatre langues (« Protección básica », « Basic protection », « Protection de base », « Proteção básica » ; revue ux de 226a, n° 3), comme les exemples `web.catalog.sample.line.protection`.
 
 ## Conséquences
@@ -27,7 +27,7 @@ La partie 226a (ADR-136) livre le serveur : `POST /checkout/quotes` accepte `pro
 
 ## Suites
 
-- Franchise du voyageur par niveau sur S05 et franchise et exclusions de l'hôte sur A11 : données du contrat de l'assureur (grille à compléter, GL-17).
+- Franchise du voyageur par niveau sur S05 et franchise et exclusions de l'hôte sur A11 : données du contrat de l'assureur (grille à compléter, GL-18).
 - Éligibilité par la valeur du véhicule (PRT-002) : la grille ne porte que l'âge.
 - Recoupement de l'âge déclaré avec la date de naissance vérifiée : contrôles bloquants (US-209).
 - Changement de protection après la réservation (16 TRP-029, P1).

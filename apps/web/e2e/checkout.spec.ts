@@ -465,6 +465,36 @@ test.describe('checkout S05 · es', () => {
     await submitAndSettle(page, submit(page), HOLD_URL);
   });
 
+  test('US-209 : refus du conducteur à la pose (vérification, consentement, permis, âge) ⇒ chacun son message, distinct du message générique, aucun hold', async ({
+    page,
+    context,
+  }) => {
+    await signInGuest(context, 'es');
+    const banner = page
+      .locator('[data-testid="s05-form"] [role="alert"]')
+      .filter({ hasText: /\S/ });
+    const shown = async (day: number): Promise<string> => {
+      await openCheckout(page, PUBLIC_ID, slot(day));
+      const quoteUrl = page.url();
+      await fillDriver(page, 'Lucía', 'Gómez');
+      await acceptAll(page);
+      await submitAndSettle(page, submit(page));
+      await expect(page).toHaveURL(quoteUrl);
+      await expect(banner.first()).toBeVisible();
+      await expectAccessible(page);
+      return (await banner.first().innerText()).trim();
+    };
+    // le 8 : code inconnu du site ⇒ message générique (témoin)
+    const generic = await shown(8);
+    const texts: string[] = [];
+    for (const day of [4, 5, 6, 7]) {
+      const text = await shown(day);
+      expect(text, `jour ${day}`).not.toBe(generic);
+      texts.push(text);
+    }
+    expect(new Set(texts).size).toBe(texts.length);
+  });
+
   test('critère 1 : devis expiré à la pose (409 QUOTE_EXPIRED) ⇒ nouveau devis affiché, cases à recocher, puis hold', async ({
     page,
     context,
