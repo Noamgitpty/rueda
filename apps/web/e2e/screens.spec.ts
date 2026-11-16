@@ -88,6 +88,36 @@ async function openCheckout(
   await expect(page.locator('[data-testid="s05-price"]')).toBeVisible();
 }
 
+/** Lieu de remise et auto saisis sur le compte d'hôte affiché (A10), pour ouvrir A11 (US-226b). */
+async function placeAndCar(page: Page): Promise<void> {
+  await page.locator('#a10-place-label').fill('Casa');
+  await page.locator('#a10-place-address').fill('Calle Secreta 123');
+  await page.locator('#a10-place-city').fill('Ciudad Ficticia');
+  await page.locator('#a10-place-form button[type="submit"]').click();
+  await expect(page).toHaveURL(/saved=1/);
+  await page.locator('#a10-car-plate').fill(`e2e-${randomBytes(3).toString('hex')}`);
+  await page.locator('#a10-car-make').fill('Toyota');
+  await page.locator('#a10-car-model').fill('Yaris');
+  await page.locator('#a10-car-year').fill('2021');
+  await page.locator('#a10-car-form button[type="submit"]').click();
+  await expect(page.locator('#a10-new')).toBeVisible();
+}
+
+/** A10 → A11 du premier véhicule (plan de gains, US-226b) ; `second` : second compte du double. */
+async function openEarningsPlan(page: Page, context: BrowserContext, second: boolean) {
+  await signInHost(context);
+  await page.goto('/host');
+  if (second) {
+    const accounts = page.locator('nav[aria-labelledby="a10-accounts"] a');
+    await accounts.nth(1).click();
+    await expect(accounts.nth(1)).toHaveAttribute('aria-current', 'page');
+  }
+  await placeAndCar(page);
+  await page.locator('main a[href*="/earnings-plan?org="]').first().click();
+  await expect(page).toHaveURL(/\/earnings-plan\?org=/);
+  await expect(page.locator('#a11-current')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
@@ -223,6 +253,40 @@ export const SCREENS: readonly Screen[] = [
       await expect(page.locator('[data-testid="s05-hold-documents"]')).toBeVisible();
     },
   },
+  // US-226 partie 226b : choix de la protection sur S05 (le 25 du double : BASICA présélectionnée,
+  // TOTAL grisé sans âge) ; TOTAL validé à 25 ans (nouveau devis, nouveau total) ; contrat de
+  // l'assureur fermé après le gel (le 28) ; plan de gains d'A11 (un plan, puis deux plans)
+  {
+    name: 'checkout-protection',
+    source: 'S05, US-226',
+    open: async (page, context, language) => {
+      await openCheckout(page, context, language, PUBLIC_ID, 25);
+      await expect(page.locator('[data-testid="s05-protection"]')).toBeVisible();
+    },
+  },
+  {
+    name: 'checkout-protection-total',
+    source: 'S05, US-226',
+    open: async (page, context, language) => {
+      await openCheckout(page, context, language, PUBLIC_ID, 25);
+      await page.locator('#s05-driver-age').fill('25');
+      await page.locator('#s05-protection-TOTAL').check();
+      await submitAndSettle(
+        page,
+        page.locator('[data-testid="s05-protection-apply"]'),
+        /\/checkout\/[0-9a-f-]{36}\?protection=1$/,
+      );
+      await expect(page.locator('#s05-protection-TOTAL')).toBeChecked();
+    },
+  },
+  {
+    name: 'checkout-assureur-ferme',
+    source: 'S05, US-226',
+    open: async (page, context, language) => {
+      await openCheckout(page, context, language, PUBLIC_ID, 28);
+      await expect(page.locator('section[aria-labelledby="s05-closed"]')).toBeVisible();
+    },
+  },
   {
     name: 'document-annulation',
     source: 'S05, US-208',
@@ -248,6 +312,16 @@ export const SCREENS: readonly Screen[] = [
       await expect(page).toHaveURL(/\/host\/verification\?org=/);
       await expect(page.locator('#a07-tasks')).toBeVisible();
     },
+  },
+  {
+    name: 'hote-plan-gains',
+    source: 'A10, A11, US-226',
+    open: (page, context) => openEarningsPlan(page, context, false),
+  },
+  {
+    name: 'hote-plan-gains-choix',
+    source: 'A10, A11, US-226',
+    open: (page, context) => openEarningsPlan(page, context, true),
   },
   { name: 'vitrine-composants', source: 'US-032', open: at('/ui?width=mobile') },
 ];

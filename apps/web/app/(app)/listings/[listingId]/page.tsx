@@ -245,6 +245,10 @@ function BookingSection({
             }}
             days={usable.billableDays}
           />
+          {/* US-226b : protection minimale du pays comprise dans le total (N-141, 16 SRC-042) */}
+          <p className={accountStyles['text']} data-testid="s03-protection-included">
+            {t('common.price.protectionIncluded')}
+          </p>
           <p className={accountStyles['muted']}>{t('web.listing.total.hint')}</p>
           {listing.instantBook ? (
             <BookForm

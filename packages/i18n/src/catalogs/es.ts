@@ -1814,7 +1814,7 @@ export const ES_MESSAGES = {
   'common.quote.lineNotSupported':
     'Esta opción todavía no se puede reservar. Quítala para continuar.',
   'common.quote.protectionRequired':
-    'Elige una protección para continuar: todo viaje incluye al menos la protección Básica.',
+    'Elige una protección para continuar: todo viaje incluye al menos la protección básica.',
   'common.quote.protectionNotEligible':
     'Esta protección no está disponible para este conductor o este auto. Elige otra.',
   'common.quote.insurerContractInactive':
@@ -1824,9 +1824,9 @@ export const ES_MESSAGES = {
   'common.listing.earningsPlanNotAvailable':
     'Este plan de ganancias no está disponible donde publicas tu auto. Elige uno de la lista.',
   'common.quote.line.protection': 'Protección',
-  'common.quote.line.protectionBasica': 'Protección Básica',
-  'common.quote.line.protectionEstandar': 'Protección Estándar',
-  'common.quote.line.protectionTotal': 'Protección Total',
+  'common.quote.line.protectionBasica': 'Protección básica',
+  'common.quote.line.protectionEstandar': 'Protección estándar',
+  'common.quote.line.protectionTotal': 'Protección total',
   'common.checkout.requestModeUnavailable':
     'Este auto se reserva con solicitud al anfitrión, y eso todavía no está disponible. Elige otro auto.',
   'common.checkout.manualNotConfirmed':
@@ -1910,6 +1910,44 @@ export const ES_MESSAGES = {
   'web.s05.doc.GEO_TERMS': 'Zonas de circulación',
   'web.s05.back': 'Volver a la ficha del auto',
   'web.legal.backCheckout': 'Volver a tu reserva',
+  // US-226 partie 226b (ADR-137) : choix de la protection sur S05, mention « protection de base
+  // incluse » des cartes et de la fiche, plan de gains de l'hôte (A11)
+  'web.s05.protection.title': 'Elige tu protección',
+  'web.s05.protection.intro':
+    'Todo viaje incluye al menos la protección básica. Puedes elegir una más completa: el precio se actualiza antes de reservar.',
+  'web.s05.protection.legend': 'Nivel de protección',
+  'web.s05.protection.price': '{daily} por día · {total} en total',
+  'web.s05.protection.minAge': 'Disponible desde los {age} años.',
+  'web.s05.protection.ageNeeded': 'Indica tu edad para elegirla.',
+  'web.s05.protection.apply': 'Actualizar el precio',
+  'web.s05.protection.unchanged':
+    'Elige otra protección o cambia tu edad para actualizar el precio.',
+  'web.s05.protection.updated': 'Protección actualizada. Revisa el nuevo total antes de reservar.',
+  'web.s05.age.label': 'Edad del conductor',
+  'web.s05.age.hint':
+    'Solo sirve para mostrarte las protecciones disponibles. Indica la edad real de quien conduce.',
+  'web.s05.age.invalid': 'Escribe tu edad en años, entre {min} y {max}.',
+  'common.price.protectionIncluded': 'Protección básica incluida',
+  'web.a11.plan.open': 'Plan de ganancias',
+  'web.a11.plan.title': 'Plan de ganancias',
+  'web.a11.plan.intro':
+    'Tu plan define qué parte del precio de cada viaje recibes. El viajero paga aparte la tarifa del viaje y su protección.',
+  'web.a11.plan.current': 'Plan actual: {plan}',
+  'web.a11.plan.option': '{plan} · recibes el {share} % del precio',
+  'web.a11.plan.default': 'Asignado por defecto. Puedes cambiarlo cuando quieras.',
+  'web.a11.plan.chosen': 'Elegido por ti. Puedes cambiarlo cuando quieras.',
+  'web.a11.plan.newTripsOnly':
+    'Un cambio se aplica a los viajes que se reserven desde ahora; los viajes ya reservados conservan su plan.',
+  'web.a11.plan.only': 'Por ahora es el único plan disponible donde publicas tu auto.',
+  'web.a11.plan.choose': 'Elige tu plan',
+  'web.a11.plan.save': 'Guardar el plan',
+  'web.a11.plan.name.ESTANDAR': 'Estándar',
+  'web.a11.plan.name.other': 'Plan del {share} %',
+  'web.a11.coverage.title': 'Qué cubre tu plan',
+  'web.a11.coverage.period':
+    'Cuando la protección de la aseguradora aliada esté activa donde publicas, tu auto estará cubierto durante el periodo de cada reserva.',
+  'web.a11.coverage.contract':
+    'Las exclusiones y tu franquicia vienen del contrato de la aseguradora aliada: te las mostraremos aquí, palabra por palabra, antes de que puedas recibir viajes.',
 } as const satisfies Catalog;
 
 export type MessageKey = keyof typeof ES_MESSAGES;

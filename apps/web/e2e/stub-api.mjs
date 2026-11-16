@@ -317,10 +317,32 @@ const QUOTE_EXPIRES_AT = '2036-11-30T15:30:00.000Z';
 const HOLD_EXPIRES_AT = '2036-11-30T15:10:00.000Z';
 const EXPIRE_ON_HOLD_DAY = '-12-15T';
 const EXPIRED_ON_READ_DAY = '-12-20T';
-// US-226 : le 25, le devis porte la protection BASICA du voyageur (1/4 du prix journalier, non
-// taxée, comme la grille de test du dépôt : 10,00 par jour) ; les autres jours gardent le devis de
-// 208b (références visuelles inchangées)
+// US-226 : le 25, le devis porte la protection du voyageur, BASICA présélectionnée, non taxée
+// (grille de TEST du dépôt, 16 PRC-018 : 1/4, 2/5 et 13/20 du prix journalier net, TOTAL dès
+// 21 ans ; 40,00 ⇒ 10,00 / 16,00 / 26,00 par jour) ; le devis rend les niveaux et leur prix pour
+// la période (`protectionOptions`), l'âge déclaré et l'interrupteur de l'assureur (US-226b). Niveau
+// absent ⇒ BASICA ; niveau vide ⇒ 422 PROTECTION_LEVEL_REQUIRED ; niveau refusé à l'âge déclaré ⇒
+// 422 PROTECTION_LEVEL_NOT_ELIGIBLE. Le 27 : contrat de l'assureur fermé au gel (409
+// INSURER_CONTRACT_INACTIVE) ; le 28 : devis figé, contrat fermé depuis (lecture
+// `insurerContractActive: false`). Les autres jours gardent le devis de 208b (références visuelles
+// inchangées).
+// Le 22 (revue qa de 226b, n° 1) : protection comme le 25, mais un devis figé avec un choix du
+// voyageur (niveau autre que BASICA, ou âge déclaré) est expiré à la lecture : son prix redemandé
+// (42,00 par jour) doit garder le niveau et l'âge. Le 26 : S05 ouvert, contrat de l'assureur fermé
+// à la pose du hold (409 INSURER_CONTRACT_INACTIVE).
+const PROTECTION_RENEW_DAY = '-12-22T';
+const INSURER_CLOSED_ON_HOLD_DAY = '-12-26T';
 const PROTECTION_DAY = '-12-25T';
+const INSURER_CLOSED_DAY = '-12-27T';
+const INSURER_CLOSED_ON_READ_DAY = '-12-28T';
+const PROTECTION_GRID = [
+  { level: 'BASICA', num: 1, den: 4, minDriverAge: null },
+  { level: 'ESTANDAR', num: 2, den: 5, minDriverAge: null },
+  { level: 'TOTAL', num: 13, den: 20, minDriverAge: 21 },
+];
+/** Prix par jour d'un niveau : arrondi au plus proche, moitié vers le haut (montants positifs). */
+const protectionDaily = (daily, t) => Math.floor((daily * t.num * 2 + t.den) / (2 * t.den));
+const eligibleAt = (t, age) => t.minDriverAge === null || (age !== null && age >= t.minDriverAge);
 // US-209 : refus du conducteur à la pose (403, 16 BKG-012), un code par jour de départ ; le 8 :
 // code inconnu du site (message générique, témoin)
 const DRIVER_REFUSALS = {
@@ -330,7 +352,6 @@ const DRIVER_REFUSALS = {
   '-12-07T': ['AGE_CLASS_MISMATCH', 'common.checkout.ageClassMismatch'],
   '-12-08T': ['DRIVER_CHECK_UNKNOWN', 'common.checkout.unavailable'],
 };
-const PROTECTION_SHARE_PCT = 25;
 const DAILY_MINOR = 4000;
 const RENEWED_DAILY_MINOR = 4200;
 const TAX_PCT = 7;
@@ -396,10 +417,22 @@ const quoteJson = (q) => ({
   totalMinor: String(q.rent + q.tax + q.protection),
   ...(q.protection > 0
     ? {
-        protectionLevel: 'BASICA',
-        driverAge: null,
-        insurerContractActive: true,
-        protectionOptions: [],
+        protectionLevel: q.level,
+        driverAge: q.driverAge,
+        insurerContractActive: !q.insurerClosedOnRead,
+        protectionOptions: PROTECTION_GRID.map((t) => {
+          const eligible = eligibleAt(t, q.driverAge);
+          const daily = protectionDaily(q.daily, t);
+          return {
+            level: t.level,
+            eligible,
+            reason: eligible ? null : 'DRIVER_AGE',
+            minDriverAge: t.minDriverAge,
+            dailyMinor: String(daily),
+            lineMinor: String(daily * q.days),
+            selected: t.level === q.level,
+          };
+        }),
       }
     : {}),
   expiresAt: QUOTE_EXPIRES_AT,
@@ -459,18 +492,43 @@ async function checkoutRoute(req, res, path) {
     }
     const startAt = new Date(b.startAt).toISOString();
     const endAt = new Date(b.endAt).toISOString();
+    // prix redemandé APRÈS un devis expiré (même session, annonce et période) : nouveau prix ; un
+    // nouveau devis pour un autre niveau de protection garde le prix du jour (US-226b)
     const renewed = [...quotes.values()].some(
       (q) =>
         q.token === guest.token &&
         q.listingId === b.listingId &&
         q.startAt === startAt &&
-        q.endAt === endAt,
+        q.endAt === endAt &&
+        (q.expiredOnRead || q.expireOnHold),
     );
+    if (startAt.includes(INSURER_CLOSED_DAY)) {
+      return err(res, 409, 'INSURER_CONTRACT_INACTIVE', 'common.quote.insurerContractInactive');
+    }
+    const renewDay = startAt.includes(PROTECTION_RENEW_DAY);
+    const withProtection =
+      renewDay ||
+      startAt.includes(PROTECTION_DAY) ||
+      startAt.includes(INSURER_CLOSED_ON_READ_DAY) ||
+      startAt.includes(INSURER_CLOSED_ON_HOLD_DAY);
+    const age = b.driverAge === undefined || b.driverAge === null ? null : b.driverAge;
+    if (age !== null && !(Number.isInteger(age) && age >= 1 && age <= 150)) {
+      return err(res, 400, 'QUOTE_INPUT_INVALID', 'common.quote.datesInvalid');
+    }
+    if (b.protectionLevel === null || b.protectionLevel === '') {
+      return err(res, 422, 'PROTECTION_LEVEL_REQUIRED', 'common.quote.protectionRequired');
+    }
+    const level = b.protectionLevel ?? 'BASICA';
+    const terms = PROTECTION_GRID.find((t) => t.level === level);
+    if (withProtection && (terms === undefined || !eligibleAt(terms, age))) {
+      return err(res, 422, 'PROTECTION_LEVEL_NOT_ELIGIBLE', 'common.quote.protectionNotEligible');
+    }
     const t = slotTotal(
       Date.parse(startAt),
       Date.parse(endAt),
       renewed ? RENEWED_DAILY_MINOR : DAILY_MINOR,
     );
+    const daily = renewed ? RENEWED_DAILY_MINOR : DAILY_MINOR;
     const q = {
       id: uuid(),
       token: guest.token,
@@ -479,10 +537,16 @@ async function checkoutRoute(req, res, path) {
       startAt,
       endAt,
       ...t,
-      protection: startAt.includes(PROTECTION_DAY)
-        ? Math.floor((DAILY_MINOR * PROTECTION_SHARE_PCT + 50) / 100) * t.days
-        : 0,
-      expiredOnRead: !renewed && startAt.includes(EXPIRED_ON_READ_DAY),
+      daily,
+      level,
+      driverAge: age,
+      insurerClosedOnRead: startAt.includes(INSURER_CLOSED_ON_READ_DAY),
+      insurerClosedOnHold: startAt.includes(INSURER_CLOSED_ON_HOLD_DAY),
+      protection: withProtection ? protectionDaily(daily, terms) * t.days : 0,
+      expiredOnRead:
+        !renewed &&
+        (startAt.includes(EXPIRED_ON_READ_DAY) ||
+          (renewDay && (level !== 'BASICA' || age !== null))),
       expireOnHold: !renewed && startAt.includes(EXPIRE_ON_HOLD_DAY),
       used: false,
     };
@@ -509,6 +573,9 @@ async function checkoutRoute(req, res, path) {
     if (q.used) return err(res, 409, 'QUOTE_ALREADY_USED', 'common.checkout.quoteAlreadyUsed');
     if (q.expiredOnRead || q.expireOnHold) {
       return err(res, 409, 'QUOTE_EXPIRED', 'common.quote.expired');
+    }
+    if (q.insurerClosedOnRead || q.insurerClosedOnHold) {
+      return err(res, 409, 'INSURER_CONTRACT_INACTIVE', 'common.quote.insurerContractInactive');
     }
     if (q.listingId === MANUAL_ID && b.manualTransmissionConfirmed !== true) {
       return err(
@@ -968,6 +1035,67 @@ async function hostRoute(req, res, url) {
         (t) =>
           (tab === null || t.tab === tab) && (vehicleId === null || t.vehicle.id === vehicleId),
       ),
+    });
+  }
+  // ---- Plans de gains de l'hôte (US-226) : plan de chaque véhicule, plans vendus, changement ----
+  // Double : premier compte (XTS) : un seul plan vendu (`ESTÁNDAR` 3/4, comme la configuration du
+  // dépôt, OQ-P2P-11) ; second compte (XXX) : deux plans (`ESTÁNDAR` 3/4 et un plan fictif `ALTO`
+  // 17/20) pour exercer le changement. `PRO` n'est jamais vendu (422 EARNINGS_PLAN_NOT_AVAILABLE).
+  const plan =
+    /^\/host\/accounts\/([0-9a-f-]{36})\/(?:earnings-plans|vehicles\/([0-9a-f-]{36})\/earnings-plan)$/.exec(
+      path,
+    );
+  if (plan !== null) {
+    const owner = hostOf(req);
+    if (owner === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+    const h = owner === null ? undefined : owner.accounts.find((a) => a.orgId === plan[1]);
+    if (h === undefined) {
+      return err(res, 404, 'HOST_ACCOUNT_NOT_FOUND', 'common.listing.hostNotFound');
+    }
+    const offered =
+      h.market === MARKET
+        ? [{ planCode: 'ESTÁNDAR', hostShare: '3/4' }]
+        : [
+            { planCode: 'ESTÁNDAR', hostShare: '3/4' },
+            { planCode: 'ALTO', hostShare: '17/20' },
+          ];
+    h.plans ??= {};
+    if (req.method === 'GET' && plan[2] === undefined) {
+      return json(res, 200, {
+        plans: {
+          defaultPlan: 'ESTÁNDAR',
+          offered,
+          vehicles: h.vehicles.map((v) => ({
+            vehicleId: v.id,
+            planCode: h.plans[v.id] ?? 'ESTÁNDAR',
+            chosen: h.plans[v.id] !== undefined,
+            chosenAt: h.plans[v.id] === undefined ? null : '2036-11-30T15:00:00.000Z',
+          })),
+        },
+      });
+    }
+    if (req.method !== 'PUT' || plan[2] === undefined) {
+      return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+    }
+    if (!/^application\/json/.test(req.headers['content-type'] ?? '')) {
+      return err(res, 415, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    const v = h.vehicles.find((x) => x.id === plan[2]);
+    if (!v) return err(res, 404, 'VEHICLE_NOT_FOUND', 'common.listing.vehicleNotFound');
+    const body = (await readBody(req)) ?? {};
+    if (!offered.some((o) => o.planCode === body.planCode)) {
+      return err(
+        res,
+        422,
+        'EARNINGS_PLAN_NOT_AVAILABLE',
+        'common.listing.earningsPlanNotAvailable',
+      );
+    }
+    h.plans[v.id] = body.planCode;
+    return json(res, 200, {
+      code: 'EARNINGS_PLAN_SAVED',
+      messageKey: 'common.listing.earningsPlanSaved',
+      planCode: body.planCode,
     });
   }
   // ---- Calendrier d'un véhicule (US-119) : occupations, blocages, préavis du lieu -------------

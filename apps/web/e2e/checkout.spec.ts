@@ -49,11 +49,50 @@ const RENEWED_TOTAL = /134[.,]82/;
 const PROTECTION_AMOUNT = /30[.,]00/;
 const WITH_PROTECTION_TOTAL = /158[.,]40/;
 const PROTECTION_LABEL: Readonly<Record<Language, string>> = {
-  es: 'Protección Básica',
+  es: 'Protección básica',
   en: 'Basic protection',
   fr: 'Protection de base',
-  pt: 'Proteção Básica',
+  pt: 'Proteção básica',
 };
+/**
+ * US-226b : niveaux de la grille de TEST (16 PRC-018 : 1/4, 2/5, 13/20 du prix journalier net de
+ * 40,00 ; TOTAL dès 21 ans, PRT-002) : ESTANDAR 16,00 par jour ⇒ 48,00, total 128,40 + 48,00 =
+ * 176,40 ; TOTAL 26,00 par jour ⇒ 78,00, total 128,40 + 78,00 = 206,40.
+ */
+const ESTANDAR_DAILY = /16[.,]00/;
+const ESTANDAR_LINE = /48[.,]00/;
+const ESTANDAR_TOTAL = /176[.,]40/;
+const TOTAL_LINE = /78[.,]00/;
+const TOTAL_TOTAL = /206[.,]40/;
+/** Raison du niveau grisé (« dès 21 ans ») et mention près du total de la fiche, par langue. */
+const FROM_21: Readonly<Record<Language, string>> = {
+  es: 'Disponible desde los 21 años',
+  en: 'Available from age 21',
+  fr: 'Disponible dès 21 ans',
+  pt: 'Disponível a partir de 21 anos',
+};
+const PROTECTION_INCLUDED: Readonly<Record<Language, string>> = {
+  es: 'Protección básica incluida',
+  en: 'Basic protection included',
+  fr: 'Protection de base incluse',
+  pt: 'Proteção básica incluída',
+};
+/**
+ * Prix redemandé du double (42,00 par jour, le 22) avec ESTANDAR gardée (2/5 : 16,80 par jour) :
+ * 126,00 + 8,82 + 50,40 = 185,22 (revue qa de 226b, n° 1).
+ */
+const RENEWED_ESTANDAR_LINE = /50[.,]40/;
+const RENEWED_ESTANDAR_TOTAL = /185[.,]22/;
+/** Refus `INSURER_CONTRACT_INACTIVE` (16 PRT-001), par langue. */
+const INSURER_CLOSED: Readonly<Record<Language, string>> = {
+  es: 'La protección de los viajes todavía no está disponible aquí',
+  en: 'Trip protection isn’t available here yet',
+  fr: 'La protection des voyages n’est pas encore disponible ici',
+  pt: 'A proteção das viagens ainda não está disponível aqui',
+};
+const PROTECTION_URL = /\/checkout\/[0-9a-f-]{36}\?protection=1$/;
+const radio = (page: Page, level: string) => page.locator(`#s05-protection-${level}`);
+const apply = (page: Page) => page.locator('[data-testid="s05-protection-apply"]');
 /** Trois jours (TA01) ; le 15 : expiré à la pose ; le 20 : expiré à la lecture (double). */
 const slot = (day: number) => ({
   start: `2036-12-${String(day).padStart(2, '0')}T10:00`,
@@ -204,6 +243,156 @@ for (const language of LANGUAGES) {
       await expect(page.locator('[data-testid="s05-hold-total"]')).toContainText(
         WITH_PROTECTION_TOTAL,
       );
+    });
+
+    test('US-226b critère 1 : BASICA présélectionnée, TOTAL grisé « dès 21 ans » sans âge, aucune option sans protection ; ESTANDAR validée ⇒ nouveau devis et nouveau total', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await page.goto(fiche(PUBLIC_ID, slot(25)));
+      // fiche : protection de base comprise dans le total (16 SRC-042)
+      await expect(page.locator('[data-testid="s03-protection-included"]')).toHaveText(
+        PROTECTION_INCLUDED[language],
+      );
+      await openCheckout(page, PUBLIC_ID, slot(25));
+      const first = new URL(page.url()).pathname;
+      const form = page.locator('[data-testid="s05-protection"]');
+      await expect(form.locator('input[type="radio"]')).toHaveCount(3);
+      await expect(radio(page, 'BASICA')).toBeChecked();
+      await expect(radio(page, 'ESTANDAR')).toBeEnabled();
+      await expect(radio(page, 'TOTAL')).toBeDisabled();
+      await expect(page.locator('#s05-protection-TOTAL-reason')).toContainText(FROM_21[language]);
+      await expect(form).toContainText(ESTANDAR_DAILY);
+      await expect(form).toContainText(ESTANDAR_LINE);
+      // aucun gel tant que rien ne change : bouton inactif, aide liée
+      await expect(apply(page)).toHaveAttribute('aria-disabled', 'true');
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+      // choix validé : UN nouveau devis, nouveau total rendu par l'API
+      await radio(page, 'ESTANDAR').check();
+      await expect(apply(page)).not.toHaveAttribute('aria-disabled', 'true');
+      await submitAndSettle(page, apply(page), PROTECTION_URL);
+      expect(new URL(page.url()).pathname).not.toBe(first);
+      await expect(page.locator('main [role="status"]').first()).toBeVisible();
+      await expect(radio(page, 'ESTANDAR')).toBeChecked();
+      const s05 = page.locator('[data-testid="s05-price"]');
+      await expect(s05.locator('dd').nth(1)).toHaveText(ESTANDAR_LINE);
+      await expect(s05.locator('dd').last()).toHaveText(ESTANDAR_TOTAL);
+      await expectAccessible(page);
+    });
+
+    test('US-226b : âge déclaré de 21 ans pile ⇒ TOTAL choisissable ; validé ⇒ total 206,40 jusqu’au hold ; âge illisible refusé et lié au champ', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(25));
+      // âge hors bornes : refus de forme lié au champ, aucun nouveau devis
+      const before = page.url();
+      await page.locator('#s05-driver-age').fill('150');
+      await submitAndSettle(page, apply(page));
+      await expect(page.locator('#s05-driver-age')).toHaveAttribute('aria-invalid', 'true');
+      expect(page.url()).toBe(before);
+      await expectAccessible(page);
+      // 20 ans : TOTAL reste grisé ; 21 ans (borne de la grille de test) : choisissable
+      await page.locator('#s05-driver-age').fill('20');
+      await expect(radio(page, 'TOTAL')).toBeDisabled();
+      await page.locator('#s05-driver-age').fill('21');
+      await expect(radio(page, 'TOTAL')).toBeEnabled();
+      await radio(page, 'TOTAL').check();
+      await submitAndSettle(page, apply(page), PROTECTION_URL);
+      await expect(radio(page, 'TOTAL')).toBeChecked();
+      await expect(radio(page, 'TOTAL')).toBeEnabled();
+      await expect(page.locator('#s05-driver-age')).toHaveValue('21');
+      const s05 = page.locator('[data-testid="s05-price"]');
+      await expect(s05.locator('dd').nth(1)).toHaveText(TOTAL_LINE);
+      await expect(s05.locator('dd').last()).toHaveText(TOTAL_TOTAL);
+      await fillDriver(page, 'Lucía', 'Gómez');
+      await acceptAll(page);
+      await submitAndSettle(page, submit(page), HOLD_URL);
+      await expect(page.locator('[data-testid="s05-hold-total"]')).toContainText(TOTAL_TOTAL);
+    });
+
+    test('US-226b : même choix ⇒ aucun envoi, aucun nouveau devis', async ({ page, context }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(25));
+      const before = page.url();
+      let posts = 0;
+      page.on('request', (r) => {
+        if (r.method() === 'POST' && r.headers()['next-action'] !== undefined) posts += 1;
+      });
+      // BASICA déjà choisie, aucun âge : bouton inactif, un clic n'envoie rien
+      await expect(apply(page)).toHaveAttribute('aria-disabled', 'true');
+      // bouton annoncé inactif (aria-disabled) mais focalisable : clic réel, sans attente d'activation
+      await apply(page).click({ force: true });
+      // âge saisi puis effacé, ESTANDAR cochée puis BASICA : toujours le même choix
+      await page.locator('#s05-driver-age').fill('30');
+      await page.locator('#s05-driver-age').fill('');
+      await radio(page, 'ESTANDAR').check();
+      await radio(page, 'BASICA').check();
+      await expect(apply(page)).toHaveAttribute('aria-disabled', 'true');
+      // bouton annoncé inactif (aria-disabled) mais focalisable : clic réel, sans attente d'activation
+      await apply(page).click({ force: true });
+      await page.waitForLoadState('networkidle');
+      expect(posts).toBe(0);
+      expect(page.url()).toBe(before);
+      await expect(radio(page, 'BASICA')).toBeChecked();
+    });
+
+    test('US-226b : prix expiré redemandé ⇒ même niveau et même âge, nouveau prix', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(22));
+      await page.locator('#s05-driver-age').fill('25');
+      await radio(page, 'ESTANDAR').check();
+      await submitAndSettle(page, apply(page), PROTECTION_URL);
+      // le devis du choix est expiré à la lecture (double) : prix à redemander
+      const renew = page.locator('[data-testid="s05-renew"] button[type="submit"]');
+      await expect(renew).toBeVisible();
+      await submitAndSettle(page, renew, /\/checkout\/[0-9a-f-]{36}\?renewed=1$/);
+      await expect(radio(page, 'ESTANDAR')).toBeChecked();
+      await expect(page.locator('#s05-driver-age')).toHaveValue('25');
+      await expect(radio(page, 'TOTAL')).toBeEnabled();
+      const s05 = page.locator('[data-testid="s05-price"]');
+      await expect(s05.locator('dd').nth(1)).toHaveText(RENEWED_ESTANDAR_LINE);
+      await expect(s05.locator('dd').last()).toHaveText(RENEWED_ESTANDAR_TOTAL);
+      await expectAccessible(page);
+    });
+
+    test('US-226 critère 5 : contrat de l’assureur fermé au gel (fiche), après le gel (S05) et entre S05 et la pose du hold', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await page.goto(fiche(PUBLIC_ID, slot(27)));
+      await submitAndSettle(page, page.locator('[data-testid="s03-book"] button[type="submit"]'));
+      const refusal = page.locator('[data-testid="s03-book"] [role="alert"]');
+      await expect(refusal).toContainText(INSURER_CLOSED[language]);
+      await expect(page).toHaveURL(/\/listings\//);
+      await expectAccessible(page);
+      // fermé entre l'affichage de S05 et la pose : refus annoncé, aucun hold
+      await openCheckout(page, PUBLIC_ID, slot(26));
+      const quoteUrl = page.url();
+      await fillDriver(page, 'Lucía', 'Gómez');
+      await acceptAll(page);
+      await submitAndSettle(page, submit(page));
+      await expect(page.locator('[data-testid="s05-form"] [role="alert"]')).toContainText(
+        INSURER_CLOSED[language],
+      );
+      expect(page.url()).toBe(quoteUrl);
+      await expectAccessible(page);
+      // fermé après le gel : S05 sans formulaire ni validité du prix, retour à la recherche
+      await openCheckout(page, PUBLIC_ID, slot(28));
+      const closed = page.locator('section[aria-labelledby="s05-closed"]');
+      await expect(closed.locator('[role="status"]')).toContainText(INSURER_CLOSED[language]);
+      await expect(closed.locator('a[href="/"]')).toBeVisible();
+      await expect(page.locator('[data-testid="s05-form"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s05-protection"]')).toHaveCount(0);
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
     });
 
     test('document du checkout : version exacte servie, BROUILLON marqué, retour au devis', async ({
