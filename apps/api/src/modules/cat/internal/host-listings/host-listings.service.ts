@@ -36,12 +36,9 @@ import type { PhotoLimits, PhotoScanner, PhotoStorage } from './photo-ingest.js'
 import { NO_PUBLIC_LISTING_RATINGS } from './public-ratings.js';
 import type { PublicListingRating, PublicListingRatings } from './public-ratings.js';
 import { HostListingStoreError } from './store.js';
-import type { HostEarningsPlans } from './store.js';
-
-/** Code d'un plan de gains (forme de 0110 : majuscules, chiffres, `_`, voyelles accentuées). */
-const PLAN_CODE = /^[A-Z][A-Z0-9_ÁÉÍÓÚÑ]{0,31}$/u;
 import type {
   GuestMeetingPoint,
+  HostEarningsPlans,
   HostListing,
   HostListingStore,
   HostLocation,
@@ -49,6 +46,9 @@ import type {
   HostVehicle,
   PublicListing,
 } from './store.js';
+
+/** Code d'un plan de gains (forme de 0110 : majuscules, chiffres, `_`, voyelles accentuées). */
+const PLAN_CODE = /^[A-Z][A-Z0-9_ÁÉÍÓÚÑ]{0,31}$/u;
 
 /**
  * Fiche publique servie au visiteur (US-115, US-204) : colonnes C0 de l'annonce, galerie, notes

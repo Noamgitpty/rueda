@@ -48,7 +48,7 @@ import type {
  * ni jeton, ni identifiant de personne, ni montant.
  */
 export type CheckoutFailureLog = (operation: CheckoutOperation, error: unknown) => void;
-export type CheckoutOperation = 'listing' | 'freeze' | 'quote' | 'checkout' | 'hold';
+export type CheckoutOperation = 'listing' | 'freeze' | 'quote' | 'options' | 'checkout' | 'hold';
 
 const SQLSTATE = /^[0-9A-Z]{5}$/;
 
@@ -185,8 +185,10 @@ export class CheckoutService {
           }));
         }
       } catch (error) {
-        // configuration du pays devenue illisible : le devis reste lisible, sans autre niveau
-        if (!isQuoteError(error)) throw error;
+        // configuration du pays devenue illisible : journalisée (sans donnée personnelle) ; une
+        // QuoteError laisse le devis lisible, sans autre niveau ; toute autre erreur : 503
+        this.logFailure('options', error);
+        if (!isQuoteError(error)) throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
       }
     }
     return { ...view, protectionOptions: options };

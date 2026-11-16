@@ -62,6 +62,14 @@ interface Vector {
   readonly basicaPrice: string;
   readonly basica: Level;
   readonly total: Level;
+  /**
+   * Bornes de TEST du prix journalier (08 BR-PRICE-11 : plancher et plafond par jour) : BASICA
+   * relevée au plancher, TOTAL ramenée au plafond ; lignes (3 jours) et primes (7/10, arrondi au
+   * plus proche) qui en résultent.
+   */
+  readonly bounds: { readonly floor: string; readonly ceiling: string };
+  readonly basicaFloored: Level;
+  readonly totalCapped: Level;
 }
 
 // Vecteurs : voir l'en-tête.
@@ -76,6 +84,10 @@ const VECTORS: Readonly<Record<string, Vector>> = {
     basicaPrice: '1/4',
     basica: { line: 3_000, insurer: 2_100 },
     total: { line: 7_800, insurer: 5_460 },
+    // 10,00 ⇒ plancher 15,00 × 3 = 45,00, prime 31,50 ; 26,00 ⇒ plafond 20,00 × 3 = 60,00, prime 42,00
+    bounds: { floor: '1500', ceiling: '2000' },
+    basicaFloored: { line: 4_500, insurer: 3_150 },
+    totalCapped: { line: 6_000, insurer: 4_200 },
   },
   PY: {
     daily: 333_334,
@@ -87,6 +99,11 @@ const VECTORS: Readonly<Record<string, Vector>> = {
     basicaPrice: '3/20',
     basica: { line: 150_000, insurer: 105_000 },
     total: { line: 650_001, insurer: 455_001 },
+    // 50 000 ⇒ plancher 60 000 × 3 = 180 000, prime 126 000 ; 216 667 ⇒ plafond 200 000 × 3 =
+    // 600 000, prime 420 000
+    bounds: { floor: '60000', ceiling: '200000' },
+    basicaFloored: { line: 180_000, insurer: 126_000 },
+    totalCapped: { line: 600_000, insurer: 420_000 },
   },
 };
 
@@ -376,6 +393,35 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           host_plan_code: 'ESTÁNDAR',
           driver_age: null,
         });
+      });
+    });
+
+    it('PRC-018 : plancher puis plafond du prix journalier rejoués par la base (BASICA relevée au plancher, TOTAL ramenée au plafond), prime de l’assureur sur la ligne bornée', async () => {
+      await run(async (tx, ctx) => {
+        const bounded = (rank: number, price: string, minDriverAge: number | null) => ({
+          rank,
+          price,
+          minDriverAge,
+          dailyFloorMinor: v.bounds.floor,
+          dailyCeilingMinor: v.bounds.ceiling,
+        });
+        await later(tx, 1); // une valeur de paramètre par instant (unicité de valid_from)
+        await setParam(tx, 'protection_grid', cc.country, {
+          BASICA: bounded(1, v.basicaPrice, null),
+          TOTAL: bounded(2, '13/20', 21),
+        });
+        // l'API qui oublierait les bornes est refusée
+        const unbounded = await freeze(tx, ctx.guest.hash, ctx.listingId, docs(cc, ctx.groups));
+        expect(unbounded.outcome).toBe('QUOTE_MISMATCH');
+        for (const [o, lv] of [
+          [{}, v.basicaFloored],
+          [{ level: 'TOTAL', age: 30 }, v.totalCapped],
+        ] as const) {
+          const id = await frozen(tx, cc, ctx, { ...o, amounts: lv });
+          const q = await quoteRow(tx, id);
+          expect(String(q['leg_insurer_minor'])).toBe(String(lv.insurer));
+          expect(String(q['total_minor'])).toBe(String(totalOf(lv)));
+        }
       });
     });
 

@@ -25,6 +25,14 @@ Le devis (`prc.quote/2`) ne portait aucune protection : toute ligne `PROTECTION`
 - Plans : un seul plan vendu (`ESTÁNDAR` 3/4) tant que l'assureur n'en a pas tarifé d'autres ; `PRO` jamais proposé ; changement à tout moment, effet sur les nouveaux devis.
 - Codes PROPOSÉS : `PROTECTION_LEVEL_REQUIRED`, `PROTECTION_LEVEL_NOT_ELIGIBLE`, `EARNINGS_PLAN_NOT_AVAILABLE`, `EARNINGS_PLAN_SAVED` ; `INSURER_CONTRACT_INACTIVE` vient de 16.
 
+## Précisions (revues de la PR #179)
+
+- **Rejeu en TypeScript** : `replayFrozenQuote` recalcule avec le moteur courant et compare la version ; un devis `prc.quote/2` déjà figé ne se rejoue donc plus côté API (`QUOTE_REPLAY_MISMATCH`). Sans effet sur l'argent : un devis /2 n'est jamais réservable et expire en 30 min ; la base reste la seule autorité du gel.
+- **Âge déclaré** (`pricing_quote.driver_age`) classé **C1** dans `personal-data-inventory.json`, comme le reste du devis (dont `inputs`, qui le porte aussi) : un âge en années, déclaré par la personne pour l'éligibilité d'un niveau, sans date de naissance ni pièce ; la date de naissance vérifiée (C2) n'est jamais lue ici. Effacement : celui du devis (cycle A). À revoir si la revue sécurité exige C2.
+- **`core.catalog_listing_earnings_plan`** est exécutable par `app_api` pour toute annonce `LISTED` : l'API en a besoin pour figer la même part de l'hôte que la base (sinon `QUOTE_MISMATCH`). Elle ne rend qu'un code de plan (pas la part, ni le compte, ni la personne), information sans valeur de C2 ; la route publique de la fiche ne l'expose pas.
+- **Course entre la lecture du plan et le gel** : un changement de plan entre la lecture par l'API et le rejeu par la base rend `409 QUOTE_MISMATCH` (fail-closed) ; le site redemande un devis. Rare, aucune nouvelle tentative automatique.
+- **Débit des gels** : chaque changement de niveau ou d'âge sur S05 fige un nouveau devis et consomme `quote_freezes_per_guest_hour` (30 par heure, PROPOSÉ) ; à surveiller avec 226b.
+
 ## Conséquences
 
 - Plus aucun hold sans protection ; le total TTC affiché partout (cartes, fiche, checkout) contient la protection minimale, calculée par le même moteur et la même configuration.

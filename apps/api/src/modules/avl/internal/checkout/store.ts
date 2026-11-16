@@ -3,7 +3,7 @@
  * (fonctions SECURITY DEFINER de cmd_hold_owner ; voyageur désigné par l'empreinte de son jeton de
  * session), paramètres liés, aucun SQL construit. Annonce publiée et instant du devis lus en base
  * (`core.catalog_public_listing`, `platform.now()`). Sans adaptateur : 503 partout (fail-closed).
- * US-226 (migration 0111) : plan de gains du véhicule (`core.catalog_listing_earnings_plan`),
+ * US-226 (migration 0110) : plan de gains du véhicule (`core.catalog_listing_earnings_plan`),
  * niveau de protection, âge déclaré, instant du gel et interrupteur de l'assureur du devis.
  */
 import type { CheckoutDemand } from './model.js';
@@ -112,7 +112,7 @@ export const CHECKOUT_OUTCOMES = [
   'QUOTE_ALREADY_USED',
   'QUOTE_EXPIRED',
   'QUOTE_LINE_NOT_SUPPORTED',
-  // US-226 (0111) : devis sans protection, pays sans contrat d'assureur actif
+  // US-226 (0110) : devis sans protection, pays sans contrat d'assureur actif
   'PROTECTION_LEVEL_REQUIRED',
   'INSURER_CONTRACT_INACTIVE',
   'LISTING_UNAVAILABLE',
@@ -224,8 +224,13 @@ export class PgCheckoutStore implements CheckoutStore {
   }
 
   async quote(proof: Buffer, quoteId: string): Promise<CheckoutQuoteRow | null> {
+    // US-226 : protection du devis (niveau, âge déclaré, instant du gel, interrupteur de
+    // l'assureur) lue par sa propre fonction de 0110 ; un devis inconnu ou d'un autre voyageur
+    // ne rend aucune ligne dans l'une comme dans l'autre (même réponse)
     const { rows } = await this.db.query(
-      'SELECT * FROM core.booking_checkout_quote($1, $2::uuid)',
+      `SELECT q.*, p.protection_level, p.driver_age, p.frozen_at, p.insurer_contract_active
+         FROM core.booking_checkout_quote($1, $2::uuid) AS q
+         JOIN core.booking_checkout_protection($1, $2::uuid) AS p ON p.quote_id = q.quote_id`,
       [proof, quoteId],
     );
     const r = rows[0];

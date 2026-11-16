@@ -89,6 +89,31 @@ describe('devis figé du checkout', () => {
     expect(checkoutQuoteOf(reply(201, quote()))?.quoteId).toBe(Q);
   });
 
+  it('US-226 : ligne PROTECTION et niveau figé rendus (TA01 + protection BASICA de 30,00 = 158,40) ; ligne sans niveau, niveau sans ligne ou niveau mal formé ⇒ null', () => {
+    const lines = [
+      { type: 'TRIP_PRICE', amountMinor: '12000', taxMinor: '840' },
+      { type: 'PROTECTION', amountMinor: '3000', taxMinor: '0' },
+    ];
+    const q = checkoutQuoteOf(
+      reply(200, quote({ lines, totalMinor: '15840', protectionLevel: 'BASICA' })),
+    );
+    expect(q?.protectionLevel).toBe('BASICA');
+    expect(q?.lines.map((l) => [l.type, l.amountMinor])).toEqual([
+      ['TRIP_PRICE', 12000n],
+      ['PROTECTION', 3000n],
+    ]);
+    expect(checkoutQuoteOf(reply(200, quote()))?.protectionLevel).toBeNull();
+    for (const extra of [
+      { lines, totalMinor: '15840' },
+      { lines, totalMinor: '15840', protectionLevel: null },
+      { protectionLevel: 'BASICA' },
+      { lines, totalMinor: '15840', protectionLevel: 'basica' },
+      { lines, totalMinor: '15840', protectionLevel: 3 },
+    ]) {
+      expect(checkoutQuoteOf(reply(200, quote(extra))), JSON.stringify(extra)).toBeNull();
+    }
+  });
+
   it('somme des lignes ≠ total ⇒ jamais affiché (aucun recalcul)', () => {
     expect(checkoutQuoteOf(reply(200, quote({ totalMinor: '12841' })))).toBeNull();
   });

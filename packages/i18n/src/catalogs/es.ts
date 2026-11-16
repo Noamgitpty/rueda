@@ -1823,6 +1823,10 @@ export const ES_MESSAGES = {
     'Plan de ganancias guardado. Se aplica a los viajes que se reserven desde ahora; los ya reservados conservan su plan.',
   'common.listing.earningsPlanNotAvailable':
     'Este plan de ganancias no está disponible donde publicas tu auto. Elige uno de la lista.',
+  'common.quote.line.protection': 'Protección',
+  'common.quote.line.protectionBasica': 'Protección Básica',
+  'common.quote.line.protectionEstandar': 'Protección Estándar',
+  'common.quote.line.protectionTotal': 'Protección Total',
   'common.checkout.requestModeUnavailable':
     'Este auto se reserva con solicitud al anfitrión, y eso todavía no está disponible. Elige otro auto.',
   'common.checkout.manualNotConfirmed':

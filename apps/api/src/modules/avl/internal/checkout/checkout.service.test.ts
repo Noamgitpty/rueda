@@ -5,6 +5,7 @@
  * (qui peut citer une valeur saisie), ni jeton, ni identifiant.
  */
 import { describe, expect, it } from 'vitest';
+import { QuoteError } from '../../../prc/index.js';
 import type { QuoteStore } from '../../../prc/index.js';
 import { CheckoutHttpError } from './errors.js';
 import { CheckoutService, failureFields, LOG_CHECKOUT_FAILURE } from './checkout.service.js';
@@ -96,5 +97,63 @@ describe('panne du magasin du checkout : 503 et journal sans donnée personnelle
     });
     expect(lines[0]).not.toContain('Ana');
     expect(lines[0]).not.toContain('example.test');
+  });
+});
+
+describe('niveaux proposés du devis lu (US-226, revue de code n° 3)', () => {
+  const ROW = {
+    quoteId: QUOTE_ID,
+    listingId: HOLD_ID,
+    country: 'ZZ',
+    currency: 'XTS',
+    startAt: '2036-12-10T10:00:00.000Z',
+    endAt: '2036-12-13T10:00:00.000Z',
+    billableDays: 3,
+    lines: [
+      { type: 'TRIP_PRICE', amountMinor: '12000', taxMinor: '840' },
+      { type: 'PROTECTION', amountMinor: '3000', taxMinor: '0' },
+    ],
+    totalMinor: '15840',
+    expiresAt: null,
+    expired: false,
+    manualTransmission: false,
+    instantBook: true,
+    documents: [],
+    protectionLevel: 'BASICA',
+    driverAge: null,
+    insurerContractActive: true,
+    frozenAtMs: 0,
+  };
+  const reading = (paramsError: unknown) => {
+    const logged: CheckoutOperation[] = [];
+    const store: CheckoutStore = {
+      ...failingStore(new DbError('57P01')),
+      quote: () => Promise.resolve(ROW),
+    };
+    const svc = new CheckoutService(
+      () => {
+        throw paramsError;
+      },
+      NO_QUOTES,
+      store,
+      (operation) => logged.push(operation),
+    );
+    return { svc, logged };
+  };
+
+  it('configuration du pays refusée par le moteur ⇒ devis lisible sans autre niveau, panne journalisée', async () => {
+    const { svc, logged } = reading(new QuoteError('QUOTE_UNAVAILABLE', 'grille absente'));
+    const q = await svc.quote(PROOF, QUOTE_ID);
+    expect(q.protectionOptions).toEqual([]);
+    expect(q.protectionLevel).toBe('BASICA');
+    expect(logged).toEqual(['options']);
+  });
+
+  it('erreur inattendue de la configuration ⇒ 503 BOOKING_UNAVAILABLE (jamais 500), journalisée', async () => {
+    const { svc, logged } = reading(new Error(SECRET));
+    await expect(svc.quote(PROOF, QUOTE_ID)).rejects.toMatchObject({
+      code: 'BOOKING_UNAVAILABLE',
+    });
+    expect(logged).toEqual(['options']);
   });
 });

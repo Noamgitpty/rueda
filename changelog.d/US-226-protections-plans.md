@@ -10,6 +10,7 @@ lot: L2
 module: Réservation
 
 - Ajouté : niveau de protection et âge déclaré du conducteur au devis du checkout ; niveaux proposés et leur prix dans le devis lu ; niveau le plus haut refusé à un conducteur trop jeune (US-226)
+- Ajouté : l'écran de checkout affiche la ligne de protection du voyageur, nommée par son niveau, dans le détail du prix (US-226)
 - Sécurité : aucun trip sans protection (`PROTECTION_LEVEL_REQUIRED`) ; aucune réservation sans contrat d'assureur actif dans le pays (`INSURER_CONTRACT_INACTIVE`) (US-226)
 
 lot: L2

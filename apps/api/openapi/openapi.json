@@ -4871,6 +4871,26 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -4937,6 +4957,26 @@
           "401": {
             "$ref": "#/components/responses/AuthRequired"
           },
+          "403": {
+            "description": "Compte d'hôte suspendu : aucun changement de plan",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "HOST_ACCOUNT_SUSPENDED"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "404": {
             "description": "Compte ou véhicule inconnus (ou d'un autre hôte)",
             "headers": {
@@ -4974,6 +5014,26 @@
                   "properties": {
                     "code": {
                       "const": "EARNINGS_PLAN_NOT_AVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
                     }
                   }
                 }
@@ -15118,7 +15178,7 @@
           },
           "totalMinor": {
             "$ref": "#/components/schemas/MinorUnits",
-            "description": "Total TTC du séjour : devis provisoire de PRC (prc.quote/2 : loyer des jours facturables, trip fee, taxes par ligne ; 16 SRC-042), unités mineures de `currency` (US-203)"
+            "description": "Total TTC du séjour : devis provisoire de PRC (prc.quote/3 : loyer des jours facturables, trip fee, protection minimale du pays, taxes par ligne ; 16 SRC-042, US-226), unités mineures de `currency` (US-203)"
           },
           "billableDays": {
             "type": "integer",

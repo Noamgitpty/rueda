@@ -125,7 +125,8 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 55 (la 54 est réservée à US-209) : protections du voyageur et plans de gains de l'hôte,
  partie serveur (US-226 partie 226a, ADR-136) : `common.quote.protectionRequired`,
  `common.quote.protectionNotEligible`, `common.quote.insurerContractInactive` (refus du devis et du
- checkout) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
+ checkout), `common.quote.line.protection*` (ligne de protection du détail du prix de S05, nom du
+ niveau) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
  de gains du véhicule).
  */
 export const CATALOG_VERSION = 55;

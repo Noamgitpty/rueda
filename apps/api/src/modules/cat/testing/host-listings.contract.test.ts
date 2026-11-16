@@ -1171,6 +1171,21 @@ describe('contrat HTTP — /host/accounts/{orgId} et /listings (US-115)', () => 
         })
       ).status,
     ).toBe(415);
+    // compte suspendu : lecture permise, aucun changement de plan (403) ; base en panne : 503
+    const host = w.store.hosts
+      .get(Buffer.from(w.app.hash('voyageur'), 'hex').toString('hex'))
+      ?.find((h) => h.orgId === w.orgA);
+    if (host === undefined) throw new Error('hôte A absent');
+    host.status = 'SUSPENDED';
+    expect((await read()).status).toBe(200);
+    const suspended = await put({ planCode: 'ESTÁNDAR' });
+    expect(suspended.status).toBe(403);
+    expect(suspended.json).toMatchObject({ code: 'HOST_ACCOUNT_SUSPENDED' });
+    host.status = 'ONBOARDING';
+    w.store.failing = true;
+    expect((await read()).json).toMatchObject({ code: 'LISTING_UNAVAILABLE' });
+    expect((await put({ planCode: 'ESTÁNDAR' })).status).toBe(503);
+    w.store.failing = false;
   });
 
   it('couverture : chaque statut déclaré pour /host/accounts/{orgId} est exercé ; chaque statut déclaré pour /listings est exercé', () => {

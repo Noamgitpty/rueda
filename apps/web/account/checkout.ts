@@ -19,8 +19,13 @@ const MINOR = /^-?(0|[1-9][0-9]{0,18})$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const COUNTRY = /^[A-Z]{2}$/;
 const LOCALE = /^[a-z]{2}$/;
-/** Lignes du devis que l'écran sait nommer (celles que la base rejoue, N-129). */
-export const QUOTE_LINE_TYPES = ['TRIP_PRICE', 'TRIP_FEE'] as const;
+/**
+ * Lignes du devis que l'écran sait nommer (celles que la base rejoue, N-129) ; `PROTECTION` :
+ * protection du voyageur, présente dans tout devis depuis US-226 (ADR-136).
+ */
+export const QUOTE_LINE_TYPES = ['TRIP_PRICE', 'TRIP_FEE', 'PROTECTION'] as const;
+/** Niveau de protection : code de la grille du pays (forme seulement, US-226). */
+const PROTECTION_LEVEL = /^[A-Z][A-Z_]{0,31}$/;
 export type QuoteLineType = (typeof QUOTE_LINE_TYPES)[number];
 /**
  * Documents acceptés au checkout (16 BKG-008, BKG-023), dans l'ordre de l'écran : CGU du
@@ -93,6 +98,8 @@ export interface CheckoutQuoteView {
   readonly lines: readonly QuoteLineView[];
   readonly totalMinor: bigint;
   readonly expiresAt: string | null;
+  /** Niveau de protection figé (US-226) ; `null` : devis sans protection (jamais réservable). */
+  readonly protectionLevel: string | null;
   readonly expired: boolean;
   readonly manualTransmission: boolean;
   readonly instantBook: boolean;
@@ -165,6 +172,14 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
     return null;
   }
   if (q['expiresAt'] !== null && expiresAt === null) return null;
+  // US-226 : niveau de protection du devis (absent d'une réponse antérieure : aucun)
+  const level = q['protectionLevel'];
+  if (level !== undefined && level !== null) {
+    if (typeof level !== 'string' || !PROTECTION_LEVEL.test(level)) return null;
+  }
+  const protectionLevel = typeof level === 'string' ? level : null;
+  // une ligne de protection sans niveau, ou l'inverse : incohérent, jamais affiché
+  if ((protectionLevel !== null) !== lines.some((l) => l.type === 'PROTECTION')) return null;
   for (const flag of ['expired', 'manualTransmission', 'instantBook']) {
     if (typeof q[flag] !== 'boolean') return null;
   }
@@ -182,6 +197,7 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
     lines,
     totalMinor: total,
     expiresAt,
+    protectionLevel,
     expired: q['expired'] === true,
     manualTransmission: q['manualTransmission'] === true,
     instantBook: q['instantBook'] === true,

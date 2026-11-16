@@ -41,6 +41,19 @@ const TA01_TOTAL = /128[.,]40/;
 const TA01_RENT = /120[.,]00/;
 const TA01_TAX = /8[.,]40/;
 const RENEWED_TOTAL = /134[.,]82/;
+/**
+ * US-226 : protection BASICA (16 PRC-018 : part du prix journalier net ; grille de test 1/4) :
+ * 10,00 × 3 jours = 30,00, non taxée ; total 128,40 + 30,00 = 158,40. Nom du niveau de base dans
+ * chaque langue (10b S05 : `BASICA`).
+ */
+const PROTECTION_AMOUNT = /30[.,]00/;
+const WITH_PROTECTION_TOTAL = /158[.,]40/;
+const PROTECTION_LABEL: Readonly<Record<Language, string>> = {
+  es: 'Protección Básica',
+  en: 'Basic protection',
+  fr: 'Protection de base',
+  pt: 'Proteção Básica',
+};
 /** Trois jours (TA01) ; le 15 : expiré à la pose ; le 20 : expiré à la lecture (double). */
 const slot = (day: number) => ({
   start: `2036-12-${String(day).padStart(2, '0')}T10:00`,
@@ -167,6 +180,28 @@ for (const language of LANGUAGES) {
       await submitAndSettle(page, submit(page));
       await expect(page).toHaveURL(quoteUrl);
       await expect(page.locator('main [role="alert"]').first()).toBeVisible();
+    });
+
+    test('US-226 : devis avec la protection BASICA ⇒ ligne nommée dans le détail du prix, somme des lignes = total, hold posé', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(25));
+      const s05 = page.locator('[data-testid="s05-price"]');
+      // TA01 + protection BASICA du double (1/4 de 40,00 × 3 jours = 30,00, non taxée) = 158,40
+      await expect(s05).toContainText(PROTECTION_LABEL[language]);
+      await expect(s05.locator('dd').nth(1)).toHaveText(PROTECTION_AMOUNT);
+      await expect(s05.locator('dd').last()).toHaveText(WITH_PROTECTION_TOTAL);
+      await expect(page.locator('[role="alert"]')).toHaveCount(0);
+      await expectMobileFriendly(page);
+      await expectAccessible(page);
+      await fillDriver(page, 'Lucía', 'Gómez');
+      await acceptAll(page);
+      await submitAndSettle(page, submit(page), HOLD_URL);
+      await expect(page.locator('[data-testid="s05-hold-total"]')).toContainText(
+        WITH_PROTECTION_TOTAL,
+      );
     });
 
     test('document du checkout : version exacte servie, BROUILLON marqué, retour au devis', async ({

@@ -1829,6 +1829,10 @@ export const PT_MESSAGES = {
     'Plano de ganhos salvo. Ele vale para as viagens reservadas a partir de agora; as já reservadas mantêm o plano delas.',
   'common.listing.earningsPlanNotAvailable':
     'Este plano de ganhos não está disponível onde você anuncia o carro. Escolha um da lista.',
+  'common.quote.line.protection': 'Proteção',
+  'common.quote.line.protectionBasica': 'Proteção Básica',
+  'common.quote.line.protectionEstandar': 'Proteção Padrão',
+  'common.quote.line.protectionTotal': 'Proteção Total',
   'common.checkout.requestModeUnavailable':
     'Este carro é reservado por solicitação ao anfitrião, o que ainda não está disponível. Escolha outro carro.',
   'common.checkout.manualNotConfirmed':

@@ -1772,6 +1772,10 @@ export const EN_MESSAGES = {
     'Earnings plan saved. It applies to trips booked from now on; trips already booked keep their plan.',
   'common.listing.earningsPlanNotAvailable':
     'This earnings plan isn’t available where you list your car. Choose one from the list.',
+  'common.quote.line.protection': 'Protection',
+  'common.quote.line.protectionBasica': 'Basic protection',
+  'common.quote.line.protectionEstandar': 'Standard protection',
+  'common.quote.line.protectionTotal': 'Full protection',
   'common.checkout.requestModeUnavailable':
     'This car is booked by request to the host, which isn’t available yet. Choose another car.',
   'common.checkout.manualNotConfirmed':
