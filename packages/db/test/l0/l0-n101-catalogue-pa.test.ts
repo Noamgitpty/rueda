@@ -28,6 +28,7 @@ import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts
 import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
+import { uniquePlate, uniqueVin } from '../support/unique.ts';
 
 interface CustomsModel {
   slug: string;
@@ -213,11 +214,8 @@ async function host(c: Tx, country: string): Promise<Host> {
   return { userId, hash: t.hash, org, location };
 }
 
-const plate = (): string => `N${randomBytes(4).toString('hex').toUpperCase()}`;
-const vin = (): string => {
-  const alphabet = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(17), (b) => alphabet[b % alphabet.length]).join('');
-};
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'N');
+const vin = (c: pg.ClientBase): Promise<string> => uniqueVin(c);
 /** Année civile en cours dans le fuseau du pays (oracle indépendant de la base). */
 const localYear = (cc: CountryCase): number =>
   Number(new Intl.DateTimeFormat('en-CA', { timeZone: cc.timezone, year: 'numeric' }).format());
@@ -241,7 +239,7 @@ async function createVehicle(c: Tx, h: Host, variant: string, year: number) {
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, $5, $6, NULL, NULL, $7, NULL,
                                                    'MANUAL', 5::smallint, 'GASOLINE', NULL,
                                                    false, false)`,
-    [h.hash, h.org, h.location, plate(), vin(), variant, year],
+    [h.hash, h.org, h.location, await plate(c), await vin(c), variant, year],
   );
   return { outcome: rows[0]?.outcome ?? '', id: rows[0]?.vehicle_id ?? null };
 }

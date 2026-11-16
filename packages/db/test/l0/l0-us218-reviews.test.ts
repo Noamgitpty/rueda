@@ -27,6 +27,7 @@ import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { one, person } from '../support/kyc.ts';
 import type { Staff } from '../support/kyc.ts';
 import { auditOf, elevate, login } from '../support/staff.ts';
+import { uniquePlate } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const REASON = 'Avis reçu par e-mail le jour du retour, joint en pièce';
@@ -96,7 +97,7 @@ async function vehicle(tx: pg.ClientBase, h: Host): Promise<string> {
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
-    [h.hash, h.org, loc.rows[0]?.location_id, `R${randomBytes(4).toString('hex').toUpperCase()}`],
+    [h.hash, h.org, loc.rows[0]?.location_id, await uniquePlate(tx, 'R')],
   );
   const id = veh.rows[0]?.vehicle_id;
   if (!id) throw new Error('véhicule refusé');

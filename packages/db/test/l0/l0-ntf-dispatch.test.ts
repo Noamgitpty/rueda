@@ -14,16 +14,21 @@
  *
  * Les attentes viennent de 17 §2.13, §3.2.12 et §3.1.4 (C2), jamais du code testé.
  */
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { withRole, withTestTransaction } from '../../src/testing/index.ts';
 import { register } from '../support/iam.ts';
 import { EVENT_COUNTRIES } from '../support/outbox.ts';
+import { uniqueDigits } from '../support/unique.ts';
 
 const uuid = (): string => randomUUID();
-/** Numéro E.164 aléatoire : un numéro vérifié n'appartient qu'à un compte (ACC-014, index unique). */
-const phone = (): string => `+1555${String(randomInt(0, 10_000_000)).padStart(7, '0')}`;
+/**
+ * Numéro E.164 fictif (`+1 555`) unique par construction (N-186) : un numéro vérifié n'appartient
+ * qu'à un compte (ACC-014, index unique). `+15559` puis 6 chiffres du compteur de la base.
+ */
+const phone = (): Promise<string> =>
+  withRole('app_api', async (api) => `+15559${await uniqueDigits(api, 6)}`);
 
 /** Transaction d'un travailleur nommé (contexte posé en local, comme workerTransactions). */
 async function asWorker<T>(
@@ -244,11 +249,11 @@ describe.each(EVENT_COUNTRIES)('L0 NTF — $country ($currency)', (c) => {
   });
 
   it('coordonnées : zéro ligne hors de ntf_sender (WORKER) ou sans envoi QUEUED ; numéro et adresse seulement vérifiés ; compte fermé ⇒ rien', async () => {
-    const verifiedPhone = phone();
+    const verifiedPhone = await phone();
     const verified = await account({ e164: verifiedPhone, verified: true });
-    const unverified = await account({ e164: phone(), verified: false });
+    const unverified = await account({ e164: await phone(), verified: false });
     const unconfirmed = await withRole('app_api', async (api) => (await register(api)).userId);
-    const noDispatch = await account({ e164: phone(), verified: true });
+    const noDispatch = await account({ e164: await phone(), verified: true });
     // un envoi QUEUED par destinataire, sauf `noDispatch` (revue sécurité US-021, constat 1)
     await withRole('app_worker', async (worker) => {
       await asWorker(

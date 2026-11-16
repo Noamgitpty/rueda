@@ -140,6 +140,8 @@ Sous-ensemble **exact** des entités de 17 (noms d'entités et de colonnes de 17
 
 **Fixtures de test** (`test-migrations/9001`, base principale seulement) : `test_fixture.place_hold` remplace `cmd_place_hold` (US-023) et `test_fixture.insert_payment_operation` remplace `cmd_start_payment`. `test_fixture.delete_occupancy` force une suppression qu'aucun rôle ne peut faire : elle est refusée par la clé étrangère du hold (`23503`), et `occupancy_trip_guard` couvre aussi `DELETE`. Ces fonctions sont `SECURITY DEFINER` sous `migrator` ; la transaction appelante reste sous `app_api` ou `app_worker`.
 
+**Valeurs uniques de test** (`test-migrations/9999`, BOARD N-186) : `test_fixture.next_unique_serial()` rend un entier jamais rendu dans la base (séquence ; `SECURITY DEFINER` sous `migrator`, EXECUTE à `app_api` et `app_worker`). `test/support/unique.ts` en forme les valeurs soumises à une contrainte d'unicité ou d'exclusion : téléphone (`uniquePhone`, plan de numérotation des données CFG), plaque (`uniquePlate`), VIN ISO 3779 (`uniqueVin`), chiffres (`uniqueDigits`, `uniqueHex`). Les fichiers d'une exécution partagent une base qui garde des milliers de lignes validées : un tirage au hasard (10^7 numéros PA) y collisionnait. Tout nouveau générateur de valeur unique passe par ce module.
+
 ## Audit, clés par sujet et magasin de preuves (US-009 ; 17 §1.7, §3.1.3, §3.2.13 ; ADR-051)
 
 Migrations `0016` à `0021`, schéma Bêta `core` :

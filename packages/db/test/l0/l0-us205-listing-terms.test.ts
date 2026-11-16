@@ -27,6 +27,7 @@ import { approveSwitch, freshSession, requestSwitch } from '../support/golive.ts
 import type { StaffActor } from '../support/golive.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { placeName } from '../support/names.ts';
+import { uniquePlate } from '../support/unique.ts';
 import { staff as rlsStaff, staffSessionHash } from '../support/rls.ts';
 
 type Tx = pg.ClientBase;
@@ -109,7 +110,7 @@ async function car(c: Tx, cc: CountryCase, mileage: 'INCLUDED' | 'UNLIMITED'): P
     `SELECT * FROM core.catalog_cmd_create_vehicle($1, $2, $3, $4, NULL, NULL, 'Marca', 'Modelo',
                                                    2021, NULL, 'AUTOMATIC', 5::smallint,
                                                    'GASOLINE', 42000, false, false)`,
-    [hash, org, location, `C${randomBytes(4).toString('hex').toUpperCase()}`],
+    [hash, org, location, await uniquePlate(c, 'C')],
   );
   const vehicle = veh.rows[0]?.vehicle_id;
   if (!vehicle) throw new Error('véhicule refusé');
