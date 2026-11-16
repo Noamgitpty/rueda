@@ -1972,7 +1972,7 @@ export const FR_MESSAGES = {
     'Protection mise à jour. Vérifie le nouveau total avant de réserver.',
   'web.s05.age.label': 'Âge du conducteur',
   'web.s05.age.hint':
-    'Il sert seulement à afficher les protections possibles. Indique ton âge réel : une fausse information fait perdre la protection.',
+    'Il sert seulement à afficher les protections possibles. Indique l’âge réel de la personne qui conduit.',
   'web.s05.age.invalid': 'Écris ton âge en années, entre {min} et {max}.',
   'common.price.protectionIncluded': 'Protection de base incluse',
   'web.a11.plan.open': 'Plan de gains',
@@ -1992,7 +1992,7 @@ export const FR_MESSAGES = {
   'web.a11.plan.name.other': 'Plan à {share} %',
   'web.a11.coverage.title': 'Ce que couvre ton plan',
   'web.a11.coverage.period':
-    'Ta voiture est couverte pendant la période de la réservation, par la protection de l’assureur partenaire.',
+    'Quand la protection de l’assureur partenaire sera active là où tu publies, ta voiture sera couverte pendant la période de chaque réservation.',
   'web.a11.coverage.contract':
     'Les exclusions et ta franchise viennent du contrat de l’assureur partenaire : nous les afficherons ici, mot pour mot, avant que tu puisses recevoir des voyages.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

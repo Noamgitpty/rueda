@@ -1869,7 +1869,7 @@ export const EN_MESSAGES = {
   'web.s05.protection.updated': 'Protection updated. Check the new total before you book.',
   'web.s05.age.label': "Driver's age",
   'web.s05.age.hint':
-    'Only used to show the protections you can choose. Enter your real age: false information voids the protection.',
+    "Only used to show the protections you can choose. Enter the driver's real age.",
   'web.s05.age.invalid': 'Enter your age in years, between {min} and {max}.',
   'common.price.protectionIncluded': 'Basic protection included',
   'web.a11.plan.open': 'Earnings plan',
@@ -1889,7 +1889,7 @@ export const EN_MESSAGES = {
   'web.a11.plan.name.other': '{share}% plan',
   'web.a11.coverage.title': 'What your plan covers',
   'web.a11.coverage.period':
-    "Your car is covered during the booking period by the partner insurer's protection.",
+    "Once the partner insurer's protection is active where you list, your car will be covered during each booking period.",
   'web.a11.coverage.contract':
     "Exclusions and your deductible come from the partner insurer's contract: we'll show them here, word for word, before you can receive trips.",
 } as const satisfies Readonly<Record<MessageKey, Message>>;

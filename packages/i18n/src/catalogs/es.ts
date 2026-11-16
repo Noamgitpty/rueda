@@ -1924,7 +1924,7 @@ export const ES_MESSAGES = {
   'web.s05.protection.updated': 'Protección actualizada. Revisa el nuevo total antes de reservar.',
   'web.s05.age.label': 'Edad del conductor',
   'web.s05.age.hint':
-    'Solo sirve para mostrarte las protecciones disponibles. Indica tu edad real: un dato falso hace perder la protección.',
+    'Solo sirve para mostrarte las protecciones disponibles. Indica la edad real de quien conduce.',
   'web.s05.age.invalid': 'Escribe tu edad en años, entre {min} y {max}.',
   'common.price.protectionIncluded': 'Protección básica incluida',
   'web.a11.plan.open': 'Plan de ganancias',
@@ -1944,7 +1944,7 @@ export const ES_MESSAGES = {
   'web.a11.plan.name.other': 'Plan del {share} %',
   'web.a11.coverage.title': 'Qué cubre tu plan',
   'web.a11.coverage.period':
-    'Tu auto está cubierto durante el periodo de la reserva, por la protección de la aseguradora aliada.',
+    'Cuando la protección de la aseguradora aliada esté activa donde publicas, tu auto estará cubierto durante el periodo de cada reserva.',
   'web.a11.coverage.contract':
     'Las exclusiones y tu franquicia vienen del contrato de la aseguradora aliada: te las mostraremos aquí, palabra por palabra, antes de que puedas recibir viajes.',
 } as const satisfies Catalog;

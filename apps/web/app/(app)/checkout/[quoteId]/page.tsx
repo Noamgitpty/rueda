@@ -74,6 +74,9 @@ function priceLines(i18n: Translator, quote: CheckoutQuoteView, exponent: number
   return lines;
 }
 
+/** Montant formaté dont la devise et le nombre restent sur la même ligne. */
+const unbroken = (text: string): string => text.replace(/ /g, '\u00a0');
+
 function Shell({ children }: { readonly children: ReactNode }) {
   return (
     <main id={MAIN_ID} tabIndex={-1} className={accountStyles['content']}>
@@ -251,9 +254,14 @@ export default async function CheckoutPage({
           options={quote.protectionOptions.map((o) => ({
             level: o.level,
             label: t(protectionLabel(o.level)),
+            // devise et montant jamais séparés en fin de ligne (insécable)
             price: t('web.s05.protection.price', {
-              daily: i18n.money({ amountMinor: o.dailyMinor, currency: quote.currency, exponent }),
-              total: i18n.money({ amountMinor: o.lineMinor, currency: quote.currency, exponent }),
+              daily: unbroken(
+                i18n.money({ amountMinor: o.dailyMinor, currency: quote.currency, exponent }),
+              ),
+              total: unbroken(
+                i18n.money({ amountMinor: o.lineMinor, currency: quote.currency, exponent }),
+              ),
             }),
             minDriverAge: o.minDriverAge,
             selected: o.selected,
@@ -268,7 +276,8 @@ export default async function CheckoutPage({
         </h2>
         <Price i18n={i18n} size="lg" total={total} days={quote.billableDays} />
         <PriceBreakdown i18n={i18n} open lines={priceLines(i18n, quote, exponent)} total={total} />
-        {quote.expired || quote.expiresAt === null ? null : (
+        {/* prix sans suite possible (contrat de l'assureur fermé) : aucune validité promise */}
+        {quote.expired || quote.expiresAt === null || !quote.insurerContractActive ? null : (
           <p className={accountStyles['muted']}>
             {t('web.s05.validUntil', { time: i18n.time(quote.expiresAt, timeZone) })}
           </p>

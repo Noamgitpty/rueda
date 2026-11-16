@@ -77,6 +77,19 @@ const PROTECTION_INCLUDED: Readonly<Record<Language, string>> = {
   fr: 'Protection de base incluse',
   pt: 'Proteção básica incluída',
 };
+/**
+ * Prix redemandé du double (42,00 par jour, le 22) avec ESTANDAR gardée (2/5 : 16,80 par jour) :
+ * 126,00 + 8,82 + 50,40 = 185,22 (revue qa de 226b, n° 1).
+ */
+const RENEWED_ESTANDAR_LINE = /50[.,]40/;
+const RENEWED_ESTANDAR_TOTAL = /185[.,]22/;
+/** Refus `INSURER_CONTRACT_INACTIVE` (16 PRT-001), par langue. */
+const INSURER_CLOSED: Readonly<Record<Language, string>> = {
+  es: 'La protección de los viajes todavía no está disponible aquí',
+  en: 'Trip protection isn’t available here yet',
+  fr: 'La protection des voyages n’est pas encore disponible ici',
+  pt: 'A proteção das viagens ainda não está disponível aqui',
+};
 const PROTECTION_URL = /\/checkout\/[0-9a-f-]{36}\?protection=1$/;
 const radio = (page: Page, level: string) => page.locator(`#s05-protection-${level}`);
 const apply = (page: Page) => page.locator('[data-testid="s05-protection-apply"]');
@@ -269,7 +282,7 @@ for (const language of LANGUAGES) {
       await expectAccessible(page);
     });
 
-    test('US-226b : âge déclaré de 25 ans ⇒ TOTAL choisissable ; validé ⇒ total 206,40 jusqu’au hold ; âge illisible refusé et lié au champ', async ({
+    test('US-226b : âge déclaré de 21 ans pile ⇒ TOTAL choisissable ; validé ⇒ total 206,40 jusqu’au hold ; âge illisible refusé et lié au champ', async ({
       page,
       context,
     }) => {
@@ -282,15 +295,16 @@ for (const language of LANGUAGES) {
       await expect(page.locator('#s05-driver-age')).toHaveAttribute('aria-invalid', 'true');
       expect(page.url()).toBe(before);
       await expectAccessible(page);
-      // 20 ans : TOTAL reste grisé ; 25 ans : choisissable
+      // 20 ans : TOTAL reste grisé ; 21 ans (borne de la grille de test) : choisissable
       await page.locator('#s05-driver-age').fill('20');
       await expect(radio(page, 'TOTAL')).toBeDisabled();
-      await page.locator('#s05-driver-age').fill('25');
+      await page.locator('#s05-driver-age').fill('21');
       await expect(radio(page, 'TOTAL')).toBeEnabled();
       await radio(page, 'TOTAL').check();
       await submitAndSettle(page, apply(page), PROTECTION_URL);
       await expect(radio(page, 'TOTAL')).toBeChecked();
-      await expect(page.locator('#s05-driver-age')).toHaveValue('25');
+      await expect(radio(page, 'TOTAL')).toBeEnabled();
+      await expect(page.locator('#s05-driver-age')).toHaveValue('21');
       const s05 = page.locator('[data-testid="s05-price"]');
       await expect(s05.locator('dd').nth(1)).toHaveText(TOTAL_LINE);
       await expect(s05.locator('dd').last()).toHaveText(TOTAL_TOTAL);
@@ -300,18 +314,81 @@ for (const language of LANGUAGES) {
       await expect(page.locator('[data-testid="s05-hold-total"]')).toContainText(TOTAL_TOTAL);
     });
 
-    test('US-226 critère 5 : contrat de l’assureur fermé ⇒ aucun devis depuis la fiche ; fermé après le gel ⇒ S05 sans formulaire, retour à la recherche', async ({
+    test('US-226b : même choix ⇒ aucun envoi, aucun nouveau devis', async ({ page, context }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(25));
+      const before = page.url();
+      let posts = 0;
+      page.on('request', (r) => {
+        if (r.method() === 'POST' && r.headers()['next-action'] !== undefined) posts += 1;
+      });
+      // BASICA déjà choisie, aucun âge : bouton inactif, un clic n'envoie rien
+      await expect(apply(page)).toHaveAttribute('aria-disabled', 'true');
+      // bouton annoncé inactif (aria-disabled) mais focalisable : clic réel, sans attente d'activation
+      await apply(page).click({ force: true });
+      // âge saisi puis effacé, ESTANDAR cochée puis BASICA : toujours le même choix
+      await page.locator('#s05-driver-age').fill('30');
+      await page.locator('#s05-driver-age').fill('');
+      await radio(page, 'ESTANDAR').check();
+      await radio(page, 'BASICA').check();
+      await expect(apply(page)).toHaveAttribute('aria-disabled', 'true');
+      // bouton annoncé inactif (aria-disabled) mais focalisable : clic réel, sans attente d'activation
+      await apply(page).click({ force: true });
+      await page.waitForLoadState('networkidle');
+      expect(posts).toBe(0);
+      expect(page.url()).toBe(before);
+      await expect(radio(page, 'BASICA')).toBeChecked();
+    });
+
+    test('US-226b : prix expiré redemandé ⇒ même niveau et même âge, nouveau prix', async ({
+      page,
+      context,
+    }) => {
+      await signInGuest(context, language);
+      await openCheckout(page, PUBLIC_ID, slot(22));
+      await page.locator('#s05-driver-age').fill('25');
+      await radio(page, 'ESTANDAR').check();
+      await submitAndSettle(page, apply(page), PROTECTION_URL);
+      // le devis du choix est expiré à la lecture (double) : prix à redemander
+      const renew = page.locator('[data-testid="s05-renew"] button[type="submit"]');
+      await expect(renew).toBeVisible();
+      await submitAndSettle(page, renew, /\/checkout\/[0-9a-f-]{36}\?renewed=1$/);
+      await expect(radio(page, 'ESTANDAR')).toBeChecked();
+      await expect(page.locator('#s05-driver-age')).toHaveValue('25');
+      await expect(radio(page, 'TOTAL')).toBeEnabled();
+      const s05 = page.locator('[data-testid="s05-price"]');
+      await expect(s05.locator('dd').nth(1)).toHaveText(RENEWED_ESTANDAR_LINE);
+      await expect(s05.locator('dd').last()).toHaveText(RENEWED_ESTANDAR_TOTAL);
+      await expectAccessible(page);
+    });
+
+    test('US-226 critère 5 : contrat de l’assureur fermé au gel (fiche), après le gel (S05) et entre S05 et la pose du hold', async ({
       page,
       context,
     }) => {
       await signInGuest(context, language);
       await page.goto(fiche(PUBLIC_ID, slot(27)));
-      await page.locator('[data-testid="s03-book"] button[type="submit"]').click();
-      await expect(page.locator('[data-testid="s03-book"] [role="alert"]')).toBeVisible();
+      await submitAndSettle(page, page.locator('[data-testid="s03-book"] button[type="submit"]'));
+      const refusal = page.locator('[data-testid="s03-book"] [role="alert"]');
+      await expect(refusal).toContainText(INSURER_CLOSED[language]);
       await expect(page).toHaveURL(/\/listings\//);
       await expectAccessible(page);
+      // fermé entre l'affichage de S05 et la pose : refus annoncé, aucun hold
+      await openCheckout(page, PUBLIC_ID, slot(26));
+      const quoteUrl = page.url();
+      await fillDriver(page, 'Lucía', 'Gómez');
+      await acceptAll(page);
+      await submitAndSettle(page, submit(page));
+      await expect(page.locator('[data-testid="s05-form"] [role="alert"]')).toContainText(
+        INSURER_CLOSED[language],
+      );
+      expect(page.url()).toBe(quoteUrl);
+      await expectAccessible(page);
+      // fermé après le gel : S05 sans formulaire ni validité du prix, retour à la recherche
       await openCheckout(page, PUBLIC_ID, slot(28));
-      await expect(page.locator('section[aria-labelledby="s05-closed"] a[href="/"]')).toBeVisible();
+      const closed = page.locator('section[aria-labelledby="s05-closed"]');
+      await expect(closed.locator('[role="status"]')).toContainText(INSURER_CLOSED[language]);
+      await expect(closed.locator('a[href="/"]')).toBeVisible();
       await expect(page.locator('[data-testid="s05-form"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="s05-protection"]')).toHaveCount(0);
       await expectAccessible(page);

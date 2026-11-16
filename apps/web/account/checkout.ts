@@ -255,7 +255,10 @@ export function checkoutQuoteOf(reply: ApiResult): CheckoutQuoteView | null {
   }
   const rawAge = q['driverAge'];
   const driverAge = rawAge === undefined || rawAge === null ? null : int(rawAge);
-  if (rawAge !== undefined && rawAge !== null && (driverAge === null || driverAge < 1)) return null;
+  // borne du schéma OpenAPI de la réponse (0 à 150 ; la requête exige au moins 1)
+  if (rawAge !== undefined && rawAge !== null) {
+    if (driverAge === null || driverAge < 0 || driverAge > 150) return null;
+  }
   const contract = q['insurerContractActive'];
   if (contract !== undefined && typeof contract !== 'boolean') return null;
   for (const flag of ['expired', 'manualTransmission', 'instantBook']) {
@@ -478,6 +481,27 @@ export function protectionChanged(
   input: ProtectionInput,
 ): boolean {
   return input.level !== quote.protectionLevel || (input.driverAge ?? null) !== quote.driverAge;
+}
+
+/** Protection à reprendre dans un nouveau devis (US-226b) ; absente : minimum du pays au gel. */
+export interface ProtectionChoice {
+  readonly protectionLevel: string;
+  readonly driverAge?: number;
+}
+
+/**
+ * Choix de protection d'un devis lu, repris quand son prix est redemandé (ADR-137 : un prix
+ * redemandé ne retire jamais un choix) ; devis sans protection : aucun choix (minimum du pays).
+ */
+export function protectionChoiceOf(quote: {
+  readonly protectionLevel: string | null;
+  readonly driverAge: number | null;
+}): ProtectionChoice | undefined {
+  if (quote.protectionLevel === null) return undefined;
+  return {
+    protectionLevel: quote.protectionLevel,
+    ...(quote.driverAge === null ? {} : { driverAge: quote.driverAge }),
+  };
 }
 
 /** Corps de `POST /checkout/quotes/{id}/hold` : jamais un montant (L2-PM-03). */

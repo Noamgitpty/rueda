@@ -34,12 +34,13 @@ import {
   holdRequestOf,
   isUuid,
   protectionChanged,
+  protectionChoiceOf,
   protectionInputErrors,
   protectionInputOf,
   S05_FIELD,
   S05_PROTECTION_FIELD,
 } from '../../../account/checkout.ts';
-import type { CheckoutFieldError } from '../../../account/checkout.ts';
+import type { CheckoutFieldError, ProtectionChoice } from '../../../account/checkout.ts';
 import { clientContext } from '../../../account/request.ts';
 
 export interface CheckoutFormState {
@@ -60,12 +61,6 @@ const hidden = (form: FormData, name: string, max = 40): string => {
 function guardReply(reply: ApiResult): void {
   if (reply.status === 401) redirect('/login');
   if (codeOf(reply) === 'TERMS_REACCEPT_REQUIRED') redirect('/terms/update');
-}
-
-/** Protection choisie à reprendre dans un nouveau devis (US-226b) ; absente : minimum du pays. */
-interface ProtectionChoice {
-  readonly protectionLevel: string;
-  readonly driverAge?: number;
 }
 
 /** Nouveau devis figé pour une annonce et une période ; S05 du devis, ou l'erreur à afficher. */
@@ -129,22 +124,10 @@ async function renewFrom(quoteId: string): Promise<CheckoutFormState> {
     old.startAt,
     old.endAt,
     '?renewed=1',
-    choiceOf(old),
+    protectionChoiceOf(old),
   );
   // refus du nouveau gel : message du formulaire qui a demandé le prix (jamais un champ caché)
   return { errors: state.errors.map((e) => ({ ...e, fieldId: S05_FIELD.form })) };
-}
-
-/** Choix de protection d'un devis lu (aucun niveau : minimum du pays au nouveau gel). */
-function choiceOf(quote: {
-  readonly protectionLevel: string | null;
-  readonly driverAge: number | null;
-}): ProtectionChoice | undefined {
-  if (quote.protectionLevel === null) return undefined;
-  return {
-    protectionLevel: quote.protectionLevel,
-    ...(quote.driverAge === null ? {} : { driverAge: quote.driverAge }),
-  };
 }
 
 /**

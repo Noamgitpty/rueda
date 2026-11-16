@@ -326,6 +326,12 @@ const EXPIRED_ON_READ_DAY = '-12-20T';
 // INSURER_CONTRACT_INACTIVE) ; le 28 : devis figé, contrat fermé depuis (lecture
 // `insurerContractActive: false`). Les autres jours gardent le devis de 208b (références visuelles
 // inchangées).
+// Le 22 (revue qa de 226b, n° 1) : protection comme le 25, mais un devis figé avec un choix du
+// voyageur (niveau autre que BASICA, ou âge déclaré) est expiré à la lecture : son prix redemandé
+// (42,00 par jour) doit garder le niveau et l'âge. Le 26 : S05 ouvert, contrat de l'assureur fermé
+// à la pose du hold (409 INSURER_CONTRACT_INACTIVE).
+const PROTECTION_RENEW_DAY = '-12-22T';
+const INSURER_CLOSED_ON_HOLD_DAY = '-12-26T';
 const PROTECTION_DAY = '-12-25T';
 const INSURER_CLOSED_DAY = '-12-27T';
 const INSURER_CLOSED_ON_READ_DAY = '-12-28T';
@@ -490,8 +496,12 @@ async function checkoutRoute(req, res, path) {
     if (startAt.includes(INSURER_CLOSED_DAY)) {
       return err(res, 409, 'INSURER_CONTRACT_INACTIVE', 'common.quote.insurerContractInactive');
     }
+    const renewDay = startAt.includes(PROTECTION_RENEW_DAY);
     const withProtection =
-      startAt.includes(PROTECTION_DAY) || startAt.includes(INSURER_CLOSED_ON_READ_DAY);
+      renewDay ||
+      startAt.includes(PROTECTION_DAY) ||
+      startAt.includes(INSURER_CLOSED_ON_READ_DAY) ||
+      startAt.includes(INSURER_CLOSED_ON_HOLD_DAY);
     const age = b.driverAge === undefined || b.driverAge === null ? null : b.driverAge;
     if (age !== null && !(Number.isInteger(age) && age >= 1 && age <= 150)) {
       return err(res, 400, 'QUOTE_INPUT_INVALID', 'common.quote.datesInvalid');
@@ -522,8 +532,12 @@ async function checkoutRoute(req, res, path) {
       level,
       driverAge: age,
       insurerClosedOnRead: startAt.includes(INSURER_CLOSED_ON_READ_DAY),
+      insurerClosedOnHold: startAt.includes(INSURER_CLOSED_ON_HOLD_DAY),
       protection: withProtection ? protectionDaily(daily, terms) * t.days : 0,
-      expiredOnRead: !renewed && startAt.includes(EXPIRED_ON_READ_DAY),
+      expiredOnRead:
+        !renewed &&
+        (startAt.includes(EXPIRED_ON_READ_DAY) ||
+          (renewDay && (level !== 'BASICA' || age !== null))),
       expireOnHold: !renewed && startAt.includes(EXPIRE_ON_HOLD_DAY),
       used: false,
     };
@@ -551,7 +565,7 @@ async function checkoutRoute(req, res, path) {
     if (q.expiredOnRead || q.expireOnHold) {
       return err(res, 409, 'QUOTE_EXPIRED', 'common.quote.expired');
     }
-    if (q.insurerClosedOnRead) {
+    if (q.insurerClosedOnRead || q.insurerClosedOnHold) {
       return err(res, 409, 'INSURER_CONTRACT_INACTIVE', 'common.quote.insurerContractInactive');
     }
     if (q.listingId === MANUAL_ID && b.manualTransmissionConfirmed !== true) {
