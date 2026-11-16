@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 120 migrations ; 120 tables ; 2 vues ; 659 politiques RLS ; 235 fonctions `SECURITY DEFINER` ; 224 autres fonctions.
+- 121 migrations ; 120 tables ; 2 vues ; 659 politiques RLS ; 236 fonctions `SECURITY DEFINER` ; 224 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -135,6 +135,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0117_config_last_minute_window_params` | graine complémentaire : paramètres « last_minute_free_window* » (US-205 ; 17 §7.2). |
 | `0118_prc_quote_mileage_checkout_terms` | PRC / CAT : distance figée dans le devis, conditions d'annulation du checkout, fenêtre |
 | `0119_booking_flagged_review_decision` | AVL / RISK / SUP / KYC : décision de l'ops sur une réservation signalée, hold de revue |
+| `0120_booking_checkout_review_state` | AVL : état de revue d'un hold de checkout, lu par le voyageur (S05). |
 
 ## Rôles
 
@@ -5888,6 +5889,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_checkout_payment(p_token_hash bytea, p_hold_id uuid)` | `TABLE(outcome text, hold_status text, trip_id uuid, expires_at timestamp with time zone, payment_in_flight_until timestamp with time zone, operation_status text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_protection(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, protection_level text, driver_age integer, frozen_at timestamp with time zone, insurer_contract_active boolean)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_quote(p_token_hash bytea, p_quote_id uuid)` | `TABLE(quote_id uuid, listing_id uuid, country_code text, currency text, start_at timestamp with time zone, end_at timestamp with time zone, billable_days integer, lines jsonb, total_minor bigint, expires_at timestamp with time zone, expired boolean, manual_transmission boolean, instant_book boolean, documents jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_checkout_review_state(p_token_hash bytea, p_hold_id uuid)` | `TABLE(hold_id uuid, review_state text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_summary(p_token_hash bytea, p_hold_id uuid)` | `TABLE(hold_id uuid, status text, expires_at timestamp with time zone, quote_id uuid, listing_id uuid, currency text, start_at timestamp with time zone, end_at timestamp with time zone, total_minor bigint, manual_confirmed_at timestamp with time zone, documents jsonb)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_checkout(p_token_hash bytea, p_quote_id uuid, p_driver_first text, p_driver_last text, p_manual_confirmed boolean, p_documents jsonb)` | `TABLE(outcome text, hold_id uuid, expires_at timestamp with time zone)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_checkout_pay(p_token_hash bytea, p_hold_id uuid, p_method text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
