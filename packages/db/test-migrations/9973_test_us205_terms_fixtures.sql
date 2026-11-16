@@ -9,6 +9,8 @@
 -- appelées SEULEMENT dans des transactions de test ANNULÉES, jamais validées :
 --   - `us205_insurer_contract` : assureur (et courtier) ACTIVE et contrat en vigueur depuis la
 --     veille, avec ses conditions (devise, RC, franchises, exclusions) passées à la garde de 0115 ;
+--   - `us205_close_contract`, `us205_delete_contract` : clôture (valid_to) et suppression d'une
+--     version (garde de 0115) ;
 --   - `us205_set_terms` : pose ou change les conditions d'un contrat existant (garde d'immuabilité) ;
 --   - `us205_set_rc_minimum` : nouvelle valeur d'`insurer_rc_minimum` du pays ;
 --   - `us205_set_insurer_status` : assureur ou courtier ACTIVE / INACTIVE.
@@ -19,7 +21,8 @@
 
 CREATE FUNCTION test_fixture.us205_insurer_contract(p_country text, p_currency text,
                                                     p_rc_minor bigint, p_deductibles jsonb,
-                                                    p_exclusions jsonb, p_broker boolean)
+                                                    p_exclusions jsonb, p_broker boolean,
+                                                    p_from timestamptz DEFAULT NULL)
   RETURNS uuid
   LANGUAGE plpgsql
   SECURITY DEFINER
@@ -29,7 +32,7 @@ DECLARE
   v_insurer  uuid := platform.uuid_v7();
   v_broker   uuid;
   v_contract uuid := platform.uuid_v7();
-  v_from     timestamptz := platform.now() - interval '1 day';
+  v_from     timestamptz := COALESCE(p_from, platform.now() - interval '1 day');
 BEGIN
   INSERT INTO core.settlement_insurer (id, country_code, name, kind, license_ref, status)
   VALUES (v_insurer, p_country, 'Aseguradora de prueba', 'INSURER', 'SSRP-TEST-1', 'ACTIVE');
@@ -63,6 +66,26 @@ AS $fn$
   UPDATE core.settlement_insurer_contract SET rc_amount_minor = p_rc_minor WHERE id = p_contract
 $fn$;
 
+-- clôture d'une version (valid_to = maintenant), puis suppression : garde de 0115
+CREATE FUNCTION test_fixture.us205_close_contract(p_contract uuid)
+  RETURNS timestamptz
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  UPDATE core.settlement_insurer_contract SET valid_to = platform.now() WHERE id = p_contract
+  RETURNING valid_to
+$fn$;
+
+CREATE FUNCTION test_fixture.us205_delete_contract(p_contract uuid)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  DELETE FROM core.settlement_insurer_contract WHERE id = p_contract
+$fn$;
+
 CREATE FUNCTION test_fixture.us205_set_rc_minimum(p_country text, p_value text)
   RETURNS void
   LANGUAGE sql
@@ -88,10 +111,12 @@ AS $fn$
 $fn$;
 
 REVOKE ALL ON FUNCTION
-  test_fixture.us205_insurer_contract(text, text, bigint, jsonb, jsonb, boolean),
+  test_fixture.us205_insurer_contract(text, text, bigint, jsonb, jsonb, boolean, timestamptz),
+  test_fixture.us205_close_contract(uuid), test_fixture.us205_delete_contract(uuid),
   test_fixture.us205_set_terms(uuid, bigint), test_fixture.us205_set_rc_minimum(text, text),
   test_fixture.us205_set_insurer_status(uuid, boolean, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-  test_fixture.us205_insurer_contract(text, text, bigint, jsonb, jsonb, boolean),
+  test_fixture.us205_insurer_contract(text, text, bigint, jsonb, jsonb, boolean, timestamptz),
+  test_fixture.us205_close_contract(uuid), test_fixture.us205_delete_contract(uuid),
   test_fixture.us205_set_terms(uuid, bigint), test_fixture.us205_set_rc_minimum(text, text),
   test_fixture.us205_set_insurer_status(uuid, boolean, text) TO app_api;

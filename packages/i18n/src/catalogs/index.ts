@@ -141,7 +141,7 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  de 226a).
  Version 58 : conditions de la fiche S03 (US-205,
  ADR-138) : `web.listing.cancel.*` (annulation gratuite en dates, dernière minute, règle du pays,
- retenue hors fenêtre), `web.listing.distance.*` (distance incluse sur la période, prix du km
+ retenue hors fenêtre sans durée écrite, lien vers la politique publiée), `web.listing.distance.*` (distance incluse sur la période, prix du km
  supplémentaire) et `web.listing.protection.*` (assureur partenaire, courtier, RC tiers incluse,
  franchises par niveau, exclusions du contrat, protection indisponible).
  */

@@ -61,6 +61,8 @@ function CancellationSection({ i18n, listing, conditions, slot }: Omit<TermsProp
       }),
     ];
   }
+  // conditions illisibles (panne) et aucun créneau : un seul message, celui de la protection
+  if (conditions === null && lines.length === 0) return null;
   return (
     <section className={styles['section']} aria-labelledby="s03-cancel" data-testid="s03-cancel">
       <h2 id="s03-cancel" className={accountStyles['h2']}>
@@ -75,7 +77,14 @@ function CancellationSection({ i18n, listing, conditions, slot }: Omit<TermsProp
               <span className={styles['strong']}>{line}</span>
             </p>
           ))}
-          <p className={accountStyles['muted']}>{t('web.listing.cancel.after')}</p>
+          {/* retenue hors fenêtre (08 BR-CXL-06) : règle et montant dans la politique publiée et au
+              checkout (205b), jamais une durée écrite dans le texte */}
+          <p className={accountStyles['muted']}>
+            {t('web.listing.cancel.after')}{' '}
+            <a className={styles['link']} href="/legal/CANCELLATION_POLICY">
+              {t('web.listing.cancel.policyLink')}
+            </a>
+          </p>
         </>
       )}
     </section>
@@ -156,7 +165,9 @@ function ProtectionSection({ i18n, localeTag, listing, conditions }: Omit<TermsP
         {t('web.listing.protection.title')}
       </h2>
       {conditions === null ? (
-        <p className={accountStyles['muted']}>{t('web.listing.protection.error')}</p>
+        <p className={accountStyles['muted']} role="status" data-testid="s03-conditions-error">
+          {t('web.listing.protection.error')}
+        </p>
       ) : p === null || !sameCurrency ? (
         <Banner tone="info">{t('web.listing.protection.unavailable')}</Banner>
       ) : (
@@ -265,19 +276,26 @@ export function ListingTerms(props: TermsProps) {
         listing={props.listing}
         conditions={props.conditions}
       />
-      <DepositSection i18n={props.i18n} listing={props.listing} conditions={props.conditions} />
+      {props.conditions !== null && (
+        <DepositSection i18n={props.i18n} listing={props.listing} conditions={props.conditions} />
+      )}
     </>
   );
 }
 
-/** La fiche peut-elle proposer « Reservar » ? Seulement si la base promet la protection. */
-export function protectionOffered(
+/**
+ * Couverture promise par la base (19 US-205 critère 4) : `OFFERED` ⇒ « Reservar » et « protection
+ * de base incluse » ; `NONE` ⇒ ni l'un ni l'autre, bandeau « pas encore réservable » ; `UNKNOWN`
+ * (conditions illisibles) ⇒ ni l'un ni l'autre, le seul message est celui de la section protection.
+ */
+export type Coverage = 'OFFERED' | 'NONE' | 'UNKNOWN';
+
+export function coverageOf(
   conditions: ListingConditionsView | null,
   listing: PublicListingView,
-): boolean {
-  return (
-    conditions !== null &&
-    conditions.protection !== null &&
-    conditions.currency === listing.currency
-  );
+): Coverage {
+  if (conditions === null) return 'UNKNOWN';
+  return conditions.protection !== null && conditions.currency === listing.currency
+    ? 'OFFERED'
+    : 'NONE';
 }

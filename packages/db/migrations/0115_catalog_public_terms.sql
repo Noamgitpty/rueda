@@ -17,7 +17,9 @@
 --     es, en, fr et pt-BR. Toutes présentes ou toutes absentes ; AUCUNE commande ne les écrit
 --     (entrée par décision écrite du fondateur, comme le contrat, US-227) ; une fois posées, elles
 --     ne changent plus (nouvelle version du contrat à la place) ;
---   - garde à l'entrée : RC sous `insurer_rc_minimum[pays]` (0114), minimum absent, ou devise autre
+--   - garde à l'insertion, ou quand une condition est posée (une clôture par `valid_to` ne rejoue
+--     rien : une version peut toujours être close, même sous un minimum relevé depuis ; une version
+--     qui porte des conditions n'est jamais supprimée) : RC sous `insurer_rc_minimum[pays]` (0114), minimum absent, ou devise autre
 --     que celle du pays ⇒ POLICY_RC_BELOW_MINIMUM / INSURER_CONTRACT_CURRENCY_MISMATCH, rien n'est
 --     écrit (16 PRT-003 : « contrat sous le minimum légal paramétré ⇒ contrat non activable ») ;
 --   - lecture publique (`core.catalog_public_terms`, SECURITY DEFINER, propriétaire
@@ -42,7 +44,7 @@
 --   DROP TRIGGER settlement_insurer_contract_terms_guard ON core.settlement_insurer_contract ;
 --   DROP FUNCTION core.settlement_insurer_contract_terms_guard() ;
 --   DROP POLICY catalog_cmd_terms_read ON core.config_param_value ;
---   REVOKE SELECT (name, kind, license_ref) ON core.settlement_insurer FROM catalog_cmd_owner ;
+--   REVOKE SELECT (name, license_ref) ON core.settlement_insurer FROM catalog_cmd_owner ;
 --   REVOKE SELECT (version, broker_id, currency, rc_amount_minor, deductibles, exclusions)
 --     ON core.settlement_insurer_contract FROM catalog_cmd_owner ;
 --   ALTER TABLE core.settlement_insurer_contract DROP CONSTRAINT
@@ -122,16 +124,32 @@ DECLARE
   v_min      jsonb;
   v_currency text;
 BEGIN
-  IF TG_OP = 'UPDATE' AND OLD.currency IS NOT NULL
-     AND (NEW.currency IS DISTINCT FROM OLD.currency
-          OR NEW.rc_amount_minor IS DISTINCT FROM OLD.rc_amount_minor
-          OR NEW.deductibles IS DISTINCT FROM OLD.deductibles
-          OR NEW.exclusions IS DISTINCT FROM OLD.exclusions
-          OR NEW.broker_id IS DISTINCT FROM OLD.broker_id) THEN
-    RAISE EXCEPTION 'INSURER_CONTRACT_TERMS_IMMUTABLE'
-      USING ERRCODE = 'integrity_constraint_violation',
-            CONSTRAINT = 'settlement_insurer_contract_terms_immutable';
+  -- version qui porte des conditions : jamais supprimée (une nouvelle version la remplace)
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.currency IS NOT NULL THEN
+      RAISE EXCEPTION 'INSURER_CONTRACT_TERMS_IMMUTABLE'
+        USING ERRCODE = 'integrity_constraint_violation',
+              CONSTRAINT = 'settlement_insurer_contract_terms_immutable';
+    END IF;
+    RETURN OLD;
   END IF;
+  IF TG_OP = 'UPDATE' THEN
+    -- aucune condition changée (clôture par valid_to, pièce jointe) : rien n'est rejoué ; une
+    -- version dont le minimum du pays a été relevé depuis peut toujours être close
+    IF NEW.currency IS NOT DISTINCT FROM OLD.currency
+       AND NEW.rc_amount_minor IS NOT DISTINCT FROM OLD.rc_amount_minor
+       AND NEW.deductibles IS NOT DISTINCT FROM OLD.deductibles
+       AND NEW.exclusions IS NOT DISTINCT FROM OLD.exclusions
+       AND NEW.broker_id IS NOT DISTINCT FROM OLD.broker_id THEN
+      RETURN NEW;
+    END IF;
+    IF OLD.currency IS NOT NULL THEN
+      RAISE EXCEPTION 'INSURER_CONTRACT_TERMS_IMMUTABLE'
+        USING ERRCODE = 'integrity_constraint_violation',
+              CONSTRAINT = 'settlement_insurer_contract_terms_immutable';
+    END IF;
+  END IF;
+  -- insertion, ou premières conditions posées sur une version qui n'en avait pas
   IF NEW.currency IS NULL THEN
     RETURN NEW;
   END IF;
@@ -161,16 +179,17 @@ BEGIN
 END
 $fn$;
 COMMENT ON FUNCTION core.settlement_insurer_contract_terms_guard() IS
-  'Garde des conditions du contrat d''assureur : RC >= insurer_rc_minimum[pays] (absent : refus, '
-  'POLICY_RC_BELOW_MINIMUM), devise du pays, conditions immuables une fois posées. US-205 '
-  '(ADR-138).';
+  'Garde des conditions du contrat d''assureur, à l''insertion ou quand une condition est posée : '
+  'RC >= insurer_rc_minimum[pays] (absent : refus, POLICY_RC_BELOW_MINIMUM), devise du pays ; '
+  'conditions posées immuables et version non supprimable ; une clôture (valid_to) ne rejoue '
+  'rien. US-205 (ADR-138).';
 REVOKE ALL ON FUNCTION core.settlement_insurer_contract_terms_guard() FROM PUBLIC;
 CREATE TRIGGER settlement_insurer_contract_terms_guard
-  BEFORE INSERT OR UPDATE ON core.settlement_insurer_contract
+  BEFORE INSERT OR UPDATE OR DELETE ON core.settlement_insurer_contract
   FOR EACH ROW EXECUTE FUNCTION core.settlement_insurer_contract_terms_guard();
 
 -- 2. Lectures de catalog_cmd_owner (assureur, conditions, paramètres d'annulation et de RC) -----
-GRANT SELECT (name, kind, license_ref) ON core.settlement_insurer TO catalog_cmd_owner;
+GRANT SELECT (name, license_ref) ON core.settlement_insurer TO catalog_cmd_owner;
 GRANT SELECT (version, broker_id, currency, rc_amount_minor, deductibles, exclusions)
   ON core.settlement_insurer_contract TO catalog_cmd_owner;
 CREATE POLICY catalog_cmd_terms_read ON core.config_param_value FOR SELECT TO catalog_cmd_owner

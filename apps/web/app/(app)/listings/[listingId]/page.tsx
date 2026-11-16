@@ -43,7 +43,8 @@ import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
 import { BookForm } from './book-form.tsx';
 import { ListingGallery } from './listing-gallery.tsx';
-import { ListingTerms, protectionOffered } from './listing-terms.tsx';
+import { coverageOf, ListingTerms } from './listing-terms.tsx';
+import type { Coverage } from './listing-terms.tsx';
 import pageStyles from './listing.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -218,15 +219,15 @@ function BookingSection({
   listing,
   view,
   price,
-  bookable,
+  coverage,
 }: {
   readonly i18n: Translator;
   readonly localeTag: string;
   readonly listing: PublicListingView;
   readonly view: Extract<SlotView, { kind: 'OK' }>;
   readonly price: SlotPriceView | null;
-  /** Protection promise par la base (US-205 critère 4) ; sinon aucun bouton « Reservar ». */
-  readonly bookable: boolean;
+  /** Couverture promise par la base (US-205 critère 4) ; sinon ni « Reservar » ni « incluida ». */
+  readonly coverage: Coverage;
 }) {
   const t = i18n.t.bind(i18n);
   // devise du devis différente de celle de l'annonce : jamais un total affiché (aucune conversion)
@@ -250,12 +251,17 @@ function BookingSection({
             }}
             days={usable.billableDays}
           />
-          {/* US-226b : protection minimale du pays comprise dans le total (N-141, 16 SRC-042) */}
-          <p className={accountStyles['text']} data-testid="s03-protection-included">
-            {t('common.price.protectionIncluded')}
-          </p>
-          <p className={accountStyles['muted']}>{t('web.listing.total.hint')}</p>
-          {!bookable ? (
+          {/* US-226b : protection minimale du pays comprise dans le total (N-141, 16 SRC-042) ;
+              US-205 : seulement si la base promet la couverture */}
+          {coverage === 'OFFERED' && (
+            <>
+              <p className={accountStyles['text']} data-testid="s03-protection-included">
+                {t('common.price.protectionIncluded')}
+              </p>
+              <p className={accountStyles['muted']}>{t('web.listing.total.hint')}</p>
+            </>
+          )}
+          {coverage === 'UNKNOWN' ? null : coverage === 'NONE' ? (
             <Banner tone="info">{t('common.quote.insurerContractInactive')}</Banner>
           ) : listing.instantBook ? (
             <BookForm
@@ -425,17 +431,6 @@ export default async function ListingPage({
         view={slotView}
       />
 
-      {slotView?.kind === 'OK' && (
-        <BookingSection
-          i18n={i18n}
-          localeTag={localeTag}
-          listing={listing}
-          view={slotView}
-          price={price}
-          bookable={protectionOffered(conditions, listing)}
-        />
-      )}
-
       <ListingTerms
         i18n={i18n}
         localeTag={localeTag}
@@ -443,6 +438,17 @@ export default async function ListingPage({
         conditions={conditions}
         slot={slotTerms}
       />
+
+      {slotView?.kind === 'OK' && (
+        <BookingSection
+          i18n={i18n}
+          localeTag={localeTag}
+          listing={listing}
+          view={slotView}
+          price={price}
+          coverage={coverageOf(conditions, listing)}
+        />
+      )}
 
       <RegulatoryNotices
         i18n={i18n}

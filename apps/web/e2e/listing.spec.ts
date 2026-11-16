@@ -223,6 +223,8 @@ for (const language of LANGUAGES) {
       await expect(page.locator('[data-testid="s03-exclusions"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="s03-price"]')).toBeVisible();
       await expect(page.locator('[data-testid="s03-book"]')).toHaveCount(0);
+      // aucune promesse de couverture près du total non plus (revue ux de la PR #184)
+      await expect(page.locator('[data-testid="s03-protection-included"]')).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);
     });

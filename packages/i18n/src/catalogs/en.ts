@@ -1772,7 +1772,8 @@ export const EN_MESSAGES = {
     other: 'If you book less than {count} hours ahead, it’s free for {window} h after booking.',
   },
   'web.listing.cancel.after':
-    'After that, 1 day of rental is kept if the trip is longer than 2 days; otherwise, half a day.',
+    'After that, part of the rental is kept, depending on the trip length.',
+  'web.listing.cancel.policyLink': 'See the cancellation policy',
   'web.listing.cancel.unavailable':
     'We couldn’t show the cancellation policy. Check it before you pay.',
   'web.listing.distance.title': 'Included distance',
@@ -1787,12 +1788,13 @@ export const EN_MESSAGES = {
     'Third-party liability included at every level: up to {amount} per event.',
   'web.listing.protection.basic':
     'Basic protection is required and already in the final price. You can upgrade it when you book.',
-  'web.listing.protection.deductibles': 'The most you pay if there’s damage (deductible)',
+  'web.listing.protection.deductibles': 'What you pay for covered damage (deductible)',
   'web.listing.protection.noDeductible': 'No deductible',
   'web.listing.protection.exclusions': 'What’s not covered',
   'web.listing.protection.unavailable':
     'Protection isn’t available for this car yet, so it can’t be booked for now.',
-  'web.listing.protection.error': 'We couldn’t load the protection. Please try again.',
+  'web.listing.protection.error':
+    'We couldn’t load the protection or the deposit for this car. Please try again.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'We can’t find this quote. Go back to the car’s page.',
   'common.quote.rateLimited':

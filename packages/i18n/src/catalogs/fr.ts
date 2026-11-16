@@ -1870,7 +1870,8 @@ export const FR_MESSAGES = {
       'Si tu réserves moins de {count} heures à l’avance, elle est gratuite pendant {window} h après la réservation.',
   },
   'web.listing.cancel.after':
-    'Ensuite, 1 jour de location est retenu si le voyage dure plus de 2 jours ; sinon, une demi-journée.',
+    'Ensuite, une partie de la location est retenue selon la durée du voyage.',
+  'web.listing.cancel.policyLink': 'Voir la politique d’annulation',
   'web.listing.cancel.unavailable':
     'Nous n’avons pas pu afficher la politique d’annulation. Vérifie-la avant de payer.',
   'web.listing.distance.title': 'Distance incluse',
@@ -1885,12 +1886,13 @@ export const FR_MESSAGES = {
     'Responsabilité civile envers les tiers incluse à tous les niveaux : jusqu’à {amount} par événement.',
   'web.listing.protection.basic':
     'La protection de base est obligatoire et déjà comprise dans le prix final. Tu peux la renforcer en réservant.',
-  'web.listing.protection.deductibles': 'Ce que tu paies au plus en cas de dommages (franchise)',
+  'web.listing.protection.deductibles': 'Ce que tu paies pour un dommage couvert (franchise)',
   'web.listing.protection.noDeductible': 'Aucune franchise',
   'web.listing.protection.exclusions': 'Ce qui n’est pas couvert',
   'web.listing.protection.unavailable':
     'Cette voiture n’a pas encore de protection disponible : elle ne peut pas être réservée pour l’instant.',
-  'web.listing.protection.error': 'Nous n’avons pas pu charger la protection. Réessaie.',
+  'web.listing.protection.error':
+    'Nous n’avons pas pu charger la protection ni le dépôt de cette voiture. Réessaie.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'Nous ne trouvons pas ce devis. Reviens à la fiche de la voiture.',
   'common.quote.rateLimited':

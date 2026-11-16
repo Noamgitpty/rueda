@@ -1829,7 +1829,8 @@ export const PT_MESSAGES = {
       'Se você reservar com menos de {count} horas de antecedência, é grátis durante {window} h depois de reservar.',
   },
   'web.listing.cancel.after':
-    'Depois disso, 1 dia de aluguel fica retido se a viagem durar mais de 2 dias; caso contrário, meio dia.',
+    'Depois disso, uma parte do aluguel fica retida conforme a duração da viagem.',
+  'web.listing.cancel.policyLink': 'Ver a política de cancelamento',
   'web.listing.cancel.unavailable':
     'Não conseguimos mostrar a política de cancelamento. Confira antes de pagar.',
   'web.listing.distance.title': 'Distância incluída',
@@ -1844,12 +1845,13 @@ export const PT_MESSAGES = {
     'Responsabilidade civil perante terceiros incluída em todos os níveis: até {amount} por evento.',
   'web.listing.protection.basic':
     'A proteção básica é obrigatória e já está no preço final. Você pode aumentá-la ao reservar.',
-  'web.listing.protection.deductibles': 'O máximo que você paga se houver danos (franquia)',
+  'web.listing.protection.deductibles': 'O que você paga por um dano coberto (franquia)',
   'web.listing.protection.noDeductible': 'Sem franquia',
   'web.listing.protection.exclusions': 'O que não é coberto',
   'web.listing.protection.unavailable':
     'Este carro ainda não tem proteção disponível, então não pode ser reservado por enquanto.',
-  'web.listing.protection.error': 'Não conseguimos carregar a proteção. Tente de novo.',
+  'web.listing.protection.error':
+    'Não conseguimos carregar a proteção nem o depósito deste carro. Tente de novo.',
   // US-208 (ADR-133) : refus de la route du checkout (devis figé et pose du hold)
   'common.quote.notFound': 'Não encontramos este orçamento. Volte à página do carro.',
   'common.quote.rateLimited':

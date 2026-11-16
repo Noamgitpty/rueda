@@ -390,6 +390,46 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
     });
   });
 
+  it('revue sécurité : clôture d’une version sous un minimum relevé depuis ⇒ acceptée (rien n’est rejoué), puis nouvelle version au nouveau minimum ⇒ promise ; version à conditions jamais supprimée', async () => {
+    await rolledBack(async (tx) => {
+      const x = await car(tx, cc, 'UNLIMITED');
+      await openSwitch(tx, 'insurer_contract_active', cc.country);
+      const money = MONEY[cc.country];
+      if (money === undefined) throw new Error('pays sans données de test');
+      const first = await contract(tx, cc, money.rc);
+      const raised = (BigInt(money.rc) * 2n).toString();
+      await tx.query('SELECT test_fixture.us205_set_rc_minimum($1, $2)', [cc.country, raised]);
+      expectNoPromise((await terms(tx, x.listing, null))[0]);
+      // une version qui porte des conditions ne se supprime pas
+      expect(
+        await refusal(tx, () => tx.query('SELECT test_fixture.us205_delete_contract($1)', [first])),
+      ).toContain('INSURER_CONTRACT_TERMS_IMMUTABLE');
+      // clôture : seul valid_to change, le minimum relevé n'est pas rejoué
+      const { rows: closed } = await tx.query<{ t: Date | null }>(
+        'SELECT test_fixture.us205_close_contract($1) AS t',
+        [first],
+      );
+      const closedAt = closed[0]?.t;
+      if (!closedAt) throw new Error('clôture refusée');
+      // version suivante à partir de la clôture (exclusion GiST respectée), RC au nouveau minimum
+      const { rows: next } = await tx.query<{ id: string }>(
+        `SELECT test_fixture.us205_insurer_contract($1, $2, $3::bigint, $4::jsonb, $5::jsonb, false,
+                                                    $6::timestamptz) AS id`,
+        [
+          cc.country,
+          cc.currency,
+          raised,
+          JSON.stringify(money.deductibles),
+          JSON.stringify(EXCLUSIONS),
+          closedAt.toISOString(),
+        ],
+      );
+      expect(next[0]?.id).toBeTruthy();
+      const [row] = await terms(tx, x.listing, null);
+      expect(row).toMatchObject({ protection_offered: true, rc_amount_minor: raised });
+    });
+  });
+
   it('caution de la plateforme du pays et de la classe (même règle que les cartes) ; aucune politique ⇒ NULL (mention générique)', async () => {
     await rolledBack(async (tx) => {
       const x = await car(tx, cc, 'UNLIMITED');
