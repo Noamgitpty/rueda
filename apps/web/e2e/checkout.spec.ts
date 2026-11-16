@@ -193,7 +193,9 @@ for (const language of LANGUAGES) {
       await expect(s05).toContainText(PROTECTION_LABEL[language]);
       await expect(s05.locator('dd').nth(1)).toHaveText(PROTECTION_AMOUNT);
       await expect(s05.locator('dd').last()).toHaveText(WITH_PROTECTION_TOTAL);
-      await expect(page.locator('[role="alert"]')).toHaveCount(0);
+      // devis lisible : le formulaire de S05 est affiché (avant US-226, la ligne PROTECTION
+      // faisait rejeter le devis et afficher l'erreur générique)
+      await expect(submit(page)).toBeVisible();
       await expectMobileFriendly(page);
       await expectAccessible(page);
       await fillDriver(page, 'Lucía', 'Gómez');
