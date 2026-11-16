@@ -48,8 +48,6 @@ export const CHECKOUT_MESSAGES = {
 
 export type CheckoutHttpCode = keyof typeof CHECKOUT_MESSAGES;
 
-export const CHECKOUT_CODES = Object.keys(CHECKOUT_MESSAGES) as readonly CheckoutHttpCode[];
-
 export class CheckoutHttpError extends HttpException {
   readonly code: CheckoutHttpCode;
 

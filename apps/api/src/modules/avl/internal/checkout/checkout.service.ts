@@ -27,18 +27,54 @@ import { CheckoutHttpError, isCheckoutCode } from './errors.js';
 import { isUuid, parseCheckoutDemand, parseQuoteDemand } from './model.js';
 import type { CheckoutHold, CheckoutQuote, CheckoutStore } from './store.js';
 
+/**
+ * Journal d'exploitation d'une panne du magasin ou de la base (revue de code de 208a, n° 6) :
+ * opération, nom de l'erreur et SQLSTATE seulement. Jamais le message (il peut citer une valeur),
+ * ni jeton, ni identifiant de personne, ni montant.
+ */
+export type CheckoutFailureLog = (operation: CheckoutOperation, error: unknown) => void;
+export type CheckoutOperation = 'listing' | 'freeze' | 'quote' | 'checkout' | 'hold';
+
+const SQLSTATE = /^[0-9A-Z]{5}$/;
+
+/** Champs sûrs d'une erreur : nom de classe (borné) et SQLSTATE, rien d'autre. */
+export function failureFields(error: unknown): { errorName: string; sqlState: string | null } {
+  const name =
+    error instanceof Error && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(error.name)
+      ? error.name
+      : 'unknown';
+  const code =
+    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  return {
+    errorName: name,
+    sqlState: typeof code === 'string' && SQLSTATE.test(code) ? code : null,
+  };
+}
+
+export const LOG_CHECKOUT_FAILURE: CheckoutFailureLog = (operation, error) => {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      event: 'checkout.store_failed',
+      operation,
+      ...failureFields(error),
+    }),
+  );
+};
+
 export class CheckoutService {
   constructor(
     private readonly paramsOf: QuoteParamsOf,
     private readonly quotes: QuoteStore,
     private readonly store: CheckoutStore,
+    private readonly logFailure: CheckoutFailureLog = LOG_CHECKOUT_FAILURE,
   ) {}
 
   /** Devis figé du voyageur de la session pour une annonce et une période. */
   async createQuote(proof: Buffer, body: unknown): Promise<CheckoutQuote> {
     const demand = parseQuoteDemand(body);
     if (demand === null) throw new QuoteHttpError('QUOTE_INPUT_INVALID');
-    const listing = await this.#safe(() => this.store.listing(demand.listingId));
+    const listing = await this.#safe('listing', () => this.store.listing(demand.listingId));
     if (listing === null) throw new QuoteHttpError('LISTING_NOT_FOUND');
     let frozen;
     try {
@@ -66,12 +102,12 @@ export class CheckoutService {
       // configuration illisible : indisponible, jamais un prix inventé
       throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
     }
-    const r = await this.#safe(() => this.quotes.freeze(proof, demand.listingId, frozen));
-    if (r.outcome !== 'DONE' || r.quoteId === null) {
-      throw new QuoteHttpError(r.outcome === 'DONE' ? 'LISTING_UNAVAILABLE' : r.outcome);
-    }
+    const r = await this.#safe('freeze', () => this.quotes.freeze(proof, demand.listingId, frozen));
+    if (r.outcome !== 'DONE') throw new QuoteHttpError(r.outcome);
+    // DONE sans identifiant : réponse incohérente de la base, jamais un devis (revue de code n° 4)
+    if (r.quoteId === null) throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
     const quoteId = r.quoteId;
-    const view = await this.#safe(() => this.store.quote(proof, quoteId));
+    const view = await this.#safe('quote', () => this.store.quote(proof, quoteId));
     if (view === null) throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
     return view;
   }
@@ -79,7 +115,7 @@ export class CheckoutService {
   /** Devis figé du voyageur de la session ; inconnu ou d'un autre ⇒ 404 (même réponse). */
   async quote(proof: Buffer, quoteId: string): Promise<CheckoutQuote> {
     if (!isUuid(quoteId)) throw new QuoteHttpError('QUOTE_NOT_FOUND');
-    const view = await this.#safe(() => this.store.quote(proof, quoteId.toLowerCase()));
+    const view = await this.#safe('quote', () => this.store.quote(proof, quoteId.toLowerCase()));
     if (view === null) throw new QuoteHttpError('QUOTE_NOT_FOUND');
     return view;
   }
@@ -89,7 +125,9 @@ export class CheckoutService {
     if (!isUuid(quoteId)) throw new QuoteHttpError('QUOTE_NOT_FOUND');
     const demand = parseCheckoutDemand(body);
     if (demand === null) throw new CheckoutHttpError('REQUEST_INVALID');
-    const r = await this.#safe(() => this.store.checkout(proof, quoteId.toLowerCase(), demand));
+    const r = await this.#safe('checkout', () =>
+      this.store.checkout(proof, quoteId.toLowerCase(), demand),
+    );
     if (r.outcome === 'AUTH_REQUIRED' || r.outcome === 'QUOTE_NOT_FOUND') {
       throw new QuoteHttpError(r.outcome);
     }
@@ -97,7 +135,7 @@ export class CheckoutService {
       throw new CheckoutHttpError(isCheckoutCode(r.outcome) ? r.outcome : 'BOOKING_UNAVAILABLE');
     }
     const holdId = r.holdId;
-    const hold = await this.#safe(() => this.store.hold(proof, holdId));
+    const hold = await this.#safe('hold', () => this.store.hold(proof, holdId));
     if (hold === null) throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
     return hold;
   }
@@ -105,16 +143,20 @@ export class CheckoutService {
   /** Hold de checkout du voyageur de la session ; inconnu ou d'un autre ⇒ 404 (même réponse). */
   async hold(proof: Buffer, holdId: string): Promise<CheckoutHold> {
     if (!isUuid(holdId)) throw new CheckoutHttpError('HOLD_NOT_FOUND');
-    const hold = await this.#safe(() => this.store.hold(proof, holdId.toLowerCase()));
+    const hold = await this.#safe('hold', () => this.store.hold(proof, holdId.toLowerCase()));
     if (hold === null) throw new CheckoutHttpError('HOLD_NOT_FOUND');
     return hold;
   }
 
-  /** Base ou magasin en panne ⇒ 503, jamais un succès ni un détail technique. */
-  async #safe<T>(fn: () => Promise<T>): Promise<T> {
+  /**
+   * Base ou magasin en panne ⇒ 503, jamais un succès ni un détail technique ; la panne est
+   * journalisée pour l'exploitation (sans donnée personnelle : `failureFields`).
+   */
+  async #safe<T>(operation: CheckoutOperation, fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();
-    } catch {
+    } catch (error) {
+      this.logFailure(operation, error);
       throw new CheckoutHttpError('BOOKING_UNAVAILABLE');
     }
   }

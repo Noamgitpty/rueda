@@ -68,9 +68,37 @@ describe('contrat HTTP — /legal (US-102)', () => {
     expect((await a.api.request('GET', '/legal/documents/RENTAL_CONTRACT?locale=es')).status).toBe(
       404,
     );
+    // documents du checkout (US-208, S05) : textes servis, BROUILLON, jamais dans la liste
+    for (const kind of ['CANCELLATION_POLICY', 'GEO_TERMS']) {
+      for (const locale of LANGUAGES) {
+        const d = await a.api.request('GET', `/legal/documents/${kind}?locale=${locale}`);
+        expect(d.status, `${kind} ${locale}`).toBe(200);
+        expect(d.json).toMatchObject({ kind, version: 1, draft: true, locale });
+        expect(typeof (d.json as { bodyMd?: unknown }).bodyMd).toBe('string');
+      }
+    }
     expect(
       (await a.api.request('GET', '/legal/documents/TOS_GUEST?locale=es&version=9')).status,
     ).toBe(404);
+  });
+
+  it('documents du checkout (US-208) : texte non publié dans la portée ⇒ 404, jamais un autre texte', async () => {
+    const store = new FakeConsentStore();
+    for (const kind of ['CANCELLATION_POLICY', 'GEO_TERMS']) {
+      store.versions.splice(
+        store.versions.findIndex((v) => v.kind === kind),
+        1,
+      );
+    }
+    const { a } = await app(store);
+    apps.push(a);
+    for (const kind of ['CANCELLATION_POLICY', 'GEO_TERMS']) {
+      const d = await a.api.request('GET', `/legal/documents/${kind}?locale=es`);
+      expect(d.status).toBe(404);
+      expect(d.json).toMatchObject({ code: 'LEGAL_DOCUMENT_NOT_FOUND' });
+    }
+    const tos = await a.api.request('GET', '/legal/documents/TOS_GUEST?locale=es');
+    expect(tos.status).toBe(200);
   });
 
   it('fail-closed : sans CGU ni confidentialité en vigueur, 503', async () => {

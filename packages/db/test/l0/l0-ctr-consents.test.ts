@@ -37,7 +37,8 @@ import {
 const T0 = '2031-05-04T10:00:00.000Z';
 /**
  * Requête nommée GL-15 (docs/ops/GO_LIVE_CHECKLIST.md) : documents EN VIGUEUR et BROUILLON (CGU du
- * voyageur, confidentialité, communications ; CGU de l'hôte depuis US-126), dans TOUTES les portées
+ * voyageur, confidentialité, communications ; CGU de l'hôte depuis US-126 ; politique d'annulation
+ * et texte géographique du checkout depuis US-208, 0109), dans TOUTES les portées
  * atteignables : chaque pays de la configuration ET la portée NULL (documents communs, servis aux
  * comptes sans pays : locales sans région), dans chaque langue. Elle doit rendre zéro ligne avant
  * la mise en service.
@@ -52,9 +53,12 @@ export const GL15_DRAFTS = `
        FROM core.ctr_published_documents(k.code, l.lang) AS p
      UNION ALL
      SELECT b.doc_kind, b.version, b.locale, b.is_draft
-       FROM core.ctr_document_body('TOS_HOST', k.code, l.lang, NULL) AS b
+       FROM unnest(ARRAY['TOS_HOST', 'CANCELLATION_POLICY', 'GEO_TERMS']) AS g(kind)
+      CROSS JOIN LATERAL core.ctr_document_body(g.kind, k.code, l.lang, NULL) AS b
    ) AS d
-   WHERE d.is_draft AND d.doc_kind IN ('TOS_GUEST', 'PRIVACY', 'MARKETING', 'TOS_HOST')`;
+   WHERE d.is_draft
+     AND d.doc_kind IN ('TOS_GUEST', 'PRIVACY', 'MARKETING', 'TOS_HOST', 'CANCELLATION_POLICY',
+                        'GEO_TERMS')`;
 /** Versions en vigueur de la graine (0059) : CGU et confidentialité v1. */
 const CURRENT_V1 = [
   { kind: 'TOS_GUEST', version: 1 },
@@ -572,8 +576,15 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
   it('GL-15 (mise en service) : la requête nommée voit tout document BROUILLON en vigueur, pays et portée commune', async () => {
     await withRole('app_api', async (client) => {
       const { rows } = await client.query<{ code: string | null; doc_kind: string }>(GL15_DRAFTS);
-      // graines 0059 et 0070 : brouillons partout ⇒ la mise en service est bloquée (OQ-BR-24)
-      const kinds = ['MARKETING', 'PRIVACY', 'TOS_GUEST', 'TOS_HOST'];
+      // graines 0059, 0070 et 0108 : brouillons partout ⇒ la mise en service est bloquée (OQ-BR-24)
+      const kinds = [
+        'MARKETING',
+        'PRIVACY',
+        'TOS_GUEST',
+        'TOS_HOST',
+        'CANCELLATION_POLICY',
+        'GEO_TERMS',
+      ];
       expect(new Set(rows.map((r) => `${r.code ?? 'NULL'}:${r.doc_kind}`))).toEqual(
         new Set([...ALL, 'NULL'].flatMap((c) => kinds.map((k) => `${c}:${k}`))),
       );
@@ -585,7 +596,14 @@ describe('revue US-102 : versions affichées obligatoires, portée par pays, ide
       const admin = await elevatedStaff(client, 'ADMIN', ALL);
       await withTestTransaction(client, {}, async (tx) => {
         for (const country of ALL) {
-          for (const kind of ['TOS_GUEST', 'PRIVACY', 'MARKETING', 'TOS_HOST']) {
+          for (const kind of [
+            'TOS_GUEST',
+            'PRIVACY',
+            'MARKETING',
+            'TOS_HOST',
+            'CANCELLATION_POLICY',
+            'GEO_TERMS',
+          ]) {
             const r = await publish(tx, admin.hash, kind, { country, reviewRef: 'AVIS-TEST-1' });
             expect(r?.outcome).toBe('PUBLISHED');
           }
@@ -692,6 +710,98 @@ describe('documents en vigueur, empreintes et droits', () => {
         'UPDATE core.contract_document_template SET title = title',
       ]) {
         await expect(client.query(sql), sql).rejects.toMatchObject({ code: '42501' });
+      }
+    });
+  });
+});
+
+describe('US-208 (0109) : politique d’annulation et texte géographique servis et publiables', () => {
+  const CHECKOUT_KINDS = ['CANCELLATION_POLICY', 'GEO_TERMS'] as const;
+
+  it('graine 0108 servie dans chaque pays et en commun, quatre langues, BROUILLON ; empreinte = SHA-256 du texte (node:crypto) ; genre non publiable jamais servi', async () => {
+    await withRole('app_api', async (client) => {
+      for (const kind of CHECKOUT_KINDS) {
+        for (const country of [...ALL, null]) {
+          for (const language of ['es', 'en', 'fr', 'pt']) {
+            const { rows } = await client.query<{
+              doc_kind: string;
+              version: number;
+              locale: string;
+              body_md: string;
+              content_hash: Buffer;
+              is_draft: boolean;
+            }>('SELECT * FROM core.ctr_document_body($1, $2, $3, NULL)', [kind, country, language]);
+            const d = rows[0];
+            expect(d, `${kind} ${country ?? 'commun'} ${language}`).toMatchObject({
+              doc_kind: kind,
+              version: 1,
+              locale: language,
+              is_draft: true,
+            });
+            expect(Buffer.from(d?.content_hash ?? []).toString('hex')).toBe(
+              createHash('sha256')
+                .update(d?.body_md ?? '', 'utf8')
+                .digest('hex'),
+            );
+          }
+        }
+      }
+      // fail-closed : un genre que la lecture publique ne sert pas ne rend rien
+      for (const kind of ['RENTAL_CONTRACT', 'DAMAGE_TERMS', 'BIOMETRIC_CONSENT']) {
+        const none = await client.query(
+          'SELECT * FROM core.ctr_document_body($1, NULL, $2, NULL)',
+          [kind, 'es'],
+        );
+        expect(none.rows, kind).toEqual([]);
+      }
+    });
+  });
+
+  it('console : publication par pays (numérotation séparée) et commune ; version passée relisible (16 NFR-17), version future illisible ; journalisée', async () => {
+    await withRole('app_api', async (client) => {
+      const admin = await elevatedStaff(client, 'ADMIN', ALL);
+      for (const kind of CHECKOUT_KINDS) {
+        await withTestTransaction(client, {}, async (tx) => {
+          for (const country of ALL) {
+            expect(await publish(tx, admin.hash, kind, { country, major: false })).toEqual({
+              outcome: 'PUBLISHED',
+              version: 1,
+            });
+            const here = await tx.query<{ version: number; locale: string; title: string }>(
+              'SELECT version, locale, title FROM core.ctr_document_body($1, $2, $3, NULL)',
+              [kind, country, 'pt'],
+            );
+            expect(here.rows[0]).toEqual({ version: 1, locale: 'pt', title: BODIES.pt.title });
+          }
+          // document commun : version 2 après la graine ; la version 1 reste relisible
+          expect(await publish(tx, admin.hash, kind, { reviewRef: 'AVIS-TEST-2' })).toEqual({
+            outcome: 'PUBLISHED',
+            version: 2,
+          });
+          const common = await tx.query<{ version: number; is_draft: boolean }>(
+            'SELECT version, is_draft FROM core.ctr_document_body($1, NULL, $2, NULL)',
+            [kind, 'es'],
+          );
+          expect(common.rows[0]).toEqual({ version: 2, is_draft: false });
+          const past = await tx.query<{ version: number; is_draft: boolean }>(
+            'SELECT version, is_draft FROM core.ctr_document_body($1, NULL, $2, 1)',
+            [kind, 'es'],
+          );
+          expect(past.rows[0]).toEqual({ version: 1, is_draft: true });
+          const future = await publish(tx, admin.hash, kind, {
+            validFrom: '2099-01-01T00:00:00Z',
+          });
+          expect(future).toEqual({ outcome: 'PUBLISHED', version: 3 });
+          expect(
+            (await tx.query('SELECT * FROM core.ctr_document_body($1, NULL, $2, 3)', [kind, 'es']))
+              .rows,
+          ).toEqual([]);
+          const audit = await auditOf(tx, admin.userId);
+          const published = audit.filter(
+            (a) => a.action_code === 'LEGAL_DOCUMENT_PUBLISHED' && a.after?.['kind'] === kind,
+          );
+          expect(published).toHaveLength(ALL.length + 2);
+        });
       }
     });
   });

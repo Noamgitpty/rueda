@@ -7,6 +7,9 @@
  * | -------------------------------- | ------- | --------------------------------------------------------------- |
  * | GET  /legal/documents            | public  | 200 versions en vigueur ; 400 ; 503 LEGAL_DOCUMENT_UNAVAILABLE   |
  * | GET  /legal/documents/{kind}     | public  | 200 texte ; 400 ; 404 LEGAL_DOCUMENT_NOT_FOUND                   |
+ *
+ * Genres servis : `SERVED_DOCUMENT_KINDS` (documents du voyageur, CGU de l'hôte, politique
+ * d'annulation et texte géographique du checkout, US-208).
  * | GET  /legal/consents             | session | 200 TERMS_CURRENT ou TERMS_REACCEPT_REQUIRED + historique ; 401 |
  * | POST /legal/consents/accept      | session | 200 état ; 400 ; 401 ; 409 TERMS_VERSION_CHANGED ; 503          |
  * | POST /legal/consents/marketing   | session | 200 CONSENT_RECORDED ; 400 ; 401 ; 503                           |
