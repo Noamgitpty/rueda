@@ -18,6 +18,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LOCALE_CONFIG } from '../../locale-config.ts';
 import {
+  BOOKING_REFUSAL_KEYS,
+  BOOKING_SIGNALS,
   evidenceReasonKey,
   evidenceRefusal,
   HOST_CHECK_ITEMS,
@@ -39,6 +41,8 @@ const noop: OpsHandlers = {
   onKycDecision: () => undefined,
   onOpenHost: () => undefined,
   onHostScreening: () => undefined,
+  onOpenBooking: () => undefined,
+  onBookingDecision: () => undefined,
   onOpenCatalog: () => undefined,
   onResolveCatalog: () => undefined,
   onSearch: () => undefined,
@@ -269,6 +273,59 @@ const UNSCREENED_HOST: OpsState = {
   },
 };
 
+/** US-209b : réservation signalée en revue avant le débit, prise par l'agent (forme de 0119). */
+const FLAGGED: OpsState = {
+  queues: {
+    summary: [{ queue: 'RISK_BOOKING', open: 1, overdue: 0 }],
+    selected: 'RISK_BOOKING',
+    items: [
+      {
+        id: A,
+        queue: 'RISK_BOOKING',
+        subjectType: 'RISK_ASSESSMENT',
+        subjectId: B,
+        country: 'AA',
+        slaDueAt: AT,
+        overdue: false,
+        assigned: true,
+        assignedToMe: true,
+      },
+    ],
+  },
+  booking: {
+    itemId: A,
+    assessmentId: B,
+    holdId: A,
+    guestUserId: B,
+    country: 'AA',
+    rulesFired: [
+      { code: 'ACCOUNT_UNDER_24H', signal: 'ACCOUNT_AGE' },
+      { code: 'HIGH_VALUE_CLASS', signal: 'PREMIUM' },
+      { code: 'FOREIGN_LICENSE_90D', signal: 'BEYOND_90_DAYS' },
+    ],
+    score: 100,
+    flaggedAt: AT,
+    holdStatus: 'ACTIVE',
+    reviewBeforeCharge: true,
+    reviewedAt: null,
+    expiresAt: AT,
+    startsAt: AT,
+    endsAt: AT,
+    timezone: 'Etc/GMT+5',
+    paymentWindowMinutes: 10,
+    entryDeclaration: { residencyStatus: 'TOURIST', entryDate: '2026-11-01', declaredAt: AT },
+  },
+};
+/** US-209b : réservation déjà libérée (échue ou refusée) : aucun formulaire. */
+const RELEASED_BOOKING: OpsState = {
+  booking: {
+    ...(FLAGGED.booking as NonNullable<OpsState['booking']>),
+    holdStatus: 'RELEASED',
+    reviewBeforeCharge: false,
+    entryDeclaration: null,
+  },
+};
+
 const STATES: readonly OpsState[] = [
   {},
   FULL,
@@ -287,6 +344,8 @@ const STATES: readonly OpsState[] = [
   HELD_HOST,
   UNSCREENED_HOST,
   NAME_MISMATCH,
+  FLAGGED,
+  RELEASED_BOOKING,
 ];
 
 const translatorOf = (tag: string) => {
@@ -387,6 +446,57 @@ describe('O01 : ce que chaque état montre', () => {
     for (const p of LOCALE_CONFIG.locales) {
       const t = translatorOf(p.tag);
       for (const key of Object.values(HOST_SCREENING_REFUSAL_KEYS)) expect(t.t(key)).not.toBe(key);
+    }
+  });
+
+  it('réservation signalée (US-209b) : ouverture depuis l’élément pris, lecture annoncée journalisée, signaux, échéance, déclaration d’entrée ; décision approuver ou refuser jamais pré-cochée, motif borné ; aucun montant', () => {
+    const out = html(FLAGGED, tag);
+    expect(out).toContain(`value="booking:${A}"`);
+    expect(out).toMatch(/name="purpose"[^>]*minLength="10"|minLength="10"[^>]*name="purpose"/i);
+    expect(out).toContain(es['backoffice.booking.heading']);
+    expect(out).toContain(es['backoffice.kyc.logged']);
+    expect(out).toContain(es['backoffice.booking.introBefore']);
+    for (const s of ['ACCOUNT_AGE', 'PREMIUM', 'BEYOND_90_DAYS'] as const) {
+      expect(out).toContain(es[`backoffice.booking.signal.${s}`]);
+    }
+    expect(out).toContain(es['backoffice.booking.hold.ACTIVE']);
+    // échéance à l'heure du pays, fenêtre de paiement lue du dossier (jamais en dur)
+    expect(out).toContain('(Etc/GMT+5)');
+    expect(out).toContain(
+      translatorOf(tag).t('backoffice.booking.decisionHint', { minutes: '10' }),
+    );
+    expect(out).toContain('2026-11-01');
+    expect(out).toContain('name="decision" value="APPROVED"');
+    expect(out).toContain('name="decision" value="REJECTED"');
+    expect(out).not.toMatch(/checked/);
+    expect(out).toMatch(/name="reason"[^>]*minLength="10"|minLength="10"[^>]*name="reason"/i);
+    expect(out).not.toMatch(/amount|monto|montant/i);
+  });
+
+  it('réservation sortie (US-209b) : aucun formulaire de décision ; sans déclaration ; refus de la commande traduits dans chaque langue', () => {
+    const out = html(RELEASED_BOOKING, tag);
+    expect(out).toContain(es['backoffice.booking.hold.RELEASED']);
+    // PAY_THEN_REVIEW, hold actif : « active », jamais « en revue »
+    const open = html(
+      {
+        booking: {
+          ...(RELEASED_BOOKING.booking as NonNullable<OpsState['booking']>),
+          holdStatus: 'ACTIVE',
+        },
+      },
+      tag,
+    );
+    expect(open).toContain(es['backoffice.booking.hold.ACTIVE_OPEN']);
+    expect(open).not.toContain(es['backoffice.booking.hold.ACTIVE']);
+    expect(out).toContain(es['backoffice.booking.introAfter']);
+    expect(out).toContain(es['backoffice.booking.entryNone']);
+    expect(out).not.toContain(es['backoffice.booking.decisionHeading']);
+    for (const p of LOCALE_CONFIG.locales) {
+      const t = translatorOf(p.tag);
+      for (const key of Object.values(BOOKING_REFUSAL_KEYS)) expect(t.t(key)).not.toBe(key);
+      for (const s of BOOKING_SIGNALS) {
+        expect(t.t(`backoffice.booking.signal.${s}`)).not.toBe(`backoffice.booking.signal.${s}`);
+      }
     }
   });
 

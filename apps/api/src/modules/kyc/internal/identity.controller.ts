@@ -17,6 +17,9 @@
  * |                                 | 400 REQUEST_INVALID, PROFILE_NAME_REQUIRED ; 401 ;               |
  * |                                 | 403 KYC_NOT_ELIGIBLE ; 409 PROFILE_NAME_LOCKED_PENDING_REVIEW ;  |
  * |                                 | 503 (US-103)                                                     |
+ * | POST /identity/entry-declaration| 200 ENTRY_DECLARED ; 400 REQUEST_INVALID, COUNTRY_UNKNOWN ; 401 ;|
+ * |                                 | 422 KYC_ENTRY_DATE_INVALID ; 429 RATE_LIMITED ; 503 (US-209b :   |
+ * |                                 | `{ country, residencyStatus: TOURIST | RESIDENT, entryDate? }`)  |
  */
 import { Controller, Get, HttpCode, Inject, Post, Query, Req, Res } from '@nestjs/common';
 import { UseGuards } from '@nestjs/common';
@@ -81,6 +84,12 @@ export class IdentityController {
   async legalName(@Req() request: KycRequest): Promise<KycBody & Pick<LegalNameChanged, 'status'>> {
     const r = await this.identity.changeLegalName(sessionProofOf(request), request.body);
     return { ...kycBody(r.code), status: r.status };
+  }
+
+  @Post('entry-declaration')
+  @HttpCode(200)
+  async declareEntry(@Req() request: KycRequest): Promise<KycBody> {
+    return kycBody(await this.identity.declareEntry(sessionProofOf(request), request.body));
   }
 
   @Post('verification')

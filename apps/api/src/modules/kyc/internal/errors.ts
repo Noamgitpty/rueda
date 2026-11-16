@@ -18,6 +18,8 @@
  * `HOST_TAX_VAULT_UNAVAILABLE`, `HOST_VERIFICATION_UNAVAILABLE`.
  * Nom légal (US-103, ADR-117) : `PROFILE_NAME_REQUIRED`, `PROFILE_NAME_LOCKED_PENDING_REVIEW`
  * (16 ACC-006) ; PROPOSÉS : `LEGAL_NAME_UPDATED`, `LEGAL_NAME_UNCHANGED`.
+ * Déclaration d'entrée (US-209b, ADR-141) : `KYC_ENTRY_DATE_INVALID` ; PROPOSÉS : `ENTRY_DECLARED`,
+ * `RATE_LIMITED`.
  */
 import { HttpException } from '@nestjs/common';
 
@@ -50,6 +52,11 @@ export const KYC_MESSAGES = {
   LEGAL_NAME_UNCHANGED: { status: 200, messageKey: 'common.kyc.legalNameUnchanged' },
   PROFILE_NAME_REQUIRED: { status: 400, messageKey: 'common.kyc.legalNameRequired' },
   PROFILE_NAME_LOCKED_PENDING_REVIEW: { status: 409, messageKey: 'common.kyc.legalNameLocked' },
+  // Déclaration d'entrée (US-209b, 16 VER-007, UXQ-03) : KYC_ENTRY_DATE_INVALID (16 A.8, 0112) ;
+  // PROPOSÉS : ENTRY_DECLARED, RATE_LIMITED (5 déclarations par heure, ADR-141)
+  ENTRY_DECLARED: { status: 200, messageKey: 'common.kyc.entryDeclared' },
+  KYC_ENTRY_DATE_INVALID: { status: 422, messageKey: 'common.kyc.entryDateInvalid' },
+  RATE_LIMITED: { status: 429, messageKey: 'common.auth.rateLimited' },
   // Vérification de l'hôte (US-123, ADR-105) : HOST_UNDER_AGE, HOST_ENTITY_NOT_ALLOWED (16 A.8,
   // clés d'US-107), HOST_ACCOUNT_NOT_FOUND (code d'US-115) ; les autres sont PROPOSÉS.
   HOST_VERIFICATION_STATE: { status: 200, messageKey: 'common.hostVerification.state' },

@@ -28,6 +28,7 @@ import type {
   ReviewStars,
 } from './view.tsx';
 import {
+  BOOKING_REFUSAL_KEYS,
   EVIDENCE_MAX_BYTES,
   evidenceReasonKey,
   evidenceRefusal,
@@ -39,6 +40,7 @@ import {
 import type {
   SanctionsList,
   SanctionsListResult,
+  BookingReviewView,
   CatalogAdditionView,
   HostDossierView,
   KycDossierView,
@@ -481,6 +483,66 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           notice(r);
         }
       }),
+    // réservation signalée (US-209b) : lecture journalisée par la base avant la réponse
+    onOpenBooking: (itemId, purpose) =>
+      once(async () => {
+        const r = await call<BookingReviewView>(
+          'POST',
+          `/console/queues/items/${itemId}/risk-review`,
+          { requestId: crypto.randomUUID(), purpose },
+        );
+        if (r.ok) setOps((prev) => ({ ...prev, booking: r.body, notice: undefined }));
+        else {
+          setOps((prev) => ({ ...prev, booking: undefined }));
+          notice(r);
+        }
+      }),
+    // décision de l'ops (US-209b) : action REVIEW_FLAGGED_BOOKING, un requestId par intention ; la
+    // base juge (élément pris en charge, échéance, début prévu, éligibilité) ; refus expliqué
+    onBookingDecision: (assessmentId, decision, reason) => {
+      intent.current = intentFor(
+        intent.current,
+        ['REVIEW_FLAGGED_BOOKING', assessmentId, decision, reason.trim()],
+        () => crypto.randomUUID(),
+      );
+      const { requestId } = intent.current;
+      once(async () => {
+        const r = await call<{ messageKey?: unknown }>('POST', '/console/actions', {
+          requestId,
+          action: 'REVIEW_FLAGGED_BOOKING',
+          subjectId: assessmentId,
+          reason,
+          input: { decision },
+        });
+        if (r.ok) {
+          // fenêtre réelle lue du dossier (paramètres du pays), jamais en dur
+          const minutes = ops.booking?.paymentWindowMinutes;
+          setOps((prev) => ({
+            ...prev,
+            booking: undefined,
+            notice: {
+              tone: 'success',
+              key:
+                decision === 'APPROVED'
+                  ? 'backoffice.booking.approved'
+                  : 'backoffice.booking.rejected',
+              values: {
+                minutes: minutes === null || minutes === undefined ? '—' : String(minutes),
+              },
+            },
+          }));
+          const selected = ops.queues?.selected;
+          if (selected !== undefined && selected !== null) await showQueue(selected);
+          return;
+        }
+        const why = r.values?.['reason'];
+        const key =
+          r.code === 'STAFF_ACTION_REFUSED' && typeof why === 'string'
+            ? BOOKING_REFUSAL_KEYS[why]
+            : undefined;
+        notice(key !== undefined ? { status: r.status, messageKey: key } : r);
+      });
+    },
     // filtrage manuel des sanctions (US-108) : action HOST_SANCTIONS_SCREENING, un requestId par
     // intention ; la base juge (dossier soumis, non filtré, auteur distinct du titulaire)
     onHostScreening: (orgId, results, reason) => {

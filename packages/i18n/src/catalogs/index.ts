@@ -154,8 +154,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  fenêtre en jours et en montant du moteur de règlement, taxes comprises, 10b UX-54) ;
  `web.s05.cancel.ifCancel*` (retenue sans date d'annulation gratuite) ; `web.s05.terms.title`
  renommé « documents que tu acceptes » (un seul titre « Condiciones » à l'écran, revue ux de 205b).
+ Version 61 (la 59 est réservée à US-223, la 60 à US-205b) : décision de l'ops sur une réservation
+ signalée et déclaration d'entrée, partie 209b (US-209, ADR-141) : `common.kyc.entryDeclared`,
+ `common.kyc.entryDateInvalid` (déclaration d'entrée du voyageur à permis étranger, 16 VER-007),
+ `common.bookingReview.notBooking` et `backoffice.booking.*` (dossier et décision d'une réservation
+ signalée dans la console O01).
  */
-export const CATALOG_VERSION = 60;
+export const CATALOG_VERSION = 61;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

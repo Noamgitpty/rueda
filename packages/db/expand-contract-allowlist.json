@@ -189,6 +189,13 @@
       "line": 534,
       "kind": "drop-function",
       "justification": "US-205b (ADR-140) : core.catalog_public_terms est supprimée puis recréée DANS LA MÊME TRANSACTION avec la même signature, le même propriétaire et les mêmes droits ; seule une colonne de retour est ajoutée (last_minute_window_minutes, impossible par CREATE OR REPLACE). La version N appelle la fonction par SELECT * et lit ses colonnes par nom (store.ts, termsOf) : la colonne ajoutée est ignorée, aucune colonne lue n'est retirée ni renommée ; free_until rendue aussi en dernière minute est écartée par la version N (slotCancellation)"
+    },
+    {
+      "path": "packages/db/migrations/0119_booking_flagged_review_decision.sql",
+      "line": 813,
+      "kind": "data-update",
+      "dataTables": ["core.support_manual_action_catalog"],
+      "justification": "US-209b (ADR-141) : REVIEW_FLAGGED_BOOKING porte sur l'évaluation RISK_ASSESSMENT (sujet de l'élément RISK_BOOKING) au lieu de TRIP (aucun trip avant le débit, UXQ-08) ; une ligne de référence écrite par migration seulement ; permission, mode et saisie inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"
     }
   ]
 }

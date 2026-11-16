@@ -61,6 +61,7 @@ function storeOf(trace: Trace, permitted = 'PERMITTED', recorded = 'RECORDED'): 
     claim: never,
     kycDossier: never,
     hostDossier: never,
+    bookingReview: never,
     catalogAddition: never,
     resolveCatalogAddition: never,
     vehicleEligibility: never,

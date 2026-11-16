@@ -159,6 +159,20 @@ export interface LegalNameResult {
   readonly status: KycStatus | null;
 }
 
+/** Issues de la déclaration d'entrée (US-209, 16 VER-007 ; `core.kyc_cmd_declare_entry`). */
+export const ENTRY_DECLARATION_OUTCOMES = [
+  'DONE',
+  'AUTH_REQUIRED',
+  'COUNTRY_UNKNOWN',
+  'REQUEST_INVALID',
+  'KYC_ENTRY_DATE_INVALID',
+  'RATE_LIMITED',
+] as const;
+export type EntryDeclarationOutcome = (typeof ENTRY_DECLARATION_OUTCOMES)[number];
+
+/** Statut déclaré par le voyageur à permis étranger (UXQ-03) : touriste (date exigée) ou résident. */
+export type ResidencyStatus = 'TOURIST' | 'RESIDENT';
+
 /**
  * Garde du KYC de production (US-111, LEG-010, ADR-118) : `KYC_PRODUCTION_BLOCKED_NO_REGISTER` en
  * production tant que le registre Ley 81 du pays n'est pas validé ou qu'aucun fournisseur KYC
@@ -196,6 +210,16 @@ export interface IdentityStore {
    * passer un dossier approuvé en `RECHECK`.
    */
   changeLegalName(tokenHash: Buffer, first: string, last: string): Promise<LegalNameResult>;
+  /**
+   * Déclaration d'entrée (US-209b, 16 VER-007, UXQ-03) : statut et date d'entrée [C2] ; la base
+   * juge la date (jamais future dans le fuseau du pays) et borne 5 déclarations par heure.
+   */
+  declareEntry(
+    tokenHash: Buffer,
+    country: string,
+    residency: ResidencyStatus,
+    entryDate: string | null,
+  ): Promise<EntryDeclarationOutcome>;
   /** Contrôle bloquant du paiement (US-209) : permis valable jusqu'à la fin du trip. */
   eligibility(tokenHash: Buffer, tripEnd: Date, tripCountry: string): Promise<EligibilityOutcome>;
   /** Demandes d'effacement en attente de la personne de la session (après un retrait). */
@@ -245,6 +269,9 @@ export class UnavailableIdentityStore implements IdentityStore {
   }
   changeLegalName(): Promise<LegalNameResult> {
     return Promise.reject(new IdentityStoreError('change_legal_name', undefined));
+  }
+  declareEntry(): Promise<EntryDeclarationOutcome> {
+    return Promise.reject(new IdentityStoreError('declare_entry', undefined));
   }
   eligibility(): Promise<EligibilityOutcome> {
     return Promise.reject(new IdentityStoreError('eligibility', undefined));

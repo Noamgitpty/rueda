@@ -57,6 +57,9 @@
     "POST /identity/legal-name": {
       "acces": "session"
     },
+    "POST /identity/entry-declaration": {
+      "acces": "session"
+    },
     "POST /identity/verification": {
       "acces": "session"
     },
@@ -151,6 +154,13 @@
       "roles": ["OPS_AGENT", "ADMIN"],
       "portee": "pays",
       "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès (preuve L0 l0-us108-host-ops-verification)"
+    },
+    "POST /console/queues/items/{id}/risk-review": {
+      "acces": "staff",
+      "permission": "kyc.decide (file RISK_BOOKING, élément assigné ; ADMIN : sa portée), journalisé READ_C2_SUPPORT",
+      "roles": ["OPS_AGENT", "ADMIN"],
+      "portee": "pays",
+      "idor": "élément de l’autre pays : 403 journalisé ; non assigné ou autre file : 403 STAFF_CASE_REQUIRED, aucune donnée, aucune ligne d’accès (preuve L0 l0-us209-risk-checkout)"
     },
     "POST /console/queues/items/{id}/catalog-addition": {
       "acces": "staff",
