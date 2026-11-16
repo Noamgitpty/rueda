@@ -1112,10 +1112,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         expect(await holdRow(tx, r.hold_id)).toMatchObject({ status: 'ACTIVE', reviewed_at: null });
 
         const f = await flagged(tx, w);
-        await tx.query('SELECT test_fixture.us209b_set_hold_ttl($1, $2::jsonb)', [
-          cc.country,
-          '0',
-        ]);
+        await tx.query('SELECT test_fixture.us209b_set_hold_ttl($1, $2::jsonb)', [cc.country, '0']);
         expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
         expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).detail).toBe(
           'PARAM_MISSING',
