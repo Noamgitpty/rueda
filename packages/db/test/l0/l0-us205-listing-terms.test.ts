@@ -405,8 +405,9 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
         await refusal(tx, () => tx.query('SELECT test_fixture.us205_delete_contract($1)', [first])),
       ).toContain('INSURER_CONTRACT_TERMS_IMMUTABLE');
       // clôture : seul valid_to change, le minimum relevé n'est pas rejoué
-      const { rows: closed } = await tx.query<{ t: Date | null }>(
-        'SELECT test_fixture.us205_close_contract($1) AS t',
+      // instant rendu en texte : la précision de la base (µs) est gardée, jamais arrondie à la ms
+      const { rows: closed } = await tx.query<{ t: string | null }>(
+        'SELECT test_fixture.us205_close_contract($1)::text AS t',
         [first],
       );
       const closedAt = closed[0]?.t;
@@ -421,7 +422,7 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
           raised,
           JSON.stringify(money.deductibles),
           JSON.stringify(EXCLUSIONS),
-          closedAt.toISOString(),
+          closedAt,
         ],
       );
       expect(next[0]?.id).toBeTruthy();
