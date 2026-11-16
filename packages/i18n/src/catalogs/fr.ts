@@ -1860,6 +1860,20 @@ export const FR_MESSAGES = {
   'common.quote.expired': 'Ce prix n’est plus valable. Voici le prix à jour.',
   'common.quote.lineNotSupported':
     'Cette option ne peut pas encore être réservée. Retire-la pour continuer.',
+  'common.quote.protectionRequired':
+    'Choisis une protection pour continuer : chaque voyage comprend au moins la protection de base.',
+  'common.quote.protectionNotEligible':
+    'Cette protection n’est pas disponible pour ce conducteur ou cette voiture. Choisis-en une autre.',
+  'common.quote.insurerContractInactive':
+    'La protection des voyages n’est pas encore disponible ici : on ne peut pas encore réserver.',
+  'common.listing.earningsPlanSaved':
+    'Plan de gains enregistré. Il s’applique aux voyages réservés à partir de maintenant ; les voyages déjà réservés gardent leur plan.',
+  'common.listing.earningsPlanNotAvailable':
+    'Ce plan de gains n’est pas disponible là où tu publies ta voiture. Choisis-en un dans la liste.',
+  'common.quote.line.protection': 'Protection',
+  'common.quote.line.protectionBasica': 'Protection de base',
+  'common.quote.line.protectionEstandar': 'Protection standard',
+  'common.quote.line.protectionTotal': 'Protection totale',
   'common.checkout.requestModeUnavailable':
     'Cette voiture se réserve sur demande à l’hôte, ce qui n’est pas encore possible. Choisis une autre voiture.',
   'common.checkout.manualNotConfirmed':

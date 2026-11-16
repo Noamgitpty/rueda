@@ -226,6 +226,33 @@ export interface HostListingStore {
   publicListing(listingId: string): Promise<PublicListing | null>;
   /** Lieu exact pour le voyageur de la session (US-204) ; `null` : rien à montrer. */
   guestMeetingPoint(proof: Buffer, listingId: string): Promise<GuestMeetingPoint | null>;
+  /**
+   * Plans de gains du compte (US-226) : plan en vigueur de chaque véhicule, plan par défaut et
+   * plans vendus dans le pays (jamais PRO) ; `null` : compte inconnu ou d'un autre.
+   */
+  earningsPlans(proof: Buffer, orgId: string): Promise<HostEarningsPlans | null>;
+  /** Choix du plan d'un véhicule (US-226, 16 PRT-008) ; `id` = plan enregistré. */
+  setEarningsPlan(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    planCode: string,
+  ): Promise<Outcome>;
+}
+
+/** Plans de gains d'un compte d'hôte (US-226 ; 16 PRT-007, PRT-008, HST-048 ; 08 BR-PROT-06). */
+export interface HostEarningsPlans {
+  /** `host_default_plan` du pays (ESTÁNDAR, OQ-P2P-11) ; `null` si le pays ne le fixe pas. */
+  readonly defaultPlan: string | null;
+  /** Plans vendus dans le pays et part de l'hôte « n/d » (`host_share_pct`), sans PRO. */
+  readonly offered: readonly { readonly planCode: string; readonly hostShare: string }[];
+  readonly vehicles: readonly {
+    readonly vehicleId: string;
+    /** Plan en vigueur (choisi, sinon plan par défaut). */
+    readonly planCode: string | null;
+    readonly chosen: boolean;
+    readonly chosenAt: string | null;
+  }[];
 }
 
 export class HostListingStoreError extends Error {
@@ -257,6 +284,8 @@ export class UnavailableHostListingStore implements HostListingStore {
   listings = (): Promise<HostListing[]> => this.#fail();
   publicListing = (): Promise<PublicListing | null> => this.#fail();
   guestMeetingPoint = (): Promise<GuestMeetingPoint | null> => this.#fail();
+  earningsPlans = (): Promise<HostEarningsPlans | null> => this.#fail();
+  setEarningsPlan = (): Promise<Outcome> => this.#fail();
 }
 
 const sqlstateOf = (error: unknown): string | undefined =>
@@ -375,6 +404,50 @@ export class PgHostListingStore implements HostListingStore {
         i.extraKmPriceMinor?.toString() ?? null,
         i.instantBook,
       ],
+    );
+  }
+
+  async earningsPlans(proof: Buffer, orgId: string): Promise<HostEarningsPlans | null> {
+    const rows = await this.#rows<Record<string, unknown>>(
+      'plans de gains',
+      'SELECT * FROM core.catalog_host_earnings_plans($1, $2::uuid)',
+      [proof, orgId],
+    );
+    const first = rows[0];
+    if (first === undefined) return null;
+    const offered = first['offered'];
+    return {
+      defaultPlan: str(first['default_plan']),
+      offered:
+        offered !== null && typeof offered === 'object' && !Array.isArray(offered)
+          ? Object.entries(offered as Record<string, unknown>)
+              .filter(([, share]) => typeof share === 'string')
+              .map(([planCode, share]) => ({ planCode, hostShare: share as string }))
+              .sort((a, b) => a.planCode.localeCompare(b.planCode))
+          : [],
+      // compte sans véhicule : une ligne sans véhicule (plans vendus seulement)
+      vehicles: rows
+        .filter((r) => r['vehicle_id'] !== null && r['vehicle_id'] !== undefined)
+        .map((r) => ({
+          vehicleId: String(r['vehicle_id']),
+          planCode: str(r['plan_code']),
+          chosen: r['chosen'] === true,
+          chosenAt: iso(r['chosen_at']),
+        })),
+    };
+  }
+
+  setEarningsPlan(
+    proof: Buffer,
+    orgId: string,
+    vehicleId: string,
+    planCode: string,
+  ): Promise<Outcome> {
+    return this.#outcome(
+      'plan de gains',
+      `SELECT r.outcome, r.plan_code AS id
+         FROM core.catalog_cmd_set_earnings_plan($1, $2::uuid, $3::uuid, $4) AS r`,
+      [proof, orgId, vehicleId, planCode],
     );
   }
 

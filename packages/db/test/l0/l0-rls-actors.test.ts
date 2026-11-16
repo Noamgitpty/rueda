@@ -690,6 +690,9 @@ describe('RLS-5, RLS-12, RLS-18', () => {
           'catalog_vehicle_attestation',
           'catalog_vehicle_claim',
           'catalog_vehicle_document',
+          // US-226 (0110, ADR-136) : même règle (plan de gains par véhicule, commande et lectures
+          // de catalog_cmd_owner, hôte désigné par son jeton)
+          'catalog_vehicle_earnings_plan',
           'catalog_vehicle_eligibility_check',
           'iam_membership',
           // US-123 (0075, ADR-105) : AUCUN droit ni politique d'app_api ; accès par les seules

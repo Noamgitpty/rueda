@@ -8,6 +8,10 @@
  * - `QUOTE_INPUT_INVALID` (PROPOSÉ) : entrée mal formée (instant, montant, devise, ligne inconnue).
  * - `QUOTE_REPLAY_MISMATCH` (PROPOSÉ) : un devis figé rejoué ne redonne pas exactement ses lignes,
  *   ses taxes, son total et ses jambes (17 §2.6, NFR-17), ou son empreinte ne correspond plus.
+ * - `PROTECTION_LEVEL_REQUIRED` (16 PRT-011, nom PROPOSÉ) : devis sans niveau de protection alors
+ *   que le pays vend la protection (aucun trip sans protection, US-226).
+ * - `PROTECTION_LEVEL_NOT_ELIGIBLE` (16 PRT-001 / PRT-002, nom PROPOSÉ) : niveau inconnu du pays,
+ *   sous le minimum du pays (`guest_protection_min_level`) ou refusé à l'âge déclaré du conducteur.
  *
  * Exposés par la route du checkout (US-208, module AVL) avec leurs textes es / en / fr / pt-BR
  * (`QUOTE_MESSAGES` de `http-errors.ts`).
@@ -18,6 +22,8 @@ export const QUOTE_ERROR_CODES = [
   'LEG_AMOUNT_NEGATIVE',
   'QUOTE_INPUT_INVALID',
   'QUOTE_REPLAY_MISMATCH',
+  'PROTECTION_LEVEL_REQUIRED',
+  'PROTECTION_LEVEL_NOT_ELIGIBLE',
 ] as const;
 export type QuoteErrorCode = (typeof QUOTE_ERROR_CODES)[number];
 

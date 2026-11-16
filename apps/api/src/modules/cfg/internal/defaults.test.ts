@@ -135,6 +135,7 @@ const EXPECTED_TO_DECIDE: Readonly<Record<string, string>> = {
   p2p_host_requires_tax_id: '17 source OQ-PAY-09, OQ-P2P-07',
   platform_funded_host_compensation: '16 ADM-031 ; 22 DEC-FONDATEUR-01',
   platform_reserve_minor: '16 ADM-031',
+  protection_grid: '22 OQ-P2P-12, OQ-P2P-03 (grille de l’assureur, valeurs de test, US-226)',
   privacy_dsr_response_days: '22 OQ-MK-09 ; 16 LEG-010 (US-111)',
   privacy_register_validated: '22 OQ-MK-09 ; 16 LEG-010 (US-111)',
   privacy_vehicle_attestation_retention_months: '22 OQ-BR-25 ; 08 BR-LIST-04 (US-111)',

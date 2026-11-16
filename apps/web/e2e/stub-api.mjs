@@ -317,6 +317,11 @@ const QUOTE_EXPIRES_AT = '2036-11-30T15:30:00.000Z';
 const HOLD_EXPIRES_AT = '2036-11-30T15:10:00.000Z';
 const EXPIRE_ON_HOLD_DAY = '-12-15T';
 const EXPIRED_ON_READ_DAY = '-12-20T';
+// US-226 : le 25, le devis porte la protection BASICA du voyageur (1/4 du prix journalier, non
+// taxée, comme la grille de test du dépôt : 10,00 par jour) ; les autres jours gardent le devis de
+// 208b (références visuelles inchangées)
+const PROTECTION_DAY = '-12-25T';
+const PROTECTION_SHARE_PCT = 25;
 const DAILY_MINOR = 4000;
 const RENEWED_DAILY_MINOR = 4200;
 const TAX_PCT = 7;
@@ -373,8 +378,21 @@ const quoteJson = (q) => ({
   startAt: q.startAt,
   endAt: q.endAt,
   billableDays: q.days,
-  lines: [{ type: 'TRIP_PRICE', amountMinor: String(q.rent), taxMinor: String(q.tax) }],
-  totalMinor: String(q.rent + q.tax),
+  lines: [
+    { type: 'TRIP_PRICE', amountMinor: String(q.rent), taxMinor: String(q.tax) },
+    ...(q.protection > 0
+      ? [{ type: 'PROTECTION', amountMinor: String(q.protection), taxMinor: '0' }]
+      : []),
+  ],
+  totalMinor: String(q.rent + q.tax + q.protection),
+  ...(q.protection > 0
+    ? {
+        protectionLevel: 'BASICA',
+        driverAge: null,
+        insurerContractActive: true,
+        protectionOptions: [],
+      }
+    : {}),
   expiresAt: QUOTE_EXPIRES_AT,
   expired: q.expiredOnRead,
   manualTransmission: q.listingId === MANUAL_ID,
@@ -395,7 +413,7 @@ const holdJson = (h) => ({
   currency: MARKET.currency,
   startAt: h.quote.startAt,
   endAt: h.quote.endAt,
-  totalMinor: String(h.quote.rent + h.quote.tax),
+  totalMinor: String(h.quote.rent + h.quote.tax + h.quote.protection),
   manualConfirmed: h.manual,
   documents: Object.keys(CHECKOUT_DOCS).map((kind) => ({
     kind,
@@ -452,6 +470,9 @@ async function checkoutRoute(req, res, path) {
       startAt,
       endAt,
       ...t,
+      protection: startAt.includes(PROTECTION_DAY)
+        ? Math.floor((DAILY_MINOR * PROTECTION_SHARE_PCT + 50) / 100) * t.days
+        : 0,
       expiredOnRead: !renewed && startAt.includes(EXPIRED_ON_READ_DAY),
       expireOnHold: !renewed && startAt.includes(EXPIRE_ON_HOLD_DAY),
       used: false,

@@ -10,11 +10,17 @@ export {
   SETTLEMENT_LINE_OF,
   assembleQuote,
   computeQuote,
+  protectionDailyPrice,
+  protectionOptions,
+  protectionTermsOf,
   quoteSettlementTrip,
   tripFeeOf,
 } from './internal/quote/engine.js';
 export type {
   PricedPeriod,
+  ProtectionGrid,
+  ProtectionOption,
+  ProtectionTerms,
   Quote,
   QuoteExtraLines,
   QuoteLine,

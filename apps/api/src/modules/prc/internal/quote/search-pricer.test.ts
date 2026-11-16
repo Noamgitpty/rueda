@@ -1,7 +1,7 @@
 /**
  * Total TTC des résultats de la recherche (US-203 ; 19 US-203 critères 1 et 4 ; 16 SRC-042,
  * PRC-025 ; ADR-131) : l'adaptateur `searchQuotePricer` rend le total du devis provisoire du
- * moteur `prc.quote/2`, le même que la fiche et le checkout.
+ * moteur `prc.quote/3`, le même que la fiche et le checkout.
  *
  * Attendus : uniquement l'export des oracles Python (`docs/specs/tools/golden_vectors.json`, lu
  * par `@rueda/money/golden-vectors`) et 16 A.8.1 (TA01) — jamais une valeur produite par le code
@@ -12,7 +12,8 @@
  *   ses lignes non taxées (protection, livraison : hors du groupe fiscal de D2) ⇒ total de
  *   l'oracle moins ces lignes ;
  * - configuration pays du dépôt : trip A (T01) sans ses lignes non taxées ⇒ total de l'oracle
- *   moins ces lignes (F de A = barème du dépôt, US-704).
+ *   moins ces lignes (F de A = barème du dépôt, US-704), plus la protection minimale du dépôt
+ *   (US-226, N-141 : BASICA, 30,00 du trip A).
  * Aucun code de pays ni de devise n'est écrit ici : ils sont lus des données (ADR-024).
  */
 import { ratio } from '@rueda/money';
@@ -157,7 +158,11 @@ describe('US-203 : configuration pays du dépôt (même moteur que la fiche et l
       quotedAt: CONFIG_AT.toISOString(),
     });
     expect(got).toEqual({
-      totalMinor: String(v.trip.totalPaidMinor - untaxedExtras(v.trip)),
+      // US-226 (N-141) : protection minimale BASICA du dépôt (1/4 de 40,00 × 3 j = 30,00, la
+      // protection du trip A de 08, non taxée) comprise dans le total
+      totalMinor: String(
+        v.trip.totalPaidMinor - untaxedExtras(v.trip) + v.trip.linesMinor.protection,
+      ),
       billableDays: v.trip.days,
     });
   });

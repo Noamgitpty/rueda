@@ -11,7 +11,9 @@
  * `QUOTE_ALREADY_USED`, `QUOTE_LINE_NOT_SUPPORTED` (N-129), `REQUEST_MODE_UNAVAILABLE` (N-128),
  * `LISTING_UNAVAILABLE`, `HOLD_NOT_FOUND`, `HOLD_ALREADY_LIVE`, `HOLD_LIMIT_REACHED`,
  * `HOLD_RATE_LIMITED`, `KYC_CONSENT_WITHDRAWN`, `TERMS_UNAVAILABLE`, `BOOKING_UNAVAILABLE`,
- * `REQUEST_INVALID`.
+ * `REQUEST_INVALID`. US-226 (ADR-136) : `INSURER_CONTRACT_INACTIVE` (16 PRT-001, A.8 : pays sans
+ * contrat d'assureur actif, aucune réservation) et `PROTECTION_LEVEL_REQUIRED` (16 PRT-011, nom
+ * PROPOSÉ : devis sans protection, jamais réservé).
  */
 import { HttpException } from '@nestjs/common';
 
@@ -21,6 +23,8 @@ export const CHECKOUT_MESSAGES = {
   QUOTE_EXPIRED: { status: 409, messageKey: 'common.quote.expired' },
   QUOTE_ALREADY_USED: { status: 409, messageKey: 'common.checkout.quoteAlreadyUsed' },
   QUOTE_LINE_NOT_SUPPORTED: { status: 422, messageKey: 'common.quote.lineNotSupported' },
+  PROTECTION_LEVEL_REQUIRED: { status: 422, messageKey: 'common.quote.protectionRequired' },
+  INSURER_CONTRACT_INACTIVE: { status: 409, messageKey: 'common.quote.insurerContractInactive' },
   LISTING_UNAVAILABLE: { status: 409, messageKey: 'common.checkout.listingUnavailable' },
   REQUEST_MODE_UNAVAILABLE: { status: 409, messageKey: 'common.checkout.requestModeUnavailable' },
   MANUAL_TRANSMISSION_NOT_CONFIRMED: {

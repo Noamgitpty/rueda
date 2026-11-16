@@ -11,6 +11,12 @@
  * - Trip fee (US-704 ; 08 BR-PRICE-06 ; 16 PRC-012) : `TRIP_FEE` = max(roundHalfUp(P × taux de la
  *   tranche de durée), minimum du pays), barème `trip_fee_schedule[pays]` ; jamais fourni par
  *   l'appelant. Il va entièrement à la jambe `PLATFORM` (complément de 08 E7).
+ * - Protection du voyageur (US-226 ; 16 PRC-018, PRT-001, PRT-002, PRT-011 ; 08 BR-PRICE-11, E7) :
+ *   quand le pays vend la protection (`protectionGrid`), `PROTECTION` = prix journalier de la
+ *   protection × jours facturables, prix journalier = roundHalfUp(prix journalier net × part du
+ *   niveau), borné par le plancher et le plafond du niveau ; jamais fourni par l'appelant. Le
+ *   niveau est un choix du voyageur (`protectionLevel`), au moins le minimum du pays, refusé à un
+ *   conducteur trop jeune ; la prime due (`insurer_premium_share[niveau]`) forme la jambe `INSURER`.
  * - Taxe **par ligne** : `roundHalfUp(ligne × taux du groupe)`, puis somme par groupe fiscal ;
  *   jamais l'arrondi du taux appliqué à la base agrégée (T43 : 0,70 + 0,70 = 1,40).
  * - Total TTC = Σ lignes + Σ taxes (BR-PRICE-13).
@@ -40,7 +46,7 @@ import { billableDays } from './billable-days.js';
 import { QuoteError } from './errors.js';
 
 /** Version du moteur, figée dans chaque devis (une évolution du calcul = nouvelle version). */
-export const QUOTE_ENGINE_VERSION = 'prc.quote/2';
+export const QUOTE_ENGINE_VERSION = 'prc.quote/3';
 
 /** Lignes typées du devis : énumération `LINES` de 08, mêmes noms que `tax_line_config`. */
 export const QUOTE_LINE_TYPES = TAX_LINE_TYPES;
@@ -93,6 +99,31 @@ export interface TripFeeSchedule {
   readonly min: Money;
 }
 
+/**
+ * Conditions d'un niveau de protection du voyageur (grille du pays, `protection_grid`, US-226 ;
+ * 16 PRC-018, PRT-002). Valeurs fixées avec l'assureur partenaire (valeurs de test du dépôt).
+ */
+export interface ProtectionTerms {
+  /** Code du niveau (`BASICA`, `ESTANDAR`, `TOTAL`, 10b S05). */
+  readonly level: string;
+  /** Rang croissant avec la couverture ; le minimum du pays est un rang plancher. */
+  readonly rank: number;
+  /** Part du prix journalier net (08 BR-PRICE-11 : « % × prix journalier net »). */
+  readonly price: Ratio;
+  /** Âge minimal du conducteur, `null` : aucun (16 PRT-002). */
+  readonly minDriverAge: number | null;
+  /** Plancher et plafond du prix journalier de la protection, `null` : aucun. */
+  readonly dailyFloor: Money | null;
+  readonly dailyCeiling: Money | null;
+}
+
+/** Grille des protections du pays : niveaux vendus et minimum imposé (16 PRT-011). */
+export interface ProtectionGrid {
+  /** `guest_protection_min_level` : aucun niveau de rang inférieur n'est vendu. */
+  readonly minLevel: string;
+  readonly levels: readonly ProtectionTerms[];
+}
+
 /** Paramètres du pays figés dans le devis (instantané, 17 §2.6). */
 export interface QuoteParams {
   readonly currency: Currency;
@@ -110,9 +141,22 @@ export interface QuoteParams {
   /** Parts de l'assureur figées (08 E7) ; absentes ⇒ aucune ligne de protection ou d'assistance. */
   readonly insurerPremiumShare?: Ratio;
   readonly insurerRoadsideShare?: Ratio;
+  /**
+   * Grille des protections du pays (US-226). Présente ⇒ la ligne `PROTECTION` est calculée par
+   * `computeQuote` et un niveau est exigé ; absente (vecteurs de 08 rejoués ligne à ligne) ⇒ la
+   * ligne reste une entrée.
+   */
+  readonly protectionGrid?: ProtectionGrid;
+  /** Parts de l'assureur par niveau (`insurer_premium_share[niveau]`), figées au choix du niveau. */
+  readonly insurerPremiumShareByLevel?: Readonly<Record<string, Ratio>>;
+  /** Plan de gains de l'hôte retenu (08 BR-PROT-06 ; défaut `host_default_plan`), figé au devis. */
+  readonly hostPlan?: string;
 }
 
-/** Lignes calculées par le moteur, jamais fournies par l'appelant (L2-PM-03). */
+/**
+ * Lignes calculées par le moteur, jamais fournies par l'appelant (L2-PM-03). `PROTECTION` l'est
+ * dès que le pays vend la protection (US-226).
+ */
 export const COMPUTED_LINE_TYPES = Object.freeze(['TRIP_PRICE', 'TRIP_FEE'] as const);
 type ComputedLineType = (typeof COMPUTED_LINE_TYPES)[number];
 
@@ -132,6 +176,10 @@ export interface QuoteRequest {
   /** Prix journalier de l'annonce (unités mineures, devise du pays). */
   readonly dailyRate: Money;
   readonly lines?: QuoteExtraLines;
+  /** Niveau de protection choisi (US-226) ; exigé quand le pays vend la protection. */
+  readonly protectionLevel?: string;
+  /** Âge déclaré du conducteur (16 BKG-003 : saisi avant le choix du niveau), années entières. */
+  readonly driverAge?: number;
 }
 
 export interface QuoteLine {
@@ -177,6 +225,10 @@ export interface Quote {
   readonly extrasSharePct: Ratio;
   readonly insurerPremiumShare?: Ratio;
   readonly insurerRoadsideShare?: Ratio;
+  /** Niveau de protection figé (US-226), absent sans grille. */
+  readonly protectionLevel?: string;
+  /** Plan de gains de l'hôte figé (US-226), absent si l'instantané ne le nomme pas. */
+  readonly hostPlan?: string;
 }
 
 /** Lignes déjà chiffrées (prix du trip compris) : entrée de `assembleQuote`. */
@@ -187,6 +239,8 @@ export interface PricedPeriod {
   readonly rateType: RateType;
   readonly billableDays: number;
   readonly lines: Readonly<Partial<Record<QuoteLineType, Money>>>;
+  /** Niveau de protection retenu par `computeQuote` (US-226). */
+  readonly protectionLevel?: string;
 }
 
 function checkAmount(type: string, value: unknown, currency: Currency): Money {
@@ -345,6 +399,8 @@ export function assembleQuote(period: PricedPeriod, params: QuoteParams): Quote 
     ...(params.insurerRoadsideShare === undefined
       ? {}
       : { insurerRoadsideShare: params.insurerRoadsideShare }),
+    ...(period.protectionLevel === undefined ? {} : { protectionLevel: period.protectionLevel }),
+    ...(params.hostPlan === undefined ? {} : { hostPlan: params.hostPlan }),
   };
   const legs = captureLegsOf(base);
   return Object.freeze({ ...base, legs });
@@ -433,7 +489,14 @@ export function computeQuote(request: QuoteRequest, params: QuoteParams): Quote 
       throw new QuoteError('QUOTE_INPUT_INVALID', `${type} est calculé, jamais fourni`);
     }
   }
+  if (
+    params.protectionGrid !== undefined &&
+    Object.prototype.hasOwnProperty.call(extra, 'PROTECTION')
+  ) {
+    throw new QuoteError('QUOTE_INPUT_INVALID', 'PROTECTION est calculée, jamais fournie');
+  }
   const tripPrice = multiplyByInteger(dailyRate, BigInt(days));
+  const protection = protectionOf(request, params, dailyRate, days);
   return assembleQuote(
     {
       startAtMs: request.startAtMs,
@@ -445,10 +508,187 @@ export function computeQuote(request: QuoteRequest, params: QuoteParams): Quote 
         ...extra,
         TRIP_PRICE: tripPrice,
         TRIP_FEE: tripFeeOf(tripPrice, days, params.tripFeeSchedule, params.currency),
+        ...(protection === null ? {} : { PROTECTION: protection.line }),
       },
+      ...(protection === null ? {} : { protectionLevel: protection.terms.level }),
     },
-    params,
+    protection === null ? params : withLevelShare(params, protection.terms.level),
   );
+}
+
+/**
+ * Instantané avec la part de l'assureur du niveau choisi (`insurer_premium_share[niveau]`, 08
+ * E7) : seule la part du niveau compte ; absente ⇒ aucune part, la ligne de protection est alors
+ * refusée par les jambes (`QUOTE_UNAVAILABLE`, jamais une prime nulle).
+ */
+function withLevelShare(params: QuoteParams, level: string): QuoteParams {
+  const share = params.insurerPremiumShareByLevel?.[level];
+  const next: { -readonly [K in keyof QuoteParams]: QuoteParams[K] } = { ...params };
+  delete next.insurerPremiumShare;
+  if (share !== undefined) next.insurerPremiumShare = share;
+  return next;
+}
+
+/** Âge déclaré : entier sûr de 0 à 150, sinon entrée invalide. */
+function checkDriverAge(age: number | undefined): void {
+  if (age === undefined) return;
+  if (!Number.isSafeInteger(age) || age < 0 || age > 150) {
+    throw new QuoteError('QUOTE_INPUT_INVALID', 'driverAge : entier de 0 à 150 attendu');
+  }
+}
+
+/** Grille cohérente (rangs distincts, parts et bornes valides, minimum connu), sinon BLOCK. */
+function checkGrid(grid: ProtectionGrid, currency: Currency): ProtectionTerms {
+  const ranks = new Set<number>();
+  for (const t of grid.levels) {
+    if (
+      !Number.isSafeInteger(t.rank) ||
+      t.rank < 1 ||
+      ranks.has(t.rank) ||
+      t.price.den <= 0n ||
+      t.price.num < 0n ||
+      t.price.num > t.price.den ||
+      (t.minDriverAge !== null && !Number.isSafeInteger(t.minDriverAge))
+    ) {
+      throw new QuoteError('QUOTE_UNAVAILABLE', `protection_grid : niveau ${t.level} invalide`);
+    }
+    ranks.add(t.rank);
+    for (const bound of [t.dailyFloor, t.dailyCeiling]) {
+      if (bound === null) continue;
+      const b = checkAmount(`protection_grid ${t.level}`, bound, currency);
+      if (b.amountMinor < 0n) {
+        throw new QuoteError('QUOTE_UNAVAILABLE', `protection_grid : borne négative (${t.level})`);
+      }
+    }
+    if (
+      t.dailyFloor !== null &&
+      t.dailyCeiling !== null &&
+      t.dailyFloor.amountMinor > t.dailyCeiling.amountMinor
+    ) {
+      throw new QuoteError(
+        'QUOTE_UNAVAILABLE',
+        `protection_grid : plancher > plafond (${t.level})`,
+      );
+    }
+  }
+  const min = grid.levels.find((t) => t.level === grid.minLevel);
+  if (min === undefined) {
+    throw new QuoteError('QUOTE_UNAVAILABLE', 'guest_protection_min_level absent de la grille');
+  }
+  return min;
+}
+
+/**
+ * Conditions du niveau demandé (16 PRT-001, PRT-002, PRT-011) : grille cohérente (sinon
+ * `QUOTE_UNAVAILABLE`), niveau connu, au moins le minimum du pays et permis à l'âge déclaré (sinon
+ * `PROTECTION_LEVEL_NOT_ELIGIBLE`). Âge absent : un niveau qui exige un âge est refusé.
+ */
+export function protectionTermsOf(
+  grid: ProtectionGrid,
+  level: string,
+  driverAge: number | undefined,
+  currency: Currency,
+): ProtectionTerms {
+  checkDriverAge(driverAge);
+  const min = checkGrid(grid, currency);
+  const terms = grid.levels.find((t) => t.level === level);
+  if (terms === undefined || terms.rank < min.rank) {
+    throw new QuoteError('PROTECTION_LEVEL_NOT_ELIGIBLE', `niveau ${level} non vendu`);
+  }
+  if (terms.minDriverAge !== null && (driverAge === undefined || driverAge < terms.minDriverAge)) {
+    throw new QuoteError('PROTECTION_LEVEL_NOT_ELIGIBLE', `niveau ${level} : âge du conducteur`);
+  }
+  return terms;
+}
+
+/**
+ * Prix journalier de la protection (16 PRC-018 ; 08 BR-PRICE-11) : roundHalfUp(prix journalier net
+ * × part du niveau), borné par le plancher puis le plafond du niveau.
+ */
+export function protectionDailyPrice(dailyRate: Money, terms: ProtectionTerms): Money {
+  let daily = multiplyRoundHalfUp(dailyRate, terms.price);
+  if (terms.dailyFloor !== null) daily = max(daily, terms.dailyFloor);
+  if (terms.dailyCeiling !== null && daily.amountMinor > terms.dailyCeiling.amountMinor) {
+    daily = terms.dailyCeiling;
+  }
+  return daily;
+}
+
+/** Ligne `PROTECTION` du devis (US-226), `null` si le pays ne vend pas la protection. */
+function protectionOf(
+  request: QuoteRequest,
+  params: QuoteParams,
+  dailyRate: Money,
+  days: number,
+): { readonly terms: ProtectionTerms; readonly line: Money } | null {
+  const grid = params.protectionGrid;
+  if (grid === undefined) {
+    if (request.protectionLevel !== undefined || request.driverAge !== undefined) {
+      throw new QuoteError('QUOTE_UNAVAILABLE', 'protection demandée, aucune grille du pays');
+    }
+    return null;
+  }
+  if (typeof request.protectionLevel !== 'string' || request.protectionLevel === '') {
+    throw new QuoteError('PROTECTION_LEVEL_REQUIRED', 'niveau de protection requis');
+  }
+  const terms = protectionTermsOf(
+    grid,
+    request.protectionLevel,
+    request.driverAge,
+    params.currency,
+  );
+  return { terms, line: multiplyByInteger(protectionDailyPrice(dailyRate, terms), BigInt(days)) };
+}
+
+/** Offre d'un niveau de protection pour une période (écran S05, US-226 ; 16 BKG-003). */
+export interface ProtectionOption {
+  readonly level: string;
+  readonly rank: number;
+  /** `false` : niveau refusé à l'âge déclaré (grisé avec sa raison, 16 PRT-001). */
+  readonly eligible: boolean;
+  readonly reason: 'DRIVER_AGE' | null;
+  readonly minDriverAge: number | null;
+  readonly daily: Money;
+  /** Ligne `PROTECTION` du devis avec ce niveau (prix journalier × jours facturables). */
+  readonly line: Money;
+}
+
+/**
+ * Niveaux vendus (au moins le minimum du pays), par rang croissant, avec leur prix pour la
+ * période ; un niveau refusé à l'âge déclaré reste listé, inéligible (16 PRT-001, BKG-003).
+ * Sans grille : aucun niveau.
+ */
+export function protectionOptions(
+  params: QuoteParams,
+  dailyRate: Money,
+  billableDayCount: number,
+  driverAge: number | undefined,
+): readonly ProtectionOption[] {
+  const grid = params.protectionGrid;
+  if (grid === undefined) return [];
+  checkDriverAge(driverAge);
+  if (!Number.isSafeInteger(billableDayCount) || billableDayCount < 1) {
+    throw new QuoteError('QUOTE_INPUT_INVALID', 'jours facturables : entier ≥ 1 attendu');
+  }
+  const rate = checkAmount('dailyRate', dailyRate, params.currency);
+  const min = checkGrid(grid, params.currency);
+  return [...grid.levels]
+    .filter((t) => t.rank >= min.rank)
+    .sort((a, b) => a.rank - b.rank)
+    .map((t) => {
+      const eligible =
+        t.minDriverAge === null || (driverAge !== undefined && driverAge >= t.minDriverAge);
+      const daily = protectionDailyPrice(rate, t);
+      return Object.freeze({
+        level: t.level,
+        rank: t.rank,
+        eligible,
+        reason: eligible ? null : ('DRIVER_AGE' as const),
+        minDriverAge: t.minDriverAge,
+        daily,
+        line: multiplyByInteger(daily, BigInt(billableDayCount)),
+      });
+    });
 }
 
 /**

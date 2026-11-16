@@ -780,8 +780,49 @@ function checkJsonShape(c: Collector, path: string, def: ParamDefinition, value:
     }
     return ok;
   }
+  if (unit === 'protection_grid') return checkProtectionGrid(c, path, value);
   c.add(`${path}`, `unité JSON inconnue « ${unit} » : forme non vérifiable (fail-closed)`);
   return false;
+}
+
+const PROTECTION_TERMS_KEYS = 'dailyCeilingMinor,dailyFloorMinor,minDriverAge,price,rank';
+
+/** Âge du conducteur exigé par un niveau : `null` (aucun) ou entier de 16 à 99. */
+const isDriverAge = (v: unknown): boolean =>
+  v === null || (Number.isSafeInteger(v) && (v as number) >= 16 && (v as number) <= 99);
+
+/**
+ * Grille des protections du voyageur (US-226 ; 16 PRC-018, PRT-002 ; 08 BR-PRICE-11) : par niveau,
+ * `{ rank, price, minDriverAge, dailyFloorMinor, dailyCeilingMinor }`. Rang entier ≥ 1, distinct
+ * par niveau ; prix = part « n/d » du prix journalier net ; âge minimal du conducteur `null` ou
+ * entier 16–99 ; plancher et plafond par jour `null` ou montant en unités mineures, plancher ≤
+ * plafond. Toute autre forme est refusée (fail-closed).
+ */
+function checkProtectionGrid(c: Collector, path: string, value: unknown): boolean {
+  const ranks = new Set<number>();
+  return checkMap(
+    c,
+    path,
+    value,
+    (v) => {
+      if (!isObject(v) || Object.keys(v).sort().join() !== PROTECTION_TERMS_KEYS) return false;
+      const rank = v['rank'];
+      const floor = v['dailyFloorMinor'];
+      const ceiling = v['dailyCeilingMinor'];
+      if (!Number.isSafeInteger(rank) || (rank as number) < 1 || ranks.has(rank as number)) {
+        return false;
+      }
+      ranks.add(rank as number);
+      if (!isShare(v['price']) || !isDriverAge(v['minDriverAge'])) return false;
+      if ((floor !== null && !isMinor(floor)) || (ceiling !== null && !isMinor(ceiling))) {
+        return false;
+      }
+      return (
+        floor === null || ceiling === null || BigInt(floor as string) <= BigInt(ceiling as string)
+      );
+    },
+    'niveau : { rank ≥ 1 distinct, price « n/d », minDriverAge null | 16–99, dailyFloorMinor et dailyCeilingMinor null | montant, plancher ≤ plafond }',
+  );
 }
 
 const DEFINITION_FIELDS = [
@@ -871,9 +912,16 @@ function parseDefinition(
   if (
     currencyBound &&
     type === 'JSON' &&
-    !(unit?.startsWith('minor_by_') || unit === 'tiers_bps_and_min_minor')
+    !(
+      unit?.startsWith('minor_by_') ||
+      unit === 'tiers_bps_and_min_minor' ||
+      unit === 'protection_grid'
+    )
   ) {
-    c.add(`${path}.unit`, 'JSON lié à une devise : unité minor_by_* ou tiers_bps_and_min_minor');
+    c.add(
+      `${path}.unit`,
+      'JSON lié à une devise : unité minor_by_*, tiers_bps_and_min_minor ou protection_grid',
+    );
   }
   if (currencyBound && !['MONEY', 'JSON'].includes(type)) {
     c.add(`${path}.currencyBound`, 'réservé aux types MONEY et JSON');

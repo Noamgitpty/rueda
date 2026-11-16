@@ -639,6 +639,15 @@ async function requestOf(
         path: `/host/accounts/${id}/listings`,
         body: { vehicleId: randomUUID(), dailyPriceMinor: '1000' },
       };
+    // plans de gains (US-226) : compte d'hôte d'aucun acteur de la cellule ⇒ 404
+    case 'GET /host/accounts/{orgId}/earnings-plans':
+      return { method: 'GET', path: `/host/accounts/${id}/earnings-plans` };
+    case 'PUT /host/accounts/{orgId}/vehicles/{vehicleId}/earnings-plan':
+      return {
+        method: 'PUT',
+        path: `/host/accounts/${id}/vehicles/${randomUUID()}/earnings-plan`,
+        body: { planCode: 'ESTÁNDAR' },
+      };
     case 'PUT /host/accounts/{orgId}/listings/{listingId}/pricing':
       return {
         method: 'PUT',

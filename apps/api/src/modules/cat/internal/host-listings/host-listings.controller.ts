@@ -24,6 +24,9 @@
  * | POST /host/accounts/{orgId}/listings/{listingId}/photos     | 201 PHOTO_ADDED ; 422 ; 503 (production)  |
  * | DELETE /host/accounts/{orgId}/listings/{listingId}          | 200 LISTING_DELETED                       |
  * | GET  /host/accounts/{orgId}/catalog/…                       | 200 listes de choix du marché du compte   |
+ * | GET  /host/accounts/{orgId}/earnings-plans                  | 200 plans des véhicules, plans vendus     |
+ * | PUT  /host/accounts/{orgId}/vehicles/{vehicleId}/earnings-plan | 200 EARNINGS_PLAN_SAVED ; 422 plan non |
+ * |                                                             | vendu (US-226, 16 PRT-008)                |
  *
  * Photos : corps JSON borné (100 Kio) en attendant l'URL de dépôt signée du stockage réel
  * (US-003, L1-PM-42) ; fail-closed (503) tant que l'antivirus ClamAV (DEC-FONDATEUR-20) et le
@@ -130,6 +133,28 @@ export class HostListingsController {
       bodyOf(request),
     );
     return { ...hostListingBody(r.code), requestId: r.requestId };
+  }
+
+  /** Plans de gains des véhicules du compte et plans vendus dans le pays (US-226 ; 16 PRT-007). */
+  @Get('accounts/:orgId/earnings-plans')
+  async earningsPlans(@Req() request: Req, @Param('orgId') orgId: string) {
+    return { plans: await this.listings.earningsPlans(proofOf(request), orgOf(orgId)) };
+  }
+
+  /** Choix du plan de gains d'un véhicule (US-226 ; 16 PRT-008 : nouveaux devis seulement). */
+  @Put('accounts/:orgId/vehicles/:vehicleId/earnings-plan')
+  async setEarningsPlan(
+    @Req() request: Req,
+    @Param('orgId') orgId: string,
+    @Param('vehicleId') vehicleId: string,
+  ) {
+    const r = await this.listings.setEarningsPlan(
+      proofOf(request),
+      orgOf(orgId),
+      vehicleOf(vehicleId),
+      bodyOf(request),
+    );
+    return { ...hostListingBody(r.code), planCode: r.planCode };
   }
 
   @Get('accounts/:orgId/listings')

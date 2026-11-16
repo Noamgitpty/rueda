@@ -122,8 +122,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  validité et prix expiré, conducteur, case de la boîte manuelle de 10b, cases des documents avec
  leur lien, bouton inactif et son aide, hold posé avec `web.s05.hold.until` de 10b, versions
  acceptées) et `web.legal.backCheckout` (retour d'un document au checkout).
+ Version 55 (la 54 est réservée à US-209) : protections du voyageur et plans de gains de l'hôte,
+ partie serveur (US-226 partie 226a, ADR-136) : `common.quote.protectionRequired`,
+ `common.quote.protectionNotEligible`, `common.quote.insurerContractInactive` (refus du devis et du
+ checkout), `common.quote.line.protection*` (ligne de protection du détail du prix de S05, nom du
+ niveau) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
+ de gains du véhicule).
  */
-export const CATALOG_VERSION = 53;
+export const CATALOG_VERSION = 55;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

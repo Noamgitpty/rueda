@@ -29,7 +29,11 @@ export type FreezeOutcome =
   | 'LEG_AMOUNT_NEGATIVE'
   | 'QUOTE_MISMATCH'
   // US-208 (0108, N-130) : gels du voyageur au-delà de quote_freezes_per_guest_hour
-  | 'QUOTE_RATE_LIMITED';
+  | 'QUOTE_RATE_LIMITED'
+  // US-226 (0110) : protection du voyageur rejouée par la base (niveau, âge, contrat d'assureur)
+  | 'PROTECTION_LEVEL_REQUIRED'
+  | 'PROTECTION_LEVEL_NOT_ELIGIBLE'
+  | 'INSURER_CONTRACT_INACTIVE';
 
 /**
  * `QUOTE_ALREADY_VERSIONED` (US-208, N-130) : devis déjà rattaché à une version de prix d'un trip
@@ -95,6 +99,9 @@ const FREEZE_OUTCOMES: readonly string[] = [
   'LEG_AMOUNT_NEGATIVE',
   'QUOTE_MISMATCH',
   'QUOTE_RATE_LIMITED',
+  'PROTECTION_LEVEL_REQUIRED',
+  'PROTECTION_LEVEL_NOT_ELIGIBLE',
+  'INSURER_CONTRACT_INACTIVE',
 ];
 const VERSION_OUTCOMES: readonly string[] = [
   'DONE',
@@ -111,7 +118,7 @@ function isQuoteVersionConflict(error: unknown): boolean {
   return e.code === '23505' && e.constraint === 'pricing_trip_price_version_quote_unique';
 }
 
-/** Commandes des migrations 0100, 0102 et 0108, sous app_api. */
+/** Commandes des migrations 0100, 0102, 0108 et 0110, sous app_api. */
 export class PgQuoteStore implements QuoteStore {
   constructor(private readonly db: SqlExecutor) {}
 
