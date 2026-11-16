@@ -3,7 +3,7 @@
  * processus API (`api.module.ts`), après `RiskHttpModule` (garde global de débit).
  *
  * Adaptateurs choisis par l'appelant : production `postgresSearchAdapters(db, probe, pricer)`
- * (fonctions `core.catalog_public_search_cards` de 0105 et `core.catalog_public_areas` de 0103 sous
+ * (fonctions `core.catalog_public_cards` de 0105 et `core.catalog_public_areas` de 0103 sous
  * app_api ; limiteur de la sonde : garde anti-abus de RISK ; prix : devis provisoire de PRC
  * (`searchQuotePricer`) ; notes : aucune tant que REV ne les fournit pas (US-218) ; câblés par
  * `main.ts`) ; tests : FAKE de `../../testing/`. Sans options : 503 partout.

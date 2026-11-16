@@ -212,7 +212,7 @@ async function cards(
   limit: number | null = null,
 ): Promise<Row[]> {
   const { rows } = await c.query<Row>(
-    `SELECT * FROM core.catalog_public_search_cards($1, $2, $3, $4::timestamp, $5::timestamp, $6)`,
+    `SELECT * FROM core.catalog_public_cards($1, $2, $3, $4::timestamp, $5::timestamp, $6)`,
     [country, city, area, startLocal, endLocal, limit],
   );
   return rows;
@@ -259,17 +259,26 @@ describe('US-203 — cartes des résultats de la recherche publique (0105)', () 
           await car(tx, cc, { city, area }),
           await car(tx, cc, { city, area }),
         ];
+        const before = await tx.query<{ now: Date }>('SELECT platform.now() AS now');
         const got = await cards(tx, country, city, area, START, END);
         const base = await search(tx, country, city, area, START, END);
         expect(ids(got)).toEqual(ids(base));
         expect(ids(got).sort()).toEqual(cars.map((x) => x.listing).sort());
-        const now = await tx.query<{ now: Date }>('SELECT platform.now() AS now');
+        const after = await tx.query<{ now: Date }>('SELECT platform.now() AS now');
+        const [t0, t1] = [
+          before.rows[0]?.now.getTime() ?? NaN,
+          after.rows[0]?.now.getTime() ?? NaN,
+        ];
         for (const [i, r] of got.entries()) {
           expect(Object.keys(r).sort()).toEqual(CARD_COLUMNS);
           // colonnes d'US-201 identiques, une à une
           for (const k of SEARCH_COLUMNS) expect(r[k], k).toEqual(base[i]?.[k]);
           expect(r['currency']).toBe(currency);
-          expect((r['quoted_at'] as Date).toISOString()).toBe(now.rows[0]?.now.toISOString());
+          // horloge de la base (platform.now() suit l'horloge réelle hors horloge virtuelle) :
+          // l'instant du devis est lu pendant l'appel, entre deux lectures de platform.now()
+          const q = (r['quoted_at'] as Date).getTime();
+          expect(q).toBeGreaterThanOrEqual(t0);
+          expect(q).toBeLessThanOrEqual(t1);
         }
         // critère 4 d'US-201 maintenu : ni nom, ni adresse, ni point exact, ni compte d'hôte
         const flat = JSON.stringify(got);
@@ -440,7 +449,7 @@ describe('US-203 — cartes des résultats de la recherche publique (0105)', () 
         try {
           await expect(
             client.query(
-              'SELECT * FROM core.catalog_public_search_cards($1, $2, NULL, $3::timestamp, $3::timestamp, NULL)',
+              'SELECT * FROM core.catalog_public_cards($1, $2, NULL, $3::timestamp, $3::timestamp, NULL)',
               ['PA', 'Ciudad', '2036-12-10T10:00'],
             ),
           ).rejects.toMatchObject({ code: '42501' });

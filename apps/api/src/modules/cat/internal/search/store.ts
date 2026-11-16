@@ -1,6 +1,6 @@
 /**
  * Port de lecture de la recherche publique (US-201, US-203) et son adaptateur PostgreSQL :
- * fonctions `core.catalog_public_search_cards` de 0105 (la recherche de 0103 inchangée, plus la
+ * fonctions `core.catalog_public_cards` de 0105 (la recherche de 0103 inchangée, plus la
  * caution et l'instant du devis) et `core.catalog_public_areas` de 0103 (SECURITY DEFINER,
  * EXECUTE app_api), paramètres liés. Lecture seule : aucune écriture, aucune session.
  *
@@ -133,7 +133,7 @@ export class PgSearchStore implements SearchStore {
     const rows = await this.#rows(
       'recherche',
       `SELECT s.*, c.exponent::int AS currency_exponent
-         FROM core.catalog_public_search_cards($1::text, $2::text, $3::text, $4::timestamp,
+         FROM core.catalog_public_cards($1::text, $2::text, $3::text, $4::timestamp,
                                                $5::timestamp, $6::integer)
                 WITH ORDINALITY AS s
          LEFT JOIN core.config_currency AS c ON c.code::text = s.currency

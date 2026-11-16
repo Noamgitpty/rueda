@@ -28,7 +28,7 @@
 -- retrait éventuel viendra par une migration de contraction distincte.
 --
 -- Retour arrière :
---   DROP FUNCTION core.catalog_public_search_cards(text, text, text, timestamp, timestamp,
+--   DROP FUNCTION core.catalog_public_cards(text, text, text, timestamp, timestamp,
 --     integer) ;
 --   DROP POLICY catalog_cmd_search_read ON core.catalog_deposit_policy ;
 --   REVOKE SELECT ON core.catalog_deposit_policy FROM catalog_cmd_owner.
@@ -40,7 +40,7 @@ CREATE POLICY catalog_cmd_search_read ON core.catalog_deposit_policy FOR SELECT
   TO catalog_cmd_owner USING (true);
 
 -- 2. Cartes des résultats -----------------------------------------------------------------------
-CREATE FUNCTION core.catalog_public_search_cards(p_country text, p_city text, p_area text,
+CREATE FUNCTION core.catalog_public_cards(p_country text, p_city text, p_area text,
                                                  p_start_local timestamp, p_end_local timestamp,
                                                  p_limit integer)
   RETURNS TABLE (outcome text, listing_id uuid, daily_price_minor bigint, currency text,
@@ -74,20 +74,20 @@ AS $fn$
                         LIMIT 1) AS cur ON true
    ORDER BY s.ordinality
 $fn$;
-COMMENT ON FUNCTION core.catalog_public_search_cards(text, text, text, timestamp, timestamp,
+COMMENT ON FUNCTION core.catalog_public_cards(text, text, text, timestamp, timestamp,
                                                      integer) IS
   'Cartes des résultats : catalog_public_search (0103) inchangée, plus la caution en vigueur du '
   'pays et de la classe du véhicule (catalog_deposit_policy, même devise, > 0 ; NULL : mention '
   'générique) et platform.now() de la lecture (instant du devis). SECURITY DEFINER, EXECUTE '
   'app_api. US-203 (ADR-131).';
 
-REVOKE ALL ON FUNCTION core.catalog_public_search_cards(text, text, text, timestamp, timestamp,
+REVOKE ALL ON FUNCTION core.catalog_public_cards(text, text, text, timestamp, timestamp,
                                                         integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION core.catalog_public_search_cards(text, text, text, timestamp,
+GRANT EXECUTE ON FUNCTION core.catalog_public_cards(text, text, text, timestamp,
                                                            timestamp, integer) TO app_api;
 
 -- Propriétaire NOLOGIN (CREATE le temps du transfert seulement, mécanique de 0047 / 0061 / 0103)
 GRANT CREATE ON SCHEMA core TO catalog_cmd_owner;
-ALTER FUNCTION core.catalog_public_search_cards(text, text, text, timestamp, timestamp, integer)
+ALTER FUNCTION core.catalog_public_cards(text, text, text, timestamp, timestamp, integer)
   OWNER TO catalog_cmd_owner;
 REVOKE CREATE ON SCHEMA core FROM catalog_cmd_owner;

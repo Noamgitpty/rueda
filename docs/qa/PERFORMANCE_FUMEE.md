@@ -11,7 +11,7 @@ Ce document décrit ce que la CI mesure à chaque passage, comment reproduire le
 | `conversion.sequentielle`  | `core.booking_convert_payment` sous `booking_conversion`, transaction complète  | délai webhook → trip `BOOKED` < 10 s   | alerte    | `l0-us024-conversion.test.ts`          |
 | `calendrier.sequentielle`  | en-tête et occupations du calendrier de l'hôte (12 blocages), sous `app_api`    | fiche véhicule < 500 ms (côté serveur) | alerte    | `l0-us119-host-calendar.test.ts`       |
 | `publication.sequentielle` | `catalog_cmd_submit_listing`, annonce prête, dans la transaction annulée        | aucune cible dans 17 §6.7              | consignée | `l0-us118-listing-publication.test.ts` |
-| `recherche.sequentielle`   | `core.catalog_public_search_cards`, une ville de 12 annonces libres, `app_api`  | recherche (liste + carte) < 800 ms     | alerte    | `l0-us203-search-cards.test.ts`        |
+| `recherche.sequentielle`   | `core.catalog_public_cards`, une ville de 12 annonces libres, `app_api`         | recherche (liste + carte) < 800 ms     | alerte    | `l0-us203-search-cards.test.ts`        |
 
 Chaque série tourne en PA (USD) et en PY (PYG), sous les rôles de production (assertion L0-05). Les séries séquentielles écartent 6 appels de chauffe et gardent 40 échantillons ; l'issue de chaque appel est vérifiée (`CONVERTED`, `LISTED`, calendrier exact). Les durées sont prises côté client (aller-retour vu de l'API). C'est une **fumée**, pas une charge : la charge au double du pic (17 §12) reste à faire avec le lot C.
 
