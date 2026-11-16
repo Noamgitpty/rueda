@@ -23,6 +23,32 @@ export {
   UNAVAILABLE_AVL_CHECKOUT,
 } from './internal/checkout/avl-checkout.module.js';
 export type { AvlCheckoutOptions } from './internal/checkout/avl-checkout.module.js';
+
+// Paiement du hold du checkout (US-223 partie 223b, ADR-142) : routes /checkout/holds/{id}/payment
+// (SessionGuard + TermsGuard), T1 / createHostedPayment / T2 et état du paiement (S05, S06).
+export { UNAVAILABLE_CHECKOUT_PAYMENTS } from './internal/checkout/avl-checkout.module.js';
+export type { AvlCheckoutPaymentOptions } from './internal/checkout/avl-checkout.module.js';
+export { PAYMENT_MESSAGES, PaymentHttpError } from './internal/checkout/payment-errors.js';
+export type { PaymentHttpCode } from './internal/checkout/payment-errors.js';
+export {
+  CheckoutPaymentService,
+  PAYMENT_STATES,
+  paymentStateOf,
+} from './internal/checkout/payment.service.js';
+export type {
+  CheckoutPayment,
+  CheckoutPaymentStarted,
+  HostedPaymentProvider,
+  PaymentState,
+} from './internal/checkout/payment.service.js';
+export {
+  PgCheckoutPaymentStore,
+  UnavailableCheckoutPaymentStore,
+} from './internal/checkout/payment-store.js';
+export type {
+  CheckoutPaymentRow,
+  CheckoutPaymentStore,
+} from './internal/checkout/payment-store.js';
 export { CHECKOUT_MESSAGES, CheckoutHttpError } from './internal/checkout/errors.js';
 export type { CheckoutHttpCode } from './internal/checkout/errors.js';
 export {
