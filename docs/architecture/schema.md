@@ -4267,9 +4267,6 @@ Déclencheurs :
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
 - Droits : app_worker: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
 
- ^[[31m❯^[[39m test/int/schema-doc.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[31m1 failed^[[39m^[[2m)^[[22m^[[32m 144^[[2mms^[[22m^[[39m
-   ^[[31m❯^[[39m document du schéma (docs/architecture/schema.md) ^[[2m(1)^[[22m
-^[[31m     ^[[31m×^[[31m est à jour : régénéré depuis la base migrée, identique au fichier commité^[[39m^[[32m 142^[[2mms^[[22m^[[39m
 | Colonne | Type | NOT NULL | Défaut |
 | ------- | ---- | -------- | ------ |
 | `id` | `uuid` | oui | — |
