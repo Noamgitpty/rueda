@@ -268,9 +268,11 @@ describe.each(COUNTRIES)(
           last_minute: null,
           free_until: null,
         };
-        await tx.query('SELECT test_fixture.us205b_set_window($1, $2)', [cc.country, 0]);
-        expect(await read()).toMatchObject(none);
+        // paramètre absent : la valeur en vigueur est close
         await tx.query('SELECT test_fixture.us205b_close_window($1)', [cc.country]);
+        expect(await read()).toMatchObject(none);
+        // fenêtre de 0 min (acceptée par la garde de 0008, refusée par la lecture)
+        await tx.query('SELECT test_fixture.us205b_set_window($1, $2)', [cc.country, 0]);
         expect(await read()).toMatchObject(none);
         // la distance et le reste des conditions restent rendus
         expect(await read()).toMatchObject({ listing_id: listing, mileage_mode: 'INCLUDED' });
