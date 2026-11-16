@@ -1,5 +1,5 @@
 -- 9971 — fixtures des preuves de la distance figée dans le devis et des conditions du checkout
--- (US-205 partie 205b, migrations 0116 et 0117). TESTS SEULEMENT.
+-- (US-205 partie 205b, migrations 0117 et 0118). TESTS SEULEMENT.
 --
 -- JAMAIS appliquée hors tests : seul le harnais ajoute test-migrations/, et seulement à la base
 -- jetable principale `rueda_test_*` (le schéma test_fixture est créé par 9001).
@@ -8,8 +8,8 @@
 -- de test ANNULÉES, jamais validées :
 --   - `us205b_set_listing_mileage` : distance d'une annonce de fixture (mode, km par jour, prix du
 --     km), dans les bornes de `catalog_listing_mileage_valid` (0067) ;
---   - `us205b_set_window` : nouvelle valeur de `last_minute_free_window_minutes` du pays (0116) ;
---   - `us205b_quote_mileage` : distance figée d'un devis (colonnes de 0117), pour la preuve.
+--   - `us205b_set_window` : nouvelle valeur de `last_minute_free_window_minutes` du pays (0117) ;
+--   - `us205b_quote_mileage` : distance figée d'un devis (colonnes de 0118), pour la preuve.
 -- Les attendus des tests viennent de 19 US-205 (critère 2 : 200 km / j × 3 jours = 600 km) et de 08
 -- BR-CXL-01, jamais de ces fixtures. AUCUNE fixture n'écrit un interrupteur (17 §0.1).
 --

@@ -1,6 +1,6 @@
 /**
  * Preuves de la distance figée dans le devis et des conditions du checkout (US-205 partie 205b ;
- * migrations 0116 et 0117, ADR-140 ; fixture 9971) sous les rôles de production (assertion L0-05 en
+ * migrations 0117 et 0118, ADR-140 ; fixture 9971) sous les rôles de production (assertion L0-05 en
  * tête de chaque connexion : `withRole`), en USD (PA) et en PYG sans décimale (PY). Personnes,
  * sessions et devis par les VRAIES commandes ; interrupteurs ouverts par la procédure à deux
  * personnes d'US-125 dans une transaction ANNULÉE.

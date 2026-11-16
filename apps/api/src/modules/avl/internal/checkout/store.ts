@@ -254,7 +254,7 @@ const mileageMode = (value: unknown): 'UNLIMITED' | 'INCLUDED' => {
   return value;
 };
 
-/** Distance figée du devis (0117) ; `null` : devis antérieur, aucune distance promise. */
+/** Distance figée du devis (0118) ; `null` : devis antérieur, aucune distance promise. */
 function mileageOf(r: Record<string, unknown>): CheckoutMileage | null {
   const mode = r['quote_mileage_mode'];
   if (mode === null || mode === undefined) return null;
@@ -317,7 +317,7 @@ export class PgCheckoutStore implements CheckoutStore {
     // US-226 : protection du devis (niveau, âge déclaré, instant du gel, interrupteur de
     // l'assureur) lue par sa propre fonction de 0110 ; un devis inconnu ou d'un autre voyageur
     // ne rend aucune ligne dans l'une comme dans l'autre (même réponse)
-    // US-205b : documents canoniques et distance figée (core.pricing_checkout_terms, 0117) ;
+    // US-205b : documents canoniques et distance figée (core.pricing_checkout_terms, 0118) ;
     // annulation gratuite pour le départ du devis si la réservation a lieu maintenant
     // (core.catalog_public_terms) ; même requête
     const { rows } = await this.db.query(

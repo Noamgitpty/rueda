@@ -129,7 +129,7 @@ Depuis US-115, `core.booking_vehicle_party` lit `catalog_vehicle` et son annonce
 
 ### Conditions, partie 205b (US-205, ADR-140)
 
-- **Fenêtre de dernière minute** : paramètre `last_minute_free_window_minutes` (0116, 60 min, PROPOSÉ), lu par `core.catalog_public_terms` (recréée en 0117, colonne `last_minute_window_minutes`) ; en dernière minute `freeUntil = min(maintenant + fenêtre, départ)` et `endsAtStart` dans `availability` ; plus aucune constante de l'API.
+- **Fenêtre de dernière minute** : paramètre `last_minute_free_window_minutes` (0117, 60 min, PROPOSÉ), lu par `core.catalog_public_terms` (recréée en 0118, colonne `last_minute_window_minutes`) ; en dernière minute `freeUntil = min(maintenant + fenêtre, départ)` et `endsAtStart` dans `availability` ; plus aucune constante de l'API.
 - **Lecture atomique** : `SearchStore.slotCheck` rend le contrôle des dates et les conditions du départ accepté en une requête (`LEFT JOIN LATERAL`).
 - **Limite de débit** : `GET /listings/{id}/conditions` passe par la sonde de la fiche (`availability_probe_per_minute` du pays, 429 `RATE_LIMITED` et `Retry-After`).
 - **Cartes** : `protectionOffered` (port `SearchStore.protectionOffered`, une requête par page) : mention « protection incluse » seulement si la base promet la couverture.

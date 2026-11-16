@@ -746,7 +746,7 @@ Migrations `0114_config_insurer_rc_params` (générée : `insurer_rc_minimum`, v
 
 ## Distance figée dans le devis et conditions du checkout (US-205 partie 205b ; 16 LST-010, LST-012 ; 08 BR-CXL-01, BR-CXL-06 ; ADR-140)
 
-Migrations `0116_config_last_minute_window_params` (générée : `last_minute_free_window_minutes`, 60 min PA / PY, PROPOSÉ) et `0117_prc_quote_mileage_checkout_terms`, fixture `9971_test_us205b_quote_mileage_fixtures.sql` (distance d'une annonce, fenêtre du pays, lecture des colonnes du devis ; transactions annulées).
+Migrations `0117_config_last_minute_window_params` (générée : `last_minute_free_window_minutes`, 60 min PA / PY, PROPOSÉ) et `0118_prc_quote_mileage_checkout_terms`, fixture `9971_test_us205b_quote_mileage_fixtures.sql` (distance d'une annonce, fenêtre du pays, lecture des colonnes du devis ; transactions annulées).
 
 - **Devis** : colonnes `mileage_mode`, `included_km` (km par jour × jours facturables du rejeu), `extra_km_price_minor` de `core.pricing_quote`, écrites par `core.pricing_cmd_freeze_quote` depuis l'annonce publiée (contrainte `pricing_quote_mileage_complete`) ; documents qui portent `mileage` ⇒ identiques à l'annonce et au rejeu, sinon `QUOTE_MISMATCH`. Devis antérieurs : colonnes NULL.
 - **Lecture du checkout** `core.pricing_checkout_terms(jeton, devis)` (`SECURITY DEFINER`, `cmd_money_owner`, EXECUTE `app_api` seul) : documents canoniques et distance figée du devis du voyageur de la session (aucune ligne sinon).

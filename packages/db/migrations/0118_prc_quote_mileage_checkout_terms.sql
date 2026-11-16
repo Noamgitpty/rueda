@@ -1,11 +1,11 @@
--- 0117 — PRC / CAT : distance figée dans le devis, conditions d'annulation du checkout, fenêtre
+-- 0118 — PRC / CAT : distance figée dans le devis, conditions d'annulation du checkout, fenêtre
 -- de dernière minute en paramètre du pays.
 -- US-205 (partie 205b) ; 19 US-205 (critère 1 : « gratuite jusqu'au 13/01 10:00 », dernière minute
 -- « gratuite pendant 1 h après la réservation » ; critère 2 : « 600 km incluidos » et le même prix
 -- du km sur la fiche, le checkout, le contrat et le reçu) ; 16 LST-010, LST-012, PRC-025 ; 08
 -- BR-CXL-01 (formulation exécutable : freeUntil = lastMinute ? min(bookedAt + 60 min, start) :
 -- start − 24 h), BR-CXL-06, BR-MILEAGE-01 ; 17 §3.2.5 ; ADR-138 (205a), ADR-140 (cette
--- migration). Graine du paramètre : 0116 (générée). Appliquée sous `migrator`, en une transaction.
+-- migration). Graine du paramètre : 0117 (générée). Appliquée sous `migrator`, en une transaction.
 --
 -- Principes (ADR-140, PROPOSÉS, « comme Turo » : docs/team/COMME_TURO.md) :
 --   - distance figée avec le devis : mode, km inclus (km par jour × jours facturables du rejeu) et
@@ -17,7 +17,7 @@
 --     (l'API rejoue le devis et en tire la retenue d'une annulation hors fenêtre par le moteur de
 --     règlement unique) et distance figée, pour le seul voyageur de la session ;
 --   - annulation de la fiche et du checkout : fenêtre de dernière minute lue du paramètre
---     `last_minute_free_window_minutes` (0116 ; 60 min, PROPOSÉ) et `freeUntil` de dernière minute
+--     `last_minute_free_window_minutes` (0117 ; 60 min, PROPOSÉ) et `freeUntil` de dernière minute
 --     = min(maintenant + fenêtre, départ) : jamais une annulation gratuite promise après le début ;
 --     paramètre absent ⇒ aucune promesse (NULL).
 --

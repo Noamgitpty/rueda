@@ -14,7 +14,7 @@
  * contrat ; RC sous le minimum légal ⇒ POLICY_RC_BELOW_MINIMUM » ; « insurer_contract_active =
  * false ⇒ aucune promesse de couverture »), de 08 BR-CXL-01 (formulation exécutable : `lastMinute =
  * (start − bookedAt) < lastMinuteThreshold` (25 h), `freeUntil = lastMinute ? min(bookedAt + 60 min,
- * start) : start − 24 h`, fenêtre de 0116 depuis US-205b) et de 16 LST-013 / PRT-003 (bloc absent si le véhicule n'est pas couvert par le contrat
+ * start) : start − 24 h`, fenêtre de 0117 depuis US-205b) et de 16 LST-013 / PRT-003 (bloc absent si le véhicule n'est pas couvert par le contrat
  * en vigueur), jamais du code testé.
  */
 import { randomBytes } from 'node:crypto';
@@ -248,7 +248,7 @@ describe.each(COUNTRIES)('US-205 — conditions de la fiche ($country, $currency
       expect((row?.['read_at'] as Date).getTime()).toBe(start.getTime() - 5 * 24 * HOUR);
 
       // départ dans 20 h : réservation de dernière minute (< 25 h), gratuite 1 h après la
-      // réservation (US-205b : last_minute_free_window_minutes = 60 de 0116, 08 BR-CXL-01)
+      // réservation (US-205b : last_minute_free_window_minutes = 60 de 0117, 08 BR-CXL-01)
       await setNow(tx, new Date(start.getTime() - 20 * HOUR).toISOString());
       const late = (await terms(tx, x.listing, start.toISOString()))[0];
       expect(late).toMatchObject({ last_minute: true, last_minute_window_minutes: 60 });

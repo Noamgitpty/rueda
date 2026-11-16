@@ -128,7 +128,7 @@ export const POST_SEED_PARAMS: readonly {
   },
   {
     prefix: 'last_minute_free_window',
-    file: '0116_config_last_minute_window_params.sql',
+    file: '0117_config_last_minute_window_params.sql',
     story: 'US-205',
     refs: '08 BR-CXL-01 ; 16 LST-010 ; ADR-140',
   },
