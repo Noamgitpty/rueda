@@ -2021,8 +2021,6 @@ export const ES_MESSAGES = {
   'web.s05.hold.missing': 'Escribe tu nombre y marca cada casilla para continuar.',
   'web.s05.hold.title': 'Te guardamos el auto',
   'web.s05.hold.until': 'Guardamos este auto para ti hasta las {time}',
-  'web.s05.hold.ended':
-    'Este auto ya no está apartado para ti. Vuelve a la ficha para reservar de nuevo.',
   'web.s05.hold.notFound': 'Reserva no disponible',
   'web.s05.hold.total': 'Total: {amount}',
   'web.s05.hold.documents': 'Aceptaste',
@@ -2058,6 +2056,10 @@ export const ES_MESSAGES = {
   'web.s06.supportBody':
     'Guarda tu número de reserva y escríbenos con él. Si se te cobró y la reserva no se confirma, te devolvemos todo el pago.',
   'web.s06.payAgain': 'Pagar de nuevo',
+  'web.s06.interrupted.title': 'La página de pago no se abrió',
+  'web.s06.interrupted.body':
+    'Vuelve a intentarlo: revisamos primero tu pago anterior y nunca creamos un segundo cobro.',
+  'web.s06.interrupted.retry': 'Reintentar el pago',
   'web.s06.confirmed.title': '¡Pago confirmado!',
   'web.s06.confirmed.body':
     'Tu reserva está confirmada. En la ficha del auto ya ves el lugar exacto de entrega.',
@@ -2071,7 +2073,7 @@ export const ES_MESSAGES = {
   'web.s06.unproven.body': 'Tu reserva no está confirmada. No pagues de nuevo.',
   'web.s06.refund.title': 'Te devolvemos tu pago',
   'web.error.paidAfterRelease':
-    'Recibimos tu pago, pero el auto ya no estaba reservado para ti. Te reembolsamos {amount} completo; mira estos autos cerca.',
+    'Recibimos tu pago, pero el auto ya no estaba reservado para ti. Te reembolsamos {amount} completo; puedes buscar otro auto.',
   'web.s05.doc.TOS_GUEST': 'Términos y condiciones',
   'web.s05.doc.CANCELLATION_POLICY': 'Política de cancelación',
   'web.s05.doc.GEO_TERMS': 'Zonas de circulación',

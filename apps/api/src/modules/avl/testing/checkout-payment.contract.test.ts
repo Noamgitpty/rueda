@@ -23,6 +23,8 @@ import {
 } from '../../../testing/contract/support.js';
 import type { ContractApp } from '../../../testing/contract/support.js';
 import { missingCoverage } from '../../../testing/openapi-contract.js';
+import { PRODUCTION_PROVIDERS } from '../../pay/index.js';
+import { postgresCheckoutAdapters } from '../internal/checkout/avl-checkout.module.js';
 import type { CheckoutPaymentRow, PaymentStart } from '../internal/checkout/payment-store.js';
 import type { HostedPaymentProvider } from '../internal/checkout/payment.service.js';
 import {
@@ -145,13 +147,41 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     expect(TJ01.totalMinor).toBe(25_666n);
   });
 
-  it('idempotence : un ordre déjà en cours (T1 EXISTING_ORDER ou VERIFYING) ⇒ 200, aucun nouvel ordre au PSP', async () => {
-    const { psp, hold, pay } = await app();
-    hold({}, { start: { kind: 'IN_FLIGHT' } });
+  it('idempotence : reprise d’un ordre interrompu alors que T1 rend EXISTING_ORDER ou VERIFYING (PSP sans recherche par clé) ⇒ 200, aucun nouvel ordre au PSP', async () => {
+    const { store, psp, hold, pay } = await app();
+    hold(
+      { holdStatus: 'PAYMENT_IN_FLIGHT', operationStatus: 'PENDING' },
+      { start: { kind: 'IN_FLIGHT' } },
+    );
     const r = await pay();
     expect(r.status).toBe(200);
-    expect(r.json).toMatchObject({ payment: { state: 'PAYABLE', redirectUrl: null } });
+    expect(r.json).toMatchObject({ payment: { state: 'INTERRUPTED', redirectUrl: null } });
+    expect(store.starts).toHaveLength(1);
     expect(psp.orders).toEqual([]);
+  });
+
+  it('deux POST simultanés sur le même hold ⇒ un seul ordre chez le PSP (le second voit le hold en vol)', async () => {
+    const { psp, hold, a } = await app();
+    hold({}, { start: startOf(TJ01) });
+    const send = () =>
+      a.api.request('POST', `/checkout/holds/${HOLD}/payment`, {
+        headers: a.cookie('voyageur'),
+        body: { method: 'CARD' },
+      });
+    const replies = await Promise.all([send(), send()]);
+    expect(replies.map((r) => r.status).sort()).toEqual([200, 201]);
+    expect(psp.orders).toHaveLength(1);
+  });
+
+  it('câblage de production : aucun connecteur tant que PRODUCTION_PROVIDERS est vide (C19)', () => {
+    expect(PRODUCTION_PROVIDERS).toEqual([]);
+    const adapters = postgresCheckoutAdapters(
+      { query: () => Promise.reject(new Error('aucune base')) },
+      () => {
+        throw new Error('aucun paramètre');
+      },
+    );
+    expect(adapters.payments?.providers.size).toBe(0);
   });
 
   it('hold déjà en vol, converti ou échu ⇒ 200 avec l’état, sans T1 ni appel au PSP', async () => {
@@ -170,7 +200,7 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     expect(psp.orders).toEqual([]);
   });
 
-  it('N-108 : RETRY_SAME_KEY ⇒ recherche par NOTRE clé ; ordre trouvé jamais recréé (T2 avec sa référence, 200) ; inconnu ⇒ recréé sous la même clé', async () => {
+  it('N-108, reprise après un PSP sans réponse : hold en vol sans ordre enregistré (INTERRUPTED) ⇒ T1 RETRY_SAME_KEY, recherche par NOTRE clé ; ordre trouvé jamais recréé (T2 avec sa référence, 200) ; inconnu ⇒ recréé sous la même clé (201)', async () => {
     const psp = new RecordingHostedPayments();
     psp.found = {
       providerReference: 'fake-found',
@@ -181,7 +211,8 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
       legs: { ...TJ01.legsMinor },
     };
     const { store, hold, pay } = await app({ psp });
-    hold({}, { start: startOf(TJ01, 'RETRY_SAME_KEY') });
+    const interrupted = { holdStatus: 'PAYMENT_IN_FLIGHT', operationStatus: 'PENDING' };
+    hold(interrupted, { start: startOf(TJ01, 'RETRY_SAME_KEY') });
     const r = await pay();
     expect(r.status).toBe(200);
     expect(r.json).toMatchObject({ payment: { state: 'VERIFYING', redirectUrl: null } });
@@ -193,7 +224,7 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
     });
 
     psp.found = null;
-    hold({}, { start: startOf(TJ01, 'RETRY_SAME_KEY') });
+    hold(interrupted, { start: startOf(TJ01, 'RETRY_SAME_KEY') });
     const again = await pay();
     expect(again.status).toBe(201);
     expect(psp.orders.map((o) => o.idempotencyKey)).toEqual([`hold:${HOLD}:CAPTURE:a1`]);
@@ -346,6 +377,8 @@ describe('US-223b — contrat du paiement du hold du checkout', () => {
       [{}, 'PAYABLE'],
       [{ operationStatus: 'FAILED' }, 'DECLINED'],
       [{ holdStatus: 'PAYMENT_IN_FLIGHT', operationStatus: 'SUBMITTED' }, 'VERIFYING'],
+      [{ holdStatus: 'PAYMENT_IN_FLIGHT', operationStatus: 'PENDING' }, 'INTERRUPTED'],
+      [{ holdStatus: 'PAYMENT_IN_FLIGHT', operationStatus: 'UNKNOWN' }, 'VERIFYING'],
       [{ holdStatus: 'PAYMENT_IN_FLIGHT', operationStatus: 'SUCCEEDED' }, 'VERIFYING'],
       [{ holdStatus: 'CONVERTED', tripId: null, operationStatus: 'SUCCEEDED' }, 'VERIFYING'],
       [{ holdStatus: 'CONVERTED', tripId: TRIP, operationStatus: 'SUCCEEDED' }, 'CONFIRMED'],

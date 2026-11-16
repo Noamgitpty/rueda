@@ -5,19 +5,27 @@
  * aucun réseau externe) → webhook FAKE joué par le double → S06.
  *
  * Attendus : 10b (textes `web.s06.verifying.*` de §4.3, lus dans `oracle.ts`), TA01 (total 128,40
- * rendu par l'API, jamais recalculé par le site) ; S06 ne dit « confirmé » qu'une fois le hold
+ * rendu par l'API, jamais recalculé par le site) ; pour chaque état, le titre et le message attendus
+ * de CET état dans la langue de la page (clés du catalogue officiel, quatre langues, pt-BR compris),
+ * et le titre « confirmé » absent de tout autre état. S06 ne dit « confirmé » qu'une fois le hold
  * converti en trip (webhook SUCCEEDED) ; un webhook au montant différent (MISMATCH) ne confirme
- * rien ; un refus garde le hold et propose « Pagar de nuevo » ; un hold échu sans paiement sort vers
- * la recherche (N-169) ; un ordre non prouvé à l'échéance renvoie au support ; un paiement après la
- * libération annonce le remboursement intégral du montant rendu par l'API. Refus avant le paiement :
- * capacité bloquante du PSP (critère 6), revue avant débit, aucun compte marchand.
+ * rien ; un refus garde le hold et propose « Pagar de nuevo » ; une page de paiement non ouverte se
+ * reprend ; un hold échu sans paiement sort vers la recherche (N-169) ; un ordre non prouvé à
+ * l'échéance renvoie au support ; un paiement après la libération annonce le remboursement intégral.
+ * Relecture toutes les 5 s, attente lente à 2 min et support à 10 min : horloge de Playwright
+ * avancée (`clock.fastForward`), aucune attente réelle. Refus avant le paiement : capacité bloquante
+ * du PSP (critère 6), revue avant débit, aucun compte marchand.
  */
 import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
+import { createTranslator, getProfile } from '@rueda/i18n';
+import type { MessageKey, Translator } from '@rueda/i18n';
+import { LOCALE_CONFIG } from '../locale-config.ts';
 import { expectAccessible } from './axe.ts';
 import {
   expect,
   expectMobileFriendly,
+  FROZEN_AT,
   LANGUAGES,
   submitAndSettle,
   tagOf,
@@ -35,11 +43,45 @@ const S06_URL = /\/checkout\/hold\/[0-9a-f-]{36}\/payment$/;
 const TA01_TOTAL = /128[.,]40/;
 /** Page rendue (le repli de chargement porte aussi un `main`, `aria-busy`). */
 const MAIN = 'main:not([aria-busy])';
+const MARK = '\u0001';
 
 const slot = (day: number) => ({
   start: `2036-12-${String(day).padStart(2, '0')}T10:00`,
   end: `2036-12-${String(day + 3).padStart(2, '0')}T10:00`,
 });
+
+const translator = (language: Language): Translator =>
+  createTranslator(getProfile(LOCALE_CONFIG, tagOf(language)));
+
+/** Partie fixe d'un message à paramètre (avant la valeur). */
+const fixedPart = (t: Translator, key: MessageKey, param: string): string =>
+  t.t(key, { [param]: MARK }).split(MARK)[0] ?? '';
+
+/** Titre et message attendus de chaque état final ou d'attente (clés du catalogue officiel). */
+function expectedOf(t: Translator, state: string): { title: string; body: string } {
+  switch (state) {
+    case 'VERIFYING':
+      return { title: t.t('web.s06.verifying.title'), body: t.t('web.s06.verifying.body') };
+    case 'INTERRUPTED':
+      return { title: t.t('web.s06.interrupted.title'), body: t.t('web.s06.interrupted.body') };
+    case 'CONFIRMED':
+      return { title: t.t('web.s06.confirmed.title'), body: t.t('web.s06.confirmed.body') };
+    case 'DECLINED':
+      return {
+        title: t.t('web.s06.declined.title'),
+        body: fixedPart(t, 'web.error.paymentDeclined', 'hold_end_time'),
+      };
+    case 'ENDED':
+      return { title: t.t('web.s06.ended.title'), body: t.t('web.s06.ended.body') };
+    case 'UNPROVEN':
+      return { title: t.t('web.s06.unproven.title'), body: t.t('web.s06.unproven.body') };
+    default:
+      return {
+        title: t.t('web.s06.refund.title'),
+        body: fixedPart(t, 'web.error.paidAfterRelease', 'amount'),
+      };
+  }
+}
 
 async function signInGuest(context: BrowserContext, language: Language): Promise<void> {
   await context.addCookies([
@@ -96,9 +138,21 @@ async function webhook(holdId: string, event: string): Promise<void> {
   expect(r.status).toBe(200);
 }
 
-async function openS06(page: Page, holdId: string, state: string): Promise<void> {
-  await page.goto(`/checkout/hold/${holdId}/payment`);
+/** Textes de l'état dans la langue de la page ; « confirmé » absent de tout autre état. */
+async function expectStateTexts(page: Page, language: Language, state: string): Promise<void> {
+  const t = translator(language);
+  const { title, body } = expectedOf(t, state);
   await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute('data-state', state);
+  await expect(page.locator('[data-testid="s06-title"]')).toHaveText(title);
+  await expect(page.locator(MAIN)).toContainText(body);
+  if (state !== 'CONFIRMED') {
+    await expect(page.locator(MAIN)).not.toContainText(t.t('web.s06.confirmed.title'));
+  }
+}
+
+async function openS06(page: Page, language: Language, holdId: string, state: string) {
+  await page.goto(`/checkout/hold/${holdId}/payment`);
+  await expectStateTexts(page, language, state);
 }
 
 for (const language of LANGUAGES) {
@@ -123,7 +177,7 @@ for (const language of LANGUAGES) {
       await payAt(page, offsite, 's05-pay');
 
       // retour du PSP : « Pago en verificación », jamais « confirmé » avant le webhook (UX-27)
-      await openS06(page, holdId, 'VERIFYING');
+      await openS06(page, language, holdId, 'VERIFYING');
       await expect(page).toHaveTitle(/\S/);
       const title = SPEC_TEXT.verifyingTitle[language];
       if (title !== undefined) await expect(page.locator('h1')).toHaveText(title);
@@ -138,12 +192,11 @@ for (const language of LANGUAGES) {
 
       // montant reçu différent (MISMATCH) : rien n'est appliqué, toujours en vérification
       await webhook(holdId, 'MISMATCH');
-      await openS06(page, holdId, 'VERIFYING');
+      await openS06(page, language, holdId, 'VERIFYING');
 
       // webhook signé SUCCEEDED, conversion : trip né, S06 confirmé
       await webhook(holdId, 'SUCCEEDED');
-      await openS06(page, holdId, 'CONFIRMED');
-      await expect(page.locator(`${MAIN} [role="status"]`).first()).toBeVisible();
+      await openS06(page, language, holdId, 'CONFIRMED');
       await expect(page.locator(`${MAIN} a[href="/listings/${PUBLIC_ID}"]`)).toBeVisible();
       await expectAccessible(page);
       await expectMobileFriendly(page);
@@ -151,10 +204,58 @@ for (const language of LANGUAGES) {
       // S05 du hold payé : l'état fait foi (S06), aucun second paiement
       await page.goto(`/checkout/hold/${holdId}`);
       await expect(page).toHaveURL(S06_URL);
-      await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute(
-        'data-state',
-        'CONFIRMED',
+      await expectStateTexts(page, language, 'CONFIRMED');
+    });
+
+    test('UX-27 : relecture toutes les 5 s sans action du voyageur ; passage à « confirmé » annoncé par la région vive, focus sur le titre', async ({
+      page,
+      context,
+    }) => {
+      await page.clock.install({ time: FROZEN_AT });
+      await signInGuest(context, language);
+      const holdId = await placeHold(page, 10);
+      await webhook(holdId, 'PAY');
+      await openS06(page, language, holdId, 'VERIFYING');
+      await expect(page.locator('[data-testid="s06-live"]')).toHaveText('');
+      await expect(page.locator('[data-testid="s06-watch"]')).toHaveAttribute('data-armed', 'true');
+      await webhook(holdId, 'SUCCEEDED');
+      await page.clock.fastForward(5_100);
+      await expectStateTexts(page, language, 'CONFIRMED');
+      await expect(page).toHaveURL(S06_URL);
+      const t = translator(language);
+      await expect(page.locator('[data-testid="s06-live"]')).toContainText(
+        t.t('web.s06.confirmed.title'),
       );
+      await expect(page.locator('[data-testid="s06-title"]')).toBeFocused();
+    });
+
+    test('UX-27 : attente lente après 2 min, sortie vers le support après 10 min (horloge avancée, aucune attente réelle)', async ({
+      page,
+      context,
+    }) => {
+      await page.clock.install({ time: FROZEN_AT });
+      await signInGuest(context, language);
+      const holdId = await placeHold(page, 10);
+      await webhook(holdId, 'PAY');
+      await openS06(page, language, holdId, 'VERIFYING');
+      await expect(page.locator('[data-testid="s06-watch"]')).toHaveAttribute('data-armed', 'true');
+      const t = translator(language);
+      await expect(page.locator('[data-testid="s06-slow"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="s06-support-late"]')).toHaveCount(0);
+      await page.clock.fastForward('02:01');
+      await expect(page.locator('[data-testid="s06-slow"]')).toContainText(
+        t.t('web.s06.verifying.slow'),
+      );
+      await expect(page.locator('[data-testid="s06-support-late"]')).toHaveCount(0);
+      await page.clock.fastForward('08:05');
+      await expect(page.locator('[data-testid="s06-support-late"]')).toContainText(
+        t.t('web.s06.support'),
+      );
+      await expect(page.locator('[data-testid="s06-support-late"]')).toContainText(
+        t.t('web.s06.supportBody'),
+      );
+      await expectStateTexts(page, language, 'VERIFYING');
+      await expectAccessible(page);
     });
 
     test('refus du PSP : aucun débit, hold gardé, « Pagar de nuevo » crée un nouvel ordre ; ordre non prouvé à l’échéance ⇒ support', async ({
@@ -166,19 +267,35 @@ for (const language of LANGUAGES) {
       const holdId = await placeHold(page, 10);
       await payAt(page, offsite, 's05-pay');
       await webhook(holdId, 'FAILED');
-      await openS06(page, holdId, 'DECLINED');
-      await expect(page.locator(`${MAIN} [role="alert"]`).first()).toBeVisible();
+      await openS06(page, language, holdId, 'DECLINED');
       await expectAccessible(page);
       await expectMobileFriendly(page);
 
       await payAt(page, offsite, 's06-pay-again');
       // aucune preuve avant l'échéance du hold : ni confirmé ni « payer de nouveau »
       await webhook(holdId, 'EXPIRE');
-      await openS06(page, holdId, 'UNPROVEN');
-      await expect(page.locator('section[aria-labelledby="s06-support"]')).toBeVisible();
+      await openS06(page, language, holdId, 'UNPROVEN');
+      await expect(page.locator('section[aria-labelledby="s06-support"]')).toContainText(
+        translator(language).t('web.s06.supportBody'),
+      );
       await expect(page.locator(`${MAIN} form`)).toHaveCount(0);
       await expectAccessible(page);
       await expectMobileFriendly(page);
+    });
+
+    test('N-108 : page de paiement non ouverte (PSP sans réponse après T1) ⇒ « Reintentar el pago » repasse par la clé et ouvre la page du PSP', async ({
+      page,
+      context,
+      offsite,
+    }) => {
+      await signInGuest(context, language);
+      const holdId = await placeHold(page, 10);
+      await webhook(holdId, 'INTERRUPT');
+      await openS06(page, language, holdId, 'INTERRUPTED');
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
+      await payAt(page, offsite, 's06-retry');
+      await openS06(page, language, holdId, 'VERIFYING');
     });
 
     test('N-169 : hold échu sans paiement ⇒ S05 renvoie à S06 « expirée », sortie vers la recherche ; payé après la libération ⇒ remboursement intégral de 128,40', async ({
@@ -191,10 +308,7 @@ for (const language of LANGUAGES) {
       await webhook(ended, 'EXPIRE');
       await page.goto(`/checkout/hold/${ended}`);
       await expect(page).toHaveURL(S06_URL);
-      await expect(page.locator('[data-testid="s06-title"]')).toHaveAttribute(
-        'data-state',
-        'ENDED',
-      );
+      await expectStateTexts(page, language, 'ENDED');
       await expect(page.locator(`${MAIN} a[href="/"]`)).toBeVisible();
       await expectAccessible(page);
 
@@ -202,26 +316,31 @@ for (const language of LANGUAGES) {
       await payAt(page, offsite, 's05-pay');
       await webhook(late, 'EXPIRE');
       await webhook(late, 'SUCCEEDED');
-      await openS06(page, late, 'REFUND_DUE');
-      await expect(page.locator(`${MAIN} [role="status"]`).first()).toContainText(TA01_TOTAL);
+      await openS06(page, language, late, 'REFUND_DUE');
+      await expect(page.locator(MAIN)).toContainText(TA01_TOTAL);
       await expectAccessible(page);
       await expectMobileFriendly(page);
     });
 
-    for (const [day, code] of [
-      [18, 'HOST_PAYOUT_RAIL_UNAVAILABLE'],
-      [19, 'BOOKING_UNDER_REVIEW'],
-      [21, 'PAYMENT_UNAVAILABLE'],
+    for (const [day, key] of [
+      [18, 'common.payment.payoutRailUnavailable'],
+      [19, 'common.payment.underReview'],
+      [21, 'common.payment.unavailable'],
     ] as const) {
-      test(`refus avant le paiement (${code}) : message sur S05, aucune sortie vers le PSP, hold gardé`, async ({
+      test(`refus avant le paiement (${key}) : son message sur S05, aucune sortie vers le PSP, bouton toujours actif`, async ({
         page,
         context,
       }) => {
         await signInGuest(context, language);
         const holdId = await placeHold(page, day);
-        await submitAndSettle(page, page.locator('[data-testid="s05-pay-submit"]'));
+        const button = page.locator('[data-testid="s05-pay-submit"]');
+        await submitAndSettle(page, button);
         await expect(page).toHaveURL(new RegExp(`/checkout/hold/${holdId}$`));
-        await expect(page.locator('[data-testid="s05-pay"] [role="alert"]')).toBeVisible();
+        await expect(page.locator('[data-testid="s05-pay"] [role="alert"]')).toHaveText(
+          translator(language).t(key),
+        );
+        await expect(button).toBeEnabled();
+        await expect(button).not.toHaveAttribute('aria-disabled', 'true');
         await expectAccessible(page);
         await expectMobileFriendly(page);
       });

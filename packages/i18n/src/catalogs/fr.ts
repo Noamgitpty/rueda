@@ -2070,8 +2070,6 @@ export const FR_MESSAGES = {
   'web.s05.hold.missing': 'Saisis ton nom et coche chaque case pour continuer.',
   'web.s05.hold.title': 'Nous te gardons la voiture',
   'web.s05.hold.until': 'Nous te gardons cette voiture jusqu’à {time}',
-  'web.s05.hold.ended':
-    'Cette voiture n’est plus gardée pour toi. Retourne sur sa fiche pour réserver de nouveau.',
   'web.s05.hold.notFound': 'Réservation indisponible',
   'web.s05.hold.total': 'Total : {amount}',
   'web.s05.hold.documents': 'Tu as accepté',
@@ -2109,6 +2107,10 @@ export const FR_MESSAGES = {
   'web.s06.supportBody':
     'Garde ton numéro de réservation et écris-nous en l’indiquant. Si un débit a eu lieu et que la réservation n’est pas confirmée, nous te remboursons tout le paiement.',
   'web.s06.payAgain': 'Payer à nouveau',
+  'web.s06.interrupted.title': 'La page de paiement ne s’est pas ouverte',
+  'web.s06.interrupted.body':
+    'Réessaie : nous vérifions d’abord ton paiement précédent et ne créons jamais de deuxième débit.',
+  'web.s06.interrupted.retry': 'Réessayer le paiement',
   'web.s06.confirmed.title': 'Paiement confirmé !',
   'web.s06.confirmed.body':
     'Ta réservation est confirmée. La fiche de la voiture montre maintenant le lieu exact de remise.',
@@ -2123,7 +2125,7 @@ export const FR_MESSAGES = {
   'web.s06.unproven.body': 'Ta réservation n’est pas confirmée. Ne paie pas une seconde fois.',
   'web.s06.refund.title': 'Nous te remboursons',
   'web.error.paidAfterRelease':
-    'Nous avons reçu ton paiement, mais la voiture n’était plus réservée pour toi. Nous te remboursons {amount} en totalité ; voici des voitures à proximité.',
+    'Nous avons reçu ton paiement, mais la voiture n’était plus réservée pour toi. Nous te remboursons {amount} en totalité ; tu peux chercher une autre voiture.',
   'web.s05.doc.TOS_GUEST': 'Conditions générales',
   'web.s05.doc.CANCELLATION_POLICY': 'Politique d’annulation',
   'web.s05.doc.GEO_TERMS': 'Zones de circulation',

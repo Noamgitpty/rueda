@@ -16,6 +16,7 @@ export const PAYMENT_STATES = [
   'PAYABLE',
   'DECLINED',
   'VERIFYING',
+  'INTERRUPTED',
   'CONFIRMED',
   'REFUND_DUE',
   'UNPROVEN',

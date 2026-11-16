@@ -318,6 +318,12 @@ export const SCREENS: readonly Screen[] = [
     open: (page, context, language) => openPayment(page, context, language, ['PAY'], 'VERIFYING'),
   },
   {
+    name: 'paiement-interrompu',
+    source: 'S06, US-223',
+    open: (page, context, language) =>
+      openPayment(page, context, language, ['INTERRUPT'], 'INTERRUPTED'),
+  },
+  {
     name: 'paiement-confirme',
     source: 'S06, US-223',
     open: (page, context, language) =>

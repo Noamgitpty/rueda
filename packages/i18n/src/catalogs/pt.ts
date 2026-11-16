@@ -2026,8 +2026,6 @@ export const PT_MESSAGES = {
   'web.s05.hold.missing': 'Digite seu nome e marque cada caixa para continuar.',
   'web.s05.hold.title': 'Guardamos o carro para você',
   'web.s05.hold.until': 'Seguramos este carro para você até {time}',
-  'web.s05.hold.ended':
-    'Este carro não está mais guardado para você. Volte à página dele para reservar de novo.',
   'web.s05.hold.notFound': 'Reserva indisponível',
   'web.s05.hold.total': 'Total: {amount}',
   'web.s05.hold.documents': 'Você aceitou',
@@ -2064,6 +2062,10 @@ export const PT_MESSAGES = {
   'web.s06.supportBody':
     'Guarde o número da reserva e fale com a gente informando esse número. Se houve cobrança e a reserva não for confirmada, devolvemos todo o pagamento.',
   'web.s06.payAgain': 'Pagar novamente',
+  'web.s06.interrupted.title': 'A página de pagamento não abriu',
+  'web.s06.interrupted.body':
+    'Tente de novo: primeiro verificamos seu pagamento anterior e nunca criamos uma segunda cobrança.',
+  'web.s06.interrupted.retry': 'Tentar o pagamento de novo',
   'web.s06.confirmed.title': 'Pagamento confirmado!',
   'web.s06.confirmed.body':
     'Sua reserva está confirmada. A página do carro já mostra o local exato de retirada.',
@@ -2077,7 +2079,7 @@ export const PT_MESSAGES = {
   'web.s06.unproven.body': 'Sua reserva não está confirmada. Não pague de novo.',
   'web.s06.refund.title': 'Vamos devolver seu pagamento',
   'web.error.paidAfterRelease':
-    'Recebemos seu pagamento, mas o carro não estava mais reservado para você. Vamos reembolsar {amount} integralmente; veja estes carros por perto.',
+    'Recebemos seu pagamento, mas o carro não estava mais reservado para você. Vamos reembolsar {amount} integralmente; você pode buscar outro carro.',
   'web.s05.doc.TOS_GUEST': 'Termos e condições',
   'web.s05.doc.CANCELLATION_POLICY': 'Política de cancelamento',
   'web.s05.doc.GEO_TERMS': 'Onde você pode dirigir',

@@ -15761,12 +15761,13 @@
           "PAYABLE",
           "DECLINED",
           "VERIFYING",
+          "INTERRUPTED",
           "CONFIRMED",
           "REFUND_DUE",
           "UNPROVEN",
           "ENDED"
         ],
-        "description": "État du paiement (ADR-142, PROPOSÉ) : PAYABLE hold vivant sans ordre ; DECLINED dernier ordre refusé ; VERIFYING ordre en cours ou preuve attendue (ne pas payer de nouveau) ; CONFIRMED hold converti en trip ; REFUND_DUE payé après la libération du créneau (remboursement intégral par la plateforme) ; UNPROVEN hold terminé avec un ordre ni refusé ni prouvé (support) ; ENDED hold terminé sans paiement."
+        "description": "État du paiement (ADR-142, PROPOSÉ) : PAYABLE hold vivant sans ordre ; DECLINED dernier ordre refusé ; VERIFYING ordre en cours ou preuve attendue (ne pas payer de nouveau) ; INTERRUPTED hold en vol sans ordre enregistré (PSP sans réponse avant T2) : reprise par POST, qui cherche d'abord l'ordre par la clé, jamais un second ordre ; CONFIRMED hold converti en trip ; REFUND_DUE payé après la libération du créneau (remboursement intégral par la plateforme) ; UNPROVEN hold terminé avec un ordre ni refusé ni prouvé (support) ; ENDED hold terminé sans paiement."
       },
       "CheckoutPayment": {
         "type": "object",

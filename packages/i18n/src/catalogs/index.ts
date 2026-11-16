@@ -166,7 +166,9 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `web.s06.*` (S06 de 10b : `pre.leaving`, `verifying.*` dont `verifying.notify` (promesse de notification d'UX-27), `support`, `payAgain`, états confirmé,
  refusé, échu, non prouvé, remboursé, numéro de réservation), `web.error.paymentDeclined` (heure
  limite lue dans l'API, aucune durée écrite) et `web.error.paidAfterRelease` (10b §4.3) ;
- `web.s05.hold.payment` retirée (le paiement en ligne existe désormais).
+ `web.s05.hold.payment` et `web.s05.hold.ended` retirées (le paiement en ligne existe ; un hold
+ non `ACTIVE` ouvre S06) ; `web.s06.interrupted.*` (page de paiement non ouverte, reprise sans
+ second débit) ; `web.error.paidAfterRelease` sans liste de voitures proches (la page n'en montre pas).
  */
 export const CATALOG_VERSION = 62;
 

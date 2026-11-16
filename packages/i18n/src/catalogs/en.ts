@@ -1966,7 +1966,6 @@ export const EN_MESSAGES = {
   'web.s05.hold.title': 'We’re holding the car for you',
   // texte de 10b §4.3 recopié tel quel (apostrophe droite)
   'web.s05.hold.until': "We're holding this car for you until {time}",
-  'web.s05.hold.ended': 'This car is no longer held for you. Go back to its page to book again.',
   'web.s05.hold.notFound': 'Booking not available',
   'web.s05.hold.total': 'Total: {amount}',
   'web.s05.hold.documents': 'You accepted',
@@ -2001,6 +2000,10 @@ export const EN_MESSAGES = {
   'web.s06.supportBody':
     'Keep your booking number and contact us with it. If you were charged and the booking isn’t confirmed, we’ll refund the full payment.',
   'web.s06.payAgain': 'Pay again',
+  'web.s06.interrupted.title': 'The payment page didn’t open',
+  'web.s06.interrupted.body':
+    'Try again: we check your previous payment first and never create a second charge.',
+  'web.s06.interrupted.retry': 'Retry payment',
   'web.s06.confirmed.title': 'Payment confirmed!',
   'web.s06.confirmed.body':
     'Your booking is confirmed. The car’s page now shows the exact pickup spot.',
@@ -2014,7 +2017,7 @@ export const EN_MESSAGES = {
   'web.s06.unproven.body': 'Your booking isn’t confirmed. Don’t pay again.',
   'web.s06.refund.title': 'We’re refunding your payment',
   'web.error.paidAfterRelease':
-    "We received your payment, but the car was no longer held for you. We'll refund the full {amount}; here are cars nearby.",
+    "We received your payment, but the car was no longer held for you. We'll refund the full {amount}; you can search for another car.",
   'web.s05.doc.TOS_GUEST': 'Terms and conditions',
   'web.s05.doc.CANCELLATION_POLICY': 'Cancellation policy',
   'web.s05.doc.GEO_TERMS': 'Where you can drive',

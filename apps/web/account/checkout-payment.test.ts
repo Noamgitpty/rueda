@@ -3,6 +3,7 @@
  * croit qu'un état connu, « confirmé » exige un trip né, la page hébergée n'est suivie que si l'API
  * rend une adresse https ; chaque code de refus a sa clé (typecheck des quatre catalogues).
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import { LOCALE_CONFIG } from '../locale-config.ts';
@@ -10,6 +11,7 @@ import {
   bookingReference,
   checkoutPaymentOf,
   PAYMENT_ERROR_CODES,
+  PAYMENT_STATES,
   paymentErrorKey,
 } from './checkout-payment.ts';
 
@@ -78,5 +80,22 @@ describe('US-223b — paiement du hold (site)', () => {
 
   it('numéro de réservation : huit premiers caractères du hold, en majuscules', () => {
     expect(bookingReference('abcdef12-0000-4000-8000-000000000000')).toBe('ABCDEF12');
+  });
+  it('états du site identiques à l’énumération du contrat (openapi.json, CheckoutPaymentState)', () => {
+    const doc = JSON.parse(
+      readFileSync(new URL('../../api/openapi/openapi.json', import.meta.url), 'utf8'),
+    ) as { components: { schemas: { CheckoutPaymentState: { enum: string[] } } } };
+    expect(doc.components.schemas.CheckoutPaymentState.enum).toEqual([...PAYMENT_STATES]);
+  });
+
+  it('double de l’API (e2e/stub-api.mjs) : chaque état du contrat est rendu par sa table', () => {
+    const stub = readFileSync(new URL('../e2e/stub-api.mjs', import.meta.url), 'utf8');
+    const start = stub.indexOf('const paymentStateOf = (h) => {');
+    const body = stub.slice(start, stub.indexOf('};', start));
+    expect(start).toBeGreaterThan(0);
+    for (const state of PAYMENT_STATES.filter((s) => s !== 'PAYABLE')) {
+      expect(body, state).toContain(`'${state}'`);
+    }
+    expect(body).toContain("'PAYABLE'");
   });
 });

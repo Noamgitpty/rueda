@@ -693,7 +693,8 @@ async function checkoutRoute(req, res, path) {
 // comme l'API (jamais un statut d'opération). `GET /__e2e/payment/webhook?hold=&event=` joue le
 // webhook FAKE signé et la conversion : SUCCEEDED (trip né ; après échéance : compensé), FAILED
 // (refus, hold gardé), MISMATCH (montant reçu différent : rien n'est appliqué), EXPIRE (échéance) ;
-// PAY met le hold « en vol » sans passer par le site (captures de S06).
+// PAY met le hold « en vol » sans passer par le site (captures de S06) ; INTERRUPT : T1 passée sans
+// ordre enregistré (PSP sans réponse), reprise possible par « Reintentar el pago ».
 const PSP_PAGE = 'https://psp.fake.invalid/pay/';
 const HOLD_ID_PREFIX = '22300000';
 const PAYMENT_REFUSALS = {
@@ -705,7 +706,7 @@ const PAYMENT_IN_FLIGHT_UNTIL = '2036-11-30T15:16:00.000Z';
 const paymentStateOf = (h) => {
   const status = h.status ?? 'ACTIVE';
   if (status === 'CONVERTED') return h.tripId ? 'CONFIRMED' : 'VERIFYING';
-  if (status === 'PAYMENT_IN_FLIGHT') return 'VERIFYING';
+  if (status === 'PAYMENT_IN_FLIGHT') return h.op === 'PENDING' ? 'INTERRUPTED' : 'VERIFYING';
   if (status === 'ACTIVE') return !h.op ? 'PAYABLE' : h.op === 'FAILED' ? 'DECLINED' : 'VERIFYING';
   if (status === 'COMPENSATED') return 'REFUND_DUE';
   return !h.op || h.op === 'FAILED' ? 'ENDED' : 'UNPROVEN';
@@ -732,6 +733,10 @@ async function paymentRoute(req, res, url) {
       // ordre créé et enregistré (T1, createHostedPayment, T2), sans passer par le site
       h.status = 'PAYMENT_IN_FLIGHT';
       h.op = 'SUBMITTED';
+    } else if (event === 'INTERRUPT' && (state === 'PAYABLE' || state === 'DECLINED')) {
+      // T1 passée, PSP sans réponse avant T2 : opération PENDING sans référence
+      h.status = 'PAYMENT_IN_FLIGHT';
+      h.op = 'PENDING';
     } else if (event === 'SUCCEEDED' && status === 'PAYMENT_IN_FLIGHT') {
       h.status = 'CONVERTED';
       h.op = 'SUCCEEDED';
@@ -765,7 +770,8 @@ async function paymentRoute(req, res, url) {
     return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
   }
   const state = paymentStateOf(h);
-  if (state !== 'PAYABLE' && state !== 'DECLINED') {
+  // INTERRUPTED : reprise sous la même clé (le PSP du double ne trouve aucun ordre : il le crée)
+  if (state !== 'PAYABLE' && state !== 'DECLINED' && state !== 'INTERRUPTED') {
     return json(res, 200, { payment: paymentJson(h, null) });
   }
   const refusal = Object.entries(PAYMENT_REFUSALS).find(([day]) => h.quote.startAt.includes(day));

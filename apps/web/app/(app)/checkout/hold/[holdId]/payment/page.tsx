@@ -9,6 +9,7 @@ import {
   checkoutPaymentOf,
   paymentHref,
 } from '../../../../../../account/checkout-payment.ts';
+import type { PaymentStateView } from '../../../../../../account/checkout-payment.ts';
 import { publicListingOf } from '../../../../../../account/host-listings.ts';
 import { clientContext } from '../../../../../../account/request.ts';
 import { getRequestI18n, getRequestLocaleTag } from '../../../../../../i18n.ts';
@@ -16,6 +17,7 @@ import accountStyles from '../../../../_account/account.module.css';
 import { MAIN_ID } from '../../../../_shell/main-id.ts';
 import styles from '../../../../host/host.module.css';
 import { PayForm } from '../pay-form.tsx';
+import { S06_TITLE_ID, StateAnnouncer } from './state-announcer.tsx';
 import { VerifyingWatch } from './verifying-watch.tsx';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,19 +33,25 @@ function Shell({ children }: { readonly children: ReactNode }) {
   );
 }
 
+const BODY_ID = 's06-body';
+
 /**
  * S06 — retour du PSP et attente de la preuve (US-223 partie 223b, ADR-142 ; 10b S06, UX-27,
  * règles 3 et 4 ; 16 PAY-034). L'état vient de `GET /checkout/holds/{id}/payment`, fondé sur l'état
  * du hold et le trip né de la conversion, jamais sur un statut d'opération du PSP :
- * - `VERIFYING` : « Pago en verificación », progression, « No pagues de nuevo », relecture toutes les
- *   5 s, attente lente (2 min) puis support (10 min) ; « Pagar de nuevo » désactivé (ordre actif) ;
+ * - `VERIFYING` : « Pago en verificación », « No pagues de nuevo », relecture toutes les 5 s (une
+ *   seule lecture de l'API : ni le hold ni la fiche ne sont relus pendant l'attente), attente lente
+ *   (2 min) puis support (10 min), relecture arrêtée ensuite ; « Pagar de nuevo » désactivé ;
+ * - `INTERRUPTED` : la page de paiement ne s'est pas ouverte (aucun ordre enregistré) : reprise,
+ *   qui cherche d'abord l'ordre par la clé (jamais un second ordre, N-108) ;
  * - `CONFIRMED` : seulement si le hold est converti et le trip né (preuve par webhook signé) ;
  * - `DECLINED` : refus du PSP, aucun débit, hold gardé jusqu'à son heure limite (lue dans l'API,
  *   aucune durée écrite) et « Pagar de nuevo » ;
  * - `ENDED` : hold échu ou libéré sans paiement (N-169 : sortie vers la recherche) ;
  * - `UNPROVEN` : hold terminé avec un ordre non prouvé : ne pas payer de nouveau, support ;
  * - `REFUND_DUE` : payé après la libération (`web.error.paidAfterRelease`, montant rendu par l'API).
- * `PAYABLE` (aucun ordre) : retour à S05.
+ * `PAYABLE` (aucun ordre) : retour à S05. Le passage d'un état à l'autre est annoncé par une région
+ * vive persistante et le focus passe au titre (`StateAnnouncer`).
  */
 export default async function PaymentPage({
   params,
@@ -70,48 +78,29 @@ export default async function PaymentPage({
       />
     </Shell>
   );
+  const failed = (
+    <Shell>
+      <h1 className={accountStyles['h1']}>{t('web.s06.status.title')}</h1>
+      <ErrorState
+        i18n={i18n}
+        message={t('web.s05.error')}
+        action={<ButtonLink href={paymentHref(holdId)}>{t('web.host.retry')}</ButtonLink>}
+      />
+    </Shell>
+  );
   if (!isUuid(holdId)) return notFound;
   const reply = await callApi('GET', `/checkout/holds/${holdId}/payment`, ctx);
   if (reply.status === 401) redirect('/login');
   if (codeOf(reply) === 'TERMS_REACCEPT_REQUIRED') redirect('/terms/update');
   if (reply.status === 404) return notFound;
   const payment = checkoutPaymentOf(reply);
-  if (payment?.state === 'PAYABLE') redirect(`/checkout/hold/${holdId}`);
-  const hold =
-    payment === null
-      ? null
-      : checkoutHoldOf(await callApi('GET', `/checkout/holds/${holdId}`, ctx));
-  const listing =
-    hold === null
-      ? null
-      : publicListingOf(
-          await callApi('GET', `/listings/${hold.listingId}`, { ...ctx, sessionToken: null }),
-        );
-  if (
-    payment === null ||
-    hold === null ||
-    listing === null ||
-    listing.currency !== hold.currency ||
-    listing.timezone === null
-  ) {
-    return (
-      <Shell>
-        <h1 className={accountStyles['h1']}>{t('web.s06.status.title')}</h1>
-        <ErrorState
-          i18n={i18n}
-          message={t('web.s05.error')}
-          action={<ButtonLink href={paymentHref(holdId)}>{t('web.host.retry')}</ButtonLink>}
-        />
-      </Shell>
-    );
-  }
-  const tz = listing.timezone;
-  const reference = t('web.s06.reference', { reference: bookingReference(payment.holdId) });
-  const amount = i18n.money({
-    amountMinor: hold.totalMinor,
-    currency: hold.currency,
-    exponent: listing.currencyExponent,
-  });
+  if (payment === null) return failed;
+  if (payment.state === 'PAYABLE') redirect(`/checkout/hold/${holdId}`);
+  const reference = (
+    <p className={accountStyles['text']} data-testid="s06-reference">
+      {t('web.s06.reference', { reference: bookingReference(payment.holdId) })}
+    </p>
+  );
   const support = (
     <section className={styles['section']} aria-labelledby="s06-support">
       <h2 id="s06-support" className={accountStyles['h2']}>
@@ -120,34 +109,139 @@ export default async function PaymentPage({
       <p className={accountStyles['text']}>{t('web.s06.supportBody')}</p>
     </section>
   );
+  const page = (state: PaymentStateView, title: string, announce: string, body: ReactNode) => (
+    <Shell>
+      <StateAnnouncer state={state} message={announce} />
+      <header className={accountStyles['stackTight']}>
+        <h1
+          id={S06_TITLE_ID}
+          tabIndex={-1}
+          className={accountStyles['h1']}
+          data-testid="s06-title"
+          data-state={state}
+        >
+          {title}
+        </h1>
+      </header>
+      {body}
+    </Shell>
+  );
+
+  // en attente de la preuve : une seule lecture de l'API à chaque relecture
+  if (payment.state === 'VERIFYING') {
+    const title = t('web.s06.verifying.title');
+    return page(
+      'VERIFYING',
+      title,
+      title,
+      <>
+        <LoadingState i18n={i18n} label={title} />
+        <p id={BODY_ID} className={accountStyles['text']}>
+          {t('web.s06.verifying.body')}
+        </p>
+        {reference}
+        <VerifyingWatch
+          slow={`${t('web.s06.verifying.slow')} ${t('web.s06.verifying.notify')}`}
+          supportTitle={t('web.s06.support')}
+          supportBody={t('web.s06.supportBody')}
+        />
+        <ButtonLink variant="secondary" href={paymentHref(payment.holdId)}>
+          {t('web.s06.refresh')}
+        </ButtonLink>
+        {/* un ordre est actif : « Pagar de nuevo » désactivé (anti double paiement, PAY-019) */}
+        <Button variant="secondary" block disabled aria-describedby={BODY_ID}>
+          {t('web.s06.payAgain')}
+        </Button>
+      </>,
+    );
+  }
+  if (payment.state === 'INTERRUPTED') {
+    const title = t('web.s06.interrupted.title');
+    return page(
+      'INTERRUPTED',
+      title,
+      title,
+      <>
+        <Banner tone="warning" live="off">
+          {t('web.s06.interrupted.body')}
+        </Banner>
+        <PayForm
+          localeTag={localeTag}
+          holdId={payment.holdId}
+          label={t('web.s06.interrupted.retry')}
+          testId="s06-retry"
+        />
+        {reference}
+      </>,
+    );
+  }
+  if (payment.state === 'UNPROVEN') {
+    const title = t('web.s06.unproven.title');
+    const body = t('web.s06.unproven.body');
+    return page(
+      'UNPROVEN',
+      title,
+      `${title}. ${body}`,
+      <>
+        <Banner tone="warning" live="off">
+          {body}
+        </Banner>
+        {reference}
+        {support}
+      </>,
+    );
+  }
+
+  // états finaux qui citent l'auto, l'heure limite ou le montant : hold et fiche lus une fois
+  const hold = checkoutHoldOf(await callApi('GET', `/checkout/holds/${holdId}`, ctx));
+  const listing =
+    hold === null
+      ? null
+      : publicListingOf(
+          await callApi('GET', `/listings/${hold.listingId}`, { ...ctx, sessionToken: null }),
+        );
+  if (
+    hold === null ||
+    listing === null ||
+    listing.currency !== hold.currency ||
+    listing.timezone === null
+  ) {
+    return failed;
+  }
   const car = (
     <p className={styles['strong']}>{`${listing.makeName} ${listing.modelName} ${listing.year}`}</p>
   );
   const search = <ButtonLink href="/">{t('web.listing.search')}</ButtonLink>;
-  let body: ReactNode;
-  let title: string;
   switch (payment.state) {
-    case 'CONFIRMED':
-      title = t('web.s06.confirmed.title');
-      body = (
+    case 'CONFIRMED': {
+      const title = t('web.s06.confirmed.title');
+      const body = t('web.s06.confirmed.body');
+      return page(
+        'CONFIRMED',
+        title,
+        `${title} ${body}`,
         <>
-          <Banner tone="success" live="polite">
-            {t('web.s06.confirmed.body')}
+          <Banner tone="success" live="off">
+            {body}
           </Banner>
           {car}
-          <p className={accountStyles['text']} data-testid="s06-reference">
-            {reference}
-          </p>
+          {reference}
           <ButtonLink href={`/listings/${hold.listingId}`}>{t('web.s06.confirmed.cta')}</ButtonLink>
-        </>
+        </>,
       );
-      break;
-    case 'DECLINED':
-      title = t('web.s06.declined.title');
-      body = (
+    }
+    case 'DECLINED': {
+      const title = t('web.s06.declined.title');
+      const body = t('web.error.paymentDeclined', {
+        hold_end_time: i18n.time(payment.expiresAt, listing.timezone),
+      });
+      return page(
+        'DECLINED',
+        title,
+        `${title}. ${body}`,
         <>
-          <Banner tone="danger" live="assertive">
-            {t('web.error.paymentDeclined', { hold_end_time: i18n.time(payment.expiresAt, tz) })}
+          <Banner tone="danger" live="off">
+            {body}
           </Banner>
           {car}
           <PayForm
@@ -156,88 +250,48 @@ export default async function PaymentPage({
             label={t('web.s06.payAgain')}
             testId="s06-pay-again"
           />
-          <p className={accountStyles['text']} data-testid="s06-reference">
-            {reference}
-          </p>
-        </>
+          {reference}
+        </>,
       );
-      break;
-    case 'ENDED':
-      title = t('web.s06.ended.title');
-      body = (
+    }
+    case 'REFUND_DUE': {
+      const title = t('web.s06.refund.title');
+      const body = t('web.error.paidAfterRelease', {
+        amount: i18n.money({
+          amountMinor: hold.totalMinor,
+          currency: hold.currency,
+          exponent: listing.currencyExponent,
+        }),
+      });
+      return page(
+        'REFUND_DUE',
+        title,
+        `${title}. ${body}`,
         <>
-          <Banner tone="warning" live="polite">
-            {t('web.s06.ended.body')}
+          <Banner tone="info" live="off">
+            {body}
+          </Banner>
+          {reference}
+          {search}
+        </>,
+      );
+    }
+    default: {
+      // ENDED : hold échu ou libéré sans paiement (N-169)
+      const title = t('web.s06.ended.title');
+      const body = t('web.s06.ended.body');
+      return page(
+        'ENDED',
+        title,
+        `${title}. ${body}`,
+        <>
+          <Banner tone="warning" live="off">
+            {body}
           </Banner>
           {car}
           {search}
-        </>
+        </>,
       );
-      break;
-    case 'UNPROVEN':
-      title = t('web.s06.unproven.title');
-      body = (
-        <>
-          <Banner tone="warning" live="polite">
-            {t('web.s06.unproven.body')}
-          </Banner>
-          <p className={accountStyles['text']} data-testid="s06-reference">
-            {reference}
-          </p>
-          {support}
-        </>
-      );
-      break;
-    case 'REFUND_DUE':
-      title = t('web.s06.refund.title');
-      body = (
-        <>
-          <Banner tone="info" live="polite">
-            {t('web.error.paidAfterRelease', { amount })}
-          </Banner>
-          <p className={accountStyles['text']} data-testid="s06-reference">
-            {reference}
-          </p>
-          {search}
-        </>
-      );
-      break;
-    default:
-      // VERIFYING : jamais « confirmé » avant la preuve (UX-27)
-      title = t('web.s06.verifying.title');
-      body = (
-        <>
-          <LoadingState i18n={i18n} label={t('web.s06.verifying.title')} />
-          <p className={accountStyles['text']} role="status">
-            {t('web.s06.verifying.body')}
-          </p>
-          <p className={accountStyles['text']} data-testid="s06-reference">
-            {reference}
-          </p>
-          <VerifyingWatch
-            slow={`${t('web.s06.verifying.slow')} ${t('web.s06.verifying.notify')}`}
-            supportTitle={t('web.s06.support')}
-            supportBody={t('web.s06.supportBody')}
-            reference={reference}
-          />
-          <ButtonLink variant="secondary" href={paymentHref(payment.holdId)}>
-            {t('web.s06.refresh')}
-          </ButtonLink>
-          {/* un ordre est actif : « Pagar de nuevo » désactivé (anti double paiement, PAY-019) */}
-          <Button variant="quiet" block disabled>
-            {t('web.s06.payAgain')}
-          </Button>
-        </>
-      );
+    }
   }
-  return (
-    <Shell>
-      <header className={accountStyles['stackTight']}>
-        <h1 className={accountStyles['h1']} data-testid="s06-title" data-state={payment.state}>
-          {title}
-        </h1>
-      </header>
-      {body}
-    </Shell>
-  );
 }

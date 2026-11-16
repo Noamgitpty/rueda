@@ -56,7 +56,14 @@ export class FakeCheckoutPaymentStore implements CheckoutPaymentStore {
     const h = this.holds.get(`${proof.toString('hex')}:${holdId}`);
     if (h === undefined) return Promise.resolve({ kind: 'REFUSED', code: 'HOLD_NOT_FOUND' });
     const r = h.start ?? { kind: 'REFUSED', code: 'PAYMENT_UNAVAILABLE' };
-    if (r.kind === 'START') h.row = { ...h.row, holdStatus: 'PAYMENT_IN_FLIGHT' };
+    // comme la base (T1 sous verrous) : un hold déjà en vol ne rend jamais NEW_ORDER
+    if (r.kind === 'START' && r.start.outcome === 'NEW_ORDER' && h.row.holdStatus !== 'ACTIVE') {
+      return Promise.resolve({ kind: 'IN_FLIGHT' });
+    }
+    // opération PENDING sans référence jusqu'à T2
+    if (r.kind === 'START') {
+      h.row = { ...h.row, holdStatus: 'PAYMENT_IN_FLIGHT', operationStatus: 'PENDING' };
+    }
     return Promise.resolve(r);
   }
 
@@ -77,6 +84,7 @@ export class FakeCheckoutPaymentStore implements CheckoutPaymentStore {
     const h = this.holds.get(`${proof.toString('hex')}:${holdId}`);
     if (h === undefined) return Promise.resolve('HOLD_NOT_FOUND');
     const outcome = h.record ?? 'RECORDED';
+    if (outcome === 'RECORDED') h.row = { ...h.row, operationStatus: 'SUBMITTED' };
     if (outcome === 'CONVERTED' || outcome === 'COMPENSATED' || outcome === 'EXPIRED') {
       h.row = { ...h.row, holdStatus: outcome };
     }

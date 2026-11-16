@@ -4,9 +4,15 @@
  * trip), traduction des refus de la base (mêmes couples SQLSTATE / contrainte que
  * `packages/db/src/errors.ts`) et journal sans valeur.
  */
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PaymentError } from '../../../pay/index.js';
-import { LOG_PAYMENT_FAILURE, parsePaymentDemand, paymentStateOf } from './payment.service.js';
+import {
+  LOG_PAYMENT_FAILURE,
+  parsePaymentDemand,
+  PAYMENT_STATES,
+  paymentStateOf,
+} from './payment.service.js';
 import { paymentRefusalOf } from './payment-store.js';
 import type { CheckoutPaymentRow } from './payment-store.js';
 
@@ -56,6 +62,47 @@ describe('US-223b — paiement du hold (unitaires)', () => {
       'ENDED',
     );
     expect(() => paymentStateOf({ ...ROW, holdStatus: 'NOUVEAU' })).toThrow();
+  });
+
+  it('table de vérité : chaque statut d’opération de 0005 sur chaque état du hold ; seul CONVERTED + trip confirme ; un statut inconnu ne confirme jamais', () => {
+    const ops = [null, 'PENDING', 'SUBMITTED', 'SUCCEEDED', 'FAILED', 'UNKNOWN'] as const;
+    const expected: Record<string, readonly string[]> = {
+      ACTIVE: ['PAYABLE', 'VERIFYING', 'VERIFYING', 'VERIFYING', 'DECLINED', 'VERIFYING'],
+      PAYMENT_IN_FLIGHT: [
+        'VERIFYING',
+        'INTERRUPTED',
+        'VERIFYING',
+        'VERIFYING',
+        'VERIFYING',
+        'VERIFYING',
+      ],
+      COMPENSATED: ops.map(() => 'REFUND_DUE'),
+      EXPIRED: ['ENDED', 'UNPROVEN', 'UNPROVEN', 'UNPROVEN', 'ENDED', 'UNPROVEN'],
+      RELEASED: ['ENDED', 'UNPROVEN', 'UNPROVEN', 'UNPROVEN', 'ENDED', 'UNPROVEN'],
+    };
+    for (const [holdStatus, states] of Object.entries(expected)) {
+      ops.forEach((operationStatus, i) => {
+        expect(
+          paymentStateOf({ ...ROW, holdStatus, operationStatus }),
+          `${holdStatus}/${operationStatus}`,
+        ).toBe(states[i]);
+      });
+    }
+    for (const operationStatus of ops) {
+      expect(paymentStateOf({ ...ROW, holdStatus: 'CONVERTED', operationStatus })).toBe(
+        'VERIFYING',
+      );
+      expect(
+        paymentStateOf({ ...ROW, holdStatus: 'CONVERTED', tripId: 't', operationStatus }),
+      ).toBe('CONFIRMED');
+    }
+  });
+
+  it('états identiques à l’énumération du contrat (openapi.json, CheckoutPaymentState)', () => {
+    const doc = JSON.parse(
+      readFileSync(new URL('../../../../../openapi/openapi.json', import.meta.url), 'utf8'),
+    ) as { components: { schemas: { CheckoutPaymentState: { enum: string[] } } } };
+    expect(doc.components.schemas.CheckoutPaymentState.enum).toEqual([...PAYMENT_STATES]);
   });
 
   it('refus de la base : couple (SQLSTATE, contrainte) exact, sinon panne (null)', () => {

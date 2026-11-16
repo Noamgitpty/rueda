@@ -37,6 +37,10 @@ export type HostedPaymentProvider = Pick<PaymentProvider, 'createHostedPayment' 
  * États du paiement rendus au site (PROPOSÉS, ADR-142) :
  * - `PAYABLE` : hold vivant, aucun ordre ; `DECLINED` : hold vivant, dernier ordre refusé ;
  * - `VERIFYING` : ordre en cours ou paiement reçu en attente de preuve (« Pago en verificación ») ;
+ * - `INTERRUPTED` : hold en vol dont l'ordre n'a jamais été enregistré (T1 passée, PSP sans réponse
+ *   ou en échec avant T2 : opération `PENDING`, donc sans référence) ; le voyageur peut reprendre :
+ *   la reprise repasse par T1 (`RETRY_SAME_KEY`) et cherche d'abord l'ordre par NOTRE clé, jamais un
+ *   second ordre (N-108) ;
  * - `CONFIRMED` : hold `CONVERTED` et trip né (seul état « confirmé ») ;
  * - `REFUND_DUE` : payé après la libération du créneau, compensé (remboursement intégral, 10b §3
  *   règle 3) ;
@@ -48,6 +52,7 @@ export const PAYMENT_STATES = [
   'PAYABLE',
   'DECLINED',
   'VERIFYING',
+  'INTERRUPTED',
   'CONFIRMED',
   'REFUND_DUE',
   'UNPROVEN',
@@ -78,7 +83,8 @@ export function paymentStateOf(row: CheckoutPaymentRow): PaymentState {
       // jamais « confirmé » sans trip (incohérence : on attend, fail-closed)
       return row.tripId === null ? 'VERIFYING' : 'CONFIRMED';
     case 'PAYMENT_IN_FLIGHT':
-      return 'VERIFYING';
+      // PENDING = T2 jamais passée : aucun ordre enregistré, reprise possible par la clé
+      return row.operationStatus === 'PENDING' ? 'INTERRUPTED' : 'VERIFYING';
     case 'ACTIVE':
       if (row.operationStatus === null) return 'PAYABLE';
       // ordre en cours ou non prouvé sur un hold vivant : ne pas payer de nouveau
@@ -164,7 +170,12 @@ export class CheckoutPaymentService {
     const method = parsePaymentDemand(body);
     if (method === null) throw new PaymentHttpError('REQUEST_INVALID');
     const before = viewOf(id, await this.#read(proof, id));
-    if (before.state !== 'PAYABLE' && before.state !== 'DECLINED') {
+    // INTERRUPTED : T1 rend RETRY_SAME_KEY (recherche par clé puis même clé) ou un état à vérifier
+    if (
+      before.state !== 'PAYABLE' &&
+      before.state !== 'DECLINED' &&
+      before.state !== 'INTERRUPTED'
+    ) {
       return { created: false, payment: { ...before, redirectUrl: null } };
     }
     // aucun connecteur dans cette image : refus AVANT T1 (le hold n'est pas mis en vol)
@@ -258,7 +269,7 @@ export class CheckoutPaymentService {
   ): Promise<{ readonly created: boolean; readonly payment: CheckoutPaymentStarted }> {
     const view = viewOf(holdId, await this.#read(proof, holdId));
     // une redirection n'a de sens que tant que le paiement est en cours
-    const url = view.state === 'VERIFYING' ? redirectUrl : null;
+    const url = view.state === 'VERIFYING' || view.state === 'INTERRUPTED' ? redirectUrl : null;
     return { created: url !== null, payment: { ...view, redirectUrl: url } };
   }
 
