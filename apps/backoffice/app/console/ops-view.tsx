@@ -104,6 +104,10 @@ export interface BookingReviewView {
   readonly expiresAt: string;
   readonly startsAt: string | null;
   readonly endsAt: string | null;
+  /** Fuseau du pays (IANA) : les échéances sont montrées à l'heure du pays. */
+  readonly timezone: string | null;
+  /** Délai de paiement donné au voyageur par une approbation (paramètres du pays), ou `null`. */
+  readonly paymentWindowMinutes: number | null;
   readonly entryDeclaration: {
     readonly residencyStatus: 'TOURIST' | 'RESIDENT';
     readonly entryDate: string | null;
@@ -1974,6 +1978,9 @@ const HOLD_STATUS_KEYS: Readonly<Record<HoldStatus, MessageKey>> = {
 /** Refus motivés de la commande liée (0119) expliqués dans la langue de la vue. */
 export const BOOKING_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
   ALREADY_DECIDED: 'backoffice.booking.refusal.alreadyDecided',
+  NOT_FOUND: 'backoffice.booking.refusal.notFound',
+  PARAM_MISSING: 'backoffice.booking.refusal.paramMissing',
+  BOOKING_UNAVAILABLE: 'backoffice.booking.refusal.bookingUnavailable',
   ITEM_NOT_CLAIMED: 'backoffice.booking.refusal.notClaimed',
   HOLD_NOT_LIVE: 'backoffice.booking.refusal.notLive',
   HOLD_EXPIRED: 'backoffice.booking.refusal.expired',
@@ -2012,6 +2019,14 @@ function BookingPanel({
     b.holdStatus === 'PAYMENT_IN_FLIGHT' ||
     b.holdStatus === 'CONVERTED';
   const entry = b.entryDeclaration;
+  const tz = b.timezone ?? 'UTC';
+  const at = (iso: string): string => `${i18n.dateTime(iso, tz)} (${tz})`;
+  const minutes = b.paymentWindowMinutes === null ? '—' : String(b.paymentWindowMinutes);
+  // PAY_THEN_REVIEW : un hold actif n'est pas « en revue » avant le débit (revue ux #192 n° 2)
+  const statusKey =
+    b.holdStatus === 'ACTIVE' && !b.reviewBeforeCharge
+      ? 'backoffice.booking.hold.ACTIVE_OPEN'
+      : HOLD_STATUS_KEYS[b.holdStatus];
   return (
     <section className={styles['panel']} aria-labelledby="booking-heading">
       <h2 id="booking-heading" className={styles['heading']} tabIndex={-1}>
@@ -2027,16 +2042,13 @@ function BookingPanel({
       </p>
       <Fact
         label={i18n.t('backoffice.booking.status')}
-        value={`${i18n.t(HOLD_STATUS_KEYS[b.holdStatus])} · ${b.country}`}
+        value={`${i18n.t(statusKey)} · ${b.country}`}
       />
-      <Fact
-        label={i18n.t('backoffice.booking.expires')}
-        value={`${i18n.dateTime(b.expiresAt, 'UTC')} UTC`}
-      />
+      <Fact label={i18n.t('backoffice.booking.expires')} value={at(b.expiresAt)} />
       {b.startsAt !== null && b.endsAt !== null && (
         <Fact
           label={i18n.t('backoffice.booking.period')}
-          value={`${i18n.dateTime(b.startsAt, 'UTC')} – ${i18n.dateTime(b.endsAt, 'UTC')} UTC`}
+          value={`${i18n.dateTime(b.startsAt, tz)} – ${at(b.endsAt)}`}
         />
       )}
       <Fact label={i18n.t('backoffice.booking.score')} value={String(b.score)} />
@@ -2072,7 +2084,9 @@ function BookingPanel({
           <h3 id="booking-decision-heading" className={styles['label']}>
             {i18n.t('backoffice.booking.decisionHeading')}
           </h3>
-          <p className={styles['muted']}>{i18n.t('backoffice.booking.decisionHint')}</p>
+          <p className={styles['muted']}>
+            {i18n.t('backoffice.booking.decisionHint', { minutes })}
+          </p>
           <fieldset className={styles['checks']}>
             <legend className={styles['label']}>{i18n.t('backoffice.booking.decision')}</legend>
             {BOOKING_DECISIONS.map((d) => (

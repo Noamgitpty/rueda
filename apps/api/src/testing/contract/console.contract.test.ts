@@ -189,6 +189,8 @@ const OPS_BODIES: Readonly<Record<string, Record<string, unknown>>> = {
     expiresAt: '2031-07-01T10:00:00.123456+00:00',
     startsAt: '2031-07-10T15:00:00+00:00',
     endsAt: '2031-07-13T15:00:00+00:00',
+    timezone: 'Etc/GMT+5',
+    paymentWindowMinutes: 10,
     itemStatus: 'IN_REVIEW',
     accessId: ID,
     entryDeclaration: {

@@ -26,7 +26,10 @@
 ## Défauts PROPOSÉS
 
 - Approbation après le début prévu refusée (`START_PASSED`) plutôt qu'une intention de paiement suivie d'une compensation `START_PASSED` (C20) : le voyageur ne paie jamais pour un trip commencé.
-- Après l'approbation, le voyageur dispose de `hold_ttl_minutes` (10 min) pour payer (17 §2.5) ; prévenir le voyageur de la décision (événement `booking.hold.review_decided`) est la suite des notifications.
+- Après l'approbation, le voyageur dispose de `hold_ttl_minutes` (10 min) pour payer (17 §2.5). **Il n'est encore prévenu de rien** (événement `booking.hold.review_decided` sans consommateur) : la notification de chaque issue (approbation et délai, refus, libération à l'échéance) est un **préalable de mise en service** (GL-17) ; d'ici là, la console dit à l'agent la fenêtre réelle (lue des paramètres du pays dans le dossier) et que le voyageur n'est pas averti.
+- **Écart avec 10b UX-35** (« dans un délai de {count} heures ouvrées ») : `review_hold_minutes` est en minutes calendaires (120) ; PROPOSÉ ; à reporter dans 10b et à dire tel quel sur S05 (209c).
+- Un ADMIN lit le dossier de tout élément vivant de son pays, mais ne décide qu'un élément qu'il a pris (`ITEM_NOT_CLAIMED` sinon) : on décide ce qu'on a pris.
+- 10b (« Bêta P2P ») écrit « Refus motivé avant tout débit » : « motivé » désigne le motif du journal de l'ops, jamais une explication donnée au voyageur ; à préciser dans la PR de spécification.
 - Le refus n'est jamais motivé auprès du voyageur (08 BR-VERIF-03 : jamais au-delà d'une catégorie générique ; comme Turo, qui n'explique pas un refus de réservation par son équipe de confiance).
 - Borne de la déclaration d'entrée : 5 par heure, constante de la fonction (paramètre pays si l'ops veut la régler).
 

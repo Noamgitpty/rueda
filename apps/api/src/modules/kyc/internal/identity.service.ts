@@ -116,8 +116,16 @@ export interface StartedSession {
 
 const COUNTRY = /^[A-Z]{2}$/;
 const LOCALE = /^[a-z]{2}(-[A-Z]{2})?$/;
-/** Date calendaire réelle (AAAA-MM-JJ) ; la borne « jamais future » est jugée en base. */
+/** Forme AAAA-MM-JJ ; la borne « jamais future » est jugée en base. */
 const ISO_DAY = /^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+/** Date calendaire RÉELLE (2031-02-31 refusée) : forme, puis jour existant du calendrier. */
+export function isCalendarDay(value: unknown): value is string {
+  if (typeof value !== 'string' || !ISO_DAY.test(value)) return false;
+  const [y, m, d] = value.split('-').map(Number) as [number, number, number];
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
 
 function storeFailure(error: unknown): never {
   if (error instanceof IdentityStoreError) throw new KycHttpError('KYC_PROVIDER_UNAVAILABLE');
@@ -335,7 +343,7 @@ export class IdentityVerificationService {
     const entryDate = b['entryDate'] ?? null;
     if (
       (residency !== 'TOURIST' && residency !== 'RESIDENT') ||
-      (entryDate !== null && (typeof entryDate !== 'string' || !ISO_DAY.test(entryDate))) ||
+      (entryDate !== null && !isCalendarDay(entryDate)) ||
       (residency === 'TOURIST' && entryDate === null)
     ) {
       throw new KycHttpError('REQUEST_INVALID');
@@ -349,6 +357,13 @@ export class IdentityVerificationService {
         entryDate as string | null,
       );
     } catch (error) {
+      // défense : date refusée par la base (22007, 22008) = faute de saisie, jamais un 503
+      if (
+        error instanceof IdentityStoreError &&
+        (error.sqlstate === '22007' || error.sqlstate === '22008')
+      ) {
+        throw new KycHttpError('REQUEST_INVALID');
+      }
       storeFailure(error);
     }
     switch (r) {

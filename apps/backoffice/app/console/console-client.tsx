@@ -515,6 +515,8 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
           input: { decision },
         });
         if (r.ok) {
+          // fenêtre réelle lue du dossier (paramètres du pays), jamais en dur
+          const minutes = ops.booking?.paymentWindowMinutes;
           setOps((prev) => ({
             ...prev,
             booking: undefined,
@@ -524,6 +526,9 @@ export function ConsoleClient({ localeTag }: { readonly localeTag: string }) {
                 decision === 'APPROVED'
                   ? 'backoffice.booking.approved'
                   : 'backoffice.booking.rejected',
+              values: {
+                minutes: minutes === null || minutes === undefined ? '—' : String(minutes),
+              },
             },
           }));
           const selected = ops.queues?.selected;

@@ -613,23 +613,32 @@ export const EN_MESSAGES = {
   'backoffice.booking.entryResident': 'Resident',
   'backoffice.booking.decisionHeading': 'Decision',
   'backoffice.booking.decisionHint':
-    'Approving lets the guest pay. Rejecting frees the dates with no charge.',
+    'Approving gives the guest {minutes} min to pay; they aren’t notified automatically yet. Rejecting frees the dates with no charge.',
   'backoffice.booking.decision': 'Your decision',
   'backoffice.booking.approve': 'Approve the booking',
   'backoffice.booking.reject': 'Reject the booking',
   'backoffice.booking.record': 'Save the decision',
-  'backoffice.booking.approved': 'Booking approved. The guest can pay now.',
-  'backoffice.booking.rejected': 'Booking rejected. The dates are free, with no charge.',
+  'backoffice.booking.approved':
+    'Booking approved. The guest has {minutes} min to pay and isn’t notified automatically yet: let them know.',
+  'backoffice.booking.rejected':
+    'Booking rejected. The dates are free, with no charge. The guest isn’t notified automatically yet.',
   'backoffice.booking.hold.ACTIVE': 'Under review',
+  'backoffice.booking.hold.ACTIVE_OPEN': 'Active',
   'backoffice.booking.hold.PAYMENT_IN_FLIGHT': 'Payment in progress',
   'backoffice.booking.hold.CONVERTED': 'Paid',
   'backoffice.booking.hold.EXPIRED': 'Expired',
   'backoffice.booking.hold.RELEASED': 'Released',
   'backoffice.booking.hold.COMPENSATED': 'Compensated',
   'backoffice.booking.refusal.alreadyDecided': 'This booking already has a decision.',
+  'backoffice.booking.refusal.bookingUnavailable':
+    'We can’t find this booking’s period. Tell an administrator.',
+  'backoffice.booking.refusal.paramMissing':
+    'A country setting for the payment window is missing. Tell an administrator.',
+  'backoffice.booking.refusal.notFound': 'This assessment isn’t a booking under review.',
   'backoffice.booking.refusal.notClaimed': 'Claim the item in the queue before deciding.',
   'backoffice.booking.refusal.notLive': 'This booking is no longer active.',
-  'backoffice.booking.refusal.expired': 'The review window has ended. You can only reject it.',
+  'backoffice.booking.refusal.expired':
+    'The review window has ended: reject it now. Otherwise it’s released within a minute, with no charge.',
   'backoffice.booking.refusal.startPassed':
     'The trip has already started. You can only reject the booking.',
   'backoffice.booking.refusal.ineligible':

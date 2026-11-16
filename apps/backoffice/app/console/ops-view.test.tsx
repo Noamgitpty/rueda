@@ -311,6 +311,8 @@ const FLAGGED: OpsState = {
     expiresAt: AT,
     startsAt: AT,
     endsAt: AT,
+    timezone: 'Etc/GMT+5',
+    paymentWindowMinutes: 10,
     entryDeclaration: { residencyStatus: 'TOURIST', entryDate: '2026-11-01', declaredAt: AT },
   },
 };
@@ -458,6 +460,11 @@ describe('O01 : ce que chaque état montre', () => {
       expect(out).toContain(es[`backoffice.booking.signal.${s}`]);
     }
     expect(out).toContain(es['backoffice.booking.hold.ACTIVE']);
+    // échéance à l'heure du pays, fenêtre de paiement lue du dossier (jamais en dur)
+    expect(out).toContain('(Etc/GMT+5)');
+    expect(out).toContain(
+      translatorOf(tag).t('backoffice.booking.decisionHint', { minutes: '10' }),
+    );
     expect(out).toContain('2026-11-01');
     expect(out).toContain('name="decision" value="APPROVED"');
     expect(out).toContain('name="decision" value="REJECTED"');
@@ -469,6 +476,18 @@ describe('O01 : ce que chaque état montre', () => {
   it('réservation sortie (US-209b) : aucun formulaire de décision ; sans déclaration ; refus de la commande traduits dans chaque langue', () => {
     const out = html(RELEASED_BOOKING, tag);
     expect(out).toContain(es['backoffice.booking.hold.RELEASED']);
+    // PAY_THEN_REVIEW, hold actif : « active », jamais « en revue »
+    const open = html(
+      {
+        booking: {
+          ...(RELEASED_BOOKING.booking as NonNullable<OpsState['booking']>),
+          holdStatus: 'ACTIVE',
+        },
+      },
+      tag,
+    );
+    expect(open).toContain(es['backoffice.booking.hold.ACTIVE_OPEN']);
+    expect(open).not.toContain(es['backoffice.booking.hold.ACTIVE']);
     expect(out).toContain(es['backoffice.booking.introAfter']);
     expect(out).toContain(es['backoffice.booking.entryNone']);
     expect(out).not.toContain(es['backoffice.booking.decisionHeading']);

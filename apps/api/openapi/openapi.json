@@ -13377,7 +13377,9 @@
           "endsAt",
           "itemStatus",
           "accessId",
-          "entryDeclaration"
+          "entryDeclaration",
+          "timezone",
+          "paymentWindowMinutes"
         ],
         "additionalProperties": false,
         "description": "US-209b (ADR-141) : dossier d'une réservation signalée pour l'ops ; aucune donnée personnelle hors la déclaration d'entrée (date [C2]).",
@@ -13490,6 +13492,15 @@
           "itemStatus": {
             "type": "string",
             "enum": ["OPEN", "IN_REVIEW"]
+          },
+          "timezone": {
+            "type": ["string", "null"],
+            "description": "Fuseau IANA du pays (affichage des échéances)"
+          },
+          "paymentWindowMinutes": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Délai de paiement donné par une approbation : min(hold_ttl_minutes, hold_max_total_minutes) du pays"
           },
           "accessId": {
             "$ref": "#/components/schemas/Uuid"

@@ -884,6 +884,21 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       return { p, holdId: r.hold_id, listingId: id, rv };
     }
 
+    /** Compte marchand FAKE du pays et capacités bloquantes validées (US-223a ; bac à sable). */
+    async function paymentReady(tx: Tx): Promise<void> {
+      await tx.query('SELECT test_fixture.us024_psp_account($1)', [cc.country]);
+      const { rows } = await tx.query<{ capability: string; kind: string }>(
+        `SELECT capability, kind FROM core.payment_psp_capability_catalog WHERE blocking <> 'NO'`,
+      );
+      for (const c of rows) {
+        const value = c.kind === 'bool' ? true : c.kind === 'int' ? 1 : 'FAKE_HMAC_SHA256';
+        await tx.query(
+          `SELECT test_fixture.us024_set_capability('FAKE', $1, '*', $2, $3::jsonb, $4, $5::timestamptz)`,
+          [cc.country, c.capability, JSON.stringify(value), 'VALIDATED_SANDBOX', plus(NOW, -3)],
+        );
+      }
+    }
+
     it('critère 2 (fin) : ADR-122 lève le conflit présumé (un agent neutre prend l’élément) ; APPROVED motivé ⇒ reviewed_at, UNE prolongation (hold_ttl_minutes depuis la décision, ≤ hold_max_total_minutes), occupation prolongée, élément DONE, évaluation décidée, motif et auteur journalisés, événement sans donnée personnelle ; seconde décision refusée', async () => {
       await run(async (tx, w) => {
         const f = await flagged(tx, w);
@@ -948,17 +963,7 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
 
     it('après l’approbation, le paiement reprend par le chemin d’US-223 (REVIEW_BEFORE_CHARGE) : avant la décision BOOKING_UNDER_REVIEW ; après, NEW_ORDER au total du devis engagé ; aucun trip sans preuve du PSP', async () => {
       await run(async (tx, w) => {
-        await tx.query('SELECT test_fixture.us024_psp_account($1)', [cc.country]);
-        const { rows } = await tx.query<{ capability: string; kind: string }>(
-          `SELECT capability, kind FROM core.payment_psp_capability_catalog WHERE blocking <> 'NO'`,
-        );
-        for (const c of rows) {
-          const value = c.kind === 'bool' ? true : c.kind === 'int' ? 1 : 'FAKE_HMAC_SHA256';
-          await tx.query(
-            `SELECT test_fixture.us024_set_capability('FAKE', $1, '*', $2, $3::jsonb, $4, $5::timestamptz)`,
-            [cc.country, c.capability, JSON.stringify(value), 'VALIDATED_SANDBOX', plus(NOW, -3)],
-          );
-        }
+        await paymentReady(tx);
         const f = await flagged(tx, w);
         const before = await failure(tx, 'SELECT core.booking_cmd_checkout_pay($1, $2, $3)', [
           f.p.hash,
@@ -1055,6 +1060,111 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       });
     });
 
+    it('décision à l’échéance (17 §2.5) : hold de revue échu, pas encore balayé, élément pris ⇒ APPROVED refusé (HOLD_EXPIRED), rien d’écrit ; REJECTED ⇒ DONE, RELEASED / REVIEW_REJECTED par l’agent, sans débit', async () => {
+      await run(async (tx, w) => {
+        const f = await flagged(tx, w);
+        const late = plus(NOW, REVIEW_HOLD_MIN + 1);
+        await setClock(tx, late);
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        expect(await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).toMatchObject({
+          outcome: 'REFUSED',
+          detail: 'HOLD_EXPIRED',
+        });
+        expect(await holdRow(tx, f.holdId)).toMatchObject({ status: 'ACTIVE', reviewed_at: null });
+        expect(await review(tx, f.holdId)).toMatchObject({
+          item_status: 'IN_REVIEW',
+          decided_at: null,
+          occupancy_active: true,
+        });
+        expect(await decide(tx, ops, f.rv.assessment_id, 'REJECTED', REASON_KO)).toMatchObject({
+          outcome: 'DONE',
+          domain_ref: f.holdId,
+        });
+        expect(await holdRow(tx, f.holdId)).toMatchObject({
+          status: 'RELEASED',
+          reviewed_at: null,
+        });
+        const rv = await review(tx, f.holdId);
+        expect(rv).toMatchObject({
+          release_reason: 'REVIEW_REJECTED',
+          released_by: ops.userId,
+          occupancy_active: false,
+          deactivated_reason: 'HOLD_RELEASED',
+          item_status: 'DONE',
+          item_decision: 'REJECTED',
+          reviewed_by: ops.userId,
+        });
+        expect(iso(rv['released_at'])).toBe(late);
+      });
+    });
+
+    it('refus de la commande liée sans rien écrire : évaluation AUTO_OK (non signalée) ⇒ NOT_FOUND ; hold_ttl_minutes mal formé ⇒ PARAM_MISSING (fail-closed), le refus reste possible', async () => {
+      await run(async (tx, w) => {
+        // une seule règle faible (compte récent, véhicule sans classe) : AUTO_OK, aucune file
+        const p = await guest(tx, cc);
+        const r = await book(tx, cc, w, p, await listing(tx, cc));
+        expect(r.outcome).toBe('DONE');
+        const auto = await review(tx, r.hold_id);
+        expect(auto).toMatchObject({ decision: 'AUTO_OK', item_id: null });
+        const ops = await staffNow(tx, cc);
+        expect((await decide(tx, ops, auto.assessment_id, 'APPROVED')).detail).toBe('NOT_FOUND');
+        expect(await holdRow(tx, r.hold_id)).toMatchObject({ status: 'ACTIVE', reviewed_at: null });
+
+        const f = await flagged(tx, w);
+        await tx.query('SELECT test_fixture.us209b_set_hold_ttl($1, $2::jsonb)', [
+          cc.country,
+          '"dix"',
+        ]);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).detail).toBe(
+          'PARAM_MISSING',
+        );
+        expect(await holdRow(tx, f.holdId)).toMatchObject({ status: 'ACTIVE', reviewed_at: null });
+        expect(await review(tx, f.holdId)).toMatchObject({ item_status: 'IN_REVIEW' });
+        expect((await decide(tx, ops, f.rv.assessment_id, 'REJECTED', REASON_KO)).outcome).toBe(
+          'DONE',
+        );
+      });
+    });
+
+    it('branche PAY_THEN_REVIEW pendant un paiement : REJECTED ⇒ PAYMENT_IN_FLIGHT, rien d’écrit ; APPROVED ⇒ décision enregistrée, paiement inchangé', async () => {
+      await run(async (tx, w) => {
+        await paymentReady(tx);
+        await tx.query('SELECT test_fixture.us209_set_param($1, $2, NULL, $3::jsonb)', [
+          'flagged_booking_payment_order',
+          cc.country,
+          '"PAY_THEN_REVIEW"',
+        ]);
+        const f = await flagged(tx, w);
+        const paid = await tx.query<{ r: Record<string, unknown> }>(
+          'SELECT core.booking_cmd_checkout_pay($1, $2, $3) AS r',
+          [f.p.hash, f.holdId, 'CARD'],
+        );
+        expect(paid.rows[0]?.r).toMatchObject({ outcome: 'NEW_ORDER' });
+        expect(await holdRow(tx, f.holdId)).toMatchObject({ status: 'PAYMENT_IN_FLIGHT' });
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, f.rv.assessment_id, 'REJECTED', REASON_KO)).detail).toBe(
+          'PAYMENT_IN_FLIGHT',
+        );
+        expect(await review(tx, f.holdId)).toMatchObject({
+          item_status: 'IN_REVIEW',
+          decided_at: null,
+          release_reason: null,
+        });
+        expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).outcome).toBe('DONE');
+        expect(await holdRow(tx, f.holdId)).toMatchObject({
+          status: 'PAYMENT_IN_FLIGHT',
+          reviewed_at: null,
+        });
+        expect(await review(tx, f.holdId)).toMatchObject({
+          item_status: 'DONE',
+          reviewed_by: ops.userId,
+        });
+      });
+    });
+
     it('APPROVED d’un hold dont le début prévu est passé (C20) ⇒ START_PASSED, rien d’écrit ; voyageur devenu inéligible ⇒ GUEST_INELIGIBLE, le refus reste possible', async () => {
       await run(async (tx, w) => {
         // départ dans 1 h 30 (préavis de l'hôte à 1 h) et compte récent : 50, revue (120 min)
@@ -1145,7 +1255,10 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           reviewedAt: null,
           itemStatus: 'IN_REVIEW',
           entryDeclaration: { residencyStatus: 'TOURIST', entryDate: '2026-11-20' },
+          // 17 §7.2 : min(hold_ttl_minutes 10, hold_max_total_minutes 20)
+          paymentWindowMinutes: HOLD_TTL_MIN,
         });
+        expect(typeof d?.body?.['timezone']).toBe('string');
         expect(iso(d?.body?.['expiresAt'])).toBe(plus(NOW, REVIEW_HOLD_MIN));
         expect(iso(d?.body?.['startsAt'])).toBe(START);
         expect(

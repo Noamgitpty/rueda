@@ -10,7 +10,8 @@
 --      l'occupation et des événements du hold (aucun rôle applicatif ne les lit) : les attendus
 --      viennent de 16, 17 et 19, jamais de cette relecture ;
 --   2. `us209b_manual_action` : ligne manual_action d'une demande (motif, saisie, issue) ;
---   3. `us209b_insert_assessment` : évaluation d'un hold d'un pays (résolveur RISK_ASSESSMENT).
+--   3. `us209b_insert_assessment` : évaluation d'un hold d'un pays (résolveur RISK_ASSESSMENT) ;
+--   4. `us209b_set_hold_ttl` : `hold_ttl_minutes` du pays mal formé (PARAM_MISSING).
 -- AUCUNE fixture n'écrit un interrupteur de mise en service (17 §0.1).
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us209b_* (voir la liste des droits en fin de fichier).
@@ -81,9 +82,24 @@ AS $fn$
   RETURNING id
 $fn$;
 
+-- nouvelle valeur (éventuellement mal formée) de hold_ttl_minutes du pays, à platform.now() :
+-- preuve de PARAM_MISSING (lecture fail-closed de core.booking_param_int)
+CREATE FUNCTION test_fixture.us209b_set_hold_ttl(p_country text, p_value jsonb)
+  RETURNS void
+  LANGUAGE sql
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  INSERT INTO core.config_param_value (key, country_code, scope_type, scope_id, value,
+                                       change_reason)
+  VALUES ('hold_ttl_minutes', p_country, 'COUNTRY', NULL, p_value, 'test US-209b : valeur de test')
+$fn$;
+
 REVOKE ALL ON FUNCTION test_fixture.us209b_review(uuid), test_fixture.us209b_events(uuid),
   test_fixture.us209b_manual_action(uuid),
-  test_fixture.us209b_insert_assessment(text) FROM PUBLIC;
+  test_fixture.us209b_insert_assessment(text), test_fixture.us209b_set_hold_ttl(text, jsonb)
+  FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION test_fixture.us209b_review(uuid), test_fixture.us209b_events(uuid),
   test_fixture.us209b_manual_action(uuid),
-  test_fixture.us209b_insert_assessment(text) TO app_api;
+  test_fixture.us209b_insert_assessment(text), test_fixture.us209b_set_hold_ttl(text, jsonb)
+  TO app_api;

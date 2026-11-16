@@ -612,6 +612,9 @@ describe('US-209b — POST /identity/entry-declaration (déclaration d’entrée
       { ...TOURIST, residencyStatus: 'VISITOR' },
       { ...TOURIST, entryDate: '20/06/2031' },
       { ...TOURIST, entryDate: '2031-13-01' },
+      // jour inexistant du calendrier : 400, jamais 503 (revue code #192 n° 1)
+      { ...TOURIST, entryDate: '2031-02-31' },
+      { ...TOURIST, entryDate: '2032-02-30' },
       { residencyStatus: 'RESIDENT' },
     ]) {
       const r = await post(body);
@@ -633,6 +636,17 @@ describe('US-209b — POST /identity/entry-declaration (déclaration d’entrée
     expect(w.store.entryDeclarations).toEqual([]);
     w.store.failing = true;
     expect((await post(TOURIST)).status).toBe(503);
+  });
+
+  it('date refusée par la base (22008, défense) : 400 REQUEST_INVALID, jamais 503 ; 29 février d’une année bissextile admis', async () => {
+    const w = await world();
+    const post = (body: unknown) => w.app.api.request('POST', ROUTE, { headers: w.guest, body });
+    w.store.entrySqlstate = '22008';
+    const r = await post(TOURIST);
+    expect(r.status).toBe(400);
+    expect(r.json).toMatchObject({ code: 'REQUEST_INVALID' });
+    w.store.entrySqlstate = null;
+    expect((await post({ ...TOURIST, entryDate: '2028-02-29' })).status).toBe(200);
   });
 });
 

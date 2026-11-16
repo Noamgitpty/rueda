@@ -64,6 +64,8 @@ export class FakeIdentityStore implements IdentityStore {
   }[] = [];
   today = '2031-07-01';
   entryRateLimited = false;
+  /** SQLSTATE levé par la « base » à la déclaration (défense du service), ou `null`. */
+  entrySqlstate: string | null = null;
   readonly decisions: { readonly eventId: string; readonly outcome: string }[] = [];
   /** Demandes d'effacement inscrites au retrait (lecture du test). */
   readonly erasures: {
@@ -363,6 +365,9 @@ export class FakeIdentityStore implements IdentityStore {
     entryDate: string | null,
   ): Promise<EntryDeclarationOutcome> {
     if (this.failing) return Promise.reject(new IdentityStoreError('fake', '08006'));
+    if (this.entrySqlstate !== null) {
+      return Promise.reject(new IdentityStoreError('declare_entry', this.entrySqlstate));
+    }
     if (this.#person(tokenHash) === undefined) return Promise.resolve('AUTH_REQUIRED');
     if (residency === 'TOURIST' && entryDate === null) return Promise.resolve('REQUEST_INVALID');
     if (entryDate !== null && (entryDate > this.today || entryDate < '1900-01-01')) {

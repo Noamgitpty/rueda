@@ -479,6 +479,9 @@ DECLARE
   v_a      record;
   v_h      record;
   v_period tstzrange;
+  v_tz     text;
+  v_ttl    integer;
+  v_max    integer;
 BEGIN
   SELECT a.id, a.subject_id, a.country_code, a.org_id, a.rules_fired, a.score, a.decision,
          a.reviewed_by, a.decided_at, a.created_at INTO v_a
@@ -494,13 +497,20 @@ BEGIN
     FROM core.booking_checkout_acceptance AS a
     JOIN core.pricing_quote AS q ON q.id = a.quote_id
    WHERE a.hold_id = v_a.subject_id;
+  -- fuseau du pays (affichage des échéances) et délai de paiement après une approbation
+  -- (17 §2.5 : LEAST(hold_ttl_minutes, hold_max_total_minutes) ; NULL si un paramètre manque)
+  SELECT k.time_zone INTO v_tz FROM core.config_country AS k WHERE k.code::text = v_a.country_code;
+  v_ttl := core.booking_param_int('hold_ttl_minutes', v_a.country_code);
+  v_max := core.booking_param_int('hold_max_total_minutes', v_a.country_code);
   RETURN pg_catalog.jsonb_build_object(
     'assessmentId', v_a.id, 'holdId', v_h.id, 'guestUserId', v_h.guest_user_id,
     'vehicleId', v_h.vehicle_id, 'orgId', v_a.org_id, 'country', v_a.country_code,
     'rulesFired', v_a.rules_fired, 'score', v_a.score, 'flaggedAt', v_a.created_at,
     'holdStatus', v_h.status, 'reviewBeforeCharge', v_h.review_required,
     'reviewedAt', v_h.reviewed_at, 'expiresAt', v_h.expires_at,
-    'startsAt', pg_catalog.lower(v_period), 'endsAt', pg_catalog.upper(v_period));
+    'startsAt', pg_catalog.lower(v_period), 'endsAt', pg_catalog.upper(v_period),
+    'timezone', v_tz,
+    'paymentWindowMinutes', CASE WHEN v_ttl >= 1 AND v_max >= 1 THEN LEAST(v_ttl, v_max) END);
 END
 $fn$;
 COMMENT ON FUNCTION core.booking_staff_review_dossier(uuid) IS

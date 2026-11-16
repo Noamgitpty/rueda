@@ -632,23 +632,32 @@ export const ES_MESSAGES = {
   'backoffice.booking.entryResident': 'Residente',
   'backoffice.booking.decisionHeading': 'Decisión',
   'backoffice.booking.decisionHint':
-    'Aprobar deja pagar al viajero. Rechazar libera las fechas sin ningún cobro.',
+    'Aprobar le da al viajero {minutes} min para pagar; todavía no recibe aviso automático. Rechazar libera las fechas sin ningún cobro.',
   'backoffice.booking.decision': 'Tu decisión',
   'backoffice.booking.approve': 'Aprobar la reserva',
   'backoffice.booking.reject': 'Rechazar la reserva',
   'backoffice.booking.record': 'Guardar la decisión',
-  'backoffice.booking.approved': 'Reserva aprobada. El viajero ya puede pagar.',
-  'backoffice.booking.rejected': 'Reserva rechazada. Las fechas quedan libres, sin cobro.',
+  'backoffice.booking.approved':
+    'Reserva aprobada. El viajero tiene {minutes} min para pagar y todavía no recibe aviso automático: avísale tú.',
+  'backoffice.booking.rejected':
+    'Reserva rechazada. Las fechas quedan libres, sin cobro. El viajero todavía no recibe aviso automático.',
   'backoffice.booking.hold.ACTIVE': 'En revisión',
+  'backoffice.booking.hold.ACTIVE_OPEN': 'Activa',
   'backoffice.booking.hold.PAYMENT_IN_FLIGHT': 'Pago en curso',
   'backoffice.booking.hold.CONVERTED': 'Pagada',
   'backoffice.booking.hold.EXPIRED': 'Vencida',
   'backoffice.booking.hold.RELEASED': 'Liberada',
   'backoffice.booking.hold.COMPENSATED': 'Compensada',
   'backoffice.booking.refusal.alreadyDecided': 'Esta reserva ya tiene una decisión.',
+  'backoffice.booking.refusal.bookingUnavailable':
+    'No encontramos el periodo de esta reserva. Avisa a un administrador.',
+  'backoffice.booking.refusal.paramMissing':
+    'Falta un parámetro del plazo de pago. Avisa a un administrador.',
+  'backoffice.booking.refusal.notFound': 'Esta evaluación no es una reserva en revisión.',
   'backoffice.booking.refusal.notClaimed': 'Toma el elemento en la fila antes de decidir.',
   'backoffice.booking.refusal.notLive': 'Esta reserva ya no está activa.',
-  'backoffice.booking.refusal.expired': 'El plazo de revisión venció. Solo puedes rechazarla.',
+  'backoffice.booking.refusal.expired':
+    'El plazo de revisión venció: recházala ahora. Si no, se liberará sola en un minuto, sin cobro.',
   'backoffice.booking.refusal.startPassed': 'El viaje ya empezó. Solo puedes rechazar la reserva.',
   'backoffice.booking.refusal.ineligible':
     'El viajero ya no cumple los controles. Solo puedes rechazar la reserva.',

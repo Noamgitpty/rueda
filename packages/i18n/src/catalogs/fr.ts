@@ -643,24 +643,32 @@ export const FR_MESSAGES = {
   'backoffice.booking.entryResident': 'Résident',
   'backoffice.booking.decisionHeading': 'Décision',
   'backoffice.booking.decisionHint':
-    'Approuver laisse le voyageur payer. Refuser libère les dates sans aucun débit.',
+    'Approuver donne au voyageur {minutes} min pour payer ; il n’est pas encore prévenu automatiquement. Refuser libère les dates sans aucun débit.',
   'backoffice.booking.decision': 'Ta décision',
   'backoffice.booking.approve': 'Approuver la réservation',
   'backoffice.booking.reject': 'Refuser la réservation',
   'backoffice.booking.record': 'Enregistrer la décision',
-  'backoffice.booking.approved': 'Réservation approuvée. Le voyageur peut payer.',
-  'backoffice.booking.rejected': 'Réservation refusée. Les dates sont libres, sans débit.',
+  'backoffice.booking.approved':
+    'Réservation approuvée. Le voyageur a {minutes} min pour payer et n’est pas encore prévenu automatiquement : préviens-le.',
+  'backoffice.booking.rejected':
+    'Réservation refusée. Les dates sont libres, sans débit. Le voyageur n’est pas encore prévenu automatiquement.',
   'backoffice.booking.hold.ACTIVE': 'En revue',
+  'backoffice.booking.hold.ACTIVE_OPEN': 'Active',
   'backoffice.booking.hold.PAYMENT_IN_FLIGHT': 'Paiement en cours',
   'backoffice.booking.hold.CONVERTED': 'Payée',
   'backoffice.booking.hold.EXPIRED': 'Échue',
   'backoffice.booking.hold.RELEASED': 'Libérée',
   'backoffice.booking.hold.COMPENSATED': 'Compensée',
   'backoffice.booking.refusal.alreadyDecided': 'Cette réservation a déjà une décision.',
+  'backoffice.booking.refusal.bookingUnavailable':
+    'La période de cette réservation est introuvable. Préviens un administrateur.',
+  'backoffice.booking.refusal.paramMissing':
+    'Un réglage du pays pour le délai de paiement manque. Préviens un administrateur.',
+  'backoffice.booking.refusal.notFound': 'Cette évaluation n’est pas une réservation en revue.',
   'backoffice.booking.refusal.notClaimed': 'Prends l’élément dans la file avant de décider.',
   'backoffice.booking.refusal.notLive': 'Cette réservation n’est plus active.',
   'backoffice.booking.refusal.expired':
-    'Le délai de revue est passé. Tu peux seulement la refuser.',
+    'Le délai de revue est passé : refuse-la maintenant. Sinon elle sera libérée d’elle-même dans la minute, sans débit.',
   'backoffice.booking.refusal.startPassed':
     'Le voyage a déjà commencé. Tu peux seulement refuser la réservation.',
   'backoffice.booking.refusal.ineligible':
