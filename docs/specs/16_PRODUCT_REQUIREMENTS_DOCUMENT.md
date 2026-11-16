@@ -234,6 +234,20 @@ Sans objet (pivot P2P) : l'ancienne porte G0 (commission acceptée par des agenc
 | `QUOTE_MISMATCH` | PROPOSÉ (19 US-202, ADR-125 ; US-704, ADR-129) | `409` : le devis rejoué par la base (prix du trip, trip fee, taxes, total, jambes) diffère de celui de l'API : rien n'est figé |
 | `QUOTE_REPLAY_MISMATCH` | PROPOSÉ (19 US-202, ADR-125) | le rejeu d'un devis figé depuis ses seules entrées ne redonne pas ses sorties (intégrité) : refus, jamais de correction |
 | `QUOTE_NOT_FOUND`, `TRIP_NOT_FOUND` | PROPOSÉ (19 US-202, ADR-125) | devis figé ou trip inconnus (ou hors de la portée de l'appelant) au rattachement d'un devis à son trip |
+| `DATES_NOTICE_TOO_SHORT` | fiche LST-006 (19 US-204, ADR-132 ; repris par le checkout, US-208, ADR-133) | `422` : départ dans le préavis du lieu de remise ; la fiche rend le préavis arrondi à l'heure supérieure (`noticeHours`) ; au checkout, refus de la pose du hold |
+| `DATES_UNAVAILABLE` | fiche LST-006 (19 US-204, ADR-132 ; repris par le checkout, US-208, ADR-133) | `409` : créneau pris ou hôte non activable, **sans détail** sur l'occupation en cause (dates grisées : LST-008, US-513) |
+| `MEETING_POINT_NOT_FOUND` | PROPOSÉ (19 US-204, ADR-132 ; fiche LST-007) | `404` : lieu de remise exact demandé sans trip confirmé et non terminé de ce véhicule par le voyageur de la session ; rien n'est révélé (même réponse qu'un identifiant inconnu) |
+| `LISTING_NOT_FOUND`, `LISTING_UNAVAILABLE` | PROPOSÉ (19 US-115 ; repris par US-202 et US-208) | `404` : annonce inconnue ou non publiée ; `LISTING_UNAVAILABLE` : `409` au checkout (annonce plus `LISTED` ou hôte non activable), `503` à la lecture de la fiche (base indisponible) |
+| `QUOTE_EXPIRED` | fiche PRC-025, BKG-001 (19 US-208, ADR-133, ADR-134) | `409` : devis figé plus ancien que sa durée de validité (`quote_validity_minutes`, PROPOSÉ 30 min) ; l'API ne renvoie **jamais** de devis de remplacement, le site en redemande un pour la même annonce et la même période et rouvre S05 sur le nouveau devis |
+| `QUOTE_ALREADY_USED` | PROPOSÉ (19 US-208, ADR-133) | `409` : devis figé déjà engagé par un checkout (un devis, un hold : `booking_checkout_acceptance`) |
+| `QUOTE_RATE_LIMITED` | PROPOSÉ (19 US-208, ADR-133 ; suivi N-130) | `429` : trop de devis figés par le même voyageur sur une heure glissante, tous véhicules confondus (`quote_freezes_per_guest_hour`, PROPOSÉ 30) ; réessayer plus tard |
+| `QUOTE_LINE_NOT_SUPPORTED` | PROPOSÉ (19 US-208, ADR-133 ; suivi N-129) | `422` : le devis porte une ligne que la base ne recalcule pas encore (toute ligne autre que `TRIP_PRICE` et `TRIP_FEE`) : aucun hold, jusqu'à la story qui la rejoue en base (US-223, US-226, US-701, US-702) |
+| `REQUEST_MODE_UNAVAILABLE` | PROPOSÉ (19 US-208, ADR-133, ADR-134 ; suivi N-128) | `409` : annonce sur demande (`instant_book = false`) : jamais un hold `INSTANT` ; S03 affiche un bandeau au lieu de « Reservar » ; le mode `REQUEST` arrive avec US-223 |
+| `TERMS_NOT_ACCEPTED` | fiche BKG-008 / BKG-023 (19 US-208, ADR-133) | `422` : au checkout, une case des documents à accepter (CGU du voyageur, politique d'annulation, texte géographique) n'est pas cochée |
+| `TERMS_UNAVAILABLE` | PROPOSÉ (19 US-208, ADR-133, ADR-134) | `503` : aucun texte publié en vigueur pour un document à accepter au checkout dans le pays du trajet : la case n'a ni lien ni version et le checkout est refusé (fail-closed) |
+| `HOLD_NOT_FOUND`, `HOLD_ALREADY_LIVE`, `HOLD_LIMIT_REACHED`, `HOLD_RATE_LIMITED` | 17 §2.5 (pose du hold, RLS-3, M5) ; repris par le checkout (19 US-208, ADR-133) ; `HOLD_NOT_FOUND` PROPOSÉ par US-208 | `404` : hold de checkout inconnu ou d'un autre voyageur ; `409` : hold vivant du même voyageur sur ce véhicule, ou plafond de holds vivants du voyageur atteint ; `429` : trop de poses de hold (débit) |
+| `KYC_CONSENT_WITHDRAWN` | PROPOSÉ (19 US-208, ADR-133) | `403` : le voyageur a retiré son consentement au traitement de ses données d'identité : aucune réservation tant qu'il ne l'a pas redonné |
+| `BOOKING_UNAVAILABLE` | PROPOSÉ (19 US-208, ADR-133, ADR-134) | `503` : magasin du checkout indisponible, ou issue incohérente de la base (`DONE` sans hold) : rien n'est posé, panne journalisée sans donnée personnelle |
 
 **Action de console** (PROPOSÉ, 19 US-107, US-058) : pendant la bêta fermée, l'ops peut **créer un compte d'hôte** (`organization` `P2P_HOST_INDIVIDUAL` et `membership` `P2P_HOST` titulaire) par une `manual_action` motivée et journalisée (ADM-001, ADM-004) ; la vérification (`host_verification`, US-123) et les interrupteurs du pays s'appliquent ensuite comme pour une inscription en libre-service. Le code de cette action est à ajouter au catalogue de 17 §10.
 
@@ -4710,3 +4724,11 @@ Source : `docs/team/impact/2026-11-02-pivot-p2p.md` (§b.2, §e, §g ligne S5, �
 | S5-26 | Revue QA : `PENDING_ACTIVATION` et `VEHICLE_NOT_COVERED` absents des fiches ; revue architecture : « agence » dans NTF-018 et PYO-012 | HST-049 (`PENDING_ACTIVATION`) et HST-019 (`VEHICLE_NOT_COVERED`) ; descriptions de NTF-018 et PYO-012 réécrites dans 04 | Appliqué |
 
 Contrôles (sorties en D.3) : `python -I -X utf8 tools/check_prd_structure.py` et `python -I -X utf8 tools/verif15_struct.py`.
+
+## D.8 Journal — reports du lot 2 (2026-11-16)
+
+Source : codes livrés par les stories fusionnées du lot 2, reportés par une demande de fusion revue (branche `docs/specs-reports-l2`) ; BOARD N-149 et N-167 ; ADR-132, ADR-133, ADR-134. Version 5 inchangée ; aucune décision du fondateur n'est prise ici.
+
+| # | Écart | Correction dans 16 | Statut |
+|---|---|---|---|
+| L2R-10 | Codes livrés par US-204 (`DATES_NOTICE_TOO_SHORT`, `DATES_UNAVAILABLE`, `MEETING_POINT_NOT_FOUND`) et par US-208 (`QUOTE_EXPIRED`, `QUOTE_ALREADY_USED`, `QUOTE_RATE_LIMITED`, `QUOTE_LINE_NOT_SUPPORTED`, `REQUEST_MODE_UNAVAILABLE`, `TERMS_NOT_ACCEPTED`, `TERMS_UNAVAILABLE`, codes du hold, `KYC_CONSENT_WITHDRAWN`, `BOOKING_UNAVAILABLE`), et `LISTING_NOT_FOUND` / `LISTING_UNAVAILABLE` d'US-115, absents du catalogue A.8 | A.8 : une ligne par code (statut HTTP, cas) ; les fiches LST-006, LST-007, PRC-025, BKG-001 et BKG-008 sont inchangées | Appliqué |
