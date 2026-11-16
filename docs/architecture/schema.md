@@ -129,6 +129,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0111_config_protection_params` | graine complémentaire : paramètres « protection_* » (US-226 ; 17 §7.2). |
 | `0112_booking_risk_checkout_controls` | AVL / RISK / KYC : contrôles bloquants du conducteur et revue des réservations signalées. |
 | `0113_config_foreign_license_params` | graine complémentaire : paramètres « foreign_license_* » (US-209 ; 17 §7.2). |
+| `0114_payment_checkout_legs_proof` | PAY / AVL / PRC / STL : paiement par jambes au checkout, Kmino marchand de référence, preuve par webhook (partie serveur 223a). |
 
 ## Rôles
 

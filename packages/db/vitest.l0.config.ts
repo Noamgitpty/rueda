@@ -24,6 +24,9 @@ const ISOLATED = [
   'test/l0/l0-06-real-clock.test.ts',
   'test/l0/l0-us024-conversion.test.ts',
   'test/l0/l0-us118-listing-publication.test.ts',
+  // US-223 : paiement prouvé puis conversion, à deux sessions, données commitées et expiration sur
+  // toute la base (comme US-024)
+  'test/l0/l0-us223-conversion.test.ts',
 ];
 const C11 = ['test/l0/l0-c11-fuzz.test.ts'];
 // US-049 : les attaques de la red team (test/redteam/<axe>/) tournent seules, après tous les autres

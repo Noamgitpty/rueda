@@ -625,7 +625,9 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
       },
     ) =>
       tx.query<{ outcome: string; inbox_id: string | null }>(
-        `SELECT outcome, inbox_id FROM core.payment_cmd_receive_webhook($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)`,
+        // US-223 (0114) : horodatage signé absent ⇒ hors fenêtre ; sans `signedAt`, l'heure de la BASE
+        `SELECT outcome, inbox_id FROM core.payment_cmd_receive_webhook($1, $2, $3, $4,
+           CASE WHEN $8::boolean THEN platform.now() ELSE $5::timestamptz END, $6::jsonb, $7::jsonb)`,
         [
           accountId,
           opts.eventId,
@@ -644,6 +646,7 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
               },
             ],
           ),
+          opts.signedAt === undefined,
         ],
       );
 

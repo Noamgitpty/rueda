@@ -158,7 +158,11 @@ describe('réception des webhooks', () => {
       authorization: 'Bearer s',
     });
     const row = r.store.inbox[0];
-    expect(containsPan(JSON.stringify(row))).toBe(false);
+    // US-223 : le montant reçu est un bigint (texte en base)
+    const text = JSON.stringify(row, (_k, x: unknown) =>
+      typeof x === 'bigint' ? x.toString() : x,
+    );
+    expect(containsPan(text)).toBe(false);
     expect(row?.headers['x-debug']).toBe('card 411111******1111');
     expect(row?.headers['authorization']).toBeUndefined();
     expect(r.warnings.some((w) => /PAN/.test(w))).toBe(true);
@@ -232,12 +236,13 @@ describe('réception des webhooks', () => {
       provider: FAKE_PROVIDER,
       verifyAndParseWebhook: () => ({
         signatureValid: true,
-        signedAt: null,
+        // US-223 (0114) : un horodatage signé absent serait hors fenêtre (QUARANTINED)
+        signedAt: new Date(r.stack.clock.now),
         providerEventId: ids[next++] ?? null,
         events: [],
       }),
     };
-    const r = rig({ registry: { get: () => verifier } });
+    const r: ReturnType<typeof rig> = rig({ registry: { get: () => verifier } });
     expect(await post(r, '{}', {})).toMatchObject({ outcome: 'RECEIVED' });
     expect(await post(r, '{}', {})).toMatchObject({ outcome: 'RECEIVED' });
     expect(r.store.inbox.map((x) => x.providerEventId)).toEqual([

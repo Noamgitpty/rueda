@@ -45,6 +45,8 @@ export type VersionOutcome =
   | 'QUOTE_NOT_FOUND'
   | 'TRIP_NOT_FOUND'
   | 'QUOTE_MISMATCH'
+  // US-223 (0114, N-160) : devis échu, jamais rattaché à un trip
+  | 'QUOTE_EXPIRED'
   | 'QUOTE_ALREADY_VERSIONED';
 
 export interface QuoteStore {
@@ -109,6 +111,7 @@ const VERSION_OUTCOMES: readonly string[] = [
   'QUOTE_NOT_FOUND',
   'TRIP_NOT_FOUND',
   'QUOTE_MISMATCH',
+  'QUOTE_EXPIRED',
 ];
 
 /** Rattachement concurrent du même devis (unicité de 0100). */

@@ -104,7 +104,10 @@ export class PgWebhookInboxStore implements WebhookInboxStore {
         input.signatureValid,
         input.signedAt,
         JSON.stringify(input.headers),
-        JSON.stringify(input.events),
+        // US-223 : montant en texte (bigint exact), jamais un nombre JSON
+        JSON.stringify(input.events, (_k, v: unknown) =>
+          typeof v === 'bigint' ? v.toString() : v,
+        ),
       ],
     );
     const row = rows[0];
@@ -207,6 +210,12 @@ function toEvents(raw: unknown): NormalizedPaymentEvent[] {
           typeof x['merchantReference'] === 'string' ? x['merchantReference'] : null,
         status: x['status'] as OperationStatus,
         occurredAt: x['occurredAt'],
+        // US-223 : montant et devise reçus (texte d'unités mineures), relus tels que stockés
+        amountMinor:
+          typeof x['amountMinor'] === 'string' && /^\d{1,18}$/.test(x['amountMinor'])
+            ? BigInt(x['amountMinor'])
+            : null,
+        currency: typeof x['currency'] === 'string' ? x['currency'] : null,
       },
     ];
   });

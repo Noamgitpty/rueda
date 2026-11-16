@@ -66,6 +66,10 @@ describe('translateDbError (17 §2.5 2d, §4.4, L0-08)', () => {
     ['23000', 'catalog_earnings_plan_immutable', 'IMMUTABLE_RECORD'],
     ['23000', 'review_record_immutable', 'IMMUTABLE_RECORD'],
     ['23514', 'hold_review_before_payment', 'BOOKING_UNDER_REVIEW'],
+    // US-223 (0114) : preuve exigée avant un mouvement de jambe ; version n° 1 ; jambe en double (N-18)
+    ['55000', 'leg_movement_unproven', 'PAYMENT_UNPROVEN'],
+    ['23000', 'pricing_checkout_trip_mismatch', 'INVARIANT_VIOLATION'],
+    ['23505', 'payment_operation_leg_pkey', 'INVARIANT_VIOLATION'],
     // machine à états du trip (0099, US-207 ; 16 TRP-045, 08 BR-CXL règle 3)
     ['55000', 'trip_transition_forbidden', 'TRIP_TRANSITION_FORBIDDEN'],
     ['55000', 'trip_concurrent_update', 'TRIP_CONCURRENT_UPDATE'],

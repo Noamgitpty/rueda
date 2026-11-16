@@ -10,9 +10,9 @@
  * - acceptation (`APPLIED`) : webhook signé reçu par la commande, rattaché par notre clé ou par la
  *   référence PSP (`providerReference`) ;
  * - `MANUAL_OPS` terminal : `UNPROVEN` (aucune action du staff journalisée au lot 0) ;
- * - `POLL` terminal : ACCEPTÉ sans preuve — CARACTÉRISATION de la limite écrite dans ADR-088
- *   (RC-5 partiellement corrigée pour POLL et API_RESPONSE, story US-223) : si ce test devient
- *   rouge, la limite est fermée, inverser l'attente ;
+ * - `POLL` terminal sur un compte de BAC À SABLE : accepté (preuve POLL) ; US-223 (0114, ADR-139)
+ *   ferme la limite d'ADR-088 pour un compte LIVE (POLL et API_RESPONSE terminaux ⇒ UNPROVEN,
+ *   prouvé par l0-us223-payment-proof.test.ts) ;
  * - voie directe (UPDATE du statut par un travailleur) : refusée (42501).
  * Les webhooks sont reçus par la VRAIE commande `core.payment_cmd_receive_webhook` (fixture 9950),
  * dans la transaction du test, annulée : aucun compte PSP ACTIVE ni aucune ligne d'inbox laissés
@@ -57,6 +57,9 @@ interface Event {
   readonly providerReference: string;
   readonly merchantReference: string | null;
   readonly status: string;
+  /** US-223 (0114) : montant et devise reçus ; un SUCCEEDED de loyer sans eux ne prouve rien. */
+  readonly amountMinor?: string;
+  readonly currency?: string;
 }
 
 /** Contexte du travailleur courant de la transaction. */
@@ -75,8 +78,10 @@ async function receive(
   opts: { signatureValid?: boolean; signedAt?: string | null } = {},
 ): Promise<{ outcome: string; inboxId: string | null }> {
   const { rows } = await tx.query<{ outcome: string; inbox_id: string | null }>(
+    // US-223 (0114) : horodatage signé absent ⇒ hors fenêtre ; sans `signedAt`, l'heure de la BASE
     `SELECT outcome, inbox_id
-       FROM test_fixture.us049_receive_custom($1, $2::jsonb, $3, $4::timestamptz)`,
+       FROM test_fixture.us049_receive_custom($1, $2::jsonb, $3,
+              CASE WHEN $5::boolean THEN platform.now() ELSE $4::timestamptz END)`,
     [
       account,
       JSON.stringify(
@@ -85,11 +90,14 @@ async function receive(
           providerReference: e.providerReference,
           merchantReference: e.merchantReference,
           status: e.status,
+          ...(e.amountMinor === undefined ? {} : { amountMinor: e.amountMinor }),
+          ...(e.currency === undefined ? {} : { currency: e.currency }),
           occurredAt: '2031-07-01T08:00:00Z',
         })),
       ),
       opts.signatureValid ?? true,
       opts.signedAt === undefined ? null : opts.signedAt,
+      opts.signedAt === undefined,
     ],
   );
   const r = rows[0];
@@ -125,6 +133,8 @@ describe.each(COUNTRIES)('US-049 RC-5 — preuve d’un statut terminal ($countr
   const v = CAPTURES[c.currency];
   if (v === undefined) throw new Error(`aucun vecteur en ${c.currency}`);
   const capture = { amountMinor: v.totalMinor, legs: { ...v.legsMinor } as Legs };
+  /** US-223 (0114) : montant et devise reçus d'un loyer, ceux de l'ordre. */
+  const paid = { amountMinor: v.totalMinor.toString(), currency: c.currency };
 
   /** Monde de la transaction (annulée) : compte A actif, compte B suspendu, deux opérations de A. */
   async function inWorld(fn: (tx: pg.ClientBase, w: World) => Promise<void>): Promise<void> {
@@ -241,7 +251,7 @@ describe.each(COUNTRIES)('US-049 RC-5 — preuve d’un statut terminal ($countr
   it('rejeu sur une seconde opération refusé ; rattachement par notre clé ou par la référence PSP accepté', async () => {
     await inWorld(async (tx, w) => {
       const byRef = await receive(tx, w.accountA, [
-        { providerReference: w.op1Ref, merchantReference: null, status: 'SUCCEEDED' },
+        { providerReference: w.op1Ref, merchantReference: null, status: 'SUCCEEDED', ...paid },
       ]);
       expect(byRef.outcome).toBe('RECEIVED');
       // le webhook de op1 ne prouve rien pour op2
@@ -261,7 +271,12 @@ describe.each(COUNTRIES)('US-049 RC-5 — preuve d’un statut terminal ($countr
       });
       // rattachement par notre clé (merchantReference = idem_sent)
       const byKey = await receive(tx, w.accountA, [
-        { providerReference: `ref-${uuid()}`, merchantReference: w.op2Idem, status: 'SUCCEEDED' },
+        {
+          providerReference: `ref-${uuid()}`,
+          merchantReference: w.op2Idem,
+          status: 'SUCCEEDED',
+          ...paid,
+        },
       ]);
       expect(await applyStatus(tx, w.op2, 'SUCCEEDED', 'WEBHOOK', null, byKey.inboxId)).toBe(
         'APPLIED',

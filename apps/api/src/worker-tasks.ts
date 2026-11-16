@@ -6,6 +6,8 @@
  * | Travailleur           | Période (PROPOSÉ)                          | Appel                                                     |
  * | --------------------- | ------------------------------------------ | --------------------------------------------------------- |
  * | `hold_expiry`         | 60 s (handoff US-023)                      | `core.booking_expire_due_holds`, `core.booking_release_cancelled_holds` (0037, 0040) |
+ * | `webhook_ingest`      | 10 s (US-223, ADR-139)                     | `WebhookProcessor` de PAY sur `PgWebhookWorkStore` : webhooks reçus rattachés et statuts appliqués par `core.payment_cmd_apply_operation_status` (preuve signée seulement ; aucune lecture du PSP : aucun adaptateur dans le travailleur avant le lot C) |
+ * | `booking_conversion`  | 10 s (US-223, ADR-139)                     | `core.booking_conversion_due` (0114) puis, une opération par transaction, `core.booking_convert_payment` (preuve exigée) ou `core.booking_record_payment_failure` (0041) |
  * | `disposition_sweeper` | `disposition_sweeper_period_s` (min. pays) | `core.booking_disposition_candidates` puis, une opération par transaction, `core.booking_disposition_repair` (0041, C17) |
  * | `booking_oracle`      | 24 h (ADR-068)                             | `core.booking_production_oracle_alert` (0045, C12)        |
  * | `reconciliation`      | 24 h (ADR-087)                             | contrôles de rapprochement de l'argent, lecture seule (FIN, US-047) ; alerte `FIN_MONEY_RECONCILIATION` |
@@ -19,9 +21,10 @@
  * | `security_incident_watch` | 300 s                                  | `core.security_incident_worker_watch` (0092, US-112) : déclaration d'incident nouvelle signalée une fois (`SECURITY_INCIDENT_OPENED`, P1, par pays) ; échéance de notification d'une violation dépassée signalée une fois (`SECURITY_INCIDENT_NOTICE_OVERDUE`, P1, par pays et destinataire) |
  * | `review_sla_watch`    | 60 s                                       | `core.kyc_worker_auto_review_hosts` (0081, US-108 : dossiers d'hôte propres approuvés sans l'ops), `core.kyc_worker_enqueue_reviews` puis `core.support_worker_review_sla` (0076, US-106) : dossiers KYC en revue remis en file, éléments en retard signalés une fois ; alertes `OPS_REVIEW_SLA_BREACH` (P2), `OPS_KYC_REVIEW_UNQUEUED` (P1, une fois par dossier et par épisode de revue) |
  *
- * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) : `booking_conversion`
- * et `payment_intent_sweeper` (lisent le PSP : adaptateurs du lot C, consommateur `payment_command`
- * d'US-061). Aucun canal de notification réel n'existe avant le lot C : `ntf_sender` échoue donc en
+ * Non déclarés ici, faute de port réel (tracé dans docs/team/handoffs/US-003.md) :
+ * `payment_intent_sweeper` et `payment_command` (lisent ou appellent le PSP : adaptateurs du lot C,
+ * consommateur `payment_command` d'US-061). `booking_conversion` est déclaré depuis US-223 : il ne lit
+ * que la base (la preuve est le webhook signé déjà appliqué par `webhook_ingest`). Aucun canal de notification réel n'existe avant le lot C : `ntf_sender` échoue donc en
  * `CHANNEL_UNAVAILABLE` (fail-closed, rien ne part), mais chaque envoi reste tracé.
  *
  * Les tâches ne journalisent que des comptes, jamais d'identifiant ni de donnée personnelle (17 §6.3).
@@ -36,6 +39,7 @@ import type {
 import { registerProductionOracle } from './modules/avl/index.js';
 import { resolveParam } from './modules/cfg/index.js';
 import { registerMoneyReconciliation } from './modules/fin/index.js';
+import { PgWebhookWorkStore, WebhookProcessor } from './modules/pay/index.js';
 import type { CountryConfig } from './modules/cfg/index.js';
 import { OtpSender, postgresNotificationContacts, registerPhoneOtp } from './modules/iam/index.js';
 import type { OtpCodeHasher } from './modules/iam/index.js';
@@ -48,6 +52,10 @@ import {
 import { ntfSmsBudget } from './modules/risk/index.js';
 
 export const HOLD_EXPIRY_WORKER = 'hold_expiry';
+/** Webhooks PSP reçus : rattachement et statut (17 §4.4 points 5 à 8 ; US-019, US-223). */
+export const WEBHOOK_INGEST_WORKER = 'webhook_ingest';
+/** Conversion gardée d'un paiement prouvé en trip, ou refus reçu (17 §2.5 étapes 3e et 4 ; US-223). */
+export const BOOKING_CONVERSION_WORKER = 'booking_conversion';
 export const DISPOSITION_SWEEPER_WORKER = 'disposition_sweeper';
 export const RISK_PRUNER_WORKER = 'risk_pruner';
 /** Purge des scores biométriques à échéance et des rejets de rappels KYC (US-105, ADR-102). */
@@ -71,6 +79,14 @@ export const WORKER_TASK_DEFAULTS = {
   holdExpiryPeriodSeconds: 60,
   holdExpiryBatch: 500,
   dispositionBatch: 100,
+  /**
+   * US-223 (ADR-139, PROPOSÉ) : un paiement prouvé devient un trip en ~10 s (S06 « confirmée dès que
+   * le paiement est prouvé ») ; lots bornés, une opération par transaction.
+   */
+  webhookIngestPeriodSeconds: 10,
+  webhookIngestBatch: 50,
+  bookingConversionPeriodSeconds: 10,
+  bookingConversionBatch: 100,
   riskPrunerPeriodSeconds: 3_600,
   riskPrunerBatch: 5_000,
   /** Conservation des événements d'abus (`risk_abuse_event`) : 90 jours (handoff US-052). */
@@ -202,6 +218,48 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
         repaired++;
       }
       line(DISPOSITION_SWEEPER_WORKER, { candidates: rows.length, repaired });
+    },
+  );
+
+  // US-223 : webhooks reçus. Aucun adaptateur de PSP dans le travailleur (le registre de production
+  // est vide avant le lot C, le FAKE n'y est jamais) : la preuve est le webhook signé seul ; un
+  // horodatage hors fenêtre n'est jamais appliqué. Journal : des comptes et des motifs, jamais
+  // d'identifiant (17 §6.3).
+  registry.registerPeriodic(WEBHOOK_INGEST_WORKER, d.webhookIngestPeriodSeconds, async (_p, tx) => {
+    const processor = new WebhookProcessor(new PgWebhookWorkStore(tx), () => undefined, {
+      warn: (message) => {
+        deps.log(JSON.stringify({ level: 'warn', worker: WEBHOOK_INGEST_WORKER, message }));
+      },
+    });
+    const report = await processor.runOnce(d.webhookIngestBatch);
+    line(WEBHOOK_INGEST_WORKER, { ...report });
+  });
+
+  // US-223 : paiements prouvés convertis en trips (ou refus reçus), une opération par transaction
+  // (verrous voyageur → véhicule d'un seul hold, handoff US-024) ; la base refuse un paiement sans
+  // preuve rattachée (NOT_PROVEN, migration 0114).
+  registry.registerPeriodic(
+    BOOKING_CONVERSION_WORKER,
+    d.bookingConversionPeriodSeconds,
+    async (_p, tx) => {
+      const { rows } = await tx.query<{ operation_id: string; action: string }>(
+        'SELECT operation_id, action FROM core.booking_conversion_due($1)',
+        [d.bookingConversionBatch],
+      );
+      let converted = 0;
+      let failures = 0;
+      for (const row of rows) {
+        const sql =
+          row.action === 'CONVERT'
+            ? 'SELECT core.booking_convert_payment($1::uuid)'
+            : 'SELECT core.booking_record_payment_failure($1::uuid)';
+        await withDeadlockRetry(deps.transactions, BOOKING_CONVERSION_WORKER, (one) =>
+          one.query(sql, [row.operation_id]),
+        );
+        if (row.action === 'CONVERT') converted++;
+        else failures++;
+      }
+      line(BOOKING_CONVERSION_WORKER, { candidates: rows.length, converted, failures });
     },
   );
 

@@ -26,7 +26,8 @@
 --   test_fixture.us024_force_operation_status(uuid, text),
 --   test_fixture.us024_approve_review(uuid, integer), test_fixture.us024_psp_account_of(text, text,
 --   text), test_fixture.us024_force_payment_attempts(uuid, integer) ; DROP TABLE test_fixture.us024_hold_terms ;
---   réappliquer la définition de 0040 de core.booking_hold_payment_terms.
+--   réappliquer la définition de 0114 de core.booking_hold_payment_terms (US-223) ;
+--   REVOKE EXECUTE ON FUNCTION core.booking_checkout_capture_terms(uuid) FROM migrator.
 
 CREATE TABLE test_fixture.us024_hold_terms (
   hold_id         uuid PRIMARY KEY,
@@ -80,10 +81,22 @@ AS $fn$
   SELECT t.amount_minor, t.currency, t.legs, t.scheduled_start, t.scheduled_end, t.timezone
     FROM test_fixture.us024_hold_terms t
    WHERE t.hold_id = p_hold_id
+  UNION ALL
+  -- US-223 (0114) : hold sans conditions de test ⇒ la VRAIE lecture du devis engagé au checkout
+  SELECT c.amount_minor, c.currency, c.legs, c.scheduled_start, c.scheduled_end, c.timezone
+    FROM core.booking_checkout_capture_terms(p_hold_id) AS c
+   WHERE NOT EXISTS (SELECT 1 FROM test_fixture.us024_hold_terms t2 WHERE t2.hold_id = p_hold_id)
 $fn$;
 
 COMMENT ON FUNCTION core.booking_hold_payment_terms(uuid) IS
-  'VERSION DE TEST (test-migrations/9800) : registre des conditions de paiement de test.';
+  'VERSION DE TEST (test-migrations/9800) : registre des conditions de paiement de test, sinon le '
+  'devis engagé au checkout (core.booking_checkout_capture_terms, 0114).';
+
+-- US-223 : la version de test (SECURITY DEFINER sous migrator) lit la vraie fonction ; seul son
+-- propriétaire accorde EXECUTE
+SET LOCAL ROLE cmd_hold_owner;
+GRANT EXECUTE ON FUNCTION core.booking_checkout_capture_terms(uuid) TO migrator;
+RESET ROLE;
 
 CREATE FUNCTION test_fixture.us024_psp_account(p_country_code text)
   RETURNS uuid

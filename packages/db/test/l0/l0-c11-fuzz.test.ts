@@ -824,8 +824,11 @@ class Run {
       const op = this.ops.get(cmd.op);
       if (op === undefined) continue;
       if (this.fakeStatus(op) === 'SUCCEEDED') {
-        // « déjà payé » : le statut est appliqué, la conversion décide (17 §2.5 étape 6)
-        await this.applyStatus(lane, now, op.id, 'SUCCEEDED', 'API_RESPONSE');
+        // « déjà payé » : le statut est appliqué, la conversion décide (17 §2.5 étape 6). US-223
+        // (0114) : le refus « déjà payé » de cancelOrder est confirmé par une LECTURE du PSP (compte
+        // de bac à sable : preuve POLL) ; un SUCCEEDED de réponse d'API n'a aucune preuve et ne
+        // convertit jamais (NOT_PROVEN)
+        await this.applyStatus(lane, now, op.id, 'SUCCEEDED', 'POLL');
         effects.push({
           k: 'EVENT',
           ev: { k: 'CONVERT', at: this.now, op: op.id, status: 'SUCCEEDED' },

@@ -9,7 +9,11 @@
  *   selon les rangs (rang inférieur ⇒ ignoré et journalisé ; terminal contradictoire ⇒ CONFLICT,
  *   rien ne change, file ops) ; doublons ⇒ `DUPLICATE` ;
  * - **lire puis appliquer** : si l'adaptateur du compte est disponible, l'état faisant foi est lu
- *   chez le PSP (`getOperation`) ; il prime sur le webhook en cas d'écart (source `POLL`).
+ *   chez le PSP (`getOperation`) ; il prime sur le webhook en cas d'écart (source `POLL`) ;
+ * - US-223 (ADR-139) : la base refuse la preuve d'un montant ou d'une devise différents de l'ordre
+ *   (`MISMATCH` ⇒ `FAILED` / `AMOUNT_MISMATCH`, alerte) ; une lecture `POLL` d'un compte LIVE ne
+ *   prouve rien (`UNPROVEN` ⇒ `FAILED` / `PROOF_REJECTED`) tant qu'aucune lecture authentifiée
+ *   n'existe (connecteur réel, lot C).
  */
 import { PaymentError } from './errors.js';
 import type { PaymentLogger } from './webhook-ingest.js';
@@ -107,6 +111,17 @@ export class WebhookProcessor {
         // dédié (compté par l'alerte du moniteur, 0051) et alerte
         await this.#store.mark(item.inboxId, 'FAILED', 'PROOF_REJECTED');
         this.#log.warn('webhook : preuve signée refusée par la base (UNPROVEN)', {
+          inboxId: item.inboxId,
+          operationId: operation.operationId,
+        });
+        return { state: 'FAILED', conflicts };
+      }
+      if (outcome === 'MISMATCH') {
+        // US-223 (ADR-139) : montant ou devise reçus ≠ ordre (« 120,00 reçus pour un devis de
+        // 128,40 ») : rien n'est appliqué, aucun trip ; FAILED à motif dédié et alerte (l'ops
+        // rapproche avec le relevé du PSP et rembourse le voyageur)
+        await this.#store.mark(item.inboxId, 'FAILED', 'AMOUNT_MISMATCH');
+        this.#log.warn('webhook : montant reçu différent de l’ordre (MISMATCH)', {
           inboxId: item.inboxId,
           operationId: operation.operationId,
         });

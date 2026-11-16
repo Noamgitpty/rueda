@@ -14,6 +14,13 @@
  *   est appliqué (`POLL`), aucun renvoi (T51). Inconnue du PSP ⇒ renvoi de la MÊME clé. Ni clé
  *   recherchable ni référence ⇒ aucun renvoi, escalade ops (17 §2.8, corrigé VERIF_14-F11).
  * - `SUCCEEDED` / `FAILED` : rien.
+ * - US-223 (N-108, 17 §2.8) : sans `SUPPORTS_IDEMPOTENCY_HEADER` validé (inconnue = non), le PSP ne
+ *   garantit pas qu'une même clé ne débite qu'une fois : une opération `PENDING` (premier envoi ou
+ *   rejeu après une panne, indiscernables) est d'abord LUE comme `UNKNOWN` / `SUBMITTED`. Trouvée ⇒
+ *   son statut, aucun envoi ; inconnue ⇒ envoi ; aucune lecture possible ⇒ escalade, aucun envoi.
+ * - US-223 (ADR-139) : un statut que la base refuse de prouver (`UNPROVEN` : lecture ou réponse
+ *   d'un compte LIVE ; `MISMATCH` : montant différent) n'est jamais rendu comme un succès :
+ *   `AWAITING_PROOF`, la preuve signée (webhook) décide.
  */
 import { PaymentError } from './errors.js';
 import { assertMovingLegs, assertReallocationLegs } from './legs.js';
@@ -66,7 +73,8 @@ export type SendOutcome =
     }
   | { readonly outcome: 'UNKNOWN' }
   | { readonly outcome: 'NOT_SENT' }
-  | { readonly outcome: 'ESCALATE'; readonly reason: 'NO_LOOKUP_POSSIBLE' };
+  | { readonly outcome: 'ESCALATE'; readonly reason: 'NO_LOOKUP_POSSIBLE' }
+  | { readonly outcome: 'AWAITING_PROOF'; readonly refused: 'UNPROVEN' | 'MISMATCH' };
 
 export class MoneyCommandSender {
   readonly #provider: PaymentProvider;
@@ -81,7 +89,15 @@ export class MoneyCommandSender {
     if (command.status === 'SUCCEEDED' || command.status === 'FAILED') {
       return { outcome: 'ALREADY_FINAL' };
     }
-    if (command.status === 'UNKNOWN' || command.status === 'SUBMITTED') {
+    // jambes contrôlées AVANT tout échange avec le PSP, lecture comprise (aucun appel si elles sont
+    // fausses : LEG_SUM_MISMATCH / LEG_AMOUNT_NEGATIVE)
+    this.#checkLegs(command);
+    const readFirst =
+      command.status === 'UNKNOWN' ||
+      command.status === 'SUBMITTED' ||
+      // US-223 (N-108) : sans en-tête d'idempotence validé, jamais un envoi sans lecture
+      !this.#provider.capabilities().bool('SUPPORTS_IDEMPOTENCY_HEADER');
+    if (readFirst) {
       const read = await this.#readFirst(command);
       if (read !== 'NOT_FOUND') return read;
     }
@@ -105,7 +121,8 @@ export class MoneyCommandSender {
         error instanceof PaymentError &&
         (error.code === 'UNKNOWN_OUTCOME' || error.code === 'PROVIDER_UNAVAILABLE')
       ) {
-        return { outcome: 'UNKNOWN' };
+        // US-223 (N-108) : une opération PENDING lue avant envoi n'a rien envoyé : rejouée plus tard
+        return command.status === 'PENDING' ? { outcome: 'NOT_SENT' } : { outcome: 'UNKNOWN' };
       }
       throw error;
     }
@@ -120,13 +137,15 @@ export class MoneyCommandSender {
     } catch (error) {
       if (!(error instanceof PaymentError)) throw error;
       if (error.code === 'DECLINED') {
-        await this.#store.apply({
+        const applied = await this.#store.apply({
           operationId: command.operationId,
           status: 'FAILED',
           source: 'API_RESPONSE',
           rawRef: null,
           providerReference: null,
         });
+        // US-223 : refus d'un compte LIVE non prouvé par la base ⇒ le webhook signé décide
+        if (applied === 'UNPROVEN') return { outcome: 'AWAITING_PROOF', refused: applied };
         return {
           outcome: 'FAILED',
           declineCode: error.details.declineCode ?? null,
@@ -157,7 +176,7 @@ export class MoneyCommandSender {
   ): Promise<SendOutcome> {
     if (result.status === 'PENDING') {
       // le PSP a reçu l'ordre sans le traiter : en vol
-      await this.#store.apply({
+      await this.#applied({
         operationId: command.operationId,
         status: 'SUBMITTED',
         source,
@@ -166,13 +185,16 @@ export class MoneyCommandSender {
       });
       return { outcome: 'SUBMITTED', providerReference: result.providerReference };
     }
-    await this.#store.apply({
+    const applied = await this.#store.apply({
       operationId: command.operationId,
       status: result.status,
       source,
       rawRef: null,
       providerReference: result.providerReference,
     });
+    if (applied === 'UNPROVEN' || applied === 'MISMATCH') {
+      return { outcome: 'AWAITING_PROOF', refused: applied };
+    }
     switch (result.status) {
       case 'SUCCEEDED':
       case 'SUBMITTED':
@@ -182,6 +204,19 @@ export class MoneyCommandSender {
       case 'UNKNOWN':
         return { outcome: 'UNKNOWN' };
     }
+  }
+
+  /** Jambes stockées de l'ordre (VOID : aucune), vérifiées avant tout appel au PSP. */
+  #checkLegs(command: MoneyCommand): void {
+    if (command.kind === 'VOID') return;
+    if (command.legs === null) throw new PaymentError('INVALID_REQUEST', 'jambes absentes');
+    if (command.kind === 'LEG_REALLOCATION') assertReallocationLegs(command.legs);
+    else assertMovingLegs(command.amountMinor, command.legs);
+  }
+
+  /** Statut non terminal (`SUBMITTED`) : jamais refusé par la base pour défaut de preuve. */
+  async #applied(input: Parameters<OperationStatusStore['apply']>[0]): Promise<void> {
+    await this.#store.apply(input);
   }
 
   #dispatch(command: MoneyCommand): Promise<OperationResult> {

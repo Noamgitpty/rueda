@@ -80,6 +80,8 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
   readonly statusEvents: MemoryStatusEvent[] = [];
   /** Opérations dont la base refuserait toute preuve (`UNPROVEN`), pour les tests du processeur. */
   readonly unproven = new Set<string>();
+  /** US-223 : opérations dont le montant reçu différerait de l'ordre (`MISMATCH`). */
+  readonly mismatched = new Set<string>();
   /** Heure « de la base » (ms). */
   now: () => number;
   /** Simule une base en production (C19) : comptes FAKE introuvables. */
@@ -127,7 +129,8 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
     const now = this.now();
     const status: MemoryInboxRow['status'] = !input.signatureValid
       ? 'REJECTED_SIGNATURE'
-      : input.signedAt !== null && Math.abs(input.signedAt.getTime() - now) > TOLERANCE_MS
+      : // US-223 (0114) : horodatage signé absent ⇒ hors fenêtre, comme la base
+        input.signedAt === null || Math.abs(input.signedAt.getTime() - now) > TOLERANCE_MS
         ? 'QUARANTINED'
         : 'RECEIVED';
     this.#seq += 1;
@@ -209,6 +212,9 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
       op.providerReference !== input.providerReference
     ) {
       outcome = 'CONFLICT';
+    } else if (terminal && input.source === 'WEBHOOK' && this.mismatched.has(op.id)) {
+      // même règle que 0114 (US-223) : montant ou devise reçus ≠ ordre, rien n'est appliqué
+      outcome = 'MISMATCH';
     } else if (
       terminal &&
       (input.source === 'MANUAL_OPS' ||
@@ -216,8 +222,8 @@ export class MemoryPaymentStore implements WebhookInboxStore, WebhookWorkStore {
         (input.source === 'WEBHOOK' &&
           (proof === undefined || !proof.signatureValid || proof.signedAtOutOfTolerance)))
     ) {
-      // même règle que 0055 / 0058 : rien n'est appliqué, aucun événement n'est écrit
-      return Promise.resolve('UNPROVEN');
+      // même règle que 0055 / 0058 / 0114 : rien n'est appliqué ; l'issue est journalisée (US-223)
+      outcome = 'UNPROVEN';
     } else {
       outcome = 'APPLIED';
       op.status = input.status;
