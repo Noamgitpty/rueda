@@ -186,7 +186,7 @@
     },
     {
       "path": "packages/db/migrations/0117_booking_flagged_review_decision.sql",
-      "line": 793,
+      "line": 801,
       "kind": "data-update",
       "dataTables": ["core.support_manual_action_catalog"],
       "justification": "US-209b (ADR-141) : REVIEW_FLAGGED_BOOKING porte sur l'évaluation RISK_ASSESSMENT (sujet de l'élément RISK_BOOKING) au lieu de TRIP (aucun trip avant le débit, UXQ-08) ; une ligne de référence écrite par migration seulement ; permission, mode et saisie inchangés ; aucune ligne manual_action n'en dépend (l'action était indisponible, sans commande liée) ; la version N, qui n'envoie jamais cette action, est inchangée"

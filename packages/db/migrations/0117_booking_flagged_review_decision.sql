@@ -64,6 +64,7 @@
 --   UPDATE core.support_manual_action_catalog SET subject_type = 'TRIP'
 --     WHERE action_code = 'REVIEW_FLAGGED_BOOKING' ;
 --   DELETE FROM core.support_manual_action_subject WHERE subject_type = 'RISK_ASSESSMENT' ;
+--   recréer manual_action_catalog_subject_valid de 0061 ;
 --   DROP TRIGGER hold_review_lapse, hold_review_item_close ON core.booking_checkout_hold ;
 --   réappliquer core.support_subject_parties de 0097 (sous iam_staff_owner) et
 --     core.kyc_cmd_declare_entry de 0112 (sous kyc_cmd_owner) ;
@@ -790,6 +791,13 @@ REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
 -- déclencheurs) -------------------------------------------------------------------------------
 INSERT INTO core.support_manual_action_subject (subject_type, resolver, story)
 VALUES ('RISK_ASSESSMENT', 'core.support_country_of_risk_assessment(uuid)'::regprocedure, 'US-209');
+-- type de sujet admis par le catalogue : liste de 0061 ÉLARGIE de RISK_ASSESSMENT (toute ligne valide
+-- sous la version N le reste)
+ALTER TABLE core.support_manual_action_catalog DROP CONSTRAINT manual_action_catalog_subject_valid;
+ALTER TABLE core.support_manual_action_catalog ADD CONSTRAINT manual_action_catalog_subject_valid
+  CHECK (subject_type IN ('TRIP', 'ORGANIZATION', 'IDENTITY_VERIFICATION', 'LISTING',
+                          'SUPPORT_CASE', 'PLATFORM_ADVANCE', 'INSURER_BORDEREAU', 'USER_ACCOUNT',
+                          'RISK_ASSESSMENT'));
 UPDATE core.support_manual_action_catalog SET subject_type = 'RISK_ASSESSMENT'
  WHERE action_code = 'REVIEW_FLAGGED_BOOKING';
 INSERT INTO core.support_manual_action_handler (action_code, handler, story)
