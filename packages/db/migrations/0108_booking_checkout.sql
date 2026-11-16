@@ -790,11 +790,17 @@ BEGIN
   END IF;
 
   -- 4. documents acceptés puis pose du hold, ensemble : un refus de la pose annule aussi les
-  -- consentements (sous-transaction)
+  -- consentements (sous-transaction). Aucune demande (NULL) : rien d'accepté (la liste des
+  -- versions à afficher n'est jamais une acceptation)
+  IF p_documents IS NULL THEN
+    RETURN QUERY SELECT 'TERMS_NOT_ACCEPTED'::text, NULL::uuid, NULL::timestamptz;
+    RETURN;
+  END IF;
   BEGIN
     FOR v_terms IN SELECT * FROM core.ctr_checkout_terms(v_user, v_country, p_documents) LOOP
-      IF v_terms.outcome <> 'DONE' THEN
-        RETURN QUERY SELECT v_terms.outcome, NULL::uuid, NULL::timestamptz;
+      IF v_terms.outcome <> 'DONE' OR v_terms.consent_id IS NULL THEN
+        RETURN QUERY SELECT CASE WHEN v_terms.outcome = 'DONE' THEN 'TERMS_NOT_ACCEPTED'
+                                 ELSE v_terms.outcome END, NULL::uuid, NULL::timestamptz;
         RETURN;
       END IF;
       v_rows := v_rows || pg_catalog.jsonb_build_object(

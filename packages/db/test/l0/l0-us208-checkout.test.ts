@@ -395,6 +395,9 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         expect(documents.map((d) => d.kind).sort()).toEqual(KINDS);
         expect(documents.every((d) => d.version === 1)).toBe(true);
 
+        const GUC = `SELECT NULLIF(pg_catalog.current_setting('app.actor_kind', true), '') AS k,
+                    NULLIF(pg_catalog.current_setting('app.actor_id', true), '') AS a`;
+        const before = (await tx.query<{ k: string | null; a: string | null }>(GUC)).rows[0];
         const r = await checkout(tx, ctx.guest.hash, quoteId);
         expect(r.outcome).toBe('DONE');
         expect(r.hold_id).not.toBeNull();
@@ -417,12 +420,11 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
           [r.hold_id],
         );
         expect(ops.rows[0]?.n).toBe(0);
-        // le contexte de session posé pour la pose est rendu tel qu'il était
-        const guc = await tx.query<{ k: string | null; a: string | null }>(
-          `SELECT NULLIF(pg_catalog.current_setting('app.actor_kind', true), '') AS k,
-                  NULLIF(pg_catalog.current_setting('app.actor_id', true), '') AS a`,
-        );
-        expect(guc.rows[0]).toEqual({ k: null, a: null });
+        // le contexte de session posé pour la pose est rendu tel qu'il était (jamais celui du
+        // voyageur après la commande)
+        const after = (await tx.query<{ k: string | null; a: string | null }>(GUC)).rows[0];
+        expect(after).toEqual(before);
+        expect(after?.a).not.toBe(ctx.guest.id);
       });
     });
 
