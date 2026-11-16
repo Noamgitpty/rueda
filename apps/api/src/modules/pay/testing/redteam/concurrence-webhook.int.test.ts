@@ -109,6 +109,8 @@ interface Scene {
   readonly reference: string;
   readonly idem: string;
   readonly psp: string;
+  /** US-223 (0114) : montant de l'ordre, signé dans les webhooks forgés (sinon MISMATCH). */
+  readonly amountMinor: string;
   /** Service de réception sur la connexion `app_api` donnée. */
   ingestOn(api: pg.Client): WebhookIngestService;
 }
@@ -196,6 +198,7 @@ async function scene(c: Scene['c'], psp: string = PSP_NAME): Promise<Scene> {
     );
   return {
     c,
+    amountMinor: capture.totalMinor.toString(),
     api,
     worker,
     stack,
@@ -217,7 +220,7 @@ const eventBody = (s: Scene, id: string, status: string, type = 'order.paid'): s
     reference: s.reference,
     merchant_reference: s.idem,
     status,
-    amount_minor: '1',
+    amount_minor: s.amountMinor,
     currency: s.c.currency,
     method: 'CARD',
     occurred_at: new Date().toISOString(),
@@ -533,7 +536,8 @@ describe.each(CASES)('US-049 red team concurrence — webhooks FAKE ($country, $
         reference: a.reference,
         merchant_reference: a.idem,
         status: 'SUCCEEDED',
-        amount_minor: '1',
+        // US-223 : montant de l'ordre de A, le refus ne tient qu'au compte
+        amount_minor: a.amountMinor,
         currency: c.currency,
         method: 'CARD',
         occurred_at: new Date().toISOString(),
