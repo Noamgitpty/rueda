@@ -30,7 +30,7 @@ import {
   UnavailableBrandScanner,
 } from './modules/cfg/index.js';
 import { postgresCatAdapters, postgresSearchAdapters } from './modules/cat/index.js';
-import type { SearchRatings } from './modules/cat/index.js';
+import type { PublicListingRatings, SearchRatings } from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
@@ -113,6 +113,20 @@ async function bootstrap(): Promise<void> {
     searchQuotePricer((ctx) => quotes.params(ctx)),
     searchRatings,
   );
+  // Fiche du véhicule (US-204) : notes du véhicule et de l'hôte par REV (même lecture que la
+  // recherche) ; annonce sans ligne : badge « Nuevo »
+  const listingPageRatings: PublicListingRatings = {
+    ratings: async (id) => {
+      const r = (await listingRatings.ratings([id]))[0];
+      if (r === undefined) return null;
+      const one = (x: typeof r.vehicle) => ({
+        averageX100: x.averageX100,
+        reviewCount: x.reviewCount,
+        tripCount: x.tripCount,
+      });
+      return { vehicle: one(r.vehicle), host: one(r.host) };
+    },
+  };
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,
@@ -129,7 +143,7 @@ async function bootstrap(): Promise<void> {
       brand,
       risk,
       ctr,
-      cat,
+      { ...cat, ratings: listingPageRatings },
       kyc,
       search,
     ),

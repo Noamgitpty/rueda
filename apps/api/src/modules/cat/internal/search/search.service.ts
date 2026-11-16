@@ -17,8 +17,17 @@ import type {
   SearchRatings,
 } from './cards.js';
 import { SearchHttpError } from './errors.js';
-import { countryOf, parseSearchQuery } from './model.js';
+import { countryOf, localSlot, parseSearchQuery } from './model.js';
 import type { SearchArea, SearchResult, SearchStore } from './store.js';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Créneau accepté sur la fiche (US-204) : instants UTC et fuseau du véhicule. */
+export interface ListingSlot {
+  readonly startAt: string;
+  readonly endAt: string;
+  readonly timezone: string;
+}
 
 /**
  * Limite de la sonde de disponibilité, par IP (port satisfait par la garde anti-abus de RISK,
@@ -78,6 +87,55 @@ export class SearchService {
     }
     if (r.outcome !== 'OK') throw new SearchHttpError(r.outcome);
     return this.#cards(parsed.query.country, r.results);
+  }
+
+  /**
+   * Dates choisies sur la fiche d'une annonce (US-204 ; 16 LST-006) : forme (heures locales au pas
+   * de 30 min, fin après le début), pays de l'annonce, limite de la sonde de ce pays, puis la base
+   * (instant présent, durée, préavis du lieu, hôte activable, disponibilité avec le tampon).
+   * Identifiant mal formé ou annonce non publiée ⇒ 404 ; base ou limiteur en panne ⇒ 503.
+   */
+  async slot(
+    listingId: string,
+    raw: Readonly<Record<string, unknown>>,
+    ip: string,
+  ): Promise<ListingSlot> {
+    if (!UUID.test(listingId)) throw new SearchHttpError('LISTING_NOT_FOUND');
+    const startLocal = localSlot(raw['start']);
+    const endLocal = localSlot(raw['end']);
+    // même format, même fuseau : l'ordre lexical est l'ordre chronologique
+    if (startLocal === null || endLocal === null || endLocal <= startLocal) {
+      throw new SearchHttpError('SEARCH_DATES_INVALID');
+    }
+    const id = listingId.toLowerCase();
+    let country: string | null;
+    try {
+      country = await this.store.listingCountry(id);
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    if (country === null) throw new SearchHttpError('LISTING_NOT_FOUND');
+    let retryAfterS: number | null;
+    try {
+      retryAfterS = await this.probe.hit(ip, country);
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    if (retryAfterS !== null) throw new SearchHttpError('RATE_LIMITED', Math.max(1, retryAfterS));
+    let r;
+    try {
+      r = await this.store.slotCheck({ listingId: id, startLocal, endLocal });
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    if (r.outcome === 'OK') return { startAt: r.startAt, endAt: r.endAt, timezone: r.timezone };
+    if (r.outcome === 'DATES_NOTICE_TOO_SHORT') {
+      // préavis affiché en heures entières (arrondi supérieur : jamais un délai plus court)
+      throw new SearchHttpError('DATES_NOTICE_TOO_SHORT', null, {
+        noticeHours: Math.ceil(r.noticeMinutes / 60),
+      });
+    }
+    throw new SearchHttpError(r.outcome);
   }
 
   /**

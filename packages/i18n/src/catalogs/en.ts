@@ -1738,4 +1738,22 @@ export const EN_MESSAGES = {
   'web.search.map.noPoint': 'Not on the map',
   'web.listing.dates.title': 'Your dates',
   'web.listing.dates.change': 'Change the search',
+  'common.listing.datesNoticeTooShort': {
+    one: 'The host needs at least {count} hour of notice. Choose a later start time.',
+    other: 'The host needs at least {count} hours of notice. Choose a later start time.',
+  },
+  'common.listing.datesUnavailable': "This car isn't available on those dates. Try other dates.",
+  'common.listing.meetingPointNotFound':
+    "There's no confirmed booking for this car on your account.",
+  'web.s03.photos': '{n} / {total} photos by {host_name}',
+  'web.listing.gallery.title': 'Car photos',
+  'web.listing.gallery.photoAlt': '{car}, photo {n} of {total}',
+  'web.listing.gallery.broken': 'Photo unavailable',
+  'web.listing.slot.title': 'Choose your dates',
+  'web.listing.slot.check': 'Check availability',
+  'web.listing.slot.ok': 'Available on these dates.',
+  'web.listing.slot.error': "We couldn't check these dates. Try again.",
+  'web.listing.meet.exact.title': 'Meeting address',
+  'web.listing.meet.exact.only': 'Only you can see it: you have a confirmed booking for this car.',
+  'web.listing.meet.sameReturn': 'You return the car to the same place.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

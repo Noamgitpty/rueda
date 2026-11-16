@@ -77,7 +77,6 @@ export const FR_PROTO = {
   'web.s02f.clear': 'Effacer',
   'web.s02f.show': { one: 'Voir {count} voiture', other: 'Voir {count} voitures' },
   'web.s02f.none': 'Aucune voiture ne correspond à ces filtres. Retires-en un pour en voir plus.',
-  'web.s03.photos': '{n} / {total} · photos prises par {host_name}',
   'web.s03.rules.title': 'Règles fixées par {host_name}',
   'web.s03.meet.title': 'Où tu récupères la voiture',
   'web.s03.instant': 'Confirmation immédiate',

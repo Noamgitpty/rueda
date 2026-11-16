@@ -449,7 +449,15 @@
     },
     "GET /listings/{listingId}": {
       "acces": "public",
-      "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative (19 US-115 critère 4)"
+      "idor": "annonce non publiée (brouillon, en revue, d'un autre hôte ou inconnue) : 404 LISTING_NOT_FOUND ; colonnes C0 seulement, zone approximative, galerie (clés du bucket public), prénom et notes de l'hôte (19 US-115 critère 4, US-204 ; preuves base : l0-us204)"
+    },
+    "GET /listings/{listingId}/availability": {
+      "acces": "public",
+      "idor": "annonce non publiée ou inconnue : 404 LISTING_NOT_FOUND ; « libre » ou refus seulement (préavis, créneau pris sans détail), sonde arrondie à l'heure, limitée par IP (availability_probe_per_minute, N-78) (19 US-204 critère 2 ; preuves base : l0-us204)"
+    },
+    "GET /listings/{listingId}/meeting-point": {
+      "acces": "session",
+      "idor": "lieu exact rendu au seul voyageur de la session (empreinte du jeton) ayant un trip confirmé et non terminé de ce véhicule ; visiteur, autre voyageur, hôte, trip annulé ou terminé : 404 MEETING_POINT_NOT_FOUND sans rien révéler (19 US-204 critère 3, L2-PM-29 ; preuves base : l0-us204)"
     },
     "GET /search/areas": {
       "acces": "public",

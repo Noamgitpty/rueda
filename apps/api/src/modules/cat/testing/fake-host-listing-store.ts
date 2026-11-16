@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { HostListingStoreError } from '../internal/host-listings/store.js';
 import type {
   CatalogRequestView,
+  GuestMeetingPoint,
   HostListing,
   HostListingStore,
   HostLocation,
@@ -44,6 +45,8 @@ interface FakeListing {
   pricing: PricingInput;
   readonly instantBook: boolean;
   photos: number;
+  /** Photos déposées, dans l'ordre de dépôt (galerie publique, US-204) ; absent : aucune. */
+  photoIds?: string[];
 }
 
 export class FakeHostListingStore implements HostListingStore {
@@ -214,6 +217,7 @@ export class FakeHostListingStore implements HostListingStore {
       pricing: input,
       instantBook: input.instantBook,
       photos: 0,
+      photoIds: [],
     });
     return Promise.resolve({ outcome: 'DONE', id });
   }
@@ -308,6 +312,7 @@ export class FakeHostListingStore implements HostListingStore {
     await deposit(key);
     this.deposited.push(key);
     l.photos += 1;
+    (l.photoIds ??= []).push(photo.photoId);
     return { outcome: 'DONE', id: photo.photoId };
   }
 
@@ -419,6 +424,20 @@ export class FakeHostListingStore implements HostListingStore {
           : { lat: round(loc.input.lat), lng: round(loc.input.lng) },
       timezone: 'UTC',
       hostFirstName: this.hostFirstNames.get(l.orgId) ?? null,
+      photos: (l.photoIds ?? []).map((id, order) => ({ id, order, key: `listing/${l.id}/${id}` })),
     });
+  }
+
+  /**
+   * Lieu exact imposé par (empreinte de session, annonce) : le double ne juge pas le trip (prouvé
+   * en base, l0-us204-listing-page.test.ts) ; il retient la dernière demande.
+   */
+  meetingPoints = new Map<string, GuestMeetingPoint>();
+  lastMeetingPoint: { proof: string; listingId: string } | null = null;
+
+  guestMeetingPoint(proof: Buffer, listingId: string): Promise<GuestMeetingPoint | null> {
+    if (this.failing) return Promise.reject(new HostListingStoreError('panne', '08006'));
+    this.lastMeetingPoint = { proof: proof.toString('hex'), listingId };
+    return Promise.resolve(this.meetingPoints.get(`${proof.toString('hex')}:${listingId}`) ?? null);
   }
 }

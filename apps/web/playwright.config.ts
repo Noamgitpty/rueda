@@ -40,6 +40,8 @@ const HOST_CALENDAR = /host-calendar\.spec\.ts$/;
 const HOST_TRIPS = /host-trips\.spec\.ts$/;
 /** Recherche publique S01 → résultats → fiche S03 (US-201) : téléphones 360 et 390 px. */
 const SEARCH = /search\.spec\.ts$/;
+/** Fiche du véhicule S03 : galerie, dates, lieu exact (US-204) : téléphones 360 et 390 px. */
+const LISTING = /listing\.spec\.ts$/;
 /** Balayage axe + captures de chaque écran du site (US-044). */
 const SCREENS = /screens\.spec\.ts$/;
 /** Balayage des écrans de la console interne (US-044). */
@@ -90,6 +92,7 @@ export default defineConfig({
         HOST_CALENDAR,
         HOST_TRIPS,
         SEARCH,
+        LISTING,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 360, height: 780 } },
@@ -106,6 +109,7 @@ export default defineConfig({
         HOST_CALENDAR,
         HOST_TRIPS,
         SEARCH,
+        LISTING,
         SCREENS,
       ],
       use: { ...phone, viewport: { width: 390, height: 844 } },
@@ -151,6 +155,8 @@ export default defineConfig({
       env: {
         WEB_BRAND_API_URL: '',
         WEB_API_URL: `http://127.0.0.1:${API_PORT}`,
+        // bucket public des photos d'annonce : servi par le double (US-204)
+        WEB_MEDIA_URL: `http://127.0.0.1:${API_PORT}/media`,
         WEB_LAB_PWA_IOS_ENABLED: 'false',
         // vitrine des composants (US-032) : balayée par US-044 ; jamais en production
         WEB_UI_CATALOG_ENABLED: 'true',

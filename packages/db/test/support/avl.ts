@@ -402,9 +402,11 @@ export async function bookTrip(
   slot: Slot,
   c: CountryCase,
   t0: string,
+  /** Voyageur du trip (personne inscrite, US-204) ; absent : identifiant neuf, comme avant. */
+  guestId?: string,
 ): Promise<{ hold: Hold; operationId: string; tripId: string }> {
   const { hold, operationId } = await inTx(api, { virtualNow: t0, commit: true }, async (tx) => {
-    const placed = await placeHold(tx, slot, c);
+    const placed = await placeHold(tx, slot, c, guestId);
     return { hold: placed, operationId: await insertRentOperation(tx, placed) };
   });
   await inTx(worker, { worker: 'webhook_ingest', virtualNow: at(t0, 2), commit: true }, (tx) =>

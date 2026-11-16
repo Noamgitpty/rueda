@@ -81,7 +81,6 @@ export const ES_PROTO = {
   'web.s02f.clear': 'Borrar',
   'web.s02f.show': { one: 'Ver {count} auto', other: 'Ver {count} autos' },
   'web.s02f.none': 'Ningún auto cumple estos filtros. Quita alguno para ver más.',
-  'web.s03.photos': '{n} / {total} fotos de {host_name}',
   'web.s03.rules.title': 'Reglas de {host_name}',
   'web.s03.meet.title': 'Dónde recoges el auto',
   'web.s03.instant': 'Confirmación inmediata',

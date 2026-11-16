@@ -1832,4 +1832,25 @@ export const FR_MESSAGES = {
   'web.search.map.noPoint': 'Sans point sur la carte',
   'web.listing.dates.title': 'Tes dates',
   'web.listing.dates.change': 'Modifier la recherche',
+  'common.listing.datesNoticeTooShort': {
+    one: 'L’hôte demande au moins {count} heure de préavis. Choisis une heure de départ plus tardive.',
+    other:
+      'L’hôte demande au moins {count} heures de préavis. Choisis une heure de départ plus tardive.',
+  },
+  'common.listing.datesUnavailable':
+    'Cette voiture n’est pas disponible à ces dates. Essaie d’autres dates.',
+  'common.listing.meetingPointNotFound':
+    'Aucune réservation confirmée de cette voiture sur ton compte.',
+  'web.s03.photos': '{n} / {total} · photos prises par {host_name}',
+  'web.listing.gallery.title': 'Photos de la voiture',
+  'web.listing.gallery.photoAlt': '{car}, photo {n} sur {total}',
+  'web.listing.gallery.broken': 'Photo indisponible',
+  'web.listing.slot.title': 'Choisis tes dates',
+  'web.listing.slot.check': 'Vérifier la disponibilité',
+  'web.listing.slot.ok': 'Disponible à ces dates.',
+  'web.listing.slot.error': 'Nous n’avons pas pu vérifier ces dates. Réessaie.',
+  'web.listing.meet.exact.title': 'Adresse du rendez-vous',
+  'web.listing.meet.exact.only':
+    'Elle n’est visible que par toi : tu as une réservation confirmée de cette voiture.',
+  'web.listing.meet.sameReturn': 'Tu rends la voiture au même endroit.',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

@@ -24,10 +24,15 @@ const PUBLIC_ID = '11500000-0000-4000-8000-00000000f001';
 
 /** Session d'hôte neuf du double (`H0st…`, un compte par parcours). */
 async function signInHost(context: BrowserContext): Promise<void> {
+  await signIn(context, 'H0st');
+}
+
+/** Session du double : `H0st…` hôte neuf ; `B00k…` voyageur d'un trip confirmé (US-204). */
+async function signIn(context: BrowserContext, prefix: 'H0st' | 'B00k'): Promise<void> {
   await context.addCookies([
     {
       name: '__Host-session',
-      value: `H0st${randomBytes(30).toString('base64url').slice(0, 39)}`,
+      value: `${prefix}${randomBytes(30).toString('base64url').slice(0, 39)}`,
       domain: 'localhost',
       path: '/',
       httpOnly: true,
@@ -70,7 +75,16 @@ export const SCREENS: readonly Screen[] = [
   { name: 'document-confidentialite', source: 'S15, US-102', open: at('/legal/PRIVACY') },
   { name: 'telephone', source: 'S15, US-104', open: at('/verify-phone') },
   { name: 'identite', source: 'S04, US-105', open: at('/verify-identity') },
-  { name: 'fiche-publique', source: 'S03, US-115', open: at(`/listings/${PUBLIC_ID}`) },
+  // fiche S03 (US-204) : galerie dont la deuxième photo est introuvable au bucket du double ;
+  // capture une fois la vignette de remplacement posée
+  {
+    name: 'fiche-publique',
+    source: 'S03, US-115, US-204',
+    open: async (page) => {
+      await page.goto(`/listings/${PUBLIC_ID}`);
+      await expect(page.locator('[data-testid="gallery-photo"] [role="img"]')).toHaveCount(1);
+    },
+  },
   // Recherche (US-201) : liste, aucun résultat, refus du formulaire (fin avant début le même
   // jour), API indisponible ; fiche S03 avec les dates reprises. Le chargement (`loading.tsx`)
   // n'a pas d'état d'arrivée stable ici : le rendu en flux se termine avant la capture.
@@ -86,7 +100,37 @@ export const SCREENS: readonly Screen[] = [
     open: at(searchUrl(CITY, AREA, START, { date: START.date, time: '09:30' })),
   },
   { name: 'recherche-erreur', source: 'S02, US-201', open: at(searchUrl(DOWN_CITY, null)) },
-  { name: 'fiche-publique-dates', source: 'S03, US-201', open: at(listingWithDates()) },
+  {
+    name: 'fiche-publique-dates',
+    source: 'S03, US-201, US-204',
+    open: async (page) => {
+      await page.goto(listingWithDates());
+      await expect(page.locator('[data-testid="gallery-photo"] [role="img"]')).toHaveCount(1);
+    },
+  },
+  // US-204 : départ dans le préavis de l'hôte (07:00 dans le double) ⇒ refus annoncé ; voyageur
+  // d'un trip confirmé (session `B00k…` du double) ⇒ lieu de remise exact
+  {
+    name: 'fiche-preavis',
+    source: 'S03, US-204',
+    open: async (page) => {
+      await page.goto(`/listings/${PUBLIC_ID}?start=2036-12-10T07%3A00&end=2036-12-12T10%3A00`);
+      await expect(
+        page.locator('section[aria-labelledby="s03-dates"] [role="alert"]'),
+      ).toBeVisible();
+      await expect(page.locator('[data-testid="gallery-photo"] [role="img"]')).toHaveCount(1);
+    },
+  },
+  {
+    name: 'fiche-lieu-exact',
+    source: 'S03, US-204',
+    open: async (page, context) => {
+      await signIn(context, 'B00k');
+      await page.goto(`/listings/${PUBLIC_ID}`);
+      await expect(page.locator('[data-testid="meeting-point"]')).toBeVisible();
+      await expect(page.locator('[data-testid="gallery-photo"] [role="img"]')).toHaveCount(1);
+    },
+  },
   { name: 'hote-sans-session', source: 'A10, US-115', open: at('/host') },
   {
     name: 'hote-espace',

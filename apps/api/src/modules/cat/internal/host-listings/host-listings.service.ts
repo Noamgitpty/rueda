@@ -33,8 +33,11 @@ import {
   UnavailablePhotoStorage,
 } from './photo-ingest.js';
 import type { PhotoLimits, PhotoScanner, PhotoStorage } from './photo-ingest.js';
+import { NO_PUBLIC_LISTING_RATINGS } from './public-ratings.js';
+import type { PublicListingRating, PublicListingRatings } from './public-ratings.js';
 import { HostListingStoreError } from './store.js';
 import type {
+  GuestMeetingPoint,
   HostListing,
   HostListingStore,
   HostLocation,
@@ -42,6 +45,16 @@ import type {
   HostVehicle,
   PublicListing,
 } from './store.js';
+
+/**
+ * Fiche publique servie au visiteur (US-115, US-204) : colonnes C0 de l'annonce, galerie, notes
+ * du véhicule et de l'hôte, et `hostVerified` : compte d'hôte ACTIVE, ce qui exige une identité
+ * vérifiée à l'activation (17 §2.4 ; le prénom n'est rendu que pour un tel compte).
+ */
+export interface PublicListingView extends PublicListing {
+  readonly hostVerified: boolean;
+  readonly ratings: PublicListingRating | null;
+}
 
 export interface PhotoPipeline {
   readonly scanner: PhotoScanner;
@@ -58,6 +71,7 @@ export class HostListingsService {
     private readonly catalog: VehicleCatalogService | null,
     photos: PhotoPipeline,
     newId: () => string = randomUUID,
+    private readonly ratings: PublicListingRatings = NO_PUBLIC_LISTING_RATINGS,
   ) {
     this.#photos = photos;
     this.#newId = newId;
@@ -282,10 +296,29 @@ export class HostListingsService {
     return (await this.#market(proof, orgId)).country;
   }
 
-  async publicListing(listingId: string): Promise<PublicListing> {
+  async publicListing(listingId: string): Promise<PublicListingView> {
     if (!isUuid(listingId)) throw new HostListingHttpError('LISTING_NOT_FOUND');
     const r = await this.#call(() => this.store.publicListing(listingId));
     if (r === null) throw new HostListingHttpError('LISTING_NOT_FOUND');
+    let ratings: PublicListingRating | null;
+    try {
+      ratings = await this.ratings.ratings(r.id);
+    } catch {
+      // notes en panne : 503, jamais un badge « Nuevo » inventé (US-203, même règle)
+      throw new HostListingHttpError('LISTING_UNAVAILABLE');
+    }
+    return { ...r, hostVerified: r.hostFirstName !== null, ratings };
+  }
+
+  /**
+   * Lieu de remise exact (US-204 critère 3 ; 16 LST-007) : au seul voyageur de la session qui a un
+   * trip confirmé et non terminé de ce véhicule (jugé par la base). Sinon 404, comme une annonce
+   * inconnue : rien n'est révélé (ni trip, ni lieu).
+   */
+  async meetingPoint(proof: Buffer, listingId: string): Promise<GuestMeetingPoint> {
+    if (!isUuid(listingId)) throw new HostListingHttpError('MEETING_POINT_NOT_FOUND');
+    const r = await this.#call(() => this.store.guestMeetingPoint(proof, listingId.toLowerCase()));
+    if (r === null) throw new HostListingHttpError('MEETING_POINT_NOT_FOUND');
     return r;
   }
 

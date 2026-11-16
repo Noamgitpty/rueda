@@ -107,8 +107,14 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  (compteur), `web.search.deposit.*` (montant de la caution de la plateforme, ou mention générique
  « une caution peut être demandée », 16 SRC-011, 08 T70 c) et `web.search.map.*` (carte des
  marqueurs de prix, positions approximatives, liste équivalente).
+ Version 51 : fiche du véhicule (US-204, ADR-132) : `web.s03.photos` (10b §4.3),
+ `web.listing.gallery.*` (galerie dans l'ordre de l'hôte, photo indisponible),
+ `web.listing.slot.*` (dates choisies sur la fiche), `web.listing.meet.exact.*` et
+ `web.listing.meet.sameReturn` (lieu exact du voyageur d'un trip confirmé),
+ `common.listing.datesNoticeTooShort`, `common.listing.datesUnavailable` et
+ `common.listing.meetingPointNotFound` (refus des routes de la fiche).
  */
-export const CATALOG_VERSION = 50;
+export const CATALOG_VERSION = 51;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

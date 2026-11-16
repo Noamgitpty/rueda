@@ -6227,6 +6227,268 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Base ou notes indisponibles (fail-closed : jamais un badge « Nuevo » inventé, US-204)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listings/{listingId}/availability": {
+      "get": {
+        "operationId": "listingAvailability",
+        "tags": ["cat"],
+        "summary": "Dates choisies sur la fiche d'une annonce LISTED (US-204 ; 16 LST-006) : préavis du lieu, hôte activable et disponibilité avec le tampon ; aucun prix",
+        "description": "Route publique. Heures saisies dans le fuseau du lieu (AAAA-MM-JJTHH:MM, pas de 30 min) ; instants rendus en UTC avec le fuseau du véhicule. Disponibilité lue par la sonde catalog_vehicle_is_free, limitée par IP (availability_probe_per_minute du pays de l'annonce) ; jamais rien de l'occupation en cause.",
+        "parameters": [
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:[03]0$"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:[03]0$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Créneau réservable",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingAvailabilityResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Annonce non publiée ou inconnue",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Créneau pris (trip, hold, blocage, tampon) ou hôte non activable, sans détail (LST-008 DIFFÉRÉ)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "DATES_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Dates invalides (fin ≤ début, hors pas de 30 min, début passé), durée au-delà de max_trip_days, ou départ dans le préavis du lieu (values.noticeHours)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "SEARCH_DATES_INVALID",
+                        "SEARCH_DURATION_EXCEEDED",
+                        "DATES_NOTICE_TOO_SHORT"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sonde de disponibilité au-delà d'availability_probe_per_minute pour l'IP (N-78)",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "RATE_LIMITED"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base, paramètre du pays ou limiteur indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchError",
+                  "properties": {
+                    "code": {
+                      "const": "SEARCH_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listings/{listingId}/meeting-point": {
+      "get": {
+        "operationId": "listingMeetingPoint",
+        "tags": ["cat"],
+        "summary": "Lieu de remise exact (libellé et adresse) pour le voyageur d'un trip confirmé et non terminé de ce véhicule (US-204 critère 3 ; 16 LST-007)",
+        "description": "Route de session. Tout autre cas (visiteur, autre voyageur, trip annulé ou terminé) : 404 sans rien révéler. Jamais le point exact, le compte d'hôte ni le trip.",
+        "parameters": [
+          {
+            "name": "listingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lieu de remise exact",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingPointResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthRequired"
+          },
+          "404": {
+            "description": "Aucun trip confirmé et non terminé de ce véhicule pour la session (ou annonce inconnue)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "MEETING_POINT_NOT_FOUND"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base indisponible (fail-closed)",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingError",
+                  "properties": {
+                    "code": {
+                      "const": "LISTING_UNAVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -13301,7 +13563,10 @@
           "areaLabel",
           "approximatePoint",
           "timezone",
-          "hostFirstName"
+          "hostFirstName",
+          "photos",
+          "hostVerified",
+          "ratings"
         ],
         "properties": {
           "id": {
@@ -13391,6 +13656,116 @@
             "type": ["string", "null"],
             "maxLength": 40,
             "description": "Premier mot du prénom légal de l'hôte (compte ACTIVE), jamais le nom de famille (BOARD N-37, US-124)"
+          },
+          "photos": {
+            "type": "array",
+            "maxItems": 50,
+            "description": "Galerie (US-204 ; 16 LST-002) : photos non retirées et non refusées, dans l'ordre de l'hôte ; clé du bucket public seulement",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "order", "key"],
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "order": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "key": {
+                  "type": "string",
+                  "pattern": "^listing/[0-9a-f-]{36}/[0-9a-f-]{36}$"
+                }
+              }
+            }
+          },
+          "hostVerified": {
+            "type": "boolean",
+            "description": "Compte d'hôte ACTIVE : identité vérifiée à l'activation (17 §2.4 ; US-204)"
+          },
+          "ratings": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["vehicle", "host"],
+                "properties": {
+                  "vehicle": {
+                    "$ref": "#/components/schemas/PublicRating"
+                  },
+                  "host": {
+                    "$ref": "#/components/schemas/PublicRating"
+                  }
+                }
+              }
+            ],
+            "description": "Notes du véhicule et de l'hôte (16 REV-010, LST-003 / LST-020) ; null : aucune note connue, badge « Nuevo » (US-204)"
+          }
+        }
+      },
+      "PublicRating": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["averageX100", "reviewCount", "tripCount"],
+        "properties": {
+          "averageX100": { "type": ["integer", "null"], "minimum": 100, "maximum": 500 },
+          "reviewCount": { "type": "integer", "minimum": 0 },
+          "tripCount": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ListingAvailabilityResponse": {
+        "type": "object",
+        "required": ["availability"],
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["startAt", "endAt", "timezone"],
+            "properties": {
+              "startAt": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+              },
+              "endAt": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+              },
+              "timezone": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "MeetingPointResponse": {
+        "type": "object",
+        "required": ["meetingPoint"],
+        "additionalProperties": false,
+        "properties": {
+          "meetingPoint": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["placeLabel", "addressLine", "city", "areaLabel", "locationKind"],
+            "properties": {
+              "placeLabel": {
+                "type": "string"
+              },
+              "addressLine": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "areaLabel": {
+                "type": ["string", "null"]
+              },
+              "locationKind": {
+                "enum": ["HOME", "POI", "AIRPORT"]
+              }
+            }
           }
         }
       },

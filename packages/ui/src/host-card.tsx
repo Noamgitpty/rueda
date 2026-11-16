@@ -26,8 +26,11 @@ export interface HostCardProps {
   readonly tone?: AvatarTone | undefined;
   readonly rating?: number | undefined;
   readonly trips: number;
-  /** Année d'inscription (« Miembro desde 2024 »). */
-  readonly memberSince: number;
+  /**
+   * Année d'inscription (« Miembro desde 2024 ») ; absente : non affichée (bêta, 16 LST-020
+   * SIMPLIFIÉ : prénom, photo, note, trips, « vérifié » ; US-204).
+   */
+  readonly memberSince?: number | undefined;
   readonly verified: boolean;
   /** Taux de réponse, en pour cent entier. */
   readonly responseRate?: number | undefined;
@@ -79,7 +82,9 @@ export function HostCard({
             </li>
           )}
           {/* Année en chaîne brute : jamais de séparateur de milliers (« 2024 », pas « 2.024 »). */}
-          <li>{i18n.t('common.ui.host.since', { year: String(memberSince) })}</li>
+          {memberSince !== undefined && (
+            <li>{i18n.t('common.ui.host.since', { year: String(memberSince) })}</li>
+          )}
           {responseRate !== undefined && (
             <li>{i18n.t('common.ui.host.responseRate', { rate: responseRate })}</li>
           )}

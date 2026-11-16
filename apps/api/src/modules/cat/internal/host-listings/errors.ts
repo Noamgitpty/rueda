@@ -49,6 +49,9 @@
  * Trips de l'hôte (US-219, ADR-128), PROPOSÉS : `TRIP_NOT_FOUND` (trip inconnu ou d'un autre hôte,
  * 16 HDB-002 : « 404 sans état révélé »), `HOST_TRIPS_UNAVAILABLE` (lecture indisponible).
  *
+ * Fiche du véhicule (US-204, ADR-132), PROPOSÉ : `MEETING_POINT_NOT_FOUND` (lieu exact demandé
+ * sans trip confirmé de ce véhicule : 404, rien n'est révélé ; 16 LST-007).
+ *
  * IDOR (17 §2.3 point 5) : un compte d'hôte ou un objet d'un autre hôte rend 404, comme un
  * identifiant inconnu ; jamais 403 (rien n'est révélé de son existence).
  */
@@ -82,6 +85,7 @@ export const HOST_LISTING_MESSAGES = {
   LOCATION_NOT_FOUND: { status: 404, messageKey: 'common.listing.locationNotFound' },
   VEHICLE_NOT_FOUND: { status: 404, messageKey: 'common.listing.vehicleNotFound' },
   LISTING_NOT_FOUND: { status: 404, messageKey: 'common.listing.notFound' },
+  MEETING_POINT_NOT_FOUND: { status: 404, messageKey: 'common.listing.meetingPointNotFound' },
   BLOCK_NOT_FOUND: { status: 404, messageKey: 'common.calendar.blockNotFound' },
   TRIP_NOT_FOUND: { status: 404, messageKey: 'common.hostTrips.notFound' },
   CATALOG_VARIANT_NOT_FOUND: { status: 404, messageKey: 'common.listing.variantNotFound' },
