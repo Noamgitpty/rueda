@@ -1,6 +1,6 @@
 # Revue securite — US-208 « titre des écrans du checkout (document-title intermittent) » (PR n° 182) — 2026-11-16
 
-Relecteur : revue-securite / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5)
+Relecteur : revue-securite / claude-sonnet-5-5 (famille A, modèle autre que l'auteur claude-opus-5-5 ; revue dégradée : famille B indisponible, TECH-007)
 Entrées : d13142e7..2bcbc4ad
 
 Contexte : `next.config.ts` (en-têtes, CSP), `security-headers.ts`, détection de robots et service worker, diff complet, protections `.github/` et `scripts/`. CI entièrement verte à 2bcbc4ad (non rejouée : PostgreSQL et Docker non démarrés).
