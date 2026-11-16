@@ -583,6 +583,59 @@ describe('US-103 — POST /identity/legal-name (nom légal identique au permis)'
   });
 });
 
+// US-209b (16 VER-007, UXQ-03 ; ADR-141) : la borne de la date et la limite par heure sont
+// prouvées sur PostgreSQL (packages/db/test/l0/l0-us209-risk-checkout.test.ts) ; ici, le contrat
+// HTTP.
+describe('US-209b — POST /identity/entry-declaration (déclaration d’entrée)', () => {
+  const ROUTE = '/identity/entry-declaration';
+  const TOURIST = { country: FIRST_COUNTRY, residencyStatus: 'TOURIST', entryDate: '2031-06-20' };
+
+  it('touriste avec date, résident sans date : 200 ENTRY_DECLARED, la base reçoit la déclaration', async () => {
+    const w = await world();
+    const post = (body: unknown) => w.app.api.request('POST', ROUTE, { headers: w.guest, body });
+    const r = await post(TOURIST);
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ code: 'ENTRY_DECLARED', messageKey: 'common.kyc.entryDeclared' });
+    expect((await post({ country: FIRST_COUNTRY, residencyStatus: 'RESIDENT' })).status).toBe(200);
+    expect(w.store.entryDeclarations).toEqual([
+      { country: FIRST_COUNTRY, residency: 'TOURIST', entryDate: '2031-06-20' },
+      { country: FIRST_COUNTRY, residency: 'RESIDENT', entryDate: null },
+    ]);
+  });
+
+  it('refus : corps, pays, session, date future, limite par heure, base', async () => {
+    const w = await world();
+    const api = w.app.api;
+    const post = (body: unknown) => api.request('POST', ROUTE, { headers: w.guest, body });
+    for (const body of [
+      { ...TOURIST, entryDate: null },
+      { ...TOURIST, residencyStatus: 'VISITOR' },
+      { ...TOURIST, entryDate: '20/06/2031' },
+      { ...TOURIST, entryDate: '2031-13-01' },
+      { residencyStatus: 'RESIDENT' },
+    ]) {
+      const r = await post(body);
+      expect(r.status).toBe(400);
+      expect(r.json).toMatchObject({ code: 'REQUEST_INVALID' });
+    }
+    const unknown = await post({ ...TOURIST, country: 'ZZ' });
+    expect(unknown.status).toBe(400);
+    expect(unknown.json).toMatchObject({ code: 'COUNTRY_UNKNOWN' });
+    expect((await api.request('POST', ROUTE, { ...textBody(w.guest) })).status).toBe(415);
+    expect((await api.request('POST', ROUTE, { body: TOURIST })).status).toBe(401);
+    const future = await post({ ...TOURIST, entryDate: '2031-07-02' });
+    expect(future.status).toBe(422);
+    expect(future.json).toMatchObject({ code: 'KYC_ENTRY_DATE_INVALID' });
+    w.store.entryRateLimited = true;
+    const limited = await post(TOURIST);
+    expect(limited.status).toBe(429);
+    expect(limited.json).toMatchObject({ code: 'RATE_LIMITED' });
+    expect(w.store.entryDeclarations).toEqual([]);
+    w.store.failing = true;
+    expect((await post(TOURIST)).status).toBe(503);
+  });
+});
+
 describe('US-105 — couverture du contrat', () => {
   it('chaque statut déclaré pour /identity est exercé', () => {
     expect(missingCoverage(contract, '/identity', coverageOf(...apps))).toEqual([]);

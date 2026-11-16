@@ -62,6 +62,55 @@ export interface QueueItemView {
   readonly assignedToMe: boolean;
 }
 
+/**
+ * Réservation signalée (US-209b, ADR-141 ; 16 ADM-029, VER-007) : dossier rendu par la base pour un
+ * élément RISK_BOOKING pris en charge (aucune donnée personnelle hors la déclaration d'entrée).
+ */
+export const BOOKING_SIGNALS = [
+  'ACCOUNT_AGE',
+  'START_SOON',
+  'PREMIUM',
+  'LUXE',
+  'ENTRY_NOT_DECLARED',
+  'RESIDENT_FOREIGN_LICENSE',
+  'BEYOND_90_DAYS',
+] as const;
+export type BookingSignal = (typeof BOOKING_SIGNALS)[number];
+export const HOLD_STATUSES = [
+  'ACTIVE',
+  'PAYMENT_IN_FLIGHT',
+  'CONVERTED',
+  'EXPIRED',
+  'RELEASED',
+  'COMPENSATED',
+] as const;
+export type HoldStatus = (typeof HOLD_STATUSES)[number];
+export const BOOKING_DECISIONS = ['APPROVED', 'REJECTED'] as const;
+export type BookingDecision = (typeof BOOKING_DECISIONS)[number];
+
+export interface BookingReviewView {
+  readonly itemId: string;
+  readonly assessmentId: string;
+  readonly holdId: string;
+  readonly guestUserId: string;
+  readonly country: string;
+  readonly rulesFired: readonly { readonly code: string; readonly signal: string }[];
+  readonly score: number;
+  readonly flaggedAt: string;
+  readonly holdStatus: HoldStatus;
+  /** Revue avant le débit (REVIEW_BEFORE_CHARGE) ; sinon la revue porte sur le trip. */
+  readonly reviewBeforeCharge: boolean;
+  readonly reviewedAt: string | null;
+  readonly expiresAt: string;
+  readonly startsAt: string | null;
+  readonly endsAt: string | null;
+  readonly entryDeclaration: {
+    readonly residencyStatus: 'TOURIST' | 'RESIDENT';
+    readonly entryDate: string | null;
+    readonly declaredAt: string;
+  } | null;
+}
+
 /** États SM-3 de la vérification (08 SM-3 ; 17 §3.2.2). */
 export const KYC_STATUSES = [
   'NOT_STARTED',
@@ -300,6 +349,8 @@ export interface OpsState {
   readonly kyc?: KycDossierView | undefined;
   /** US-108 : dossier de l'hôte signalé. */
   readonly host?: HostDossierView | undefined;
+  /** US-209b : réservation signalée (file RISK_BOOKING). */
+  readonly booking?: BookingReviewView | undefined;
   readonly catalog?: CatalogAdditionView | undefined;
   readonly profile?: ProfileView | undefined;
   readonly notice?:
@@ -355,6 +406,14 @@ export interface OpsHandlers {
   readonly onHostScreening: (
     orgId: string,
     results: Readonly<Record<SanctionsList, SanctionsListResult>>,
+    reason: string,
+  ) => void;
+  /** US-209b : dossier d'une réservation signalée (file RISK_BOOKING), lecture journalisée. */
+  readonly onOpenBooking: (itemId: string, purpose: string) => void;
+  /** US-209b : décision motivée de l'ops (`REVIEW_FLAGGED_BOOKING`). */
+  readonly onBookingDecision: (
+    assessmentId: string,
+    decision: BookingDecision,
     reason: string,
   ) => void;
   readonly onOpenCatalog: (itemId: string) => void;
@@ -633,6 +692,8 @@ export function OpsPanels({
                   handlers.onOpenKyc(target, fieldOf(e, 'purpose'));
                 } else if (verb === 'host' && target !== undefined) {
                   handlers.onOpenHost(target, fieldOf(e, 'purpose'));
+                } else if (verb === 'booking' && target !== undefined) {
+                  handlers.onOpenBooking(target, fieldOf(e, 'purpose'));
                 } else if (verb === 'catalog' && target !== undefined) {
                   handlers.onOpenCatalog(target);
                 }
@@ -668,7 +729,9 @@ export function OpsPanels({
               </ul>
               {q.selected !== null && (
                 <>
-                  {(q.selected === 'KYC' || q.selected === 'HOST_VERIFICATION') && (
+                  {(q.selected === 'KYC' ||
+                    q.selected === 'HOST_VERIFICATION' ||
+                    q.selected === 'RISK_BOOKING') && (
                     <PurposeField i18n={i18n} id="queue-purpose" />
                   )}
                   <DataTable
@@ -742,6 +805,19 @@ export function OpsPanels({
                                 {i18n.t('backoffice.queues.openHost')}
                               </Button>
                             )}
+                            {item.queue === 'RISK_BOOKING' &&
+                              item.subjectType === 'RISK_ASSESSMENT' &&
+                              item.assignedToMe && (
+                                <Button
+                                  type="submit"
+                                  name="op"
+                                  value={`booking:${item.id}`}
+                                  variant="primary"
+                                  loading={busy}
+                                >
+                                  {i18n.t('backoffice.booking.open')}
+                                </Button>
+                              )}
                             {item.queue === 'KYC' && item.assignedToMe && (
                               <Button
                                 type="submit"
@@ -774,6 +850,10 @@ export function OpsPanels({
 
       {state.host !== undefined && (
         <HostPanel i18n={i18n} host={state.host} handlers={handlers} busy={busy} />
+      )}
+
+      {state.booking !== undefined && (
+        <BookingPanel i18n={i18n} b={state.booking} handlers={handlers} busy={busy} />
       )}
 
       {state.catalog !== undefined && (
@@ -1864,6 +1944,166 @@ function HostPanel({
           <div className={styles['actions']}>
             <Button type="submit" variant="primary" loading={busy}>
               {i18n.t('backoffice.host.record')}
+            </Button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
+const SIGNAL_KEYS: Readonly<Record<BookingSignal, MessageKey>> = {
+  ACCOUNT_AGE: 'backoffice.booking.signal.ACCOUNT_AGE',
+  START_SOON: 'backoffice.booking.signal.START_SOON',
+  PREMIUM: 'backoffice.booking.signal.PREMIUM',
+  LUXE: 'backoffice.booking.signal.LUXE',
+  ENTRY_NOT_DECLARED: 'backoffice.booking.signal.ENTRY_NOT_DECLARED',
+  RESIDENT_FOREIGN_LICENSE: 'backoffice.booking.signal.RESIDENT_FOREIGN_LICENSE',
+  BEYOND_90_DAYS: 'backoffice.booking.signal.BEYOND_90_DAYS',
+};
+
+const HOLD_STATUS_KEYS: Readonly<Record<HoldStatus, MessageKey>> = {
+  ACTIVE: 'backoffice.booking.hold.ACTIVE',
+  PAYMENT_IN_FLIGHT: 'backoffice.booking.hold.PAYMENT_IN_FLIGHT',
+  CONVERTED: 'backoffice.booking.hold.CONVERTED',
+  EXPIRED: 'backoffice.booking.hold.EXPIRED',
+  RELEASED: 'backoffice.booking.hold.RELEASED',
+  COMPENSATED: 'backoffice.booking.hold.COMPENSATED',
+};
+
+/** Refus motivés de la commande liée (0117) expliqués dans la langue de la vue. */
+export const BOOKING_REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
+  ALREADY_DECIDED: 'backoffice.booking.refusal.alreadyDecided',
+  ITEM_NOT_CLAIMED: 'backoffice.booking.refusal.notClaimed',
+  HOLD_NOT_LIVE: 'backoffice.booking.refusal.notLive',
+  HOLD_EXPIRED: 'backoffice.booking.refusal.expired',
+  START_PASSED: 'backoffice.booking.refusal.startPassed',
+  GUEST_INELIGIBLE: 'backoffice.booking.refusal.ineligible',
+  PAYMENT_IN_FLIGHT: 'backoffice.booking.refusal.paymentInFlight',
+  CANCELLATION_UNAVAILABLE: 'backoffice.booking.refusal.cancellationUnavailable',
+  SELF_FORBIDDEN: 'common.ops.selfForbidden',
+};
+
+const signalLabel = (i18n: Translator, signal: string): string =>
+  (BOOKING_SIGNALS as readonly string[]).includes(signal)
+    ? i18n.t(SIGNAL_KEYS[signal as BookingSignal])
+    : signal;
+
+/**
+ * Réservation signalée ouverte par la file RISK_BOOKING (US-209b ; 16 ADM-029, VER-007 ; 10b O01) :
+ * signaux des règles déclenchées (jamais une donnée personnelle), score, état et échéance du hold,
+ * période, déclaration d'entrée (UXQ-03 : l'ops contrôle statut et date) ; consultation annoncée
+ * comme journalisée. Décision motivée (approuver, refuser) tant que le hold n'est pas sorti et
+ * n'a pas été revu ; la base reste juge (élément pris en charge, échéance, début, éligibilité).
+ */
+function BookingPanel({
+  i18n,
+  b,
+  handlers,
+  busy,
+}: {
+  readonly i18n: Translator;
+  readonly b: BookingReviewView;
+  readonly handlers: OpsHandlers;
+  readonly busy: boolean;
+}) {
+  const open =
+    b.holdStatus === 'ACTIVE' ||
+    b.holdStatus === 'PAYMENT_IN_FLIGHT' ||
+    b.holdStatus === 'CONVERTED';
+  const entry = b.entryDeclaration;
+  return (
+    <section className={styles['panel']} aria-labelledby="booking-heading">
+      <h2 id="booking-heading" className={styles['heading']} tabIndex={-1}>
+        {i18n.t('backoffice.booking.heading')}
+      </h2>
+      <Banner tone="info" live="polite">
+        {i18n.t('backoffice.kyc.logged')}
+      </Banner>
+      <p className={styles['muted']}>
+        {i18n.t(
+          b.reviewBeforeCharge ? 'backoffice.booking.introBefore' : 'backoffice.booking.introAfter',
+        )}
+      </p>
+      <Fact
+        label={i18n.t('backoffice.booking.status')}
+        value={`${i18n.t(HOLD_STATUS_KEYS[b.holdStatus])} · ${b.country}`}
+      />
+      <Fact
+        label={i18n.t('backoffice.booking.expires')}
+        value={`${i18n.dateTime(b.expiresAt, 'UTC')} UTC`}
+      />
+      {b.startsAt !== null && b.endsAt !== null && (
+        <Fact
+          label={i18n.t('backoffice.booking.period')}
+          value={`${i18n.dateTime(b.startsAt, 'UTC')} – ${i18n.dateTime(b.endsAt, 'UTC')} UTC`}
+        />
+      )}
+      <Fact label={i18n.t('backoffice.booking.score')} value={String(b.score)} />
+      <h3 className={styles['label']}>{i18n.t('backoffice.booking.signals')}</h3>
+      <ul className={styles['roles']}>
+        {b.rulesFired.map((r) => (
+          <li key={`${r.code}:${r.signal}`} className={styles['role']}>
+            <Badge tone="warning">{signalLabel(i18n, r.signal)}</Badge>
+          </li>
+        ))}
+      </ul>
+      <Fact
+        label={i18n.t('backoffice.booking.entry')}
+        value={
+          entry === null
+            ? i18n.t('backoffice.booking.entryNone')
+            : entry.residencyStatus === 'RESIDENT'
+              ? i18n.t('backoffice.booking.entryResident')
+              : i18n.t('backoffice.booking.entryTourist', { date: entry.entryDate ?? '' })
+        }
+      />
+      {open && b.reviewedAt === null && (
+        <form
+          className={styles['form']}
+          aria-labelledby="booking-decision-heading"
+          onSubmit={prevent((e) => {
+            const raw = new FormData(e.currentTarget).get('decision');
+            if (raw === 'APPROVED' || raw === 'REJECTED') {
+              handlers.onBookingDecision(b.assessmentId, raw, fieldOf(e, 'reason'));
+            }
+          })}
+        >
+          <h3 id="booking-decision-heading" className={styles['label']}>
+            {i18n.t('backoffice.booking.decisionHeading')}
+          </h3>
+          <p className={styles['muted']}>{i18n.t('backoffice.booking.decisionHint')}</p>
+          <fieldset className={styles['checks']}>
+            <legend className={styles['label']}>{i18n.t('backoffice.booking.decision')}</legend>
+            {BOOKING_DECISIONS.map((d) => (
+              <label key={d} className={styles['choice']}>
+                <input
+                  type="radio"
+                  name="decision"
+                  value={d}
+                  required
+                  className={styles['choiceInput']}
+                />
+                <span>
+                  {i18n.t(
+                    d === 'APPROVED' ? 'backoffice.booking.approve' : 'backoffice.booking.reject',
+                  )}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <TextField
+            i18n={i18n}
+            id="booking-reason"
+            name="reason"
+            minLength={10}
+            maxLength={1000}
+            label={i18n.t('backoffice.action.reason')}
+            hint={i18n.t('backoffice.action.reasonHint')}
+          />
+          <div className={styles['actions']}>
+            <Button type="submit" variant="primary" loading={busy}>
+              {i18n.t('backoffice.booking.record')}
             </Button>
           </div>
         </form>

@@ -144,8 +144,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  retenue hors fenêtre sans durée écrite, lien vers la politique publiée), `web.listing.distance.*` (distance incluse sur la période, prix du km
  supplémentaire) et `web.listing.protection.*` (assureur partenaire, courtier, RC tiers incluse,
  franchises par niveau, exclusions du contrat, protection indisponible).
+ Version 61 (la 59 est réservée à US-223, la 60 à US-205b) : décision de l'ops sur une réservation
+ signalée et déclaration d'entrée, partie 209b (US-209, ADR-141) : `common.kyc.entryDeclared`,
+ `common.kyc.entryDateInvalid` (déclaration d'entrée du voyageur à permis étranger, 16 VER-007),
+ `common.bookingReview.notBooking` et `backoffice.booking.*` (dossier et décision d'une réservation
+ signalée dans la console O01).
  */
-export const CATALOG_VERSION = 58;
+export const CATALOG_VERSION = 61;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

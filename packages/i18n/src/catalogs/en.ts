@@ -418,6 +418,8 @@ export const EN_MESSAGES = {
   'common.ops.selfForbidden':
     'You cannot handle a file that concerns you (your account, your car or a linked account). Another team member must do it.',
   'common.ops.itemTaken': 'Another team member has already claimed this item.',
+  'common.bookingReview.notBooking':
+    'This item isn’t a flagged booking. Open it from the 360° profile.',
   'common.ops.userNotFound': 'Nobody with that email address within your scope.',
   'common.evidence.rejected':
     'File refused: only clean JPEG, PNG, HEIC or PDF files of limited size.',
@@ -588,6 +590,54 @@ export const EN_MESSAGES = {
   'backoffice.host.clear': 'No match',
   'backoffice.host.match': 'Possible match',
   'backoffice.host.record': 'Record the screening',
+  'backoffice.booking.open': 'Open the booking',
+  'backoffice.booking.heading': 'Flagged booking',
+  'backoffice.booking.introBefore':
+    'Review before charge: the guest pays nothing before your decision.',
+  'backoffice.booking.introAfter': 'Review after payment: the trip may already be paid.',
+  'backoffice.booking.status': 'Booking status',
+  'backoffice.booking.expires': 'Expires',
+  'backoffice.booking.period': 'Trip period',
+  'backoffice.booking.score': 'Risk score',
+  'backoffice.booking.signals': 'Signals',
+  'backoffice.booking.signal.ACCOUNT_AGE': 'Account created less than 24 h ago',
+  'backoffice.booking.signal.START_SOON': 'Starts in less than 3 h',
+  'backoffice.booking.signal.PREMIUM': 'Premium vehicle',
+  'backoffice.booking.signal.LUXE': 'Luxury vehicle',
+  'backoffice.booking.signal.ENTRY_NOT_DECLARED': 'Foreign license, entry not declared',
+  'backoffice.booking.signal.RESIDENT_FOREIGN_LICENSE': 'Resident with a foreign license',
+  'backoffice.booking.signal.BEYOND_90_DAYS': 'Trip ends more than 90 days after entry',
+  'backoffice.booking.entry': 'Declared entry',
+  'backoffice.booking.entryNone': 'No declaration',
+  'backoffice.booking.entryTourist': 'Tourist, entered on {date}',
+  'backoffice.booking.entryResident': 'Resident',
+  'backoffice.booking.decisionHeading': 'Decision',
+  'backoffice.booking.decisionHint':
+    'Approving lets the guest pay. Rejecting frees the dates with no charge.',
+  'backoffice.booking.decision': 'Your decision',
+  'backoffice.booking.approve': 'Approve the booking',
+  'backoffice.booking.reject': 'Reject the booking',
+  'backoffice.booking.record': 'Save the decision',
+  'backoffice.booking.approved': 'Booking approved. The guest can pay now.',
+  'backoffice.booking.rejected': 'Booking rejected. The dates are free, with no charge.',
+  'backoffice.booking.hold.ACTIVE': 'Under review',
+  'backoffice.booking.hold.PAYMENT_IN_FLIGHT': 'Payment in progress',
+  'backoffice.booking.hold.CONVERTED': 'Paid',
+  'backoffice.booking.hold.EXPIRED': 'Expired',
+  'backoffice.booking.hold.RELEASED': 'Released',
+  'backoffice.booking.hold.COMPENSATED': 'Compensated',
+  'backoffice.booking.refusal.alreadyDecided': 'This booking already has a decision.',
+  'backoffice.booking.refusal.notClaimed': 'Claim the item in the queue before deciding.',
+  'backoffice.booking.refusal.notLive': 'This booking is no longer active.',
+  'backoffice.booking.refusal.expired': 'The review window has ended. You can only reject it.',
+  'backoffice.booking.refusal.startPassed':
+    'The trip has already started. You can only reject the booking.',
+  'backoffice.booking.refusal.ineligible':
+    'The guest no longer passes the checks. You can only reject the booking.',
+  'backoffice.booking.refusal.paymentInFlight':
+    'A payment is in progress. Try again in a few minutes.',
+  'backoffice.booking.refusal.cancellationUnavailable':
+    'The trip is already paid. Cancelling it with a refund isn’t available here yet.',
   'backoffice.host.recorded': 'Screening recorded.',
   'backoffice.host.refused.HOST_ALREADY_SCREENED': 'This file already has a recorded screening.',
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY': 'The host has not submitted the file yet.',
@@ -1327,6 +1377,9 @@ export const EN_MESSAGES = {
     'Enter your first and last names as shown on your driver’s license.',
   'common.kyc.legalNameLocked':
     'We are reviewing your identity. You can change your name once we are done.',
+  'common.kyc.entryDeclared':
+    'We saved your entry date. Our team will check it if your booking needs it.',
+  'common.kyc.entryDateInvalid': 'Check your entry date: it can’t be later than today.',
   'web.s04.title': 'Verify your identity',
   'web.s04.intro': "We do it before payment so you're never charged if you can't drive.",
   'web.s04.progress': 'Step {step} of {total}',

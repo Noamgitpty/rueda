@@ -144,6 +144,20 @@ async function hostItem(country: string): Promise<string> {
 }
 
 /**
+ * Élément neuf de la file RISK_BOOKING du pays (vraie mise en file, fixture 9990 ; US-209b) :
+ * aucune évaluation derrière (sujet neuf) ⇒ un acteur autorisé reçoit 403 STAFF_CASE_REQUIRED
+ * (élément non pris en charge) ou 409 BOOKING_REVIEW_NOT_BOOKING (ADMIN), jamais 401 / 403
+ * FORBIDDEN.
+ */
+async function riskItem(country: string): Promise<string> {
+  const { rows } = await client.query<{ item_id: string }>(
+    `SELECT item_id FROM test_fixture.us109_enqueue('RISK_BOOKING', 'RISK_ASSESSMENT', $1, $2)`,
+    [randomUUID(), country],
+  );
+  return rows[0]?.item_id ?? randomUUID();
+}
+
+/**
  * Élément neuf de la file CATALOG_ADDITION du pays (vraie mise en file, fixture 9990 ; US-114) :
  * aucune demande derrière (sujet neuf) ⇒ un acteur autorisé reçoit 403 STAFF_CASE_REQUIRED (élément
  * non pris en charge) ou 409 CATALOG_REQUEST_CLOSED (ADMIN), jamais 401 / 403 FORBIDDEN.
@@ -449,6 +463,15 @@ async function requestOf(
       return {
         method: 'POST',
         path: `/console/queues/items/${await hostItem(country)}/host-verification`,
+        body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
+      };
+    // US-209b : réservation signalée (élément RISK_BOOKING du pays de l'acteur, sans évaluation
+    // derrière) ⇒ OPS : 403 STAFF_CASE_REQUIRED (non pris en charge) ; ADMIN : 409
+    // BOOKING_REVIEW_NOT_BOOKING ; jamais une donnée
+    case 'POST /console/queues/items/{id}/risk-review':
+      return {
+        method: 'POST',
+        path: `/console/queues/items/${await riskItem(country)}/risk-review`,
         body: { requestId: id, purpose: 'Matrice US-043 : dossier de test' },
       };
     // US-114 : file d'ajout au catalogue (élément du pays de l'acteur)
@@ -770,6 +793,13 @@ async function requestOf(
         method: 'POST',
         path: '/identity/legal-name',
         body: { legalFirstName: ' ', legalLastName: ' ' },
+      };
+    // US-209b : touriste sans date d'entrée ⇒ 400 REQUEST_INVALID, rien n'est écrit
+    case 'POST /identity/entry-declaration':
+      return {
+        method: 'POST',
+        path: '/identity/entry-declaration',
+        body: { country, residencyStatus: 'TOURIST' },
       };
     case 'POST /identity/verification':
       return { method: 'POST', path: '/identity/verification', body: { country } };

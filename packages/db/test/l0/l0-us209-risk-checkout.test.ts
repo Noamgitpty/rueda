@@ -22,6 +22,7 @@
  *   règle faible ⇒ aucune revue (jamais plus lourd que Turo, ADR-135) ;
  * - mêmes contrôles au paiement et à la conversion (N-53, N-95, L2-PM-21).
  */
+import { createHash, randomBytes } from 'node:crypto';
 import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { translateDbError } from '../../src/index.ts';
@@ -49,6 +50,8 @@ import {
   taxGroups,
 } from '../support/checkout.ts';
 import type { CheckoutVector, Driver, Person } from '../support/checkout.ts';
+import { person as staffPerson } from '../support/kyc.ts';
+import { auditOf, elevate, login } from '../support/staff.ts';
 
 type Tx = pg.ClientBase;
 type Row = Record<string, unknown>;
@@ -733,6 +736,526 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
     });
   },
 );
+
+// ---------------------------------------------------------------------------------------------
+// US-209, partie 209b (migration 0117, ADR-141) : décision motivée de l'ops sur une réservation
+// signalée, hold de revue échu, dossier de la console, borne de la déclaration d'entrée.
+// Attendus : 19 US-209 (critère 2 « la décision ops est motivée ») ; 17 §2.5 (« à l'approbation,
+// une seule prolongation : expires_at = reviewed_at + hold_ttl_minutes, borne reviewed_at +
+// hold_max_total_minutes » ; « revue refusée ou non faite dans le délai ⇒ RELEASED
+// (REVIEW_REJECTED), aucun règlement, aucun débit » ; C20) ; 17 §7.2 (`hold_ttl_minutes` = 10,
+// `hold_max_total_minutes` = 20) ; ADR-122 (jamais une action sur un sujet qui concerne l'agent).
+// ---------------------------------------------------------------------------------------------
+
+const REASON_OK = 'Permis et entrée vérifiés auprès du voyageur';
+const REASON_KO = 'Pièces incohérentes avec la déclaration du voyageur';
+const PURPOSE = 'Instruction de la réservation signalée assignée';
+/** 17 §7.2 : `hold_max_total_minutes` = 20 (borne de la prolongation, au-delà du TTL). */
+const HOLD_MAX_TOTAL_MIN = 20;
+
+interface StaffSession {
+  readonly userId: string;
+  readonly hash: Buffer;
+}
+
+/**
+ * Agent du staff élevé par TOTP à l'instant virtuel de la transaction (vraies commandes, comme
+ * `staffAt` de l0-us218 : la base calcule le pas sur `platform.now()`). `userId` : un compte
+ * existant (le voyageur lui-même, pour la garde ADR-122) ; sinon une personne nouvelle du pays.
+ */
+async function staffNow(
+  tx: Tx,
+  cc: CountryCase,
+  role = 'OPS_AGENT',
+  userId: string | null = null,
+): Promise<StaffSession> {
+  const id = userId ?? (await staffPerson(tx, cc.country)).userId;
+  await tx.query(`SELECT test_fixture.iam_grant_staff_role($1, $2, $3, $4::text[], NULL, NULL)`, [
+    uuid(),
+    id,
+    role,
+    [cc.country],
+  ]);
+  const factorId = uuid();
+  const codeHash = createHash('sha256')
+    .update(randomBytes(9).toString('base64url'), 'utf8')
+    .digest();
+  await tx.query(
+    `SELECT test_fixture.iam_insert_pending_totp($1, $2, 'fake-vault:test-secret', $3, 86400)`,
+    [factorId, id, codeHash],
+  );
+  const hash = await login(tx, id);
+  const reveal = await tx.query<{ outcome: string }>(
+    'SELECT outcome FROM core.iam_staff_cmd_enroll_reveal($1, $2)',
+    [hash, codeHash],
+  );
+  if (reveal.rows[0]?.outcome !== 'OK') throw new Error('enrôlement refusé');
+  const now = await tx.query<{ ms: string }>(
+    'SELECT (extract(epoch FROM platform.now()) * 1000)::bigint::text AS ms',
+  );
+  const step = Math.floor(Number(now.rows[0]?.ms) / 1000 / 30);
+  if ((await elevate(tx, hash, factorId, step)) !== 'ENROLLED') {
+    throw new Error('élévation refusée');
+  }
+  return { userId: id, hash };
+}
+
+type Review = Row & {
+  readonly assessment_id: string | null;
+  readonly item_id: string | null;
+  readonly item_status: string | null;
+};
+
+async function review(tx: Tx, holdId: string | null): Promise<Review> {
+  const r = (await tx.query<Review>('SELECT * FROM test_fixture.us209b_review($1)', [holdId])).rows;
+  if (!r[0]) throw new Error('hold introuvable');
+  return r[0];
+}
+
+const claimItem = async (tx: Tx, s: StaffSession, itemId: string | null) =>
+  (
+    await tx.query<{ outcome: string }>('SELECT * FROM core.support_staff_claim_item($1, $2, $3)', [
+      s.hash,
+      uuid(),
+      itemId,
+    ])
+  ).rows[0]?.outcome;
+
+interface ActionRow {
+  readonly outcome: string;
+  readonly action_id: string | null;
+  readonly domain_ref: string | null;
+  readonly detail: string | null;
+}
+
+const MANUAL_ACTION =
+  'SELECT * FROM core.iam_staff_cmd_manual_action($1, $2, $3, $4, $5, $6::jsonb, $7::uuid[])';
+
+/** Action de console REVIEW_FLAGGED_BOOKING (cadre d'US-101), sans pièce. */
+async function decide(
+  tx: Tx,
+  s: StaffSession,
+  assessmentId: string | null,
+  decision: string,
+  reason = REASON_OK,
+  requestId = uuid(),
+): Promise<ActionRow> {
+  const r = await tx.query<ActionRow>(MANUAL_ACTION, [
+    s.hash,
+    requestId,
+    'REVIEW_FLAGGED_BOOKING',
+    assessmentId,
+    reason,
+    JSON.stringify({ decision }),
+    [],
+  ]);
+  if (!r.rows[0]) throw new Error('aucune issue');
+  return r.rows[0];
+}
+
+const dossier = async (tx: Tx, s: StaffSession, itemId: string | null) =>
+  (
+    await tx.query<{ outcome: string; body: Record<string, unknown> | null }>(
+      'SELECT * FROM core.support_staff_booking_review($1, $2, $3, $4)',
+      [s.hash, uuid(), itemId, PURPOSE],
+    )
+  ).rows[0];
+
+const iso = (v: unknown): string | null =>
+  v === null || v === undefined ? null : new Date(v as string).toISOString();
+
+async function holdEvents(tx: Tx, holdId: string | null): Promise<Row[]> {
+  return (await tx.query<Row>('SELECT * FROM test_fixture.us209b_events($1)', [holdId])).rows;
+}
+
+describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
+  'US-209b décision de l’ops sur une réservation signalée (%s)',
+  (_name, cc) => {
+    const run = scenario(cc);
+
+    /** Réservation signalée (compte de moins de 24 h et Premium, 16 ADM-029) : hold de revue. */
+    async function flagged(tx: Tx, w: World, listingId?: string) {
+      const p = await guest(tx, cc);
+      const id = listingId ?? (await listing(tx, cc, 'PREMIUM'));
+      const r = await book(tx, cc, w, p, id);
+      expect(r.outcome).toBe('DONE');
+      const rv = await review(tx, r.hold_id);
+      expect(rv).toMatchObject({ item_status: 'OPEN', decision: 'REVIEW' });
+      return { p, holdId: r.hold_id, listingId: id, rv };
+    }
+
+    it('critère 2 (fin) : ADR-122 lève le conflit présumé (un agent neutre prend l’élément) ; APPROVED motivé ⇒ reviewed_at, UNE prolongation (hold_ttl_minutes depuis la décision, ≤ hold_max_total_minutes), occupation prolongée, élément DONE, évaluation décidée, motif et auteur journalisés, événement sans donnée personnelle ; seconde décision refusée', async () => {
+      await run(async (tx, w) => {
+        const f = await flagged(tx, w);
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        const requestId = uuid();
+        const r = await decide(tx, ops, f.rv.assessment_id, 'APPROVED', REASON_OK, requestId);
+        expect(r).toMatchObject({ outcome: 'DONE', action_id: requestId, domain_ref: f.holdId });
+
+        const h = await holdRow(tx, f.holdId);
+        expect(h).toMatchObject({ status: 'ACTIVE', review_required: true });
+        expect(iso(h['reviewed_at'])).toBe(NOW);
+        expect(iso(h['expires_at'])).toBe(plus(NOW, HOLD_TTL_MIN));
+        expect(HOLD_TTL_MIN).toBeLessThanOrEqual(HOLD_MAX_TOTAL_MIN);
+        const rv = await review(tx, f.holdId);
+        expect(rv).toMatchObject({
+          item_status: 'DONE',
+          item_decision: 'APPROVED',
+          reviewed_by: ops.userId,
+          occupancy_active: true,
+        });
+        expect(iso(rv['decided_at'])).toBe(NOW);
+        expect(iso(rv['occupancy_expires_at'])).toBe(plus(NOW, HOLD_TTL_MIN));
+        const m = (
+          await tx.query<Row>('SELECT * FROM test_fixture.us209b_manual_action($1)', [requestId])
+        ).rows[0];
+        expect(m).toMatchObject({
+          action_code: 'REVIEW_FLAGGED_BOOKING',
+          subject_type: 'RISK_ASSESSMENT',
+          subject_id: f.rv.assessment_id,
+          country_code: cc.country,
+          actor_user_id: ops.userId,
+          reason: REASON_OK,
+          input: { decision: 'APPROVED' },
+          outcome: 'DONE',
+          domain_ref: f.holdId,
+          audit_linked: true,
+        });
+        expect((await auditOf(tx, ops.userId)).at(-1)).toMatchObject({
+          action_code: 'MANUAL_ACTION_DONE',
+          reason: REASON_OK,
+        });
+        const [e] = (await holdEvents(tx, f.holdId)).filter(
+          (x) => x['type'] === 'booking.hold.review_decided',
+        );
+        expect(e).toMatchObject({ actor_user_id: ops.userId, actor_role: 'OPS_AGENT' });
+        expect(e?.['payload']).toMatchObject({ hold_id: f.holdId, decision: 'APPROVED' });
+        expect(Object.keys(e?.['payload'] as object).sort()).toEqual(
+          ['decision', 'expires_at', 'hold_id', 'org_id', 'released', 'vehicle_id'].sort(),
+        );
+
+        // une seule décision : nouvelle demande refusée, rien ne bouge (prolongation unique)
+        const again = await decide(tx, ops, f.rv.assessment_id, 'REJECTED', REASON_KO);
+        expect(again).toMatchObject({ outcome: 'REFUSED', detail: 'ALREADY_DECIDED' });
+        expect(iso((await holdRow(tx, f.holdId))['expires_at'])).toBe(plus(NOW, HOLD_TTL_MIN));
+        // même request_id : DUPLICATE (idempotence du cadre d'US-101)
+        expect(
+          (await decide(tx, ops, f.rv.assessment_id, 'APPROVED', REASON_OK, requestId)).outcome,
+        ).toBe('DUPLICATE');
+      });
+    });
+
+    it('après l’approbation, le paiement reprend par le chemin d’US-223 (REVIEW_BEFORE_CHARGE) : avant la décision BOOKING_UNDER_REVIEW ; après, NEW_ORDER au total du devis engagé ; aucun trip sans preuve du PSP', async () => {
+      await run(async (tx, w) => {
+        await tx.query('SELECT test_fixture.us024_psp_account($1)', [cc.country]);
+        const { rows } = await tx.query<{ capability: string; kind: string }>(
+          `SELECT capability, kind FROM core.payment_psp_capability_catalog WHERE blocking <> 'NO'`,
+        );
+        for (const c of rows) {
+          const value = c.kind === 'bool' ? true : c.kind === 'int' ? 1 : 'FAKE_HMAC_SHA256';
+          await tx.query(
+            `SELECT test_fixture.us024_set_capability('FAKE', $1, '*', $2, $3::jsonb, $4, $5::timestamptz)`,
+            [cc.country, c.capability, JSON.stringify(value), 'VALIDATED_SANDBOX', plus(NOW, -3)],
+          );
+        }
+        const f = await flagged(tx, w);
+        const before = await failure(tx, 'SELECT core.booking_cmd_checkout_pay($1, $2, $3)', [
+          f.p.hash,
+          f.holdId,
+          'CARD',
+        ]);
+        expect(before).toMatchObject({ code: '23514', constraint: 'hold_review_before_payment' });
+        expect(translateDbError(before ?? {}).code).toBe('BOOKING_UNDER_REVIEW');
+        expect(await paymentOperations(tx, f.holdId)).toBe(0);
+
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).outcome).toBe('DONE');
+        const r = await tx.query<{ r: Record<string, unknown> }>(
+          'SELECT core.booking_cmd_checkout_pay($1, $2, $3) AS r',
+          [f.p.hash, f.holdId, 'CARD'],
+        );
+        expect(r.rows[0]?.r).toMatchObject({
+          outcome: 'NEW_ORDER',
+          amountMinor: String(VECTORS[cc.country]!.total),
+          currency: cc.currency,
+          holdId: f.holdId,
+        });
+        expect(await holdRow(tx, f.holdId)).toMatchObject({ status: 'PAYMENT_IN_FLIGHT' });
+        expect(await paymentOperations(tx, f.holdId)).toBe(1);
+        // la conversion exige toujours la preuve signée du PSP (US-223a) : aucun trip ici
+        expect((await holdEvents(tx, f.holdId)).map((x) => x['type'])).not.toContain(
+          'booking.trip.booked',
+        );
+      });
+    });
+
+    it('REJECTED motivé ⇒ RELEASED / REVIEW_REJECTED, occupation libérée (créneau de nouveau réservable), aucun paiement possible, aucun débit', async () => {
+      await run(async (tx, w) => {
+        const f = await flagged(tx, w);
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        expect(await decide(tx, ops, f.rv.assessment_id, 'REJECTED', REASON_KO)).toMatchObject({
+          outcome: 'DONE',
+          domain_ref: f.holdId,
+        });
+        expect(await holdRow(tx, f.holdId)).toMatchObject({ status: 'RELEASED' });
+        expect(await review(tx, f.holdId)).toMatchObject({
+          release_reason: 'REVIEW_REJECTED',
+          released_by: ops.userId,
+          occupancy_active: false,
+          deactivated_reason: 'HOLD_RELEASED',
+          item_status: 'DONE',
+          item_decision: 'REJECTED',
+          reviewed_by: ops.userId,
+        });
+        expect(await startPayment(tx, f.p, f.holdId)).not.toBeNull();
+        expect(await paymentOperations(tx, f.holdId)).toBe(0);
+        // créneau libéré : un autre voyageur réserve les mêmes dates
+        const other = await guest(tx, cc);
+        expect((await book(tx, cc, w, other, f.listingId)).outcome).toBe('DONE');
+      });
+    });
+
+    it('hold de revue non revu dans le délai (17 §2.5) ⇒ RELEASED / REVIEW_REJECTED (jamais EXPIRED), sans débit, élément de file clos CANCELLED ; une décision tardive est refusée', async () => {
+      await run(async (tx, w) => {
+        const f = await flagged(tx, w);
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        const late = plus(NOW, REVIEW_HOLD_MIN + 1);
+        await setClock(tx, late);
+        const ops2 = await staffNow(tx, cc);
+        // l'élément est pris par le premier agent : le second n'en est pas le preneur
+        expect((await decide(tx, ops2, f.rv.assessment_id, 'APPROVED')).detail).toBe(
+          'ITEM_NOT_CLAIMED',
+        );
+        // l'expiration ciblée de la pose suivante sur le véhicule (2a, texte EXPIRY_2A_SQL
+        // inchangé) sort le hold de revue échu : RELEASED / REVIEW_REJECTED
+        const other = await guest(tx, cc);
+        expect((await book(tx, cc, w, other, f.listingId, START, late)).outcome).toBe('DONE');
+        expect(await holdRow(tx, f.holdId)).toMatchObject({
+          status: 'RELEASED',
+          reviewed_at: null,
+        });
+        const rv = await review(tx, f.holdId);
+        expect(rv).toMatchObject({
+          release_reason: 'REVIEW_REJECTED',
+          expired_at: null,
+          occupancy_active: false,
+          item_status: 'CANCELLED',
+          item_decision: 'HOLD_RELEASED',
+          decided_at: null,
+        });
+        expect(iso(rv['released_at'])).toBe(late);
+        expect(await paymentOperations(tx, f.holdId)).toBe(0);
+        expect((await decide(tx, ops, f.rv.assessment_id, 'REJECTED', REASON_KO)).detail).toBe(
+          'ITEM_NOT_CLAIMED',
+        );
+      });
+    });
+
+    it('APPROVED d’un hold dont le début prévu est passé (C20) ⇒ START_PASSED, rien d’écrit ; voyageur devenu inéligible ⇒ GUEST_INELIGIBLE, le refus reste possible', async () => {
+      await run(async (tx, w) => {
+        // départ dans 1 h 30 (préavis de l'hôte à 1 h) et compte récent : 50, revue (120 min)
+        const soon = plus(NOW, 90);
+        const p = await guest(tx, cc);
+        const r = await book(tx, cc, w, p, await listing(tx, cc, null, 60), soon);
+        expect(r.outcome).toBe('DONE');
+        const rv = await review(tx, r.hold_id);
+        expect(rv.item_status).toBe('OPEN');
+        const f = await flagged(tx, w);
+        await tx.query('SELECT test_fixture.us209_restrict($1)', [f.p.id]);
+
+        // le début prévu est passé, l'échéance du hold de revue (NOW + 120 min) ne l'est pas
+        await setClock(tx, plus(NOW, 91));
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, rv.assessment_id, 'APPROVED')).detail).toBe('START_PASSED');
+        expect(await holdRow(tx, r.hold_id)).toMatchObject({ status: 'ACTIVE', reviewed_at: null });
+        expect(await review(tx, r.hold_id)).toMatchObject({ item_status: 'IN_REVIEW' });
+
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).detail).toBe(
+          'GUEST_INELIGIBLE',
+        );
+        expect(await holdRow(tx, f.holdId)).toMatchObject({ reviewed_at: null });
+        expect((await decide(tx, ops, f.rv.assessment_id, 'REJECTED', REASON_KO)).outcome).toBe(
+          'DONE',
+        );
+      });
+    });
+
+    it('séparation des tâches (ADR-122) : le voyageur devenu agent ⇒ SELF_FORBIDDEN à la prise, au dossier et à la décision ; agent sans prise ⇒ ITEM_NOT_CLAIMED ; FINANCE ⇒ FORBIDDEN ; décision hors énumération ⇒ 22023 ; rien d’écrit', async () => {
+      await run(async (tx, w) => {
+        const f = await flagged(tx, w);
+        const self = await staffNow(tx, cc, 'OPS_AGENT', f.p.id);
+        expect(await claimItem(tx, self, f.rv.item_id)).toBe('SELF_FORBIDDEN');
+        expect((await dossier(tx, self, f.rv.item_id))?.outcome).toBe('SELF_FORBIDDEN');
+        expect(await decide(tx, self, f.rv.assessment_id, 'APPROVED')).toMatchObject({
+          outcome: 'REFUSED',
+          detail: 'SELF_FORBIDDEN',
+        });
+        const ops = await staffNow(tx, cc);
+        expect((await decide(tx, ops, f.rv.assessment_id, 'APPROVED')).detail).toBe(
+          'ITEM_NOT_CLAIMED',
+        );
+        const finance = await staffNow(tx, cc, 'FINANCE');
+        expect((await decide(tx, finance, f.rv.assessment_id, 'APPROVED')).outcome).toBe(
+          'FORBIDDEN',
+        );
+        expect(
+          await failure(tx, MANUAL_ACTION, [
+            ops.hash,
+            uuid(),
+            'REVIEW_FLAGGED_BOOKING',
+            f.rv.assessment_id,
+            REASON_OK,
+            JSON.stringify({ decision: 'MAYBE' }),
+            [],
+          ]),
+        ).toMatchObject({ code: '22023' });
+        expect(await holdRow(tx, f.holdId)).toMatchObject({ status: 'ACTIVE', reviewed_at: null });
+        expect(await review(tx, f.holdId)).toMatchObject({ item_status: 'OPEN', decided_at: null });
+      });
+    });
+
+    it('dossier de la console (O01) : élément pris en charge ⇒ règles, score, état et échéance du hold, période, déclaration d’entrée, accès journalisé AVANT la lecture ; élément non pris ⇒ CASE_REQUIRED', async () => {
+      await run(async (tx, w) => {
+        const f = await flagged(tx, w);
+        const declared = await tx.query<{ outcome: string }>(
+          'SELECT * FROM core.kyc_cmd_declare_entry($1, $2, $3, $4::date)',
+          [f.p.hash, cc.country, 'TOURIST', '2026-11-20'],
+        );
+        expect(declared.rows[0]?.outcome).toBe('DONE');
+        const ops = await staffNow(tx, cc);
+        expect((await dossier(tx, ops, f.rv.item_id))?.outcome).toBe('CASE_REQUIRED');
+        expect(await claimItem(tx, ops, f.rv.item_id)).toBe('CLAIMED');
+        const d = await dossier(tx, ops, f.rv.item_id);
+        expect(d?.outcome).toBe('GRANTED');
+        expect(d?.body).toMatchObject({
+          itemId: f.rv.item_id,
+          assessmentId: f.rv.assessment_id,
+          holdId: f.holdId,
+          guestUserId: f.p.id,
+          country: cc.country,
+          score: 50,
+          holdStatus: 'ACTIVE',
+          reviewBeforeCharge: true,
+          reviewedAt: null,
+          itemStatus: 'IN_REVIEW',
+          entryDeclaration: { residencyStatus: 'TOURIST', entryDate: '2026-11-20' },
+        });
+        expect(iso(d?.body?.['expiresAt'])).toBe(plus(NOW, REVIEW_HOLD_MIN));
+        expect(iso(d?.body?.['startsAt'])).toBe(START);
+        expect(
+          ((d?.body?.['rulesFired'] ?? []) as { code: string }[]).map((x) => x.code).sort(),
+        ).toEqual(['ACCOUNT_UNDER_24H', 'HIGH_VALUE_CLASS']);
+        expect((await auditOf(tx, ops.userId)).at(-1)).toMatchObject({
+          action_code: 'STAFF_DATA_ACCESS',
+          subject_type: 'RISK_ASSESSMENT',
+          reason: PURPOSE,
+          after: { access_kind: 'READ_C2_SUPPORT', field_or_file: 'booking_review' },
+        });
+      });
+    });
+
+    it('branche PAY_THEN_REVIEW : APPROVED ⇒ décision enregistrée, hold inchangé (aucune revue avant le débit) ; REJECTED d’un hold encore ACTIVE ⇒ RELEASED / REVIEW_REJECTED', async () => {
+      await run(async (tx, w) => {
+        await tx.query('SELECT test_fixture.us209_set_param($1, $2, NULL, $3::jsonb)', [
+          'flagged_booking_payment_order',
+          cc.country,
+          '"PAY_THEN_REVIEW"',
+        ]);
+        const a = await flagged(tx, w);
+        const b = await flagged(tx, w);
+        const h0 = await holdRow(tx, a.holdId);
+        expect(h0).toMatchObject({ review_required: false });
+        const ops = await staffNow(tx, cc);
+        expect(await claimItem(tx, ops, a.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, a.rv.assessment_id, 'APPROVED')).outcome).toBe('DONE');
+        const h1 = await holdRow(tx, a.holdId);
+        expect(h1).toMatchObject({ status: 'ACTIVE', reviewed_at: null });
+        expect(iso(h1['expires_at'])).toBe(iso(h0['expires_at']));
+        expect(await review(tx, a.holdId)).toMatchObject({
+          item_status: 'DONE',
+          reviewed_by: ops.userId,
+        });
+
+        expect(await claimItem(tx, ops, b.rv.item_id)).toBe('CLAIMED');
+        expect((await decide(tx, ops, b.rv.assessment_id, 'REJECTED', REASON_KO)).outcome).toBe(
+          'DONE',
+        );
+        expect(await review(tx, b.holdId)).toMatchObject({
+          release_reason: 'REVIEW_REJECTED',
+          occupancy_active: false,
+        });
+      });
+    });
+
+    it('déclaration d’entrée bornée (N-172) : 5 déclarations en une heure ⇒ la 6ᵉ RATE_LIMITED, rien d’écrit ; une heure après la première ⇒ DONE', async () => {
+      await run(async (tx) => {
+        const p = await guest(tx, cc);
+        const declare = async () =>
+          (
+            await tx.query<{ outcome: string }>(
+              'SELECT * FROM core.kyc_cmd_declare_entry($1, $2, $3, $4::date)',
+              [p.hash, cc.country, 'TOURIST', '2026-11-20'],
+            )
+          ).rows[0]?.outcome;
+        for (let i = 0; i < 5; i += 1) expect(await declare()).toBe('DONE');
+        expect(await declare()).toBe('RATE_LIMITED');
+        await setClock(tx, plus(NOW, 59));
+        expect(await declare()).toBe('RATE_LIMITED');
+        await setClock(tx, plus(NOW, 60));
+        expect(await declare()).toBe('DONE');
+      });
+    });
+  },
+);
+
+describe('US-209b rôles', () => {
+  it('commande liée, dossier et déclaration lus par la console : aucun rôle applicatif ; dossier de la console : app_api seul', async () => {
+    for (const role of ['app_api', 'app_worker', 'app_anon'] as const) {
+      await withRole(role, async (client) => {
+        await expect(
+          client.query(
+            'SELECT * FROM core.booking_manual_action_review_flagged($1, $2, $3, $4, $5::jsonb, $6, $7, $8)',
+            [
+              Buffer.alloc(32),
+              uuid(),
+              'REVIEW_FLAGGED_BOOKING',
+              uuid(),
+              '{"decision":"APPROVED"}',
+              REASON_OK,
+              uuid(),
+              'OPS_AGENT',
+            ],
+          ),
+        ).rejects.toMatchObject({ code: '42501' });
+        await expect(
+          client.query('SELECT core.booking_staff_review_dossier($1)', [uuid()]),
+        ).rejects.toMatchObject({ code: '42501' });
+        await expect(
+          client.query('SELECT core.kyc_staff_entry_declaration($1, $2)', [
+            uuid(),
+            COUNTRIES[0].country,
+          ]),
+        ).rejects.toMatchObject({ code: '42501' });
+        if (role !== 'app_api') {
+          await expect(
+            client.query('SELECT * FROM core.support_staff_booking_review($1, $2, $3, $4)', [
+              Buffer.alloc(32),
+              uuid(),
+              uuid(),
+              PURPOSE,
+            ]),
+          ).rejects.toMatchObject({ code: '42501' });
+        }
+      });
+    }
+  });
+});
 
 describe('US-209 rôles', () => {
   it('éligibilité du conducteur et aides du checkout : aucun rôle applicatif ; déclaration d’entrée : app_api seul', async () => {

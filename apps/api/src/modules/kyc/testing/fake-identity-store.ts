@@ -10,6 +10,7 @@ import type {
   ConsentOutcome,
   DecisionResult,
   EligibilityOutcome,
+  EntryDeclarationOutcome,
   ErasureOutcome,
   IdentityState,
   IdentityStore,
@@ -19,6 +20,7 @@ import type {
   PendingErasure,
   RecordOutcome,
   RegisterGate,
+  ResidencyStatus,
   SessionToRecord,
   WebhookRejectionReason,
 } from '../internal/identity-store.js';
@@ -54,6 +56,14 @@ export class FakeIdentityStore implements IdentityStore {
   registerGateOutcome: RegisterGate = null;
   /** Issue imposée du contrôle d'éligibilité. */
   eligibilityOutcome: EligibilityOutcome = 'KYC_NOT_APPROVED';
+  /** Déclarations d'entrée reçues (US-209b), et date du jour du pays vue par la « base ». */
+  readonly entryDeclarations: {
+    readonly country: string;
+    readonly residency: ResidencyStatus;
+    readonly entryDate: string | null;
+  }[] = [];
+  today = '2031-07-01';
+  entryRateLimited = false;
   readonly decisions: { readonly eventId: string; readonly outcome: string }[] = [];
   /** Demandes d'effacement inscrites au retrait (lecture du test). */
   readonly erasures: {
@@ -343,6 +353,24 @@ export class FakeIdentityStore implements IdentityStore {
     } catch (error) {
       return Promise.reject(error as Error);
     }
+  }
+
+  /** Issues de `core.kyc_cmd_declare_entry` (0112, 0117) utiles aux contrats d'API. */
+  declareEntry(
+    tokenHash: Buffer,
+    country: string,
+    residency: ResidencyStatus,
+    entryDate: string | null,
+  ): Promise<EntryDeclarationOutcome> {
+    if (this.failing) return Promise.reject(new IdentityStoreError('fake', '08006'));
+    if (this.#person(tokenHash) === undefined) return Promise.resolve('AUTH_REQUIRED');
+    if (residency === 'TOURIST' && entryDate === null) return Promise.resolve('REQUEST_INVALID');
+    if (entryDate !== null && (entryDate > this.today || entryDate < '1900-01-01')) {
+      return Promise.resolve('KYC_ENTRY_DATE_INVALID');
+    }
+    if (this.entryRateLimited) return Promise.resolve('RATE_LIMITED');
+    this.entryDeclarations.push({ country, residency, entryDate });
+    return Promise.resolve('DONE');
   }
 
   eligibility(tokenHash: Buffer): Promise<EligibilityOutcome> {

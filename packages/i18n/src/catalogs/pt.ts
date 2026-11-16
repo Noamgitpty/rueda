@@ -437,6 +437,8 @@ export const PT_MESSAGES = {
   'common.ops.selfForbidden':
     'Você não pode tratar um caso que diz respeito a você (sua conta, seu carro ou uma conta vinculada). Outra pessoa da equipe precisa fazer isso.',
   'common.ops.itemTaken': 'Outra pessoa da equipe já assumiu este item.',
+  'common.bookingReview.notBooking':
+    'Este item não é uma reserva sinalizada. Abra-o pela ficha 360°.',
   'common.ops.userNotFound': 'Ninguém com esse e-mail no seu escopo.',
   'common.evidence.rejected':
     'Arquivo recusado: apenas JPEG, PNG, HEIC ou PDF limpos, de tamanho limitado.',
@@ -611,6 +613,53 @@ export const PT_MESSAGES = {
   'backoffice.host.clear': 'Sem correspondência',
   'backoffice.host.match': 'Possível correspondência',
   'backoffice.host.record': 'Registrar a triagem',
+  'backoffice.booking.open': 'Abrir a reserva',
+  'backoffice.booking.heading': 'Reserva sinalizada',
+  'backoffice.booking.introBefore':
+    'Revisão antes da cobrança: o viajante não paga nada antes da sua decisão.',
+  'backoffice.booking.introAfter': 'Revisão depois do pagamento: a viagem pode já estar paga.',
+  'backoffice.booking.status': 'Status da reserva',
+  'backoffice.booking.expires': 'Vence',
+  'backoffice.booking.period': 'Período da viagem',
+  'backoffice.booking.score': 'Pontuação de risco',
+  'backoffice.booking.signals': 'Sinais',
+  'backoffice.booking.signal.ACCOUNT_AGE': 'Conta criada há menos de 24 h',
+  'backoffice.booking.signal.START_SOON': 'Saída em menos de 3 h',
+  'backoffice.booking.signal.PREMIUM': 'Veículo Premium',
+  'backoffice.booking.signal.LUXE': 'Veículo de luxo',
+  'backoffice.booking.signal.ENTRY_NOT_DECLARED': 'Carteira estrangeira, entrada não declarada',
+  'backoffice.booking.signal.RESIDENT_FOREIGN_LICENSE': 'Residente com carteira estrangeira',
+  'backoffice.booking.signal.BEYOND_90_DAYS': 'Fim da viagem mais de 90 dias depois da entrada',
+  'backoffice.booking.entry': 'Entrada declarada',
+  'backoffice.booking.entryNone': 'Nenhuma declaração',
+  'backoffice.booking.entryTourist': 'Turista, entrou em {date}',
+  'backoffice.booking.entryResident': 'Residente',
+  'backoffice.booking.decisionHeading': 'Decisão',
+  'backoffice.booking.decisionHint':
+    'Aprovar deixa o viajante pagar. Recusar libera as datas sem nenhuma cobrança.',
+  'backoffice.booking.decision': 'Sua decisão',
+  'backoffice.booking.approve': 'Aprovar a reserva',
+  'backoffice.booking.reject': 'Recusar a reserva',
+  'backoffice.booking.record': 'Salvar a decisão',
+  'backoffice.booking.approved': 'Reserva aprovada. O viajante já pode pagar.',
+  'backoffice.booking.rejected': 'Reserva recusada. As datas estão livres, sem cobrança.',
+  'backoffice.booking.hold.ACTIVE': 'Em revisão',
+  'backoffice.booking.hold.PAYMENT_IN_FLIGHT': 'Pagamento em andamento',
+  'backoffice.booking.hold.CONVERTED': 'Paga',
+  'backoffice.booking.hold.EXPIRED': 'Vencida',
+  'backoffice.booking.hold.RELEASED': 'Liberada',
+  'backoffice.booking.hold.COMPENSATED': 'Compensada',
+  'backoffice.booking.refusal.alreadyDecided': 'Esta reserva já tem uma decisão.',
+  'backoffice.booking.refusal.notClaimed': 'Assuma o item na fila antes de decidir.',
+  'backoffice.booking.refusal.notLive': 'Esta reserva não está mais ativa.',
+  'backoffice.booking.refusal.expired': 'O prazo de revisão acabou. Você só pode recusá-la.',
+  'backoffice.booking.refusal.startPassed': 'A viagem já começou. Você só pode recusar a reserva.',
+  'backoffice.booking.refusal.ineligible':
+    'O viajante não passa mais nos controles. Você só pode recusar a reserva.',
+  'backoffice.booking.refusal.paymentInFlight':
+    'Há um pagamento em andamento. Tente de novo em alguns minutos.',
+  'backoffice.booking.refusal.cancellationUnavailable':
+    'A viagem já está paga. O cancelamento com reembolso ainda não está disponível aqui.',
   'backoffice.host.recorded': 'Triagem registrada.',
   'backoffice.host.refused.HOST_ALREADY_SCREENED': 'Este dossiê já tem uma triagem registrada.',
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY': 'O anfitrião ainda não enviou o dossiê.',
@@ -1367,6 +1416,9 @@ export const PT_MESSAGES = {
     'Digite seu nome e seus sobrenomes como aparecem na sua carteira de motorista.',
   'common.kyc.legalNameLocked':
     'Estamos analisando sua identidade. Você poderá mudar seu nome quando terminarmos.',
+  'common.kyc.entryDeclared':
+    'Salvamos sua data de entrada. A equipe vai conferi-la se a sua reserva precisar.',
+  'common.kyc.entryDateInvalid': 'Confira a data de entrada: ela não pode ser depois de hoje.',
   'web.s04.title': 'Confirme sua identidade',
   'web.s04.intro':
     'Fazemos isso antes do pagamento para você nunca ser cobrado se não puder dirigir.',

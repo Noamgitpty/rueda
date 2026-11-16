@@ -66,6 +66,16 @@ export interface OpsConsoleStore {
     itemId: string,
     purpose: string,
   ): Promise<OpsResult>;
+  /**
+   * US-209b (ADR-141) : dossier d'une réservation signalée (élément RISK_BOOKING d'une évaluation
+   * de hold) : règles, score, état et échéance du hold, période, déclaration d'entrée ; journalisé.
+   */
+  bookingReview(
+    actor: StaffActor,
+    requestId: string,
+    itemId: string,
+    purpose: string,
+  ): Promise<OpsResult>;
   findUser(
     actor: StaffActor,
     requestId: string,
@@ -185,6 +195,8 @@ export const CLAIM_SQL = 'SELECT outcome, body FROM core.support_staff_claim_ite
 export const KYC_SQL = 'SELECT outcome, body FROM core.support_staff_kyc_dossier($1, $2, $3, $4)';
 export const HOST_DOSSIER_SQL =
   'SELECT outcome, body FROM core.support_staff_host_dossier($1, $2, $3, $4)';
+export const BOOKING_REVIEW_SQL =
+  'SELECT outcome, body FROM core.support_staff_booking_review($1, $2, $3, $4)';
 export const FIND_SQL = 'SELECT outcome, body FROM core.support_staff_find_user($1, $2, $3, $4)';
 export const PROFILE_SQL = 'SELECT outcome, body FROM core.support_staff_profile($1, $2, $3, $4)';
 export const NOTE_SQL = 'SELECT outcome, body FROM core.support_staff_add_note($1, $2, $3, $4)';
@@ -249,6 +261,10 @@ export class PgOpsConsoleStore implements OpsConsoleStore {
 
   hostDossier(actor: StaffActor, requestId: string, itemId: string, purpose: string) {
     return one(this.#db, HOST_DOSSIER_SQL, [actor.tokenHash, requestId, itemId, purpose]);
+  }
+
+  bookingReview(actor: StaffActor, requestId: string, itemId: string, purpose: string) {
+    return one(this.#db, BOOKING_REVIEW_SQL, [actor.tokenHash, requestId, itemId, purpose]);
   }
 
   findUser(actor: StaffActor, requestId: string, email: string, purpose: string) {

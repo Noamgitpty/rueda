@@ -116,6 +116,8 @@ export interface StartedSession {
 
 const COUNTRY = /^[A-Z]{2}$/;
 const LOCALE = /^[a-z]{2}(-[A-Z]{2})?$/;
+/** Date calendaire réelle (AAAA-MM-JJ) ; la borne « jamais future » est jugée en base. */
+const ISO_DAY = /^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 function storeFailure(error: unknown): never {
   if (error instanceof IdentityStoreError) throw new KycHttpError('KYC_PROVIDER_UNAVAILABLE');
@@ -315,6 +317,49 @@ export class IdentityVerificationService {
         throw new KycHttpError('PROFILE_NAME_REQUIRED');
       case 'LOCKED_PENDING_REVIEW':
         throw new KycHttpError('PROFILE_NAME_LOCKED_PENDING_REVIEW');
+    }
+  }
+
+  /**
+   * Déclaration d'entrée (US-209b ; 16 VER-007, UXQ-03) : statut (touriste avec date d'entrée,
+   * résident) dans un pays. La base juge la date (jamais future dans le fuseau du pays) et borne
+   * 5 déclarations par personne et par heure (`RATE_LIMITED`). Jamais un refus de réservation :
+   * le permis étranger reste un signal pour la revue de l'ops (mode FLAG, ADR-135). La date [C2]
+   * n'est jamais journalisée.
+   */
+  async declareEntry(proof: Buffer | null, raw: unknown): Promise<KycCode> {
+    if (proof === null) throw new KycHttpError('AUTH_REQUIRED');
+    const b = body(raw);
+    const country = this.#country(b['country'], true) as string;
+    const residency = b['residencyStatus'];
+    const entryDate = b['entryDate'] ?? null;
+    if (
+      (residency !== 'TOURIST' && residency !== 'RESIDENT') ||
+      (entryDate !== null && (typeof entryDate !== 'string' || !ISO_DAY.test(entryDate))) ||
+      (residency === 'TOURIST' && entryDate === null)
+    ) {
+      throw new KycHttpError('REQUEST_INVALID');
+    }
+    let r: Awaited<ReturnType<IdentityStore['declareEntry']>>;
+    try {
+      r = await this.#deps.store.declareEntry(
+        proof,
+        country,
+        residency,
+        entryDate as string | null,
+      );
+    } catch (error) {
+      storeFailure(error);
+    }
+    switch (r) {
+      case 'DONE':
+        return 'ENTRY_DECLARED';
+      case 'AUTH_REQUIRED':
+      case 'COUNTRY_UNKNOWN':
+      case 'REQUEST_INVALID':
+      case 'KYC_ENTRY_DATE_INVALID':
+      case 'RATE_LIMITED':
+        throw new KycHttpError(r);
     }
   }
 

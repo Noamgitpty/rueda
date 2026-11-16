@@ -445,6 +445,8 @@ export const FR_MESSAGES = {
   'common.ops.selfForbidden':
     'Tu ne peux pas traiter un dossier qui te concerne (ton compte, ta voiture ou un compte lié). Une autre personne de l’équipe doit s’en charger.',
   'common.ops.itemTaken': 'Une autre personne de l’équipe a déjà pris cet élément.',
+  'common.bookingReview.notBooking':
+    'Cet élément n’est pas une réservation signalée. Ouvre-le depuis la fiche 360°.',
   'common.ops.userNotFound': 'Personne avec cette adresse e-mail dans ta portée.',
   'common.evidence.rejected':
     'Fichier refusé : seuls les JPEG, PNG, HEIC ou PDF sains, de taille limitée.',
@@ -618,6 +620,55 @@ export const FR_MESSAGES = {
   'backoffice.host.clear': 'Aucune correspondance',
   'backoffice.host.match': 'Correspondance possible',
   'backoffice.host.record': 'Enregistrer le filtrage',
+  'backoffice.booking.open': 'Ouvrir la réservation',
+  'backoffice.booking.heading': 'Réservation signalée',
+  'backoffice.booking.introBefore':
+    'Revue avant le débit : le voyageur ne paie rien avant ta décision.',
+  'backoffice.booking.introAfter': 'Revue après le paiement : le voyage est peut-être déjà payé.',
+  'backoffice.booking.status': 'État de la réservation',
+  'backoffice.booking.expires': 'Échéance',
+  'backoffice.booking.period': 'Période du voyage',
+  'backoffice.booking.score': 'Score de risque',
+  'backoffice.booking.signals': 'Signaux',
+  'backoffice.booking.signal.ACCOUNT_AGE': 'Compte créé il y a moins de 24 h',
+  'backoffice.booking.signal.START_SOON': 'Départ dans moins de 3 h',
+  'backoffice.booking.signal.PREMIUM': 'Véhicule Premium',
+  'backoffice.booking.signal.LUXE': 'Véhicule de luxe',
+  'backoffice.booking.signal.ENTRY_NOT_DECLARED': 'Permis étranger, entrée non déclarée',
+  'backoffice.booking.signal.RESIDENT_FOREIGN_LICENSE': 'Résident avec un permis étranger',
+  'backoffice.booking.signal.BEYOND_90_DAYS': 'Fin du voyage plus de 90 jours après l’entrée',
+  'backoffice.booking.entry': 'Entrée déclarée',
+  'backoffice.booking.entryNone': 'Aucune déclaration',
+  'backoffice.booking.entryTourist': 'Touriste, entré le {date}',
+  'backoffice.booking.entryResident': 'Résident',
+  'backoffice.booking.decisionHeading': 'Décision',
+  'backoffice.booking.decisionHint':
+    'Approuver laisse le voyageur payer. Refuser libère les dates sans aucun débit.',
+  'backoffice.booking.decision': 'Ta décision',
+  'backoffice.booking.approve': 'Approuver la réservation',
+  'backoffice.booking.reject': 'Refuser la réservation',
+  'backoffice.booking.record': 'Enregistrer la décision',
+  'backoffice.booking.approved': 'Réservation approuvée. Le voyageur peut payer.',
+  'backoffice.booking.rejected': 'Réservation refusée. Les dates sont libres, sans débit.',
+  'backoffice.booking.hold.ACTIVE': 'En revue',
+  'backoffice.booking.hold.PAYMENT_IN_FLIGHT': 'Paiement en cours',
+  'backoffice.booking.hold.CONVERTED': 'Payée',
+  'backoffice.booking.hold.EXPIRED': 'Échue',
+  'backoffice.booking.hold.RELEASED': 'Libérée',
+  'backoffice.booking.hold.COMPENSATED': 'Compensée',
+  'backoffice.booking.refusal.alreadyDecided': 'Cette réservation a déjà une décision.',
+  'backoffice.booking.refusal.notClaimed': 'Prends l’élément dans la file avant de décider.',
+  'backoffice.booking.refusal.notLive': 'Cette réservation n’est plus active.',
+  'backoffice.booking.refusal.expired':
+    'Le délai de revue est passé. Tu peux seulement la refuser.',
+  'backoffice.booking.refusal.startPassed':
+    'Le voyage a déjà commencé. Tu peux seulement refuser la réservation.',
+  'backoffice.booking.refusal.ineligible':
+    'Le voyageur ne passe plus les contrôles. Tu peux seulement refuser la réservation.',
+  'backoffice.booking.refusal.paymentInFlight':
+    'Un paiement est en cours. Réessaie dans quelques minutes.',
+  'backoffice.booking.refusal.cancellationUnavailable':
+    'Le voyage est déjà payé. Son annulation remboursée n’est pas encore possible ici.',
   'backoffice.host.recorded': 'Filtrage enregistré.',
   'backoffice.host.refused.HOST_ALREADY_SCREENED': 'Ce dossier a déjà un filtrage enregistré.',
   'backoffice.host.refused.HOST_VERIFICATION_NOT_READY':
@@ -1401,6 +1452,10 @@ export const FR_MESSAGES = {
     'Saisis ton prénom et ton nom tels qu’ils figurent sur ton permis de conduire.',
   'common.kyc.legalNameLocked':
     'Nous vérifions ton identité. Tu pourras changer ton nom une fois la vérification terminée.',
+  'common.kyc.entryDeclared':
+    'Ta date d’entrée est enregistrée. L’équipe la vérifiera si ta réservation le demande.',
+  'common.kyc.entryDateInvalid':
+    'Vérifie la date d’entrée : elle ne peut pas être après aujourd’hui.',
   'web.s04.title': 'Vérifie ton identité',
   'web.s04.intro':
     'Nous le faisons avant le paiement pour que tu ne paies jamais si tu ne peux pas conduire.',

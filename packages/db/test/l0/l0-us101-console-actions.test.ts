@@ -180,6 +180,9 @@ const SANCTIONS_SCREENING_HANDLER =
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const RESTRICTION_KINDS = { kind: ['TS_HOLD', 'POLICY_VIOLATION'] };
+// US-209 (0117, ADR-141) : décision de l'ops sur une réservation signalée liée à sa commande
+const REVIEW_FLAGGED_HANDLER =
+  'core.booking_manual_action_review_flagged(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 const KYC_DECISION_HANDLER =
   'core.kyc_manual_action_decision(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
 // 19 US-106 : décision (SM-3 MANUAL_REVIEW → APPROVED | REJECTED | MORE_INFO_REQUIRED) et les
@@ -355,12 +358,14 @@ const MATRIX: Readonly<Record<string, Expected>> = {
   },
   REVIEW_FLAGGED_BOOKING: {
     permission: 'kyc.decide',
-    subject: 'TRIP',
+    // US-209 (0117, ADR-141) : la décision porte sur l'évaluation (aucun trip avant le débit)
+    subject: 'RISK_ASSESSMENT',
     mode: 'DOMAIN_COMMAND',
     keys: ['decision'],
     values: DECISION,
     approval: false,
-    source: 'ADR-092 §1 (PROPOSÉ)',
+    handler: REVIEW_FLAGGED_HANDLER,
+    source: 'ADR-092 §1 (PROPOSÉ) ; 19 US-209 critère 2, ADR-141',
   },
   RECORD_CLAIM: {
     permission: 'claim.declare',
@@ -678,6 +683,8 @@ describe('types de sujet déclarés et résolveurs de pays', () => {
     'INSURER_BORDEREAU',
     'ORGANIZATION',
     'PLATFORM_ADVANCE',
+    // US-209 (0117) : l'évaluation d'un hold signalé (élément RISK_BOOKING), pays de l'évaluation
+    'RISK_ASSESSMENT',
     'SUPPORT_CASE',
     'TRIP',
     // US-107 (0061) : la personne inscrite, pays de son compte (dernière acceptation des CGU)
@@ -950,12 +957,16 @@ describe('critère 1 — action d’état : commande de domaine liée, dans la m
       const subjects: Record<string, string> = {
         PUBLISH_LISTING: uuid(),
       };
-      // KYC_DECISION (US-106, l0-us106-kyc-decision) et HOST_VERIFICATION_DECISION (US-123,
-      // l0-us123-host-verification) sont liées
+      // KYC_DECISION (US-106, l0-us106-kyc-decision), HOST_VERIFICATION_DECISION (US-123,
+      // l0-us123-host-verification) et REVIEW_FLAGGED_BOOKING (US-209, l0-us209-risk-checkout)
+      // sont liées
       for (const a of STATE_ACTIONS.filter(
-        (x) => x !== 'KYC_DECISION' && x !== 'HOST_VERIFICATION_DECISION',
+        (x) =>
+          x !== 'KYC_DECISION' &&
+          x !== 'HOST_VERIFICATION_DECISION' &&
+          x !== 'REVIEW_FLAGGED_BOOKING',
       )) {
-        const input = a === 'REVIEW_FLAGGED_BOOKING' ? { decision: 'APPROVED' } : {};
+        const input = {};
         const subject = subjects[a] ?? trip(0);
         expect((await act(client, ops, a, subject, { input })).outcome, a).toBe('UNAVAILABLE');
         expect((await auditOf(client, ops.userId)).at(-1)?.action_code, a).toBe(
