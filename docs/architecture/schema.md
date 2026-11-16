@@ -7,7 +7,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 
 ## Synthèse
 
-- 120 migrations ; 120 tables ; 2 vues ; 659 politiques RLS ; 235 fonctions `SECURITY DEFINER` ; 224 autres fonctions.
+- 121 migrations ; 123 tables ; 2 vues ; 678 politiques RLS ; 239 fonctions `SECURITY DEFINER` ; 229 autres fonctions.
 - Tables sans RLS `ENABLE` + `FORCE` : aucune.
 - Rôles applicatifs avec `SUPERUSER` ou `BYPASSRLS` : aucun.
 
@@ -135,6 +135,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0117_config_last_minute_window_params` | graine complémentaire : paramètres « last_minute_free_window* » (US-205 ; 17 §7.2). |
 | `0118_prc_quote_mileage_checkout_terms` | PRC / CAT : distance figée dans le devis, conditions d'annulation du checkout, fenêtre |
 | `0119_booking_flagged_review_decision` | AVL / RISK / SUP / KYC : décision de l'ops sur une réservation signalée, hold de revue |
+| `0120_ctr_rental_contract` | CTR / AVL : contrat de location hôte–voyageur par trip et signature horodatée (bêta). |
 
 ## Rôles
 
@@ -1140,9 +1141,11 @@ Déclencheurs :
 | `created_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `updated_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `row_version` | `integer` | oui | `0` |
+| `contract_document_id` | `uuid` | non | — |
 
 Contraintes :
 
+- `booking_trip_segment_contract_fkey` : `FOREIGN KEY (contract_document_id) REFERENCES core.contract_generated_document(id)`
 - `booking_trip_segment_pkey` : `PRIMARY KEY (id)`
 - `booking_trip_segment_trip_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
 - `trip_segment_beta_single` : `CHECK (seq = 1)`
@@ -1413,6 +1416,7 @@ Contraintes :
 Politiques RLS :
 
 - `catalog_cmd_search_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.catalog_listing`
@@ -1917,6 +1921,7 @@ Politiques RLS :
 - `api_read` (SELECT, PERMISSIVE, app_api) USING `(status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text]))`
 - `catalog_addition_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((source = 'HOST_REQUEST'::text) AND (status = 'ACTIVE'::text))`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -1966,6 +1971,7 @@ Politiques RLS :
 - `api_read` (SELECT, PERMISSIVE, app_api) USING `(status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text]))`
 - `catalog_addition_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((source = 'HOST_REQUEST'::text) AND (status = 'ACTIVE'::text))`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -2045,6 +2051,7 @@ Politiques RLS :
 - `api_read` (SELECT, PERMISSIVE, app_api) USING `(status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text]))`
 - `catalog_addition_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((source = 'HOST_REQUEST'::text) AND (status = 'ACTIVE'::text) AND (market IS NOT NULL) AND (verified_by IS NOT NULL) AND (verified_at IS NOT NULL))`
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -2120,6 +2127,9 @@ Déclencheurs :
 | `pwa_icon_asset_id` | `uuid` | non | — |
 | `email_skin` | `jsonb` | non | — |
 | `whatsapp_skin` | `jsonb` | non | — |
+##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
+@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
+ ERROR  run failed: command  exited (1)
 | `contrast_check` | `jsonb` | non | — |
 | `copied_from_id` | `uuid` | non | — |
 | `created_by` | `uuid` | oui | — |
@@ -2478,6 +2488,7 @@ Politiques RLS :
 - `catalog_cmd_upload_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `(key = ANY (ARRAY['upload_photo_max_kb'::text, 'upload_gallery_photos_max'::text, 'upload_documents_per_minute'::text]))`
 - `cmd_golive_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((app.actor_kind() = 'STAFF'::text) AND (go_live_request_id IS NOT NULL) AND (approved_by IS NOT NULL) AND (scope_type = 'COUNTRY'::text))`
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `((go_live_request_id IS NOT NULL) OR (key IN ( SELECT d.key FROM core.config_param_definition d WHERE d.go_live_switch)))`
+- `cmd_hold_contract_param_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = 'grace_minutes'::text)`
 - `cmd_hold_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['buffer_minutes'::text, 'hold_ttl_minutes'::text, 'hold_max_total_minutes'::text, 'max_active_holds_per_guest'::text, 'hold_creations_per_guest_vehicle_hour'::text, 'sweep_grace_s'::text, 'flagged_booking_payment_order'::text, 'review_hold_minutes'::text, 'payment_in_flight_margin_s'::text, 'psp_call_timeout_s'::text, 'conversion_start_tolerance_minutes'::text, 'payment_attempts_per_hold'::text, 'max_trip_days'::text, 'advance_notice_minutes'::text, 'no_show_grace_minutes'::text, 'overdue_detection_minutes'::text, 'p2p_private_hosts_enabled'::text, 'insurer_contract_active'::text]))`
 - `cmd_hold_risk_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `(key = ANY (ARRAY['min_driver_age'::text, 'foreign_license_review_enabled'::text]))`
 - `cmd_money_quote_read` (SELECT, PERMISSIVE, cmd_money_owner) USING `(key = ANY (ARRAY['grace_minutes'::text, 'max_trip_days'::text, 'host_default_plan'::text, 'host_share_pct'::text, 'delivery_share_pct'::text, 'extras_share_pct'::text, 'trip_fee_schedule'::text, 'quote_validity_minutes'::text, 'quote_freezes_per_guest_hour'::text, 'protection_grid'::text, 'guest_protection_min_level'::text, 'insurer_premium_share'::text]))`
@@ -2559,6 +2570,37 @@ Déclencheurs :
 - `consent_guard` : `CREATE TRIGGER consent_guard BEFORE INSERT OR DELETE OR UPDATE ON core.contract_consent FOR EACH ROW EXECUTE FUNCTION core.ctr_consent_guard()`
 - `consent_no_truncate` : `CREATE TRIGGER consent_no_truncate BEFORE TRUNCATE ON core.contract_consent FOR EACH STATEMENT EXECUTE FUNCTION core.ctr_no_truncate('consent_append_only')`
 
+### `core.contract_document_party`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `document_id` | `uuid` | oui | — |
+| `identity` | `jsonb` | oui | — |
+| `body` | `jsonb` | oui | — |
+| `pseudonymized_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `contract_document_party_document_id_fkey` : `FOREIGN KEY (document_id) REFERENCES core.contract_generated_document(id)`
+- `contract_document_party_pkey` : `PRIMARY KEY (document_id)`
+- `document_party_body_array` : `CHECK (jsonb_typeof(body) = 'array'::text)`
+- `document_party_identity_object` : `CHECK (jsonb_typeof(identity) = 'object'::text)`
+
+Politiques RLS :
+
+- `cmd_hold_contract_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'booking_contract'::text))`
+- `cmd_hold_contract_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `contract_record_no_delete` : `CREATE TRIGGER contract_record_no_delete BEFORE DELETE ON core.contract_document_party FOR EACH ROW EXECUTE FUNCTION core.contract_document_immutable()`
+- `ctr_no_truncate` : `CREATE TRIGGER ctr_no_truncate BEFORE TRUNCATE ON core.contract_document_party FOR EACH STATEMENT EXECUTE FUNCTION core.ctr_no_truncate()`
+
 ### `core.contract_document_template`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -2604,6 +2646,7 @@ Index :
 
 Politiques RLS :
 
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `iam_auth_select` (SELECT, PERMISSIVE, iam_auth_owner) USING `true`
 - `iam_staff_insert` (INSERT, PERMISSIVE, iam_staff_owner) WITH CHECK `true`
 - `iam_staff_select` (SELECT, PERMISSIVE, iam_staff_owner) USING `true`
@@ -2614,6 +2657,124 @@ Déclencheurs :
 
 - `document_template_guard` : `CREATE TRIGGER document_template_guard BEFORE INSERT OR DELETE OR UPDATE ON core.contract_document_template FOR EACH ROW EXECUTE FUNCTION core.ctr_template_guard()`
 - `document_template_no_truncate` : `CREATE TRIGGER document_template_no_truncate BEFORE TRUNCATE ON core.contract_document_template FOR EACH STATEMENT EXECUTE FUNCTION core.ctr_no_truncate('document_template_immutable')`
+
+### `core.contract_generated_document`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `kind` | `text` | oui | — |
+| `template_id` | `uuid` | oui | — |
+| `courtesy_template_id` | `uuid` | oui | — |
+| `subject_type` | `text` | oui | — |
+| `subject_id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `country_code` | `text` | oui | — |
+| `locale` | `text` | oui | — |
+| `version` | `integer` | oui | — |
+| `supersedes_id` | `uuid` | non | — |
+| `trigger_key` | `text` | oui | — |
+| `terms` | `jsonb` | oui | — |
+| `derived` | `jsonb` | oui | — |
+| `renderer_version` | `text` | oui | — |
+| `sha256` | `bytea` | oui | — |
+| `generated_at` | `timestamp with time zone` | oui | `platform.now()` |
+
+Contraintes :
+
+- `contract_generated_document_courtesy_template_id_fkey` : `FOREIGN KEY (courtesy_template_id) REFERENCES core.contract_document_template(id)`
+- `contract_generated_document_pkey` : `PRIMARY KEY (id)`
+- `contract_generated_document_subject_id_fkey` : `FOREIGN KEY (subject_id) REFERENCES core.booking_trip_segment(id)`
+- `contract_generated_document_supersedes_id_fkey` : `FOREIGN KEY (supersedes_id) REFERENCES core.contract_generated_document(id)`
+- `contract_generated_document_template_id_fkey` : `FOREIGN KEY (template_id) REFERENCES core.contract_document_template(id)`
+- `contract_generated_document_trip_id_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `generated_document_country_format` : `CHECK (country_code ~ '^[A-Z]{2}$'::text)`
+- `generated_document_derived_object` : `CHECK (jsonb_typeof(derived) = 'object'::text)`
+- `generated_document_first_version` : `CHECK ((version = 1) = (supersedes_id IS NULL))`
+- `generated_document_kind_valid` : `CHECK (kind = 'RENTAL_CONTRACT'::text)`
+- `generated_document_locale_valid` : `CHECK (locale = ANY (ARRAY['en'::text, 'fr'::text, 'pt'::text]))`
+- `generated_document_renderer_format` : `CHECK (renderer_version ~ '^ctr\.pdf/[0-9]{1,3}$'::text)`
+- `generated_document_sha256_length` : `CHECK (octet_length(sha256) = 32)`
+- `generated_document_subject_valid` : `CHECK (subject_type = 'TRIP_SEGMENT'::text)`
+- `generated_document_supersedes_unique` : `UNIQUE (supersedes_id)`
+- `generated_document_terms_object` : `CHECK (jsonb_typeof(terms) = 'object'::text)`
+- `generated_document_trigger_format` : `CHECK (trigger_key ~ '^[A-Za-z0-9:._-]{1,100}$'::text)`
+- `generated_document_trigger_unique` : `UNIQUE (trip_id, trigger_key)`
+- `generated_document_version_positive` : `CHECK (version >= 1)`
+- `generated_document_version_unique` : `UNIQUE (subject_id, version)`
+
+Index :
+
+- `generated_document_trip_idx` : `CREATE INDEX generated_document_trip_idx ON core.contract_generated_document USING btree (trip_id, version)`
+
+Politiques RLS :
+
+- `cmd_hold_contract_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((app.actor_kind() = 'WORKER'::text) AND (app.worker_name() = 'booking_contract'::text))`
+- `cmd_hold_contract_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `contract_record_immutable` : `CREATE TRIGGER contract_record_immutable BEFORE DELETE OR UPDATE ON core.contract_generated_document FOR EACH ROW EXECUTE FUNCTION core.contract_document_immutable()`
+- `ctr_no_truncate` : `CREATE TRIGGER ctr_no_truncate BEFORE TRUNCATE ON core.contract_generated_document FOR EACH STATEMENT EXECUTE FUNCTION core.ctr_no_truncate()`
+
+### `core.contract_signature`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+- Droits : cmd_hold_owner: INSERT, SELECT ; migrator: DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `id` | `uuid` | oui | `platform.uuid_v7()` |
+| `document_id` | `uuid` | oui | — |
+| `trip_id` | `uuid` | oui | — |
+| `signer_user_id` | `uuid` | oui | — |
+| `signer_role` | `text` | oui | — |
+| `method` | `text` | oui | — |
+| `otp_challenge_id` | `uuid` | non | — |
+| `signed_at` | `timestamp with time zone` | oui | `platform.now()` |
+| `document_sha256` | `bytea` | oui | — |
+| `seal_sha256` | `bytea` | oui | — |
+| `ip_enc` | `bytea` | non | — |
+| `user_agent_enc` | `bytea` | non | — |
+| `key_subject_type` | `text` | non | — |
+| `key_subject_id` | `uuid` | non | — |
+| `c2_withheld` | `boolean` | oui | — |
+
+Contraintes :
+
+- `contract_signature_document_id_fkey` : `FOREIGN KEY (document_id) REFERENCES core.contract_generated_document(id)`
+- `contract_signature_otp_challenge_id_fkey` : `FOREIGN KEY (otp_challenge_id) REFERENCES core.iam_otp_challenge(id)`
+- `contract_signature_pkey` : `PRIMARY KEY (id)`
+- `contract_signature_signer_user_id_fkey` : `FOREIGN KEY (signer_user_id) REFERENCES core.iam_user_account(id)`
+- `contract_signature_trip_id_fkey` : `FOREIGN KEY (trip_id) REFERENCES core.booking_trip(id)`
+- `signature_c2_withheld_coherent` : `CHECK (NOT c2_withheld OR ip_enc IS NULL AND user_agent_enc IS NULL)`
+- `signature_document_sha256_length` : `CHECK (octet_length(document_sha256) = 32)`
+- `signature_key_coherent` : `CHECK (ip_enc IS NULL AND user_agent_enc IS NULL OR key_subject_id IS NOT NULL)`
+- `signature_key_subject_type_valid` : `CHECK (key_subject_type IS NULL OR key_subject_type = 'USER'::text)`
+- `signature_method_valid` : `CHECK (method = ANY (ARRAY['CLICKWRAP'::text, 'CLICKWRAP_OTP'::text]))`
+- `signature_one_per_signer` : `UNIQUE (document_id, signer_user_id)`
+- `signature_otp_method` : `CHECK ((method = 'CLICKWRAP_OTP'::text) = (otp_challenge_id IS NOT NULL))`
+- `signature_role_valid` : `CHECK (signer_role = 'GUEST'::text)`
+- `signature_seal_sha256_length` : `CHECK (octet_length(seal_sha256) = 32)`
+
+Index :
+
+- `contract_signature_trip_idx` : `CREATE INDEX contract_signature_trip_idx ON core.contract_signature USING btree (trip_id)`
+
+Politiques RLS :
+
+- `cmd_hold_contract_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((signer_role = 'GUEST'::text) AND c2_withheld)`
+- `cmd_hold_contract_sel` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
+- `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
+
+Déclencheurs :
+
+- `contract_record_immutable` : `CREATE TRIGGER contract_record_immutable BEFORE DELETE OR UPDATE ON core.contract_signature FOR EACH ROW EXECUTE FUNCTION core.contract_document_immutable()`
+- `ctr_no_truncate` : `CREATE TRIGGER ctr_no_truncate BEFORE TRUNCATE ON core.contract_signature FOR EACH STATEMENT EXECUTE FUNCTION core.ctr_no_truncate()`
 
 ### `core.finance_legal_entity`
 
@@ -3164,6 +3325,7 @@ Index :
 Politiques RLS :
 
 - `cmd_golive_sel` (SELECT, PERMISSIVE, cmd_golive_owner) USING `true`
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `cmd_money_sel` (SELECT, PERMISSIVE, cmd_money_owner) USING `true`
 - `host_view_read` (SELECT, PERMISSIVE, host_view_owner) USING `true`
 - `iam_auth_insert` (INSERT, PERMISSIVE, iam_auth_owner) WITH CHECK `(status = 'PENDING_EMAIL'::text)`
@@ -3842,6 +4004,7 @@ Politiques RLS :
 - `api_insert` (INSERT, PERMISSIVE, app_api) WITH CHECK `(app.actor_kind() = ANY (ARRAY['GUEST'::text, 'HOST'::text, 'STAFF'::text]))`
 - `catalog_cmd_event_insert` (INSERT, PERMISSIVE, catalog_cmd_owner) WITH CHECK `((((type = 'catalog.addition_request.resolved'::text) AND (aggregate_type = 'catalog_addition_request'::text)) OR ((type = 'catalog.vehicle.released'::text) AND (aggregate_type = 'catalog_vehicle'::text))) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_golive_event_ins` (INSERT, PERMISSIVE, cmd_golive_owner) WITH CHECK `((type = 'config.param.changed'::text) AND (aggregate_type = 'param_value'::text) AND (actor_role = 'SUPERADMIN'::text) AND (actor_user_id IS NOT NULL))`
+- `cmd_hold_contract_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'contract_document'::text) AND (((type = 'contract.document.generated'::text) AND (actor_role = 'SYSTEM'::text) AND (actor_user_id IS NULL)) OR ((type = 'contract.document.signed'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id IS NOT NULL))))`
 - `cmd_hold_event_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = ANY (ARRAY['booking.hold.created'::text, 'booking.hold.released'::text, 'booking.hold.release_deferred'::text, 'booking.hold.payment_in_flight'::text])) AND (app.actor_kind() = 'GUEST'::text) AND (actor_role = 'GUEST'::text) AND (actor_user_id = app.actor_id()))`
 - `cmd_hold_review_event` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((aggregate_type = 'checkout_hold'::text) AND (type = 'booking.hold.review_decided'::text) AND (actor_role = ANY (ARRAY['OPS_AGENT'::text, 'ADMIN'::text])) AND (actor_user_id IS NOT NULL))`
 - `cmd_hold_trip_notice_ins` (INSERT, PERMISSIVE, cmd_hold_owner) WITH CHECK `((type = 'booking.trip.host_restricted'::text) AND (aggregate_type = 'trip'::text) AND (actor_user_id IS NOT NULL))`
@@ -3943,7 +4106,10 @@ Contraintes :
 - `payment_command_idem_unique` : `UNIQUE (idem_plain)`
 - `payment_command_kind_valid` : `CHECK (operation_kind = 'CANCEL_ORDER'::text)`
 - `payment_command_operation_fk` : `FOREIGN KEY (operation_id) REFERENCES core.payment_payment_operation(id)`
-- `payment_command_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'IN_FLIGHT'::text, 'DONE'::text, 'UNKNOWN'::text, 'ABANDONED'::text]))`
+- `payment_command_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'IN_FLIGHT'::text, 'DONE'::text, 'UNKNOWN' ^[[31m❯^[[39m test/int/schema-doc.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[31m1 failed^[[39m^[[2m)^[[22m^[[32m 120^[[2mms^[[22m^[[39m
+   ^[[31m❯^[[39m document du schéma (docs/architecture/schema.md) ^[[2m(1)^[[22m
+^[[31m     ^[[31m×^[[31m est à jour : régénéré depuis la base migrée, identique au fichier commité^[[39m^[[32m 119^[[2mms^[[22m^[[39m
+::text, 'ABANDONED'::text]))`
 - `payment_payment_command_pkey` : `PRIMARY KEY (id)`
 
 Index :
@@ -4921,6 +5087,7 @@ Contraintes :
 Politiques RLS :
 
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 ### `core.settlement_insurer_bordereau`
@@ -5062,6 +5229,7 @@ Contraintes :
 Politiques RLS :
 
 - `catalog_cmd_read` (SELECT, PERMISSIVE, catalog_cmd_owner) USING `true`
+- `cmd_hold_contract_read` (SELECT, PERMISSIVE, cmd_hold_owner) USING `true`
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 
 Déclencheurs :
@@ -5895,13 +6063,16 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_cmd_place_buffer(p_trip_id uuid, p_start timestamp with time zone)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_place_hold(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_flagged boolean)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_place_host_block(p_vehicle_id uuid, p_start timestamp with time zone, p_end timestamp with time zone)` | `uuid` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_record_contract(p_trip_id uuid, p_trigger_key text, p_facts jsonb, p_derived jsonb, p_body jsonb, p_template_id uuid, p_courtesy_template_id uuid, p_renderer text, p_sha256 bytea)` | `TABLE(outcome text, document_id uuid, version integer)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_record_order(p_hold_id uuid, p_operation_id uuid, p_provider_reference text, p_order_expires_at timestamp with time zone)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_release_own_hold(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_remove_host_block(p_block_id uuid)` | `boolean` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_report_self_booking(p_vehicle_id uuid)` | `void` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_cmd_sign_contract(p_token_hash bytea, p_trip_id uuid, p_document_id uuid, p_presented_sha256 bytea)` | `TABLE(outcome text, signature_id uuid, signed_at timestamp with time zone, seal_sha256 text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_start_payment(p_hold_id uuid, p_psp_account_id uuid, p_method text)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_trip_cancel(p_trip_id uuid, p_reason text, p_initiator text, p_sub_reason text, p_evidence_validated boolean, p_expected_row_version integer)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_cmd_trip_transition(p_trip_id uuid, p_to_status text, p_reason_code text, p_expected_row_version integer)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
+| `core.booking_contract_source(p_trip_id uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_eligibility(p_hold_id uuid)` | `text` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_worker: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_hold_review_item_close()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_host_guest_rows()` | `TABLE(trip_id uuid, first_name text, age_years integer, rating numeric, verification_status text)` | `host_view_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; host_view_owner: EXECUTE |
@@ -5911,6 +6082,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_staff_review_dossier(p_assessment uuid)` | `jsonb` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.booking_trip_birth_defaults()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.booking_trip_birth_records()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_contract(p_token_hash bytea, p_trip_id uuid, p_version integer)` | `TABLE(outcome text, viewer_role text, document_id uuid, version integer, latest_version integer, locale text, generated_at timestamp with time zone, sha256 text, renderer_version text, terms jsonb, derived jsonb, body jsonb, is_draft boolean, signature_id uuid, signed_at timestamp with time zone, seal_sha256 text)` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; cmd_hold_owner: EXECUTE |
 | `core.booking_trip_period_sync()` | `trigger` | `cmd_hold_owner` | search_path=pg_catalog, pg_temp | cmd_hold_owner: EXECUTE |
 | `core.catalog_addition_detail(p_addition_id uuid, p_country text)` | `jsonb` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | catalog_cmd_owner: EXECUTE ; iam_staff_owner: EXECUTE |
 | `core.catalog_cmd_add_listing_photo(p_token_hash bytea, p_org uuid, p_listing_id uuid, p_photo_id uuid, p_file_id uuid, p_mime text, p_bytes bigint, p_sha256 bytea)` | `TABLE(outcome text, photo_id uuid, storage_key text)` | `catalog_cmd_owner` | search_path=pg_catalog, pg_temp | app_api: EXECUTE ; catalog_cmd_owner: EXECUTE |
@@ -6134,6 +6306,9 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_checkout_record_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.booking_checkout_record_risk(p_hold uuid, p_guest uuid, p_org uuid, p_country text, p_rules jsonb, p_score integer, p_flagged boolean)` | `void` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_checkout_risk(p_guest uuid, p_vehicle uuid, p_start timestamp with time zone, p_end timestamp with time zone, p_country text)` | `TABLE(outcome text, flagged boolean, rules jsonb, score integer)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_contract_courtesy_locale(p_guest uuid)` | `text` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_contract_facts(p_trip_id uuid)` | `jsonb` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_contract_template(p_country text, p_locale text)` | `TABLE(id uuid, version integer, locale text, title text, body_md text, is_draft boolean)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_conversion_due(p_limit integer)` | `TABLE(operation_id uuid, action text)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_convert_payment(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_disposition_candidates(p_limit integer)` | `TABLE(operation_id uuid, success_known_at timestamp with time zone)` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
@@ -6157,6 +6332,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.booking_record_poll(p_operation_id uuid)` | `jsonb` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_release_cancelled_holds(p_limit integer)` | `integer` | `migrator` | app_worker: EXECUTE ; migrator: EXECUTE |
 | `core.booking_trip_apply_transition(p_trip_id uuid, p_from text, p_to text, p_reason text, p_origin text, p_actor_role text, p_via text, p_extra jsonb)` | `integer` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
+| `core.booking_trip_contract_signed(p_trip_id uuid)` | `boolean` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_trip_holds_slot(p_status text)` | `boolean` | `migrator` | cmd_hold_owner: EXECUTE ; migrator: EXECUTE |
 | `core.booking_trip_lock(p_trip_id uuid, p_expected_row_version integer)` | `TABLE(id uuid, status text, country_code text, scheduled_end timestamp with time zone, row_version integer, no_show_at timestamp with time zone, checkin_validated_at timestamp with time zone)` | `cmd_hold_owner` | cmd_hold_owner: EXECUTE |
 | `core.booking_trip_state_log_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
@@ -6210,6 +6386,7 @@ Chacune a un propriétaire `NOLOGIN` dédié (ADR-053) et un `search_path` figé
 | `core.config_param_value_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_tax_line_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.config_versioned_row_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
+| `core.contract_document_immutable()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.ctr_account_country(p_user_id uuid)` | `text` | `migrator` | iam_auth_owner: EXECUTE ; iam_staff_owner: EXECUTE ; kyc_cmd_owner: EXECUTE ; migrator: EXECUTE |
 | `core.ctr_consent_guard()` | `trigger` | `migrator` | migrator: EXECUTE |
 | `core.ctr_current_template(p_kind text, p_country text, p_language text, p_major_only boolean)` | `SETOF core.contract_document_template` | `migrator` | iam_auth_owner: EXECUTE ; migrator: EXECUTE |
