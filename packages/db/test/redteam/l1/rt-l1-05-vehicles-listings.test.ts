@@ -11,7 +11,7 @@
  * PROPOSÉS : valeurs des données CFG), VER-028 ; 19 US-110, US-115, US-118, US-124 ; BOARD N-61,
  * N-62 ; pré-mortem L1-PM-14, L1-PM-19, L1-PM-29.
  */
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { setSessionContext } from '../../../src/index.ts';
 import {
@@ -31,6 +31,7 @@ import {
   vin,
 } from './support.ts';
 import { first, outcomeOf } from './support-host.ts';
+import { uniqueDigits } from '../../support/unique.ts';
 
 describe.each(byCountry)(
   'RT-L1-A01 — mode déclaratif (DEC-FONDATEUR-22) : mesure du risque (%s)',
@@ -97,7 +98,7 @@ describe.each(byCountry)(
       await rolledBack(async (tx) => {
         const a = await hostOf(tx, country);
         const b = await hostOf(tx, country);
-        const base = `RBC${randomInt(10_000, 99_999)}`;
+        const base = `RBC${await uniqueDigits(tx, 8)}`;
         expect((await vehicleOf(tx, a, cc, { plate: base })).outcome).toBe('DONE');
         const variants: [string, string][] = [
           ['identique', base],
@@ -121,7 +122,7 @@ describe.each(byCountry)(
       await rolledBack(async (tx) => {
         const a = await hostOf(tx, country);
         const b = await hostOf(tx, country);
-        const base = vin();
+        const base = await vin(tx);
         expect((await vehicleOf(tx, a, cc, { vin: base })).outcome).toBe('DONE');
         const variants: [string, string][] = [
           ['minuscules', base.toLowerCase()],
@@ -159,7 +160,7 @@ describe.each(byCountry)('RT-L1-A01 — contestation N-61 abusive (%s)', (countr
       const attacker = await hostOf(tx, country);
       // clé de la personne, créée par le coffre de l'application avant le dépôt d'une pièce
       await tx.query('SELECT test_fixture.us109_subject_key($1)', [attacker.userId]);
-      const plateText = plate();
+      const plateText = await plate(tx);
       const v = await vehicleOf(tx, victim, cc, { plate: plateText });
       await declareAndSubmit(tx, victim, v.id ?? '');
       const watch = async () =>
@@ -204,7 +205,7 @@ describe.each(byCountry)('RT-L1-A01 — contestation N-61 abusive (%s)', (countr
       await tx.query('SELECT test_fixture.us109_subject_key($1)', [attacker.userId]);
       const plates: string[] = [];
       for (let i = 0; i < 14; i += 1) {
-        const p = plate();
+        const p = await plate(tx);
         plates.push(p);
         expect((await vehicleOf(tx, victim, cc, { plate: p })).outcome).toBe('DONE');
       }
@@ -313,7 +314,7 @@ describe.each(byCountry)(
           [h.hash, h.org],
         );
         expect(loc.outcome).toBe('DONE');
-        const secret = plate();
+        const secret = await plate(tx);
         const v = await vehicleOf(tx, { ...h, location: loc.location_id ?? '' }, cc, {
           plate: secret,
         });

@@ -9,11 +9,12 @@
  *
  * Les valeurs attendues des tests viennent de 19 US-106, 16 et 17, jamais de ce fichier.
  */
-import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type pg from 'pg';
 import { newToken, phcArgon2id, SESSION_TTL_S } from './iam.ts';
 import { elevate, login, stepNow } from './staff.ts';
+import { uniquePhone } from './unique.ts';
 
 export const PROVIDER = 'FAKE';
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
@@ -45,15 +46,6 @@ export function utcOffsetMinutes(country: string): number {
   const c = COUNTRY_DATA.get(country);
   if (c === undefined) throw new Error(`pays inconnu des données CFG : ${country}`);
   return c.timeZoneChecks.at(-1)?.offsetMinutes ?? 0;
-}
-
-function phoneOf(country: string): string {
-  const p = COUNTRY_DATA.get(country)?.phone;
-  if (p === undefined) throw new Error(`pays sans plan de numérotation : ${country}`);
-  const prefix = p.mobilePrefixes[0] ?? '';
-  let rest = '';
-  while (rest.length < p.nationalLength - prefix.length) rest += String(randomInt(10));
-  return `+${p.callingCode}${prefix}${rest}`;
 }
 
 export const uuid = (): string => randomUUID();
@@ -153,7 +145,10 @@ export async function person(
     [uuid(), userId, t.hash, SESSION_TTL_S],
   );
   if (!s.rows[0]?.expires_at) throw new Error('session refusée');
-  await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [userId, phoneOf(country)]);
+  await client.query('SELECT test_fixture.us105_verify_phone($1, $2)', [
+    userId,
+    await uniquePhone(client, country),
+  ]);
   return { userId, token: t.hash };
 }
 

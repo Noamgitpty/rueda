@@ -28,6 +28,7 @@ import { COUNTRIES, uuid } from '../support/avl.ts';
 import type { CountryCase } from '../support/avl.ts';
 import { newToken, phcArgon2id, SESSION_TTL_S } from '../support/iam.ts';
 import { auditOf, elevatedStaff } from '../support/staff.ts';
+import { uniqueHex, uniquePlate, uniqueVin } from '../support/unique.ts';
 
 const DOCS = '[{"kind":"TOS_GUEST","version":1},{"kind":"PRIVACY","version":1}]';
 const ALL = COUNTRIES.map((c) => c.country);
@@ -95,11 +96,8 @@ async function host(client: pg.ClientBase, country: string, status?: string): Pr
 }
 
 /** Plaque unique de test ; VIN ISO 3779 de test (17 caractères, ni I, O ni Q). */
-const plate = (): string => `C${randomBytes(4).toString('hex').toUpperCase()}`;
-const vin = (): string => {
-  const alphabet = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
-  return Array.from(randomBytes(17), (b) => alphabet[b % alphabet.length]).join('');
-};
+const plate = (c: pg.ClientBase): Promise<string> => uniquePlate(c, 'C');
+const vin = (c: pg.ClientBase): Promise<string> => uniqueVin(c);
 
 /** Véhicule par la vraie commande : hors catalogue (marque et modèle saisis) ou variante. */
 async function vehicle(
@@ -121,7 +119,7 @@ async function vehicle(
       h.hash,
       h.org,
       h.location,
-      plate(),
+      await plate(client),
       v.vin ?? null,
       v.variantId ?? null,
       v.variantId === undefined ? (v.make ?? 'Chery') : null,
@@ -418,7 +416,7 @@ describe('critère 1 — véhicule absent du catalogue : demande d’ajout, aucu
       await withRole('app_api', async (client) => {
         // compte ACTIVE : seule l'ouverture du pays (false) arrête le témoin
         const h = await host(client, country, 'ACTIVE');
-        const v = vin();
+        const v = await vin(client);
         const veh = await vehicle(client, h, {
           make: 'Chery',
           model: 'Tiggo 2',
@@ -700,7 +698,7 @@ describe('critère 2 — demande approuvée : le véhicule reçoit sa variante, 
     async (country) => {
       await withRole('app_api', async (client) => {
         const ops = await elevatedStaff(client, 'OPS_AGENT', [country]);
-        const model = `Modelo ${randomBytes(3).toString('hex')}`;
+        const model = `Modelo ${(await uniqueHex(client, 8)).toLowerCase()}`;
         const first = await pending(client, country, ops, { model, year: 2022 });
         expect(
           (await resolve(client, ops, first.item, 'APPROVE', { entry: entryFor(model, 2020) }))

@@ -415,7 +415,7 @@ describe.each(COUNTRIES)(
       async () => {
         const [superB, superC] = await twoSuperadmins(api, c.country);
         const superD = (await twoSuperadmins(api, c.country))[0];
-        const t = farInstant();
+        const t = await farInstant(api);
         try {
           const id = await inTx(api, { commit: true, virtualNow: t }, async (tx) => {
             const r = await requestSwitch(
@@ -455,7 +455,7 @@ describe.each(COUNTRIES)(
       async () => {
         const [superB, superC] = await twoSuperadmins(api, c.country);
         const superD = (await twoSuperadmins(api, c.country))[0];
-        const t = farInstant();
+        const t = await farInstant(api);
         try {
           const id = await inTx(api, { commit: true, virtualNow: t }, async (tx) => {
             const r = await requestSwitch(

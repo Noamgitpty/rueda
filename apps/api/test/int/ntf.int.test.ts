@@ -11,7 +11,7 @@
  * (Critère 1, gabarits es / en / fr / pt : tests unitaires `templates.test.ts`.)
  * Chaque cas tourne en USD (PA) et en PYG sans décimale (PY).
  */
-import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import type pg from 'pg';
 import { connectAs, releaseClient } from '@rueda/db/testing';
@@ -37,6 +37,20 @@ const CASES = countryCases();
 const COUNTRY_DATA = notificationCountryData(new CountryConfigService().config);
 
 const opened: pg.Client[] = [];
+
+/**
+ * Numéro E.164 fictif (`+1 555`) unique par construction (BOARD N-186) : un numéro vérifié
+ * n'appartient qu'à un compte (ACC-014, index unique) sur une base partagée par tous les fichiers ;
+ * `+15559` puis 6 chiffres du compteur de test de la base (fixture 9999).
+ */
+async function uniquePhone(api: pg.Client): Promise<string> {
+  const { rows } = await api.query<{ n: string }>(
+    'SELECT test_fixture.next_unique_serial()::text AS n',
+  );
+  const n = rows[0]?.n ?? '';
+  if (!/^[0-9]{1,6}$/.test(n)) throw new Error(`compteur unique de test hors de 6 chiffres : ${n}`);
+  return `+15559${n.padStart(6, '0')}`;
+}
 afterEach(async () => {
   for (const c of opened.splice(0)) await releaseClient(c);
 });
@@ -208,11 +222,7 @@ describe.each(CASES)('NTF sur PostgreSQL réel — $country ($currency)', (c) =>
   it(`critère 3 : ${String(MAX_SEND_ATTEMPTS)} échecs e-mail ⇒ repli SMS et notification.fallback.triggered dans l'outbox`, async () => {
     const api = await open('app_api');
     const worker = await open('app_worker');
-    const guest = await verifiedAccount(
-      api,
-      'fr',
-      `+1555${String(randomInt(0, 10_000_000)).padStart(7, '0')}`,
-    );
+    const guest = await verifiedAccount(api, 'fr', await uniquePhone(api));
     const e = engine(worker);
     e.email.runtime.script.script(
       'send',
