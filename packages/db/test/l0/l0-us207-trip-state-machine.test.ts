@@ -171,6 +171,8 @@ interface Booked {
 async function booked(cl: Clients, c: CountryCase): Promise<Booked> {
   const slot = freshSlot();
   const { hold, tripId } = await bookTrip(cl.api, cl.worker, slot, c, T0);
+  // US-211 (0120) : la remise (IN_PROGRESS) exige le contrat de location signé par le voyageur
+  await cl.worker.query('SELECT test_fixture.us211_sign($1)', [tripId]);
   return {
     tripId,
     guestId: hold.guestId,

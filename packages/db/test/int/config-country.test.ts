@@ -238,6 +238,10 @@ describe('configuration pays : structure et droits', () => {
             ...(t === 'config_param_definition' || t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_read', cmd: 'r', roles: 'cmd_hold_owner' }]
               : []),
+            // contrat de location (US-211, 0120) : tolérance de retard (grace_minutes) seulement
+            ...(t === 'config_param_value'
+              ? [{ t, pol: 'cmd_hold_contract_param_read', cmd: 'r', roles: 'cmd_hold_owner' }]
+              : []),
             // contrôles bloquants du checkout (US-209, 0112) : âge minimum du conducteur seulement
             ...(t === 'config_param_value'
               ? [{ t, pol: 'cmd_hold_risk_read', cmd: 'r', roles: 'cmd_hold_owner' }]

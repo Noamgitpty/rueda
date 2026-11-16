@@ -56,7 +56,9 @@ export type Worker =
   // travailleur de commandes monétaires (US-019) : statuts appliqués, boîte d'envoi (US-024)
   | 'payment_command'
   // oracle de production C12 (US-025, 0045) : lecture seule
-  | 'booking_oracle';
+  | 'booking_oracle'
+  // contrat de location hôte–voyageur (US-211, 0120) : génération au passage BOOKED
+  | 'booking_contract';
 
 export const uuid = (): string => randomUUID();
 

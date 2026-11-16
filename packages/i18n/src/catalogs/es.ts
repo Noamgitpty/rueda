@@ -1550,6 +1550,62 @@ export const ES_MESSAGES = {
     'Esta reserva acaba de cambiar. Recarga la página y vuelve a intentarlo.',
   'common.trip.noShowTooEarly':
     'Todavía es pronto para avisar que el viajero no llegó. Vuelve a intentarlo cuando termine el tiempo de espera indicado en la reserva.',
+  // US-211 : contrat de location hôte–voyageur (16 BKG-018, BKG-019), texte figé dans le PDF
+  'ctr.contract.draft':
+    'BORRADOR — pendiente de validación jurídica. No es un contrato definitivo.',
+  'ctr.contract.ref': 'Contrato {ref}, versión {version}',
+  'ctr.contract.parties': 'Partes',
+  'ctr.contract.host': 'Anfitrión: {name}, {capacity}',
+  'ctr.contract.hostCapacity.owner': 'propietario del vehículo',
+  'ctr.contract.hostCapacity.authorized':
+    'autorizado por el titular del vehículo mediante poder notarial',
+  'ctr.contract.hostIdentity':
+    'Identidad del anfitrión verificada por la plataforma; el número de su documento no se muestra.',
+  'ctr.contract.guest': 'Conductor (viajero): {name}',
+  'ctr.contract.intermediary':
+    '{brand} actúa solo como plataforma intermediaria entre particulares y como comerciante de referencia del pago; no es parte de este contrato ni empresa de alquiler.',
+  'ctr.contract.vehicleHeading': 'Vehículo y período',
+  'ctr.contract.vehicle': 'Vehículo: {make} {model} ({year}), placa {plate}',
+  'ctr.contract.period': 'Del {start} al {end} (hora de {timezone})',
+  'ctr.contract.handover': 'Entrega y devolución: {place}',
+  'ctr.contract.priceHeading': 'Precio y condiciones',
+  'ctr.contract.total': 'Total pagado, impuestos incluidos: {amount}',
+  'ctr.contract.priceLine': '{label}: {amount}',
+  'ctr.contract.line.tripPrice': 'Alquiler',
+  'ctr.contract.line.tripFee': 'Tarifa del viaje',
+  'ctr.contract.line.protection': 'Protección',
+  'ctr.contract.line.promo': 'Descuento',
+  'ctr.contract.line.delivery': 'Entrega a domicilio',
+  'ctr.contract.line.other': 'Otros cargos',
+  'ctr.contract.protection':
+    'Protección: plan {level}; franquicia de {deductible}; responsabilidad civil frente a terceros de {rc}; aseguradora: {insurer}',
+  'ctr.contract.broker': 'Corredor de seguros: {broker}',
+  'ctr.contract.level.basica': 'Básica',
+  'ctr.contract.level.estandar': 'Estándar',
+  'ctr.contract.level.total': 'Total',
+  'ctr.contract.deposit': 'Depósito de garantía con tarjeta: {amount}',
+  'ctr.contract.depositGeneric': 'Depósito de garantía: según las condiciones de pago.',
+  'ctr.contract.mileageIncluded': 'Kilometraje incluido: {km} km; kilómetro adicional: {price}',
+  'ctr.contract.mileageUnlimited': 'Kilometraje ilimitado',
+  'ctr.contract.cancelFree':
+    'Cancelación gratuita hasta el {date}; después se retiene {dur} de alquiler: {amount}',
+  'ctr.contract.cancelOneDay': '1 día',
+  'ctr.contract.cancelHalfDay': 'medio día',
+  'ctr.contract.cancelPolicy': 'Cancelación: según la política aceptada en la reserva.',
+  'ctr.contract.lateReturn':
+    'Devolución: tolerancia de {minutes} min; después, el retraso se cobra según la política publicada.',
+  'ctr.contract.lateReturnPolicy': 'Devolución: el retraso se cobra según la política publicada.',
+  'ctr.contract.territory':
+    'Está prohibido salir del territorio nacional donde se realiza el viaje ({country}).',
+  'ctr.contract.clauses': 'Cláusulas',
+  'ctr.contract.signatureHeading': 'Firma electrónica del viajero',
+  'ctr.contract.signedBy': 'Firma: {value}',
+  'ctr.contract.signedAt': 'Fecha y hora del servidor (UTC): {value}',
+  'ctr.contract.documentHash': 'Huella SHA-256 del documento: {value}',
+  'ctr.contract.seal': 'Sello: {value}',
+  'ctr.contract.signatureId': 'Firma n.º: {value}',
+  'ctr.contract.courtesy':
+    'Traducción de cortesía ({language}). En caso de diferencia, el texto en español hace fe.',
   // US-125 : avertissements réglementaires versionnés par pays (16 LEG-021), textes PROPOSÉS
   'common.regulatory.heading': 'Aviso importante',
   'common.regulatory.version': 'Versión {version} de este aviso',

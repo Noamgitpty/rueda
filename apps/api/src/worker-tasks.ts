@@ -15,6 +15,7 @@
  * | `ntf_dispatcher`, `ntf_sender` | événements, minuterie             | NTF (US-021) ; plafond SMS du pays (`ntfSmsBudget`, US-052) |
  * | `ops_monitor`         | 60 s (ADR-080)                             | `core.ops_monitor_metrics` (0051) ; alertes sur le port `AlertChannel` (US-004) |
  * | `iam_otp_sender`      | événement `iam.otp.requested`              | `core.iam_worker_otp_issue` (0066, US-104) puis SMS ; aucun canal SMS avant le lot C |
+ * | `booking_contract`    | événement `booking.trip.booked`            | `core.booking_contract_source` puis `core.booking_cmd_record_contract` (0120, US-211) : contrat de location hôte–voyageur, retenue du moteur de règlement, PDF déterministe et empreinte ; idempotent par événement |
  * | `iam_otp_pruner`      | 1 h                                        | `core.iam_worker_otp_prune` (0066) : défis OTP de plus de 30 jours (17 §3.2.1) |
  * | `kyc_score_pruner`    | 1 h                                        | `core.kyc_worker_prune` (0072, US-105) : scores [C3] à `retention_until`, rejets de rappels de plus de 90 jours |
  * | `privacy_request`     | 1 h                                        | `core.privacy_worker_retention_sweep`, `core.privacy_worker_dsr_overdue` puis `core.privacy_worker_stale_kyc_erasures` (0090, US-111) : trips clos sans litige pseudonymisés à l'échéance (`evidence_retention_months`), purge journalisée ; demandes des personnes en retard signalées une fois ; demandes d'effacement KYC en attente ou en échec ; alertes `PRIVACY_DSR_OVERDUE` (P1, par pays), `PRIVACY_KYC_ERASURE_STALE` (P1) |
@@ -36,7 +37,11 @@ import type {
   SqlClient,
   WorkerTransactions,
 } from './modules/bus/index.js';
-import { registerProductionOracle } from './modules/avl/index.js';
+import {
+  registerProductionOracle,
+  registerRentalContracts,
+  RentalContractGenerator,
+} from './modules/avl/index.js';
 import { resolveParam } from './modules/cfg/index.js';
 import { registerMoneyReconciliation } from './modules/fin/index.js';
 import { PgWebhookWorkStore, WebhookProcessor } from './modules/pay/index.js';
@@ -49,6 +54,7 @@ import {
   registerNotifications,
   repositoryLocaleConfig,
 } from './modules/ntf/index.js';
+import { resolveCancellationParams } from './modules/prc/index.js';
 import { ntfSmsBudget } from './modules/risk/index.js';
 
 export const HOLD_EXPIRY_WORKER = 'hold_expiry';
@@ -494,6 +500,20 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
   );
 
   const countryData = notificationCountryData(deps.config);
+  // Contrat de location hôte–voyageur (US-211) : généré au passage BOOKED, dans la transaction du
+  // reçu de l'événement ; aucune donnée personnelle dans les journaux
+  registerRentalContracts(
+    registry,
+    new RentalContractGenerator({
+      brand: deps.brandName,
+      localeConfig: repositoryLocaleConfig(),
+      exponentOf: countryData.exponentOf,
+      cancellationParamsOf: (ctx) => resolveCancellationParams(deps.config, ctx),
+      log: (entry) => {
+        deps.log(JSON.stringify({ level: 'info', ...entry }));
+      },
+    }),
+  );
   registerNotifications(
     registry,
     new NotificationSender({

@@ -37,3 +37,19 @@ export type {
   CheckoutResult,
   CheckoutStore,
 } from './internal/checkout/store.js';
+
+// Contrat de location hôte–voyageur par trip (US-211, ADR-143) : travailleur `booking_contract`,
+// consommateur de `booking.trip.booked` (faits du devis figé, retenue du moteur de règlement).
+export {
+  BOOKING_CONTRACT_WORKER,
+  ContractGenerationError,
+  localMinute,
+  registerRentalContracts,
+  RentalContractGenerator,
+  TRIP_BOOKED_EVENT,
+} from './internal/contract/contract-generator.js';
+export type {
+  ContractGeneratorDeps,
+  ContractLogEntry,
+  ContractOutcome,
+} from './internal/contract/contract-generator.js';

@@ -159,8 +159,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.kyc.entryDateInvalid` (déclaration d'entrée du voyageur à permis étranger, 16 VER-007),
  `common.bookingReview.notBooking` et `backoffice.booking.*` (dossier et décision d'une réservation
  signalée dans la console O01).
+ Version 63 (la 62 est réservée à US-223b) : contrat de location hôte–voyageur, partie 211a
+ (US-211, ADR-143) : `ctr.contract.*` (libellés du PDF du contrat, figés dans le document à sa
+ génération : parties, plateforme intermédiaire, véhicule, période, prix, protection, caution,
+ distance, annulation, retard, territoire, bloc de signature, traduction de courtoisie).
  */
-export const CATALOG_VERSION = 61;
+export const CATALOG_VERSION = 63;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

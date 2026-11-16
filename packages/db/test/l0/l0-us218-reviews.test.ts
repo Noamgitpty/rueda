@@ -163,6 +163,8 @@ async function book(cl: Clients, c: CountryCase, h: Host, car: string, start: st
     c,
     at(start, -DAY_MIN),
   );
+  // US-211 (0120) : la remise (IN_PROGRESS) exige le contrat de location signé par le voyageur
+  await cl.worker.query('SELECT test_fixture.us211_sign($1)', [r.tripId]);
   return { tripId: r.tripId, guestId: r.hold.guestId, start, end };
 }
 
