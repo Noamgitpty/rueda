@@ -98,7 +98,7 @@ export interface ProtectionOptionView {
 export const DRIVER_AGE_MIN = 16;
 export const DRIVER_AGE_MAX = 99;
 /** Message d'un âge illisible ou hors bornes (valeurs `min`, `max`). */
-export const AGE_INVALID_MESSAGE: MessageKey = 'web.s05.age.invalid';
+export const AGE_INVALID_MESSAGE = 'web.s05.age.invalid' as const;
 
 export interface CheckoutDocumentView {
   readonly kind: CheckoutDocumentKind;
