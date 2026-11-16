@@ -295,6 +295,8 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
         // contrat d'assureur refermé après le gel : refus d'US-226, jamais un code du conducteur
         const unverified = await guest(tx, cc, null);
         const late = await frozenQuote(tx, unverified, premium, docsOf(true));
+        // nouvelle version de l'interrupteur à un autre instant que son ouverture (valid_from unique)
+        await setClock(tx, plus(NOW, 1));
         await setSwitch(tx, 'insurer_contract_active', cc.country, false);
         expect(await checkoutQuote(tx, unverified, late)).toMatchObject({
           outcome: 'INSURER_CONTRACT_INACTIVE',
