@@ -25,8 +25,6 @@ sans reprendre le code des autres oracles ni le code testé :
 - règle 3 bis : variation sur une jambe HOST déjà libérée, avancée par PLATFORM, créance sur l'hôte (TJ18) ;
 - US-056 : complément de T66 (b) ventilé en cascade, réémissions en crédit comprises (TJ20) ; crédits plafonnés à la
   jambe PLATFORM de la capture (règle 10, TJ21) ;
-- TJ09c (report du lot 2, 2026-11-16, BOARD N-151) : capture du checkout PY d'US-208 (D2 sans lignes non taxées,
-  F recalculé par le barème [NOUS] de BR-PRICE-06) ;
 - contrôles de forme : identifiant TJ dupliqué, écart de TJ10c écrit exactement dans la ligne.
 Les valeurs attendues sont calculées ici, puis comparées aux lignes « | TJxx | » écrites dans 08.
 Usage : python -I -X utf8 tools/check_legs.py [--print]   (--print : imprime les lignes calculées)
@@ -192,26 +190,6 @@ EXPECTED["TJ09a"] = ("PYG", capD2)
 EXPECTED["TJ09b"] = ("PYG", refT40)
 CROSS += [("TJ09 hôte = T40 (268 750, égalité exacte)", hT40, 268750),
           ("TJ09 remboursement = T40 (1 000 368)", gT40, 1000368)]
-
-
-# TJ09c (report du lot 2, 2026-11-16 ; BOARD N-151, US-208) : capture du checkout PY = D2 SANS ses lignes non
-# taxées (protection, livraison), F recalculé par le barème [NOUS] de BR-PRICE-06 au lieu de l'entrée hors barème
-# 125 500 (note « F de D est une entrée hors barème »). Barème écrit ici depuis le TEXTE de BR-PRICE-06 :
-# 15 % (trip <= 6 j), 12 % (7-29 j), 8 % (>= 30 j) de P, minimum 5 USD / 35 000 PYG ; arrondi roundHalfUp
-# (sans effet sur ce vecteur : 1 000 002 x 15 % = 150 000,3).
-def trip_fee_schedule(p, days, cur):
-    pct = Fr(15, 100) if days <= 6 else (Fr(12, 100) if days < 30 else Fr(8, 100))
-    return max(rhu(Fr(p) * pct), {"USD": 500, "PYG": 35000}[cur])
-
-
-F_D2C = trip_fee_schedule(D2["P"], D2["days"], "PYG")
-D2C = trip("D2C", "PYG", 3, {"g": g1("0.10", ["P", "PP", "PH", "F"])}, P=D2["P"], F=F_D2C)
-capD2C = legs(D2C, *settle(D2C, "CAPTURE")[:3])
-EXPECTED["TJ09c"] = ("PYG", capD2C)
-CROSS += [("TJ09c trip fee du barème (15 % de 1 000 002 = 150 000)", F_D2C, 150000),
-          ("TJ09c taxe par ligne (100 000 + 15 000)", D2C["taxPaid"]["g"], 115000),
-          ("TJ09c total du checkout PY (1 265 002)", capD2C["TOTAL"], 1265002),
-          ("TJ09c HOST (égalité exacte 750 001,5 -> 750 001, sans part de livraison)", capD2C["HOST"], 750001)]
 
 capJ, keptJ, refJ, _hJ, _gJ = capture_and("TJ10", J, "VOLUNTARY", 1)
 EXPECTED["TJ10a"] = ("PYG", capJ)

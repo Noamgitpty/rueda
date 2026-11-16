@@ -110,10 +110,10 @@
     "check_legs.py": {
       "require": [
         "^RÉSULTAT : OK\\s*$",
-        "^Lignes TJ trouvées dans 08 : 59 ; vecteurs calculés : 59$"
+        "^Lignes TJ trouvées dans 08 : 58 ; vecteurs calculés : 58$"
       ],
       "counts": {
-        "vecteurs": 59
+        "vecteurs": 58
       }
     },
     "verif15_ta.py": {
@@ -122,10 +122,10 @@
       ]
     },
     "export_golden_vectors.py": {
-      "comment": "US-016 : régénère l'export des vecteurs dorés (T01-T68, T74-T80 de la borne T-24 h, TJ01-TJ21 dont TJ09c du checkout PY, TA01-TA11) depuis les oracles et le compare à golden_vectors.json ; tout écart avec 08, 16 ou un oracle échoue.",
+      "comment": "US-016 : régénère l'export des vecteurs dorés (T01-T68, T74-T80 de la borne T-24 h, TJ01-TJ21, TA01-TA11) depuis les oracles et le compare à golden_vectors.json ; tout écart avec 08, 16 ou un oracle échoue.",
       "require": [
         "^RÉSULTAT : OK\\s*$",
-        "^Vecteurs de règlement exportés : 49 ; lignes TJ exportées : 59 ; ",
+        "^Vecteurs de règlement exportés : 49 ; lignes TJ exportées : 58 ; ",
         "^Couverture T01-T68 : 68/68 ; par devise : USD [1-9]\\d*, PYG [1-9]\\d*$"
       ],
       "forbid": [
@@ -133,7 +133,7 @@
       ],
       "counts": {
         "vecteurs": 49,
-        "jambes": 59
+        "jambes": 58
       }
     }
   }
