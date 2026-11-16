@@ -6,7 +6,9 @@ import { parseBrandName, parsePoolMax } from './worker-config.js';
 import {
   DISPOSITION_SWEEPER_WORKER,
   dispositionSweeperPeriod,
+  BOOKING_CONVERSION_WORKER,
   HOLD_EXPIRY_WORKER,
+  WEBHOOK_INGEST_WORKER,
   PRIVACY_REQUEST_WORKER,
   registerWorkerTasks,
   REVIEW_SLA_WATCH_WORKER,
@@ -80,6 +82,7 @@ describe('tâches du travailleur (US-003)', () => {
       now: () => AT,
     });
     expect(registry.queueNames()).toEqual([
+      'booking_conversion',
       'booking_oracle',
       'disposition_sweeper',
       'hold_expiry',
@@ -94,10 +97,12 @@ describe('tâches du travailleur (US-003)', () => {
       'review_sla_watch',
       'risk_pruner',
       'security_incident_watch',
+      'webhook_ingest',
     ]);
     expect(
       registry.periodicTasks().map((t) => [t.name, t.spec.periodSeconds, t.spec.maxAttempts]),
     ).toEqual([
+      ['booking_conversion', 10, 5],
       ['booking_oracle', 86_400, 5],
       ['disposition_sweeper', 60, 5],
       ['hold_expiry', 60, 5],
@@ -109,10 +114,12 @@ describe('tâches du travailleur (US-003)', () => {
       ['review_sla_watch', 60, 5],
       ['risk_pruner', 3_600, 5],
       ['security_incident_watch', 300, 5],
+      ['webhook_ingest', 10, 5],
     ]);
-    // aucun travailleur qui lirait le PSP (lot C, US-061)
-    expect(registry.queueNames()).not.toContain('booking_conversion');
+    // aucun travailleur qui lirait ou appellerait le PSP (lot C, US-061) ; booking_conversion ne lit
+    // que la base depuis US-223 (preuve : le webhook signé déjà appliqué)
     expect(registry.queueNames()).not.toContain('payment_intent_sweeper');
+    expect(registry.queueNames()).not.toContain('payment_command');
   });
 
   it('hold_expiry : expiration puis libération des holds annulés, par lots ; comptes journalisés', async () => {
@@ -162,6 +169,110 @@ describe('tâches du travailleur (US-003)', () => {
       `SELECT operation_id FROM core.booking_disposition_candidates($1) [${WORKER_TASK_DEFAULTS.dispositionBatch}]`,
       'SELECT core.booking_disposition_repair($1::uuid) ["op-1"]',
       'SELECT core.booking_disposition_repair($1::uuid) ["op-2"]',
+    ]);
+  });
+
+  it('booking_conversion (US-223) : candidats de la base, une transaction booking_conversion par opération (conversion ou refus reçu), comptes journalisés', async () => {
+    const registry = new BusRegistry();
+    const workers: string[] = [];
+    const logs: string[] = [];
+    const { tx, sql } = recordingTx({
+      booking_conversion_due: [
+        { operation_id: 'op-1', action: 'CONVERT' },
+        { operation_id: 'op-2', action: 'FAIL' },
+      ],
+      booking_convert_payment: [{ r: { outcome: 'CONVERTED' } }],
+      booking_record_payment_failure: [{ r: { outcome: 'RELEASED' } }],
+    });
+    registerWorkerTasks(registry, {
+      transactions: transactions(tx, workers),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      now: () => AT,
+    });
+    const h = registry.handlerOf(BOOKING_CONVERSION_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, tx);
+    expect(workers).toEqual([BOOKING_CONVERSION_WORKER, BOOKING_CONVERSION_WORKER]);
+    expect(sql).toEqual([
+      `SELECT operation_id, action FROM core.booking_conversion_due($1) [${WORKER_TASK_DEFAULTS.bookingConversionBatch}]`,
+      'SELECT core.booking_convert_payment($1::uuid) AS r ["op-1"]',
+      'SELECT core.booking_record_payment_failure($1::uuid) AS r ["op-2"]',
+    ]);
+    expect(logs).toEqual([
+      JSON.stringify({
+        level: 'info',
+        worker: 'booking_conversion',
+        candidates: 2,
+        converted: 1,
+        failures: 1,
+        errors: 0,
+      }),
+    ]);
+  });
+
+  it('booking_conversion (US-223) : une opération qui lève ne bloque pas le lot ; NOT_PROVEN non compté comme converti ; journal sans identifiant', async () => {
+    const registry = new BusRegistry();
+    const logs: string[] = [];
+    const { tx } = recordingTx({
+      booking_conversion_due: [
+        { operation_id: 'op-1', action: 'CONVERT' },
+        { operation_id: 'op-2', action: 'CONVERT' },
+      ],
+      booking_convert_payment: [{ r: { outcome: 'NOT_PROVEN' } }],
+    });
+    const boom = Object.assign(new Error('x'), { code: '23000' });
+    registerWorkerTasks(registry, {
+      transactions: transactions(tx, [], [boom]),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      now: () => AT,
+    });
+    const h = registry.handlerOf(BOOKING_CONVERSION_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, tx);
+    expect(logs).toEqual([
+      JSON.stringify({ level: 'warn', worker: 'booking_conversion', error: '23000' }),
+      JSON.stringify({
+        level: 'info',
+        worker: 'booking_conversion',
+        candidates: 2,
+        converted: 0,
+        failures: 0,
+        errors: 1,
+      }),
+    ]);
+    expect(logs.join('')).not.toContain('op-');
+  });
+
+  it('webhook_ingest (US-223) : boîte de réception lue par lots, comptes journalisés, aucun identifiant', async () => {
+    const registry = new BusRegistry();
+    const logs: string[] = [];
+    const { tx, sql } = recordingTx({});
+    registerWorkerTasks(registry, {
+      transactions: transactions(tx, []),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      now: () => AT,
+    });
+    const h = registry.handlerOf(WEBHOOK_INGEST_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, tx);
+    expect(sql).toHaveLength(1);
+    expect(sql[0]).toContain('FROM core.payment_webhook_inbox');
+    expect(sql[0]?.endsWith(`[${WORKER_TASK_DEFAULTS.webhookIngestBatch}]`)).toBe(true);
+    expect(logs).toEqual([
+      JSON.stringify({
+        level: 'info',
+        worker: 'webhook_ingest',
+        processed: 0,
+        quarantined: 0,
+        failed: 0,
+        conflicts: 0,
+      }),
     ]);
   });
 

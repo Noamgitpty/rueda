@@ -10,6 +10,14 @@ export {
 export { assertPayableAmounts, type PayableAmounts } from './amounts.ts';
 export { computeCaptureLegs, computeLegs, legVariation } from './legs.ts';
 export {
+  TENDER_KINDS,
+  cascadeTenders,
+  creditCap,
+  type Tender,
+  type TenderKind,
+  type TenderLegs,
+} from './tenders.ts';
+export {
   MONEY_OPERATION_TYPES,
   SETTLEMENT_INPUTS_HASH_PREFIX,
   SETTLEMENT_RECORD_FORMAT,

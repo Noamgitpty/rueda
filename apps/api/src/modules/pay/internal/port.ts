@@ -147,6 +147,13 @@ export interface NormalizedPaymentEvent {
   readonly status: OperationStatus;
   /** Instant du fait chez le PSP (ISO 8601) ; jamais utilisé comme horloge de décision. */
   readonly occurredAt: string;
+  /**
+   * Montant et devise du mouvement selon le PSP, si le webhook les porte (US-223, ADR-139) : la base
+   * refuse un SUCCEEDED dont le montant ou la devise diffèrent de l'ordre (`MISMATCH`) et un
+   * SUCCEEDED de loyer qui ne les porte pas (`UNPROVEN`). Unités mineures, jamais de flottant.
+   */
+  readonly amountMinor?: bigint | null;
+  readonly currency?: string | null;
 }
 
 export interface WebhookVerification {

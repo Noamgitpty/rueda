@@ -109,6 +109,16 @@ Tests (`test/settlement/`) : vecteurs T et TJ de la story rejoués par `replay` 
 
 Tests (`test/settlement/record.golden.test.ts`) : TJ01 / TJ02a / TJ02b (T03, USD), TJ08a / TJ08b (T27, PYG), TJ18a, TJ18c, contrôle T36 (delta et pénalité), TJ13 a à d (N, NP refusés ; N_MAX, NP_MAX avec avance), clés de T49 / T50 ; tous les attendus viennent de l'export des oracles.
 
+## Ventilation des jambes entre encaissements (US-223, 08 E7 règle 10, ADR-139)
+
+Module `src/settlement/tenders.ts`, exporté par `@rueda/money` ; fonctions pures, `bigint` en unités mineures, aucune division ni arrondi.
+
+- `TENDER_KINDS` : `NATIVE` → `NON_NATIVE` → `CASH_CREDIT` → `PROMO_CREDIT`, ordre de la cascade (moyen natif, moyen non natif comme Yappy, crédit cash, crédit promo).
+- `cascadeTenders(capture, tenders)` : jambes explicites de chaque encaissement ; les encaissements sont pris dans l'ordre de `TENDER_KINDS`, chacun remplit `HOST` → `INSURER` → `TAX_THIRD_PARTY` → `PLATFORM` dans la limite du reste de chaque jambe (jamais de prorata, règle 1). Refus `SETTLEMENT_INPUT_INVALID` : Σ encaissements ≠ total, encaissement nul ou négatif, autre devise, crédit qui toucherait une autre jambe que `PLATFORM` ; `LEG_AMOUNT_NEGATIVE` : jambe de capture négative.
+- `creditCap(capture, demandé)` : crédit imputable au plus égal à la jambe `PLATFORM` de la capture (TJ21 : 99,91 sur 120,00 demandés), jamais négatif.
+- Preuves : `test/settlement/tenders.golden.test.ts` (TJ15a à d, TJ21a et b de l'export ; variante PYG sur TJ09a produite par la fonction `cascade` de `check_legs.py`).
+- Non utilisé au checkout bêta (un seul encaissement par carte) : servira aux crédits et aux remboursements par moyen (US-224).
+
 ## Harnais des vecteurs dorés (US-016)
 
 Le sous-chemin `@rueda/money/golden-vectors` (`src/golden-vectors/`), **réservé aux tests**, charge les attendus exportés par les oracles Python de `docs/specs/tools/` (T01–T68, TJ01–TJ21, TA01–TA11, en USD et en PYG) et compare un moteur (US-017, US-018) à ces attendus, sans jamais les recalculer. Il n'est pas exporté par `@rueda/money`. Voir [`src/golden-vectors/README.md`](src/golden-vectors/README.md).

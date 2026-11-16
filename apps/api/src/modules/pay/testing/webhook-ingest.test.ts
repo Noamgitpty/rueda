@@ -158,7 +158,11 @@ describe('réception des webhooks', () => {
       authorization: 'Bearer s',
     });
     const row = r.store.inbox[0];
-    expect(containsPan(JSON.stringify(row))).toBe(false);
+    // US-223 : le montant reçu est un bigint (texte en base)
+    const text = JSON.stringify(row, (_k, x: unknown) =>
+      typeof x === 'bigint' ? x.toString() : x,
+    );
+    expect(containsPan(text)).toBe(false);
     expect(row?.headers['x-debug']).toBe('card 411111******1111');
     expect(row?.headers['authorization']).toBeUndefined();
     expect(r.warnings.some((w) => /PAN/.test(w))).toBe(true);
@@ -224,6 +228,23 @@ describe('réception des webhooks', () => {
     expect((await post(r, d?.body ?? '', { ...base, ...pad })).status).toBe(200);
   });
 
+  it('US-223 (0116) : signature valide sans horodatage signé ⇒ QUARANTINED hors fenêtre (parité avec la base), jamais une preuve', async () => {
+    const verifier = {
+      provider: FAKE_PROVIDER,
+      verifyAndParseWebhook: () => ({
+        signatureValid: true,
+        signedAt: null,
+        providerEventId: 'evt-sans-horodatage',
+        events: [],
+      }),
+    };
+    const r = rig({ registry: { get: () => verifier } });
+    expect(await post(r, '{}', {})).toEqual({ status: 200, outcome: 'QUARANTINED' });
+    expect(r.store.inbox.map((x) => [x.status, x.error, x.signedAtOutOfTolerance])).toEqual([
+      ['QUARANTINED', 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE', true],
+    ]);
+  });
+
   it('dédoublonnage sur l’identifiant BRUT : deux identifiants qui se masquent pareil restent distincts', async () => {
     // deux numéros Luhn valides de même masque (6 premiers et 4 derniers chiffres identiques)
     const ids = ['4111111111111111', '4111110000091111'];
@@ -232,12 +253,13 @@ describe('réception des webhooks', () => {
       provider: FAKE_PROVIDER,
       verifyAndParseWebhook: () => ({
         signatureValid: true,
-        signedAt: null,
+        // US-223 (0116) : un horodatage signé absent serait hors fenêtre (QUARANTINED)
+        signedAt: new Date(r.stack.clock.now),
         providerEventId: ids[next++] ?? null,
         events: [],
       }),
     };
-    const r = rig({ registry: { get: () => verifier } });
+    const r: ReturnType<typeof rig> = rig({ registry: { get: () => verifier } });
     expect(await post(r, '{}', {})).toMatchObject({ outcome: 'RECEIVED' });
     expect(await post(r, '{}', {})).toMatchObject({ outcome: 'RECEIVED' });
     expect(r.store.inbox.map((x) => x.providerEventId)).toEqual([

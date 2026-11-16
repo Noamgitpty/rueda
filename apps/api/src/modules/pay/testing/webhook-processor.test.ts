@@ -176,9 +176,39 @@ describe.each(['TJ01', 'TJ08a'])('ordre et doublons des webhooks (%s)', (vectorI
     expect(
       s.store.inbox.filter((r) => r.status === 'FAILED').map((r) => [r.status, r.error]),
     ).toEqual([['FAILED', 'PROOF_REJECTED']]);
-    // aucun statut terminal n'est écrit (seul le SUBMITTED de création, sans effet, l'est)
-    expect(s.store.statusEvents.filter((e) => e.status === 'SUCCEEDED')).toEqual([]);
+    // aucun statut terminal n'est appliqué ; US-223 (0116) : le refus est journalisé (UNPROVEN)
+    expect(
+      s.store.statusEvents.filter((e) => e.status === 'SUCCEEDED').map((e) => e.outcome),
+    ).toEqual(['UNPROVEN']);
     expect(warnings.filter((w) => w.includes('UNPROVEN'))).toHaveLength(1);
+  });
+
+  it('US-223 : montant reçu différent de l’ordre (MISMATCH) ⇒ rien d’appliqué, FAILED à motif dédié et alerte, aucun trip', async () => {
+    const s = await scenario({}, vectorId);
+    s.stack.psp.customerPays(s.order.providerReference);
+    await s.deliver();
+    s.store.mismatched.add('op-1');
+    const warnings: string[] = [];
+    const blind = new WebhookProcessor(s.store, () => undefined, { warn: (m) => warnings.push(m) });
+    expect(await blind.runOnce()).toMatchObject({ failed: 1 });
+    expect(s.store.operations.get('op-1')?.status).toBe('SUBMITTED');
+    expect(
+      s.store.inbox.filter((r) => r.status === 'FAILED').map((r) => [r.status, r.error]),
+    ).toEqual([['FAILED', 'AMOUNT_MISMATCH']]);
+    expect(
+      s.store.statusEvents.filter((e) => e.status === 'SUCCEEDED').map((e) => e.outcome),
+    ).toEqual(['MISMATCH']);
+    expect(warnings.filter((w) => w.includes('MISMATCH'))).toHaveLength(1);
+  });
+
+  it('US-223 : le webhook signé du FAKE porte le montant et la devise de l’ordre, en unités mineures', async () => {
+    const s = await scenario({}, vectorId);
+    s.stack.psp.customerPays(s.order.providerReference);
+    await s.deliver();
+    const paid = s.store.inbox.flatMap((r) => r.events).filter((e) => e.status === 'SUCCEEDED');
+    expect(paid.map((e) => [e.amountMinor, e.currency])).toEqual([
+      [legVector(set, vectorId).totalMinor, legVector(set, vectorId).currency],
+    ]);
   });
 
   it('US-049 : quarantaine « opération introuvable » (reçu dans la fenêtre) ⇒ le webhook signé reste la preuve sans lecture du PSP', async () => {

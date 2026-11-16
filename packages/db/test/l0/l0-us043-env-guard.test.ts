@@ -57,12 +57,16 @@ async function setEnv(tx: pg.ClientBase, env: string): Promise<void> {
 
 /** Les fonctions qui lisent l'environnement dans la base de production (0028, 0039, 0045, 0048). */
 const READERS = [
+  // US-223 (0116) : compte marchand du pays, bac à sable hors production seulement
+  'core.booking_cmd_checkout_pay',
   'core.booking_cmd_start_payment',
   // US-105 (0072) : KYC de production fermé en base (OQ-MK-09, L1-PM-05)
   'core.kyc_cmd_apply_decision',
   'core.kyc_cmd_open_verification',
   // US-106 (0076) : décision de l'ops fermée en base de production, comme la décision du fournisseur
   'core.kyc_manual_action_decision',
+  // US-223 (0116) : preuve POLL / API_RESPONSE d'un compte de bac à sable hors production seulement
+  'core.payment_cmd_apply_operation_status',
   'core.payment_cmd_receive_webhook',
   'core.payment_cmd_record_operation',
   'core.payment_cmd_register_submerchant',

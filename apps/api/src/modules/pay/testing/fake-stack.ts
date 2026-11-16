@@ -35,6 +35,9 @@ export const FULL_FAKE_CAPABILITIES: readonly FakeCapability[] = [
   v('SUPPORTS_ORDER_CANCEL', true),
   v('SUPPORTS_SINGLE_USE_ORDER', true),
   v('SUPPORTS_LOOKUP_BY_MERCHANT_REF', true),
+  // US-223 (N-108) : le FAKE honnête honore l'en-tête d'idempotence ; les tests qui éprouvent un PSP
+  // sans en-tête retirent cette capacité (lecture d'abord, 17 §2.8)
+  v('SUPPORTS_IDEMPOTENCY_HEADER', true),
   v('ECHOES_MERCHANT_REF_IN_WEBHOOK', true),
   v('ORDER_EXPIRY_RETURNED', true),
   v('ROLLBACK_WINDOW_HOURS', 24),
