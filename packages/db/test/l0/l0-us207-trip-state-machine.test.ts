@@ -935,6 +935,8 @@ describe.each(COUNTRIES)('US-207 — machine à états du trip ($country, $curre
       expect((await tripRow(cl, tripId))?.no_show_at).toEqual(
         new Date(at(slot.start, NO_SHOW_GRACE_MIN)),
       );
+      // US-211 (0120) : la remise (IN_PROGRESS) exige le contrat de location signé par le voyageur
+      await cl.worker.query('SELECT test_fixture.us211_sign($1)', [tripId]);
 
       const b: Booked = {
         tripId,

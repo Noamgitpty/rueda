@@ -154,7 +154,7 @@ BEGIN
   INSERT INTO core.catalog_deposit_policy (id, country_code, value_class, amount_minor, currency,
                                            accepted_methods, covered_items, valid_from)
   VALUES (pg_catalog.gen_random_uuid(), p_country, 'STANDARD', p_deposit, v_currency,
-          ARRAY['CARD']::text[], ARRAY['FUEL']::text[], platform.now() - interval '1 day');
+          ARRAY['CARD_PREAUTH']::text[], ARRAY['FUEL']::text[], platform.now() - interval '1 day');
 
   RETURN QUERY SELECT v_trip, v_org, v_vehicle, v_holder, v_quote, v_hold, v_listing;
 END
