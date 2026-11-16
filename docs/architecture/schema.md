@@ -5045,7 +5045,7 @@ Politiques RLS :
 
 Déclencheurs :
 
-- `settlement_insurer_contract_terms_guard` : `CREATE TRIGGER settlement_insurer_contract_terms_guard BEFORE INSERT OR UPDATE ON core.settlement_insurer_contract FOR EACH ROW EXECUTE FUNCTION core.settlement_insurer_contract_terms_guard()`
+- `settlement_insurer_contract_terms_guard` : `CREATE TRIGGER settlement_insurer_contract_terms_guard BEFORE INSERT OR DELETE OR UPDATE ON core.settlement_insurer_contract FOR EACH ROW EXECUTE FUNCTION core.settlement_insurer_contract_terms_guard()`
 
 ### `core.settlement_insurer_ledger_state`
 
