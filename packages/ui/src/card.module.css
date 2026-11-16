@@ -108,6 +108,13 @@
   gap: var(--space-1);
 }
 
+/* Mention sous le prix (caution de la plateforme, US-203) */
+.note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .skeletonBody {
   display: grid;
   gap: var(--space-3);

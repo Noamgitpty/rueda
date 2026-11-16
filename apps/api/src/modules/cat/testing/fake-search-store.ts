@@ -1,9 +1,18 @@
 /**
- * FAKE du magasin de la recherche publique (US-201) — TESTS SEULEMENT (contrat HTTP). Les règles
- * (hôte activable, disponibilité, préavis, fuseau, durée, instant présent) sont prouvées en base
- * (packages/db/test/l0/l0-us201-public-search.test.ts) ; ce double rend ce qu'on lui impose et
- * retient la dernière requête reçue, pour vérifier ce que l'API transmet à la base.
+ * FAKE du magasin de la recherche publique (US-201, US-203) — TESTS SEULEMENT (contrat HTTP). Les
+ * règles (hôte activable, disponibilité, préavis, fuseau, durée, instant présent, caution) sont
+ * prouvées en base (packages/db/test/l0/l0-us201-public-search.test.ts,
+ * l0-us203-search-cards.test.ts) ; ce double rend ce qu'on lui impose et retient la dernière
+ * requête reçue, pour vérifier ce que l'API transmet à la base. Doubles du prix et des notes : ils
+ * rendent ce qu'on leur impose (le moteur de devis est prouvé dans PRC, `search-pricer.test.ts`).
  */
+import type {
+  SearchPrice,
+  SearchPriceInput,
+  SearchPricer,
+  SearchRating,
+  SearchRatings,
+} from '../internal/search/cards.js';
 import type { SearchQuery } from '../internal/search/model.js';
 import type {
   SearchArea,
@@ -54,6 +63,35 @@ export function fakeResult(overrides: Partial<SearchResult> = {}): SearchResult 
     timezone: 'UTC',
     startAt: '2036-12-10T15:00:00.000Z',
     endAt: '2036-12-12T15:00:00.000Z',
+    depositAmountMinor: null,
+    quotedAt: '2036-12-01T12:00:00.000Z',
     ...overrides,
   };
+}
+
+/** Prix imposés par annonce ; une annonce absente : devis impossible (`null`). */
+export class FakeSearchPricer implements SearchPricer {
+  prices = new Map<string, SearchPrice>();
+  inputs: SearchPriceInput[] = [];
+  /** Panne simulée : toute demande lève. */
+  down = false;
+
+  price(input: SearchPriceInput): SearchPrice | null {
+    if (this.down) throw new Error('prix indisponible (FAKE)');
+    this.inputs.push(input);
+    return this.prices.get(input.listingId) ?? null;
+  }
+}
+
+/** Notes imposées par annonce ; `down` : panne simulée. */
+export class FakeSearchRatings implements SearchRatings {
+  rows = new Map<string, SearchRating>();
+  down = false;
+  asked: string[][] = [];
+
+  ratings(listingIds: readonly string[]): Promise<ReadonlyMap<string, SearchRating>> {
+    if (this.down) return Promise.reject(new Error('notes indisponibles (FAKE)'));
+    this.asked.push([...listingIds]);
+    return Promise.resolve(new Map([...this.rows].filter(([id]) => listingIds.includes(id))));
+  }
 }

@@ -1818,6 +1818,18 @@ export const FR_MESSAGES = {
   'web.search.result.timezone': 'Heure locale de {city}',
   'web.search.loading': 'Recherche de voitures…',
   'web.search.result.open': 'Voir la voiture',
+  'web.search.results.count': {
+    one: '{count} voiture disponible',
+    other: '{count} voitures disponibles',
+  },
+  'web.search.deposit.amount': 'Dépôt de garantie : {amount}, bloqué sur ta carte',
+  'web.search.deposit.maybe':
+    'Un dépôt de garantie peut être demandé selon le profil du conducteur.',
+  'web.search.map.title': 'Carte des voitures',
+  'web.search.map.sameAsList':
+    'Les emplacements sont approximatifs. Les mêmes voitures et les mêmes prix sont dans la liste.',
+  'web.search.map.marker': '{car}, {total} au total',
+  'web.search.map.noPoint': 'Sans point sur la carte',
   'web.listing.dates.title': 'Tes dates',
   'web.listing.dates.change': 'Modifier la recherche',
 } as const satisfies Readonly<Record<MessageKey, Message>>;

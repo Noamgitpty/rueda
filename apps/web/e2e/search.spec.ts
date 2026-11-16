@@ -11,12 +11,19 @@
  *   (critère 1) ;
  * - zone approximative seulement, jamais d'adresse (critère 4 : le double n'en a pas ; le résultat
  *   ne montre que la zone et la ville) ;
+ * - US-203 : résultats en liste de cartes ET sur une carte de marqueurs de prix ; liste et carte
+ *   montrent les mêmes annonces et les mêmes totaux (19 US-203 critère 1) ; une annonce sans point
+ *   est listée sous la carte, jamais omise ; caution de la plateforme affichée quand la base en
+ *   rend une, sinon mention générique ; badge « Nuevo » sans avis (critère 3, 16 SRC-011) ;
  * - accessibilité : axe-core (WCAG 2.2 A / AA) à chaque état, mobile d'abord.
- * Attendus : 19 US-201, 16 SRC-001 / LST-006, jamais le code testé.
+ * Attendus : 19 US-201, US-203, 16 SRC-001 / LST-006 / SRC-008 / SRC-011, jamais le code testé ;
+ * badge « Nuevo » : 10b §4.3 `web.s02.new` (`oracle.ts`) ; caution de 300,00 : valeur de test de
+ * 08 T70 rendue par le double.
  */
 import { expectAccessible } from './axe.ts';
 import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
-import { AREA, CITY, END, place, PUBLIC_ID, START } from './search-data.ts';
+import { SPEC_TEXT } from './oracle.ts';
+import { AREA, CITY, END, place, PUBLIC_ID, searchUrl, START } from './search-data.ts';
 
 for (const language of LANGUAGES) {
   test.describe(`recherche S01 → S02 → S03 · ${language}`, () => {
@@ -42,8 +49,8 @@ for (const language of LANGUAGES) {
       expect(url.searchParams.get('place')).toBe(place(CITY, AREA));
       expect(url.searchParams.get('startDate')).toBe(START.date);
       expect(url.searchParams.get('endTime')).toBe(END.time);
-      const results = page.locator('main section[aria-labelledby="s02-results"] li');
-      await expect(results).toHaveCount(1);
+      const results = page.locator('[data-testid="search-card"]');
+      await expect(results).toHaveCount(3);
       await expect(results.first()).toContainText('Toyota Yaris 2021');
       await expect(results.first()).toContainText(`${AREA}, ${CITY}`);
       await expectAccessible(page);
@@ -70,8 +77,58 @@ for (const language of LANGUAGES) {
       await expect(page.locator('#s02-search-startTime')).toHaveValue(START.time);
       await expect(page.locator('#s02-search-endDate')).toHaveValue(END.date);
       await expect(page.locator('#s02-search-endTime')).toHaveValue(END.time);
-      await expect(page.locator('main section[aria-labelledby="s02-results"] li')).toHaveCount(1);
+      await expect(page.locator('[data-testid="search-card"]')).toHaveCount(3);
       await expectAccessible(page);
+    });
+
+    test('US-203 : liste et carte montrent les mêmes annonces et les mêmes totaux ; caution ou mention générique ; « Nuevo » sans avis', async ({
+      page,
+    }) => {
+      await page.goto(searchUrl(CITY, AREA));
+      const cards = page.locator('[data-testid="search-card"]');
+      await expect(cards).toHaveCount(3);
+      await expect(page.locator('[data-testid="search-count"]')).toContainText('3');
+      const markers = page.locator('[data-testid="search-map-marker"]');
+      await expect(markers).toHaveCount(3);
+      // deux annonces placées sur la carte, la troisième (sans point) listée sous la carte
+      await expect(
+        page.locator('[data-testid="search-map"] [data-testid="search-map-marker"]'),
+      ).toHaveCount(2);
+      // mêmes annonces (même lien vers la fiche, dates reprises) et même total, carte par carte
+      const hrefs = await cards.evaluateAll((els) =>
+        els.map((e) => e.querySelector('h3 a')?.getAttribute('href') ?? ''),
+      );
+      const markerHrefs = await markers.evaluateAll((els) =>
+        els.map((e) => e.getAttribute('href') ?? ''),
+      );
+      expect([...markerHrefs].sort()).toEqual([...hrefs].sort());
+      for (const m of await markers.all()) {
+        const href = (await m.getAttribute('href')) ?? '';
+        const total = ((await m.textContent()) ?? '').trim();
+        expect(total).not.toBe('');
+        const card = cards.filter({ has: page.locator(`h3 a[href="${href}"]`) });
+        await expect(card).toHaveCount(1);
+        await expect(card).toContainText(total);
+      }
+      // caution : montant de la plateforme quand la base en rend un (300,00), sinon mention
+      // générique, sans montant (16 SRC-011, 08 T70 c)
+      const luxe = cards.filter({ hasText: 'Audi A4 2022' });
+      const toyota = cards.filter({ hasText: 'Toyota Yaris 2021' });
+      const swift = cards.filter({ hasText: 'Suzuki Swift 2020' });
+      await expect(luxe).toContainText(/300[.,]00/);
+      await expect(toyota).not.toContainText(/300[.,]00/);
+      const generic = ((await toyota.locator('p').last().textContent()) ?? '').trim();
+      expect(generic).not.toBe('');
+      await expect(swift).toContainText(generic);
+      await expect(luxe).not.toContainText(generic);
+      // sans avis : badge « Nuevo » (10b §4.3 `web.s02.new`) ; avec avis : note, pas de badge
+      const nuevo = SPEC_TEXT.newBadge[language];
+      if (nuevo !== undefined) {
+        await expect(toyota).toContainText(nuevo);
+        await expect(luxe).not.toContainText(nuevo);
+      }
+      await expectAccessible(page);
+      await expectMobileFriendly(page);
     });
 
     test('critère 1 : départ 10:00 et retour 09:30 le même jour ⇒ refus annoncé, aucun résultat', async ({

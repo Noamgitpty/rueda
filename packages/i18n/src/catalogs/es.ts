@@ -1774,6 +1774,17 @@ export const ES_MESSAGES = {
   'web.search.result.timezone': 'Hora local de {city}',
   'web.search.loading': 'Buscando autos…',
   'web.search.result.open': 'Ver el auto',
+  'web.search.results.count': {
+    one: '{count} auto disponible',
+    other: '{count} autos disponibles',
+  },
+  'web.search.deposit.amount': 'Depósito de garantía: {amount}, bloqueado en tu tarjeta',
+  'web.search.deposit.maybe': 'Puede pedirse un depósito según el perfil del conductor.',
+  'web.search.map.title': 'Mapa de los autos',
+  'web.search.map.sameAsList':
+    'Las ubicaciones son aproximadas. Los mismos autos y precios están en la lista.',
+  'web.search.map.marker': '{car}, {total} en total',
+  'web.search.map.noPoint': 'Sin punto en el mapa',
   'web.listing.dates.title': 'Tus fechas',
   'web.listing.dates.change': 'Cambiar la búsqueda',
 } as const satisfies Catalog;

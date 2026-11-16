@@ -25,7 +25,7 @@ import { percentile } from './replay.ts';
 export const PERF_SCHEMA = 'rueda.perf-fumee/1';
 
 /** Chemins critiques mesurés (19 §1.8 « Performance (fumée) », US-045). */
-export type PerfPath = 'pose' | 'conversion' | 'calendrier' | 'publication';
+export type PerfPath = 'pose' | 'conversion' | 'calendrier' | 'publication' | 'recherche';
 
 export interface PerfTarget {
   /** Cible en ms (p95), ou `null` si 17 §6.7 n'en donne aucune pour ce chemin. */
@@ -43,7 +43,9 @@ export interface PerfTarget {
  * - conversion : « Délai webhook → trip BOOKED p95 < 10 s » (la conversion n'en est qu'une étape) ;
  * - calendrier : « Fiche véhicule p95 < 500 ms côté serveur » (la lecture du calendrier en fait
  *   partie) ;
- * - publication : aucune cible dans 17 §6.7 ⇒ consignée, sans alerte (révision proposée, N-16).
+ * - publication : aucune cible dans 17 §6.7 ⇒ consignée, sans alerte (révision proposée, N-16) ;
+ * - recherche : « Recherche (liste + carte, une ville) p95 < 800 ms côté serveur » (US-203 :
+ *   lecture des cartes de résultats d'une ville, sonde de disponibilité comprise).
  */
 export const PERF_TARGETS = {
   'pose.c1.autocommit': {
@@ -69,6 +71,11 @@ export const PERF_TARGETS = {
   'publication.sequentielle': {
     ms: null,
     ref: 'aucune cible dans 17 §6.7 (ADR-119)',
+    blocking: false,
+  },
+  'recherche.sequentielle': {
+    ms: 800,
+    ref: '17 §6.7 recherche (liste + carte, une ville) côté serveur ; US-203 (ADR-131)',
     blocking: false,
   },
 } as const satisfies Record<string, PerfTarget>;

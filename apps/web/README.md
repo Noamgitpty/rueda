@@ -58,6 +58,8 @@ e2e : `e2e/host-listings.spec.ts` (projets `mobile-360` et `mobile-390`, quatre 
 
 e2e de la recherche (US-201) : `e2e/search.spec.ts` (projets `mobile-360` et `mobile-390`, quatre langues) : S01 → résultats → fiche avec les dates reprises → « modifier la recherche », et refus de la fin avant le début ; écrans `recherche-*` et `fiche-publique-dates` dans `SCREENS`. Données du double : `e2e/search-data.ts` (ville fictive, deux zones, une annonce ; ville `Ciudad Caida` ⇒ 503 `SEARCH_UNAVAILABLE`).
 
+Résultats S02 (US-203, ADR-131) : `app/(app)/search/page.tsx` montre les annonces en cartes `CarCard` (total TTC du devis de l'API, prix par jour, caution de la plateforme ou mention générique, note ou badge « Nuevo ») et sur une carte de marqueurs de prix (`app/(app)/_search/results-map.tsx`, positions de `account/search-map.ts`, fond schématique sans tuile tant qu'aucun fournisseur n'est retenu, Q-020) ; liste et carte viennent du même tableau. Le site ne calcule aucun montant. e2e : `e2e/search.spec.ts` (mêmes annonces et mêmes totaux en liste et sur la carte, caution, « Nuevo ») ; capture `recherche-resultats`.
+
 ## Interfaces d'appareil (`device/`)
 
 Le comptoir n'accède à l'appareil que par trois interfaces (17 §6.2, ADR-005). Point d'entrée unique : `device/index.ts`.

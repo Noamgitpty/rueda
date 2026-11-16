@@ -44,6 +44,10 @@ const RESULT = {
   timezone: 'UTC',
   startAt: '2036-12-10T10:00:00.000Z',
   endAt: '2036-12-12T10:00:00.000Z',
+  depositAmountMinor: null,
+  totalMinor: '12840',
+  billableDays: 3,
+  rating: null,
 };
 const PLACE = placeValue({ country: 'ZZ', city: 'Ciudad', area: 'Barrio' });
 const FORM = {
@@ -102,6 +106,54 @@ describe('US-201 — recherche côté site', () => {
       expect(searchResultsOf(reply({ results: [bad] }))).toBeNull();
     }
     expect(searchResultsOf(reply({ code: 'SEARCH_DATES_INVALID' }, 422))).toBeNull();
+  });
+
+  it('US-203 : total TTC, jours, caution, note et point lus tels quels (aucun calcul) ; forme inattendue refusée en bloc', () => {
+    const [r] = searchResultsOf(reply({ results: [RESULT] })) ?? [];
+    expect(r).toMatchObject({
+      totalMinor: 12840n,
+      billableDays: 3,
+      depositAmountMinor: null,
+      rating: null,
+      point: { lat: 8.99, lng: -79.51 },
+    });
+    const rich = {
+      ...RESULT,
+      depositAmountMinor: '30000',
+      approximatePoint: null,
+      rating: { averageX100: 480, reviewCount: 3, tripCount: 5 },
+    };
+    const [x] = searchResultsOf(reply({ results: [rich] })) ?? [];
+    expect(x).toMatchObject({
+      depositAmountMinor: 30000n,
+      point: null,
+      rating: { averageX100: 480, reviewCount: 3, tripCount: 5 },
+    });
+    // sans avis publié mais avec des trips : badge « Nuevo » et nombre de trips
+    const [n] =
+      searchResultsOf(
+        reply({
+          results: [{ ...RESULT, rating: { averageX100: null, reviewCount: 0, tripCount: 2 } }],
+        }),
+      ) ?? [];
+    expect(n?.rating).toEqual({ averageX100: null, reviewCount: 0, tripCount: 2 });
+    for (const bad of [
+      { ...RESULT, totalMinor: undefined },
+      { ...RESULT, totalMinor: 12840 },
+      { ...RESULT, totalMinor: '-1' },
+      { ...RESULT, billableDays: 0 },
+      { ...RESULT, billableDays: 1.5 },
+      { ...RESULT, depositAmountMinor: 300 },
+      { ...RESULT, depositAmountMinor: undefined },
+      { ...RESULT, approximatePoint: { lat: 91, lng: 0 } },
+      { ...RESULT, approximatePoint: { lat: '8.99', lng: -79.51 } },
+      { ...RESULT, rating: { averageX100: 600, reviewCount: 1, tripCount: 1 } },
+      { ...RESULT, rating: { averageX100: 450, reviewCount: 0, tripCount: 1 } },
+      { ...RESULT, rating: { averageX100: null, reviewCount: 2, tripCount: 2 } },
+      { ...RESULT, rating: undefined },
+    ]) {
+      expect(searchResultsOf(reply({ results: [bad] })), JSON.stringify(bad)).toBeNull();
+    }
   });
 
   it('lieu : valeur d’option aller-retour, zone nulle = toute la ville ; valeur forgée refusée', () => {

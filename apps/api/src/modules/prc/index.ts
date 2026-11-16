@@ -36,6 +36,9 @@ export {
 } from './internal/quote/frozen.js';
 export type { FrozenQuote } from './internal/quote/frozen.js';
 export { resolveQuoteParams } from './internal/quote/params.js';
+// Total TTC des résultats de la recherche (US-203, ADR-131) : adaptateur du port SearchPricer de CAT.
+export { searchQuotePricer } from './internal/quote/search-pricer.js';
+export type { QuoteParamsOf } from './internal/quote/search-pricer.js';
 export type { QuoteParamsContext } from './internal/quote/params.js';
 
 // Devis figés en base (US-202, migration 0100) : port de l'annonce publiée, magasin des commandes

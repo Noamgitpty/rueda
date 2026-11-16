@@ -26,6 +26,7 @@ describe('perf — résumé, marge, alerte (US-045)', () => {
     expect(PERF_TARGETS['calendrier.sequentielle'].ms).toBe(500);
     expect(PERF_TARGETS['conversion.sequentielle'].ms).toBe(10_000);
     expect(PERF_TARGETS['publication.sequentielle'].ms).toBeNull();
+    expect(PERF_TARGETS['recherche.sequentielle']).toMatchObject({ ms: 800, blocking: false });
   });
 
   it('marge : positive sous la cible, alerte dès p95 ≥ cible, rien sans cible', () => {

@@ -172,6 +172,28 @@ describe('CarCard', () => {
       expect(describeViolations(await axeViolations(page(html, tag)))).toEqual([]);
     },
   );
+
+  it.each(LOCALES)(
+    '%s : sans hôte servi (US-203), badge « Nuevo » sans note ; mention sous le prix',
+    async (tag, _p, i18n) => {
+      const html = render(
+        <CarCard
+          i18n={i18n}
+          href="/car/2"
+          title="Kia Picanto 2020"
+          trips={0}
+          total={amount}
+          perDay={amount}
+          days={3}
+          note={i18n.t('web.search.deposit.maybe')}
+        />,
+      );
+      const text = textOf(html);
+      expect(text).toContain(i18n.t('web.s02.new'));
+      expect(text).toContain(i18n.t('web.search.deposit.maybe'));
+      expect(describeViolations(await axeViolations(page(html, tag)))).toEqual([]);
+    },
+  );
 });
 
 describe('HostCard', () => {

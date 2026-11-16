@@ -20,6 +20,7 @@ test('cibles reprises de 17 §6.7 sans changement', () => {
   assert.equal(TARGETS['pose.c1.transactionnelle'], 300);
   assert.equal(TARGETS['calendrier.sequentielle'], 500);
   assert.equal(TARGETS['publication.sequentielle'], null);
+  assert.equal(TARGETS['recherche.sequentielle'], 800);
 });
 
 test('journal : lignes [PERF] et, avant US-045, lignes [L0-02] du job base de données', () => {

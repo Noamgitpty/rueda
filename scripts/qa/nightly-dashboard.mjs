@@ -249,6 +249,7 @@ export const PERF_SERIES = [
   'conversion.sequentielle',
   'calendrier.sequentielle',
   'publication.sequentielle',
+  'recherche.sequentielle',
 ];
 const PERF_SCHEMA = 'rueda.perf-fumee/1';
 const PERF_REPLAY = 'RUEDA_PG_TESTCONTAINERS=1 pnpm test:l0';

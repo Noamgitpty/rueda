@@ -103,8 +103,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  Version 49 : avis reçus par e-mail et enregistrés par l'ops (US-218, ADR-130) : `backoffice.review.*`
  (formulaire RECORD_REVIEW de la console et refus de la commande liée) ; libellé de
  `backoffice.action.RECORD_REVIEW` corrigé (un avis reçu, pas une modération).
+ Version 50 : cartes des résultats de la recherche (US-203, ADR-131) : `web.search.results.count`
+ (compteur), `web.search.deposit.*` (montant de la caution de la plateforme, ou mention générique
+ « une caution peut être demandée », 16 SRC-011, 08 T70 c) et `web.search.map.*` (carte des
+ marqueurs de prix, positions approximatives, liste équivalente).
  */
-export const CATALOG_VERSION = 49;
+export const CATALOG_VERSION = 50;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

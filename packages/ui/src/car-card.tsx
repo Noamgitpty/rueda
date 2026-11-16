@@ -17,7 +17,8 @@ export interface CarCardProps {
   readonly href: string;
   /** Modèle et année : « Toyota Yaris 2021 ». */
   readonly title: string;
-  readonly host: { readonly name: string; readonly tone?: AvatarTone | undefined };
+  /** Prénom de l'hôte et teinte du monogramme ; absent tant que le bloc de l'hôte n'est pas servi. */
+  readonly host?: { readonly name: string; readonly tone?: AvatarTone | undefined } | undefined;
   /** Note moyenne ; absente : « Nuevo ». */
   readonly rating?: number | undefined;
   readonly trips: number;
@@ -31,6 +32,8 @@ export interface CarCardProps {
   readonly days: number;
   /** Photo de l'hôte ou illustration ; défaut : voiture dessinée. */
   readonly media?: ReactNode;
+  /** Mention sous le prix (ex. caution de la plateforme, US-203), texte déjà traduit. */
+  readonly note?: ReactNode;
   /** Bouton « enregistrer » (un `IconButton`, rendu par l'application cliente). */
   readonly saveAction?: ReactNode;
   readonly headingLevel?: 2 | 3 | 4 | undefined;
@@ -57,6 +60,7 @@ export function CarCard({
   perDay,
   days,
   media,
+  note,
   saveAction,
   headingLevel = 3,
   carTone,
@@ -81,10 +85,12 @@ export function CarCard({
           </a>
         </Heading>
         <div className={styles['meta']}>
-          <span className={styles['host']}>
-            <Avatar name={host.name} size="sm" tone={host.tone} />
-            {host.name}
-          </span>
+          {host && (
+            <span className={styles['host']}>
+              <Avatar name={host.name} size="sm" tone={host.tone} />
+              {host.name}
+            </span>
+          )}
           <Rating i18n={i18n} value={rating} trips={trips} />
         </div>
         {where !== '' && (
@@ -96,6 +102,7 @@ export function CarCard({
           </p>
         )}
         <Price i18n={i18n} total={total} perDay={perDay} days={days} />
+        {note !== undefined && <p className={styles['note']}>{note}</p>}
       </div>
     </article>
   );

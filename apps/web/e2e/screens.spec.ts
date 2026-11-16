@@ -74,7 +74,7 @@ export const SCREENS: readonly Screen[] = [
   // Recherche (US-201) : liste, aucun résultat, refus du formulaire (fin avant début le même
   // jour), API indisponible ; fiche S03 avec les dates reprises. Le chargement (`loading.tsx`)
   // n'a pas d'état d'arrivée stable ici : le rendu en flux se termine avant la capture.
-  { name: 'recherche-resultats', source: 'S02, US-201', open: at(searchUrl(CITY, AREA)) },
+  { name: 'recherche-resultats', source: 'S02, US-201, US-203', open: at(searchUrl(CITY, AREA)) },
   {
     name: 'recherche-aucun-resultat',
     source: 'S02, US-201',

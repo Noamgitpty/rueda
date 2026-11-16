@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Badge, ButtonLink, EmptyState, ErrorState, Icon } from '@rueda/ui';
+import { ButtonLink, CarCard, EmptyState, ErrorState } from '@rueda/ui';
 import { callApi } from '../../../account/api-client.ts';
 import { clientContext } from '../../../account/request.ts';
 import {
@@ -10,11 +10,22 @@ import {
   searchInputOf,
   searchResultsOf,
 } from '../../../account/search.ts';
+import type { SearchResultView } from '../../../account/search.ts';
 import { getRequestI18n } from '../../../i18n.ts';
 import accountStyles from '../_account/account.module.css';
 import { MAIN_ID } from '../_shell/main-id.ts';
+import { ResultsMap } from '../_search/results-map.tsx';
 import { SearchForm } from '../_search/search-form.tsx';
 import styles from '../_search/search.module.css';
+
+/** Montant d'une annonce dans sa devise (exposant fourni par l'API, aucune constante). */
+const amountOf = (r: SearchResultView, amountMinor: bigint) => ({
+  amountMinor,
+  currency: r.currency,
+  exponent: r.currencyExponent,
+});
+
+const titleOf = (r: SearchResultView): string => `${r.makeName} ${r.modelName} ${r.year}`;
 
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getRequestI18n();
@@ -22,13 +33,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Résultats de la recherche (US-201 ; 16 SRC-001, version simple de S02 : la carte, le total TTC
- * et la caution arrivent avec US-203). Le formulaire de S01 envoie ici, en GET, le lieu et les
- * heures LOCALES du lieu ; la page valide la forme (fin ≤ début ⇒ `SEARCH_DATES_INVALID`,
- * critère 1), appelle l'API puis liste les annonces disponibles : véhicule, zone approximative
- * seulement (jamais l'adresse exacte, critère 4), période affichée dans le fuseau du véhicule
- * (critère 3), lien vers la fiche avec les dates reprises (critère 2). États : refus (message du
- * code, formulaire repris), aucun résultat, API injoignable ; chargement : `loading.tsx`.
+ * Résultats de la recherche, S02 (US-201, US-203 ; 16 SRC-001, SRC-008, SRC-011, SRC-042). Le
+ * formulaire de S01 envoie ici, en GET, le lieu et les heures LOCALES du lieu ; la page valide la
+ * forme (fin ≤ début ⇒ `SEARCH_DATES_INVALID`), appelle l'API puis montre les annonces
+ * disponibles en LISTE de cartes (UX-65 : voiture, zone approximative seulement, note ou badge
+ * « Nuevo », total TTC du séjour et prix par jour, caution de la plateforme ou mention générique)
+ * et sur une CARTE de marqueurs de prix ; liste et carte viennent du même tableau : mêmes
+ * annonces, mêmes totaux (19 US-203 critère 1). Aucun montant n'est calculé ici : le total vient
+ * du devis provisoire de l'API (PRC), seulement formaté. Période affichée dans le fuseau du
+ * véhicule, lien vers la fiche avec les dates reprises. États : refus (message du code, formulaire
+ * repris), aucun résultat, API injoignable ; chargement : `loading.tsx`.
  */
 export default async function SearchPage({
   searchParams,
@@ -76,53 +90,66 @@ export default async function SearchPage({
         />
       )}
       {defaults !== null && results !== null && results.length > 0 && (
-        <section aria-labelledby="s02-results" className={accountStyles['stackTight']}>
-          <h2 id="s02-results" className={accountStyles['h2']}>
-            {t('web.search.results.title')}
-          </h2>
-          <ul className={styles['results']}>
+        <section aria-labelledby="s02-results" className={accountStyles['stack']}>
+          <div className={accountStyles['stackTight']}>
+            <h2 id="s02-results" className={accountStyles['h2']}>
+              {t('web.search.results.title')}
+            </h2>
+            <p className={styles['count']} data-testid="search-count">
+              {t('web.search.results.count', { count: results.length })}
+            </p>
+            {results[0] !== undefined && (
+              <p className={styles['meta']}>
+                {t('web.search.result.period', {
+                  from: i18n.dateTime(results[0].startAt, results[0].timezone),
+                  to: i18n.dateTime(results[0].endAt, results[0].timezone),
+                })}{' '}
+                <span className={styles['muted']}>
+                  {t('web.search.result.timezone', { city: results[0].city })}
+                </span>
+              </p>
+            )}
+          </div>
+          <ResultsMap
+            i18n={i18n}
+            id="s02-map"
+            results={results.map((r) => ({
+              id: r.id,
+              title: titleOf(r),
+              total: i18n.money(amountOf(r, r.totalMinor)),
+              href: listingHref(r.id, defaults),
+              point: r.point,
+            }))}
+          />
+          <ul className={styles['cards']} aria-label={t('web.search.results.title')}>
             {results.map((r) => (
-              <li key={r.id} className={styles['result']}>
-                <h3 id={`s02-result-${r.id}`} className={styles['resultTitle']}>
-                  {`${r.makeName} ${r.modelName} ${r.year}`}
-                </h3>
-                <p className={styles['meta']}>
-                  <Icon name="pin" /> {r.areaLabel === null ? r.city : `${r.areaLabel}, ${r.city}`}
-                </p>
-                <p className={styles['muted']}>{t('web.listing.meet.approx')}</p>
-                <p className={styles['meta']}>
-                  {t('web.search.result.period', {
-                    from: i18n.dateTime(r.startAt, r.timezone),
-                    to: i18n.dateTime(r.endAt, r.timezone),
-                  })}
-                </p>
-                <p className={styles['muted']}>
-                  {t('web.search.result.timezone', { city: r.city })}
-                </p>
-                <p className={styles['meta']}>
-                  {t('web.listing.perDay', {
-                    amount: i18n.money({
-                      amountMinor: r.dailyPriceMinor,
-                      currency: r.currency,
-                      exponent: r.currencyExponent,
-                    }),
-                  })}
-                </p>
-                <div>
-                  <Badge tone={r.instantBook ? 'success' : 'neutral'}>
-                    {t(r.instantBook ? 'web.listing.instant' : 'web.listing.request')}
-                  </Badge>
-                </div>
-                <a
-                  className={styles['link']}
+              <li key={r.id} data-testid="search-card" data-listing={r.id}>
+                <CarCard
+                  i18n={i18n}
                   href={listingHref(r.id, defaults)}
-                  aria-describedby={`s02-result-${r.id}`}
-                >
-                  {t('web.search.result.open')}
-                </a>
+                  title={titleOf(r)}
+                  rating={
+                    r.rating === null || r.rating.averageX100 === null
+                      ? undefined
+                      : r.rating.averageX100 / 100
+                  }
+                  trips={r.rating?.tripCount ?? 0}
+                  place={r.areaLabel === null ? r.city : `${r.areaLabel}, ${r.city}`}
+                  total={amountOf(r, r.totalMinor)}
+                  perDay={amountOf(r, r.dailyPriceMinor)}
+                  days={r.billableDays}
+                  note={
+                    r.depositAmountMinor === null
+                      ? t('web.search.deposit.maybe')
+                      : t('web.search.deposit.amount', {
+                          amount: i18n.money(amountOf(r, r.depositAmountMinor)),
+                        })
+                  }
+                />
               </li>
             ))}
           </ul>
+          <p className={styles['muted']}>{t('web.listing.meet.approx')}</p>
         </section>
       )}
     </main>

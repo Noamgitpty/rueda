@@ -346,7 +346,11 @@ describe('socle (0067) : RLS, droits, propriétaires', () => {
         );
         expect(rows.map((r) => r.relname)).toEqual([...TABLES]);
         const expected: Record<(typeof TABLES)[number], string[]> = {
-          catalog_deposit_policy: ['migrator_all:migrator'],
+          // US-203 (0105) : caution lue par les cartes de la recherche publique (catalog_cmd_owner)
+          catalog_deposit_policy: [
+            'catalog_cmd_search_read:catalog_cmd_owner',
+            'migrator_all:migrator',
+          ],
           // US-119 (0071) : sonde de disponibilité (catalog_probe_owner) et préavis du lieu lu à
           // la pose d'un hold (cmd_hold_owner)
           // US-122 (0093) : compte de l'annonce et du véhicule lus par la garde de séparation des

@@ -30,10 +30,13 @@ import {
   UnavailableBrandScanner,
 } from './modules/cfg/index.js';
 import { postgresCatAdapters, postgresSearchAdapters } from './modules/cat/index.js';
+import type { SearchRatings } from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
 import { postgresIamAdapters, postgresStaffAdapters } from './modules/iam/index.js';
 import { postgresKycAdapters } from './modules/kyc/index.js';
 import { postgresPayAdapters } from './modules/pay/index.js';
+import { QuoteService, searchQuotePricer } from './modules/prc/index.js';
+import { PgListingRatingStore } from './modules/rev/index.js';
 import { availabilityProbeLimiter, postgresRiskAdapters } from './modules/risk/index.js';
 import {
   PgFinanceApprovalStore,
@@ -84,9 +87,32 @@ async function bootstrap(): Promise<void> {
   // Vérification d'identité (US-105) : commandes core.kyc_* sous app_api ; AUCUN fournisseur
   // d'identité tant que le registre LEG-010 n'est pas validé (OQ-MK-09) : ouverture 503, rappels 404.
   const kyc = postgresKycAdapters(pool);
-  // Recherche publique (US-201) : fonctions core.catalog_public_search et core.catalog_public_areas de 0103 sous app_api ;
-  // sonde de disponibilité limitée par IP par la garde anti-abus (availability_probe_per_minute).
-  const search = postgresSearchAdapters(pool, availabilityProbeLimiter(risk.guard));
+  // Recherche publique (US-201, US-203) : fonctions core.catalog_public_cards (0105) et
+  // core.catalog_public_areas (0103) sous app_api ; sonde de disponibilité limitée par IP par la
+  // garde anti-abus (availability_probe_per_minute) ; total TTC de chaque résultat par le devis
+  // provisoire de PRC (configuration pays du dépôt, instant lu en base) ; notes publiques du
+  // véhicule par REV (US-218, core.review_listing_ratings : sans avis, badge « Nuevo »).
+  const quotes = new QuoteService(new CountryConfigService());
+  const listingRatings = new PgListingRatingStore(pool);
+  const searchRatings: SearchRatings = {
+    ratings: async (ids) =>
+      new Map(
+        (await listingRatings.ratings(ids)).map((r) => [
+          r.listingId,
+          {
+            averageX100: r.vehicle.averageX100,
+            reviewCount: r.vehicle.reviewCount,
+            tripCount: r.vehicle.tripCount,
+          },
+        ]),
+      ),
+  };
+  const search = postgresSearchAdapters(
+    pool,
+    availabilityProbeLimiter(risk.guard),
+    searchQuotePricer((ctx) => quotes.params(ctx)),
+    searchRatings,
+  );
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,
