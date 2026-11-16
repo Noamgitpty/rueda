@@ -73,56 +73,56 @@ SELECT 'RENTAL_CONTRACT', NULL, d.locale, 1, true, d.title, d.body,
        '2000-01-01T00:00:00Z'
   FROM (VALUES
     ('es', 'Contrato de alquiler de vehículo entre particulares',
-     E'BORRADOR — pendiente de validación jurídica. Este texto es provisional.\n'
-     E'1. Partes. El anfitrión, persona particular, alquila al viajero un vehículo propio, o uno cuyo titular le autorizó por poder notarial. La plataforma pone en contacto a las partes y cobra el pago como comerciante de referencia; no es parte de este contrato ni empresa de alquiler.\n'
-     E'2. Objeto. Vehículo, período y lugar de entrega indicados en las condiciones del viaje.\n'
-     E'3. Precio. El viajero paga a la plataforma el total indicado, impuestos incluidos; la plataforma reparte el pago según las reglas publicadas.\n'
-     E'4. Protección. El plan de protección elegido y su franquicia son los indicados; los presta la aseguradora asociada según sus condiciones.\n'
-     E'5. Depósito. La garantía indicada se toma con tarjeta, según las condiciones de pago.\n'
-     E'6. Kilometraje. Se aplica el kilometraje indicado; cada kilómetro adicional se cobra al precio indicado.\n'
-     E'7. Devolución y retraso. El viajero devuelve el vehículo en la fecha, hora y lugar acordados. Pasada la tolerancia indicada, el retraso se cobra según la política publicada.\n'
-     E'8. Uso. Solo conduce el conductor nombrado. Está prohibido salir del territorio nacional donde se realiza el viaje. El viajero respeta las reglas del anfitrión (no fumar, limpieza, combustible, sin uso todoterreno). Las multas del período del viaje corren por cuenta del viajero.\n'
-     E'9. Cancelación. Se aplica la política de cancelación aceptada en la reserva y los importes indicados.\n'
-     E'10. Firma. El viajero acepta este contrato por medios electrónicos; la plataforma registra la hora de su servidor y la huella del documento exacto.\n'
+     E'BORRADOR — pendiente de validación jurídica. Este texto es provisional.\n' ||
+     E'1. Partes. El anfitrión, persona particular, alquila al viajero un vehículo propio, o uno cuyo titular le autorizó por poder notarial. La plataforma pone en contacto a las partes y cobra el pago como comerciante de referencia; no es parte de este contrato ni empresa de alquiler.\n' ||
+     E'2. Objeto. Vehículo, período y lugar de entrega indicados en las condiciones del viaje.\n' ||
+     E'3. Precio. El viajero paga a la plataforma el total indicado, impuestos incluidos; la plataforma reparte el pago según las reglas publicadas.\n' ||
+     E'4. Protección. El plan de protección elegido y su franquicia son los indicados; los presta la aseguradora asociada según sus condiciones.\n' ||
+     E'5. Depósito. La garantía indicada se toma con tarjeta, según las condiciones de pago.\n' ||
+     E'6. Kilometraje. Se aplica el kilometraje indicado; cada kilómetro adicional se cobra al precio indicado.\n' ||
+     E'7. Devolución y retraso. El viajero devuelve el vehículo en la fecha, hora y lugar acordados. Pasada la tolerancia indicada, el retraso se cobra según la política publicada.\n' ||
+     E'8. Uso. Solo conduce el conductor nombrado. Está prohibido salir del territorio nacional donde se realiza el viaje. El viajero respeta las reglas del anfitrión (no fumar, limpieza, combustible, sin uso todoterreno). Las multas del período del viaje corren por cuenta del viajero.\n' ||
+     E'9. Cancelación. Se aplica la política de cancelación aceptada en la reserva y los importes indicados.\n' ||
+     E'10. Firma. El viajero acepta este contrato por medios electrónicos; la plataforma registra la hora de su servidor y la huella del documento exacto.\n' ||
      E'11. Ley aplicable. La del Estado donde se realiza el viaje. El texto en español hace fe.'),
     ('en', 'Peer-to-peer vehicle rental agreement',
-     E'DRAFT — pending legal review. This text is provisional.\n'
-     E'1. Parties. The host, a private individual, rents to the guest a vehicle they own, or one whose owner authorized them by notarized power of attorney. The platform connects the parties and collects payment as merchant of record; it is not a party to this agreement nor a rental company.\n'
-     E'2. Subject. Vehicle, period and handover place as shown in the trip conditions.\n'
-     E'3. Price. The guest pays the platform the total shown, taxes included; the platform splits the payment under the published rules.\n'
-     E'4. Protection. The chosen protection plan and its deductible are as shown; they are provided by the partner insurer under its conditions.\n'
-     E'5. Deposit. The deposit shown is taken by card, under the payment conditions.\n'
-     E'6. Mileage. The mileage shown applies; each extra kilometre is charged at the price shown.\n'
-     E'7. Return and late return. The guest returns the vehicle on the agreed date, time and place. After the grace period shown, late return is charged under the published policy.\n'
-     E'8. Use. Only the named driver may drive. Leaving the territory of the trip country is forbidden. The guest follows the host''s rules (no smoking, cleanliness, fuel, no off-road use). Fines incurred during the trip are borne by the guest.\n'
-     E'9. Cancellation. The cancellation policy accepted at booking and the amounts shown apply.\n'
-     E'10. Signature. The guest accepts this agreement electronically; the platform records its server time and the fingerprint of the exact document.\n'
+     E'DRAFT — pending legal review. This text is provisional.\n' ||
+     E'1. Parties. The host, a private individual, rents to the guest a vehicle they own, or one whose owner authorized them by notarized power of attorney. The platform connects the parties and collects payment as merchant of record; it is not a party to this agreement nor a rental company.\n' ||
+     E'2. Subject. Vehicle, period and handover place as shown in the trip conditions.\n' ||
+     E'3. Price. The guest pays the platform the total shown, taxes included; the platform splits the payment under the published rules.\n' ||
+     E'4. Protection. The chosen protection plan and its deductible are as shown; they are provided by the partner insurer under its conditions.\n' ||
+     E'5. Deposit. The deposit shown is taken by card, under the payment conditions.\n' ||
+     E'6. Mileage. The mileage shown applies; each extra kilometre is charged at the price shown.\n' ||
+     E'7. Return and late return. The guest returns the vehicle on the agreed date, time and place. After the grace period shown, late return is charged under the published policy.\n' ||
+     E'8. Use. Only the named driver may drive. Leaving the territory of the trip country is forbidden. The guest follows the host''s rules (no smoking, cleanliness, fuel, no off-road use). Fines incurred during the trip are borne by the guest.\n' ||
+     E'9. Cancellation. The cancellation policy accepted at booking and the amounts shown apply.\n' ||
+     E'10. Signature. The guest accepts this agreement electronically; the platform records its server time and the fingerprint of the exact document.\n' ||
      E'11. Governing law. That of the trip country. The Spanish text prevails.'),
     ('fr', 'Contrat de location de véhicule entre particuliers',
-     E'BROUILLON — à valider par le juridique. Ce texte est provisoire.\n'
-     E'1. Parties. L''hôte, particulier, loue au voyageur un véhicule qui lui appartient, ou dont le titulaire l''a autorisé par procuration notariée. La plateforme met les parties en relation et encaisse le paiement comme marchand de référence ; elle n''est ni partie à ce contrat ni loueur.\n'
-     E'2. Objet. Véhicule, période et lieu de remise indiqués dans les conditions du trajet.\n'
-     E'3. Prix. Le voyageur paie à la plateforme le total indiqué, taxes comprises ; la plateforme répartit le paiement selon les règles publiées.\n'
-     E'4. Protection. Le plan de protection choisi et sa franchise sont ceux indiqués ; ils sont fournis par l''assureur partenaire selon ses conditions.\n'
-     E'5. Caution. La caution indiquée est prise par carte, selon les conditions de paiement.\n'
-     E'6. Kilométrage. Le kilométrage indiqué s''applique ; chaque kilomètre supplémentaire est facturé au prix indiqué.\n'
-     E'7. Restitution et retard. Le voyageur rend le véhicule à la date, à l''heure et au lieu convenus. Passé le délai de tolérance indiqué, le retard est facturé selon la politique publiée.\n'
-     E'8. Usage. Seul le conducteur nommé conduit. Il est interdit de sortir du territoire du pays du trajet. Le voyageur respecte les règles de l''hôte (non-fumeur, propreté, carburant, pas de tout-terrain). Les amendes de la période du trajet sont à la charge du voyageur.\n'
-     E'9. Annulation. La politique d''annulation acceptée à la réservation et les montants indiqués s''appliquent.\n'
-     E'10. Signature. Le voyageur accepte ce contrat par voie électronique ; la plateforme enregistre l''heure de son serveur et l''empreinte du document exact.\n'
+     E'BROUILLON — à valider par le juridique. Ce texte est provisoire.\n' ||
+     E'1. Parties. L''hôte, particulier, loue au voyageur un véhicule qui lui appartient, ou dont le titulaire l''a autorisé par procuration notariée. La plateforme met les parties en relation et encaisse le paiement comme marchand de référence ; elle n''est ni partie à ce contrat ni loueur.\n' ||
+     E'2. Objet. Véhicule, période et lieu de remise indiqués dans les conditions du trajet.\n' ||
+     E'3. Prix. Le voyageur paie à la plateforme le total indiqué, taxes comprises ; la plateforme répartit le paiement selon les règles publiées.\n' ||
+     E'4. Protection. Le plan de protection choisi et sa franchise sont ceux indiqués ; ils sont fournis par l''assureur partenaire selon ses conditions.\n' ||
+     E'5. Caution. La caution indiquée est prise par carte, selon les conditions de paiement.\n' ||
+     E'6. Kilométrage. Le kilométrage indiqué s''applique ; chaque kilomètre supplémentaire est facturé au prix indiqué.\n' ||
+     E'7. Restitution et retard. Le voyageur rend le véhicule à la date, à l''heure et au lieu convenus. Passé le délai de tolérance indiqué, le retard est facturé selon la politique publiée.\n' ||
+     E'8. Usage. Seul le conducteur nommé conduit. Il est interdit de sortir du territoire du pays du trajet. Le voyageur respecte les règles de l''hôte (non-fumeur, propreté, carburant, pas de tout-terrain). Les amendes de la période du trajet sont à la charge du voyageur.\n' ||
+     E'9. Annulation. La politique d''annulation acceptée à la réservation et les montants indiqués s''appliquent.\n' ||
+     E'10. Signature. Le voyageur accepte ce contrat par voie électronique ; la plateforme enregistre l''heure de son serveur et l''empreinte du document exact.\n' ||
      E'11. Loi applicable. Celle du pays du trajet. Le texte espagnol fait foi.'),
     ('pt', 'Contrato de aluguel de veículo entre particulares',
-     E'RASCUNHO — pendente de validação jurídica. Este texto é provisório.\n'
-     E'1. Partes. O anfitrião, pessoa física, aluga ao viajante um veículo próprio, ou um cujo titular o autorizou por procuração em cartório. A plataforma conecta as partes e recebe o pagamento como comerciante de referência; não é parte deste contrato nem locadora.\n'
-     E'2. Objeto. Veículo, período e local de entrega indicados nas condições da viagem.\n'
-     E'3. Preço. O viajante paga à plataforma o total indicado, com impostos; a plataforma reparte o pagamento conforme as regras publicadas.\n'
-     E'4. Proteção. O plano de proteção escolhido e sua franquia são os indicados; são prestados pela seguradora parceira conforme suas condições.\n'
-     E'5. Caução. A caução indicada é feita no cartão, conforme as condições de pagamento.\n'
-     E'6. Quilometragem. Aplica-se a quilometragem indicada; cada quilômetro adicional é cobrado pelo preço indicado.\n'
-     E'7. Devolução e atraso. O viajante devolve o veículo na data, hora e local combinados. Após a tolerância indicada, o atraso é cobrado conforme a política publicada.\n'
-     E'8. Uso. Só dirige o condutor nomeado. É proibido sair do território nacional onde a viagem ocorre. O viajante respeita as regras do anfitrião (não fumar, limpeza, combustível, sem uso fora de estrada). As multas do período da viagem ficam por conta do viajante.\n'
-     E'9. Cancelamento. Aplicam-se a política de cancelamento aceita na reserva e os valores indicados.\n'
-     E'10. Assinatura. O viajante aceita este contrato por meio eletrônico; a plataforma registra a hora do seu servidor e a impressão digital do documento exato.\n'
+     E'RASCUNHO — pendente de validação jurídica. Este texto é provisório.\n' ||
+     E'1. Partes. O anfitrião, pessoa física, aluga ao viajante um veículo próprio, ou um cujo titular o autorizou por procuração em cartório. A plataforma conecta as partes e recebe o pagamento como comerciante de referência; não é parte deste contrato nem locadora.\n' ||
+     E'2. Objeto. Veículo, período e local de entrega indicados nas condições da viagem.\n' ||
+     E'3. Preço. O viajante paga à plataforma o total indicado, com impostos; a plataforma reparte o pagamento conforme as regras publicadas.\n' ||
+     E'4. Proteção. O plano de proteção escolhido e sua franquia são os indicados; são prestados pela seguradora parceira conforme suas condições.\n' ||
+     E'5. Caução. A caução indicada é feita no cartão, conforme as condições de pagamento.\n' ||
+     E'6. Quilometragem. Aplica-se a quilometragem indicada; cada quilômetro adicional é cobrado pelo preço indicado.\n' ||
+     E'7. Devolução e atraso. O viajante devolve o veículo na data, hora e local combinados. Após a tolerância indicada, o atraso é cobrado conforme a política publicada.\n' ||
+     E'8. Uso. Só dirige o condutor nomeado. É proibido sair do território nacional onde a viagem ocorre. O viajante respeita as regras do anfitrião (não fumar, limpeza, combustível, sem uso fora de estrada). As multas do período da viagem ficam por conta do viajante.\n' ||
+     E'9. Cancelamento. Aplicam-se a política de cancelamento aceita na reserva e os valores indicados.\n' ||
+     E'10. Assinatura. O viajante aceita este contrato por meio eletrônico; a plataforma registra a hora do seu servidor e a impressão digital do documento exato.\n' ||
      E'11. Lei aplicável. A do Estado onde a viagem ocorre. O texto em espanhol prevalece.')
   ) AS d(locale, title, body);
 
