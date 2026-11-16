@@ -276,10 +276,12 @@ describe.each(COUNTRIES)('US-204 — fiche du véhicule ($country, $currency)', 
       ]);
       await openCountry(tx, cc.country);
       expect((await slot(tx, x.listing, start, end)).map((r) => r['outcome'])).toEqual(['OK']);
-      // trip confirmé qui finit 1 h avant le départ demandé : dans le tampon (BR-BOOK-05)
+      // trip confirmé qui finit 1 h avant le départ demandé : son occupation court jusqu'à sa fin
+      // plus le tampon de 2 h (`buffer_minutes`, BR-BOOK-05, comme la conversion la pose), donc
+      // jusqu'à 1 h après le départ demandé
       const { rows: p } = await tx.query<{ period: string }>(
         `SELECT pg_catalog.tstzrange(($1::timestamp AT TIME ZONE $2) - interval '1 day',
-                                     ($1::timestamp AT TIME ZONE $2) - interval '1 hour',
+                                     ($1::timestamp AT TIME ZONE $2) + interval '1 hour',
                                      '[)')::text AS period`,
         [start, cc.timezone],
       );
