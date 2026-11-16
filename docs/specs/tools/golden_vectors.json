@@ -3217,6 +3217,22 @@
       "totalMinor": "-1000368"
     },
     {
+      "id": "TJ09c",
+      "currency": "PYG",
+      "kind": "ALLOCATION",
+      "normative": true,
+      "oracle": "check_legs.py",
+      "entries08": "D2 **sans** ses lignes non taxées (ni protection ni livraison), F **recalculé par le barème** [NOUS] de BR-PRICE-06 (PYG ; checkout PY d'US-208, report du lot 2, BOARD N-151)",
+      "operation08": "capture",
+      "legsMinor": {
+        "HOST": "750001",
+        "INSURER": "0",
+        "TAX_THIRD_PARTY": "0",
+        "PLATFORM": "515001"
+      },
+      "totalMinor": "1265002"
+    },
+    {
       "id": "TJ10a",
       "currency": "PYG",
       "kind": "ALLOCATION",
