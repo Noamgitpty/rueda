@@ -4,7 +4,8 @@
  * (`GET /listings/{id}/availability`) et du lieu de remise exact du voyageur
  * (`GET /listings/{id}/meeting-point`). Toute réponse mal formée est refusée (`null`) : l'écran
  * affiche alors son état d'erreur, jamais une donnée partielle. Aucun montant n'est calculé ici
- * (le total du séjour vient du devis du checkout, US-208) ; aucune constante de pays ni de fuseau.
+ * (le total TTC des dates vient de l'API, `slotPriceOf` de `checkout.ts`, US-208) ; aucune
+ * constante de pays ni de fuseau.
  */
 import type { MessageKey } from '@rueda/i18n';
 import type { ApiResult } from './api-client.ts';

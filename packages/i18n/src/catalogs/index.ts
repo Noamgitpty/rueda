@@ -117,8 +117,13 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  `common.quote.rateLimited`, `common.quote.expired`, `common.quote.lineNotSupported` et
  `common.checkout.*` (refus de la route du checkout : devis engagé, mode sur demande, boîte
  manuelle, conducteur, conditions, pose du hold).
+ Version 53 : checkout, écrans (US-208 partie 208b, ADR-134) : `web.listing.total.*` (prix final
+ TTC des dates de la fiche S03), `web.s05.*` (checkout une page : récapitulatif, détail du prix,
+ validité et prix expiré, conducteur, case de la boîte manuelle de 10b, cases des documents avec
+ leur lien, bouton inactif et son aide, hold posé avec `web.s05.hold.until` de 10b, versions
+ acceptées) et `web.legal.backCheckout` (retour d'un document au checkout).
  */
-export const CATALOG_VERSION = 52;
+export const CATALOG_VERSION = 53;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

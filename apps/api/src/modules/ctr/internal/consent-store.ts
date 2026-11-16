@@ -13,10 +13,17 @@
 export const LEGAL_DOCUMENT_KINDS = ['TOS_GUEST', 'PRIVACY', 'MARKETING'] as const;
 export type GuestDocumentKind = (typeof LEGAL_DOCUMENT_KINDS)[number];
 /**
- * Documents dont le texte est servi (`GET /legal/documents/{kind}`) : ceux du voyageur et les CGU
- * de l'hôte (US-126, acceptées depuis l'espace de l'hôte, jamais à l'inscription).
+ * Documents dont le texte est servi (`GET /legal/documents/{kind}`) : ceux du voyageur, les CGU
+ * de l'hôte (US-126, acceptées depuis l'espace de l'hôte, jamais à l'inscription), la politique
+ * d'annulation et le texte géographique acceptés au checkout (US-208, 0109 ; S05). Aucun texte
+ * publié dans la portée ⇒ 404 (fail-closed).
  */
-export const SERVED_DOCUMENT_KINDS = [...LEGAL_DOCUMENT_KINDS, 'TOS_HOST'] as const;
+export const SERVED_DOCUMENT_KINDS = [
+  ...LEGAL_DOCUMENT_KINDS,
+  'TOS_HOST',
+  'CANCELLATION_POLICY',
+  'GEO_TERMS',
+] as const;
 export type LegalDocumentKind = (typeof SERVED_DOCUMENT_KINDS)[number];
 /** Documents requis (sans eux : aucun compte, aucune réservation). */
 export type RequiredDocumentKind = Exclude<GuestDocumentKind, 'MARKETING'>;

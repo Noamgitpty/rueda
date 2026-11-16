@@ -49,6 +49,8 @@ Hors 17 §3.2.4 : `core.booking_disposition_repair_log` (migration 0041, essais 
 | `POST /checkout/quotes/{quoteId}/hold` | session | checkout : contrôles, consentements et pose du hold CHECKOUT ; aucun paiement          |
 | `GET /checkout/holds/{holdId}`         | session | récapitulatif du hold et version exacte de chaque document accepté                     |
 
+**Devis expiré (contrat, US-208b)** : `409 QUOTE_EXPIRED` ne porte aucun devis de remplacement. Le client redemande un devis (`POST /checkout/quotes`, même annonce, même période), affiche le nouveau total, fait accepter de nouveau les documents, puis pose le hold sur le nouveau devis (écran S05, ADR-134). Panne du magasin ou de la base : `503 BOOKING_UNAVAILABLE` et une ligne de journal `checkout.store_failed` (opération, nom de l'erreur, SQLSTATE ; jamais de message, de jeton ni de donnée personnelle).
+
 `SessionGuard` + `TermsGuard` sur la classe (N-43 : contrôle à l'exécution, `ctr/internal/terms-guard-runtime.test.ts`). Écart assumé de 17 §2.2 : AVL dépend d'IAM (ADR-133). Points d'extension : protection (US-226), mode `REQUEST` (US-223, aujourd'hui `REQUEST_MODE_UNAVAILABLE`), contrôles bloquants (US-209).
 
 ## Événements

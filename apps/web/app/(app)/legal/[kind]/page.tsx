@@ -10,8 +10,17 @@ import { MAIN_ID } from '../../_shell/main-id.ts';
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
-// CGU de l'hôte (US-126) : servies comme les documents du voyageur, acceptées depuis /host
-const KINDS = new Set(['TOS_GUEST', 'PRIVACY', 'MARKETING', 'TOS_HOST']);
+// CGU de l'hôte (US-126) : servies comme les documents du voyageur, acceptées depuis /host ;
+// politique d'annulation et zones de circulation (US-208) : liens des cases du checkout S05
+const KINDS = new Set([
+  'TOS_GUEST',
+  'PRIVACY',
+  'MARKETING',
+  'TOS_HOST',
+  'CANCELLATION_POLICY',
+  'GEO_TERMS',
+]);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 interface LegalDocumentJson {
   readonly title: string;
@@ -34,7 +43,7 @@ function validFromOf(i18n: { date(instant: string, timeZone: string): string }, 
 
 /**
  * Document juridique (CGU du voyageur, confidentialité, communications ; US-102 ; CGU de l'hôte,
- * US-126) : version, date d'entrée en vigueur, mention « traduction » hors de l'espagnol qui fait
+ * US-126 ; politique d'annulation et zones de circulation du checkout, US-208) : version, date d'entrée en vigueur, mention « traduction » hors de l'espagnol qui fait
  * foi ; version en vigueur, ou version passée (`?version=`) pour relire ce qui a été accepté (16 NFR-17). Une
  * version non validée par le juridique est marquée « BROUILLON » (OQ-BR-24).
  */
@@ -68,6 +77,14 @@ export default async function LegalDocumentPage({
   if (reply.status === 404) notFound();
   const doc = reply.status === 200 ? (reply.json as LegalDocumentJson | null) : null;
   const fromHost = query['from'] === 'host';
+  // ouvert depuis une case du checkout (S05) : retour au devis, identifiant vérifié
+  const quote = query['from'] === 'checkout' ? query['quote'] : undefined;
+  const back =
+    typeof quote === 'string' && UUID.test(quote)
+      ? { href: `/checkout/${quote}`, key: 'web.legal.backCheckout' as const }
+      : fromHost
+        ? { href: '/host', key: 'web.legal.backHost' as const }
+        : { href: '/signup', key: 'web.legal.back' as const };
   const since = doc === null ? null : validFromOf(i18n, doc.validFrom);
   return (
     <main id={MAIN_ID} tabIndex={-1} className={styles['content']}>
@@ -90,8 +107,8 @@ export default async function LegalDocumentPage({
           <div className={styles['document']}>{renderLegalText(doc.bodyMd)}</div>
         </article>
       )}
-      <ButtonLink variant="quiet" href={fromHost ? '/host' : '/signup'}>
-        {t(fromHost ? 'web.legal.backHost' : 'web.legal.back')}
+      <ButtonLink variant="quiet" href={back.href}>
+        {t(back.key)}
       </ButtonLink>
     </main>
   );

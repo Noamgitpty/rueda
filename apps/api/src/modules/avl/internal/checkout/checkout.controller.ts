@@ -31,7 +31,8 @@ import { SessionGuard, sessionProofOf } from '../../../iam/index.js';
 import { QuoteHttpError } from '../../../prc/index.js';
 import { CheckoutService } from './checkout.service.js';
 
-interface Req {
+/** Requête lue par les routes (nom distinct du décorateur `Req` de Nest). */
+interface CheckoutRequest {
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
   readonly body?: unknown;
 }
@@ -40,7 +41,7 @@ interface HeaderResponse {
   setHeader(name: string, value: string): unknown;
 }
 
-function proofOf(request: Req): Buffer {
+function proofOf(request: CheckoutRequest): Buffer {
   const proof = sessionProofOf(request);
   if (proof === null) throw new QuoteHttpError('AUTH_REQUIRED');
   return proof;
@@ -53,14 +54,17 @@ export class CheckoutController {
 
   @Post('quotes')
   @HttpCode(201)
-  async createQuote(@Req() request: Req, @Res({ passthrough: true }) response: HeaderResponse) {
+  async createQuote(
+    @Req() request: CheckoutRequest,
+    @Res({ passthrough: true }) response: HeaderResponse,
+  ) {
     response.setHeader('Cache-Control', 'no-store');
     return { quote: await this.checkout.createQuote(proofOf(request), request.body) };
   }
 
   @Get('quotes/:quoteId')
   async quote(
-    @Req() request: Req,
+    @Req() request: CheckoutRequest,
     @Param('quoteId') quoteId: string,
     @Res({ passthrough: true }) response: HeaderResponse,
   ) {
@@ -71,7 +75,7 @@ export class CheckoutController {
   @Post('quotes/:quoteId/hold')
   @HttpCode(201)
   async hold(
-    @Req() request: Req,
+    @Req() request: CheckoutRequest,
     @Param('quoteId') quoteId: string,
     @Res({ passthrough: true }) response: HeaderResponse,
   ) {
@@ -81,7 +85,7 @@ export class CheckoutController {
 
   @Get('holds/:holdId')
   async holdOf(
-    @Req() request: Req,
+    @Req() request: CheckoutRequest,
     @Param('holdId') holdId: string,
     @Res({ passthrough: true }) response: HeaderResponse,
   ) {

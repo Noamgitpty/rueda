@@ -36,7 +36,10 @@ export interface ButtonProps extends ButtonLook, ButtonHTMLAttributes<HTMLButton
 /**
  * Bouton. Par défaut `type="button"` (jamais d'envoi de formulaire par surprise). L'état
  * désactivé existe pour la vitrine et les actions secondaires ; l'action principale d'un
- * formulaire n'est **jamais** désactivée : elle déclenche la validation (10b UX-50).
+ * formulaire n'est **jamais** désactivée (`disabled`) : elle déclenche la validation (10b UX-50).
+ * Elle peut être INACTIVE (`aria-disabled="true"`, ADR-134 : checkout S05, US-208) : aspect
+ * désactivé et annoncé comme tel, mais focalisable ; l'appelant empêche l'envoi et montre ce qui
+ * manque.
  */
 export function Button({
   variant,

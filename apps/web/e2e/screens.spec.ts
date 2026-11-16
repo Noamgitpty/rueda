@@ -15,7 +15,15 @@
 import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
 import { expectAccessible } from './axe.ts';
-import { expect, expectMobileFriendly, LANGUAGES, tagOf, test } from './fixtures.ts';
+import {
+  expect,
+  expectMobileFriendly,
+  LANGUAGES,
+  submitAndSettle,
+  tagOf,
+  test,
+} from './fixtures.ts';
+import type { Language } from './fixtures.ts';
 import { AREA, CITY, DOWN_CITY, listingWithDates, searchUrl, START } from './search-data.ts';
 import { captured, expectScreen } from './visual.ts';
 
@@ -42,12 +50,50 @@ async function signIn(context: BrowserContext, prefix: 'H0st' | 'B00k'): Promise
   ]);
 }
 
+/** Fiche à boîte manuelle du double (US-208). */
+const MANUAL_ID = '11500000-0000-4000-8000-00000000f004';
+
+/** Session du double : `G0st<ll>…` voyageur vérifié dont le compte est en langue `<ll>` (US-208). */
+async function signInGuest(context: BrowserContext, language: Language): Promise<void> {
+  await context.addCookies([
+    {
+      name: '__Host-session',
+      value: `G0st${language}${randomBytes(30).toString('base64url').slice(0, 37)}`,
+      domain: 'localhost',
+      path: '/',
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Lax',
+    },
+  ]);
+}
+
+/**
+ * S03 → « Reservar » → S05 du double (US-208) : trois jours à partir du jour donné de décembre
+ * (le 20 : devis déjà expiré à la lecture, voir stub-api.mjs).
+ */
+async function openCheckout(
+  page: Page,
+  context: BrowserContext,
+  language: Language,
+  listingId: string = PUBLIC_ID,
+  day = 10,
+): Promise<void> {
+  await signInGuest(context, language);
+  const start = `2036-12-${String(day).padStart(2, '0')}T10:00`;
+  const end = `2036-12-${String(day + 3).padStart(2, '0')}T10:00`;
+  await page.goto(`/listings/${listingId}?${new URLSearchParams({ start, end }).toString()}`);
+  await page.locator('[data-testid="s03-book"] button[type="submit"]').click();
+  await expect(page).toHaveURL(/\/checkout\/[0-9a-f-]{36}(\?.*)?$/);
+  await expect(page.locator('[data-testid="s05-price"]')).toBeVisible();
+}
+
 interface Screen {
   /** Nom stable de la capture (dossier de références). */
   readonly name: string;
   /** Écran de 10b ou story qui le livre (lecture humaine seulement). */
   readonly source: string;
-  readonly open: (page: Page, context: BrowserContext) => Promise<void>;
+  readonly open: (page: Page, context: BrowserContext, language: Language) => Promise<void>;
   /**
    * Capture sous la feuille `e2e/capture-sans-calques.css` (calques composés neutralisés pendant la
    * capture seulement ; axe voit la page réelle) : écran dont le tramage du texte variait d'une
@@ -131,6 +177,57 @@ export const SCREENS: readonly Screen[] = [
       await expect(page.locator('[data-testid="gallery-photo"] [role="img"]')).toHaveCount(1);
     },
   },
+  // Checkout en une page (US-208, partie 208b) : S05 du devis figé (boîte automatique, puis
+  // manuelle avec sa case), devis expiré à la lecture, nouveau prix affiché, hold posé ; textes
+  // des cases (politique d'annulation, zones de circulation)
+  {
+    name: 'checkout',
+    source: 'S05, US-208',
+    open: (page, context, language) => openCheckout(page, context, language),
+  },
+  {
+    name: 'checkout-manuelle',
+    source: 'S05, US-208',
+    open: (page, context, language) => openCheckout(page, context, language, MANUAL_ID),
+  },
+  {
+    name: 'checkout-expire',
+    source: 'S05, US-208',
+    open: (page, context, language) => openCheckout(page, context, language, PUBLIC_ID, 20),
+  },
+  {
+    name: 'checkout-prix-actualise',
+    source: 'S05, US-208',
+    open: async (page, context, language) => {
+      await openCheckout(page, context, language, PUBLIC_ID, 20);
+      await page.locator('[data-testid="s05-renew"] button[type="submit"]').click();
+      await expect(page).toHaveURL(/\?renewed=1$/);
+      await expect(page.locator('[data-testid="s05-form"]')).toBeVisible();
+    },
+  },
+  {
+    name: 'checkout-hold',
+    source: 'S05, US-208',
+    open: async (page, context, language) => {
+      await openCheckout(page, context, language);
+      await page.locator('#s05-driver-first').fill('Lucía');
+      await page.locator('#s05-driver-last').fill('Gómez');
+      for (const kind of ['TOS_GUEST', 'CANCELLATION_POLICY', 'GEO_TERMS']) {
+        await page.locator(`#s05-doc-${kind}`).check();
+      }
+      await submitAndSettle(
+        page,
+        page.locator('[data-testid="s05-submit"]'),
+        /\/checkout\/hold\/[0-9a-f-]{36}$/,
+      );
+    },
+  },
+  {
+    name: 'document-annulation',
+    source: 'S05, US-208',
+    open: at('/legal/CANCELLATION_POLICY'),
+  },
+  { name: 'document-zones', source: 'S05, US-208', open: at('/legal/GEO_TERMS') },
   { name: 'hote-sans-session', source: 'A10, US-115', open: at('/host') },
   {
     name: 'hote-espace',
@@ -160,7 +257,7 @@ for (const screen of SCREENS) {
       test.use({ locale: tagOf(language) });
 
       test(`axe, mobile d'abord et capture (${screen.source})`, async ({ page, context }, info) => {
-        await screen.open(page, context);
+        await screen.open(page, context, language);
         await expect(page.locator('html')).toHaveAttribute('lang', tagOf(language));
         await expect(page.locator('h1').first()).toBeVisible();
         await page.waitForLoadState('networkidle');

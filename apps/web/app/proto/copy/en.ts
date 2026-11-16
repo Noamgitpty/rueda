@@ -100,14 +100,11 @@ export const EN_PROTO = {
   'web.s04.result.glare':
     "There's glare on your license photo. Tilt it slightly and avoid direct light.",
   'web.s05.protection.title': 'Choose your protection',
-  'web.s05.manual': 'I can drive a manual car',
   'web.s05.contract': 'I accept the rental agreement with {host_name}',
   'web.s05.mitConsent':
     'I authorize post-trip charges to this card only for trip costs, my deductible or damage, always with notice and proof.',
   'web.s05.cta': 'Pay {amount}',
   'web.s05.ctaRequest': 'Send request',
-  'web.s05.hold.until': "We're holding this car for you until {time}",
-  'web.s05.priceChanged': 'The price changed',
   'web.s05.review.notice':
     "We review every booking. If we can't approve it, you get a full refund.",
   'web.s06.pre.title': 'Your statement will show: {merchant_name}',
@@ -228,7 +225,6 @@ export const EN_PROTO = {
   'web.s04.retakeAction': 'Take another photo',
   'web.s04.reviewBody': "You can keep browsing cars. We'll write to you as soon as we're done.",
   'web.s04.verifiedBody': 'Your verification is valid for all your bookings.',
-  'web.s05.title': 'Confirm and pay',
   'web.s05.trip': 'Your trip',
   'web.s05.meet': 'Handover in {place} (approximate area)',
   'web.s05.driver': "Who's driving",

@@ -107,14 +107,11 @@ export const FR_PROTO = {
   'web.s04.result.glare':
     'La photo de ton permis a un reflet. Incline-le un peu et évite la lumière directe.',
   'web.s05.protection.title': 'Choisis ta protection',
-  'web.s05.manual': 'Je sais conduire une boîte manuelle',
   'web.s05.contract': 'J’accepte le contrat de location avec {host_name}',
   'web.s05.mitConsent':
     'J’autorise des débits après le voyage sur cette carte, uniquement pour des frais du voyage, ma franchise ou des dommages, toujours avec un avis et une preuve.',
   'web.s05.cta': 'Payer {amount}',
   'web.s05.ctaRequest': 'Envoyer la demande',
-  'web.s05.hold.until': 'Nous te gardons cette voiture jusqu’à {time}',
-  'web.s05.priceChanged': 'Le prix a changé',
   'web.s05.review.notice':
     'Nous examinons chaque réservation. Si nous ne pouvons pas l’accepter, nous te remboursons tout.',
   'web.s06.pre.title': 'Sur ton relevé, tu verras : {merchant_name}',
@@ -239,7 +236,6 @@ export const FR_PROTO = {
   'web.s04.reviewBody':
     'Tu peux continuer à regarder des voitures. Nous t’écrivons dès que c’est terminé.',
   'web.s04.verifiedBody': 'Ta vérification vaut pour toutes tes réservations.',
-  'web.s05.title': 'Confirme et paie',
   'web.s05.trip': 'Ton voyage',
   'web.s05.meet': 'Remise à {place} (zone approximative)',
   'web.s05.driver': 'Qui conduit',

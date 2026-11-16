@@ -124,6 +124,7 @@ Lu dans le catalogue (`pg_catalog`) d'une base jetable du banc, après les seule
 | `0106_catalog_listing_page` | CAT : fiche du véhicule (S03) : galerie, contrôle des dates, lieu de remise exact. |
 | `0107_config_quote_params` | graine complémentaire : paramètres « quote_* » (US-208 ; 17 §7.2). |
 | `0108_booking_checkout` | AVL : checkout en une page, partie back-end (devis figé et pose du hold de checkout). |
+| `0109_ctr_checkout_documents` | CTR : documents du checkout servis et publiables ; nom du conducteur comparé en NFC. |
 
 ## Rôles
 

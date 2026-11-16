@@ -105,14 +105,11 @@ export const PT_PROTO = {
   'web.s04.result.glare':
     'A foto da sua carteira saiu com reflexo. Incline um pouco e evite luz direta.',
   'web.s05.protection.title': 'Escolha sua proteção',
-  'web.s05.manual': 'Sei dirigir carro com câmbio manual',
   'web.s05.contract': 'Aceito o contrato de aluguel com {host_name}',
   'web.s05.mitConsent':
     'Autorizo cobranças depois da viagem neste cartão apenas por despesas da viagem, minha franquia ou danos, sempre com aviso e comprovação.',
   'web.s05.cta': 'Pagar {amount}',
   'web.s05.ctaRequest': 'Enviar pedido',
-  'web.s05.hold.until': 'Seguramos este carro para você até {time}',
-  'web.s05.priceChanged': 'O preço mudou',
   'web.s05.review.notice':
     'Analisamos cada reserva. Se não pudermos aprovar, devolvemos tudo a você.',
   'web.s06.pre.title': 'Na sua fatura vai aparecer: {merchant_name}',
@@ -235,7 +232,6 @@ export const PT_PROTO = {
   'web.s04.retakeAction': 'Tirar outra foto',
   'web.s04.reviewBody': 'Você pode continuar vendo carros. Escrevemos assim que terminarmos.',
   'web.s04.verifiedBody': 'Sua verificação vale para todas as suas reservas.',
-  'web.s05.title': 'Confirme e pague',
   'web.s05.trip': 'Sua viagem',
   'web.s05.meet': 'Entrega em {place} (área aproximada)',
   'web.s05.driver': 'Quem vai dirigir',

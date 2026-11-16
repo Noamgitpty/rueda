@@ -2729,6 +2729,7 @@
         "operationId": "getLegalDocument",
         "tags": ["ctr"],
         "summary": "Texte d'un document : version en vigueur, ou version passée (`version`) pour relire ce qui a été accepté",
+        "description": "Genres servis : TOS_GUEST, PRIVACY, MARKETING (voyageur, US-102), TOS_HOST (US-126), CANCELLATION_POLICY et GEO_TERMS (documents acceptés au checkout, US-208 ; liens de S05). Aucun texte publié dans la portée, genre inconnu, version inconnue ou future : 404 (fail-closed).",
         "parameters": [
           {
             "name": "kind",
@@ -6597,7 +6598,7 @@
             }
           },
           "409": {
-            "description": "Devis expiré ou déjà engagé, annonce indisponible ou sur demande, documents changés, créneau pris (sans détail), voyage qui chevauche, hold déjà en cours ou trop nombreux",
+            "description": "Devis expiré ou déjà engagé, annonce indisponible ou sur demande, documents changés, créneau pris (sans détail), voyage qui chevauche, hold déjà en cours ou trop nombreux. QUOTE_EXPIRED ne porte AUCUN devis de remplacement : le client redemande un devis (POST /checkout/quotes, même annonce et même période), affiche le nouveau total, puis fait accepter de nouveau les documents avant une nouvelle pose (US-208b, écran S05). TERMS_VERSION_CHANGED : relire le devis (GET /checkout/quotes/{quoteId}) pour les versions en vigueur.",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/NoStore"
@@ -11858,7 +11859,14 @@
       },
       "LegalDocumentKind": {
         "type": "string",
-        "enum": ["TOS_GUEST", "PRIVACY", "MARKETING", "TOS_HOST"]
+        "enum": [
+          "TOS_GUEST",
+          "PRIVACY",
+          "MARKETING",
+          "TOS_HOST",
+          "CANCELLATION_POLICY",
+          "GEO_TERMS"
+        ]
       },
       "LegalDocumentSummary": {
         "type": "object",

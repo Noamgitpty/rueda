@@ -24,7 +24,7 @@
     background-color var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
-.button:active:not(:disabled) {
+.button:active:not(:disabled, [aria-disabled='true']) {
   transform: scale(0.98);
 }
 
@@ -33,7 +33,7 @@
   color: var(--color-on-primary);
 }
 
-.primary:hover:not(:disabled) {
+.primary:hover:not(:disabled, [aria-disabled='true']) {
   background: color-mix(in srgb, var(--color-primary) 88%, var(--color-text));
 }
 
@@ -43,7 +43,7 @@
   border-color: var(--color-border-strong);
 }
 
-.secondary:hover:not(:disabled) {
+.secondary:hover:not(:disabled, [aria-disabled='true']) {
   background: var(--color-surface-sunken);
 }
 
@@ -54,7 +54,7 @@
   text-underline-offset: 0.2em;
 }
 
-.quiet:hover:not(:disabled) {
+.quiet:hover:not(:disabled, [aria-disabled='true']) {
   background: var(--color-surface-sunken);
 }
 
@@ -68,8 +68,13 @@
   inline-size: 100%;
 }
 
-/* Désactivé : exempté de contraste (WCAG 1.4.3), mais reste lisible ; jamais pour l'action principale d'un formulaire (UX-50). */
-.button:disabled {
+/*
+ * Désactivé : exempté de contraste (WCAG 1.4.3), mais reste lisible ; jamais `disabled` pour
+ * l'action principale d'un formulaire (UX-50). Inactif (`aria-disabled="true"`, ADR-134) : même
+ * aspect, mais le bouton reste focalisable et son clic déclenche la validation.
+ */
+.button:disabled,
+.button[aria-disabled='true'] {
   cursor: not-allowed;
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);

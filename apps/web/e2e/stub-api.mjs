@@ -296,6 +296,232 @@ const hostTermsDoc = (lang) => ({
 });
 const MARKET_NO_DECIMALS = { country: 'QZ', currency: 'XXX', currencyExponent: 0 };
 
+// ---- Checkout en une page (US-208, partie 208b) : devis figé, pose du hold ------------------
+// Session `G0st<ll>…` (43 caractères ; `<ll>` = langue du compte : es, en, fr, pt) : voyageur
+// vérifié, CGU à jour, titulaire « Lucía Gómez » (données fictives). Toute autre session : 401.
+// Devis : prix du jour de l'annonce × jours facturés, taxe de 7 % sur le loyer (configuration
+// « PA1 » de TA01, 16 A.8.1 : 40,00 × 3 j = 120,00 + 8,40 = 128,40), aucune ligne de trip fee ;
+// la réponse est TOUJOURS celle de la base (lignes, total, validité), jamais recalculée par le
+// site. Scénarios par jour de départ :
+//   - le 15 décembre : le premier devis expire à la pose (409 QUOTE_EXPIRED, aucun devis de
+//     remplacement dans la réponse, comme l'API) ;
+//   - le 20 décembre : le premier devis est déjà expiré à la lecture (`expired: true`) ;
+//   - un devis redemandé (même session, même annonce, même période) a un nouveau prix (42,00 par
+//     jour) : le site doit afficher ce nouveau total.
+// `MANUAL_ID` : même fiche avec une boîte manuelle (case BKG-025). Instants de validité du devis
+// et d'expiration du hold FIXES (captures stables).
+const GUEST_TOKEN = /^G0st[A-Za-z0-9_-]{39}$/;
+const MANUAL_ID = '11500000-0000-4000-8000-00000000f004';
+const GUEST_NAME = ['Lucía', 'Gómez'];
+const QUOTE_EXPIRES_AT = '2036-11-30T15:30:00.000Z';
+const HOLD_EXPIRES_AT = '2036-11-30T15:10:00.000Z';
+const EXPIRE_ON_HOLD_DAY = '-12-15T';
+const EXPIRED_ON_READ_DAY = '-12-20T';
+const DAILY_MINOR = 4000;
+const RENEWED_DAILY_MINOR = 4200;
+const TAX_PCT = 7;
+const CHECKOUT_DOCS = { TOS_GUEST: VERSIONS.TOS_GUEST, CANCELLATION_POLICY: 1, GEO_TERMS: 1 };
+const CHECKOUT_TITLES = {
+  TOS_GUEST: {
+    es: 'Términos y condiciones',
+    en: 'Terms and conditions',
+    fr: 'Conditions générales',
+    pt: 'Termos e condições',
+  },
+  CANCELLATION_POLICY: {
+    es: 'Política de cancelación',
+    en: 'Cancellation policy',
+    fr: 'Politique d’annulation',
+    pt: 'Política de cancelamento',
+  },
+  GEO_TERMS: {
+    es: 'Zonas de circulación',
+    en: 'Where you can drive',
+    fr: 'Zones de circulation',
+    pt: 'Onde você pode dirigir',
+  },
+};
+const quotes = new Map();
+const holds = new Map();
+const DAY_MS = 86_400_000;
+const STEP = /^\d{4}-\d{2}-\d{2}T\d{2}:[03]0:00(\.000)?Z$/;
+
+const guestOf = (req) => {
+  const token = tokenOf(req);
+  if (token === undefined || !GUEST_TOKEN.test(token)) return undefined;
+  const lang = token.slice(4, 6);
+  return { token, lang: LANGS.includes(lang) ? lang : 'es' };
+};
+const sameName = (a, b) =>
+  typeof a === 'string' &&
+  a.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase() === b.normalize('NFC').toLowerCase();
+const checkoutDoc = (kind, lang) => ({
+  kind,
+  version: CHECKOUT_DOCS[kind],
+  isMajor: true,
+  locale: lang,
+  title: CHECKOUT_TITLES[kind][lang],
+  contentHash: '0'.repeat(64),
+  draft: true,
+  validFrom: '2026-01-01T00:00:00.000Z',
+});
+const quoteJson = (q) => ({
+  quoteId: q.id,
+  listingId: q.listingId,
+  country: MARKET.country,
+  currency: MARKET.currency,
+  startAt: q.startAt,
+  endAt: q.endAt,
+  billableDays: q.days,
+  lines: [{ type: 'TRIP_PRICE', amountMinor: String(q.rent), taxMinor: String(q.tax) }],
+  totalMinor: String(q.rent + q.tax),
+  expiresAt: QUOTE_EXPIRES_AT,
+  expired: q.expiredOnRead,
+  manualTransmission: q.listingId === MANUAL_ID,
+  instantBook: true,
+  documents: Object.keys(CHECKOUT_DOCS).map((kind) => ({
+    kind,
+    version: CHECKOUT_DOCS[kind],
+    locale: q.lang,
+    title: CHECKOUT_TITLES[kind][q.lang],
+  })),
+});
+const holdJson = (h) => ({
+  holdId: h.id,
+  status: 'ACTIVE',
+  expiresAt: HOLD_EXPIRES_AT,
+  quoteId: h.quote.id,
+  listingId: h.quote.listingId,
+  currency: MARKET.currency,
+  startAt: h.quote.startAt,
+  endAt: h.quote.endAt,
+  totalMinor: String(h.quote.rent + h.quote.tax),
+  manualConfirmed: h.manual,
+  documents: Object.keys(CHECKOUT_DOCS).map((kind) => ({
+    kind,
+    version: CHECKOUT_DOCS[kind],
+    locale: h.quote.lang,
+  })),
+});
+/** Total TTC du créneau (même règle que le devis du double) ; prix du jour donné. */
+const slotTotal = (startMs, endMs, daily) => {
+  const days = Math.max(1, Math.ceil((endMs - startMs) / DAY_MS));
+  const rent = days * daily;
+  // arrondi au plus proche, moitié vers le haut (montants positifs)
+  const tax = Math.floor((rent * TAX_PCT + 50) / 100);
+  return { days, rent, tax };
+};
+
+async function checkoutRoute(req, res, path) {
+  const holdPath = /^\/checkout\/quotes\/([0-9a-f-]{36})\/hold$/.exec(path)?.[1];
+  const quotePath = /^\/checkout\/quotes\/([0-9a-f-]{36})$/.exec(path)?.[1];
+  const holdRead = /^\/checkout\/holds\/([0-9a-f-]{36})$/.exec(path)?.[1];
+  if (!path.startsWith('/checkout/')) return false;
+  const guest = guestOf(req);
+  if (guest === undefined) return err(res, 401, 'AUTH_REQUIRED', 'common.auth.sessionRequired');
+  if (req.method === 'POST' && path === '/checkout/quotes') {
+    const b = await readBody(req);
+    if (b === null || typeof b !== 'object') {
+      return err(res, 400, 'QUOTE_INPUT_INVALID', 'common.quote.datesInvalid');
+    }
+    if (b.listingId !== PUBLIC_ID && b.listingId !== MANUAL_ID) {
+      return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    }
+    if (!STEP.test(b.startAt ?? '') || !STEP.test(b.endAt ?? '') || b.endAt <= b.startAt) {
+      return err(res, 400, 'QUOTE_INPUT_INVALID', 'common.quote.datesInvalid');
+    }
+    const startAt = new Date(b.startAt).toISOString();
+    const endAt = new Date(b.endAt).toISOString();
+    const renewed = [...quotes.values()].some(
+      (q) =>
+        q.token === guest.token &&
+        q.listingId === b.listingId &&
+        q.startAt === startAt &&
+        q.endAt === endAt,
+    );
+    const t = slotTotal(
+      Date.parse(startAt),
+      Date.parse(endAt),
+      renewed ? RENEWED_DAILY_MINOR : DAILY_MINOR,
+    );
+    const q = {
+      id: uuid(),
+      token: guest.token,
+      lang: guest.lang,
+      listingId: b.listingId,
+      startAt,
+      endAt,
+      ...t,
+      expiredOnRead: !renewed && startAt.includes(EXPIRED_ON_READ_DAY),
+      expireOnHold: !renewed && startAt.includes(EXPIRE_ON_HOLD_DAY),
+      used: false,
+    };
+    quotes.set(q.id, q);
+    return json(res, 201, { quote: quoteJson(q) });
+  }
+  if (req.method === 'GET' && quotePath !== undefined) {
+    const q = quotes.get(quotePath);
+    if (q === undefined || q.token !== guest.token) {
+      return err(res, 404, 'QUOTE_NOT_FOUND', 'common.quote.notFound');
+    }
+    return json(res, 200, { quote: quoteJson(q) });
+  }
+  if (req.method === 'POST' && holdPath !== undefined) {
+    const q = quotes.get(holdPath);
+    if (q === undefined || q.token !== guest.token) {
+      return err(res, 404, 'QUOTE_NOT_FOUND', 'common.quote.notFound');
+    }
+    const b = await readBody(req);
+    if (b === null || typeof b !== 'object' || typeof b.driver !== 'object' || b.driver === null) {
+      return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    }
+    // ordre des contrôles de la base (0108)
+    if (q.used) return err(res, 409, 'QUOTE_ALREADY_USED', 'common.checkout.quoteAlreadyUsed');
+    if (q.expiredOnRead || q.expireOnHold) {
+      return err(res, 409, 'QUOTE_EXPIRED', 'common.quote.expired');
+    }
+    if (q.listingId === MANUAL_ID && b.manualTransmissionConfirmed !== true) {
+      return err(
+        res,
+        422,
+        'MANUAL_TRANSMISSION_NOT_CONFIRMED',
+        'common.checkout.manualNotConfirmed',
+      );
+    }
+    if (
+      !sameName(b.driver.firstName, GUEST_NAME[0]) ||
+      !sameName(b.driver.lastName, GUEST_NAME[1])
+    ) {
+      return err(
+        res,
+        422,
+        'DRIVER_MUST_BE_ACCOUNT_HOLDER',
+        'common.checkout.driverMustBeAccountHolder',
+      );
+    }
+    const docs = Array.isArray(b.acceptedDocuments) ? b.acceptedDocuments : [];
+    const kinds = Object.keys(CHECKOUT_DOCS);
+    if (docs.length !== kinds.length || !kinds.every((k) => docs.some((d) => d?.kind === k))) {
+      return err(res, 422, 'TERMS_NOT_ACCEPTED', 'common.checkout.termsNotAccepted');
+    }
+    if (!docs.every((d) => d.version === CHECKOUT_DOCS[d.kind])) {
+      return err(res, 409, 'TERMS_VERSION_CHANGED', 'common.legal.versionChanged');
+    }
+    q.used = true;
+    const h = { id: uuid(), quote: q, manual: q.listingId === MANUAL_ID };
+    holds.set(h.id, h);
+    return json(res, 201, { hold: holdJson(h) });
+  }
+  if (req.method === 'GET' && holdRead !== undefined) {
+    const h = holds.get(holdRead);
+    if (h === undefined || h.quote.token !== guest.token) {
+      return err(res, 404, 'HOLD_NOT_FOUND', 'common.checkout.holdNotFound');
+    }
+    return json(res, 200, { hold: holdJson(h) });
+  }
+  return err(res, 404, 'NOT_FOUND', 'common.error.notFound');
+}
+
 // ---- Vérification de l'hôte (US-123) : liste de tâches A07 -----------------------------------
 // Double : identité et âge déjà vérifiés ; un type de numéro fiscal NEUTRE (données fictives, aucun
 // type propre à un pays) ; envoi ⇒ filtrage fait, dossier en revue si les CGU sont acceptées (numéro
@@ -534,7 +760,9 @@ async function hostRoute(req, res, url) {
   }
   const avail = /^\/listings\/([0-9a-f-]{36})\/availability$/.exec(path)?.[1];
   if (req.method === 'GET' && avail !== undefined) {
-    if (avail !== PUBLIC_ID) return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    if (avail !== PUBLIC_ID && avail !== MANUAL_ID) {
+      return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    }
     const start = url.searchParams.get('start') ?? '';
     const end = url.searchParams.get('end') ?? '';
     const slot = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[03]0$/;
@@ -551,8 +779,19 @@ async function hostRoute(req, res, url) {
     if (start.includes(BUSY_DAY)) {
       return err(res, 409, 'DATES_UNAVAILABLE', 'common.listing.datesUnavailable');
     }
+    // total TTC du devis provisoire (US-208) : même règle que le devis du checkout du double
+    const t = slotTotal(Date.parse(`${start}:00Z`), Date.parse(`${end}:00Z`), DAILY_MINOR);
     return json(res, 200, {
-      availability: { startAt: `${start}:00.000Z`, endAt: `${end}:00.000Z`, timezone: 'UTC' },
+      availability: {
+        startAt: `${start}:00.000Z`,
+        endAt: `${end}:00.000Z`,
+        timezone: 'UTC',
+        price: {
+          totalMinor: String(t.rent + t.tax),
+          currency: MARKET.currency,
+          billableDays: t.days,
+        },
+      },
     });
   }
   const meet = /^\/listings\/([0-9a-f-]{36})\/meeting-point$/.exec(path)?.[1];
@@ -575,10 +814,13 @@ async function hostRoute(req, res, url) {
   const pub = /^\/listings\/([0-9a-f-]{36})$/.exec(path)?.[1];
   if (req.method === 'GET' && pub !== undefined) {
     if (pub === DOWN_ID) return err(res, 503, 'LISTING_UNAVAILABLE', 'common.listing.unavailable');
-    if (pub !== PUBLIC_ID) return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    if (pub !== PUBLIC_ID && pub !== MANUAL_ID) {
+      return err(res, 404, 'LISTING_NOT_FOUND', 'common.listing.notFound');
+    }
+    const manual = pub === MANUAL_ID;
     return json(res, 200, {
       listing: {
-        id: PUBLIC_ID,
+        id: pub,
         country: 'ZZ',
         dailyPriceMinor: '4000',
         currency: 'XTS',
@@ -591,7 +833,7 @@ async function hostRoute(req, res, url) {
         makeName: 'Toyota',
         modelName: 'Yaris',
         year: 2021,
-        transmission: 'AUTOMATIC',
+        transmission: manual ? 'MANUAL' : 'AUTOMATIC',
         seats: 5,
         fuelType: 'GASOLINE',
         locationKind: 'POI',
@@ -600,7 +842,9 @@ async function hostRoute(req, res, url) {
         approximatePoint: { lat: 8.98, lng: -79.52 },
         timezone: 'UTC',
         hostFirstName: 'Ana',
-        photos: GALLERY.map((id, order) => ({ id, order, key: `listing/${PUBLIC_ID}/${id}` })),
+        photos: manual
+          ? []
+          : GALLERY.map((id, order) => ({ id, order, key: `listing/${PUBLIC_ID}/${id}` })),
         hostVerified: true,
         ratings: {
           vehicle: { averageX100: 480, reviewCount: 3, tripCount: 5 },
@@ -1068,6 +1312,7 @@ async function hostRoute(req, res, url) {
 createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
+  if ((await checkoutRoute(req, res, path)) !== false) return;
   if ((await hostRoute(req, res, url)) !== false) return;
   if (req.method === 'GET' && path === '/__e2e/signups') return json(res, 200, signups);
   if (req.method === 'GET' && path === '/legal/documents') {
@@ -1084,6 +1329,14 @@ createServer(async (req, res) => {
   if (req.method === 'GET' && kind !== undefined) {
     const lang = languageOf(url);
     if (lang === null) return err(res, 400, 'REQUEST_INVALID', 'common.auth.requestInvalid');
+    if (kind in CHECKOUT_DOCS && kind !== 'TOS_GUEST') {
+      return json(res, 200, {
+        ...checkoutDoc(kind, lang),
+        bodyMd: `**${MARK[lang]}**
+
+${CHECKOUT_TITLES[kind][lang]}`,
+      });
+    }
     if (kind === 'TOS_HOST') {
       return json(res, 200, {
         ...hostTermsDoc(lang),

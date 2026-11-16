@@ -43,7 +43,11 @@ export function tagOf(language: Language): string {
  * (US-118, A10 instable). À utiliser quand rien d'autre ne distingue l'avant de l'après, par exemple
  * quand l'URL porte déjà `saved=1`.
  */
-export async function submitAndSettle(page: Page, button: Locator): Promise<void> {
+export async function submitAndSettle(
+  page: Page,
+  button: Locator,
+  navigatesTo?: RegExp,
+): Promise<void> {
   const reply = page.waitForResponse((r) => {
     const request = r.request();
     return (
@@ -53,7 +57,10 @@ export async function submitAndSettle(page: Page, button: Locator): Promise<void
   });
   await button.click();
   await reply;
-  await expect(button).not.toHaveAttribute('aria-busy', 'true');
+  // envoi qui ouvre un autre écran (redirection de l'action, US-208) : le bouton n'existe plus,
+  // la fin de l'envoi est l'arrivée sur l'écran attendu
+  if (navigatesTo !== undefined) await expect(page).toHaveURL(navigatesTo);
+  else await expect(button).not.toHaveAttribute('aria-busy', 'true');
 }
 
 export interface Measure {

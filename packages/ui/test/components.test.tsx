@@ -52,6 +52,18 @@ describe('Button', () => {
   it('désactivé : attribut natif', () => {
     expect(render(<Button disabled>x</Button>)).toContain('disabled=""');
   });
+
+  it('inactif (ADR-134) : aria-disabled annoncé, jamais l’attribut natif (le bouton reste focalisable)', () => {
+    const html = render(
+      <Button type="submit" aria-disabled aria-describedby="aide">
+        x
+      </Button>,
+    );
+    const button = doc(html).querySelector('button')!;
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.hasAttribute('disabled')).toBe(false);
+    expect(button.getAttribute('aria-describedby')).toBe('aide');
+  });
 });
 
 describe('IconButton', () => {

@@ -27,13 +27,13 @@ CTR ne stocke pas les octets des fichiers (AUD, `file_asset`) et n'envoie rien l
 
 ## Routes (US-102)
 
-| Route                            | Accès   | Rôle                                                                       |
-| -------------------------------- | ------- | -------------------------------------------------------------------------- |
-| `GET /legal/documents`           | public  | versions en vigueur (`locale`, `country` facultatif) ; 503 si CGU absentes |
-| `GET /legal/documents/{kind}`    | public  | texte en vigueur ou version passée (`version`)                             |
-| `GET /legal/consents`            | session | `TERMS_CURRENT` ou `TERMS_REACCEPT_REQUIRED`, opt-in, historique           |
-| `POST /legal/consents/accept`    | session | accepter les versions en vigueur ; 409 `TERMS_VERSION_CHANGED`             |
-| `POST /legal/consents/marketing` | session | accord ou révocation des communications                                    |
+| Route                            | Accès   | Rôle                                                                                                                                                                      |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /legal/documents`           | public  | versions en vigueur (`locale`, `country` facultatif) ; 503 si CGU absentes                                                                                                |
+| `GET /legal/documents/{kind}`    | public  | texte en vigueur ou version passée (`version`) ; genres de `SERVED_DOCUMENT_KINDS`, dont `CANCELLATION_POLICY` et `GEO_TERMS` (checkout, US-208, 0109) ; non publié ⇒ 404 |
+| `GET /legal/consents`            | session | `TERMS_CURRENT` ou `TERMS_REACCEPT_REQUIRED`, opt-in, historique                                                                                                          |
+| `POST /legal/consents/accept`    | session | accepter les versions en vigueur ; 409 `TERMS_VERSION_CHANGED`                                                                                                            |
+| `POST /legal/consents/marketing` | session | accord ou révocation des communications                                                                                                                                   |
 
 Garde **`TermsGuard`** (`index.ts`) : à poser après `SessionGuard` sur toute route qui réserve ; 409 `TERMS_REACCEPT_REQUIRED` après une version majeure non acceptée, fail-closed.
 

@@ -24,7 +24,11 @@ export const SPEC_TEXT: Readonly<
     | 'newBadge'
     | 'hostVerified'
     | 'meetTitle'
-    | 'photosBy',
+    | 'photosBy'
+    | 'bookCta'
+    | 'manualBox'
+    | 'holdUntil'
+    | 'priceChanged',
     Readonly<Partial<Record<Language, string>>>
   >
 > = {
@@ -74,6 +78,28 @@ export const SPEC_TEXT: Readonly<
     en: '1 / 3 photos by Ana',
     fr: '1 / 3 · photos prises par Ana',
     pt: '1 / 3 fotos tiradas por Ana',
+  },
+  // 10b §4.3, lignes `web.s03.cta`, `web.s05.manual`, `web.s05.hold.until` (début, avant {time})
+  // et `web.s05.priceChanged` (S03, S05, US-208) ; pt : textes pt-BR de référence de la story
+  // US-208 (DEC-FONDATEUR-18), 10b n'ayant pas de colonne pt
+  bookCta: { es: 'Reservar', en: 'Book', fr: 'Réserver', pt: 'Reservar' },
+  manualBox: {
+    es: 'Sé manejar caja manual',
+    en: 'I can drive a manual car',
+    fr: 'Je sais conduire une boîte manuelle',
+    pt: 'Sei dirigir carro com câmbio manual',
+  },
+  holdUntil: {
+    es: 'Guardamos este auto para ti hasta las',
+    en: "We're holding this car for you until",
+    fr: 'Nous te gardons cette voiture jusqu’à',
+    pt: 'Seguramos este carro para você até',
+  },
+  priceChanged: {
+    es: 'El precio cambió',
+    en: 'The price changed',
+    fr: 'Le prix a changé',
+    pt: 'O preço mudou',
   },
   // 10b §4.3, lignes `web.s04.result.verified` et `web.s04.result.retake` (S04, US-105)
   // pt : 10b n'a pas de colonne pt ; texte pt-BR de référence de la story US-105 (DEC-FONDATEUR-18),

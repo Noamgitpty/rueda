@@ -9,10 +9,13 @@ import {
   ErrorState,
   HostCard,
   Icon,
+  Price,
   Rating,
 } from '@rueda/ui';
 import type { MessageKey, Translator } from '@rueda/i18n';
 import { callApi } from '../../../../account/api-client.ts';
+import { slotPriceOf } from '../../../../account/checkout.ts';
+import type { SlotPriceView } from '../../../../account/checkout.ts';
 import { publicListingOf } from '../../../../account/host-listings.ts';
 import type { PublicListingView } from '../../../../account/host-listings.ts';
 import {
@@ -31,12 +34,13 @@ import {
 } from '../../../../account/regulatory-notices.ts';
 import { clientContext } from '../../../../account/request.ts';
 import { listingDatesOf, searchHref, TIME_SLOTS, wallClock } from '../../../../account/search.ts';
-import { getRequestI18n } from '../../../../i18n.ts';
+import { getRequestI18n, getRequestLocaleTag } from '../../../../i18n.ts';
 import accountStyles from '../../_account/account.module.css';
 import { RegulatoryNotices } from '../../_account/regulatory-notices.tsx';
 import searchStyles from '../../_search/search.module.css';
 import { MAIN_ID } from '../../_shell/main-id.ts';
 import styles from '../../host/host.module.css';
+import { BookForm } from './book-form.tsx';
 import { ListingGallery } from './listing-gallery.tsx';
 import pageStyles from './listing.module.css';
 
@@ -201,6 +205,65 @@ function DatesSection({
 }
 
 /**
+ * Prix final et barre d'action (US-208 ; 10b S03 « prix final + détail », `web.s03.cta`) : total
+ * TTC du devis PROVISOIRE rendu par l'API pour les dates contrôlées (même chiffre que la recherche,
+ * jamais recalculé ici), puis « Reservar » qui fige le devis et ouvre S05. Aucun devis possible ⇒
+ * aucun bouton ; annonce sur demande ⇒ pas encore réservable (N-128, US-223).
+ */
+function BookingSection({
+  i18n,
+  localeTag,
+  listing,
+  view,
+  price,
+}: {
+  readonly i18n: Translator;
+  readonly localeTag: string;
+  readonly listing: PublicListingView;
+  readonly view: Extract<SlotView, { kind: 'OK' }>;
+  readonly price: SlotPriceView | null;
+}) {
+  const t = i18n.t.bind(i18n);
+  // devise du devis différente de celle de l'annonce : jamais un total affiché (aucune conversion)
+  const usable = price !== null && price.currency === listing.currency ? price : null;
+  return (
+    <section className={styles['section']} aria-labelledby="s03-price" data-testid="s03-price">
+      <h2 id="s03-price" className={accountStyles['h2']}>
+        {t('web.listing.total.title')}
+      </h2>
+      {usable === null ? (
+        <p className={accountStyles['muted']}>{t('common.quote.unavailable')}</p>
+      ) : (
+        <>
+          <Price
+            i18n={i18n}
+            size="lg"
+            total={{
+              amountMinor: usable.totalMinor,
+              currency: usable.currency,
+              exponent: listing.currencyExponent,
+            }}
+            days={usable.billableDays}
+          />
+          <p className={accountStyles['muted']}>{t('web.listing.total.hint')}</p>
+          {listing.instantBook ? (
+            <BookForm
+              localeTag={localeTag}
+              listingId={listing.id}
+              startAt={view.startAt}
+              endAt={view.endAt}
+              label={t('web.s03.cta')}
+            />
+          ) : (
+            <Banner tone="info">{t('common.checkout.requestModeUnavailable')}</Banner>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
  * S03 — fiche publique d'une annonce publiée (US-115 critère 4, US-201, US-204 ; 10b §4.1 S03,
  * UX-65, maquette US-033) :
  *
@@ -211,8 +274,9 @@ function DatesSection({
  *   16 LST-020 bêta SIMPLIFIÉ) ;
  * - dates : reprises de la recherche (`?start=&end=`) ou choisies sur la fiche, contrôlées par
  *   l'API (préavis du lieu ⇒ `DATES_NOTICE_TOO_SHORT`, créneau pris ⇒ `DATES_UNAVAILABLE` ;
- *   US-204 critère 2). Aucun total ici : le devis du checkout appartient à US-208, jamais un prix
- *   recalculé par le site ;
+ *   US-204 critère 2) ;
+ * - prix final TTC des dates acceptées (devis provisoire de l'API, jamais recalculé par le site) et
+ *   « Reservar » vers le checkout S05 (US-208) ;
  * - lieu de remise : zone approximative pour tous ; libellé et adresse exacte au SEUL voyageur
  *   d'un trip confirmé et non terminé (US-204 critère 3, L2-PM-29), jugé par la base.
  *
@@ -226,7 +290,12 @@ export default async function ListingPage({
   readonly params: Promise<{ readonly listingId: string }>;
   readonly searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>>;
 }) {
-  const [i18n, { listingId }, query] = await Promise.all([getRequestI18n(), params, searchParams]);
+  const [i18n, localeTag, { listingId }, query] = await Promise.all([
+    getRequestI18n(),
+    getRequestLocaleTag(),
+    params,
+    searchParams,
+  ]);
   const fromSearch = listingDatesOf(query);
   const slot = slotInputOf(query);
   const t = i18n.t.bind(i18n);
@@ -277,6 +346,7 @@ export default async function ListingPage({
         ? slotViewOf(slotReply ?? { status: 'unavailable' })
         : { kind: 'REFUSED', key: 'common.search.datesInvalid' };
   const meeting = meetingReply === null ? null : meetingPointOf(meetingReply);
+  const price = slotView?.kind === 'OK' && slotReply !== null ? slotPriceOf(slotReply) : null;
   const total = String(extras.photos.length);
   return (
     <main id={MAIN_ID} tabIndex={-1} className={accountStyles['content']}>
@@ -335,6 +405,16 @@ export default async function ListingPage({
         input={slot !== null && slot.ok ? slot.input : null}
         view={slotView}
       />
+
+      {slotView?.kind === 'OK' && (
+        <BookingSection
+          i18n={i18n}
+          localeTag={localeTag}
+          listing={listing}
+          view={slotView}
+          price={price}
+        />
+      )}
 
       <RegulatoryNotices
         i18n={i18n}

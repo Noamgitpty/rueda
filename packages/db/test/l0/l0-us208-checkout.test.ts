@@ -620,6 +620,121 @@ describe.each(COUNTRIES.map((c) => [c.country, c] as const))(
       );
     });
 
+    it('revue de 208a (code n° 3) : nom saisi en forme Unicode décomposée (NFD) ⇒ même nom que le nom légal composé (NFC), et l’inverse ; un autre accent reste un autre nom', async () => {
+      await run(async (tx, ctx) => {
+        // « Pérez » : é composé (U+00E9) au compte, e + accent combinant (U+0301) saisi
+        const composed = 'P\u00e9rez';
+        const decomposed = 'Pe\u0301rez';
+        expect(composed.normalize('NFC')).toBe(decomposed.normalize('NFC'));
+        expect(composed).not.toBe(decomposed);
+        const quoteId = await frozenQuote(tx, cc, ctx);
+        // accent grave combinant : un autre nom
+        expect(
+          (await checkout(tx, ctx.guest.hash, quoteId, { driver: ['Ana', 'Pe\u0300rez'] })).outcome,
+        ).toBe('DRIVER_MUST_BE_ACCOUNT_HOLDER');
+        expect(
+          (await checkout(tx, ctx.guest.hash, quoteId, { driver: ['ANA', decomposed] })).outcome,
+        ).toBe('DONE');
+        // compte au nom légal décomposé, conducteur saisi composé
+        const other = await person(tx, cc.country, 'Jose\u0301', 'N\u0303un\u0303ez');
+        // autre créneau : celui du premier hold est pris
+        const q2 = await frozenQuote(
+          tx,
+          cc,
+          { ...ctx, guest: other },
+          docs(cc, ctx.groups, { startMs: START + 7 * DAY }),
+        );
+        const r = await checkout(tx, other.hash, q2, {
+          driver: ['José', 'Ñuñez'],
+        });
+        expect(r.outcome).toBe('DONE');
+      });
+    });
+
+    it('revue de 208a (qa n° 6 a) : débit des gels sur une heure glissante ⇒ le gel compté sort de la fenêtre à 60 min pile (frozen_at > now − 1 h), pas à 59 min', async () => {
+      await run(async (tx, ctx) => {
+        await tx.query('SELECT test_fixture.us208_set_param($1, $2, $3::jsonb)', [
+          'quote_freezes_per_guest_hour',
+          cc.country,
+          '1',
+        ]);
+        await frozenQuote(tx, cc, ctx);
+        await setClock(tx, at(59));
+        expect(
+          (await freeze(tx, ctx.guest.hash, ctx.listingId, docs(cc, ctx.groups))).outcome,
+        ).toBe('QUOTE_RATE_LIMITED');
+        await setClock(tx, at(60));
+        expect(
+          (await freeze(tx, ctx.guest.hash, ctx.listingId, docs(cc, ctx.groups))).outcome,
+        ).toBe('DONE');
+        // le gel de 60 min compte à son tour
+        expect(
+          (await freeze(tx, ctx.guest.hash, ctx.listingId, docs(cc, ctx.groups))).outcome,
+        ).toBe('QUOTE_RATE_LIMITED');
+      });
+    });
+
+    it('revue de 208a (qa n° 6 b) : documents canoniques de 64 Kio pile acceptés, un octet de plus ⇒ QUOTE_MISMATCH', async () => {
+      await run(async (tx, ctx) => {
+        const d = docs(cc, ctx.groups);
+        const padded = (bytes: number): Docs => {
+          const head = '"pad":"';
+          const tail = '",';
+          const fill = bytes - Buffer.byteLength(d.inputs, 'utf8') - head.length - tail.length;
+          const inputs = d.inputs.replace(
+            '"params":{',
+            `${head}${'x'.repeat(fill)}${tail}"params":{`,
+          );
+          expect(Buffer.byteLength(inputs, 'utf8')).toBe(bytes);
+          return { ...d, inputs, inputsHash: sha('rueda.quote.inputs/1\n', inputs) };
+        };
+        expect((await freeze(tx, ctx.guest.hash, ctx.listingId, padded(65_537))).outcome).toBe(
+          'QUOTE_MISMATCH',
+        );
+        const r = await freeze(tx, ctx.guest.hash, ctx.listingId, padded(65_536));
+        expect(r.outcome).toBe('DONE');
+      });
+    });
+
+    it('revue de 208a : pays du compte ≠ pays du trajet ⇒ le consentement CHECKOUT ne change pas la portée des CGU jugée par TermsGuard (ctr_consent_status)', async () => {
+      const home = COUNTRIES.find((c) => c.country !== cc.country);
+      if (home === undefined) throw new Error('deux pays attendus');
+      await run(async (tx, ctx) => {
+        // CGU propres au pays du trajet, deux fois : la version affichée au checkout est la 2
+        for (let i = 0; i < 2; i += 1) {
+          await tx.query('SELECT test_fixture.us208_publish_document($1, $2)', [
+            'TOS_GUEST',
+            cc.country,
+          ]);
+        }
+        const traveller = await person(tx, home.country, 'Ana', 'Pérez');
+        const status = async () =>
+          (
+            await tx.query<Row>('SELECT * FROM core.ctr_consent_status($1)', [traveller.hash])
+          ).rows.find((r) => r['doc_kind'] === 'TOS_GUEST');
+        const before = await status();
+        expect(before).toMatchObject({ reaccept_required: false, accepted_version: 1 });
+        const quoteId = await frozenQuote(tx, cc, { ...ctx, guest: traveller });
+        const shown = await shownVersions(tx, traveller.hash, quoteId);
+        expect(shown.find((d) => d.kind === 'TOS_GUEST')?.version).toBe(2);
+        const r = await checkout(tx, traveller.hash, quoteId);
+        expect(r.outcome).toBe('DONE');
+        // portée du compte inchangée : mêmes versions qu'avant, aucune réacceptation exigée
+        expect(await status()).toEqual(before);
+        // et la garde suit bien le pays du compte : des CGU propres à SON pays, jamais acceptées,
+        // exigent la réacceptation
+        await tx.query('SELECT test_fixture.us208_publish_document($1, $2)', [
+          'TOS_GUEST',
+          home.country,
+        ]);
+        expect(await status()).toMatchObject({
+          current_version: 1,
+          accepted_version: null,
+          reaccept_required: true,
+        });
+      });
+    });
+
     it('IDOR et réemploi : devis d’un autre voyageur ⇒ QUOTE_NOT_FOUND, rien rendu ; devis déjà engagé ⇒ QUOTE_ALREADY_USED ; sans session ⇒ AUTH_REQUIRED', async () => {
       await run(async (tx, ctx) => {
         const quoteId = await frozenQuote(tx, cc, ctx);
