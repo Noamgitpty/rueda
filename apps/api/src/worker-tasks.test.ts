@@ -181,6 +181,8 @@ describe('tâches du travailleur (US-003)', () => {
         { operation_id: 'op-1', action: 'CONVERT' },
         { operation_id: 'op-2', action: 'FAIL' },
       ],
+      booking_convert_payment: [{ r: { outcome: 'CONVERTED' } }],
+      booking_record_payment_failure: [{ r: { outcome: 'RELEASED' } }],
     });
     registerWorkerTasks(registry, {
       transactions: transactions(tx, workers),
@@ -195,8 +197,8 @@ describe('tâches du travailleur (US-003)', () => {
     expect(workers).toEqual([BOOKING_CONVERSION_WORKER, BOOKING_CONVERSION_WORKER]);
     expect(sql).toEqual([
       `SELECT operation_id, action FROM core.booking_conversion_due($1) [${WORKER_TASK_DEFAULTS.bookingConversionBatch}]`,
-      'SELECT core.booking_convert_payment($1::uuid) ["op-1"]',
-      'SELECT core.booking_record_payment_failure($1::uuid) ["op-2"]',
+      'SELECT core.booking_convert_payment($1::uuid) AS r ["op-1"]',
+      'SELECT core.booking_record_payment_failure($1::uuid) AS r ["op-2"]',
     ]);
     expect(logs).toEqual([
       JSON.stringify({
@@ -205,8 +207,44 @@ describe('tâches du travailleur (US-003)', () => {
         candidates: 2,
         converted: 1,
         failures: 1,
+        errors: 0,
       }),
     ]);
+  });
+
+  it('booking_conversion (US-223) : une opération qui lève ne bloque pas le lot ; NOT_PROVEN non compté comme converti ; journal sans identifiant', async () => {
+    const registry = new BusRegistry();
+    const logs: string[] = [];
+    const { tx } = recordingTx({
+      booking_conversion_due: [
+        { operation_id: 'op-1', action: 'CONVERT' },
+        { operation_id: 'op-2', action: 'CONVERT' },
+      ],
+      booking_convert_payment: [{ r: { outcome: 'NOT_PROVEN' } }],
+    });
+    const boom = Object.assign(new Error('x'), { code: '23000' });
+    registerWorkerTasks(registry, {
+      transactions: transactions(tx, [], [boom]),
+      config,
+      brandName: 'x',
+      log: (l) => logs.push(l),
+      now: () => AT,
+    });
+    const h = registry.handlerOf(BOOKING_CONVERSION_WORKER);
+    if (h?.kind !== 'timer') throw new Error('minuterie attendue');
+    await h.handle({}, tx);
+    expect(logs).toEqual([
+      JSON.stringify({ level: 'warn', worker: 'booking_conversion', error: '23000' }),
+      JSON.stringify({
+        level: 'info',
+        worker: 'booking_conversion',
+        candidates: 2,
+        converted: 0,
+        failures: 0,
+        errors: 1,
+      }),
+    ]);
+    expect(logs.join('')).not.toContain('op-');
   });
 
   it('webhook_ingest (US-223) : boîte de réception lue par lots, comptes journalisés, aucun identifiant', async () => {

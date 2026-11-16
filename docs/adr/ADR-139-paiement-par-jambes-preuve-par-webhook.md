@@ -2,6 +2,7 @@
 
 - **Statut** : PROPOSÉ (US-223, partie 223a, agent argent / back-end, claude-opus-5-5, 2026-11-16). Revues exigées (`check-story-reviews.mjs`, story US-223) : architecture, argent, code, qa, sécurité, ux ; argent, RLS, rôles, `SECURITY DEFINER` et concurrence sur un autre modèle que l'auteur.
 - **Sources** : 19 US-223 ; 16 PAY-034, PAY-002, PAY-006 ; 08 E7 (règles 1, 2, 5, 10), TJ01, TJ08a, TJ09a, TJ09c, TJ10a, TJ15, TJ21 ; 17 §2.5 (étapes 3 à 7, C20), §2.8, §4.3, §4.4 ; ADR-059, ADR-065, ADR-066, ADR-088 (décision 9, « Limites »), ADR-133 ; BOARD : S-02, N-108, N-18, N-13, N-157, N-160, N-161, N-163.
+- **Amende** : ADR-088 (« Limites », RC-5 : POLL et API_RESPONSE fermés pour les comptes LIVE et hors environnement non productif) ; s'appuie sur ADR-090 (montants payables, bornes du remboursement : inchangés, appliqués par US-224).
 - **Migration** : `packages/db/migrations/0116_payment_checkout_legs_proof.sql` (0114 à l'origine ; renumérotée à la fusion d'US-205a, #184, qui porte 0114 et 0115).
 
 ## Contexte
@@ -16,12 +17,12 @@ US-024 a construit T1 (intention de paiement), T2 (ordre enregistré), la conver
    - webhook signé rattaché par la référence PSP de l'opération si elle est connue, sinon par NOTRE clé ; la référence passée par l'appelant n'est jamais un critère ; la référence enregistrée est celle de l'événement signé ;
    - horodatage signé absent ⇒ hors fenêtre (`QUARANTINED`, indicateur non effaçable) ;
    - montant ou devise reçus ≠ ordre ⇒ `MISMATCH` (rien n'est appliqué, aucun trip ; alerte, l'ops rembourse) ; un SUCCEEDED de loyer sans montant ⇒ `UNPROVEN` ;
-   - `POLL` et `API_RESPONSE` terminaux sur un compte **LIVE** ⇒ `UNPROVEN` (aucune lecture authentifiée avant le connecteur réel ; ligne **GL-20**) ; sur un compte de bac à sable, `POLL` ⇒ preuve `POLL`, `API_RESPONSE` ⇒ statut sans preuve ;
+   - `POLL` et `API_RESPONSE` terminaux sur un compte **LIVE**, ou sur un compte de bac à sable quand la base n'est pas dans un environnement non productif connu (`COALESCE(platform.deployment_env(), 'production') IN ('test', 'development', 'staging')`, même défaut que T1 et la réception) ⇒ `UNPROVEN` (aucune lecture authentifiée avant le connecteur réel ; ligne **GL-20**) ; sur un compte de bac à sable hors production, `POLL` ⇒ preuve `POLL`, `API_RESPONSE` ⇒ statut sans preuve ;
    - statut terminal déjà posé sans preuve puis webhook signé du même statut ⇒ `DUPLICATE` et preuve `WEBHOOK_SIGNED` posée ;
    - `UNPROVEN` et `MISMATCH` journalisés dans `payment_operation_event`.
 4. **Rien ne bouge sans preuve** : la conversion rend `NOT_PROVEN` pour un SUCCEEDED sans `proof_type` (aucun trip, aucun `booking.trip.booked`) ; `settlement_cmd_apply_leg_movement` refuse (`leg_movement_unproven` ⇒ `PAYMENT_UNPROVEN`).
 5. **Un devis, un hold, un trip** (N-160) : la conversion pose la version de prix n° 1 du trip = devis du checkout (`pricing_bind_checkout_trip`) ; `pricing_cmd_version_trip_price` refuse un devis engagé au checkout (`QUOTE_MISMATCH`) et un devis échu (`QUOTE_EXPIRED`).
-6. **Travailleur** : `webhook_ingest` (10 s, `WebhookProcessor` sans lecture du PSP : la preuve est le webhook signé) et `booking_conversion` (10 s, `core.booking_conversion_due` puis une opération par transaction) ; `payment_intent_sweeper` et `payment_command` restent non déclarés (ils appellent le PSP : lot C).
+6. **Travailleur** (périodes de 10 s PROPOSÉES, `WORKER_TASK_DEFAULTS`) : `webhook_ingest` (10 s, `WebhookProcessor` sans lecture du PSP : la preuve est le webhook signé) et `booking_conversion` (10 s, `core.booking_conversion_due` puis une opération par transaction ; une opération qui lève est comptée et journalisée par son SQLSTATE, sans identifiant, et ne bloque pas le lot ; `converted` ne compte que les issues `CONVERTED`) ; `payment_intent_sweeper` et `payment_command` restent non déclarés (ils appellent le PSP : lot C).
 7. **N-108** : sans `SUPPORTS_IDEMPOTENCY_HEADER` validé, `MoneyCommandSender` lit toujours avant d'envoyer, `PENDING` compris ; lecture impossible ⇒ `NOT_SENT` ; ni lecture par clé ni référence ⇒ escalade ; jambes vérifiées avant tout appel, lecture comprise ; statut refusé par la base ⇒ `AWAITING_PROOF`, jamais un succès.
 8. **Cascade des encaissements** (08 E7 règle 10) : `cascadeTenders` et `creditCap` dans `@rueda/money` (natif → non natif → crédit cash → crédit promo ; `HOST` → `INSURER` → `TAX_THIRD_PARTY` → `PLATFORM` ; un crédit ne touche que `PLATFORM`), prouvés sur TJ15a à d, TJ21a, b et une variante PYG produite par la fonction `cascade` de l'oracle. Aucune table `tender` : un seul encaissement par carte au checkout bêta (crédits : story à venir).
 
@@ -34,6 +35,6 @@ US-024 a construit T1 (intention de paiement), T2 (ordre enregistré), la conver
 ## Suites
 
 - 223b : routes HTTP (createHostedPayment du FAKE entre T1 et T2), S05 / S06, textes, e2e. 223c : mode `REQUEST` (N-127).
-- S-02, première phrase (ordres `REFUND`, `LEG_REALLOCATION`, `LEG_RELEASE` portant la version du règlement, bornés à l'enregistrement) : US-224 (aucun ordre de ce type n'est écrit par US-223).
+- S-02, première et deuxième phrases (ordres `REFUND`, `LEG_REALLOCATION`, `LEG_RELEASE` portant la version du règlement, bornés à l'enregistrement ; `settlement_cmd_record` qui rend le règlement existant sur un rejeu au lieu de lever `SETTLEMENT_EXISTS`) : **reportées à US-224**, qui écrit les règlements et ces ordres (aucun n'est écrit par US-223 ; modifier `settlement_cmd_record` ici, sans son appelant, serait un changement d'argent non éprouvé de bout en bout).
 - N-163 (double soumission concurrente du même DEVIS au checkout) : non prouvable à deux sessions sans interrupteurs commités ; banc à décider par l'orchestrateur.
 - Report dans `docs/specs/` (PR revue) : ADR-139 en 17 §8.1, issues `MISMATCH` / `NOT_PROVEN` / `QUOTE_EXPIRED` et code `PAYMENT_UNPROVEN` en 16 A.8.

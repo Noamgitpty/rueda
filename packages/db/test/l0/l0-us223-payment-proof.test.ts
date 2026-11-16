@@ -316,6 +316,26 @@ describe.each(COUNTRIES)('US-223 — preuve du paiement par webhook ($country, $
     });
   });
 
+  it('base en PRODUCTION (environnement production ou NULL) : POLL et API_RESPONSE terminaux d’un compte de bac à sable ⇒ UNPROVEN, rien d’appliqué', async () => {
+    await inWorld(async (tx, w) => {
+      for (const env of ['production', '__null__']) {
+        const a = await op(tx, w, env === 'production' ? 1 : 2);
+        await tx.query(`SELECT pg_catalog.set_config('app.test_deployment_env', $1, true)`, [env]);
+        for (const [status, source] of [
+          ['SUCCEEDED', 'POLL'],
+          ['SUCCEEDED', 'API_RESPONSE'],
+          ['FAILED', 'POLL'],
+        ] as const) {
+          expect(await applyStatus(tx, a.id, status, source), `${env} ${status} ${source}`).toBe(
+            'UNPROVEN',
+          );
+        }
+        expect(await opRow(tx, a.id)).toMatchObject({ status: 'PENDING', proof_type: null });
+        await tx.query(`SELECT pg_catalog.set_config('app.test_deployment_env', 'test', true)`);
+      }
+    });
+  });
+
   it('compte de bac à sable : API_RESPONSE SUCCEEDED sans preuve ⇒ aucun mouvement de jambe (PAYMENT_UNPROVEN) ; le webhook signé pose la preuve (DUPLICATE), puis le mouvement passe ; POLL ⇒ preuve POLL', async () => {
     await inWorld(async (tx, w) => {
       const a = await op(tx, w, 1);

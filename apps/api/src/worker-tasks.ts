@@ -248,18 +248,34 @@ export function registerWorkerTasks(registry: BusRegistry, deps: WorkerTaskDeps)
       );
       let converted = 0;
       let failures = 0;
+      let errors = 0;
       for (const row of rows) {
         const sql =
           row.action === 'CONVERT'
-            ? 'SELECT core.booking_convert_payment($1::uuid)'
-            : 'SELECT core.booking_record_payment_failure($1::uuid)';
-        await withDeadlockRetry(deps.transactions, BOOKING_CONVERSION_WORKER, (one) =>
-          one.query(sql, [row.operation_id]),
-        );
-        if (row.action === 'CONVERT') converted++;
-        else failures++;
+            ? 'SELECT core.booking_convert_payment($1::uuid) AS r'
+            : 'SELECT core.booking_record_payment_failure($1::uuid) AS r';
+        try {
+          const { rows: out } = await withDeadlockRetry(
+            deps.transactions,
+            BOOKING_CONVERSION_WORKER,
+            (one) => one.query<{ r: { outcome?: unknown } | null }>(sql, [row.operation_id]),
+          );
+          if (row.action === 'CONVERT' && out[0]?.r?.outcome === 'CONVERTED') converted++;
+          else if (row.action === 'FAIL') failures++;
+        } catch (error) {
+          // une opération en échec à chaque passage ne bloque jamais le lot : comptée, journalisée
+          // par son SQLSTATE seulement (aucun identifiant, 17 §6.3) ; disposition_sweeper alerte
+          errors++;
+          const code =
+            typeof error === 'object' && error !== null && 'code' in error
+              ? String((error as { code: unknown }).code)
+              : 'UNKNOWN';
+          deps.log(
+            JSON.stringify({ level: 'warn', worker: BOOKING_CONVERSION_WORKER, error: code }),
+          );
+        }
       }
-      line(BOOKING_CONVERSION_WORKER, { candidates: rows.length, converted, failures });
+      line(BOOKING_CONVERSION_WORKER, { candidates: rows.length, converted, failures, errors });
     },
   );
 

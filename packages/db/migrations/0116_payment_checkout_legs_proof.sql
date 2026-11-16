@@ -24,7 +24,8 @@
 --           de l'opération ⇒ `MISMATCH`, rien n'est appliqué (19 US-223 : « 120,00 reçus pour un
 --           devis de 128,40 ⇒ MISMATCH et aucun trip ») ; pour un paiement de loyer (AUTH,
 --           CAPTURE), un webhook sans montant ni devise ne prouve rien (`UNPROVEN`) ;
---        c. POLL et API_RESPONSE terminaux sur un compte LIVE ⇒ `UNPROVEN` (aucune lecture
+--        c. POLL et API_RESPONSE terminaux sur un compte LIVE, ou hors environnement non productif
+--           connu (test, development, staging ; NULL = production) ⇒ `UNPROVEN` (aucune lecture
 --           authentifiée avant le connecteur réel, lot C ; ADR-088 « Limites ») ; sur un compte de
 --           bac à sable : POLL ⇒ preuve `POLL`, API_RESPONSE ⇒ statut sans preuve (inchangé,
 --           caractérisé) ;
@@ -1051,9 +1052,13 @@ BEGIN
     -- US-049 (RC-5, 0058) : aucune action du staff journalisée ne prouve encore un statut terminal
     v_outcome := 'UNPROVEN';
   ELSIF p_source IN ('POLL', 'API_RESPONSE') AND v_terminal
-        AND v_env IS DISTINCT FROM 'SANDBOX' THEN
+        AND (v_env IS DISTINCT FROM 'SANDBOX'
+             OR COALESCE(platform.deployment_env(), 'production')
+                NOT IN ('test', 'development', 'staging')) THEN
     -- US-223 (S-02, ADR-088 « Limites ») : aucune réponse de lecture ni de création authentifiée
-    -- avant le connecteur réel (lot C) ; un compte LIVE n'admet que la preuve signée
+    -- avant le connecteur réel (lot C) ; un compte LIVE n'admet que la preuve signée ; un compte
+    -- de bac à sable seulement dans un environnement non productif connu (environnement NULL =
+    -- production, même défaut fail-closed que T1 et la réception)
     v_outcome := 'UNPROVEN';
   ELSIF p_source = 'WEBHOOK' AND v_terminal AND v_mismatch THEN
     v_outcome := 'MISMATCH';                     -- US-223 : montant ou devise reçus ≠ ordre

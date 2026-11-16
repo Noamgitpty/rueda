@@ -228,6 +228,23 @@ describe('réception des webhooks', () => {
     expect((await post(r, d?.body ?? '', { ...base, ...pad })).status).toBe(200);
   });
 
+  it('US-223 (0116) : signature valide sans horodatage signé ⇒ QUARANTINED hors fenêtre (parité avec la base), jamais une preuve', async () => {
+    const verifier = {
+      provider: FAKE_PROVIDER,
+      verifyAndParseWebhook: () => ({
+        signatureValid: true,
+        signedAt: null,
+        providerEventId: 'evt-sans-horodatage',
+        events: [],
+      }),
+    };
+    const r = rig({ registry: { get: () => verifier } });
+    expect(await post(r, '{}', {})).toEqual({ status: 200, outcome: 'QUARANTINED' });
+    expect(r.store.inbox.map((x) => [x.status, x.error, x.signedAtOutOfTolerance])).toEqual([
+      ['QUARANTINED', 'SIGNED_TIMESTAMP_OUT_OF_TOLERANCE', true],
+    ]);
+  });
+
   it('dédoublonnage sur l’identifiant BRUT : deux identifiants qui se masquent pareil restent distincts', async () => {
     // deux numéros Luhn valides de même masque (6 premiers et 4 derniers chiffres identiques)
     const ids = ['4111111111111111', '4111110000091111'];

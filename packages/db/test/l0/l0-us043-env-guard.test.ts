@@ -65,6 +65,8 @@ const READERS = [
   'core.kyc_cmd_open_verification',
   // US-106 (0076) : décision de l'ops fermée en base de production, comme la décision du fournisseur
   'core.kyc_manual_action_decision',
+  // US-223 (0116) : preuve POLL / API_RESPONSE d'un compte de bac à sable hors production seulement
+  'core.payment_cmd_apply_operation_status',
   'core.payment_cmd_receive_webhook',
   'core.payment_cmd_record_operation',
   'core.payment_cmd_register_submerchant',
