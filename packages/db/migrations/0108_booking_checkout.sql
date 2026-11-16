@@ -58,6 +58,7 @@
 --   rejouer core.pricing_cmd_freeze_quote de 0102 et core.ctr_account_country de 0059 ;
 --   ALTER TABLE core.pricing_quote DROP COLUMN expires_at ; DELETE des gabarits GEO_TERMS et
 --     CANCELLATION_POLICY de la version 1, puis remettre les deux CHECK de 0059 ;
+--   REVOKE SELECT (context) ON core.contract_consent FROM iam_staff_owner ;
 --   recréer les politiques cmd_money_quote_read et cmd_hold_read de config_param_value (0102,
 --     0099) ; REVOKE des droits accordés ci-dessous.
 
@@ -401,6 +402,8 @@ AS $fn$
      AND c.context <> 'CHECKOUT'
    ORDER BY c.seq DESC LIMIT 1
 $fn$;
+-- l'aide s'exécute aussi sous iam_staff_owner (0061), qui ne lisait que cinq colonnes : une de plus
+GRANT SELECT (context) ON core.contract_consent TO iam_staff_owner;
 
 -- 5. Aides d'IAM et de CTR pour le checkout (SECURITY DEFINER, propriétaire iam_auth_owner,
 -- EXECUTE au seul cmd_hold_owner : jamais appelables par un rôle applicatif) ------------------
