@@ -64,6 +64,10 @@
     {
       "path": "packages/db/migrations/0107_config_quote_params.sql",
       "justification": "Graine complémentaire des paramètres quote_* (16 PRC-025, BKG-001 : durée de validité du devis figé, 30 min PROPOSÉ ; BOARD N-130 : devis figés par voyageur et par heure) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-208, ADR-133."
+    },
+    {
+      "path": "packages/db/migrations/0111_config_protection_params.sql",
+      "justification": "Graine complémentaire du paramètre protection_grid (16 PRC-018, PRT-001, PRT-002 : grille des protections du voyageur par niveau) et premières valeurs d'insurer_premium_share et d'insurer_roadside_share (08 BR-PRICE-11, E7 : parts de l'assureur), valeurs de TEST À DÉCIDER PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql, valueKeys) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-226, ADR-136."
     }
   ]
 }
