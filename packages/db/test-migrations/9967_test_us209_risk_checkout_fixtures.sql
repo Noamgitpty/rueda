@@ -20,6 +20,37 @@
 --
 -- Retour arrière : DROP FUNCTION test_fixture.us209_* (voir la liste des droits en fin de fichier).
 
+-- Gabarit du consentement biométrique en vigueur (même choix que core.kyc_biometric_template de
+-- 0072, que migrator n'exécute pas : portée du pays s'il en a une, sinon commune ; langue es).
+CREATE FUNCTION test_fixture.us209_biometric_template(p_country text)
+  RETURNS TABLE (id uuid, kind text, version integer, locale text)
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = pg_catalog, pg_temp
+AS $fn$
+  WITH t0 AS (SELECT platform.now() AS ts),
+  scope AS (
+    SELECT CASE WHEN EXISTS (
+             SELECT 1 FROM core.contract_document_template AS t, t0
+              WHERE t.kind = 'BIOMETRIC_CONSENT' AND t.country_code = p_country
+                AND t.valid_from <= t0.ts)
+           THEN p_country END AS country
+  ), latest AS (
+    SELECT pg_catalog.max(t.version) AS version
+      FROM core.contract_document_template AS t, scope, t0
+     WHERE t.kind = 'BIOMETRIC_CONSENT' AND t.country_code IS NOT DISTINCT FROM scope.country
+       AND t.valid_from <= t0.ts
+  )
+  SELECT t.id, t.kind, t.version, t.locale
+    FROM core.contract_document_template AS t, scope, latest
+   WHERE t.kind = 'BIOMETRIC_CONSENT' AND t.country_code IS NOT DISTINCT FROM scope.country
+     AND t.version = latest.version
+     AND (t.locale = 'es' OR t.is_authoritative)
+   ORDER BY (t.locale = 'es') DESC
+   LIMIT 1
+$fn$;
+
 CREATE FUNCTION test_fixture.us209_driver(p_user uuid, p_country text, p_birth date,
                                           p_license_expiry date, p_license_country text)
   RETURNS uuid
@@ -42,7 +73,7 @@ BEGIN
                                           issuing_country, expiry_date, is_permanent, status)
   VALUES (v_id, p_user, 1, 'DRIVER_LICENSE', p_license_country, p_license_expiry, true, 'ACCEPTED');
   SELECT t.id, t.kind, t.version, t.locale INTO v_t
-    FROM core.kyc_biometric_template(p_country, 'es') AS t;
+    FROM test_fixture.us209_biometric_template(p_country) AS t;
   INSERT INTO core.contract_consent (user_id, template_id, doc_kind, doc_version, locale, accepted,
                                      accepted_at, context, country_code, c2_withheld)
   VALUES (p_user, v_t.id, v_t.kind, v_t.version, v_t.locale, true, platform.now(), 'KYC',
@@ -60,7 +91,7 @@ AS $fn$
   INSERT INTO core.contract_consent (user_id, template_id, doc_kind, doc_version, locale, accepted,
                                      accepted_at, context, country_code, c2_withheld)
   SELECT p_user, t.id, t.kind, t.version, t.locale, false, platform.now(), 'KYC', p_country, true
-    FROM core.kyc_biometric_template(p_country, 'es') AS t
+    FROM test_fixture.us209_biometric_template(p_country) AS t
 $fn$;
 
 CREATE FUNCTION test_fixture.us209_restrict(p_user uuid)
@@ -115,7 +146,8 @@ AS $fn$
    ORDER BY a.created_at
 $fn$;
 
-REVOKE ALL ON FUNCTION test_fixture.us209_driver(uuid, text, date, date, text),
+REVOKE ALL ON FUNCTION test_fixture.us209_biometric_template(text),
+  test_fixture.us209_driver(uuid, text, date, date, text),
   test_fixture.us209_refuse_biometric(uuid, text), test_fixture.us209_restrict(uuid),
   test_fixture.us209_set_param(text, text, text, jsonb), test_fixture.us209_hold_row(uuid),
   test_fixture.us209_risk_rows(uuid) FROM PUBLIC;
