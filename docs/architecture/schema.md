@@ -2127,9 +2127,6 @@ Déclencheurs :
 | `pwa_icon_asset_id` | `uuid` | non | — |
 | `email_skin` | `jsonb` | non | — |
 | `whatsapp_skin` | `jsonb` | non | — |
-##[error]command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
-@rueda/db#test:int:  ERROR  command (/home/runner/work/rueda/rueda/packages/db) /home/runner/setup-pnpm/node_modules/.bin/bin/pnpm run test:int exited (1)
- ERROR  run failed: command  exited (1)
 | `contrast_check` | `jsonb` | non | — |
 | `copied_from_id` | `uuid` | non | — |
 | `created_by` | `uuid` | oui | — |
@@ -4106,10 +4103,7 @@ Contraintes :
 - `payment_command_idem_unique` : `UNIQUE (idem_plain)`
 - `payment_command_kind_valid` : `CHECK (operation_kind = 'CANCEL_ORDER'::text)`
 - `payment_command_operation_fk` : `FOREIGN KEY (operation_id) REFERENCES core.payment_payment_operation(id)`
-- `payment_command_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'IN_FLIGHT'::text, 'DONE'::text, 'UNKNOWN' ^[[31m❯^[[39m test/int/schema-doc.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[31m1 failed^[[39m^[[2m)^[[22m^[[32m 120^[[2mms^[[22m^[[39m
-   ^[[31m❯^[[39m document du schéma (docs/architecture/schema.md) ^[[2m(1)^[[22m
-^[[31m     ^[[31m×^[[31m est à jour : régénéré depuis la base migrée, identique au fichier commité^[[39m^[[32m 119^[[2mms^[[22m^[[39m
-::text, 'ABANDONED'::text]))`
+- `payment_command_status_valid` : `CHECK (status = ANY (ARRAY['PENDING'::text, 'IN_FLIGHT'::text, 'DONE'::text, 'UNKNOWN'::text, 'ABANDONED'::text]))`
 - `payment_payment_command_pkey` : `PRIMARY KEY (id)`
 
 Index :
