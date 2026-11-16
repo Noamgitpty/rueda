@@ -580,7 +580,8 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
             [op],
           );
           expect(events.rows.map((e) => e.outcome).sort()).toEqual(
-            ['APPLIED', 'APPLIED', 'CONFLICT', 'DUPLICATE', 'STALE'].sort(),
+            // US-223 (0114) : le refus de preuve (UNPROVEN) est journalisé lui aussi
+            ['APPLIED', 'APPLIED', 'CONFLICT', 'DUPLICATE', 'STALE', 'UNPROVEN'].sort(),
           );
           // référence PSP contradictoire ⇒ CONFLICT
           const { operation_id: op2 } = await recordOperation(tx, {

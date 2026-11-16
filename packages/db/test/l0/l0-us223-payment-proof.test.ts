@@ -289,7 +289,9 @@ describe.each(COUNTRIES)('US-223 — preuve du paiement par webhook ($country, $
         provider: 'TILOPAY',
         country: c.country,
         environment: 'LIVE',
-        status: 'PENDING_VALIDATION',
+        // un ordre n'est enregistré que sur un compte ACTIVE ; un compte LIVE ACTIVE exige la porte
+        status: 'ACTIVE',
+        gateDecisionRef: 'gate-test-us223',
       });
       const a = await op(tx, w, 1, live);
       expect(await applyStatus(tx, a.id, 'SUBMITTED', 'API_RESPONSE', `ref-${a.id}`)).toBe(

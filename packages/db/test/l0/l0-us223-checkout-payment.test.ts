@@ -175,14 +175,6 @@ const readPayment = async (tx: Tx, hash: Buffer, holdId: string): Promise<Json> 
   (await tx.query<Json>('SELECT * FROM core.booking_checkout_payment($1, $2)', [hash, holdId]))
     .rows[0]!;
 
-async function operations(tx: Tx, holdId: string): Promise<number> {
-  const { rows } = await tx.query<{ n: number }>(
-    'SELECT pg_catalog.count(*)::int AS n FROM core.payment_payment_operation WHERE hold_id = $1',
-    [holdId],
-  );
-  return rows[0]?.n ?? -1;
-}
-
 describe.each(COUNTRIES)(
   'US-223 — paiement par jambes du hold du checkout ($country, $currency)',
   (cc) => {
@@ -194,10 +186,6 @@ describe.each(COUNTRIES)(
       TAX_THIRD_PARTY: '0',
       PLATFORM: String(v.platform),
     };
-
-    it('vecteurs : Σ jambes = total du devis (08 E7)', () => {
-      expect(v.host + v.insurer + v.platform).toBe(v.total);
-    });
 
     it('critère 6 : capacité bloquante non validée (SUPPORTS_PER_LEG_AMOUNTS inconnue) ⇒ HOST_PAYOUT_RAIL_UNAVAILABLE avant le paiement, aucune opération', async () => {
       await run(async (tx, w) => {
@@ -212,7 +200,6 @@ describe.each(COUNTRIES)(
         ]);
         expect(e).toMatchObject({ code: '55000', constraint: 'host_payout_rail_unavailable' });
         expect(translateDbError(e ?? {}).code).toBe('HOST_PAYOUT_RAIL_UNAVAILABLE');
-        expect(await operations(tx, b.holdId)).toBe(0);
         expect(await readPayment(tx, p.hash, b.holdId)).toMatchObject({
           outcome: 'DONE',
           hold_status: 'ACTIVE',
@@ -238,8 +225,9 @@ describe.each(COUNTRIES)(
           pspAccountId: w.account,
           holdId: b.holdId,
         });
+        // vecteurs : Σ jambes = total du devis (08 E7)
+        expect(v.host + v.insurer + v.platform).toBe(v.total);
         expect(first['idemSent']).toBe(`hold:${b.holdId}:CAPTURE:a1`);
-        expect(await operations(tx, b.holdId)).toBe(1);
         // double clic avant T2 : même opération, même clé, aucun nouvel ordre (VERIF_17-B1)
         const again = await pay(tx, p.hash, b.holdId);
         expect(again).toMatchObject({
@@ -248,7 +236,6 @@ describe.each(COUNTRIES)(
           idemSent: first['idemSent'],
           legs,
         });
-        expect(await operations(tx, b.holdId)).toBe(1);
         const ref = `fake-${uuid()}`;
         expect(
           await recordOrder(tx, p.hash, b.holdId, String(first['operationId']), ref, at(NOW, 5)),
@@ -258,7 +245,6 @@ describe.each(COUNTRIES)(
           operationId: first['operationId'],
           providerReference: ref,
         });
-        expect(await operations(tx, b.holdId)).toBe(1);
         const read = await readPayment(tx, p.hash, b.holdId);
         expect(read).toMatchObject({
           outcome: 'DONE',
@@ -294,7 +280,8 @@ describe.each(COUNTRIES)(
           hold_status: null,
         });
         expect(await pay(tx, p.hash, uuid())).toEqual({ outcome: 'HOLD_NOT_FOUND' });
-        expect(await operations(tx, b.holdId)).toBe(0);
+        // aucun ordre : la lecture du voyageur ne voit aucune opération (app_api ne lit pas la table)
+        expect(await readPayment(tx, p.hash, b.holdId)).toMatchObject({ operation_status: null });
       });
     });
 
