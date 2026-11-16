@@ -1861,7 +1861,7 @@ export const EN_MESSAGES = {
     'Every trip includes at least basic protection. You can choose a more complete one: the price updates before you book.',
   'web.s05.protection.legend': 'Protection level',
   'web.s05.protection.price': '{daily} per day · {total} in total',
-  'web.s05.protection.minAge': 'Available from age {age}',
+  'web.s05.protection.minAge': 'Available from age {age}.',
   'web.s05.protection.ageNeeded': 'Enter your age to choose it.',
   'web.s05.protection.apply': 'Update the price',
   'web.s05.protection.unchanged':

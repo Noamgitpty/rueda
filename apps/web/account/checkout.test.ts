@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { CATALOGS } from '@rueda/i18n';
 import {
+  AGE_INVALID_MESSAGE,
   CHECKOUT_DOCUMENT_KINDS,
   CHECKOUT_ERROR_CODES,
   checkoutDocumentHref,
@@ -387,7 +388,7 @@ describe('choix de la protection de S05 (US-226b) : contrôles de forme, aucun g
       const input = protectionInputOf(form({ protectionLevel: 'BASICA', driverAge: age }));
       expect(input.driverAge, age).toBeNull();
       expect(protectionInputErrors(input)).toEqual([
-        { fieldId: S05_PROTECTION_FIELD.age, key: 'web.s05.age.invalid' },
+        { fieldId: S05_PROTECTION_FIELD.age, key: AGE_INVALID_MESSAGE },
       ]);
     }
   });

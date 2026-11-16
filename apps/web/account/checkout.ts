@@ -97,6 +97,8 @@ export interface ProtectionOptionView {
 /** Âge déclaré accepté par l'écran (années entières ; la base juge l'éligibilité). */
 export const DRIVER_AGE_MIN = 16;
 export const DRIVER_AGE_MAX = 99;
+/** Message d'un âge illisible ou hors bornes (valeurs `min`, `max`). */
+export const AGE_INVALID_MESSAGE: MessageKey = 'web.s05.age.invalid';
 
 export interface CheckoutDocumentView {
   readonly kind: CheckoutDocumentKind;
@@ -459,7 +461,7 @@ export function protectionInputOf(form: FormData): ProtectionInput {
 export function protectionInputErrors(input: ProtectionInput): CheckoutFieldError[] {
   const errors: CheckoutFieldError[] = [];
   if (input.driverAge === null) {
-    errors.push({ fieldId: S05_PROTECTION_FIELD.age, key: 'web.s05.age.invalid' });
+    errors.push({ fieldId: S05_PROTECTION_FIELD.age, key: AGE_INVALID_MESSAGE });
   }
   if (input.level === null) {
     errors.push({ fieldId: S05_PROTECTION_FIELD.levels, key: 'common.quote.protectionRequired' });

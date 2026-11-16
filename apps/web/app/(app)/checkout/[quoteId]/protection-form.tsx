@@ -19,6 +19,7 @@ import type { FormEvent, MouseEvent } from 'react';
 import { createTranslator, getProfile } from '@rueda/i18n';
 import { Banner, Button, ErrorSummary, TextField } from '@rueda/ui';
 import {
+  AGE_INVALID_MESSAGE,
   DRIVER_AGE_MAX,
   DRIVER_AGE_MIN,
   S05_PROTECTION_FIELD,
@@ -86,7 +87,7 @@ export function ProtectionForm({ localeTag, quoteId, driverAge, options }: Prote
   const messages = state.errors.map((e) => ({
     fieldId: e.fieldId,
     message:
-      e.key === 'web.s05.age.invalid'
+      e.key === AGE_INVALID_MESSAGE
         ? t(e.key, { min: DRIVER_AGE_MIN, max: DRIVER_AGE_MAX })
         : t(e.key),
   }));

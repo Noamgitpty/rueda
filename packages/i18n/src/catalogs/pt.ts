@@ -1921,7 +1921,7 @@ export const PT_MESSAGES = {
     'Toda viagem inclui pelo menos a proteção básica. Você pode escolher uma mais completa: o preço é atualizado antes de reservar.',
   'web.s05.protection.legend': 'Nível de proteção',
   'web.s05.protection.price': '{daily} por dia · {total} ao todo',
-  'web.s05.protection.minAge': 'Disponível a partir de {age} anos',
+  'web.s05.protection.minAge': 'Disponível a partir de {age} anos.',
   'web.s05.protection.ageNeeded': 'Informe sua idade para escolhê-la.',
   'web.s05.protection.apply': 'Atualizar o preço',
   'web.s05.protection.unchanged':
