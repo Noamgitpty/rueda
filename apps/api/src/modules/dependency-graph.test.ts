@@ -40,7 +40,17 @@ describe('graphe des dépendances entre modules (17 §2.2)', () => {
   });
 
   it('reprend les dépendances explicites de 17 §2.2 (échantillon)', () => {
-    expect(MODULES.AVL.dependsOn).toEqual(['PRC', 'PAY', 'CTR', 'KYC', 'RISK', 'CAT', 'CFG']);
+    // 17 §2.2, plus IAM (SessionGuard du checkout, US-208, ADR-133 : écart assumé, à reporter)
+    expect(MODULES.AVL.dependsOn).toEqual([
+      'PRC',
+      'PAY',
+      'CTR',
+      'KYC',
+      'RISK',
+      'CAT',
+      'CFG',
+      'IAM',
+    ]);
     expect(MODULES.STL.dependsOn).toEqual(['PRC', 'PAY', 'CFG']);
     expect(MODULES.PAY.dependsOn).not.toContain('STL'); // rupture du cycle STL ↔ PAY (§2.1)
     expect(allowedDependencies('IAM')).not.toContain('AVL');

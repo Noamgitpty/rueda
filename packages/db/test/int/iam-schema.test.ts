@@ -129,6 +129,8 @@ const PUBLIC_FIRST_NAME = 'core.iam_host_public_first_name(uuid)';
 /** Gestionnaire de console de RESTRICT_ACCOUNT / LIFT_RESTRICTION (US-109, 0064) : même règle. */
 const RESTRICTION_HANDLER =
   'core.iam_manual_action_restriction(bytea,uuid,text,uuid,jsonb,text,uuid,text)';
+/** Conducteur = titulaire du compte (US-208, 0108) : exécutable par cmd_hold_owner seul. */
+const HOLDER_NAME = 'core.iam_holder_name_matches(uuid,text,text)';
 
 describe('schéma IAM (US-010)', () => {
   it('tables iam_* : RLS ENABLE + FORCE, propriétaire migrator, politiques attendues seulement', async () => {
@@ -294,7 +296,12 @@ describe('schéma IAM (US-010)', () => {
           public_exec: false,
         },
       ]);
-      for (const handler of [HOST_ACCOUNT_HANDLER, RESTRICTION_HANDLER, PUBLIC_FIRST_NAME]) {
+      for (const handler of [
+        HOST_ACCOUNT_HANDLER,
+        RESTRICTION_HANDLER,
+        PUBLIC_FIRST_NAME,
+        HOLDER_NAME,
+      ]) {
         expect(rows.filter((r) => r.fn === handler)).toEqual([
           {
             fn: handler,
@@ -326,6 +333,7 @@ describe('schéma IAM (US-010)', () => {
           r.fn !== HOST_ACCOUNT_HANDLER &&
           r.fn !== RESTRICTION_HANDLER &&
           r.fn !== PUBLIC_FIRST_NAME &&
+          r.fn !== HOLDER_NAME &&
           !OTP_WORKER_FUNCTIONS.includes(r.fn),
       );
       expect(commands.map((r) => r.fn)).toEqual(Object.keys(IAM_COMMANDS).sort());
