@@ -185,20 +185,22 @@ COMMENT ON FUNCTION core.support_subject_parties(text, uuid) IS
   'voyageur et personnes du compte d''hôte. Aide interne sous iam_staff_owner. US-122 (ADR-122, '
   'ADR-124), US-209 (ADR-141).';
 
+-- 1.3 clôture d'un élément RISK_BOOKING par la commande liée et par le déclencheur du hold
+GRANT EXECUTE ON FUNCTION core.support_close_review_item(uuid, text, text, uuid) TO cmd_hold_owner;
+RESET ROLE;
+REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
+
 -- 1.2 Résolveur du type RISK_ASSESSMENT (cadre d'US-101) : pays de l'évaluation ; NULL sinon.
+-- Créé par migrator, comme les résolveurs de 0060 et 0061 (SECURITY INVOKER : exécuté sous
+-- iam_staff_owner, qui lit risk_assessment.country_code).
 CREATE FUNCTION core.support_country_of_risk_assessment(p_id uuid)
   RETURNS text LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
 AS $fn$ SELECT a.country_code FROM core.risk_assessment AS a WHERE a.id = p_id $fn$;
 COMMENT ON FUNCTION core.support_country_of_risk_assessment(uuid) IS
   'Résolveur du type de sujet RISK_ASSESSMENT des actions de console : pays de l''évaluation. '
-  'SECURITY INVOKER sous iam_staff_owner. US-209 (ADR-141).';
+  'SECURITY INVOKER, EXECUTE iam_staff_owner. US-209 (ADR-141).';
 REVOKE ALL ON FUNCTION core.support_country_of_risk_assessment(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION core.support_country_of_risk_assessment(uuid) TO iam_staff_owner;
-
--- 1.3 clôture d'un élément RISK_BOOKING par la commande liée et par le déclencheur du hold
-GRANT EXECUTE ON FUNCTION core.support_close_review_item(uuid, text, text, uuid) TO cmd_hold_owner;
-RESET ROLE;
-REVOKE CREATE ON SCHEMA core FROM iam_staff_owner;
 
 -- 2. Droits de cmd_hold_owner, au plus juste --------------------------------------------------
 -- 2.1 évaluation d'un hold : lue et décidée (auteur et date de la revue seulement)
