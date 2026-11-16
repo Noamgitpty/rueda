@@ -171,12 +171,14 @@ BEGIN
     FROM test_fixture.us024_hold_terms x WHERE x.hold_id = p_hold_id;
   INSERT INTO core.payment_payment_operation
          (id, hold_id, psp_account_id, country_code, provider, method, kind, purpose, amount_minor,
-          currency, attempt_no, status, idem_plain, idem_sent, provider_reference)
+          currency, attempt_no, status, idem_plain, idem_sent, provider_reference, proof_type)
   VALUES (p_operation_id, p_hold_id, test_fixture.us024_psp_account(h.country_code), h.country_code,
           'FAKE', 'CARD', p_kind, 'RENT', t.amount_minor, t.currency, p_attempt_no, p_status,
           pg_catalog.format('hold:%s:%s:x%s', p_hold_id, p_kind, p_operation_id),
           pg_catalog.format('hold:%s:%s:x%s', p_hold_id, p_kind, p_operation_id),
-          'fake-x-' || p_operation_id::text);
+          'fake-x-' || p_operation_id::text,
+          -- US-223 (0114) : paiement de fixture SUCCEEDED = preuve signée déjà reçue
+          CASE WHEN p_status = 'SUCCEEDED' THEN 'WEBHOOK_SIGNED' END);
   INSERT INTO core.payment_payment_operation_leg (operation_id, leg, org_id, trip_id, country_code,
                                                   amount_minor)
   SELECT p_operation_id, k, h.org_id, NULL, h.country_code, (t.legs ->> k)::bigint
@@ -191,7 +193,12 @@ CREATE FUNCTION test_fixture.us024_force_operation_status(p_operation_id uuid, p
   SET search_path = pg_catalog, pg_temp
 AS $fn$
 BEGIN
-  UPDATE core.payment_payment_operation SET status = p_status WHERE id = p_operation_id;
+  -- US-223 (0114) : statut corrigé après lecture faisant foi : tient lieu d'une preuve
+  UPDATE core.payment_payment_operation
+     SET status = p_status,
+         proof_type = CASE WHEN p_status IN ('SUCCEEDED', 'FAILED')
+                           THEN COALESCE(proof_type, 'WEBHOOK_SIGNED') ELSE proof_type END
+   WHERE id = p_operation_id;
 END
 $fn$;
 

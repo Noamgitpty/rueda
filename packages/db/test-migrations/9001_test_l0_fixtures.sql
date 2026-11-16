@@ -129,11 +129,13 @@ AS $fn$
 BEGIN
   INSERT INTO core.payment_payment_operation
          (id, hold_id, psp_account_id, country_code, provider, kind, purpose, amount_minor, currency,
-          attempt_no, status, idem_plain, idem_sent)
+          attempt_no, status, idem_plain, idem_sent, proof_type)
   VALUES (p_operation_id, p_hold_id, test_fixture.fixture_psp_account(p_country_code),
           p_country_code, 'FAKE', p_kind, p_purpose, p_amount_minor, p_currency, 1, p_status,
           pg_catalog.format('hold:%s:%s:op:%s', p_hold_id, p_kind, p_operation_id),
-          pg_catalog.format('test:%s', p_operation_id));
+          pg_catalog.format('test:%s', p_operation_id),
+          -- US-223 (0114) : un statut terminal de fixture tient lieu d'une preuve signée reçue
+          CASE WHEN p_status IN ('SUCCEEDED', 'FAILED') THEN 'WEBHOOK_SIGNED' END);
   PERFORM test_fixture.fixture_operation_legs(
     p_operation_id, p_kind, (SELECT h.org_id FROM core.booking_checkout_hold h WHERE h.id = p_hold_id),
     NULL, p_country_code, p_amount_minor);
