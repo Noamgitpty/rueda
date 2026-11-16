@@ -23,7 +23,9 @@ import {
   insertTrip,
   payTx,
   publicWebhookId,
+  headSettlement,
   recordOperation,
+  SETTLEMENT_ORDER_KINDS,
   uuid,
 } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
@@ -136,6 +138,10 @@ async function succeeded(
     currency,
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
+    // US-224 (0120, S-02) : un ordre de règlement porte la version en tête du règlement du trip
+    ...(SETTLEMENT_ORDER_KINDS.includes(kind)
+      ? { settlement: await headSettlement(tx, tripId) }
+      : {}),
   });
   // ADR-088 décision 4 (RC-5) : le cas nominal livre un vrai webhook signé avant le statut
   expect(await applySignedStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');

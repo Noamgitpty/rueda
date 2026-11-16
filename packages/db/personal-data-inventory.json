@@ -1555,7 +1555,9 @@
         "created_at": "C1",
         "updated_at": "C1",
         "row_version": "C1",
-        "psp_account_id": "C1"
+        "psp_account_id": "C1",
+        "settlement_id": "C1",
+        "settlement_version": "C1"
       }
     },
     "core.payment_payment_operation_event": {

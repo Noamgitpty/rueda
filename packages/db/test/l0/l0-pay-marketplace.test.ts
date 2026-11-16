@@ -34,12 +34,20 @@ import {
   insertAccount,
   insertTrip,
   payTx,
+  headSettlement,
   recordOperation,
+  SETTLEMENT_ORDER_KINDS,
   uuid,
 } from '../support/pay.ts';
 import type { Legs } from '../support/pay.ts';
 import { asActor, buildWorld } from '../support/rls.ts';
-import { recordAsSettlementWorker, recordOfVector } from '../support/settlement.ts';
+import {
+  eventOfVector,
+  recordAsSettlementWorker,
+  recordOf,
+  recordOfVector,
+  tripOfVector,
+} from '../support/settlement.ts';
 import type { World } from '../support/rls.ts';
 
 const golden = loadGoldenVectors();
@@ -80,6 +88,26 @@ const SETTLEMENT_OF: Readonly<Record<string, string>> = {
   [legVector(golden, 'TJ01').currency]: 'T03',
   [legVector(golden, 'TJ08a').currency]: 'T27',
 };
+/**
+ * US-224 (0120) : version 1 de TJ18 (T05 en USD, T41 en PYG, 08 TJ18a / TJ18c), requalifiée FULL
+ * en version 2 par l'événement de T08 ; un ordre de remboursement exige ce règlement en tête.
+ */
+const RELEASED_V1_OF: Readonly<Record<string, string>> = {
+  [legVector(golden, 'TJ01').currency]: 'T05',
+  [legVector(golden, 'TJ08a').currency]: 'T41',
+};
+
+/** Règlement v1 de TJ18 puis v2 FULL (T08) du trip ; le contexte repasse à payment_command. */
+async function settleReleasedChain(tx: pg.ClientBase, c: CountryCase, trip: string): Promise<void> {
+  const r1 = recordOfVector(RELEASED_V1_OF[c.currency] ?? 'absent');
+  const v1 = await recordAsSettlementWorker(tx, { tripId: trip, version: 1 }, r1);
+  await recordAsSettlementWorker(
+    tx,
+    { tripId: trip, version: 2, supersedesId: v1 },
+    recordOf(tripOfVector(RELEASED_V1_OF[c.currency] ?? 'absent'), eventOfVector('T08'), r1),
+  );
+  await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
+}
 const vectorsOf = (c: CountryCase) => {
   const v = VECTORS[c.currency];
   if (v === undefined) throw new Error(`aucun vecteur TJ en ${c.currency}`);
@@ -595,6 +623,10 @@ async function succeeded(
     currency,
     idemPlain: `trip:${tripId}:${kind}:${uuid()}`,
     legs,
+    // US-224 (0120, S-02) : un ordre de règlement porte la version en tête du règlement du trip
+    ...(SETTLEMENT_ORDER_KINDS.includes(kind)
+      ? { settlement: await headSettlement(tx, tripId) }
+      : {}),
   });
   // US-049 (RC-5) : preuve d'un webhook signé réellement reçu (0055)
   expect(await applySignedStatus(tx, id, 'SUCCEEDED')).toBe('APPLIED');
@@ -656,32 +688,25 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
         ]);
         const before = await balances(tx, trip);
         expect(col(before, 'released')).toEqual(release);
-        // la variation théorique débite HOST, déjà versée : refus (08 E7 règle 3 bis)
-        const theory = await succeeded(
-          tx,
-          trip,
-          account,
-          'REFUND',
-          negate(legsOf(v.releasedTheory)),
-          c.currency,
+        // US-224 (0120, S-02) : un remboursement exige le règlement en tête (v1 TJ18, v2 FULL)
+        await settleReleasedChain(tx, c, trip);
+        // la variation théorique débite HOST, déjà versée : refus (08 E7 règle 3 bis) ; US-224 :
+        // même refus, dès l'enregistrement de l'ordre (jamais créé ni envoyé)
+        const err = await caught(tx, () =>
+          succeeded(tx, trip, account, 'REFUND', negate(legsOf(v.releasedTheory)), c.currency),
         );
-        const err = await caught(tx, () => applyMovement(tx, theory));
         expect(err).toMatchObject({ code: '55000', constraint: 'leg_already_released' });
         expect(translateDbError(err).code).toBe('LEG_ALREADY_RELEASED');
         expect(await balances(tx, trip)).toEqual(before);
-        // l'ordre exécuté porte la variation sur PLATFORM (TJ18b / TJ18d) : il dépasse la jambe
-        // PLATFORM du trip ; l'avance de Kmino n'a pas encore d'écrivain (US-224) ⇒ refus fail-closed
-        const executed = await succeeded(
-          tx,
-          trip,
-          account,
-          'REFUND',
-          negate(legsOf(v.releasedExecuted)),
-          c.currency,
+        // l'ordre exécuté porte la variation sur PLATFORM (TJ18b / TJ18d) : il dépasse ce que la
+        // jambe PLATFORM a encaissé ; l'avance de Kmino (règle 3 bis) est l'objet de 224b ⇒ refus
+        // fail-closed à l'enregistrement (US-224 : REFUND_EXCEEDS_COLLECTED ; avant, au report sur
+        // les soldes : leg_movement_exceeds_balance)
+        const over = await caught(tx, () =>
+          succeeded(tx, trip, account, 'REFUND', negate(legsOf(v.releasedExecuted)), c.currency),
         );
-        const over = await caught(tx, () => applyMovement(tx, executed));
-        expect(over).toMatchObject({ code: '55000', constraint: 'leg_movement_exceeds_balance' });
-        expect(translateDbError(over).code).toBe('LEG_AMOUNT_NEGATIVE');
+        expect(over).toMatchObject({ code: '55000', constraint: 'refund_exceeds_collected' });
+        expect(translateDbError(over).code).toBe('REFUND_EXCEEDS_COLLECTED');
         expect(await balances(tx, trip)).toEqual(before);
       });
     });
@@ -694,8 +719,17 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
         const account = await insertAccount(tx, { country: c.country });
         await applyMovement(tx, await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency));
         await tx.query(`SELECT test_fixture.marketplace_freeze_leg($1, 'HOST')`, [trip]);
-        const ref = await succeeded(tx, trip, account, 'REFUND', refund, c.currency);
-        const frozen = await caught(tx, () => applyMovement(tx, ref));
+        // US-224 (0120, S-02) : règlement en tête exigé ; le gel refuse l'ordre dès son
+        // enregistrement (avant : au report sur les soldes, même contrainte)
+        await recordAsSettlementWorker(
+          tx,
+          { tripId: trip, version: 1 },
+          recordOfVector(SETTLEMENT_OF[c.currency] ?? 'absent'),
+        );
+        await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
+        const frozen = await caught(tx, () =>
+          succeeded(tx, trip, account, 'REFUND', refund, c.currency),
+        );
         expect(frozen).toMatchObject({ code: '55000', constraint: 'leg_frozen' });
         expect(translateDbError(frozen).code).toBe('LEG_ALREADY_RELEASED');
         const { operation_id: pending } = await recordOperation(tx, {
@@ -727,6 +761,10 @@ describe.each(COUNTRIES)('soldes par jambe — $country ($currency)', (c) => {
             tx,
             await succeeded(tx, trip, account, 'CAPTURE', capture, c.currency),
           );
+          // US-224 (0120, S-02) : la réaffectation découle du règlement T39 (hôte inéligible,
+          // TJ05a / TJ05b), en tête du trip
+          await recordAsSettlementWorker(tx, { tripId: trip, version: 1 }, recordOfVector('T39'));
+          await setSessionContext(tx, { kind: 'WORKER', workerName: 'payment_command' });
           // 08 E7 règle 3 (TJ05b) : la variation positive de PLATFORM est prise sur HOST
           const moved = tj05b.legsMinor.PLATFORM;
           const realloc = { ...ZERO, HOST: -moved, PLATFORM: moved };

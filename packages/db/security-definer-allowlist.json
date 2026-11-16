@@ -457,6 +457,13 @@
       "story": "US-019"
     },
     {
+      "signature": "core.payment_cmd_record_operation(uuid,uuid,uuid,uuid,text,text,text,bigint,text,integer,text,text,jsonb,uuid,integer)",
+      "family": "cmd_money",
+      "owner": "cmd_money_owner",
+      "execute": ["app_worker"],
+      "story": "US-224"
+    },
+    {
       "signature": "core.payment_cmd_record_submerchant_status(uuid,text,text,text)",
       "family": "cmd_money",
       "owner": "cmd_money_owner",

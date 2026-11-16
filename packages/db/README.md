@@ -853,3 +853,14 @@ Migration `0116_payment_checkout_legs_proof` (0114 à l'origine, renumérotée �
 - **Version de prix** : `core.pricing_bind_checkout_trip` (cmd_money_owner, EXECUTE `app_worker`) pose la version n° 1 à la conversion ; `core.pricing_cmd_version_trip_price` refuse un devis du checkout (`QUOTE_MISMATCH`) et un devis échu (`QUOTE_EXPIRED`).
 - **Travailleur** : `core.booking_conversion_due(lot)` (SECURITY INVOKER, `booking_conversion`).
 - **Preuves** : `test/l0/l0-us223-payment-proof.test.ts`, `test/l0/l0-us223-checkout-payment.test.ts`, `test/l0/l0-us223-conversion.test.ts` (isolé, deux sessions), PA USD et PY PYG.
+
+## Ordres de règlement bornés dès l'enregistrement (US-224 partie 224a ; 16 PAY-021 ; 08 E1, E4, E7 ; 17 §3.2.7, §4.3 ; ADR-145)
+
+Migration `0120_settlement_refund_orders`. Aucune fixture nouvelle.
+
+- **Rattachement** : `payment_operation.settlement_id` / `settlement_version` (NULL ensemble ; seulement REFUND / LEG_REALLOCATION / LEG_RELEASE d'un trip, périmètre du loyer ; clé étrangère `(settlement_id, trip_id, settlement_version)` vers `settlement (id, trip_id, version)`, contrainte d'unicité `settlement_id_trip_version_unique`).
+- **Commande** : `core.payment_cmd_record_operation` à 15 arguments (règlement, version ; RLS-15, `cmd_money_owner`, EXECUTE `app_worker`, travailleur `payment_command`) ; celle à 13 arguments l'appelle sans règlement (un ordre de règlement d'un trip y est refusé). Verrou du trip pris avant l'insertion d'un ordre de règlement.
+- **Garde** `core.payment_assert_settlement_order` (SECURITY INVOKER, appelée par la commande ; en-cours compris, sous le verrou du trip) : `leg_refund_without_settlement`, `operation_settlement_required`, `operation_settlement_superseded` (`SETTLEMENT_SUPERSEDED`), `operation_settlement_fin_review` (`FIN_REVIEW_REQUIRED`), `leg_frozen`, `leg_already_released`, `refund_exceeds_collected` (`REFUND_EXCEEDS_COLLECTED`), `leg_refund_exceeds_settlement`. Les contrôles du report sur les soldes (0054, 0116) restent.
+- **Rejeu** : `core.settlement_cmd_record` rend le règlement existant pour la même version au même contenu (S-02).
+- **Preuve** : webhook `SUCCEEDED` sans montant ⇒ `UNPROVEN` pour tout ordre qui déplace des fonds (N-196).
+- **Preuves** : `test/l0/l0-us224-refund-orders.test.ts`, `test/l0/l0-us224-refund-race.test.ts` (isolé, deux sessions), PA USD et PY PYG ; tests existants adaptés (passation US-224).

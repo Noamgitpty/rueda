@@ -44,7 +44,10 @@
  *   08 BR-CXL, règle de qualification 3 (no-show déclaré avant `noShowAt`) — machine à états du
  *   trip d'US-207 (migration 0099, ADR-126) ;
  * - `PAYMENT_UNPROVEN` : PROPOSÉ par US-223 (migration 0116, ADR-139) : mouvement de jambe d'une
- *   opération sans preuve rattachée (S-02, RC-5).
+ *   opération sans preuve rattachée (S-02, RC-5) ;
+ * - `REFUND_EXCEEDS_COLLECTED` : 16 fiche PAY-021 ; `SETTLEMENT_SUPERSEDED` (ordre d'une version
+ *   de règlement remplacée) et `FIN_REVIEW_REQUIRED` (règlement à jambe négative : décision FIN
+ *   avant tout ordre, 08 E7 règle 5) : PROPOSÉS par US-224 (migration 0120, ADR-145, S-02).
  */
 
 /** Codes métier produits par la traduction. */
@@ -98,6 +101,10 @@ export const DB_BUSINESS_CODES = [
   'AGE_CLASS_MISMATCH',
   // US-223 (0116, ADR-139) : mouvement de jambe sans preuve rattachée (S-02, RC-5)
   'PAYMENT_UNPROVEN',
+  // US-224 (0120, ADR-145) : ordres de règlement gardés à l'enregistrement (S-02, PAY-021)
+  'REFUND_EXCEEDS_COLLECTED',
+  'SETTLEMENT_SUPERSEDED',
+  'FIN_REVIEW_REQUIRED',
 ] as const;
 
 export type DbBusinessCode = (typeof DB_BUSINESS_CODES)[number];
@@ -281,6 +288,14 @@ export const CONSTRAINT_CODES: Readonly<Record<string, readonly [string, DbBusin
   settlement_trip_inputs_changed: [SQLSTATE.integrityConstraintViolation, 'INVARIANT_VIOLATION'],
   leg_refund_without_settlement: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
   leg_refund_exceeds_settlement: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  // US-224 (0120, ADR-145) : ordre REFUND / LEG_* rattaché à la version en tête de son
+  // règlement et borné dès l'enregistrement (S-02) ; encaissé par jambe (16 PAY-021)
+  operation_settlement_required: [SQLSTATE.objectNotInPrerequisiteState, 'INVARIANT_VIOLATION'],
+  operation_settlement_superseded: [SQLSTATE.objectNotInPrerequisiteState, 'SETTLEMENT_SUPERSEDED'],
+  operation_settlement_fin_review: [SQLSTATE.objectNotInPrerequisiteState, 'FIN_REVIEW_REQUIRED'],
+  refund_exceeds_collected: [SQLSTATE.objectNotInPrerequisiteState, 'REFUND_EXCEEDS_COLLECTED'],
+  payment_operation_settlement_shape: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
+  payment_operation_settlement_kind: [SQLSTATE.checkViolation, 'INVARIANT_VIOLATION'],
   leg_release_trip_not_completed: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_release_not_due: [SQLSTATE.objectNotInPrerequisiteState, 'INVALID_TRANSITION'],
   leg_release_submerchant_inactive: [

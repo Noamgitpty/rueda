@@ -124,16 +124,57 @@ export interface RecordInput {
   readonly idemPlain: string;
   readonly idemSent?: string;
   readonly legs: Legs | null;
+  /**
+   * US-224 (0120, S-02) : règlement et version de l'ordre (commande à 15 arguments). Absent : la
+   * commande à 13 arguments (aucun règlement : un ordre REFUND / LEG_* de trip est refusé).
+   */
+  readonly settlement?: SettlementRef | null;
 }
+
+/** Version d'un règlement portée par un ordre (US-224). */
+export interface SettlementRef {
+  readonly id: string;
+  readonly version: number;
+}
+
+/**
+ * Version en tête du règlement d'un trip (aucune version ne la remplace), lue par le travailleur
+ * courant (`worker_money_read` : settlement, payment_command…), ou `null` sans règlement.
+ */
+export async function headSettlement(
+  tx: pg.ClientBase,
+  tripId: string,
+): Promise<SettlementRef | null> {
+  const { rows } = await tx.query<{ id: string; version: number }>(
+    `SELECT s.id, s.version FROM core.settlement_settlement AS s
+      WHERE s.trip_id = $1 AND s.segment_no = 1
+        AND NOT EXISTS (SELECT 1 FROM core.settlement_settlement AS n WHERE n.supersedes_id = s.id)`,
+    [tripId],
+  );
+  const row = rows[0];
+  return row === undefined ? null : { id: row.id, version: row.version };
+}
+
+/** Natures d'ordre rattachées à un règlement (US-224, 0120). */
+export const SETTLEMENT_ORDER_KINDS: readonly string[] = [
+  'REFUND',
+  'LEG_REALLOCATION',
+  'LEG_RELEASE',
+];
 
 export async function recordOperation(
   tx: pg.ClientBase,
   r: RecordInput,
 ): Promise<{ operation_id: string; replayed: boolean }> {
+  const withSettlement = r.settlement !== undefined;
   const { rows } = await tx.query<{ operation_id: string; replayed: boolean }>(
-    `SELECT operation_id, replayed
-       FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6, $7, $8, $9, $10,
-                                              $11::jsonb)`,
+    withSettlement
+      ? `SELECT operation_id, replayed
+           FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6, $7, $8, $9,
+                                                  $10, $11::jsonb, $12::uuid, $13::integer)`
+      : `SELECT operation_id, replayed
+           FROM core.payment_cmd_record_operation($1, NULL, $2, $3, 'CARD', $4, $5, $6, $7, $8, $9,
+                                                  $10, $11::jsonb)`,
     [
       r.id ?? uuid(),
       r.tripId,
@@ -146,6 +187,7 @@ export async function recordOperation(
       r.idemPlain,
       r.idemSent ?? r.idemPlain,
       r.legs === null ? null : legsJson(r.legs),
+      ...(withSettlement ? [r.settlement?.id ?? null, r.settlement?.version ?? null] : []),
     ],
   );
   const row = rows[0];

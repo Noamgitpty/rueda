@@ -352,26 +352,36 @@ describe.each(COUNTRIES)('US-019 — $country ($currency)', (c) => {
             ),
           );
           expect(missing?.code).toBe('22023');
-          // remboursement : jambes = débit de chaque jambe (variation TJ, 08 E7 règle 3)
-          const r = await recordOperation(tx, {
-            ...base,
-            kind: 'REFUND',
-            idemPlain: `${trip}:1:v1:REFUND:card:i1:a1`,
-            ...refund,
-          });
-          expect(r.replayed).toBe(false);
-          // réaffectation de somme nulle (TJ05b : HOST → PLATFORM)
+          // remboursement : jambes = débit de chaque jambe (variation TJ, 08 E7 règle 3). US-224
+          // (0120, S-02) : un ordre de règlement d'un trip SANS règlement n'est plus enregistrable
+          // (aucun ordre écrit) ; le cas accepté (règlement en tête, jambes du vecteur) est prouvé
+          // par l0-pay-marketplace (« capture puis remboursement ») et l0-us224-refund-orders
+          const r = await caught(tx, () =>
+            recordOperation(tx, {
+              ...base,
+              kind: 'REFUND',
+              idemPlain: `${trip}:1:v1:REFUND:card:i1:a1`,
+              ...refund,
+            }),
+          );
+          expect(r).toMatchObject({ code: '55000', constraint: 'leg_refund_without_settlement' });
+          // réaffectation de somme nulle (TJ05b : HOST → PLATFORM), sans règlement : refusée
           const tj05b = legVector(set, 'TJ05b');
           if (tj05b.currency === c.currency) {
             const moved = tj05b.legsMinor.PLATFORM;
-            const ok = await recordOperation(tx, {
-              ...base,
-              kind: 'LEG_REALLOCATION',
-              idemPlain: `${trip}:realloc`,
-              amountMinor: moved,
-              legs: { HOST: -moved, INSURER: 0n, TAX_THIRD_PARTY: 0n, PLATFORM: moved },
+            const ok = await caught(tx, () =>
+              recordOperation(tx, {
+                ...base,
+                kind: 'LEG_REALLOCATION',
+                idemPlain: `${trip}:realloc`,
+                amountMinor: moved,
+                legs: { HOST: -moved, INSURER: 0n, TAX_THIRD_PARTY: 0n, PLATFORM: moved },
+              }),
+            );
+            expect(ok).toMatchObject({
+              code: '55000',
+              constraint: 'operation_settlement_required',
             });
-            expect(ok.replayed).toBe(false);
           }
           await tx.query('SET CONSTRAINTS ALL IMMEDIATE');
         });
