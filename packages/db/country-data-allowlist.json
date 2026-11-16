@@ -60,6 +60,10 @@
     {
       "path": "packages/db/migrations/0098_config_upload_params.sql",
       "justification": "Graine complémentaire des paramètres upload_* (red team du lot 1, F2-U-02 : taille d'une photo, photos d'une galerie, dépôts de pièces par minute) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-122, ADR-124."
+    },
+    {
+      "path": "packages/db/migrations/0107_config_quote_params.sql",
+      "justification": "Graine complémentaire des paramètres quote_* (16 PRC-025, BKG-001 : durée de validité du devis figé, 30 min PROPOSÉ ; BOARD N-130 : devis figés par voyageur et par heure) : définitions et valeurs PROPOSÉES PA / PY, générée par apps/api/src/modules/cfg/internal/seed-sql.ts (renderParamSeedSql) depuis les données CFG ; le test seed-sql.test.ts échoue si le fichier diffère du rendu. 0009 est immuable (ADR-044, ADR-075). US-208, ADR-133."
     }
   ]
 }

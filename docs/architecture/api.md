@@ -26,6 +26,15 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | `GET` | `/brand/assets/{id}` | `getBrandAsset` | Octets d'un actif publié (type vérifié à l'envoi) | **200** image/png, image/jpeg, image/webp, font/woff2<br>**400** REQUEST_INVALID<br>**404** BRAND_VERSION_NOT_FOUND<br>**503** BRAND_ASSET_UNAVAILABLE |
 | `GET` | `/brand/content` | `getPublishedContent` | Blocs de contenu publiés dans une langue, repli es signalé (DSN-004) | **200** application/json<br>**400** REQUEST_INVALID |
 
+## `/checkout`
+
+| Méthode | Chemin | operationId | Résumé | Statuts et codes |
+| ------- | ------ | ----------- | ------ | ---------------- |
+| `GET` | `/checkout/holds/{holdId}` | `checkoutHold` | Hold de checkout du voyageur de la session (US-208 critère 3) : état, échéance, devis engagé et version exacte de chaque document accepté | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** HOLD_NOT_FOUND<br>**503** BOOKING_UNAVAILABLE |
+| `POST` | `/checkout/quotes` | `checkoutCreateQuote` | Devis figé du voyageur pour une annonce et une période (US-208 ; 16 BKG-001, BKG-006, PRC-025) : lignes, taxes et total rejoués par la base, validité, documents à accepter | **201** application/json<br>**400** QUOTE_INPUT_INVALID<br>**401** AUTH_REQUIRED<br>**404** LISTING_NOT_FOUND<br>**409** QUOTE_MISMATCH<br>**422** QUOTE_UNAVAILABLE / TAX_CONFIG_MISSING / LEG_AMOUNT_NEGATIVE<br>**429** QUOTE_RATE_LIMITED<br>**503** BOOKING_UNAVAILABLE |
+| `GET` | `/checkout/quotes/{quoteId}` | `checkoutQuote` | Devis figé du voyageur de la session (US-208) : lignes, total, validité (expired), boîte manuelle, mode de l'annonce, documents à accepter | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** QUOTE_NOT_FOUND<br>**503** BOOKING_UNAVAILABLE |
+| `POST` | `/checkout/quotes/{quoteId}/hold` | `checkoutPlaceHold` | Checkout du devis (US-208 ; 16 BKG-001, BKG-002, BKG-025, BKG-008, BKG-023) : contrôles, consentements et pose du hold CHECKOUT en une transaction ; aucun paiement | **201** application/json<br>**400** REQUEST_INVALID<br>**401** AUTH_REQUIRED<br>**403** SELF_BOOKING_FORBIDDEN / ACCOUNT_RESTRICTED / KYC_CONSENT_WITHDRAWN<br>**404** QUOTE_NOT_FOUND<br>**409** QUOTE_EXPIRED / QUOTE_ALREADY_USED / LISTING_UNAVAILABLE / REQUEST_MODE_UNAVAILABLE / TERMS_VERSION_CHANGED / DATES_UNAVAILABLE / GUEST_OVERLAP / HOLD_ALREADY_LIVE / HOLD_LIMIT_REACHED<br>**422** QUOTE_LINE_NOT_SUPPORTED / MANUAL_TRANSMISSION_NOT_CONFIRMED / DRIVER_MUST_BE_ACCOUNT_HOLDER / TERMS_NOT_ACCEPTED / DATES_NOTICE_TOO_SHORT<br>**429** HOLD_RATE_LIMITED<br>**503** TERMS_UNAVAILABLE / BOOKING_UNAVAILABLE |
+
 ## `/console`
 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |
@@ -132,7 +141,7 @@ Chaque statut ci-dessous est exercé par un test de contrat sur l’application 
 | Méthode | Chemin | operationId | Résumé | Statuts et codes |
 | ------- | ------ | ----------- | ------ | ---------------- |
 | `GET` | `/listings/{listingId}` | `publicListing` | Fiche publique d'une annonce LISTED : colonnes C0, zone approximative du lieu de remise, jamais l'adresse exacte (US-115 critère 4) | **200** application/json<br>**404** LISTING_NOT_FOUND<br>**503** LISTING_UNAVAILABLE |
-| `GET` | `/listings/{listingId}/availability` | `listingAvailability` | Dates choisies sur la fiche d'une annonce LISTED (US-204 ; 16 LST-006) : préavis du lieu, hôte activable et disponibilité avec le tampon ; aucun prix | **200** application/json<br>**404** LISTING_NOT_FOUND<br>**409** DATES_UNAVAILABLE<br>**422** SEARCH_DATES_INVALID / SEARCH_DURATION_EXCEEDED / DATES_NOTICE_TOO_SHORT<br>**429** RATE_LIMITED<br>**503** SEARCH_UNAVAILABLE |
+| `GET` | `/listings/{listingId}/availability` | `listingAvailability` | Dates choisies sur la fiche d'une annonce LISTED (US-204 ; 16 LST-006) : préavis du lieu, hôte activable et disponibilité avec le tampon ; total TTC du devis provisoire (US-208) | **200** application/json<br>**404** LISTING_NOT_FOUND<br>**409** DATES_UNAVAILABLE<br>**422** SEARCH_DATES_INVALID / SEARCH_DURATION_EXCEEDED / DATES_NOTICE_TOO_SHORT<br>**429** RATE_LIMITED<br>**503** SEARCH_UNAVAILABLE |
 | `GET` | `/listings/{listingId}/meeting-point` | `listingMeetingPoint` | Lieu de remise exact (libellé et adresse) pour le voyageur d'un trip confirmé et non terminé de ce véhicule (US-204 critère 3 ; 16 LST-007) | **200** application/json<br>**401** AUTH_REQUIRED<br>**404** MEETING_POINT_NOT_FOUND<br>**503** LISTING_UNAVAILABLE |
 
 ## `/phone`

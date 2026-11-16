@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import type { DynamicModule } from '@nestjs/common';
 import { AppModule } from './app.module.js';
+import { AvlCheckoutModule } from './modules/avl/index.js';
+import type { AvlCheckoutOptions } from './modules/avl/index.js';
 import { CatHostModule, CatSearchModule } from './modules/cat/index.js';
 import type { CatHostOptions, CatSearchOptions } from './modules/cat/index.js';
 import { BrandModule, RegulatoryNoticesModule } from './modules/cfg/index.js';
@@ -30,7 +32,8 @@ import type { SupConsoleOptions } from './modules/sup/index.js';
  * juridiques et consentements versionnés, US-102 ; lieux, véhicules et annonces de l'hôte, US-115 :
  * sans adaptateurs CAT, ses routes répondent 503, fail-closed ; vérification d'identité et
  * consentement biométrique, US-105 : sans adaptateurs KYC, magasin indisponible et aucun
- * fournisseur, fail-closed ; recherche publique, US-201 : sans adaptateurs, 503).
+ * fournisseur, fail-closed ; recherche publique, US-201 : sans adaptateurs, 503 ; checkout, devis
+ * figé et pose du hold, US-208 : sans adaptateurs, 503).
  */
 @Module({})
 export class ApiModule {
@@ -45,6 +48,7 @@ export class ApiModule {
     cat?: CatHostOptions,
     kyc?: KycIdentityOptions,
     search?: CatSearchOptions,
+    checkout?: AvlCheckoutOptions,
   ): DynamicModule {
     return {
       module: ApiModule,
@@ -59,6 +63,8 @@ export class ApiModule {
         CatHostModule.register(cat),
         // US-201 : recherche publique /search (après le garde global de débit) ; sans adaptateurs, 503
         CatSearchModule.register(search),
+        // US-208 : routes /checkout/… gardées par SessionGuard + TermsGuard (après IAM et CTR)
+        AvlCheckoutModule.register(checkout),
         // après IAM : routes /identity gardées par SessionGuard ; rappels /kyc/webhooks (US-105)
         KycIdentityModule.register(kyc),
         PayWebhookModule.register(pay),

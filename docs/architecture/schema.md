@@ -658,6 +658,19 @@ Politiques RLS :
 - `migrator_all` (ALL, PERMISSIVE, migrator) USING `true` WITH CHECK `true`
 - `privacy_cmd_read` (SELECT, PERMISSIVE, privacy_cmd_owner) USING `true`
 
+### `core.booking_checkout_acceptance`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `hold_id` | `uuid` | oui | — |
+| `quote_id` | `uuid` | oui | — |
+| `guest_user_id` | `uuid` | oui | — |
+| `country_code` | `character(2)` | oui | — |
+| `manual_confirmed_at` | `timestamp with time zone` | non | — |
+| `created_at` | `timestamp with time zone` | oui | `platform.now()` |
+
 ### `core.booking_checkout_hold`
 
 - RLS : ENABLE + FORCE ; propriétaire `migrator`
@@ -745,6 +758,19 @@ Déclencheurs :
 - `hold_terminal_status` : `CREATE TRIGGER hold_terminal_status BEFORE UPDATE ON core.booking_checkout_hold FOR EACH ROW WHEN (old.status = ANY (ARRAY['CONVERTED'::text, 'COMPENSATED'::text])) EXECUTE FUNCTION core.booking_hold_terminal_guard()`
 - `no_delete` : `CREATE TRIGGER no_delete BEFORE DELETE ON core.booking_checkout_hold FOR EACH ROW EXECUTE FUNCTION core.booking_no_delete()`
 - `touch_row` : `CREATE TRIGGER touch_row BEFORE UPDATE ON core.booking_checkout_hold FOR EACH ROW EXECUTE FUNCTION platform.touch_row()`
+
+### `core.booking_checkout_terms`
+
+- RLS : ENABLE + FORCE ; propriétaire `migrator`
+
+| Colonne | Type | NOT NULL | Défaut |
+| ------- | ---- | -------- | ------ |
+| `hold_id` | `uuid` | oui | — |
+| `doc_kind` | `text` | oui | — |
+| `template_id` | `uuid` | oui | — |
+| `doc_version` | `integer` | oui | — |
+| `locale` | `text` | oui | — |
+| `consent_id` | `uuid` | oui | — |
 
 ### `core.booking_disposition_repair_log`
 
@@ -4230,6 +4256,7 @@ Déclencheurs :
 | `outputs_hash` | `text` | oui | — |
 | `frozen_at` | `timestamp with time zone` | oui | `platform.now()` |
 | `superseded_at` | `timestamp with time zone` | non | — |
+| `expires_at` | `timestamp with time zone` | non | — |
 
 Contraintes :
 

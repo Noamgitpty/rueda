@@ -20,6 +20,13 @@ export const QUOTE_MESSAGES = {
   LEG_AMOUNT_NEGATIVE: { status: 422, messageKey: 'common.quote.unavailable' },
   QUOTE_MISMATCH: { status: 409, messageKey: 'common.quote.changed' },
   LISTING_UNAVAILABLE: { status: 503, messageKey: 'common.listing.unavailable' },
+  // US-208 (N-130, revue code d'US-202 n° 4) : issues des commandes 0100 et 0108 exposées par la
+  // route du checkout (AVL). Internes, sans texte : TRIP_NOT_FOUND et QUOTE_ALREADY_VERSIONED du
+  // rattachement d'un devis au trip (conversion, travailleur, US-223).
+  AUTH_REQUIRED: { status: 401, messageKey: 'common.auth.sessionRequired' },
+  QUOTE_NOT_FOUND: { status: 404, messageKey: 'common.quote.notFound' },
+  QUOTE_REPLAY_MISMATCH: { status: 409, messageKey: 'common.quote.changed' },
+  QUOTE_RATE_LIMITED: { status: 429, messageKey: 'common.quote.rateLimited' },
 } as const;
 
 export type QuoteHttpCode = keyof typeof QUOTE_MESSAGES;

@@ -11,6 +11,7 @@ CTR ne stocke pas les octets des fichiers (AUD, `file_asset`) et n'envoie rien l
 État réel :
 
 - **livré** : documents juridiques versionnés et consentements du voyageur (US-102, ADR-091) : CGU du voyageur, confidentialité, communications ; routes `/legal` ; garde `TermsGuard` ; port `SignatureService` (US-020, ADR-058) ; **CGU de l'hôte** (US-126, ADR-100) : genre `TOS_HOST`, routes `/host/accounts/{orgId}/terms`, garde `TERMS_REACCEPT_REQUIRED` dans la commande de soumission d'une annonce (migration 0070) ;
+- **checkout** (US-208, ADR-133) : genre `GEO_TERMS` (texte géographique) et graines BROUILLON de `CANCELLATION_POLICY` et `GEO_TERMS` ; consentements `CHECKOUT` écrits par `core.ctr_checkout_terms` (EXECUTE `cmd_hold_owner`) dans la commande de checkout d'AVL ; `core.ctr_account_country` ignore ces acceptations ; contrôle à l'exécution de `TermsGuard` (`internal/terms-guard-runtime.test.ts`, N-43) ;
 - **pas encore** : garde des CGU de l'hôte à la confirmation d'une réservation (lot 2), contrat de location et signature (US-211), constancia (US-212), route de console de publication (US-101), événements.
 
 ## Entités

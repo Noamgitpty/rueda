@@ -29,6 +29,7 @@ import {
   UnavailableBrandFileStore,
   UnavailableBrandScanner,
 } from './modules/cfg/index.js';
+import { postgresCheckoutAdapters } from './modules/avl/index.js';
 import { postgresCatAdapters, postgresSearchAdapters } from './modules/cat/index.js';
 import type { PublicListingRatings, SearchRatings } from './modules/cat/index.js';
 import { postgresCtrAdapters } from './modules/ctr/index.js';
@@ -127,6 +128,10 @@ async function bootstrap(): Promise<void> {
       return { vehicle: one(r.vehicle), host: one(r.host) };
     },
   };
+  // Checkout (US-208) : devis figé (commande de gel de PRC) et pose du hold CHECKOUT (commandes
+  // de 0108) sous app_api ; MÊME instance QuoteService que la recherche et la fiche (même
+  // instantané de configuration, revue d'architecture d'US-203)
+  const checkout = postgresCheckoutAdapters(pool, (ctx) => quotes.params(ctx));
   const app = await NestFactory.create<NestExpressApplication>(
     ApiModule.register(
       iam,
@@ -146,6 +151,7 @@ async function bootstrap(): Promise<void> {
       { ...cat, ratings: listingPageRatings },
       kyc,
       search,
+      checkout,
     ),
     { rawBody: true },
   );

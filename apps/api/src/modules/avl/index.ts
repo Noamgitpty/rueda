@@ -14,3 +14,26 @@ export {
   runProductionOracle,
 } from './internal/production-oracle.js';
 export type { C12Check, ProductionOracleReport } from './internal/production-oracle.js';
+
+// Checkout en une page, partie back-end (US-208, ADR-133) : routes /checkout/… (SessionGuard +
+// TermsGuard), devis figé et pose du hold CHECKOUT par les commandes de 0108.
+export {
+  AvlCheckoutModule,
+  postgresCheckoutAdapters,
+  UNAVAILABLE_AVL_CHECKOUT,
+} from './internal/checkout/avl-checkout.module.js';
+export type { AvlCheckoutOptions } from './internal/checkout/avl-checkout.module.js';
+export { CHECKOUT_MESSAGES, CheckoutHttpError } from './internal/checkout/errors.js';
+export type { CheckoutHttpCode } from './internal/checkout/errors.js';
+export {
+  CHECKOUT_OUTCOMES,
+  PgCheckoutStore,
+  UnavailableCheckoutStore,
+} from './internal/checkout/store.js';
+export type {
+  CheckoutHold,
+  CheckoutListing,
+  CheckoutQuote,
+  CheckoutResult,
+  CheckoutStore,
+} from './internal/checkout/store.js';

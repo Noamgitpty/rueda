@@ -9,8 +9,8 @@
  * - `QUOTE_REPLAY_MISMATCH` (PROPOSÉ) : un devis figé rejoué ne redonne pas exactement ses lignes,
  *   ses taxes, son total et ses jambes (17 §2.6, NFR-17), ou son empreinte ne correspond plus.
  *
- * Aucun de ces codes n'est encore exposé par une route : leurs textes es / en / fr / pt-BR
- * arrivent avec la route du devis (passation US-202).
+ * Exposés par la route du checkout (US-208, module AVL) avec leurs textes es / en / fr / pt-BR
+ * (`QUOTE_MESSAGES` de `http-errors.ts`).
  */
 export const QUOTE_ERROR_CODES = [
   'QUOTE_UNAVAILABLE',

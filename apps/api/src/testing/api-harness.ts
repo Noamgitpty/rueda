@@ -19,6 +19,8 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
+import { UNAVAILABLE_AVL_CHECKOUT } from '../modules/avl/index.js';
+import type { AvlCheckoutOptions } from '../modules/avl/index.js';
 import { UnavailablePhotoScanner, UnavailablePhotoStorage } from '../modules/cat/index.js';
 import type {
   CatHostOptions,
@@ -64,6 +66,8 @@ export interface HttpReply {
 
 export interface ApiHarness {
   readonly port: number;
+  /** Application Nest montée (introspection des routes et des gardes, N-43). */
+  readonly app: NestExpressApplication;
   readonly sessions: Readonly<Record<HarnessActor, HarnessSession>>;
   /** Journal de l'application (Nest) pendant sa vie. */
   readonly logs: string[];
@@ -124,6 +128,8 @@ export interface ApiHarnessOverrides {
   readonly cat?: Partial<CatHostOptions>;
   readonly kyc?: Partial<KycIdentityOptions>;
   readonly search?: Partial<CatSearchOptions>;
+  /** Checkout (US-208) ; absent : 503 après les gardes (aucun adaptateur). */
+  readonly checkout?: Partial<AvlCheckoutOptions>;
 }
 
 export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Promise<ApiHarness> {
@@ -371,6 +377,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       { ...cat, ...overrides.cat },
       { ...kyc, ...overrides.kyc },
       { ...search, ...overrides.search },
+      { ...UNAVAILABLE_AVL_CHECKOUT, ...overrides.checkout },
     ),
     {
       rawBody: true,
@@ -420,7 +427,7 @@ export async function startApiHarness(overrides: ApiHarnessOverrides = {}): Prom
       req.end();
     });
 
-  return { port, sessions, logs, call, close: () => app.close() };
+  return { port, app, sessions, logs, call, close: () => app.close() };
 }
 
 /** Cookie de session d'un acteur du harnais. */

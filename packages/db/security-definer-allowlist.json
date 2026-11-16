@@ -328,8 +328,14 @@
       "signature": "core.iam_session_resolve(bytea)",
       "family": "iam_auth",
       "owner": "iam_auth_owner",
-      "execute": ["app_api", "catalog_cmd_owner", "cmd_money_owner", "kyc_cmd_owner"],
-      "story": "US-010, US-115, US-105, US-202"
+      "execute": [
+        "app_api",
+        "catalog_cmd_owner",
+        "cmd_hold_owner",
+        "cmd_money_owner",
+        "kyc_cmd_owner"
+      ],
+      "story": "US-010, US-115, US-105, US-202, US-208"
     },
     {
       "signature": "core.iam_staff_audit_read(bytea,bigint,integer)",
@@ -1289,6 +1295,41 @@
       "owner": "risk_limit_owner",
       "execute": ["cmd_hold_owner"],
       "story": "US-127"
+    },
+    {
+      "signature": "core.booking_checkout_quote(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-208"
+    },
+    {
+      "signature": "core.booking_cmd_checkout(bytea,uuid,text,text,boolean,jsonb)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-208"
+    },
+    {
+      "signature": "core.booking_checkout_summary(bytea,uuid)",
+      "family": "cmd_hold",
+      "owner": "cmd_hold_owner",
+      "execute": ["app_api"],
+      "story": "US-208"
+    },
+    {
+      "signature": "core.iam_holder_name_matches(uuid,text,text)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-208"
+    },
+    {
+      "signature": "core.ctr_checkout_terms(uuid,text,jsonb)",
+      "family": "iam_auth",
+      "owner": "iam_auth_owner",
+      "execute": ["cmd_hold_owner"],
+      "story": "US-208"
     },
     {
       "signature": "core.booking_cmd_report_self_booking(uuid)",

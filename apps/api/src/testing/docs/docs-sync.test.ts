@@ -58,6 +58,9 @@ const SPEC_GAPS: Readonly<Partial<Record<ModuleCode, readonly ModuleCode[]>>> = 
   // US-219 (ADR-128) : TermsGuard (CTR) sur les routes des trips de l'hôte, servies par CAT
   // (espace hôte, 16 HDB) ; à reporter dans 17 §2.2 par une demande de fusion revue
   CAT: ['CTR'],
+  // US-208 (ADR-133) : SessionGuard (IAM) sur les routes du checkout, servies par AVL ; à reporter
+  // dans 17 §2.2 par une demande de fusion revue
+  AVL: ['IAM'],
 };
 
 /** Colonne « Dépend de » de 17 §2.2, par module ; `null` pour « tous ». */

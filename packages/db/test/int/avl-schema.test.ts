@@ -37,6 +37,10 @@ const TRIP_SM_TABLES = [
   'booking_trip_segment',
   'booking_trip_driver',
   'booking_trip_state_log',
+  // US-208 (0108) : rattachement du hold de checkout au devis et aux versions acceptées ; preuves :
+  // test/l0/l0-us208-checkout
+  'booking_checkout_acceptance',
+  'booking_checkout_terms',
 ] as const;
 
 // Tables de configuration pays (US-013, 0008) : même socle RLS (ENABLE + FORCE, migrator_all),

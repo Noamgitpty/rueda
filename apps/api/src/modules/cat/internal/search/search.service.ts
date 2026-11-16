@@ -22,11 +22,22 @@ import type { SearchArea, SearchResult, SearchStore } from './store.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Créneau accepté sur la fiche (US-204) : instants UTC et fuseau du véhicule. */
+/** Total TTC du créneau (US-208) : devis provisoire, le même que la recherche et le checkout. */
+export interface ListingSlotPrice {
+  readonly totalMinor: string;
+  readonly currency: string;
+  readonly billableDays: number;
+}
+
+/**
+ * Créneau accepté sur la fiche (US-204) : instants UTC et fuseau du véhicule ; total TTC du devis
+ * provisoire (US-208), `null` si aucun devis n'est possible (alerte ops, comme la recherche).
+ */
 export interface ListingSlot {
   readonly startAt: string;
   readonly endAt: string;
   readonly timezone: string;
+  readonly price: ListingSlotPrice | null;
 }
 
 /**
@@ -128,7 +139,14 @@ export class SearchService {
     } catch {
       throw new SearchHttpError('SEARCH_UNAVAILABLE');
     }
-    if (r.outcome === 'OK') return { startAt: r.startAt, endAt: r.endAt, timezone: r.timezone };
+    if (r.outcome === 'OK') {
+      return {
+        startAt: r.startAt,
+        endAt: r.endAt,
+        timezone: r.timezone,
+        price: await this.#slotPrice(id, country, r.startAt, r.endAt),
+      };
+    }
     if (r.outcome === 'DATES_NOTICE_TOO_SHORT') {
       // préavis affiché en heures entières (arrondi supérieur : jamais un délai plus court)
       throw new SearchHttpError('DATES_NOTICE_TOO_SHORT', null, {
@@ -136,6 +154,41 @@ export class SearchService {
       });
     }
     throw new SearchHttpError(r.outcome);
+  }
+
+  /**
+   * Total TTC du créneau de la fiche (US-208 ; 16 SRC-042 « 128,40 partout ») : même pricer que la
+   * recherche. Devis impossible ⇒ `null` et alerte ops ; base ou pricer en panne ⇒ 503.
+   */
+  async #slotPrice(
+    listingId: string,
+    country: string,
+    startAt: string,
+    endAt: string,
+  ): Promise<ListingSlotPrice | null> {
+    let price: SearchPrice | null;
+    let currency: string;
+    try {
+      const listing = await this.store.listingPrice(listingId);
+      if (listing === null) return null;
+      currency = listing.currency;
+      price = this.pricer.price({
+        listingId,
+        country,
+        currency,
+        dailyPriceMinor: listing.dailyPriceMinor,
+        startAt,
+        endAt,
+        quotedAt: listing.quotedAt,
+      });
+    } catch {
+      throw new SearchHttpError('SEARCH_UNAVAILABLE');
+    }
+    if (price === null) {
+      this.alertQuoteUnavailable(listingId, country);
+      return null;
+    }
+    return { totalMinor: price.totalMinor, currency, billableDays: price.billableDays };
   }
 
   /**

@@ -95,6 +95,12 @@ export const POST_SEED_PARAMS: readonly {
     story: 'US-122',
     refs: 'red team F2-U-02, ADR-124',
   },
+  {
+    prefix: 'quote_',
+    file: '0107_config_quote_params.sql',
+    story: 'US-208',
+    refs: '16 PRC-025, BKG-001 ; BOARD N-129, N-130 ; ADR-133',
+  },
 ];
 
 /** La clé appartient à un groupe de paramètres ajouté après 0009. */

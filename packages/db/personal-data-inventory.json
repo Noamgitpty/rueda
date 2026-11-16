@@ -2592,6 +2592,36 @@
         "updated_at": "C1"
       }
     },
+    "core.booking_checkout_acceptance": {
+      "lifecycle": "A",
+      "subjects": [
+        {
+          "column": "guest_user_id",
+          "type": "USER"
+        }
+      ],
+      "export": "controller",
+      "columns": {
+        "hold_id": "C1",
+        "quote_id": "C1",
+        "guest_user_id": "C1",
+        "country_code": "C1",
+        "manual_confirmed_at": "C1",
+        "created_at": "C1"
+      }
+    },
+    "core.booking_checkout_terms": {
+      "lifecycle": "A",
+      "export": "none",
+      "columns": {
+        "hold_id": "C1",
+        "doc_kind": "C1",
+        "template_id": "C1",
+        "doc_version": "C1",
+        "locale": "C1",
+        "consent_id": "C1"
+      }
+    },
     "core.pricing_quote": {
       "lifecycle": "A",
       "subjects": [
@@ -2624,7 +2654,8 @@
         "outputs": "C1",
         "outputs_hash": "C1",
         "frozen_at": "C1",
-        "superseded_at": "C1"
+        "superseded_at": "C1",
+        "expires_at": "C1"
       }
     },
     "core.pricing_quote_line": {

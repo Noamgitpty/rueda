@@ -99,8 +99,10 @@ export const MODULES: Readonly<Record<ModuleCode, ModuleSpec>> = {
     name: 'Availability & Booking',
     responsibility:
       'occupation unique, hold CHECKOUT, réservation, trip, segments, conducteurs, annulations et no-shows, import iCal en blocages',
-    dependsOn: ['PRC', 'PAY', 'CTR', 'KYC', 'RISK', 'CAT', 'CFG'],
-    source: '17 §2.2 ; §2.1 AVL --> PRC, PAY, CTR, RISK, KYC',
+    // IAM : SessionGuard des routes du checkout (US-208, ADR-133 ; écart assumé de 17 §2.2, à
+    // reporter, comme CAT --> CTR d'ADR-128)
+    dependsOn: ['PRC', 'PAY', 'CTR', 'KYC', 'RISK', 'CAT', 'CFG', 'IAM'],
+    source: '17 §2.2 ; §2.1 AVL --> PRC, PAY, CTR, RISK, KYC ; ADR-133 (AVL --> IAM)',
   },
   PRC: {
     code: 'PRC',
