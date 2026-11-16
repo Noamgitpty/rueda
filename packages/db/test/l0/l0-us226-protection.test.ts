@@ -239,6 +239,14 @@ async function person(c: Tx, country: string): Promise<Person> {
   );
   if (r.rows[0]?.ok !== true) throw new Error('inscription de test refusée');
   await c.query('SELECT test_fixture.iam_set_account_status($1, $2)', [id, 'ACTIVE']);
+  // US-209 (16 BKG-012) : conducteur vérifié, majeur, permis du pays valable (fixture 9967)
+  await c.query('SELECT test_fixture.us209_driver($1, $2, $3::date, $4::date, $5)', [
+    id,
+    country,
+    '1990-01-01',
+    '2030-12-31',
+    country,
+  ]);
   return { id, hash: await session(c, id) };
 }
 

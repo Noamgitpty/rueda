@@ -1796,9 +1796,10 @@ export const EN_MESSAGES = {
     'You tried to book this car many times. Wait a little and try again.',
   'common.checkout.accountRestricted':
     'Your account can’t book right now. Write to us to learn more.',
-  'common.checkout.identityConsentWithdrawn':
-    'You withdrew your consent to identity verification. Give it again to book.',
   'common.checkout.listingUnavailable': 'This car can’t be booked right now. Choose another one.',
+  // US-209 (209a, ADR-135) : âge minimum de la classe (16 BKG-012)
+  'common.checkout.ageClassMismatch':
+    'You don’t meet the minimum age to drive this car on the day the trip starts, or your date of birth isn’t verified. Check your profile or choose another car.',
   'common.checkout.unavailable': 'We can’t take your booking right now. Try again later.',
   // US-208 (208b, ADR-134) : total de la fiche S03, checkout S05, hold posé
   'web.listing.total.title': 'Final price',

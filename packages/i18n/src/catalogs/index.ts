@@ -128,8 +128,12 @@ export type { Catalog, Message, PluralCategory, PluralMessage, VersionedCatalog 
  checkout), `common.quote.line.protection*` (ligne de protection du détail du prix de S05, nom du
  niveau) et `common.listing.earningsPlanSaved`, `common.listing.earningsPlanNotAvailable` (plan
  de gains du véhicule).
+ Version 56 : contrôles bloquants du checkout (US-209 partie 209a, ADR-135 ; la 54, réservée,
+ n'a jamais été publiée) : `common.checkout.ageClassMismatch` (âge minimum du conducteur au
+ début du trip, ou date de naissance non vérifiée, 16 BKG-012) ; `common.checkout.identityConsentWithdrawn`
+ retirée (le consentement retiré rend `KYC_BIOMETRIC_CONSENT_MISSING`, N-122).
  */
-export const CATALOG_VERSION = 55;
+export const CATALOG_VERSION = 56;
 
 /** Catalogues de base par langue ; la langue d'un profil de locale choisit le sien. */
 export const CATALOGS: Readonly<Record<CatalogLanguage, VersionedCatalog<MessageKey>>> = {

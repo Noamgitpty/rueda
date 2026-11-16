@@ -1895,10 +1895,11 @@ export const FR_MESSAGES = {
     'Tu as essayé de réserver cette voiture de nombreuses fois. Attends un peu et réessaie.',
   'common.checkout.accountRestricted':
     'Ton compte ne peut pas réserver pour le moment. Écris-nous pour en savoir plus.',
-  'common.checkout.identityConsentWithdrawn':
-    'Tu as retiré ton consentement à la vérification d’identité. Donne-le à nouveau pour réserver.',
   'common.checkout.listingUnavailable':
     'Cette voiture ne peut pas être réservée pour le moment. Choisis-en une autre.',
+  // US-209 (209a, ADR-135) : âge minimum de la classe (16 BKG-012)
+  'common.checkout.ageClassMismatch':
+    'Tu n’as pas l’âge minimum pour conduire cette voiture le jour où le voyage commence, ou ta date de naissance n’est pas vérifiée. Vérifie ton profil ou choisis une autre voiture.',
   'common.checkout.unavailable':
     'Nous ne pouvons pas prendre ta réservation pour le moment. Réessaie plus tard.',
   // US-208 (208b, ADR-134) : total de la fiche S03, checkout S05, hold posé
