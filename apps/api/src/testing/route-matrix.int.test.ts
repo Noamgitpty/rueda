@@ -24,7 +24,10 @@ import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ApiModule } from '../api.module.js';
 import { applyHttpHardening } from '../http-hardening.js';
+import { postgresCheckoutAdapters } from '../modules/avl/index.js';
 import { postgresCatAdapters } from '../modules/cat/index.js';
+import { CountryConfigService } from '../modules/cfg/index.js';
+import { QuoteService } from '../modules/prc/index.js';
 import {
   loadBrandParams,
   PgBrandStore,
@@ -698,6 +701,27 @@ async function requestOf(
       };
     case 'GET /listings/{listingId}/meeting-point':
       return { method: 'GET', path: `/listings/${randomUUID()}/meeting-point` };
+    // checkout (US-208) : annonce, devis et hold inconnus ⇒ 404 (IDOR : même réponse)
+    case 'POST /checkout/quotes':
+      return {
+        method: 'POST',
+        path: '/checkout/quotes',
+        body: {
+          listingId: randomUUID(),
+          startAt: '2036-12-10T15:00:00.000Z',
+          endAt: '2036-12-12T15:00:00.000Z',
+        },
+      };
+    case 'GET /checkout/quotes/{quoteId}':
+      return { method: 'GET', path: `/checkout/quotes/${randomUUID()}` };
+    case 'POST /checkout/quotes/{quoteId}/hold':
+      return {
+        method: 'POST',
+        path: `/checkout/quotes/${randomUUID()}/hold`,
+        body: { driver: { firstName: 'Rt', lastName: 'Rls' }, acceptedDocuments: [] },
+      };
+    case 'GET /checkout/holds/{holdId}':
+      return { method: 'GET', path: `/checkout/holds/${randomUUID()}` };
     // recherche publique (US-201) : zones du pays ; recherche datée loin dans le futur
     case 'GET /search/areas':
       return { method: 'GET', path: `/search/areas?country=${country}` };
@@ -998,6 +1022,11 @@ beforeAll(async () => {
       { store: new PgConsentStore(client) },
       postgresCatAdapters(client),
       postgresKycAdapters(client),
+      undefined,
+      // checkout (US-208) : commandes réelles de 0108 sous app_api
+      postgresCheckoutAdapters(client, (ctx) =>
+        new QuoteService(new CountryConfigService()).params(ctx),
+      ),
     ),
     { rawBody: true, logger: false },
   );
